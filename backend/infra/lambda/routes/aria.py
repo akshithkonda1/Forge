@@ -5,7 +5,7 @@ import re
 from typing import Any
 
 from responses import RouteError, ok
-from security import (
+from security import enforce_user_rate_limit,  (
     MAX_ARCHETYPE_DESCRIPTION_CHARS,
     MAX_CHAT_MESSAGE_CHARS,
     assert_body_user_matches_auth,
@@ -150,6 +150,10 @@ def handle_post_ai_chat(body: dict[str, Any], *, user_id: str) -> dict:
     Body truth comes from the same ``fusion.fuse_turn`` path ``/ai/observe`` uses.
     """
     uid = _bind_user(body, user_id)
+    try:
+        enforce_user_rate_limit(uid, action="aria-chat", limit=60, window_hours=1)
+    except PermissionError as exc:
+        raise RouteError(429, str(exc) or "Too many requests.") from exc
     message = sanitize_user_text(
         str(body.get("message") or ""),
         max_chars=MAX_CHAT_MESSAGE_CHARS,

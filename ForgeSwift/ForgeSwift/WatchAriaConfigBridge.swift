@@ -44,17 +44,27 @@ enum WatchAriaConfigBridge {
             payload[Keys.authToken] = token
         }
 
-        // 1) App Group (works on device when both apps share the suite)
+        // Persist non-secrets only. Auth tokens / user ids are secrets
+        // (`CompanionConfig.secretKeys`) and must never land in App Group or
+        // standard UserDefaults plists (those ride along in backups). The
+        // watch still receives secrets over the encrypted WCSession channel
+        // and stores them in Keychain via PhoneLinkService.
+        let preferencePayload = payload.filter { CompanionConfig.preferenceKeys.contains($0.key) }
         if let shared = UserDefaults(suiteName: appGroupID) {
-            for (k, v) in payload { shared.set(v, forKey: k) }
+            for (k, v) in preferencePayload { shared.set(v, forKey: k) }
+            for secret in CompanionConfig.secretKeys {
+                shared.removeObject(forKey: secret)
+            }
         }
-
-        // 2) Local defaults fallback (debug visibility on phone)
-        for (k, v) in payload {
+        for (k, v) in preferencePayload {
             UserDefaults.standard.set(v, forKey: k)
         }
+        for secret in CompanionConfig.secretKeys {
+            UserDefaults.standard.removeObject(forKey: secret)
+        }
 
-        // 3) WatchConnectivity — reliable for paired simulator + device
+        // WatchConnectivity — reliable for paired simulator + device.
+        // Full payload (including secrets) is pushed here only.
         pushOverWatchConnectivity(payload)
     }
 
@@ -96,11 +106,20 @@ enum WatchAriaConfigBridge {
 
     /// Apply a config dictionary received on the watch (or mirrored back).
     static func applyReceivedConfig(_ payload: [String: String]) {
+        // Mirror the phone-side rule: preferences may live in defaults;
+        // secrets never do. Watch Keychain ingestion is owned by PhoneLinkService.
+        let preferencePayload = payload.filter { CompanionConfig.preferenceKeys.contains($0.key) }
         if let shared = UserDefaults(suiteName: appGroupID) {
-            for (k, v) in payload { shared.set(v, forKey: k) }
+            for (k, v) in preferencePayload { shared.set(v, forKey: k) }
+            for secret in CompanionConfig.secretKeys {
+                shared.removeObject(forKey: secret)
+            }
         }
-        for (k, v) in payload {
+        for (k, v) in preferencePayload {
             UserDefaults.standard.set(v, forKey: k)
+        }
+        for secret in CompanionConfig.secretKeys {
+            UserDefaults.standard.removeObject(forKey: secret)
         }
     }
 

@@ -87,3 +87,8 @@ def catalog_device_key(device_id: str) -> dict:
 
 def catalog_device_sk_prefix() -> str:
     return "DEVICE#"
+
+
+def rate_limit_key(user_id: str, bucket: str) -> dict:
+    """Per-user rate-limit counter. ``bucket`` is a coarse window id (e.g. aria-chat:2026-09-14T03)."""
+    return {"pk": f"USER#{user_id}", "sk": f"RATELIMIT#{bucket}"}
