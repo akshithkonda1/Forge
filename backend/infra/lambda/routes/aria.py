@@ -5,10 +5,11 @@ import re
 from typing import Any
 
 from responses import RouteError, ok
-from security import enforce_user_rate_limit,  (
+from security import (
     MAX_ARCHETYPE_DESCRIPTION_CHARS,
     MAX_CHAT_MESSAGE_CHARS,
     assert_body_user_matches_auth,
+    enforce_user_rate_limit,
     sanitize_user_text,
 )
 from services import aria_engine
