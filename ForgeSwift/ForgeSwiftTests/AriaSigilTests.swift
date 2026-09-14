@@ -6,7 +6,7 @@ final class AriaSigilTests: XCTestCase {
 
     func testThreeEllipsesOrangeAndStillPose() {
         XCTAssertEqual(AriaSigilGeometry.kind, "soft-hex-field")
-        XCTAssertEqual(AriaSigilGeometry.cornerRoundness, 0.28, accuracy: 0.0001)
+        XCTAssertEqual(AriaSigilGeometry.cornerRoundness, 0.34, accuracy: 0.0001)
         XCTAssertEqual(AriaSigilGeometry.assetName, "AriaMark")
         XCTAssertEqual(AriaSigilGeometry.ringCount, 3)
         XCTAssertEqual(AriaSigilGeometry.ellipseCount, 3)
@@ -34,8 +34,8 @@ final class AriaSigilTests: XCTestCase {
 
     func testIdleSpinIsSofterThanSpeaking() {
         XCTAssertLessThan(AriaSigilGeometry.idleSpinHz, AriaSigilGeometry.speakingSpinHz)
-        XCTAssertEqual(AriaSigilGeometry.idleSpinHz, 0.04, accuracy: 0.0001)
-        XCTAssertEqual(AriaSigilGeometry.speakingSpinHz, 0.075, accuracy: 0.0001)
+        XCTAssertEqual(AriaSigilGeometry.idleSpinHz, 0.05, accuracy: 0.0001)
+        XCTAssertEqual(AriaSigilGeometry.speakingSpinHz, 0.09, accuracy: 0.0001)
     }
 
     func testEllipsesMoveWhenAliveAndFreezeWhenReduced() {
@@ -69,11 +69,11 @@ final class AriaSigilTests: XCTestCase {
     }
 
     func testAlwaysShowsThreeEllipses() {
-        XCTAssertEqual(AriaSigilGeometry.radii, [0.48, 0.58, 0.78])
-        XCTAssertEqual(AriaSigilGeometry.ringOpacities, [0.72, 0.78, 0.55])
+        XCTAssertEqual(AriaSigilGeometry.radii, [0.46, 0.52, 0.58])
+        XCTAssertEqual(AriaSigilGeometry.ringOpacities, [0.88, 0.78, 0.62])
         XCTAssertEqual(AriaSigilGeometry.contrastFloor, 0.70, accuracy: 0.0001)
-        XCTAssertEqual(AriaSigilGeometry.strokeWidthCompact, 1.5, accuracy: 0.0001)
-        XCTAssertEqual(AriaSigilGeometry.strokeWidthHero, 1.85, accuracy: 0.0001)
+        XCTAssertEqual(AriaSigilGeometry.strokeWidthCompact, 1.35, accuracy: 0.0001)
+        XCTAssertEqual(AriaSigilGeometry.strokeWidthHero, 1.6, accuracy: 0.0001)
         XCTAssertEqual(AriaSigilGeometry.visibleRingIndices(size: 28), [0, 1, 2])
         XCTAssertEqual(AriaSigilGeometry.visibleRingIndices(size: 90), [0, 1, 2])
         XCTAssertEqual(AriaSigilGeometry.compactRingIndices, [0, 1, 2])
@@ -90,16 +90,16 @@ final class AriaSigilTests: XCTestCase {
         XCTAssertEqual(AriaSigilGeometry.assetName, "AriaMark")
         XCTAssertEqual(AriaSigilGeometry.ringCount, 3)
         // Watch Home compact subset (indices 1, 2, 4 of the 5-ring field).
-        XCTAssertEqual(AriaSigilGeometry.radii, [0.48, 0.58, 0.78])
-        XCTAssertEqual(AriaSigilGeometry.eccentricity, [0.10, 0.07, 0.09])
-        XCTAssertEqual(AriaSigilGeometry.tiltDeg, [-22, 28, 18])
-        XCTAssertEqual(AriaSigilGeometry.phaseOffsets, [0.18, 0.41, 0.88])
-        XCTAssertEqual(AriaSigilGeometry.ringOpacities, [0.72, 0.78, 0.55])
-        XCTAssertEqual(AriaSigilGeometry.idleSpinHz, 0.04, accuracy: 0.0001)
-        XCTAssertEqual(AriaSigilGeometry.speakingSpinHz, 0.075, accuracy: 0.0001)
+        XCTAssertEqual(AriaSigilGeometry.radii, [0.46, 0.52, 0.58])
+        XCTAssertEqual(AriaSigilGeometry.eccentricity, [0.07, 0.05, 0.06])
+        XCTAssertEqual(AriaSigilGeometry.tiltDeg, [-18, 24, -12])
+        XCTAssertEqual(AriaSigilGeometry.phaseOffsets, [0.0, 0.33, 0.66])
+        XCTAssertEqual(AriaSigilGeometry.ringOpacities, [0.88, 0.78, 0.62])
+        XCTAssertEqual(AriaSigilGeometry.idleSpinHz, 0.05, accuracy: 0.0001)
+        XCTAssertEqual(AriaSigilGeometry.speakingSpinHz, 0.09, accuracy: 0.0001)
         XCTAssertEqual(AriaSigilGeometry.stillPoseAngleDeg, 18, accuracy: 0.0001)
-        XCTAssertEqual(AriaSigilGeometry.strokeWidthCompact, 1.5, accuracy: 0.0001)
-        XCTAssertEqual(AriaSigilGeometry.strokeWidthHero, 1.85, accuracy: 0.0001)
+        XCTAssertEqual(AriaSigilGeometry.strokeWidthCompact, 1.35, accuracy: 0.0001)
+        XCTAssertEqual(AriaSigilGeometry.strokeWidthHero, 1.6, accuracy: 0.0001)
         XCTAssertEqual(AriaSigilGeometry.heroMinimumSize, 90)
         XCTAssertEqual(AriaSigilGeometry.compactRecommend, 28)
         XCTAssertEqual(AriaSigilGeometry.forgeOrangeHex, "FF4D00")
@@ -195,5 +195,16 @@ final class AriaSigilTests: XCTestCase {
             AriaSigilGeometry.waveformDrive(state: .listening, amplitude: 0.8),
             AriaSigilGeometry.waveformDrive(state: .idle, amplitude: 0.8)
         )
+    }
+
+    func testPlanetaryOrbitsDifferByRing() {
+        XCTAssertEqual(AriaSigilGeometry.idleOrbitHz.count, 3)
+        XCTAssertEqual(AriaSigilGeometry.speakingOrbitHz.count, 3)
+        // Inner planet is fastest; middle is retrograde.
+        XCTAssertGreaterThan(abs(AriaSigilGeometry.idleOrbitHz[0]), abs(AriaSigilGeometry.idleOrbitHz[2]))
+        XCTAssertLessThan(AriaSigilGeometry.idleOrbitHz[1], 0)
+        let a = AriaSigilGeometry.ellipse(index: 0, time: 1.0, state: .idle, reduceMotion: false)
+        let b = AriaSigilGeometry.ellipse(index: 1, time: 1.0, state: .idle, reduceMotion: false)
+        XCTAssertNotEqual(a.rotation, b.rotation, accuracy: 0.0001)
     }
 }

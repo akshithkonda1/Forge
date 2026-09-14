@@ -4,39 +4,50 @@
   "shape": "rounded-hexagon",
   "brandHue": "#FF4D00",
   "brandHueLight": "#FF6B2B",
+  "frostHue": "#9FD6FF",
   "ringCount": 3,
-  "strokeWidthCompact": 1.5,
-  "strokeWidthHero": 1.85,
+  "strokeWidthCompact": 1.35,
+  "strokeWidthHero": 1.6,
   "radii": [
-    0.48,
-    0.58,
-    0.78
+    0.46,
+    0.52,
+    0.58
   ],
   "eccentricity": [
-    0.1,
     0.07,
-    0.09
+    0.05,
+    0.06
   ],
   "tiltDeg": [
-    -22,
-    28,
-    18
+    -18,
+    24,
+    -12
   ],
   "phaseOffsets": [
-    0.18,
-    0.41,
-    0.88
+    0.0,
+    0.33,
+    0.66
   ],
   "opacity": [
-    0.72,
+    0.88,
     0.78,
-    0.55
+    0.62
   ],
-  "cornerRoundness": 0.28,
-  "idleSpinHz": 0.04,
-  "speakingSpinHz": 0.075,
+  "cornerRoundness": 0.34,
+  "idleOrbitHz": [
+    0.065,
+    -0.042,
+    0.028
+  ],
+  "speakingOrbitHz": [
+    0.11,
+    -0.075,
+    0.048
+  ],
+  "idleSpinHz": 0.05,
+  "speakingSpinHz": 0.09,
   "stillPoseAngleDeg": 18,
   "heroMinimumSize": 90,
   "compactRecommend": 28,
-  "notes": "Brand mark = three rounded hexagons (Watch Home nest tilts/radii, soft corners) around a white smart-metal orb. Not sharp hex. Not gooey ember. Not readiness progress trim. Reduce Motion freezes at stillPoseAngleDeg. No PNG runtime. Always draw all three."
+  "notes": "Brand mark = three rounded hexagons in a tight planetary nest around a white smart-metal orb. Each hex orbits at its own rate (inner fastest; middle retrograde). Soft corners + frost/orange/pearl dual-stroke glow. Not sharp hex. Not gooey ember. Not readiness trim. Reduce Motion freezes at stillPoseAngleDeg. No PNG runtime. Always draw all three."
 }

@@ -16,6 +16,8 @@ export const ARIA_RING_FIELD = {
   tiltDeg: ARIA_MARK.tiltDeg,
   opacity: ARIA_MARK.opacity,
   cornerRoundness: ARIA_MARK.cornerRoundness,
+  idleOrbitHz: ARIA_MARK.idleOrbitHz,
+  speakingOrbitHz: ARIA_MARK.speakingOrbitHz,
 } as const;
 
 /** @deprecated Prefer `ARIA_RING_FIELD`. */
@@ -122,10 +124,10 @@ export function drawAriaRingField(
 
   ctx.clearRect(0, 0, width, height);
 
-  const glow = ctx.createRadialGradient(cx, cy, size * 0.04, cx, cy, size * 0.48);
-  glow.addColorStop(0, hexAlpha("#FFFFFF", 0.1));
-  glow.addColorStop(0.35, hexAlpha(ARIA_MARK.brandHue, 0.16));
-  glow.addColorStop(0.7, hexAlpha(ARIA_MARK.brandHue, 0.04));
+  const glow = ctx.createRadialGradient(cx, cy, size * 0.03, cx, cy, size * 0.46);
+  glow.addColorStop(0, hexAlpha("#FFFFFF", 0.14));
+  glow.addColorStop(0.25, hexAlpha(ARIA_MARK.frostHue ?? "#9FD6FF", 0.1));
+  glow.addColorStop(0.55, hexAlpha(ARIA_MARK.brandHue, 0.14));
   glow.addColorStop(1, hexAlpha(ARIA_MARK.brandHue, 0));
   ctx.fillStyle = glow;
   ctx.beginPath();
@@ -148,18 +150,40 @@ export function drawAriaRingField(
   ctx.lineJoin = "round";
   ctx.lineWidth = ringStrokeWidth(cssSize) * scale;
 
+  // Faint orbital plane.
+  ctx.save();
+  ctx.translate(cx, cy);
+  ctx.rotate((12 * Math.PI) / 180);
+  ctx.strokeStyle = hexAlpha("#6B7CFF", 0.12);
+  ctx.lineWidth = Math.max(0.6, size * 0.004);
+  ctx.beginPath();
+  ctx.ellipse(0, 0, size * 0.36, size * 0.11, 0, 0, Math.PI * 2);
+  ctx.stroke();
+  ctx.restore();
+
   for (const index of visibleRingIndices(cssSize)) {
     const pose = ringEllipse(index, input.time, input.speaking, input.reduceMotion);
     const hue =
       index === 0
         ? "#FFFFFF"
         : index === 1
-          ? ARIA_MARK.brandHueLight
+          ? (ARIA_MARK.frostHue ?? "#9FD6FF")
           : ARIA_MARK.brandHue;
     ctx.save();
     ctx.translate(cx, cy);
     ctx.rotate(pose.rotation);
-    ctx.strokeStyle = hexAlpha(hue, pose.opacity);
+    // Soft bloom.
+    ctx.lineWidth = ringStrokeWidth(cssSize) * scale * 2.1;
+    ctx.strokeStyle = hexAlpha(hue, pose.opacity * 0.28);
+    strokeRoundedHexagon(
+      ctx,
+      (pose.rx * size) / 2,
+      (pose.ry * size) / 2,
+      ARIA_MARK.cornerRoundness
+    );
+    // Crisp wire.
+    ctx.lineWidth = ringStrokeWidth(cssSize) * scale;
+    ctx.strokeStyle = hexAlpha(hue, Math.min(1, pose.opacity + 0.08));
     strokeRoundedHexagon(
       ctx,
       (pose.rx * size) / 2,

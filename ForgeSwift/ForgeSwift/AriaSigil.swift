@@ -1,12 +1,12 @@
 import Foundation
 import SwiftUI
 
-/// Kinetic orange/pearl soft-hex nest + smart-metal pearl core (iOS Aria logo).
-/// Three stroked **rounded hexagons** — Watch Home nest tilts/radii, soft corners
-/// so they read as rounded hex / soft ellipse hybrids — around a white orb.
-/// Soft spin while alive; Reduce Motion / `forgeMinimalAnimation` freeze at
-/// `stillPoseAngleDeg`. Speaking adds a liquid-metal waveform on the orb and a
-/// soft breathe on the rings.
+/// Kinetic soft-hex nest + smart-metal sun (iOS Aria logo).
+/// Three **rounded hexagons** packed close around the orb, each orbiting at
+/// its own rate (inner fastest — planet/sun). Futuristic dual-stroke glow;
+/// Reduce Motion freezes at `stillPoseAngleDeg`. Speaking accelerates orbits
+/// and breathes the nest.
+
 enum AriaSigilGeometry: Sendable {
 
     static let kind = "soft-hex-field"
@@ -27,26 +27,30 @@ enum AriaSigilGeometry: Sendable {
     static let heroMinimumSize: CGFloat = 90
     static let compactRecommend: CGFloat = 28
 
-    static let idleSpinHz: Double = 0.04
-    static let speakingSpinHz: Double = 0.075
+    /// Shared spin floor (legacy). Prefer per-ring `idleOrbitHz` / `speakingOrbitHz`.
+    static let idleSpinHz: Double = 0.05
+    static let speakingSpinHz: Double = 0.09
     /// Soft liquid breathe while talking — well under flash rates.
     static let waveformHz: Double = 2.35
     /// Faster surface shimmer for the smart-metal orb (spatial, not a strobe).
     static let metalRippleHz: Double = 3.1
 
-    static let strokeWidthCompact: CGFloat = 1.5
-    static let strokeWidthHero: CGFloat = 1.85
+    static let strokeWidthCompact: CGFloat = 1.35
+    static let strokeWidthHero: CGFloat = 1.6
     static let contrastFloor: Double = 0.70
-    /// Corner softness as a fraction of circumradius (0 = sharp hex, ~0.35 = near-ellipse).
-    static let cornerRoundness: Double = 0.28
+    /// Corner softness as a fraction of circumradius (higher = more ellipse-like).
+    static let cornerRoundness: Double = 0.34
 
-    /// Watch Home nest compact subset (indices 1, 2, 4 of the 5-ring field).
-    /// Soft eccentricity + strong tilts; corners rounded via `cornerRoundness`.
-    static let radii: [Double] = [0.48, 0.58, 0.78]
-    static let eccentricity: [Double] = [0.10, 0.07, 0.09]
-    static let tiltDeg: [Double] = [-22, 28, 18]
-    static let phaseOffsets: [Double] = [0.18, 0.41, 0.88]
-    static let ringOpacities: [Double] = [0.72, 0.78, 0.55]
+    /// Tight nest around the sun — ~0.08 spacing so hexes read as one system.
+    static let radii: [Double] = [0.46, 0.52, 0.58]
+    static let eccentricity: [Double] = [0.07, 0.05, 0.06]
+    /// Inclination of each orbital plane (degrees).
+    static let tiltDeg: [Double] = [-18, 24, -12]
+    static let phaseOffsets: [Double] = [0.0, 0.33, 0.66]
+    static let ringOpacities: [Double] = [0.88, 0.78, 0.62]
+    /// Planetary orbits (Hz). Sign = direction (inner/outer prograde, middle retrograde).
+    static let idleOrbitHz: [Double] = [0.065, -0.042, 0.028]
+    static let speakingOrbitHz: [Double] = [0.11, -0.075, 0.048]
 
     struct EllipsePose: Equatable, Sendable {
         var rx: Double
@@ -93,6 +97,17 @@ enum AriaSigilGeometry: Sendable {
         }
     }
 
+    /// Orbital rate for one hex — planets around the sun (signed Hz).
+    static func orbitHz(index: Int, state: AROrbState) -> Double {
+        let i = max(0, min(ellipseCount - 1, index))
+        switch state {
+        case .speaking, .processing:
+            return speakingOrbitHz[i]
+        case .idle, .listening:
+            return idleOrbitHz[i]
+        }
+    }
+
     /// How hard the liquid waveform drives — speaking is full, idle is a whisper.
     static func waveformDrive(state: AROrbState, amplitude: Double) -> Double {
         let energy = max(0, min(1, amplitude))
@@ -117,17 +132,18 @@ enum AriaSigilGeometry: Sendable {
         let ecc = eccentricity[i]
         let tilt = tiltDeg[i] * .pi / 180
         let phase = phaseOffsets[i] * .pi * 2
-        let still = stillPoseAngleDeg * .pi / 180
-        let spin: Double
+        let still = stillPoseAngleDeg * .pi / 180 + phase
+        let orbit: Double
         if reduceMotion {
-            spin = still
+            orbit = still
         } else {
-            spin = time * spinHz(for: state) * .pi * 2
+            // Each hex orbits the orb at its own planetary rate/direction.
+            orbit = phase + time * orbitHz(index: i, state: state) * .pi * 2
         }
         return EllipsePose(
             rx: radius * (1 + ecc),
             ry: radius * (1 - ecc),
-            rotation: tilt + phase + spin,
+            rotation: tilt + orbit,
             opacity: ringOpacities[i]
         )
     }
@@ -159,9 +175,9 @@ enum AriaSigilGeometry: Sendable {
         let phase = time * waveformHz * .pi * 2 + phaseOffsets[i] * .pi * 2
         let wave = sin(phase)
         let wave2 = cos(phase * 1.27 + Double(i) * 0.55)
-        pose.rx *= 1.0 + wave * 0.045 * drive
-        pose.ry *= 1.0 + wave2 * 0.055 * drive
-        pose.rotation += wave * 0.03 * drive
+        pose.rx *= 1.0 + wave * 0.02 * drive
+        pose.ry *= 1.0 + wave2 * 0.025 * drive
+        pose.rotation += wave * 0.015 * drive
         pose.opacity = min(1.0, pose.opacity + drive * 0.12 * (0.55 + 0.45 * wave))
         return pose
     }

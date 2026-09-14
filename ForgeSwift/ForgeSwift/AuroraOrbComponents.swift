@@ -29,11 +29,10 @@ struct ARIAIdentityMark: View {
     }
 }
 
-/// Procedural ARIA logo: three rounded hexagons (Watch Home nest language)
-/// around a glowing white smart-metal orb. Soft spin at idle; speaking
-/// amplitude drives a waveform feel. No PNG, no gooey hearth, no readiness
-/// chrome. Reduce Motion and `forgeMinimalAnimation` freeze at
-/// `AriaSigilGeometry.stillPose`.
+/// Procedural ARIA logo: three rounded hexagons orbiting a smart-metal sun.
+/// Tight nest, per-ring planetary rates, futuristic dual-stroke glow.
+/// No PNG, no gooey hearth, no readiness chrome. Reduce Motion and
+/// `forgeMinimalAnimation` freeze at `AriaSigilGeometry.stillPose`.
 struct AuroraOrbView: View {
     let state: AROrbState
     let amplitude: Float
@@ -90,8 +89,8 @@ struct AuroraOrbView: View {
     }
 }
 
-/// Three rounded hexagons around a white smart-metal orb — same wirefield
-/// language as the Watch Home nest (tilted soft hexes). Shape strokes —
+/// Three rounded hexagons in a tight planetary nest around the orb.
+/// Dual-stroke glow; frost / orange / pearl accents. Shape strokes —
 /// not Canvas + `.plusLighter`.
 private struct AriaRingFieldView: View {
     let time: TimeInterval
@@ -104,9 +103,20 @@ private struct AriaRingFieldView: View {
     private var orangeLight: Color { Color(hex: AriaSigilGeometry.brandHueLightHex) }
     private var pearl: Color { Color(hex: AriaSigilPalette.pearlHex) }
     private var pearlHot: Color { Color(hex: AriaSigilPalette.pearlHotHex) }
+    private var frost: Color { Color(hex: AriaSigilPalette.frostHex) }
+    private var steel: Color { Color(hex: AriaSigilPalette.steelHex) }
     private var energy: Double { max(0, min(1, Double(amplitude))) }
     private var drive: Double {
         AriaSigilGeometry.waveformDrive(state: state, amplitude: energy)
+    }
+
+    /// Futuristic hue rhythm: pearl → frost → forge orange.
+    private func ringStroke(index: Int) -> Color {
+        switch index {
+        case 0: return pearlHot
+        case 1: return frost
+        default: return orange
+        }
     }
 
     var body: some View {
@@ -117,21 +127,32 @@ private struct AriaRingFieldView: View {
             reduceMotion: reduceMotion
         )
         ZStack {
-            // Soft wash so pearl strokes read on black (Watch nest pattern).
+            // Orbital halo — cool core bloom into warm forge wash.
             Circle()
                 .fill(
                     RadialGradient(
                         colors: [
-                            pearlHot.opacity(0.10 + drive * 0.08),
-                            orange.opacity(0.14 + energy * 0.06),
-                            orange.opacity(0.03),
+                            pearlHot.opacity(0.14 + drive * 0.10),
+                            frost.opacity(0.08 + energy * 0.05),
+                            orange.opacity(0.12 + energy * 0.06),
+                            orange.opacity(0.02),
                             .clear
                         ],
                         center: .center,
-                        startRadius: size * 0.04,
-                        endRadius: size * 0.48
+                        startRadius: size * 0.03,
+                        endRadius: size * 0.46
                     )
                 )
+
+            // Faint orbital plane disc behind the nest.
+            Ellipse()
+                .stroke(
+                    steel.opacity(0.10 + drive * 0.08),
+                    lineWidth: max(0.6, size * 0.004)
+                )
+                .frame(width: size * 0.72, height: size * 0.22)
+                .rotationEffect(.degrees(12))
+                .blur(radius: 0.4)
 
             ForEach(AriaSigilGeometry.visibleRingIndices(size: size), id: \.self) { index in
                 let pose = AriaSigilGeometry.liquidEllipse(
@@ -141,13 +162,21 @@ private struct AriaRingFieldView: View {
                     amplitude: energy,
                     reduceMotion: reduceMotion
                 )
-                let pearlRing = AriaSigilGeometry.ringIsPearl(index)
-                // Watch hue rhythm: pearl → orange-light → orange.
-                let stroke = pearlRing ? pearlHot : (index == 1 ? orangeLight : orange)
+                let stroke = ringStroke(index: index)
                 let line = AriaSigilGeometry.strokeWidth(size: size, index: index)
+                // Soft outer bloom.
                 AriaRoundedHexagon(roundness: AriaSigilGeometry.cornerRoundness)
                     .stroke(
-                        stroke.opacity(pose.opacity),
+                        stroke.opacity(pose.opacity * 0.28),
+                        lineWidth: max(1.6, line * 2.1)
+                    )
+                    .blur(radius: max(0.6, size * 0.008))
+                    .frame(width: size * pose.rx, height: size * pose.ry)
+                    .rotationEffect(.radians(pose.rotation))
+                // Crisp futuristic wire.
+                AriaRoundedHexagon(roundness: AriaSigilGeometry.cornerRoundness)
+                    .stroke(
+                        stroke.opacity(min(1, pose.opacity + 0.08)),
                         lineWidth: line
                     )
                     .frame(width: size * pose.rx, height: size * pose.ry)
@@ -164,8 +193,9 @@ private struct AriaRingFieldView: View {
             )
         }
         .frame(width: size, height: size)
-        .shadow(color: orange.opacity(0.18 + drive * 0.12), radius: max(3, size * 0.06))
-        .shadow(color: pearlHot.opacity(0.16 + core.glow * 0.20), radius: max(4, size * 0.05))
+        .shadow(color: frost.opacity(0.12 + drive * 0.10), radius: max(3, size * 0.045))
+        .shadow(color: orange.opacity(0.20 + drive * 0.14), radius: max(4, size * 0.07))
+        .shadow(color: pearlHot.opacity(0.18 + core.glow * 0.22), radius: max(5, size * 0.055))
         .allowsHitTesting(false)
     }
 }
