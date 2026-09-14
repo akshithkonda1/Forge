@@ -29,10 +29,9 @@ struct ARIAIdentityMark: View {
     }
 }
 
-/// Procedural ARIA logo: three rounded hexagons orbiting a smart-metal sun.
-/// Tight nest, per-ring planetary rates, futuristic dual-stroke glow.
-/// No PNG, no gooey hearth, no readiness chrome. Reduce Motion and
-/// `forgeMinimalAnimation` freeze at `AriaSigilGeometry.stillPose`.
+/// Procedural ARIA logo: living soft-hex nest around a smaller smart-metal sun.
+/// Idle stays gently liquid; speaking deepens waves and planetary orbits.
+/// Reduce Motion / `forgeMinimalAnimation` freeze at `AriaSigilGeometry.stillPose`.
 struct AuroraOrbView: View {
     let state: AROrbState
     let amplitude: Float
@@ -55,19 +54,18 @@ struct AuroraOrbView: View {
 
     private var tick: Double {
         if frozen { return 1 }
-        // Slightly denser samples while talking so the liquid waveform reads.
-        return resolvedState == .speaking ? 1.0 / 24.0 : 1.0 / 12.0
+        // Denser samples while talking so the liquid waveform reads.
+        return resolvedState == .speaking ? 1.0 / 30.0 : 1.0 / 20.0
     }
 
     var body: some View {
         // Mood stays on the call-site API. Identity does not recolor from mood.
         let _ = mood
-        TimelineView(.animation(
-            minimumInterval: tick,
-            paused: frozen
-        )) { timeline in
-            let t = frozen ? AriaSigilGeometry.stillPose : timeline.date.timeIntervalSinceReferenceDate
-            AriaRingFieldView(
+        TimelineView(.animation(minimumInterval: tick, paused: frozen)) { timeline in
+            let t = frozen
+                ? AriaSigilGeometry.stillPose
+                : timeline.date.timeIntervalSinceReferenceDate
+            AriaNestFieldView(
                 time: t,
                 state: resolvedState,
                 amplitude: amplitude,
@@ -82,17 +80,15 @@ struct AuroraOrbView: View {
                 : resolvedState == .listening ? "ARIA listening"
                 : "ARIA"
         )
-        .accessibilityAddTraits(resolvedState == .idle ? AccessibilityTraits() : .updatesFrequently)
+        .accessibilityAddTraits(resolvedState == .idle ? [] : .updatesFrequently)
         .onAppear {
             presence.playWelcomeChimeIfNeeded(size: size, reduceMotion: reduceMotion)
         }
     }
 }
 
-/// Three rounded hexagons in a tight planetary nest around the orb.
-/// Dual-stroke glow; frost / orange / pearl accents. Shape strokes —
-/// not Canvas + `.plusLighter`.
-private struct AriaRingFieldView: View {
+/// Soft-hex liquid nest + smaller metal sun, with warm hearth glow and orbital plane.
+private struct AriaNestFieldView: View {
     let time: TimeInterval
     let state: AROrbState
     let amplitude: Float
@@ -104,13 +100,13 @@ private struct AriaRingFieldView: View {
     private var pearl: Color { Color(hex: AriaSigilPalette.pearlHex) }
     private var pearlHot: Color { Color(hex: AriaSigilPalette.pearlHotHex) }
     private var frost: Color { Color(hex: AriaSigilPalette.frostHex) }
-    private var steel: Color { Color(hex: AriaSigilPalette.steelHex) }
+    private var hearth: Color { Color(hex: AriaSigilPalette.hearthGlowHex) }
     private var energy: Double { max(0, min(1, Double(amplitude))) }
     private var drive: Double {
         AriaSigilGeometry.waveformDrive(state: state, amplitude: energy)
     }
 
-    /// Futuristic hue rhythm: pearl → frost → forge orange.
+    /// Reference hue rhythm: pearl → frost → forge orange.
     private func ringStroke(index: Int) -> Color {
         switch index {
         case 0: return pearlHot
@@ -127,32 +123,49 @@ private struct AriaRingFieldView: View {
             reduceMotion: reduceMotion
         )
         ZStack {
-            // Orbital halo — cool core bloom into warm forge wash.
+            // Warm hearth bloom — mahogany wash behind the nest.
             Circle()
                 .fill(
                     RadialGradient(
                         colors: [
-                            pearlHot.opacity(0.14 + drive * 0.10),
-                            frost.opacity(0.08 + energy * 0.05),
-                            orange.opacity(0.12 + energy * 0.06),
-                            orange.opacity(0.02),
+                            hearth.opacity(0.55 + drive * 0.18),
+                            hearth.opacity(0.28 + energy * 0.10),
+                            orange.opacity(0.10 + drive * 0.06),
                             .clear
                         ],
                         center: .center,
-                        startRadius: size * 0.03,
-                        endRadius: size * 0.46
+                        startRadius: size * 0.02,
+                        endRadius: size * 0.52
+                    )
+                )
+                .blur(radius: size * 0.04)
+                .scaleEffect(1.0 + 0.03 * sin(time * 0.7))
+
+            // Cool pearl core bloom into warm forge wash.
+            Circle()
+                .fill(
+                    RadialGradient(
+                        colors: [
+                            pearlHot.opacity(0.16 + drive * 0.10),
+                            frost.opacity(0.08 + energy * 0.05),
+                            orange.opacity(0.10 + energy * 0.05),
+                            .clear
+                        ],
+                        center: .center,
+                        startRadius: size * 0.02,
+                        endRadius: size * 0.42
                     )
                 )
 
-            // Faint orbital plane disc behind the nest.
+            // Faint orbital plane — thin tilted ellipse from the reference.
             Ellipse()
                 .stroke(
-                    steel.opacity(0.10 + drive * 0.08),
-                    lineWidth: max(0.6, size * 0.004)
+                    frost.opacity(0.14 + drive * 0.10),
+                    lineWidth: max(0.55, size * 0.0035)
                 )
-                .frame(width: size * 0.72, height: size * 0.22)
-                .rotationEffect(.degrees(12))
-                .blur(radius: 0.4)
+                .frame(width: size * 0.92, height: size * 0.18)
+                .rotationEffect(.degrees(16 + (reduceMotion ? 0 : sin(time * 0.22) * 3)))
+                .blur(radius: 0.35)
 
             ForEach(AriaSigilGeometry.visibleRingIndices(size: size), id: \.self) { index in
                 let pose = AriaSigilGeometry.liquidEllipse(
@@ -164,23 +177,27 @@ private struct AriaRingFieldView: View {
                 )
                 let stroke = ringStroke(index: index)
                 let line = AriaSigilGeometry.strokeWidth(size: size, index: index)
+
                 // Soft outer bloom.
-                AriaRoundedHexagon(roundness: AriaSigilGeometry.cornerRoundness)
-                    .stroke(
-                        stroke.opacity(pose.opacity * 0.28),
-                        lineWidth: max(1.6, line * 2.1)
-                    )
-                    .blur(radius: max(0.6, size * 0.008))
-                    .frame(width: size * pose.rx, height: size * pose.ry)
-                    .rotationEffect(.radians(pose.rotation))
-                // Crisp futuristic wire.
-                AriaRoundedHexagon(roundness: AriaSigilGeometry.cornerRoundness)
-                    .stroke(
-                        stroke.opacity(min(1, pose.opacity + 0.08)),
-                        lineWidth: line
-                    )
-                    .frame(width: size * pose.rx, height: size * pose.ry)
-                    .rotationEffect(.radians(pose.rotation))
+                AriaLiquidNestRing(
+                    roundness: AriaSigilGeometry.cornerRoundness,
+                    wavePhase: pose.wavePhase,
+                    waveAmp: pose.waveAmp
+                )
+                .stroke(stroke.opacity(pose.opacity * 0.30), lineWidth: max(1.7, line * 2.2))
+                .blur(radius: max(0.7, size * 0.009))
+                .frame(width: size * pose.rx, height: size * pose.ry)
+                .rotationEffect(.radians(pose.rotation))
+
+                // Crisp living wire.
+                AriaLiquidNestRing(
+                    roundness: AriaSigilGeometry.cornerRoundness,
+                    wavePhase: pose.wavePhase,
+                    waveAmp: pose.waveAmp
+                )
+                .stroke(stroke.opacity(min(1, pose.opacity + 0.08)), lineWidth: line)
+                .frame(width: size * pose.rx, height: size * pose.ry)
+                .rotationEffect(.radians(pose.rotation))
             }
 
             AriaSmartMetalOrb(
@@ -193,66 +210,65 @@ private struct AriaRingFieldView: View {
             )
         }
         .frame(width: size, height: size)
-        .shadow(color: frost.opacity(0.12 + drive * 0.10), radius: max(3, size * 0.045))
-        .shadow(color: orange.opacity(0.20 + drive * 0.14), radius: max(4, size * 0.07))
-        .shadow(color: pearlHot.opacity(0.18 + core.glow * 0.22), radius: max(5, size * 0.055))
+        .shadow(color: frost.opacity(0.10 + drive * 0.08), radius: max(3, size * 0.04))
+        .shadow(color: orange.opacity(0.18 + drive * 0.14), radius: max(4, size * 0.07))
+        .shadow(color: pearlHot.opacity(0.16 + core.glow * 0.20), radius: max(5, size * 0.05))
         .allowsHitTesting(false)
     }
 }
 
-
-/// Flat-top hexagon with rounded corners — reads as soft hex / rounded ellipse.
-private struct AriaRoundedHexagon: Shape {
+/// Soft-hex nest ring with liquid radial undulation (animatable via TimelineView).
+private struct AriaLiquidNestRing: Shape {
     /// Corner softness as a fraction of circumradius (0…~0.4).
-    var roundness: Double = 0.28
+    var roundness: Double = 0.34
+    var wavePhase: Double = 0
+    var waveAmp: Double = 0.03
 
     func path(in rect: CGRect) -> Path {
         let center = CGPoint(x: rect.midX, y: rect.midY)
-        let radius = min(rect.width, rect.height) / 2
-        guard radius > 0.5 else { return Path() }
+        let baseRadius = min(rect.width, rect.height) / 2
+        guard baseRadius > 0.5 else { return Path() }
 
-        let verts: [CGPoint] = (0..<6).map { i in
-            let angle = CGFloat(i) * (.pi / 3) // flat-top
-            return CGPoint(
-                x: center.x + radius * cos(angle),
-                y: center.y + radius * sin(angle)
+        // Sample a rounded hex, then add multi-harmonic radial liquid waves.
+        let samples = 72
+        var points: [CGPoint] = []
+        points.reserveCapacity(samples)
+        let soft = max(0.12, min(0.42, roundness))
+
+        for i in 0..<samples {
+            let t = Double(i) / Double(samples)
+            let angle = t * .pi * 2
+            // Soft-hex silhouette: mix circle with 6-fold bias.
+            let hexBias = 1.0 + (1.0 - soft) * 0.10 * cos(6 * angle)
+            // Living liquid: primary 6-lobe wave + slower traveling harmonics.
+            let liquid =
+                1.0
+                + waveAmp * (
+                    0.55 * sin(6 * angle + wavePhase)
+                    + 0.28 * sin(3 * angle - wavePhase * 1.35)
+                    + 0.17 * sin(9 * angle + wavePhase * 0.72)
+                )
+            let r = baseRadius * hexBias * liquid
+            points.append(
+                CGPoint(
+                    x: center.x + CGFloat(r * cos(angle)),
+                    y: center.y + CGFloat(r * sin(angle))
+                )
             )
         }
 
-        let corner = min(radius * CGFloat(max(0, min(0.42, roundness))), radius * 0.42)
         var path = Path()
-        for i in 0..<6 {
-            let prev = verts[(i + 5) % 6]
-            let curr = verts[i]
-            let next = verts[(i + 1) % 6]
-            let toPrev = CGPoint(x: prev.x - curr.x, y: prev.y - curr.y)
-            let toNext = CGPoint(x: next.x - curr.x, y: next.y - curr.y)
-            let lenPrev = hypot(toPrev.x, toPrev.y)
-            let lenNext = hypot(toNext.x, toNext.y)
-            guard lenPrev > 0.001, lenNext > 0.001 else { continue }
-            let dPrev = min(corner, lenPrev * 0.45)
-            let dNext = min(corner, lenNext * 0.45)
-            let p1 = CGPoint(
-                x: curr.x + toPrev.x / lenPrev * dPrev,
-                y: curr.y + toPrev.y / lenPrev * dPrev
-            )
-            let p2 = CGPoint(
-                x: curr.x + toNext.x / lenNext * dNext,
-                y: curr.y + toNext.y / lenNext * dNext
-            )
-            if i == 0 {
-                path.move(to: p1)
-            } else {
-                path.addLine(to: p1)
-            }
-            path.addQuadCurve(to: p2, control: curr)
+        guard let first = points.first else { return path }
+        path.move(to: first)
+        for point in points.dropFirst() {
+            path.addLine(to: point)
         }
         path.closeSubpath()
         return path
     }
 }
 
-/// White smart-metal orb — mercury sheen + vibrating waveform ripples when talking.
+/// White smart-metal sun — smaller pearl core with mercury sheen and voice ripples.
 private struct AriaSmartMetalOrb: View {
     let size: CGFloat
     let core: AriaSigilGeometry.OrbCorePose
@@ -265,70 +281,72 @@ private struct AriaSmartMetalOrb: View {
     private var metalMid: Color { Color(hex: "C9D2DC") }
 
     var body: some View {
-        let diameter = size * (size < AriaSigilGeometry.heroMinimumSize ? 0.26 : 0.29)
+        let diameter = size * core.diameter
         let sheen = core.sheenAngle
         ZStack {
             Circle()
                 .fill(
                     RadialGradient(
                         colors: [
-                            pearlHot.opacity(0.42 + core.glow * 0.32),
-                            metalCool.opacity(0.18 + drive * 0.12),
+                            pearlHot.opacity(0.48 + core.glow * 0.30),
+                            metalCool.opacity(0.16 + drive * 0.10),
                             orange.opacity(0.05 + drive * 0.04),
                             .clear
                         ],
                         center: .center,
-                        startRadius: diameter * 0.06,
-                        endRadius: diameter * 1.2
+                        startRadius: diameter * 0.05,
+                        endRadius: diameter * 1.35
                     )
                 )
-                .frame(width: diameter * 2.1, height: diameter * 2.1)
+                .frame(width: diameter * 2.2, height: diameter * 2.2)
 
             Ellipse()
                 .fill(
                     RadialGradient(
                         colors: [
-                            pearlHot.opacity(0.98),
-                            metalCool.opacity(0.92),
-                            pearl.opacity(0.78),
-                            metalMid.opacity(0.42),
-                            pearl.opacity(0.12)
+                            pearlHot.opacity(0.99),
+                            metalCool.opacity(0.94),
+                            pearl.opacity(0.80),
+                            metalMid.opacity(0.40),
+                            pearl.opacity(0.10)
                         ],
-                        center: UnitPoint(x: 0.34 + core.metalWarp * 0.04, y: 0.30),
-                        startRadius: diameter * 0.015,
+                        center: UnitPoint(x: 0.34 + core.metalWarp * 0.04, y: 0.28),
+                        startRadius: diameter * 0.012,
                         endRadius: diameter * 0.58
                     )
                 )
                 .frame(width: diameter, height: diameter)
                 .scaleEffect(x: core.sx, y: core.sy)
 
+            // Specular band.
             Ellipse()
                 .fill(
                     LinearGradient(
                         colors: [
                             .clear,
-                            pearlHot.opacity(0.55 * core.highlight * (0.45 + 0.55 * drive)),
-                            pearlHot.opacity(0.18),
+                            pearlHot.opacity(0.58 * core.highlight * (0.45 + 0.55 * drive)),
+                            pearlHot.opacity(0.16),
                             .clear
                         ],
                         startPoint: .leading,
                         endPoint: .trailing
                     )
                 )
-                .frame(width: diameter * 0.78, height: diameter * 0.34)
-                .rotationEffect(.radians(sheen * 0.35))
-                .offset(y: -diameter * 0.06 + CGFloat(core.metalWarp) * diameter * 0.04)
+                .frame(width: diameter * 0.72, height: diameter * 0.30)
+                .rotationEffect(.radians(sheen * 0.32))
+                .offset(y: -diameter * 0.07 + CGFloat(core.metalWarp) * diameter * 0.04)
                 .scaleEffect(x: core.sx, y: core.sy)
                 .blendMode(.screen)
 
+            // Voice / breath ripples on the metal surface.
             ForEach(0..<3, id: \.self) { ring in
                 let phase = Double(ring) * 0.33
                 let pulse = 0.55 + 0.45 * sin(sheen + phase * .pi * 2)
-                let scale = 0.42 + Double(ring) * 0.18 + core.ripple * 0.16 * pulse
+                let scale = 0.40 + Double(ring) * 0.17 + core.ripple * 0.15 * pulse
                 Ellipse()
                     .stroke(
-                        pearlHot.opacity((0.10 + drive * 0.28) * pulse * (1.0 - Double(ring) * 0.18)),
-                        lineWidth: max(0.7, diameter * 0.012)
+                        pearlHot.opacity((0.08 + drive * 0.26) * pulse * (1.0 - Double(ring) * 0.18)),
+                        lineWidth: max(0.6, diameter * 0.012)
                     )
                     .frame(
                         width: diameter * scale * (1.0 + abs(core.metalWarp) * 0.08),
@@ -337,23 +355,24 @@ private struct AriaSmartMetalOrb: View {
                     .scaleEffect(x: core.sx, y: core.sy)
             }
 
+            // Hot specular highlight (upper-left).
             Ellipse()
                 .fill(
                     RadialGradient(
                         colors: [
-                            pearlHot.opacity(0.9 * core.highlight),
-                            pearlHot.opacity(0.2),
+                            pearlHot.opacity(0.95 * core.highlight),
+                            pearlHot.opacity(0.18),
                             .clear
                         ],
                         center: .center,
                         startRadius: 0,
-                        endRadius: diameter * 0.2
+                        endRadius: diameter * 0.18
                     )
                 )
-                .frame(width: diameter * 0.36, height: diameter * 0.22)
+                .frame(width: diameter * 0.34, height: diameter * 0.20)
                 .offset(
-                    x: -diameter * 0.14 + CGFloat(sin(sheen)) * diameter * 0.03 * drive,
-                    y: -diameter * 0.16
+                    x: -diameter * 0.13 + CGFloat(sin(sheen)) * diameter * 0.025 * drive,
+                    y: -diameter * 0.15
                 )
                 .scaleEffect(x: core.sx, y: core.sy)
         }
@@ -371,8 +390,8 @@ enum AriaSigilEmberLegacy: Sendable {
 
 #Preview("ARIA idle") {
     ZStack {
-        Color(hex: "07060A").ignoresSafeArea()
-        AuroraOrbView(state: .idle, amplitude: 0.3, size: 168)
+        Color(hex: "000000").ignoresSafeArea()
+        AuroraOrbView(state: .idle, amplitude: 0.28, size: 220)
     }
     .environment(AriaPresence.shared)
     .preferredColorScheme(.dark)
@@ -380,15 +399,15 @@ enum AriaSigilEmberLegacy: Sendable {
 
 #Preview("ARIA speaking") {
     ZStack {
-        Color(hex: "07060A").ignoresSafeArea()
-        AuroraOrbView(state: .speaking, amplitude: 0.8, size: 168, followPresence: false)
+        Color(hex: "000000").ignoresSafeArea()
+        AuroraOrbView(state: .speaking, amplitude: 0.85, size: 220, followPresence: false)
     }
     .preferredColorScheme(.dark)
 }
 
 #Preview("ARIA compact") {
     ZStack {
-        Color(hex: "07060A").ignoresSafeArea()
+        Color(hex: "000000").ignoresSafeArea()
         HStack(spacing: 24) {
             AuroraOrbView(state: .idle, amplitude: 0.2, size: 22, followPresence: false)
             AuroraOrbView(state: .idle, amplitude: 0.2, size: 44, followPresence: false)
@@ -400,8 +419,8 @@ enum AriaSigilEmberLegacy: Sendable {
 
 #Preview("ARIA still-pose") {
     ZStack {
-        Color(hex: "07060A").ignoresSafeArea()
-        AuroraOrbView(state: .idle, amplitude: 0.3, size: 168, followPresence: false)
+        Color(hex: "000000").ignoresSafeArea()
+        AuroraOrbView(state: .idle, amplitude: 0.3, size: 220, followPresence: false)
             .environment(\.forgeMinimalAnimation, true)
     }
     .preferredColorScheme(.dark)

@@ -1,11 +1,10 @@
 import Foundation
 import SwiftUI
 
-/// Kinetic soft-hex nest + smart-metal sun (iOS Aria logo).
-/// Three **rounded hexagons** packed close around the orb, each orbiting at
-/// its own rate (inner fastest — planet/sun). Futuristic dual-stroke glow;
-/// Reduce Motion freezes at `stillPoseAngleDeg`. Speaking accelerates orbits
-/// and breathes the nest.
+/// Living Aria nest mark (iOS logo).
+/// Soft-hex liquid rings + smaller smart-metal sun, matching the idle reference:
+/// white / frost / forge-orange nest, faint orbital plane, warm hearth glow.
+/// Reduce Motion freezes at `stillPoseAngleDeg`. Speaking deepens the liquid.
 
 enum AriaSigilGeometry: Sendable {
 
@@ -13,13 +12,17 @@ enum AriaSigilGeometry: Sendable {
     static let assetName = "AriaMark"
     static let ringCount: Int = 3
     static let hexCount: Int = ringCount
-    /// Legacy alias — shapes are rounded hexagons (soft corners), not sharp hex or pure ellipses.
+    /// Legacy alias — shapes are liquid soft-hex rings, not sharp hex or pure ellipses.
     static let ellipseCount: Int = hexCount
     static let forgeOrangeHex = "FF4D00"
     static let brandHueLightHex = "FF6B2B"
     /// Soft pearl core — glows; never readiness chrome.
     static let pearlHex = "F7F4F0"
     static let pearlHotHex = "FFFFFF"
+    /// Warm mahogany hearth behind the nest (reference idle glow).
+    static let hearthGlowHex = "3A0E12"
+    /// Middle nest stroke — pale cyan frost from the reference.
+    static let nestFrostHex = "A9D8FF"
 
     /// Frozen TimelineView clock only. Angle lock is `stillPoseAngleDeg`.
     static let stillPose: Double = 1.72
@@ -30,16 +33,21 @@ enum AriaSigilGeometry: Sendable {
     /// Shared spin floor (legacy). Prefer per-ring `idleOrbitHz` / `speakingOrbitHz`.
     static let idleSpinHz: Double = 0.05
     static let speakingSpinHz: Double = 0.09
-    /// Soft liquid breathe while talking — well under flash rates.
+    /// Soft liquid breathe — well under flash rates.
     static let waveformHz: Double = 2.35
     /// Faster surface shimmer for the smart-metal orb (spatial, not a strobe).
     static let metalRippleHz: Double = 3.1
+    /// Path undulation around the soft-hex silhouette (idle stays alive).
+    static let liquidWaveHz: Double = 0.42
 
     static let strokeWidthCompact: CGFloat = 1.35
     static let strokeWidthHero: CGFloat = 1.6
     static let contrastFloor: Double = 0.70
     /// Corner softness as a fraction of circumradius (higher = more ellipse-like).
     static let cornerRoundness: Double = 0.34
+    /// Smaller sun — ~1/3 of the nest diameter in the idle reference.
+    static let orbDiameterIdle: Double = 0.22
+    static let orbDiameterSpeaking: Double = 0.245
 
     /// Tight nest around the sun — ~0.08 spacing so hexes read as one system.
     static let radii: [Double] = [0.46, 0.52, 0.58]
@@ -57,6 +65,10 @@ enum AriaSigilGeometry: Sendable {
         var ry: Double
         var rotation: Double
         var opacity: Double
+        /// Liquid path phase (radians) — drives soft-hex undulation.
+        var wavePhase: Double
+        /// Radial wave amplitude as a fraction of radius (0…~0.08).
+        var waveAmp: Double
     }
 
     /// Legacy name kept for call-site continuity.
@@ -71,6 +83,8 @@ enum AriaSigilGeometry: Sendable {
         var ripple: Double
         var sheenAngle: Double
         var metalWarp: Double
+        /// Diameter as a fraction of mark size.
+        var diameter: Double
     }
 
     static var contrastRingIndices: [Int] {
@@ -85,7 +99,7 @@ enum AriaSigilGeometry: Sendable {
         return Array(0..<ellipseCount)
     }
 
-    /// Watch nest hue rhythm: ring 0 pearl, ring 1 orange-light, ring 2 orange.
+    /// Watch nest hue rhythm: ring 0 pearl, rings 1–2 warm.
     static func ringIsPearl(_ index: Int) -> Bool {
         index == 0
     }
@@ -108,17 +122,25 @@ enum AriaSigilGeometry: Sendable {
         }
     }
 
-    /// How hard the liquid waveform drives — speaking is full, idle is a whisper.
+    /// How hard the liquid waveform drives — speaking is full; idle keeps a living floor.
     static func waveformDrive(state: AROrbState, amplitude: Double) -> Double {
         let energy = max(0, min(1, amplitude))
         let boost: Double
         switch state {
         case .speaking: boost = 1.0
-        case .listening: boost = 0.38
-        case .processing: boost = 0.48
-        case .idle: boost = 0.14
+        case .listening: boost = 0.42
+        case .processing: boost = 0.52
+        case .idle: boost = 0.22
         }
-        return energy * boost
+        // Idle still breathes even when amplitude is quiet (logo should feel alive).
+        let floor: Double
+        switch state {
+        case .idle: floor = 0.18
+        case .listening: floor = 0.12
+        case .processing: floor = 0.16
+        case .speaking: floor = 0.28
+        }
+        return max(floor, energy * boost)
     }
 
     static func ellipse(
@@ -134,17 +156,32 @@ enum AriaSigilGeometry: Sendable {
         let phase = phaseOffsets[i] * .pi * 2
         let still = stillPoseAngleDeg * .pi / 180 + phase
         let orbit: Double
+        let wavePhase: Double
+        let waveAmp: Double
         if reduceMotion {
             orbit = still
+            wavePhase = phase
+            waveAmp = 0.018
         } else {
             // Each hex orbits the orb at its own planetary rate/direction.
             orbit = phase + time * orbitHz(index: i, state: state) * .pi * 2
+            wavePhase = time * liquidWaveHz * .pi * 2 + phase
+            let base: Double
+            switch state {
+            case .idle: base = 0.028
+            case .listening: base = 0.036
+            case .processing: base = 0.042
+            case .speaking: base = 0.055
+            }
+            waveAmp = base + Double(i) * 0.004
         }
         return EllipsePose(
             rx: radius * (1 + ecc),
             ry: radius * (1 - ecc),
             rotation: tilt + orbit,
-            opacity: ringOpacities[i]
+            opacity: ringOpacities[i],
+            wavePhase: wavePhase,
+            waveAmp: waveAmp
         )
     }
 
@@ -169,16 +206,16 @@ enum AriaSigilGeometry: Sendable {
         var pose = ellipse(index: index, time: time, state: state, reduceMotion: reduceMotion)
         guard !reduceMotion else { return pose }
         let drive = waveformDrive(state: state, amplitude: amplitude)
-        guard drive > 0.01 else { return pose }
-
         let i = max(0, min(ellipseCount - 1, index))
         let phase = time * waveformHz * .pi * 2 + phaseOffsets[i] * .pi * 2
         let wave = sin(phase)
         let wave2 = cos(phase * 1.27 + Double(i) * 0.55)
-        pose.rx *= 1.0 + wave * 0.02 * drive
-        pose.ry *= 1.0 + wave2 * 0.025 * drive
-        pose.rotation += wave * 0.015 * drive
-        pose.opacity = min(1.0, pose.opacity + drive * 0.12 * (0.55 + 0.45 * wave))
+        pose.rx *= 1.0 + wave * 0.018 * drive
+        pose.ry *= 1.0 + wave2 * 0.022 * drive
+        pose.rotation += wave * 0.012 * drive
+        pose.opacity = min(1.0, pose.opacity + drive * 0.10 * (0.55 + 0.45 * wave))
+        pose.waveAmp *= 1.0 + 0.55 * drive
+        pose.wavePhase += wave * 0.35 * drive
         return pose
     }
 
@@ -200,10 +237,16 @@ enum AriaSigilGeometry: Sendable {
         amplitude: Double,
         reduceMotion: Bool
     ) -> OrbCorePose {
+        let diameter: Double
+        switch state {
+        case .speaking, .processing: diameter = orbDiameterSpeaking
+        case .idle, .listening: diameter = orbDiameterIdle
+        }
         if reduceMotion {
             return OrbCorePose(
                 sx: 1, sy: 1, glow: 0.55, highlight: 0.7,
-                ripple: 0.12, sheenAngle: 0.55, metalWarp: 0
+                ripple: 0.12, sheenAngle: 0.55, metalWarp: 0,
+                diameter: orbDiameterIdle
             )
         }
         let drive = waveformDrive(state: state, amplitude: amplitude)
@@ -213,14 +256,17 @@ enum AriaSigilGeometry: Sendable {
         let wave2 = cos(phase * 1.4 + 0.3)
         let ripple = sin(metalPhase) * 0.55 + sin(metalPhase * 1.7 + 0.9) * 0.45
         let warp = sin(metalPhase * 2.1 + 0.4) * cos(phase * 0.85)
+        // Soft idle breath so the smaller orb still feels alive.
+        let breath = 0.012 * sin(time * 0.55 * .pi * 2)
         return OrbCorePose(
-            sx: 1.0 + wave * 0.10 * drive + warp * 0.035 * drive,
-            sy: 1.0 + wave2 * 0.14 * drive - warp * 0.04 * drive,
-            glow: 0.52 + 0.38 * drive + 0.1 * wave * drive,
-            highlight: 0.68 + 0.28 * drive,
-            ripple: 0.14 + 0.72 * drive * (0.55 + 0.45 * abs(ripple)),
+            sx: 1.0 + breath + wave * 0.08 * drive + warp * 0.03 * drive,
+            sy: 1.0 + breath * 0.85 + wave2 * 0.11 * drive - warp * 0.035 * drive,
+            glow: 0.50 + 0.36 * drive + 0.08 * wave * drive,
+            highlight: 0.70 + 0.26 * drive,
+            ripple: 0.12 + 0.70 * drive * (0.55 + 0.45 * abs(ripple)),
             sheenAngle: metalPhase,
-            metalWarp: warp * drive
+            metalWarp: warp * drive,
+            diameter: diameter * (1.0 + 0.04 * drive * wave)
         )
     }
 
@@ -245,8 +291,9 @@ enum AriaSigilPalette: Sendable {
     static let goldHex = "C9A36A"
     static let goldHotHex = "E8C48A"
     static let steelHex = "6B7CFF"
-    static let frostHex = "9FD6FF"
+    static let frostHex = AriaSigilGeometry.nestFrostHex
     static let bloodHex = "4A1018"
+    static let hearthGlowHex = AriaSigilGeometry.hearthGlowHex
     static let limbHex = "000000"
     static let tealHex = "3EC8C8"
 
