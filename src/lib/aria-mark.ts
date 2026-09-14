@@ -1,26 +1,25 @@
-/** Shared ARIA hex-field — lockstep with `shared/aria-mark.json`. No PNG runtime. */
+/** Shared ARIA ring-field — lockstep with `shared/aria-mark.json`. No PNG runtime. */
 export const ARIA_MARK = {
   assetName: "AriaMark",
-  kind: "hex-field",
-  shape: "hexagon",
+  kind: "ring-field",
+  shape: "ellipse",
   brandHue: "#FF4D00",
   brandHueLight: "#FF6B2B",
   ringCount: 3,
-  hexCount: 3,
   strokeWidthCompact: 1.5,
   strokeWidthHero: 1.85,
-  radii: [0.46, 0.62, 0.78],
-  eccentricity: [0.04, 0.06, 0.05],
-  tiltDeg: [10, -16, 8],
-  phaseOffsets: [0, 0.34, 0.67],
-  opacity: [0.72, 0.88, 0.58],
+  radii: [0.48, 0.58, 0.78],
+  eccentricity: [0.14, 0.08, 0.11],
+  tiltDeg: [-22, 28, 18],
+  phaseOffsets: [0.18, 0.41, 0.88],
+  opacity: [0.72, 0.78, 0.55],
   idleSpinHz: 0.04,
   speakingSpinHz: 0.075,
   stillPoseAngleDeg: 18,
   heroMinimumSize: 90,
   compactRecommend: 28,
   notes:
-    "Brand mark = three kinetic hexagons around a white smart-metal orb. Not gooey ember. Not readiness progress trim or score label. Reduce Motion freezes at stillPoseAngleDeg. No PNG runtime. Always draw all three hexes.",
+    "Brand mark = three kinetic ellipses (Watch Home nest compact subset) around a white smart-metal orb. Not gooey ember. Not readiness progress trim or score label. Reduce Motion freezes at stillPoseAngleDeg. No PNG runtime. Always draw all three rings.",
 } as const;
 
 /** Web compact ceiling. Contract recommends 28; slots ≤32 stay still-pose. */
@@ -54,7 +53,7 @@ export function contrastRingIndices(
   );
 }
 
-/** All three hexes — compact and hero share the same nest. */
+/** All three rings — compact and hero share the same nest. */
 export function compactRingIndices(
   _opacities: readonly number[] = ARIA_MARK.opacity
 ): number[] {
@@ -70,15 +69,15 @@ export function ringStrokeWidth(size: number): number {
     size < ARIA_MARK.heroMinimumSize
       ? ARIA_MARK.strokeWidthCompact
       : ARIA_MARK.strokeWidthHero;
-  return Math.max(ARIA_MARK.strokeWidthCompact, raw);
+  return Math.max(ARIA_MARK.strokeWidthCompact, Math.max(raw, size * 0.018));
 }
 
 export function ringSpinHz(speaking: boolean): number {
   return speaking ? ARIA_MARK.speakingSpinHz : ARIA_MARK.idleSpinHz;
 }
 
-/** Lockstep with Swift `AriaSigilGeometry.hex`. */
-export function ringHex(
+/** Lockstep with Swift `AriaSigilGeometry.ellipse` (Watch nest language). */
+export function ringEllipse(
   index: number,
   time: number,
   speaking: boolean,
@@ -99,11 +98,11 @@ export function ringHex(
   };
 }
 
-/** @deprecated Prefer `ringHex` — mark is hexagons now. */
-export const ringEllipse = ringHex;
+/** @deprecated Prefer `ringEllipse` — mark matches Watch kinetic ellipses. */
+export const ringHex = ringEllipse;
 
 /**
- * Legacy gooey-ember motion. Unused by brand slots — hex-field is the living mark.
+ * Legacy gooey-ember motion. Unused by brand slots — ring-field is the living mark.
  * Kept so the retired hearth can be deleted in one place.
  */
 export const LEGACY_EMBER = {
@@ -113,7 +112,7 @@ export const LEGACY_EMBER = {
   maxGaze: 0.14,
 } as const;
 
-/** @deprecated Living mark is hex-field (`ARIA_MARK`). Kept for the ember canvas. */
+/** @deprecated Living mark is ring-field (`ARIA_MARK`). Kept for the ember canvas. */
 export const ARIA_LOBES = [
   { angle: 0.62, dist: 0.26, r: 0.44, phase: 0.0 },
   { angle: 2.18, dist: 0.24, r: 0.41, phase: 1.1 },
@@ -123,12 +122,12 @@ export const ARIA_LOBES = [
 
 export type AriaMarkState = "idle" | "listening" | "processing" | "speaking";
 
-/** @deprecated Gaze is ember-canvas only. Hex-field does not use pointer gaze. */
+/** @deprecated Gaze is ember-canvas only. Ring-field does not use pointer gaze. */
 export function clampGaze(value: number): number {
   return Math.min(LEGACY_EMBER.maxGaze, Math.max(-LEGACY_EMBER.maxGaze, value));
 }
 
-/** @deprecated Living mark is hex-field. Ember lobes stay for the legacy canvas. */
+/** @deprecated Living mark is ring-field. Ember lobes stay for the legacy canvas. */
 export function emberLobe(
   index: number,
   time: number,
@@ -151,7 +150,7 @@ export function emberLobe(
   return { x: Math.cos(ang) * dist, y: Math.sin(ang) * dist, r };
 }
 
-/** @deprecated Living mark is hex-field. Ember core stays for the legacy canvas. */
+/** @deprecated Living mark is ring-field. Ember core stays for the legacy canvas. */
 export function emberCoreRadius(time: number, speaking: boolean, reduceMotion: boolean): number {
   if (reduceMotion) return 0.22;
   const hz = speaking ? LEGACY_EMBER.speakingBreathHz : LEGACY_EMBER.idleBreathHz;

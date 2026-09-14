@@ -1,22 +1,22 @@
 import XCTest
 @testable import ForgeSwift
 
-/// Locks the Aria hex nest: three hexagons, `#FF4D00`, freeze on Reduce Motion.
+/// Locks the Aria Watch-nest ring field: three ellipses, `#FF4D00`, freeze on Reduce Motion.
 final class AriaSigilTests: XCTestCase {
 
-    func testThreeHexagonsOrangeAndStillPose() {
-        XCTAssertEqual(AriaSigilGeometry.kind, "hex-field")
+    func testThreeEllipsesOrangeAndStillPose() {
+        XCTAssertEqual(AriaSigilGeometry.kind, "ring-field")
         XCTAssertEqual(AriaSigilGeometry.assetName, "AriaMark")
         XCTAssertEqual(AriaSigilGeometry.ringCount, 3)
-        XCTAssertEqual(AriaSigilGeometry.hexCount, 3)
         XCTAssertEqual(AriaSigilGeometry.ellipseCount, 3)
+        XCTAssertEqual(AriaSigilGeometry.hexCount, 3)
         XCTAssertEqual(AriaSigilGeometry.forgeOrangeHex, "FF4D00")
         XCTAssertEqual(AriaSigilGeometry.brandHueLightHex, "FF6B2B")
         XCTAssertEqual(AriaSigilPalette.forgeOrangeHex, "FF4D00")
         XCTAssertEqual(AriaSigilPalette.emberHex, "FF4D00")
         XCTAssertEqual(AriaSigilGeometry.stillPoseAngleDeg, 18, accuracy: 0.0001)
-        let a = AriaSigilGeometry.hex(index: 0, time: AriaSigilGeometry.stillPose, state: .idle, reduceMotion: true)
-        let b = AriaSigilGeometry.hex(index: 0, time: 99, state: .idle, reduceMotion: true)
+        let a = AriaSigilGeometry.ellipse(index: 0, time: AriaSigilGeometry.stillPose, state: .idle, reduceMotion: true)
+        let b = AriaSigilGeometry.ellipse(index: 0, time: 99, state: .idle, reduceMotion: true)
         XCTAssertEqual(a.rx, b.rx, accuracy: 0.0001)
         XCTAssertEqual(a.ry, b.ry, accuracy: 0.0001)
         XCTAssertEqual(a.rotation, b.rotation, accuracy: 0.0001)
@@ -24,8 +24,8 @@ final class AriaSigilTests: XCTestCase {
     }
 
     func testStillPoseIgnoresStateAndClock() {
-        let idle = AriaSigilGeometry.hex(index: 2, time: 1, state: .idle, reduceMotion: true)
-        let talk = AriaSigilGeometry.hex(index: 2, time: 40, state: .speaking, reduceMotion: true)
+        let idle = AriaSigilGeometry.ellipse(index: 2, time: 1, state: .idle, reduceMotion: true)
+        let talk = AriaSigilGeometry.ellipse(index: 2, time: 40, state: .speaking, reduceMotion: true)
         XCTAssertEqual(idle.rx, talk.rx, accuracy: 0.0001)
         XCTAssertEqual(idle.ry, talk.ry, accuracy: 0.0001)
         XCTAssertEqual(idle.rotation, talk.rotation, accuracy: 0.0001)
@@ -37,23 +37,23 @@ final class AriaSigilTests: XCTestCase {
         XCTAssertEqual(AriaSigilGeometry.speakingSpinHz, 0.075, accuracy: 0.0001)
     }
 
-    func testHexesMoveWhenAliveAndFreezeWhenReduced() {
-        let a = AriaSigilGeometry.hex(index: 1, time: 0.4, state: .idle, reduceMotion: false)
-        let b = AriaSigilGeometry.hex(index: 1, time: 1.1, state: .idle, reduceMotion: false)
+    func testEllipsesMoveWhenAliveAndFreezeWhenReduced() {
+        let a = AriaSigilGeometry.ellipse(index: 1, time: 0.4, state: .idle, reduceMotion: false)
+        let b = AriaSigilGeometry.ellipse(index: 1, time: 1.1, state: .idle, reduceMotion: false)
         XCTAssertFalse(
             abs(a.rotation - b.rotation) < 0.00001
                 && abs(a.rx - b.rx) < 0.00001
                 && abs(a.ry - b.ry) < 0.00001
         )
-        let stillA = AriaSigilGeometry.hex(index: 2, time: 1, state: .speaking, reduceMotion: true)
-        let stillB = AriaSigilGeometry.hex(index: 2, time: 40, state: .speaking, reduceMotion: true)
+        let stillA = AriaSigilGeometry.ellipse(index: 2, time: 1, state: .speaking, reduceMotion: true)
+        let stillB = AriaSigilGeometry.ellipse(index: 2, time: 40, state: .speaking, reduceMotion: true)
         XCTAssertEqual(stillA.rotation, stillB.rotation, accuracy: 0.0001)
     }
 
-    func testThreeHexesOverlapAtDistinctTilts() {
+    func testThreeEllipsesOverlapAtDistinctTilts() {
         var rotations = Set<String>()
-        for index in 0..<AriaSigilGeometry.hexCount {
-            let pose = AriaSigilGeometry.hex(
+        for index in 0..<AriaSigilGeometry.ellipseCount {
+            let pose = AriaSigilGeometry.ellipse(
                 index: index,
                 time: AriaSigilGeometry.stillPose,
                 state: .idle,
@@ -64,19 +64,19 @@ final class AriaSigilTests: XCTestCase {
             XCTAssertLessThan(pose.rx, 1.05)
             rotations.insert(String(format: "%.4f", pose.rotation))
         }
-        XCTAssertEqual(rotations.count, AriaSigilGeometry.hexCount)
+        XCTAssertEqual(rotations.count, AriaSigilGeometry.ellipseCount)
     }
 
-    func testAlwaysShowsThreeHexes() {
-        XCTAssertEqual(AriaSigilGeometry.radii, [0.46, 0.62, 0.78])
-        XCTAssertEqual(AriaSigilGeometry.ringOpacities, [0.72, 0.88, 0.58])
+    func testAlwaysShowsThreeEllipses() {
+        XCTAssertEqual(AriaSigilGeometry.radii, [0.48, 0.58, 0.78])
+        XCTAssertEqual(AriaSigilGeometry.ringOpacities, [0.72, 0.78, 0.55])
         XCTAssertEqual(AriaSigilGeometry.contrastFloor, 0.70, accuracy: 0.0001)
         XCTAssertEqual(AriaSigilGeometry.strokeWidthCompact, 1.5, accuracy: 0.0001)
         XCTAssertEqual(AriaSigilGeometry.strokeWidthHero, 1.85, accuracy: 0.0001)
         XCTAssertEqual(AriaSigilGeometry.visibleRingIndices(size: 28), [0, 1, 2])
         XCTAssertEqual(AriaSigilGeometry.visibleRingIndices(size: 90), [0, 1, 2])
         XCTAssertEqual(AriaSigilGeometry.compactRingIndices, [0, 1, 2])
-        for index in 0..<AriaSigilGeometry.hexCount {
+        for index in 0..<AriaSigilGeometry.ellipseCount {
             XCTAssertGreaterThanOrEqual(
                 AriaSigilGeometry.strokeWidth(size: AriaSigilGeometry.compactRecommend, index: index),
                 AriaSigilGeometry.strokeWidthCompact
@@ -84,15 +84,16 @@ final class AriaSigilTests: XCTestCase {
         }
     }
 
-    func testHexFieldContract() {
-        XCTAssertEqual(AriaSigilGeometry.kind, "hex-field")
+    func testRingFieldContractMatchesWatchNest() {
+        XCTAssertEqual(AriaSigilGeometry.kind, "ring-field")
         XCTAssertEqual(AriaSigilGeometry.assetName, "AriaMark")
         XCTAssertEqual(AriaSigilGeometry.ringCount, 3)
-        XCTAssertEqual(AriaSigilGeometry.radii, [0.46, 0.62, 0.78])
-        XCTAssertEqual(AriaSigilGeometry.eccentricity, [0.04, 0.06, 0.05])
-        XCTAssertEqual(AriaSigilGeometry.tiltDeg, [10, -16, 8])
-        XCTAssertEqual(AriaSigilGeometry.phaseOffsets, [0, 0.34, 0.67])
-        XCTAssertEqual(AriaSigilGeometry.ringOpacities, [0.72, 0.88, 0.58])
+        // Watch Home compact subset (indices 1, 2, 4 of the 5-ring field).
+        XCTAssertEqual(AriaSigilGeometry.radii, [0.48, 0.58, 0.78])
+        XCTAssertEqual(AriaSigilGeometry.eccentricity, [0.14, 0.08, 0.11])
+        XCTAssertEqual(AriaSigilGeometry.tiltDeg, [-22, 28, 18])
+        XCTAssertEqual(AriaSigilGeometry.phaseOffsets, [0.18, 0.41, 0.88])
+        XCTAssertEqual(AriaSigilGeometry.ringOpacities, [0.72, 0.78, 0.55])
         XCTAssertEqual(AriaSigilGeometry.idleSpinHz, 0.04, accuracy: 0.0001)
         XCTAssertEqual(AriaSigilGeometry.speakingSpinHz, 0.075, accuracy: 0.0001)
         XCTAssertEqual(AriaSigilGeometry.stillPoseAngleDeg, 18, accuracy: 0.0001)
@@ -125,28 +126,29 @@ final class AriaSigilTests: XCTestCase {
         XCTAssertEqual(AriaSigilEmberLegacy.lobeCount, 4)
         XCTAssertEqual(AriaSigilEmberLegacy.hearthHex, "FF6A1A")
         XCTAssertNotEqual(AriaSigilEmberLegacy.hearthHex, AriaSigilGeometry.forgeOrangeHex)
-        XCTAssertNotEqual(AriaSigilEmberLegacy.lobeCount, AriaSigilGeometry.hexCount)
+        XCTAssertNotEqual(AriaSigilEmberLegacy.lobeCount, AriaSigilGeometry.ellipseCount)
     }
 
-    func testPearlCoreAndAlternateHexes() {
+    func testPearlCoreAndWatchHueRhythm() {
         XCTAssertEqual(AriaSigilGeometry.pearlHex, "F7F4F0")
         XCTAssertEqual(AriaSigilGeometry.pearlHotHex, "FFFFFF")
         XCTAssertEqual(AriaSigilPalette.pearlHex, "F7F4F0")
+        // Watch nest: first compact ring is pearl, then orange-light, then orange.
         XCTAssertTrue(AriaSigilGeometry.ringIsPearl(0))
         XCTAssertFalse(AriaSigilGeometry.ringIsPearl(1))
-        XCTAssertTrue(AriaSigilGeometry.ringIsPearl(2))
+        XCTAssertFalse(AriaSigilGeometry.ringIsPearl(2))
         XCTAssertLessThan(AriaSigilGeometry.waveformHz, 4.0)
         XCTAssertLessThan(AriaSigilGeometry.metalRippleHz, 5.0)
     }
 
-    func testLiquidHexFreezesWithReduceMotion() {
-        let a = AriaSigilGeometry.liquidHex(
+    func testLiquidEllipseFreezesWithReduceMotion() {
+        let a = AriaSigilGeometry.liquidEllipse(
             index: 1, time: 1, state: .speaking, amplitude: 0.9, reduceMotion: true
         )
-        let b = AriaSigilGeometry.liquidHex(
+        let b = AriaSigilGeometry.liquidEllipse(
             index: 1, time: 40, state: .speaking, amplitude: 0.9, reduceMotion: true
         )
-        let base = AriaSigilGeometry.hex(
+        let base = AriaSigilGeometry.ellipse(
             index: 1, time: 1, state: .speaking, reduceMotion: true
         )
         XCTAssertEqual(a.rx, b.rx, accuracy: 0.0001)
@@ -156,11 +158,11 @@ final class AriaSigilTests: XCTestCase {
         XCTAssertEqual(a.ry, base.ry, accuracy: 0.0001)
     }
 
-    func testLiquidHexAndOrbWaveWhenSpeaking() {
-        let a = AriaSigilGeometry.liquidHex(
+    func testLiquidEllipseAndOrbWaveWhenSpeaking() {
+        let a = AriaSigilGeometry.liquidEllipse(
             index: 1, time: 0.2, state: .speaking, amplitude: 0.95, reduceMotion: false
         )
-        let b = AriaSigilGeometry.liquidHex(
+        let b = AriaSigilGeometry.liquidEllipse(
             index: 1, time: 0.55, state: .speaking, amplitude: 0.95, reduceMotion: false
         )
         XCTAssertFalse(
