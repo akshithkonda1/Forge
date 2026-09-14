@@ -109,19 +109,11 @@ class SystemDiagnosticTests(unittest.TestCase):
             self.assertFalse(sysd.passed)
             self.assertTrue(sysd.verdict.startswith("HOLD"))
 
-    def test_some_ships_and_some_hold_at_tier1(self):
-        ships = holds = None
+    def test_tier1_all_ship(self):
         for m in reg.get_models_by_tier(1):
             sysd, _ = diagnostics.diagnose(_results(m["model_id"], 1))
-            if sysd.passed:
-                ships = sysd
-            else:
-                holds = sysd
-        self.assertIsNotNone(ships, "expected at least one SHIP at tier 1")
-        self.assertIsNotNone(holds, "expected at least one HOLD at tier 1")
-        self.assertEqual(ships.verdict, "SHIP")
-        self.assertTrue(holds.verdict.startswith("HOLD"))
-        self.assertTrue(holds.mission_critical or holds.pass_rate < 80)
+            self.assertTrue(sysd.passed, f"{m['model_id']} should SHIP: {sysd.verdict}")
+            self.assertEqual(sysd.verdict, "SHIP")
 
     def test_diagnosis_is_deterministic(self):
         a, _ = diagnostics.diagnose(_results("anthropic.claude-opus-4-8-adversarial"))

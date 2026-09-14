@@ -92,8 +92,9 @@ def compare(current: list[dict], baseline: dict[str, dict]) -> list[ModelDiff]:
     return diffs
 
 
-def gate(diffs: list[ModelDiff], max_drop: float) -> tuple[bool, list[str]]:
-    """Pass unless a composite regresses past max_drop or a new mission-critical appears."""
+def gate(diffs: list[ModelDiff], max_drop: float, records: list[dict] | None = None) -> tuple[bool, list[str]]:
+    """Pass unless a composite regresses, a new mission-critical appears, or
+    any tier-1 persona is still HOLD (easy lives must ship)."""
     reasons: list[str] = []
     for d in diffs:
         if d.missing_baseline:
@@ -102,6 +103,12 @@ def gate(diffs: list[ModelDiff], max_drop: float) -> tuple[bool, list[str]]:
             reasons.append(f"{d.model_id}: composite {d.composite_delta} (exceeds -{max_drop} drop)")
         if d.new_mission_critical:
             reasons.append(f"{d.model_id}: {len(d.new_mission_critical)} new mission-critical failure(s)")
+    for rec in records or []:
+        if int(rec.get("tier") or 0) == 1 and not rec.get("system_passed"):
+            reasons.append(
+                f"{rec.get('model_id')}: tier-1 HOLD ({rec.get('verdict')}) "
+                f"— easy personas must ship"
+            )
     return (not reasons, reasons)
 
 
