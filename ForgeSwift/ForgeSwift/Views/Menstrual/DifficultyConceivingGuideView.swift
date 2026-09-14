@@ -61,7 +61,11 @@ struct DifficultyConceivingGuideView: View {
                     }
 
                     Button(action: onAskARIA) {
-                        Label("Ask ARIA to walk this with me", systemImage: "sparkles")
+                        Label {
+                            Text("Ask ARIA to walk this with me")
+                        } icon: {
+                            ARIAIdentityMark(state: .idle, mood: .energized, size: 16, amplitude: 0.22)
+                        }
                             .font(FDS.TypeScale.label(15))
                             .foregroundColor(.white)
                             .frame(maxWidth: .infinity)

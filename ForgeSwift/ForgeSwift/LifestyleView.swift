@@ -305,13 +305,7 @@ struct LifestyleHeaderView: View {
                     withAnimation(.spring(response: 0.35, dampingFraction: 0.72)) { showInsights = true }
                     FDS.haptic(.light)
                 } label: {
-                    Image(systemName: "sparkles")
-                        .font(.system(size: 16, weight: .semibold))
-                        .foregroundStyle(Color.ember)
-                        .frame(width: 40, height: 40)
-                        .background(Color.ember.opacity(0.14))
-                        .clipShape(Circle())
-                        .overlay(Circle().stroke(Color.ember.opacity(0.28), lineWidth: 1))
+                    ARIAIdentityMark(state: .idle, mood: .energized, size: 40, amplitude: 0.24)
                 }
                 .buttonStyle(.plain)
                 .accessibilityLabel("ARIA insights")
