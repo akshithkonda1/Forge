@@ -29,6 +29,8 @@ enum AriaSigilGeometry: Sendable {
     static let speakingSpinHz: Double = 0.075
     /// Soft liquid breathe while talking — well under flash rates.
     static let waveformHz: Double = 2.35
+    /// Faster surface shimmer for the smart-metal orb (spatial, not a strobe).
+    static let metalRippleHz: Double = 3.1
 
     static let strokeWidthCompact: CGFloat = 1.5
     static let strokeWidthHero: CGFloat = 1.85
@@ -52,6 +54,10 @@ enum AriaSigilGeometry: Sendable {
         var sy: Double
         var glow: Double
         var highlight: Double
+        /// Smart-metal surface ripples (0…1). Idle is a whisper; speaking is a voice.
+        var ripple: Double
+        var sheenAngle: Double
+        var metalWarp: Double
     }
 
     static var contrastRingIndices: [Int] {
@@ -149,7 +155,7 @@ enum AriaSigilGeometry: Sendable {
         return pose
     }
 
-    /// White orb core: idle = soft pearl; speaking = liquid squash from amplitude.
+    /// White smart-metal orb: idle = soft pearl; speaking = vibrating liquid metal.
     static func orbCore(
         time: Double,
         state: AROrbState,
@@ -157,21 +163,31 @@ enum AriaSigilGeometry: Sendable {
         reduceMotion: Bool
     ) -> OrbCorePose {
         if reduceMotion {
-            return OrbCorePose(sx: 1, sy: 1, glow: 0.55, highlight: 0.7)
+            return OrbCorePose(
+                sx: 1, sy: 1, glow: 0.55, highlight: 0.7,
+                ripple: 0.12, sheenAngle: 0.55, metalWarp: 0
+            )
         }
         let drive = waveformDrive(state: state, amplitude: amplitude)
         let phase = time * waveformHz * .pi * 2
+        let metalPhase = time * metalRippleHz * .pi * 2
         let wave = sin(phase)
         let wave2 = cos(phase * 1.4 + 0.3)
+        let ripple = sin(metalPhase) * 0.55 + sin(metalPhase * 1.7 + 0.9) * 0.45
+        let warp = sin(metalPhase * 2.1 + 0.4) * cos(phase * 0.85)
         return OrbCorePose(
-            sx: 1.0 + wave * 0.08 * drive,
-            sy: 1.0 + wave2 * 0.11 * drive,
-            glow: 0.5 + 0.35 * drive + 0.08 * wave * drive,
-            highlight: 0.65 + 0.25 * drive
+            // Voice envelope — squash like a living metal droplet.
+            sx: 1.0 + wave * 0.10 * drive + warp * 0.035 * drive,
+            sy: 1.0 + wave2 * 0.14 * drive - warp * 0.04 * drive,
+            glow: 0.52 + 0.38 * drive + 0.1 * wave * drive,
+            highlight: 0.68 + 0.28 * drive,
+            ripple: 0.14 + 0.72 * drive * (0.55 + 0.45 * abs(ripple)),
+            sheenAngle: metalPhase,
+            metalWarp: warp * drive
         )
     }
 
-    static func strokeWidth(size: CGFloat, index: Int = 0) -> CGFloat {
+    static func strokeWidth    static func strokeWidth(size: CGFloat, index: Int = 0) -> CGFloat {
         _ = index
         let raw = size < heroMinimumSize ? strokeWidthCompact : strokeWidthHero
         return max(strokeWidthCompact, raw)
