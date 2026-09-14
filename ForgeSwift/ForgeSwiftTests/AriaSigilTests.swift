@@ -136,4 +136,68 @@ final class AriaSigilTests: XCTestCase {
         XCTAssertNotEqual(AriaSigilEmberLegacy.hearthHex, AriaSigilGeometry.forgeOrangeHex)
         XCTAssertNotEqual(AriaSigilEmberLegacy.lobeCount, AriaSigilGeometry.ellipseCount)
     }
+
+    func testPearlCoreAndAlternateRings() {
+        XCTAssertEqual(AriaSigilGeometry.pearlHex, "F7F4F0")
+        XCTAssertEqual(AriaSigilGeometry.pearlHotHex, "FFFFFF")
+        XCTAssertEqual(AriaSigilPalette.pearlHex, "F7F4F0")
+        XCTAssertTrue(AriaSigilGeometry.ringIsPearl(0))
+        XCTAssertFalse(AriaSigilGeometry.ringIsPearl(1))
+        XCTAssertTrue(AriaSigilGeometry.ringIsPearl(2))
+        XCTAssertLessThan(AriaSigilGeometry.waveformHz, 4.0)
+    }
+
+    func testLiquidEllipseFreezesWithReduceMotion() {
+        let a = AriaSigilGeometry.liquidEllipse(
+            index: 1, time: 1, state: .speaking, amplitude: 0.9, reduceMotion: true
+        )
+        let b = AriaSigilGeometry.liquidEllipse(
+            index: 1, time: 40, state: .speaking, amplitude: 0.9, reduceMotion: true
+        )
+        let base = AriaSigilGeometry.ellipse(
+            index: 1, time: 1, state: .speaking, reduceMotion: true
+        )
+        XCTAssertEqual(a.rx, b.rx, accuracy: 0.0001)
+        XCTAssertEqual(a.ry, b.ry, accuracy: 0.0001)
+        XCTAssertEqual(a.rotation, b.rotation, accuracy: 0.0001)
+        XCTAssertEqual(a.rx, base.rx, accuracy: 0.0001)
+        XCTAssertEqual(a.ry, base.ry, accuracy: 0.0001)
+    }
+
+    func testLiquidEllipseWavesWhenSpeaking() {
+        let a = AriaSigilGeometry.liquidEllipse(
+            index: 2, time: 0.2, state: .speaking, amplitude: 0.95, reduceMotion: false
+        )
+        let b = AriaSigilGeometry.liquidEllipse(
+            index: 2, time: 0.55, state: .speaking, amplitude: 0.95, reduceMotion: false
+        )
+        XCTAssertFalse(
+            abs(a.rx - b.rx) < 0.00001
+                && abs(a.ry - b.ry) < 0.00001
+                && abs(a.rotation - b.rotation) < 0.00001
+        )
+        let coreA = AriaSigilGeometry.orbCore(
+            time: 0.2, state: .speaking, amplitude: 0.95, reduceMotion: false
+        )
+        let coreB = AriaSigilGeometry.orbCore(
+            time: 0.55, state: .speaking, amplitude: 0.95, reduceMotion: false
+        )
+        XCTAssertFalse(abs(coreA.sx - coreB.sx) < 0.00001 && abs(coreA.sy - coreB.sy) < 0.00001)
+        let still = AriaSigilGeometry.orbCore(
+            time: 99, state: .speaking, amplitude: 0.95, reduceMotion: true
+        )
+        XCTAssertEqual(still.sx, 1, accuracy: 0.0001)
+        XCTAssertEqual(still.sy, 1, accuracy: 0.0001)
+    }
+
+    func testSpeakingDriveIsStrongerThanIdle() {
+        XCTAssertGreaterThan(
+            AriaSigilGeometry.waveformDrive(state: .speaking, amplitude: 0.8),
+            AriaSigilGeometry.waveformDrive(state: .idle, amplitude: 0.8)
+        )
+        XCTAssertGreaterThan(
+            AriaSigilGeometry.waveformDrive(state: .listening, amplitude: 0.8),
+            AriaSigilGeometry.waveformDrive(state: .idle, amplitude: 0.8)
+        )
+    }
 }

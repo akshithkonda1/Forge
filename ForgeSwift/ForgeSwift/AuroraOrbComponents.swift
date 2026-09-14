@@ -29,9 +29,9 @@ struct ARIAIdentityMark: View {
     }
 }
 
-/// Procedural kinetic orange ring-field. Five overlapping ellipses, `#FF4D00`.
-/// Soft spin. No PNG, no gooey hearth, no Home readiness chrome.
-/// Presence (speech / listen) raises spin rate. Reduce Motion and
+/// Procedural ARIA logo: kinetic orange + pearl rings around a glowing white
+/// liquid orb. Soft spin at idle; speaking amplitude drives a waveform feel.
+/// No PNG, no gooey hearth, no Home readiness chrome. Reduce Motion and
 /// `forgeMinimalAnimation` freeze at `AriaSigilGeometry.stillPose`.
 struct AuroraOrbView: View {
     let state: AROrbState
@@ -54,11 +54,13 @@ struct AuroraOrbView: View {
     }
 
     private var tick: Double {
-        frozen ? 1 : 1.0 / 12.0
+        if frozen { return 1 }
+        // Slightly denser samples while talking so the liquid waveform reads.
+        return resolvedState == .speaking ? 1.0 / 20.0 : 1.0 / 12.0
     }
 
     var body: some View {
-        // Mood stays on the call-site API. Identity does not recolor — the field is `#FF4D00`.
+        // Mood stays on the call-site API. Identity does not recolor from mood.
         let _ = mood
         TimelineView(.animation(
             minimumInterval: tick,
@@ -87,9 +89,9 @@ struct AuroraOrbView: View {
     }
 }
 
-/// Stroked ellipses only. Identity is orange — mood does not recolor the field.
-/// Hero (≥90pt) draws all five. Compact slots draw the Cove 3-ring
-/// (two ≥0.70 + one support). Shape strokes, not Canvas + `.plusLighter`.
+/// Orange + pearl kinetic rings with a white liquid core. Hero (≥90pt) draws
+/// all five. Compact slots draw the Cove 3-ring. Shape strokes — not Canvas +
+/// `.plusLighter` (Simulator MSAA).
 private struct AriaRingFieldView: View {
     let time: TimeInterval
     let state: AROrbState
@@ -98,42 +100,148 @@ private struct AriaRingFieldView: View {
     let reduceMotion: Bool
 
     private var orange: Color { Color(hex: AriaSigilPalette.forgeOrangeHex) }
+    private var orangeLight: Color { Color(hex: AriaSigilGeometry.brandHueLightHex) }
+    private var pearl: Color { Color(hex: AriaSigilPalette.pearlHex) }
+    private var pearlHot: Color { Color(hex: AriaSigilPalette.pearlHotHex) }
     private var energy: Double { max(0, min(1, Double(amplitude))) }
+    private var drive: Double {
+        AriaSigilGeometry.waveformDrive(state: state, amplitude: energy)
+    }
 
     var body: some View {
+        let core = AriaSigilGeometry.orbCore(
+            time: time,
+            state: state,
+            amplitude: energy,
+            reduceMotion: reduceMotion
+        )
         ZStack {
+            // Atmospheric depth wash — orange into pearl, not flat fill.
             Circle()
                 .fill(
                     RadialGradient(
                         colors: [
-                            orange.opacity(0.16 + energy * 0.06),
-                            orange.opacity(0.04),
+                            pearlHot.opacity(0.10 + drive * 0.08),
+                            orange.opacity(0.14 + energy * 0.06),
+                            orange.opacity(0.03),
                             .clear
                         ],
                         center: .center,
-                        startRadius: size * 0.04,
-                        endRadius: size * 0.48
+                        startRadius: size * 0.02,
+                        endRadius: size * 0.5
                     )
                 )
+
             ForEach(AriaSigilGeometry.visibleRingIndices(size: size), id: \.self) { index in
-                let pose = AriaSigilGeometry.ellipse(
+                let pose = AriaSigilGeometry.liquidEllipse(
                     index: index,
                     time: time,
                     state: state,
+                    amplitude: energy,
                     reduceMotion: reduceMotion
                 )
+                let pearlRing = AriaSigilGeometry.ringIsPearl(index)
+                let stroke = pearlRing ? pearlHot : (index == 2 ? orangeLight : orange)
+                let line = AriaSigilGeometry.strokeWidth(size: size, index: index)
+
+                // Soft under-glow for depth, then the crisp identity stroke.
                 Ellipse()
                     .stroke(
-                        orange.opacity(pose.opacity),
-                        lineWidth: AriaSigilGeometry.strokeWidth(size: size, index: index)
+                        stroke.opacity(pose.opacity * 0.35),
+                        lineWidth: line + max(1.2, size * 0.018)
+                    )
+                    .frame(width: size * pose.rx, height: size * pose.ry)
+                    .rotationEffect(.radians(pose.rotation))
+                Ellipse()
+                    .stroke(
+                        stroke.opacity(min(1, pose.opacity + (pearlRing ? 0.12 : 0))),
+                        lineWidth: line
                     )
                     .frame(width: size * pose.rx, height: size * pose.ry)
                     .rotationEffect(.radians(pose.rotation))
             }
+
+            AriaLiquidOrbCore(
+                size: size,
+                core: core,
+                pearl: pearl,
+                pearlHot: pearlHot,
+                orange: orange,
+                drive: drive
+            )
         }
         .frame(width: size, height: size)
-        .shadow(color: orange.opacity(0.28 + energy * 0.12), radius: max(4, size * 0.08))
+        .shadow(color: orange.opacity(0.22 + drive * 0.16), radius: max(4, size * 0.07))
+        .shadow(color: pearlHot.opacity(0.12 + core.glow * 0.18), radius: max(3, size * 0.05))
         .allowsHitTesting(false)
+    }
+}
+
+/// Glowing white orb — liquid squash when speaking so the mark feels like a voice.
+private struct AriaLiquidOrbCore: View {
+    let size: CGFloat
+    let core: AriaSigilGeometry.OrbCorePose
+    let pearl: Color
+    let pearlHot: Color
+    let orange: Color
+    let drive: Double
+
+    var body: some View {
+        let diameter = size * (size < AriaSigilGeometry.heroMinimumSize ? 0.28 : 0.32)
+        ZStack {
+            // Outer halo
+            Circle()
+                .fill(
+                    RadialGradient(
+                        colors: [
+                            pearlHot.opacity(0.38 + core.glow * 0.28),
+                            pearl.opacity(0.16 + drive * 0.1),
+                            orange.opacity(0.06 + drive * 0.05),
+                            .clear
+                        ],
+                        center: .center,
+                        startRadius: diameter * 0.08,
+                        endRadius: diameter * 1.15
+                    )
+                )
+                .frame(width: diameter * 2.05, height: diameter * 2.05)
+
+            // Liquid pearl body
+            Ellipse()
+                .fill(
+                    RadialGradient(
+                        colors: [
+                            pearlHot.opacity(0.95),
+                            pearl.opacity(0.88),
+                            pearl.opacity(0.55),
+                            pearl.opacity(0.18)
+                        ],
+                        center: UnitPoint(x: 0.38, y: 0.32),
+                        startRadius: diameter * 0.02,
+                        endRadius: diameter * 0.55
+                    )
+                )
+                .frame(width: diameter, height: diameter)
+                .scaleEffect(x: core.sx, y: core.sy)
+
+            // Specular highlight — keeps the core reading as liquid glass.
+            Ellipse()
+                .fill(
+                    RadialGradient(
+                        colors: [
+                            pearlHot.opacity(0.75 * core.highlight),
+                            pearlHot.opacity(0.15),
+                            .clear
+                        ],
+                        center: .center,
+                        startRadius: 0,
+                        endRadius: diameter * 0.22
+                    )
+                )
+                .frame(width: diameter * 0.42, height: diameter * 0.28)
+                .offset(x: -diameter * 0.12, y: -diameter * 0.14)
+                .scaleEffect(x: core.sx, y: core.sy)
+        }
     }
 }
 

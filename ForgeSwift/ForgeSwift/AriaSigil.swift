@@ -1,11 +1,12 @@
 import Foundation
 import SwiftUI
 
-/// Kinetic orange ring-field. Numbers copied from Lex `#270` head
+/// Kinetic orange/white ring-field + liquid pearl core (iOS logo).
+/// Base numbers copied from Lex `#270` head
 /// `fab0a402097050dfec528f014e902591314204ca` (`shared/aria-mark.json`).
-/// That PR is mergeable but not on `main` yet — do not invent a second geometry.
-/// Soft spin while alive; Reduce Motion / `forgeMinimalAnimation` freeze at
-/// `stillPoseAngleDeg`.
+/// Do not invent a second geometry. Soft spin while alive; Reduce Motion /
+/// `forgeMinimalAnimation` freeze at `stillPoseAngleDeg`. Speaking adds a
+/// liquid waveform deformation on top of the locked radii/tilts.
 enum AriaSigilGeometry: Sendable {
 
     static let kind = "ring-field"
@@ -14,6 +15,9 @@ enum AriaSigilGeometry: Sendable {
     static let ellipseCount: Int = ringCount
     static let forgeOrangeHex = "FF4D00"
     static let brandHueLightHex = "FF6B2B"
+    /// Soft pearl core — glows; never readiness chrome.
+    static let pearlHex = "F7F4F0"
+    static let pearlHotHex = "FFFFFF"
 
     /// Frozen TimelineView clock only. Angle lock is `stillPoseAngleDeg` (Lex).
     static let stillPose: Double = 1.72
@@ -23,6 +27,8 @@ enum AriaSigilGeometry: Sendable {
 
     static let idleSpinHz: Double = 0.04
     static let speakingSpinHz: Double = 0.075
+    /// Soft liquid breathe while talking — well under flash rates.
+    static let waveformHz: Double = 2.35
 
     static let strokeWidthCompact: CGFloat = 1.5
     static let strokeWidthHero: CGFloat = 1.85
@@ -39,6 +45,13 @@ enum AriaSigilGeometry: Sendable {
         var ry: Double
         var rotation: Double
         var opacity: Double
+    }
+
+    struct OrbCorePose: Equatable, Sendable {
+        var sx: Double
+        var sy: Double
+        var glow: Double
+        var highlight: Double
     }
 
     static var contrastRingIndices: [Int] {
@@ -59,11 +72,29 @@ enum AriaSigilGeometry: Sendable {
         size < heroMinimumSize ? compactRingIndices : Array(0..<ellipseCount)
     }
 
+    /// Alternating pearl / orange for futuristic depth. Even indices are pearl.
+    static func ringIsPearl(_ index: Int) -> Bool {
+        index % 2 == 0
+    }
+
     static func spinHz(for state: AROrbState) -> Double {
         switch state {
         case .idle, .listening: return idleSpinHz
         case .processing, .speaking: return speakingSpinHz
         }
+    }
+
+    /// How hard the liquid waveform drives — speaking is full, idle is a whisper.
+    static func waveformDrive(state: AROrbState, amplitude: Double) -> Double {
+        let energy = max(0, min(1, amplitude))
+        let boost: Double
+        switch state {
+        case .speaking: boost = 1.0
+        case .listening: boost = 0.38
+        case .processing: boost = 0.48
+        case .idle: boost = 0.14
+        }
+        return energy * boost
     }
 
     static func ellipse(
@@ -92,6 +123,54 @@ enum AriaSigilGeometry: Sendable {
         )
     }
 
+    /// Lex radii/tilts plus liquid waveform when alive. Reduce Motion returns
+    /// the still ellipse unchanged.
+    static func liquidEllipse(
+        index: Int,
+        time: Double,
+        state: AROrbState,
+        amplitude: Double,
+        reduceMotion: Bool
+    ) -> EllipsePose {
+        var pose = ellipse(index: index, time: time, state: state, reduceMotion: reduceMotion)
+        guard !reduceMotion else { return pose }
+        let drive = waveformDrive(state: state, amplitude: amplitude)
+        guard drive > 0.01 else { return pose }
+
+        let i = max(0, min(ellipseCount - 1, index))
+        let phase = time * waveformHz * .pi * 2 + phaseOffsets[i] * .pi * 2
+        let wave = sin(phase)
+        let wave2 = cos(phase * 1.27 + Double(i) * 0.55)
+        // Soft liquid stretch — reads as a waveform while speaking, not a strobe.
+        pose.rx *= 1.0 + wave * 0.065 * drive
+        pose.ry *= 1.0 + wave2 * 0.085 * drive
+        pose.rotation += wave * 0.04 * drive
+        pose.opacity = min(1.0, pose.opacity + drive * 0.14 * (0.55 + 0.45 * wave))
+        return pose
+    }
+
+    /// White orb core: idle = soft pearl; speaking = liquid squash from amplitude.
+    static func orbCore(
+        time: Double,
+        state: AROrbState,
+        amplitude: Double,
+        reduceMotion: Bool
+    ) -> OrbCorePose {
+        if reduceMotion {
+            return OrbCorePose(sx: 1, sy: 1, glow: 0.55, highlight: 0.7)
+        }
+        let drive = waveformDrive(state: state, amplitude: amplitude)
+        let phase = time * waveformHz * .pi * 2
+        let wave = sin(phase)
+        let wave2 = cos(phase * 1.4 + 0.3)
+        return OrbCorePose(
+            sx: 1.0 + wave * 0.08 * drive,
+            sy: 1.0 + wave2 * 0.11 * drive,
+            glow: 0.5 + 0.35 * drive + 0.08 * wave * drive,
+            highlight: 0.65 + 0.25 * drive
+        )
+    }
+
     static func strokeWidth(size: CGFloat, index: Int = 0) -> CGFloat {
         _ = index
         let raw = size < heroMinimumSize ? strokeWidthCompact : strokeWidthHero
@@ -103,6 +182,8 @@ enum AriaSigilPalette: Sendable {
     static let forgeOrangeHex = AriaSigilGeometry.forgeOrangeHex
     /// Brand lock. Was `FF6A1A` (gooey hearth); the mark is Forge orange now.
     static let emberHex = forgeOrangeHex
+    static let pearlHex = AriaSigilGeometry.pearlHex
+    static let pearlHotHex = AriaSigilGeometry.pearlHotHex
     static let voidDeepHex = "030207"
     static let voidMidHex = "0B0812"
     static let ivoryHex = "F3EBDD"
