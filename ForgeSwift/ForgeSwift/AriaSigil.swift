@@ -1,25 +1,25 @@
 import Foundation
 import SwiftUI
 
-/// Kinetic orange/white ring-field + liquid pearl core (iOS logo).
-/// Base numbers copied from Lex `#270` head
-/// `fab0a402097050dfec528f014e902591314204ca` (`shared/aria-mark.json`).
-/// Do not invent a second geometry. Soft spin while alive; Reduce Motion /
-/// `forgeMinimalAnimation` freeze at `stillPoseAngleDeg`. Speaking adds a
-/// liquid waveform deformation on top of the locked radii/tilts.
+/// Kinetic orange/pearl hex nest + smart-metal pearl core (iOS Aria logo).
+/// Three stroked hexagons around a white orb. Soft spin while alive; Reduce
+/// Motion / `forgeMinimalAnimation` freeze at `stillPoseAngleDeg`. Speaking
+/// adds a liquid-metal waveform on the orb and a soft breathe on the hexes.
 enum AriaSigilGeometry: Sendable {
 
-    static let kind = "ring-field"
+    static let kind = "hex-field"
     static let assetName = "AriaMark"
-    static let ringCount: Int = 5
-    static let ellipseCount: Int = ringCount
+    static let ringCount: Int = 3
+    static let hexCount: Int = ringCount
+    /// Legacy alias — mark is hexagons now, not ellipses.
+    static let ellipseCount: Int = hexCount
     static let forgeOrangeHex = "FF4D00"
     static let brandHueLightHex = "FF6B2B"
     /// Soft pearl core — glows; never readiness chrome.
     static let pearlHex = "F7F4F0"
     static let pearlHotHex = "FFFFFF"
 
-    /// Frozen TimelineView clock only. Angle lock is `stillPoseAngleDeg` (Lex).
+    /// Frozen TimelineView clock only. Angle lock is `stillPoseAngleDeg`.
     static let stillPose: Double = 1.72
     static let stillPoseAngleDeg: Double = 18
     static let heroMinimumSize: CGFloat = 90
@@ -36,18 +36,23 @@ enum AriaSigilGeometry: Sendable {
     static let strokeWidthHero: CGFloat = 1.85
     static let contrastFloor: Double = 0.70
 
-    static let radii: [Double] = [0.38, 0.48, 0.58, 0.68, 0.78]
-    static let eccentricity: [Double] = [0.1, 0.14, 0.08, 0.16, 0.11]
-    static let tiltDeg: [Double] = [14, -22, 28, -10, 18]
-    static let phaseOffsets: [Double] = [0, 0.18, 0.41, 0.63, 0.88]
-    static let ringOpacities: [Double] = [0.40, 0.72, 0.78, 0.45, 0.55]
+    /// Circumradius of each hex as a fraction of the mark size.
+    static let radii: [Double] = [0.46, 0.62, 0.78]
+    /// Slight eccentricity so hexes read kinetic without going elliptical.
+    static let eccentricity: [Double] = [0.04, 0.06, 0.05]
+    static let tiltDeg: [Double] = [10, -16, 8]
+    static let phaseOffsets: [Double] = [0, 0.34, 0.67]
+    static let ringOpacities: [Double] = [0.72, 0.88, 0.58]
 
-    struct EllipsePose: Equatable, Sendable {
+    struct HexPose: Equatable, Sendable {
         var rx: Double
         var ry: Double
         var rotation: Double
         var opacity: Double
     }
+
+    /// Legacy name kept for call-site continuity.
+    typealias EllipsePose = HexPose
 
     struct OrbCorePose: Equatable, Sendable {
         var sx: Double
@@ -64,18 +69,12 @@ enum AriaSigilGeometry: Sendable {
         ringOpacities.enumerated().compactMap { $0.element >= contrastFloor ? $0.offset : nil }
     }
 
-    /// Compact 3-ring: the two ≥ 0.70 rings plus the strongest support ring.
-    /// Watch later / tab / avatar slots. Not Home readiness chrome.
-    static var compactRingIndices: [Int] {
-        let support = ringOpacities.enumerated()
-            .filter { $0.element < contrastFloor }
-            .max { $0.element < $1.element }?
-            .offset
-        return (contrastRingIndices + [support].compactMap { $0 }).sorted()
-    }
+    /// Always the three hexes — compact and hero share the same nest.
+    static var compactRingIndices: [Int] { Array(0..<hexCount) }
 
     static func visibleRingIndices(size: CGFloat) -> [Int] {
-        size < heroMinimumSize ? compactRingIndices : Array(0..<ellipseCount)
+        _ = size
+        return Array(0..<hexCount)
     }
 
     /// Alternating pearl / orange for futuristic depth. Even indices are pearl.
@@ -103,13 +102,13 @@ enum AriaSigilGeometry: Sendable {
         return energy * boost
     }
 
-    static func ellipse(
+    static func hex(
         index: Int,
         time: Double,
         state: AROrbState,
         reduceMotion: Bool
-    ) -> EllipsePose {
-        let i = max(0, min(ellipseCount - 1, index))
+    ) -> HexPose {
+        let i = max(0, min(hexCount - 1, index))
         let radius = radii[i]
         let ecc = eccentricity[i]
         let tilt = tiltDeg[i] * .pi / 180
@@ -121,7 +120,7 @@ enum AriaSigilGeometry: Sendable {
         } else {
             spin = time * spinHz(for: state) * .pi * 2
         }
-        return EllipsePose(
+        return HexPose(
             rx: radius * (1 + ecc),
             ry: radius * (1 - ecc),
             rotation: tilt + phase + spin,
@@ -129,30 +128,49 @@ enum AriaSigilGeometry: Sendable {
         )
     }
 
-    /// Lex radii/tilts plus liquid waveform when alive. Reduce Motion returns
-    /// the still ellipse unchanged.
+    /// Legacy alias — callers still say `ellipse`.
+    static func ellipse(
+        index: Int,
+        time: Double,
+        state: AROrbState,
+        reduceMotion: Bool
+    ) -> HexPose {
+        hex(index: index, time: time, state: state, reduceMotion: reduceMotion)
+    }
+
+    /// Hex pose plus liquid breathe when alive. Reduce Motion returns still.
+    static func liquidHex(
+        index: Int,
+        time: Double,
+        state: AROrbState,
+        amplitude: Double,
+        reduceMotion: Bool
+    ) -> HexPose {
+        var pose = hex(index: index, time: time, state: state, reduceMotion: reduceMotion)
+        guard !reduceMotion else { return pose }
+        let drive = waveformDrive(state: state, amplitude: amplitude)
+        guard drive > 0.01 else { return pose }
+
+        let i = max(0, min(hexCount - 1, index))
+        let phase = time * waveformHz * .pi * 2 + phaseOffsets[i] * .pi * 2
+        let wave = sin(phase)
+        let wave2 = cos(phase * 1.27 + Double(i) * 0.55)
+        pose.rx *= 1.0 + wave * 0.045 * drive
+        pose.ry *= 1.0 + wave2 * 0.055 * drive
+        pose.rotation += wave * 0.03 * drive
+        pose.opacity = min(1.0, pose.opacity + drive * 0.12 * (0.55 + 0.45 * wave))
+        return pose
+    }
+
+    /// Legacy alias.
     static func liquidEllipse(
         index: Int,
         time: Double,
         state: AROrbState,
         amplitude: Double,
         reduceMotion: Bool
-    ) -> EllipsePose {
-        var pose = ellipse(index: index, time: time, state: state, reduceMotion: reduceMotion)
-        guard !reduceMotion else { return pose }
-        let drive = waveformDrive(state: state, amplitude: amplitude)
-        guard drive > 0.01 else { return pose }
-
-        let i = max(0, min(ellipseCount - 1, index))
-        let phase = time * waveformHz * .pi * 2 + phaseOffsets[i] * .pi * 2
-        let wave = sin(phase)
-        let wave2 = cos(phase * 1.27 + Double(i) * 0.55)
-        // Soft liquid stretch — reads as a waveform while speaking, not a strobe.
-        pose.rx *= 1.0 + wave * 0.065 * drive
-        pose.ry *= 1.0 + wave2 * 0.085 * drive
-        pose.rotation += wave * 0.04 * drive
-        pose.opacity = min(1.0, pose.opacity + drive * 0.14 * (0.55 + 0.45 * wave))
-        return pose
+    ) -> HexPose {
+        liquidHex(index: index, time: time, state: state, amplitude: amplitude, reduceMotion: reduceMotion)
     }
 
     /// White smart-metal orb: idle = soft pearl; speaking = vibrating liquid metal.
@@ -176,7 +194,6 @@ enum AriaSigilGeometry: Sendable {
         let ripple = sin(metalPhase) * 0.55 + sin(metalPhase * 1.7 + 0.9) * 0.45
         let warp = sin(metalPhase * 2.1 + 0.4) * cos(phase * 0.85)
         return OrbCorePose(
-            // Voice envelope — squash like a living metal droplet.
             sx: 1.0 + wave * 0.10 * drive + warp * 0.035 * drive,
             sy: 1.0 + wave2 * 0.14 * drive - warp * 0.04 * drive,
             glow: 0.52 + 0.38 * drive + 0.1 * wave * drive,
@@ -187,7 +204,7 @@ enum AriaSigilGeometry: Sendable {
         )
     }
 
-    static func strokeWidth    static func strokeWidth(size: CGFloat, index: Int = 0) -> CGFloat {
+    static func strokeWidth(size: CGFloat, index: Int = 0) -> CGFloat {
         _ = index
         let raw = size < heroMinimumSize ? strokeWidthCompact : strokeWidthHero
         return max(strokeWidthCompact, raw)
@@ -233,7 +250,7 @@ enum AriaSigilPalette: Sendable {
 // MARK: - Minimal animation (phone)
 
 /// Mirrors the Watch `forgeMinimalAnimation` key. Either this or Reduce Motion
-/// freezes the ring-field at `AriaSigilGeometry.stillPoseAngleDeg`. Default is off;
+/// freezes the hex nest at `AriaSigilGeometry.stillPoseAngleDeg`. Default is off;
 /// iOS has no separate Settings toggle yet.
 private struct ForgeMinimalAnimationKey: EnvironmentKey {
     static let defaultValue = false

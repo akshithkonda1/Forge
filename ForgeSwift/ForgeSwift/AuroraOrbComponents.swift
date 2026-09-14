@@ -29,8 +29,8 @@ struct ARIAIdentityMark: View {
     }
 }
 
-/// Procedural ARIA logo: kinetic orange + pearl rings around a glowing white
-/// liquid orb. Soft spin at idle; speaking amplitude drives a waveform feel.
+/// Procedural ARIA logo: three kinetic hexagons around a glowing white
+/// smart-metal orb. Soft spin at idle; speaking amplitude drives a waveform feel.
 /// No PNG, no gooey hearth, no Home readiness chrome. Reduce Motion and
 /// `forgeMinimalAnimation` freeze at `AriaSigilGeometry.stillPose`.
 struct AuroraOrbView: View {
@@ -89,11 +89,8 @@ struct AuroraOrbView: View {
     }
 }
 
-/// Orange + pearl kinetic rings with a white liquid core. Hero (≥90pt) draws
-/// all five. Compact slots draw the Cove 3-ring. Shape strokes — not Canvas +
-/// Kinetic wirefield matching the Watch center nest (thin overlapping ellipses)
-/// around a white smart-metal orb. Hero (≥90pt) draws all five. Compact slots
-/// draw the Cove 3-ring. Shape strokes — not Canvas + `.plusLighter`.
+/// Three kinetic hexagons around a white smart-metal orb. Same nest at every
+/// size. Shape strokes — not Canvas + `.plusLighter`.
 private struct AriaRingFieldView: View {
     let time: TimeInterval
     let state: AROrbState
@@ -118,7 +115,6 @@ private struct AriaRingFieldView: View {
             reduceMotion: reduceMotion
         )
         ZStack {
-            // Soft nest wash — keeps the wirefield floating, never a card.
             Circle()
                 .fill(
                     RadialGradient(
@@ -133,10 +129,8 @@ private struct AriaRingFieldView: View {
                     )
                 )
 
-            // Thin overlapping kinetic ellipses — same nest language as the
-            // Watch Home center (the red-square mark), brand-colored.
             ForEach(AriaSigilGeometry.visibleRingIndices(size: size), id: \.self) { index in
-                let pose = AriaSigilGeometry.liquidEllipse(
+                let pose = AriaSigilGeometry.liquidHex(
                     index: index,
                     time: time,
                     state: state,
@@ -144,20 +138,19 @@ private struct AriaRingFieldView: View {
                     reduceMotion: reduceMotion
                 )
                 let pearlRing = AriaSigilGeometry.ringIsPearl(index)
-                let stroke = pearlRing ? pearlHot : (index == 2 ? orangeLight : orange)
+                let stroke = pearlRing ? pearlHot : (index == 1 ? orangeLight : orange)
                 let line = AriaSigilGeometry.strokeWidth(size: size, index: index)
-                // Hairline under-glow only — wirefield, not a neon tube.
-                Ellipse()
+                AriaHexagon()
                     .stroke(
                         stroke.opacity(pose.opacity * 0.22),
                         lineWidth: max(0.8, line * 0.55)
                     )
                     .frame(width: size * pose.rx, height: size * pose.ry)
                     .rotationEffect(.radians(pose.rotation))
-                Ellipse()
+                AriaHexagon()
                     .stroke(
-                        stroke.opacity(min(1, pose.opacity + (pearlRing ? 0.18 : 0.06))),
-                        lineWidth: max(1.0, line * 0.72)
+                        stroke.opacity(min(1, pose.opacity + (pearlRing ? 0.16 : 0.06))),
+                        lineWidth: max(1.0, line * 0.78)
                     )
                     .frame(width: size * pose.rx, height: size * pose.ry)
                     .rotationEffect(.radians(pose.rotation))
@@ -176,6 +169,30 @@ private struct AriaRingFieldView: View {
         .shadow(color: orange.opacity(0.16 + drive * 0.12), radius: max(3, size * 0.05))
         .shadow(color: pearlHot.opacity(0.18 + core.glow * 0.22), radius: max(4, size * 0.06))
         .allowsHitTesting(false)
+    }
+}
+
+/// Flat-top hexagon path for the Aria nest.
+private struct AriaHexagon: Shape {
+    func path(in rect: CGRect) -> Path {
+        var path = Path()
+        let center = CGPoint(x: rect.midX, y: rect.midY)
+        let radius = min(rect.width, rect.height) / 2
+        for i in 0..<6 {
+            // Flat-top: start at 0 rad.
+            let angle = CGFloat(i) * (.pi / 3)
+            let point = CGPoint(
+                x: center.x + radius * cos(angle),
+                y: center.y + radius * sin(angle)
+            )
+            if i == 0 {
+                path.move(to: point)
+            } else {
+                path.addLine(to: point)
+            }
+        }
+        path.closeSubpath()
+        return path
     }
 }
 
