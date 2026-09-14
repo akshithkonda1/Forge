@@ -9,6 +9,10 @@ import ForgeCore
 //  2) Receives companion config (base URL, user id, first name) from iPhone
 //     so Xcode simulator pairs work even when App Groups do not share.
 //
+// Forge Watch runs independently for glanceables and local sessions. Reachability
+// changes are published so `CompanionGate` can require the iPhone only for
+// phone-bound actions (deeper ARIA, chat handoff, sync CTAs).
+//
 // Transport policy for workouts:
 //  - `sendMessage` when the phone is reachable (low latency, in-session)
 //  - `updateApplicationContext` as the always-works fallback (latest wins)
@@ -22,6 +26,9 @@ final class PhoneLinkService: NSObject, WCSessionDelegate {
 
     /// Posted on the main queue when companion config is applied.
     static let companionConfigDidUpdate = Notification.Name("forge.watch.companionConfigDidUpdate")
+
+    /// Posted on the main queue when WCSession reachability flips.
+    static let companionReachabilityDidChange = Notification.Name("forge.watch.companionReachabilityDidChange")
 
     private let secureStore: SecureStore = KeychainStore()
 
@@ -167,6 +174,7 @@ final class PhoneLinkService: NSObject, WCSessionDelegate {
         }
         DispatchQueue.main.async {
             NotificationCenter.default.post(name: Self.companionConfigDidUpdate, object: nil)
+            NotificationCenter.default.post(name: Self.companionReachabilityDidChange, object: nil)
         }
     }
 
@@ -180,6 +188,15 @@ final class PhoneLinkService: NSObject, WCSessionDelegate {
         // Apply any context that was queued while the session was offline.
         if activationState == .activated, !session.receivedApplicationContext.isEmpty {
             ingest(session.receivedApplicationContext)
+        }
+        DispatchQueue.main.async {
+            NotificationCenter.default.post(name: Self.companionReachabilityDidChange, object: nil)
+        }
+    }
+
+    func sessionReachabilityDidChange(_ session: WCSession) {
+        DispatchQueue.main.async {
+            NotificationCenter.default.post(name: Self.companionReachabilityDidChange, object: nil)
         }
     }
 

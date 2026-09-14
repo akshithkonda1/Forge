@@ -435,6 +435,7 @@ private struct SessionExercisePage: View {
 
 private struct WorkoutSummaryView: View {
     @Environment(WorkoutSessionManager.self) private var workout
+    @Environment(CompanionGate.self) private var companionGate
     @Environment(WatchHealthKitManager.self) private var health
     @Environment(MindfulnessSessionManager.self) private var mindfulness
     @Binding var path: [WatchRoute]
@@ -481,6 +482,15 @@ private struct WorkoutSummaryView: View {
                         path.append(.mindfulness)
                     }
 
+                    if companionGate.allows(.phoneSyncCTA) {
+                        Text("Full review is on your iPhone.")
+                            .font(.system(size: 11))
+                            .foregroundStyle(ForgePalette.textTertiary)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                    } else if let reason = companionGate.explanation(for: .phoneSyncCTA) {
+                        PhoneRequiredCaption(message: reason)
+                    }
+
                     Button("Done for now") {
                         workout.dismissSummary()
                         path.removeAll()
@@ -489,7 +499,11 @@ private struct WorkoutSummaryView: View {
                     .font(.system(size: 12))
                     .foregroundStyle(ForgePalette.textTertiary)
                     .frame(maxWidth: .infinity)
-                    .accessibilityHint("Closes the summary. Full review is on your iPhone.")
+                    .accessibilityHint(
+                        companionGate.allows(.phoneSyncCTA)
+                            ? "Closes the summary. Full review is on your iPhone."
+                            : "Closes the summary. Full review needs your iPhone nearby."
+                    )
                 }
                 .padding(.horizontal, 2)
             }

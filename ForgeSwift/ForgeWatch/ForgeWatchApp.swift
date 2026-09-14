@@ -41,6 +41,7 @@ struct ForgeWatchApp: App {
     @State private var session = MindfulnessSessionManager()
     @State private var workout = WorkoutSessionManager()
     @State private var hydration = HydrationManager()
+    @State private var companionGate = CompanionGate()
     @State private var path: [WatchRoute] = []
     @State private var notificationRouter = WatchNotificationRouter()
 
@@ -81,6 +82,7 @@ struct ForgeWatchApp: App {
             .environment(session)
             .environment(workout)
             .environment(hydration)
+            .environment(companionGate)
             .environment(\.forgeMinimalAnimation, contextEngine.minimalAnimation)
             .onOpenURL(perform: route(_:))
             .onAppear {
@@ -91,6 +93,7 @@ struct ForgeWatchApp: App {
             }
             .onReceive(NotificationCenter.default.publisher(for: PhoneLinkService.companionConfigDidUpdate)) { _ in
                 // iPhone pushed ARIA base URL / first name — refresh greeting immediately.
+                companionGate.refresh()
                 aria.refresh(
                     health: health,
                     context: contextEngine,
@@ -98,10 +101,14 @@ struct ForgeWatchApp: App {
                     recentSkip: session.recentSkipReason
                 )
             }
+            .onReceive(NotificationCenter.default.publisher(for: PhoneLinkService.companionReachabilityDidChange)) { _ in
+                companionGate.refresh()
+            }
             .task {
                 // Ensure WCSession is live whenever the scene is up (covers cold launch
                 // after phone reinstall without requiring a workout start).
                 PhoneLinkService.shared.activate()
+                companionGate.refresh()
                 // watchOS keeps an HKWorkoutSession running through app suspension
                 // and termination. Reattach before anything renders, so a session
                 // that outlived the app can still be ended and saved instead of

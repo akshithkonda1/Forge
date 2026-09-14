@@ -16,6 +16,7 @@ struct HomeView: View {
     @Environment(MindfulnessSessionManager.self) private var session
     @Environment(WorkoutSessionManager.self) private var workout
     @Environment(HydrationManager.self) private var hydration
+    @Environment(CompanionGate.self) private var companionGate
     @Environment(\.scenePhase) private var scenePhase
 
     @Binding var path: [WatchRoute]
@@ -39,6 +40,10 @@ struct HomeView: View {
                         .frame(maxWidth: .infinity, alignment: .leading)
                         .fixedSize(horizontal: false, vertical: true)
                         .accessibilityLabel("ARIA day brief: \(aria.dayBrief)")
+                }
+
+                if let banner = companionGate.independenceBanner {
+                    CompanionIndependenceBanner(message: banner)
                 }
 
                 if let suggestion = contextEngine.suggestedMode {

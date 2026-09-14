@@ -85,8 +85,13 @@ final class ARIAWatchService {
     func deeperDebrief(
         practice: PracticeType,
         minutes: Double,
-        heartRateSettleBPM: Double?
+        heartRateSettleBPM: Double?,
+        companionAllows: Bool = true
     ) async -> String? {
+        // Deeper coaching is phone-required: without a reachable companion (and
+        // synced auth), keep the local debrief and skip the network upgrade.
+        guard companionAllows else { return nil }
+
         // A token is required. This used to send the request either way, on the
         // reasoning that "the backend's Cognito-or-test-user auth tolerates a
         // missing Bearer header, and no real token store exists yet". Neither
