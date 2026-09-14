@@ -38,6 +38,10 @@ public struct WatchARIAContext: Codable, Sendable, Equatable {
     public var mindfulMinutesToday: Double?
     public var sessionsCompletedToday: Int?
 
+    /// Most recent skip today (if any). Feeds suggestion personalization;
+    /// never guilt — skipping is data.
+    public var recentSkipReason: SkipReason?
+
     // One-tap sleep factors the user logged for last night / today.
     public var sleepFactors: [SleepFactor]?
 

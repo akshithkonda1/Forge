@@ -3,6 +3,7 @@ from __future__ import annotations
 from typing import Any
 
 from responses import RouteError, ok
+from security import enforce_user_rate_limit
 from services import watch_debrief
 
 
@@ -25,6 +26,11 @@ def handle_post_watch_aria_suggest(body: dict[str, Any], user_id: str) -> dict:
     context = body.get("context")
     if not practice or not isinstance(context, dict):
         raise RouteError(400, "practice and context are required.")
+
+    try:
+        enforce_user_rate_limit(user_id, action="watch-aria-suggest", limit=120, window_hours=1)
+    except PermissionError as exc:
+        raise RouteError(429, str(exc) or "Too many requests.") from exc
 
     # hoursSinceLastWorkout/readinessOverall/readinessConfidence all feed
     # numeric comparisons inside watch_debrief (<=, <), which raise TypeError

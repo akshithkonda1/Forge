@@ -57,6 +57,18 @@ final class MindfulnessSessionManager {
         return recentSessions.filter { $0.completed && $0.startedAt >= startOfDay }.count
     }
 
+    /// Most recent skip recorded today, if any. Used by ARIA to soften the
+    /// next suggestion — never to guilt the user.
+    var recentSkipReason: SkipReason? {
+        let startOfDay = Calendar.current.startOfDay(for: Date())
+        return recentSessions
+            .filter { !$0.completed && $0.startedAt >= startOfDay && $0.skipReason != nil }
+            .sorted { $0.startedAt > $1.startedAt }
+            .first?
+            .skipReason
+    }
+
+
     // Pause bookkeeping lives in ForgeCore's SessionClock, where it is tested.
     // It used to be two mutable fields updated from five call sites, none of
     // which anything checked.

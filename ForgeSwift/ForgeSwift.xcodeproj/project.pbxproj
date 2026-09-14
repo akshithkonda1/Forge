@@ -274,6 +274,8 @@
 		F0B100000000000000000014 /* SleepQualityComplication.swift in Sources */ = {isa = PBXBuildFile; fileRef = F0F100000000000000000014 /* SleepQualityComplication.swift */; };
 		F0B10000000000000000001A /* WorkoutSessionManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = F0F10000000000000000001A /* WorkoutSessionManager.swift */; };
 		F0B10000000000000000001B /* PhoneLinkService.swift in Sources */ = {isa = PBXBuildFile; fileRef = F0F10000000000000000001B /* PhoneLinkService.swift */; };
+		F0B100000000000000000053 /* CompanionGate.swift in Sources */ = {isa = PBXBuildFile; fileRef = F0F100000000000000000053 /* CompanionGate.swift */; };
+		F0B100000000000000000054 /* PhoneRequiredChrome.swift in Sources */ = {isa = PBXBuildFile; fileRef = F0F100000000000000000054 /* PhoneRequiredChrome.swift */; };
 		F0B10000000000000000001C /* WorkoutCoordinatorView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F0F10000000000000000001C /* WorkoutCoordinatorView.swift */; };
 		F0B10000000000000000001D /* ActiveWorkoutComplication.swift in Sources */ = {isa = PBXBuildFile; fileRef = F0F10000000000000000001D /* ActiveWorkoutComplication.swift */; };
 		F0B100000000000000000050 /* SupportComplication.swift in Sources */ = {isa = PBXBuildFile; fileRef = F0F100000000000000000050 /* SupportComplication.swift */; };
@@ -701,6 +703,8 @@
 		F0F100000000000000000019 /* ForgeWatchWidgets.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = ForgeWatchWidgets.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 		F0F10000000000000000001A /* WorkoutSessionManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkoutSessionManager.swift; sourceTree = "<group>"; };
 		F0F10000000000000000001B /* PhoneLinkService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PhoneLinkService.swift; sourceTree = "<group>"; };
+		F0F100000000000000000053 /* CompanionGate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CompanionGate.swift; sourceTree = "<group>"; };
+		F0F100000000000000000054 /* PhoneRequiredChrome.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PhoneRequiredChrome.swift; sourceTree = "<group>"; };
 		F0F10000000000000000001C /* WorkoutCoordinatorView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkoutCoordinatorView.swift; sourceTree = "<group>"; };
 		F0F10000000000000000001D /* ActiveWorkoutComplication.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ActiveWorkoutComplication.swift; sourceTree = "<group>"; };
 		F0F100000000000000000050 /* SupportComplication.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SupportComplication.swift; sourceTree = "<group>"; };
@@ -1174,6 +1178,7 @@
 				F0F100000000000000000007 /* ReadinessRing.swift */,
 				F0F100000000000000000008 /* ContextCard.swift */,
 				F0F100000000000000000009 /* HapticButton.swift */,
+				F0F100000000000000000054 /* PhoneRequiredChrome.swift */,
 			);
 			path = Components;
 			sourceTree = "<group>";
@@ -1188,6 +1193,7 @@
 				F0F10000000000000000000D /* ARIAWatchService.swift */,
 				F0F10000000000000000001A /* WorkoutSessionManager.swift */,
 				F0F10000000000000000001B /* PhoneLinkService.swift */,
+				F0F100000000000000000053 /* CompanionGate.swift */,
 				F0F100000000000000000027 /* KnownPlacesStore.swift */,
 				F0F100000000000000000028 /* WindDownScheduler.swift */,
 				F0F100000000000000000052 /* WatchHealthRiskBridge.swift */,
@@ -1736,6 +1742,8 @@
 				F0B10000000000000000000D /* ARIAWatchService.swift in Sources */,
 				F0B10000000000000000001A /* WorkoutSessionManager.swift in Sources */,
 				F0B10000000000000000001B /* PhoneLinkService.swift in Sources */,
+				F0B100000000000000000053 /* CompanionGate.swift in Sources */,
+				F0B100000000000000000054 /* PhoneRequiredChrome.swift in Sources */,
 				F0B10000000000000000001C /* WorkoutCoordinatorView.swift in Sources */,
 				F0B100000000000000000035 /* SleepSummaryView.swift in Sources */,
 				F0B100000000000000000036 /* KnownPlacesStore.swift in Sources */,

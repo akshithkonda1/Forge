@@ -21,6 +21,7 @@ final class ARIAWatchService {
 
     private(set) var greeting: String = "Loading your day…"
     private(set) var recommendation: MindfulnessRecommendation?
+    private(set) var dayBrief: String = ""
     private(set) var lastContext: WatchARIAContext?
 
     private let defaults = UserDefaults(suiteName: WatchSnapshotStore.appGroupID)
@@ -39,14 +40,15 @@ final class ARIAWatchService {
     /// Rebuilds greeting + recommendation from current signals and mirrors
     /// them into the shared snapshot so complications update within the
     /// <2s target (WatchSnapshotStore.save reloads widget timelines).
-    func refresh(health: WatchHealthKitManager, context: ContextEngine, sessionsToday: Int) {
-        let ariaContext = health.makeARIAContext(
+    func refresh(health: WatchHealthKitManager, context: ContextEngine, sessionsToday: Int, recentSkip: SkipReason? = nil) {
+        var ariaContext = health.makeARIAContext(
             mode: context.currentMode,
             minutesInMode: context.minutesInCurrentMode,
             profile: context.profile,
             sessionsCompletedToday: sessionsToday,
             sleepFactors: context.todaySleepFactors
         )
+        ariaContext.recentSkipReason = recentSkip
         lastContext = ariaContext
         greeting = MindfulnessSuggestionEngine.greeting(
             for: ariaContext,
@@ -54,11 +56,13 @@ final class ARIAWatchService {
         )
         let suggestion = MindfulnessSuggestionEngine.suggest(for: ariaContext)
         recommendation = suggestion
+        dayBrief = AriaDayBrief.line(for: ariaContext, recommendation: suggestion)
 
         WatchSnapshotStore.update { snapshot in
             snapshot.recommendedPractice = suggestion.practice
             snapshot.recommendedDuration = suggestion.duration
             snapshot.recommendationReason = suggestion.reason
+            snapshot.dayBrief = dayBrief
         }
     }
 
@@ -81,8 +85,13 @@ final class ARIAWatchService {
     func deeperDebrief(
         practice: PracticeType,
         minutes: Double,
-        heartRateSettleBPM: Double?
+        heartRateSettleBPM: Double?,
+        companionAllows: Bool = true
     ) async -> String? {
+        // Deeper coaching is phone-required: without a reachable companion (and
+        // synced auth), keep the local debrief and skip the network upgrade.
+        guard companionAllows else { return nil }
+
         // A token is required. This used to send the request either way, on the
         // reasoning that "the backend's Cognito-or-test-user auth tolerates a
         // missing Bearer header, and no real token store exists yet". Neither

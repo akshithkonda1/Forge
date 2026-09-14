@@ -22,6 +22,12 @@ public enum MindfulnessSuggestionEngine {
     /// wind-down > morning grounding > HRV dip anywhere > low readiness >
     /// time-of-day default.
     public static func suggest(for context: WatchARIAContext) -> MindfulnessRecommendation {
+        let base = baseSuggestion(for: context)
+        return personalizeForRecentSkip(base, context: context)
+    }
+
+    /// Raw priority rules before skip-reason personalization.
+    static func baseSuggestion(for context: WatchARIAContext) -> MindfulnessRecommendation {
         let confident = (context.readinessConfidence ?? 0) >= 0.4
 
         if context.justFinishedWorkout {
@@ -108,6 +114,41 @@ public enum MindfulnessSuggestionEngine {
             reason: "A three-minute reset between things keeps your best hours actually yours. You can live your best life and still be healthy.",
             trigger: "default-midday"
         )
+    }
+
+
+    /// Shorten or soften the next nudge after a recent skip — never guilt.
+    static func personalizeForRecentSkip(
+        _ recommendation: MindfulnessRecommendation,
+        context: WatchARIAContext
+    ) -> MindfulnessRecommendation {
+        guard let skip = context.recentSkipReason else { return recommendation }
+        switch skip {
+        case .tooBusy, .laterToday:
+            // Offer something that fits in under two minutes.
+            let duration = min(recommendation.duration, 90)
+            return MindfulnessRecommendation(
+                practice: duration <= 90 ? .physiologicalSigh : recommendation.practice,
+                duration: duration,
+                reason: "Keeping this under two minutes so it fits the day you actually have. " + recommendation.reason,
+                trigger: recommendation.trigger + "+short-after-skip"
+            )
+        case .notFeelingIt:
+            return MindfulnessRecommendation(
+                practice: .physiologicalSigh,
+                duration: 60,
+                reason: "No pressure — a single minute of slow breath is enough if anything at all feels right.",
+                trigger: recommendation.trigger + "+soft-after-skip"
+            )
+        case .alreadyDidOne:
+            // Don't re-nudge hard; acknowledge and keep a light optional reset.
+            return MindfulnessRecommendation(
+                practice: .focusReset,
+                duration: 60,
+                reason: "You already showed up once today — that counts. This is optional, not overdue.",
+                trigger: recommendation.trigger + "+ack-after-skip"
+            )
+        }
     }
 
     // MARK: - Greeting

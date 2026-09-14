@@ -256,7 +256,7 @@ struct MindfulnessView: View {
     private func prefillFromRecommendation() {
         guard !didPrefill else { return }
         didPrefill = true
-        aria.refresh(health: health, context: contextEngine, sessionsToday: session.sessionsCompletedToday)
+        aria.refresh(health: health, context: contextEngine, sessionsToday: session.sessionsCompletedToday, recentSkip: session.recentSkipReason)
         if let rec = aria.recommendation {
             selectedPractice = rec.practice
             selectedDuration = rec.duration
@@ -369,6 +369,7 @@ private struct DebriefView: View {
     @Environment(ContextEngine.self) private var contextEngine
     @Environment(ARIAWatchService.self) private var aria
     @Environment(MindfulnessSessionManager.self) private var session
+    @Environment(CompanionGate.self) private var companionGate
     @Environment(\.dismiss) private var dismiss
 
     @State private var upgradedMessage: String?
@@ -399,9 +400,13 @@ private struct DebriefView: View {
                             .foregroundStyle(ForgePalette.textTertiary)
                     }
 
-                    Text("Want to go deeper? Open Forge on your iPhone and ARIA will pick this up.")
-                        .font(.system(size: 11))
-                        .foregroundStyle(ForgePalette.textTertiary)
+                    if companionGate.allows(.phoneAriaChat) {
+                        Text("Want to go deeper? Open Forge on your iPhone and ARIA will pick this up.")
+                            .font(.system(size: 11))
+                            .foregroundStyle(ForgePalette.textTertiary)
+                    } else if let reason = companionGate.explanation(for: .phoneAriaChat) {
+                        PhoneRequiredCaption(message: reason)
+                    }
 
                     HapticButton(haptic: .click) {
                         session.dismissDebrief()
@@ -423,14 +428,15 @@ private struct DebriefView: View {
         // The session changed today's mindful minutes → refresh signals so
         // Home + complications reflect it immediately.
         await health.refreshAll()
-        aria.refresh(health: health, context: contextEngine, sessionsToday: session.sessionsCompletedToday)
+        aria.refresh(health: health, context: contextEngine, sessionsToday: session.sessionsCompletedToday, recentSkip: session.recentSkipReason)
 
         // Optionally upgrade the local debrief with backend coaching.
         guard let debrief = session.debrief else { return }
         if let deeper = await aria.deeperDebrief(
             practice: debrief.practice,
             minutes: debrief.minutesLogged,
-            heartRateSettleBPM: debrief.heartRateSettleBPM
+            heartRateSettleBPM: debrief.heartRateSettleBPM,
+            companionAllows: companionGate.allows(.deeperAriaDebrief)
         ) {
             withAnimation(.easeInOut(duration: 0.3)) { upgradedMessage = deeper }
         }
