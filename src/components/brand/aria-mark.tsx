@@ -3,7 +3,7 @@
 import { useEffect, useRef } from "react";
 import { cn } from "@/lib/utils";
 import { ARIA_MARK, ariaMarkShouldSpin } from "@/lib/aria-mark";
-import { drawAriaRingField } from "@/lib/aria-soft-hex-field";
+import { drawAriaRingField } from "@/lib/aria-ring-field";
 
 /**
  * Adaptive Recovery Interactive Assistant.
