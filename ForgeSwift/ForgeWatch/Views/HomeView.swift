@@ -32,6 +32,15 @@ struct HomeView: View {
                     .fixedSize(horizontal: false, vertical: true)
                     .accessibilityLabel("ARIA says: \(aria.greeting)")
 
+                if !aria.dayBrief.isEmpty {
+                    Text(aria.dayBrief)
+                        .font(.system(size: 11, weight: .medium))
+                        .foregroundStyle(ForgePalette.textTertiary)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .fixedSize(horizontal: false, vertical: true)
+                        .accessibilityLabel("ARIA day brief: \(aria.dayBrief)")
+                }
+
                 if let suggestion = contextEngine.suggestedMode {
                     suggestedModeBanner(suggestion)
                 }
@@ -71,7 +80,7 @@ struct HomeView: View {
         }
         .task { await initialLoad() }
         .onChange(of: contextEngine.revision) {
-            aria.refresh(health: health, context: contextEngine, sessionsToday: session.sessionsCompletedToday)
+            aria.refresh(health: health, context: contextEngine, sessionsToday: session.sessionsCompletedToday, recentSkip: session.recentSkipReason)
         }
         .onChange(of: scenePhase) { _, phase in
             guard phase == .active else { return }
@@ -79,7 +88,7 @@ struct HomeView: View {
                 await health.refreshAll()
                 await refreshHydration()
                 await contextEngine.evaluate(recentHeartRate: health.recentHeartRate)
-                aria.refresh(health: health, context: contextEngine, sessionsToday: session.sessionsCompletedToday)
+                aria.refresh(health: health, context: contextEngine, sessionsToday: session.sessionsCompletedToday, recentSkip: session.recentSkipReason)
             }
         }
     }
@@ -277,7 +286,7 @@ struct HomeView: View {
         await health.refreshAll()
         await refreshHydration()
         await contextEngine.evaluate(recentHeartRate: health.recentHeartRate)
-        aria.refresh(health: health, context: contextEngine, sessionsToday: session.sessionsCompletedToday)
+        aria.refresh(health: health, context: contextEngine, sessionsToday: session.sessionsCompletedToday, recentSkip: session.recentSkipReason)
     }
 
     /// Hydration needs the day's shape from two other managers — how much was

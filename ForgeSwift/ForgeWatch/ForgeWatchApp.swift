@@ -94,7 +94,8 @@ struct ForgeWatchApp: App {
                 aria.refresh(
                     health: health,
                     context: contextEngine,
-                    sessionsToday: session.sessionsCompletedToday
+                    sessionsToday: session.sessionsCompletedToday,
+                    recentSkip: session.recentSkipReason
                 )
             }
             .task {

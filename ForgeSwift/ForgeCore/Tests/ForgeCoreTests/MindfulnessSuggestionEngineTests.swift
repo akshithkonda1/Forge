@@ -182,4 +182,37 @@ final class MindfulnessSuggestionEngineTests: XCTestCase {
             XCTAssertFalse(practice.offeredDurations.isEmpty)
         }
     }
+
+    func testRecentSkipTooBusyShortensSuggestion() {
+        var ctx = context(hour: 14)
+        ctx.lifestyleMode = .deskCoding
+        ctx.minutesInCurrentMode = 120
+        ctx.recentSkipReason = .tooBusy
+
+        let rec = MindfulnessSuggestionEngine.suggest(for: ctx)
+        XCTAssertLessThanOrEqual(rec.duration, 90)
+        XCTAssertTrue(rec.trigger.contains("short-after-skip"))
+    }
+
+    func testRecentSkipAlreadyDidOneAcknowledgesWithoutGuilt() {
+        var ctx = context(hour: 14)
+        ctx.recentSkipReason = .alreadyDidOne
+        let rec = MindfulnessSuggestionEngine.suggest(for: ctx)
+        XCTAssertEqual(rec.practice, .focusReset)
+        XCTAssertTrue(rec.reason.lowercased().contains("counts"))
+        XCTAssertFalse(rec.reason.lowercased().contains("should have"))
+    }
+
+    func testDayBriefIncludesReadinessAndNextAction() {
+        var ctx = context(hour: 9)
+        ctx.readinessOverall = 72
+        ctx.readinessConfidence = 0.9
+        ctx.sleepQualityScore = 82
+        let rec = MindfulnessSuggestionEngine.suggest(for: ctx)
+        let brief = AriaDayBrief.line(for: ctx, recommendation: rec)
+        XCTAssertTrue(brief.contains("Readiness 72"))
+        XCTAssertTrue(brief.lowercased().contains("sleep"))
+        XCTAssertTrue(brief.contains("Next:"))
+    }
+
 }

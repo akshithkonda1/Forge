@@ -23,6 +23,9 @@ public struct WatchSnapshot: Codable, Sendable, Equatable {
     public var recommendedDuration: TimeInterval?
     public var recommendationReason: String?
 
+    /// On-device ARIA day brief (one line) for Home + complications.
+    public var dayBrief: String?
+
     public var mindfulMinutesToday: Double?
     /// Present only while a workout session is running (drives the
     /// ActiveWorkoutComplication). Optional so old snapshots still decode.

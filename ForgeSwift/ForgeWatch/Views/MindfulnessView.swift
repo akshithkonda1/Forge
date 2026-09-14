@@ -256,7 +256,7 @@ struct MindfulnessView: View {
     private func prefillFromRecommendation() {
         guard !didPrefill else { return }
         didPrefill = true
-        aria.refresh(health: health, context: contextEngine, sessionsToday: session.sessionsCompletedToday)
+        aria.refresh(health: health, context: contextEngine, sessionsToday: session.sessionsCompletedToday, recentSkip: session.recentSkipReason)
         if let rec = aria.recommendation {
             selectedPractice = rec.practice
             selectedDuration = rec.duration
@@ -423,7 +423,7 @@ private struct DebriefView: View {
         // The session changed today's mindful minutes → refresh signals so
         // Home + complications reflect it immediately.
         await health.refreshAll()
-        aria.refresh(health: health, context: contextEngine, sessionsToday: session.sessionsCompletedToday)
+        aria.refresh(health: health, context: contextEngine, sessionsToday: session.sessionsCompletedToday, recentSkip: session.recentSkipReason)
 
         // Optionally upgrade the local debrief with backend coaching.
         guard let debrief = session.debrief else { return }

@@ -57,6 +57,7 @@ let package = Package(
                 "Intelligence/HabitFeedbackStore.swift",
                 "Intelligence/OnboardingGraph.swift",
                 "Intelligence/MindfulnessSuggestionEngine.swift",
+                "Intelligence/AriaDayBrief.swift",
                 "Intelligence/SessionClock.swift",
                 "Intelligence/SleepStoryEngine.swift",
                 "Intelligence/SmartStackRelevance.swift",
