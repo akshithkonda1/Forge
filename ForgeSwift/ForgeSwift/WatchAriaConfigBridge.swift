@@ -1,5 +1,6 @@
 import Foundation
 import WatchConnectivity
+import ForgeCore
 
 // MARK: - WatchAriaConfigBridge
 //
