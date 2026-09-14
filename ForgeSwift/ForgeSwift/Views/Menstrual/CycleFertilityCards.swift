@@ -64,7 +64,11 @@ struct FertileScoreCard: View {
                 .foregroundStyle(.secondary)
 
             Button(action: onAskARIA) {
-                Label("Ask ARIA about this score", systemImage: "sparkles")
+                Label {
+                    Text("Ask ARIA about this score")
+                } icon: {
+                    ARIAIdentityMark(state: .idle, mood: .energized, size: 14, amplitude: 0.22)
+                }
                     .font(FDS.TypeScale.label(13))
             }
             .buttonStyle(.bordered)

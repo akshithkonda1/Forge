@@ -3,11 +3,11 @@ import CoreGraphics
 import os
 
 /// Welcome arrive-sound. Live phone ARIA is the 3 rounded-hex Watch nest
-/// (`AuroraOrbView` / soft-hex-field in `shared/aria-mark.json`). PNG unused.
+/// (`AuroraOrbView` / soft-hex-field in `AriaSigil`). PNG unused.
 /// Pure gates so tests can lock quiet mode and Reduce Motion without audio.
 enum AriaWelcomeChime: Sendable {
     static let assetName = "AriaLogo"
-    /// 1.0 — show the whole mark. Lockstep with `shared/aria-mark.json` cropScale.
+    /// 1.0 — show the whole mark (ForgeSwift living nest; PNG unused).
     static let cropScale: CGFloat = 1.0
     static let heroMinimumSize: CGFloat = 90
 

@@ -30,9 +30,7 @@ struct ProgressPageView: View {
                             Circle()
                                 .fill(Color.surfaceElevated)
                                 .frame(width: 40, height: 40)
-                            Image(systemName: "sparkles")
-                                .font(.system(size: 16, weight: .semibold))
-                                .foregroundColor(.ember)
+                            ARIAIdentityMark(state: .idle, mood: .energized, size: 22, amplitude: 0.24)
                         }
                     }
                     .buttonStyle(.plain)
