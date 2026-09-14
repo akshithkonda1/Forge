@@ -7,7 +7,7 @@ import { drawAriaRingField } from "@/lib/aria-ring-field";
 
 /**
  * Adaptive Recovery Interactive Assistant.
- * Living mark is the kinetic soft-hex-field (planetary rounded hexagons) in `ARIA_MARK` / `shared/aria-mark.json`.
+ * Living mark is the kinetic ring-field in `ARIA_MARK` / `shared/aria-mark.json`.
  * Procedural canvas only — no PNG runtime, no ember, no readiness chrome.
  */
 export function AriaMark({
