@@ -57,6 +57,27 @@ class ClassificationTests(unittest.TestCase):
         self.assertIsInstance(out, Reject)
         self.assertIn("unrecognized", out.reason)
 
+    def test_vendor_aging_aliases_collapse(self):
+        cases = [
+            ("biological-age", MetricType.BIOLOGICAL_AGE),
+            ("garmin_fitness_age", MetricType.FITNESS_AGE),
+            ("Fitness Age", MetricType.FITNESS_AGE),
+            ("inner_age", MetricType.INNER_AGE),
+            ("vascularAge", MetricType.VASCULAR_AGE),
+            ("HKQuantityTypeIdentifierBiologicalAge", MetricType.BIOLOGICAL_AGE),
+            ("chronological-age", MetricType.CHRONOLOGICAL_AGE),
+            ("metabolic_age", MetricType.METABOLIC_AGE),
+            ("hrv-age", MetricType.HRV_AGE),
+            ("true_age", MetricType.BIOLOGICAL_AGE),
+            ("real age", MetricType.BIOLOGICAL_AGE),
+            ("physiological_age", MetricType.FITNESS_AGE),
+        ]
+        for ident, metric in cases:
+            out = classify_sample(sample(type=ident, value=34, unit="years", source="garmin"))
+            self.assertIsInstance(out, Observation, ident)
+            self.assertEqual(out.metric, metric, ident)
+            self.assertEqual(out.unit, "years")
+
     def test_sleep_stage_mapping(self):
         self.assertEqual(classify_sample(sample(type="sleep-stage", stage="deep", value=60)).metric, MetricType.SLEEP_DEEP)
         self.assertEqual(classify_sample(sample(type="sleep-stage", stage="rem", value=90)).metric, MetricType.SLEEP_REM)
@@ -126,6 +147,84 @@ class EstimatorTests(unittest.TestCase):
         few = est.estimate([60, 61]).confidence
         many = est.estimate([60, 61, 59, 60, 62, 61, 60, 59, 61, 60, 62, 60, 61, 59]).confidence
         self.assertGreater(many, few)
+
+    def test_strong_vo2_fuses_younger_training_age(self):
+        fused = estimators.fuse_biological_age(
+            chronological_age=40,
+            estimated={
+                "fitness_age_est": estimators.fitness_age_from_vo2(52, 40, False),
+                "vascular_age_est": estimators.vascular_age_from_rhr(52, 40),
+                "autonomic_age_est": estimators.autonomic_age_from_hrv(70, 40),
+            },
+        )
+        self.assertIsNotNone(fused.value)
+        self.assertLess(fused.value, 40)
+        self.assertEqual(fused.state, "younger")
+        self.assertNotIn("diagnos", fused.detail.lower())
+
+    def test_vendor_fitness_age_is_captured(self):
+        fused = estimators.fuse_biological_age(
+            chronological_age=38,
+            vendor={"fitness_age": (32.0, 0.9, "garmin"), "inner_age": (33.0, 0.8, "ultrahuman")},
+        )
+        self.assertLess(fused.value, 38)
+        self.assertIn("garmin", fused.detail)
+
+    def test_strong_vo2_does_not_collapse_to_teen_floor(self):
+        est = estimators.fitness_age_from_vo2(52, 38, False)
+        self.assertGreaterEqual(est.value, 26)
+        self.assertLess(est.value, 38)
+        fused = estimators.fuse_biological_age(
+            chronological_age=38,
+            estimated={"fitness_age_est": est},
+        )
+        self.assertGreaterEqual(fused.value, 26)
+        self.assertLess(fused.value, 38)
+
+    def test_friend_expected_vo2_at_38_male(self):
+        self.assertAlmostEqual(estimators.expected_vo2(38, False), 38.8, places=1)
+
+    def test_web_confirmed_bumps_fitness_age_confidence(self):
+        from services.biometrics import aging_norms
+
+        aging_norms.reset_for_tests()
+        self.addCleanup(aging_norms.reset_for_tests)
+        before = estimators.fitness_age_from_vo2(48, 38, False)
+        self.assertAlmostEqual(before.confidence, 0.58)
+        self.assertEqual(before.method, "formula:vo2_age_norm")
+        aging_norms.mark_web_confirmed("MedlinePlus: Exercise Stress Test / VO2")
+        after = estimators.fitness_age_from_vo2(48, 38, False)
+        self.assertAlmostEqual(after.confidence, 0.72)
+        self.assertEqual(after.method, "formula:vo2_age_norm+web")
+
+    def test_aging_norms_confirm_skips_network_during_unittest(self):
+        from unittest.mock import patch
+        from services.biometrics import aging_norms
+
+        aging_norms.reset_for_tests()
+        self.addCleanup(aging_norms.reset_for_tests)
+        with patch("services.biometrics.aging_norms.urlopen") as mock_urlopen:
+            self.assertFalse(aging_norms.confirm())
+            mock_urlopen.assert_not_called()
+
+    def test_aging_norms_confirm_accepts_oxygen_deep_in_the_page(self):
+        import os
+        from unittest.mock import MagicMock, patch
+        from services.biometrics import aging_norms
+
+        aging_norms.reset_for_tests()
+        self.addCleanup(aging_norms.reset_for_tests)
+        html = ("x" * 16000 + "tissues need oxygen to survive").encode()
+        response = MagicMock()
+        response.status = 200
+        response.read.return_value = html
+        response.__enter__ = MagicMock(return_value=response)
+        response.__exit__ = MagicMock(return_value=False)
+        with patch.dict(os.environ, {"FORGE_AGING_WEB": "1"}):
+            with patch("services.biometrics.aging_norms.urlopen", return_value=response):
+                self.assertTrue(aging_norms.confirm())
+        self.assertTrue(aging_norms.web_confirmed())
+        self.assertEqual(aging_norms.web_source_title(), "MedlinePlus: Exercise Stress Test / VO2")
 
 
 class _FakeBackend:
@@ -228,6 +327,22 @@ class BodyModelTests(unittest.TestCase):
         self.assertIsNotNone(ctx.readiness.recovery_score)
         self.assertIsNotNone(ctx.readiness.hrv_7day_trend)
         self.assertEqual(ctx.activity.steps_3day_avg, 9000)
+
+    def test_to_aria_context_projects_aging_comparison(self):
+        ctx = BodyModel.from_observations(self._observations(), age_years=33).to_aria_context()
+        self.assertEqual(ctx.aging.chronological_age_years, 33)
+        self.assertIsNotNone(ctx.aging.biological_age_years)
+        self.assertIsNotNone(ctx.aging.delta_years)
+        self.assertIn(ctx.aging.state, ("younger", "matched", "older"))
+
+    def test_vendor_age_samples_reach_aria(self):
+        obs = self._observations() + [
+            Observation(MetricType.FITNESS_AGE, 29, "years", BASE, source="garmin"),
+            Observation(MetricType.INNER_AGE, 30, "years", BASE, source="ultrahuman"),
+        ]
+        ctx = BodyModel.from_observations(obs, age_years=36).to_aria_context()
+        self.assertLess(ctx.aging.biological_age_years, 36)
+        self.assertTrue(any("garmin" in s for s in ctx.aging.sources))
 
     def test_to_aria_context_respects_permissions(self):
         perms = aria_engine.DataPermissions.from_payload({"activity": False})

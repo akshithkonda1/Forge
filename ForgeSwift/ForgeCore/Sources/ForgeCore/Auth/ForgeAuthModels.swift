@@ -15,8 +15,8 @@ public struct ForgeAuthConfig: Equatable, Sendable {
     public var cognitoRegion: String
     public var cognitoClientId: String
     public var cognitoUserPoolId: String
-    /// `dev` / `test` / `local` / `ci` may use the tester account. Anything
-    /// production-like must not, even in a debug binary pointed at prod.
+    /// `dummy` / `dev` / `test` / `local` / `ci` may use the tester account.
+    /// Anything production-like must not, even in a debug binary pointed at prod.
     public var environment: String
 
     public init(
@@ -54,6 +54,10 @@ public struct ForgeAuthConfig: Equatable, Sendable {
     public static let testEmail = "tester@forge.dev"
 
     public static let defaultLocalAPI = URL(string: "http://127.0.0.1:3001")!
+    /// Dummy-offline / TestFlight-safe. An empty Info.plist API URL must not
+    /// become `127.0.0.1` — that host is unreachable from a device and must
+    /// not ship as `apiBaseUrl`. Host-less, so `apiIsLoopback` stays true.
+    public static let dummyOfflineAPI = URL(string: "dummy-offline://")!
 
     public static func fromInfoDictionary(_ info: [String: Any]) -> ForgeAuthConfig {
         let env = (info["FORGEEnvironment"] as? String)?.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -61,12 +65,21 @@ public struct ForgeAuthConfig: Equatable, Sendable {
         let region = (info["FORGECognitoRegion"] as? String)?.trimmingCharacters(in: .whitespacesAndNewlines)
         let client = (info["FORGECognitoClientId"] as? String)?.trimmingCharacters(in: .whitespacesAndNewlines)
         let pool = (info["FORGECognitoUserPoolId"] as? String)?.trimmingCharacters(in: .whitespacesAndNewlines)
+        let environment = (env?.isEmpty == false ? env! : "dev")
+        let apiBaseURL: URL
+        if let api, !api.isEmpty, let parsed = URL(string: api) {
+            apiBaseURL = parsed
+        } else if environment.lowercased() == "dummy" {
+            apiBaseURL = dummyOfflineAPI
+        } else {
+            apiBaseURL = defaultLocalAPI
+        }
         return ForgeAuthConfig(
-            apiBaseURL: URL(string: api ?? "") ?? defaultLocalAPI,
+            apiBaseURL: apiBaseURL,
             cognitoRegion: region ?? "",
             cognitoClientId: client ?? "",
             cognitoUserPoolId: pool ?? "",
-            environment: (env?.isEmpty == false ? env! : "dev")
+            environment: environment
         )
     }
 }
