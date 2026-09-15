@@ -1,4 +1,5 @@
 import XCTest
+import ForgeCore
 @testable import ForgeSwift
 
 /// Locks the kinetic orange ring-field: five ellipses, `#FF4D00`, freeze on Reduce Motion.
@@ -135,5 +136,27 @@ final class AriaSigilTests: XCTestCase {
         XCTAssertEqual(AriaSigilEmberLegacy.hearthHex, "FF6A1A")
         XCTAssertNotEqual(AriaSigilEmberLegacy.hearthHex, AriaSigilGeometry.forgeOrangeHex)
         XCTAssertNotEqual(AriaSigilEmberLegacy.lobeCount, AriaSigilGeometry.ellipseCount)
+    }
+
+    func testPhoneGeometryIsForgeCoreWrapper() {
+        XCTAssertEqual(AriaSigilGeometry.kind, AriaRingFieldGeometry.kind)
+        XCTAssertEqual(AriaSigilGeometry.radii, AriaRingFieldGeometry.radii)
+        XCTAssertEqual(AriaSigilGeometry.eccentricity, AriaRingFieldGeometry.eccentricity)
+        XCTAssertEqual(AriaSigilGeometry.tiltDeg, AriaRingFieldGeometry.tiltDeg)
+        XCTAssertEqual(AriaSigilGeometry.phaseOffsets, AriaRingFieldGeometry.phaseOffsets)
+        XCTAssertEqual(AriaSigilGeometry.ringOpacities, AriaRingFieldGeometry.ringOpacities)
+        XCTAssertEqual(AriaSigilGeometry.idleSpinHz, AriaRingFieldGeometry.idleSpinHz, accuracy: 0.0001)
+        XCTAssertEqual(AriaSigilGeometry.speakingSpinHz, AriaRingFieldGeometry.speakingSpinHz, accuracy: 0.0001)
+        XCTAssertEqual(AriaSigilGeometry.stillPoseAngleDeg, AriaRingFieldGeometry.stillPoseAngleDeg, accuracy: 0.0001)
+        XCTAssertEqual(AriaSigilGeometry.compactRingIndices, AriaRingFieldGeometry.compactRingIndices)
+        let phone = AriaSigilGeometry.ellipse(index: 2, time: 1.4, state: .idle, reduceMotion: false)
+        let core = AriaRingFieldGeometry.ellipse(index: 2, time: 1.4, speaking: false, reduceMotion: false)
+        XCTAssertEqual(phone.rx, core.rx, accuracy: 0.0001)
+        XCTAssertEqual(phone.ry, core.ry, accuracy: 0.0001)
+        XCTAssertEqual(phone.rotation, core.rotation, accuracy: 0.0001)
+        XCTAssertEqual(phone.opacity, core.opacity, accuracy: 0.0001)
+        let talk = AriaSigilGeometry.ellipse(index: 2, time: 1.4, state: .speaking, reduceMotion: false)
+        let coreTalk = AriaRingFieldGeometry.ellipse(index: 2, time: 1.4, speaking: true, reduceMotion: false)
+        XCTAssertEqual(talk.rotation, coreTalk.rotation, accuracy: 0.0001)
     }
 }

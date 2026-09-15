@@ -1,62 +1,49 @@
 import Foundation
+import ForgeCore
 import SwiftUI
 
-/// Kinetic orange ring-field. Numbers copied from Lex `#270` head
-/// `fab0a402097050dfec528f014e902591314204ca` (`shared/aria-mark.json`).
-/// That PR is mergeable but not on `main` yet — do not invent a second geometry.
+/// Kinetic orange ring-field. Thin wrapper over ForgeCore `AriaRingFieldGeometry`
+/// so phone and Watch stay lockstep. Watch cannot import this file (`AROrbState`).
 /// Soft spin while alive; Reduce Motion / `forgeMinimalAnimation` freeze at
 /// `stillPoseAngleDeg`.
 enum AriaSigilGeometry: Sendable {
 
-    static let kind = "ring-field"
-    static let assetName = "AriaMark"
-    static let ringCount: Int = 5
-    static let ellipseCount: Int = ringCount
-    static let forgeOrangeHex = "FF4D00"
-    static let brandHueLightHex = "FF6B2B"
+    typealias EllipsePose = AriaRingFieldGeometry.EllipsePose
+
+    static let kind = AriaRingFieldGeometry.kind
+    static let assetName = AriaRingFieldGeometry.assetName
+    static let ringCount = AriaRingFieldGeometry.ringCount
+    static let ellipseCount = AriaRingFieldGeometry.ellipseCount
+    static let forgeOrangeHex = AriaRingFieldGeometry.forgeOrangeHex
+    static let brandHueLightHex = AriaRingFieldGeometry.brandHueLightHex
 
     /// Frozen TimelineView clock only. Angle lock is `stillPoseAngleDeg` (Lex).
-    static let stillPose: Double = 1.72
-    static let stillPoseAngleDeg: Double = 18
-    static let heroMinimumSize: CGFloat = 90
-    static let compactRecommend: CGFloat = 28
+    static let stillPose = AriaRingFieldGeometry.stillPose
+    static let stillPoseAngleDeg = AriaRingFieldGeometry.stillPoseAngleDeg
+    static let heroMinimumSize = AriaRingFieldGeometry.heroMinimumSize
+    static let compactRecommend = AriaRingFieldGeometry.compactRecommend
 
-    static let idleSpinHz: Double = 0.04
-    static let speakingSpinHz: Double = 0.075
+    static let idleSpinHz = AriaRingFieldGeometry.idleSpinHz
+    static let speakingSpinHz = AriaRingFieldGeometry.speakingSpinHz
 
-    static let strokeWidthCompact: CGFloat = 1.5
-    static let strokeWidthHero: CGFloat = 1.85
-    static let contrastFloor: Double = 0.70
+    static let strokeWidthCompact = AriaRingFieldGeometry.strokeWidthCompact
+    static let strokeWidthHero = AriaRingFieldGeometry.strokeWidthHero
+    static let contrastFloor = AriaRingFieldGeometry.contrastFloor
 
-    static let radii: [Double] = [0.38, 0.48, 0.58, 0.68, 0.78]
-    static let eccentricity: [Double] = [0.1, 0.14, 0.08, 0.16, 0.11]
-    static let tiltDeg: [Double] = [14, -22, 28, -10, 18]
-    static let phaseOffsets: [Double] = [0, 0.18, 0.41, 0.63, 0.88]
-    static let ringOpacities: [Double] = [0.40, 0.72, 0.78, 0.45, 0.55]
+    static let radii = AriaRingFieldGeometry.radii
+    static let eccentricity = AriaRingFieldGeometry.eccentricity
+    static let tiltDeg = AriaRingFieldGeometry.tiltDeg
+    static let phaseOffsets = AriaRingFieldGeometry.phaseOffsets
+    static let ringOpacities = AriaRingFieldGeometry.ringOpacities
 
-    struct EllipsePose: Equatable, Sendable {
-        var rx: Double
-        var ry: Double
-        var rotation: Double
-        var opacity: Double
-    }
-
-    static var contrastRingIndices: [Int] {
-        ringOpacities.enumerated().compactMap { $0.element >= contrastFloor ? $0.offset : nil }
-    }
+    static var contrastRingIndices: [Int] { AriaRingFieldGeometry.contrastRingIndices }
 
     /// Compact 3-ring: the two ≥ 0.70 rings plus the strongest support ring.
     /// Watch later / tab / avatar slots. Not Home readiness chrome.
-    static var compactRingIndices: [Int] {
-        let support = ringOpacities.enumerated()
-            .filter { $0.element < contrastFloor }
-            .max { $0.element < $1.element }?
-            .offset
-        return (contrastRingIndices + [support].compactMap { $0 }).sorted()
-    }
+    static var compactRingIndices: [Int] { AriaRingFieldGeometry.compactRingIndices }
 
     static func visibleRingIndices(size: CGFloat) -> [Int] {
-        size < heroMinimumSize ? compactRingIndices : Array(0..<ellipseCount)
+        AriaRingFieldGeometry.visibleRingIndices(size: size)
     }
 
     static func spinHz(for state: AROrbState) -> Double {
@@ -72,30 +59,16 @@ enum AriaSigilGeometry: Sendable {
         state: AROrbState,
         reduceMotion: Bool
     ) -> EllipsePose {
-        let i = max(0, min(ellipseCount - 1, index))
-        let radius = radii[i]
-        let ecc = eccentricity[i]
-        let tilt = tiltDeg[i] * .pi / 180
-        let phase = phaseOffsets[i] * .pi * 2
-        let still = stillPoseAngleDeg * .pi / 180
-        let spin: Double
-        if reduceMotion {
-            spin = still
-        } else {
-            spin = time * spinHz(for: state) * .pi * 2
-        }
-        return EllipsePose(
-            rx: radius * (1 + ecc),
-            ry: radius * (1 - ecc),
-            rotation: tilt + phase + spin,
-            opacity: ringOpacities[i]
+        AriaRingFieldGeometry.ellipse(
+            index: index,
+            time: time,
+            speaking: state == .processing || state == .speaking,
+            reduceMotion: reduceMotion
         )
     }
 
     static func strokeWidth(size: CGFloat, index: Int = 0) -> CGFloat {
-        _ = index
-        let raw = size < heroMinimumSize ? strokeWidthCompact : strokeWidthHero
-        return max(strokeWidthCompact, raw)
+        AriaRingFieldGeometry.strokeWidth(size: size, index: index)
     }
 }
 
