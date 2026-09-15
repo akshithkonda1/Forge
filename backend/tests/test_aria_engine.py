@@ -461,7 +461,8 @@ class AgingDomainTests(unittest.TestCase):
             )
         )
         block = ctx.user_model_block(restricted=["aging"])
-        self.assertNotIn("48", block)
+        self.assertNotIn("aging.biological_age: 48", block)
+        self.assertNotIn("aging.chronological_age: 41", block)
         self.assertIn("aging.biological_age: null", block)
 
 
