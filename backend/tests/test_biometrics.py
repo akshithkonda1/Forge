@@ -181,6 +181,32 @@ class EstimatorTests(unittest.TestCase):
         self.assertGreaterEqual(fused.value, 26)
         self.assertLess(fused.value, 38)
 
+    def test_friend_expected_vo2_at_38_male(self):
+        self.assertAlmostEqual(estimators.expected_vo2(38, False), 38.8, places=1)
+
+    def test_web_confirmed_bumps_fitness_age_confidence(self):
+        from services.biometrics import aging_norms
+
+        aging_norms.reset_for_tests()
+        self.addCleanup(aging_norms.reset_for_tests)
+        before = estimators.fitness_age_from_vo2(48, 38, False)
+        self.assertAlmostEqual(before.confidence, 0.58)
+        self.assertEqual(before.method, "formula:vo2_age_norm")
+        aging_norms.mark_web_confirmed("MedlinePlus: Exercise Stress Test / VO2")
+        after = estimators.fitness_age_from_vo2(48, 38, False)
+        self.assertAlmostEqual(after.confidence, 0.72)
+        self.assertEqual(after.method, "formula:vo2_age_norm+web")
+
+    def test_aging_norms_confirm_skips_network_during_unittest(self):
+        from unittest.mock import patch
+        from services.biometrics import aging_norms
+
+        aging_norms.reset_for_tests()
+        self.addCleanup(aging_norms.reset_for_tests)
+        with patch("services.biometrics.aging_norms.urlopen") as mock_urlopen:
+            self.assertFalse(aging_norms.confirm())
+            mock_urlopen.assert_not_called()
+
 
 class _FakeBackend:
     def __init__(self, prediction=None, raises=False):

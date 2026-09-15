@@ -45,7 +45,7 @@ final class RuleBasedResponseGenerator: TrainerResponseGenerator {
         // Training age / calendar comparison — before plan routing so
         // "training age" is never stolen by a workout-plan detector.
         if isAgingQuery(lower) {
-            return generateAgingResponse(context: context)
+            return await generateAgingResponse(context: context, input: input)
         }
 
         // Training / themed plan request (Solo Leveling, daily quest, etc.)
@@ -180,28 +180,33 @@ final class RuleBasedResponseGenerator: TrainerResponseGenerator {
     }
 
     private func isAgingQuery(_ text: String) -> Bool {
-        let needles = [
-            "training age", "biological age", "fitness age", "calendar age",
-            "vascular age", "inner age", "metabolic age", "phenotypic age",
-            "how old am i", "what's my age", "whats my age", "age comparison",
-        ]
-        return needles.contains { text.contains($0) }
+        if AriaReferenceCatalog.questionSuggestsAging(text) { return true }
+        return ["what's my age", "whats my age"].contains { text.contains($0) }
     }
 
-    private func generateAgingResponse(context: TrainerContext) -> TrainerResponse {
+    private func generateAgingResponse(context: TrainerContext, input: String) async -> TrainerResponse {
+        let cite = await AriaAgingNorms.citedSnippet(
+            question: input,
+            salt: UInt64(Date().timeIntervalSince1970.rounded())
+        )
         let snap = AgingBridge.snapshot(
             age: context.userProfile.age,
             sexFemale: context.userProfile.biologicalSex == .female ? true
                 : context.userProfile.biologicalSex == .male ? false : nil,
             stats: HealthKitManager.shared.todayStats
         )
-        let content: String
+        var content: String
         if snap.comparisonLine.isEmpty {
             content = "Add your age in You and I’ll compare calendar age with training age from VO₂, HRV, resting heart rate, and sleep. Lifestyle comparison only — not a medical biological-age diagnosis."
         } else if snap.trainingHint.isEmpty {
             content = "\(snap.comparisonLine). Lifestyle comparison only — not a medical biological-age diagnosis."
         } else {
             content = "\(snap.comparisonLine). \(snap.trainingHint) Lifestyle comparison only — not a medical biological-age diagnosis."
+        }
+        if let cite, !cite.isEmpty {
+            content += " \(cite)"
+        } else if let title = AgingNorms.webSourceTitle {
+            content += " Cross-checked \(title) for cardiorespiratory norms."
         }
         return TrainerResponse(
             content: content,

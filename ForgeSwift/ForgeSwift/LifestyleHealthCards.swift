@@ -678,6 +678,12 @@ struct BiologicalAgeCard: View {
                         .lineSpacing(4)
                 }
 
+                if AgingNorms.webConfirmed {
+                    Text("Cardio norms confirmed from a public fitness page.")
+                        .font(.system(size: 11, weight: .medium))
+                        .foregroundColor(.textTertiary)
+                }
+
                 if !snapshot.components.isEmpty {
                     VStack(spacing: 8) {
                         ForEach(Array(snapshot.components.prefix(4).enumerated()), id: \.offset) { _, component in

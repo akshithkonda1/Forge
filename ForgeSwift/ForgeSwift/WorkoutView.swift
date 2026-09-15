@@ -52,6 +52,7 @@ struct WorkoutIdleView: View {
     @State private var showLibrary = false
     @State private var showDashboard = false
     @State private var showWeekPicker = false
+    @State private var agingStamp = 0
 
     private var scaling: PlanScaling { AdaptiveEngine.scaling(readiness: store.readiness, experience: store.userProfile.experienceLevel) }
 
@@ -147,6 +148,10 @@ struct WorkoutIdleView: View {
                     experience: store.userProfile.experienceLevel
                 )
             }
+            Task {
+                await AriaAgingNorms.refresh()
+                agingStamp += 1
+            }
         }
     }
 
@@ -210,6 +215,7 @@ struct WorkoutIdleView: View {
 
             if aging.showsOnTrain {
                 AgeCompareChip(snapshot: aging)
+                    .id(agingStamp)
             }
         }
         .opacity(appeared ? 1 : 0)
@@ -501,6 +507,11 @@ struct AgeCompareChip: View {
                 Text(snapshot.comparisonLine)
                     .font(.system(size: 14, weight: .semibold, design: .rounded))
                     .foregroundColor(.textPrimary)
+                if AgingNorms.webConfirmed {
+                    Text("Public cardio norms")
+                        .font(.system(size: 10, weight: .medium))
+                        .foregroundColor(.textTertiary)
+                }
             }
             Spacer()
             if let chrono = snapshot.chronologicalAge, let bio = snapshot.biologicalAge, snapshot.confidence > 0.25 {
@@ -773,6 +784,7 @@ struct WorkoutEmptyState: View {
     @EnvironmentObject var store: AppStore
     @State private var appeared = false
     @State private var showLibrary = false
+    @State private var agingStamp = 0
 
     private var aging: AgingSnapshot {
         AgingBridge.snapshot(
@@ -800,6 +812,7 @@ struct WorkoutEmptyState: View {
             .opacity(appeared ? 1 : 0).offset(y: appeared ? 0 : 18)
             if aging.showsOnTrain {
                 AgeCompareChip(snapshot: aging)
+                    .id(agingStamp)
                     .padding(.horizontal, 28)
                     .opacity(appeared ? 1 : 0)
             }
@@ -831,6 +844,12 @@ struct WorkoutEmptyState: View {
         }
         .frame(maxWidth: .infinity)
         .sheet(isPresented: $showLibrary) { ExerciseLibraryView() }
-        .onAppear { withAnimation(.spring(response: 0.7, dampingFraction: 0.8).delay(0.18)) { appeared = true } }
+        .onAppear {
+            withAnimation(.spring(response: 0.7, dampingFraction: 0.8).delay(0.18)) { appeared = true }
+            Task {
+                await AriaAgingNorms.refresh()
+                agingStamp += 1
+            }
+        }
     }
 }

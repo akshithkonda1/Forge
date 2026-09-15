@@ -58,6 +58,21 @@ final class TrainSleepUsableTests: XCTestCase {
         XCTAssertEqual(gen.domain(of: "what should I train today?"), .training)
     }
 
+    func testAgingLiveFetchIsAllowedWithoutLocalTestingGate() {
+        XCTAssertTrue(
+            AriaWebResearch.liveFetchAllowed(question: "what's my training age?", domainRawValue: "lifestyle")
+        )
+        XCTAssertTrue(
+            AriaWebResearch.liveFetchAllowed(question: "hello", domainRawValue: "aging")
+        )
+        XCTAssertTrue(
+            AriaWebResearch.isResearchWorthy(text: "what's my fitness age?", leadingDomain: .lifestyle)
+        )
+        XCTAssertTrue(
+            AriaWebResearch.isDummyResearchWorthy(text: "VO2 max cardiorespiratory fitness")
+        )
+    }
+
     func testVendorAgesReachLifestyleAndTrainBridge() {
         AgingVendorStore.replaceAll([
             AgingVendorAge(kind: .fitness, years: 32, confidence: 0.9, source: "garmin"),

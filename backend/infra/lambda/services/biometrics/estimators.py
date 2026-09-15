@@ -217,25 +217,25 @@ def _clamp_age(value: float, chronological_age: float | None = None) -> float:
 
 
 def expected_vo2(age_years: float, sex_female: bool | None = None) -> float:
-    """Simplified ACSM-style 50th-percentile VO2 (ml/kg/min) at a calendar age."""
-    if sex_female is True:
-        intercept, slope = 41.0, 0.32
-    elif sex_female is False:
-        intercept, slope = 48.0, 0.37
-    else:
-        intercept, slope = 44.5, 0.345
-    return round(intercept - slope * max(0.0, age_years - 20.0), 1)
+    """FRIEND-style 50th-percentile VO2 (ml/kg/min) at a calendar age."""
+    from . import aging_norms
+
+    return aging_norms.expected_vo2(age_years, sex_female)
 
 
 def fitness_age_from_vo2(
     vo2: float, chronological_age: float, sex_female: bool | None = None
 ) -> Estimate:
     """Above expected VO2 → younger training age. ~0.7y per ml/kg/min, capped."""
+    from . import aging_norms
+
+    aging_norms.confirm()
     expected = expected_vo2(chronological_age, sex_female)
     value = _clamp_age(chronological_age + (expected - vo2) * 0.7, chronological_age)
     state = "younger" if value <= chronological_age - 2 else "older" if value >= chronological_age + 2 else "matched"
+    method = "formula:vo2_age_norm+web" if aging_norms.web_confirmed() else "formula:vo2_age_norm"
     return Estimate(
-        "fitness_age_est", value, state, 0.55, "formula:vo2_age_norm",
+        "fitness_age_est", value, state, aging_norms.fitness_confidence(), method,
         f"VO2 {vo2:g} vs expected {expected:g} at {chronological_age:g} → fitness age {value:g}",
     )
 

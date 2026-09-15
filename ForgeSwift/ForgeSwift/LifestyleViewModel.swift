@@ -97,6 +97,8 @@ final class LifestyleViewModel: ObservableObject {
         healthStats = healthManager.todayStats
         loggedMeals = healthManager.loggedMeals
 
+        await AriaAgingNorms.refresh()
+
         metrics = (try? await fetchMetrics()) ?? .default
         recommendations = (try? await fetchRecommendations()) ?? []
         qolHistory = LifestyleWellbeingStore.recordQOL(metrics.qualityOfLifeScore)

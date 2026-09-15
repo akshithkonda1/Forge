@@ -103,4 +103,23 @@ final class AgingSnapshotTests: XCTestCase {
             XCTAssertFalse(blob.contains(banned), banned)
         }
     }
+
+    func testFriendExpectedVO2At38Male() {
+        AgingNorms.resetForTests()
+        XCTAssertEqual(AgingSnapshot.expectedVO2(age: 38, sexFemale: false), 38.8, accuracy: 0.05)
+        XCTAssertEqual(AgingNorms.fitnessConfidence, 0.58, accuracy: 0.001)
+    }
+
+    func testWebConfirmedBumpsFitnessConfidenceAndSource() {
+        AgingNorms.resetForTests()
+        defer { AgingNorms.resetForTests() }
+        let before = AgingSnapshot.evaluate(chronologicalAge: 38, sexFemale: false, vo2Max: 48)
+        XCTAssertEqual(before.sources.contains { $0 == "vo2" }, true)
+        AgingNorms.markWebConfirmed(sourceTitle: "MedlinePlus: Exercise Stress Test / VO2")
+        XCTAssertEqual(AgingNorms.fitnessConfidence, 0.72, accuracy: 0.001)
+        XCTAssertEqual(AgingNorms.webSourceTitle, "MedlinePlus: Exercise Stress Test / VO2")
+        let after = AgingSnapshot.evaluate(chronologicalAge: 38, sexFemale: false, vo2Max: 48)
+        XCTAssertTrue(after.sources.contains { $0 == "vo2+web" })
+        XCTAssertGreaterThan(after.confidence, before.confidence)
+    }
 }

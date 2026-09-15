@@ -130,7 +130,7 @@ public struct AgingSnapshot: Sendable, Equatable {
 
         if let chrono, let vo2 = positive(vo2Max) {
             let years = fitnessAge(fromVO2: vo2, chronologicalAge: chrono, sexFemale: sexFemale)
-            estimated["fitness_age_est"] = (years, 0.55, "vo2")
+            estimated["fitness_age_est"] = (years, AgingNorms.fitnessConfidence, AgingNorms.webConfirmed ? "vo2+web" : "vo2")
             components.append(AgingComponent(name: "Cardio", years: years, state: deltaState(years - chrono), source: "VO₂"))
         }
         if let chrono, let rhr = positive(restingHR) {
@@ -211,16 +211,65 @@ public struct AgingSnapshot: Sendable, Equatable {
     }
 
     public static func expectedVO2(age: Double, sexFemale: Bool?) -> Double {
-        let intercept: Double
-        let slope: Double
+        AgingNorms.expectedVO2(age: age, sexFemale: sexFemale)
+    }
+}
+
+/// FRIEND-style 50th-percentile VO₂ (ml/kg/min) by age band.
+///
+/// More accurate than inverting a single slope. A successful live fetch of a
+/// public cardiorespiratory-fitness page marks `webConfirmed` so confidence
+/// rises — the table still holds if the network misses.
+public enum AgingNorms: Sendable {
+    public static var webConfirmed = false
+    public static var webSourceTitle: String?
+
+    public static var fitnessConfidence: Double { webConfirmed ? 0.72 : 0.58 }
+
+    public static func markWebConfirmed(sourceTitle: String) {
+        webConfirmed = true
+        webSourceTitle = sourceTitle
+    }
+
+    public static func resetForTests() {
+        webConfirmed = false
+        webSourceTitle = nil
+    }
+
+    public static func expectedVO2(age: Double, sexFemale: Bool?) -> Double {
+        let table: [(Double, Double)]
         if sexFemale == true {
-            intercept = 41.0; slope = 0.32
+            table = femaleBands
         } else if sexFemale == false {
-            intercept = 48.0; slope = 0.37
+            table = maleBands
         } else {
-            intercept = 44.5; slope = 0.345
+            table = mixedBands
         }
-        return ((intercept - slope * max(0, age - 20)) * 10).rounded() / 10
+        return interpolate(age: max(18, age), table: table)
+    }
+
+    private static let maleBands: [(Double, Double)] = [
+        (20, 47.6), (30, 42.8), (40, 37.8), (50, 32.6), (60, 28.2), (70, 23.1),
+    ]
+    private static let femaleBands: [(Double, Double)] = [
+        (20, 37.6), (30, 31.0), (40, 27.4), (50, 24.2), (60, 20.7), (70, 18.3),
+    ]
+    private static let mixedBands: [(Double, Double)] = [
+        (20, 42.6), (30, 36.9), (40, 32.6), (50, 28.4), (60, 24.5), (70, 20.7),
+    ]
+
+    private static func interpolate(age: Double, table: [(Double, Double)]) -> Double {
+        if age <= table[0].0 { return table[0].1 }
+        if age >= table[table.count - 1].0 { return table[table.count - 1].1 }
+        for index in 0..<(table.count - 1) {
+            let left = table[index]
+            let right = table[index + 1]
+            if age <= right.0 {
+                let t = (age - left.0) / (right.0 - left.0)
+                return ((left.1 + (right.1 - left.1) * t) * 10).rounded() / 10
+            }
+        }
+        return table[table.count - 1].1
     }
 }
 
