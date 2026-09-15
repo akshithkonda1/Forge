@@ -264,9 +264,7 @@ struct EnergyScheduleCard: View {
             }
         }
         .padding(18)
-        .background(Color.surface)
-        .cornerRadius(20)
-        .overlay(RoundedRectangle(cornerRadius: 20).stroke(Color.borderColor.opacity(0.4), lineWidth: 1))
+        .forgeGlassCard(cornerRadius: 20, accent: .aurora)
         .animation(.snappy(duration: 0.32), value: schedule?.debtHours)
         .sensoryFeedback(.selection, trigger: scrubWindow)
         .onAppear {

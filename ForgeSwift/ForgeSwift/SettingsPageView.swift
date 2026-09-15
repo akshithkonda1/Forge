@@ -588,9 +588,7 @@ struct SettingsPageView: View {
                     )
                 }
                 .buttonStyle(.plain)
-                .background(Color.surface)
-                .cornerRadius(14)
-                .overlay(RoundedRectangle(cornerRadius: 14).stroke(Color.borderColor, lineWidth: 1))
+                .forgeGlassCard(cornerRadius: 14, accent: .ember)
 
                 // More
                 sectionHeader("More")
@@ -675,8 +673,7 @@ struct SettingsPageView: View {
                     .foregroundColor(.danger)
                     .frame(maxWidth: .infinity)
                     .frame(height: 52)
-                    .background(Color.surface)
-                    .cornerRadius(14)
+                    .forgeGlassCard(cornerRadius: 14, accent: .danger)
                 }
                 .padding(.top, 24)
                 .padding(.bottom, 32)

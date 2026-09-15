@@ -58,8 +58,7 @@ struct ContextInspectorView: View {
                 .tint(.steel)
         }
         .padding(16)
-        .background(Color.surface)
-        .cornerRadius(16)
+        .forgeGlassCard(cornerRadius: 16, accent: .steel)
     }
 
     private func tagSection(title: String, items: [String], icon: String) -> some View {
@@ -86,8 +85,7 @@ struct ContextInspectorView: View {
             }
         }
         .padding(16)
-        .background(Color.surface)
-        .cornerRadius(16)
+        .forgeGlassCard(cornerRadius: 16, accent: .steel)
     }
 
     private var insightsSection: some View {
@@ -109,8 +107,7 @@ struct ContextInspectorView: View {
             }
         }
         .padding(16)
-        .background(Color.surface)
-        .cornerRadius(16)
+        .forgeGlassCard(cornerRadius: 16, accent: .steel)
     }
 
     private var metricsSection: some View {
@@ -135,7 +132,6 @@ struct ContextInspectorView: View {
                 .padding(.top, 4)
         }
         .padding(16)
-        .background(Color.surface)
-        .cornerRadius(16)
+        .forgeGlassCard(cornerRadius: 16, accent: .steel)
     }
 }

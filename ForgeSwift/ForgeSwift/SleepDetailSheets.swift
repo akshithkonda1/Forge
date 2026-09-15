@@ -44,11 +44,9 @@ struct SleepPersonalizationSheet: View {
                                         }
                                     }
                                     .padding(14)
-                                    .background(Color.surface)
-                                    .cornerRadius(14)
-                                    .overlay(
-                                        RoundedRectangle(cornerRadius: 14)
-                                            .stroke(draft.chronotype == type ? Color.steel.opacity(0.5) : Color.borderColor.opacity(0.4), lineWidth: 1)
+                                    .forgeGlassCard(
+                                        cornerRadius: 14,
+                                        accent: draft.chronotype == type ? .steel : nil
                                     )
                                 }
                                 .buttonStyle(.plain)

@@ -532,9 +532,7 @@ struct HealthComposer: View {
                 .font(.system(size: 15, weight: .semibold))
                 .foregroundStyle(Color.textPrimary)
                 .frame(maxWidth: .infinity).frame(height: 44)
-                .background(Color.surface)
-                .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
-                .overlay { RoundedRectangle(cornerRadius: 14).stroke(Color.borderColor, lineWidth: 1) }
+                .forgeGlassCard(cornerRadius: 14, accent: .ember)
         }
     }
 }
@@ -699,8 +697,7 @@ struct ConditionsComposer: View {
             if coordinator.profile.reportedConditions.contains(.other) {
                 TextField("Anything else I should know? (optional)", text: $coordinator.freeText)
                     .padding(12)
-                    .background(Color.surface)
-                    .clipShape(RoundedRectangle(cornerRadius: FDS.Radius.md, style: .continuous))
+                    .forgeGlassCard(cornerRadius: FDS.Radius.md, accent: .ember)
             }
 
             if coordinator.profile.guidanceOnlyMode {

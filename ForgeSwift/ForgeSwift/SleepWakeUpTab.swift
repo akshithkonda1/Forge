@@ -729,9 +729,7 @@ struct WakeUpSection<Content: View>: View {
             content()
         }
         .padding(20)
-        .background(Color.surface)
-        .cornerRadius(20)
-        .shadow(color: .black.opacity(0.06), radius: 14, y: 5)
+        .forgeGlassCard(cornerRadius: 20, accent: .aurora)
     }
 }
 

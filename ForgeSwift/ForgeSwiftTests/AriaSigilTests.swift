@@ -118,6 +118,7 @@ final class AriaSigilTests: XCTestCase {
         XCTAssertFalse(AriaMeetCopy.lead.contains(AriaMeetCopy.pairingForbidden))
         XCTAssertFalse(AriaMeetCopy.title.contains("FORGE"))
         XCTAssertEqual(AriaMeetCopy.capabilities.count, 4)
+        XCTAssertTrue(AriaMeetCopy.capabilities.allSatisfy { !$0.icon.isEmpty && !$0.title.isEmpty })
     }
 
     func testPaletteStaysPreciousNotNeon() {

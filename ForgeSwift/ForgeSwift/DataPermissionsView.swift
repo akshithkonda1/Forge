@@ -55,14 +55,13 @@ struct DataPermissionsView: View {
                             .padding(.vertical, 12)
                         }
                     }
-                    .background(Color.surface)
-                    .cornerRadius(16)
+                    .forgeGlassCard(cornerRadius: 16, accent: .ember)
 
                     syncSection
                 }
                 .padding(16)
             }
-            .background(Color.background.ignoresSafeArea())
+            .forgeScreenBackground(accent: .ember)
             .navigationTitle("Data Permissions")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -133,8 +132,7 @@ struct DataPermissionsView: View {
         }
         .padding(16)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Color.surface)
-        .cornerRadius(16)
+        .forgeGlassCard(cornerRadius: 16, accent: .steel)
     }
 
     private func allowBinding(for domain: String) -> Binding<Bool> {
