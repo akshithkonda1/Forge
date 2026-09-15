@@ -207,6 +207,25 @@ class EstimatorTests(unittest.TestCase):
             self.assertFalse(aging_norms.confirm())
             mock_urlopen.assert_not_called()
 
+    def test_aging_norms_confirm_accepts_oxygen_deep_in_the_page(self):
+        import os
+        from unittest.mock import MagicMock, patch
+        from services.biometrics import aging_norms
+
+        aging_norms.reset_for_tests()
+        self.addCleanup(aging_norms.reset_for_tests)
+        html = ("x" * 16000 + "tissues need oxygen to survive").encode()
+        response = MagicMock()
+        response.status = 200
+        response.read.return_value = html
+        response.__enter__ = MagicMock(return_value=response)
+        response.__exit__ = MagicMock(return_value=False)
+        with patch.dict(os.environ, {"FORGE_AGING_WEB": "1"}):
+            with patch("services.biometrics.aging_norms.urlopen", return_value=response):
+                self.assertTrue(aging_norms.confirm())
+        self.assertTrue(aging_norms.web_confirmed())
+        self.assertEqual(aging_norms.web_source_title(), "MedlinePlus: Exercise Stress Test / VO2")
+
 
 class _FakeBackend:
     def __init__(self, prediction=None, raises=False):

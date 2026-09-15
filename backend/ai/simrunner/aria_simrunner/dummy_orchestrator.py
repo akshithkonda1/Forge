@@ -1180,7 +1180,7 @@ def humanize_prose(
     )):
         return finish(
             "Training age is a lifestyle comparison against the calendar — "
-            "VO2, recovery, resting heart, and sleep — never a medical diagnosis. "
+            "cardio fitness, recovery, resting heart, and sleep — not a diagnosis. "
             "I'll keep reading those signals as they come in."
         )
 

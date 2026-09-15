@@ -107,8 +107,11 @@ def confirm(*, timeout: float = 4.0) -> bool:
                 status = getattr(response, "status", 200)
                 if status != 200:
                     continue
-                body = response.read(12000).decode("utf-8", errors="replace").lower()
-            if any(token in body for token in ("vo2", "oxygen", "intensity", "physical activity")):
+                body = response.read(32000).decode("utf-8", errors="replace").lower()
+            if any(token in body for token in (
+                "vo2", "oxygen", "intensity", "physical activity",
+                "exercise", "stress test", "cardiorespiratory",
+            )):
                 mark_web_confirmed(title)
                 return True
         except (HTTPError, URLError, TimeoutError, OSError, ValueError):

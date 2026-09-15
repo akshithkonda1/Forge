@@ -137,13 +137,13 @@ class DummyOrchestratorTests(unittest.TestCase):
     def test_training_age_looks_up_aging_web_source(self):
         plan = dummy.plan_workers("what's my training age?")
         self.assertEqual(plan.primary.kind, "aging")
-        with patch.object(web_research, "look_up", return_value="From MedlinePlus: VO2 notes.") as mock_look_up:
+        with patch.object(web_research, "look_up", return_value="From MedlinePlus: exercise stress test notes.") as mock_look_up:
             row = dummy.respond("what's my training age?", seed=1, engine="stub")
         mock_look_up.assert_called_once_with("aging")
-        self.assertIn("From MedlinePlus: VO2 notes", row["message"])
+        self.assertIn("From MedlinePlus: exercise stress test notes", row["message"])
         blob = (row["prose_summary"] + " " + row["message"]).lower()
         self.assertIn("lifestyle comparison", blob)
-        self.assertNotIn("diagnos", blob)
+        self.assertIn("not a diagnosis", blob)
 
     def test_non_research_message_never_calls_web_research(self):
         with patch.object(web_research, "look_up") as mock_look_up:
