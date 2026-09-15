@@ -179,19 +179,18 @@ struct WorkoutIdleView: View {
         } label: {
             HStack(spacing: 12) {
                 ZStack {
-                    Circle().fill(accent.opacity(0.14)).frame(width: 40, height: 40)
+                    Circle().fill(accent.opacity(0.16)).frame(width: 40, height: 40)
                     Image(systemName: icon).font(.system(size: 17, weight: .semibold)).foregroundColor(accent)
                 }
                 VStack(alignment: .leading, spacing: 2) {
-                    Text(title).font(.system(size: 14, weight: .bold)).foregroundColor(.textPrimary)
-                    Text(subtitle).font(.system(size: 11)).foregroundColor(.textTertiary)
+                    Text(title).font(.system(size: 14, weight: .bold, design: .rounded)).foregroundColor(.textPrimary)
+                    Text(subtitle).font(.system(size: 11, weight: .medium, design: .rounded)).foregroundColor(.textTertiary)
                 }
                 Spacer()
             }
             .padding(.horizontal, 14).padding(.vertical, 12)
             .frame(maxWidth: .infinity)
-            .background(Color.surface).cornerRadius(16)
-            .overlay(RoundedRectangle(cornerRadius: 16).stroke(accent.opacity(0.18), lineWidth: 1))
+            .forgeGlassCard(cornerRadius: 16, accent: accent)
         }
         .buttonStyle(.plain)
     }
@@ -199,17 +198,21 @@ struct WorkoutIdleView: View {
     private func idleHeader(workout: WorkoutPlan) -> some View {
         VStack(spacing: 18) {
             ZStack {
-                Circle().fill(Color.ember.opacity(0.18))
-                    .frame(width: 90, height: 90).blur(radius: 22)
-                    .scaleEffect(pulseOrb ? 1.45 : 0.85)
-                    .opacity(pulseOrb ? 0.15 : 0.9)
                 Circle()
-                    .fill(LinearGradient(colors: [Color.ember, Color.ember.opacity(0.75)],
-                                        startPoint: .topLeading, endPoint: .bottomTrailing))
-                    .frame(width: 80, height: 80)
-                    .shadow(color: Color.ember.opacity(0.5), radius: 20, y: 6)
-                Image(systemName: "dumbbell.fill")
-                    .font(.system(size: 36, weight: .black)).foregroundColor(.white)
+                    .fill(
+                        RadialGradient(
+                            colors: [Color.ember.opacity(pulseOrb ? 0.28 : 0.12), .clear],
+                            center: .center, startRadius: 8, endRadius: 70
+                        )
+                    )
+                    .frame(width: 140, height: 140)
+                    .blur(radius: 10)
+                ARIAIdentityMark(
+                    state: .idle,
+                    mood: .energized,
+                    size: 88,
+                    amplitude: pulseOrb ? 0.36 : 0.22
+                )
             }
             .scaleEffect(appeared ? 1 : 0.7).opacity(appeared ? 1 : 0)
             .animation(.spring(response: 0.65, dampingFraction: 0.7).delay(0.1), value: appeared)
@@ -369,9 +372,8 @@ private struct AdaptiveScalingCard: View {
                 .cornerRadius(13)
             }
         }
-        .padding(18).background(Color.surface).cornerRadius(20)
-        .overlay(RoundedRectangle(cornerRadius: 20).stroke(scaling.tone.opacity(0.2), lineWidth: 1))
-        .shadow(color: .black.opacity(0.05), radius: 12, y: 5)
+        .padding(18)
+        .forgeGlassCard(cornerRadius: 20, accent: scaling.tone)
     }
 }
 
@@ -472,8 +474,8 @@ private struct ReadinessIntensityArc: View {
             }
             Spacer()
         }
-        .padding(16).background(Color.surface).cornerRadius(18)
-        .overlay(RoundedRectangle(cornerRadius: 18).stroke(matchColor.opacity(0.2), lineWidth: 1))
+        .padding(16)
+        .forgeGlassCard(cornerRadius: 18, accent: matchColor)
         .onAppear { appeared = true }
     }
 }
@@ -668,8 +670,8 @@ struct WorkoutInsightsView: View {
                 }
             }
         }
-        .padding(20).background(Color.surface).cornerRadius(22)
-        .shadow(color: .black.opacity(0.05), radius: 12, y: 5)
+        .padding(20)
+        .forgeGlassCard(cornerRadius: 22, accent: .ember)
         .onAppear { appeared = true }
         .task { store.shareWorkoutInsightsIfNeeded(insights.map(\.text)) }
     }
@@ -723,39 +725,38 @@ struct WorkoutEmptyState: View {
         VStack(spacing: 24) {
             Spacer()
             ZStack {
-                Circle().fill(Color.ember.opacity(0.08)).frame(width: 130, height: 130).blur(radius: 24)
-                Image(systemName: "dumbbell.fill").font(.system(size: 58)).foregroundColor(.ember.opacity(0.5))
+                Circle()
+                    .fill(RadialGradient(colors: [Color.ember.opacity(0.22), .clear], center: .center, startRadius: 8, endRadius: 80))
+                    .frame(width: 160, height: 160)
+                    .blur(radius: 12)
+                AuroraOrbView(state: .idle, amplitude: 0.30, mood: .energized, size: 112, followPresence: true)
             }
             .scaleEffect(appeared ? 1 : 0.8).opacity(appeared ? 1 : 0)
             VStack(spacing: 10) {
-                Text("No session on the board").font(.system(size: 24, weight: .bold)).foregroundColor(.textPrimary)
+                Text("No session on the board")
+                    .font(FDS.TypeScale.pageTitle(28))
+                    .foregroundColor(.textPrimary)
                 Text("ARIA writes Train from sleep, readiness, and the week you actually have — or browse the library.")
-                    .font(.system(size: 15)).foregroundColor(.textSecondary)
+                    .font(.system(size: 15, weight: .medium, design: .rounded)).foregroundColor(.textSecondary)
                     .multilineTextAlignment(.center).lineSpacing(5).padding(.horizontal, 44)
             }
             .opacity(appeared ? 1 : 0).offset(y: appeared ? 0 : 18)
             VStack(spacing: 12) {
-                Button {
-                    UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+                ForgePrimaryButton(title: "Write today’s session", icon: "sparkles") {
                     store.startLifeShapedSession()
-                } label: {
-                    HStack(spacing: 8) {
-                        Image(systemName: "sparkles").font(.system(size: 16))
-                        Text("Write today’s session").font(.system(size: 17, weight: .semibold))
-                    }
-                    .foregroundColor(.white).padding(.horizontal, 32).padding(.vertical, 17)
-                    .background(Color.ember).cornerRadius(18)
-                    .shadow(color: Color.ember.opacity(0.45), radius: 18, y: 8)
                 }
+                .padding(.horizontal, 28)
                 Button { showLibrary = true } label: {
                     HStack(spacing: 8) {
                         Image(systemName: "books.vertical.fill").font(.system(size: 14))
-                        Text("Browse the library").font(.system(size: 15, weight: .semibold))
+                        Text("Browse the library").font(.system(size: 15, weight: .semibold, design: .rounded))
                     }
                     .foregroundColor(.steel).padding(.horizontal, 24).padding(.vertical, 13)
-                    .background(Color.steel.opacity(0.1)).cornerRadius(16)
-                    .overlay(RoundedRectangle(cornerRadius: 16).stroke(Color.steel.opacity(0.3), lineWidth: 1))
+                    .background(Color.steel.opacity(0.12))
+                    .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+                    .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous).stroke(Color.steel.opacity(0.3), lineWidth: 1))
                 }
+                .buttonStyle(.plain)
             }
             .opacity(appeared ? 1 : 0).scaleEffect(appeared ? 1 : 0.92)
             Spacer(); Spacer()

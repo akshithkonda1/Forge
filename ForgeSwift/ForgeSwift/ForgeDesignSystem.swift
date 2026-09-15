@@ -30,6 +30,10 @@ enum FDS {
     // MARK: - Type
 
     enum TypeScale {
+        /// Apple Health–scale page titles. Glanceable at arm’s length.
+        static func pageTitle(_ size: CGFloat = 34) -> Font {
+            .system(size: size, weight: .semibold, design: .rounded)
+        }
         static func display(_ size: CGFloat = 32) -> Font {
             .system(size: size, weight: .semibold, design: .rounded)
         }

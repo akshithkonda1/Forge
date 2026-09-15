@@ -895,11 +895,9 @@ struct SettingsPageView: View {
     }
 
     func sectionHeader(_ title: String) -> some View {
-        Text(title.uppercased())
-            .font(.system(size: 11, weight: .semibold))
-            .foregroundColor(.textTertiary)
-            .tracking(1)
-            .padding(.top, 24)
-            .padding(.bottom, 8)
+        Text(title)
+            .forgeSectionLabel()
+            .padding(.top, 28)
+            .padding(.bottom, 10)
     }
 }

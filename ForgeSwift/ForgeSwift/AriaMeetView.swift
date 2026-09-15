@@ -10,11 +10,11 @@ enum AriaMeetCopy: Sendable {
     static let talkCta = "Talk with ARIA"
     static let skipCta = "Look around first"
 
-    static let capabilities: [(title: String, body: String)] = [
-        ("Train today", "What to do with the body you woke up with — not a plan from last week."),
-        ("Recovery", "Last night, load, and when to back off before you cook yourself."),
-        ("What's in the way", "Talk. You don't have to know the question. I'll stay with it."),
-        ("Plans that fit", "I coach the life you already have — not a spreadsheet of you."),
+    static let capabilities: [(title: String, body: String, icon: String)] = [
+        ("Train today", "What to do with the body you woke up with — not a plan from last week.", "dumbbell.fill"),
+        ("Recovery", "Last night, load, and when to back off before you cook yourself.", "heart.fill"),
+        ("What's in the way", "Talk. You don't have to know the question. I'll stay with it.", "bubble.left.and.bubble.right.fill"),
+        ("Plans that fit", "I coach the life you already have — not a spreadsheet of you.", "calendar"),
     ]
 }
 
@@ -29,9 +29,16 @@ struct AriaMeetView: View {
         ZStack {
             Color.background.ignoresSafeArea()
             RadialGradient(
-                colors: [ForgePalette.ember.opacity(0.14), .clear],
-                center: UnitPoint(x: 0.5, y: 0.28),
+                colors: [ForgePalette.ember.opacity(0.16), ForgePalette.ember.opacity(0.05), .clear],
+                center: UnitPoint(x: 0.5, y: 0.22),
                 startRadius: 8,
+                endRadius: 340
+            )
+            .ignoresSafeArea()
+            RadialGradient(
+                colors: [Color.steel.opacity(0.08), .clear],
+                center: UnitPoint(x: 0.9, y: 0.92),
+                startRadius: 6,
                 endRadius: 280
             )
             .ignoresSafeArea()
@@ -66,23 +73,28 @@ struct AriaMeetView: View {
 
                         VStack(spacing: 10) {
                             ForEach(AriaMeetCopy.capabilities, id: \.title) { item in
-                                VStack(alignment: .leading, spacing: 4) {
-                                    Text(item.title)
-                                        .font(.system(size: 15, weight: .semibold, design: .rounded))
-                                        .foregroundColor(.textPrimary)
-                                    Text(item.body)
-                                        .font(.system(size: 14, weight: .medium, design: .rounded))
-                                        .foregroundColor(.textSecondary)
-                                        .fixedSize(horizontal: false, vertical: true)
+                                HStack(alignment: .top, spacing: 12) {
+                                    ZStack {
+                                        Circle()
+                                            .fill(Color.ember.opacity(0.16))
+                                            .frame(width: 36, height: 36)
+                                        Image(systemName: item.icon)
+                                            .font(.system(size: 14, weight: .semibold))
+                                            .foregroundColor(.ember)
+                                    }
+                                    VStack(alignment: .leading, spacing: 4) {
+                                        Text(item.title)
+                                            .font(.system(size: 15, weight: .semibold, design: .rounded))
+                                            .foregroundColor(.textPrimary)
+                                        Text(item.body)
+                                            .font(.system(size: 14, weight: .medium, design: .rounded))
+                                            .foregroundColor(.textSecondary)
+                                            .fixedSize(horizontal: false, vertical: true)
+                                    }
                                 }
                                 .frame(maxWidth: .infinity, alignment: .leading)
                                 .padding(14)
-                                .background(Color.white.opacity(0.04))
-                                .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
-                                .overlay(
-                                    RoundedRectangle(cornerRadius: 16, style: .continuous)
-                                        .stroke(Color.white.opacity(0.08), lineWidth: 1)
-                                )
+                                .forgeGlassCard(cornerRadius: 16, accent: .ember)
                             }
                         }
                         .padding(.top, 8)
@@ -92,16 +104,11 @@ struct AriaMeetView: View {
                 }
 
                 VStack(spacing: 10) {
-                    Button(action: onTalk) {
-                        Text(AriaMeetCopy.talkCta)
-                            .font(.system(size: 17, weight: .semibold, design: .rounded))
-                            .foregroundColor(.white)
-                            .frame(maxWidth: .infinity)
-                            .padding(.vertical, 16)
-                            .background(FDS.Gradient.ember)
-                            .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
-                    }
-                    .buttonStyle(.plain)
+                    ForgePrimaryButton(
+                        title: AriaMeetCopy.talkCta,
+                        icon: "waveform",
+                        action: onTalk
+                    )
 
                     Button(action: onSkip) {
                         Text(AriaMeetCopy.skipCta)

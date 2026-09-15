@@ -182,9 +182,7 @@ struct NutritionDatabaseView: View {
                 }
             }
             .padding(13)
-            .background(Color.surface)
-            .cornerRadius(14)
-            .overlay(RoundedRectangle(cornerRadius: 14).stroke(Color.borderColor.opacity(0.5), lineWidth: 1))
+            .forgeGlassCard(cornerRadius: 14, accent: .amber)
 
             // Category pills
             ScrollView(.horizontal, showsIndicators: false) {
@@ -270,10 +268,7 @@ struct RestaurantCard: View {
         }
         .frame(maxWidth: .infinity)
         .padding(.vertical, 20)
-        .background(Color.surface)
-        .cornerRadius(18)
-        .overlay(RoundedRectangle(cornerRadius: 18).stroke(Color.borderColor.opacity(0.4), lineWidth: 1))
-        .shadow(color: .black.opacity(0.05), radius: 10, y: 4)
+        .forgeGlassCard(cornerRadius: 18, accent: .amber)
     }
 }
 
@@ -412,8 +407,7 @@ struct MenuItemCard: View {
             }
         }
         .padding(16)
-        .background(Color.surface)
-        .cornerRadius(14)
+        .forgeGlassCard(cornerRadius: 14, accent: .amber)
         .opacity(appeared ? 1 : 0)
         .offset(y: appeared ? 0 : 8)
         .onAppear {
@@ -523,9 +517,6 @@ struct AIPickCard: View {
         }
         .frame(width: 180)
         .padding(14)
-        .background(Color.surface)
-        .cornerRadius(14)
-        .overlay(RoundedRectangle(cornerRadius: 14).stroke(Color.ember.opacity(0.14), lineWidth: 1))
-        .shadow(color: .black.opacity(0.04), radius: 6, y: 3)
+        .forgeGlassCard(cornerRadius: 14, accent: .ember)
     }
 }

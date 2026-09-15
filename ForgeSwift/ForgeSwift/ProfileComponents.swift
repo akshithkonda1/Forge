@@ -29,16 +29,21 @@ struct ForgeEmptyState: View {
     var message: String
 
     var body: some View {
-        VStack(spacing: 12) {
-            Image(systemName: icon)
-                .font(.system(size: 32, weight: .medium))
-                .foregroundColor(.textTertiary)
-            VStack(spacing: 4) {
+        VStack(spacing: 14) {
+            ZStack {
+                Circle()
+                    .fill(Color.ember.opacity(0.12))
+                    .frame(width: 56, height: 56)
+                Image(systemName: icon)
+                    .font(.system(size: 24, weight: .semibold))
+                    .foregroundColor(.ember)
+            }
+            VStack(spacing: 6) {
                 Text(title)
-                    .font(.system(size: 14, weight: .semibold))
+                    .font(.system(size: 16, weight: .semibold, design: .rounded))
                     .foregroundColor(.textPrimary)
                 Text(message)
-                    .font(.system(size: 12))
+                    .font(.system(size: 13, weight: .medium, design: .rounded))
                     .foregroundColor(.textSecondary)
                     .multilineTextAlignment(.center)
             }
@@ -46,9 +51,7 @@ struct ForgeEmptyState: View {
         .frame(maxWidth: .infinity)
         .padding(.vertical, 32)
         .padding(.horizontal, 16)
-        .background(Color.surface)
-        .cornerRadius(14)
-        .overlay(RoundedRectangle(cornerRadius: 14).stroke(Color.borderColor, lineWidth: 1))
+        .forgeGlassCard(cornerRadius: FDS.Radius.lg, accent: .ember)
     }
 }
 
@@ -56,10 +59,7 @@ struct SectionCard<Content: View>: View {
     @ViewBuilder let content: () -> Content
     var body: some View {
         VStack(spacing: 0) { content() }
-            .background(Color.surface)
-            .cornerRadius(14)
-            .overlay(RoundedRectangle(cornerRadius: 14).stroke(Color.borderColor, lineWidth: 1))
-            .clipShape(RoundedRectangle(cornerRadius: 14))
+            .forgeGlassCard(cornerRadius: FDS.Radius.lg)
     }
 }
 
@@ -90,13 +90,17 @@ struct SettingsRow<Trailing: View>: View {
     var body: some View {
         HStack(spacing: 12) {
             if let icon = icon {
-                Image(systemName: icon)
-                    .font(.system(size: 16))
-                    .foregroundColor(iconColor ?? .textSecondary)
-                    .frame(width: 20)
+                ZStack {
+                    RoundedRectangle(cornerRadius: 8, style: .continuous)
+                        .fill((iconColor ?? Color.ember).opacity(0.14))
+                        .frame(width: 32, height: 32)
+                    Image(systemName: icon)
+                        .font(.system(size: 14, weight: .semibold))
+                        .foregroundColor(iconColor ?? .ember)
+                }
             }
             Text(label)
-                .font(.system(size: 14, weight: .medium))
+                .font(.system(size: 14, weight: .medium, design: .rounded))
                 .foregroundColor(.textPrimary)
             Spacer()
             if let t = trailingText {
@@ -145,6 +149,7 @@ struct ForgeToggle: View {
                 Capsule()
                     .fill(isOn ? Color.ember : Color.borderLight)
                     .frame(width: 48, height: 28)
+                    .shadow(color: isOn ? Color.ember.opacity(0.45) : .clear, radius: 8, y: 2)
                 Circle()
                     .fill(Color.white)
                     .frame(width: 22, height: 22)
@@ -192,8 +197,6 @@ struct TimeRangePicker: View {
             }
         }
         .padding(4)
-        .background(Color.surface)
-        .cornerRadius(100)
-        .overlay(Capsule().stroke(Color.borderColor.opacity(0.5), lineWidth: 1))
+        .forgeInnerWell(cornerRadius: 100)
     }
 }

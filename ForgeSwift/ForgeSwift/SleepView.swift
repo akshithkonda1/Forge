@@ -146,7 +146,7 @@ struct SleepHeaderView: View {
                 VStack(alignment: .leading, spacing: 4) {
                     HStack(spacing: 8) {
                         Text("Sleep")
-                            .font(.system(size: 28, weight: .bold, design: .rounded))
+                            .font(FDS.TypeScale.pageTitle())
                             .foregroundColor(.textPrimary)
                         // Tiny live dot — calm proof the page is reading HealthKit, not a mock.
                         Circle().fill(Color.vitality).frame(width: 6, height: 6)
@@ -154,23 +154,19 @@ struct SleepHeaderView: View {
                             .opacity(selectedTab == .day ? 1 : 0.5)
                     }
                     Text(subtitle)
-                        .font(.system(size: 12, weight: .medium, design: .rounded))
-                        .foregroundColor(.textTertiary)
+                        .font(.system(size: 15, weight: .medium, design: .rounded))
+                        .foregroundColor(.textSecondary)
                         .lineLimit(2)
                         .animation(.easeInOut(duration: 0.2), value: subtitle)
                 }
                 Spacer()
                 HStack(spacing: 8) {
-                    Button(action: onPersonalize) {
-                        Image(systemName: "slider.horizontal.3")
-                            .font(.system(size: 15, weight: .semibold))
-                            .foregroundColor(.textSecondary)
-                            .frame(width: 40, height: 40)
-                            .background(Color.white.opacity(0.08))
-                            .clipShape(Circle())
-                            .overlay(Circle().stroke(Color.white.opacity(0.12), lineWidth: 1))
-                    }
-                    .accessibilityLabel("Sleep preferences")
+                    ForgeIconButton(
+                        systemImage: "slider.horizontal.3",
+                        accent: .aurora,
+                        accessibilityLabel: "Sleep preferences",
+                        action: onPersonalize
+                    )
                     Button(action: onAskAria) {
                         HStack(spacing: 6) {
                             Image(systemName: "sparkles").font(.system(size: 11, weight: .semibold))

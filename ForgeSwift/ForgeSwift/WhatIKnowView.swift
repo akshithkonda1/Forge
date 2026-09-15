@@ -29,8 +29,7 @@ struct WhatIKnowView: View {
                             .foregroundColor(.ember)
                     }
                     .padding(16)
-                    .background(Color.surface)
-                    .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+                    .forgeGlassCard(cornerRadius: 16, accent: .ember)
                 }
 
                 ForEach(AriaKnowledgeCategory.allCases, id: \.self) { category in
@@ -82,8 +81,7 @@ struct WhatIKnowView: View {
             }
         }
         .padding(16)
-        .background(Color.surface)
-        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+        .forgeGlassCard(cornerRadius: 16, accent: .steel)
     }
 
     private func dateline(_ fact: AriaKnowledgeFact) -> String {

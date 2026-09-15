@@ -37,9 +37,7 @@ struct AIWorkoutSuggestionsCard: View {
             }
         }
         .padding(22)
-        .background(Color.surface)
-        .cornerRadius(22)
-        .shadow(color: .black.opacity(0.06), radius: 16, y: 6)
+        .forgeGlassCard(cornerRadius: 22, accent: .ember)
         .onAppear { appeared = true }
         .sheet(item: $selectedWorkout) { workout in
             WorkoutDetailSheet(workout: workout)
@@ -235,7 +233,6 @@ struct ExerciseRow: View {
                 .cornerRadius(6)
         }
         .padding(14)
-        .background(Color.surface)
-        .cornerRadius(14)
+        .forgeGlassCard(cornerRadius: 14, accent: .ember)
     }
 }

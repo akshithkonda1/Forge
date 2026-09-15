@@ -352,12 +352,7 @@ struct AlarmTab: View {
                         Spacer()
                     }
                     .padding(16)
-                    .background(Color.surface)
-                    .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 18, style: .continuous)
-                            .stroke(Color(hex: "F59E0B").opacity(0.35), lineWidth: 1)
-                    )
+                    .forgeGlassCard(cornerRadius: 18, accent: Color(hex: "F59E0B"))
                 }
                 .buttonStyle(.plain)
                 .accessibilityLabel("Test the wake-up screen now")

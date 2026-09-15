@@ -162,13 +162,13 @@ struct ForgePageHeader: View {
 
     var body: some View {
         HStack(alignment: .firstTextBaseline, spacing: 12) {
-            VStack(alignment: .leading, spacing: 4) {
+            VStack(alignment: .leading, spacing: 6) {
                 Text(title)
-                    .font(.system(size: 28, weight: .semibold, design: .rounded))
+                    .font(FDS.TypeScale.pageTitle())
                     .foregroundColor(.textPrimary)
                 if let subtitle, !subtitle.isEmpty {
                     Text(subtitle)
-                        .font(.system(size: 14, weight: .medium, design: .rounded))
+                        .font(.system(size: 15, weight: .medium, design: .rounded))
                         .foregroundColor(.textSecondary)
                 }
             }
@@ -177,6 +177,80 @@ struct ForgePageHeader: View {
         }
         .padding(.top, 8)
         .accessibilityElement(children: .combine)
+    }
+}
+
+/// Circular icon control used in page headers (Ask ARIA, share, hydrate).
+struct ForgeIconButton: View {
+    let systemImage: String
+    var accent: Color = .ember
+    var accessibilityLabel: String? = nil
+    var action: () -> Void
+
+    var body: some View {
+        Button {
+            FDS.haptic(.light)
+            action()
+        } label: {
+            Image(systemName: systemImage)
+                .font(.system(size: 15, weight: .semibold))
+                .foregroundStyle(accent)
+                .frame(width: 40, height: 40)
+                .background(accent.opacity(0.14))
+                .clipShape(Circle())
+                .overlay(Circle().stroke(accent.opacity(0.28), lineWidth: 1))
+                .shadow(color: accent.opacity(0.20), radius: 8, y: 2)
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(accessibilityLabel ?? systemImage)
+    }
+}
+
+/// Full-width ember CTA. Hairline chrome + accent glow, not a flat fill.
+struct ForgePrimaryButton: View {
+    let title: String
+    var icon: String? = nil
+    var accent: Color = .ember
+    var action: () -> Void
+
+    var body: some View {
+        Button {
+            FDS.haptic(.medium)
+            action()
+        } label: {
+            HStack(spacing: 10) {
+                if let icon {
+                    Image(systemName: icon)
+                        .font(.system(size: 16, weight: .bold))
+                }
+                Text(title)
+                    .font(.system(size: 17, weight: .bold, design: .rounded))
+                Spacer(minLength: 0)
+                Image(systemName: "arrow.right")
+                    .font(.system(size: 14, weight: .bold))
+            }
+            .foregroundColor(.white)
+            .padding(.horizontal, 22)
+            .padding(.vertical, 17)
+            .background {
+                ZStack {
+                    LinearGradient(
+                        colors: [accent, accent.opacity(0.78)],
+                        startPoint: .leading,
+                        endPoint: .trailing
+                    )
+                    LinearGradient.premiumChrome
+                }
+            }
+            .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+            .overlay(
+                RoundedRectangle(cornerRadius: 16, style: .continuous)
+                    .stroke(Color.white.opacity(0.16), lineWidth: 1)
+            )
+            .shadow(color: accent.opacity(0.40), radius: 16, y: 8)
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(title)
     }
 }
 
@@ -193,11 +267,23 @@ struct ForgeEmptyStateCard: View {
         VStack(spacing: 16) {
             ZStack {
                 Circle()
-                    .fill(accent.opacity(0.14))
+                    .fill(
+                        RadialGradient(
+                            colors: [accent.opacity(0.28), accent.opacity(0.08), .clear],
+                            center: .center,
+                            startRadius: 4,
+                            endRadius: 46
+                        )
+                    )
+                    .frame(width: 88, height: 88)
+                    .blur(radius: 8)
+                Circle()
+                    .fill(accent.opacity(0.16))
                     .frame(width: 72, height: 72)
                 Image(systemName: icon)
                     .font(.system(size: 30, weight: .semibold))
                     .foregroundStyle(accent)
+                    .shadow(color: accent.opacity(0.35), radius: 8)
             }
             Text(title)
                 .font(.system(size: 20, weight: .bold, design: .rounded))
@@ -255,7 +341,7 @@ struct ForgeExploreDestinationsGrid: View {
                     HStack(spacing: 12) {
                         ZStack {
                             RoundedRectangle(cornerRadius: 12, style: .continuous)
-                                .fill(dest.accent.opacity(0.14))
+                                .fill(dest.accent.opacity(0.16))
                                 .frame(width: 40, height: 40)
                             Image(systemName: dest.systemImage)
                                 .font(.system(size: 16, weight: .semibold))
@@ -263,23 +349,18 @@ struct ForgeExploreDestinationsGrid: View {
                         }
                         VStack(alignment: .leading, spacing: 2) {
                             Text(dest.title)
-                                .font(.system(size: 14, weight: .semibold))
+                                .font(.system(size: 14, weight: .semibold, design: .rounded))
                                 .foregroundColor(.textPrimary)
                                 .lineLimit(1)
                             Text(dest.subtitle)
-                                .font(.system(size: 11))
+                                .font(.system(size: 11, weight: .medium, design: .rounded))
                                 .foregroundColor(.textTertiary)
                                 .lineLimit(2)
                         }
                         Spacer(minLength: 0)
                     }
                     .padding(12)
-                    .background(Color.surfaceElevated)
-                    .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 14, style: .continuous)
-                            .stroke(Color.borderColor.opacity(0.45), lineWidth: 0.5)
-                    )
+                    .forgeGlassCard(cornerRadius: 14, accent: dest.accent)
                 }
                 .buttonStyle(.plain)
                 .accessibilityLabel("Open \(dest.title)")

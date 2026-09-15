@@ -28,7 +28,7 @@ struct ChatHeaderView: View {
             VStack(alignment: .leading, spacing: 3) {
                 HStack(spacing: 6) {
                     Text("ARIA")
-                        .font(.system(size: 17, weight: .semibold, design: .rounded))
+                        .font(.system(size: 20, weight: .semibold, design: .rounded))
                         .foregroundColor(.textPrimary)
                         .tracking(0.8)
                     if store.lastCoachWorkers.count > 1 {
@@ -108,7 +108,7 @@ struct ChatHeaderView: View {
                         .monospacedDigit()
                         .foregroundColor(.textPrimary)
                 }
-                .shadow(color: scoreColor.opacity(0.3), radius: 6)
+                .shadow(color: scoreColor.opacity(0.42), radius: 8)
             }
         }
         .padding(.horizontal, 18)

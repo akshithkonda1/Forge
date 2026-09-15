@@ -145,7 +145,7 @@ struct ProfileHeroHeader: View {
 
             VStack(spacing: FDS.Spacing.sm) {
                 Text(displayName)
-                    .font(.system(size: 26, weight: .bold))
+                    .font(FDS.TypeScale.pageTitle(28))
                     .foregroundColor(.textPrimary)
                     .lineLimit(1)
                     .minimumScaleFactor(0.7)
@@ -184,7 +184,7 @@ struct ProfileHeroHeader: View {
             heroStat(value: volumeCompact, label: "Lbs lifted", icon: "scalemass.fill", tint: .success)
         }
         .padding(.vertical, FDS.Spacing.lg)
-        .forgeCard()
+        .forgeGlassCard(accent: .ember)
     }
 
     private var statDivider: some View {
@@ -222,6 +222,7 @@ struct ProfileHeroHeader: View {
                     .stroke(LinearGradient.emberGradient, style: StrokeStyle(lineWidth: 5, lineCap: .round))
                     .rotationEffect(.degrees(-90))
                     .frame(width: 46, height: 46)
+                    .animation(FDS.Spring.sweep, value: store.readiness.overall)
                 Text("\(store.readiness.overall)")
                     .font(.system(size: 15, weight: .bold, design: .rounded))
                     .foregroundColor(.textPrimary)
@@ -248,7 +249,7 @@ struct ProfileHeroHeader: View {
             .background(Capsule().fill(trendColor.opacity(0.12)))
         }
         .padding(FDS.Spacing.lg)
-        .forgeCard(accent: .ember)
+        .forgeGlassCard(accent: .ember)
         .accessibilityElement(children: .combine)
         .accessibilityLabel("Readiness today \(store.readiness.overall) out of 100, \(readinessWord), \(trendLabel)")
     }
