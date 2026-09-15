@@ -3,14 +3,10 @@ import Foundation
 /// B+E nest mix — brand mark.
 /// Soft-hex nest + metal sun. Forge orange `#FF4D00` accent. Consumer-friendly.
 ///
-/// Numbers lockstep with open iOS nest drafts `#274` / `#275`
-/// (`soft-hex-field`, three rings, planetary orbits, still-pose 18°).
-/// `shared/aria-mark.json` on `main` is still `ring-field` (Lex/Cove). That
-/// JSON is Home/data language only — do not invent a second nest once Lex
-/// lands nest fields; map these constants to it.
-///
-/// Not a flower. Not an industrial F. Not splash fire. Ring-field stays
-/// on `AriaSigilGeometry` for Home readiness language.
+/// Lockstep with Lex `#288` head `b9a3d9355dda20b6dc73902d56b76301179379c2`
+/// (`shared/aria-mark.json` / `src/lib/aria-mark.ts`, `kind: soft-hex-field`).
+/// `main` JSON is still `ring-field` until that PR merges — do not invent a
+/// second nest. Home readiness data rings stay `AriaSigilGeometry`.
 public enum AriaNestGeometry: Sendable {
 
     public static let kind = "soft-hex-field"
@@ -22,8 +18,16 @@ public enum AriaNestGeometry: Sendable {
     public static let brandHueLightHex = "FF6B2B"
     public static let pearlHex = "F7F4F0"
     public static let pearlHotHex = "FFFFFF"
+    public static let nestFrostHex = "A9D8FF"
+    public static let hearthGlowHex = "3A0E12"
     public static let metalCoolHex = "E8EEF4"
     public static let metalMidHex = "C9D2DC"
+    /// Inner pearl, mid frost, outer Forge orange accent.
+    public static let ringHex: [String] = ["F7F4F0", "A9D8FF", "FF4D00"]
+    public static let hearthSpecularMax: Double = 0.55
+    public static let paintedOpacityFloor: Double = 0.70
+    public static let wordmarkPrimaryMax: Double = 32
+    public static let splash = "mark+wordmark"
 
     /// Frozen TimelineView clock only. Angle lock is `stillPoseAngleDeg`.
     public static let stillPose: Double = 1.72
@@ -31,21 +35,19 @@ public enum AriaNestGeometry: Sendable {
     public static let heroMinimumSize: Double = 90
     public static let compactRecommend: Double = 28
 
-    /// Shared spin floor (legacy). Prefer per-ring orbit Hz.
-    public static let idleSpinHz: Double = 0.05
-    public static let speakingSpinHz: Double = 0.09
-    /// Soft nest weave — well under flash. Restrained vs `#275` 2.35 / 3.1 Hz.
+    /// Soft nest weave — well under flash. `liquidWaveHz` is Lex `#288`.
     public static let waveformHz: Double = 0.55
     public static let metalRippleHz: Double = 0.45
-    public static let liquidWaveHz: Double = 0.28
-    /// Watch-safe ceiling. Phone TimelineView must not exceed this.
-    public static let tickHz: Double = 12
+    public static let liquidWaveHz: Double = 0.42
+    /// Watch-safe ceiling. Phone TimelineView must not exceed this. Lex `paintHz`.
+    public static let paintHz: Double = 12
+    public static let tickHz: Double = paintHz
     public static let tickInterval: Double = 1.0 / 12.0
     /// Spatial wobble ceiling (Watch epilepsy bar).
     public static let maxWobbleHz: Double = 0.15
 
-    public static let strokeWidthCompact: Double = 1.35
-    public static let strokeWidthHero: Double = 1.6
+    public static let strokeWidthCompact: Double = 1.5
+    public static let strokeWidthHero: Double = 1.75
     public static let contrastFloor: Double = 0.70
     /// Corner softness — higher is more ellipse-like. Soft nest, not sharp hex.
     public static let cornerRoundness: Double = 0.34
@@ -62,10 +64,10 @@ public enum AriaNestGeometry: Sendable {
     public static let eccentricity: [Double] = [0.07, 0.05, 0.06]
     public static let tiltDeg: [Double] = [-18, 24, -12]
     public static let phaseOffsets: [Double] = [0.0, 0.33, 0.66]
-    public static let ringOpacities: [Double] = [0.88, 0.78, 0.62]
-    /// Sign = direction (inner/outer prograde, middle retrograde).
+    public static let ringOpacities: [Double] = [0.88, 0.78, 0.72]
+    /// Sign = direction (inner/outer prograde, middle retrograde). Lex `#288`.
     public static let idleOrbitHz: [Double] = [0.065, -0.042, 0.028]
-    public static let speakingOrbitHz: [Double] = [0.11, -0.075, 0.048]
+    public static let speakingOrbitHz: [Double] = [0.09, -0.06, 0.04]
 
     public struct HexPose: Equatable, Sendable {
         public var rx: Double
@@ -111,20 +113,41 @@ public enum AriaNestGeometry: Sendable {
         return Array(0..<ringCount)
     }
 
-    /// Inner ring is pearl/metal; outer is Forge orange accent.
+    public enum SizeTier: Equatable, Sendable {
+        case compact, mid, hero
+    }
+
+    public static func sizeTier(_ size: Double) -> SizeTier {
+        if size <= wordmarkPrimaryMax { return .compact }
+        if size >= heroMinimumSize { return .hero }
+        return .mid
+    }
+
+    /// Compact (≤32) stays still-pose. Mid/hero orbit unless Reduce Motion.
+    public static func shouldOrbit(size: Double, reduceMotion: Bool) -> Bool {
+        !reduceMotion && sizeTier(size) != .compact
+    }
+
+    public static func ringHex(at index: Int) -> String {
+        ringHex[clampedIndex(index)]
+    }
+
+    /// Cove flicker-wave floor: contract ≥0.70 never paints below 0.70.
+    public static func paintedNestOpacity(_ contractOpacity: Double, flicker: Double = 1) -> Double {
+        let painted = contractOpacity * flicker
+        if contractOpacity >= paintedOpacityFloor {
+            return max(paintedOpacityFloor, painted)
+        }
+        return painted
+    }
+
+    /// Inner ring is pearl; outer is Forge orange accent.
     public static func ringIsPearl(_ index: Int) -> Bool {
         index == 0
     }
 
     public static func ringIsOrangeAccent(_ index: Int) -> Bool {
         index == ringCount - 1
-    }
-
-    public static func spinHz(for presence: Presence) -> Double {
-        switch presence {
-        case .idle, .listening: return idleSpinHz
-        case .processing, .speaking: return speakingSpinHz
-        }
     }
 
     public static func orbitHz(index: Int, presence: Presence) -> Double {
@@ -216,7 +239,8 @@ public enum AriaNestGeometry: Sendable {
         pose.rx *= 1.0 + wave * 0.012 * drive
         pose.ry *= 1.0 + wave2 * 0.014 * drive
         pose.rotation += wave * 0.008 * drive
-        pose.opacity = min(1.0, pose.opacity + drive * 0.06 * (0.55 + 0.45 * wave))
+        let flicker = 1.0 + drive * 0.06 * (0.55 + 0.45 * wave)
+        pose.opacity = paintedNestOpacity(ringOpacities[i], flicker: flicker)
         pose.waveAmp *= 1.0 + 0.35 * drive
         pose.wavePhase += wave * 0.18 * drive
         return pose
@@ -263,9 +287,8 @@ public enum AriaNestGeometry: Sendable {
 
     public static func strokeWidth(size: Double, index: Int = 0) -> Double {
         _ = index
-        let scaled = max(strokeWidthCompact, size * 0.018)
-        let tier = size < heroMinimumSize ? strokeWidthCompact : strokeWidthHero
-        return max(scaled, tier)
+        let raw = size < heroMinimumSize ? strokeWidthCompact : strokeWidthHero
+        return max(strokeWidthCompact, raw)
     }
 
     /// Unit-circle nest ring. 2-fold weave + a quiet 6-fold hex — not petals.

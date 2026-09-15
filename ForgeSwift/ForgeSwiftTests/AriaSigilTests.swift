@@ -150,6 +150,12 @@ final class AriaSigilTests: XCTestCase {
         XCTAssertEqual(AriaSigilGeometry.ringCount, 5)
         XCTAssertEqual(AriaNestGeometry.forgeOrangeHex, AriaSigilGeometry.forgeOrangeHex)
         XCTAssertEqual(AriaNestGeometry.tickHz, 12, accuracy: 0.0001)
+        XCTAssertEqual(AriaNestGeometry.paintHz, 12, accuracy: 0.0001)
+        XCTAssertEqual(AriaNestGeometry.ringOpacities, [0.88, 0.78, 0.72])
+        XCTAssertEqual(AriaNestGeometry.speakingOrbitHz, [0.09, -0.06, 0.04])
+        XCTAssertEqual(AriaNestGeometry.strokeWidthCompact, 1.5, accuracy: 0.0001)
+        XCTAssertEqual(AriaNestGeometry.strokeWidthHero, 1.75, accuracy: 0.0001)
+        XCTAssertEqual(AriaNestGeometry.ringHex, ["F7F4F0", "A9D8FF", "FF4D00"])
     }
 
     func testNestPresenceMapsFromOrbState() {
@@ -181,5 +187,7 @@ final class AriaSigilTests: XCTestCase {
         XCTAssertEqual(AriaSigilPalette.pearlHotHex, "FFFFFF")
         XCTAssertTrue(AriaNestGeometry.ringIsPearl(0))
         XCTAssertTrue(AriaNestGeometry.ringIsOrangeAccent(2))
+        XCTAssertEqual(AriaSigilPalette.nestFrostHex, "A9D8FF")
+        XCTAssertFalse(AriaNestGeometry.shouldOrbit(size: 32, reduceMotion: false))
     }
 }

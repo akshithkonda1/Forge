@@ -4,7 +4,7 @@ import os
 
 /// Welcome arrive-sound. Live phone ARIA is the B+E nest (`AuroraOrbView` /
 /// `AriaNestGeometry`). Ring-field stays Home/data language.
-/// `shared/aria-mark.json` is still `ring-field` until Lex lands nest fields. PNG unused.
+/// Lex `#288` locks nest JSON (`soft-hex-field`); `main` is still `ring-field` until it merges. PNG unused.
 /// Pure gates so tests can lock quiet mode and Reduce Motion without audio.
 enum AriaWelcomeChime: Sendable {
     static let assetName = "AriaLogo"

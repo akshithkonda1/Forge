@@ -19,7 +19,10 @@ struct AriaNestMarkWatch: View {
     @Environment(\.forgeMinimalAnimation) private var minimalAnimation
 
     private var frozen: Bool {
-        reduceMotion || minimalAnimation || luminanceReduced
+        reduceMotion
+            || minimalAnimation
+            || luminanceReduced
+            || !AriaNestGeometry.shouldOrbit(size: Double(size), reduceMotion: false)
     }
 
     var body: some View {
@@ -43,7 +46,6 @@ struct AriaNestMarkWatch: View {
         guard s >= 2 else { return }
         let center = CGPoint(x: canvasSize.width / 2, y: canvasSize.height / 2)
         let orange = Color(forgeHex: AriaNestGeometry.forgeOrangeHex)
-        let orangeLight = Color(forgeHex: AriaNestGeometry.brandHueLightHex)
         let pearl = Color(forgeHex: AriaNestGeometry.pearlHex)
         let pearlHot = Color(forgeHex: AriaNestGeometry.pearlHotHex)
         let metalCool = Color(forgeHex: AriaNestGeometry.metalCoolHex)
@@ -63,10 +65,7 @@ struct AriaNestMarkWatch: View {
             )
         )
 
-        let rings = s < 36
-            ? [1, 2]
-            : AriaNestGeometry.visibleRingIndices(size: Double(s))
-        for index in rings.reversed() {
+        for index in AriaNestGeometry.visibleRingIndices(size: Double(s)).reversed() {
             let pose = AriaNestGeometry.livingHex(
                 index: index,
                 time: time,
@@ -74,14 +73,7 @@ struct AriaNestMarkWatch: View {
                 amplitude: amplitude,
                 reduceMotion: frozen
             )
-            let stroke: Color
-            if AriaNestGeometry.ringIsPearl(index) {
-                stroke = pearlHot
-            } else if AriaNestGeometry.ringIsOrangeAccent(index) {
-                stroke = orange
-            } else {
-                stroke = orangeLight
-            }
+            let stroke = Color(forgeHex: AriaNestGeometry.ringHex(at: index))
             let path = nestPath(
                 center: center,
                 width: s * pose.rx,

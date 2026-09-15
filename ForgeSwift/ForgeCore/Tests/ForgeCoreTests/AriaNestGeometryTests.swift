@@ -2,7 +2,7 @@ import XCTest
 @testable import ForgeCore
 
 /// Locks the B+E nest mark: three soft-hex rings, metal sun, `#FF4D00` accent,
-/// Reduce Motion freeze, ≤12 Hz tick. Matches `#274` / `#275` nest numbers.
+/// Reduce Motion freeze, ≤12 Hz tick. Matches Lex `#288` `soft-hex-field`.
 final class AriaNestGeometryTests: XCTestCase {
 
     func testNestKindAndLock() {
@@ -15,29 +15,37 @@ final class AriaNestGeometryTests: XCTestCase {
         XCTAssertEqual(AriaNestGeometry.brandHueLightHex, "FF6B2B")
         XCTAssertEqual(AriaNestGeometry.pearlHex, "F7F4F0")
         XCTAssertEqual(AriaNestGeometry.pearlHotHex, "FFFFFF")
+        XCTAssertEqual(AriaNestGeometry.nestFrostHex, "A9D8FF")
+        XCTAssertEqual(AriaNestGeometry.hearthGlowHex, "3A0E12")
+        XCTAssertEqual(AriaNestGeometry.ringHex, ["F7F4F0", "A9D8FF", "FF4D00"])
         XCTAssertEqual(AriaNestGeometry.stillPoseAngleDeg, 18, accuracy: 0.0001)
         XCTAssertEqual(AriaNestGeometry.cornerRoundness, 0.34, accuracy: 0.0001)
         XCTAssertEqual(AriaNestGeometry.orbDiameterIdle, 0.22, accuracy: 0.0001)
         XCTAssertEqual(AriaNestGeometry.orbDiameterSpeaking, 0.245, accuracy: 0.0001)
     }
 
-    func testMatchesOpenNestDrafts274275() {
+    func testMatchesLexPR288Contract() {
         XCTAssertEqual(AriaNestGeometry.radii, [0.46, 0.52, 0.58])
         XCTAssertEqual(AriaNestGeometry.eccentricity, [0.07, 0.05, 0.06])
         XCTAssertEqual(AriaNestGeometry.tiltDeg, [-18, 24, -12])
         XCTAssertEqual(AriaNestGeometry.phaseOffsets, [0.0, 0.33, 0.66])
-        XCTAssertEqual(AriaNestGeometry.ringOpacities, [0.88, 0.78, 0.62])
+        XCTAssertEqual(AriaNestGeometry.ringOpacities, [0.88, 0.78, 0.72])
         XCTAssertEqual(AriaNestGeometry.idleOrbitHz, [0.065, -0.042, 0.028])
-        XCTAssertEqual(AriaNestGeometry.speakingOrbitHz, [0.11, -0.075, 0.048])
-        XCTAssertEqual(AriaNestGeometry.idleSpinHz, 0.05, accuracy: 0.0001)
-        XCTAssertEqual(AriaNestGeometry.speakingSpinHz, 0.09, accuracy: 0.0001)
-        XCTAssertEqual(AriaNestGeometry.strokeWidthCompact, 1.35, accuracy: 0.0001)
-        XCTAssertEqual(AriaNestGeometry.strokeWidthHero, 1.6, accuracy: 0.0001)
+        XCTAssertEqual(AriaNestGeometry.speakingOrbitHz, [0.09, -0.06, 0.04])
+        XCTAssertEqual(AriaNestGeometry.liquidWaveHz, 0.42, accuracy: 0.0001)
+        XCTAssertEqual(AriaNestGeometry.paintHz, 12, accuracy: 0.0001)
+        XCTAssertEqual(AriaNestGeometry.strokeWidthCompact, 1.5, accuracy: 0.0001)
+        XCTAssertEqual(AriaNestGeometry.strokeWidthHero, 1.75, accuracy: 0.0001)
         XCTAssertEqual(AriaNestGeometry.heroMinimumSize, 90, accuracy: 0.0001)
         XCTAssertEqual(AriaNestGeometry.compactRecommend, 28, accuracy: 0.0001)
+        XCTAssertEqual(AriaNestGeometry.wordmarkPrimaryMax, 32, accuracy: 0.0001)
+        XCTAssertEqual(AriaNestGeometry.hearthSpecularMax, 0.55, accuracy: 0.0001)
+        XCTAssertEqual(AriaNestGeometry.paintedOpacityFloor, 0.70, accuracy: 0.0001)
+        XCTAssertEqual(AriaNestGeometry.splash, "mark+wordmark")
         XCTAssertEqual(AriaNestGeometry.visibleRingIndices(size: 28), [0, 1, 2])
         XCTAssertEqual(AriaNestGeometry.visibleRingIndices(size: 90), [0, 1, 2])
         XCTAssertEqual(AriaNestGeometry.compactRingIndices, [0, 1, 2])
+        XCTAssertEqual(AriaNestGeometry.contrastRingIndices, [0, 1, 2])
     }
 
     func testTickBudgetIsWatchSafe() {
@@ -71,13 +79,14 @@ final class AriaNestGeometryTests: XCTestCase {
     }
 
     func testIdleOrbitIsSofterThanSpeaking() {
-        XCTAssertLessThan(AriaNestGeometry.idleSpinHz, AriaNestGeometry.speakingSpinHz)
         XCTAssertGreaterThan(abs(AriaNestGeometry.idleOrbitHz[0]), abs(AriaNestGeometry.idleOrbitHz[2]))
         XCTAssertLessThan(AriaNestGeometry.idleOrbitHz[1], 0)
-        XCTAssertGreaterThan(
-            abs(AriaNestGeometry.speakingOrbitHz[0]),
-            abs(AriaNestGeometry.idleOrbitHz[0])
-        )
+        for index in 0..<AriaNestGeometry.ringCount {
+            XCTAssertGreaterThan(
+                abs(AriaNestGeometry.speakingOrbitHz[index]),
+                abs(AriaNestGeometry.idleOrbitHz[index])
+            )
+        }
     }
 
     func testThreeRingsAtDistinctTilts() {
@@ -149,12 +158,29 @@ final class AriaNestGeometryTests: XCTestCase {
         )
     }
 
-    func testHueRhythmIsPearlThenOrangeAccent() {
+    func testHueRhythmIsPearlFrostOrange() {
+        XCTAssertEqual(AriaNestGeometry.ringHex(at: 0), "F7F4F0")
+        XCTAssertEqual(AriaNestGeometry.ringHex(at: 1), "A9D8FF")
+        XCTAssertEqual(AriaNestGeometry.ringHex(at: 2), "FF4D00")
         XCTAssertTrue(AriaNestGeometry.ringIsPearl(0))
         XCTAssertFalse(AriaNestGeometry.ringIsPearl(1))
-        XCTAssertFalse(AriaNestGeometry.ringIsPearl(2))
-        XCTAssertFalse(AriaNestGeometry.ringIsOrangeAccent(0))
         XCTAssertTrue(AriaNestGeometry.ringIsOrangeAccent(2))
+    }
+
+    func testPaintedOpacityFloorAndCompactStill() {
+        XCTAssertEqual(AriaNestGeometry.paintedNestOpacity(0.72, flicker: 0.78), 0.70, accuracy: 0.0001)
+        XCTAssertEqual(AriaNestGeometry.paintedNestOpacity(0.88, flicker: 1), 0.88, accuracy: 0.0001)
+        XCTAssertTrue(AriaNestGeometry.ringOpacities.allSatisfy { $0 >= 0.70 })
+        XCTAssertEqual(AriaNestGeometry.sizeTier(32), .compact)
+        XCTAssertEqual(AriaNestGeometry.sizeTier(36), .mid)
+        XCTAssertEqual(AriaNestGeometry.sizeTier(90), .hero)
+        XCTAssertFalse(AriaNestGeometry.shouldOrbit(size: 28, reduceMotion: false))
+        XCTAssertTrue(AriaNestGeometry.shouldOrbit(size: 96, reduceMotion: false))
+        XCTAssertFalse(AriaNestGeometry.shouldOrbit(size: 96, reduceMotion: true))
+        let live = AriaNestGeometry.livingHex(
+            index: 2, time: 0.4, presence: .speaking, amplitude: 0.95, reduceMotion: false
+        )
+        XCTAssertGreaterThanOrEqual(live.opacity, AriaNestGeometry.paintedOpacityFloor)
     }
 
     func testNestPathIsSoftHexNotFlower() {

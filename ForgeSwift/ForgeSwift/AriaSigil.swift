@@ -118,6 +118,7 @@ enum AriaSigilPalette: Sendable {
     static let emberHex = forgeOrangeHex
     static let pearlHex = AriaNestGeometry.pearlHex
     static let pearlHotHex = AriaNestGeometry.pearlHotHex
+    static let nestFrostHex = AriaNestGeometry.nestFrostHex
     static let voidDeepHex = "030207"
     static let voidMidHex = "0B0812"
     static let ivoryHex = "F3EBDD"

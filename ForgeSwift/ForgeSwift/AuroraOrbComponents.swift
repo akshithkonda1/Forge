@@ -51,7 +51,10 @@ struct AuroraOrbView: View {
     }
 
     private var frozen: Bool {
-        reduceMotion || minimalAnimation || scenePhase != .active
+        reduceMotion
+            || minimalAnimation
+            || scenePhase != .active
+            || !AriaNestGeometry.shouldOrbit(size: Double(size), reduceMotion: false)
     }
 
     private var tick: Double {
@@ -127,14 +130,15 @@ enum AriaNestCanvas {
         let center = CGPoint(x: canvasSize.width / 2, y: canvasSize.height / 2)
         let drive = AriaNestGeometry.waveformDrive(presence: presence, amplitude: amplitude)
         let orange = Color(hex: AriaNestGeometry.forgeOrangeHex)
-        let orangeLight = Color(hex: AriaNestGeometry.brandHueLightHex)
         let pearl = Color(hex: AriaNestGeometry.pearlHex)
         let pearlHot = Color(hex: AriaNestGeometry.pearlHotHex)
         let metalCool = Color(hex: AriaNestGeometry.metalCoolHex)
         let metalMid = Color(hex: AriaNestGeometry.metalMidHex)
+        let hearth = Color(hex: AriaNestGeometry.hearthGlowHex)
 
-        // Soft pearl wash — not a fire bloom, not a splash under the mark.
+        // Decorative hearth wash only — specular under 0.55, never a fire splash.
         let washR = s * 0.46
+        let wash = min(AriaNestGeometry.hearthSpecularMax, 0.18 + drive * 0.10)
         context.fill(
             Path(ellipseIn: CGRect(
                 x: center.x - washR, y: center.y - washR,
@@ -142,8 +146,9 @@ enum AriaNestCanvas {
             )),
             with: .radialGradient(
                 Gradient(colors: [
-                    pearlHot.opacity(0.14 + drive * 0.08),
-                    orange.opacity(0.06 + amplitude * 0.04),
+                    pearlHot.opacity(0.12 + drive * 0.06),
+                    hearth.opacity(wash * 0.35),
+                    orange.opacity(min(AriaNestGeometry.hearthSpecularMax, 0.05 + amplitude * 0.04)),
                     .clear
                 ]),
                 center: center,
@@ -160,14 +165,7 @@ enum AriaNestCanvas {
                 amplitude: amplitude,
                 reduceMotion: reduceMotion
             )
-            let stroke: Color
-            if AriaNestGeometry.ringIsPearl(index) {
-                stroke = pearlHot
-            } else if AriaNestGeometry.ringIsOrangeAccent(index) {
-                stroke = orange
-            } else {
-                stroke = orangeLight
-            }
+            let stroke = Color(hex: AriaNestGeometry.ringHex(at: index))
             let line = CGFloat(AriaNestGeometry.strokeWidth(size: Double(s), index: index))
             let path = nestPath(
                 center: center,
