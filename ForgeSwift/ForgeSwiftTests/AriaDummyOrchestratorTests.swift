@@ -682,24 +682,50 @@ final class AriaDummyOrchestratorTests: XCTestCase {
         )
     }
 
-    /// Python `GateFixturesFailOnBadSpeak` — the scrub must fire on known-bad
-    /// strings, not only on whatever Dummy happens to emit this seed.
+    /// Python `GateFixturesFailOnBadSpeak` plus Iris `_strip_sleep_stage_pct`:
+    /// stage-% dumps are stripped in-place; the rest of the sentence stays.
     func testSanitizeSpeakMirrorsPythonVitalsAndCheerGates() {
         let dumps = [
             "Readiness 96/100 · HRV 52 ms · RHR 58 bpm — band: Silver.",
             "Player status 70/100 · HRV 52. S-Rank.",
             "HRV is 12% under baseline — keep today easy.",
-            "Deep sleep at 19% is in a healthy band.",
-            "Sleep: 8.1 h total, 93 min deep (19%).",
         ]
         for text in dumps {
             let clean = AriaDummyOrchestrator.sanitizeSpeak(text)
             let lower = clean.lowercased()
             XCTAssertFalse(lower.contains("hrv"), "still leaking HRV from '\(text)': \(clean)")
             XCTAssertFalse(lower.contains("bpm"), "still leaking bpm from '\(text)': \(clean)")
-            XCTAssertFalse(lower.contains("deep sleep at"), "still leaking stage % from '\(text)': \(clean)")
             XCTAssertFalse(clean.isEmpty, text)
         }
+
+        let mixed = "You rebuilt last night. Deep sleep at 19% is in a healthy band. Keep today kind."
+        let stripped = AriaDummyOrchestrator.sanitizeSpeak(mixed)
+        let strippedLow = stripped.lowercased()
+        XCTAssertTrue(strippedLow.contains("rebuilt") || strippedLow.contains("keep today kind"), stripped)
+        XCTAssertFalse(strippedLow.contains("deep sleep at"), stripped)
+        XCTAssertFalse(strippedLow.contains("healthy band"), stripped)
+        XCTAssertFalse(strippedLow.contains("%"), stripped)
+
+        for stageDump in [
+            "REM is light at 12%. Keep today kind.",
+            "Light sleep at 61%. Keep today kind.",
+            "Deep sleep at 21% is in a healthy band. Let's not chase a hero day.",
+        ] {
+            let clean = AriaDummyOrchestrator.sanitizeSpeak(stageDump)
+            let lower = clean.lowercased()
+            XCTAssertFalse(lower.contains("sleep at"), "stage % leftover: \(clean)")
+            XCTAssertFalse(lower.contains("rem is light at"), clean)
+            XCTAssertFalse(lower.contains("%"), clean)
+            XCTAssertTrue(
+                lower.contains("keep today") || lower.contains("hero") || lower.contains("with you"),
+                "strip should keep the friend clause: \(clean)"
+            )
+        }
+
+        // Data-driven receipts are minutes, not stage-%. Fused `_VITALS_SPEAK`
+        // does not ban them; don't over-scrub vs Mira's contract.
+        let receipt = "For the record: 7.2 hours, 40 min deep."
+        XCTAssertEqual(AriaDummyOrchestrator.sanitizeSpeak(receipt), receipt)
 
         let friend = "Cap it at fifteen minutes and keep the quality high."
         XCTAssertEqual(AriaDummyOrchestrator.sanitizeSpeak(friend), friend)
@@ -757,6 +783,18 @@ final class AriaDummyOrchestratorTests: XCTestCase {
         XCTAssertFalse(
             lower.contains("bpm"),
             "Dummy must not dump bpm-style vitals in ordinary praise/coach lines for '\(prompt)': \(text)",
+            file: file,
+            line: line
+        )
+        XCTAssertNil(
+            text.range(of: #"\b(?:deep|rem|light)\s+sleep\s+at\s+\d"#, options: .regularExpression),
+            "Dummy must not dump sleep-stage % for '\(prompt)': \(text)",
+            file: file,
+            line: line
+        )
+        XCTAssertNil(
+            text.range(of: #"\brem\s+is\s+light\s+at\s+\d"#, options: .regularExpression),
+            "Dummy must not dump REM-is-light % for '\(prompt)': \(text)",
             file: file,
             line: line
         )

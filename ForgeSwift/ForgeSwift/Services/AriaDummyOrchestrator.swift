@@ -872,10 +872,17 @@ enum AriaDummyOrchestrator {
 
     // MARK: - Lane humanizers — strip DIE metric tables into companion speech
 
-    /// Python Dummy `_VITALS_SPEAK` plus #269 `speak_quality.vitals_hits` leftovers.
-    /// Bare lone `ms` is omitted; numeric `N ms` / `Nms` still fail.
+    /// Fused Dummy `_VITALS_SPEAK` (`aria_engine` + Dummy orchestrator).
+    /// Sleep-stage % is stripped first (`stripSleepStagePct`); these patterns
+    /// are the remaining fail-and-fallback tokens, not a "min deep" HUD ban.
     private static let vitalsSpeak = try! NSRegularExpression(
-        pattern: #"\b(hrv|bpm|mmhg|vo2|spo2|recovery score|sleep[- ]?debt)\b|%\s*(?:below|above|under|over)\s+baseline|\b(?:readiness|recovery|sleep)\s+score\s*(?:is\s+|of\s+)?\d|\breadiness\s+is\s+\d|\bsleep:\s*\d|\d+(?:\.\d+)?\s?h total\b|\d+\s?min deep\b|\b(?:deep|rem|light)\s+sleep\s+at\s+\d+(?:\.\d+)?\s*%|\brem\s+is\s+light\s+at\s+\d+(?:\.\d+)?\s*%|\d+(?:\.\d+)?\s?ms\b|\d+(?:\.\d+)?\s?bpm\b"#,
+        pattern: #"\b(hrv|bpm|ms|mmhg|vo2|spo2|recovery score|sleep[- ]?debt)\b|%\s*(?:below|above|under|over)\s+baseline|\b(?:deep|rem|light)\s+sleep\s+at\s+\d+(?:\.\d+)?\s*%|\brem\s+is\s+light\s+at\s+\d+(?:\.\d+)?\s*%"#,
+        options: [.caseInsensitive]
+    )
+
+    /// Iris `_SLEEP_STAGE_PCT` — strip at speak, keep the rest of the sentence.
+    private static let sleepStagePct = try! NSRegularExpression(
+        pattern: #"\b(?:deep|rem|light)\s+sleep\s+at\s+\d+(?:\.\d+)?\s*%|\brem\s+is\s+light\s+at\s+\d+(?:\.\d+)?\s*%"#,
         options: [.caseInsensitive]
     )
 
@@ -897,6 +904,9 @@ enum AriaDummyOrchestrator {
             range: NSRange(text.startIndex..<text.endIndex, in: text),
             withTemplate: "that's real work"
         )
+        // Same order as fused Dummy: cheer (`friend_speak`) then
+        // `_strip_sleep_stage_pct` then `_speak_without_vitals`.
+        out = stripSleepStagePct(out)
         out = stripVitalsHUD(out)
         if dumpsVitals(out) {
             out = dropVitalsSentences(out)
@@ -908,6 +918,35 @@ enum AriaDummyOrchestrator {
             return speakFallback
         }
         return out
+    }
+
+    /// Port of `services.aria_engine._strip_sleep_stage_pct`.
+    private static func stripSleepStagePct(_ text: String) -> String {
+        var cleaned = sleepStagePct.stringByReplacingMatches(
+            in: text,
+            options: [],
+            range: NSRange(text.startIndex..<text.endIndex, in: text),
+            withTemplate: ""
+        )
+        cleaned = replaceRegex(cleaned, pattern: #"\s*is in a healthy band"#, with: "")
+        cleaned = replaceRegex(cleaned, pattern: #"\bsleep:\s*;\s*"#, with: "")
+        cleaned = replaceRegex(cleaned, pattern: #"\s{2,}"#, with: " ")
+        cleaned = replaceRegex(cleaned, pattern: #"\s+([,.;:])"#, with: "$1")
+        cleaned = replaceRegex(cleaned, pattern: #"\s*[—–-]\s*([,.;])"#, with: "$1")
+        cleaned = replaceRegex(cleaned, pattern: #"\s*[—–-]\s*$"#, with: "")
+        return cleaned.trimmingCharacters(in: CharacterSet(charactersIn: " ,;:—–-"))
+    }
+
+    private static func replaceRegex(_ text: String, pattern: String, with template: String) -> String {
+        guard let re = try? NSRegularExpression(pattern: pattern, options: [.caseInsensitive]) else {
+            return text
+        }
+        return re.stringByReplacingMatches(
+            in: text,
+            options: [],
+            range: NSRange(text.startIndex..<text.endIndex, in: text),
+            withTemplate: template
+        )
     }
 
     private static func dumpsVitals(_ text: String) -> Bool {
