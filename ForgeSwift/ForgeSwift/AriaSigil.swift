@@ -97,6 +97,21 @@ enum AriaSigilGeometry: Sendable {
         let raw = size < heroMinimumSize ? strokeWidthCompact : strokeWidthHero
         return max(strokeWidthCompact, raw)
     }
+
+    /// White intelligence core. Nests inside the innermost visible ellipse.
+    /// Not a frame ring. Not Home readiness chrome.
+    static let orbHueHex = "FFFFFF"
+    static let orbSoftHex = "F4F7FC"
+    static let orbNest: Double = 0.88
+
+    static func orbCoreRadius(size: CGFloat) -> CGFloat {
+        let indices = visibleRingIndices(size: size)
+        var minRy = Double.greatestFiniteMagnitude
+        for index in indices {
+            minRy = min(minRy, ellipse(index: index, time: stillPose, state: .idle, reduceMotion: true).ry)
+        }
+        return size * CGFloat((minRy / 2) * orbNest)
+    }
 }
 
 enum AriaSigilPalette: Sendable {

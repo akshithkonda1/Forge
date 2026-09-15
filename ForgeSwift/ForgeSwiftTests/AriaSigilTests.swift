@@ -136,4 +136,16 @@ final class AriaSigilTests: XCTestCase {
         XCTAssertNotEqual(AriaSigilEmberLegacy.hearthHex, AriaSigilGeometry.forgeOrangeHex)
         XCTAssertNotEqual(AriaSigilEmberLegacy.lobeCount, AriaSigilGeometry.ellipseCount)
     }
+
+    func testWhiteOrbNestsInsideInnermostRing() {
+        XCTAssertEqual(AriaSigilGeometry.orbHueHex, "FFFFFF")
+        XCTAssertEqual(AriaSigilGeometry.orbNest, 0.88, accuracy: 0.0001)
+        let heroInner = AriaSigilGeometry.ellipse(index: 0, time: 0, state: .idle, reduceMotion: true)
+        let heroOrb = AriaSigilGeometry.orbCoreRadius(size: AriaSigilGeometry.heroMinimumSize)
+        XCTAssertLessThan(Double(heroOrb), (heroInner.ry / 2) * Double(AriaSigilGeometry.heroMinimumSize))
+        let compactInner = AriaSigilGeometry.ellipse(index: 1, time: 0, state: .idle, reduceMotion: true)
+        let compactOrb = AriaSigilGeometry.orbCoreRadius(size: AriaSigilGeometry.compactRecommend)
+        XCTAssertLessThan(Double(compactOrb), (compactInner.ry / 2) * Double(AriaSigilGeometry.compactRecommend))
+        XCTAssertGreaterThan(compactOrb, 0)
+    }
 }

@@ -177,63 +177,39 @@ struct HomeTodayHero: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
-            HStack(alignment: .top, spacing: 12) {
-                VStack(alignment: .leading, spacing: 10) {
-                    Text("Today")
-                        .forgeSectionLabel()
+            Text("Today")
+                .forgeSectionLabel()
 
-                    HomeLifeChipRow(chips: HomeLifeSentence.chips(store: store))
+            if store.hasMeaningfulLifeSignal || store.readiness.overall > 0 {
+                HomeVitalsRow(
+                    sleep: store.readiness.sleepQuality,
+                    recovery: store.readiness.recoveryScore,
+                    load: store.readiness.stressLevel
+                ) {
+                    withAnimation(FDS.Spring.standard) { showScore.toggle() }
+                }
+            }
 
-                    if let session = store.todayWorkout {
-                        VStack(alignment: .leading, spacing: 4) {
-                            Text(displaySessionName(session.name))
-                                .font(.system(size: 22, weight: .semibold, design: .rounded))
-                                .foregroundColor(.textPrimary)
-                                .fixedSize(horizontal: false, vertical: true)
-                            Text(homeStatusLine(store: store))
-                                .font(.system(size: 13, weight: .medium))
-                                .foregroundColor(.textSecondary)
-                            Text("\(session.duration) min · \(session.intensity.label)")
-                                .font(.system(size: 13, weight: .medium))
-                                .foregroundColor(.textTertiary)
-                        }
-                    } else {
-                        Text(homeStatusLine(store: store))
-                            .font(.system(size: 15, weight: .medium, design: .rounded))
-                            .foregroundColor(.textSecondary)
-                            .fixedSize(horizontal: false, vertical: true)
-                    }
+            HomeLifeChipRow(chips: HomeLifeSentence.chips(store: store))
+
+            if let session = store.todayWorkout {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(displaySessionName(session.name))
+                        .font(.system(size: 22, weight: .semibold, design: .rounded))
+                        .foregroundColor(.textPrimary)
+                        .fixedSize(horizontal: false, vertical: true)
+                    Text(homeStatusLine(store: store))
+                        .font(.system(size: 13, weight: .medium))
+                        .foregroundColor(.textSecondary)
+                    Text("\(session.duration) min · \(session.intensity.label)")
+                        .font(.system(size: 13, weight: .medium))
+                        .foregroundColor(.textTertiary)
                 }
-                Spacer(minLength: 4)
-                if store.hasMeaningfulLifeSignal || store.readiness.overall > 0 {
-                    Button {
-                        FDS.haptic(.light)
-                        withAnimation(FDS.Spring.standard) { showScore.toggle() }
-                    } label: {
-                        VStack(spacing: 4) {
-                            ReadinessRingView(
-                                score: store.readiness.overall,
-                                size: 72,
-                                strokeWidth: 7,
-                                showLabel: false
-                            )
-                            .overlay {
-                                Text("\(store.readiness.overall)")
-                                    .font(.system(size: 20, weight: .bold, design: .rounded))
-                                    .foregroundColor(.textPrimary)
-                            }
-                            Text(homeStatusLine(store: store))
-                                .font(.system(size: 10, weight: .medium))
-                                .foregroundColor(HomeReadiness.color(store.readiness.overall))
-                                .lineLimit(2)
-                                .multilineTextAlignment(.center)
-                                .frame(width: 80)
-                        }
-                    }
-                    .buttonStyle(.plain)
-                    .accessibilityLabel("Readiness \(store.readiness.overall) out of 100, \(homeStatusLine(store: store))")
-                    .accessibilityHint("Shows sleep and recovery detail")
-                }
+            } else {
+                Text(homeStatusLine(store: store))
+                    .font(.system(size: 15, weight: .medium, design: .rounded))
+                    .foregroundColor(.textSecondary)
+                    .fixedSize(horizontal: false, vertical: true)
             }
 
             if showScore {

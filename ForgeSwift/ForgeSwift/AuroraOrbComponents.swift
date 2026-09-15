@@ -87,9 +87,8 @@ struct AuroraOrbView: View {
     }
 }
 
-/// Stroked ellipses only. Identity is orange — mood does not recolor the field.
-/// Hero (≥90pt) draws all five. Compact slots draw the Cove 3-ring
-/// (two ≥0.70 + one support). Shape strokes, not Canvas + `.plusLighter`.
+/// Kinetic orange ring-field around a white intelligence orb.
+/// Hero (≥90pt) draws all five ellipses. Compact slots draw the Cove 3-ring.
 private struct AriaRingFieldView: View {
     let time: TimeInterval
     let state: AROrbState
@@ -106,8 +105,8 @@ private struct AriaRingFieldView: View {
                 .fill(
                     RadialGradient(
                         colors: [
-                            orange.opacity(0.16 + energy * 0.06),
-                            orange.opacity(0.04),
+                            orange.opacity(0.10 + energy * 0.05),
+                            orange.opacity(0.03),
                             .clear
                         ],
                         center: .center,
@@ -130,10 +129,71 @@ private struct AriaRingFieldView: View {
                     .frame(width: size * pose.rx, height: size * pose.ry)
                     .rotationEffect(.radians(pose.rotation))
             }
+            AriaIntelligenceOrb(size: size, energy: energy)
         }
         .frame(width: size, height: size)
-        .shadow(color: orange.opacity(0.28 + energy * 0.12), radius: max(4, size * 0.08))
+        .shadow(color: orange.opacity(0.22 + energy * 0.10), radius: max(4, size * 0.08))
         .allowsHitTesting(false)
+    }
+}
+
+/// White volumetric core. The rings orbit this — not a frame, not readiness chrome.
+private struct AriaIntelligenceOrb: View {
+    let size: CGFloat
+    let energy: Double
+
+    var body: some View {
+        let r = AriaSigilGeometry.orbCoreRadius(size: size)
+        let bloom = r * 2.2
+        ZStack {
+            Circle()
+                .fill(
+                    RadialGradient(
+                        colors: [
+                            Color.white.opacity(0.38 * energy),
+                            Color(hex: AriaSigilPalette.ivoryHex).opacity(0.12 * energy),
+                            Color(hex: AriaSigilGeometry.forgeOrangeHex).opacity(0.10 * energy),
+                            .clear
+                        ],
+                        center: .center,
+                        startRadius: r * 0.18,
+                        endRadius: bloom
+                    )
+                )
+                .frame(width: bloom * 2, height: bloom * 2)
+
+            Circle()
+                .fill(
+                    RadialGradient(
+                        colors: [
+                            Color.white.opacity(0.98),
+                            Color.white.opacity(0.86),
+                            Color(hex: AriaSigilGeometry.orbSoftHex).opacity(0.70),
+                            Color(hex: AriaSigilGeometry.brandHueLightHex).opacity(0.16),
+                            Color(hex: AriaSigilGeometry.forgeOrangeHex).opacity(0)
+                        ],
+                        center: UnitPoint(x: 0.34, y: 0.30),
+                        startRadius: 0,
+                        endRadius: r
+                    )
+                )
+                .frame(width: r * 2, height: r * 2)
+
+            Circle()
+                .fill(
+                    RadialGradient(
+                        colors: [Color.white.opacity(0.95), Color.white.opacity(0)],
+                        center: .center,
+                        startRadius: 0,
+                        endRadius: r * 0.42
+                    )
+                )
+                .frame(width: r * 0.72, height: r * 0.72)
+                .offset(x: -r * 0.28, y: -r * 0.32)
+        }
+        .frame(width: size, height: size)
+        .allowsHitTesting(false)
+        .accessibilityHidden(true)
     }
 }
 

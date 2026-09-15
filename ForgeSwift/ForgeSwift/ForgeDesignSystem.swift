@@ -68,6 +68,12 @@ enum FDS {
         static let page     = Animation.spring(SwiftUI.Spring(response: 0.40, dampingRatio: 0.80))
         /// Slow inhale — used for ARIA reveals and orb breath.
         static let fluid    = Animation.spring(SwiftUI.Spring(response: 0.82, dampingRatio: 0.78))
+        /// Whoop-style score fill: 1.2s ease-out. Apple rings use the same 12-o'clock start.
+        static let sweep    = Animation.easeOut(duration: 1.2)
+        /// Oura progressive stagger between glanceable score dials.
+        static func sweepDelay(_ index: Int) -> Animation {
+            sweep.delay(0.08 * Double(index))
+        }
     }
     
     // MARK: - Gradients
