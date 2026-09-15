@@ -7,6 +7,7 @@ import {
   ARIA_MARK,
   ARIA_MARK_COMPACT_MAX,
   ARIA_MARK_CONTRAST_FLOOR,
+  ARIA_ORB_CORE,
   LEGACY_EMBER,
   ariaMarkShouldSpin,
   ariaMarkSizeTier,
@@ -15,6 +16,7 @@ import {
   contrastRingIndices,
   emberCoreRadius,
   emberLobe,
+  orbCoreRadius,
   ringEllipse,
   ringSpinHz,
   ringStrokeWidth,
@@ -113,6 +115,16 @@ for (let i = 0; i < ARIA_MARK.ringCount; i++) {
   rotations.add(pose.rotation.toFixed(4));
 }
 assert(rotations.size === ARIA_MARK.ringCount, "five rings overlap at distinct tilts");
+
+assert(ARIA_ORB_CORE.hue === "#FFFFFF", "intelligence core is white");
+const heroOrb = orbCoreRadius(ARIA_MARK.heroMinimumSize);
+const compactOrb = orbCoreRadius(24);
+const heroInner = ringEllipse(0, 0, false, true).ry / 2;
+const compactInner = ringEllipse(1, 0, false, true).ry / 2;
+assert(heroOrb < heroInner, "hero orb nests inside the innermost ellipse");
+assert(compactOrb < compactInner, "compact orb nests inside the Cove 3-ring");
+assert(Math.abs(heroOrb / heroInner - ARIA_ORB_CORE.nest) < 1e-9, "orb nest ratio is 0.88");
+assert(compactOrb > heroOrb, "compact core stays readable at 24px");
 
 const stillA = emberLobe(0, 1, false, true);
 const stillB = emberLobe(0, 99, true, true);

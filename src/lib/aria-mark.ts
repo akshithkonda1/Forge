@@ -25,6 +25,16 @@ export const ARIA_MARK = {
 export const ARIA_MARK_COMPACT_MAX = 32;
 export const ARIA_MARK_CONTRAST_FLOOR = 0.7;
 
+/**
+ * White intelligence core. Web paint only — not a JSON ring, not a frame,
+ * not readiness chrome. Sits inside the innermost visible ellipse.
+ */
+export const ARIA_ORB_CORE = {
+  hue: "#FFFFFF",
+  hueSoft: "#F4F7FC",
+  nest: 0.88,
+} as const;
+
 export type AriaMarkSizeTier = "compact" | "mid" | "hero";
 export type AriaRingPose = {
   rx: number;
@@ -71,6 +81,16 @@ export function compactRingIndices(
 export function visibleRingIndices(size: number): number[] {
   if (size < ARIA_MARK.heroMinimumSize) return compactRingIndices();
   return Array.from({ length: ARIA_MARK.ringCount }, (_, index) => index);
+}
+
+/** Normalized radius (fraction of mark size) for the white core orb. */
+export function orbCoreRadius(size: number): number {
+  let minRy = Number.POSITIVE_INFINITY;
+  for (const index of visibleRingIndices(size)) {
+    const { ry } = ringEllipse(index, 0, false, true);
+    if (ry < minRy) minRy = ry;
+  }
+  return (minRy / 2) * ARIA_ORB_CORE.nest;
 }
 
 export function ringStrokeWidth(size: number): number {
