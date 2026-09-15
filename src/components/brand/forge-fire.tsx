@@ -37,7 +37,9 @@ export function ForgeFireField({
       if (canvas.width !== w || canvas.height !== h) {
         canvas.width = w;
         canvas.height = h;
+        return true;
       }
+      return false;
     };
 
     const paint = (now: number) => {
@@ -54,19 +56,30 @@ export function ForgeFireField({
     };
 
     paint(start);
+    const ro = new ResizeObserver(() => {
+      if (resize()) paint(performance.now());
+    });
+    ro.observe(canvas);
     media.addEventListener("change", () => {
       cancelAnimationFrame(raf);
       paint(performance.now());
     });
-    return () => cancelAnimationFrame(raf);
+    return () => {
+      cancelAnimationFrame(raf);
+      ro.disconnect();
+    };
   }, [intensity, origin]);
 
+  const wash =
+    origin === "floor"
+      ? "radial-gradient(ellipse 80% 55% at 50% 100%, rgba(255,90,10,0.55) 0%, rgba(255,40,0,0.18) 38%, transparent 70%)"
+      : "radial-gradient(circle at 50% 62%, rgba(255,176,32,0.42) 0%, rgba(255,77,0,0.22) 40%, transparent 68%)";
+
   return (
-    <canvas
-      ref={canvasRef}
-      className={cn("pointer-events-none absolute inset-0 h-full w-full", className)}
-      aria-hidden
-    />
+    <div className={cn("pointer-events-none absolute inset-0 overflow-hidden", className)} aria-hidden>
+      <div className="absolute inset-0" style={{ background: wash }} />
+      <canvas ref={canvasRef} className="absolute inset-0 h-full w-full" />
+    </div>
   );
 }
 
