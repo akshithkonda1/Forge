@@ -40,6 +40,31 @@ final class TrainSleepUsableTests: XCTestCase {
         XCTAssertEqual(store.todayWorkout?.exercises.first?.sets, 4)
     }
 
+    func testTrainDayCallRestWinsOverHighReadiness() {
+        XCTAssertEqual(TrainDayCall.resolve(readiness: 90, isRestDay: true, intensity: .high), .rest)
+        XCTAssertEqual(TrainDayCall.rest.cta, "Optional easy work")
+    }
+
+    func testTrainDayCallRecoverWhenReadinessIsLow() {
+        XCTAssertEqual(TrainDayCall.resolve(readiness: 40, isRestDay: false, intensity: .high), .recover)
+        XCTAssertEqual(TrainDayCall.resolve(readiness: 80, isRestDay: false, intensity: .high), .train)
+        XCTAssertEqual(TrainDayCall.resolve(readiness: 62, isRestDay: false, intensity: .high), .easy)
+    }
+
+    func testAgingQuestionIsNotClassifiedAsTraining() {
+        let gen = RuleBasedResponseGenerator()
+        XCTAssertEqual(gen.domain(of: "what's my training age?"), .aging)
+        XCTAssertEqual(gen.domain(of: "how old am I compared to fitness age"), .aging)
+        XCTAssertEqual(gen.domain(of: "what should I train today?"), .training)
+    }
+
+    func testWriteTodaysSessionDoesNotStartTheWorkout() {
+        let store = AppStore()
+        store.rebuildTodayPlanFromLife()
+        XCTAssertFalse(store.isWorkoutActive)
+        XCTAssertNotNil(store.todayWorkout)
+    }
+
     func testSleepEmptyCopyNeverAsksAriaWhenThereIsNoNight() {
         let copy = HealthKitSleepService.dayEmptyCopy(healthConnected: true)
         XCTAssertFalse(copy.cta.localizedCaseInsensitiveContains("ask"))

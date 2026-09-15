@@ -417,6 +417,54 @@ class AllDomainParsingTests(unittest.TestCase):
         self.assertIn("body.body_fat_pct", ctx.missing_fields)
 
 
+class AgingDomainTests(unittest.TestCase):
+    def test_rich_payload_parses_aging(self):
+        ctx = aria_engine.ARIAContext.from_payload({"context": {
+            "aging": {
+                "chronologicalAgeYears": 34,
+                "biologicalAgeYears": 31,
+                "fitnessAgeYears": 30,
+                "deltaYears": -3,
+                "state": "younger",
+                "sources": ["garmin:fitness_age", "vo2"],
+            }
+        }})
+        self.assertEqual(ctx.aging.chronological_age_years, 34)
+        self.assertEqual(ctx.aging.biological_age_years, 31)
+        self.assertEqual(ctx.aging.delta_years, -3)
+        self.assertEqual(ctx.aging.state, "younger")
+
+    def test_training_age_question_answers_with_aging_not_sleep(self):
+        ctx = full_context(
+            aging=aria_engine.AgingContext(
+                chronological_age_years=40,
+                biological_age_years=34,
+                fitness_age_years=33,
+                delta_years=-6,
+                state="younger",
+                sources=["vo2", "hrv"],
+            ),
+            body=aria_engine.BodyContext(vo2_max=52),
+        )
+        resp = aria_engine.generate_response("what's my training age?", ctx)
+        self.assertEqual(resp["response_type"], "insight")
+        self.assertEqual(resp["card"]["metric"], "Training age")
+        self.assertIn("34", resp["card"]["current_value"])
+        blob = (resp["prose_summary"] + resp["card"]["interpretation"]).lower()
+        self.assertNotIn("diagnos", blob)
+        self.assertNotIn("disease", blob)
+
+    def test_restricted_aging_does_not_leak_into_user_model(self):
+        ctx = full_context(
+            aging=aria_engine.AgingContext(
+                chronological_age_years=41, biological_age_years=48, delta_years=7, state="older"
+            )
+        )
+        block = ctx.user_model_block(restricted=["aging"])
+        self.assertNotIn("48", block)
+        self.assertIn("aging.biological_age: null", block)
+
+
 class NewDomainReasoningTests(unittest.TestCase):
     def test_weight_question_answers_with_body_not_highest_priority_signal(self):
         # Low deep sleep is higher priority, but the question is about weight.

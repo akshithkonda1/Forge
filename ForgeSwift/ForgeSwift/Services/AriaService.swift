@@ -347,7 +347,7 @@ final class DataPermissionsStore: ObservableObject {
     static let domains: [String] = [
         "sleep", "readiness", "activity", "training", "chronotype",
         "body", "nutrition", "profile", "progress", "lifestyle",
-        "clinical_data",
+        "aging", "clinical_data",
     ]
 
     @Published private(set) var grants: [String: Bool]
@@ -396,6 +396,12 @@ extension AriaService {
             samples.append(HealthSample(type: "sleep-stage", value: Double(sleep.remMinutes), unit: "min", timestamp: sleep.date, source: "apple-health", stage: "rem"))
             samples.append(HealthSample(type: "sleep-stage", value: Double(sleep.lightMinutes), unit: "min", timestamp: sleep.date, source: "apple-health", stage: "light"))
             samples.append(HealthSample(type: "sleep", value: sleep.totalHours * 60, unit: "min", timestamp: sleep.date, source: "apple-health"))
+        }
+        if let age = store.userProfile.age {
+            samples.append(HealthSample(type: "chronological-age", value: Double(age), unit: "years", timestamp: now, source: "apple-health"))
+        }
+        if let vo2 = HealthKitManager.shared.todayStats?.vo2Max, vo2 > 0 {
+            samples.append(HealthSample(type: "vo2-max", value: vo2, unit: "ml/kg/min", timestamp: now, source: "apple-health"))
         }
         return samples
     }

@@ -52,13 +52,21 @@ final class LifestyleViewModel: ObservableObject {
     private var personalAge: Int?
     private var personalSexFemale: Bool?
 
+    var agingSnapshot: AgingSnapshot {
+        AgingBridge.snapshot(age: personalAge, sexFemale: personalSexFemale, stats: healthStats)
+    }
+
     /// Feed the signed-in profile so QoL targets are personal, not one-size-fits-all.
     /// Safe to call repeatedly; it only copies the fields QoL uses.
     func applyPersonalization(_ profile: UserProfile?) {
         personalWeightKg = profile?.weight
         personalAge = profile?.age
         if let sex = profile?.biologicalSex {
-            personalSexFemale = (sex == .female)
+            switch sex {
+            case .female: personalSexFemale = true
+            case .male: personalSexFemale = false
+            case .intersex, .preferNotToSay: personalSexFemale = nil
+            }
         }
     }
 

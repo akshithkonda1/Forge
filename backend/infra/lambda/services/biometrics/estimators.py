@@ -196,3 +196,140 @@ def estimate_recovery(
     confidence = round(st.clamp(total_weight, 0.2, 0.95), 2)
     return Estimate("recovery", score, state, confidence, "fusion:recovery",
                     f"{len(components)} signal(s) → recovery {score:g}/100")
+
+
+# --- aging fusion (lifestyle estimate, never a diagnosis) --------------------
+
+AGING_YEAR_FLOOR = 18.0
+AGING_YEAR_CEILING = 90.0
+
+
+def _clamp_age(value: float) -> float:
+    return round(st.clamp(value, AGING_YEAR_FLOOR, AGING_YEAR_CEILING), 1)
+
+
+def expected_vo2(age_years: float, sex_female: bool | None = None) -> float:
+    """Simplified ACSM-style 50th-percentile VO2 (ml/kg/min) at a calendar age."""
+    if sex_female is True:
+        intercept, slope = 41.0, 0.32
+    elif sex_female is False:
+        intercept, slope = 48.0, 0.37
+    else:
+        intercept, slope = 44.5, 0.345
+    return round(intercept - slope * max(0.0, age_years - 20.0), 1)
+
+
+def fitness_age_from_vo2(
+    vo2: float, chronological_age: float, sex_female: bool | None = None
+) -> Estimate:
+    """Invert the age-normed VO2 curve: above expected → younger training age."""
+    expected = expected_vo2(chronological_age, sex_female)
+    slope = 0.32 if sex_female is True else 0.37 if sex_female is False else 0.345
+    value = _clamp_age(chronological_age + (expected - vo2) / slope)
+    state = "younger" if value <= chronological_age - 2 else "older" if value >= chronological_age + 2 else "matched"
+    return Estimate(
+        "fitness_age_est", value, state, 0.55, "formula:vo2_age_norm",
+        f"VO2 {vo2:g} vs expected {expected:g} at {chronological_age:g} → fitness age {value:g}",
+    )
+
+
+def vascular_age_from_rhr(resting_hr: float, chronological_age: float) -> Estimate:
+    expected = 60.0 + 0.1 * max(0.0, chronological_age - 25.0)
+    value = _clamp_age(chronological_age + (resting_hr - expected) * 0.8)
+    state = "younger" if value <= chronological_age - 2 else "older" if value >= chronological_age + 2 else "matched"
+    return Estimate(
+        "vascular_age_est", value, state, 0.45, "formula:rhr_age",
+        f"RHR {resting_hr:g} vs expected {expected:.0f} → vascular age {value:g}",
+    )
+
+
+def autonomic_age_from_hrv(hrv_ms: float, chronological_age: float) -> Estimate:
+    expected = max(20.0, 55.0 - 0.4 * max(0.0, chronological_age - 25.0))
+    value = _clamp_age(chronological_age + (expected - hrv_ms) / 0.4)
+    state = "younger" if value <= chronological_age - 2 else "older" if value >= chronological_age + 2 else "matched"
+    return Estimate(
+        "autonomic_age_est", value, state, 0.5, "formula:hrv_age",
+        f"HRV {hrv_ms:g} vs expected {expected:.0f} → autonomic age {value:g}",
+    )
+
+
+def sleep_age_from_hours(sleep_hours: float, chronological_age: float) -> Estimate:
+    need = 8.0 - 0.015 * max(0.0, chronological_age - 25.0)
+    value = _clamp_age(chronological_age + (need - sleep_hours) * 4.0)
+    state = "younger" if value <= chronological_age - 2 else "older" if value >= chronological_age + 2 else "matched"
+    return Estimate(
+        "sleep_age_est", value, state, 0.35, "formula:sleep_need_age",
+        f"sleep {sleep_hours:.1f}h vs need {need:.1f}h → sleep age {value:g}",
+    )
+
+
+def fuse_biological_age(
+    *,
+    chronological_age: float | None,
+    vendor: dict[str, tuple[float, float, str]] | None = None,
+    estimated: dict[str, Estimate] | None = None,
+) -> Estimate:
+    """Blend vendor-reported ages with signal-derived estimates.
+
+    ``vendor`` maps kind → (years, confidence, source). This is a lifestyle
+    comparison against calendar age, never a medical biological-age diagnosis.
+    """
+    parts: list[tuple[float, float, str]] = []  # value, weight, label
+    vendor = vendor or {}
+    estimated = estimated or {}
+
+    vendor_weights = {
+        "biological_age": 0.40,
+        "fitness_age": 0.22,
+        "phenotypic_age": 0.18,
+        "vascular_age": 0.12,
+        "metabolic_age": 0.10,
+        "inner_age": 0.12,
+        "cardio_age": 0.14,
+        "hrv_age": 0.10,
+    }
+    for kind, weight in vendor_weights.items():
+        if kind not in vendor:
+            continue
+        years, conf, source = vendor[kind]
+        parts.append((years, weight * max(0.2, min(1.0, conf)), f"{source}:{kind}"))
+
+    est_weights = {
+        "fitness_age_est": 0.18,
+        "vascular_age_est": 0.12,
+        "autonomic_age_est": 0.14,
+        "sleep_age_est": 0.08,
+    }
+    for name, weight in est_weights.items():
+        est = estimated.get(name)
+        if est is None or est.value is None:
+            continue
+        parts.append((est.value, weight * est.confidence, est.method))
+
+    if not parts:
+        if chronological_age is None:
+            return Estimate("biological_age", None, "unknown", 0.0, "fusion:aging", "no aging inputs")
+        return Estimate(
+            "biological_age", round(chronological_age, 1), "matched", 0.2, "fusion:aging",
+            "calendar age only — no vendor or signal ages yet",
+        )
+
+    total_w = sum(w for _, w, _ in parts)
+    fused = round(sum(v * w for v, w, _ in parts) / total_w, 1)
+    confidence = round(st.clamp(total_w, 0.2, 0.92), 2)
+    delta = None if chronological_age is None else round(fused - chronological_age, 1)
+    if delta is None:
+        state = "unknown"
+    elif delta <= -2:
+        state = "younger"
+    elif delta >= 2:
+        state = "older"
+    else:
+        state = "matched"
+    sources = ", ".join(label for _, _, label in parts[:6])
+    detail = f"fused {fused:g}"
+    if chronological_age is not None:
+        sign = "+" if (delta or 0) >= 0 else ""
+        detail += f" vs calendar {chronological_age:g} ({sign}{delta}y)"
+    detail += f" from {sources}"
+    return Estimate("biological_age", fused, state, confidence, "fusion:aging", detail)

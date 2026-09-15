@@ -76,6 +76,12 @@ final class ForgeCloudSync {
         if metrics.restingHR > 0 {
             samples.append((type: "resting-heart-rate", value: Double(metrics.restingHR), unit: "bpm", timestamp: now, source: "apple-health"))
         }
+        if let vo2 = HealthKitManager.shared.todayStats?.vo2Max, vo2 > 0 {
+            samples.append((type: "vo2-max", value: vo2, unit: "ml/kg/min", timestamp: now, source: "apple-health"))
+        }
+        if let age = store.userProfile.age {
+            samples.append((type: "chronological-age", value: Double(age), unit: "years", timestamp: now, source: "apple-health"))
+        }
         if let weight = store.userProfile.weight, weight > 0 {
             samples.append((type: "body-weight", value: weight, unit: "kg", timestamp: now, source: "apple-health"))
         }

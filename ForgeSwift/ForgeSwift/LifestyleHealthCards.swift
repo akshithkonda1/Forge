@@ -575,3 +575,145 @@ struct ArcLegendItem: View {
         .cornerRadius(12)
     }
 }
+
+enum AgingBridge {
+    static func snapshot(age: Int?, sexFemale: Bool?, stats: DailyHealthStats?) -> AgingSnapshot {
+        AgingSnapshot.evaluate(
+            chronologicalAge: age.map(Double.init),
+            sexFemale: sexFemale,
+            vo2Max: stats.flatMap { $0.vo2Max > 0 ? $0.vo2Max : nil },
+            hrv: stats.flatMap { $0.hrv > 0 ? $0.hrv : nil },
+            restingHR: stats.flatMap { $0.restingHeartRate > 0 ? $0.restingHeartRate : nil },
+            sleepHours: stats.flatMap { $0.sleepHours > 0 ? $0.sleepHours : nil }
+        )
+    }
+}
+
+struct BiologicalAgeCard: View {
+    let snapshot: AgingSnapshot
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            HStack(spacing: 12) {
+                ZStack {
+                    Circle().fill(tone.opacity(0.15)).frame(width: 46, height: 46)
+                    Image(systemName: "clock.arrow.2.circlepath")
+                        .font(.system(size: 20, weight: .semibold))
+                        .foregroundColor(tone)
+                }
+                VStack(alignment: .leading, spacing: 3) {
+                    Text("Training age")
+                        .font(.system(size: 18, weight: .bold))
+                        .foregroundColor(.textPrimary)
+                    Text("Calendar vs how the body is showing up")
+                        .font(.system(size: 12))
+                        .foregroundColor(.textTertiary)
+                }
+                Spacer()
+            }
+
+            if snapshot.showsOnTrain {
+                HStack(alignment: .firstTextBaseline, spacing: 18) {
+                    ageColumn(title: "Calendar", value: snapshot.chronologicalAge)
+                    Image(systemName: "arrow.left.arrow.right")
+                        .font(.system(size: 14, weight: .bold))
+                        .foregroundColor(.textMuted)
+                    ageColumn(
+                        title: "Training",
+                        value: snapshot.confidence > 0.25 ? snapshot.biologicalAge : nil,
+                        emphasis: true
+                    )
+                    Spacer()
+                }
+
+                if snapshot.hasComparison, snapshot.confidence > 0.25 {
+                    GeometryReader { geo in
+                        let width = geo.size.width
+                        ZStack(alignment: .leading) {
+                            Capsule().fill(Color.surfaceElevated).frame(height: 8)
+                            Capsule()
+                                .fill(tone)
+                                .frame(width: max(8, width * barFraction), height: 8)
+                        }
+                    }
+                    .frame(height: 8)
+                }
+
+                Text(snapshot.comparisonLine)
+                    .font(.system(size: 15, weight: .semibold, design: .rounded))
+                    .foregroundColor(.textPrimary)
+
+                if !snapshot.trainingHint.isEmpty {
+                    Text(snapshot.trainingHint)
+                        .font(.system(size: 13))
+                        .foregroundColor(.textSecondary)
+                        .lineSpacing(4)
+                }
+
+                if !snapshot.components.isEmpty {
+                    VStack(spacing: 8) {
+                        ForEach(Array(snapshot.components.prefix(4).enumerated()), id: \.offset) { _, component in
+                            HStack {
+                                Text(component.name)
+                                    .font(.system(size: 13, weight: .medium))
+                                    .foregroundColor(.textSecondary)
+                                Text(component.source)
+                                    .font(.system(size: 11, weight: .semibold))
+                                    .foregroundColor(.textTertiary)
+                                Spacer()
+                                Text("\(Int(component.years.rounded()))")
+                                    .font(.system(size: 13, weight: .bold, design: .rounded))
+                                    .foregroundColor(.textPrimary)
+                            }
+                        }
+                    }
+                }
+
+                Text("Lifestyle estimate from the signals Forge already has — not a medical biological age.")
+                    .font(.system(size: 11))
+                    .foregroundColor(.textMuted)
+            } else {
+                Text("Add your age in You, then ARIA can compare calendar age with training age from VO₂, HRV, resting heart rate, and sleep.")
+                    .font(.system(size: 14))
+                    .foregroundColor(.textSecondary)
+                    .lineSpacing(4)
+            }
+        }
+        .padding(22)
+        .background(Color.surface)
+        .cornerRadius(22)
+        .overlay(
+            RoundedRectangle(cornerRadius: 22)
+                .stroke(tone.opacity(0.25), lineWidth: 1)
+        )
+        .shadow(color: .black.opacity(0.06), radius: 16, y: 6)
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel(snapshot.comparisonLine.isEmpty ? "Training age unavailable" : snapshot.comparisonLine)
+    }
+
+    private var tone: Color {
+        switch snapshot.state {
+        case .younger: return .success
+        case .older: return .warning
+        case .matched, .unknown: return Color(hex: "A855F7")
+        }
+    }
+
+    private var barFraction: CGFloat {
+        guard let chrono = snapshot.chronologicalAge, let bio = snapshot.biologicalAge, chrono > 0 else { return 0.5 }
+        return CGFloat(min(1.0, max(0.15, bio / max(chrono, bio))))
+    }
+
+    private func ageColumn(title: String, value: Double?, emphasis: Bool = false) -> some View {
+        VStack(alignment: .leading, spacing: 2) {
+            Text(title.uppercased())
+                .font(.system(size: 10, weight: .black))
+                .tracking(1.2)
+                .foregroundColor(.textTertiary)
+            Text(value.map { "\(Int($0.rounded()))" } ?? "—")
+                .font(.system(size: emphasis ? 32 : 28, weight: .bold, design: .rounded))
+                .foregroundColor(emphasis ? tone : .textPrimary)
+        }
+    }
+}
+

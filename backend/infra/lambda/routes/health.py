@@ -13,6 +13,16 @@ _VALID_METRIC_TYPES = {
     "sleep-stage",
     "body-weight",
     "distance",
+    "vo2-max",
+    "chronological-age",
+    "biological-age",
+    "fitness-age",
+    "phenotypic-age",
+    "vascular-age",
+    "metabolic-age",
+    "inner-age",
+    "cardio-age",
+    "hrv-age",
 }
 
 _VALID_SOURCES = {
@@ -22,6 +32,12 @@ _VALID_SOURCES = {
     "garmin",
     "strava",
     "manual",
+    "ultrahuman",
+    "withings",
+    "inbody",
+    "fitbit",
+    "eight-sleep",
+    "polar",
 }
 
 
