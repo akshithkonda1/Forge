@@ -324,6 +324,8 @@ def handle_post_ai_chat(body: dict[str, Any], *, user_id: str) -> dict:
             )
             contextual_learner.observe_relationship(persona, updated_level)
             contextual_learner.save(uid, persona)
+            if isinstance(persona.last_plan, dict):
+                _context.update_context(uid, {"supervision_plan": dict(persona.last_plan)})
         except fusion_mod.PERSONA_IO_ERRORS as exc:
             response.setdefault("fusion", {})
             if isinstance(response["fusion"], dict):

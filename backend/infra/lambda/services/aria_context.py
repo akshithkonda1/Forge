@@ -90,6 +90,8 @@ class UserContext:
     # Day-to-day companion cadence: last memory self-evaluation and last check-in.
     last_evaluated_at: datetime | None = None
     last_checkin_at: datetime | None = None
+    # Compact supervision plan from the data engine — what ARIA coaches from.
+    supervision_plan: dict[str, Any] | None = None
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -105,6 +107,7 @@ class UserContext:
             "last_promoted_at": self.last_promoted_at.isoformat() if self.last_promoted_at else None,
             "last_evaluated_at": self.last_evaluated_at.isoformat() if self.last_evaluated_at else None,
             "last_checkin_at": self.last_checkin_at.isoformat() if self.last_checkin_at else None,
+            "supervision_plan": dict(self.supervision_plan) if self.supervision_plan else None,
         }
 
     @classmethod
@@ -123,6 +126,11 @@ class UserContext:
             last_promoted_at=_parse_dt(data.get("last_promoted_at")),
             last_evaluated_at=_parse_dt(data.get("last_evaluated_at")),
             last_checkin_at=_parse_dt(data.get("last_checkin_at")),
+            supervision_plan=(
+                dict(data.get("supervision_plan"))
+                if isinstance(data.get("supervision_plan"), dict)
+                else None
+            ),
         )
 
 
@@ -495,6 +503,14 @@ class CoachContextEngine:
             long_term.append("patterns: " + "; ".join(context.recent_patterns[:5]))
         if context.last_insights:
             long_term.append("recently told them: " + "; ".join(context.last_insights[:3]))
+        plan = context.supervision_plan if isinstance(context.supervision_plan, dict) else None
+        if plan:
+            choice = str(plan.get("choice") or "").strip()
+            pace = str(plan.get("aging_pace") or "").strip()
+            advice = str(plan.get("next_advice") or "").strip()
+            bits = [p for p in (choice, f"aging {pace}" if pace else "", advice) if p]
+            if bits:
+                long_term.append("supervision plan: " + " — ".join(bits[:3]))
 
         short_term = self.short_term_memories(user_id, now=now)
         upcoming = [

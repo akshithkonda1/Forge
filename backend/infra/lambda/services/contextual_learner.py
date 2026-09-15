@@ -30,6 +30,10 @@ The online model:
   * A **self-training critic** (``self_trainer.py``): ARIA predicts at
     commit, self-labels conversation, judges right/wrong, and tunes her
     own step size. Dummy never owns this.
+  * A **supervision plan** (``context_plan.py``): raw data is evaluated
+    (including aging pace — wear vs repair, not a diagnosis) into a plan
+    stored as context. ARIA coaches from that plan. Outcomes credit the
+    plan's choice retroactively. Dummy never owns this.
   * Hedge over specialists present when the outcome landed.
   * Teach both directions: the brief tells ARIA how to coach, and one
     learned sentence ARIA can tell the person.
@@ -68,7 +72,7 @@ HEADLINE_KINDS = frozenset({"wedding", "game", "flight", "travel"})
 
 _DOMAIN_CUES: dict[str, tuple[str, ...]] = {
     "sleep": ("sleep", "slept", "insomnia", "bedtime", "last night", "nap"),
-    "readiness": ("readiness", "recover", "hrv", "tired", "exhausted", "drained", "sore"),
+    "readiness": ("readiness", "recover", "hrv", "tired", "exhausted", "drained", "sore", "aging"),
     "training": ("train", "workout", "session", "lift", "gym", "squat", "run today"),
     "nutrition": ("eat", "food", "protein", "meal", "calorie", "hydrat", "water"),
     "lifestyle": ("work", "travel", "busy", "schedule", "calendar", "tonight"),
@@ -88,13 +92,17 @@ TD_GAMMA = 0.55
 Q_BLEND = 0.85          # how hard Q pulls the softmax vs the feature prior
 HEDGE_ETA = 0.18        # multiplicative-weights step on specialists
 TEMP_FLOOR = 0.35       # softmax temperature never goes colder than this
-SOURCE_KEYS = ("event", "ingest", "conversation", "body")
+SOURCE_KEYS = ("event", "ingest", "conversation", "body", "aging")
 ALPHA_MIN = 0.08
 ALPHA_MAX = 0.55
 
 
 def _default_source_w() -> dict[str, float]:
     return {key: 1.0 for key in SOURCE_KEYS}
+
+
+def _default_aging() -> dict[str, float]:
+    return {"faster": 1.0, "on_pace": 1.0, "slower": 1.0}
 
 # Priors: not uniform. Slight evening-training bias (most desk lives), complete
 # more often than skip, protect slightly on the table because Forge is recovery-
@@ -214,6 +222,12 @@ class PersonaState:
     calibration: float = 0.5
     source_w: dict[str, float] = field(default_factory=_default_source_w)
     last_verdict: str | None = None
+    aging: dict[str, float] = field(default_factory=_default_aging)
+    n_aging: int = 0
+    plan_q: dict[str, dict[str, float]] = field(default_factory=dict)
+    last_plan: dict[str, Any] | None = None
+    last_plan_choice: str | None = None
+    last_aging_pace: str | None = None
 
     @property
     def n(self) -> int:
@@ -271,6 +285,12 @@ class PersonaState:
             "calibration": self.calibration,
             "source_w": dict(self.source_w),
             "last_verdict": self.last_verdict,
+            "aging": dict(self.aging),
+            "n_aging": self.n_aging,
+            "plan_q": {k: dict(v) for k, v in self.plan_q.items()},
+            "last_plan": dict(self.last_plan) if self.last_plan else None,
+            "last_plan_choice": self.last_plan_choice,
+            "last_aging_pace": self.last_aging_pace,
             "n": self.n,
             "confidence": self.confidence(),
             "preferred_slot": self.preferred_slot(),
@@ -400,6 +420,42 @@ class PersonaState:
         verdict = data.get("last_verdict")
         state.last_verdict = (
             str(verdict) if verdict in ("right", "wrong", "mixed") else None
+        )
+        incoming_aging = data.get("aging")
+        merged_aging = _default_aging()
+        if isinstance(incoming_aging, dict):
+            for key in merged_aging:
+                if key not in incoming_aging:
+                    continue
+                try:
+                    merged_aging[key] = float(incoming_aging[key])
+                except (TypeError, ValueError):
+                    continue
+        state.aging = merged_aging
+        try:
+            state.n_aging = max(0, int(data.get("n_aging", 0) or 0))
+        except (TypeError, ValueError):
+            state.n_aging = 0
+        raw_plan_q = data.get("plan_q")
+        if isinstance(raw_plan_q, dict):
+            cleaned_plan: dict[str, dict[str, float]] = {}
+            for pace, row in raw_plan_q.items():
+                if not isinstance(row, dict):
+                    continue
+                cleaned_plan[str(pace)] = {
+                    str(k): float(v)
+                    for k, v in row.items()
+                    if isinstance(v, (int, float))
+                }
+            state.plan_q = cleaned_plan
+        raw_plan = data.get("last_plan")
+        if isinstance(raw_plan, dict):
+            state.last_plan = dict(raw_plan)
+        choice = data.get("last_plan_choice")
+        state.last_plan_choice = str(choice) if choice else None
+        pace = data.get("last_aging_pace")
+        state.last_aging_pace = (
+            str(pace) if pace in ("faster", "on_pace", "slower", "unknown") else None
         )
         return state
 
@@ -720,6 +776,12 @@ def reinforce(
         self_trainer.apply_judgment(state, float(reward), delta, TD_ALPHA)
     except Exception:
         pass
+    try:
+        from . import context_plan
+
+        context_plan.credit_plan(state, float(reward))
+    except Exception:
+        pass
     return round(delta, 6)
 
 
@@ -875,6 +937,24 @@ def features(message: str, ctx: Any, persona: PersonaState) -> dict[str, float]:
     lang_sleep = 1.0 if any(c in text for c in _DOMAIN_CUES["sleep"]) else 0.0
     lang_food = 1.0 if any(c in text for c in _DOMAIN_CUES["nutrition"]) else 0.0
     lang_advice = 1.0 if any(c in text for c in _ADVICE_CUES) else 0.0
+    aging_faster = 0.0
+    aging_slower = 0.0
+    lang_aging = 1.0 if any(
+        c in text for c in ("aging", "getting older", "used to recover")
+    ) else 0.0
+    try:
+        from . import context_plan
+
+        aging = context_plan.evaluate_aging(ctx, message)
+        if aging.pace == "faster":
+            aging_faster = 1.0
+        elif aging.pace == "slower":
+            aging_slower = 1.0
+    except Exception:
+        if persona.last_aging_pace == "faster":
+            aging_faster = 1.0
+        elif persona.last_aging_pace == "slower":
+            aging_slower = 1.0
     return {
         "evening_busy": 1.0 if cal.evening_busy else 0.0,
         "morning_busy": 1.0 if cal.morning_busy else 0.0,
@@ -894,6 +974,9 @@ def features(message: str, ctx: Any, persona: PersonaState) -> dict[str, float]:
         "p_sleep_talk": persona.posterior("domain").get("sleep", 0.12),
         "relationship": _clip((persona.relationship_level - 1) / 9.0, 0.0, 1.0),
         "learned": persona.confidence(),
+        "aging_faster": aging_faster,
+        "aging_slower": aging_slower,
+        "lang_aging": lang_aging,
     }
 
 
@@ -911,6 +994,7 @@ _STANCE_WEIGHTS: dict[str, dict[str, float]] = {
         "p_skip": 0.6,
         "p_sleep_talk": 0.5,
         "relationship": -0.15,
+        "aging_faster": 1.3,
         "bias": 0.2,
     },
     "proceed": {
@@ -925,6 +1009,8 @@ _STANCE_WEIGHTS: dict[str, dict[str, float]] = {
         "low_recovery": -1.3,
         "short_sleep": -0.9,
         "p_skip_evening": -1.0,
+        "aging_faster": -0.9,
+        "aging_slower": 0.6,
     },
     "fuel": {
         "lang_food": 1.8,
@@ -969,6 +1055,12 @@ def _hot_sources(feat: dict[str, float]) -> tuple[str, ...]:
         or feat.get("lang_advice", 0.0) >= 0.5
     ):
         found.append("conversation")
+    if (
+        feat.get("aging_faster", 0.0) >= 0.5
+        or feat.get("aging_slower", 0.0) >= 0.5
+        or feat.get("lang_aging", 0.0) >= 0.5
+    ):
+        found.append("aging")
     return tuple(found)
 
 
@@ -1073,6 +1165,13 @@ def rank_priorities(
     if feat.get("low_recovery", 0.0) >= 0.5:
         scores["readiness"] = scores.get("readiness", 0.0) + 1.4 * body_w
         scores["training"] = scores.get("training", 0.0) - 0.7 * body_w
+    aging_w = _source_w(persona, "aging")
+    if feat.get("aging_faster", 0.0) >= 0.5:
+        scores["sleep"] = scores.get("sleep", 0.0) + 1.05 * aging_w
+        scores["readiness"] = scores.get("readiness", 0.0) + 0.85 * aging_w
+        scores["training"] = scores.get("training", 0.0) - 0.35 * aging_w
+    elif feat.get("aging_slower", 0.0) >= 0.5:
+        scores["training"] = scores.get("training", 0.0) + 0.45 * aging_w
 
     ranking = sorted(DOMAINS, key=lambda d: (-scores.get(d, 0.0), d))
     if event_key in HEADLINE_KINDS:
@@ -1237,6 +1336,10 @@ def _how_you_work(persona: PersonaState, cal: CalendarRead) -> str:
         bits.append("Last call missed — I am correcting, not repeating it.")
     elif persona.last_verdict == "right":
         bits.append("Last call landed — keep the principle.")
+    if persona.last_aging_pace == "faster":
+        bits.append("Wear has been outrunning repair — I am supervising recovery, not adding load.")
+    elif persona.last_aging_pace == "slower":
+        bits.append("Repair has been holding — quality work is on the table.")
     return " ".join(bits)
 
 
@@ -1295,6 +1398,10 @@ class Adaptation:
     n_right: int = 0
     n_wrong: int = 0
     sources: tuple[str, ...] = ()
+    aging_pace: str = "unknown"
+    plan_choice: str = "clarify"
+    next_advice: str = ""
+    guide: str = ""
 
     def as_dict(self) -> dict[str, Any]:
         return {
@@ -1330,6 +1437,16 @@ class Adaptation:
             "n_right": self.n_right,
             "n_wrong": self.n_wrong,
             "sources": list(self.sources),
+            "aging_pace": self.aging_pace,
+            "plan_choice": self.plan_choice,
+            "next_advice": self.next_advice,
+            "guide": self.guide,
+            "supervision_plan": {
+                "aging_pace": self.aging_pace,
+                "choice": self.plan_choice,
+                "next_advice": self.next_advice,
+                "guide": self.guide,
+            },
             "aria_instructions": self.aria_instructions(),
         }
 
@@ -1369,6 +1486,10 @@ class Adaptation:
             f"- teach_the_person: {self.teach_user}\n"
             f"- grounding: {self.grounding}\n"
             f"- last_verdict: {verdict}\n"
+            f"- aging_pace: {self.aging_pace}\n"
+            f"- plan_choice: {self.plan_choice}\n"
+            f"- next_advice: {self.next_advice}\n"
+            f"- guide: {self.guide}\n"
             f"- calibration: {self.calibration:.2f} "
             f"({self.n_right} right / {self.n_wrong} wrong)\n"
             f"- learned_confidence: {self.confidence:.2f} from {self.n_observations} observations "
@@ -1379,6 +1500,9 @@ class Adaptation:
             "what you have already ingested; do not invent a calendar or a body you "
             "were not given. If grounding is contextual, fit the session around the "
             "event and busy windows. Never read calendar titles. "
+            "Follow the supervision plan: next_advice is what to say next; guide is "
+            "how to steer them toward that choice. aging_pace is a lifestyle "
+            "wear/repair read — never a diagnosis or a biological-age number. "
             + extra
         )
 
@@ -1452,6 +1576,14 @@ def adapt(
     specs = _specialists(lead, feat, stance, state, ranking)
     key = bucket(feat)
     quality = "sparse" if feat["missing"] >= 0.55 else ("trusted" if conf >= 0.35 or cal.headlines else "forming")
+    plan_fields: dict[str, Any] = dict(state.last_plan) if isinstance(state.last_plan, dict) else {}
+    if not plan_fields:
+        try:
+            from . import context_plan
+
+            plan_fields = context_plan.draft_plan(message, ctx, state).as_dict()
+        except Exception:
+            plan_fields = {}
     return Adaptation(
         stance=stance,
         lead_domain=lead,
@@ -1461,7 +1593,7 @@ def adapt(
         salience=round(max(probs.values()) * (0.55 + 0.45 * (1.0 - feat["missing"])), 4),
         how_you_work=_how_you_work(state, cal),
         how_to_speak=_SPEAK[stance],
-        one_next_move=_MOVE[stance],
+        one_next_move=str(plan_fields.get("next_advice") or _MOVE[stance]),
         cite=_cite(feat, lead),
         do_not_invent=_do_not_invent(cal),
         calendar=cal.as_dict(),
@@ -1483,6 +1615,10 @@ def adapt(
         n_right=state.n_right,
         n_wrong=state.n_wrong,
         sources=_hot_sources(feat),
+        aging_pace=str(plan_fields.get("aging_pace") or "unknown"),
+        plan_choice=str(plan_fields.get("choice") or "clarify"),
+        next_advice=str(plan_fields.get("next_advice") or ""),
+        guide=str(plan_fields.get("guide") or ""),
     )
 
 
@@ -1505,6 +1641,12 @@ def stamp_living_context(ctx: Any, living: Any) -> Any:
         setattr(ctx, "current_goals", goals)
     except Exception:
         pass
+    plan = getattr(living, "supervision_plan", None)
+    if isinstance(plan, dict):
+        try:
+            setattr(ctx, "supervision_plan", dict(plan))
+        except Exception:
+            pass
     lifestyle = getattr(ctx, "lifestyle", None)
     if lifestyle is not None:
         existing_p = list(getattr(lifestyle, "recent_patterns", None) or [])
@@ -1579,6 +1721,12 @@ def observe_turn(
         observe_relationship(state, relationship_level)
     if ctx is not None:
         observe_ingest(state, ctx)
+    try:
+        from . import context_plan
+
+        context_plan.evaluate_and_store(state, message, ctx)
+    except Exception:
+        pass
     return state
 
 

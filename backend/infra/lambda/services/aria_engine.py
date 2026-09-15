@@ -2239,7 +2239,13 @@ LEARNING_LAW = (
     "Aria judges herself. last_verdict is whether the previous coaching call was "
     "right, wrong, or mixed. If it was wrong, do not repeat the last stance "
     "blindly — change the call. Optimize from outcomes and from what they tell "
-    "you; that is how the training itself is tuned."
+    "you; that is how the training itself is tuned. "
+    "When a supervision plan is present, that plan is context: follow "
+    "plan_choice and next_advice for what to say next, and follow guide for how "
+    "to steer them toward the right choice. aging_pace is a lifestyle "
+    "wear/repair read (faster = wear outrunning repair) — never a diagnosis "
+    "and never a biological-age number. Outcomes update the plan retroactively "
+    "so the next plan is learned from the choices Aria actually made."
 )
 
 
