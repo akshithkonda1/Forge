@@ -17,7 +17,7 @@ interface AriaCompanionProps {
   className?: string;
 }
 
-/** Thin wrapper — every prior AriaOrb call site now shows the living ring-field. */
+/** Thin wrapper — every prior AriaOrb call site now shows the living ARIA mark. */
 export function AriaOrb({
   mood: _mood = "focused",
   size = 48,

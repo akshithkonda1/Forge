@@ -7,8 +7,8 @@ import { drawAriaRingField } from "@/lib/aria-ring-field";
 
 /**
  * Adaptive Recovery Interactive Assistant.
- * Living mark is the kinetic ring-field in `ARIA_MARK` / `shared/aria-mark.json`.
- * Procedural canvas only — no PNG runtime, no ember, no readiness chrome.
+ * Living contract is the B+E soft-hex nest in `ARIA_MARK` / `shared/aria-mark.json`.
+ * Ring-field canvas is a stopgap until Wren's nest chase — no PNG, no ember, no readiness chrome.
  */
 export function AriaMark({
   size = 48,

@@ -23,8 +23,9 @@ function hexAlpha(hex: string, alpha: number): string {
 }
 
 /**
- * Procedural kinetic orange ring-field. Stroked ellipses only — no gooey
- * additive lobes, no circular frame, no readiness trim.
+ * Retired kinetic ring-field stopgap. Living identity is soft-hex nest + metal
+ * sun (`ARIA_MARK.kind === "soft-hex-field"`). Wren's canvas chase replaces this.
+ * Stroked ellipses only — no gooey lobes, no circular frame, no readiness trim.
  */
 export function drawAriaRingField(
   ctx: CanvasRenderingContext2D,
