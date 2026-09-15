@@ -1,12 +1,21 @@
 import Foundation
 import SwiftUI
+import ForgeCore
 
-/// Kinetic soft-hex nest + smart-metal sun (iOS Aria logo).
-/// Three **rounded hexagons** packed close around the orb, each orbiting at
-/// its own rate (inner fastest — planet/sun). Futuristic dual-stroke glow;
-/// Reduce Motion freezes at `stillPoseAngleDeg`. Speaking accelerates orbits
-/// and breathes the nest.
+extension AriaNestGeometry {
+    /// Phone presence → shared nest presence. Watch uses `Presence` directly.
+    static func presence(from state: AROrbState) -> Presence {
+        switch state {
+        case .idle: return .idle
+        case .listening: return .listening
+        case .processing: return .processing
+        case .speaking: return .speaking
+        }
+    }
+}
 
+/// Older `#274` nest leftover on tip. Living brand numbers are
+/// `AriaNestGeometry` (Lex `#288`). Do not treat this type as the lock.
 enum AriaSigilGeometry: Sendable {
 
     static let kind = "soft-hex-field"
@@ -237,8 +246,9 @@ enum AriaSigilPalette: Sendable {
     static let forgeOrangeHex = AriaSigilGeometry.forgeOrangeHex
     /// Brand lock. Was `FF6A1A` (gooey hearth); the mark is Forge orange now.
     static let emberHex = forgeOrangeHex
-    static let pearlHex = AriaSigilGeometry.pearlHex
-    static let pearlHotHex = AriaSigilGeometry.pearlHotHex
+    static let pearlHex = AriaNestGeometry.pearlHex
+    static let pearlHotHex = AriaNestGeometry.pearlHotHex
+    static let nestFrostHex = AriaNestGeometry.nestFrostHex
     static let voidDeepHex = "030207"
     static let voidMidHex = "0B0812"
     static let ivoryHex = "F3EBDD"
@@ -272,7 +282,7 @@ enum AriaSigilPalette: Sendable {
 // MARK: - Minimal animation (phone)
 
 /// Mirrors the Watch `forgeMinimalAnimation` key. Either this or Reduce Motion
-/// freezes the ring nest at `AriaSigilGeometry.stillPoseAngleDeg`. Default is off;
+/// freezes the nest at `AriaNestGeometry.stillPoseAngleDeg`. Default is off;
 /// iOS has no separate Settings toggle yet.
 private struct ForgeMinimalAnimationKey: EnvironmentKey {
     static let defaultValue = false

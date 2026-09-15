@@ -2,7 +2,7 @@ import XCTest
 @testable import ForgeSwift
 
 /// Locks the welcome-chime gates and the unused AriaLogo still-frame name.
-/// Live mark is the procedural ring-field — this file does not assert PNG paint.
+/// Live mark is the procedural B+E nest — this file does not assert PNG paint.
 /// Does not start AVAudioEngine.
 final class AriaLogoPresenceTests: XCTestCase {
 
@@ -12,7 +12,7 @@ final class AriaLogoPresenceTests: XCTestCase {
         XCTAssertLessThanOrEqual(
             AriaWelcomeChime.cropScale,
             1.05,
-            "ARIA ring-field — do not zoom past its frame"
+            "ARIA nest — do not zoom past its frame"
         )
         XCTAssertEqual(AriaWelcomeChime.heroMinimumSize, 90)
     }
