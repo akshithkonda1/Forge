@@ -89,7 +89,18 @@ final class ForgeCloudSync {
             let stamp = sleep.date.isEmpty ? now : sleep.date
             samples.append((type: "sleep-stage", value: Double(sleep.deepMinutes), unit: "min", timestamp: stamp, source: "apple-health"))
         }
-        return CloudHealthMetricType.metrics(from: samples)
+        for vendor in AgingVendorStore.ages {
+            samples.append((
+                type: "\(vendor.kind.rawValue)-age",
+                value: vendor.years,
+                unit: "years",
+                timestamp: now,
+                source: vendor.source
+            ))
+        }
+        let metrics = CloudHealthMetricType.metrics(from: samples)
+        AgingVendorStore.ingest(metrics: metrics)
+        return metrics
     }
 
     // MARK: - Transport

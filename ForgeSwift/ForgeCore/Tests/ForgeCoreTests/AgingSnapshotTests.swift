@@ -69,6 +69,14 @@ final class AgingSnapshotTests: XCTestCase {
         XCTAssertTrue(snap.sources.contains { $0.contains("ultrahuman") })
     }
 
+    func testHealthMetricTypesMapToVendorAges() {
+        XCTAssertEqual(AgingVendorAge(metricType: "garmin-fitness-age", years: 32, source: "garmin")?.kind, .fitness)
+        XCTAssertEqual(AgingVendorAge(metricType: "inner_age", years: 33, source: "ultrahuman")?.kind, .inner)
+        XCTAssertEqual(AgingVendorAge(metricType: "true-age", years: 41, source: "manual")?.kind, .biological)
+        XCTAssertNil(AgingVendorAge(metricType: "chronological-age", years: 38, source: "apple-health"))
+        XCTAssertNil(AgingVendorAge(metricType: "vo2-max", years: 52, source: "apple-health"))
+    }
+
     func testMissingAgeDoesNotFabricate() {
         let snap = AgingSnapshot.evaluate(
             chronologicalAge: nil,

@@ -58,6 +58,42 @@ final class TrainSleepUsableTests: XCTestCase {
         XCTAssertEqual(gen.domain(of: "what should I train today?"), .training)
     }
 
+    func testVendorAgesReachLifestyleAndTrainBridge() {
+        AgingVendorStore.replaceAll([
+            AgingVendorAge(kind: .fitness, years: 32, confidence: 0.9, source: "garmin"),
+            AgingVendorAge(kind: .inner, years: 33, confidence: 0.8, source: "ultrahuman")
+        ])
+        defer { AgingVendorStore.replaceAll([]) }
+        let snap = AgingBridge.snapshot(age: 38, sexFemale: false, stats: nil)
+        XCTAssertLessThan(snap.biologicalAge ?? 99, 38)
+        XCTAssertTrue(snap.sources.contains { $0.contains("garmin") })
+        XCTAssertTrue(snap.hasComparison)
+    }
+
+    func testOpenTrainHomeDoesNotStartTheWorkout() {
+        let store = AppStore()
+        store.todayWorkout = samplePlan(sets: 3, weight: 100, duration: 30)
+        store.openTrainHome()
+        XCTAssertFalse(store.isWorkoutActive)
+        XCTAssertEqual(store.activeTab, .workout)
+        XCTAssertNotNil(store.todayWorkout)
+    }
+
+    func testLifeShapedSessionLandsOnTrainIdle() {
+        let store = AppStore()
+        store.startLifeShapedSession()
+        XCTAssertFalse(store.isWorkoutActive)
+        XCTAssertEqual(store.activeTab, .workout)
+        XCTAssertNotNil(store.todayWorkout)
+    }
+
+    func testHomePrimaryActionOpensSessionInsteadOfStarting() {
+        let action = HomePrimaryAction.startWorkout(id: "p", name: "Push")
+        XCTAssertFalse(action.title.localizedCaseInsensitiveContains("start"))
+        XCTAssertTrue(action.title.localizedCaseInsensitiveContains("session"))
+        XCTAssertEqual(action.icon, "dumbbell.fill")
+    }
+
     func testWriteTodaysSessionDoesNotStartTheWorkout() {
         let store = AppStore()
         store.rebuildTodayPlanFromLife()

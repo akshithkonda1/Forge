@@ -403,6 +403,15 @@ extension AriaService {
         if let vo2 = HealthKitManager.shared.todayStats?.vo2Max, vo2 > 0 {
             samples.append(HealthSample(type: "vo2-max", value: vo2, unit: "ml/kg/min", timestamp: now, source: "apple-health"))
         }
+        for vendor in AgingVendorStore.ages {
+            samples.append(HealthSample(
+                type: vendor.kind.rawValue.replacingOccurrences(of: "_", with: "-") + "-age",
+                value: vendor.years,
+                unit: "years",
+                timestamp: now,
+                source: vendor.source
+            ))
+        }
         return samples
     }
 
@@ -411,12 +420,63 @@ extension AriaService {
         // locally and gives an opinion. Forge is not a health warehouse.
         _ = message
         let samples = observationSamples(from: store)
+        for sample in samples {
+            AgingVendorStore.ingest(
+                metricType: sample.type,
+                years: sample.value,
+                source: sample.source ?? "apple-health"
+            )
+        }
+        let aging = AgingBridge.snapshot(
+            age: store.userProfile.age,
+            sexFemale: store.userProfile.biologicalSex == .female ? true
+                : store.userProfile.biologicalSex == .male ? false : nil,
+            stats: HealthKitManager.shared.todayStats
+        )
+        var derived: [String: BiometricEstimate] = [
+            "hrv": BiometricEstimate(
+                name: "hrv",
+                value: Double(store.dailyMetrics.hrv),
+                state: store.dailyMetrics.hrv >= 50 ? "ok" : "low",
+                confidence: 0.8,
+                method: "local-day",
+                detail: "Today's HRV on this phone"
+            ),
+            "steps": BiometricEstimate(
+                name: "steps",
+                value: Double(store.dailyMetrics.steps),
+                state: "ok",
+                confidence: 0.8,
+                method: "local-day",
+                detail: "Today's steps"
+            )
+        ]
+        if let bio = aging.biologicalAge {
+            derived["biological_age"] = BiometricEstimate(
+                name: "biological_age",
+                value: bio,
+                state: aging.state.rawValue,
+                confidence: aging.confidence,
+                method: "fusion:aging",
+                detail: aging.comparisonLine
+            )
+        }
+        if let fitness = aging.fitnessAge {
+            derived["fitness_age"] = BiometricEstimate(
+                name: "fitness_age",
+                value: fitness,
+                state: aging.state.rawValue,
+                confidence: aging.confidence,
+                method: "vo2",
+                detail: "Fitness age from VO₂"
+            )
+        }
         return ObserveResponse(
             classification: ClassificationSummary(accepted: samples.count, rejected: 0),
             snapshot: BodySnapshot(
-                confidence: store.readiness.overall > 0 ? 0.82 : 0.4,
+                confidence: max(store.readiness.overall > 0 ? 0.82 : 0.4, aging.confidence),
                 observationCount: samples.count,
-                sources: ["apple-health"],
+                sources: Array(Set(["apple-health"] + aging.sources.map { $0.split(separator: ":").first.map(String.init) ?? $0 })),
                 systems: [
                     "recovery": SystemStateDTO(
                         system: "recovery",
@@ -425,24 +485,7 @@ extension AriaService {
                         confidence: 0.8
                     )
                 ],
-                derived: [
-                    "hrv": BiometricEstimate(
-                        name: "hrv",
-                        value: Double(store.dailyMetrics.hrv),
-                        state: store.dailyMetrics.hrv >= 50 ? "ok" : "low",
-                        confidence: 0.8,
-                        method: "local-day",
-                        detail: "Today's HRV on this phone"
-                    ),
-                    "steps": BiometricEstimate(
-                        name: "steps",
-                        value: Double(store.dailyMetrics.steps),
-                        state: "ok",
-                        confidence: 0.8,
-                        method: "local-day",
-                        detail: "Today's steps"
-                    )
-                ],
+                derived: derived,
                 anomalies: []
             ),
             restrictedDomains: DataPermissionsStore.shared.restrictedDomains.isEmpty

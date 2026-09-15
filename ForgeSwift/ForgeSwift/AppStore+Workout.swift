@@ -28,6 +28,15 @@ extension AppStore {
         isWorkoutActive = true
     }
 
+    /// Open Train on today's plan without starting the session. Home and empty
+    /// states land here so the board — day call, age chip, Start — is the CTA.
+    func openTrainHome() {
+        if todayWorkout == nil {
+            rebuildTodayPlanFromLife()
+        }
+        activeTab = .workout
+    }
+
     /// Open today's existing plan without rewriting it from life signals.
     /// Rebuilds only when there is nothing to start.
     func startExistingWorkout() {

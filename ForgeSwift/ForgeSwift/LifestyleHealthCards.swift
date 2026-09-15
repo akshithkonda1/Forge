@@ -576,15 +576,43 @@ struct ArcLegendItem: View {
     }
 }
 
+enum AgingVendorStore {
+    static var ages: [AgingVendorAge] = []
+
+    static func replaceAll(_ incoming: [AgingVendorAge]) {
+        ages = incoming
+    }
+
+    static func ingest(metricType: String, years: Double, source: String, confidence: Double = 0.85) {
+        guard let age = AgingVendorAge(metricType: metricType, years: years, source: source, confidence: confidence) else {
+            return
+        }
+        ages.removeAll { $0.kind == age.kind && $0.source.caseInsensitiveCompare(age.source) == .orderedSame }
+        ages.append(age)
+    }
+
+    static func ingest(metrics: [CloudHealthMetric]) {
+        for metric in metrics {
+            ingest(metricType: metric.metricType, years: metric.value, source: metric.source)
+        }
+    }
+}
+
 enum AgingBridge {
-    static func snapshot(age: Int?, sexFemale: Bool?, stats: DailyHealthStats?) -> AgingSnapshot {
+    static func snapshot(
+        age: Int?,
+        sexFemale: Bool?,
+        stats: DailyHealthStats?,
+        vendorAges: [AgingVendorAge]? = nil
+    ) -> AgingSnapshot {
         AgingSnapshot.evaluate(
             chronologicalAge: age.map(Double.init),
             sexFemale: sexFemale,
             vo2Max: stats.flatMap { $0.vo2Max > 0 ? $0.vo2Max : nil },
             hrv: stats.flatMap { $0.hrv > 0 ? $0.hrv : nil },
             restingHR: stats.flatMap { $0.restingHeartRate > 0 ? $0.restingHeartRate : nil },
-            sleepHours: stats.flatMap { $0.sleepHours > 0 ? $0.sleepHours : nil }
+            sleepHours: stats.flatMap { $0.sleepHours > 0 ? $0.sleepHours : nil },
+            vendorAges: vendorAges ?? AgingVendorStore.ages
         )
     }
 }

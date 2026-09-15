@@ -28,6 +28,38 @@ public struct AgingVendorAge: Sendable, Equatable {
         self.confidence = confidence
         self.source = source
     }
+
+    /// Map a health-batch / vendor identifier onto a captured age. Calendar age
+    /// is not a vendor age — that comes from the profile.
+    public init?(metricType: String, years: Double, source: String, confidence: Double = 0.85) {
+        guard years >= 13, years <= 120 else { return nil }
+        let key = metricType.lowercased()
+            .replacingOccurrences(of: "_", with: "-")
+            .replacingOccurrences(of: " ", with: "-")
+        let kind: Kind?
+        switch key {
+        case "biological-age", "bio-age", "true-age", "real-age":
+            kind = .biological
+        case "fitness-age", "garmin-fitness-age", "physio-age":
+            kind = .fitness
+        case "phenotypic-age", "pheno-age":
+            kind = .phenotypic
+        case "vascular-age", "heart-age", "arterial-age":
+            kind = .vascular
+        case "metabolic-age", "body-age":
+            kind = .metabolic
+        case "inner-age", "oura-age":
+            kind = .inner
+        case "cardio-age", "vo2-age":
+            kind = .cardio
+        case "hrv-age", "recovery-age", "autonomic-age":
+            kind = .hrv
+        default:
+            kind = nil
+        }
+        guard let kind else { return nil }
+        self.init(kind: kind, years: years, confidence: confidence, source: source)
+    }
 }
 
 public struct AgingComponent: Sendable, Equatable {
