@@ -52,4 +52,35 @@ final class AriaKnowledgeLedgerTests: XCTestCase {
         ))
         XCTAssertEqual(ledger.latestWeeklyMood(), 2)
     }
+
+    func testWeeklyMoodScaleReadsGollumAndHappy() {
+        XCTAssertEqual(WeeklyMoodScale.score(from: "felt like Gollum all week"), 2)
+        XCTAssertEqual(WeeklyMoodScale.score(from: "happy with family"), 8)
+        XCTAssertNil(WeeklyMoodScale.score(from: "   "))
+    }
+
+    func testEmptyCalendarReplaceClearsOtherData() {
+        var ledger = AriaKnowledgeLedger()
+        ledger.file(AriaKnowledgeFact(
+            category: .otherData, kind: "calendar_week", summary: "This week: wedding.", source: "calendar"
+        ))
+        ledger.file(AriaKnowledgeFact(
+            category: .weSpokeAbout, kind: "chat", summary: "keep me", source: "chat"
+        ))
+        ledger.replace(category: .otherData, source: "calendar", with: [])
+        XCTAssertTrue(ledger.facts(in: .otherData).isEmpty)
+        XCTAssertEqual(ledger.facts(in: .weSpokeAbout).first?.summary, "keep me")
+    }
+
+    func testFakeHealthPackKnowledgeFactsStayAnonymous() {
+        let pack = FakeHealthPack.generate(seed: 42)
+        let facts = pack.knowledgeFacts(source: "test-ready-pack")
+        XCTAssertFalse(facts.isEmpty)
+        XCTAssertTrue(facts.allSatisfy { $0.category == .appleHealth })
+        XCTAssertTrue(facts.allSatisfy { $0.source == "test-ready-pack" })
+        let joined = facts.map(\.summary).joined(separator: " ")
+        XCTAssertFalse(joined.lowercased().contains("street"))
+        XCTAssertFalse(joined.lowercased().contains("@"))
+        XCTAssertTrue(joined.contains(pack.personaLabel) || facts.contains { $0.kind == "persona" })
+    }
 }

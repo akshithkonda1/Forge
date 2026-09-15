@@ -856,11 +856,14 @@ final class AriaContextStore: ObservableObject {
                 source: "calendar"
             ))
         }
-        if !facts.isEmpty {
-            AriaKnowledgeLedgerStore.replace(category: .otherData, source: "calendar", with: facts.filter { $0.category == .otherData })
-            for fact in facts where fact.category == .inferences {
-                AriaKnowledgeLedgerStore.file(fact)
-            }
+        // Always replace so a cleared week does not leave stale other-data facts.
+        AriaKnowledgeLedgerStore.replace(
+            category: .otherData,
+            source: "calendar",
+            with: facts.filter { $0.category == .otherData }
+        )
+        for fact in facts where fact.category == .inferences {
+            AriaKnowledgeLedgerStore.file(fact)
         }
     }
 

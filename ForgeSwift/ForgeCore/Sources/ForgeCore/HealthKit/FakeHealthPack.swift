@@ -216,6 +216,53 @@ public struct FakeHealthPack: Sendable, Equatable {
 
     public var today: FakeHealthDay? { days.first }
 
+    /// Facts for the Apple Health knowledge folder when a Test-Ready pack lands.
+    /// Titles and places never belong here — numbers and persona label only.
+    public func knowledgeFacts(source: String = "test-ready-pack") -> [AriaKnowledgeFact] {
+        var facts: [AriaKnowledgeFact] = []
+        facts.append(AriaKnowledgeFact(
+            category: .appleHealth,
+            kind: "persona",
+            summary: "Test-Ready Health persona: \(personaLabel).",
+            source: source
+        ))
+        guard let today else { return facts }
+        let sleepHours = today.night.totalMinutes / 60
+        if sleepHours > 0 {
+            facts.append(AriaKnowledgeFact(
+                category: .appleHealth,
+                kind: "sleep",
+                summary: String(format: "Last night: %.1f hours of sleep.", sleepHours),
+                source: source
+            ))
+        }
+        if today.steps > 0 {
+            facts.append(AriaKnowledgeFact(
+                category: .appleHealth,
+                kind: "steps",
+                summary: "Steps today: \(today.steps).",
+                source: source
+            ))
+        }
+        if today.hrvMs > 0 {
+            facts.append(AriaKnowledgeFact(
+                category: .appleHealth,
+                kind: "hrv",
+                summary: "HRV today: \(today.hrvMs) ms.",
+                source: source
+            ))
+        }
+        if let workout = today.workout {
+            facts.append(AriaKnowledgeFact(
+                category: .appleHealth,
+                kind: "workout",
+                summary: "Recent session: \(workout.name) (\(workout.durationMinutes) min).",
+                source: source
+            ))
+        }
+        return facts
+    }
+
     public var readinessInputs: ReadinessInputs {
         guard let today else { return ReadinessInputs() }
         let baselineHRV = days.prefix(7).map(\.hrvMs).reduce(0, +) / max(1, min(7, days.count))
