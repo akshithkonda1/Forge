@@ -3,6 +3,7 @@
 Runs the full offline pipeline against one archetype, a tier, or all 23:
 
     python -m backend.simrunner                       # tier 1 (fast sanity)
+    python -m backend.simrunner --test-ready --tier 1 --gate  # dummy = iOS Test-Ready path
     python -m backend.simrunner --model <model_id>
     python -m backend.simrunner --tier 3
     python -m backend.simrunner --all
@@ -42,6 +43,8 @@ from .backend_simulator.data_generator import build_context
 _HERE = os.path.dirname(os.path.abspath(__file__))
 _REPORTS_DIR = os.path.join(_HERE, "reports")
 _BASELINES_DIR = os.path.join(_HERE, "baselines")
+_TEST_READY_BASELINES_DIR = os.path.join(_HERE, "baselines", "test_ready")
+_TEST_READY_REPORTS_DIR = os.path.join(_HERE, "reports", "test_ready")
 _CONFIG_PATH = os.path.join(_HERE, "sim_config.yaml")
 _DIM_NAMES = list(DimensionScores.WEIGHTS)
 
@@ -191,7 +194,13 @@ def _eval_seed(model: dict, config: dict, engine: ARIAEngine, seed: int):
     return results, contexts, snapshot_days, queries, stream
 
 
-def run_model(model: dict, config: dict, engine: ARIAEngine, config_report: dict | None = None) -> dict:
+def run_model(
+    model: dict,
+    config: dict,
+    engine: ARIAEngine,
+    config_report: dict | None = None,
+    reports_dir: str | None = None,
+) -> dict:
     profile = model["behavioral_profile"]
     tier = model["difficulty_tier"]
     seed = int(config["seed"])
@@ -228,8 +237,9 @@ def run_model(model: dict, config: dict, engine: ARIAEngine, config_report: dict
         determinism = check_determinism(engine, samples, seed=seed)
 
     engine_model = engine.detect_model()
+    out_dir = reports_dir or _REPORTS_DIR
     paths = report_builder.save_reports(
-        model, stability, determinism, primary_results, _REPORTS_DIR, config["report_format"],
+        model, stability, determinism, primary_results, out_dir, config["report_format"],
         engine_model=engine_model, diagnostic=diagnostic, multiseed=multiseed, config_report=config_report,
     )
 
@@ -462,7 +472,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--compare", nargs="?", const=_BASELINES_DIR, default=None, metavar="DIR",
                         help="diff this run against a committed baseline (default dir: baselines/)")
     parser.add_argument("--gate", action="store_true",
-                        help="fail (exit 2) on a composite regression or a new mission-critical failure")
+                        help="fail (exit 2) on a composite regression, a new mission-critical, or a tier-1 HOLD")
     parser.add_argument("--check-config", action="store_true",
                         help="print ARIA's real Terraform-configured AI behavior and exit (no boto3/AWS needed)")
     parser.add_argument("--live", action="store_true",
@@ -489,7 +499,8 @@ def main(argv: list[str] | None = None) -> int:
     )
     args = parser.parse_args(argv)
 
-    if args.test_ready:
+    eval_scope = bool(args.tier or args.all or args.model or args.isometric)
+    if args.test_ready and not eval_scope:
         return _run_test_ready(args)
     if args.voice_check:
         return _run_voice_check(args)
@@ -566,20 +577,27 @@ def main(argv: list[str] | None = None) -> int:
         ("all 23" if args.all else "tier 1 (default)")
     )
     arch_scope = ", ".join(arch_ids) if len(arch_ids) <= 3 else f"{len(arch_ids)} model archetypes"
+    product = bool(args.test_ready)
+    reports_dir = _TEST_READY_REPORTS_DIR if product else _REPORTS_DIR
     print(f"ARIA SimRunner — scope: {scope}  ·  model_archetype={arch_scope}  ·  "
-          f"real_api={config['use_real_api']}  ·  seed={config['seed']}  ·  seeds={config['seed_count']}")
+          f"real_api={config['use_real_api']}  ·  engine={'dummy' if product else 'stub'}  ·  "
+          f"seed={config['seed']}  ·  seeds={config['seed_count']}")
     print("-" * 70)
 
     records: list[dict] = []
     try:
         for arch_id in arch_ids:
-            engine = ARIAEngine(
-                use_real_api=bool(config["use_real_api"]),
-                engine_models=config.get("engine_models"),
-                engine_model=config.get("engine_model"),
-                model_archetype=arch_id,
-                strict_live=bool(config.get("strict_live", False)),
-            )
+            if product:
+                from .aria_simrunner.dummy_orchestrator import DummyARIAEngine
+                engine = DummyARIAEngine()
+            else:
+                engine = ARIAEngine(
+                    use_real_api=bool(config["use_real_api"]),
+                    engine_models=config.get("engine_models"),
+                    engine_model=config.get("engine_model"),
+                    model_archetype=arch_id,
+                    strict_live=bool(config.get("strict_live", False)),
+                )
             if len(arch_ids) > 1:
                 print(f"\n─ model archetype: {engine.archetype.display_name} ({arch_id}) ─")
             if args.live:
@@ -587,7 +605,9 @@ def main(argv: list[str] | None = None) -> int:
                                  else "pinned via --model/--model-archetype, NOT /ai/chat's real routing")
                 print(f"Testing model(s): {', '.join(sorted(set(engine.active_models().values())))} — {routing_note}")
             for model in models:
-                records.append(run_model(model, config, engine, config_report=config_report))
+                records.append(run_model(
+                    model, config, engine, config_report=config_report, reports_dir=reports_dir,
+                ))
     except LiveConfigError as exc:
         print("-" * 70)
         print(f"LIVE CONFIG CHECK FAILED: {exc}")
@@ -601,7 +621,7 @@ def main(argv: list[str] | None = None) -> int:
         crit = sum(s["critical_failures"] for s in records)
         mc = sum(s["mission_critical_count"] for s in records)
         held = sum(1 for s in records if not s["system_passed"])
-        path = report_builder.save_combined_summary(records, _REPORTS_DIR, config_report=config_report)
+        path = report_builder.save_combined_summary(records, reports_dir, config_report=config_report)
         print(f"Suite: {len(records)} runs · avg composite {avg}/100 · avg determinism {det} · "
               f"{crit} critical · {mc} mission-critical · {held} held")
         print(f"Combined summary → {os.path.relpath(path, _HERE)}")
@@ -616,15 +636,16 @@ def main(argv: list[str] | None = None) -> int:
                 _json.dump(diag, fh, indent=2, default=str)
             print(f"Matrix diagnostics → {os.path.relpath(diag_path, _HERE)}")
     else:
-        print(f"Done. Reports in {os.path.relpath(_REPORTS_DIR, _HERE)}/")
+        print(f"Done. Reports in {os.path.relpath(reports_dir, _HERE)}/")
 
     if args.baseline is not None:
         written = baseline.save(records, args.baseline)
         print(f"Baseline written: {len(written)} snapshot(s) → {os.path.relpath(args.baseline, _HERE)}/")
 
     compare_dir = None
+    default_base = _TEST_READY_BASELINES_DIR if product else _BASELINES_DIR
     if args.gate:
-        compare_dir = args.compare if args.compare is not None else _BASELINES_DIR
+        compare_dir = args.compare if args.compare is not None else default_base
     elif args.compare is not None:
         compare_dir = args.compare
 
@@ -632,14 +653,21 @@ def main(argv: list[str] | None = None) -> int:
         base = baseline.load(compare_dir)
         if not base:
             print(f"warning: no baseline found in {os.path.relpath(compare_dir, _HERE)}/ — run --baseline first.")
+            if args.gate:
+                passed, reasons = baseline.gate([], config["gate_max_drop"], records=records)
+                if not passed:
+                    print(f"⛔ Regression gate FAILED — {len(reasons)} issue(s):")
+                    for reason in reasons:
+                        print(f"    - {reason}")
+                    return 2
             return 0
         diffs = baseline.compare(records, base)
-        cpath = baseline.write_comparison(diffs, _REPORTS_DIR)
+        cpath = baseline.write_comparison(diffs, reports_dir)
         print("-" * 70)
         print(f"Comparison vs baseline → {os.path.relpath(cpath, _HERE)}")
         _print_diffs(diffs)
         if args.gate:
-            passed, reasons = baseline.gate(diffs, config["gate_max_drop"])
+            passed, reasons = baseline.gate(diffs, config["gate_max_drop"], records=records)
             if passed:
                 print(f"✅ Regression gate PASSED (max allowed drop {config['gate_max_drop']}).")
                 return 0

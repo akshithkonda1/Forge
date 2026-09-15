@@ -39,9 +39,9 @@ import os
 import re
 from dataclasses import dataclass
 
+from ..backend_simulator import model_registry
 from ..backend_simulator.behavior_engine import generate_stream
 from ..backend_simulator.data_generator import build_context
-from ..backend_simulator import model_registry
 from .aria_engine import ARIAEngine
 from . import speak_quality
 from . import voice_diagnostics
@@ -992,6 +992,14 @@ def humanize_prose(
 
     def finish(text: str, *, allow_life: bool = True) -> str:
         body = text.rstrip()
+        if getattr(context, "is_overtrained", False) or float(getattr(context, "acwr", 0) or 0) >= 1.5:
+            low = body.lower()
+            if not any(w in low for w in ("acwr", "deload", "back off", "overtrain", "too much")):
+                body += " Load is high this week — back off, treat it as a deload."
+        if debt > 5.0:
+            low = body.lower()
+            if not any(w in low for w in ("protect sleep", "protect tonight", "sleep first", "recovery needs priority")):
+                body += " Protect sleep tonight rather than adding volume."
         # Persona texture only where the life actually changes the advice —
         # not on every clarify / cycle / sparse turn.
         if (
@@ -1630,6 +1638,40 @@ def _orchestration_latency_ms(message: str, seed: int, worker_count: int) -> int
     return 40 + (_fnv(message) ^ (seed * 16777619) ^ (worker_count * 31)) % 90
 
 
+def _context_for_turn(
+    *,
+    seed: int,
+    model_id: str | None,
+    day_index: int,
+    context=None,
+    pack_day=None,
+    use_pack: bool = False,
+):
+    """Prefer an explicit ARIAContext; else a FakeHealthPack day; else the persona stream."""
+    from . import fake_health_pack
+    from .fake_health_bridge import context_from_pack_day
+
+    model = model_registry.resolve_archetype(model_id) if model_id else model_registry.get_models_by_tier(1)[0]
+    profile = model["behavioral_profile"]
+    if context is not None:
+        return context, model
+    if pack_day is None and use_pack:
+        pack = fake_health_pack.generate(seed=seed)
+        days = pack["days"]
+        idx = min(max(0, day_index), len(days) - 1)
+        pack_day = days[idx]
+    if pack_day is not None:
+        ctx = context_from_pack_day(pack_day, persona=profile.get("occupation"))
+        ctx.occupation = profile.get("occupation", ctx.occupation)
+        ctx.chronotype = profile.get("chronotype", ctx.chronotype)
+        ctx.experience_level = profile.get("experience_level", ctx.experience_level)
+        ctx.life_season = profile.get("season", ctx.life_season)
+        ctx.coaching_style = profile.get("coaching_style", getattr(ctx, "coaching_style", "balanced"))
+        return ctx, model
+    stream = generate_stream(profile, seed)
+    return build_context(stream, profile, day_index), model
+
+
 def respond(
     message: str,
     *,
@@ -1642,6 +1684,9 @@ def respond(
     day_index: int = 29,
     engine: str = ENGINE_LAMBDA,
     lifestyle_tags: list[str] | None = None,
+    context=None,
+    pack_day=None,
+    use_pack: bool = False,
 ) -> dict:
     """One SimRunner turn. Default ``engine="lambda"`` hypertunes against fused
     product speak (``fuse_turn`` + ``generate_response``). ``engine="stub"``
@@ -1651,6 +1696,8 @@ def respond(
       ingest → route specialists → reason → specialize → synthesize → voice.
 
     Never calls Bedrock, AWS, or any other cloud.
+    Default body is the FakeHealthPack twin (same fields iOS writes to HealthKit).
+    Pass ``context=`` to score a SimRunner persona stream instead.
     """
     refuse_if_cloud()
 
@@ -1672,10 +1719,10 @@ def respond(
             if key in _KINDS and key not in plan.kinds:
                 plan.workers.append(Worker(key, key, None, False))
 
-    model = model_registry.resolve_archetype(model_id) if model_id else model_registry.get_models_by_tier(1)[0]
-    profile = model["behavioral_profile"]
-    stream = generate_stream(profile, seed)
-    ctx = build_context(stream, profile, day_index)
+    ctx, _model = _context_for_turn(
+        seed=seed, model_id=model_id, day_index=day_index,
+        context=context, pack_day=pack_day, use_pack=use_pack,
+    )
     if (engine or ENGINE_LAMBDA).strip().lower() == ENGINE_LAMBDA:
         return _respond_via_lambda(
             message,
@@ -1733,6 +1780,7 @@ def respond(
         "confidence": stub.confidence,
         "confidence_reason": _confidence_reason(stub, signals, scenario),
         "prose_summary": prose,
+        "recommendation": getattr(stub, "recommendation", None),
         "message": chat,
         "suggested_actions": suggested_actions(plan, recovery_needed=recovery_needed),
         "card": None,
@@ -1797,6 +1845,38 @@ def respond(
         )
         row["orchestration"] = orch
     return row
+
+
+class DummyARIAEngine:
+    """Evaluator-facing adapter: SimRunner grades the Test-Ready dummy, not the
+    imperfect model-archetype stub. Duck-types ARIAEngine.respond."""
+
+    use_real_api = False
+
+    def __init__(self) -> None:
+        from . import model_archetypes as ma
+        self.archetype = ma.get("baseline")
+
+    def respond(self, query: str, context, seed: int = 0):
+        from .aria_engine import ARIAResponse
+
+        row = respond(query, seed=seed, context=context, engine="stub")
+        return ARIAResponse(
+            prose_summary=row["message"] or row["prose_summary"],
+            recommendation=row.get("recommendation"),
+            confidence=float(row.get("confidence") or 0.74),
+            used_context=True,
+            model_used=STUB_MODEL,
+            query_type=row.get("agent") or "aria",
+            latency_ms=float((row.get("orchestration") or {}).get("latency_ms") or 40),
+            raw={"scenario": row.get("scenario") or "dummy", "test_ready": True},
+        )
+
+    def detect_model(self) -> str:
+        return STUB_MODEL
+
+    def active_models(self) -> dict:
+        return {"dummy": STUB_MODEL}
 
 
 def run_smoke(messages: list[str] | None = None, *, seed: int = 42) -> list[dict]:
