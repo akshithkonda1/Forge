@@ -838,20 +838,68 @@ _CHEER_SLUDGE = re.compile(
     r")\b",
     re.I,
 )
+# Soft-wit (Iris): witty + insightful = one funny take + one useful improve.
+# Throughline is friend — bubbly / kind / taking-care. Not dry trainer bark,
+# not diagnose/treat/cure, not vitals dumps. Seed-indexed via ``_pick``.
 _WIT_PROTECT = (
-    "The ambitious plan can wait — I'm not going to clap you into a hole.",
-    "Kind yes. Heroics no. The work will still be there when the night pays you back.",
-    "Today's a don't-pick-a-fight-with-your-own-recovery kind of day.",
+    "Your body's hung a cute 'back soon' sign — easy walk, then protect bedtime like it's the real session.",
+    "I'm with you, and I'm tucking the hero set in a drawer — keep it gentle and get to bed on purpose.",
+    "Cozy-sweater day, not montage day — ten easy minutes, water nearby, lights out a little earlier.",
+    "Even sparkly people need a restock — skip the extra work and steal a kinder wind-down tonight.",
+    "Today whispered please-be-nice — so we will: keep it kind, light movement, protein with the next meal, real sleep.",
+    "Friend vote: let's not pick a fight with a tired body — soft loop, then earlier lights-out.",
+    "I love the ambition and I'm still tucking it in — keep today kind and light and make bedtime the workout.",
+    "Your tank's on the cute low-power glow — easy movement only, then we guard the night.",
+    "I'm taking care of you, not casting you as the montage hero — short and kind, then wind down.",
+    "The loud plan can wait in drafts — an easy walk, a simple meal, and an honest bedtime will do more.",
+    "You're not failing, you're just a little crispy — keep it easy and get under the covers on time.",
+    "Hug first: restock day — easy body, water with the next meal, protect sleep like a friend would.",
 )
 _WIT_PROCEED = (
-    "You've got enough to spend — just don't spend it like it's a dare.",
-    "I'm in. Sharp over loud. Leave the victory-lap energy in the bag.",
-    "Yes to the session. No to performing it for an audience that isn't there.",
+    "You've got a little sparkle in the tank, and I'm with you — spend it on one clean session, then stop while it still feels good.",
+    "I'm in, sweetly — keep it easy: sharp work, water nearby, encore left in the bag.",
+    "Green-enough day, not fireworks — pick one thing to progress, keep it easy, then you're done, I promise.",
+    "Yes to the session and yes to taking care of you in it — keep it focused, skip the encore finish.",
+    "You've got enough to spend, just don't spend it like a double-dare — keep it easy: one honest block, then a real meal you actually finish.",
+    "I'm cheering, not shoving — a focused session, protein and water after, then we call it easy.",
+    "The day's saying go-play, not go-prove-it — train one thing well, keep it easy, and stop on quality.",
+    "Usable spark, friend — keep it sharp and kind, and don't turn it into an all-day parade.",
+    "I'm excited for you, friend, and I'm still the one who says stop — clean easy work, then you're free.",
+    "There's room to move and we'll keep it gentle — one quality session, water in reach, no encore.",
+    "Today can handle real work if we unwrap it kindly — progress one thing, leave extra sets.",
+    "Friend mode is on, sparkle included — go train, keep it cute and kind, then eat something you'll actually finish.",
 )
 _WIT_HONEST = (
-    "Mixed isn't failure — it's just the plot getting interesting.",
-    "I can be kind without lying to you. Today's a hold-steady chapter.",
-    "Not a pep talk. A read: we work with the day we actually have.",
+    "Mixed isn't a villain origin story — hold the load kind and steady and steal twenty extra minutes of wind-down.",
+    "I can be kind and sweet and still tell you the weather's meh — same effort as yesterday, protein and water with the next meal.",
+    "The plot got interesting, not doomed — keep one honest session size and protect bedtime.",
+    "Hug with a point — stay kind and moderate, make the next meal simple, and get to bed on purpose.",
+    "The day's a maybe, and that's allowed — easy-moderate work, then a softer night.",
+    "I'm with you in the messy middle — don't add load, do add a kinder wind-down.",
+    "Funny thing, friend: mixed days are where the care shows — hold steady and lights-out a little earlier.",
+    "You don't need a speech, you need a kind friend with a snack plan — same-size session, earlier bedtime.",
+    "Today's neither fireworks nor a flop — keep the work kind and honest and the bedtime real.",
+    "I'll keep you company, friend, and keep you honest — no extra volume, yes to water and a gentler night.",
+    "Hold-steady chapter, not a villain lecture — one familiar session, then protect sleep like it matters (it does).",
+    "The mix is just the plot getting interesting — stay kind to the load and sneak in extra wind-down.",
+)
+_WIT_ALREADY = tuple(
+    dict.fromkeys(
+        [
+            *[
+                line.split("—", 1)[0].strip().lower()
+                for line in (_WIT_PROTECT + _WIT_PROCEED + _WIT_HONEST)
+                if "—" in line
+            ],
+            "clap you into",
+            "victory-lap",
+            "spend it like it's a dare",
+            "plot getting interesting",
+            "hold-steady chapter",
+            "don't-pick-a-fight",
+            "not a pep talk",
+        ]
+    )
 )
 
 
@@ -897,7 +945,7 @@ def friend_speak(
     signals: SignalRead | None = None,
     guidance: str | None = None,
 ) -> str:
-    """Bubbly/kind friend with a point — not empty cheerleading.
+    """Bubbly/kind friend with a point — funny take + one useful improve.
 
     Shared by stub phrase banks and the lambda hypertune path. Guidance /
     emergency copy is left alone. Iris vitals scrub still wins after this.
@@ -907,16 +955,7 @@ def friend_speak(
     body = _CHEER_SLUDGE.sub("that's real work", _collapse_spoken(text))
     if not body:
         return _SPEAK_FALLBACK
-    already = (
-        "clap you into",
-        "victory-lap",
-        "spend it like it's a dare",
-        "plot getting interesting",
-        "hold-steady chapter",
-        "don't-pick-a-fight",
-        "not a pep talk",
-    )
-    if any(n in body.lower() for n in already):
+    if any(n in body.lower() for n in _WIT_ALREADY):
         return body
     # Short mid-thread mutations ("make it easier") already sound like a person.
     if len(body.split()) < 28:
