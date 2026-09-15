@@ -639,7 +639,12 @@ class DummyOrchestratorTests(unittest.TestCase):
             self.assertNotIn("\n\n", row["message"])
 
     def test_both_engines_sound_like_a_friend_with_a_point(self):
-        needles = (
+        bank_hooks = tuple(
+            line.split("—", 1)[0].strip().lower()
+            for line in dummy._WIT_PROTECT + dummy._WIT_PROCEED + dummy._WIT_HONEST
+            if "—" in line
+        )
+        needles = bank_hooks + (
             "clap you into",
             "victory-lap",
             "spend it like it's a dare",
@@ -650,6 +655,9 @@ class DummyOrchestratorTests(unittest.TestCase):
             "not a parade",
             "sharp, not endless",
             "hero set",
+            "sparkle in the tank",
+            "hug with a point",
+            "cozy-sweater",
         )
         for engine in ("stub", "lambda"):
             row = dummy.respond("What should I train today?", seed=1, engine=engine)
@@ -660,6 +668,86 @@ class DummyOrchestratorTests(unittest.TestCase):
             )
             for banned in ("prescrib", "cure", "treat this", "medical condition"):
                 self.assertNotIn(banned, blob, banned)
+
+    def test_soft_wit_banks_are_funny_useful_friends_not_dry_bark(self):
+        """Iris contract: each wit line is a funny take + one useful improve."""
+        banks = {
+            "protect": dummy._WIT_PROTECT,
+            "proceed": dummy._WIT_PROCEED,
+            "honest": dummy._WIT_HONEST,
+        }
+        funny = (
+            "cute", "sparkle", "sparkly", "cozy", "hug", "plot", "cheering",
+            "sweater", "montage", "fireworks", "encore", "crispy", "whisper",
+            "friend", "double-dare", "go-play", "restock", "low-power",
+            "villain", "meh", "maybe", "messy", "flop", "snack", "drafts",
+            "please-be-nice", "tucking", "unwrap", "sparkle included",
+        )
+        useful = (
+            "walk", "bed", "lights", "wind-down", "protein", "water", "meal",
+            "easy", "gentle", "short", "one thing", "one clean", "one quality",
+            "one honest", "one familiar", "stop", "session", "earlier",
+            "protect", "soft", "kind", "sleep", "eat",
+        )
+        retired_dry = (
+            "audience that isn't there",
+            "no to performing",
+            "not a pep talk. a read",
+            "clap you into a hole",
+            "sharp over loud",
+            "heroics no",
+        )
+        seen: set[str] = set()
+        for name, lines in banks.items():
+            self.assertGreaterEqual(len(lines), 8, name)
+            for line in lines:
+                with self.subTest(bank=name, line=line):
+                    self.assertNotIn(line, seen, "wit rotation needs unique lines")
+                    seen.add(line)
+                    self.assertIn("—", line, "funny take — useful improve")
+                    low = line.lower()
+                    self.assertTrue(
+                        any(tok in low for tok in funny),
+                        f"{name} missing funny take: {line!r}",
+                    )
+                    self.assertTrue(
+                        any(tok in low for tok in useful),
+                        f"{name} missing useful improve: {line!r}",
+                    )
+                    self.assertTrue(
+                        speak_quality.has_friend_throughline(line),
+                        f"{name} missing friend throughline: {line!r}",
+                    )
+                    self.assertEqual(speak_quality.bark_hits(line), [], line)
+                    self.assertEqual(speak_quality.medical_hits(line), [], line)
+                    self.assertEqual(speak_quality.vitals_hits(line), [], line)
+                    self.assertEqual(speak_quality.sludge_hits(line), [], line)
+                    for cold in retired_dry:
+                        self.assertNotIn(cold, low, line)
+
+    def test_friend_speak_appends_seed_indexed_soft_wit(self):
+        body = (
+            "You've got something to spend, since the night actually paid you back. "
+            "A solid moderate session fits if we progress one thing and leave the extra volume. "
+            "Want the session mapped, or just this read?"
+        )
+        self.assertGreaterEqual(len(body.split()), 28)
+        for stance, bank in (
+            ("protect", dummy._WIT_PROTECT),
+            ("proceed", dummy._WIT_PROCEED),
+            ("honest", dummy._WIT_HONEST),
+        ):
+            spoken = dummy.friend_speak(body, seed=1, stance=stance)
+            extra = dummy._pick(1 ^ 17, list(bank))
+            self.assertIn(extra, spoken)
+            self.assertTrue(spoken.startswith(body))
+            self.assertEqual(speak_quality.bark_hits(spoken), [])
+            self.assertEqual(speak_quality.medical_hits(spoken), [])
+            again = dummy.friend_speak(body, seed=1, stance=stance)
+            self.assertEqual(spoken, again)
+            other = dummy.friend_speak(body, seed=2, stance=stance)
+            # Different seeds may land the same slot; variety is the bank size.
+            self.assertIn(dummy._pick(2 ^ 17, list(bank)), other)
 
     def test_lambda_engine_same_seed_is_deterministic(self):
         a = dummy.respond("How did I sleep last night?", seed=7, engine="lambda")
