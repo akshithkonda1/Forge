@@ -41,11 +41,9 @@ enum AriaLocalDomain: String, CaseIterable {
 /// — it reports the routing it *would* have taken, so a tester sees the same
 /// decision production would make.
 ///
-/// Note the tertiary name here is Grok by instruction, while the backend's
-/// slot-3 default is still `moonshotai.kimi-k2.5`. The slot is env-overridable
-/// (`AI_ROUTER_MODEL_3_ID` / `_NAME`), so nothing is wrong in the client — but
-/// the two disagree until that env is set, and a label that quietly lies about
-/// which model answered is worse than no label.
+/// Note the tertiary name here is Grok — the backend's third router slot
+/// (`AI_ROUTER_MODEL_3_*`, default `global.xai.grok-4.6`). Agentic Swarm
+/// turns report this slot even though local testing never calls it.
 enum AriaModelTier: String {
     case primary
     case secondary
@@ -67,9 +65,9 @@ enum AriaModelTier: String {
         }
     }
 
-    /// Typical turns run on data plus the primary and secondary models. Agentic
-    /// work — a mode spawning its own specialists and subagents to solve
-    /// something the single-pass path cannot — calls in the tertiary.
+    /// Typical turns run on data plus the primary and secondary models. Swarm
+    /// — Grok's agentic read/evaluate/write over the wearable dataset — calls
+    /// in the tertiary even though this orchestrator never dials a model.
     static func route(workerCount: Int, hasSubagents: Bool) -> AriaModelTier {
         if workerCount > 1 || hasSubagents { return .tertiary }
         return .primary
@@ -224,6 +222,9 @@ final class LocalTestingOrchestrator {
             hasSubagents: routed.count > 1
         )
 
+        let swarmPicture = AriaSwarm.run(snapshot: .from(store: store))
+        AriaSwarm.file(swarmPicture)
+
         await simulateThinking(tier: tier, force: AriaCycleTools.shouldHandle(text))
 
         let domain = domainClassifier.domain(of: text)
@@ -334,6 +335,9 @@ final class LocalTestingOrchestrator {
         let engine = usingFoundationModels ? "on-device model" : "on-device rules"
 
         let wiredTag = usedWeb ? " · live web (system network) ✓" : ""
+        let swarmTag = swarmPicture.sources.contains(where: \.present)
+            ? " · swarm \(swarmPicture.slotName)"
+            : " · swarm"
         let planRequested = AriaThemeResolver.isPlanRequest(text) || TargetMuscle.mentioned(in: text) != nil
         if planRequested || base.richCard?.type == .workoutPlan {
             let plan = AriaPlanEngine.evaluate(input: text, context: context)
@@ -351,7 +355,7 @@ final class LocalTestingOrchestrator {
                 )
                 return AriaResponse(
                     confidenceReason: "Local testing — \(specialists) · \(engine) · slot "
-                        + "\(tier.slot) (\(tier.displayName)) · no cloud\(wiredTag) · familiarity \(familiarity)/10.",
+                        + "\(tier.slot) (\(tier.displayName)) · no cloud\(wiredTag)\(swarmTag) · familiarity \(familiarity)/10.",
                     proseSummary: body,
                     message: body,
                     richCard: AriaService.payload(from: plan.richCard),
@@ -371,7 +375,7 @@ final class LocalTestingOrchestrator {
         )
         return AriaResponse(
             confidenceReason: "Local testing — \(specialists) · \(engine) · slot "
-                + "\(tier.slot) (\(tier.displayName)) · no cloud\(wiredTag) · familiarity \(familiarity)/10.",
+                + "\(tier.slot) (\(tier.displayName)) · no cloud\(wiredTag)\(swarmTag) · familiarity \(familiarity)/10.",
             proseSummary: body,
             message: body,
             richCard: base.richCard.flatMap(AriaService.payload(from:)),

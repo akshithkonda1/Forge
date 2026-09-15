@@ -7,8 +7,10 @@ long-term learner is ``services.contextual_learner`` on the Lambda hot path.
 the same policy a real backend will; it must never own Q-tables, persona
 storage, or teaching copy. With ``engine="lambda"`` it also consumes
 ``services.fusion.fuse_turn`` and ``aria_engine.generate_response`` (Bedrock
-off) so hypertune reads fused product speak. Deleting this file must leave
-the learner, fusion, and ``POST /ai/chat`` intact.
+off) so hypertune reads fused product speak. Every turn also runs
+``services.aria_swarm`` — the Grok-agentic read/evaluate/write pass over
+WHOOP, Apple Watch, and Oura / RRA — without calling a model. Deleting this
+file must leave the learner, fusion, Swarm, and ``POST /ai/chat`` intact.
 
 This is *not* a live model. It is a staged stand-in for one: ingest the
 turn, score intents, fan the specialists out, let the stub decide the
@@ -64,6 +66,17 @@ LAMBDA_MODEL = "lambda-deterministic"
 ENGINE_STUB = "stub"
 ENGINE_LAMBDA = "lambda"
 ORCH_STAGES = ("ingest", "route", "reason", "specialize", "synthesize", "voice")
+
+# Wearable attribution for the dummy stream. The old ``simrunner`` tag made
+# Swarm unable to tell WHOOP from Watch from Oura / RRA.
+_SWARM_SAMPLE_SOURCE = {
+    "sleep": "oura",
+    "sleep-stage": "oura",
+    "hrv": "whoop",
+    "resting-heart-rate": "apple-watch",
+    "steps": "apple-watch",
+    "active-calories": "apple-watch",
+}
 
 # Keep needles aligned with iOS ``AriaCoachAgentRouter``. Duplicated on
 # purpose: SimRunner stays stdlib-only and must not import the Lambda package.
@@ -273,6 +286,19 @@ def _production_learner():
         return None
 
 
+def _production_swarm():
+    """Import live Swarm. Dummy must not own the policy."""
+    try:
+        from backend._paths import ensure_lambda_on_path
+
+        ensure_lambda_on_path()
+        from services import aria_swarm
+
+        return aria_swarm
+    except Exception:
+        return None
+
+
 def _consume_learner(message: str, ctx, plan: Plan):
     """Run the production policy in memory. Never Dynamo, never Bedrock."""
     learn = _production_learner()
@@ -292,6 +318,39 @@ def _consume_learner(message: str, ctx, plan: Plan):
         return brief, plan
     except Exception:
         return None, plan
+
+
+def _attach_swarm(row: dict, ctx, *, samples: list[dict] | None = None) -> dict:
+    """Background Swarm pass — read/evaluate/write the wearable dataset.
+
+    Sidecar only: never woven into spoken prose (voice/speak-quality gates).
+    """
+    swarm_mod = _production_swarm()
+    if swarm_mod is None:
+        return row
+    try:
+        picture = swarm_mod.run_swarm(
+            context=ctx,
+            samples=samples if samples is not None else _stream_samples(ctx),
+        )
+    except Exception:
+        return row
+    row["swarm"] = picture
+    orch = dict(row.get("orchestration") or {})
+    orch["swarm"] = True
+    orch["swarm_sources"] = [s.get("id") for s in picture.get("sources") or [] if s.get("present")]
+    orch["swarm_stance"] = (picture.get("picture") or {}).get("stance")
+    orch["swarm_slot"] = picture.get("slot_name")
+    row["orchestration"] = orch
+    thinking = str(row.get("thinking") or "").rstrip()
+    labels = [
+        s.get("label") for s in picture.get("sources") or [] if s.get("present") and s.get("label")
+    ]
+    if labels:
+        extra = f" Swarm read {', '.join(labels)}."
+        if extra.strip() not in thinking:
+            row["thinking"] = f"{thinking}{extra}".strip()
+    return row
 
 
 def score_intents(message: str) -> list[IntentHit]:
@@ -1355,7 +1414,10 @@ def _stream_samples(ctx) -> list[dict]:
             "value": value,
             "unit": unit,
             "timestamp": getattr(rec, "date", None) or "",
-            "source": "simrunner",
+            # Swarm needs vendor slices (WHOOP / Watch / Oura), not one
+            # anonymous ``simrunner`` dump. Untagged samples used to make
+            # the dummy orchestra skip the dataset pass entirely.
+            "source": _SWARM_SAMPLE_SOURCE.get(typ, "apple-watch"),
         }
         row.update(extra)
         samples.append(row)
@@ -1630,7 +1692,7 @@ def _respond_via_lambda(
             }
         )
         row["orchestration"] = orch
-    return row
+    return _attach_swarm(row, ctx, samples=payload.get("samples") if isinstance(payload, dict) else None)
 
 
 def _orchestration_latency_ms(message: str, seed: int, worker_count: int) -> int:
@@ -1693,7 +1755,8 @@ def respond(
     is the SimRunner matrix path.
 
     Pipeline (always local, Bedrock off):
-      ingest → route specialists → reason → specialize → synthesize → voice.
+      ingest → route specialists → swarm (read/evaluate/write wearables)
+      → reason → specialize → synthesize → voice.
 
     Never calls Bedrock, AWS, or any other cloud.
     Default body is the FakeHealthPack twin (same fields iOS writes to HealthKit).
@@ -1844,7 +1907,7 @@ def respond(
             }
         )
         row["orchestration"] = orch
-    return row
+    return _attach_swarm(row, ctx)
 
 
 class DummyARIAEngine:

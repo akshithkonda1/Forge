@@ -20,6 +20,8 @@ enum AriaDummyOrchestrator {
 
     /// Last side effects applied — tests inspect this instead of EventKit.
     static var lastAppliedActions: [AriaDummyAction] = []
+    /// Last Swarm picture — tests inspect the dataset pass without a model.
+    static var lastSwarmPicture: AriaSwarmPicture?
 
     static func reply(
         text: String,
@@ -34,6 +36,9 @@ enum AriaDummyOrchestrator {
         let you = trimmedName.isEmpty ? "" : "\(trimmedName) — "
         let facts = speechFacts(from: store)
         let readiness = store.readiness.overall
+
+        let swarmPicture = runSwarm(store: store)
+        lastSwarmPicture = swarmPicture
 
         let guidance = AriaGuidancePolicy.decide(text: text)
         if guidance.band == .referOut, let line = guidance.line {
@@ -707,8 +712,20 @@ enum AriaDummyOrchestrator {
     ) -> String {
         let names = interpretation.domains.map(\.rawValue).joined(separator: " + ")
         let grounding = companionReason(readiness: readiness, hasSleep: hasSleep)
-        if names.isEmpty { return "Local fill-in — \(grounding)" }
-        return "Local fill-in — \(names) · on-device · \(grounding)"
+        let swarm = lastSwarmPicture.map { picture in
+            let labels = picture.sources.filter(\.present).map(\.label)
+            if labels.isEmpty { return "swarm" }
+            return "swarm · \(labels.joined(separator: ", "))"
+        } ?? "swarm"
+        if names.isEmpty { return "Local fill-in — \(swarm) · \(grounding)" }
+        return "Local fill-in — \(names) · \(swarm) · on-device · \(grounding)"
+    }
+
+    @discardableResult
+    private static func runSwarm(store: AppStore) -> AriaSwarmPicture {
+        let picture = AriaSwarm.run(snapshot: .from(store: store))
+        AriaSwarm.file(picture)
+        return picture
     }
 
     private static func requiredTokens(
