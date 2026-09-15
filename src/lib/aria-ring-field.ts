@@ -1,5 +1,6 @@
 import {
   ARIA_MARK,
+  ariaMarkShouldGlow,
   contrastRingIndices,
   ringEllipse,
   ringStrokeWidth,
@@ -10,7 +11,7 @@ export type RingFieldDrawInput = {
   time: number;
   speaking: boolean;
   reduceMotion: boolean;
-  /** CSS pixel size — drives stroke and compact/hero ring count. */
+  /** CSS pixel size — drives stroke, glow, and compact vs full ring count. */
   cssSize: number;
 };
 
@@ -41,14 +42,16 @@ export function drawAriaRingField(
 
   ctx.clearRect(0, 0, width, height);
 
-  const glow = ctx.createRadialGradient(cx, cy, size * 0.04, cx, cy, size * 0.48);
-  glow.addColorStop(0, hexAlpha(ARIA_MARK.brandHue, 0.18));
-  glow.addColorStop(0.55, hexAlpha(ARIA_MARK.brandHue, 0.05));
-  glow.addColorStop(1, hexAlpha(ARIA_MARK.brandHue, 0));
-  ctx.fillStyle = glow;
-  ctx.beginPath();
-  ctx.arc(cx, cy, size * 0.48, 0, Math.PI * 2);
-  ctx.fill();
+  if (ariaMarkShouldGlow(cssSize)) {
+    const glow = ctx.createRadialGradient(cx, cy, size * 0.04, cx, cy, size * 0.48);
+    glow.addColorStop(0, hexAlpha(ARIA_MARK.brandHue, 0.18));
+    glow.addColorStop(0.55, hexAlpha(ARIA_MARK.brandHue, 0.05));
+    glow.addColorStop(1, hexAlpha(ARIA_MARK.brandHue, 0));
+    ctx.fillStyle = glow;
+    ctx.beginPath();
+    ctx.arc(cx, cy, size * 0.48, 0, Math.PI * 2);
+    ctx.fill();
+  }
 
   ctx.save();
   ctx.lineCap = "round";

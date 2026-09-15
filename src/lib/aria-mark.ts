@@ -44,6 +44,20 @@ export function ariaMarkShouldSpin(size: number, reduceMotion: boolean): boolean
   return !reduceMotion && ariaMarkSizeTier(size) !== "compact";
 }
 
+/** Soft radial glow is hero/mid atmosphere — skip at the compact 3-ring ceiling. */
+export function ariaMarkShouldGlow(size: number): boolean {
+  return ariaMarkSizeTier(size) !== "compact";
+}
+
+/** Paint cadence for live spin. Geometry still uses idle 0.04 / speaking 0.075 Hz. */
+export const ARIA_MARK_PAINT_HZ = 12;
+
+/** First frame always paints (`lastPaintMs < 0`). Later frames cap near 12 Hz. */
+export function ariaMarkPaintDue(nowMs: number, lastPaintMs: number): boolean {
+  if (lastPaintMs < 0) return true;
+  return nowMs - lastPaintMs >= 1000 / ARIA_MARK_PAINT_HZ;
+}
+
 export function contrastRingIndices(
   opacities: readonly number[] = ARIA_MARK.opacity
 ): number[] {
@@ -69,7 +83,7 @@ export function compactRingIndices(
 }
 
 export function visibleRingIndices(size: number): number[] {
-  if (size < ARIA_MARK.heroMinimumSize) return compactRingIndices();
+  if (ariaMarkSizeTier(size) === "compact") return compactRingIndices();
   return Array.from({ length: ARIA_MARK.ringCount }, (_, index) => index);
 }
 
