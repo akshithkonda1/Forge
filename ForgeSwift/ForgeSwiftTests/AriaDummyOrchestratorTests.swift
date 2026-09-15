@@ -15,6 +15,48 @@ final class AriaDummyOrchestratorTests: XCTestCase {
         XCTAssertFalse(AriaDummyTurn.writesCalendarEvents)
     }
 
+    func testSwarmReadsWearablesWithoutAModel() async {
+        let ledgerKey = AriaKnowledgeLedgerStore.defaultsKey
+        let previousLedger = UserDefaults.standard.data(forKey: ledgerKey)
+        defer {
+            if let previousLedger {
+                UserDefaults.standard.set(previousLedger, forKey: ledgerKey)
+            } else {
+                UserDefaults.standard.removeObject(forKey: ledgerKey)
+            }
+        }
+        UserDefaults.standard.removeObject(forKey: ledgerKey)
+
+        let store = makeStore()
+        store.dailyMetrics.hrv = 42
+        store.dailyMetrics.totalSleep = 300
+        store.dailyMetrics.steps = 8000
+        store.metricSources = ["whoop", "apple-health", "oura"]
+
+        let reply = await AriaDummyOrchestrator.reply(
+            text: "What should I train today?",
+            store: store,
+            agent: .workout,
+            agents: ["workout"]
+        )
+        let picture = try XCTUnwrap(AriaDummyOrchestrator.lastSwarmPicture)
+        XCTAssertEqual(picture.name, "swarm")
+        XCTAssertEqual(picture.slotName, "Grok")
+        XCTAssertTrue(picture.agentic)
+        XCTAssertEqual(picture.stages, ["read", "evaluate", "write"])
+        let present = Set(picture.sources.filter(\.present).map(\.id))
+        XCTAssertTrue(present.contains("whoop"))
+        XCTAssertTrue(present.contains("oura"))
+        XCTAssertTrue(present.contains("apple-watch"))
+        XCTAssertFalse(AriaDummyOrchestrator.usesOffDeviceLLM)
+        XCTAssertTrue(reply.confidenceReason?.contains("swarm") == true, reply.confidenceReason ?? "")
+        XCTAssertFalse(reply.message.contains("HRV"))
+        XCTAssertEqual(
+            AriaKnowledgeLedgerStore.load().latestSummary(kind: "swarm_picture"),
+            picture.headline
+        )
+    }
+
     func testClausesSplitMultiIntentButKeepDecimals() {
         let parts = AriaDummyTurn.clauses(
             in: "I slept badly — what should I train and eat?"

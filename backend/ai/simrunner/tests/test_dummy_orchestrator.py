@@ -669,6 +669,50 @@ class DummyOrchestratorTests(unittest.TestCase):
         self.assertEqual(a["fusion"]["stance"], b["fusion"]["stance"])
         self.assertEqual(a["reasoning_source"], dummy.LAMBDA_REASONING_SOURCE)
 
+    def test_swarm_runs_on_every_engine_without_a_model(self):
+        for engine in ("stub", "lambda"):
+            row = dummy.respond("What should I train today?", seed=1, engine=engine)
+            swarm = row["swarm"]
+            self.assertEqual(swarm["name"], "swarm")
+            self.assertEqual(swarm["slot_name"], "Grok")
+            self.assertTrue(swarm["agentic"])
+            self.assertIsNone(swarm["model"])
+            self.assertEqual(swarm["stages"], ["read", "evaluate", "write"])
+            present = {s["id"] for s in swarm["sources"] if s["present"]}
+            self.assertTrue({"whoop", "apple-watch", "oura"} <= present, present)
+            self.assertTrue(row["orchestration"]["swarm"])
+            self.assertIn("Grok", row["orchestration"]["swarm_slot"])
+            self.assertTrue(swarm["picture"]["headline"])
+            self.assertTrue(swarm["picture"]["writes"])
+            self._assert_no_vitals_speak(row)
+            self.assertNotIn("HRV", swarm["picture"]["headline"])
+
+    def test_stream_samples_are_vendor_tagged_not_simrunner(self):
+        from backend.ai.simrunner.backend_simulator.behavior_engine import generate_stream
+        from backend.ai.simrunner.backend_simulator.data_generator import build_context
+        from backend.ai.simrunner.backend_simulator import model_registry
+
+        profile = model_registry.get_models_by_tier(1)[0]["behavioral_profile"]
+        ctx = build_context(generate_stream(profile, 42), profile, 29)
+        samples = dummy._stream_samples(ctx)
+        sources = {s["source"] for s in samples}
+        self.assertNotIn("simrunner", sources)
+        self.assertTrue({"whoop", "oura", "apple-watch"} & sources, sources)
+        by_type = {s["type"]: s["source"] for s in samples}
+        if "sleep" in by_type:
+            self.assertEqual(by_type["sleep"], "oura")
+        if "hrv" in by_type:
+            self.assertEqual(by_type["hrv"], "whoop")
+        if "steps" in by_type:
+            self.assertEqual(by_type["steps"], "apple-watch")
+
+    def test_swarm_is_sidecar_not_spoken(self):
+        row = dummy.respond("What should I train today?", seed=1, engine="stub")
+        headline = row["swarm"]["picture"]["headline"]
+        # Swarm writes an actionable picture; chat still speaks like a friend.
+        self.assertNotIn(headline, row["message"])
+        self.assertIn("Swarm read", row["thinking"])
+
     def _assert_no_vitals_speak(self, row: dict) -> None:
         fails = speak_quality.speak_failures(row)
         self.assertEqual(fails, [], fails)

@@ -258,6 +258,21 @@ def handle_post_ai_chat(body: dict[str, Any], *, user_id: str) -> dict:
         response["agents"] = roster
     _merge_fusion(response, fused)
 
+    # Background Swarm: Grok-agentic read/evaluate/write over the wearable
+    # dataset. Deterministic here — no Bedrock — so dummy/test-ready ARIA
+    # exercises the same contract without plugging in a model.
+    if not insight_mode:
+        from services import aria_swarm as swarm_mod
+
+        snapshot = fused.snapshot if isinstance(fused.snapshot, dict) else {}
+        response["swarm"] = swarm_mod.run_swarm(
+            context=context,
+            samples=payload.get("samples") if isinstance(payload.get("samples"), list) else None,
+            connected=snapshot.get("sources") or [],
+            persist_to=_context if permissions.allows("lifestyle") else None,
+            user_id=uid,
+        )
+
     # Companion memory (lifestyle-gated): ingest calendar, run ARIA's daily
     # self-evaluation once per day, and offer a daily check-in. All deterministic
     # and side-effect-scoped to the user's own memory.
