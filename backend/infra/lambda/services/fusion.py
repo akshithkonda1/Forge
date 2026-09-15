@@ -23,7 +23,7 @@ from services.biometrics.types import MetricType
 # population cutoff. One week of daily samples is the floor for "robust".
 MIN_PERSONAL_N = 7
 
-_BODY_DOMAINS = ("sleep", "readiness", "activity", "body", "nutrition")
+_BODY_DOMAINS = ("sleep", "readiness", "activity", "body", "nutrition", "aging")
 _CLIENT_KEEP_DOMAINS = (
     "training",
     "chronotype",
@@ -46,6 +46,17 @@ _DOMAIN_METRICS: dict[str, tuple[MetricType, ...]] = {
     "activity": (MetricType.STEPS, MetricType.ACTIVE_ENERGY, MetricType.DISTANCE),
     "body": (MetricType.BODY_MASS, MetricType.BODY_FAT, MetricType.LEAN_MASS, MetricType.VO2_MAX),
     "nutrition": (MetricType.DIETARY_ENERGY, MetricType.DIETARY_PROTEIN, MetricType.WATER),
+    "aging": (
+        MetricType.CHRONOLOGICAL_AGE,
+        MetricType.BIOLOGICAL_AGE,
+        MetricType.FITNESS_AGE,
+        MetricType.PHENOTYPIC_AGE,
+        MetricType.VASCULAR_AGE,
+        MetricType.METABOLIC_AGE,
+        MetricType.INNER_AGE,
+        MetricType.CARDIO_AGE,
+        MetricType.HRV_AGE,
+    ),
 }
 
 # Storage / parse failures around persona I/O. Never a bare Exception that
@@ -209,7 +220,9 @@ def fuse_turn(
     body_ctx: aria_engine.ARIAContext | None = None
 
     if result.observations:
-        model = BodyModel.from_observations(result.observations, age_years=_age(payload))
+        model = BodyModel.from_observations(
+            result.observations, age_years=_age(payload), sex_female=_sex_female(payload)
+        )
         snap = model.snapshot()
         snapshot_dict = snap.to_dict()
         baselines = baselines_from_model(model)
@@ -314,6 +327,8 @@ def owned_domains(model: BodyModel) -> list[str]:
     for domain, metrics in _DOMAIN_METRICS.items():
         if any(model.series.get(metric) for metric in metrics):
             owned.append(domain)
+    if "aging" not in owned and model.can_project_aging():
+        owned.append("aging")
     return owned
 
 
@@ -346,6 +361,7 @@ def context_from_asdict(raw: Any) -> aria_engine.ARIAContext | None:
     activity = raw.get("activity") if isinstance(raw.get("activity"), dict) else {}
     body = raw.get("body") if isinstance(raw.get("body"), dict) else {}
     nutrition = raw.get("nutrition") if isinstance(raw.get("nutrition"), dict) else {}
+    aging = raw.get("aging") if isinstance(raw.get("aging"), dict) else {}
     return aria_engine.ARIAContext(
         timestamp=str(raw.get("timestamp") or ""),
         sleep=aria_engine.SleepContext(
@@ -378,6 +394,17 @@ def context_from_asdict(raw: Any) -> aria_engine.ARIAContext | None:
             protein_g_3day_avg=_num(nutrition.get("protein_g_3day_avg")),
             hydration_ml_3day_avg=_num(nutrition.get("hydration_ml_3day_avg")),
             calorie_target=_num(nutrition.get("calorie_target")),
+        ),
+        aging=aria_engine.AgingContext(
+            chronological_age_years=_num(aging.get("chronological_age_years")),
+            biological_age_years=_num(aging.get("biological_age_years")),
+            fitness_age_years=_num(aging.get("fitness_age_years")),
+            vascular_age_years=_num(aging.get("vascular_age_years")),
+            autonomic_age_years=_num(aging.get("autonomic_age_years")),
+            delta_years=_num(aging.get("delta_years")),
+            confidence=_num(aging.get("confidence")),
+            sources=list(aging.get("sources") or []) if isinstance(aging.get("sources"), list) else [],
+            state=str(aging["state"]) if aging.get("state") else None,
         ),
     )
 
@@ -496,10 +523,38 @@ def _collect_samples(
 
 def _age(payload: dict[str, Any]) -> float | None:
     raw = payload.get("age_years", payload.get("age"))
+    if raw is None:
+        ctx = payload.get("context") if isinstance(payload.get("context"), dict) else {}
+        aging = ctx.get("aging") if isinstance(ctx.get("aging"), dict) else {}
+        raw = (
+            aging.get("chronologicalAgeYears")
+            or aging.get("chronological_age_years")
+            or ctx.get("age_years")
+            or ctx.get("ageYears")
+        )
     try:
         return float(raw) if raw is not None else None
     except (TypeError, ValueError):
         return None
+
+
+def _sex_female(payload: dict[str, Any]) -> bool | None:
+    raw = payload.get("sex_female", payload.get("biological_sex_female"))
+    if raw is None:
+        ctx = payload.get("context") if isinstance(payload.get("context"), dict) else {}
+        profile = ctx.get("profile") if isinstance(ctx.get("profile"), dict) else {}
+        aging = ctx.get("aging") if isinstance(ctx.get("aging"), dict) else {}
+        raw = aging.get("sexFemale") if "sexFemale" in aging else profile.get("sexFemale")
+        sex = profile.get("biologicalSex") or profile.get("sex") or payload.get("biological_sex")
+        if raw is None and isinstance(sex, str):
+            lowered = sex.strip().lower()
+            if lowered in ("female", "f", "woman"):
+                return True
+            if lowered in ("male", "m", "man"):
+                return False
+    if isinstance(raw, bool):
+        return raw
+    return None
 
 
 def _num(value: Any) -> float | None:
