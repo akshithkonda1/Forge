@@ -29,6 +29,18 @@ def _holding(**kwargs):
     return ctx
 
 
+def _blob(plan) -> str:
+    return " ".join(
+        [
+            plan.next_advice,
+            plan.guide,
+            plan.aging_reason,
+            plan.ask_next,
+            str(plan.as_dict()),
+        ]
+    ).lower()
+
+
 class AgingEvaluationTests(unittest.TestCase):
     def test_depleted_body_is_aging_faster(self):
         read = context_plan.evaluate_aging(_depleted(), "should I train today?")
@@ -48,6 +60,48 @@ class AgingEvaluationTests(unittest.TestCase):
         read = context_plan.evaluate_aging(_ctx(), "I don't recover like I used to recover")
         self.assertEqual(read.pace, "faster")
         self.assertIn("conversation", read.signals)
+
+    def test_faster_always_has_named_reasons_never_years(self):
+        read = context_plan.evaluate_aging(_depleted(), "should I train today?")
+        self.assertTrue(read.factors)
+        self.assertIsNone(read.years_claimed)
+        blob = " ".join(f.why for f in read.factors) + " " + read.reason
+        self.assertFalse(context_plan._YEAR_CLAIM.search(blob))
+        self.assertIn("hrv", {f.id for f in read.factors})
+
+    def test_surprise_visit_is_social_load_not_a_title(self):
+        ctx = _ctx(tags=["calendar:kind:surprise"])
+        read = context_plan.evaluate_aging(ctx, "friends showed up unannounced")
+        self.assertIn("surprise", read.signals)
+        self.assertGreater(read.coverage, ())
+        cov = dict(read.coverage)
+        self.assertGreater(cov.get("social", 0), 0)
+        blob = read.reason.lower()
+        self.assertNotIn("ritz", blob)
+        self.assertIsNone(read.years_claimed)
+
+    def test_work_kind_is_socioeconomic_load(self):
+        ctx = _ctx(tags=["calendar:kind:work", "calendar:evening:busy"])
+        ctx.occupation = "teacher"
+        read = context_plan.evaluate_aging(ctx, "I'm stressed and overwhelmed")
+        self.assertIn("work", read.signals)
+        self.assertIn(read.stress_state, ("high", "moderate"))
+        cov = dict(read.coverage)
+        self.assertGreater(cov.get("socioeconomic", 0), 0.4)
+
+    def test_sparse_train_ask_requests_one_signal_not_a_form(self):
+        read = context_plan.evaluate_aging(_ctx(), "should I train today?")
+        self.assertEqual(read.pace, "unknown")
+        self.assertTrue(read.ask_next)
+        self.assertIn("pick one", read.ask_next)
+
+    def test_male_sex_does_not_invent_cycle_or_years(self):
+        ctx = _holding()
+        ctx.profile = type("P", (), {"biological_sex": "male"})()
+        read = context_plan.evaluate_aging(ctx, "should I train today?")
+        self.assertNotIn("cycle", read.signals)
+        self.assertIsNone(read.years_claimed)
+        self.assertEqual(dict(read.coverage).get("sex_aware"), 1.0)
 
 
 class SupervisionPlanTests(unittest.TestCase):
@@ -115,6 +169,55 @@ class SupervisionPlanTests(unittest.TestCase):
         )
         self.assertNotIn("Ritz", blob)
         self.assertNotIn("Maya", blob)
+        self.assertIsNone(plan.years_claimed)
+        self.assertFalse(context_plan._YEAR_CLAIM.search(blob))
+
+
+class BetterLifeAndDataDietTests(unittest.TestCase):
+    def test_better_life_plan_has_named_pillars(self):
+        plan = context_plan.draft_plan(
+            "should I train today?", _depleted(), contextual_learner.PersonaState()
+        )
+        life = plan.better_life or {}
+        ids = [p["id"] for p in life.get("pillars") or []]
+        self.assertEqual(ids, ["restore", "move", "fuel", "connect", "work_life"])
+        self.assertIsNone(life.get("years_claimed"))
+        self.assertTrue(life.get("why"))
+        self.assertFalse(context_plan._YEAR_CLAIM.search(_blob(plan)))
+
+    def test_wedding_gathering_still_protects_without_bio_age(self):
+        ctx = _depleted(
+            tags=["calendar:kind:wedding", "calendar:kind:social", "calendar:evening:busy"]
+        )
+        plan = context_plan.draft_plan(
+            "what should I train today?", ctx, contextual_learner.PersonaState()
+        )
+        self.assertEqual(plan.choice, "protect_load")
+        self.assertIn(plan.aging_pace, ("faster", "on_pace"))
+        self.assertTrue(plan.factors)
+        blob = _blob(plan)
+        self.assertNotIn("biological age", blob)
+        self.assertNotIn("aged two years", blob)
+        connect = next(p for p in plan.better_life["pillars"] if p["id"] == "connect")
+        self.assertEqual(connect["status"], "event")
+
+    def test_enough_data_does_not_ask_for_more(self):
+        plan = context_plan.draft_plan(
+            "should I train today?", _depleted(), contextual_learner.PersonaState()
+        )
+        self.assertIn(plan.choice, ("protect_load", "sleep_first"))
+        self.assertEqual(plan.ask_next, "")
+
+    def test_night_shift_is_a_named_socioeconomic_reason(self):
+        ctx = _depleted()
+        ctx.constraints = ["night shift"]
+        ctx.occupation = "nurse"
+        plan = context_plan.draft_plan(
+            "should I train today?", ctx, contextual_learner.PersonaState()
+        )
+        ids = {f.id for f in plan.factors}
+        self.assertIn("shift_load", ids)
+        self.assertIsNone(plan.years_claimed)
 
 
 class RetroactivePlanLearningTests(unittest.TestCase):
@@ -198,12 +301,19 @@ class DummyDoesNotOwnPlanTests(unittest.TestCase):
         self.assertIn("plan", row["orchestration"]["learner_stages"])
         self.assertIn("plan_choice", row["contextualization"])
         self.assertIn("aging_pace", row["contextualization"])
+        self.assertIsNone(row["contextualization"].get("years_claimed"))
         self.assertNotIn("Ritz", str(row["contextualization"]))
+        plan = row["contextualization"].get("supervision_plan") or {}
+        self.assertIsNone(plan.get("years_claimed"))
+        self.assertFalse(context_plan._YEAR_CLAIM.search(str(plan)))
 
     def test_learning_law_mentions_the_plan(self):
         prompt = aria_engine.live_system_prompt()
         self.assertIn("supervision plan", prompt)
         self.assertIn("aging_pace", prompt)
+        self.assertIn("named", prompt.lower())
+        self.assertIn("ask_next", prompt)
+        self.assertIn("biological-age", prompt)
         self.assertLess(prompt.index("LEARNING LAW"), prompt.index("SECURITY LAW"))
 
 

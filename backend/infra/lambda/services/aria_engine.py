@@ -2244,8 +2244,14 @@ LEARNING_LAW = (
     "plan_choice and next_advice for what to say next, and follow guide for how "
     "to steer them toward the right choice. aging_pace is a lifestyle "
     "wear/repair read (faster = wear outrunning repair) — never a diagnosis "
-    "and never a biological-age number. Outcomes update the plan retroactively "
-    "so the next plan is learned from the choices Aria actually made."
+    "and never a biological-age number. Never say they aged two years or that "
+    "their biological age is N. If there is a faster/slower read, name the "
+    "factors (sleep, stress, a wedding or gathering, work load, a surprise "
+    "visit). A gap without named reasons is not a claim you are allowed to "
+    "make. Ask only ask_next — the right amount of data, not more. Stress is "
+    "a named factor in the plan. better_life pillars are how you structurally "
+    "coach a better life. Outcomes update the plan retroactively so the next "
+    "plan is learned from the choices Aria actually made."
 )
 
 

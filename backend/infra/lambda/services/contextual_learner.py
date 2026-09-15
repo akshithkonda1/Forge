@@ -66,7 +66,18 @@ FOLLOW = ("complete", "skip")
 
 # Classified calendar kinds ARIA may learn. Titles never match this set.
 CALENDAR_KINDS = frozenset(
-    {"wedding", "game", "flight", "travel", "work", "dinner", "family", "appointment", "social"}
+    {
+        "wedding",
+        "game",
+        "flight",
+        "travel",
+        "work",
+        "dinner",
+        "family",
+        "appointment",
+        "social",
+        "surprise",
+    }
 )
 HEADLINE_KINDS = frozenset({"wedding", "game", "flight", "travel"})
 
@@ -75,7 +86,19 @@ _DOMAIN_CUES: dict[str, tuple[str, ...]] = {
     "readiness": ("readiness", "recover", "hrv", "tired", "exhausted", "drained", "sore", "aging"),
     "training": ("train", "workout", "session", "lift", "gym", "squat", "run today"),
     "nutrition": ("eat", "food", "protein", "meal", "calorie", "hydrat", "water"),
-    "lifestyle": ("work", "travel", "busy", "schedule", "calendar", "tonight"),
+    "lifestyle": (
+        "work",
+        "travel",
+        "busy",
+        "schedule",
+        "calendar",
+        "tonight",
+        "stress",
+        "wedding",
+        "gathering",
+        "surprise",
+        "friends",
+    ),
     "progress": ("progress", "gains", "stronger", "streak", "plateau"),
     "body": ("pain", "hurt", "knee", "shoulder", "injury", "ache"),
     "cycle": ("period", "cycle", "luteal", "follicular", "pms", "cramp"),
@@ -1360,7 +1383,15 @@ def _cite(feat: dict[str, float], lead: str) -> list[str]:
 
 
 def _do_not_invent(cal: CalendarRead) -> list[str]:
-    banned = ["diagnosis", "supplements", "calendar titles", "places", "attendees"]
+    banned = [
+        "diagnosis",
+        "supplements",
+        "calendar titles",
+        "places",
+        "attendees",
+        "biological age",
+        "years aged",
+    ]
     if "cycle" not in cal.kinds:
         banned.append("cycle")
     return banned
@@ -1407,6 +1438,11 @@ class Adaptation:
     plan_choice: str = "clarify"
     next_advice: str = ""
     guide: str = ""
+    aging_reason: str = ""
+    aging_factors: tuple[dict[str, Any], ...] = ()
+    stress_state: str = "unknown"
+    ask_next: str = ""
+    better_life: dict[str, Any] | None = None
 
     def as_dict(self) -> dict[str, Any]:
         return {
@@ -1446,11 +1482,23 @@ class Adaptation:
             "plan_choice": self.plan_choice,
             "next_advice": self.next_advice,
             "guide": self.guide,
+            "aging_reason": self.aging_reason,
+            "aging_factors": [dict(f) for f in self.aging_factors],
+            "stress_state": self.stress_state,
+            "ask_next": self.ask_next,
+            "better_life": dict(self.better_life) if self.better_life else None,
+            "years_claimed": None,
             "supervision_plan": {
                 "aging_pace": self.aging_pace,
                 "choice": self.plan_choice,
                 "next_advice": self.next_advice,
                 "guide": self.guide,
+                "aging_reason": self.aging_reason,
+                "factors": [dict(f) for f in self.aging_factors],
+                "stress": {"state": self.stress_state},
+                "ask_next": self.ask_next,
+                "better_life": dict(self.better_life) if self.better_life else None,
+                "years_claimed": None,
             },
             "aria_instructions": self.aria_instructions(),
         }
@@ -1492,9 +1540,12 @@ class Adaptation:
             f"- grounding: {self.grounding}\n"
             f"- last_verdict: {verdict}\n"
             f"- aging_pace: {self.aging_pace}\n"
+            f"- aging_reason: {self.aging_reason}\n"
             f"- plan_choice: {self.plan_choice}\n"
             f"- next_advice: {self.next_advice}\n"
             f"- guide: {self.guide}\n"
+            f"- stress: {self.stress_state}\n"
+            f"- ask_next: {self.ask_next or 'none — do not fish for more data'}\n"
             f"- calibration: {self.calibration:.2f} "
             f"({self.n_right} right / {self.n_wrong} wrong)\n"
             f"- learned_confidence: {self.confidence:.2f} from {self.n_observations} observations "
@@ -1508,6 +1559,10 @@ class Adaptation:
             "Follow the supervision plan: next_advice is what to say next; guide is "
             "how to steer them toward that choice. aging_pace is a lifestyle "
             "wear/repair read — never a diagnosis or a biological-age number. "
+            "If pace is faster or slower, name the factors in aging_reason "
+            "(sleep, stress, a gathering, work). Never say they aged N years. "
+            "Ask only ask_next. Follow better_life pillars for a better life, "
+            "not a hero week. "
             + extra
         )
 
@@ -1624,6 +1679,19 @@ def adapt(
         plan_choice=str(plan_fields.get("choice") or "clarify"),
         next_advice=str(plan_fields.get("next_advice") or ""),
         guide=str(plan_fields.get("guide") or ""),
+        aging_reason=str(plan_fields.get("aging_reason") or ""),
+        aging_factors=tuple(
+            dict(item)
+            for item in (plan_fields.get("factors") or [])
+            if isinstance(item, dict)
+        ),
+        stress_state=str((plan_fields.get("stress") or {}).get("state") or "unknown")
+        if isinstance(plan_fields.get("stress"), dict)
+        else "unknown",
+        ask_next=str(plan_fields.get("ask_next") or ""),
+        better_life=dict(plan_fields.get("better_life"))
+        if isinstance(plan_fields.get("better_life"), dict)
+        else None,
     )
 
 

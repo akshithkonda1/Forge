@@ -509,8 +509,14 @@ class CoachContextEngine:
             pace = str(plan.get("aging_pace") or "").strip()
             advice = str(plan.get("next_advice") or "").strip()
             bits = [p for p in (choice, f"aging {pace}" if pace else "", advice) if p]
+            reason = str(plan.get("aging_reason") or "").strip()
+            if reason:
+                bits.append(reason[:160])
+            ask = str(plan.get("ask_next") or "").strip()
+            if ask:
+                bits.append("ask next: " + ask[:80])
             if bits:
-                long_term.append("supervision plan: " + " — ".join(bits[:3]))
+                long_term.append("supervision plan: " + " — ".join(bits[:4]))
 
         short_term = self.short_term_memories(user_id, now=now)
         upcoming = [
