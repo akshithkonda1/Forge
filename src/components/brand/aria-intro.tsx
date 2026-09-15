@@ -1,6 +1,7 @@
 "use client";
 
 import { AriaMark } from "@/components/brand/aria-mark";
+import { ForgeWordmark } from "@/components/brand/forge-wordmark";
 import { ARIA_INTRO } from "@/lib/aria-intro";
 
 export function AriaIntro({
@@ -16,19 +17,10 @@ export function AriaIntro({
 }) {
   return (
     <div className="relative flex min-h-[100dvh] flex-col overflow-hidden bg-background">
-      <div className="pointer-events-none fixed inset-0">
-        <div
-          className="absolute inset-0"
-          style={{
-            background:
-              "radial-gradient(ellipse 60% 45% at 50% 28%, rgba(255,106,26,0.14) 0%, transparent 70%)",
-          }}
-        />
-      </div>
-
       <div className="relative z-10 mx-auto flex w-full max-w-md flex-1 flex-col px-6 pb-8 pt-10">
         <div className="flex flex-1 flex-col items-center text-center">
           <AriaMark size={112} label="ARIA" />
+          <ForgeWordmark className="mt-5" />
           <p className="mt-6 text-[11px] font-black uppercase tracking-[0.22em] text-ember">
             {ARIA_INTRO.eyebrow}
           </p>

@@ -38,13 +38,15 @@ export const ARIA_MARK = {
 /**
  * Living mark is soft-hex nest + metal sun (`kind: soft-hex-field`).
  * Forge orange is accent (specular/wash), not a 5-ellipse ring-field silhouette.
- * Web canvas chase is follow-up — this module is the Lex contract lock only.
+ * Web canvas: `drawAriaNest` in `aria-nest.ts`.
  */
 export const ARIA_MARK_KIND = ARIA_MARK.kind;
 
 /** Web compact / wordmark-primary ceiling. Slots ≤32 stay still-pose. */
 export const ARIA_MARK_COMPACT_MAX = ARIA_MARK.wordmarkPrimaryMax;
 export const ARIA_MARK_CONTRAST_FLOOR = ARIA_MARK.paintedOpacityFloor;
+export const NEST_PAINT_INTERVAL_MS = 1000 / ARIA_MARK.paintHz;
+export const FORGE_WORDMARK = "FORGE";
 
 /** Inner pearl, mid frost, outer Forge orange accent. */
 export function nestRingHex(index: number): string {
@@ -70,6 +72,19 @@ export type AriaRingPose = {
   ry: number;
   rotation: number;
   opacity: number;
+};
+export type AriaNestRingPose = AriaRingPose & {
+  wavePhase: number;
+  waveAmp: number;
+  hex: string;
+};
+export type AriaMetalSunPose = {
+  diameter: number;
+  glow: number;
+  highlight: number;
+  sheenAngle: number;
+  sx: number;
+  sy: number;
 };
 
 export function ariaMarkSizeTier(size: number): AriaMarkSizeTier {
@@ -129,13 +144,13 @@ export function nestOrbitHz(index: number, speaking: boolean): number {
 
 /**
  * @deprecated Nest motion is per-ring `idleOrbitHz` / `speakingOrbitHz`.
- * Scalar kept so the retired ring-field canvas does not break before Wren's chase.
+ * Scalar kept so legacy ring-field helpers stay compiling.
  */
 export function ringSpinHz(speaking: boolean, index = 0): number {
   return nestOrbitHz(index, speaking);
 }
 
-/** Geometry helper for the stopgap canvas. Not the living nest silhouette. */
+/** Shared nest pose (rx/ry/tilt/orbit). Silhouette is the soft-hex in `drawAriaNest`. */
 export function ringEllipse(
   index: number,
   time: number,
@@ -155,6 +170,126 @@ export function ringEllipse(
     rotation: tilt + phase + spin,
     opacity: ARIA_MARK.opacity[i] ?? ARIA_MARK.opacity[0],
   };
+}
+
+/**
+ * Living nest ring: orbit + liquid wave, with Cove flicker floor on opacity.
+ * Reduce Motion freezes wave amp at 0 and keeps stillPoseAngleDeg.
+ */
+export function nestRingPose(
+  index: number,
+  time: number,
+  speaking: boolean,
+  reduceMotion: boolean
+): AriaNestRingPose {
+  const i = Math.max(0, Math.min(ARIA_MARK.ringCount - 1, index));
+  const base = ringEllipse(i, time, speaking, reduceMotion);
+  const phase = (ARIA_MARK.phaseOffsets[i] ?? 0) * Math.PI * 2;
+  if (reduceMotion) {
+    return {
+      ...base,
+      wavePhase: phase,
+      waveAmp: 0,
+      hex: nestRingHex(i),
+    };
+  }
+  const wavePhase = time * ARIA_MARK.liquidWaveHz * Math.PI * 2 + phase;
+  const drive = speaking ? 1 : 0.22;
+  const wave = Math.sin(wavePhase);
+  const wave2 = Math.cos(wavePhase * 1.27 + i * 0.55);
+  const flicker = 0.86 + 0.14 * (0.5 + 0.5 * wave);
+  const waveAmp = ((speaking ? 0.055 : 0.028) + i * 0.004) * (1 + 0.55 * drive);
+  return {
+    rx: base.rx * (1 + wave * 0.018 * drive),
+    ry: base.ry * (1 + wave2 * 0.022 * drive),
+    rotation: base.rotation + wave * 0.012 * drive,
+    opacity: paintedNestOpacity(base.opacity, flicker),
+    wavePhase,
+    waveAmp,
+    hex: nestRingHex(i),
+  };
+}
+
+/** Metal sun. Reduce Motion freezes diameter at idle and kills sheen travel. */
+export function metalSunPose(
+  time: number,
+  speaking: boolean,
+  reduceMotion: boolean
+): AriaMetalSunPose {
+  if (reduceMotion) {
+    return {
+      diameter: ARIA_MARK.orbDiameterIdle,
+      glow: 0.55,
+      highlight: 0.7,
+      sheenAngle: (ARIA_MARK.stillPoseAngleDeg * Math.PI) / 180,
+      sx: 1,
+      sy: 1,
+    };
+  }
+  const drive = speaking ? 1 : 0.22;
+  const phase = time * ARIA_MARK.liquidWaveHz * Math.PI * 2;
+  const wave = Math.sin(phase);
+  const breath = 0.012 * Math.sin(time * 0.55 * Math.PI * 2);
+  const diameter = speaking ? ARIA_MARK.orbDiameterSpeaking : ARIA_MARK.orbDiameterIdle;
+  return {
+    diameter: diameter * (1 + 0.04 * drive * wave),
+    glow: 0.5 + 0.36 * drive,
+    highlight: 0.7 + 0.26 * drive,
+    sheenAngle: phase,
+    sx: 1 + breath + wave * 0.04 * drive,
+    sy: 1 + breath * 0.85,
+  };
+}
+
+export type NestLiveSlot = {
+  size: number;
+  speaking: boolean;
+  visible: boolean;
+  canLive: boolean;
+};
+
+type NestLiveInternal = NestLiveSlot & { onChange: () => void };
+
+const nestLiveSlots = new Map<number, NestLiveInternal>();
+let nestLiveSeq = 1;
+
+/** One live nest per screen — mid/hero only; speaking beats idle; larger wins ties. */
+export function nestLiveCreateId(): number {
+  nestLiveSeq += 1;
+  return nestLiveSeq;
+}
+
+export function nestLiveReset(): void {
+  nestLiveSlots.clear();
+  nestLiveSeq = 1;
+}
+
+export function nestLiveWinnerId(): number | null {
+  let bestId: number | null = null;
+  let best = Number.NEGATIVE_INFINITY;
+  for (const [id, slot] of nestLiveSlots) {
+    if (!slot.visible || !slot.canLive) continue;
+    const score = (slot.speaking ? 10_000 : 0) + slot.size;
+    if (score > best) {
+      best = score;
+      bestId = id;
+    }
+  }
+  return bestId;
+}
+
+export function nestLiveIsWinner(id: number): boolean {
+  return nestLiveWinnerId() === id;
+}
+
+export function nestLiveUpsert(id: number, slot: NestLiveInternal): void {
+  nestLiveSlots.set(id, slot);
+  for (const entry of nestLiveSlots.values()) entry.onChange();
+}
+
+export function nestLiveRemove(id: number): void {
+  if (!nestLiveSlots.delete(id)) return;
+  for (const entry of nestLiveSlots.values()) entry.onChange();
 }
 
 /**

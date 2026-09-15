@@ -9,7 +9,8 @@ import { ChatPage } from "@/components/chat/chat-page";
 import { WorkoutPage } from "@/components/workout/workout-page";
 import { SleepPage } from "@/components/sleep/sleep-page";
 import { ProfileTab } from "@/components/profile/profile-tab";
-import { AriaOrb } from "@/components/onboarding/aria-companion";
+import { AriaMark } from "@/components/brand/aria-mark";
+import { ForgeWordmark } from "@/components/brand/forge-wordmark";
 import { AriaIntro } from "@/components/brand/aria-intro";
 import { cn } from "@/lib/utils";
 
@@ -18,10 +19,8 @@ const TABS: TabId[] = ["home", "chat", "workout", "sleep", "profile"];
 function BootSplash() {
   return (
     <div className="flex min-h-[100dvh] flex-col items-center justify-center bg-background">
-      <AriaOrb mood="focused" size={96} />
-      <p className="mt-5 text-[11px] font-black uppercase tracking-[0.28em] text-ember">
-        This is ARIA
-      </p>
+      <AriaMark size={96} label="ARIA" />
+      <ForgeWordmark className="mt-5" />
     </div>
   );
 }

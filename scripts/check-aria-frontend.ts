@@ -15,14 +15,24 @@ import {
   contrastRingIndices,
   emberCoreRadius,
   emberLobe,
+  FORGE_WORDMARK,
+  NEST_PAINT_INTERVAL_MS,
+  metalSunPose,
+  nestLiveCreateId,
+  nestLiveIsWinner,
+  nestLiveReset,
+  nestLiveUpsert,
+  nestLiveWinnerId,
   nestOrbitHz,
   nestRingHex,
+  nestRingPose,
   paintedNestOpacity,
   ringEllipse,
   ringSpinHz,
   ringStrokeWidth,
   visibleRingIndices,
 } from "../src/lib/aria-mark.ts";
+import { drawAriaNest } from "../src/lib/aria-nest.ts";
 import type { DailyMetrics, ReadinessData, UserProfile } from "../src/types/index.ts";
 
 const profile: UserProfile = {
@@ -139,6 +149,186 @@ for (let i = 0; i < ARIA_MARK.ringCount; i++) {
   rotations.add(pose.rotation.toFixed(4));
 }
 assert(rotations.size === ARIA_MARK.ringCount, "three nest rings overlap at distinct tilts");
+
+assert(FORGE_WORDMARK === "FORGE", "wordmark is FORGE");
+assert(NEST_PAINT_INTERVAL_MS === 1000 / 12, "paint interval is 12 Hz");
+
+const stillNestA = nestRingPose(2, 1, true, true);
+const stillNestB = nestRingPose(2, 99, true, true);
+assert(
+  stillNestA.rotation === stillNestB.rotation &&
+    stillNestA.waveAmp === 0 &&
+    stillNestB.waveAmp === 0 &&
+    stillNestA.hex === ARIA_MARK.brandHue,
+  "reduce-motion freezes nest wave + still pose"
+);
+assert(stillNestA.opacity >= ARIA_MARK_CONTRAST_FLOOR, "still outer ring stays at or above 0.70");
+
+for (let t = 0; t < 4; t += 0.07) {
+  for (const speaking of [false, true]) {
+    for (let i = 0; i < ARIA_MARK.ringCount; i++) {
+      const pose = nestRingPose(i, t, speaking, false);
+      assert(pose.opacity >= ARIA_MARK_CONTRAST_FLOOR, `wave cannot paint ring ${i} below 0.70 at t=${t}`);
+      assert(pose.hex === nestRingHex(i), `ring ${i} keeps contract hue`);
+    }
+  }
+}
+
+const stillSunA = metalSunPose(1, true, true);
+const stillSunB = metalSunPose(40, false, true);
+assert(
+  stillSunA.diameter === ARIA_MARK.orbDiameterIdle &&
+    stillSunA.diameter === stillSunB.diameter &&
+    stillSunA.sheenAngle === stillSunB.sheenAngle,
+  "reduce-motion freezes the metal sun at idle diameter"
+);
+assert(metalSunPose(0, false, false).diameter === ARIA_MARK.orbDiameterIdle, "idle sun is 0.22");
+assert(metalSunPose(0, true, false).diameter === ARIA_MARK.orbDiameterSpeaking, "speaking sun is 0.245");
+
+nestLiveReset();
+const compactId = nestLiveCreateId();
+const homeId = nestLiveCreateId();
+const chatId = nestLiveCreateId();
+const speakId = nestLiveCreateId();
+const noop = () => {};
+nestLiveUpsert(compactId, { size: 24, speaking: false, visible: true, canLive: false, onChange: noop });
+nestLiveUpsert(homeId, { size: 36, speaking: false, visible: true, canLive: true, onChange: noop });
+assert(nestLiveWinnerId() === homeId && nestLiveIsWinner(homeId), "one live nest: mid beats compact");
+nestLiveUpsert(chatId, { size: 56, speaking: false, visible: true, canLive: true, onChange: noop });
+assert(nestLiveWinnerId() === chatId, "one live nest: larger mid wins");
+nestLiveUpsert(speakId, { size: 36, speaking: true, visible: true, canLive: true, onChange: noop });
+assert(nestLiveWinnerId() === speakId, "one live nest: speaking beats larger idle");
+nestLiveUpsert(speakId, { size: 36, speaking: true, visible: false, canLive: true, onChange: noop });
+assert(nestLiveWinnerId() === chatId, "hidden speaking nest yields the live slot");
+nestLiveReset();
+
+function parseAlpha(style: string): number | null {
+  const m = /rgba\(\s*\d+\s*,\s*\d+\s*,\s*\d+\s*,\s*([0-9.]+)\s*\)/.exec(style);
+  return m ? Number(m[1]) : null;
+}
+
+function mockCtx() {
+  const strokes: string[] = [];
+  const fills: string[] = [];
+  let strokeStyle = "";
+  let fillStyle: string | { addColorStop: () => void } = "";
+  const gradient = {
+    addColorStop(_offset: number, color: string) {
+      fills.push(color);
+    },
+  };
+  return {
+    strokes,
+    fills,
+    get strokeStyle() {
+      return strokeStyle;
+    },
+    set strokeStyle(value: string) {
+      strokeStyle = value;
+    },
+    get fillStyle() {
+      return fillStyle;
+    },
+    set fillStyle(value: string | { addColorStop: () => void }) {
+      fillStyle = value;
+      if (typeof value === "string") fills.push(value);
+    },
+    lineWidth: 0,
+    lineCap: "butt",
+    lineJoin: "miter",
+    globalAlpha: 1,
+    clearRect() {},
+    save() {},
+    restore() {},
+    translate() {},
+    rotate() {},
+    scale() {},
+    beginPath() {},
+    closePath() {},
+    moveTo() {},
+    lineTo() {},
+    arc() {},
+    ellipse() {},
+    fill() {},
+    stroke() {
+      if (typeof strokeStyle === "string") strokes.push(strokeStyle);
+    },
+    createRadialGradient: () => gradient,
+    createLinearGradient: () => gradient,
+  };
+}
+
+const heroProbe = mockCtx();
+drawAriaNest(heroProbe as unknown as CanvasRenderingContext2D, 180, 180, {
+  time: 1.4,
+  speaking: true,
+  reduceMotion: false,
+  cssSize: 112,
+});
+assert(heroProbe.strokes.length === ARIA_MARK.ringCount, "hero nest strokes three rings");
+for (const style of heroProbe.strokes) {
+  const alpha = parseAlpha(style);
+  assert(alpha !== null && alpha >= ARIA_MARK_CONTRAST_FLOOR, `hero contrast stroke stays ≥0.70 (${style})`);
+}
+assert(
+  heroProbe.strokes.some((s) => s.includes("247, 244, 240")) &&
+    heroProbe.strokes.some((s) => s.includes("169, 216, 255")) &&
+    heroProbe.strokes.some((s) => s.includes("255, 77, 0")),
+  "hero nest paints pearl / frost / orange"
+);
+assert(
+  heroProbe.fills.some((s) => s.includes("58, 14, 18")),
+  "hero nest may use hearth wash"
+);
+
+const compactProbe = mockCtx();
+drawAriaNest(compactProbe as unknown as CanvasRenderingContext2D, 48, 48, {
+  time: 2,
+  speaking: false,
+  reduceMotion: true,
+  cssSize: 24,
+});
+assert(compactProbe.strokes.length === 3, "compact nest still draws three rings");
+assert(
+  compactProbe.fills.every((s) => !s.includes("58, 14, 18")),
+  "compact nest skips hearth wash so it is never the silhouette"
+);
+for (const style of compactProbe.strokes) {
+  const alpha = parseAlpha(style);
+  assert(alpha !== null && alpha >= ARIA_MARK_CONTRAST_FLOOR, `compact contrast stroke stays ≥0.70 (${style})`);
+}
+
+const markSrc = readFileSync("src/components/brand/aria-mark.tsx", "utf8");
+assert(markSrc.includes("drawAriaNest"), "AriaMark paints drawAriaNest");
+assert(!markSrc.includes("drawAriaRingField"), "AriaMark retired the ring-field drawer");
+assert(markSrc.includes("NEST_PAINT_INTERVAL_MS"), "AriaMark honors paintHz");
+
+const nestSrc = readFileSync("src/lib/aria-nest.ts", "utf8");
+assert(nestSrc.includes("strokeSoftHex"), "nest drawer strokes soft-hex paths");
+assert(!/petal/i.test(nestSrc), "nest drawer has no flower-lobe geometry");
+assert(!/#C9D2DC|#E8EEF4|#6B7CFF/i.test(nestSrc), "nest sun is pearl metal, not industrial chrome");
+assert(!nestSrc.includes("drawAriaRingField"), "living drawer is nest, not ring-field");
+
+const ringFieldSrc = readFileSync("src/lib/aria-ring-field.ts", "utf8");
+assert(ringFieldSrc.includes("@deprecated"), "ring-field helpers are marked legacy");
+assert(ringFieldSrc.includes("drawAriaNest"), "legacy ring-field shim calls the nest");
+
+const splashSrc = readFileSync("src/app/page.tsx", "utf8");
+const splashBody = splashSrc.slice(splashSrc.indexOf("function BootSplash"), splashSrc.indexOf("function TabPane"));
+assert(splashBody.includes("AriaMark"), "splash shows the nest");
+assert(splashBody.includes("ForgeWordmark"), "splash shows the FORGE wordmark");
+assert(!splashBody.includes("This is ARIA"), "splash is mark+wordmark only");
+assert(!splashBody.includes("radial-gradient"), "splash has no fire-under-logo");
+
+const introSrc = readFileSync("src/components/brand/aria-intro.tsx", "utf8");
+assert(introSrc.includes("ForgeWordmark"), "intro shows the FORGE wordmark");
+assert(introSrc.includes("AriaMark"), "intro shows the nest");
+assert(!introSrc.includes("radial-gradient"), "intro has no fire-under-logo theater");
+assert(!introSrc.includes("255,106,26"), "intro dropped the ember wash under the mark");
+
+const wordmarkSrc = readFileSync("src/components/brand/forge-wordmark.tsx", "utf8");
+assert(wordmarkSrc.includes("wordmarkPrimaryMax"), "wordmark caps at 32");
+assert(wordmarkSrc.includes("FORGE_WORDMARK"), "wordmark renders FORGE");
 
 const stillA = emberLobe(0, 1, false, true);
 const stillB = emberLobe(0, 99, true, true);
