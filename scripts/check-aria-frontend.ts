@@ -7,6 +7,7 @@ import {
   ARIA_MARK,
   ARIA_MARK_COMPACT_MAX,
   ARIA_MARK_CONTRAST_FLOOR,
+  ARIA_ORB_CORE,
   LEGACY_EMBER,
   ariaMarkShouldSpin,
   ariaMarkSizeTier,
@@ -17,6 +18,7 @@ import {
   emberLobe,
   nestOrbitHz,
   nestRingHex,
+  orbCoreRadius,
   paintedNestOpacity,
   ringEllipse,
   ringSpinHz,
@@ -139,6 +141,15 @@ for (let i = 0; i < ARIA_MARK.ringCount; i++) {
   rotations.add(pose.rotation.toFixed(4));
 }
 assert(rotations.size === ARIA_MARK.ringCount, "three nest rings overlap at distinct tilts");
+
+assert(ARIA_ORB_CORE.hue === ARIA_MARK.pearlHotHex, "stopgap core is pearlHot metal sun");
+const heroOrb = orbCoreRadius(ARIA_MARK.heroMinimumSize);
+const compactOrb = orbCoreRadius(24);
+const inner = ringEllipse(0, 0, false, true).ry / 2;
+assert(heroOrb < inner, "hero orb nests inside the innermost nest ring");
+assert(compactOrb < inner, "compact orb nests inside the innermost nest ring");
+assert(Math.abs(heroOrb / inner - ARIA_ORB_CORE.nest) < 1e-9, "orb nest ratio is 0.88");
+assert(compactOrb === heroOrb, "one 3-ring nest: orb size is not a compact 5-ellipse subset");
 
 const stillA = emberLobe(0, 1, false, true);
 const stillB = emberLobe(0, 99, true, true);

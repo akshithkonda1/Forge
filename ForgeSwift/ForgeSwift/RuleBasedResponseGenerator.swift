@@ -42,6 +42,12 @@ final class RuleBasedResponseGenerator: TrainerResponseGenerator {
             }
         }
         
+        // Training age / calendar comparison — before plan routing so
+        // "training age" is never stolen by a workout-plan detector.
+        if isAgingQuery(lower) {
+            return await generateAgingResponse(context: context, input: input)
+        }
+
         // Training / themed plan request (Solo Leveling, daily quest, etc.)
         if AriaThemeResolver.isPlanRequest(input) || isTrainingRequest(lower) {
             return generateTrainingResponse(input: input, context: context)
@@ -112,6 +118,7 @@ final class RuleBasedResponseGenerator: TrainerResponseGenerator {
     func domain(of input: String) -> AriaLocalDomain {
         let lower = input.lowercased()
         if isGreeting(lower) { return .profile }
+        if isAgingQuery(lower) { return .aging }
         if AriaThemeResolver.isPlanRequest(input) || isTrainingRequest(lower) { return .training }
         if isMedicationQuery(lower, context: nil) { return .clinicalData }
         if isCycleQuery(lower) { return .cycle }
@@ -170,6 +177,42 @@ final class RuleBasedResponseGenerator: TrainerResponseGenerator {
     
     private func isTrainingRequest(_ text: String) -> Bool {
         AriaThemeResolver.isPlanRequest(text)
+    }
+
+    private func isAgingQuery(_ text: String) -> Bool {
+        if AriaReferenceCatalog.questionSuggestsAging(text) { return true }
+        return ["what's my age", "whats my age"].contains { text.contains($0) }
+    }
+
+    private func generateAgingResponse(context: TrainerContext, input: String) async -> TrainerResponse {
+        let cite = await AriaAgingNorms.citedSnippet(
+            question: input,
+            salt: UInt64(Date().timeIntervalSince1970.rounded())
+        )
+        let snap = AgingBridge.snapshot(
+            age: context.userProfile.age,
+            sexFemale: context.userProfile.biologicalSex == .female ? true
+                : context.userProfile.biologicalSex == .male ? false : nil,
+            stats: await HealthKitManager.shared.todayStats
+        )
+        var content: String
+        if snap.comparisonLine.isEmpty {
+            content = "Add your age in You and I’ll compare calendar age with training age from VO₂, HRV, resting heart rate, and sleep. Lifestyle comparison only — not a medical biological-age diagnosis."
+        } else if snap.trainingHint.isEmpty {
+            content = "\(snap.comparisonLine). Lifestyle comparison only — not a medical biological-age diagnosis."
+        } else {
+            content = "\(snap.comparisonLine). \(snap.trainingHint) Lifestyle comparison only — not a medical biological-age diagnosis."
+        }
+        if let cite, !cite.isEmpty {
+            content += " \(cite)"
+        } else if let title = AgingNorms.webSourceTitle {
+            content += " Cross-checked \(title) for cardiorespiratory norms."
+        }
+        return TrainerResponse(
+            content: content,
+            suggestedActions: ["What’s on my board?", "How’s my sleep?", "Keep it easy today"],
+            confidence: snap.confidence > 0 ? min(0.92, max(0.55, snap.confidence)) : 0.6
+        )
     }
 
     private func isMedicationQuery(_ text: String, context: TrainerContext?) -> Bool {

@@ -267,6 +267,7 @@ export type AriaDataDomain =
   | "profile"
   | "progress"
   | "lifestyle"
+  | "aging"
   | "clinical_data";
 
 /** Living user model ARIA reasons over, spanning every data domain. Absent
@@ -343,6 +344,18 @@ export interface AriaContext {
     tags: string[];
     recentPatterns: string[];
     goals: string[];
+  };
+  /** Calendar vs fused training/biological age. Lifestyle comparison only. */
+  aging?: {
+    chronologicalAgeYears: number | null;
+    biologicalAgeYears: number | null;
+    fitnessAgeYears: number | null;
+    vascularAgeYears: number | null;
+    autonomicAgeYears: number | null;
+    deltaYears: number | null;
+    confidence: number | null;
+    sources: string[];
+    state: "younger" | "matched" | "older" | null;
   };
   /** Structured Health records only (Non PHI). Names, never notes. */
   clinicalData?: {
@@ -500,7 +513,8 @@ export interface ObserveRequest {
   user_id: string;
   samples?: HealthSample[];
   include_stored?: boolean; // default true — fuse with metrics already in the app
-  age_years?: number;       // enables HR-reserve / VO2max estimation
+  age_years?: number;       // chronological age — aging fusion + HR-reserve / VO2max
+  sex_female?: boolean;     // optional sex for age-normed VO2
   permissions?: AriaDataPermissions;
   message?: string;         // when set, also returns an aria_response in one round-trip
   voice_mode?: boolean;

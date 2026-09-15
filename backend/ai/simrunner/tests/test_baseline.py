@@ -149,6 +149,16 @@ class GateTests(unittest.TestCase):
         ok, _ = baseline.gate(diffs, 3.0)
         self.assertTrue(ok)
 
+    def test_tier1_hold_fails_gate_even_when_baseline_is_stable(self):
+        rec = _minimal(composite=80.0)
+        rec["tier"] = 1
+        rec["system_passed"] = False
+        rec["verdict"] = "HOLD"
+        diffs = baseline.compare([rec], {"m": _minimal(composite=80.0)})
+        ok, reasons = baseline.gate(diffs, 3.0, records=[rec])
+        self.assertFalse(ok)
+        self.assertTrue(any("tier-1 HOLD" in r for r in reasons))
+
 
 class WriteComparisonTests(unittest.TestCase):
     def test_writes_comparison_json(self):

@@ -79,8 +79,7 @@ struct SleepNightTab: View {
                     store.openChat(with: coach.ariaPrompt, voice: false)
                 } label: {
                     HStack(spacing: 12) {
-                        Image(systemName: "sparkles")
-                            .foregroundStyle(Color.ember)
+                        ARIAIdentityMark(state: .idle, mood: .energized, size: 22, amplitude: 0.24)
                         VStack(alignment: .leading, spacing: 2) {
                             Text("Ask ARIA to get you to bed")
                                 .font(.system(size: 15, weight: .semibold, design: .rounded))

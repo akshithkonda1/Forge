@@ -8,7 +8,8 @@ import { drawAriaRingField } from "@/lib/aria-ring-field";
 /**
  * Adaptive Recovery Interactive Assistant.
  * Living contract is the B+E soft-hex nest in `ARIA_MARK` / `shared/aria-mark.json`.
- * Ring-field canvas is a stopgap until Wren's nest chase — no PNG, no ember, no readiness chrome.
+ * Ring-field canvas + white metal-sun core is a stopgap until Wren's nest chase —
+ * no PNG, no ember, no readiness chrome.
  */
 export function AriaMark({
   size = 48,

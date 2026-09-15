@@ -127,6 +127,18 @@ final class ForgeCloudContractsTests: XCTestCase {
         XCTAssertEqual(metrics[2].source, "oura")
     }
 
+    func testHealthBatchAcceptsAgingAndVO2() {
+        let metrics = CloudHealthMetricType.metrics(from: [
+            (type: "vo2max", value: 48, unit: "ml/kg/min", timestamp: "2026-09-07T12:00:00Z", source: "apple-health"),
+            (type: "fitness_age", value: 32, unit: "years", timestamp: "2026-09-07T12:00:00Z", source: "Garmin Connect"),
+            (type: "inner-age", value: 33, unit: "years", timestamp: "2026-09-07T12:00:00Z", source: "ultrahuman"),
+            (type: "chronological-age", value: 38, unit: "years", timestamp: "2026-09-07T12:00:00Z", source: "apple-health"),
+        ])
+        XCTAssertEqual(metrics.map(\.metricType), ["vo2-max", "fitness-age", "inner-age", "chronological-age"])
+        XCTAssertEqual(metrics[1].source, "garmin")
+        XCTAssertEqual(metrics[2].source, "ultrahuman")
+    }
+
     func testDashboardPrefersComputedReadinessOverEmpty() throws {
         let json = """
         {
