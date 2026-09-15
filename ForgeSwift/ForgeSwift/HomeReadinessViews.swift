@@ -154,7 +154,7 @@ struct ReadinessRingView: View {
             }
         }
         .onChange(of: score) { _, new in
-            withAnimation(.spring(response: 0.8, dampingFraction: 0.75)) {
+            withAnimation(reduceMotion ? .easeOut(duration: 0.12) : FDS.Spring.sweep) {
                 progress = CGFloat(new) / 100
             }
         }
