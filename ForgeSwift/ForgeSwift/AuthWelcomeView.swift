@@ -25,7 +25,7 @@ struct AuthWelcomeView: View {
 
             // Roaring fire — a strong fire, not ember dust
             if !reduceMotion, appeared {
-                ForgeFireField(intensity: .rage, origin: .floor)
+                ForgeFireField(intensity: .rage, origin: .floor, live: true)
                     .opacity(0.72)
                     .ignoresSafeArea()
                     .allowsHitTesting(false)

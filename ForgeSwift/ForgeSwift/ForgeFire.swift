@@ -61,7 +61,7 @@ enum ForgeFireOrigin: String, Sendable {
 
 /// Procedural fire — Forge brand moments only. Not the ARIA ring-field.
 enum ForgeFireGeometry: Sendable {
-    static let tickHz: Double = 30
+    static let tickHz: Double = 12
     static let kind = "rage-fire"
 
     struct Tongue: Equatable, Sendable {
@@ -165,7 +165,7 @@ enum ForgeFireGeometry: Sendable {
 /// Extra life on the ARIA ring-field. Draw-time only — does not change
 /// `AriaSigilGeometry.ellipse` / PR270 contract numbers.
 enum AriaSigilLife: Sendable {
-    static let tickHz: Double = 30
+    static let tickHz: Double = 12
 
     static func wobble(index: Int, time: Double, reduceMotion: Bool) -> Double {
         guard !reduceMotion else { return 0 }
@@ -173,10 +173,22 @@ enum AriaSigilLife: Sendable {
         return 0.09 * sin(time * 1.55 + phase)
     }
 
+    /// Contrast rings (contract opacities ≥ 0.70) keep a flicker wave, but the
+    /// multiplier is floored so painted opacity never drops below the Cove floor.
     static func flicker(index: Int, time: Double, reduceMotion: Bool) -> Double {
         guard !reduceMotion else { return 1 }
         let phase = (AriaSigilGeometry.phaseOffsets[safe: index] ?? 0) * .pi * 2
-        return 0.78 + 0.22 * (0.5 + 0.5 * sin(time * 3.4 + phase))
+        let wave = 0.78 + 0.22 * (0.5 + 0.5 * sin(time * 3.4 + phase))
+        let base = AriaSigilGeometry.ringOpacities[safe: index] ?? 0
+        if base >= AriaSigilGeometry.contrastFloor {
+            return max(wave, AriaSigilGeometry.contrastFloor / base)
+        }
+        return wave
+    }
+
+    static func paintedOpacity(index: Int, time: Double, reduceMotion: Bool) -> Double {
+        let base = AriaSigilGeometry.ringOpacities[safe: index] ?? 0
+        return base * flicker(index: index, time: time, reduceMotion: reduceMotion)
     }
 
     static func glowPulse(time: Double, energy: Double, reduceMotion: Bool) -> Double {
@@ -198,28 +210,66 @@ private extension Array where Element == Double {
     }
 }
 
+private struct ForgeFireLiveAllowedKey: EnvironmentKey {
+    static let defaultValue = true
+}
+
+extension EnvironmentValues {
+    /// Splash overlay sets this false so the screen underneath does not keep a
+    /// second live canvas running.
+    var forgeFireLiveAllowed: Bool {
+        get { self[ForgeFireLiveAllowedKey.self] }
+        set { self[ForgeFireLiveAllowedKey.self] = newValue }
+    }
+}
+
 /// Full-bleed roaring fire. Welcome and splash only — not the ARIA mark.
+/// One live canvas per screen — pass `live: true` on that layer; others wash.
 struct ForgeFireField: View {
     var intensity: ForgeFireIntensity = .rage
     var origin: ForgeFireOrigin = .floor
+    var live: Bool = false
     var reduceMotionOverride: Bool? = nil
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotionEnv
     @Environment(\.forgeMinimalAnimation) private var minimalAnimation
+    @Environment(\.forgeFireLiveAllowed) private var liveAllowed
 
     private var frozen: Bool {
         reduceMotionOverride ?? (reduceMotionEnv || minimalAnimation)
     }
 
+    private var canvasLive: Bool { live && liveAllowed }
+
     var body: some View {
-        TimelineView(.animation(minimumInterval: 1 / ForgeFireGeometry.tickHz, paused: frozen)) { timeline in
-            let time = frozen ? 0.18 : timeline.date.timeIntervalSinceReferenceDate
-            Canvas { context, size in
-                drawFire(context: &context, size: size, time: time)
+        Group {
+            if canvasLive {
+                TimelineView(.animation(minimumInterval: 1 / ForgeFireGeometry.tickHz, paused: frozen)) { timeline in
+                    let time = frozen ? 0.18 : timeline.date.timeIntervalSinceReferenceDate
+                    Canvas { context, size in
+                        drawFire(context: &context, size: size, time: time)
+                    }
+                }
+            } else {
+                wash
             }
         }
         .allowsHitTesting(false)
         .accessibilityHidden(true)
+    }
+
+    private var wash: some View {
+        let center = origin == .floor ? UnitPoint(x: 0.5, y: 1) : UnitPoint(x: 0.5, y: 0.62)
+        return RadialGradient(
+            colors: [
+                Color(hex: "FF5A0A").opacity(origin == .floor ? 0.55 : 0.42),
+                Color(hex: "FF4D00").opacity(origin == .floor ? 0.18 : 0.22),
+                .clear
+            ],
+            center: center,
+            startRadius: 4,
+            endRadius: origin == .floor ? 420 : 180
+        )
     }
 
     private func drawFire(context: inout GraphicsContext, size: CGSize, time: Double) {
@@ -408,7 +458,7 @@ struct ForgeBrandFlame: View {
     }
 
     var body: some View {
-        ForgeFireField(intensity: .rage, origin: .hearth, reduceMotionOverride: frozen)
+        ForgeFireField(intensity: .rage, origin: .hearth, live: false, reduceMotionOverride: frozen)
             .frame(width: size, height: size * 1.28)
             .mask(
                 LinearGradient(
@@ -424,7 +474,7 @@ struct ForgeBrandFlame: View {
 #Preview("Rage fire") {
     ZStack {
         Color.black.ignoresSafeArea()
-        ForgeFireField(intensity: .rage, origin: .floor)
+        ForgeFireField(intensity: .rage, origin: .floor, live: true)
         VStack(spacing: 12) {
             Text("FORGE")
                 .font(.system(size: 32, weight: .black, design: .rounded))
@@ -454,7 +504,7 @@ struct ForgeBrandFlame: View {
 #Preview("Ember contrast") {
     ZStack {
         Color.black.ignoresSafeArea()
-        ForgeFireField(intensity: .ember, origin: .floor)
+        ForgeFireField(intensity: .ember, origin: .floor, live: true)
         Text("ember — not the welcome fire")
             .font(.caption)
             .foregroundStyle(.white.opacity(0.5))

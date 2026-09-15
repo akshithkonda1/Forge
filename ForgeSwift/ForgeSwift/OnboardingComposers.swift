@@ -7,7 +7,7 @@ struct IntroComposer: View {
     var body: some View {
         VStack(spacing: 16) {
             ZStack {
-                ForgeFireField(intensity: .rage, origin: .hearth)
+                ForgeFireField(intensity: .rage, origin: .hearth, live: true)
                     .frame(width: 200, height: 210)
                     .opacity(0.88)
                 Circle()
@@ -873,7 +873,7 @@ struct ReadyComposer: View {
     var body: some View {
         VStack(spacing: 14) {
             ZStack {
-                ForgeFireField(intensity: .rage, origin: .hearth)
+                ForgeFireField(intensity: .rage, origin: .hearth, live: true)
                     .frame(width: 120, height: 128)
                     .opacity(0.7)
                 AuroraOrbView(

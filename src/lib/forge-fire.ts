@@ -3,10 +3,22 @@
  */
 export const FORGE_FIRE = {
   kind: "rage-fire",
-  tickHz: 30,
+  tickHz: 12,
   rage: { tongueCount: 28, sparkCount: 24, heightScale: 1, coreHeat: 0.94 },
   ember: { tongueCount: 8, sparkCount: 6, heightScale: 0.34, coreHeat: 0.28 },
 } as const;
+
+/** First frame always paints (`lastPaintMs < 0`). Later frames cap near 12 Hz. */
+export function forgeFirePaintDue(nowMs: number, lastPaintMs: number): boolean {
+  if (lastPaintMs < 0) return true;
+  return nowMs - lastPaintMs >= 1000 / FORGE_FIRE.tickHz;
+}
+
+export function forgeFireWash(origin: ForgeFireOrigin): string {
+  return origin === "floor"
+    ? "radial-gradient(ellipse 80% 55% at 50% 100%, rgba(255,90,10,0.55) 0%, rgba(255,40,0,0.18) 38%, transparent 70%)"
+    : "radial-gradient(circle at 50% 62%, rgba(255,176,32,0.42) 0%, rgba(255,77,0,0.22) 40%, transparent 68%)";
+}
 
 export type ForgeFireIntensity = "ember" | "rage";
 export type ForgeFireOrigin = "floor" | "hearth";

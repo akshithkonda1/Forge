@@ -129,10 +129,10 @@ private struct AriaRingFieldView: View {
                     state: state,
                     reduceMotion: reduceMotion
                 )
-                let flicker = AriaSigilLife.flicker(index: index, time: time, reduceMotion: reduceMotion)
+                let painted = AriaSigilLife.paintedOpacity(index: index, time: time, reduceMotion: reduceMotion)
                 Ellipse()
                     .stroke(
-                        orange.opacity(pose.opacity * flicker),
+                        orange.opacity(painted),
                         lineWidth: AriaSigilGeometry.strokeWidth(size: size, index: index)
                     )
                     .frame(width: size * pose.rx, height: size * pose.ry)

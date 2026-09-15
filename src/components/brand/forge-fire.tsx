@@ -4,6 +4,8 @@ import { useEffect, useRef } from "react";
 import { cn } from "@/lib/utils";
 import {
   drawForgeFire,
+  forgeFirePaintDue,
+  forgeFireWash,
   type ForgeFireIntensity,
   type ForgeFireOrigin,
 } from "@/lib/forge-fire";
@@ -11,15 +13,19 @@ import {
 export function ForgeFireField({
   intensity = "rage",
   origin = "floor",
+  live = false,
   className,
 }: {
   intensity?: ForgeFireIntensity;
   origin?: ForgeFireOrigin;
+  /** One live canvas per screen. Wash-only layers skip the painter. */
+  live?: boolean;
   className?: string;
 }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
   useEffect(() => {
+    if (!live) return;
     const canvas = canvasRef.current;
     if (!canvas) return;
     const ctx = canvas.getContext("2d");
@@ -27,6 +33,7 @@ export function ForgeFireField({
 
     const media = window.matchMedia("(prefers-reduced-motion: reduce)");
     let raf = 0;
+    let lastPaint = -1;
     const start = performance.now();
 
     const resize = () => {
@@ -43,8 +50,13 @@ export function ForgeFireField({
     };
 
     const paint = (now: number) => {
-      resize();
       const reduce = media.matches;
+      if (!reduce && !forgeFirePaintDue(now, lastPaint)) {
+        raf = requestAnimationFrame(paint);
+        return;
+      }
+      lastPaint = now;
+      resize();
       const t = reduce ? 0.18 : (now - start) / 1000;
       drawForgeFire(ctx, canvas.width, canvas.height, {
         time: t,
@@ -60,25 +72,22 @@ export function ForgeFireField({
       if (resize()) paint(performance.now());
     });
     ro.observe(canvas);
-    media.addEventListener("change", () => {
+    const onMotionPref = () => {
       cancelAnimationFrame(raf);
       paint(performance.now());
-    });
+    };
+    media.addEventListener("change", onMotionPref);
     return () => {
       cancelAnimationFrame(raf);
       ro.disconnect();
+      media.removeEventListener("change", onMotionPref);
     };
-  }, [intensity, origin]);
-
-  const wash =
-    origin === "floor"
-      ? "radial-gradient(ellipse 80% 55% at 50% 100%, rgba(255,90,10,0.55) 0%, rgba(255,40,0,0.18) 38%, transparent 70%)"
-      : "radial-gradient(circle at 50% 62%, rgba(255,176,32,0.42) 0%, rgba(255,77,0,0.22) 40%, transparent 68%)";
+  }, [intensity, origin, live]);
 
   return (
     <div className={cn("pointer-events-none absolute inset-0 overflow-hidden", className)} aria-hidden>
-      <div className="absolute inset-0" style={{ background: wash }} />
-      <canvas ref={canvasRef} className="absolute inset-0 h-full w-full" />
+      <div className="absolute inset-0" style={{ background: forgeFireWash(origin) }} />
+      {live ? <canvas ref={canvasRef} className="absolute inset-0 h-full w-full" /> : null}
     </div>
   );
 }

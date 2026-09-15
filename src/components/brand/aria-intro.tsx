@@ -18,7 +18,7 @@ export function AriaIntro({
   return (
     <div className="relative flex min-h-[100dvh] flex-col overflow-hidden bg-background">
       <div className="pointer-events-none fixed inset-0">
-        <ForgeFireField intensity="rage" origin="floor" className="opacity-70" />
+        <ForgeFireField live intensity="rage" origin="floor" className="opacity-70" />
         <div
           className="absolute inset-0"
           style={{

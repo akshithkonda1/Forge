@@ -26,6 +26,7 @@ struct ContentView: View {
                     MainTabView()
                 }
             }
+            .environment(\.forgeFireLiveAllowed, !showSplash)
             .animation(.easeInOut(duration: 0.35), value: store.isAuthenticated)
             .animation(.easeInOut(duration: 0.35), value: store.isOnboarded)
 
@@ -81,7 +82,7 @@ struct ForgeSplashScreen: View {
         ZStack {
             Color.background.ignoresSafeArea()
 
-            ForgeFireField(intensity: .rage, origin: .floor)
+            ForgeFireField(intensity: .rage, origin: .floor, live: true)
                 .opacity(0.55 + 0.45 * glowIntensity)
                 .ignoresSafeArea()
 

@@ -18,10 +18,10 @@ import { cn } from "@/lib/utils";
 const TABS: TabId[] = ["home", "chat", "workout", "sleep", "profile"];
 let didFinishSplash = false;
 
-function BootSplash() {
+function BootSplash({ live = false }: { live?: boolean }) {
   return (
     <div className="relative flex min-h-[100dvh] flex-col items-center justify-center overflow-hidden bg-background">
-      <ForgeFireField intensity="rage" origin="floor" className="opacity-80" />
+      <ForgeFireField live={live} intensity="rage" origin="floor" className="opacity-80" />
       <div className="relative z-10 flex flex-col items-center">
         <div className="relative flex h-56 w-56 items-center justify-center">
           <ForgeFireField intensity="rage" origin="hearth" className="opacity-90" />
@@ -117,11 +117,11 @@ export default function Page() {
     window.scrollTo(0, 0);
   }, [activeTab]);
 
-  if (showSplash || !hasHydrated) {
-    return <BootSplash />;
+  if (showSplash) {
+    return <BootSplash live />;
   }
 
-  if (!isOnboarded) {
+  if (!hasHydrated || !isOnboarded) {
     return <BootSplash />;
   }
 

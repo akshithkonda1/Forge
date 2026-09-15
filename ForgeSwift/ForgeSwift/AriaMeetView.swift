@@ -40,7 +40,7 @@ struct AriaMeetView: View {
                 ScrollView(showsIndicators: false) {
                     VStack(spacing: 18) {
                         ZStack {
-                            ForgeFireField(intensity: .rage, origin: .hearth)
+                            ForgeFireField(intensity: .rage, origin: .hearth, live: true)
                                 .frame(width: 180, height: 190)
                                 .opacity(0.72)
                             AuroraOrbView(

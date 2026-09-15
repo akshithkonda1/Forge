@@ -208,6 +208,11 @@ assert(fireSpec("rage").coreHeat > fireSpec("ember").coreHeat, "rage is white-ho
 const rageTip = fireTongue(3, 28, 0.4, "rage", "floor", false);
 const emberTip = fireTongue(3, 8, 0.4, "ember", "floor", false);
 assert(rageTip.tipY < emberTip.tipY, "rage tips sit higher than ember");
+assert(FORGE_FIRE.tickHz === 12, "fire paints at 12 Hz");
+assert(FORGE_FIRE.tickHz <= 15 && FORGE_FIRE.tickHz >= 12, "fire cadence is 12–15 Hz");
+assert(forgeFirePaintDue(0, -1), "first fire frame always paints");
+assert(!forgeFirePaintDue(80, 0), "sub-12 Hz fire frames are skipped");
+assert(forgeFirePaintDue(1000 / FORGE_FIRE.tickHz, 0), "12 Hz fire boundary paints");
 assert(ARIA_MARK_LIFE.tickHz === 12, "living mark paints at 12 Hz");
 assert(ARIA_MARK_LIFE.tickHz <= 12, "mark timeline is not above 12 Hz");
 assert(ARIA_MARK_LIFE.tickHz === ARIA_MARK_PAINT_HZ, "life cadence matches paint Hz");

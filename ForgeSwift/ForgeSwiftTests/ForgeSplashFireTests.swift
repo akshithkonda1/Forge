@@ -99,14 +99,14 @@ final class ForgeSplashFireTests: XCTestCase {
     }
 
     func testLogoLifeDoesNotRewriteRingPose() {
-        XCTAssertEqual(AriaSigilLife.tickHz, 30, accuracy: 0.001)
-        XCTAssertGreaterThan(AriaSigilLife.tickHz, 12)
+        XCTAssertEqual(AriaSigilLife.tickHz, 12, accuracy: 0.001)
+        XCTAssertLessThanOrEqual(AriaSigilLife.tickHz, 12)
         XCTAssertEqual(AriaSigilLife.flicker(index: 1, time: 0.4, reduceMotion: true), 1, accuracy: 0.0001)
         XCTAssertEqual(AriaSigilLife.wobble(index: 1, time: 0.4, reduceMotion: true), 0, accuracy: 0.0001)
         XCTAssertEqual(AriaSigilLife.breathScale(time: 0.4, hero: true, reduceMotion: true), 1, accuracy: 0.0001)
         XCTAssertEqual(AriaSigilLife.breathScale(time: 0.4, hero: false, reduceMotion: false), 1, accuracy: 0.0001)
-        let f0 = AriaSigilLife.flicker(index: 2, time: 0.2, reduceMotion: false)
-        let f1 = AriaSigilLife.flicker(index: 2, time: 1.0, reduceMotion: false)
+        let f0 = AriaSigilLife.flicker(index: 0, time: 0.2, reduceMotion: false)
+        let f1 = AriaSigilLife.flicker(index: 0, time: 1.0, reduceMotion: false)
         XCTAssertGreaterThan(abs(f0 - f1), 0.00001)
         XCTAssertGreaterThan(AriaSigilLife.breathScale(time: 0.4, hero: true, reduceMotion: false), 0.95)
 
@@ -114,5 +114,22 @@ final class ForgeSplashFireTests: XCTestCase {
         let poseB = AriaSigilGeometry.ellipse(index: 1, time: 0.4, state: .idle, reduceMotion: false)
         XCTAssertEqual(poseA.rotation, poseB.rotation, accuracy: 0.0001)
         XCTAssertEqual(poseA.opacity, poseB.opacity, accuracy: 0.0001)
+    }
+
+    func testContrastFlickerNeverDropsBelowCoveFloor() {
+        for index in AriaSigilGeometry.contrastRingIndices {
+            var t = 0.0
+            while t < 4 {
+                let painted = AriaSigilLife.paintedOpacity(index: index, time: t, reduceMotion: false)
+                XCTAssertGreaterThanOrEqual(painted, AriaSigilGeometry.contrastFloor)
+                t += 0.05
+            }
+        }
+    }
+
+    func testFirePaintCadenceIsCapped() {
+        XCTAssertEqual(ForgeFireGeometry.tickHz, 12, accuracy: 0.001)
+        XCTAssertLessThanOrEqual(ForgeFireGeometry.tickHz, 15)
+        XCTAssertGreaterThanOrEqual(ForgeFireGeometry.tickHz, 12)
     }
 }
