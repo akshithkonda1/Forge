@@ -16,6 +16,8 @@ import {
   emberCoreRadius,
   emberLobe,
   nestOrbitHz,
+  nestRingHex,
+  paintedNestOpacity,
   ringEllipse,
   ringSpinHz,
   ringStrokeWidth,
@@ -72,7 +74,20 @@ assert(
 assert(ARIA_MARK.strokeWidthCompact === 1.5, "compact stroke meets 1.5 floor");
 assert(ARIA_MARK.strokeWidthHero === 1.75, "hero stroke is 1.75");
 assert(ARIA_MARK.paintHz === 12, "paintHz is 12");
+assert(ARIA_MARK.opacity.join(",") === "0.88,0.78,0.72", "opacity array is pearl/frost/orange lock");
 assert(ARIA_MARK.opacity.every((o) => o >= ARIA_MARK_CONTRAST_FLOOR), "all nest ring opacities ≥ 0.70");
+assert(ARIA_MARK.paintedOpacityFloor === 0.7, "painted flicker floor is 0.70");
+assert(ARIA_MARK.ringHex.join(",") === `${ARIA_MARK.pearlHex},${ARIA_MARK.nestFrostHex},${ARIA_MARK.brandHue}`, "ringHex is pearl / frost / orange");
+assert(ARIA_MARK.ringHex.length === ARIA_MARK.ringCount, "ringHex match ringCount");
+assert(nestRingHex(0) === ARIA_MARK.pearlHex && ARIA_MARK.opacity[0] === 0.88, "ring 0 inner is pearl @ 0.88");
+assert(nestRingHex(1) === ARIA_MARK.nestFrostHex && ARIA_MARK.opacity[1] === 0.78, "ring 1 mid is frost @ 0.78");
+assert(nestRingHex(2) === ARIA_MARK.brandHue && ARIA_MARK.opacity[2] === 0.72, "ring 2 outer is Forge orange accent @ 0.72");
+assert(ARIA_MARK.hearthSpecularMax === 0.55, "hearth specular is decorative under 0.55");
+assert(ARIA_MARK.hearthSpecularMax < ARIA_MARK.paintedOpacityFloor, "hearth wash is never a compact silhouette");
+assert(ARIA_MARK.notes.includes("Flicker/wave floor"), "notes name the flicker/wave floor");
+assert(ARIA_MARK.notes.includes("never go below 0.70 after flicker/wave"), "notes lock painted opacity ≥ 0.70");
+assert(paintedNestOpacity(0.72, 0.78) === ARIA_MARK.paintedOpacityFloor, "contrast ring flicker cannot drop below 0.70");
+assert(paintedNestOpacity(0.88, 1) === 0.88, "full flicker keeps contract opacity");
 assert(ARIA_MARK.wordmarkPrimaryMax === 32, "wordmark-primary ceiling is 32");
 assert(ARIA_MARK.splash === "mark+wordmark", "splash is mark+wordmark");
 assert(JSON.stringify(ARIA_MARK) === JSON.stringify(contract), "web ARIA_MARK matches shared/aria-mark.json");

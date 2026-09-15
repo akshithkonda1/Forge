@@ -8,6 +8,8 @@ export const ARIA_MARK = {
   pearlHotHex: "#FFFFFF",
   nestFrostHex: "#A9D8FF",
   hearthGlowHex: "#3A0E12",
+  ringHex: ["#F7F4F0", "#A9D8FF", "#FF4D00"],
+  hearthSpecularMax: 0.55,
   ringCount: 3,
   strokeWidthCompact: 1.5,
   strokeWidthHero: 1.75,
@@ -19,6 +21,7 @@ export const ARIA_MARK = {
   tiltDeg: [-18, 24, -12],
   phaseOffsets: [0, 0.33, 0.66],
   opacity: [0.88, 0.78, 0.72],
+  paintedOpacityFloor: 0.7,
   idleOrbitHz: [0.065, -0.042, 0.028],
   speakingOrbitHz: [0.09, -0.06, 0.04],
   liquidWaveHz: 0.42,
@@ -29,7 +32,7 @@ export const ARIA_MARK = {
   wordmarkPrimaryMax: 32,
   splash: "mark+wordmark",
   notes:
-    "B+E gallery lock: soft-hex nest + metal sun. Forge orange is accent (specular/wash), not kinetic ring-field silhouette. No fire-under-logo, no flower petals, no industrial chrome, no PNG runtime. Home readiness data rings stay separate forever. Reduce Motion freezes at stillPoseAngleDeg. One live nest per screen; paintHz 12. Compact stroke ≥1.5; all ring opacities ≥0.70. ≤32pt wordmark-primary + tiny still nest if clear.",
+    "B+E gallery lock: soft-hex nest + metal sun. Ring→color: 0 inner pearl #F7F4F0 @ 0.88; 1 mid frost #A9D8FF @ 0.78; 2 outer Forge orange #FF4D00 @ 0.72 (accent stroke — never under 0.70). Sun/metal: pearlHot #FFFFFF / pearl #F7F4F0. Hearth wash decorative only: #3A0E12 / orange specular under ~0.55 — never sole compact silhouette. Forge orange is accent (specular/wash), not kinetic ring-field silhouette. Flicker/wave floor: painted opacity for any ring with contract opacity ≥0.70 must never go below 0.70 after flicker/wave. No fire-under-logo, no flower petals, no industrial chrome, no PNG runtime. Home readiness data rings stay separate forever. Reduce Motion freezes at stillPoseAngleDeg. One live nest per screen; paintHz 12. Compact stroke ≥1.5; all ring opacities ≥0.70. ≤32pt wordmark-primary + tiny still nest if clear.",
 } as const;
 
 /**
@@ -41,7 +44,25 @@ export const ARIA_MARK_KIND = ARIA_MARK.kind;
 
 /** Web compact / wordmark-primary ceiling. Slots ≤32 stay still-pose. */
 export const ARIA_MARK_COMPACT_MAX = ARIA_MARK.wordmarkPrimaryMax;
-export const ARIA_MARK_CONTRAST_FLOOR = 0.7;
+export const ARIA_MARK_CONTRAST_FLOOR = ARIA_MARK.paintedOpacityFloor;
+
+/** Inner pearl, mid frost, outer Forge orange accent. */
+export function nestRingHex(index: number): string {
+  const i = Math.max(0, Math.min(ARIA_MARK.ringCount - 1, index));
+  return ARIA_MARK.ringHex[i] ?? ARIA_MARK.ringHex[0];
+}
+
+/**
+ * Cove / #281 flicker-wave floor: a ring whose contract opacity is ≥0.70
+ * must never paint below 0.70 after flicker or liquid wave.
+ */
+export function paintedNestOpacity(contractOpacity: number, flicker = 1): number {
+  const painted = contractOpacity * flicker;
+  if (contractOpacity >= ARIA_MARK.paintedOpacityFloor) {
+    return Math.max(ARIA_MARK.paintedOpacityFloor, painted);
+  }
+  return painted;
+}
 
 export type AriaMarkSizeTier = "compact" | "mid" | "hero";
 export type AriaRingPose = {
