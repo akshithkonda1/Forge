@@ -2,8 +2,8 @@
 
 import { useEffect, useRef } from "react";
 import { cn } from "@/lib/utils";
-import { ARIA_MARK, ariaMarkPaintDue, ariaMarkShouldSpin } from "@/lib/aria-mark";
-import { drawAriaRingField } from "@/lib/aria-ring-field";
+import { ARIA_MARK, ariaMarkPaintDue, ariaMarkShouldSpin, ariaMarkSizeTier } from "@/lib/aria-mark";
+import { drawAriaRingField, ringBreathScale } from "@/lib/aria-ring-field";
 
 /**
  * Adaptive Recovery Interactive Assistant.
@@ -57,6 +57,9 @@ export function AriaMark({
         reduceMotion: reduce,
         cssSize: size,
       });
+      const hero = ariaMarkSizeTier(size) === "hero";
+      const scale = ringBreathScale(t, hero, reduce);
+      canvas.style.transform = `scale(${scale})`;
       if (!reduce) raf = requestAnimationFrame(paint);
     };
 

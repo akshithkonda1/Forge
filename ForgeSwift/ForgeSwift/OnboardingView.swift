@@ -122,3 +122,11 @@ private struct DevSkipButton: View {
         .environmentObject(AppStore())
         .preferredColorScheme(.dark)
 }
+
+#Preview("Intro logo") {
+    ZStack {
+        Color.background.ignoresSafeArea()
+        IntroComposer(coordinator: OnboardingCoordinator())
+    }
+    .preferredColorScheme(.dark)
+}

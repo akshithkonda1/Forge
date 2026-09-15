@@ -39,13 +39,18 @@ struct AriaMeetView: View {
             VStack(spacing: 0) {
                 ScrollView(showsIndicators: false) {
                     VStack(spacing: 18) {
-                        AuroraOrbView(
-                            state: .idle,
-                            amplitude: 0.32,
-                            mood: .focused,
-                            size: 112,
-                            followPresence: true
-                        )
+                        ZStack {
+                            ForgeFireField(intensity: .rage, origin: .hearth)
+                                .frame(width: 180, height: 190)
+                                .opacity(0.72)
+                            AuroraOrbView(
+                                state: .idle,
+                                amplitude: 0.58,
+                                mood: .focused,
+                                size: 132,
+                                followPresence: true
+                            )
+                        }
                         .padding(.top, 28)
 
                         Text(AriaMeetCopy.eyebrow.uppercased())

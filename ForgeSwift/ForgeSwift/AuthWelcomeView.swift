@@ -23,9 +23,10 @@ struct AuthWelcomeView: View {
             AuthCinematicBackground(page: page)
                 .ignoresSafeArea()
 
-            // Floating embers
+            // Roaring fire — a strong fire, not ember dust
             if !reduceMotion, appeared {
-                AuthEmberField()
+                ForgeFireField(intensity: .rage, origin: .floor)
+                    .opacity(0.72)
                     .ignoresSafeArea()
                     .allowsHitTesting(false)
             }
@@ -34,9 +35,7 @@ struct AuthWelcomeView: View {
                 // Top brand strip
                 HStack(spacing: 10) {
                     HStack(spacing: 8) {
-                        Image(systemName: "flame.fill")
-                            .font(.system(size: 14, weight: .bold))
-                            .foregroundStyle(FDS.Gradient.ember)
+                        ForgeBrandFlame(size: 22)
                         Text("Forge")
                             .font(.system(size: 13, weight: .black, design: .rounded))
                             .tracking(3)
@@ -262,13 +261,18 @@ private struct AuthHookPageView: View {
                         AriaPresence.shared.speak(AriaOnboardingGuide.welcomeSpokenLine, interrupt: true)
                     } label: {
                         VStack(spacing: 10) {
-                            AuroraOrbView(
-                                state: .idle,
-                                amplitude: 0.34,
-                                mood: .energized,
-                                size: 168,
-                                followPresence: true
-                            )
+                            ZStack {
+                                ForgeFireField(intensity: .rage, origin: .hearth)
+                                    .frame(width: 210, height: 220)
+                                    .opacity(0.8)
+                                AuroraOrbView(
+                                    state: .idle,
+                                    amplitude: 0.62,
+                                    mood: .energized,
+                                    size: 168,
+                                    followPresence: true
+                                )
+                            }
                             .scaleEffect(isActive ? 1.0 + floatPhase * 0.012 : 0.94)
                             Text("ARIA")
                                 .font(.system(size: 11, weight: .semibold, design: .rounded))
@@ -298,17 +302,22 @@ private struct AuthHookPageView: View {
                             )
                         )
                         .frame(width: 110, height: 110)
-                    Image(systemName: page.icon)
-                        .font(.system(size: 40, weight: .bold))
-                        .foregroundStyle(
-                            LinearGradient(
-                                colors: [.white, accent],
-                                startPoint: .topLeading,
-                                endPoint: .bottomTrailing
+                    if page.id == "forge" {
+                        ForgeBrandFlame(size: 56)
+                            .offset(y: isActive ? -floatPhase * 6 : 0)
+                    } else {
+                        Image(systemName: page.icon)
+                            .font(.system(size: 40, weight: .bold))
+                            .foregroundStyle(
+                                LinearGradient(
+                                    colors: [.white, accent],
+                                    startPoint: .topLeading,
+                                    endPoint: .bottomTrailing
+                                )
                             )
-                        )
-                        .shadow(color: accent.opacity(0.6), radius: 12, y: 4)
-                        .offset(y: isActive ? -floatPhase * 6 : 0)
+                            .shadow(color: accent.opacity(0.6), radius: 12, y: 4)
+                            .offset(y: isActive ? -floatPhase * 6 : 0)
+                    }
                 }
             }
             .frame(height: 220)
@@ -403,29 +412,6 @@ private struct AuthCinematicBackground: View {
     }
 }
 
-private struct AuthEmberField: View {
-    @State private var t: CGFloat = 0
-
-    var body: some View {
-        TimelineView(.animation(minimumInterval: 1 / 30)) { timeline in
-            Canvas { context, size in
-                let time = timeline.date.timeIntervalSinceReferenceDate
-                for i in 0..<18 {
-                    let seed = Double(i) * 17.13
-                    let x = (sin(time * 0.35 + seed) * 0.5 + 0.5) * size.width
-                    let y = size.height - CGFloat((time * (12 + Double(i % 5)) + seed * 40)
-                        .truncatingRemainder(dividingBy: Double(size.height + 40)))
-                    let r = CGFloat(1.5 + Double(i % 3))
-                    var path = Path()
-                    path.addEllipse(in: CGRect(x: x, y: y, width: r * 2, height: r * 2))
-                    context.fill(path, with: .color(Color.ember.opacity(0.15 + Double(i % 4) * 0.05)))
-                }
-            }
-        }
-        .allowsHitTesting(false)
-    }
-}
-
 struct AuthPressButtonStyle: ButtonStyle {
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
@@ -433,4 +419,10 @@ struct AuthPressButtonStyle: ButtonStyle {
             .opacity(configuration.isPressed ? 0.92 : 1)
             .animation(FDS.Spring.snap, value: configuration.isPressed)
     }
+}
+
+#Preview("Auth welcome") {
+    AuthWelcomeView()
+        .environmentObject(AppStore())
+        .preferredColorScheme(.dark)
 }

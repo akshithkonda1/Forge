@@ -54,7 +54,7 @@ struct AuroraOrbView: View {
     }
 
     private var tick: Double {
-        frozen ? 1 : 1.0 / 12.0
+        frozen ? 1 : 1.0 / AriaSigilLife.tickHz
     }
 
     var body: some View {
@@ -71,6 +71,13 @@ struct AuroraOrbView: View {
                 amplitude: amplitude,
                 size: size,
                 reduceMotion: frozen
+            )
+            .scaleEffect(
+                AriaSigilLife.breathScale(
+                    time: t,
+                    hero: size >= AriaSigilGeometry.heroMinimumSize,
+                    reduceMotion: frozen
+                )
             )
         }
         .frame(width: size, height: size)
@@ -106,13 +113,13 @@ private struct AriaRingFieldView: View {
                 .fill(
                     RadialGradient(
                         colors: [
-                            orange.opacity(0.16 + energy * 0.06),
-                            orange.opacity(0.04),
+                            orange.opacity((0.20 + energy * 0.14) * AriaSigilLife.glowPulse(time: time, energy: energy, reduceMotion: reduceMotion)),
+                            orange.opacity(0.06),
                             .clear
                         ],
                         center: .center,
                         startRadius: size * 0.04,
-                        endRadius: size * 0.48
+                        endRadius: size * 0.52
                     )
                 )
             ForEach(AriaSigilGeometry.visibleRingIndices(size: size), id: \.self) { index in
@@ -122,17 +129,21 @@ private struct AriaRingFieldView: View {
                     state: state,
                     reduceMotion: reduceMotion
                 )
+                let flicker = AriaSigilLife.flicker(index: index, time: time, reduceMotion: reduceMotion)
                 Ellipse()
                     .stroke(
-                        orange.opacity(pose.opacity),
+                        orange.opacity(pose.opacity * flicker),
                         lineWidth: AriaSigilGeometry.strokeWidth(size: size, index: index)
                     )
                     .frame(width: size * pose.rx, height: size * pose.ry)
-                    .rotationEffect(.radians(pose.rotation))
+                    .rotationEffect(.radians(pose.rotation + AriaSigilLife.wobble(index: index, time: time, reduceMotion: reduceMotion)))
             }
         }
         .frame(width: size, height: size)
-        .shadow(color: orange.opacity(0.28 + energy * 0.12), radius: max(4, size * 0.08))
+        .shadow(
+            color: orange.opacity((0.34 + energy * 0.22) * AriaSigilLife.glowPulse(time: time, energy: energy, reduceMotion: reduceMotion)),
+            radius: max(6, size * 0.11)
+        )
         .allowsHitTesting(false)
     }
 }
