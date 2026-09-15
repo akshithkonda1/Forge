@@ -81,7 +81,7 @@ enum AriaDummyOrchestrator {
             facts: facts,
             name: trimmedName
         ) {
-            return publish(followed, prompt: text)
+            return publish(followed, prompt: text, store: store)
         }
 
         let sleepWeak = facts.sleepBand == .weak
@@ -148,7 +148,8 @@ enum AriaDummyOrchestrator {
                     suggestedActions: resp.suggestedActions,
                     confidence: resp.confidence
                 ),
-                prompt: text
+                prompt: text,
+                store: store
             )
         }
 
@@ -198,7 +199,8 @@ enum AriaDummyOrchestrator {
                     contextUpdates: ["relationship_level": min(10, 1 + store.chatMessages.count / 3)],
                     confidence: 0.82
                 ),
-                prompt: text
+                prompt: text,
+                store: store
             )
         }
 
@@ -253,7 +255,8 @@ enum AriaDummyOrchestrator {
                 contextUpdates: ["relationship_level": min(10, 1 + store.chatMessages.count / 3)],
                 confidence: 0.88
             ),
-            prompt: text
+            prompt: text,
+            store: store
         )
     }
 
@@ -786,9 +789,13 @@ enum AriaDummyOrchestrator {
         #endif
     }
 
-    private static func publish(_ response: AriaResponse, prompt: String) -> AriaResponse {
+    private static func publish(_ response: AriaResponse, prompt: String, store: AppStore) -> AriaResponse {
         var out = response
-        let message = AriaReplyVariety.distinct(prompt: prompt, draft: out.message)
+        var message = bridgeNightIfNeeded(out.message, prompt: prompt, store: store)
+        message = AriaReplyVariety.distinct(prompt: prompt, draft: message)
+        // Last gate, after on-device polish — same order as Python Dummy
+        // `friend_speak` / `_scrub_fused_speak` (vitals + cheer after generate).
+        message = sanitizeSpeak(message)
         out.message = message
         out.proseSummary = message
         return out
@@ -882,6 +889,168 @@ enum AriaDummyOrchestrator {
 
     // MARK: - Lane humanizers — strip DIE metric tables into companion speech
 
+    /// Fused Dummy `_VITALS_SPEAK` (`aria_engine` + Dummy orchestrator).
+    /// Sleep-stage % is stripped first (`stripSleepStagePct`); these patterns
+    /// are the remaining fail-and-fallback tokens, not a "min deep" HUD ban.
+    private static let vitalsSpeak = try! NSRegularExpression(
+        pattern: #"\b(hrv|bpm|ms|mmhg|vo2|spo2|recovery score|sleep[- ]?debt)\b|%\s*(?:below|above|under|over)\s+baseline|\b(?:deep|rem|light)\s+sleep\s+at\s+\d+(?:\.\d+)?\s*%|\brem\s+is\s+light\s+at\s+\d+(?:\.\d+)?\s*%"#,
+        options: [.caseInsensitive]
+    )
+
+    /// Iris `_SLEEP_STAGE_PCT` — strip at speak, keep the rest of the sentence.
+    private static let sleepStagePct = try! NSRegularExpression(
+        pattern: #"\b(?:deep|rem|light)\s+sleep\s+at\s+\d+(?:\.\d+)?\s*%|\brem\s+is\s+light\s+at\s+\d+(?:\.\d+)?\s*%"#,
+        options: [.caseInsensitive]
+    )
+
+    /// Python Dummy `_CHEER_SLUDGE` — empty praise Dummy fused speak already strips.
+    private static let cheerSludge = try! NSRegularExpression(
+        pattern: #"\b(crushing it|you['’]re killing it|you got this|you['’]ve got this|so proud of you|amazing work|great job|keep slaying|beast mode|you['’]re a machine|keep up the great|so inspiring)\b"#,
+        options: [.caseInsensitive]
+    )
+
+    private static let speakFallback =
+        "I'm with you. Let's pick one next step that respects today rather than performing it."
+
+    /// Last user-visible gate. Mirrors `friend_speak` + `_speak_without_vitals`.
+    /// Tests call this on known-bad fixtures; live Dummy chat runs it in `publish`.
+    static func sanitizeSpeak(_ text: String) -> String {
+        var out = cheerSludge.stringByReplacingMatches(
+            in: text,
+            options: [],
+            range: NSRange(text.startIndex..<text.endIndex, in: text),
+            withTemplate: "that's real work"
+        )
+        // Same order as fused Dummy: cheer (`friend_speak`) then
+        // `_strip_sleep_stage_pct` then `_speak_without_vitals`.
+        out = stripSleepStagePct(out)
+        out = stripVitalsHUD(out)
+        if dumpsVitals(out) {
+            out = dropVitalsSentences(out)
+        }
+        out = out
+            .replacingOccurrences(of: "  ", with: " ")
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        if out.isEmpty || dumpsVitals(out) {
+            return speakFallback
+        }
+        return out
+    }
+
+    /// Port of `services.aria_engine._strip_sleep_stage_pct`.
+    private static func stripSleepStagePct(_ text: String) -> String {
+        var cleaned = sleepStagePct.stringByReplacingMatches(
+            in: text,
+            options: [],
+            range: NSRange(text.startIndex..<text.endIndex, in: text),
+            withTemplate: ""
+        )
+        cleaned = replaceRegex(cleaned, pattern: #"\s*is in a healthy band"#, with: "")
+        cleaned = replaceRegex(cleaned, pattern: #"\bsleep:\s*;\s*"#, with: "")
+        cleaned = replaceRegex(cleaned, pattern: #"\s{2,}"#, with: " ")
+        cleaned = replaceRegex(cleaned, pattern: #"\s+([,.;:])"#, with: "$1")
+        cleaned = replaceRegex(cleaned, pattern: #"\s*[—–-]\s*([,.;])"#, with: "$1")
+        cleaned = replaceRegex(cleaned, pattern: #"\s*[—–-]\s*$"#, with: "")
+        return cleaned.trimmingCharacters(in: CharacterSet(charactersIn: " ,;:—–-"))
+    }
+
+    private static func replaceRegex(_ text: String, pattern: String, with template: String) -> String {
+        guard let re = try? NSRegularExpression(pattern: pattern, options: [.caseInsensitive]) else {
+            return text
+        }
+        return re.stringByReplacingMatches(
+            in: text,
+            options: [],
+            range: NSRange(text.startIndex..<text.endIndex, in: text),
+            withTemplate: template
+        )
+    }
+
+    private static func dumpsVitals(_ text: String) -> Bool {
+        let range = NSRange(text.startIndex..<text.endIndex, in: text)
+        return vitalsSpeak.firstMatch(in: text, options: [], range: range) != nil
+    }
+
+    private static func stripVitalsHUD(_ s: String) -> String {
+        var out = s
+        let hud = [
+            #"Readiness \d+/100 · HRV \d+ ms · RHR \d+ bpm[^.]*\."#,
+            #"Readiness \d+, HRV \d+, resting heart \d+\."#,
+            #"Player status \d+/100 · HRV \d+[^.]*\."#,
+        ]
+        for pattern in hud {
+            if let range = out.range(of: pattern, options: [.regularExpression, .caseInsensitive]) {
+                out.replaceSubrange(range, with: "I already looked — here's the read.")
+            }
+        }
+        return out
+    }
+
+    private static func dropVitalsSentences(_ text: String) -> String {
+        guard let sentenceRe = try? NSRegularExpression(pattern: #"[^.!?]+[.!?]?"#, options: []) else {
+            return text
+        }
+        let range = NSRange(text.startIndex..<text.endIndex, in: text)
+        var kept: [String] = []
+        sentenceRe.enumerateMatches(in: text, options: [], range: range) { match, _, _ in
+            guard let match, let swiftRange = Range(match.range, in: text) else { return }
+            let sentence = String(text[swiftRange])
+            if !dumpsVitals(sentence) {
+                kept.append(sentence.trimmingCharacters(in: .whitespacesAndNewlines))
+            }
+        }
+        return kept.filter { !$0.isEmpty }.joined(separator: " ")
+    }
+
+    /// Sleep → train continuity. Python `_callback` / `_bridge_fused_memory`
+    /// plus `memory_hole_hits`: a later training ask must still name the night.
+    /// Short discourse moves (`make it easier`) do not have to re-narrate it.
+    private static func bridgeNightIfNeeded(_ message: String, prompt: String, store: AppStore) -> String {
+        if AriaDummyTurn.followUp(in: prompt) != .none { return message }
+        let prior = priorUserPrompts(store: store, current: prompt)
+        guard let last = prior.last else { return message }
+        let promptLow = prompt.lowercased()
+        let lastLow = last.lowercased()
+        let sleepCues = ["sleep", "slept", "last night", "insomnia"]
+        let trainCues = ["train", "workout", "session", "gym"]
+        let nightAck = ["night", "sleep", "slept", "rest"]
+        let hadSleep = sleepCues.contains { lastLow.contains($0) }
+        let askingTrain = trainCues.contains { promptLow.contains($0) }
+        guard hadSleep, askingTrain else { return message }
+        let msgLow = message.lowercased()
+        if nightAck.contains(where: { msgLow.contains($0) }) { return message }
+        let opener = AriaReplyVariety.pick([
+            "Yeah — about that night, ",
+            "You were asking about the night — ",
+            "Picking up from last night: ",
+            "Still thinking about the sleep piece — ",
+            "Right, the night you mentioned — ",
+        ], prompt: prompt)
+        var body = message.trimmingCharacters(in: .whitespacesAndNewlines)
+        if (opener.hasSuffix("— ") || opener.hasSuffix(": ")),
+           let first = body.first,
+           first.isUppercase,
+           !body.hasPrefix("I "),
+           !body.hasPrefix("I'm "),
+           !body.hasPrefix("I’ll "),
+           !body.hasPrefix("I'll ") {
+            body = first.lowercased() + body.dropFirst()
+        }
+        return opener + body
+    }
+
+    private static func priorUserPrompts(store: AppStore, current: String) -> [String] {
+        let users = store.chatMessages
+            .filter { $0.role == .user }
+            .map(\.content)
+            .filter { !$0.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
+        if let last = users.last,
+           last.caseInsensitiveCompare(current) == .orderedSame {
+            return Array(users.dropLast())
+        }
+        return users
+    }
+
     private static func humanizeRecover(_ raw: String, you: String, facts: AriaSpeechFacts, readiness: Int, coaching: CoachingStyle, life: AriaLifeRead) -> String {
         // If voice engine already sounds human (contains "I hear" or contraction + empathy), keep it.
         let lower = raw.lowercased()
@@ -924,19 +1093,7 @@ enum AriaDummyOrchestrator {
     }
 
     private static func softenMetrics(_ s: String) -> String {
-        var out = s
-        // Drop the clinical HUD sentence if the voice engine still emitted one.
-        if let range = out.range(of: #"Readiness \d+/100 · HRV \d+ ms · RHR \d+ bpm[^.]*\."#, options: .regularExpression) {
-            out.replaceSubrange(range, with: "I already looked — here's the read.")
-        }
-        out = out.replacingOccurrences(
-            of: #"Readiness \d+, HRV \d+, resting heart \d+\."#,
-            with: "",
-            options: .regularExpression
-        )
-        return out
-            .replacingOccurrences(of: "  ", with: " ")
-            .trimmingCharacters(in: .whitespacesAndNewlines)
+        sanitizeSpeak(s)
     }
 
     private static func weaveStory(_ raw: String, life: AriaLifeRead) -> String {

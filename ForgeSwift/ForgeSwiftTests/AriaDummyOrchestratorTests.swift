@@ -661,6 +661,7 @@ final class AriaDummyOrchestratorTests: XCTestCase {
             ("hype me up", .aria, ["aria"]),
         ]
 
+        var previousReply = ""
         for fixture in fixtures {
             let reply = await AriaDummyOrchestrator.reply(
                 text: fixture.text,
@@ -672,7 +673,145 @@ final class AriaDummyOrchestratorTests: XCTestCase {
             if let prose = reply.proseSummary {
                 assertDummySpeakQuality(prose, prompt: fixture.text)
             }
+            // Production `AppStore.sendMessage` files the user turn before Dummy
+            // replies. Keep that transcript so sleep → train is a thread, not
+            // five one-shot hype lines (Python `prior_turns` / memory-hole gate).
+            store.chatMessages.append(ChatMessage(
+                id: UUID().uuidString,
+                role: .user,
+                content: fixture.text,
+                timestamp: Date()
+            ))
+            store.chatMessages.append(ChatMessage(
+                id: UUID().uuidString,
+                role: .trainer,
+                content: reply.message,
+                timestamp: Date()
+            ))
+            if fixture.text == "ok what should I train then" {
+                let lower = reply.message.lowercased()
+                XCTAssertNotEqual(previousReply, reply.message, "follow-up must not reprint the sleep turn")
+                XCTAssertTrue(
+                    lower.contains("night") || lower.contains("sleep") || lower.contains("slept") || lower.contains("rest"),
+                    "sleep→train must keep the night on the thread: \(reply.message)"
+                )
+            }
+            previousReply = reply.message
         }
+
+        store.todayWorkout = WorkoutPlan(
+            id: "t-follow",
+            name: "Upper Calisthenics",
+            type: .strength,
+            duration: 40,
+            intensity: .high,
+            exercises: [
+                Exercise(id: "e1", name: "Push-Up", sets: 3, reps: "10", weight: nil, restSeconds: 60, notes: nil)
+            ]
+        )
+        let easier = await AriaDummyOrchestrator.reply(
+            text: "make it easier",
+            store: store,
+            agent: .workout,
+            agents: ["workout"]
+        )
+        assertDummySpeakQuality(easier.message, prompt: "make it easier")
+        XCTAssertTrue(
+            easier.message.lowercased().contains("scaled")
+                || easier.message.lowercased().contains("moderate")
+                || easier.message.lowercased().contains("easier"),
+            easier.message
+        )
+    }
+
+    /// Python `GateFixturesFailOnBadSpeak` plus Iris `_strip_sleep_stage_pct`:
+    /// stage-% dumps are stripped in-place; the rest of the sentence stays.
+    func testSanitizeSpeakMirrorsPythonVitalsAndCheerGates() {
+        let dumps = [
+            "Readiness 96/100 · HRV 52 ms · RHR 58 bpm — band: Silver.",
+            "Player status 70/100 · HRV 52. S-Rank.",
+            "HRV is 12% under baseline — keep today easy.",
+        ]
+        for text in dumps {
+            let clean = AriaDummyOrchestrator.sanitizeSpeak(text)
+            let lower = clean.lowercased()
+            XCTAssertFalse(lower.contains("hrv"), "still leaking HRV from '\(text)': \(clean)")
+            XCTAssertFalse(lower.contains("bpm"), "still leaking bpm from '\(text)': \(clean)")
+            XCTAssertFalse(clean.isEmpty, text)
+        }
+
+        let mixed = "You rebuilt last night. Deep sleep at 19% is in a healthy band. Keep today kind."
+        let stripped = AriaDummyOrchestrator.sanitizeSpeak(mixed)
+        let strippedLow = stripped.lowercased()
+        XCTAssertTrue(strippedLow.contains("rebuilt") || strippedLow.contains("keep today kind"), stripped)
+        XCTAssertFalse(strippedLow.contains("deep sleep at"), stripped)
+        XCTAssertFalse(strippedLow.contains("healthy band"), stripped)
+        XCTAssertFalse(strippedLow.contains("%"), stripped)
+
+        for stageDump in [
+            "REM is light at 12%. Keep today kind.",
+            "Light sleep at 61%. Keep today kind.",
+            "Deep sleep at 21% is in a healthy band. Let's not chase a hero day.",
+        ] {
+            let clean = AriaDummyOrchestrator.sanitizeSpeak(stageDump)
+            let lower = clean.lowercased()
+            XCTAssertFalse(lower.contains("sleep at"), "stage % leftover: \(clean)")
+            XCTAssertFalse(lower.contains("rem is light at"), clean)
+            XCTAssertFalse(lower.contains("%"), clean)
+            XCTAssertTrue(
+                lower.contains("keep today") || lower.contains("hero") || lower.contains("with you"),
+                "strip should keep the friend clause: \(clean)"
+            )
+        }
+
+        // Data-driven receipts are minutes, not stage-%. Fused `_VITALS_SPEAK`
+        // does not ban them; don't over-scrub vs Mira's contract.
+        let receipt = "For the record: 7.2 hours, 40 min deep."
+        XCTAssertEqual(AriaDummyOrchestrator.sanitizeSpeak(receipt), receipt)
+
+        let friend = "Cap it at fifteen minutes and keep the quality high."
+        XCTAssertEqual(AriaDummyOrchestrator.sanitizeSpeak(friend), friend)
+
+        let cheers = [
+            "You're crushing it!",
+            "You got this.",
+            "You've got this.",
+            "You're killing it. Beast mode.",
+            "Great job — so proud of you.",
+        ]
+        for text in cheers {
+            let clean = AriaDummyOrchestrator.sanitizeSpeak(text)
+            assertDummySpeakQuality(clean, prompt: "sanitizer:\(text)")
+            XCTAssertFalse(clean.lowercased().contains("beast mode"), clean)
+            XCTAssertFalse(clean.lowercased().contains("killing it"), clean)
+            XCTAssertFalse(clean.lowercased().contains("great job"), clean)
+        }
+    }
+
+    func testThemedDummyTrainSpeakStillScrubsHRV() async throws {
+        let varietyKey = AriaReplyVariety.defaultsKey
+        let varietyPrevious = UserDefaults.standard.data(forKey: varietyKey)
+        let previousTags = AriaContextStore.shared.context.lifestyleTags
+        defer {
+            if let varietyPrevious {
+                UserDefaults.standard.set(varietyPrevious, forKey: varietyKey)
+            } else {
+                UserDefaults.standard.removeObject(forKey: varietyKey)
+            }
+            AriaContextStore.shared.context.lifestyleTags = previousTags
+        }
+        AriaReplyVariety.reset()
+        let store = try makeStressedPackStore()
+        store.userProfile.trainingTheme = .soloLeveling
+        store.userProfile.coachingStyle = .dataDriven
+        let reply = await AriaDummyOrchestrator.reply(
+            text: "What should I train today?",
+            store: store,
+            agent: .workout,
+            agents: ["workout"]
+        )
+        assertDummySpeakQuality(reply.message, prompt: "themed train")
+        XCTAssertFalse(AriaDummyOrchestrator.usesOffDeviceLLM)
     }
 
     private func assertDummySpeakQuality(_ text: String, prompt: String, file: StaticString = #filePath, line: UInt = #line) {
@@ -689,18 +828,49 @@ final class AriaDummyOrchestratorTests: XCTestCase {
             file: file,
             line: line
         )
-        XCTAssertFalse(
-            text.range(of: "crushing it", options: .caseInsensitive) != nil,
-            "Dummy must not use flat praise 'crushing it' for '\(prompt)': \(text)",
+        XCTAssertNil(
+            text.range(of: #"\b(?:deep|rem|light)\s+sleep\s+at\s+\d"#, options: .regularExpression),
+            "Dummy must not dump sleep-stage % for '\(prompt)': \(text)",
             file: file,
             line: line
         )
-        XCTAssertFalse(
-            text.range(of: "you got this", options: .caseInsensitive) != nil,
-            "Dummy must not use flat praise 'you got this' for '\(prompt)': \(text)",
+        XCTAssertNil(
+            text.range(of: #"\brem\s+is\s+light\s+at\s+\d"#, options: .regularExpression),
+            "Dummy must not dump REM-is-light % for '\(prompt)': \(text)",
             file: file,
             line: line
         )
+        let bannedCheer = [
+            "crushing it",
+            "you got this",
+            "you're killing it",
+            "great job",
+            "beast mode",
+            "so proud",
+        ]
+        for phrase in bannedCheer {
+            XCTAssertFalse(
+                lower.contains(phrase),
+                "Dummy must not use flat praise '\(phrase)' for '\(prompt)': \(text)",
+                file: file,
+                line: line
+            )
+        }
+    }
+
+    private func makeStressedPackStore() throws -> AppStore {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = TimeZone(secondsFromGMT: 0)!
+        var parts = DateComponents()
+        parts.year = 2026
+        parts.month = 8
+        parts.day = 25
+        parts.hour = 15
+        let now = try XCTUnwrap(calendar.date(from: parts))
+        let pack = FakeHealthPack.generate(now: now, calendar: calendar, seed: 41, persona: "stressed")
+        let store = makeStore()
+        store.apply(pack)
+        return store
     }
 
     private func makeStore() -> AppStore {
