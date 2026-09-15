@@ -193,7 +193,7 @@ final class RuleBasedResponseGenerator: TrainerResponseGenerator {
             age: context.userProfile.age,
             sexFemale: context.userProfile.biologicalSex == .female ? true
                 : context.userProfile.biologicalSex == .male ? false : nil,
-            stats: HealthKitManager.shared.todayStats
+            stats: await HealthKitManager.shared.todayStats
         )
         var content: String
         if snap.comparisonLine.isEmpty {
