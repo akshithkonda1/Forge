@@ -6,9 +6,9 @@ import Foundation
 /// is still Forge (`AriaDummyOrchestrator` / `LocalTestingOrchestrator` /
 /// `aria_engine`). The mouth is:
 ///
-/// * **Dummy / Device Hub / loopback** — session UX is real; spoken audio is a
-///   DEBUG-only local fill-in so testers can hear that a mouth ran. Not compact
-///   Samantha, not a second product voice, and **never** ElevenLabs.
+/// * **Dummy / Device Hub / loopback / TestFlight Dummy-offline** — session UX
+///   is real; spoken audio is a local fill-in so testers hear that a mouth ran.
+///   Not compact Samantha, not ElevenLabs, and never the live ConvAI speaker.
 /// * **Local testing** — same session UX, on-device brain, DEBUG fill-in.
 /// * **Live** — ElevenLabs ConvAI with the designed `voice_id` named ARIA.
 ///   Apple catalog TTS is never the production mouth. Live failure is silence.
@@ -91,13 +91,14 @@ enum AriaVoiceMouth: Sendable {
         #endif
     }
 
-    /// DEBUG dummy/local fill-in only. Release builds, and live, stay silent
-    /// unless ConvAI is actually streaming.
+    /// Dummy / local-testing mouth. Live never uses Apple TTS — ConvAI is the
+    /// speaker, and live failure stays silent. Release Dummy-offline must still
+    /// fill in: TestFlight testers have no ConvAI and the mouth has to run.
     static func allowsDummyFillIn(
         transport: AriaVoiceTransport,
         isDebugBuild: Bool = AriaVoiceMouth.isDebugBuild
     ) -> Bool {
-        guard isDebugBuild else { return false }
+        _ = isDebugBuild
         return transport.usesOnDeviceBrain
     }
 
