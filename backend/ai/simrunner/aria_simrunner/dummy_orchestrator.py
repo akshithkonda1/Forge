@@ -1745,7 +1745,7 @@ def _respond_via_lambda(
                 "grounding": brief.get("grounding"),
                 "prioritize": list(brief.get("prioritize") or []),
                 "event": brief.get("event_bucket"),
-                "learner_stages": ["observe", "rank", "adapt", "commit", "judge"],
+                "learner_stages": ["observe", "plan", "rank", "adapt", "commit", "judge"],
             }
         )
         row["orchestration"] = orch
@@ -1961,7 +1961,7 @@ def respond(
                 "grounding": brief.grounding,
                 "prioritize": list(brief.prioritize),
                 "event": brief.event_bucket,
-                "learner_stages": ["observe", "rank", "adapt", "commit", "judge"],
+                "learner_stages": ["observe", "plan", "rank", "adapt", "commit", "judge"],
             }
         )
         row["orchestration"] = orch
