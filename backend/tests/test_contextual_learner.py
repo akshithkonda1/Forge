@@ -57,6 +57,11 @@ class CalendarIngestTests(unittest.TestCase):
         cal = contextual_learner.parse_calendar(["calendar:kind:bachelor-party"])
         self.assertEqual(cal.kinds, ())
 
+    def test_surprise_visit_kind_is_kept(self):
+        cal = contextual_learner.parse_calendar(["calendar:kind:surprise"])
+        self.assertEqual(cal.kinds, ("surprise",))
+        self.assertFalse(cal.headlines)
+
 
 class PolicyTests(unittest.TestCase):
     def test_wedding_and_evening_busy_protects_on_turn_one(self):

@@ -34,6 +34,9 @@ python -m backend.simrunner --test-ready
 python -m backend.simrunner --test-ready --message "I slept badly — what should I train and eat?"
 python -m backend.simrunner --test-ready --gate
 
+# Score the dummy (the iOS Test-Ready path) on tier-1 personas. Fails on HOLD.
+SIMRUNNER_TODAY=2026-01-15 python -m backend.simrunner --test-ready --tier 1 --gate
+
 # Default: Tier 1 only (fast sanity check)
 python -m backend.simrunner
 
@@ -70,7 +73,8 @@ Tier 1.
 | `--seeds N` | run N seeds and report mean ± stdev + a stability flag |
 | `--baseline [DIR]` | write golden snapshots (default `baselines/`) |
 | `--compare [DIR]` | diff this run against a committed baseline → `comparison.json` |
-| `--gate` | fail (exit 2) on a composite regression or a new mission-critical |
+| `--gate` | fail (exit 2) on a composite regression, a new mission-critical, or a tier-1 HOLD |
+| `--test-ready --tier 1 --gate` | grade the dummy orchestra (Forge product path), not the imperfect model stub |
 | `--test-ready` | local dummy coach orchestra (SimRunner stub; no AWS / Bedrock / cloud) |
 | `--message` | with `--test-ready`, a prompt to orchestrate (repeatable) |
 | `--list` / `--list-bedrock` | print the 23 archetypes / the full Bedrock catalog |

@@ -88,21 +88,16 @@ _RESEARCH_PHRASES = (
     "is it possible to", "how long does it take to", "evidence for", "evidence on",
 )
 
-# Same three domains and the same three sources ``AriaWebResearch.swift``
-# already vetted for stability (long-standing government health references,
-# not pages likely to move or go JS-only) — reused rather than re-chosen, so
-# a spot-check done for one platform covers both. Keyed by the dummy
-# orchestrator's coach-agent kinds, not the Swift side's ``AriaLocalDomain``
-# names: workout↔training, lifestyle↔nutrition (fuel folded into lifestyle
-# on both platforms), progress↔progress.
-#
-# Could not be live-verified from this development environment either — its
-# outbound HTTPS goes through a proxy that returned "Tunnel connection
-# failed: 403 Forbidden" for medlineplus.gov, the same shape of finding the
-# Swift file's own comment documents (EGRESS_BLOCKED there). ``look_up``
-# caught it correctly and returned ``None``, exactly as designed — but this
-# table, like the Swift one, should be spot-checked from an unsandboxed
-# machine the first time this feature is exercised for real.
+_AGING_PHRASES = (
+    "training age", "biological age", "fitness age", "calendar age",
+    "vascular age", "inner age", "metabolic age", "phenotypic age",
+    "vo2 max", "vo2max", "cardiorespiratory", "cardio fitness",
+    "how old am i", "age comparison",
+)
+
+# Same sources ``AriaWebResearch.swift`` / ``AriaReferenceCatalog`` already
+# vetted. Aging is the one domain allowed to fetch in a live session on iOS;
+# here it is available to the dummy whenever the question is about training age.
 _SOURCES: dict[str, tuple[str, str]] = {
     "workout": (
         "MedlinePlus: Exercise and Physical Fitness",
@@ -116,6 +111,10 @@ _SOURCES: dict[str, tuple[str, str]] = {
         "CDC: Physical Activity Guidelines for Adults",
         "https://www.cdc.gov/physical-activity-basics/guidelines/adults.html",
     ),
+    "aging": (
+        "MedlinePlus: Exercise Stress Test / VO2",
+        "https://medlineplus.gov/ency/article/003394.htm",
+    ),
 }
 
 _TAG_BLOCK_RE = re.compile(r"(?is)<(script|style)[^>]*>.*?</\1>")
@@ -123,10 +122,19 @@ _TAG_RE = re.compile(r"<[^>]+>")
 _WHITESPACE_RE = re.compile(r"\s+")
 
 
+def suggests_aging(message: str) -> bool:
+    lower = message.lower()
+    return any(phrase in lower for phrase in _AGING_PHRASES)
+
+
 def is_research_worthy(message: str, kind: str) -> bool:
     """Same gating as the Swift side: a curated domain, and phrasing that
     actually asks for outside information rather than just mentioning the
-    topic."""
+    topic. Aging questions always fetch — training age is more accurate
+    with a live public cardio-fitness page.
+    """
+    if suggests_aging(message) or kind == "aging":
+        return True
     if kind not in _SOURCES:
         return False
     lower = message.lower()

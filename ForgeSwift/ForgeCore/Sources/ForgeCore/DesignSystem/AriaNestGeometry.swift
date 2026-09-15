@@ -5,8 +5,9 @@ import Foundation
 ///
 /// Lockstep with Lex `#288` head `b9a3d9355dda20b6dc73902d56b76301179379c2`
 /// (`shared/aria-mark.json` / `src/lib/aria-mark.ts`, `kind: soft-hex-field`).
-/// `main` JSON is still `ring-field` until that PR merges — do not invent a
-/// second nest. Home readiness data rings stay `AriaSigilGeometry`.
+/// `main` JSON is still `ring-field` until Lex `#288` merges — do not invent
+/// a second nest JSON. Tip `AriaSigilGeometry` is an older `#274` nest leftover
+/// with different numbers; living brand paint uses this type.
 public enum AriaNestGeometry: Sendable {
 
     public static let kind = "soft-hex-field"

@@ -322,8 +322,9 @@ enum AriaNestCanvas {
     }
 }
 
-/// Kinetic orange ring-field. Home / data language only — not the brand mark.
-/// Numbers stay lockstep with `shared/aria-mark.json` via `AriaSigilGeometry`.
+/// Preview-only ellipse field. Tip `AriaSigilGeometry` is the older `#274`
+/// nest leftover, not the 5-ellipse `shared/aria-mark.json` ring-field.
+/// Living brand is `AuroraOrbView` / `AriaNestGeometry`.
 struct AriaRingFieldMark: View {
     var state: AROrbState = .idle
     var amplitude: Float = 0.22
@@ -355,9 +356,8 @@ struct AriaRingFieldMark: View {
     }
 }
 
-/// Stroked ellipses only. Identity is orange — mood does not recolor the field.
-/// Hero (≥90pt) draws all five. Compact slots draw the Cove 3-ring
-/// (two ≥0.70 + one support). Not the nest logo. Not readiness chrome.
+/// Stroked ellipses using leftover tip nest numbers. Identity is orange —
+/// mood does not recolor the field. Not the living Lex nest. Not readiness chrome.
 private struct AriaRingFieldView: View {
     let time: TimeInterval
     let state: AROrbState

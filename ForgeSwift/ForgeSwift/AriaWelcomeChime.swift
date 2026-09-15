@@ -3,12 +3,12 @@ import CoreGraphics
 import os
 
 /// Welcome arrive-sound. Live phone ARIA is the B+E nest (`AuroraOrbView` /
-/// `AriaNestGeometry`). Ring-field stays Home/data language.
-/// Lex `#288` locks nest JSON (`soft-hex-field`); `main` is still `ring-field` until it merges. PNG unused.
+/// `AriaNestGeometry`, Lex `#288`). Tip `AriaSigilGeometry` is an older nest
+/// leftover. PNG unused.
 /// Pure gates so tests can lock quiet mode and Reduce Motion without audio.
 enum AriaWelcomeChime: Sendable {
     static let assetName = "AriaLogo"
-    /// 1.0 — show the whole mark. Lockstep with `shared/aria-mark.json` cropScale.
+    /// 1.0 — show the whole mark (ForgeSwift living nest; PNG unused).
     static let cropScale: CGFloat = 1.0
     static let heroMinimumSize: CGFloat = 90
 

@@ -27,6 +27,7 @@ class System(str, Enum):
     SLEEP = "sleep"
     BODY = "body"                  # composition
     NUTRITION = "nutrition"
+    AGING = "aging"                # chronological + vendor/estimated biological ages
 
 
 class Kind(str, Enum):
@@ -82,6 +83,16 @@ class MetricType(str, Enum):
     DIETARY_ENERGY = "dietary_energy"
     DIETARY_PROTEIN = "dietary_protein"
     WATER = "water"
+    # Aging — every vendor names this differently; capture all of them.
+    CHRONOLOGICAL_AGE = "chronological_age"
+    BIOLOGICAL_AGE = "biological_age"
+    FITNESS_AGE = "fitness_age"
+    PHENOTYPIC_AGE = "phenotypic_age"
+    VASCULAR_AGE = "vascular_age"
+    METABOLIC_AGE = "metabolic_age"
+    INNER_AGE = "inner_age"
+    CARDIO_AGE = "cardio_age"
+    HRV_AGE = "hrv_age"
 
 
 @dataclass(frozen=True)
@@ -124,6 +135,15 @@ METRIC_REGISTRY: dict[MetricType, MetricSpec] = {
     MetricType.DIETARY_ENERGY: MetricSpec("kcal", 0, 20000, System.NUTRITION, Kind.CUMULATIVE, Agg.SUM, None),
     MetricType.DIETARY_PROTEIN: MetricSpec("g", 0, 500, System.NUTRITION, Kind.CUMULATIVE, Agg.SUM, True),
     MetricType.WATER: MetricSpec("mL", 0, 20000, System.NUTRITION, Kind.CUMULATIVE, Agg.SUM, True),
+    MetricType.CHRONOLOGICAL_AGE: MetricSpec("years", 13, 120, System.AGING, Kind.INSTANTANEOUS, Agg.LATEST, None),
+    MetricType.BIOLOGICAL_AGE: MetricSpec("years", 13, 120, System.AGING, Kind.INSTANTANEOUS, Agg.LATEST, False),
+    MetricType.FITNESS_AGE: MetricSpec("years", 13, 120, System.AGING, Kind.INSTANTANEOUS, Agg.LATEST, False),
+    MetricType.PHENOTYPIC_AGE: MetricSpec("years", 13, 120, System.AGING, Kind.INSTANTANEOUS, Agg.LATEST, False),
+    MetricType.VASCULAR_AGE: MetricSpec("years", 13, 120, System.AGING, Kind.INSTANTANEOUS, Agg.LATEST, False),
+    MetricType.METABOLIC_AGE: MetricSpec("years", 13, 120, System.AGING, Kind.INSTANTANEOUS, Agg.LATEST, False),
+    MetricType.INNER_AGE: MetricSpec("years", 13, 120, System.AGING, Kind.INSTANTANEOUS, Agg.LATEST, False),
+    MetricType.CARDIO_AGE: MetricSpec("years", 13, 120, System.AGING, Kind.INSTANTANEOUS, Agg.LATEST, False),
+    MetricType.HRV_AGE: MetricSpec("years", 13, 120, System.AGING, Kind.INSTANTANEOUS, Agg.LATEST, False),
 }
 
 

@@ -69,6 +69,7 @@
 		1ARIA0962F9FF867004091AA /* AriaOperatingMode.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1ARIA0952F9FF867004091AA /* AriaOperatingMode.swift */; };
 		1ARIA0982F9FF867004091AA /* LocalTestingOrchestrator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1ARIA0972F9FF867004091AA /* LocalTestingOrchestrator.swift */; };
 		1ARIA1002F9FF867004091AA /* AriaWebResearch.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1ARIA0992F9FF867004091AA /* AriaWebResearch.swift */; };
+		1ARIAAGE3F9FF867004091AA /* AriaAgingNorms.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1ARIAAGE2F9FF867004091AA /* AriaAgingNorms.swift */; };
 		1ARIA0832F9FF867004091AA /* AriaFirstHealthBriefing.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1ARIA0822F9FF867004091AA /* AriaFirstHealthBriefing.swift */; };
 		1ARIA0912F9FF867004091AA /* AriaUseOnboarding.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1ARIA0902F9FF867004091AA /* AriaUseOnboarding.swift */; };
 		1ARIA1032F9FF867004091AA /* AriaMeetView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1ARIA1022F9FF867004091AA /* AriaMeetView.swift */; };
@@ -475,6 +476,7 @@
 		1ARIA0952F9FF867004091AA /* AriaOperatingMode.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AriaOperatingMode.swift; sourceTree = "<group>"; };
 		1ARIA0972F9FF867004091AA /* LocalTestingOrchestrator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocalTestingOrchestrator.swift; sourceTree = "<group>"; };
 		1ARIA0992F9FF867004091AA /* AriaWebResearch.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AriaWebResearch.swift; sourceTree = "<group>"; };
+		1ARIAAGE2F9FF867004091AA /* AriaAgingNorms.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AriaAgingNorms.swift; sourceTree = "<group>"; };
 		1ARIA0822F9FF867004091AA /* AriaFirstHealthBriefing.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AriaFirstHealthBriefing.swift; sourceTree = "<group>"; };
 		1ARIA0902F9FF867004091AA /* AriaUseOnboarding.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AriaUseOnboarding.swift; sourceTree = "<group>"; };
 		1ARIA1022F9FF867004091AA /* AriaMeetView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AriaMeetView.swift; sourceTree = "<group>"; };
@@ -869,6 +871,7 @@
 				1ARIA0952F9FF867004091AA /* AriaOperatingMode.swift */,
 				1ARIA0972F9FF867004091AA /* LocalTestingOrchestrator.swift */,
 				1ARIA0992F9FF867004091AA /* AriaWebResearch.swift */,
+				1ARIAAGE2F9FF867004091AA /* AriaAgingNorms.swift */,
 				1ARIA0822F9FF867004091AA /* AriaFirstHealthBriefing.swift */,
 				1ARIA0902F9FF867004091AA /* AriaUseOnboarding.swift */,
 				1AUTH0082F9FF867004091AA /* ForgeAuthClient.swift */,
@@ -1529,6 +1532,7 @@
 				1ARIA0962F9FF867004091AA /* AriaOperatingMode.swift in Sources */,
 				1ARIA0982F9FF867004091AA /* LocalTestingOrchestrator.swift in Sources */,
 				1ARIA1002F9FF867004091AA /* AriaWebResearch.swift in Sources */,
+				1ARIAAGE3F9FF867004091AA /* AriaAgingNorms.swift in Sources */,
 				1ARIA0832F9FF867004091AA /* AriaFirstHealthBriefing.swift in Sources */,
 				1ARIA0912F9FF867004091AA /* AriaUseOnboarding.swift in Sources */,
 				1ARIA1032F9FF867004091AA /* AriaMeetView.swift in Sources */,

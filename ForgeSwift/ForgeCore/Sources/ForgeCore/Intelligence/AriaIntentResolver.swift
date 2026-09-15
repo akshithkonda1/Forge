@@ -261,10 +261,111 @@ public enum AriaIntentResolver {
             langAdvice = 1.0
         }
 
+        var agingWear: Double = 0.0
+        var agingSignals = 0
+        var agingBody = 0
+        var agingFastCues = 0
+        var agingSlowCues = 0
+        if let readiness = input.readiness {
+            agingSignals += 1
+            agingBody += 1
+            if readiness < 50 {
+                agingWear += 0.30
+            } else if readiness >= 75 {
+                agingWear -= 0.22
+            }
+        }
+        if let minutes = input.sleepMinutesLastNight {
+            agingSignals += 1
+            agingBody += 1
+            if minutes < 390 {
+                agingWear += 0.25
+            } else if minutes >= 450 {
+                agingWear -= 0.12
+            }
+        }
+        if lower.contains("getting older") || lower.contains("don't recover")
+            || lower.contains("used to recover") || lower.contains("aging faster") {
+            agingWear += 0.18
+            agingSignals += 1
+            agingFastCues += 1
+        }
+        if lower.contains("aging slower") || lower.contains("feeling younger")
+            || lower.contains("recovering well") {
+            agingWear -= 0.18
+            agingSignals += 1
+            agingSlowCues += 1
+        }
+        var workKind = false
+        var surpriseKind = false
+        var socialN = 0
+        for tag in input.calendarTags {
+            if tag.hasPrefix("calendar:kind:") {
+                let kind = String(tag.dropFirst("calendar:kind:".count))
+                if kind == "work" { workKind = true }
+                if kind == "surprise" { surpriseKind = true }
+                if kind == "wedding" || kind == "social" || kind == "dinner"
+                    || kind == "family" || kind == "game" || kind == "surprise" {
+                    socialN += 1
+                }
+            }
+        }
+        if socialN > 0 {
+            agingWear += 0.10
+            agingSignals += 1
+        }
+        if workKind {
+            agingWear += 0.16
+            agingSignals += 1
+        }
+        if surpriseKind {
+            agingWear += 0.12
+            agingSignals += 1
+        }
+        if eveningBusy >= 0.5 && !workKind {
+            agingWear += 0.10
+            agingSignals += 1
+        }
+        var stressSpoken = false
+        if lower.contains("stressed") || lower.contains("overwhelmed")
+            || lower.contains("burned out") || lower.contains("too much on my plate") {
+            agingWear += 0.20
+            agingSignals += 1
+            stressSpoken = true
+        }
+        if lower.contains("surprise visit") || lower.contains("dropped by")
+            || lower.contains("showed up unannounced") {
+            agingWear += 0.22
+            agingSignals += 1
+            surpriseKind = true
+        }
+        var agingFaster: Double = 0.0
+        var agingSlower: Double = 0.0
+        var agingPace = "unknown"
+        if agingSignals > 0 {
+            if agingBody == 0 && agingFastCues > agingSlowCues {
+                agingPace = "faster"
+                agingFaster = 1.0
+            } else if agingBody == 0 && agingSlowCues > agingFastCues {
+                agingPace = "slower"
+                agingSlower = 1.0
+            } else if agingWear >= 0.40 {
+                agingPace = "faster"
+                agingFaster = 1.0
+            } else if agingWear <= -0.15 {
+                agingPace = "slower"
+                agingSlower = 1.0
+            } else {
+                agingPace = "on_pace"
+            }
+        }
+
         let logits: [String: Double] = [
-            "protect": 0.2 + 1.6 * eveningBusy + 1.8 * headline + 1.7 * lowRecovery + 1.4 * shortSleep,
+            "protect": 0.2 + 1.6 * eveningBusy + 1.8 * headline + 1.7 * lowRecovery
+                + 1.4 * shortSleep + 1.3 * agingFaster,
             "proceed": 0.5 + 1.5 * highRecovery + 1.4 * langTrain + 0.6 * langAdvice
-                - 1.1 * eveningBusy - 1.2 * headline - 1.3 * lowRecovery - 0.9 * shortSleep,
+                - 1.1 * eveningBusy - 1.2 * headline - 1.3 * lowRecovery - 0.9 * shortSleep
+                - 0.9 * agingFaster + 0.6 * agingSlower,
             "fuel": 0.15 + 1.8 * langFood + 0.4 * langTrain,
             "clarify": 0.1 + 2.2 * missing - 0.4 * langAdvice,
         ]
@@ -377,18 +478,80 @@ public enum AriaIntentResolver {
             specialists = orderedSpecs
         }
 
+        var planChoice = "clarify"
+        if headline >= 0.5 || eveningBusy >= 0.5 {
+            planChoice = "protect_load"
+        } else if surpriseKind {
+            planChoice = "protect_load"
+        } else if agingPace == "faster" {
+            if shortSleep >= 0.5 {
+                planChoice = "sleep_first"
+            } else {
+                planChoice = "protect_load"
+            }
+        } else if agingPace == "slower" {
+            planChoice = "train_through"
+        } else if langFood >= 0.5 {
+            planChoice = "fuel"
+        } else if missing >= 0.55 {
+            planChoice = "clarify"
+        } else if lead == "proceed" {
+            planChoice = "train_through"
+        } else if lead == "protect" {
+            planChoice = "protect_load"
+        }
+        var nextAdvice = move
+        if planChoice == "sleep_first" {
+            nextAdvice = "Sleep is the lever. Keep tonight protected before adding training load."
+        } else if planChoice == "protect_load" && (headline >= 0.5 || eveningBusy >= 0.5) {
+            nextAdvice = "Fit today's work around the life event and busy windows. Protect load; do not name titles."
+        } else if planChoice == "protect_load" && (stressSpoken || surpriseKind) {
+            nextAdvice = "Stress and unplanned load are named reasons to protect today — not a biological-age number."
+        }
+        var agingReason = "no body signal yet — not guessing an aging pace"
+        if agingPace == "faster" {
+            agingReason = "wear is outrunning repair — name sleep, stress, or the day they have, never a year count"
+        } else if agingPace == "slower" {
+            agingReason = "repair is holding — quality work is on the table, not a younger age number"
+        } else if agingPace == "on_pace" {
+            agingReason = "wear and repair are even — keep the day honest, don't invent years"
+        }
+        var stressState = "unknown"
+        if stressSpoken || agingWear >= 0.55 {
+            stressState = "high"
+        } else if agingSignals > 0 {
+            stressState = "moderate"
+        }
+        var askNext = ""
+        if agingPace == "unknown" && agingBody == 0 {
+            askNext = "last night's sleep or how stacked today is — pick one"
+        }
+        var betterLifeMove = nextAdvice
+        if agingPace == "faster" {
+            betterLifeMove = "Protect tonight. Sleep and stress are the levers — not a younger number."
+        } else if headline >= 0.5 {
+            betterLifeMove = "Protect load around the gathering. Do not name titles, people, or places."
+        }
+
         return AriaAdaptation(
             stance: lead,
             specialists: specialists,
             teachUser: teach,
             keepLight: keepLight,
             howYouWork: how,
-            oneNextMove: move,
+            oneNextMove: nextAdvice,
             bucket: bucket,
             grounding: grounding,
             prioritize: rankedPriority.order,
             priorityReason: rankedPriority.reason,
-            eventBucket: rankedPriority.event
+            eventBucket: rankedPriority.event,
+            agingPace: agingPace,
+            planChoice: planChoice,
+            nextAdvice: nextAdvice,
+            agingReason: agingReason,
+            stressState: stressState,
+            askNext: askNext,
+            betterLifeMove: betterLifeMove
         )
     }
 
@@ -483,6 +646,39 @@ public enum AriaIntentResolver {
             scores["training", default: 0] -= 0.7
         }
 
+        let lowerAging = input.text.lowercased()
+        var agingWear: Double = 0.0
+        var agingN = 0
+        if let readiness = input.readiness {
+            agingN += 1
+            if readiness < 50 { agingWear += 0.30 }
+            else if readiness >= 75 { agingWear -= 0.22 }
+        }
+        if let minutes = input.sleepMinutesLastNight {
+            agingN += 1
+            if minutes < 390 { agingWear += 0.25 }
+            else if minutes >= 450 { agingWear -= 0.12 }
+        }
+        if lowerAging.contains("getting older") || lowerAging.contains("don't recover")
+            || lowerAging.contains("used to recover") || lowerAging.contains("aging faster") {
+            agingWear += 0.18
+            agingN += 1
+        }
+        if lowerAging.contains("aging slower") || lowerAging.contains("feeling younger")
+            || lowerAging.contains("recovering well") {
+            agingWear -= 0.18
+            agingN += 1
+        }
+        if headlines.isEmpty {
+            if agingN > 0 && agingWear >= 0.40 {
+                scores["sleep", default: 0] += 1.05
+                scores["readiness", default: 0] += 0.85
+                scores["training", default: 0] -= 0.35
+            } else if agingN > 0 && agingWear <= -0.15 {
+                scores["training", default: 0] += 0.45
+            }
+        }
+
         var ranked: [(String, Double)] = []
         for domain in domains {
             ranked.append((domain, scores[domain] ?? 0))
@@ -529,7 +725,7 @@ public enum AriaIntentResolver {
         var headlines: [String] = []
         let allowed: Set<String> = [
             "wedding", "game", "flight", "travel", "work", "dinner",
-            "family", "appointment", "social",
+            "family", "appointment", "social", "surprise",
         ]
         let headlineKinds: Set<String> = ["wedding", "game", "flight", "travel"]
         for raw in tags {
@@ -589,7 +785,7 @@ public enum AriaIntentResolver {
         .body: ["pain", "hurt", "sore", "injury", "ache", "strain", "tweak"],
         .cycle: ["period", "menstrual", "luteal", "follicular", "ovulat", "pms", "cramp"],
         .progress: ["progress", "gains", "stronger", "streak", "improving", "plateau"],
-        .lifestyle: ["work", "travel", "busy", "stress", "schedule", "time", "qol", "wellbeing"],
+        .lifestyle: ["work", "travel", "busy", "stress", "schedule", "time", "qol", "wellbeing", "surprise", "friends", "gathering"],
     ]
 }
 
@@ -607,6 +803,13 @@ public struct AriaAdaptation: Sendable, Equatable {
     public var eventBucket: String
     public var lastVerdict: String
     public var calibration: Double
+    public var agingPace: String
+    public var planChoice: String
+    public var nextAdvice: String
+    public var agingReason: String
+    public var stressState: String
+    public var askNext: String
+    public var betterLifeMove: String
 
     public init(
         stance: String,
@@ -621,7 +824,14 @@ public struct AriaAdaptation: Sendable, Equatable {
         priorityReason: String = "",
         eventBucket: String = "clear",
         lastVerdict: String = "",
-        calibration: Double = 0.5
+        calibration: Double = 0.5,
+        agingPace: String = "unknown",
+        planChoice: String = "clarify",
+        nextAdvice: String = "",
+        agingReason: String = "",
+        stressState: String = "unknown",
+        askNext: String = "",
+        betterLifeMove: String = ""
     ) {
         self.stance = stance
         self.specialists = specialists
@@ -636,5 +846,12 @@ public struct AriaAdaptation: Sendable, Equatable {
         self.eventBucket = eventBucket
         self.lastVerdict = lastVerdict
         self.calibration = calibration
+        self.agingPace = agingPace
+        self.planChoice = planChoice
+        self.nextAdvice = nextAdvice
+        self.agingReason = agingReason
+        self.stressState = stressState
+        self.askNext = askNext
+        self.betterLifeMove = betterLifeMove
     }
 }
