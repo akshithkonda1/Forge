@@ -136,6 +136,21 @@ final class AriaIntentResolverTests: XCTestCase {
         XCTAssertFalse(adapted.nextAdvice.contains("Ritz"))
     }
 
+    func testWeddingPlusWearStillLeadsLifestyle() {
+        let adapted = AriaIntentResolver.adapt(
+            AriaIntentInput(
+                text: "what should I train today?",
+                readiness: 40,
+                sleepMinutesLastNight: 5 * 60,
+                calendarTags: ["calendar:kind:wedding", "calendar:evening:busy"]
+            )
+        )
+        XCTAssertEqual(adapted.prioritize.first, "lifestyle")
+        XCTAssertEqual(adapted.eventBucket, "wedding")
+        XCTAssertEqual(adapted.planChoice, "protect_load")
+        XCTAssertEqual(adapted.agingPace, "faster")
+    }
+
     func testDepletedBodyAgingFasterSleepsFirst() {
         let adapted = AriaIntentResolver.adapt(
             AriaIntentInput(

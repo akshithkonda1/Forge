@@ -594,12 +594,14 @@ public enum AriaIntentResolver {
             agingWear -= 0.18
             agingN += 1
         }
-        if agingN > 0 && agingWear >= 0.40 {
-            scores["sleep", default: 0] += 1.05
-            scores["readiness", default: 0] += 0.85
-            scores["training", default: 0] -= 0.35
-        } else if agingN > 0 && agingWear <= -0.15 {
-            scores["training", default: 0] += 0.45
+        if headlines.isEmpty {
+            if agingN > 0 && agingWear >= 0.40 {
+                scores["sleep", default: 0] += 1.05
+                scores["readiness", default: 0] += 0.85
+                scores["training", default: 0] -= 0.35
+            } else if agingN > 0 && agingWear <= -0.15 {
+                scores["training", default: 0] += 0.45
+            }
         }
 
         var ranked: [(String, Double)] = []

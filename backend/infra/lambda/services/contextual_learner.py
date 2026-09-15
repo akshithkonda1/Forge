@@ -1165,13 +1165,18 @@ def rank_priorities(
     if feat.get("low_recovery", 0.0) >= 0.5:
         scores["readiness"] = scores.get("readiness", 0.0) + 1.4 * body_w
         scores["training"] = scores.get("training", 0.0) - 0.7 * body_w
+    # Wear/repair informs the supervision plan. A headline still leads the
+    # ranking — otherwise a wedding plus a depleted night talks about sleep
+    # and never names the day they actually have.
+    has_headline = feat.get("headline", 0.0) >= 0.5 or bool(cal.headlines)
     aging_w = _source_w(persona, "aging")
-    if feat.get("aging_faster", 0.0) >= 0.5:
-        scores["sleep"] = scores.get("sleep", 0.0) + 1.05 * aging_w
-        scores["readiness"] = scores.get("readiness", 0.0) + 0.85 * aging_w
-        scores["training"] = scores.get("training", 0.0) - 0.35 * aging_w
-    elif feat.get("aging_slower", 0.0) >= 0.5:
-        scores["training"] = scores.get("training", 0.0) + 0.45 * aging_w
+    if not has_headline:
+        if feat.get("aging_faster", 0.0) >= 0.5:
+            scores["sleep"] = scores.get("sleep", 0.0) + 1.05 * aging_w
+            scores["readiness"] = scores.get("readiness", 0.0) + 0.85 * aging_w
+            scores["training"] = scores.get("training", 0.0) - 0.35 * aging_w
+        elif feat.get("aging_slower", 0.0) >= 0.5:
+            scores["training"] = scores.get("training", 0.0) + 0.45 * aging_w
 
     ranking = sorted(DOMAINS, key=lambda d: (-scores.get(d, 0.0), d))
     if event_key in HEADLINE_KINDS:

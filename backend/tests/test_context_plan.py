@@ -83,6 +83,16 @@ class SupervisionPlanTests(unittest.TestCase):
         self.assertNotIn("Ritz", blob)
         self.assertNotIn("Maya", blob)
 
+    def test_wedding_plus_wear_still_leads_lifestyle(self):
+        ctx = _depleted(
+            tags=["calendar:kind:wedding", "calendar:evening:busy"],
+        )
+        brief = contextual_learner.adapt("what should I train today?", ctx)
+        self.assertEqual(brief.prioritize[0], "lifestyle")
+        self.assertEqual(brief.event_bucket, "wedding")
+        self.assertEqual(brief.plan_choice, "protect_load")
+        self.assertEqual(brief.aging_pace, "faster")
+
     def test_adapt_exposes_plan_as_context(self):
         brief = contextual_learner.adapt(
             "should I train today?", _depleted()
