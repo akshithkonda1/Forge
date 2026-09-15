@@ -98,9 +98,9 @@ final class ForgeCloudSync {
                 source: vendor.source
             ))
         }
-        let metrics = CloudHealthMetricType.metrics(from: samples)
-        AgingVendorStore.ingest(metrics: metrics)
-        return metrics
+        let cloudMetrics = CloudHealthMetricType.metrics(from: samples)
+        AgingVendorStore.ingest(metrics: cloudMetrics)
+        return cloudMetrics
     }
 
     // MARK: - Transport
