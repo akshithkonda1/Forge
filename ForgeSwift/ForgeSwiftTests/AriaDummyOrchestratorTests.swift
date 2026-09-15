@@ -15,7 +15,7 @@ final class AriaDummyOrchestratorTests: XCTestCase {
         XCTAssertFalse(AriaDummyTurn.writesCalendarEvents)
     }
 
-    func testSwarmReadsWearablesWithoutAModel() async {
+    func testSwarmReadsWearablesWithoutAModel() async throws {
         let ledgerKey = AriaKnowledgeLedgerStore.defaultsKey
         let previousLedger = UserDefaults.standard.data(forKey: ledgerKey)
         defer {
