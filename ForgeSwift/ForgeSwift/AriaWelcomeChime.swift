@@ -2,8 +2,9 @@ import AVFoundation
 import CoreGraphics
 import os
 
-/// Welcome arrive-sound. Live phone ARIA is the 3 rounded-hex Watch nest
-/// (`AuroraOrbView` / soft-hex-field in `AriaSigil`). PNG unused.
+/// Welcome arrive-sound. Live phone ARIA is the B+E nest (`AuroraOrbView` /
+/// `AriaNestGeometry`, Lex `#288`). Tip `AriaSigilGeometry` is an older nest
+/// leftover. PNG unused.
 /// Pure gates so tests can lock quiet mode and Reduce Motion without audio.
 enum AriaWelcomeChime: Sendable {
     static let assetName = "AriaLogo"

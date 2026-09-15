@@ -9,6 +9,9 @@ import {
   ARIA_MARK_CONTRAST_FLOOR,
   ARIA_ORB_CORE,
   LEGACY_EMBER,
+  ARIA_MARK_PAINT_HZ,
+  ariaMarkPaintDue,
+  ariaMarkShouldGlow,
   ariaMarkShouldSpin,
   ariaMarkSizeTier,
   clampGaze,
@@ -99,8 +102,12 @@ assert(!("idleSpinHz" in ARIA_MARK) && !("speakingSpinHz" in contract), "ring-fi
 assert(contrastRingIndices().join(",") === "0,1,2", "all three nest rings meet the contrast floor");
 assert(compactRingIndices().join(",") === "0,1,2", "compact nest is the full 3-ring set");
 assert(visibleRingIndices(ARIA_MARK.compactRecommend).join(",") === "0,1,2", "compact recommend draws 3 rings");
+assert(visibleRingIndices(24).join(",") === "0,1,2", "nav compact draws 3 rings");
 assert(visibleRingIndices(32).join(",") === "0,1,2", "compact ceiling draws 3 rings");
-assert(visibleRingIndices(48).join(",") === "0,1,2", "mid draws the 3-ring nest");
+assert(visibleRingIndices(36).join(",") === "0,1,2", "mid 36 draws the 3-ring nest");
+assert(visibleRingIndices(48).join(",") === "0,1,2", "mid 48 draws the 3-ring nest");
+assert(visibleRingIndices(56).join(",") === "0,1,2", "mid 56 draws the 3-ring nest");
+assert(visibleRingIndices(72).join(",") === "0,1,2", "mid 72 draws the 3-ring nest");
 assert(visibleRingIndices(ARIA_MARK.heroMinimumSize).join(",") === "0,1,2", "hero draws the 3-ring nest");
 assert(ringStrokeWidth(28) === ARIA_MARK.strokeWidthCompact, "compact stroke is 1.5");
 assert(ringStrokeWidth(90) === ARIA_MARK.strokeWidthHero, "hero stroke is 1.75");
@@ -110,7 +117,14 @@ assert(ariaMarkSizeTier(24) === "compact" && ariaMarkSizeTier(ARIA_MARK_COMPACT_
 assert(ariaMarkSizeTier(36) === "mid" && ariaMarkSizeTier(89) === "mid", "chat chrome is mid");
 assert(ariaMarkSizeTier(90) === "hero", "hero floor is 90");
 assert(!ariaMarkShouldSpin(24, false), "compact marks stay still-pose");
+assert(ariaMarkShouldSpin(36, false) && ariaMarkShouldSpin(56, false), "mid chat sizes orbit");
 assert(ariaMarkShouldSpin(96, false) && !ariaMarkShouldSpin(96, true), "hero orbits only when motion is allowed");
+assert(!ariaMarkShouldGlow(32) && !ariaMarkShouldGlow(ARIA_MARK.compactRecommend), "compact skips decorative glow");
+assert(ariaMarkShouldGlow(36) && ariaMarkShouldGlow(90), "mid and hero keep soft glow");
+assert(ARIA_MARK_PAINT_HZ === ARIA_MARK.paintHz && ARIA_MARK.paintHz === 12, "live paint cadence is contract paintHz 12");
+assert(ariaMarkPaintDue(0, -1), "first frame always paints");
+assert(!ariaMarkPaintDue(80, 0), "sub-12 Hz frames are skipped");
+assert(ariaMarkPaintDue(1000 / ARIA_MARK_PAINT_HZ, 0), "12 Hz boundary paints");
 assert(ARIA_MARK_CONTRAST_FLOOR === 0.7, "cove contrast floor is 0.70");
 
 const stillRingA = ringEllipse(0, 1, false, true);

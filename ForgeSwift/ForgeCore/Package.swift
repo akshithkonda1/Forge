@@ -29,6 +29,7 @@ let package = Package(
             // Explicit sources only — never pick up Finder " 2.swift" duplicates.
             path: "Sources/ForgeCore",
             sources: [
+                "DesignSystem/AriaNestGeometry.swift",
                 "DesignSystem/ForgeDS.swift",
                 "DesignSystem/ForgePalette.swift",
                 "HealthKit/HealthKitQueryHelpers.swift",
@@ -99,6 +100,7 @@ let package = Package(
             path: "Tests/ForgeCoreTests",
             // Explicit sources only — never pick up Finder " 2.swift" duplicates.
             sources: [
+                "AriaNestGeometryTests.swift",
                 "CircadianRhythmTests.swift",
                 "CycleVaultTests.swift",
                 "CompanionConfigTests.swift",

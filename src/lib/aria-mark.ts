@@ -94,6 +94,20 @@ export function ariaMarkShouldSpin(size: number, reduceMotion: boolean): boolean
   return !reduceMotion && ariaMarkSizeTier(size) !== "compact";
 }
 
+/** Soft radial glow is hero/mid atmosphere — skip at the compact 3-ring ceiling. */
+export function ariaMarkShouldGlow(size: number): boolean {
+  return ariaMarkSizeTier(size) !== "compact";
+}
+
+/** Paint cadence for live nest. Lockstep with `ARIA_MARK.paintHz`. */
+export const ARIA_MARK_PAINT_HZ = ARIA_MARK.paintHz;
+
+/** First frame always paints (`lastPaintMs < 0`). Later frames cap near 12 Hz. */
+export function ariaMarkPaintDue(nowMs: number, lastPaintMs: number): boolean {
+  if (lastPaintMs < 0) return true;
+  return nowMs - lastPaintMs >= 1000 / ARIA_MARK_PAINT_HZ;
+}
+
 export function contrastRingIndices(
   opacities: readonly number[] = ARIA_MARK.opacity
 ): number[] {
@@ -119,7 +133,7 @@ export function compactRingIndices(
   return [...contrast, ...(support >= 0 ? [support] : [])].sort((a, b) => a - b);
 }
 
-/** One 3-ring nest at every size. Compact no longer subsets a 5-ellipse field. */
+/** One 3-ring nest at every size. Compact 5-ellipse subset is retired. */
 export function visibleRingIndices(_size?: number): number[] {
   return Array.from({ length: ARIA_MARK.ringCount }, (_, index) => index);
 }
