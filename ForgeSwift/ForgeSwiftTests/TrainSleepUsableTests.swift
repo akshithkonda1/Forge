@@ -1,4 +1,5 @@
 import XCTest
+import ForgeCore
 @testable import ForgeSwift
 
 /// Locks Train auto-scale, extra-set, and nav copy so the tab stays a session
