@@ -106,4 +106,16 @@ final class TestReadyLaunchPolicyTests: XCTestCase {
         )
         defaults.removePersistentDomain(forName: suite)
     }
+
+    func testInterviewCompletionCanBeClearedForYouRevisit() {
+        let suite = "forge.qol.interview.\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suite)!
+        defaults.removePersistentDomain(forName: suite)
+        XCTAssertFalse(QualityOfLifeLivingStore.hasCompletedInterview(defaults: defaults))
+        QualityOfLifeLivingStore.markInterviewCompleted(defaults: defaults)
+        XCTAssertTrue(QualityOfLifeLivingStore.hasCompletedInterview(defaults: defaults))
+        QualityOfLifeLivingStore.clearInterviewCompleted(defaults: defaults)
+        XCTAssertFalse(QualityOfLifeLivingStore.hasCompletedInterview(defaults: defaults))
+        defaults.removePersistentDomain(forName: suite)
+    }
 }

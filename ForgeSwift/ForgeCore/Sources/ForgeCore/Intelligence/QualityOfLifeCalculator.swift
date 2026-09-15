@@ -280,6 +280,11 @@ public enum QualityOfLifeLivingStore: Sendable {
     public static func markInterviewCompleted(defaults: UserDefaults = .standard) {
         defaults.set(true, forKey: interviewCompletedKey)
     }
+
+    /// You → What I Know can reopen the Lifestyle who-you-are interview.
+    public static func clearInterviewCompleted(defaults: UserDefaults = .standard) {
+        defaults.set(false, forKey: interviewCompletedKey)
+    }
 }
 
 public enum QualityOfLifeBand: String, Codable, CaseIterable, Sendable {
