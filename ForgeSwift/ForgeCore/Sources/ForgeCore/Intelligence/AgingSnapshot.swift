@@ -129,22 +129,22 @@ public struct AgingSnapshot: Sendable, Equatable {
         var components: [AgingComponent] = []
 
         if let chrono, let vo2 = positive(vo2Max) {
-            let years = fitnessAge(fromVO2: vo2, chronologicalAge: chrono, sexFemale: sexFemale)
+            let years = estimatedFitnessAge(fromVO2: vo2, chronologicalAge: chrono, sexFemale: sexFemale)
             estimated["fitness_age_est"] = (years, AgingNorms.fitnessConfidence, AgingNorms.webConfirmed ? "vo2+web" : "vo2")
             components.append(AgingComponent(name: "Cardio", years: years, state: deltaState(years - chrono), source: "VO₂"))
         }
         if let chrono, let rhr = positive(restingHR) {
-            let years = vascularAge(fromRHR: rhr, chronologicalAge: chrono)
+            let years = estimatedVascularAge(fromRHR: rhr, chronologicalAge: chrono)
             estimated["vascular_age_est"] = (years, 0.45, "rhr")
             components.append(AgingComponent(name: "Resting HR", years: years, state: deltaState(years - chrono), source: "RHR"))
         }
         if let chrono, let hrvMs = positive(hrv) {
-            let years = autonomicAge(fromHRV: hrvMs, chronologicalAge: chrono)
+            let years = estimatedAutonomicAge(fromHRV: hrvMs, chronologicalAge: chrono)
             estimated["autonomic_age_est"] = (years, 0.5, "hrv")
             components.append(AgingComponent(name: "Recovery", years: years, state: deltaState(years - chrono), source: "HRV"))
         }
         if let chrono, let hours = positive(sleepHours) {
-            let years = sleepAge(fromHours: hours, chronologicalAge: chrono)
+            let years = estimatedSleepAge(fromHours: hours, chronologicalAge: chrono)
             estimated["sleep_age_est"] = (years, 0.35, "sleep")
             components.append(AgingComponent(name: "Sleep", years: years, state: deltaState(years - chrono), source: "Sleep"))
         }
@@ -205,8 +205,8 @@ public struct AgingSnapshot: Sendable, Equatable {
             state: state,
             sources: sources,
             components: components,
-            comparisonLine: comparisonLine(chrono: roundedChrono, bio: roundedBio, delta: roundedDelta, state: state, confidence: confidence),
-            trainingHint: trainingHint(state: state, delta: roundedDelta)
+            comparisonLine: lifestyleComparisonLine(chrono: roundedChrono, bio: roundedBio, delta: roundedDelta, state: state, confidence: confidence),
+            trainingHint: lifestyleTrainingHint(state: state, delta: roundedDelta)
         )
     }
 
@@ -273,22 +273,22 @@ public enum AgingNorms: Sendable {
     }
 }
 
-private func fitnessAge(fromVO2 vo2: Double, chronologicalAge: Double, sexFemale: Bool?) -> Double {
+private func estimatedFitnessAge(fromVO2 vo2: Double, chronologicalAge: Double, sexFemale: Bool?) -> Double {
     let expected = AgingSnapshot.expectedVO2(age: chronologicalAge, sexFemale: sexFemale)
     return clampAge(chronologicalAge + (expected - vo2) * 0.7, chronological: chronologicalAge)
 }
 
-private func vascularAge(fromRHR rhr: Double, chronologicalAge: Double) -> Double {
+private func estimatedVascularAge(fromRHR rhr: Double, chronologicalAge: Double) -> Double {
     let expected = 60.0 + 0.1 * max(0, chronologicalAge - 25)
     return clampAge(chronologicalAge + (rhr - expected) * 0.5, chronological: chronologicalAge)
 }
 
-private func autonomicAge(fromHRV hrv: Double, chronologicalAge: Double) -> Double {
+private func estimatedAutonomicAge(fromHRV hrv: Double, chronologicalAge: Double) -> Double {
     let expected = max(20.0, 55.0 - 0.4 * max(0, chronologicalAge - 25))
     return clampAge(chronologicalAge + (expected - hrv) * 0.2, chronological: chronologicalAge)
 }
 
-private func sleepAge(fromHours hours: Double, chronologicalAge: Double) -> Double {
+private func estimatedSleepAge(fromHours hours: Double, chronologicalAge: Double) -> Double {
     let need = 8.0 - 0.015 * max(0, chronologicalAge - 25)
     return clampAge(chronologicalAge + (need - hours) * 2.0, chronological: chronologicalAge)
 }
@@ -319,7 +319,7 @@ private func zipOptional<A, B>(_ a: A?, _ b: B?) -> (A, B)? {
     return (a, b)
 }
 
-private func comparisonLine(chrono: Double?, bio: Double?, delta: Double?, state: AgingDeltaState, confidence: Double) -> String {
+private func lifestyleComparisonLine(chrono: Double?, bio: Double?, delta: Double?, state: AgingDeltaState, confidence: Double) -> String {
     guard let chrono else { return "" }
     guard let bio, let delta, confidence > 0.25 else {
         return "\(Int(chrono.rounded())) · calendar age"
@@ -332,7 +332,7 @@ private func comparisonLine(chrono: Double?, bio: Double?, delta: Double?, state
     return "\(Int(bio.rounded())) vs \(Int(chrono.rounded())) · \(years)y \(word)"
 }
 
-private func trainingHint(state: AgingDeltaState, delta: Double?) -> String {
+private func lifestyleTrainingHint(state: AgingDeltaState, delta: Double?) -> String {
     switch state {
     case .younger:
         return "Training age is younger than the calendar. Protect the sleep and aerobic work that got you here."
