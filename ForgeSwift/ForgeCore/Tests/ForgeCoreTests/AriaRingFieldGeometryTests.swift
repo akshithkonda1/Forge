@@ -1,7 +1,7 @@
 import XCTest
 @testable import ForgeCore
 
-/// Locks the kinetic orange ring-field shared by phone and Watch.
+/// Locks Home / data ring-field numbers. Brand mark is `AriaNestGeometry`.
 final class AriaRingFieldGeometryTests: XCTestCase {
 
     func testMatchesLexRingFieldContract() {

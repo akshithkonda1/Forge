@@ -1,9 +1,10 @@
 import CoreGraphics
 import Foundation
 
-/// Kinetic orange ring-field numbers + ellipse pose.
-/// Copied from Lex `#270` / `shared/aria-mark.json` and the phone
-/// `AriaSigilGeometry` contract. Phone wraps this type; Watch draws it.
+/// Kinetic orange ring-field numbers + ellipse pose — Home / data language.
+/// Not the brand mark (`AriaNestGeometry` / `AriaNestMarkWatch`).
+/// Copied from Lex `#270` / `shared/aria-mark.json`. Watch Home draws this;
+/// phone `AriaSigilGeometry` is a leftover `#274` nest, not a wrapper.
 /// No `AROrbState`, no phone UI, no PNG.
 public enum AriaRingFieldGeometry: Sendable {
 

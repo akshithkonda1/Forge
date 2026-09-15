@@ -1,5 +1,4 @@
 import XCTest
-import ForgeCore
 @testable import ForgeSwift
 import ForgeCore
 

@@ -3,25 +3,25 @@ import ForgeCore
 
 // MARK: - AuroraOrbWatch
 //
-// Wrist ARIA mark: Lex kinetic orange ring-field, same numbers as phone.
+// Home / data language only: Lex kinetic orange ring-field. Not the logo.
+// Watch onboarding / brand face stays `AriaNestMarkWatch` (`AriaNestGeometry`).
 // Compared to AuroraOrbComponents.swift on iOS this version:
 //  - draws everything in ONE Canvas inside ONE TimelineView (the iOS orb
 //    composites Ellipse views — fine on an A-series chip, wasteful on S9)
 //  - hero (≥90pt) draws all five ellipses; Watch ≤32pt / size < 90 uses
 //    compactRingIndices (two ≥0.70 + strongest support)
-//  - ticks at 12 Hz; brand slots spin at idleSpinHz 0.04 (speakingSpinHz 0.075
-//    lives in the shared geometry for phone presence)
+//  - ticks at 12 Hz; data rings spin at idleSpinHz 0.04 (speakingSpinHz 0.075
+//    lives in the shared geometry)
 //  - freezes at stillPoseAngleDeg 18 when Reduce Motion, Minimal Animation,
 //    or always-on dimming is on
 //
-// Geometry is ForgeCore AriaRingFieldGeometry (phone AriaSigilGeometry is a
-// thin wrapper). Do not invent a second ring. No PNG / raster. ReadinessRing
-// at Home is score chrome — not this mark.
+// Geometry is ForgeCore AriaRingFieldGeometry. Do not invent a second ring.
+// No PNG / raster. ReadinessRing at Home is score chrome around this field.
 
 struct AuroraOrbWatch: View {
     var accent: Color = ForgePalette.steel
     var size: CGFloat = 32
-    /// 0...1 — kept for call-site compatibility (Home readiness / onboarding).
+    /// 0...1 — kept for Home readiness call-site compatibility.
     var intensity: Double = 0.5
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
