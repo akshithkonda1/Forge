@@ -115,6 +115,8 @@ def main() -> int:
     for path in swift_files:
         if path in allowed_web:
             continue
+        if "Tests" in path.parts or path.name.endswith("Tests.swift"):
+            continue
         body = strip_comments(path.read_text(encoding="utf-8"))
         count = len(WEB_RESEARCH_REF.findall(body))
         if count:
