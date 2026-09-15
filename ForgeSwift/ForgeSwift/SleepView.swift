@@ -173,7 +173,7 @@ struct SleepHeaderView: View {
                     .accessibilityLabel("Sleep preferences")
                     Button(action: onAskAria) {
                         HStack(spacing: 6) {
-                            Image(systemName: "sparkles").font(.system(size: 11, weight: .semibold))
+                            ARIAIdentityMark(state: .idle, mood: .energized, size: 14, amplitude: 0.22)
                             Text("Ask ARIA")
                                 .font(.system(size: 13, weight: .semibold, design: .rounded))
                         }
