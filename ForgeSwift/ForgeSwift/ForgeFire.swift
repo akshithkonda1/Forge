@@ -96,19 +96,19 @@ enum ForgeFireGeometry: Sendable {
         let lane = Double(i) / Double(n - 1 == 0 ? 1 : n - 1)
         let heightScale = intensity.heightScale
         let flicker = reduceMotion ? 0.78 : (0.62 + 0.38 * (0.5 + 0.5 * sin(t * (2.4 + Double(i % 5) * 0.35) + seed)))
-        let rise = (0.38 + 0.52 * hash01(seed + 2.1)) * heightScale * flicker
+        let rise = (0.22 + 0.70 * hash01(seed + 2.1)) * heightScale * flicker
 
         switch origin {
         case .floor:
             let baseX = 0.06 + lane * 0.88 + (reduceMotion ? 0 : 0.03 * sin(t * 1.7 + seed))
-            let baseY = 0.96
-            let waver = reduceMotion ? 0 : 0.045 * sin(t * 3.2 + seed)
+            let baseY = 0.94 + 0.04 * hash01(seed + 11)
+            let waver = reduceMotion ? 0 : 0.055 * sin(t * 3.2 + seed)
             return Tongue(
                 baseX: baseX,
                 baseY: baseY,
-                tipX: baseX + waver * 1.35,
+                tipX: baseX + waver * 1.55,
                 tipY: baseY - rise,
-                width: (0.028 + 0.042 * hash01(seed + 4)) * (0.75 + 0.55 * heightScale),
+                width: (0.034 + 0.055 * hash01(seed + 4)) * (0.75 + 0.55 * heightScale),
                 heat: intensity.coreHeat * (0.72 + 0.28 * flicker),
                 waver: waver
             )
@@ -247,6 +247,29 @@ struct ForgeFireField: View {
             )
         )
 
+        if origin == .floor, intensity == .rage {
+            var bed = Path()
+            bed.addEllipse(in: CGRect(
+                x: size.width * 0.08,
+                y: size.height * 0.78,
+                width: size.width * 0.84,
+                height: size.height * 0.28
+            ))
+            ctx.fill(
+                bed,
+                with: .radialGradient(
+                    Gradient(colors: [
+                        Color(hex: "FFE28A").opacity(0.35),
+                        Color(hex: "FF4D00").opacity(0.28),
+                        .clear
+                    ]),
+                    center: CGPoint(x: size.width * 0.5, y: size.height * 0.96),
+                    startRadius: 4,
+                    endRadius: size.width * 0.48
+                )
+            )
+        }
+
         let tongues = intensity.tongueCount
         for i in 0..<tongues {
             let tongue = ForgeFireGeometry.tongue(
@@ -345,14 +368,28 @@ struct ForgeFireField: View {
 
     private func flamePath(base: CGPoint, tip: CGPoint, width: CGFloat, waver: CGFloat) -> Path {
         var path = Path()
-        let midY = (base.y + tip.y) * 0.5
-        let left = CGPoint(x: base.x - width, y: base.y)
-        let right = CGPoint(x: base.x + width, y: base.y)
-        let leftCtrl = CGPoint(x: base.x - width * 0.85 + waver, y: midY)
-        let rightCtrl = CGPoint(x: base.x + width * 0.85 + waver, y: midY)
-        path.move(to: left)
-        path.addQuadCurve(to: tip, control: leftCtrl)
-        path.addQuadCurve(to: right, control: rightCtrl)
+        let h = base.y - tip.y
+        let yBulge = base.y - h * 0.28
+        let yWaist = base.y - h * 0.62
+        let bulge = width * 1.45
+        let waist = width * 0.55
+        path.move(to: CGPoint(x: base.x - width * 0.55, y: base.y))
+        path.addQuadCurve(
+            to: CGPoint(x: base.x - waist + waver, y: yWaist),
+            control: CGPoint(x: base.x - bulge + waver * 0.4, y: yBulge)
+        )
+        path.addQuadCurve(
+            to: tip,
+            control: CGPoint(x: base.x - waist * 0.4 + waver * 1.2, y: (yWaist + tip.y) / 2)
+        )
+        path.addQuadCurve(
+            to: CGPoint(x: base.x + waist + waver, y: yWaist),
+            control: CGPoint(x: base.x + waist * 0.4 + waver * 1.2, y: (yWaist + tip.y) / 2)
+        )
+        path.addQuadCurve(
+            to: CGPoint(x: base.x + width * 0.55, y: base.y),
+            control: CGPoint(x: base.x + bulge + waver * 0.4, y: yBulge)
+        )
         path.closeSubpath()
         return path
     }

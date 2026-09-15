@@ -25,12 +25,19 @@ function BootSplash() {
       <div className="relative z-10 flex flex-col items-center">
         <div className="relative flex h-56 w-56 items-center justify-center">
           <ForgeFireField intensity="rage" origin="hearth" className="opacity-90" />
+          <div
+            className="pointer-events-none absolute inset-8 rounded-full"
+            style={{
+              background:
+                "radial-gradient(circle, rgba(10,10,10,0.72) 0%, rgba(10,10,10,0.2) 55%, transparent 70%)",
+            }}
+          />
           <AriaMark size={148} speaking label="ARIA" className="relative z-10" />
         </div>
-        <p className="mt-5 flex items-center gap-2 text-[32px] font-black tracking-[0.28em] text-white">
+        <div className="mt-5 flex items-center gap-2 text-[32px] font-black tracking-[0.28em] text-white">
           <ForgeBrandFlame size={26} />
           FORGE
-        </p>
+        </div>
         <p className="mt-3 text-[13px] font-semibold uppercase tracking-[0.32em] text-ember">
           Forged.
         </p>

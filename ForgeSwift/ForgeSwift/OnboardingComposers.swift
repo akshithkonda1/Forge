@@ -10,6 +10,20 @@ struct IntroComposer: View {
                 ForgeFireField(intensity: .rage, origin: .hearth)
                     .frame(width: 200, height: 210)
                     .opacity(0.88)
+                Circle()
+                    .fill(
+                        RadialGradient(
+                            colors: [
+                                Color.background.opacity(0.74),
+                                Color.background.opacity(0.18),
+                                .clear
+                            ],
+                            center: .center,
+                            startRadius: 8,
+                            endRadius: 86
+                        )
+                    )
+                    .frame(width: 168, height: 168)
                 AuroraOrbView(
                     state: coordinator.ariaOrbState,
                     amplitude: coordinator.ariaOrbState == .speaking ? 0.8 : 0.58,

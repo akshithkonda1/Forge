@@ -54,7 +54,7 @@ export function fireTongue(
   const flicker = reduceMotion
     ? 0.78
     : 0.62 + 0.38 * (0.5 + 0.5 * Math.sin(t * (2.4 + (i % 5) * 0.35) + seed));
-  const rise = (0.38 + 0.52 * hash01(seed + 2.1)) * spec.heightScale * flicker;
+  const rise = (0.22 + 0.7 * hash01(seed + 2.1)) * spec.heightScale * flicker;
 
   if (origin === "hearth") {
     const angle = lane * Math.PI * 1.15 + Math.PI * 0.42;
@@ -74,14 +74,14 @@ export function fireTongue(
   }
 
   const baseX = 0.06 + lane * 0.88 + (reduceMotion ? 0 : 0.03 * Math.sin(t * 1.7 + seed));
-  const baseY = 0.96;
-  const waver = reduceMotion ? 0 : 0.045 * Math.sin(t * 3.2 + seed);
+  const baseY = 0.94 + 0.04 * hash01(seed + 11);
+  const waver = reduceMotion ? 0 : 0.055 * Math.sin(t * 3.2 + seed);
   return {
     baseX,
     baseY,
-    tipX: baseX + waver * 1.35,
+    tipX: baseX + waver * 1.55,
     tipY: baseY - rise,
-    width: (0.028 + 0.042 * hash01(seed + 4)) * (0.75 + 0.55 * spec.heightScale),
+    width: (0.034 + 0.055 * hash01(seed + 4)) * (0.75 + 0.55 * spec.heightScale),
     heat: spec.coreHeat * (0.72 + 0.28 * flicker),
     waver,
   };
@@ -118,11 +118,17 @@ function flamePath(
   width: number,
   waver: number
 ): void {
-  const midY = (baseY + tipY) * 0.5;
+  const h = baseY - tipY;
+  const yBulge = baseY - h * 0.28;
+  const yWaist = baseY - h * 0.62;
+  const bulge = width * 1.45;
+  const waist = width * 0.55;
   ctx.beginPath();
-  ctx.moveTo(baseX - width, baseY);
-  ctx.quadraticCurveTo(baseX - width * 0.85 + waver, midY, tipX, tipY);
-  ctx.quadraticCurveTo(baseX + width * 0.85 + waver, midY, baseX + width, baseY);
+  ctx.moveTo(baseX - width * 0.55, baseY);
+  ctx.quadraticCurveTo(baseX - bulge + waver * 0.4, yBulge, baseX - waist + waver, yWaist);
+  ctx.quadraticCurveTo(baseX - waist * 0.4 + waver * 1.2, (yWaist + tipY) / 2, tipX, tipY);
+  ctx.quadraticCurveTo(baseX + waist * 0.4 + waver * 1.2, (yWaist + tipY) / 2, baseX + waist + waver, yWaist);
+  ctx.quadraticCurveTo(baseX + bulge + waver * 0.4, yBulge, baseX + width * 0.55, baseY);
   ctx.closePath();
 }
 
@@ -153,6 +159,17 @@ export function drawForgeFire(
   glow.addColorStop(1, "rgba(255, 77, 0, 0)");
   ctx.fillStyle = glow;
   ctx.fillRect(0, 0, width, height);
+
+  if (input.origin === "floor" && input.intensity === "rage") {
+    const bed = ctx.createRadialGradient(width * 0.5, height * 0.96, 4, width * 0.5, height * 0.96, width * 0.48);
+    bed.addColorStop(0, "rgba(255, 226, 138, 0.35)");
+    bed.addColorStop(0.45, "rgba(255, 77, 0, 0.28)");
+    bed.addColorStop(1, "rgba(255, 77, 0, 0)");
+    ctx.fillStyle = bed;
+    ctx.beginPath();
+    ctx.ellipse(width * 0.5, height * 0.92, width * 0.42, height * 0.14, 0, 0, Math.PI * 2);
+    ctx.fill();
+  }
 
   const drawTongues = (offset: number, outer: boolean) => {
     for (let i = 0; i < spec.tongueCount; i++) {

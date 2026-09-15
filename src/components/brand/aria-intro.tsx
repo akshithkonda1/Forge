@@ -1,7 +1,7 @@
 "use client";
 
 import { AriaMark } from "@/components/brand/aria-mark";
-import { ForgeBrandFlame, ForgeFireField } from "@/components/brand/forge-fire";
+import { ForgeFireField } from "@/components/brand/forge-fire";
 import { ARIA_INTRO } from "@/lib/aria-intro";
 
 export function AriaIntro({
@@ -32,10 +32,16 @@ export function AriaIntro({
         <div className="flex flex-1 flex-col items-center text-center">
           <div className="relative flex h-48 w-52 items-center justify-center">
             <ForgeFireField intensity="rage" origin="hearth" className="opacity-80" />
+            <div
+              className="pointer-events-none absolute inset-6 rounded-full"
+              style={{
+                background:
+                  "radial-gradient(circle, rgba(10,10,10,0.7) 0%, rgba(10,10,10,0.18) 58%, transparent 72%)",
+              }}
+            />
             <AriaMark size={128} speaking label="ARIA" className="relative z-10" />
           </div>
-          <p className="mt-4 flex items-center gap-2 text-[11px] font-black uppercase tracking-[0.22em] text-ember">
-            <ForgeBrandFlame size={14} />
+          <p className="mt-4 text-[11px] font-black uppercase tracking-[0.22em] text-ember">
             {ARIA_INTRO.eyebrow}
           </p>
           <h1

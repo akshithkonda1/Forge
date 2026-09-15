@@ -103,6 +103,20 @@ struct ForgeSplashScreen: View {
                     ForgeFireField(intensity: .rage, origin: .hearth)
                         .frame(width: 220, height: 240)
                         .opacity(0.85)
+                    Circle()
+                        .fill(
+                            RadialGradient(
+                                colors: [
+                                    Color.background.opacity(0.78),
+                                    Color.background.opacity(0.2),
+                                    .clear
+                                ],
+                                center: .center,
+                                startRadius: 10,
+                                endRadius: 92
+                            )
+                        )
+                        .frame(width: 180, height: 180)
                     AuroraOrbView(
                         state: .idle,
                         amplitude: 0.72,

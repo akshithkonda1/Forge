@@ -265,6 +265,20 @@ private struct AuthHookPageView: View {
                                 ForgeFireField(intensity: .rage, origin: .hearth)
                                     .frame(width: 210, height: 220)
                                     .opacity(0.8)
+                                Circle()
+                                    .fill(
+                                        RadialGradient(
+                                            colors: [
+                                                Color.background.opacity(0.72),
+                                                Color.background.opacity(0.18),
+                                                .clear
+                                            ],
+                                            center: .center,
+                                            startRadius: 8,
+                                            endRadius: 88
+                                        )
+                                    )
+                                    .frame(width: 176, height: 176)
                                 AuroraOrbView(
                                     state: .idle,
                                     amplitude: 0.62,
