@@ -120,6 +120,11 @@ final class AgingSnapshotTests: XCTestCase {
         XCTAssertEqual(AgingNorms.webSourceTitle, "MedlinePlus: Exercise Stress Test / VO2")
         let after = AgingSnapshot.evaluate(chronologicalAge: 38, sexFemale: false, vo2Max: 48)
         XCTAssertTrue(after.sources.contains { $0 == "vo2+web" })
-        XCTAssertGreaterThan(after.confidence, before.confidence)
+        XCTAssertFalse(after.sources.contains { $0 == "vo2" })
+        // Fused snapshot confidence is clamped to ≥0.2, same as backend
+        // fuse_biological_age. A VO2-only estimate stays on that floor;
+        // the live confirm is the source tag and AgingNorms.fitnessConfidence.
+        XCTAssertEqual(before.confidence, 0.2, accuracy: 0.001)
+        XCTAssertEqual(after.confidence, 0.2, accuracy: 0.001)
     }
 }
