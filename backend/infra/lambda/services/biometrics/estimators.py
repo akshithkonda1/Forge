@@ -202,10 +202,18 @@ def estimate_recovery(
 
 AGING_YEAR_FLOOR = 18.0
 AGING_YEAR_CEILING = 90.0
+# Hard ceiling on how far a lifestyle estimate may walk away from calendar
+# age. Inverting a shallow VO2/HRV-vs-age slope without this lands a fit
+# 38-year-old at "18" — which is not a comparison anyone can use.
+AGING_DELTA_CAP = 12.0
 
 
-def _clamp_age(value: float) -> float:
-    return round(st.clamp(value, AGING_YEAR_FLOOR, AGING_YEAR_CEILING), 1)
+def _clamp_age(value: float, chronological_age: float | None = None) -> float:
+    lo, hi = AGING_YEAR_FLOOR, AGING_YEAR_CEILING
+    if chronological_age is not None:
+        lo = max(lo, chronological_age - AGING_DELTA_CAP)
+        hi = min(hi, chronological_age + AGING_DELTA_CAP)
+    return round(st.clamp(value, lo, hi), 1)
 
 
 def expected_vo2(age_years: float, sex_female: bool | None = None) -> float:
@@ -222,10 +230,9 @@ def expected_vo2(age_years: float, sex_female: bool | None = None) -> float:
 def fitness_age_from_vo2(
     vo2: float, chronological_age: float, sex_female: bool | None = None
 ) -> Estimate:
-    """Invert the age-normed VO2 curve: above expected → younger training age."""
+    """Above expected VO2 → younger training age. ~0.7y per ml/kg/min, capped."""
     expected = expected_vo2(chronological_age, sex_female)
-    slope = 0.32 if sex_female is True else 0.37 if sex_female is False else 0.345
-    value = _clamp_age(chronological_age + (expected - vo2) / slope)
+    value = _clamp_age(chronological_age + (expected - vo2) * 0.7, chronological_age)
     state = "younger" if value <= chronological_age - 2 else "older" if value >= chronological_age + 2 else "matched"
     return Estimate(
         "fitness_age_est", value, state, 0.55, "formula:vo2_age_norm",
@@ -235,7 +242,7 @@ def fitness_age_from_vo2(
 
 def vascular_age_from_rhr(resting_hr: float, chronological_age: float) -> Estimate:
     expected = 60.0 + 0.1 * max(0.0, chronological_age - 25.0)
-    value = _clamp_age(chronological_age + (resting_hr - expected) * 0.8)
+    value = _clamp_age(chronological_age + (resting_hr - expected) * 0.5, chronological_age)
     state = "younger" if value <= chronological_age - 2 else "older" if value >= chronological_age + 2 else "matched"
     return Estimate(
         "vascular_age_est", value, state, 0.45, "formula:rhr_age",
@@ -245,7 +252,7 @@ def vascular_age_from_rhr(resting_hr: float, chronological_age: float) -> Estima
 
 def autonomic_age_from_hrv(hrv_ms: float, chronological_age: float) -> Estimate:
     expected = max(20.0, 55.0 - 0.4 * max(0.0, chronological_age - 25.0))
-    value = _clamp_age(chronological_age + (expected - hrv_ms) / 0.4)
+    value = _clamp_age(chronological_age + (expected - hrv_ms) * 0.2, chronological_age)
     state = "younger" if value <= chronological_age - 2 else "older" if value >= chronological_age + 2 else "matched"
     return Estimate(
         "autonomic_age_est", value, state, 0.5, "formula:hrv_age",
@@ -255,7 +262,7 @@ def autonomic_age_from_hrv(hrv_ms: float, chronological_age: float) -> Estimate:
 
 def sleep_age_from_hours(sleep_hours: float, chronological_age: float) -> Estimate:
     need = 8.0 - 0.015 * max(0.0, chronological_age - 25.0)
-    value = _clamp_age(chronological_age + (need - sleep_hours) * 4.0)
+    value = _clamp_age(chronological_age + (need - sleep_hours) * 2.0, chronological_age)
     state = "younger" if value <= chronological_age - 2 else "older" if value >= chronological_age + 2 else "matched"
     return Estimate(
         "sleep_age_est", value, state, 0.35, "formula:sleep_need_age",
@@ -315,7 +322,8 @@ def fuse_biological_age(
         )
 
     total_w = sum(w for _, w, _ in parts)
-    fused = round(sum(v * w for v, w, _ in parts) / total_w, 1)
+    fused = sum(v * w for v, w, _ in parts) / total_w
+    fused = _clamp_age(fused, chronological_age)
     confidence = round(st.clamp(total_w, 0.2, 0.92), 2)
     delta = None if chronological_age is None else round(fused - chronological_age, 1)
     if delta is None:

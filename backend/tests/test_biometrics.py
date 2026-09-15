@@ -170,6 +170,17 @@ class EstimatorTests(unittest.TestCase):
         self.assertLess(fused.value, 38)
         self.assertIn("garmin", fused.detail)
 
+    def test_strong_vo2_does_not_collapse_to_teen_floor(self):
+        est = estimators.fitness_age_from_vo2(52, 38, False)
+        self.assertGreaterEqual(est.value, 26)
+        self.assertLess(est.value, 38)
+        fused = estimators.fuse_biological_age(
+            chronological_age=38,
+            estimated={"fitness_age_est": est},
+        )
+        self.assertGreaterEqual(fused.value, 26)
+        self.assertLess(fused.value, 38)
+
 
 class _FakeBackend:
     def __init__(self, prediction=None, raises=False):

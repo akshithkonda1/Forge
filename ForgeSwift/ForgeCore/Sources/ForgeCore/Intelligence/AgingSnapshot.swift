@@ -151,7 +151,7 @@ public struct AgingSnapshot: Sendable, Equatable {
             confidence = chrono == nil ? 0 : 0.2
         } else {
             let total = parts.reduce(0.0) { $0 + $1.1 }
-            fused = parts.reduce(0.0) { $0 + $1.0 * $1.1 } / total
+            fused = clampAge(parts.reduce(0.0) { $0 + $1.0 * $1.1 } / total, chronological: chrono)
             confidence = min(0.92, max(0.2, total))
         }
 
@@ -194,27 +194,32 @@ public struct AgingSnapshot: Sendable, Equatable {
 
 private func fitnessAge(fromVO2 vo2: Double, chronologicalAge: Double, sexFemale: Bool?) -> Double {
     let expected = AgingSnapshot.expectedVO2(age: chronologicalAge, sexFemale: sexFemale)
-    let slope = sexFemale == true ? 0.32 : sexFemale == false ? 0.37 : 0.345
-    return clampAge(chronologicalAge + (expected - vo2) / slope)
+    return clampAge(chronologicalAge + (expected - vo2) * 0.7, chronological: chronologicalAge)
 }
 
 private func vascularAge(fromRHR rhr: Double, chronologicalAge: Double) -> Double {
     let expected = 60.0 + 0.1 * max(0, chronologicalAge - 25)
-    return clampAge(chronologicalAge + (rhr - expected) * 0.8)
+    return clampAge(chronologicalAge + (rhr - expected) * 0.5, chronological: chronologicalAge)
 }
 
 private func autonomicAge(fromHRV hrv: Double, chronologicalAge: Double) -> Double {
     let expected = max(20.0, 55.0 - 0.4 * max(0, chronologicalAge - 25))
-    return clampAge(chronologicalAge + (expected - hrv) / 0.4)
+    return clampAge(chronologicalAge + (expected - hrv) * 0.2, chronological: chronologicalAge)
 }
 
 private func sleepAge(fromHours hours: Double, chronologicalAge: Double) -> Double {
     let need = 8.0 - 0.015 * max(0, chronologicalAge - 25)
-    return clampAge(chronologicalAge + (need - hours) * 4.0)
+    return clampAge(chronologicalAge + (need - hours) * 2.0, chronological: chronologicalAge)
 }
 
-private func clampAge(_ value: Double) -> Double {
-    min(90, max(18, (value * 10).rounded() / 10))
+private func clampAge(_ value: Double, chronological: Double? = nil) -> Double {
+    var lo = 18.0
+    var hi = 90.0
+    if let chronological {
+        lo = max(lo, chronological - 12)
+        hi = min(hi, chronological + 12)
+    }
+    return min(hi, max(lo, (value * 10).rounded() / 10))
 }
 
 private func deltaState(_ delta: Double) -> AgingDeltaState {

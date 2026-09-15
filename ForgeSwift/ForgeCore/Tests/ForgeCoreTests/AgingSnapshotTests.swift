@@ -3,6 +3,18 @@ import XCTest
 
 final class AgingSnapshotTests: XCTestCase {
 
+    func testStrongVO2DoesNotCollapseToTeenFloor() {
+        let snap = AgingSnapshot.evaluate(
+            chronologicalAge: 38,
+            sexFemale: false,
+            vo2Max: 52
+        )
+        XCTAssertEqual(snap.state, .younger)
+        XCTAssertGreaterThanOrEqual(snap.fitnessAge ?? 0, 26)
+        XCTAssertLessThan(snap.fitnessAge ?? 99, 38)
+        XCTAssertGreaterThanOrEqual(snap.biologicalAge ?? 0, 26)
+    }
+
     func testStrongVO2ReadsYoungerThanCalendar() {
         let snap = AgingSnapshot.evaluate(
             chronologicalAge: 40,
