@@ -296,6 +296,49 @@ public enum AriaIntentResolver {
             agingSignals += 1
             agingSlowCues += 1
         }
+        var workKind = false
+        var surpriseKind = false
+        var socialN = 0
+        for tag in input.calendarTags {
+            if tag.hasPrefix("calendar:kind:") {
+                let kind = String(tag.dropFirst("calendar:kind:".count))
+                if kind == "work" { workKind = true }
+                if kind == "surprise" { surpriseKind = true }
+                if kind == "wedding" || kind == "social" || kind == "dinner"
+                    || kind == "family" || kind == "game" || kind == "surprise" {
+                    socialN += 1
+                }
+            }
+        }
+        if socialN > 0 {
+            agingWear += 0.10
+            agingSignals += 1
+        }
+        if workKind {
+            agingWear += 0.16
+            agingSignals += 1
+        }
+        if surpriseKind {
+            agingWear += 0.12
+            agingSignals += 1
+        }
+        if eveningBusy >= 0.5 && !workKind {
+            agingWear += 0.10
+            agingSignals += 1
+        }
+        var stressSpoken = false
+        if lower.contains("stressed") || lower.contains("overwhelmed")
+            || lower.contains("burned out") || lower.contains("too much on my plate") {
+            agingWear += 0.20
+            agingSignals += 1
+            stressSpoken = true
+        }
+        if lower.contains("surprise visit") || lower.contains("dropped by")
+            || lower.contains("showed up unannounced") {
+            agingWear += 0.22
+            agingSignals += 1
+            surpriseKind = true
+        }
         var agingFaster: Double = 0.0
         var agingSlower: Double = 0.0
         var agingPace = "unknown"
@@ -438,6 +481,8 @@ public enum AriaIntentResolver {
         var planChoice = "clarify"
         if headline >= 0.5 || eveningBusy >= 0.5 {
             planChoice = "protect_load"
+        } else if surpriseKind {
+            planChoice = "protect_load"
         } else if agingPace == "faster" {
             if shortSleep >= 0.5 {
                 planChoice = "sleep_first"
@@ -460,6 +505,32 @@ public enum AriaIntentResolver {
             nextAdvice = "Sleep is the lever. Keep tonight protected before adding training load."
         } else if planChoice == "protect_load" && (headline >= 0.5 || eveningBusy >= 0.5) {
             nextAdvice = "Fit today's work around the life event and busy windows. Protect load; do not name titles."
+        } else if planChoice == "protect_load" && (stressSpoken || surpriseKind) {
+            nextAdvice = "Stress and unplanned load are named reasons to protect today — not a biological-age number."
+        }
+        var agingReason = "no body signal yet — not guessing an aging pace"
+        if agingPace == "faster" {
+            agingReason = "wear is outrunning repair — name sleep, stress, or the day they have, never a year count"
+        } else if agingPace == "slower" {
+            agingReason = "repair is holding — quality work is on the table, not a younger age number"
+        } else if agingPace == "on_pace" {
+            agingReason = "wear and repair are even — keep the day honest, don't invent years"
+        }
+        var stressState = "unknown"
+        if stressSpoken || agingWear >= 0.55 {
+            stressState = "high"
+        } else if agingSignals > 0 {
+            stressState = "moderate"
+        }
+        var askNext = ""
+        if agingPace == "unknown" && agingBody == 0 {
+            askNext = "last night's sleep or how stacked today is — pick one"
+        }
+        var betterLifeMove = nextAdvice
+        if agingPace == "faster" {
+            betterLifeMove = "Protect tonight. Sleep and stress are the levers — not a younger number."
+        } else if headline >= 0.5 {
+            betterLifeMove = "Protect load around the gathering. Do not name titles, people, or places."
         }
 
         return AriaAdaptation(
@@ -476,7 +547,11 @@ public enum AriaIntentResolver {
             eventBucket: rankedPriority.event,
             agingPace: agingPace,
             planChoice: planChoice,
-            nextAdvice: nextAdvice
+            nextAdvice: nextAdvice,
+            agingReason: agingReason,
+            stressState: stressState,
+            askNext: askNext,
+            betterLifeMove: betterLifeMove
         )
     }
 
@@ -650,7 +725,7 @@ public enum AriaIntentResolver {
         var headlines: [String] = []
         let allowed: Set<String> = [
             "wedding", "game", "flight", "travel", "work", "dinner",
-            "family", "appointment", "social",
+            "family", "appointment", "social", "surprise",
         ]
         let headlineKinds: Set<String> = ["wedding", "game", "flight", "travel"]
         for raw in tags {
@@ -710,7 +785,7 @@ public enum AriaIntentResolver {
         .body: ["pain", "hurt", "sore", "injury", "ache", "strain", "tweak"],
         .cycle: ["period", "menstrual", "luteal", "follicular", "ovulat", "pms", "cramp"],
         .progress: ["progress", "gains", "stronger", "streak", "improving", "plateau"],
-        .lifestyle: ["work", "travel", "busy", "stress", "schedule", "time", "qol", "wellbeing"],
+        .lifestyle: ["work", "travel", "busy", "stress", "schedule", "time", "qol", "wellbeing", "surprise", "friends", "gathering"],
     ]
 }
 
@@ -731,6 +806,10 @@ public struct AriaAdaptation: Sendable, Equatable {
     public var agingPace: String
     public var planChoice: String
     public var nextAdvice: String
+    public var agingReason: String
+    public var stressState: String
+    public var askNext: String
+    public var betterLifeMove: String
 
     public init(
         stance: String,
@@ -748,7 +827,11 @@ public struct AriaAdaptation: Sendable, Equatable {
         calibration: Double = 0.5,
         agingPace: String = "unknown",
         planChoice: String = "clarify",
-        nextAdvice: String = ""
+        nextAdvice: String = "",
+        agingReason: String = "",
+        stressState: String = "unknown",
+        askNext: String = "",
+        betterLifeMove: String = ""
     ) {
         self.stance = stance
         self.specialists = specialists
@@ -766,5 +849,9 @@ public struct AriaAdaptation: Sendable, Equatable {
         self.agingPace = agingPace
         self.planChoice = planChoice
         self.nextAdvice = nextAdvice
+        self.agingReason = agingReason
+        self.stressState = stressState
+        self.askNext = askNext
+        self.betterLifeMove = betterLifeMove
     }
 }

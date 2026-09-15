@@ -186,6 +186,34 @@ final class AriaIntentResolverTests: XCTestCase {
         XCTAssertEqual(adapted.planChoice, "train_through")
     }
 
+    func testSurpriseVisitProtectsWithoutBiologicalAge() {
+        let adapted = AriaIntentResolver.adapt(
+            AriaIntentInput(
+                text: "friends showed up unannounced — should I still train?",
+                calendarTags: ["calendar:kind:surprise"]
+            )
+        )
+        XCTAssertEqual(adapted.planChoice, "protect_load")
+        XCTAssertFalse(adapted.nextAdvice.lowercased().contains("biological age"))
+        XCTAssertFalse(adapted.agingReason.lowercased().contains("aged two"))
+        XCTAssertFalse(adapted.betterLifeMove.isEmpty)
+    }
+
+    func testStressedWorkDayNamesStressNotYears() {
+        let adapted = AriaIntentResolver.adapt(
+            AriaIntentInput(
+                text: "I'm stressed and overwhelmed, should I train today?",
+                readiness: 48,
+                sleepMinutesLastNight: 6 * 60,
+                calendarTags: ["calendar:kind:work", "calendar:evening:busy"]
+            )
+        )
+        XCTAssertEqual(adapted.planChoice, "protect_load")
+        XCTAssertNotEqual(adapted.stressState, "unknown")
+        XCTAssertFalse(adapted.nextAdvice.contains("34"))
+        XCTAssertFalse(adapted.agingReason.lowercased().contains("biological age is"))
+    }
+
     func testEmptyHeyIsGeneralized() {
         let adapted = AriaIntentResolver.adapt(AriaIntentInput(text: "hey"))
         XCTAssertEqual(adapted.grounding, "generalized")
