@@ -469,7 +469,7 @@ struct AIBestPicksSection: View {
             // Live ARIA coaching note over the protein-ranked picks (fallback: none).
             if let note = vm.aiBestPicksNote {
                 HStack(alignment: .top, spacing: 8) {
-                    Image(systemName: "sparkles").font(.system(size: 11)).foregroundColor(.ember)
+                    ARIAIdentityMark(state: .idle, mood: .energized, size: 14, amplitude: 0.22)
                     Text(note)
                         .font(.system(size: 12))
                         .foregroundColor(.textSecondary)

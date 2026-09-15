@@ -1,5 +1,6 @@
 import SwiftUI
 import UIKit
+import ForgeCore
 
 struct WorkoutView: View {
     @EnvironmentObject var store: AppStore
@@ -47,64 +48,76 @@ struct WorkoutIdleView: View {
     @EnvironmentObject var store: AppStore
     @StateObject private var music = MusicControllerFactory.make(for: .appleMusic)
     @State private var appeared = false
-    @State private var pulseOrb = false
     @State private var selectedExerciseIndex: Int? = nil
     @State private var showLibrary = false
     @State private var showDashboard = false
     @State private var showWeekPicker = false
+    @State private var agingStamp = 0
 
     private var scaling: PlanScaling { AdaptiveEngine.scaling(readiness: store.readiness, experience: store.userProfile.experienceLevel) }
+
+    private var todaySlot: WeeklySplitSlot {
+        WeeklySplit.slot(for: WeeklySplit.sun0(from: Date()), in: store.userProfile.weeklySplit)
+    }
+
+    private var dayCall: TrainDayCall {
+        TrainDayCall.resolve(
+            readiness: store.readiness.overall,
+            isRestDay: todaySlot.isRest,
+            intensity: store.todayWorkout?.intensity
+        )
+    }
+
+    private var aging: AgingSnapshot {
+        AgingBridge.snapshot(
+            age: store.userProfile.age,
+            sexFemale: store.userProfile.biologicalSex == .female ? true
+                : store.userProfile.biologicalSex == .male ? false : nil,
+            stats: HealthKitManager.shared.todayStats
+        )
+    }
 
     var body: some View {
         ZStack {
             WorkoutBackground(accentColor: .ember).ignoresSafeArea()
             VStack(spacing: 0) {
                 HStack {
+                    Text("TODAY")
+                        .forgeSectionLabel()
+                        .foregroundColor(.textTertiary)
                     Spacer()
                     AriaTrainMuteButton()
                 }
-                .padding(.horizontal, 16)
+                .padding(.horizontal, 20)
                 .padding(.top, 12)
             if let workout = store.todayWorkout {
                 ScrollView(showsIndicators: false) {
-                    VStack(spacing: 22) {
+                    VStack(spacing: 18) {
                         idleHeader(workout: workout)
-                            .padding(.horizontal, 20).padding(.top, 20)
+                            .padding(.horizontal, 20)
+                            .padding(.top, 8)
 
-                        weekActions
-                            .padding(.horizontal, 16)
-                            .opacity(appeared ? 1 : 0).offset(y: appeared ? 0 : 10)
-                            .animation(.spring(response: 0.6, dampingFraction: 0.8).delay(0.18), value: appeared)
-
-                        quickActions
-                            .padding(.horizontal, 16)
-                            .opacity(appeared ? 1 : 0).offset(y: appeared ? 0 : 12)
-                            .animation(.spring(response: 0.6, dampingFraction: 0.8).delay(0.22), value: appeared)
-
-                        AdaptiveScalingCard(
-                            scaling: scaling,
-                            applied: workout.autoScaled
-                        )
-                            .padding(.horizontal, 16)
-                            .opacity(appeared ? 1 : 0).offset(y: appeared ? 0 : 14)
-                            .animation(.spring(response: 0.6, dampingFraction: 0.8).delay(0.3), value: appeared)
-
-                        MusicControlBar(controller: music, compact: false)
-                            .padding(.horizontal, 16)
-                            .opacity(appeared ? 1 : 0).offset(y: appeared ? 0 : 14)
-                            .animation(.spring(response: 0.6, dampingFraction: 0.8).delay(0.36), value: appeared)
+                        if scaling.isModified {
+                            AdaptiveScalingCard(scaling: scaling, applied: workout.autoScaled)
+                                .padding(.horizontal, 16)
+                        }
 
                         exerciseList(workout: workout).padding(.horizontal, 16)
 
-                        WorkoutInsightsView(workout: workout)
+                        ariaLine()
                             .padding(.horizontal, 16)
-                            .opacity(appeared ? 1 : 0).offset(y: appeared ? 0 : 18)
-                            .animation(.spring(response: 0.6, dampingFraction: 0.8).delay(0.48), value: appeared)
-
-                        startButton(workout: workout)
-                            .padding(.horizontal, 16).padding(.bottom, 110)
+                            .padding(.bottom, 12)
                     }
                 }
+
+                VStack(spacing: 10) {
+                    startButton(workout: workout)
+                    compactToolbar
+                }
+                .padding(.horizontal, 16)
+                .padding(.top, 8)
+                .padding(.bottom, 96)
+                .background(Color.background.opacity(0.92))
             } else {
                 WorkoutEmptyState()
             }
@@ -128,7 +141,6 @@ struct WorkoutIdleView: View {
         }
         .onAppear {
             withAnimation(.spring(response: 0.72, dampingFraction: 0.8).delay(0.08)) { appeared = true }
-            withAnimation(.easeInOut(duration: 2.2).repeatForever(autoreverses: true)) { pulseOrb = true }
             if let current = store.todayWorkout, !current.autoScaled, scaling.isModified {
                 store.todayWorkout = AdaptiveEngine.apply(
                     to: current,
@@ -136,117 +148,117 @@ struct WorkoutIdleView: View {
                     experience: store.userProfile.experienceLevel
                 )
             }
+            Task {
+                await AriaAgingNorms.refresh()
+                agingStamp += 1
+            }
         }
     }
 
-    private var weekActions: some View {
-        HStack(spacing: 10) {
-            idleActionTile(
-                icon: "arrow.uturn.backward",
-                title: "Yesterday",
-                subtitle: yesterdaySubtitle,
-                accent: Color(hex: "A855F7")
-            ) {
+    private var compactToolbar: some View {
+        HStack(spacing: 8) {
+            toolbarChip(icon: "calendar", title: "Week") { showWeekPicker = true }
+            toolbarChip(icon: "arrow.uturn.backward", title: "Yesterday") {
                 store.adoptSplitSession(replayPrior: true)
             }
-            idleActionTile(
-                icon: "calendar",
-                title: "This week",
-                subtitle: "Pick a day",
-                accent: Color(hex: "38BDF8")
-            ) {
-                showWeekPicker = true
-            }
+            toolbarChip(icon: "books.vertical.fill", title: "Library") { showLibrary = true }
+            toolbarChip(icon: "sparkles", title: "Brief") { showDashboard = true }
         }
     }
 
-    private var yesterdaySubtitle: String {
-        let day = (WeeklySplit.sun0(from: Date()) + 6) % 7
-        let slot = WeeklySplit.slot(for: day, in: store.userProfile.weeklySplit)
-        return slot.title
-    }
-
-    private var quickActions: some View {
-        HStack(spacing: 10) {
-            idleActionTile(icon: "books.vertical.fill", title: "Library", subtitle: "Grouped list", accent: Color(hex: "38BDF8")) { showLibrary = true }
-            idleActionTile(icon: "brain.head.profile", title: "ARIA Brief", subtitle: "Plan readout", accent: .ember) { showDashboard = true }
-        }
-    }
-
-    private func idleActionTile(icon: String, title: String, subtitle: String, accent: Color, action: @escaping () -> Void) -> some View {
+    private func toolbarChip(icon: String, title: String, action: @escaping () -> Void) -> some View {
         Button {
-            UIImpactFeedbackGenerator(style: .light).impactOccurred(); action()
+            UIImpactFeedbackGenerator(style: .light).impactOccurred()
+            action()
         } label: {
-            HStack(spacing: 12) {
-                ZStack {
-                    Circle().fill(accent.opacity(0.16)).frame(width: 40, height: 40)
-                    Image(systemName: icon).font(.system(size: 17, weight: .semibold)).foregroundColor(accent)
-                }
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(title).font(.system(size: 14, weight: .bold, design: .rounded)).foregroundColor(.textPrimary)
-                    Text(subtitle).font(.system(size: 11, weight: .medium, design: .rounded)).foregroundColor(.textTertiary)
-                }
-                Spacer()
+            HStack(spacing: 6) {
+                Image(systemName: icon).font(.system(size: 12, weight: .semibold))
+                Text(title).font(.system(size: 12, weight: .semibold))
             }
-            .padding(.horizontal, 14).padding(.vertical, 12)
+            .foregroundColor(.textSecondary)
             .frame(maxWidth: .infinity)
-            .forgeGlassCard(cornerRadius: 16, accent: accent)
+            .padding(.vertical, 10)
+            .forgeGlassCard(cornerRadius: 12, accent: .ember)
         }
         .buttonStyle(.plain)
     }
 
     private func idleHeader(workout: WorkoutPlan) -> some View {
-        VStack(spacing: 18) {
-            ZStack {
-                Circle()
-                    .fill(
-                        RadialGradient(
-                            colors: [Color.ember.opacity(pulseOrb ? 0.28 : 0.12), .clear],
-                            center: .center, startRadius: 8, endRadius: 70
-                        )
-                    )
-                    .frame(width: 140, height: 140)
-                    .blur(radius: 10)
-                ARIAIdentityMark(
-                    state: .idle,
-                    mood: .energized,
-                    size: 88,
-                    amplitude: pulseOrb ? 0.36 : 0.22
-                )
+        VStack(alignment: .leading, spacing: 14) {
+            HStack(alignment: .center) {
+                Text(dayCall.title)
+                    .font(.system(size: 13, weight: .black, design: .rounded))
+                    .tracking(1.2)
+                    .foregroundColor(dayCall == .train ? .ember : dayCall == .rest ? .steel : .warning)
+                Spacer()
+                ARIAIdentityMark(state: .idle, mood: .energized, size: 28, amplitude: 0.2)
+                Text("Readiness \(store.readiness.overall)")
+                    .font(.system(size: 12, weight: .semibold, design: .rounded))
+                    .monospacedDigit()
+                    .foregroundColor(.textTertiary)
             }
-            .scaleEffect(appeared ? 1 : 0.7).opacity(appeared ? 1 : 0)
-            .animation(.spring(response: 0.65, dampingFraction: 0.7).delay(0.1), value: appeared)
 
-            VStack(spacing: 6) {
-                Text(workout.name)
-                    .font(.system(size: 32, weight: .bold, design: .rounded)).foregroundColor(.textPrimary).multilineTextAlignment(.center)
-                Text(workout.type.label.uppercased())
-                    .forgeSectionLabel()
-                    .foregroundColor(.ember)
+            Text(workout.name)
+                .font(.system(size: 28, weight: .bold, design: .rounded))
+                .foregroundColor(.textPrimary)
+                .fixedSize(horizontal: false, vertical: true)
+
+            Text(headerWhy(workout))
+                .font(.system(size: 15))
+                .foregroundColor(.textSecondary)
+                .fixedSize(horizontal: false, vertical: true)
+
+            HStack(spacing: 8) {
+                WorkoutStatPill(icon: "clock.fill", value: "\(workout.duration)", label: "min")
+                WorkoutStatPill(icon: "list.bullet", value: "\(workout.exercises.count)", label: "moves")
+                WorkoutStatPill(icon: "flame.fill", value: workout.intensity.label, label: "", color: workout.intensity.color)
             }
-            .opacity(appeared ? 1 : 0).offset(y: appeared ? 0 : 16)
-            .animation(.spring(response: 0.6, dampingFraction: 0.8).delay(0.18), value: appeared)
 
-            ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: 8) {
-                    WorkoutStatPill(icon: "list.bullet",    value: "\(workout.exercises.count)",   label: "exercises")
-                    WorkoutStatPill(icon: "clock.fill",     value: "~\(workout.duration)",         label: "min")
-                    WorkoutStatPill(icon: "flame.fill",     value: "\(workout.estimatedCalories)", label: "cal",  color: workout.intensity.color)
-                    WorkoutStatPill(icon: "scalemass.fill", value: totalVolumeStr(workout),        label: "vol",  color: .steel)
-                }
+            if aging.showsOnTrain {
+                AgeCompareChip(snapshot: aging)
+                    .id(agingStamp)
             }
-            .opacity(appeared ? 1 : 0).offset(y: appeared ? 0 : 12)
-            .animation(.spring(response: 0.55, dampingFraction: 0.8).delay(0.26), value: appeared)
-
-            ReadinessIntensityArc(readiness: store.readiness.overall, intensity: workout.intensity)
-                .opacity(appeared ? 1 : 0)
-                .animation(.spring(response: 0.6, dampingFraction: 0.8).delay(0.34), value: appeared)
         }
+        .opacity(appeared ? 1 : 0)
+        .offset(y: appeared ? 0 : 12)
+        .animation(.spring(response: 0.6, dampingFraction: 0.8).delay(0.08), value: appeared)
     }
 
-    private func totalVolumeStr(_ w: WorkoutPlan) -> String {
-        let v = w.exercises.reduce(0) { $0 + ($1.sets * (Int($1.reps) ?? $1.reps.repMidpoint) * ($1.weight ?? 0)) }
-        return v > 0 ? v.formattedVolume : "—"
+    private func headerWhy(_ workout: WorkoutPlan) -> String {
+        if dayCall == .rest {
+            return todaySlot.isRest
+                ? "The week called rest. Easy core is on the board if you want it — nothing to prove."
+                : "Today is recovery-shaped. Move well or skip."
+        }
+        if let headline = workout.scaleHeadline, workout.autoScaled {
+            return headline
+        }
+        return "\(workout.type.label) · ~\(workout.duration) min. One session, then you’re done."
+    }
+
+    private func ariaLine() -> some View {
+        let line: String = {
+            if !aging.trainingHint.isEmpty { return aging.trainingHint }
+            let facts = AriaSpeechFacts()
+            return AriaVoiceEngine.speak(
+                intent: .trainingPlan,
+                context: store.makeTrainerContext(),
+                input: "What's on my board?",
+                facts: facts
+            )
+        }()
+        return HStack(alignment: .top, spacing: 10) {
+            ARIAIdentityMark(state: .idle, mood: .focused, size: 22, amplitude: 0.25)
+            Text(line)
+                .font(.system(size: 14))
+                .foregroundColor(.textSecondary)
+                .lineSpacing(3)
+            Spacer(minLength: 0)
+        }
+        .padding(14)
+        .background(Color.surface)
+        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+        .task { store.shareWorkoutInsightsIfNeeded([line]) }
     }
 
     private func exerciseList(workout: WorkoutPlan) -> some View {
@@ -286,7 +298,7 @@ struct WorkoutIdleView: View {
         } label: {
             HStack(spacing: 12) {
                 Image(systemName: "play.fill").font(.system(size: 20, weight: .black))
-                Text("Start session").font(.system(size: 20, weight: .bold, design: .rounded))
+                Text(dayCall.cta).font(.system(size: 20, weight: .bold, design: .rounded))
                 Spacer()
                 Image(systemName: "arrow.right").font(.system(size: 18, weight: .bold))
             }
@@ -477,6 +489,57 @@ private struct ReadinessIntensityArc: View {
         .padding(16)
         .forgeGlassCard(cornerRadius: 18, accent: matchColor)
         .onAppear { appeared = true }
+    }
+}
+
+struct AgeCompareChip: View {
+    let snapshot: AgingSnapshot
+
+    var body: some View {
+        HStack(spacing: 10) {
+            Image(systemName: "clock.arrow.2.circlepath")
+                .font(.system(size: 13, weight: .semibold))
+                .foregroundColor(tone)
+            VStack(alignment: .leading, spacing: 2) {
+                Text("Training age")
+                    .font(.system(size: 11, weight: .bold))
+                    .foregroundColor(.textTertiary)
+                Text(snapshot.comparisonLine)
+                    .font(.system(size: 14, weight: .semibold, design: .rounded))
+                    .foregroundColor(.textPrimary)
+                if AgingNorms.webConfirmed {
+                    Text("Public cardio norms")
+                        .font(.system(size: 10, weight: .medium))
+                        .foregroundColor(.textTertiary)
+                }
+            }
+            Spacer()
+            if let chrono = snapshot.chronologicalAge, let bio = snapshot.biologicalAge, snapshot.confidence > 0.25 {
+                Text("\(Int(bio.rounded()))")
+                    .font(.system(size: 18, weight: .black, design: .rounded))
+                    .foregroundColor(tone)
+                Text("/ \(Int(chrono.rounded()))")
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundColor(.textTertiary)
+            }
+        }
+        .padding(.horizontal, 14)
+        .padding(.vertical, 12)
+        .background(tone.opacity(0.08))
+        .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                .stroke(tone.opacity(0.22), lineWidth: 1)
+        )
+        .accessibilityLabel("Training age compared with calendar age. \(snapshot.comparisonLine)")
+    }
+
+    private var tone: Color {
+        switch snapshot.state {
+        case .younger: return .success
+        case .older: return .warning
+        case .matched, .unknown: return .steel
+        }
     }
 }
 
@@ -721,6 +784,17 @@ struct WorkoutEmptyState: View {
     @EnvironmentObject var store: AppStore
     @State private var appeared = false
     @State private var showLibrary = false
+    @State private var agingStamp = 0
+
+    private var aging: AgingSnapshot {
+        AgingBridge.snapshot(
+            age: store.userProfile.age,
+            sexFemale: store.userProfile.biologicalSex == .female ? true
+                : store.userProfile.biologicalSex == .male ? false : nil,
+            stats: HealthKitManager.shared.todayStats
+        )
+    }
+
     var body: some View {
         VStack(spacing: 24) {
             Spacer()
@@ -736,14 +810,20 @@ struct WorkoutEmptyState: View {
                 Text("No session on the board")
                     .font(FDS.TypeScale.pageTitle(28))
                     .foregroundColor(.textPrimary)
-                Text("ARIA writes Train from sleep, readiness, and the week you actually have — or browse the library.")
+                Text("ARIA writes a session from sleep, readiness, and the week you actually have — preview it here, then start when you’re ready.")
                     .font(.system(size: 15, weight: .medium, design: .rounded)).foregroundColor(.textSecondary)
                     .multilineTextAlignment(.center).lineSpacing(5).padding(.horizontal, 44)
             }
             .opacity(appeared ? 1 : 0).offset(y: appeared ? 0 : 18)
+            if aging.showsOnTrain {
+                AgeCompareChip(snapshot: aging)
+                    .id(agingStamp)
+                    .padding(.horizontal, 28)
+                    .opacity(appeared ? 1 : 0)
+            }
             VStack(spacing: 12) {
                 ForgePrimaryButton(title: "Write today’s session", icon: "sparkles") {
-                    store.startLifeShapedSession()
+                    store.rebuildTodayPlanFromLife()
                 }
                 .padding(.horizontal, 28)
                 Button { showLibrary = true } label: {
@@ -763,6 +843,12 @@ struct WorkoutEmptyState: View {
         }
         .frame(maxWidth: .infinity)
         .sheet(isPresented: $showLibrary) { ExerciseLibraryView() }
-        .onAppear { withAnimation(.spring(response: 0.7, dampingFraction: 0.8).delay(0.18)) { appeared = true } }
+        .onAppear {
+            withAnimation(.spring(response: 0.7, dampingFraction: 0.8).delay(0.18)) { appeared = true }
+            Task {
+                await AriaAgingNorms.refresh()
+                agingStamp += 1
+            }
+        }
     }
 }

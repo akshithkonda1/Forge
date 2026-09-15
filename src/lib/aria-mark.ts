@@ -25,6 +25,16 @@ export const ARIA_MARK = {
 export const ARIA_MARK_COMPACT_MAX = 32;
 export const ARIA_MARK_CONTRAST_FLOOR = 0.7;
 
+/**
+ * White intelligence core. Web paint only — not a JSON ring, not a frame,
+ * not readiness chrome. Sits inside the innermost visible ellipse.
+ */
+export const ARIA_ORB_CORE = {
+  hue: "#FFFFFF",
+  hueSoft: "#F4F7FC",
+  nest: 0.88,
+} as const;
+
 export type AriaMarkSizeTier = "compact" | "mid" | "hero";
 export type AriaRingPose = {
   rx: number;
@@ -42,6 +52,20 @@ export function ariaMarkSizeTier(size: number): AriaMarkSizeTier {
 /** Compact marks stay still. Mid/hero spin unless Reduce Motion. */
 export function ariaMarkShouldSpin(size: number, reduceMotion: boolean): boolean {
   return !reduceMotion && ariaMarkSizeTier(size) !== "compact";
+}
+
+/** Soft radial glow is hero/mid atmosphere — skip at the compact 3-ring ceiling. */
+export function ariaMarkShouldGlow(size: number): boolean {
+  return ariaMarkSizeTier(size) !== "compact";
+}
+
+/** Paint cadence for live spin. Geometry still uses idle 0.04 / speaking 0.075 Hz. */
+export const ARIA_MARK_PAINT_HZ = 12;
+
+/** First frame always paints (`lastPaintMs < 0`). Later frames cap near 12 Hz. */
+export function ariaMarkPaintDue(nowMs: number, lastPaintMs: number): boolean {
+  if (lastPaintMs < 0) return true;
+  return nowMs - lastPaintMs >= 1000 / ARIA_MARK_PAINT_HZ;
 }
 
 export function contrastRingIndices(
@@ -69,8 +93,18 @@ export function compactRingIndices(
 }
 
 export function visibleRingIndices(size: number): number[] {
-  if (size < ARIA_MARK.heroMinimumSize) return compactRingIndices();
+  if (ariaMarkSizeTier(size) === "compact") return compactRingIndices();
   return Array.from({ length: ARIA_MARK.ringCount }, (_, index) => index);
+}
+
+/** Normalized radius (fraction of mark size) for the white core orb. */
+export function orbCoreRadius(size: number): number {
+  let minRy = Number.POSITIVE_INFINITY;
+  for (const index of visibleRingIndices(size)) {
+    const { ry } = ringEllipse(index, 0, false, true);
+    if (ry < minRy) minRy = ry;
+  }
+  return (minRy / 2) * ARIA_ORB_CORE.nest;
 }
 
 export function ringStrokeWidth(size: number): number {

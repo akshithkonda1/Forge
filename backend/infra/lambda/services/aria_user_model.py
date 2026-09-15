@@ -82,7 +82,11 @@ def build_user_model(
         recent_sleep_rows = hist.get("recentSleep") or []
         obs = _observations_from_history(recent_sleep_rows, hist.get("recentWorkouts") or [])
         if obs:
-            model = BodyModel.from_observations(obs)
+            from services.fusion import _age, _sex_female
+
+            model = BodyModel.from_observations(
+                obs, age_years=_age(payload), sex_female=_sex_female(payload)
+            )
             body_ctx = model.to_aria_context(perms)
             # Robust baseline from sleep duration history (median ± MAD) for personal band
             sleep_durs = [

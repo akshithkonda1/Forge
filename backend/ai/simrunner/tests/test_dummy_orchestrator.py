@@ -134,6 +134,17 @@ class DummyOrchestratorTests(unittest.TestCase):
         # Trailing period may be normalized when the cite is parenthesized.
         self.assertIn("From Some Source: real info", row["message"])
 
+    def test_training_age_looks_up_aging_web_source(self):
+        plan = dummy.plan_workers("what's my training age?")
+        self.assertEqual(plan.primary.kind, "aging")
+        with patch.object(web_research, "look_up", return_value="From MedlinePlus: exercise stress test notes.") as mock_look_up:
+            row = dummy.respond("what's my training age?", seed=1, engine="stub")
+        mock_look_up.assert_called_once_with("aging")
+        self.assertIn("From MedlinePlus: exercise stress test notes", row["message"])
+        blob = (row["prose_summary"] + " " + row["message"]).lower()
+        self.assertIn("lifestyle comparison", blob)
+        self.assertIn("not a diagnosis", blob)
+
     def test_non_research_message_never_calls_web_research(self):
         with patch.object(web_research, "look_up") as mock_look_up:
             dummy.respond("What should I train today?", seed=1, engine="stub")
@@ -639,7 +650,12 @@ class DummyOrchestratorTests(unittest.TestCase):
             self.assertNotIn("\n\n", row["message"])
 
     def test_both_engines_sound_like_a_friend_with_a_point(self):
-        needles = (
+        bank_hooks = tuple(
+            line.split("—", 1)[0].strip().lower()
+            for line in dummy._WIT_PROTECT + dummy._WIT_PROCEED + dummy._WIT_HONEST
+            if "—" in line
+        )
+        needles = bank_hooks + (
             "clap you into",
             "victory-lap",
             "spend it like it's a dare",
@@ -650,6 +666,9 @@ class DummyOrchestratorTests(unittest.TestCase):
             "not a parade",
             "sharp, not endless",
             "hero set",
+            "sparkle in the tank",
+            "hug with a point",
+            "cozy-sweater",
         )
         for engine in ("stub", "lambda"):
             row = dummy.respond("What should I train today?", seed=1, engine=engine)
@@ -661,6 +680,86 @@ class DummyOrchestratorTests(unittest.TestCase):
             for banned in ("prescrib", "cure", "treat this", "medical condition"):
                 self.assertNotIn(banned, blob, banned)
 
+    def test_soft_wit_banks_are_funny_useful_friends_not_dry_bark(self):
+        """Iris contract: each wit line is a funny take + one useful improve."""
+        banks = {
+            "protect": dummy._WIT_PROTECT,
+            "proceed": dummy._WIT_PROCEED,
+            "honest": dummy._WIT_HONEST,
+        }
+        funny = (
+            "cute", "sparkle", "sparkly", "cozy", "hug", "plot", "cheering",
+            "sweater", "montage", "fireworks", "encore", "crispy", "whisper",
+            "friend", "double-dare", "go-play", "restock", "low-power",
+            "villain", "meh", "maybe", "messy", "flop", "snack", "drafts",
+            "please-be-nice", "tucking", "unwrap", "sparkle included",
+        )
+        useful = (
+            "walk", "bed", "lights", "wind-down", "protein", "water", "meal",
+            "easy", "gentle", "short", "one thing", "one clean", "one quality",
+            "one honest", "one familiar", "stop", "session", "earlier",
+            "protect", "soft", "kind", "sleep", "eat",
+        )
+        retired_dry = (
+            "audience that isn't there",
+            "no to performing",
+            "not a pep talk. a read",
+            "clap you into a hole",
+            "sharp over loud",
+            "heroics no",
+        )
+        seen: set[str] = set()
+        for name, lines in banks.items():
+            self.assertGreaterEqual(len(lines), 8, name)
+            for line in lines:
+                with self.subTest(bank=name, line=line):
+                    self.assertNotIn(line, seen, "wit rotation needs unique lines")
+                    seen.add(line)
+                    self.assertIn("—", line, "funny take — useful improve")
+                    low = line.lower()
+                    self.assertTrue(
+                        any(tok in low for tok in funny),
+                        f"{name} missing funny take: {line!r}",
+                    )
+                    self.assertTrue(
+                        any(tok in low for tok in useful),
+                        f"{name} missing useful improve: {line!r}",
+                    )
+                    self.assertTrue(
+                        speak_quality.has_friend_throughline(line),
+                        f"{name} missing friend throughline: {line!r}",
+                    )
+                    self.assertEqual(speak_quality.bark_hits(line), [], line)
+                    self.assertEqual(speak_quality.medical_hits(line), [], line)
+                    self.assertEqual(speak_quality.vitals_hits(line), [], line)
+                    self.assertEqual(speak_quality.sludge_hits(line), [], line)
+                    for cold in retired_dry:
+                        self.assertNotIn(cold, low, line)
+
+    def test_friend_speak_appends_seed_indexed_soft_wit(self):
+        body = (
+            "You've got something to spend, since the night actually paid you back. "
+            "A solid moderate session fits if we progress one thing and leave the extra volume. "
+            "Want the session mapped, or just this read?"
+        )
+        self.assertGreaterEqual(len(body.split()), 28)
+        for stance, bank in (
+            ("protect", dummy._WIT_PROTECT),
+            ("proceed", dummy._WIT_PROCEED),
+            ("honest", dummy._WIT_HONEST),
+        ):
+            spoken = dummy.friend_speak(body, seed=1, stance=stance)
+            extra = dummy._pick(1 ^ 17, list(bank))
+            self.assertIn(extra, spoken)
+            self.assertTrue(spoken.startswith(body))
+            self.assertEqual(speak_quality.bark_hits(spoken), [])
+            self.assertEqual(speak_quality.medical_hits(spoken), [])
+            again = dummy.friend_speak(body, seed=1, stance=stance)
+            self.assertEqual(spoken, again)
+            other = dummy.friend_speak(body, seed=2, stance=stance)
+            # Different seeds may land the same slot; variety is the bank size.
+            self.assertIn(dummy._pick(2 ^ 17, list(bank)), other)
+
     def test_lambda_engine_same_seed_is_deterministic(self):
         a = dummy.respond("How did I sleep last night?", seed=7, engine="lambda")
         b = dummy.respond("How did I sleep last night?", seed=7, engine="lambda")
@@ -668,6 +767,50 @@ class DummyOrchestratorTests(unittest.TestCase):
         self.assertEqual(a["message"], b["message"])
         self.assertEqual(a["fusion"]["stance"], b["fusion"]["stance"])
         self.assertEqual(a["reasoning_source"], dummy.LAMBDA_REASONING_SOURCE)
+
+    def test_swarm_runs_on_every_engine_without_a_model(self):
+        for engine in ("stub", "lambda"):
+            row = dummy.respond("What should I train today?", seed=1, engine=engine)
+            swarm = row["swarm"]
+            self.assertEqual(swarm["name"], "swarm")
+            self.assertEqual(swarm["slot_name"], "Grok")
+            self.assertTrue(swarm["agentic"])
+            self.assertIsNone(swarm["model"])
+            self.assertEqual(swarm["stages"], ["read", "evaluate", "write"])
+            present = {s["id"] for s in swarm["sources"] if s["present"]}
+            self.assertTrue({"whoop", "apple-watch", "oura"} <= present, present)
+            self.assertTrue(row["orchestration"]["swarm"])
+            self.assertIn("Grok", row["orchestration"]["swarm_slot"])
+            self.assertTrue(swarm["picture"]["headline"])
+            self.assertTrue(swarm["picture"]["writes"])
+            self._assert_no_vitals_speak(row)
+            self.assertNotIn("HRV", swarm["picture"]["headline"])
+
+    def test_stream_samples_are_vendor_tagged_not_simrunner(self):
+        from backend.ai.simrunner.backend_simulator.behavior_engine import generate_stream
+        from backend.ai.simrunner.backend_simulator.data_generator import build_context
+        from backend.ai.simrunner.backend_simulator import model_registry
+
+        profile = model_registry.get_models_by_tier(1)[0]["behavioral_profile"]
+        ctx = build_context(generate_stream(profile, 42), profile, 29)
+        samples = dummy._stream_samples(ctx)
+        sources = {s["source"] for s in samples}
+        self.assertNotIn("simrunner", sources)
+        self.assertTrue({"whoop", "oura", "apple-watch"} & sources, sources)
+        by_type = {s["type"]: s["source"] for s in samples}
+        if "sleep" in by_type:
+            self.assertEqual(by_type["sleep"], "oura")
+        if "hrv" in by_type:
+            self.assertEqual(by_type["hrv"], "whoop")
+        if "steps" in by_type:
+            self.assertEqual(by_type["steps"], "apple-watch")
+
+    def test_swarm_is_sidecar_not_spoken(self):
+        row = dummy.respond("What should I train today?", seed=1, engine="stub")
+        headline = row["swarm"]["picture"]["headline"]
+        # Swarm writes an actionable picture; chat still speaks like a friend.
+        self.assertNotIn(headline, row["message"])
+        self.assertIn("Swarm read", row["thinking"])
 
     def _assert_no_vitals_speak(self, row: dict) -> None:
         fails = speak_quality.speak_failures(row)

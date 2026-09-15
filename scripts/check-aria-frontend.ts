@@ -7,7 +7,11 @@ import {
   ARIA_MARK,
   ARIA_MARK_COMPACT_MAX,
   ARIA_MARK_CONTRAST_FLOOR,
+  ARIA_ORB_CORE,
   LEGACY_EMBER,
+  ARIA_MARK_PAINT_HZ,
+  ariaMarkPaintDue,
+  ariaMarkShouldGlow,
   ariaMarkShouldSpin,
   ariaMarkSizeTier,
   clampGaze,
@@ -15,6 +19,7 @@ import {
   contrastRingIndices,
   emberCoreRadius,
   emberLobe,
+  orbCoreRadius,
   ringEllipse,
   ringSpinHz,
   ringStrokeWidth,
@@ -73,7 +78,11 @@ assert(contrastRingIndices().join(",") === "1,2", "contrast rings are the two â‰
 assert(compactRingIndices().join(",") === "1,2,4", "compact 3-ring is contrast pair + strongest support");
 assert(visibleRingIndices(ARIA_MARK.compactRecommend).join(",") === "1,2,4", "compact recommend draws 3 rings");
 assert(visibleRingIndices(32).join(",") === "1,2,4", "compact ceiling draws 3 rings");
-assert(visibleRingIndices(48).join(",") === "1,2,4", "mid draws the compact 3-ring subset");
+assert(visibleRingIndices(24).join(",") === "1,2,4", "nav compact draws 3 rings");
+assert(visibleRingIndices(36).join(",") === "0,1,2,3,4", "mid 36 draws all five");
+assert(visibleRingIndices(48).join(",") === "0,1,2,3,4", "mid 48 draws all five");
+assert(visibleRingIndices(56).join(",") === "0,1,2,3,4", "mid 56 draws all five");
+assert(visibleRingIndices(72).join(",") === "0,1,2,3,4", "mid 72 draws all five");
 assert(visibleRingIndices(ARIA_MARK.heroMinimumSize).join(",") === "0,1,2,3,4", "hero draws all five");
 assert(ringStrokeWidth(28) === ARIA_MARK.strokeWidthCompact, "compact stroke is 1.5");
 assert(ringStrokeWidth(90) === ARIA_MARK.strokeWidthHero, "hero stroke is 1.85");
@@ -82,7 +91,14 @@ assert(ariaMarkSizeTier(24) === "compact" && ariaMarkSizeTier(ARIA_MARK_COMPACT_
 assert(ariaMarkSizeTier(36) === "mid" && ariaMarkSizeTier(89) === "mid", "chat chrome is mid");
 assert(ariaMarkSizeTier(90) === "hero", "hero floor is 90");
 assert(!ariaMarkShouldSpin(24, false), "compact marks stay still-pose");
+assert(ariaMarkShouldSpin(36, false) && ariaMarkShouldSpin(56, false), "mid chat sizes spin");
 assert(ariaMarkShouldSpin(96, false) && !ariaMarkShouldSpin(96, true), "hero spins only when motion is allowed");
+assert(!ariaMarkShouldGlow(32) && !ariaMarkShouldGlow(ARIA_MARK.compactRecommend), "compact skips decorative glow");
+assert(ariaMarkShouldGlow(36) && ariaMarkShouldGlow(90), "mid and hero keep soft glow");
+assert(ARIA_MARK_PAINT_HZ === 12, "live paint cadence is 12 Hz");
+assert(ariaMarkPaintDue(0, -1), "first frame always paints");
+assert(!ariaMarkPaintDue(80, 0), "sub-12 Hz frames are skipped");
+assert(ariaMarkPaintDue(1000 / ARIA_MARK_PAINT_HZ, 0), "12 Hz boundary paints");
 assert(ARIA_MARK_CONTRAST_FLOOR === 0.7, "cove contrast floor is 0.70");
 
 const stillRingA = ringEllipse(0, 1, false, true);
@@ -113,6 +129,16 @@ for (let i = 0; i < ARIA_MARK.ringCount; i++) {
   rotations.add(pose.rotation.toFixed(4));
 }
 assert(rotations.size === ARIA_MARK.ringCount, "five rings overlap at distinct tilts");
+
+assert(ARIA_ORB_CORE.hue === "#FFFFFF", "intelligence core is white");
+const heroOrb = orbCoreRadius(ARIA_MARK.heroMinimumSize);
+const compactOrb = orbCoreRadius(24);
+const heroInner = ringEllipse(0, 0, false, true).ry / 2;
+const compactInner = ringEllipse(1, 0, false, true).ry / 2;
+assert(heroOrb < heroInner, "hero orb nests inside the innermost ellipse");
+assert(compactOrb < compactInner, "compact orb nests inside the Cove 3-ring");
+assert(Math.abs(heroOrb / heroInner - ARIA_ORB_CORE.nest) < 1e-9, "orb nest ratio is 0.88");
+assert(compactOrb > heroOrb, "compact core stays readable at 24px");
 
 const stillA = emberLobe(0, 1, false, true);
 const stillB = emberLobe(0, 99, true, true);

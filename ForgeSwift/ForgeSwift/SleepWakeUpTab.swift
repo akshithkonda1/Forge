@@ -198,7 +198,7 @@ struct SleepWakeScreen: View {
                     store.openChat(with: prompt, voice: false)
                 } label: {
                     HStack(spacing: 8) {
-                        Image(systemName: "sparkles")
+                        ARIAIdentityMark(state: .idle, mood: .energized, size: 16, amplitude: 0.22)
                         Text("Ask ARIA to start the morning")
                     }
                     .font(.system(size: 14, weight: .semibold, design: .rounded))
@@ -388,7 +388,7 @@ struct NextWakePlanCard: View {
                     store.openChat(with: coach.ariaPrompt, voice: false)
                 } label: {
                     HStack(spacing: 8) {
-                        Image(systemName: "sparkles")
+                        ARIAIdentityMark(state: .idle, mood: .energized, size: 16, amplitude: 0.22)
                         Text("Ask ARIA about this morning")
                         Spacer()
                         Image(systemName: "arrow.up.right")

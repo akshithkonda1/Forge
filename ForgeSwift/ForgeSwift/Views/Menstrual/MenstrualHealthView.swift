@@ -868,7 +868,11 @@ struct MenstrualHealthView: View {
                     voice: false
                 )
             } label: {
-                Label("Ask ARIA about \(condition.label)", systemImage: "sparkles")
+                Label {
+                    Text("Ask ARIA about \(condition.label)")
+                } icon: {
+                    ARIAIdentityMark(state: .idle, mood: .energized, size: 14, amplitude: 0.22)
+                }
                     .font(FDS.TypeScale.label(13))
                     .foregroundStyle(Color.ember)
             }
@@ -1934,8 +1938,7 @@ struct MenstrualHealthView: View {
                     Circle()
                         .fill(LinearGradient.premiumSurface)
                         .frame(width: 44, height: 44)
-                    Image(systemName: "sparkles")
-                        .foregroundStyle(Color.ember)
+                    ARIAIdentityMark(state: .idle, mood: .energized, size: 26, amplitude: 0.24)
                 }
                 VStack(alignment: .leading, spacing: 3) {
                     Text("Ask ARIA about today")

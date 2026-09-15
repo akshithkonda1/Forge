@@ -337,9 +337,13 @@ private struct HomeScrollMiniHeader: View {
             }
             Spacer()
             Button {
-                store.startExistingWorkout()
+                if store.isWorkoutActive {
+                    store.startExistingWorkout()
+                } else {
+                    store.openTrainHome()
+                }
             } label: {
-                Text(store.isWorkoutActive ? "Continue" : "Start")
+                Text(store.isWorkoutActive ? "Continue" : "Train")
                     .font(.system(size: 13, weight: .semibold, design: .rounded))
                     .foregroundColor(.white)
                     .padding(.horizontal, 14)

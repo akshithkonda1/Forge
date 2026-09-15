@@ -297,13 +297,14 @@ struct LifestyleHeaderView: View {
                     store.openHydration()
                 }
 
-                ForgeIconButton(
-                    systemImage: "sparkles",
-                    accent: .ember,
-                    accessibilityLabel: "ARIA insights"
-                ) {
+                Button {
+                    FDS.haptic(.light)
                     withAnimation(.spring(response: 0.35, dampingFraction: 0.72)) { showInsights = true }
+                } label: {
+                    ARIAIdentityMark(state: .idle, mood: .energized, size: 40, amplitude: 0.24)
                 }
+                .buttonStyle(.plain)
+                .accessibilityLabel("ARIA insights")
             }
         }
         .opacity(appeared ? 1 : 0)

@@ -12,6 +12,16 @@ _CANONICAL_UNIT: dict[str, str] = {
     "sleep-stage": "minutes",
     "body-weight": "lbs",
     "distance": "meters",
+    "vo2-max": "ml/kg/min",
+    "chronological-age": "years",
+    "biological-age": "years",
+    "fitness-age": "years",
+    "phenotypic-age": "years",
+    "vascular-age": "years",
+    "metabolic-age": "years",
+    "inner-age": "years",
+    "cardio-age": "years",
+    "hrv-age": "years",
 }
 
 # Conversion factors: (from_unit -> multiplier to reach canonical unit)

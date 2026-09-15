@@ -28,6 +28,12 @@ class IsResearchWorthyTests(unittest.TestCase):
     def test_is_case_insensitive(self):
         self.assertTrue(web_research.is_research_worthy("HOW DO I get stronger?", "workout"))
 
+    def test_aging_questions_are_always_research_worthy(self):
+        self.assertTrue(web_research.suggests_aging("what's my training age?"))
+        self.assertTrue(web_research.is_research_worthy("what's my training age?", "aria"))
+        self.assertTrue(web_research.is_research_worthy("VO2 max vs calendar", "workout"))
+        self.assertFalse(web_research.suggests_aging("what should I train today?"))
+
 
 class LookUpGatingTests(unittest.TestCase):
     def setUp(self):
@@ -113,6 +119,14 @@ class LookUpFetchTests(unittest.TestCase):
     def test_timeout_returns_none(self):
         with patch.object(web_research, "urlopen", side_effect=TimeoutError()):
             self.assertIsNone(web_research.look_up("workout"))
+
+    def test_aging_lookup_cites_medlineplus_vo2(self):
+        html = b"<html><body><p>VO2 max measures oxygen use during exercise.</p></body></html>"
+        with patch.object(web_research, "urlopen", return_value=self._fake_response(status=200, body=html)):
+            result = web_research.look_up("aging")
+        self.assertIsNotNone(result)
+        self.assertTrue(result.startswith("From MedlinePlus: Exercise Stress Test / VO2: "))
+        self.assertIn("VO2 max", result)
 
     def test_never_imports_a_cloud_sdk(self):
         src = Path(web_research.__file__).read_text()

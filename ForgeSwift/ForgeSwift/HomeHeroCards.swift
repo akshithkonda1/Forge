@@ -86,7 +86,7 @@ private struct HomeHeroReadinessCard: View {
                         )
                     } label: {
                         HStack(spacing: 6) {
-                            Image(systemName: "sparkles")
+                            ARIAIdentityMark(state: .idle, mood: .energized, size: 14, amplitude: 0.22)
                             Text("Explain my readiness")
                                 .font(.system(size: 13, weight: .semibold))
                         }
@@ -362,8 +362,7 @@ private struct HomePrimaryCTA: View {
                     )
                 } label: {
                     HStack(spacing: 6) {
-                        Image(systemName: "sparkles")
-                            .font(.system(size: 12, weight: .semibold))
+                        ARIAIdentityMark(state: .idle, mood: .energized, size: 14, amplitude: 0.22)
                         Text("Why this session")
                             .font(.system(size: 13, weight: .semibold))
                     }
@@ -406,10 +405,10 @@ private struct HomePrimaryCTA: View {
 
     private func perform() {
         switch action {
-        case .startWorkout, .continueWorkout:
+        case .startWorkout, .recoveryDay, .buildPlan:
+            store.openTrainHome()
+        case .continueWorkout:
             store.startExistingWorkout()
-        case .recoveryDay, .buildPlan:
-            store.startLifeShapedSession()
         }
     }
 }

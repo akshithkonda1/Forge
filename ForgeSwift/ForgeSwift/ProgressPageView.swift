@@ -25,13 +25,11 @@ struct ProgressPageView: View {
                     subtitle: "History, PRs, streaks — your training story",
                     accent: Color(hex: "3B82F6")
                 ) {
-                    ForgeIconButton(
-                        systemImage: "sparkles",
-                        accent: .ember,
-                        accessibilityLabel: "Ask ARIA about progress"
-                    ) {
-                        store.openChat(with: "Walk me through my progress, PRs, and what to train next.", voice: false)
+                    Button(action: { store.openChat(with: "Walk me through my progress, PRs, and what to train next.", voice: false) }) {
+                        ARIAIdentityMark(state: .idle, mood: .energized, size: 40, amplitude: 0.24)
                     }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel("Ask ARIA about progress")
                     ForgeIconButton(
                         systemImage: "square.and.arrow.up",
                         accent: Color(hex: "3B82F6"),

@@ -1,15 +1,21 @@
 #!/usr/bin/env python3
-"""Write the iOS client's API and Cognito configuration from Terraform outputs.
+"""Write the iOS client's API and Cognito configuration.
 
 ``ForgeSwift/ForgeSwift/Info-Add.plist`` carries the five FORGE* keys that
-``ForgeAuthConfig.fromInfoDictionary`` reads at launch. Its comment has always
-said the values are "Filled by infra output / generate_client_config" -- this is
-that tool, which until now did not exist. Without it the checked-in placeholders
-were what shipped: a Release build pointing at http://127.0.0.1:3001 with no
-Cognito client, so every request failed on a device and sign-in could not work
-at all.
+``ForgeAuthConfig.fromInfoDictionary`` reads at launch. The committed values
+are the Dummy-offline / TestFlight-safe path: no apiBaseUrl, no Cognito ids,
+``FORGEEnvironment=dummy``. That ships Dummy ARIA without a live stack and
+without embedding 127.0.0.1 / localhost in the binary. It does not enable
+Bedrock (``aria_bedrock_enabled`` stays false; this script never touches it).
+
+Live / local API builds still consume Terraform ``client_configuration``
+(apiBaseUrl, cognito.region, cognito.iosClientId, cognito.userPoolId) when
+you pass stack outputs. Dummy-offline needs none of those.
 
 Usage:
+
+    # Dummy-offline / TestFlight-safe (zero stack outputs)
+    scripts/generate_client_config.py --dummy-offline
 
     terraform -chdir=backend/infra output -json > out.json
     scripts/generate_client_config.py --from out.json --environment prod
@@ -38,7 +44,23 @@ REPO_ROOT = pathlib.Path(__file__).resolve().parent.parent
 PLIST = REPO_ROOT / "ForgeSwift" / "ForgeSwift" / "Info-Add.plist"
 
 PRODUCTION_LIKE = {"prod", "production", "staging", "stage"}
-KNOWN_ENVIRONMENTS = PRODUCTION_LIKE | {"local", "dev", "development", "test", "ci"}
+# Dummy-offline / TestFlight-safe. No live API, no Cognito, no stack outputs.
+DUMMY_OFFLINE = {"dummy"}
+KNOWN_ENVIRONMENTS = PRODUCTION_LIKE | DUMMY_OFFLINE | {
+    "local",
+    "dev",
+    "development",
+    "test",
+    "ci",
+}
+
+DUMMY_OFFLINE_VALUES = {
+    "FORGEAPIBaseURL": "",
+    "FORGECognitoRegion": "",
+    "FORGECognitoClientId": "",
+    "FORGECognitoUserPoolId": "",
+    "FORGEEnvironment": "dummy",
+}
 
 # Matches ForgeAuthConfig.defaultLocalAPI and anything else that cannot leave
 # the developer's machine.
@@ -129,11 +151,20 @@ def is_loopback(url: str) -> bool:
     return any(host in url for host in LOOPBACK_HOSTS)
 
 
+def _cognito_fields(values: dict[str, str]) -> dict[str, str]:
+    return {
+        key: values[key].strip()
+        for key in ("FORGECognitoRegion", "FORGECognitoClientId", "FORGECognitoUserPoolId")
+    }
+
+
 def validate(values: dict[str, str]) -> list[str]:
-    """Consistency rules. An unconfigured dev build is fine; a lying one is not."""
+    """Consistency rules. Dummy-offline is empty on purpose; a lying live config is not."""
     problems: list[str] = []
     environment = values["FORGEEnvironment"].strip().lower()
     api = values["FORGEAPIBaseURL"].strip()
+    cognito = _cognito_fields(values)
+    cognito_set = {key: value for key, value in cognito.items() if value}
 
     if environment not in KNOWN_ENVIRONMENTS:
         problems.append(
@@ -142,22 +173,61 @@ def validate(values: dict[str, str]) -> list[str]:
             "unrecognised name as non-production, which is the permissive side."
         )
 
+    # Loopback is unreachable from a device and must never ship in Info.plist,
+    # including a Dummy / TestFlight archive that skipped generate-from-terraform.
+    if is_loopback(api):
+        problems.append(
+            f"FORGEAPIBaseURL is {api!r}. Loopback (127.0.0.1 / localhost) must "
+            "not ship in client config; Dummy-offline leaves this empty, and a "
+            "live build takes apiBaseUrl from stack outputs."
+        )
+
+    if environment in DUMMY_OFFLINE:
+        if api:
+            problems.append(
+                f"FORGEAPIBaseURL is {api!r} in Dummy-offline. That path has no "
+                "live API; leave it empty so TestFlight does not embed a host."
+            )
+        if cognito_set:
+            problems.append(
+                "Dummy-offline must not ship Cognito ids (empty region / client / "
+                "pool is the offline signal; filled fields look like live auth). "
+                + ", ".join(f"{key}={value!r}" for key, value in cognito_set.items())
+            )
+        return problems
+
     if environment in PRODUCTION_LIKE:
         if not api:
             problems.append("FORGEAPIBaseURL is empty in a production-like build.")
-        elif is_loopback(api):
-            problems.append(
-                f"FORGEAPIBaseURL is {api!r} in a production-like build. Loopback "
-                "is unreachable from a device; every request would fail."
-            )
         elif not api.startswith("https://"):
             problems.append(
                 f"FORGEAPIBaseURL is {api!r}; a production build must use https."
             )
 
-        for key in ("FORGECognitoRegion", "FORGECognitoClientId", "FORGECognitoUserPoolId"):
-            if not values[key].strip():
+        for key, value in cognito.items():
+            if not value:
                 problems.append(f"{key} is empty in a production-like build; sign-in cannot work.")
+        return problems
+
+    # local / dev / test / ci: either a real https + Cognito stack, or empty
+    # placeholders that do not impersonate live auth. Partial Cognito (a region
+    # with no client id) is the shape that looks configured and then fails.
+    if api:
+        if not api.startswith("https://"):
+            problems.append(
+                f"FORGEAPIBaseURL is {api!r}; a non-loopback client URL must use https."
+            )
+        for key, value in cognito.items():
+            if not value:
+                problems.append(
+                    f"{key} is empty while FORGEAPIBaseURL is set; that looks like "
+                    "live auth with forgotten Cognito ids."
+                )
+    elif cognito_set:
+        problems.append(
+            "Cognito fields are set without FORGEAPIBaseURL; Dummy-offline leaves "
+            "both empty, and a live build fills both from client_configuration."
+        )
 
     return problems
 
@@ -203,9 +273,14 @@ def load_outputs(args: argparse.Namespace) -> dict:
 def main(argv: list[str]) -> int:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--check", action="store_true", help="validate the committed plist and exit")
+    parser.add_argument(
+        "--dummy-offline",
+        action="store_true",
+        help="write Dummy-offline / TestFlight-safe values (no Terraform, no Cognito, no loopback)",
+    )
     parser.add_argument("--from", dest="from_file", help="read `terraform output -json` from this file")
     parser.add_argument("--terraform-dir", default="backend/infra", help="run terraform output here")
-    parser.add_argument("--environment", help="value for FORGEEnvironment (required unless --check)")
+    parser.add_argument("--environment", help="value for FORGEEnvironment (required unless --check or --dummy-offline)")
     parser.add_argument("--dry-run", action="store_true", help="print the result without writing")
     args = parser.parse_args(argv)
 
@@ -215,13 +290,24 @@ def main(argv: list[str]) -> int:
         print(f"generate_client_config: cannot read {PLIST}: {exc}", file=sys.stderr)
         return 2
 
+    environment = (args.environment or "").strip().lower()
+    dummy_offline = args.dummy_offline or environment in DUMMY_OFFLINE
+
     try:
         if args.check:
             values = read_plist_values(text)
+        elif dummy_offline:
+            if args.from_file:
+                parser.error("--dummy-offline / --environment dummy does not take stack outputs")
+            if environment and environment not in DUMMY_OFFLINE:
+                parser.error("--dummy-offline cannot be combined with a live --environment")
+            values = dict(DUMMY_OFFLINE_VALUES)
+            if environment:
+                values["FORGEEnvironment"] = environment
         else:
-            if not args.environment:
-                parser.error("--environment is required unless --check is given")
-            values = from_terraform_outputs(load_outputs(args), args.environment.strip().lower())
+            if not environment:
+                parser.error("--environment is required unless --check or --dummy-offline is given")
+            values = from_terraform_outputs(load_outputs(args), environment)
     except ConfigError as exc:
         print(f"generate_client_config: {exc}", file=sys.stderr)
         return 2

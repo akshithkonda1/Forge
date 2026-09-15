@@ -93,9 +93,7 @@ struct HomeARIABriefingCard: View {
             store.openChat(with: HomeInsightFlow.continueAndPersist(briefing: fullBriefing), voice: false)
         } label: {
             HStack(spacing: 10) {
-                Image(systemName: "sparkles")
-                    .font(.system(size: 14, weight: .semibold))
-                    .foregroundStyle(Color.ember)
+                ARIAIdentityMark(state: .idle, mood: .energized, size: 22, amplitude: 0.24)
                 Text("Talk to ARIA about today")
                     .font(.system(size: 14, weight: .semibold, design: .rounded))
                     .foregroundColor(.textPrimary)

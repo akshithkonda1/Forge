@@ -16,6 +16,7 @@ struct AIOptimizationContent: View {
             if let stats = vm.healthStats {
                 LiveHealthDashboard(stats: stats, trends: vm.weeklyTrends)
             }
+            BiologicalAgeCard(snapshot: vm.agingSnapshot)
 
             if !vm.aiWorkouts.isEmpty {
                 AIWorkoutSuggestionsCard(workouts: vm.aiWorkouts)
