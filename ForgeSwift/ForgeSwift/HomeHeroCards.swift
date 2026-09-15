@@ -429,10 +429,10 @@ private struct HomePrimaryCTA: View {
 
     private func perform() {
         switch action {
-        case .startWorkout, .continueWorkout:
+        case .startWorkout, .recoveryDay, .buildPlan:
+            store.openTrainHome()
+        case .continueWorkout:
             store.startExistingWorkout()
-        case .recoveryDay, .buildPlan:
-            store.startLifeShapedSession()
         }
     }
 }

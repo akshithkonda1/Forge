@@ -34,6 +34,7 @@ _SYSTEM_TO_DOMAIN = {
     System.NUTRITION: "nutrition",
     System.METABOLIC: "readiness",
     System.RESPIRATORY: "readiness",
+    System.AGING: "aging",
 }
 
 
@@ -127,11 +128,24 @@ class BodySnapshot:
         }
 
 
+_AGING_VENDOR_METRICS = (
+    MetricType.BIOLOGICAL_AGE,
+    MetricType.FITNESS_AGE,
+    MetricType.PHENOTYPIC_AGE,
+    MetricType.VASCULAR_AGE,
+    MetricType.METABOLIC_AGE,
+    MetricType.INNER_AGE,
+    MetricType.CARDIO_AGE,
+    MetricType.HRV_AGE,
+)
+
+
 class BodyModel:
-    def __init__(self, *, age_years: float | None = None) -> None:
+    def __init__(self, *, age_years: float | None = None, sex_female: bool | None = None) -> None:
         self.series: dict[MetricType, list[Observation]] = {}
         self.online: dict[MetricType, st.OnlineStat] = {}
         self.age_years = age_years
+        self.sex_female = sex_female
         self._sources: set[str] = set()
         self._count = 0
 
@@ -151,8 +165,14 @@ class BodyModel:
         return self
 
     @classmethod
-    def from_observations(cls, observations: list[Observation], *, age_years: float | None = None) -> "BodyModel":
-        return cls(age_years=age_years).ingest_many(observations)
+    def from_observations(
+        cls,
+        observations: list[Observation],
+        *,
+        age_years: float | None = None,
+        sex_female: bool | None = None,
+    ) -> "BodyModel":
+        return cls(age_years=age_years, sex_female=sex_female).ingest_many(observations)
 
     # -- accessors -------------------------------------------------------------
 
@@ -200,6 +220,8 @@ class BodyModel:
         recovery = self._recovery_estimate()
         if recovery.value is not None:
             derived["recovery"] = recovery
+
+        derived.update(self._aging_estimates())
         return derived
 
     def _recovery_estimate(self) -> Estimate:
@@ -212,6 +234,66 @@ class BodyModel:
             rhr_baseline=st.robust_baseline(rhr_vals).median if rhr_vals else None,
             sleep_minutes=self._sleep_total_minutes(),
             sleep_efficiency=self.latest(MetricType.SLEEP_EFFICIENCY),
+        )
+
+    def chronological_age(self) -> float | None:
+        sampled = self.latest(MetricType.CHRONOLOGICAL_AGE)
+        if sampled is not None:
+            return sampled
+        return self.age_years
+
+    def _vendor_ages(self) -> dict[str, tuple[float, float, str]]:
+        vendor: dict[str, tuple[float, float, str]] = {}
+        for metric in _AGING_VENDOR_METRICS:
+            series = self.series.get(metric)
+            if not series:
+                continue
+            latest = series[-1]
+            vendor[metric.value] = (latest.value, latest.confidence, latest.source or "unknown")
+        return vendor
+
+    def _aging_estimates(self) -> dict[str, Estimate]:
+        chrono = self.chronological_age()
+        estimated: dict[str, Estimate] = {}
+        vo2 = self.latest(MetricType.VO2_MAX)
+        if vo2 is None and chrono is not None and self.latest(MetricType.RESTING_HEART_RATE):
+            vo2_est = estimators.estimate_vo2max_from_rhr(chrono, self.latest(MetricType.RESTING_HEART_RATE))
+            vo2 = vo2_est.value
+        if chrono is not None and vo2 is not None:
+            estimated["fitness_age_est"] = estimators.fitness_age_from_vo2(vo2, chrono, self.sex_female)
+        if chrono is not None and self.latest(MetricType.RESTING_HEART_RATE) is not None:
+            estimated["vascular_age_est"] = estimators.vascular_age_from_rhr(
+                self.latest(MetricType.RESTING_HEART_RATE), chrono
+            )
+        hrv = self.latest(MetricType.HRV_SDNN)
+        if chrono is not None and hrv is not None:
+            estimated["autonomic_age_est"] = estimators.autonomic_age_from_hrv(hrv, chrono)
+        sleep_min = self._sleep_total_minutes()
+        if chrono is not None and sleep_min is not None:
+            estimated["sleep_age_est"] = estimators.sleep_age_from_hours(sleep_min / 60.0, chrono)
+
+        fused = estimators.fuse_biological_age(
+            chronological_age=chrono, vendor=self._vendor_ages(), estimated=estimated
+        )
+        out = dict(estimated)
+        if chrono is not None:
+            out["chronological_age"] = Estimate(
+                "chronological_age", round(chrono, 1), "matched", 1.0, "profile",
+                f"calendar age {chrono:g}",
+            )
+        if fused.value is not None:
+            out["biological_age"] = fused
+            if chrono is not None:
+                out["age_delta_years"] = Estimate(
+                    "age_delta_years", round(fused.value - chrono, 1), fused.state, fused.confidence,
+                    "fusion:aging", fused.detail,
+                )
+        return out
+
+    def can_project_aging(self) -> bool:
+        return (
+            self.chronological_age() is not None
+            or bool(self._vendor_ages())
         )
 
     def _sleep_total_minutes(self) -> float | None:
@@ -325,13 +407,41 @@ class BodyModel:
                 calorie_target=None,
             )
 
+        if allowed("aging") and self.can_project_aging():
+            aging = self._aging_estimates()
+            fused = aging.get("biological_age")
+            fitness = aging.get("fitness_age_est")
+            vascular = aging.get("vascular_age_est")
+            autonomic = aging.get("autonomic_age_est")
+            vendor = self._vendor_ages()
+            sources = [f"{src}:{kind}" for kind, (_y, _c, src) in vendor.items()]
+            if fitness is not None:
+                sources.append("vo2")
+            if vascular is not None:
+                sources.append("rhr")
+            if autonomic is not None:
+                sources.append("hrv")
+            ctx.aging = aria_engine.AgingContext(
+                chronological_age_years=self.chronological_age(),
+                biological_age_years=fused.value if fused else None,
+                fitness_age_years=fitness.value if fitness else vendor.get("fitness_age", (None, 0, ""))[0],
+                vascular_age_years=vascular.value if vascular else vendor.get("vascular_age", (None, 0, ""))[0],
+                autonomic_age_years=autonomic.value if autonomic else vendor.get("hrv_age", (None, 0, ""))[0],
+                delta_years=aging["age_delta_years"].value if "age_delta_years" in aging else None,
+                confidence=fused.confidence if fused else None,
+                sources=sources,
+                state=fused.state if fused else None,
+            )
+
         return ctx
 
 
 def _belongs_to(derived_key: str, system: System) -> bool:
     mapping = {
-        System.CARDIOVASCULAR: {"mean_arterial_pressure", "pulse_pressure", "vo2_max_est", "heart_rate_reserve"},
-        System.AUTONOMIC: {"autonomic_stress", "recovery"},
+        System.CARDIOVASCULAR: {"mean_arterial_pressure", "pulse_pressure", "vo2_max_est", "heart_rate_reserve", "fitness_age_est", "vascular_age_est"},
+        System.AUTONOMIC: {"autonomic_stress", "recovery", "autonomic_age_est"},
+        System.SLEEP: {"sleep_age_est"},
+        System.AGING: {"chronological_age", "biological_age", "age_delta_years"},
     }
     return derived_key in mapping.get(system, set())
 

@@ -155,13 +155,19 @@ final class AriaContextStore: ObservableObject {
             typicalWakeTime: nil,
             consistencyScore: nil
         )
+        let todayStats = HealthKitManager.shared.todayStats
+        let agingSnap = AgingBridge.snapshot(
+            age: store.userProfile.age,
+            sexFemale: store.userProfile.biologicalSex == .female ? true
+                : store.userProfile.biologicalSex == .male ? false : nil,
+            stats: todayStats
+        )
         let bodyDomain = ARIAContextPayload.BodyDomain(
             weightKg: store.userProfile.weight,
             weightTrendKg: nil,
             bodyFatPct: nil,
-            vo2Max: nil
+            vo2Max: todayStats.flatMap { $0.vo2Max > 0 ? $0.vo2Max : nil }
         )
-        let todayStats = HealthKitManager.shared.todayStats
         let nutritionDomain = ARIAContextPayload.NutritionDomain(
             caloriesIn3DayAvg: todayStats.map { Double($0.totalCalories) },
             proteinG3DayAvg: todayStats.map { $0.protein },
@@ -197,6 +203,17 @@ final class AriaContextStore: ObservableObject {
             goals: context.currentGoals,
             cyclePhaseDirective: cyclePhaseDirective
         )
+        let agingDomain = ARIAContextPayload.AgingDomain(
+            chronologicalAgeYears: agingSnap.chronologicalAge,
+            biologicalAgeYears: agingSnap.biologicalAge,
+            fitnessAgeYears: agingSnap.fitnessAge,
+            vascularAgeYears: agingSnap.vascularAge,
+            autonomicAgeYears: agingSnap.autonomicAge,
+            deltaYears: agingSnap.deltaYears,
+            confidence: agingSnap.confidence,
+            sources: agingSnap.sources,
+            state: agingSnap.state.rawValue
+        )
         return ARIAContextPayload(
             timestamp: iso.string(from: Date()),
             sleep: sleepDomain,
@@ -209,6 +226,7 @@ final class AriaContextStore: ObservableObject {
             profile: profileDomain,
             progress: progressDomain,
             lifestyle: lifestyleDomain,
+            aging: agingDomain,
             clinicalData: clinicalDomain(),
             medicationLayer: medicationLayer.isEmpty ? nil : medicationLayer,
             conversation: store.conversationContextPayload()

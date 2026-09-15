@@ -56,10 +56,7 @@ struct HomeWinCard: View {
                 store.activeTab = .sleep
                 store.pendingSleepTab = "night"
             } else {
-                store.openChat(
-                    with: HomeInsightFlow.todayPlanPrompt,
-                    voice: false
-                )
+                store.openTrainHome()
             }
         }
     }
@@ -85,15 +82,15 @@ struct HomeAgendaCard: View {
                 plan.name,
                 "\(plan.duration) min · \(plan.intensity.label)",
                 .ember,
-                { store.startExistingWorkout() }
+                { store.openTrainHome() }
             ))
         } else {
             rows.append((
                 "sparkles",
-                "Build today's plan",
-                "ARIA will shape a session from readiness",
+                "Write today’s session",
+                "ARIA shapes it from sleep and readiness",
                 .ember,
-                { store.openChat(with: HomeInsightFlow.todayPlanPrompt, voice: false) }
+                { store.openTrainHome() }
             ))
         }
 

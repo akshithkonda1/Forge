@@ -84,6 +84,7 @@ ALL_DOMAINS = (
     "profile",
     "progress",
     "lifestyle",
+    "aging",
     "clinical_data",
 )
 
@@ -106,6 +107,12 @@ _DOMAIN_ALIASES = {
     "preferences": "profile",
     "patterns": "lifestyle",
     "habits": "lifestyle",
+    "aging": "aging",
+    "age": "aging",
+    "biological_age": "aging",
+    "biologicalage": "aging",
+    "fitness_age": "aging",
+    "vascular_age": "aging",
     "clinical_data": "clinical_data",
     "clinicaldata": "clinical_data",
     "clinical": "clinical_data",
@@ -313,6 +320,24 @@ class BodyContext:
 
 
 @dataclass
+class AgingContext:
+    """Calendar age vs fused biological / training age.
+
+    Lifestyle comparison only — never a medical biological-age diagnosis.
+    """
+
+    chronological_age_years: float | None = None
+    biological_age_years: float | None = None
+    fitness_age_years: float | None = None
+    vascular_age_years: float | None = None
+    autonomic_age_years: float | None = None
+    delta_years: float | None = None  # biological − chronological; negative = younger
+    confidence: float | None = None
+    sources: list[str] = field(default_factory=list)
+    state: str | None = None  # younger | matched | older
+
+
+@dataclass
 class NutritionContext:
     calories_in_3day_avg: float | None = None
     protein_g_3day_avg: float | None = None
@@ -463,6 +488,35 @@ def _parse_qol_confidence(lifestyle: dict) -> float | None:
     return None
 
 
+def _aging_from_rich(aging: dict[str, Any], data: dict[str, Any]) -> AgingContext:
+    """Accept camelCase or snake_case aging bags, plus top-level age_years."""
+    chrono = _num(
+        aging.get("chronologicalAgeYears")
+        or aging.get("chronological_age_years")
+        or data.get("age_years")
+        or data.get("ageYears")
+    )
+    bio = _num(aging.get("biologicalAgeYears") or aging.get("biological_age_years"))
+    fitness = _num(aging.get("fitnessAgeYears") or aging.get("fitness_age_years"))
+    vascular = _num(aging.get("vascularAgeYears") or aging.get("vascular_age_years"))
+    autonomic = _num(aging.get("autonomicAgeYears") or aging.get("autonomic_age_years"))
+    delta = _num(aging.get("deltaYears") or aging.get("delta_years"))
+    if delta is None and bio is not None and chrono is not None:
+        delta = round(bio - chrono, 1)
+    sources = _str_list(aging.get("sources"))
+    return AgingContext(
+        chronological_age_years=chrono,
+        biological_age_years=bio,
+        fitness_age_years=fitness,
+        vascular_age_years=vascular,
+        autonomic_age_years=autonomic,
+        delta_years=delta,
+        confidence=_num(aging.get("confidence")),
+        sources=sources,
+        state=_str(aging.get("state")),
+    )
+
+
 # Scalar leaves surfaced in ``missing_fields``. List-valued domains (profile
 # constraints, lifestyle) report presence separately.
 _FIELD_MAP: dict[str, list[str]] = {
@@ -475,6 +529,7 @@ _FIELD_MAP: dict[str, list[str]] = {
     "nutrition": ["calories_in_3day_avg", "protein_g_3day_avg", "hydration_ml_3day_avg", "calorie_target"],
     "profile": ["primary_goal", "experience_level", "coaching_style"],
     "progress": ["workouts_completed_30d", "new_personal_records", "training_load_trend", "recovery_consistency_delta"],
+    "aging": ["chronological_age_years", "biological_age_years", "delta_years"],
 }
 
 # Type per domain — used to mint a fresh empty instance when a domain is redacted.
@@ -489,6 +544,7 @@ _DOMAIN_TYPES = {
     "profile": ProfileContext,
     "progress": ProgressContext,
     "lifestyle": LifestyleContext,
+    "aging": AgingContext,
     "clinical_data": ClinicalDataContext,
 }
 
@@ -506,6 +562,7 @@ class ARIAContext:
     profile: ProfileContext = field(default_factory=ProfileContext)
     progress: ProgressContext = field(default_factory=ProgressContext)
     lifestyle: LifestyleContext = field(default_factory=LifestyleContext)
+    aging: AgingContext = field(default_factory=AgingContext)
     clinical_data: ClinicalDataContext = field(default_factory=ClinicalDataContext)
     medication_layer: MedicationLayerContext = field(default_factory=MedicationLayerContext)
 
@@ -580,6 +637,7 @@ class ARIAContext:
         progress = data.get("progress") or {}
         lifestyle = data.get("lifestyle") or {}
         clinical = data.get("clinicalData") or data.get("clinical_data") or {}
+        aging = data.get("aging") or {}
         layer = data.get("medicationLayer") or data.get("medication_layer") or {}
         return cls(
             timestamp=str(data.get("timestamp") or _utcnow_iso()),
@@ -666,6 +724,7 @@ class ARIAContext:
                 quality_of_life_score=_parse_qol_score(lifestyle),
                 quality_of_life_confidence=_parse_qol_confidence(lifestyle),
             ),
+            aging=_aging_from_rich(aging, data),
             clinical_data=ClinicalDataContext(
                 allergies=_str_list(clinical.get("allergies")),
                 medications=_str_list(clinical.get("medications")),
@@ -723,8 +782,10 @@ class ARIAContext:
         # life_rhythm) when lifestyle is restricted; the normal path already sees
         # an empty lifestyle here, so this only closes the un-sanitized case.
         lifestyle_ok = "lifestyle" not in restricted
+        aging_ok = "aging" not in restricted
         lifestyle_tags = ", ".join(self.lifestyle.tags) if lifestyle_ok else ""
         lifestyle_patterns = ", ".join(self.lifestyle.recent_patterns) if lifestyle_ok else ""
+        aging = self.aging if aging_ok else AgingContext()
         lines = [
             "[USER MODEL — ground truth]",
             f"- timestamp: {self.timestamp}",
@@ -741,6 +802,12 @@ class ARIAContext:
             f"- training.weekly_load_score: {_fmt(self.training.weekly_load_score)}",
             f"- body.weight_trend_kg: {_fmt(self.body.weight_trend_kg)}",
             f"- body.vo2_max: {_fmt(self.body.vo2_max)}",
+            f"- aging.chronological_age: {_fmt(aging.chronological_age_years)}",
+            f"- aging.biological_age: {_fmt(aging.biological_age_years)}",
+            f"- aging.fitness_age: {_fmt(aging.fitness_age_years)}",
+            f"- aging.delta_years: {_fmt(aging.delta_years)}",
+            f"- aging.state: {aging.state or 'null'}",
+            f"- aging.sources: {', '.join(aging.sources) or 'none'}",
             f"- nutrition.protein_g_3day_avg: {_fmt(self.nutrition.protein_g_3day_avg)}",
             f"- profile.primary_goal: {self.profile.primary_goal or 'null'}",
             f"- profile.coaching_style: {self.profile.coaching_style or 'null'}",
@@ -790,6 +857,13 @@ class ARIAContext:
             lines.append(
                 f"- lifestyle.life_rhythm: {life_rhythm_band(qol)} ({qol}/100{conf_str}) "
                 "[lifestyle rhythm signal — reflect it as life rhythm, never a medical or diagnostic claim]"
+            )
+        if "aging" not in restricted and (
+            self.aging.chronological_age_years is not None or self.aging.biological_age_years is not None
+        ):
+            lines.append(
+                "- aging.rule: lifestyle comparison of calendar age vs training age — never a medical "
+                "biological-age diagnosis; never tell them they are 'aging too fast' as a clinical claim"
             )
         return "\n".join(lines)
 
@@ -914,6 +988,10 @@ _SUMMARY_PATTERNS = (
 # Words → the domain a question is *about*, so an insight answers what was asked
 # rather than whatever signal happens to be highest priority.
 _DOMAIN_KEYWORDS: dict[str, tuple[str, ...]] = {
+    "aging": (
+        "biological age", "training age", "fitness age", "calendar age",
+        "how old", "age comparison", "inner age", "vascular age", "phenotypic",
+    ),
     "sleep": ("sleep", "slept", "deep", "rem", "bed"),
     "readiness": ("readiness", "recovery", "hrv", "recovered", "ready"),
     "training": ("training", "workout", "session", "load", "lift", "run"),
@@ -943,6 +1021,8 @@ def classify_request(message: str, ctx: ARIAContext) -> str:
         or ctx.has_progress
         or ctx.activity.steps_3day_avg is not None
         or ctx.body.weight_trend_kg is not None
+        or ctx.aging.chronological_age_years is not None
+        or ctx.aging.biological_age_years is not None
     )
     if not usable:
         return "clarification"
@@ -1288,6 +1368,59 @@ def _interpret_body(ctx: ARIAContext, baselines: Any = None) -> Signal | None:
     )
 
 
+def _interpret_aging(ctx: ARIAContext, baselines: Any = None) -> Signal | None:
+    a = ctx.aging
+    if a.chronological_age_years is None and a.biological_age_years is None:
+        return None
+    parts: list[str] = []
+    interp_bits: list[str] = []
+    direction = "neutral"
+    priority = "low"
+    if a.chronological_age_years is not None:
+        parts.append(f"calendar {a.chronological_age_years:.0f}")
+    if a.biological_age_years is not None:
+        parts.append(f"training age {a.biological_age_years:.0f}")
+    if a.fitness_age_years is not None:
+        parts.append(f"fitness age {a.fitness_age_years:.0f}")
+    delta = a.delta_years
+    if delta is None and a.biological_age_years is not None and a.chronological_age_years is not None:
+        delta = a.biological_age_years - a.chronological_age_years
+    if delta is not None:
+        younger = delta <= -2
+        older = delta >= 2
+        sign = "+" if delta >= 0 else ""
+        parts.append(f"{sign}{delta:.0f}y vs calendar")
+        if younger:
+            direction = "positive"
+            interp_bits.append(
+                f"training age is about {abs(delta):.0f} years younger than calendar age — "
+                "protect the sleep and aerobic habits that are working"
+            )
+        elif older:
+            direction = "negative"
+            priority = "medium"
+            interp_bits.append(
+                f"training age is running about {delta:.0f} years older than calendar age — "
+                "recovery, sleep, and easy aerobic work will move this more than grinding volume"
+            )
+        else:
+            interp_bits.append("training age is tracking calendar age")
+    vo2 = ctx.body.vo2_max
+    if vo2 is not None and a.chronological_age_years is not None:
+        interp_bits.append(f"VO2max {vo2:.0f} is part of the age comparison, not a standalone grade")
+    sources = ", ".join(a.sources[:4]) if a.sources else "signals on file"
+    return Signal(
+        "aging",
+        "Training age",
+        ", ".join(parts) or "age picture",
+        f"vs calendar age ({sources})",
+        "; ".join(interp_bits) or "calendar and training age are in view",
+        priority,
+        direction,
+        "personal",
+    )
+
+
 def _interpret_nutrition(ctx: ARIAContext, baselines: Any = None) -> Signal | None:
     n = ctx.nutrition
     if n.protein_g_3day_avg is None and n.calories_in_3day_avg is None:
@@ -1493,6 +1626,7 @@ _INTERPRETERS = (
     _interpret_training,
     _interpret_activity,
     _interpret_body,
+    _interpret_aging,
     _interpret_nutrition,
     _interpret_chronotype,
     _interpret_progress,

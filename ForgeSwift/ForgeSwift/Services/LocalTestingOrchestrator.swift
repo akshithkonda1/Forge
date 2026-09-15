@@ -19,6 +19,7 @@ enum AriaLocalDomain: String, CaseIterable {
     case profile
     case progress
     case lifestyle
+    case aging
     case clinicalData = "clinical_data"
     case cycle
 
@@ -28,6 +29,7 @@ enum AriaLocalDomain: String, CaseIterable {
         case .cycle:        return "your cycle"
         case .body:         return "how your body's holding up"
         case .readiness:    return "your energy"
+        case .aging:        return "how training age compares"
         default:            return rawValue
         }
     }

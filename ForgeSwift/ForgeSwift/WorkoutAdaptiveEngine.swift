@@ -52,6 +52,39 @@ struct PlanScaling {
     var isModified: Bool { abs(volumeMultiplier - 1) > 0.01 || abs(intensityMultiplier - 1) > 0.01 }
 }
 
+enum TrainDayCall: Equatable {
+    case rest
+    case recover
+    case easy
+    case train
+
+    var title: String {
+        switch self {
+        case .rest: return "Rest day"
+        case .recover: return "Recover"
+        case .easy: return "Keep it easy"
+        case .train: return "Train"
+        }
+    }
+
+    var cta: String {
+        switch self {
+        case .rest: return "Optional easy work"
+        case .recover: return "Start recovery session"
+        case .easy: return "Start easy session"
+        case .train: return "Start session"
+        }
+    }
+
+    static func resolve(readiness: Int, isRestDay: Bool, intensity: WorkoutIntensity?) -> TrainDayCall {
+        if isRestDay { return .rest }
+        if readiness < 55 { return .recover }
+        if readiness < 70 { return .easy }
+        if intensity == .low { return .easy }
+        return .train
+    }
+}
+
 enum AdaptiveEngine {
 
     // ── Pre-workout: scale the whole session to recovery ──────────────────────

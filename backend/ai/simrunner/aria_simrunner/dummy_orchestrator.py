@@ -104,18 +104,23 @@ _NEEDLES = {
         "progress", "gains", "stronger", "streak", "improving", "plateau",
         "getting stronger", "how am i progressing", "is this working",
     ),
+    "aging": (
+        "training age", "biological age", "fitness age", "calendar age",
+        "vascular age", "inner age", "metabolic age", "phenotypic age",
+        "vo2 max", "cardiorespiratory", "how old am i", "age comparison",
+    ),
     "workout": (
         "workout", "session", "lift", "squat", "train today", "today's plan",
         "todays plan", "exercise", "gym", "run today", "what should i train",
     ),
 }
 
-_KINDS = ("cycle", "recovery", "sleep", "lifestyle", "progress", "workout", "aria")
+_KINDS = ("cycle", "recovery", "sleep", "lifestyle", "progress", "aging", "workout", "aria")
 
-# Primary-selection precedence is load-protective: a session question still
-# wins so recovery/sleep can sit in as specialists (the missing-data guard
-# test depends on Recovery not being primary on a "slept badly + train" turn).
-_PRIMARY_ORDER = ("workout", "recovery", "sleep", "cycle", "progress", "lifestyle", "aria")
+# Aging first so "training age" is never stolen by workout/lifestyle.
+# Then load-protective: a session question still wins so recovery/sleep
+# can sit in as specialists.
+_PRIMARY_ORDER = ("aging", "workout", "recovery", "sleep", "cycle", "progress", "lifestyle", "aria")
 
 _OCCUPATION_LIFE = {
     "teacher": "a teacher's week already spends you",
@@ -602,6 +607,8 @@ def suggested_actions(plan: Plan, *, recovery_needed: bool = False) -> list[str]
         return ["Show my trends", "Is this working?", "What should I train?"]
     if kind == "cycle":
         return ["How to show up today?", "What helps for recovery?", "Keep it simple"]
+    if kind == "aging":
+        return ["What's my training age?", "How did I sleep?", "What should I train?"]
     return ["What should I train?", "How did I sleep?", "How do I show up?"]
 
 
@@ -1233,6 +1240,17 @@ def humanize_prose(
             "the question is whether you keep showing up, not whether Tuesday looked pretty.",
         ))
 
+    # Before recovery / workout "train" nets so "training age" is never a session plan.
+    if kind == "aging" or any(n in lower for n in (
+        "training age", "biological age", "fitness age", "how old am i",
+        "cardiorespiratory", "vo2 max",
+    )):
+        return finish(
+            "Training age is a lifestyle comparison against the calendar — "
+            "cardio fitness, recovery, resting heart, and sleep — not a diagnosis. "
+            "I'll keep reading those signals as they come in."
+        )
+
     if recovery:
         ack = ""
         if any(p in lower for p in ("hard", "push", "as hard")):
@@ -1821,7 +1839,8 @@ def respond(
     # Optional web note stays as a short trailing cite — not a specialist dump.
     chat = prose
     if web_research.is_research_worthy(message, plan.primary.kind):
-        web_note = web_research.look_up(plan.primary.kind)
+        lookup_kind = "aging" if web_research.suggests_aging(message) or plan.primary.kind == "aging" else plan.primary.kind
+        web_note = web_research.look_up(lookup_kind)
         if web_note and web_note not in chat:
             chat = f"{chat} ({web_note.rstrip('.')})"
     prose = _speak_without_vitals(prose)
