@@ -1,4 +1,5 @@
 import SwiftUI
+import ForgeCore
 
 /// Compact ARIA mark for avatars, tabs, and cards.
 struct ARIAIdentityMark: View {
@@ -29,10 +30,10 @@ struct ARIAIdentityMark: View {
     }
 }
 
-/// Procedural kinetic orange ring-field. Five overlapping ellipses, `#FF4D00`.
-/// Soft spin. No PNG, no gooey hearth, no Home readiness chrome.
-/// Presence (speech / listen) raises spin rate. Reduce Motion and
-/// `forgeMinimalAnimation` freeze at `AriaSigilGeometry.stillPose`.
+/// Procedural B+E nest: soft-hex nest + metal sun, `#FF4D00` accent.
+/// One TimelineView. Soft orbit/wave. Reduce Motion / `forgeMinimalAnimation`
+/// freeze at `AriaNestGeometry.stillPose`. Tick ≤ 12 Hz. No PNG. No fire splash.
+/// Ring-field is Home/data language (`AriaRingFieldMark`) — not this mark.
 struct AuroraOrbView: View {
     let state: AROrbState
     let amplitude: Float
@@ -54,20 +55,18 @@ struct AuroraOrbView: View {
     }
 
     private var tick: Double {
-        frozen ? 1 : 1.0 / 12.0
+        frozen ? 1 : AriaNestGeometry.tickInterval
     }
 
     var body: some View {
-        // Mood stays on the call-site API. Identity does not recolor — the field is `#FF4D00`.
         let _ = mood
-        TimelineView(.animation(
-            minimumInterval: tick,
-            paused: frozen
-        )) { timeline in
-            let t = frozen ? AriaSigilGeometry.stillPose : timeline.date.timeIntervalSinceReferenceDate
-            AriaRingFieldView(
+        TimelineView(.animation(minimumInterval: tick, paused: frozen)) { timeline in
+            let t = frozen
+                ? AriaNestGeometry.stillPose
+                : timeline.date.timeIntervalSinceReferenceDate
+            AriaNestFieldView(
                 time: t,
-                state: resolvedState,
+                presence: AriaNestGeometry.presence(from: resolvedState),
                 amplitude: amplitude,
                 size: size,
                 reduceMotion: frozen
@@ -87,9 +86,280 @@ struct AuroraOrbView: View {
     }
 }
 
+/// Soft-hex nest + metal sun. Single Canvas — one live paint path.
+private struct AriaNestFieldView: View {
+    let time: TimeInterval
+    let presence: AriaNestGeometry.Presence
+    let amplitude: Float
+    let size: CGFloat
+    let reduceMotion: Bool
+
+    private var energy: Double { max(0, min(1, Double(amplitude))) }
+
+    var body: some View {
+        Canvas { context, canvasSize in
+            AriaNestCanvas.paint(
+                context: &context,
+                canvasSize: canvasSize,
+                time: time,
+                presence: presence,
+                amplitude: energy,
+                reduceMotion: reduceMotion
+            )
+        }
+        .frame(width: size, height: size)
+        .allowsHitTesting(false)
+    }
+}
+
+/// Shared nest painter (phone Canvas). Watch uses the same geometry.
+enum AriaNestCanvas {
+    static func paint(
+        context: inout GraphicsContext,
+        canvasSize: CGSize,
+        time: Double,
+        presence: AriaNestGeometry.Presence,
+        amplitude: Double,
+        reduceMotion: Bool
+    ) {
+        let s = min(canvasSize.width, canvasSize.height)
+        guard s >= 2 else { return }
+        let center = CGPoint(x: canvasSize.width / 2, y: canvasSize.height / 2)
+        let drive = AriaNestGeometry.waveformDrive(presence: presence, amplitude: amplitude)
+        let orange = Color(hex: AriaNestGeometry.forgeOrangeHex)
+        let orangeLight = Color(hex: AriaNestGeometry.brandHueLightHex)
+        let pearl = Color(hex: AriaNestGeometry.pearlHex)
+        let pearlHot = Color(hex: AriaNestGeometry.pearlHotHex)
+        let metalCool = Color(hex: AriaNestGeometry.metalCoolHex)
+        let metalMid = Color(hex: AriaNestGeometry.metalMidHex)
+
+        // Soft pearl wash — not a fire bloom, not a splash under the mark.
+        let washR = s * 0.46
+        context.fill(
+            Path(ellipseIn: CGRect(
+                x: center.x - washR, y: center.y - washR,
+                width: washR * 2, height: washR * 2
+            )),
+            with: .radialGradient(
+                Gradient(colors: [
+                    pearlHot.opacity(0.14 + drive * 0.08),
+                    orange.opacity(0.06 + amplitude * 0.04),
+                    .clear
+                ]),
+                center: center,
+                startRadius: s * 0.02,
+                endRadius: washR
+            )
+        )
+
+        for index in AriaNestGeometry.visibleRingIndices(size: Double(s)).reversed() {
+            let pose = AriaNestGeometry.livingHex(
+                index: index,
+                time: time,
+                presence: presence,
+                amplitude: amplitude,
+                reduceMotion: reduceMotion
+            )
+            let stroke: Color
+            if AriaNestGeometry.ringIsPearl(index) {
+                stroke = pearlHot
+            } else if AriaNestGeometry.ringIsOrangeAccent(index) {
+                stroke = orange
+            } else {
+                stroke = orangeLight
+            }
+            let line = CGFloat(AriaNestGeometry.strokeWidth(size: Double(s), index: index))
+            let path = nestPath(
+                center: center,
+                width: s * pose.rx,
+                height: s * pose.ry,
+                rotation: pose.rotation,
+                wavePhase: pose.wavePhase,
+                waveAmp: pose.waveAmp
+            )
+            context.stroke(
+                path,
+                with: .color(stroke.opacity(pose.opacity * 0.28)),
+                lineWidth: max(1.4, line * 1.8)
+            )
+            context.stroke(
+                path,
+                with: .color(stroke.opacity(min(1, pose.opacity + 0.06))),
+                lineWidth: line
+            )
+        }
+
+        paintSun(
+            context: &context,
+            center: center,
+            size: s,
+            time: time,
+            presence: presence,
+            amplitude: amplitude,
+            reduceMotion: reduceMotion,
+            pearl: pearl,
+            pearlHot: pearlHot,
+            metalCool: metalCool,
+            metalMid: metalMid,
+            orange: orange
+        )
+    }
+
+    private static func nestPath(
+        center: CGPoint,
+        width: CGFloat,
+        height: CGFloat,
+        rotation: Double,
+        wavePhase: Double,
+        waveAmp: Double
+    ) -> Path {
+        let points = AriaNestGeometry.nestRingPoints(
+            roundness: AriaNestGeometry.cornerRoundness,
+            wavePhase: wavePhase,
+            waveAmp: waveAmp
+        )
+        let cosR = cos(rotation)
+        let sinR = sin(rotation)
+        var path = Path()
+        for (i, point) in points.enumerated() {
+            let x = CGFloat(point.x) * width * 0.5
+            let y = CGFloat(point.y) * height * 0.5
+            let rx = x * cosR - y * sinR
+            let ry = x * sinR + y * cosR
+            let mapped = CGPoint(x: center.x + rx, y: center.y + ry)
+            if i == 0 {
+                path.move(to: mapped)
+            } else {
+                path.addLine(to: mapped)
+            }
+        }
+        path.closeSubpath()
+        return path
+    }
+
+    private static func paintSun(
+        context: inout GraphicsContext,
+        center: CGPoint,
+        size: CGFloat,
+        time: Double,
+        presence: AriaNestGeometry.Presence,
+        amplitude: Double,
+        reduceMotion: Bool,
+        pearl: Color,
+        pearlHot: Color,
+        metalCool: Color,
+        metalMid: Color,
+        orange: Color
+    ) {
+        let core = AriaNestGeometry.orbCore(
+            time: time,
+            presence: presence,
+            amplitude: amplitude,
+            reduceMotion: reduceMotion
+        )
+        let diameter = size * core.diameter
+        let glowR = diameter * 1.15
+        context.fill(
+            Path(ellipseIn: CGRect(
+                x: center.x - glowR, y: center.y - glowR,
+                width: glowR * 2, height: glowR * 2
+            )),
+            with: .radialGradient(
+                Gradient(colors: [
+                    pearlHot.opacity(0.36 + core.glow * 0.22),
+                    metalCool.opacity(0.12),
+                    orange.opacity(0.04),
+                    .clear
+                ]),
+                center: center,
+                startRadius: diameter * 0.08,
+                endRadius: glowR
+            )
+        )
+
+        let bodyW = diameter * core.sx
+        let bodyH = diameter * core.sy
+        let body = CGRect(
+            x: center.x - bodyW / 2,
+            y: center.y - bodyH / 2,
+            width: bodyW,
+            height: bodyH
+        )
+        context.fill(
+            Path(ellipseIn: body),
+            with: .radialGradient(
+                Gradient(colors: [
+                    pearlHot.opacity(0.98),
+                    metalCool.opacity(0.92),
+                    pearl.opacity(0.78),
+                    metalMid.opacity(0.42)
+                ]),
+                center: CGPoint(
+                    x: center.x - bodyW * 0.16,
+                    y: center.y - bodyH * 0.18
+                ),
+                startRadius: 0,
+                endRadius: diameter * 0.58
+            )
+        )
+
+        let highlight = CGRect(
+            x: center.x - diameter * 0.28,
+            y: center.y - diameter * 0.28,
+            width: diameter * 0.30,
+            height: diameter * 0.18
+        )
+        context.fill(
+            Path(ellipseIn: highlight),
+            with: .radialGradient(
+                Gradient(colors: [
+                    pearlHot.opacity(0.85 * core.highlight),
+                    .clear
+                ]),
+                center: CGPoint(x: highlight.midX, y: highlight.midY),
+                startRadius: 0,
+                endRadius: diameter * 0.16
+            )
+        )
+    }
+}
+
+/// Kinetic orange ring-field. Home / data language only — not the brand mark.
+/// Numbers stay lockstep with `shared/aria-mark.json` via `AriaSigilGeometry`.
+struct AriaRingFieldMark: View {
+    var state: AROrbState = .idle
+    var amplitude: Float = 0.22
+    var size: CGFloat = 90
+
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.forgeMinimalAnimation) private var minimalAnimation
+
+    private var frozen: Bool { reduceMotion || minimalAnimation }
+
+    var body: some View {
+        TimelineView(.animation(
+            minimumInterval: frozen ? 1 : AriaNestGeometry.tickInterval,
+            paused: frozen
+        )) { timeline in
+            let t = frozen
+                ? AriaSigilGeometry.stillPose
+                : timeline.date.timeIntervalSinceReferenceDate
+            AriaRingFieldView(
+                time: t,
+                state: state,
+                amplitude: amplitude,
+                size: size,
+                reduceMotion: frozen
+            )
+        }
+        .frame(width: size, height: size)
+        .accessibilityHidden(true)
+    }
+}
+
 /// Stroked ellipses only. Identity is orange — mood does not recolor the field.
 /// Hero (≥90pt) draws all five. Compact slots draw the Cove 3-ring
-/// (two ≥0.70 + one support). Shape strokes, not Canvas + `.plusLighter`.
+/// (two ≥0.70 + one support). Not the nest logo. Not readiness chrome.
 private struct AriaRingFieldView: View {
     let time: TimeInterval
     let state: AROrbState
@@ -180,6 +450,14 @@ enum AriaSigilEmberLegacy: Sendable {
         Color(hex: "07060A").ignoresSafeArea()
         AuroraOrbView(state: .idle, amplitude: 0.3, size: 168, followPresence: false)
             .environment(\.forgeMinimalAnimation, true)
+    }
+    .preferredColorScheme(.dark)
+}
+
+#Preview("ARIA ring-field data") {
+    ZStack {
+        Color(hex: "07060A").ignoresSafeArea()
+        AriaRingFieldMark(state: .idle, amplitude: 0.3, size: 120)
     }
     .preferredColorScheme(.dark)
 }

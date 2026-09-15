@@ -1,7 +1,10 @@
 import XCTest
 @testable import ForgeSwift
+import ForgeCore
 
-/// Locks the kinetic orange ring-field: five ellipses, `#FF4D00`, freeze on Reduce Motion.
+/// Locks two languages:
+/// - Brand mark = B+E nest (`AriaNestGeometry`, `soft-hex-field`)
+/// - Home/data = ring-field (`AriaSigilGeometry` ↔ `shared/aria-mark.json`)
 final class AriaSigilTests: XCTestCase {
 
     func testFiveEllipsesOrangeAndStillPose() {
@@ -135,5 +138,48 @@ final class AriaSigilTests: XCTestCase {
         XCTAssertEqual(AriaSigilEmberLegacy.hearthHex, "FF6A1A")
         XCTAssertNotEqual(AriaSigilEmberLegacy.hearthHex, AriaSigilGeometry.forgeOrangeHex)
         XCTAssertNotEqual(AriaSigilEmberLegacy.lobeCount, AriaSigilGeometry.ellipseCount)
+        XCTAssertNotEqual(AriaSigilEmberLegacy.lobeCount, AriaNestGeometry.ringCount)
+    }
+
+    func testBrandMarkIsBENestNotRingField() {
+        XCTAssertEqual(AriaNestGeometry.kind, "soft-hex-field")
+        XCTAssertEqual(AriaNestGeometry.mixLock, "B+E")
+        XCTAssertEqual(AriaSigilGeometry.kind, "ring-field")
+        XCTAssertNotEqual(AriaNestGeometry.kind, AriaSigilGeometry.kind)
+        XCTAssertEqual(AriaNestGeometry.ringCount, 3)
+        XCTAssertEqual(AriaSigilGeometry.ringCount, 5)
+        XCTAssertEqual(AriaNestGeometry.forgeOrangeHex, AriaSigilGeometry.forgeOrangeHex)
+        XCTAssertEqual(AriaNestGeometry.tickHz, 12, accuracy: 0.0001)
+    }
+
+    func testNestPresenceMapsFromOrbState() {
+        XCTAssertEqual(AriaNestGeometry.presence(from: .idle), .idle)
+        XCTAssertEqual(AriaNestGeometry.presence(from: .listening), .listening)
+        XCTAssertEqual(AriaNestGeometry.presence(from: .processing), .processing)
+        XCTAssertEqual(AriaNestGeometry.presence(from: .speaking), .speaking)
+    }
+
+    func testNestStillPoseAndLivingMotion() {
+        let stillA = AriaNestGeometry.livingHex(
+            index: 1, time: 1, presence: .speaking, amplitude: 0.9, reduceMotion: true
+        )
+        let stillB = AriaNestGeometry.livingHex(
+            index: 1, time: 40, presence: .speaking, amplitude: 0.9, reduceMotion: true
+        )
+        XCTAssertEqual(stillA.rotation, stillB.rotation, accuracy: 0.0001)
+        let liveA = AriaNestGeometry.livingHex(
+            index: 1, time: 0.2, presence: .idle, amplitude: 0.3, reduceMotion: false
+        )
+        let liveB = AriaNestGeometry.livingHex(
+            index: 1, time: 1.2, presence: .idle, amplitude: 0.3, reduceMotion: false
+        )
+        XCTAssertFalse(abs(liveA.rotation - liveB.rotation) < 0.00001)
+    }
+
+    func testNestPalettePearls() {
+        XCTAssertEqual(AriaSigilPalette.pearlHex, "F7F4F0")
+        XCTAssertEqual(AriaSigilPalette.pearlHotHex, "FFFFFF")
+        XCTAssertTrue(AriaNestGeometry.ringIsPearl(0))
+        XCTAssertTrue(AriaNestGeometry.ringIsOrangeAccent(2))
     }
 }

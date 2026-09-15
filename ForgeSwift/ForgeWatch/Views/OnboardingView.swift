@@ -28,7 +28,7 @@ struct OnboardingView: View {
     private var welcomePage: some View {
         ScrollView {
             VStack(spacing: ForgeDS.Spacing.md) {
-                AuroraOrbWatch(accent: ForgePalette.steel, size: 64, intensity: 0.6)
+                AriaNestMarkWatch(presence: .idle, size: 64, amplitude: 0.32)
                 Text("Forge, on your wrist")
                     .font(ForgeType.title(17))
                     .foregroundStyle(ForgePalette.textPrimary)

@@ -1,9 +1,22 @@
 import Foundation
 import SwiftUI
+import ForgeCore
 
-/// Kinetic orange ring-field. Numbers copied from Lex `#270` head
-/// `fab0a402097050dfec528f014e902591314204ca` (`shared/aria-mark.json`).
-/// That PR is mergeable but not on `main` yet — do not invent a second geometry.
+extension AriaNestGeometry {
+    /// Phone presence → shared nest presence. Watch uses `Presence` directly.
+    static func presence(from state: AROrbState) -> Presence {
+        switch state {
+        case .idle: return .idle
+        case .listening: return .listening
+        case .processing: return .processing
+        case .speaking: return .speaking
+        }
+    }
+}
+
+/// Kinetic orange ring-field. Home / data language only — not the brand mark.
+/// Numbers lockstep with `shared/aria-mark.json` (`kind: ring-field`).
+/// Brand mark is the B+E nest in `AriaNestGeometry` (`soft-hex-field`).
 /// Soft spin while alive; Reduce Motion / `forgeMinimalAnimation` freeze at
 /// `stillPoseAngleDeg`.
 enum AriaSigilGeometry: Sendable {
@@ -103,6 +116,8 @@ enum AriaSigilPalette: Sendable {
     static let forgeOrangeHex = AriaSigilGeometry.forgeOrangeHex
     /// Brand lock. Was `FF6A1A` (gooey hearth); the mark is Forge orange now.
     static let emberHex = forgeOrangeHex
+    static let pearlHex = AriaNestGeometry.pearlHex
+    static let pearlHotHex = AriaNestGeometry.pearlHotHex
     static let voidDeepHex = "030207"
     static let voidMidHex = "0B0812"
     static let ivoryHex = "F3EBDD"
@@ -136,8 +151,9 @@ enum AriaSigilPalette: Sendable {
 // MARK: - Minimal animation (phone)
 
 /// Mirrors the Watch `forgeMinimalAnimation` key. Either this or Reduce Motion
-/// freezes the ring-field at `AriaSigilGeometry.stillPoseAngleDeg`. Default is off;
-/// iOS has no separate Settings toggle yet.
+/// freezes the nest at `AriaNestGeometry.stillPoseAngleDeg` (and the ring-field
+/// at `AriaSigilGeometry.stillPoseAngleDeg`). Default is off; iOS has no
+/// separate Settings toggle yet.
 private struct ForgeMinimalAnimationKey: EnvironmentKey {
     static let defaultValue = false
 }
