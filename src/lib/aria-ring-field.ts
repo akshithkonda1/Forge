@@ -1,6 +1,7 @@
 import {
   ARIA_MARK,
   ARIA_ORB_CORE,
+  ariaMarkShouldGlow,
   contrastRingIndices,
   orbCoreRadius,
   ringEllipse,
@@ -12,7 +13,7 @@ export type RingFieldDrawInput = {
   time: number;
   speaking: boolean;
   reduceMotion: boolean;
-  /** CSS pixel size — drives stroke and compact/hero ring count. */
+  /** CSS pixel size — drives stroke, haze, orb nest, and compact vs full ring count. */
   cssSize: number;
 };
 
@@ -97,14 +98,16 @@ export function drawAriaRingField(
 
   ctx.clearRect(0, 0, width, height);
 
-  const haze = ctx.createRadialGradient(cx, cy, size * 0.08, cx, cy, size * 0.48);
-  haze.addColorStop(0, hexAlpha(ARIA_MARK.brandHue, 0.08));
-  haze.addColorStop(0.65, hexAlpha(ARIA_MARK.brandHue, 0.03));
-  haze.addColorStop(1, hexAlpha(ARIA_MARK.brandHue, 0));
-  ctx.fillStyle = haze;
-  ctx.beginPath();
-  ctx.arc(cx, cy, size * 0.48, 0, Math.PI * 2);
-  ctx.fill();
+  if (ariaMarkShouldGlow(cssSize)) {
+    const haze = ctx.createRadialGradient(cx, cy, size * 0.08, cx, cy, size * 0.48);
+    haze.addColorStop(0, hexAlpha(ARIA_MARK.brandHue, 0.08));
+    haze.addColorStop(0.65, hexAlpha(ARIA_MARK.brandHue, 0.03));
+    haze.addColorStop(1, hexAlpha(ARIA_MARK.brandHue, 0));
+    ctx.fillStyle = haze;
+    ctx.beginPath();
+    ctx.arc(cx, cy, size * 0.48, 0, Math.PI * 2);
+    ctx.fill();
+  }
 
   ctx.save();
   ctx.lineCap = "round";
