@@ -7,7 +7,7 @@ import { cn } from "@/lib/utils";
 import { useAppStore } from "@/stores/useAppStore";
 import { whisperForStep } from "@/lib/aria-onboarding";
 import AriaCompanion from "./aria-companion";
-import { PremiumAtmosphere, PremiumEntrance, PremiumPrimaryButton } from "@/components/brand/premium-atmosphere";
+import { PremiumAtmosphere, PremiumPrimaryButton } from "@/components/brand/premium-atmosphere";
 
 interface DeviceConnectionProps {
   onNext: () => void;
@@ -105,18 +105,13 @@ const cardVariants = {
 
 export default function DeviceConnection({ onNext }: DeviceConnectionProps) {
   const updateProfile = useAppStore((s) => s.updateProfile);
-  const [connectedDevices, setConnectedDevices] = useState<Set<string>>(
-    new Set()
-  );
+  const [connectedDevices, setConnectedDevices] = useState<Set<string>>(new Set());
 
   const toggleDevice = (deviceId: string) => {
     setConnectedDevices((prev) => {
       const next = new Set(prev);
-      if (next.has(deviceId)) {
-        next.delete(deviceId);
-      } else {
-        next.add(deviceId);
-      }
+      if (next.has(deviceId)) next.delete(deviceId);
+      else next.add(deviceId);
       return next;
     });
   };
@@ -135,120 +130,109 @@ export default function DeviceConnection({ onNext }: DeviceConnectionProps) {
     <div className="relative flex min-h-[100dvh] flex-col overflow-y-auto px-6 pb-8 pt-16">
       <PremiumAtmosphere accent="#60A5FA" secondary="#A9D8FF" intensity={0.5} />
       <div className="relative z-10 flex flex-1 flex-col">
-      {/* Header */}
-      <motion.div
-        initial={{ opacity: 0, y: 16 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.5 }}
-        className="mb-5"
-      >
-        <h2 className="mb-2 text-3xl font-semibold tracking-tight text-text-primary">
-          Choose your wearables
-        </h2>
-        <p className="text-text-tertiary">
-          Optional. Select what you use — you can connect them later in Settings.
-        </p>
-      </motion.div>
+        <motion.div
+          initial={{ opacity: 0, y: 16 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5 }}
+          className="mb-5"
+        >
+          <h2 className="mb-2 text-3xl font-semibold tracking-tight text-text-primary">
+            Choose your wearables
+          </h2>
+          <p className="text-text-tertiary">
+            Optional. Select what you use — you can connect them later in Settings.
+          </p>
+        </motion.div>
 
-      <div className="mb-5">
-        <AriaCompanion
-          compact
-          whisper={whisperForStep("devices", {
-            devicesConnected: connectedDevices.size,
-          })}
-        />
-      </div>
+        <div className="mb-5">
+          <AriaCompanion
+            compact
+            whisper={whisperForStep("devices", {
+              devicesConnected: connectedDevices.size,
+            })}
+          />
+        </div>
 
-      {/* Device grid */}
-      <motion.div
-        className="grid flex-1 grid-cols-2 gap-3 content-start"
-        variants={containerVariants}
-        initial="hidden"
-        animate="visible"
-      >
-        {devices.map((device) => {
-          const isConnected = connectedDevices.has(device.id);
-          return (
-            <motion.button
-              key={device.id}
-              variants={cardVariants}
-              onClick={() => toggleDevice(device.id)}
-              className={cn(
-                "relative flex flex-col items-center justify-center gap-3 rounded-xl border p-5",
-                "transition-all duration-200",
-                isConnected
-                  ? "border-white/20 bg-white/[0.06]"
-                  : "border-border bg-surface hover:border-border-light"
-              )}
-              whileHover={{ scale: 1.02 }}
-              whileTap={{ scale: 0.97 }}
-            >
-              {/* Checkmark badge */}
-              {isConnected && (
-                <motion.div
-                  initial={{ scale: 0 }}
-                  animate={{ scale: 1 }}
-                  className="absolute right-2.5 top-2.5 flex h-5 w-5 items-center justify-center rounded-full bg-[#F7F4F0]"
+        <motion.div
+          className="grid flex-1 grid-cols-2 content-start gap-3"
+          variants={containerVariants}
+          initial="hidden"
+          animate="visible"
+        >
+          {devices.map((device) => {
+            const isConnected = connectedDevices.has(device.id);
+            return (
+              <motion.button
+                key={device.id}
+                variants={cardVariants}
+                onClick={() => toggleDevice(device.id)}
+                className={cn(
+                  "relative flex flex-col items-center justify-center gap-3 rounded-xl border p-5",
+                  "transition-all duration-200",
+                  isConnected
+                    ? "border-white/20 bg-white/[0.06]"
+                    : "border-border bg-surface hover:border-border-light"
+                )}
+                whileHover={{ scale: 1.02 }}
+                whileTap={{ scale: 0.97 }}
+              >
+                {isConnected && (
+                  <motion.div
+                    initial={{ scale: 0 }}
+                    animate={{ scale: 1 }}
+                    className="absolute right-2.5 top-2.5 flex h-5 w-5 items-center justify-center rounded-full bg-[#F7F4F0]"
+                  >
+                    <Check size={12} strokeWidth={3} className="text-[#0A0A0A]" />
+                  </motion.div>
+                )}
+                <div
+                  className={cn(
+                    "transition-colors duration-200",
+                    isConnected ? "text-[#F7F4F0]" : "text-text-tertiary"
+                  )}
                 >
-                  <Check size={12} strokeWidth={3} className="text-[#0A0A0A]" />
-                </motion.div>
-              )}
+                  {device.icon}
+                </div>
+                <span
+                  className={cn(
+                    "text-sm font-medium transition-colors duration-200",
+                    isConnected ? "text-[#F7F4F0]" : "text-text-secondary"
+                  )}
+                >
+                  {device.name}
+                </span>
+                <span
+                  className={cn(
+                    "text-xs transition-colors duration-200",
+                    isConnected ? "text-text-secondary" : "text-text-muted"
+                  )}
+                >
+                  {isConnected ? "Selected" : "Tap to select"}
+                </span>
+              </motion.button>
+            );
+          })}
+        </motion.div>
 
-              {/* Icon */}
-              <div
-                className={cn(
-                  "transition-colors duration-200",
-                  isConnected ? "text-[#F7F4F0]" : "text-text-tertiary"
-                )}
-              >
-                {device.icon}
-              </div>
+        <motion.p
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ delay: 0.8 }}
+          className="mb-4 text-center text-sm text-text-muted"
+        >
+          You can connect devices later in Settings
+        </motion.p>
 
-              {/* Name */}
-              <span
-                className={cn(
-                  "text-sm font-medium transition-colors duration-200",
-                  isConnected ? "text-[#F7F4F0]" : "text-text-secondary"
-                )}
-              >
-                {device.name}
-              </span>
-
-              {/* Status */}
-              <span
-                className={cn(
-                  "text-xs transition-colors duration-200",
-                  isConnected ? "text-text-secondary" : "text-text-muted"
-                )}
-              >
-                {isConnected ? "Selected" : "Tap to select"}
-              </span>
-            </motion.button>
-          );
-        })}
-      </motion.div>
-
-      {/* Skip note */}
-      <motion.p
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        transition={{ delay: 0.8 }}
-        className="mb-4 text-center text-sm text-text-muted"
-      >
-        You can connect devices later in Settings
-      </motion.p>
-
-      {/* Continue button */}
-      <motion.div
-        initial={{ opacity: 0, y: 16 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.6 }}
-      >
-        <PremiumPrimaryButton onClick={handleContinue}>
-          <span>Continue</span>
-          <span aria-hidden>→</span>
-        </PremiumPrimaryButton>
-      </motion.div>
+        <motion.div
+          initial={{ opacity: 0, y: 16 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.6 }}
+        >
+          <PremiumPrimaryButton onClick={handleContinue}>
+            <span>Continue</span>
+            <span aria-hidden>→</span>
+          </PremiumPrimaryButton>
+        </motion.div>
       </div>
     </div>
   );
