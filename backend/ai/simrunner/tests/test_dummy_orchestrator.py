@@ -133,6 +133,10 @@ class DummyOrchestratorTests(unittest.TestCase):
         mock_look_up.assert_called_once_with("workout")
         # Trailing period may be normalized when the cite is parenthesized.
         self.assertIn("From Some Source: real info", row["message"])
+        blob = speak_quality.user_visible_blob(row)
+        self.assertIn("From Some Source", blob)
+        self.assertIn("real info", blob)
+        self.assertEqual(speak_quality.speak_failures(row), [])
 
     def test_training_age_looks_up_aging_web_source(self):
         plan = dummy.plan_workers("what's my training age?")
@@ -144,6 +148,28 @@ class DummyOrchestratorTests(unittest.TestCase):
         blob = (row["prose_summary"] + " " + row["message"]).lower()
         self.assertIn("lifestyle comparison", blob)
         self.assertIn("not a diagnosis", blob)
+        visible = speak_quality.user_visible_blob(row)
+        self.assertIn("From MedlinePlus", visible)
+        self.assertEqual(speak_quality.medical_hits(visible), [])
+
+    def test_aging_cite_keeps_source_label_without_vitals_dump(self):
+        """KNOWN TIP-RED if VO2 in a cite title strips the source label.
+
+        Dummy scrubs user-visible speak of vitals tokens including ``vo2``.
+        Retrieval provenance still requires ``From MedlinePlus`` in the blob
+        a person sees, without leaking a VO2 vitals dump.
+        """
+        note = "From MedlinePlus: Exercise Stress Test / VO2: tissues need oxygen."
+        with patch.object(web_research, "look_up", return_value=note):
+            row = dummy.respond("what's my training age?", seed=1, engine="stub")
+        visible = speak_quality.user_visible_blob(row)
+        self.assertIn(
+            "From MedlinePlus",
+            visible,
+            "FAIL-CLOSED: a VO2 mention in a research cite must not strip the "
+            "source label from user-visible speak",
+        )
+        self.assertEqual(speak_quality.vitals_hits(visible), [])
 
     def test_non_research_message_never_calls_web_research(self):
         with patch.object(web_research, "look_up") as mock_look_up:
