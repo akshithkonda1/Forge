@@ -62,10 +62,17 @@ export default function ProfileSetup({ onNext, onBack }: ProfileSetupProps) {
 
   const [section, setSection] = useState(0);
   const [name, setName] = useState("");
+  const nameRef = useRef<HTMLInputElement>(null);
   const [selectedGoals, setSelectedGoals] = useState<FitnessGoal[]>([]);
   const [experienceLevel, setExperienceLevel] =
     useState<ExperienceLevel | null>(null);
   const [selectedWorkouts, setSelectedWorkouts] = useState<WorkoutType[]>([]);
+
+  const readName = () => {
+    const fromRef = nameRef.current?.value?.trim() ?? "";
+    const fromState = name.trim();
+    return fromRef || fromState;
+  };
 
   const toggleGoal = (goal: FitnessGoal) => {
     setSelectedGoals((prev) =>
@@ -82,7 +89,7 @@ export default function ProfileSetup({ onNext, onBack }: ProfileSetupProps) {
   const canProceed = () => {
     switch (section) {
       case 0:
-        return name.trim().length > 0;
+        return readName().length > 0;
       case 1:
         return selectedGoals.length > 0;
       case 2:
@@ -95,12 +102,19 @@ export default function ProfileSetup({ onNext, onBack }: ProfileSetupProps) {
   };
 
   const handleContinue = () => {
-    if (!canProceed()) return;
+    if (section === 0) {
+      const trimmed = readName();
+      if (!trimmed) return;
+      setName(trimmed);
+    } else if (!canProceed()) {
+      return;
+    }
+
     if (section < 3) {
       setSection((s) => s + 1);
     } else {
       updateProfile({
-        name: name.trim(),
+        name: readName() || name.trim(),
         fitnessGoals: selectedGoals,
         experienceLevel: experienceLevel!,
         preferredWorkouts: selectedWorkouts,
