@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { AriaMark } from "@/components/brand/aria-mark";
 import {
   ForgeBrandMark,
@@ -63,14 +63,29 @@ interface WelcomeScreenProps {
 export default function WelcomeScreen({ onNext }: WelcomeScreenProps) {
   const [page, setPage] = useState(0);
   const [showSignIn, setShowSignIn] = useState(false);
+  const [autoplayPaused, setAutoplayPaused] = useState(false);
   const hook = HOOKS[page];
+  const advancingRef = useRef(false);
 
   useEffect(() => {
     const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-    if (reduce || page >= HOOKS.length - 1 || showSignIn) return;
+    if (reduce || autoplayPaused || page >= HOOKS.length - 1 || showSignIn) return;
     const t = window.setTimeout(() => setPage((p) => Math.min(HOOKS.length - 1, p + 1)), 4800);
     return () => window.clearTimeout(t);
-  }, [page, showSignIn]);
+  }, [page, showSignIn, autoplayPaused]);
+
+  useEffect(() => {
+    const pause = () => setAutoplayPaused(true);
+    document.addEventListener("pointerdown", pause, true);
+    return () => document.removeEventListener("pointerdown", pause, true);
+  }, []);
+
+  const advance = () => {
+    if (advancingRef.current) return;
+    advancingRef.current = true;
+    setAutoplayPaused(true);
+    onNext();
+  };
 
   return (
     <div className="relative flex min-h-[100dvh] flex-col overflow-hidden bg-background pb-[env(safe-area-inset-bottom)] pt-[env(safe-area-inset-top)]">
@@ -140,44 +155,67 @@ export default function WelcomeScreen({ onNext }: WelcomeScreenProps) {
           </PremiumEntrance>
         </div>
 
-        <PremiumEntrance index={2} className="space-y-4">
-          <div className="flex flex-col items-center gap-3">
-            <PremiumProgressDots
-              count={HOOKS.length}
-              current={page}
-              onSelect={setPage}
-            />
+        {/* CTA outside PremiumEntrance — no sheen/overflow/transform on the press target. */}
+        <div className="relative z-40 mt-auto">
+          <div className="pointer-events-none relative z-[60] mb-3 flex flex-col items-center gap-3">
+            <div className="pointer-events-auto">
+              <PremiumProgressDots
+                count={HOOKS.length}
+                current={page}
+                onSelect={(i) => {
+                  setAutoplayPaused(true);
+                  setPage(i);
+                }}
+              />
+            </div>
             <p className="text-[11px] font-medium uppercase tracking-[0.14em] text-text-tertiary">
               {page + 1} of {HOOKS.length}
             </p>
           </div>
 
-          <PremiumPrimaryButton
-            onClick={() => {
-              onNext();
+          <button
+            type="button"
+            aria-label="Get started"
+            onPointerUp={(e) => {
+              e.preventDefault();
+              advance();
             }}
-            className="relative z-20"
+            onClick={(e) => {
+              e.preventDefault();
+              advance();
+            }}
+            className={cn(
+              "relative z-40 flex w-full min-h-[64px] items-center justify-between rounded-full bg-[#F7F4F0] px-6 py-5 text-[17px] font-semibold text-[#0A0A0A]",
+              "shadow-[0_10px_30px_rgba(247,244,240,0.14)] transition-[filter,box-shadow] duration-150",
+              "active:brightness-[0.92] active:shadow-none",
+              "touch-manipulation select-none"
+            )}
           >
-            <span>Get started</span>
-            <span aria-hidden className="transition-transform duration-300 group-hover:translate-x-0.5">
+            {/* Modest expanded hit area for near-misses above the pearl. */}
+            <span aria-hidden className="absolute inset-x-[-4px] -top-10 bottom-[-4px] z-50" />
+            <span className="relative z-[51]">Get started</span>
+            <span aria-hidden className="relative z-[51] opacity-80">
               →
             </span>
-          </PremiumPrimaryButton>
+          </button>
 
           {page < HOOKS.length - 1 && (
             <button
               type="button"
-              onClick={() => setPage((p) => Math.min(HOOKS.length - 1, p + 1))}
-              className="w-full py-2 text-sm font-medium text-text-secondary transition hover:text-text-primary"
+              onClick={() => {
+                setAutoplayPaused(true);
+                setPage((p) => Math.min(HOOKS.length - 1, p + 1));
+              }}
+              className="relative z-40 mt-2 w-full py-2 text-sm font-medium text-text-secondary transition hover:text-text-primary"
             >
               See how it works
             </button>
           )}
 
-          <p className="text-center text-[11px] text-text-muted">
+          <p className="mt-2 text-center text-[11px] text-text-muted">
             Lifestyle fitness coaching · Live your best life
           </p>
-        </PremiumEntrance>
+        </div>
       </div>
 
       {showSignIn && (
