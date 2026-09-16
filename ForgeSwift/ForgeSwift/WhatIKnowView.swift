@@ -5,6 +5,8 @@ import ForgeCore
 struct WhatIKnowView: View {
     @ObservedObject private var aria = AriaContextStore.shared
     @State private var ledger = AriaKnowledgeLedgerStore.load()
+    @State private var showLifestyleInterview = false
+    @State private var persona = QualityOfLifeLivingStore.loadPersona()
 
     var body: some View {
         ScrollView {
@@ -14,23 +16,45 @@ struct WhatIKnowView: View {
                     .foregroundColor(.textSecondary)
 
                 if let snap = QualityOfLifeLivingStore.load() {
-                    HStack {
-                        VStack(alignment: .leading, spacing: 4) {
-                            Text("Lifestyle QoL")
-                                .font(.system(size: 12, weight: .semibold))
-                                .foregroundColor(.textTertiary)
-                            Text("\(snap.overall)/100")
-                                .font(.system(size: 28, weight: .bold, design: .rounded))
-                                .foregroundColor(.textPrimary)
+                    VStack(alignment: .leading, spacing: 10) {
+                        HStack {
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text("Lifestyle QoL")
+                                    .font(.system(size: 12, weight: .semibold))
+                                    .foregroundColor(.textTertiary)
+                                Text("\(snap.overall)/100")
+                                    .font(.system(size: 28, weight: .bold, design: .rounded))
+                                    .foregroundColor(.textPrimary)
+                            }
+                            Spacer()
+                            Text(snap.qualityBand.label)
+                                .font(.system(size: 13, weight: .semibold))
+                                .foregroundColor(snap.qualityBand.color)
                         }
-                        Spacer()
-                        Text(QualityOfLifeBand(score: snap.overall).label)
-                            .font(.system(size: 13, weight: .semibold))
-                            .foregroundColor(.ember)
+                        if !snap.drivers.isEmpty {
+                            Text(snap.qualityBand == .thriving
+                                 ? "Holding you up: \(snap.drivers.joined(separator: " · "))"
+                                 : "Pulling: \(snap.drivers.joined(separator: " · "))")
+                                .font(.system(size: 13, weight: .medium))
+                                .foregroundColor(.textSecondary)
+                        }
+                        if !snap.missingPillars.isEmpty {
+                            Text("Still unmeasured: \(snap.missingPillars.joined(separator: ", "))")
+                                .font(.system(size: 12))
+                                .foregroundColor(.textMuted)
+                        }
+                        if !snap.coaching.isEmpty {
+                            Text(snap.coaching)
+                                .font(.system(size: 13))
+                                .foregroundColor(.textSecondary)
+                                .fixedSize(horizontal: false, vertical: true)
+                        }
                     }
                     .padding(16)
                     .forgeGlassCard(cornerRadius: 16, accent: .ember)
                 }
+
+                personaCard
 
                 ForEach(AriaKnowledgeCategory.allCases, id: \.self) { category in
                     folder(category)
@@ -41,10 +65,53 @@ struct WhatIKnowView: View {
         .background(Color.background.ignoresSafeArea())
         .navigationTitle("What I Know?")
         .navigationBarTitleDisplayMode(.large)
-        .onAppear { ledger = AriaKnowledgeLedgerStore.load() }
+        .onAppear { refresh() }
         .onReceive(aria.objectWillChange) { _ in
-            ledger = AriaKnowledgeLedgerStore.load()
+            refresh()
         }
+        .fullScreenCover(isPresented: $showLifestyleInterview) {
+            LifestyleInterviewOverlay {
+                showLifestyleInterview = false
+                refresh()
+            }
+        }
+    }
+
+    private var personaCard: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text("Who you are for QoL")
+                .font(.system(size: 12, weight: .semibold))
+                .foregroundColor(.textTertiary)
+            Text(persona.archetype.title)
+                .font(.system(size: 18, weight: .bold, design: .rounded))
+                .foregroundColor(.textPrimary)
+            if let hours = persona.sleepNeedPreferenceHours {
+                Text(String(format: "Sleep want: %.1f h", hours))
+                    .font(.system(size: 13))
+                    .foregroundColor(.textSecondary)
+            }
+            if let strain = persona.workStrain0to10 {
+                Text(String(format: "Work strain: %.0f / 10", strain))
+                    .font(.system(size: 13))
+                    .foregroundColor(.textSecondary)
+            }
+            Button {
+                QualityOfLifeLivingStore.clearInterviewCompleted()
+                showLifestyleInterview = true
+            } label: {
+                Text(QualityOfLifeLivingStore.hasCompletedInterview()
+                      ? "Update who I am"
+                      : "Tell ARIA who you are")
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundColor(.ember)
+            }
+            .buttonStyle(.plain)
+            .padding(.top, 2)
+        }
+        .padding(16)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(Color.surface)
+        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
     }
 
     private func folder(_ category: AriaKnowledgeCategory) -> some View {
@@ -87,5 +154,10 @@ struct WhatIKnowView: View {
     private func dateline(_ fact: AriaKnowledgeFact) -> String {
         let day = fact.createdAt.formatted(date: .abbreviated, time: .omitted)
         return "\(day) · \(fact.source) · \(fact.kind)"
+    }
+
+    private func refresh() {
+        ledger = AriaKnowledgeLedgerStore.load()
+        persona = QualityOfLifeLivingStore.loadPersona()
     }
 }

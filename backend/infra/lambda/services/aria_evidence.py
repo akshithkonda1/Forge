@@ -321,6 +321,42 @@ def detect_pattern(
             )
         )
 
+    # --- Life rhythm (Lifestyle QoL) protect — client-authored score only ---
+    if "lifestyle" not in blocked:
+        qol = getattr(getattr(ctx, "lifestyle", None), "quality_of_life_score", None)
+        if isinstance(qol, (int, float)):
+            try:
+                from services.aria_engine import life_rhythm_training_plan
+            except Exception:  # pragma: no cover - defensive import
+                life_rhythm_training_plan = None  # type: ignore
+            band = getattr(getattr(ctx, "lifestyle", None), "quality_of_life_band", None)
+            pillars = getattr(getattr(ctx, "lifestyle", None), "quality_of_life_pillars", None) or {}
+            plan = (
+                life_rhythm_training_plan(int(qol), band=band if isinstance(band, str) else None, pillars=pillars)
+                if life_rhythm_training_plan
+                else None
+            )
+            if plan and (plan.get("keep_light") or int(qol) < 50):
+                drivers = getattr(getattr(ctx, "lifestyle", None), "quality_of_life_drivers", None) or []
+                driver_bit = f" ({', '.join(list(drivers)[:2])})" if drivers else ""
+                candidates.append(
+                    EvidencePattern(
+                        key="life_rhythm_protect",
+                        score=1.18 if int(qol) < 50 else 1.05,
+                        stance="protect",
+                        notice=(
+                            f"Life rhythm {int(qol)}/100{driver_bit} — "
+                            f"{_lead_interp(lead, 'ease the session so the grade can climb')}"
+                        ),
+                        next_step=learned or plan["reason"],
+                        why="Lifestyle QoL is strained or depleted — training follows the life grade",
+                        actions=("Keep it light", "Show recovery plan", "Open Lifestyle"),
+                        confidence_cap=0.70,
+                        reason_suffix=plan["reason"],
+                        blocks_intensity=True,
+                    )
+                )
+
     # --- Persona / fusion stance hooks --------------------------------------
     if stance == "fuel":
         candidates.append(

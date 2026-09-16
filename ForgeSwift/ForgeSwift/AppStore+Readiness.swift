@@ -366,6 +366,12 @@ extension AppStore {
             )
         }
         AriaContextStore.shared.applyLifestyleHistoryTags(Self.lifestyleTags(from: pack))
+        // Refresh Apple Health folder from this pack; keep weSpokeAbout intact.
+        AriaKnowledgeLedgerStore.replace(
+            category: .appleHealth,
+            source: "test-ready-pack",
+            with: pack.knowledgeFacts(source: "test-ready-pack")
+        )
 
         workoutHistory = pack.days.compactMap { day in
             guard let session = day.workout else { return nil }

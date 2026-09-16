@@ -475,7 +475,23 @@ final class LifestyleViewModel: ObservableObject {
             inputs.hrvBaselineMs = recentHRV.reduce(0, +) / Double(recentHRV.count)
         }
 
-        guard let stats else { return inputs }
+        let daily = AppStore.shared.dailyMetrics
+        if daily.deepSleep > 0 {
+            inputs.deepSleepMinutes = Double(daily.deepSleep)
+        }
+        if let night = HealthKitSleepService.shared.cachedSleepData.first {
+            if night.deepMinutes > 0 { inputs.deepSleepMinutes = Double(night.deepMinutes) }
+            if night.remMinutes > 0 { inputs.remSleepMinutes = Double(night.remMinutes) }
+        }
+
+        guard let stats else {
+            // Stress from readiness when HK stats are thin.
+            let readinessStress = AppStore.shared.readiness.stressLevel
+            if readinessStress > 0 {
+                inputs.stressLevel0to1 = min(1, max(0, Double(readinessStress) / 100.0))
+            }
+            return inputs
+        }
         inputs.sleepHours = stats.sleepHours > 0 ? stats.sleepHours : nil
         inputs.steps = stats.steps > 0 ? stats.steps : nil
         inputs.activeCalories = stats.activeCalories > 0 ? stats.activeCalories : nil
@@ -495,6 +511,14 @@ final class LifestyleViewModel: ObservableObject {
                 : stats.oxygenSaturation
         }
         inputs.respiratoryRate = stats.respiratoryRate > 0 ? stats.respiratoryRate : nil
+        if stats.hrv > 0 {
+            inputs.stressLevel0to1 = stats.hrv < 30 ? 0.85 : (stats.hrv < 50 ? 0.45 : 0.2)
+        } else {
+            let readinessStress = AppStore.shared.readiness.stressLevel
+            if readinessStress > 0 {
+                inputs.stressLevel0to1 = min(1, max(0, Double(readinessStress) / 100.0))
+            }
+        }
         return inputs
     }
 

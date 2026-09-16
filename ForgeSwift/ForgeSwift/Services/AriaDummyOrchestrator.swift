@@ -109,6 +109,11 @@ enum AriaDummyOrchestrator {
         if calendarOutcome.keepLight, AriaPromptCorrelation.trainingAsk(text.lowercased()) {
             interpretation.keepLight = true
         }
+        if AriaPromptCorrelation.trainingAsk(text.lowercased()),
+           let qolPlan = QualityOfLifeTrainingPolicy.plan(fromTags: AriaContextStore.shared.context.lifestyleTags),
+           qolPlan.keepLight {
+            interpretation.keepLight = true
+        }
         let adaptation = AriaIntentResolver.adapt(store.intentSignals(for: text))
         if adaptation.keepLight, AriaPromptCorrelation.trainingAsk(text.lowercased()) {
             interpretation.keepLight = true
@@ -619,7 +624,10 @@ enum AriaDummyOrchestrator {
         interpretation: AriaDummyInterpretation,
         life: AriaLifeRead
     ) -> String? {
-        EventTrainingPolicy.plan(fromTags: eventTags(interpretation: interpretation, life: life))?.reason
+        if let event = EventTrainingPolicy.plan(fromTags: eventTags(interpretation: interpretation, life: life)) {
+            return event.reason
+        }
+        return QualityOfLifeTrainingPolicy.plan(fromTags: AriaContextStore.shared.context.lifestyleTags)?.reason
     }
 
     private static func constrain(
@@ -657,6 +665,14 @@ enum AriaDummyOrchestrator {
             }
             if event.progressive, !next.name.lowercased().contains("progressive") {
                 next.name = "Progressive " + next.name
+            }
+        }
+        if let qol = QualityOfLifeTrainingPolicy.plan(fromTags: AriaContextStore.shared.context.lifestyleTags) {
+            if qol.reduceVolume {
+                next.duration = min(next.duration, max(20, qol.maxDuration))
+            }
+            if qol.keepLight, next.intensity == .max || next.intensity == .high {
+                next.intensity = .moderate
             }
         }
         return next

@@ -145,3 +145,112 @@ public enum EventTrainingPolicy: Sendable {
         return out.sorted { $0.days < $1.days }
     }
 }
+
+/// Lifestyle QoL reshapes training the same way event horizons do — strained or
+/// depleted life rhythm means lighter volume, never a hero session. Client is the
+/// only scorer; this policy only reads `qol:` / `qol:band:` tags Life already wrote.
+public struct QualityOfLifeTrainingPlan: Sendable, Equatable {
+    public var overall: Int
+    public var band: QualityOfLifeBand
+    public var keepLight: Bool
+    public var reduceVolume: Bool
+    public var maxDuration: Int
+    public var reason: String
+
+    public init(
+        overall: Int,
+        band: QualityOfLifeBand,
+        keepLight: Bool,
+        reduceVolume: Bool,
+        maxDuration: Int,
+        reason: String
+    ) {
+        self.overall = overall
+        self.band = band
+        self.keepLight = keepLight
+        self.reduceVolume = reduceVolume
+        self.maxDuration = maxDuration
+        self.reason = reason
+    }
+}
+
+public enum QualityOfLifeTrainingPolicy: Sendable {
+    public static func plan(fromTags tags: [String]) -> QualityOfLifeTrainingPlan? {
+        guard let overall = parseOverall(tags) else { return nil }
+        let band = parseBand(tags) ?? QualityOfLifeBand(score: overall)
+        let mind = parsePillar(tags, key: "mind")
+        let sleep = parsePillar(tags, key: "sleep")
+        return plan(overall: overall, band: band, mindScore: mind, sleepScore: sleep)
+    }
+
+    public static func plan(
+        overall: Int,
+        band: QualityOfLifeBand,
+        mindScore: Int? = nil,
+        sleepScore: Int? = nil
+    ) -> QualityOfLifeTrainingPlan? {
+        let clamped = max(0, min(100, overall))
+        switch band {
+        case .depleted:
+            return QualityOfLifeTrainingPlan(
+                overall: clamped,
+                band: band,
+                keepLight: true,
+                reduceVolume: true,
+                maxDuration: 30,
+                reason: "Lifestyle QoL \(clamped)/100 (depleted) — recovery-first session, keep it light."
+            )
+        case .strained:
+            let weakMind = (mindScore ?? 100) < 55
+            let weakSleep = (sleepScore ?? 100) < 55
+            let keepLight = weakMind || weakSleep || clamped < 60
+            return QualityOfLifeTrainingPlan(
+                overall: clamped,
+                band: band,
+                keepLight: keepLight,
+                reduceVolume: true,
+                maxDuration: keepLight ? 35 : 40,
+                reason: keepLight
+                    ? "Lifestyle QoL \(clamped)/100 (strained) — mind/sleep asking for ease, lighter volume."
+                    : "Lifestyle QoL \(clamped)/100 (strained) — trim volume, protect recovery."
+            )
+        case .steady, .thriving:
+            return nil
+        }
+    }
+
+    public static func parseOverall(_ tags: [String]) -> Int? {
+        for tag in tags {
+            let lower = tag.lowercased()
+            guard lower.hasPrefix("qol:"), !lower.hasPrefix("qol:band:"),
+                  !lower.hasPrefix("qol:driver:"), !lower.hasPrefix("qol:missing:"),
+                  !lower.hasPrefix("qol:pillar:"), !lower.hasPrefix("qolconf:") else { continue }
+            let rest = String(lower.dropFirst(4))
+            if let value = Int(rest.split(separator: ":").first.map(String.init) ?? rest) {
+                return max(0, min(100, value))
+            }
+        }
+        return nil
+    }
+
+    public static func parseBand(_ tags: [String]) -> QualityOfLifeBand? {
+        for tag in tags {
+            let lower = tag.lowercased()
+            guard lower.hasPrefix("qol:band:") else { continue }
+            let raw = String(lower.dropFirst("qol:band:".count))
+            if let band = QualityOfLifeBand(rawValue: raw) { return band }
+        }
+        return nil
+    }
+
+    public static func parsePillar(_ tags: [String], key: String) -> Int? {
+        let prefix = "qol:pillar:\(key.lowercased()):"
+        for tag in tags {
+            let lower = tag.lowercased()
+            guard lower.hasPrefix(prefix) else { continue }
+            let rest = String(lower.dropFirst(prefix.count))
+            if let value = Int(rest) { return max(0, min(100, value)) }
+        }
+        return nil
+    }
+}

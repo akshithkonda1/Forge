@@ -58,8 +58,8 @@ public enum QualityOfLifePillar: String, Codable, CaseIterable, Sendable {
         case .activity:  return 3   // steps, active calories, exercise minutes
         case .nutrition: return 4   // protein, calories, fibre, added sugar
         case .vitals:    return 5   // HRV, resting HR, VO2max, SpO2, respiration
-        case .mind:      return 3   // mindful minutes, stress, mood
-        case .social:    return 2   // felt connection, meaningful interactions
+        case .mind:      return 5   // mindful, stress, mood, weekly mood, work strain
+        case .social:    return 3   // felt connection, meaningful interactions, calendar load
         case .hydration: return 1   // intake vs need
         }
     }
@@ -161,6 +161,17 @@ public enum QualityOfLifeLivingStore: Sendable {
         public var pillarScores: [String: Int]
         public var personaArchetype: String
         public var updatedAt: Date
+        /// Named pillars shaping the narrative — weakest when strained, strongest when thriving.
+        public var drivers: [String]
+        /// Pillars with no data this pass.
+        public var missingPillars: [String]
+        public var band: String
+        public var coaching: String
+
+        private enum CodingKeys: String, CodingKey {
+            case overall, rawOverall, confidence, pillarScores
+            case personaArchetype, updatedAt, drivers, missingPillars, band, coaching
+        }
 
         public init(
             overall: Int,
@@ -168,7 +179,11 @@ public enum QualityOfLifeLivingStore: Sendable {
             confidence: Double,
             pillarScores: [String: Int],
             personaArchetype: String,
-            updatedAt: Date
+            updatedAt: Date,
+            drivers: [String] = [],
+            missingPillars: [String] = [],
+            band: String = "",
+            coaching: String = ""
         ) {
             self.overall = overall
             self.rawOverall = rawOverall
@@ -176,6 +191,52 @@ public enum QualityOfLifeLivingStore: Sendable {
             self.pillarScores = pillarScores
             self.personaArchetype = personaArchetype
             self.updatedAt = updatedAt
+            self.drivers = drivers
+            self.missingPillars = missingPillars
+            self.band = band.isEmpty ? QualityOfLifeBand(score: overall).rawValue : band
+            self.coaching = coaching
+        }
+
+        public init(from decoder: Decoder) throws {
+            let c = try decoder.container(keyedBy: CodingKeys.self)
+            overall = try c.decode(Int.self, forKey: .overall)
+            rawOverall = try c.decode(Int.self, forKey: .rawOverall)
+            confidence = try c.decode(Double.self, forKey: .confidence)
+            pillarScores = try c.decode([String: Int].self, forKey: .pillarScores)
+            personaArchetype = try c.decode(String.self, forKey: .personaArchetype)
+            updatedAt = try c.decode(Date.self, forKey: .updatedAt)
+            drivers = try c.decodeIfPresent([String].self, forKey: .drivers) ?? []
+            missingPillars = try c.decodeIfPresent([String].self, forKey: .missingPillars) ?? []
+            let decodedBand = try c.decodeIfPresent(String.self, forKey: .band) ?? ""
+            band = decodedBand.isEmpty ? QualityOfLifeBand(score: overall).rawValue : decodedBand
+            coaching = try c.decodeIfPresent(String.self, forKey: .coaching) ?? ""
+        }
+
+        public func encode(to encoder: Encoder) throws {
+            var c = encoder.container(keyedBy: CodingKeys.self)
+            try c.encode(overall, forKey: .overall)
+            try c.encode(rawOverall, forKey: .rawOverall)
+            try c.encode(confidence, forKey: .confidence)
+            try c.encode(pillarScores, forKey: .pillarScores)
+            try c.encode(personaArchetype, forKey: .personaArchetype)
+            try c.encode(updatedAt, forKey: .updatedAt)
+            try c.encode(drivers, forKey: .drivers)
+            try c.encode(missingPillars, forKey: .missingPillars)
+            try c.encode(band, forKey: .band)
+            try c.encode(coaching, forKey: .coaching)
+        }
+
+        public var qualityBand: QualityOfLifeBand {
+            QualityOfLifeBand(rawValue: band) ?? QualityOfLifeBand(score: overall)
+        }
+
+        /// Sorted (pillar, score) ascending — empty when nothing graded.
+        public var rankedPillars: [(pillar: QualityOfLifePillar, score: Int)] {
+            pillarScores.compactMap { key, value in
+                guard let pillar = QualityOfLifePillar(rawValue: key) else { return nil }
+                return (pillar, value)
+            }
+            .sorted { $0.score < $1.score }
         }
     }
 
@@ -189,17 +250,86 @@ public enum QualityOfLifeLivingStore: Sendable {
         for (pillar, value) in score.pillarScores {
             pillars[pillar.rawValue] = value
         }
+        let band = score.band
+        let ascending = score.pillarScores.sorted { $0.value < $1.value }
+        let descending = score.pillarScores.sorted { $0.value > $1.value }
+        let highlight = band == .thriving
+            ? Array(descending.prefix(2))
+            : Array(ascending.prefix(2))
+        let drivers = highlight.map { $0.key.title }
+        let missing = QualityOfLifePillar.allCases
+            .filter { score.pillarScores[$0] == nil }
+            .map(\.title)
+        let coaching = elaboration(
+            overall: score.overall,
+            band: band,
+            drivers: highlight.map { ($0.key, $0.value) },
+            missingPillars: missing,
+            persona: persona,
+            confidence: score.confidence
+        )
         let snap = Snapshot(
             overall: score.overall,
             rawOverall: score.rawOverall,
             confidence: score.confidence,
             pillarScores: pillars,
             personaArchetype: persona.archetype.rawValue,
-            updatedAt: now
+            updatedAt: now,
+            drivers: drivers,
+            missingPillars: missing,
+            band: band.rawValue,
+            coaching: coaching
         )
         if let data = try? JSONEncoder().encode(snap) {
             defaults.set(data, forKey: defaultsKey)
         }
+    }
+
+    /// One paragraph Life and ARIA can both speak: grade, band, drivers, gaps.
+    public static func elaboration(
+        overall: Int,
+        band: QualityOfLifeBand,
+        drivers: [(QualityOfLifePillar, Int)],
+        missingPillars: [String] = [],
+        persona: QualityOfLifePersona,
+        confidence: Double
+    ) -> String {
+        var parts: [String] = []
+        parts.append("Lifestyle QoL \(overall)/100 — \(band.label.lowercased()).")
+        if let first = drivers.first {
+            if band == .thriving {
+                if drivers.count > 1 {
+                    let second = drivers[1]
+                    parts.append(
+                        "\(first.0.title) at \(first.1) and \(second.0.title) at \(second.1) are holding you up."
+                    )
+                } else {
+                    parts.append("\(first.0.title) at \(first.1) is holding you up.")
+                }
+            } else if let second = drivers.dropFirst().first {
+                parts.append(
+                    "\(first.0.title) at \(first.1) and \(second.0.title) at \(second.1) are pulling the grade."
+                )
+            } else {
+                parts.append("\(first.0.title) at \(first.1) is the main drag.")
+            }
+        }
+        if !missingPillars.isEmpty {
+            let listed = missingPillars.prefix(3).joined(separator: ", ")
+            parts.append("Still unmeasured: \(listed).")
+        }
+        parts.append(band.supportiveDescriptor)
+        if persona.archetype != .unset && persona.archetype != .balanced {
+            parts.append("Graded for a \(persona.archetype.title.lowercased()) life.")
+        }
+        if let food = persona.nutritionRelationship?.trimmingCharacters(in: .whitespacesAndNewlines),
+           !food.isEmpty {
+            parts.append("Food relationship on file: \(food).")
+        }
+        if confidence < 0.5 {
+            parts.append("Estimate — more of life still unmeasured.")
+        }
+        return parts.joined(separator: " ")
     }
 
     public static func load(defaults: UserDefaults = .standard) -> Snapshot? {
@@ -238,16 +368,41 @@ public enum QualityOfLifeLivingStore: Sendable {
             ]
             return missing[index % missing.count]
         }
-        let band = QualityOfLifeBand(score: snap.overall).label.lowercased()
+        if !snap.coaching.isEmpty {
+            let openers = [
+                "",
+                "Same grade Life shows. ",
+                "Reading Life's board: ",
+                "I'm not minting a second score. ",
+            ]
+            return openers[index % openers.count] + snap.coaching
+        }
+        let band = snap.qualityBand.label.lowercased()
         let n = snap.overall
         let estimate = snap.confidence < 0.5 ? " That's an estimate until more of life is measured." : ""
+        let driverBit: String = {
+            guard let first = snap.drivers.first else { return "" }
+            let thriving = snap.qualityBand == .thriving
+            if snap.drivers.count > 1 {
+                let join = thriving ? "are holding you up" : "are pulling it"
+                return " \(first) and \(snap.drivers[1]) \(join)."
+            }
+            return thriving
+                ? " \(first) is holding you up."
+                : " \(first) is the main drag."
+        }()
+        let missingBit: String = {
+            guard let first = snap.missingPillars.first else { return "" }
+            if snap.missingPillars.count > 1 {
+                return " Still unmeasured: \(first), \(snap.missingPillars[1])."
+            }
+            return " Still unmeasured: \(first)."
+        }()
         let lines = [
-            "Lifestyle QoL is \(n)/100 (\(band)). That's the same grade Life shows.",
-            "Life still grades Lifestyle QoL at \(n)/100 — \(band). Same grade Life shows.",
-            "The Lifestyle QoL snapshot is \(n)/100 (\(band)). ARIA reads that same grade.",
-            "Same Lifestyle QoL: \(n)/100 (\(band)). That's the grade Life is showing.",
-            "I'm not minting a second score. Lifestyle QoL is \(n)/100 (\(band)) — the same grade Life shows.",
-            "Reading Life's board: Lifestyle QoL \(n)/100 (\(band)). That's the number ARIA uses.",
+            "Lifestyle QoL is \(n)/100 (\(band)).\(driverBit)\(missingBit) That's the same grade Life shows.",
+            "Life still grades Lifestyle QoL at \(n)/100 — \(band).\(driverBit)\(missingBit)",
+            "The Lifestyle QoL snapshot is \(n)/100 (\(band)).\(driverBit)\(missingBit) ARIA reads that same grade.",
+            "Same Lifestyle QoL: \(n)/100 (\(band)).\(driverBit)\(missingBit)",
         ]
         return lines[index % lines.count] + estimate
     }
@@ -279,6 +434,11 @@ public enum QualityOfLifeLivingStore: Sendable {
 
     public static func markInterviewCompleted(defaults: UserDefaults = .standard) {
         defaults.set(true, forKey: interviewCompletedKey)
+    }
+
+    /// You → What I Know can reopen the Lifestyle who-you-are interview.
+    public static func clearInterviewCompleted(defaults: UserDefaults = .standard) {
+        defaults.set(false, forKey: interviewCompletedKey)
     }
 }
 

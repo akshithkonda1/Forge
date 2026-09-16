@@ -702,6 +702,23 @@ final class AriaContextStore: ObservableObject {
             "nutrition_score:\(metrics.nutritionScore)",
             "sleep_quality:\(metrics.sleepQuality)",
         ]
+        if let snap = QualityOfLifeLivingStore.load() {
+            tags.append("qol:band:\(snap.qualityBand.rawValue)")
+            if snap.confidence > 0 {
+                tags.append(String(format: "qolconf:%.2f", snap.confidence))
+            }
+            for driver in snap.drivers.prefix(2) {
+                let slug = driver.lowercased().replacingOccurrences(of: " ", with: "_")
+                tags.append("qol:driver:\(slug)")
+            }
+            for missing in snap.missingPillars.prefix(3) {
+                let slug = missing.lowercased().replacingOccurrences(of: " ", with: "_")
+                tags.append("qol:missing:\(slug)")
+            }
+            for (key, value) in snap.pillarScores {
+                tags.append("qol:pillar:\(key):\(value)")
+            }
+        }
 
         if let stats {
             tags.append("protein:\(Int(stats.protein))g")
@@ -856,11 +873,14 @@ final class AriaContextStore: ObservableObject {
                 source: "calendar"
             ))
         }
-        if !facts.isEmpty {
-            AriaKnowledgeLedgerStore.replace(category: .otherData, source: "calendar", with: facts.filter { $0.category == .otherData })
-            for fact in facts where fact.category == .inferences {
-                AriaKnowledgeLedgerStore.file(fact)
-            }
+        // Always replace so a cleared week does not leave stale other-data facts.
+        AriaKnowledgeLedgerStore.replace(
+            category: .otherData,
+            source: "calendar",
+            with: facts.filter { $0.category == .otherData }
+        )
+        for fact in facts where fact.category == .inferences {
+            AriaKnowledgeLedgerStore.file(fact)
         }
     }
 
