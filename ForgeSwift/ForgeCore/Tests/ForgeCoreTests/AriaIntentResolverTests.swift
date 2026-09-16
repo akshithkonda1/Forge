@@ -131,6 +131,87 @@ final class AriaIntentResolverTests: XCTestCase {
         XCTAssertEqual(adapted.prioritize.first, "lifestyle")
         XCTAssertEqual(adapted.eventBucket, "wedding")
         XCTAssertTrue(adapted.priorityReason.contains("wedding"))
+        XCTAssertEqual(adapted.planChoice, "protect_load")
+        XCTAssertFalse(adapted.nextAdvice.isEmpty)
+        XCTAssertFalse(adapted.nextAdvice.contains("Ritz"))
+    }
+
+    func testWeddingPlusWearStillLeadsLifestyle() {
+        let adapted = AriaIntentResolver.adapt(
+            AriaIntentInput(
+                text: "what should I train today?",
+                readiness: 40,
+                sleepMinutesLastNight: 5 * 60,
+                calendarTags: ["calendar:kind:wedding", "calendar:evening:busy"]
+            )
+        )
+        XCTAssertEqual(adapted.prioritize.first, "lifestyle")
+        XCTAssertEqual(adapted.eventBucket, "wedding")
+        XCTAssertEqual(adapted.planChoice, "protect_load")
+        XCTAssertEqual(adapted.agingPace, "faster")
+    }
+
+    func testDepletedBodyAgingFasterSleepsFirst() {
+        let adapted = AriaIntentResolver.adapt(
+            AriaIntentInput(
+                text: "should I train today?",
+                readiness: 40,
+                sleepMinutesLastNight: 4 * 60
+            )
+        )
+        XCTAssertEqual(adapted.agingPace, "faster")
+        XCTAssertEqual(adapted.planChoice, "sleep_first")
+        XCTAssertEqual(adapted.stance, "protect")
+        XCTAssertTrue(adapted.keepLight)
+        XCTAssertTrue(adapted.nextAdvice.lowercased().contains("sleep"))
+    }
+
+    func testConversationUsedToRecoverIsFaster() {
+        let adapted = AriaIntentResolver.adapt(
+            AriaIntentInput(text: "I don't recover like I used to recover")
+        )
+        XCTAssertEqual(adapted.agingPace, "faster")
+        XCTAssertTrue(["protect_load", "sleep_first"].contains(adapted.planChoice))
+    }
+
+    func testHoldingBodyAgingSlowerTrainsThrough() {
+        let adapted = AriaIntentResolver.adapt(
+            AriaIntentInput(
+                text: "feeling good — should I train today?",
+                readiness: 82,
+                sleepMinutesLastNight: 8 * 60
+            )
+        )
+        XCTAssertEqual(adapted.agingPace, "slower")
+        XCTAssertEqual(adapted.planChoice, "train_through")
+    }
+
+    func testSurpriseVisitProtectsWithoutBiologicalAge() {
+        let adapted = AriaIntentResolver.adapt(
+            AriaIntentInput(
+                text: "friends showed up unannounced — should I still train?",
+                calendarTags: ["calendar:kind:surprise"]
+            )
+        )
+        XCTAssertEqual(adapted.planChoice, "protect_load")
+        XCTAssertFalse(adapted.nextAdvice.lowercased().contains("biological age"))
+        XCTAssertFalse(adapted.agingReason.lowercased().contains("aged two"))
+        XCTAssertFalse(adapted.betterLifeMove.isEmpty)
+    }
+
+    func testStressedWorkDayNamesStressNotYears() {
+        let adapted = AriaIntentResolver.adapt(
+            AriaIntentInput(
+                text: "I'm stressed and overwhelmed, should I train today?",
+                readiness: 48,
+                sleepMinutesLastNight: 6 * 60,
+                calendarTags: ["calendar:kind:work", "calendar:evening:busy"]
+            )
+        )
+        XCTAssertEqual(adapted.planChoice, "protect_load")
+        XCTAssertNotEqual(adapted.stressState, "unknown")
+        XCTAssertFalse(adapted.nextAdvice.contains("34"))
+        XCTAssertFalse(adapted.agingReason.lowercased().contains("biological age is"))
     }
 
     func testEmptyHeyIsGeneralized() {
@@ -177,6 +258,9 @@ final class AriaIntentResolverTests: XCTestCase {
         XCTAssertFalse(adapted.priorityReason.contains("Ritz"))
         XCTAssertFalse(adapted.priorityReason.contains("Maya"))
         XCTAssertFalse(adapted.prioritize.joined(separator: " ").contains("Ritz"))
+        XCTAssertFalse(adapted.nextAdvice.contains("Ritz"))
+        XCTAssertFalse(adapted.nextAdvice.contains("Maya"))
+        XCTAssertFalse(adapted.planChoice.isEmpty)
     }
 }
 

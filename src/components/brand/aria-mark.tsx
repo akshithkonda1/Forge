@@ -2,103 +2,14 @@
 
 import { useEffect, useRef, useState } from "react";
 import { cn } from "@/lib/utils";
-import {
-  ARIA_MARK,
-  ARIA_MARK_COMPACT_MAX,
-  ariaMarkShouldSpin,
-  nestLiveCreateId,
-  nestLiveIsWinner,
-  nestLiveRemove,
-  nestLiveUpsert,
-  nestRingPose,
-  NEST_PAINT_INTERVAL_MS,
-  ringStrokeWidth,
-  visibleRingIndices,
-} from "@/lib/aria-mark";
-import { drawAriaNest, hexAlpha, softHexPathD } from "@/lib/aria-nest";
-
-function sizeCanvas(canvas: HTMLCanvasElement, size: number): CanvasRenderingContext2D | null {
-  const dpr = Math.min(2, window.devicePixelRatio || 1);
-  const px = Math.max(2, Math.round(size * dpr));
-  if (canvas.width !== px || canvas.height !== px) {
-    canvas.width = px;
-    canvas.height = px;
-  }
-  canvas.style.width = `${size}px`;
-  canvas.style.height = `${size}px`;
-  return canvas.getContext("2d");
-}
-
-function NestStillSvg({ size }: { size: number }) {
-  const compact = size <= ARIA_MARK_COMPACT_MAX;
-  const stroke = Math.max(2.1, ringStrokeWidth(size) * (100 / Math.max(size, 1)) * 1.35);
-  const sunR = ARIA_MARK.orbDiameterIdle * 50;
-  return (
-    <svg
-      width={size}
-      height={size}
-      viewBox="0 0 100 100"
-      className="block"
-      aria-hidden
-    >
-      {!compact && (
-        <circle
-          cx="50"
-          cy="50"
-          r="48"
-          fill={hexAlpha(ARIA_MARK.hearthGlowHex, 0.22)}
-        />
-      )}
-      {visibleRingIndices().map((index) => {
-        const pose = nestRingPose(index, 0, false, true);
-        return (
-          <path
-            key={index}
-            d={softHexPathD(
-              (pose.rx * 100) / 2,
-              (pose.ry * 100) / 2,
-              ARIA_MARK.cornerRoundness,
-              0,
-              0,
-              50,
-              50
-            )}
-            fill="none"
-            stroke={pose.hex}
-            strokeOpacity={pose.opacity}
-            strokeWidth={stroke}
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            transform={`rotate(${(pose.rotation * 180) / Math.PI} 50 50)`}
-          />
-        );
-      })}
-      <circle cx="50" cy="50" r={sunR} fill={ARIA_MARK.pearlHotHex} />
-    </svg>
-  );
-}
-
-function paintNest(
-  canvas: HTMLCanvasElement,
-  size: number,
-  speaking: boolean,
-  freeze: boolean,
-  time: number
-): void {
-  const ctx = sizeCanvas(canvas, size);
-  if (!ctx) return;
-  drawAriaNest(ctx, canvas.width, canvas.height, {
-    time,
-    speaking,
-    reduceMotion: freeze,
-    cssSize: size,
-  });
-}
+import { ARIA_MARK, ariaMarkPaintDue, ariaMarkShouldSpin } from "@/lib/aria-mark";
+import { drawAriaRingField } from "@/lib/aria-ring-field";
 
 /**
  * Adaptive Recovery Interactive Assistant.
- * Living brand mark: B+E soft-hex nest + metal sun from `shared/aria-mark.json`.
- * One live nest per screen; compact / Reduce Motion freeze pose + sun.
+ * Living contract is the B+E soft-hex nest in `ARIA_MARK` / `shared/aria-mark.json`.
+ * Ring-field canvas + white metal-sun core is a stopgap until Wren's nest chase —
+ * no PNG, no ember, no readiness chrome.
  */
 export function AriaMark({
   size = 48,
@@ -170,25 +81,24 @@ export function AriaMark({
     if (!canvas) return;
     const media = window.matchMedia("(prefers-reduced-motion: reduce)");
     let raf = 0;
-    let lastPaint = 0;
+    let lastPaint = -1;
     const start = performance.now();
 
-    const tick = (now: number) => {
-      const freeze = !live || !ariaMarkShouldSpin(size, media.matches);
-      try {
-        if (freeze) {
-          paintNest(canvas, size, speakingRef.current, true, 0);
-          return;
-        }
-        if (now - lastPaint >= NEST_PAINT_INTERVAL_MS - 1) {
-          lastPaint = now;
-          paintNest(canvas, size, speakingRef.current, false, (now - start) / 1000);
-        }
-      } catch (err) {
-        console.error("drawAriaNest failed", err);
+    const paint = (now: number) => {
+      const reduce = !ariaMarkShouldSpin(size, media.matches);
+      if (!reduce && !ariaMarkPaintDue(now, lastPaint)) {
+        raf = requestAnimationFrame(paint);
         return;
       }
-      raf = requestAnimationFrame(tick);
+      lastPaint = now;
+      const t = reduce ? 0 : (now - start) / 1000;
+      drawAriaRingField(ctx, canvas.width, canvas.height, {
+        time: t,
+        speaking: speakingRef.current,
+        reduceMotion: reduce,
+        cssSize: size,
+      });
+      if (!reduce) raf = requestAnimationFrame(paint);
     };
 
     tick(performance.now());

@@ -246,7 +246,11 @@ struct CycleTrainingPrescriptionCard: View {
                 .font(FDS.TypeScale.body(13))
                 .foregroundColor(.textTertiary)
             Button(action: onAskARIA) {
-                Label("Ask ARIA to shape this", systemImage: "sparkles")
+                Label {
+                    Text("Ask ARIA to shape this")
+                } icon: {
+                    ARIAIdentityMark(state: .idle, mood: .energized, size: 14, amplitude: 0.22)
+                }
                     .font(FDS.TypeScale.label(13))
             }
             .buttonStyle(.bordered)

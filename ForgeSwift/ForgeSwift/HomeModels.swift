@@ -121,9 +121,9 @@ enum HomePrimaryAction: Equatable {
 
     var title: String {
         switch self {
-        case .startWorkout:              return "Start session"
+        case .startWorkout:              return "Today’s session"
         case .continueWorkout:           return "Continue"
-        case .recoveryDay:               return "Start recovery"
+        case .recoveryDay:               return "Recovery session"
         case .buildPlan:                 return "Write session"
         }
     }
@@ -146,7 +146,7 @@ enum HomePrimaryAction: Equatable {
 
     var icon: String {
         switch self {
-        case .startWorkout:    return "play.fill"
+        case .startWorkout:    return "dumbbell.fill"
         case .continueWorkout: return "arrow.clockwise"
         case .recoveryDay:     return "leaf.fill"
         case .buildPlan:       return "sparkles"

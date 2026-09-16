@@ -66,6 +66,17 @@ export function paintedNestOpacity(contractOpacity: number, flicker = 1): number
   return painted;
 }
 
+/**
+ * Stopgap metal-sun core for the ring-field canvas. Web paint only — not a
+ * JSON ring. Living sun size is `orbDiameterIdle` / `orbDiameterSpeaking`;
+ * this nest-ratio helper stays until Wren's chase.
+ */
+export const ARIA_ORB_CORE = {
+  hue: "#FFFFFF",
+  hueSoft: "#F4F7FC",
+  nest: 0.88,
+} as const;
+
 export type AriaMarkSizeTier = "compact" | "mid" | "hero";
 export type AriaRingPose = {
   rx: number;
@@ -98,6 +109,20 @@ export function ariaMarkShouldSpin(size: number, reduceMotion: boolean): boolean
   return !reduceMotion && ariaMarkSizeTier(size) !== "compact";
 }
 
+/** Soft radial glow is hero/mid atmosphere — skip at the compact 3-ring ceiling. */
+export function ariaMarkShouldGlow(size: number): boolean {
+  return ariaMarkSizeTier(size) !== "compact";
+}
+
+/** Paint cadence for live nest. Lockstep with `ARIA_MARK.paintHz`. */
+export const ARIA_MARK_PAINT_HZ = ARIA_MARK.paintHz;
+
+/** First frame always paints (`lastPaintMs < 0`). Later frames cap near 12 Hz. */
+export function ariaMarkPaintDue(nowMs: number, lastPaintMs: number): boolean {
+  if (lastPaintMs < 0) return true;
+  return nowMs - lastPaintMs >= 1000 / ARIA_MARK_PAINT_HZ;
+}
+
 export function contrastRingIndices(
   opacities: readonly number[] = ARIA_MARK.opacity
 ): number[] {
@@ -123,9 +148,19 @@ export function compactRingIndices(
   return [...contrast, ...(support >= 0 ? [support] : [])].sort((a, b) => a - b);
 }
 
-/** One 3-ring nest at every size. Compact no longer subsets a 5-ellipse field. */
+/** One 3-ring nest at every size. Compact 5-ellipse subset is retired. */
 export function visibleRingIndices(_size?: number): number[] {
   return Array.from({ length: ARIA_MARK.ringCount }, (_, index) => index);
+}
+
+/** Normalized radius (fraction of mark size) for the white core orb. */
+export function orbCoreRadius(size: number): number {
+  let minRy = Number.POSITIVE_INFINITY;
+  for (const index of visibleRingIndices(size)) {
+    const { ry } = ringEllipse(index, 0, false, true);
+    if (ry < minRy) minRy = ry;
+  }
+  return (minRy / 2) * ARIA_ORB_CORE.nest;
 }
 
 export function ringStrokeWidth(size: number): number {

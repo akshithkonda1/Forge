@@ -1,14 +1,18 @@
 import XCTest
 @testable import ForgeSwift
+import ForgeCore
 
-/// Locks the kinetic orange ring-field: five ellipses, `#FF4D00`, freeze on Reduce Motion.
+/// Living brand mark = B+E nest in `AriaNestGeometry` (Lex `#288`).
+/// Tip `AriaSigilGeometry` is the older `#274` nest leftover on main.
 final class AriaSigilTests: XCTestCase {
 
-    func testFiveEllipsesOrangeAndStillPose() {
-        XCTAssertEqual(AriaSigilGeometry.kind, "ring-field")
+    func testThreeEllipsesOrangeAndStillPose() {
+        XCTAssertEqual(AriaSigilGeometry.kind, "soft-hex-field")
+        XCTAssertEqual(AriaSigilGeometry.cornerRoundness, 0.34, accuracy: 0.0001)
         XCTAssertEqual(AriaSigilGeometry.assetName, "AriaMark")
-        XCTAssertEqual(AriaSigilGeometry.ringCount, 5)
-        XCTAssertEqual(AriaSigilGeometry.ellipseCount, 5)
+        XCTAssertEqual(AriaSigilGeometry.ringCount, 3)
+        XCTAssertEqual(AriaSigilGeometry.ellipseCount, 3)
+        XCTAssertEqual(AriaSigilGeometry.hexCount, 3)
         XCTAssertEqual(AriaSigilGeometry.forgeOrangeHex, "FF4D00")
         XCTAssertEqual(AriaSigilGeometry.brandHueLightHex, "FF6B2B")
         XCTAssertEqual(AriaSigilPalette.forgeOrangeHex, "FF4D00")
@@ -32,8 +36,8 @@ final class AriaSigilTests: XCTestCase {
 
     func testIdleSpinIsSofterThanSpeaking() {
         XCTAssertLessThan(AriaSigilGeometry.idleSpinHz, AriaSigilGeometry.speakingSpinHz)
-        XCTAssertEqual(AriaSigilGeometry.idleSpinHz, 0.04, accuracy: 0.0001)
-        XCTAssertEqual(AriaSigilGeometry.speakingSpinHz, 0.075, accuracy: 0.0001)
+        XCTAssertEqual(AriaSigilGeometry.idleSpinHz, 0.05, accuracy: 0.0001)
+        XCTAssertEqual(AriaSigilGeometry.speakingSpinHz, 0.09, accuracy: 0.0001)
     }
 
     func testEllipsesMoveWhenAliveAndFreezeWhenReduced() {
@@ -44,12 +48,12 @@ final class AriaSigilTests: XCTestCase {
                 && abs(a.rx - b.rx) < 0.00001
                 && abs(a.ry - b.ry) < 0.00001
         )
-        let stillA = AriaSigilGeometry.ellipse(index: 4, time: 1, state: .speaking, reduceMotion: true)
-        let stillB = AriaSigilGeometry.ellipse(index: 4, time: 40, state: .speaking, reduceMotion: true)
+        let stillA = AriaSigilGeometry.ellipse(index: 2, time: 1, state: .speaking, reduceMotion: true)
+        let stillB = AriaSigilGeometry.ellipse(index: 2, time: 40, state: .speaking, reduceMotion: true)
         XCTAssertEqual(stillA.rotation, stillB.rotation, accuracy: 0.0001)
     }
 
-    func testFiveRingsOverlapAtDistinctTilts() {
+    func testThreeEllipsesOverlapAtDistinctTilts() {
         var rotations = Set<String>()
         for index in 0..<AriaSigilGeometry.ellipseCount {
             let pose = AriaSigilGeometry.ellipse(
@@ -66,47 +70,38 @@ final class AriaSigilTests: XCTestCase {
         XCTAssertEqual(rotations.count, AriaSigilGeometry.ellipseCount)
     }
 
-    func testCoveContrastFloor() {
-        XCTAssertEqual(AriaSigilGeometry.ringOpacities, [0.40, 0.72, 0.78, 0.45, 0.55])
+    func testAlwaysShowsThreeEllipses() {
+        XCTAssertEqual(AriaSigilGeometry.radii, [0.46, 0.52, 0.58])
+        XCTAssertEqual(AriaSigilGeometry.ringOpacities, [0.88, 0.78, 0.62])
         XCTAssertEqual(AriaSigilGeometry.contrastFloor, 0.70, accuracy: 0.0001)
-        XCTAssertEqual(AriaSigilGeometry.strokeWidthCompact, 1.5, accuracy: 0.0001)
-        XCTAssertEqual(AriaSigilGeometry.strokeWidthHero, 1.85, accuracy: 0.0001)
-        XCTAssertGreaterThanOrEqual(
-            AriaSigilGeometry.ringOpacities.filter { $0 >= AriaSigilGeometry.contrastFloor }.count,
-            2
-        )
-        XCTAssertEqual(AriaSigilGeometry.contrastRingIndices, [1, 2])
-        XCTAssertEqual(AriaSigilGeometry.compactRingIndices.count, 3)
-        XCTAssertEqual(AriaSigilGeometry.compactRingIndices, [1, 2, 4])
-        XCTAssertEqual(
-            AriaSigilGeometry.compactRingIndices.filter { AriaSigilGeometry.ringOpacities[$0] >= 0.70 }.count,
-            2
-        )
+        XCTAssertEqual(AriaSigilGeometry.strokeWidthCompact, 1.35, accuracy: 0.0001)
+        XCTAssertEqual(AriaSigilGeometry.strokeWidthHero, 1.6, accuracy: 0.0001)
+        XCTAssertEqual(AriaSigilGeometry.visibleRingIndices(size: 28), [0, 1, 2])
+        XCTAssertEqual(AriaSigilGeometry.visibleRingIndices(size: 90), [0, 1, 2])
+        XCTAssertEqual(AriaSigilGeometry.compactRingIndices, [0, 1, 2])
         for index in 0..<AriaSigilGeometry.ellipseCount {
             XCTAssertGreaterThanOrEqual(
                 AriaSigilGeometry.strokeWidth(size: AriaSigilGeometry.compactRecommend, index: index),
                 AriaSigilGeometry.strokeWidthCompact
             )
         }
-        XCTAssertEqual(AriaSigilGeometry.visibleRingIndices(size: 28), AriaSigilGeometry.compactRingIndices)
-        XCTAssertEqual(AriaSigilGeometry.visibleRingIndices(size: 90), Array(0..<5))
     }
 
-    /// Copied from https://github.com/akshithkonda1/Forge/pull/270 @ fab0a40.
-    func testMatchesPR270Contract() {
-        XCTAssertEqual(AriaSigilGeometry.kind, "ring-field")
+    func testRingFieldContractMatchesWatchNest() {
+        XCTAssertEqual(AriaSigilGeometry.kind, "soft-hex-field")
         XCTAssertEqual(AriaSigilGeometry.assetName, "AriaMark")
-        XCTAssertEqual(AriaSigilGeometry.ringCount, 5)
-        XCTAssertEqual(AriaSigilGeometry.radii, [0.38, 0.48, 0.58, 0.68, 0.78])
-        XCTAssertEqual(AriaSigilGeometry.eccentricity, [0.1, 0.14, 0.08, 0.16, 0.11])
-        XCTAssertEqual(AriaSigilGeometry.tiltDeg, [14, -22, 28, -10, 18])
-        XCTAssertEqual(AriaSigilGeometry.phaseOffsets, [0, 0.18, 0.41, 0.63, 0.88])
-        XCTAssertEqual(AriaSigilGeometry.ringOpacities, [0.40, 0.72, 0.78, 0.45, 0.55])
-        XCTAssertEqual(AriaSigilGeometry.idleSpinHz, 0.04, accuracy: 0.0001)
-        XCTAssertEqual(AriaSigilGeometry.speakingSpinHz, 0.075, accuracy: 0.0001)
+        XCTAssertEqual(AriaSigilGeometry.ringCount, 3)
+        // Tip leftover `#274` nest — not the 5-ellipse JSON ring-field.
+        XCTAssertEqual(AriaSigilGeometry.radii, [0.46, 0.52, 0.58])
+        XCTAssertEqual(AriaSigilGeometry.eccentricity, [0.07, 0.05, 0.06])
+        XCTAssertEqual(AriaSigilGeometry.tiltDeg, [-18, 24, -12])
+        XCTAssertEqual(AriaSigilGeometry.phaseOffsets, [0.0, 0.33, 0.66])
+        XCTAssertEqual(AriaSigilGeometry.ringOpacities, [0.88, 0.78, 0.62])
+        XCTAssertEqual(AriaSigilGeometry.idleSpinHz, 0.05, accuracy: 0.0001)
+        XCTAssertEqual(AriaSigilGeometry.speakingSpinHz, 0.09, accuracy: 0.0001)
         XCTAssertEqual(AriaSigilGeometry.stillPoseAngleDeg, 18, accuracy: 0.0001)
-        XCTAssertEqual(AriaSigilGeometry.strokeWidthCompact, 1.5, accuracy: 0.0001)
-        XCTAssertEqual(AriaSigilGeometry.strokeWidthHero, 1.85, accuracy: 0.0001)
+        XCTAssertEqual(AriaSigilGeometry.strokeWidthCompact, 1.35, accuracy: 0.0001)
+        XCTAssertEqual(AriaSigilGeometry.strokeWidthHero, 1.6, accuracy: 0.0001)
         XCTAssertEqual(AriaSigilGeometry.heroMinimumSize, 90)
         XCTAssertEqual(AriaSigilGeometry.compactRecommend, 28)
         XCTAssertEqual(AriaSigilGeometry.forgeOrangeHex, "FF4D00")
@@ -135,5 +130,139 @@ final class AriaSigilTests: XCTestCase {
         XCTAssertEqual(AriaSigilEmberLegacy.hearthHex, "FF6A1A")
         XCTAssertNotEqual(AriaSigilEmberLegacy.hearthHex, AriaSigilGeometry.forgeOrangeHex)
         XCTAssertNotEqual(AriaSigilEmberLegacy.lobeCount, AriaSigilGeometry.ellipseCount)
+        XCTAssertNotEqual(AriaSigilEmberLegacy.lobeCount, AriaNestGeometry.ringCount)
+    }
+
+    func testBrandMarkIsBENestNotRingField() {
+        XCTAssertEqual(AriaNestGeometry.kind, "soft-hex-field")
+        XCTAssertEqual(AriaNestGeometry.mixLock, "B+E")
+        // Tip leftover after main's `#274` nest landed in `AriaSigilGeometry`.
+        // Same kind name, older numbers. Living paint uses `AriaNestGeometry`.
+        XCTAssertEqual(AriaSigilGeometry.kind, "soft-hex-field")
+        XCTAssertEqual(AriaNestGeometry.ringCount, 3)
+        XCTAssertEqual(AriaSigilGeometry.ringCount, 3)
+        XCTAssertEqual(AriaNestGeometry.forgeOrangeHex, AriaSigilGeometry.forgeOrangeHex)
+        XCTAssertEqual(AriaNestGeometry.tickHz, 12, accuracy: 0.0001)
+        XCTAssertEqual(AriaNestGeometry.paintHz, 12, accuracy: 0.0001)
+        XCTAssertEqual(AriaNestGeometry.ringOpacities, [0.88, 0.78, 0.72])
+        XCTAssertEqual(AriaSigilGeometry.ringOpacities, [0.88, 0.78, 0.62])
+        XCTAssertNotEqual(AriaNestGeometry.ringOpacities, AriaSigilGeometry.ringOpacities)
+        XCTAssertEqual(AriaNestGeometry.speakingOrbitHz, [0.09, -0.06, 0.04])
+        XCTAssertEqual(AriaSigilGeometry.speakingOrbitHz, [0.11, -0.075, 0.048])
+        XCTAssertEqual(AriaNestGeometry.strokeWidthCompact, 1.5, accuracy: 0.0001)
+        XCTAssertEqual(AriaSigilGeometry.strokeWidthCompact, 1.35, accuracy: 0.0001)
+        XCTAssertEqual(AriaNestGeometry.strokeWidthHero, 1.75, accuracy: 0.0001)
+        XCTAssertEqual(AriaNestGeometry.ringHex, ["F7F4F0", "A9D8FF", "FF4D00"])
+    }
+
+    func testNestPresenceMapsFromOrbState() {
+        XCTAssertEqual(AriaNestGeometry.presence(from: .idle), .idle)
+        XCTAssertEqual(AriaNestGeometry.presence(from: .listening), .listening)
+        XCTAssertEqual(AriaNestGeometry.presence(from: .processing), .processing)
+        XCTAssertEqual(AriaNestGeometry.presence(from: .speaking), .speaking)
+    }
+
+    func testNestStillPoseAndLivingMotion() {
+        let stillA = AriaNestGeometry.livingHex(
+            index: 1, time: 1, presence: .speaking, amplitude: 0.9, reduceMotion: true
+        )
+        let stillB = AriaNestGeometry.livingHex(
+            index: 1, time: 40, presence: .speaking, amplitude: 0.9, reduceMotion: true
+        )
+        XCTAssertEqual(stillA.rotation, stillB.rotation, accuracy: 0.0001)
+        let liveA = AriaNestGeometry.livingHex(
+            index: 1, time: 0.2, presence: .idle, amplitude: 0.3, reduceMotion: false
+        )
+        let liveB = AriaNestGeometry.livingHex(
+            index: 1, time: 1.2, presence: .idle, amplitude: 0.3, reduceMotion: false
+        )
+        XCTAssertFalse(abs(liveA.rotation - liveB.rotation) < 0.00001)
+    }
+
+    func testNestPalettePearls() {
+        XCTAssertEqual(AriaSigilPalette.pearlHex, "F7F4F0")
+        XCTAssertEqual(AriaSigilPalette.pearlHotHex, "FFFFFF")
+        XCTAssertTrue(AriaNestGeometry.ringIsPearl(0))
+        XCTAssertTrue(AriaNestGeometry.ringIsOrangeAccent(2))
+        XCTAssertEqual(AriaSigilPalette.nestFrostHex, "A9D8FF")
+        XCTAssertFalse(AriaNestGeometry.shouldOrbit(size: 32, reduceMotion: false))
+    }
+
+    func testPearlCoreAndWatchHueRhythm() {
+        XCTAssertEqual(AriaSigilGeometry.pearlHex, "F7F4F0")
+        XCTAssertEqual(AriaSigilGeometry.pearlHotHex, "FFFFFF")
+        XCTAssertEqual(AriaSigilPalette.pearlHex, "F7F4F0")
+        // Watch nest: first compact ring is pearl, then orange-light, then orange.
+        XCTAssertTrue(AriaSigilGeometry.ringIsPearl(0))
+        XCTAssertFalse(AriaSigilGeometry.ringIsPearl(1))
+        XCTAssertFalse(AriaSigilGeometry.ringIsPearl(2))
+        XCTAssertLessThan(AriaSigilGeometry.waveformHz, 4.0)
+        XCTAssertLessThan(AriaSigilGeometry.metalRippleHz, 5.0)
+    }
+
+    func testLiquidEllipseFreezesWithReduceMotion() {
+        let a = AriaSigilGeometry.liquidEllipse(
+            index: 1, time: 1, state: .speaking, amplitude: 0.9, reduceMotion: true
+        )
+        let b = AriaSigilGeometry.liquidEllipse(
+            index: 1, time: 40, state: .speaking, amplitude: 0.9, reduceMotion: true
+        )
+        let base = AriaSigilGeometry.ellipse(
+            index: 1, time: 1, state: .speaking, reduceMotion: true
+        )
+        XCTAssertEqual(a.rx, b.rx, accuracy: 0.0001)
+        XCTAssertEqual(a.ry, b.ry, accuracy: 0.0001)
+        XCTAssertEqual(a.rotation, b.rotation, accuracy: 0.0001)
+        XCTAssertEqual(a.rx, base.rx, accuracy: 0.0001)
+        XCTAssertEqual(a.ry, base.ry, accuracy: 0.0001)
+    }
+
+    func testLiquidEllipseAndOrbWaveWhenSpeaking() {
+        let a = AriaSigilGeometry.liquidEllipse(
+            index: 1, time: 0.2, state: .speaking, amplitude: 0.95, reduceMotion: false
+        )
+        let b = AriaSigilGeometry.liquidEllipse(
+            index: 1, time: 0.55, state: .speaking, amplitude: 0.95, reduceMotion: false
+        )
+        XCTAssertFalse(
+            abs(a.rx - b.rx) < 0.00001
+                && abs(a.ry - b.ry) < 0.00001
+                && abs(a.rotation - b.rotation) < 0.00001
+        )
+        let coreA = AriaSigilGeometry.orbCore(
+            time: 0.2, state: .speaking, amplitude: 0.95, reduceMotion: false
+        )
+        let coreB = AriaSigilGeometry.orbCore(
+            time: 0.55, state: .speaking, amplitude: 0.95, reduceMotion: false
+        )
+        XCTAssertFalse(abs(coreA.sx - coreB.sx) < 0.00001 && abs(coreA.sy - coreB.sy) < 0.00001)
+        XCTAssertGreaterThan(coreA.ripple, 0.2)
+        let still = AriaSigilGeometry.orbCore(
+            time: 99, state: .speaking, amplitude: 0.95, reduceMotion: true
+        )
+        XCTAssertEqual(still.sx, 1, accuracy: 0.0001)
+        XCTAssertEqual(still.sy, 1, accuracy: 0.0001)
+    }
+
+    func testSpeakingDriveIsStrongerThanIdle() {
+        XCTAssertGreaterThan(
+            AriaSigilGeometry.waveformDrive(state: .speaking, amplitude: 0.8),
+            AriaSigilGeometry.waveformDrive(state: .idle, amplitude: 0.8)
+        )
+        XCTAssertGreaterThan(
+            AriaSigilGeometry.waveformDrive(state: .listening, amplitude: 0.8),
+            AriaSigilGeometry.waveformDrive(state: .idle, amplitude: 0.8)
+        )
+    }
+
+    func testPlanetaryOrbitsDifferByRing() {
+        XCTAssertEqual(AriaSigilGeometry.idleOrbitHz.count, 3)
+        XCTAssertEqual(AriaSigilGeometry.speakingOrbitHz.count, 3)
+        // Inner planet is fastest; middle is retrograde.
+        XCTAssertGreaterThan(abs(AriaSigilGeometry.idleOrbitHz[0]), abs(AriaSigilGeometry.idleOrbitHz[2]))
+        XCTAssertLessThan(AriaSigilGeometry.idleOrbitHz[1], 0)
+        let a = AriaSigilGeometry.ellipse(index: 0, time: 1.0, state: .idle, reduceMotion: false)
+        let b = AriaSigilGeometry.ellipse(index: 1, time: 1.0, state: .idle, reduceMotion: false)
+        XCTAssertNotEqual(a.rotation, b.rotation, accuracy: 0.0001)
     }
 }

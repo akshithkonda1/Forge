@@ -18,6 +18,7 @@ public enum AriaReferenceTopic: String, Sendable, CaseIterable {
     case body
     case cycle
     case fever
+    case aging
 }
 
 public struct AriaReferenceSource: Sendable, Equatable {
@@ -94,6 +95,12 @@ public enum AriaReferenceCatalog {
             AriaReferenceSource(title: "MedlinePlus: Body Temperature", url: "https://medlineplus.gov/ency/article/003090.htm"),
             AriaReferenceSource(title: "CDC: Caring for Someone Sick", url: "https://www.cdc.gov/flu/treatment/caring-for-someone.html"),
         ],
+        .aging: [
+            AriaReferenceSource(title: "MedlinePlus: Exercise Stress Test / VO2", url: "https://medlineplus.gov/ency/article/003394.htm"),
+            AriaReferenceSource(title: "CDC: Measuring Physical Activity Intensity", url: "https://www.cdc.gov/physical-activity-basics/measuring/index.html"),
+            AriaReferenceSource(title: "NHLBI: Physical Activity and Your Heart", url: "https://www.nhlbi.nih.gov/health/heart/physical-activity"),
+            AriaReferenceSource(title: "MedlinePlus: Exercise and Physical Fitness", url: "https://medlineplus.gov/exerciseandphysicalfitness.html"),
+        ],
     ]
 
     /// Stable mix so Simulator and device agree for a given question + salt.
@@ -122,8 +129,19 @@ public enum AriaReferenceCatalog {
         return lower.contains("wedding") && (lower.contains("wear") || lower.contains("suit") || lower.contains("dress"))
     }
 
+    public static func questionSuggestsAging(_ text: String) -> Bool {
+        let lower = text.lowercased()
+        return [
+            "training age", "biological age", "fitness age", "calendar age",
+            "vascular age", "inner age", "metabolic age", "phenotypic age",
+            "vo2 max", "vo2max", "cardiorespiratory", "cardio fitness",
+            "how old am i", "age comparison",
+        ].contains { lower.contains($0) }
+    }
+
     public static func resolvedTopic(domainRawValue: String, question: String) -> AriaReferenceTopic {
         if questionSuggestsFever(question) { return .fever }
+        if questionSuggestsAging(question) { return .aging }
         if let topic = AriaReferenceTopic(rawValue: domainRawValue) {
             return topic
         }
@@ -151,6 +169,9 @@ public enum AriaReferenceCatalog {
         }
         if questionSuggestsEventPrep(question) {
             pool = (sources[.lifestyle] ?? []) + pool
+        }
+        if questionSuggestsAging(question) {
+            pool = (sources[.aging] ?? []) + pool
         }
 
         var unique: [AriaReferenceSource] = []

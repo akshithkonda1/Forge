@@ -26,6 +26,7 @@ public struct FakeCalendarEvent: Sendable, Equatable {
         case family
         case appointment
         case social
+        case surprise
 
         public static func < (lhs: Kind, rhs: Kind) -> Bool {
             lhs.rawValue < rhs.rawValue
@@ -43,6 +44,7 @@ public struct FakeCalendarEvent: Sendable, Equatable {
             case .family: return "family time"
             case .appointment: return "an appointment"
             case .social: return "a social"
+            case .surprise: return "a surprise visit"
             }
         }
 

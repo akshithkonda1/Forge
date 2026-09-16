@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """LocalTestingOrchestrator and AriaDummyOrchestrator must stay network-free,
-and AriaWebResearch must stay confined to those two call sites.
+and AriaWebResearch must stay confined to those two call sites plus
+`AriaAgingNorms.swift` (the production aging-norms refresher).
 
 LocalTestingOrchestrator's own doc comment promises it never calls Forge's
 backend — "no URLSession, no baseURL... checkable by grep" — because a
@@ -9,7 +10,8 @@ production. AriaDummyOrchestrator is the Test-Ready fill-in and makes the
 same promise. AriaWebResearch is the one intentional exception: a curated,
 keyless fetch to a handful of general reference URLs over the device's
 (or Simulator host's) default network, gated to local testing / Test-Ready
-dummy and isolated in its own file specifically so that promise stays
+dummy (aging is the one live-session exception, via AriaAgingNorms) and
+isolated in its own file specifically so that promise stays
 literally true rather than becoming a comment the code no longer matches.
 Source selection lives in ForgeCore (`AriaReferenceCatalog`) and is allowed
 to be imported anywhere because it holds no URLSession.
@@ -106,11 +108,14 @@ def main() -> int:
         else:
             print(f"✓ {DUMMY.relative_to(ROOT)}: no network transport")
 
-    allowed_web = {ORCHESTRATOR, WEB_RESEARCH, DUMMY}
+    aging_norms = SERVICES_DIR / "AriaAgingNorms.swift"
+    allowed_web = {ORCHESTRATOR, WEB_RESEARCH, DUMMY, aging_norms}
     swift_files = sorted(ROOT.joinpath("ForgeSwift").rglob("*.swift"))
     offenders: dict[Path, int] = {}
     for path in swift_files:
         if path in allowed_web:
+            continue
+        if "Tests" in path.parts or path.name.endswith("Tests.swift"):
             continue
         body = strip_comments(path.read_text(encoding="utf-8"))
         count = len(WEB_RESEARCH_REF.findall(body))
@@ -121,13 +126,14 @@ def main() -> int:
         status = 1
         for path, count in sorted(offenders.items()):
             print(f"✗ {path.relative_to(ROOT)}: references AriaWebResearch ({count}x) — "
-                  f"it should only ever be called from LocalTestingOrchestrator.swift or "
-                  f"AriaDummyOrchestrator.swift, the call sites gated behind local testing "
-                  f"or Test-Ready dummy. A call from anywhere else risks turning a "
+                  f"it should only ever be called from LocalTestingOrchestrator.swift, "
+                  f"AriaDummyOrchestrator.swift, or AriaAgingNorms.swift. The first two "
+                  f"are gated behind local testing or Test-Ready dummy; aging is the "
+                  f"one live-session exception. A call from anywhere else risks turning a "
                   f"curated web fetch into a live-backend one.")
     else:
         print(f"✓ AriaWebResearch is referenced only from LocalTestingOrchestrator, "
-              f"AriaDummyOrchestrator, and its own file")
+              f"AriaDummyOrchestrator, AriaAgingNorms, and its own file")
 
     return status
 

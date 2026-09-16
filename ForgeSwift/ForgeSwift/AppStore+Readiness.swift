@@ -622,12 +622,11 @@ extension AppStore {
         )
     }
 
-    /// Write the session from *this* moment's life, then open Train.
-    /// Recovery and "build" both land here — not in chat.
+    /// Write the session from *this* moment's life, then open Train idle.
+    /// Recovery and "build" both land here — not in chat, and not already started.
     func startLifeShapedSession() {
         if !isWorkoutActive {
             rebuildTodayPlanFromLife()
-            startWorkout()
         }
         activeTab = .workout
     }

@@ -624,7 +624,7 @@ struct AIInsightsModal: View {
 
                         HStack {
                             HStack(spacing: 10) {
-                                Image(systemName: "sparkles").font(.system(size: 22)).foregroundStyle(Color.ember)
+                                ARIAIdentityMark(state: .idle, mood: .energized, size: 28, amplitude: 0.24)
                                 Text("AI Life Insights").font(.system(size: 24, weight: .bold)).foregroundStyle(Color.textPrimary)
                             }
                             Spacer()
@@ -659,7 +659,7 @@ struct AIInsightsModal: View {
     private func ariaBanner(_ text: String) -> some View {
         VStack(alignment: .leading, spacing: 8) {
             HStack(spacing: 8) {
-                Image(systemName: "sparkles").font(.system(size: 13)).foregroundStyle(Color.ember)
+                ARIAIdentityMark(state: isLive ? .speaking : .idle, mood: .energized, size: 18, amplitude: isLive ? 0.45 : 0.2)
                 Text(isLive ? "ARIA · LIVE" : "ARIA")
                     .font(.system(size: 11, weight: .bold)).tracking(0.5).foregroundStyle(Color.ember)
                 Spacer()
