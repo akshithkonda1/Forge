@@ -115,7 +115,9 @@ _NEEDLES = {
     ),
 }
 
-_KINDS = ("cycle", "recovery", "sleep", "lifestyle", "progress", "aging", "workout", "aria")
+# Lockstep with iOS AriaCoachAgent.rawValue / first_bond.IOS_AGENT_KINDS.
+# Aging is a routing lane (_NEEDLES + _PRIMARY_ORDER), not a pinnable coach.
+_KINDS = ("cycle", "recovery", "sleep", "lifestyle", "progress", "workout", "aria")
 
 # Aging first so "training age" is never stolen by workout/lifestyle.
 # Then load-protective: a session question still wins so recovery/sleep

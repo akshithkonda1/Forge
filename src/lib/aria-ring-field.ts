@@ -126,8 +126,10 @@ function drawWhiteOrb(
 }
 
 /**
- * Kinetic orange ring-field around a white intelligence orb.
- * No gooey lobes, no circular frame, no readiness trim.
+ * Retired kinetic ring-field stopgap. Living identity is soft-hex nest + metal
+ * sun (`ARIA_MARK.kind === "soft-hex-field"`). Wren's canvas chase replaces this.
+ * White orb is the current metal-sun stand-in. No gooey lobes, no circular
+ * frame, no readiness trim.
  */
 export function drawAriaRingField(
   ctx: CanvasRenderingContext2D,
