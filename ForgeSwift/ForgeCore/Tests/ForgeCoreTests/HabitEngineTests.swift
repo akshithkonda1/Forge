@@ -41,4 +41,19 @@ final class HabitEngineSleepTests: XCTestCase {
         let attempt = HabitFeedbackStore.attemptFact(for: habit)
         XCTAssertEqual(attempt.kind, "habit_attempt")
     }
+
+    func testLowQoLEmitsProtectHabitAndConstraint() {
+        let signals = HabitSignals(
+            sleepAverage: 7.5,
+            steps: 9000,
+            protein: 180,
+            waterGlasses: 8,
+            totalCalories: 2200,
+            qualityOfLifeScore: 55
+        )
+        let habits = HabitEngine.analyze(signals)
+        XCTAssertTrue(habits.contains(where: { $0.id == "qol_protect" }))
+        let constraints = HabitEngine.constraints(for: habits)
+        XCTAssertTrue(constraints.contains(where: { $0.hasPrefix("habit:qol_protect:") }))
+    }
 }

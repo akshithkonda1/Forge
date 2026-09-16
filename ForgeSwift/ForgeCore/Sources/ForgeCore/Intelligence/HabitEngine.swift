@@ -187,6 +187,33 @@ public enum HabitEngine {
             ))
         }
 
+        // 7) Lifestyle QoL under pressure — companion loop from the living grade
+        if s.qualityOfLifeScore < 70 {
+            let lever: (DeepHabit.Category, String, String)
+            if s.sleepAverage < 7.0 {
+                lever = (.sleep, "sleep hours", "Protect tonight's wind-down — QoL rises when sleep does.")
+            } else if s.waterGlasses < 6 {
+                lever = (.nutrition, "hydration", "One full glass before coffee #2 — QoL needs that small win.")
+            } else if s.steps < 6000 {
+                lever = (.movement, "movement", "A 12-min walk today — QoL follows motion.")
+            } else {
+                lever = (.recovery, "recovery", "Hold load steady; let Lifestyle QoL climb before adding volume.")
+            }
+            out.append(DeepHabit(
+                id: "qol_protect",
+                title: "Life rhythm needs care",
+                cue: "Lifestyle QoL under 70",
+                routine: "Grade sitting at \(s.qualityOfLifeScore)/100 while \(lever.1) lags",
+                payoff: "Pushing through feels productive short-term",
+                cost: "Workouts and mood stay capped until the grade recovers",
+                category: lever.0,
+                confidence: s.qualityOfLifeScore < 50 ? 0.88 : 0.72,
+                evidence: "Lifestyle QoL \(s.qualityOfLifeScore)/100 · \(lever.1)",
+                breaker: lever.2,
+                breakerAction: "Ease one lever"
+            ))
+        }
+
         // Keep the most confident 3 — Lifestyle wants depth, not a list
         return out
             .sorted { $0.confidence > $1.confidence }
@@ -210,6 +237,8 @@ public enum HabitEngine {
             return "Steps are \(top.evidence.lowercased()) — a 12-min walk between calls is enough."
         case "hrv_dip":
             return "Recovery dipped \(top.evidence.lowercased()). Holding steady today protects tomorrow."
+        case "qol_protect":
+            return "Lifestyle QoL is \(top.evidence.lowercased()). \(top.breaker)"
         default:
             return "\(top.title): \(top.evidence) — \(top.breaker)"
         }
@@ -228,6 +257,9 @@ public enum HabitEngine {
         }
         if habits.contains(where: { $0.category == .social }) {
             c.append("habit:social: one early night this week")
+        }
+        if habits.contains(where: { $0.id == "qol_protect" }) {
+            c.append("habit:qol_protect: ease volume until Lifestyle QoL recovers")
         }
         return c
     }
