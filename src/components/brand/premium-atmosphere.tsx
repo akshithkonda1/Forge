@@ -151,13 +151,15 @@ export function PremiumPrimaryButton({
       type={type}
       onClick={(e) => {
         // #region agent log
-        {const __dbg={location:'premium-atmosphere.tsx:PremiumPrimaryButton',message:'button onClick fired',data:{disabled:!!disabled,hasHandler:typeof onClick==='function',tag:(e.target as HTMLElement)?.tagName},timestamp:Date.now(),hypothesisId:'A'};fetch('http://127.0.0.1:7252/ingest/4f8a2c91-onboarding-step',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'onboarding-step'},body:JSON.stringify(__dbg)}).catch(()=>{});fetch('/api/agent-debug',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(__dbg)}).catch(()=>{});}
+        {const __dbg={location:'premium-atmosphere.tsx:PremiumPrimaryButton',message:'button onClick fired',data:{disabled:!!disabled,hasHandler:typeof onClick==='function',tag:(e.target as HTMLElement)?.tagName,runId:'post-fix-2'},timestamp:Date.now(),hypothesisId:'A'};fetch('http://127.0.0.1:7252/ingest/4f8a2c91-onboarding-step',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'onboarding-step'},body:JSON.stringify(__dbg)}).catch(()=>{});fetch('/api/agent-debug',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(__dbg)}).catch(()=>{});}
         // #endregion
         onClick?.();
       }}
       disabled={disabled}
       className={cn(
-        "premium-cta group relative flex w-full items-center justify-between overflow-hidden rounded-full px-6 py-[17px] text-[17px] font-semibold transition duration-200 active:scale-[0.98]",
+        // No active:scale / transform — transform on the press target (or under
+        // animated ancestors) drops real pointer click synthesis in Chromium.
+        "premium-cta group relative flex w-full items-center justify-between overflow-hidden rounded-full px-6 py-[17px] text-[17px] font-semibold transition-[background-color,box-shadow,filter] duration-150 active:brightness-[0.92] active:shadow-none",
         disabled
           ? "bg-surface-elevated text-white/35"
           : "bg-[#F7F4F0] text-[#0A0A0A] shadow-[0_10px_30px_rgba(247,244,240,0.14)]",

@@ -81,17 +81,35 @@ export default function WelcomeScreen({ onNext }: WelcomeScreenProps) {
     };
     const onPointerDown = (e: PointerEvent) => {
       const t = e.target as HTMLElement | null;
-      const stack = document.elementsFromPoint(e.clientX, e.clientY).slice(0, 6).map((el) => ({
+      const stack = document.elementsFromPoint(e.clientX, e.clientY).slice(0, 8).map((el) => ({
         tag: el.tagName,
         cls: (el.className || "").toString().slice(0, 80),
         pe: getComputedStyle(el).pointerEvents,
+        transform: getComputedStyle(el).transform,
+        filter: getComputedStyle(el).filter,
+        inEnter: el.classList?.contains("premium-enter") ?? false,
       }));
+      let el: HTMLElement | null = t;
+      const ancestors: Array<Record<string, unknown>> = [];
+      for (let i = 0; i < 10 && el; i++) {
+        const cs = getComputedStyle(el);
+        ancestors.push({
+          tag: el.tagName,
+          cls: (el.className || "").toString().slice(0, 80),
+          transform: cs.transform,
+          filter: cs.filter,
+          inEnter: el.classList.contains("premium-enter"),
+        });
+        el = el.parentElement;
+      }
       log("document pointerdown", {
         x: e.clientX,
         y: e.clientY,
         tag: t?.tagName,
         cls: (t?.className || "").toString().slice(0, 80),
         stack,
+        ancestors,
+        runId: "post-fix-2",
       });
     };
     const onClick = (e: MouseEvent) => {
@@ -180,32 +198,30 @@ export default function WelcomeScreen({ onNext }: WelcomeScreenProps) {
           </PremiumEntrance>
         </div>
 
-        <div className="relative z-20 space-y-4">
-          <PremiumEntrance index={2}>
-            <div className="flex flex-col items-center gap-3">
-              <PremiumProgressDots
-                count={HOOKS.length}
-                current={page}
-                onSelect={setPage}
-              />
-              <p className="text-[11px] font-medium uppercase tracking-[0.14em] text-text-tertiary">
-                {page + 1} of {HOOKS.length}
-              </p>
-            </div>
-          </PremiumEntrance>
+        {/* Footer CTA: no PremiumEntrance / transform ancestors on the button path. */}
+        <div className="relative z-30 mt-auto space-y-4" data-cta-root="get-started">
+          <div className="flex flex-col items-center gap-3">
+            <PremiumProgressDots
+              count={HOOKS.length}
+              current={page}
+              onSelect={setPage}
+            />
+            <p className="text-[11px] font-medium uppercase tracking-[0.14em] text-text-tertiary">
+              {page + 1} of {HOOKS.length}
+            </p>
+          </div>
 
-          {/* CTA stays outside PremiumEntrance so enter animation never owns the hit target. */}
           <PremiumPrimaryButton
             onClick={() => {
               // #region agent log
-              {const __dbg={location:'welcome-screen.tsx:GetStarted',message:'Get started onNext invoked',data:{page,runId:'post-fix'},timestamp:Date.now(),hypothesisId:'A'};fetch('http://127.0.0.1:7252/ingest/4f8a2c91-onboarding-step',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'onboarding-step'},body:JSON.stringify(__dbg)}).catch(()=>{});fetch('/api/agent-debug',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(__dbg)}).catch(()=>{});}
+              {const __dbg={location:'welcome-screen.tsx:GetStarted',message:'Get started onNext invoked',data:{page,runId:'post-fix-2'},timestamp:Date.now(),hypothesisId:'A'};fetch('http://127.0.0.1:7252/ingest/4f8a2c91-onboarding-step',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'onboarding-step'},body:JSON.stringify(__dbg)}).catch(()=>{});fetch('/api/agent-debug',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(__dbg)}).catch(()=>{});}
               // #endregion
               onNext();
             }}
-            className="relative z-20"
+            className="relative z-30"
           >
             <span>Get started</span>
-            <span aria-hidden className="transition-transform duration-300 group-hover:translate-x-0.5">
+            <span aria-hidden className="opacity-80 transition-opacity duration-200 group-hover:opacity-100">
               →
             </span>
           </PremiumPrimaryButton>
