@@ -6,6 +6,7 @@ import {
   ForgeBrandMark,
   PremiumAtmosphere,
   PremiumEntrance,
+  PremiumFloat,
   PremiumPresenceBloom,
   PremiumPrimaryButton,
   PremiumProgressDots,
@@ -95,7 +96,7 @@ export default function WelcomeScreen({ onNext }: WelcomeScreenProps) {
 
         <div className="flex flex-1 flex-col items-center justify-center px-1 text-center">
           <PremiumEntrance key={`visual-${hook.id}`} index={0} className="mb-7">
-            <div className="relative flex h-48 w-52 items-center justify-center">
+            <PremiumFloat className="relative flex h-48 w-52 items-center justify-center">
               <PremiumPresenceBloom size={210} accent={hook.accent} frost={hook.frost} />
               {hook.id === "aria" || hook.id === "forge" ? (
                 <AriaMark size={140} speaking={hook.id === "aria"} label="ARIA" className="relative z-10" />
@@ -106,11 +107,11 @@ export default function WelcomeScreen({ onNext }: WelcomeScreenProps) {
                   </span>
                 </div>
               )}
-            </div>
+            </PremiumFloat>
           </PremiumEntrance>
 
           <PremiumEntrance key={`kicker-${hook.id}`} index={1}>
-            <p className="text-[12px] font-medium uppercase tracking-[0.24em] text-text-tertiary">
+            <p className="premium-kicker-glow text-[12px] font-medium uppercase tracking-[0.24em] text-text-tertiary">
               {hook.kicker}
             </p>
           </PremiumEntrance>
@@ -201,13 +202,13 @@ function SignInSheet({
   const canSubmit = email.includes("@") && password.length >= 8;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/55 sm:items-center">
+    <div className="premium-scrim-in fixed inset-0 z-50 flex items-end justify-center bg-black/55 sm:items-center">
       <button type="button" className="absolute inset-0" aria-label="Close sign in" onClick={onClose} />
-      <div className="relative z-10 w-full max-w-md rounded-t-3xl border border-white/10 bg-[#0A0A0A] px-6 pb-10 pt-5 shadow-2xl sm:rounded-3xl">
+      <div className="premium-sheet-rise relative z-10 w-full max-w-md rounded-t-3xl border border-white/10 bg-[#0A0A0A] px-6 pb-10 pt-5 shadow-2xl sm:rounded-3xl">
         <div className="mx-auto mb-5 h-1 w-10 rounded-full bg-white/15 sm:hidden" />
         <div className="mb-6 flex items-start justify-between gap-4">
           <div>
-            <p className="text-[12px] font-medium uppercase tracking-[0.2em] text-text-tertiary">
+            <p className="premium-kicker-glow text-[12px] font-medium uppercase tracking-[0.2em] text-text-tertiary">
               Welcome back
             </p>
             <h2 className="mt-2 text-[28px] font-semibold tracking-tight text-text-primary">
@@ -220,7 +221,7 @@ function SignInSheet({
           <button
             type="button"
             onClick={onClose}
-            className="rounded-full border border-white/12 px-3 py-1.5 text-sm text-text-secondary"
+            className="rounded-full border border-white/12 px-3 py-1.5 text-sm text-text-secondary transition hover:border-white/20 hover:bg-white/[0.06]"
           >
             Close
           </button>
@@ -234,7 +235,7 @@ function SignInSheet({
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               autoComplete="email"
-              className="w-full rounded-2xl border border-white/10 bg-white/[0.05] px-4 py-3.5 text-text-primary outline-none focus:border-white/25"
+              className="premium-field-idle w-full rounded-2xl border border-white/10 bg-white/[0.05] px-4 py-3.5 text-text-primary outline-none transition focus:border-white/25 focus:bg-white/[0.07]"
               placeholder="you@email.com"
             />
           </label>
@@ -245,7 +246,7 @@ function SignInSheet({
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               autoComplete="current-password"
-              className="w-full rounded-2xl border border-white/10 bg-white/[0.05] px-4 py-3.5 text-text-primary outline-none focus:border-white/25"
+              className="premium-field-idle w-full rounded-2xl border border-white/10 bg-white/[0.05] px-4 py-3.5 text-text-primary outline-none transition focus:border-white/25 focus:bg-white/[0.07]"
               placeholder="••••••••"
             />
           </label>

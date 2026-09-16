@@ -225,6 +225,105 @@
   }
 }
 
+@keyframes premium-enter {
+  from {
+    opacity: 0;
+    transform: translate3d(0, 14px, 0);
+    filter: blur(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translate3d(0, 0, 0);
+    filter: blur(0);
+  }
+}
+
+@keyframes premium-sheet-rise {
+  from {
+    opacity: 0;
+    transform: translate3d(0, 28px, 0) scale(0.985);
+  }
+  to {
+    opacity: 1;
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+}
+
+@keyframes premium-scrim-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes premium-float {
+  0%,
+  100% {
+    transform: translate3d(0, 0, 0);
+  }
+  50% {
+    transform: translate3d(0, -8px, 0);
+  }
+}
+
+@keyframes premium-speckle {
+  0%,
+  100% {
+    opacity: 0.18;
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+  50% {
+    opacity: 0.55;
+    transform: translate3d(2px, -6px, 0) scale(1.15);
+  }
+}
+
+@keyframes premium-accent-ring {
+  0%,
+  100% {
+    opacity: 0.35;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.7;
+    transform: scale(1.04);
+  }
+}
+
+@keyframes premium-kicker-glow {
+  0%,
+  100% {
+    letter-spacing: 0.24em;
+    opacity: 0.72;
+  }
+  50% {
+    letter-spacing: 0.26em;
+    opacity: 1;
+  }
+}
+
+@keyframes premium-dot-pulse {
+  0%,
+  100% {
+    box-shadow: 0 0 8px rgba(247, 244, 240, 0.28);
+  }
+  50% {
+    box-shadow: 0 0 14px rgba(247, 244, 240, 0.5);
+  }
+}
+
+@keyframes premium-field-glow {
+  0%,
+  100% {
+    border-color: rgba(255, 255, 255, 0.1);
+  }
+  50% {
+    border-color: rgba(255, 255, 255, 0.18);
+  }
+}
+
 .aria-orb-glow {
   animation: aria-orb-glow 2.8s ease-in-out infinite;
 }
@@ -275,7 +374,66 @@
   animation: premium-brand-sheen 2.8s ease-in-out infinite;
 }
 
+.premium-enter {
+  animation: premium-enter 0.72s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.premium-sheet-rise {
+  animation: premium-sheet-rise 0.48s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.premium-scrim-in {
+  animation: premium-scrim-in 0.28s ease-out both;
+}
+
+.premium-float {
+  animation: premium-float 4.2s ease-in-out infinite;
+}
+
+.premium-accent-ring {
+  animation: premium-accent-ring 3.6s ease-in-out infinite;
+}
+
+.premium-kicker-glow {
+  animation: premium-kicker-glow 4s ease-in-out infinite;
+}
+
+.premium-dot-active {
+  animation: premium-dot-pulse 2.4s ease-in-out infinite;
+}
+
+.premium-field-idle {
+  animation: premium-field-glow 4.5s ease-in-out infinite;
+}
+
+.premium-speckle {
+  animation: premium-speckle 5.5s ease-in-out infinite;
+}
+
 @media (prefers-reduced-motion: reduce) {
+  .premium-enter,
+  .premium-sheet-rise,
+  .premium-scrim-in {
+    animation: none !important;
+    opacity: 1 !important;
+    transform: none !important;
+    filter: none !important;
+  }
+
+  .premium-float,
+  .premium-accent-ring,
+  .premium-kicker-glow,
+  .premium-dot-active,
+  .premium-field-idle,
+  .premium-speckle,
+  .premium-atmosphere-drift,
+  .premium-bloom-breathe,
+  .premium-bloom-orbit,
+  .premium-cta-sheen,
+  .premium-brand-mark {
+    animation: none !important;
+  }
+
   *,
   *::before,
   *::after {

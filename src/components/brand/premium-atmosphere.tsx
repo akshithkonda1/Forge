@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, type ReactNode } from "react";
+import type { ReactNode } from "react";
 import { cn } from "@/lib/utils";
 
 /** Soft mesh wash — Oura / Whoop–class depth with living drift. */
@@ -30,7 +30,48 @@ export function PremiumAtmosphere({
           `,
         }}
       />
+      <PremiumSpeckles accent={accent} frost={secondary} intensity={a} />
     </div>
+  );
+}
+
+/** Quiet floating light flecks — life in the atmosphere without noise. */
+function PremiumSpeckles({
+  accent,
+  frost,
+  intensity,
+}: {
+  accent: string;
+  frost: string;
+  intensity: number;
+}) {
+  const flecks = [
+    { top: "18%", left: "12%", size: 3, delay: "0s", color: frost },
+    { top: "28%", left: "78%", size: 2.5, delay: "0.8s", color: accent },
+    { top: "62%", left: "18%", size: 2, delay: "1.4s", color: "#F7F4F0" },
+    { top: "72%", left: "86%", size: 3, delay: "2.1s", color: frost },
+    { top: "44%", left: "48%", size: 2, delay: "0.4s", color: accent },
+    { top: "14%", left: "58%", size: 2.2, delay: "1.8s", color: "#F7F4F0" },
+  ];
+  return (
+    <>
+      {flecks.map((f, i) => (
+        <span
+          key={i}
+          className="premium-speckle absolute rounded-full"
+          style={{
+            top: f.top,
+            left: f.left,
+            width: f.size,
+            height: f.size,
+            background: f.color,
+            opacity: 0.35 * intensity,
+            animationDelay: f.delay,
+            boxShadow: `0 0 ${f.size * 4}px ${hexAlpha(f.color, 0.35 * intensity)}`,
+          }}
+        />
+      ))}
+    </>
   );
 }
 
@@ -55,6 +96,12 @@ export function PremiumPresenceBloom({
       aria-hidden
     >
       <div
+        className="premium-accent-ring absolute inset-[-6%] rounded-full"
+        style={{
+          background: `radial-gradient(circle at 50% 50%, ${hexAlpha(accent, 0.12)} 0%, transparent 68%)`,
+        }}
+      />
+      <div
         className="premium-bloom-breathe absolute inset-0 rounded-full"
         style={{
           background: `
@@ -64,10 +111,7 @@ export function PremiumPresenceBloom({
           filter: "blur(12px)",
         }}
       />
-      <div
-        className="premium-bloom-orbit absolute inset-[14%] rounded-full"
-        aria-hidden
-      />
+      <div className="premium-bloom-orbit absolute inset-[14%] rounded-full" aria-hidden />
       <div className="absolute inset-[18%] rounded-full border border-white/8" />
     </div>
   );
@@ -141,7 +185,7 @@ export function PremiumProgressDots({
           className={cn(
             "h-1 rounded-full transition-all duration-300",
             i === current
-              ? "w-5 bg-[#F7F4F0] shadow-[0_0_10px_rgba(247,244,240,0.35)]"
+              ? "premium-dot-active w-5 bg-[#F7F4F0]"
               : "w-1.5 bg-white/16"
           )}
         />
@@ -150,6 +194,7 @@ export function PremiumProgressDots({
   );
 }
 
+/** Staggered entrance — CSS-driven so content stays interactive before hydrate. */
 export function PremiumEntrance({
   children,
   index = 0,
@@ -159,34 +204,26 @@ export function PremiumEntrance({
   index?: number;
   className?: string;
 }) {
-  const [show, setShow] = useState(false);
-  useEffect(() => {
-    const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-    if (reduce) {
-      setShow(true);
-      return;
-    }
-    const t = window.setTimeout(() => setShow(true), 40 + index * 70);
-    return () => window.clearTimeout(t);
-  }, [index]);
-
   return (
     <div
-      className={cn(
-        "transition-all duration-500 ease-out",
-        show ? "translate-y-0 opacity-100 blur-0" : "translate-y-3 opacity-0 blur-[3px]",
-        className
-      )}
+      className={cn("premium-enter", className)}
+      style={{ animationDelay: `${Math.max(0, index) * 70}ms` }}
     >
       {children}
     </div>
   );
 }
 
+/** Soft float for hero visuals. */
+export function PremiumFloat({ children, className }: { children: ReactNode; className?: string }) {
+  return <div className={cn("premium-float", className)}>{children}</div>;
+}
+
 function hexAlpha(hex: string, alpha: number): string {
   const h = hex.replace("#", "");
   const full = h.length === 3 ? h.split("").map((c) => c + c).join("") : h;
   const n = parseInt(full, 16);
+  if (Number.isNaN(n)) return `rgba(247,244,240,${alpha})`;
   const r = (n >> 16) & 255;
   const g = (n >> 8) & 255;
   const b = n & 255;

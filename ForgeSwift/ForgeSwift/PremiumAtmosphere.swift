@@ -13,6 +13,16 @@ struct PremiumAtmosphere: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var drift: CGFloat = 0
     @State private var pulse: CGFloat = 0
+    @State private var specklePhase: CGFloat = 0
+
+    private let speckles: [(x: CGFloat, y: CGFloat, size: CGFloat, frost: Bool)] = [
+        (0.12, 0.18, 3.0, true),
+        (0.78, 0.28, 2.5, false),
+        (0.18, 0.62, 2.0, false),
+        (0.86, 0.72, 3.0, true),
+        (0.48, 0.44, 2.0, false),
+        (0.58, 0.14, 2.2, true),
+    ]
 
     var body: some View {
         ZStack {
@@ -67,6 +77,24 @@ struct PremiumAtmosphere: View {
             .blendMode(.plusLighter)
             .opacity(animated && !reduceMotion ? 0.7 + pulse * 0.3 : 0.5)
 
+            // Soft floating speckles — quiet life in the field
+            GeometryReader { geo in
+                ForEach(Array(speckles.enumerated()), id: \.offset) { index, fleck in
+                    Circle()
+                        .fill(fleck.frost ? secondary : accent)
+                        .frame(width: fleck.size, height: fleck.size)
+                        .shadow(
+                            color: (fleck.frost ? secondary : accent).opacity(0.45 * intensity),
+                            radius: fleck.size * 2.2
+                        )
+                        .opacity((0.22 + Double(specklePhase) * 0.28) * intensity)
+                        .offset(
+                            x: geo.size.width * fleck.x + (reduceMotion ? 0 : CGFloat(index % 2 == 0 ? 1 : -1) * specklePhase * 3),
+                            y: geo.size.height * fleck.y - (reduceMotion ? 0 : specklePhase * 5)
+                        )
+                }
+            }
+
             // Soft vignette for typography legibility
             LinearGradient(
                 colors: [
@@ -90,6 +118,9 @@ struct PremiumAtmosphere: View {
             withAnimation(.easeInOut(duration: 4.2).repeatForever(autoreverses: true)) {
                 pulse = 1
             }
+            withAnimation(.easeInOut(duration: 5.5).repeatForever(autoreverses: true)) {
+                specklePhase = 1
+            }
         }
     }
 }
@@ -103,9 +134,27 @@ struct PremiumPresenceBloom: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var breath: CGFloat = 0
     @State private var orbit: Double = 0
+    @State private var ringPulse: CGFloat = 0
 
     var body: some View {
         ZStack {
+            // Soft outer accent halo
+            Circle()
+                .fill(
+                    RadialGradient(
+                        colors: [
+                            accent.opacity(0.14),
+                            .clear
+                        ],
+                        center: .center,
+                        startRadius: 4,
+                        endRadius: size * 0.62
+                    )
+                )
+                .frame(width: size * 1.12, height: size * 1.12)
+                .scaleEffect(1.0 + ringPulse * 0.04)
+                .opacity(0.55 + Double(ringPulse) * 0.35)
+
             Circle()
                 .fill(
                     RadialGradient(
@@ -167,6 +216,9 @@ struct PremiumPresenceBloom: View {
             }
             withAnimation(.linear(duration: 14).repeatForever(autoreverses: false)) {
                 orbit = 360
+            }
+            withAnimation(.easeInOut(duration: 3.6).repeatForever(autoreverses: true)) {
+                ringPulse = 1
             }
         }
         .accessibilityHidden(true)
@@ -344,6 +396,8 @@ extension View {
 struct PremiumProgressDots: View {
     let count: Int
     let current: Int
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @State private var pulse: CGFloat = 0
 
     var body: some View {
         HStack(spacing: 6) {
@@ -352,11 +406,19 @@ struct PremiumProgressDots: View {
                     .fill(i == current ? Color(hex: "F7F4F0") : Color.white.opacity(0.16))
                     .frame(width: i == current ? 22 : 6, height: 4)
                     .shadow(
-                        color: i == current ? Color(hex: "F7F4F0").opacity(0.35) : .clear,
-                        radius: 6,
+                        color: i == current
+                            ? Color(hex: "F7F4F0").opacity(0.28 + Double(pulse) * 0.22)
+                            : .clear,
+                        radius: i == current ? 6 + pulse * 4 : 0,
                         y: 0
                     )
                     .animation(FDS.Spring.snap, value: current)
+            }
+        }
+        .onAppear {
+            guard !reduceMotion else { return }
+            withAnimation(.easeInOut(duration: 2.4).repeatForever(autoreverses: true)) {
+                pulse = 1
             }
         }
     }

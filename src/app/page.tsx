@@ -11,7 +11,7 @@ import { SleepPage } from "@/components/sleep/sleep-page";
 import { ProfileTab } from "@/components/profile/profile-tab";
 import { AriaIntro } from "@/components/brand/aria-intro";
 import { AriaMark } from "@/components/brand/aria-mark";
-import { ForgeBrandMark, PremiumAtmosphere, PremiumPresenceBloom } from "@/components/brand/premium-atmosphere";
+import { ForgeBrandMark, PremiumAtmosphere, PremiumFloat, PremiumPresenceBloom } from "@/components/brand/premium-atmosphere";
 import { forgeSplashHoldMs } from "@/lib/forge-splash";
 import { cn } from "@/lib/utils";
 
@@ -24,15 +24,15 @@ function BootSplash({ live = false }: { live?: boolean }) {
     <div className="relative flex min-h-[100dvh] flex-col items-center justify-center overflow-hidden bg-background">
       <PremiumAtmosphere accent="#FF6B2B" secondary="#A9D8FF" intensity={0.9} />
       <div className="relative z-10 flex flex-col items-center">
-        <div className="relative flex h-56 w-56 items-center justify-center">
+        <PremiumFloat className="relative flex h-56 w-56 items-center justify-center">
           <PremiumPresenceBloom size={220} />
           <AriaMark size={148} speaking label="ARIA" className="relative z-10" />
-        </div>
-        <div className="mt-5 flex items-center gap-2.5 text-[28px] font-semibold tracking-[0.22em] text-[#F7F4F0]">
+        </PremiumFloat>
+        <div className="premium-enter mt-5 flex items-center gap-2.5 text-[28px] font-semibold tracking-[0.22em] text-[#F7F4F0]">
           <ForgeBrandMark size={22} />
           FORGE
         </div>
-        <p className="mt-3 text-[12px] font-medium uppercase tracking-[0.32em] text-text-tertiary">
+        <p className="premium-kicker-glow mt-3 text-[12px] font-medium uppercase tracking-[0.32em] text-text-tertiary">
           Forged.
         </p>
       </div>

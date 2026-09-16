@@ -40,12 +40,13 @@ struct AuthSignInView: View {
                                 .lineSpacing(3)
                         }
                         .padding(.top, 8)
-                        .opacity(appeared ? 1 : 0)
+                        .premiumEntrance(index: 0, appeared: appeared)
 
                         VStack(spacing: 14) {
                             field(title: "Email", text: $email, contentType: .emailAddress, secure: false)
                             field(title: "Password", text: $password, contentType: .password, secure: true)
                         }
+                        .premiumEntrance(index: 1, appeared: appeared)
 
                         if let errorMessage {
                             Text(errorMessage)
@@ -60,6 +61,7 @@ struct AuthSignInView: View {
                         ) {
                             submitEmail()
                         }
+                        .premiumEntrance(index: 2, appeared: appeared)
 
                         Text("Apple and Google sign-in will appear here when connected for this build.")
                             .font(.system(size: 12, weight: .regular))

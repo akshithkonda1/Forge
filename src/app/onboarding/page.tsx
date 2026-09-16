@@ -72,7 +72,7 @@ export default function OnboardingPage() {
                 className={cn(
                   "h-1.5 rounded-full transition-all duration-200",
                   step === onboardingStep
-                    ? "w-8 bg-[#F7F4F0]"
+                    ? "premium-dot-active w-8 bg-[#F7F4F0]"
                     : step < onboardingStep
                       ? "w-3 bg-[#F7F4F0]/40"
                       : "w-3 bg-border"

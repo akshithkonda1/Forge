@@ -6,7 +6,7 @@ import { useAppStore } from "@/stores/useAppStore";
 import type { FitnessGoal, ExperienceLevel, WorkoutType } from "@/types";
 import { whisperForStep } from "@/lib/aria-onboarding";
 import AriaCompanion from "./aria-companion";
-import { PremiumPrimaryButton } from "@/components/brand/premium-atmosphere";
+import { PremiumAtmosphere, PremiumEntrance, PremiumPrimaryButton } from "@/components/brand/premium-atmosphere";
 
 interface ProfileSetupProps {
   onNext: () => void;
@@ -120,7 +120,9 @@ export default function ProfileSetup({ onNext, onBack }: ProfileSetupProps) {
   );
 
   return (
-    <div className="flex min-h-[100dvh] flex-col overflow-y-auto px-6 pb-8 pt-16">
+    <div className="relative flex min-h-[100dvh] flex-col overflow-y-auto px-6 pb-8 pt-16">
+      <PremiumAtmosphere accent="#FF6B2B" secondary="#A9D8FF" intensity={0.55} />
+      <div className="relative z-10 flex flex-1 flex-col">
       {/* Section indicator */}
       <div className="mb-2 flex items-center justify-center gap-2">
         {[0, 1, 2, 3].map((i) => (
@@ -129,7 +131,7 @@ export default function ProfileSetup({ onNext, onBack }: ProfileSetupProps) {
             className={cn(
               "h-1 rounded-full transition-all duration-300",
               i === section
-                ? "w-8 bg-[#F7F4F0]"
+                ? "premium-dot-active w-8 bg-[#F7F4F0]"
                 : i < section
                   ? "w-4 bg-[#F7F4F0]/40"
                   : "w-4 bg-border"
@@ -138,14 +140,14 @@ export default function ProfileSetup({ onNext, onBack }: ProfileSetupProps) {
         ))}
       </div>
 
-      <div className="mb-5 mt-4">
+      <PremiumEntrance index={0} className="mb-5 mt-4">
         <AriaCompanion whisper={whisper} compact />
-      </div>
+      </PremiumEntrance>
 
       {/* Content area */}
       <div className="flex flex-1 flex-col">
           {section === 0 && (
-            <div className="flex flex-1 flex-col pt-4">
+            <PremiumEntrance key="name" index={1} className="flex flex-1 flex-col pt-4">
               <h2 className="mb-2 text-3xl font-semibold tracking-tight text-text-primary">
                 What should ARIA call you?
               </h2>
@@ -159,7 +161,7 @@ export default function ProfileSetup({ onNext, onBack }: ProfileSetupProps) {
                 placeholder="Enter your name"
                 autoFocus
                 className={cn(
-                  "w-full rounded-xl border border-border bg-surface px-5 py-4",
+                  "premium-field-idle w-full rounded-xl border border-border bg-surface px-5 py-4",
                   "text-lg text-text-primary placeholder:text-text-muted",
                   "outline-none transition-all duration-200",
                   "focus:border-white/30 focus:ring-1 focus:ring-white/15"
@@ -168,7 +170,7 @@ export default function ProfileSetup({ onNext, onBack }: ProfileSetupProps) {
                   if (e.key === "Enter" && canProceed()) handleContinue();
                 }}
               />
-            </div>
+            </PremiumEntrance>
           )}
 
           {section === 1 && (
@@ -299,6 +301,7 @@ export default function ProfileSetup({ onNext, onBack }: ProfileSetupProps) {
           <span>Continue</span>
           <span aria-hidden>→</span>
         </PremiumPrimaryButton>
+      </div>
       </div>
     </div>
   );
