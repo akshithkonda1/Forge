@@ -84,6 +84,18 @@ final class SleepSurfacePresenceTests: XCTestCase {
         XCTAssertEqual(presence.statusCaption, "Pulling nights…")
     }
 
+    func testLiveWinsOverPullingWhenANightIsAlreadyOnFile() {
+        let presence = SleepSurfacePresence.make(
+            healthConnected: true,
+            isLoading: true,
+            hasScoredNight: true,
+            metricSources: ["oura"]
+        )
+        XCTAssertEqual(presence.kind, .live)
+        XCTAssertEqual(presence.liveDot, .live)
+        XCTAssertTrue(presence.sourceLabels.contains("Oura"))
+    }
+
     func testDayEmptyCopyRoutesThroughPresence() {
         let connected = HealthKitSleepService.dayEmptyCopy(healthConnected: true)
         XCTAssertEqual(connected.title, "No scored night yet")

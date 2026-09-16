@@ -68,10 +68,10 @@ struct SleepSurfacePresence: Equatable, Sendable {
         )
         let labels = sourceIDs.map(sleepSourceLabel)
         let kind: SleepFeedKind
-        if isLoading {
-            kind = .loading
-        } else if hasScoredNight {
+        if hasScoredNight {
             kind = .live
+        } else if isLoading {
+            kind = .loading
         } else if healthConnected {
             kind = .connectedEmpty
         } else {
@@ -214,7 +214,7 @@ extension AppStore {
     var sleepSurface: SleepSurfacePresence {
         SleepSurfacePresence.make(
             healthConnected: healthKitLive,
-            isLoading: (dataLoadState == .loading && sleepData.isEmpty) || isHealthKitPulling,
+            isLoading: sleepData.isEmpty && (dataLoadState == .loading || isHealthKitPulling),
             hasScoredNight: !sleepData.isEmpty,
             metricSources: metricSources
         )
