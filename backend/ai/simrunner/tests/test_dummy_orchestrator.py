@@ -777,12 +777,11 @@ class DummyOrchestratorTests(unittest.TestCase):
     def test_friend_speak_short_ok_appends_wit_to_fused_notices(self):
         short = "Keep today low-intensity — Zone 2 cardio or mobility, not a hard session"
         self.assertLess(len(short.split()), 28)
-        skipped = dummy.friend_speak(short, seed=2, stance="protect")
-        self.assertEqual(skipped, short)
-        spoken = dummy.friend_speak(short, seed=2, stance="protect", short_ok=True)
+        spoken = dummy.friend_speak(short, seed=2, stance="protect")
         extra = dummy._wit_line(2, "protect")
         self.assertIn(extra, spoken)
         self.assertTrue(spoken.startswith(short))
+        self.assertEqual(dummy.friend_speak(short, seed=2, stance="protect"), spoken)
         self.assertEqual(
             dummy.friend_speak(short, seed=2, stance="protect", short_ok=True),
             spoken,
@@ -795,7 +794,7 @@ class DummyOrchestratorTests(unittest.TestCase):
             guard,
         )
         follow = "Sure — we dial it back. Same idea, less intensity, stop while it still feels good."
-        self.assertEqual(dummy.friend_speak(follow, seed=1, stance="protect", short_ok=True), follow)
+        self.assertEqual(dummy.friend_speak(follow, seed=1, stance="protect"), follow)
 
     def test_lambda_sleep_and_checkin_get_local_seeded_wit(self):
         wit = dummy._WIT_PROTECT + dummy._WIT_PROCEED + dummy._WIT_HONEST

@@ -980,7 +980,8 @@ def friend_speak(
 
     Fused Dummy speak is often a short notice or the canned fallback; those
     still get a seed-indexed closer so hypertune doesn't read as one template.
-    Short mid-thread mutations ("make it easier") stay untouched.
+    Short mid-thread mutations ("make it easier") stay untouched unless
+    ``short_ok`` is set.
     """
     if guidance:
         return str(text or "").strip()
@@ -991,9 +992,7 @@ def friend_speak(
         return _speak_without_vitals(extra, _SPEAK_FALLBACK)
     if any(n in body.lower() for n in _WIT_ALREADY):
         return _speak_without_vitals(body)
-    if _is_follow_up_speak(body):
-        return _speak_without_vitals(body)
-    if len(body.split()) < 28 and not short_ok:
+    if _is_follow_up_speak(body) and not short_ok:
         return _speak_without_vitals(body)
     if extra and extra.lower() not in body.lower():
         if body[-1] not in ".!?":
@@ -1905,11 +1904,11 @@ def respond(
         spoken = body_session.spoken()
         if spoken and spoken not in prose:
             prose = f"{prose} {spoken}"
-    # friend_speak after the full spoken body so the 28-word skip doesn't
-    # miss essays that only grow once the body-library line is attached.
+    # friend_speak after the full spoken body so the closer lands on the
+    # essay plus body-library line, not a truncated half-turn.
     if scenario == "recovery_first" or signals.sleep == "thin" or signals.recovery == "asking":
         stub_stance = "protect"
-    elif plan.primary.kind == "workout" and scenario in ("train", ""):
+    elif plan.primary.kind == "workout" or "train" in message.lower() or "workout" in message.lower():
         stub_stance = "proceed"
     else:
         stub_stance = ""
