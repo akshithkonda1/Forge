@@ -122,7 +122,9 @@ jobs:
       # fails when the plist contradicts itself — loopback in any environment,
       # Dummy-offline with a live-looking API or Cognito ids, an archive labelled
       # prod still pointing at localhost, or an environment name misspelled into
-      # the permissive bucket.
+      # the permissive bucket. Check also refuses secrets / provider ARNs in
+      # either Info-Add.plist, Watch carrying FORGE auth keys, and Dummy-offline
+      # with Hex roadmap flags (provider routing, editable memory, RMSSD) on.
       - name: Check client configuration
         run: python3 scripts/generate_client_config.py --check
       - name: Dummy-offline client-config tests
