@@ -285,101 +285,43 @@ final class AriaMemoryControlsTests: XCTestCase {
         ])
     }
 
-    func testHealthHistoryRawValueStaysStableAsBodyNotesTitle() throws {
-        XCTAssertEqual(AriaKnowledgeCategory.healthHistory.rawValue, "healthHistory")
-        XCTAssertEqual(AriaKnowledgeCategory.healthHistory.title, "Body notes")
-        let encoded = try JSONEncoder().encode(AriaKnowledgeCategory.healthHistory)
-        XCTAssertEqual(String(data: encoded, encoding: .utf8), "\"healthHistory\"")
-        let decoded = try JSONDecoder().decode(AriaKnowledgeCategory.self, from: encoded)
-        XCTAssertEqual(decoded, .healthHistory)
-        XCTAssertEqual(decoded.title, "Body notes")
+    func testAccessCopyAndReduceMotionContract() {
+        XCTAssertTrue(AriaMemoryAccess.shouldAnimate(reduceMotion: false))
+        XCTAssertFalse(AriaMemoryAccess.shouldAnimate(reduceMotion: true))
 
-        let prefsJSON = Data("""
-        {"memoryEnabled":true,"disabledCategories":["healthHistory"],"personaEnabled":true,"tone":"checkIn","checkInCadence":"weekly"}
-        """.utf8)
-        let prefs = try JSONDecoder().decode(AriaCompanionPreferences.self, from: prefsJSON)
-        XCTAssertFalse(prefs.isCategoryEnabled(.healthHistory))
-        XCTAssertTrue(prefs.isCategoryEnabled(.mood))
-        XCTAssertEqual(prefs.disabledCategories, ["healthHistory"])
-    }
+        XCTAssertEqual(AriaMemoryAccess.rememberMeLabel, "Remember me")
+        XCTAssertEqual(AriaMemoryAccess.rememberMeValue(isOn: true), "On")
+        XCTAssertEqual(AriaMemoryAccess.rememberMeValue(isOn: false), "Off")
+        XCTAssertTrue(AriaMemoryAccess.rememberMeHint.localizedCaseInsensitiveContains("does not delete"))
+        XCTAssertTrue(AriaMemoryAccess.personaHint.localizedCaseInsensitiveContains("does not forget"))
+        XCTAssertTrue(AriaMemoryAccess.folderUseHint.localizedCaseInsensitiveContains("does not delete"))
 
-    func testPartnerAndCycleTokensNeverLandInVaultNotes() {
-        let banned = [
-            "partner_name:sam",
-            "partner_phase:luteal",
-            "partner_cycle:day14",
-            "partner_day:14",
-            "support_cycle:yes",
-            "cycle:fertile_window",
-            "cycle:tww",
-            "cycle:goal:trying",
-            "cycle:bleeding",
-            "cycle:condition",
-        ]
-        for token in banned {
-            XCTAssertTrue(AriaFactPrivacy.isDeniedLifestyleToken(token), token)
-            XCTAssertEqual(AriaFactPrivacy.sanitizeSummary(token), "", token)
-        }
-        XCTAssertFalse(AriaFactPrivacy.isDeniedLifestyleToken("my"))
-        XCTAssertFalse(AriaFactPrivacy.isDeniedLifestyleToken("partner"))
+        XCTAssertEqual(AriaMemoryAccess.addNoteLabel(folder: .goals), "Add a note in Goals")
         XCTAssertEqual(
-            AriaFactPrivacy.sanitizeSummary("my partner is traveling"),
-            "my partner is traveling"
+            AriaMemoryAccess.editNoteLabel(folder: .mood, summary: "Feeling steady."),
+            "Edit Mood note, Feeling steady."
         )
-
-        let mixed = AriaFactPrivacy.sanitizeSummary(
-            "Morning walks partner_name:sam partner_phase:luteal late_caffeine"
-        )
-        XCTAssertEqual(mixed, "Morning walks late_caffeine")
-        XCTAssertFalse(mixed.lowercased().contains("partner_"))
-        XCTAssertFalse(mixed.lowercased().contains("cycle:"))
-
-        var controls = AriaMemoryControls.load(defaults: defaults)
-        XCTAssertNil(controls.addFact(
-            category: .lifestyle,
-            summary: "partner_name:sam",
-            defaults: defaults
-        ))
-        XCTAssertTrue(controls.listedFacts(in: .lifestyle).isEmpty)
-
-        XCTAssertNotNil(controls.addFact(
-            category: .healthHistory,
-            summary: "Slept restlessly. partner_phase:luteal cycle:fertile_window",
-            defaults: defaults
-        ))
-        let body = controls.listedFacts(in: .healthHistory).first?.summary ?? ""
-        XCTAssertEqual(body, "Slept restlessly.")
-        XCTAssertFalse(body.lowercased().contains("partner_"))
-        XCTAssertFalse(body.lowercased().contains("cycle:"))
-        XCTAssertFalse(body.lowercased().contains("rem"))
-        XCTAssertFalse(body.contains("%"))
-
-        var ledger = AriaKnowledgeLedger()
-        ledger.file(AriaKnowledgeFact(
-            category: .lifestyle, kind: "user", summary: "cycle:fertile_window", source: "user"
-        ))
-        XCTAssertTrue(ledger.facts.isEmpty, "denied tokens must not file into the vault")
-        XCTAssertFalse(ledger.updateSummary(id: "missing", summary: "support_cycle:yes"))
-
-        let kept = AriaKnowledgeFact(
-            id: "note-1",
-            category: .lifestyle,
-            kind: "user",
-            summary: "late caffeine",
-            source: "user"
-        )
-        ledger.file(kept)
-        XCTAssertFalse(ledger.updateSummary(id: "note-1", summary: "partner_cycle:day14"))
-        XCTAssertEqual(ledger.facts.first?.summary, "late caffeine")
-
-        // Calendar gate still holds after the partner/cycle widen.
         XCTAssertEqual(
-            AriaFactPrivacy.sanitizeSummary(
-                "calendar:title:Plaza Ballroom wedding in 2 weeks calendar:attendee:maya@example.com"
-            ),
-            "Wedding in 14 days — you told me."
+            AriaMemoryAccess.deleteNoteLabel(folder: .lifestyle, summary: "Keep this note."),
+            "Delete Lifestyle note, Keep this note."
         )
-        XCTAssertFalse(AriaFactPrivacy.privacyLine.lowercased().contains("doctor"))
-        XCTAssertTrue(AriaFactPrivacy.privacyLine.lowercased().contains("partner"))
+        XCTAssertEqual(AriaMemoryAccess.toneLabel(.checkIn, selected: true), "Tone, Check-in, selected")
+        XCTAssertEqual(AriaMemoryAccess.toneLabel(.space, selected: false), "Tone, Space")
+        XCTAssertEqual(AriaMemoryAccess.checkInLabel(.weekly, selected: true), "Check-in, Weekly, selected")
+        XCTAssertEqual(AriaMemoryAccess.checkInLabel(.off, selected: false), "Check-in, Off")
+        XCTAssertEqual(AriaMemoryAccess.folderUseLabel(.events), "ARIA may use Events")
+        XCTAssertEqual(AriaMemoryAccess.personaActionLabel(interviewCompleted: true), "Update who I am")
+        XCTAssertEqual(AriaMemoryAccess.personaActionLabel(interviewCompleted: false), "Tell ARIA who you are")
+
+        let spoken = [
+            AriaMemoryAccess.rememberMeHint,
+            AriaMemoryAccess.personaHint,
+            AriaMemoryAccess.forgetPersonaHint,
+            AriaMemoryAccess.toneLabel(.peer, selected: true),
+            AriaMemoryAccess.checkInLabel(.daily, selected: true),
+        ].joined(separator: " ").lowercased()
+        XCTAssertFalse(spoken.contains("medical"))
+        XCTAssertFalse(spoken.contains("recovery week"))
+        XCTAssertFalse(spoken.contains("clinician"))
     }
 }

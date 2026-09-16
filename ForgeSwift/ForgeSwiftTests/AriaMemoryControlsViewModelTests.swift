@@ -70,4 +70,14 @@ final class AriaMemoryControlsViewModelTests: XCTestCase {
         XCTAssertFalse(model.controls.prefs.tone.line.localizedCaseInsensitiveContains("medical"))
         XCTAssertFalse(model.controls.prefs.checkInCadence.detail.localizedCaseInsensitiveContains("recovery"))
     }
+
+    func testVoiceOverCopyAndReduceMotionFreeze() {
+        XCTAssertFalse(AriaMemoryAccess.shouldAnimate(reduceMotion: true))
+        XCTAssertTrue(AriaMemoryAccess.shouldAnimate(reduceMotion: false))
+        XCTAssertEqual(AriaMemoryAccess.addNoteLabel(folder: .goals), "Add a note in Goals")
+        XCTAssertEqual(AriaMemoryAccess.toneLabel(.space, selected: true), "Tone, Space, selected")
+        XCTAssertEqual(AriaMemoryAccess.checkInLabel(.weekly, selected: false), "Check-in, Weekly")
+        XCTAssertTrue(AriaMemoryAccess.rememberMeHint.localizedCaseInsensitiveContains("does not delete"))
+        XCTAssertEqual(AriaMemoryAccess.rememberMeValue(isOn: false), "Off")
+    }
 }

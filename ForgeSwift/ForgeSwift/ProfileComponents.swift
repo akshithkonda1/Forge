@@ -143,8 +143,16 @@ extension SettingsRow where Trailing == EmptyView {
 
 struct ForgeToggle: View {
     @Binding var isOn: Bool
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
     var body: some View {
-        Button(action: { withAnimation(.spring(response: 0.35, dampingFraction: 0.75)) { isOn.toggle() } }) {
+        Button(action: {
+            if AriaMemoryAccess.shouldAnimate(reduceMotion: reduceMotion) {
+                withAnimation(.spring(response: 0.35, dampingFraction: 0.75)) { isOn.toggle() }
+            } else {
+                isOn.toggle()
+            }
+        }) {
             ZStack(alignment: isOn ? .trailing : .leading) {
                 Capsule()
                     .fill(isOn ? Color.ember : Color.borderLight)
