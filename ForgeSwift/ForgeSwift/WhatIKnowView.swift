@@ -16,19 +16,39 @@ struct WhatIKnowView: View {
                     .foregroundColor(.textSecondary)
 
                 if let snap = QualityOfLifeLivingStore.load() {
-                    HStack {
-                        VStack(alignment: .leading, spacing: 4) {
-                            Text("Lifestyle QoL")
-                                .font(.system(size: 12, weight: .semibold))
-                                .foregroundColor(.textTertiary)
-                            Text("\(snap.overall)/100")
-                                .font(.system(size: 28, weight: .bold, design: .rounded))
-                                .foregroundColor(.textPrimary)
+                    VStack(alignment: .leading, spacing: 10) {
+                        HStack {
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text("Lifestyle QoL")
+                                    .font(.system(size: 12, weight: .semibold))
+                                    .foregroundColor(.textTertiary)
+                                Text("\(snap.overall)/100")
+                                    .font(.system(size: 28, weight: .bold, design: .rounded))
+                                    .foregroundColor(.textPrimary)
+                            }
+                            Spacer()
+                            Text(snap.qualityBand.label)
+                                .font(.system(size: 13, weight: .semibold))
+                                .foregroundColor(snap.qualityBand.color)
                         }
-                        Spacer()
-                        Text(QualityOfLifeBand(score: snap.overall).label)
-                            .font(.system(size: 13, weight: .semibold))
-                            .foregroundColor(.ember)
+                        if !snap.drivers.isEmpty {
+                            Text(snap.qualityBand == .thriving
+                                 ? "Holding you up: \(snap.drivers.joined(separator: " · "))"
+                                 : "Pulling: \(snap.drivers.joined(separator: " · "))")
+                                .font(.system(size: 13, weight: .medium))
+                                .foregroundColor(.textSecondary)
+                        }
+                        if !snap.missingPillars.isEmpty {
+                            Text("Still unmeasured: \(snap.missingPillars.joined(separator: ", "))")
+                                .font(.system(size: 12))
+                                .foregroundColor(.textMuted)
+                        }
+                        if !snap.coaching.isEmpty {
+                            Text(snap.coaching)
+                                .font(.system(size: 13))
+                                .foregroundColor(.textSecondary)
+                                .fixedSize(horizontal: false, vertical: true)
+                        }
                     }
                     .padding(16)
                     .background(Color.surface)

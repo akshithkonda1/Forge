@@ -124,7 +124,20 @@ final class FoundationModelsResponseGenerator: TrainerResponseGenerator {
 
     private func lifestyleQoLPromptLine() -> String {
         if let snap = QualityOfLifeLivingStore.load() {
-            return "Lifestyle QoL (authoritative — same number Life shows, do not invent another): \(snap.overall)/100"
+            var parts = [
+                "Lifestyle QoL (authoritative — same number Life shows, do not invent another): \(snap.overall)/100",
+                "band \(snap.qualityBand.label)",
+            ]
+            if !snap.drivers.isEmpty {
+                parts.append("drivers: \(snap.drivers.joined(separator: ", "))")
+            }
+            if !snap.missingPillars.isEmpty {
+                parts.append("missing: \(snap.missingPillars.joined(separator: ", "))")
+            }
+            if !snap.coaching.isEmpty {
+                parts.append("coaching: \(snap.coaching)")
+            }
+            return parts.joined(separator: " | ")
         }
         return "Lifestyle QoL: not graded yet. Send them to Lifestyle. Do not invent a number."
     }

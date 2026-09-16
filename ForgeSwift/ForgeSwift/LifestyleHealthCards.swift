@@ -465,82 +465,119 @@ struct MultiArcQOLCard: View {
     let metrics: LifestyleMetrics
     @State private var appeared = false
 
-    private let arcs: [(label: String, kp: KeyPath<LifestyleMetrics, Int>, color: Color, radius: CGFloat)] = [
-        ("Physical",  \.physicalHealth,  .success,                  96),
-        ("Mental",    \.mentalWellbeing, .steel,                    78),
-        ("Energy",    \.energyLevels,    .ember,                    60),
-        ("Sleep",     \.sleepQuality,    Color(hex: "A855F7"),      42),
-        ("Nutrition", \.nutritionScore,  Color(hex: "FFB84D"),      24),
-    ]
+    private var snapshot: QualityOfLifeLivingStore.Snapshot? {
+        QualityOfLifeLivingStore.load()
+    }
+
+    private var pillarArcs: [(label: String, value: Int, color: Color, radius: CGFloat)] {
+        let colors: [Color] = [
+            Color(hex: "A855F7"), .success, Color(hex: "FFB84D"),
+            Color(hex: "4A9EFF"), .ember, .steel, Color(hex: "F472B6"),
+        ]
+        let radii: [CGFloat] = [102, 88, 74, 60, 46, 32, 18]
+        let snap = snapshot
+        return QualityOfLifePillar.allCases.enumerated().map { index, pillar in
+            let value = snap?.pillarScores[pillar.rawValue]
+                ?? legacyProjection(for: pillar)
+            return (pillar.title, value, colors[index % colors.count], radii[index % radii.count])
+        }
+    }
+
+    private func legacyProjection(for pillar: QualityOfLifePillar) -> Int {
+        switch pillar {
+        case .sleep: return metrics.sleepQuality
+        case .activity: return metrics.physicalHealth
+        case .nutrition: return metrics.nutritionScore
+        case .hydration: return metrics.physicalHealth
+        case .vitals: return metrics.energyLevels
+        case .mind: return metrics.mentalWellbeing
+        case .social: return metrics.mentalWellbeing
+        }
+    }
 
     var body: some View {
+        let arcs = pillarArcs
+        let band = snapshot?.qualityBand ?? QualityOfLifeBand(score: metrics.qualityOfLifeScore)
         VStack(spacing: 0) {
-            // Section label
             HStack {
                 Text("QUALITY OF LIFE")
                     .font(.system(size: 10, weight: .black))
                     .foregroundColor(.textTertiary)
                     .tracking(2.5)
                 Spacer()
-                Text("All dimensions")
-                    .font(.system(size: 11, weight: .medium))
-                    .foregroundColor(.textMuted)
+                Text(band.label)
+                    .font(.system(size: 11, weight: .semibold))
+                    .foregroundColor(band.color)
             }
             .padding(.bottom, 28)
 
-            // Arc visualisation
             ZStack {
-                // Background arcs (tracks)
-                ForEach(Array(arcs.enumerated()), id: \.offset) { i, arc in
+                ForEach(Array(arcs.enumerated()), id: \.offset) { _, arc in
                     Circle()
-                        .stroke(Color.borderColor.opacity(0.3), style: StrokeStyle(lineWidth: 10, lineCap: .round))
+                        .stroke(Color.borderColor.opacity(0.3), style: StrokeStyle(lineWidth: 8, lineCap: .round))
                         .frame(width: arc.radius * 2, height: arc.radius * 2)
                 }
 
-                // Progress arcs
                 ForEach(Array(arcs.enumerated()), id: \.offset) { i, arc in
-                    let value = metrics[keyPath: arc.kp]
-                    let progress = appeared ? CGFloat(value) / 100 : 0
-
-                    // Glow
+                    let progress = appeared ? CGFloat(max(0, min(100, arc.value))) / 100 : 0
                     Circle()
                         .trim(from: 0, to: progress)
-                        .stroke(arc.color.opacity(0.3), style: StrokeStyle(lineWidth: 14, lineCap: .round))
+                        .stroke(arc.color.opacity(0.3), style: StrokeStyle(lineWidth: 12, lineCap: .round))
                         .frame(width: arc.radius * 2, height: arc.radius * 2)
                         .rotationEffect(.degrees(-90))
-                        .blur(radius: 6)
-
-                    // Main arc
+                        .blur(radius: 5)
                     Circle()
                         .trim(from: 0, to: progress)
-                        .stroke(arc.color, style: StrokeStyle(lineWidth: 10, lineCap: .round))
+                        .stroke(arc.color, style: StrokeStyle(lineWidth: 8, lineCap: .round))
                         .frame(width: arc.radius * 2, height: arc.radius * 2)
                         .rotationEffect(.degrees(-90))
-                        .shadow(color: arc.color.opacity(0.4), radius: 6)
-                        .animation(.spring(response: 1.4, dampingFraction: 0.68).delay(0.3 + Double(i) * 0.12), value: appeared)
+                        .shadow(color: arc.color.opacity(0.35), radius: 5)
+                        .animation(.spring(response: 1.4, dampingFraction: 0.68).delay(0.25 + Double(i) * 0.08), value: appeared)
                 }
 
-                // Center score
                 VStack(spacing: 3) {
                     Text("\(metrics.qualityOfLifeScore)")
-                        .font(.system(size: 36, weight: .black, design: .rounded))
+                        .font(.system(size: 34, weight: .black, design: .rounded))
                         .foregroundColor(.textPrimary)
-                    Text("QOL Score")
+                    Text("QOL")
                         .font(.system(size: 10, weight: .bold))
                         .foregroundColor(.textTertiary)
                         .tracking(1)
                 }
             }
-            .frame(height: 220)
+            .frame(height: 230)
             .frame(maxWidth: .infinity)
-            .padding(.bottom, 28)
+            .padding(.bottom, 20)
 
-            // Legend grid
-            LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 12) {
+            LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 10) {
                 ForEach(Array(arcs.enumerated()), id: \.offset) { _, arc in
-                    let val = metrics[keyPath: arc.kp]
-                    ArcLegendItem(label: arc.label, value: val, color: arc.color)
+                    ArcLegendItem(label: arc.label, value: arc.value, color: arc.color)
                 }
+            }
+
+            if let snap = snapshot {
+                VStack(alignment: .leading, spacing: 6) {
+                    if !snap.drivers.isEmpty {
+                        Text(band == .thriving
+                             ? "Holding you up: \(snap.drivers.joined(separator: " · "))"
+                             : "Pulling the grade: \(snap.drivers.joined(separator: " · "))")
+                            .font(.system(size: 12, weight: .medium))
+                            .foregroundColor(.textSecondary)
+                    }
+                    if !snap.missingPillars.isEmpty {
+                        Text("Still unmeasured: \(snap.missingPillars.prefix(3).joined(separator: ", "))")
+                            .font(.system(size: 11, weight: .regular))
+                            .foregroundColor(.textMuted)
+                    }
+                    if !snap.coaching.isEmpty {
+                        Text(snap.coaching)
+                            .font(.system(size: 12, weight: .regular))
+                            .foregroundColor(.textSecondary)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.top, 14)
             }
         }
         .padding(24)

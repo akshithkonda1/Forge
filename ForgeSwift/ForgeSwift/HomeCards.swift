@@ -1,5 +1,6 @@
 import SwiftUI
 import Charts
+import ForgeCore
 
 struct HomeWinCard: View {
     @EnvironmentObject var store: AppStore
@@ -213,9 +214,15 @@ struct HomeLifestylePreviewCard: View {
                     Text("LIFESTYLE")
                         .forgeSectionLabel()
                     Spacer()
-                    Text("Open")
-                        .font(FDS.TypeScale.label(12))
-                        .foregroundStyle(Color.vitality)
+                    if let snap = QualityOfLifeLivingStore.load() {
+                        Text("QoL \(snap.overall) · \(snap.qualityBand.label)")
+                            .font(FDS.TypeScale.label(12))
+                            .foregroundStyle(snap.qualityBand.color)
+                    } else {
+                        Text("Open")
+                            .font(FDS.TypeScale.label(12))
+                            .foregroundStyle(Color.vitality)
+                    }
                 }
 
                 HStack(spacing: 10) {
