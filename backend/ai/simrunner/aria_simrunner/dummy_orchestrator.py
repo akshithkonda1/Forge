@@ -9,9 +9,8 @@ storage, or teaching copy. With ``engine="lambda"`` it also consumes
 ``services.fusion.fuse_turn`` and ``aria_engine.generate_response`` (Bedrock
 off) so hypertune reads fused product speak. Every turn also runs
 ``services.aria_swarm`` — a deterministic read/evaluate/write pass over
-WHOOP, Apple Watch, and Oura / RRA — without calling a model (the Swarm
-slot label ``Grok`` is not a Bedrock invoke; see
-``services.provider_capabilities``). Deleting this
+WHOOP, Apple Watch, and Oura / RRA — without calling a model. Provider
+ID/region table awaits Quill (``services.provider_capabilities``). Deleting this
 file must leave the learner, fusion, Swarm, and ``POST /ai/chat`` intact.
 
 This is *not* a live model. It is a staged stand-in for one: ingest the
@@ -1421,7 +1420,7 @@ def _suggest_body_session(message: str, context) -> dict | None:
 
 
 def _provider_snapshot(engine: str) -> dict:
-    """Stamp verified provider caps onto a Dummy turn. Never calls AWS."""
+    """Stamp the design-stub routing caps onto a Dummy turn. Never calls AWS."""
     try:
         from backend._paths import ensure_lambda_on_path
 
@@ -1438,16 +1437,18 @@ def _provider_snapshot(engine: str) -> dict:
             "path": snap["path"],
             "stages": snap["stages"],
             "bedrock_kill_switch_default": snap["bedrock_kill_switch_default"],
-            "verified_providers": snap["verified_providers"],
-            "unverified_model_ids": snap["unverified_model_ids"],
+            "do_not_invoke": snap["do_not_invoke"],
+            "await_quill_table": snap["await_quill_table"],
+            "direction": snap["direction"],
         }
     except Exception:
         return {
             "path": "dummy_stub",
             "stages": ["truth", "personal_model", "stance", "speak"],
             "bedrock_kill_switch_default": False,
-            "verified_providers": ["anthropic"],
-            "unverified_model_ids": ["global.xai.grok-4.6"],
+            "do_not_invoke": True,
+            "await_quill_table": True,
+            "direction": "grok_plus_latest_claude",
         }
 
 

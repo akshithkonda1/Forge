@@ -1,70 +1,48 @@
-"""Capability registry: Dummy default, Bedrock off, no fake Grok-on-Bedrock."""
+"""Design-stub registry: Dummy default, Bedrock off, await Quill ID table."""
 import os
+import pathlib
 import unittest
 
 import _bootstrap  # noqa: F401
 
-from ai_router import default_models  # noqa: E402
 from services import aria_engine  # noqa: E402
 from services import provider_capabilities as caps  # noqa: E402
 
 
-class ProviderCapabilitiesTests(unittest.TestCase):
+class ProviderCapabilitiesStubTests(unittest.TestCase):
     def test_dummy_offline_is_default_and_bedrock_is_off(self):
         self.assertEqual(caps.DEFAULT_PATH, "dummy_lambda_fused")
         self.assertFalse(caps.BEDROCK_KILL_SWITCH_DEFAULT)
-        self.assertEqual(caps.DEFAULT_AWS_REGION, "us-east-1")
+        self.assertTrue(caps.DO_NOT_INVOKE)
+        self.assertTrue(caps.AWAIT_QUILL_TABLE)
+        self.assertEqual(caps.DIRECTION, "grok_plus_latest_claude")
+        self.assertFalse(caps.invoke_now_allowed())
         self.assertEqual(caps.SPEAK_STAGES, ("truth", "personal_model", "stance", "speak"))
-        self.assertFalse(caps.runtime_snapshot()["public_bedrock_docs_in_tree"])
 
-    def test_verified_invoke_is_anthropic_only(self):
-        self.assertEqual(caps.VERIFIED_BEDROCK_PROVIDERS, frozenset({"anthropic"}))
-        self.assertTrue(caps.is_verified_bedrock_invoke("anthropic.claude-sonnet-4-6"))
-        self.assertTrue(caps.is_verified_bedrock_invoke("anthropic.claude-opus-4-8"))
-        self.assertTrue(caps.iam_allows_model_id("anthropic.claude-opus-4-7"))
-        self.assertTrue(caps.is_verified_bedrock_invoke("us.anthropic.claude-sonnet-4-6"))
+    def test_snapshot_has_no_model_id_table(self):
+        snap = caps.runtime_snapshot()
+        self.assertTrue(snap["await_quill_table"])
+        self.assertTrue(snap["do_not_invoke"])
+        self.assertFalse(snap["bedrock_kill_switch_default"])
+        self.assertEqual(snap["path"], "dummy_lambda_fused")
+        blob = str(snap).lower()
+        for needle in ("xai.grok", "anthropic.claude", "us-west-2", "foundation"):
+            self.assertNotIn(needle, blob, needle)
 
-    def test_grok_is_unverified_and_not_iam_allowed(self):
-        grok = "global.xai.grok-4.6"
-        self.assertIn(grok, caps.UNVERIFIED_CONFIG_MODEL_IDS)
-        self.assertFalse(caps.is_verified_bedrock_invoke(grok))
-        self.assertFalse(caps.iam_allows_model_id(grok))
-        self.assertEqual(caps.provider_of(grok), "xai")
-        slot3 = caps.router_slot(3)
-        self.assertEqual(slot3.model_id, grok)
-        self.assertFalse(slot3.verified_bedrock_invoke)
-
-    def test_chat_live_ids_are_the_verified_anthropic_pair(self):
-        self.assertEqual(
-            aria_engine.LIVE_MODEL_IDS,
-            {
-                aria_engine.MODEL_PRIMARY: "anthropic.claude-opus-4-8",
-                aria_engine.MODEL_FAST: "anthropic.claude-sonnet-4-6",
-            },
-        )
-        self.assertEqual(aria_engine.LIVE_MODEL_IDS, caps.CHAT_LIVE_MODEL_IDS)
-
-    def test_router_defaults_keep_historical_ids_without_claiming_grok(self):
-        models = default_models()
-        self.assertEqual(
-            [m.model_id for m in models],
-            [
-                "anthropic.claude-sonnet-4-6",
-                "anthropic.claude-opus-4-7",
-                "global.xai.grok-4.6",
-            ],
-        )
-        self.assertNotIn("Bedrock", models[2].responsibility)
-        self.assertIn("Unverified", models[2].responsibility)
-
-    def test_iam_arns_stay_anthropic_only(self):
-        self.assertTrue(all("anthropic" in arn for arn in caps.IAM_BEDROCK_RESOURCE_ARNS))
-        self.assertFalse(any("xai" in arn or "grok" in arn for arn in caps.IAM_BEDROCK_RESOURCE_ARNS))
-
-    def test_must_verify_later_does_not_encode_grok_support(self):
-        blob = " ".join(caps.MUST_VERIFY_LATER).lower()
-        self.assertIn("whether xai grok is offered", blob)
-        self.assertNotIn("grok is available", blob)
+    def test_stub_source_does_not_encode_ids_or_call_bedrock(self):
+        src = pathlib.Path(caps.__file__).read_text(encoding="utf-8")
+        for needle in (
+            "InvokeModel",
+            "list_foundation_models",
+            "boto3",
+            "converse(",
+            "xai.grok",
+            "anthropic.claude",
+            "global.xai",
+            "us.xai",
+        ):
+            self.assertNotIn(needle, src, needle)
+        self.assertIn("Await Quill", src)
 
     def test_process_env_kill_switch_defaults_off(self):
         previous = os.environ.get("ARIA_BEDROCK_ENABLED")

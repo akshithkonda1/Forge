@@ -6,10 +6,9 @@ Garmin) and builds one actionable picture. Claude still owns the spoken
 reply. Swarm owns the dataset pass.
 
 This module is deterministic Python. It never calls Bedrock, Grok, or any
-other model — that is the whole point of the dummy/test path. ``SLOT_NAME``
-is a label on that Python pass, not a Bedrock invoke.
-``provider_capabilities`` does not treat xAI/Grok as a verified Bedrock
-model; do not read this slot as live Grok support.
+other model — that is the whole point of the dummy/test path. Live Grok
+fills the same ``read → evaluate → write`` contract later; until then every
+chat turn can still exercise the agentic shape without plugging a model in.
 
 Law:
   * Python owns truth. Headlines never dump vitals.

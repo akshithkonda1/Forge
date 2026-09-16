@@ -92,7 +92,7 @@ variable "aria_bedrock_enabled" {
 }
 
 variable "ai_router_model_3_id" {
-  description = "Historical env fallback for the AI router's third slot (currently the unverified string global.xai.grok-4.6). Empty keeps the code default. This is NOT a claim that xAI Grok is available on Amazon Bedrock — IAM is Anthropic-only, the kill-switch stays off, and in-tree public Bedrock docs citations do not exist. See services.provider_capabilities."
+  description = "Bedrock model id for the AI router's third slot — Grok (xAI), the differently-trained second opinion alongside the Claude family. Empty keeps ai_router.py's own default (global.xai.grok-4.6). Set per environment so a model swap can be proven in staging before production follows."
   type        = string
   default     = ""
 }

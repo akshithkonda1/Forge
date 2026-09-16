@@ -554,16 +554,15 @@ class DummyOrchestratorTests(unittest.TestCase):
         self.assertIn(row["fusion"]["source"], ("body_model", "payload", "persisted"))
         self.assertTrue(row["orchestration"]["observation_count"] >= 0)
 
-    def test_lambda_engine_stamps_verified_provider_caps_bedrock_off_no_grok(self):
+    def test_lambda_engine_stamps_design_stub_caps_bedrock_off(self):
         row = dummy.respond("What should I train today?", seed=1, engine="lambda")
         provider = row["orchestration"]["provider"]
         self.assertEqual(provider["path"], "dummy_lambda_fused")
         self.assertEqual(provider["stages"], ["truth", "personal_model", "stance", "speak"])
         self.assertFalse(provider["bedrock_kill_switch_default"])
-        self.assertEqual(provider["verified_providers"], ["anthropic"])
-        self.assertIn("global.xai.grok-4.6", provider["unverified_model_ids"])
-        self.assertNotIn("xai", provider["verified_providers"])
-        self.assertNotIn("grok", provider["verified_providers"])
+        self.assertTrue(provider["do_not_invoke"])
+        self.assertTrue(provider["await_quill_table"])
+        self.assertEqual(provider["direction"], "grok_plus_latest_claude")
         self.assertIn("Bedrock off", row["thinking"])
 
     def test_lambda_engine_guidance_short_circuit(self):

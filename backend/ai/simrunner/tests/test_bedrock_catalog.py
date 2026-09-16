@@ -23,16 +23,6 @@ class CatalogIntegrityTests(unittest.TestCase):
         for p in ("anthropic", "amazon", "meta", "mistral", "cohere", "ai21", "deepseek"):
             self.assertIn(p, provs)
 
-    def test_grok_catalog_row_is_persona_only_not_verified_invoke(self):
-        from backend._paths import ensure_lambda_on_path
-        from services import provider_capabilities as caps
-
-        ensure_lambda_on_path()
-        self.assertTrue(cat.is_bedrock_model("global.xai.grok-4.6"))
-        self.assertEqual(cat.get_bedrock_model("global.xai.grok-4.6").provider, "xai")
-        self.assertFalse(caps.is_verified_bedrock_invoke("global.xai.grok-4.6"))
-        self.assertNotIn("xai", caps.VERIFIED_BEDROCK_PROVIDERS)
-
     def test_classes_and_display_names_valid(self):
         valid = {"frontier", "reasoning", "balanced", "fast", "image", "video", "embedding"}
         for m in cat.BEDROCK_CATALOG:

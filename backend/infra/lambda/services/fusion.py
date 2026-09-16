@@ -7,8 +7,8 @@ Both routes call ``fuse_turn``. Body-owned biometric domains win over a
 stale client ``ARIAContext`` template. Persona stance
 (protect / proceed / fuel / clarify) is the action source for the next
 session — not a sidecar, and not ``/ai/router`` Bedrock answer-merge.
-Provider caps (Dummy default, Bedrock off, Anthropic-only verified invoke)
-live in ``provider_capabilities`` — this module does not pick a vendor.
+Routing defaults (Dummy, Bedrock off, await Quill ID table) live in
+``provider_capabilities`` — this module does not pick a vendor.
 """
 
 from __future__ import annotations

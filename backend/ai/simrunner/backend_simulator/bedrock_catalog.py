@@ -105,11 +105,9 @@ _CATALOG: list[tuple] = [
     ("ai21.jamba-instruct-v1:0", "ai21", "jamba", "balanced", "text", 256000),
     # DeepSeek
     ("deepseek.r1-v1:0", "deepseek", "deepseek", "reasoning", "text", 128000),
-    # xAI id string that Terraform / ai_router still use as the slot-3 env
-    # fallback. This catalog row exists so SimRunner can derive a *persona*
-    # from that configured string. It is NOT a verified Bedrock foundation
-    # model in this tree (no in-tree public docs citation; IAM is Anthropic-
-    # only). See services.provider_capabilities.UNVERIFIED_CONFIG_MODEL_IDS.
+    # xAI — Grok is the id ai_router.py actually calls for the third router slot
+    # (AI_ROUTER_MODEL_3_ID). ARIA's standing ensemble is the Claude family plus
+    # Grok; there is no third vendor.
     ("global.xai.grok-4.6", "xai", "grok", "frontier", "text", 256000),
     # Stability (image)
     ("stability.stable-image-ultra-v1:0", "stability", "stable-image", "image", "image", None),

@@ -117,8 +117,7 @@ data "aws_iam_policy_document" "backend_lambda" {
 
     # Lets the AI router, coach routes, and ARIA's live reasoning path call
     # Claude on Bedrock via the Converse API. Scoped to Anthropic models —
-    # the only vendor this tree verifies for invoke. Do not add xAI/Grok
-    # ARNs here: Grok-on-Bedrock is not proven in-tree. Kill-switch stays off.
+    # broaden the resource list if the router's non-Anthropic slots are used.
     actions = [
       "bedrock:InvokeModel",
       "bedrock:InvokeModelWithResponseStream",
@@ -455,12 +454,11 @@ resource "aws_lambda_function" "backend" {
       APP_DATA_TABLE_NAME    = aws_dynamodb_table.app_data.name
       ARIA_BEDROCK_ENABLED   = var.aria_bedrock_enabled ? "true" : "false"
       ENVIRONMENT            = var.environment
-      # Third router slot — historical unverified placeholder (xAI Grok id
-      # string). Not a Bedrock capability claim: IAM above is Anthropic-only
-      # and ARIA_BEDROCK_ENABLED defaults false. Passing "" would override
-      # ai_router.py's default with an empty model id, so an unset variable
-      # keeps the code fallback rather than the empty string. See
-      # services.provider_capabilities.UNVERIFIED_CONFIG_MODEL_IDS.
+      # Third router slot — Grok (xAI), the differently-trained second opinion
+      # alongside the Claude family. Passing "" would override ai_router.py's
+      # default with an empty model id and break routing on any environment that
+      # has not set these, so an unset variable must fall back to the code
+      # default rather than to the empty string.
       AI_ROUTER_MODEL_3_ID   = var.ai_router_model_3_id != "" ? var.ai_router_model_3_id : "global.xai.grok-4.6"
       AI_ROUTER_MODEL_3_NAME = var.ai_router_model_3_name != "" ? var.ai_router_model_3_name : "Grok"
       UPLOADS_BUCKET_NAME    = aws_s3_bucket.uploads.bucket
