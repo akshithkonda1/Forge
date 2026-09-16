@@ -146,10 +146,35 @@ public enum AriaCompanionPreferencesStore: Sendable {
 }
 
 /// Calendar titles, attendees, and places never belong in ARIA memory —
-/// kinds and days-until only. User edits go through the same gate.
+/// kinds and days-until only. Partner/cycle prefixes never land in the vault,
+/// tags, or recentPatterns. User add/edit goes through the same gate.
+///
+/// Denied lifestyle prefixes mirror `routes/aria.py` `_DENIED_LIFESTYLE`.
 public enum AriaFactPrivacy: Sendable {
     public static let privacyLine =
-        "On this phone. Calendar titles, people on the invite, and places never land here. I don't share this off-device."
+        "On this phone. Calendar titles, people on the invite, places, and partner or cycle chips never land here. I don't share this off-device."
+
+    /// Same prefixes Python inbound refuses. `partner_` covers partner_name /
+    /// partner_phase / partner_day / partner_cycle.
+    public static let deniedLifestylePrefixes: [String] = [
+        "partner_",
+        "support_cycle:",
+        "partner_name:",
+        "partner_phase:",
+        "partner_day:",
+        "partner_cycle:",
+        "cycle:fertile",
+        "cycle:tww",
+        "cycle:goal:trying",
+        "cycle:bleeding",
+        "cycle:condition",
+    ]
+
+    public static func isDeniedLifestyleToken(_ token: String) -> Bool {
+        let lower = token.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        guard !lower.isEmpty else { return false }
+        return deniedLifestylePrefixes.contains { lower.hasPrefix($0) }
+    }
 
     public static func sanitizeSummary(_ raw: String) -> String {
         var text = raw.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -164,13 +189,25 @@ public enum AriaFactPrivacy: Sendable {
             if lower.hasPrefix("calendar:attendee:") { return nil }
             if lower.hasPrefix("calendar:place:") { return nil }
             if lower.hasPrefix("calendar:location:") { return nil }
+            if isDeniedLifestyleToken(piece) { return nil }
             return piece
         }
         text = stripped.joined(separator: " ")
             .trimmingCharacters(in: .whitespacesAndNewlines)
 
-        if looksLikeCalendarLeak(text) {
-            if let days = SpokenEventParser.daysUntilWedding(in: text) {
+        if text.split(whereSeparator: { $0.isWhitespace || $0.isNewline })
+            .contains(where: { isDeniedLifestyleToken(String($0)) }) {
+            return ""
+        }
+
+        let original = raw.lowercased()
+        let hadCalendarPrefix = original.contains("calendar:title")
+            || original.contains("calendar:place")
+            || original.contains("calendar:location")
+            || original.contains("calendar:attendee")
+        if hadCalendarPrefix || looksLikeCalendarLeak(text) {
+            if let days = SpokenEventParser.daysUntilWedding(in: text)
+                ?? SpokenEventParser.daysUntilWedding(in: raw) {
                 return "Wedding in \(days) day\(days == 1 ? "" : "s") — you told me."
             }
             let lower = text.lowercased()

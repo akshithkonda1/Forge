@@ -50,6 +50,12 @@ final class AriaMemoryControlsViewModelTests: XCTestCase {
         XCTAssertFalse(model.commitDraft())
         XCTAssertEqual(model.addError, AriaMemoryControlsViewModel.privacyRefusal)
 
+        model.beginAdd(to: .lifestyle)
+        model.draftSummary = "partner_name:sam"
+        XCTAssertFalse(model.commitDraft())
+        XCTAssertEqual(model.addError, AriaMemoryControlsViewModel.privacyRefusal)
+        XCTAssertTrue(model.facts(in: .lifestyle).isEmpty)
+
         model.delete(try XCTUnwrap(model.facts(in: .goals).first))
         XCTAssertTrue(model.facts(in: .goals).isEmpty)
         XCTAssertEqual(model.facts(in: .mood).count, 1)

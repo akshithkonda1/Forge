@@ -100,5 +100,5 @@ final class AriaMemoryControlsViewModel: ObservableObject {
     }
 
     static let privacyRefusal =
-        "I can't store places, invites, or addresses. Kinds and days-until only."
+        "I can't store places, invites, addresses, or partner/cycle chips. Kinds and days-until only."
 }

@@ -22,8 +22,14 @@ final class AriaMemoryControlsTests: XCTestCase {
 
     func testManagedFoldersAreTheSevenConsumerVaults() {
         XCTAssertEqual(AriaKnowledgeCategory.managedCases.map(\.title), [
-            "Goals", "Identity", "Lifestyle", "Preferences", "Events", "Health History", "Mood"
+            "Goals", "Identity", "Lifestyle", "Preferences", "Events", "Body notes", "Mood"
         ])
+        XCTAssertEqual(AriaKnowledgeCategory.healthHistory.rawValue, "healthHistory")
+        XCTAssertEqual(AriaKnowledgeCategory.healthHistory.title, "Body notes")
+        XCTAssertFalse(AriaKnowledgeCategory.healthHistory.blurb.localizedCaseInsensitiveContains("health history"))
+        XCTAssertTrue(AriaKnowledgeCategory.healthHistory.blurb.localizedCaseInsensitiveContains("qualitative"))
+        XCTAssertFalse(AriaKnowledgeCategory.healthHistory.blurb.localizedCaseInsensitiveContains("rem"))
+        XCTAssertFalse(AriaKnowledgeCategory.healthHistory.blurb.localizedCaseInsensitiveContains("insomnia"))
         XCTAssertEqual(
             AriaKnowledgeCategory.appleHealth.managedFolder(kind: "sleep"),
             .healthHistory
@@ -277,5 +283,103 @@ final class AriaMemoryControlsTests: XCTestCase {
         XCTAssertEqual(AriaCompanionTone.allCases.map(\.title), [
             "Check-in", "Space", "Patterns", "Honest peer"
         ])
+    }
+
+    func testHealthHistoryRawValueStaysStableAsBodyNotesTitle() throws {
+        XCTAssertEqual(AriaKnowledgeCategory.healthHistory.rawValue, "healthHistory")
+        XCTAssertEqual(AriaKnowledgeCategory.healthHistory.title, "Body notes")
+        let encoded = try JSONEncoder().encode(AriaKnowledgeCategory.healthHistory)
+        XCTAssertEqual(String(data: encoded, encoding: .utf8), "\"healthHistory\"")
+        let decoded = try JSONDecoder().decode(AriaKnowledgeCategory.self, from: encoded)
+        XCTAssertEqual(decoded, .healthHistory)
+        XCTAssertEqual(decoded.title, "Body notes")
+
+        let prefsJSON = Data("""
+        {"memoryEnabled":true,"disabledCategories":["healthHistory"],"personaEnabled":true,"tone":"checkIn","checkInCadence":"weekly"}
+        """.utf8)
+        let prefs = try JSONDecoder().decode(AriaCompanionPreferences.self, from: prefsJSON)
+        XCTAssertFalse(prefs.isCategoryEnabled(.healthHistory))
+        XCTAssertTrue(prefs.isCategoryEnabled(.mood))
+        XCTAssertEqual(prefs.disabledCategories, ["healthHistory"])
+    }
+
+    func testPartnerAndCycleTokensNeverLandInVaultNotes() {
+        let banned = [
+            "partner_name:sam",
+            "partner_phase:luteal",
+            "partner_cycle:day14",
+            "partner_day:14",
+            "support_cycle:yes",
+            "cycle:fertile_window",
+            "cycle:tww",
+            "cycle:goal:trying",
+            "cycle:bleeding",
+            "cycle:condition",
+        ]
+        for token in banned {
+            XCTAssertTrue(AriaFactPrivacy.isDeniedLifestyleToken(token), token)
+            XCTAssertEqual(AriaFactPrivacy.sanitizeSummary(token), "", token)
+        }
+        XCTAssertFalse(AriaFactPrivacy.isDeniedLifestyleToken("my"))
+        XCTAssertFalse(AriaFactPrivacy.isDeniedLifestyleToken("partner"))
+        XCTAssertEqual(
+            AriaFactPrivacy.sanitizeSummary("my partner is traveling"),
+            "my partner is traveling"
+        )
+
+        let mixed = AriaFactPrivacy.sanitizeSummary(
+            "Morning walks partner_name:sam partner_phase:luteal late_caffeine"
+        )
+        XCTAssertEqual(mixed, "Morning walks late_caffeine")
+        XCTAssertFalse(mixed.lowercased().contains("partner_"))
+        XCTAssertFalse(mixed.lowercased().contains("cycle:"))
+
+        var controls = AriaMemoryControls.load(defaults: defaults)
+        XCTAssertNil(controls.addFact(
+            category: .lifestyle,
+            summary: "partner_name:sam",
+            defaults: defaults
+        ))
+        XCTAssertTrue(controls.listedFacts(in: .lifestyle).isEmpty)
+
+        XCTAssertNotNil(controls.addFact(
+            category: .healthHistory,
+            summary: "Slept restlessly. partner_phase:luteal cycle:fertile_window",
+            defaults: defaults
+        ))
+        let body = controls.listedFacts(in: .healthHistory).first?.summary ?? ""
+        XCTAssertEqual(body, "Slept restlessly.")
+        XCTAssertFalse(body.lowercased().contains("partner_"))
+        XCTAssertFalse(body.lowercased().contains("cycle:"))
+        XCTAssertFalse(body.lowercased().contains("rem"))
+        XCTAssertFalse(body.contains("%"))
+
+        var ledger = AriaKnowledgeLedger()
+        ledger.file(AriaKnowledgeFact(
+            category: .lifestyle, kind: "user", summary: "cycle:fertile_window", source: "user"
+        ))
+        XCTAssertTrue(ledger.facts.isEmpty, "denied tokens must not file into the vault")
+        XCTAssertFalse(ledger.updateSummary(id: "missing", summary: "support_cycle:yes"))
+
+        let kept = AriaKnowledgeFact(
+            id: "note-1",
+            category: .lifestyle,
+            kind: "user",
+            summary: "late caffeine",
+            source: "user"
+        )
+        ledger.file(kept)
+        XCTAssertFalse(ledger.updateSummary(id: "note-1", summary: "partner_cycle:day14"))
+        XCTAssertEqual(ledger.facts.first?.summary, "late caffeine")
+
+        // Calendar gate still holds after the partner/cycle widen.
+        XCTAssertEqual(
+            AriaFactPrivacy.sanitizeSummary(
+                "calendar:title:Plaza Ballroom wedding in 2 weeks calendar:attendee:maya@example.com"
+            ),
+            "Wedding in 14 days — you told me."
+        )
+        XCTAssertFalse(AriaFactPrivacy.privacyLine.lowercased().contains("doctor"))
+        XCTAssertTrue(AriaFactPrivacy.privacyLine.lowercased().contains("partner"))
     }
 }
