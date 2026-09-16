@@ -276,6 +276,10 @@ def handle_post_ai_chat(body: dict[str, Any], *, user_id: str) -> dict:
     # Companion memory (lifestyle-gated): ingest calendar, run ARIA's daily
     # self-evaluation once per day, and offer a daily check-in. All deterministic
     # and side-effect-scoped to the user's own memory.
+    # Rowan: if memory_enabled is false, auto-ingest / evaluate / check-in /
+    # prompt inject must stop (off ≠ delete). Not wired yet — see
+    # services.editable_memory.auto_ingest_allowed. Partner/cycle + calendar
+    # titles stay on sanitize_inbound_chat_payload above, not this settings row.
     memory_block = ""
     checkin_payload: dict[str, Any] | None = None
     calendar_ingested: list[dict[str, Any]] = []
