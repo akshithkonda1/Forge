@@ -1,5 +1,6 @@
 import {
   ARIA_MARK,
+  ARIA_MARK_CONTRAST_FLOOR,
   ARIA_ORB_CORE,
   ariaMarkShouldGlow,
   contrastRingIndices,
