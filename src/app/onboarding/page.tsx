@@ -26,7 +26,12 @@ export default function OnboardingPage() {
     const finish = () => setHasHydrated(true);
     const unsub = useAppStore.persist.onFinishHydration(finish);
     if (useAppStore.persist.hasHydrated()) finish();
-    return unsub;
+    // Never leave the gate hanging if persist is slow/odd in a tab.
+    const failsafe = window.setTimeout(finish, 250);
+    return () => {
+      unsub();
+      window.clearTimeout(failsafe);
+    };
   }, [setHasHydrated]);
 
   useEffect(() => {
