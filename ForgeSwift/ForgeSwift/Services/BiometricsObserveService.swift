@@ -1,4 +1,5 @@
 import Foundation
+import ForgeCore
 
 /// Client for on-device observation. Wearable samples stay in Apple Health;
 /// ARIA reads them on this iPhone. Forge `/ai/observe` is not a warehouse.
