@@ -54,7 +54,7 @@ private struct AgeBlockedView: View {
                 .multilineTextAlignment(.center)
                 .padding(.horizontal, 32)
             Spacer()
-            ForgePrimaryButton(title: "Review birthday", icon: "calendar", action: onReset)
+            PremiumPrimaryButton(title: "Review birthday", icon: "calendar", action: onReset)
                 .padding(.horizontal, FDS.Spacing.xl)
                 .padding(.bottom, 40)
         }

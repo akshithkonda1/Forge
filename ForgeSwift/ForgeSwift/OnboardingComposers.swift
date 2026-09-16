@@ -940,22 +940,12 @@ struct PrimaryCTA: View {
     let action: () -> Void
 
     var body: some View {
-        Button(action: action) {
-            HStack(spacing: 8) {
-                Image(systemName: icon)
-                    .font(.system(size: 15, weight: .bold))
-                Text(title)
-                    .font(.system(size: 17, weight: .semibold, design: .rounded))
-            }
-            .foregroundStyle(.white)
-            .frame(maxWidth: .infinity)
-            .frame(height: 54)
-            .background(enabled ? AnyShapeStyle(FDS.Gradient.ember) : AnyShapeStyle(Color.white.opacity(0.08)))
-            .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
-            .shadow(color: enabled ? Color.ember.opacity(0.35) : .clear, radius: 16, y: 8)
-        }
-        .buttonStyle(AuthPressButtonStyle())
-        .disabled(!enabled)
+        PremiumPrimaryButton(
+            title: title,
+            icon: icon,
+            enabled: enabled,
+            action: action
+        )
     }
 }
 
@@ -991,16 +981,11 @@ struct MessageBubble: View {
                     Spacer(minLength: 48)
                     Text(message.text)
                         .font(.system(size: 15, weight: .medium, design: .rounded))
-                        .foregroundStyle(.white)
+                        .foregroundStyle(Color(hex: "0A0A0A"))
                         .padding(.horizontal, 16)
                         .padding(.vertical, 12)
-                        .background(FDS.Gradient.ember)
+                        .background(Color(hex: "F7F4F0"))
                         .clipShape(RoundedRectangle(cornerRadius: FDS.Radius.lg, style: .continuous))
-                        .overlay {
-                            RoundedRectangle(cornerRadius: FDS.Radius.lg, style: .continuous)
-                                .stroke(Color.white.opacity(0.22), lineWidth: 1)
-                        }
-                        .shadow(color: Color.ember.opacity(0.28), radius: 10, y: 4)
                 }
             case .system:
                 HStack {
@@ -1053,11 +1038,11 @@ struct ScheduleComposer: View {
             Button(action: { coordinator.confirmSchedule() }) {
                 Text("That’s the week")
                     .font(.system(size: 16, weight: .semibold, design: .rounded))
-                    .foregroundStyle(.white)
+                    .foregroundStyle(Color(hex: "0A0A0A"))
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 14)
-                    .background(Color.ember)
-                    .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+                    .background(Color(hex: "F7F4F0"))
+                    .clipShape(Capsule())
             }
             .buttonStyle(.plain)
         }

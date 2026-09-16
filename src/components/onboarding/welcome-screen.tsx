@@ -15,37 +15,41 @@ const HOOKS = [
     id: "aria",
     kicker: "Meet your coach",
     title: "Hey — I'm ARIA.",
-    body: "ARIA is an adaptive lifestyle coach, not a commander. You are meeting someone who will be in your mornings — readiness, sleep, the session you'd skip. Small moves compound. You still decide.",
+    body: "ARIA is an adaptive lifestyle coach — present for readiness, sleep, and the session you'd skip. Small moves compound. You still decide.",
     reward: "A coach who already knows you",
     accent: "#FF6B2B",
     frost: "#A9D8FF",
+    icon: "✦",
   },
   {
     id: "readiness",
     kicker: "Train on signal",
     title: "Know when to push or protect.",
-    body: "ARIA takes standardized metrics and creates a standardized plan that's best for you. All your stats are saved daily so you don't erase progress but rather you build on it the next day. Everytime you use ARIA it feels intentional not like its a burden.",
+    body: "ARIA turns your metrics into a plan that fits today. Progress compounds day to day — each session intentional, never a burden.",
     reward: "Sessions that match how you feel",
     accent: "#60A5FA",
     frost: "#A9D8FF",
+    icon: "⌒",
   },
   {
     id: "life",
     kicker: "Built around your life",
     title: "Workouts, lifestyle, and cycle rhythm.",
-    body: "ARIA looks into how you eat and sleep, but it also seeks to learn more about how you spend your free time, how you provide support to those you love in their time of need — one control center and its private by design.",
+    body: "Sleep, nutrition, free time, and how you show up for people you love — one private control center that respects the life you already have.",
     reward: "Private by design",
     accent: "#34D399",
     frost: "#A9D8FF",
+    icon: "❀",
   },
   {
     id: "forge",
     kicker: "Start today",
     title: "Forge starts with one choice.",
-    body: "It doesn't take long. Name your goal and how you want to train. Connect Health if you want and walk out with a first plan and a coach that already knows you.",
+    body: "Name your goal and how you want to train. Connect Health if you want. Walk out with a first plan and a coach that already knows you.",
     reward: "Meet ARIA →",
     accent: "#F7F4F0",
     frost: "#FF6B2B",
+    icon: "→",
   },
 ] as const;
 
@@ -55,17 +59,18 @@ interface WelcomeScreenProps {
 
 export default function WelcomeScreen({ onNext }: WelcomeScreenProps) {
   const [page, setPage] = useState(0);
+  const [showSignIn, setShowSignIn] = useState(false);
   const hook = HOOKS[page];
 
   useEffect(() => {
     const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-    if (reduce || page >= HOOKS.length - 1) return;
+    if (reduce || page >= HOOKS.length - 1 || showSignIn) return;
     const t = window.setTimeout(() => setPage((p) => Math.min(HOOKS.length - 1, p + 1)), 4800);
     return () => window.clearTimeout(t);
-  }, [page]);
+  }, [page, showSignIn]);
 
   return (
-    <div className="relative flex min-h-[100dvh] flex-col overflow-hidden bg-background">
+    <div className="relative flex min-h-[100dvh] flex-col overflow-hidden bg-background pb-[env(safe-area-inset-bottom)] pt-[env(safe-area-inset-top)]">
       <PremiumAtmosphere accent={hook.accent} secondary={hook.frost} />
 
       <div className="relative z-10 flex flex-1 flex-col px-6 pb-9 pt-5">
@@ -75,9 +80,13 @@ export default function WelcomeScreen({ onNext }: WelcomeScreenProps) {
             <span className="text-[15px] font-semibold tracking-wide text-text-primary">Forge</span>
           </div>
           <div className="flex-1" />
-          <span className="rounded-full border border-white/12 bg-white/[0.06] px-3.5 py-2 text-sm font-medium text-text-primary/90">
+          <button
+            type="button"
+            onClick={() => setShowSignIn(true)}
+            className="rounded-full border border-white/12 bg-white/[0.06] px-3.5 py-2 text-sm font-medium text-text-primary/90 transition hover:bg-white/[0.1]"
+          >
             Sign in
-          </span>
+          </button>
         </header>
 
         <div className="flex flex-1 flex-col items-center justify-center px-1 text-center">
@@ -87,10 +96,9 @@ export default function WelcomeScreen({ onNext }: WelcomeScreenProps) {
               <AriaMark size={140} speaking={hook.id === "aria"} label="ARIA" className="relative z-10" />
             ) : (
               <div className="relative z-10 flex h-28 w-28 items-center justify-center rounded-full border border-white/10 bg-white/[0.04]">
-                <div
-                  className="h-3 w-3 rounded-full"
-                  style={{ background: hook.accent, boxShadow: `0 0 24px ${hook.accent}` }}
-                />
+                <span className="text-2xl text-[#F7F4F0]/85" aria-hidden>
+                  {hook.icon}
+                </span>
               </div>
             )}
           </div>
@@ -120,9 +128,9 @@ export default function WelcomeScreen({ onNext }: WelcomeScreenProps) {
         <div className="space-y-4">
           <div className="flex flex-col items-center gap-3">
             <div className="flex items-center gap-1.5">
-              {HOOKS.map((_, i) => (
+              {HOOKS.map((item, i) => (
                 <button
-                  key={HOOKS[i].id}
+                  key={item.id}
                   type="button"
                   aria-label={`Go to slide ${i + 1}`}
                   onClick={() => setPage(i)}
@@ -156,6 +164,105 @@ export default function WelcomeScreen({ onNext }: WelcomeScreenProps) {
           <p className="text-center text-[11px] text-text-muted">
             Lifestyle fitness coaching · Live your best life
           </p>
+        </div>
+      </div>
+
+      {showSignIn && (
+        <SignInSheet
+          onClose={() => setShowSignIn(false)}
+          onContinueAsGuest={() => {
+            setShowSignIn(false);
+            onNext();
+          }}
+        />
+      )}
+    </div>
+  );
+}
+
+function SignInSheet({
+  onClose,
+  onContinueAsGuest,
+}: {
+  onClose: () => void;
+  onContinueAsGuest: () => void;
+}) {
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [message, setMessage] = useState<string | null>(null);
+
+  const canSubmit = email.includes("@") && password.length >= 8;
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/55 sm:items-center">
+      <button type="button" className="absolute inset-0" aria-label="Close sign in" onClick={onClose} />
+      <div className="relative z-10 w-full max-w-md rounded-t-3xl border border-white/10 bg-[#0A0A0A] px-6 pb-10 pt-5 shadow-2xl sm:rounded-3xl">
+        <div className="mx-auto mb-5 h-1 w-10 rounded-full bg-white/15 sm:hidden" />
+        <div className="mb-6 flex items-start justify-between gap-4">
+          <div>
+            <p className="text-[12px] font-medium uppercase tracking-[0.2em] text-text-tertiary">
+              Welcome back
+            </p>
+            <h2 className="mt-2 text-[28px] font-semibold tracking-tight text-text-primary">
+              ARIA is still here.
+            </h2>
+            <p className="mt-2 text-sm text-text-secondary">
+              Pick up with your coach where you left off.
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            className="rounded-full border border-white/12 px-3 py-1.5 text-sm text-text-secondary"
+          >
+            Close
+          </button>
+        </div>
+
+        <div className="space-y-3">
+          <label className="block">
+            <span className="mb-2 block text-xs font-medium tracking-wide text-text-tertiary">Email</span>
+            <input
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              autoComplete="email"
+              className="w-full rounded-2xl border border-white/10 bg-white/[0.05] px-4 py-3.5 text-text-primary outline-none focus:border-white/25"
+              placeholder="you@email.com"
+            />
+          </label>
+          <label className="block">
+            <span className="mb-2 block text-xs font-medium tracking-wide text-text-tertiary">Password</span>
+            <input
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              autoComplete="current-password"
+              className="w-full rounded-2xl border border-white/10 bg-white/[0.05] px-4 py-3.5 text-text-primary outline-none focus:border-white/25"
+              placeholder="••••••••"
+            />
+          </label>
+        </div>
+
+        {message && <p className="mt-3 text-sm text-text-secondary">{message}</p>}
+
+        <div className="mt-6 space-y-3">
+          <PremiumPrimaryButton
+            disabled={!canSubmit}
+            onClick={() =>
+              setMessage("Account sign-in isn’t connected on web yet. Continue to set up your profile.")
+            }
+          >
+            <span>Sign in</span>
+            <span aria-hidden>→</span>
+          </PremiumPrimaryButton>
+          <button
+            type="button"
+            onClick={onContinueAsGuest}
+            className="w-full py-3 text-sm font-medium text-text-secondary"
+          >
+            Continue to onboarding
+          </button>
         </div>
       </div>
     </div>

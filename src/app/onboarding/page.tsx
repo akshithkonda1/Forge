@@ -47,7 +47,7 @@ export default function OnboardingPage() {
   }, [router]);
 
   return (
-    <div className="relative mx-auto min-h-[100dvh] max-w-lg bg-background">
+    <div className="relative mx-auto min-h-[100dvh] max-w-lg bg-background pb-[env(safe-area-inset-bottom)] pt-[env(safe-area-inset-top)]">
       {onboardingStep > 0 && (
         <div
           className="fixed left-0 right-0 top-0 z-50 mx-auto flex max-w-lg items-center justify-center gap-2 pb-2 pt-4"

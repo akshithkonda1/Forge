@@ -4,13 +4,6 @@ import { cn } from "@/lib/utils";
 import type { AriaWhisper } from "@/lib/aria-onboarding";
 import { AriaMark } from "@/components/brand/aria-mark";
 
-const moodAccent: Record<AriaWhisper["mood"], string> = {
-  energized: "#FF4D00",
-  focused: "#4A90D9",
-  calm: "#A855F7",
-  supportive: "#22C55E",
-};
-
 interface AriaCompanionProps {
   whisper: AriaWhisper;
   compact?: boolean;
@@ -35,32 +28,23 @@ export default function AriaCompanion({
   compact = false,
   className,
 }: AriaCompanionProps) {
-  const accent = moodAccent[whisper.mood];
-
   return (
     <div
       className={cn(
-        "relative overflow-hidden rounded-2xl border",
+        "relative overflow-hidden rounded-2xl border border-white/10 bg-white/[0.04]",
         compact ? "p-3.5" : "p-4",
         className
       )}
-      style={{
-        borderColor: `${accent}40`,
-        background: `linear-gradient(135deg, ${accent}14 0%, rgba(20,20,20,0.95) 45%)`,
-      }}
     >
       <div className="flex items-start gap-3">
-        <AriaOrb mood={whisper.mood} size={compact ? 48 : 56} speaking />
+        <AriaOrb mood={whisper.mood} size={compact ? 44 : 52} speaking />
         <div className="min-w-0 flex-1">
           <div className="mb-1 flex items-start gap-2">
-            <span
-              className="text-[10px] font-black uppercase tracking-[0.18em]"
-              style={{ color: accent }}
-            >
+            <span className="text-[10px] font-medium uppercase tracking-[0.18em] text-text-tertiary">
               ARIA
             </span>
             <span className="text-text-muted">·</span>
-            <span className="truncate text-xs font-bold text-text-primary">
+            <span className="truncate text-xs font-semibold text-text-primary">
               {whisper.title}
             </span>
           </div>

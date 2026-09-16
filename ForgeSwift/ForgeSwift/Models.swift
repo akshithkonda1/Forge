@@ -23,20 +23,20 @@ enum CoachingStyle: String, Codable, CaseIterable, Identifiable {
 
     var label: String {
         switch self {
-        case .pushHard:   return "Push Me Hard"
-        case .balanced:   return "Keep It Balanced"
-        case .patient:    return "Be Patient With Me"
-        case .dataDriven: return "Data-Driven & Precise"
-        case .ultraElite: return "Ultra Elite"
+        case .pushHard:   return "Challenge me"
+        case .balanced:   return "Keep it balanced"
+        case .patient:    return "Be patient with me"
+        case .dataDriven: return "Data-driven & precise"
+        case .ultraElite: return "Ultra elite"
         }
     }
     var description: String {
         switch self {
-        case .pushHard:   return "Maximum intensity every session. No excuses."
+        case .pushHard:   return "High intensity when you're ready. Clear standards."
         case .balanced:   return "Smart training — push when ready, recover when needed."
         case .patient:    return "Encouraging, supportive, and habit-focused."
         case .dataDriven: return "Optimized by metrics. Numbers guide everything."
-        case .ultraElite: return "Designed for athletes of all levels and types, numbers and personal data guide every step."
+        case .ultraElite: return "Athlete-grade detail — numbers and personal data guide every step."
         }
     }
     

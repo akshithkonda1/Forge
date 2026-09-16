@@ -129,9 +129,9 @@ export default function ProfileSetup({ onNext, onBack }: ProfileSetupProps) {
             className={cn(
               "h-1 rounded-full transition-all duration-300",
               i === section
-                ? "w-8 bg-ember"
+                ? "w-8 bg-[#F7F4F0]"
                 : i < section
-                  ? "w-4 bg-ember/50"
+                  ? "w-4 bg-[#F7F4F0]/40"
                   : "w-4 bg-border"
             )}
           />
@@ -146,7 +146,7 @@ export default function ProfileSetup({ onNext, onBack }: ProfileSetupProps) {
       <div className="flex flex-1 flex-col">
           {section === 0 && (
             <div className="flex flex-1 flex-col pt-4">
-              <h2 className="mb-2 text-3xl font-bold text-text-primary">
+              <h2 className="mb-2 text-3xl font-semibold tracking-tight text-text-primary">
                 What should ARIA call you?
               </h2>
               <p className="mb-8 text-text-tertiary">
@@ -162,7 +162,7 @@ export default function ProfileSetup({ onNext, onBack }: ProfileSetupProps) {
                   "w-full rounded-xl border border-border bg-surface px-5 py-4",
                   "text-lg text-text-primary placeholder:text-text-muted",
                   "outline-none transition-all duration-200",
-                  "focus:border-ember focus:ring-1 focus:ring-ember/30"
+                  "focus:border-white/30 focus:ring-1 focus:ring-white/15"
                 )}
                 onKeyDown={(e) => {
                   if (e.key === "Enter" && canProceed()) handleContinue();
@@ -173,7 +173,7 @@ export default function ProfileSetup({ onNext, onBack }: ProfileSetupProps) {
 
           {section === 1 && (
             <div className="flex flex-1 flex-col pt-12">
-              <h2 className="mb-2 text-3xl font-bold text-text-primary">
+              <h2 className="mb-2 text-3xl font-semibold tracking-tight text-text-primary">
                 What are your fitness goals?
               </h2>
               <p className="mb-8 text-text-tertiary">
@@ -191,7 +191,7 @@ export default function ProfileSetup({ onNext, onBack }: ProfileSetupProps) {
                         "rounded-full border px-5 py-2.5 text-sm font-medium",
                         "transition-colors duration-150",
                         selected
-                          ? "border-ember bg-ember/15 text-ember"
+                          ? "border-white/25 bg-white/[0.08] text-[#F7F4F0]"
                           : "border-border bg-surface text-text-secondary hover:border-border-light hover:text-text-primary"
                       )}
                     >
@@ -205,7 +205,7 @@ export default function ProfileSetup({ onNext, onBack }: ProfileSetupProps) {
 
           {section === 2 && (
             <div className="flex flex-1 flex-col pt-12">
-              <h2 className="mb-2 text-3xl font-bold text-text-primary">
+              <h2 className="mb-2 text-3xl font-semibold tracking-tight text-text-primary">
                 Experience level?
               </h2>
               <p className="mb-8 text-text-tertiary">
@@ -223,14 +223,14 @@ export default function ProfileSetup({ onNext, onBack }: ProfileSetupProps) {
                         "flex flex-col items-start rounded-xl border p-4 text-left",
                         "transition-colors duration-150",
                         selected
-                          ? "border-ember bg-ember/10"
+                          ? "border-white/20 bg-white/[0.06]"
                           : "border-border bg-surface hover:border-border-light"
                       )}
                     >
                       <span
                         className={cn(
                           "text-base font-semibold",
-                          selected ? "text-ember" : "text-text-primary"
+                          selected ? "text-[#F7F4F0]" : "text-text-primary"
                         )}
                       >
                         {level.label}
@@ -247,7 +247,7 @@ export default function ProfileSetup({ onNext, onBack }: ProfileSetupProps) {
 
           {section === 3 && (
             <div className="flex flex-1 flex-col pt-12">
-              <h2 className="mb-2 text-3xl font-bold text-text-primary">
+              <h2 className="mb-2 text-3xl font-semibold tracking-tight text-text-primary">
                 Preferred workout types?
               </h2>
               <p className="mb-8 text-text-tertiary">
@@ -265,7 +265,7 @@ export default function ProfileSetup({ onNext, onBack }: ProfileSetupProps) {
                         "rounded-full border px-5 py-2.5 text-sm font-medium",
                         "transition-colors duration-150",
                         selected
-                          ? "border-ember bg-ember/15 text-ember"
+                          ? "border-white/25 bg-white/[0.08] text-[#F7F4F0]"
                           : "border-border bg-surface text-text-secondary hover:border-border-light hover:text-text-primary"
                       )}
                     >

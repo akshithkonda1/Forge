@@ -140,11 +140,11 @@ export default function DeviceConnection({ onNext }: DeviceConnectionProps) {
         transition={{ duration: 0.5 }}
         className="mb-5"
       >
-        <h2 className="mb-2 text-3xl font-bold text-text-primary">
-          Connect Your Devices
+        <h2 className="mb-2 text-3xl font-semibold tracking-tight text-text-primary">
+          Choose your wearables
         </h2>
         <p className="text-text-tertiary">
-          Forge uses your wearable data so ARIA can personalize every workout
+          Optional. Select what you use — you can connect them later in Settings.
         </p>
       </motion.div>
 
@@ -175,7 +175,7 @@ export default function DeviceConnection({ onNext }: DeviceConnectionProps) {
                 "relative flex flex-col items-center justify-center gap-3 rounded-xl border p-5",
                 "transition-all duration-200",
                 isConnected
-                  ? "border-ember bg-ember/10 shadow-[0_0_20px_rgba(255,77,0,0.1)]"
+                  ? "border-white/20 bg-white/[0.06]"
                   : "border-border bg-surface hover:border-border-light"
               )}
               whileHover={{ scale: 1.02 }}
@@ -186,9 +186,9 @@ export default function DeviceConnection({ onNext }: DeviceConnectionProps) {
                 <motion.div
                   initial={{ scale: 0 }}
                   animate={{ scale: 1 }}
-                  className="absolute right-2.5 top-2.5 flex h-5 w-5 items-center justify-center rounded-full bg-ember"
+                  className="absolute right-2.5 top-2.5 flex h-5 w-5 items-center justify-center rounded-full bg-[#F7F4F0]"
                 >
-                  <Check size={12} strokeWidth={3} className="text-white" />
+                  <Check size={12} strokeWidth={3} className="text-[#0A0A0A]" />
                 </motion.div>
               )}
 
@@ -196,7 +196,7 @@ export default function DeviceConnection({ onNext }: DeviceConnectionProps) {
               <div
                 className={cn(
                   "transition-colors duration-200",
-                  isConnected ? "text-ember" : "text-text-tertiary"
+                  isConnected ? "text-[#F7F4F0]" : "text-text-tertiary"
                 )}
               >
                 {device.icon}
@@ -206,7 +206,7 @@ export default function DeviceConnection({ onNext }: DeviceConnectionProps) {
               <span
                 className={cn(
                   "text-sm font-medium transition-colors duration-200",
-                  isConnected ? "text-ember" : "text-text-secondary"
+                  isConnected ? "text-[#F7F4F0]" : "text-text-secondary"
                 )}
               >
                 {device.name}
@@ -216,10 +216,10 @@ export default function DeviceConnection({ onNext }: DeviceConnectionProps) {
               <span
                 className={cn(
                   "text-xs transition-colors duration-200",
-                  isConnected ? "text-ember/70" : "text-text-muted"
+                  isConnected ? "text-text-secondary" : "text-text-muted"
                 )}
               >
-                {isConnected ? "Connected" : "Not Connected"}
+                {isConnected ? "Selected" : "Tap to select"}
               </span>
             </motion.button>
           );

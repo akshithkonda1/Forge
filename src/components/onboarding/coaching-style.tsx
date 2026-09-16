@@ -23,31 +23,31 @@ interface StyleOption {
 const styles: StyleOption[] = [
   {
     value: "push-hard",
-    label: "Push Me Hard",
+    label: "Challenge me",
     icon: <Zap size={28} />,
     description:
-      "No excuses. Maximum intensity. I want to be challenged every session.",
+      "High intensity when you’re ready. Clear standards every session.",
   },
   {
     value: "balanced",
-    label: "Keep It Balanced",
+    label: "Keep it balanced",
     icon: <Scale size={28} />,
     description:
-      "Push when I can, back off when I need to. Smart training.",
+      "Push when you can, back off when you need to. Smart training.",
   },
   {
     value: "patient",
-    label: "Be Patient With Me",
+    label: "Be patient with me",
     icon: <Heart size={28} />,
     description:
-      "I'm building habits. Encouraging and supportive.",
+      "I’m building habits. Encouraging and supportive.",
   },
   {
     value: "data-driven",
-    label: "Data-Driven & Precise",
+    label: "Data-driven & precise",
     icon: <BarChart3 size={28} />,
     description:
-      "Numbers don't lie. Optimize everything based on my metrics.",
+      "Numbers guide the plan. Optimize from your metrics.",
   },
 ];
 
@@ -72,7 +72,7 @@ export default function CoachingStyleScreen({
     <div className="flex min-h-[100dvh] flex-col overflow-y-auto px-6 pb-8 pt-16">
       {/* Header */}
       <div className="mb-4">
-        <h2 className="mb-2 text-3xl font-bold text-text-primary">
+        <h2 className="mb-2 text-3xl font-semibold tracking-tight text-text-primary">
           How do you like to be coached?
         </h2>
         <p className="text-text-tertiary">
@@ -128,7 +128,7 @@ export default function CoachingStyleScreen({
                 <span
                   className={cn(
                     "text-base font-semibold transition-colors duration-200",
-                    isSelected ? "text-ember" : "text-text-primary"
+                    isSelected ? "text-text-primary" : "text-text-primary"
                   )}
                 >
                   {style.label}

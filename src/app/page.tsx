@@ -130,6 +130,7 @@ export default function Page() {
             setActiveTab("chat");
           }}
           onSkip={() => {
+            meetAria();
             setShowLaunchMeet(false);
             setActiveTab("home");
           }}

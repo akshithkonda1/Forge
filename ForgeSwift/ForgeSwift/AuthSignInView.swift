@@ -1,5 +1,4 @@
 import SwiftUI
-import AuthenticationServices
 import ForgeCore
 
 // MARK: - Sign In (returning athletes) — premium quiet gate
@@ -43,45 +42,6 @@ struct AuthSignInView: View {
                         .padding(.top, 8)
                         .opacity(appeared ? 1 : 0)
 
-                        VStack(spacing: 10) {
-                            SignInWithAppleButton(.signIn) { request in
-                                request.requestedScopes = [.fullName, .email]
-                            } onCompletion: { result in
-                                handleApple(result)
-                            }
-                            .signInWithAppleButtonStyle(.white)
-                            .frame(height: 52)
-                            .clipShape(Capsule())
-
-                            Button {
-                                completeSocialSignIn(provider: "google", displayName: "Athlete")
-                            } label: {
-                                HStack(spacing: 10) {
-                                    Image(systemName: "g.circle.fill")
-                                        .font(.system(size: 20))
-                                    Text("Continue with Google")
-                                        .font(.system(size: 16, weight: .semibold))
-                                }
-                                .foregroundColor(.textPrimary)
-                                .frame(maxWidth: .infinity)
-                                .frame(height: 52)
-                                .background(Color.white.opacity(0.06))
-                                .clipShape(Capsule())
-                                .overlay(
-                                    Capsule().stroke(Color.white.opacity(0.12), lineWidth: 1)
-                                )
-                            }
-                            .buttonStyle(AuthPressButtonStyle())
-                        }
-
-                        HStack {
-                            Rectangle().fill(Color.white.opacity(0.08)).frame(height: 1)
-                            Text("or email")
-                                .font(.system(size: 12, weight: .medium))
-                                .foregroundColor(.textMuted)
-                            Rectangle().fill(Color.white.opacity(0.08)).frame(height: 1)
-                        }
-
                         VStack(spacing: 14) {
                             field(title: "Email", text: $email, contentType: .emailAddress, secure: false)
                             field(title: "Password", text: $password, contentType: .password, secure: true)
@@ -94,12 +54,16 @@ struct AuthSignInView: View {
                         }
 
                         PremiumPrimaryButton(
-                            title: isBusy ? "Entering…" : "Enter Forge",
+                            title: isBusy ? "Signing in…" : "Sign in",
                             enabled: canSubmit,
                             busy: isBusy
                         ) {
                             submitEmail()
                         }
+
+                        Text("Apple and Google sign-in will appear here when connected for this build.")
+                            .font(.system(size: 12, weight: .regular))
+                            .foregroundColor(.textTertiary)
 
                         if ForgeAuthClient.shared.canUseDevOverride {
                             Button {
@@ -175,30 +139,6 @@ struct AuthSignInView: View {
                     .stroke(Color.white.opacity(0.08), lineWidth: 1)
             )
         }
-    }
-
-    private func handleApple(_ result: Result<ASAuthorization, Error>) {
-        switch result {
-        case .success(let auth):
-            let name: String
-            if let cred = auth.credential as? ASAuthorizationAppleIDCredential {
-                let parts = [cred.fullName?.givenName, cred.fullName?.familyName].compactMap { $0 }
-                name = parts.isEmpty ? "Athlete" : parts.joined(separator: " ")
-            } else {
-                name = "Athlete"
-            }
-            completeSocialSignIn(provider: "apple", displayName: name)
-        case .failure(let error):
-            if (error as NSError).code != ASAuthorizationError.canceled.rawValue {
-                errorMessage = error.localizedDescription
-            }
-        }
-    }
-
-    private func completeSocialSignIn(provider: String, displayName: String) {
-        errorMessage = ForgeAuthClient.shared.canUseDevOverride
-            ? "\(provider.capitalized) isn’t wired. Use Continue as tester on this debug build."
-            : "\(provider.capitalized) sign-in isn’t connected yet. Use email, or a debug tester account."
     }
 
     private func continueAsTester() {

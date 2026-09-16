@@ -212,7 +212,7 @@ struct MainTabView: View {
                         store.activeTab = .chat
                     },
                     onSkip: {
-                        store.showAriaMeetOnLaunch = false
+                        store.meetAria()
                         store.activeTab = .home
                     }
                 )

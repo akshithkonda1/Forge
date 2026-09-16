@@ -1,5 +1,4 @@
 import SwiftUI
-import AuthenticationServices
 import ForgeCore
 
 // MARK: - Immersive Sign Up
@@ -80,11 +79,11 @@ struct AuthSignUpFlowView: View {
 
         var accentHex: String {
             switch self {
-            case .buildMuscle: return "FF5A00"
-            case .loseFat: return "F59E0B"
-            case .energy: return "38BDF8"
-            case .performance: return "A855F7"
-            case .recovery: return "22C55E"
+            case .buildMuscle: return "F7F4F0"
+            case .loseFat: return "A9D8FF"
+            case .energy: return "60A5FA"
+            case .performance: return "C4B5FD"
+            case .recovery: return "34D399"
             }
         }
 
@@ -284,17 +283,16 @@ struct AuthSignUpFlowView: View {
                     }
                 }
 
-                // Social proof strip
-                HStack(spacing: 10) {
-                    miniStat("90s", "setup")
-                    miniStat("Live", "readiness")
-                    miniStat("Private", "cycle data")
-                }
+                // Quiet trust cues — no vanity Day-0 stats strip
+                Text("About 90 seconds · Private by design")
+                    .font(.system(size: 12, weight: .medium))
+                    .foregroundColor(.textTertiary)
+                    .padding(.top, 4)
 
                 Spacer(minLength: 24)
 
                 primaryButton(
-                    title: "Claim my name",
+                    title: "Continue",
                     enabled: trimmedName.count >= 2,
                     icon: "arrow.right"
                 ) {
@@ -426,49 +424,20 @@ struct AuthSignUpFlowView: View {
                                 .frame(maxWidth: .infinity, alignment: .leading)
                         }
 
-                        SignInWithAppleButton(.signUp) { request in
-                            request.requestedScopes = [.fullName, .email]
-                        } onCompletion: { result in
-                            handleApple(result)
-                        }
-                        .signInWithAppleButtonStyle(.white)
-                        .frame(height: 52)
-                        .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
-
-                        Button {
-                            errorMessage = ForgeAuthClient.shared.canUseDevOverride
-                                ? "Google isn’t wired. Use email, or Continue as tester on this debug build."
-                                : "Google sign-up isn’t connected yet. Use email."
-                        } label: {
-                            HStack(spacing: 10) {
-                                Image(systemName: "g.circle.fill")
-                                    .font(.system(size: 20))
-                                Text("Continue with Google")
-                                    .font(.system(size: 16, weight: .bold))
-                            }
-                            .foregroundColor(.textPrimary)
-                            .frame(maxWidth: .infinity)
-                            .frame(height: 52)
-                            .background(Color.surfaceElevated)
-                            .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
-                            .overlay(
-                                RoundedRectangle(cornerRadius: 14, style: .continuous)
-                                    .stroke(Color.borderColor, lineWidth: 1)
-                            )
-                        }
-                        .buttonStyle(AuthPressButtonStyle())
-
-                        Button {
+                        primaryButton(
+                            title: "Continue with email",
+                            enabled: true,
+                            icon: "envelope.fill"
+                        ) {
                             withAnimation(FDS.Spring.snap) { showEmailForm = true }
                             FDS.haptic(.light)
-                        } label: {
-                            Text("Use email instead")
-                                .font(.system(size: 14, weight: .semibold))
-                                .foregroundColor(.textSecondary)
-                                .frame(maxWidth: .infinity)
-                                .padding(.vertical, 12)
                         }
-                        .buttonStyle(.plain)
+
+                        Text("Apple and Google sign-up will appear here when connected for this build.")
+                            .font(.system(size: 12, weight: .regular))
+                            .foregroundColor(.textTertiary)
+                            .multilineTextAlignment(.center)
+                            .frame(maxWidth: .infinity)
                     }
                 } else {
                     VStack(spacing: 12) {
@@ -482,7 +451,7 @@ struct AuthSignUpFlowView: View {
                         }
 
                         primaryButton(
-                            title: isBusy ? "Creating…" : "Create account · enter Forge",
+                            title: isBusy ? "Creating…" : "Create account",
                             enabled: canSubmitEmail && !isBusy,
                             icon: "arrow.right"
                         ) {
@@ -492,7 +461,7 @@ struct AuthSignUpFlowView: View {
                         Button {
                             withAnimation { showEmailForm = false }
                         } label: {
-                            Text("Back to Apple / Google")
+                            Text("Back")
                                 .font(.system(size: 13, weight: .semibold))
                                 .foregroundColor(.textTertiary)
                         }
@@ -517,8 +486,8 @@ struct AuthSignUpFlowView: View {
                     .accessibilityHint("Debug-only local account. Never ships in Release.")
                 }
 
-                Text("By continuing you get lifestyle and fitness coaching, not medical diagnosis or care. ARIA is a lifestyle based fitness coach, not a doctor and cannot help in that way. If you are looking for urgent medical help, please call 911 or visit your local hospital or physician.")
-                    .font(.system(size: 11, weight: .medium))
+                Text("By continuing you get lifestyle and fitness coaching, not medical care. ARIA is not a doctor. For emergencies, call 911.")
+                    .font(.system(size: 11, weight: .regular))
                     .foregroundColor(.textMuted)
                     .multilineTextAlignment(.center)
                     .frame(maxWidth: .infinity)
@@ -551,7 +520,7 @@ struct AuthSignUpFlowView: View {
                     .foregroundColor(.danger)
             }
             primaryButton(
-                title: isBusy ? "Confirming…" : "Confirm email · enter Forge",
+                title: isBusy ? "Confirming…" : "Confirm email",
                 enabled: confirmCode.trimmingCharacters(in: .whitespaces).count >= 4 && !isBusy,
                 icon: "checkmark"
             ) {
@@ -586,21 +555,6 @@ struct AuthSignUpFlowView: View {
                 .fixedSize(horizontal: false, vertical: true)
         }
         .padding(.top, 8)
-    }
-
-    private func miniStat(_ value: String, _ label: String) -> some View {
-        VStack(spacing: 4) {
-            Text(value)
-                .font(.system(size: 15, weight: .bold))
-                .foregroundColor(.textPrimary)
-            Text(label)
-                .font(.system(size: 11, weight: .medium))
-                .foregroundColor(.textTertiary)
-        }
-        .frame(maxWidth: .infinity)
-        .padding(.vertical, 12)
-        .background(Color.surfaceElevated)
-        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
     }
 
     private func primaryButton(
@@ -652,19 +606,6 @@ struct AuthSignUpFlowView: View {
     }
 
     // MARK: Actions
-
-    private func handleApple(_ result: Result<ASAuthorization, Error>) {
-        switch result {
-        case .success:
-            errorMessage = ForgeAuthClient.shared.canUseDevOverride
-                ? "Sign in with Apple isn’t wired. Use email, or Continue as tester on this debug build."
-                : "Sign in with Apple isn’t connected yet. Use email."
-        case .failure(let error):
-            if (error as NSError).code != ASAuthorizationError.canceled.rawValue {
-                errorMessage = error.localizedDescription
-            }
-        }
-    }
 
     private func continueAsTester() {
         isBusy = true

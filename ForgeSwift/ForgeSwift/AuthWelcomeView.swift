@@ -50,7 +50,8 @@ struct AuthWelcomeView: View {
                     ctaBlock
                 }
                 .padding(.horizontal, 24)
-                .padding(.bottom, 36)
+                .padding(.bottom, 28)
+                .safeAreaPadding(.bottom, 8)
                 .opacity(appeared ? 1 : 0)
                 .offset(y: appeared ? 0 : 16)
             }
@@ -189,7 +190,7 @@ private struct AuthHookPage: Identifiable {
             id: "aria",
             kicker: "Meet your coach",
             title: AriaOnboardingGuide.welcomeTitle,
-            body: "ARIA is an adaptive lifestyle coach, not a commander. You are meeting someone who will be in your mornings — readiness, sleep, the session you'd skip. Small moves compound. You still decide.",
+            body: "ARIA is an adaptive lifestyle coach — present for readiness, sleep, and the session you'd skip. Small moves compound. You still decide.",
             icon: "sparkles",
             accent: Color(hex: "FF6B2B"),
             frost: Color(hex: "A9D8FF"),
@@ -199,7 +200,7 @@ private struct AuthHookPage: Identifiable {
             id: "readiness",
             kicker: "Train on signal",
             title: "Know when to push or protect.",
-            body: "ARIA takes standardized metrics and creates a standardized plan that's best for you. All your stats are saved daily so you don't erase progress but rather you build on it the next day. Everytime you use ARIA it feels intentional not like its a burden.",
+            body: "ARIA turns your metrics into a plan that fits today. Progress compounds day to day — each session intentional, never a burden.",
             icon: "waveform.path.ecg",
             accent: Color(hex: "60A5FA"),
             frost: Color(hex: "A9D8FF"),
@@ -209,7 +210,7 @@ private struct AuthHookPage: Identifiable {
             id: "life",
             kicker: "Built around your life",
             title: "Workouts, lifestyle, and cycle rhythm.",
-            body: "ARIA looks into how you eat and sleep, but it also seeks to learn more about how you spend your free time, how you provide support to those you love in their time of need — one control center and its private by design.",
+            body: "Sleep, nutrition, free time, and how you show up for people you love — one private control center that respects the life you already have.",
             icon: "leaf.fill",
             accent: Color(hex: "34D399"),
             frost: Color(hex: "A9D8FF"),
@@ -219,7 +220,7 @@ private struct AuthHookPage: Identifiable {
             id: "forge",
             kicker: "Start today",
             title: "Forge starts with one choice.",
-            body: "It doesn't take long. Name your goal and how you want to train. Connect Health if you want and walk out with a first plan and a coach that already knows you.",
+            body: "Name your goal and how you want to train. Connect Health if you want. Walk out with a first plan and a coach that already knows you.",
             icon: "sparkles",
             accent: Color(hex: "F7F4F0"),
             frost: Color(hex: "FF6B2B"),
