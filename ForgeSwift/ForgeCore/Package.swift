@@ -135,6 +135,7 @@ let package = Package(
                 "CognitoRefreshTests.swift",
                 "ReadinessCalculatorTests.swift",
                 "QualityOfLifeCalculatorTests.swift",
+                "QualityOfLifeTrainingPolicyTests.swift",
                 "AgingSnapshotTests.swift",
                 "AriaKnowledgeLedgerTests.swift",
                 "AriaSwarmTests.swift",
