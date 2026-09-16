@@ -152,7 +152,12 @@ export default function WelcomeScreen({ onNext }: WelcomeScreenProps) {
             </p>
           </div>
 
-          <PremiumPrimaryButton onClick={onNext}>
+          <PremiumPrimaryButton
+            onClick={() => {
+              onNext();
+            }}
+            className="relative z-20"
+          >
             <span>Get started</span>
             <span aria-hidden className="transition-transform duration-300 group-hover:translate-x-0.5">
               →
