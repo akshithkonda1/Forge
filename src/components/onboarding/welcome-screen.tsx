@@ -154,6 +154,9 @@ export default function WelcomeScreen({ onNext }: WelcomeScreenProps) {
 
           <PremiumPrimaryButton
             onClick={() => {
+              // #region agent log
+              {const __dbg={location:'welcome-screen.tsx:GetStarted',message:'Get started onNext invoked',data:{page},timestamp:Date.now(),hypothesisId:'A'};fetch('http://127.0.0.1:7252/ingest/4f8a2c91-onboarding-step',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'onboarding-step'},body:JSON.stringify(__dbg)}).catch(()=>{});fetch('/api/agent-debug',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(__dbg)}).catch(()=>{});}
+              // #endregion
               onNext();
             }}
             className="relative z-20"

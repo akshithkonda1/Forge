@@ -149,7 +149,12 @@ export function PremiumPrimaryButton({
   return (
     <button
       type={type}
-      onClick={onClick}
+      onClick={(e) => {
+        // #region agent log
+        {const __dbg={location:'premium-atmosphere.tsx:PremiumPrimaryButton',message:'button onClick fired',data:{disabled:!!disabled,hasHandler:typeof onClick==='function',tag:(e.target as HTMLElement)?.tagName},timestamp:Date.now(),hypothesisId:'A'};fetch('http://127.0.0.1:7252/ingest/4f8a2c91-onboarding-step',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'onboarding-step'},body:JSON.stringify(__dbg)}).catch(()=>{});fetch('/api/agent-debug',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(__dbg)}).catch(()=>{});}
+        // #endregion
+        onClick?.();
+      }}
       disabled={disabled}
       className={cn(
         "premium-cta group relative flex w-full items-center justify-between overflow-hidden rounded-full px-6 py-[17px] text-[17px] font-semibold transition duration-200 active:scale-[0.98]",

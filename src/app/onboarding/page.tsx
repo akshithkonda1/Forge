@@ -42,7 +42,16 @@ export default function OnboardingPage() {
 
   const handleNext = useCallback(() => {
     const step = useAppStore.getState().onboardingStep;
+    // #region agent log
+    {const __dbg={location:'onboarding/page.tsx:handleNext',message:'handleNext entry',data:{step,hasHydrated:useAppStore.getState().hasHydrated,isOnboarded:useAppStore.getState().isOnboarded},timestamp:Date.now(),hypothesisId:'B'};fetch('http://127.0.0.1:7252/ingest/4f8a2c91-onboarding-step',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'onboarding-step'},body:JSON.stringify(__dbg)}).catch(()=>{});fetch('/api/agent-debug',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(__dbg)}).catch(()=>{});}
+    // #endregion
     setOnboardingStep(step + 1);
+    // #region agent log
+    queueMicrotask(() => {
+      const after = useAppStore.getState();
+      {const __dbg={location:'onboarding/page.tsx:handleNext:after',message:'state after setOnboardingStep',data:{onboardingStep:after.onboardingStep,hasHydrated:after.hasHydrated,isOnboarded:after.isOnboarded},timestamp:Date.now(),hypothesisId:'B'};fetch('http://127.0.0.1:7252/ingest/4f8a2c91-onboarding-step',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'onboarding-step'},body:JSON.stringify(__dbg)}).catch(()=>{});fetch('/api/agent-debug',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(__dbg)}).catch(()=>{});}
+    });
+    // #endregion
   }, [setOnboardingStep]);
 
   const handleBack = useCallback(() => {
@@ -53,6 +62,12 @@ export default function OnboardingPage() {
   const handleComplete = useCallback(() => {
     router.replace("/");
   }, [router]);
+
+  // #region agent log
+  useEffect(() => {
+    {const __dbg={location:'onboarding/page.tsx:renderGate',message:'onboarding gate/render state',data:{onboardingStep,hasHydrated,isOnboarded},timestamp:Date.now(),hypothesisId:'D'};fetch('http://127.0.0.1:7252/ingest/4f8a2c91-onboarding-step',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'onboarding-step'},body:JSON.stringify(__dbg)}).catch(()=>{});fetch('/api/agent-debug',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(__dbg)}).catch(()=>{});}
+  }, [onboardingStep, hasHydrated, isOnboarded]);
+  // #endregion
 
   if (!hasHydrated) {
     return (

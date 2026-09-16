@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { cn } from "@/lib/utils";
 import { useAppStore } from "@/stores/useAppStore";
 import type { FitnessGoal, ExperienceLevel, WorkoutType } from "@/types";
@@ -59,6 +59,15 @@ const workoutTypes: { value: WorkoutType; label: string }[] = [
 
 export default function ProfileSetup({ onNext, onBack }: ProfileSetupProps) {
   const updateProfile = useAppStore((s) => s.updateProfile);
+
+  // #region agent log
+  useEffect(() => {
+    {const __dbg={location:'profile-setup.tsx:mount',message:'ProfileSetup mounted',data:{storeStep:useAppStore.getState().onboardingStep},timestamp:Date.now(),hypothesisId:'C'};fetch('http://127.0.0.1:7252/ingest/4f8a2c91-onboarding-step',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'onboarding-step'},body:JSON.stringify(__dbg)}).catch(()=>{});fetch('/api/agent-debug',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(__dbg)}).catch(()=>{});}
+    return () => {
+      {const __dbg={location:'profile-setup.tsx:unmount',message:'ProfileSetup unmounted',data:{storeStep:useAppStore.getState().onboardingStep},timestamp:Date.now(),hypothesisId:'C'};fetch('http://127.0.0.1:7252/ingest/4f8a2c91-onboarding-step',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'onboarding-step'},body:JSON.stringify(__dbg)}).catch(()=>{});fetch('/api/agent-debug',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(__dbg)}).catch(()=>{});}
+    };
+  }, []);
+  // #endregion
 
   const [section, setSection] = useState(0);
   const [name, setName] = useState("");
