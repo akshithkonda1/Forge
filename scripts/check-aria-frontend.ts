@@ -36,14 +36,6 @@ import {
   ringStrokeWidth,
   visibleRingIndices,
 } from "../src/lib/aria-mark.ts";
-import {
-  ARIA_MARK_LIFE,
-  paintedRingOpacity,
-  ringBreathScale,
-  ringFlicker,
-  ringGlowPulse,
-  ringWobble,
-} from "../src/lib/aria-ring-field.ts";
 import { FORGE_FIRE, fireSpec, fireTongue, forgeFirePaintDue } from "../src/lib/forge-fire.ts";
 import { FORGE_SPLASH, forgeSplashHoldMs } from "../src/lib/forge-splash.ts";
 import type { DailyMetrics, ReadinessData, UserProfile } from "../src/types/index.ts";
@@ -257,22 +249,27 @@ assert(FORGE_FIRE.tickHz <= 15 && FORGE_FIRE.tickHz >= 12, "fire cadence is 12�
 assert(forgeFirePaintDue(0, -1), "first fire frame always paints");
 assert(!forgeFirePaintDue(80, 0), "sub-12 Hz fire frames are skipped");
 assert(forgeFirePaintDue(1000 / FORGE_FIRE.tickHz, 0), "12 Hz fire boundary paints");
-assert(ARIA_MARK_LIFE.tickHz === 12, "living mark paints at 12 Hz");
-assert(ARIA_MARK_LIFE.tickHz <= 12, "mark timeline is not above 12 Hz");
-assert(ARIA_MARK_LIFE.tickHz === ARIA_MARK_PAINT_HZ, "life cadence matches paint Hz");
-assert(ringFlicker(1, 0.4, true) === 1, "reduce-motion flicker is still");
-assert(ringWobble(1, 0.4, true) === 0, "reduce-motion wobble is still");
-assert(ringBreathScale(0.4, true, true) === 1, "reduce-motion breath is still");
-assert(ringBreathScale(0.4, false, false) === 1, "compact marks do not breathe");
-assert(ringFlicker(0, 0.2, false) !== ringFlicker(0, 1.0, false), "support rings flicker when alive");
-assert(ringGlowPulse(0.2, 1, false) !== ringGlowPulse(1.1, 1, false), "hero glow pulses");
+assert(ARIA_MARK_PAINT_HZ === 12, "living nest paints at 12 Hz");
+assert(NEST_PAINT_INTERVAL_MS === 1000 / ARIA_MARK_PAINT_HZ, "paint interval matches paintHz");
 for (const index of contrastRingIndices()) {
   const base = ARIA_MARK.opacity[index] ?? 0;
-  for (let t = 0; t < 4; t += 0.05) {
-    const painted = paintedRingOpacity(index, t, false);
-    assert(painted >= ARIA_MARK_CONTRAST_FLOOR, `contrast ring ${index} stays ≥0.70 after flicker`);
-    assert(base * ringFlicker(index, t, false) >= ARIA_MARK_CONTRAST_FLOOR, `flicker floor holds for ring ${index}`);
+  for (let flicker = 0.55; flicker <= 1; flicker += 0.05) {
+    assert(
+      paintedNestOpacity(base, flicker) >= ARIA_MARK_CONTRAST_FLOOR,
+      `nest contrast ring ${index} stays ≥0.70 after flicker`
+    );
   }
 }
+
+const markSrc = readFileSync("src/components/brand/aria-mark.tsx", "utf8");
+assert(markSrc.includes("drawAriaNest"), "AriaMark paints drawAriaNest");
+assert(markSrc.includes("NestStillSvg") && markSrc.includes("softHexPathD"), "AriaMark SSRs a still nest");
+assert(!markSrc.includes("drawAriaRingField"), "AriaMark retired the ring-field drawer");
+assert(markSrc.includes("nestLiveCreateId"), "AriaMark wires nest live helpers");
+
+const ringFieldSrc = readFileSync("src/lib/aria-ring-field.ts", "utf8");
+assert(ringFieldSrc.includes("@deprecated"), "ring-field helpers are marked legacy");
+assert(ringFieldSrc.includes("drawAriaNest"), "legacy ring-field shim calls the nest");
+assert(!ringFieldSrc.includes("drawWhiteOrb"), "ring-field is not the brand renderer");
 
 console.log("aria frontend checks passed");
