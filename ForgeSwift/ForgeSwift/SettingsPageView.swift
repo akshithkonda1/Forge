@@ -81,8 +81,8 @@ struct SettingsPageView: View {
                         SettingsRow(
                             icon: "folder.fill",
                             iconColor: .ember,
-                            label: "What I Know?",
-                            trailingText: "Apple Health, we spoke, other, inferences",
+                            label: "ARIA memory & voice",
+                            trailingText: "Notes, persona, tone, check-ins",
                             showChevron: true
                         )
                     }

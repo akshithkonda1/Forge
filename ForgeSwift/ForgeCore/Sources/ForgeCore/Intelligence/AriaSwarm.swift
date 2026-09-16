@@ -51,17 +51,18 @@ public enum AriaSwarm {
         _ picture: AriaSwarmPicture,
         defaults: UserDefaults = .standard
     ) -> AriaKnowledgeLedger {
-        var ledger = AriaKnowledgeLedgerStore.load(defaults: defaults)
         for item in picture.writes {
-            ledger.file(AriaKnowledgeFact(
-                category: .inferences,
-                kind: item.kind,
-                summary: item.summary,
-                source: item.source.isEmpty ? name : item.source
-            ))
+            AriaKnowledgeLedgerStore.file(
+                AriaKnowledgeFact(
+                    category: .inferences,
+                    kind: item.kind,
+                    summary: item.summary,
+                    source: item.source.isEmpty ? name : item.source
+                ),
+                defaults: defaults
+            )
         }
-        AriaKnowledgeLedgerStore.save(ledger, defaults: defaults)
-        return ledger
+        return AriaKnowledgeLedgerStore.load(defaults: defaults)
     }
 
     private static let canon: [String: String] = [

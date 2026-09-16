@@ -3,11 +3,26 @@ import Foundation
 /// Windows Explorer folders for what ARIA knows. Facts are dated and sourced.
 /// Calendar titles, attendees, and places never belong here — kinds and
 /// days-until only.
+///
+/// Consumer vault folders (Goals…Mood) are what people edit. Legacy cases
+/// stay so existing on-device JSON still decodes; they remap into the vault.
 public enum AriaKnowledgeCategory: String, Codable, CaseIterable, Sendable {
     case appleHealth
     case weSpokeAbout
     case otherData
     case inferences
+    case goals
+    case identity
+    case lifestyle
+    case preferences
+    case events
+    case healthHistory
+    case mood
+
+    /// Quill/Whoop-style vault the user sees and edits.
+    public static let managedCases: [AriaKnowledgeCategory] = [
+        .goals, .identity, .lifestyle, .preferences, .events, .healthHistory, .mood
+    ]
 
     public var title: String {
         switch self {
@@ -15,15 +30,71 @@ public enum AriaKnowledgeCategory: String, Codable, CaseIterable, Sendable {
         case .weSpokeAbout: return "We spoke about"
         case .otherData: return "Other data"
         case .inferences: return "Inferences"
+        case .goals: return "Goals"
+        case .identity: return "Identity"
+        case .lifestyle: return "Lifestyle"
+        case .preferences: return "Preferences"
+        case .events: return "Events"
+        case .healthHistory: return "Health History"
+        case .mood: return "Mood"
         }
     }
 
     public var systemImage: String {
         switch self {
-        case .appleHealth: return "heart.fill"
+        case .appleHealth, .healthHistory: return "heart.fill"
         case .weSpokeAbout: return "bubble.left.and.bubble.right.fill"
-        case .otherData: return "folder.fill"
+        case .otherData, .events: return "calendar"
         case .inferences: return "lightbulb.fill"
+        case .goals: return "target"
+        case .identity: return "person.fill"
+        case .lifestyle: return "sparkles"
+        case .preferences: return "slider.horizontal.3"
+        case .mood: return "face.smiling"
+        }
+    }
+
+    public var blurb: String {
+        switch self {
+        case .goals: return "What this season is about."
+        case .identity: return "How you live — not a biography."
+        case .lifestyle: return "The shape of a normal week."
+        case .preferences: return "How you like to be coached."
+        case .events: return "Kinds and days-until. Never titles, people, or places."
+        case .healthHistory: return "Sleep, movement, and body notes from this phone."
+        case .mood: return "How the week has actually felt."
+        case .appleHealth, .weSpokeAbout, .otherData, .inferences:
+            return title
+        }
+    }
+
+    /// Map a stored folder + kind onto the vault the user edits.
+    public func managedFolder(kind: String = "") -> AriaKnowledgeCategory {
+        if Self.managedCases.contains(self) { return self }
+        let key = kind.lowercased()
+        switch self {
+        case .appleHealth:
+            return .healthHistory
+        case .otherData:
+            return .events
+        case .weSpokeAbout:
+            if key.contains("mood") { return .mood }
+            if key.contains("goal") || key.contains("focus") { return .goals }
+            if key.contains("lifestyle") || key.contains("living") || key.contains("archetype") {
+                return .identity
+            }
+            if key.contains("wedding") || key.contains("event") { return .events }
+            if key.contains("prefer") || key.contains("sleep_need") || key.contains("coach") {
+                return .preferences
+            }
+            return .lifestyle
+        case .inferences:
+            if key.contains("mood") { return .mood }
+            if key.contains("wedding") || key.contains("calendar") { return .events }
+            if key.contains("qol") || key.contains("living") { return .identity }
+            return .lifestyle
+        default:
+            return self
         }
     }
 }
@@ -51,6 +122,10 @@ public struct AriaKnowledgeFact: Codable, Sendable, Equatable, Identifiable {
         self.source = source
         self.createdAt = createdAt
     }
+
+    public var managedFolder: AriaKnowledgeCategory {
+        category.managedFolder(kind: kind)
+    }
 }
 
 public struct AriaKnowledgeLedger: Codable, Sendable, Equatable {
@@ -66,8 +141,16 @@ public struct AriaKnowledgeLedger: Codable, Sendable, Equatable {
             .sorted { $0.createdAt > $1.createdAt }
     }
 
+    /// Vault listing — legacy folders sit in the consumer bucket they map to.
+    public func facts(inManaged folder: AriaKnowledgeCategory) -> [AriaKnowledgeFact] {
+        let target = folder.managedFolder()
+        return facts
+            .filter { $0.managedFolder == target }
+            .sorted { $0.createdAt > $1.createdAt }
+    }
+
     public mutating func file(_ fact: AriaKnowledgeFact, capPerFolder: Int = 40) {
-        let trimmed = fact.summary.trimmingCharacters(in: .whitespacesAndNewlines)
+        let trimmed = AriaFactPrivacy.sanitizeSummary(fact.summary)
         guard !trimmed.isEmpty else { return }
         facts.removeAll {
             $0.category == fact.category
@@ -92,9 +175,50 @@ public struct AriaKnowledgeLedger: Codable, Sendable, Equatable {
         facts.first { $0.kind.caseInsensitiveCompare(kind) == .orderedSame }?.summary
     }
 
+    public func latestSummary(kind: String, prefs: AriaCompanionPreferences) -> String? {
+        guard let fact = facts.first(where: { $0.kind.caseInsensitiveCompare(kind) == .orderedSame }) else {
+            return nil
+        }
+        guard prefs.allowsCoaching(fact) else { return nil }
+        return fact.summary
+    }
+
     public func latestWeeklyMood() -> Double? {
         guard let raw = latestSummary(kind: "weekly_mood") else { return nil }
         return Double(raw)
+    }
+
+    public func latestWeeklyMood(prefs: AriaCompanionPreferences) -> Double? {
+        guard let raw = latestSummary(kind: "weekly_mood", prefs: prefs) else { return nil }
+        return Double(raw)
+    }
+
+    public mutating func remove(id: String) {
+        facts.removeAll { $0.id == id }
+    }
+
+    public mutating func removeAll(in category: AriaKnowledgeCategory) {
+        facts.removeAll { $0.category == category }
+    }
+
+    public mutating func removeAll(inManaged folder: AriaKnowledgeCategory) {
+        let target = folder.managedFolder()
+        facts.removeAll { $0.managedFolder == target }
+    }
+
+    public mutating func clearAll() {
+        facts = []
+    }
+
+    /// Returns false when the cleaned summary is empty (privacy gate refused it).
+    @discardableResult
+    public mutating func updateSummary(id: String, summary: String) -> Bool {
+        let cleaned = AriaFactPrivacy.sanitizeSummary(summary)
+        guard !cleaned.isEmpty, let index = facts.firstIndex(where: { $0.id == id }) else {
+            return false
+        }
+        facts[index].summary = cleaned
+        return true
     }
 
     /// Drop a source's previous facts in one folder, then file the replacements.
@@ -135,7 +259,9 @@ public enum AriaKnowledgeLedgerStore: Sendable {
         _ fact: AriaKnowledgeFact,
         defaults: UserDefaults = .standard
     ) -> AriaKnowledgeLedger {
+        let prefs = AriaCompanionPreferencesStore.load(defaults: defaults)
         var ledger = load(defaults: defaults)
+        guard prefs.allowsAutoFiling(fact) else { return ledger }
         ledger.file(fact)
         save(ledger, defaults: defaults)
         return ledger
@@ -147,8 +273,17 @@ public enum AriaKnowledgeLedgerStore: Sendable {
         with incoming: [AriaKnowledgeFact],
         defaults: UserDefaults = .standard
     ) {
+        let prefs = AriaCompanionPreferencesStore.load(defaults: defaults)
         var ledger = load(defaults: defaults)
+        // Memory off / folder off skips ingest and never wipes stored notes.
+        guard prefs.allowsAutoFiling(category: category) else { return }
         ledger.replace(category: category, source: source, with: incoming)
+        save(ledger, defaults: defaults)
+    }
+
+    public static func remove(id: String, defaults: UserDefaults = .standard) {
+        var ledger = load(defaults: defaults)
+        ledger.remove(id: id)
         save(ledger, defaults: defaults)
     }
 }
