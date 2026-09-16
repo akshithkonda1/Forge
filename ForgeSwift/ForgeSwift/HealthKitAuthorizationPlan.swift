@@ -209,6 +209,9 @@ enum HealthKitAuthorizationPlan: Sendable {
     static let quantityIdentifiers: [HKQuantityTypeIdentifier] = [
         .heartRate, .restingHeartRate, .walkingHeartRateAverage,
         .heartRateRecoveryOneMinute, .heartRateVariabilitySDNN,
+        // RMSSD is a separate iOS 27 read type. Samples may be absent; SDNN
+        // stays on its own identifier. Not Apple Readiness. Not Health Age.
+        HealthKitHRVQuantity.rmssdIdentifier,
         .oxygenSaturation, .respiratoryRate, .bloodGlucose,
         .bloodPressureSystolic, .bloodPressureDiastolic,
         .bodyTemperature, .basalBodyTemperature, .appleSleepingWristTemperature,

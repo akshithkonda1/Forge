@@ -32,6 +32,28 @@ class ClassificationTests(unittest.TestCase):
             self.assertIsInstance(out, Observation, ident)
             self.assertEqual(out.metric, MetricType.HEART_RATE, ident)
 
+    def test_rmssd_is_not_aliased_to_sdnn(self):
+        for ident in (
+            "rmssd",
+            "hrv_rmssd",
+            "hrv-rmssd",
+            "HKQuantityTypeIdentifierHeartRateVariabilityRMSSD",
+        ):
+            out = classify_sample(sample(type=ident, value=32, unit="ms"))
+            self.assertIsInstance(out, Observation, ident)
+            self.assertEqual(out.metric, MetricType.HRV_RMSSD, ident)
+            self.assertNotEqual(out.metric, MetricType.HRV_SDNN, ident)
+
+        sdnn = classify_sample(sample(type="hrv", value=50, unit="ms"))
+        self.assertEqual(sdnn.metric, MetricType.HRV_SDNN)
+        self.assertNotEqual(sdnn.metric, MetricType.HRV_RMSSD)
+
+        model = BodyModel()
+        model.ingest(Observation(MetricType.HRV_SDNN, 55, "ms", BASE))
+        model.ingest(Observation(MetricType.HRV_RMSSD, 28, "ms", BASE))
+        self.assertEqual(model.latest(MetricType.HRV_SDNN), 55)
+        self.assertEqual(model.latest(MetricType.HRV_RMSSD), 28)
+
     def test_unit_normalization(self):
         cases = [
             (sample(type="hrv", value=0.05, unit="s"), MetricType.HRV_SDNN, 50.0),

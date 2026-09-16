@@ -57,6 +57,7 @@ class MetricType(str, Enum):
     VO2_MAX = "vo2_max"
     # Autonomic
     HRV_SDNN = "hrv_sdnn"
+    HRV_RMSSD = "hrv_rmssd"
     # Respiratory
     RESPIRATORY_RATE = "respiratory_rate"
     OXYGEN_SATURATION = "oxygen_saturation"
@@ -115,6 +116,7 @@ METRIC_REGISTRY: dict[MetricType, MetricSpec] = {
     MetricType.BLOOD_PRESSURE_DIASTOLIC: MetricSpec("mmHg", 30, 160, System.CARDIOVASCULAR, Kind.INSTANTANEOUS, Agg.LATEST, False),
     MetricType.VO2_MAX: MetricSpec("ml/kg/min", 10, 90, System.CARDIOVASCULAR, Kind.INSTANTANEOUS, Agg.LATEST, True),
     MetricType.HRV_SDNN: MetricSpec("ms", 1, 400, System.AUTONOMIC, Kind.INSTANTANEOUS, Agg.MEAN, True),
+    MetricType.HRV_RMSSD: MetricSpec("ms", 1, 400, System.AUTONOMIC, Kind.INSTANTANEOUS, Agg.MEAN, True),
     MetricType.RESPIRATORY_RATE: MetricSpec("breaths/min", 4, 60, System.RESPIRATORY, Kind.INSTANTANEOUS, Agg.MEAN, False),
     MetricType.OXYGEN_SATURATION: MetricSpec("fraction", 0.5, 1.0, System.RESPIRATORY, Kind.INSTANTANEOUS, Agg.MEAN, True),
     MetricType.BLOOD_GLUCOSE: MetricSpec("mg/dL", 20, 600, System.METABOLIC, Kind.INSTANTANEOUS, Agg.MEAN, None),

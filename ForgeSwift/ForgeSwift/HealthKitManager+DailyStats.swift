@@ -17,7 +17,8 @@ extension HealthKitManager {
         async let workouts = fetchRecentWorkouts()
         
         let (hr, cal, st, sl, hrvValue, vo2Value, wo) = await (restingHR, calories, steps, sleep, hrv, vo2Max, workouts)
-        
+        await ForgeHealthQueries.ingestHRVTruthLayer(store: healthStore)
+
         return HealthDataSnapshot(
             restingHeartRate: hr,
             activeCalories: cal,
@@ -284,6 +285,9 @@ extension HealthKitManager {
             cyclingPower: performanceValues.4 ?? 0
         )
         lastTodayStatsAt = Date()
+        // RMSSD is ingested on its own BodyModel track. `todayStats.hrv` stays
+        // SDNN from `fetchTodayHRV` — never overwritten with RMSSD.
+        await ForgeHealthQueries.ingestHRVTruthLayer(store: healthStore)
     }
 
     func fetchWeeklyTrends() async {

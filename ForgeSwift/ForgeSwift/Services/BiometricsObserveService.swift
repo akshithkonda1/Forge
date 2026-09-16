@@ -72,6 +72,13 @@ final class BiometricsObserveService {
             samples.append(.init(metric: "resting_hr", value: Double(store.dailyMetrics.restingHR),
                                  unit: "bpm", timestamp: now, source: "apple-health"))
         }
+        // RMSSD is its own metric. Weekly `hrv` above is SDNN-shaped HealthKit
+        // history — never retagged as rmssd. Emit RMSSD only when BodyModel
+        // actually ingested a sample.
+        if let rmssd = BodyModelHRVBaselineStore.load().rmssd.last, rmssd > 0 {
+            samples.append(.init(metric: "hrv_rmssd", value: rmssd, unit: "ms",
+                                 timestamp: now, source: "apple-health"))
+        }
         if let weight = store.userProfile.weight {
             samples.append(.init(metric: "weight", value: weight, unit: "kg",
                                  timestamp: now, source: "apple-health"))

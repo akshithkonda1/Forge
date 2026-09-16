@@ -81,6 +81,10 @@ final class WatchHealthKitManager {
             HKQuantityType(.bodyTemperature),
         ]
         types.insert(HKQuantityType(.appleSleepingWristTemperature))
+        // RMSSD is optional: iOS 27 identifier, ingest only when samples exist.
+        if let rmssd = HealthKitHRVQuantity.rmssdTypeIfAvailable {
+            types.insert(rmssd)
+        }
         return types
     }
 
@@ -154,6 +158,7 @@ final class WatchHealthKitManager {
         let hrvBaseValue = await hrvBase
         hrvBaselineMs = hrvBaseValue
         mindfulMinutesToday = await mindful
+        await ForgeHealthQueries.ingestHRVTruthLayer(store: store)
 
         if let workout = await workout {
             hoursSinceLastWorkout = Date().timeIntervalSince(workout.endDate) / 3600
@@ -240,16 +245,6 @@ final class WatchHealthKitManager {
     /// worn watch can wake opportunistically; it is not a guaranteed live stream.
     func startBackgroundObservers() {
         guard isAuthorized else { return }
-        if isObserving {
-            // Upgrade path: older builds observed 4 types and skipped sleep.
-            if observerQueries.count >= 5 { return }
-            for query in observerQueries {
-                store.stop(query)
-            }
-            observerQueries.removeAll()
-            isObserving = false
-        }
-        isObserving = true
         var observed: [HKSampleType] = [
             HKQuantityType(.bodyTemperature),
             HKQuantityType(.heartRateVariabilitySDNN),
@@ -257,6 +252,19 @@ final class WatchHealthKitManager {
             HKCategoryType(.sleepAnalysis),
         ]
         observed.append(HKQuantityType(.appleSleepingWristTemperature))
+        if let rmssd = HealthKitHRVQuantity.rmssdTypeIfAvailable {
+            observed.append(rmssd)
+        }
+        if isObserving {
+            // Upgrade path: older builds observed fewer types (no sleep, no RMSSD).
+            if observerQueries.count >= observed.count { return }
+            for query in observerQueries {
+                store.stop(query)
+            }
+            observerQueries.removeAll()
+            isObserving = false
+        }
+        isObserving = true
         for type in observed {
             let query = HKObserverQuery(sampleType: type, predicate: nil) { [weak self] _, completion, _ in
                 Task { @MainActor in
@@ -278,13 +286,16 @@ final class WatchHealthKitManager {
         }
         observerQueries.removeAll()
         if isObserving {
-            let types: [HKSampleType] = [
+            var types: [HKSampleType] = [
                 HKQuantityType(.bodyTemperature),
                 HKQuantityType(.heartRateVariabilitySDNN),
                 HKQuantityType(.restingHeartRate),
                 HKQuantityType(.appleSleepingWristTemperature),
                 HKCategoryType(.sleepAnalysis),
             ]
+            if let rmssd = HealthKitHRVQuantity.rmssdTypeIfAvailable {
+                types.append(rmssd)
+            }
             for type in types {
                 store.disableBackgroundDelivery(for: type) { _, _ in }
             }
