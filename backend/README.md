@@ -86,14 +86,29 @@ Use `--category all` to emit every grouping at once.
 
 ## AI Router
 
-The shared Lambda now exposes `POST /ai/router`, a Python-based Bedrock router that:
+The shared Lambda exposes `POST /ai/router`, a Python Bedrock router. **It is
+off unless `ARIA_BEDROCK_ENABLED` is true** (Terraform `aria_bedrock_enabled`
+default **false**). Dummy-offline and live-API-no-Bedrock never hit Bedrock;
+the endpoint returns 503 `bedrock_disabled`. Coach routes wrap the router and
+fall back to a deterministic answer.
+
+When the flag is on, the roster is:
 
 - starts with Claude Sonnet 4.6,
 - escalates to Claude Opus 4.7 if no answer arrives within the configured SLA window,
-- escalates again to Grok (xAI) if needed,
+- escalates again to Grok 4.6 (`global.xai.grok-4.6`) if needed,
 - activates more models immediately as `packageSizeBytes` grows toward the 10 GB cap.
 
-The primary default model is Claude Sonnet 4.6. ARIA's standing ensemble is the Claude family plus Grok — there is no third vendor. Grok is only used as the third-slot fallback.
+**Grok 4.6 is on Amazon Bedrock** (official
+[Grok 4.6 model card](https://docs.aws.amazon.com/bedrock/latest/userguide/model-card-xai-grok-4-6.html):
+mantle id `xai.grok-4.6`; runtime US Geo `us.xai.grok-4.6`; runtime Global
+`global.xai.grok-4.6`). Grok 4.3 is mantle **In-Region only** and is not this
+slot. Forge still does not invoke Grok while `aria_bedrock_enabled` is false.
+IAM allows Anthropic plus Grok CRIS (`us.xai.*` / `global.xai.*`). Account
+model-access enablement is not in Terraform. See
+`infra/ROADMAP_IAC_READINESS.md`.
+
+The primary default model is Claude Sonnet 4.6. There is no third vendor.
 
 ### Request shape
 
@@ -160,4 +175,6 @@ Defaults:
 - Slot 2: `anthropic.claude-opus-4-7`
 - Slot 3 fallback: `global.xai.grok-4.6`
 
-The third slot is configurable with `AI_ROUTER_MODEL_3_ID` and defaults to `global.xai.grok-4.6` (Grok, xAI) — the differently-trained second opinion alongside the Claude family. The router still starts with Claude Sonnet 4.6 by default.
+The three slots are configurable with `AI_ROUTER_MODEL_{1,2,3}_ID` / `_NAME`
+and default to the ids above. Those env vars are inert while Bedrock is
+disabled.

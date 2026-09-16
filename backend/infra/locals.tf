@@ -10,7 +10,7 @@ locals {
 
   generated_uploads_bucket_name = lower(
     replace(
-      "${local.name_prefix}-${local.account_id_for_naming}-${data.aws_region.current.name}-uploads",
+      "${local.name_prefix}-${local.account_id_for_naming}-${data.aws_region.current.region}-uploads",
       "_",
       "-"
     )
