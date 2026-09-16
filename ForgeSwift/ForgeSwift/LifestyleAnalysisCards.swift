@@ -77,9 +77,7 @@ struct AILifeAnalysisCard: View {
             }
         }
         .padding(22)
-        .background(Color.surface)
-        .cornerRadius(22)
-        .shadow(color: .black.opacity(0.06), radius: 16, y: 6)
+        .forgeGlassCard(cornerRadius: 22, accent: .ember)
         .onAppear { appeared = true }
     }
 
@@ -246,9 +244,7 @@ struct AIRecommendationsCard: View {
             }
         }
         .padding(22)
-        .background(Color.surface)
-        .cornerRadius(22)
-        .shadow(color: .black.opacity(0.06), radius: 16, y: 6)
+        .forgeGlassCard(cornerRadius: 22, accent: .ember)
         .onAppear { appeared = true }
     }
 }
@@ -365,9 +361,7 @@ struct OptimizationGoalsCard: View {
             }
         }
         .padding(22)
-        .background(Color.surface)
-        .cornerRadius(22)
-        .shadow(color: .black.opacity(0.06), radius: 16, y: 6)
+        .forgeGlassCard(cornerRadius: 22, accent: .ember)
         .onAppear { appeared = true }
     }
 }

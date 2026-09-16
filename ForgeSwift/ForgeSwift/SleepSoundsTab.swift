@@ -165,9 +165,7 @@ struct SleepSoundsTab: View {
             }
         }
         .padding(.horizontal, 16).padding(.vertical, 14)
-        .background(Color.surface)
-        .cornerRadius(18)
-        .overlay(RoundedRectangle(cornerRadius: 18).stroke(Color(hex: "6366F1").opacity(0.3), lineWidth: 1))
+        .forgeGlassCard(cornerRadius: 18, accent: Color(hex: "6366F1"))
         .accessibilityElement(children: .combine)
         .accessibilityLabel("Now playing \(player.kind.displayName), \(player.remainingLabel)")
     }

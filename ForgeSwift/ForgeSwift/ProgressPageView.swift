@@ -26,27 +26,17 @@ struct ProgressPageView: View {
                     accent: Color(hex: "3B82F6")
                 ) {
                     Button(action: { store.openChat(with: "Walk me through my progress, PRs, and what to train next.", voice: false) }) {
-                        ZStack {
-                            Circle()
-                                .fill(Color.surfaceElevated)
-                                .frame(width: 40, height: 40)
-                            ARIAIdentityMark(state: .idle, mood: .energized, size: 22, amplitude: 0.24)
-                        }
+                        ARIAIdentityMark(state: .idle, mood: .energized, size: 40, amplitude: 0.24)
                     }
                     .buttonStyle(.plain)
                     .accessibilityLabel("Ask ARIA about progress")
-                    Button(action: { showShareSheet = true }) {
-                        ZStack {
-                            Circle()
-                                .fill(Color.surfaceElevated)
-                                .frame(width: 40, height: 40)
-                            Image(systemName: "square.and.arrow.up")
-                                .font(.system(size: 16, weight: .semibold))
-                                .foregroundColor(.ember)
-                        }
+                    ForgeIconButton(
+                        systemImage: "square.and.arrow.up",
+                        accent: Color(hex: "3B82F6"),
+                        accessibilityLabel: "Share progress"
+                    ) {
+                        showShareSheet = true
                     }
-                    .buttonStyle(.plain)
-                    .accessibilityLabel("Share progress")
                 }
                 .padding(.top, 48)
 
@@ -164,10 +154,7 @@ struct MonthlySummaryView: View {
             }
             .padding(20)
         }
-        .background(Color.surface)
-        .cornerRadius(18)
-        .overlay(RoundedRectangle(cornerRadius: 18).stroke(Color.ember.opacity(0.15), lineWidth: 1))
-        .shadow(color: Color.ember.opacity(0.08), radius: 20, y: 8)
+        .forgeGlassCard(cornerRadius: 18, accent: .ember)
         .onAppear { appeared = true }
     }
 }
@@ -322,9 +309,7 @@ struct CalendarHeatmapView: View {
             }
         }
         .padding(20)
-        .background(Color.surface)
-        .cornerRadius(16)
-        .overlay(RoundedRectangle(cornerRadius: 16).stroke(Color.borderColor, lineWidth: 1))
+        .forgeGlassCard(cornerRadius: 16, accent: Color(hex: "3B82F6"))
     }
 }
 
@@ -384,9 +369,7 @@ struct PersonalRecordsBoardView: View {
                         }
                         .padding(.horizontal, 16)
                         .padding(.vertical, 14)
-                        .background(Color.surface)
-                        .cornerRadius(14)
-                        .overlay(RoundedRectangle(cornerRadius: 14).stroke(Color.borderColor, lineWidth: 1))
+                        .forgeGlassCard(cornerRadius: 14, accent: .ember)
                         .opacity(appear ? 1 : 0)
                         .offset(x: appear ? 0 : -12)
                         .animation(.easeOut(duration: 0.35).delay(Double(idx) * 0.07), value: appear)
@@ -443,9 +426,7 @@ struct BehavioralInsightView: View {
                 Spacer(minLength: 0)
             }
             .padding(16)
-            .background(Color.surface)
-            .cornerRadius(16)
-            .overlay(RoundedRectangle(cornerRadius: 16).stroke(Color.borderColor, lineWidth: 1))
+            .forgeGlassCard(cornerRadius: 16, accent: Color(hex: "3B82F6"))
         }
         .buttonStyle(.plain)
         .task { store.shareProgressInsightIfNeeded() }

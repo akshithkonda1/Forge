@@ -190,8 +190,7 @@ struct LifestylePlacesView: View {
             }
         }
         .padding(12)
-        .background(Color.surface)
-        .cornerRadius(14)
+        .forgeGlassCard(cornerRadius: 14, accent: .steel)
     }
 
     private var statusTitle: String {
@@ -286,8 +285,7 @@ struct LifestylePlacesView: View {
                                 .foregroundColor(.textSecondary)
                         }
                         .padding(12)
-                        .background(Color.surface)
-                        .cornerRadius(14)
+                        .forgeGlassCard(cornerRadius: 14, accent: .steel)
                     }
                     .buttonStyle(.plain)
                 }
@@ -378,8 +376,7 @@ struct LifestylePlacesView: View {
             }
         }
         .padding(12)
-        .background(Color.surface)
-        .cornerRadius(12)
+        .forgeGlassCard(cornerRadius: 12, accent: .steel)
     }
 
     private var foodFilters: some View {

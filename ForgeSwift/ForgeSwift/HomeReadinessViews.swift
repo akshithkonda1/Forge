@@ -145,8 +145,8 @@ struct ReadinessRingView: View {
         .frame(width: size, height: size)
         .onAppear {
             let anim = reduceMotion
-                ? Animation.easeOut(duration: 0.2)
-                : Animation.spring(response: 1.5, dampingFraction: 0.7).delay(0.35)
+                ? Animation.easeOut(duration: 0.15)
+                : FDS.Spring.sweep.delay(0.2)
             withAnimation(anim) { progress = CGFloat(score) / 100 }
             if !reduceMotion {
                 withAnimation(.easeInOut(duration: 2.3).repeatForever(autoreverses: true)) { glowPulse = true }
@@ -154,7 +154,7 @@ struct ReadinessRingView: View {
             }
         }
         .onChange(of: score) { _, new in
-            withAnimation(.spring(response: 0.8, dampingFraction: 0.75)) {
+            withAnimation(reduceMotion ? .easeOut(duration: 0.12) : FDS.Spring.sweep) {
                 progress = CGFloat(new) / 100
             }
         }
@@ -250,5 +250,111 @@ struct StreakCalendarSection: View {
         .homeEntrance(delay: 0.32)
         .accessibilityElement(children: .combine)
         .accessibilityLabel("This week. Checkmarks on days you trained.")
+    }
+}
+
+// MARK: - Glanceable vitals (Whoop dials × Oura Today scores × Apple ring fill)
+
+/// Sleep / Recovery / Load at a glance. Always visible — not hidden behind Details.
+struct HomeVitalsRow: View {
+    let sleep: Int
+    let recovery: Int
+    let load: Int
+    var onSelect: (() -> Void)? = nil
+
+    var body: some View {
+        HStack(spacing: 12) {
+            HomeVitalDial(
+                title: "Sleep",
+                value: sleep,
+                color: .steel,
+                delayIndex: 0,
+                onTap: onSelect
+            )
+            HomeVitalDial(
+                title: "Recovery",
+                value: recovery,
+                color: HomeReadiness.color(recovery),
+                delayIndex: 1,
+                onTap: onSelect
+            )
+            HomeVitalDial(
+                title: "Load",
+                value: load,
+                color: .ember,
+                delayIndex: 2,
+                onTap: onSelect
+            )
+        }
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("Sleep \(sleep), recovery \(recovery), load \(load)")
+    }
+}
+
+/// Whoop-style open dial: hairline track, 1.2s ease-out fill from 12 o'clock,
+/// glow instead of a drop shadow. Tabular numerals. Reduce Motion snaps.
+struct HomeVitalDial: View {
+    let title: String
+    let value: Int
+    let color: Color
+    let delayIndex: Int
+    var onTap: (() -> Void)? = nil
+
+    @State private var progress: CGFloat = 0
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    private var clamped: Int { min(max(value, 0), 100) }
+
+    var body: some View {
+        Button {
+            FDS.selectionHaptic()
+            onTap?()
+        } label: {
+            VStack(spacing: 8) {
+                ZStack {
+                    Circle()
+                        .trim(from: 0.02, to: 0.98)
+                        .stroke(Color.white.opacity(0.08), style: StrokeStyle(lineWidth: 7, lineCap: .round))
+                        .rotationEffect(.degrees(-90))
+
+                    Circle()
+                        .trim(from: 0.02, to: 0.02 + 0.96 * progress)
+                        .stroke(color.opacity(0.28), style: StrokeStyle(lineWidth: 14, lineCap: .round))
+                        .rotationEffect(.degrees(-90))
+                        .blur(radius: 8)
+
+                    Circle()
+                        .trim(from: 0.02, to: 0.02 + 0.96 * progress)
+                        .stroke(color, style: StrokeStyle(lineWidth: 7, lineCap: .round))
+                        .rotationEffect(.degrees(-90))
+                        .shadow(color: color.opacity(0.45), radius: 8)
+
+                    Text("\(clamped)")
+                        .font(.system(size: 20, weight: .bold, design: .rounded).monospacedDigit())
+                        .foregroundColor(.textPrimary)
+                        .contentTransition(.numericText())
+                }
+                .frame(width: 88, height: 88)
+
+                Text(title.uppercased())
+                    .font(.system(size: 10, weight: .semibold, design: .rounded))
+                    .tracking(1.2)
+                    .foregroundColor(.textTertiary)
+            }
+            .frame(maxWidth: .infinity)
+        }
+        .buttonStyle(.plain)
+        .onAppear {
+            let anim = reduceMotion
+                ? Animation.easeOut(duration: 0.12)
+                : FDS.Spring.sweepDelay(delayIndex)
+            withAnimation(anim) { progress = CGFloat(clamped) / 100 }
+        }
+        .onChange(of: value) { _, new in
+            withAnimation(reduceMotion ? .easeOut(duration: 0.12) : FDS.Spring.sweep) {
+                progress = CGFloat(min(max(new, 0), 100)) / 100
+            }
+        }
+        .accessibilityLabel("\(title) \(clamped)")
     }
 }

@@ -95,9 +95,7 @@ struct MusicControlBar: View {
             }
         }
         .padding(.horizontal, 14).padding(.vertical, compact ? 9 : 14)
-        .background(Color.surface).cornerRadius(compact ? 16 : 20)
-        .overlay(RoundedRectangle(cornerRadius: compact ? 16 : 20).stroke(accent.opacity(0.25), lineWidth: 1))
-        .shadow(color: .black.opacity(0.05), radius: 8, y: 3)
+        .forgeGlassCard(cornerRadius: compact ? 16 : 20, accent: accent)
     }
 
     @ViewBuilder
@@ -128,8 +126,7 @@ struct MusicControlBar: View {
                 Spacer()
             }
             .padding(.horizontal, 14).padding(.vertical, 12)
-            .background(Color.surface).cornerRadius(16)
-            .overlay(RoundedRectangle(cornerRadius: 16).stroke(Color.borderColor.opacity(0.4), lineWidth: 1))
+            .forgeGlassCard(cornerRadius: 16, accent: accent)
         }
     }
 
@@ -150,8 +147,7 @@ struct MusicControlBar: View {
                 Image(systemName: "chevron.right").font(.system(size: 12)).foregroundColor(.textMuted)
             }
             .padding(.horizontal, 14).padding(.vertical, 12)
-            .background(Color.surface).cornerRadius(16)
-            .overlay(RoundedRectangle(cornerRadius: 16).stroke(accent.opacity(0.3), lineWidth: 1))
+            .forgeGlassCard(cornerRadius: 16, accent: accent)
         }
         .buttonStyle(.plain)
     }

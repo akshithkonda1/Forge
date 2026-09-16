@@ -221,9 +221,7 @@ struct StreaksAndMilestonesView: View {
                     Spacer()
                 }
                 .padding(14)
-                .background(Color.surface)
-                .cornerRadius(12)
-                .overlay(RoundedRectangle(cornerRadius: 12).stroke(Color.warning.opacity(0.3), lineWidth: 2))
+                .forgeGlassCard(cornerRadius: 12, accent: .warning)
                 .accessibilityElement(children: .combine)
                 .accessibilityLabel("Days trained in a row: \(store.currentStreak). \(streakMessage)")
 
@@ -307,9 +305,7 @@ struct MilestoneCard: View {
             .frame(height: 5)
         }
         .padding(12)
-        .background(Color.surface)
-        .cornerRadius(12)
-        .overlay(RoundedRectangle(cornerRadius: 12).stroke(Color.borderColor, lineWidth: 1))
+        .forgeGlassCard(cornerRadius: 12, accent: Color(hex: "3B82F6"))
         .onAppear {
             withAnimation(.easeOut(duration: 1.0).delay(0.3)) {
                 animatedProgress = CGFloat(progress)
@@ -364,9 +360,7 @@ struct ShareProgressView: View {
                     .lineSpacing(5)
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .padding(16)
-                    .background(Color.surface)
-                    .cornerRadius(14)
-                    .overlay(RoundedRectangle(cornerRadius: 14).stroke(Color.borderColor, lineWidth: 1))
+                    .forgeGlassCard(cornerRadius: 14, accent: Color(hex: "3B82F6"))
                     .padding(.horizontal)
 
                 VStack(spacing: 12) {
@@ -445,8 +439,6 @@ struct ShareOptionRow: View {
                 .foregroundColor(.textTertiary)
         }
         .padding(16)
-        .background(Color.surface)
-        .cornerRadius(14)
-        .overlay(RoundedRectangle(cornerRadius: 14).stroke(Color.borderColor, lineWidth: 1))
+        .forgeGlassCard(cornerRadius: 14, accent: Color(hex: "3B82F6"))
     }
 }

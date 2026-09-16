@@ -29,9 +29,7 @@ struct SleepStreakCard: View {
                 Spacer(minLength: 0)
             }
             .padding(14)
-            .background(Color.surface)
-            .cornerRadius(16)
-            .overlay(RoundedRectangle(cornerRadius: 16).stroke(Color.borderColor.opacity(0.4), lineWidth: 1))
+            .forgeGlassCard(cornerRadius: 16, accent: .ember)
             .opacity(appeared ? 1 : 0)
             .accessibilityElement(children: .combine)
             .onAppear { withAnimation(.easeOut(duration: 0.4)) { appeared = true } }
@@ -82,9 +80,7 @@ struct AISleepPredictionCard: View {
                 }
             }
             .padding(18)
-            .background(Color.surface)
-            .cornerRadius(20)
-            .overlay(RoundedRectangle(cornerRadius: 20).stroke(Color.steel.opacity(0.25), lineWidth: 1))
+            .forgeGlassCard(cornerRadius: 20, accent: .steel)
             .opacity(appear ? 1 : 0)
             .offset(y: appear ? 0 : 10)
             .onAppear { withAnimation(.easeOut(duration: 0.4).delay(0.1)) { appear = true } }
@@ -163,8 +159,8 @@ struct AISleepEnvironmentView: View {
                 .cornerRadius(10)
             }
         }
-        .padding(18).background(Color.surface).cornerRadius(20)
-        .overlay(RoundedRectangle(cornerRadius: 20).stroke(Color.borderColor.opacity(0.4), lineWidth: 1))
+        .padding(18)
+        .forgeGlassCard(cornerRadius: 20, accent: .aurora)
         .onChange(of: pickerItem) { _, item in
             Task {
                 guard let item, let data = try? await item.loadTransferable(type: Data.self),
@@ -229,8 +225,8 @@ struct AIPersonalizedGoalsView: View {
                 .cornerRadius(10)
             }
         }
-        .padding(18).background(Color.surface).cornerRadius(20)
-        .overlay(RoundedRectangle(cornerRadius: 20).stroke(Color.borderColor.opacity(0.4), lineWidth: 1))
+        .padding(18)
+        .forgeGlassCard(cornerRadius: 20, accent: .aurora)
         .onAppear { withAnimation(.easeOut(duration: 0.5)) { appeared = true } }
         .task { await hkService.refreshGoalsNote(store: store, goals: goals) }
     }
@@ -285,8 +281,8 @@ struct AISmartRecommendationsView: View {
                 .cornerRadius(10)
             }
         }
-        .padding(18).background(Color.surface).cornerRadius(20)
-        .overlay(RoundedRectangle(cornerRadius: 20).stroke(Color.borderColor.opacity(0.4), lineWidth: 1))
+        .padding(18)
+        .forgeGlassCard(cornerRadius: 20, accent: .aurora)
         .onAppear { withAnimation(.easeOut(duration: 0.5)) { appeared = true } }
         .task {
             let debt = hkService.computeSleepDebt(from: store.sleepData)

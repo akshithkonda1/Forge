@@ -60,12 +60,7 @@ struct CoachingStylePickerView: View {
                                     }
                                 }
                                 .padding(16)
-                                .background(Color.surface)
-                                .cornerRadius(14)
-                                .overlay(
-                                    RoundedRectangle(cornerRadius: 14)
-                                        .stroke(selectedStyle == style ? Color.ember : Color.borderColor, lineWidth: selectedStyle == style ? 2 : 1)
-                                )
+                                .forgeGlassCard(cornerRadius: 14, accent: selectedStyle == style ? .ember : nil)
                             }
                             .buttonStyle(.plain)
                         }

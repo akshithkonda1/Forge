@@ -163,7 +163,7 @@ struct HomeHeaderView: View {
                     .forgeSectionLabel()
 
                 Text(greeting + (firstName.isEmpty ? "" : ", \(firstName)"))
-                    .font(.system(size: 28, weight: .bold, design: .rounded))
+                    .font(FDS.TypeScale.pageTitle())
                     .foregroundColor(.textPrimary)
                     .lineLimit(2)
                     .minimumScaleFactor(0.85)

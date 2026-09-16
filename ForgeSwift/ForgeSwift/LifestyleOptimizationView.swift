@@ -83,9 +83,7 @@ struct LocationQuickLogCard: View {
             }
         }
         .padding(20)
-        .background(Color.surface)
-        .cornerRadius(20)
-        .shadow(color: .black.opacity(0.06), radius: 16, y: 6)
+        .forgeGlassCard(cornerRadius: 20, accent: .ember)
     }
 }
 
@@ -291,11 +289,8 @@ struct TodaysFocusCard: View {
                 .cornerRadius(16)
             }
             .padding(16)
-            .background(Color.surface)
         }
-        .background(Color.surface)
-        .cornerRadius(24)
-        .shadow(color: focusArea.color.opacity(0.2), radius: 20, y: 10)
+        .forgeGlassCard(cornerRadius: 24, accent: focusArea.color)
         .onAppear { appeared = true }
     }
 }

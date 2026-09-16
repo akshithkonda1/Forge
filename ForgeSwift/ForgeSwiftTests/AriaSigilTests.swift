@@ -113,6 +113,7 @@ final class AriaSigilTests: XCTestCase {
         XCTAssertFalse(AriaMeetCopy.lead.contains(AriaMeetCopy.pairingForbidden))
         XCTAssertFalse(AriaMeetCopy.title.contains("FORGE"))
         XCTAssertEqual(AriaMeetCopy.capabilities.count, 4)
+        XCTAssertTrue(AriaMeetCopy.capabilities.allSatisfy { !$0.icon.isEmpty && !$0.title.isEmpty })
     }
 
     func testPaletteStaysPreciousNotNeon() {
@@ -264,6 +265,18 @@ final class AriaSigilTests: XCTestCase {
         let a = AriaSigilGeometry.ellipse(index: 0, time: 1.0, state: .idle, reduceMotion: false)
         let b = AriaSigilGeometry.ellipse(index: 1, time: 1.0, state: .idle, reduceMotion: false)
         XCTAssertNotEqual(a.rotation, b.rotation, accuracy: 0.0001)
+    }
+
+    func testWhiteOrbNestsInsideInnermostRing() {
+        XCTAssertEqual(AriaSigilGeometry.orbHueHex, "FFFFFF")
+        XCTAssertEqual(AriaSigilGeometry.orbNest, 0.88, accuracy: 0.0001)
+        let heroInner = AriaSigilGeometry.ellipse(index: 0, time: 0, state: .idle, reduceMotion: true)
+        let heroOrb = AriaSigilGeometry.orbCoreRadius(size: AriaSigilGeometry.heroMinimumSize)
+        XCTAssertLessThan(Double(heroOrb), (heroInner.ry / 2) * Double(AriaSigilGeometry.heroMinimumSize))
+        let compactInner = AriaSigilGeometry.ellipse(index: 1, time: 0, state: .idle, reduceMotion: true)
+        let compactOrb = AriaSigilGeometry.orbCoreRadius(size: AriaSigilGeometry.compactRecommend)
+        XCTAssertLessThan(Double(compactOrb), (compactInner.ry / 2) * Double(AriaSigilGeometry.compactRecommend))
+        XCTAssertGreaterThan(compactOrb, 0)
     }
 
     func testPearlCoreAndWatchHueRhythm() {

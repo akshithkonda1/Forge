@@ -63,10 +63,7 @@ struct MindfulTrendCard: View {
             }
         }
         .padding(18)
-        .background(Color.surface)
-        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
-        .overlay { RoundedRectangle(cornerRadius: 16).stroke(Color.borderColor.opacity(0.07), lineWidth: 1) }
-        .shadow(color: .black.opacity(0.02), radius: 6, y: 3)
+        .forgeGlassCard(cornerRadius: 16, accent: .success)
     }
 }
 
@@ -133,9 +130,7 @@ struct QOLTrendCard: View {
             }
         }
         .padding(20)
-        .background(Color.surface)
-        .clipShape(RoundedRectangle(cornerRadius: 20))
-        .shadow(color: .black.opacity(0.05), radius: 14, y: 5)
+        .forgeGlassCard(cornerRadius: 20, accent: .success)
     }
 }
 
@@ -193,9 +188,7 @@ struct DailyHabitsCard: View {
             .overlay { RoundedRectangle(cornerRadius: 12).stroke(Color.ember.opacity(0.2), lineWidth: 1) }
         }
         .padding(20)
-        .background(Color.surface)
-        .clipShape(RoundedRectangle(cornerRadius: 20))
-        .shadow(color: .black.opacity(0.06), radius: 16, y: 6)
+        .forgeGlassCard(cornerRadius: 20, accent: .success)
     }
 }
 
@@ -404,10 +397,7 @@ struct MindfulnessCard: View {
             .buttonStyle(.plain)
         }
         .padding(18)
-        .background(Color.surface)
-        .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
-        .overlay { RoundedRectangle(cornerRadius: 18, style: .continuous).stroke(Color.borderColor.opacity(0.07), lineWidth: 1) }
-        .shadow(color: .black.opacity(0.03), radius: 8, y: 4)
+        .forgeGlassCard(cornerRadius: 18, accent: .success)
         .onDisappear { timer?.invalidate() }
     }
 
@@ -497,10 +487,7 @@ struct StressManagementCard: View {
                 .fixedSize(horizontal: false, vertical: true)
         }
         .padding(18)
-        .background(Color.surface)
-        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
-        .overlay { RoundedRectangle(cornerRadius: 16).stroke(Color.borderColor.opacity(0.07), lineWidth: 1) }
-        .shadow(color: .black.opacity(0.02), radius: 6, y: 3)
+        .forgeGlassCard(cornerRadius: 16, accent: .success)
         .onAppear {
             if let stats, stats.hrv > 0 {
                 selectedLevel = stats.hrv < 35 ? 2 : stats.hrv < 50 ? 1 : 0
@@ -548,9 +535,7 @@ struct SleepOptimizationCard: View {
             }
         }
         .padding(20)
-        .background(Color.surface)
-        .clipShape(RoundedRectangle(cornerRadius: 20))
-        .shadow(color: .black.opacity(0.06), radius: 16, y: 6)
+        .forgeGlassCard(cornerRadius: 20, accent: .success)
     }
 }
 

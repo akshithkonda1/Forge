@@ -187,7 +187,7 @@ struct ForgeCardModifier: ViewModifier {
                         RoundedRectangle(cornerRadius: FDS.Radius.xl, style: .continuous)
                             .fill(
                                 RadialGradient(
-                                    colors: [accent.opacity(0.12), .clear],
+                                    colors: [accent.opacity(0.10), .clear],
                                     center: .topLeading,
                                     startRadius: 10,
                                     endRadius: 220
@@ -202,9 +202,9 @@ struct ForgeCardModifier: ViewModifier {
                     .stroke(
                         LinearGradient(
                             colors: [
-                                Color.white.opacity(0.12),
-                                Color.white.opacity(0.04),
-                                (accent ?? Color.white).opacity(0.06)
+                                Color.white.opacity(0.20),
+                                Color.white.opacity(0.06),
+                                (accent ?? Color.white).opacity(0.05)
                             ],
                             startPoint: .topLeading,
                             endPoint: .bottomTrailing
@@ -212,7 +212,7 @@ struct ForgeCardModifier: ViewModifier {
                         lineWidth: 1
                     )
             }
-            .forgeCardShadow()
+            .forgeCardShadow(glow: accent)
     }
 }
 
@@ -221,15 +221,24 @@ extension View {
         modifier(ForgeCardModifier(elevated: elevated, accent: accent))
     }
 
-    /// Screen chrome: deep black + subtle ambient gradient.
+    /// Screen chrome: cinematic dual wash — brand accent at the top-left,
+    /// cool steel at the bottom-right. Whoop / Oura / Health all sit scores
+    /// on a living dark field instead of a flat fill.
     func forgeScreenBackground(accent: Color = .ember) -> some View {
         background {
             ZStack {
                 Color.background.ignoresSafeArea()
                 RadialGradient(
-                    colors: [accent.opacity(0.05), .clear],
-                    center: UnitPoint(x: 0.2, y: 0.0),
-                    startRadius: 10,
+                    colors: [accent.opacity(0.11), accent.opacity(0.04), .clear],
+                    center: UnitPoint(x: 0.10, y: -0.04),
+                    startRadius: 6,
+                    endRadius: 440
+                )
+                .ignoresSafeArea()
+                RadialGradient(
+                    colors: [Color.steel.opacity(0.07), .clear],
+                    center: UnitPoint(x: 0.94, y: 0.92),
+                    startRadius: 8,
                     endRadius: 360
                 )
                 .ignoresSafeArea()

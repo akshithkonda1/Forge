@@ -203,16 +203,16 @@ struct MainTabView: View {
             ZStack {
                 Color.background
                 RadialGradient(
-                    colors: [Color.ember.opacity(0.07), .clear],
-                    center: UnitPoint(x: 0.2, y: 0.0),
-                    startRadius: 10,
-                    endRadius: 380
+                    colors: [Color.ember.opacity(0.11), Color.ember.opacity(0.04), .clear],
+                    center: UnitPoint(x: 0.12, y: -0.02),
+                    startRadius: 8,
+                    endRadius: 440
                 )
                 RadialGradient(
-                    colors: [Color.steel.opacity(0.05), .clear],
-                    center: UnitPoint(x: 0.95, y: 0.85),
+                    colors: [Color.steel.opacity(0.07), .clear],
+                    center: UnitPoint(x: 0.94, y: 0.88),
                     startRadius: 8,
-                    endRadius: 320
+                    endRadius: 360
                 )
             }
             .ignoresSafeArea()
@@ -395,13 +395,19 @@ struct ForgeBottomNav: View {
                 )
                 .fill(Color.background.opacity(0.52))
                 LinearGradient(
-                    colors: [Color.white.opacity(0.08), Color.clear],
+                    colors: [Color.white.opacity(0.12), Color.ember.opacity(0.04), Color.clear],
                     startPoint: .top,
                     endPoint: .center
                 )
                 Rectangle()
-                    .fill(Color.white.opacity(0.12))
-                    .frame(height: 0.5)
+                    .fill(
+                        LinearGradient(
+                            colors: [Color.white.opacity(0.22), Color.ember.opacity(0.18), Color.white.opacity(0.08)],
+                            startPoint: .leading,
+                            endPoint: .trailing
+                        )
+                    )
+                    .frame(height: 0.6)
                     .frame(maxHeight: .infinity, alignment: .top)
             }
             .ignoresSafeArea(edges: .bottom)
@@ -430,7 +436,8 @@ struct RegularForgeTab: View {
                     Image(systemName: isActive ? tab.systemImageFilled : tab.systemImage)
                         .font(.system(size: 18, weight: isActive ? .semibold : .regular))
                         .foregroundStyle(isActive ? Color.ember : Color.white.opacity(0.38))
-                        .shadow(color: isActive ? Color.ember.opacity(0.45) : .clear, radius: 6, y: 0)
+                        .shadow(color: isActive ? Color.ember.opacity(0.62) : .clear, radius: 8, y: 0)
+                        .scaleEffect(isActive ? 1.06 : 1.0)
                         .frame(height: 22)
                         .symbolRenderingMode(.hierarchical)
                     if isActive {

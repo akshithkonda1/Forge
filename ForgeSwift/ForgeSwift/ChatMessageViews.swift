@@ -164,7 +164,7 @@ struct MessageBubbleView: View {
                                         Color.surfaceElevated
                                             .overlay(LinearGradient.premiumSurface)
                                             .overlay(ChatBubbleShape(isTrainer: true)
-                                                .stroke(Color.white.opacity(0.10), lineWidth: 1))
+                                                .stroke(Color.white.opacity(0.16), lineWidth: 1))
                                     } else {
                                         FDS.Gradient.emberDeep
                                     }
