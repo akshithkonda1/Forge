@@ -6,7 +6,11 @@ import { cn } from "@/lib/utils";
 import { useAppStore } from "@/stores/useAppStore";
 import { whisperForStep } from "@/lib/aria-onboarding";
 import AriaCompanion from "./aria-companion";
-import { PremiumPrimaryButton } from "@/components/brand/premium-atmosphere";
+import {
+  PremiumAtmosphere,
+  PremiumEntrance,
+  PremiumPrimaryButton,
+} from "@/components/brand/premium-atmosphere";
 import type { CoachingStyle as CoachingStyleType } from "@/types";
 
 interface CoachingStyleProps {
@@ -57,6 +61,7 @@ export default function CoachingStyleScreen({
   const updateProfile = useAppStore((s) => s.updateProfile);
   const setOnboarded = useAppStore((s) => s.setOnboarded);
   const seedAriaWelcome = useAppStore((s) => s.seedAriaWelcome);
+  const meetAria = useAppStore((s) => s.meetAria);
   const userProfile = useAppStore((s) => s.userProfile);
   const [selected, setSelected] = useState<CoachingStyleType | null>(null);
 
@@ -64,21 +69,24 @@ export default function CoachingStyleScreen({
     if (!selected) return;
     updateProfile({ coachingStyle: selected });
     setOnboarded(true);
+    meetAria();
     seedAriaWelcome();
     onComplete();
   };
 
   return (
-    <div className="flex min-h-[100dvh] flex-col overflow-y-auto px-6 pb-8 pt-16">
+    <div className="relative flex min-h-[100dvh] flex-col overflow-y-auto px-6 pb-8 pt-16">
+      <PremiumAtmosphere accent="#FF6B2B" secondary="#A9D8FF" intensity={0.5} />
+      <div className="relative z-10 flex flex-1 flex-col">
       {/* Header */}
-      <div className="mb-4">
+      <PremiumEntrance index={0} className="mb-4">
         <h2 className="mb-2 text-3xl font-semibold tracking-tight text-text-primary">
           How do you like to be coached?
         </h2>
         <p className="text-text-tertiary">
           This shapes ARIA&apos;s voice — every check-in, plan, and recovery nudge.
         </p>
-      </div>
+      </PremiumEntrance>
 
       <div className="mb-5">
         <AriaCompanion
@@ -162,6 +170,7 @@ export default function CoachingStyleScreen({
         <span>Start with ARIA</span>
         <span aria-hidden>→</span>
       </PremiumPrimaryButton>
+      </div>
     </div>
   );
 }

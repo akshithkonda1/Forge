@@ -7,7 +7,7 @@ import { cn } from "@/lib/utils";
 import { useAppStore } from "@/stores/useAppStore";
 import { whisperForStep } from "@/lib/aria-onboarding";
 import AriaCompanion from "./aria-companion";
-import { PremiumPrimaryButton } from "@/components/brand/premium-atmosphere";
+import { PremiumAtmosphere, PremiumEntrance, PremiumPrimaryButton } from "@/components/brand/premium-atmosphere";
 
 interface DeviceConnectionProps {
   onNext: () => void;
@@ -132,7 +132,9 @@ export default function DeviceConnection({ onNext }: DeviceConnectionProps) {
   };
 
   return (
-    <div className="flex min-h-[100dvh] flex-col overflow-y-auto px-6 pb-8 pt-16">
+    <div className="relative flex min-h-[100dvh] flex-col overflow-y-auto px-6 pb-8 pt-16">
+      <PremiumAtmosphere accent="#60A5FA" secondary="#A9D8FF" intensity={0.5} />
+      <div className="relative z-10 flex flex-1 flex-col">
       {/* Header */}
       <motion.div
         initial={{ opacity: 0, y: 16 }}
@@ -247,6 +249,7 @@ export default function DeviceConnection({ onNext }: DeviceConnectionProps) {
           <span aria-hidden>→</span>
         </PremiumPrimaryButton>
       </motion.div>
+      </div>
     </div>
   );
 }
