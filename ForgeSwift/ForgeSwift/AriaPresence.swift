@@ -152,10 +152,10 @@ final class AriaPresence: NSObject, AVSpeechSynthesizerDelegate {
         }
     }
 
-    /// Speaks `text` only as the dummy/local DEBUG fill-in while a character
-    /// session is active. Production ARIA is the designed ConvAI speaker —
-    /// this method never enqueues Apple TTS as her live mouth. Onboarding,
-    /// welcome, and Train stay text (or silent) unless that session is up.
+    /// Speaks `text` as the dummy/local fill-in while a character session is
+    /// active. Production live ARIA is ConvAI — this never enqueues Apple TTS
+    /// as her live mouth. Onboarding, welcome, and Train stay quiet until a
+    /// voice session starts or they unmute.
     ///
     /// Pass `interrupt: false` to queue behind a line that is already playing.
     func speak(

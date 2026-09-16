@@ -20,6 +20,7 @@ from test_backend_handler import body, event  # noqa: E402
 REPO = Path(__file__).resolve().parents[2]
 SWIFT_VOICE = REPO / "ForgeSwift" / "ForgeSwift" / "AriaCharacterVoice.swift"
 SWIFT_SESSION = REPO / "ForgeSwift" / "ForgeSwift" / "AriaVoiceSession.swift"
+SWIFT_SPOKEN = REPO / "ForgeSwift" / "ForgeSwift" / "AriaSpokenVoice.swift"
 
 
 def _swift_string(name: str) -> str:
@@ -75,6 +76,31 @@ class VoiceDesignPromptTests(unittest.TestCase):
         self.assertIn("AriaVoiceTransport.resolveCurrent", session)
         self.assertIn("shouldUseTestReadyDummy", SWIFT_VOICE.read_text(encoding="utf-8"))
         self.assertNotIn("api.elevenlabs.io", SWIFT_VOICE.read_text(encoding="utf-8"))
+
+
+class VoiceMustRunContractTests(unittest.TestCase):
+    """Dummy-offline / Voice-mode start must actually produce a mouth."""
+
+    def test_dummy_fill_in_is_not_debug_gated(self):
+        voice = SWIFT_VOICE.read_text(encoding="utf-8")
+        start = voice.index("static func allowsDummyFillIn")
+        end = voice.index("static func shouldEnqueueAppleUtterance")
+        mouth = voice[start:end]
+        self.assertNotIn(
+            "guard isDebugBuild",
+            mouth,
+            "TestFlight Dummy-offline has no ConvAI — Release fill-in must run",
+        )
+        self.assertIn("return transport.usesOnDeviceBrain", mouth)
+
+    def test_new_voice_session_unmutes_so_the_mouth_can_run(self):
+        spoken = SWIFT_SPOKEN.read_text(encoding="utf-8")
+        session = SWIFT_SESSION.read_text(encoding="utf-8")
+        self.assertIn("shouldUnmuteForNewSession", spoken)
+        self.assertIn("unmuteBecauseVoiceSessionStarted", spoken)
+        self.assertIn("!isResumingExistingSession", spoken)
+        self.assertIn("unmuteBecauseVoiceSessionStarted()", session)
+        self.assertIn("shouldUnmuteForNewSession(isResumingExistingSession: resuming)", session)
 
 
 class ProviderSecretTests(unittest.TestCase):

@@ -4,10 +4,22 @@ import SwiftUI
 import UIKit
 
 /// App-wide spoken mute. Missing key means muted — ARIA does not talk until
-/// the user unmutes. Compact TTS reading every screen is the Hawking fail;
-/// silence until they ask is the product.
+/// they ask. Compact TTS reading every screen is the Hawking fail.
+/// Starting a voice session (orb / Voice mode) is the ask — that path
+/// unmutes so Dummy fill-in and live ConvAI actually run. The mute button
+/// still silences after that.
 enum AriaSpokenMute: Sendable {
     static let mutedKey = "aria.spoken.muted"
+
+    /// New voice-session start is an explicit ask. Resume of an already
+    /// running session keeps the current mute (they may have muted mid-talk).
+    static func shouldUnmuteForNewSession(isResumingExistingSession: Bool) -> Bool {
+        !isResumingExistingSession
+    }
+
+    static func unmuteBecauseVoiceSessionStarted() {
+        isMuted = false
+    }
 
     /// When the key has never been written, she stays quiet.
     static var isMuted: Bool {
