@@ -15,7 +15,7 @@ export type EmberDrawInput = {
 
 /**
  * Retired 4-lobe gooey ember. Unused by brand slots — do not ship as the ARIA mark.
- * Living contract is the B+E nest in `ARIA_MARK`. Kept so a cleanup can delete this file.
+ * Living renderer is `drawAriaNest`. Kept so a cleanup can delete this file.
  */
 export function drawAriaEmber(
   ctx: CanvasRenderingContext2D,
