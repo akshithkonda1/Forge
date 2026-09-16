@@ -178,22 +178,23 @@ struct WorkoutIdleView: View {
             .foregroundColor(.textSecondary)
             .frame(maxWidth: .infinity)
             .padding(.vertical, 10)
-            .background(Color.surface)
-            .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+            .forgeGlassCard(cornerRadius: 12, accent: .ember)
         }
         .buttonStyle(.plain)
     }
 
     private func idleHeader(workout: WorkoutPlan) -> some View {
         VStack(alignment: .leading, spacing: 14) {
-            HStack(alignment: .firstTextBaseline) {
+            HStack(alignment: .center) {
                 Text(dayCall.title)
                     .font(.system(size: 13, weight: .black, design: .rounded))
                     .tracking(1.2)
                     .foregroundColor(dayCall == .train ? .ember : dayCall == .rest ? .steel : .warning)
                 Spacer()
+                ARIAIdentityMark(state: .idle, mood: .energized, size: 28, amplitude: 0.2)
                 Text("Readiness \(store.readiness.overall)")
-                    .font(.system(size: 12, weight: .semibold))
+                    .font(.system(size: 12, weight: .semibold, design: .rounded))
+                    .monospacedDigit()
                     .foregroundColor(.textTertiary)
             }
 
@@ -383,9 +384,8 @@ private struct AdaptiveScalingCard: View {
                 .cornerRadius(13)
             }
         }
-        .padding(18).background(Color.surface).cornerRadius(20)
-        .overlay(RoundedRectangle(cornerRadius: 20).stroke(scaling.tone.opacity(0.2), lineWidth: 1))
-        .shadow(color: .black.opacity(0.05), radius: 12, y: 5)
+        .padding(18)
+        .forgeGlassCard(cornerRadius: 20, accent: scaling.tone)
     }
 }
 
@@ -486,8 +486,8 @@ private struct ReadinessIntensityArc: View {
             }
             Spacer()
         }
-        .padding(16).background(Color.surface).cornerRadius(18)
-        .overlay(RoundedRectangle(cornerRadius: 18).stroke(matchColor.opacity(0.2), lineWidth: 1))
+        .padding(16)
+        .forgeGlassCard(cornerRadius: 18, accent: matchColor)
         .onAppear { appeared = true }
     }
 }
@@ -733,8 +733,8 @@ struct WorkoutInsightsView: View {
                 }
             }
         }
-        .padding(20).background(Color.surface).cornerRadius(22)
-        .shadow(color: .black.opacity(0.05), radius: 12, y: 5)
+        .padding(20)
+        .forgeGlassCard(cornerRadius: 22, accent: .ember)
         .onAppear { appeared = true }
         .task { store.shareWorkoutInsightsIfNeeded(insights.map(\.text)) }
     }
@@ -799,14 +799,19 @@ struct WorkoutEmptyState: View {
         VStack(spacing: 24) {
             Spacer()
             ZStack {
-                Circle().fill(Color.ember.opacity(0.08)).frame(width: 130, height: 130).blur(radius: 24)
-                Image(systemName: "dumbbell.fill").font(.system(size: 58)).foregroundColor(.ember.opacity(0.5))
+                Circle()
+                    .fill(RadialGradient(colors: [Color.ember.opacity(0.22), .clear], center: .center, startRadius: 8, endRadius: 80))
+                    .frame(width: 160, height: 160)
+                    .blur(radius: 12)
+                AuroraOrbView(state: .idle, amplitude: 0.30, mood: .energized, size: 112, followPresence: true)
             }
             .scaleEffect(appeared ? 1 : 0.8).opacity(appeared ? 1 : 0)
             VStack(spacing: 10) {
-                Text("No session on the board").font(.system(size: 24, weight: .bold)).foregroundColor(.textPrimary)
+                Text("No session on the board")
+                    .font(FDS.TypeScale.pageTitle(28))
+                    .foregroundColor(.textPrimary)
                 Text("ARIA writes a session from sleep, readiness, and the week you actually have — preview it here, then start when you’re ready.")
-                    .font(.system(size: 15)).foregroundColor(.textSecondary)
+                    .font(.system(size: 15, weight: .medium, design: .rounded)).foregroundColor(.textSecondary)
                     .multilineTextAlignment(.center).lineSpacing(5).padding(.horizontal, 44)
             }
             .opacity(appeared ? 1 : 0).offset(y: appeared ? 0 : 18)
@@ -817,27 +822,21 @@ struct WorkoutEmptyState: View {
                     .opacity(appeared ? 1 : 0)
             }
             VStack(spacing: 12) {
-                Button {
-                    UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+                ForgePrimaryButton(title: "Write today’s session", icon: "sparkles") {
                     store.rebuildTodayPlanFromLife()
-                } label: {
-                    HStack(spacing: 8) {
-                        Image(systemName: "sparkles").font(.system(size: 16))
-                        Text("Write today’s session").font(.system(size: 17, weight: .semibold))
-                    }
-                    .foregroundColor(.white).padding(.horizontal, 32).padding(.vertical, 17)
-                    .background(Color.ember).cornerRadius(18)
-                    .shadow(color: Color.ember.opacity(0.45), radius: 18, y: 8)
                 }
+                .padding(.horizontal, 28)
                 Button { showLibrary = true } label: {
                     HStack(spacing: 8) {
                         Image(systemName: "books.vertical.fill").font(.system(size: 14))
-                        Text("Browse the library").font(.system(size: 15, weight: .semibold))
+                        Text("Browse the library").font(.system(size: 15, weight: .semibold, design: .rounded))
                     }
                     .foregroundColor(.steel).padding(.horizontal, 24).padding(.vertical, 13)
-                    .background(Color.steel.opacity(0.1)).cornerRadius(16)
-                    .overlay(RoundedRectangle(cornerRadius: 16).stroke(Color.steel.opacity(0.3), lineWidth: 1))
+                    .background(Color.steel.opacity(0.12))
+                    .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+                    .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous).stroke(Color.steel.opacity(0.3), lineWidth: 1))
                 }
+                .buttonStyle(.plain)
             }
             .opacity(appeared ? 1 : 0).scaleEffect(appeared ? 1 : 0.92)
             Spacer(); Spacer()

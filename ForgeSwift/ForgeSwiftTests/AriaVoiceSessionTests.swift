@@ -67,7 +67,7 @@ final class AriaVoiceSessionTests: XCTestCase {
         )
     }
 
-    func testDummyFillInIsDebugOnlyAndNeverLive() {
+    func testDummyFillInRunsInReleaseAndNeverOnLive() {
         XCTAssertTrue(
             AriaVoiceMouth.allowsDummyFillIn(transport: .dummy, isDebugBuild: true)
         )
@@ -77,16 +77,20 @@ final class AriaVoiceSessionTests: XCTestCase {
         XCTAssertFalse(
             AriaVoiceMouth.allowsDummyFillIn(transport: .live, isDebugBuild: true)
         )
-        XCTAssertFalse(
+        XCTAssertTrue(
             AriaVoiceMouth.allowsDummyFillIn(transport: .dummy, isDebugBuild: false),
-            "Release dummy still has session UX, not a second product voice"
+            "TestFlight Dummy-offline has no ConvAI — the fill-in mouth must run"
+        )
+        XCTAssertTrue(
+            AriaVoiceMouth.allowsDummyFillIn(transport: .localTesting, isDebugBuild: false),
+            "On-device brain still fills in outside DEBUG"
         )
         XCTAssertTrue(
             AriaVoiceMouth.shouldEnqueueAppleUtterance(
                 isMuted: false,
                 sessionActive: true,
                 transport: .dummy,
-                isDebugBuild: true
+                isDebugBuild: false
             )
         )
         XCTAssertFalse(
@@ -98,6 +102,23 @@ final class AriaVoiceSessionTests: XCTestCase {
             ),
             "Live failure / live success both refuse Apple TTS as the mouth"
         )
+    }
+
+    func testNewVoiceSessionUnmutesSoTheMouthCanRun() {
+        XCTAssertTrue(
+            AriaSpokenMute.shouldUnmuteForNewSession(isResumingExistingSession: false),
+            "Orb / Voice mode is the ask — default mute must not keep her silent"
+        )
+        XCTAssertFalse(
+            AriaSpokenMute.shouldUnmuteForNewSession(isResumingExistingSession: true),
+            "A mid-session mute stays until they unmute"
+        )
+        let originalMuted = AriaSpokenMute.isMuted
+        defer { AriaSpokenMute.isMuted = originalMuted }
+        AriaSpokenMute.isMuted = true
+        AriaSpokenMute.unmuteBecauseVoiceSessionStarted()
+        XCTAssertFalse(AriaSpokenMute.isMuted)
+        XCTAssertTrue(AriaSpokenMute.allowsSpeech)
     }
 
     func testProductionMouthIsNotAppleTTS() {

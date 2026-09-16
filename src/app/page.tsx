@@ -9,18 +9,39 @@ import { ChatPage } from "@/components/chat/chat-page";
 import { WorkoutPage } from "@/components/workout/workout-page";
 import { SleepPage } from "@/components/sleep/sleep-page";
 import { ProfileTab } from "@/components/profile/profile-tab";
-import { AriaMark } from "@/components/brand/aria-mark";
-import { ForgeWordmark } from "@/components/brand/forge-wordmark";
 import { AriaIntro } from "@/components/brand/aria-intro";
+import { AriaMark } from "@/components/brand/aria-mark";
+import { ForgeBrandFlame, ForgeFireField } from "@/components/brand/forge-fire";
+import { forgeSplashHoldMs } from "@/lib/forge-splash";
 import { cn } from "@/lib/utils";
 
 const TABS: TabId[] = ["home", "chat", "workout", "sleep", "profile"];
+let didFinishSplash = false;
 
-function BootSplash() {
+function BootSplash({ live = false }: { live?: boolean }) {
   return (
-    <div className="flex min-h-[100dvh] flex-col items-center justify-center bg-background">
-      <AriaMark size={96} label="ARIA" />
-      <ForgeWordmark className="mt-5" />
+    <div className="relative flex min-h-[100dvh] flex-col items-center justify-center overflow-hidden bg-background">
+      <ForgeFireField live={live} intensity="rage" origin="floor" className="opacity-80" />
+      <div className="relative z-10 flex flex-col items-center">
+        <div className="relative flex h-56 w-56 items-center justify-center">
+          <ForgeFireField intensity="rage" origin="hearth" className="opacity-90" />
+          <div
+            className="pointer-events-none absolute inset-8 rounded-full"
+            style={{
+              background:
+                "radial-gradient(circle, rgba(10,10,10,0.72) 0%, rgba(10,10,10,0.2) 55%, transparent 70%)",
+            }}
+          />
+          <AriaMark size={148} speaking label="ARIA" className="relative z-10" />
+        </div>
+        <div className="mt-5 flex items-center gap-2 text-[32px] font-black tracking-[0.28em] text-white">
+          <ForgeBrandFlame size={26} />
+          FORGE
+        </div>
+        <p className="mt-3 text-[13px] font-semibold uppercase tracking-[0.32em] text-ember">
+          Forged.
+        </p>
+      </div>
     </div>
   );
 }
@@ -64,6 +85,7 @@ export default function Page() {
   const mainRef = useRef<HTMLElement>(null);
   const [visited, setVisited] = useState<TabId[]>([activeTab]);
   const [showLaunchMeet, setShowLaunchMeet] = useState(true);
+  const [showSplash, setShowSplash] = useState(!didFinishSplash);
 
   useEffect(() => {
     const finish = () => setHasHydrated(true);
@@ -71,6 +93,16 @@ export default function Page() {
     if (useAppStore.persist.hasHydrated()) finish();
     return unsub;
   }, [setHasHydrated]);
+
+  useEffect(() => {
+    if (!showSplash) return;
+    const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    const timer = window.setTimeout(() => {
+      didFinishSplash = true;
+      setShowSplash(false);
+    }, forgeSplashHoldMs(reduce));
+    return () => window.clearTimeout(timer);
+  }, [showSplash]);
 
   useEffect(() => {
     if (!hasHydrated) return;
@@ -85,11 +117,11 @@ export default function Page() {
     window.scrollTo(0, 0);
   }, [activeTab]);
 
-  if (!hasHydrated) {
-    return <BootSplash />;
+  if (showSplash) {
+    return <BootSplash live />;
   }
 
-  if (!isOnboarded) {
+  if (!hasHydrated || !isOnboarded) {
     return <BootSplash />;
   }
 

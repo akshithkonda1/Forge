@@ -56,12 +56,7 @@ struct LifestyleView: View {
                             }
                         }
                         .padding(14)
-                        .background(Color.warning.opacity(0.1))
-                        .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
-                        .overlay(
-                            RoundedRectangle(cornerRadius: 14, style: .continuous)
-                                .stroke(Color.warning.opacity(0.25), lineWidth: 1)
-                        )
+                        .forgeGlassCard(cornerRadius: 14, accent: .warning)
                     }
                     .buttonStyle(.plain)
                     .padding(.horizontal, 20)
@@ -237,10 +232,17 @@ struct LifestyleBackground: View {
     var body: some View {
         ZStack {
             Color.background
-            LinearGradient(
-                colors: [accentColor.opacity(0.05), .clear],
-                startPoint: .topLeading,
-                endPoint: .bottomTrailing
+            RadialGradient(
+                colors: [accentColor.opacity(0.12), accentColor.opacity(0.04), .clear],
+                center: UnitPoint(x: 0.12, y: -0.04),
+                startRadius: 8,
+                endRadius: 420
+            )
+            RadialGradient(
+                colors: [Color.steel.opacity(0.06), .clear],
+                center: UnitPoint(x: 0.92, y: 0.90),
+                startRadius: 8,
+                endRadius: 320
             )
         }
         .animation(.easeInOut(duration: 0.35), value: segment)
@@ -257,10 +259,10 @@ struct LifestyleHeaderView: View {
         HStack(alignment: .center) {
             VStack(alignment: .leading, spacing: 5) {
                 Text("Lifestyle")
-                    .font(.system(size: 28, weight: .semibold, design: .rounded))
+                    .font(FDS.TypeScale.pageTitle())
                     .foregroundColor(.textPrimary)
                 Text("How you eat, move, and live")
-                    .font(.system(size: 14, weight: .medium, design: .rounded))
+                    .font(.system(size: 15, weight: .medium, design: .rounded))
                     .foregroundColor(.textSecondary)
             }
 
@@ -268,42 +270,36 @@ struct LifestyleHeaderView: View {
 
             // QOL score chip + AI button
             HStack(spacing: 12) {
-                VStack(spacing: 2) {
-                    Text("\(metrics.qualityOfLifeScore)")
-                        .font(.system(size: 20, weight: .black, design: .rounded))
-                        .foregroundColor(.textPrimary)
-                    Text("QOL")
-                        .font(.system(size: 9, weight: .semibold, design: .rounded))
-                        .foregroundColor(.textTertiary)
-                        .tracking(1.5)
+                ZStack {
+                    Circle()
+                        .stroke(Color.white.opacity(0.08), lineWidth: 3)
+                        .frame(width: 46, height: 46)
+                    Circle()
+                        .trim(from: 0, to: CGFloat(min(100, max(0, metrics.qualityOfLifeScore))) / 100)
+                        .stroke(Color.vitality, style: StrokeStyle(lineWidth: 3, lineCap: .round))
+                        .rotationEffect(.degrees(-90))
+                        .frame(width: 46, height: 46)
+                        .animation(FDS.Spring.sweep, value: metrics.qualityOfLifeScore)
+                    VStack(spacing: 0) {
+                        Text("\(metrics.qualityOfLifeScore)")
+                            .font(.system(size: 13, weight: .black, design: .rounded))
+                            .monospacedDigit()
+                            .foregroundColor(.textPrimary)
+                    }
                 }
-                .padding(.horizontal, 12)
-                .padding(.vertical, 8)
-                .background(Color.white.opacity(0.05))
-                .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
-                .overlay(
-                    RoundedRectangle(cornerRadius: 12, style: .continuous)
-                        .stroke(Color.white.opacity(0.10), lineWidth: 1)
-                )
+                .accessibilityLabel("Quality of life \(metrics.qualityOfLifeScore)")
 
-                Button {
-                    FDS.haptic(.light)
+                ForgeIconButton(
+                    systemImage: "drop.fill",
+                    accent: Color(hex: "4A9EFF"),
+                    accessibilityLabel: "Open hydration"
+                ) {
                     store.openHydration()
-                } label: {
-                    Image(systemName: "drop.fill")
-                        .font(.system(size: 16, weight: .semibold))
-                        .foregroundStyle(Color(hex: "4A9EFF"))
-                        .frame(width: 40, height: 40)
-                        .background(Color(hex: "4A9EFF").opacity(0.14))
-                        .clipShape(Circle())
-                        .overlay(Circle().stroke(Color(hex: "4A9EFF").opacity(0.28), lineWidth: 1))
                 }
-                .buttonStyle(.plain)
-                .accessibilityLabel("Open hydration")
 
                 Button {
-                    withAnimation(.spring(response: 0.35, dampingFraction: 0.72)) { showInsights = true }
                     FDS.haptic(.light)
+                    withAnimation(.spring(response: 0.35, dampingFraction: 0.72)) { showInsights = true }
                 } label: {
                     ARIAIdentityMark(state: .idle, mood: .energized, size: 40, amplitude: 0.24)
                 }

@@ -186,12 +186,9 @@ struct WorkoutHistoryListView: View {
                             .transition(.opacity.combined(with: .move(edge: .top)))
                         }
                     }
-                    .background(Color.surface)
-                    .cornerRadius(14)
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 14)
-                            .stroke(selectedWorkout?.id == workout.id ? Color.ember : Color.borderColor,
-                                   lineWidth: selectedWorkout?.id == workout.id ? 2 : 1)
+                    .forgeGlassCard(
+                        cornerRadius: 14,
+                        accent: selectedWorkout?.id == workout.id ? .ember : nil
                     )
                 }
             }
@@ -203,9 +200,7 @@ struct WorkoutHistoryListView: View {
                         .foregroundColor(.ember)
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 12)
-                        .background(Color.surface)
-                        .cornerRadius(12)
-                        .overlay(RoundedRectangle(cornerRadius: 12).stroke(Color.borderColor, lineWidth: 1))
+                        .forgeGlassCard(cornerRadius: 12, accent: .ember)
                 }
                 .buttonStyle(.plain)
             }

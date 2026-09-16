@@ -334,7 +334,7 @@ struct ExerciseDetailSheet: View {
                                 }
                             }
                             .padding(16).frame(maxWidth: .infinity, alignment: .leading)
-                            .background(Color.surface).cornerRadius(16)
+                            .forgeGlassCard(cornerRadius: 16, accent: .ember)
                         }
                         Button {
                             FDS.haptic(.medium)
@@ -414,7 +414,7 @@ struct ExerciseDetailSheet: View {
             }
         }
         .padding(16).frame(maxWidth: .infinity, alignment: .leading)
-        .background(Color.surface).cornerRadius(16)
+        .forgeGlassCard(cornerRadius: 16, accent: .ember)
     }
 }
 

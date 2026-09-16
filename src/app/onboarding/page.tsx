@@ -9,6 +9,7 @@ import WelcomeScreen from "@/components/onboarding/welcome-screen";
 import ProfileSetup from "@/components/onboarding/profile-setup";
 import DeviceConnection from "@/components/onboarding/device-connection";
 import CoachingStyleScreen from "@/components/onboarding/coaching-style";
+import { AriaMark } from "@/components/brand/aria-mark";
 
 const FLOW_STEPS = 3;
 
@@ -62,6 +63,7 @@ export default function OnboardingPage() {
           >
             <ChevronLeft size={18} />
           </button>
+          <AriaMark size={36} speaking={onboardingStep === 3} className="absolute right-4 top-2.5" />
           {Array.from({ length: FLOW_STEPS }).map((_, i) => {
             const step = i + 1;
             return (

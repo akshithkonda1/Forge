@@ -96,12 +96,7 @@ struct SleepNightTab: View {
                             .foregroundColor(.ember)
                     }
                     .padding(16)
-                    .background(Color.surface)
-                    .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 18, style: .continuous)
-                            .stroke(Color.ember.opacity(0.22), lineWidth: 1)
-                    )
+                    .forgeGlassCard(cornerRadius: 18, accent: .ember)
                 }
                 .buttonStyle(.plain)
 
@@ -145,8 +140,7 @@ struct SleepInBedFact: View {
         }
         .padding(16)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Color.surface)
-        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+        .forgeGlassCard(cornerRadius: 16, accent: .aurora)
     }
 }
 
@@ -256,8 +250,7 @@ struct SleepInBedCard: View {
         }
         .padding(16)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Color.surface)
-        .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+        .forgeGlassCard(cornerRadius: 18, accent: .aurora)
         .sheet(isPresented: $showLogSheet) {
             NavigationStack {
                 Form {
@@ -385,8 +378,7 @@ struct SleepEveningStoryCard: View {
         }
         .padding(16)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Color.surface)
-        .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+        .forgeGlassCard(cornerRadius: 18, accent: .aurora)
         .accessibilityElement(children: .combine)
     }
 }
@@ -493,8 +485,7 @@ struct SleepWindDownRitual: View {
         }
         .padding(14)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Color.surface)
-        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+        .forgeGlassCard(cornerRadius: 16, accent: .aurora)
     }
 }
 

@@ -65,7 +65,7 @@ struct ChatEmptyStateView: View {
 
             VStack(spacing: 10) {
                 Text(greeting)
-                    .font(.system(size: 26, weight: .bold, design: .rounded))
+                    .font(FDS.TypeScale.pageTitle(28))
                     .foregroundStyle(
                         LinearGradient(
                             colors: [.white, .white.opacity(0.7)],

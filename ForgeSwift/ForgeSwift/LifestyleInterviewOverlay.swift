@@ -40,8 +40,7 @@ struct LifestyleInterviewOverlay: View {
                 }
             }
             .padding(22)
-            .background(Color.surface)
-            .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
+            .forgeGlassCard(cornerRadius: 22, accent: .ember)
             .padding(20)
         }
     }

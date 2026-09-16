@@ -39,12 +39,7 @@ struct AriaSpecialistActivityView: View {
         }
         .padding(14)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Color.white.opacity(0.045))
-        .clipShape(RoundedRectangle(cornerRadius: FDS.Radius.lg, style: .continuous))
-        .overlay(
-            RoundedRectangle(cornerRadius: FDS.Radius.lg, style: .continuous)
-                .stroke(Color.aurora.opacity(0.28), lineWidth: 1)
-        )
+        .forgeGlassCard(cornerRadius: FDS.Radius.lg, accent: .aurora)
         .onAppear {
             withAnimation(.easeInOut(duration: 0.9).repeatForever(autoreverses: true)) {
                 pulse = true
@@ -96,9 +91,10 @@ private struct CoachAgentChipRow: View {
             .foregroundColor(selected ? .textPrimary : .textTertiary)
             .padding(.horizontal, 11)
             .padding(.vertical, 6)
-            .background(selected ? Color.white.opacity(0.10) : Color.white.opacity(0.03))
+            .background(selected ? Color.ember.opacity(0.16) : Color.white.opacity(0.04))
             .clipShape(Capsule())
-            .overlay(Capsule().stroke(Color.white.opacity(selected ? 0.16 : 0.06), lineWidth: 1))
+            .overlay(Capsule().stroke(Color.white.opacity(selected ? 0.22 : 0.08), lineWidth: 1))
+            .shadow(color: selected ? Color.ember.opacity(0.22) : .clear, radius: 6, y: 2)
         }
         .buttonStyle(.plain)
         .accessibilityLabel(title)

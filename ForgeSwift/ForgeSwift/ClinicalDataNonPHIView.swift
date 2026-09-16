@@ -335,8 +335,7 @@ struct ClinicalDataNonPHIView: View {
                 Spacer()
             }
             .padding(12)
-            .background(Color.surface)
-            .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+            .forgeGlassCard(cornerRadius: 14, accent: .ember)
         }
         .buttonStyle(.plain)
         .accessibilityLabel("\(med.bothNames). \(med.archetype). \(med.disease). \(isSaved ? "On your list" : "Add to your list")")
@@ -409,9 +408,7 @@ struct ClinicalDataNonPHIView: View {
             }
         }
         .padding(14)
-        .background(Color.surface)
-        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
-        .overlay(RoundedRectangle(cornerRadius: 16).stroke(Color.borderColor.opacity(0.4), lineWidth: 1))
+        .forgeGlassCard(cornerRadius: 16, accent: .ember)
     }
 
     private func bootCatalog() async {

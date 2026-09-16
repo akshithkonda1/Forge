@@ -104,10 +104,7 @@ struct WorkoutRichCardView: View {
                 .onChanged { _ in startPressed = true }.onEnded { _ in startPressed = false })
             .padding(14)
         }
-        .background(Color.surface)
-        .cornerRadius(FDS.Radius.md)
-        .overlay(RoundedRectangle(cornerRadius: FDS.Radius.md).stroke(Color.ember.opacity(0.2), lineWidth: 1))
-        .shadow(color: Color.ember.opacity(0.08), radius: 14, y: 5)
+        .forgeGlassCard(cornerRadius: FDS.Radius.md, accent: .ember)
         .shadow(color: .black.opacity(0.06), radius: 5, y: 2)
         .opacity(appeared ? 1 : 0).offset(y: appeared ? 0 : 10)
         .onAppear { withAnimation(FDS.Spring.hero.delay(0.1)) { appeared = true } }
@@ -177,9 +174,7 @@ struct DataChartRichCardView: View {
             .background(RoundedRectangle(cornerRadius: FDS.Radius.sm).fill(barColor.opacity(0.04)))
             .padding(12)
         }
-        .background(Color.surface).cornerRadius(FDS.Radius.md)
-        .overlay(RoundedRectangle(cornerRadius: FDS.Radius.md).stroke(barColor.opacity(0.2), lineWidth: 1))
-        .shadow(color: barColor.opacity(0.07), radius: 10, y: 4)
+        .forgeGlassCard(cornerRadius: FDS.Radius.md, accent: barColor)
         .onAppear { withAnimation(FDS.Spring.hero.delay(0.1)) { appeared = true } }
     }
 }

@@ -36,7 +36,16 @@ import {
   ringStrokeWidth,
   visibleRingIndices,
 } from "../src/lib/aria-mark.ts";
-import { drawAriaNest } from "../src/lib/aria-nest.ts";
+import {
+  ARIA_MARK_LIFE,
+  paintedRingOpacity,
+  ringBreathScale,
+  ringFlicker,
+  ringGlowPulse,
+  ringWobble,
+} from "../src/lib/aria-ring-field.ts";
+import { FORGE_FIRE, fireSpec, fireTongue, forgeFirePaintDue } from "../src/lib/forge-fire.ts";
+import { FORGE_SPLASH, forgeSplashHoldMs } from "../src/lib/forge-splash.ts";
 import type { DailyMetrics, ReadinessData, UserProfile } from "../src/types/index.ts";
 
 const profile: UserProfile = {
@@ -229,5 +238,41 @@ assert(sleep.content.includes("rebuilt") || sleep.content.includes("thinner"), "
 const biceps = coachReply("hit my biceps today", profile, readiness, metrics, []);
 assert(biceps.richCard?.type === "workout-plan", "biceps ask ships a plan");
 assert(String((biceps.richCard?.data as { name?: string })?.name ?? "").toLowerCase().includes("bicep"), "biceps plan is named for the muscle");
+
+assert(FORGE_SPLASH.holdMs === 2450, "splash hold is 2.45s");
+assert(FORGE_SPLASH.reduceMotionHoldMs === 650, "reduce-motion splash is 0.65s");
+assert(FORGE_SPLASH.holdMs >= FORGE_SPLASH.brandFloorMs, "splash is long enough to feel forged");
+assert(FORGE_SPLASH.holdMs < FORGE_SPLASH.freezeCeilingMs, "splash is short of a freeze");
+assert(forgeSplashHoldMs(false) === 2450 && forgeSplashHoldMs(true) === 650, "splash hold follows motion preference");
+assert(FORGE_FIRE.kind === "rage-fire", "welcome fire is rage-fire, not the ring-field");
+assert(FORGE_FIRE.kind !== ARIA_MARK.kind, "fire is not the ARIA mark");
+assert(fireSpec("rage").tongueCount > fireSpec("ember").tongueCount, "rage has more tongues than ember");
+assert(fireSpec("rage").heightScale > fireSpec("ember").heightScale, "rage tongues are taller");
+assert(fireSpec("rage").coreHeat > fireSpec("ember").coreHeat, "rage is white-hot, ember is not");
+const rageTip = fireTongue(3, 28, 0.4, "rage", "floor", false);
+const emberTip = fireTongue(3, 8, 0.4, "ember", "floor", false);
+assert(rageTip.tipY < emberTip.tipY, "rage tips sit higher than ember");
+assert(FORGE_FIRE.tickHz === 12, "fire paints at 12 Hz");
+assert(FORGE_FIRE.tickHz <= 15 && FORGE_FIRE.tickHz >= 12, "fire cadence is 12–15 Hz");
+assert(forgeFirePaintDue(0, -1), "first fire frame always paints");
+assert(!forgeFirePaintDue(80, 0), "sub-12 Hz fire frames are skipped");
+assert(forgeFirePaintDue(1000 / FORGE_FIRE.tickHz, 0), "12 Hz fire boundary paints");
+assert(ARIA_MARK_LIFE.tickHz === 12, "living mark paints at 12 Hz");
+assert(ARIA_MARK_LIFE.tickHz <= 12, "mark timeline is not above 12 Hz");
+assert(ARIA_MARK_LIFE.tickHz === ARIA_MARK_PAINT_HZ, "life cadence matches paint Hz");
+assert(ringFlicker(1, 0.4, true) === 1, "reduce-motion flicker is still");
+assert(ringWobble(1, 0.4, true) === 0, "reduce-motion wobble is still");
+assert(ringBreathScale(0.4, true, true) === 1, "reduce-motion breath is still");
+assert(ringBreathScale(0.4, false, false) === 1, "compact marks do not breathe");
+assert(ringFlicker(0, 0.2, false) !== ringFlicker(0, 1.0, false), "support rings flicker when alive");
+assert(ringGlowPulse(0.2, 1, false) !== ringGlowPulse(1.1, 1, false), "hero glow pulses");
+for (const index of contrastRingIndices()) {
+  const base = ARIA_MARK.opacity[index] ?? 0;
+  for (let t = 0; t < 4; t += 0.05) {
+    const painted = paintedRingOpacity(index, t, false);
+    assert(painted >= ARIA_MARK_CONTRAST_FLOOR, `contrast ring ${index} stays ≥0.70 after flicker`);
+    assert(base * ringFlicker(index, t, false) >= ARIA_MARK_CONTRAST_FLOOR, `flicker floor holds for ring ${index}`);
+  }
+}
 
 console.log("aria frontend checks passed");

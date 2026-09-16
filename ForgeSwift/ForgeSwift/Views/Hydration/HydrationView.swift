@@ -42,7 +42,7 @@ struct HydrationView: View {
             .padding(.horizontal, 16)
             .padding(.bottom, 40)
         }
-        .background(Color.background.ignoresSafeArea())
+        .forgeScreenBackground(accent: Color(hex: "4A9EFF"))
         .navigationTitle("Hydration")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
@@ -164,7 +164,7 @@ struct HydrationView: View {
                         style: StrokeStyle(lineWidth: 14, lineCap: .round)
                     )
                     .rotationEffect(.degrees(-90))
-                    .animation(.spring(response: 0.7, dampingFraction: 0.8), value: progress)
+                    .animation(FDS.Spring.sweep, value: progress)
                 VStack(spacing: 4) {
                     Text(formatMl(consumedMl))
                         .font(.system(size: 34, weight: .bold, design: .rounded))
@@ -196,9 +196,7 @@ struct HydrationView: View {
         }
         .padding(18)
         .frame(maxWidth: .infinity)
-        .background(Color.surface)
-        .cornerRadius(20)
-        .overlay(RoundedRectangle(cornerRadius: 20).stroke(Color.borderColor.opacity(0.4), lineWidth: 1))
+        .forgeGlassCard(cornerRadius: 20, accent: Color(hex: "4A9EFF"))
         .accessibilityElement(children: .combine)
         .accessibilityLabel("Hydration \(formatMl(consumedMl)) of \(formatMl(targetMl)), \(statusTitle)")
     }
@@ -240,8 +238,7 @@ struct HydrationView: View {
             Spacer(minLength: 0)
         }
         .padding(12)
-        .background(Color.surfaceElevated)
-        .cornerRadius(14)
+        .forgeGlassCard(cornerRadius: 14, accent: health.isAuthorized ? .vitality : .warning)
     }
 
     // ------------------------------------------------------------
@@ -288,9 +285,7 @@ struct HydrationView: View {
             .buttonStyle(.plain)
         }
         .padding(16)
-        .background(Color.surface)
-        .cornerRadius(20)
-        .overlay(RoundedRectangle(cornerRadius: 20).stroke(Color.borderColor.opacity(0.4), lineWidth: 1))
+        .forgeGlassCard(cornerRadius: 20, accent: Color(hex: "4A9EFF"))
     }
 
     private var customField: some View {
@@ -347,9 +342,7 @@ struct HydrationView: View {
             Spacer(minLength: 0)
         }
         .padding(14)
-        .background(Color.surface)
-        .cornerRadius(16)
-        .overlay(RoundedRectangle(cornerRadius: 16).stroke(Color.borderColor.opacity(0.35), lineWidth: 1))
+        .forgeGlassCard(cornerRadius: 16, accent: statusColor)
     }
 
     private var timeline: some View {
@@ -405,9 +398,7 @@ struct HydrationView: View {
             }
         }
         .padding(16)
-        .background(Color.surface)
-        .cornerRadius(20)
-        .overlay(RoundedRectangle(cornerRadius: 20).stroke(Color.borderColor.opacity(0.4), lineWidth: 1))
+        .forgeGlassCard(cornerRadius: 20, accent: Color(hex: "4A9EFF"))
     }
 
     private var week: some View {
@@ -433,9 +424,7 @@ struct HydrationView: View {
             .frame(height: 120, alignment: .bottom)
         }
         .padding(16)
-        .background(Color.surface)
-        .cornerRadius(20)
-        .overlay(RoundedRectangle(cornerRadius: 20).stroke(Color.borderColor.opacity(0.4), lineWidth: 1))
+        .forgeGlassCard(cornerRadius: 20, accent: Color(hex: "4A9EFF"))
     }
 
     // ------------------------------------------------------------

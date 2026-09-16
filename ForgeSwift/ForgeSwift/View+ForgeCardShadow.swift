@@ -25,19 +25,24 @@ extension View {
     /// Inner well used inside glass cards — briefing text, chips, tiles.
     func forgeInnerWell(cornerRadius: CGFloat = FDS.Radius.md) -> some View {
         self
-            .background(Color.white.opacity(0.045))
+            .background(Color.white.opacity(0.05))
             .clipShape(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
             .overlay(
                 RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
                     .stroke(
                         LinearGradient(
-                            colors: [Color.white.opacity(0.12), Color.white.opacity(0.04)],
+                            colors: [Color.white.opacity(0.16), Color.white.opacity(0.05)],
                             startPoint: .topLeading,
                             endPoint: .bottomTrailing
                         ),
                         lineWidth: 1
                     )
             )
+    }
+
+    /// Drop-in upgrade for the old `Color.surface + cornerRadius + hairline` stack.
+    func forgeSurfaceCard(cornerRadius: CGFloat = FDS.Radius.xl, accent: Color? = nil) -> some View {
+        modifier(ForgeGlassCard(cornerRadius: cornerRadius, accent: accent))
     }
 }
 
@@ -46,16 +51,11 @@ private struct ForgeCardShadow: ViewModifier {
 
     func body(content: Content) -> some View {
         content
-            // One soft ambient shadow rather than three stacked ones. Depth now
-            // comes from the card's fill sitting above the background, not from
-            // piling up dark halos — which is what made every card read heavy.
-            .shadow(color: .black.opacity(0.32), radius: 20, x: 0, y: 10)
-            // Tinted from the accent actually passed in. This used to be
-            // hardcoded to Color.ember regardless of accent, so the green cycle
-            // card, the indigo support-pulse card and the steel/red readiness
-            // card all emitted an orange halo.
-            .shadow(color: (glow ?? .clear).opacity(glow == nil ? 0 : 0.16),
-                    radius: 22, x: 0, y: 8)
+            // Whoop / Oura: depth is a whisper, not a black puddle. Glow
+            // carries the accent so cards feel lit from the data they hold.
+            .shadow(color: .black.opacity(0.20), radius: 14, x: 0, y: 8)
+            .shadow(color: (glow ?? .clear).opacity(glow == nil ? 0 : 0.22),
+                    radius: 18, x: 0, y: 6)
     }
 }
 
@@ -68,17 +68,24 @@ private struct ForgeGlassCard: ViewModifier {
             .background {
                 ZStack {
                     RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-                        .fill(Color.surface.opacity(0.94))
+                        .fill(Color.surface.opacity(0.92))
                     RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
                         .fill(LinearGradient.premiumSurface)
-                    // The accent is now a whisper rather than a wash. It still
-                    // carries meaning on the data-driven cards (cycle phase,
-                    // readiness band) but no longer paints the whole surface.
+                    // Top sheen — the hairline luminance Whoop / Health use
+                    // instead of a heavy drop shadow.
+                    RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+                        .fill(
+                            LinearGradient(
+                                colors: [Color.white.opacity(0.08), .clear],
+                                startPoint: .top,
+                                endPoint: .center
+                            )
+                        )
                     if let accent {
                         RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
                             .fill(
                                 LinearGradient(
-                                    colors: [accent.opacity(0.07), .clear],
+                                    colors: [accent.opacity(0.09), .clear],
                                     startPoint: .topLeading,
                                     endPoint: .bottomTrailing
                                 )
@@ -92,8 +99,8 @@ private struct ForgeGlassCard: ViewModifier {
                     .strokeBorder(
                         LinearGradient(
                             colors: [
-                                Color.white.opacity(0.16),
-                                Color.white.opacity(0.05),
+                                Color.white.opacity(0.22),
+                                Color.white.opacity(0.07),
                                 Color.white.opacity(0.03)
                             ],
                             startPoint: .top,

@@ -123,9 +123,7 @@ struct MacroRingsCard: View {
             }
         }
         .padding(24)
-        .background(Color.surface)
-        .cornerRadius(24)
-        .shadow(color: .black.opacity(0.07), radius: 20, y: 8)
+        .forgeGlassCard(cornerRadius: 24, accent: .amber)
         .onAppear { appeared = true }
     }
 }
@@ -172,9 +170,7 @@ struct AINutritionCoachCard: View {
             }
         }
         .padding(20)
-        .background(Color.surface)
-        .cornerRadius(20)
-        .overlay(RoundedRectangle(cornerRadius: 20).stroke(Color.ember.opacity(0.2), lineWidth: 1))
+        .forgeGlassCard(cornerRadius: 20, accent: .ember)
         .onAppear {
             withAnimation(.easeInOut(duration: 0.55).repeatForever(autoreverses: true)) {
                 sparkleScale = 1.25
@@ -387,9 +383,7 @@ struct AIMealSuggestionsCard: View {
             }
         }
         .padding(20)
-        .background(Color.surface)
-        .cornerRadius(20)
-        .shadow(color: .black.opacity(0.05), radius: 14, y: 5)
+        .forgeGlassCard(cornerRadius: 20, accent: .amber)
         .task { await vm.refreshMealNote(store: store) }
     }
 }
@@ -521,9 +515,7 @@ struct MealLogCard: View {
             }
         }
         .padding(20)
-        .background(Color.surface)
-        .cornerRadius(20)
-        .shadow(color: .black.opacity(0.05), radius: 14, y: 5)
+        .forgeGlassCard(cornerRadius: 20, accent: .amber)
         .sheet(isPresented: $showScanner) {
             BarcodeScannerView(
                 onScan: { code in
@@ -616,9 +608,7 @@ struct WaterIntakeCard: View {
             }
         }
         .padding(20)
-        .background(Color.surface)
-        .cornerRadius(20)
-        .shadow(color: .black.opacity(0.05), radius: 14, y: 5)
+        .forgeGlassCard(cornerRadius: 20, accent: .amber)
     }
 }
 
@@ -667,9 +657,7 @@ struct MicronutrientsCard: View {
             }
         }
         .padding(20)
-        .background(Color.surface)
-        .cornerRadius(20)
-        .shadow(color: .black.opacity(0.05), radius: 14, y: 5)
+        .forgeGlassCard(cornerRadius: 20, accent: .amber)
         .onAppear { appeared = true }
     }
 }

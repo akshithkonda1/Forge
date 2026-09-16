@@ -147,8 +147,7 @@ struct ConnectedDevicesLibraryView: View {
             }
         }
         .padding(12)
-        .background(Color.surface)
-        .cornerRadius(12)
+        .forgeGlassCard(cornerRadius: 12, accent: .steel)
     }
 
     private var filterRow: some View {

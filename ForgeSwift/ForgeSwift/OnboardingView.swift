@@ -54,17 +54,9 @@ private struct AgeBlockedView: View {
                 .multilineTextAlignment(.center)
                 .padding(.horizontal, 32)
             Spacer()
-            Button(action: onReset) {
-                Text("Review birthday")
-                    .font(.headline.weight(.bold))
-                    .foregroundColor(.textPrimary)
-                    .frame(maxWidth: .infinity)
-                    .frame(height: 52)
-                    .background(Color.surface)
-                    .clipShape(RoundedRectangle(cornerRadius: FDS.Radius.lg, style: .continuous))
-            }
-            .padding(.horizontal, FDS.Spacing.xl)
-            .padding(.bottom, 40)
+            ForgePrimaryButton(title: "Review birthday", icon: "calendar", action: onReset)
+                .padding(.horizontal, FDS.Spacing.xl)
+                .padding(.bottom, 40)
         }
         .opacity(appeared ? 1 : 0)
         .onAppear { appeared = true }
@@ -121,4 +113,12 @@ private struct DevSkipButton: View {
     OnboardingView()
         .environmentObject(AppStore())
         .preferredColorScheme(.dark)
+}
+
+#Preview("Intro logo") {
+    ZStack {
+        Color.background.ignoresSafeArea()
+        IntroComposer(coordinator: OnboardingCoordinator())
+    }
+    .preferredColorScheme(.dark)
 }

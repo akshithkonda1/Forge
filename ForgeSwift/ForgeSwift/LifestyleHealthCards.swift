@@ -125,16 +125,7 @@ struct LiveHealthDashboard: View {
             }
         }
         .padding(22)
-        .background(Color.surface)
-        .cornerRadius(22)
-        .overlay(
-            RoundedRectangle(cornerRadius: 22)
-                .stroke(LinearGradient(
-                    colors: [Color.success.opacity(0.3), Color.ember.opacity(0.2)],
-                    startPoint: .topLeading, endPoint: .bottomTrailing
-                ), lineWidth: 1.5)
-        )
-        .shadow(color: .black.opacity(0.08), radius: 20, y: 8)
+        .forgeGlassCard(cornerRadius: 22, accent: .success)
         .onAppear { appeared = true }
     }
 }
@@ -413,9 +404,7 @@ struct RecoveryMetricsCard: View {
             )
         }
         .padding(22)
-        .background(Color.surface)
-        .cornerRadius(22)
-        .shadow(color: .black.opacity(0.06), radius: 16, y: 6)
+        .forgeGlassCard(cornerRadius: 22, accent: .vitality)
         .onAppear { appeared = true }
     }
 }
@@ -544,10 +533,7 @@ struct MultiArcQOLCard: View {
             }
         }
         .padding(24)
-        .background(Color.surface)
-        .cornerRadius(24)
-        .overlay(RoundedRectangle(cornerRadius: 24).stroke(Color.borderColor.opacity(0.5), lineWidth: 1))
-        .shadow(color: .black.opacity(0.07), radius: 20, y: 8)
+        .forgeGlassCard(cornerRadius: 24, accent: .success)
         .onAppear { appeared = true }
     }
 }

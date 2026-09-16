@@ -93,9 +93,7 @@ struct HomeCookingView: View {
                                 .foregroundColor(.ember)
                                 .frame(maxWidth: .infinity)
                                 .padding(.vertical, 14)
-                                .background(Color.surface)
-                                .cornerRadius(12)
-                                .overlay(RoundedRectangle(cornerRadius: 12).stroke(Color.borderColor, lineWidth: 1))
+                                .forgeGlassCard(cornerRadius: 12, accent: Color(hex: "7C5CFF"))
                         }
                         .buttonStyle(.plain)
                     }
@@ -130,9 +128,7 @@ struct HomeCookingView: View {
             }
         }
         .padding(13)
-        .background(Color.surface)
-        .cornerRadius(14)
-        .overlay(RoundedRectangle(cornerRadius: 14).stroke(Color.borderColor.opacity(0.5), lineWidth: 1))
+        .forgeGlassCard(cornerRadius: 14, accent: Color(hex: "7C5CFF"))
     }
 
     private func headerRow(total: Int) -> some View {
@@ -238,9 +234,7 @@ struct HomeCookingView: View {
             }
         }
         .padding(16)
-        .background(Color.surface)
-        .cornerRadius(16)
-        .overlay(RoundedRectangle(cornerRadius: 16).stroke(Color.borderColor, lineWidth: 1))
+        .forgeGlassCard(cornerRadius: 16, accent: Color(hex: "7C5CFF"))
     }
 
     private func filterSection<Content: View>(
@@ -342,9 +336,7 @@ private struct MealRowCard: View {
             }
         }
         .padding(14)
-        .background(Color.surface)
-        .cornerRadius(14)
-        .overlay(RoundedRectangle(cornerRadius: 14).stroke(Color.borderColor.opacity(0.6), lineWidth: 1))
+        .forgeGlassCard(cornerRadius: 14, accent: Color(hex: "7C5CFF"))
         .accessibilityElement(children: .combine)
         .accessibilityLabel("\(meal.name). \(meal.calories) calories, \(meal.protein) grams protein, \(meal.minutes) minutes.")
     }
@@ -492,8 +484,7 @@ private struct MealDetailSheet: View {
         }
         .frame(maxWidth: .infinity)
         .padding(.vertical, 12)
-        .background(Color.surface)
-        .cornerRadius(12)
+        .forgeGlassCard(cornerRadius: 12, accent: Color(hex: "7C5CFF"))
     }
 
     private func section<Content: View>(

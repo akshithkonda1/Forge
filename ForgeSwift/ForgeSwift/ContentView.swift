@@ -26,6 +26,7 @@ struct ContentView: View {
                     MainTabView()
                 }
             }
+            .environment(\.forgeFireLiveAllowed, !showSplash)
             .animation(.easeInOut(duration: 0.35), value: store.isAuthenticated)
             .animation(.easeInOut(duration: 0.35), value: store.isOnboarded)
 
@@ -52,10 +53,9 @@ struct ContentView: View {
             neuralVoiceGate = gate
             gate.refreshCatalog()
             guard showSplash else { return }
-            let pause: UInt64 = reduceMotion ? 350_000_000 : 1_100_000_000
-            try? await Task.sleep(nanoseconds: pause)
+            try? await Task.sleep(nanoseconds: ForgeSplashTiming.pauseNanoseconds(reduceMotion: reduceMotion))
             Self.didFinishSplash = true
-            withAnimation(.easeOut(duration: 0.28)) {
+            withAnimation(.easeOut(duration: ForgeSplashTiming.fadeOut)) {
                 showSplash = false
             }
         }
@@ -82,11 +82,15 @@ struct ForgeSplashScreen: View {
         ZStack {
             Color.background.ignoresSafeArea()
 
+            ForgeFireField(intensity: .rage, origin: .floor, live: true)
+                .opacity(0.55 + 0.45 * glowIntensity)
+                .ignoresSafeArea()
+
             RadialGradient(
                 colors: [
-                    ForgePalette.amber.opacity(0.08 * glowIntensity),
-                    ForgePalette.ember.opacity(0.06 * glowIntensity),
-                    ForgePalette.background.opacity(0.4 * glowIntensity),
+                    ForgePalette.amber.opacity(0.16 * glowIntensity),
+                    ForgePalette.ember.opacity(0.10 * glowIntensity),
+                    ForgePalette.background.opacity(0.35 * glowIntensity),
                     .clear
                 ],
                 center: .center,
@@ -96,33 +100,55 @@ struct ForgeSplashScreen: View {
             .ignoresSafeArea()
 
             VStack(spacing: 28) {
-                AuroraOrbView(
-                    state: .idle,
-                    amplitude: 0.34,
-                    mood: .energized,
-                    size: 132,
-                    followPresence: false
-                )
-                    .scaleEffect(logoScale)
-                    .opacity(logoOpacity)
-                    .shadow(color: ForgePalette.amber.opacity(0.22 * glowIntensity), radius: 36, y: 6)
-
-                VStack(spacing: 10) {
-                    Text("FORGE")
-                        .font(.system(size: 32, weight: .black, design: .rounded))
-                        .tracking(8)
-                        .foregroundStyle(
-                            LinearGradient(
-                                colors: [.white, Color.white.opacity(0.55)],
-                                startPoint: .top,
-                                endPoint: .bottom
+                ZStack {
+                    ForgeFireField(intensity: .rage, origin: .hearth)
+                        .frame(width: 220, height: 240)
+                        .opacity(0.85)
+                    Circle()
+                        .fill(
+                            RadialGradient(
+                                colors: [
+                                    Color.background.opacity(0.78),
+                                    Color.background.opacity(0.2),
+                                    .clear
+                                ],
+                                center: .center,
+                                startRadius: 10,
+                                endRadius: 92
                             )
                         )
+                        .frame(width: 180, height: 180)
+                    AuroraOrbView(
+                        state: .idle,
+                        amplitude: 0.72,
+                        mood: .energized,
+                        size: 148,
+                        followPresence: false
+                    )
+                }
+                    .scaleEffect(logoScale)
+                    .opacity(logoOpacity)
+                    .shadow(color: ForgePalette.amber.opacity(0.38 * glowIntensity), radius: 42, y: 8)
 
-                    Text("ARIA · already listening")
-                        .font(.system(size: 11, weight: .semibold, design: .rounded))
-                        .tracking(2.2)
-                        .foregroundColor(.textTertiary)
+                VStack(spacing: 10) {
+                    HStack(spacing: 10) {
+                        ForgeBrandFlame(size: 26)
+                        Text("FORGE")
+                            .font(.system(size: 32, weight: .black, design: .rounded))
+                            .tracking(8)
+                            .foregroundStyle(
+                                LinearGradient(
+                                    colors: [.white, Color(hex: "FFB020").opacity(0.85)],
+                                    startPoint: .top,
+                                    endPoint: .bottom
+                                )
+                            )
+                    }
+
+                    Text("Forged.")
+                        .font(.system(size: 13, weight: .semibold, design: .rounded))
+                        .tracking(3.2)
+                        .foregroundColor(.ember)
                 }
                 .opacity(logoOpacity)
                 .offset(y: textOffset)
@@ -144,6 +170,11 @@ struct ForgeSplashScreen: View {
             }
         }
     }
+}
+
+#Preview("Forge splash") {
+    ForgeSplashScreen()
+        .preferredColorScheme(.dark)
 }
 
 // MARK: - Main Tab Container
@@ -172,16 +203,16 @@ struct MainTabView: View {
             ZStack {
                 Color.background
                 RadialGradient(
-                    colors: [Color.ember.opacity(0.07), .clear],
-                    center: UnitPoint(x: 0.2, y: 0.0),
-                    startRadius: 10,
-                    endRadius: 380
+                    colors: [Color.ember.opacity(0.11), Color.ember.opacity(0.04), .clear],
+                    center: UnitPoint(x: 0.12, y: -0.02),
+                    startRadius: 8,
+                    endRadius: 440
                 )
                 RadialGradient(
-                    colors: [Color.steel.opacity(0.05), .clear],
-                    center: UnitPoint(x: 0.95, y: 0.85),
+                    colors: [Color.steel.opacity(0.07), .clear],
+                    center: UnitPoint(x: 0.94, y: 0.88),
                     startRadius: 8,
-                    endRadius: 320
+                    endRadius: 360
                 )
             }
             .ignoresSafeArea()
@@ -364,13 +395,19 @@ struct ForgeBottomNav: View {
                 )
                 .fill(Color.background.opacity(0.52))
                 LinearGradient(
-                    colors: [Color.white.opacity(0.08), Color.clear],
+                    colors: [Color.white.opacity(0.12), Color.ember.opacity(0.04), Color.clear],
                     startPoint: .top,
                     endPoint: .center
                 )
                 Rectangle()
-                    .fill(Color.white.opacity(0.12))
-                    .frame(height: 0.5)
+                    .fill(
+                        LinearGradient(
+                            colors: [Color.white.opacity(0.22), Color.ember.opacity(0.18), Color.white.opacity(0.08)],
+                            startPoint: .leading,
+                            endPoint: .trailing
+                        )
+                    )
+                    .frame(height: 0.6)
                     .frame(maxHeight: .infinity, alignment: .top)
             }
             .ignoresSafeArea(edges: .bottom)
@@ -399,7 +436,8 @@ struct RegularForgeTab: View {
                     Image(systemName: isActive ? tab.systemImageFilled : tab.systemImage)
                         .font(.system(size: 18, weight: isActive ? .semibold : .regular))
                         .foregroundStyle(isActive ? Color.ember : Color.white.opacity(0.38))
-                        .shadow(color: isActive ? Color.ember.opacity(0.45) : .clear, radius: 6, y: 0)
+                        .shadow(color: isActive ? Color.ember.opacity(0.62) : .clear, radius: 8, y: 0)
+                        .scaleEffect(isActive ? 1.06 : 1.0)
                         .frame(height: 22)
                         .symbolRenderingMode(.hierarchical)
                     if isActive {

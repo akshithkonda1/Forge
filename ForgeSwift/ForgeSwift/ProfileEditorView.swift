@@ -332,9 +332,7 @@ struct ProfileEditorView: View {
                 .foregroundColor(.textTertiary)
         }
         .padding(14)
-        .background(Color.surface)
-        .cornerRadius(10)
-        .overlay(RoundedRectangle(cornerRadius: 10).stroke(Color.borderColor, lineWidth: 1))
+        .forgeGlassCard(cornerRadius: 10, accent: .steel)
         .accessibilityLabel("Height in \(unit == "ft" ? "feet" : "inches")")
     }
 
@@ -387,9 +385,7 @@ struct ProfilePickerRow<Content: View>: View {
             }
             .padding(.horizontal, 14)
             .padding(.vertical, 8)
-            .background(Color.surface)
-            .cornerRadius(10)
-            .overlay(RoundedRectangle(cornerRadius: 10).stroke(Color.borderColor, lineWidth: 1))
+            .forgeGlassCard(cornerRadius: 10, accent: .steel)
 
             if let footnote {
                 Text(footnote)
@@ -454,9 +450,7 @@ struct ProfileFieldRow: View {
             TextField(placeholder, text: $text)
                 .font(.system(size: 15))
                 .padding(14)
-                .background(Color.surface)
-                .cornerRadius(10)
-                .overlay(RoundedRectangle(cornerRadius: 10).stroke(Color.borderColor, lineWidth: 1))
+                .forgeGlassCard(cornerRadius: 10, accent: .steel)
                 .keyboardType(keyboardType)
         }
     }

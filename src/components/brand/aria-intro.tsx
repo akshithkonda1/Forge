@@ -1,7 +1,7 @@
 "use client";
 
 import { AriaMark } from "@/components/brand/aria-mark";
-import { ForgeWordmark } from "@/components/brand/forge-wordmark";
+import { ForgeFireField } from "@/components/brand/forge-fire";
 import { ARIA_INTRO } from "@/lib/aria-intro";
 
 export function AriaIntro({
@@ -17,11 +17,31 @@ export function AriaIntro({
 }) {
   return (
     <div className="relative flex min-h-[100dvh] flex-col overflow-hidden bg-background">
+      <div className="pointer-events-none fixed inset-0">
+        <ForgeFireField live intensity="rage" origin="floor" className="opacity-70" />
+        <div
+          className="absolute inset-0"
+          style={{
+            background:
+              "linear-gradient(180deg, rgba(10,10,10,0.15) 0%, rgba(10,10,10,0.55) 70%, rgba(10,10,10,0.88) 100%)",
+          }}
+        />
+      </div>
+
       <div className="relative z-10 mx-auto flex w-full max-w-md flex-1 flex-col px-6 pb-8 pt-10">
         <div className="flex flex-1 flex-col items-center text-center">
-          <AriaMark size={112} label="ARIA" />
-          <ForgeWordmark className="mt-5" />
-          <p className="mt-6 text-[11px] font-black uppercase tracking-[0.22em] text-ember">
+          <div className="relative flex h-48 w-52 items-center justify-center">
+            <ForgeFireField intensity="rage" origin="hearth" className="opacity-80" />
+            <div
+              className="pointer-events-none absolute inset-6 rounded-full"
+              style={{
+                background:
+                  "radial-gradient(circle, rgba(10,10,10,0.7) 0%, rgba(10,10,10,0.18) 58%, transparent 72%)",
+              }}
+            />
+            <AriaMark size={128} speaking label="ARIA" className="relative z-10" />
+          </div>
+          <p className="mt-4 text-[11px] font-black uppercase tracking-[0.22em] text-ember">
             {ARIA_INTRO.eyebrow}
           </p>
           <h1

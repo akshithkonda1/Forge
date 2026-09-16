@@ -99,7 +99,8 @@ private struct InspectorSection<Content: View>: View {
             }
             content
         }
-        .padding(14).background(Color.surface).cornerRadius(14)
+        .padding(14)
+        .forgeGlassCard(cornerRadius: 14, accent: color)
     }
 }
 

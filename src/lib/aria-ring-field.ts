@@ -17,6 +17,52 @@ export type RingFieldDrawInput = {
   cssSize: number;
 };
 
+/** Draw-time life. Does not change `ringEllipse` / shared/aria-mark.json. */
+export const ARIA_MARK_LIFE = {
+  tickHz: 12,
+} as const;
+
+export function ringWobble(index: number, time: number, reduceMotion: boolean): number {
+  if (reduceMotion) return 0;
+  const phase = (ARIA_MARK.phaseOffsets[index] ?? 0) * Math.PI * 2;
+  return 0.09 * Math.sin(time * 1.55 + phase);
+}
+
+/**
+ * Contrast rings (contract opacities ≥ 0.70) keep a flicker wave, but the
+ * multiplier is floored so painted opacity never drops below the Cove floor.
+ */
+export function ringFlicker(index: number, time: number, reduceMotion: boolean): number {
+  if (reduceMotion) return 1;
+  const phase = (ARIA_MARK.phaseOffsets[index] ?? 0) * Math.PI * 2;
+  const wave = 0.78 + 0.22 * (0.5 + 0.5 * Math.sin(time * 3.4 + phase));
+  const base = ARIA_MARK.opacity[index] ?? 0;
+  if (base >= ARIA_MARK_CONTRAST_FLOOR) {
+    return Math.max(wave, ARIA_MARK_CONTRAST_FLOOR / base);
+  }
+  return wave;
+}
+
+export function paintedRingOpacity(
+  index: number,
+  time: number,
+  reduceMotion: boolean
+): number {
+  const base = ARIA_MARK.opacity[index] ?? 0;
+  return base * ringFlicker(index, time, reduceMotion);
+}
+
+export function ringGlowPulse(time: number, energy: number, reduceMotion: boolean): number {
+  if (reduceMotion) return 1;
+  const wave = 0.5 + 0.5 * Math.sin(time * 2.1);
+  return 0.7 + 0.3 * wave * (0.5 + Math.max(0, Math.min(1, energy)));
+}
+
+export function ringBreathScale(time: number, hero: boolean, reduceMotion: boolean): number {
+  if (reduceMotion || !hero) return 1;
+  return 1 + 0.028 * Math.sin(time * 2.35);
+}
+
 function hexAlpha(hex: string, alpha: number): string {
   const n = hex.replace("#", "");
   const r = Number.parseInt(n.slice(0, 2), 16);
@@ -121,8 +167,8 @@ export function drawAriaRingField(
     const hue = highlight.has(index) ? ARIA_MARK.brandHueLight : ARIA_MARK.brandHue;
     ctx.save();
     ctx.translate(cx, cy);
-    ctx.rotate(pose.rotation);
-    ctx.strokeStyle = hexAlpha(hue, pose.opacity);
+    ctx.rotate(pose.rotation + ringWobble(index, input.time, input.reduceMotion));
+    ctx.strokeStyle = hexAlpha(hue, paintedRingOpacity(index, input.time, input.reduceMotion));
     ctx.beginPath();
     ctx.ellipse(0, 0, (pose.rx * size) / 2, (pose.ry * size) / 2, 0, 0, Math.PI * 2);
     ctx.stroke();
