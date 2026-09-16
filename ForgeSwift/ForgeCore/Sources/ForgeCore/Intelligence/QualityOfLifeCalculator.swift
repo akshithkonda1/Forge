@@ -168,6 +168,11 @@ public enum QualityOfLifeLivingStore: Sendable {
         public var band: String
         public var coaching: String
 
+        private enum CodingKeys: String, CodingKey {
+            case overall, rawOverall, confidence, pillarScores
+            case personaArchetype, updatedAt, drivers, missingPillars, band, coaching
+        }
+
         public init(
             overall: Int,
             rawOverall: Int,
