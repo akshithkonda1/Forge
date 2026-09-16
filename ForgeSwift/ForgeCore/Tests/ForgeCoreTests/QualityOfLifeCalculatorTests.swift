@@ -25,7 +25,8 @@ final class QualityOfLifeCalculatorTests: XCTestCase {
         XCTAssertEqual(score.confidence, 0.132, accuracy: 0.001)
     }
 
-    // Full depth across every pillar → full confidence.
+    // Rich coverage across every pillar — mind 3/5 and social 2/3 after
+    // maxSignals 5 / 3, so confidence is presence+depth, not a hard 1.0.
     func testFullDepthAcrossAllPillarsGivesFullConfidence() {
         let inputs = QualityOfLifeInputs(
             sleepHours: 8, deepSleepMinutes: 70, remSleepMinutes: 95,
@@ -39,7 +40,8 @@ final class QualityOfLifeCalculatorTests: XCTestCase {
             bodyMassKg: 75
         )
         let score = QualityOfLifeCalculator.score(from: inputs)
-        XCTAssertEqual(score.confidence, 1.0, accuracy: 0.0001)
+        // 0.78 + 0.12*(0.6+0.4*3/5) + 0.10*(0.6+0.4*2/3) = 0.967466...
+        XCTAssertEqual(score.confidence, 0.9675, accuracy: 0.001)
         XCTAssertEqual(score.gradedAspects, QualityOfLifePillar.allCases.count)
         XCTAssertEqual(score.band, .thriving)
     }
@@ -52,7 +54,8 @@ final class QualityOfLifeCalculatorTests: XCTestCase {
         XCTAssertEqual(score.score(for: .mind), 100)
         // (75*0.18 + 100*0.12) / (0.18 + 0.12) = 25.5 / 0.30 = 85
         XCTAssertEqual(score.overall, 85)
-        XCTAssertEqual(score.confidence, 0.22, accuracy: 0.001)
+        // activity 1/3 + mind 1/5: 0.18*(0.6+0.4/3) + 0.12*(0.6+0.4/5) = 0.2136
+        XCTAssertEqual(score.confidence, 0.2136, accuracy: 0.001)
     }
 
     // Missing aspects lower confidence, not the score.
