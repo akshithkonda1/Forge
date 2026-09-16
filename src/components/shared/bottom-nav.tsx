@@ -38,7 +38,7 @@ export function BottomNav({ activeTab, onTabChange }: BottomNavProps) {
                 onClick={() => onTabChange(tab.id)}
                 aria-current={isActive ? "page" : undefined}
                 aria-label="Workout"
-                className="relative -mt-5 flex min-w-[3.5rem] flex-col items-center focus-visible:outline-none active:scale-95"
+                className="relative -mt-5 flex min-w-[3.5rem] flex-col items-center focus-visible:outline-none active:brightness-90"
               >
                 <div
                   className={cn(
@@ -69,7 +69,7 @@ export function BottomNav({ activeTab, onTabChange }: BottomNavProps) {
               onClick={() => onTabChange(tab.id)}
               aria-current={isActive ? "page" : undefined}
               aria-label={tab.label}
-              className="relative flex min-h-[3rem] min-w-[3.5rem] flex-col items-center justify-center gap-1 focus-visible:outline-none active:scale-95"
+              className="relative flex min-h-[3rem] min-w-[3.5rem] flex-col items-center justify-center gap-1 focus-visible:outline-none active:brightness-90"
             >
               {tab.id === "chat" || !Icon ? (
                 <AriaMark size={24} speaking={false} />

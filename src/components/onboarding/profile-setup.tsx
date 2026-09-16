@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { cn } from "@/lib/utils";
 import { useAppStore } from "@/stores/useAppStore";
 import type { FitnessGoal, ExperienceLevel, WorkoutType } from "@/types";
@@ -156,9 +156,11 @@ export default function ProfileSetup({ onNext, onBack }: ProfileSetupProps) {
                 </p>
               </PremiumEntrance>
               <input
+                ref={nameRef}
                 type="text"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
+                onInput={(e) => setName((e.target as HTMLInputElement).value)}
                 placeholder="Enter your name"
                 autoFocus
                 className={cn(
@@ -168,7 +170,7 @@ export default function ProfileSetup({ onNext, onBack }: ProfileSetupProps) {
                   "focus:border-white/30 focus:ring-1 focus:ring-white/15"
                 )}
                 onKeyDown={(e) => {
-                  if (e.key === "Enter" && canProceed()) handleContinue();
+                  if (e.key === "Enter" && readName()) handleContinue();
                 }}
               />
             </div>
@@ -297,16 +299,27 @@ export default function ProfileSetup({ onNext, onBack }: ProfileSetupProps) {
           )}
           <button
             type="button"
-            onClick={handleContinue}
+            aria-label="Continue"
+            onPointerUp={(e) => {
+              if (!canProceed()) return;
+              e.preventDefault();
+              handleContinue();
+            }}
+            onClick={(e) => {
+              if (!canProceed()) return;
+              e.preventDefault();
+              handleContinue();
+            }}
             disabled={!canProceed()}
             className={cn(
-              "relative flex flex-1 min-h-[56px] items-center justify-between rounded-full px-6 py-4 text-[17px] font-semibold",
+              "relative flex flex-1 min-h-[64px] items-center justify-between rounded-full px-6 py-5 text-[17px] font-semibold",
               "transition-[filter,box-shadow,background-color] duration-150 touch-manipulation select-none",
               canProceed()
                 ? "bg-[#F7F4F0] text-[#0A0A0A] shadow-[0_10px_30px_rgba(247,244,240,0.14)] active:brightness-[0.92] active:shadow-none"
                 : "bg-surface-elevated text-white/35"
             )}
           >
+            <span className="pointer-events-none absolute inset-x-0 -top-10 bottom-0" aria-hidden />
             <span>Continue</span>
             <span aria-hidden>→</span>
           </button>
