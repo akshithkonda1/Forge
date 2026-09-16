@@ -8,8 +8,9 @@ the same policy a real backend will; it must never own Q-tables, persona
 storage, or teaching copy. With ``engine="lambda"`` it also consumes
 ``services.fusion.fuse_turn`` and ``aria_engine.generate_response`` (Bedrock
 off) so hypertune reads fused product speak. Every turn also runs
-``services.aria_swarm`` — the Grok-agentic read/evaluate/write pass over
-WHOOP, Apple Watch, and Oura / RRA — without calling a model. Deleting this
+``services.aria_swarm`` — a deterministic read/evaluate/write pass over
+WHOOP, Apple Watch, and Oura / RRA — without calling a model. Provider
+ID/region table awaits Quill (``services.provider_capabilities``). Deleting this
 file must leave the learner, fusion, Swarm, and ``POST /ai/chat`` intact.
 
 This is *not* a live model. It is a staged stand-in for one: ingest the
@@ -1443,6 +1444,39 @@ def _suggest_body_session(message: str, context) -> dict | None:
     return suggestion
 
 
+def _provider_snapshot(engine: str) -> dict:
+    """Stamp the design-stub routing caps onto a Dummy turn. Never calls AWS."""
+    try:
+        from backend._paths import ensure_lambda_on_path
+
+        ensure_lambda_on_path()
+        from services import provider_capabilities as caps
+
+        path = (
+            caps.DEFAULT_PATH
+            if (engine or ENGINE_LAMBDA).strip().lower() == ENGINE_LAMBDA
+            else "dummy_stub"
+        )
+        snap = caps.runtime_snapshot(path=path)
+        return {
+            "path": snap["path"],
+            "stages": snap["stages"],
+            "bedrock_kill_switch_default": snap["bedrock_kill_switch_default"],
+            "do_not_invoke": snap["do_not_invoke"],
+            "await_quill_table": snap["await_quill_table"],
+            "direction": snap["direction"],
+        }
+    except Exception:
+        return {
+            "path": "dummy_stub",
+            "stages": ["truth", "personal_model", "stance", "speak"],
+            "bedrock_kill_switch_default": False,
+            "do_not_invoke": True,
+            "await_quill_table": True,
+            "direction": "grok_plus_latest_claude",
+        }
+
+
 def _production_fusion():
     """Lazy import of live fusion + engine. Dummy must not own these modules."""
     try:
@@ -1675,6 +1709,7 @@ def _respond_via_lambda(
         include_stored=False,
         load_learner=True,
     )
+    # Deterministic speak only. generate_response_live is never on this path.
     envelope = engine_mod.generate_response(
         safe,
         fused.context,
@@ -1761,6 +1796,7 @@ def _respond_via_lambda(
             "engine_latency_ms": 0,
             "prior_turns": len(prior_turns or []),
             "day_index": day_index,
+            "provider": _provider_snapshot(ENGINE_LAMBDA),
         },
     }
     if brief is not None:
@@ -1985,6 +2021,7 @@ def respond(
             "engine_latency_ms": engine_ms,
             "prior_turns": len(prior_turns or []),
             "day_index": day_index,
+            "provider": _provider_snapshot(ENGINE_STUB),
         },
     }
     if brief is not None:

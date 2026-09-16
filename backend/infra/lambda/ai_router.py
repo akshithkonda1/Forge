@@ -34,6 +34,8 @@ MAX_CLIENT_TIMEOUT_SECONDS = 10.0
 # shares one flag with /ai/chat, but kept local so importing this module (early,
 # from handler) never pulls in the full ARIA engine. When the flag is off the
 # router must never reach Amazon Bedrock, even on a deployed Lambda with JWT+IAM.
+# Model ID/region table is not encoded here — services.provider_capabilities
+# is a design stub until Quill's table lands. Dummy/offline remains default.
 _BEDROCK_TRUE_FLAGS = {"1", "true", "yes", "on"}
 
 
