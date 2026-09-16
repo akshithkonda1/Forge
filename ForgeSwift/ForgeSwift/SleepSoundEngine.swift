@@ -1,6 +1,7 @@
 import AVFoundation
 import Observation
 import os
+import UIKit
 import ForgeCore
 
 /// Generated café / noise / lo-fi / nature beds. Observation (not Combine) so
@@ -184,32 +185,96 @@ final class SleepWindDownPlayer {
     }
 }
 
-/// Rising two-tone. Stops wind-down first so the alarm is the only thing in the room.
+/// Rising two-tone that escalates for heavy sleepers. Stops wind-down first
+/// so the alarm is the only thing in the room. Session drops fail closed —
+/// haptic keeps going, never a quiet `return`.
 @MainActor
 @Observable
 final class SleepWakePlayer {
     static let shared = SleepWakePlayer()
 
     private(set) var isPlaying = false
+    private(set) var fault: SleepWakeAudioFault = .none
+    private(set) var stage: SleepWakeEscalation.Stage = .primary
 
     @ObservationIgnored private var engine: AVAudioEngine?
     @ObservationIgnored private let renderer = WakeToneRenderer()
+    @ObservationIgnored private var currentAlarm: ForgeAlarm?
+    @ObservationIgnored private var startedAt = Date()
+    @ObservationIgnored private var escalateTask: Task<Void, Never>?
+    @ObservationIgnored private var hapticTask: Task<Void, Never>?
+    @ObservationIgnored private var wasInterrupted = false
+    #if compiler(>=6.4)
+    @ObservationIgnored private var sessionObservers: [NotificationCenter.ObservationToken] = []
+    #else
+    @ObservationIgnored private var sessionObservers: [NSObjectProtocol] = []
+    #endif
 
-    private init() {}
+    private init() {
+        let session = AVAudioSession.sharedInstance()
+        #if compiler(>=6.4)
+        sessionObservers.append(
+            NotificationCenter.default.addObserver(
+                of: session,
+                for: AVAudioSession.DidBecomeInactiveMessage.self
+            ) { [weak self] _ in
+                self?.handleSessionDrop()
+            }
+        )
+        sessionObservers.append(
+            NotificationCenter.default.addObserver(
+                of: session,
+                for: AVAudioSession.ResumptionRecommendationMessage.self
+            ) { [weak self] _ in
+                self?.resumeAfterDrop()
+            }
+        )
+        #else
+        sessionObservers.append(
+            NotificationCenter.default.addObserver(
+                forName: AVAudioSession.interruptionNotification,
+                object: session,
+                queue: .main
+            ) { [weak self] note in
+                guard let self else { return }
+                let type = note.userInfo?[AVAudioSessionInterruptionTypeKey] as? UInt
+                if type == AVAudioSession.InterruptionType.began.rawValue {
+                    self.handleSessionDrop()
+                    return
+                }
+                self.resumeAfterDrop()
+            }
+        )
+        sessionObservers.append(
+            NotificationCenter.default.addObserver(
+                forName: AVAudioSession.routeChangeNotification,
+                object: session,
+                queue: .main
+            ) { [weak self] _ in
+                self?.resumeAfterDrop()
+            }
+        )
+        #endif
+    }
 
     func start(for alarm: ForgeAlarm) {
-        stop(deactivateSession: false)
+        stop(deactivateSession: false, clearFailsafe: false)
         SleepWindDownPlayer.shared.stop(deactivateSession: false)
-        let ramp: VolumeRampCurve
-        if WakeStruggleStore.isRepeatStruggler() {
-            ramp = .instant
-        } else if alarm.gradualVolume {
-            ramp = ForgeAlarmStore.shared.volumeRamp
-        } else {
-            ramp = .instant
-        }
+        currentAlarm = alarm
+        startedAt = Date()
+        fault = .none
+        stage = .primary
+        let struggling = WakeStruggleStore.isRepeatStruggler()
+        let ramp = SleepWakeEscalation.ramp(
+            gradualVolume: alarm.gradualVolume,
+            struggling: struggling,
+            selected: ForgeAlarmStore.shared.volumeRamp
+        )
         renderer.reset(rampSeconds: ramp.rampSeconds, sound: alarm.sound)
-        guard let format = AVAudioFormat(standardFormatWithSampleRate: 22_050, channels: 1) else { return }
+        guard let format = AVAudioFormat(standardFormatWithSampleRate: 22_050, channels: 1) else {
+            failClosed(.formatUnavailable)
+            return
+        }
         let engine = AVAudioEngine()
         let renderer = self.renderer
         let source = AVAudioSourceNode { _, _, frameCount, audioBufferList -> OSStatus in
@@ -228,33 +293,143 @@ final class SleepWakePlayer {
             engine.connect(source, to: engine.mainMixerNode, format: format)
             #endif
         } catch {
+            failClosed(.engineStartFailed)
             return
         }
         Task { @MainActor [weak self] in
             guard let self else { return }
             do {
-                try await ForgePlaybackSession.alarm.activate()
+                try await SleepAlarmAppleAPI.playbackSession.activate()
                 try engine.start()
             } catch {
+                self.failClosed(.sessionActivateFailed)
                 return
             }
             self.engine = engine
             self.isPlaying = true
+            self.wasInterrupted = false
+            self.startEscalation(rampSeconds: ramp.rampSeconds, struggling: struggling)
+            self.syncHapticCadence()
         }
     }
 
     func ensurePlaying(for alarm: ForgeAlarm) {
-        if isPlaying { return }
+        if isPlaying, !fault.isFailClosed { return }
         start(for: alarm)
     }
 
-    func stop(deactivateSession: Bool = true) {
+    func stop(deactivateSession: Bool = true, clearFailsafe: Bool = true) {
+        escalateTask?.cancel()
+        escalateTask = nil
+        hapticTask?.cancel()
+        hapticTask = nil
+        wasInterrupted = false
+        if clearFailsafe, let id = currentAlarm?.id {
+            SleepAlarmScheduler.cancelFailsafe(alarmID: id)
+        }
         engine?.stop()
         engine = nil
         isPlaying = false
+        stage = .primary
+        fault = .none
+        currentAlarm = nil
         renderer.reset(rampSeconds: 0.4)
         if deactivateSession {
             ForgePlaybackSession.deactivate()
+        }
+    }
+
+    private func startEscalation(rampSeconds: Double, struggling: Bool) {
+        escalateTask?.cancel()
+        escalateTask = Task { @MainActor [weak self] in
+            while !Task.isCancelled {
+                guard let self, self.isPlaying || self.fault.isFailClosed else { return }
+                let elapsed = Date().timeIntervalSince(self.startedAt)
+                let next = SleepWakeEscalation.stage(
+                    elapsed: elapsed,
+                    rampSeconds: rampSeconds,
+                    struggling: struggling
+                )
+                if next != self.stage {
+                    self.stage = next
+                    if next != .primary {
+                        self.renderer.escalateToBackup()
+                    }
+                    self.syncHapticCadence()
+                }
+                do {
+                    try await Task.sleep(for: .milliseconds(400))
+                } catch {
+                    return
+                }
+            }
+        }
+    }
+
+    private func syncHapticCadence() {
+        hapticTask?.cancel()
+        guard let interval = SleepWakeEscalation.hapticCadenceSeconds(
+            stage: stage,
+            faulted: fault.isFailClosed
+        ) else { return }
+        hapticTask = Task { @MainActor [weak self] in
+            while !Task.isCancelled {
+                guard let self, self.isPlaying || self.fault.isFailClosed else { return }
+                let heavy = UIImpactFeedbackGenerator(style: .heavy)
+                heavy.prepare()
+                heavy.impactOccurred()
+                if self.fault.isFailClosed || self.stage == .insistent {
+                    UINotificationFeedbackGenerator().notificationOccurred(.warning)
+                }
+                do {
+                    try await Task.sleep(for: .seconds(interval))
+                } catch {
+                    return
+                }
+            }
+        }
+    }
+
+    private func failClosed(_ reason: SleepWakeAudioFault) {
+        fault = reason
+        isPlaying = false
+        engine?.stop()
+        engine = nil
+        if stage == .primary { stage = .backup }
+        renderer.escalateToBackup()
+        syncHapticCadence()
+    }
+
+    private func handleSessionDrop() {
+        guard isPlaying || fault.isFailClosed else { return }
+        wasInterrupted = true
+        engine?.pause()
+        failClosed(.sessionDropped)
+    }
+
+    private func resumeAfterDrop() {
+        guard wasInterrupted || fault == .sessionDropped else { return }
+        wasInterrupted = false
+        Task { @MainActor [weak self] in
+            guard let self else { return }
+            do {
+                try await SleepAlarmAppleAPI.playbackSession.activate()
+                if let engine = self.engine {
+                    try engine.start()
+                    self.fault = .none
+                    self.isPlaying = true
+                    self.syncHapticCadence()
+                    return
+                }
+            } catch {
+                self.failClosed(.sessionDropped)
+                return
+            }
+            if let alarm = self.currentAlarm {
+                self.start(for: alarm)
+            } else {
+                self.failClosed(.sessionDropped)
+            }
         }
     }
 }
@@ -286,6 +461,10 @@ final class WakeToneRenderer: @unchecked Sendable {
 
     func reset(rampSeconds: Double, sound: AlarmSoundOption = .gentleRise) {
         lock.withLock { $0.reset(rampSeconds: rampSeconds, sound: sound) }
+    }
+
+    func escalateToBackup() {
+        lock.withLock { $0.escalateToBackup() }
     }
 
     func render(into data: UnsafeMutablePointer<Float>, frames: Int) {
@@ -459,6 +638,7 @@ struct WakeToneDSP: Sendable {
     var eventAt: Int = 6_000
     var eventAmp: Float = 0
     var rng: UInt32 = 0xA5A5_1234
+    var escalated: Bool = false
 
     mutating func reset(rampSeconds: Double, sound: AlarmSoundOption = .gentleRise) {
         t = 0
@@ -468,14 +648,25 @@ struct WakeToneDSP: Sendable {
         eventAt = 4_000
         eventAmp = 0
         rng = 0xA5A5_1234 &+ UInt32(sound.rawValue.hashValue)
+        escalated = false
+    }
+
+    mutating func escalateToBackup() {
+        escalated = true
+        rampFrames = 1
+        sound = .gentleRise
     }
 
     mutating func nextSample() -> Float {
         frames += 1
-        let env = min(1, Float(frames) / Float(rampFrames))
-        let freqs = sound.wakeFrequencies
+        let env: Float = escalated ? 1 : min(1, Float(frames) / Float(rampFrames))
+        let freqs = escalated ? SleepWakeEscalation.backupFrequencies : sound.wakeFrequencies
         t += 1 / 22_050
         if t > 8 { t -= 8 }
+        if escalated {
+            let cycle = frames % 13_230
+            if cycle >= 8_820 { return 0 }
+        }
         let s1 = sin(2 * Double.pi * freqs.0 * t)
         let s2 = sin(2 * Double.pi * freqs.1 * t)
         rng = rng &* 1_664_525 &+ 1_013_904_223

@@ -128,6 +128,7 @@ enum SleepWakeEngine {
     static func hardNotificationId(for alarmID: UUID) -> String { idPrefix + "hard." + alarmID.uuidString }
     static func smartNotificationId(for alarmID: UUID) -> String { idPrefix + "smart." + alarmID.uuidString }
     static func snoozeNotificationId(for alarmID: UUID) -> String { idPrefix + "snooze." + alarmID.uuidString }
+    static func failsafeNotificationId(for alarmID: UUID) -> String { idPrefix + "failsafe." + alarmID.uuidString }
 
     static func isWakeNotification(_ identifier: String) -> Bool {
         identifier.hasPrefix(idPrefix)

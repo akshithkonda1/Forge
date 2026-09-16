@@ -29,7 +29,12 @@ struct SleepView: View {
     }
 
     private var headerSubtitle: String {
-        if selectedTab == .alarms { return wakeCoach.headline }
+        if selectedTab == .alarms {
+            if alarmStore.delivery.needsAttention {
+                return alarmStore.delivery.headline
+            }
+            return wakeCoach.headline
+        }
         return tonightCoach.phase == .dayplan
             ? "Energy first. Night second."
             : tonightCoach.headline
