@@ -101,7 +101,7 @@ public extension QualityOfLifePersona {
         } else if movementPreference == .mix {
             parts.append("You like a mix of cardio and strength.")
         }
-        let hobbyTitles = (hobbies ?? []).prefix(3).map(\.title.lowercased())
+        let hobbyTitles = (hobbies ?? []).prefix(3).map { $0.title.lowercased() }
         if !hobbyTitles.isEmpty {
             parts.append("Free days: \(hobbyTitles.joined(separator: ", ")).")
         }

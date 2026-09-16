@@ -231,7 +231,7 @@ struct LifestyleInterviewOverlay: View {
             AriaKnowledgeLedgerStore.file(AriaKnowledgeFact(
                 category: .weSpokeAbout,
                 kind: "living_hobbies",
-                summary: "Free days: \(hobbies.map(\.title.lowercased()).joined(separator: ", ")).",
+                summary: "Free days: \(hobbies.map { $0.title.lowercased() }.joined(separator: ", ")).",
                 source: source
             ))
         }
