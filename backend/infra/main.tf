@@ -2,6 +2,10 @@ data "archive_file" "backend_lambda" {
   type        = "zip"
   source_dir  = "${path.module}/lambda"
   output_path = "${path.module}/build/forge-backend.zip"
+  # Keep the zip hash stable across developer machines / CI. Bytecode and OS
+  # junk in source_dir would otherwise rewrite source_code_hash and upload the
+  # function on every apply (TERRAFORM_PLAN.md §3.7).
+  excludes = ["**/__pycache__", "**/*.pyc", "**/*.pyo", "**/.DS_Store"]
 }
 
 data "aws_iam_policy_document" "lambda_assume_role" {
@@ -113,11 +117,20 @@ data "aws_iam_policy_document" "backend_lambda" {
   }
 
   statement {
-    sid = "BedrockInvokeAnthropic"
+    sid = "BedrockInvokeClaudeAndGrok"
 
     # Lets the AI router, coach routes, and ARIA's live reasoning path call
-    # Claude on Bedrock via the Converse API. Scoped to Anthropic models —
-    # broaden the resource list if the router's non-Anthropic slots are used.
+    # Claude and Grok on Bedrock via Converse *if* ARIA_BEDROCK_ENABLED is true.
+    # Default is false — this statement is unused on the Dummy-offline and
+    # live-API-no-Bedrock paths (no token spend while the flag stays off).
+    #
+    # Anthropic wildcards cover current code defaults (Sonnet 4.6 / Opus 4.7 /
+    # Opus 4.8) and a later Sonnet 5 / Opus 5 swap without rewriting IAM.
+    # xAI wildcards cover Grok 4.6 CRIS (us.xai.* / global.xai.*) on
+    # bedrock-runtime. Grok 4.3 is mantle In-Region only; this runtime client
+    # does not use it. project/default is on the Grok 4.6 card for runtime
+    # InvokeModel. Still gated by the flag, account model-access, and (for
+    # Anthropic) Marketplace subscribe / FTU. See ROADMAP_IAC_READINESS.md.
     actions = [
       "bedrock:InvokeModel",
       "bedrock:InvokeModelWithResponseStream",
@@ -127,7 +140,11 @@ data "aws_iam_policy_document" "backend_lambda" {
 
     resources = [
       "arn:aws:bedrock:*::foundation-model/anthropic.*",
+      "arn:aws:bedrock:*::foundation-model/xai.*",
       "arn:aws:bedrock:*:*:inference-profile/*anthropic*",
+      "arn:aws:bedrock:*:*:inference-profile/global.xai.*",
+      "arn:aws:bedrock:*:*:inference-profile/us.xai.*",
+      "arn:aws:bedrock:*:*:project/default",
     ]
   }
 }
@@ -454,11 +471,15 @@ resource "aws_lambda_function" "backend" {
       APP_DATA_TABLE_NAME    = aws_dynamodb_table.app_data.name
       ARIA_BEDROCK_ENABLED   = var.aria_bedrock_enabled ? "true" : "false"
       ENVIRONMENT            = var.environment
-      # Third router slot — Grok (xAI), the differently-trained second opinion
-      # alongside the Claude family. Passing "" would override ai_router.py's
-      # default with an empty model id and break routing on any environment that
-      # has not set these, so an unset variable must fall back to the code
-      # default rather than to the empty string.
+      # Router slots. Passing "" would override ai_router.py's default with an
+      # empty model id, so an unset variable falls back to the code default.
+      # Inert while ARIA_BEDROCK_ENABLED is false. Slot 1/2 ids match
+      # ai_router.default_models(); slot 3 is Grok 4.6 Global CRIS.
+      # Later Claude 5 swaps are tfvars/env only — IAM already allows anthropic.*.
+      AI_ROUTER_MODEL_1_ID   = var.ai_router_model_1_id != "" ? var.ai_router_model_1_id : "anthropic.claude-sonnet-4-6"
+      AI_ROUTER_MODEL_1_NAME = var.ai_router_model_1_name != "" ? var.ai_router_model_1_name : "Claude Sonnet 4.6"
+      AI_ROUTER_MODEL_2_ID   = var.ai_router_model_2_id != "" ? var.ai_router_model_2_id : "anthropic.claude-opus-4-7"
+      AI_ROUTER_MODEL_2_NAME = var.ai_router_model_2_name != "" ? var.ai_router_model_2_name : "Claude Opus 4.7"
       AI_ROUTER_MODEL_3_ID   = var.ai_router_model_3_id != "" ? var.ai_router_model_3_id : "global.xai.grok-4.6"
       AI_ROUTER_MODEL_3_NAME = var.ai_router_model_3_name != "" ? var.ai_router_model_3_name : "Grok"
       UPLOADS_BUCKET_NAME    = aws_s3_bucket.uploads.bucket
@@ -570,4 +591,34 @@ resource "aws_lambda_permission" "api_gateway" {
   function_name = aws_lambda_function.backend.function_name
   principal     = "apigateway.amazonaws.com"
   source_arn    = "${aws_apigatewayv2_api.http.execution_arn}/*/*"
+}
+
+# Optional monthly cost budget. Default off — Dummy-offline and an apply with
+# defaults create zero budget resources ($0). First two AWS Budgets are free;
+# this still must not be enabled until someone is willing to apply the stack.
+# Claude Marketplace token charges may appear under the model provider, not
+# "Amazon Bedrock", so this is an account-level COST budget rather than a
+# Bedrock-only filter.
+resource "aws_budgets_budget" "spend_guard" {
+  count = var.enable_spend_guard ? 1 : 0
+
+  name         = "${local.name_prefix}-monthly-spend-guard"
+  budget_type  = "COST"
+  limit_amount = tostring(var.spend_guard_limit_usd)
+  limit_unit   = "USD"
+  time_unit    = "MONTHLY"
+
+  dynamic "notification" {
+    for_each = var.spend_guard_notification_email != "" ? [1] : []
+
+    content {
+      comparison_operator        = "GREATER_THAN"
+      threshold                  = 80
+      threshold_type             = "PERCENTAGE"
+      notification_type          = "ACTUAL"
+      subscriber_email_addresses = [var.spend_guard_notification_email]
+    }
+  }
+
+  tags = local.common_tags
 }

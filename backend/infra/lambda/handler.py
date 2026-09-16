@@ -96,7 +96,7 @@ def _route(event, _context):
             "yes",
         }:
             return ok(redacted_health_payload())
-        from ai_router import default_models, humanize_bytes
+        from ai_router import default_models, humanize_bytes, bedrock_enabled
 
         models = default_models()
         return ok({
@@ -110,6 +110,7 @@ def _route(event, _context):
                 "userPoolId": os.getenv("USER_POOL_ID"),
             },
             "router": {
+                "bedrockEnabled": bedrock_enabled(),
                 "maxPackageBytes": 10 * 1024 * 1024 * 1024,
                 "maxPackageHuman": humanize_bytes(10 * 1024 * 1024 * 1024),
                 "defaultStartModel": {

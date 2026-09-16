@@ -42,6 +42,12 @@
 	     impersonate a Cognito build. Dummy ARIA needs no stack outputs and
 	     does not turn Bedrock on.
 
+	     Hex roadmap gates (FORGEProviderRoutingEnabled, FORGEEditableMemoryEnabled,
+	     FORGERMSSDEnabled) stay absent here on purpose — off-by-absence. A
+	     Dummy archive must not require live Cognito, a live API, an
+	     ai_provider secret, or AWS stack outputs. The generator in check
+	     mode refuses those keys if they are later added as true.
+
 	     A live archive fills these from an applied stack with
 	     scripts/generate_client_config.py, passing terraform output JSON and
 	     the environment name (apiBaseUrl, cognito.region, cognito.iosClientId,

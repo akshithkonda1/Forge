@@ -6,8 +6,10 @@ struct SleepDayTab: View {
     @EnvironmentObject var store: AppStore
     @EnvironmentObject var hkService: HealthKitSleepService
 
+    private var presence: SleepSurfacePresence { store.sleepSurface }
+
     private var isInitialLoading: Bool {
-        store.dataLoadState == .loading && store.sleepData.isEmpty
+        presence.kind == .loading
     }
 
     var body: some View {
@@ -17,14 +19,14 @@ struct SleepDayTab: View {
                     ForgeSkeletonBlock(height: 88, cornerRadius: 16)
                     ForgeSkeletonBlock(height: 160, cornerRadius: 16)
                     ForgeSkeletonBlock(height: 120, cornerRadius: 16)
-                } else if store.sleepData.isEmpty {
-                    let copy = HealthKitSleepService.dayEmptyCopy(healthConnected: store.healthKitLive)
+                } else if presence.showsEmptyCard {
+                    SleepSourceStrip(presence: presence)
                     ForgeEmptyStateCard(
                         icon: "moon.zzz.fill",
-                        title: copy.title,
-                        message: copy.message,
+                        title: presence.emptyTitle,
+                        message: presence.emptyMessage,
                         accent: Color(hex: "6366F1"),
-                        cta: copy.cta,
+                        cta: presence.emptyCTA,
                         action: {
                             Task {
                                 if store.healthKitLive {
@@ -36,16 +38,19 @@ struct SleepDayTab: View {
                             }
                         }
                     )
+                    SleepLifestyleCaption()
                     if let window = hkService.lastInBedWindow {
                         SleepInBedFact(window: window)
                     }
                 } else {
+                    SleepSourceStrip(presence: presence)
                     EnergyScheduleCard()
                     SleepLastNightStrip()
                     AISleepPredictionCard()
                     AISmartRecommendationsView()
                     SleepStreakCard()
                     SleepWeekRhythm()
+                    SleepLifestyleCaption()
                 }
             }
             .padding(.horizontal, 20)
@@ -70,6 +75,7 @@ struct SleepNightTab: View {
     var body: some View {
         ScrollView(showsIndicators: false) {
             VStack(alignment: .leading, spacing: 24) {
+                SleepSourceStrip(presence: store.sleepSurface)
                 SleepTonightHero(coach: coach)
                 SleepInBedCard()
                 SleepEveningStoryCard(store: store, coach: coach)
@@ -423,7 +429,7 @@ struct SleepWindDownRitual: View {
                     title: dimmed ? "Room dimmed" : "Dim the room",
                     detail: dimmed
                         ? "Brightness is down. Tap again to restore."
-                        : "Lights and screens down. Melatonin does not argue with a bright kitchen."
+                        : SleepLifestyleCopy.dimRoomCue
                 )
             }
             .buttonStyle(.plain)
@@ -611,7 +617,7 @@ struct SleepLastNightStrip: View {
                 }
             }
         } else {
-            Text("Last night will show duration, stages, and efficiency once Apple Health is connected.")
+            Text(store.sleepSurface.lastNightEmptyMessage)
                 .font(.system(size: 13))
                 .foregroundColor(.textSecondary)
         }
@@ -661,9 +667,10 @@ struct SleepLastNightDetail: View {
                 Text("No night on file")
                     .font(.system(size: 22, weight: .semibold))
                     .foregroundColor(.textPrimary)
-                Text("Connect Apple Health and last night will land here — stages, efficiency, and the energy day it built.")
+                Text(store.sleepSurface.lastNightEmptyMessage)
                     .font(.system(size: 14))
                     .foregroundColor(.textSecondary)
+                SleepLifestyleCaption()
             }
         }
     }
@@ -684,6 +691,7 @@ struct SleepLastNightDetail: View {
 }
 
 /// Pillow-style stage map: stacked bands from time-in-bed, not a hairline.
+/// `SleepResearchHook.timeline` is the extension point when the brief lands.
 struct SleepHypnogram: View {
     let night: SleepData
     var height: CGFloat = 64

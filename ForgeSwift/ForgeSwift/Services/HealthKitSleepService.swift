@@ -89,19 +89,15 @@ final class HealthKitSleepService: ObservableObject {
     // MARK: - Fetch + Score
 
     /// Honest Day-tab empty copy. Connected-but-empty is not "reconnect."
+    /// Routes through `SleepSurfacePresence` so header, Day, and Tonight stay in sync.
     nonisolated static func dayEmptyCopy(healthConnected: Bool) -> (title: String, message: String, cta: String) {
-        if healthConnected {
-            return (
-                "No scored night yet",
-                "Forge reads stages from Apple Health. Until a night lands, log in-bed on Tonight — that's a real window, not a fake score.",
-                "Refresh from Apple Health"
-            )
-        }
-        return (
-            "Connect Apple Health to unlock sleep",
-            "Forge reads last night's stages from Apple Health. Once a night lands, ARIA can explain recovery and bedtime.",
-            "Reconnect Apple Health"
+        let presence = SleepSurfacePresence.make(
+            healthConnected: healthConnected,
+            isLoading: false,
+            hasScoredNight: false,
+            metricSources: []
         )
+        return (presence.emptyTitle, presence.emptyMessage, presence.emptyCTA)
     }
 
     func refreshFromAppleHealth(into store: AppStore, days: Int = 14) async {

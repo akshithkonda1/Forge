@@ -474,7 +474,9 @@ final class LifestyleViewModel: ObservableObject {
         inputs.sleepNeedPreferenceHours = persona.sleepNeedPreferenceHours
         inputs.workStrain0to10 = persona.workStrain0to10
         inputs.socialConnection0to10 = persona.socialEnergy0to10
-        inputs.weeklyMood0to10 = AriaKnowledgeLedgerStore.load().latestWeeklyMood()
+        inputs.weeklyMood0to10 = AriaKnowledgeLedgerStore.load().latestWeeklyMood(
+            prefs: AriaCompanionPreferencesStore.load()
+        )
         let weekBusy = CalendarManager.shared.weekBusyWindows
         if weekBusy > 0 {
             inputs.calendarBusyness0to1 = min(1, Double(weekBusy) / 14.0)

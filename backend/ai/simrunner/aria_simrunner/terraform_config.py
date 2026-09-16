@@ -1,16 +1,15 @@
 """Reads ARIA's real Terraform-declared AI configuration — stdlib only.
 
-Three variables in ``backend/infra/variables.tf`` govern ``/ai/chat``'s real
-behavior: ``aria_bedrock_enabled`` (the live-vs-deterministic switch) and the
-AI router's third-slot id/name (``ai_router_model_3_id``/``_name`` — used by
-``/ai/router`` and ``/coach/*``, not ``/ai/chat``, but resolved here for a
-complete picture). This is not a general HCL parser: it understands exactly
-the shapes this repo's own ``variables.tf``/``main.tf``/``terraform.tfvars``
-actually use (a flat ``variable "x" { ... default = ... }`` block; simple
-``key = value`` tfvars lines, including multi-line bracketed values it must
-skip over without misreading). It degrades to a documented, clearly-labeled
-fallback rather than ever raising or guessing on a shape it doesn't
-recognize.
+``aria_bedrock_enabled`` (the live-vs-deterministic switch) and the AI
+router slot id/name variables (``ai_router_model_{1,2,3}_id``/``_name`` —
+used by ``/ai/router`` and ``/coach/*``, not ``/ai/chat``, but resolved
+here for a complete picture) govern real config. This is not a general HCL
+parser: it understands exactly the shapes this repo's own
+``variables.tf``/``main.tf``/``terraform.tfvars`` actually use (a flat
+``variable "x" { ... default = ... }`` block; simple ``key = value`` tfvars
+lines, including multi-line bracketed values it must skip over without
+misreading). It degrades to a documented, clearly-labeled fallback rather
+than ever raising or guessing on a shape it doesn't recognize.
 
 Precedence per variable, matching real Terraform semantics: a real
 ``terraform.tfvars`` on disk wins, then a ``TF_VAR_<name>`` environment
@@ -26,21 +25,44 @@ import os
 import re
 from dataclasses import dataclass
 
-_ROUTER3_ID_FALLBACK = "global.xai.grok-4.6"
-_ROUTER3_NAME_FALLBACK = "Grok"
+_ROUTER_SLOT_FALLBACKS = {
+    1: ("anthropic.claude-sonnet-4-6", "Claude Sonnet 4.6"),
+    2: ("anthropic.claude-opus-4-7", "Claude Opus 4.7"),
+    3: ("global.xai.grok-4.6", "Grok"),
+}
+_ROUTER3_ID_FALLBACK, _ROUTER3_NAME_FALLBACK = _ROUTER_SLOT_FALLBACKS[3]
 
-_ROUTER3_FALLBACK_RE = re.compile(
-    r'AI_ROUTER_MODEL_3_ID\s*=\s*var\.ai_router_model_3_id\s*!=\s*""\s*\?\s*'
-    r'var\.ai_router_model_3_id\s*:\s*"([^"]+)"'
-)
-_ROUTER3_NAME_FALLBACK_RE = re.compile(
-    r'AI_ROUTER_MODEL_3_NAME\s*=\s*var\.ai_router_model_3_name\s*!=\s*""\s*\?\s*'
-    r'var\.ai_router_model_3_name\s*:\s*"([^"]+)"'
-)
 
-_TARGET_VARS = ("aria_bedrock_enabled", "ai_router_model_3_id", "ai_router_model_3_name")
+def _slot_fallback_res(slot: int) -> tuple[re.Pattern[str], re.Pattern[str]]:
+    return (
+        re.compile(
+            rf'AI_ROUTER_MODEL_{slot}_ID\s*=\s*var\.ai_router_model_{slot}_id\s*!=\s*""\s*\?\s*'
+            rf'var\.ai_router_model_{slot}_id\s*:\s*"([^"]+)"'
+        ),
+        re.compile(
+            rf'AI_ROUTER_MODEL_{slot}_NAME\s*=\s*var\.ai_router_model_{slot}_name\s*!=\s*""\s*\?\s*'
+            rf'var\.ai_router_model_{slot}_name\s*:\s*"([^"]+)"'
+        ),
+    )
+
+
+_ROUTER3_FALLBACK_RE, _ROUTER3_NAME_FALLBACK_RE = _slot_fallback_res(3)
+
+_TARGET_VARS = (
+    "aria_bedrock_enabled",
+    "ai_router_model_1_id",
+    "ai_router_model_1_name",
+    "ai_router_model_2_id",
+    "ai_router_model_2_name",
+    "ai_router_model_3_id",
+    "ai_router_model_3_name",
+)
 _CODE_DEFAULTS = {
     "aria_bedrock_enabled": False,
+    "ai_router_model_1_id": "",
+    "ai_router_model_1_name": "",
+    "ai_router_model_2_id": "",
+    "ai_router_model_2_name": "",
     "ai_router_model_3_id": "",
     "ai_router_model_3_name": "",
 }
@@ -56,8 +78,16 @@ class ResolvedVar:
 @dataclass(frozen=True)
 class AriaTerraformConfig:
     aria_bedrock_enabled: ResolvedVar
+    ai_router_model_1_id: ResolvedVar
+    ai_router_model_1_name: ResolvedVar
+    ai_router_model_2_id: ResolvedVar
+    ai_router_model_2_name: ResolvedVar
     ai_router_model_3_id: ResolvedVar
     ai_router_model_3_name: ResolvedVar
+    ai_router_model_1_id_effective: str
+    ai_router_model_1_name_effective: str
+    ai_router_model_2_id_effective: str
+    ai_router_model_2_name_effective: str
     ai_router_model_3_id_effective: str
     ai_router_model_3_name_effective: str
     variables_tf_found: bool
@@ -199,20 +229,26 @@ def _parse_tfvars(path: str) -> dict[str, str]:
     return found
 
 
-def _router3_fallbacks(main_tf_path: str) -> tuple[str, str, bool]:
+def _router_slot_fallbacks(main_tf_path: str, slot: int) -> tuple[str, str, bool]:
     """(id_fallback, name_fallback, pattern_matched) derived from main.tf's
     own ternary, so this module doesn't hold a third manually-synced copy of
     a value query_router.py/prompts.py already separately mirror."""
+    id_default, name_default = _ROUTER_SLOT_FALLBACKS[slot]
     try:
         with open(main_tf_path, encoding="utf-8") as fh:
             text = fh.read()
     except OSError:
-        return _ROUTER3_ID_FALLBACK, _ROUTER3_NAME_FALLBACK, False
-    id_match = _ROUTER3_FALLBACK_RE.search(text)
-    name_match = _ROUTER3_NAME_FALLBACK_RE.search(text)
+        return id_default, name_default, False
+    id_re, name_re = _slot_fallback_res(slot)
+    id_match = id_re.search(text)
+    name_match = name_re.search(text)
     if id_match and name_match:
         return id_match.group(1), name_match.group(1), True
-    return _ROUTER3_ID_FALLBACK, _ROUTER3_NAME_FALLBACK, False
+    return id_default, name_default, False
+
+
+def _router3_fallbacks(main_tf_path: str) -> tuple[str, str, bool]:
+    return _router_slot_fallbacks(main_tf_path, 3)
 
 
 def _resolve(name: str, tfvars_raw: dict[str, str], defaults_raw: dict[str, str]) -> ResolvedVar:
@@ -242,19 +278,32 @@ def load(infra_dir: str | None = None) -> AriaTerraformConfig:
     tfvars_raw = _parse_tfvars(tfvars) if tfvars_found else {}
 
     aria_bedrock_enabled = _resolve("aria_bedrock_enabled", tfvars_raw, defaults_raw)
-    ai_router_model_3_id = _resolve("ai_router_model_3_id", tfvars_raw, defaults_raw)
-    ai_router_model_3_name = _resolve("ai_router_model_3_name", tfvars_raw, defaults_raw)
-
-    id_fallback, name_fallback, pattern_matched = _router3_fallbacks(main_tf)
-    id_effective = ai_router_model_3_id.value if ai_router_model_3_id.value else id_fallback
-    name_effective = ai_router_model_3_name.value if ai_router_model_3_name.value else name_fallback
+    slots: dict[int, tuple[ResolvedVar, ResolvedVar, str, str]] = {}
+    pattern_matched = True
+    for slot in (1, 2, 3):
+        resolved_id = _resolve(f"ai_router_model_{slot}_id", tfvars_raw, defaults_raw)
+        resolved_name = _resolve(f"ai_router_model_{slot}_name", tfvars_raw, defaults_raw)
+        id_fallback, name_fallback, matched = _router_slot_fallbacks(main_tf, slot)
+        if slot == 3:
+            pattern_matched = matched
+        id_effective = resolved_id.value if resolved_id.value else id_fallback
+        name_effective = resolved_name.value if resolved_name.value else name_fallback
+        slots[slot] = (resolved_id, resolved_name, str(id_effective), str(name_effective))
 
     return AriaTerraformConfig(
         aria_bedrock_enabled=aria_bedrock_enabled,
-        ai_router_model_3_id=ai_router_model_3_id,
-        ai_router_model_3_name=ai_router_model_3_name,
-        ai_router_model_3_id_effective=str(id_effective),
-        ai_router_model_3_name_effective=str(name_effective),
+        ai_router_model_1_id=slots[1][0],
+        ai_router_model_1_name=slots[1][1],
+        ai_router_model_2_id=slots[2][0],
+        ai_router_model_2_name=slots[2][1],
+        ai_router_model_3_id=slots[3][0],
+        ai_router_model_3_name=slots[3][1],
+        ai_router_model_1_id_effective=slots[1][2],
+        ai_router_model_1_name_effective=slots[1][3],
+        ai_router_model_2_id_effective=slots[2][2],
+        ai_router_model_2_name_effective=slots[2][3],
+        ai_router_model_3_id_effective=slots[3][2],
+        ai_router_model_3_name_effective=slots[3][3],
         variables_tf_found=variables_tf_found,
         tfvars_found=tfvars_found,
         main_tf_fallback_pattern_matched=pattern_matched,
@@ -267,8 +316,16 @@ def to_dict(config: AriaTerraformConfig) -> dict:
 
     return {
         "aria_bedrock_enabled": _var(config.aria_bedrock_enabled),
+        "ai_router_model_1_id": _var(config.ai_router_model_1_id),
+        "ai_router_model_1_name": _var(config.ai_router_model_1_name),
+        "ai_router_model_2_id": _var(config.ai_router_model_2_id),
+        "ai_router_model_2_name": _var(config.ai_router_model_2_name),
         "ai_router_model_3_id": _var(config.ai_router_model_3_id),
         "ai_router_model_3_name": _var(config.ai_router_model_3_name),
+        "ai_router_model_1_id_effective": config.ai_router_model_1_id_effective,
+        "ai_router_model_1_name_effective": config.ai_router_model_1_name_effective,
+        "ai_router_model_2_id_effective": config.ai_router_model_2_id_effective,
+        "ai_router_model_2_name_effective": config.ai_router_model_2_name_effective,
         "ai_router_model_3_id_effective": config.ai_router_model_3_id_effective,
         "ai_router_model_3_name_effective": config.ai_router_model_3_name_effective,
         "bedrock_live_for_chat": config.bedrock_live_for_chat,
@@ -286,6 +343,12 @@ def render_text(config: AriaTerraformConfig) -> str:
         f"  -> POST /ai/chat calls live Bedrock: {config.bedrock_live_for_chat}"
         + ("" if config.bedrock_live_for_chat else
            "  (deterministic engine only in this configuration)"),
+        f"- ai_router_model_1: {config.ai_router_model_1_id_effective} "
+        f"(\"{config.ai_router_model_1_name_effective}\") "
+        f"(source: {config.ai_router_model_1_id.source})",
+        f"- ai_router_model_2: {config.ai_router_model_2_id_effective} "
+        f"(\"{config.ai_router_model_2_name_effective}\") "
+        f"(source: {config.ai_router_model_2_id.source})",
         f"- ai_router_model_3: {config.ai_router_model_3_id_effective} "
         f"(\"{config.ai_router_model_3_name_effective}\") "
         f"(source: {config.ai_router_model_3_id.source})",

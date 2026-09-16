@@ -45,6 +45,40 @@ def _denied_lifestyle_token(token: str) -> bool:
     return bool(_DENIED_LIFESTYLE.search(str(token or "").strip()))
 
 
+def sanitize_user_memory_text(raw: str) -> str:
+    """Refuse/strip partner/cycle tokens from a user-authored vault note.
+
+    Mirrors iOS ``AriaFactPrivacy.sanitizeSummary`` denied-lifestyle prefixes
+    (``_DENIED_LIFESTYLE``). Empty string means refused — never store, never
+    coach. Does not invent QoL. Calendar title/attendee/place tokens drop too;
+    event-dict title redaction stays on ``_redact_calendar_event_titles``.
+    """
+    text = str(raw or "").strip()
+    if not text:
+        return ""
+    kept: list[str] = []
+    for token in text.split():
+        lower = token.lower()
+        if "@" in token:
+            continue
+        if lower.startswith(
+            (
+                "calendar:title:",
+                "calendar:attendee:",
+                "calendar:place:",
+                "calendar:location:",
+            )
+        ):
+            continue
+        if _denied_lifestyle_token(token):
+            continue
+        kept.append(token)
+    cleaned = " ".join(kept).strip()
+    if any(_denied_lifestyle_token(part) for part in cleaned.split()):
+        return ""
+    return cleaned
+
+
 def _filter_lifestyle_tokens(values: Any) -> list[str]:
     if not isinstance(values, list):
         return []
@@ -276,6 +310,10 @@ def handle_post_ai_chat(body: dict[str, Any], *, user_id: str) -> dict:
     # Companion memory (lifestyle-gated): ingest calendar, run ARIA's daily
     # self-evaluation once per day, and offer a daily check-in. All deterministic
     # and side-effect-scoped to the user's own memory.
+    # Rowan: if memory_enabled is false, auto-ingest / evaluate / check-in /
+    # prompt inject must stop (off ≠ delete). Not wired yet — see
+    # services.editable_memory.auto_ingest_allowed. Partner/cycle + calendar
+    # titles stay on sanitize_inbound_chat_payload above, not this settings row.
     memory_block = ""
     checkin_payload: dict[str, Any] | None = None
     calendar_ingested: list[dict[str, Any]] = []

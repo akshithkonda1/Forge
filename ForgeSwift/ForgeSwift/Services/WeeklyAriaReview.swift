@@ -29,18 +29,22 @@ final class WeeklyAriaReviewStore: ObservableObject {
 
     private static let lastCompletedKey = "forge.aria.weekly.completed"
     private static let snoozedKey = "forge.aria.weekly.snoozed"
-    private static let dueAfter: TimeInterval = 6 * 24 * 60 * 60
 
     private init() {
         refreshDue()
     }
 
     func refreshDue() {
+        let cadence = AriaCompanionPreferencesStore.load().checkInCadence
+        guard let interval = cadence.interval else {
+            isDue = false
+            return
+        }
         guard let last = UserDefaults.standard.object(forKey: Self.lastCompletedKey) as? Date else {
             isDue = true
             return
         }
-        isDue = Date().timeIntervalSince(last) >= Self.dueAfter
+        isDue = Date().timeIntervalSince(last) >= interval
     }
 
     func considerPresenting() {
