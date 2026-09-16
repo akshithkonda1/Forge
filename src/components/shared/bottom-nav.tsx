@@ -1,6 +1,5 @@
 "use client";
 
-import { motion } from "framer-motion";
 import { Home, Dumbbell, Moon, User } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { TabId } from "@/stores/useAppStore";
@@ -22,7 +21,7 @@ const tabs: { id: TabId; label: string; icon: typeof Home | null }[] = [
 export function BottomNav({ activeTab, onTabChange }: BottomNavProps) {
   return (
     <nav
-      className="shrink-0 border-t border-border bg-background/90 backdrop-blur-xl"
+      className="shrink-0 border-t border-white/[0.06] bg-background/85 backdrop-blur-xl"
       aria-label="Primary"
     >
       <div className="flex h-16 items-center justify-around px-2 pb-[env(safe-area-inset-bottom,0px)]">
@@ -39,24 +38,22 @@ export function BottomNav({ activeTab, onTabChange }: BottomNavProps) {
                 onClick={() => onTabChange(tab.id)}
                 aria-current={isActive ? "page" : undefined}
                 aria-label="Workout"
-                className="relative -mt-6 flex min-w-[3.5rem] flex-col items-center focus-visible:outline-none"
+                className="relative -mt-5 flex min-w-[3.5rem] flex-col items-center focus-visible:outline-none active:brightness-90"
               >
-                <motion.div
+                <div
                   className={cn(
-                    "flex h-14 w-14 items-center justify-center rounded-full shadow-lg",
+                    "flex h-12 w-12 items-center justify-center rounded-full transition-shadow duration-200",
                     isActive
-                      ? "bg-ember shadow-[0_0_24px_rgba(255,77,0,0.4)]"
-                      : "bg-ember/80"
+                      ? "bg-[#F7F4F0] text-[#0A0A0A] shadow-[0_8px_24px_rgba(247,244,240,0.18)]"
+                      : "bg-white/[0.1] text-[#F7F4F0] ring-1 ring-white/15"
                   )}
-                  whileTap={{ scale: 0.92 }}
-                  transition={{ type: "spring", stiffness: 400, damping: 17 }}
                 >
-                  <Icon size={24} className="text-white" />
-                </motion.div>
+                  <Icon size={22} />
+                </div>
                 <span
                   className={cn(
-                    "mt-1 text-[10px] font-medium",
-                    isActive ? "text-ember" : "text-text-tertiary"
+                    "mt-1.5 text-[10px] font-medium",
+                    isActive ? "text-[#F7F4F0]" : "text-text-tertiary"
                   )}
                 >
                   {tab.label}
@@ -72,38 +69,29 @@ export function BottomNav({ activeTab, onTabChange }: BottomNavProps) {
               onClick={() => onTabChange(tab.id)}
               aria-current={isActive ? "page" : undefined}
               aria-label={tab.label}
-              className="relative flex min-h-[3rem] min-w-[3.5rem] flex-col items-center justify-center gap-1 focus-visible:outline-none"
+              className="relative flex min-h-[3rem] min-w-[3.5rem] flex-col items-center justify-center gap-1 focus-visible:outline-none active:brightness-90"
             >
-              <motion.div
-                whileTap={{ scale: 0.9 }}
-                transition={{ type: "spring", stiffness: 400, damping: 17 }}
-              >
-                {tab.id === "chat" || !Icon ? (
-                  <AriaMark size={24} speaking={isActive} />
-                ) : (
-                  <Icon
-                    size={22}
-                    className={cn(
-                      "transition-colors",
-                      isActive ? "text-ember" : "text-text-tertiary"
-                    )}
-                  />
-                )}
-              </motion.div>
+              {tab.id === "chat" || !Icon ? (
+                <AriaMark size={24} speaking={false} />
+              ) : (
+                <Icon
+                  size={22}
+                  className={cn(
+                    "transition-colors",
+                    isActive ? "text-[#F7F4F0]" : "text-text-tertiary"
+                  )}
+                />
+              )}
               <span
                 className={cn(
                   "text-[10px] font-medium transition-colors",
-                  isActive ? "text-ember" : "text-text-tertiary"
+                  isActive ? "text-[#F7F4F0]" : "text-text-tertiary"
                 )}
               >
                 {tab.label}
               </span>
               {isActive && (
-                <motion.div
-                  className="absolute -top-px h-0.5 w-8 rounded-full bg-ember"
-                  layoutId="activeTab"
-                  transition={{ type: "spring", stiffness: 300, damping: 25 }}
-                />
+                <span className="absolute -top-px h-0.5 w-7 rounded-full bg-[#F7F4F0]/80" />
               )}
             </button>
           );

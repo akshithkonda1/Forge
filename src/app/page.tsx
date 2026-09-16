@@ -1,5 +1,6 @@
 "use client";
 
+import dynamic from "next/dynamic";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import { useAppStore, type TabId } from "@/stores/useAppStore";
@@ -7,33 +8,74 @@ import { BottomNav } from "@/components/shared/bottom-nav";
 import { HomePage } from "@/components/home/home-page";
 import { ChatPage } from "@/components/chat/chat-page";
 import { WorkoutPage } from "@/components/workout/workout-page";
-import { SleepPage } from "@/components/sleep/sleep-page";
-import { ProfileTab } from "@/components/profile/profile-tab";
 import { AriaIntro } from "@/components/brand/aria-intro";
 import { AriaMark } from "@/components/brand/aria-mark";
-import { ForgeBrandMark, PremiumAtmosphere, PremiumFloat, PremiumPresenceBloom } from "@/components/brand/premium-atmosphere";
-import { forgeSplashHoldMs } from "@/lib/forge-splash";
+import {
+  ForgeBrandMark,
+  PremiumAtmosphere,
+  PremiumFloat,
+  PremiumPresenceBloom,
+} from "@/components/brand/premium-atmosphere";
+import { forgeSplashHoldMs, peekPersistedOnboarded } from "@/lib/forge-splash";
 import { cn } from "@/lib/utils";
+
+const SleepPage = dynamic(
+  () => import("@/components/sleep/sleep-page").then((m) => m.SleepPage),
+  {
+    ssr: false,
+    loading: () => <TabSkeleton label="Sleep" />,
+  }
+);
+
+const ProfileTab = dynamic(
+  () => import("@/components/profile/profile-tab").then((m) => m.ProfileTab),
+  {
+    ssr: false,
+    loading: () => <TabSkeleton label="You" />,
+  }
+);
 
 const TABS: TabId[] = ["home", "chat", "workout", "sleep", "profile"];
 let didFinishSplash = false;
 
-function BootSplash({ live = false }: { live?: boolean }) {
-  void live;
+function TabSkeleton({ label }: { label: string }) {
+  return (
+    <div className="flex flex-1 flex-col gap-4 px-4 pb-8 pt-12" aria-busy="true" aria-label={`Loading ${label}`}>
+      <div className="h-8 w-40 animate-pulse rounded-lg bg-white/[0.06]" />
+      <div className="h-36 animate-pulse rounded-2xl bg-white/[0.05]" />
+      <div className="h-24 animate-pulse rounded-2xl bg-white/[0.04]" />
+      <div className="h-24 animate-pulse rounded-2xl bg-white/[0.04]" />
+    </div>
+  );
+}
+
+function BootSplash({
+  live = false,
+  compact = false,
+}: {
+  live?: boolean;
+  compact?: boolean;
+}) {
   return (
     <div className="relative flex min-h-[100dvh] flex-col items-center justify-center overflow-hidden bg-background">
-      <PremiumAtmosphere accent="#FF6B2B" secondary="#A9D8FF" intensity={0.9} />
+      <PremiumAtmosphere accent="#FF6B2B" secondary="#A9D8FF" intensity={compact ? 0.55 : 0.9} />
       <div className="relative z-10 flex flex-col items-center">
-        <PremiumFloat className="relative flex h-56 w-56 items-center justify-center">
-          <PremiumPresenceBloom size={220} />
-          <AriaMark size={148} speaking label="ARIA" className="relative z-10" />
-        </PremiumFloat>
+        {compact ? (
+          <div className="relative flex h-28 w-28 items-center justify-center">
+            <AriaMark size={72} speaking={false} label="ARIA" className="relative z-10" />
+          </div>
+        ) : (
+          <PremiumFloat className="relative flex h-56 w-56 items-center justify-center">
+            <PremiumPresenceBloom size={220} />
+            <AriaMark size={148} speaking={live} label="ARIA" className="relative z-10" />
+          </PremiumFloat>
+        )}
         <div className="premium-enter mt-5 flex items-center gap-2.5 text-[28px] font-semibold tracking-[0.22em] text-[#F7F4F0]">
           <ForgeBrandMark size={22} />
           FORGE
         </div>
         <p className="premium-kicker-glow mt-3 text-[12px] font-medium uppercase tracking-[0.32em] text-text-tertiary">
-          Forged.
+          {compact ? "Loading…" : "Forged."}
         </p>
       </div>
     </div>
@@ -71,6 +113,8 @@ export default function Page() {
   const isOnboarded = useAppStore((s) => s.isOnboarded);
   const hasMetAria = useAppStore((s) => s.hasMetAria);
   const meetAria = useAppStore((s) => s.meetAria);
+  const chatMessages = useAppStore((s) => s.chatMessages);
+  const seedAriaWelcome = useAppStore((s) => s.seedAriaWelcome);
   const hasHydrated = useAppStore((s) => s.hasHydrated);
   const setHasHydrated = useAppStore((s) => s.setHasHydrated);
   const activeTab = useAppStore((s) => s.activeTab);
@@ -79,6 +123,7 @@ export default function Page() {
   const mainRef = useRef<HTMLElement>(null);
   const [visited, setVisited] = useState<TabId[]>([activeTab]);
   const [showLaunchMeet, setShowLaunchMeet] = useState(true);
+  const [returning] = useState(() => peekPersistedOnboarded());
   const [showSplash, setShowSplash] = useState(!didFinishSplash);
 
   useEffect(() => {
@@ -94,16 +139,24 @@ export default function Page() {
     const timer = window.setTimeout(() => {
       didFinishSplash = true;
       setShowSplash(false);
-    }, forgeSplashHoldMs(reduce));
+    }, forgeSplashHoldMs(reduce, { returning }));
     return () => window.clearTimeout(timer);
-  }, [showSplash]);
+  }, [showSplash, returning]);
 
   useEffect(() => {
     if (!hasHydrated) return;
-    if (!isOnboarded) {
+    // Avoid bouncing returning users if persist peek already showed onboarded.
+    if (!isOnboarded && !peekPersistedOnboarded()) {
       router.replace("/onboarding");
     }
   }, [hasHydrated, isOnboarded, router]);
+
+  useEffect(() => {
+    if (!hasHydrated || !isOnboarded) return;
+    if (chatMessages.length === 0) {
+      seedAriaWelcome();
+    }
+  }, [hasHydrated, isOnboarded, chatMessages.length, seedAriaWelcome]);
 
   useEffect(() => {
     setVisited((prev) => (prev.includes(activeTab) ? prev : [...prev, activeTab]));
@@ -112,25 +165,34 @@ export default function Page() {
   }, [activeTab]);
 
   if (showSplash) {
-    return <BootSplash live />;
+    return <BootSplash live={!returning} compact={returning} />;
   }
 
-  if (!hasHydrated || !isOnboarded) {
-    return <BootSplash />;
+  if (!hasHydrated) {
+    return <BootSplash compact />;
   }
 
-  const waitingToMeet = !hasMetAria && (activeTab === "chat" || showLaunchMeet);
+  if (!isOnboarded) {
+    // Returning peek can win a frame before zustand applies — keep shell quiet.
+    return <BootSplash compact />;
+  }
+
+  // Skip intro when they've already met ARIA or already have a welcome in chat.
+  const waitingToMeet =
+    !hasMetAria && chatMessages.length === 0 && (activeTab === "chat" || showLaunchMeet);
   if (waitingToMeet) {
     return (
       <div className="app-shell relative mx-auto min-h-[100dvh] w-full max-w-lg bg-background">
         <AriaIntro
           onContinue={() => {
             meetAria();
+            if (chatMessages.length === 0) seedAriaWelcome();
             setShowLaunchMeet(false);
             setActiveTab("chat");
           }}
           onSkip={() => {
             meetAria();
+            if (chatMessages.length === 0) seedAriaWelcome();
             setShowLaunchMeet(false);
             setActiveTab("home");
           }}

@@ -236,6 +236,11 @@ assert(FORGE_SPLASH.reduceMotionHoldMs === 650, "reduce-motion splash is 0.65s")
 assert(FORGE_SPLASH.holdMs >= FORGE_SPLASH.brandFloorMs, "splash is long enough to feel forged");
 assert(FORGE_SPLASH.holdMs < FORGE_SPLASH.freezeCeilingMs, "splash is short of a freeze");
 assert(forgeSplashHoldMs(false) === 2450 && forgeSplashHoldMs(true) === 650, "splash hold follows motion preference");
+assert(FORGE_SPLASH.returningHoldMs < FORGE_SPLASH.holdMs, "returning splash is shorter than first open");
+assert(
+  forgeSplashHoldMs(false, { returning: true }) === FORGE_SPLASH.returningHoldMs,
+  "returning splash uses returningHoldMs"
+);
 assert(FORGE_FIRE.kind === "rage-fire", "legacy fire geometry remains rage-fire (auth/onboarding no longer paint it)");
 assert(FORGE_FIRE.kind !== ARIA_MARK.kind, "fire is not the ARIA mark");
 assert(fireSpec("rage").tongueCount > fireSpec("ember").tongueCount, "rage has more tongues than ember");

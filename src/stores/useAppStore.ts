@@ -192,7 +192,7 @@ export const useAppStore = create<AppState>()(
       experience: profile.experienceLevel,
       workouts: profile.preferredWorkouts,
       coachingStyle: profile.coachingStyle,
-      devicesConnected: profile.connectedDevices.length,
+      devicesConnected: profile.connectedDevices?.length ?? 0,
     });
     const welcome: ChatMessage = {
       id: `aria-welcome-${Date.now()}`,
@@ -200,7 +200,7 @@ export const useAppStore = create<AppState>()(
       content,
       timestamp: new Date(),
     };
-    set({ chatMessages: [welcome] });
+    set({ chatMessages: [welcome], hasMetAria: true });
   },
 
   userProfile: mockProfile,
@@ -285,8 +285,33 @@ export const useAppStore = create<AppState>()(
         activeTab: state.activeTab,
         notificationPrefs: state.notificationPrefs,
         hasMetAria: state.hasMetAria,
+        // Keep last few messages so refresh doesn't erase ARIA's welcome.
+        chatMessages: state.chatMessages.slice(-24).map((m) => ({
+          ...m,
+          timestamp:
+            m.timestamp instanceof Date
+              ? m.timestamp.toISOString()
+              : m.timestamp,
+        })),
       }),
       onRehydrateStorage: () => (state) => {
+        if (state?.chatMessages?.length) {
+          state.chatMessages = state.chatMessages.map((m) => ({
+            ...m,
+            timestamp: new Date(m.timestamp as unknown as string),
+          }));
+        }
+        if (state?.userProfile) {
+          state.userProfile = {
+            ...mockProfile,
+            ...state.userProfile,
+            connectedDevices: state.userProfile.connectedDevices ?? [],
+            fitnessGoals: state.userProfile.fitnessGoals ?? mockProfile.fitnessGoals,
+            preferredWorkouts:
+              state.userProfile.preferredWorkouts ?? mockProfile.preferredWorkouts,
+            weeklySchedule: state.userProfile.weeklySchedule ?? mockProfile.weeklySchedule,
+          };
+        }
         state?.setHasHydrated(true);
       },
     }

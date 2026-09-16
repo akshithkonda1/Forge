@@ -27,9 +27,9 @@
   --color-warning: #EAB308;
   --color-danger: #EF4444;
 
-  --font-display: "Geist", "Inter", system-ui, sans-serif;
-  --font-body: "Geist", "Inter", system-ui, sans-serif;
-  --font-mono: "Geist Mono", "JetBrains Mono", monospace;
+  --font-display: var(--font-forge-sans), "Plus Jakarta Sans", system-ui, sans-serif;
+  --font-body: var(--font-forge-sans), "Plus Jakarta Sans", system-ui, sans-serif;
+  --font-mono: var(--font-forge-mono), "JetBrains Mono", ui-monospace, monospace;
 
   --radius-sm: 0.375rem;
   --radius-md: 0.5rem;
@@ -73,6 +73,11 @@
     /* Safe area padding for notched devices */
     padding-left: env(safe-area-inset-left);
     padding-right: env(safe-area-inset-right);
+  }
+
+  h1, h2, h3, h4 {
+    font-family: var(--font-display);
+    letter-spacing: -0.02em;
   }
 
   /* Allow text selection where it makes sense */
@@ -208,10 +213,10 @@
 
 @keyframes premium-cta-sheen {
   0% {
-    transform: translateX(-120%);
+    left: -120%;
   }
   100% {
-    transform: translateX(120%);
+    left: 120%;
   }
 }
 
@@ -229,12 +234,10 @@
   from {
     opacity: 0;
     transform: translate3d(0, 14px, 0);
-    filter: blur(4px);
   }
   to {
     opacity: 1;
     transform: translate3d(0, 0, 0);
-    filter: blur(0);
   }
 }
 
@@ -360,6 +363,8 @@
 }
 
 .premium-cta-sheen {
+  left: -120%;
+  width: 60%;
   background: linear-gradient(
     105deg,
     transparent 30%,
@@ -370,11 +375,18 @@
   animation-delay: 0.6s;
 }
 
+.premium-cta {
+  /* Guard: never apply transform to the press target (breaks Chromium click synthesis). */
+  transform: none !important;
+  touch-action: manipulation;
+}
+
 .premium-brand-mark {
   animation: premium-brand-sheen 2.8s ease-in-out infinite;
 }
 
 .premium-enter {
+  /* Avoid CSS filter here — filter on ancestors can break pointer hit-testing. */
   animation: premium-enter 0.72s cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 
@@ -417,7 +429,6 @@
     animation: none !important;
     opacity: 1 !important;
     transform: none !important;
-    filter: none !important;
   }
 
   .premium-float,
