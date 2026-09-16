@@ -161,7 +161,11 @@ final class BodyModelHRVTests: XCTestCase {
         XCTAssertEqual(baselines.sdnn.mean, sdnnMean, accuracy: 1e-12)
         XCTAssertEqual(baselines.sdnnSamplingDensityVersion, HRVSamplingDensity.overnightSparse.version)
         XCTAssertNil(baselines.baselineMs(.rmssd), "one post-migrate sample is still thin")
-        XCTAssertEqual(baselines.baselineMs(.sdnn), sdnnMean, accuracy: 1e-12)
+        guard let sdnnBaseline = baselines.baselineMs(.sdnn) else {
+            XCTFail("SDNN baseline should remain after an RMSSD density migrate")
+            return
+        }
+        XCTAssertEqual(sdnnBaseline, sdnnMean, accuracy: 1e-12)
     }
 
     func testUnversionedPersistedBaselinesAreDroppedOnDecode() throws {

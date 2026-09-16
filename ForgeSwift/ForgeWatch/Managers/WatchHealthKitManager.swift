@@ -81,7 +81,8 @@ final class WatchHealthKitManager {
             HKQuantityType(.bodyTemperature),
         ]
         types.insert(HKQuantityType(.appleSleepingWristTemperature))
-        // RMSSD is optional: iOS 27 identifier, ingest only when samples exist.
+        // RMSSD is optional: ingest only when HealthKit knows the type and
+        // samples exist (`heartRateVariabilityRMSSD`).
         if let rmssd = HealthKitHRVQuantity.rmssdTypeIfAvailable {
             types.insert(rmssd)
         }

@@ -75,8 +75,8 @@ public struct HRVSamplingDensity: Codable, Equatable, Sendable {
     /// Classic Apple Watch overnight SDNN — a handful of samples per night.
     public static let overnightSparse = HRVSamplingDensity(version: 1, expectedSamplesPerDay: 6)
 
-    /// iOS 27 RMSSD samples, when HealthKit actually has them. Distinct
-    /// version so sparse SDNN history is never mixed into an RMSSD baseline.
+    /// HealthKit RMSSD samples, when the type exists and readings are present.
+    /// Distinct version so sparse SDNN history is never mixed into an RMSSD baseline.
     public static let denseRMSSD = HRVSamplingDensity(version: 2, expectedSamplesPerDay: 144)
 
     public static func `default`(for statistic: HRVStatistic) -> HRVSamplingDensity {
@@ -248,8 +248,9 @@ public enum BodyModelHRVBaselineStore: Sendable {
 extension HealthKitHRVQuantity {
     public static var sdnnIdentifier: HKQuantityTypeIdentifier { .heartRateVariabilitySDNN }
 
-    /// iOS 27 HealthKit type. Raw value so ForgeCore still compiles on the
-    /// SPM floor (iOS 18 / macOS 14) before every SDK ships the symbol.
+    /// `HKQuantityTypeIdentifierHeartRateVariabilityRMSSD` (`heartRateVariabilityRMSSD`
+    /// in HealthKit). Raw value so ForgeCore still compiles on the SPM floor
+    /// (iOS 18 / macOS 14) if the SDK has not shipped the static symbol.
     public static var rmssdIdentifier: HKQuantityTypeIdentifier {
         HKQuantityTypeIdentifier(rawValue: rmssdIdentifierRaw)
     }
