@@ -2,9 +2,8 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { motion, type Variants } from "framer-motion";
+import { motion, useReducedMotion, type Variants } from "framer-motion";
 import {
-  User,
   Dumbbell,
   Watch,
   Bell,
@@ -20,23 +19,8 @@ import { cn } from "@/lib/utils";
 import { useAppStore } from "@/stores/useAppStore";
 import { useToast } from "@/stores/useToast";
 import { Sheet } from "@/components/ui/sheet";
-import type { CoachingStyle, FitnessGoal, WorkoutType } from "@/types";
-
-// ---------- Mappings ----------
-
-const coachingStyleLabels: Record<CoachingStyle, string> = {
-  "push-hard": "Push Me Hard",
-  balanced: "Keep It Balanced",
-  patient: "Be Patient With Me",
-  "data-driven": "Data-Driven & Precise",
-};
-
-const coachingStyleDescriptions: Record<CoachingStyle, string> = {
-  "push-hard": "Maximum intensity every session. No excuses.",
-  balanced: "Smart training — push when ready, recover when needed.",
-  patient: "Encouraging, supportive, and habit-focused.",
-  "data-driven": "Optimized by metrics. Numbers guide everything.",
-};
+import { AriaCompanionControls } from "@/components/settings/aria-companion-controls";
+import type { FitnessGoal, WorkoutType } from "@/types";
 
 const fitnessGoalLabels: Record<FitnessGoal, string> = {
   "build-muscle": "Build Muscle",
@@ -127,18 +111,15 @@ function SettingsRow({
   rightElement?: React.ReactNode;
   onClick?: () => void;
 }) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={cn(
-        "flex w-full items-center justify-between px-4 py-3",
-        onClick && "active:bg-surface-hover transition-colors"
-      )}
-    >
+  const className = cn(
+    "flex w-full items-center justify-between px-4 py-3 text-left",
+    onClick && "active:bg-surface-hover transition-colors"
+  );
+  const inner = (
+    <>
       <div className="flex items-center gap-3">
         {icon && (
-          <span className={cn("flex-shrink-0", iconColor || "text-text-secondary")}>
+          <span className={cn("flex-shrink-0", iconColor || "text-text-secondary")} aria-hidden>
             {icon}
           </span>
         )}
@@ -150,36 +131,55 @@ function SettingsRow({
         )}
         {rightElement}
         {showChevron && (
-          <ChevronRight size={16} className="text-text-muted" />
+          <ChevronRight size={16} className="text-text-muted" aria-hidden />
         )}
       </div>
-    </button>
+    </>
   );
+
+  if (onClick) {
+    return (
+      <button type="button" onClick={onClick} className={className}>
+        {inner}
+      </button>
+    );
+  }
+
+  return <div className={className}>{inner}</div>;
 }
 
 function ToggleSwitch({
   enabled,
   onToggle,
+  label,
 }: {
   enabled: boolean;
   onToggle: () => void;
+  label: string;
 }) {
+  const reduceMotion = useReducedMotion();
   return (
     <button
       type="button"
+      role="switch"
+      aria-checked={enabled}
+      aria-label={label}
       onClick={(e) => {
         e.stopPropagation();
         onToggle();
       }}
       className={cn(
-        "relative inline-flex h-7 w-12 flex-shrink-0 items-center rounded-full transition-colors duration-200",
+        "relative inline-flex h-7 w-12 flex-shrink-0 items-center rounded-full",
+        "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ember/50",
         enabled ? "bg-ember" : "bg-border-light"
       )}
     >
       <motion.span
         className="inline-block h-5 w-5 rounded-full bg-white shadow-md"
         animate={{ x: enabled ? 24 : 4 }}
-        transition={{ type: "spring", stiffness: 500, damping: 30 }}
+        transition={
+          reduceMotion ? { duration: 0 } : { type: "spring", stiffness: 500, damping: 30 }
+        }
       />
     </button>
   );
@@ -213,7 +213,6 @@ const DEVICE_OPTIONS = [
 
 type SettingsSheet =
   | "name"
-  | "coaching"
   | "devices"
   | "schedule"
   | "privacy"
@@ -289,7 +288,8 @@ export default function SettingsPage() {
               setDraftName(userProfile.name);
               setSheet("name");
             }}
-            className="text-sm font-medium text-ember transition-colors hover:text-ember-light"
+            className="text-sm font-medium text-ember transition-colors hover:text-ember-light focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ember/50"
+            aria-label="Edit name"
           >
             Edit
           </button>
@@ -306,29 +306,13 @@ export default function SettingsPage() {
         </div>
       </motion.div>
 
-      {/* ===== 2. AI Trainer Section ===== */}
+      {/* ===== 2. ARIA — memory, tone, check-in ===== */}
       <SectionHeader>ARIA</SectionHeader>
       <SectionCard>
-        {/* Coaching Style */}
-        <SettingsRow
-          icon={<User size={18} />}
-          iconColor="text-ember"
-          label="Coaching Style"
-          value={
-            <span className="max-w-[160px] truncate text-right text-xs text-text-secondary">
-              {coachingStyleLabels[userProfile.coachingStyle]}
-            </span>
-          }
-          showChevron
-          onClick={() => setSheet("coaching")}
+        <AriaCompanionControls
+          SettingsRow={SettingsRow}
+          ToggleSwitch={ToggleSwitch}
         />
-        {/* Style description */}
-        <div className="px-4 py-2.5">
-          <p className="text-xs leading-relaxed text-text-tertiary">
-            {coachingStyleDescriptions[userProfile.coachingStyle]}
-          </p>
-        </div>
-        {/* Training Goals */}
         <div className="px-4 py-3">
           <p className="mb-2 text-sm font-medium text-text-primary">
             Training Goals
@@ -417,6 +401,7 @@ export default function SettingsPage() {
           rightElement={
             <ToggleSwitch
               enabled={notificationPrefs.workoutReminders}
+              label="Workout reminders"
               onToggle={() => handleToggle("workoutReminders")}
             />
           }
@@ -428,6 +413,7 @@ export default function SettingsPage() {
           rightElement={
             <ToggleSwitch
               enabled={notificationPrefs.aiInsights}
+              label="ARIA insights"
               onToggle={() => handleToggle("aiInsights")}
             />
           }
@@ -439,6 +425,7 @@ export default function SettingsPage() {
           rightElement={
             <ToggleSwitch
               enabled={notificationPrefs.recoveryAlerts}
+              label="Recovery alerts"
               onToggle={() => handleToggle("recoveryAlerts")}
             />
           }
@@ -450,6 +437,7 @@ export default function SettingsPage() {
           rightElement={
             <ToggleSwitch
               enabled={notificationPrefs.weeklySummary}
+              label="Weekly summary"
               onToggle={() => handleToggle("weeklySummary")}
             />
           }
@@ -524,42 +512,17 @@ export default function SettingsPage() {
           </button>
         }
       >
+        <label htmlFor="settings-name" className="sr-only">
+          Your name
+        </label>
         <input
+          id="settings-name"
           value={draftName}
           onChange={(e) => setDraftName(e.target.value)}
-          className="w-full rounded-xl border border-border bg-surface-elevated px-4 py-3 text-sm text-text-primary outline-none focus:border-ember"
+          className="w-full rounded-xl border border-border bg-surface-elevated px-4 py-3 text-sm text-text-primary outline-none focus:border-ember focus-visible:ring-2 focus-visible:ring-ember/40"
           placeholder="Name"
           autoFocus
         />
-      </Sheet>
-
-      <Sheet open={sheet === "coaching"} onClose={() => setSheet(null)} title="Coaching style">
-        <div className="flex flex-col gap-2">
-          {(Object.keys(coachingStyleLabels) as CoachingStyle[]).map((style) => (
-            <button
-              key={style}
-              type="button"
-              onClick={() => {
-                updateProfile({ coachingStyle: style });
-                setSheet(null);
-                showToast("ARIA's voice updated.");
-              }}
-              className={cn(
-                "rounded-xl border p-3 text-left",
-                userProfile.coachingStyle === style
-                  ? "border-ember bg-ember/10"
-                  : "border-border bg-surface-elevated"
-              )}
-            >
-              <p className="text-sm font-semibold text-text-primary">
-                {coachingStyleLabels[style]}
-              </p>
-              <p className="mt-1 text-xs text-text-tertiary">
-                {coachingStyleDescriptions[style]}
-              </p>
-            </button>
-          ))}
-        </div>
       </Sheet>
 
       <Sheet open={sheet === "devices"} onClose={() => setSheet(null)} title="Devices">
@@ -638,8 +601,8 @@ export default function SettingsPage() {
 
       <Sheet open={sheet === "about"} onClose={() => setSheet(null)} title="About Forge">
         <p className="text-sm leading-relaxed text-text-secondary">
-          Forge unifies your health signals. ARIA is the intelligence layer — recovery-first
-          coaching that fits the life you already have.
+          Forge brings your health picture together. ARIA is your coach — recovery-first,
+          for the life you already have.
         </p>
       </Sheet>
 

@@ -152,7 +152,7 @@ export default function ProfileSetup({ onNext, onBack }: ProfileSetupProps) {
                 What should ARIA call you?
               </h2>
               <p className="mb-8 text-text-tertiary">
-                Your intelligence layer learns your name first — everything else gets personal from here.
+                ARIA will use this name. Everything from here gets personal.
               </p>
               <input
                 type="text"

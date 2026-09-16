@@ -63,8 +63,8 @@ export function whisperForStep(
       const style = ctx.coachingStyle;
       if (!style) {
         return {
-          title: "Coaching tone",
-          message: "This shapes every check-in and recovery nudge.",
+          title: "How I show up",
+          message: "A check-in, some space, the patterns, or an honest peer.",
           mood: "focused",
         };
       }

@@ -1,10 +1,11 @@
 "use client";
 
 import { useState } from "react";
-import { Zap, Scale, Heart, BarChart3 } from "lucide-react";
+import { Heart, MessageCircle, Sparkles, Users } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAppStore } from "@/stores/useAppStore";
 import { whisperForStep } from "@/lib/aria-onboarding";
+import { ARIA_TONE_ORDER, ARIA_TONES } from "@/lib/aria-companion";
 import AriaCompanion from "./aria-companion";
 import { PremiumPrimaryButton } from "@/components/brand/premium-atmosphere";
 import type { CoachingStyle as CoachingStyleType } from "@/types";
@@ -13,43 +14,12 @@ interface CoachingStyleProps {
   onComplete: () => void;
 }
 
-interface StyleOption {
-  value: CoachingStyleType;
-  label: string;
-  icon: React.ReactNode;
-  description: string;
-}
-
-const styles: StyleOption[] = [
-  {
-    value: "push-hard",
-    label: "Challenge me",
-    icon: <Zap size={28} />,
-    description:
-      "High intensity when you’re ready. Clear standards every session.",
-  },
-  {
-    value: "balanced",
-    label: "Keep it balanced",
-    icon: <Scale size={28} />,
-    description:
-      "Push when you can, back off when you need to. Smart training.",
-  },
-  {
-    value: "patient",
-    label: "Be patient with me",
-    icon: <Heart size={28} />,
-    description:
-      "I’m building habits. Encouraging and supportive.",
-  },
-  {
-    value: "data-driven",
-    label: "Data-driven & precise",
-    icon: <BarChart3 size={28} />,
-    description:
-      "Numbers guide the plan. Optimize from your metrics.",
-  },
-];
+const TONE_ICONS = {
+  balanced: MessageCircle,
+  patient: Heart,
+  "data-driven": Sparkles,
+  "push-hard": Users,
+} as const;
 
 export default function CoachingStyleScreen({
   onComplete,
@@ -70,13 +40,13 @@ export default function CoachingStyleScreen({
 
   return (
     <div className="flex min-h-[100dvh] flex-col overflow-y-auto px-6 pb-8 pt-16">
-      {/* Header */}
       <div className="mb-4">
         <h2 className="mb-2 text-3xl font-semibold tracking-tight text-text-primary">
-          How do you like to be coached?
+          How should I show up?
         </h2>
         <p className="text-text-tertiary">
-          This shapes ARIA&apos;s voice — every check-in, plan, and recovery nudge.
+          When the day is messy — a check-in, some space, the patterns, or an
+          honest peer. Trainer is a flavor. I&apos;m still me.
         </p>
       </div>
 
@@ -94,56 +64,54 @@ export default function CoachingStyleScreen({
         />
       </div>
 
-      {/* Style cards */}
-      <div className="flex flex-col gap-3">
-        {styles.map((style) => {
-          const isSelected = selected === style.value;
+      <div role="radiogroup" aria-label="How ARIA shows up" className="flex flex-col gap-3">
+        {ARIA_TONE_ORDER.map((value) => {
+          const option = ARIA_TONES[value];
+          const Icon = TONE_ICONS[value];
+          const isSelected = selected === value;
           return (
             <button
-              key={style.value}
+              key={value}
               type="button"
-              onClick={() => setSelected(style.value)}
+              role="radio"
+              aria-checked={isSelected}
+              onClick={() => setSelected(value)}
               className={cn(
                 "flex items-start gap-4 rounded-xl border p-5 text-left",
                 "transition-colors duration-150",
+                "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ember/50",
                 isSelected
                   ? "border-white/20 bg-white/[0.06]"
                   : "border-border bg-surface hover:border-border-light"
               )}
             >
-              {/* Icon */}
               <div
                 className={cn(
-                  "flex h-12 w-12 shrink-0 items-center justify-center rounded-lg transition-all duration-200",
+                  "flex h-12 w-12 shrink-0 items-center justify-center rounded-lg",
                   isSelected
                     ? "bg-white/10 text-[#F7F4F0]"
                     : "bg-surface-elevated text-text-tertiary"
                 )}
+                aria-hidden
               >
-                {style.icon}
+                <Icon size={28} />
               </div>
 
-              {/* Text */}
               <div className="flex flex-col">
-                <span
-                  className={cn(
-                    "text-base font-semibold transition-colors duration-200",
-                    isSelected ? "text-text-primary" : "text-text-primary"
-                  )}
-                >
-                  {style.label}
+                <span className="text-base font-semibold text-text-primary">
+                  {option.title}
                 </span>
                 <span className="mt-1 text-sm leading-relaxed text-text-tertiary">
-                  {style.description}
+                  {option.line}
                 </span>
               </div>
 
-              {/* Selection indicator */}
               <div
                 className={cn(
-                  "ml-auto mt-1 flex h-5 w-5 shrink-0 items-center justify-center rounded-full border-2 transition-all duration-200",
+                  "ml-auto mt-1 flex h-5 w-5 shrink-0 items-center justify-center rounded-full border-2",
                   isSelected ? "border-[#F7F4F0] bg-[#F7F4F0]" : "border-border"
                 )}
+                aria-hidden
               >
                 {isSelected && (
                   <div className="h-2 w-2 rounded-full bg-[#0A0A0A]" />
