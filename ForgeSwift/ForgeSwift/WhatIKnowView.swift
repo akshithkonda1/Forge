@@ -79,7 +79,7 @@ struct WhatIKnowView: View {
 
     private var personaCard: some View {
         VStack(alignment: .leading, spacing: 10) {
-            Text("Who you are for QoL")
+            Text("Who you are")
                 .font(.system(size: 12, weight: .semibold))
                 .foregroundColor(.textTertiary)
             Text(persona.archetype.title)
@@ -89,6 +89,27 @@ struct WhatIKnowView: View {
                 Text(String(format: "Sleep want: %.1f h", hours))
                     .font(.system(size: 13))
                     .foregroundColor(.textSecondary)
+            }
+            if let move = persona.movementPreference {
+                Text("Typical movement: \(move.title)")
+                    .font(.system(size: 13))
+                    .foregroundColor(.textSecondary)
+            }
+            if let hobbies = persona.hobbies, !hobbies.isEmpty {
+                Text("Free days: \(hobbies.map(\.title).joined(separator: " · "))")
+                    .font(.system(size: 13))
+                    .foregroundColor(.textSecondary)
+            }
+            if let food = persona.nutritionRelationship, !food.isEmpty {
+                if let volume = persona.eatingRhythm {
+                    Text("Food is \(food) · \(volume.title)")
+                        .font(.system(size: 13))
+                        .foregroundColor(.textSecondary)
+                } else {
+                    Text("Food is \(food)")
+                        .font(.system(size: 13))
+                        .foregroundColor(.textSecondary)
+                }
             }
             if let strain = persona.workStrain0to10 {
                 Text(String(format: "Work strain: %.0f / 10", strain))

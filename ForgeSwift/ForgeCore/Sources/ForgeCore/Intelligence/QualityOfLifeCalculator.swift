@@ -102,6 +102,12 @@ public struct QualityOfLifePersona: Codable, Sendable, Equatable {
     public var socialEnergy0to10: Double?
     public var workStrain0to10: Double?
     public var nutritionRelationship: String?
+    /// How much food a normal day holds — not a diet diagnosis.
+    public var eatingRhythm: LivingEatingRhythm?
+    /// Cardio vs strength vs mix on a normal week.
+    public var movementPreference: LivingMovementPreference?
+    /// Closed hobby chips. Not a biography, not family.
+    public var hobbies: [LivingHobby]?
 
     public static let balanced = QualityOfLifePersona(archetype: .balanced)
 
@@ -110,13 +116,19 @@ public struct QualityOfLifePersona: Codable, Sendable, Equatable {
         sleepNeedPreferenceHours: Double? = nil,
         socialEnergy0to10: Double? = nil,
         workStrain0to10: Double? = nil,
-        nutritionRelationship: String? = nil
+        nutritionRelationship: String? = nil,
+        eatingRhythm: LivingEatingRhythm? = nil,
+        movementPreference: LivingMovementPreference? = nil,
+        hobbies: [LivingHobby]? = nil
     ) {
         self.archetype = archetype
         self.sleepNeedPreferenceHours = sleepNeedPreferenceHours
         self.socialEnergy0to10 = socialEnergy0to10
         self.workStrain0to10 = workStrain0to10
         self.nutritionRelationship = nutritionRelationship
+        self.eatingRhythm = eatingRhythm
+        self.movementPreference = movementPreference
+        self.hobbies = hobbies
     }
 
     /// Weights always sum to 1.0.
