@@ -8,6 +8,20 @@ from typing import Any
 from storage import dynamodb, keys
 
 
+def _writes_allowed(user_id: str) -> bool:
+    """Automatic memory writes honor the user off switch. Default is on.
+
+    Lazy import so Dummy/tests that only construct UserContext never pull
+    the settings module, and so we do not cycle with editable_memory.
+    """
+    try:
+        from services.editable_memory import is_enabled
+
+        return is_enabled(user_id)
+    except Exception:
+        return True
+
+
 def _utcnow() -> datetime:
     return datetime.now(timezone.utc)
 
@@ -272,6 +286,13 @@ class CoachContextEngine:
         }
 
     def add_insight(self, user_id: str, insight: str) -> UserContext:
+        if not _writes_allowed(user_id):
+            return self.get_or_create_context(user_id)
+        from services.memory_privacy import redact_memory_text
+
+        insight = redact_memory_text(insight) or ""
+        if not insight:
+            return self.get_or_create_context(user_id)
         context = self.get_or_create_context(user_id)
         context.last_insights.insert(0, insight)
         if len(context.last_insights) > 15:
@@ -281,6 +302,8 @@ class CoachContextEngine:
         return context
 
     def memory_reference(self, user_id: str, message: str) -> str | None:
+        if not _writes_allowed(user_id):
+            return None
         context = self.get_or_create_context(user_id)
         if context.relationship_level < 2 or not context.last_insights:
             return None
@@ -292,12 +315,52 @@ class CoachContextEngine:
     # ------------------------------------------------------------------
     # Long-term memory: durable facts ARIA knows about the user.
     # ------------------------------------------------------------------
-    def record_life_fact(self, user_id: str, fact: str, *, cap: int = 50) -> UserContext:
-        fact = fact.strip()
+    def record_life_fact(
+        self,
+        user_id: str,
+        fact: str,
+        *,
+        cap: int = 50,
+        force: bool = False,
+    ) -> UserContext:
+        if not force and not _writes_allowed(user_id):
+            return self.get_or_create_context(user_id)
+        from services.memory_privacy import redact_memory_text
+
+        fact = redact_memory_text(fact) or ""
         if not fact:
             return self.get_or_create_context(user_id)
         context = self.get_or_create_context(user_id)
         context.life_facts = _dedupe_keep_order([fact, *context.life_facts], cap=cap)
+        context.last_updated = _utcnow()
+        self._save(user_id, context)
+        return context
+
+    def forget_life_fact(self, user_id: str, fact: str) -> UserContext:
+        """User-initiated delete of one long-term fact. Works even when off."""
+        needle = fact.strip().lower()
+        context = self.get_or_create_context(user_id)
+        if not needle:
+            return context
+        kept = [item for item in context.life_facts if item.strip().lower() != needle]
+        if kept == context.life_facts:
+            return context
+        context.life_facts = kept
+        context.last_updated = _utcnow()
+        self._save(user_id, context)
+        return context
+
+    def clear_user_memory(self, user_id: str) -> UserContext:
+        """Delete user-visible memory content. Keeps relationship_level / plan."""
+        context = self.get_or_create_context(user_id)
+        for item in self.short_term_memories(user_id, include_expired=True):
+            self.forget_short_term(user_id, item.id)
+        context.life_facts = []
+        context.last_insights = []
+        context.lifestyle_tags = []
+        context.current_goals = []
+        context.constraints = []
+        context.recent_patterns = []
         context.last_updated = _utcnow()
         self._save(user_id, context)
         return context
@@ -316,8 +379,13 @@ class CoachContextEngine:
         event_at: datetime | None = None,
         mem_id: str | None = None,
         now: datetime | None = None,
+        force: bool = False,
     ) -> MemoryItem | None:
-        text = text.strip()
+        if not force and not _writes_allowed(user_id):
+            return None
+        from services.memory_privacy import redact_memory_text
+
+        text = redact_memory_text(text) or ""
         if not text:
             return None
         now = now or _utcnow()
@@ -381,6 +449,8 @@ class CoachContextEngine:
         """
         if not events:
             return []
+        if not _writes_allowed(user_id):
+            return []
         now = now or _utcnow()
         horizon = now + timedelta(days=horizon_days)
         ingested: list[MemoryItem] = []
@@ -424,6 +494,8 @@ class CoachContextEngine:
         """ARIA evaluates its own memory: forget what's done, keep what matters,
         graduate durable takeaways into long-term memory."""
         now = now or _utcnow()
+        if not _writes_allowed(user_id):
+            return MemoryReview(evaluated_at=now)
         all_items = self.short_term_memories(user_id, now=now, include_expired=True)
         forgotten: list[str] = []
         graduated: list[str] = []
@@ -456,6 +528,10 @@ class CoachContextEngine:
         """Offer a once-a-day "anything new?" check-in. Returns None if ARIA has
         already checked in today."""
         now = now or _utcnow()
+        if not _writes_allowed(user_id):
+            return None
+        # TODO(rowan): further gate on CompanionMemorySettings.check_in once
+        # the contract field (bool vs cadence vs {enabled}) is defined.
         context = self.get_or_create_context(user_id)
         if context.last_checkin_at is not None and context.last_checkin_at.date() == now.date():
             return None
@@ -489,6 +565,8 @@ class CoachContextEngine:
         Empty string when there's nothing to say, so callers can gate on it.
         """
         now = now or _utcnow()
+        if not _writes_allowed(user_id):
+            return ""
         context = self.get_or_create_context(user_id)
         lines: list[str] = []
 

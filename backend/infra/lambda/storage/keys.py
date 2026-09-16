@@ -46,6 +46,15 @@ def aria_persona_key(user_id: str) -> dict:
     return {"pk": f"USER#{user_id}", "sk": "ARIA#PERSONA"}
 
 
+def aria_memory_settings_key(user_id: str) -> dict:
+    """User-editable companion memory controls (on/off + Rowan contract fields).
+
+    Separate from ``ARIA#CONTEXT`` so delete/off of the settings bag does not
+    wipe relationship_level / supervision_plan (system state, not user memory).
+    """
+    return {"pk": f"USER#{user_id}", "sk": "ARIA#MEMORY_SETTINGS"}
+
+
 def aria_body_snapshot_key(user_id: str) -> dict:
     """Last BodyModel projection so /ai/chat shares /ai/observe's ingested truth."""
     return {"pk": f"USER#{user_id}", "sk": "ARIA#BODY_SNAPSHOT"}

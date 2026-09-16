@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import copy
-import re
 from typing import Any
 
 from responses import RouteError, ok
@@ -17,43 +16,13 @@ from services.aria_context import CoachContextEngine
 from services.feedback import FeedbackEngine
 from services import elevenlabs_voice
 from services import weekly_review
+from services.memory_privacy import (
+    filter_lifestyle_tokens as _filter_lifestyle_tokens,
+    redact_calendar_event_titles as _redact_calendar_event_titles,
+)
 
 _context = CoachContextEngine()
 _feedback = FeedbackEngine(_context)
-
-# Partner / cycle prefixes must never enter the personal model, recentPatterns,
-# persona persist, or short-term memory. Match iOS FakeCalendarPack deny list.
-_DENIED_LIFESTYLE = re.compile(
-    r"(?i)^(?:"
-    r"partner_"
-    r"|support_cycle:"
-    r"|partner_name:"
-    r"|partner_phase:"
-    r"|partner_day:"
-    r"|partner_cycle:"
-    r"|cycle:fertile"
-    r"|cycle:tww"
-    r"|cycle:goal:trying"
-    r"|cycle:bleeding"
-    r"|cycle:condition"
-    r")"
-)
-_BUSY_WINDOW_LABEL = "Busy window"
-
-
-def _denied_lifestyle_token(token: str) -> bool:
-    return bool(_DENIED_LIFESTYLE.search(str(token or "").strip()))
-
-
-def _filter_lifestyle_tokens(values: Any) -> list[str]:
-    if not isinstance(values, list):
-        return []
-    kept: list[str] = []
-    for item in values:
-        text = str(item).strip()
-        if text and not _denied_lifestyle_token(text):
-            kept.append(text)
-    return kept
 
 
 def _sanitize_lifestyle_dict(lifestyle: dict[str, Any]) -> None:
@@ -65,22 +34,6 @@ def _sanitize_lifestyle_dict(lifestyle: dict[str, Any]) -> None:
         )
         if "recent_patterns" in lifestyle:
             lifestyle["recent_patterns"] = list(lifestyle["recentPatterns"])
-
-
-def _redact_calendar_event_titles(events: Any) -> list[dict[str, Any]]:
-    """Busy-window / time only — drop title, summary, and name."""
-    if not isinstance(events, list):
-        return []
-    redacted: list[dict[str, Any]] = []
-    for event in events:
-        if not isinstance(event, dict):
-            continue
-        item = dict(event)
-        item.pop("summary", None)
-        item.pop("name", None)
-        item["title"] = _BUSY_WINDOW_LABEL
-        redacted.append(item)
-    return redacted
 
 
 def sanitize_inbound_chat_payload(payload: dict[str, Any]) -> dict[str, Any]:
