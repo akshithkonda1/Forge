@@ -1,12 +1,7 @@
 import { readFileSync } from "node:fs";
 import { coachReply } from "../src/lib/aria-coach.ts";
 import { ARIA_CINEMATIC_LINES, firstSessionScript, whisperForStep, welcomeChatMessage } from "../src/lib/aria-onboarding.ts";
-import {
-  ARIA_TONES,
-  ARIA_TONE_ORDER,
-  notesFromCheckIn,
-  weeklyCheckInIsDue,
-} from "../src/lib/aria-companion.ts";
+import { ARIA_TONES, ARIA_TONE_ORDER } from "../src/lib/aria-companion.ts";
 import { ARIA_INTRO } from "../src/lib/aria-intro.ts";
 import {
   ARIA_LOBES,
@@ -216,15 +211,6 @@ assert(
   "friend-first tone titles match iOS"
 );
 assert(!ARIA_TONES.balanced.line.toLowerCase().includes("coaching style"), "tone line is consumer");
-assert(weeklyCheckInIsDue(null), "check-in is due when never completed");
-assert(!weeklyCheckInIsDue(new Date().toISOString()), "fresh check-in is not due");
-const filed = notesFromCheckIn(
-  { remember: "No long runs this month", body: "Knee is tender", energy: "low", mood: "flat" },
-  new Date("2026-09-16T12:00:00.000Z")
-);
-assert(filed.some((n) => n.folder === "told" && n.text.includes("long runs")), "check-in remember files a told note");
-assert(filed.some((n) => n.folder === "body"), "check-in body files a body note");
-assert(filed.some((n) => n.folder === "noticed"), "check-in mood/energy files a noticed note");
 
 const coachingWhisper = whisperForStep("coaching");
 assert(coachingWhisper.title === "How I show up", "coaching whisper is consumer");

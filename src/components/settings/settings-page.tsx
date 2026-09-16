@@ -306,13 +306,10 @@ export default function SettingsPage() {
         </div>
       </motion.div>
 
-      {/* ===== 2. ARIA — memory, tone, check-in ===== */}
+      {/* ===== 2. ARIA ===== */}
       <SectionHeader>ARIA</SectionHeader>
       <SectionCard>
-        <AriaCompanionControls
-          SettingsRow={SettingsRow}
-          ToggleSwitch={ToggleSwitch}
-        />
+        <AriaCompanionControls SettingsRow={SettingsRow} />
         <div className="px-4 py-3">
           <p className="mb-2 text-sm font-medium text-text-primary">
             Training Goals

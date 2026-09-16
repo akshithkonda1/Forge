@@ -11,12 +11,6 @@ import type {
   PersonalRecord,
 } from "@/types";
 import { welcomeChatMessage } from "@/lib/aria-onboarding";
-import {
-  DEMO_ARIA_MEMORY,
-  notesFromCheckIn,
-  type AriaMemoryFolder,
-  type AriaMemoryNote,
-} from "@/lib/aria-companion";
 
 export type TabId = "home" | "chat" | "workout" | "sleep" | "profile";
 
@@ -93,22 +87,6 @@ interface AppState {
 
   notificationPrefs: NotificationPrefs;
   setNotificationPref: (key: keyof NotificationPrefs, value: boolean) => void;
-
-  /** Local notes ARIA keeps — view / edit / delete / off. */
-  ariaMemoryEnabled: boolean;
-  setAriaMemoryEnabled: (enabled: boolean) => void;
-  ariaMemoryNotes: AriaMemoryNote[];
-  addMemoryNote: (text: string, folder?: AriaMemoryFolder) => void;
-  updateMemoryNote: (id: string, text: string) => void;
-  deleteMemoryNote: (id: string) => void;
-  forgetAllMemory: () => void;
-
-  weeklyCheckInEnabled: boolean;
-  setWeeklyCheckInEnabled: (enabled: boolean) => void;
-  lastWeeklyCheckInAt: string | null;
-  weeklyCheckInAnswers: Record<string, string>;
-  setWeeklyCheckInAnswer: (id: string, value: string) => void;
-  submitWeeklyCheckIn: () => void;
 }
 
 const mockProfile: UserProfile = {
@@ -296,57 +274,6 @@ export const useAppStore = create<AppState>()(
     set((state) => ({
       notificationPrefs: { ...state.notificationPrefs, [key]: value },
     })),
-
-  ariaMemoryEnabled: true,
-  setAriaMemoryEnabled: (enabled) => set({ ariaMemoryEnabled: enabled }),
-  ariaMemoryNotes: DEMO_ARIA_MEMORY,
-  addMemoryNote: (text, folder = "told") => {
-    const trimmed = text.trim();
-    if (!trimmed) return;
-    const note: AriaMemoryNote = {
-      id: `mem-${Date.now()}`,
-      text: trimmed,
-      folder,
-      createdAt: new Date().toISOString(),
-    };
-    set((state) => ({
-      ariaMemoryNotes: [note, ...state.ariaMemoryNotes],
-    }));
-  },
-  updateMemoryNote: (id, text) => {
-    const trimmed = text.trim();
-    if (!trimmed) return;
-    set((state) => ({
-      ariaMemoryNotes: state.ariaMemoryNotes.map((note) =>
-        note.id === id ? { ...note, text: trimmed } : note
-      ),
-    }));
-  },
-  deleteMemoryNote: (id) =>
-    set((state) => ({
-      ariaMemoryNotes: state.ariaMemoryNotes.filter((note) => note.id !== id),
-    })),
-  forgetAllMemory: () => set({ ariaMemoryNotes: [] }),
-
-  weeklyCheckInEnabled: true,
-  setWeeklyCheckInEnabled: (enabled) => set({ weeklyCheckInEnabled: enabled }),
-  lastWeeklyCheckInAt: null,
-  weeklyCheckInAnswers: {},
-  setWeeklyCheckInAnswer: (id, value) =>
-    set((state) => ({
-      weeklyCheckInAnswers: { ...state.weeklyCheckInAnswers, [id]: value },
-    })),
-  submitWeeklyCheckIn: () => {
-    const answers = get().weeklyCheckInAnswers;
-    const extra = get().ariaMemoryEnabled ? notesFromCheckIn(answers) : [];
-    set((state) => ({
-      lastWeeklyCheckInAt: new Date().toISOString(),
-      weeklyCheckInAnswers: {},
-      ariaMemoryNotes: extra.length
-        ? [...extra, ...state.ariaMemoryNotes]
-        : state.ariaMemoryNotes,
-    }));
-  },
 }),
     {
       name: "forge-web",
@@ -358,11 +285,6 @@ export const useAppStore = create<AppState>()(
         activeTab: state.activeTab,
         notificationPrefs: state.notificationPrefs,
         hasMetAria: state.hasMetAria,
-        ariaMemoryEnabled: state.ariaMemoryEnabled,
-        ariaMemoryNotes: state.ariaMemoryNotes,
-        weeklyCheckInEnabled: state.weeklyCheckInEnabled,
-        lastWeeklyCheckInAt: state.lastWeeklyCheckInAt,
-        weeklyCheckInAnswers: state.weeklyCheckInAnswers,
       }),
       onRehydrateStorage: () => (state) => {
         state?.setHasHydrated(true);
