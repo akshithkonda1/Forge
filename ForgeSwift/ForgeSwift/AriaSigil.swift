@@ -88,20 +88,6 @@ enum AriaSigilGeometry: Sendable {
         var diameter: Double
     }
 
-    /// Legacy name kept for call-site continuity.
-    typealias HexPose = EllipsePose
-
-    struct OrbCorePose: Equatable, Sendable {
-        var sx: Double
-        var sy: Double
-        var glow: Double
-        var highlight: Double
-        /// Smart-metal surface ripples (0…1). Idle is a whisper; speaking is a voice.
-        var ripple: Double
-        var sheenAngle: Double
-        var metalWarp: Double
-    }
-
     static var contrastRingIndices: [Int] {
         ringOpacities.enumerated().compactMap { $0.element >= contrastFloor ? $0.offset : nil }
     }
@@ -173,7 +159,9 @@ enum AriaSigilGeometry: Sendable {
             rx: radius * (1 + ecc),
             ry: radius * (1 - ecc),
             rotation: tilt + orbit,
-            opacity: ringOpacities[i]
+            opacity: ringOpacities[i],
+            wavePhase: 0,
+            waveAmp: 0
         )
     }
 
@@ -208,6 +196,8 @@ enum AriaSigilGeometry: Sendable {
         pose.ry *= 1.0 + wave2 * 0.025 * drive
         pose.rotation += wave * 0.015 * drive
         pose.opacity = min(1.0, pose.opacity + drive * 0.12 * (0.55 + 0.45 * wave))
+        pose.wavePhase = phase
+        pose.waveAmp = 0.03 * drive
         return pose
     }
 
@@ -229,10 +219,17 @@ enum AriaSigilGeometry: Sendable {
         amplitude: Double,
         reduceMotion: Bool
     ) -> OrbCorePose {
+        // Leftover `#275` mark-fraction. Living nest uses AriaNestGeometry.orbDiameter*.
+        let diameter: Double
+        switch state {
+        case .speaking, .processing: diameter = 0.245
+        case .idle, .listening: diameter = 0.22
+        }
         if reduceMotion {
             return OrbCorePose(
                 sx: 1, sy: 1, glow: 0.55, highlight: 0.7,
-                ripple: 0.12, sheenAngle: 0.55, metalWarp: 0
+                ripple: 0.12, sheenAngle: 0.55, metalWarp: 0,
+                diameter: 0.22
             )
         }
         let drive = waveformDrive(state: state, amplitude: amplitude)
@@ -249,7 +246,8 @@ enum AriaSigilGeometry: Sendable {
             highlight: 0.68 + 0.28 * drive,
             ripple: 0.14 + 0.72 * drive * (0.55 + 0.45 * abs(ripple)),
             sheenAngle: metalPhase,
-            metalWarp: warp * drive
+            metalWarp: warp * drive,
+            diameter: diameter
         )
     }
 
@@ -290,9 +288,9 @@ enum AriaSigilPalette: Sendable {
     static let goldHex = "C9A36A"
     static let goldHotHex = "E8C48A"
     static let steelHex = "6B7CFF"
-    static let frostHex = AriaSigilGeometry.nestFrostHex
+    static let frostHex = AriaNestGeometry.nestFrostHex
     static let bloodHex = "4A1018"
-    static let hearthGlowHex = AriaSigilGeometry.hearthGlowHex
+    static let hearthGlowHex = AriaNestGeometry.hearthGlowHex
     static let limbHex = "000000"
     static let tealHex = "3EC8C8"
 

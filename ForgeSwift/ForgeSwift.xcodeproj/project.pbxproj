@@ -41,6 +41,7 @@
 		1WC00E2F9FF867004091AA /* CyclePhaseWidget.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1WC00F2F9FF867004091AA /* CyclePhaseWidget.swift */; };
 		1E0DCBA72FA476C600A9C6F3 /* AuroraOrbComponents.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1E0DCBA62FA476C600A9C6F3 /* AuroraOrbComponents.swift */; };
 		1SIGIL0022F9FF867004091AA /* AriaSigil.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1SIGIL0012F9FF867004091AA /* AriaSigil.swift */; };
+		1FIRE0022F9FF867004091AA /* ForgeFire.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1FIRE0012F9FF867004091AA /* ForgeFire.swift */; };
 		NEST00022F9FF867004091AA /* AriaNestMarkDemoView.swift in Sources */ = {isa = PBXBuildFile; fileRef = NEST00012F9FF867004091AA /* AriaNestMarkDemoView.swift */; };
 		1ARIA0292F9FF867004091AA /* AriaPresence.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1ARIA0282F9FF867004091AA /* AriaPresence.swift */; };
 		1ARIA0612F9FF867004091AA /* AriaWelcomeChime.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1ARIA0602F9FF867004091AA /* AriaWelcomeChime.swift */; };
@@ -448,6 +449,7 @@
 		1WC00F2F9FF867004091AA /* CyclePhaseWidget.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CyclePhaseWidget.swift; sourceTree = "<group>"; };
 		1E0DCBA62FA476C600A9C6F3 /* AuroraOrbComponents.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AuroraOrbComponents.swift; sourceTree = "<group>"; };
 		1SIGIL0012F9FF867004091AA /* AriaSigil.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AriaSigil.swift; sourceTree = "<group>"; };
+		1FIRE0012F9FF867004091AA /* ForgeFire.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ForgeFire.swift; sourceTree = "<group>"; };
 		NEST00012F9FF867004091AA /* AriaNestMarkDemoView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AriaNestMarkDemoView.swift; sourceTree = "<group>"; };
 		1ARIA0282F9FF867004091AA /* AriaPresence.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AriaPresence.swift; sourceTree = "<group>"; };
 		1ARIA0602F9FF867004091AA /* AriaWelcomeChime.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AriaWelcomeChime.swift; sourceTree = "<group>"; };
@@ -1061,6 +1063,7 @@
 				1E7A68E72FA31E6E00B0DD08 /* View+ForgeCardShadow.swift */,
 				1E0DCBA62FA476C600A9C6F3 /* AuroraOrbComponents.swift */,
 				1SIGIL0012F9FF867004091AA /* AriaSigil.swift */,
+				1FIRE0012F9FF867004091AA /* ForgeFire.swift */,
 				NEST00012F9FF867004091AA /* AriaNestMarkDemoView.swift */,
 				1ARIA1022F9FF867004091AA /* AriaMeetView.swift */,
 				1ARIA0282F9FF867004091AA /* AriaPresence.swift */,
@@ -1635,6 +1638,7 @@
 				1E4DF70B2F9FAEEC004091AA /* MusicControllerFactory.swift in Sources */,
 				1E0DCBA72FA476C600A9C6F3 /* AuroraOrbComponents.swift in Sources */,
 				1SIGIL0022F9FF867004091AA /* AriaSigil.swift in Sources */,
+				1FIRE0022F9FF867004091AA /* ForgeFire.swift in Sources */,
 				NEST00022F9FF867004091AA /* AriaNestMarkDemoView.swift in Sources */,
 				1ARIA0292F9FF867004091AA /* AriaPresence.swift in Sources */,
 				1ARIA0612F9FF867004091AA /* AriaWelcomeChime.swift in Sources */,
