@@ -182,6 +182,11 @@ export default function WelcomeScreen({ onNext }: WelcomeScreenProps) {
             setShowSignIn(false);
             onNext();
           }}
+          onContinueAsTester={() => {
+            // Keep until Cognito is paired — web uses the same onboarding path.
+            setShowSignIn(false);
+            onNext();
+          }}
         />
       )}
     </div>
@@ -191,9 +196,11 @@ export default function WelcomeScreen({ onNext }: WelcomeScreenProps) {
 function SignInSheet({
   onClose,
   onContinueAsGuest,
+  onContinueAsTester,
 }: {
   onClose: () => void;
   onContinueAsGuest: () => void;
+  onContinueAsTester: () => void;
 }) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -258,12 +265,25 @@ function SignInSheet({
           <PremiumPrimaryButton
             disabled={!canSubmit}
             onClick={() =>
-              setMessage("Account sign-in isn’t connected on web yet. Continue to set up your profile.")
+              setMessage("Cognito isn’t paired yet. Use Continue as tester for now.")
             }
           >
             <span>Sign in</span>
             <span aria-hidden>→</span>
           </PremiumPrimaryButton>
+
+          {/* Keep until Cognito is paired — remove when real auth ships. */}
+          <button
+            type="button"
+            onClick={onContinueAsTester}
+            className="w-full rounded-full border border-steel/25 bg-steel/10 px-6 py-3.5 text-[15px] font-medium text-steel transition hover:bg-steel/15"
+          >
+            Continue as tester
+          </button>
+          <p className="text-center text-[11px] text-text-muted">
+            Cognito isn’t paired yet — tester login stays for device work.
+          </p>
+
           <button
             type="button"
             onClick={onContinueAsGuest}

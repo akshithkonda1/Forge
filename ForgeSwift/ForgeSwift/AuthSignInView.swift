@@ -67,6 +67,7 @@ struct AuthSignInView: View {
                             .font(.system(size: 12, weight: .regular))
                             .foregroundColor(.textTertiary)
 
+                        // Keep until Cognito is paired — remove when real auth ships.
                         if ForgeAuthClient.shared.canUseDevOverride {
                             Button {
                                 continueAsTester()
@@ -81,7 +82,14 @@ struct AuthSignInView: View {
                             }
                             .buttonStyle(.plain)
                             .disabled(isBusy)
-                            .accessibilityHint("Debug-only local account. Never ships in Release.")
+                            .accessibilityHint("Debug tester login until Cognito is paired. Never ships in Release.")
+                        }
+
+                        if !ForgeAuthClient.shared.config.cognitoConfigured,
+                           ForgeAuthClient.shared.canUseDevOverride {
+                            Text("Cognito isn’t paired yet — use Continue as tester for device work.")
+                                .font(.system(size: 12, weight: .regular))
+                                .foregroundColor(.textTertiary)
                         }
 
                         Text("New here? Close and tap Get started on the welcome screen.")

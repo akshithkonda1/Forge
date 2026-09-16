@@ -469,6 +469,7 @@ struct AuthSignUpFlowView: View {
                     }
                 }
 
+                // Keep until Cognito is paired — remove when real auth ships.
                 if ForgeAuthClient.shared.canUseDevOverride {
                     Button {
                         continueAsTester()
@@ -483,7 +484,7 @@ struct AuthSignUpFlowView: View {
                     }
                     .buttonStyle(.plain)
                     .disabled(isBusy)
-                    .accessibilityHint("Debug-only local account. Never ships in Release.")
+                    .accessibilityHint("Debug tester login until Cognito is paired. Never ships in Release.")
                 }
 
                 Text("By continuing you get lifestyle and fitness coaching, not medical care. ARIA is not a doctor. For emergencies, call 911.")
