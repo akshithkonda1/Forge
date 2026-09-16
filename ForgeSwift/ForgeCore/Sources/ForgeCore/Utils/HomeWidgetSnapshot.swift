@@ -239,4 +239,6 @@ public enum ForgeWidgetLink {
     public static let workout   = URL(string: "forge://workout")!
     public static let lifestyle = URL(string: "forge://lifestyle")!
     public static let today     = URL(string: "forge://home")!
+    /// StandBy nest face — MagSafe landscape WidgetKit `systemSmall` slot.
+    public static let standBy   = URL(string: "forge://home")!
 }
