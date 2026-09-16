@@ -192,7 +192,7 @@ export const useAppStore = create<AppState>()(
       experience: profile.experienceLevel,
       workouts: profile.preferredWorkouts,
       coachingStyle: profile.coachingStyle,
-      devicesConnected: profile.connectedDevices.length,
+      devicesConnected: profile.connectedDevices?.length ?? 0,
     });
     const welcome: ChatMessage = {
       id: `aria-welcome-${Date.now()}`,
@@ -300,6 +300,17 @@ export const useAppStore = create<AppState>()(
             ...m,
             timestamp: new Date(m.timestamp as unknown as string),
           }));
+        }
+        if (state?.userProfile) {
+          state.userProfile = {
+            ...mockProfile,
+            ...state.userProfile,
+            connectedDevices: state.userProfile.connectedDevices ?? [],
+            fitnessGoals: state.userProfile.fitnessGoals ?? mockProfile.fitnessGoals,
+            preferredWorkouts:
+              state.userProfile.preferredWorkouts ?? mockProfile.preferredWorkouts,
+            weeklySchedule: state.userProfile.weeklySchedule ?? mockProfile.weeklySchedule,
+          };
         }
         state?.setHasHydrated(true);
       },
