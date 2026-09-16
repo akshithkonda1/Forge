@@ -145,7 +145,8 @@ export default function Page() {
 
   useEffect(() => {
     if (!hasHydrated) return;
-    if (!isOnboarded) {
+    // Avoid bouncing returning users if persist peek already showed onboarded.
+    if (!isOnboarded && !peekPersistedOnboarded()) {
       router.replace("/onboarding");
     }
   }, [hasHydrated, isOnboarded, router]);
@@ -167,7 +168,12 @@ export default function Page() {
     return <BootSplash live={!returning} compact={returning} />;
   }
 
-  if (!hasHydrated || !isOnboarded) {
+  if (!hasHydrated) {
+    return <BootSplash compact />;
+  }
+
+  if (!isOnboarded) {
+    // Returning peek can win a frame before zustand applies — keep shell quiet.
     return <BootSplash compact />;
   }
 
