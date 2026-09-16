@@ -12,9 +12,10 @@ YES_NO = ("Yes.", "No.", "Not sure.")
 STAY = ("I'm here.", "What did you actually see?", "Not now.")
 INVITE = ("How did I sleep?", "What should I train?", "How do I show up?", "I'll come back.")
 
-# Same roster as iOS AriaCoachAgent.rawValue — keep lockstep.
+# Dummy specialist roster. Matches iOS AriaCoachAgent.rawValue plus `aging`
+# (training-age / web-research domain; not a pinnable coach pin).
 IOS_AGENT_KINDS = (
-    "aria", "workout", "recovery", "sleep", "lifestyle", "progress", "cycle",
+    "aria", "workout", "recovery", "sleep", "lifestyle", "progress", "cycle", "aging",
 )
 
 BEATS = (
