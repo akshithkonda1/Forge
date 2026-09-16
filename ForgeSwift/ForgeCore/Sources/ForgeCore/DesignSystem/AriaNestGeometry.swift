@@ -339,4 +339,33 @@ public enum AriaNestGeometry: Sendable {
     private static func clamp01(_ value: Double) -> Double {
         min(1, max(0, value))
     }
+
+    /// MagSafe landscape iOS StandBy surface.
+    ///
+    /// Apple has no dedicated `WidgetFamily` for StandBy. WidgetKit uses
+    /// `systemSmall`, scales it to half the nightstand, and may strip the
+    /// container background. Low light uses `WidgetRenderingMode.vibrant`
+    /// (red night tint). Do not invent private APIs; do not retarget Home
+    /// ring-field chrome onto this face.
+    public enum StandBy: Sendable {
+        public static let widgetFamilyName = "systemSmall"
+        public static let widgetKind = "StandByNestWidget"
+        public static let markSize: Double = 96
+        public static let nightstandBackgroundHex = "000000"
+        public static let clockHex = AriaNestGeometry.pearlHex
+        /// Quiet idle — nightstand, not speaking.
+        public static let idleAmplitude: Double = 0.16
+
+        /// Reduce Motion and low-light StandBy freeze at still-pose.
+        /// Otherwise the nest ticks at `AriaNestGeometry.tickHz` (≤12).
+        public static func shouldAnimate(reduceMotion: Bool, nightMode: Bool = false) -> Bool {
+            !nightMode && AriaNestGeometry.shouldOrbit(size: markSize, reduceMotion: reduceMotion)
+        }
+
+        public static func tickInterval(reduceMotion: Bool, nightMode: Bool = false) -> Double {
+            shouldAnimate(reduceMotion: reduceMotion, nightMode: nightMode)
+                ? AriaNestGeometry.tickInterval
+                : 1
+        }
+    }
 }

@@ -200,6 +200,43 @@ final class AriaNestGeometryTests: XCTestCase {
         XCTAssertLessThan((maxR - minR) / minR, 0.18)
     }
 
+    func testStandBySurfaceUsesSystemSmallAndNestFaceNotRingField() {
+        XCTAssertEqual(AriaNestGeometry.StandBy.widgetFamilyName, "systemSmall")
+        XCTAssertEqual(AriaNestGeometry.StandBy.widgetKind, "StandByNestWidget")
+        XCTAssertEqual(AriaNestGeometry.kind, "soft-hex-field")
+        XCTAssertNotEqual(AriaNestGeometry.kind, AriaRingFieldGeometry.kind)
+        XCTAssertEqual(AriaNestGeometry.StandBy.nightstandBackgroundHex, "000000")
+        XCTAssertEqual(AriaNestGeometry.StandBy.clockHex, AriaNestGeometry.pearlHex)
+        XCTAssertGreaterThanOrEqual(
+            AriaNestGeometry.StandBy.markSize,
+            AriaNestGeometry.heroMinimumSize
+        )
+        XCTAssertEqual(AriaNestGeometry.splash, "mark+wordmark")
+        XCTAssertEqual(ForgeWidgetLink.standBy, ForgeWidgetLink.today)
+    }
+
+    func testStandByNestFreezesForReduceMotionAndNightMode() {
+        XCTAssertTrue(AriaNestGeometry.StandBy.shouldAnimate(reduceMotion: false))
+        XCTAssertFalse(AriaNestGeometry.StandBy.shouldAnimate(reduceMotion: true))
+        XCTAssertFalse(AriaNestGeometry.StandBy.shouldAnimate(reduceMotion: false, nightMode: true))
+        XCTAssertEqual(
+            AriaNestGeometry.StandBy.tickInterval(reduceMotion: false),
+            AriaNestGeometry.tickInterval,
+            accuracy: 0.0001
+        )
+        XCTAssertEqual(
+            AriaNestGeometry.StandBy.tickInterval(reduceMotion: true),
+            1,
+            accuracy: 0.0001
+        )
+        XCTAssertEqual(
+            AriaNestGeometry.StandBy.tickInterval(reduceMotion: false, nightMode: true),
+            1,
+            accuracy: 0.0001
+        )
+        XCTAssertLessThanOrEqual(AriaNestGeometry.StandBy.idleAmplitude, 0.22)
+    }
+
     func testStrokeNeverDropsBelowCompactFloor() {
         for index in 0..<AriaNestGeometry.ringCount {
             XCTAssertGreaterThanOrEqual(

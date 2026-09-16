@@ -63,6 +63,7 @@ func widgetDeepLink(for kind: String) -> URL {
     case "CyclePhaseWidget": return ForgeWidgetLink.cycle
     case "SupportGlanceWidget": return ForgeWidgetLink.support
     case "LifestyleWidget": return ForgeWidgetLink.lifestyle
+    case "StandByNestWidget": return ForgeWidgetLink.standBy
     default:                return ForgeWidgetLink.today
     }
 }
