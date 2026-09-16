@@ -2,7 +2,7 @@ import SwiftUI
 import AuthenticationServices
 import ForgeCore
 
-// MARK: - Sign In (returning athletes)
+// MARK: - Sign In (returning athletes) — premium quiet gate
 
 struct AuthSignInView: View {
     @EnvironmentObject var store: AppStore
@@ -17,34 +17,28 @@ struct AuthSignInView: View {
     var body: some View {
         NavigationStack {
             ZStack {
-                Color.background.ignoresSafeArea()
-                RadialGradient(
-                    colors: [Color.ember.opacity(0.14), Color.steel.opacity(0.05), .clear],
-                    center: UnitPoint(x: 0.5, y: 0.0),
-                    startRadius: 10,
-                    endRadius: 360
+                PremiumAtmosphere(
+                    accent: Color.ember.opacity(0.7),
+                    secondary: Color(hex: "A9D8FF"),
+                    intensity: 0.75
                 )
-                .ignoresSafeArea()
 
                 ScrollView(showsIndicators: false) {
-                    VStack(alignment: .leading, spacing: 22) {
-                        VStack(alignment: .leading, spacing: 8) {
-                            Text("WELCOME BACK")
-                                .font(.system(size: 11, weight: .bold))
-                                .tracking(2)
-                                .foregroundColor(.ember)
+                    VStack(alignment: .leading, spacing: 28) {
+                        VStack(alignment: .leading, spacing: 10) {
+                            Text("Welcome back")
+                                .font(.system(size: 12, weight: .medium, design: .rounded))
+                                .tracking(2.2)
+                                .foregroundColor(.textTertiary)
+                                .textCase(.uppercase)
                             Text("ARIA is still\nhere.")
-                                .font(.system(size: 30, weight: .black, design: .rounded))
-                                .foregroundStyle(
-                                    LinearGradient(
-                                        colors: [.white, Color.white.opacity(0.78)],
-                                        startPoint: .leading,
-                                        endPoint: .trailing
-                                    )
-                                )
+                                .font(.system(size: 32, weight: .semibold, design: .rounded))
+                                .foregroundColor(.textPrimary)
+                                .lineSpacing(2)
                             Text("Pick up with your coach where you left off.")
-                                .font(.system(size: 15, weight: .medium))
+                                .font(.system(size: 15, weight: .regular))
                                 .foregroundColor(.textSecondary)
+                                .lineSpacing(3)
                         }
                         .padding(.top, 8)
                         .opacity(appeared ? 1 : 0)
@@ -57,7 +51,7 @@ struct AuthSignInView: View {
                             }
                             .signInWithAppleButtonStyle(.white)
                             .frame(height: 52)
-                            .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+                            .clipShape(Capsule())
 
                             Button {
                                 completeSocialSignIn(provider: "google", displayName: "Athlete")
@@ -66,30 +60,29 @@ struct AuthSignInView: View {
                                     Image(systemName: "g.circle.fill")
                                         .font(.system(size: 20))
                                     Text("Continue with Google")
-                                        .font(.system(size: 16, weight: .bold))
+                                        .font(.system(size: 16, weight: .semibold))
                                 }
                                 .foregroundColor(.textPrimary)
                                 .frame(maxWidth: .infinity)
                                 .frame(height: 52)
-                                .background(Color.surfaceElevated)
-                                .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+                                .background(Color.white.opacity(0.06))
+                                .clipShape(Capsule())
                                 .overlay(
-                                    RoundedRectangle(cornerRadius: 14, style: .continuous)
-                                        .stroke(Color.borderColor, lineWidth: 1)
+                                    Capsule().stroke(Color.white.opacity(0.12), lineWidth: 1)
                                 )
                             }
                             .buttonStyle(AuthPressButtonStyle())
                         }
 
                         HStack {
-                            Rectangle().fill(Color.borderColor).frame(height: 1)
+                            Rectangle().fill(Color.white.opacity(0.08)).frame(height: 1)
                             Text("or email")
                                 .font(.system(size: 12, weight: .medium))
                                 .foregroundColor(.textMuted)
-                            Rectangle().fill(Color.borderColor).frame(height: 1)
+                            Rectangle().fill(Color.white.opacity(0.08)).frame(height: 1)
                         }
 
-                        VStack(spacing: 12) {
+                        VStack(spacing: 14) {
                             field(title: "Email", text: $email, contentType: .emailAddress, secure: false)
                             field(title: "Password", text: $password, contentType: .password, secure: true)
                         }
@@ -100,44 +93,25 @@ struct AuthSignInView: View {
                                 .foregroundColor(.danger)
                         }
 
-                        Button {
+                        PremiumPrimaryButton(
+                            title: isBusy ? "Entering…" : "Enter Forge",
+                            enabled: canSubmit,
+                            busy: isBusy
+                        ) {
                             submitEmail()
-                        } label: {
-                            HStack {
-                                if isBusy { ProgressView().tint(.white) }
-                                Text(isBusy ? "Entering…" : "Enter Forge")
-                                    .font(.system(size: 16, weight: .bold))
-                                Spacer(minLength: 0)
-                                Image(systemName: "arrow.right")
-                                    .font(.system(size: 14, weight: .bold))
-                            }
-                            .foregroundColor(.white)
-                            .padding(.horizontal, 20)
-                            .padding(.vertical, 17)
-                            .background {
-                                if canSubmit {
-                                    FDS.Gradient.ember
-                                } else {
-                                    Color.surfaceElevated
-                                }
-                            }
-                            .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
-                            .shadow(color: canSubmit ? Color.ember.opacity(0.4) : .clear, radius: 16, y: 8)
                         }
-                        .buttonStyle(AuthPressButtonStyle())
-                        .disabled(!canSubmit || isBusy)
 
                         if ForgeAuthClient.shared.canUseDevOverride {
                             Button {
                                 continueAsTester()
                             } label: {
                                 Text("Continue as tester")
-                                    .font(.system(size: 15, weight: .semibold))
+                                    .font(.system(size: 15, weight: .medium))
                                     .foregroundColor(.steel)
                                     .frame(maxWidth: .infinity)
                                     .padding(.vertical, 14)
-                                    .background(Color.steel.opacity(0.12))
-                                    .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+                                    .background(Color.steel.opacity(0.10))
+                                    .clipShape(Capsule())
                             }
                             .buttonStyle(.plain)
                             .disabled(isBusy)
@@ -145,17 +119,17 @@ struct AuthSignInView: View {
                         }
 
                         Text("New here? Close and tap Get started on the welcome screen.")
-                            .font(.system(size: 12, weight: .medium))
+                            .font(.system(size: 12, weight: .regular))
                             .foregroundColor(.textTertiary)
                             .padding(.bottom, 28)
                     }
-                    .padding(.horizontal, 22)
+                    .padding(.horizontal, 24)
                 }
             }
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Close") { dismiss() }
-                        .foregroundStyle(Color.ember)
+                        .foregroundStyle(Color.textSecondary)
                 }
             }
         }
@@ -174,10 +148,10 @@ struct AuthSignInView: View {
         contentType: UITextContentType,
         secure: Bool
     ) -> some View {
-        VStack(alignment: .leading, spacing: 6) {
-            Text(title.uppercased())
-                .font(.system(size: 11, weight: .bold))
-                .tracking(1.2)
+        VStack(alignment: .leading, spacing: 8) {
+            Text(title)
+                .font(.system(size: 12, weight: .medium))
+                .tracking(0.8)
                 .foregroundColor(.textTertiary)
             Group {
                 if secure {
@@ -191,11 +165,15 @@ struct AuthSignInView: View {
                         .autocorrectionDisabled()
                 }
             }
-            .font(.system(size: 16, weight: .medium))
+            .font(.system(size: 16, weight: .regular))
             .foregroundColor(.textPrimary)
-            .padding(15)
-            .background(Color.surfaceElevated)
-            .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+            .padding(16)
+            .background(Color.white.opacity(0.05))
+            .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+            .overlay(
+                RoundedRectangle(cornerRadius: 16, style: .continuous)
+                    .stroke(Color.white.opacity(0.08), lineWidth: 1)
+            )
         }
     }
 

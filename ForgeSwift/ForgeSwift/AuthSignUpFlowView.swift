@@ -71,7 +71,7 @@ struct AuthSignUpFlowView: View {
         var icon: String {
             switch self {
             case .buildMuscle: return "dumbbell.fill"
-            case .loseFat: return "flame.fill"
+            case .loseFat: return "figure.walk"
             case .energy: return "bolt.fill"
             case .performance: return "trophy.fill"
             case .recovery: return "heart.fill"
@@ -101,20 +101,17 @@ struct AuthSignUpFlowView: View {
 
     var body: some View {
         ZStack {
-            Color.background.ignoresSafeArea()
-            RadialGradient(
-                colors: [Color(hex: spark.accentHex).opacity(0.2), Color.ember.opacity(0.08), .clear],
-                center: UnitPoint(x: 0.5, y: 0.15),
-                startRadius: 10,
-                endRadius: 400
+            PremiumAtmosphere(
+                accent: Color(hex: spark.accentHex),
+                secondary: Color(hex: "A9D8FF"),
+                intensity: 0.85
             )
-            .ignoresSafeArea()
             .animation(.easeInOut(duration: 0.4), value: spark)
 
             VStack(spacing: 0) {
                 topBar
                 progressBar
-                    .padding(.horizontal, 22)
+                    .padding(.horizontal, 24)
                     .padding(.top, 8)
                     .padding(.bottom, 18)
 
@@ -175,12 +172,13 @@ struct AuthSignUpFlowView: View {
             Spacer()
 
             VStack(spacing: 2) {
-                Text("WELCOME")
-                    .font(.system(size: 10, weight: .semibold))
+                Text("Welcome")
+                    .font(.system(size: 10, weight: .medium))
                     .tracking(2)
-                    .foregroundColor(.ember)
+                    .foregroundColor(.textTertiary)
+                    .textCase(.uppercase)
                 Text(step.title)
-                    .font(.system(size: 13, weight: .bold))
+                    .font(.system(size: 13, weight: .semibold))
                     .foregroundColor(.textPrimary)
             }
 
@@ -204,13 +202,12 @@ struct AuthSignUpFlowView: View {
             ZStack(alignment: .leading) {
                 Capsule().fill(Color.white.opacity(0.08))
                 Capsule()
-                    .fill(FDS.Gradient.ember)
+                    .fill(Color(hex: "F7F4F0"))
                     .frame(width: max(12, geo.size.width * step.progress))
-                    .shadow(color: Color.ember.opacity(0.5), radius: 6, y: 0)
                     .animation(FDS.Spring.standard, value: step)
             }
         }
-        .frame(height: 6)
+        .frame(height: 4)
     }
 
     // MARK: Step 1 — Identity
@@ -244,7 +241,7 @@ struct AuthSignUpFlowView: View {
                             RoundedRectangle(cornerRadius: 18, style: .continuous)
                                 .stroke(
                                     firstName.trimmingCharacters(in: .whitespaces).count >= 2
-                                        ? Color.ember.opacity(0.55)
+                                        ? Color(hex: "F7F4F0").opacity(0.35)
                                         : Color.white.opacity(0.08),
                                     lineWidth: 1.5
                                 )
@@ -485,9 +482,9 @@ struct AuthSignUpFlowView: View {
                         }
 
                         primaryButton(
-                            title: isBusy ? "Forging…" : "Create account · enter Forge",
+                            title: isBusy ? "Creating…" : "Create account · enter Forge",
                             enabled: canSubmitEmail && !isBusy,
-                            icon: "flame.fill"
+                            icon: "arrow.right"
                         ) {
                             submitEmail()
                         }
@@ -575,23 +572,17 @@ struct AuthSignUpFlowView: View {
     private func heroCopy(kicker: String, title: String, body: String) -> some View {
         VStack(alignment: .leading, spacing: 10) {
             Text(kicker)
-                .font(.system(size: 11, weight: .bold))
+                .font(.system(size: 12, weight: .medium))
                 .tracking(2)
-                .foregroundColor(.ember)
+                .foregroundColor(.textTertiary)
             Text(title)
-                .font(.system(size: 30, weight: .black, design: .rounded))
-                .foregroundStyle(
-                    LinearGradient(
-                        colors: [.white, Color.white.opacity(0.78)],
-                        startPoint: .leading,
-                        endPoint: .trailing
-                    )
-                )
-                .lineSpacing(2)
-            Text(body)
-                .font(.system(size: 15, weight: .medium))
-                .foregroundColor(.textSecondary)
+                .font(.system(size: 30, weight: .semibold, design: .rounded))
+                .foregroundColor(.textPrimary)
                 .lineSpacing(3)
+            Text(body)
+                .font(.system(size: 15, weight: .regular))
+                .foregroundColor(.textSecondary)
+                .lineSpacing(4)
                 .fixedSize(horizontal: false, vertical: true)
         }
         .padding(.top, 8)
@@ -618,36 +609,14 @@ struct AuthSignUpFlowView: View {
         icon: String,
         action: @escaping () -> Void
     ) -> some View {
-        Button(action: action) {
-            HStack(spacing: 10) {
-                if isBusy {
-                    ProgressView().tint(.white)
-                } else {
-                    Image(systemName: icon)
-                        .font(.system(size: 14, weight: .bold))
-                }
-                Text(title)
-                    .font(.system(size: 16, weight: .bold))
-                Spacer(minLength: 0)
-            }
-            .foregroundColor(.white)
-            .padding(.horizontal, 20)
-            .padding(.vertical, 17)
-            .background {
-                if enabled {
-                    ZStack {
-                        FDS.Gradient.ember
-                        LinearGradient.premiumChrome
-                    }
-                } else {
-                    Color.surfaceElevated
-                }
-            }
-            .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
-            .shadow(color: enabled ? Color.ember.opacity(0.4) : .clear, radius: 16, y: 8)
+        PremiumPrimaryButton(
+            title: title,
+            icon: icon,
+            enabled: enabled,
+            busy: isBusy && enabled
+        ) {
+            action()
         }
-        .buttonStyle(AuthPressButtonStyle())
-        .disabled(!enabled)
         .padding(.top, 8)
     }
 
@@ -818,25 +787,27 @@ private struct SignUpCelebrationOverlay: View {
             Color.black.opacity(0.55).ignoresSafeArea()
             VStack(spacing: 16) {
                 ZStack {
-                    Circle()
-                        .fill(Color.ember.opacity(0.25))
-                        .frame(width: 120, height: 120)
-                        .blur(radius: 16)
-                    Image(systemName: "flame.fill")
-                        .font(.system(size: 48, weight: .bold))
-                        .foregroundStyle(FDS.Gradient.ember)
+                    PremiumPresenceBloom(size: 140, accent: .ember, frost: Color(hex: "A9D8FF"), live: false)
+                    AuroraOrbView(
+                        state: .idle,
+                        amplitude: 0.5,
+                        mood: .energized,
+                        size: 88,
+                        followPresence: false
+                    )
                 }
-                Text("WELCOME")
-                    .font(.system(size: 13, weight: .semibold))
-                    .tracking(2)
-                    .foregroundColor(.ember)
+                Text("Welcome")
+                    .font(.system(size: 12, weight: .medium))
+                    .tracking(2.2)
+                    .foregroundColor(.textTertiary)
+                    .textCase(.uppercase)
                 Text(name.isEmpty ? "Let’s learn how you live." : "Nice to meet you, \(name).")
                     .font(.system(size: 26, weight: .semibold, design: .rounded))
                     .foregroundColor(.white)
                     .multilineTextAlignment(.center)
                     .lineSpacing(2)
                 Text("ARIA will ask a few questions so today’s session fits you.")
-                    .font(.system(size: 14, weight: .medium))
+                    .font(.system(size: 14, weight: .regular))
                     .foregroundColor(.textSecondary)
                     .multilineTextAlignment(.center)
                     .padding(.horizontal, 16)

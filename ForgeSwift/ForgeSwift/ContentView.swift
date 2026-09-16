@@ -80,75 +80,43 @@ struct ForgeSplashScreen: View {
 
     var body: some View {
         ZStack {
-            Color.background.ignoresSafeArea()
-
-            ForgeFireField(intensity: .rage, origin: .floor, live: true)
-                .opacity(0.55 + 0.45 * glowIntensity)
-                .ignoresSafeArea()
-
-            RadialGradient(
-                colors: [
-                    ForgePalette.amber.opacity(0.16 * glowIntensity),
-                    ForgePalette.ember.opacity(0.10 * glowIntensity),
-                    ForgePalette.background.opacity(0.35 * glowIntensity),
-                    .clear
-                ],
-                center: .center,
-                startRadius: 20,
-                endRadius: 380
+            PremiumAtmosphere(
+                accent: ForgePalette.ember,
+                secondary: Color(hex: "A9D8FF"),
+                intensity: 0.55 + 0.45 * glowIntensity
             )
-            .ignoresSafeArea()
 
             VStack(spacing: 28) {
                 ZStack {
-                    ForgeFireField(intensity: .rage, origin: .hearth)
-                        .frame(width: 220, height: 240)
-                        .opacity(0.85)
-                    Circle()
-                        .fill(
-                            RadialGradient(
-                                colors: [
-                                    Color.background.opacity(0.78),
-                                    Color.background.opacity(0.2),
-                                    .clear
-                                ],
-                                center: .center,
-                                startRadius: 10,
-                                endRadius: 92
-                            )
-                        )
-                        .frame(width: 180, height: 180)
+                    PremiumPresenceBloom(
+                        size: 220,
+                        accent: ForgePalette.ember,
+                        frost: Color(hex: "A9D8FF")
+                    )
                     AuroraOrbView(
                         state: .idle,
-                        amplitude: 0.72,
+                        amplitude: 0.62,
                         mood: .energized,
                         size: 148,
                         followPresence: false
                     )
                 }
-                    .scaleEffect(logoScale)
-                    .opacity(logoOpacity)
-                    .shadow(color: ForgePalette.amber.opacity(0.38 * glowIntensity), radius: 42, y: 8)
+                .scaleEffect(logoScale)
+                .opacity(logoOpacity)
 
                 VStack(spacing: 10) {
                     HStack(spacing: 10) {
-                        ForgeBrandFlame(size: 26)
+                        ForgeBrandMark(size: 22)
                         Text("FORGE")
-                            .font(.system(size: 32, weight: .black, design: .rounded))
-                            .tracking(8)
-                            .foregroundStyle(
-                                LinearGradient(
-                                    colors: [.white, Color(hex: "FFB020").opacity(0.85)],
-                                    startPoint: .top,
-                                    endPoint: .bottom
-                                )
-                            )
+                            .font(.system(size: 28, weight: .semibold, design: .rounded))
+                            .tracking(6)
+                            .foregroundColor(Color(hex: "F7F4F0"))
                     }
 
                     Text("Forged.")
-                        .font(.system(size: 13, weight: .semibold, design: .rounded))
+                        .font(.system(size: 12, weight: .medium, design: .rounded))
                         .tracking(3.2)
-                        .foregroundColor(.ember)
+                        .foregroundColor(.textTertiary)
                 }
                 .opacity(logoOpacity)
                 .offset(y: textOffset)

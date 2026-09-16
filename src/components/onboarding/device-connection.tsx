@@ -7,6 +7,7 @@ import { cn } from "@/lib/utils";
 import { useAppStore } from "@/stores/useAppStore";
 import { whisperForStep } from "@/lib/aria-onboarding";
 import AriaCompanion from "./aria-companion";
+import { PremiumPrimaryButton } from "@/components/brand/premium-atmosphere";
 
 interface DeviceConnectionProps {
   onNext: () => void;
@@ -236,24 +237,16 @@ export default function DeviceConnection({ onNext }: DeviceConnectionProps) {
       </motion.p>
 
       {/* Continue button */}
-      <motion.button
-        onClick={handleContinue}
+      <motion.div
         initial={{ opacity: 0, y: 16 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.6 }}
-        className={cn(
-          "w-full rounded-xl px-8 py-4 text-lg font-semibold text-white",
-          "transition-all duration-300",
-          "focus:outline-none focus-visible:ring-2 focus-visible:ring-ember focus-visible:ring-offset-2 focus-visible:ring-offset-background"
-        )}
-        style={{
-          background: "linear-gradient(135deg, #FF4D00, #FF6B2B)",
-        }}
-        whileHover={{ scale: 1.02, boxShadow: "0 0 30px rgba(255,77,0,0.4)" }}
-        whileTap={{ scale: 0.98 }}
       >
-        Continue
-      </motion.button>
+        <PremiumPrimaryButton onClick={handleContinue}>
+          <span>Continue</span>
+          <span aria-hidden>→</span>
+        </PremiumPrimaryButton>
+      </motion.div>
     </div>
   );
 }

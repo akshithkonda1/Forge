@@ -1,7 +1,11 @@
 "use client";
 
 import { AriaMark } from "@/components/brand/aria-mark";
-import { ForgeFireField } from "@/components/brand/forge-fire";
+import {
+  PremiumAtmosphere,
+  PremiumPresenceBloom,
+  PremiumPrimaryButton,
+} from "@/components/brand/premium-atmosphere";
 import { ARIA_INTRO } from "@/lib/aria-intro";
 
 export function AriaIntro({
@@ -17,40 +21,24 @@ export function AriaIntro({
 }) {
   return (
     <div className="relative flex min-h-[100dvh] flex-col overflow-hidden bg-background">
-      <div className="pointer-events-none fixed inset-0">
-        <ForgeFireField live intensity="rage" origin="floor" className="opacity-70" />
-        <div
-          className="absolute inset-0"
-          style={{
-            background:
-              "linear-gradient(180deg, rgba(10,10,10,0.15) 0%, rgba(10,10,10,0.55) 70%, rgba(10,10,10,0.88) 100%)",
-          }}
-        />
-      </div>
+      <PremiumAtmosphere accent="#FF6B2B" secondary="#A9D8FF" intensity={0.85} />
 
       <div className="relative z-10 mx-auto flex w-full max-w-md flex-1 flex-col px-6 pb-8 pt-10">
         <div className="flex flex-1 flex-col items-center text-center">
           <div className="relative flex h-48 w-52 items-center justify-center">
-            <ForgeFireField intensity="rage" origin="hearth" className="opacity-80" />
-            <div
-              className="pointer-events-none absolute inset-6 rounded-full"
-              style={{
-                background:
-                  "radial-gradient(circle, rgba(10,10,10,0.7) 0%, rgba(10,10,10,0.18) 58%, transparent 72%)",
-              }}
-            />
+            <PremiumPresenceBloom size={200} />
             <AriaMark size={128} speaking label="ARIA" className="relative z-10" />
           </div>
-          <p className="mt-4 text-[11px] font-black uppercase tracking-[0.22em] text-ember">
+          <p className="mt-4 text-[11px] font-medium uppercase tracking-[0.22em] text-text-tertiary">
             {ARIA_INTRO.eyebrow}
           </p>
           <h1
-            className="mt-2 text-3xl font-black tracking-tight text-text-primary"
+            className="mt-2 text-[30px] font-semibold tracking-tight text-text-primary"
             style={{ fontFamily: "var(--font-display)" }}
           >
             {ARIA_INTRO.title}
           </h1>
-          <p className="mt-3 max-w-sm text-sm leading-relaxed text-text-secondary">
+          <p className="mt-3 max-w-sm text-sm font-normal leading-relaxed text-text-secondary">
             {ARIA_INTRO.lead}
           </p>
 
@@ -58,7 +46,7 @@ export function AriaIntro({
             {ARIA_INTRO.capabilities.map((item) => (
               <li
                 key={item.title}
-                className="rounded-2xl border border-border bg-surface/90 px-4 py-3.5"
+                className="rounded-2xl border border-white/8 bg-white/[0.04] px-4 py-3.5"
               >
                 <p className="text-sm font-semibold text-text-primary">{item.title}</p>
                 <p className="mt-1 text-sm leading-relaxed text-text-secondary">{item.body}</p>
@@ -68,19 +56,15 @@ export function AriaIntro({
         </div>
 
         <div className="mt-8 space-y-3">
-          <button
-            type="button"
-            onClick={onContinue}
-            className="w-full rounded-xl px-8 py-4 text-lg font-semibold text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-ember focus-visible:ring-offset-2 focus-visible:ring-offset-background"
-            style={{ background: "linear-gradient(135deg, #FF4D00, #FF6B2B)" }}
-          >
-            {ctaLabel}
-          </button>
+          <PremiumPrimaryButton onClick={onContinue}>
+            <span>{ctaLabel}</span>
+            <span aria-hidden>→</span>
+          </PremiumPrimaryButton>
           {onSkip && (
             <button
               type="button"
               onClick={onSkip}
-              className="w-full rounded-xl px-8 py-3 text-sm font-medium text-text-tertiary focus:outline-none focus-visible:ring-2 focus-visible:ring-ember"
+              className="w-full rounded-full px-8 py-3 text-sm font-medium text-text-tertiary focus:outline-none focus-visible:ring-2 focus-visible:ring-ember"
             >
               {skipLabel ?? ARIA_INTRO.skipCta}
             </button>

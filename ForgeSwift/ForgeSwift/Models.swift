@@ -42,7 +42,7 @@ enum CoachingStyle: String, Codable, CaseIterable, Identifiable {
     
     var icon: String {
         switch self {
-        case .pushHard:   return "flame.fill"
+        case .pushHard:   return "bolt.fill"
         case .balanced:   return "chart.xyaxis.line"
         case .patient:    return "heart.fill"
         case .dataDriven: return "brain.head.profile"

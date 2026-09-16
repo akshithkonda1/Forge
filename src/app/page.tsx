@@ -11,7 +11,7 @@ import { SleepPage } from "@/components/sleep/sleep-page";
 import { ProfileTab } from "@/components/profile/profile-tab";
 import { AriaIntro } from "@/components/brand/aria-intro";
 import { AriaMark } from "@/components/brand/aria-mark";
-import { ForgeBrandFlame, ForgeFireField } from "@/components/brand/forge-fire";
+import { ForgeBrandMark, PremiumAtmosphere, PremiumPresenceBloom } from "@/components/brand/premium-atmosphere";
 import { forgeSplashHoldMs } from "@/lib/forge-splash";
 import { cn } from "@/lib/utils";
 
@@ -19,26 +19,20 @@ const TABS: TabId[] = ["home", "chat", "workout", "sleep", "profile"];
 let didFinishSplash = false;
 
 function BootSplash({ live = false }: { live?: boolean }) {
+  void live;
   return (
     <div className="relative flex min-h-[100dvh] flex-col items-center justify-center overflow-hidden bg-background">
-      <ForgeFireField live={live} intensity="rage" origin="floor" className="opacity-80" />
+      <PremiumAtmosphere accent="#FF6B2B" secondary="#A9D8FF" intensity={0.9} />
       <div className="relative z-10 flex flex-col items-center">
         <div className="relative flex h-56 w-56 items-center justify-center">
-          <ForgeFireField intensity="rage" origin="hearth" className="opacity-90" />
-          <div
-            className="pointer-events-none absolute inset-8 rounded-full"
-            style={{
-              background:
-                "radial-gradient(circle, rgba(10,10,10,0.72) 0%, rgba(10,10,10,0.2) 55%, transparent 70%)",
-            }}
-          />
+          <PremiumPresenceBloom size={220} />
           <AriaMark size={148} speaking label="ARIA" className="relative z-10" />
         </div>
-        <div className="mt-5 flex items-center gap-2 text-[32px] font-black tracking-[0.28em] text-white">
-          <ForgeBrandFlame size={26} />
+        <div className="mt-5 flex items-center gap-2.5 text-[28px] font-semibold tracking-[0.22em] text-[#F7F4F0]">
+          <ForgeBrandMark size={22} />
           FORGE
         </div>
-        <p className="mt-3 text-[13px] font-semibold uppercase tracking-[0.32em] text-ember">
+        <p className="mt-3 text-[12px] font-medium uppercase tracking-[0.32em] text-text-tertiary">
           Forged.
         </p>
       </div>

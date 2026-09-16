@@ -134,6 +134,7 @@
 		1ARIA0542F9FF867004091AA /* AriaArchetypeStudio.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1ARIA0552F9FF867004091AA /* AriaArchetypeStudio.swift */; };
 		1ARIA0562F9FF867004091AA /* CyclePrivacy.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1ARIA0572F9FF867004091AA /* CyclePrivacy.swift */; };
 		1AUTH0012F9FF867004091AA /* AuthWelcomeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1AUTH0022F9FF867004091AA /* AuthWelcomeView.swift */; };
+		1PREM0022F9FF867004091AA /* PremiumAtmosphere.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1PREM0012F9FF867004091AA /* PremiumAtmosphere.swift */; };
 		1AUTH0032F9FF867004091AA /* AuthSignInView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1AUTH0042F9FF867004091AA /* AuthSignInView.swift */; };
 		1AUTH0052F9FF867004091AA /* AuthSignUpFlowView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1AUTH0062F9FF867004091AA /* AuthSignUpFlowView.swift */; };
 		1AUTH0072F9FF867004091AA /* ForgeAuthClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1AUTH0082F9FF867004091AA /* ForgeAuthClient.swift */; };
@@ -563,6 +564,7 @@
 		1ARIA0552F9FF867004091AA /* AriaArchetypeStudio.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AriaArchetypeStudio.swift; sourceTree = "<group>"; };
 		1ARIA0572F9FF867004091AA /* CyclePrivacy.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CyclePrivacy.swift; sourceTree = "<group>"; };
 		1AUTH0022F9FF867004091AA /* AuthWelcomeView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AuthWelcomeView.swift; sourceTree = "<group>"; };
+		1PREM0012F9FF867004091AA /* PremiumAtmosphere.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PremiumAtmosphere.swift; sourceTree = "<group>"; };
 		1AUTH0042F9FF867004091AA /* AuthSignInView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AuthSignInView.swift; sourceTree = "<group>"; };
 		1AUTH0062F9FF867004091AA /* AuthSignUpFlowView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AuthSignUpFlowView.swift; sourceTree = "<group>"; };
 		1AUTH0082F9FF867004091AA /* ForgeAuthClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ForgeAuthClient.swift; sourceTree = "<group>"; };
@@ -952,6 +954,7 @@
 				AA0002000000000000000005 /* ContentView.swift */,
 				1NAV022F9FF867004091AA /* ForgeNavigation.swift */,
 				1AUTH0022F9FF867004091AA /* AuthWelcomeView.swift */,
+				1PREM0012F9FF867004091AA /* PremiumAtmosphere.swift */,
 				1AUTH0042F9FF867004091AA /* AuthSignInView.swift */,
 				1AUTH0062F9FF867004091AA /* AuthSignUpFlowView.swift */,
 				AA0002000000000000000006 /* OnboardingView.swift */,
@@ -1620,6 +1623,7 @@
 				AA0001000000000000000005 /* ContentView.swift in Sources */,
 				1NAV012F9FF867004091AA /* ForgeNavigation.swift in Sources */,
 				1AUTH0012F9FF867004091AA /* AuthWelcomeView.swift in Sources */,
+				1PREM0022F9FF867004091AA /* PremiumAtmosphere.swift in Sources */,
 				1AUTH0032F9FF867004091AA /* AuthSignInView.swift in Sources */,
 				1AUTH0052F9FF867004091AA /* AuthSignUpFlowView.swift in Sources */,
 				1AUTH0072F9FF867004091AA /* ForgeAuthClient.swift in Sources */,

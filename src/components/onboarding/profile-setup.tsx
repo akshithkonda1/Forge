@@ -6,6 +6,7 @@ import { useAppStore } from "@/stores/useAppStore";
 import type { FitnessGoal, ExperienceLevel, WorkoutType } from "@/types";
 import { whisperForStep } from "@/lib/aria-onboarding";
 import AriaCompanion from "./aria-companion";
+import { PremiumPrimaryButton } from "@/components/brand/premium-atmosphere";
 
 interface ProfileSetupProps {
   onNext: () => void;
@@ -285,28 +286,19 @@ export default function ProfileSetup({ onNext, onBack }: ProfileSetupProps) {
               if (section > 0) setSection((s) => s - 1);
               else onBack?.();
             }}
-            className="rounded-xl border border-border px-5 py-4 text-sm font-semibold text-text-secondary"
+            className="rounded-full border border-white/12 px-5 py-4 text-sm font-medium text-text-secondary"
           >
             Back
           </button>
         )}
-      <button
-        type="button"
-        onClick={handleContinue}
-        disabled={!canProceed()}
-        className={cn(
-          "w-full flex-1 rounded-xl px-8 py-4 text-lg font-semibold text-white",
-          "focus:outline-none focus-visible:ring-2 focus-visible:ring-ember focus-visible:ring-offset-2 focus-visible:ring-offset-background",
-          "disabled:cursor-not-allowed disabled:opacity-40"
-        )}
-        style={{
-          background: canProceed()
-            ? "linear-gradient(135deg, #FF4D00, #FF6B2B)"
-            : "#2A2A2A",
-        }}
-      >
-        Continue
-      </button>
+        <PremiumPrimaryButton
+          onClick={handleContinue}
+          disabled={!canProceed()}
+          className="flex-1"
+        >
+          <span>Continue</span>
+          <span aria-hidden>→</span>
+        </PremiumPrimaryButton>
       </div>
     </div>
   );

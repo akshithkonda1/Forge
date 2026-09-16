@@ -27,32 +27,24 @@ struct AriaMeetView: View {
 
     var body: some View {
         ZStack {
-            Color.background.ignoresSafeArea()
-            RadialGradient(
-                colors: [ForgePalette.ember.opacity(0.16), ForgePalette.ember.opacity(0.05), .clear],
-                center: UnitPoint(x: 0.5, y: 0.22),
-                startRadius: 8,
-                endRadius: 340
+            PremiumAtmosphere(
+                accent: ForgePalette.ember,
+                secondary: Color(hex: "A9D8FF"),
+                intensity: 0.85
             )
-            .ignoresSafeArea()
-            RadialGradient(
-                colors: [Color.steel.opacity(0.08), .clear],
-                center: UnitPoint(x: 0.9, y: 0.92),
-                startRadius: 6,
-                endRadius: 280
-            )
-            .ignoresSafeArea()
 
             VStack(spacing: 0) {
                 ScrollView(showsIndicators: false) {
                     VStack(spacing: 18) {
                         ZStack {
-                            ForgeFireField(intensity: .rage, origin: .hearth, live: true)
-                                .frame(width: 180, height: 190)
-                                .opacity(0.72)
+                            PremiumPresenceBloom(
+                                size: 190,
+                                accent: ForgePalette.ember,
+                                frost: Color(hex: "A9D8FF")
+                            )
                             AuroraOrbView(
                                 state: .idle,
-                                amplitude: 0.58,
+                                amplitude: 0.55,
                                 mood: .focused,
                                 size: 132,
                                 followPresence: true
@@ -61,17 +53,17 @@ struct AriaMeetView: View {
                         .padding(.top, 28)
 
                         Text(AriaMeetCopy.eyebrow.uppercased())
-                            .font(.system(size: 11, weight: .heavy, design: .rounded))
+                            .font(.system(size: 11, weight: .medium, design: .rounded))
                             .tracking(2.2)
-                            .foregroundColor(.ember)
+                            .foregroundColor(.textTertiary)
                             .multilineTextAlignment(.center)
 
                         Text(AriaMeetCopy.title)
-                            .font(.system(size: 32, weight: .black, design: .rounded))
+                            .font(.system(size: 30, weight: .semibold, design: .rounded))
                             .foregroundColor(.textPrimary)
 
                         Text(AriaMeetCopy.lead)
-                            .font(.system(size: 15, weight: .medium, design: .rounded))
+                            .font(.system(size: 15, weight: .regular, design: .rounded))
                             .foregroundColor(.textSecondary)
                             .multilineTextAlignment(.center)
                             .padding(.horizontal, 8)
@@ -81,25 +73,30 @@ struct AriaMeetView: View {
                                 HStack(alignment: .top, spacing: 12) {
                                     ZStack {
                                         Circle()
-                                            .fill(Color.ember.opacity(0.16))
+                                            .fill(Color.white.opacity(0.06))
                                             .frame(width: 36, height: 36)
                                         Image(systemName: item.icon)
-                                            .font(.system(size: 14, weight: .semibold))
-                                            .foregroundColor(.ember)
+                                            .font(.system(size: 14, weight: .medium))
+                                            .foregroundColor(Color(hex: "F7F4F0").opacity(0.85))
                                     }
                                     VStack(alignment: .leading, spacing: 4) {
                                         Text(item.title)
                                             .font(.system(size: 15, weight: .semibold, design: .rounded))
                                             .foregroundColor(.textPrimary)
                                         Text(item.body)
-                                            .font(.system(size: 14, weight: .medium, design: .rounded))
+                                            .font(.system(size: 14, weight: .regular, design: .rounded))
                                             .foregroundColor(.textSecondary)
                                             .fixedSize(horizontal: false, vertical: true)
                                     }
                                 }
                                 .frame(maxWidth: .infinity, alignment: .leading)
                                 .padding(14)
-                                .forgeGlassCard(cornerRadius: 16, accent: .ember)
+                                .background(Color.white.opacity(0.04))
+                                .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+                                .overlay(
+                                    RoundedRectangle(cornerRadius: 16, style: .continuous)
+                                        .stroke(Color.white.opacity(0.08), lineWidth: 1)
+                                )
                             }
                         }
                         .padding(.top, 8)
@@ -109,7 +106,7 @@ struct AriaMeetView: View {
                 }
 
                 VStack(spacing: 10) {
-                    ForgePrimaryButton(
+                    PremiumPrimaryButton(
                         title: AriaMeetCopy.talkCta,
                         icon: "waveform",
                         action: onTalk
