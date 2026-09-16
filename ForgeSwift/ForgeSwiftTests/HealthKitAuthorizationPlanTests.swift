@@ -1,5 +1,6 @@
 import XCTest
 import HealthKit
+import ForgeCore
 @testable import ForgeSwift
 
 /// Locks the Allow-tap contract: clinical types never go to HealthKit when
