@@ -26,9 +26,11 @@ _ALIASES: dict[str, MetricType] = {
     "heart-rate": MetricType.HEART_RATE, "hr": MetricType.HEART_RATE, "bpm": MetricType.HEART_RATE,
     "resting_heart_rate": MetricType.RESTING_HEART_RATE, "resting-heart-rate": MetricType.RESTING_HEART_RATE,
     "restingheartrate": MetricType.RESTING_HEART_RATE, "rhr": MetricType.RESTING_HEART_RATE,
-    # hrv
+    # hrv — SDNN and RMSSD are different calculations. Never alias rmssd → SDNN.
     "hrv": MetricType.HRV_SDNN, "heartratevariabilitysdnn": MetricType.HRV_SDNN,
-    "hrv_sdnn": MetricType.HRV_SDNN, "sdnn": MetricType.HRV_SDNN, "rmssd": MetricType.HRV_SDNN,
+    "hrv_sdnn": MetricType.HRV_SDNN, "sdnn": MetricType.HRV_SDNN,
+    "hrv_rmssd": MetricType.HRV_RMSSD, "rmssd": MetricType.HRV_RMSSD,
+    "heartratevariabilityrmssd": MetricType.HRV_RMSSD,
     # blood pressure
     "blood_pressure_systolic": MetricType.BLOOD_PRESSURE_SYSTOLIC, "bloodpressuresystolic": MetricType.BLOOD_PRESSURE_SYSTOLIC,
     "systolic": MetricType.BLOOD_PRESSURE_SYSTOLIC, "bp_systolic": MetricType.BLOOD_PRESSURE_SYSTOLIC, "sbp": MetricType.BLOOD_PRESSURE_SYSTOLIC,
@@ -106,6 +108,7 @@ _LINEAR_CONVERSIONS: dict[MetricType, dict[str, float]] = {
     MetricType.LEAN_MASS: {"kg": 1.0, "lb": 0.453592, "lbs": 0.453592, "g": 0.001},
     MetricType.DISTANCE: {"m": 1.0, "meter": 1.0, "meters": 1.0, "km": 1000.0, "mi": 1609.34, "mile": 1609.34, "miles": 1609.34, "ft": 0.3048, "feet": 0.3048},
     MetricType.HRV_SDNN: {"ms": 1.0, "s": 1000.0, "sec": 1000.0},
+    MetricType.HRV_RMSSD: {"ms": 1.0, "s": 1000.0, "sec": 1000.0},
     MetricType.BLOOD_GLUCOSE: {"mg/dl": 1.0, "mg": 1.0, "mmol/l": 18.0182, "mmol": 18.0182},
     MetricType.ACTIVE_ENERGY: {"kcal": 1.0, "cal": 1.0, "kj": 0.239006},
     MetricType.DIETARY_ENERGY: {"kcal": 1.0, "cal": 1.0, "kj": 0.239006},

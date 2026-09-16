@@ -667,20 +667,26 @@ class HealthKitManager: ObservableObject {
         isObserving = false
     }
 
-    static let bidirectionalSampleTypes: [HKSampleType] = [
-        HKQuantityType(.dietaryWater),
-        HKQuantityType(.dietaryEnergyConsumed),
-        HKQuantityType(.dietaryProtein),
-        HKQuantityType(.dietaryCarbohydrates),
-        HKQuantityType(.stepCount),
-        HKQuantityType(.activeEnergyBurned),
-        HKCategoryType(.sleepAnalysis),
-        HKWorkoutType.workoutType(),
-        HKQuantityType(.bodyTemperature),
-        HKQuantityType(.appleSleepingWristTemperature),
-        HKQuantityType(.heartRateVariabilitySDNN),
-        HKQuantityType(.restingHeartRate),
-    ]
+    static let bidirectionalSampleTypes: [HKSampleType] = {
+        var types: [HKSampleType] = [
+            HKQuantityType(.dietaryWater),
+            HKQuantityType(.dietaryEnergyConsumed),
+            HKQuantityType(.dietaryProtein),
+            HKQuantityType(.dietaryCarbohydrates),
+            HKQuantityType(.stepCount),
+            HKQuantityType(.activeEnergyBurned),
+            HKCategoryType(.sleepAnalysis),
+            HKWorkoutType.workoutType(),
+            HKQuantityType(.bodyTemperature),
+            HKQuantityType(.appleSleepingWristTemperature),
+            HKQuantityType(.heartRateVariabilitySDNN),
+            HKQuantityType(.restingHeartRate),
+        ]
+        if let rmssd = HealthKitHRVQuantity.rmssdTypeIfAvailable {
+            types.append(rmssd)
+        }
+        return types
+    }()
 
     private func scheduleLiveRefresh() {
         liveRefreshTask?.cancel()

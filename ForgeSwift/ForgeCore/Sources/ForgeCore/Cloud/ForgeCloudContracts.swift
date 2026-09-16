@@ -361,6 +361,8 @@ public enum CloudHealthMetricType {
         "steps",
         "active-calories",
         "hrv",
+        "hrv-sdnn",
+        "hrv-rmssd",
         "resting-heart-rate",
         "heart-rate",
         "sleep-stage",
@@ -403,7 +405,13 @@ public enum CloudHealthMetricType {
         case "active-calories", "activecalories", "active-energy", "calories":
             return "active-calories"
         case "hrv":
+            // Legacy unlabeled HRV in this tree is SDNN-shaped. RMSSD must
+            // not land here — use `hrv-rmssd`.
             return "hrv"
+        case "hrv-sdnn", "sdnn", "heartratevariabilitysdnn":
+            return "hrv-sdnn"
+        case "hrv-rmssd", "rmssd", "heartratevariabilityrmssd":
+            return "hrv-rmssd"
         case "resting-heart-rate", "resting-hr", "restinghr":
             return "resting-heart-rate"
         case "heart-rate", "heartrate", "hr":

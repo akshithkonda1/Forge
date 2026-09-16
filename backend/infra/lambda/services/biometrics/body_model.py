@@ -225,6 +225,8 @@ class BodyModel:
         return derived
 
     def _recovery_estimate(self) -> Estimate:
+        # Recovery stays on SDNN. RMSSD is a separate series — never substituted
+        # here, and vendor Recovery scores are not treated as RMSSD.
         hrv_vals = self.values(MetricType.HRV_SDNN)
         rhr_vals = self.values(MetricType.RESTING_HEART_RATE)
         return estimators.estimate_recovery(
@@ -266,6 +268,7 @@ class BodyModel:
                 self.latest(MetricType.RESTING_HEART_RATE), chrono
             )
         hrv = self.latest(MetricType.HRV_SDNN)
+        # Autonomic-age estimate uses SDNN only. Not Apple Health Age, not RMSSD.
         if chrono is not None and hrv is not None:
             estimated["autonomic_age_est"] = estimators.autonomic_age_from_hrv(hrv, chrono)
         sleep_min = self._sleep_total_minutes()
