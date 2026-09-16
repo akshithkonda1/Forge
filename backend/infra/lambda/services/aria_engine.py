@@ -370,6 +370,11 @@ class LifestyleContext:
     # framing, never a diagnosis). None means unmeasured — ARIA never invents it.
     quality_of_life_score: int | None = None
     quality_of_life_confidence: float | None = None
+    quality_of_life_band: str | None = None
+    quality_of_life_drivers: list[str] = field(default_factory=list)
+    quality_of_life_missing: list[str] = field(default_factory=list)
+    quality_of_life_coaching: str | None = None
+    quality_of_life_pillars: dict[str, int] = field(default_factory=dict)
 
 
 @dataclass
@@ -485,6 +490,120 @@ def _parse_qol_confidence(lifestyle: dict) -> float | None:
                 return max(0.0, min(1.0, float(t.split(":", 1)[1])))
             except (ValueError, IndexError):
                 continue
+    return None
+
+
+_QOL_BANDS = frozenset({"thriving", "steady", "strained", "depleted"})
+
+
+def _parse_qol_band(lifestyle: dict, score: int | None = None) -> str | None:
+    for key in ("qualityOfLifeBand", "qolBand", "band"):
+        val = lifestyle.get(key)
+        if isinstance(val, str) and val.strip().lower() in _QOL_BANDS:
+            return val.strip().lower()
+    for tag in _str_list(lifestyle.get("tags")):
+        t = str(tag).strip().lower()
+        if t.startswith("qol:band:"):
+            raw = t.split(":", 2)[-1]
+            if raw in _QOL_BANDS:
+                return raw
+    if score is not None:
+        return life_rhythm_band(score)
+    return None
+
+
+def _parse_qol_string_list(lifestyle: dict, *, bag_keys: tuple[str, ...], tag_prefix: str) -> list[str]:
+    out: list[str] = []
+    for key in bag_keys:
+        raw = lifestyle.get(key)
+        if isinstance(raw, list):
+            for item in raw:
+                text = str(item or "").strip()
+                if text and text not in out:
+                    out.append(text)
+        elif isinstance(raw, str) and raw.strip():
+            out.append(raw.strip())
+    prefix = tag_prefix.lower()
+    for tag in _str_list(lifestyle.get("tags")):
+        t = str(tag).strip()
+        lower = t.lower()
+        if lower.startswith(prefix):
+            value = t.split(":", 2)[-1].replace("_", " ").strip()
+            if value and value not in out:
+                out.append(value)
+    return out[:6]
+
+
+def _parse_qol_coaching(lifestyle: dict) -> str | None:
+    for key in ("qualityOfLifeCoaching", "coaching", "qolCoaching"):
+        val = lifestyle.get(key)
+        if isinstance(val, str) and val.strip():
+            return val.strip()[:480]
+    return None
+
+
+def _parse_qol_pillars(lifestyle: dict) -> dict[str, int]:
+    out: dict[str, int] = {}
+    bag = lifestyle.get("pillarScores") or lifestyle.get("qualityOfLifePillars") or lifestyle.get("pillars")
+    if isinstance(bag, dict):
+        for key, val in bag.items():
+            if isinstance(val, bool):
+                continue
+            if isinstance(val, (int, float)):
+                out[str(key).strip().lower()] = _clamp_score(int(round(val)))
+    for tag in _str_list(lifestyle.get("tags")):
+        t = str(tag).strip().lower()
+        if not t.startswith("qol:pillar:"):
+            continue
+        parts = t.split(":")
+        if len(parts) < 4:
+            continue
+        try:
+            out[parts[2]] = _clamp_score(int(float(parts[3])))
+        except (ValueError, IndexError):
+            continue
+    return out
+
+
+def life_rhythm_training_plan(
+    score: int | None,
+    band: str | None = None,
+    pillars: dict[str, int] | None = None,
+) -> dict[str, Any] | None:
+    """Mirror client QualityOfLifeTrainingPolicy — never invents a score."""
+    if score is None:
+        return None
+    clamped = _clamp_score(int(score))
+    resolved = (band or life_rhythm_band(clamped)).lower()
+    pillars = pillars or {}
+    mind = pillars.get("mind")
+    sleep = pillars.get("sleep")
+    if resolved == "depleted" or clamped < 50:
+        return {
+            "keep_light": True,
+            "reduce_volume": True,
+            "max_duration": 30,
+            "reason": (
+                f"Lifestyle QoL {clamped}/100 (depleted) — recovery-first session, keep it light."
+            ),
+        }
+    if resolved == "strained" or clamped < 70:
+        weak_mind = mind is not None and mind < 55
+        weak_sleep = sleep is not None and sleep < 55
+        keep_light = weak_mind or weak_sleep or clamped < 60
+        return {
+            "keep_light": keep_light,
+            "reduce_volume": True,
+            "max_duration": 35 if keep_light else 40,
+            "reason": (
+                f"Lifestyle QoL {clamped}/100 (strained) — "
+                + (
+                    "mind/sleep asking for ease, lighter volume."
+                    if keep_light
+                    else "trim volume, protect recovery."
+                )
+            ),
+        }
     return None
 
 
@@ -721,8 +840,19 @@ class ARIAContext:
                 tags=_str_list(lifestyle.get("tags")),
                 recent_patterns=_str_list(lifestyle.get("recentPatterns")),
                 goals=_str_list(lifestyle.get("goals")),
-                quality_of_life_score=_parse_qol_score(lifestyle),
+                quality_of_life_score=(qol_score := _parse_qol_score(lifestyle)),
                 quality_of_life_confidence=_parse_qol_confidence(lifestyle),
+                quality_of_life_band=_parse_qol_band(lifestyle, qol_score),
+                quality_of_life_drivers=_parse_qol_string_list(
+                    lifestyle, bag_keys=("drivers", "qualityOfLifeDrivers"), tag_prefix="qol:driver:"
+                ),
+                quality_of_life_missing=_parse_qol_string_list(
+                    lifestyle,
+                    bag_keys=("missingPillars", "qualityOfLifeMissing"),
+                    tag_prefix="qol:missing:",
+                ),
+                quality_of_life_coaching=_parse_qol_coaching(lifestyle),
+                quality_of_life_pillars=_parse_qol_pillars(lifestyle),
             ),
             aging=_aging_from_rich(aging, data),
             clinical_data=ClinicalDataContext(
@@ -854,10 +984,29 @@ class ARIAContext:
         if "lifestyle" not in restricted and qol is not None:
             conf = self.lifestyle.quality_of_life_confidence
             conf_str = f", confidence {conf:.2f}" if isinstance(conf, (int, float)) else ""
+            band = self.lifestyle.quality_of_life_band or life_rhythm_band(qol)
+            bits = [f"{band} ({qol}/100{conf_str})"]
+            if self.lifestyle.quality_of_life_drivers:
+                bits.append("drivers: " + ", ".join(self.lifestyle.quality_of_life_drivers[:3]))
+            if self.lifestyle.quality_of_life_missing:
+                bits.append("missing: " + ", ".join(self.lifestyle.quality_of_life_missing[:3]))
+            if self.lifestyle.quality_of_life_coaching:
+                bits.append("coaching: " + self.lifestyle.quality_of_life_coaching)
             lines.append(
-                f"- lifestyle.life_rhythm: {life_rhythm_band(qol)} ({qol}/100{conf_str}) "
+                f"- lifestyle.life_rhythm: {'; '.join(bits)} "
                 "[lifestyle rhythm signal — reflect it as life rhythm, never a medical or diagnostic claim]"
             )
+            plan = life_rhythm_training_plan(
+                qol,
+                band=band,
+                pillars=self.lifestyle.quality_of_life_pillars,
+            )
+            if plan:
+                lines.append(
+                    f"- lifestyle.life_rhythm_training: keep_light={plan['keep_light']} "
+                    f"reduce_volume={plan['reduce_volume']} max_duration={plan['max_duration']} "
+                    f"— {plan['reason']}"
+                )
         if "aging" not in restricted and (
             self.aging.chronological_age_years is not None or self.aging.biological_age_years is not None
         ):
@@ -1575,15 +1724,24 @@ def _interpret_lifestyle(ctx: ARIAContext, baselines: Any = None) -> Signal | No
     # Life-rhythm QoL takes precedence when present — it's the holistic read.
     qol = ctx.lifestyle.quality_of_life_score
     if qol is not None:
-        band = life_rhythm_band(qol)
+        band = (ctx.lifestyle.quality_of_life_band or life_rhythm_band(qol)).lower()
         parts = [f"life rhythm {band} ({qol}/100)"]
+        if ctx.lifestyle.quality_of_life_drivers:
+            parts.append("drivers " + " · ".join(ctx.lifestyle.quality_of_life_drivers[:2]))
+        driver_note = ""
+        if ctx.lifestyle.quality_of_life_drivers:
+            driver_note = f" — {', '.join(ctx.lifestyle.quality_of_life_drivers[:2])} shaping the grade"
+        coaching = (ctx.lifestyle.quality_of_life_coaching or "").strip()
         if band in ("strained", "depleted"):
+            interp = coaching or (
+                f"{life_rhythm_descriptor(qol)}{driver_note} — prioritize recovery and one small win tonight"
+            )
             return Signal(
                 "lifestyle",
                 "Life rhythm",
                 ", ".join(parts),
                 "vs your holistic QoL",
-                f"{life_rhythm_descriptor(qol)} — prioritize recovery and one small win tonight",
+                interp,
                 "medium" if band == "strained" else "high",
                 "negative",
             )
@@ -1591,12 +1749,13 @@ def _interpret_lifestyle(ctx: ARIAContext, baselines: Any = None) -> Signal | No
         if ctx.lifestyle.tags or ctx.lifestyle.recent_patterns:
             pass  # fall through to habit check below
         else:
+            interp = coaching or (life_rhythm_descriptor(qol) + driver_note)
             return Signal(
                 "lifestyle",
                 "Life rhythm",
                 ", ".join(parts),
                 "vs your holistic QoL",
-                life_rhythm_descriptor(qol),
+                interp,
                 "low",
                 "positive" if band == "thriving" else "neutral",
             )

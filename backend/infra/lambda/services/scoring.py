@@ -76,45 +76,79 @@ def detect_personal_records(workouts: list[dict[str, Any]]) -> list[dict[str, An
 def baseline_workout_recommendation(
     readiness_overall: int | None,
     last_workout_type: str | None,
+    *,
+    quality_of_life_score: int | None = None,
+    quality_of_life_band: str | None = None,
+    quality_of_life_pillars: dict[str, int] | None = None,
 ) -> dict[str, Any]:
     """Pick a workout focus given readiness and the most recent workout type.
 
     Unknown readiness is treated as the conservative band rather than assumed
     average: prescribing high intensity to someone whose recovery state has never
     been measured is the one error here with a physical cost.
+
+    Optional Lifestyle QoL (client-authored only) can further clamp intensity when
+    life rhythm is strained or depleted — same thresholds as on-device policy.
     """
     if readiness_overall is None:
-        return {
+        result = {
             "focus": "technique",
             "intensity": "low",
             "suggestedType": "strength",
             "readinessKnown": False,
         }
-
-    if readiness_overall >= 80:
-        focus = "power"
-        intensity = "high"
-    elif readiness_overall >= 65:
-        focus = "hypertrophy"
-        intensity = "moderate"
-    elif readiness_overall >= 50:
-        focus = "technique"
-        intensity = "low"
     else:
-        focus = "recovery"
-        intensity = "low"
+        if readiness_overall >= 80:
+            focus = "power"
+            intensity = "high"
+        elif readiness_overall >= 65:
+            focus = "hypertrophy"
+            intensity = "moderate"
+        elif readiness_overall >= 50:
+            focus = "technique"
+            intensity = "low"
+        else:
+            focus = "recovery"
+            intensity = "low"
 
-    rotate = {
-        "strength": "cardio",
-        "cardio": "strength",
-        "hiit": "mobility",
-        "mobility": "strength",
-        "yoga": "strength",
-    }
-    suggested_type = rotate.get(str(last_workout_type or "").lower(), "strength")
+        rotate = {
+            "strength": "cardio",
+            "cardio": "strength",
+            "hiit": "mobility",
+            "mobility": "strength",
+            "yoga": "strength",
+        }
+        suggested_type = rotate.get(str(last_workout_type or "").lower(), "strength")
 
-    return {
-        "focus": focus,
-        "intensity": intensity,
-        "suggestedType": suggested_type,
-    }
+        result = {
+            "focus": focus,
+            "intensity": intensity,
+            "suggestedType": suggested_type,
+            "readinessKnown": True,
+        }
+
+    if quality_of_life_score is not None:
+        try:
+            from services.aria_engine import life_rhythm_training_plan
+        except Exception:  # pragma: no cover
+            life_rhythm_training_plan = None  # type: ignore
+        plan = (
+            life_rhythm_training_plan(
+                int(quality_of_life_score),
+                band=quality_of_life_band,
+                pillars=quality_of_life_pillars or {},
+            )
+            if life_rhythm_training_plan
+            else None
+        )
+        if plan:
+            if plan.get("keep_light") and result["intensity"] in ("high", "max"):
+                result["intensity"] = "moderate"
+            if plan.get("reduce_volume") and result["intensity"] == "high":
+                result["intensity"] = "moderate"
+            if int(quality_of_life_score) < 50:
+                result["focus"] = "recovery"
+                result["intensity"] = "low"
+            result["lifeRhythm"] = plan
+
+    return result

@@ -631,16 +631,37 @@ def evaluate_aging(ctx: Any, message: str = "") -> AgingRead:
             wear += max(0.0, factor.contribution)
 
     qol = _num(getattr(getattr(ctx, "lifestyle", None), "quality_of_life_score", None))
-    if qol is not None and qol < 45:
-        wear += 0.10
-        found.append(
-            _factor(
-                "life_rhythm",
-                "social",
-                0.10,
-                "life rhythm is thin — a better-life plan, not a biological-age lecture",
+    if qol is not None:
+        band = getattr(getattr(ctx, "lifestyle", None), "quality_of_life_band", None)
+        if not isinstance(band, str) or not band:
+            if qol >= 85:
+                band = "thriving"
+            elif qol >= 70:
+                band = "steady"
+            elif qol >= 50:
+                band = "strained"
+            else:
+                band = "depleted"
+        if band == "depleted" or qol < 50:
+            wear += 0.10
+            found.append(
+                _factor(
+                    "life_rhythm",
+                    "social",
+                    0.10,
+                    "life rhythm is depleted — a better-life plan, not a biological-age lecture",
+                )
             )
-        )
+        elif band == "strained" or qol < 70:
+            wear += 0.06
+            found.append(
+                _factor(
+                    "life_rhythm",
+                    "social",
+                    0.06,
+                    "life rhythm is strained — ease the day, not a biological-age lecture",
+                )
+            )
 
     coverage = {
         "physiological": 1.0 if n_body else 0.0,
