@@ -177,6 +177,27 @@ final class SleepStoryEngineTests: XCTestCase {
         XCTAssertTrue(plan.contains("still learning"))
     }
 
+    func testStoriesNeverDumpSleepStagePercent() {
+        let readiness = ReadinessScore(overall: 72, sleepQuality: 70, recovery: 70, confidence: 0.8)
+        let stories = [
+            SleepStoryEngine.story(night: night(totalHours: 4.5, deepMinutes: 40), readiness: readiness),
+            SleepStoryEngine.story(night: night(totalHours: 8.0, deepMinutes: 100), readiness: nil),
+            SleepStoryEngine.story(night: night(totalHours: 7.0, deepMinutes: 50, awakeMinutes: 50), readiness: nil),
+            SleepStoryEngine.tonightPlan(plan: nil, night: night(totalHours: 7.5)),
+        ]
+        for story in stories {
+            XCTAssertNil(
+                story.range(of: #"\b(?:deep|rem|light)\s+sleep\s+at\s+\d"#, options: .regularExpression),
+                "stage % in sleep story: \(story)"
+            )
+            XCTAssertNil(
+                story.range(of: #"\brem\s+is\s+light\s+at\s+\d"#, options: .regularExpression),
+                "REM-is-light % in sleep story: \(story)"
+            )
+            XCTAssertFalse(story.contains("%"), "sleep story must stay qualitative, not stage %: \(story)")
+        }
+    }
+
     func testTonightPlanMentionsWindDownTime() {
         let windDown = WindDownPlan(
             windDownStart: Date(timeIntervalSince1970: 1_750_000_000),

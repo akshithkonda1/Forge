@@ -82,5 +82,49 @@ final class AriaKnowledgeLedgerTests: XCTestCase {
         XCTAssertFalse(joined.lowercased().contains("street"))
         XCTAssertFalse(joined.lowercased().contains("@"))
         XCTAssertTrue(joined.contains(pack.personaLabel) || facts.contains { $0.kind == "persona" })
+        XCTAssertNil(
+            joined.range(of: #"\b(?:deep|rem|light)\s+sleep\s+at\s+\d"#, options: .regularExpression)
+        )
+    }
+
+    func testUserAddDropsPartnerCyclePrefixes() {
+        XCTAssertTrue(AriaInboundLifestyleStrip.isDeniedToken("partner_phase:luteal"))
+        XCTAssertTrue(AriaInboundLifestyleStrip.isDeniedToken("cycle:fertile_window"))
+        XCTAssertFalse(AriaInboundLifestyleStrip.isDeniedToken("calendar:evening:busy"))
+        XCTAssertEqual(AriaInboundLifestyleStrip.sanitize("partner_phase:luteal"), "")
+        XCTAssertEqual(
+            AriaInboundLifestyleStrip.sanitize("Keep earlier nights. partner_name:sam"),
+            "Keep earlier nights."
+        )
+
+        var ledger = AriaKnowledgeLedger()
+        ledger.file(AriaKnowledgeFact(
+            category: .weSpokeAbout,
+            kind: "user",
+            summary: "partner_phase:luteal cycle:fertile_window Keep earlier nights.",
+            source: "user"
+        ))
+        let blob = ledger.facts.map(\.summary).joined(separator: " ").lowercased()
+        XCTAssertFalse(blob.contains("partner_phase"))
+        XCTAssertFalse(blob.contains("partner_name"))
+        XCTAssertFalse(blob.contains("cycle:fertile"))
+        XCTAssertTrue(blob.contains("keep earlier nights"))
+        XCTAssertEqual(ledger.facts.first?.source, "user")
+        XCTAssertFalse(ledger.facts.first?.id.isEmpty ?? true)
+    }
+
+    func testSleepNightBodyNotesStayQualitative() {
+        var ledger = AriaKnowledgeLedger()
+        ledger.file(AriaKnowledgeFact(
+            category: .appleHealth,
+            kind: "sleep",
+            summary: "Last night: deep sleep at 21%. REM is light at 12%. Keep it qualitative.",
+            source: "apple-health"
+        ))
+        let summary = ledger.facts(in: .appleHealth).first?.summary ?? ""
+        XCTAssertFalse(summary.lowercased().contains("sleep at"))
+        XCTAssertFalse(summary.lowercased().contains("%"))
+        XCTAssertTrue(summary.lowercased().contains("qualitative"))
+        XCTAssertEqual(ledger.facts.first?.source, "apple-health")
     }
 }
