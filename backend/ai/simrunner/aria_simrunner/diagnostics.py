@@ -3,15 +3,22 @@
 Turns the evaluator's per-response failures into a defensible *ship / hold*
 decision. Every turn gets a PASS/FAIL with **what** failed (which dimensions),
 **how** (the specific violations), and **when** (date · tier · query · model);
-every failure is triaged by **severity** (mission_critical → can_wait). The
-system verdict holds the line on anything mission-critical.
+every failure is triaged by **severity** (mission_critical → can_wait).
+
+The system verdict ranks on two axes:
+
+1. Honesty — zero mission-critical failures *and* turn pass rate ≥ 80%.
+2. Quality — overall composite must be **good** or **excellent** (B+ / A / A+).
+
+A run that is merely **ok** (letter B / B-) HOLDs even with a clean honesty
+axis. Turn PASS stays at the B floor (72); only the *system* bar requires B+.
 """
 
 from __future__ import annotations
 
 from dataclasses import dataclass, field
 
-from .aria_evaluator import EvaluationResult
+from .aria_evaluator import EvaluationResult, grade
 
 # Severity ladder, most → least serious.
 MISSION_CRITICAL = "mission_critical"
@@ -20,8 +27,33 @@ MEDIUM = "medium"
 CAN_WAIT = "can_wait"
 _ORDER = {MISSION_CRITICAL: 0, HIGH: 1, MEDIUM: 2, CAN_WAIT: 3}
 
-PASS_COMPOSITE = 72.0   # B threshold for a turn to pass
+# Turn PASS is the letter-B floor ("ok"). System SHIP additionally requires
+# quality_level good or excellent (B+ / A / A+).
+PASS_COMPOSITE = 72.0
 PASS_RATE_THRESHOLD = 0.80
+SHIP_QUALITY = frozenset({"good", "excellent"})
+
+# Letter grades from aria_evaluator.grade → human quality bands.
+_QUALITY_BY_GRADE = {
+    "A+": "excellent",
+    "A": "excellent",
+    "B+": "good",
+    "B": "ok",
+    "B-": "ok",
+    "C": "poor",
+    "C-": "poor",
+    "F": "poor",
+}
+
+
+def quality_level(composite: float) -> str:
+    """Map a composite score onto a human quality band.
+
+    excellent = A/A+ (≥88), good = B+ (≥80), ok = B/B- (≥65),
+    poor = C and below. Unknown grades fail closed to poor.
+    Only good or excellent may SHIP.
+    """
+    return _QUALITY_BY_GRADE.get(grade(composite), "poor")
 
 
 def classify_severity(failure: str) -> str:
@@ -82,6 +114,9 @@ class SystemDiagnostic:
     passed_turns: int
     pass_rate: float
     severity_counts: dict[str, int]
+    overall_composite: float = 0.0
+    overall_grade: str = "F"
+    quality_level: str = "poor"
     mission_critical: list[TurnDiagnostic] = field(default_factory=list)
     worst: list[TurnDiagnostic] = field(default_factory=list)
 
@@ -90,6 +125,9 @@ class SystemDiagnostic:
             "passed": self.passed, "verdict": self.verdict,
             "total_turns": self.total_turns, "passed_turns": self.passed_turns,
             "pass_rate": self.pass_rate, "severity_counts": self.severity_counts,
+            "overall_composite": self.overall_composite,
+            "overall_grade": self.overall_grade,
+            "quality_level": self.quality_level,
             "mission_critical": [t.to_dict() for t in self.mission_critical],
             "worst": [t.to_dict() for t in self.worst],
         }
@@ -121,12 +159,23 @@ def diagnose(results: list[EvaluationResult]) -> tuple[SystemDiagnostic, list[Tu
     passed_turns = sum(1 for t in turns if t.passed)
     total = len(turns)
     pass_rate = round(100.0 * passed_turns / total, 1) if total else 0.0
+    composites = [t.composite for t in turns]
+    overall_composite = round(sum(composites) / len(composites), 1) if composites else 0.0
+    overall_grade = grade(overall_composite)
+    level = quality_level(overall_composite)
 
-    system_passed = not mission_critical and pass_rate >= PASS_RATE_THRESHOLD * 100
+    honesty_ok = (not mission_critical) and pass_rate >= PASS_RATE_THRESHOLD * 100
+    quality_ok = level in SHIP_QUALITY
+    system_passed = honesty_ok and quality_ok
     if mission_critical:
         verdict = f"HOLD — {len(mission_critical)} mission-critical failure(s)"
     elif pass_rate < PASS_RATE_THRESHOLD * 100:
         verdict = f"HOLD — pass rate {pass_rate}% < {int(PASS_RATE_THRESHOLD * 100)}%"
+    elif not quality_ok:
+        verdict = (
+            f"HOLD — quality {level} ({overall_grade}), "
+            "ship requires good or excellent"
+        )
     else:
         verdict = "SHIP"
 
@@ -139,6 +188,8 @@ def diagnose(results: list[EvaluationResult]) -> tuple[SystemDiagnostic, list[Tu
     report = SystemDiagnostic(
         passed=system_passed, verdict=verdict, total_turns=total,
         passed_turns=passed_turns, pass_rate=pass_rate, severity_counts=counts,
+        overall_composite=overall_composite, overall_grade=overall_grade,
+        quality_level=level,
         mission_critical=mission_critical, worst=worst,
     )
     return report, turns

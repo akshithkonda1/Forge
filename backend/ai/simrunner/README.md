@@ -157,6 +157,8 @@ prints a one-line grade summary per model.
 
 `A+` ≥ 95 · `A` ≥ 88 · `B+` ≥ 80 · `B` ≥ 72 · `B-` ≥ 65 · `C` ≥ 55 · `C-` ≥ 45 · `F` < 45
 
+Quality bands (system SHIP/HOLD): **excellent** = A/A+, **good** = B+, **ok** = B/B-, **poor** = C and below. Only good or excellent may SHIP.
+
 ---
 
 ## Diagnostics & mission-critical triage
@@ -178,11 +180,21 @@ Every failure is triaged by **severity**:
 | `medium` | under-uses context; chronotype slip; explanatory-only | counts against pass rate |
 | `can_wait` | tone / cheerleading | cosmetic |
 
-The **system verdict** is `SHIP` only when there are **zero mission-critical
-failures** *and* the turn pass rate is ≥ 80%; otherwise `HOLD — N mission-critical
-failure(s)` (or `HOLD — pass rate X% < 80%`). The verdict prints per model, lands
+A **turn** PASSes when it has no mission-critical failure *and* its composite
+is ≥ 72 (letter **B** / quality **ok**). That bar is unchanged.
+
+The **system verdict** ranks on two axes. `SHIP` requires **both**:
+
+1. Honesty — **zero mission-critical failures** *and* turn pass rate ≥ 80%.
+2. Quality — overall composite **good** or **excellent** (letter **B+ / A / A+**,
+   composite ≥ 80). **ok** (B / B-) and **poor** (C and below) HOLD even when
+   the honesty axis is clean: `HOLD — quality ok (B), ship requires good or excellent`.
+
+Honesty failures still win the reason string (`HOLD — N mission-critical
+failure(s)` or `HOLD — pass rate X% < 80%`). The verdict prints per model, lands
 in a **DIAGNOSTICS — VERDICT** report section, and is emitted in the JSON under
-`diagnostics` (with the mission-critical and worst-offender turns fully itemized).
+`diagnostics` (with `quality_level`, the mission-critical turns, and the
+worst-offender turns fully itemized).
 
 ## Statistical confidence (multi-seed)
 
