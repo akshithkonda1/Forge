@@ -21,9 +21,11 @@ final class SleepWakeStore: ObservableObject {
         snoozeCount = 0
         startedAt = Date()
         isRinging = true
+        UIApplication.shared.isIdleTimerDisabled = true
         SleepWindDownPlayer.shared.stop(deactivateSession: false)
         SleepWakePlayer.shared.start(for: alarm)
         UINotificationFeedbackGenerator().notificationOccurred(.warning)
+        Task { await SleepAlarmScheduler.scheduleFailsafe(alarm: alarm) }
     }
 
     func ringFromNotification(alarmID: UUID?) {
@@ -36,7 +38,11 @@ final class SleepWakeStore: ObservableObject {
     func dismiss() {
         WakeStruggleStore.record(snoozes: snoozeCount, on: startedAt)
         isRinging = false
+        if let id = current?.id {
+            SleepAlarmScheduler.cancelFailsafe(alarmID: id)
+        }
         current = nil
+        UIApplication.shared.isIdleTimerDisabled = false
         SleepWakePlayer.shared.stop()
     }
 
@@ -44,8 +50,15 @@ final class SleepWakeStore: ObservableObject {
         guard let alarm = current, SleepWakeEngine.canSnooze(count: snoozeCount) else { return }
         snoozeCount += 1
         isRinging = false
+        SleepAlarmScheduler.cancelFailsafe(alarmID: alarm.id)
+        UIApplication.shared.isIdleTimerDisabled = false
         SleepWakePlayer.shared.stop()
-        Task { await SleepAlarmScheduler.scheduleSnooze(alarm: alarm) }
+        Task {
+            let scheduled = await SleepAlarmScheduler.scheduleSnooze(alarm: alarm)
+            if !scheduled {
+                await MainActor.run { self.ring(alarm) }
+            }
+        }
     }
 
     func handleSnoozeAction(alarmID: UUID?) async {
@@ -59,8 +72,13 @@ final class SleepWakeStore: ObservableObject {
         }
         snoozeCount += 1
         isRinging = false
+        SleepAlarmScheduler.cancelFailsafe(alarmID: alarm.id)
+        UIApplication.shared.isIdleTimerDisabled = false
         SleepWakePlayer.shared.stop()
-        await SleepAlarmScheduler.scheduleSnooze(alarm: alarm)
+        let scheduled = await SleepAlarmScheduler.scheduleSnooze(alarm: alarm)
+        if !scheduled {
+            await MainActor.run { ring(alarm) }
+        }
     }
 }
 
@@ -97,6 +115,7 @@ struct SleepWakeScreen: View {
     @ObservedObject private var alarms = ForgeAlarmStore.shared
     @State private var doneRoutine: Set<UUID> = []
     @State private var tick = Date()
+    private let player = SleepWakePlayer.shared
 
     private var alarm: ForgeAlarm { wake.current ?? ForgeAlarm() }
 
@@ -109,6 +128,7 @@ struct SleepWakeScreen: View {
     }
 
     var body: some View {
+        @Bindable var player = player
         ZStack {
             sunrise
             VStack(spacing: 28) {
@@ -121,6 +141,21 @@ struct SleepWakeScreen: View {
                     Text(alarm.label)
                         .font(.system(size: 16, weight: .semibold, design: .rounded))
                         .foregroundColor(.white.opacity(0.72))
+                    if player.stage != .primary {
+                        Text(player.stage == .insistent
+                             ? "Backup tone + pulse. Hold I'm up."
+                             : "Backup tone. Still time to get up.")
+                            .font(.system(size: 13, weight: .semibold, design: .rounded))
+                            .foregroundColor(.white.opacity(0.82))
+                    }
+                    if player.fault.isFailClosed {
+                        Text(player.fault.coachLine)
+                            .font(.system(size: 13, weight: .medium))
+                            .foregroundColor(.white.opacity(0.88))
+                            .multilineTextAlignment(.center)
+                            .padding(.horizontal, 24)
+                            .padding(.top, 4)
+                    }
                     if !WakeScreenPreferences.greeting.isEmpty {
                         Text(WakeScreenPreferences.greeting)
                             .font(.system(size: 15, weight: .medium, design: .rounded))
@@ -517,7 +552,13 @@ struct VolumeRampCard: View {
                     .buttonStyle(.plain)
                 }
 
-                // Visual curve preview
+                Text(WakeStruggleStore.isRepeatStruggler()
+                     ? "Mornings have been sticky, so this wake starts loud and a backup tone takes over sooner."
+                     : "Volume climbs, then a backup tone if you're still down.")
+                    .font(.system(size: 12))
+                    .foregroundColor(.textTertiary)
+                    .fixedSize(horizontal: false, vertical: true)
+
                 VolumeRampPreview(curve: curve)
             }
         }

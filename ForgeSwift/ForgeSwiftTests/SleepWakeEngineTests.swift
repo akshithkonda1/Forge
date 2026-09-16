@@ -1,6 +1,7 @@
 import XCTest
 @testable import ForgeSwift
 import ForgeCore
+import UserNotifications
 
 final class SleepWakeEngineTests: XCTestCase {
 
@@ -85,10 +86,26 @@ final class SleepWakeEngineTests: XCTestCase {
         XCTAssertTrue(SleepWakeEngine.isWakeNotification(SleepWakeEngine.hardNotificationId(for: id)))
         XCTAssertTrue(SleepWakeEngine.isWakeNotification(SleepWakeEngine.smartNotificationId(for: id)))
         XCTAssertTrue(SleepWakeEngine.isWakeNotification(SleepWakeEngine.snoozeNotificationId(for: id)))
+        XCTAssertTrue(SleepWakeEngine.isWakeNotification(SleepWakeEngine.failsafeNotificationId(for: id)))
         XCTAssertFalse(SleepWakeEngine.isWakeNotification("forge.weekly.aria"))
         XCTAssertTrue(SleepWakeEngine.canSnooze(count: 0))
         XCTAssertTrue(SleepWakeEngine.canSnooze(count: 1))
         XCTAssertFalse(SleepWakeEngine.canSnooze(count: 2))
+        XCTAssertFalse(
+            SleepAlarmScheduleMath.isStandingWakeNotification(
+                SleepWakeEngine.failsafeNotificationId(for: id)
+            )
+        )
+        XCTAssertFalse(
+            SleepAlarmScheduleMath.isStandingWakeNotification(
+                SleepWakeEngine.snoozeNotificationId(for: id)
+            )
+        )
+        XCTAssertTrue(
+            SleepAlarmScheduleMath.isStandingWakeNotification(
+                SleepWakeEngine.hardNotificationId(for: id) + ".2"
+            )
+        )
     }
 
     func testCoachPhasesAndMissingSleepCopy() {
@@ -239,6 +256,174 @@ final class SleepWakeEngineTests: XCTestCase {
         var dsp = WakeToneDSP()
         dsp.reset(rampSeconds: 1, sound: .gentleRise)
         XCTAssertLessThan(abs(dsp.nextSample()), 0.01)
+    }
+
+    func testBackupToneIsLouderAndDistinctFromPickerSounds() {
+        XCTAssertNotEqual(
+            SleepWakeEscalation.backupFrequencies.0,
+            AlarmSoundOption.gentleRise.wakeFrequencies.0
+        )
+        XCTAssertNotEqual(
+            SleepWakeEscalation.backupFrequencies.0,
+            AlarmSoundOption.tibetanBell.wakeFrequencies.0
+        )
+        var dsp = WakeToneDSP()
+        dsp.reset(rampSeconds: 60, sound: .gentleRise)
+        let quiet = abs(dsp.nextSample())
+        dsp.escalateToBackup()
+        var peak: Float = 0
+        for _ in 0..<2_048 {
+            peak = max(peak, abs(dsp.nextSample()))
+        }
+        XCTAssertGreaterThan(peak, quiet)
+        XCTAssertGreaterThan(peak, 0.2)
+        XCTAssertLessThanOrEqual(peak, 1)
+    }
+
+    func testHeavySleeperEscalationSkipsThePoliteClimb() {
+        XCTAssertEqual(
+            SleepWakeEscalation.ramp(gradualVolume: true, struggling: true, selected: .gradual),
+            .instant
+        )
+        XCTAssertEqual(
+            SleepWakeEscalation.ramp(gradualVolume: true, struggling: false, selected: .gentle),
+            .gentle
+        )
+        XCTAssertEqual(
+            SleepWakeEscalation.stage(elapsed: 0, rampSeconds: 60, struggling: false),
+            .primary
+        )
+        XCTAssertEqual(
+            SleepWakeEscalation.stage(elapsed: 20, rampSeconds: 15, struggling: false),
+            .backup
+        )
+        XCTAssertEqual(
+            SleepWakeEscalation.stage(elapsed: 8, rampSeconds: 60, struggling: true),
+            .backup
+        )
+        XCTAssertEqual(
+            SleepWakeEscalation.stage(elapsed: 20, rampSeconds: 60, struggling: true),
+            .insistent
+        )
+        XCTAssertNil(SleepWakeEscalation.hapticCadenceSeconds(stage: .primary, faulted: false))
+        XCTAssertEqual(SleepWakeEscalation.hapticCadenceSeconds(stage: .primary, faulted: true), 0.9)
+        XCTAssertEqual(SleepWakeEscalation.hapticCadenceSeconds(stage: .insistent, faulted: false), 1.0)
+    }
+
+    func testDeliveryFailClosesWhenNotificationsCannotWake() {
+        XCTAssertEqual(
+            SleepAlarmScheduleMath.delivery(
+                authorization: .denied,
+                timeSensitive: .enabled,
+                expected: 5,
+                pending: 0,
+                addFailures: 0,
+                authError: nil
+            ),
+            .notificationsOff
+        )
+        XCTAssertEqual(
+            SleepAlarmScheduleMath.delivery(
+                authorization: .provisional,
+                timeSensitive: .enabled,
+                expected: 5,
+                pending: 5,
+                addFailures: 0,
+                authError: nil
+            ),
+            .quietDelivery
+        )
+        XCTAssertTrue(
+            SleepAlarmScheduleMath.delivery(
+                authorization: .authorized,
+                timeSensitive: .enabled,
+                expected: 7,
+                pending: 2,
+                addFailures: 0,
+                authError: nil
+            ).isFailClosed
+        )
+        let armed = SleepAlarmScheduleMath.delivery(
+            authorization: .authorized,
+            timeSensitive: .enabled,
+            expected: 7,
+            pending: 7,
+            addFailures: 0,
+            authError: nil
+        )
+        XCTAssertEqual(armed, .armed(pending: 7, timeSensitive: true))
+        XCTAssertFalse(armed.isFailClosed)
+        let focus = SleepAlarmScheduleMath.delivery(
+            authorization: .authorized,
+            timeSensitive: .disabled,
+            expected: 7,
+            pending: 7,
+            addFailures: 0,
+            authError: nil
+        )
+        XCTAssertEqual(focus, .armed(pending: 7, timeSensitive: false))
+        XCTAssertTrue(focus.needsAttention)
+        XCTAssertFalse(focus.isFailClosed)
+    }
+
+    func testExpectedPendingCountCountsHardAndSmartWeekdays() {
+        var weekdays = weekdayAlarm(hour: 7, minute: 0)
+        weekdays.isSmartWake = false
+        XCTAssertEqual(SleepAlarmScheduleMath.expectedPendingCount(in: [weekdays]), 5)
+        weekdays.isSmartWake = true
+        XCTAssertEqual(SleepAlarmScheduleMath.expectedPendingCount(in: [weekdays]), 10)
+        weekdays.isEnabled = false
+        XCTAssertEqual(SleepAlarmScheduleMath.expectedPendingCount(in: [weekdays]), 0)
+        var everyday = weekdayAlarm(hour: 8, minute: 0)
+        everyday.days = []
+        everyday.isSmartWake = false
+        XCTAssertEqual(SleepAlarmScheduleMath.expectedPendingCount(in: [everyday]), 7)
+    }
+
+    func testWakeUsesPublicAPIsAlreadyInTheForgeTree() {
+        XCTAssertFalse(SleepAlarmAppleAPI.authorizationOptions.contains(.criticalAlert))
+        XCTAssertTrue(SleepAlarmAppleAPI.authorizationOptions.contains(.alert))
+        XCTAssertTrue(SleepAlarmAppleAPI.authorizationOptions.contains(.sound))
+        XCTAssertTrue(SleepAlarmAppleAPI.authorizationOptions.contains(.badge))
+        XCTAssertEqual(SleepAlarmAppleAPI.interruptionLevel, .timeSensitive)
+        XCTAssertEqual(SleepAlarmAppleAPI.failsafePingSeconds, 60)
+        XCTAssertEqual(SleepAlarmAppleAPI.playbackSession, .alarm)
+        XCTAssertEqual(SleepAlarmAppleAPI.backgroundAudioMode, "audio")
+
+        let info = URL(fileURLWithPath: #filePath)
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+            .appendingPathComponent("ForgeSwift/Info-Add.plist")
+        let text = (try? String(contentsOf: info, encoding: .utf8)) ?? ""
+        XCTAssertTrue(text.contains("<string>audio</string>"), "Wake tone needs UIBackgroundModes audio")
+        XCTAssertFalse(text.contains("critical-alerts"))
+        let entitlements = URL(fileURLWithPath: #filePath)
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+            .appendingPathComponent("ForgeSwift/ForgeSwift.entitlements")
+        let entitlementText = (try? String(contentsOf: entitlements, encoding: .utf8)) ?? ""
+        XCTAssertFalse(entitlementText.contains("alarmkit"))
+        XCTAssertFalse(entitlementText.contains("critical-alerts"))
+        XCTAssertTrue(entitlementText.contains("healthkit"))
+    }
+
+    func testReliabilityCopyStaysLifestyleNotClinical() {
+        let lines = [
+            SleepAlarmDelivery.notificationsOff.headline,
+            SleepAlarmDelivery.notificationsOff.cue,
+            SleepAlarmDelivery.quietDelivery.headline,
+            SleepWakeAudioFault.sessionDropped.coachLine,
+            SleepWakeAudioFault.sessionActivateFailed.coachLine,
+            SleepAlarmDelivery.armed(pending: 5, timeSensitive: true).cue
+        ]
+        for line in lines {
+            let lower = line.lowercased()
+            XCTAssertFalse(lower.contains("insomnia"), line)
+            XCTAssertFalse(lower.contains("treat"), line)
+            XCTAssertFalse(lower.contains("diagnos"), line)
+            XCTAssertFalse(lower.contains("medical"), line)
+            XCTAssertFalse(lower.contains("disorder"), line)
+        }
     }
 
     func testAlarmSoundsHaveDistinctWakeFrequencies() {

@@ -51,6 +51,7 @@
 		1VOICE0132F9FF867004091AA /* AriaVoiceSession.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1VOICE0122F9FF867004091AA /* AriaVoiceSession.swift */; };
 		1XCAT0022F9FF867004091AA /* ExerciseCatalogExpansion.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1XCAT0012F9FF867004091AA /* ExerciseCatalogExpansion.swift */; };
 		1SLEEP013F9FF867004091AA /* SleepSoundEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1SLEEP012F9FF867004091AA /* SleepSoundEngine.swift */; };
+		1SLEEP015F9FF867004091AA /* SleepWakeReliability.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1SLEEP014F9FF867004091AA /* SleepWakeReliability.swift */; };
 		1E4DF70B2F9FAEEC004091AA /* MusicControllerFactory.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1E4DF70A2F9FAEEC004091AA /* MusicControllerFactory.swift */; };
 		1E4DF7162F9FF867004091AA /* HealthKitManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1E4DF7152F9FF867004091AA /* HealthKitManager.swift */; };
 		1HKPLAN022F9FF867004091AA /* HealthKitAuthorizationPlan.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1HKPLAN012F9FF867004091AA /* HealthKitAuthorizationPlan.swift */; };
@@ -460,6 +461,7 @@
 		1VOICE0122F9FF867004091AA /* AriaVoiceSession.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AriaVoiceSession.swift; sourceTree = "<group>"; };
 		1XCAT0012F9FF867004091AA /* ExerciseCatalogExpansion.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ExerciseCatalogExpansion.swift; sourceTree = "<group>"; };
 		1SLEEP012F9FF867004091AA /* SleepSoundEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SleepSoundEngine.swift; sourceTree = "<group>"; };
+		1SLEEP014F9FF867004091AA /* SleepWakeReliability.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SleepWakeReliability.swift; sourceTree = "<group>"; };
 		1E4DF70A2F9FAEEC004091AA /* MusicControllerFactory.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = MusicControllerFactory.swift; sourceTree = SOURCE_ROOT; };
 		1E4DF70C2F9FEC33004091AA /* ForgeSwift.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = ForgeSwift.entitlements; sourceTree = "<group>"; };
 		1E4DF7152F9FF867004091AA /* HealthKitManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HealthKitManager.swift; sourceTree = "<group>"; };
@@ -1008,6 +1010,7 @@
 				4621301CC9D9971E70777C7C /* SleepAlarmTab.swift */,
 				A623D0F06FD3C50C8C9C2DF0 /* SleepSoundsTab.swift */,
 				1SLEEP012F9FF867004091AA /* SleepSoundEngine.swift */,
+				1SLEEP014F9FF867004091AA /* SleepWakeReliability.swift */,
 				C453AB65225E570720899AB3 /* SleepWakeUpTab.swift */,
 				5505055FD73CA7ABA5E30C5A /* SleepInsightCards.swift */,
 				50D57284AB740A5B9CBDEDDF /* SleepDetailSheets.swift */,
@@ -1705,6 +1708,7 @@
 				D73A7502C11F243B8CA79DB3 /* SleepAlarmTab.swift in Sources */,
 				EEC7867EE378171FAB034AD7 /* SleepSoundsTab.swift in Sources */,
 				1SLEEP013F9FF867004091AA /* SleepSoundEngine.swift in Sources */,
+				1SLEEP015F9FF867004091AA /* SleepWakeReliability.swift in Sources */,
 				CDA91213B4AFC8A533C4E2D4 /* SleepWakeUpTab.swift in Sources */,
 				CEAD2F52487C32101B080DB7 /* SleepInsightCards.swift in Sources */,
 				A03C28515F509A3422756067 /* SleepDetailSheets.swift in Sources */,

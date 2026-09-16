@@ -10,6 +10,7 @@ final class ForgeAlarmStore: ObservableObject {
     @Published var sunriseEnabled = true
     @Published var volumeRamp: VolumeRampCurve = .gradual
     @Published var routine: [RoutineItem]
+    @Published var delivery: SleepAlarmDelivery = .unknown
 
     private let alarmsKey = "forge.sleep.alarms.v1"
     private let sunriseKey = "forge.sleep.sunrise.enabled.v1"
@@ -122,16 +123,44 @@ enum SleepAlarmScheduler {
     }
 
     static func sync(_ alarms: [ForgeAlarm]) async {
-        do {
-            let granted = try await center.requestAuthorization(options: [.alert, .sound, .badge])
-            guard granted else { return }
-        } catch {
-            print("SleepWakeEngine: notification authorization failed: \(error.localizedDescription)")
-            return
+        let health = await arm(alarms)
+        await MainActor.run { ForgeAlarmStore.shared.delivery = health }
+    }
+
+    /// Schedules every enabled alarm, then fail-closes if iPhone cannot deliver.
+    private static func arm(_ alarms: [ForgeAlarm]) async -> SleepAlarmDelivery {
+        var authError: String?
+        var authorization = await center.notificationSettings().authorizationStatus
+        if authorization == .notDetermined || authorization == .provisional {
+            do {
+                _ = try await center.requestAuthorization(
+                    options: SleepAlarmAppleAPI.authorizationOptions
+                )
+            } catch {
+                authError = error.localizedDescription
+                print("SleepWakeEngine: notification authorization failed: \(error.localizedDescription)")
+            }
         }
+
+        let afterAsk = await center.notificationSettings()
+        authorization = afterAsk.authorizationStatus
+        let timeSensitive = afterAsk.timeSensitiveSetting
+        let expected = SleepAlarmScheduleMath.expectedPendingCount(in: alarms)
+
         let pending = await center.pendingNotificationRequests()
         let stale = pending.map(\.identifier).filter(SleepWakeEngine.isWakeNotification)
         center.removePendingNotificationRequests(withIdentifiers: stale)
+
+        guard authorization == .authorized else {
+            return SleepAlarmScheduleMath.delivery(
+                authorization: authorization,
+                timeSensitive: timeSensitive,
+                expected: expected,
+                pending: 0,
+                addFailures: 0,
+                authError: authError
+            )
+        }
 
         let windows: [UUID: Int] = await MainActor.run {
             Dictionary(uniqueKeysWithValues: alarms.map { alarm in
@@ -139,14 +168,27 @@ enum SleepAlarmScheduler {
             })
         }
 
+        var addFailures = 0
         for alarm in alarms where alarm.isEnabled {
-            await schedule(alarm, smartWindow: windows[alarm.id] ?? alarm.smartWakeWindow)
+            addFailures += await schedule(alarm, smartWindow: windows[alarm.id] ?? alarm.smartWakeWindow)
         }
+
+        let remaining = await center.pendingNotificationRequests()
+        let standing = remaining.map(\.identifier).filter(SleepAlarmScheduleMath.isStandingWakeNotification).count
+        return SleepAlarmScheduleMath.delivery(
+            authorization: authorization,
+            timeSensitive: timeSensitive,
+            expected: expected,
+            pending: standing,
+            addFailures: addFailures,
+            authError: authError
+        )
     }
 
-    static func scheduleSnooze(alarm: ForgeAlarm) async {
+    @discardableResult
+    static func scheduleSnooze(alarm: ForgeAlarm) async -> Bool {
         let fire = Date().addingTimeInterval(TimeInterval(max(1, alarm.snoozeMinutes)) * 60)
-        await add(
+        return await add(
             id: SleepWakeEngine.snoozeNotificationId(for: alarm.id),
             title: alarm.label,
             body: "Snooze is over. Get up.",
@@ -157,11 +199,49 @@ enum SleepAlarmScheduler {
         )
     }
 
-    private static func schedule(_ alarm: ForgeAlarm, smartWindow: Int) async {
+    static func scheduleFailsafe(alarm: ForgeAlarm) async {
+        center.removePendingNotificationRequests(
+            withIdentifiers: [SleepWakeEngine.failsafeNotificationId(for: alarm.id)]
+        )
+        let content = UNMutableNotificationContent()
+        content.title = alarm.label
+        content.body = "Still time to get up. The wake is still on."
+        content.sound = SleepAlarmAppleAPI.notificationSound
+        content.categoryIdentifier = SleepWakeEngine.category
+        content.interruptionLevel = SleepAlarmAppleAPI.interruptionLevel
+        content.userInfo = [
+            "destination": "forge://wake",
+            "alarmID": alarm.id.uuidString,
+            "kind": "failsafe"
+        ]
+        let trigger = UNTimeIntervalNotificationTrigger(
+            timeInterval: SleepAlarmAppleAPI.failsafePingSeconds,
+            repeats: true
+        )
+        let request = UNNotificationRequest(
+            identifier: SleepWakeEngine.failsafeNotificationId(for: alarm.id),
+            content: content,
+            trigger: trigger
+        )
+        try? await center.add(request)
+    }
+
+    static func cancelFailsafe(alarmID: UUID) {
+        center.removePendingNotificationRequests(
+            withIdentifiers: [SleepWakeEngine.failsafeNotificationId(for: alarmID)]
+        )
+        center.removeDeliveredNotifications(
+            withIdentifiers: [SleepWakeEngine.failsafeNotificationId(for: alarmID)]
+        )
+    }
+
+    @discardableResult
+    private static func schedule(_ alarm: ForgeAlarm, smartWindow: Int) async -> Int {
         let (hour, minute) = SleepWakeEngine.hourMinute(of: alarm.time)
         let days = alarm.days.isEmpty ? Array(1...7) : alarm.days
+        var failures = 0
         for weekday in days {
-            await addRepeating(
+            let hardOK = await addRepeating(
                 id: SleepWakeEngine.hardNotificationId(for: alarm.id) + ".\(weekday)",
                 weekday: weekday,
                 hour: hour,
@@ -171,6 +251,7 @@ enum SleepAlarmScheduler {
                 alarmID: alarm.id.uuidString,
                 kind: "hard"
             )
+            if !hardOK { failures += 1 }
             if alarm.isSmartWake {
                 let smart = SleepWakeEngine.repeatingSmartClock(
                     weekday: weekday,
@@ -178,7 +259,7 @@ enum SleepAlarmScheduler {
                     minute: minute,
                     windowMinutes: smartWindow
                 )
-                await addRepeating(
+                let smartOK = await addRepeating(
                     id: SleepWakeEngine.smartNotificationId(for: alarm.id) + ".\(smart.weekday)",
                     weekday: smart.weekday,
                     hour: smart.hour,
@@ -188,10 +269,13 @@ enum SleepAlarmScheduler {
                     alarmID: alarm.id.uuidString,
                     kind: "smart"
                 )
+                if !smartOK { failures += 1 }
             }
         }
+        return failures
     }
 
+    @discardableResult
     private static func addRepeating(
         id: String,
         weekday: Int,
@@ -201,15 +285,16 @@ enum SleepAlarmScheduler {
         body: String,
         alarmID: String,
         kind: String
-    ) async {
+    ) async -> Bool {
         var comps = DateComponents()
         comps.weekday = weekday
         comps.hour = hour
         comps.minute = minute
         let trigger = UNCalendarNotificationTrigger(dateMatching: comps, repeats: true)
-        await add(id: id, title: title, body: body, trigger: trigger, alarmID: alarmID, kind: kind)
+        return await add(id: id, title: title, body: body, trigger: trigger, alarmID: alarmID, kind: kind)
     }
 
+    @discardableResult
     private static func add(
         id: String,
         title: String,
@@ -218,13 +303,14 @@ enum SleepAlarmScheduler {
         repeats: Bool,
         alarmID: String,
         kind: String
-    ) async {
-        guard date > Date() else { return }
+    ) async -> Bool {
+        guard date > Date() else { return false }
         let comps = Calendar.current.dateComponents([.year, .month, .day, .hour, .minute], from: date)
         let trigger = UNCalendarNotificationTrigger(dateMatching: comps, repeats: repeats)
-        await add(id: id, title: title, body: body, trigger: trigger, alarmID: alarmID, kind: kind)
+        return await add(id: id, title: title, body: body, trigger: trigger, alarmID: alarmID, kind: kind)
     }
 
+    @discardableResult
     private static func add(
         id: String,
         title: String,
@@ -232,20 +318,26 @@ enum SleepAlarmScheduler {
         trigger: UNNotificationTrigger,
         alarmID: String,
         kind: String
-    ) async {
+    ) async -> Bool {
         let content = UNMutableNotificationContent()
         content.title = title
         content.body = body
-        content.sound = .default
+        content.sound = SleepAlarmAppleAPI.notificationSound
         content.categoryIdentifier = SleepWakeEngine.category
-        content.interruptionLevel = .timeSensitive
+        content.interruptionLevel = SleepAlarmAppleAPI.interruptionLevel
         content.userInfo = [
             "destination": "forge://wake",
             "alarmID": alarmID,
             "kind": kind
         ]
         let request = UNNotificationRequest(identifier: id, content: content, trigger: trigger)
-        try? await center.add(request)
+        do {
+            try await center.add(request)
+            return true
+        } catch {
+            print("SleepWakeEngine: failed to add \(id): \(error.localizedDescription)")
+            return false
+        }
     }
 
     /// React to a HealthKit-delivered stage. Not a live stream — Apple's
@@ -303,9 +395,9 @@ enum SleepAlarmScheduler {
         let content = UNMutableNotificationContent()
         content.title = title
         content.body = body
-        content.sound = .default
+        content.sound = SleepAlarmAppleAPI.notificationSound
         content.categoryIdentifier = SleepWakeEngine.category
-        content.interruptionLevel = .timeSensitive
+        content.interruptionLevel = SleepAlarmAppleAPI.interruptionLevel
         content.userInfo = [
             "destination": "forge://wake",
             "alarmID": alarmID,
@@ -317,6 +409,48 @@ enum SleepAlarmScheduler {
     }
 }
 
+struct WakeReliabilityBanner: View {
+    let delivery: SleepAlarmDelivery
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack(alignment: .top, spacing: 8) {
+                Image(systemName: delivery.isFailClosed ? "exclamationmark.triangle.fill" : "bell.badge.fill")
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundColor(.warning)
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(delivery.headline)
+                        .font(.system(size: 14, weight: .semibold))
+                        .foregroundColor(.textPrimary)
+                    Text(delivery.cue)
+                        .font(.system(size: 12))
+                        .foregroundColor(.textSecondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+            }
+            Button {
+                guard let url = URL(string: UIApplication.openSettingsURLString) else { return }
+                UIApplication.shared.open(url)
+            } label: {
+                Text("Open Settings")
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundColor(.ember)
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel("Open Settings so this wake can fire")
+        }
+        .padding(14)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(Color.warning.opacity(0.08))
+        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                .stroke(Color.warning.opacity(0.28), lineWidth: 1)
+        )
+        .accessibilityElement(children: .combine)
+    }
+}
+
 struct AlarmTab: View {
     @ObservedObject private var store = ForgeAlarmStore.shared
     @State private var showEditor = false
@@ -325,6 +459,10 @@ struct AlarmTab: View {
     var body: some View {
         ScrollView(showsIndicators: false) {
             VStack(spacing: 28) {
+                if store.delivery.needsAttention {
+                    WakeReliabilityBanner(delivery: store.delivery)
+                }
+
                 if let next = store.next {
                     NextAlarmHero(alarm: next)
                 } else {
@@ -345,7 +483,7 @@ struct AlarmTab: View {
                             Text("Test wake now")
                                 .font(.system(size: 15, weight: .semibold, design: .rounded))
                                 .foregroundColor(.textPrimary)
-                            Text("Sunrise, rising tone, hold to dismiss. The real thing.")
+                            Text("Sunrise, rising tone, backup if you sleep through. The real thing.")
                                 .font(.system(size: 12))
                                 .foregroundColor(.textTertiary)
                         }
@@ -389,6 +527,9 @@ struct AlarmTab: View {
             }
             .padding(.horizontal, 20)
             .padding(.bottom, 120)
+        }
+        .onAppear {
+            Task { await SleepAlarmScheduler.sync(store.alarms) }
         }
         .sheet(isPresented: $showEditor) {
             if let alarm = editingAlarm {
@@ -672,7 +813,7 @@ struct AlarmEditorSheet: View {
                                     Text("Gradual Volume")
                                         .font(.system(size: 14, weight: .medium))
                                         .foregroundColor(.textPrimary)
-                                    Text("Slowly increases over 30 seconds")
+                                    Text("Starts quiet, then a backup tone if you're still down.")
                                         .font(.system(size: 12))
                                         .foregroundColor(.textTertiary)
                                 }
