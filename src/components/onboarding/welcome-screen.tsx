@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { AriaMark } from "@/components/brand/aria-mark";
 import {
   ForgeBrandMark,
@@ -63,14 +63,44 @@ interface WelcomeScreenProps {
 export default function WelcomeScreen({ onNext }: WelcomeScreenProps) {
   const [page, setPage] = useState(0);
   const [showSignIn, setShowSignIn] = useState(false);
+  const [autoplayPaused, setAutoplayPaused] = useState(false);
   const hook = HOOKS[page];
+  const advancingRef = useRef(false);
 
   useEffect(() => {
     const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-    if (reduce || page >= HOOKS.length - 1 || showSignIn) return;
+    if (reduce || autoplayPaused || page >= HOOKS.length - 1 || showSignIn) return;
     const t = window.setTimeout(() => setPage((p) => Math.min(HOOKS.length - 1, p + 1)), 4800);
     return () => window.clearTimeout(t);
-  }, [page, showSignIn]);
+  }, [page, showSignIn, autoplayPaused]);
+
+  const advance = (source: string) => {
+    if (advancingRef.current) return;
+    advancingRef.current = true;
+    setAutoplayPaused(true);
+    // #region agent log
+    {
+      const __dbg = {
+        location: "welcome-screen.tsx:GetStarted",
+        message: "Get started onNext invoked",
+        data: { page, source, runId: "post-fix-3" },
+        timestamp: Date.now(),
+        hypothesisId: "A",
+      };
+      fetch("http://127.0.0.1:7252/ingest/4f8a2c91-onboarding-step", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "X-Debug-Session-Id": "onboarding-step" },
+        body: JSON.stringify(__dbg),
+      }).catch(() => {});
+      fetch("/api/agent-debug", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(__dbg),
+      }).catch(() => {});
+    }
+    // #endregion
+    onNext();
+  };
 
   // #region agent log
   useEffect(() => {
@@ -80,6 +110,7 @@ export default function WelcomeScreen({ onNext }: WelcomeScreenProps) {
       fetch("/api/agent-debug", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(__dbg) }).catch(() => {});
     };
     const onPointerDown = (e: PointerEvent) => {
+      setAutoplayPaused(true);
       const t = e.target as HTMLElement | null;
       const stack = document.elementsFromPoint(e.clientX, e.clientY).slice(0, 8).map((el) => ({
         tag: el.tagName,
@@ -109,7 +140,7 @@ export default function WelcomeScreen({ onNext }: WelcomeScreenProps) {
         cls: (t?.className || "").toString().slice(0, 80),
         stack,
         ancestors,
-        runId: "post-fix-2",
+        runId: "post-fix-3",
       });
     };
     const onClick = (e: MouseEvent) => {
@@ -119,6 +150,7 @@ export default function WelcomeScreen({ onNext }: WelcomeScreenProps) {
         y: e.clientY,
         tag: t?.tagName,
         cls: (t?.className || "").toString().slice(0, 80),
+        runId: "post-fix-3",
       });
     };
     document.addEventListener("pointerdown", onPointerDown, true);
@@ -198,45 +230,68 @@ export default function WelcomeScreen({ onNext }: WelcomeScreenProps) {
           </PremiumEntrance>
         </div>
 
-        {/* Footer CTA: no PremiumEntrance / transform ancestors on the button path. */}
-        <div className="relative z-30 mt-auto space-y-4" data-cta-root="get-started">
-          <div className="flex flex-col items-center gap-3">
+        {/* Dead-simple CTA: huge hit target, no sheen/overflow/transform/filter. */}
+        <div className="relative z-40 mt-auto" data-cta-root="get-started">
+          <div className="relative z-[60] mb-3 flex flex-col items-center gap-3">
             <PremiumProgressDots
               count={HOOKS.length}
               current={page}
-              onSelect={setPage}
+              onSelect={(i) => {
+                setAutoplayPaused(true);
+                setPage(i);
+              }}
             />
-            <p className="text-[11px] font-medium uppercase tracking-[0.14em] text-text-tertiary">
+            <p className="pointer-events-none text-[11px] font-medium uppercase tracking-[0.14em] text-text-tertiary">
               {page + 1} of {HOOKS.length}
             </p>
           </div>
 
-          <PremiumPrimaryButton
-            onClick={() => {
-              // #region agent log
-              {const __dbg={location:'welcome-screen.tsx:GetStarted',message:'Get started onNext invoked',data:{page,runId:'post-fix-2'},timestamp:Date.now(),hypothesisId:'A'};fetch('http://127.0.0.1:7252/ingest/4f8a2c91-onboarding-step',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'onboarding-step'},body:JSON.stringify(__dbg)}).catch(()=>{});fetch('/api/agent-debug',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(__dbg)}).catch(()=>{});}
-              // #endregion
-              onNext();
+          <button
+            type="button"
+            data-testid="onboarding-get-started"
+            aria-label="Get started"
+            onPointerUp={(e) => {
+              e.preventDefault();
+              advance("pointerup");
             }}
-            className="relative z-30"
+            onClick={(e) => {
+              e.preventDefault();
+              advance("click");
+            }}
+            className={cn(
+              "relative z-40 flex w-full min-h-[64px] items-center justify-between rounded-full bg-[#F7F4F0] px-6 py-5 text-[17px] font-semibold text-[#0A0A0A]",
+              "shadow-[0_10px_30px_rgba(247,244,240,0.14)] transition-[filter,box-shadow] duration-150",
+              "active:brightness-[0.92] active:shadow-none",
+              "touch-manipulation select-none"
+            )}
+            style={{ transform: "none", filter: "none" }}
           >
-            <span>Get started</span>
-            <span aria-hidden className="opacity-80 transition-opacity duration-200 group-hover:opacity-100">
+            {/* Expanded hit layer — catches near-misses above the pearl (dots row / DevTools skew). */}
+            <span
+              aria-hidden
+              className="absolute inset-x-[-8px] -top-14 bottom-[-8px] z-50"
+              data-hit-expand="get-started"
+            />
+            <span className="relative z-[51]">Get started</span>
+            <span aria-hidden className="relative z-[51] opacity-80">
               →
             </span>
-          </PremiumPrimaryButton>
+          </button>
 
           {page < HOOKS.length - 1 && (
             <button
               type="button"
-              onClick={() => setPage((p) => Math.min(HOOKS.length - 1, p + 1))}
-              className="w-full py-2 text-sm font-medium text-text-secondary transition hover:text-text-primary"
+              onClick={() => {
+                setAutoplayPaused(true);
+                setPage((p) => Math.min(HOOKS.length - 1, p + 1));
+              }}
+              className="relative z-40 mt-2 w-full py-2 text-sm font-medium text-text-secondary transition hover:text-text-primary"
             >
               See how it works
             </button>
           )}
 
-          <p className="text-center text-[11px] text-text-muted">
+          <p className="mt-2 text-center text-[11px] text-text-muted">
             Lifestyle fitness coaching · Live your best life
           </p>
         </div>
