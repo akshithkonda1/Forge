@@ -228,6 +228,29 @@ class SafeDegradationTests(unittest.TestCase):
         self.assertEqual(config.ai_router_model_3_id_effective, "global.xai.grok-4.6")
 
 
+class SlotOneAndTwoTests(unittest.TestCase):
+    def test_repo_main_tf_slot_fallbacks_match_default_models(self):
+        repo_infra = str(Path(__file__).resolve().parents[3] / "infra")
+        config = tfc.load(infra_dir=repo_infra)
+        self.assertTrue(config.variables_tf_found)
+        self.assertTrue(config.main_tf_fallback_pattern_matched)
+        self.assertEqual(config.ai_router_model_1_id_effective, "anthropic.claude-sonnet-4-6")
+        self.assertEqual(config.ai_router_model_1_name_effective, "Claude Sonnet 4.6")
+        self.assertEqual(config.ai_router_model_2_id_effective, "anthropic.claude-opus-4-7")
+        self.assertEqual(config.ai_router_model_2_name_effective, "Claude Opus 4.7")
+        self.assertEqual(config.ai_router_model_3_id_effective, "global.xai.grok-4.6")
+        self.assertFalse(config.bedrock_live_for_chat)
+
+    def test_missing_slot_1_variables_still_use_hardcoded_fallbacks(self):
+        with tempfile.TemporaryDirectory() as d:
+            _write(d, "variables.tf", _VARIABLES_TF)
+            _write(d, "main.tf", _MAIN_TF)
+            config = tfc.load(infra_dir=d)
+        self.assertEqual(config.ai_router_model_1_id_effective, "anthropic.claude-sonnet-4-6")
+        self.assertEqual(config.ai_router_model_2_id_effective, "anthropic.claude-opus-4-7")
+        self.assertEqual(config.ai_router_model_1_id.source, "not_found")
+
+
 class ToDictTests(unittest.TestCase):
     def test_round_trips_through_json_dumps(self):
         import json

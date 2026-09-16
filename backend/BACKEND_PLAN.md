@@ -64,10 +64,10 @@ lowest‑risk cleanup because it's where infra and app disagree.
 | Variable | Code reads it? | Terraform sets it? | Action |
 |---|---|---|---|
 | `AI_PROVIDER_SECRET_ARN` | ❌ never | ✅ yes | Either consume it (see §4.1) or drop it from the Lambda env block |
-| `AI_ROUTER_MODEL_1_ID` | ✅ (`ai_router`) | ❌ | Add to TF env (or accept code default `anthropic.claude-sonnet-4-6`) |
-| `AI_ROUTER_MODEL_2_ID` | ✅ (`ai_router`) | ❌ | Add to TF env (or accept code default `anthropic.claude-opus-4-7`) |
+| `AI_ROUTER_MODEL_1_ID` | ✅ (`ai_router`) | ✅ (empty var → `anthropic.claude-sonnet-4-6`) | Aligned this PR |
+| `AI_ROUTER_MODEL_2_ID` | ✅ (`ai_router`) | ✅ (empty var → `anthropic.claude-opus-4-7`) | Aligned this PR |
 | `BIOMETRICS_MODEL_ENDPOINT` | ✅ (`biometrics/inference`) | ❌ | Add to TF as an optional var if the ML path is used |
-| `APP_DATA_TABLE_NAME`, `ENVIRONMENT`, `ARIA_BEDROCK_ENABLED`, `AI_ROUTER_MODEL_3_ID/NAME`, `UPLOADS_BUCKET_NAME`, `USER_POOL_ID` | ✅ | ✅ | ✅ aligned |
+| `APP_DATA_TABLE_NAME`, `ENVIRONMENT`, `ARIA_BEDROCK_ENABLED`, `AI_ROUTER_MODEL_{1,2,3}_ID/NAME`, `UPLOADS_BUCKET_NAME`, `USER_POOL_ID` | ✅ | ✅ | ✅ aligned |
 
 ---
 

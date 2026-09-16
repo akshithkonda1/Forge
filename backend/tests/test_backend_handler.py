@@ -624,6 +624,25 @@ class AuthAndAISecurityTests(unittest.TestCase):
         self.assertNotIn("resources", payload)
         self.assertNotIn("router", payload)
 
+    def test_health_reports_bedrock_disabled_by_default(self):
+        os.environ.pop("ARIA_BEDROCK_ENABLED", None)
+        response = handler(event("GET", "/health"), None)
+        self.assertEqual(response["statusCode"], 200)
+        payload = body(response)
+        self.assertIn("router", payload)
+        self.assertFalse(payload["router"]["bedrockEnabled"])
+        slot3 = next(m for m in payload["router"]["models"] if m["slot"] == 3)
+        self.assertEqual(slot3["modelId"], "global.xai.grok-4.6")
+
+    def test_health_bedrock_flag_does_not_invoke_bedrock(self):
+        os.environ["ARIA_BEDROCK_ENABLED"] = "true"
+        try:
+            response = handler(event("GET", "/health"), None)
+        finally:
+            os.environ.pop("ARIA_BEDROCK_ENABLED", None)
+        self.assertEqual(response["statusCode"], 200)
+        self.assertTrue(body(response)["router"]["bedrockEnabled"])
+
     def test_devices_catalog_is_public(self):
         response = handler(event("GET", "/devices/catalog"), None)
         self.assertEqual(response["statusCode"], 200)
