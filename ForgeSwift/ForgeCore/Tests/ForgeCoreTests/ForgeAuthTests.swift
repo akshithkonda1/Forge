@@ -193,6 +193,34 @@ final class ForgeAuthTests: XCTestCase {
         XCTAssertEqual(config.apiBaseURL.host, "api.forge.example")
     }
 
+    func testDummyOfflinePlistDoesNotEmbedLoopbackOrLiveCognito() {
+        let config = ForgeAuthConfig.fromInfoDictionary([
+            "FORGEAPIBaseURL": "",
+            "FORGECognitoRegion": "",
+            "FORGECognitoClientId": "",
+            "FORGECognitoUserPoolId": "",
+            "FORGEEnvironment": "dummy",
+        ])
+        XCTAssertFalse(config.cognitoConfigured, "empty Cognito must not look like live auth")
+        XCTAssertFalse(config.isProductionLike)
+        XCTAssertEqual(config.environment, "dummy")
+        XCTAssertEqual(config.apiBaseURL, ForgeAuthConfig.dummyOfflineAPI)
+        XCTAssertNotEqual(config.apiBaseURL, ForgeAuthConfig.defaultLocalAPI)
+        XCTAssertFalse(config.apiBaseURL.absoluteString.contains("127.0.0.1"))
+        XCTAssertFalse(config.apiBaseURL.absoluteString.contains("localhost"))
+        XCTAssertTrue(config.apiIsLoopback, "host-less dummy-offline URL keeps Device Hub on Dummy")
+    }
+
+    func testEmptyDevPlistStillUsesLocalAPI() {
+        let config = ForgeAuthConfig.fromInfoDictionary([
+            "FORGEAPIBaseURL": "",
+            "FORGEEnvironment": "dev",
+        ])
+        XCTAssertEqual(config.apiBaseURL, ForgeAuthConfig.defaultLocalAPI)
+        XCTAssertTrue(config.apiIsLoopback)
+        XCTAssertFalse(config.cognitoConfigured)
+    }
+
     private func base64URL(_ string: String) -> String {
         Data(string.utf8).base64EncodedString()
             .replacingOccurrences(of: "+", with: "-")

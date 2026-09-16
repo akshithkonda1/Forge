@@ -41,6 +41,7 @@
 		1WC00E2F9FF867004091AA /* CyclePhaseWidget.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1WC00F2F9FF867004091AA /* CyclePhaseWidget.swift */; };
 		1E0DCBA72FA476C600A9C6F3 /* AuroraOrbComponents.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1E0DCBA62FA476C600A9C6F3 /* AuroraOrbComponents.swift */; };
 		1SIGIL0022F9FF867004091AA /* AriaSigil.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1SIGIL0012F9FF867004091AA /* AriaSigil.swift */; };
+		NEST00022F9FF867004091AA /* AriaNestMarkDemoView.swift in Sources */ = {isa = PBXBuildFile; fileRef = NEST00012F9FF867004091AA /* AriaNestMarkDemoView.swift */; };
 		1ARIA0292F9FF867004091AA /* AriaPresence.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1ARIA0282F9FF867004091AA /* AriaPresence.swift */; };
 		1ARIA0612F9FF867004091AA /* AriaWelcomeChime.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1ARIA0602F9FF867004091AA /* AriaWelcomeChime.swift */; };
 		1VOICE0022F9FF867004091AA /* AriaInterviewVoice.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1VOICE0012F9FF867004091AA /* AriaInterviewVoice.swift */; };
@@ -68,6 +69,7 @@
 		1ARIA0962F9FF867004091AA /* AriaOperatingMode.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1ARIA0952F9FF867004091AA /* AriaOperatingMode.swift */; };
 		1ARIA0982F9FF867004091AA /* LocalTestingOrchestrator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1ARIA0972F9FF867004091AA /* LocalTestingOrchestrator.swift */; };
 		1ARIA1002F9FF867004091AA /* AriaWebResearch.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1ARIA0992F9FF867004091AA /* AriaWebResearch.swift */; };
+		1ARIAAGE3F9FF867004091AA /* AriaAgingNorms.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1ARIAAGE2F9FF867004091AA /* AriaAgingNorms.swift */; };
 		1ARIA0832F9FF867004091AA /* AriaFirstHealthBriefing.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1ARIA0822F9FF867004091AA /* AriaFirstHealthBriefing.swift */; };
 		1ARIA0912F9FF867004091AA /* AriaUseOnboarding.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1ARIA0902F9FF867004091AA /* AriaUseOnboarding.swift */; };
 		1ARIA1032F9FF867004091AA /* AriaMeetView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1ARIA1022F9FF867004091AA /* AriaMeetView.swift */; };
@@ -256,6 +258,7 @@
 		F0B100000000000000000003 /* MindfulnessView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F0F100000000000000000003 /* MindfulnessView.swift */; };
 		F0B100000000000000000004 /* LifestyleContextView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F0F100000000000000000004 /* LifestyleContextView.swift */; };
 		F0B100000000000000000005 /* AuroraOrbWatch.swift in Sources */ = {isa = PBXBuildFile; fileRef = F0F100000000000000000005 /* AuroraOrbWatch.swift */; };
+		NESTW0022F9FF867004091AA /* AriaNestMarkWatch.swift in Sources */ = {isa = PBXBuildFile; fileRef = NESTW0012F9FF867004091AA /* AriaNestMarkWatch.swift */; };
 		F0B100000000000000000006 /* BreathingOrb.swift in Sources */ = {isa = PBXBuildFile; fileRef = F0F100000000000000000006 /* BreathingOrb.swift */; };
 		F0B100000000000000000007 /* ReadinessRing.swift in Sources */ = {isa = PBXBuildFile; fileRef = F0F100000000000000000007 /* ReadinessRing.swift */; };
 		F0B100000000000000000008 /* ContextCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = F0F100000000000000000008 /* ContextCard.swift */; };
@@ -444,6 +447,7 @@
 		1WC00F2F9FF867004091AA /* CyclePhaseWidget.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CyclePhaseWidget.swift; sourceTree = "<group>"; };
 		1E0DCBA62FA476C600A9C6F3 /* AuroraOrbComponents.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AuroraOrbComponents.swift; sourceTree = "<group>"; };
 		1SIGIL0012F9FF867004091AA /* AriaSigil.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AriaSigil.swift; sourceTree = "<group>"; };
+		NEST00012F9FF867004091AA /* AriaNestMarkDemoView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AriaNestMarkDemoView.swift; sourceTree = "<group>"; };
 		1ARIA0282F9FF867004091AA /* AriaPresence.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AriaPresence.swift; sourceTree = "<group>"; };
 		1ARIA0602F9FF867004091AA /* AriaWelcomeChime.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AriaWelcomeChime.swift; sourceTree = "<group>"; };
 		1VOICE0012F9FF867004091AA /* AriaInterviewVoice.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AriaInterviewVoice.swift; sourceTree = "<group>"; };
@@ -472,6 +476,7 @@
 		1ARIA0952F9FF867004091AA /* AriaOperatingMode.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AriaOperatingMode.swift; sourceTree = "<group>"; };
 		1ARIA0972F9FF867004091AA /* LocalTestingOrchestrator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocalTestingOrchestrator.swift; sourceTree = "<group>"; };
 		1ARIA0992F9FF867004091AA /* AriaWebResearch.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AriaWebResearch.swift; sourceTree = "<group>"; };
+		1ARIAAGE2F9FF867004091AA /* AriaAgingNorms.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AriaAgingNorms.swift; sourceTree = "<group>"; };
 		1ARIA0822F9FF867004091AA /* AriaFirstHealthBriefing.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AriaFirstHealthBriefing.swift; sourceTree = "<group>"; };
 		1ARIA0902F9FF867004091AA /* AriaUseOnboarding.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AriaUseOnboarding.swift; sourceTree = "<group>"; };
 		1ARIA1022F9FF867004091AA /* AriaMeetView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AriaMeetView.swift; sourceTree = "<group>"; };
@@ -679,6 +684,7 @@
 		F0F100000000000000000003 /* MindfulnessView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MindfulnessView.swift; sourceTree = "<group>"; };
 		F0F100000000000000000004 /* LifestyleContextView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LifestyleContextView.swift; sourceTree = "<group>"; };
 		F0F100000000000000000005 /* AuroraOrbWatch.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AuroraOrbWatch.swift; sourceTree = "<group>"; };
+		NESTW0012F9FF867004091AA /* AriaNestMarkWatch.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AriaNestMarkWatch.swift; sourceTree = "<group>"; };
 		F0F100000000000000000006 /* BreathingOrb.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BreathingOrb.swift; sourceTree = "<group>"; };
 		F0F100000000000000000007 /* ReadinessRing.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReadinessRing.swift; sourceTree = "<group>"; };
 		F0F100000000000000000008 /* ContextCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContextCard.swift; sourceTree = "<group>"; };
@@ -865,6 +871,7 @@
 				1ARIA0952F9FF867004091AA /* AriaOperatingMode.swift */,
 				1ARIA0972F9FF867004091AA /* LocalTestingOrchestrator.swift */,
 				1ARIA0992F9FF867004091AA /* AriaWebResearch.swift */,
+				1ARIAAGE2F9FF867004091AA /* AriaAgingNorms.swift */,
 				1ARIA0822F9FF867004091AA /* AriaFirstHealthBriefing.swift */,
 				1ARIA0902F9FF867004091AA /* AriaUseOnboarding.swift */,
 				1AUTH0082F9FF867004091AA /* ForgeAuthClient.swift */,
@@ -1052,6 +1059,7 @@
 				1E7A68E72FA31E6E00B0DD08 /* View+ForgeCardShadow.swift */,
 				1E0DCBA62FA476C600A9C6F3 /* AuroraOrbComponents.swift */,
 				1SIGIL0012F9FF867004091AA /* AriaSigil.swift */,
+				NEST00012F9FF867004091AA /* AriaNestMarkDemoView.swift */,
 				1ARIA1022F9FF867004091AA /* AriaMeetView.swift */,
 				1ARIA0282F9FF867004091AA /* AriaPresence.swift */,
 				1ARIA0602F9FF867004091AA /* AriaWelcomeChime.swift */,
@@ -1174,6 +1182,7 @@
 			isa = PBXGroup;
 			children = (
 				F0F100000000000000000005 /* AuroraOrbWatch.swift */,
+				NESTW0012F9FF867004091AA /* AriaNestMarkWatch.swift */,
 				F0F100000000000000000006 /* BreathingOrb.swift */,
 				F0F100000000000000000007 /* ReadinessRing.swift */,
 				F0F100000000000000000008 /* ContextCard.swift */,
@@ -1523,6 +1532,7 @@
 				1ARIA0962F9FF867004091AA /* AriaOperatingMode.swift in Sources */,
 				1ARIA0982F9FF867004091AA /* LocalTestingOrchestrator.swift in Sources */,
 				1ARIA1002F9FF867004091AA /* AriaWebResearch.swift in Sources */,
+				1ARIAAGE3F9FF867004091AA /* AriaAgingNorms.swift in Sources */,
 				1ARIA0832F9FF867004091AA /* AriaFirstHealthBriefing.swift in Sources */,
 				1ARIA0912F9FF867004091AA /* AriaUseOnboarding.swift in Sources */,
 				1ARIA1032F9FF867004091AA /* AriaMeetView.swift in Sources */,
@@ -1622,6 +1632,7 @@
 				1E4DF70B2F9FAEEC004091AA /* MusicControllerFactory.swift in Sources */,
 				1E0DCBA72FA476C600A9C6F3 /* AuroraOrbComponents.swift in Sources */,
 				1SIGIL0022F9FF867004091AA /* AriaSigil.swift in Sources */,
+				NEST00022F9FF867004091AA /* AriaNestMarkDemoView.swift in Sources */,
 				1ARIA0292F9FF867004091AA /* AriaPresence.swift in Sources */,
 				1ARIA0612F9FF867004091AA /* AriaWelcomeChime.swift in Sources */,
 				1ED842E32F90C15300693D3E /* LifestyleView.swift in Sources */,
@@ -1731,6 +1742,7 @@
 				F0B100000000000000000003 /* MindfulnessView.swift in Sources */,
 				F0B100000000000000000004 /* LifestyleContextView.swift in Sources */,
 				F0B100000000000000000005 /* AuroraOrbWatch.swift in Sources */,
+				NESTW0022F9FF867004091AA /* AriaNestMarkWatch.swift in Sources */,
 				F0B100000000000000000006 /* BreathingOrb.swift in Sources */,
 				F0B100000000000000000007 /* ReadinessRing.swift in Sources */,
 				F0B100000000000000000008 /* ContextCard.swift in Sources */,

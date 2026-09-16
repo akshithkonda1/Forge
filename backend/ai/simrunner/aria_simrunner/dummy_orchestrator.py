@@ -7,8 +7,10 @@ long-term learner is ``services.contextual_learner`` on the Lambda hot path.
 the same policy a real backend will; it must never own Q-tables, persona
 storage, or teaching copy. With ``engine="lambda"`` it also consumes
 ``services.fusion.fuse_turn`` and ``aria_engine.generate_response`` (Bedrock
-off) so hypertune reads fused product speak. Deleting this file must leave
-the learner, fusion, and ``POST /ai/chat`` intact.
+off) so hypertune reads fused product speak. Every turn also runs
+``services.aria_swarm`` — the Grok-agentic read/evaluate/write pass over
+WHOOP, Apple Watch, and Oura / RRA — without calling a model. Deleting this
+file must leave the learner, fusion, Swarm, and ``POST /ai/chat`` intact.
 
 This is *not* a live model. It is a staged stand-in for one: ingest the
 turn, score intents, fan the specialists out, let the stub decide the
@@ -39,9 +41,9 @@ import os
 import re
 from dataclasses import dataclass
 
+from ..backend_simulator import model_registry
 from ..backend_simulator.behavior_engine import generate_stream
 from ..backend_simulator.data_generator import build_context
-from ..backend_simulator import model_registry
 from .aria_engine import ARIAEngine
 from . import speak_quality
 from . import voice_diagnostics
@@ -64,6 +66,17 @@ LAMBDA_MODEL = "lambda-deterministic"
 ENGINE_STUB = "stub"
 ENGINE_LAMBDA = "lambda"
 ORCH_STAGES = ("ingest", "route", "reason", "specialize", "synthesize", "voice")
+
+# Wearable attribution for the dummy stream. The old ``simrunner`` tag made
+# Swarm unable to tell WHOOP from Watch from Oura / RRA.
+_SWARM_SAMPLE_SOURCE = {
+    "sleep": "oura",
+    "sleep-stage": "oura",
+    "hrv": "whoop",
+    "resting-heart-rate": "apple-watch",
+    "steps": "apple-watch",
+    "active-calories": "apple-watch",
+}
 
 # Keep needles aligned with iOS ``AriaCoachAgentRouter``. Duplicated on
 # purpose: SimRunner stays stdlib-only and must not import the Lambda package.
@@ -91,18 +104,23 @@ _NEEDLES = {
         "progress", "gains", "stronger", "streak", "improving", "plateau",
         "getting stronger", "how am i progressing", "is this working",
     ),
+    "aging": (
+        "training age", "biological age", "fitness age", "calendar age",
+        "vascular age", "inner age", "metabolic age", "phenotypic age",
+        "vo2 max", "cardiorespiratory", "how old am i", "age comparison",
+    ),
     "workout": (
         "workout", "session", "lift", "squat", "train today", "today's plan",
         "todays plan", "exercise", "gym", "run today", "what should i train",
     ),
 }
 
-_KINDS = ("cycle", "recovery", "sleep", "lifestyle", "progress", "workout", "aria")
+_KINDS = ("cycle", "recovery", "sleep", "lifestyle", "progress", "aging", "workout", "aria")
 
-# Primary-selection precedence is load-protective: a session question still
-# wins so recovery/sleep can sit in as specialists (the missing-data guard
-# test depends on Recovery not being primary on a "slept badly + train" turn).
-_PRIMARY_ORDER = ("workout", "recovery", "sleep", "cycle", "progress", "lifestyle", "aria")
+# Aging first so "training age" is never stolen by workout/lifestyle.
+# Then load-protective: a session question still wins so recovery/sleep
+# can sit in as specialists.
+_PRIMARY_ORDER = ("aging", "workout", "recovery", "sleep", "cycle", "progress", "lifestyle", "aria")
 
 _OCCUPATION_LIFE = {
     "teacher": "a teacher's week already spends you",
@@ -273,6 +291,19 @@ def _production_learner():
         return None
 
 
+def _production_swarm():
+    """Import live Swarm. Dummy must not own the policy."""
+    try:
+        from backend._paths import ensure_lambda_on_path
+
+        ensure_lambda_on_path()
+        from services import aria_swarm
+
+        return aria_swarm
+    except Exception:
+        return None
+
+
 def _consume_learner(message: str, ctx, plan: Plan):
     """Run the production policy in memory. Never Dynamo, never Bedrock."""
     learn = _production_learner()
@@ -292,6 +323,39 @@ def _consume_learner(message: str, ctx, plan: Plan):
         return brief, plan
     except Exception:
         return None, plan
+
+
+def _attach_swarm(row: dict, ctx, *, samples: list[dict] | None = None) -> dict:
+    """Background Swarm pass — read/evaluate/write the wearable dataset.
+
+    Sidecar only: never woven into spoken prose (voice/speak-quality gates).
+    """
+    swarm_mod = _production_swarm()
+    if swarm_mod is None:
+        return row
+    try:
+        picture = swarm_mod.run_swarm(
+            context=ctx,
+            samples=samples if samples is not None else _stream_samples(ctx),
+        )
+    except Exception:
+        return row
+    row["swarm"] = picture
+    orch = dict(row.get("orchestration") or {})
+    orch["swarm"] = True
+    orch["swarm_sources"] = [s.get("id") for s in picture.get("sources") or [] if s.get("present")]
+    orch["swarm_stance"] = (picture.get("picture") or {}).get("stance")
+    orch["swarm_slot"] = picture.get("slot_name")
+    row["orchestration"] = orch
+    thinking = str(row.get("thinking") or "").rstrip()
+    labels = [
+        s.get("label") for s in picture.get("sources") or [] if s.get("present") and s.get("label")
+    ]
+    if labels:
+        extra = f" Swarm read {', '.join(labels)}."
+        if extra.strip() not in thinking:
+            row["thinking"] = f"{thinking}{extra}".strip()
+    return row
 
 
 def score_intents(message: str) -> list[IntentHit]:
@@ -543,6 +607,8 @@ def suggested_actions(plan: Plan, *, recovery_needed: bool = False) -> list[str]
         return ["Show my trends", "Is this working?", "What should I train?"]
     if kind == "cycle":
         return ["How to show up today?", "What helps for recovery?", "Keep it simple"]
+    if kind == "aging":
+        return ["What's my training age?", "How did I sleep?", "What should I train?"]
     return ["What should I train?", "How did I sleep?", "How do I show up?"]
 
 
@@ -772,20 +838,68 @@ _CHEER_SLUDGE = re.compile(
     r")\b",
     re.I,
 )
+# Soft-wit (Iris): witty + insightful = one funny take + one useful improve.
+# Throughline is friend — bubbly / kind / taking-care. Not dry trainer bark,
+# not diagnose/treat/cure, not vitals dumps. Seed-indexed via ``_pick``.
 _WIT_PROTECT = (
-    "The ambitious plan can wait — I'm not going to clap you into a hole.",
-    "Kind yes. Heroics no. The work will still be there when the night pays you back.",
-    "Today's a don't-pick-a-fight-with-your-own-recovery kind of day.",
+    "Your body's hung a cute 'back soon' sign — easy walk, then protect bedtime like it's the real session.",
+    "I'm with you, and I'm tucking the hero set in a drawer — keep it gentle and get to bed on purpose.",
+    "Cozy-sweater day, not montage day — ten easy minutes, water nearby, lights out a little earlier.",
+    "Even sparkly people need a restock — skip the extra work and steal a kinder wind-down tonight.",
+    "Today whispered please-be-nice — so we will: keep it kind, light movement, protein with the next meal, real sleep.",
+    "Friend vote: let's not pick a fight with a tired body — soft loop, then earlier lights-out.",
+    "I love the ambition and I'm still tucking it in — keep today kind and light and make bedtime the workout.",
+    "Your tank's on the cute low-power glow — easy movement only, then we guard the night.",
+    "I'm taking care of you, not casting you as the montage hero — short and kind, then wind down.",
+    "The loud plan can wait in drafts — an easy walk, a simple meal, and an honest bedtime will do more.",
+    "You're not failing, you're just a little crispy — keep it easy and get under the covers on time.",
+    "Hug first: restock day — easy body, water with the next meal, protect sleep like a friend would.",
 )
 _WIT_PROCEED = (
-    "You've got enough to spend — just don't spend it like it's a dare.",
-    "I'm in. Sharp over loud. Leave the victory-lap energy in the bag.",
-    "Yes to the session. No to performing it for an audience that isn't there.",
+    "You've got a little sparkle in the tank, and I'm with you — spend it on one clean session, then stop while it still feels good.",
+    "I'm in, sweetly — keep it easy: sharp work, water nearby, encore left in the bag.",
+    "Green-enough day, not fireworks — pick one thing to progress, keep it easy, then you're done, I promise.",
+    "Yes to the session and yes to taking care of you in it — keep it focused, skip the encore finish.",
+    "You've got enough to spend, just don't spend it like a double-dare — keep it easy: one honest block, then a real meal you actually finish.",
+    "I'm cheering, not shoving — a focused session, protein and water after, then we call it easy.",
+    "The day's saying go-play, not go-prove-it — train one thing well, keep it easy, and stop on quality.",
+    "Usable spark, friend — keep it sharp and kind, and don't turn it into an all-day parade.",
+    "I'm excited for you, friend, and I'm still the one who says stop — clean easy work, then you're free.",
+    "There's room to move and we'll keep it gentle — one quality session, water in reach, no encore.",
+    "Today can handle real work if we unwrap it kindly — progress one thing, leave extra sets.",
+    "Friend mode is on, sparkle included — go train, keep it cute and kind, then eat something you'll actually finish.",
 )
 _WIT_HONEST = (
-    "Mixed isn't failure — it's just the plot getting interesting.",
-    "I can be kind without lying to you. Today's a hold-steady chapter.",
-    "Not a pep talk. A read: we work with the day we actually have.",
+    "Mixed isn't a villain origin story — hold the load kind and steady and steal twenty extra minutes of wind-down.",
+    "I can be kind and sweet and still tell you the weather's meh — same effort as yesterday, protein and water with the next meal.",
+    "The plot got interesting, not doomed — keep one honest session size and protect bedtime.",
+    "Hug with a point — stay kind and moderate, make the next meal simple, and get to bed on purpose.",
+    "The day's a maybe, and that's allowed — easy-moderate work, then a softer night.",
+    "I'm with you in the messy middle — don't add load, do add a kinder wind-down.",
+    "Funny thing, friend: mixed days are where the care shows — hold steady and lights-out a little earlier.",
+    "You don't need a speech, you need a kind friend with a snack plan — same-size session, earlier bedtime.",
+    "Today's neither fireworks nor a flop — keep the work kind and honest and the bedtime real.",
+    "I'll keep you company, friend, and keep you honest — no extra volume, yes to water and a gentler night.",
+    "Hold-steady chapter, not a villain lecture — one familiar session, then protect sleep like it matters (it does).",
+    "The mix is just the plot getting interesting — stay kind to the load and sneak in extra wind-down.",
+)
+_WIT_ALREADY = tuple(
+    dict.fromkeys(
+        [
+            *[
+                line.split("—", 1)[0].strip().lower()
+                for line in (_WIT_PROTECT + _WIT_PROCEED + _WIT_HONEST)
+                if "—" in line
+            ],
+            "clap you into",
+            "victory-lap",
+            "spend it like it's a dare",
+            "plot getting interesting",
+            "hold-steady chapter",
+            "don't-pick-a-fight",
+            "not a pep talk",
+        ]
+    )
 )
 
 
@@ -831,7 +945,7 @@ def friend_speak(
     signals: SignalRead | None = None,
     guidance: str | None = None,
 ) -> str:
-    """Bubbly/kind friend with a point — not empty cheerleading.
+    """Bubbly/kind friend with a point — funny take + one useful improve.
 
     Shared by stub phrase banks and the lambda hypertune path. Guidance /
     emergency copy is left alone. Iris vitals scrub still wins after this.
@@ -841,16 +955,7 @@ def friend_speak(
     body = _CHEER_SLUDGE.sub("that's real work", _collapse_spoken(text))
     if not body:
         return _SPEAK_FALLBACK
-    already = (
-        "clap you into",
-        "victory-lap",
-        "spend it like it's a dare",
-        "plot getting interesting",
-        "hold-steady chapter",
-        "don't-pick-a-fight",
-        "not a pep talk",
-    )
-    if any(n in body.lower() for n in already):
+    if any(n in body.lower() for n in _WIT_ALREADY):
         return body
     # Short mid-thread mutations ("make it easier") already sound like a person.
     if len(body.split()) < 28:
@@ -992,6 +1097,14 @@ def humanize_prose(
 
     def finish(text: str, *, allow_life: bool = True) -> str:
         body = text.rstrip()
+        if getattr(context, "is_overtrained", False) or float(getattr(context, "acwr", 0) or 0) >= 1.5:
+            low = body.lower()
+            if not any(w in low for w in ("acwr", "deload", "back off", "overtrain", "too much")):
+                body += " Load is high this week — back off, treat it as a deload."
+        if debt > 5.0:
+            low = body.lower()
+            if not any(w in low for w in ("protect sleep", "protect tonight", "sleep first", "recovery needs priority")):
+                body += " Protect sleep tonight rather than adding volume."
         # Persona texture only where the life actually changes the advice —
         # not on every clarify / cycle / sparse turn.
         if (
@@ -1165,6 +1278,17 @@ def humanize_prose(
             "I wouldn't read too much into a messy week. Because streaks beat spikes, "
             "the question is whether you keep showing up, not whether Tuesday looked pretty.",
         ))
+
+    # Before recovery / workout "train" nets so "training age" is never a session plan.
+    if kind == "aging" or any(n in lower for n in (
+        "training age", "biological age", "fitness age", "how old am i",
+        "cardiorespiratory", "vo2 max",
+    )):
+        return finish(
+            "Training age is a lifestyle comparison against the calendar — "
+            "cardio fitness, recovery, resting heart, and sleep — not a diagnosis. "
+            "I'll keep reading those signals as they come in."
+        )
 
     if recovery:
         ack = ""
@@ -1347,7 +1471,10 @@ def _stream_samples(ctx) -> list[dict]:
             "value": value,
             "unit": unit,
             "timestamp": getattr(rec, "date", None) or "",
-            "source": "simrunner",
+            # Swarm needs vendor slices (WHOOP / Watch / Oura), not one
+            # anonymous ``simrunner`` dump. Untagged samples used to make
+            # the dummy orchestra skip the dataset pass entirely.
+            "source": _SWARM_SAMPLE_SOURCE.get(typ, "apple-watch"),
         }
         row.update(extra)
         samples.append(row)
@@ -1618,16 +1745,50 @@ def _respond_via_lambda(
                 "grounding": brief.get("grounding"),
                 "prioritize": list(brief.get("prioritize") or []),
                 "event": brief.get("event_bucket"),
-                "learner_stages": ["observe", "rank", "adapt", "commit", "judge"],
+                "learner_stages": ["observe", "plan", "rank", "adapt", "commit", "judge"],
             }
         )
         row["orchestration"] = orch
-    return row
+    return _attach_swarm(row, ctx, samples=payload.get("samples") if isinstance(payload, dict) else None)
 
 
 def _orchestration_latency_ms(message: str, seed: int, worker_count: int) -> int:
     """Fake-but-stable overhead: scoring + fan-out, not a wall-clock sleep."""
     return 40 + (_fnv(message) ^ (seed * 16777619) ^ (worker_count * 31)) % 90
+
+
+def _context_for_turn(
+    *,
+    seed: int,
+    model_id: str | None,
+    day_index: int,
+    context=None,
+    pack_day=None,
+    use_pack: bool = False,
+):
+    """Prefer an explicit ARIAContext; else a FakeHealthPack day; else the persona stream."""
+    from . import fake_health_pack
+    from .fake_health_bridge import context_from_pack_day
+
+    model = model_registry.resolve_archetype(model_id) if model_id else model_registry.get_models_by_tier(1)[0]
+    profile = model["behavioral_profile"]
+    if context is not None:
+        return context, model
+    if pack_day is None and use_pack:
+        pack = fake_health_pack.generate(seed=seed)
+        days = pack["days"]
+        idx = min(max(0, day_index), len(days) - 1)
+        pack_day = days[idx]
+    if pack_day is not None:
+        ctx = context_from_pack_day(pack_day, persona=profile.get("occupation"))
+        ctx.occupation = profile.get("occupation", ctx.occupation)
+        ctx.chronotype = profile.get("chronotype", ctx.chronotype)
+        ctx.experience_level = profile.get("experience_level", ctx.experience_level)
+        ctx.life_season = profile.get("season", ctx.life_season)
+        ctx.coaching_style = profile.get("coaching_style", getattr(ctx, "coaching_style", "balanced"))
+        return ctx, model
+    stream = generate_stream(profile, seed)
+    return build_context(stream, profile, day_index), model
 
 
 def respond(
@@ -1642,15 +1803,21 @@ def respond(
     day_index: int = 29,
     engine: str = ENGINE_LAMBDA,
     lifestyle_tags: list[str] | None = None,
+    context=None,
+    pack_day=None,
+    use_pack: bool = False,
 ) -> dict:
     """One SimRunner turn. Default ``engine="lambda"`` hypertunes against fused
     product speak (``fuse_turn`` + ``generate_response``). ``engine="stub"``
     is the SimRunner matrix path.
 
     Pipeline (always local, Bedrock off):
-      ingest → route specialists → reason → specialize → synthesize → voice.
+      ingest → route specialists → swarm (read/evaluate/write wearables)
+      → reason → specialize → synthesize → voice.
 
     Never calls Bedrock, AWS, or any other cloud.
+    Default body is the FakeHealthPack twin (same fields iOS writes to HealthKit).
+    Pass ``context=`` to score a SimRunner persona stream instead.
     """
     refuse_if_cloud()
 
@@ -1672,10 +1839,10 @@ def respond(
             if key in _KINDS and key not in plan.kinds:
                 plan.workers.append(Worker(key, key, None, False))
 
-    model = model_registry.resolve_archetype(model_id) if model_id else model_registry.get_models_by_tier(1)[0]
-    profile = model["behavioral_profile"]
-    stream = generate_stream(profile, seed)
-    ctx = build_context(stream, profile, day_index)
+    ctx, _model = _context_for_turn(
+        seed=seed, model_id=model_id, day_index=day_index,
+        context=context, pack_day=pack_day, use_pack=use_pack,
+    )
     if (engine or ENGINE_LAMBDA).strip().lower() == ENGINE_LAMBDA:
         return _respond_via_lambda(
             message,
@@ -1711,7 +1878,8 @@ def respond(
     # Optional web note stays as a short trailing cite — not a specialist dump.
     chat = prose
     if web_research.is_research_worthy(message, plan.primary.kind):
-        web_note = web_research.look_up(plan.primary.kind)
+        lookup_kind = "aging" if web_research.suggests_aging(message) or plan.primary.kind == "aging" else plan.primary.kind
+        web_note = web_research.look_up(lookup_kind)
         if web_note and web_note not in chat:
             chat = f"{chat} ({web_note.rstrip('.')})"
     prose = _speak_without_vitals(prose)
@@ -1733,6 +1901,7 @@ def respond(
         "confidence": stub.confidence,
         "confidence_reason": _confidence_reason(stub, signals, scenario),
         "prose_summary": prose,
+        "recommendation": getattr(stub, "recommendation", None),
         "message": chat,
         "suggested_actions": suggested_actions(plan, recovery_needed=recovery_needed),
         "card": None,
@@ -1792,11 +1961,43 @@ def respond(
                 "grounding": brief.grounding,
                 "prioritize": list(brief.prioritize),
                 "event": brief.event_bucket,
-                "learner_stages": ["observe", "rank", "adapt", "commit", "judge"],
+                "learner_stages": ["observe", "plan", "rank", "adapt", "commit", "judge"],
             }
         )
         row["orchestration"] = orch
-    return row
+    return _attach_swarm(row, ctx)
+
+
+class DummyARIAEngine:
+    """Evaluator-facing adapter: SimRunner grades the Test-Ready dummy, not the
+    imperfect model-archetype stub. Duck-types ARIAEngine.respond."""
+
+    use_real_api = False
+
+    def __init__(self) -> None:
+        from . import model_archetypes as ma
+        self.archetype = ma.get("baseline")
+
+    def respond(self, query: str, context, seed: int = 0):
+        from .aria_engine import ARIAResponse
+
+        row = respond(query, seed=seed, context=context, engine="stub")
+        return ARIAResponse(
+            prose_summary=row["message"] or row["prose_summary"],
+            recommendation=row.get("recommendation"),
+            confidence=float(row.get("confidence") or 0.74),
+            used_context=True,
+            model_used=STUB_MODEL,
+            query_type=row.get("agent") or "aria",
+            latency_ms=float((row.get("orchestration") or {}).get("latency_ms") or 40),
+            raw={"scenario": row.get("scenario") or "dummy", "test_ready": True},
+        )
+
+    def detect_model(self) -> str:
+        return STUB_MODEL
+
+    def active_models(self) -> dict:
+        return {"dummy": STUB_MODEL}
 
 
 def run_smoke(messages: list[str] | None = None, *, seed: int = 42) -> list[dict]:

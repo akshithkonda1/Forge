@@ -116,21 +116,30 @@ def handle_post_observe(body: dict[str, Any], *, user_id: str | None = None) -> 
     # decides and records; it never dials 911 itself.
     _apply_vitals_monitor(body, uid, payload)
 
-    if message:
-        voice = bool(body.get("voice_mode"))
-        from services import contextual_learner
+    from services import contextual_learner
 
-        persona = fused.persona
-        if fused.persona_status != "load_failed" and persona is not None:
-            try:
+    persona = fused.persona
+    if fused.persona_status != "load_failed" and persona is not None:
+        try:
+            if message:
                 contextual_learner.observe_turn(
                     persona,
                     message=message,
                     tags=list(context.lifestyle.tags or []),
                     ctx=context,
                 )
-            except fusion_mod.PERSONA_IO_ERRORS as exc:
-                fused.persona_error = f"observe_turn:{exc.__class__.__name__}: {exc}"
+            else:
+                from services import context_plan
+
+                context_plan.evaluate_and_store(persona, "", context)
+                contextual_learner.save(uid, persona)
+        except fusion_mod.PERSONA_IO_ERRORS as exc:
+            fused.persona_error = f"observe_turn:{exc.__class__.__name__}: {exc}"
+        if isinstance(getattr(persona, "last_plan", None), dict):
+            payload["supervision_plan"] = dict(persona.last_plan)
+
+    if message:
+        voice = bool(body.get("voice_mode"))
         response = aria_engine.generate_response(
             message,
             context,

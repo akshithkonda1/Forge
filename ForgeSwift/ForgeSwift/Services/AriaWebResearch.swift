@@ -14,7 +14,8 @@ import ForgeCore
 /// Isolated from `LocalTestingOrchestrator` and `AriaDummyOrchestrator`,
 /// which must stay URLSession-free (`scripts/check-aria-web-research.py`).
 /// Gated to local testing and the Test-Ready dummy so a live backend
-/// session never silently fetches.
+/// session never silently fetches — except aging, which may confirm
+/// cardiorespiratory-fitness pages so training age is calibrated.
 @MainActor
 enum AriaWebResearch {
 
@@ -41,9 +42,14 @@ enum AriaWebResearch {
         "chills", "is this normal", "what does it mean if",
         "tuxedo", "what to wear", "wedding attire", "black tie",
         "what should i wear", "suit for a wedding",
+        "training age", "biological age", "fitness age", "vo2 max",
+        "cardiorespiratory", "cardio fitness",
     ]
 
     static func isResearchWorthy(text: String, leadingDomain: AriaLocalDomain) -> Bool {
+        if leadingDomain == .aging || AriaReferenceCatalog.questionSuggestsAging(text) {
+            return true
+        }
         guard [
             .training, .nutrition, .progress, .sleep, .readiness,
             .lifestyle, .activity, .body, .cycle,
@@ -61,6 +67,7 @@ enum AriaWebResearch {
     static func isDummyResearchWorthy(text: String) -> Bool {
         if AriaReferenceCatalog.questionSuggestsFever(text) { return true }
         if AriaReferenceCatalog.questionSuggestsEventPrep(text) { return true }
+        if AriaReferenceCatalog.questionSuggestsAging(text) { return true }
         let lower = text.lowercased()
         let extra = [
             "what does the science say", "what does research say",
@@ -81,20 +88,42 @@ enum AriaWebResearch {
         await lookUp(question: question, domainRawValue: domain.rawValue, salt: salt)
     }
 
+    /// Aging may fetch in a live session. Every other domain still requires
+    /// local testing or the Test-Ready dummy.
+    static func liveFetchAllowed(question: String, domainRawValue: String) -> Bool {
+        if domainRawValue == "aging" || AriaReferenceCatalog.questionSuggestsAging(question) {
+            return true
+        }
+        return AriaOperatingMode.current.isLocalTesting
+            || AriaService.shouldUseTestReadyDummy
+    }
+
     static func lookUp(
         question: String,
         domainRawValue: String = "lifestyle",
         salt: UInt64
     ) async -> String? {
-        guard AriaOperatingMode.current.isLocalTesting || AriaService.shouldUseTestReadyDummy else {
+        guard liveFetchAllowed(question: question, domainRawValue: domainRawValue) else {
             return nil
         }
+        return await fetchSnippet(question: question, domainRawValue: domainRawValue, salt: salt)
+    }
+
+    /// Aging is allowed to use the device's default internet route even in a
+    /// live session: cardiorespiratory-fitness pages calibrate training age.
+    /// Other domains stay local-testing / Test-Ready only.
+    private static func fetchSnippet(
+        question: String,
+        domainRawValue: String,
+        salt: UInt64
+    ) async -> String? {
         let topic = AriaReferenceCatalog.resolvedTopic(
             domainRawValue: domainRawValue,
             question: question
         )
         let picks = AriaReferenceCatalog.picks(topic: topic, question: question, salt: salt)
         guard !picks.isEmpty else { return nil }
+        let agingAsk = topic == .aging || AriaReferenceCatalog.questionSuggestsAging(question)
 
         for pick in picks {
             guard let url = pick.source.pageURL else { continue }
@@ -114,6 +143,9 @@ enum AriaWebResearch {
                     } else {
                         text = String(cut) + "…"
                     }
+                }
+                if agingAsk {
+                    AgingNorms.markWebConfirmed(sourceTitle: pick.source.title)
                 }
                 return "\(pick.voiceLead): \(text) — here's how that lands for you:"
             } catch {

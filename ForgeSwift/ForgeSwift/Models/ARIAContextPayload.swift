@@ -13,6 +13,7 @@ struct ARIAContextPayload: Codable, Equatable {
     var profile: ProfileDomain
     var progress: ProgressDomain
     var lifestyle: LifestyleDomain
+    var aging: AgingDomain? = nil
     /// Structured Health records (Non PHI). Names only. Notes never included.
     var clinicalData: ClinicalDataDomain? = nil
     /// Federal pharmacy context: Health/saved meds plus names mentioned this
@@ -88,6 +89,18 @@ struct ARIAContextPayload: Codable, Equatable {
         var newPersonalRecords: Int? = nil
         var trainingLoadTrend: String? = nil
         var recoveryConsistencyDelta: Double? = nil
+    }
+
+    struct AgingDomain: Codable, Equatable {
+        var chronologicalAgeYears: Double? = nil
+        var biologicalAgeYears: Double? = nil
+        var fitnessAgeYears: Double? = nil
+        var vascularAgeYears: Double? = nil
+        var autonomicAgeYears: Double? = nil
+        var deltaYears: Double? = nil
+        var confidence: Double? = nil
+        var sources: [String] = []
+        var state: String? = nil
     }
 
     struct LifestyleDomain: Codable, Equatable {
