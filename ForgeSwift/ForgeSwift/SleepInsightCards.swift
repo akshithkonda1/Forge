@@ -7,6 +7,7 @@ import UIKit
 struct SleepStreakCard: View {
     @EnvironmentObject var store: AppStore
     @EnvironmentObject var hkService: HealthKitSleepService
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var appeared = false
 
     private var streak: Int { hkService.computeGoodSleepStreak(from: store.sleepData) }
@@ -30,9 +31,15 @@ struct SleepStreakCard: View {
             }
             .padding(14)
             .forgeGlassCard(cornerRadius: 16, accent: .ember)
-            .opacity(appeared ? 1 : 0)
+            .opacity(appeared || reduceMotion ? 1 : 0)
             .accessibilityElement(children: .combine)
-            .onAppear { withAnimation(.easeOut(duration: 0.4)) { appeared = true } }
+            .onAppear {
+                if reduceMotion {
+                    appeared = true
+                } else {
+                    withAnimation(.easeOut(duration: 0.4)) { appeared = true }
+                }
+            }
         }
     }
 }
@@ -43,6 +50,7 @@ struct SleepStreakCard: View {
 struct AISleepPredictionCard: View {
     @EnvironmentObject var store: AppStore
     @EnvironmentObject var hkService: HealthKitSleepService
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var appear = false
 
     private var schedule: EnergySchedule? { EnergySchedule.make(from: store.sleepData) }
@@ -81,9 +89,15 @@ struct AISleepPredictionCard: View {
             }
             .padding(18)
             .forgeGlassCard(cornerRadius: 20, accent: .steel)
-            .opacity(appear ? 1 : 0)
-            .offset(y: appear ? 0 : 10)
-            .onAppear { withAnimation(.easeOut(duration: 0.4).delay(0.1)) { appear = true } }
+            .opacity(appear || reduceMotion ? 1 : 0)
+            .offset(y: appear || reduceMotion ? 0 : 10)
+            .onAppear {
+                if reduceMotion {
+                    appear = true
+                } else {
+                    withAnimation(.easeOut(duration: 0.4).delay(0.1)) { appear = true }
+                }
+            }
             .task {
                 await hkService.refreshBedtimeNote(store: store, schedule: schedule)
                 if store.remoteSleepInsight == nil {
@@ -144,7 +158,7 @@ struct AISleepEnvironmentView: View {
                 .background(Color.steel.opacity(0.08))
                 .cornerRadius(10)
             } else {
-                Text("Show ARIA where you sleep and it'll check for light, noise, and clutter working against a good night.")
+                Text(SleepLifestyleCopy.environmentHint)
                     .font(.system(size: 12)).foregroundColor(.textMuted).lineLimit(3)
             }
 
@@ -176,6 +190,7 @@ struct AISleepEnvironmentView: View {
 struct AIPersonalizedGoalsView: View {
     @EnvironmentObject var store: AppStore
     @EnvironmentObject var hkService: HealthKitSleepService
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var appeared = false
 
     var goals: [AdaptiveSleepGoal] {
@@ -203,15 +218,15 @@ struct AIPersonalizedGoalsView: View {
                                 Capsule().fill(Color.borderColor.opacity(0.4)).frame(height: 6)
                                 Capsule()
                                     .fill(g.current >= g.target ? Color.success : Color.steel)
-                                    .frame(width: appeared ? geo.size.width * CGFloat(min(g.current / g.target, 1.0)) : 0, height: 6)
-                                    .animation(.spring(response: 1.0, dampingFraction: 0.7).delay(0.3 + Double(i) * 0.1), value: appeared)
+                                    .frame(width: (appeared || reduceMotion) ? geo.size.width * CGFloat(min(g.current / max(0.01, g.target), 1.0)) : 0, height: 6)
+                                    .animation(reduceMotion ? nil : .spring(response: 1.0, dampingFraction: 0.7).delay(0.3 + Double(i) * 0.1), value: appeared)
                             }
                         }
                         .frame(height: 6)
                     }
                     .padding(12).background(Color.surfaceElevated).cornerRadius(12)
-                    .opacity(appeared ? 1 : 0)
-                    .animation(.easeOut(duration: 0.3).delay(Double(i) * 0.1), value: appeared)
+                    .opacity(appeared || reduceMotion ? 1 : 0)
+                    .animation(reduceMotion ? nil : .easeOut(duration: 0.3).delay(Double(i) * 0.1), value: appeared)
                 }
             }
             if let note = hkService.aiGoalsNote {
@@ -227,7 +242,13 @@ struct AIPersonalizedGoalsView: View {
         }
         .padding(18)
         .forgeGlassCard(cornerRadius: 20, accent: .aurora)
-        .onAppear { withAnimation(.easeOut(duration: 0.5)) { appeared = true } }
+        .onAppear {
+            if reduceMotion {
+                appeared = true
+            } else {
+                withAnimation(.easeOut(duration: 0.5)) { appeared = true }
+            }
+        }
         .task { await hkService.refreshGoalsNote(store: store, goals: goals) }
     }
 }
@@ -235,6 +256,7 @@ struct AIPersonalizedGoalsView: View {
 struct AISmartRecommendationsView: View {
     @EnvironmentObject var store: AppStore
     @EnvironmentObject var hkService: HealthKitSleepService
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var appeared = false
 
     var recs: [SleepRecommendation] {
@@ -266,8 +288,9 @@ struct AISmartRecommendationsView: View {
                         }
                     }
                     .padding(12).background(Color.surfaceElevated).cornerRadius(12)
-                    .opacity(appeared ? 1 : 0).offset(x: appeared ? 0 : -10)
-                    .animation(.easeOut(duration: 0.3).delay(Double(i) * 0.08), value: appeared)
+                    .opacity(appeared || reduceMotion ? 1 : 0)
+                    .offset(x: appeared || reduceMotion ? 0 : -10)
+                    .animation(reduceMotion ? nil : .easeOut(duration: 0.3).delay(Double(i) * 0.08), value: appeared)
                 }
             }
             if let note = hkService.aiRecommendationsNote {
@@ -283,7 +306,13 @@ struct AISmartRecommendationsView: View {
         }
         .padding(18)
         .forgeGlassCard(cornerRadius: 20, accent: .aurora)
-        .onAppear { withAnimation(.easeOut(duration: 0.5)) { appeared = true } }
+        .onAppear {
+            if reduceMotion {
+                appeared = true
+            } else {
+                withAnimation(.easeOut(duration: 0.5)) { appeared = true }
+            }
+        }
         .task {
             let debt = hkService.computeSleepDebt(from: store.sleepData)
             await hkService.refreshRecommendationsNote(store: store, debt: debt)

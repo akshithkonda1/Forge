@@ -265,7 +265,7 @@ struct EnergyScheduleCard: View {
         }
         .padding(18)
         .forgeGlassCard(cornerRadius: 20, accent: .aurora)
-        .animation(.snappy(duration: 0.32), value: schedule?.debtHours)
+        .animation(reduceMotion ? nil : .snappy(duration: 0.32), value: schedule?.debtHours)
         .sensoryFeedback(.selection, trigger: scrubWindow)
         .onAppear {
             refresh(at: now)
