@@ -105,7 +105,11 @@ struct LifestyleView: View {
         }
         .animation(.easeInOut(duration: 0.3), value: showInsights)
         .task {
-            vm.applyPersonalization(store.userProfile)
+            vm.applyPersonalization(
+                store.userProfile,
+                dailyDeepSleepMinutes: store.dailyMetrics.deepSleep,
+                readinessStressLevel: store.readiness.stressLevel
+            )
             await vm.load()
             await vm.refreshAIInsights(store: store, allowNetwork: false)
         }

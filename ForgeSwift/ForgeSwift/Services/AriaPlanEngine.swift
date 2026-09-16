@@ -1,4 +1,5 @@
 import Foundation
+import ForgeCore
 
 // MARK: - Plan result
 
@@ -64,6 +65,16 @@ enum AriaPlanEngine {
             experience: experience,
             guidanceOnly: guidanceOnly
         )
+        if let living = QualityOfLifePersona.livingDecisionNote(from: context.lifestyleTags) {
+            session = SessionBlueprint(
+                title: session.title,
+                duration: session.duration,
+                intensity: session.intensity,
+                workoutType: session.workoutType,
+                moves: session.moves,
+                flavorLine: living + " " + session.flavorLine
+            )
+        }
 
         // Cycle phase never leaves Cycle Health. Workout title stays generic
         // (e.g. "Controlled gym", not "Controlled gym · Ovulation"). The

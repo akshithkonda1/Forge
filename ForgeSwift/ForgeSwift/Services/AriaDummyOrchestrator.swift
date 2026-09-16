@@ -101,6 +101,10 @@ enum AriaDummyOrchestrator {
            !interpretation.domains.contains(.nutrition) {
             interpretation.domains.append(.lifestyle)
         }
+        if QualityOfLifeLivingStore.isCharacterQuestion(text),
+           !interpretation.domains.contains(.lifestyle) {
+            interpretation.domains.append(.lifestyle)
+        }
         interpretation.domains = AriaPromptCorrelation.filterDomains(
             interpretation.domains,
             toPrompt: text
@@ -463,6 +467,15 @@ enum AriaDummyOrchestrator {
                         variety: AriaReplyVariety.occurrence(for: text)
                     ),
                     suggestedActions: ["Open Lifestyle", "What should I change?"]
+                )
+            }
+            if QualityOfLifeLivingStore.isCharacterQuestion(text) {
+                return AriaDummyBeat(
+                    domain: .lifestyle,
+                    prose: QualityOfLifeLivingStore.characterLine(
+                        variety: AriaReplyVariety.occurrence(for: text)
+                    ),
+                    suggestedActions: ["What's my quality of life?", "What should I train today?"]
                 )
             }
             if text.lowercased().contains("eat") || text.lowercased().contains("food")

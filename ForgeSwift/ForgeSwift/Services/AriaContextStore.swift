@@ -719,6 +719,7 @@ final class AriaContextStore: ObservableObject {
                 tags.append("qol:pillar:\(key):\(value)")
             }
         }
+        tags.append(contentsOf: QualityOfLifeLivingStore.livingTags())
 
         if let stats {
             tags.append("protein:\(Int(stats.protein))g")
@@ -776,7 +777,7 @@ final class AriaContextStore: ObservableObject {
         }
         let habitConstraints = HabitEngine.constraints(for: habits)
         context.recentPatterns = Array(patterns.suffix(12))
-        let owned = ["qol:", "stress:", "nutrition_score:", "sleep_quality:", "protein:", "steps:", "hydration:", "recovery:", "sleep:", "movement:", "meals_logged:", "habit_"]
+        let owned = ["qol:", "stress:", "nutrition_score:", "sleep_quality:", "protein:", "steps:", "hydration:", "recovery:", "sleep:", "movement:", "meals_logged:", "habit_", "living:"]
         var merged = context.lifestyleTags.filter { tag in
             !owned.contains { tag.hasPrefix($0) }
         }
@@ -795,6 +796,23 @@ final class AriaContextStore: ObservableObject {
 
     func shouldBeProactive() -> Bool {
         context.relationshipLevel >= 2
+    }
+
+    /// Interview / What I Know living character → ARIA tags. Closed chips only.
+    /// Replaces the `living:` family so Dummy can answer who they are without a model call.
+    func applyLivingCharacterTags(_ incoming: [String]) {
+        let next = incoming.filter { $0.hasPrefix("living:") }
+        var merged = context.lifestyleTags.filter { !$0.hasPrefix("living:") }
+        merged.append(contentsOf: next)
+        context.lifestyleTags = Array(Set(merged)).sorted()
+        if let note = QualityOfLifePersona.livingDecisionNote(from: next) {
+            context.lastInsights.insert(note, at: 0)
+            if context.lastInsights.count > 15 {
+                context.lastInsights = Array(context.lastInsights.prefix(15))
+            }
+        }
+        context.lastUpdated = Date()
+        persist()
     }
 
     /// Merge lifestyle history tags, replacing the whole family each time.

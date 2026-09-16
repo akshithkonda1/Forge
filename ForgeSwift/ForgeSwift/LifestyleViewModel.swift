@@ -56,9 +56,17 @@ final class LifestyleViewModel: ObservableObject {
         AgingBridge.snapshot(age: personalAge, sexFemale: personalSexFemale, stats: healthStats)
     }
 
+    /// Copied from the live AppStore — AppStore is a @StateObject, not a singleton.
+    private var storeDeepSleepMinutes: Double?
+    private var storeReadinessStress0to1: Double?
+
     /// Feed the signed-in profile so QoL targets are personal, not one-size-fits-all.
     /// Safe to call repeatedly; it only copies the fields QoL uses.
-    func applyPersonalization(_ profile: UserProfile?) {
+    func applyPersonalization(
+        _ profile: UserProfile?,
+        dailyDeepSleepMinutes: Int = 0,
+        readinessStressLevel: Int = 0
+    ) {
         personalWeightKg = profile?.weight
         personalAge = profile?.age
         if let sex = profile?.biologicalSex {
@@ -68,6 +76,10 @@ final class LifestyleViewModel: ObservableObject {
             case .intersex, .preferNotToSay: personalSexFemale = nil
             }
         }
+        storeDeepSleepMinutes = dailyDeepSleepMinutes > 0 ? Double(dailyDeepSleepMinutes) : nil
+        storeReadinessStress0to1 = readinessStressLevel > 0
+            ? min(1, max(0, Double(readinessStressLevel) / 100.0))
+            : nil
     }
 
     func load(force: Bool = false) async {
@@ -475,9 +487,8 @@ final class LifestyleViewModel: ObservableObject {
             inputs.hrvBaselineMs = recentHRV.reduce(0, +) / Double(recentHRV.count)
         }
 
-        let daily = AppStore.shared.dailyMetrics
-        if daily.deepSleep > 0 {
-            inputs.deepSleepMinutes = Double(daily.deepSleep)
+        if let deep = storeDeepSleepMinutes {
+            inputs.deepSleepMinutes = deep
         }
         if let night = HealthKitSleepService.shared.cachedSleepData.first {
             if night.deepMinutes > 0 { inputs.deepSleepMinutes = Double(night.deepMinutes) }
@@ -486,9 +497,8 @@ final class LifestyleViewModel: ObservableObject {
 
         guard let stats else {
             // Stress from readiness when HK stats are thin.
-            let readinessStress = AppStore.shared.readiness.stressLevel
-            if readinessStress > 0 {
-                inputs.stressLevel0to1 = min(1, max(0, Double(readinessStress) / 100.0))
+            if let readinessStress = storeReadinessStress0to1 {
+                inputs.stressLevel0to1 = readinessStress
             }
             return inputs
         }
@@ -513,11 +523,8 @@ final class LifestyleViewModel: ObservableObject {
         inputs.respiratoryRate = stats.respiratoryRate > 0 ? stats.respiratoryRate : nil
         if stats.hrv > 0 {
             inputs.stressLevel0to1 = stats.hrv < 30 ? 0.85 : (stats.hrv < 50 ? 0.45 : 0.2)
-        } else {
-            let readinessStress = AppStore.shared.readiness.stressLevel
-            if readinessStress > 0 {
-                inputs.stressLevel0to1 = min(1, max(0, Double(readinessStress) / 100.0))
-            }
+        } else if let readinessStress = storeReadinessStress0to1 {
+            inputs.stressLevel0to1 = readinessStress
         }
         return inputs
     }

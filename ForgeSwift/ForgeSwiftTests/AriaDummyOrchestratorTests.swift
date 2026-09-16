@@ -461,6 +461,41 @@ final class AriaDummyOrchestratorTests: XCTestCase {
         XCTAssertFalse(AriaDummyOrchestrator.usesOffDeviceLLM)
     }
 
+    func testLivingCharacterQuestionAnswersFromLocalPersona() async {
+        let personaKey = QualityOfLifeLivingStore.personaKey
+        let previous = UserDefaults.standard.data(forKey: personaKey)
+        defer {
+            if let previous {
+                UserDefaults.standard.set(previous, forKey: personaKey)
+            } else {
+                UserDefaults.standard.removeObject(forKey: personaKey)
+            }
+        }
+        QualityOfLifeLivingStore.savePersona(QualityOfLifePersona(
+            archetype: .homebody,
+            nutritionRelationship: "fuel",
+            eatingRhythm: .light,
+            movementPreference: .cardio,
+            hobbies: [.cooking, .reading]
+        ))
+        let store = makeStore()
+        let reply = await AriaDummyOrchestrator.reply(
+            text: "what do you know about me",
+            store: store,
+            agent: .lifestyle,
+            agents: ["lifestyle"]
+        )
+        XCTAssertTrue(reply.message.localizedCaseInsensitiveContains("homebody"), reply.message)
+        XCTAssertTrue(reply.message.localizedCaseInsensitiveContains("cardio"), reply.message)
+        XCTAssertTrue(
+            reply.message.localizedCaseInsensitiveContains("on-device")
+                || reply.message.localizedCaseInsensitiveContains("model"),
+            reply.message
+        )
+        XCTAssertFalse(reply.message.localizedCaseInsensitiveContains("uncle"))
+        XCTAssertFalse(AriaDummyOrchestrator.usesOffDeviceLLM)
+    }
+
     func testCopyPastedPromptGetsAUniqueReply() async {
         let varietyKey = AriaReplyVariety.defaultsKey
         let varietyPrevious = UserDefaults.standard.data(forKey: varietyKey)
