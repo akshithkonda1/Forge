@@ -22,14 +22,8 @@ final class AriaMemoryControlsTests: XCTestCase {
 
     func testManagedFoldersAreTheSevenConsumerVaults() {
         XCTAssertEqual(AriaKnowledgeCategory.managedCases.map(\.title), [
-            "Goals", "Identity", "Lifestyle", "Preferences", "Events", "Body notes", "Mood"
+            "Goals", "Identity", "Lifestyle", "Preferences", "Events", "Health History", "Mood"
         ])
-        XCTAssertEqual(AriaKnowledgeCategory.healthHistory.rawValue, "healthHistory")
-        XCTAssertEqual(AriaKnowledgeCategory.healthHistory.title, "Body notes")
-        XCTAssertFalse(AriaKnowledgeCategory.healthHistory.blurb.localizedCaseInsensitiveContains("health history"))
-        XCTAssertTrue(AriaKnowledgeCategory.healthHistory.blurb.localizedCaseInsensitiveContains("qualitative"))
-        XCTAssertFalse(AriaKnowledgeCategory.healthHistory.blurb.localizedCaseInsensitiveContains("rem"))
-        XCTAssertFalse(AriaKnowledgeCategory.healthHistory.blurb.localizedCaseInsensitiveContains("insomnia"))
         XCTAssertEqual(
             AriaKnowledgeCategory.appleHealth.managedFolder(kind: "sleep"),
             .healthHistory

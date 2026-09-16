@@ -229,6 +229,96 @@ class TerraformLivePathTests(unittest.TestCase):
         self.assertNotIn("localhost", blob)
 
 
+class RoadmapFlagAndSecretHygieneTests(unittest.TestCase):
+    def test_committed_plists_have_no_secrets_or_live_roadmap_flags(self):
+        self.assertEqual(mod.audit_committed_plists(), [])
+
+    def test_watch_plist_has_no_forge_client_config(self):
+        watch = mod.parse_plist(mod.WATCH_PLIST.read_text(encoding="utf-8"))
+        self.assertEqual(mod.watch_plist_problems(watch), [])
+        for key in mod.KEYS:
+            self.assertNotIn(key, watch)
+
+    def test_dummy_allows_absent_or_false_roadmap_flags(self):
+        parsed = dict(_base())
+        self.assertEqual(mod.roadmap_flag_problems(parsed, dummy=True), [])
+        for key in mod.ROADMAP_FLAG_KEYS:
+            parsed[key] = "false"
+        self.assertEqual(mod.roadmap_flag_problems(parsed, dummy=True), [])
+
+    def test_dummy_rejects_provider_routing_flag_on(self):
+        parsed = dict(_base())
+        parsed["FORGEProviderRoutingEnabled"] = "true"
+        problems = mod.roadmap_flag_problems(parsed, dummy=True)
+        self.assertTrue(any("FORGEProviderRoutingEnabled" in p for p in problems))
+        self.assertTrue(any("Dummy-offline" in p for p in problems))
+
+    def test_dummy_rejects_editable_memory_and_rmssd_flags_on(self):
+        parsed = dict(_base())
+        parsed["FORGEEditableMemoryEnabled"] = "yes"
+        parsed["FORGERMSSDEnabled"] = "1"
+        problems = mod.roadmap_flag_problems(parsed, dummy=True)
+        self.assertTrue(any("FORGEEditableMemoryEnabled" in p for p in problems))
+        self.assertTrue(any("FORGERMSSDEnabled" in p for p in problems))
+
+    def test_live_env_may_enable_roadmap_flags(self):
+        parsed = {
+            "FORGEEnvironment": "prod",
+            "FORGEProviderRoutingEnabled": "true",
+        }
+        self.assertEqual(mod.roadmap_flag_problems(parsed, dummy=False), [])
+
+    def test_secret_arn_in_plist_is_refused(self):
+        parsed = dict(_base())
+        parsed["AI_PROVIDER_SECRET_ARN"] = (
+            "arn:aws:secretsmanager:us-east-1:123:secret:forge-dev/ai/provider"
+        )
+        problems = mod.secret_leak_problems(parsed, source="Info-Add.plist")
+        self.assertTrue(any("credential" in p or "secret" in p.lower() for p in problems))
+
+    def test_bedrock_arn_value_is_refused(self):
+        parsed = dict(_base())
+        parsed["FORGEModelId"] = "arn:aws:bedrock:us-east-1:123:inference-profile/x"
+        problems = mod.secret_leak_problems(parsed, source="Info-Add.plist")
+        self.assertTrue(any("ARN" in p or "arn:aws:bedrock" in p for p in problems))
+
+    def test_check_refuses_dummy_with_routing_flag(self):
+        parsed = dict(_base())
+        parsed["FORGEProviderRoutingEnabled"] = "true"
+        problems = mod.hygiene_problems(parsed, _base(), source="Info-Add.plist")
+        self.assertTrue(any("FORGEProviderRoutingEnabled" in p for p in problems))
+
+
+class TerraformAllowListTests(unittest.TestCase):
+    def test_does_not_copy_secret_arn_identity_pool_or_web_client(self):
+        outputs = _terraform_outputs()
+        outputs["ai_provider_secret_arn"] = {
+            "value": "arn:aws:secretsmanager:us-east-1:1:secret:forge-dev/ai/provider"
+        }
+        config = outputs["client_configuration"]["value"]
+        config["cognito"]["identityPoolId"] = "us-east-1:aaaaaaaa-bbbb-cccc"
+        config["cognito"]["webClientId"] = "webclientid123"
+        config["storage"] = {"uploadsBucket": "forge-dev-uploads"}
+        values = mod.from_terraform_outputs(outputs, "prod")
+        blob = " ".join(values.values())
+        for banned in mod.TERRAFORM_CLIENT_BLOCKLIST:
+            self.assertNotIn(banned, values)
+            self.assertNotIn(banned, blob)
+        self.assertNotIn("secretsmanager", blob)
+        self.assertNotIn("webclientid123", blob)
+        self.assertNotIn("aaaaaaaa-bbbb-cccc", blob)
+        self.assertNotIn("forge-dev-uploads", blob)
+        self.assertEqual(set(values), set(mod.KEYS))
+
+    def test_refuses_arn_mistakenly_mapped_into_api_url(self):
+        outputs = _terraform_outputs(
+            api="arn:aws:secretsmanager:us-east-1:1:secret:forge-dev/ai/provider"
+        )
+        with self.assertRaises(mod.ConfigError) as caught:
+            mod.from_terraform_outputs(outputs, "prod")
+        self.assertIn("ARN", str(caught.exception))
+
+
 class BedrockUntouchedTests(unittest.TestCase):
     def test_generator_does_not_enable_bedrock(self):
         source = SCRIPT.read_text(encoding="utf-8")

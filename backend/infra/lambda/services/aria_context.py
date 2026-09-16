@@ -378,6 +378,10 @@ class CoachContextEngine:
         busy window and the time. Past events are skipped; events beyond the
         horizon are ignored until they get closer; re-ingesting the same start
         overwrites rather than duplicates.
+
+        Rowan/Iris: when ``editable_memory.auto_ingest_allowed`` is false
+        (``memory_enabled`` off), automatic ingest must stop. Off ≠ delete —
+        existing STM stays. Not gated here yet; settings schema is the stub.
         """
         if not events:
             return []

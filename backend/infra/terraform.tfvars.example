@@ -26,11 +26,30 @@ tags = {
   Owner = "Forge"
 }
 
-# Third router slot — Grok (xAI), the differently-trained second opinion
-# alongside the Claude family. Leave both unset to keep the code default
-# (global.xai.grok-4.6). Set both together to move the slot; a name that
-# disagrees with the id makes the transcript claim a model that never answered.
+# Keep aria_bedrock_enabled unset (default false). Dummy-offline and
+# live-API-no-Bedrock must not turn Bedrock on.
+# aria_bedrock_enabled = false
 #
-# Prove a model swap in staging before production follows:
+# Router slots. Leave unset to keep ai_router.default_models() fallbacks:
+#   1 anthropic.claude-sonnet-4-6  / Claude Sonnet 4.6
+#   2 anthropic.claude-opus-4-7    / Claude Opus 4.7
+#   3 global.xai.grok-4.6          / Grok
+# After greenlight, a Claude 5 swap is env/tfvars only (IAM already allows
+# anthropic.*). Runtime in us-east-1 wants CRIS ids, not bare foundation ids:
+#   us.anthropic.claude-sonnet-5 / us.anthropic.claude-opus-5
+#   (or global.anthropic.claude-sonnet-5 / global.anthropic.claude-opus-5)
+# US-only Grok residency would be us.xai.grok-4.6. Do not put Grok 4.3 here.
+# Set id and name together; a name that disagrees with the id is worse than
+# no name.
+# ai_router_model_1_id   = "anthropic.claude-sonnet-4-6"
+# ai_router_model_1_name = "Claude Sonnet 4.6"
+# ai_router_model_2_id   = "anthropic.claude-opus-4-7"
+# ai_router_model_2_name = "Claude Opus 4.7"
 # ai_router_model_3_id   = "global.xai.grok-4.6"
 # ai_router_model_3_name = "Grok"
+#
+# Optional monthly cost budget. Default false — no budget resource, $0 even
+# after apply. First two AWS Budgets are free; still skip until a live account.
+# enable_spend_guard                = false
+# spend_guard_limit_usd             = 5
+# spend_guard_notification_email    = ""

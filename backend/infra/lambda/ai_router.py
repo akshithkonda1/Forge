@@ -784,13 +784,13 @@ def default_models() -> list[ModelConfig]:
     return [
         ModelConfig(
             slot=1,
-            name="Claude Sonnet 4.6",
+            name=os.getenv("AI_ROUTER_MODEL_1_NAME", "Claude Sonnet 4.6"),
             model_id=os.getenv("AI_ROUTER_MODEL_1_ID", "anthropic.claude-sonnet-4-6"),
             responsibility="Primary responder focused on fast, high-quality first-pass answers.",
         ),
         ModelConfig(
             slot=2,
-            name="Claude Opus 4.7",
+            name=os.getenv("AI_ROUTER_MODEL_2_NAME", "Claude Opus 4.7"),
             model_id=os.getenv("AI_ROUTER_MODEL_2_ID", "anthropic.claude-opus-4-7"),
             responsibility="Fallback and verifier when the first model misses the latency window or needs backup.",
         ),

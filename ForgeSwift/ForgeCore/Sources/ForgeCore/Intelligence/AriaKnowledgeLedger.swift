@@ -35,7 +35,7 @@ public enum AriaKnowledgeCategory: String, Codable, CaseIterable, Sendable {
         case .lifestyle: return "Lifestyle"
         case .preferences: return "Preferences"
         case .events: return "Events"
-        case .healthHistory: return "Body notes"
+        case .healthHistory: return "Health History"
         case .mood: return "Mood"
         }
     }
@@ -61,7 +61,7 @@ public enum AriaKnowledgeCategory: String, Codable, CaseIterable, Sendable {
         case .lifestyle: return "The shape of a normal week."
         case .preferences: return "How you like to be coached."
         case .events: return "Kinds and days-until. Never titles, people, or places."
-        case .healthHistory: return "How sleep and movement felt. Qualitative notes only — not stage percentages."
+        case .healthHistory: return "Sleep, movement, and body notes from this phone."
         case .mood: return "How the week has actually felt."
         case .appleHealth, .weSpokeAbout, .otherData, .inferences:
             return title

@@ -2,6 +2,7 @@ import SwiftUI
 
 struct SleepView: View {
     @EnvironmentObject var store: AppStore
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @ObservedObject private var hkService = HealthKitSleepService.shared
     @State private var selectedTab: SleepTab = SleepTab.suggested(
         hour: Calendar.current.component(.hour, from: Date())
@@ -9,6 +10,8 @@ struct SleepView: View {
     @State private var showSleepPersonalization = false
 
     @ObservedObject private var alarmStore = ForgeAlarmStore.shared
+
+    private var presence: SleepSurfacePresence { store.sleepSurface }
 
     private var tonightCoach: SleepBedtimeCoach {
         SleepBedtimeCoach.make(from: store.sleepData)
@@ -53,6 +56,7 @@ struct SleepView: View {
                 SleepHeaderView(
                     selectedTab: selectedTab,
                     subtitle: headerSubtitle,
+                    presence: presence,
                     onAskAria: {
                         store.openChat(
                             with: selectedTab == .alarms ? wakeCoach.ariaPrompt : tonightCoach.ariaPrompt,
@@ -80,7 +84,7 @@ struct SleepView: View {
                         .tag(SleepTab.alarms)
                 }
                 .tabViewStyle(.page(indexDisplayMode: .never))
-                .animation(.easeInOut(duration: 0.22), value: selectedTab)
+                .animation(reduceMotion ? nil : .easeInOut(duration: 0.22), value: selectedTab)
             }
         }
         .sheet(isPresented: $showSleepPersonalization) {
@@ -104,27 +108,37 @@ struct SleepView: View {
 }
 
 struct SleepBackground: View {
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
     var body: some View {
         ZStack {
             Color.background
             RadialGradient(
-                colors: [Color(hex: "1A1440").opacity(0.55), .clear],
+                colors: [Color(hex: "1A1440").opacity(0.62), .clear],
                 center: UnitPoint(x: 0.5, y: 0.0),
                 startRadius: 10,
-                endRadius: 460
+                endRadius: 480
             )
             RadialGradient(
-                colors: [Color.aurora.opacity(0.10), .clear],
-                center: UnitPoint(x: 0.82, y: 0.18),
+                colors: [Color.aurora.opacity(0.12), .clear],
+                center: UnitPoint(x: 0.82, y: 0.16),
                 startRadius: 8,
-                endRadius: 260
+                endRadius: 280
             )
+            .blur(radius: reduceMotion ? 0 : 18)
             RadialGradient(
-                colors: [Color.ember.opacity(0.06), .clear],
-                center: UnitPoint(x: 0.12, y: 0.28),
+                colors: [Color(hex: "A9D8FF").opacity(0.05), .clear],
+                center: UnitPoint(x: 0.14, y: 0.32),
                 startRadius: 8,
                 endRadius: 240
             )
+            LinearGradient(
+                colors: [.clear, Color.white.opacity(0.028), .clear],
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
+            )
+            .blendMode(.plusLighter)
+            .opacity(reduceMotion ? 0.35 : 0.55)
         }
     }
 }
@@ -132,9 +146,12 @@ struct SleepBackground: View {
 struct SleepHeaderView: View {
     let selectedTab: SleepTab
     var subtitle: String = "Energy first. Night second."
+    var presence: SleepSurfacePresence
     let onAskAria: () -> Void
     let onPersonalize: () -> Void
     let onTabSelect: (SleepTab) -> Void
+
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     private var tabIcon: [SleepTab: String] {
         [.day: "chart.line.uptrend.xyaxis", .night: "moon.stars.fill", .alarms: "alarm.fill"]
@@ -148,16 +165,17 @@ struct SleepHeaderView: View {
                         Text("Sleep")
                             .font(FDS.TypeScale.pageTitle())
                             .foregroundColor(.textPrimary)
-                        // Tiny live dot — calm proof the page is reading HealthKit, not a mock.
-                        Circle().fill(Color.vitality).frame(width: 6, height: 6)
-                            .shadow(color: Color.vitality.opacity(0.6), radius: 4)
-                            .opacity(selectedTab == .day ? 1 : 0.5)
+                        SleepStatusDot(kind: presence.liveDot)
                     }
+                    Text(presence.statusCaption)
+                        .font(.system(size: 12, weight: .medium, design: .rounded))
+                        .foregroundColor(.textTertiary)
+                        .lineLimit(1)
                     Text(subtitle)
                         .font(.system(size: 15, weight: .medium, design: .rounded))
                         .foregroundColor(.textSecondary)
                         .lineLimit(2)
-                        .animation(.easeInOut(duration: 0.2), value: subtitle)
+                        .animation(reduceMotion ? nil : .easeInOut(duration: 0.2), value: subtitle)
                 }
                 Spacer()
                 HStack(spacing: 8) {

@@ -46,6 +46,13 @@ def aria_persona_key(user_id: str) -> dict:
     return {"pk": f"USER#{user_id}", "sk": "ARIA#PERSONA"}
 
 
+def aria_memory_settings_key(user_id: str) -> dict:
+    """Dummy-offline Rowan contract: memory_enabled, disabled_folders,
+    persona_enabled, tone, check_in. Not wired into CoachContextEngine.
+    """
+    return {"pk": f"USER#{user_id}", "sk": "ARIA#MEMORY_SETTINGS"}
+
+
 def aria_body_snapshot_key(user_id: str) -> dict:
     """Last BodyModel projection so /ai/chat shares /ai/observe's ingested truth."""
     return {"pk": f"USER#{user_id}", "sk": "ARIA#BODY_SNAPSHOT"}

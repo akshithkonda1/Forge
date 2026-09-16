@@ -10,7 +10,10 @@ Bedrock (``aria_bedrock_enabled`` stays false; this script never touches it).
 
 Live / local API builds still consume Terraform ``client_configuration``
 (apiBaseUrl, cognito.region, cognito.iosClientId, cognito.userPoolId) when
-you pass stack outputs. Dummy-offline needs none of those.
+you pass stack outputs. Dummy-offline needs none of those. Hex roadmap
+gates (provider routing, editable memory, RMSSD) stay off-by-absence in
+the Dummy plist; ``--check`` refuses them if they are later added ``true``.
+The generator never copies ``ai_provider_secret_arn`` or identity-pool ids.
 
 Usage:
 
@@ -42,6 +45,7 @@ import sys
 
 REPO_ROOT = pathlib.Path(__file__).resolve().parent.parent
 PLIST = REPO_ROOT / "ForgeSwift" / "ForgeSwift" / "Info-Add.plist"
+WATCH_PLIST = REPO_ROOT / "ForgeSwift" / "ForgeWatch" / "Info-Add.plist"
 
 PRODUCTION_LIKE = {"prod", "production", "staging", "stage"}
 # Dummy-offline / TestFlight-safe. No live API, no Cognito, no stack outputs.
@@ -72,6 +76,42 @@ KEYS = (
     "FORGECognitoClientId",
     "FORGECognitoUserPoolId",
     "FORGEEnvironment",
+)
+
+# Hex roadmap. Off-by-absence is Dummy-offline-safe. If a later PR adds these
+# Info.plist keys, Dummy / TestFlight must keep them false so the archive
+# still needs no live Cognito, API, provider secret, or stack outputs.
+ROADMAP_FLAG_KEYS = (
+    "FORGEProviderRoutingEnabled",
+    "FORGEEditableMemoryEnabled",
+    "FORGERMSSDEnabled",
+)
+TRUTHY_FLAGS = {"1", "true", "yes", "on"}
+
+# Never copy these Terraform fields into the iOS plist. identityPoolId /
+# webClientId are the other frontends; the secret ARN is Lambda-only.
+TERRAFORM_CLIENT_BLOCKLIST = (
+    "ai_provider_secret_arn",
+    "identityPoolId",
+    "webClientId",
+    "uploadsBucket",
+)
+
+SECRET_KEY_MARKERS = (
+    "API_KEY",
+    "SECRET",
+    "PASSWORD",
+    "PRIVATE_KEY",
+    "ACCESS_TOKEN",
+    "AI_PROVIDER",
+    "ELEVENLABS",
+    "ANTHROPIC",
+    "OPENAI",
+)
+SECRET_VALUE_MARKERS = (
+    "arn:aws:secretsmanager",
+    "arn:aws:bedrock",
+    "akia",
 )
 
 
@@ -149,6 +189,81 @@ def write_plist_values(text: str, values: dict[str, str]) -> str:
 
 def is_loopback(url: str) -> bool:
     return any(host in url for host in LOOPBACK_HOSTS)
+
+
+def _flag_is_on(value: object) -> bool:
+    if isinstance(value, bool):
+        return value
+    if not isinstance(value, str):
+        return False
+    return value.strip().lower() in TRUTHY_FLAGS
+
+
+def _stringify(value: object) -> str:
+    if isinstance(value, bool):
+        return "true" if value else "false"
+    return str(value)
+
+
+def _walk_strings(payload: object, prefix: str = "") -> list[tuple[str, str]]:
+    found: list[tuple[str, str]] = []
+    if isinstance(payload, dict):
+        for key, value in payload.items():
+            path = f"{prefix}.{key}" if prefix else str(key)
+            found.extend(_walk_strings(value, path))
+    elif isinstance(payload, list):
+        for index, value in enumerate(payload):
+            found.extend(_walk_strings(value, f"{prefix}[{index}]"))
+    elif isinstance(payload, (str, bool, int, float)):
+        found.append((prefix, _stringify(payload)))
+    return found
+
+
+def secret_leak_problems(parsed: dict, *, source: str) -> list[str]:
+    """Refuse credentials, provider ARNs, and API keys in a shipped plist."""
+    problems: list[str] = []
+    for path, value in _walk_strings(parsed):
+        key_upper = path.upper()
+        if any(marker in key_upper for marker in SECRET_KEY_MARKERS):
+            problems.append(
+                f"{source}: {path} looks like a credential or provider secret. "
+                "Dummy-offline ships none of these; ai_provider stays on the Lambda."
+            )
+            continue
+        lowered = value.lower()
+        if any(marker in lowered for marker in SECRET_VALUE_MARKERS):
+            problems.append(
+                f"{source}: {path} embeds {value!r}. Provider ARNs and access keys "
+                "must not ship in client config."
+            )
+    return problems
+
+
+def roadmap_flag_problems(parsed: dict, *, dummy: bool) -> list[str]:
+    """Dummy-offline must not enable live Hex roadmap gates."""
+    if not dummy:
+        return []
+    problems: list[str] = []
+    for key in ROADMAP_FLAG_KEYS:
+        if key in parsed and _flag_is_on(parsed[key]):
+            problems.append(
+                f"Dummy-offline must keep {key} off (found {_stringify(parsed[key])!r}). "
+                "Provider routing, editable memory, and RMSSD stay local / flagged-off "
+                "so TestFlight needs no live Cognito, API, or ai_provider secret."
+            )
+    return problems
+
+
+def watch_plist_problems(parsed: dict) -> list[str]:
+    problems: list[str] = []
+    for key in KEYS:
+        if key in parsed:
+            problems.append(
+                f"{WATCH_PLIST.name} must not carry {key}; phone Info-Add.plist is "
+                "the ForgeAuthConfig contract."
+            )
+    problems.extend(secret_leak_problems(parsed, source=WATCH_PLIST.name))
+    return problems
 
 
 def _cognito_fields(values: dict[str, str]) -> dict[str, str]:
@@ -232,8 +347,35 @@ def validate(values: dict[str, str]) -> list[str]:
     return problems
 
 
+def hygiene_problems(parsed: dict, values: dict[str, str], *, source: str) -> list[str]:
+    """Secrets, ARNs, and Dummy-offline roadmap flags — beyond the five FORGE keys."""
+    environment = values["FORGEEnvironment"].strip().lower()
+    dummy = environment in DUMMY_OFFLINE
+    return (
+        secret_leak_problems(parsed, source=source)
+        + roadmap_flag_problems(parsed, dummy=dummy)
+    )
+
+
+def audit_committed_plists() -> list[str]:
+    problems: list[str] = []
+    phone_text = PLIST.read_text(encoding="utf-8")
+    phone = parse_plist(phone_text)
+    values = read_plist_values(phone_text)
+    problems.extend(hygiene_problems(phone, values, source=PLIST.name))
+    if WATCH_PLIST.exists():
+        watch = parse_plist(WATCH_PLIST.read_text(encoding="utf-8"))
+        problems.extend(watch_plist_problems(watch))
+    return problems
+
+
 def from_terraform_outputs(outputs: dict, environment: str) -> dict[str, str]:
-    """Pull the five values out of the `client_configuration` output."""
+    """Pull the five values out of the `client_configuration` output.
+
+    Dummy-offline never calls this. Live mapping is allow-listed: apiBaseUrl plus
+    iOS Cognito ids. ``ai_provider_secret_arn``, identity pool, web client id,
+    and bucket names stay out of Info.plist even when present in the JSON.
+    """
     root = outputs.get("client_configuration")
     if root is None:
         raise ConfigError(
@@ -243,9 +385,13 @@ def from_terraform_outputs(outputs: dict, environment: str) -> dict[str, str]:
     # `terraform output -json` wraps each output as {"value": ..., "type": ...};
     # a bare object is accepted too so a hand-written fixture works.
     config = root.get("value", root) if isinstance(root, dict) else root
+    if not isinstance(config, dict):
+        raise ConfigError("client_configuration is not an object.")
     cognito = config.get("cognito") or {}
+    if not isinstance(cognito, dict):
+        cognito = {}
 
-    return {
+    values = {
         "FORGEAPIBaseURL": str(config.get("apiBaseUrl") or ""),
         "FORGECognitoRegion": str(cognito.get("region") or ""),
         # The iOS client id, not the web one: only the iOS pool client has
@@ -254,6 +400,14 @@ def from_terraform_outputs(outputs: dict, environment: str) -> dict[str, str]:
         "FORGECognitoUserPoolId": str(cognito.get("userPoolId") or ""),
         "FORGEEnvironment": environment,
     }
+    for value in values.values():
+        lowered = value.lower()
+        if "secretsmanager" in lowered or lowered.startswith("arn:aws:"):
+            raise ConfigError(
+                "client_configuration mapping leaked a provider ARN into iOS "
+                f"plist values: {value!r}"
+            )
+    return values
 
 
 def load_outputs(args: argparse.Namespace) -> dict:
@@ -313,6 +467,20 @@ def main(argv: list[str]) -> int:
         return 2
 
     problems = validate(values)
+    if args.check:
+        try:
+            parsed = parse_plist(text)
+        except ConfigError as exc:
+            print(f"generate_client_config: {exc}", file=sys.stderr)
+            return 2
+        problems.extend(hygiene_problems(parsed, values, source=PLIST.name))
+        if WATCH_PLIST.exists():
+            try:
+                watch = parse_plist(WATCH_PLIST.read_text(encoding="utf-8"))
+            except ConfigError as exc:
+                print(f"generate_client_config: {exc}", file=sys.stderr)
+                return 2
+            problems.extend(watch_plist_problems(watch))
     if problems:
         print("generate_client_config: refusing this configuration:", file=sys.stderr)
         for problem in problems:

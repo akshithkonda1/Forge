@@ -222,6 +222,7 @@
 		6F942A1093A4321ED41D862F /* WorkoutViewHelpers.swift in Sources */ = {isa = PBXBuildFile; fileRef = BABAFB0CD1611F6F77549116 /* WorkoutViewHelpers.swift */; };
 		AA000100000000000000000A /* SleepView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000200000000000000000A /* SleepView.swift */; };
 		00C9C45A23CBD05FF6583B9B /* SleepModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 827364B87E627CF4CC80BFE2 /* SleepModels.swift */; };
+		1SLEEPAD22F9FF867004091AA /* SleepSurfacePresence.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1SLEEPAD12F9FF867004091AA /* SleepSurfacePresence.swift */; };
 		2FFACC674BBEA570D73CE1E8 /* SleepNightTab.swift in Sources */ = {isa = PBXBuildFile; fileRef = D02B8B267BDE65BC4C962889 /* SleepNightTab.swift */; };
 		D73A7502C11F243B8CA79DB3 /* SleepAlarmTab.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4621301CC9D9971E70777C7C /* SleepAlarmTab.swift */; };
 		EEC7867EE378171FAB034AD7 /* SleepSoundsTab.swift in Sources */ = {isa = PBXBuildFile; fileRef = A623D0F06FD3C50C8C9C2DF0 /* SleepSoundsTab.swift */; };
@@ -339,6 +340,7 @@
 		1TEST03800000000000000A /* SleepNightGroupingTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1TEST03700000000000000A /* SleepNightGroupingTests.swift */; };
 		1TEST03A00000000000000A /* HealthKitSleepServiceScoringTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1TEST03900000000000000A /* HealthKitSleepServiceScoringTests.swift */; };
 		1TEST04200000000000000A /* TrainSleepUsableTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1TEST04100000000000000A /* TrainSleepUsableTests.swift */; };
+		1TEST04800000000000000A /* SleepSurfacePresenceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1TEST04700000000000000A /* SleepSurfacePresenceTests.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -510,6 +512,7 @@
 		1TEST03500000000000000A /* AriaDummyOrchestratorTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AriaDummyOrchestratorTests.swift; sourceTree = "<group>"; };
 		1MEM05000000000000000A /* AriaMemoryControlsViewModelTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AriaMemoryControlsViewModelTests.swift; sourceTree = "<group>"; };
 		1TEST04100000000000000A /* TrainSleepUsableTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TrainSleepUsableTests.swift; sourceTree = "<group>"; };
+		1TEST04700000000000000A /* SleepSurfacePresenceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SleepSurfacePresenceTests.swift; sourceTree = "<group>"; };
 		AA00020000000000000000B2 /* PartnerCycleSharing.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PartnerCycleSharing.swift; sourceTree = "<group>"; };
 		1ARIA0072F9FF867004091AA /* AriaContextStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AriaContextStore.swift; sourceTree = "<group>"; };
 		1ARIA0092F9FF867004091AA /* FeedbackService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FeedbackService.swift; sourceTree = "<group>"; };
@@ -655,6 +658,7 @@
 		BABAFB0CD1611F6F77549116 /* WorkoutViewHelpers.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkoutViewHelpers.swift; sourceTree = "<group>"; };
 		AA000200000000000000000A /* SleepView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SleepView.swift; sourceTree = "<group>"; };
 		827364B87E627CF4CC80BFE2 /* SleepModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SleepModels.swift; sourceTree = "<group>"; };
+		1SLEEPAD12F9FF867004091AA /* SleepSurfacePresence.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SleepSurfacePresence.swift; sourceTree = "<group>"; };
 		D02B8B267BDE65BC4C962889 /* SleepNightTab.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SleepNightTab.swift; sourceTree = "<group>"; };
 		4621301CC9D9971E70777C7C /* SleepAlarmTab.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SleepAlarmTab.swift; sourceTree = "<group>"; };
 		A623D0F06FD3C50C8C9C2DF0 /* SleepSoundsTab.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SleepSoundsTab.swift; sourceTree = "<group>"; };
@@ -1010,6 +1014,7 @@
 				BABAFB0CD1611F6F77549116 /* WorkoutViewHelpers.swift */,
 				AA000200000000000000000A /* SleepView.swift */,
 				827364B87E627CF4CC80BFE2 /* SleepModels.swift */,
+				1SLEEPAD12F9FF867004091AA /* SleepSurfacePresence.swift */,
 				D02B8B267BDE65BC4C962889 /* SleepNightTab.swift */,
 				4621301CC9D9971E70777C7C /* SleepAlarmTab.swift */,
 				A623D0F06FD3C50C8C9C2DF0 /* SleepSoundsTab.swift */,
@@ -1272,6 +1277,7 @@
 				1TEST03700000000000000A /* SleepNightGroupingTests.swift */,
 				1TEST03900000000000000A /* HealthKitSleepServiceScoringTests.swift */,
 				1TEST04100000000000000A /* TrainSleepUsableTests.swift */,
+				1TEST04700000000000000A /* SleepSurfacePresenceTests.swift */,
 				1MED03000000000000000A /* MedicationPharmacyTests.swift */,
 			);
 			path = ForgeSwiftTests;
@@ -1710,6 +1716,7 @@
 				6F942A1093A4321ED41D862F /* WorkoutViewHelpers.swift in Sources */,
 				AA000100000000000000000A /* SleepView.swift in Sources */,
 				00C9C45A23CBD05FF6583B9B /* SleepModels.swift in Sources */,
+				1SLEEPAD22F9FF867004091AA /* SleepSurfacePresence.swift in Sources */,
 				2FFACC674BBEA570D73CE1E8 /* SleepNightTab.swift in Sources */,
 				D73A7502C11F243B8CA79DB3 /* SleepAlarmTab.swift in Sources */,
 				EEC7867EE378171FAB034AD7 /* SleepSoundsTab.swift in Sources */,
@@ -1853,6 +1860,7 @@
 				1TEST03800000000000000A /* SleepNightGroupingTests.swift in Sources */,
 				1TEST03A00000000000000A /* HealthKitSleepServiceScoringTests.swift in Sources */,
 				1TEST04200000000000000A /* TrainSleepUsableTests.swift in Sources */,
+				1TEST04800000000000000A /* SleepSurfacePresenceTests.swift in Sources */,
 				1MED04000000000000000A /* MedicationPharmacyTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
