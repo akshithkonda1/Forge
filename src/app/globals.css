@@ -386,8 +386,7 @@
 }
 
 .premium-enter {
-  /* No CSS filter here — filter on ancestors breaks hit-testing for
-     descendants that use transform (e.g. active:scale on the CTA). */
+  /* Avoid CSS filter here — filter on ancestors can break pointer hit-testing. */
   animation: premium-enter 0.72s cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 
