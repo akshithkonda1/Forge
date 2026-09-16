@@ -9,6 +9,7 @@ struct AriaMemoryControlsView: View {
     @State private var showLifestyleInterview = false
     @State private var confirmForgetPersona = false
     @State private var confirmDeleteFact: AriaKnowledgeFact?
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         ScrollView {
@@ -33,8 +34,10 @@ struct AriaMemoryControlsView: View {
         .navigationTitle("ARIA memory & voice")
         .navigationBarTitleDisplayMode(.large)
         .onAppear { model.reload() }
+        .transaction(freezeMotion)
         .sheet(isPresented: $showEditor) {
             editorSheet
+                .transaction(freezeMotion)
         }
         .fullScreenCover(isPresented: $showLifestyleInterview) {
             LifestyleInterviewOverlay {
@@ -44,6 +47,7 @@ struct AriaMemoryControlsView: View {
                     QualityOfLifeLivingStore.livingTags()
                 )
             }
+            .transaction(freezeMotion)
         }
         .confirmationDialog(
             "Forget who I am?",
@@ -79,11 +83,14 @@ struct AriaMemoryControlsView: View {
 
     private var memoryCard: some View {
         VStack(alignment: .leading, spacing: 10) {
-            SettingsRow(icon: "brain.head.profile", iconColor: .ember, label: "Remember me") {
+            SettingsRow(icon: "brain.head.profile", iconColor: .ember, label: AriaMemoryAccess.rememberMeLabel) {
                 ForgeToggle(isOn: Binding(
                     get: { model.memoryOn },
                     set: { model.setMemoryEnabled($0) }
                 ))
+                .accessibilityLabel(AriaMemoryAccess.rememberMeLabel)
+                .accessibilityHint(AriaMemoryAccess.rememberMeHint)
+                .accessibilityValue(AriaMemoryAccess.rememberMeValue(isOn: model.memoryOn))
             }
             Text(model.memoryOn
                  ? "ARIA uses the notes below. Turn this off and I stop using them — nothing is deleted."
@@ -103,11 +110,14 @@ struct AriaMemoryControlsView: View {
 
     private var personaCard: some View {
         VStack(alignment: .leading, spacing: 10) {
-            SettingsRow(icon: "person.fill", iconColor: .ember, label: "Who you are") {
+            SettingsRow(icon: "person.fill", iconColor: .ember, label: AriaMemoryAccess.personaLabel) {
                 ForgeToggle(isOn: Binding(
                     get: { model.controls.prefs.personaEnabled },
                     set: { model.setPersonaEnabled($0) }
                 ))
+                .accessibilityLabel(AriaMemoryAccess.personaLabel)
+                .accessibilityHint(AriaMemoryAccess.personaHint)
+                .accessibilityValue(AriaMemoryAccess.rememberMeValue(isOn: model.controls.prefs.personaEnabled))
             }
             Text(model.controls.persona.archetype.title)
                 .font(.system(size: 18, weight: .bold, design: .rounded))
@@ -134,22 +144,31 @@ struct AriaMemoryControlsView: View {
                     QualityOfLifeLivingStore.clearInterviewCompleted()
                     showLifestyleInterview = true
                 } label: {
-                    Text(model.controls.interviewCompleted ? "Update who I am" : "Tell ARIA who you are")
+                    Text(AriaMemoryAccess.personaActionLabel(
+                        interviewCompleted: model.controls.interviewCompleted
+                    ))
                         .font(.system(size: 14, weight: .semibold))
                         .foregroundColor(.ember)
                 }
                 .buttonStyle(.plain)
+                .accessibilityLabel(AriaMemoryAccess.personaActionLabel(
+                    interviewCompleted: model.controls.interviewCompleted
+                ))
+                .accessibilityAddTraits(.isButton)
                 if model.controls.interviewCompleted
                     || model.controls.persona.archetype != .balanced
                     || model.controls.persona.movementPreference != nil {
                     Button {
                         confirmForgetPersona = true
                     } label: {
-                        Text("Forget who I am")
+                        Text(AriaMemoryAccess.forgetPersonaLabel)
                             .font(.system(size: 14, weight: .semibold))
                             .foregroundColor(.danger)
                     }
                     .buttonStyle(.plain)
+                    .accessibilityLabel(AriaMemoryAccess.forgetPersonaLabel)
+                    .accessibilityHint(AriaMemoryAccess.forgetPersonaHint)
+                    .accessibilityAddTraits(.isButton)
                 }
             }
             .padding(.horizontal, 16)
@@ -163,20 +182,22 @@ struct AriaMemoryControlsView: View {
 
     private var toneCard: some View {
         VStack(alignment: .leading, spacing: 10) {
-            Text("How I talk")
+            Text(AriaMemoryAccess.howITalkHeader)
                 .font(.system(size: 15, weight: .bold))
                 .foregroundColor(.textPrimary)
+                .accessibilityAddTraits(.isHeader)
             Text("Friend first. Not a clinician.")
                 .font(.system(size: 12))
                 .foregroundColor(.textTertiary)
             ForEach(AriaCompanionTone.allCases, id: \.self) { tone in
+                let selected = model.controls.prefs.tone == tone
                 Button {
                     model.setTone(tone)
                 } label: {
                     HStack(alignment: .top, spacing: 10) {
-                        Image(systemName: model.controls.prefs.tone == tone
-                              ? "checkmark.circle.fill" : "circle")
-                            .foregroundColor(model.controls.prefs.tone == tone ? .ember : .textTertiary)
+                        Image(systemName: selected ? "checkmark.circle.fill" : "circle")
+                            .foregroundColor(selected ? .ember : .textTertiary)
+                            .accessibilityHidden(true)
                         VStack(alignment: .leading, spacing: 2) {
                             Text(tone.title)
                                 .font(.system(size: 14, weight: .semibold))
@@ -191,6 +212,9 @@ struct AriaMemoryControlsView: View {
                     .padding(.vertical, 6)
                 }
                 .buttonStyle(.plain)
+                .accessibilityLabel(AriaMemoryAccess.toneLabel(tone, selected: selected))
+                .accessibilityHint(tone.line)
+                .accessibilityAddTraits(selected ? [.isButton, .isSelected] : .isButton)
             }
         }
         .padding(16)
@@ -199,20 +223,22 @@ struct AriaMemoryControlsView: View {
 
     private var checkInCard: some View {
         VStack(alignment: .leading, spacing: 10) {
-            Text("Check-ins")
+            Text(AriaMemoryAccess.checkInsHeader)
                 .font(.system(size: 15, weight: .bold))
                 .foregroundColor(.textPrimary)
+                .accessibilityAddTraits(.isHeader)
             Text("How often I ask how life is going. On this phone.")
                 .font(.system(size: 12))
                 .foregroundColor(.textTertiary)
             ForEach(AriaCheckInCadence.allCases, id: \.self) { cadence in
+                let selected = model.controls.prefs.checkInCadence == cadence
                 Button {
                     model.setCheckInCadence(cadence)
                 } label: {
                     HStack(alignment: .top, spacing: 10) {
-                        Image(systemName: model.controls.prefs.checkInCadence == cadence
-                              ? "checkmark.circle.fill" : "circle")
-                            .foregroundColor(model.controls.prefs.checkInCadence == cadence ? .ember : .textTertiary)
+                        Image(systemName: selected ? "checkmark.circle.fill" : "circle")
+                            .foregroundColor(selected ? .ember : .textTertiary)
+                            .accessibilityHidden(true)
                         VStack(alignment: .leading, spacing: 2) {
                             Text(cadence.title)
                                 .font(.system(size: 14, weight: .semibold))
@@ -227,6 +253,9 @@ struct AriaMemoryControlsView: View {
                     .padding(.vertical, 6)
                 }
                 .buttonStyle(.plain)
+                .accessibilityLabel(AriaMemoryAccess.checkInLabel(cadence, selected: selected))
+                .accessibilityHint(cadence.detail)
+                .accessibilityAddTraits(selected ? [.isButton, .isSelected] : .isButton)
             }
         }
         .padding(16)
@@ -244,6 +273,7 @@ struct AriaMemoryControlsView: View {
                     Text(folder.title)
                         .font(.system(size: 15, weight: .bold))
                         .foregroundColor(.textPrimary)
+                        .accessibilityAddTraits(.isHeader)
                     Text(folder.blurb)
                         .font(.system(size: 11))
                         .foregroundColor(.textTertiary)
@@ -252,12 +282,16 @@ struct AriaMemoryControlsView: View {
                 Text("\(items.count)")
                     .font(.system(size: 12, weight: .semibold))
                     .foregroundColor(.textTertiary)
+                    .accessibilityLabel("\(items.count) notes")
             }
-            SettingsRow(icon: nil, label: "ARIA may use this folder") {
+            SettingsRow(icon: nil, label: AriaMemoryAccess.folderUseLabel(folder)) {
                 ForgeToggle(isOn: Binding(
                     get: { model.isFolderOn(folder) },
                     set: { model.setFolder(folder, enabled: $0) }
                 ))
+                .accessibilityLabel(AriaMemoryAccess.folderUseLabel(folder))
+                .accessibilityHint(AriaMemoryAccess.folderUseHint)
+                .accessibilityValue(AriaMemoryAccess.rememberMeValue(isOn: model.isFolderOn(folder)))
             }
             if items.isEmpty {
                 Text("Nothing in this folder yet.")
@@ -280,11 +314,21 @@ struct AriaMemoryControlsView: View {
                             }
                             .font(.system(size: 12, weight: .semibold))
                             .foregroundColor(.ember)
+                            .accessibilityLabel(AriaMemoryAccess.editNoteLabel(
+                                folder: folder,
+                                summary: fact.summary
+                            ))
+                            .accessibilityAddTraits(.isButton)
                             Button("Delete", role: .destructive) {
                                 confirmDeleteFact = fact
                             }
                             .font(.system(size: 12, weight: .semibold))
                             .foregroundColor(.danger)
+                            .accessibilityLabel(AriaMemoryAccess.deleteNoteLabel(
+                                folder: folder,
+                                summary: fact.summary
+                            ))
+                            .accessibilityAddTraits(.isButton)
                         }
                     }
                     .padding(.vertical, 6)
@@ -300,6 +344,8 @@ struct AriaMemoryControlsView: View {
             }
             .buttonStyle(.plain)
             .padding(.top, 4)
+            .accessibilityLabel(AriaMemoryAccess.addNoteLabel(folder: folder))
+            .accessibilityAddTraits(.isButton)
         }
         .padding(16)
         .forgeGlassCard(cornerRadius: 16, accent: .steel)
@@ -312,18 +358,20 @@ struct AriaMemoryControlsView: View {
                     .font(.system(size: 13))
                     .foregroundColor(.textSecondary)
                 if model.editingID == nil {
-                    Picker("Folder", selection: $model.draftCategory) {
+                    Picker(AriaMemoryAccess.folderPickerLabel, selection: $model.draftCategory) {
                         ForEach(AriaKnowledgeCategory.managedCases, id: \.self) { folder in
                             Text(folder.title).tag(folder)
                         }
                     }
                     .pickerStyle(.menu)
+                    .accessibilityLabel(AriaMemoryAccess.folderPickerLabel)
                 }
                 TextField("A short note", text: $model.draftSummary, axis: .vertical)
                     .lineLimit(3...8)
                     .padding(12)
                     .background(Color.surfaceElevated)
                     .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                    .accessibilityLabel(AriaMemoryAccess.noteFieldLabel)
                 if let addError = model.addError {
                     Text(addError)
                         .font(.system(size: 13))
@@ -337,20 +385,29 @@ struct AriaMemoryControlsView: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("Cancel") { showEditor = false }
+                    Button(AriaMemoryAccess.cancelEditorLabel) { showEditor = false }
+                        .accessibilityLabel(AriaMemoryAccess.cancelEditorLabel)
                 }
                 ToolbarItem(placement: .confirmationAction) {
-                    Button("Save") {
+                    Button(AriaMemoryAccess.saveNoteLabel) {
                         if model.commitDraft() {
                             showEditor = false
                         }
                     }
                     .foregroundColor(.ember)
                     .disabled(model.draftSummary.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                    .accessibilityLabel(AriaMemoryAccess.saveNoteLabel)
+                    .accessibilityAddTraits(.isButton)
                 }
             }
         }
-        .presentationDetents([.medium, .large])
+        .presentationDetents(reduceMotion ? [.large] : [.medium, .large])
+    }
+
+    private func freezeMotion(_ transaction: inout Transaction) {
+        guard !AriaMemoryAccess.shouldAnimate(reduceMotion: reduceMotion) else { return }
+        transaction.disablesAnimations = true
+        transaction.animation = nil
     }
 
     private func dateline(_ fact: AriaKnowledgeFact) -> String {

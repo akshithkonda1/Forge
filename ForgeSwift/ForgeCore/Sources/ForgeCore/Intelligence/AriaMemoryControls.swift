@@ -339,3 +339,65 @@ public struct AriaMemoryControls: Equatable {
         AriaCompanionPreferencesStore.save(prefs, defaults: defaults)
     }
 }
+
+/// VoiceOver copy + Reduce Motion contract for the vault screen.
+/// Strings stay in ForgeCore so XCTest can lock them without spinning SwiftUI.
+public enum AriaMemoryAccess: Sendable {
+    public static let rememberMeLabel = "Remember me"
+    public static let rememberMeHint =
+        "Off does not delete notes. ARIA stops using them until you turn this back on."
+    public static let personaLabel = "Who you are"
+    public static let personaHint =
+        "Off does not forget who you are. ARIA stops using the living profile until you turn this back on."
+    public static let folderUseHint = "Off does not delete notes in this folder."
+    public static let updatePersonaLabel = "Update who I am"
+    public static let tellPersonaLabel = "Tell ARIA who you are"
+    public static let forgetPersonaLabel = "Forget who I am"
+    public static let forgetPersonaHint =
+        "Clears the living profile. Folder notes stay until you delete them."
+    public static let saveNoteLabel = "Save note"
+    public static let cancelEditorLabel = "Cancel"
+    public static let noteFieldLabel = "Note"
+    public static let folderPickerLabel = "Folder"
+    public static let howITalkHeader = "How I talk"
+    public static let checkInsHeader = "Check-ins"
+
+    public static func rememberMeValue(isOn: Bool) -> String { isOn ? "On" : "Off" }
+
+    public static func folderUseLabel(_ folder: AriaKnowledgeCategory) -> String {
+        "ARIA may use \(folder.title)"
+    }
+
+    public static func addNoteLabel(folder: AriaKnowledgeCategory) -> String {
+        "Add a note in \(folder.title)"
+    }
+
+    public static func editNoteLabel(folder: AriaKnowledgeCategory, summary: String) -> String {
+        "Edit \(folder.title) note, \(clipped(summary))"
+    }
+
+    public static func deleteNoteLabel(folder: AriaKnowledgeCategory, summary: String) -> String {
+        "Delete \(folder.title) note, \(clipped(summary))"
+    }
+
+    public static func toneLabel(_ tone: AriaCompanionTone, selected: Bool) -> String {
+        selected ? "Tone, \(tone.title), selected" : "Tone, \(tone.title)"
+    }
+
+    public static func checkInLabel(_ cadence: AriaCheckInCadence, selected: Bool) -> String {
+        selected ? "Check-in, \(cadence.title), selected" : "Check-in, \(cadence.title)"
+    }
+
+    public static func personaActionLabel(interviewCompleted: Bool) -> String {
+        interviewCompleted ? updatePersonaLabel : tellPersonaLabel
+    }
+
+    /// Vault screens freeze transitions when Reduce Motion is on.
+    public static func shouldAnimate(reduceMotion: Bool) -> Bool { !reduceMotion }
+
+    private static func clipped(_ summary: String) -> String {
+        let trimmed = summary.trimmingCharacters(in: .whitespacesAndNewlines)
+        if trimmed.count <= 80 { return trimmed }
+        return String(trimmed.prefix(80))
+    }
+}

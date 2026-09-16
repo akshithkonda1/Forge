@@ -278,4 +278,44 @@ final class AriaMemoryControlsTests: XCTestCase {
             "Check-in", "Space", "Patterns", "Honest peer"
         ])
     }
+
+    func testAccessCopyAndReduceMotionContract() {
+        XCTAssertTrue(AriaMemoryAccess.shouldAnimate(reduceMotion: false))
+        XCTAssertFalse(AriaMemoryAccess.shouldAnimate(reduceMotion: true))
+
+        XCTAssertEqual(AriaMemoryAccess.rememberMeLabel, "Remember me")
+        XCTAssertEqual(AriaMemoryAccess.rememberMeValue(isOn: true), "On")
+        XCTAssertEqual(AriaMemoryAccess.rememberMeValue(isOn: false), "Off")
+        XCTAssertTrue(AriaMemoryAccess.rememberMeHint.localizedCaseInsensitiveContains("does not delete"))
+        XCTAssertTrue(AriaMemoryAccess.personaHint.localizedCaseInsensitiveContains("does not forget"))
+        XCTAssertTrue(AriaMemoryAccess.folderUseHint.localizedCaseInsensitiveContains("does not delete"))
+
+        XCTAssertEqual(AriaMemoryAccess.addNoteLabel(folder: .goals), "Add a note in Goals")
+        XCTAssertEqual(
+            AriaMemoryAccess.editNoteLabel(folder: .mood, summary: "Feeling steady."),
+            "Edit Mood note, Feeling steady."
+        )
+        XCTAssertEqual(
+            AriaMemoryAccess.deleteNoteLabel(folder: .lifestyle, summary: "Keep this note."),
+            "Delete Lifestyle note, Keep this note."
+        )
+        XCTAssertEqual(AriaMemoryAccess.toneLabel(.checkIn, selected: true), "Tone, Check-in, selected")
+        XCTAssertEqual(AriaMemoryAccess.toneLabel(.space, selected: false), "Tone, Space")
+        XCTAssertEqual(AriaMemoryAccess.checkInLabel(.weekly, selected: true), "Check-in, Weekly, selected")
+        XCTAssertEqual(AriaMemoryAccess.checkInLabel(.off, selected: false), "Check-in, Off")
+        XCTAssertEqual(AriaMemoryAccess.folderUseLabel(.events), "ARIA may use Events")
+        XCTAssertEqual(AriaMemoryAccess.personaActionLabel(interviewCompleted: true), "Update who I am")
+        XCTAssertEqual(AriaMemoryAccess.personaActionLabel(interviewCompleted: false), "Tell ARIA who you are")
+
+        let spoken = [
+            AriaMemoryAccess.rememberMeHint,
+            AriaMemoryAccess.personaHint,
+            AriaMemoryAccess.forgetPersonaHint,
+            AriaMemoryAccess.toneLabel(.peer, selected: true),
+            AriaMemoryAccess.checkInLabel(.daily, selected: true),
+        ].joined(separator: " ").lowercased()
+        XCTAssertFalse(spoken.contains("medical"))
+        XCTAssertFalse(spoken.contains("recovery week"))
+        XCTAssertFalse(spoken.contains("clinician"))
+    }
 }
