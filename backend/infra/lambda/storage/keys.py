@@ -47,10 +47,10 @@ def aria_persona_key(user_id: str) -> dict:
 
 
 def aria_memory_settings_key(user_id: str) -> dict:
-    """User-editable companion memory controls (on/off + Rowan contract fields).
+    """Stub row for Rowan's editable-memory settings (persona/tone/check-in).
 
-    Separate from ``ARIA#CONTEXT`` so delete/off of the settings bag does not
-    wipe relationship_level / supervision_plan (system state, not user memory).
+    Not wired into CoachContextEngine. Privacy gates stay on the chat ingest
+    path until Rowan posts the contract. Separate from ``ARIA#CONTEXT``.
     """
     return {"pk": f"USER#{user_id}", "sk": "ARIA#MEMORY_SETTINGS"}
 

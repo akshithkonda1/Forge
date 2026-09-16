@@ -21,9 +21,7 @@ dumping the numbers the stub reasoned over. Close to realistic. Not real.
 This module is local-only. It refuses production-like ``ENVIRONMENT`` values
 and any cloud runtime (Lambda, Cloud Run, Azure, GCP). It never imports a
 cloud SDK and never calls ``ARIAEngine.respond`` (that method can leave the
-machine). ``use_real_api`` is hard-off. Editable companion memory
-(``services.editable_memory``) stays Dummy/offline default-on — in-process,
-never Dynamo, never Bedrock, and never on this speak path.
+machine). ``use_real_api`` is hard-off.
 
 The one intentional exception: ``respond()`` can call out to
 ``web_research``, a separate, clearly-named collaborator whose entire job is

@@ -1,13 +1,13 @@
-"""Storage hooks for user-editable companion memory.
+"""Stub storage for Rowan's editable-memory contract.
 
-Rowan owns the HTTP/API contract (view / edit / delete / off plus
-persona / tone / check-in). This module persists the truth bag those
-operations will call. It does not define routes or client UI.
+Iris holds existing privacy gates (partner/cycle chips, calendar titles) on
+the chat ingest path until Rowan posts the contract. This module does **not**
+implement view/edit/delete/off of memory facts, and CoachContextEngine does
+not consult it.
 
-Dummy / offline: ``offline_default()`` is in-process and enabled-on.
-``get_settings`` / ``put_settings`` use ``storage.dynamodb``, which is the
-local dict when ``APP_DATA_TABLE_NAME`` is unset — never a cloud SDK from
-Dummy. Do not import this module from Dummy's speak path.
+Dummy / offline: ``offline_default()`` is in-process and enabled-on. Persistence
+uses ``storage.dynamodb``, which is the local dict when ``APP_DATA_TABLE_NAME``
+is unset. Bedrock stays off. Dummy must not import this on the speak path.
 """
 
 from __future__ import annotations
@@ -15,31 +15,27 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any
 
-from services.memory_privacy import filter_lifestyle_tokens, redact_memory_text
 from storage import dynamodb, keys
 
-# Known settings keys Rowan has named. Everything else round-trips in ``extra``
-# so a later contract field can land without a storage migration.
+# Named placeholders only. Rowan owns the real vocab; extra keys round-trip.
 _KNOWN_SETTINGS_KEYS = frozenset({"enabled", "persona", "tone", "check_in"})
 
 
 @dataclass
 class CompanionMemorySettings:
-    """User-facing memory controls.
+    """Opaque settings bag awaiting Rowan.
 
-    Field vocab below is a stub until Rowan lands the contract. ``enabled`` is
-    the off switch (False = ARIA must not ingest or inject companion memory).
-    ``persona``, ``tone``, and ``check_in`` are opaque passthroughs.
+    TODO(rowan): ``enabled`` — memory off contract (not wired into ingest/inject).
+    TODO(rowan): ``persona`` — user-chosen companion persona.
+    TODO(rowan): ``tone`` — user-chosen speaking tone.
+    TODO(rowan): ``check_in`` — daily check-in preference.
+    TODO(rowan): remaining contract fields persist in ``extra``.
     """
 
     enabled: bool = True
-    # TODO(rowan): persona — user-chosen companion persona id / name / blob.
     persona: Any = None
-    # TODO(rowan): tone — user-chosen speaking tone preference.
     tone: Any = None
-    # TODO(rowan): check_in — on/off/cadence for daily "anything new?" prompts.
     check_in: Any = None
-    # TODO(rowan): remaining contract fields. Unknown keys persist here.
     extra: dict[str, Any] = field(default_factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
@@ -71,12 +67,12 @@ class CompanionMemorySettings:
 
 
 def offline_default() -> CompanionMemorySettings:
-    """Dummy / simrunner / tests: enabled-on, no Dynamo, no Bedrock."""
+    """Dummy / simrunner / tests: in-process default. No Dynamo, no Bedrock."""
     return CompanionMemorySettings()
 
 
 def get_settings(user_id: str) -> CompanionMemorySettings:
-    """View settings. Missing row → default enabled-on (no write on read)."""
+    """Read the stub row. Missing → default (no write on read)."""
     uid = (user_id or "").strip()
     if not uid:
         return offline_default()
@@ -100,88 +96,10 @@ def put_settings(user_id: str, settings: CompanionMemorySettings) -> CompanionMe
 
 
 def patch_settings(user_id: str, updates: dict[str, Any]) -> CompanionMemorySettings:
-    """Edit settings. Unknown keys land in ``extra`` for Rowan."""
+    """Merge unknown keys into ``extra`` so Rowan can land fields without a migration."""
     current = get_settings(user_id)
     if not isinstance(updates, dict):
         return put_settings(user_id, current)
     merged = current.to_dict()
     merged.update(updates)
     return put_settings(user_id, CompanionMemorySettings.from_dict(merged))
-
-
-def delete_settings(user_id: str) -> CompanionMemorySettings:
-    """Delete the settings row. Next read is the Dummy/offline default."""
-    uid = (user_id or "").strip()
-    if uid:
-        key = keys.aria_memory_settings_key(uid)
-        dynamodb.delete_item(key["pk"], key["sk"])
-    return offline_default()
-
-
-def set_enabled(user_id: str, enabled: bool) -> CompanionMemorySettings:
-    """Off switch. Does not wipe stored facts — pair with ``clear_content``."""
-    return patch_settings(user_id, {"enabled": bool(enabled)})
-
-
-def is_enabled(user_id: str) -> bool:
-    return get_settings(user_id).enabled
-
-
-def _engine():
-    from services.aria_context import CoachContextEngine
-
-    return CoachContextEngine()
-
-
-def view_editable_memory(user_id: str) -> dict[str, Any]:
-    """Snapshot Rowan can serve for a GET-style view. Not an HTTP contract.
-
-    Redacts partner/cycle chips. Calendar STM is already busy-window labels.
-    """
-    engine = _engine()
-    ctx = engine.get_or_create_context(user_id)
-    stm = [m.to_dict() for m in engine.short_term_memories(user_id)]
-    return {
-        "settings": get_settings(user_id).to_dict(),
-        "life_facts": filter_lifestyle_tokens(list(ctx.life_facts)),
-        "current_goals": filter_lifestyle_tokens(list(ctx.current_goals)),
-        "constraints": filter_lifestyle_tokens(list(ctx.constraints)),
-        "recent_patterns": filter_lifestyle_tokens(list(ctx.recent_patterns)),
-        "last_insights": filter_lifestyle_tokens(list(ctx.last_insights)),
-        "short_term": stm,
-        # Read-only system bond. TODO(rowan): whether this is user-editable.
-        "relationship_level": ctx.relationship_level,
-    }
-
-
-def edit_life_fact(user_id: str, old: str, new: str) -> dict[str, Any]:
-    """Replace one long-term fact. User-initiated — works even when off."""
-    engine = _engine()
-    cleaned = redact_memory_text(new)
-    engine.forget_life_fact(user_id, old)
-    if cleaned:
-        engine.record_life_fact(user_id, cleaned, force=True)
-    return view_editable_memory(user_id)
-
-
-def delete_life_fact(user_id: str, fact: str) -> dict[str, Any]:
-    _engine().forget_life_fact(user_id, fact)
-    return view_editable_memory(user_id)
-
-
-def delete_short_term(user_id: str, mem_id: str) -> dict[str, Any]:
-    _engine().forget_short_term(user_id, mem_id)
-    return view_editable_memory(user_id)
-
-
-def clear_content(user_id: str) -> dict[str, Any]:
-    """Delete user-visible memory content. Keeps settings and relationship_level."""
-    _engine().clear_user_memory(user_id)
-    return view_editable_memory(user_id)
-
-
-def delete_all(user_id: str) -> dict[str, Any]:
-    """Full delete: content + settings row (back to Dummy/offline default)."""
-    _engine().clear_user_memory(user_id)
-    delete_settings(user_id)
-    return view_editable_memory(user_id)
