@@ -11,7 +11,7 @@ final class ForgeCloudSync {
 
     var isRemoteEligible: Bool {
         if AriaService.shouldUseTestReadyDummy { return false }
-        if AriaOperatingMode.current.isLocalTesting { return false }
+        if AriaOperatingMode.current.isOfflineCoach { return false }
         return true
     }
 

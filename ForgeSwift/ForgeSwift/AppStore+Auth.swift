@@ -11,6 +11,7 @@ extension AppStore {
     /// Rehydrates auth + completed onboarding on cold launch.
     func restoreOnboardingState() {
         ForgeAuthClient.shared.installTestReadySessionIfNeeded()
+        AriaOperatingMode.refresh()
         if let session = ForgeAuthClient.shared.session {
             isAuthenticated = true
             authProvider = session.provider
@@ -76,6 +77,7 @@ extension AppStore {
         restoreUserProfileForCurrentUser()
         restoreChatHistory()
         WatchAriaConfigBridge.sync(firstName: session.displayName.split(separator: " ").first.map(String.init))
+        AriaOperatingMode.refresh()
     }
 
     /// Completes auth for returning or new social/email users.

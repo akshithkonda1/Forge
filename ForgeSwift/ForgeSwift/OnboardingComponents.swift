@@ -5,32 +5,11 @@ struct ForgeAmbientBackground: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
-        ZStack {
-            LinearGradient(
-                colors: [Color.background, Color(hex: "140A06").opacity(0.78), Color.background],
-                startPoint: .topLeading,
-                endPoint: .bottomTrailing
-            )
-            RadialGradient(
-                colors: [routeColor.opacity(0.16), routeColor.opacity(0.04), .clear],
-                center: UnitPoint(x: 0.32, y: 0.18),
-                startRadius: 10,
-                endRadius: 420
-            )
-            .blur(radius: reduceMotion ? 0 : 22)
-
-            if !reduceMotion {
-                // Static wash — an infinite phase loop was rasterizing two
-                // full-screen blurs for the entire interview.
-                RadialGradient(
-                    colors: [Color.ember.opacity(0.08), .clear],
-                    center: UnitPoint(x: 0.72, y: 0.52),
-                    startRadius: 0,
-                    endRadius: 280
-                )
-                .blur(radius: 24)
-            }
-        }
+        PremiumAtmosphere(
+            accent: routeColor,
+            secondary: Color(hex: "A9D8FF"),
+            intensity: 0.8
+        )
     }
 
     private var routeColor: Color {

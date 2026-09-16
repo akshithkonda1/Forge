@@ -1,29 +1,17 @@
 import SwiftUI
 
-/// First interview beat — living ARIA mark in the fire, not an empty composer.
+/// First interview beat — living ARIA mark with soft presence, not fire.
 struct IntroComposer: View {
     @Bindable var coordinator: OnboardingCoordinator
 
     var body: some View {
         VStack(spacing: 16) {
             ZStack {
-                ForgeFireField(intensity: .rage, origin: .hearth, live: true)
-                    .frame(width: 200, height: 210)
-                    .opacity(0.88)
-                Circle()
-                    .fill(
-                        RadialGradient(
-                            colors: [
-                                Color.background.opacity(0.74),
-                                Color.background.opacity(0.18),
-                                .clear
-                            ],
-                            center: .center,
-                            startRadius: 8,
-                            endRadius: 86
-                        )
-                    )
-                    .frame(width: 168, height: 168)
+                PremiumPresenceBloom(
+                    size: 200,
+                    accent: .ember,
+                    frost: Color(hex: "A9D8FF")
+                )
                 AuroraOrbView(
                     state: coordinator.ariaOrbState,
                     amplitude: coordinator.ariaOrbState == .speaking ? 0.8 : 0.58,
@@ -37,12 +25,12 @@ struct IntroComposer: View {
             .accessibilityLabel("ARIA")
 
             Text("ARIA")
-                .font(.system(size: 12, weight: .bold, design: .rounded))
+                .font(.system(size: 12, weight: .medium, design: .rounded))
                 .tracking(3.4)
-                .foregroundStyle(Color.ember)
+                .foregroundStyle(Color(hex: "F7F4F0").opacity(0.72))
 
-            Text("Your coach — forged for the life you already have.")
-                .font(.system(size: 15, weight: .medium, design: .rounded))
+            Text("Your coach — built for the life you already have.")
+                .font(.system(size: 15, weight: .regular, design: .rounded))
                 .foregroundStyle(Color.textSecondary)
                 .multilineTextAlignment(.center)
                 .padding(.horizontal, 8)
@@ -870,9 +858,11 @@ struct ReadyComposer: View {
     var body: some View {
         VStack(spacing: 14) {
             ZStack {
-                ForgeFireField(intensity: .rage, origin: .hearth, live: true)
-                    .frame(width: 120, height: 128)
-                    .opacity(0.7)
+                PremiumPresenceBloom(
+                    size: 130,
+                    accent: .ember,
+                    frost: Color(hex: "A9D8FF")
+                )
                 AuroraOrbView(
                     state: .idle,
                     amplitude: 0.55,
@@ -950,22 +940,12 @@ struct PrimaryCTA: View {
     let action: () -> Void
 
     var body: some View {
-        Button(action: action) {
-            HStack(spacing: 8) {
-                Image(systemName: icon)
-                    .font(.system(size: 15, weight: .bold))
-                Text(title)
-                    .font(.system(size: 17, weight: .semibold, design: .rounded))
-            }
-            .foregroundStyle(.white)
-            .frame(maxWidth: .infinity)
-            .frame(height: 54)
-            .background(enabled ? AnyShapeStyle(FDS.Gradient.ember) : AnyShapeStyle(Color.white.opacity(0.08)))
-            .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
-            .shadow(color: enabled ? Color.ember.opacity(0.35) : .clear, radius: 16, y: 8)
-        }
-        .buttonStyle(AuthPressButtonStyle())
-        .disabled(!enabled)
+        PremiumPrimaryButton(
+            title: title,
+            icon: icon,
+            enabled: enabled,
+            action: action
+        )
     }
 }
 
@@ -1001,16 +981,11 @@ struct MessageBubble: View {
                     Spacer(minLength: 48)
                     Text(message.text)
                         .font(.system(size: 15, weight: .medium, design: .rounded))
-                        .foregroundStyle(.white)
+                        .foregroundStyle(Color(hex: "0A0A0A"))
                         .padding(.horizontal, 16)
                         .padding(.vertical, 12)
-                        .background(FDS.Gradient.ember)
+                        .background(Color(hex: "F7F4F0"))
                         .clipShape(RoundedRectangle(cornerRadius: FDS.Radius.lg, style: .continuous))
-                        .overlay {
-                            RoundedRectangle(cornerRadius: FDS.Radius.lg, style: .continuous)
-                                .stroke(Color.white.opacity(0.22), lineWidth: 1)
-                        }
-                        .shadow(color: Color.ember.opacity(0.28), radius: 10, y: 4)
                 }
             case .system:
                 HStack {
@@ -1063,11 +1038,11 @@ struct ScheduleComposer: View {
             Button(action: { coordinator.confirmSchedule() }) {
                 Text("That’s the week")
                     .font(.system(size: 16, weight: .semibold, design: .rounded))
-                    .foregroundStyle(.white)
+                    .foregroundStyle(Color(hex: "0A0A0A"))
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 14)
-                    .background(Color.ember)
-                    .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+                    .background(Color(hex: "F7F4F0"))
+                    .clipShape(Capsule())
             }
             .buttonStyle(.plain)
         }

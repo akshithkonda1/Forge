@@ -48,13 +48,13 @@ struct ChatHeaderView: View {
                 }
 
                 HStack(spacing: 5) {
-                    if ariaService.isTestReady {
+                    if ariaService.isTestReady || AriaOperatingMode.current.isDummy {
                         Image(systemName: "checkmark.seal")
                             .font(.system(size: 8, weight: .bold))
-                            .foregroundColor(Color.steel)
-                        Text("On this phone · reading your month")
+                            .foregroundColor(Color(hex: "A9D8FF"))
+                        Text("Dummy · tune without AI")
                             .font(.system(size: 11, weight: .medium))
-                            .foregroundColor(Color.steel.opacity(0.9))
+                            .foregroundColor(Color(hex: "A9D8FF").opacity(0.92))
                     } else if let remoteError = ariaService.lastRemoteError {
                         Image(systemName: "exclamationmark.triangle.fill")
                             .font(.system(size: 8, weight: .bold))

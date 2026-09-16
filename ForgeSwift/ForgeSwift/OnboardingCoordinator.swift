@@ -905,6 +905,25 @@ final class OnboardingCoordinator {
         )
 
         store.activeTab = .chat
+        // Interview → chat opener. On Dummy / Test-Ready, skip First Bond so
+        // the next user message hits AriaDummyOrchestrator immediately —
+        // required for tuning ARIA without live AI.
+        let welcome = AriaOnboardingGuide.welcomeChatMessage(
+            profile: profile,
+            healthConnected: prepHealthConnected
+        )
+        store.seedAriaWelcomeFromOnboarding(
+            message: welcome,
+            suggestedActions: [
+                "How did I sleep?",
+                "What should I train?",
+                "How do I show up?",
+            ]
+        )
+        if AriaService.shouldUseTestReadyDummy || AriaOperatingMode.current.isDummy {
+            store.completeAriaFirstBond()
+            AriaOperatingMode.refresh()
+        }
         store.finishForgePrep()
         isPrepping = false
     }

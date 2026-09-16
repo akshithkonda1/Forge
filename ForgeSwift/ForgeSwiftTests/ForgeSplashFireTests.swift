@@ -23,6 +23,7 @@ final class ForgeSplashFireTests: XCTestCase {
     }
 
     func testWelcomeFireIsRageNotEmber() {
+        // Geometry lock — auth/onboarding screens no longer paint this field.
         XCTAssertEqual(ForgeFireGeometry.kind, "rage-fire")
         XCTAssertNotEqual(ForgeFireGeometry.kind, AriaSigilGeometry.kind)
         XCTAssertGreaterThan(ForgeFireIntensity.rage.tongueCount, ForgeFireIntensity.ember.tongueCount)

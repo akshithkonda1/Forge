@@ -22,12 +22,17 @@ final class AriaService: ObservableObject {
         return ForgeAuthClient.shared.config.apiBaseURL
     }
 
-    /// Continue-as-tester (debug, non-prod) stays on the dummy orchestra —
-    /// same idea as SimRunner: no production ARIA instance.
+    /// Continue-as-tester / Device Hub / dummy-offline stays on the Dummy
+    /// orchestra — same idea as SimRunner: no production ARIA instance, no
+    /// Bedrock. This is the path for tuning ARIA before live AI.
     static var shouldUseTestReadyDummy: Bool {
+        if AriaOperatingMode.hasOverride {
+            return AriaOperatingMode.current.isDummy
+        }
         let client = ForgeAuthClient.shared
         guard client.canUseDevOverride else { return false }
         if client.session?.mode == .devOverride { return true }
+        if client.config.environment.lowercased() == "dummy" { return true }
         // Device Hub / loopback: don't wait on a tester tap or a Mac localhost.
         return ForgeAuthPolicy.isXcodeDeviceHubLaunch || client.config.apiIsLoopback
     }
@@ -60,19 +65,9 @@ final class AriaService: ObservableObject {
         }
         let domainContext = contextStore.buildARIAContext(from: store, query: text)
 
-        // Device Hub / dev-override / loopback testers stay on the fast,
-        // deterministic dummy orchestra, checked before the general local-
-        // testing path below. This has to come first: `canUseDevOverride`
-        // (and therefore this whole branch) is hard-gated to DEBUG builds
-        // that are not production-like, so it can never fire for a real
-        // shipped build — but *within* that DEBUG/Xcode scope, checking
-        // `AriaOperatingMode.current.isLocalTesting` first would always win,
-        // since that mode is never anything but `.localTesting` today (no
-        // production ARIA instance is provisioned yet). That silently routed
-        // every Device Hub run through the on-device model instead of the
-        // fast, predictable dummy responses Device Hub automation actually
-        // needs, and made `AriaDummyOrchestrator` permanently unreachable.
-        if Self.shouldUseTestReadyDummy {
+        // Device Hub / dummy-offline / tester: deterministic Dummy orchestra
+        // first — never Bedrock. Required so we can tune ARIA without AI.
+        if Self.shouldUseTestReadyDummy || AriaOperatingMode.current.isDummy {
             isTestReady = true
             isLocalFallback = true
             lastRemoteError = nil
@@ -84,15 +79,7 @@ final class AriaService: ObservableObject {
             )
         }
 
-        // The one place `AriaOperatingMode` is consulted. Nothing below this
-        // line runs in local testing: no request is built, `postChat` is never
-        // called, and `isLocalFallback` puts the offline badge on screen so a
-        // local answer can never be mistaken for a backend one.
-        //
-        // This is a *chosen* mode, which is the whole distinction from the old
-        // `try?` that swallowed a 500 and dressed the failure up as coaching.
-        // A deliberate local reply and a hidden remote failure look identical
-        // in the transcript; only one of them is honest.
+        // Chosen local-testing mode (not Dummy). Honest offline badge.
         if AriaOperatingMode.current.isLocalTesting {
             isTestReady = false
             isLocalFallback = true

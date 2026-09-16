@@ -143,9 +143,8 @@ struct AriaInterviewLayout: View {
                 ZStack(alignment: .leading) {
                     Capsule().fill(Color.white.opacity(0.08)).frame(height: 4)
                     Capsule()
-                        .fill(FDS.Gradient.ember)
+                        .fill(Color(hex: "F7F4F0"))
                         .frame(width: max(10, geo.size.width * coordinator.progress), height: 4)
-                        .shadow(color: Color.ember.opacity(0.45), radius: 5, y: 0)
                         .animation(FDS.Spring.standard, value: coordinator.progress)
                 }
             }
@@ -279,14 +278,14 @@ struct AriaInterviewLayout: View {
                                 applyReply(reply)
                             } label: {
                                 Text(reply.label)
-                                    .font(.system(size: 14, weight: .semibold, design: .rounded))
-                                    .foregroundColor(.white)
+                                    .font(.system(size: 14, weight: .medium, design: .rounded))
+                                    .foregroundColor(.textPrimary)
                                     .padding(.horizontal, 14)
                                     .padding(.vertical, 9)
-                                    .background(Color.ember.opacity(0.22))
+                                    .background(Color.white.opacity(0.06))
                                     .clipShape(Capsule())
                                     .overlay(
-                                        Capsule().stroke(Color.ember.opacity(0.55), lineWidth: 1)
+                                        Capsule().stroke(Color.white.opacity(0.12), lineWidth: 1)
                                     )
                             }
                             .buttonStyle(.plain)

@@ -50,34 +50,31 @@ struct CoachingStylePickerView: View {
 
                                     ZStack {
                                         Circle()
-                                            .stroke(selectedStyle == style ? Color.ember : Color.borderColor, lineWidth: 2)
+                                            .stroke(selectedStyle == style ? Color(hex: "F7F4F0") : Color.borderColor, lineWidth: 2)
                                             .frame(width: 24, height: 24)
                                         if selectedStyle == style {
                                             Circle()
-                                                .fill(Color.ember)
+                                                .fill(Color(hex: "F7F4F0"))
                                                 .frame(width: 14, height: 14)
                                         }
                                     }
                                 }
                                 .padding(16)
-                                .forgeGlassCard(cornerRadius: 14, accent: selectedStyle == style ? .ember : nil)
+                                .background(Color.white.opacity(selectedStyle == style ? 0.06 : 0.04))
+                                .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+                                .overlay(
+                                    RoundedRectangle(cornerRadius: 14, style: .continuous)
+                                        .stroke(Color.white.opacity(selectedStyle == style ? 0.18 : 0.08), lineWidth: 1)
+                                )
                             }
                             .buttonStyle(.plain)
                         }
                     }
                     .padding(.horizontal)
 
-                    Button(action: save) {
-                        Text("Save Selection")
-                            .font(.system(size: 16, weight: .semibold))
-                            .foregroundColor(.white)
-                            .frame(maxWidth: .infinity)
-                            .frame(height: 52)
-                            .background(Color.ember)
-                            .cornerRadius(14)
-                    }
-                    .padding(.horizontal)
-                    .padding(.top, 12)
+                    PremiumPrimaryButton(title: "Save", icon: nil, action: save)
+                        .padding(.horizontal)
+                        .padding(.top, 12)
                 }
                 .padding(.bottom, 32)
             }

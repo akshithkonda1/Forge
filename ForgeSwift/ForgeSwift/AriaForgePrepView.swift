@@ -40,7 +40,7 @@ struct AriaForgePrepView: View {
                         Text(stage.eyebrow.uppercased())
                             .font(FDS.TypeScale.micro(11))
                             .tracking(1.6)
-                            .foregroundColor(.ember)
+                            .foregroundColor(.textTertiary)
 
                         Text(stage.headline)
                             .font(FDS.TypeScale.display(28))
@@ -88,7 +88,7 @@ struct AriaForgePrepView: View {
                 Capsule()
                     .fill(Color.white.opacity(0.08))
                 Capsule()
-                    .fill(FDS.Gradient.ember)
+                    .fill(Color(hex: "F7F4F0"))
                     .frame(width: max(6, geo.size.width * progress))
             }
         }

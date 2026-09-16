@@ -1,5 +1,4 @@
 import SwiftUI
-import AuthenticationServices
 import ForgeCore
 
 // MARK: - Immersive Sign Up
@@ -71,7 +70,7 @@ struct AuthSignUpFlowView: View {
         var icon: String {
             switch self {
             case .buildMuscle: return "dumbbell.fill"
-            case .loseFat: return "flame.fill"
+            case .loseFat: return "figure.walk"
             case .energy: return "bolt.fill"
             case .performance: return "trophy.fill"
             case .recovery: return "heart.fill"
@@ -80,11 +79,11 @@ struct AuthSignUpFlowView: View {
 
         var accentHex: String {
             switch self {
-            case .buildMuscle: return "FF5A00"
-            case .loseFat: return "F59E0B"
-            case .energy: return "38BDF8"
-            case .performance: return "A855F7"
-            case .recovery: return "22C55E"
+            case .buildMuscle: return "F7F4F0"
+            case .loseFat: return "A9D8FF"
+            case .energy: return "60A5FA"
+            case .performance: return "C4B5FD"
+            case .recovery: return "34D399"
             }
         }
 
@@ -101,20 +100,17 @@ struct AuthSignUpFlowView: View {
 
     var body: some View {
         ZStack {
-            Color.background.ignoresSafeArea()
-            RadialGradient(
-                colors: [Color(hex: spark.accentHex).opacity(0.2), Color.ember.opacity(0.08), .clear],
-                center: UnitPoint(x: 0.5, y: 0.15),
-                startRadius: 10,
-                endRadius: 400
+            PremiumAtmosphere(
+                accent: Color(hex: spark.accentHex),
+                secondary: Color(hex: "A9D8FF"),
+                intensity: 0.85
             )
-            .ignoresSafeArea()
             .animation(.easeInOut(duration: 0.4), value: spark)
 
             VStack(spacing: 0) {
                 topBar
                 progressBar
-                    .padding(.horizontal, 22)
+                    .padding(.horizontal, 24)
                     .padding(.top, 8)
                     .padding(.bottom, 18)
 
@@ -175,12 +171,13 @@ struct AuthSignUpFlowView: View {
             Spacer()
 
             VStack(spacing: 2) {
-                Text("WELCOME")
-                    .font(.system(size: 10, weight: .semibold))
+                Text("Welcome")
+                    .font(.system(size: 10, weight: .medium))
                     .tracking(2)
-                    .foregroundColor(.ember)
+                    .foregroundColor(.textTertiary)
+                    .textCase(.uppercase)
                 Text(step.title)
-                    .font(.system(size: 13, weight: .bold))
+                    .font(.system(size: 13, weight: .semibold))
                     .foregroundColor(.textPrimary)
             }
 
@@ -204,13 +201,12 @@ struct AuthSignUpFlowView: View {
             ZStack(alignment: .leading) {
                 Capsule().fill(Color.white.opacity(0.08))
                 Capsule()
-                    .fill(FDS.Gradient.ember)
+                    .fill(Color(hex: "F7F4F0"))
                     .frame(width: max(12, geo.size.width * step.progress))
-                    .shadow(color: Color.ember.opacity(0.5), radius: 6, y: 0)
                     .animation(FDS.Spring.standard, value: step)
             }
         }
-        .frame(height: 6)
+        .frame(height: 4)
     }
 
     // MARK: Step 1 — Identity
@@ -244,7 +240,7 @@ struct AuthSignUpFlowView: View {
                             RoundedRectangle(cornerRadius: 18, style: .continuous)
                                 .stroke(
                                     firstName.trimmingCharacters(in: .whitespaces).count >= 2
-                                        ? Color.ember.opacity(0.55)
+                                        ? Color(hex: "F7F4F0").opacity(0.35)
                                         : Color.white.opacity(0.08),
                                     lineWidth: 1.5
                                 )
@@ -287,17 +283,16 @@ struct AuthSignUpFlowView: View {
                     }
                 }
 
-                // Social proof strip
-                HStack(spacing: 10) {
-                    miniStat("90s", "setup")
-                    miniStat("Live", "readiness")
-                    miniStat("Private", "cycle data")
-                }
+                // Quiet trust cues — no vanity Day-0 stats strip
+                Text("About 90 seconds · Private by design")
+                    .font(.system(size: 12, weight: .medium))
+                    .foregroundColor(.textTertiary)
+                    .padding(.top, 4)
 
                 Spacer(minLength: 24)
 
                 primaryButton(
-                    title: "Claim my name",
+                    title: "Continue",
                     enabled: trimmedName.count >= 2,
                     icon: "arrow.right"
                 ) {
@@ -429,49 +424,20 @@ struct AuthSignUpFlowView: View {
                                 .frame(maxWidth: .infinity, alignment: .leading)
                         }
 
-                        SignInWithAppleButton(.signUp) { request in
-                            request.requestedScopes = [.fullName, .email]
-                        } onCompletion: { result in
-                            handleApple(result)
-                        }
-                        .signInWithAppleButtonStyle(.white)
-                        .frame(height: 52)
-                        .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
-
-                        Button {
-                            errorMessage = ForgeAuthClient.shared.canUseDevOverride
-                                ? "Google isn’t wired. Use email, or Continue as tester on this debug build."
-                                : "Google sign-up isn’t connected yet. Use email."
-                        } label: {
-                            HStack(spacing: 10) {
-                                Image(systemName: "g.circle.fill")
-                                    .font(.system(size: 20))
-                                Text("Continue with Google")
-                                    .font(.system(size: 16, weight: .bold))
-                            }
-                            .foregroundColor(.textPrimary)
-                            .frame(maxWidth: .infinity)
-                            .frame(height: 52)
-                            .background(Color.surfaceElevated)
-                            .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
-                            .overlay(
-                                RoundedRectangle(cornerRadius: 14, style: .continuous)
-                                    .stroke(Color.borderColor, lineWidth: 1)
-                            )
-                        }
-                        .buttonStyle(AuthPressButtonStyle())
-
-                        Button {
+                        primaryButton(
+                            title: "Continue with email",
+                            enabled: true,
+                            icon: "envelope.fill"
+                        ) {
                             withAnimation(FDS.Spring.snap) { showEmailForm = true }
                             FDS.haptic(.light)
-                        } label: {
-                            Text("Use email instead")
-                                .font(.system(size: 14, weight: .semibold))
-                                .foregroundColor(.textSecondary)
-                                .frame(maxWidth: .infinity)
-                                .padding(.vertical, 12)
                         }
-                        .buttonStyle(.plain)
+
+                        Text("Apple and Google sign-up will appear here when connected for this build.")
+                            .font(.system(size: 12, weight: .regular))
+                            .foregroundColor(.textTertiary)
+                            .multilineTextAlignment(.center)
+                            .frame(maxWidth: .infinity)
                     }
                 } else {
                     VStack(spacing: 12) {
@@ -485,9 +451,9 @@ struct AuthSignUpFlowView: View {
                         }
 
                         primaryButton(
-                            title: isBusy ? "Forging…" : "Create account · enter Forge",
+                            title: isBusy ? "Creating…" : "Create account",
                             enabled: canSubmitEmail && !isBusy,
-                            icon: "flame.fill"
+                            icon: "arrow.right"
                         ) {
                             submitEmail()
                         }
@@ -495,7 +461,7 @@ struct AuthSignUpFlowView: View {
                         Button {
                             withAnimation { showEmailForm = false }
                         } label: {
-                            Text("Back to Apple / Google")
+                            Text("Back")
                                 .font(.system(size: 13, weight: .semibold))
                                 .foregroundColor(.textTertiary)
                         }
@@ -503,6 +469,7 @@ struct AuthSignUpFlowView: View {
                     }
                 }
 
+                // Keep until Cognito is paired — remove when real auth ships.
                 if ForgeAuthClient.shared.canUseDevOverride {
                     Button {
                         continueAsTester()
@@ -517,11 +484,11 @@ struct AuthSignUpFlowView: View {
                     }
                     .buttonStyle(.plain)
                     .disabled(isBusy)
-                    .accessibilityHint("Debug-only local account. Never ships in Release.")
+                    .accessibilityHint("Debug tester login until Cognito is paired. Never ships in Release.")
                 }
 
-                Text("By continuing you get lifestyle and fitness coaching, not medical diagnosis or care. ARIA is a lifestyle based fitness coach, not a doctor and cannot help in that way. If you are looking for urgent medical help, please call 911 or visit your local hospital or physician.")
-                    .font(.system(size: 11, weight: .medium))
+                Text("By continuing you get lifestyle and fitness coaching, not medical care. ARIA is not a doctor. For emergencies, call 911.")
+                    .font(.system(size: 11, weight: .regular))
                     .foregroundColor(.textMuted)
                     .multilineTextAlignment(.center)
                     .frame(maxWidth: .infinity)
@@ -554,7 +521,7 @@ struct AuthSignUpFlowView: View {
                     .foregroundColor(.danger)
             }
             primaryButton(
-                title: isBusy ? "Confirming…" : "Confirm email · enter Forge",
+                title: isBusy ? "Confirming…" : "Confirm email",
                 enabled: confirmCode.trimmingCharacters(in: .whitespaces).count >= 4 && !isBusy,
                 icon: "checkmark"
             ) {
@@ -575,41 +542,20 @@ struct AuthSignUpFlowView: View {
     private func heroCopy(kicker: String, title: String, body: String) -> some View {
         VStack(alignment: .leading, spacing: 10) {
             Text(kicker)
-                .font(.system(size: 11, weight: .bold))
+                .font(.system(size: 12, weight: .medium))
                 .tracking(2)
-                .foregroundColor(.ember)
+                .foregroundColor(.textTertiary)
             Text(title)
-                .font(.system(size: 30, weight: .black, design: .rounded))
-                .foregroundStyle(
-                    LinearGradient(
-                        colors: [.white, Color.white.opacity(0.78)],
-                        startPoint: .leading,
-                        endPoint: .trailing
-                    )
-                )
-                .lineSpacing(2)
-            Text(body)
-                .font(.system(size: 15, weight: .medium))
-                .foregroundColor(.textSecondary)
+                .font(.system(size: 30, weight: .semibold, design: .rounded))
+                .foregroundColor(.textPrimary)
                 .lineSpacing(3)
+            Text(body)
+                .font(.system(size: 15, weight: .regular))
+                .foregroundColor(.textSecondary)
+                .lineSpacing(4)
                 .fixedSize(horizontal: false, vertical: true)
         }
         .padding(.top, 8)
-    }
-
-    private func miniStat(_ value: String, _ label: String) -> some View {
-        VStack(spacing: 4) {
-            Text(value)
-                .font(.system(size: 15, weight: .bold))
-                .foregroundColor(.textPrimary)
-            Text(label)
-                .font(.system(size: 11, weight: .medium))
-                .foregroundColor(.textTertiary)
-        }
-        .frame(maxWidth: .infinity)
-        .padding(.vertical, 12)
-        .background(Color.surfaceElevated)
-        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
     }
 
     private func primaryButton(
@@ -618,36 +564,14 @@ struct AuthSignUpFlowView: View {
         icon: String,
         action: @escaping () -> Void
     ) -> some View {
-        Button(action: action) {
-            HStack(spacing: 10) {
-                if isBusy {
-                    ProgressView().tint(.white)
-                } else {
-                    Image(systemName: icon)
-                        .font(.system(size: 14, weight: .bold))
-                }
-                Text(title)
-                    .font(.system(size: 16, weight: .bold))
-                Spacer(minLength: 0)
-            }
-            .foregroundColor(.white)
-            .padding(.horizontal, 20)
-            .padding(.vertical, 17)
-            .background {
-                if enabled {
-                    ZStack {
-                        FDS.Gradient.ember
-                        LinearGradient.premiumChrome
-                    }
-                } else {
-                    Color.surfaceElevated
-                }
-            }
-            .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
-            .shadow(color: enabled ? Color.ember.opacity(0.4) : .clear, radius: 16, y: 8)
+        PremiumPrimaryButton(
+            title: title,
+            icon: icon,
+            enabled: enabled,
+            busy: isBusy && enabled
+        ) {
+            action()
         }
-        .buttonStyle(AuthPressButtonStyle())
-        .disabled(!enabled)
         .padding(.top, 8)
     }
 
@@ -683,19 +607,6 @@ struct AuthSignUpFlowView: View {
     }
 
     // MARK: Actions
-
-    private func handleApple(_ result: Result<ASAuthorization, Error>) {
-        switch result {
-        case .success:
-            errorMessage = ForgeAuthClient.shared.canUseDevOverride
-                ? "Sign in with Apple isn’t wired. Use email, or Continue as tester on this debug build."
-                : "Sign in with Apple isn’t connected yet. Use email."
-        case .failure(let error):
-            if (error as NSError).code != ASAuthorizationError.canceled.rawValue {
-                errorMessage = error.localizedDescription
-            }
-        }
-    }
 
     private func continueAsTester() {
         isBusy = true
@@ -818,25 +729,27 @@ private struct SignUpCelebrationOverlay: View {
             Color.black.opacity(0.55).ignoresSafeArea()
             VStack(spacing: 16) {
                 ZStack {
-                    Circle()
-                        .fill(Color.ember.opacity(0.25))
-                        .frame(width: 120, height: 120)
-                        .blur(radius: 16)
-                    Image(systemName: "flame.fill")
-                        .font(.system(size: 48, weight: .bold))
-                        .foregroundStyle(FDS.Gradient.ember)
+                    PremiumPresenceBloom(size: 140, accent: .ember, frost: Color(hex: "A9D8FF"), live: false)
+                    AuroraOrbView(
+                        state: .idle,
+                        amplitude: 0.5,
+                        mood: .energized,
+                        size: 88,
+                        followPresence: false
+                    )
                 }
-                Text("WELCOME")
-                    .font(.system(size: 13, weight: .semibold))
-                    .tracking(2)
-                    .foregroundColor(.ember)
+                Text("Welcome")
+                    .font(.system(size: 12, weight: .medium))
+                    .tracking(2.2)
+                    .foregroundColor(.textTertiary)
+                    .textCase(.uppercase)
                 Text(name.isEmpty ? "Let’s learn how you live." : "Nice to meet you, \(name).")
                     .font(.system(size: 26, weight: .semibold, design: .rounded))
                     .foregroundColor(.white)
                     .multilineTextAlignment(.center)
                     .lineSpacing(2)
                 Text("ARIA will ask a few questions so today’s session fits you.")
-                    .font(.system(size: 14, weight: .medium))
+                    .font(.system(size: 14, weight: .regular))
                     .foregroundColor(.textSecondary)
                     .multilineTextAlignment(.center)
                     .padding(.horizontal, 16)

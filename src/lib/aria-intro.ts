@@ -11,7 +11,7 @@ export const ARIA_INTRO = {
     },
     {
       title: "Recovery",
-      body: "Last night, load, and when to back off before you cook yourself.",
+      body: "Last night, load, and when to ease off before you overreach.",
     },
     {
       title: "What's in the way",

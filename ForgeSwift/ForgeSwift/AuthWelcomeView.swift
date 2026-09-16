@@ -1,9 +1,10 @@
 import SwiftUI
 import ForgeCore
 
-// MARK: - Auth Welcome — cinematic Day 0
+// MARK: - Auth Welcome — premium Day 0 (Oura / Whoop–class)
 
-/// Immersive first gate: story carousel → forge identity → account → ARIA interview.
+/// Soft first gate: calm carousel → identity → account → ARIA interview.
+/// No rage-fire. Presence is light, typography, and negative space.
 struct AuthWelcomeView: View {
     @EnvironmentObject var store: AppStore
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
@@ -20,49 +21,17 @@ struct AuthWelcomeView: View {
 
     var body: some View {
         ZStack {
-            AuthCinematicBackground(page: page)
-                .ignoresSafeArea()
-
-            // Roaring fire — a strong fire, not ember dust
-            if !reduceMotion, appeared {
-                ForgeFireField(intensity: .rage, origin: .floor, live: true)
-                    .opacity(0.72)
-                    .ignoresSafeArea()
-                    .allowsHitTesting(false)
-            }
+            PremiumAtmosphere(
+                accent: pages[safe: page]?.accent ?? .ember,
+                secondary: pages[safe: page]?.frost ?? Color(hex: "A9D8FF")
+            )
 
             VStack(spacing: 0) {
-                // Top brand strip
-                HStack(spacing: 10) {
-                    HStack(spacing: 8) {
-                        ForgeBrandFlame(size: 22)
-                        Text("Forge")
-                            .font(.system(size: 13, weight: .black, design: .rounded))
-                            .tracking(3)
-                            .foregroundColor(.textPrimary)
-                    }
-                    Spacer()
-                    AriaSpokenMuteButton()
-                    Button {
-                        FDS.haptic(.light)
-                        showSignIn = true
-                    } label: {
-                        Text("Sign in")
-                            .font(.system(size: 14, weight: .semibold, design: .rounded))
-                            .foregroundColor(.ember)
-                            .padding(.horizontal, 14)
-                            .padding(.vertical, 8)
-                            .background(Color.ember.opacity(0.12))
-                            .clipShape(Capsule())
-                            .overlay(Capsule().stroke(Color.ember.opacity(0.28), lineWidth: 1))
-                    }
-                    .buttonStyle(.plain)
-                }
-                .padding(.horizontal, 22)
-                .padding(.top, 16)
-                .opacity(appeared ? 1 : 0)
+                header
+                    .padding(.horizontal, 24)
+                    .padding(.top, 16)
+                    .premiumEntrance(index: 0, appeared: appeared)
 
-                // Story carousel
                 TabView(selection: $page) {
                     ForEach(Array(pages.enumerated()), id: \.offset) { index, hook in
                         AuthHookPageView(page: hook, isActive: page == index, floatPhase: floatPhase)
@@ -76,79 +45,14 @@ struct AuthWelcomeView: View {
                     scheduleAutoAdvance()
                 }
 
-                // Progress dots + chapter label
-                VStack(spacing: 14) {
-                    HStack(spacing: 8) {
-                        ForEach(0..<pages.count, id: \.self) { i in
-                            Capsule()
-                                .fill(i == page ? Color.ember : Color.white.opacity(0.18))
-                                .frame(width: i == page ? 22 : 7, height: 7)
-                                .animation(FDS.Spring.snap, value: page)
-                        }
-                    }
-
-                    Text("CHAPTER \(page + 1) OF \(pages.count)")
-                        .forgeSectionLabel()
+                VStack(spacing: 18) {
+                    progress
+                    ctaBlock
                 }
-                .padding(.bottom, 18)
-
-                // Primary CTAs
-                VStack(spacing: 12) {
-                    Button {
-                        FDS.haptic(.heavy)
-                        showSignUp = true
-                    } label: {
-                        HStack(spacing: 10) {
-                            Text("Get started")
-                                .font(.system(size: 17, weight: .bold, design: .rounded))
-                            Spacer(minLength: 0)
-                            Image(systemName: "arrow.right")
-                                .font(.system(size: 14, weight: .bold))
-                        }
-                        .foregroundColor(.white)
-                        .padding(.horizontal, 22)
-                        .padding(.vertical, 18)
-                        .background {
-                            ZStack {
-                                FDS.Gradient.ember
-                                LinearGradient.premiumChrome
-                            }
-                        }
-                        .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
-                        .overlay(
-                            RoundedRectangle(cornerRadius: 18, style: .continuous)
-                                .stroke(Color.white.opacity(0.16), lineWidth: 1)
-                        )
-                        .shadow(color: Color.ember.opacity(0.5), radius: 22, y: 10)
-                    }
-                    .buttonStyle(AuthPressButtonStyle())
-                    .accessibilityLabel("Get started")
-
-                    if page < pages.count - 1 {
-                        Button {
-                            FDS.haptic(.light)
-                            withAnimation(FDS.Spring.page) {
-                                page = min(pages.count - 1, page + 1)
-                            }
-                        } label: {
-                            Text("See how it works")
-                                .font(.system(size: 14, weight: .semibold))
-                                .foregroundColor(.textSecondary)
-                                .frame(maxWidth: .infinity)
-                                .padding(.vertical, 10)
-                        }
-                        .buttonStyle(.plain)
-                    }
-
-                    Text("Lifestyle fitness coaching · Live your best life")
-                        .font(.system(size: 11, weight: .medium))
-                        .foregroundColor(.textMuted)
-                        .multilineTextAlignment(.center)
-                }
-                .padding(.horizontal, 22)
-                .padding(.bottom, 36)
-                .opacity(appeared ? 1 : 0)
-                .offset(y: appeared ? 0 : 20)
+                .padding(.horizontal, 24)
+                .padding(.bottom, 28)
+                .safeAreaPadding(.bottom, 8)
+                .premiumEntrance(index: 2, appeared: appeared)
             }
         }
         .sheet(isPresented: $showSignIn) {
@@ -164,7 +68,7 @@ struct AuthWelcomeView: View {
         .onAppear {
             withAnimation(FDS.Spring.hero.delay(0.05)) { appeared = true }
             if !reduceMotion {
-                withAnimation(.easeInOut(duration: 3.2).repeatForever(autoreverses: true)) {
+                withAnimation(.easeInOut(duration: 3.6).repeatForever(autoreverses: true)) {
                     floatPhase = 1
                 }
             }
@@ -179,11 +83,82 @@ struct AuthWelcomeView: View {
         }
     }
 
+    private var header: some View {
+        HStack(spacing: 10) {
+            HStack(spacing: 9) {
+                ForgeBrandMark(size: 18)
+                Text("Forge")
+                    .font(.system(size: 15, weight: .semibold, design: .rounded))
+                    .tracking(0.6)
+                    .foregroundColor(.textPrimary)
+            }
+            Spacer()
+            AriaSpokenMuteButton()
+            Button {
+                FDS.haptic(.light)
+                showSignIn = true
+            } label: {
+                Text("Sign in")
+                    .font(.system(size: 14, weight: .medium, design: .rounded))
+                    .foregroundColor(.textPrimary.opacity(0.92))
+                    .padding(.horizontal, 14)
+                    .padding(.vertical, 8)
+                    .background(Color.white.opacity(0.06))
+                    .clipShape(Capsule())
+                    .overlay(Capsule().stroke(Color.white.opacity(0.12), lineWidth: 1))
+            }
+            .buttonStyle(.plain)
+        }
+    }
+
+    private var progress: some View {
+        VStack(spacing: 12) {
+            PremiumProgressDots(count: pages.count, current: page)
+            Text("\(page + 1) of \(pages.count)")
+                .font(.system(size: 11, weight: .medium, design: .rounded))
+                .tracking(1.4)
+                .foregroundColor(.textTertiary)
+                .textCase(.uppercase)
+                .contentTransition(.numericText())
+                .animation(FDS.Spring.snap, value: page)
+        }
+    }
+
+    private var ctaBlock: some View {
+        VStack(spacing: 14) {
+            PremiumPrimaryButton(title: "Get started") {
+                FDS.haptic(.medium)
+                showSignUp = true
+            }
+
+            if page < pages.count - 1 {
+                Button {
+                    FDS.haptic(.light)
+                    withAnimation(FDS.Spring.page) {
+                        page = min(pages.count - 1, page + 1)
+                    }
+                } label: {
+                    Text("See how it works")
+                        .font(.system(size: 14, weight: .medium))
+                        .foregroundColor(.textSecondary)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 8)
+                }
+                .buttonStyle(.plain)
+            }
+
+            Text("Lifestyle fitness coaching · Live your best life")
+                .font(.system(size: 11, weight: .regular))
+                .foregroundColor(.textMuted)
+                .multilineTextAlignment(.center)
+        }
+    }
+
     private func scheduleAutoAdvance() {
         autoAdvanceTask?.cancel()
         guard !reduceMotion, page < pages.count - 1 else { return }
         autoAdvanceTask = Task { @MainActor in
-            try? await Task.sleep(nanoseconds: 4_200_000_000)
+            try? await Task.sleep(nanoseconds: 4_800_000_000)
             guard !Task.isCancelled else { return }
             withAnimation(FDS.Spring.page) {
                 page = min(pages.count - 1, page + 1)
@@ -200,44 +175,49 @@ private struct AuthHookPage: Identifiable {
     let title: String
     let body: String
     let icon: String
-    let accentHex: String
+    let accent: Color
+    let frost: Color
     let reward: String
 
     static let all: [AuthHookPage] = [
         AuthHookPage(
             id: "aria",
-            kicker: "MEET YOUR COACH",
+            kicker: "Meet your coach",
             title: AriaOnboardingGuide.welcomeTitle,
-            body: "ARIA is an adaptive lifestyle coach, not a commander. You are meeting someone who will be in your mornings — readiness, sleep, the session you'd skip. Small moves compound. You still decide.",
+            body: "ARIA is an adaptive lifestyle coach — present for readiness, sleep, and the session you'd skip. Small moves compound. You still decide.",
             icon: "sparkles",
-            accentHex: "FF5A00",
+            accent: Color(hex: "FF6B2B"),
+            frost: Color(hex: "A9D8FF"),
             reward: "A coach who already knows you"
         ),
         AuthHookPage(
             id: "readiness",
-            kicker: "TRAIN ON SIGNAL",
+            kicker: "Train on signal",
             title: "Know when to push or protect.",
-            body: "ARIA takes standardized metrics and creates a standardized plan that's best for you. All your stats are saved daily so you don't erase progress but rather you build on it the next day. Everytime you use ARIA it feels intentional not like its a burden.",
+            body: "ARIA turns your metrics into a plan that fits today. Progress compounds day to day — each session intentional, never a burden.",
             icon: "waveform.path.ecg",
-            accentHex: "38BDF8",
+            accent: Color(hex: "60A5FA"),
+            frost: Color(hex: "A9D8FF"),
             reward: "Sessions that match how you feel"
         ),
         AuthHookPage(
             id: "life",
-            kicker: "Workout based on your lifestyle.",
+            kicker: "Built around your life",
             title: "Workouts, lifestyle, and cycle rhythm.",
-            body: "ARIA looks into how you eat and sleep, but it also seeks to learn more about how you spend your free time, how you provide support to those you love in their time of need — one control center and its private by design.",
+            body: "Sleep, nutrition, free time, and how you show up for people you love — one private control center that respects the life you already have.",
             icon: "leaf.fill",
-            accentHex: "22C55E",
+            accent: Color(hex: "34D399"),
+            frost: Color(hex: "A9D8FF"),
             reward: "Private by design"
         ),
         AuthHookPage(
             id: "forge",
-            kicker: " Start Today",
+            kicker: "Start today",
             title: "Forge starts with one choice.",
-            body: "It doesn't take long. Name your goal and how you want to train. Connect Health if you want and walk out with a first plan and a coach that already knows you.",
-            icon: "flame.fill",
-            accentHex: "F59E0B",
+            body: "Name your goal and how you want to train. Connect Health if you want. Walk out with a first plan and a coach that already knows you.",
+            icon: "sparkles",
+            accent: Color(hex: "F7F4F0"),
+            frost: Color(hex: "FF6B2B"),
             reward: "Meet ARIA →"
         ),
     ]
@@ -248,190 +228,120 @@ private struct AuthHookPageView: View {
     let isActive: Bool
     let floatPhase: CGFloat
 
-    private var accent: Color { Color(hex: page.accentHex) }
-
     var body: some View {
-        VStack(spacing: 22) {
-            Spacer(minLength: 12)
+        VStack(spacing: 28) {
+            Spacer(minLength: 8)
 
-            ZStack {
-                if page.id == "aria" {
-                    Button {
-                        FDS.haptic(.soft)
-                        AriaPresence.shared.speak(AriaOnboardingGuide.welcomeSpokenLine, interrupt: true)
-                    } label: {
-                        VStack(spacing: 10) {
-                            ZStack {
-                                ForgeFireField(intensity: .rage, origin: .hearth)
-                                    .frame(width: 210, height: 220)
-                                    .opacity(0.8)
-                                Circle()
-                                    .fill(
-                                        RadialGradient(
-                                            colors: [
-                                                Color.background.opacity(0.72),
-                                                Color.background.opacity(0.18),
-                                                .clear
-                                            ],
-                                            center: .center,
-                                            startRadius: 8,
-                                            endRadius: 88
-                                        )
-                                    )
-                                    .frame(width: 176, height: 176)
-                                AuroraOrbView(
-                                    state: .idle,
-                                    amplitude: 0.62,
-                                    mood: .energized,
-                                    size: 168,
-                                    followPresence: true
-                                )
-                            }
-                            .scaleEffect(isActive ? 1.0 + floatPhase * 0.012 : 0.94)
-                            Text("ARIA")
-                                .font(.system(size: 11, weight: .semibold, design: .rounded))
-                                .tracking(3.2)
-                                .foregroundColor(ForgePalette.amber.opacity(0.78))
-                        }
-                    }
-                    .buttonStyle(.plain)
-                    .accessibilityLabel("Hear ARIA")
-                    .accessibilityHint("Plays her welcome line")
-                } else {
-                    Circle()
-                        .fill(accent.opacity(0.18))
-                        .frame(width: 160, height: 160)
-                        .blur(radius: 24)
-                        .scaleEffect(isActive ? 1.05 + floatPhase * 0.04 : 0.92)
-                    Circle()
-                        .stroke(accent.opacity(0.35), lineWidth: 1.5)
-                        .frame(width: 120, height: 120)
-                    Circle()
-                        .fill(
-                            RadialGradient(
-                                colors: [accent.opacity(0.45), accent.opacity(0.08), .clear],
-                                center: .center,
-                                startRadius: 8,
-                                endRadius: 70
-                            )
-                        )
-                        .frame(width: 110, height: 110)
-                    if page.id == "forge" {
-                        ForgeBrandFlame(size: 56)
-                            .offset(y: isActive ? -floatPhase * 6 : 0)
-                    } else {
-                        Image(systemName: page.icon)
-                            .font(.system(size: 40, weight: .bold))
-                            .foregroundStyle(
-                                LinearGradient(
-                                    colors: [.white, accent],
-                                    startPoint: .topLeading,
-                                    endPoint: .bottomTrailing
-                                )
-                            )
-                            .shadow(color: accent.opacity(0.6), radius: 12, y: 4)
-                            .offset(y: isActive ? -floatPhase * 6 : 0)
-                    }
+            visual
+                .frame(height: 200)
+                .scaleEffect(isActive ? 1.0 + floatPhase * 0.01 : 0.96)
+                .onChange(of: isActive) { _, active in
+                    guard page.id == "aria" else { return }
+                    if !active { AriaPresence.shared.stopSpeaking() }
                 }
-            }
-            .frame(height: 220)
-            .onChange(of: isActive) { _, active in
-                guard page.id == "aria" else { return }
-                if !active {
-                    AriaPresence.shared.stopSpeaking()
-                }
-            }
 
-            VStack(spacing: 12) {
+            VStack(spacing: 14) {
                 Text(page.kicker)
-                    .forgeSectionLabel()
-                    .foregroundStyle(accent)
+                    .font(.system(size: 12, weight: .medium, design: .rounded))
+                    .tracking(2.4)
+                    .foregroundColor(.textTertiary)
+                    .textCase(.uppercase)
+                    .premiumEntrance(index: 0, appeared: isActive)
 
                 Text(page.title)
-                    .font(.system(size: 32, weight: .black, design: .rounded))
+                    .font(.system(size: 30, weight: .semibold, design: .rounded))
+                    .foregroundColor(.textPrimary)
+                    .multilineTextAlignment(.center)
+                    .lineSpacing(3)
+                    .minimumScaleFactor(0.88)
+                    .premiumEntrance(index: 1, appeared: isActive)
+
+                Text(page.body)
+                    .font(.system(size: 15, weight: .regular))
+                    .foregroundColor(.textSecondary)
+                    .multilineTextAlignment(.center)
+                    .lineSpacing(5)
+                    .padding(.horizontal, 4)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .premiumEntrance(index: 2, appeared: isActive)
+
+                Group {
+                    if page.id == "forge" {
+                        Text(page.reward)
+                            .font(.system(size: 13, weight: .medium, design: .rounded))
+                            .foregroundColor(Color.ember.opacity(0.9))
+                    } else {
+                        Text(page.reward)
+                            .font(.system(size: 12, weight: .medium))
+                            .foregroundColor(.textTertiary)
+                    }
+                }
+                .padding(.top, 2)
+                .premiumEntrance(index: 3, appeared: isActive)
+            }
+            .padding(.horizontal, 28)
+
+            Spacer(minLength: 4)
+        }
+        .opacity(isActive ? 1 : 0.4)
+        .scaleEffect(isActive ? 1 : 0.97)
+        .animation(FDS.Spring.standard, value: isActive)
+    }
+
+    @ViewBuilder
+    private var visual: some View {
+        if page.id == "aria" {
+            Button {
+                FDS.haptic(.soft)
+                AriaPresence.shared.speak(AriaOnboardingGuide.welcomeSpokenLine, interrupt: true)
+            } label: {
+                VStack(spacing: 12) {
+                    ZStack {
+                        PremiumPresenceBloom(size: 210, accent: page.accent, frost: page.frost)
+                        AuroraOrbView(
+                            state: .idle,
+                            amplitude: 0.55,
+                            mood: .energized,
+                            size: 148,
+                            followPresence: true
+                        )
+                    }
+                    Text("ARIA")
+                        .font(.system(size: 11, weight: .medium, design: .rounded))
+                        .tracking(3.2)
+                        .foregroundColor(Color(hex: "F7F4F0").opacity(0.72))
+                }
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel("Hear ARIA")
+            .accessibilityHint("Plays her welcome line")
+        } else {
+            ZStack {
+                PremiumPresenceBloom(size: 180, accent: page.accent, frost: page.frost, live: isActive)
+                Circle()
+                    .stroke(Color.white.opacity(0.10), lineWidth: 1)
+                    .frame(width: 112, height: 112)
+                Circle()
+                    .fill(Color.white.opacity(0.04))
+                    .frame(width: 96, height: 96)
+                Image(systemName: page.icon)
+                    .font(.system(size: 34, weight: .medium))
                     .foregroundStyle(
                         LinearGradient(
-                            colors: [.white, Color.white.opacity(0.78)],
+                            colors: [Color(hex: "F7F4F0"), page.accent.opacity(0.9)],
                             startPoint: .topLeading,
                             endPoint: .bottomTrailing
                         )
                     )
-                    .multilineTextAlignment(.center)
-                    .lineSpacing(2)
-                    .minimumScaleFactor(0.85)
-
-                Text(page.body)
-                    .font(.system(size: 15, weight: .medium))
-                    .foregroundColor(.textSecondary)
-                    .multilineTextAlignment(.center)
-                    .lineSpacing(4)
-                    .padding(.horizontal, 8)
-                    .fixedSize(horizontal: false, vertical: true)
-
-                HStack(spacing: 6) {
-                    Image(systemName: "lock.open.fill")
-                        .font(.system(size: 11, weight: .bold))
-                    Text(page.reward)
-                        .font(.system(size: 12, weight: .bold))
-                }
-                .foregroundStyle(accent)
-                .padding(.horizontal, 14)
-                .padding(.vertical, 8)
-                .background(accent.opacity(0.12))
-                .clipShape(Capsule())
-                .overlay(Capsule().stroke(accent.opacity(0.28), lineWidth: 1))
-                .padding(.top, 4)
+                    .offset(y: isActive ? -floatPhase * 4 : 0)
             }
-            .padding(.horizontal, 28)
-
-            Spacer(minLength: 8)
         }
-        .opacity(isActive ? 1 : 0.55)
-        .scaleEffect(isActive ? 1 : 0.96)
-        .animation(FDS.Spring.standard, value: isActive)
     }
 }
 
-// MARK: - Background + particles
-
-private struct AuthCinematicBackground: View {
-    let page: Int
-
-    private var accent: Color {
-        Color(hex: AuthHookPage.all[min(page, AuthHookPage.all.count - 1)].accentHex)
-    }
-
-    var body: some View {
-        ZStack {
-            Color.background
-            RadialGradient(
-                colors: [accent.opacity(0.22), Color.ember.opacity(0.08), .clear],
-                center: UnitPoint(x: 0.5, y: 0.18),
-                startRadius: 10,
-                endRadius: 420
-            )
-            RadialGradient(
-                colors: [Color.steel.opacity(0.08), .clear],
-                center: UnitPoint(x: 0.9, y: 0.85),
-                startRadius: 8,
-                endRadius: 280
-            )
-            LinearGradient(
-                colors: [.clear, Color.black.opacity(0.35)],
-                startPoint: .center,
-                endPoint: .bottom
-            )
-        }
-        .animation(.easeInOut(duration: 0.55), value: page)
-    }
-}
-
-struct AuthPressButtonStyle: ButtonStyle {
-    func makeBody(configuration: Configuration) -> some View {
-        configuration.label
-            .scaleEffect(configuration.isPressed ? 0.97 : 1)
-            .opacity(configuration.isPressed ? 0.92 : 1)
-            .animation(FDS.Spring.snap, value: configuration.isPressed)
+private extension Array {
+    subscript(safe index: Int) -> Element? {
+        indices.contains(index) ? self[index] : nil
     }
 }
 

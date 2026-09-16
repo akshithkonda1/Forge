@@ -29,47 +29,47 @@ export function whisperForStep(
   switch (step) {
     case "welcome":
       return {
-        title: "ARIA online",
-        message: "Welcome. I'll coach the life you already have — not a spreadsheet of you.",
+        title: "Getting started",
+        message: "I'll coach the life you already have — not a spreadsheet of you.",
         mood: "focused",
       };
     case "profile":
       if (first) {
         return {
-          title: `Got you, ${first}`,
-          message: "Goals and the training you enjoy let me size the week without guessing.",
+          title: `Nice to meet you, ${first}`,
+          message: "Goals and the training you enjoy help me size the week without guessing.",
           mood: "focused",
         };
       }
       return {
-        title: "Who am I coaching?",
+        title: "A few preferences",
         message: "Your name first — everything from here gets personal.",
         mood: "focused",
       };
     case "devices":
       if ((ctx.devicesConnected ?? 0) > 0) {
         return {
-          title: "Signal lock",
-          message: "Nice — recovery can shape the load from day one.",
+          title: "Wearables noted",
+          message: "We'll use these when you connect them — recovery can shape load from day one.",
           mood: "energized",
         };
       }
       return {
-        title: "Recovery channel",
-        message: "Optional. Connect later and I'll fold recovery in the moment it arrives.",
+        title: "Optional wearables",
+        message: "Skip for now if you like. You can connect later in Settings.",
         mood: "calm",
       };
     case "coaching": {
       const style = ctx.coachingStyle;
       if (!style) {
         return {
-          title: "Choose my voice",
+          title: "Coaching tone",
           message: "This shapes every check-in and recovery nudge.",
           mood: "focused",
         };
       }
       return {
-        title: "Voice locked",
+        title: "Tone set",
         message: firstSessionScript({
           name: ctx.name,
           goals: ctx.goals,

@@ -65,6 +65,7 @@ final class ForgeAuthClient: ObservableObject {
         if session?.mode == .devOverride { return session }
         let minted = DevAuthOverride.session()
         try? persist(minted)
+        AriaOperatingMode.refresh()
         return minted
     }
 
@@ -72,6 +73,7 @@ final class ForgeAuthClient: ObservableObject {
         guard canUseDevOverride else { throw ForgeAuthError.overrideDisabled }
         let minted = DevAuthOverride.session()
         try persist(minted)
+        AriaOperatingMode.refresh()
         return minted
     }
 

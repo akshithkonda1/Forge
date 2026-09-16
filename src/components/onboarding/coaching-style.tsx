@@ -1,11 +1,12 @@
 "use client";
 
 import { useState } from "react";
-import { Flame, Scale, Heart, BarChart3 } from "lucide-react";
+import { Zap, Scale, Heart, BarChart3 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAppStore } from "@/stores/useAppStore";
 import { whisperForStep } from "@/lib/aria-onboarding";
 import AriaCompanion from "./aria-companion";
+import { PremiumPrimaryButton } from "@/components/brand/premium-atmosphere";
 import type { CoachingStyle as CoachingStyleType } from "@/types";
 
 interface CoachingStyleProps {
@@ -22,31 +23,31 @@ interface StyleOption {
 const styles: StyleOption[] = [
   {
     value: "push-hard",
-    label: "Push Me Hard",
-    icon: <Flame size={28} />,
+    label: "Challenge me",
+    icon: <Zap size={28} />,
     description:
-      "No excuses. Maximum intensity. I want to be challenged every session.",
+      "High intensity when you’re ready. Clear standards every session.",
   },
   {
     value: "balanced",
-    label: "Keep It Balanced",
+    label: "Keep it balanced",
     icon: <Scale size={28} />,
     description:
-      "Push when I can, back off when I need to. Smart training.",
+      "Push when you can, back off when you need to. Smart training.",
   },
   {
     value: "patient",
-    label: "Be Patient With Me",
+    label: "Be patient with me",
     icon: <Heart size={28} />,
     description:
-      "I'm building habits. Encouraging and supportive.",
+      "I’m building habits. Encouraging and supportive.",
   },
   {
     value: "data-driven",
-    label: "Data-Driven & Precise",
+    label: "Data-driven & precise",
     icon: <BarChart3 size={28} />,
     description:
-      "Numbers don't lie. Optimize everything based on my metrics.",
+      "Numbers guide the plan. Optimize from your metrics.",
   },
 ];
 
@@ -71,7 +72,7 @@ export default function CoachingStyleScreen({
     <div className="flex min-h-[100dvh] flex-col overflow-y-auto px-6 pb-8 pt-16">
       {/* Header */}
       <div className="mb-4">
-        <h2 className="mb-2 text-3xl font-bold text-text-primary">
+        <h2 className="mb-2 text-3xl font-semibold tracking-tight text-text-primary">
           How do you like to be coached?
         </h2>
         <p className="text-text-tertiary">
@@ -106,7 +107,7 @@ export default function CoachingStyleScreen({
                 "flex items-start gap-4 rounded-xl border p-5 text-left",
                 "transition-colors duration-150",
                 isSelected
-                  ? "border-ember bg-ember/10"
+                  ? "border-white/20 bg-white/[0.06]"
                   : "border-border bg-surface hover:border-border-light"
               )}
             >
@@ -115,7 +116,7 @@ export default function CoachingStyleScreen({
                 className={cn(
                   "flex h-12 w-12 shrink-0 items-center justify-center rounded-lg transition-all duration-200",
                   isSelected
-                    ? "bg-ember/20 text-ember"
+                    ? "bg-white/10 text-[#F7F4F0]"
                     : "bg-surface-elevated text-text-tertiary"
                 )}
               >
@@ -127,7 +128,7 @@ export default function CoachingStyleScreen({
                 <span
                   className={cn(
                     "text-base font-semibold transition-colors duration-200",
-                    isSelected ? "text-ember" : "text-text-primary"
+                    isSelected ? "text-text-primary" : "text-text-primary"
                   )}
                 >
                   {style.label}
@@ -141,11 +142,11 @@ export default function CoachingStyleScreen({
               <div
                 className={cn(
                   "ml-auto mt-1 flex h-5 w-5 shrink-0 items-center justify-center rounded-full border-2 transition-all duration-200",
-                  isSelected ? "border-ember bg-ember" : "border-border"
+                  isSelected ? "border-[#F7F4F0] bg-[#F7F4F0]" : "border-border"
                 )}
               >
                 {isSelected && (
-                  <div className="h-2 w-2 rounded-full bg-white" />
+                  <div className="h-2 w-2 rounded-full bg-[#0A0A0A]" />
                 )}
               </div>
             </button>
@@ -153,23 +154,14 @@ export default function CoachingStyleScreen({
         })}
       </div>
 
-      <button
-        type="button"
+      <PremiumPrimaryButton
         onClick={handleComplete}
         disabled={!selected}
-        className={cn(
-          "mt-8 w-full rounded-xl px-8 py-4 text-lg font-semibold text-white",
-          "focus:outline-none focus-visible:ring-2 focus-visible:ring-ember focus-visible:ring-offset-2 focus-visible:ring-offset-background",
-          "disabled:cursor-not-allowed disabled:opacity-40"
-        )}
-        style={{
-          background: selected
-            ? "linear-gradient(135deg, #FF4D00, #FF6B2B)"
-            : "#2A2A2A",
-        }}
+        className="mt-8"
       >
-        Start with ARIA
-      </button>
+        <span>Start with ARIA</span>
+        <span aria-hidden>→</span>
+      </PremiumPrimaryButton>
     </div>
   );
 }
