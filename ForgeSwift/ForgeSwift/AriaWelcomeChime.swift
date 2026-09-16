@@ -2,13 +2,13 @@ import AVFoundation
 import CoreGraphics
 import os
 
-/// Welcome arrive-sound. Live phone ARIA is the 5-ellipse ring-field
-/// (`AuroraOrbView`). Contract numbers from Lex `#270` @ `fab0a40`.
-/// `main`'s `shared/aria-mark.json` is still ember until that PR merges. PNG unused.
+/// Welcome arrive-sound. Live phone ARIA is the B+E nest (`AuroraOrbView` /
+/// `AriaNestGeometry`, Lex `#288`). Tip `AriaSigilGeometry` is an older nest
+/// leftover. PNG unused.
 /// Pure gates so tests can lock quiet mode and Reduce Motion without audio.
 enum AriaWelcomeChime: Sendable {
     static let assetName = "AriaLogo"
-    /// 1.0 — show the whole mark. Lockstep with `shared/aria-mark.json` cropScale.
+    /// 1.0 — show the whole mark (ForgeSwift living nest; PNG unused).
     static let cropScale: CGFloat = 1.0
     static let heroMinimumSize: CGFloat = 90
 

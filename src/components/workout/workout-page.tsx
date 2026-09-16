@@ -1,7 +1,7 @@
 "use client";
 
 import { motion, AnimatePresence } from "framer-motion";
-import { Dumbbell, Play, Calendar } from "lucide-react";
+import { Play, Calendar } from "lucide-react";
 import { useAppStore } from "@/stores/useAppStore";
 import { Button } from "@/components/ui/button";
 import { ActiveWorkoutView } from "./active-workout-view";
@@ -32,20 +32,12 @@ export function WorkoutPage() {
           className="flex min-h-full flex-col items-center bg-background px-6 py-10"
         >
           {todayWorkout ? (
-            <div className="flex flex-col items-center w-full max-w-sm">
-              {/* Icon */}
-              <motion.div
-                className="w-20 h-20 rounded-2xl bg-[#FF4D00]/10 flex items-center justify-center mb-6"
-                initial={{ scale: 0.8, opacity: 0 }}
-                animate={{ scale: 1, opacity: 1 }}
-                transition={{ delay: 0.1, type: "spring", stiffness: 300 }}
-              >
-                <Dumbbell className="h-10 w-10 text-[#FF4D00]" />
-              </motion.div>
-
-              {/* Title */}
+            <div className="flex flex-col w-full max-w-sm">
+              <p className="text-[11px] font-black tracking-[0.16em] text-[#A1A1AA] mb-2">
+                TODAY
+              </p>
               <motion.h2
-                className="text-2xl font-bold text-white text-center mb-2"
+                className="text-2xl font-bold text-white mb-2"
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.15 }}
@@ -53,21 +45,35 @@ export function WorkoutPage() {
                 {todayWorkout.name}
               </motion.h2>
 
-              {/* Subtitle */}
               <motion.p
-                className="text-sm text-[#A1A1AA] text-center mb-2"
+                className="text-sm text-[#A1A1AA] mb-4"
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 transition={{ delay: 0.2 }}
               >
-                {todayWorkout.exercises.length} exercises &middot;{" "}
-                {todayWorkout.duration} min &middot;{" "}
-                {todayWorkout.intensity} intensity
+                {todayWorkout.exercises.length} moves · {todayWorkout.duration} min ·{" "}
+                {todayWorkout.intensity}
               </motion.p>
 
-              {/* Exercise preview list */}
               <motion.div
-                className="w-full rounded-xl bg-[#141414] border border-[#2A2A2A] p-4 mb-8 mt-4"
+                className="w-full mb-5"
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.22 }}
+              >
+                <Button
+                  variant="default"
+                  size="lg"
+                  onClick={startWorkout}
+                  className="w-full min-h-[56px] text-lg font-bold rounded-xl"
+                >
+                  <Play className="h-5 w-5 mr-2 fill-current" />
+                  Start session
+                </Button>
+              </motion.div>
+
+              <motion.div
+                className="w-full rounded-xl bg-[#141414] border border-[#2A2A2A] p-4"
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.25 }}
@@ -90,24 +96,6 @@ export function WorkoutPage() {
                     </span>
                   </div>
                 ))}
-              </motion.div>
-
-              {/* Start Button */}
-              <motion.div
-                className="w-full"
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.35 }}
-              >
-                <Button
-                  variant="default"
-                  size="lg"
-                  onClick={startWorkout}
-                  className="w-full min-h-[56px] text-lg font-bold rounded-xl"
-                >
-                  <Play className="h-5 w-5 mr-2 fill-current" />
-                  Start Workout
-                </Button>
               </motion.div>
             </div>
           ) : (

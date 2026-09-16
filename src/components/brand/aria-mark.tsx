@@ -2,13 +2,13 @@
 
 import { useEffect, useRef } from "react";
 import { cn } from "@/lib/utils";
-import { ARIA_MARK, ariaMarkPaintDue, ariaMarkShouldSpin, ariaMarkSizeTier } from "@/lib/aria-mark";
-import { drawAriaRingField, ringBreathScale } from "@/lib/aria-ring-field";
+import { ARIA_MARK, ariaMarkPaintDue, ariaMarkShouldSpin } from "@/lib/aria-mark";
+import { drawAriaRingField } from "@/lib/aria-ring-field";
 
 /**
  * Adaptive Recovery Interactive Assistant.
- * Living mark is the kinetic ring-field in `ARIA_MARK` / `shared/aria-mark.json`.
- * Procedural canvas only — no PNG runtime, no ember, no readiness chrome.
+ * Living mark is the kinetic ring-field in `ARIA_MARK` / `shared/aria-mark.json`
+ * with a white intelligence orb at the core. Procedural canvas only.
  */
 export function AriaMark({
   size = 48,

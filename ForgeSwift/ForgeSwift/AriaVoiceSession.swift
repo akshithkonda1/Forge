@@ -38,7 +38,11 @@ final class AriaVoiceSession {
     private init() {}
 
     func start(store: AppStore, speech: SpeechManager, captureMic: Bool = true) {
-        if isActive, self.store === store, self.speech === speech {
+        let resuming = isActive && self.store === store && self.speech === speech
+        if AriaSpokenMute.shouldUnmuteForNewSession(isResumingExistingSession: resuming) {
+            AriaSpokenMute.unmuteBecauseVoiceSessionStarted()
+        }
+        if resuming {
             if captureMic { capturesMic = true }
             if captureMic, transport?.usesOnDeviceBrain == true {
                 speech.startListening()
@@ -57,12 +61,14 @@ final class AriaVoiceSession {
         let generation = startGeneration
         applyPhase(captureMic ? .listening : .thinking)
 
+        // Session start already unmuted. Live ConvAI is the mouth; Dummy
+        // fill-in speaks via speakChatReply. A later mute() still stops both.
         if chosen.requiresNetwork, AriaSpokenMute.allowsSpeech {
             Task { await self.startLive(generation: generation) }
             return
         }
 
-        // Dummy, local testing, or muted-live (text via STT, no ConvAI).
+        // Dummy / local testing (on-device brain). Mic is optional.
         if captureMic {
             speech.startListening()
         }
@@ -102,7 +108,7 @@ final class AriaVoiceSession {
         }
     }
 
-    /// After chat lands a trainer reply on dummy/local, play the DEBUG fill-in.
+    /// After chat lands a trainer reply on dummy/local, play the fill-in.
     /// Live ConvAI is already the mouth — do not also enqueue Apple TTS.
     func speakChatReply(_ reply: AriaResponse) {
         guard isActive else { return }

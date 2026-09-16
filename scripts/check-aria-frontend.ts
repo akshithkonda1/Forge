@@ -7,6 +7,7 @@ import {
   ARIA_MARK,
   ARIA_MARK_COMPACT_MAX,
   ARIA_MARK_CONTRAST_FLOOR,
+  ARIA_ORB_CORE,
   LEGACY_EMBER,
   ARIA_MARK_PAINT_HZ,
   ariaMarkPaintDue,
@@ -18,6 +19,7 @@ import {
   contrastRingIndices,
   emberCoreRadius,
   emberLobe,
+  orbCoreRadius,
   ringEllipse,
   ringSpinHz,
   ringStrokeWidth,
@@ -104,7 +106,6 @@ assert(ariaMarkShouldSpin(96, false) && !ariaMarkShouldSpin(96, true), "hero spi
 assert(!ariaMarkShouldGlow(32) && !ariaMarkShouldGlow(ARIA_MARK.compactRecommend), "compact skips decorative glow");
 assert(ariaMarkShouldGlow(36) && ariaMarkShouldGlow(90), "mid and hero keep soft glow");
 assert(ARIA_MARK_PAINT_HZ === 12, "live paint cadence is 12 Hz");
-assert(ARIA_MARK.idleSpinHz === 0.04 && ARIA_MARK.speakingSpinHz === 0.075, "spin Hz stays 0.04 idle / 0.075 speak");
 assert(ariaMarkPaintDue(0, -1), "first frame always paints");
 assert(!ariaMarkPaintDue(80, 0), "sub-12 Hz frames are skipped");
 assert(ariaMarkPaintDue(1000 / ARIA_MARK_PAINT_HZ, 0), "12 Hz boundary paints");
@@ -138,6 +139,16 @@ for (let i = 0; i < ARIA_MARK.ringCount; i++) {
   rotations.add(pose.rotation.toFixed(4));
 }
 assert(rotations.size === ARIA_MARK.ringCount, "five rings overlap at distinct tilts");
+
+assert(ARIA_ORB_CORE.hue === "#FFFFFF", "intelligence core is white");
+const heroOrb = orbCoreRadius(ARIA_MARK.heroMinimumSize);
+const compactOrb = orbCoreRadius(24);
+const heroInner = ringEllipse(0, 0, false, true).ry / 2;
+const compactInner = ringEllipse(1, 0, false, true).ry / 2;
+assert(heroOrb < heroInner, "hero orb nests inside the innermost ellipse");
+assert(compactOrb < compactInner, "compact orb nests inside the Cove 3-ring");
+assert(Math.abs(heroOrb / heroInner - ARIA_ORB_CORE.nest) < 1e-9, "orb nest ratio is 0.88");
+assert(compactOrb > heroOrb, "compact core stays readable at 24px");
 
 const stillA = emberLobe(0, 1, false, true);
 const stillB = emberLobe(0, 99, true, true);

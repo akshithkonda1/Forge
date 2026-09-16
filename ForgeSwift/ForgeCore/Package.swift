@@ -29,6 +29,8 @@ let package = Package(
             // Explicit sources only — never pick up Finder " 2.swift" duplicates.
             path: "Sources/ForgeCore",
             sources: [
+                "DesignSystem/AriaNestGeometry.swift",
+                "DesignSystem/AriaRingFieldGeometry.swift",
                 "DesignSystem/ForgeDS.swift",
                 "DesignSystem/ForgePalette.swift",
                 "HealthKit/HealthKitQueryHelpers.swift",
@@ -39,6 +41,7 @@ let package = Package(
                 "HealthKit/TestReadyLaunchPolicy.swift",
                 "Intelligence/AriaGuidancePolicy.swift",
                 "Intelligence/AriaKnowledgeLedger.swift",
+                "Intelligence/AriaSwarm.swift",
                 "Intelligence/AriaHealthRiskMonitor.swift",
                 "Intelligence/AriaIntentResolver.swift",
                 "Intelligence/ContextualParsingEngine.swift",
@@ -65,6 +68,7 @@ let package = Package(
                 "Intelligence/WorkoutCoaching.swift",
                 "Intelligence/WorkoutSuggestionEngine.swift",
                 "Intelligence/QualityOfLifeCalculator.swift",
+                "Intelligence/AgingSnapshot.swift",
                 "Models/HealthDeviceCatalog.swift",
                 "Models/HRZones.swift",
                 "Models/LifestyleContext.swift",
@@ -97,6 +101,8 @@ let package = Package(
             path: "Tests/ForgeCoreTests",
             // Explicit sources only — never pick up Finder " 2.swift" duplicates.
             sources: [
+                "AriaNestGeometryTests.swift",
+                "AriaRingFieldGeometryTests.swift",
                 "CircadianRhythmTests.swift",
                 "CycleVaultTests.swift",
                 "CompanionConfigTests.swift",
@@ -133,7 +139,9 @@ let package = Package(
                 "CognitoRefreshTests.swift",
                 "ReadinessCalculatorTests.swift",
                 "QualityOfLifeCalculatorTests.swift",
+                "AgingSnapshotTests.swift",
                 "AriaKnowledgeLedgerTests.swift",
+                "AriaSwarmTests.swift",
                 "EventTrainingPolicyTests.swift",
                 "SleepIntelligenceTests.swift",
                 "SmartStackRelevanceTests.swift",

@@ -217,12 +217,19 @@ class ARIAEngine:
         if recovery_needed:
             base_comply = 0.85 - (0.5 if is_override else 0.0) - (0.12 if context.coaching_style == "push-hard" else 0.0)
             comply = base_comply + ma.safety_lean(arch) * 0.35 + arch.capitulation_penalty * 0.25
-            if not ma.should_capitulate(rng, arch, 1.0 - max(0.05, min(0.95, comply))):
+            # Sleep debt is a hard safety line — never randomly bless intensity.
+            hard_sleep_debt = context.sleep_debt_7d_hours > 5.0
+            capitulate = (not hard_sleep_debt) and ma.should_capitulate(
+                rng, arch, 1.0 - max(0.05, min(0.95, comply))
+            )
+            if not capitulate:
                 rec = self._recovery_rec(rng, arch)
+                sleep_first = " Protect sleep tonight rather than adding volume." if hard_sleep_debt else ""
                 prose = (
-                    f"Recovery needs priority today. {ctx_bits} I'd hold intensity back rather than push."
+                    f"Recovery needs priority today. {ctx_bits} I'd hold intensity back rather than push.{sleep_first}"
                     if used_context else
                     "Recovery needs priority today, so I'd keep intensity low and reassess tomorrow."
+                    + sleep_first
                 )
                 if ma.should_hedge(rng, arch, base_p=0.2):
                     prose = prose + " The signals aren't clean enough to justify going hard."
@@ -342,6 +349,10 @@ class ARIAEngine:
         latency, rng, raw, context: ARIAContext, cheerful=False,
     ) -> ARIAResponse:
         arch = self.archetype
+        if context.is_overtrained:
+            load = (prose + " " + (recommendation or "")).lower()
+            if not any(w in load for w in ("overtrain", "acwr", "deload", "back off", "too much", "workload")):
+                prose = str(prose).rstrip() + " Load is high (ACWR) — back off, this is a deload."
         # A hard cap on reported confidence given how much raw signal actually
         # reached this context — applied last, uniformly, so it can't be
         # breached by anything above (mirrors the real backend's own

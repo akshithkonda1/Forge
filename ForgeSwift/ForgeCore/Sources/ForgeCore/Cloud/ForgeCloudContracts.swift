@@ -366,6 +366,16 @@ public enum CloudHealthMetricType {
         "sleep-stage",
         "body-weight",
         "distance",
+        "vo2-max",
+        "chronological-age",
+        "biological-age",
+        "fitness-age",
+        "phenotypic-age",
+        "vascular-age",
+        "metabolic-age",
+        "inner-age",
+        "cardio-age",
+        "hrv-age",
     ]
 
     public static let validSources: Set<String> = [
@@ -375,6 +385,12 @@ public enum CloudHealthMetricType {
         "garmin",
         "strava",
         "manual",
+        "ultrahuman",
+        "withings",
+        "inbody",
+        "fitbit",
+        "eight-sleep",
+        "polar",
     ]
 
     public static func canonicalType(_ raw: String) -> String? {
@@ -398,6 +414,26 @@ public enum CloudHealthMetricType {
             return "body-weight"
         case "distance":
             return "distance"
+        case "vo2-max", "vo2max", "vo2":
+            return "vo2-max"
+        case "chronological-age", "chrono-age", "age-years":
+            return "chronological-age"
+        case "biological-age", "bio-age", "true-age", "real-age":
+            return "biological-age"
+        case "fitness-age", "garmin-fitness-age":
+            return "fitness-age"
+        case "phenotypic-age", "pheno-age":
+            return "phenotypic-age"
+        case "vascular-age", "heart-age", "arterial-age":
+            return "vascular-age"
+        case "metabolic-age", "body-age":
+            return "metabolic-age"
+        case "inner-age":
+            return "inner-age"
+        case "cardio-age", "vo2-age":
+            return "cardio-age"
+        case "hrv-age", "recovery-age":
+            return "hrv-age"
         default:
             return valid.contains(key) ? key : nil
         }
@@ -412,6 +448,12 @@ public enum CloudHealthMetricType {
         if key.contains("whoop") { return "whoop" }
         if key.contains("garmin") { return "garmin" }
         if key.contains("strava") { return "strava" }
+        if key.contains("ultrahuman") { return "ultrahuman" }
+        if key.contains("withings") { return "withings" }
+        if key.contains("inbody") { return "inbody" }
+        if key.contains("fitbit") { return "fitbit" }
+        if key.contains("eight") { return "eight-sleep" }
+        if key.contains("polar") { return "polar" }
         return "manual"
     }
 

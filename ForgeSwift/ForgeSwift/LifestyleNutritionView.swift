@@ -188,9 +188,7 @@ struct AINutritionCoachCard: View {
         HStack(spacing: 12) {
             ZStack {
                 Circle().fill(Color.ember.opacity(0.15)).frame(width: 40, height: 40)
-                Image(systemName: "sparkles")
-                    .font(.system(size: 16, weight: .semibold))
-                    .foregroundColor(.ember)
+                ARIAIdentityMark(state: .idle, mood: .energized, size: 22, amplitude: 0.24)
                     .scaleEffect(coachHeaderIconScale)
             }
             VStack(alignment: .leading, spacing: 2) {
@@ -244,10 +242,16 @@ struct AINutritionCoachCard: View {
 
     private var tipDetailRow: some View {
         HStack(alignment: .top, spacing: 14) {
-            Image(systemName: liveInsight != nil ? "sparkles" : tip.icon)
-                .font(.system(size: 22))
-                .foregroundColor(liveInsight != nil ? .ember : tip.color)
-                .frame(width: 28)
+            Group {
+                if liveInsight != nil {
+                    ARIAIdentityMark(state: .idle, mood: .energized, size: 24, amplitude: 0.24)
+                } else {
+                    Image(systemName: tip.icon)
+                        .font(.system(size: 22))
+                        .foregroundColor(tip.color)
+                }
+            }
+            .frame(width: 28)
             VStack(alignment: .leading, spacing: 5) {
                 Text(liveInsight != nil ? "ARIA's take" : tip.headline)
                     .font(.system(size: 14, weight: .semibold))

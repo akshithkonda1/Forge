@@ -99,4 +99,23 @@ final class AriaReferenceCatalogTests: XCTestCase {
             $0.source.url.contains("medlineplus.gov") || $0.source.url.contains("cdc.gov")
         })
     }
+
+    func testAgingQuestionResolvesToAgingTopicAndSources() {
+        XCTAssertTrue(AriaReferenceCatalog.questionSuggestsAging("what's my training age?"))
+        XCTAssertTrue(AriaReferenceCatalog.questionSuggestsAging("VO2 max vs calendar"))
+        XCTAssertFalse(AriaReferenceCatalog.questionSuggestsAging("what should I train today"))
+        let topic = AriaReferenceCatalog.resolvedTopic(
+            domainRawValue: "training",
+            question: "what's my fitness age compared to calendar age"
+        )
+        XCTAssertEqual(topic, .aging)
+        let picks = AriaReferenceCatalog.picks(
+            topic: .aging,
+            question: "what's my training age?",
+            salt: 3,
+            limit: 8
+        )
+        XCTAssertTrue(picks.contains { $0.source.url.contains("medlineplus.gov/ency/article/003394") })
+        XCTAssertTrue(picks.contains { $0.source.url.contains("cdc.gov/physical-activity-basics/measuring") })
+    }
 }
