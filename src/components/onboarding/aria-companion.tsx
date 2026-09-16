@@ -50,7 +50,7 @@ export default function AriaCompanion({
       }}
     >
       <div className="flex items-start gap-3">
-        <AriaOrb mood={whisper.mood} size={compact ? 40 : 48} />
+        <AriaOrb mood={whisper.mood} size={compact ? 48 : 56} speaking />
         <div className="min-w-0 flex-1">
           <div className="mb-1 flex items-start gap-2">
             <span

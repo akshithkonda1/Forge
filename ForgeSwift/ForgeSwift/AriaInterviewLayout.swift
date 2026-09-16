@@ -97,14 +97,17 @@ struct AriaInterviewLayout: View {
                         AuroraOrbView(
                             state: dictation.isListening ? .listening : coordinator.ariaOrbState,
                             amplitude: dictation.isListening
-                                ? dictation.amplitude
-                                : (presence.isSpeaking ? 0.7 : 0.28),
+                                ? max(Float(0.55), dictation.amplitude)
+                                : (presence.isSpeaking ? 0.82 : 0.46),
                             mood: coordinator.ariaMood,
-                            size: 64,
+                            size: coordinator.step == .intro ? 88 : 72,
                             followPresence: true
                         )
                     }
-                    .frame(width: 68, height: 68)
+                    .frame(
+                        width: coordinator.step == .intro ? 92 : 76,
+                        height: coordinator.step == .intro ? 92 : 76
+                    )
                 }
                 .buttonStyle(.plain)
                 .accessibilityLabel("Replay ARIA")
@@ -341,7 +344,7 @@ struct AriaInterviewLayout: View {
         Group {
             switch AriaInterviewStep(OnboardingGraph.normalized(coordinator.step.graph)) {
             case .intro:
-                EmptyView()
+                IntroComposer(coordinator: coordinator)
             case .name:
                 NameComposer(coordinator: coordinator, dictation: dictation)
             case .health:

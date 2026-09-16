@@ -1,5 +1,57 @@
 import SwiftUI
 
+/// First interview beat — living ARIA mark in the fire, not an empty composer.
+struct IntroComposer: View {
+    @Bindable var coordinator: OnboardingCoordinator
+
+    var body: some View {
+        VStack(spacing: 16) {
+            ZStack {
+                ForgeFireField(intensity: .rage, origin: .hearth, live: true)
+                    .frame(width: 200, height: 210)
+                    .opacity(0.88)
+                Circle()
+                    .fill(
+                        RadialGradient(
+                            colors: [
+                                Color.background.opacity(0.74),
+                                Color.background.opacity(0.18),
+                                .clear
+                            ],
+                            center: .center,
+                            startRadius: 8,
+                            endRadius: 86
+                        )
+                    )
+                    .frame(width: 168, height: 168)
+                AuroraOrbView(
+                    state: coordinator.ariaOrbState,
+                    amplitude: coordinator.ariaOrbState == .speaking ? 0.8 : 0.58,
+                    mood: coordinator.ariaMood,
+                    size: 140,
+                    followPresence: true
+                )
+            }
+            .frame(height: 188)
+            .accessibilityElement(children: .combine)
+            .accessibilityLabel("ARIA")
+
+            Text("ARIA")
+                .font(.system(size: 12, weight: .bold, design: .rounded))
+                .tracking(3.4)
+                .foregroundStyle(Color.ember)
+
+            Text("Your coach — forged for the life you already have.")
+                .font(.system(size: 15, weight: .medium, design: .rounded))
+                .foregroundStyle(Color.textSecondary)
+                .multilineTextAlignment(.center)
+                .padding(.horizontal, 8)
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.top, 4)
+    }
+}
+
 /// Preferred name + optional last name. Modeled on Claude/Grok ("what should we call you")
 /// and Apple Health Health Details (first / last as separate fields).
 struct NameComposer: View {
@@ -820,6 +872,21 @@ struct ReadyComposer: View {
 
     var body: some View {
         VStack(spacing: 14) {
+            ZStack {
+                ForgeFireField(intensity: .rage, origin: .hearth, live: true)
+                    .frame(width: 120, height: 128)
+                    .opacity(0.7)
+                AuroraOrbView(
+                    state: .idle,
+                    amplitude: 0.55,
+                    mood: .energized,
+                    size: 88,
+                    followPresence: true
+                )
+            }
+            .frame(height: 108)
+            .accessibilityLabel("ARIA")
+
             if !coordinator.profile.firstName.isEmpty {
                 Text("You’re set, \(coordinator.profile.firstName). I’m here.")
                     .font(.system(size: 18, weight: .semibold, design: .rounded))

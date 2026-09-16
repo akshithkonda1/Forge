@@ -57,6 +57,9 @@ export function AriaMark({
         reduceMotion: reduce,
         cssSize: size,
       });
+      const hero = ariaMarkSizeTier(size) === "hero";
+      const scale = ringBreathScale(t, hero, reduce);
+      canvas.style.transform = `scale(${scale})`;
       if (!reduce) raf = requestAnimationFrame(paint);
     };
 

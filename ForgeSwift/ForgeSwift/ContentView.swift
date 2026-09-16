@@ -26,6 +26,7 @@ struct ContentView: View {
                     MainTabView()
                 }
             }
+            .environment(\.forgeFireLiveAllowed, !showSplash)
             .animation(.easeInOut(duration: 0.35), value: store.isAuthenticated)
             .animation(.easeInOut(duration: 0.35), value: store.isOnboarded)
 
@@ -52,10 +53,9 @@ struct ContentView: View {
             neuralVoiceGate = gate
             gate.refreshCatalog()
             guard showSplash else { return }
-            let pause: UInt64 = reduceMotion ? 350_000_000 : 1_100_000_000
-            try? await Task.sleep(nanoseconds: pause)
+            try? await Task.sleep(nanoseconds: ForgeSplashTiming.pauseNanoseconds(reduceMotion: reduceMotion))
             Self.didFinishSplash = true
-            withAnimation(.easeOut(duration: 0.28)) {
+            withAnimation(.easeOut(duration: ForgeSplashTiming.fadeOut)) {
                 showSplash = false
             }
         }
@@ -82,11 +82,15 @@ struct ForgeSplashScreen: View {
         ZStack {
             Color.background.ignoresSafeArea()
 
+            ForgeFireField(intensity: .rage, origin: .floor, live: true)
+                .opacity(0.55 + 0.45 * glowIntensity)
+                .ignoresSafeArea()
+
             RadialGradient(
                 colors: [
-                    ForgePalette.amber.opacity(0.08 * glowIntensity),
-                    ForgePalette.ember.opacity(0.06 * glowIntensity),
-                    ForgePalette.background.opacity(0.4 * glowIntensity),
+                    ForgePalette.amber.opacity(0.16 * glowIntensity),
+                    ForgePalette.ember.opacity(0.10 * glowIntensity),
+                    ForgePalette.background.opacity(0.35 * glowIntensity),
                     .clear
                 ],
                 center: .center,
@@ -96,33 +100,55 @@ struct ForgeSplashScreen: View {
             .ignoresSafeArea()
 
             VStack(spacing: 28) {
-                AuroraOrbView(
-                    state: .idle,
-                    amplitude: 0.34,
-                    mood: .energized,
-                    size: 132,
-                    followPresence: false
-                )
-                    .scaleEffect(logoScale)
-                    .opacity(logoOpacity)
-                    .shadow(color: ForgePalette.amber.opacity(0.22 * glowIntensity), radius: 36, y: 6)
-
-                VStack(spacing: 10) {
-                    Text("FORGE")
-                        .font(.system(size: 32, weight: .black, design: .rounded))
-                        .tracking(8)
-                        .foregroundStyle(
-                            LinearGradient(
-                                colors: [.white, Color.white.opacity(0.55)],
-                                startPoint: .top,
-                                endPoint: .bottom
+                ZStack {
+                    ForgeFireField(intensity: .rage, origin: .hearth)
+                        .frame(width: 220, height: 240)
+                        .opacity(0.85)
+                    Circle()
+                        .fill(
+                            RadialGradient(
+                                colors: [
+                                    Color.background.opacity(0.78),
+                                    Color.background.opacity(0.2),
+                                    .clear
+                                ],
+                                center: .center,
+                                startRadius: 10,
+                                endRadius: 92
                             )
                         )
+                        .frame(width: 180, height: 180)
+                    AuroraOrbView(
+                        state: .idle,
+                        amplitude: 0.72,
+                        mood: .energized,
+                        size: 148,
+                        followPresence: false
+                    )
+                }
+                    .scaleEffect(logoScale)
+                    .opacity(logoOpacity)
+                    .shadow(color: ForgePalette.amber.opacity(0.38 * glowIntensity), radius: 42, y: 8)
 
-                    Text("ARIA · already listening")
-                        .font(.system(size: 11, weight: .semibold, design: .rounded))
-                        .tracking(2.2)
-                        .foregroundColor(.textTertiary)
+                VStack(spacing: 10) {
+                    HStack(spacing: 10) {
+                        ForgeBrandFlame(size: 26)
+                        Text("FORGE")
+                            .font(.system(size: 32, weight: .black, design: .rounded))
+                            .tracking(8)
+                            .foregroundStyle(
+                                LinearGradient(
+                                    colors: [.white, Color(hex: "FFB020").opacity(0.85)],
+                                    startPoint: .top,
+                                    endPoint: .bottom
+                                )
+                            )
+                    }
+
+                    Text("Forged.")
+                        .font(.system(size: 13, weight: .semibold, design: .rounded))
+                        .tracking(3.2)
+                        .foregroundColor(.ember)
                 }
                 .opacity(logoOpacity)
                 .offset(y: textOffset)
@@ -144,6 +170,11 @@ struct ForgeSplashScreen: View {
             }
         }
     }
+}
+
+#Preview("Forge splash") {
+    ForgeSplashScreen()
+        .preferredColorScheme(.dark)
 }
 
 // MARK: - Main Tab Container

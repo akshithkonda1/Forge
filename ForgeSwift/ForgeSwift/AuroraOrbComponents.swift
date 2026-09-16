@@ -74,6 +74,13 @@ struct AuroraOrbView: View {
                 size: size,
                 reduceMotion: frozen
             )
+            .scaleEffect(
+                AriaSigilLife.breathScale(
+                    time: t,
+                    hero: size >= AriaSigilGeometry.heroMinimumSize,
+                    reduceMotion: frozen
+                )
+            )
         }
         .frame(width: size, height: size)
         .accessibilityElement(children: .ignore)
