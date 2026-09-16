@@ -74,93 +74,18 @@ export default function WelcomeScreen({ onNext }: WelcomeScreenProps) {
     return () => window.clearTimeout(t);
   }, [page, showSignIn, autoplayPaused]);
 
-  const advance = (source: string) => {
+  useEffect(() => {
+    const pause = () => setAutoplayPaused(true);
+    document.addEventListener("pointerdown", pause, true);
+    return () => document.removeEventListener("pointerdown", pause, true);
+  }, []);
+
+  const advance = () => {
     if (advancingRef.current) return;
     advancingRef.current = true;
     setAutoplayPaused(true);
-    // #region agent log
-    {
-      const __dbg = {
-        location: "welcome-screen.tsx:GetStarted",
-        message: "Get started onNext invoked",
-        data: { page, source, runId: "post-fix-3" },
-        timestamp: Date.now(),
-        hypothesisId: "A",
-      };
-      fetch("http://127.0.0.1:7252/ingest/4f8a2c91-onboarding-step", {
-        method: "POST",
-        headers: { "Content-Type": "application/json", "X-Debug-Session-Id": "onboarding-step" },
-        body: JSON.stringify(__dbg),
-      }).catch(() => {});
-      fetch("/api/agent-debug", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(__dbg),
-      }).catch(() => {});
-    }
-    // #endregion
     onNext();
   };
-
-  // #region agent log
-  useEffect(() => {
-    const log = (message: string, data: Record<string, unknown>) => {
-      const __dbg = { location: "welcome-screen.tsx:doc", message, data, timestamp: Date.now(), hypothesisId: "A" };
-      fetch("http://127.0.0.1:7252/ingest/4f8a2c91-onboarding-step", { method: "POST", headers: { "Content-Type": "application/json", "X-Debug-Session-Id": "onboarding-step" }, body: JSON.stringify(__dbg) }).catch(() => {});
-      fetch("/api/agent-debug", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(__dbg) }).catch(() => {});
-    };
-    const onPointerDown = (e: PointerEvent) => {
-      setAutoplayPaused(true);
-      const t = e.target as HTMLElement | null;
-      const stack = document.elementsFromPoint(e.clientX, e.clientY).slice(0, 8).map((el) => ({
-        tag: el.tagName,
-        cls: (el.className || "").toString().slice(0, 80),
-        pe: getComputedStyle(el).pointerEvents,
-        transform: getComputedStyle(el).transform,
-        filter: getComputedStyle(el).filter,
-        inEnter: el.classList?.contains("premium-enter") ?? false,
-      }));
-      let el: HTMLElement | null = t;
-      const ancestors: Array<Record<string, unknown>> = [];
-      for (let i = 0; i < 10 && el; i++) {
-        const cs = getComputedStyle(el);
-        ancestors.push({
-          tag: el.tagName,
-          cls: (el.className || "").toString().slice(0, 80),
-          transform: cs.transform,
-          filter: cs.filter,
-          inEnter: el.classList.contains("premium-enter"),
-        });
-        el = el.parentElement;
-      }
-      log("document pointerdown", {
-        x: e.clientX,
-        y: e.clientY,
-        tag: t?.tagName,
-        cls: (t?.className || "").toString().slice(0, 80),
-        stack,
-        ancestors,
-        runId: "post-fix-3",
-      });
-    };
-    const onClick = (e: MouseEvent) => {
-      const t = e.target as HTMLElement | null;
-      log("document click", {
-        x: e.clientX,
-        y: e.clientY,
-        tag: t?.tagName,
-        cls: (t?.className || "").toString().slice(0, 80),
-        runId: "post-fix-3",
-      });
-    };
-    document.addEventListener("pointerdown", onPointerDown, true);
-    document.addEventListener("click", onClick, true);
-    return () => {
-      document.removeEventListener("pointerdown", onPointerDown, true);
-      document.removeEventListener("click", onClick, true);
-    };
-  }, []);
-  // #endregion
 
   return (
     <div className="relative flex min-h-[100dvh] flex-col overflow-hidden bg-background pb-[env(safe-area-inset-bottom)] pt-[env(safe-area-inset-top)]">
@@ -230,33 +155,34 @@ export default function WelcomeScreen({ onNext }: WelcomeScreenProps) {
           </PremiumEntrance>
         </div>
 
-        {/* Dead-simple CTA: huge hit target, no sheen/overflow/transform/filter. */}
-        <div className="relative z-40 mt-auto" data-cta-root="get-started">
-          <div className="relative z-[60] mb-3 flex flex-col items-center gap-3">
-            <PremiumProgressDots
-              count={HOOKS.length}
-              current={page}
-              onSelect={(i) => {
-                setAutoplayPaused(true);
-                setPage(i);
-              }}
-            />
-            <p className="pointer-events-none text-[11px] font-medium uppercase tracking-[0.14em] text-text-tertiary">
+        {/* CTA outside PremiumEntrance — no sheen/overflow/transform on the press target. */}
+        <div className="relative z-40 mt-auto">
+          <div className="pointer-events-none relative z-[60] mb-3 flex flex-col items-center gap-3">
+            <div className="pointer-events-auto">
+              <PremiumProgressDots
+                count={HOOKS.length}
+                current={page}
+                onSelect={(i) => {
+                  setAutoplayPaused(true);
+                  setPage(i);
+                }}
+              />
+            </div>
+            <p className="text-[11px] font-medium uppercase tracking-[0.14em] text-text-tertiary">
               {page + 1} of {HOOKS.length}
             </p>
           </div>
 
           <button
             type="button"
-            data-testid="onboarding-get-started"
             aria-label="Get started"
             onPointerUp={(e) => {
               e.preventDefault();
-              advance("pointerup");
+              advance();
             }}
             onClick={(e) => {
               e.preventDefault();
-              advance("click");
+              advance();
             }}
             className={cn(
               "relative z-40 flex w-full min-h-[64px] items-center justify-between rounded-full bg-[#F7F4F0] px-6 py-5 text-[17px] font-semibold text-[#0A0A0A]",
@@ -264,14 +190,9 @@ export default function WelcomeScreen({ onNext }: WelcomeScreenProps) {
               "active:brightness-[0.92] active:shadow-none",
               "touch-manipulation select-none"
             )}
-            style={{ transform: "none", filter: "none" }}
           >
-            {/* Expanded hit layer — catches near-misses above the pearl (dots row / DevTools skew). */}
-            <span
-              aria-hidden
-              className="absolute inset-x-[-8px] -top-14 bottom-[-8px] z-50"
-              data-hit-expand="get-started"
-            />
+            {/* Modest expanded hit area for near-misses above the pearl. */}
+            <span aria-hidden className="absolute inset-x-[-4px] -top-10 bottom-[-4px] z-50" />
             <span className="relative z-[51]">Get started</span>
             <span aria-hidden className="relative z-[51] opacity-80">
               →

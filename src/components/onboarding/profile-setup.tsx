@@ -1,12 +1,12 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { cn } from "@/lib/utils";
 import { useAppStore } from "@/stores/useAppStore";
 import type { FitnessGoal, ExperienceLevel, WorkoutType } from "@/types";
 import { whisperForStep } from "@/lib/aria-onboarding";
 import AriaCompanion from "./aria-companion";
-import { PremiumAtmosphere, PremiumEntrance, PremiumPrimaryButton } from "@/components/brand/premium-atmosphere";
+import { PremiumAtmosphere, PremiumEntrance } from "@/components/brand/premium-atmosphere";
 
 interface ProfileSetupProps {
   onNext: () => void;
@@ -60,15 +60,6 @@ const workoutTypes: { value: WorkoutType; label: string }[] = [
 export default function ProfileSetup({ onNext, onBack }: ProfileSetupProps) {
   const updateProfile = useAppStore((s) => s.updateProfile);
 
-  // #region agent log
-  useEffect(() => {
-    {const __dbg={location:'profile-setup.tsx:mount',message:'ProfileSetup mounted',data:{storeStep:useAppStore.getState().onboardingStep},timestamp:Date.now(),hypothesisId:'C'};fetch('http://127.0.0.1:7252/ingest/4f8a2c91-onboarding-step',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'onboarding-step'},body:JSON.stringify(__dbg)}).catch(()=>{});fetch('/api/agent-debug',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(__dbg)}).catch(()=>{});}
-    return () => {
-      {const __dbg={location:'profile-setup.tsx:unmount',message:'ProfileSetup unmounted',data:{storeStep:useAppStore.getState().onboardingStep},timestamp:Date.now(),hypothesisId:'C'};fetch('http://127.0.0.1:7252/ingest/4f8a2c91-onboarding-step',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'onboarding-step'},body:JSON.stringify(__dbg)}).catch(()=>{});fetch('/api/agent-debug',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(__dbg)}).catch(()=>{});}
-    };
-  }, []);
-  // #endregion
-
   const [section, setSection] = useState(0);
   const [name, setName] = useState("");
   const [selectedGoals, setSelectedGoals] = useState<FitnessGoal[]>([]);
@@ -104,6 +95,7 @@ export default function ProfileSetup({ onNext, onBack }: ProfileSetupProps) {
   };
 
   const handleContinue = () => {
+    if (!canProceed()) return;
     if (section < 3) {
       setSection((s) => s + 1);
     } else {
@@ -132,37 +124,37 @@ export default function ProfileSetup({ onNext, onBack }: ProfileSetupProps) {
     <div className="relative flex min-h-[100dvh] flex-col overflow-y-auto px-6 pb-8 pt-16">
       <PremiumAtmosphere accent="#FF6B2B" secondary="#A9D8FF" intensity={0.55} />
       <div className="relative z-10 flex flex-1 flex-col">
-      {/* Section indicator */}
-      <div className="mb-2 flex items-center justify-center gap-2">
-        {[0, 1, 2, 3].map((i) => (
-          <div
-            key={i}
-            className={cn(
-              "h-1 rounded-full transition-all duration-300",
-              i === section
-                ? "premium-dot-active w-8 bg-[#F7F4F0]"
-                : i < section
-                  ? "w-4 bg-[#F7F4F0]/40"
-                  : "w-4 bg-border"
-            )}
-          />
-        ))}
-      </div>
+        <div className="mb-2 flex items-center justify-center gap-2">
+          {[0, 1, 2, 3].map((i) => (
+            <div
+              key={i}
+              className={cn(
+                "h-1 rounded-full transition-all duration-300",
+                i === section
+                  ? "premium-dot-active w-8 bg-[#F7F4F0]"
+                  : i < section
+                    ? "w-4 bg-[#F7F4F0]/40"
+                    : "w-4 bg-border"
+              )}
+            />
+          ))}
+        </div>
 
-      <PremiumEntrance index={0} className="mb-5 mt-4">
-        <AriaCompanion whisper={whisper} compact />
-      </PremiumEntrance>
+        <PremiumEntrance index={0} className="mb-5 mt-4">
+          <AriaCompanion whisper={whisper} compact />
+        </PremiumEntrance>
 
-      {/* Content area */}
-      <div className="flex flex-1 flex-col">
+        <div className="flex flex-1 flex-col">
           {section === 0 && (
-            <PremiumEntrance key="name" index={1} className="flex flex-1 flex-col pt-4">
-              <h2 className="mb-2 text-3xl font-semibold tracking-tight text-text-primary">
-                What should ARIA call you?
-              </h2>
-              <p className="mb-8 text-text-tertiary">
-                Your intelligence layer learns your name first — everything else gets personal from here.
-              </p>
+            <div className="flex flex-1 flex-col pt-4">
+              <PremiumEntrance index={1}>
+                <h2 className="mb-2 text-3xl font-semibold tracking-tight text-text-primary">
+                  What should ARIA call you?
+                </h2>
+                <p className="mb-8 text-text-tertiary">
+                  Your intelligence layer learns your name first — everything else gets personal from here.
+                </p>
+              </PremiumEntrance>
               <input
                 type="text"
                 value={name}
@@ -179,7 +171,7 @@ export default function ProfileSetup({ onNext, onBack }: ProfileSetupProps) {
                   if (e.key === "Enter" && canProceed()) handleContinue();
                 }}
               />
-            </PremiumEntrance>
+            </div>
           )}
 
           {section === 1 && (
@@ -287,30 +279,38 @@ export default function ProfileSetup({ onNext, onBack }: ProfileSetupProps) {
               </div>
             </div>
           )}
-      </div>
+        </div>
 
-      <div className="mt-8 flex gap-2">
-        {(section > 0 || onBack) && (
+        {/* Footer CTAs stay outside PremiumEntrance — no transform press styles. */}
+        <div className="relative z-40 mt-8 flex gap-2">
+          {(section > 0 || onBack) && (
+            <button
+              type="button"
+              onClick={() => {
+                if (section > 0) setSection((s) => s - 1);
+                else onBack?.();
+              }}
+              className="rounded-full border border-white/12 px-5 py-4 text-sm font-medium text-text-secondary"
+            >
+              Back
+            </button>
+          )}
           <button
             type="button"
-            onClick={() => {
-              if (section > 0) setSection((s) => s - 1);
-              else onBack?.();
-            }}
-            className="rounded-full border border-white/12 px-5 py-4 text-sm font-medium text-text-secondary"
+            onClick={handleContinue}
+            disabled={!canProceed()}
+            className={cn(
+              "relative flex flex-1 min-h-[56px] items-center justify-between rounded-full px-6 py-4 text-[17px] font-semibold",
+              "transition-[filter,box-shadow,background-color] duration-150 touch-manipulation select-none",
+              canProceed()
+                ? "bg-[#F7F4F0] text-[#0A0A0A] shadow-[0_10px_30px_rgba(247,244,240,0.14)] active:brightness-[0.92] active:shadow-none"
+                : "bg-surface-elevated text-white/35"
+            )}
           >
-            Back
+            <span>Continue</span>
+            <span aria-hidden>→</span>
           </button>
-        )}
-        <PremiumPrimaryButton
-          onClick={handleContinue}
-          disabled={!canProceed()}
-          className="flex-1"
-        >
-          <span>Continue</span>
-          <span aria-hidden>→</span>
-        </PremiumPrimaryButton>
-      </div>
+        </div>
       </div>
     </div>
   );
