@@ -760,6 +760,73 @@ class DummyOrchestratorTests(unittest.TestCase):
             # Different seeds may land the same slot; variety is the bank size.
             self.assertIn(dummy._pick(2 ^ 17, list(bank)), other)
 
+    def test_friend_speak_replaces_thin_or_fallback_with_seeded_wit(self):
+        """Fused Dummy often lands the canned fallback or a stripped '.' — still local wit."""
+        for thin in (dummy._SPEAK_FALLBACK, ".", "  ...  ", ""):
+            spoken = dummy.friend_speak(thin, seed=4, stance="protect")
+            extra = dummy._wit_line(4, "protect")
+            self.assertEqual(spoken, extra)
+            self.assertNotEqual(spoken, dummy._SPEAK_FALLBACK)
+            self.assertEqual(dummy.friend_speak(thin, seed=4, stance="protect"), spoken)
+            other = dummy.friend_speak(thin, seed=9, stance="protect")
+            self.assertEqual(other, dummy._wit_line(9, "protect"))
+            self.assertTrue(speak_quality.has_friend_throughline(spoken))
+            self.assertEqual(speak_quality.vitals_hits(spoken), [])
+            self.assertEqual(speak_quality.bark_hits(spoken), [])
+
+    def test_friend_speak_short_ok_appends_wit_to_fused_notices(self):
+        short = "Keep today low-intensity — Zone 2 cardio or mobility, not a hard session"
+        self.assertLess(len(short.split()), 28)
+        skipped = dummy.friend_speak(short, seed=2, stance="protect")
+        self.assertEqual(skipped, short)
+        spoken = dummy.friend_speak(short, seed=2, stance="protect", short_ok=True)
+        extra = dummy._wit_line(2, "protect")
+        self.assertIn(extra, spoken)
+        self.assertTrue(spoken.startswith(short))
+        self.assertEqual(
+            dummy.friend_speak(short, seed=2, stance="protect", short_ok=True),
+            spoken,
+        )
+
+    def test_friend_speak_leaves_guidance_and_follow_ups_alone(self):
+        guard = "I'm not a doctor. Please talk to a clinician."
+        self.assertEqual(
+            dummy.friend_speak(guard, seed=1, stance="protect", guidance="refer_out"),
+            guard,
+        )
+        follow = "Sure — we dial it back. Same idea, less intensity, stop while it still feels good."
+        self.assertEqual(dummy.friend_speak(follow, seed=1, stance="protect", short_ok=True), follow)
+
+    def test_lambda_sleep_and_checkin_get_local_seeded_wit(self):
+        wit = dummy._WIT_PROTECT + dummy._WIT_PROCEED + dummy._WIT_HONEST
+        seen: set[str] = set()
+        for seed in (1, 2, 4, 9):
+            for prompt in ("How did I sleep last night?", "hey"):
+                row = dummy.respond(prompt, seed=seed, engine="lambda")
+                blob = f"{row.get('prose_summary') or ''} {row.get('message') or ''}"
+                self.assertTrue(
+                    any(line in blob for line in wit),
+                    f"seed={seed} {prompt!r} had no local wit: {row.get('prose_summary')!r}",
+                )
+                self.assertNotEqual(row["prose_summary"].strip(), ".")
+                self._assert_no_vitals_speak(row)
+                self.assertTrue(speak_quality.has_friend_throughline(blob))
+                seen.add(row["prose_summary"])
+        self.assertGreaterEqual(len(seen), 3, seen)
+        a = dummy.respond("How did I sleep last night?", seed=4, engine="lambda")
+        b = dummy.respond("How did I sleep last night?", seed=4, engine="lambda")
+        self.assertEqual(a["prose_summary"], b["prose_summary"])
+        self.assertEqual(a["message"], b["message"])
+
+    def test_stub_train_attaches_wit_after_body_session(self):
+        row = dummy.respond("What should I train today?", seed=3, engine="stub")
+        blob = f"{row.get('prose_summary') or ''} {row.get('message') or ''}"
+        self.assertTrue(
+            any(line in blob for line in dummy._WIT_PROCEED + dummy._WIT_PROTECT + dummy._WIT_HONEST),
+            row.get("prose_summary"),
+        )
+        self._assert_no_vitals_speak(row)
+
     def test_lambda_engine_same_seed_is_deterministic(self):
         a = dummy.respond("How did I sleep last night?", seed=7, engine="lambda")
         b = dummy.respond("How did I sleep last night?", seed=7, engine="lambda")

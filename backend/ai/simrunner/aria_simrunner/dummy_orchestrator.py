@@ -903,6 +903,14 @@ _WIT_ALREADY = tuple(
         ]
     )
 )
+_THIN_SPEAK = re.compile(r"^[\s.,;:—–\-]*$")
+# Mid-thread discourse already sounds like a person — don't sticker a closer on it.
+_FOLLOW_UP_LEADS = (
+    "got it", "okay, scratched", "fair.", "alright — shorter", "we cut it",
+    "yep — compress", "shorter works", "we trim it", "okay, time-box",
+    "yeah — we ease", "lighter it is", "makes sense. soft",
+    "sure — we dial", "easier works", "okay, soft mode",
+)
 
 
 def _dumps_user_speak(text: str) -> bool:
@@ -939,6 +947,23 @@ def _collapse_spoken(text: str) -> str:
     return re.sub(r"\s+", " ", body).strip()
 
 
+def _wit_line(seed: int, stance: str = "", signals: SignalRead | None = None) -> str:
+    """One seed-indexed bank line. Same banks as PR #284 — no parallel system."""
+    sleep = getattr(signals, "sleep", "") if signals is not None else ""
+    if stance == "protect" or sleep == "thin":
+        bank = _WIT_PROTECT
+    elif stance == "proceed":
+        bank = _WIT_PROCEED
+    else:
+        bank = _WIT_HONEST
+    return _pick(seed ^ 17, list(bank))
+
+
+def _is_follow_up_speak(body: str) -> bool:
+    lead = (body or "").strip().lower()
+    return any(lead.startswith(p) for p in _FOLLOW_UP_LEADS)
+
+
 def friend_speak(
     text: str,
     *,
@@ -946,29 +971,30 @@ def friend_speak(
     stance: str = "",
     signals: SignalRead | None = None,
     guidance: str | None = None,
+    short_ok: bool = False,
 ) -> str:
     """Bubbly/kind friend with a point — funny take + one useful improve.
 
     Shared by stub phrase banks and the lambda hypertune path. Guidance /
     emergency copy is left alone. Iris vitals scrub still wins after this.
+
+    Fused Dummy speak is often a short notice or the canned fallback; those
+    still get a seed-indexed closer so hypertune doesn't read as one template.
+    Short mid-thread mutations ("make it easier") stay untouched.
     """
     if guidance:
         return str(text or "").strip()
     body = _CHEER_SLUDGE.sub("that's real work", _collapse_spoken(text))
-    if not body:
-        return _SPEAK_FALLBACK
+    body = re.sub(r"^[\s.,;:—–\-]+", "", body).strip()
+    extra = _wit_line(seed, stance, signals)
+    if not body or body == _SPEAK_FALLBACK or _THIN_SPEAK.match(body):
+        return _speak_without_vitals(extra, _SPEAK_FALLBACK)
     if any(n in body.lower() for n in _WIT_ALREADY):
-        return body
-    # Short mid-thread mutations ("make it easier") already sound like a person.
-    if len(body.split()) < 28:
         return _speak_without_vitals(body)
-    sleep = getattr(signals, "sleep", "") if signals is not None else ""
-    if stance == "protect" or sleep == "thin":
-        extra = _pick(seed ^ 17, list(_WIT_PROTECT))
-    elif stance == "proceed":
-        extra = _pick(seed ^ 17, list(_WIT_PROCEED))
-    else:
-        extra = _pick(seed ^ 17, list(_WIT_HONEST))
+    if _is_follow_up_speak(body):
+        return _speak_without_vitals(body)
+    if len(body.split()) < 28 and not short_ok:
+        return _speak_without_vitals(body)
     if extra and extra.lower() not in body.lower():
         if body[-1] not in ".!?":
             body += "."
@@ -1665,12 +1691,14 @@ def _respond_via_lambda(
     stance = envelope["fusion"].get("stance")
     signals = read_signals(ctx)
     guidance = envelope.get("guidance_band")
+    # Fused notices are often <28 words; Dummy hypertune still needs local wit.
     prose = friend_speak(
         envelope.get("prose_summary") or "",
         seed=seed,
         stance=str(stance or ""),
         signals=signals,
         guidance=guidance,
+        short_ok=True,
     )
     chat = friend_speak(
         envelope.get("message") or prose,
@@ -1678,6 +1706,7 @@ def _respond_via_lambda(
         stance=str(stance or ""),
         signals=signals,
         guidance=guidance,
+        short_ok=True,
     )
     prose = _speak_without_vitals(prose)
     chat = _speak_without_vitals(chat, prose)
@@ -1866,17 +1895,25 @@ def respond(
     )
     # Weave specialists into one spoken reply — not stacked \n\n briefs.
     prose = _weave_specialists(prose, notes, seed=seed ^ _fnv(message))
-    stub_stance = "protect" if scenario == "recovery_first" else ""
-    prose = friend_speak(prose, seed=seed, stance=stub_stance, signals=signals)
     body_session = _suggest_body_session(message, ctx)
     if (
         body_session is not None
         and plan.primary.kind == "workout"
         and scenario in ("train", "recovery_first", "")
+        and not _is_follow_up_speak(prose)
     ):
         spoken = body_session.spoken()
         if spoken and spoken not in prose:
             prose = f"{prose} {spoken}"
+    # friend_speak after the full spoken body so the 28-word skip doesn't
+    # miss essays that only grow once the body-library line is attached.
+    if scenario == "recovery_first" or signals.sleep == "thin" or signals.recovery == "asking":
+        stub_stance = "protect"
+    elif plan.primary.kind == "workout" and scenario in ("train", ""):
+        stub_stance = "proceed"
+    else:
+        stub_stance = ""
+    prose = friend_speak(prose, seed=seed, stance=stub_stance, signals=signals)
     # Optional web note stays as a short trailing cite — not a specialist dump.
     chat = prose
     if web_research.is_research_worthy(message, plan.primary.kind):
