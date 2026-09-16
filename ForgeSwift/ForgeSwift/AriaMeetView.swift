@@ -57,19 +57,22 @@ struct AriaMeetView: View {
                             .tracking(2.2)
                             .foregroundColor(.textTertiary)
                             .multilineTextAlignment(.center)
+                            .premiumEntrance(index: 0, appeared: appeared)
 
                         Text(AriaMeetCopy.title)
                             .font(.system(size: 30, weight: .semibold, design: .rounded))
                             .foregroundColor(.textPrimary)
+                            .premiumEntrance(index: 1, appeared: appeared)
 
                         Text(AriaMeetCopy.lead)
                             .font(.system(size: 15, weight: .regular, design: .rounded))
                             .foregroundColor(.textSecondary)
                             .multilineTextAlignment(.center)
                             .padding(.horizontal, 8)
+                            .premiumEntrance(index: 2, appeared: appeared)
 
                         VStack(spacing: 10) {
-                            ForEach(AriaMeetCopy.capabilities, id: \.title) { item in
+                            ForEach(Array(AriaMeetCopy.capabilities.enumerated()), id: \.element.title) { index, item in
                                 HStack(alignment: .top, spacing: 12) {
                                     ZStack {
                                         Circle()
@@ -97,6 +100,7 @@ struct AriaMeetView: View {
                                     RoundedRectangle(cornerRadius: 16, style: .continuous)
                                         .stroke(Color.white.opacity(0.08), lineWidth: 1)
                                 )
+                                .premiumEntrance(index: 3 + index, appeared: appeared)
                             }
                         }
                         .padding(.top, 8)

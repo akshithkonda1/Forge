@@ -5,8 +5,10 @@ import { AriaMark } from "@/components/brand/aria-mark";
 import {
   ForgeBrandMark,
   PremiumAtmosphere,
+  PremiumEntrance,
   PremiumPresenceBloom,
   PremiumPrimaryButton,
+  PremiumProgressDots,
 } from "@/components/brand/premium-atmosphere";
 import { cn } from "@/lib/utils";
 
@@ -74,73 +76,76 @@ export default function WelcomeScreen({ onNext }: WelcomeScreenProps) {
       <PremiumAtmosphere accent={hook.accent} secondary={hook.frost} />
 
       <div className="relative z-10 flex flex-1 flex-col px-6 pb-9 pt-5">
-        <header className="flex items-center gap-3">
-          <div className="flex items-center gap-2.5">
-            <ForgeBrandMark size={18} />
-            <span className="text-[15px] font-semibold tracking-wide text-text-primary">Forge</span>
-          </div>
-          <div className="flex-1" />
-          <button
-            type="button"
-            onClick={() => setShowSignIn(true)}
-            className="rounded-full border border-white/12 bg-white/[0.06] px-3.5 py-2 text-sm font-medium text-text-primary/90 transition hover:bg-white/[0.1]"
-          >
-            Sign in
-          </button>
-        </header>
+        <PremiumEntrance index={0}>
+          <header className="flex items-center gap-3">
+            <div className="flex items-center gap-2.5">
+              <ForgeBrandMark size={18} />
+              <span className="text-[15px] font-semibold tracking-wide text-text-primary">Forge</span>
+            </div>
+            <div className="flex-1" />
+            <button
+              type="button"
+              onClick={() => setShowSignIn(true)}
+              className="rounded-full border border-white/12 bg-white/[0.06] px-3.5 py-2 text-sm font-medium text-text-primary/90 transition hover:border-white/20 hover:bg-white/[0.1]"
+            >
+              Sign in
+            </button>
+          </header>
+        </PremiumEntrance>
 
         <div className="flex flex-1 flex-col items-center justify-center px-1 text-center">
-          <div className="relative mb-7 flex h-48 w-52 items-center justify-center">
-            <PremiumPresenceBloom size={210} accent={hook.accent} frost={hook.frost} />
-            {hook.id === "aria" || hook.id === "forge" ? (
-              <AriaMark size={140} speaking={hook.id === "aria"} label="ARIA" className="relative z-10" />
-            ) : (
-              <div className="relative z-10 flex h-28 w-28 items-center justify-center rounded-full border border-white/10 bg-white/[0.04]">
-                <span className="text-2xl text-[#F7F4F0]/85" aria-hidden>
-                  {hook.icon}
-                </span>
-              </div>
-            )}
-          </div>
+          <PremiumEntrance key={`visual-${hook.id}`} index={0} className="mb-7">
+            <div className="relative flex h-48 w-52 items-center justify-center">
+              <PremiumPresenceBloom size={210} accent={hook.accent} frost={hook.frost} />
+              {hook.id === "aria" || hook.id === "forge" ? (
+                <AriaMark size={140} speaking={hook.id === "aria"} label="ARIA" className="relative z-10" />
+              ) : (
+                <div className="relative z-10 flex h-28 w-28 items-center justify-center rounded-full border border-white/10 bg-white/[0.04] shadow-[0_0_40px_rgba(247,244,240,0.06)]">
+                  <span className="text-2xl text-[#F7F4F0]/85" aria-hidden>
+                    {hook.icon}
+                  </span>
+                </div>
+              )}
+            </div>
+          </PremiumEntrance>
 
-          <p className="text-[12px] font-medium uppercase tracking-[0.24em] text-text-tertiary">
-            {hook.kicker}
-          </p>
-          <h1
-            className="mt-3 max-w-sm text-[30px] font-semibold leading-tight tracking-tight text-text-primary"
-            style={{ fontFamily: "var(--font-display)" }}
-          >
-            {hook.title}
-          </h1>
-          <p className="mt-4 max-w-sm text-[15px] font-normal leading-relaxed text-text-secondary">
-            {hook.body}
-          </p>
-          <p
-            className={cn(
-              "mt-4 text-[13px] font-medium",
-              hook.id === "forge" ? "text-ember/90" : "text-text-tertiary"
-            )}
-          >
-            {hook.reward}
-          </p>
+          <PremiumEntrance key={`kicker-${hook.id}`} index={1}>
+            <p className="text-[12px] font-medium uppercase tracking-[0.24em] text-text-tertiary">
+              {hook.kicker}
+            </p>
+          </PremiumEntrance>
+          <PremiumEntrance key={`title-${hook.id}`} index={2}>
+            <h1
+              className="mt-3 max-w-sm text-[30px] font-semibold leading-tight tracking-tight text-text-primary"
+              style={{ fontFamily: "var(--font-display)" }}
+            >
+              {hook.title}
+            </h1>
+          </PremiumEntrance>
+          <PremiumEntrance key={`body-${hook.id}`} index={3}>
+            <p className="mt-4 max-w-sm text-[15px] font-normal leading-relaxed text-text-secondary">
+              {hook.body}
+            </p>
+          </PremiumEntrance>
+          <PremiumEntrance key={`reward-${hook.id}`} index={4}>
+            <p
+              className={cn(
+                "mt-4 text-[13px] font-medium",
+                hook.id === "forge" ? "text-ember/90" : "text-text-tertiary"
+              )}
+            >
+              {hook.reward}
+            </p>
+          </PremiumEntrance>
         </div>
 
-        <div className="space-y-4">
+        <PremiumEntrance index={2} className="space-y-4">
           <div className="flex flex-col items-center gap-3">
-            <div className="flex items-center gap-1.5">
-              {HOOKS.map((item, i) => (
-                <button
-                  key={item.id}
-                  type="button"
-                  aria-label={`Go to slide ${i + 1}`}
-                  onClick={() => setPage(i)}
-                  className={cn(
-                    "h-1 rounded-full transition-all duration-300",
-                    i === page ? "w-5 bg-[#F7F4F0]" : "w-1.5 bg-white/16"
-                  )}
-                />
-              ))}
-            </div>
+            <PremiumProgressDots
+              count={HOOKS.length}
+              current={page}
+              onSelect={setPage}
+            />
             <p className="text-[11px] font-medium uppercase tracking-[0.14em] text-text-tertiary">
               {page + 1} of {HOOKS.length}
             </p>
@@ -148,14 +153,16 @@ export default function WelcomeScreen({ onNext }: WelcomeScreenProps) {
 
           <PremiumPrimaryButton onClick={onNext}>
             <span>Get started</span>
-            <span aria-hidden>→</span>
+            <span aria-hidden className="transition-transform duration-300 group-hover:translate-x-0.5">
+              →
+            </span>
           </PremiumPrimaryButton>
 
           {page < HOOKS.length - 1 && (
             <button
               type="button"
               onClick={() => setPage((p) => Math.min(HOOKS.length - 1, p + 1))}
-              className="w-full py-2 text-sm font-medium text-text-secondary"
+              className="w-full py-2 text-sm font-medium text-text-secondary transition hover:text-text-primary"
             >
               See how it works
             </button>
@@ -164,7 +171,7 @@ export default function WelcomeScreen({ onNext }: WelcomeScreenProps) {
           <p className="text-center text-[11px] text-text-muted">
             Lifestyle fitness coaching · Live your best life
           </p>
-        </div>
+        </PremiumEntrance>
       </div>
 
       {showSignIn && (

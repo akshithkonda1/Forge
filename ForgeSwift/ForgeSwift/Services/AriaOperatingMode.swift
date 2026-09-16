@@ -1,52 +1,114 @@
 import Foundation
+import ForgeCore
 
 /// Which ARIA the app is actually talking to.
 ///
-/// This is the seam between the local testing experience and the real backend.
-/// Chat consults it in `AriaService.sendMessage`, after the Test-Ready dummy
-/// gate. The voice session uses those same two gates, in that same order, in
-/// `AriaVoiceTransport.resolve` — dummy first, so Device Hub cannot fall
-/// through to local testing or live ConvAI. Do not consult this flag from
-/// random call sites; a mode that is checked in fifteen files stops being a
-/// mode and starts being a tangle.
-enum AriaOperatingMode {
+/// This is the seam between the local testing experience, the deterministic
+/// Dummy orchestra (tune without AI), and the real backend. Chat consults it
+/// in `AriaService.sendMessage`, after the Test-Ready dummy gate. The voice
+/// session uses those same gates in `AriaVoiceTransport.resolve` — dummy
+/// first, so Device Hub cannot fall through to live ConvAI.
+enum AriaOperatingMode: String, CaseIterable, Identifiable {
 
-    /// Everything runs on this device. HealthKit / wearables are read here.
-    /// Claude and Grok are the only off-device intelligence, and they never
-    /// receive the HealthKit warehouse — `LocalTestingOrchestrator` answers
-    /// from on-device generators and tools.
+    /// Deterministic Dummy orchestra — no Bedrock, no cloud LLM.
+    /// Canonical path for tuning ARIA before live AI.
+    case dummy
+
+    /// On-device local testing brain (separate from Dummy). HealthKit /
+    /// wearables stay here; Claude/Grok never receive the warehouse.
     case localTesting
 
     /// Claude / Grok via `AriaService.postChat`. Health samples still stay on
-    /// this iPhone (`AriaOnDeviceHealthPolicy`). Local generation remains the
-    /// offline fallback.
+    /// this iPhone (`AriaOnDeviceHealthPolicy`).
     case liveBackend
 
-    /// Swap to `.liveBackend` once auth is trusted end to end — sign-in now
-    /// lives in `ForgeAuthClient.signIn(email:password:)`, hand-rolled against
-    /// Cognito, not the placeholder `AppStore.authenticate()` this was
-    /// originally written against. That method no longer exists.
-    ///
-    /// Until that swap, this is the only ARIA experience that actually runs.
-    ///
-    /// `@MainActor` because every reader is already main-actor isolated
-    /// (`AriaService`, `AppStore`), which keeps this a plain settable flag
-    /// instead of needing `nonisolated(unsafe)`.
+    var id: String { rawValue }
+
+    /// Persisted override. Empty / missing → resolve from auth + environment.
+    private static let overrideKey = "forge.aria.operatingMode"
+
+    /// `@MainActor` because every reader is already main-actor isolated.
     @MainActor
-    static var current: AriaOperatingMode = .localTesting
+    static var current: AriaOperatingMode = .resolveFromBundle()
 
-    /// Local testing is a deliberate, visible choice. It is not the silent
-    /// `try?` fallback that used to swallow a 500 and dress it up as coaching —
-    /// that distinction is the whole reason this enum exists rather than a
-    /// bool named `useFakeData`.
+    /// Re-read auth / env / override. Call after tester install or Settings change.
+    @MainActor
+    @discardableResult
+    static func refresh() -> AriaOperatingMode {
+        let next = resolve()
+        current = next
+        return next
+    }
+
+    /// Explicit DEBUG/Settings choice. Pass `nil` to clear and re-resolve.
+    @MainActor
+    static func setOverride(_ mode: AriaOperatingMode?) {
+        if let mode {
+            UserDefaults.standard.set(mode.rawValue, forKey: overrideKey)
+        } else {
+            UserDefaults.standard.removeObject(forKey: overrideKey)
+        }
+        refresh()
+    }
+
+    @MainActor
+    static var hasOverride: Bool {
+        UserDefaults.standard.string(forKey: overrideKey) != nil
+    }
+
+    /// Bundle / Info.plist only — safe during `ForgeAuthClient` init.
+    static func resolveFromBundle() -> AriaOperatingMode {
+        let config = ForgeAuthConfig.fromInfoDictionary(Bundle.main.infoDictionary ?? [:])
+        #if DEBUG
+        if config.environment.lowercased() == "dummy" || config.apiIsLoopback {
+            return .dummy
+        }
+        #endif
+        return .localTesting
+    }
+
+    @MainActor
+    static func resolve() -> AriaOperatingMode {
+        if let raw = UserDefaults.standard.string(forKey: overrideKey),
+           let mode = AriaOperatingMode(rawValue: raw) {
+            return mode
+        }
+        // Session-aware when auth client is ready.
+        let client = ForgeAuthClient.shared
+        if client.canUseDevOverride,
+           (client.session?.mode == .devOverride
+            || client.config.environment.lowercased() == "dummy"
+            || client.config.apiIsLoopback
+            || ForgeAuthPolicy.isXcodeDeviceHubLaunch) {
+            return .dummy
+        }
+        return resolveFromBundle()
+    }
+
+    /// Offline coaches (Dummy + Local) never hit Bedrock.
+    var isOfflineCoach: Bool {
+        self == .dummy || self == .localTesting
+    }
+
     var isLocalTesting: Bool { self == .localTesting }
+    var isDummy: Bool { self == .dummy }
 
-    /// Shown in the UI wherever offline/test state is surfaced, so nobody
-    /// mistakes a local answer for a backend one.
     var badge: String {
         switch self {
-        case .localTesting: return "Local testing — on-device ARIA, no cloud."
-        case .liveBackend:  return "Live backend."
+        case .dummy:
+            return "Dummy orchestra — deterministic, no cloud AI."
+        case .localTesting:
+            return "Local testing — on-device ARIA, no cloud."
+        case .liveBackend:
+            return "Live backend."
+        }
+    }
+
+    var settingsLabel: String {
+        switch self {
+        case .dummy: return "Dummy (tune without AI)"
+        case .localTesting: return "Local testing"
+        case .liveBackend: return "Live backend"
         }
     }
 }

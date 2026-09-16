@@ -120,10 +120,45 @@ struct SettingsPageView: View {
                         } label: {
                             Text("Meet ARIA again")
                                 .font(.system(size: 13, weight: .semibold))
-                                .foregroundColor(.ember)
+                                .foregroundColor(Color(hex: "A9D8FF"))
                         }
                         .buttonStyle(.plain)
                         .padding(.top, 4)
+                        #if DEBUG
+                        VStack(alignment: .leading, spacing: 8) {
+                            Text("ARIA coach mode")
+                                .font(.system(size: 12, weight: .medium))
+                                .foregroundColor(.textTertiary)
+                            Text(AriaOperatingMode.current.badge)
+                                .font(.system(size: 11))
+                                .foregroundColor(.textMuted)
+                            ForEach(AriaOperatingMode.allCases) { mode in
+                                Button {
+                                    AriaOperatingMode.setOverride(mode)
+                                } label: {
+                                    HStack {
+                                        Text(mode.settingsLabel)
+                                            .font(.system(size: 13, weight: .medium))
+                                            .foregroundColor(.textPrimary)
+                                        Spacer()
+                                        if AriaOperatingMode.current == mode {
+                                            Image(systemName: "checkmark")
+                                                .font(.system(size: 12, weight: .semibold))
+                                                .foregroundColor(Color(hex: "F7F4F0"))
+                                        }
+                                    }
+                                    .padding(.vertical, 8)
+                                }
+                                .buttonStyle(.plain)
+                            }
+                            Button("Reset to auto") {
+                                AriaOperatingMode.setOverride(nil)
+                            }
+                            .font(.system(size: 12, weight: .medium))
+                            .foregroundColor(.textTertiary)
+                        }
+                        .padding(.top, 10)
+                        #endif
                         FlowLayout(spacing: 8) {
                             coachPinChip(nil, title: "Auto")
                             // Same roster as the chat pin row: the five

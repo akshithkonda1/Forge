@@ -30,7 +30,7 @@ struct AuthWelcomeView: View {
                 header
                     .padding(.horizontal, 24)
                     .padding(.top, 16)
-                    .opacity(appeared ? 1 : 0)
+                    .premiumEntrance(index: 0, appeared: appeared)
 
                 TabView(selection: $page) {
                     ForEach(Array(pages.enumerated()), id: \.offset) { index, hook in
@@ -52,8 +52,7 @@ struct AuthWelcomeView: View {
                 .padding(.horizontal, 24)
                 .padding(.bottom, 28)
                 .safeAreaPadding(.bottom, 8)
-                .opacity(appeared ? 1 : 0)
-                .offset(y: appeared ? 0 : 16)
+                .premiumEntrance(index: 2, appeared: appeared)
             }
         }
         .sheet(isPresented: $showSignIn) {
@@ -114,19 +113,14 @@ struct AuthWelcomeView: View {
 
     private var progress: some View {
         VStack(spacing: 12) {
-            HStack(spacing: 6) {
-                ForEach(0..<pages.count, id: \.self) { i in
-                    Capsule()
-                        .fill(i == page ? Color(hex: "F7F4F0") : Color.white.opacity(0.16))
-                        .frame(width: i == page ? 20 : 6, height: 4)
-                        .animation(FDS.Spring.snap, value: page)
-                }
-            }
+            PremiumProgressDots(count: pages.count, current: page)
             Text("\(page + 1) of \(pages.count)")
                 .font(.system(size: 11, weight: .medium, design: .rounded))
                 .tracking(1.4)
                 .foregroundColor(.textTertiary)
                 .textCase(.uppercase)
+                .contentTransition(.numericText())
+                .animation(FDS.Spring.snap, value: page)
         }
     }
 
@@ -252,6 +246,7 @@ private struct AuthHookPageView: View {
                     .tracking(2.4)
                     .foregroundColor(.textTertiary)
                     .textCase(.uppercase)
+                    .premiumEntrance(index: 0, appeared: isActive)
 
                 Text(page.title)
                     .font(.system(size: 30, weight: .semibold, design: .rounded))
@@ -259,6 +254,7 @@ private struct AuthHookPageView: View {
                     .multilineTextAlignment(.center)
                     .lineSpacing(3)
                     .minimumScaleFactor(0.88)
+                    .premiumEntrance(index: 1, appeared: isActive)
 
                 Text(page.body)
                     .font(.system(size: 15, weight: .regular))
@@ -267,24 +263,28 @@ private struct AuthHookPageView: View {
                     .lineSpacing(5)
                     .padding(.horizontal, 4)
                     .fixedSize(horizontal: false, vertical: true)
+                    .premiumEntrance(index: 2, appeared: isActive)
 
-                if page.id == "forge" {
-                    Text(page.reward)
-                        .font(.system(size: 13, weight: .medium, design: .rounded))
-                        .foregroundColor(Color.ember.opacity(0.9))
-                        .padding(.top, 2)
-                } else {
-                    Text(page.reward)
-                        .font(.system(size: 12, weight: .medium))
-                        .foregroundColor(.textTertiary)
-                        .padding(.top, 2)
+                Group {
+                    if page.id == "forge" {
+                        Text(page.reward)
+                            .font(.system(size: 13, weight: .medium, design: .rounded))
+                            .foregroundColor(Color.ember.opacity(0.9))
+                    } else {
+                        Text(page.reward)
+                            .font(.system(size: 12, weight: .medium))
+                            .foregroundColor(.textTertiary)
+                    }
                 }
+                .padding(.top, 2)
+                .premiumEntrance(index: 3, appeared: isActive)
             }
             .padding(.horizontal, 28)
 
             Spacer(minLength: 4)
         }
-        .opacity(isActive ? 1 : 0.45)
+        .opacity(isActive ? 1 : 0.4)
+        .scaleEffect(isActive ? 1 : 0.97)
         .animation(FDS.Spring.standard, value: isActive)
     }
 
