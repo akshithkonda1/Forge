@@ -47,10 +47,8 @@ def aria_persona_key(user_id: str) -> dict:
 
 
 def aria_memory_settings_key(user_id: str) -> dict:
-    """Stub row for Rowan's editable-memory settings (persona/tone/check-in).
-
-    Not wired into CoachContextEngine. Privacy gates stay on the chat ingest
-    path until Rowan posts the contract. Separate from ``ARIA#CONTEXT``.
+    """Dummy-offline Rowan contract: memory_enabled, disabled_folders,
+    persona_enabled, tone, check_in. Not wired into CoachContextEngine.
     """
     return {"pk": f"USER#{user_id}", "sk": "ARIA#MEMORY_SETTINGS"}
 
