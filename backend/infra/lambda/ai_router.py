@@ -34,6 +34,9 @@ MAX_CLIENT_TIMEOUT_SECONDS = 10.0
 # shares one flag with /ai/chat, but kept local so importing this module (early,
 # from handler) never pulls in the full ARIA engine. When the flag is off the
 # router must never reach Amazon Bedrock, even on a deployed Lambda with JWT+IAM.
+# Verified invoke providers live in services.provider_capabilities (Anthropic
+# only). Slot 3's historical Grok id is an unverified config string, not a
+# Bedrock capability.
 _BEDROCK_TRUE_FLAGS = {"1", "true", "yes", "on"}
 
 
@@ -781,26 +784,35 @@ class AIRouter:
 
 
 def default_models() -> list[ModelConfig]:
-    return [
-        ModelConfig(
-            slot=1,
-            name="Claude Sonnet 4.6",
-            model_id=os.getenv("AI_ROUTER_MODEL_1_ID", "anthropic.claude-sonnet-4-6"),
-            responsibility="Primary responder focused on fast, high-quality first-pass answers.",
+    # Slot ids/names come from services.provider_capabilities (verified
+    # Anthropic vs unverified slot-3 placeholder). Env still overrides.
+    # Slot 3's historical Grok id is **not** Bedrock-verified in this tree;
+    # IAM would reject it even if the kill-switch were on.
+    from services.provider_capabilities import ROUTER_SLOTS
+
+    responsibilities = {
+        1: "Primary responder focused on fast, high-quality first-pass answers.",
+        2: "Fallback and verifier when the first model misses the latency window or needs backup.",
+        3: (
+            "Unverified config placeholder (historical xAI Grok id). Not a "
+            "proven Bedrock model in this tree; IAM is Anthropic-only. Do not "
+            "treat as live Grok support."
         ),
-        ModelConfig(
-            slot=2,
-            name="Claude Opus 4.7",
-            model_id=os.getenv("AI_ROUTER_MODEL_2_ID", "anthropic.claude-opus-4-7"),
-            responsibility="Fallback and verifier when the first model misses the latency window or needs backup.",
-        ),
-        ModelConfig(
-            slot=3,
-            name=os.getenv("AI_ROUTER_MODEL_3_NAME", "Grok"),
-            model_id=os.getenv("AI_ROUTER_MODEL_3_ID", "global.xai.grok-4.6"),
-            responsibility="Differently-trained second opinion (xAI Grok) that pressure-tests edge cases and fills remaining gaps.",
-        ),
-    ]
+    }
+    models: list[ModelConfig] = []
+    for slot in ROUTER_SLOTS:
+        name = slot.name
+        if slot.env_name:
+            name = os.getenv(slot.env_name, slot.name)
+        models.append(
+            ModelConfig(
+                slot=slot.slot,
+                name=name,
+                model_id=os.getenv(slot.env_id, slot.model_id),
+                responsibility=responsibilities[slot.slot],
+            )
+        )
+    return models
 
 
 def normalize_excerpt(text: str, max_chars: int) -> str:

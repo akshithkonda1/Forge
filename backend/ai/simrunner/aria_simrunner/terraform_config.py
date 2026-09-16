@@ -26,6 +26,8 @@ import os
 import re
 from dataclasses import dataclass
 
+# Historical slot-3 env fallback string. Unverified as a Bedrock model —
+# see services.provider_capabilities.UNVERIFIED_CONFIG_MODEL_IDS.
 _ROUTER3_ID_FALLBACK = "global.xai.grok-4.6"
 _ROUTER3_NAME_FALLBACK = "Grok"
 

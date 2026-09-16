@@ -2441,11 +2441,14 @@ def build_user_prompt(message: str, ctx: ARIAContext, restricted: list[str] | No
 # fails because Bedrock is unreachable. Bedrock is opt-in via ``ARIA_BEDROCK_ENABLED``
 # so the default/offline path (and CI) stay hermetic.
 
-# Concrete Bedrock model id backing each routing class. The ``anthropic.`` prefix
-# is required by the Bedrock Converse API (mirrors ai_router / query_router).
+# Concrete Bedrock model id backing each routing class. Anthropic-only —
+# the only vendor IAM + this live table can prove. Grok is not listed here.
+# See services.provider_capabilities (verified providers; kill-switch default off).
+from services.provider_capabilities import CHAT_LIVE_MODEL_IDS as _CHAT_LIVE_MODEL_IDS
+
 LIVE_MODEL_IDS = {
-    MODEL_PRIMARY: "anthropic.claude-opus-4-8",
-    MODEL_FAST: "anthropic.claude-sonnet-4-6",
+    MODEL_PRIMARY: _CHAT_LIVE_MODEL_IDS[MODEL_PRIMARY],
+    MODEL_FAST: _CHAT_LIVE_MODEL_IDS[MODEL_FAST],
 }
 LIVE_MAX_TOKENS = 700
 LIVE_TEMPERATURE = 0.3

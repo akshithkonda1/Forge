@@ -33,6 +33,8 @@ MODEL_ROUTING: dict[str, str] = {
 }
 
 # Concrete Bedrock model backing each routing class (overridable per engine).
+# Anthropic-only — mirrors services.provider_capabilities.CHAT_LIVE_MODEL_IDS.
+# Grok is not a routing class here and is not assumed available on Bedrock.
 ROUTING_MODELS: dict[str, str] = {
     "opus": "anthropic.claude-opus-4-8",
     "sonnet": "anthropic.claude-sonnet-4-6",
