@@ -277,9 +277,75 @@ final class QualityOfLifeCalculatorTests: XCTestCase {
         let snap = QualityOfLifeLivingStore.load(defaults: defaults)
         XCTAssertEqual(snap?.overall, score.overall)
         XCTAssertEqual(snap?.personaArchetype, "homebody")
+        XCTAssertFalse(snap?.band.isEmpty == true)
+        XCTAssertFalse(snap?.coaching.isEmpty == true)
         let line = QualityOfLifeLivingStore.coachingLine(defaults: defaults)
         XCTAssertTrue(line.contains("\(score.overall)/100"))
-        XCTAssertTrue(line.lowercased().contains("same grade") || line.lowercased().contains("life shows"))
+        XCTAssertTrue(line.lowercased().contains("same grade") || line.lowercased().contains("life shows") || line.contains(snap?.coaching ?? "___"))
+        defaults.removePersistentDomain(forName: suite)
+    }
+
+    func testPublishElaborationIncludesMissingAndThrivingProtectLanguage() {
+        let suite = "forge.qol.elab.\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suite)!
+        defaults.removePersistentDomain(forName: suite)
+        let rich = QualityOfLifeCalculator.score(from: QualityOfLifeInputs(
+            sleepHours: 8, deepSleepMinutes: 80, remSleepMinutes: 100,
+            steps: 12_000, activeCalories: 700, exerciseMinutes: 45,
+            proteinGrams: 160, totalCalories: 2_400, fiberGrams: 30, addedSugarGrams: 20,
+            waterGlasses: 9, hrvMs: 70, hrvBaselineMs: 55, restingHR: 52,
+            vo2Max: 48, oxygenSaturationPercent: 98, respiratoryRate: 14,
+            mindfulMinutes: 20, stressLevel0to1: 0.15, selfReportedMood0to10: 9,
+            socialConnection0to10: 9, meaningfulSocialInteractions: 3
+        ))
+        QualityOfLifeLivingStore.publish(rich, persona: .balanced, defaults: defaults)
+        let snap = QualityOfLifeLivingStore.load(defaults: defaults)!
+        XCTAssertEqual(snap.qualityBand, .thriving)
+        XCTAssertTrue(snap.coaching.localizedCaseInsensitiveContains("holding you up"))
+        XCTAssertFalse(snap.coaching.localizedCaseInsensitiveContains("main drag"))
+
+        let thin = QualityOfLifeCalculator.score(from: QualityOfLifeInputs(steps: 2_000, stressLevel0to1: 0.9))
+        QualityOfLifeLivingStore.publish(thin, persona: .balanced, defaults: defaults)
+        let thinSnap = QualityOfLifeLivingStore.load(defaults: defaults)!
+        XCTAssertFalse(thinSnap.missingPillars.isEmpty)
+        XCTAssertTrue(thinSnap.coaching.localizedCaseInsensitiveContains("unmeasured"))
+        defaults.removePersistentDomain(forName: suite)
+    }
+
+    func testLegacySnapshotDecodeWithoutNewFields() throws {
+        let suite = "forge.qol.legacy.\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suite)!
+        defaults.removePersistentDomain(forName: suite)
+        let legacy: [String: Any] = [
+            "overall": 71,
+            "rawOverall": 74,
+            "confidence": 0.6,
+            "pillarScores": ["sleep": 70, "activity": 72],
+            "personaArchetype": "balanced",
+            "updatedAt": Date().timeIntervalSinceReferenceDate,
+        ]
+        let data = try JSONSerialization.data(withJSONObject: legacy)
+        defaults.set(data, forKey: QualityOfLifeLivingStore.defaultsKey)
+        // JSONEncoder dates vs JSONSerialization — use Codable round-trip of old shape instead.
+        struct Legacy: Codable {
+            var overall: Int
+            var rawOverall: Int
+            var confidence: Double
+            var pillarScores: [String: Int]
+            var personaArchetype: String
+            var updatedAt: Date
+        }
+        let encoded = try JSONEncoder().encode(Legacy(
+            overall: 71, rawOverall: 74, confidence: 0.6,
+            pillarScores: ["sleep": 70, "activity": 72],
+            personaArchetype: "balanced", updatedAt: Date()
+        ))
+        defaults.set(encoded, forKey: QualityOfLifeLivingStore.defaultsKey)
+        let snap = QualityOfLifeLivingStore.load(defaults: defaults)
+        XCTAssertEqual(snap?.overall, 71)
+        XCTAssertEqual(snap?.drivers, [])
+        XCTAssertEqual(snap?.qualityBand, .steady)
+        XCTAssertEqual(snap?.coaching, "")
         defaults.removePersistentDomain(forName: suite)
     }
 
