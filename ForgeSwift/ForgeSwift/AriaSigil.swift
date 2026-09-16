@@ -66,6 +66,26 @@ enum AriaSigilGeometry: Sendable {
         var ry: Double
         var rotation: Double
         var opacity: Double
+        /// Liquid path phase (radians) — drives soft-hex undulation.
+        var wavePhase: Double
+        /// Radial wave amplitude as a fraction of radius (0…~0.08).
+        var waveAmp: Double
+    }
+
+    /// Legacy name kept for call-site continuity.
+    typealias HexPose = EllipsePose
+
+    struct OrbCorePose: Equatable, Sendable {
+        var sx: Double
+        var sy: Double
+        var glow: Double
+        var highlight: Double
+        /// Smart-metal surface ripples (0…1). Idle is a whisper; speaking is a voice.
+        var ripple: Double
+        var sheenAngle: Double
+        var metalWarp: Double
+        /// Diameter as a fraction of mark size.
+        var diameter: Double
     }
 
     /// Legacy name kept for call-site continuity.
@@ -255,8 +275,9 @@ enum AriaSigilPalette: Sendable {
     static let goldHex = "C9A36A"
     static let goldHotHex = "E8C48A"
     static let steelHex = "6B7CFF"
-    static let frostHex = "9FD6FF"
+    static let frostHex = AriaSigilGeometry.nestFrostHex
     static let bloodHex = "4A1018"
+    static let hearthGlowHex = AriaSigilGeometry.hearthGlowHex
     static let limbHex = "000000"
     static let tealHex = "3EC8C8"
 
