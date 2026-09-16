@@ -173,11 +173,11 @@ export const useAppStore = create<AppState>()(
   isOnboarded: false,
   onboardingStep: 0,
   setOnboarded: (val) => set({ isOnboarded: val }),
-  setOnboardingStep: (step) => {
+    setOnboardingStep: (step) => {
     const prev = get().onboardingStep;
     const next = Math.max(0, step);
     // #region agent log
-    {const __dbg={location:'useAppStore.ts:setOnboardingStep',message:'setOnboardingStep called',data:{prev,step,next},timestamp:Date.now(),hypothesisId:'B'};fetch('http://127.0.0.1:7252/ingest/4f8a2c91-onboarding-step',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'onboarding-step'},body:JSON.stringify(__dbg)}).catch(()=>{});fetch('/api/agent-debug',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(__dbg)}).catch(()=>{});}
+    {const __dbg={location:'useAppStore.ts:setOnboardingStep',message:'setOnboardingStep called',data:{prev,step,next,runId:'post-fix'},timestamp:Date.now(),hypothesisId:'B'};fetch('http://127.0.0.1:7252/ingest/4f8a2c91-onboarding-step',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'onboarding-step'},body:JSON.stringify(__dbg)}).catch(()=>{});fetch('/api/agent-debug',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(__dbg)}).catch(()=>{});}
     // #endregion
     set({ onboardingStep: next });
   },
