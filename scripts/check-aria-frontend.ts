@@ -300,6 +300,7 @@ for (const style of compactProbe.strokes) {
 
 const markSrc = readFileSync("src/components/brand/aria-mark.tsx", "utf8");
 assert(markSrc.includes("drawAriaNest"), "AriaMark paints drawAriaNest");
+assert(markSrc.includes("NestStillSvg") && markSrc.includes("softHexPathD"), "AriaMark SSRs a still nest");
 assert(!markSrc.includes("drawAriaRingField"), "AriaMark retired the ring-field drawer");
 assert(markSrc.includes("NEST_PAINT_INTERVAL_MS"), "AriaMark honors paintHz");
 

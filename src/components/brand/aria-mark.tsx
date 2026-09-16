@@ -4,14 +4,96 @@ import { useEffect, useRef, useState } from "react";
 import { cn } from "@/lib/utils";
 import {
   ARIA_MARK,
+  ARIA_MARK_COMPACT_MAX,
   ariaMarkShouldSpin,
   nestLiveCreateId,
   nestLiveIsWinner,
   nestLiveRemove,
   nestLiveUpsert,
+  nestRingPose,
   NEST_PAINT_INTERVAL_MS,
+  ringStrokeWidth,
+  visibleRingIndices,
 } from "@/lib/aria-mark";
-import { drawAriaNest } from "@/lib/aria-nest";
+import { drawAriaNest, hexAlpha, softHexPathD } from "@/lib/aria-nest";
+
+function sizeCanvas(canvas: HTMLCanvasElement, size: number): CanvasRenderingContext2D | null {
+  const dpr = Math.min(2, window.devicePixelRatio || 1);
+  const px = Math.max(2, Math.round(size * dpr));
+  if (canvas.width !== px || canvas.height !== px) {
+    canvas.width = px;
+    canvas.height = px;
+  }
+  canvas.style.width = `${size}px`;
+  canvas.style.height = `${size}px`;
+  return canvas.getContext("2d");
+}
+
+function NestStillSvg({ size }: { size: number }) {
+  const compact = size <= ARIA_MARK_COMPACT_MAX;
+  const stroke = Math.max(2.1, ringStrokeWidth(size) * (100 / Math.max(size, 1)) * 1.35);
+  const sunR = ARIA_MARK.orbDiameterIdle * 50;
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 100 100"
+      className="block"
+      aria-hidden
+    >
+      {!compact && (
+        <circle
+          cx="50"
+          cy="50"
+          r="48"
+          fill={hexAlpha(ARIA_MARK.hearthGlowHex, 0.22)}
+        />
+      )}
+      {visibleRingIndices().map((index) => {
+        const pose = nestRingPose(index, 0, false, true);
+        return (
+          <path
+            key={index}
+            d={softHexPathD(
+              (pose.rx * 100) / 2,
+              (pose.ry * 100) / 2,
+              ARIA_MARK.cornerRoundness,
+              0,
+              0,
+              50,
+              50
+            )}
+            fill="none"
+            stroke={pose.hex}
+            strokeOpacity={pose.opacity}
+            strokeWidth={stroke}
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            transform={`rotate(${(pose.rotation * 180) / Math.PI} 50 50)`}
+          />
+        );
+      })}
+      <circle cx="50" cy="50" r={sunR} fill={ARIA_MARK.pearlHotHex} />
+    </svg>
+  );
+}
+
+function paintNest(
+  canvas: HTMLCanvasElement,
+  size: number,
+  speaking: boolean,
+  freeze: boolean,
+  time: number
+): void {
+  const ctx = sizeCanvas(canvas, size);
+  if (!ctx) return;
+  drawAriaNest(ctx, canvas.width, canvas.height, {
+    time,
+    speaking,
+    reduceMotion: freeze,
+    cssSize: size,
+  });
+}
 
 /**
  * Adaptive Recovery Interactive Assistant.
@@ -34,12 +116,23 @@ export function AriaMark({
   const speakingRef = useRef(speaking);
   speakingRef.current = speaking;
   const idRef = useRef(0);
-  if (idRef.current === 0) idRef.current = nestLiveCreateId();
   const [visible, setVisible] = useState(true);
   const [live, setLive] = useState(false);
 
+  const bindCanvas = (canvas: HTMLCanvasElement | null) => {
+    canvasRef.current = canvas;
+    if (!canvas || typeof window === "undefined") return;
+    if (idRef.current === 0) idRef.current = nestLiveCreateId();
+    try {
+      paintNest(canvas, size, speakingRef.current, true, 0);
+    } catch (err) {
+      console.error("drawAriaNest failed", err);
+    }
+  };
+
   useEffect(() => {
-    const id = idRef.current;
+    const id = idRef.current || nestLiveCreateId();
+    idRef.current = id;
     const media = window.matchMedia("(prefers-reduced-motion: reduce)");
     const sync = () => {
       nestLiveUpsert(id, {
@@ -52,21 +145,21 @@ export function AriaMark({
       setLive(nestLiveIsWinner(id));
     };
     sync();
-    const onMotion = () => sync();
-    media.addEventListener("change", onMotion);
+    media.addEventListener("change", sync);
     return () => {
-      media.removeEventListener("change", onMotion);
+      media.removeEventListener("change", sync);
       nestLiveRemove(id);
     };
   }, [size, speaking, visible]);
 
   useEffect(() => {
     const canvas = canvasRef.current;
-    if (!canvas) return;
-    if (typeof IntersectionObserver === "undefined") return;
+    if (!canvas || typeof IntersectionObserver === "undefined") return;
     const io = new IntersectionObserver(
-      ([entry]) => setVisible(!!entry?.isIntersecting),
-      { threshold: 0.15 }
+      ([entry]) => {
+        if (entry) setVisible(entry.isIntersecting);
+      },
+      { threshold: 0.01 }
     );
     io.observe(canvas);
     return () => io.disconnect();
@@ -75,49 +168,34 @@ export function AriaMark({
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
-    const ctx = canvas.getContext("2d");
-    if (!ctx) return;
-
     const media = window.matchMedia("(prefers-reduced-motion: reduce)");
-    const dpr = Math.min(2, window.devicePixelRatio || 1);
-    canvas.width = Math.max(1, Math.round(size * dpr));
-    canvas.height = Math.max(1, Math.round(size * dpr));
-    canvas.style.width = `${size}px`;
-    canvas.style.height = `${size}px`;
-
     let raf = 0;
     let lastPaint = 0;
     const start = performance.now();
 
-    const draw = (now: number, freeze: boolean) => {
-      const t = freeze ? 0 : (now - start) / 1000;
-      drawAriaNest(ctx, canvas.width, canvas.height, {
-        time: t,
-        speaking: speakingRef.current,
-        reduceMotion: freeze,
-        cssSize: size,
-      });
-    };
-
     const tick = (now: number) => {
       const freeze = !live || !ariaMarkShouldSpin(size, media.matches);
-      if (freeze) {
-        draw(now, true);
+      try {
+        if (freeze) {
+          paintNest(canvas, size, speakingRef.current, true, 0);
+          return;
+        }
+        if (now - lastPaint >= NEST_PAINT_INTERVAL_MS - 1) {
+          lastPaint = now;
+          paintNest(canvas, size, speakingRef.current, false, (now - start) / 1000);
+        }
+      } catch (err) {
+        console.error("drawAriaNest failed", err);
         return;
-      }
-      if (now - lastPaint >= NEST_PAINT_INTERVAL_MS - 1) {
-        lastPaint = now;
-        draw(now, false);
       }
       raf = requestAnimationFrame(tick);
     };
 
+    tick(performance.now());
     const onMotionPref = () => {
       cancelAnimationFrame(raf);
       tick(performance.now());
     };
-
-    tick(start);
     media.addEventListener("change", onMotionPref);
     return () => {
       cancelAnimationFrame(raf);
@@ -133,7 +211,11 @@ export function AriaMark({
       aria-label={hero ? label ?? "ARIA" : undefined}
       role={hero ? "img" : undefined}
     >
-      <canvas ref={canvasRef} className="block h-full w-full" />
+      <NestStillSvg size={size} />
+      <canvas
+        ref={bindCanvas}
+        className="pointer-events-none absolute inset-0 block h-full w-full"
+      />
     </div>
   );
 }

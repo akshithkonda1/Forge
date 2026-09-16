@@ -1,3 +1,5 @@
+"use client";
+
 import { AriaMark } from "@/components/brand/aria-mark";
 import { ARIA_MARK, ARIA_MARK_COMPACT_MAX, FORGE_WORDMARK } from "@/lib/aria-mark";
 import { cn } from "@/lib/utils";

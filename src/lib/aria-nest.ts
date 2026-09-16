@@ -24,6 +24,34 @@ export function hexAlpha(hex: string, alpha: number): string {
   return `rgba(${r}, ${g}, ${b}, ${a})`;
 }
 
+export function softHexPathD(
+  rx: number,
+  ry: number,
+  roundness: number,
+  wavePhase = 0,
+  waveAmp = 0,
+  cx = 0,
+  cy = 0
+): string {
+  const samples = 72;
+  const soft = Math.max(0.12, Math.min(0.42, roundness));
+  const parts: string[] = [];
+  for (let i = 0; i <= samples; i += 1) {
+    const angle = (i / samples) * Math.PI * 2;
+    const hexBias = 1 + (1 - soft) * 0.1 * Math.cos(6 * angle);
+    const liquid =
+      1 +
+      waveAmp *
+        (0.55 * Math.sin(6 * angle + wavePhase) +
+          0.28 * Math.sin(3 * angle - wavePhase * 1.35) +
+          0.17 * Math.sin(9 * angle + wavePhase * 0.72));
+    const x = cx + Math.cos(angle) * rx * hexBias * liquid;
+    const y = cy + Math.sin(angle) * ry * hexBias * liquid;
+    parts.push(`${i === 0 ? "M" : "L"}${x.toFixed(3)} ${y.toFixed(3)}`);
+  }
+  return `${parts.join(" ")} Z`;
+}
+
 /**
  * Soft-hex silhouette: 6-fold rounded nest + liquid radial undulation.
  * Closed stroke only — no flower lobes, no ellipse-field, no industrial chrome.
@@ -40,8 +68,7 @@ export function strokeSoftHex(
   const soft = Math.max(0.12, Math.min(0.42, roundness));
   ctx.beginPath();
   for (let i = 0; i <= samples; i += 1) {
-    const t = i / samples;
-    const angle = t * Math.PI * 2;
+    const angle = (i / samples) * Math.PI * 2;
     const hexBias = 1 + (1 - soft) * 0.1 * Math.cos(6 * angle);
     const liquid =
       1 +
@@ -87,9 +114,15 @@ function fillMetalSun(
 ): void {
   const sun = metalSunPose(time, speaking, reduceMotion);
   const diameter = sun.diameter * size;
-  const radius = (diameter / 2) * Math.max(sun.sx, sun.sy);
+  const radius = Math.max(1.5, (diameter / 2) * Math.max(sun.sx, sun.sy));
 
-  const bloom = ctx.createRadialGradient(cx, cy, radius * 0.15, cx, cy, radius * 1.65);
+  ctx.fillStyle = hexAlpha(ARIA_MARK.pearlHotHex, 0.96);
+  ctx.beginPath();
+  ctx.arc(cx, cy, radius, 0, Math.PI * 2);
+  ctx.fill();
+
+  const inner = Math.max(0.01, radius * 0.15);
+  const bloom = ctx.createRadialGradient(cx, cy, inner, cx, cy, Math.max(inner + 0.01, radius * 1.65));
   bloom.addColorStop(0, hexAlpha(ARIA_MARK.pearlHotHex, 0.28 + sun.glow * 0.18));
   bloom.addColorStop(0.55, hexAlpha(ARIA_MARK.pearlHex, 0.1));
   bloom.addColorStop(1, hexAlpha(ARIA_MARK.pearlHex, 0));
@@ -152,6 +185,7 @@ export function drawAriaNest(
   const compact = cssSize <= ARIA_MARK_COMPACT_MAX;
 
   ctx.clearRect(0, 0, width, height);
+  if (!Number.isFinite(size) || size < 2) return;
 
   if (!compact) {
     fillHearth(ctx, cx, cy, size, input.speaking);
