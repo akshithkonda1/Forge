@@ -16,6 +16,23 @@ xcrun simctl list runtimes
 Do not lower the bar to an older Health / MapKit / CloudKit surface just to
 make an old simulator happy.
 
+## DeviceHub (Xcode 27)
+
+Xcode 27 replaces `Simulator.app` with **DeviceHub**
+(`Xcode*.app/Contents/Applications/DeviceHub.app`). A DeviceHub `SIGABRT` is
+an Apple host crash, not Forge — quit it and relaunch from the same toolchain
+you build with:
+
+```bash
+killall DeviceHub DevicesTrampoline 2>/dev/null || true
+xcode-select -p   # must point at the Xcode you open
+```
+
+Prefer scheme **ForgeSwift** + one iPhone destination for day-to-day runs.
+Use **ForgeCompanion** only when you need Watch auto-launch. Keep a single
+active `xcode-select` path so stable Simulator.app and beta DeviceHub do not
+fight.
+
 ## Simulator microphone (Mac)
 
 The iOS Simulator can route input from the Mac microphone. That is a **host
