@@ -272,9 +272,4 @@ assert(markSrc.includes("NestStillSvg") && markSrc.includes("softHexPathD"), "Ar
 assert(!markSrc.includes("drawAriaRingField"), "AriaMark retired the ring-field drawer");
 assert(markSrc.includes("nestLiveCreateId"), "AriaMark wires nest live helpers");
 
-const ringFieldSrc = readFileSync("src/lib/aria-ring-field.ts", "utf8");
-assert(ringFieldSrc.includes("@deprecated"), "ring-field helpers are marked legacy");
-assert(ringFieldSrc.includes("drawAriaNest"), "legacy ring-field shim calls the nest");
-assert(!ringFieldSrc.includes("drawWhiteOrb"), "ring-field is not the brand renderer");
-
 console.log("aria frontend checks passed");

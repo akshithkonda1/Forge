@@ -26,7 +26,6 @@ struct ContentView: View {
                     MainTabView()
                 }
             }
-            .environment(\.forgeFireLiveAllowed, !showSplash)
             .animation(.easeInOut(duration: 0.35), value: store.isAuthenticated)
             .animation(.easeInOut(duration: 0.35), value: store.isOnboarded)
 

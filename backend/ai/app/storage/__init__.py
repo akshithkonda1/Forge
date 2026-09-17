@@ -1,3 +1,6 @@
-from . import dynamodb, s3
+"""Legacy AI app storage package.
 
-__all__ = ["dynamodb", "s3"]
+DynamoDB / S3 access lives under `backend.infra.lambda.storage`.
+"""
+
+__all__: list[str] = []
