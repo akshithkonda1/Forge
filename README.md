@@ -112,7 +112,7 @@ cd Forge
 open ForgeSwift/ForgeSwift.xcodeproj
 ```
 
-Pick a simulator or device, build and run (⌘R), grant Apple Health permissions. Home → ARIA → Sleep → Workout. Switch the scheme to **ForgeWatch** for the watch app.
+Scheme menu → **ForgeSwift** (not `ForgeSwiftTests`, Widgets, or Messages — those put Xcode in test/extension host mode). Pick an iPhone simulator or device, then **Run (⌘R)**. That launches the app. Use **⌘U** only when you want unit tests. Scheme **ForgeCompanion** also auto-launches the Watch sim; **ForgeWatch** runs the watch app alone. Grant Apple Health permissions, then Home → ARIA → Sleep → Workout.
 
 **Web**
 
