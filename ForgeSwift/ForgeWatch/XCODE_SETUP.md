@@ -49,12 +49,12 @@ Standalone “Watch only” destinations work for UI, but **companion features**
 
 **Option A — install both via iPhone scheme (best for “companion”)**
 
-1. Scheme: **ForgeSwift**
+1. Scheme: **ForgeSwift** (or **ForgeCompanion** to also auto-launch Watch)
 2. Destination: the **paired iPhone** (not “Any iOS Device”)
 3. Run (⌘R)
 4. Xcode embeds `ForgeWatch.app` into the iPhone build (`Embed Watch Content`).
-5. On the paired Watch simulator: open the **ForgeWatch** app (or it may
-   auto-install). Check the Watch home screen.
+5. On the paired Watch simulator: open the **ForgeWatch** app (ForgeCompanion
+   auto-launches it). Check the Watch home screen.
 
 **Option B — launch the watch scheme against the pair**
 
