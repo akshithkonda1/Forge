@@ -117,8 +117,8 @@ _NEEDLES = {
 }
 
 # Lockstep with iOS AriaCoachAgent.rawValue / first_bond.IOS_AGENT_KINDS.
-# Aging is a routing lane (_NEEDLES + _PRIMARY_ORDER), not a pinnable coach.
-_KINDS = ("cycle", "recovery", "sleep", "lifestyle", "progress", "workout", "aria")
+# Aging is a Dummy routing lane (not an iOS coach pin) but stays in the roster.
+_KINDS = ("cycle", "recovery", "sleep", "lifestyle", "progress", "aging", "workout", "aria")
 
 # Aging first so "training age" is never stolen by workout/lifestyle.
 # Then load-protective: a session question still wins so recovery/sleep
@@ -927,6 +927,20 @@ def _dumps_user_speak(text: str) -> bool:
         or speak_quality.medical_hits(raw)
         or speak_quality.sludge_hits(raw)
     )
+
+
+def _scrub_speak_vitals(text: str) -> str:
+    """Drop banned vitals tokens in place so a research cite can keep its source label.
+
+    All-or-nothing `_speak_without_vitals` would otherwise discard a whole
+    ``From MedlinePlus: … / VO2: …`` note and lose the provenance the person
+    is supposed to see.
+    """
+    scrubbed = _VITALS_SPEAK.sub("", str(text or ""))
+    scrubbed = re.sub(r"\s*/\s*(?=:)", "", scrubbed)
+    scrubbed = re.sub(r"\s*:\s*:", ":", scrubbed)
+    scrubbed = re.sub(r"\s{2,}", " ", scrubbed)
+    return scrubbed.strip(" :/,-")
 
 
 def _speak_without_vitals(*candidates: str) -> str:
@@ -1950,12 +1964,16 @@ def respond(
         stub_stance = ""
     prose = friend_speak(prose, seed=seed, stance=stub_stance, signals=signals)
     # Optional web note stays as a short trailing cite — not a specialist dump.
+    # Scrub vitals inside the cite first so VO2 in a MedlinePlus title cannot
+    # make `_speak_without_vitals` discard the whole "From …" provenance.
     chat = prose
     if web_research.is_research_worthy(message, plan.primary.kind):
         lookup_kind = "aging" if web_research.suggests_aging(message) or plan.primary.kind == "aging" else plan.primary.kind
         web_note = web_research.look_up(lookup_kind)
-        if web_note and web_note not in chat:
-            chat = f"{chat} ({web_note.rstrip('.')})"
+        if web_note:
+            safe_note = _scrub_speak_vitals(web_note)
+            if safe_note and safe_note not in chat and not _dumps_user_speak(safe_note):
+                chat = f"{chat} ({safe_note.rstrip('.')})"
     prose = _speak_without_vitals(prose)
     chat = _speak_without_vitals(chat, prose)
     recovery_needed = scenario == "recovery_first" or ctx.today.readiness_score < 50
