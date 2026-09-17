@@ -1,4 +1,6 @@
-from .coach_context import CoachContextEngine
-from .feedback import FeedbackEngine
+"""Legacy AI app services package.
 
-__all__ = ["CoachContextEngine", "FeedbackEngine"]
+Coach / feedback engines live under `backend.infra.lambda.services`.
+"""
+
+__all__: list[str] = []

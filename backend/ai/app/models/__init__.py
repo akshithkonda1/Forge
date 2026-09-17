@@ -1,3 +1,6 @@
-from .context import UserContext, AriaChatRequest, AriaResponse
+"""Legacy AI app models package.
 
-__all__ = ["UserContext", "AriaChatRequest", "AriaResponse"]
+Request / response models for ARIA live with the Lambda handlers.
+"""
+
+__all__: list[str] = []
