@@ -47,6 +47,12 @@ jobs:
       - name: Validate project.pbxproj
         run: python3 scripts/check-pbxproj.py
 
+      # Autocreated ForgeSwiftTests / Widgets / Messages schemes make ⌘R attach
+      # a test or extension host instead of launching ForgeSwift.app. This
+      # locks the shared Run schemes and the suppress-autocreate settings.
+      - name: Validate Run schemes (not test/extension hosts)
+        run: python3 scripts/check-xcode-run-schemes.py
+
   partner-redaction:
     name: Partner redaction boundary
     runs-on: ubuntu-latest

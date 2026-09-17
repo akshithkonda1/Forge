@@ -2,6 +2,12 @@
 <Scheme
    LastUpgradeVersion = "2700"
    version = "1.7">
+   <!--
+     Primary Run scheme for the Forge iPhone app.
+     ⌘R launches ForgeSwift.app — not unit tests, not an extension host.
+     Watch is still built/embedded; use scheme ForgeCompanion to also auto-launch Watch.
+     ⌘U runs ForgeSwiftTests via TestAction below.
+   -->
    <BuildAction
       parallelizeBuildables = "YES"
       buildImplicitDependencies = "YES"
@@ -15,9 +21,9 @@
             buildForAnalyzing = "YES">
             <BuildableReference
                BuildableIdentifier = "primary"
-               BlueprintIdentifier = "F0C100000000000000000002"
-               BuildableName = "ForgeWatchWidgets.appex"
-               BlueprintName = "ForgeWatchWidgets"
+               BlueprintIdentifier = "AA0005000000000000000001"
+               BuildableName = "ForgeSwift.app"
+               BlueprintName = "ForgeSwift"
                ReferencedContainer = "container:ForgeSwift.xcodeproj">
             </BuildableReference>
          </BuildActionEntry>
@@ -43,9 +49,23 @@
             buildForAnalyzing = "YES">
             <BuildableReference
                BuildableIdentifier = "primary"
-               BlueprintIdentifier = "AA0005000000000000000001"
-               BuildableName = "ForgeSwift.app"
-               BlueprintName = "ForgeSwift"
+               BlueprintIdentifier = "F0C100000000000000000002"
+               BuildableName = "ForgeWatchWidgets.appex"
+               BlueprintName = "ForgeWatchWidgets"
+               ReferencedContainer = "container:ForgeSwift.xcodeproj">
+            </BuildableReference>
+         </BuildActionEntry>
+         <BuildActionEntry
+            buildForTesting = "YES"
+            buildForRunning = "NO"
+            buildForProfiling = "NO"
+            buildForArchiving = "NO"
+            buildForAnalyzing = "NO">
+            <BuildableReference
+               BuildableIdentifier = "primary"
+               BlueprintIdentifier = "1TEST00100000000000000A"
+               BuildableName = "ForgeSwiftTests.xctest"
+               BlueprintName = "ForgeSwiftTests"
                ReferencedContainer = "container:ForgeSwift.xcodeproj">
             </BuildableReference>
          </BuildActionEntry>
@@ -56,7 +76,7 @@
       selectedDebuggerIdentifier = "Xcode.DebuggerFoundation.Debugger.LLDB"
       selectedLauncherIdentifier = "Xcode.DebuggerFoundation.Launcher.LLDB"
       shouldUseLaunchSchemeArgsEnv = "YES"
-      shouldAutocreateTestPlan = "YES">
+      shouldAutocreateTestPlan = "NO">
       <Testables>
          <TestableReference
             skipped = "NO">
@@ -91,32 +111,6 @@
             ReferencedContainer = "container:ForgeSwift.xcodeproj">
          </BuildableReference>
       </BuildableProductRunnable>
-      <!-- Collaborative mode: phone + watch. Post-action opens ForgeWatch on booted watch sims. -->
-      <EnvironmentVariables>
-         <EnvironmentVariable
-            key = "FORGE_LAUNCH_WATCH_COMPANION"
-            value = "1"
-            isEnabled = "YES">
-         </EnvironmentVariable>
-      </EnvironmentVariables>
-      <PostActions>
-         <ExecutionAction
-            ActionType = "Xcode.IDEStandardExecutionActionsCore.ExecutionActionType.ShellScriptAction">
-            <ActionContent
-               title = "Launch ForgeWatch on paired simulators"
-               scriptText = "bash &quot;${SRCROOT}/Scripts/launch-watch-companion.sh&quot;&#10;">
-               <EnvironmentBuildable>
-                  <BuildableReference
-                     BuildableIdentifier = "primary"
-                     BlueprintIdentifier = "AA0005000000000000000001"
-                     BuildableName = "ForgeSwift.app"
-                     BlueprintName = "ForgeSwift"
-                     ReferencedContainer = "container:ForgeSwift.xcodeproj">
-                  </BuildableReference>
-               </EnvironmentBuildable>
-            </ActionContent>
-         </ExecutionAction>
-      </PostActions>
    </LaunchAction>
    <ProfileAction
       buildConfiguration = "Release"
