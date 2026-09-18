@@ -57,6 +57,27 @@ On a physical device, skip the `simctl` steps: unlock it, confirm the
 cable/Wi-Fi connection, and re-accept "Trust This Computer" — Apple's own
 `NSLocalizedRecoverySuggestion` on this error says exactly that.
 
+### Tell: other apps crash too, not just Forge
+
+If a *stock* app — Calendar (`MobileCal`), Reminders, Settings — also dies on
+the same simulator, that confirms the host layer, not Forge: look for
+`EXC_CRASH (SIGKILL)` / termination reason `FRONTBOARD` / code `0x8BADF00D`
+("process-launch watchdog transgression") in Console, with the crashed
+process's `Coalition` naming the same `SimDevice.<DEVICE-ID>` you've been
+fighting. A trace stuck in `_UIApplicationConfigurationLoader` waiting on an
+XPC call to `BoardServices` means that device's OS services are wedged
+before any app code runs — it is not something app code can catch or work
+around. Skip straight past step 1 above:
+
+```bash
+xcrun simctl erase <DEVICE-ID>
+```
+
+Still unstable after erase → stop fighting this device; pick or create a
+different simulator. Still unstable on a *fresh* simulator → this is
+DeviceHub/BoardServices host-daemon state, which `killall` does not always
+fully clear — restart the Mac.
+
 ## Simulator microphone (Mac)
 
 The iOS Simulator can route input from the Mac microphone. That is a **host
