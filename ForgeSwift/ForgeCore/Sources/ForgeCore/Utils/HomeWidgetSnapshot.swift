@@ -84,6 +84,35 @@ public struct HomeWidgetSnapshot: Codable, Equatable, Sendable {
     )
 }
 
+// ============================================================
+// MARK: - Lifestyle widget snapshot
+// ============================================================
+
+/// Snapshot the Lifestyle Home Screen widget reads from the shared App Group.
+/// `LifestyleWidgetBridge` (app target) writes it; `LifestyleProvider` (widget
+/// extension) decodes it back — same struct on both ends of the App Group, so
+/// keep any field change source-compatible.
+public struct LifestyleWidgetSnapshot: Codable {
+    public var qol: Int
+    public var topTitle: String?
+    public var topCategory: String?
+    public var updatedAt: Date
+
+    public init(qol: Int, topTitle: String?, topCategory: String?, updatedAt: Date) {
+        self.qol = qol
+        self.topTitle = topTitle
+        self.topCategory = topCategory
+        self.updatedAt = updatedAt
+    }
+
+    public static let preview = LifestyleWidgetSnapshot(
+        qol: 82,
+        topTitle: "Add 30g protein before dinner",
+        topCategory: "Nutrition",
+        updatedAt: Date()
+    )
+}
+
 public enum HomeWidgetSnapshotStore {
     public static let appGroupID = WatchSnapshotStore.appGroupID
     public static let key = "forge.home.widget.snapshot.v1"
