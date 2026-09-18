@@ -16,6 +16,28 @@ xcrun simctl list runtimes
 Do not lower the bar to an older Health / MapKit / CloudKit surface just to
 make an old simulator happy.
 
+## Reset / erase (do not hang on `simctl`)
+
+`xcrun simctl` can block forever when CoreSimulatorService is wedged. Do **not**
+run a bare `simctl erase` from a shell you need back. Use:
+
+```bash
+# Erase the iOS 27 iPhone Forge develops against (or pass a UDID)
+./ForgeSwift/Scripts/reset-simulator.sh
+./ForgeSwift/Scripts/reset-simulator.sh 29B53C96-6BE3-4A79-991C-C652E44650FD
+
+# If every simctl command hangs:
+./ForgeSwift/Scripts/reset-simulator.sh --unwedge
+```
+
+The helper times out, shuts the device down, and retries after killing
+`com.apple.CoreSimulator.CoreSimulatorService`. After erase, boot the iPhone
+in Xcode and ⌘R **ForgeSwift**. Connect Apple Health once — Test-Ready then
+writes the Health pack.
+
+Xcode **Run post-action** (`launch-watch-companion.sh`) uses the same timeouts
+so a wedged simctl cannot freeze ⌘R.
+
 ## DeviceHub (Xcode 27)
 
 Xcode 27 replaces `Simulator.app` with **DeviceHub**
