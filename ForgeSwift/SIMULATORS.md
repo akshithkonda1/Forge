@@ -33,6 +33,30 @@ Use **ForgeCompanion** only when you need Watch auto-launch. Keep a single
 active `xcode-select` path so stable Simulator.app and beta DeviceHub do not
 fight.
 
+### DeviceKitError 4002 ("Live device view took longer than expected to connect")
+
+Same DeviceHub host layer, a different symptom: DeviceKit times out (60s)
+trying to bring up the live display for a specific device — `DeviceState`
+stuck at `connectingDisplays`, `FramebufferProviderStates: ["none"]`. Try in
+order:
+
+```bash
+# 1. Reboot just that device/simulator (id from the error's DeviceIdentifier)
+xcrun simctl shutdown <DEVICE-ID>
+xcrun simctl boot <DEVICE-ID>
+
+# 2. Still stuck: reset the host layer (same as the SIGABRT above)
+killall DeviceHub DevicesTrampoline 2>/dev/null || true
+xcode-select -p
+
+# 3. Still stuck: erase that simulator (wipes its simulated data, not your code)
+xcrun simctl erase <DEVICE-ID>
+```
+
+On a physical device, skip the `simctl` steps: unlock it, confirm the
+cable/Wi-Fi connection, and re-accept "Trust This Computer" — Apple's own
+`NSLocalizedRecoverySuggestion` on this error says exactly that.
+
 ## Simulator microphone (Mac)
 
 The iOS Simulator can route input from the Mac microphone. That is a **host
