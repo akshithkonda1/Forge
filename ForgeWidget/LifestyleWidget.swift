@@ -1,26 +1,6 @@
 import WidgetKit
 import SwiftUI
-
-// MARK: - Shared snapshot
-//
-// Mirror of `LifestyleWidgetSnapshot` in the app target. The app writes this
-// into the shared App Group (see `LifestyleWidgetBridge`); the widget reads it
-// back. Keep the field list + the App Group id + the storage key in sync with
-// the app side.
-
-struct LifestyleWidgetSnapshot: Codable {
-    var qol: Int
-    var topTitle: String?
-    var topCategory: String?
-    var updatedAt: Date
-
-    static let preview = LifestyleWidgetSnapshot(
-        qol: 82,
-        topTitle: "Add 30g protein before dinner",
-        topCategory: "Nutrition",
-        updatedAt: Date()
-    )
-}
+import ForgeCore
 
 // MARK: - Timeline
 

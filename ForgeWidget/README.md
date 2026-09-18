@@ -28,6 +28,6 @@ The storage key (`lifestyle.widget.snapshot`) must match too.
 - Supported families: `systemSmall`, `systemMedium`.
 - Until the App Group capability is added, `UserDefaults(suiteName:)` writes to a
   private domain, so the widget shows placeholder/preview data — nothing crashes.
-- `LifestyleWidgetSnapshot` is duplicated here because the widget target can't
-  see app-target types. If you'd rather share one definition, move the struct to
-  ForgeCore (or a dual-membership file) and delete the copy here.
+- `LifestyleWidgetSnapshot` lives in `ForgeCore` (`Utils/HomeWidgetSnapshot.swift`)
+  so the app target and this widget target decode the same definition instead of
+  two hand-kept copies.

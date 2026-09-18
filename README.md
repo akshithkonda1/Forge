@@ -114,6 +114,8 @@ open ForgeSwift/ForgeSwift.xcodeproj
 
 Scheme menu → **ForgeSwift** (not `ForgeSwiftTests`, Widgets, or Messages — those put Xcode in test/extension host mode). Pick an iPhone simulator or device, then **Run (⌘R)**. That launches the app. Use **⌘U** only when you want unit tests. Scheme **ForgeCompanion** also auto-launches the Watch sim; **ForgeWatch** runs the watch app alone. Grant Apple Health permissions, then Home → ARIA → Sleep → Workout.
 
+If ⌘R crashes the Simulator itself (DeviceHub, on Xcode 27) instead of launching the app, that's an Apple host-process crash, not a Forge bug — see [`ForgeSwift/SIMULATORS.md`](ForgeSwift/SIMULATORS.md#devicehub-xcode-27) for the two-command recovery.
+
 **Web**
 
 ```bash
