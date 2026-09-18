@@ -152,8 +152,14 @@ public enum AriaFactPrivacy: Sendable {
         "On this phone. Calendar titles, people on the invite, and places never land here. I don't share this off-device."
 
     public static func sanitizeSummary(_ raw: String) -> String {
-        var text = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+        // Partner/cycle prefixes + sleep-stage % first (ledger file / user-add).
+        var text = AriaInboundLifestyleStrip.sanitize(raw)
         guard !text.isEmpty else { return "" }
+
+        // Capture calendar leaks before dropping calendar:* / email tokens —
+        // otherwise "calendar:title:Plaza Ballroom wedding…" becomes
+        // "Ballroom wedding…" and the leak check never fires.
+        let leakedBeforeStrip = looksLikeCalendarLeak(text)
 
         let tokens = text.split(whereSeparator: { $0.isWhitespace || $0.isNewline })
         let stripped = tokens.compactMap { token -> String? in
@@ -169,7 +175,7 @@ public enum AriaFactPrivacy: Sendable {
         text = stripped.joined(separator: " ")
             .trimmingCharacters(in: .whitespacesAndNewlines)
 
-        if looksLikeCalendarLeak(text) {
+        if leakedBeforeStrip || looksLikeCalendarLeak(text) {
             if let days = SpokenEventParser.daysUntilWedding(in: text) {
                 return "Wedding in \(days) day\(days == 1 ? "" : "s") — you told me."
             }

@@ -155,6 +155,8 @@ class LookUpFetchTests(unittest.TestCase):
             package_root / "aria_simrunner" / "web_research.py",
             package_root / "tests" / "test_web_research.py",
             package_root / "tests" / "test_dummy_orchestrator.py",
+            # Provenance gate patches look_up; still Dummy-local, not a live call site.
+            package_root / "tests" / "test_nyx_eval_gates.py",
         }
         offenders = []
         for path in package_root.rglob("*.py"):
