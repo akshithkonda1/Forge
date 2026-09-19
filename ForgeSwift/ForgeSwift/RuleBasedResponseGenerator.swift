@@ -196,12 +196,14 @@ final class RuleBasedResponseGenerator: TrainerResponseGenerator {
             stats: await HealthKitManager.shared.todayStats
         )
         var content: String
-        if snap.comparisonLine.isEmpty {
+        if snap.comparisonLine.isEmpty && snap.oneBreathLine.isEmpty {
             content = "Add your age in You and I’ll compare calendar age with training age from VO₂, HRV, resting heart rate, and sleep. Lifestyle comparison only — not a medical biological-age diagnosis."
         } else if snap.trainingHint.isEmpty {
-            content = "\(snap.comparisonLine). Lifestyle comparison only — not a medical biological-age diagnosis."
+            let lead = snap.oneBreathLine.isEmpty ? snap.comparisonLine : "\(snap.oneBreathLine) \(snap.comparisonLine)"
+            content = "\(lead). Lifestyle comparison only — not a medical biological-age diagnosis."
         } else {
-            content = "\(snap.comparisonLine). \(snap.trainingHint) Lifestyle comparison only — not a medical biological-age diagnosis."
+            let lead = snap.oneBreathLine.isEmpty ? snap.comparisonLine : "\(snap.oneBreathLine) \(snap.comparisonLine)"
+            content = "\(lead). \(snap.trainingHint) Lifestyle comparison only — not a medical biological-age diagnosis."
         }
         if let cite, !cite.isEmpty {
             content += " \(cite)"

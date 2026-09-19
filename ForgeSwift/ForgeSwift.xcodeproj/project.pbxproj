@@ -162,6 +162,7 @@
 		4059ED039EF1C0AA5A2FA786 /* LifestyleWorkoutCards.swift in Sources */ = {isa = PBXBuildFile; fileRef = FCE3F3B3DD465EC4DC4D01CC /* LifestyleWorkoutCards.swift */; };
 		9948CA95E34A5032AA207ADD /* LifestyleAnalysisCards.swift in Sources */ = {isa = PBXBuildFile; fileRef = A11E4A31E82F73910B8F36B6 /* LifestyleAnalysisCards.swift */; };
 		A9D45FB931EDF266E13A5DC7 /* LifestyleNutritionView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B80677C558CBB8DCE00EF823 /* LifestyleNutritionView.swift */; };
+		1LIFE02100000000000000A /* LifestyleLifetimeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1LIFE02000000000000000A /* LifestyleLifetimeView.swift */; };
 		188620D11F4C0866F2FD6FA0 /* LifestyleRestaurantViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = 357B9527B62703C0646A867F /* LifestyleRestaurantViews.swift */; };
 		00101E9CDD38D96A91A97E15 /* LifestyleWellbeingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 41991C47BEF8D13160298B11 /* LifestyleWellbeingView.swift */; };
 		4D8E544D568595AB65EBB3A4 /* RestaurantCatalog.swift in Sources */ = {isa = PBXBuildFile; fileRef = CD24B87686B6EA1C5B7C9474 /* RestaurantCatalog.swift */; };
@@ -598,6 +599,7 @@
 		FCE3F3B3DD465EC4DC4D01CC /* LifestyleWorkoutCards.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LifestyleWorkoutCards.swift; sourceTree = "<group>"; };
 		A11E4A31E82F73910B8F36B6 /* LifestyleAnalysisCards.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LifestyleAnalysisCards.swift; sourceTree = "<group>"; };
 		B80677C558CBB8DCE00EF823 /* LifestyleNutritionView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LifestyleNutritionView.swift; sourceTree = "<group>"; };
+		1LIFE02000000000000000A /* LifestyleLifetimeView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LifestyleLifetimeView.swift; sourceTree = "<group>"; };
 		357B9527B62703C0646A867F /* LifestyleRestaurantViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LifestyleRestaurantViews.swift; sourceTree = "<group>"; };
 		41991C47BEF8D13160298B11 /* LifestyleWellbeingView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LifestyleWellbeingView.swift; sourceTree = "<group>"; };
 		CD24B87686B6EA1C5B7C9474 /* RestaurantCatalog.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RestaurantCatalog.swift; sourceTree = "<group>"; };
@@ -1054,6 +1056,7 @@
 				FCE3F3B3DD465EC4DC4D01CC /* LifestyleWorkoutCards.swift */,
 				A11E4A31E82F73910B8F36B6 /* LifestyleAnalysisCards.swift */,
 				B80677C558CBB8DCE00EF823 /* LifestyleNutritionView.swift */,
+				1LIFE02000000000000000A /* LifestyleLifetimeView.swift */,
 				357B9527B62703C0646A867F /* LifestyleRestaurantViews.swift */,
 				41991C47BEF8D13160298B11 /* LifestyleWellbeingView.swift */,
 				CD24B87686B6EA1C5B7C9474 /* RestaurantCatalog.swift */,
@@ -1669,6 +1672,7 @@
 				4059ED039EF1C0AA5A2FA786 /* LifestyleWorkoutCards.swift in Sources */,
 				9948CA95E34A5032AA207ADD /* LifestyleAnalysisCards.swift in Sources */,
 				A9D45FB931EDF266E13A5DC7 /* LifestyleNutritionView.swift in Sources */,
+				1LIFE02100000000000000A /* LifestyleLifetimeView.swift in Sources */,
 				188620D11F4C0866F2FD6FA0 /* LifestyleRestaurantViews.swift in Sources */,
 				00101E9CDD38D96A91A97E15 /* LifestyleWellbeingView.swift in Sources */,
 				4D8E544D568595AB65EBB3A4 /* RestaurantCatalog.swift in Sources */,

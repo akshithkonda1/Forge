@@ -206,6 +206,32 @@ class EstimatorTests(unittest.TestCase):
     def test_friend_expected_vo2_at_38_male(self):
         self.assertAlmostEqual(estimators.expected_vo2(38, False), 38.8, places=1)
 
+    def test_one_breath_line_prefers_cardio_and_does_not_invent(self):
+        self.assertEqual(
+            estimators.one_breath_line(chronological_age=40, fitness_age=33),
+            "Your cardiovascular age is below your actual age.",
+        )
+        self.assertEqual(
+            estimators.one_breath_line(chronological_age=35, fitness_age=41),
+            "Your cardiovascular age is above your actual age.",
+        )
+        self.assertEqual(
+            estimators.one_breath_line(chronological_age=40, fitness_age=40),
+            "Your cardiovascular age is tracking your actual age.",
+        )
+        self.assertEqual(
+            estimators.one_breath_line(
+                chronological_age=29, biological_age=29, confidence=0.2
+            ),
+            "",
+        )
+        self.assertEqual(
+            estimators.one_breath_line(
+                chronological_age=40, biological_age=34, confidence=0.6
+            ),
+            "Your training age is below your actual age.",
+        )
+
     def test_web_confirmed_bumps_fitness_age_confidence(self):
         from services.biometrics import aging_norms
 

@@ -501,10 +501,10 @@ struct AgeCompareChip: View {
                 .font(.system(size: 13, weight: .semibold))
                 .foregroundColor(tone)
             VStack(alignment: .leading, spacing: 2) {
-                Text("Training age")
+                Text("Heart")
                     .font(.system(size: 11, weight: .bold))
                     .foregroundColor(.textTertiary)
-                Text(snapshot.comparisonLine)
+                Text(snapshot.oneBreathLine.isEmpty ? snapshot.comparisonLine : snapshot.oneBreathLine)
                     .font(.system(size: 14, weight: .semibold, design: .rounded))
                     .foregroundColor(.textPrimary)
                 if AgingNorms.webConfirmed {
@@ -531,7 +531,11 @@ struct AgeCompareChip: View {
             RoundedRectangle(cornerRadius: 14, style: .continuous)
                 .stroke(tone.opacity(0.22), lineWidth: 1)
         )
-        .accessibilityLabel("Training age compared with calendar age. \(snapshot.comparisonLine)")
+        .accessibilityLabel(
+            snapshot.oneBreathLine.isEmpty
+                ? "Training age compared with calendar age. \(snapshot.comparisonLine)"
+                : snapshot.oneBreathLine
+        )
     }
 
     private var tone: Color {

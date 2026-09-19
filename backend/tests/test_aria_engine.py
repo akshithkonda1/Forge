@@ -451,6 +451,7 @@ class AgingDomainTests(unittest.TestCase):
         self.assertEqual(resp["card"]["metric"], "Training age")
         self.assertIn("34", resp["card"]["current_value"])
         blob = (resp["prose_summary"] + resp["card"]["interpretation"]).lower()
+        self.assertIn("cardiovascular age is below your actual age", blob)
         self.assertNotIn("diagnos", blob)
         self.assertNotIn("disease", blob)
 

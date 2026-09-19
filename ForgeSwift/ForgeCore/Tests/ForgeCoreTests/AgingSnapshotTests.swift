@@ -29,7 +29,9 @@ final class AgingSnapshotTests: XCTestCase {
         XCTAssertLessThan(snap.biologicalAge ?? 99, 40)
         XCTAssertEqual(snap.state, .younger)
         XCTAssertTrue(snap.comparisonLine.contains("younger"))
+        XCTAssertEqual(snap.oneBreathLine, "Your cardiovascular age is below your actual age.")
         XCTAssertFalse(snap.trainingHint.lowercased().contains("diagnos"))
+        XCTAssertFalse(snap.oneBreathLine.lowercased().contains("diagnos"))
     }
 
     func testSuppressedSignalsReadOlder() {
@@ -43,6 +45,7 @@ final class AgingSnapshotTests: XCTestCase {
         )
         XCTAssertEqual(snap.state, .older)
         XCTAssertGreaterThan(snap.biologicalAge ?? 0, 35)
+        XCTAssertEqual(snap.oneBreathLine, "Your cardiovascular age is above your actual age.")
         XCTAssertTrue(snap.trainingHint.localizedCaseInsensitiveContains("recovery"))
     }
 
@@ -54,6 +57,7 @@ final class AgingSnapshotTests: XCTestCase {
         XCTAssertEqual(snap.state, .matched)
         XCTAssertLessThanOrEqual(snap.confidence, 0.25)
         XCTAssertTrue(snap.comparisonLine.contains("calendar"))
+        XCTAssertEqual(snap.oneBreathLine, "")
     }
 
     func testVendorBiologicalAgeIsCaptured() {
@@ -98,10 +102,29 @@ final class AgingSnapshotTests: XCTestCase {
             restingHR: 80,
             sleepHours: 5
         )
-        let blob = (snap.comparisonLine + " " + snap.trainingHint).lowercased()
+        let blob = (snap.comparisonLine + " " + snap.oneBreathLine + " " + snap.trainingHint).lowercased()
         for banned in ["diagnos", "disease", "patient", "mortality", "dying"] {
             XCTAssertFalse(blob.contains(banned), banned)
         }
+    }
+
+    func testVendorFitnessAgeSpeaksCardioWithoutVO2() {
+        let snap = AgingSnapshot.evaluate(
+            chronologicalAge: 38,
+            vendorAges: [
+                AgingVendorAge(kind: .fitness, years: 32, confidence: 0.9, source: "garmin")
+            ]
+        )
+        XCTAssertEqual(snap.oneBreathLine, "Your cardiovascular age is below your actual age.")
+    }
+
+    func testMatchedCardioAgeTracksRatherThanInventingAGap() {
+        let snap = AgingSnapshot.evaluate(
+            chronologicalAge: 40,
+            sexFemale: false,
+            vo2Max: AgingSnapshot.expectedVO2(age: 40, sexFemale: false)
+        )
+        XCTAssertEqual(snap.oneBreathLine, "Your cardiovascular age is tracking your actual age.")
     }
 
     func testFriendExpectedVO2At38Male() {

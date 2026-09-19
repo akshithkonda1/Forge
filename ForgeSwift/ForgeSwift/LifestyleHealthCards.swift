@@ -638,6 +638,31 @@ enum AgingBridge {
             vendorAges: vendorAges ?? AgingVendorStore.ages
         )
     }
+
+    static func snapshot(store: AppStore) -> AgingSnapshot {
+        let stats = HealthKitManager.shared.todayStats
+        let sleepHours = stats.flatMap { $0.sleepHours > 0 ? $0.sleepHours : nil }
+            ?? (store.dailyMetrics.totalSleep > 0 ? Double(store.dailyMetrics.totalSleep) / 60.0 : nil)
+        let sexFemale: Bool? = {
+            guard let sex = store.userProfile.biologicalSex else { return nil }
+            switch sex {
+            case .female: return true
+            case .male: return false
+            case .intersex, .preferNotToSay: return nil
+            }
+        }()
+        return AgingSnapshot.evaluate(
+            chronologicalAge: store.userProfile.age.map(Double.init),
+            sexFemale: sexFemale,
+            vo2Max: stats.flatMap { $0.vo2Max > 0 ? $0.vo2Max : nil },
+            hrv: stats.flatMap { $0.hrv > 0 ? $0.hrv : nil }
+                ?? (store.dailyMetrics.hrv > 0 ? Double(store.dailyMetrics.hrv) : nil),
+            restingHR: stats.flatMap { $0.restingHeartRate > 0 ? $0.restingHeartRate : nil }
+                ?? (store.dailyMetrics.restingHR > 0 ? Double(store.dailyMetrics.restingHR) : nil),
+            sleepHours: sleepHours,
+            vendorAges: AgingVendorStore.ages
+        )
+    }
 }
 
 struct BiologicalAgeCard: View {
@@ -653,10 +678,10 @@ struct BiologicalAgeCard: View {
                         .foregroundColor(tone)
                 }
                 VStack(alignment: .leading, spacing: 3) {
-                    Text("Training age")
+                    Text("Heart")
                         .font(.system(size: 18, weight: .bold))
                         .foregroundColor(.textPrimary)
-                    Text("Calendar vs how the body is showing up")
+                    Text("One sentence from the signals Forge already has")
                         .font(.system(size: 12))
                         .foregroundColor(.textTertiary)
                 }
@@ -690,9 +715,21 @@ struct BiologicalAgeCard: View {
                     .frame(height: 8)
                 }
 
-                Text(snapshot.comparisonLine)
-                    .font(.system(size: 15, weight: .semibold, design: .rounded))
-                    .foregroundColor(.textPrimary)
+                if !snapshot.oneBreathLine.isEmpty {
+                    Text(snapshot.oneBreathLine)
+                        .font(.system(size: 20, weight: .semibold, design: .rounded))
+                        .foregroundColor(.textPrimary)
+                        .fixedSize(horizontal: false, vertical: true)
+                        .accessibilityAddTraits(.isHeader)
+                }
+
+                if !snapshot.comparisonLine.isEmpty {
+                    Text(snapshot.comparisonLine)
+                        .font(.system(size: 15, weight: .semibold, design: .rounded))
+                        .foregroundColor(.textPrimary)
+                }
+
+                FourBulletList(bullets: TranslationCatalog.heart.bullets)
 
                 if !snapshot.trainingHint.isEmpty {
                     Text(snapshot.trainingHint)
@@ -745,7 +782,13 @@ struct BiologicalAgeCard: View {
         )
         .shadow(color: .black.opacity(0.06), radius: 16, y: 6)
         .accessibilityElement(children: .combine)
-        .accessibilityLabel(snapshot.comparisonLine.isEmpty ? "Training age unavailable" : snapshot.comparisonLine)
+        .accessibilityLabel(accessibilityLine)
+    }
+
+    private var accessibilityLine: String {
+        if !snapshot.oneBreathLine.isEmpty { return snapshot.oneBreathLine }
+        if !snapshot.comparisonLine.isEmpty { return snapshot.comparisonLine }
+        return "Training age unavailable"
     }
 
     private var tone: Color {
@@ -771,6 +814,89 @@ struct BiologicalAgeCard: View {
                 .font(.system(size: emphasis ? 32 : 28, weight: .bold, design: .rounded))
                 .foregroundColor(emphasis ? tone : .textPrimary)
         }
+    }
+}
+
+struct FourBulletList: View {
+    let bullets: [String]
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            ForEach(bullets, id: \.self) { bullet in
+                HStack(alignment: .firstTextBaseline, spacing: 8) {
+                    Circle()
+                        .fill(Color.textTertiary)
+                        .frame(width: 4, height: 4)
+                        .padding(.top, 5)
+                    Text(bullet)
+                        .font(.system(size: 13, weight: .medium))
+                        .foregroundColor(.textSecondary)
+                }
+            }
+        }
+        .accessibilityElement(children: .combine)
+    }
+}
+
+struct MetabolicTranslationCard: View {
+    let mealsLogged: Int
+    let glucoseMgDl: Double?
+    var onDevices: () -> Void = {}
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            HStack(spacing: 12) {
+                ZStack {
+                    Circle().fill(Color.amber.opacity(0.15)).frame(width: 46, height: 46)
+                    Image(systemName: TranslationCatalog.metabolic.symbolName)
+                        .font(.system(size: 20, weight: .semibold))
+                        .foregroundColor(.amber)
+                }
+                VStack(alignment: .leading, spacing: 3) {
+                    Text(TranslationCatalog.metabolic.title)
+                        .font(.system(size: 18, weight: .bold))
+                        .foregroundColor(.textPrimary)
+                    Text(glucoseLine)
+                        .font(.system(size: 13, weight: .medium))
+                        .foregroundColor(.textSecondary)
+                }
+                Spacer()
+            }
+
+            FourBulletList(bullets: TranslationCatalog.metabolic.bullets)
+
+            if let note = TranslationCatalog.metabolic.accessoryNote {
+                Text(note)
+                    .font(.system(size: 12))
+                    .foregroundColor(.textTertiary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+
+            if mealsLogged > 0 {
+                Text(mealsLogged == 1 ? "1 meal logged today." : "\(mealsLogged) meals logged today.")
+                    .font(.system(size: 12, weight: .medium))
+                    .foregroundColor(.textSecondary)
+            }
+
+            Button(action: onDevices) {
+                Text(glucoseMgDl == nil ? "Connect a CGM in Devices" : "Devices")
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundColor(.ember)
+            }
+            .buttonStyle(.plain)
+            .accessibilityHint("Opens the device library")
+        }
+        .padding(22)
+        .forgeGlassCard(cornerRadius: 22, accent: .amber)
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel(glucoseLine)
+    }
+
+    private var glucoseLine: String {
+        if let glucoseMgDl {
+            return "Latest glucose · \(Int(glucoseMgDl.rounded())) mg/dL"
+        }
+        return "Glucose from a CGM — sold separately"
     }
 }
 

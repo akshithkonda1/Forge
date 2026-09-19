@@ -1,4 +1,5 @@
 import SwiftUI
+import ForgeCore
 
 private struct HomeHeroReadinessCard: View {
     @EnvironmentObject var store: AppStore
@@ -175,6 +176,10 @@ struct HomeTodayHero: View {
 
     private var recovery: Bool { action.usesRecoveryChrome(store: store) }
 
+    private var aging: AgingSnapshot {
+        AgingBridge.snapshot(store: store)
+    }
+
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
             Text("Today")
@@ -210,6 +215,24 @@ struct HomeTodayHero: View {
                     .font(.system(size: 15, weight: .medium, design: .rounded))
                     .foregroundColor(.textSecondary)
                     .fixedSize(horizontal: false, vertical: true)
+            }
+
+            if !aging.oneBreathLine.isEmpty {
+                Button {
+                    FDS.haptic(.light)
+                    store.activeTab = .lifestyle
+                    store.pendingLifestyleSegment = "optimize"
+                } label: {
+                    Text(aging.oneBreathLine)
+                        .font(.system(size: 16, weight: .semibold, design: .rounded))
+                        .foregroundColor(.textPrimary)
+                        .multilineTextAlignment(.leading)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel(aging.oneBreathLine)
+                .accessibilityHint("Opens Lifestyle Optimize for the age comparison")
             }
 
             if showScore {

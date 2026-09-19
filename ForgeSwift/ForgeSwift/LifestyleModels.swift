@@ -243,13 +243,14 @@ struct QOLDay: Identifiable, Codable {
 }
 
 enum LifestyleSegment: Int, CaseIterable {
-    case aiOptimization, homeCooking, restaurants, nutrition, wellbeing
+    case aiOptimization, homeCooking, restaurants, nutrition, lifetime, wellbeing
     var title: String {
         switch self {
         case .aiOptimization: return "Optimize"
         case .homeCooking:    return "Cook"
         case .restaurants:    return "Places"
         case .nutrition:      return "Nutrition"
+        case .lifetime:       return "Lifetime"
         case .wellbeing:      return "Wellbeing"
         }
     }
@@ -259,6 +260,7 @@ enum LifestyleSegment: Int, CaseIterable {
         case .homeCooking:    return "frying.pan.fill"
         case .restaurants:    return "map.fill"
         case .nutrition:      return "chart.pie.fill"
+        case .lifetime:       return "clock.arrow.2.circlepath"
         case .wellbeing:      return "heart.fill"
         }
     }

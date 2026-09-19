@@ -5,15 +5,25 @@ import ForgeCore
 struct DailyNutritionView: View {
     @ObservedObject var vm: LifestyleViewModel
     @EnvironmentObject var store: AppStore
+    @State private var showDevices = false
 
     var body: some View {
         VStack(spacing: 20) {
             AINutritionCoachCard(vm: vm)
+            MetabolicTranslationCard(
+                mealsLogged: vm.loggedMeals.count,
+                glucoseMgDl: vm.latestGlucoseMgDl,
+                onDevices: { showDevices = true }
+            )
             MacroRingsCard(vm: vm)
             MealLogCard(vm: vm)
             AIMealSuggestionsCard(vm: vm)
             WaterIntakeCard(vm: vm)
             MicronutrientsCard(vm: vm)
+        }
+        .sheet(isPresented: $showDevices) {
+            ConnectedDevicesLibraryView()
+                .environmentObject(store)
         }
     }
 }

@@ -75,6 +75,12 @@ public struct HealthDevice: Identifiable, Codable, Equatable, Sendable, Hashable
         writesToAppleHealth ? "Writes to Apple Health" : "iOS app — enable Health sharing if offered"
     }
 
+    /// CGMs are accessories. Forge does not sell them and does not pretend to.
+    public var soldSeparatelyNote: String? {
+        guard category == .metabolic else { return nil }
+        return TranslationCatalog.metabolicAccessoryNote
+    }
+
     /// Asset catalog name for the official product photo (`DevicePhoto-<id>`).
     public var photoAssetName: String { "DevicePhoto-\(id)" }
 
@@ -829,28 +835,28 @@ public enum HealthDeviceCatalog {
 
     private static let metabolic: [HealthDevice] = [
         device("dexcom", "Dexcom G7", "Dexcom", .metabolic,
-               "Continuous glucose. The Dexcom iOS app can share glucose into Apple Health for Forge to read.",
+               "Continuous glucose, sold separately. The Dexcom iOS app can share glucose into Apple Health for Forge to read.",
                ["Blood glucose"],
                true, true, "https://apps.apple.com/app/dexcom-g7/id1600516211",
                "In the Dexcom app, enable Apple Health sharing for Blood Glucose.",
                "waveform.path.ecg.rectangle",
                line: "dexcom-g", generation: 7, year: 2022),
         device("dexcom-stelo", "Dexcom Stelo", "Dexcom", .metabolic,
-               "Over-the-counter CGM. Same Health glucose write as G7.",
+               "Over-the-counter CGM, sold separately. Same Health glucose write as G7.",
                ["Blood glucose"],
                true, true, "https://apps.apple.com/app/stelo/id6476118636",
                "Stelo app → Profile → Apple Health → Blood Glucose.",
                "waveform.path.ecg.rectangle",
                line: "dexcom-stelo", generation: 1, year: 2024),
         device("abbott-lingo", "Lingo", "Abbott", .metabolic,
-               "Abbott’s consumer CGM. The Lingo iOS app writes glucose to Health when sharing is on.",
+               "Abbott’s consumer CGM, sold separately. The Lingo iOS app writes glucose to Health when sharing is on.",
                ["Blood glucose"],
                true, true, "https://apps.apple.com/app/lingo/id6445881821",
                "Lingo → Account → Connected Apps → Apple Health.",
                "cross.vial.fill",
                line: "abbott-lingo", generation: 1, year: 2024),
         device("abbott-libre", "FreeStyle Libre 3", "Abbott", .metabolic,
-               "Clinical CGM. LibreLink writes glucose to Health when sharing is on.",
+               "Clinical CGM, sold separately. LibreLink writes glucose to Health when sharing is on.",
                ["Blood glucose"],
                true, true, "https://apps.apple.com/app/freestyle-librelink/id872652809",
                "LibreLink → Account → Connected Apps → Apple Health.",

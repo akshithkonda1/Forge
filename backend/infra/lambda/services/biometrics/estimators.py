@@ -341,3 +341,32 @@ def fuse_biological_age(
         detail += f" vs calendar {chronological_age:g} ({sign}{delta}y)"
     detail += f" from {sources}"
     return Estimate("biological_age", fused, state, confidence, "fusion:aging", detail)
+
+
+def one_breath_line(
+    *,
+    chronological_age: float | None,
+    fitness_age: float | None = None,
+    biological_age: float | None = None,
+    confidence: float = 0.0,
+) -> str:
+    """One sentence. Cardio age when VO2 / fitness age exists; else training age.
+
+    Empty when we would have to invent a gap. Lifestyle copy only.
+    """
+    if chronological_age is None:
+        return ""
+    if fitness_age is not None:
+        return _one_breath_sentence("cardiovascular age", fitness_age, chronological_age)
+    if biological_age is None or confidence <= 0.25:
+        return ""
+    return _one_breath_sentence("training age", biological_age, chronological_age)
+
+
+def _one_breath_sentence(noun: str, years: float, calendar: float) -> str:
+    delta = years - calendar
+    if delta <= -2:
+        return f"Your {noun} is below your actual age."
+    if delta >= 2:
+        return f"Your {noun} is above your actual age."
+    return f"Your {noun} is tracking your actual age."
