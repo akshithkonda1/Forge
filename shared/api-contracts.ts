@@ -268,7 +268,8 @@ export type AriaDataDomain =
   | "progress"
   | "lifestyle"
   | "aging"
-  | "clinical_data";
+  | "clinical_data"
+  | "vitals";
 
 /** Living user model ARIA reasons over, spanning every data domain. Absent
  *  signals are `null`, never omitted, so `missingFields` stays honest. */
@@ -356,6 +357,17 @@ export interface AriaContext {
     confidence: number | null;
     sources: string[];
     state: "younger" | "matched" | "older" | null;
+  };
+  /** Respiratory/metabolic/BP vitals. Observational only — ARIA is instructed
+   *  to never diagnose a condition from these readings. */
+  vitals?: {
+    respiratoryRate: number | null; // breaths/min
+    oxygenSaturationPct: number | null; // 0–100
+    bloodPressureSystolic: number | null; // mmHg
+    bloodPressureDiastolic: number | null; // mmHg
+    meanArterialPressure: number | null; // mmHg, derived
+    bloodGlucoseMgDl: number | null;
+    bodyTemperatureC: number | null;
   };
   /** Structured Health records only (Non PHI). Names, never notes. */
   clinicalData?: {

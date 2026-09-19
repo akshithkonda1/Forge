@@ -112,7 +112,7 @@ final class BiometricsObserveService {
 
     /// Dated HealthKit samples ARIA already has on this iPhone, shaped for
     /// `observe(store:samples:)` — the values, not raw Health records.
-    func samplesFromStore(_ store: AppStore) -> [HealthSamplePayload] {
+    func samplesFromStore(_ store: AppStore) async -> [HealthSamplePayload] {
         let now = Date.now.ISO8601Format()
         var samples: [HealthSamplePayload] = []
 
@@ -173,6 +173,41 @@ final class BiometricsObserveService {
         }
         if let weight = store.userProfile.weight {
             samples.append(.init(metric: "weight", value: weight, unit: "kg",
+                                 timestamp: now, source: "apple-health"))
+        }
+        // Respiratory/metabolic/BP vitals — fetched daily into `todayStats`
+        // already (used on-device for the QoL score and risk monitor) but
+        // never previously sent to /ai/observe, so ARIA's server-side
+        // classification/interpretation of them went unused. `oxygenSaturation`
+        // is HealthKit's native 0-1 fraction (`.percent()` is a fraction unit,
+        // not 0-100) — sent as "fraction" so classify.py's unit check doesn't
+        // divide it by 100 a second time. `bodyTemperature` is fetched in
+        // Fahrenheit (`.degreeFahrenheit()`); the server converts to Celsius
+        // from the declared unit, not by guessing from magnitude.
+        if let today = HealthKitManager.shared.todayStats {
+            if today.respiratoryRate > 0 {
+                samples.append(.init(metric: "respiratory_rate", value: today.respiratoryRate,
+                                     unit: "breaths/min", timestamp: now, source: "apple-health"))
+            }
+            if today.oxygenSaturation > 0 {
+                samples.append(.init(metric: "oxygen_saturation", value: today.oxygenSaturation,
+                                     unit: "fraction", timestamp: now, source: "apple-health"))
+            }
+            if today.bloodPressureSystolic > 0 {
+                samples.append(.init(metric: "blood_pressure_systolic", value: today.bloodPressureSystolic,
+                                     unit: "mmHg", timestamp: now, source: "apple-health"))
+            }
+            if today.bloodPressureDiastolic > 0 {
+                samples.append(.init(metric: "blood_pressure_diastolic", value: today.bloodPressureDiastolic,
+                                     unit: "mmHg", timestamp: now, source: "apple-health"))
+            }
+            if today.bodyTemperature > 0 {
+                samples.append(.init(metric: "body_temperature", value: today.bodyTemperature,
+                                     unit: "fahrenheit", timestamp: now, source: "apple-health"))
+            }
+        }
+        if let glucose = await HealthKitManager.shared.fetchLatestBloodGlucoseMgDl(), glucose > 0 {
+            samples.append(.init(metric: "blood_glucose", value: glucose, unit: "mg/dL",
                                  timestamp: now, source: "apple-health"))
         }
         return samples
