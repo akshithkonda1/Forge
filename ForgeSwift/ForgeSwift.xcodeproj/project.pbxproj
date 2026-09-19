@@ -237,7 +237,7 @@
 		1KNOW02000000000000000A /* WhatIKnowView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1KNOW01000000000000000A /* WhatIKnowView.swift */; };
 		1MEM02000000000000000A /* AriaMemoryControlsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1MEM01000000000000000A /* AriaMemoryControlsView.swift */; };
 		1MEM04000000000000000A /* AriaMemoryControlsViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1MEM03000000000000000A /* AriaMemoryControlsViewModel.swift */; };
-		1LIFE02000000000000000A /* LifestyleInterviewOverlay.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1LIFE01000000000000000A /* LifestyleInterviewOverlay.swift */; };
+		B92E4D3F0C5E8129367FA1B2 /* LifestyleInterviewOverlay.swift in Sources */ = {isa = PBXBuildFile; fileRef = A81F3C2E9B4D7018256E90A1 /* LifestyleInterviewOverlay.swift */; };
 		651B4E5D41EE26C57D1E169E /* ForgeAboutView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6853D25A708AE36933F7CF4B /* ForgeAboutView.swift */; };
 		BCC7261848DBE6001B2DBC5C /* ClinicalDataNonPHIView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3FE7E9A2FC132C69A504CFA8 /* ClinicalDataNonPHIView.swift */; };
 		1MED02000000000000000A /* MedicationPharmacyCatalog.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1MED01000000000000000A /* MedicationPharmacyCatalog.swift */; };
@@ -673,7 +673,7 @@
 		1KNOW01000000000000000A /* WhatIKnowView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WhatIKnowView.swift; sourceTree = "<group>"; };
 		1MEM01000000000000000A /* AriaMemoryControlsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AriaMemoryControlsView.swift; sourceTree = "<group>"; };
 		1MEM03000000000000000A /* AriaMemoryControlsViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AriaMemoryControlsViewModel.swift; sourceTree = "<group>"; };
-		1LIFE01000000000000000A /* LifestyleInterviewOverlay.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LifestyleInterviewOverlay.swift; sourceTree = "<group>"; };
+		A81F3C2E9B4D7018256E90A1 /* LifestyleInterviewOverlay.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LifestyleInterviewOverlay.swift; sourceTree = "<group>"; };
 		6853D25A708AE36933F7CF4B /* ForgeAboutView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ForgeAboutView.swift; sourceTree = "<group>"; };
 		3FE7E9A2FC132C69A504CFA8 /* ClinicalDataNonPHIView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClinicalDataNonPHIView.swift; sourceTree = "<group>"; };
 		1MED01000000000000000A /* MedicationPharmacyCatalog.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MedicationPharmacyCatalog.swift; sourceTree = "<group>"; };
@@ -1045,7 +1045,7 @@
 				DB90BFB6F1FEB4F1ADCB75B7 /* DataPermissionsView.swift */,
 				AA000200000000000000000C /* Assets.xcassets */,
 				1ED842E22F90C15300693D3E /* LifestyleView.swift */,
-				1LIFE01000000000000000A /* LifestyleInterviewOverlay.swift */,
+				A81F3C2E9B4D7018256E90A1 /* LifestyleInterviewOverlay.swift */,
 				74D9E1B3713556C9528D8A07 /* LifestyleModels.swift */,
 				B69CD378C6DBF59D2A7DA2C7 /* LifestyleServices.swift */,
 				888D3FAA001A21DC8081E395 /* LifestyleViewModel.swift */,
@@ -1731,7 +1731,7 @@
 				1KNOW02000000000000000A /* WhatIKnowView.swift in Sources */,
 				1MEM02000000000000000A /* AriaMemoryControlsView.swift in Sources */,
 				1MEM04000000000000000A /* AriaMemoryControlsViewModel.swift in Sources */,
-				1LIFE02000000000000000A /* LifestyleInterviewOverlay.swift in Sources */,
+				B92E4D3F0C5E8129367FA1B2 /* LifestyleInterviewOverlay.swift in Sources */,
 				651B4E5D41EE26C57D1E169E /* ForgeAboutView.swift in Sources */,
 				BCC7261848DBE6001B2DBC5C /* ClinicalDataNonPHIView.swift in Sources */,
 				1MED02000000000000000A /* MedicationPharmacyCatalog.swift in Sources */,
