@@ -4,6 +4,16 @@
 > document.** It is a concrete, code-anchored roadmap for upgrading the Python
 > that powers ARIA. Companion to [`BACKEND_PLAN.md`](BACKEND_PLAN.md) and
 > [`infra/TERRAFORM_PLAN.md`](infra/TERRAFORM_PLAN.md).
+>
+> **Docs drift note:** the Kimi/Moonshot removal item below (§0.2, §5.2, §8 P0)
+> is **already done** in the actual tree — `ai_router.default_models()` slot 3
+> is Grok, the `xai.*` / `us.xai.*` / `global.xai.*` IAM grant already exists
+> in `infra/main.tf` (`sid = BedrockInvokeClaudeAndGrok`), and Terraform
+> variables/tfvars/README/SimRunner all reference Grok, not Kimi. This section
+> was written before that work landed and was never revised. Current, fact-
+> checked state of the Bedrock/model-routing gates lives in
+> [`infra/ROADMAP_IAC_READINESS.md`](infra/ROADMAP_IAC_READINESS.md) §3.4 —
+> read that instead of trusting the Kimi prose still below.
 
 Everything below cites the code it changes (file + function/line) so each item
 is buildable and testable in isolation. The two hard constraints from the rest
@@ -610,7 +620,7 @@ layer, gated by env (mirroring `BIOMETRICS_MODEL_ENDPOINT`).
 
 | Priority | Item | Section | Risk | Dep |
 |---|---|---|---|---|
-| P0 | **Destroy every Kimi/Moonshot reference** (code, TF, README, simrunner, tests) | 5.2 | low | none |
+| ~~P0~~ | ~~Destroy every Kimi/Moonshot reference~~ (code, TF, README, simrunner, tests) | 5.2 | — | **done** — see docs-drift note at top and `ROADMAP_IAC_READINESS.md` §3.4 |
 | P0 | One canonical user model (ingestion → merge 3 context builders) | 0.1, 3.2 | low | none |
 | P0 | Personal baselines in interpreters + confidence | 3.1, 4.3 | low | 3.2 |
 | P0 | Two-tier **human-like memory** (long-term + short-term, consolidate/forget) wired into reasoning | 0.3, 3.3 | low | none |
