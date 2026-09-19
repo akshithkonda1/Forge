@@ -8,13 +8,17 @@ import Foundation
 /// `FakeHealthPack` so Device Hub can catch her fitting training around this
 /// week's busy windows, or failing to.
 ///
-/// Titles, places, and coordinates are written to EventKit so the calendar
-/// looks like a life. They never become ARIA tags, prompts, or off-device
-/// payload. ARIA is allowed classified kinds (`wedding`, `game`, `travel`)
-/// and busy windows for **this calendar week** only.
+/// Titles, places, and coordinates are written to EventKit on a physical
+/// phone so the calendar looks like a life. Simulator never writes EventKit
+/// — Apple Calendar (`MobileCal`) dies at launch (`0x8BADF00D`) if we dump
+/// a year of events onto a loaded host. They never become ARIA tags,
+/// prompts, or off-device payload. ARIA is allowed classified kinds
+/// (`wedding`, `game`, `travel`) and busy windows for **this calendar week**
+/// only, from EventKit or the in-memory pack.
 ///
 /// EventKit writes land only on a Forge-owned calendar (`calendarTitle`).
-/// Production builds never seed. Unit tests never seed.
+/// Production builds never seed. Unit tests never seed. Simulator never
+/// commits EventKit.
 public struct FakeCalendarEvent: Sendable, Equatable {
     public enum Kind: String, Sendable, CaseIterable, Comparable {
         case wedding
@@ -98,8 +102,9 @@ public struct FakeCalendarEvent: Sendable, Equatable {
     }
 }
 
-/// One calendar week of classified ingest. The year lives in EventKit; ARIA
-/// only receives this window — kinds + busy, never titles.
+/// One calendar week of classified ingest. The year may live in EventKit
+/// on a physical phone; Simulator keeps it in memory. ARIA only receives
+/// this window — kinds + busy, never titles.
 public struct FakeCalendarWeekContext: Sendable, Equatable {
     public var weekStart: Date
     public var weekEnd: Date
@@ -221,7 +226,9 @@ public struct FakeCalendarPack: Sendable, Equatable {
     public static let eventURL = "forge://test-ready/calendar"
     public static let notesPrefix = "forge-test-pack:"
     public static let writesToPersonalCalendars = false
-    /// How far ahead EventKit is filled. ARIA still only ingest-tags one week.
+    /// How far ahead the in-memory pack (and a physical-phone EventKit write)
+    /// is filled. ARIA still only ingest-tags one week. Simulator does not
+    /// commit this horizon to EventKit.
     public static let horizonDays = 365
 
     public var events: [FakeCalendarEvent]
@@ -234,8 +241,8 @@ public struct FakeCalendarPack: Sendable, Equatable {
         self.seed = seed
     }
 
-    /// Debug + test-ready + authorized. Never production. Never XCTest.
-    /// Simulator *or* a physical phone is fine: writes stay on the Forge calendar.
+    /// EventKit year write: debug + test-ready + authorized. Never production.
+    /// Never XCTest. Simulator does not use this — it applies the memory pack.
     public static func shouldSeed(
         debugBuild: Bool,
         testReady: Bool,
@@ -243,6 +250,18 @@ public struct FakeCalendarPack: Sendable, Equatable {
         isRunningTests: Bool
     ) -> Bool {
         debugBuild && testReady && calendarAuthorized && !isRunningTests
+    }
+
+    /// Simulator Test-Ready: load ARIA's week + 21-day headlines in memory.
+    /// No EventKit, no Calendar permission. Same classified kinds and busy
+    /// windows the EventKit path would have ingest-tagged.
+    public static func shouldApplyMemoryPack(
+        debugBuild: Bool,
+        testReady: Bool,
+        isSimulator: Bool,
+        isRunningTests: Bool
+    ) -> Bool {
+        debugBuild && testReady && isSimulator && !isRunningTests
     }
 
     public static var isRunningUnitTests: Bool {

@@ -649,25 +649,24 @@ final class OnboardingCoordinator {
         calendarState = .requesting
         ariaOrbState = .processing
         do {
-            try await CalendarManager.shared.requestAccess()
+            if CalendarManager.shared.usesMemoryCalendar {
+                _ = await CalendarManager.shared.seedTestReadyCalendarIfNeeded()
+            } else {
+                try await CalendarManager.shared.requestAccess()
+                _ = await CalendarManager.shared.seedTestReadyCalendarIfNeeded()
+                await CalendarManager.shared.fetchThisWeek()
+                await CalendarManager.shared.refreshLifestyleAssets()
+            }
             calendarState = .authorized
-            let seeded = await CalendarManager.shared.seedTestReadyCalendarIfNeeded()
-            await CalendarManager.shared.fetchThisWeek()
             calendarBusyToday = CalendarManager.shared.displayedWeekContext?.todayBusy
                 ?? CalendarManager.shared.busyWindowsToday
             let tags = CalendarManager.shared.calendarTags
             AriaContextStore.shared.applyCalendarIngestTags(tags)
-            if seeded, AriaService.shouldUseTestReadyDummy {
-                await ariaSay(
-                    "Calendar connected — I see \(calendarBusyToday) busy windows today. I'm filling a Forge test calendar in the background so you can feel a full phone. I only read this week — kinds and busy windows, never titles.",
-                    mood: .energized
-                )
-            } else {
-                await ariaSay(
-                    "Calendar connected — I see \(calendarBusyToday) busy windows today. I'll fit training around them, not on top of them. Titles stay on your phone.",
-                    mood: .energized
-                )
-            }
+            AriaContextStore.shared.applyLifestyleAssets(CalendarManager.shared.lifestyleAssets)
+            await ariaSay(
+                "Calendar connected — I see \(calendarBusyToday) busy windows today. I'll fit training around them, not on top of them. I only read this week — kinds and busy windows, never titles.",
+                mood: .energized
+            )
         } catch {
             calendarState = .denied
             let reason = CalendarManager.shared.authorizationErrorMessage

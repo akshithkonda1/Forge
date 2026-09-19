@@ -28,4 +28,16 @@ final class EventTrainingPolicyTests: XCTestCase {
         XCTAssertEqual(spoken.emphasis, tagged?.emphasis)
         XCTAssertEqual(spoken.progressive, tagged?.progressive)
     }
+
+    func testTripAndGameHorizonsShapeTheSession() {
+        let trip = EventTrainingPolicy.plan(fromTags: ["calendar:horizon:travel:4"])
+        XCTAssertEqual(trip?.kind, "travel")
+        XCTAssertTrue(trip?.reduceVolume == true)
+        XCTAssertTrue(trip?.reason.localizedCaseInsensitiveContains("move") == true)
+        let flightDay = EventTrainingPolicy.plan(fromTags: ["calendar:horizon:flight:0"])
+        XCTAssertEqual(flightDay?.keepLight, true)
+        let game = EventTrainingPolicy.plan(fromTags: ["calendar:horizon:game:2"])
+        XCTAssertEqual(game?.kind, "game")
+        XCTAssertTrue(game?.reason.localizedCaseInsensitiveContains("window") == true)
+    }
 }

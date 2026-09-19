@@ -833,6 +833,21 @@ final class AriaContextStore: ObservableObject {
         fileCalendarFacts(nextIncoming)
     }
 
+    /// File sortable lifestyle assets into the Events vault. Summaries are
+    /// structured (kind + when). Titles and places never leave the asset.
+    func applyLifestyleAssets(_ assets: [LifestyleAsset]) {
+        let headlines = LifestyleAssetIndex.sort(assets.filter(\.isHeadline))
+        let facts = headlines.prefix(12).map { asset in
+            AriaKnowledgeFact(
+                category: .events,
+                kind: asset.kind.rawValue,
+                summary: asset.structuredSummary,
+                source: "calendar"
+            )
+        }
+        AriaKnowledgeLedgerStore.replace(category: .events, source: "calendar", with: facts)
+    }
+
     func fileSpoken(_ text: String, source: String = "chat") {
         let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return }

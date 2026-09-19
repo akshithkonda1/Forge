@@ -1,13 +1,15 @@
 import Foundation
 
-/// Test-Ready simulator ingest must not freeze Home.
+/// Test-Ready simulator ingest must not freeze Home — or Apple Calendar.
 ///
 /// A new process used to mint a new seed, then delete and rewrite 30 days of
 /// HealthKit plus a year of EventKit on the main actor. That is what made
-/// Simulator launches take minutes. Seed is stable for the process (Home +
-/// Lifestyle share one pack); a new launch mints a new persona. HealthKit and
-/// calendar rewrites happen only when that seed changes, and Home never waits
-/// on them.
+/// Simulator launches take minutes, and what launched `MobileCal` into a
+/// 30s `0x8BADF00D` process-launch watchdog. Seed is stable for the process
+/// (Home + Lifestyle share one pack); a new launch mints a new persona.
+/// HealthKit rewrites happen only when that seed changes. EventKit year
+/// writes do not run on Simulator; the same pack still becomes lifestyle
+/// assets ARIA can sort. Home never waits on them.
 public enum TestReadyLaunchPolicy: Sendable {
     public static let seedDefaultsKey = "forge.testReady.sessionSeed.v2"
     public static let seedDayDefaultsKey = "forge.testReady.sessionDay.v2"
@@ -26,6 +28,39 @@ public enum TestReadyLaunchPolicy: Sendable {
     /// EventKit year writes must not run on MainActor. The old path committed
     /// ~120 events on the UI thread and froze Home for minutes.
     public static let calendarYearWriteRunsOnMainActor = false
+    /// Simulator EventKit year writes wake Apple Calendar (`MobileCal`). On a
+    /// loaded host that process dies at launch with `0x8BADF00D` (30s
+    /// process-launch watchdog) before dyld finishes. ARIA still coaches from
+    /// the in-memory pack; a physical phone still gets the Forge-owned year.
+    public static let writesEventKitYearOnSimulator = false
+
+    public static var isRunningOnSimulator: Bool {
+        #if targetEnvironment(simulator)
+        return true
+        #else
+        let env = ProcessInfo.processInfo.environment
+        return env["SIMULATOR_UDID"] != nil || env["SIMULATOR_DEVICE_NAME"] != nil
+        #endif
+    }
+
+    public static func shouldWriteEventKitYear(isSimulator: Bool) -> Bool {
+        !isSimulator || writesEventKitYearOnSimulator
+    }
+
+    /// Test-Ready Simulator must not touch EventKit: a predicate fetch can
+    /// still launch MobileCal. Memory week + horizon tags are enough.
+    public static func skipsSimulatorEventKit(testReady: Bool, isSimulator: Bool) -> Bool {
+        testReady && isSimulator && !writesEventKitYearOnSimulator
+    }
+
+    /// After Home is on screen, wait this long before Simulator HealthKit pack
+    /// rewrite and 30-day queries. Immediate writes fight DeviceHub / dyld
+    /// and Apple Calendar dies with `0x8BADF00D`.
+    public static let simulatorBackgroundIngestDelaySeconds: Double = 2.5
+
+    /// AppStore init and Home `.task` both call `refreshDailyData`. Coalesce
+    /// the second launch pass so Home does not load twice.
+    public static let launchRefreshCoalesceSeconds: Double = 2.0
 
     public static func dayStamp(_ date: Date, calendar: Calendar = .current) -> String {
         let parts = calendar.dateComponents([.year, .month, .day], from: date)
