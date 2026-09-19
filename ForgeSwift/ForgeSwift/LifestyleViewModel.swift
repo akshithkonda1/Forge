@@ -190,7 +190,11 @@ final class LifestyleViewModel: ObservableObject {
         guard healthManager.isAuthorized else { return }
         if !force, !glucosePoints.isEmpty { return }
         glucosePoints = await healthManager.fetchRecentBloodGlucose()
-        latestGlucoseMgDl = glucosePoints.first?.mgdl ?? await healthManager.fetchLatestBloodGlucoseMgDl()
+        if let latest = glucosePoints.first?.mgdl {
+            latestGlucoseMgDl = latest
+        } else {
+            latestGlucoseMgDl = await healthManager.fetchLatestBloodGlucoseMgDl()
+        }
     }
 
     private func applyCachedHealth() {
