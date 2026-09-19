@@ -50,15 +50,32 @@ final class HealthKitAuthorizationPlanTests: XCTestCase {
         }
     }
 
+    func testUnknownQuantityIdentifiersDoNotAbortTheCatalog() {
+        let types = HealthKitAuthorizationPlan.sampleAndCharacteristicReadTypes
+        XCTAssertTrue(types.contains(HKQuantityType(.heartRateVariabilitySDNN)))
+        XCTAssertTrue(types.contains(HKQuantityType(.heartRate)))
+        if HealthKitHRVQuantity.rmssdTypeIfAvailable == nil {
+            XCTAssertFalse(
+                types.contains { $0.identifier == HealthKitHRVQuantity.rmssdIdentifierRaw }
+            )
+        }
+    }
+
     func testFirstConnectCatalogIncludesLifestyleVitalsAndWorkouts() {
         let types = HealthKitAuthorizationPlan.readTypes(includeClinical: false)
         XCTAssertTrue(types.contains(HKQuantityType(.heartRate)))
         XCTAssertTrue(types.contains(HKQuantityType(.heartRateVariabilitySDNN)))
-        XCTAssertTrue(types.contains(HKQuantityType(HealthKitHRVQuantity.rmssdIdentifier)))
-        XCTAssertNotEqual(
-            HKQuantityType(.heartRateVariabilitySDNN).identifier,
-            HKQuantityType(HealthKitHRVQuantity.rmssdIdentifier).identifier
-        )
+        if let rmssd = HealthKitHRVQuantity.rmssdTypeIfAvailable {
+            XCTAssertTrue(types.contains(rmssd))
+            XCTAssertNotEqual(
+                HKQuantityType(.heartRateVariabilitySDNN).identifier,
+                rmssd.identifier
+            )
+        } else {
+            XCTAssertFalse(
+                types.contains { $0.identifier == HealthKitHRVQuantity.rmssdIdentifierRaw }
+            )
+        }
         XCTAssertTrue(types.contains(HKQuantityType(.bloodGlucose)))
         XCTAssertTrue(types.contains(HKQuantityType(.bloodPressureSystolic)))
         XCTAssertTrue(types.contains(HKQuantityType(.oxygenSaturation)))
@@ -98,17 +115,19 @@ final class HealthKitAuthorizationPlanTests: XCTestCase {
             .union(HealthKitAuthorizationPlan.testReadyPackShareTypes)
             .union([
                 HKQuantityType(.heartRateVariabilitySDNN),
-                HKQuantityType(HealthKitHRVQuantity.rmssdIdentifier),
                 HKQuantityType(.restingHeartRate),
                 HKCategoryType(.menstrualFlow),
                 HKCategoryType(.sexualActivity),
             ])
+            .union(Set(HealthKitHRVQuantity.rmssdTypeIfAvailable.map { [$0] } ?? []))
         let share = HealthKitAuthorizationPlan.sanitizedShareTypes(requested)
         XCTAssertTrue(share.contains(HKWorkoutType.workoutType()))
         XCTAssertTrue(share.contains(HKQuantityType(.dietaryWater)))
         XCTAssertTrue(share.contains(HKCategoryType(.sleepAnalysis)))
         XCTAssertFalse(share.contains(HKQuantityType(.heartRateVariabilitySDNN)))
-        XCTAssertFalse(share.contains(HKQuantityType(HealthKitHRVQuantity.rmssdIdentifier)))
+        if let rmssd = HealthKitHRVQuantity.rmssdTypeIfAvailable {
+            XCTAssertFalse(share.contains(rmssd))
+        }
         XCTAssertFalse(share.contains(HKQuantityType(.restingHeartRate)))
         XCTAssertFalse(share.contains(HKCategoryType(.menstrualFlow)))
         XCTAssertFalse(share.contains(HKCategoryType(.sexualActivity)))
@@ -133,7 +152,7 @@ final class HealthKitAuthorizationPlanTests: XCTestCase {
         XCTAssertTrue(extras.contains(HKQuantityType(.dietaryWater)))
         XCTAssertTrue(extras.contains(HKObjectType.workoutType()))
         XCTAssertFalse(extras.contains(HKQuantityType(.heartRateVariabilitySDNN)))
-        XCTAssertFalse(extras.contains(HKQuantityType(HealthKitHRVQuantity.rmssdIdentifier)))
+        XCTAssertFalse(extras.contains { $0.identifier == HealthKitHRVQuantity.rmssdIdentifierRaw })
         XCTAssertFalse(extras.contains(HKQuantityType(.restingHeartRate)))
         XCTAssertEqual(HealthKitAuthorizationPlan.sanitizedShareTypes(extras), extras)
 
@@ -142,7 +161,7 @@ final class HealthKitAuthorizationPlanTests: XCTestCase {
         )
         XCTAssertTrue(combined.contains(HKCategoryType(.sleepAnalysis)))
         XCTAssertFalse(combined.contains(HKQuantityType(.heartRateVariabilitySDNN)))
-        XCTAssertFalse(combined.contains(HKQuantityType(HealthKitHRVQuantity.rmssdIdentifier)))
+        XCTAssertFalse(combined.contains { $0.identifier == HealthKitHRVQuantity.rmssdIdentifierRaw })
         XCTAssertFalse(combined.contains(HKQuantityType(.restingHeartRate)))
     }
 
