@@ -210,6 +210,10 @@ def handle_post_ai_chat(body: dict[str, Any], *, user_id: str) -> dict:
     fused = fusion_mod.fuse_turn(uid, payload, permissions, persist=True, load_learner=True)
     context = fused.context
     persona = fused.persona
+    from services import editable_memory
+
+    mem_settings = editable_memory.get_settings(uid)
+    allow_ingest = editable_memory.auto_ingest_allowed(mem_settings)
     living = _context.get_or_create_context(uid)
     raw_tags = list(getattr(living, "lifestyle_tags", None) or [])
     raw_patterns = list(getattr(living, "recent_patterns", None) or [])
@@ -224,7 +228,7 @@ def handle_post_ai_chat(body: dict[str, Any], *, user_id: str) -> dict:
             },
         )
     tags = _lifestyle_tags(context, living, permissions)
-    if permissions.allows("lifestyle"):
+    if permissions.allows("lifestyle") and allow_ingest:
         contextual_learner.stamp_living_context(context, living)
 
     # Lifestyle cards: deterministic only. No Bedrock, no Dynamo relationship
@@ -303,21 +307,19 @@ def handle_post_ai_chat(body: dict[str, Any], *, user_id: str) -> dict:
             context=context,
             samples=payload.get("samples") if isinstance(payload.get("samples"), list) else None,
             connected=snapshot.get("sources") or [],
-            persist_to=_context if permissions.allows("lifestyle") else None,
+            persist_to=_context if permissions.allows("lifestyle") and allow_ingest else None,
             user_id=uid,
         )
 
     # Companion memory (lifestyle-gated): ingest calendar, run ARIA's daily
     # self-evaluation once per day, and offer a daily check-in. All deterministic
     # and side-effect-scoped to the user's own memory.
-    # Rowan: if memory_enabled is false, auto-ingest / evaluate / check-in /
-    # prompt inject must stop (off ≠ delete). Not wired yet — see
-    # services.editable_memory.auto_ingest_allowed. Partner/cycle + calendar
-    # titles stay on sanitize_inbound_chat_payload above, not this settings row.
+    # memory_enabled false: auto-ingest / evaluate / check-in / prompt inject
+    # stop (off ≠ delete). See editable_memory.auto_ingest_allowed.
     memory_block = ""
     checkin_payload: dict[str, Any] | None = None
     calendar_ingested: list[dict[str, Any]] = []
-    if permissions.allows("lifestyle"):
+    if permissions.allows("lifestyle") and allow_ingest:
         events = payload.get("calendar_events")
         if isinstance(events, list):
             calendar_ingested = [m.to_dict() for m in _context.ingest_calendar_events(uid, events)]
@@ -387,6 +389,14 @@ def handle_post_ai_chat(body: dict[str, Any], *, user_id: str) -> dict:
 
     if memory and not voice_mode:
         response["message"] = f"{memory}\n\n{response['message']}"
+    takeaway = str(response.get("prose_summary") or "").split(".")[0].strip()
+    if (
+        takeaway
+        and len(takeaway) > 12
+        and permissions.allows("lifestyle")
+        and allow_ingest
+    ):
+        _context.add_insight(uid, takeaway[:180])
 
     response.update(
         {

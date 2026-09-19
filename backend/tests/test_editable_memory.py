@@ -115,7 +115,8 @@ class SettingsSchemaTests(unittest.TestCase):
         self.assertTrue(mem.auto_ingest_allowed(on))
         off = mem.CompanionMemorySettings(memory_enabled=False)
         self.assertFalse(mem.auto_ingest_allowed(off))
-        # Implementation stub: CoachContextEngine still ingests while off.
+        # Low-level EventKit ingest still redacts titles. Chat auto-ingest is
+        # gated separately via auto_ingest_allowed.
         from services.aria_context import CoachContextEngine
         from datetime import datetime, timezone
 
@@ -129,6 +130,21 @@ class SettingsSchemaTests(unittest.TestCase):
         self.assertEqual(len(ingested), 1)
         self.assertIn("Busy window", ingested[0].text)
         self.assertNotIn("wedding", ingested[0].text.lower())
+
+    def test_chat_skips_new_insights_when_memory_off(self):
+        from routes.aria import handle_post_ai_chat
+        from services.aria_context import CoachContextEngine
+        import json
+
+        mem.put_settings(USER, mem.CompanionMemorySettings(memory_enabled=False))
+        engine = CoachContextEngine()
+        before = list(engine.get_or_create_context(USER).last_insights)
+        result = handle_post_ai_chat({"message": "how did I sleep last night?"}, user_id=USER)
+        self.assertEqual(result["statusCode"], 200)
+        body = json.loads(result["body"])
+        self.assertTrue(body.get("message"))
+        after = list(engine.get_or_create_context(USER).last_insights)
+        self.assertEqual(after, before)
 
 
 class DummyDefaultTests(unittest.TestCase):

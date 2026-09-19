@@ -465,6 +465,17 @@ class AgingDomainTests(unittest.TestCase):
         self.assertNotIn("aging.chronological_age: 41", block)
         self.assertIn("aging.biological_age: null", block)
 
+    def test_companion_memory_changes_the_next_reply(self):
+        ctx = full_context()
+        ctx.last_insights = ["prioritize sleep before volume"]
+        ctx.current_goals = ["first 10k"]
+        block = ctx.user_model_block()
+        self.assertIn("prioritize sleep before volume", block)
+        self.assertIn("first 10k", block)
+        resp = aria_engine.generate_response("what should I train today?", ctx)
+        self.assertTrue((resp.get("fusion") or {}).get("companion_callback"))
+        self.assertIn("Last time we landed on prioritize sleep before volume", resp["message"])
+
 
 class NewDomainReasoningTests(unittest.TestCase):
     def test_weight_question_answers_with_body_not_highest_priority_signal(self):
