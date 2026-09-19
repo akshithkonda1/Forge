@@ -163,7 +163,24 @@ guessing:
 
 ---
 
-## 6. What this pass could not verify
+## 6. Alternatives considered
+
+Terra isn't the only vendor here — worth weighing against §5's open account-
+ownership decision. Researched via web search, September 2026:
+
+| | vs. Terra |
+|---|---|
+| **ROOK** (`tryrook.io`) | Closest structural match — same aggregator + device-SDK model, 400+ integrations. Also $399/mo, but for 750 active users vs. Terra's ~500 (100,000 credits ÷ 200/user). ROOKScore, granular data, and webhooks are separate $99–249/mo add-ons that can erase that advantage. |
+| **Junction** (formerly Vital, rebranded 2025) | Usage-based instead of flat: $0.50/user/month, $300/mo minimum — cheaper than Terra/ROOK at a small user base, more expensive at a large one. Also bundles US lab-test ordering, irrelevant here. |
+| **Spike** | Commonly listed as a Terra alternative, but its parent company was acquired by Raintree Systems in July 2026 and the acquisition materials describe an unrelated voice-AI product with no mention of a wearables API — a real signal it may be discontinued. Not recommended to build on right now. |
+| **Open Wearables** | Open-source, self-hosted — no per-user vendor fee, but Forge would own the OAuth/webhook/normalization maintenance itself. Fits `backend/README.md`'s "don't grow a second handler tree" / single-dependency ethos better than any paid option, trading a subscription for engineering time (same tension as §5's dependency decision, one level up). |
+
+None of the four have a free tier. If the $399+/mo floor from §1 is the actual
+objection rather than Terra specifically, ROOK doesn't avoid it; Open
+Wearables or hand-rolling the four providers directly are the only options
+that do.
+
+## 7. What this pass could not verify
 
 Direct fetches to `docs.tryterra.co` were blocked by this session's network
 egress policy (`EGRESS_BLOCKED`); everything in §1, §3, and §4 came from
