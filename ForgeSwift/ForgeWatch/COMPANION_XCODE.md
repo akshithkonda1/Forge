@@ -50,7 +50,10 @@ Debugger attaches to the **watch**; phone remains the companion host.
 1. Confirm a Watch sim is **Booted** and **paired** to that iPhone.
 2. Product → **Clean Build Folder**, delete both apps from sims, ⌘R again.
 3. Scheme → Edit Scheme → Run → **Post-actions** — ensure “Launch ForgeWatch…” is present and “Provide build settings from” = ForgeSwift.
-4. Manually:  
+4. If `simctl` hangs (no log lines, Xcode stuck after launch):  
+   `./ForgeSwift/Scripts/reset-simulator.sh --unwedge`  
+   then boot the paired Watch and ⌘R again. Do not wait on a bare `xcrun simctl`.
+5. Manually (only after simctl responds):  
    `xcrun simctl launch booted com.forge.ForgeSwift.watchkitapp`  
    (with the watch sim selected/booted).
 

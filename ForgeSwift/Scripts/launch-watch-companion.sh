@@ -3,6 +3,8 @@
 # Xcode scheme post-action for ForgeSwift / ForgeCompanion so phone + watch
 # both open and WatchConnectivity can connect.
 set -uo pipefail
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+export FORGE_SCRIPTS_DIR="$SCRIPT_DIR"
 
 export WATCH_BUNDLE_ID="${WATCH_BUNDLE_ID:-com.forge.ForgeSwift.watchkitapp}"
 export WATCH_LAUNCH_WAIT_SEC="${WATCH_LAUNCH_WAIT_SEC:-25}"
@@ -50,30 +52,30 @@ WATCH_APP_CANDIDATES_JSON="$(printf '%s\n' "${WATCH_APP_CANDIDATES[@]:-}" | pyth
 python3 - <<'PY'
 import json, os, subprocess, sys, time
 
+HERE = os.environ.get("FORGE_SCRIPTS_DIR") or os.path.dirname(os.path.abspath(__file__))
+sys.path.insert(0, HERE)
+from simctl_forge import SimctlTimeout, list_booted, simctl  # noqa: E402
+
 bundle = os.environ.get("WATCH_BUNDLE_ID", "com.forge.ForgeSwift.watchkitapp")
 max_wait = int(os.environ.get("WATCH_LAUNCH_WAIT_SEC", "25"))
 retry_delay = float(os.environ.get("WATCH_LAUNCH_RETRY_SEC", "2"))
 candidates = json.loads(os.environ.get("WATCH_APP_CANDIDATES_JSON", "[]"))
+SIMCTL_TIMEOUT = float(os.environ.get("SIMCTL_TIMEOUT", "12"))
 
 
 def booted_watch_udids():
     try:
-        raw = subprocess.check_output(
-            ["xcrun", "simctl", "list", "devices", "booted", "-j"],
-            text=True,
-        )
+        return [
+            d["udid"]
+            for d in list_booted(runtime_substr="watchos", timeout=SIMCTL_TIMEOUT)
+        ]
+    except SimctlTimeout as e:
+        print(f"launch-watch-companion: {e}")
+        print("  → CoreSimulator hung. ForgeSwift/Scripts/reset-simulator.sh --unwedge")
+        return []
     except Exception as e:
         print(f"launch-watch-companion: simctl failed: {e}")
         return []
-    data = json.loads(raw)
-    ids = []
-    for runtime, devices in data.get("devices", {}).items():
-        if "watchos" not in runtime.lower():
-            continue
-        for d in devices:
-            if d.get("state") == "Booted":
-                ids.append(d["udid"])
-    return ids
 
 
 def resolve_watch_app():
@@ -104,7 +106,11 @@ def resolve_watch_app():
 
 
 def run(cmd):
-    return subprocess.run(cmd, capture_output=True, text=True)
+    try:
+        return subprocess.run(cmd, capture_output=True, text=True, timeout=SIMCTL_TIMEOUT)
+    except subprocess.TimeoutExpired:
+        print(f"launch-watch-companion: timed out: {' '.join(cmd)}")
+        return subprocess.CompletedProcess(cmd, 124, "", "simctl timeout")
 
 
 # Wait for a booted watch sim (paired destinations boot async).
@@ -134,7 +140,11 @@ else:
 
 for udid in watch_ids:
     if watch_app:
-        inst = run(["xcrun", "simctl", "install", udid, watch_app])
+        try:
+            inst = simctl("install", udid, watch_app, timeout=SIMCTL_TIMEOUT)
+        except SimctlTimeout:
+            print(f"launch-watch-companion: install timed out on {udid} — skip")
+            continue
         if inst.returncode == 0:
             print(f"launch-watch-companion: installed on {udid}")
         else:
@@ -144,7 +154,11 @@ for udid in watch_ids:
     success = False
     last_err = ""
     for _ in range(max(1, int(max_wait / retry_delay))):
-        r = run(["xcrun", "simctl", "launch", udid, bundle])
+        try:
+            r = simctl("launch", udid, bundle, timeout=SIMCTL_TIMEOUT)
+        except SimctlTimeout:
+            last_err = "simctl launch timed out"
+            break
         if r.returncode == 0:
             print(f"launch-watch-companion: launched {bundle} on {udid}")
             success = True
@@ -152,11 +166,17 @@ for udid in watch_ids:
         last_err = (r.stderr or r.stdout or "").strip()
         # If not installed yet, re-try install once more mid-loop.
         if watch_app and "not installed" in last_err.lower():
-            run(["xcrun", "simctl", "install", udid, watch_app])
+            try:
+                simctl("install", udid, watch_app, timeout=SIMCTL_TIMEOUT)
+            except SimctlTimeout:
+                break
         time.sleep(retry_delay)
 
     if not success:
         print(f"launch-watch-companion: launch failed on {udid}: {last_err}")
-        run(["xcrun", "simctl", "openurl", udid, "forgewatch://home"])
-        print(f"launch-watch-companion: openurl fallback attempted on {udid}")
+        try:
+            simctl("openurl", udid, "forgewatch://home", timeout=SIMCTL_TIMEOUT)
+            print(f"launch-watch-companion: openurl fallback attempted on {udid}")
+        except SimctlTimeout:
+            print(f"launch-watch-companion: openurl timed out on {udid}")
 PY
