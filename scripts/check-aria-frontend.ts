@@ -1,6 +1,7 @@
 import { readFileSync } from "node:fs";
 import { coachReply } from "../src/lib/aria-coach.ts";
 import { ARIA_CINEMATIC_LINES, firstSessionScript, whisperForStep, welcomeChatMessage } from "../src/lib/aria-onboarding.ts";
+import { ARIA_TONES, ARIA_TONE_ORDER } from "../src/lib/aria-companion.ts";
 import { ARIA_INTRO } from "../src/lib/aria-intro.ts";
 import {
   ARIA_LOBES,
@@ -203,6 +204,17 @@ assert(!welcomeChatMessage({
 
 const welcome = whisperForStep("welcome");
 assert(!welcome.message.includes("HRV"), "welcome does not dump HRV");
+
+assert(
+  ARIA_TONE_ORDER.map((id) => ARIA_TONES[id].title).join(",") ===
+    "Check-in,Space,Patterns,Honest peer",
+  "friend-first tone titles match iOS"
+);
+assert(!ARIA_TONES.balanced.line.toLowerCase().includes("coaching style"), "tone line is consumer");
+
+const coachingWhisper = whisperForStep("coaching");
+assert(coachingWhisper.title === "How I show up", "coaching whisper is consumer");
+assert(coachingWhisper.message.toLowerCase().includes("check-in"), "coaching whisper names check-in");
 
 const script = firstSessionScript({
   name: "Sam",

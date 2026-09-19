@@ -1,10 +1,11 @@
 "use client";
 
 import { useState } from "react";
-import { Zap, Scale, Heart, BarChart3 } from "lucide-react";
+import { Heart, MessageCircle, Sparkles, Users } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAppStore } from "@/stores/useAppStore";
 import { whisperForStep } from "@/lib/aria-onboarding";
+import { ARIA_TONE_ORDER, ARIA_TONES } from "@/lib/aria-companion";
 import AriaCompanion from "./aria-companion";
 import {
   PremiumAtmosphere,
@@ -110,6 +111,7 @@ export default function CoachingStyleScreen({ onComplete }: CoachingStyleProps) 
                     ? "border-white/20 bg-white/[0.06]"
                     : "border-border bg-surface hover:border-border-light"
                 )}
+                aria-hidden
               >
                 <div
                   className={cn(

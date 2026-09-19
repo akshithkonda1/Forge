@@ -2,7 +2,7 @@
 
 import { useEffect } from "react";
 import { createPortal } from "react-dom";
-import { motion, AnimatePresence } from "framer-motion";
+import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import { X } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -15,6 +15,8 @@ interface SheetProps {
 }
 
 export function Sheet({ open, onClose, title, children, footer }: SheetProps) {
+  const reduceMotion = useReducedMotion();
+
   useEffect(() => {
     if (!open) return;
     const onKey = (e: KeyboardEvent) => {
@@ -31,6 +33,11 @@ export function Sheet({ open, onClose, title, children, footer }: SheetProps) {
 
   if (typeof document === "undefined") return null;
 
+  const fade = reduceMotion ? { duration: 0 } : { duration: 0.2 };
+  const rise = reduceMotion
+    ? { duration: 0 }
+    : { type: "spring" as const, stiffness: 380, damping: 32 };
+
   return createPortal(
     <AnimatePresence>
       {open && (
@@ -42,16 +49,17 @@ export function Sheet({ open, onClose, title, children, footer }: SheetProps) {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
+            transition={fade}
             onClick={onClose}
           />
           <motion.div
             role="dialog"
             aria-modal="true"
             aria-labelledby="sheet-title"
-            initial={{ y: 32, opacity: 0 }}
+            initial={reduceMotion ? false : { y: 32, opacity: 0 }}
             animate={{ y: 0, opacity: 1 }}
-            exit={{ y: 24, opacity: 0 }}
-            transition={{ type: "spring", stiffness: 380, damping: 32 }}
+            exit={reduceMotion ? { opacity: 0 } : { y: 24, opacity: 0 }}
+            transition={rise}
             className={cn(
               "relative z-10 flex max-h-[86dvh] w-full max-w-lg flex-col",
               "rounded-t-2xl border border-border bg-surface shadow-[0_-12px_48px_rgba(0,0,0,0.45)]",
