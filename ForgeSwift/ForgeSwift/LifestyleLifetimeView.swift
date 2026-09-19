@@ -8,6 +8,7 @@ import ForgeCore
 struct LifestyleLifetimeView: View {
     @ObservedObject var vm: LifestyleViewModel
     @EnvironmentObject var store: AppStore
+    @State private var showDevices = false
 
     private var metabolic: MetabolicHealthSnapshot { vm.metabolicSnapshot }
     private var aging: AgingSnapshot { vm.agingSnapshot }
@@ -29,8 +30,12 @@ struct LifestyleLifetimeView: View {
             }
             MetabolicAccessoryCard(
                 snapshot: metabolic,
-                onOpenDevices: { store.activeTab = .profile }
+                onOpenDevices: { showDevices = true }
             )
+        }
+        .sheet(isPresented: $showDevices) {
+            ConnectedDevicesLibraryView()
+                .environmentObject(store)
         }
     }
 

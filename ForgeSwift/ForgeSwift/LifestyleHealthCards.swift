@@ -841,6 +841,7 @@ struct FourBulletList: View {
 struct MetabolicTranslationCard: View {
     let mealsLogged: Int
     let glucoseMgDl: Double?
+    var storyLine: String = ""
     var onDevices: () -> Void = {}
 
     var body: some View {
@@ -893,6 +894,7 @@ struct MetabolicTranslationCard: View {
     }
 
     private var glucoseLine: String {
+        if !storyLine.isEmpty { return storyLine }
         if let glucoseMgDl {
             return "Latest glucose · \(Int(glucoseMgDl.rounded())) mg/dL"
         }

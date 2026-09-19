@@ -249,14 +249,14 @@ final class LifestyleViewModel: ObservableObject {
                     source: "apple-health"
                 ))
             }
-            if !agingSnapshot.oneBreathLine.isEmpty {
-                facts.append(AriaKnowledgeFact(
-                    category: .appleHealth,
-                    kind: "aging",
-                    summary: agingSnapshot.oneBreathLine,
-                    source: "apple-health"
-                ))
-            }
+        }
+        if !agingSnapshot.oneBreathLine.isEmpty {
+            facts.append(AriaKnowledgeFact(
+                category: .appleHealth,
+                kind: "aging",
+                summary: agingSnapshot.oneBreathLine,
+                source: "apple-health"
+            ))
         }
         facts.append(AriaKnowledgeFact(
             category: .appleHealth,

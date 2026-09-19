@@ -221,7 +221,7 @@ struct HomeTodayHero: View {
                 Button {
                     FDS.haptic(.light)
                     store.activeTab = .lifestyle
-                    store.pendingLifestyleSegment = "optimize"
+                    store.pendingLifestyleSegment = "lifetime"
                 } label: {
                     Text(aging.oneBreathLine)
                         .font(.system(size: 16, weight: .semibold, design: .rounded))
@@ -232,7 +232,7 @@ struct HomeTodayHero: View {
                 }
                 .buttonStyle(.plain)
                 .accessibilityLabel(aging.oneBreathLine)
-                .accessibilityHint("Opens Lifestyle Optimize for the age comparison")
+                .accessibilityHint("Opens Lifestyle Lifetime for the age comparison")
             }
 
             if showScore {

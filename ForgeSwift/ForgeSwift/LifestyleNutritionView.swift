@@ -13,6 +13,7 @@ struct DailyNutritionView: View {
             MetabolicTranslationCard(
                 mealsLogged: vm.loggedMeals.count,
                 glucoseMgDl: vm.latestGlucoseMgDl,
+                storyLine: vm.metabolicSnapshot.storyLine,
                 onDevices: { showDevices = true }
             )
             MacroRingsCard(vm: vm)
