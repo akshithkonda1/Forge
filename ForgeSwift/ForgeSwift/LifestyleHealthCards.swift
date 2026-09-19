@@ -639,6 +639,7 @@ enum AgingBridge {
         )
     }
 
+    @MainActor
     static func snapshot(store: AppStore) -> AgingSnapshot {
         let stats = HealthKitManager.shared.todayStats
         let sleepHours = stats.flatMap { $0.sleepHours > 0 ? $0.sleepHours : nil }
