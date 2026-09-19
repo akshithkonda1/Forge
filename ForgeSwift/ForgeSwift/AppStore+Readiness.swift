@@ -9,17 +9,23 @@ import FoundationModels
 
 extension AppStore {
 
-    func refreshDailyData() async {
+    func refreshDailyData(force: Bool = false) async {
         let previous = refreshDailyDataTail
         let task = Task { @MainActor in
             await previous?.value
-            await self.executeRefreshDailyData()
+            await self.executeRefreshDailyData(force: force)
         }
         refreshDailyDataTail = task
         await task.value
     }
 
-    private func executeRefreshDailyData() async {
+    private func executeRefreshDailyData(force: Bool) async {
+        if !force,
+           dataLoadState == .loaded,
+           let last = lastMetricsRefresh,
+           Date().timeIntervalSince(last) < TestReadyLaunchPolicy.launchRefreshCoalesceSeconds {
+            return
+        }
         dataLoadState = .loading
         lastLifeIngestError = nil
         let hk = HealthKitManager.shared
@@ -99,6 +105,24 @@ extension AppStore {
     }
 
     private func runBackgroundLifeHydrate(authorized: Bool) async {
+        if TestReadyLaunchPolicy.isRunningOnSimulator {
+            let ns = UInt64(
+                TestReadyLaunchPolicy.simulatorBackgroundIngestDelaySeconds * 1_000_000_000
+            )
+            try? await Task.sleep(nanoseconds: ns)
+        }
+        if let pack = pendingTestReadyHealthPack {
+            pendingTestReadyHealthPack = nil
+            do {
+                try await HealthKitManager.shared.replaceTestReadyPack(pack)
+                recordLifeIngestError(HealthKitManager.shared.lastPackWriteError)
+            } catch {
+                recordLifeIngestError(LifeIngestError.explain(
+                    error,
+                    doing: "Couldn't write the Test-Ready Health pack into Apple Health"
+                ))
+            }
+        }
         let hk = HealthKitManager.shared
         if authorized {
             let nights = await HealthKitSleepService.shared.fetchRecentSleepData(days: 30)
@@ -172,27 +196,17 @@ extension AppStore {
             }
             return true
         }
-        Task { @MainActor [weak self] in
-            guard let self else { return }
-            do {
-                try await HealthKitManager.shared.replaceTestReadyPack(pack)
-                self.recordLifeIngestError(HealthKitManager.shared.lastPackWriteError)
-            } catch {
-                self.recordLifeIngestError(LifeIngestError.explain(
-                    error,
-                    doing: "Couldn't write the Test-Ready Health pack into Apple Health"
-                ))
-            }
-        }
+        pendingTestReadyHealthPack = pack
         return true
     }
 
-    /// Test-ready EventKit writes land on a Forge-owned calendar only.
-    /// Tags that follow are classified kinds + busy windows — never titles.
+    /// Simulator: in-memory FakeCalendarPack (kinds + busy, never titles).
+    /// Physical Test-Ready: EventKit writes land on a Forge-owned calendar only.
     func ingestTestReadyCalendarIfNeeded() async {
         await CalendarManager.shared.ingestUpcomingIfAuthorized()
         recordLifeIngestError(CalendarManager.shared.lastSeedError)
         let tags = CalendarManager.shared.calendarTags
+        AriaContextStore.shared.applyLifestyleAssets(CalendarManager.shared.lifestyleAssets)
         guard !tags.isEmpty else { return }
         AriaContextStore.shared.applyCalendarIngestTags(tags)
     }

@@ -118,7 +118,7 @@ struct HomeView: View {
     @MainActor
     private func refreshData() async {
         FDS.haptic(.light)
-        await store.refreshDailyData()
+        await store.refreshDailyData(force: true)
         proactiveInsight = await AriaService.shared.fetchProactiveMessage(store: store)
         FDS.notificationHaptic(.success)
     }

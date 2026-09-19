@@ -445,7 +445,9 @@ enum AriaDummyOrchestrator {
                 )
             }
             if interpretation.readCalendar {
-                let line = life.contextualizeCalendarLine()
+                let inventory = LifestyleAssetIndex.spokenInventory(CalendarManager.shared.lifestyleAssets)
+                let line = inventory
+                    ?? life.contextualizeCalendarLine()
                     ?? life.spokenCalendarLine()
                     ?? "I don't have this week's calendar in yet. Connect it and I'll read this week — kinds and busy windows, never titles."
                 return AriaDummyBeat(
@@ -909,7 +911,9 @@ enum AriaDummyOrchestrator {
             parts.append("Last logged session was \(last.name).")
         }
         let life = store.makeTrainerContext().lifeRead
-        if let spoken = life.spokenCalendarLine() {
+        if let inventory = LifestyleAssetIndex.spokenInventory(CalendarManager.shared.lifestyleAssets) {
+            parts.append(inventory)
+        } else if let spoken = life.spokenCalendarLine() {
             parts.append(spoken)
         } else {
             let busy = CalendarManager.shared.busyWindowsToday

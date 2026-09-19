@@ -200,6 +200,27 @@ final class CurrentPracticeAPITests: XCTestCase {
         XCTAssertFalse(TestReadyLaunchPolicy.homeWaitsForThirtyDayHealthQueries)
         XCTAssertFalse(TestReadyLaunchPolicy.homeWaitsForHealthKitAuthorizationSheet)
         XCTAssertFalse(TestReadyLaunchPolicy.calendarYearWriteRunsOnMainActor)
+        XCTAssertFalse(TestReadyLaunchPolicy.writesEventKitYearOnSimulator)
+        XCTAssertFalse(TestReadyLaunchPolicy.shouldWriteEventKitYear(isSimulator: true))
+        XCTAssertTrue(
+            TestReadyLaunchPolicy.skipsSimulatorEventKit(testReady: true, isSimulator: true)
+        )
+        XCTAssertTrue(
+            FakeCalendarPack.shouldApplyMemoryPack(
+                debugBuild: true, testReady: true, isSimulator: true, isRunningTests: false
+            )
+        )
+        XCTAssertEqual(LifestyleAssetIndex.classify(title: "Flight to Denver"), .flight)
+        XCTAssertEqual(LifestyleAsset.Bucket.from(kind: .wedding), .wedding)
+        XCTAssertEqual(LifestyleAsset.Bucket.from(kind: .travel), .travel)
+        XCTAssertGreaterThanOrEqual(
+            TestReadyLaunchPolicy.simulatorBackgroundIngestDelaySeconds,
+            2.0
+        )
+        XCTAssertGreaterThanOrEqual(
+            TestReadyLaunchPolicy.launchRefreshCoalesceSeconds,
+            1.0
+        )
         XCTAssertEqual(FakeCalendarPack.horizonDays, 365)
         XCTAssertFalse(CalendarManager.writesToPersonalCalendars)
         XCTAssertFalse(FakeCalendarPack.writesToPersonalCalendars)

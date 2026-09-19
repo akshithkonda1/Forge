@@ -100,6 +100,40 @@ different simulator. Still unstable on a *fresh* simulator → this is
 DeviceHub/BoardServices host-daemon state, which `killall` does not always
 fully clear — restart the Mac.
 
+## Apple Calendar (MobileCal) `0x8BADF00D`
+
+`com.apple.mobilecal` is **Apple Calendar** in the simulator, not Forge.
+A process-launch watchdog (`FRONTBOARD` / `0x8BADF00D`, 30 seconds,
+Background) means Calendar.app was launched and dyld did not finish in
+time — usually after a year of EventKit writes on a loaded host (Low
+Power Mode, DeviceHub live view, 90%+ CPU). The stack is entirely
+`dyld_sim`; MobileCal never reached app code.
+
+Test-Ready **does not write EventKit on Simulator**. The same
+`FakeCalendarPack` year is generated in memory on launch and turned
+into **lifestyle assets** ARIA can sort: weddings, trips, flights,
+lifestyle events. Structured fields (kind, when, bucket) go to ARIA;
+titles and places stay on-device. Connect Calendar in onboarding is
+the same step without launching Apple Calendar. A physical phone
+classifies EventKit the same way. Real Calendar ingest (Test-Ready
+off) still reads EventKit.
+
+## Fast, reliable Forge launch
+
+Home must paint before any Test-Ready rewrite. On Simulator:
+
+1. Apply the Health pack **in memory** so ARIA has numbers on first frame.
+2. Skip EventKit entirely (see MobileCal above).
+3. Coalesce the duplicate `refreshDailyData` from `AppStore` init and
+   Home `.task`.
+4. Wait `simulatorBackgroundIngestDelaySeconds` (2.5s) after Home is
+   loaded, **then** write the Health pack into HealthKit and run 30-day
+   queries. Pull-to-refresh still forces a fetch.
+
+Do not dump a year of calendar events or a HealthKit rewrite onto a
+booting DeviceHub. That is what made Forge feel stuck and what killed
+Calendar.app.
+
 ## Simulator microphone (Mac)
 
 The iOS Simulator can route input from the Mac microphone. That is a **host

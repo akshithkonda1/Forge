@@ -51,11 +51,62 @@ final class FakeCalendarPackTests: XCTestCase {
         )
     }
 
+    func testSimulatorMemoryPackDoesNotNeedEventKitPermission() {
+        XCTAssertTrue(
+            FakeCalendarPack.shouldApplyMemoryPack(
+                debugBuild: true, testReady: true, isSimulator: true, isRunningTests: false
+            ),
+            "Simulator Test-Ready must load ARIA's calendar week in memory"
+        )
+        XCTAssertFalse(
+            FakeCalendarPack.shouldApplyMemoryPack(
+                debugBuild: true, testReady: true, isSimulator: false, isRunningTests: false
+            ),
+            "physical phones still go through EventKit after Calendar permission"
+        )
+        XCTAssertFalse(
+            FakeCalendarPack.shouldApplyMemoryPack(
+                debugBuild: true, testReady: true, isSimulator: true, isRunningTests: true
+            )
+        )
+        XCTAssertFalse(
+            FakeCalendarPack.shouldApplyMemoryPack(
+                debugBuild: false, testReady: true, isSimulator: true, isRunningTests: false
+            )
+        )
+        XCTAssertFalse(
+            FakeCalendarPack.shouldApplyMemoryPack(
+                debugBuild: true, testReady: false, isSimulator: true, isRunningTests: false
+            )
+        )
+    }
+
     func testNeverWritesOntoPersonalCalendars() {
         XCTAssertFalse(FakeCalendarPack.writesToPersonalCalendars)
         XCTAssertEqual(FakeCalendarPack.calendarTitle, "Forge — Test Pack")
         XCTAssertTrue(FakeCalendarPack.eventURL.hasPrefix("forge://test-ready/calendar"))
         XCTAssertEqual(FakeCalendarPack.horizonDays, 365)
+        XCTAssertFalse(
+            TestReadyLaunchPolicy.writesEventKitYearOnSimulator,
+            "Simulator must not dump the year into EventKit — that launches MobileCal"
+        )
+    }
+
+    func testWeekContextDoesNotNeedEventKit() {
+        let pack = FakeCalendarPack.generate(now: pinnedNow, calendar: calendar, seed: 41)
+        let ctx = FakeCalendarPack.weekContext(from: pack, now: pinnedNow, calendar: calendar)
+        XCTAssertGreaterThan(ctx.weekBusy, 0)
+        XCTAssertFalse(ctx.ingestTags.isEmpty)
+        XCTAssertTrue(ctx.ingestTags.allSatisfy(FakeCalendarPack.isAllowedIngestTag))
+        let merged = FakeCalendarPack.mergeWeekContexts(eventKit: nil, memory: ctx)
+        XCTAssertEqual(merged, ctx)
+        let tags = FakeCalendarPack.ingestTags(from: pack, now: pinnedNow, calendar: calendar)
+        XCTAssertFalse(tags.isEmpty)
+        XCTAssertNotNil(FakeCalendarPack.spokenLine(fromTags: tags))
+        let outcome = FakeCalendarPack.outcome(fromTags: tags)
+        XCTAssertGreaterThan(outcome.maxMinutes, 0)
+        let horizon = FakeCalendarPack.horizonTags(events: pack.events, now: pinnedNow, calendar: calendar)
+        XCTAssertTrue(horizon.allSatisfy(FakeCalendarPack.isAllowedIngestTag))
     }
 
     func testYearLooksLikeAPhoneNotAStickerWeek() throws {

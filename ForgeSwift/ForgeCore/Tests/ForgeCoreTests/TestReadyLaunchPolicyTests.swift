@@ -11,6 +11,27 @@ final class TestReadyLaunchPolicyTests: XCTestCase {
         XCTAssertFalse(TestReadyLaunchPolicy.homeWaitsForThirtyDayHealthQueries)
         XCTAssertFalse(TestReadyLaunchPolicy.homeWaitsForHealthKitAuthorizationSheet)
         XCTAssertFalse(TestReadyLaunchPolicy.calendarYearWriteRunsOnMainActor)
+        XCTAssertFalse(TestReadyLaunchPolicy.writesEventKitYearOnSimulator)
+        XCTAssertFalse(TestReadyLaunchPolicy.shouldWriteEventKitYear(isSimulator: true))
+        XCTAssertTrue(TestReadyLaunchPolicy.shouldWriteEventKitYear(isSimulator: false))
+        XCTAssertTrue(
+            TestReadyLaunchPolicy.skipsSimulatorEventKit(testReady: true, isSimulator: true)
+        )
+        XCTAssertFalse(
+            TestReadyLaunchPolicy.skipsSimulatorEventKit(testReady: false, isSimulator: true),
+            "real Calendar ingest on Simulator must still be allowed"
+        )
+        XCTAssertFalse(
+            TestReadyLaunchPolicy.skipsSimulatorEventKit(testReady: true, isSimulator: false)
+        )
+        XCTAssertGreaterThanOrEqual(
+            TestReadyLaunchPolicy.simulatorBackgroundIngestDelaySeconds,
+            2.0
+        )
+        XCTAssertGreaterThanOrEqual(
+            TestReadyLaunchPolicy.launchRefreshCoalesceSeconds,
+            1.0
+        )
         XCTAssertEqual(TestReadyLaunchPolicy.seedDefaultsKey, "forge.testReady.sessionSeed.v2")
         XCTAssertEqual(TestReadyLaunchPolicy.healthKitInstalledSeedKey, "forge.testReady.healthKit.installedSeed.v1")
         XCTAssertEqual(TestReadyLaunchPolicy.calendarInstalledSeedKey, "forge.testReady.calendar.installedSeed.v1")
