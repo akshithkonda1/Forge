@@ -160,6 +160,18 @@ def handle_post_observe(body: dict[str, Any], *, user_id: str | None = None) -> 
             payload["supervision_plan"] = dict(persona.last_plan)
 
     if message:
+        # /ai/chat stamps companion memory (last_insights/current_goals/
+        # constraints) onto context before generating a response
+        # (routes/aria.py) so user_model_block() and _companion_callback()
+        # can speak from it. This path also calls generate_response with a
+        # message (voice mode in particular) and was missing the same stamp.
+        from services import editable_memory
+
+        mem_settings = editable_memory.get_settings(uid)
+        if permissions.allows("lifestyle") and editable_memory.auto_ingest_allowed(mem_settings):
+            living = _context.get_or_create_context(uid)
+            contextual_learner.stamp_living_context(context, living)
+
         voice = bool(body.get("voice_mode"))
         response = aria_engine.generate_response(
             message,
