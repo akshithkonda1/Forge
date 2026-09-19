@@ -169,14 +169,23 @@ enum HealthKitAuthorizationPlan: Sendable {
 
     static var sampleAndCharacteristicReadTypes: Set<HKObjectType> {
         var types = Set<HKObjectType>()
+        // `HKQuantityType(_:)` / `HKCategoryType(_:)` abort when the runtime
+        // does not know the identifier (iOS 27 Simulator:
+        // `HKQuantityTypeIdentifierHeartRateVariabilityRMSSD`). Skip unknowns.
         for id in quantityIdentifiers {
-            types.insert(HKQuantityType(id))
+            if let type = HKQuantityType.quantityType(forIdentifier: id) {
+                types.insert(type)
+            }
         }
         for id in categoryIdentifiers {
-            types.insert(HKCategoryType(id))
+            if let type = HKCategoryType.categoryType(forIdentifier: id) {
+                types.insert(type)
+            }
         }
         for id in characteristicIdentifiers {
-            types.insert(HKCharacteristicType(id))
+            if let type = HKCharacteristicType.characteristicType(forIdentifier: id) {
+                types.insert(type)
+            }
         }
         types.insert(HKObjectType.workoutType())
         types.insert(HKObjectType.activitySummaryType())
