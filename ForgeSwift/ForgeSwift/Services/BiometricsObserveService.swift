@@ -1,4 +1,5 @@
 import Foundation
+import ForgeCore
 
 /// Client for on-device observation. Wearable samples stay in Apple Health;
 /// ARIA reads them on this iPhone. Forge `/ai/observe` is not a warehouse.
@@ -71,6 +72,13 @@ final class BiometricsObserveService {
         if store.dailyMetrics.restingHR > 0 {
             samples.append(.init(metric: "resting_hr", value: Double(store.dailyMetrics.restingHR),
                                  unit: "bpm", timestamp: now, source: "apple-health"))
+        }
+        // RMSSD is its own metric. Weekly `hrv` above is SDNN-shaped HealthKit
+        // history — never retagged as rmssd. Emit RMSSD only when BodyModel
+        // actually ingested a sample.
+        if let rmssd = BodyModelHRVBaselineStore.load().rmssd.last, rmssd > 0 {
+            samples.append(.init(metric: "hrv_rmssd", value: rmssd, unit: "ms",
+                                 timestamp: now, source: "apple-health"))
         }
         if let weight = store.userProfile.weight {
             samples.append(.init(metric: "weight", value: weight, unit: "kg",

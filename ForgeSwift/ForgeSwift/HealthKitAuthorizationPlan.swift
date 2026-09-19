@@ -169,14 +169,23 @@ enum HealthKitAuthorizationPlan: Sendable {
 
     static var sampleAndCharacteristicReadTypes: Set<HKObjectType> {
         var types = Set<HKObjectType>()
+        // `HKQuantityType(_:)` / `HKCategoryType(_:)` abort when the runtime
+        // does not know the identifier (iOS 27 Simulator:
+        // `HKQuantityTypeIdentifierHeartRateVariabilityRMSSD`). Skip unknowns.
         for id in quantityIdentifiers {
-            types.insert(HKQuantityType(id))
+            if let type = HKQuantityType.quantityType(forIdentifier: id) {
+                types.insert(type)
+            }
         }
         for id in categoryIdentifiers {
-            types.insert(HKCategoryType(id))
+            if let type = HKCategoryType.categoryType(forIdentifier: id) {
+                types.insert(type)
+            }
         }
         for id in characteristicIdentifiers {
-            types.insert(HKCharacteristicType(id))
+            if let type = HKCharacteristicType.characteristicType(forIdentifier: id) {
+                types.insert(type)
+            }
         }
         types.insert(HKObjectType.workoutType())
         types.insert(HKObjectType.activitySummaryType())
@@ -209,6 +218,10 @@ enum HealthKitAuthorizationPlan: Sendable {
     static let quantityIdentifiers: [HKQuantityTypeIdentifier] = [
         .heartRate, .restingHeartRate, .walkingHeartRateAverage,
         .heartRateRecoveryOneMinute, .heartRateVariabilitySDNN,
+        // RMSSD is a separate HealthKit read type (`heartRateVariabilityRMSSD`).
+        // Samples may be absent; SDNN stays on its own identifier.
+        // Not Apple Readiness. Not Health Age.
+        HealthKitHRVQuantity.rmssdIdentifier,
         .oxygenSaturation, .respiratoryRate, .bloodGlucose,
         .bloodPressureSystolic, .bloodPressureDiastolic,
         .bodyTemperature, .basalBodyTemperature, .appleSleepingWristTemperature,

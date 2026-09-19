@@ -8,8 +8,9 @@ the same policy a real backend will; it must never own Q-tables, persona
 storage, or teaching copy. With ``engine="lambda"`` it also consumes
 ``services.fusion.fuse_turn`` and ``aria_engine.generate_response`` (Bedrock
 off) so hypertune reads fused product speak. Every turn also runs
-``services.aria_swarm`` — the Grok-agentic read/evaluate/write pass over
-WHOOP, Apple Watch, and Oura / RRA — without calling a model. Deleting this
+``services.aria_swarm`` — a deterministic read/evaluate/write pass over
+WHOOP, Apple Watch, and Oura / RRA — without calling a model. Provider
+ID/region table awaits Quill (``services.provider_capabilities``). Deleting this
 file must leave the learner, fusion, Swarm, and ``POST /ai/chat`` intact.
 
 This is *not* a live model. It is a staged stand-in for one: ingest the
@@ -116,8 +117,8 @@ _NEEDLES = {
 }
 
 # Lockstep with iOS AriaCoachAgent.rawValue / first_bond.IOS_AGENT_KINDS.
-# Aging is a routing lane (_NEEDLES + _PRIMARY_ORDER), not a pinnable coach.
-_KINDS = ("cycle", "recovery", "sleep", "lifestyle", "progress", "workout", "aria")
+# Aging is a Dummy routing lane (not an iOS coach pin) but stays in the roster.
+_KINDS = ("cycle", "recovery", "sleep", "lifestyle", "progress", "aging", "workout", "aria")
 
 # Aging first so "training age" is never stolen by workout/lifestyle.
 # Then load-protective: a session question still wins so recovery/sleep
@@ -903,6 +904,14 @@ _WIT_ALREADY = tuple(
         ]
     )
 )
+_THIN_SPEAK = re.compile(r"^[\s.,;:—–\-]*$")
+# Mid-thread discourse already sounds like a person — don't sticker a closer on it.
+_FOLLOW_UP_LEADS = (
+    "got it", "okay, scratched", "fair.", "alright — shorter", "we cut it",
+    "yep — compress", "shorter works", "we trim it", "okay, time-box",
+    "yeah — we ease", "lighter it is", "makes sense. soft",
+    "sure — we dial", "easier works", "okay, soft mode",
+)
 
 
 def _dumps_user_speak(text: str) -> bool:
@@ -918,6 +927,20 @@ def _dumps_user_speak(text: str) -> bool:
         or speak_quality.medical_hits(raw)
         or speak_quality.sludge_hits(raw)
     )
+
+
+def _scrub_speak_vitals(text: str) -> str:
+    """Drop banned vitals tokens in place so a research cite can keep its source label.
+
+    All-or-nothing `_speak_without_vitals` would otherwise discard a whole
+    ``From MedlinePlus: … / VO2: …`` note and lose the provenance the person
+    is supposed to see.
+    """
+    scrubbed = _VITALS_SPEAK.sub("", str(text or ""))
+    scrubbed = re.sub(r"\s*/\s*(?=:)", "", scrubbed)
+    scrubbed = re.sub(r"\s*:\s*:", ":", scrubbed)
+    scrubbed = re.sub(r"\s{2,}", " ", scrubbed)
+    return scrubbed.strip(" :/,-")
 
 
 def _speak_without_vitals(*candidates: str) -> str:
@@ -939,6 +962,23 @@ def _collapse_spoken(text: str) -> str:
     return re.sub(r"\s+", " ", body).strip()
 
 
+def _wit_line(seed: int, stance: str = "", signals: SignalRead | None = None) -> str:
+    """One seed-indexed bank line. Same banks as PR #284 — no parallel system."""
+    sleep = getattr(signals, "sleep", "") if signals is not None else ""
+    if stance == "protect" or sleep == "thin":
+        bank = _WIT_PROTECT
+    elif stance == "proceed":
+        bank = _WIT_PROCEED
+    else:
+        bank = _WIT_HONEST
+    return _pick(seed ^ 17, list(bank))
+
+
+def _is_follow_up_speak(body: str) -> bool:
+    lead = (body or "").strip().lower()
+    return any(lead.startswith(p) for p in _FOLLOW_UP_LEADS)
+
+
 def friend_speak(
     text: str,
     *,
@@ -946,29 +986,29 @@ def friend_speak(
     stance: str = "",
     signals: SignalRead | None = None,
     guidance: str | None = None,
+    short_ok: bool = False,
 ) -> str:
     """Bubbly/kind friend with a point — funny take + one useful improve.
 
     Shared by stub phrase banks and the lambda hypertune path. Guidance /
     emergency copy is left alone. Iris vitals scrub still wins after this.
+
+    Fused Dummy speak is often a short notice or the canned fallback; those
+    still get a seed-indexed closer so hypertune doesn't read as one template.
+    Short mid-thread mutations ("make it easier") stay untouched unless
+    ``short_ok`` is set.
     """
     if guidance:
         return str(text or "").strip()
     body = _CHEER_SLUDGE.sub("that's real work", _collapse_spoken(text))
-    if not body:
-        return _SPEAK_FALLBACK
+    body = re.sub(r"^[\s.,;:—–\-]+", "", body).strip()
+    extra = _wit_line(seed, stance, signals)
+    if not body or body == _SPEAK_FALLBACK or _THIN_SPEAK.match(body):
+        return _speak_without_vitals(extra, _SPEAK_FALLBACK)
     if any(n in body.lower() for n in _WIT_ALREADY):
-        return body
-    # Short mid-thread mutations ("make it easier") already sound like a person.
-    if len(body.split()) < 28:
         return _speak_without_vitals(body)
-    sleep = getattr(signals, "sleep", "") if signals is not None else ""
-    if stance == "protect" or sleep == "thin":
-        extra = _pick(seed ^ 17, list(_WIT_PROTECT))
-    elif stance == "proceed":
-        extra = _pick(seed ^ 17, list(_WIT_PROCEED))
-    else:
-        extra = _pick(seed ^ 17, list(_WIT_HONEST))
+    if _is_follow_up_speak(body) and not short_ok:
+        return _speak_without_vitals(body)
     if extra and extra.lower() not in body.lower():
         if body[-1] not in ".!?":
             body += "."
@@ -1418,6 +1458,39 @@ def _suggest_body_session(message: str, context) -> dict | None:
     return suggestion
 
 
+def _provider_snapshot(engine: str) -> dict:
+    """Stamp the design-stub routing caps onto a Dummy turn. Never calls AWS."""
+    try:
+        from backend._paths import ensure_lambda_on_path
+
+        ensure_lambda_on_path()
+        from services import provider_capabilities as caps
+
+        path = (
+            caps.DEFAULT_PATH
+            if (engine or ENGINE_LAMBDA).strip().lower() == ENGINE_LAMBDA
+            else "dummy_stub"
+        )
+        snap = caps.runtime_snapshot(path=path)
+        return {
+            "path": snap["path"],
+            "stages": snap["stages"],
+            "bedrock_kill_switch_default": snap["bedrock_kill_switch_default"],
+            "do_not_invoke": snap["do_not_invoke"],
+            "await_quill_table": snap["await_quill_table"],
+            "direction": snap["direction"],
+        }
+    except Exception:
+        return {
+            "path": "dummy_stub",
+            "stages": ["truth", "personal_model", "stance", "speak"],
+            "bedrock_kill_switch_default": False,
+            "do_not_invoke": True,
+            "await_quill_table": True,
+            "direction": "grok_plus_latest_claude",
+        }
+
+
 def _production_fusion():
     """Lazy import of live fusion + engine. Dummy must not own these modules."""
     try:
@@ -1650,6 +1723,7 @@ def _respond_via_lambda(
         include_stored=False,
         load_learner=True,
     )
+    # Deterministic speak only. generate_response_live is never on this path.
     envelope = engine_mod.generate_response(
         safe,
         fused.context,
@@ -1665,12 +1739,14 @@ def _respond_via_lambda(
     stance = envelope["fusion"].get("stance")
     signals = read_signals(ctx)
     guidance = envelope.get("guidance_band")
+    # Fused notices are often <28 words; Dummy hypertune still needs local wit.
     prose = friend_speak(
         envelope.get("prose_summary") or "",
         seed=seed,
         stance=str(stance or ""),
         signals=signals,
         guidance=guidance,
+        short_ok=True,
     )
     chat = friend_speak(
         envelope.get("message") or prose,
@@ -1678,6 +1754,7 @@ def _respond_via_lambda(
         stance=str(stance or ""),
         signals=signals,
         guidance=guidance,
+        short_ok=True,
     )
     prose = _speak_without_vitals(prose)
     chat = _speak_without_vitals(chat, prose)
@@ -1733,6 +1810,7 @@ def _respond_via_lambda(
             "engine_latency_ms": 0,
             "prior_turns": len(prior_turns or []),
             "day_index": day_index,
+            "provider": _provider_snapshot(ENGINE_LAMBDA),
         },
     }
     if brief is not None:
@@ -1866,24 +1944,36 @@ def respond(
     )
     # Weave specialists into one spoken reply — not stacked \n\n briefs.
     prose = _weave_specialists(prose, notes, seed=seed ^ _fnv(message))
-    stub_stance = "protect" if scenario == "recovery_first" else ""
-    prose = friend_speak(prose, seed=seed, stance=stub_stance, signals=signals)
     body_session = _suggest_body_session(message, ctx)
     if (
         body_session is not None
         and plan.primary.kind == "workout"
         and scenario in ("train", "recovery_first", "")
+        and not _is_follow_up_speak(prose)
     ):
         spoken = body_session.spoken()
         if spoken and spoken not in prose:
             prose = f"{prose} {spoken}"
+    # friend_speak after the full spoken body so the closer lands on the
+    # essay plus body-library line, not a truncated half-turn.
+    if scenario == "recovery_first" or signals.sleep == "thin" or signals.recovery == "asking":
+        stub_stance = "protect"
+    elif plan.primary.kind == "workout" or "train" in message.lower() or "workout" in message.lower():
+        stub_stance = "proceed"
+    else:
+        stub_stance = ""
+    prose = friend_speak(prose, seed=seed, stance=stub_stance, signals=signals)
     # Optional web note stays as a short trailing cite — not a specialist dump.
+    # Scrub vitals inside the cite first so VO2 in a MedlinePlus title cannot
+    # make `_speak_without_vitals` discard the whole "From …" provenance.
     chat = prose
     if web_research.is_research_worthy(message, plan.primary.kind):
         lookup_kind = "aging" if web_research.suggests_aging(message) or plan.primary.kind == "aging" else plan.primary.kind
         web_note = web_research.look_up(lookup_kind)
-        if web_note and web_note not in chat:
-            chat = f"{chat} ({web_note.rstrip('.')})"
+        if web_note:
+            safe_note = _scrub_speak_vitals(web_note)
+            if safe_note and safe_note not in chat and not _dumps_user_speak(safe_note):
+                chat = f"{chat} ({safe_note.rstrip('.')})"
     prose = _speak_without_vitals(prose)
     chat = _speak_without_vitals(chat, prose)
     recovery_needed = scenario == "recovery_first" or ctx.today.readiness_score < 50
@@ -1949,6 +2039,7 @@ def respond(
             "engine_latency_ms": engine_ms,
             "prior_turns": len(prior_turns or []),
             "day_index": day_index,
+            "provider": _provider_snapshot(ENGINE_STUB),
         },
     }
     if brief is not None:

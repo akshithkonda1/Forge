@@ -47,6 +47,12 @@ jobs:
       - name: Validate project.pbxproj
         run: python3 scripts/check-pbxproj.py
 
+      # Autocreated ForgeSwiftTests / Widgets / Messages schemes make ⌘R attach
+      # a test or extension host instead of launching ForgeSwift.app. This
+      # locks the shared Run schemes and the suppress-autocreate settings.
+      - name: Validate Run schemes (not test/extension hosts)
+        run: python3 scripts/check-xcode-run-schemes.py
+
   partner-redaction:
     name: Partner redaction boundary
     runs-on: ubuntu-latest
@@ -122,7 +128,9 @@ jobs:
       # fails when the plist contradicts itself — loopback in any environment,
       # Dummy-offline with a live-looking API or Cognito ids, an archive labelled
       # prod still pointing at localhost, or an environment name misspelled into
-      # the permissive bucket.
+      # the permissive bucket. Check also refuses secrets / provider ARNs in
+      # either Info-Add.plist, Watch carrying FORGE auth keys, and Dummy-offline
+      # with Hex roadmap flags (provider routing, editable memory, RMSSD) on.
       - name: Check client configuration
         run: python3 scripts/generate_client_config.py --check
       - name: Dummy-offline client-config tests

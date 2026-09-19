@@ -5,7 +5,7 @@ import { MessageCircle } from "lucide-react";
 import { useAppStore } from "@/stores/useAppStore";
 import { cn } from "@/lib/utils";
 import { getReadinessLabel } from "@/lib/utils";
-import { AriaOrb } from "@/components/onboarding/aria-companion";
+import { AriaMark } from "@/components/brand/aria-mark";
 
 function buildGreeting(
   name: string,
@@ -55,20 +55,28 @@ export function AiGreeting() {
   );
 
   return (
-    <div className={cn("rounded-2xl bg-surface border-l-2 border-l-ember", "p-4")}>
-      <div className="flex items-start gap-3">
-        <div className="flex-shrink-0">
-          <AriaOrb mood="focused" size={36} />
-        </div>
-        <div className="flex-1 min-w-0">
-          <p className="text-xs font-medium text-ember mb-1.5">ARIA</p>
-          <p className="text-sm leading-relaxed text-text-primary">{greeting}</p>
+    <div className="relative overflow-hidden rounded-3xl border border-white/[0.08] bg-white/[0.035] p-5">
+      <div
+        className="pointer-events-none absolute inset-0 opacity-70"
+        style={{
+          background:
+            "radial-gradient(ellipse 70% 80% at 0% 0%, rgba(255,107,43,0.12), transparent 55%)",
+        }}
+        aria-hidden
+      />
+      <div className="relative flex items-start gap-3.5">
+        <AriaMark size={40} speaking={false} label="ARIA" className="mt-0.5" />
+        <div className="min-w-0 flex-1">
+          <p className="mb-1.5 text-[11px] font-medium uppercase tracking-[0.2em] text-text-tertiary">
+            ARIA
+          </p>
+          <p className="text-[15px] leading-relaxed text-text-primary">{greeting}</p>
           <button
+            type="button"
             onClick={() => setActiveTab("chat")}
             className={cn(
-              "mt-3 inline-flex items-center gap-1.5",
-              "text-xs font-medium text-ember",
-              "hover:text-ember-light transition-colors"
+              "mt-4 inline-flex items-center gap-1.5 rounded-full border border-white/12 bg-white/[0.06] px-3.5 py-2",
+              "text-xs font-medium text-[#F7F4F0] transition hover:bg-white/[0.1]"
             )}
           >
             <MessageCircle size={14} />

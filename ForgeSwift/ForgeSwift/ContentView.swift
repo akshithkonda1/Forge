@@ -26,7 +26,6 @@ struct ContentView: View {
                     MainTabView()
                 }
             }
-            .environment(\.forgeFireLiveAllowed, !showSplash)
             .animation(.easeInOut(duration: 0.35), value: store.isAuthenticated)
             .animation(.easeInOut(duration: 0.35), value: store.isOnboarded)
 
@@ -341,41 +340,35 @@ struct ForgeBottomNav: View {
                 }
             }
         }
-        .padding(.top, 10)
-        .padding(.bottom, 6)
-        .padding(.horizontal, 4)
+        .padding(.top, 8)
+        .padding(.bottom, 4)
+        .padding(.horizontal, 2)
         .background {
             ZStack(alignment: .top) {
                 UnevenRoundedRectangle(
-                    topLeadingRadius: 22,
+                    topLeadingRadius: 20,
                     bottomLeadingRadius: 0,
                     bottomTrailingRadius: 0,
-                    topTrailingRadius: 22,
+                    topTrailingRadius: 20,
                     style: .continuous
                 )
                 .fill(.ultraThinMaterial)
                 UnevenRoundedRectangle(
-                    topLeadingRadius: 22,
+                    topLeadingRadius: 20,
                     bottomLeadingRadius: 0,
                     bottomTrailingRadius: 0,
-                    topTrailingRadius: 22,
+                    topTrailingRadius: 20,
                     style: .continuous
                 )
-                .fill(Color.background.opacity(0.52))
+                .fill(Color.background.opacity(0.62))
                 LinearGradient(
-                    colors: [Color.white.opacity(0.12), Color.ember.opacity(0.04), Color.clear],
+                    colors: [Color.white.opacity(0.08), Color.clear],
                     startPoint: .top,
                     endPoint: .center
                 )
                 Rectangle()
-                    .fill(
-                        LinearGradient(
-                            colors: [Color.white.opacity(0.22), Color.ember.opacity(0.18), Color.white.opacity(0.08)],
-                            startPoint: .leading,
-                            endPoint: .trailing
-                        )
-                    )
-                    .frame(height: 0.6)
+                    .fill(Color.white.opacity(0.10))
+                    .frame(height: 0.5)
                     .frame(maxHeight: .infinity, alignment: .top)
             }
             .ignoresSafeArea(edges: .bottom)

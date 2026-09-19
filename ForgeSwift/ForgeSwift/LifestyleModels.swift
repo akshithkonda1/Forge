@@ -72,16 +72,6 @@ enum ReminderType {
     case hydration, meal, sleep, workout, supplement
 }
 
-/// Snapshot the Lifestyle Home Screen widget reads from the shared App Group.
-/// Lives in the app target (so it compiles in CI); the widget extension — added
-/// separately in Xcode — decodes the same struct from the same suite + key.
-struct LifestyleWidgetSnapshot: Codable {
-    var qol: Int
-    var topTitle: String?
-    var topCategory: String?
-    var updatedAt: Date
-}
-
 struct Restaurant: Identifiable, Codable, Hashable {
     let id: UUID
     let name: String
@@ -253,13 +243,14 @@ struct QOLDay: Identifiable, Codable {
 }
 
 enum LifestyleSegment: Int, CaseIterable {
-    case aiOptimization, homeCooking, restaurants, nutrition, wellbeing
+    case aiOptimization, homeCooking, restaurants, nutrition, lifetime, wellbeing
     var title: String {
         switch self {
         case .aiOptimization: return "Optimize"
         case .homeCooking:    return "Cook"
         case .restaurants:    return "Places"
         case .nutrition:      return "Nutrition"
+        case .lifetime:       return "Lifetime"
         case .wellbeing:      return "Wellbeing"
         }
     }
@@ -269,6 +260,7 @@ enum LifestyleSegment: Int, CaseIterable {
         case .homeCooking:    return "frying.pan.fill"
         case .restaurants:    return "map.fill"
         case .nutrition:      return "chart.pie.fill"
+        case .lifetime:       return "clock.arrow.2.circlepath"
         case .wellbeing:      return "heart.fill"
         }
     }

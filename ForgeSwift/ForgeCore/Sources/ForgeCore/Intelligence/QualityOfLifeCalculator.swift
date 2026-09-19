@@ -366,6 +366,29 @@ public enum QualityOfLifeLivingStore: Sendable {
         }
     }
 
+    /// ARIA talking-from-persona. Life can still grade from `loadPersona()`.
+    public static func isPersonaEnabled(defaults: UserDefaults = .standard) -> Bool {
+        AriaCompanionPreferencesStore.load(defaults: defaults).personaEnabled
+    }
+
+    public static func setPersonaEnabled(_ enabled: Bool, defaults: UserDefaults = .standard) {
+        var prefs = AriaCompanionPreferencesStore.load(defaults: defaults)
+        prefs.personaEnabled = enabled
+        AriaCompanionPreferencesStore.save(prefs, defaults: defaults)
+    }
+
+    /// Forget who-you-are chips. Does not wipe the knowledge ledger.
+    public static func clearPersona(defaults: UserDefaults = .standard) {
+        defaults.removeObject(forKey: personaKey)
+        clearInterviewCompleted(defaults: defaults)
+    }
+
+    /// Persona ARIA may speak. Balanced when the living profile is off.
+    public static func loadPersonaForCoaching(defaults: UserDefaults = .standard) -> QualityOfLifePersona {
+        guard isPersonaEnabled(defaults: defaults) else { return .balanced }
+        return loadPersona(defaults: defaults)
+    }
+
     public static func coachingLine(
         defaults: UserDefaults = .standard,
         variety: Int = 0

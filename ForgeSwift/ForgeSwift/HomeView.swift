@@ -24,7 +24,7 @@ struct HomeView: View {
             ScrollView(showsIndicators: false) {
                 VStack(spacing: HomeMetrics.sectionGap) {
                         HomeHeaderView()
-                            .padding(.top, 12)
+                            .padding(.top, 8)
 
                         HomeTodayHero(action: primaryAction)
 
@@ -118,7 +118,7 @@ struct HomeView: View {
     @MainActor
     private func refreshData() async {
         FDS.haptic(.light)
-        await store.refreshDailyData()
+        await store.refreshDailyData(force: true)
         proactiveInsight = await AriaService.shared.fetchProactiveMessage(store: store)
         FDS.notificationHaptic(.success)
     }
@@ -163,17 +163,16 @@ struct HomeHeaderView: View {
                     .forgeSectionLabel()
 
                 Text(greeting + (firstName.isEmpty ? "" : ", \(firstName)"))
-                    .font(FDS.TypeScale.pageTitle())
+                    .font(FDS.TypeScale.pageTitle(28))
                     .foregroundColor(.textPrimary)
-                    .lineLimit(2)
-                    .minimumScaleFactor(0.85)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.78)
                     .accessibilityAddTraits(.isHeader)
-                    // Subtle warm underline for depth without adding chrome.
                     .overlay(alignment: .bottomLeading) {
-                        Rectangle().fill(Color.ember.opacity(0.18))
-                            .frame(width: 36, height: 3)
-                            .offset(y: 6)
-                            .clipShape(Capsule())
+                        Capsule()
+                            .fill(Color.ember.opacity(0.55))
+                            .frame(width: 28, height: 2)
+                            .offset(y: 5)
                     }
 
                 HomeDataStatusPill(

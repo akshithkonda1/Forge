@@ -148,7 +148,8 @@ public extension QualityOfLifePersona {
 
 public extension QualityOfLifeLivingStore {
     static func livingTags(defaults: UserDefaults = .standard) -> [String] {
-        loadPersona(defaults: defaults).livingTags()
+        guard isPersonaEnabled(defaults: defaults) else { return [] }
+        return loadPersona(defaults: defaults).livingTags()
     }
 
     /// Chat that is asking who they are as a human — answer from the local
@@ -178,6 +179,15 @@ public extension QualityOfLifeLivingStore {
         defaults: UserDefaults = .standard,
         variety: Int = 0
     ) -> String {
+        if !isPersonaEnabled(defaults: defaults) {
+            let paused = [
+                "I'm not using who-you-are right now. Turn that back on in ARIA memory & voice whenever you want.",
+                "Living profile is paused. I still know the folders you left on — just not the who-you-are chips.",
+                "Who-you-are is off. Settings → ARIA memory & voice turns it back on.",
+            ]
+            let index = variety < 0 ? 0 : variety
+            return paused[index % paused.count]
+        }
         let persona = loadPersona(defaults: defaults)
         let hasLiving = persona.archetype != .unset && persona.archetype != .balanced
             || persona.movementPreference != nil

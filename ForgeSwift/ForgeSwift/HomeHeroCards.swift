@@ -1,4 +1,5 @@
 import SwiftUI
+import ForgeCore
 
 private struct HomeHeroReadinessCard: View {
     @EnvironmentObject var store: AppStore
@@ -175,8 +176,12 @@ struct HomeTodayHero: View {
 
     private var recovery: Bool { action.usesRecoveryChrome(store: store) }
 
+    private var aging: AgingSnapshot {
+        AgingBridge.snapshot(store: store)
+    }
+
     var body: some View {
-        VStack(alignment: .leading, spacing: 16) {
+        VStack(alignment: .leading, spacing: 12) {
             Text("Today")
                 .forgeSectionLabel()
 
@@ -195,14 +200,14 @@ struct HomeTodayHero: View {
             if let session = store.todayWorkout {
                 VStack(alignment: .leading, spacing: 4) {
                     Text(displaySessionName(session.name))
-                        .font(.system(size: 22, weight: .semibold, design: .rounded))
+                        .font(.system(size: 20, weight: .semibold, design: .rounded))
                         .foregroundColor(.textPrimary)
                         .fixedSize(horizontal: false, vertical: true)
                     Text(homeStatusLine(store: store))
                         .font(.system(size: 13, weight: .medium))
                         .foregroundColor(.textSecondary)
                     Text("\(session.duration) min · \(session.intensity.label)")
-                        .font(.system(size: 13, weight: .medium))
+                        .font(.system(size: 12, weight: .semibold, design: .rounded))
                         .foregroundColor(.textTertiary)
                 }
             } else {
@@ -210,6 +215,24 @@ struct HomeTodayHero: View {
                     .font(.system(size: 15, weight: .medium, design: .rounded))
                     .foregroundColor(.textSecondary)
                     .fixedSize(horizontal: false, vertical: true)
+            }
+
+            if !aging.oneBreathLine.isEmpty {
+                Button {
+                    FDS.haptic(.light)
+                    store.activeTab = .lifestyle
+                    store.pendingLifestyleSegment = "lifetime"
+                } label: {
+                    Text(aging.oneBreathLine)
+                        .font(.system(size: 16, weight: .semibold, design: .rounded))
+                        .foregroundColor(.textPrimary)
+                        .multilineTextAlignment(.leading)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel(aging.oneBreathLine)
+                .accessibilityHint("Opens Lifestyle Lifetime for the age comparison")
             }
 
             if showScore {
@@ -277,10 +300,10 @@ private struct HomeLifeChipRow: View {
                 }
                 .foregroundColor(.textPrimary)
                 .padding(.horizontal, 10)
-                .padding(.vertical, 6)
-                .background(Color.white.opacity(0.06))
+                .padding(.vertical, 7)
+                .background(Color.white.opacity(0.08))
                 .clipShape(Capsule())
-                .overlay(Capsule().stroke(Color.white.opacity(0.10), lineWidth: 1))
+                .overlay(Capsule().stroke(Color.white.opacity(0.12), lineWidth: 0.8))
             }
         }
     }
@@ -317,29 +340,21 @@ private struct HomePrimaryCTA: View {
                         .font(.system(size: 14, weight: .bold))
                 }
                 .foregroundColor(.white)
-                .padding(.vertical, 16)
-                .padding(.horizontal, 18)
+                .padding(.vertical, 14)
+                .padding(.horizontal, 16)
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .background {
                     ZStack {
-                        if action.usesRecoveryChrome(store: store) {
-                            FDS.Gradient.steel
-                        } else {
-                            FDS.Gradient.ember
-                        }
+                        FDS.Gradient.ember
                         LinearGradient.premiumChrome
                     }
                 }
-                .clipShape(RoundedRectangle(cornerRadius: FDS.Radius.lg, style: .continuous))
+                .clipShape(RoundedRectangle(cornerRadius: FDS.Radius.md, style: .continuous))
                 .overlay(
-                    RoundedRectangle(cornerRadius: FDS.Radius.lg, style: .continuous)
-                        .stroke(Color.white.opacity(0.18), lineWidth: 1)
+                    RoundedRectangle(cornerRadius: FDS.Radius.md, style: .continuous)
+                        .stroke(Color.white.opacity(0.20), lineWidth: 0.8)
                 )
-                .shadow(
-                    color: (action.usesRecoveryChrome(store: store) ? Color.steel : Color.ember).opacity(0.32),
-                    radius: 12,
-                    y: 5
-                )
+                .shadow(color: Color.ember.opacity(0.34), radius: 10, y: 4)
             }
             .buttonStyle(.plain)
             .scaleEffect(pressed ? 0.98 : 1)
@@ -368,8 +383,8 @@ private struct HomePrimaryCTA: View {
                     }
                     .foregroundColor(.textSecondary)
                     .frame(maxWidth: .infinity)
-                    .padding(.vertical, 12)
-                    .background(Color.white.opacity(0.05))
+                    .padding(.vertical, 10)
+                    .background(Color.white.opacity(0.07))
                     .clipShape(RoundedRectangle(cornerRadius: HomeMetrics.innerRadius, style: .continuous))
                     .overlay(
                         RoundedRectangle(cornerRadius: HomeMetrics.innerRadius, style: .continuous)
@@ -390,8 +405,8 @@ private struct HomePrimaryCTA: View {
                     }
                     .foregroundColor(Color.vitality)
                     .frame(maxWidth: .infinity)
-                    .padding(.vertical, 12)
-                    .background(Color.white.opacity(0.05))
+                    .padding(.vertical, 10)
+                    .background(Color.vitality.opacity(0.10))
                     .clipShape(RoundedRectangle(cornerRadius: HomeMetrics.innerRadius, style: .continuous))
                     .overlay(
                         RoundedRectangle(cornerRadius: HomeMetrics.innerRadius, style: .continuous)

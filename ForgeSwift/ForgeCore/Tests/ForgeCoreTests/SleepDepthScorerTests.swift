@@ -131,4 +131,23 @@ final class SleepDepthScorerTests: XCTestCase {
         )
         XCTAssertTrue(result.unusualFlags.isEmpty, "\(result.unusualFlags)")
     }
+
+    func testFlagsStayQualitativeWithNoStagePercent() {
+        var baselines = SleepDepthBaselines()
+        for day in 1...10 {
+            SleepDepthScorer.observe(
+                &baselines,
+                metrics: typicalNight(hours: 8, deep: 90, rem: 90, efficiency: 92),
+                nightKey: String(format: "2026-09-%02d", day)
+            )
+        }
+        let short = typicalNight(hours: 5.0, deep: 40, rem: 40, efficiency: 70)
+        let result = SleepDepthScorer.score(metrics: short, targets: bear, baselines: baselines)
+        let blob = result.unusualFlags.joined(separator: " ")
+        XCTAssertFalse(blob.contains("%"), blob)
+        XCTAssertNil(
+            blob.range(of: #"\b(?:deep|rem|light)\s+sleep\s+at\s+\d"#, options: .regularExpression),
+            blob
+        )
+    }
 }

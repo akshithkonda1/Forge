@@ -79,6 +79,9 @@ def build_narrative(
         add("━━━ DIAGNOSTICS — VERDICT ━━━━━━━━━━━━━━━")
         add(f"  {'✅' if diagnostic.passed else '⛔'} {diagnostic.verdict}")
         add(f"  Turns passed: {diagnostic.passed_turns}/{diagnostic.total_turns} ({diagnostic.pass_rate}%)")
+        add(f"  Quality: {diagnostic.quality_level} "
+            f"({diagnostic.overall_grade} {diagnostic.overall_composite}) "
+            f"— ship requires good or excellent")
         add(f"  Severity: mission_critical {sc['mission_critical']} · high {sc['high']} · "
             f"medium {sc['medium']} · can_wait {sc['can_wait']}")
         if diagnostic.mission_critical:

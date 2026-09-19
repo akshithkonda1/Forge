@@ -5,7 +5,9 @@ import ActivityKit
 // MARK: - ForgeWidgetExtensionBundle
 //
 // iOS widget extension entry point: workout + cycle Live Activities,
-// cycle lockscreen widget, and the Lifestyle home-screen widget.
+// cycle lockscreen widget, Lifestyle home-screen widget, and the MagSafe
+// landscape StandBy nest face (`WidgetFamily.systemSmall` — Apple's public
+// StandBy slot; there is no dedicated StandBy family).
 
 @main
 struct ForgeWidgetExtensionBundle: WidgetBundle {
@@ -17,6 +19,7 @@ struct ForgeWidgetExtensionBundle: WidgetBundle {
         LifestyleWidget()
         CyclePhaseWidget()
         SupportGlanceWidget()
+        StandByNestWidget()
         ForgeWorkoutLiveActivity()
         CycleFertileWindowLiveActivity()
     }

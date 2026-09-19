@@ -107,7 +107,42 @@ public enum EventTrainingPolicy: Sendable {
         if let wedding = horizon.first(where: { $0.kind == "wedding" }) {
             return weddingPlan(daysUntil: wedding.days)
         }
+        if let trip = horizon.first(where: { $0.kind == "flight" || $0.kind == "travel" }) {
+            return travelPlan(kind: trip.kind, daysUntil: trip.days)
+        }
+        if let game = horizon.first(where: { $0.kind == "game" }) {
+            return gamePlan(daysUntil: game.days)
+        }
         return nil
+    }
+
+    public static func travelPlan(kind: String, daysUntil: Int) -> EventTrainingPlan {
+        let moving = daysUntil <= 1
+        return EventTrainingPlan(
+            kind: kind,
+            daysUntil: daysUntil,
+            emphasis: [],
+            progressive: false,
+            reduceVolume: true,
+            keepLight: moving,
+            reason: moving
+                ? "Travel day — keep the session able to move, skip the hero work."
+                : "There's a trip in \(daysUntil) day\(daysUntil == 1 ? "" : "s") — I'll keep the session able to move."
+        )
+    }
+
+    public static func gamePlan(daysUntil: Int) -> EventTrainingPlan {
+        EventTrainingPlan(
+            kind: "game",
+            daysUntil: daysUntil,
+            emphasis: [],
+            progressive: false,
+            reduceVolume: daysUntil <= 1,
+            keepLight: false,
+            reason: daysUntil <= 0
+                ? "Game day — train around that window, not through it."
+                : "There's a game in \(daysUntil) day\(daysUntil == 1 ? "" : "s") — we'll train around that window."
+        )
     }
 
     public static func weddingPlan(daysUntil: Int) -> EventTrainingPlan {

@@ -1,3 +1,4 @@
+import os
 import sys
 import threading
 import time
@@ -15,6 +16,7 @@ from ai_router import (  # noqa: E402
     MAX_PACKAGE_BYTES,
     RouteRequest,
     RoutingError,
+    default_models,
 )
 
 
@@ -465,6 +467,39 @@ class BedrockGatewayConcurrencyTests(unittest.TestCase):
         b = gateway._get_bedrock_client(request_timeout_seconds=1.0)
         self.assertIsNot(a, b)
         self.assertEqual(self.fake_boto3.created.count("bedrock-runtime"), 2)
+
+
+class DefaultModelsEnvTests(unittest.TestCase):
+    def tearDown(self):
+        for key in (
+            "AI_ROUTER_MODEL_1_ID",
+            "AI_ROUTER_MODEL_1_NAME",
+            "AI_ROUTER_MODEL_2_ID",
+            "AI_ROUTER_MODEL_2_NAME",
+            "AI_ROUTER_MODEL_3_ID",
+            "AI_ROUTER_MODEL_3_NAME",
+        ):
+            os.environ.pop(key, None)
+
+    def test_code_defaults_match_terraform_fallbacks(self):
+        models = default_models()
+        self.assertEqual(models[0].model_id, "anthropic.claude-sonnet-4-6")
+        self.assertEqual(models[0].name, "Claude Sonnet 4.6")
+        self.assertEqual(models[1].model_id, "anthropic.claude-opus-4-7")
+        self.assertEqual(models[1].name, "Claude Opus 4.7")
+        self.assertEqual(models[2].model_id, "global.xai.grok-4.6")
+        self.assertEqual(models[2].name, "Grok")
+
+    def test_slot_env_overrides_id_and_name(self):
+        os.environ["AI_ROUTER_MODEL_1_ID"] = "us.anthropic.claude-sonnet-5"
+        os.environ["AI_ROUTER_MODEL_1_NAME"] = "Claude Sonnet 5"
+        os.environ["AI_ROUTER_MODEL_2_ID"] = "us.anthropic.claude-opus-5"
+        os.environ["AI_ROUTER_MODEL_2_NAME"] = "Claude Opus 5"
+        models = default_models()
+        self.assertEqual(models[0].model_id, "us.anthropic.claude-sonnet-5")
+        self.assertEqual(models[0].name, "Claude Sonnet 5")
+        self.assertEqual(models[1].model_id, "us.anthropic.claude-opus-5")
+        self.assertEqual(models[1].name, "Claude Opus 5")
 
 
 if __name__ == "__main__":

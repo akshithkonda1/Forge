@@ -51,17 +51,18 @@ public enum AriaSwarm {
         _ picture: AriaSwarmPicture,
         defaults: UserDefaults = .standard
     ) -> AriaKnowledgeLedger {
-        var ledger = AriaKnowledgeLedgerStore.load(defaults: defaults)
         for item in picture.writes {
-            ledger.file(AriaKnowledgeFact(
-                category: .inferences,
-                kind: item.kind,
-                summary: item.summary,
-                source: item.source.isEmpty ? name : item.source
-            ))
+            AriaKnowledgeLedgerStore.file(
+                AriaKnowledgeFact(
+                    category: .inferences,
+                    kind: item.kind,
+                    summary: item.summary,
+                    source: item.source.isEmpty ? name : item.source
+                ),
+                defaults: defaults
+            )
         }
-        AriaKnowledgeLedgerStore.save(ledger, defaults: defaults)
-        return ledger
+        return AriaKnowledgeLedgerStore.load(defaults: defaults)
     }
 
     private static let canon: [String: String] = [
@@ -193,7 +194,10 @@ private let swarmSleepTypes: Set<String> = [
     "sleep_light", "sleep_efficiency",
 ]
 private let swarmRecoveryTypes: Set<String> = [
-    "hrv", "hrv_sdnn", "recovery", "readiness", "resting-heart-rate", "resting_heart_rate",
+    // Autonomic coaching bucket only. `recovery` here is not Whoop Recovery
+    // and is not RMSSD — vendor Recovery scores stay on their own type.
+    "hrv", "hrv_sdnn", "hrv-sdnn", "hrv_rmssd", "hrv-rmssd",
+    "recovery", "readiness", "resting-heart-rate", "resting_heart_rate",
 ]
 private let swarmActivityTypes: Set<String> = [
     "steps", "active-calories", "active_energy", "distance", "exercise_minutes",

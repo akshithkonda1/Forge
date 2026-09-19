@@ -10,6 +10,7 @@ import ProfileSetup from "@/components/onboarding/profile-setup";
 import DeviceConnection from "@/components/onboarding/device-connection";
 import CoachingStyleScreen from "@/components/onboarding/coaching-style";
 import { AriaMark } from "@/components/brand/aria-mark";
+import { ForgeBrandMark, PremiumAtmosphere } from "@/components/brand/premium-atmosphere";
 
 const FLOW_STEPS = 3;
 
@@ -25,7 +26,12 @@ export default function OnboardingPage() {
     const finish = () => setHasHydrated(true);
     const unsub = useAppStore.persist.onFinishHydration(finish);
     if (useAppStore.persist.hasHydrated()) finish();
-    return unsub;
+    // Never leave the gate hanging if persist is slow/odd in a tab.
+    const failsafe = window.setTimeout(finish, 250);
+    return () => {
+      unsub();
+      window.clearTimeout(failsafe);
+    };
   }, [setHasHydrated]);
 
   useEffect(() => {
@@ -35,16 +41,36 @@ export default function OnboardingPage() {
   }, [hasHydrated, isOnboarded, router]);
 
   const handleNext = useCallback(() => {
-    setOnboardingStep(onboardingStep + 1);
-  }, [onboardingStep, setOnboardingStep]);
+    const step = useAppStore.getState().onboardingStep;
+    setOnboardingStep(step + 1);
+  }, [setOnboardingStep]);
 
   const handleBack = useCallback(() => {
-    setOnboardingStep(onboardingStep - 1);
-  }, [onboardingStep, setOnboardingStep]);
+    const step = useAppStore.getState().onboardingStep;
+    setOnboardingStep(Math.max(0, step - 1));
+  }, [setOnboardingStep]);
 
   const handleComplete = useCallback(() => {
     router.replace("/");
   }, [router]);
+
+  if (!hasHydrated) {
+    return (
+      <div className="relative mx-auto flex min-h-[100dvh] max-w-lg flex-col items-center justify-center bg-background">
+        <PremiumAtmosphere accent="#FF6B2B" secondary="#A9D8FF" intensity={0.55} />
+        <div className="relative z-10 flex flex-col items-center gap-3">
+          <ForgeBrandMark size={22} />
+          <p className="text-[12px] font-medium uppercase tracking-[0.28em] text-text-tertiary">
+            Loading…
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  if (isOnboarded) {
+    return null;
+  }
 
   return (
     <div className="relative mx-auto min-h-[100dvh] max-w-lg bg-background pb-[env(safe-area-inset-bottom)] pt-[env(safe-area-inset-top)]">
@@ -63,7 +89,7 @@ export default function OnboardingPage() {
           >
             <ChevronLeft size={18} />
           </button>
-          <AriaMark size={36} speaking={onboardingStep === 3} className="absolute right-4 top-2.5" />
+          <AriaMark size={36} speaking={false} className="absolute right-4 top-2.5" />
           {Array.from({ length: FLOW_STEPS }).map((_, i) => {
             const step = i + 1;
             return (

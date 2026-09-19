@@ -217,6 +217,46 @@ class DummyLiveSpeakPassesFriendGates(unittest.TestCase):
         self.assertEqual(sq.bark_hits(sq.user_visible_blob(diagnose)), [])
         self.assertIn("not a doctor", (diagnose.get("prose_summary") or "").lower())
 
+    def test_multi_turn_recovery_and_forget_theme_stays_friend_not_clinic(self):
+        """Dummy parity for upcoming memory-off / recovery themes — no vitals/bark/clinic/sludge."""
+        prompts = (
+            "How's my recovery looking?",
+            "forget what I just told you",
+            "ok what should I train then",
+        )
+        history: list[str] = []
+        prev = ""
+        for prompt in prompts:
+            row = self._row(prompt, seed=11, prior=history or None)
+            fails = sq.speak_failures(
+                row,
+                prior_user=history[-1] if history else None,
+                prior_reply=prev or None,
+                current_user=prompt,
+            )
+            self.assertEqual(fails, [], f"{prompt!r} → {row['prose_summary']!r} fails {fails}")
+            blob = sq.user_visible_blob(row)
+            self.assertEqual(sq.vitals_hits(blob), [], blob)
+            self.assertEqual(sq.medical_hits(blob), [], blob)
+            self.assertEqual(sq.bark_hits(blob), [], blob)
+            self.assertEqual(sq.sludge_hits(blob), [], blob)
+            history.append(prompt)
+            prev = row["prose_summary"]
+        self.assertNotEqual(prev, "")
+        first = self._row(prompts[0], seed=11)["prose_summary"]
+        later = self._row(prompts[2], seed=11, prior=list(prompts[:2]))["prose_summary"]
+        self.assertNotEqual(first, later)
+
+    def test_stub_and_lambda_offline_fallback_both_pass_friend_gates(self):
+        """Dummy/offline fallback parity — Bedrock stays off; both engines stay friend-speak."""
+        prompt = "How's my recovery looking?"
+        for engine in ("stub", "lambda"):
+            with self.subTest(engine=engine):
+                row = dummy.respond(prompt, seed=5, engine=engine)
+                self.assertEqual(sq.speak_failures(row, current_user=prompt), [], row.get("prose_summary"))
+                self.assertNotEqual((row.get("reasoning_source") or "").lower(), "bedrock")
+
 
 if __name__ == "__main__":
     unittest.main()
+

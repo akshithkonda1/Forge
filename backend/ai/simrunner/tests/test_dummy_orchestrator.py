@@ -133,6 +133,10 @@ class DummyOrchestratorTests(unittest.TestCase):
         mock_look_up.assert_called_once_with("workout")
         # Trailing period may be normalized when the cite is parenthesized.
         self.assertIn("From Some Source: real info", row["message"])
+        blob = speak_quality.user_visible_blob(row)
+        self.assertIn("From Some Source", blob)
+        self.assertIn("real info", blob)
+        self.assertEqual(speak_quality.speak_failures(row), [])
 
     def test_training_age_looks_up_aging_web_source(self):
         plan = dummy.plan_workers("what's my training age?")
@@ -144,6 +148,28 @@ class DummyOrchestratorTests(unittest.TestCase):
         blob = (row["prose_summary"] + " " + row["message"]).lower()
         self.assertIn("lifestyle comparison", blob)
         self.assertIn("not a diagnosis", blob)
+        visible = speak_quality.user_visible_blob(row)
+        self.assertIn("From MedlinePlus", visible)
+        self.assertEqual(speak_quality.medical_hits(visible), [])
+
+    def test_aging_cite_keeps_source_label_without_vitals_dump(self):
+        """KNOWN TIP-RED if VO2 in a cite title strips the source label.
+
+        Dummy scrubs user-visible speak of vitals tokens including ``vo2``.
+        Retrieval provenance still requires ``From MedlinePlus`` in the blob
+        a person sees, without leaking a VO2 vitals dump.
+        """
+        note = "From MedlinePlus: Exercise Stress Test / VO2: tissues need oxygen."
+        with patch.object(web_research, "look_up", return_value=note):
+            row = dummy.respond("what's my training age?", seed=1, engine="stub")
+        visible = speak_quality.user_visible_blob(row)
+        self.assertIn(
+            "From MedlinePlus",
+            visible,
+            "FAIL-CLOSED: a VO2 mention in a research cite must not strip the "
+            "source label from user-visible speak",
+        )
+        self.assertEqual(speak_quality.vitals_hits(visible), [])
 
     def test_non_research_message_never_calls_web_research(self):
         with patch.object(web_research, "look_up") as mock_look_up:
@@ -554,6 +580,17 @@ class DummyOrchestratorTests(unittest.TestCase):
         self.assertIn(row["fusion"]["source"], ("body_model", "payload", "persisted"))
         self.assertTrue(row["orchestration"]["observation_count"] >= 0)
 
+    def test_lambda_engine_stamps_design_stub_caps_bedrock_off(self):
+        row = dummy.respond("What should I train today?", seed=1, engine="lambda")
+        provider = row["orchestration"]["provider"]
+        self.assertEqual(provider["path"], "dummy_lambda_fused")
+        self.assertEqual(provider["stages"], ["truth", "personal_model", "stance", "speak"])
+        self.assertFalse(provider["bedrock_kill_switch_default"])
+        self.assertTrue(provider["do_not_invoke"])
+        self.assertTrue(provider["await_quill_table"])
+        self.assertEqual(provider["direction"], "grok_plus_latest_claude")
+        self.assertIn("Bedrock off", row["thinking"])
+
     def test_lambda_engine_guidance_short_circuit(self):
         row = dummy.respond("diagnose me", seed=1, engine="lambda")
         self.assertEqual(row.get("guidance_band"), "refer_out")
@@ -759,6 +796,72 @@ class DummyOrchestratorTests(unittest.TestCase):
             other = dummy.friend_speak(body, seed=2, stance=stance)
             # Different seeds may land the same slot; variety is the bank size.
             self.assertIn(dummy._pick(2 ^ 17, list(bank)), other)
+
+    def test_friend_speak_replaces_thin_or_fallback_with_seeded_wit(self):
+        """Fused Dummy often lands the canned fallback or a stripped '.' — still local wit."""
+        for thin in (dummy._SPEAK_FALLBACK, ".", "  ...  ", ""):
+            spoken = dummy.friend_speak(thin, seed=4, stance="protect")
+            extra = dummy._wit_line(4, "protect")
+            self.assertEqual(spoken, extra)
+            self.assertNotEqual(spoken, dummy._SPEAK_FALLBACK)
+            self.assertEqual(dummy.friend_speak(thin, seed=4, stance="protect"), spoken)
+            other = dummy.friend_speak(thin, seed=9, stance="protect")
+            self.assertEqual(other, dummy._wit_line(9, "protect"))
+            self.assertTrue(speak_quality.has_friend_throughline(spoken))
+            self.assertEqual(speak_quality.vitals_hits(spoken), [])
+            self.assertEqual(speak_quality.bark_hits(spoken), [])
+
+    def test_friend_speak_short_ok_appends_wit_to_fused_notices(self):
+        short = "Keep today low-intensity — Zone 2 cardio or mobility, not a hard session"
+        self.assertLess(len(short.split()), 28)
+        spoken = dummy.friend_speak(short, seed=2, stance="protect")
+        extra = dummy._wit_line(2, "protect")
+        self.assertIn(extra, spoken)
+        self.assertTrue(spoken.startswith(short))
+        self.assertEqual(dummy.friend_speak(short, seed=2, stance="protect"), spoken)
+        self.assertEqual(
+            dummy.friend_speak(short, seed=2, stance="protect", short_ok=True),
+            spoken,
+        )
+
+    def test_friend_speak_leaves_guidance_and_follow_ups_alone(self):
+        guard = "I'm not a doctor. Please talk to a clinician."
+        self.assertEqual(
+            dummy.friend_speak(guard, seed=1, stance="protect", guidance="refer_out"),
+            guard,
+        )
+        follow = "Sure — we dial it back. Same idea, less intensity, stop while it still feels good."
+        self.assertEqual(dummy.friend_speak(follow, seed=1, stance="protect"), follow)
+
+    def test_lambda_sleep_and_checkin_get_local_seeded_wit(self):
+        wit = dummy._WIT_PROTECT + dummy._WIT_PROCEED + dummy._WIT_HONEST
+        seen: set[str] = set()
+        for seed in (1, 2, 4, 9):
+            for prompt in ("How did I sleep last night?", "hey"):
+                row = dummy.respond(prompt, seed=seed, engine="lambda")
+                blob = f"{row.get('prose_summary') or ''} {row.get('message') or ''}"
+                self.assertTrue(
+                    any(line in blob for line in wit),
+                    f"seed={seed} {prompt!r} had no local wit: {row.get('prose_summary')!r}",
+                )
+                self.assertNotEqual(row["prose_summary"].strip(), ".")
+                self._assert_no_vitals_speak(row)
+                self.assertTrue(speak_quality.has_friend_throughline(blob))
+                seen.add(row["prose_summary"])
+        self.assertGreaterEqual(len(seen), 3, seen)
+        a = dummy.respond("How did I sleep last night?", seed=4, engine="lambda")
+        b = dummy.respond("How did I sleep last night?", seed=4, engine="lambda")
+        self.assertEqual(a["prose_summary"], b["prose_summary"])
+        self.assertEqual(a["message"], b["message"])
+
+    def test_stub_train_attaches_wit_after_body_session(self):
+        row = dummy.respond("What should I train today?", seed=3, engine="stub")
+        blob = f"{row.get('prose_summary') or ''} {row.get('message') or ''}"
+        self.assertTrue(
+            any(line in blob for line in dummy._WIT_PROCEED + dummy._WIT_PROTECT + dummy._WIT_HONEST),
+            row.get("prose_summary"),
+        )
+        self._assert_no_vitals_speak(row)
 
     def test_lambda_engine_same_seed_is_deterministic(self):
         a = dummy.respond("How did I sleep last night?", seed=7, engine="lambda")

@@ -7,9 +7,13 @@ import ForgeCore
 /// Apple Calendar — so ARIA knows your time, not just your HRV.
 /// Like HealthKit, it's optional and on-device. ARIA only sees a summary
 /// of **this calendar week**: busy windows and classified kinds (wedding,
-/// game, trip) — never titles, attendees, or notes. Test-ready builds may
-/// write a full year of labeled demo events onto a Forge-owned calendar.
-/// Never onto the user's personal calendars. Ingest still tags one week.
+/// game, trip) — never titles, attendees, or notes.
+///
+/// Simulator Test-Ready loads the same `FakeCalendarPack` in memory so
+/// ARIA can be assessed against a real week — no EventKit, no Calendar
+/// permission, no Apple Calendar launch (`0x8BADF00D`). A physical phone
+/// may write that year onto a Forge-owned calendar. Never onto the
+/// user's personal calendars.
 @MainActor
 final class CalendarManager: ObservableObject {
     static let shared = CalendarManager()
@@ -17,8 +21,9 @@ final class CalendarManager: ObservableObject {
     static let writesToPersonalCalendars = FakeCalendarPack.writesToPersonalCalendars
 
     private let store = EKEventStore()
-    /// Last Test-Ready year successfully written. Persisted so Simulator
-    /// relaunch does not delete and rewrite EventKit.
+    /// Last Test-Ready pack applied (EventKit year on a physical phone,
+    /// in-memory week on Simulator). Persisted so a matching session seed
+    /// does not rewrite.
     var installedTestReadySeed: Int? {
         get {
             TestReadyLaunchPolicy.storedSeed(
@@ -48,6 +53,9 @@ final class CalendarManager: ObservableObject {
     @Published var memoryWeekContext: FakeCalendarWeekContext?
     /// Headline events in the next 21 days — kind + days-until, never titles.
     @Published var horizonTags: [String] = []
+    /// Sorted lifestyle assets (weddings, trips, flights, lifestyle events).
+    /// Titles/places stay here on-device; ARIA only sees structured kind + when.
+    @Published var lifestyleAssets: [LifestyleAsset] = []
     private var yearWriteTask: Task<Void, Never>?
 
     var displayedWeekContext: FakeCalendarWeekContext? {
@@ -58,7 +66,11 @@ final class CalendarManager: ObservableObject {
     }
 
     var calendarTags: [String] {
-        FakeCalendarPack.sanitizeTags((displayedWeekContext?.ingestTags ?? []) + horizonTags)
+        FakeCalendarPack.sanitizeTags(
+            (displayedWeekContext?.ingestTags ?? [])
+                + horizonTags
+                + LifestyleAssetIndex.ingestTags(from: lifestyleAssets)
+        )
     }
 
     private var eventKitWeekContext: FakeCalendarWeekContext? {
@@ -169,36 +181,60 @@ final class CalendarManager: ObservableObject {
     }
 
     /// Seed the Forge test calendar when allowed, then refresh this week's tags.
-    /// Home only waits on this week's EventKit fetch — never on generating or
-    /// committing a year of demo events.
+    /// Simulator Test-Ready loads the pack in memory — no EventKit, no
+    /// Calendar permission — so ARIA still sees this week's kinds and busy
+    /// windows. Home never waits on an EventKit year write.
     func ingestUpcomingIfAuthorized() async {
+        if usesMemoryCalendar {
+            lastSeedError = nil
+            isAuthorized = true
+            _ = await seedTestReadyCalendarIfNeeded()
+            return
+        }
         let status = authorizationStatus()
         guard Self.hasReadAccess(status) else { return }
         isAuthorized = true
         lastSeedError = nil
         await fetchThisWeek()
+        await refreshLifestyleAssets()
         if TestReadyLaunchPolicy.homeWaitsForCalendarYearWrite {
             _ = await seedTestReadyCalendarIfNeeded()
             await fetchThisWeek()
+            await refreshLifestyleAssets()
             return
         }
         Task { await self.seedTestReadyCalendarIfNeeded() }
     }
 
+    /// Simulator Test-Ready calendar: in-memory pack, never EventKit.
+    var usesMemoryCalendar: Bool {
+        TestReadyLaunchPolicy.skipsSimulatorEventKit(
+            testReady: AriaService.shouldUseTestReadyDummy,
+            isSimulator: TestReadyLaunchPolicy.isRunningOnSimulator
+        )
+    }
+
     @discardableResult
     func seedTestReadyCalendarIfNeeded() async -> Bool {
-        guard FakeCalendarPack.shouldSeed(
+        let memory = FakeCalendarPack.shouldApplyMemoryPack(
+            debugBuild: ForgeAuthPolicy.isDebugBuild,
+            testReady: AriaService.shouldUseTestReadyDummy,
+            isSimulator: TestReadyLaunchPolicy.isRunningOnSimulator,
+            isRunningTests: FakeCalendarPack.isRunningUnitTests
+        )
+        let eventKit = FakeCalendarPack.shouldSeed(
             debugBuild: ForgeAuthPolicy.isDebugBuild,
             testReady: AriaService.shouldUseTestReadyDummy,
             calendarAuthorized: isAuthorized
                 || Self.hasReadAccess(authorizationStatus()),
             isRunningTests: FakeCalendarPack.isRunningUnitTests
-        ) else { return false }
+        )
+        guard memory || eventKit else { return false }
         let seed = AppStore.testReadySessionSeed
         if !TestReadyLaunchPolicy.shouldRewrite(
             installedSeed: installedTestReadySeed,
             sessionSeed: seed
-        ) {
+        ), memoryWeekContext != nil {
             return false
         }
         if yearWriteTask != nil { return true }
@@ -207,6 +243,15 @@ final class CalendarManager: ObservableObject {
         }.value
         memoryWeekContext = FakeCalendarPack.weekContext(from: pack)
         horizonTags = FakeCalendarPack.horizonTags(events: pack.events)
+        lifestyleAssets = LifestyleAssetIndex.workingSet(from: pack)
+        lastSeedError = nil
+        if memory { isAuthorized = true }
+        guard eventKit, TestReadyLaunchPolicy.shouldWriteEventKitYear(
+            isSimulator: TestReadyLaunchPolicy.isRunningOnSimulator
+        ) else {
+            installedTestReadySeed = seed
+            return true
+        }
         if TestReadyLaunchPolicy.homeWaitsForCalendarYearWrite {
             await writeTestReadyYear(pack: pack, seed: seed)
             return true
@@ -243,6 +288,39 @@ final class CalendarManager: ObservableObject {
         await fetchRange(start: window.start, end: window.end)
     }
 
+    /// Classify this week plus 21-day headlines from EventKit into sortable assets.
+    func refreshLifestyleAssets() async {
+        if usesMemoryCalendar { return }
+        guard isAuthorized || Self.hasReadAccess(authorizationStatus()) else { return }
+        let cal = Calendar.current
+        let now = Date()
+        let week = FakeCalendarPack.weekWindow(containing: now, calendar: cal)
+        let horizonEnd = cal.date(
+            byAdding: .day,
+            value: LifestyleAssetIndex.workingHorizonDays,
+            to: cal.startOfDay(for: now)
+        ) ?? week.end
+        let end = max(week.end, horizonEnd)
+        let calendars = store.calendars(for: .event)
+        let predicate = store.predicateForEvents(withStart: week.start, end: end, calendars: calendars)
+        let events = store.events(matching: predicate).filter {
+            $0.status != .canceled && $0.availability != .free
+        }
+        lifestyleAssets = LifestyleAssetIndex.sort(events.compactMap { event in
+            LifestyleAssetIndex.fromCalendarFields(
+                title: event.title,
+                placeName: event.location,
+                start: event.startDate,
+                end: event.endDate,
+                isAllDay: event.isAllDay,
+                notes: event.notes,
+                url: event.url,
+                source: .eventKit
+            )
+        })
+        horizonTags = LifestyleAssetIndex.ingestTags(from: lifestyleAssets)
+    }
+
     private func fetchRange(from start: Date, days: Int) async {
         let end = Calendar.current.date(byAdding: .day, value: days, to: start) ?? start
         await fetchRange(start: start, end: end)
@@ -250,6 +328,7 @@ final class CalendarManager: ObservableObject {
 
     private func fetchRange(start: Date, end: Date) async {
         guard isAuthorized || Self.hasReadAccess(authorizationStatus()) else { return }
+        if usesMemoryCalendar { return }
         let calendars = store.calendars(for: .event)
         let predicate = store.predicateForEvents(withStart: start, end: end, calendars: calendars)
         let events = store.events(matching: predicate)
@@ -260,6 +339,7 @@ final class CalendarManager: ObservableObject {
         let kinds = filtered.compactMap { event -> FakeCalendarEvent.Kind? in
             FakeCalendarPack.kind(fromNotes: event.notes)
                 ?? FakeCalendarPack.kind(fromURL: event.url)
+                ?? LifestyleAssetIndex.classify(title: event.title ?? "", notes: event.notes)
         }
         upcomingEvents = filtered.sorted { $0.startDate < $1.startDate }
         let cal = Calendar.current

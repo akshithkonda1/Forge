@@ -84,7 +84,9 @@ enum AriaDummyOrchestrator {
             return publish(followed, prompt: text, store: store)
         }
 
-        let sleepWeak = facts.sleepBand == .weak
+        let personal = personalRead(store: store, swarm: swarmPicture)
+        let sleepWeak = personal.sleepWeak
+            || facts.sleepBand == .weak
             || (facts.sleepHours ?? 9) < 6.5
             || text.lowercased().contains("slept badly")
             || text.lowercased().contains("slept 5")
@@ -116,6 +118,9 @@ enum AriaDummyOrchestrator {
         if AriaPromptCorrelation.trainingAsk(text.lowercased()),
            let qolPlan = QualityOfLifeTrainingPolicy.plan(fromTags: AriaContextStore.shared.context.lifestyleTags),
            qolPlan.keepLight {
+            interpretation.keepLight = true
+        }
+        if personal.keepLight, AriaPromptCorrelation.trainingAsk(text.lowercased()) {
             interpretation.keepLight = true
         }
         let adaptation = AriaIntentResolver.adapt(store.intentSignals(for: text))
@@ -237,7 +242,12 @@ enum AriaDummyOrchestrator {
         let woven = AriaPromptCorrelation.allowsUnpromptedLifeStory(text)
             ? weaveStory(softenMetrics(skeleton), life: life)
             : softenMetrics(skeleton)
-        var message = await polishIfOnDevice(skeleton: woven, context: context, required: required, prompt: text)
+        var grounded = woven
+        if let ground = personal.spokenGround,
+           !grounded.localizedCaseInsensitiveContains(String(ground.prefix(24))) {
+            grounded = "\(ground) \(grounded)"
+        }
+        var message = await polishIfOnDevice(skeleton: grounded, context: context, required: required, prompt: text)
         message = AriaPromptCorrelation.grounded(prompt: text, draft: message)
         if NSClassFromString("XCTestCase") == nil,
            AriaWebResearch.isDummyResearchWorthy(text: text),
@@ -435,7 +445,9 @@ enum AriaDummyOrchestrator {
                 )
             }
             if interpretation.readCalendar {
-                let line = life.contextualizeCalendarLine()
+                let inventory = LifestyleAssetIndex.spokenInventory(CalendarManager.shared.lifestyleAssets)
+                let line = inventory
+                    ?? life.contextualizeCalendarLine()
                     ?? life.spokenCalendarLine()
                     ?? "I don't have this week's calendar in yet. Connect it and I'll read this week — kinds and busy windows, never titles."
                 return AriaDummyBeat(
@@ -723,16 +735,37 @@ enum AriaDummyOrchestrator {
         }
     }
 
+    private static func personalRead(store: AppStore, swarm: AriaSwarmPicture?) -> AriaPersonalRead {
+        let night = store.sleepData.first
+        return AriaPersonalRead.evaluate(
+            nightHours: night?.totalHours ?? (store.dailyMetrics.totalSleep > 0 ? Double(store.dailyMetrics.totalSleep) / 60.0 : nil),
+            deepMinutes: night.map { Double($0.deepMinutes) },
+            remMinutes: night.map { Double($0.remMinutes) },
+            awakeMinutes: night.map { Double($0.awakeMinutes) },
+            hrvMs: store.dailyMetrics.hrv > 0 ? Double(store.dailyMetrics.hrv) : nil,
+            readiness: store.readiness.overall,
+            chronologicalAge: store.userProfile.age.map(Double.init).flatMap { $0 > 12 ? $0 : nil },
+            vo2Max: nil,
+            restingHR: store.dailyMetrics.restingHR > 0 ? Double(store.dailyMetrics.restingHR) : nil,
+            swarm: swarm
+        )
+    }
+
     private static func speechFacts(from store: AppStore) -> AriaSpeechFacts {
         var facts = AriaSpeechFacts()
+        let personal = personalRead(store: store, swarm: lastSwarmPicture)
         if let night = store.sleepData.first {
             facts.sleepHours = night.totalHours
             facts.deepMinutes = night.deepMinutes
             facts.sleepAvg = Int(store.dailyMetrics.totalSleep > 0 ? Double(store.dailyMetrics.totalSleep) / 60.0 : night.totalHours)
-            facts.sleepBand = night.score >= 80 ? .strong : (night.score < 55 ? .weak : .ok)
         } else if store.dailyMetrics.totalSleep > 0 {
             facts.sleepHours = Double(store.dailyMetrics.totalSleep) / 60.0
-            facts.sleepBand = .unknown
+        }
+        switch personal.sleepBand {
+        case "strong": facts.sleepBand = .strong
+        case "weak": facts.sleepBand = .weak
+        case "ok": facts.sleepBand = .ok
+        default: facts.sleepBand = facts.sleepHours == nil ? .unknown : .ok
         }
         return facts
     }
@@ -827,6 +860,15 @@ enum AriaDummyOrchestrator {
         message = sanitizeSpeak(message)
         out.message = message
         out.proseSummary = message
+        let takeaway = String(message.split(separator: ".").first ?? Substring(message))
+        if takeaway.count > 12 {
+            AriaKnowledgeLedgerStore.file(AriaKnowledgeFact(
+                category: .weSpokeAbout,
+                kind: "turn",
+                summary: String(takeaway.prefix(140)),
+                source: "aria-dummy"
+            ))
+        }
         return out
     }
 
@@ -869,7 +911,9 @@ enum AriaDummyOrchestrator {
             parts.append("Last logged session was \(last.name).")
         }
         let life = store.makeTrainerContext().lifeRead
-        if let spoken = life.spokenCalendarLine() {
+        if let inventory = LifestyleAssetIndex.spokenInventory(CalendarManager.shared.lifestyleAssets) {
+            parts.append(inventory)
+        } else if let spoken = life.spokenCalendarLine() {
             parts.append(spoken)
         } else {
             let busy = CalendarManager.shared.busyWindowsToday

@@ -1,4 +1,5 @@
 #if canImport(HealthKit)
+import Foundation
 import HealthKit
 
 // MARK: - Shared HealthKit query helpers (iOS + watchOS)
@@ -12,58 +13,81 @@ public enum ForgeHealthQueries {
     // MARK: Reads
 
     /// Most recent HRV (SDNN) sample in milliseconds within `hours` back.
+    /// SDNN only — RMSSD is `latestHRVRMSSD`.
     public static func latestHRV(store: HKHealthStore, hoursBack: Double = 24) async -> (value: Double, date: Date)? {
-        let samples = await quantitySamples(
-            store: store,
-            type: HKQuantityType(.heartRateVariabilitySDNN),
-            start: Date().addingTimeInterval(-hoursBack * 3600),
-            limit: 1,
-            ascending: false
-        )
-        guard let sample = samples.first else { return nil }
-        return (sample.quantity.doubleValue(for: .secondUnit(with: .milli)), sample.startDate)
+        await latestHRVQuantity(store: store, type: HealthKitHRVQuantity.sdnnType, hoursBack: hoursBack)
+    }
+
+    /// Most recent HRV (RMSSD) sample when HealthKit has the type and at least
+    /// one reading. Distinct from SDNN — never substituted into `latestHRV`.
+    /// Returns nil if the identifier is unavailable or no samples exist.
+    public static func latestHRVRMSSD(store: HKHealthStore, hoursBack: Double = 24) async -> (value: Double, date: Date)? {
+        guard let type = HealthKitHRVQuantity.rmssdTypeIfAvailable else { return nil }
+        return await latestHRVQuantity(store: store, type: type, hoursBack: hoursBack)
     }
 
     /// Simple HRV trend: mean of samples in the recent window minus mean of
     /// the window before it. Negative result = dipping. Returns nil unless
-    /// both windows have data — no fabricated trends.
+    /// both windows have data — no fabricated trends. SDNN only.
     public static func hrvTrend(store: HKHealthStore, recentHours: Double = 4) async -> Double? {
-        let now = Date()
-        let recent = await quantitySamples(
-            store: store,
-            type: HKQuantityType(.heartRateVariabilitySDNN),
-            start: now.addingTimeInterval(-recentHours * 3600),
-            limit: HKObjectQueryNoLimit,
-            ascending: false
-        )
-        let prior = await quantitySamples(
-            store: store,
-            type: HKQuantityType(.heartRateVariabilitySDNN),
-            start: now.addingTimeInterval(-recentHours * 2 * 3600),
-            end: now.addingTimeInterval(-recentHours * 3600),
-            limit: HKObjectQueryNoLimit,
-            ascending: false
-        )
-        guard !recent.isEmpty, !prior.isEmpty else { return nil }
-        let unit = HKUnit.secondUnit(with: .milli)
-        let recentMean = recent.map { $0.quantity.doubleValue(for: unit) }.mean
-        let priorMean = prior.map { $0.quantity.doubleValue(for: unit) }.mean
-        return recentMean - priorMean
+        await hrvTrendQuantity(store: store, type: HealthKitHRVQuantity.sdnnType, recentHours: recentHours)
+    }
+
+    /// RMSSD trend over the same windows as `hrvTrend`. Not comparable to SDNN.
+    /// Nil when the type is unavailable or either window is empty.
+    public static func hrvRMSSDTrend(store: HKHealthStore, recentHours: Double = 4) async -> Double? {
+        guard let type = HealthKitHRVQuantity.rmssdTypeIfAvailable else { return nil }
+        return await hrvTrendQuantity(store: store, type: type, recentHours: recentHours)
     }
 
     /// 30-day HRV baseline (mean of daily samples). Used by the readiness
-    /// calculator; nil when history is too thin (< 5 samples).
+    /// calculator; nil when history is too thin (< 5 samples). SDNN only.
     public static func hrvBaseline(store: HKHealthStore, days: Int = 30) async -> Double? {
-        let samples = await quantitySamples(
-            store: store,
-            type: HKQuantityType(.heartRateVariabilitySDNN),
-            start: Calendar.current.date(byAdding: .day, value: -days, to: Date()) ?? Date(),
-            limit: HKObjectQueryNoLimit,
-            ascending: false
-        )
-        guard samples.count >= 5 else { return nil }
-        let unit = HKUnit.secondUnit(with: .milli)
-        return samples.map { $0.quantity.doubleValue(for: unit) }.mean
+        await hrvBaselineQuantity(store: store, type: HealthKitHRVQuantity.sdnnType, days: days)
+    }
+
+    /// 30-day RMSSD baseline. Independent of `hrvBaseline` (SDNN). Nil when
+    /// the type is missing or history is thinner than 5 samples.
+    public static func hrvRMSSDBaseline(store: HKHealthStore, days: Int = 30) async -> Double? {
+        guard let type = HealthKitHRVQuantity.rmssdTypeIfAvailable else { return nil }
+        return await hrvBaselineQuantity(store: store, type: type, days: days)
+    }
+
+    /// Pull the latest SDNN sample, and RMSSD only when HealthKit actually
+    /// returns one. Does not read Apple Readiness or Health Age. A missing
+    /// RMSSD reading leaves the SDNN path unchanged.
+    public static func ingestHRVTruthLayer(
+        store: HKHealthStore,
+        defaults: UserDefaults = .standard
+    ) async {
+        async let sdnn = latestHRV(store: store)
+        async let rmssd = latestHRVRMSSD(store: store)
+        let sdnnSample = await sdnn
+        let rmssdSample = await rmssd
+        if let sdnnSample {
+            BodyModelHRVBaselineStore.ingest(
+                HRVObservation(
+                    statistic: .sdnn,
+                    milliseconds: sdnnSample.value,
+                    timestamp: sdnnSample.date,
+                    samplingDensity: .default(for: .sdnn),
+                    source: "apple-health"
+                ),
+                defaults: defaults
+            )
+        }
+        if let rmssdSample {
+            BodyModelHRVBaselineStore.ingest(
+                HRVObservation(
+                    statistic: .rmssd,
+                    milliseconds: rmssdSample.value,
+                    timestamp: rmssdSample.date,
+                    samplingDensity: .default(for: .rmssd),
+                    source: "apple-health"
+                ),
+                defaults: defaults
+            )
+        }
     }
 
     /// Most recent on-wrist heart rate sample (background cadence, not a
@@ -306,6 +330,67 @@ public enum ForgeHealthQueries {
 #endif
 
     // MARK: Internals
+
+    private static func latestHRVQuantity(
+        store: HKHealthStore,
+        type: HKQuantityType,
+        hoursBack: Double
+    ) async -> (value: Double, date: Date)? {
+        let samples = await quantitySamples(
+            store: store,
+            type: type,
+            start: Date().addingTimeInterval(-hoursBack * 3600),
+            limit: 1,
+            ascending: false
+        )
+        guard let sample = samples.first else { return nil }
+        return (sample.quantity.doubleValue(for: .secondUnit(with: .milli)), sample.startDate)
+    }
+
+    private static func hrvTrendQuantity(
+        store: HKHealthStore,
+        type: HKQuantityType,
+        recentHours: Double
+    ) async -> Double? {
+        let now = Date()
+        let recent = await quantitySamples(
+            store: store,
+            type: type,
+            start: now.addingTimeInterval(-recentHours * 3600),
+            limit: HKObjectQueryNoLimit,
+            ascending: false
+        )
+        let prior = await quantitySamples(
+            store: store,
+            type: type,
+            start: now.addingTimeInterval(-recentHours * 2 * 3600),
+            end: now.addingTimeInterval(-recentHours * 3600),
+            limit: HKObjectQueryNoLimit,
+            ascending: false
+        )
+        guard !recent.isEmpty, !prior.isEmpty else { return nil }
+        let unit = HKUnit.secondUnit(with: .milli)
+        let recentMean = recent.map { $0.quantity.doubleValue(for: unit) }.mean
+        let priorMean = prior.map { $0.quantity.doubleValue(for: unit) }.mean
+        return recentMean - priorMean
+    }
+
+    private static func hrvBaselineQuantity(
+        store: HKHealthStore,
+        type: HKQuantityType,
+        days: Int
+    ) async -> Double? {
+        let samples = await quantitySamples(
+            store: store,
+            type: type,
+            start: Calendar.current.date(byAdding: .day, value: -days, to: Date()) ?? Date(),
+            limit: HKObjectQueryNoLimit,
+            ascending: false
+        )
+        guard samples.count >= 5 else { return nil }
+        let unit = HKUnit.secondUnit(with: .milli)
+        return samples.map { $0.quantity.doubleValue(for: unit) }.mean
+    }
 
     private static func quantitySamples(
         store: HKHealthStore,

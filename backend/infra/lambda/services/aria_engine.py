@@ -954,6 +954,12 @@ class ARIAContext:
             f"- missing_fields: {', '.join(self.missing_fields) or 'none'}",
             f"- restricted_domains: {', '.join(restricted) or 'none'}",
         ]
+        insights = [str(x).strip() for x in (getattr(self, "last_insights", None) or []) if str(x).strip()]
+        goals = [str(x).strip() for x in (getattr(self, "current_goals", None) or []) if str(x).strip()]
+        if lifestyle_ok and insights:
+            lines.append(f"- companion.last_insights: {'; '.join(insights[:3])}")
+        if lifestyle_ok and goals:
+            lines.append(f"- companion.goals: {'; '.join(goals[:3])}")
         layer = self.medication_layer
         if "clinical_data" in restricted:
             layer_on_file: list[MedicationLayerEntry] = []
@@ -1531,6 +1537,15 @@ def _interpret_aging(ctx: ARIAContext, baselines: Any = None) -> Signal | None:
         parts.append(f"training age {a.biological_age_years:.0f}")
     if a.fitness_age_years is not None:
         parts.append(f"fitness age {a.fitness_age_years:.0f}")
+    from services.biometrics import estimators as aging_estimators
+    breath = aging_estimators.one_breath_line(
+        chronological_age=a.chronological_age_years,
+        fitness_age=a.fitness_age_years,
+        biological_age=a.biological_age_years,
+        confidence=0.6 if a.biological_age_years is not None else 0.0,
+    )
+    if breath:
+        interp_bits.append(breath)
     delta = a.delta_years
     if delta is None and a.biological_age_years is not None and a.chronological_age_years is not None:
         delta = a.biological_age_years - a.chronological_age_years
@@ -2382,7 +2397,24 @@ def generate_response(
         "evidence_key": (envelope.get("evidence") or {}).get("key"),
         "load": envelope.get("load"),
     }
+    callback = _companion_callback(ctx)
+    if callback:
+        msg = str(envelope.get("message") or "")
+        if callback not in msg:
+            envelope["message"] = f"{callback}\n\n{msg}" if msg else callback
+            envelope["fusion"]["companion_callback"] = True
     return envelope
+
+
+def _companion_callback(ctx: ARIAContext) -> str | None:
+    """Speak from companion memory so last turn actually changes this one."""
+    insights = [str(x).strip() for x in (getattr(ctx, "last_insights", None) or []) if str(x).strip()]
+    goals = [str(x).strip() for x in (getattr(ctx, "current_goals", None) or []) if str(x).strip()]
+    if insights:
+        return f"Last time we landed on {insights[0].rstrip('.')}."
+    if goals:
+        return f"Still holding {goals[0].rstrip('.')}."
+    return None
 
 
 def _envelope(
@@ -2802,6 +2834,11 @@ def _merge_live_envelope(
 
     # The model's prose is the natural-language answer for both chat and voice.
     merged["message"] = prose
+    base_msg = str(base.get("message") or "")
+    if "Last time we landed on" in base_msg or "Still holding " in base_msg:
+        prefix = base_msg.split("\n\n", 1)[0].strip()
+        if prefix and prefix not in str(merged.get("message") or ""):
+            merged["message"] = f"{prefix}\n\n{merged['message']}"
     merged["model"] = model_id
     merged["reasoning_source"] = "bedrock"
 

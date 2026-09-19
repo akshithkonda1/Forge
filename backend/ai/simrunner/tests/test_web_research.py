@@ -91,6 +91,8 @@ class LookUpFetchTests(unittest.TestCase):
         self.assertIn("Move more. Rest well.", result)
         self.assertNotIn("<", result)
         self.assertNotIn("track();", result)
+        # Provenance contract: every successful lookup keeps a "From {source}:" label.
+        self.assertRegex(result, r"^From [^:]+: ")
 
     def test_decodes_html_entities_beyond_the_basic_four(self):
         # A genuine improvement over the Swift original's hand-rolled 4-entity
@@ -127,6 +129,7 @@ class LookUpFetchTests(unittest.TestCase):
         self.assertIsNotNone(result)
         self.assertTrue(result.startswith("From MedlinePlus: Exercise Stress Test / VO2: "))
         self.assertIn("VO2 max", result)
+        self.assertRegex(result, r"^From MedlinePlus: ")
 
     def test_never_imports_a_cloud_sdk(self):
         src = Path(web_research.__file__).read_text()
@@ -152,6 +155,8 @@ class LookUpFetchTests(unittest.TestCase):
             package_root / "aria_simrunner" / "web_research.py",
             package_root / "tests" / "test_web_research.py",
             package_root / "tests" / "test_dummy_orchestrator.py",
+            # Provenance gate patches look_up; still Dummy-local, not a live call site.
+            package_root / "tests" / "test_nyx_eval_gates.py",
         }
         offenders = []
         for path in package_root.rglob("*.py"):

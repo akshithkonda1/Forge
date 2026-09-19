@@ -13,9 +13,13 @@ first open, and how to recreate the targets manually if anything looks off.
 2. Open `ForgeSwift/ForgeSwift.xcodeproj` (not only the nested iOS folder).
    You should see four targets: `ForgeSwift`, `ForgeWatch`,
    `ForgeWatchWidgets`, `ForgeWidgetExtension`, plus the `ForgeCore` package.
-3. Shared schemes available:
-   - **ForgeSwift** — iPhone app (builds + embeds ForgeWatch companion)
-   - **ForgeWatch** — watch app (also builds the iPhone companion target)
+3. Shared schemes available (autocreate for tests/extensions is off on purpose —
+   those schemes make ⌘R attach a test/extension host instead of running Forge):
+   - **ForgeSwift** — iPhone app Run (⌘R); builds + embeds Watch; ⌘U for unit tests
+   - **ForgeCompanion** — iPhone Run + auto-launch Watch on paired sims
+   - **ForgeWatch** — watch app Run
+   If an old local `ForgeSwiftTests` / Widgets scheme still appears, delete it
+   under Product → Scheme → Manage Schemes (uncheck / delete user schemes).
 4. **Signing**: all targets use automatic signing with team `L85K85Q7MB`.
    Xcode will provision on first build:
    - `com.forge.ForgeSwift` (iPhone)
@@ -45,12 +49,12 @@ Standalone “Watch only” destinations work for UI, but **companion features**
 
 **Option A — install both via iPhone scheme (best for “companion”)**
 
-1. Scheme: **ForgeSwift**
+1. Scheme: **ForgeSwift** (or **ForgeCompanion** to also auto-launch Watch)
 2. Destination: the **paired iPhone** (not “Any iOS Device”)
 3. Run (⌘R)
 4. Xcode embeds `ForgeWatch.app` into the iPhone build (`Embed Watch Content`).
-5. On the paired Watch simulator: open the **ForgeWatch** app (or it may
-   auto-install). Check the Watch home screen.
+5. On the paired Watch simulator: open the **ForgeWatch** app (ForgeCompanion
+   auto-launches it). Check the Watch home screen.
 
 **Option B — launch the watch scheme against the pair**
 

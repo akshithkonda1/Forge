@@ -263,7 +263,7 @@ struct HomeVitalsRow: View {
     var onSelect: (() -> Void)? = nil
 
     var body: some View {
-        HStack(spacing: 12) {
+        HStack(spacing: 8) {
             HomeVitalDial(
                 title: "Sleep",
                 value: sleep,
@@ -310,31 +310,31 @@ struct HomeVitalDial: View {
             FDS.selectionHaptic()
             onTap?()
         } label: {
-            VStack(spacing: 8) {
+            VStack(spacing: 6) {
                 ZStack {
                     Circle()
                         .trim(from: 0.02, to: 0.98)
-                        .stroke(Color.white.opacity(0.08), style: StrokeStyle(lineWidth: 7, lineCap: .round))
+                        .stroke(Color.white.opacity(0.08), style: StrokeStyle(lineWidth: 6, lineCap: .round))
                         .rotationEffect(.degrees(-90))
 
                     Circle()
                         .trim(from: 0.02, to: 0.02 + 0.96 * progress)
-                        .stroke(color.opacity(0.28), style: StrokeStyle(lineWidth: 14, lineCap: .round))
+                        .stroke(color.opacity(0.22), style: StrokeStyle(lineWidth: 11, lineCap: .round))
                         .rotationEffect(.degrees(-90))
-                        .blur(radius: 8)
+                        .blur(radius: 6)
 
                     Circle()
                         .trim(from: 0.02, to: 0.02 + 0.96 * progress)
-                        .stroke(color, style: StrokeStyle(lineWidth: 7, lineCap: .round))
+                        .stroke(color, style: StrokeStyle(lineWidth: 6, lineCap: .round))
                         .rotationEffect(.degrees(-90))
-                        .shadow(color: color.opacity(0.45), radius: 8)
+                        .shadow(color: color.opacity(0.38), radius: 6)
 
                     Text("\(clamped)")
-                        .font(.system(size: 20, weight: .bold, design: .rounded).monospacedDigit())
+                        .font(.system(size: 18, weight: .bold, design: .rounded).monospacedDigit())
                         .foregroundColor(.textPrimary)
                         .contentTransition(.numericText())
                 }
-                .frame(width: 88, height: 88)
+                .frame(width: 72, height: 72)
 
                 Text(title.uppercased())
                     .font(.system(size: 10, weight: .semibold, design: .rounded))

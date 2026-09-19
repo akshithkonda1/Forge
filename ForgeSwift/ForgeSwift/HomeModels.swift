@@ -11,9 +11,9 @@ enum HomeMetrics {
     /// while the other eleven used a literal `16` — the same number, two spellings.
     static let inset: CGFloat = FDS.Spacing.lg
     /// Vertical gap between sections, applied once by the VStack.
-    static let sectionGap: CGFloat = 14
+    static let sectionGap: CGFloat = 12
     /// Interior padding for every card.
-    static let cardPadding: CGFloat = 18
+    static let cardPadding: CGFloat = 16
     /// Radius for elements *inside* a card. Cards themselves use the
     /// `forgeGlassCard` default (`FDS.Radius.xl`).
     static let innerRadius: CGFloat = FDS.Radius.md

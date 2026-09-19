@@ -152,7 +152,8 @@ export function PremiumPrimaryButton({
       onClick={onClick}
       disabled={disabled}
       className={cn(
-        "premium-cta group relative flex w-full items-center justify-between overflow-hidden rounded-full px-6 py-[17px] text-[17px] font-semibold transition duration-200 active:scale-[0.98]",
+        // No active:scale — transform on the press target breaks Chromium click synthesis.
+        "premium-cta group relative flex w-full items-center justify-between overflow-hidden rounded-full px-6 py-[17px] text-[17px] font-semibold transition-[background-color,box-shadow,filter] duration-150 active:brightness-[0.92] active:shadow-none",
         disabled
           ? "bg-surface-elevated text-white/35"
           : "bg-[#F7F4F0] text-[#0A0A0A] shadow-[0_10px_30px_rgba(247,244,240,0.14)]",
