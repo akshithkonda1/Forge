@@ -78,26 +78,37 @@ Verified via web search, September 2026 (`github.com/the-momentum/open-wearables
 Net: cheaper and no vendor lock-in, at the cost of Forge (or Momentum, paid)
 owning a running service instead of just an API key.
 
-## 3. Labs: out of scope (not pursuing)
+## 3. Labs: no dedicated integration — Apple Health only, for now
 
-Considered and dropped. Reasoning from the repo owner:
+Decided (repo owner): no lab-ordering integration of any kind right now.
+Concretely:
 
 - ARIA is positioned as a lifestyle coach, not a clinical/medical product —
-  ordering lab tests pulls the product toward a regulatory and liability
-  surface (physician-authorization requirements in most US states, CLIA
-  compliance, much more sensitive PHI) that doesn't fit that positioning.
-- Anyone actually getting labs done through some other service will have
-  those results land in Apple Health or Google Health Connect eventually
-  regardless — Forge already reads Apple Health natively, so lab data
-  arrives "for free" through the existing pipe without Forge needing to be
-  the thing that ordered the test or holds the lab-network relationship.
+  ordering lab tests pulls the product toward a regulatory/liability surface
+  (physician-authorization requirements in most US states, CLIA compliance,
+  much more sensitive PHI) that doesn't fit that positioning.
+- **If a user has lab results, the only path into Forge is Apple Health**
+  (or, on a future non-iOS client, Google Health Connect). Whoever actually
+  ran the test writes the result there; Forge already reads Apple Health
+  natively and picks it up the same way it picks up everything else — no
+  new code, no new vendor relationship, no new cost.
+- Deliberately **not** routed through Open Wearables either, even though
+  Open Wearables could theoretically proxy some lab-adjacent data — keeping
+  it scoped to just the four wearable providers it's actually for keeps its
+  API usage (and self-hosting cost, §2) predictable rather than growing
+  scope creep into a second job.
 
-(For the record: three vendor-hosted candidates were researched —
-Junction/Vital Enterprise, Health Gorilla, Ash Wellness — and one open-source
-self-hostable option, Medplum (Apache 2.0, FHIR-native, self-hosted lab
-ordering via `ServiceRequest`/`DiagnosticReport`). None of that research is
-being acted on; noted here only so it isn't silently lost if labs comes back
-into scope later.)
+**Kept on record, not being pursued**: Medplum (open-source, Apache 2.0,
+self-hosted, FHIR-native lab ordering via `ServiceRequest`/
+`DiagnosticReport`) is the one candidate that would actually clear a
+self-hosted/low-cost bar if labs ever becomes a real product priority later
+— worth revisiting then, not now. It still depends on connecting to a real
+upstream lab network (e.g. Health Gorilla) to get a test actually processed,
+and that piece's cost isn't confirmed to be low — so even "revisit Medplum
+later" isn't a solved problem, just the least-bad starting point if this
+comes back. The three vendor-hosted candidates also researched (Junction/
+Vital Enterprise, Health Gorilla, Ash Wellness) are not being kept as
+candidates — none are self-hostable or under a $200/mo-or-year floor.
 
 ## 4. Fit against the existing architecture
 

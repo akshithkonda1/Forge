@@ -78,6 +78,11 @@ final class HomeWidgetSnapshotTests: XCTestCase {
     }
 
     func testStandByMetricsDefaultWhenNeverSaved() {
+        // Explicit clear rather than relying solely on tearDown from
+        // whichever test ran before this one — XCTest doesn't guarantee
+        // declaration order between test methods.
+        UserDefaults(suiteName: HomeWidgetSnapshotStore.appGroupID)?
+            .removeObject(forKey: StandByMetricsStore.key)
         XCTAssertEqual(StandByMetricsStore.load(), StandByMetricKind.defaultSelection)
     }
 
