@@ -10,6 +10,7 @@ final class AriaContextStore: ObservableObject {
     @Published var context: AriaContext
     @Published private(set) var lastProactiveInsight: String?
     @Published private(set) var lastObservedContext: ARIAContextPayload?
+    @Published private(set) var lastDailyStory: DailyStoryPayload?
 
     private let defaults = UserDefaults.standard
     private let storageKey = "forge.aria.userContext"
@@ -311,6 +312,25 @@ final class AriaContextStore: ObservableObject {
 
     func applyObservedContext(_ payload: ARIAContextPayload) {
         lastObservedContext = payload
+    }
+
+    /// Applies the latest daily story. The backend hands back the same
+    /// cached story on every observe call until it actually rotates (see
+    /// `DailyStoryPayload`), so insights are only filed into the knowledge
+    /// ledger the first time a given `generatedAt` is seen — otherwise every
+    /// app open within the 18-24h window would re-file the same facts.
+    func applyDailyStory(_ payload: DailyStoryPayload) {
+        let isNewStory = payload.generatedAt != lastDailyStory?.generatedAt
+        lastDailyStory = payload
+        guard isNewStory else { return }
+        for insight in payload.insights {
+            AriaKnowledgeLedgerStore.file(AriaKnowledgeFact(
+                category: .inferences,
+                kind: "daily_story:\(insight.domain)",
+                summary: insight.text,
+                source: "daily-story"
+            ))
+        }
     }
 
     func applyUpdates(_ updates: [String: Int]) {

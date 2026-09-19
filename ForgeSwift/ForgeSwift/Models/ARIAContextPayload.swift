@@ -179,10 +179,39 @@ struct ObserveResponsePayload: Codable, Equatable {
     var ariaContext: ARIAContextPayload?
     var restrictedDomains: [String]?
     var missingFields: [String]?
+    var dailyStory: DailyStoryPayload? = nil
 
     enum CodingKeys: String, CodingKey {
         case ariaContext = "aria_context"
         case restrictedDomains = "restricted_domains"
         case missingFields = "missing_fields"
+        case dailyStory = "daily_story"
     }
+}
+
+/// ARIA's rolling story: a short narrative plus a handful of actionable
+/// insights, fused server-side from whatever domains `/ai/observe` already
+/// has (readiness/aging/activity/sleep today; a connected vendor source
+/// slots in later without any client-side change — see `daily_story.py`).
+/// Rotates every 18-24h, not on a calendar-day reset: unchanged between
+/// calls until the backend decides a new one is due, so it is safe to just
+/// display whatever is present.
+struct DailyStoryPayload: Codable, Equatable {
+    var generatedAt: String
+    var narrative: String
+    var insights: [DailyStoryInsight]
+    var sources: [String]
+
+    enum CodingKeys: String, CodingKey {
+        case generatedAt = "generated_at"
+        case narrative
+        case insights
+        case sources
+    }
+}
+
+struct DailyStoryInsight: Codable, Equatable {
+    var text: String
+    var domain: String
+    var evidence: String?
 }

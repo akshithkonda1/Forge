@@ -47,6 +47,14 @@ def _slug(text: str) -> str:
     return hashlib.sha1(text.strip().lower().encode("utf-8")).hexdigest()[:16]
 
 
+# The daily story rotates on a rolling window, not a calendar-day reset: due
+# any time at least this many hours have passed since the last one, checked
+# lazily on the next observe/chat call (there is no cron in this backend).
+# Data that lands after a story is generated is never used to rewrite it —
+# it simply carries into whichever call next finds a story due.
+DAILY_STORY_MIN_INTERVAL_HOURS = 18.0
+
+
 def _humanize_when(when: datetime | None, now: datetime) -> str:
     """Human-friendly relative time: 'today', 'tomorrow', 'in 3 days', 'in 2 weeks'."""
     if when is None:
@@ -92,6 +100,9 @@ class UserContext:
     last_checkin_at: datetime | None = None
     # Compact supervision plan from the data engine — what ARIA coaches from.
     supervision_plan: dict[str, Any] | None = None
+    # Cached daily story (narrative + insights) and when it was last generated.
+    last_story_at: datetime | None = None
+    last_story: dict[str, Any] | None = None
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -108,6 +119,8 @@ class UserContext:
             "last_evaluated_at": self.last_evaluated_at.isoformat() if self.last_evaluated_at else None,
             "last_checkin_at": self.last_checkin_at.isoformat() if self.last_checkin_at else None,
             "supervision_plan": dict(self.supervision_plan) if self.supervision_plan else None,
+            "last_story_at": self.last_story_at.isoformat() if self.last_story_at else None,
+            "last_story": dict(self.last_story) if self.last_story else None,
         }
 
     @classmethod
@@ -129,6 +142,12 @@ class UserContext:
             supervision_plan=(
                 dict(data.get("supervision_plan"))
                 if isinstance(data.get("supervision_plan"), dict)
+                else None
+            ),
+            last_story_at=_parse_dt(data.get("last_story_at")),
+            last_story=(
+                dict(data.get("last_story"))
+                if isinstance(data.get("last_story"), dict)
                 else None
             ),
         )
@@ -486,6 +505,30 @@ class CoachContextEngine:
             date=now.date().isoformat(),
             upcoming=[m.to_dict() for m in upcoming[:5]],
         )
+
+    # ------------------------------------------------------------------
+    # Daily story: rolling-window cadence (see DAILY_STORY_MIN_INTERVAL_HOURS),
+    # not a calendar-day reset — checked lazily wherever fresh data is fused.
+    # ------------------------------------------------------------------
+    def needs_daily_story(self, user_id: str, *, now: datetime | None = None) -> bool:
+        now = now or _utcnow()
+        context = self.get_or_create_context(user_id)
+        last = context.last_story_at
+        if last is None:
+            return True
+        hours = (now - last).total_seconds() / 3600.0
+        return hours >= DAILY_STORY_MIN_INTERVAL_HOURS
+
+    def save_daily_story(
+        self, user_id: str, story: dict[str, Any], *, now: datetime | None = None
+    ) -> None:
+        context = self.get_or_create_context(user_id)
+        context.last_story = story
+        context.last_story_at = now or _utcnow()
+        self._save(user_id, context)
+
+    def latest_daily_story(self, user_id: str) -> dict[str, Any] | None:
+        return self.get_or_create_context(user_id).last_story
 
     def memory_prompt_block(self, user_id: str, *, now: datetime | None = None) -> str:
         """Render long-term + active short-term memory as a prompt-injectable block.

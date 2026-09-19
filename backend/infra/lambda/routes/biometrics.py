@@ -15,9 +15,13 @@ from typing import Any
 
 from responses import RouteError, ok
 from services import aria_engine
+from services import daily_story as daily_story_mod
 from services import emergency
 from services import fusion as fusion_mod
+from services.aria_context import CoachContextEngine
 from storage import dynamodb, keys
+
+_context = CoachContextEngine()
 
 
 def _context_payload(ctx: aria_engine.ARIAContext) -> dict[str, Any]:
@@ -100,6 +104,22 @@ def handle_post_observe(body: dict[str, Any], *, user_id: str | None = None) -> 
     )
     context = fused.context
 
+    # Daily story: rolling 18h+ cadence, not tied to this specific call having
+    # fresh samples. When due and there's enough signal, rebuild and cache it;
+    # otherwise hand back whatever was last generated so the client always has
+    # something to show once one exists. See aria_context.needs_daily_story.
+    story_payload: dict[str, Any] | None = None
+    if uid:
+        if _context.needs_daily_story(uid):
+            story = daily_story_mod.build_daily_story(context, fused.baselines)
+            if story is not None:
+                story_payload = story.to_dict()
+                _context.save_daily_story(uid, story_payload)
+            else:
+                story_payload = _context.latest_daily_story(uid)
+        else:
+            story_payload = _context.latest_daily_story(uid)
+
     payload: dict[str, Any] = {
         "user_id": uid,
         "classification": fused.classification
@@ -108,6 +128,7 @@ def handle_post_observe(body: dict[str, Any], *, user_id: str | None = None) -> 
         "aria_context": _context_payload(context),
         "restricted_domains": fused.restricted or permissions.restricted(),
         "fusion": fused.fusion_sidecar(),
+        "daily_story": story_payload,
     }
 
     # Real-time vitals safety monitor. During an active session, a sustained,

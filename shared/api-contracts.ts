@@ -568,4 +568,25 @@ export interface ObserveResponse {
   aria_context: AriaContext & { missing_fields: string[] };
   restricted_domains: AriaDataDomain[];
   aria_response?: AriaResponseEnvelope; // present only when `message` was supplied
+  daily_story: DailyStory | null;
+}
+
+/** ARIA's daily story: a short narrative plus a handful of actionable
+ *  insights, fused from whatever domains this turn already has (readiness /
+ *  aging / activity / sleep today — a connected vendor source, e.g. via
+ *  Terra, slots in later since aging fusion already accepts vendor ages by
+ *  source name). Rotates every 18-24h on a rolling window, not a calendar-day
+ *  reset; unchanged between calls until the backend decides a new one is
+ *  due. Mirrors services/daily_story.py. */
+export interface DailyStory {
+  generated_at: ISODateTime;
+  narrative: string;
+  insights: DailyStoryInsight[];
+  sources: string[]; // e.g. ["apple-health"], later also vendor names
+}
+
+export interface DailyStoryInsight {
+  text: string;
+  domain: string; // "aging" | "readiness" | "activity" | "sleep"
+  evidence: string;
 }

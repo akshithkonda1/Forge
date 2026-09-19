@@ -35,6 +35,9 @@ final class BiometricsObserveService {
                 if let ariaContext = response.ariaContext {
                     contextStore.applyObservedContext(ariaContext)
                 }
+                if let dailyStory = response.dailyStory {
+                    contextStore.applyDailyStory(dailyStory)
+                }
                 return response
             }
         }
@@ -43,7 +46,8 @@ final class BiometricsObserveService {
             restrictedDomains: DataPermissionsStore.shared.restrictedDomains.isEmpty
                 ? nil
                 : DataPermissionsStore.shared.restrictedDomains,
-            missingFields: nil
+            missingFields: nil,
+            dailyStory: contextStore.lastDailyStory
         )
     }
 
