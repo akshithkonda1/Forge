@@ -30,8 +30,8 @@ _SYSTEM_TO_DOMAIN = {
     System.ACTIVITY: "activity",
     System.BODY: "body",
     System.NUTRITION: "nutrition",
-    System.METABOLIC: "readiness",
-    System.RESPIRATORY: "readiness",
+    System.METABOLIC: "vitals",
+    System.RESPIRATORY: "vitals",
     System.AGING: "aging",
 }
 
@@ -408,6 +408,25 @@ class BodyModel:
                 protein_g_3day_avg=self.recent_mean(MetricType.DIETARY_PROTEIN, 3),
                 hydration_ml_3day_avg=self.recent_mean(MetricType.WATER, 3),
                 calorie_target=None,
+            )
+
+        if allowed("vitals"):
+            vital_sys_bp = self.latest(MetricType.BLOOD_PRESSURE_SYSTOLIC)
+            vital_dia_bp = self.latest(MetricType.BLOOD_PRESSURE_DIASTOLIC)
+            map_est = (
+                estimators.mean_arterial_pressure(vital_sys_bp, vital_dia_bp)
+                if vital_sys_bp is not None and vital_dia_bp is not None
+                else None
+            )
+            o2 = self.latest(MetricType.OXYGEN_SATURATION)
+            ctx.vitals = aria_engine.VitalsContext(
+                respiratory_rate=self.latest(MetricType.RESPIRATORY_RATE),
+                oxygen_saturation_pct=round(o2 * 100, 1) if o2 is not None else None,
+                blood_pressure_systolic=vital_sys_bp,
+                blood_pressure_diastolic=vital_dia_bp,
+                mean_arterial_pressure=map_est.value if map_est is not None else None,
+                blood_glucose_mg_dl=self.latest(MetricType.BLOOD_GLUCOSE),
+                body_temperature_c=self.latest(MetricType.BODY_TEMPERATURE),
             )
 
         if allowed("aging") and self.can_project_aging():

@@ -25,7 +25,7 @@ from .biometrics.types import MetricType
 # population cutoff. One week of daily samples is the floor for "robust".
 MIN_PERSONAL_N = 7
 
-_BODY_DOMAINS = ("sleep", "readiness", "activity", "body", "nutrition", "aging")
+_BODY_DOMAINS = ("sleep", "readiness", "activity", "body", "nutrition", "aging", "vitals")
 _CLIENT_KEEP_DOMAINS = (
     "training",
     "chronotype",
@@ -58,6 +58,14 @@ _DOMAIN_METRICS: dict[str, tuple[MetricType, ...]] = {
         MetricType.INNER_AGE,
         MetricType.CARDIO_AGE,
         MetricType.HRV_AGE,
+    ),
+    "vitals": (
+        MetricType.RESPIRATORY_RATE,
+        MetricType.OXYGEN_SATURATION,
+        MetricType.BLOOD_PRESSURE_SYSTOLIC,
+        MetricType.BLOOD_PRESSURE_DIASTOLIC,
+        MetricType.BLOOD_GLUCOSE,
+        MetricType.BODY_TEMPERATURE,
     ),
 }
 
@@ -364,6 +372,7 @@ def context_from_asdict(raw: Any) -> aria_engine.ARIAContext | None:
     body = raw.get("body") if isinstance(raw.get("body"), dict) else {}
     nutrition = raw.get("nutrition") if isinstance(raw.get("nutrition"), dict) else {}
     aging = raw.get("aging") if isinstance(raw.get("aging"), dict) else {}
+    vitals = raw.get("vitals") if isinstance(raw.get("vitals"), dict) else {}
     return aria_engine.ARIAContext(
         timestamp=str(raw.get("timestamp") or ""),
         sleep=aria_engine.SleepContext(
@@ -407,6 +416,15 @@ def context_from_asdict(raw: Any) -> aria_engine.ARIAContext | None:
             confidence=_num(aging.get("confidence")),
             sources=list(aging.get("sources") or []) if isinstance(aging.get("sources"), list) else [],
             state=str(aging["state"]) if aging.get("state") else None,
+        ),
+        vitals=aria_engine.VitalsContext(
+            respiratory_rate=_num(vitals.get("respiratory_rate")),
+            oxygen_saturation_pct=_num(vitals.get("oxygen_saturation_pct")),
+            blood_pressure_systolic=_num(vitals.get("blood_pressure_systolic")),
+            blood_pressure_diastolic=_num(vitals.get("blood_pressure_diastolic")),
+            mean_arterial_pressure=_num(vitals.get("mean_arterial_pressure")),
+            blood_glucose_mg_dl=_num(vitals.get("blood_glucose_mg_dl")),
+            body_temperature_c=_num(vitals.get("body_temperature_c")),
         ),
     )
 

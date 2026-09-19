@@ -86,6 +86,7 @@ ALL_DOMAINS = (
     "lifestyle",
     "aging",
     "clinical_data",
+    "vitals",
 )
 
 # Client-friendly aliases so permission/context payloads can use natural names.
@@ -119,6 +120,17 @@ _DOMAIN_ALIASES = {
     "allergies": "clinical_data",
     "medications": "clinical_data",
     "labs": "clinical_data",
+    "respiratory": "vitals",
+    "blood_pressure": "vitals",
+    "bloodpressure": "vitals",
+    "bp": "vitals",
+    "glucose": "vitals",
+    "blood_glucose": "vitals",
+    "spo2": "vitals",
+    "oxygen": "vitals",
+    "oxygen_saturation": "vitals",
+    "temperature": "vitals",
+    "body_temperature": "vitals",
 }
 
 
@@ -317,6 +329,23 @@ class BodyContext:
     weight_trend_kg: float | None = None    # signed 30-day delta
     body_fat_pct: float | None = None
     vo2_max: float | None = None
+
+
+@dataclass
+class VitalsContext:
+    """Respiratory/metabolic/cardiovascular vitals beyond sleep-time HRV/RHR.
+
+    Lifestyle-observational only — never a diagnosis. ``mean_arterial_pressure``
+    is derived (DBP + (SBP-DBP)/3), not a separately-measured signal.
+    """
+
+    respiratory_rate: float | None = None          # breaths/min
+    oxygen_saturation_pct: float | None = None      # 0-100
+    blood_pressure_systolic: float | None = None    # mmHg
+    blood_pressure_diastolic: float | None = None   # mmHg
+    mean_arterial_pressure: float | None = None      # mmHg, derived
+    blood_glucose_mg_dl: float | None = None
+    body_temperature_c: float | None = None
 
 
 @dataclass
@@ -649,6 +678,10 @@ _FIELD_MAP: dict[str, list[str]] = {
     "profile": ["primary_goal", "experience_level", "coaching_style"],
     "progress": ["workouts_completed_30d", "new_personal_records", "training_load_trend", "recovery_consistency_delta"],
     "aging": ["chronological_age_years", "biological_age_years", "delta_years"],
+    "vitals": [
+        "respiratory_rate", "oxygen_saturation_pct", "blood_pressure_systolic",
+        "blood_pressure_diastolic", "blood_glucose_mg_dl", "body_temperature_c",
+    ],
 }
 
 # Type per domain — used to mint a fresh empty instance when a domain is redacted.
@@ -665,6 +698,7 @@ _DOMAIN_TYPES = {
     "lifestyle": LifestyleContext,
     "aging": AgingContext,
     "clinical_data": ClinicalDataContext,
+    "vitals": VitalsContext,
 }
 
 
@@ -683,6 +717,7 @@ class ARIAContext:
     lifestyle: LifestyleContext = field(default_factory=LifestyleContext)
     aging: AgingContext = field(default_factory=AgingContext)
     clinical_data: ClinicalDataContext = field(default_factory=ClinicalDataContext)
+    vitals: VitalsContext = field(default_factory=VitalsContext)
     medication_layer: MedicationLayerContext = field(default_factory=MedicationLayerContext)
 
     @property
@@ -705,6 +740,17 @@ class ARIAContext:
     @property
     def has_hrv(self) -> bool:
         return self.readiness.hrv_7day_trend is not None or self.sleep.hrv is not None
+
+    @property
+    def has_vitals(self) -> bool:
+        v = self.vitals
+        return any(
+            x is not None
+            for x in (
+                v.respiratory_rate, v.oxygen_saturation_pct,
+                v.blood_pressure_systolic, v.blood_glucose_mg_dl, v.body_temperature_c,
+            )
+        )
 
     @property
     def has_training_history(self) -> bool:
@@ -757,6 +803,7 @@ class ARIAContext:
         lifestyle = data.get("lifestyle") or {}
         clinical = data.get("clinicalData") or data.get("clinical_data") or {}
         aging = data.get("aging") or {}
+        vitals = data.get("vitals") or {}
         layer = data.get("medicationLayer") or data.get("medication_layer") or {}
         return cls(
             timestamp=str(data.get("timestamp") or _utcnow_iso()),
@@ -824,6 +871,7 @@ class ARIAContext:
                 hydration_ml_3day_avg=_num(nutrition.get("hydrationMl3DayAvg")),
                 calorie_target=_num(nutrition.get("calorieTarget")),
             ),
+            vitals=_vitals_from_dict(vitals),
             profile=ProfileContext(
                 primary_goal=_str(profile.get("primaryGoal")),
                 experience_level=_str(profile.get("experienceLevel")),
@@ -913,9 +961,11 @@ class ARIAContext:
         # an empty lifestyle here, so this only closes the un-sanitized case.
         lifestyle_ok = "lifestyle" not in restricted
         aging_ok = "aging" not in restricted
+        vitals_ok = "vitals" not in restricted
         lifestyle_tags = ", ".join(self.lifestyle.tags) if lifestyle_ok else ""
         lifestyle_patterns = ", ".join(self.lifestyle.recent_patterns) if lifestyle_ok else ""
         aging = self.aging if aging_ok else AgingContext()
+        v = self.vitals if vitals_ok else VitalsContext()
         lines = [
             "[USER MODEL — ground truth]",
             f"- timestamp: {self.timestamp}",
@@ -932,6 +982,11 @@ class ARIAContext:
             f"- training.weekly_load_score: {_fmt(self.training.weekly_load_score)}",
             f"- body.weight_trend_kg: {_fmt(self.body.weight_trend_kg)}",
             f"- body.vo2_max: {_fmt(self.body.vo2_max)}",
+            f"- vitals.respiratory_rate: {_fmt(v.respiratory_rate)}",
+            f"- vitals.oxygen_saturation_pct: {_fmt(v.oxygen_saturation_pct)}",
+            f"- vitals.blood_pressure: {_fmt(v.blood_pressure_systolic)}/{_fmt(v.blood_pressure_diastolic)}",
+            f"- vitals.blood_glucose_mg_dl: {_fmt(v.blood_glucose_mg_dl)}",
+            f"- vitals.body_temperature_c: {_fmt(v.body_temperature_c)}",
             f"- aging.chronological_age: {_fmt(aging.chronological_age_years)}",
             f"- aging.biological_age: {_fmt(aging.biological_age_years)}",
             f"- aging.fitness_age: {_fmt(aging.fitness_age_years)}",
@@ -1019,6 +1074,17 @@ class ARIAContext:
             lines.append(
                 "- aging.rule: lifestyle comparison of calendar age vs training age — never a medical "
                 "biological-age diagnosis; never tell them they are 'aging too fast' as a clinical claim"
+            )
+        if vitals_ok and (
+            v.respiratory_rate is not None or v.oxygen_saturation_pct is not None
+            or v.blood_pressure_systolic is not None or v.blood_glucose_mg_dl is not None
+            or v.body_temperature_c is not None
+        ):
+            lines.append(
+                "- vitals.rule: observational readings only — never diagnose a condition (e.g. hypertension, "
+                "diabetes, hypoxia) from them; name what the reading shows and, for anything genuinely "
+                "concerning or a repeated pattern, say it's worth a conversation with a clinician rather "
+                "than assessing it yourself"
             )
         return "\n".join(lines)
 
@@ -1154,6 +1220,11 @@ _DOMAIN_KEYWORDS: dict[str, tuple[str, ...]] = {
     "body": ("weight", "vo2", "body fat", "bodyfat", "lean", "scale"),
     "nutrition": ("protein", "calorie", "nutrition", "eat", "diet", "hydrat", "water", "macro"),
     "progress": ("progress", "trend", "month", "improving", "personal record"),
+    "vitals": (
+        "blood pressure", "bp", "oxygen", "spo2", "sat%", "saturation",
+        "respiratory", "breathing rate", "breaths", "glucose", "blood sugar",
+        "temperature", "fever", "vitals",
+    ),
 }
 
 
@@ -1178,6 +1249,7 @@ def classify_request(message: str, ctx: ARIAContext) -> str:
         or ctx.body.weight_trend_kg is not None
         or ctx.aging.chronological_age_years is not None
         or ctx.aging.biological_age_years is not None
+        or ctx.has_vitals
     )
     if not usable:
         return "clarification"
@@ -1523,6 +1595,95 @@ def _interpret_body(ctx: ARIAContext, baselines: Any = None) -> Signal | None:
     )
 
 
+# Lifestyle-observational bands, not clinical reference ranges or a diagnosis.
+# Framed the same way _interpret_aging frames wear/repair: name what the
+# reading shows, never a condition, and hand off to a clinician for anything
+# genuinely concerning rather than asserting what it means medically.
+_RESP_RATE_HIGH = 20.0
+_RESP_RATE_LOW = 12.0
+_SPO2_LOW_PCT = 94.0
+_BP_ELEVATED_SYSTOLIC = 130.0
+_BP_ELEVATED_DIASTOLIC = 80.0
+_BP_LOW_SYSTOLIC = 90.0
+_GLUCOSE_HIGH_MG_DL = 180.0
+_GLUCOSE_LOW_MG_DL = 70.0
+_TEMP_FEVER_C = 38.0
+_TEMP_LOW_C = 35.5
+
+
+def _interpret_vitals(ctx: ARIAContext, baselines: Any = None) -> Signal | None:
+    v = ctx.vitals
+    if (
+        v.respiratory_rate is None
+        and v.oxygen_saturation_pct is None
+        and v.blood_pressure_systolic is None
+        and v.blood_glucose_mg_dl is None
+        and v.body_temperature_c is None
+    ):
+        return None
+    parts: list[str] = []
+    interp_bits: list[str] = []
+    direction = "neutral"
+    priority = "low"
+
+    if v.oxygen_saturation_pct is not None:
+        parts.append(f"SpO2 {v.oxygen_saturation_pct:.0f}%")
+        if v.oxygen_saturation_pct < _SPO2_LOW_PCT:
+            direction = "negative"
+            priority = "high"
+            interp_bits.append(
+                f"oxygen saturation {v.oxygen_saturation_pct:.0f}% is lower than typical — "
+                "worth mentioning to a clinician if it's a pattern, not a one-off reading"
+            )
+
+    if v.respiratory_rate is not None:
+        parts.append(f"resp. rate {v.respiratory_rate:.0f}/min")
+        if v.respiratory_rate > _RESP_RATE_HIGH or v.respiratory_rate < _RESP_RATE_LOW:
+            direction = "negative" if direction != "negative" else direction
+            priority = "medium" if priority == "low" else priority
+            interp_bits.append(f"resting respiratory rate {v.respiratory_rate:.0f}/min is outside your usual range")
+
+    if v.blood_pressure_systolic is not None and v.blood_pressure_diastolic is not None:
+        sys_bp, dia_bp = v.blood_pressure_systolic, v.blood_pressure_diastolic
+        parts.append(f"BP {sys_bp:.0f}/{dia_bp:.0f}")
+        if sys_bp >= _BP_ELEVATED_SYSTOLIC or dia_bp >= _BP_ELEVATED_DIASTOLIC:
+            direction = "negative"
+            priority = "medium" if priority == "low" else priority
+            interp_bits.append(
+                f"{sys_bp:.0f}/{dia_bp:.0f} is running above the typical range — "
+                "a pattern here is worth a conversation with a clinician, not something to self-diagnose"
+            )
+        elif sys_bp < _BP_LOW_SYSTOLIC:
+            direction = "negative" if direction != "negative" else direction
+            interp_bits.append(f"{sys_bp:.0f}/{dia_bp:.0f} is on the low side")
+
+    if v.blood_glucose_mg_dl is not None:
+        parts.append(f"glucose {v.blood_glucose_mg_dl:.0f} mg/dL")
+        if v.blood_glucose_mg_dl < _GLUCOSE_LOW_MG_DL:
+            direction = "negative"
+            priority = "high"
+            interp_bits.append(f"blood glucose {v.blood_glucose_mg_dl:.0f} mg/dL reads low — eat something and recheck")
+        elif v.blood_glucose_mg_dl > _GLUCOSE_HIGH_MG_DL:
+            direction = "negative" if direction != "negative" else direction
+            priority = "medium" if priority == "low" else priority
+            interp_bits.append(f"blood glucose {v.blood_glucose_mg_dl:.0f} mg/dL is running high for this reading")
+
+    if v.body_temperature_c is not None:
+        parts.append(f"temp {v.body_temperature_c:.1f}C")
+        if v.body_temperature_c >= _TEMP_FEVER_C:
+            direction = "negative"
+            priority = "medium" if priority == "low" else priority
+            interp_bits.append(f"{v.body_temperature_c:.1f}C is a fever — rest and fluids, see a clinician if it persists")
+        elif v.body_temperature_c < _TEMP_LOW_C:
+            direction = "negative" if direction != "negative" else direction
+            interp_bits.append(f"{v.body_temperature_c:.1f}C is lower than typical")
+
+    return Signal(
+        "vitals", "Vitals", ", ".join(parts), "vs typical resting ranges",
+        "; ".join(interp_bits) or "vitals are in a typical range", priority, direction,
+    )
+
+
 def _interpret_aging(ctx: ARIAContext, baselines: Any = None) -> Signal | None:
     a = ctx.aging
     if a.chronological_age_years is None and a.biological_age_years is None:
@@ -1800,6 +1961,7 @@ _INTERPRETERS = (
     _interpret_training,
     _interpret_activity,
     _interpret_body,
+    _interpret_vitals,
     _interpret_aging,
     _interpret_nutrition,
     _interpret_chronotype,
@@ -2933,6 +3095,23 @@ def _str_list(value: Any) -> list[str]:
     if not isinstance(value, (list, tuple)):
         return []
     return [s for s in (_str(item) for item in value) if s]
+
+
+def _vitals_from_dict(vitals: dict[str, Any]) -> "VitalsContext":
+    systolic = _num(vitals.get("bloodPressureSystolic") or vitals.get("blood_pressure_systolic"))
+    diastolic = _num(vitals.get("bloodPressureDiastolic") or vitals.get("blood_pressure_diastolic"))
+    map_value = _num(vitals.get("meanArterialPressure"))
+    if map_value is None and systolic is not None and diastolic is not None:
+        map_value = round(diastolic + (systolic - diastolic) / 3.0, 1)
+    return VitalsContext(
+        respiratory_rate=_num(vitals.get("respiratoryRate") or vitals.get("respiratory_rate")),
+        oxygen_saturation_pct=_num(vitals.get("oxygenSaturationPct") or vitals.get("oxygen_saturation_pct")),
+        blood_pressure_systolic=systolic,
+        blood_pressure_diastolic=diastolic,
+        mean_arterial_pressure=map_value,
+        blood_glucose_mg_dl=_num(vitals.get("bloodGlucoseMgDl") or vitals.get("blood_glucose_mg_dl")),
+        body_temperature_c=_num(vitals.get("bodyTemperatureC") or vitals.get("body_temperature_c")),
+    )
 
 
 def _parse_med_entries(value: Any) -> list[MedicationLayerEntry]:
