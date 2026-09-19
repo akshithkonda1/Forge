@@ -1,8 +1,12 @@
 import Foundation
 import ForgeCore
 
-/// Client for on-device observation. Wearable samples stay in Apple Health;
-/// ARIA reads them on this iPhone. Forge `/ai/observe` is not a warehouse.
+/// Client for `/ai/observe` — the fusion endpoint that turns raw HealthKit
+/// samples into derived signals (HRV trend/baseline, chronotype) only the
+/// server can compute from history. Only calls out when
+/// `ForgeCloudSync.isRemoteEligible` (never in Dummy/local-testing, matching
+/// every other backend call); otherwise falls back to whatever was last
+/// observed, same as before this endpoint was wired up.
 @MainActor
 final class BiometricsObserveService {
     static let shared = BiometricsObserveService()
@@ -11,14 +15,29 @@ final class BiometricsObserveService {
 
     private init() {}
 
+    @discardableResult
     func observe(
         store: AppStore,
         samples: [HealthSamplePayload] = [],
         message: String? = nil
     ) async -> ObserveResponsePayload? {
-        _ = samples
-        _ = message
-        _ = store
+        if ForgeCloudSync.shared.isRemoteEligible {
+            let request = ObserveRequestPayload(
+                userId: contextStore.context.userId,
+                samples: samples,
+                includeStored: true,
+                ageYears: store.userProfile.age,
+                permissions: DataPermissionsStore.shared.payloadIfRestricted(),
+                message: message,
+                voiceMode: nil
+            )
+            if let response = try? await postObserve(request) {
+                if let ariaContext = response.ariaContext {
+                    contextStore.applyObservedContext(ariaContext)
+                }
+                return response
+            }
+        }
         return ObserveResponsePayload(
             ariaContext: contextStore.lastObservedContext,
             restrictedDomains: DataPermissionsStore.shared.restrictedDomains.isEmpty
@@ -28,8 +47,18 @@ final class BiometricsObserveService {
         )
     }
 
-    /// Dated HealthKit samples ARIA already has on this iPhone.
-    /// Used for on-device opinions — not uploaded to Forge.
+    private func postObserve(_ payload: ObserveRequestPayload) async throws -> ObserveResponsePayload {
+        let url = AriaService.shared.baseURL.appendingPathComponent("ai/observe")
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.httpBody = try JSONEncoder().encode(payload)
+        let (data, _) = try await ForgeAPI.send(request)
+        return try JSONDecoder().decode(ObserveResponsePayload.self, from: data)
+    }
+
+    /// Dated HealthKit samples ARIA already has on this iPhone, shaped for
+    /// `observe(store:samples:)` — the values, not raw Health records.
     func samplesFromStore(_ store: AppStore) -> [HealthSamplePayload] {
         let now = Date.now.ISO8601Format()
         var samples: [HealthSamplePayload] = []
