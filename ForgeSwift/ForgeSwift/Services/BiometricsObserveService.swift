@@ -79,6 +79,15 @@ final class BiometricsObserveService {
             }
         }
 
+        // Nightly sleep duration. `sleep_duration` is the one server-side sleep
+        // metric that needs no extra shape beyond metric/value/unit — stage
+        // minutes (deep/rem/light/awake) need a per-sample stage tag this
+        // payload does not carry yet, so they stay client-only for now.
+        for night in store.sleepData where night.totalHours > 0 {
+            samples.append(.init(metric: "sleep_duration", value: night.totalHours * 60, unit: "min",
+                                 timestamp: night.date, source: "apple-health"))
+        }
+
         // Today's readings, for whatever the weekly series does not carry. HRV,
         // steps and calories are only added here when the series is empty —
         // otherwise today is already in it and would be double-counted, which
