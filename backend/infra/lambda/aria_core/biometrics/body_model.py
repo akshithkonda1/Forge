@@ -18,8 +18,6 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any
 
-from services import aria_engine
-
 from . import estimators, statistics as st
 from .estimators import Estimate
 from .types import MetricType, Observation, System, metrics_for_system, spec, utcnow
@@ -344,6 +342,8 @@ class BodyModel:
 
     def to_aria_context(self, permissions: "aria_engine.DataPermissions | None" = None) -> aria_engine.ARIAContext:
         """Project the model onto ARIAContext, skipping permission-denied domains."""
+        from services import aria_engine
+
         perms = permissions or aria_engine.DataPermissions.allow_all()
 
         def allowed(domain: str) -> bool:
