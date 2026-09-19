@@ -136,7 +136,7 @@ public struct MetabolicHealthSnapshot: Sendable, Equatable {
             connectedDeviceIDs: connectedDeviceIDs,
             latestSource: latest?.sourceName
         )
-        let story = storyLine(
+        let story = buildStoryLine(
             latest: latest,
             meals: todayMeals,
             pairs: pairs,
@@ -225,7 +225,7 @@ private func pairLine(name: String, carbs: Double, peak: Double?, delta: Double?
     return "\(title)\(carbBit)."
 }
 
-private func storyLine(
+private func buildStoryLine(
     latest: GlucosePoint?,
     meals: [MetabolicMealEvent],
     pairs: [MealGlucosePair],
