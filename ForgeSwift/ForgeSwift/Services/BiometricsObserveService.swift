@@ -12,8 +12,57 @@ final class BiometricsObserveService {
     static let shared = BiometricsObserveService()
 
     private let contextStore = AriaContextStore.shared
+    private static let backfillCompletedKey = "forge.biometrics.initialBackfillCompleted.v1"
+    private static let backfillBatchSize = 400
 
     private init() {}
+
+    /// One-time deep historical backfill so personal baselines (and the
+    /// daily story) don't need a week of live usage to have anything to say —
+    /// runs from the onboarding boot sequence (`AriaForgePrep.loadUserData`),
+    /// which already holds the UI open behind "Pulling Apple Health" while
+    /// real work happens; this is the work becoming real, not just the copy.
+    /// Chunked to `backfillBatchSize` to stay under the server's 500-samples-
+    /// per-call cap regardless of how many metrics/days this later grows to.
+    @discardableResult
+    func runInitialBackfillIfNeeded(store: AppStore, days: Int = 90) async -> Bool {
+        let defaults = UserDefaults.standard
+        guard ForgeCloudSync.shared.isRemoteEligible,
+              !defaults.bool(forKey: Self.backfillCompletedKey) else {
+            return false
+        }
+
+        let trends = await HealthKitManager.shared.fetchHistoricalTrends(days: days)
+        guard !trends.isEmpty else { return false }
+
+        var samples: [HealthSamplePayload] = []
+        for day in trends {
+            let stamp = day.date.ISO8601Format()
+            if day.avgHRV > 0 {
+                samples.append(.init(metric: "hrv", value: day.avgHRV, unit: "ms",
+                                     timestamp: stamp, source: "apple-health"))
+            }
+            if day.steps > 0 {
+                samples.append(.init(metric: "steps", value: Double(day.steps), unit: "count",
+                                     timestamp: stamp, source: "apple-health"))
+            }
+            if day.activeCalories > 0 {
+                samples.append(.init(metric: "active_calories", value: Double(day.activeCalories),
+                                     unit: "kcal", timestamp: stamp, source: "apple-health"))
+            }
+            if day.sleepHours > 0 {
+                samples.append(.init(metric: "sleep_duration", value: day.sleepHours * 60, unit: "min",
+                                     timestamp: stamp, source: "apple-health"))
+            }
+        }
+        guard !samples.isEmpty else { return false }
+
+        for chunk in samples.forgeChunked(into: Self.backfillBatchSize) {
+            _ = await observe(store: store, samples: chunk)
+        }
+        defaults.set(true, forKey: Self.backfillCompletedKey)
+        return true
+    }
 
     @discardableResult
     func observe(
@@ -127,5 +176,16 @@ final class BiometricsObserveService {
                                  timestamp: now, source: "apple-health"))
         }
         return samples
+    }
+}
+
+private extension Array {
+    /// Splits into `size`-element (or smaller final) slices, oldest-first —
+    /// used to keep a backfill POST under the server's per-call sample cap.
+    func forgeChunked(into size: Int) -> [[Element]] {
+        guard size > 0 else { return [self] }
+        return stride(from: 0, to: count, by: size).map {
+            Array(self[$0..<Swift.min($0 + size, count)])
+        }
     }
 }
