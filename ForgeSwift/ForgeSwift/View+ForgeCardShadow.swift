@@ -9,7 +9,8 @@ extension View {
     }
 
     /// Full premium glass card: fill + hairline + depth.
-    func forgeGlassCard(cornerRadius: CGFloat = FDS.Radius.xl, accent: Color? = nil) -> some View {
+    /// Default radius is 20 — dense like a fitness OS card, not a modal.
+    func forgeGlassCard(cornerRadius: CGFloat = 20, accent: Color? = nil) -> some View {
         modifier(ForgeGlassCard(cornerRadius: cornerRadius, accent: accent))
     }
 
@@ -25,17 +26,17 @@ extension View {
     /// Inner well used inside glass cards — briefing text, chips, tiles.
     func forgeInnerWell(cornerRadius: CGFloat = FDS.Radius.md) -> some View {
         self
-            .background(Color.white.opacity(0.05))
+            .background(Color.white.opacity(0.06))
             .clipShape(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
             .overlay(
                 RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
                     .stroke(
                         LinearGradient(
-                            colors: [Color.white.opacity(0.16), Color.white.opacity(0.05)],
+                            colors: [Color.white.opacity(0.14), Color.white.opacity(0.04)],
                             startPoint: .topLeading,
                             endPoint: .bottomTrailing
                         ),
-                        lineWidth: 1
+                        lineWidth: 0.8
                     )
             )
     }
@@ -51,11 +52,10 @@ private struct ForgeCardShadow: ViewModifier {
 
     func body(content: Content) -> some View {
         content
-            // Whoop / Oura: depth is a whisper, not a black puddle. Glow
-            // carries the accent so cards feel lit from the data they hold.
-            .shadow(color: .black.opacity(0.20), radius: 14, x: 0, y: 8)
-            .shadow(color: (glow ?? .clear).opacity(glow == nil ? 0 : 0.22),
-                    radius: 18, x: 0, y: 6)
+            // Photo-board cards: a short lift, not a black puddle.
+            .shadow(color: .black.opacity(0.28), radius: 10, x: 0, y: 6)
+            .shadow(color: (glow ?? .clear).opacity(glow == nil ? 0 : 0.16),
+                    radius: 12, x: 0, y: 4)
     }
 }
 
@@ -68,15 +68,13 @@ private struct ForgeGlassCard: ViewModifier {
             .background {
                 ZStack {
                     RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-                        .fill(Color.surface.opacity(0.92))
+                        .fill(Color.surfaceElevated.opacity(0.94))
                     RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
                         .fill(LinearGradient.premiumSurface)
-                    // Top sheen — the hairline luminance Whoop / Health use
-                    // instead of a heavy drop shadow.
                     RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
                         .fill(
                             LinearGradient(
-                                colors: [Color.white.opacity(0.08), .clear],
+                                colors: [Color.white.opacity(0.10), Color.white.opacity(0.02), .clear],
                                 startPoint: .top,
                                 endPoint: .center
                             )
@@ -85,7 +83,7 @@ private struct ForgeGlassCard: ViewModifier {
                         RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
                             .fill(
                                 LinearGradient(
-                                    colors: [accent.opacity(0.09), .clear],
+                                    colors: [accent.opacity(0.07), .clear],
                                     startPoint: .topLeading,
                                     endPoint: .bottomTrailing
                                 )
@@ -99,14 +97,14 @@ private struct ForgeGlassCard: ViewModifier {
                     .strokeBorder(
                         LinearGradient(
                             colors: [
-                                Color.white.opacity(0.22),
-                                Color.white.opacity(0.07),
+                                Color.white.opacity(0.16),
+                                Color.white.opacity(0.06),
                                 Color.white.opacity(0.03)
                             ],
                             startPoint: .top,
                             endPoint: .bottom
                         ),
-                        lineWidth: 1
+                        lineWidth: 0.8
                     )
             }
             .forgeCardShadow(glow: accent)
