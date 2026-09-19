@@ -5,6 +5,7 @@ import { AiGreeting } from "@/components/home/ai-greeting";
 import { ReadinessSection } from "@/components/home/readiness-section";
 import { TodayPlanCard } from "@/components/home/today-plan-card";
 import { QuickStats } from "@/components/home/quick-stats";
+import { BodyTalkCard } from "@/components/home/body-talk-card";
 import { PremiumAtmosphere, PremiumEntrance } from "@/components/brand/premium-atmosphere";
 
 export function HomePage() {
@@ -40,6 +41,9 @@ export function HomePage() {
         )}
         <PremiumEntrance index={3}>
           <QuickStats />
+        </PremiumEntrance>
+        <PremiumEntrance index={4}>
+          <BodyTalkCard />
         </PremiumEntrance>
       </div>
     </div>

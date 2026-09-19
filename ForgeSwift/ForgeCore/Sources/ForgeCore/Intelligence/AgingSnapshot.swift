@@ -90,6 +90,9 @@ public struct AgingSnapshot: Sendable, Equatable {
     public var components: [AgingComponent]
     /// Lifestyle copy for Train / Life. Never a diagnosis.
     public var comparisonLine: String
+    /// One-breath sentence. Cardio age vs calendar when VO₂ exists;
+    /// otherwise training age. Empty when we would have to invent a gap.
+    public var oneBreathLine: String
     public var trainingHint: String
 
     public var hasComparison: Bool {
@@ -112,6 +115,7 @@ public struct AgingSnapshot: Sendable, Equatable {
         sources: [],
         components: [],
         comparisonLine: "",
+        oneBreathLine: "",
         trainingHint: ""
     )
 
@@ -193,6 +197,8 @@ public struct AgingSnapshot: Sendable, Equatable {
         let roundedBio = fused.map { ($0 * 10).rounded() / 10 }
         let roundedChrono = chrono.map { ($0 * 10).rounded() / 10 }
         let roundedDelta = delta.map { ($0 * 10).rounded() / 10 }
+        let cardioYears = estimated["fitness_age_est"]?.0
+            ?? vendorAges.first(where: { $0.kind == .fitness || $0.kind == .cardio })?.years
 
         return AgingSnapshot(
             chronologicalAge: roundedChrono,
@@ -206,6 +212,12 @@ public struct AgingSnapshot: Sendable, Equatable {
             sources: sources,
             components: components,
             comparisonLine: lifestyleComparisonLine(chrono: roundedChrono, bio: roundedBio, delta: roundedDelta, state: state, confidence: confidence),
+            oneBreathLine: lifestyleOneBreathLine(
+                chrono: roundedChrono,
+                cardioYears: cardioYears,
+                bio: roundedBio,
+                confidence: confidence
+            ),
             trainingHint: lifestyleTrainingHint(state: state, delta: roundedDelta)
         )
     }
@@ -330,6 +342,35 @@ private func lifestyleComparisonLine(chrono: Double?, bio: Double?, delta: Doubl
     let years = Int(abs(delta).rounded())
     let word = state == .younger ? "younger" : "older"
     return "\(Int(bio.rounded())) vs \(Int(chrono.rounded())) · \(years)y \(word)"
+}
+
+/// Oura-style one sentence. Cardio when VO₂ / fitness age exists.
+/// Training age only when the fused gap is real. Never invents a comparison.
+private func lifestyleOneBreathLine(
+    chrono: Double?,
+    cardioYears: Double?,
+    bio: Double?,
+    confidence: Double
+) -> String {
+    guard let chrono else { return "" }
+    if let cardio = cardioYears {
+        return oneBreathSentence(noun: "cardiovascular age", years: cardio, calendar: chrono)
+    }
+    guard let bio, confidence > 0.25 else { return "" }
+    return oneBreathSentence(noun: "training age", years: bio, calendar: chrono)
+}
+
+private func oneBreathSentence(noun: String, years: Double, calendar: Double) -> String {
+    switch deltaState(years - calendar) {
+    case .younger:
+        return "Your \(noun) is below your actual age."
+    case .older:
+        return "Your \(noun) is above your actual age."
+    case .matched:
+        return "Your \(noun) is tracking your actual age."
+    case .unknown:
+        return ""
+    }
 }
 
 private func lifestyleTrainingHint(state: AgingDeltaState, delta: Double?) -> String {

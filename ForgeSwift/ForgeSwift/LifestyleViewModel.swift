@@ -19,6 +19,10 @@ final class LifestyleViewModel: ObservableObject {
     @Published private(set) var qolConfidence: Double = 0
     @Published var aiWorkouts: [AIWorkoutSuggestion] = []
     @Published var loggedMeals: [MealLog] = []
+    /// Latest HealthKit blood glucose in mg/dL. Nil until a CGM shares into Health.
+    @Published var latestGlucoseMgDl: Double?
+    @Published var glucosePoints: [GlucosePoint] = []
+    private var connectedDeviceIDs: [String] = []
     @Published var mindfulMinutesToday: Int = 0
     @Published var mindfulMinutesWeek: Int = 0
     @Published var deepHabits: [DeepHabit] = []
@@ -56,6 +60,27 @@ final class LifestyleViewModel: ObservableObject {
         AgingBridge.snapshot(age: personalAge, sexFemale: personalSexFemale, stats: healthStats)
     }
 
+    var metabolicSnapshot: MetabolicHealthSnapshot {
+        MetabolicHealthSnapshot.evaluate(
+            meals: loggedMeals.map {
+                MetabolicMealEvent(
+                    name: $0.name,
+                    date: $0.date,
+                    calories: $0.calories,
+                    carbs: $0.carbs,
+                    protein: $0.protein,
+                    fat: $0.fat
+                )
+            },
+            glucose: glucosePoints,
+            dayCarbs: healthStats?.carbs,
+            dayProtein: healthStats?.protein,
+            dayFat: healthStats?.fat,
+            dayCalories: healthStats.map { Double($0.totalCalories) },
+            connectedDeviceIDs: connectedDeviceIDs
+        )
+    }
+
     /// Copied from the live AppStore — AppStore is a @StateObject, not a singleton.
     private var storeDeepSleepMinutes: Double?
     private var storeReadinessStress0to1: Double?
@@ -80,6 +105,9 @@ final class LifestyleViewModel: ObservableObject {
         storeReadinessStress0to1 = readinessStressLevel > 0
             ? min(1, max(0, Double(readinessStressLevel) / 100.0))
             : nil
+        if let devices = profile?.connectedDevices {
+            connectedDeviceIDs = HealthDeviceCatalog.migrateStoredIDs(devices)
+        }
     }
 
     func load(force: Bool = false) async {
@@ -89,6 +117,9 @@ final class LifestyleViewModel: ObservableObject {
            Date().timeIntervalSince(last) < Self.loadTTL,
            healthStats != nil {
             applyCachedHealth()
+            if glucosePoints.isEmpty, healthManager.isAuthorized {
+                await loadGlucoseIfNeeded()
+            }
             return
         }
         isLoading = true
@@ -108,6 +139,9 @@ final class LifestyleViewModel: ObservableObject {
         await healthManager.fetchTodayStats(force: force)
         healthStats = healthManager.todayStats
         loggedMeals = healthManager.loggedMeals
+        if healthManager.isAuthorized {
+            await loadGlucoseIfNeeded(force: force)
+        }
 
         await AriaAgingNorms.refresh()
 
@@ -150,6 +184,13 @@ final class LifestyleViewModel: ObservableObject {
     func loadWorkoutsIfNeeded() async {
         guard aiWorkouts.isEmpty else { return }
         aiWorkouts = await generateAIWorkouts(from: healthStats)
+    }
+
+    func loadGlucoseIfNeeded(force: Bool = false) async {
+        guard healthManager.isAuthorized else { return }
+        if !force, !glucosePoints.isEmpty { return }
+        glucosePoints = await healthManager.fetchRecentBloodGlucose()
+        latestGlucoseMgDl = glucosePoints.first?.mgdl ?? await healthManager.fetchLatestBloodGlucoseMgDl()
     }
 
     private func applyCachedHealth() {
@@ -200,6 +241,22 @@ final class LifestyleViewModel: ObservableObject {
                     source: "apple-health"
                 ))
             }
+            if let glucose = latestGlucoseMgDl {
+                facts.append(AriaKnowledgeFact(
+                    category: .appleHealth,
+                    kind: "glucose",
+                    summary: "Latest glucose: \(Int(glucose.rounded())) mg/dL.",
+                    source: "apple-health"
+                ))
+            }
+        }
+        if !agingSnapshot.oneBreathLine.isEmpty {
+            facts.append(AriaKnowledgeFact(
+                category: .appleHealth,
+                kind: "aging",
+                summary: agingSnapshot.oneBreathLine,
+                source: "apple-health"
+            ))
         }
         facts.append(AriaKnowledgeFact(
             category: .appleHealth,

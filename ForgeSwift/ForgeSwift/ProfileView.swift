@@ -36,6 +36,7 @@ struct ProfileHeroHeader: View {
 
     @State private var appeared = false
     @State private var glow = false
+    @ObservedObject private var lifestyle = LifestyleViewModel.shared
 
     private var profile: UserProfile { store.userProfile }
     private var totalWorkouts: Int { store.workoutHistory.count }
@@ -93,6 +94,7 @@ struct ProfileHeroHeader: View {
         VStack(spacing: FDS.Spacing.lg) {
             identity
             statBand
+            lifetimeStrip
             readinessStrip
             actions
         }
@@ -209,6 +211,66 @@ struct ProfileHeroHeader: View {
         .padding(.horizontal, 4)
         .accessibilityElement(children: .combine)
         .accessibilityLabel("\(value) \(label)")
+    }
+
+    // MARK: Lifetime — aging + metabolic one-liners
+
+    private var lifetimeAging: AgingSnapshot {
+        let sexFemale: Bool?
+        switch profile.biologicalSex {
+        case .female: sexFemale = true
+        case .male: sexFemale = false
+        default: sexFemale = nil
+        }
+        return AgingBridge.snapshot(
+            age: profile.age,
+            sexFemale: sexFemale,
+            stats: HealthKitManager.shared.todayStats
+        )
+    }
+
+    private var lifetimeMetabolic: MetabolicHealthSnapshot {
+        lifestyle.metabolicSnapshot
+    }
+
+    @ViewBuilder
+    private var lifetimeStrip: some View {
+        let heart = lifetimeAging.oneBreathLine
+        let metabolic = lifetimeMetabolic.storyLine
+        if heart.isEmpty && metabolic.isEmpty {
+            EmptyView()
+        } else {
+            Button {
+                FDS.haptic(.light)
+                store.pendingLifestyleSegment = "lifetime"
+                store.activeTab = .lifestyle
+            } label: {
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("LIFETIME")
+                        .font(.system(size: 10, weight: .black))
+                        .tracking(1.4)
+                        .foregroundColor(.textTertiary)
+                    if !heart.isEmpty {
+                        Text(heart)
+                            .font(.system(size: 15, weight: .semibold, design: .rounded))
+                            .foregroundColor(.textPrimary)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                    if !metabolic.isEmpty {
+                        Text(metabolic)
+                            .font(.system(size: 13, weight: .medium))
+                            .foregroundColor(.textSecondary)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(FDS.Spacing.lg)
+                .forgeGlassCard(accent: Color(hex: "A855F7"))
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel([heart, metabolic].filter { !$0.isEmpty }.joined(separator: ". "))
+            .accessibilityHint("Opens Lifestyle Lifetime")
+        }
     }
 
     // MARK: Readiness strip

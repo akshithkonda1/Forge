@@ -164,6 +164,8 @@ struct LifestyleView: View {
             case "restaurants", "meals", "food", "places", "map": return .restaurants
             case "wellbeing", "wellness": return .wellbeing
             case "ai", "aioptimization", "optimize": return .aiOptimization
+            case "lifetime", "aging", "heart", "cardio", "metabolic", "glucose", "stelo":
+                return .lifetime
             default: return LifestyleSegment(rawValue: Int(raw) ?? -1)
             }
         }()
@@ -184,6 +186,9 @@ struct LifestyleView: View {
         case .aiOptimization:
             LifestyleLocationStore.shared.stopTracking()
             await vm.loadWorkoutsIfNeeded()
+        case .lifetime:
+            LifestyleLocationStore.shared.stopTracking()
+            await vm.loadGlucoseIfNeeded(force: true)
         case .restaurants:
             let locator = LifestyleLocationStore.shared
             if locator.canAsk { _ = await locator.requestAccess() }
@@ -214,6 +219,7 @@ struct LifestyleView: View {
             case .homeCooking:    HomeCookingView(vm: vm)
             case .restaurants:    LifestylePlacesView(vm: vm, locationLogger: locationLogger)
             case .nutrition:      DailyNutritionView(vm: vm)
+            case .lifetime:       LifestyleLifetimeView(vm: vm)
             case .wellbeing:      WellbeingView(vm: vm)
             }
         }
@@ -229,6 +235,7 @@ struct LifestyleBackground: View {
         case .homeCooking:    return Color(hex: "7C5CFF")
         case .restaurants:    return .steel
         case .nutrition:      return Color(hex: "FFB84D")
+        case .lifetime:       return Color(hex: "A855F7")
         case .wellbeing:      return .success
         }
     }

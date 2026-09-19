@@ -1537,6 +1537,15 @@ def _interpret_aging(ctx: ARIAContext, baselines: Any = None) -> Signal | None:
         parts.append(f"training age {a.biological_age_years:.0f}")
     if a.fitness_age_years is not None:
         parts.append(f"fitness age {a.fitness_age_years:.0f}")
+    from services.biometrics import estimators as aging_estimators
+    breath = aging_estimators.one_breath_line(
+        chronological_age=a.chronological_age_years,
+        fitness_age=a.fitness_age_years,
+        biological_age=a.biological_age_years,
+        confidence=0.6 if a.biological_age_years is not None else 0.0,
+    )
+    if breath:
+        interp_bits.append(breath)
     delta = a.delta_years
     if delta is None and a.biological_age_years is not None and a.chronological_age_years is not None:
         delta = a.biological_age_years - a.chronological_age_years

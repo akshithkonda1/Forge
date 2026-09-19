@@ -243,6 +243,17 @@ final class HealthDeviceCatalogTests: XCTestCase {
         XCTAssertEqual(decoded.retire, ["apple-watch-s6"])
     }
 
+    func testMetabolicAccessoriesAreSoldSeparately() {
+        for id in ["dexcom", "dexcom-stelo", "abbott-lingo", "abbott-libre"] {
+            let device = HealthDeviceCatalog.device(matching: id)
+            XCTAssertNotNil(device, id)
+            XCTAssertEqual(device?.category, .metabolic)
+            XCTAssertTrue(device?.summary.localizedCaseInsensitiveContains("sold separately") == true, id)
+            XCTAssertEqual(device?.soldSeparatelyNote, TranslationCatalog.metabolicAccessoryNote)
+        }
+        XCTAssertNil(HealthDeviceCatalog.device(matching: "oura-ring-4")?.soldSeparatelyNote)
+    }
+
     private func catalogDevice(
         id: String,
         generation: Int,

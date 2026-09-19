@@ -357,6 +357,11 @@ private struct CompanyProductsView: View {
                             Text(String(device.releasedYear))
                                 .font(.system(size: 11, weight: .medium))
                                 .foregroundColor(.textTertiary)
+                            if device.soldSeparatelyNote != nil {
+                                Text("Sold separately")
+                                    .font(.system(size: 11, weight: .medium))
+                                    .foregroundColor(.ember)
+                            }
                             if device.id.hasPrefix("discovered-") {
                                 Text("On this iPhone")
                                     .font(.system(size: 11, weight: .medium))
@@ -444,6 +449,18 @@ private struct DeviceDetailSheet: View {
                         .font(.system(size: 14))
                         .foregroundColor(.textSecondary)
                         .fixedSize(horizontal: false, vertical: true)
+
+                    if let note = device.soldSeparatelyNote {
+                        Text(note)
+                            .font(.system(size: 13, weight: .medium))
+                            .foregroundColor(.textSecondary)
+                            .fixedSize(horizontal: false, vertical: true)
+                            .padding(12)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .background(Color.ember.opacity(0.10))
+                            .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                            .accessibilityLabel(note)
+                    }
 
                     VStack(alignment: .leading, spacing: 8) {
                         Text("What it tracks")

@@ -445,7 +445,7 @@ extension AriaService {
                 state: aging.state.rawValue,
                 confidence: aging.confidence,
                 method: "fusion:aging",
-                detail: aging.comparisonLine
+                detail: aging.oneBreathLine.isEmpty ? aging.comparisonLine : aging.oneBreathLine
             )
         }
         if let fitness = aging.fitnessAge {
@@ -455,7 +455,7 @@ extension AriaService {
                 state: aging.state.rawValue,
                 confidence: aging.confidence,
                 method: "vo2",
-                detail: "Fitness age from VO₂"
+                detail: aging.oneBreathLine.isEmpty ? "Fitness age from VO₂" : aging.oneBreathLine
             )
         }
         return ObserveResponse(

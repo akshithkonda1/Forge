@@ -44,6 +44,41 @@ extension HealthKitManager {
         }
     }
 
+    /// Latest blood glucose in mg/dL. Nil when no CGM has shared into Apple Health.
+    func fetchLatestBloodGlucoseMgDl() async -> Double? {
+        let unit = HKUnit.gramUnit(with: .milli).unitDivided(by: .literUnit(with: .deci))
+        return await fetchMostRecentQuantity(.bloodGlucose, unit: unit)
+    }
+
+    /// Recent glucose samples with source names, newest first. Implausible
+    /// values stay in the list; MetabolicHealthSnapshot drops them.
+    func fetchRecentBloodGlucose(hours: Int = 24, limit: Int = 120) async -> [GlucosePoint] {
+        guard isAuthorized else { return [] }
+        let unit = HKUnit.gramUnit(with: .milli).unitDivided(by: .literUnit(with: .deci))
+        let type = HKQuantityType(.bloodGlucose)
+        let start = Calendar.current.date(byAdding: .hour, value: -hours, to: Date()) ?? Date()
+        let predicate = HKQuery.predicateForSamples(withStart: start, end: Date(), options: .strictStartDate)
+        let sort = NSSortDescriptor(key: HKSampleSortIdentifierStartDate, ascending: false)
+        return await withCheckedContinuation { continuation in
+            let query = HKSampleQuery(
+                sampleType: type,
+                predicate: predicate,
+                limit: limit,
+                sortDescriptors: [sort]
+            ) { _, samples, _ in
+                let points = (samples as? [HKQuantitySample] ?? []).map { sample in
+                    GlucosePoint(
+                        date: sample.startDate,
+                        mgdl: sample.quantity.doubleValue(for: unit),
+                        sourceName: sample.sourceRevision.source.name
+                    )
+                }
+                continuation.resume(returning: points)
+            }
+            healthStore.execute(query)
+        }
+    }
+
     func fetchMostRecentQuantity(_ identifier: HKQuantityTypeIdentifier, unit: HKUnit) async -> Double? {
         let type = HKQuantityType(identifier)
         let sortDescriptor = NSSortDescriptor(key: HKSampleSortIdentifierEndDate, ascending: false)
