@@ -618,23 +618,30 @@ layer, gated by env (mirroring `BIOMETRICS_MODEL_ENDPOINT`).
 
 ## 8. Prioritized backlog
 
+**2026-09-19 verification pass:** every row below was checked against current
+`main`, not trusted from this doc's original prose (which turned out wrong or
+badly undersold on several items — see `aria_user_model.py`'s own docstring
+and `ROADMAP_IAC_READINESS.md` §3.4 for two documented examples). Struck rows
+are confirmed done; unchanged rows were spot-checked and are still genuinely
+open; rows with a **Verified** note were found further along than described.
+
 | Priority | Item | Section | Risk | Dep |
 |---|---|---|---|---|
 | ~~P0~~ | ~~Destroy every Kimi/Moonshot reference~~ (code, TF, README, simrunner, tests) | 5.2 | — | **done** — see docs-drift note at top and `ROADMAP_IAC_READINESS.md` §3.4 |
-| P0 | One canonical user model (ingestion → merge 3 context builders) | 0.1, 3.2 | low | none |
-| P0 | Personal baselines in interpreters + confidence | 3.1, 4.3 | low | 3.2 |
-| P0 | Two-tier **human-like memory** (long-term + short-term, consolidate/forget) wired into reasoning | 0.3, 3.3 | low | none |
-| P0 | Suggest-not-prescribe **with urgency/first-aid carve-out** as a checked invariant + tone | 0.4, 2a | low | none |
-| P0 | SimRunner evaluates the **real** engine (100%-context/isometric ship/hold gate) | 0.5, 5a, 7 | low | none |
-| P1 | Grok + Claude-family ensemble as ARIA's generative engine (no third vendor) | 0.2, 5.2 | med | Bedrock + TF (add xAI model access/IAM) |
-| P1 | Evidence-graph fusion + cross-signal patterns | 4.1 | med | 3.1 |
-| P1 | Port ACWR / sleep-debt / overtraining rules to prod | 4.2 | med | 3.2 |
-| P1 | Missing interpreters (chronotype/progress/QoL) | 3.4 | low | none |
-| P1 | Live tool-use (model narrates Python-computed truth) | 5.1 | med | Bedrock |
-| P1 | Validate model output vs Python signals | 5.3 | low | none |
-| P2 | Better intent classifier + emit `plan` type | 4.4 | med | none |
-| P2 | Forecasting / multivariate anomaly / RAG (companion memory) | 6 | med-high | seam/layer |
-| P2 | Module decomposition + typed protocols + hypothesis | 7 | low | none |
+| P0 | One canonical user model (ingestion → merge 3 context builders) | 0.1, 3.2 | low | none | **Verified 2026-09-19:** `services/aria_user_model.py::build_user_model()` already exists and does this merge — but was untested (had 3 real bugs, since fixed — see its module docstring) and is called from zero routes. Real risk is *higher* than "low": `routes/coach.py`'s 4 handlers depend on `coach_context.gather_user_context`'s raw dict shape (`recoveryTrend`, `trainingLoad`, `todayPlan`) with no `ARIAContext` equivalent, and `/ai/chat`+`/ai/observe` already build context from a *different* DynamoDB source (`METRIC#` samples via `fusion.fuse_turn`) than this function pulls (`SLEEP#`/`WORKOUT#` session logs) — reconciling both sources is undone design work, not a call-site swap. |
+| ~~P0~~ | ~~Personal baselines in interpreters + confidence~~ | 3.1, 4.3 | — | **Verified 2026-09-19: mostly done.** `_interpret_sleep`, `_interpret_readiness`, and `_interpret_nutrition` in `aria_engine.py` already do personal-baseline banding (median ± MAD, `kind="personal"` vs `"population"`) via the `baselines` param every interpreter signature already carries. Not yet confirmed for `_interpret_body`/`_interpret_activity`. |
+| P0 | Two-tier **human-like memory** (long-term + short-term, consolidate/forget) wired into reasoning | 0.3, 3.3 | low | none | **Verified 2026-09-19: still a real gap**, as described. `user_model_block()` (aria_engine.py L906) already reads `getattr(self, "last_insights"/"current_goals", None)` and would render them into the prompt — but nothing anywhere in `routes/` ever sets those attributes on an `ARIAContext` (grepped: zero writes). `CoachContextEngine` stores the right data; it just never reaches the object `user_model_block` reads from. |
+| P0 | Suggest-not-prescribe **with urgency/first-aid carve-out** as a checked invariant + tone | 0.4, 2a | low | none | Not yet re-verified this pass. |
+| P0 | SimRunner evaluates the **real** engine (100%-context/isometric ship/hold gate) | 0.5, 5a, 7 | low | none | **Verified 2026-09-19: still a real gap.** `ai/simrunner/aria_simrunner/aria_engine.py`'s own docstring: "Stub ARIA engine — no API, deterministic... Swap in a real Claude call behind `use_real_api` without changing any caller." It does not import or call production `services/aria_engine.py`. |
+| P1 | Grok + Claude-family ensemble as ARIA's generative engine (no third vendor) | 0.2, 5.2 | med | Bedrock + TF (add xAI model access/IAM) | **Verified 2026-09-19: IAM/Terraform side already done** (see P0 Kimi row — same PR). The *live* reconciliation behavior (quality-weighted blend vs. first-wins) in `ai_router.py` not yet re-verified. |
+| P1 | Evidence-graph fusion + cross-signal patterns | 4.1 | med | 3.1 | Not yet re-verified this pass. |
+| ~~P1~~ | ~~Port ACWR / sleep-debt / overtraining rules to prod~~ | 4.2 | — | **Verified 2026-09-19: already done.** `_interpret_training` (aria_engine.py) already computes ACWR, flags overtraining, and reasons about acute:chronic load. |
+| ~~P1~~ | ~~Missing interpreters (chronotype/progress/QoL)~~ | 3.4 | — | **Verified 2026-09-19: not missing.** `_interpret_chronotype`, `_interpret_progress`, and `_interpret_lifestyle` all already exist in `aria_engine.py`, alongside a bonus `_interpret_aging` this doc doesn't even mention. Depth/quality of each not fully audited — only presence. |
+| P1 | Live tool-use (model narrates Python-computed truth) | 5.1 | med | Bedrock | Not yet re-verified this pass. |
+| P1 | Validate model output vs Python signals | 5.3 | low | none | Not yet re-verified this pass. |
+| P2 | Better intent classifier + emit `plan` type | 4.4 | med | none | Not yet re-verified this pass. |
+| P2 | Forecasting / multivariate anomaly / RAG (companion memory) | 6 | med-high | seam/layer | Not yet re-verified this pass. |
+| P2 | Module decomposition + typed protocols + hypothesis | 7 | low | none | Not yet re-verified this pass. |
 
 **Dependency vaccine:** everything P0/P1 is pure-Python and deterministic; only
 tool-use, RAG, and multi-model reasoning touch Bedrock, and all keep the
