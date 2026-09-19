@@ -3,10 +3,34 @@
 Collapses the three parallel context builders into one:
   - ARIAContext.from_payload (request body)
   - BodyModel.to_aria_context (biometrics projection)
-  - coach_context.gather_user_context (DynamoDB history)
+  - coach_context.gather_user_context (DynamoDB SLEEP#/WORKOUT# session logs)
 
-Every route (/ai/chat, /ai/observe, coach/*) should call build_user_model().
-Derived values have one definition — no more weight-trend vs HRV label drift.
+Not yet wired into any route — this module exists and is now tested in
+isolation (see test_aria_user_model.py), but nothing calls it yet. Before
+that test coverage existed, the sleep/workout-history path was silently
+dead: every Observation() construction was missing required unit/timestamp
+arguments, raised, and was swallowed by a broad except, so build_user_model
+always fell back to payload-only context whenever real history was present
+— fixed, along with a permission-check gap that let life_facts tags leak
+into the context even when the caller denied the "lifestyle" domain.
+
+Two real blockers remain before any route can safely call this:
+
+  1. routes/coach.py's four handlers read coach_context.gather_user_context's
+     raw dict shape directly (context["recoveryTrend"], context["trainingLoad"],
+     context["todayPlan"], ...) via scoring.py-computed structures that have no
+     equivalent field on ARIAContext. build_user_model() already coerces
+     trainingLoad to a bare string (progress.training_load_trend = str(...)),
+     which is lossy for that use. Swapping coach.py over needs those call
+     sites rewritten, not just the function call changed.
+  2. This only pulls SLEEP#/WORKOUT# session-log history. /ai/chat and
+     /ai/observe already build their ARIAContext via fusion.fuse_turn, which
+     pulls a *different* DynamoDB source (METRIC#{type}#{timestamp} raw
+     samples). A true single canonical model needs both sources reconciled,
+     not just this function called instead of fusion.fuse_turn.
+
+Derived values have one definition here — no more weight-trend vs HRV label
+drift — for whichever route ends up calling it.
 """
 
 from __future__ import annotations
@@ -15,33 +39,41 @@ from typing import Any
 
 from services import aria_engine
 from services.biometrics.body_model import BodyModel
-from services.biometrics.types import MetricType, Observation, utcnow
+from services.biometrics.classify import _timestamp
+from services.biometrics.types import MetricType, Observation, spec
 from storage import dynamodb, keys
 
 
+def _obs(metric: MetricType, value: float, row: dict[str, Any]) -> Observation:
+    return Observation(metric, value, spec(metric).unit, _timestamp(row), source="history")
+
+
 def _observations_from_history(recent_sleep: list[dict[str, Any]], recent_workouts: list[dict[str, Any]]) -> list[Observation]:
-    """Coerce DynamoDB history rows into Observations for BodyModel."""
+    """Coerce DynamoDB history rows into Observations for BodyModel.
+
+    Each Observation requires unit + timestamp (no defaults on those fields —
+    a prior version omitted both, so every construction here raised and was
+    silently swallowed by the broad except below, meaning this function
+    always returned an empty list and build_user_model() never actually
+    pulled sleep/workout history into the fused context)."""
     obs: list[Observation] = []
     for row in recent_sleep[:14]:
         try:
             dur = row.get("totalHours")
             if isinstance(dur, (int, float)):
-                obs.append(Observation(MetricType.SLEEP_DURATION, float(dur) * 60, source="history"))
+                obs.append(_obs(MetricType.SLEEP_DURATION, float(dur) * 60, row))
             deep = row.get("deepMinutes")
             if isinstance(deep, (int, float)):
-                obs.append(Observation(MetricType.SLEEP_DEEP, float(deep), source="history"))
+                obs.append(_obs(MetricType.SLEEP_DEEP, float(deep), row))
             rem = row.get("remMinutes")
             if isinstance(rem, (int, float)):
-                obs.append(Observation(MetricType.SLEEP_REM, float(rem), source="history"))
+                obs.append(_obs(MetricType.SLEEP_REM, float(rem), row))
             awake = row.get("awakeMinutes")
             if isinstance(awake, (int, float)):
                 total = float(dur) * 60 if isinstance(dur, (int, float)) else 0
                 efficiency = (total - float(awake)) / total if total > 0 else None
                 if efficiency is not None:
-                    obs.append(Observation(MetricType.SLEEP_EFFICIENCY, float(efficiency), source="history"))
-            score = row.get("score")
-            if isinstance(score, (int, float)):
-                obs.append(Observation(MetricType.SLEEP_REM, float(score), source="history"))  # proxy, not used for sleep calc
+                    obs.append(_obs(MetricType.SLEEP_EFFICIENCY, float(efficiency), row))
         except Exception:
             continue
     # Workouts contribute load/trend via training context, not biometrics series
@@ -118,8 +150,9 @@ def build_user_model(
         from services.aria_context import CoachContextEngine
 
         engine = CoachContextEngine()
-        stm = engine.short_term_memories(uid)
-        stm_texts = [m.text for m in stm if m.is_active(engine._utcnow() if hasattr(engine, "_utcnow") else __import__("datetime").datetime.now(__import__("datetime").timezone.utc))]  # type: ignore
+        # short_term_memories() already filters to active (non-expired) items
+        # by default, so no separate is_active() re-check is needed here.
+        stm_texts = [m.text for m in engine.short_term_memories(uid)]
         # Active STM texts become lifestyle tags (event-anchored, auto-expiring via ttl)
         if stm_texts and perms.allows("lifestyle"):
             # Lazily ensure merged exists
@@ -129,15 +162,16 @@ def build_user_model(
                 if tag not in target_ctx.lifestyle.tags:
                     target_ctx.lifestyle.tags.append(tag)
         # Long-term life_facts → lifestyle tags as durable takeaways
-        try:
-            long_ctx = engine.get_or_create_context(uid)
-            for fact in (long_ctx.life_facts or [])[:8]:
-                tag = f"life:{fact[:80]}"
-                target = body_ctx if body_ctx is not None else payload_ctx
-                if tag not in target.lifestyle.tags:
-                    target.lifestyle.tags.append(tag)
-        except Exception:
-            pass
+        if perms.allows("lifestyle"):
+            try:
+                long_ctx = engine.get_or_create_context(uid)
+                for fact in (long_ctx.life_facts or [])[:8]:
+                    tag = f"life:{fact[:80]}"
+                    target = body_ctx if body_ctx is not None else payload_ctx
+                    if tag not in target.lifestyle.tags:
+                        target.lifestyle.tags.append(tag)
+            except Exception:
+                pass
     except Exception:
         pass
 
