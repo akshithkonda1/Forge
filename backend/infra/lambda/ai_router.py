@@ -3,6 +3,7 @@ from __future__ import annotations
 import logging
 import math
 import os
+import re
 import threading
 import time
 from dataclasses import dataclass, field
@@ -25,6 +26,11 @@ DEFAULT_BEDROCK_CONNECT_TIMEOUT_SECONDS = 3.0
 DEFAULT_BEDROCK_READ_TIMEOUT_SECONDS = max(10.0, DEFAULT_OVERALL_TIMEOUT_SECONDS * 2)
 MIN_CONSENSUS_BUDGET_SECONDS = 0.2
 CONSENSUS_TIMEOUT_BUFFER_SECONDS = 0.25
+# Word-overlap Jaccard thresholds for _answer_agreement — deliberately loose:
+# two honest paraphrases of the same finding still share most content words,
+# so only real topical divergence should read as "low".
+AGREEMENT_HIGH_THRESHOLD = 0.35
+AGREEMENT_LOW_THRESHOLD = 0.15
 # Upper bound for client-supplied model/overall timeouts. Must stay comfortably
 # under the Lambda's own platform timeout (15s, backend/infra/variables.tf) —
 # see the comment in RouteSettings.from_payload.
@@ -658,6 +664,13 @@ class AIRouter:
         used_results: list[ModelResult],
         deadline_seconds: float,
     ) -> tuple[str, dict[str, Any]]:
+        # Agreement is about the *raw* per-model answers, independent of
+        # whichever branch below ends up producing the final text — so it's
+        # computed once, up front, and attached to every outcome the same way.
+        agreement_label, agreement_score = _answer_agreement(
+            [result.answer for result in used_results]
+        )
+
         if len(used_results) == 1:
             only_result = used_results[0]
             return only_result.answer, {
@@ -667,6 +680,8 @@ class AIRouter:
                 "usedResults": [self._serialize_result(only_result)],
                 "finalizedByModel": self._model_descriptor(only_result.model),
                 "fallbackUsed": False,
+                "agreement": agreement_label,
+                "agreementScore": agreement_score,
             }
 
         finalizer = used_results[0]
@@ -680,6 +695,8 @@ class AIRouter:
                 "finalizedByModel": self._model_descriptor(finalizer.model),
                 "fallbackUsed": True,
                 "fallbackReason": "timeout_budget_exhausted",
+                "agreement": agreement_label,
+                "agreementScore": agreement_score,
             }
 
         try:
@@ -700,6 +717,8 @@ class AIRouter:
                     "usedResults": [self._serialize_result(result) for result in used_results],
                     "finalizedByModel": self._model_descriptor(finalizer.model),
                     "fallbackUsed": False,
+                    "agreement": agreement_label,
+                    "agreementScore": agreement_score,
                 }
         except Exception as exc:  # noqa: BLE001 — never fail the request on consensus
             # A consensus failure is recoverable (we fall back to the fastest
@@ -719,6 +738,8 @@ class AIRouter:
             "finalizedByModel": self._model_descriptor(finalizer.model),
             "fallbackUsed": True,
             "fallbackReason": "consensus_failed",
+            "agreement": agreement_label,
+            "agreementScore": agreement_score,
         }
 
     def _build_consensus_system_prompt(self, used_results: list[ModelResult]) -> str:
@@ -812,6 +833,44 @@ def normalize_excerpt(text: str, max_chars: int) -> str:
     if len(compact) <= max_chars:
         return compact
     return compact[: max_chars - 3].rstrip() + "..."
+
+
+_WORD_RE = re.compile(r"[a-z0-9]+")
+
+
+def _answer_agreement(answers: list[str]) -> tuple[str, float]:
+    """How much the raw per-model answers agreed with each other, *before*
+    the consensus finalizer smooths them into one voice.
+
+    Deterministic word-overlap (Jaccard over content words), computed in
+    Python from the source answers rather than asked of the finalizer
+    itself — a finalizer that papers over real disagreement to produce one
+    clean answer shouldn't also get to be the one reporting how much
+    disagreement it papered over. Needs at least two non-empty answers to
+    mean anything; a single-model route has nothing to compare, so "n/a".
+    """
+    word_sets = [set(_WORD_RE.findall(answer.lower())) for answer in answers]
+    word_sets = [words for words in word_sets if words]
+    if len(word_sets) < 2:
+        return "n/a", 1.0
+
+    pair_scores = []
+    for i in range(len(word_sets)):
+        for j in range(i + 1, len(word_sets)):
+            union = word_sets[i] | word_sets[j]
+            if union:
+                pair_scores.append(len(word_sets[i] & word_sets[j]) / len(union))
+    if not pair_scores:
+        return "n/a", 1.0
+
+    score = sum(pair_scores) / len(pair_scores)
+    if score >= AGREEMENT_HIGH_THRESHOLD:
+        label = "high"
+    elif score >= AGREEMENT_LOW_THRESHOLD:
+        label = "medium"
+    else:
+        label = "low"
+    return label, round(score, 3)
 
 
 def humanize_bytes(size_bytes: int) -> str:
