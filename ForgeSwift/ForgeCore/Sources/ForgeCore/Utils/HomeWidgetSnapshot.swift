@@ -255,6 +255,66 @@ public enum HomeWidgetBoardStore {
 }
 
 // ============================================================
+// MARK: - StandBy face customization
+// ============================================================
+
+/// Rows the user can toggle/reorder on the StandBy nest face. Readiness is
+/// always shown (it's the hero number — same reasoning `HomePinnedWidgetKind`
+/// uses to leave Readiness out of the Home board list above); only the
+/// supporting rows are configurable.
+public enum StandByMetricKind: String, Codable, CaseIterable, Identifiable, Sendable {
+    case sleep
+    case hydration
+
+    public var id: String { rawValue }
+
+    public var title: String {
+        switch self {
+        case .sleep:     return "Sleep"
+        case .hydration: return "Hydration goal"
+        }
+    }
+
+    public var systemImage: String {
+        switch self {
+        case .sleep:     return "moon.stars.fill"
+        case .hydration: return "drop.fill"
+        }
+    }
+
+    public static let defaultSelection: [StandByMetricKind] = [.sleep, .hydration]
+}
+
+public enum StandByMetricsStore {
+    public static let key = "forge.standby.metrics.v1"
+
+    public static func load() -> [StandByMetricKind] {
+        // No `!saved.isEmpty` fallback here on purpose: unlike the Home board
+        // below, "nothing but Readiness and the clock" is a real, intentional
+        // choice a user can save, not a corrupt state to paper over. Only a
+        // genuinely missing/undecodable save falls back to the default.
+        guard let defaults = UserDefaults(suiteName: HomeWidgetSnapshotStore.appGroupID),
+              let data = defaults.data(forKey: key),
+              let saved = try? JSONDecoder().decode([StandByMetricKind].self, from: data) else {
+            return StandByMetricKind.defaultSelection
+        }
+        var seen = Set<StandByMetricKind>()
+        return saved.filter { seen.insert($0).inserted }
+    }
+
+    public static func save(_ metrics: [StandByMetricKind], reloadWidgets: Bool = true) {
+        guard let defaults = UserDefaults(suiteName: HomeWidgetSnapshotStore.appGroupID),
+              let data = try? JSONEncoder().encode(metrics) else { return }
+        defaults.set(data, forKey: key)
+        #if canImport(WidgetKit)
+        if reloadWidgets {
+            WidgetCenter.shared.reloadAllTimelines()
+        }
+        #endif
+    }
+}
+
+// ============================================================
 // MARK: - Deep links the widgets open
 // ============================================================
 

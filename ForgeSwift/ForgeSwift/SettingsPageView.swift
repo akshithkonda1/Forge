@@ -13,6 +13,7 @@ struct SettingsPageView: View {
     @ObservedObject private var health = HealthKitManager.shared
 
     @State private var showDevicesSheet = false
+    @State private var showStandBySheet = false
     @State private var catalogRevision = 0
     @State private var showWhatIKnow = false
     @State private var showProfileEditor = false
@@ -258,6 +259,20 @@ struct SettingsPageView: View {
                         .padding(.horizontal, 16).padding(.vertical, 12)
                         .frame(maxWidth: .infinity, alignment: .leading)
                     }
+                }
+
+                // StandBy
+                sectionHeader("StandBy")
+                SectionCard {
+                    Button { showStandBySheet = true } label: {
+                        SettingsRow(
+                            icon: "rectangle.on.rectangle.badge.gearshape",
+                            iconColor: .steel,
+                            label: "Customize StandBy face",
+                            showChevron: true
+                        ) { EmptyView() }
+                    }
+                    .buttonStyle(.plain)
                 }
 
                 // Account
@@ -735,6 +750,9 @@ struct SettingsPageView: View {
         }
         .sheet(isPresented: $showNutritionTargetsEditor) {
             NutritionTargetsEditorView()
+        }
+        .sheet(isPresented: $showStandBySheet) {
+            StandByCustomizationView()
         }
         .sheet(isPresented: $showDevicesSheet) {
             ConnectedDevicesLibraryView()

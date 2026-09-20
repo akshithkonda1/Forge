@@ -225,6 +225,11 @@ private func pairLine(name: String, carbs: Double, peak: Double?, delta: Double?
     return "\(title)\(carbBit)."
 }
 
+// Named `buildStoryLine`, not `storyLine` — `MetabolicHealthSnapshot` itself
+// declares an instance property called `storyLine`, and an unqualified call
+// from `evaluate()` (a static method of that same type) resolves to the
+// property before this file-scope function, which doesn't typecheck as a
+// call at all.
 private func buildStoryLine(
     latest: GlucosePoint?,
     meals: [MetabolicMealEvent],

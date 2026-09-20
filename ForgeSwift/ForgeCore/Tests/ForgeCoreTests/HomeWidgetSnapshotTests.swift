@@ -10,6 +10,8 @@ final class HomeWidgetSnapshotTests: XCTestCase {
             .removeObject(forKey: PendingWaterLog.key)
         UserDefaults(suiteName: HomeWidgetSnapshotStore.appGroupID)?
             .removeObject(forKey: HomeWidgetBoardStore.key)
+        UserDefaults(suiteName: HomeWidgetSnapshotStore.appGroupID)?
+            .removeObject(forKey: StandByMetricsStore.key)
         super.tearDown()
     }
 
@@ -73,5 +75,37 @@ final class HomeWidgetSnapshotTests: XCTestCase {
         XCTAssertFalse(available.contains(.hydration))
         XCTAssertTrue(available.contains(.cycle))
         XCTAssertTrue(available.contains(.workout))
+    }
+
+    func testStandByMetricsDefaultWhenNeverSaved() {
+        // Explicit clear rather than relying solely on tearDown from
+        // whichever test ran before this one — XCTest doesn't guarantee
+        // declaration order between test methods.
+        UserDefaults(suiteName: HomeWidgetSnapshotStore.appGroupID)?
+            .removeObject(forKey: StandByMetricsStore.key)
+        XCTAssertEqual(StandByMetricsStore.load(), StandByMetricKind.defaultSelection)
+    }
+
+    func testStandByMetricsRoundTripsAndReorders() {
+        StandByMetricsStore.save([.hydration, .sleep], reloadWidgets: false)
+        XCTAssertEqual(StandByMetricsStore.load(), [.hydration, .sleep])
+    }
+
+    func testStandByMetricsEmptySelectionIsIntentionalNotFallback() {
+        // Unlike the Home board, "just Readiness and the clock" is a real
+        // choice — an explicit empty save must not bounce back to defaults.
+        StandByMetricsStore.save([], reloadWidgets: false)
+        XCTAssertEqual(StandByMetricsStore.load(), [])
+    }
+
+    func testStandByMetricsDedupsOnLoad() {
+        let defaults = UserDefaults(suiteName: HomeWidgetSnapshotStore.appGroupID)
+        let data = try? JSONEncoder().encode([
+            StandByMetricKind.sleep,
+            .sleep,
+            .hydration,
+        ])
+        defaults?.set(data, forKey: StandByMetricsStore.key)
+        XCTAssertEqual(StandByMetricsStore.load(), [.sleep, .hydration])
     }
 }
