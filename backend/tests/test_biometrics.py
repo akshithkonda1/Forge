@@ -127,6 +127,47 @@ class StatisticsTests(unittest.TestCase):
         self.assertEqual(st.linear_trend([3, 3, 3, 3]).direction, "flat")
         self.assertAlmostEqual(st.linear_trend([1, 2, 3, 4, 5]).r2, 1.0, places=6)
 
+    def test_forecast_projects_a_perfect_line_with_a_zero_width_interval(self):
+        # slope=2, intercept=10 -- every point sits exactly on the fit, so
+        # there's no residual spread and the interval collapses to a point.
+        fc = st.forecast([10, 12, 14, 16, 18], horizon=3)
+        self.assertEqual([round(v, 6) for v in fc.projected], [20.0, 22.0, 24.0])
+        self.assertEqual(fc.lower, fc.projected)
+        self.assertEqual(fc.upper, fc.projected)
+
+    def test_forecast_interval_widens_further_from_the_series(self):
+        fc = st.forecast([10, 13, 11, 14, 12, 15, 13, 16], horizon=3)
+        width1 = fc.upper[0] - fc.lower[0]
+        width3 = fc.upper[2] - fc.lower[2]
+        self.assertGreater(width3, width1)
+
+    def test_forecast_under_three_points_projects_flat_not_a_guessed_line(self):
+        fc = st.forecast([5, 9], horizon=2)
+        self.assertEqual(fc.projected, [9, 9])
+        self.assertEqual(fc.lower, [9, 9])
+        self.assertEqual(fc.upper, [9, 9])
+        self.assertEqual(st.forecast([], horizon=2).projected, [0.0, 0.0])
+
+    def test_change_point_detects_a_real_regime_shift(self):
+        before = [50, 52, 49, 51, 50, 53, 48, 51, 50, 52]
+        after = [80, 82, 79, 81]
+        cp = st.detect_change_point(before + after)
+        self.assertTrue(cp.detected)
+        self.assertEqual(cp.index, len(before))
+        self.assertAlmostEqual(cp.before_median, 50.5, delta=1.5)
+        self.assertAlmostEqual(cp.after_median, 80.5, delta=1.5)
+
+    def test_change_point_ignores_ordinary_noise(self):
+        steady = [50, 51, 49, 52, 48, 50, 51, 49, 50, 52, 51, 49, 50, 51]
+        cp = st.detect_change_point(steady)
+        self.assertFalse(cp.detected)
+        self.assertIsNone(cp.index)
+
+    def test_change_point_needs_two_full_windows(self):
+        cp = st.detect_change_point([1, 2, 3, 4, 5], min_window=4)
+        self.assertFalse(cp.detected)
+        self.assertIsNone(cp.index)
+
     def test_online_matches_batch(self):
         data = [2, 4, 4, 4, 5, 5, 7, 9]
         online = st.OnlineStat()
