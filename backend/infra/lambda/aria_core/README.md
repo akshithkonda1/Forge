@@ -166,6 +166,41 @@ Moved so far (each with a `services/` shim):
   note, the metabolic pillar's four bullets) are copied directly rather
   than porting the whole catalog (sleep/train/stress/women's-health pillar
   copy included), which is unrelated to meal/glucose pairing
+- `aria_health_risk_monitor.py` — on-device literacy for Watch/HealthKit
+  vitals, never a diagnosis: elevated body temperature, wrist-temperature
+  rise, resting-heart-rate spikes, and HRV drops, each framed as a sensor
+  hint with a clinician pointer, never naming a disease; ported in full
+  from ForgeCore's `AriaHealthRiskMonitor.swift`, including
+  `AriaHealthRiskCooldown` (genuinely pure — unlike every "Store" excluded
+  from earlier ports, it takes/returns plain values with no UserDefaults
+  access of its own). `AriaHealthRiskKind`/`Severity` are ported as their
+  exact Swift rawValue strings (e.g. `"elevatedTemperature"`, not
+  reformatted), since `storage_key()`'s output text is a serialization
+  detail. Not ported: `WatchVitalsPayload`/`WatchVitalsInbox` (a separate
+  file, not named in this task) — UserDefaults-backed inbox persistence,
+  the same reasoning as every earlier "Store" exclusion
+
+## Swift -> Python port list: complete
+
+Tasks #11-20 (`ARIA_INTELLIGENCE_PLAN.md`'s Swift-intelligence-to-Python
+backlog) are all done as of `aria_health_risk_monitor.py` above:
+`quality_of_life.py`, `circadian_rhythm.py`, `sleep_depth_scorer.py`,
+`wind_down_predictor.py`, `schedule_corrector.py`, `hydration_engine.py`,
+`lifestyle_targets.py`, `habit_engine.py`, `metabolic_health_snapshot.py`,
+`aria_health_risk_monitor.py`. Every one of these is deliberately NOT
+wired into `aria_engine.py`'s context/interpreters/response flow yet —
+each module's own docstring says so explicitly, and that integration
+(whether server-computed values should replace, cross-check, or sit
+alongside client-authored ones) is a real product decision this
+mechanical porting pass does not make unilaterally. A handful of
+dependencies this porting pass deliberately did NOT follow (each noted in
+its own module above): `HealthDeviceCatalog` (a large, separate product
+registry `metabolic_health_snapshot.py` reduced around),
+`TranslationCatalog`'s non-metabolic pillar copy, the full `UserProfile`
+struct (`lifestyle_targets.py` uses a minimal `Profile` instead), and
+every UserDefaults-backed "Store" sibling
+(`QualityOfLifeLivingStore`/`SleepDepthBaselineStore`/`ScheduleGoalStore`/
+`HabitFeedbackStore`/`WatchVitalsInbox`).
 
 `contextual_learner.py`, `self_trainer.py`, and `context_plan.py` moved in
 one commit because they reference each other via relative imports
