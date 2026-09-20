@@ -345,15 +345,17 @@ class RegistryIsometricArchetypeTests(unittest.TestCase):
     def test_registry_still_validates(self):
         reg.validate_registry()  # must not raise
 
-    def test_total_archetypes_is_23(self):
-        self.assertEqual(reg.TOTAL_ARCHETYPES, 23)
-        self.assertEqual(len(reg.BEDROCK_MODEL_REGISTRY), 23)
+    def test_total_archetypes_is_26(self):
+        self.assertEqual(reg.TOTAL_ARCHETYPES, 26)
+        self.assertEqual(len(reg.BEDROCK_MODEL_REGISTRY), 26)
 
-    def test_tier_counts_reflect_the_two_new_archetypes(self):
-        self.assertEqual(reg._TIER_COUNTS[3], 5)
-        self.assertEqual(reg._TIER_COUNTS[4], 5)
-        self.assertEqual(len(reg.get_models_by_tier(3)), 5)
-        self.assertEqual(len(reg.get_models_by_tier(4)), 5)
+    def test_tier_counts_reflect_the_new_archetypes(self):
+        # 2 isometric + 2 tier-3 clinical + 1 tier-4 structural-sparsity,
+        # on top of the original 4-per-tier base.
+        self.assertEqual(reg._TIER_COUNTS[3], 7)
+        self.assertEqual(reg._TIER_COUNTS[4], 6)
+        self.assertEqual(len(reg.get_models_by_tier(3)), 7)
+        self.assertEqual(len(reg.get_models_by_tier(4)), 6)
 
 
 if __name__ == "__main__":

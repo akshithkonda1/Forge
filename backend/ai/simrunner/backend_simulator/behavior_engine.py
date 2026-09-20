@@ -235,6 +235,12 @@ def generate_stream(
         if pattern == "hormonal_sleep_disruption" and rng.random() < 0.4:
             sleep_hours = _clamp(sleep_hours - rng.uniform(0.5, 1.5), 3.0, 10.5)
             note = "hormonal sleep disruption — fragmented night"
+        # Low-mood persona: racing-mind nights. Short-circuit means zero RNG
+        # draws for every archetype that never sets this pattern — their
+        # streams stay byte-for-byte identical.
+        if pattern == "anxious_nights" and rng.random() < 0.35:
+            sleep_hours = _clamp(sleep_hours - rng.uniform(0.75, 2.0), 3.0, 10.5)
+            note = "restless night — racing mind, checked phone at 3am"
 
         # Sleep architecture.
         efficiency = _clamp(rng.gauss(0.88, 0.05), 0.6, 0.98)
@@ -358,6 +364,10 @@ def generate_stream(
                 note = "night shift — daytime sleep, short and fragmented"
             elif change_day is not None and day == int(change_day):
                 note = "role change — training load dropped after promotion"
+            elif pattern == "metabolic_risk" and day in (5, 20):
+                # Deterministic days, zero RNG draws: lab results land on a
+                # schedule, and no other archetype sets this pattern.
+                note = "annual physical labs: LDL 168 mg/dL — above target range"
             elif rng.random() < float(profile.get("life_irregularity", 0.2)) * 0.35:
                 note = rng.choice(["travel day", "late night out", "stress event at work", "missed planned session"])
         if note:
