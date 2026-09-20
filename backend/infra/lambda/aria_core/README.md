@@ -130,6 +130,17 @@ Moved so far (each with a `services/` shim):
   `quality_of_life.py`'s `_hydration_pillar` — written against a guessed
   approximation of this exact formula before this file existed — now
   calls these functions directly instead of duplicating them
+- `lifestyle_targets.py` — personalized nutrition/activity/sleep/hydration
+  targets from a minimal profile (weight/age/gender/experience level/
+  fitness goals) plus optional user overrides; ported from ForgeSwift's
+  `LifestyleTargets.swift` (this one lives in the app target, not
+  `ForgeCore`, and has no Swift test file). Depends on
+  `hydration_engine.py`. Preserves two Swift-source quirks as-is rather
+  than "fixing" them: `mifflinStJeorBMR` hardcodes height at 175cm instead
+  of reading the profile's actual height, and the calorie-goal-factor vs.
+  protein-per-kg calculations check `loseFat`/`buildMuscle` in opposite
+  orders when both goals are set — both documented in the module's own
+  docstring/comments and pinned by tests
 
 `contextual_learner.py`, `self_trainer.py`, and `context_plan.py` moved in
 one commit because they reference each other via relative imports
