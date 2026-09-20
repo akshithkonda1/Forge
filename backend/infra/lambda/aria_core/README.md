@@ -114,6 +114,15 @@ Moved so far (each with a `services/` shim):
   from the algorithm and independently verified rather than read off a
   reference implementation — see the module's own test file for the
   worked arithmetic
+- `schedule_corrector.py` — goal-directed wake-time phase advance/delay
+  (15-20min/night ratchet toward a target, spread across the nights until
+  a cutover date) plus the conversational parser that turns "up at 6am
+  starting Monday" into a goal; ported from ForgeCore's
+  `ScheduleCorrector.swift`. Depends on `circadian_rhythm.py` for phase/
+  sleep-need estimation, the first `aria_core` module to depend on a
+  sibling rather than only `biometrics/statistics.py`. Not ported:
+  `ScheduleGoalStore` (UserDefaults persistence, iOS-only, same reasoning
+  as the earlier ports' stores)
 
 `contextual_learner.py`, `self_trainer.py`, and `context_plan.py` moved in
 one commit because they reference each other via relative imports
