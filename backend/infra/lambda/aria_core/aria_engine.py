@@ -2943,18 +2943,14 @@ def generate_response_live(
     if isinstance(instr, str) and instr.strip():
         user_prompt += f"\n\n{instr}"
 
-    # Tool-use hint: expose available tools in prompt so model can request signals via JSON
-    tool_hint = "\n\n[TOOLS AVAILABLE] You may call: get_signal(domain), get_trend(metric,horizon), get_personal_baseline(metric). Returns are Python ground truth — use them for numbers, not invention."
-    user_prompt_with_tools = user_prompt + tool_hint
-
     try:
-        text = caller(model_id, live_system_prompt(agents=roster), user_prompt_with_tools)
+        text = caller(model_id, live_system_prompt(agents=roster), user_prompt)
         data = _parse_model_envelope(text)
         prose = str(data.get("prose_summary") or "").strip()
         if not prose:
             raise ValueError("model response missing prose_summary")
         # Validation: numbers in prose must exist in ground truth (hallucination guard)
-        if not _validate_model_numbers(prose, base, sanitized):
+        if not _validate_model_numbers(prose, base, sanitized, restricted):
             raise ValueError("model prose contains numbers not in ground truth — hallucination guard")
     except Exception as exc:  # noqa: BLE001 — any failure must degrade, never raise
         fallback = dict(base)
@@ -2966,6 +2962,16 @@ def generate_response_live(
 
 
 # --- Tool-use + validation (Python owns truth) -------------------------------
+# ARIA_TOOLS/_tool_get_signal are a real, correct starting point for §5.1's
+# ask (expose these as actual Bedrock Converse `toolConfig` tools instead of
+# prompt text) but are NOT wired to a live tool-call round-trip yet — that
+# needs BedrockGateway.converse() to handle a `stopReason == "tool_use"` turn
+# (dispatch the named tool, send a `toolResult` back, continue the
+# conversation), which is a real multi-turn protocol change, not a drop-in.
+# Unwired by design for now, same as aria_user_model.build_user_model() — not
+# an oversight, and previously advertised to the model as callable via a
+# plain prompt string that no code could ever act on, which was worse than
+# not mentioning them at all (a capability claim nothing could honor).
 ARIA_TOOLS = [
     {
         "name": "get_signal",
@@ -2985,29 +2991,92 @@ ARIA_TOOLS = [
 ]
 
 
-def _tool_get_signal(ctx: ARIAContext, domain: str) -> dict[str, Any]:
+def _tool_get_signal(ctx: ARIAContext, domain: str, baselines: Any = None) -> dict[str, Any]:
     for interp in _INTERPRETERS:
-        sig = interp(ctx)
+        sig = interp(ctx, baselines)
         if sig and sig.domain == domain:
             return {"domain": sig.domain, "summary": sig.summary, "interpretation": sig.interpretation, "priority": sig.priority, "direction": sig.direction}
     return {"domain": domain, "summary": "no data", "interpretation": "no signal", "priority": "low", "direction": "neutral"}
 
 
-def _validate_model_numbers(prose: str, base: dict[str, Any], ctx: ARIAContext) -> bool:
-    """Guard against hallucinated metrics — but permissive for coaching prose.
+_NUMBER_RE = re.compile(r"-?\d+(?:\.\d+)?")
 
-    The deterministic ground truth owns numbers; the model may rephrase them
-    with rounding (e.g. 58 vs 58.0, 7.2h vs 7h). We only hard-fail for
-    prescriptive dosing (mg/mcg) or diagnostic assertions — those are caught
-    by guidance.contains_prescriptive_medical_language in the merge step.
-    For general coaching numerics, allow any number: the merge cap (confidence
-    never exceeds deterministic) already bounds overconfidence, and strict
-    numeric matching would break the live overlay test that expects 58 to pass
-    even when the card string is "Zone 2 only".
+
+def _numbers_in_text(text: str) -> set[float]:
+    return {float(match) for match in _NUMBER_RE.findall(text or "")}
+
+
+def _ground_truth_numbers(base: dict[str, Any], ctx: ARIAContext, restricted: list[str]) -> set[float]:
+    """The numeric ground truth a live model's prose is allowed to cite.
+
+    Union of the same [USER MODEL] block the model was actually shown (so
+    whatever it was given is exactly what it's checked against — no second,
+    possibly-drifted enumeration of ARIAContext fields to keep in sync) plus
+    the deterministic envelope's own derived numbers (card/evidence/load —
+    ACWR, sleep debt hours, etc. — things aria_evidence computes that don't
+    live on the raw context). Sleep duration also gets its hours conversion
+    added: "440 minutes" in the ground truth and "about 7 hours" in natural
+    coaching prose are the same fact, just a unit the model is very likely
+    to convert to when it speaks instead of restating the raw minutes.
     """
-    # Highest-standard gate is medical/dosing, not generic numerics.
-    # Return True so coaching numbers flow; medical language is checked separately.
-    return True
+    numbers = _numbers_in_text(ctx.user_model_block(restricted))
+    for key in ("card", "evidence", "load"):
+        block = base.get(key)
+        if block:
+            numbers |= _numbers_in_text(json.dumps(block, default=str))
+    duration = ctx.sleep.duration_minutes
+    if isinstance(duration, (int, float)) and not isinstance(duration, bool):
+        hours = duration / 60.0
+        numbers.add(round(hours, 1))
+        numbers.add(round(hours))
+    return numbers
+
+
+def _numbers_roughly_match(cited: float, truth: float) -> bool:
+    """Tolerant enough for rounding/rephrasing (58 vs 58.0, -12 vs 12 when the
+    sign is carried by words like "below baseline" instead of a minus sign),
+    tight enough that a genuinely different number doesn't slip through."""
+    cited, truth = abs(cited), abs(truth)
+    if abs(cited - truth) <= 0.5:
+        return True
+    larger = max(cited, truth)
+    return larger > 0 and abs(cited - truth) / larger <= 0.05
+
+
+def _validate_model_numbers(
+    prose: str, base: dict[str, Any], ctx: ARIAContext, restricted: list[str] | None = None
+) -> bool:
+    """Guard against hallucinated metrics in the model's free-text prose.
+
+    Every number the model cites must be traceable, within a small rounding
+    tolerance, to something Python actually computed — the same ground-truth
+    block it was shown, or a card/evidence/load value. A number that matches
+    nothing is treated as invented and the caller falls back to deterministic
+    prose (see generate_response_live's except clause) — a safe degradation,
+    not a crash, so a false positive here just means "less specific," never
+    "wrong."
+
+    Prescriptive dosing/diagnostic language is a different, worse problem
+    with its own dedicated remedy — soften + clinician disclaimer, in
+    _merge_live_envelope, via guidance.contains_prescriptive_medical_language.
+    Rejecting it here too would just swap that better-targeted response for
+    a blunter fallback to deterministic prose, so it's deferred entirely
+    rather than double-handled.
+    """
+    from . import guidance
+
+    if guidance.contains_prescriptive_medical_language(prose):
+        return True
+
+    cited = _numbers_in_text(prose)
+    if not cited:
+        return True
+
+    truth = _ground_truth_numbers(base, ctx, restricted or [])
+    if not truth:
+        return True
+
+    return all(any(_numbers_roughly_match(value, t) for t in truth) for value in cited)
 
 
 def _merge_live_envelope(

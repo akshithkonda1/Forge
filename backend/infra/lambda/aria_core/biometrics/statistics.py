@@ -133,6 +133,101 @@ def linear_trend(values: list[float], xs: list[float] | None = None) -> Trend:
     return Trend(slope, intercept, max(0.0, min(1.0, r2)), n)
 
 
+_Z_FOR_CONFIDENCE = {0.80: 1.2816, 0.90: 1.6449, 0.95: 1.9600, 0.99: 2.5758}
+
+
+@dataclass
+class Forecast:
+    """Short-horizon projection from a linear_trend fit, with a prediction
+    interval that reflects how well the trend actually explains the series
+    (not a flat +/- guess)."""
+
+    horizon: int
+    projected: list[float]  # one value per step ahead, steps 1..horizon
+    lower: list[float]      # prediction-interval lower bound, same length
+    upper: list[float]      # prediction-interval upper bound, same length
+    trend: Trend
+
+
+def forecast(values: list[float], horizon: int = 3, *, confidence: float = 0.80) -> Forecast:
+    """Project ``values`` forward ``horizon`` steps from an OLS fit, with a
+    textbook prediction interval from the fit's residual standard error
+    (widens with distance from the fitted series -- further out means less).
+
+    Needs at least 3 points: 2 points fit a line exactly, with no residual
+    to estimate spread from, which would report false certainty rather than
+    an honest interval. Under 3 points this projects flat from the last
+    value instead of extrapolating a line nothing yet supports.
+    """
+    trend = linear_trend(values)
+    horizon = max(1, horizon)
+    n = trend.n
+    if n < 3:
+        flat = values[-1] if values else 0.0
+        return Forecast(horizon, [flat] * horizon, [flat] * horizon, [flat] * horizon, trend)
+
+    x = list(range(n))
+    mx = mean(x)
+    sxx = sum((xi - mx) ** 2 for xi in x)
+    residuals = [values[i] - (trend.slope * x[i] + trend.intercept) for i in range(n)]
+    residual_se = math.sqrt(sum(r * r for r in residuals) / (n - 2))
+    z = _Z_FOR_CONFIDENCE.get(round(confidence, 2), _Z_FOR_CONFIDENCE[0.80])
+
+    projected: list[float] = []
+    lower: list[float] = []
+    upper: list[float] = []
+    for step in range(1, horizon + 1):
+        xi = x[-1] + step
+        yi = trend.slope * xi + trend.intercept
+        spread = residual_se * math.sqrt(1 + 1 / n + ((xi - mx) ** 2) / sxx) if sxx > 1e-12 else residual_se
+        projected.append(yi)
+        lower.append(yi - z * spread)
+        upper.append(yi + z * spread)
+    return Forecast(horizon, projected, lower, upper, trend)
+
+
+@dataclass
+class ChangePoint:
+    """Result of a two-window regime-shift test (see detect_change_point)."""
+
+    detected: bool
+    index: int | None  # sample index where the new regime starts, or None
+    before_median: float
+    after_median: float
+    shift_magnitude: float  # MAD-normalized, comparable across metrics
+
+
+def detect_change_point(
+    values: list[float], *, min_window: int = 4, threshold: float = 3.5
+) -> ChangePoint:
+    """Two-window regime-shift test: does the most recent ``min_window``
+    stretch sit somewhere genuinely different from the robust baseline of
+    everything before it, instead of just being noisy around the same
+    long-run median -- e.g. a new baseline after illness or travel that a
+    slow-moving median would otherwise just drag toward over weeks.
+
+    Deliberately simpler than full CUSUM or Bayesian online change-point
+    detection: one comparison, one threshold, in the same median/MAD idiom
+    ``Baseline.is_anomaly`` already uses, so a caller reads this the same
+    way. It reports "the last ``min_window`` samples vs. everything before
+    them," not a search over every possible split point in the series.
+    """
+    n = len(values)
+    if n < min_window * 2:
+        return ChangePoint(False, None, 0.0, 0.0, 0.0)
+    before_baseline = robust_baseline(values[:-min_window])
+    after_median = median(values[-min_window:])
+    shift = before_baseline.modified_zscore(after_median)
+    detected = abs(shift) >= threshold
+    return ChangePoint(
+        detected=detected,
+        index=(n - min_window) if detected else None,
+        before_median=before_baseline.median,
+        after_median=after_median,
+        shift_magnitude=abs(shift),
+    )
+
+
 def clamp(value: float, low: float, high: float) -> float:
     return max(low, min(high, value))
 

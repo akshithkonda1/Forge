@@ -571,6 +571,77 @@ class LiveBedrockTests(unittest.TestCase):
         self.assertIn("SECURITY LAW (mandatory)", captured["system"])
 
 
+class HallucinationGuardTests(unittest.TestCase):
+    """_validate_model_numbers used to be a hardcoded `return True` — every
+    number in every live model response passed no matter what it said. These
+    prove the real, ground-truth-checking version actually rejects a
+    fabricated number end to end, not just that it leaves the existing
+    (all-grounded) fixtures alone."""
+
+    def test_live_falls_back_when_model_cites_a_fabricated_number(self):
+        # 231 doesn't resemble any of full_context()'s real values (hrv 58,
+        # recovery 58, resting_hr 52, weekly_load 70, steps 8200, ...).
+        payload = json.dumps({
+            "prose_summary": "Your resting heart rate is 231 bpm — that's dangerously high.",
+            "response_type": "insight",
+        })
+        resp = aria_engine.generate_response_live(
+            "how did I sleep?", full_context(), converse=lambda *a: payload)
+        self.assertEqual(resp["reasoning_source"], "deterministic")
+        self.assertIn("hallucination guard", resp["reasoning_error"])
+
+    def test_direct_validator_rejects_an_ungrounded_number(self):
+        ctx = full_context()
+        base = aria_engine.generate_response("how did I sleep?", ctx)
+        self.assertFalse(
+            aria_engine._validate_model_numbers("Your VO2 max is 231.", base, ctx)
+        )
+
+    def test_direct_validator_accepts_exact_ground_truth(self):
+        ctx = full_context()
+        base = aria_engine.generate_response("how did I sleep?", ctx)
+        self.assertTrue(
+            aria_engine._validate_model_numbers(
+                "Recovery is 58 with HRV 12% below baseline.", base, ctx
+            )
+        )
+
+    def test_direct_validator_tolerates_minor_rounding(self):
+        ctx = full_context()
+        base = aria_engine.generate_response("how did I sleep?", ctx)
+        # 58.2 instead of 58, -11.8 (as "11.8") instead of -12 -- the kind of
+        # rewording a model naturally does, not a different fact.
+        self.assertTrue(
+            aria_engine._validate_model_numbers(
+                "Recovery is 58.2 with HRV 11.8% below baseline.", base, ctx
+            )
+        )
+
+    def test_direct_validator_converts_sleep_minutes_to_hours(self):
+        ctx = full_context()  # sleep.duration_minutes = 440 -> 7.3h
+        base = aria_engine.generate_response("how did I sleep?", ctx)
+        self.assertTrue(
+            aria_engine._validate_model_numbers("You slept about 7.3 hours.", base, ctx)
+        )
+
+    def test_direct_validator_exempts_prescriptive_dosing_language(self):
+        # This is guidance.contains_prescriptive_medical_language's job, via
+        # _merge_live_envelope's soften-and-disclaim path -- not this guard's.
+        # 400 and 6 don't exist anywhere in full_context()'s ground truth.
+        ctx = full_context()
+        base = aria_engine.generate_response("how did I sleep?", ctx)
+        self.assertTrue(
+            aria_engine._validate_model_numbers(
+                "You should take 400 mg of ibuprofen every 6 hours.", base, ctx
+            )
+        )
+
+    def test_direct_validator_passes_prose_with_no_numbers(self):
+        ctx = full_context()
+        base = aria_engine.generate_response("how did I sleep?", ctx)
+        self.assertTrue(aria_engine._validate_model_numbers("Keep today easy.", base, ctx))
+
+
 class CoachAgentTests(unittest.TestCase):
     def test_unknown_agent_falls_back_to_aria(self):
         self.assertEqual(aria_engine.normalize_coach_agents(None), ["aria"])
