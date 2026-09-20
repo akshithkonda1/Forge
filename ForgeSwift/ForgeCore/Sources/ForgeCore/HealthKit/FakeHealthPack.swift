@@ -203,8 +203,15 @@ public struct FakeHealthPack: Sendable, Equatable {
     public var personaLabel: String = "balanced"
 
     /// Personas the generator can actually embody — not just label.
+    /// Roughly one launch in three, the generator blends two of these into a
+    /// hybrid ("stressed×nightOwl") instead of picking one, so the shelf of
+    /// humans keeps growing past the curated catalog and no two logins meet
+    /// the same body.
     public static let personaLabels = [
         "balanced", "athlete", "stressed", "nightOwl", "lightSleeper", "highEnergy",
+        "marathoner", "powerlifter", "newParent", "shiftWorker", "weekendWarrior",
+        "earlyBird", "deskJockey", "yogi", "insomniac", "trailRunner", "socialite",
+        "recovering",
     ]
 
     public init(days: [FakeHealthDay], generatedAt: Date, seed: Int, personaLabel: String = "balanced") {
@@ -327,6 +334,22 @@ public struct FakeHealthPack: Sendable, Equatable {
         // different body without breaking determinism.
         let personaLabel: String = {
             if let persona, personaLabels.contains(persona) { return persona }
+            // Roughly one launch in three, blend two presets into a genuinely
+            // new body the curated catalog never named — averaged biases, an
+            // honest hybrid label — so every login can meet someone new.
+            if rng.int(1...100) <= 35 {
+                let a = personaLabels[rng.int(0..<personaLabels.count)]
+                var b = personaLabels[rng.int(0..<personaLabels.count)]
+                var attempts = 0
+                while b == a, attempts < 8 {
+                    b = personaLabels[rng.int(0..<personaLabels.count)]
+                    attempts += 1
+                }
+                if b != a {
+                    let pair = [a, b].sorted()
+                    return pair[0] + "×" + pair[1]
+                }
+            }
             return personaLabels[rng.int(0..<personaLabels.count)]
         }()
         let bias = PersonaBias.forLabel(personaLabel)
@@ -372,6 +395,31 @@ public struct FakeHealthPack: Sendable, Equatable {
         var hydration: Double
 
         static func forLabel(_ label: String) -> PersonaBias {
+            // Blend label ("stressed×nightOwl"): average the two bodies so the
+            // hybrid is a real midpoint, never a sticker.
+            if label.contains("×") {
+                let bases = label.split(separator: "×").map { baseBias(for: String($0)) }
+                guard !bases.isEmpty else { return baseBias(for: "balanced") }
+                let n = Double(bases.count)
+                func avg(_ pick: (PersonaBias) -> Int) -> Int {
+                    Int((Double(bases.map(pick).reduce(0, +)) / n).rounded())
+                }
+                let avgHydration = bases.map(\.hydration).reduce(0, +) / n
+                return PersonaBias(
+                    hrv: avg(\.hrv),
+                    rhr: avg(\.rhr),
+                    steps: avg(\.steps),
+                    calories: avg(\.calories),
+                    onsetHourShift: avg(\.onsetHourShift),
+                    extraWake: bases.contains(where: \.extraWake),
+                    hydration: avgHydration
+                )
+            }
+            return baseBias(for: label)
+        }
+
+        /// The curated catalog. New personas land here; blends compose from these.
+        static func baseBias(for label: String) -> PersonaBias {
             switch label {
             case "athlete":
                 return PersonaBias(hrv: 10, rhr: -4, steps: 1_800, calories: 80, onsetHourShift: 0, extraWake: false, hydration: 200)
@@ -383,6 +431,30 @@ public struct FakeHealthPack: Sendable, Equatable {
                 return PersonaBias(hrv: -3, rhr: 2, steps: 0, calories: 0, onsetHourShift: 0, extraWake: true, hydration: 0)
             case "highEnergy":
                 return PersonaBias(hrv: 4, rhr: -1, steps: 2_200, calories: 90, onsetHourShift: 0, extraWake: false, hydration: 150)
+            case "marathoner":
+                return PersonaBias(hrv: 12, rhr: -5, steps: 3_200, calories: 140, onsetHourShift: 0, extraWake: false, hydration: 250)
+            case "powerlifter":
+                return PersonaBias(hrv: 2, rhr: 2, steps: -600, calories: 160, onsetHourShift: 0, extraWake: false, hydration: 300)
+            case "newParent":
+                return PersonaBias(hrv: -6, rhr: 4, steps: -800, calories: -40, onsetHourShift: 0, extraWake: true, hydration: -120)
+            case "shiftWorker":
+                return PersonaBias(hrv: -5, rhr: 3, steps: 400, calories: 20, onsetHourShift: 3, extraWake: true, hydration: -40)
+            case "weekendWarrior":
+                return PersonaBias(hrv: 3, rhr: 0, steps: 1_200, calories: 60, onsetHourShift: 0, extraWake: false, hydration: 100)
+            case "earlyBird":
+                return PersonaBias(hrv: 2, rhr: -2, steps: 900, calories: 30, onsetHourShift: -2, extraWake: false, hydration: 80)
+            case "deskJockey":
+                return PersonaBias(hrv: -4, rhr: 3, steps: -2_600, calories: -70, onsetHourShift: 0, extraWake: false, hydration: -60)
+            case "yogi":
+                return PersonaBias(hrv: 6, rhr: -3, steps: 500, calories: 10, onsetHourShift: 0, extraWake: false, hydration: 120)
+            case "insomniac":
+                return PersonaBias(hrv: -7, rhr: 5, steps: -300, calories: -10, onsetHourShift: 1, extraWake: true, hydration: -50)
+            case "trailRunner":
+                return PersonaBias(hrv: 8, rhr: -4, steps: 2_600, calories: 120, onsetHourShift: 0, extraWake: false, hydration: 200)
+            case "socialite":
+                return PersonaBias(hrv: -2, rhr: 2, steps: 700, calories: 40, onsetHourShift: 1, extraWake: false, hydration: -100)
+            case "recovering":
+                return PersonaBias(hrv: -3, rhr: 1, steps: -1_500, calories: -30, onsetHourShift: 0, extraWake: true, hydration: 50)
             default:
                 return PersonaBias(hrv: 0, rhr: 0, steps: 0, calories: 0, onsetHourShift: 0, extraWake: false, hydration: 0)
             }
