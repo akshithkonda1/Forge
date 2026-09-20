@@ -66,6 +66,83 @@ class SimContextToChatPayloadTests(unittest.TestCase):
         self.assertEqual(payload["context"]["chronotype"]["typicalSleepOnset"], "23:00")
 
 
+class QualitativeSpeakFallbackTests(unittest.TestCase):
+    """_scrub_fused_speak/friend_speak used to be all-or-nothing: the instant
+    the lambda engine's real prose_summary/message tripped the vitals scrub
+    (which _insight_response's own text reliably does -- it's literally
+    "{metric}: {value}. {interpretation}." and the interpretation itself
+    often embeds a number too, e.g. "Deep sleep at 21% is in a healthy
+    band"), friend_speak discarded it entirely and handed back a lone,
+    topic-disconnected wit-bank line. A real engine answer that correctly
+    read 8.4h of great sleep and a sparse-context clarify scenario ended up
+    looking identical either way. _qualitative_speak gives friend_speak a
+    real, number-free, on-topic sentence to reach for first."""
+
+    def test_qualitative_speak_returns_a_sleep_bank_line_for_the_sleep_topic(self):
+        signals = dummy.SignalRead(
+            sleep="rebuilt", recovery="steady", load="quiet", life="",
+            missing=(), last_session="", notable="",
+        )
+        result = dummy._qualitative_speak(1, "sleep", signals)
+        self.assertIn(result, dummy._SLEEP_TALK["rebuilt"])
+
+    def test_qualitative_speak_picks_the_field_matching_the_topic(self):
+        signals = dummy.SignalRead(
+            sleep="thin", recovery="ready", load="on_a_streak", life="",
+            missing=(), last_session="", notable="",
+        )
+        self.assertIn(dummy._qualitative_speak(2, "sleep", signals), dummy._SLEEP_TALK["thin"])
+        self.assertIn(dummy._qualitative_speak(2, "recovery", signals), dummy._RECOVERY_TALK["ready"])
+        self.assertIn(dummy._qualitative_speak(2, "workout", signals), dummy._LOAD_TALK["on_a_streak"])
+
+    def test_qualitative_speak_empty_for_a_topic_it_does_not_cover(self):
+        signals = dummy.SignalRead(
+            sleep="rebuilt", recovery="steady", load="quiet", life="",
+            missing=(), last_session="", notable="",
+        )
+        self.assertEqual(dummy._qualitative_speak(1, "aging", signals), "")
+        self.assertEqual(dummy._qualitative_speak(1, "", signals), "")
+        self.assertEqual(dummy._qualitative_speak(1, "sleep", None), "")
+
+    def test_scrub_fused_speak_reduces_a_vitals_dump_to_the_fallback_sentinel(self):
+        # The precondition the next two tests build on: _scrub_fused_speak
+        # (called before friend_speak in _respond_via_lambda) really does
+        # collapse _insight_response-style raw prose to _SPEAK_FALLBACK,
+        # which is what actually triggers friend_speak's rescue branch.
+        vitals_dump = "Sleep: 8.4 h total, 107 min deep (21%). Deep sleep at 21% is in a healthy band."
+        envelope = dummy._scrub_fused_speak({"prose_summary": vitals_dump, "message": vitals_dump})
+        self.assertEqual(envelope["prose_summary"], dummy._SPEAK_FALLBACK)
+        self.assertEqual(envelope["message"], dummy._SPEAK_FALLBACK)
+
+    def test_friend_speak_falls_back_to_qualitative_content_not_bare_wit(self):
+        # What friend_speak actually receives once _scrub_fused_speak has run
+        # on an _insight_response-style vitals dump (see the test above) --
+        # not the raw text itself, which friend_speak never gets a chance to
+        # rescue since _scrub_fused_speak already reduced it upstream.
+        signals = dummy.SignalRead(
+            sleep="rebuilt", recovery="steady", load="quiet", life="",
+            missing=(), last_session="", notable="",
+        )
+        result = dummy.friend_speak(dummy._SPEAK_FALLBACK, seed=7, signals=signals, topic="sleep")
+        # friend_speak capitalizes the qualitative sentence as a proper
+        # opener, so compare case-insensitively against the (lowercase) bank.
+        self.assertTrue(
+            any(line in result.lower() for line in dummy._SLEEP_TALK["rebuilt"]),
+            f"expected a _SLEEP_TALK[rebuilt] line inside {result!r}",
+        )
+        # Never reintroduces what the scrub was catching in the first place.
+        self.assertNotIn("21%", result)
+        self.assertNotIn("107 min", result)
+
+    def test_friend_speak_without_a_topic_keeps_the_old_wit_only_behavior(self):
+        signals = dummy.SignalRead(
+            sleep="rebuilt", recovery="steady", load="quiet", life="",
+            missing=(), last_session="", notable="",
+        )
+        result = dummy.friend_speak(dummy._SPEAK_FALLBACK, seed=7, signals=signals)
+        self.assertTrue(any(line in result for line in dummy._WIT_HONEST + dummy._WIT_PROTECT + dummy._WIT_PROCEED))
+
+
 class DummyARIAEngineUsesLambdaTests(unittest.TestCase):
     def test_respond_calls_the_real_engine_not_the_scripted_stub(self):
         ctx, _ = _ctx()

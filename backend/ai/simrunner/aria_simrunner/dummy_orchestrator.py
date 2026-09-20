@@ -974,6 +974,103 @@ def _wit_line(seed: int, stance: str = "", signals: SignalRead | None = None) ->
     return _pick(seed ^ 17, list(bank))
 
 
+# --- Topic-aware, number-free substance for the scrub-fallback path ----------
+# The lambda bridge's real prose/message routinely gets fully discarded by the
+# vitals scrub below (e.g. _insight_response's own prose_summary is literally
+# "{metric}: {value}. {interpretation}." and the interpretation itself often
+# embeds a number too, e.g. "Deep sleep at 21% is in a healthy band" — so even
+# stripping just the offending clause leaves a sentence fragment, not real
+# content). Before friend_speak falls all the way back to a topic-disconnected
+# wit line, try one of these: read_signals()'s own qualitative words turned
+# into a sentence, same voice as humanize_prose's stub-path sleep_clause bank,
+# just reusable outside that closure. No digits by construction, so it can
+# never reintroduce what the scrub was trying to catch.
+_SLEEP_TALK = {
+    "thin": (
+        "last night didn't give you a full reset",
+        "sleep came up short",
+        "the night was thinner than you needed",
+        "you woke up already spending energy you didn't bank",
+        "rest didn't stick the way it should have",
+    ),
+    "rebuilt": (
+        "you actually rebuilt overnight",
+        "you got a night you can spend",
+        "sleep finally gave you something to work with",
+        "you put real hours in the bank",
+        "the night actually paid you back",
+    ),
+    "decent": (
+        "sleep was decent, not extra",
+        "the night was middle-ground",
+        "you slept enough to move, not enough to burn",
+        "it was a usable night — not a free pass",
+        "rest was fine, nothing flashy",
+    ),
+    "unknown": (
+        "I don't have last night's sleep logged yet",
+        "there's no sleep sample in for last night yet",
+    ),
+}
+_RECOVERY_TALK = {
+    "asking": (
+        "your body's asking for a break today",
+        "recovery is asking for room, not more load",
+        "today's reading as a protect day",
+    ),
+    "ready": (
+        "you're sitting in a good spot to push",
+        "recovery looks ready to spend",
+        "there's real room to work with today",
+    ),
+    "steady": (
+        "recovery is steady, nothing urgent either way",
+        "you're holding a steady middle right now",
+        "nothing's flashing — just an ordinary day",
+    ),
+}
+_LOAD_TALK = {
+    "on_a_streak": (
+        "you've been stacking sessions lately",
+        "the streak's been real the past while",
+        "load's been building up over several sessions",
+    ),
+    "in_the_legs": (
+        "yesterday's work is still in the legs",
+        "there's fresh work still settling",
+        "you're still carrying the last session",
+    ),
+    "fresh": (
+        "you've had a few easy days",
+        "load's been light lately",
+        "you're coming in fresh off some rest",
+    ),
+    "quiet": (
+        "training's been quiet the last few days",
+        "it's been a slow stretch",
+        "there's not much recent load to speak of",
+    ),
+}
+_TOPIC_TALK = {"sleep": _SLEEP_TALK, "recovery": _RECOVERY_TALK, "workout": _LOAD_TALK, "cycle": _LOAD_TALK}
+_TOPIC_SIGNAL_FIELD = {"sleep": "sleep", "recovery": "recovery", "workout": "load", "cycle": "load"}
+
+
+def _qualitative_speak(seed: int, topic: str, signals: SignalRead | None) -> str:
+    """A real, on-topic, number-free sentence — what friend_speak reaches for
+    before giving up on substance and handing back a disconnected wit line.
+    Empty when the topic isn't one of the domains read_signals() covers, or
+    signals themselves are unavailable; callers keep the existing wit-only
+    fallback in that case, same as before this existed."""
+    if signals is None or not topic:
+        return ""
+    bank = _TOPIC_TALK.get(topic)
+    field = _TOPIC_SIGNAL_FIELD.get(topic)
+    if not bank or not field:
+        return ""
+    options = bank.get(getattr(signals, field, ""))
+    return _pick(seed ^ 41, list(options)) if options else ""
+
+
 def _is_follow_up_speak(body: str) -> bool:
     lead = (body or "").strip().lower()
     return any(lead.startswith(p) for p in _FOLLOW_UP_LEADS)
@@ -987,6 +1084,7 @@ def friend_speak(
     signals: SignalRead | None = None,
     guidance: str | None = None,
     short_ok: bool = False,
+    topic: str = "",
 ) -> str:
     """Bubbly/kind friend with a point — funny take + one useful improve.
 
@@ -1004,6 +1102,16 @@ def friend_speak(
     body = re.sub(r"^[\s.,;:—–\-]+", "", body).strip()
     extra = _wit_line(seed, stance, signals)
     if not body or body == _SPEAK_FALLBACK or _THIN_SPEAK.match(body):
+        # The real engine often DID build a substantive answer here — it just
+        # got fully scrubbed for citing a raw number (see _qualitative_speak's
+        # own comment). Reach for what's actually true about the day before
+        # handing back pure, topic-disconnected wit.
+        real = _qualitative_speak(seed, topic, signals)
+        if real:
+            real = real[0].upper() + real[1:]
+            if extra and extra.lower() not in real.lower():
+                real = f"{real} — {extra}" if real[-1] not in ".!?—" else f"{real} {extra}"
+            return _speak_without_vitals(real, extra, _SPEAK_FALLBACK)
         return _speak_without_vitals(extra, _SPEAK_FALLBACK)
     if any(n in body.lower() for n in _WIT_ALREADY):
         return _speak_without_vitals(body)
@@ -1766,6 +1874,7 @@ def _respond_via_lambda(
         signals=signals,
         guidance=guidance,
         short_ok=True,
+        topic=plan.primary.kind,
     )
     chat = friend_speak(
         envelope.get("message") or prose,
@@ -1774,6 +1883,7 @@ def _respond_via_lambda(
         signals=signals,
         guidance=guidance,
         short_ok=True,
+        topic=plan.primary.kind,
     )
     prose = _speak_without_vitals(prose)
     chat = _speak_without_vitals(chat, prose)
