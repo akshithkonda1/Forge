@@ -206,7 +206,15 @@ final class AppStore: ObservableObject {
     
     init() {
         // Initialize AI response generator
-        #if canImport(FoundationModels)
+        //
+        // Simulator has no model catalog (see FoundationModelsResponseGenerator's
+        // own init comment) — merely evaluating `SystemLanguageModel.default`
+        // there, which happens as soon as FoundationModelsResponseGenerator is
+        // constructed, has been reported to trap rather than return
+        // `.unavailable` on some OS/Simulator combinations. Skip constructing it
+        // in Simulator builds entirely rather than relying on `isAvailable` to
+        // fail gracefully after the fact.
+        #if canImport(FoundationModels) && !targetEnvironment(simulator)
         let foundationModelsGenerator = FoundationModelsResponseGenerator()
         self.aiModelAvailable = foundationModelsGenerator.isAvailable
         self.responseGenerator = foundationModelsGenerator.isAvailable ?

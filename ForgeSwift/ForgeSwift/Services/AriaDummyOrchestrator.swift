@@ -822,7 +822,9 @@ enum AriaDummyOrchestrator {
         required: [String],
         prompt: String
     ) async -> String {
-        #if canImport(FoundationModels)
+        // Simulator has no model catalog — see FoundationModelsResponseGenerator's
+        // own init comment and AppStore's identical guard.
+        #if canImport(FoundationModels) && !targetEnvironment(simulator)
         guard #available(iOS 26.0, *) else { return skeleton }
         let gen = FoundationModelsResponseGenerator()
         guard gen.isAvailable else { return skeleton }
