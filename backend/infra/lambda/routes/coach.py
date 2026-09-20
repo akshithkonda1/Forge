@@ -146,11 +146,20 @@ def handle_post_coach_sleep_insight(user_id: str, _body: dict) -> dict:
         "context": coach_context.context_to_prompt_block(context),
     }
     recovery = context["recoveryTrend"]
-    if not context.get("recentSleep"):
-        fallback = (
-            "You have no sleep logged yet, so there is no trend to analyze. Connect a "
-            "sleep source and I will have something to work with in a few nights."
-        )
+    if not context.get("hasLoggedSleep"):
+        if context.get("recentSleep"):
+            # Synced data exists (gather_user_context's body-snapshot fallback)
+            # but no session-log nights with a score yet -- honest about what
+            # we have without claiming there's a trend to show.
+            fallback = (
+                "I can see last night's numbers from your synced data, but I need a few "
+                "more nights logged with a sleep score before I can show you a real trend."
+            )
+        else:
+            fallback = (
+                "You have no sleep logged yet, so there is no trend to analyze. Connect a "
+                "sleep source and I will have something to work with in a few nights."
+            )
     else:
         direction = (
             "improving" if recovery["delta"] > 0

@@ -2344,9 +2344,15 @@ def _plan_response(
 
 
 def _insight_response(
-    message: str, ctx: ARIAContext, signals: list[Signal], restricted: list[str], voice_mode: bool
+    message: str,
+    ctx: ARIAContext,
+    signals: list[Signal],
+    restricted: list[str],
+    voice_mode: bool,
+    *,
+    stance: str = "",
+    brief: Any = None,
 ) -> dict[str, Any]:
-    confidence, reason = _calibrate_confidence(ctx, signals, restricted)
     focus = _focus_domain(message)
     focus_signal = _signal_for_domain(signals, focus)
 
@@ -2365,9 +2371,20 @@ def _insight_response(
             voice_mode=voice_mode,
         )
 
+    from . import aria_evidence
+
+    load = aria_evidence.derive_load(ctx)
+    pattern = aria_evidence.detect_pattern(
+        ctx, signals, restricted, stance=stance, brief=brief, load=load
+    )
+    confidence, reason = _calibrate_confidence(ctx, signals, restricted, pattern=pattern)
+
     # Answer what was asked: prefer the signal for the focus domain, then fall
-    # back to the highest-priority signal.
-    lead = focus_signal or (signals[0] if signals else None)
+    # back to the evidence graph's top-ranked signal (magnitude x confidence x
+    # domain priority, with a personal-baseline bonus) instead of just the
+    # highest-priority-*tier* one _gather_signals happens to sort first.
+    ranked = aria_evidence.score_signals(signals)
+    lead = focus_signal or (ranked[0].signal if ranked else None)
     if lead is None:
         return _clarification_response(ctx, restricted, voice_mode)
 
@@ -2378,14 +2395,26 @@ def _insight_response(
         "vs_baseline": lead.vs_baseline,
         "interpretation": lead.interpretation,
         "priority": lead.priority,
+        "evidence": pattern.to_dict(),
+        "load": load.to_dict(),
     }
+    # A focused ask ("show me my sleep") stays grounded in that metric's own
+    # number for Why — the top cross-signal pattern can legitimately be about
+    # a different domain than a focus_signal was. Only the ranked fallback
+    # (no specific focus asked) is guaranteed to share pattern.why's own lead
+    # signal, so only that case borrows it.
+    why = (
+        f"Reading {lead.metric.lower()} — {lead.current_value} {lead.vs_baseline}."
+        if focus_signal is not None
+        else pattern.why
+    )
     # Plain-language read for the chat; the exact numbers live on the card.
     message = _structured_message(
         _cap(lead.interpretation),
         "Ask me what to do about it and I'll turn it into today's plan.",
-        f"Reading {lead.metric.lower()} — {lead.current_value} {lead.vs_baseline}.",
+        why,
     )
-    return _envelope(
+    envelope = _envelope(
         response_type="insight",
         confidence=confidence,
         confidence_reason=reason,
@@ -2395,16 +2424,32 @@ def _insight_response(
         suggested_actions=["What should I do about it?", "Show the trend", "Compare to last week"],
         voice_mode=voice_mode,
     )
+    envelope["evidence"] = pattern.to_dict()
+    envelope["load"] = load.to_dict()
+    return envelope
 
 
 def _summary_response(
-    ctx: ARIAContext, signals: list[Signal], restricted: list[str], voice_mode: bool
+    ctx: ARIAContext,
+    signals: list[Signal],
+    restricted: list[str],
+    voice_mode: bool,
+    *,
+    stance: str = "",
+    brief: Any = None,
 ) -> dict[str, Any]:
     p = ctx.progress
     if not ctx.has_progress:
         return _clarification_response(ctx, restricted, voice_mode)
 
-    confidence, reason = _calibrate_confidence(ctx, signals, restricted)
+    from . import aria_evidence
+
+    load = aria_evidence.derive_load(ctx)
+    pattern = aria_evidence.detect_pattern(
+        ctx, signals, restricted, stance=stance, brief=brief, load=load
+    )
+    confidence, reason = _calibrate_confidence(ctx, signals, restricted, pattern=pattern)
+
     facts: list[str] = []
     if p.workouts_completed_30d is not None:
         facts.append(f"{p.workouts_completed_30d} workouts in 30 days")
@@ -2421,6 +2466,15 @@ def _summary_response(
         risk = "Load is drifting down — add one quality session to hold momentum."
     else:
         risk = "Load is steady — vary the stimulus so you don't plateau."
+    # The evidence graph reasons about *today*, which the 30-day trend lines
+    # above don't cover — only let a genuinely acute, protect-worthy pattern
+    # (overreaching, sleep debt, low readiness...) override that trend-based
+    # read, since that's real cross-signal information the bare trend string
+    # never carried. A quiet/moderate day has nothing sharper to say than the
+    # trend read already does, so it's left alone rather than downgraded to
+    # the pattern's generic fallback text.
+    if pattern.blocks_intensity:
+        risk = pattern.notice if pattern.notice.endswith(".") else f"{pattern.notice}."
 
     if p.new_personal_records:
         win = f"{p.new_personal_records} PR{'s' if p.new_personal_records != 1 else ''} this block — strength is moving."
@@ -2441,9 +2495,11 @@ def _summary_response(
         "win": win,
         "risk": risk,
         "recommendation": rec,
+        "evidence": pattern.to_dict(),
+        "load": load.to_dict(),
     }
     message = _structured_message(f"Last 30 days: {headline}. {win}", risk, rec)
-    return _envelope(
+    envelope = _envelope(
         response_type="summary",
         confidence=confidence,
         confidence_reason=reason,
@@ -2453,6 +2509,9 @@ def _summary_response(
         suggested_actions=["Plan next block", "Show load chart", "Review PRs"],
         voice_mode=voice_mode,
     )
+    envelope["evidence"] = pattern.to_dict()
+    envelope["load"] = load.to_dict()
+    return envelope
 
 
 def generate_response(
@@ -2516,7 +2575,9 @@ def generate_response(
     else:
         signals = _gather_signals(ctx, baselines)
         if response_type == "summary":
-            envelope = _summary_response(ctx, signals, restricted, voice_mode)
+            envelope = _summary_response(
+                ctx, signals, restricted, voice_mode, stance=stance, brief=brief
+            )
         elif response_type == "plan":
             envelope = _plan_response(
                 message, ctx, signals, restricted, voice_mode, stance=stance, brief=brief
@@ -2526,7 +2587,9 @@ def generate_response(
                 message, ctx, signals, restricted, voice_mode, stance=stance, brief=brief
             )
         else:
-            envelope = _insight_response(message, ctx, signals, restricted, voice_mode)
+            envelope = _insight_response(
+                message, ctx, signals, restricted, voice_mode, stance=stance, brief=brief
+            )
 
     envelope["restricted_domains"] = restricted
     if response_type in ("recommendation", "plan") and "training" not in restricted:

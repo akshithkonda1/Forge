@@ -10,12 +10,15 @@ from pathlib import Path
 import _bootstrap  # noqa: F401
 
 from ai_router import (  # noqa: E402
+    AGREEMENT_HIGH_THRESHOLD,
+    AGREEMENT_LOW_THRESHOLD,
     AIRouter,
     BedrockGateway,
     MAX_CLIENT_TIMEOUT_SECONDS,
     MAX_PACKAGE_BYTES,
     RouteRequest,
     RoutingError,
+    _answer_agreement,
     default_models,
 )
 
@@ -389,6 +392,118 @@ class AIRouterTests(unittest.TestCase):
             )
 
         self.assertIn("10 GB routing limit", str(context.exception))
+
+
+class AnswerAgreementTests(unittest.TestCase):
+    """Blend, don't first-win (ARIA_INTELLIGENCE_PLAN.md §5.2): the finalizer
+    already reconciles multi-model answers into one voice, but that alone
+    can paper over real disagreement between sources. _answer_agreement
+    measures the raw, pre-reconciliation answers directly so "Claude and
+    Grok disagreeing is signal" has somewhere concrete to land."""
+
+    def test_identical_answers_score_high(self):
+        label, score = _answer_agreement([
+            "Readiness is 72. Train at moderate intensity today.",
+            "Readiness is 72. Train at moderate intensity today.",
+        ])
+        self.assertEqual(label, "high")
+        self.assertEqual(score, 1.0)
+
+    def test_unrelated_answers_score_low(self):
+        label, score = _answer_agreement([
+            "Readiness is 72. Train at moderate intensity today.",
+            "The weather in Tokyo is cloudy with light rain expected tonight.",
+        ])
+        self.assertEqual(label, "low")
+        self.assertLess(score, AGREEMENT_LOW_THRESHOLD)
+
+    def test_single_answer_has_no_agreement_concept(self):
+        label, score = _answer_agreement(["Readiness is 72."])
+        self.assertEqual(label, "n/a")
+        self.assertEqual(score, 1.0)
+
+    def test_no_answers_has_no_agreement_concept(self):
+        label, score = _answer_agreement([])
+        self.assertEqual(label, "n/a")
+        self.assertEqual(score, 1.0)
+
+    def test_blank_answers_are_not_counted_as_real_sources(self):
+        label, score = _answer_agreement(["   ", "Readiness is 72."])
+        self.assertEqual(label, "n/a")
+        self.assertEqual(score, 1.0)
+
+    def test_route_surfaces_high_agreement_on_a_2_model_consensus(self):
+        gateway = FakeGateway(
+            responses={
+                "anthropic.claude-sonnet-4-6": {
+                    "delay": 0.01,
+                    "answer": "Readiness is 72 today. Train at moderate intensity and protect sleep.",
+                },
+                "anthropic.claude-opus-4-7": {
+                    "delay": 0.01,
+                    "answer": "Readiness sits at 72 right now. Keep training moderate and protect sleep tonight.",
+                },
+            },
+            consensus_answer="Readiness is 72 -- train at moderate intensity and protect sleep tonight.",
+        )
+        router = AIRouter(gateway=gateway)
+        request = RouteRequest.from_payload(
+            {
+                "question": "How hard should I train today?",
+                "packageSizeBytes": 4 * 1024 * 1024 * 1024,
+                "settings": {"overallTimeoutSeconds": 0.5, "consensusWindowSeconds": 0.12},
+            }
+        )
+
+        response = router.route(request)
+
+        self.assertEqual(response["finalAnswerSource"]["mode"], "2-model-consensus")
+        self.assertEqual(response["finalAnswerSource"]["agreement"], "high")
+        self.assertGreaterEqual(response["finalAnswerSource"]["agreementScore"], AGREEMENT_HIGH_THRESHOLD)
+
+    def test_route_flags_low_agreement_between_sharply_different_answers(self):
+        gateway = FakeGateway(
+            responses={
+                "anthropic.claude-sonnet-4-6": {
+                    "delay": 0.01,
+                    "answer": "Readiness is 72 today. Train at moderate intensity and protect sleep.",
+                },
+                "anthropic.claude-opus-4-7": {
+                    "delay": 0.01,
+                    "answer": "I would need your destination and travel dates to plan that itinerary.",
+                },
+            },
+            consensus_answer="Readiness is 72 -- train moderate and protect sleep.",
+        )
+        router = AIRouter(gateway=gateway)
+        request = RouteRequest.from_payload(
+            {
+                "question": "How hard should I train today?",
+                "packageSizeBytes": 4 * 1024 * 1024 * 1024,
+                "settings": {"overallTimeoutSeconds": 0.5, "consensusWindowSeconds": 0.12},
+            }
+        )
+
+        response = router.route(request)
+
+        self.assertEqual(response["finalAnswerSource"]["mode"], "2-model-consensus")
+        self.assertEqual(response["finalAnswerSource"]["agreement"], "low")
+        self.assertLess(response["finalAnswerSource"]["agreementScore"], AGREEMENT_LOW_THRESHOLD)
+
+    def test_single_model_route_reports_agreement_as_not_applicable(self):
+        gateway = FakeGateway(
+            responses={"anthropic.claude-sonnet-4-6": {"delay": 0.01, "answer": "Readiness is 72."}},
+        )
+        router = AIRouter(gateway=gateway)
+        request = RouteRequest.from_payload(
+            {"question": "How hard should I train today?", "packageSizeBytes": 1024}
+        )
+
+        response = router.route(request)
+
+        self.assertEqual(response["finalAnswerSource"]["mode"], "single-model")
+        self.assertEqual(response["finalAnswerSource"]["agreement"], "n/a")
+        self.assertEqual(response["finalAnswerSource"]["agreementScore"], 1.0)
 
 
 class _FakeBoto3:
