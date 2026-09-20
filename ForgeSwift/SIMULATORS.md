@@ -55,6 +55,11 @@ Use **ForgeCompanion** only when you need Watch auto-launch. Keep a single
 active `xcode-select` path so stable Simulator.app and beta DeviceHub do not
 fight.
 
+Phone-only **ForgeSwift** on Simulator does not activate `WCSession`. Activating
+unpaired logs `pairingIDs no longer match` / `WCSession is not paired`. Pair a
+Watch under the iPhone in DeviceHub and ⌘R **ForgeCompanion** when you need
+the wrist.
+
 ### DeviceKitError 4002 ("Live device view took longer than expected to connect")
 
 Same DeviceHub host layer, a different symptom: DeviceKit times out (60s)

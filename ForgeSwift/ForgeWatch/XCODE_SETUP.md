@@ -90,7 +90,7 @@ Standalone “Watch only” destinations work for UI, but **companion features**
 | “Unable to find module dependency: watchOS” | Install watchOS platform in Xcode Settings → Platforms. |
 | Only iPhone destinations | Product → Destination → show Watch pair; create a paired Watch sim. |
 | Watch app never appears after iPhone run | Clean build folder, delete both apps from sims, re-run **ForgeSwift** on the paired iPhone. Confirm Embed Watch Content phase is on ForgeSwift. |
-| WatchConnectivity never connects | Both processes must be installed from the **same build**; launch phone app once, then watch. |
+| WatchConnectivity never connects | Use scheme **ForgeCompanion** (sets `FORGE_LAUNCH_WATCH_COMPANION=1`). Phone-only **ForgeSwift** on Simulator does not activate `WCSession` — that is what logged `pairingIDs no longer match` / `WCSession is not paired`. Pair a Watch under the iPhone in DeviceHub, then ⌘R ForgeCompanion. |
 | Signing / App Group errors | Same Development Team on all 4 targets; enable App Groups capability for group.com.forge.ForgeSwift. |
 | HealthKit permission never shows | Run on Watch destination at least once; grant Health on the watch (not only iPhone). |
 | App Group empty on Watch sim | **Expected** on many simulator pairs. Config is also pushed over **WatchConnectivity** (`WatchAriaConfigBridge` → `PhoneLinkService`). Launch **iPhone app first**, then Watch. |

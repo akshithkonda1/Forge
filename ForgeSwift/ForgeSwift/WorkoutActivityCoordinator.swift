@@ -24,6 +24,14 @@ final class WorkoutActivityCoordinator: NSObject, WCSessionDelegate {
 
     func activate() {
         guard WCSession.isSupported() else { return }
+        #if targetEnvironment(simulator)
+        let companion = ProcessInfo.processInfo.environment["FORGE_LAUNCH_WATCH_COMPANION"] == "1"
+        guard PhoneDependency.shouldActivatePhoneSession(
+            isSupported: true,
+            isSimulator: true,
+            companionLaunchRequested: companion
+        ) else { return }
+        #endif
         let session = WCSession.default
         session.delegate = self
         session.activate()
@@ -168,7 +176,9 @@ final class WorkoutActivityCoordinator: NSObject, WCSessionDelegate {
     func sessionDidBecomeInactive(_ session: WCSession) {}
 
     func sessionDidDeactivate(_ session: WCSession) {
-        // Standard practice after a watch switch: reactivate.
+        // Watch switch. Do not reactivate an unpaired Simulator session —
+        // that re-logs `pairingIDs no longer match` / `WCSession is not paired`.
+        guard session.isPaired else { return }
         session.activate()
     }
 }

@@ -72,12 +72,14 @@ enum WatchAriaConfigBridge {
     private static func pushOverWatchConnectivity(_ payload: [String: String]) {
         guard WCSession.isSupported() else { return }
         let session = WCSession.default
-        guard session.activationState == .activated else { return }
         // Only the iPhone side should push companion config.
         #if os(iOS)
-        // Simulator / unpaired phone: no Watch app → updateApplicationContext
-        // spam `WCErrorCodeWatchAppNotInstalled` and "Application context data is nil".
-        guard session.isPaired, session.isWatchAppInstalled else { return }
+        // Unpaired Simulator: pairingID is null. Do not updateApplicationContext.
+        guard PhoneDependency.phoneMayTalkToWatch(
+            isActivated: session.activationState == .activated,
+            isPaired: session.isPaired,
+            isWatchAppInstalled: session.isWatchAppInstalled
+        ) else { return }
 
         let envelope: [String: Any] = [WC.config: payload]
         // Merge with any in-flight workout context so we don't clobber Live Activity state.
