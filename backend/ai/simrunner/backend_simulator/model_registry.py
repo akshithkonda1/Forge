@@ -1,4 +1,4 @@
-"""Backend Simulator — 23 frontier behavioral archetypes.
+"""Backend Simulator — 26 frontier behavioral archetypes.
 
 These are NOT live API models. Each is a named persona with a behavioral profile
 that the simulator uses to synthesize 30 days of realistic biometric data — so
@@ -7,16 +7,19 @@ single network call or burning a token.
 
 Difficulty gradient: 4 archetypes per tier, tiers 1 (trivial to coach) → 5
 (adversarial, designed to break naive coaching) — except tiers 3, 4, and 5,
-which each carry one extra archetype (5, not 4). Tier 5's extra: genuine
-data-sparsity has its own dedicated persona alongside the four existing
-adversarial traits (self-contradiction, a mid-dataset regime change,
-fake-workout gaming, and genuine signal ambiguity), none of which were a good
-fit to double up sparseness onto. Tiers 3 and 4's extras are a matched pair:
-isometric training gets a base case at tier 3 (does ARIA use isometric data at
-all) and a harder confound at tier 4 (benign isometric HR spikes mixed with
-genuine overtraining in the same 30-day stream — ARIA must tell them apart),
-mirroring how tier 4's other personas are already "must not misread X as Y"
-tests.
+which carry extras. Tier 5's extra: genuine data-sparsity has its own dedicated
+persona alongside the four existing adversarial traits (self-contradiction, a
+mid-dataset regime change, fake-workout gaming, and genuine signal ambiguity),
+none of which were a good fit to double up sparseness onto. Tiers 3 and 4's
+extras are matched pairs: isometric training gets a base case at tier 3 (does
+ARIA use isometric data at all) and a harder confound at tier 4 (benign
+isometric HR spikes mixed with genuine overtraining in the same 30-day stream —
+ARIA must tell them apart), mirroring how tier 4's other personas are already
+"must not misread X as Y" tests. Tier 3 also carries the clinical/mental-health
+axis the mosaic thesis needs: a metabolic-risk executive (lab-aware coaching
+without diagnosing), a low-mood professional (sensitive mood+sleep+load
+fusion), while tier 4 carries structural sparsity — a minimal-device tracker
+whose gaps are permanent, not new-user growing pains.
 """
 
 from __future__ import annotations
@@ -212,6 +215,46 @@ BEDROCK_MODEL_REGISTRY: list[dict] = [
             "isometric_emphasis": 0.70,
         },
     },
+    {
+        "model_id": "anthropic.claude-sonnet-4-6-metabolic",
+        "display_name": "Claude Sonnet 4.6 — The Metabolic-Risk Executive",
+        "difficulty_tier": 3,
+        "coaching_challenge": (
+            "Recent labs show LDL 168 mg/dL; low HRV, chronic sleep debt, "
+            "sedentary. ARIA must prioritize sleep and metabolic health, "
+            "reference the lab value without diagnosing, and never prescribe "
+            "training load as the fix."
+        ),
+        "behavioral_profile": {
+            "chronotype": "bear", "age": 47, "occupation": "executive",
+            "experience_level": "beginner", "coaching_style": "balanced",
+            "sleep_consistency": 0.45, "hrv_baseline": 36, "hrv_variance": 0.14,
+            "training_frequency_per_week": 1, "training_consistency": 0.40,
+            "overtraining_tendency": 0.05, "sleep_debt_tendency": 0.80,
+            "stress_response": "high", "life_irregularity": 0.50, "season": "irregular",
+            "notable_pattern": "metabolic_risk",
+        },
+    },
+    {
+        "model_id": "amazon.nova-lite-v1-lowmood",
+        "display_name": "Nova Lite — The Low-Mood Professional",
+        "difficulty_tier": 3,
+        "coaching_challenge": (
+            "Anxiety check-ins and low motivation alongside disrupted sleep. "
+            "ARIA must fuse mood + sleep + load sensitively, stay supportive "
+            "without toxic positivity, and respect scope — encourage "
+            "professional support where appropriate without diagnosing."
+        ),
+        "behavioral_profile": {
+            "chronotype": "dolphin", "age": 34, "occupation": "social worker",
+            "experience_level": "intermediate", "coaching_style": "patient",
+            "sleep_consistency": 0.50, "hrv_baseline": 48, "hrv_variance": 0.16,
+            "training_frequency_per_week": 2, "training_consistency": 0.45,
+            "overtraining_tendency": 0.10, "sleep_debt_tendency": 0.60,
+            "stress_response": "high", "life_irregularity": 0.45, "season": "irregular",
+            "notable_pattern": "anxious_nights",
+        },
+    },
     # ──────────────────────── Tier 4 — Hard edge ─────────────────────────
     {
         "model_id": "anthropic.claude-opus-4-8-thinking",
@@ -285,6 +328,26 @@ BEDROCK_MODEL_REGISTRY: list[dict] = [
             "overtraining_tendency": 0.75, "sleep_debt_tendency": 0.25,
             "stress_response": "moderate", "life_irregularity": 0.15, "season": "peak",
             "isometric_emphasis": 0.45,
+        },
+    },
+    {
+        "model_id": "cohere.command-r-plus-minimal",
+        "display_name": "Command R+ — The Minimal-Device Tracker",
+        "difficulty_tier": 4,
+        "coaching_challenge": (
+            "Phone-only data for years: steps and weight, no watch, no HRV, "
+            "no sleep stages — structural sparsity, not new-user sparsity. "
+            "ARIA must coach on what's actually there, state what it can't "
+            "see, and never fill the gaps with population averages."
+        ),
+        "behavioral_profile": {
+            "chronotype": "bear", "age": 64, "occupation": "retiree",
+            "experience_level": "beginner", "coaching_style": "patient",
+            "sleep_consistency": 0.70, "hrv_baseline": 44, "hrv_variance": 0.10,
+            "training_frequency_per_week": 2, "training_consistency": 0.70,
+            "overtraining_tendency": 0.05, "sleep_debt_tendency": 0.20,
+            "stress_response": "low", "life_irregularity": 0.15, "season": "maintenance",
+            "data_completeness": 0.30,
         },
     },
     # ─────────────────────── Tier 5 — Adversarial ────────────────────────
@@ -384,7 +447,7 @@ def all_model_ids() -> list[str]:
 def resolve_archetype(model_id: str) -> dict:
     """Return a coaching archetype for a model_id.
 
-    A named archetype (one of the curated 23) wins; otherwise any model in the
+    A named archetype (one of the curated 26) wins; otherwise any model in the
     Bedrock catalog resolves to a deterministically derived persona, so SimRunner
     can test against the whole registry. Unknown ids raise KeyError.
     """
@@ -421,9 +484,12 @@ def _sanitize_id(model_id: str) -> str:
 # none of which were a thematically honest fit to double up sparseness onto.
 # Tiers 3 and 4 each carry one extra too: an isometric base case ("The
 # Isometric Specialist") and its harder tier-4 confound ("The Isometric
-# Confounder") — see the module docstring.
-_TIER_COUNTS: dict[int, int] = {1: 4, 2: 4, 3: 5, 4: 5, 5: 5}
-TOTAL_ARCHETYPES = sum(_TIER_COUNTS.values())  # 23
+# Confounder") — see the module docstring. Tier 3 carries two more for the
+# clinical/mental-health axis ("The Metabolic-Risk Executive", "The Low-Mood
+# Professional") and tier 4 one more for structural sparsity ("The
+# Minimal-Device Tracker") — see the module docstring.
+_TIER_COUNTS: dict[int, int] = {1: 4, 2: 4, 3: 7, 4: 6, 5: 5}
+TOTAL_ARCHETYPES = sum(_TIER_COUNTS.values())  # 26
 
 
 def validate_registry(registry: list[dict] | None = None) -> None:

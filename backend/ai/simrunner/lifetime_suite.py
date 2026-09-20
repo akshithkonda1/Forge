@@ -1,6 +1,6 @@
 """ARIA SimRunner — single entry point.
 
-Runs the full offline pipeline against one archetype, a tier, or all 23:
+Runs the full offline pipeline against one archetype, a tier, or all 26:
 
     python -m backend.simrunner                       # tier 1 (fast sanity)
     python -m backend.simrunner --test-ready --tier 1 --gate  # dummy = iOS Test-Ready path
@@ -435,7 +435,7 @@ def main(argv: list[str] | None = None) -> int:
         prog="backend.simrunner",
         description="ARIA SimRunner — offline evaluation harness",
     )
-    parser.add_argument("--list", action="store_true", help="list the 23 curated user archetypes and exit")
+    parser.add_argument("--list", action="store_true", help="list the 26 curated user archetypes and exit")
     parser.add_argument("--list-bedrock", action="store_true", help="list the full Bedrock model catalog and exit")
     parser.add_argument(
         "--list-model-archetypes",
@@ -445,7 +445,7 @@ def main(argv: list[str] | None = None) -> int:
     group = parser.add_mutually_exclusive_group()
     group.add_argument("--model", help="user archetype model_id OR any Bedrock catalog id")
     group.add_argument("--tier", type=int, choices=[1, 2, 3, 4, 5], help="test all user archetypes in a tier")
-    group.add_argument("--all", action="store_true", help="test all 23 user archetypes")
+    group.add_argument("--all", action="store_true", help="test all 26 user archetypes")
     group.add_argument("--isometric", action="store_true",
                         help="test just the 2 isometric archetypes (tiers 3+4 each mix in 4 unrelated others)")
     parser.add_argument(
@@ -574,7 +574,7 @@ def main(argv: list[str] | None = None) -> int:
     scope = args.model or (
         "isometric (2 archetypes)" if args.isometric else
         f"tier {args.tier}" if args.tier else
-        ("all 23" if args.all else "tier 1 (default)")
+        ("all 26" if args.all else "tier 1 (default)")
     )
     arch_scope = ", ".join(arch_ids) if len(arch_ids) <= 3 else f"{len(arch_ids)} model archetypes"
     product = bool(args.test_ready)

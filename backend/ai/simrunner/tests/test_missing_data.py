@@ -51,15 +51,19 @@ class CompletenessRNGGatingTests(unittest.TestCase):
     """New RNG rolls (the completeness gate, the source-conflict perturbation)
     must never fire for a profile that doesn't opt in — not "roll and
     discard," which would still shift every later value even when nothing
-    else visibly changed. None of the 20 pre-existing archetypes' profile
+    else visibly changed. None of the 23 pre-existing archetypes' profile
     dicts carry either new key; that's the real, load-bearing guarantee their
     committed baselines depend on (confirmed end-to-end separately via
     `--all --gate`, not by a unit test)."""
 
     def test_no_existing_archetype_profile_carries_the_new_keys(self):
+        sparse_opt_ins = {
+            "cohere.command-r-sparse",  # the new-user sparsity persona
+            "cohere.command-r-plus-minimal",  # the structural-sparsity persona
+        }
         for model in reg.BEDROCK_MODEL_REGISTRY:
-            if model["model_id"] == "cohere.command-r-sparse":
-                continue  # the one persona that deliberately opts in
+            if model["model_id"] in sparse_opt_ins:
+                continue  # the personas that deliberately opt in
             profile = model["behavioral_profile"]
             self.assertNotIn("data_completeness", profile, model["model_id"])
             self.assertNotIn("source_conflict", profile, model["model_id"])
