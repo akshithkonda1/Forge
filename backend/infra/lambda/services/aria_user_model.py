@@ -14,23 +14,51 @@ always fell back to payload-only context whenever real history was present
 — fixed, along with a permission-check gap that let life_facts tags leak
 into the context even when the caller denied the "lifestyle" domain.
 
-Two real blockers remain before any route can safely call this:
+**Update 2026-09-20 — re-scoped after reading routes/coach.py and ai_router.py
+closely, not just this module's own prior docstring.** The original plan here
+was "swap coach.py's gather_user_context() call for build_user_model()." That
+turns out to be the wrong fix, for a reason deeper than "the call sites need
+rewriting": routes/coach.py's four handlers don't consume an ARIAContext at
+all. They build a prompt for ai_router.AIRouter().route() — a separate,
+general multi-model consensus router for open-ended Q&A — using a flat JSON
+dict (coach_context.context_to_prompt_block) and deterministic fallback text
+that reads structured trend fields (trainingLoad.trend/current/previous,
+recoveryTrend.delta/current/previous) ARIAContext.progress doesn't carry
+(build_user_model() already collapses trainingLoad to a bare string, which is
+lossy for exactly this). /ai/chat and /ai/observe, by contrast, use
+aria_engine.ARIAContext + the *interpreter/signal* reasoning system, via
+fusion.fuse_turn — which is also more complete than this module (persona
+loading, a persisted-snapshot fallback when a turn has no fresh observations,
+permission overlay applied once inside the call). Forcing build_user_model()
+into either family would mean rebuilding a router it doesn't fit, or
+duplicating work fuse_turn already does better.
 
-  1. routes/coach.py's four handlers read coach_context.gather_user_context's
-     raw dict shape directly (context["recoveryTrend"], context["trainingLoad"],
-     context["todayPlan"], ...) via scoring.py-computed structures that have no
-     equivalent field on ARIAContext. build_user_model() already coerces
-     trainingLoad to a bare string (progress.training_load_trend = str(...)),
-     which is lossy for that use. Swapping coach.py over needs those call
-     sites rewritten, not just the function call changed.
-  2. This only pulls SLEEP#/WORKOUT# session-log history. /ai/chat and
-     /ai/observe already build their ARIAContext via fusion.fuse_turn, which
-     pulls a *different* DynamoDB source (METRIC#{type}#{timestamp} raw
-     samples). A true single canonical model needs both sources reconciled,
-     not just this function called instead of fusion.fuse_turn.
+The real, concrete bug behind "two sources" was narrower and lower-risk to
+fix: gather_user_context() only ever reads SLEEP#/WORKOUT# session-log rows,
+so a user with real sleep data already flowing through /ai/observe's
+METRIC#{type}#{timestamp} stream (and persisted by fusion.save_body_snapshot)
+could still be told "you have no sleep logged" by /coach/sleep-insight,
+purely because that route never looked at the source that actually has their
+data. Fixed directly in coach_context.gather_user_context() (see
+_sleep_rows_from_body_snapshot there): when no session-log night exists, it
+now falls back to the latest night from the persisted body snapshot for
+*display* fields only — never fed into recovery_trend()'s 7-vs-7 comparison,
+since that needs a "score" field BodyModel doesn't compute, and defaulting
+that to 0 would fabricate a trend instead of honestly saying there isn't
+enough history yet. routes/coach.py's sleep-insight handler now reads a new
+``hasLoggedSleep`` flag to tell "nothing anywhere" apart from "synced data
+exists, just not enough of it yet" and says so accordingly. Because
+build_user_model() already calls gather_user_context() internally, it
+inherits this fix automatically even though it is still called from nowhere.
+
+This module remains real, tested, and available as the canonical ARIAContext
+builder for any *future* consumer that wants payload + SLEEP#/WORKOUT#
+history + two-tier memory merged into one ARIAContext — it just isn't the
+fix for either of today's two existing consumers, which is why it stays
+unwired by design rather than as an open TODO.
 
 Derived values have one definition here — no more weight-trend vs HRV label
-drift — for whichever route ends up calling it.
+drift — for whichever future route ends up calling it.
 """
 
 from __future__ import annotations

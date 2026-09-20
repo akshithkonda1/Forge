@@ -328,5 +328,113 @@ class WorkoutPlanPersistenceTests(unittest.TestCase):
         self.assertIsNone(fetched)
 
 
+class CoachContextSeesTheSameSleepAriaChatAlreadyHasTests(unittest.TestCase):
+    """gather_user_context() only ever read SLEEP# session-log rows, so a user
+    with real sleep already flowing through /ai/observe's METRIC# stream (and
+    persisted by fusion.save_body_snapshot for /ai/chat to read) could still be
+    told "you have no sleep logged" by /coach/sleep-insight -- two DynamoDB
+    sources for what should be one user reality (ARIA_INTELLIGENCE_PLAN.md
+    P0 row 1 / aria_user_model.py's module docstring)."""
+
+    def _toggle_demo_data(self, value: str | None):
+        previous = os.environ.get("FORGE_DEMO_DATA")
+        if value is None:
+            os.environ.pop("FORGE_DEMO_DATA", None)
+        else:
+            os.environ["FORGE_DEMO_DATA"] = value
+        self.addCleanup(
+            lambda: os.environ.pop("FORGE_DEMO_DATA", None) if previous is None
+            else os.environ.__setitem__("FORGE_DEMO_DATA", previous)
+        )
+
+    def _seed_body_snapshot(self, uid: str, *, duration_minutes=None, deep_minutes=None, rem_minutes=None):
+        from storage import dynamodb, keys
+
+        sleep: dict = {}
+        if duration_minutes is not None:
+            sleep["duration_minutes"] = duration_minutes
+        if deep_minutes is not None:
+            sleep["deep_minutes"] = deep_minutes
+        if rem_minutes is not None:
+            sleep["rem_minutes"] = rem_minutes
+        dynamodb.put_item({
+            **keys.aria_body_snapshot_key(uid),
+            "aria_context": {"sleep": sleep},
+        })
+
+    def test_no_session_log_and_no_body_snapshot_stays_honestly_empty(self):
+        from services import coach_context
+
+        self._toggle_demo_data("false")
+        uid = f"test-no-data-anywhere-{id(self)}"
+        context = coach_context.gather_user_context(uid)
+        self.assertEqual(context["recentSleep"], [])
+        self.assertFalse(context["hasLoggedSleep"])
+        self.assertEqual(context["recoveryTrend"], {"current": 0, "previous": 0, "delta": 0})
+
+    def test_no_session_log_but_real_body_snapshot_surfaces_last_night(self):
+        from services import coach_context
+
+        self._toggle_demo_data("false")
+        uid = f"test-body-snapshot-only-{id(self)}"
+        self._seed_body_snapshot(uid, duration_minutes=432, deep_minutes=71, rem_minutes=88)
+
+        context = coach_context.gather_user_context(uid)
+        self.assertFalse(context["hasLoggedSleep"], "a body-snapshot-only night is not a logged session")
+        self.assertEqual(len(context["recentSleep"]), 1)
+        row = context["recentSleep"][0]
+        self.assertAlmostEqual(row["totalHours"], 7.2, places=2)
+        self.assertEqual(row["deepMinutes"], 71)
+        self.assertEqual(row["remMinutes"], 88)
+        self.assertNotIn("score", row, "must not fabricate a session-log score")
+        # The single scoreless night must never feed the trend computation --
+        # that would report a fabricated "steady, 0" trend instead of "no
+        # history yet".
+        self.assertEqual(context["recoveryTrend"], {"current": 0, "previous": 0, "delta": 0})
+
+    def test_real_session_log_history_wins_over_the_body_snapshot(self):
+        from services import coach_context
+        from storage import dynamodb, keys
+
+        self._toggle_demo_data("false")
+        uid = f"test-session-log-wins-{id(self)}"
+        self._seed_body_snapshot(uid, duration_minutes=200)  # would read as 3.3h -- must not appear
+        dynamodb.put_item({
+            "pk": keys.user_pk(uid), "sk": "SLEEP#2026-09-19",
+            "totalHours": 8.0, "score": 88,
+        })
+
+        context = coach_context.gather_user_context(uid)
+        self.assertTrue(context["hasLoggedSleep"])
+        self.assertEqual(len(context["recentSleep"]), 1)
+        self.assertEqual(context["recentSleep"][0]["score"], 88)
+        self.assertEqual(context["recentSleep"][0]["totalHours"], 8.0)
+
+    def test_body_snapshot_without_a_usable_duration_is_ignored(self):
+        from services import coach_context
+
+        self._toggle_demo_data("false")
+        uid = f"test-body-snapshot-no-duration-{id(self)}"
+        self._seed_body_snapshot(uid)  # sleep domain present but empty
+        context = coach_context.gather_user_context(uid)
+        self.assertEqual(context["recentSleep"], [])
+        self.assertFalse(context["hasLoggedSleep"])
+
+    def test_sleep_insight_route_distinguishes_synced_from_nothing_at_all(self):
+        from routes.coach import handle_post_coach_sleep_insight
+
+        self._toggle_demo_data("false")
+
+        nothing_uid = f"test-route-nothing-{id(self)}"
+        nothing_body = json.loads(handle_post_coach_sleep_insight(nothing_uid, {})["body"])
+        self.assertIn("no sleep logged", nothing_body["insight"].lower())
+
+        synced_uid = f"test-route-synced-{id(self)}"
+        self._seed_body_snapshot(synced_uid, duration_minutes=410, deep_minutes=60, rem_minutes=80)
+        synced_body = json.loads(handle_post_coach_sleep_insight(synced_uid, {})["body"])
+        self.assertIn("synced data", synced_body["insight"].lower())
+        self.assertNotIn("no sleep logged", synced_body["insight"].lower())
+
+
 if __name__ == "__main__":
     unittest.main()

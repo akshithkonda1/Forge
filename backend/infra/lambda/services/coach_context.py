@@ -21,6 +21,46 @@ def _strip_keys(item: dict[str, Any]) -> dict[str, Any]:
     return {k: v for k, v in item.items() if k not in ("pk", "sk")}
 
 
+def _sleep_rows_from_body_snapshot(user_id: str) -> list[dict[str, Any]]:
+    """The single latest night, derived from the persisted body snapshot --
+    the same METRIC#-derived reality /ai/chat and /ai/observe already read
+    via fusion.fuse_turn/save_body_snapshot -- for when no SLEEP# session-log
+    row exists yet. Without this, a user who has been getting real coaching
+    from ARIA elsewhere could still be told "you have no sleep logged" here,
+    purely because this route reads a different DynamoDB source than the one
+    that actually has their data (see aria_user_model.py's module docstring).
+
+    Deliberately has no "score" field: BodyModel doesn't compute the 0-100
+    sleep score a logged session does, and a row silently defaulting that to
+    0 would make recovery_trend() report a fabricated "steady, 0" trend
+    instead of the honest "not enough history yet" gather_user_context
+    preserves by keeping this out of the recoveryTrend computation (see
+    below) -- this is display-only data, not trend input.
+    """
+    try:
+        from aria_core import fusion
+    except Exception:
+        return []
+    try:
+        snapshot = fusion.load_body_snapshot(user_id)
+    except Exception:
+        return []
+    if not snapshot:
+        return []
+    sleep = (snapshot.get("aria_context") or {}).get("sleep") or {}
+    duration_minutes = sleep.get("duration_minutes")
+    if not isinstance(duration_minutes, (int, float)) or isinstance(duration_minutes, bool):
+        return []
+    row: dict[str, Any] = {"totalHours": round(duration_minutes / 60.0, 2)}
+    deep = sleep.get("deep_minutes")
+    if isinstance(deep, (int, float)) and not isinstance(deep, bool):
+        row["deepMinutes"] = deep
+    rem = sleep.get("rem_minutes")
+    if isinstance(rem, (int, float)) and not isinstance(rem, bool):
+        row["remMinutes"] = rem
+    return [row]
+
+
 def gather_user_context(user_id: str) -> dict[str, Any]:
     """Build the bounded context package the coach routes feed to the AI router.
 
@@ -69,15 +109,31 @@ def gather_user_context(user_id: str) -> dict[str, Any]:
     if not personal_records and demo:
         personal_records = default_personal_records()
 
+    # recovery_trend needs real, score-bearing session-log nights for its
+    # 7-vs-7 comparison -- computed from recent_sleep (session logs only),
+    # never the body-snapshot fallback below, so a user with no logged
+    # nights still gets the honest {current:0, previous:0, delta:0} rather
+    # than a trend derived from a single scoreless night.
+    recovery_trend = scoring.recovery_trend(recent_sleep)
+    has_logged_sleep = bool(recent_sleep)
+    # recent_sleep is already demo fixture data here when demo mode is on
+    # (set above), so this fallback is reached only when it's genuinely
+    # empty -- a real, non-demo account with no logged nights.
+    display_sleep = recent_sleep or _sleep_rows_from_body_snapshot(user_id)
+
     return {
         "profile": profile,
         "readiness": current_readiness,
-        "recentSleep": recent_sleep[:7],
+        "recentSleep": display_sleep[:7],
         "recentWorkouts": recent_workouts[:7],
         "todayPlan": today_plan,
         "trainingLoad": scoring.training_load_trend(recent_workouts),
-        "recoveryTrend": scoring.recovery_trend(recent_sleep),
+        "recoveryTrend": recovery_trend,
         "personalRecords": personal_records,
+        # True only for real logged nights -- lets a caller tell "nothing
+        # anywhere" apart from "synced data exists, just not enough of it
+        # with a score to trend yet" (see _sleep_rows_from_body_snapshot).
+        "hasLoggedSleep": has_logged_sleep,
     }
 
 
