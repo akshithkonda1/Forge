@@ -299,9 +299,22 @@ extension HealthKitManager {
             weeklyTrends = []
             return
         }
-        
+        weeklyTrends = await fetchTrends(days: 7)
+        lastWeeklyTrendsAt = Date()
+    }
+
+    /// Deep historical trend series for the one-time onboarding backfill —
+    /// see `BiometricsObserveService.runInitialBackfillIfNeeded`. Separate
+    /// from `weeklyTrends`/`lastWeeklyTrendsAt`: this runs once to seed
+    /// server-side personal baselines, not on every "recent week" read.
+    func fetchHistoricalTrends(days: Int) async -> [WeeklyHealthTrend] {
+        guard isAuthorized else { return [] }
+        return await fetchTrends(days: days)
+    }
+
+    private func fetchTrends(days: Int) async -> [WeeklyHealthTrend] {
         let calendar = Calendar.current
-        let days: [(Date, Date)] = (0..<7).compactMap { dayOffset in
+        let dayRanges: [(Date, Date)] = (0..<days).compactMap { dayOffset in
             guard let date = calendar.date(byAdding: .day, value: -dayOffset, to: Date()) else { return nil }
             let startOfDay = calendar.startOfDay(for: date)
             let endOfDay = calendar.date(byAdding: .day, value: 1, to: startOfDay) ?? date
@@ -309,7 +322,7 @@ extension HealthKitManager {
         }
         var trends: [WeeklyHealthTrend] = []
         await withTaskGroup(of: WeeklyHealthTrend.self) { group in
-            for (startOfDay, endOfDay) in days {
+            for (startOfDay, endOfDay) in dayRanges {
                 group.addTask { @MainActor in
                     async let steps = self.fetchSteps(from: startOfDay, to: endOfDay)
                     async let calories = self.fetchActiveCalories(from: startOfDay, to: endOfDay)
@@ -329,9 +342,7 @@ extension HealthKitManager {
                 trends.append(trend)
             }
         }
-        
-        weeklyTrends = trends.sorted { $0.date < $1.date }
-        lastWeeklyTrendsAt = Date()
+        return trends.sorted { $0.date < $1.date }
     }
 
     /// Per-day mindful minutes for the last 7 days (oldest first).

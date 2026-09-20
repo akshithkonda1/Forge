@@ -94,6 +94,7 @@ class ARIAEngine:
         temperature: float = 0.3,
         model_archetype: str | ma.ModelArchetype | None = None,
         strict_live: bool = False,
+        use_production_engine: bool = False,
     ) -> None:
         if strict_live and not use_real_api:
             raise ValueError("strict_live=True requires use_real_api=True")
@@ -103,6 +104,15 @@ class ARIAEngine:
         self.temperature = temperature
         self.strict_live = strict_live
         self._warned_real_api = False
+        # Runs the real aria_core.aria_engine.generate_response() via
+        # production_bridge instead of this file's synthetic stub, so
+        # aria_evaluator's six-dimension scores and regression gates measure
+        # production ARIA (see production_bridge.py's module docstring for
+        # the two documented shape gaps). Independent of use_real_api, which
+        # grades actual LLM providers/archetypes — a different, orthogonal
+        # purpose from "is Forge's own shipped reasoning safe."
+        self.use_production_engine = use_production_engine
+        self._warned_production = False
 
         if model_archetype is None:
             self.archetype = ma.get("baseline")
@@ -142,6 +152,15 @@ class ARIAEngine:
         return base
 
     def respond(self, query: str, context: ARIAContext, seed: int = 42) -> ARIAResponse:
+        if self.use_production_engine:
+            try:
+                return self._production_response(query, context)
+            except Exception as exc:  # never crash a run
+                if not self._warned_production:
+                    print(f"[simrunner] production-engine path unavailable "
+                          f"({exc.__class__.__name__}: {exc}); falling back to the "
+                          "deterministic stub.")
+                    self._warned_production = True
         if self.use_real_api:
             try:
                 return self._call_claude(query, context)
@@ -154,6 +173,19 @@ class ARIAEngine:
                           "falling back to the deterministic stub.")
                     self._warned_real_api = True
         return self._stub_response(query, context, seed)
+
+    # ------------------------------------------------------------- production
+    def _production_response(self, query: str, context: ARIAContext) -> ARIAResponse:
+        """Grade the real, shipped aria_core.aria_engine.generate_response()
+        instead of this file's synthetic stub — see production_bridge.py."""
+        from . import production_bridge
+
+        qtype = query_router.classify_query(query)
+        model = query_router.route_model(qtype)
+        return production_bridge.run(
+            query, context,
+            model_used=self._resolve(model), query_type=qtype, model_class=model,
+        )
 
     # ------------------------------------------------------------------ stub
     def _stub_response(self, query: str, context: ARIAContext, seed: int) -> ARIAResponse:

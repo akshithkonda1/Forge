@@ -269,6 +269,11 @@ extension AriaForgePrep {
             await HealthKitManager.shared.fetchTodayStats(force: true)
             await HealthKitManager.shared.fetchWeeklyTrends()
             _ = await HealthKitManager.shared.fetchClinicalRecordsSummary()
+            // Deep historical seed so server-side personal baselines and the
+            // daily story have something to say well before a week of live
+            // usage accumulates — this is what "Pulling Apple Health" is
+            // actually doing behind the console hold, not just today/7-day.
+            await BiometricsObserveService.shared.runInitialBackfillIfNeeded(store: store)
         }
 
         store.learnFromFirstHealthConnectIfNeeded()

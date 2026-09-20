@@ -180,4 +180,18 @@ class OnlineStat:
         return self._ewma
 
     def zscore(self, value: float) -> float:
-        return zscore(value, self._mean, self.std)
+        """Mirrors OnlineStat.zscore in ForgeCore's OnlineStat.swift exactly
+        -- including its zero/near-zero-spread fallback. The module-level
+        ``zscore()`` above returns a flat 0.0 whenever sigma is
+        near-zero, which would silently hide a real outlier against a
+        dead-flat baseline (e.g. fourteen identical nights, then one that
+        is not); Swift instead reports a large-magnitude signed z so an
+        outlier against zero spread still reads as unusual."""
+        if self.std > 1e-9:
+            return (value - self._mean) / self.std
+        if self.n == 0:
+            return 0.0
+        delta = value - self._mean
+        if abs(delta) < 1e-9:
+            return 0.0
+        return 1e3 if delta > 0 else -1e3

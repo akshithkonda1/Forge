@@ -70,6 +70,7 @@ struct HomeView: View {
                         // Visual breathing room: max 1 hero, 1 ARIA, 1 social proof, then lifestyle.
                         HomeLifestylePreviewCard()
                         HomeWidgetBoard()
+                        TodaysStoryCard()
                         HomeAgendaCard()
                         HomeWinCard()
                         HomeDayPreviewStrip()

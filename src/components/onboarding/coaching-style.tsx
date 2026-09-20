@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Heart, MessageCircle, Sparkles, Users } from "lucide-react";
+import { BarChart3, Heart, MessageCircle, Scale, Sparkles, Users, Zap } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAppStore } from "@/stores/useAppStore";
 import { whisperForStep } from "@/lib/aria-onboarding";

@@ -18,8 +18,6 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any
 
-from services import aria_engine
-
 from . import estimators, statistics as st
 from .estimators import Estimate
 from .types import MetricType, Observation, System, metrics_for_system, spec, utcnow
@@ -32,8 +30,8 @@ _SYSTEM_TO_DOMAIN = {
     System.ACTIVITY: "activity",
     System.BODY: "body",
     System.NUTRITION: "nutrition",
-    System.METABOLIC: "readiness",
-    System.RESPIRATORY: "readiness",
+    System.METABOLIC: "vitals",
+    System.RESPIRATORY: "vitals",
     System.AGING: "aging",
 }
 
@@ -307,6 +305,31 @@ class BodyModel:
         present = [s for s in stages if s is not None]
         return sum(present) if present else None
 
+    # 8.0h matches aria_evidence.TARGET_SLEEP_H -- kept as a local literal
+    # rather than an import so body_model stays free of a cross-module
+    # dependency for one constant; if that default ever changes, this and
+    # the debt figure it produces should move together.
+    _SLEEP_TARGET_HOURS_DEFAULT = 8.0
+
+    def _sleep_debt_7d_hours(self) -> float | None:
+        """Rolling shortfall vs target over the last 7 nights with a reading.
+
+        Mirrors SimRunner's own 7-day windowing (data_generator.build_context)
+        so aria_evidence.derive_load's directional-safety sleep-debt gate sees
+        a real multi-night figure instead of silently falling back to its
+        single-night debt_proxy -- which is what happened before this existed,
+        every time BodyModel owned the sleep domain (the normal case once any
+        observations flow through fuse_turn, not a SimRunner-only gap).
+        """
+        series = self.series.get(MetricType.SLEEP_DURATION, [])
+        if not series:
+            return None
+        recent = series[-7:]
+        debt = sum(
+            max(0.0, self._SLEEP_TARGET_HOURS_DEFAULT - (obs.value / 60.0)) for obs in recent
+        )
+        return round(debt, 2)
+
     def snapshot(self) -> BodySnapshot:
         systems: dict[str, SystemState] = {}
         all_states: list[MetricState] = []
@@ -344,6 +367,8 @@ class BodyModel:
 
     def to_aria_context(self, permissions: "aria_engine.DataPermissions | None" = None) -> aria_engine.ARIAContext:
         """Project the model onto ARIAContext, skipping permission-denied domains."""
+        from services import aria_engine
+
         perms = permissions or aria_engine.DataPermissions.allow_all()
 
         def allowed(domain: str) -> bool:
@@ -361,6 +386,8 @@ class BodyModel:
                 resting_hr=self.latest(MetricType.RESTING_HEART_RATE),
                 nights_available=len(self.series.get(MetricType.SLEEP_DURATION, []))
                 or len(self.series.get(MetricType.SLEEP_DEEP, [])) or None,
+                sleep_debt_7d_hours=self._sleep_debt_7d_hours(),
+                target_hours=self._SLEEP_TARGET_HOURS_DEFAULT,
             )
 
         if allowed("readiness"):
@@ -408,6 +435,25 @@ class BodyModel:
                 protein_g_3day_avg=self.recent_mean(MetricType.DIETARY_PROTEIN, 3),
                 hydration_ml_3day_avg=self.recent_mean(MetricType.WATER, 3),
                 calorie_target=None,
+            )
+
+        if allowed("vitals"):
+            vital_sys_bp = self.latest(MetricType.BLOOD_PRESSURE_SYSTOLIC)
+            vital_dia_bp = self.latest(MetricType.BLOOD_PRESSURE_DIASTOLIC)
+            map_est = (
+                estimators.mean_arterial_pressure(vital_sys_bp, vital_dia_bp)
+                if vital_sys_bp is not None and vital_dia_bp is not None
+                else None
+            )
+            o2 = self.latest(MetricType.OXYGEN_SATURATION)
+            ctx.vitals = aria_engine.VitalsContext(
+                respiratory_rate=self.latest(MetricType.RESPIRATORY_RATE),
+                oxygen_saturation_pct=round(o2 * 100, 1) if o2 is not None else None,
+                blood_pressure_systolic=vital_sys_bp,
+                blood_pressure_diastolic=vital_dia_bp,
+                mean_arterial_pressure=map_est.value if map_est is not None else None,
+                blood_glucose_mg_dl=self.latest(MetricType.BLOOD_GLUCOSE),
+                body_temperature_c=self.latest(MetricType.BODY_TEMPERATURE),
             )
 
         if allowed("aging") and self.can_project_aging():

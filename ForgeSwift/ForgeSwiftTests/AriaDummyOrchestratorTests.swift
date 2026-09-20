@@ -561,6 +561,49 @@ final class AriaDummyOrchestratorTests: XCTestCase {
         XCTAssertTrue(AriaPromptCorrelation.correlates(reply: tuxB.message, toPrompt: wear))
     }
 
+    /// `makeStore()` starts with `sleepData: []` and `dailyMetrics.totalSleep
+    /// == 0` -- no sleep sample at all, not a known-but-average night. Before
+    /// this fix, `AriaVoiceEngine.sleepBeats()` shared its `.unknown` band
+    /// with `.ok`, so a night that was never actually read got the same
+    /// "Middling night... Nothing alarming" line as a real, average one --
+    /// ARIA reporting a read on data it never pulled.
+    func testAskingAboutSleepWithNoDataIsHonestNotFabricated() async {
+        let varietyKey = AriaReplyVariety.defaultsKey
+        let varietyPrevious = UserDefaults.standard.data(forKey: varietyKey)
+        defer {
+            if let varietyPrevious {
+                UserDefaults.standard.set(varietyPrevious, forKey: varietyKey)
+            } else {
+                UserDefaults.standard.removeObject(forKey: varietyKey)
+            }
+        }
+        AriaReplyVariety.reset()
+
+        let store = makeStore()
+        XCTAssertTrue(store.sleepData.isEmpty)
+        XCTAssertEqual(store.dailyMetrics.totalSleep, 0)
+
+        let reply = await AriaDummyOrchestrator.reply(
+            text: "show me my sleep",
+            store: store,
+            agent: .sleep,
+            agents: ["sleep"]
+        )
+        let lower = reply.message.lowercased()
+        let fabricatedReadout = ["middling night", "nothing alarming", "serviceable", "fine, not elite"]
+        for phrase in fabricatedReadout {
+            XCTAssertFalse(
+                lower.contains(phrase),
+                "must not fabricate a read on a night with no sleep sample: \(reply.message)"
+            )
+        }
+        let honestGap = ["don't have", "no sleep sample", "nothing's synced", "pending sync"]
+        XCTAssertTrue(
+            honestGap.contains { lower.contains($0) },
+            "must say plainly that there is no sleep data yet: \(reply.message)"
+        )
+    }
+
     func testReplyStaysOnThePromptNotThePinnedWorkout() async {
         let key = QualityOfLifeLivingStore.defaultsKey
         let previous = UserDefaults.standard.data(forKey: key)

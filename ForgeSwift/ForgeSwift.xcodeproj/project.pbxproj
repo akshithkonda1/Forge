@@ -192,6 +192,7 @@
 		CBEEDC3EE856524D0A77DB39 /* HomeModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = E1809DC7E4D2571C21FC2FC6 /* HomeModels.swift */; };
 		DA2E7330C7F2CD27BE372197 /* HomeHeroCards.swift in Sources */ = {isa = PBXBuildFile; fileRef = A9660E66E6D13D3CCB7D0411 /* HomeHeroCards.swift */; };
 		477615BBC4667F2CD2D411F3 /* HomeARIABriefingCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = 220C4368102CD8AD1BD12253 /* HomeARIABriefingCard.swift */; };
+		DBFF2D915B5D5EA5398182D2 /* TodaysStoryCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B4F7BBDFB3F265D1BBB195D /* TodaysStoryCard.swift */; };
 		BABC54B4506AFAABCC62995B /* HomeCycleModule.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5CD2504EB7FF2240F6ADC290 /* HomeCycleModule.swift */; };
 		AB10DEFDAF19A3B38E122F17 /* HomeCards.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7A0381C148DB04CDCCA8B766 /* HomeCards.swift */; };
 		79F46F73D48458B779562937 /* HomeReadinessViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = B82DA6E64D1C7B517050D7FC /* HomeReadinessViews.swift */; };
@@ -630,6 +631,7 @@
 		E1809DC7E4D2571C21FC2FC6 /* HomeModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HomeModels.swift; sourceTree = "<group>"; };
 		A9660E66E6D13D3CCB7D0411 /* HomeHeroCards.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HomeHeroCards.swift; sourceTree = "<group>"; };
 		220C4368102CD8AD1BD12253 /* HomeARIABriefingCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HomeARIABriefingCard.swift; sourceTree = "<group>"; };
+		9B4F7BBDFB3F265D1BBB195D /* TodaysStoryCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TodaysStoryCard.swift; sourceTree = "<group>"; };
 		5CD2504EB7FF2240F6ADC290 /* HomeCycleModule.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HomeCycleModule.swift; sourceTree = "<group>"; };
 		7A0381C148DB04CDCCA8B766 /* HomeCards.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HomeCards.swift; sourceTree = "<group>"; };
 		B82DA6E64D1C7B517050D7FC /* HomeReadinessViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HomeReadinessViews.swift; sourceTree = "<group>"; };
@@ -985,6 +987,7 @@
 				E1809DC7E4D2571C21FC2FC6 /* HomeModels.swift */,
 				A9660E66E6D13D3CCB7D0411 /* HomeHeroCards.swift */,
 				220C4368102CD8AD1BD12253 /* HomeARIABriefingCard.swift */,
+				9B4F7BBDFB3F265D1BBB195D /* TodaysStoryCard.swift */,
 				5CD2504EB7FF2240F6ADC290 /* HomeCycleModule.swift */,
 				7A0381C148DB04CDCCA8B766 /* HomeCards.swift */,
 				B82DA6E64D1C7B517050D7FC /* HomeReadinessViews.swift */,
@@ -1685,6 +1688,7 @@
 				CBEEDC3EE856524D0A77DB39 /* HomeModels.swift in Sources */,
 				DA2E7330C7F2CD27BE372197 /* HomeHeroCards.swift in Sources */,
 				477615BBC4667F2CD2D411F3 /* HomeARIABriefingCard.swift in Sources */,
+				DBFF2D915B5D5EA5398182D2 /* TodaysStoryCard.swift in Sources */,
 				BABC54B4506AFAABCC62995B /* HomeCycleModule.swift in Sources */,
 				AB10DEFDAF19A3B38E122F17 /* HomeCards.swift in Sources */,
 				79F46F73D48458B779562937 /* HomeReadinessViews.swift in Sources */,

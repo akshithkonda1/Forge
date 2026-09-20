@@ -164,6 +164,28 @@ class MemoryEngineTests(unittest.TestCase):
             self.engine.needs_daily_evaluation(USER, now=NOW + timedelta(days=1))
         )
 
+    # --- daily story -------------------------------------------------------
+    def test_needs_daily_story_rolling_window_not_calendar_day(self):
+        self.assertTrue(self.engine.needs_daily_story(USER, now=NOW))
+        self.engine.save_daily_story(USER, {"narrative": "story one"}, now=NOW)
+        self.assertFalse(self.engine.needs_daily_story(USER, now=NOW + timedelta(hours=10)))
+        # under the 18h floor, even across a calendar-day boundary -> not due yet
+        self.assertFalse(self.engine.needs_daily_story(USER, now=NOW + timedelta(hours=17)))
+        # past the 18h floor -> due again
+        self.assertTrue(self.engine.needs_daily_story(USER, now=NOW + timedelta(hours=19)))
+
+    def test_latest_daily_story_survives_between_due_checks(self):
+        self.assertIsNone(self.engine.latest_daily_story(USER))
+        self.engine.save_daily_story(USER, {"narrative": "story one"}, now=NOW)
+        # Not due yet -> caller still gets back the cached story, not None.
+        self.assertFalse(self.engine.needs_daily_story(USER, now=NOW + timedelta(hours=5)))
+        self.assertEqual(self.engine.latest_daily_story(USER), {"narrative": "story one"})
+
+    def test_save_daily_story_persists_through_new_engine_instance(self):
+        self.engine.save_daily_story(USER, {"narrative": "story one"}, now=NOW)
+        reloaded = CoachContextEngine().latest_daily_story(USER)
+        self.assertEqual(reloaded, {"narrative": "story one"})
+
     # --- daily check-in --------------------------------------------------
     def test_daily_checkin_once_per_day(self):
         first = self.engine.daily_checkin(USER, now=NOW)

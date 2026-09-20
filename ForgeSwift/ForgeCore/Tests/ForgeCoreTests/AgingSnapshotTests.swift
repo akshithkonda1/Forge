@@ -35,10 +35,14 @@ final class AgingSnapshotTests: XCTestCase {
     }
 
     func testSuppressedSignalsReadOlder() {
+        // vo2Max must be low enough that the VO2-only cardio-age gap alone
+        // (oneBreathLine speaks cardio-only when VO2 is present, never the
+        // full fused blend — see lifestyleOneBreathLine) clears the >=2y
+        // "older" threshold, not just the fused state/biologicalAge below.
         let snap = AgingSnapshot.evaluate(
             chronologicalAge: 35,
             sexFemale: true,
-            vo2Max: 28,
+            vo2Max: 22,
             hrv: 22,
             restingHR: 78,
             sleepHours: 5.5

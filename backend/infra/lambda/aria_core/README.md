@@ -1,0 +1,227 @@
+# aria_core
+
+Genuinely stdlib-only ARIA reasoning logic. No `boto3`, no `storage`, no
+`services` (the rest of the Lambda package), at module level or in any lazy
+import reachable from a pure call path.
+
+## Why this package exists
+
+`backend/ai/simrunner/` grades ARIA's coaching policy on a laptop, with no
+AWS credentials. Its own rule (stated in `dummy_orchestrator.py`,
+`web_research.py`, `prompts.py`, `data_generator.py`): SimRunner must not
+import the Lambda package. Before this package existed, the only way to
+satisfy that rule was for SimRunner to run against its own stub
+`aria_engine.py` — not the real production reasoning. `aria_core` is the
+real logic, factored out so SimRunner can import *it* directly and grade
+the actual policy instead of a stand-in. See `ARIA_INTELLIGENCE_PLAN.md`
+P0-6 for the full background.
+
+## Why it lives inside `backend/infra/lambda/`
+
+`backend/infra/main.tf`'s `archive_file.backend_lambda` zips
+`source_dir = "${path.module}/lambda"` for the real Lambda deployment —
+only that directory tree. A module needed at runtime that lived outside
+it would fail with `ImportError` in production, silently, since no local
+test tooling enforces that boundary (tests bootstrap their own `sys.path`
+separately). Keeping `aria_core` at `backend/infra/lambda/aria_core/`
+means it ships inside the existing zip with zero Terraform changes.
+
+## The shim pattern
+
+Every module moved here leaves a backward-compat shim at its old
+`services/<name>.py` path:
+
+```python
+import sys
+from aria_core import <name> as _real
+sys.modules[__name__] = _real
+```
+
+This makes `services.<name>` *be* `aria_core.<name>` — not a copy, not a
+`from X import *` (which would drop private/underscore-prefixed names).
+Every existing `from services import <name>` and
+`from services.<name> import X` caller across the Lambda package and its
+tests keeps working unchanged. New code should import from `aria_core`
+directly; the `services` shim exists for callers that predate the move.
+
+## What's here
+
+Moved so far (each with a `services/` shim):
+
+- `guidance.py` — 4-band medical-safety guidance system
+- `aria_evidence.py` — evidence/load derivation
+- `body_library.py` — body-composition reference tables
+- `contextual_parsing.py` — free-text parsing helpers
+- `contextual_learner.py` — ARIA's online learner (Dirichlet posteriors,
+  TD(0) Q-table, priority ranker, `adapt()`/`apply_chat_turn()`)
+- `self_trainer.py` — self-training critic (predicted-vs-actual judgment,
+  `td_alpha` meta-optimization); only ever called from `contextual_learner`
+- `context_plan.py` — raw-signal supervision plan (aging pace as a
+  wear/repair read, stress algorithm, plan choice); cross-references
+  `contextual_learner` by relative import, so the two must move and stay
+  together
+- `biometrics/` — `body_model.py` (HealthKit-observation projection into
+  `ARIAContext`) plus `aging_norms.py`/`classify.py`/`estimators.py`/
+  `inference.py`/`statistics.py`/`types.py`; `body_model.py`'s only
+  `aria_engine` use is now a lazy import inside `to_aria_context()`, so the
+  subpackage needed nothing from the rest of the Lambda package at import
+  time
+- `fusion.py` — turn fusion (`fuse_turn`), directional-safety stance gate
+  (`stance_for_plan`); moved together with `aria_engine.py` since fusion
+  imports it at module level and `aria_engine.generate_response()` lazily
+  imports fusion back
+- `aria_engine.py` — the real production reasoning engine
+  (`ARIAContext`/`generate_response`/interpreters); every lazy import
+  inside it that used to read `from services import X` for an
+  already-moved sibling now reads `from . import X` / `from .biometrics
+  import X` instead, so it never reaches back into `services` at all.
+  This was the last and largest piece of the P0-6 decomposition:
+  `DummyARIAEngine.respond()` (SimRunner's `--test-ready --gate` engine)
+  now calls real `fuse_turn()` + real `generate_response()` through
+  `dummy_orchestrator.respond(engine="lambda")`, not a scripted stub —
+  see the "Update 2026-09-20" note in `ARIA_INTELLIGENCE_PLAN.md` P0-6
+- `quality_of_life.py` — holistic multi-pillar life score, ported from
+  ForgeCore's `QualityOfLifeCalculator.swift`; pure scoring only (see the
+  module's own docstring for what was and wasn't ported). Not yet wired
+  into `aria_engine`'s context/interpreters — `aria_evidence.detect_pattern`
+  still treats Lifestyle QoL as client-authored only; that integration is
+  a deliberately deferred product decision, not an oversight
+- `circadian_rhythm.py` — the two-process model of alertness (Borbély,
+  1982), ported in full from ForgeCore's `CircadianRhythm.swift`: sleep
+  need/debt estimation, circular-mean phase estimation from raw nights,
+  the energy curve (process S + process C + the empirical afternoon dip),
+  and the named-window schedule (grogginess/morning peak/afternoon dip/
+  evening peak/melatonin window/winding down/sleep). Ported in full, not
+  partially -- the Swift file is self-contained pure date/hour arithmetic
+  with no other-file dependency. Also not yet wired into `aria_engine`
+- `sleep_depth_scorer.py` — sleep score versus this person's own nights,
+  blended with population chronotype targets until the personal baseline
+  is thick enough to trust (cold start → blended → fully personal as
+  observed nights accumulate); ported from ForgeCore's
+  `SleepDepthScorer.swift`. Depends on `biometrics/statistics.py`'s
+  `OnlineStat` — porting this surfaced and fixed a real divergence from
+  `OnlineStat.swift`'s own stated contract ("share one definition of
+  'unusual for you'"): `OnlineStat.zscore()` returned a flat 0.0 against a
+  dead-flat baseline instead of Swift's large-magnitude signed fallback,
+  silently hiding a genuine outlier. Not ported: `SleepDepthBaselineStore`
+  (UserDefaults persistence, iOS-only, same reasoning as
+  `QualityOfLifeLivingStore`)
+- `wind_down_predictor.py` — local heuristic for "when should tonight
+  start winding down?" (typical onset time, pulled earlier by sleep debt,
+  capped at 45min), ported in full from ForgeCore's
+  `WindDownPredictor.swift`. No Swift test file exists for this module, so
+  every expected value in this port's own test suite was hand-derived
+  from the algorithm and independently verified rather than read off a
+  reference implementation — see the module's own test file for the
+  worked arithmetic
+- `schedule_corrector.py` — goal-directed wake-time phase advance/delay
+  (15-20min/night ratchet toward a target, spread across the nights until
+  a cutover date) plus the conversational parser that turns "up at 6am
+  starting Monday" into a goal; ported from ForgeCore's
+  `ScheduleCorrector.swift`. Depends on `circadian_rhythm.py` for phase/
+  sleep-need estimation, the first `aria_core` module to depend on a
+  sibling rather than only `biometrics/statistics.py`. Not ported:
+  `ScheduleGoalStore` (UserDefaults persistence, iOS-only, same reasoning
+  as the earlier ports' stores)
+- `hydration_engine.py` — today's water need (scales with body mass,
+  activity, cycle phase), pace-through-the-day expectation, and
+  behind/on-track/met/over status with supportive (non-scolding)
+  guidance copy; ported in full from ForgeCore's `HydrationEngine.swift`.
+  `quality_of_life.py`'s `_hydration_pillar` — written against a guessed
+  approximation of this exact formula before this file existed — now
+  calls these functions directly instead of duplicating them
+- `lifestyle_targets.py` — personalized nutrition/activity/sleep/hydration
+  targets from a minimal profile (weight/age/gender/experience level/
+  fitness goals) plus optional user overrides; ported from ForgeSwift's
+  `LifestyleTargets.swift` (this one lives in the app target, not
+  `ForgeCore`, and has no Swift test file). Depends on
+  `hydration_engine.py`. Preserves two Swift-source quirks as-is rather
+  than "fixing" them: `mifflinStJeorBMR` hardcodes height at 175cm instead
+  of reading the profile's actual height, and the calorie-goal-factor vs.
+  protein-per-kg calculations check `loseFat`/`buildMuscle` in opposite
+  orders when both goals are set — both documented in the module's own
+  docstring/comments and pinned by tests
+- `habit_engine.py` — ARIA's deep habit layer: reads Lifestyle's signals
+  (sleep variance, social nights, hydration, protein, steps, HRV vs.
+  baseline, the QoL score) and emits the 2-3 highest-confidence cue →
+  routine → payoff/cost loops, each with the smallest interrupt that
+  breaks it; ported in full from ForgeCore's `HabitEngine.swift`,
+  including `companion_line`/`lifestyle_tags`/`constraints`. Not ported:
+  `HabitFeedbackStore.swift` (a separate file, not named in this task) —
+  its `tried()`/`markTried()`/`pendingFeedback()`/`submitFeedback()` are
+  UserDefaults persistence (same reasoning as every earlier "Store"
+  exclusion), and its two pure fact-builder functions
+  (`attemptFact`/`outcomeFact`) are a reasonable future port but a
+  separate decision, not folded into this one
+- `metabolic_health_snapshot.py` — meals + macros + glucose as one story:
+  pairs a logged meal with the glucose reading that followed it (a
+  20-150min post-meal window, peak vs. a pre-meal baseline), and the
+  honest "sold separately" accessory framing when no CGM is connected;
+  ported from ForgeCore's `MetabolicHealthSnapshot.swift`. Deliberately
+  reduced: Swift's `accessoryLine` resolves raw connected-device IDs
+  through `HealthDeviceCatalog` (a large, separate product-registry
+  subsystem); this port's `accessory_line()` takes an already-resolved
+  device name directly instead of porting that catalog. The two
+  `TranslationCatalog` string constants this file reads (the accessory
+  note, the metabolic pillar's four bullets) are copied directly rather
+  than porting the whole catalog (sleep/train/stress/women's-health pillar
+  copy included), which is unrelated to meal/glucose pairing
+- `aria_health_risk_monitor.py` — on-device literacy for Watch/HealthKit
+  vitals, never a diagnosis: elevated body temperature, wrist-temperature
+  rise, resting-heart-rate spikes, and HRV drops, each framed as a sensor
+  hint with a clinician pointer, never naming a disease; ported in full
+  from ForgeCore's `AriaHealthRiskMonitor.swift`, including
+  `AriaHealthRiskCooldown` (genuinely pure — unlike every "Store" excluded
+  from earlier ports, it takes/returns plain values with no UserDefaults
+  access of its own). `AriaHealthRiskKind`/`Severity` are ported as their
+  exact Swift rawValue strings (e.g. `"elevatedTemperature"`, not
+  reformatted), since `storage_key()`'s output text is a serialization
+  detail. Not ported: `WatchVitalsPayload`/`WatchVitalsInbox` (a separate
+  file, not named in this task) — UserDefaults-backed inbox persistence,
+  the same reasoning as every earlier "Store" exclusion
+
+## Swift -> Python port list: complete
+
+Tasks #11-20 (`ARIA_INTELLIGENCE_PLAN.md`'s Swift-intelligence-to-Python
+backlog) are all done as of `aria_health_risk_monitor.py` above:
+`quality_of_life.py`, `circadian_rhythm.py`, `sleep_depth_scorer.py`,
+`wind_down_predictor.py`, `schedule_corrector.py`, `hydration_engine.py`,
+`lifestyle_targets.py`, `habit_engine.py`, `metabolic_health_snapshot.py`,
+`aria_health_risk_monitor.py`. Every one of these is deliberately NOT
+wired into `aria_engine.py`'s context/interpreters/response flow yet —
+each module's own docstring says so explicitly, and that integration
+(whether server-computed values should replace, cross-check, or sit
+alongside client-authored ones) is a real product decision this
+mechanical porting pass does not make unilaterally. A handful of
+dependencies this porting pass deliberately did NOT follow (each noted in
+its own module above): `HealthDeviceCatalog` (a large, separate product
+registry `metabolic_health_snapshot.py` reduced around),
+`TranslationCatalog`'s non-metabolic pillar copy, the full `UserProfile`
+struct (`lifestyle_targets.py` uses a minimal `Profile` instead), and
+every UserDefaults-backed "Store" sibling
+(`QualityOfLifeLivingStore`/`SleepDepthBaselineStore`/`ScheduleGoalStore`/
+`HabitFeedbackStore`/`WatchVitalsInbox`).
+
+`contextual_learner.py`, `self_trainer.py`, and `context_plan.py` moved in
+one commit because they reference each other via relative imports
+(`from . import self_trainer`, `from .contextual_learner import ...`) —
+splitting the move across commits would have left a broken import in
+between. `biometrics/`, `fusion.py`, and `aria_engine.py` moved together
+for the same reason (see each shim's own docstring in `services/` for the
+exact coupling that forced the joint move).
+
+`contextual_learner.load()`/`.save()` are the one exception to "no
+storage coupling": they lazy-import `storage.dynamodb`/`storage.keys`
+inside the function body, same convention as the rest of this Lambda
+package. `adapt()` itself — the pure entry point SimRunner calls — never
+reaches them.
+
+## What's still pending
+
+Everything mapped in `ARIA_INTELLIGENCE_PLAN.md` P0-6 has moved.
+`quality_of_life.py` (above) is a new port, not a move — it has no
+`services/` shim because nothing under `services/` ever called it; new
+code should import it from `aria_core` directly, same as any other module
+here. A CI script (matching `scripts/check-aria-web-research.py`) that
+enforces SimRunner never re-acquiring a `services`/`storage` import is
+still not written.
