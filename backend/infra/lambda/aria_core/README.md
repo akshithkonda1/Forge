@@ -60,12 +60,40 @@ Moved so far (each with a `services/` shim):
   wear/repair read, stress algorithm, plan choice); cross-references
   `contextual_learner` by relative import, so the two must move and stay
   together
+- `biometrics/` — `body_model.py` (HealthKit-observation projection into
+  `ARIAContext`) plus `aging_norms.py`/`classify.py`/`estimators.py`/
+  `inference.py`/`statistics.py`/`types.py`; `body_model.py`'s only
+  `aria_engine` use is now a lazy import inside `to_aria_context()`, so the
+  subpackage needed nothing from the rest of the Lambda package at import
+  time
+- `fusion.py` — turn fusion (`fuse_turn`), directional-safety stance gate
+  (`stance_for_plan`); moved together with `aria_engine.py` since fusion
+  imports it at module level and `aria_engine.generate_response()` lazily
+  imports fusion back
+- `aria_engine.py` — the real production reasoning engine
+  (`ARIAContext`/`generate_response`/interpreters); every lazy import
+  inside it that used to read `from services import X` for an
+  already-moved sibling now reads `from . import X` / `from .biometrics
+  import X` instead, so it never reaches back into `services` at all.
+  This was the last and largest piece of the P0-6 decomposition:
+  `DummyARIAEngine.respond()` (SimRunner's `--test-ready --gate` engine)
+  now calls real `fuse_turn()` + real `generate_response()` through
+  `dummy_orchestrator.respond(engine="lambda")`, not a scripted stub —
+  see the "Update 2026-09-20" note in `ARIA_INTELLIGENCE_PLAN.md` P0-6
+- `quality_of_life.py` — holistic multi-pillar life score, ported from
+  ForgeCore's `QualityOfLifeCalculator.swift`; pure scoring only (see the
+  module's own docstring for what was and wasn't ported). Not yet wired
+  into `aria_engine`'s context/interpreters — `aria_evidence.detect_pattern`
+  still treats Lifestyle QoL as client-authored only; that integration is
+  a deliberately deferred product decision, not an oversight
 
 `contextual_learner.py`, `self_trainer.py`, and `context_plan.py` moved in
 one commit because they reference each other via relative imports
 (`from . import self_trainer`, `from .contextual_learner import ...`) —
 splitting the move across commits would have left a broken import in
-between.
+between. `biometrics/`, `fusion.py`, and `aria_engine.py` moved together
+for the same reason (see each shim's own docstring in `services/` for the
+exact coupling that forced the joint move).
 
 `contextual_learner.load()`/`.save()` are the one exception to "no
 storage coupling": they lazy-import `storage.dynamodb`/`storage.keys`
@@ -75,12 +103,10 @@ reaches them.
 
 ## What's still pending
 
-Not yet moved (dependency graph mapped, see `ARIA_INTELLIGENCE_PLAN.md`
-P0-6): the `services/biometrics/` subpackage (`body_model.py` currently
-imports `from services import aria_engine` at module level — circular
-with `aria_engine.py`, needs untangling first), `fusion.py` (module-level
-clean; its storage-touching functions are separately lazy-guarded), and
-`aria_engine.py` itself. Once those move, SimRunner's stub
-`aria_engine.py` gets replaced with real calls into `aria_core`, and a CI
-script (matching `scripts/check-aria-web-research.py`) should enforce
-that SimRunner never re-acquires a `services`/`storage` import.
+Everything mapped in `ARIA_INTELLIGENCE_PLAN.md` P0-6 has moved.
+`quality_of_life.py` (above) is a new port, not a move — it has no
+`services/` shim because nothing under `services/` ever called it; new
+code should import it from `aria_core` directly, same as any other module
+here. A CI script (matching `scripts/check-aria-web-research.py`) that
+enforces SimRunner never re-acquiring a `services`/`storage` import is
+still not written.
