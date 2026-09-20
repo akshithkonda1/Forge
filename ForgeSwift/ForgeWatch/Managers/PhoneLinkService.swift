@@ -63,8 +63,7 @@ final class PhoneLinkService: NSObject, WCSessionDelegate {
     }
 
     func send(_ state: WorkoutLiveState) {
-        guard WCSession.isSupported(),
-              WCSession.default.activationState == .activated,
+        guard canTalkToPhone,
               let data = try? JSONEncoder().encode(state) else { return }
         let payload: [String: Any] = [Self.workoutStateKey: data]
         if WCSession.default.isReachable {
@@ -77,8 +76,7 @@ final class PhoneLinkService: NSObject, WCSessionDelegate {
     }
 
     func sendWorkoutEnded() {
-        guard WCSession.isSupported(),
-              WCSession.default.activationState == .activated else { return }
+        guard canTalkToPhone else { return }
         let payload: [String: Any] = [Self.workoutEndedKey: true]
         if WCSession.default.isReachable {
             WCSession.default.sendMessage(payload, replyHandler: nil) { _ in
@@ -90,8 +88,7 @@ final class PhoneLinkService: NSObject, WCSessionDelegate {
     }
 
     func sendVitals(_ payload: WatchVitalsPayload) {
-        guard WCSession.isSupported(),
-              WCSession.default.activationState == .activated,
+        guard canTalkToPhone,
               let data = try? JSONEncoder().encode(payload) else { return }
         let envelope: [String: Any] = [WorkoutLinkKeys.vitals: data]
         if WCSession.default.isReachable {
@@ -104,8 +101,7 @@ final class PhoneLinkService: NSObject, WCSessionDelegate {
     }
 
     func sendSleepSample(_ payload: WatchSleepSamplePayload) {
-        guard WCSession.isSupported(),
-              WCSession.default.activationState == .activated,
+        guard canTalkToPhone,
               let data = try? JSONEncoder().encode(payload) else { return }
         let envelope: [String: Any] = [WorkoutLinkKeys.sleepSample: data]
         if WCSession.default.isReachable {
@@ -118,8 +114,7 @@ final class PhoneLinkService: NSObject, WCSessionDelegate {
     }
 
     func sendMindfulnessCompleted(practice: String, minutes: Double) {
-        guard WCSession.isSupported(),
-              WCSession.default.activationState == .activated else { return }
+        guard canTalkToPhone else { return }
         let payload: [String: Any] = [
             WorkoutLinkKeys.mindfulnessCompleted: true,
             WorkoutLinkKeys.mindfulnessPractice: practice,
@@ -132,9 +127,27 @@ final class PhoneLinkService: NSObject, WCSessionDelegate {
         }
     }
 
+    private var canTalkToPhone: Bool {
+        guard WCSession.isSupported() else { return false }
+        let session = WCSession.default
+        #if os(watchOS)
+        return PhoneDependency.watchMayTalkToPhone(
+            isActivated: session.activationState == .activated,
+            isCompanionAppInstalled: session.isCompanionAppInstalled
+        )
+        #else
+        return PhoneDependency.phoneMayTalkToWatch(
+            isActivated: session.activationState == .activated,
+            isPaired: session.isPaired,
+            isWatchAppInstalled: session.isWatchAppInstalled
+        )
+        #endif
+    }
+
     /// Preserve companion config keys when streaming workout state so
     /// ARIA base URL / name survive a long session.
     private func pushMergedApplicationContext(_ payload: [String: Any]) {
+        guard canTalkToPhone else { return }
         var merged = WCSession.default.applicationContext
         for (k, v) in payload { merged[k] = v }
         // Ending clears live state so the phone doesn't re-open a stale activity.

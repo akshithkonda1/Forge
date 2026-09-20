@@ -92,6 +92,37 @@ public enum PhoneDependency: Sendable {
         }
     }
 
+    /// iPhone Simulator with no companion scheme must not call `WCSession.activate()`.
+    /// Activating unpaired logs:
+    /// `pairingIDs no longer match. pairingID (null)` / `WCSession is not paired`.
+    /// Scheme **ForgeCompanion** sets `FORGE_LAUNCH_WATCH_COMPANION=1`.
+    public static func shouldActivatePhoneSession(
+        isSupported: Bool,
+        isSimulator: Bool,
+        companionLaunchRequested: Bool
+    ) -> Bool {
+        guard isSupported else { return false }
+        if isSimulator && !companionLaunchRequested { return false }
+        return true
+    }
+
+    /// iPhone may push application context / messages.
+    public static func phoneMayTalkToWatch(
+        isActivated: Bool,
+        isPaired: Bool,
+        isWatchAppInstalled: Bool
+    ) -> Bool {
+        isActivated && isPaired && isWatchAppInstalled
+    }
+
+    /// Watch may push to the iPhone companion.
+    public static func watchMayTalkToPhone(
+        isActivated: Bool,
+        isCompanionAppInstalled: Bool
+    ) -> Bool {
+        isActivated && isCompanionAppInstalled
+    }
+
     /// Home / status banner when the watch is running without the phone.
     public static func independenceBanner(for availability: CompanionAvailability) -> String? {
         switch availability {
