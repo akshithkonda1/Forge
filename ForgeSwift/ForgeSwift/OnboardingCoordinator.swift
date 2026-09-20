@@ -826,6 +826,17 @@ final class OnboardingCoordinator {
 
         store.userProfile = profile.toCoreProfile()
         store.markOnboardingInterviewComplete()
+        // Seed the Train suggestion box from this conversation: the weekly
+        // split becomes day-one predictions, "rotate for me" hands ARIA the
+        // week, and named sports become the sports shelf.
+        let onboardingSports = profile.preferredWorkouts
+            .filter { $0.coreType == .sportSpecific }
+            .map(\.label)
+        store.trainingHabits.seedFromProfile(
+            weeklySplit: store.userProfile.weeklySplit,
+            scheduleMode: store.userProfile.schedulePlanningMode,
+            sportNames: onboardingSports
+        )
         if let sex = profile.biologicalSex {
             MenstrualHealthStore.shared.enableForBiologicalSexIfNeeded(sex)
         }

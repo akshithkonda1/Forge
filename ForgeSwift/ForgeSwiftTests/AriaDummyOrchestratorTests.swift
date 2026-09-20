@@ -408,15 +408,31 @@ final class AriaDummyOrchestratorTests: XCTestCase {
             agent: .workout,
             agents: ["workout"]
         )
+        // No learned pattern yet: ARIA asks which body part (the suggestion
+        // box) instead of guessing.
         let trainLower = train.message.lowercased()
         XCTAssertTrue(
-            trainLower.contains("wedding")
-                || trainLower.contains("travel")
-                || trainLower.contains("evening")
-                || trainLower.contains("busy"),
-            "ARIA must change the session around classified calendar ingest: \(train.message)"
+            trainLower.contains("what part") || trainLower.contains("target") || trainLower.contains("where"),
+            "ARIA should ask which body part before planning: \(train.message)"
         )
-        XCTAssertFalse(trainLower.contains("jordan"))
+        XCTAssertNil(store.todayWorkout, "the box asks — it doesn't build yet")
+
+        // Answer the box: chest. The plan must still steer around the calendar.
+        let train2 = await AriaDummyOrchestrator.reply(
+            text: "chest",
+            store: store,
+            agent: .workout,
+            agents: ["workout"]
+        )
+        let trainLower2 = train2.message.lowercased()
+        XCTAssertTrue(
+            trainLower2.contains("wedding")
+                || trainLower2.contains("travel")
+                || trainLower2.contains("evening")
+                || trainLower2.contains("busy"),
+            "ARIA must change the session around classified calendar ingest: \(train2.message)"
+        )
+        XCTAssertFalse(trainLower2.contains("jordan"))
         XCTAssertFalse(AriaDummyOrchestrator.writesCalendarEvents)
         let session = try XCTUnwrap(store.todayWorkout)
         XCTAssertLessThanOrEqual(

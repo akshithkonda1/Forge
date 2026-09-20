@@ -37,6 +37,10 @@ struct AriaDummyBeat {
     var card: RichCardPayload? = nil
     var suggestedActions: [String] = []
     var actions: [AriaDummyAction] = []
+    /// The suggestion box and sport picker need their full chip row — the
+    /// standard 4-chip truncation would cut "Sports" / "You pick" off.
+    var allowsManySuggestions: Bool = false
+}
 }
 
 /// Parsed turn: clauses, ranked domains, discourse, and the constraint string
@@ -342,6 +346,18 @@ enum AriaDummyTurn {
         if reminder(in: text) != nil { add(.nutrition) }
         if acts.preferCalisthenics { add(.training) }
         if acts.sport != nil { add(.training) }
+        // Suggestion-box chips arrive as bare labels ("Chest", "Sports") —
+        // route them to training so a tap never lands nowhere.
+        if TrainingHabits.isBoxChip(text) { add(.training) }
+        // Delegation phrases ("take charge", "I'll pick") are training
+        // ownership decisions — unless ARIA reads the moment as emotional
+        // support, which keeps its existing lane.
+        let delegationLower = text.lowercased()
+        if (TrainingHabits.isTakeChargePhrase(in: delegationLower)
+            || TrainingHabits.isUserLedPhrase(in: delegationLower)),
+           !AriaEmotionalSupportCoach.isEmotionalSupportQuery(text) {
+            add(.training)
+        }
         if acts.logWaterMl != nil { add(.nutrition) }
         if acts.noteToWrite != nil { add(.lifestyle) }
         if acts.readBoard { add(.progress) }
