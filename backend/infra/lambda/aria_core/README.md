@@ -86,6 +86,14 @@ Moved so far (each with a `services/` shim):
   into `aria_engine`'s context/interpreters — `aria_evidence.detect_pattern`
   still treats Lifestyle QoL as client-authored only; that integration is
   a deliberately deferred product decision, not an oversight
+- `circadian_rhythm.py` — the two-process model of alertness (Borbély,
+  1982), ported in full from ForgeCore's `CircadianRhythm.swift`: sleep
+  need/debt estimation, circular-mean phase estimation from raw nights,
+  the energy curve (process S + process C + the empirical afternoon dip),
+  and the named-window schedule (grogginess/morning peak/afternoon dip/
+  evening peak/melatonin window/winding down/sleep). Ported in full, not
+  partially -- the Swift file is self-contained pure date/hour arithmetic
+  with no other-file dependency. Also not yet wired into `aria_engine`
 
 `contextual_learner.py`, `self_trainer.py`, and `context_plan.py` moved in
 one commit because they reference each other via relative imports
