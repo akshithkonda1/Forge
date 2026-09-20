@@ -24,14 +24,16 @@ struct LifestyleLifetimeView: View {
             }
 
             BiologicalAgeCard(snapshot: aging)
-            MetabolicStoryCard(snapshot: metabolic)
-            if !metabolic.pairs.isEmpty {
-                MealGlucoseStoryCard(pairs: metabolic.pairs)
+            if store.metabolicHealthEnabled {
+                MetabolicStoryCard(snapshot: metabolic)
+                if !metabolic.pairs.isEmpty {
+                    MealGlucoseStoryCard(pairs: metabolic.pairs)
+                }
+                MetabolicAccessoryCard(
+                    snapshot: metabolic,
+                    onOpenDevices: { showDevices = true }
+                )
             }
-            MetabolicAccessoryCard(
-                snapshot: metabolic,
-                onOpenDevices: { showDevices = true }
-            )
         }
         .sheet(isPresented: $showDevices) {
             ConnectedDevicesLibraryView()
@@ -116,6 +118,25 @@ struct MetabolicStoryCard: View {
                 macroChip("Meals", "\(snapshot.mealCount)")
                 macroChip("Carbs", snapshot.carbsGrams > 0 ? "\(Int(snapshot.carbsGrams.rounded()))g" : "—")
                 macroChip("Glucose", snapshot.latestMgdl.map { "\(Int($0.rounded()))" } ?? "—")
+            }
+
+            if let estimate = snapshot.watchEstimate, estimate.hasSignals {
+                VStack(alignment: .leading, spacing: 6) {
+                    Text("ESTIMATED FROM APPLE WATCH")
+                        .font(.system(size: 10, weight: .black))
+                        .foregroundColor(.textTertiary)
+                        .tracking(1.6)
+                    ForEach(estimate.displayLines, id: \.self) { line in
+                        Text("•  \(line)")
+                            .font(.system(size: 13))
+                            .foregroundColor(.textSecondary)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                    Text("Estimates, not measurements — not medical advice.")
+                        .font(.system(size: 11))
+                        .foregroundColor(.textTertiary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
             }
 
             FourBulletList(bullets: snapshot.bullets)

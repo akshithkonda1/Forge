@@ -843,6 +843,9 @@ struct MetabolicTranslationCard: View {
     let mealsLogged: Int
     let glucoseMgDl: Double?
     var storyLine: String = ""
+    /// Apple Watch-derived hints, each labeled as an estimate. Empty when a
+    /// CGM is connected (glucose is the source of truth) or the toggle is off.
+    var watchLines: [String] = []
     var onDevices: () -> Void = {}
 
     var body: some View {
@@ -866,6 +869,25 @@ struct MetabolicTranslationCard: View {
             }
 
             FourBulletList(bullets: TranslationCatalog.metabolic.bullets)
+
+            if !watchLines.isEmpty {
+                VStack(alignment: .leading, spacing: 6) {
+                    Text("ESTIMATED FROM APPLE WATCH")
+                        .font(.system(size: 10, weight: .black))
+                        .foregroundColor(.textTertiary)
+                        .tracking(1.6)
+                    ForEach(watchLines, id: \.self) { line in
+                        Text("•  \(line)")
+                            .font(.system(size: 13))
+                            .foregroundColor(.textSecondary)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                    Text("Estimates, not measurements — not medical advice.")
+                        .font(.system(size: 11))
+                        .foregroundColor(.textTertiary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+            }
 
             if let note = TranslationCatalog.metabolic.accessoryNote {
                 Text(note)

@@ -95,6 +95,26 @@ final class AppStore: ObservableObject {
         }
     }
 
+    // MARK: - Metabolic Health
+
+    /// Metabolic Health pillar: the meals ↔ glucose story plus Apple Watch-derived
+    /// estimates. Default ON — the feature ships today, so switching it off is a
+    /// deliberate act. When off, `MetabolicHealthSnapshot.evaluate` returns
+    /// `.empty` and every metabolic surface hides.
+    @Published var metabolicHealthEnabled: Bool = {
+        if UserDefaults.standard.object(forKey: AppStore.metabolicHealthKey) == nil { return true }
+        return UserDefaults.standard.bool(forKey: AppStore.metabolicHealthKey)
+    }() {
+        didSet { UserDefaults.standard.set(metabolicHealthEnabled, forKey: AppStore.metabolicHealthKey) }
+    }
+
+    /// Reads the persisted toggle without touching the AppStore singleton —
+    /// LifestyleViewModel is a separate singleton and calls this directly.
+    static func isMetabolicHealthEnabled() -> Bool {
+        if UserDefaults.standard.object(forKey: AppStore.metabolicHealthKey) == nil { return true }
+        return UserDefaults.standard.bool(forKey: AppStore.metabolicHealthKey)
+    }
+
     /// Nil means ARIA picks the specialist. Persisted so the same coach comes back.
     @Published var pinnedCoachAgent: AriaCoachAgent? = {
         let raw = UserDefaults.standard.string(forKey: "forge.aria.pinnedCoach.v1") ?? ""
@@ -296,6 +316,7 @@ final class AppStore: ObservableObject {
     static let authProviderKey = "forge.auth.provider.v1"
     static let authEmailKey = "forge.auth.email.v1"
     static let ariaMeetKey = "forge.aria.meet.v1"
+    static let metabolicHealthKey = "forge.metabolic.health.enabled.v1"
 
     /// `forge.user.profile.v1` is one of `SecureStoreMigration.sensitiveKeys`, so
     /// the unscoped key gets swept into the Keychain on every launch the same way

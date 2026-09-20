@@ -481,6 +481,22 @@ struct SettingsPageView: View {
                     .buttonStyle(.plain)
                 }
 
+                // Health features
+                sectionHeader("Health Features")
+                SectionCard {
+                    SettingsRow(icon: "fork.knife", iconColor: .amber, label: "Metabolic Health") {
+                        ForgeToggle(isOn: Binding(
+                            get: { store.metabolicHealthEnabled },
+                            set: { store.metabolicHealthEnabled = $0 }
+                        ))
+                    }
+                    Text("Meals ↔ glucose plus Apple Watch estimates. Turn it off to hide Metabolic everywhere.")
+                        .font(.caption)
+                        .foregroundColor(.textTertiary)
+                        .padding(.horizontal, 16)
+                        .padding(.bottom, 10)
+                }
+
                 // Focus / quiet
                 sectionHeader("Focus")
                 SectionCard {

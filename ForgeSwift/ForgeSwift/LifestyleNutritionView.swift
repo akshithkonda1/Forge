@@ -10,12 +10,15 @@ struct DailyNutritionView: View {
     var body: some View {
         VStack(spacing: 20) {
             AINutritionCoachCard(vm: vm)
-            MetabolicTranslationCard(
-                mealsLogged: vm.loggedMeals.count,
-                glucoseMgDl: vm.latestGlucoseMgDl,
-                storyLine: vm.metabolicSnapshot.storyLine,
-                onDevices: { showDevices = true }
-            )
+            if store.metabolicHealthEnabled {
+                MetabolicTranslationCard(
+                    mealsLogged: vm.loggedMeals.count,
+                    glucoseMgDl: vm.latestGlucoseMgDl,
+                    storyLine: vm.metabolicSnapshot.storyLine,
+                    watchLines: vm.metabolicSnapshot.watchEstimate?.displayLines ?? [],
+                    onDevices: { showDevices = true }
+                )
+            }
             MacroRingsCard(vm: vm)
             MealLogCard(vm: vm)
             AIMealSuggestionsCard(vm: vm)
