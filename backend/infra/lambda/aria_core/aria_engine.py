@@ -2395,6 +2395,7 @@ def _insight_response(
         "vs_baseline": lead.vs_baseline,
         "interpretation": lead.interpretation,
         "priority": lead.priority,
+        "action": pattern.next_step,
         "evidence": pattern.to_dict(),
         "load": load.to_dict(),
     }
@@ -2408,10 +2409,13 @@ def _insight_response(
         if focus_signal is not None
         else pattern.why
     )
-    # Plain-language read for the chat; the exact numbers live on the card.
+    # An insight still answers what was asked first (the interpretation), but
+    # never punts on what to actually do about it — same evidence-graph next
+    # step _recommendation_response builds its whole reply around, not a
+    # deflection back to the user.
     message = _structured_message(
         _cap(lead.interpretation),
-        "Ask me what to do about it and I'll turn it into today's plan.",
+        pattern.next_step,
         why,
     )
     envelope = _envelope(
@@ -2421,7 +2425,7 @@ def _insight_response(
         prose_summary=prose,
         card=card,
         message=message,
-        suggested_actions=["What should I do about it?", "Show the trend", "Compare to last week"],
+        suggested_actions=["Show the trend", "Compare to last week", "What else should I know?"],
         voice_mode=voice_mode,
     )
     envelope["evidence"] = pattern.to_dict()

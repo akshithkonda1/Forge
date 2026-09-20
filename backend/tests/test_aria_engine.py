@@ -478,6 +478,43 @@ class AgingDomainTests(unittest.TestCase):
         self.assertIn("Last time we landed on prioritize sleep before volume", resp["message"])
 
 
+class InsightAlwaysHasANextStepTests(unittest.TestCase):
+    """_insight_response used to hand back a deflection ("Ask me what to do
+    about it and I'll turn it into today's plan") instead of an actual next
+    step -- the one thing keeping an otherwise-correct answer from reading as
+    useful guidance. It already computed the evidence-graph pattern for
+    confidence calibration; it just wasn't using pattern.next_step, the same
+    field _recommendation_response builds its whole reply around."""
+
+    def test_insight_message_never_deflects_to_asking_again(self):
+        ctx = full_context()
+        resp = aria_engine.generate_response("how did I sleep?", ctx)
+        self.assertEqual(resp["response_type"], "insight")
+        self.assertNotIn("ask me what to do about it", resp["message"].lower())
+        self.assertIn("One next step", resp["message"])
+
+    def test_insight_card_carries_a_real_action(self):
+        ctx = full_context()
+        resp = aria_engine.generate_response("how did I sleep?", ctx)
+        action = resp["card"]["action"]
+        self.assertIsInstance(action, str)
+        self.assertTrue(action.strip())
+        self.assertNotIn("ask me", action.lower())
+
+    def test_focused_domain_insight_also_gets_a_real_next_step(self):
+        # A specific ask (weight, not just whatever's top-priority) still
+        # gets real guidance, not just the interpretation it already had.
+        ctx = full_context(
+            profile=aria_engine.ProfileContext(primary_goal="lose-fat"),
+            body=aria_engine.BodyContext(weight_trend_kg=-1.5, vo2_max=46),
+        )
+        resp = aria_engine.generate_response("how's my weight trend?", ctx)
+        self.assertEqual(resp["response_type"], "insight")
+        self.assertIsInstance(resp["card"]["action"], str)
+        self.assertTrue(resp["card"]["action"].strip())
+        self.assertNotIn("ask me what to do about it", resp["message"].lower())
+
+
 class NewDomainReasoningTests(unittest.TestCase):
     def test_weight_question_answers_with_body_not_highest_priority_signal(self):
         # Low deep sleep is higher priority, but the question is about weight.
