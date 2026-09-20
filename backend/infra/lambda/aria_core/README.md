@@ -141,6 +141,18 @@ Moved so far (each with a `services/` shim):
   protein-per-kg calculations check `loseFat`/`buildMuscle` in opposite
   orders when both goals are set — both documented in the module's own
   docstring/comments and pinned by tests
+- `habit_engine.py` — ARIA's deep habit layer: reads Lifestyle's signals
+  (sleep variance, social nights, hydration, protein, steps, HRV vs.
+  baseline, the QoL score) and emits the 2-3 highest-confidence cue →
+  routine → payoff/cost loops, each with the smallest interrupt that
+  breaks it; ported in full from ForgeCore's `HabitEngine.swift`,
+  including `companion_line`/`lifestyle_tags`/`constraints`. Not ported:
+  `HabitFeedbackStore.swift` (a separate file, not named in this task) —
+  its `tried()`/`markTried()`/`pendingFeedback()`/`submitFeedback()` are
+  UserDefaults persistence (same reasoning as every earlier "Store"
+  exclusion), and its two pure fact-builder functions
+  (`attemptFact`/`outcomeFact`) are a reasonable future port but a
+  separate decision, not folded into this one
 
 `contextual_learner.py`, `self_trainer.py`, and `context_plan.py` moved in
 one commit because they reference each other via relative imports
