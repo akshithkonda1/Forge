@@ -140,6 +140,33 @@ class StatisticsTests(unittest.TestCase):
         self.assertAlmostEqual(st.coefficient_of_variation([10, 10, 10]), 0.0, places=6)
         self.assertGreater(st.coefficient_of_variation([1, 10, 100]), 0.5)
 
+    def test_online_stat_zscore_matches_swift_wikipedia_series(self):
+        """Mirrors OnlineStatTests.testWelfordMeanAndSampleStd in
+        OnlineStat.swift: same eight-value series, same expected sample
+        std (divide by n-1) and z-score."""
+        online = st.OnlineStat(alpha=0.3)
+        for value in (2.0, 4.0, 4.0, 4.0, 5.0, 5.0, 7.0, 9.0):
+            online.update(value)
+        self.assertEqual(online.n, 8)
+        self.assertAlmostEqual(online.mean, 5.0, places=9)
+        sample_std = (32.0 / 7.0) ** 0.5
+        self.assertAlmostEqual(online.std, sample_std, places=9)
+        self.assertAlmostEqual(online.zscore(7), 2.0 / sample_std, places=9)
+        self.assertEqual(online.last, 9.0)
+
+    def test_online_stat_zscore_flags_an_outlier_against_zero_spread(self):
+        """Mirrors OnlineStatTests.testSingleSampleHasZeroSpread: a
+        dead-flat baseline (here, one sample) must not silently report
+        z=0 for a genuine outlier -- Swift's OnlineStat.zscore() falls
+        back to a large-magnitude signed z instead of a module-level
+        zscore() that would divide by a near-zero sigma and clamp to 0."""
+        online = st.OnlineStat()
+        online.update(8)
+        self.assertEqual(online.std, 0)
+        self.assertEqual(online.zscore(8), 0)
+        self.assertLess(online.zscore(5), -10)
+        self.assertEqual(online.ewma, 8)
+
 
 class EstimatorTests(unittest.TestCase):
     def test_physiological_formulas(self):

@@ -94,6 +94,18 @@ Moved so far (each with a `services/` shim):
   evening peak/melatonin window/winding down/sleep). Ported in full, not
   partially -- the Swift file is self-contained pure date/hour arithmetic
   with no other-file dependency. Also not yet wired into `aria_engine`
+- `sleep_depth_scorer.py` — sleep score versus this person's own nights,
+  blended with population chronotype targets until the personal baseline
+  is thick enough to trust (cold start → blended → fully personal as
+  observed nights accumulate); ported from ForgeCore's
+  `SleepDepthScorer.swift`. Depends on `biometrics/statistics.py`'s
+  `OnlineStat` — porting this surfaced and fixed a real divergence from
+  `OnlineStat.swift`'s own stated contract ("share one definition of
+  'unusual for you'"): `OnlineStat.zscore()` returned a flat 0.0 against a
+  dead-flat baseline instead of Swift's large-magnitude signed fallback,
+  silently hiding a genuine outlier. Not ported: `SleepDepthBaselineStore`
+  (UserDefaults persistence, iOS-only, same reasoning as
+  `QualityOfLifeLivingStore`)
 
 `contextual_learner.py`, `self_trainer.py`, and `context_plan.py` moved in
 one commit because they reference each other via relative imports
