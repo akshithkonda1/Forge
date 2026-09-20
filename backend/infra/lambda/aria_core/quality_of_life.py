@@ -40,6 +40,8 @@ from __future__ import annotations
 import math
 from dataclasses import dataclass, field
 
+from . import hydration_engine
+
 # --- Pillars -------------------------------------------------------------
 # Mirrors QualityOfLifePillar (Swift L30-78): weight() + maxSignals + title.
 
@@ -373,14 +375,13 @@ def _hydration_pillar(i: QualityOfLifeInputs) -> _PillarResult | None:
     glasses = i.water_glasses
     if glasses is None or not (0 <= glasses <= 40):
         return None
-    # Mirrors HydrationEngine.targetMilliliters(weightKilograms:)/glasses(
-    # fromMilliliters:) (HydrationEngine.swift L85-119) at their defaults
-    # (activeCalories=0, cycle=.none, hotEnvironment=false -- QoL calls the
-    # bare weight-only overload): base = max(35kg, mass) * 33 ml/kg, clamped
-    # to [1500, 5000] ml, then divided by 237 ml/glass (glassMilliliters).
-    mass = max(35.0, i.body_mass_kg if i.body_mass_kg is not None else 70.0)
-    target_ml = _clamp(mass * 33.0, 1_500.0, 5_000.0)
-    need_glasses = max(1.0, target_ml / 237.0)
+    # QoL calls HydrationEngine's bare weight-only overload (activeCalories=0,
+    # cycle=.none, hotEnvironment=false) -- see quality_of_life.swift's own
+    # call site. Now that hydration_engine.py exists (a full, separately
+    # tested port), this calls the real functions instead of duplicating
+    # their formula.
+    target_ml = hydration_engine.target_milliliters(i.body_mass_kg)
+    need_glasses = max(1.0, hydration_engine.glasses_from_milliliters(target_ml))
     return _combine([_Signal(rising(glasses / need_glasses), 1)], _PILLAR_MAX_SIGNALS[HYDRATION])
 
 

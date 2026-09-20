@@ -123,6 +123,13 @@ Moved so far (each with a `services/` shim):
   sibling rather than only `biometrics/statistics.py`. Not ported:
   `ScheduleGoalStore` (UserDefaults persistence, iOS-only, same reasoning
   as the earlier ports' stores)
+- `hydration_engine.py` — today's water need (scales with body mass,
+  activity, cycle phase), pace-through-the-day expectation, and
+  behind/on-track/met/over status with supportive (non-scolding)
+  guidance copy; ported in full from ForgeCore's `HydrationEngine.swift`.
+  `quality_of_life.py`'s `_hydration_pillar` — written against a guessed
+  approximation of this exact formula before this file existed — now
+  calls these functions directly instead of duplicating them
 
 `contextual_learner.py`, `self_trainer.py`, and `context_plan.py` moved in
 one commit because they reference each other via relative imports
