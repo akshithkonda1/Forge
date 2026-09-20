@@ -106,6 +106,14 @@ Moved so far (each with a `services/` shim):
   silently hiding a genuine outlier. Not ported: `SleepDepthBaselineStore`
   (UserDefaults persistence, iOS-only, same reasoning as
   `QualityOfLifeLivingStore`)
+- `wind_down_predictor.py` — local heuristic for "when should tonight
+  start winding down?" (typical onset time, pulled earlier by sleep debt,
+  capped at 45min), ported in full from ForgeCore's
+  `WindDownPredictor.swift`. No Swift test file exists for this module, so
+  every expected value in this port's own test suite was hand-derived
+  from the algorithm and independently verified rather than read off a
+  reference implementation — see the module's own test file for the
+  worked arithmetic
 
 `contextual_learner.py`, `self_trainer.py`, and `context_plan.py` moved in
 one commit because they reference each other via relative imports
