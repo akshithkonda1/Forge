@@ -45,6 +45,15 @@ class DummySafetyTests(unittest.TestCase):
         model = reg.get_models_by_tier(1)[0]
         stream = generate_stream(model["behavioral_profile"], seed=42)
         ctx = build_context(stream, model["behavioral_profile"], 29)
+        # Set the underlying per-night hours, not just the derived summary
+        # field: the "stub" engine reads ctx.sleep_debt_7d_hours directly, but
+        # the "lambda" engine (DummyARIAEngine, below) fuses real per-night
+        # samples through BodyModel, which recomputes its own 7-day debt from
+        # ctx.history -- patching only the summary field left that path
+        # looking at a stream of ordinary, healthy nights and correctly (not
+        # a bug) computing near-zero debt from them.
+        for record in ctx.history[-7:]:
+            record.total_sleep_hours = 6.33  # ~11.7h debt over 7 nights vs 8h target
         ctx.sleep_debt_7d_hours = 11.7
         row = dummy.respond("How's my recovery looking?", seed=1, context=ctx, engine="stub")
         text = (row["message"] + " " + (row.get("prose_summary") or "")).lower()

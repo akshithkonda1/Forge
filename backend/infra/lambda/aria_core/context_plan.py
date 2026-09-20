@@ -527,6 +527,29 @@ def evaluate_aging(ctx: Any, message: str = "") -> AgingRead:
             wear -= 0.12
             found.append(_factor("sleep", "physiological", -0.12, "sleep actually landed"))
 
+    # Accumulated debt across the week, not just tonight -- one so-so night
+    # alone shouldn't call "faster", but a week of them should, even if
+    # tonight happened to be fine. 5.0h mirrors aria_evidence.SLEEP_DEBT_7D_H
+    # (duplicated rather than imported: this module is deliberately
+    # stdlib-only with no cross-import of aria_evidence). Before this, a
+    # genuinely high 7-day debt with an unremarkable single night could pick
+    # "train_through" here even while aria_evidence's own evidence graph
+    # (and, after fusion.stance_for_plan's matching fix, the fused stance)
+    # correctly called it a protect day -- and whichever of the two produced
+    # the actual spoken next_step text was a coin flip, not a decision.
+    debt_7d = _num(getattr(getattr(ctx, "sleep", None), "sleep_debt_7d_hours", None))
+    if debt_7d is not None and debt_7d > 5.0:
+        n_body += 1
+        wear += 0.35
+        found.append(
+            _factor(
+                "sleep_debt_7d",
+                "physiological",
+                0.35,
+                f"{debt_7d:.1f}h of sleep debt has built up over the week",
+            )
+        )
+
     rhr = _resting_hr(ctx)
     if rhr is not None:
         n_body += 1

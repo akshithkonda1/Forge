@@ -1598,6 +1598,11 @@ def sim_context_to_chat_payload(
         patterns.append(str(ctx.notable_event_note))
     wake = getattr(ctx, "target_wake_hour", None)
     wake_s = f"{int(wake):02d}:00" if isinstance(wake, (int, float)) else None
+    target_sleep = getattr(ctx, "target_sleep_hours", None)
+    onset_s = None
+    if isinstance(wake, (int, float)) and isinstance(target_sleep, (int, float)):
+        onset = (wake - target_sleep) % 24
+        onset_s = f"{int(onset):02d}:{int(round((onset - int(onset)) * 60)):02d}"
     return {
         "user_id": "test-user-00000000",
         "include_stored": False,
@@ -1611,6 +1616,12 @@ def sim_context_to_chat_payload(
                 "hrv": getattr(today, "hrv", None),
                 "restingHR": getattr(today, "resting_hr", None),
                 "nightsAvailable": getattr(ctx, "sleep_nights_available_7d", None),
+                # These two were missing entirely -- production's sleep-debt
+                # directional-safety check (aria_evidence / _recommendation_response's
+                # sleep_first gate) silently saw None regardless of what the
+                # synthetic day actually carried.
+                "sleepDebt7dHours": getattr(ctx, "sleep_debt_7d_hours", None),
+                "targetHours": target_sleep,
             },
             "readiness": {
                 "hrv7DayTrend": _hrv_trend_points(ctx),
@@ -1623,13 +1634,21 @@ def sim_context_to_chat_payload(
                 "lastWorkoutName": last,
                 "lastWorkoutDurationMinutes": getattr(today, "workout_duration_minutes", None),
                 "hoursSinceLastWorkout": hours_since,
-                "weeklyLoadScore": getattr(today, "acwr", None),
+                # Was silently stuffing ACWR into weeklyLoadScore (a distinct
+                # field on production's TrainingContext, "normalized, null if
+                # < 3 sessions") and never setting the real acwr key at all --
+                # production's overtraining check (`t.acwr >= 1.5`) always saw
+                # None. weeklyLoadScore has no SimRunner equivalent, so it
+                # stays unset rather than carrying a wrong number.
+                "acwr": getattr(today, "acwr", None),
+                "isOvertrained": bool(getattr(ctx, "is_overtrained", False)),
             },
             "activity": {
                 "steps3DayAvg": (sum(steps) / len(steps)) if steps else None,
                 "activeCalories3DayAvg": (sum(cals) / len(cals)) if cals else None,
             },
             "chronotype": {
+                "typicalSleepOnset": onset_s,
                 "typicalWakeTime": wake_s,
             },
             "profile": {
@@ -1764,14 +1783,22 @@ def _respond_via_lambda(
     orch_ms = _orchestration_latency_ms(message, seed, len(plan.workers))
     brief = envelope.get("contextualization") if isinstance(envelope.get("contextualization"), dict) else None
 
+    card = envelope.get("card")
     row = {
         **envelope,
         "schema_version": envelope.get("schema_version") or "1.1",
         "prose_summary": prose,
         "message": envelope.get("message") or prose,
         "suggested_actions": list(envelope.get("suggested_actions") or suggested_actions(plan)),
-        "card": envelope.get("card"),
+        "card": card,
         "rich_card": envelope.get("rich_card"),
+        # Production's envelope has no top-level "recommendation" key -- only
+        # the recommendation response_type's card carries one, as card["action"]
+        # (see aria_engine.py's _recommendation_response). Set it explicitly so
+        # DummyARIAEngine.respond() (which reads row.get("recommendation") the
+        # same way the stub row already does at "recommendation": stub.recommendation)
+        # gets a real value instead of always None.
+        "recommendation": card.get("action") if isinstance(card, dict) else None,
         "restricted_domains": list(envelope.get("restricted_domains") or []),
         "agent": plan.primary.kind,
         "agents": plan.kinds,
@@ -2074,23 +2101,23 @@ class DummyARIAEngine:
     def respond(self, query: str, context, seed: int = 0):
         from .aria_engine import ARIAResponse
 
-        row = respond(query, seed=seed, context=context, engine="stub")
+        row = respond(query, seed=seed, context=context, engine=ENGINE_LAMBDA)
         return ARIAResponse(
             prose_summary=row["message"] or row["prose_summary"],
             recommendation=row.get("recommendation"),
             confidence=float(row.get("confidence") or 0.74),
             used_context=True,
-            model_used=STUB_MODEL,
+            model_used=str(row.get("model") or LAMBDA_MODEL),
             query_type=row.get("agent") or "aria",
             latency_ms=float((row.get("orchestration") or {}).get("latency_ms") or 40),
             raw={"scenario": row.get("scenario") or "dummy", "test_ready": True},
         )
 
     def detect_model(self) -> str:
-        return STUB_MODEL
+        return LAMBDA_MODEL
 
     def active_models(self) -> dict:
-        return {"dummy": STUB_MODEL}
+        return {"dummy": LAMBDA_MODEL}
 
 
 def run_smoke(messages: list[str] | None = None, *, seed: int = 42) -> list[dict]:

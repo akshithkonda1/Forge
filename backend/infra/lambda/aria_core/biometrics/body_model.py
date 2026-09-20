@@ -305,6 +305,31 @@ class BodyModel:
         present = [s for s in stages if s is not None]
         return sum(present) if present else None
 
+    # 8.0h matches aria_evidence.TARGET_SLEEP_H -- kept as a local literal
+    # rather than an import so body_model stays free of a cross-module
+    # dependency for one constant; if that default ever changes, this and
+    # the debt figure it produces should move together.
+    _SLEEP_TARGET_HOURS_DEFAULT = 8.0
+
+    def _sleep_debt_7d_hours(self) -> float | None:
+        """Rolling shortfall vs target over the last 7 nights with a reading.
+
+        Mirrors SimRunner's own 7-day windowing (data_generator.build_context)
+        so aria_evidence.derive_load's directional-safety sleep-debt gate sees
+        a real multi-night figure instead of silently falling back to its
+        single-night debt_proxy -- which is what happened before this existed,
+        every time BodyModel owned the sleep domain (the normal case once any
+        observations flow through fuse_turn, not a SimRunner-only gap).
+        """
+        series = self.series.get(MetricType.SLEEP_DURATION, [])
+        if not series:
+            return None
+        recent = series[-7:]
+        debt = sum(
+            max(0.0, self._SLEEP_TARGET_HOURS_DEFAULT - (obs.value / 60.0)) for obs in recent
+        )
+        return round(debt, 2)
+
     def snapshot(self) -> BodySnapshot:
         systems: dict[str, SystemState] = {}
         all_states: list[MetricState] = []
@@ -361,6 +386,8 @@ class BodyModel:
                 resting_hr=self.latest(MetricType.RESTING_HEART_RATE),
                 nights_available=len(self.series.get(MetricType.SLEEP_DURATION, []))
                 or len(self.series.get(MetricType.SLEEP_DEEP, [])) or None,
+                sleep_debt_7d_hours=self._sleep_debt_7d_hours(),
+                target_hours=self._SLEEP_TARGET_HOURS_DEFAULT,
             )
 
         if allowed("readiness"):

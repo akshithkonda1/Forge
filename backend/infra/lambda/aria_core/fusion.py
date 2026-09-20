@@ -475,6 +475,19 @@ def stance_for_plan(
     This is not ``/ai/router`` answer-merge: no votes, no agreement, no Bedrock.
     Evidence-derived overtraining / readiness floors also force protect so the
     session picker never sees a green light on a hot ACWR day.
+
+    Must stay in sync with every "protect"-stance pattern
+    ``aria_evidence.detect_pattern`` can select (overreaching, low_readiness,
+    under_recovery, sleep_debt) -- not just the two this originally checked.
+    Before the sleep-debt/under-recovery checks were added here, the evidence
+    graph could correctly pick "sleep_debt" as the winning pattern (visible in
+    the response's own card.rationale/card.evidence) while this function still
+    returned whatever contextual_learner's independent persona-stance model
+    said (often "proceed"), and that mismatched stance -- not the evidence --
+    is what decided the actual spoken advice and next_step text. A user could
+    read "they have repair in the bank, spend it on one quality session" on a
+    day the engine's own evidence said was a 5+ hour weekly sleep-debt protect
+    day.
     """
     from . import aria_evidence
     from . import contextual_learner
@@ -490,6 +503,12 @@ def stance_for_plan(
     ):
         return "protect"
     if load.acwr is not None and load.acwr >= aria_evidence.ACWR_SWEET_HIGH:
+        return "protect"
+    debt_7d = load.sleep_debt_7d_h or 0.0
+    if debt_7d > aria_evidence.SLEEP_DEBT_7D_H:
+        return "protect"
+    hrv_falling = load.hrv_trend is not None and load.hrv_trend <= -8
+    if hrv_falling and load.sleep_debt_tonight_h > aria_evidence.SLEEP_DEBT_TONIGHT_H:
         return "protect"
     return stance
 
