@@ -513,7 +513,25 @@ enum AriaVoiceEngine {
                 "Don't fix all of it. Fix the easiest one.",
             ]))
 
-        case .ok, .unknown:
+        case .unknown:
+            // No sleep sample at all — this used to share the .ok branch
+            // below, so a night that was never actually read got the same
+            // "middling, nothing alarming" reassurance as a real average
+            // one. Report the gap honestly instead of fabricating a read on
+            // data that was never pulled.
+            beats.append(rng.pick([
+                "I don't have last night's sleep in yet — once Apple Health shares it, I'll read it straight.",
+                "No sleep sample has come through for last night. I'm not going to guess at one.",
+                profile.register == .clinical
+                    ? "No sleep sample available for the most recent night. Pending sync."
+                    : "Nothing's synced for last night's sleep yet.",
+            ]))
+            beats.append(rng.pick([
+                "Check that Sleep is shared in Health and I'll pick it up next time you ask.",
+                "If you wore your Watch to bed or logged it manually, give it a minute to sync.",
+            ]))
+
+        case .ok:
             beats.append(rng.pick([
                 "Middling night. Enough to work with, not enough to be reckless.",
                 "Sleep was serviceable — fine, not elite.",
