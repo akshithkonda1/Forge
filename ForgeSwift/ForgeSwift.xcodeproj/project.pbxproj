@@ -17,6 +17,7 @@
 		AA00010000000000000000F3 /* LifestyleLocationStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00020000000000000000F3 /* LifestyleLocationStore.swift */; };
 		AA00010000000000000000F4 /* LifestylePlacesView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00020000000000000000F4 /* LifestylePlacesView.swift */; };
 		AA00010000000000000000F5 /* ConnectedDevicesLibraryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00020000000000000000F5 /* ConnectedDevicesLibraryView.swift */; };
+		1F0FD2C5E0008D83FE452842 /* StandByCustomizationView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AEB7E457A83EF795D58C7AF3 /* StandByCustomizationView.swift */; };
 		AA00010000000000000000F6 /* WeeklyAriaReview.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00020000000000000000F6 /* WeeklyAriaReview.swift */; };
 		AA00010000000000000000F7 /* DeviceProductImage.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00020000000000000000F7 /* DeviceProductImage.swift */; };
 		AA00010000000000000000F8 /* HealthDeviceCatalogSync.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00020000000000000000F8 /* HealthDeviceCatalogSync.swift */; };
@@ -431,6 +432,7 @@
 		AA00020000000000000000F3 /* LifestyleLocationStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LifestyleLocationStore.swift; sourceTree = "<group>"; };
 		AA00020000000000000000F4 /* LifestylePlacesView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Lifestyle/LifestylePlacesView.swift"; sourceTree = "<group>"; };
 		AA00020000000000000000F5 /* ConnectedDevicesLibraryView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Profile/ConnectedDevicesLibraryView.swift"; sourceTree = "<group>"; };
+		AEB7E457A83EF795D58C7AF3 /* StandByCustomizationView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Profile/StandByCustomizationView.swift"; sourceTree = "<group>"; };
 		AA00020000000000000000F6 /* WeeklyAriaReview.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WeeklyAriaReview.swift; sourceTree = "<group>"; };
 		AA00020000000000000000F7 /* DeviceProductImage.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Profile/DeviceProductImage.swift"; sourceTree = "<group>"; };
 		AA00020000000000000000F8 /* HealthDeviceCatalogSync.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HealthDeviceCatalogSync.swift; sourceTree = "<group>"; };
@@ -838,6 +840,7 @@
 				AA00020000000000000000F2 /* HomeWidgetBoard.swift */,
 				AA00020000000000000000F4 /* LifestylePlacesView.swift */,
 				AA00020000000000000000F5 /* ConnectedDevicesLibraryView.swift */,
+				AEB7E457A83EF795D58C7AF3 /* StandByCustomizationView.swift */,
 				AA00020000000000000000F7 /* DeviceProductImage.swift */,
 				1E44AFC730182A1F00D1C14D /* PeriodEndFeedbackView.swift */,
 				1WC0082F9FF867004091AA /* BiologicalSexStepView.swift */,
@@ -1535,6 +1538,7 @@
 				AA00010000000000000000F3 /* LifestyleLocationStore.swift in Sources */,
 				AA00010000000000000000F4 /* LifestylePlacesView.swift in Sources */,
 				AA00010000000000000000F5 /* ConnectedDevicesLibraryView.swift in Sources */,
+				1F0FD2C5E0008D83FE452842 /* StandByCustomizationView.swift in Sources */,
 				AA00010000000000000000F6 /* WeeklyAriaReview.swift in Sources */,
 				AA00010000000000000000F7 /* DeviceProductImage.swift in Sources */,
 				AA00010000000000000000F8 /* HealthDeviceCatalogSync.swift in Sources */,

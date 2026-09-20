@@ -33,6 +33,7 @@ let package = Package(
                 "DesignSystem/AriaRingFieldGeometry.swift",
                 "DesignSystem/ForgeDS.swift",
                 "DesignSystem/ForgePalette.swift",
+                "DesignSystem/StandByNestFaceView.swift",
                 "HealthKit/HealthKitQueryHelpers.swift",
                 "HealthKit/FakeHealthPack.swift",
                 "HealthKit/FakeCalendarPack.swift",
