@@ -174,7 +174,11 @@ final class LocalTestingOrchestrator {
 
     private init() {
         seed = Self.freshSeed()
-        #if canImport(FoundationModels)
+        // Simulator has no model catalog — see FoundationModelsResponseGenerator's
+        // own init comment and AppStore's identical guard. Evaluating
+        // `SystemLanguageModel.default`, which happens as soon as
+        // FoundationModelsResponseGenerator is constructed, is unsafe there.
+        #if canImport(FoundationModels) && !targetEnvironment(simulator)
         let foundationModelsGenerator = FoundationModelsResponseGenerator()
         if foundationModelsGenerator.isAvailable {
             generator = foundationModelsGenerator
