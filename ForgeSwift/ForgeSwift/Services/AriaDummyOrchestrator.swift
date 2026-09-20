@@ -262,7 +262,10 @@ enum AriaDummyOrchestrator {
         let card = beats.compactMap(\.card).first
         var suggestions = beats.flatMap(\.suggestedActions)
         if suggestions.isEmpty { suggestions = AriaFirstHealthBriefing.suggestedActions }
-        if suggestions.count > 4 { suggestions = Array(suggestions.prefix(4)) }
+        // The suggestion box opts out: its chip row is the interface.
+        if !beats.contains(where: \.allowsManySuggestions), suggestions.count > 4 {
+            suggestions = Array(suggestions.prefix(4))
+        }
 
         return publish(
             AriaResponse(
@@ -332,14 +335,59 @@ enum AriaDummyOrchestrator {
                 suggestedActions: ["How did I sleep?", "Keep it light today"]
             )
         case .training:
+            // The suggestion box: who owns this session? Delegation ("take
+            // charge") hands ARIA the wheel; an explicit choice is recorded
+            // and learned; otherwise ARIA predicts from habit — or asks.
+            var planInput = interpretation.constrainedPlanInput
+            var predictedNote: String? = nil
+            var sportAltFocus: TrainingFocus? = nil
+            switch Self.trainingDecision(text: text, interpretation: interpretation, store: store) {
+            case .beat(let beat):
+                return beat
+            case .forceFocus(let focus):
+                let weekday = TrainingHabits.weekdayIndex(for: Date())
+                var habits = store.trainingHabits
+                habits.record(.focus(focus), weekday: weekday)
+                store.trainingHabits = habits
+                planInput += " " + focus.planKeyword
+                sportAltFocus = focus
+                predictedNote = "\(TrainingHabits.weekdayName(for: weekday))s are usually \(focus.chipLabel.lowercased()) for you — that's what's on the board."
+            case .forceSport(let name):
+                var habits = store.trainingHabits
+                habits.record(.sport(name), weekday: TrainingHabits.weekdayIndex(for: Date()))
+                store.trainingHabits = habits
+                let predictedPlan = ExerciseLibrary.sportSession(named: name, minutes: 45, completed: false)
+                let predictedProse = AriaReplyVariety.pick([
+                    "You usually play your way through the week — \(name), 45 minutes, on the board.",
+                    "\(name), 45 minutes — on the board. The pattern talked, I listened.",
+                ], prompt: text) + exerciseLedger(predictedPlan)
+                return AriaDummyBeat(
+                    domain: .training,
+                    prose: predictedProse,
+                    card: workoutCard(predictedPlan),
+                    suggestedActions: ["What's on my board?", "Something else"],
+                    actions: [.recordSport(name: name, minutes: 45, completed: false)]
+                )
+            case .proceed(let altFocus, let note):
+                sportAltFocus = altFocus
+                predictedNote = note
+            }
             if let sport = interpretation.recordedSport {
+                // A chosen sport is a choice: learn it.
+                var habits = store.trainingHabits
+                habits.record(.sport(sport.name), weekday: TrainingHabits.weekdayIndex(for: Date()))
+                store.trainingHabits = habits
                 let plan = ExerciseLibrary.sportSession(
                     named: sport.name,
                     minutes: sport.minutes,
                     completed: sport.completed
                 )
                 let verb = sport.completed ? "logged" : "put on the board"
-                let prose = "I \(verb) \(sport.name) as \(sport.minutes) minutes of training — it counts as part of the session."
+                let prose = AriaReplyVariety.pick([
+                    "I \(verb) \(sport.name) as \(sport.minutes) minutes of training — it counts as part of the session.",
+                    "\(sport.name), \(sport.minutes) minutes — \(verb), and it counts toward the session.",
+                    "Done: \(sport.name) \(verb) (\(sport.minutes) min). That's session credit.",
+                ], prompt: text) + exerciseLedger(plan)
                 return AriaDummyBeat(
                     domain: .training,
                     prose: prose,
@@ -360,7 +408,12 @@ enum AriaDummyOrchestrator {
                     life: life
                 )
                 store.todayWorkout = workout
-                var line = "I pulled this from the calisthenics library. \(workout.name) is on the board for about \(workout.duration) minutes — \(workout.intensity.label.lowercased()) intensity."
+                var line = AriaReplyVariety.pick([
+                    "I pulled this from the calisthenics library. \(workout.name) is on the board for about \(workout.duration) minutes — \(workout.intensity.label.lowercased()) intensity.",
+                    "Calisthenics library built this one — \(workout.name), about \(workout.duration) minutes at \(workout.intensity.label.lowercased()) intensity.",
+                    "\(workout.name): bodyweight-only from the calisthenics library, roughly \(workout.duration) minutes, \(workout.intensity.label.lowercased()).",
+                    "No gear needed — \(workout.name) from the calisthenics library, \(workout.duration) minutes, \(workout.intensity.label.lowercased()) intensity.",
+                ], prompt: text) + exerciseLedger(workout)
                 if let reason = eventReason(interpretation: interpretation, life: life) {
                     line = "\(reason) \(line)"
                 }
@@ -372,7 +425,7 @@ enum AriaDummyOrchestrator {
                     actions: actions
                 )
             }
-            let plan = AriaPlanEngine.evaluate(input: interpretation.constrainedPlanInput, context: context)
+            let plan = AriaPlanEngine.evaluate(input: planInput, context: context)
             workout = constrainedWorkout(
                 plan.workoutPlan,
                 interpretation: interpretation,
@@ -387,24 +440,39 @@ enum AriaDummyOrchestrator {
             voiceFacts.sessionDuration = workout.duration
             voiceFacts.sessionIntensity = workout.intensity.label
             let voice = AriaVoiceEngine.speak(intent: .trainingPlan, context: context, input: text, facts: voiceFacts)
-            var line = "\(workout.name) is on the board for about \(workout.duration) minutes — \(workout.intensity.label.lowercased()) intensity."
+            var line = AriaReplyVariety.pick([
+                "\(workout.name) is on the board for about \(workout.duration) minutes — \(workout.intensity.label.lowercased()) intensity.",
+                "Board's set: \(workout.name), about \(workout.duration) minutes at \(workout.intensity.label.lowercased()) intensity.",
+                "\(workout.name) — \(workout.duration) minutes, \(workout.intensity.label.lowercased()). It's on the board.",
+                "Today's session is \(workout.name): roughly \(workout.duration) minutes, \(workout.intensity.label.lowercased()) intensity.",
+            ], prompt: text)
             if let reason = eventReason(interpretation: interpretation, life: life) {
                 line = "\(reason) \(line)"
             }
+            let ledger = exerciseLedger(workout)
             let prose: String
             if voice.count > 60 {
                 if let reason = eventReason(interpretation: interpretation, life: life) {
-                    prose = "\(reason) \(voice)"
+                    prose = "\(reason) \(voice)" + ledger
                 } else {
-                    prose = voice
+                    prose = voice + ledger
                 }
             } else {
-                prose = line
+                prose = line + ledger
             }
             if plan.shouldPersistTheme { actions.append(.persistTheme) }
+            // Predicted sessions say so up front; every muscle plan also names
+            // a sport that trains the same tissue — the sports person stays
+            // in the conversation.
+            var finalProse = prose
+            if let note = predictedNote { finalProse = "\(note) \(finalProse)" }
+            if let focus = sportAltFocus,
+               let alt = Self.sportAlternativeLine(for: focus, store: store) {
+                finalProse += alt
+            }
             return AriaDummyBeat(
                 domain: .training,
-                prose: prose,
+                prose: finalProse,
                 card: workoutCard(workout),
                 suggestedActions: plan.suggestedActions,
                 actions: actions
@@ -529,7 +597,7 @@ enum AriaDummyOrchestrator {
             if interpretation.readBoard {
                 return AriaDummyBeat(
                     domain: .progress,
-                    prose: boardReading(store: store, facts: facts),
+                    prose: boardReading(store: store, facts: facts, prompt: text),
                     suggestedActions: ["Write that down", "How did I sleep?"]
                 )
             }
@@ -556,31 +624,43 @@ enum AriaDummyOrchestrator {
         case .accept:
             guard let workout = store.todayWorkout else { return nil }
             lastAppliedActions = [.persistWorkout]
-            return confirm("Locked. \(workout.name) stays on the board.", store: store, card: workoutCard(workout))
+            let locked = AriaReplyVariety.pick([
+                "Locked. \(workout.name) stays on the board.",
+                "It's set — \(workout.name) stays on the board.",
+                "Done. \(workout.name) is locked in.",
+            ], prompt: text) + exerciseLedger(workout)
+            return confirm(locked, store: store, card: workoutCard(workout))
         case .decline:
             store.todayWorkout = nil
             lastAppliedActions = [.cancelWorkout]
-            return confirm("Scratched. Nothing on the board until you want it.", store: store, card: nil)
+            let scratched = AriaReplyVariety.pick([
+                "Scratched. Nothing on the board until you want it.",
+                "Gone — the board's clear until you want something on it.",
+                "Cleared. Say the word when you want a session.",
+            ], prompt: text)
+            return confirm(scratched, store: store, card: nil)
         case .easier:
             guard var workout = store.todayWorkout else { return nil }
             workout.intensity = AriaDummyTurn.stepDown(workout.intensity)
             store.todayWorkout = workout
             lastAppliedActions = [.scaleEasier]
-            return confirm(
+            let scaled = AriaReplyVariety.pick([
                 "Scaled it. \(workout.name) is now \(workout.intensity.label.lowercased()), about \(workout.duration) minutes.",
-                store: store,
-                card: workoutCard(workout)
-            )
+                "Turned it down — \(workout.name) is \(workout.intensity.label.lowercased()) now, about \(workout.duration) minutes.",
+                "Easier it is: \(workout.name) at \(workout.intensity.label.lowercased()) intensity, \(workout.duration) minutes.",
+            ], prompt: text) + exerciseLedger(workout)
+            return confirm(scaled, store: store, card: workoutCard(workout))
         case .shorter:
             guard var workout = store.todayWorkout else { return nil }
             workout.duration = max(15, Int(Double(workout.duration) * 0.7))
             store.todayWorkout = workout
             lastAppliedActions = [.scaleShorter]
-            return confirm(
+            let cut = AriaReplyVariety.pick([
                 "Cut it down. \(workout.name) is about \(workout.duration) minutes now.",
-                store: store,
-                card: workoutCard(workout)
-            )
+                "Shorter session — \(workout.name), about \(workout.duration) minutes.",
+                "Trimmed to \(workout.duration) minutes. \(workout.name), same intent, less clock.",
+            ], prompt: text) + exerciseLedger(workout)
+            return confirm(cut, store: store, card: workoutCard(workout))
         case .lessLegs:
             guard store.todayWorkout != nil else { return nil }
             let interpretation = AriaDummyTurn.interpret(
@@ -599,7 +679,12 @@ enum AriaDummyOrchestrator {
             )
             store.todayWorkout = workout
             lastAppliedActions = [.skipLegs, .persistWorkout]
-            return confirm("Legs off. \(workout.name) is on the board instead.", store: store, card: workoutCard(workout))
+            let noLegs = AriaReplyVariety.pick([
+                "Legs off. \(workout.name) is on the board instead.",
+                "Skipped legs — \(workout.name) is the session now.",
+                "No leg work today. \(workout.name) takes its place.",
+            ], prompt: text) + exerciseLedger(workout)
+            return confirm(noLegs, store: store, card: workoutCard(workout))
         case .askSleep:
             let raw = AriaVoiceEngine.speak(intent: .sleep, context: context, input: text, facts: facts)
             let sleep = humanizeRecover(
@@ -632,6 +717,128 @@ enum AriaDummyOrchestrator {
             outcome: FakeCalendarPack.outcome(fromTags: life.calendarIngestPayload()),
             eventTags: eventTags(interpretation: interpretation, life: life)
         )
+    }
+
+    // MARK: - Train suggestion box
+
+    /// The pre-plan decision: who owns this session and what should ARIA do
+    /// about it. Explicit delegation and explicit choices always win; a
+    /// confident habit predicts; otherwise the box asks.
+    private enum TrainingDecision {
+        case beat(AriaDummyBeat)
+        case forceFocus(TrainingFocus)
+        case forceSport(String)
+        case proceed(altFocus: TrainingFocus?, note: String? = nil)
+    }
+
+    private static func trainingDecision(
+        text: String,
+        interpretation: AriaDummyInterpretation,
+        store: AppStore
+    ) -> TrainingDecision {
+        let lower = text.lowercased()
+        let weekday = TrainingHabits.weekdayIndex(for: Date())
+
+        // "Take charge" — the user delegates; ARIA owns the plan from here.
+        if TrainingHabits.isTakeChargePhrase(in: lower) {
+            var habits = store.trainingHabits
+            habits.setMode(.ariaLeads)
+            store.trainingHabits = habits
+            return .proceed(altFocus: nil, note: "Say the word — I've got the week.")
+        }
+        // "I'll pick" — the user keeps the wheel; open the box.
+        if TrainingHabits.isUserLedPhrase(in: lower) {
+            var habits = store.trainingHabits
+            habits.setMode(.userLeads)
+            store.trainingHabits = habits
+            return .beat(suggestionBoxBeat(
+                prompt: text,
+                opener: "You're driving — what are we training?"
+            ))
+        }
+        // An explicit body part is a choice: record it, learn it, build it.
+        if let focus = TrainingFocus.from(text: text) {
+            var habits = store.trainingHabits
+            habits.record(.focus(focus), weekday: weekday)
+            store.trainingHabits = habits
+            return .proceed(altFocus: focus)
+        }
+        // Bare "sports" — open the sport picker, not a muscle box.
+        if interpretation.recordedSport == nil,
+           TrainingHabits.isSportPickerRequest(in: lower) {
+            return .beat(sportPickerBeat(prompt: text, store: store))
+        }
+        // "Something else" (from the sport picker) — back to the muscle box.
+        if lower.trimmingCharacters(in: .whitespacesAndNewlines) == "something else" {
+            return .beat(suggestionBoxBeat(prompt: text, opener: nil))
+        }
+        // Vague request, user still owns the week: predict or ask.
+        if store.trainingHabits.mode == .userLeads,
+           interpretation.recordedSport == nil,
+           !interpretation.preferCalisthenics {
+            if let suggestion = store.trainingHabits.suggestion(forWeekday: weekday) {
+                switch suggestion.choice {
+                case .focus(let focus): return .forceFocus(focus)
+                case .sport(let name): return .forceSport(name)
+                }
+            }
+            return .beat(suggestionBoxBeat(prompt: text, opener: nil))
+        }
+        return .proceed(altFocus: nil)
+    }
+
+    /// "What part of the body today?" — every catalog focus plus sports plus
+    /// handing ARIA the wheel. Chips, not a paragraph: least resistance.
+    private static func suggestionBoxBeat(prompt: String, opener: String?) -> AriaDummyBeat {
+        let line = opener ?? AriaReplyVariety.pick([
+            "What part of the body are we training today?",
+            "Where's the work going today — pick a lane and I'll build it.",
+            "What's the target today?",
+        ], prompt: prompt)
+        var chips = TrainingFocus.allCases.map(\.chipLabel)
+        chips.append("Sports")
+        chips.append("You pick")
+        return AriaDummyBeat(
+            domain: .training,
+            prose: line,
+            suggestedActions: chips,
+            allowsManySuggestions: true
+        )
+    }
+
+    /// The sports shelf: favorites first (learned), catalog fallbacks after.
+    /// Tapping a sport flows through the normal sport path — one row, real plan.
+    private static func sportPickerBeat(prompt: String, store: AppStore) -> AriaDummyBeat {
+        var chips = Array(store.trainingHabits.favoriteSports.prefix(3))
+        for fallback in ["Swimming", "Tennis", "Basketball", "Boxing", "Soccer", "Hiking"] {
+            if chips.count >= 4 { break }
+            if !chips.contains(where: { $0.caseInsensitiveCompare(fallback) == .orderedSame }) {
+                chips.append(fallback)
+            }
+        }
+        chips.append("Something else")
+        let line = AriaReplyVariety.pick([
+            "What are we playing?",
+            "Pick your sport — I'll put the session on the board.",
+        ], prompt: prompt)
+        return AriaDummyBeat(
+            domain: .training,
+            prose: line,
+            suggestedActions: chips,
+            allowsManySuggestions: true
+        )
+    }
+
+    /// Every muscle plan names a sport that trains the same tissue, so the
+    /// sports-only person is always one tap from their version of the session.
+    private static func sportAlternativeLine(for focus: TrainingFocus, store: AppStore) -> String? {
+        let matches = ExerciseLibrary.sportsFor(muscles: focus.muscles)
+        guard !matches.isEmpty else { return nil }
+        let favorites = store.trainingHabits.favoriteSports
+        let pick = matches.first(where: { def in
+            favorites.contains { $0.caseInsensitiveCompare(def.name) == .orderedSame }
+        }) ?? matches[0]
+        return "\n\nOr make it play: \(pick.name) hits the same muscles — it counts toward the session."
     }
 
     private static func eventTags(
@@ -891,8 +1098,24 @@ enum AriaDummyOrchestrator {
             type: "workout_plan",
             title: workout.name,
             workoutName: workout.name,
-            durationMinutes: workout.duration
+            durationMinutes: workout.duration,
+            exercises: workout.exercises.map {
+                CloudRichCardExercise(name: $0.name, sets: $0.sets, reps: $0.reps)
+            }
         )
+    }
+
+    /// The auditable record: the exact exercises ARIA put on the board, in the
+    /// chat message itself — never just the card. Names come from the Train
+    /// library through the plan engine, so the list can only name moves the
+    /// library actually has. Built from the *constrained* plan so the ledger
+    /// always matches what `store.todayWorkout` holds.
+    private static func exerciseLedger(_ workout: WorkoutPlan) -> String {
+        guard !workout.exercises.isEmpty else { return "" }
+        let rows = workout.exercises.map { ex in
+            "• \(ex.name) — \(ex.sets) × \(ex.reps)"
+        }
+        return "\n\nOn the board:\n" + rows.joined(separator: "\n")
     }
 
     private static func clockLabel(_ hour: Int) -> String {
@@ -901,8 +1124,12 @@ enum AriaDummyOrchestrator {
         return "at \(h12)\(suffix)"
     }
 
-    private static func boardReading(store: AppStore, facts: AriaSpeechFacts) -> String {
-        var parts: [String] = ["I already read your board."]
+    private static func boardReading(store: AppStore, facts: AriaSpeechFacts, prompt: String) -> String {
+        var parts = [AriaReplyVariety.pick([
+            "I already read your board.",
+            "Board's read — here's where things stand.",
+            "Got the board in front of me.",
+        ], prompt: prompt)]
         if let hours = facts.sleepHours {
             parts.append("Last night was about \(String(format: "%.1f", hours)) hours.")
         }

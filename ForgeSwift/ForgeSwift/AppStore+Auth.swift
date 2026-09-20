@@ -128,7 +128,14 @@ extension AppStore {
         if let level = experienceLevel { userProfile.experienceLevel = level }
         if let preferredWorkouts { userProfile.preferredWorkouts = preferredWorkouts }
         if let weeklySchedule { userProfile.weeklySchedule = weeklySchedule.sorted() }
-        if let schedulePlanningMode { userProfile.schedulePlanningMode = schedulePlanningMode }
+        if let schedulePlanningMode {
+            userProfile.schedulePlanningMode = schedulePlanningMode
+            // The Train suggestion box follows who owns the week: "rotate for
+            // me" hands it to ARIA, "I'll pick the days" keeps it with the user.
+            var habits = trainingHabits
+            habits.setMode(schedulePlanningMode == .rotate ? .ariaLeads : .userLeads)
+            trainingHabits = habits
+        }
         if let weeklySplit { userProfile.weeklySplit = WeeklySplit.normalized(weeklySplit) }
         if let trainingEquipment { userProfile.trainingEquipment = trainingEquipment }
         if let connectedDevices { userProfile.connectedDevices = connectedDevices }

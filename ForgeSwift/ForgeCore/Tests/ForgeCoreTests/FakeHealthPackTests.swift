@@ -213,9 +213,53 @@ final class FakeHealthPackTests: XCTestCase {
 
     func testPersonaIsAKnownHumanShape() {
         let pack = FakeHealthPack.generate(now: pinnedNow, calendar: calendar, seed: 41)
-        XCTAssertTrue(FakeHealthPack.personaLabels.contains(pack.personaLabel))
+        // Label is either a curated preset or a blend of two ("stressed×nightOwl") —
+        // never a sticker the generator can't embody.
+        let components = pack.personaLabel.split(separator: "×").map(String.init)
+        XCTAssertFalse(components.isEmpty)
+        XCTAssertTrue(
+            components.allSatisfy { FakeHealthPack.personaLabels.contains($0) },
+            "every blend component must be a curated preset: \(pack.personaLabel)"
+        )
         XCTAssertTrue(pack.days.allSatisfy { !$0.storyLine.isEmpty }, "every day needs a sentence ARIA can say")
         XCTAssertTrue(pack.days.allSatisfy { !$0.felt.isEmpty })
+    }
+
+    func testCatalogKeepsGrowing() {
+        XCTAssertGreaterThanOrEqual(
+            FakeHealthPack.personaLabels.count, 18,
+            "the shelf of humans must keep growing — blends compose from these"
+        )
+    }
+
+    func testBlendsComposeRealBodies() {
+        // Across seeds, blended personas appear; a blend is deterministic for
+        // its seed and must differ from a plain preset draw.
+        var blendSeed: Int?
+        var blendLabel = ""
+        for seed in 1...60 {
+            let pack = FakeHealthPack.generate(now: pinnedNow, calendar: calendar, seed: seed)
+            if pack.personaLabel.contains("×") {
+                blendSeed = seed
+                blendLabel = pack.personaLabel
+                break
+            }
+        }
+        guard let seed = blendSeed else {
+            XCTFail("expected at least one blended persona across 60 seeds")
+            return
+        }
+        let parts = blendLabel.split(separator: "×").map(String.init)
+        XCTAssertEqual(parts.count, 2, "blends are exactly two presets: \(blendLabel)")
+        // Same seed, same blend, same body.
+        let again = FakeHealthPack.generate(now: pinnedNow, calendar: calendar, seed: seed)
+        XCTAssertEqual(again.personaLabel, blendLabel)
+        let first = FakeHealthPack.generate(now: pinnedNow, calendar: calendar, seed: seed)
+        XCTAssertEqual(
+            first.days.map(\.hrvMs),
+            again.days.map(\.hrvMs),
+            "a blend must be as deterministic as any preset"
+        )
     }
 
     func testPinnedPersonaActuallyMovesTheBody() {

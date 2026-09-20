@@ -35,6 +35,13 @@ final class AppStore: ObservableObject {
     // Today's Workout — written by AriaPlanEngine from this person's life, never a catalog default.
     @Published var todayWorkout: WorkoutPlan? = nil
 
+    // Training habits — the algorithmic learner behind the Train suggestion box.
+    // Records what this person trains on which weekday (and whether ARIA or the
+    // user owns the plan) so ARIA can predict instead of asking every time.
+    @Published var trainingHabits: TrainingHabits = TrainingHabits() {
+        didSet { persistTrainingHabits() }
+    }
+
     // Active Workout State
     @Published var isWorkoutActive: Bool = false
     @Published var currentExerciseIndex: Int = 0
@@ -234,6 +241,10 @@ final class AppStore: ObservableObject {
         // ChatView already has real history — no mock flash on cold launch.
         restoreChatHistory()
 
+        // Training habits restore synchronously too — the suggestion box needs
+        // to know this person's patterns before the first Train question.
+        restoreTrainingHabits()
+
         // Real nights, history, and today's session come from Apple Health + this
         // person's profile — never demo sleep or "Upper Body Power".
         Task { @MainActor in
@@ -256,6 +267,7 @@ final class AppStore: ObservableObject {
     static let chatXPKey = "forge.chat.xp.v1"
     static let chatLevelKey = "forge.chat.level.v1"
     static let durableMemoryKey = "forge.chat.durable_memory.v1"
+    static let trainingHabitsKey = "forge.training.habits.v1"
 
     func persistenceUserId() -> String {
         let id = AriaContextStore.shared.context.userId.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -317,6 +329,21 @@ final class AppStore: ObservableObject {
             guard !Task.isCancelled else { return }
             try? Self.secureStore.setValue(snapshot, forKey: key)
         }
+    }
+
+    // MARK: - Training Habits Persistence
+
+    private func persistTrainingHabits() {
+        if let data = try? JSONEncoder().encode(trainingHabits) {
+            UserDefaults.standard.set(data, forKey: Self.trainingHabitsKey)
+        }
+    }
+
+    private func restoreTrainingHabits() {
+        guard let data = UserDefaults.standard.data(forKey: Self.trainingHabitsKey),
+              let habits = try? JSONDecoder().decode(TrainingHabits.self, from: data)
+        else { return }
+        trainingHabits = habits
     }
 
     /// Reads a profile from the Keychain, migrating a plaintext `UserDefaults`
