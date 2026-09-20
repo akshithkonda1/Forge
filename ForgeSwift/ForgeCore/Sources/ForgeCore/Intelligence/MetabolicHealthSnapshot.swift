@@ -88,8 +88,13 @@ public struct MetabolicHealthSnapshot: Sendable, Equatable {
     public var accessoryLine: String
     public var pairs: [MealGlucosePair]
     public var bullets: [String]
+    /// Apple Watch-derived hints. Attached ONLY when there is no glucose data —
+    /// a CGM remains the source of truth — and only when the Metabolic Health
+    /// toggle is on. Every signal inside is labeled as an estimate.
+    public var watchEstimate: MetabolicWatchEstimate?
 
     public var hasGlucose: Bool { latestMgdl != nil }
+    public var hasWatchEstimate: Bool { watchEstimate?.hasSignals == true }
 
     public static let empty = MetabolicHealthSnapshot(
         latestMgdl: nil,
@@ -103,11 +108,18 @@ public struct MetabolicHealthSnapshot: Sendable, Equatable {
         storyLine: "",
         accessoryLine: TranslationCatalog.metabolicAccessoryNote,
         pairs: [],
-        bullets: TranslationCatalog.metabolic.bullets
+        bullets: TranslationCatalog.metabolic.bullets,
+        watchEstimate: nil
     )
 
     public static var soldSeparatelyLine: String { TranslationCatalog.metabolicAccessoryNote }
 
+    /// - Parameters:
+    ///   - watchEstimate: Apple Watch-derived hints. Attached only when there
+    ///     is no glucose data (CGM is the source of truth) and the estimate
+    ///     actually has signals.
+    ///   - isEnabled: the Metabolic Health user toggle. When false the feature
+    ///     is off and this returns `.empty` — every surface hides.
     public static func evaluate(
         meals: [MetabolicMealEvent],
         glucose: [GlucosePoint],
@@ -116,8 +128,12 @@ public struct MetabolicHealthSnapshot: Sendable, Equatable {
         dayFat: Double? = nil,
         dayCalories: Double? = nil,
         connectedDeviceIDs: [String] = [],
+        watchEstimate: MetabolicWatchEstimate? = nil,
+        isEnabled: Bool = true,
         now: Date = Date()
     ) -> MetabolicHealthSnapshot {
+        guard isEnabled else { return .empty }
+
         let dayStart = Calendar.current.startOfDay(for: now)
         let todayMeals = meals
             .filter { $0.date >= dayStart && $0.date <= now }
@@ -127,6 +143,8 @@ public struct MetabolicHealthSnapshot: Sendable, Equatable {
             .sorted { $0.date > $1.date }
 
         let latest = readings.first
+        // CGM truth wins: watch-derived hints only surface with no glucose.
+        let watch = latest == nil ? watchEstimate.flatMap { $0.hasSignals ? $0 : nil } : nil
         let carbs = dayCarbs ?? todayMeals.reduce(0) { $0 + $1.carbs }
         let protein = dayProtein ?? todayMeals.reduce(0) { $0 + $1.protein }
         let fat = dayFat ?? todayMeals.reduce(0) { $0 + $1.fat }
@@ -155,7 +173,8 @@ public struct MetabolicHealthSnapshot: Sendable, Equatable {
             storyLine: story,
             accessoryLine: accessory,
             pairs: pairs,
-            bullets: TranslationCatalog.metabolic.bullets
+            bullets: TranslationCatalog.metabolic.bullets,
+            watchEstimate: watch
         )
     }
 

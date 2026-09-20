@@ -61,7 +61,20 @@ final class LifestyleViewModel: ObservableObject {
     }
 
     var metabolicSnapshot: MetabolicHealthSnapshot {
-        MetabolicHealthSnapshot.evaluate(
+        // Apple Watch-derived hints, from rollups HealthKit already fetched
+        // (DailyHealthStats + weekly trends). No new HealthKit queries.
+        let stats = healthStats
+        let watchInputs = MetabolicWatchInputs(
+            restingHRBpm: stats?.restingHeartRate ?? 0,
+            hrvMs: stats?.hrv ?? 0,
+            hrvBaselineMs: trailingMean(weeklyTrends.map(\.avgHRV)),
+            vo2Max: stats?.vo2Max ?? 0,
+            activeCalories: Double(stats?.activeCalories ?? 0),
+            exerciseMinutes: stats?.exerciseMinutes ?? 0,
+            sleepHours: stats?.sleepHours ?? 0,
+            sleepBaselineHours: trailingMean(weeklyTrends.map(\.sleepHours))
+        )
+        return MetabolicHealthSnapshot.evaluate(
             meals: loggedMeals.map {
                 MetabolicMealEvent(
                     name: $0.name,
@@ -77,8 +90,18 @@ final class LifestyleViewModel: ObservableObject {
             dayProtein: healthStats?.protein,
             dayFat: healthStats?.fat,
             dayCalories: healthStats.map { Double($0.totalCalories) },
-            connectedDeviceIDs: connectedDeviceIDs
+            connectedDeviceIDs: connectedDeviceIDs,
+            watchEstimate: MetabolicWatchEstimate.evaluate(watchInputs),
+            isEnabled: AppStore.isMetabolicHealthEnabled()
         )
+    }
+
+    /// Mean of positive values; 0 when there is no data. Used for watch-derived
+    /// baselines (HRV, sleep) — zeros are missing HealthKit fields, not readings.
+    private func trailingMean(_ values: [Double]) -> Double {
+        let valid = values.filter { $0 > 0 }
+        guard !valid.isEmpty else { return 0 }
+        return valid.reduce(0, +) / Double(valid.count)
     }
 
     /// Copied from the live AppStore — AppStore is a @StateObject, not a singleton.
