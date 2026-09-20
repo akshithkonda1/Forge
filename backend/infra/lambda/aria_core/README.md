@@ -153,6 +153,19 @@ Moved so far (each with a `services/` shim):
   exclusion), and its two pure fact-builder functions
   (`attemptFact`/`outcomeFact`) are a reasonable future port but a
   separate decision, not folded into this one
+- `metabolic_health_snapshot.py` — meals + macros + glucose as one story:
+  pairs a logged meal with the glucose reading that followed it (a
+  20-150min post-meal window, peak vs. a pre-meal baseline), and the
+  honest "sold separately" accessory framing when no CGM is connected;
+  ported from ForgeCore's `MetabolicHealthSnapshot.swift`. Deliberately
+  reduced: Swift's `accessoryLine` resolves raw connected-device IDs
+  through `HealthDeviceCatalog` (a large, separate product-registry
+  subsystem); this port's `accessory_line()` takes an already-resolved
+  device name directly instead of porting that catalog. The two
+  `TranslationCatalog` string constants this file reads (the accessory
+  note, the metabolic pillar's four bullets) are copied directly rather
+  than porting the whole catalog (sleep/train/stress/women's-health pillar
+  copy included), which is unrelated to meal/glucose pairing
 
 `contextual_learner.py`, `self_trainer.py`, and `context_plan.py` moved in
 one commit because they reference each other via relative imports
