@@ -223,6 +223,16 @@ def _route(event, _context):
 
             return dashboard.handle_get_dashboard_today(user_id)
 
+        if method == "POST" and path == "/intelligence/today":
+            from routes import intelligence
+
+            return intelligence.handle_post_intelligence_today(body, user_id)
+
+        if method == "POST" and path == "/intelligence/workout-cue":
+            from routes import intelligence
+
+            return intelligence.handle_post_intelligence_workout_cue(body, user_id)
+
         if method == "GET" and path == "/sleep":
             from routes import sleep
 

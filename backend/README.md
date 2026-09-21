@@ -26,6 +26,8 @@ Phase 1 — client-unblocking reads:
 - `GET /me`
 - `PUT /me/profile`
 - `GET /dashboard/today`
+- `POST /intelligence/today` — shared coaching facts for native iOS/Android UIs (not a UI)
+- `POST /intelligence/workout-cue` — in-workout heart-rate zone cue
 - `GET /sleep?days=14`
 - `GET /workouts/today`
 - `GET /workouts/history?days=30`

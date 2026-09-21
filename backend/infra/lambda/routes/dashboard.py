@@ -90,6 +90,8 @@ def handle_get_dashboard_today(user_id: str) -> dict:
     if not personal_records and demo:
         personal_records = default_personal_records()
 
+    from aria_core import shared_intelligence
+
     return ok({
         "profile": profile,
         "readiness": readiness,
@@ -99,4 +101,11 @@ def handle_get_dashboard_today(user_id: str) -> dict:
         "recentWorkouts": recent_workouts,
         "personalRecords": personal_records,
         "connections": connections,
+        "sharedIntelligence": shared_intelligence.from_dashboard(
+            profile=profile,
+            readiness=readiness,
+            daily_metrics=daily_metrics,
+            recent_sleep=recent_sleep,
+            today_workout=today_workout,
+        ),
     })

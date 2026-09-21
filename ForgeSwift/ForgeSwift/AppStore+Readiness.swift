@@ -85,6 +85,7 @@ extension AppStore {
         }
         dataLoadState = .loaded
         objectWillChange.send()
+        AriaLiveGroundingHub.shared.publish(from: self, force: true)
 
         if TestReadyLaunchPolicy.homeWaitsForThirtyDayHealthQueries
             || TestReadyLaunchPolicy.homeWaitsForRemoteDashboard {
@@ -92,6 +93,79 @@ extension AppStore {
         } else {
             scheduleBackgroundLifeHydrate(authorized: authorized)
         }
+    }
+
+    /// Slim pre-turn hydrate for Dummy / local ARIA. Pulls the latest stored
+    /// HealthKit snapshot into AppStore and publishes it on the live grounding
+    /// stream so the coach answers from data that is already there — never
+    /// installs FakeHealthPack (invent) on a chat turn.
+    func refreshMetricsForAriaTurn(force: Bool = false) async {
+        if !force,
+           let last = lastAriaTurnHydrate,
+           Date().timeIntervalSince(last) < AriaLiveGroundingHub.turnHydrateCoalesceSeconds,
+           hasMeaningfulLifeSignal {
+            AriaLiveGroundingHub.shared.publish(from: self)
+            return
+        }
+
+        let hk = HealthKitManager.shared
+        let authorized = await hk.checkAuthorizationStatus()
+        healthKitLive = authorized
+
+        if authorized {
+            if let snapshot = await hk.fetchRecentSnapshot(requireAuthorization: false),
+               snapshot.hasData {
+                let meaningful = (snapshot.sleepHours ?? 0) > 0
+                    || (snapshot.hrv ?? 0) > 0
+                    || (snapshot.steps ?? 0) > 0
+                    || (snapshot.restingHeartRate ?? 0) > 0
+                    || (snapshot.activeCalories ?? 0) > 0
+                if meaningful {
+                    // Real samples win over the Test-Ready pack once they exist.
+                    if usingTestReadyHealthPack {
+                        usingTestReadyHealthPack = false
+                    }
+                    updateMetrics(
+                        steps: snapshot.steps.flatMap { $0 > 0 ? $0 : nil },
+                        activeCalories: snapshot.activeCalories.flatMap { $0 > 0 ? $0 : nil },
+                        hrv: snapshot.hrv.flatMap { $0 > 0 ? Int($0.rounded()) : nil },
+                        restingHR: snapshot.restingHeartRate.flatMap { $0 > 0 ? $0 : nil },
+                        deepSleep: nil,
+                        totalSleep: snapshot.sleepHours.flatMap { $0 > 0 ? Int(($0 * 60).rounded()) : nil }
+                    )
+                    if sleepData.isEmpty, let hours = snapshot.sleepHours, hours > 0 {
+                        let day = Self.isoDayStamp(Date())
+                        sleepData = [
+                            SleepData(
+                                date: day,
+                                totalHours: hours,
+                                deepMinutes: 0,
+                                remMinutes: 0,
+                                lightMinutes: 0,
+                                awakeMinutes: 0,
+                                score: Int(min(100, max(40, hours / 8 * 100)))
+                            )
+                        ]
+                    }
+                }
+            }
+            if sleepData.isEmpty {
+                let nights = await HealthKitSleepService.shared.fetchRecentSleepData(days: 1)
+                mergeSleepDataLocally(nights)
+            }
+        }
+
+        lastAriaTurnHydrate = Date()
+        AriaLiveGroundingHub.shared.publish(from: self, force: true)
+    }
+
+    private static func isoDayStamp(_ date: Date) -> String {
+        let f = DateFormatter()
+        f.calendar = Calendar(identifier: .gregorian)
+        f.locale = Locale(identifier: "en_US_POSIX")
+        f.timeZone = .current
+        f.dateFormat = "yyyy-MM-dd"
+        return f.string(from: date)
     }
 
     /// 30-day history and remote dashboard after Home is already on screen.
@@ -666,9 +740,10 @@ extension AppStore {
         if let restingHR = restingHR { dailyMetrics.restingHR = restingHR }
         if let deepSleep = deepSleep { dailyMetrics.deepSleep = deepSleep }
         if let totalSleep = totalSleep { dailyMetrics.totalSleep = totalSleep }
-        
+
         // Recalculate readiness based on new metrics
         recalculateReadiness()
+        AriaLiveGroundingHub.shared.publish(from: self)
     }
 
     /// Recalculate readiness score based on current metrics

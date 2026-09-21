@@ -130,6 +130,12 @@ class ProductionDashboardTests(_EnvCase):
         self.assertIsNone(payload["dailyMetrics"]["hrv"])
         self.assertIsNone(payload["dailyMetrics"]["steps"])
         self.assertEqual(payload["dailyMetrics"]["sources"], [])
+        sidecar = payload["sharedIntelligence"]
+        self.assertEqual(sidecar["schemaVersion"], 1)
+        self.assertEqual(sidecar["glanceReadiness"]["confidence"], 0)
+        self.assertIsNone(sidecar["habits"])
+        self.assertIsNone(sidecar["metabolicWatch"])
+        self.assertIn("still gathering", sidecar["greeting"].lower())
 
     def test_response_shape_is_unchanged_so_clients_still_decode(self):
         payload = body_of(handler(event("GET", "/dashboard/today"), None))
@@ -144,6 +150,7 @@ class ProductionDashboardTests(_EnvCase):
                 "recentWorkouts",
                 "personalRecords",
                 "connections",
+                "sharedIntelligence",
             },
         )
         self.assertEqual(
