@@ -41,7 +41,6 @@ struct AriaDummyBeat {
     /// standard 4-chip truncation would cut "Sports" / "You pick" off.
     var allowsManySuggestions: Bool = false
 }
-}
 
 /// Parsed turn: clauses, ranked domains, discourse, and the constraint string
 /// fed to the plan engine. Pure so tests can lock routing without AppStore.

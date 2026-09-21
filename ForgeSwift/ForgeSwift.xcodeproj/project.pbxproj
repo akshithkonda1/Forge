@@ -69,6 +69,8 @@
 		1CAL0812F9FF867004091AA /* CalendarManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1CAL0802F9FF867004091AA /* CalendarManager.swift */; };
 		1ARIA0812F9FF867004091AA /* AriaDummyOrchestrator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1ARIA0802F9FF867004091AA /* AriaDummyOrchestrator.swift */; };
 		1ARIA0A12F9FF867004091AA /* AriaDummyTurn.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1ARIA0A02F9FF867004091AA /* AriaDummyTurn.swift */; };
+		1ARIA0B12F9FF867004091AA /* AriaLiveGrounding.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1ARIA0B02F9FF867004091AA /* AriaLiveGrounding.swift */; };
+		1TRAIN012F9FF867004091AA /* TrainingHabits.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1TRAIN002F9FF867004091AA /* TrainingHabits.swift */; };
 		1ARIA0962F9FF867004091AA /* AriaOperatingMode.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1ARIA0952F9FF867004091AA /* AriaOperatingMode.swift */; };
 		1ARIA0982F9FF867004091AA /* LocalTestingOrchestrator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1ARIA0972F9FF867004091AA /* LocalTestingOrchestrator.swift */; };
 		1ARIA1002F9FF867004091AA /* AriaWebResearch.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1ARIA0992F9FF867004091AA /* AriaWebResearch.swift */; };
@@ -487,6 +489,8 @@
 		1CAL0802F9FF867004091AA /* CalendarManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CalendarManager.swift; sourceTree = "<group>"; };
 		1ARIA0802F9FF867004091AA /* AriaDummyOrchestrator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AriaDummyOrchestrator.swift; sourceTree = "<group>"; };
 		1ARIA0A02F9FF867004091AA /* AriaDummyTurn.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AriaDummyTurn.swift; sourceTree = "<group>"; };
+		1ARIA0B02F9FF867004091AA /* AriaLiveGrounding.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AriaLiveGrounding.swift; sourceTree = "<group>"; };
+		1TRAIN002F9FF867004091AA /* TrainingHabits.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TrainingHabits.swift; sourceTree = "<group>"; };
 		1ARIA0952F9FF867004091AA /* AriaOperatingMode.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AriaOperatingMode.swift; sourceTree = "<group>"; };
 		1ARIA0972F9FF867004091AA /* LocalTestingOrchestrator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocalTestingOrchestrator.swift; sourceTree = "<group>"; };
 		1ARIA0992F9FF867004091AA /* AriaWebResearch.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AriaWebResearch.swift; sourceTree = "<group>"; };
@@ -891,6 +895,8 @@
 				1CAL0802F9FF867004091AA /* CalendarManager.swift */,
 				1ARIA0802F9FF867004091AA /* AriaDummyOrchestrator.swift */,
 				1ARIA0A02F9FF867004091AA /* AriaDummyTurn.swift */,
+				1ARIA0B02F9FF867004091AA /* AriaLiveGrounding.swift */,
+				1TRAIN002F9FF867004091AA /* TrainingHabits.swift */,
 				1ARIA0952F9FF867004091AA /* AriaOperatingMode.swift */,
 				1ARIA0972F9FF867004091AA /* LocalTestingOrchestrator.swift */,
 				1ARIA0992F9FF867004091AA /* AriaWebResearch.swift */,
@@ -1563,6 +1569,8 @@
 				1CAL0812F9FF867004091AA /* CalendarManager.swift in Sources */,
 				1ARIA0812F9FF867004091AA /* AriaDummyOrchestrator.swift in Sources */,
 				1ARIA0A12F9FF867004091AA /* AriaDummyTurn.swift in Sources */,
+				1ARIA0B12F9FF867004091AA /* AriaLiveGrounding.swift in Sources */,
+				1TRAIN012F9FF867004091AA /* TrainingHabits.swift in Sources */,
 				1ARIA0962F9FF867004091AA /* AriaOperatingMode.swift in Sources */,
 				1ARIA0982F9FF867004091AA /* LocalTestingOrchestrator.swift in Sources */,
 				1ARIA1002F9FF867004091AA /* AriaWebResearch.swift in Sources */,

@@ -67,7 +67,11 @@ final class AriaService: ObservableObject {
 
         // Device Hub / dummy-offline / tester: deterministic Dummy orchestra
         // first — never Bedrock. Required so we can tune ARIA without AI.
+        // Instantaneous live grounding: pull latest on-device samples into
+        // AppStore + the stream before Dummy speaks, so replies use data
+        // that is already there instead of inventing vitals.
         if Self.shouldUseTestReadyDummy || AriaOperatingMode.current.isDummy {
+            await store.refreshMetricsForAriaTurn()
             isTestReady = true
             isLocalFallback = true
             lastRemoteError = nil
@@ -81,6 +85,7 @@ final class AriaService: ObservableObject {
 
         // Chosen local-testing mode (not Dummy). Honest offline badge.
         if AriaOperatingMode.current.isLocalTesting {
+            await store.refreshMetricsForAriaTurn()
             isTestReady = false
             isLocalFallback = true
             lastRemoteError = nil

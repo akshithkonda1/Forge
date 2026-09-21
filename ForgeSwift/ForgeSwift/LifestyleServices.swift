@@ -359,7 +359,7 @@ final class LocationMealLogger: ObservableObject {
 @MainActor
 enum LifestyleWellbeingStore {
     private static let habitsKey = "lifestyle.dailyHabits"
-    private static let streakKey = "lifestyle.habitStreak"
+    private static let qualifyingDaysKey = "lifestyle.habitQualifyingDays"
     private static let stressKey = "lifestyle.stressLevel"
     private static let habitsDateKey = "lifestyle.habitsDate"
     private static let qolHistoryKey = "lifestyle.qolHistory"
@@ -393,7 +393,11 @@ enum LifestyleWellbeingStore {
     }
 
     static func habitStreak() -> Int {
-        max(UserDefaults.standard.integer(forKey: streakKey), 1)
+        HabitStreak.length(qualifyingDays: loadQualifyingDays())
+    }
+
+    private static func loadQualifyingDays() -> [Date] {
+        UserDefaults.standard.array(forKey: qualifyingDaysKey) as? [Date] ?? []
     }
 
     /// Records today's QOL score (one entry per day; last 30 days kept) and
@@ -417,14 +421,13 @@ enum LifestyleWellbeingStore {
         return history
     }
 
+    /// Marks today as qualifying (or not) from the current check-offs, so
+    /// un-ticking a habit can take today back out of the streak.
     private static func updateStreakIfNeeded(_ habits: [DailyHabit]) {
-        let completed = habits.filter(\.done).count
-        let total = habits.count
-        guard total > 0 else { return }
-        if Double(completed) / Double(total) >= 0.6 {
-            let current = UserDefaults.standard.integer(forKey: streakKey)
-            UserDefaults.standard.set(max(current, 1), forKey: streakKey)
-        }
+        guard !habits.isEmpty else { return }
+        let qualifies = HabitStreak.qualifies(completed: habits.filter(\.done).count, total: habits.count)
+        let days = HabitStreak.recording(day: Date(), qualifies: qualifies, in: loadQualifyingDays())
+        UserDefaults.standard.set(days, forKey: qualifyingDaysKey)
     }
 
     static func loadStressLevel() -> Int {

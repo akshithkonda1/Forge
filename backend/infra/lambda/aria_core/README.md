@@ -187,20 +187,38 @@ backlog) are all done as of `aria_health_risk_monitor.py` above:
 `quality_of_life.py`, `circadian_rhythm.py`, `sleep_depth_scorer.py`,
 `wind_down_predictor.py`, `schedule_corrector.py`, `hydration_engine.py`,
 `lifestyle_targets.py`, `habit_engine.py`, `metabolic_health_snapshot.py`,
-`aria_health_risk_monitor.py`. Every one of these is deliberately NOT
-wired into `aria_engine.py`'s context/interpreters/response flow yet —
-each module's own docstring says so explicitly, and that integration
-(whether server-computed values should replace, cross-check, or sit
-alongside client-authored ones) is a real product decision this
-mechanical porting pass does not make unilaterally. A handful of
-dependencies this porting pass deliberately did NOT follow (each noted in
-its own module above): `HealthDeviceCatalog` (a large, separate product
-registry `metabolic_health_snapshot.py` reduced around),
+`aria_health_risk_monitor.py`. Native clients do not reimplement these
+engines: `shared_intelligence.py` aggregates them into one camelCase JSON
+sidecar attached to `generate_response` and `GET /dashboard/today`, and
+served on `POST /intelligence/today` / `POST /intelligence/workout-cue`.
+SwiftUI, Swift Charts, Compose, and Kotlin charts stay on the phone.
+
+Further ports (UI-driving, store-free) that sit alongside tasks #11-20:
+
+- `habit_streak.py` — consecutive qualifying check-off days
+- `hr_zones.py` / `workout_coaching.py` / `session_clock.py` — effort bands,
+  zone-boundary cues, pause-aware elapsed time
+- `readiness_calculator.py` — ForgeCore glance formula (distinct from
+  `services/readiness.py`'s dashboard blend)
+- `sleep_wake_adaptation.py` / `sleep_wind_down_notice.py` /
+  `sleep_story_engine.py` — smart-wake window, one wind-down fire time,
+  last-night copy
+- `context_rules.py` / `smart_stack_relevance.py` / `watch_context.py` —
+  desk/gym/wind-down rules, glance ranking, WatchARIAContext wire format
+- `mindfulness_suggestion.py` / `workout_suggestion.py` / `aria_day_brief.py`
+- `aria_guidance_policy.py` — Dummy's 3-band coach / coachWithCare / referOut
+  (the 4-band `guidance.assess` path still guards `generate_response`)
+- `aria_personal_read.py` / `human_living_character.py` /
+  `metabolic_watch_signals.py`
+
+A handful of dependencies this porting pass deliberately did NOT follow
+(each noted in its own module above): `HealthDeviceCatalog` (a large, separate
+product registry `metabolic_health_snapshot.py` reduced around),
 `TranslationCatalog`'s non-metabolic pillar copy, the full `UserProfile`
 struct (`lifestyle_targets.py` uses a minimal `Profile` instead), and
 every UserDefaults-backed "Store" sibling
 (`QualityOfLifeLivingStore`/`SleepDepthBaselineStore`/`ScheduleGoalStore`/
-`HabitFeedbackStore`/`WatchVitalsInbox`).
+`HabitFeedbackStore`/`WatchVitalsInbox`/`WakeStruggleStore`).
 
 `contextual_learner.py`, `self_trainer.py`, and `context_plan.py` moved in
 one commit because they reference each other via relative imports

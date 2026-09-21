@@ -173,6 +173,8 @@ final class AppStore: ObservableObject {
     @Published var isHealthKitPulling: Bool = false
     /// Last successful metrics refresh (Home status pill).
     @Published var lastMetricsRefresh: Date? = nil
+    /// Last slim HealthKit → AppStore hydrate for a Dummy / local ARIA turn.
+    var lastAriaTurnHydrate: Date? = nil
     /// True when today's numbers came from ForgeCore's Test-Ready Health pack
     /// because Apple Health had nothing. Never set from a real sample.
     @Published var usingTestReadyHealthPack: Bool = false

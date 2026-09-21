@@ -2563,7 +2563,7 @@ def generate_response(
         envelope["restricted_domains"] = restricted
         envelope["guidance_band"] = guardrail.band
         envelope["emergency_escalation"] = guardrail.wants_escalation
-        return envelope
+        return _attach_shared_intelligence(envelope, ctx, message)
 
     from . import contextual_learner
     from . import fusion as fusion_mod
@@ -2632,6 +2632,20 @@ def generate_response(
         if callback not in msg:
             envelope["message"] = f"{callback}\n\n{msg}" if msg else callback
             envelope["fusion"]["companion_callback"] = True
+    return _attach_shared_intelligence(envelope, ctx, message)
+
+
+def _attach_shared_intelligence(envelope: dict[str, Any], ctx: ARIAContext, message: str) -> dict[str, Any]:
+    """JSON facts native iOS/Android UIs decode. Never imported at module load."""
+    from . import shared_intelligence
+
+    sidecar = shared_intelligence.from_aria_context(ctx, message=message)
+    restricted = envelope.get("restricted_domains") or []
+    if "training" in restricted:
+        sidecar["workoutSuggestion"] = None
+        sidecar["eventTraining"] = None
+        sidecar["qolTraining"] = None
+    envelope["sharedIntelligence"] = sidecar
     return envelope
 
 

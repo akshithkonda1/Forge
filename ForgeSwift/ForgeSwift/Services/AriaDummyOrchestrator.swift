@@ -12,6 +12,10 @@ import ForgeCore
 /// Intelligence when the phone has it. Never URLSession, never Bedrock,
 /// never an off-device LLM. Curated web lookup, when it happens, goes
 /// through `AriaWebResearch` in its own file.
+///
+/// Instantaneous grounding: each turn reads `AriaLiveGroundingHub` (fed by
+/// HealthKit hydrate + AppStore) so Dummy coaches from stored life signals
+/// instead of inventing sleep / readiness numbers.
 @MainActor
 enum AriaDummyOrchestrator {
 
@@ -22,6 +26,8 @@ enum AriaDummyOrchestrator {
     static var lastAppliedActions: [AriaDummyAction] = []
     /// Last Swarm picture — tests inspect the dataset pass without a model.
     static var lastSwarmPicture: AriaSwarmPicture?
+    /// Last live grounding snapshot consumed this turn — tests prove stream use.
+    static var lastGroundingSnapshot: AriaLiveGroundingSnapshot?
 
     static func reply(
         text: String,
@@ -30,12 +36,16 @@ enum AriaDummyOrchestrator {
         agents: [String]? = nil
     ) async -> AriaResponse {
         AriaContextStore.shared.fileSpoken(text)
+        // Prefer the live stream (just hydrated by AriaService) over a stale
+        // copy; fall back to building from AppStore when the hub is empty.
+        let grounding = consumeLiveGrounding(store: store)
+        lastGroundingSnapshot = grounding
         var context = store.makeTrainerContext(query: text)
         let life = context.lifeRead
         let trimmedName = store.userProfile.name.split(separator: " ").first.map(String.init) ?? ""
         let you = trimmedName.isEmpty ? "" : "\(trimmedName) — "
-        let facts = speechFacts(from: store)
-        let readiness = store.readiness.overall
+        let facts = speechFacts(from: store, grounding: grounding)
+        let readiness = grounding.readiness > 0 ? grounding.readiness : store.readiness.overall
 
         let swarmPicture = runSwarm(store: store)
         lastSwarmPicture = swarmPicture
@@ -84,10 +94,10 @@ enum AriaDummyOrchestrator {
             return publish(followed, prompt: text, store: store)
         }
 
-        let personal = personalRead(store: store, swarm: swarmPicture)
+        let personal = personalRead(store: store, swarm: swarmPicture, grounding: grounding)
         let sleepWeak = personal.sleepWeak
             || facts.sleepBand == .weak
-            || (facts.sleepHours ?? 9) < 6.5
+            || (facts.sleepHours.map { $0 < 6.5 } ?? false)
             || text.lowercased().contains("slept badly")
             || text.lowercased().contains("slept 5")
         var interpretation = AriaDummyTurn.interpret(
@@ -206,7 +216,12 @@ enum AriaDummyOrchestrator {
             )
             return publish(
                 AriaResponse(
-                    confidenceReason: reason(for: interpretation, readiness: readiness, hasSleep: facts.sleepHours != nil),
+                    confidenceReason: reason(
+                        for: interpretation,
+                        readiness: readiness,
+                        hasSleep: facts.sleepHours != nil,
+                        grounding: grounding
+                    ),
                     proseSummary: prose,
                     message: prose,
                     suggestedActions: AriaFirstHealthBriefing.suggestedActions,
@@ -269,7 +284,12 @@ enum AriaDummyOrchestrator {
 
         return publish(
             AriaResponse(
-                confidenceReason: reason(for: interpretation, readiness: readiness, hasSleep: facts.sleepHours != nil),
+                confidenceReason: reason(
+                    for: interpretation,
+                    readiness: readiness,
+                    hasSleep: facts.sleepHours != nil,
+                    grounding: grounding
+                ),
                 proseSummary: message,
                 message: message,
                 richCard: card,
@@ -942,29 +962,51 @@ enum AriaDummyOrchestrator {
         }
     }
 
-    private static func personalRead(store: AppStore, swarm: AriaSwarmPicture?) -> AriaPersonalRead {
+    private static func personalRead(
+        store: AppStore,
+        swarm: AriaSwarmPicture?,
+        grounding: AriaLiveGroundingSnapshot
+    ) -> AriaPersonalRead {
         let night = store.sleepData.first
+        let nightHours = grounding.sleepHours
+            ?? night?.totalHours
+            ?? (store.dailyMetrics.totalSleep > 0 ? Double(store.dailyMetrics.totalSleep) / 60.0 : nil)
+        let hrv = grounding.hrvMs.map(Double.init)
+            ?? (store.dailyMetrics.hrv > 0 ? Double(store.dailyMetrics.hrv) : nil)
+        let rhr = grounding.restingHR.map(Double.init)
+            ?? (store.dailyMetrics.restingHR > 0 ? Double(store.dailyMetrics.restingHR) : nil)
         return AriaPersonalRead.evaluate(
-            nightHours: night?.totalHours ?? (store.dailyMetrics.totalSleep > 0 ? Double(store.dailyMetrics.totalSleep) / 60.0 : nil),
-            deepMinutes: night.map { Double($0.deepMinutes) },
+            nightHours: nightHours,
+            deepMinutes: grounding.deepMinutes.map(Double.init)
+                ?? night.map { Double($0.deepMinutes) },
             remMinutes: night.map { Double($0.remMinutes) },
             awakeMinutes: night.map { Double($0.awakeMinutes) },
-            hrvMs: store.dailyMetrics.hrv > 0 ? Double(store.dailyMetrics.hrv) : nil,
-            readiness: store.readiness.overall,
+            hrvMs: hrv,
+            readiness: grounding.readiness > 0 ? grounding.readiness : store.readiness.overall,
             chronologicalAge: store.userProfile.age.map(Double.init).flatMap { $0 > 12 ? $0 : nil },
             vo2Max: nil,
-            restingHR: store.dailyMetrics.restingHR > 0 ? Double(store.dailyMetrics.restingHR) : nil,
+            restingHR: rhr,
             swarm: swarm
         )
     }
 
-    private static func speechFacts(from store: AppStore) -> AriaSpeechFacts {
+    private static func speechFacts(
+        from store: AppStore,
+        grounding: AriaLiveGroundingSnapshot
+    ) -> AriaSpeechFacts {
         var facts = AriaSpeechFacts()
-        let personal = personalRead(store: store, swarm: lastSwarmPicture)
-        if let night = store.sleepData.first {
+        let personal = personalRead(store: store, swarm: lastSwarmPicture, grounding: grounding)
+        // Prefer live-stream scalars — only cite what the hub / store actually holds.
+        if let hours = grounding.sleepHours, hours > 0 {
+            facts.sleepHours = hours
+            facts.deepMinutes = grounding.deepMinutes
+            facts.sleepAvg = Int(hours.rounded())
+        } else if let night = store.sleepData.first, night.totalHours > 0 {
             facts.sleepHours = night.totalHours
             facts.deepMinutes = night.deepMinutes
-            facts.sleepAvg = Int(store.dailyMetrics.totalSleep > 0 ? Double(store.dailyMetrics.totalSleep) / 60.0 : night.totalHours)
+            facts.sleepAvg = Int(store.dailyMetrics.totalSleep > 0
+                ? Double(store.dailyMetrics.totalSleep) / 60.0
+                : night.totalHours)
         } else if store.dailyMetrics.totalSleep > 0 {
             facts.sleepHours = Double(store.dailyMetrics.totalSleep) / 60.0
         }
@@ -977,20 +1019,32 @@ enum AriaDummyOrchestrator {
         return facts
     }
 
+    private static func consumeLiveGrounding(store: AppStore) -> AriaLiveGroundingSnapshot {
+        let hub = AriaLiveGroundingHub.shared
+        if hub.latest.hasLifeSignal {
+            return hub.latest
+        }
+        let built = AriaLiveGroundingSnapshot.from(store: store)
+        hub.publish(built, force: true)
+        return built
+    }
+
     private static func reason(
         for interpretation: AriaDummyInterpretation,
         readiness: Int,
-        hasSleep: Bool
+        hasSleep: Bool,
+        grounding: AriaLiveGroundingSnapshot
     ) -> String {
         let names = interpretation.domains.map(\.rawValue).joined(separator: " + ")
-        let grounding = companionReason(readiness: readiness, hasSleep: hasSleep)
+        let groundingLine = companionReason(readiness: readiness, hasSleep: hasSleep)
         let swarm = lastSwarmPicture.map { picture in
             let labels = picture.sources.filter(\.present).map(\.label)
             if labels.isEmpty { return "swarm" }
             return "swarm · \(labels.joined(separator: ", "))"
         } ?? "swarm"
-        if names.isEmpty { return "Local fill-in — \(swarm) · \(grounding)" }
-        return "Local fill-in — \(names) · \(swarm) · on-device · \(grounding)"
+        let stream = grounding.reasonTag
+        if names.isEmpty { return "Local fill-in — \(swarm) · \(stream) · \(groundingLine)" }
+        return "Local fill-in — \(names) · \(swarm) · on-device · \(stream) · \(groundingLine)"
     }
 
     @discardableResult
@@ -1361,23 +1415,45 @@ enum AriaDummyOrchestrator {
 
         let name = you.replacingOccurrences(of: " — ", with: "").trimmingCharacters(in: .whitespaces)
         var rng = AriaSeededRNG(seed: UInt64(abs((name + "\(readiness)" + (life.story ?? "")).hashValue)))
-        let weak = facts.sleepBand == .weak || life.felt == "thin" || life.felt == "spent" || life.lastNightLate
+        let hasSleep = facts.sleepHours != nil && facts.sleepBand != .unknown
+        let weak = hasSleep && (
+            facts.sleepBand == .weak || life.felt == "thin" || life.felt == "spent" || life.lastNightLate
+        )
         let opener = name.isEmpty ? "" : rng.pick(["Hey \(name) — ", "\(name), ", "Hey \(name), "])
         let plot = life.spokenLine(rng: &rng)
-        let empathy = plot ?? (weak
-            ? rng.pick(["Last night was on the short side —", "Sleep was thin last night —", "The rebuild didn't quite land —"])
-            : rng.pick(["You actually got to rebuild last night —", "Last night gave you something to work with —", "Sleep did its job —"]))
-        let body = weak
-            ? rng.pick([
-                "so if today feels a little heavier, that makes sense. Let's not chase a hero day.",
-                "so your body didn't get its full reset. Let's keep today kind.",
-                "so no wonder energy feels a bit low. We'll protect tomorrow instead.",
-              ])
-            : rng.pick([
-                "let's use it well, not waste it.",
-                "good ground to do something that counts.",
-                "we've got something to build on.",
-              ])
+        let empathy: String = {
+            if let plot { return plot }
+            guard hasSleep else {
+                return rng.pick([
+                    "I'm working from what's on your board —",
+                    "I've got the signals we have —",
+                    "Using what's already here —",
+                ])
+            }
+            return weak
+                ? rng.pick(["Last night was on the short side —", "Sleep was thin last night —", "The rebuild didn't quite land —"])
+                : rng.pick(["You actually got to rebuild last night —", "Last night gave you something to work with —", "Sleep did its job —"])
+        }()
+        let body: String = {
+            guard hasSleep else {
+                return rng.pick([
+                    "no inventing last night when it isn't here. Tell me how you feel and we'll pick one next step.",
+                    "if last night isn't on the board yet, say how you feel and we'll coach from that.",
+                    "we'll stay honest about missing sleep data and still pick something kind.",
+                ])
+            }
+            return weak
+                ? rng.pick([
+                    "so if today feels a little heavier, that makes sense. Let's not chase a hero day.",
+                    "so your body didn't get its full reset. Let's keep today kind.",
+                    "so no wonder energy feels a bit low. We'll protect tomorrow instead.",
+                  ])
+                : rng.pick([
+                    "let's use it well, not waste it.",
+                    "good ground to do something that counts.",
+                    "we've got something to build on.",
+                  ])
+        }()
         let invite = readiness < 55
             ? rng.pick([
                 "Want a gentle reset or just a check-in? Your call.",

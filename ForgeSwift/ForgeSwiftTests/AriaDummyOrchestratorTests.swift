@@ -50,11 +50,99 @@ final class AriaDummyOrchestratorTests: XCTestCase {
         XCTAssertTrue(present.contains("apple-watch"))
         XCTAssertFalse(AriaDummyOrchestrator.usesOffDeviceLLM)
         XCTAssertTrue(reply.confidenceReason?.contains("swarm") == true, reply.confidenceReason ?? "")
+        XCTAssertTrue(reply.confidenceReason?.contains("live-stream") == true, reply.confidenceReason ?? "")
         XCTAssertFalse(reply.message.contains("HRV"))
         XCTAssertEqual(
             AriaKnowledgeLedgerStore.load().latestSummary(kind: "swarm_picture"),
             picture.headline
         )
+    }
+
+    func testLiveGroundingStreamFeedsDummyWithoutInventingSleep() async throws {
+        AriaLiveGroundingHub.shared.resetForTests()
+        defer { AriaLiveGroundingHub.shared.resetForTests() }
+
+        let store = makeStore()
+        store.dailyMetrics.totalSleep = 0
+        store.dailyMetrics.hrv = 0
+        store.sleepData = []
+        store.readiness.overall = 0
+        store.usingTestReadyHealthPack = false
+        store.healthKitLive = false
+
+        // Empty board — stream should mark empty, Dummy must not invent last-night hours.
+        AriaLiveGroundingHub.shared.publish(from: store, force: true)
+        let emptyReply = await AriaDummyOrchestrator.reply(
+            text: "How did I sleep?",
+            store: store,
+            agent: .sleep,
+            agents: ["sleep"]
+        )
+        let emptySnap = try XCTUnwrap(AriaDummyOrchestrator.lastGroundingSnapshot)
+        XCTAssertEqual(emptySnap.source, .empty)
+        XCTAssertNil(emptySnap.sleepHours)
+        XCTAssertTrue(emptyReply.confidenceReason?.contains("live-stream · empty") == true, emptyReply.confidenceReason ?? "")
+        XCTAssertFalse(emptyReply.message.lowercased().contains("rebuild last night"), emptyReply.message)
+        XCTAssertFalse(emptyReply.message.lowercased().contains("7.0 hours"), emptyReply.message)
+
+        // Instantaneous stream update with real stored sleep — Dummy must use it.
+        store.dailyMetrics.totalSleep = 390 // 6.5h
+        store.dailyMetrics.hrv = 48
+        store.sleepData = [
+            SleepData(
+                date: "2026-09-20",
+                totalHours: 6.5,
+                deepMinutes: 70,
+                remMinutes: 80,
+                lightMinutes: 200,
+                awakeMinutes: 20,
+                score: 72
+            )
+        ]
+        store.readiness.overall = 62
+        store.healthKitLive = true
+        AriaLiveGroundingHub.shared.publish(from: store, force: true)
+
+        var saw: AriaLiveGroundingSnapshot?
+        for await snap in AriaLiveGroundingHub.shared.snapshots() {
+            saw = snap
+            break
+        }
+        XCTAssertEqual(saw?.sleepHours, 6.5)
+        XCTAssertEqual(saw?.source, .healthKit)
+
+        let grounded = await AriaDummyOrchestrator.reply(
+            text: "What's on my board?",
+            store: store,
+            agent: .aria,
+            agents: nil
+        )
+        let snap = try XCTUnwrap(AriaDummyOrchestrator.lastGroundingSnapshot)
+        XCTAssertEqual(snap.sleepHours, 6.5)
+        XCTAssertEqual(snap.hrvMs, 48)
+        XCTAssertEqual(snap.source, .healthKit)
+        XCTAssertTrue(grounded.confidenceReason?.contains("live-stream · healthkit") == true, grounded.confidenceReason ?? "")
+        XCTAssertTrue(grounded.message.contains("6.5"), grounded.message)
+    }
+
+    func testTurnHydratePublishesWithoutInstallingPack() async {
+        AriaLiveGroundingHub.shared.resetForTests()
+        defer { AriaLiveGroundingHub.shared.resetForTests() }
+
+        let store = makeStore()
+        store.dailyMetrics.totalSleep = 420
+        store.dailyMetrics.hrv = 55
+        store.readiness.overall = 74
+        store.usingTestReadyHealthPack = false
+        store.healthKitLive = false
+
+        await store.refreshMetricsForAriaTurn(force: true)
+        let snap = AriaLiveGroundingHub.shared.latest
+        XCTAssertTrue(snap.hasLifeSignal)
+        XCTAssertEqual(snap.sleepHours, 7.0, accuracy: 0.05)
+        XCTAssertEqual(snap.hrvMs, 55)
+        XCTAssertFalse(store.usingTestReadyHealthPack)
+        XCTAssertNotNil(store.lastAriaTurnHydrate)
     }
 
     func testClausesSplitMultiIntentButKeepDecimals() {
