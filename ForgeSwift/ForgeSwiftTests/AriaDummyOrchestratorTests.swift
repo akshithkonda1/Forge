@@ -203,7 +203,7 @@ final class AriaDummyOrchestratorTests: XCTestCase {
         XCTAssertTrue(grounded.message.contains("6.5"), grounded.message)
     }
 
-    func testTurnHydratePublishesWithoutInstallingPack() async {
+    func testTurnHydratePublishesWithoutInstallingPack() async throws {
         AriaLiveGroundingHub.shared.resetForTests()
         defer { AriaLiveGroundingHub.shared.resetForTests() }
 
@@ -217,7 +217,8 @@ final class AriaDummyOrchestratorTests: XCTestCase {
         await store.refreshMetricsForAriaTurn(force: true)
         let snap = AriaLiveGroundingHub.shared.latest
         XCTAssertTrue(snap.hasLifeSignal)
-        XCTAssertEqual(snap.sleepHours, 7.0, accuracy: 0.05)
+        let hours = try XCTUnwrap(snap.sleepHours)
+        XCTAssertEqual(hours, 7.0, accuracy: 0.05)
         XCTAssertEqual(snap.hrvMs, 55)
         XCTAssertFalse(store.usingTestReadyHealthPack)
         XCTAssertNotNil(store.lastAriaTurnHydrate)

@@ -158,7 +158,6 @@ let package = Package(
                 "AgingSnapshotTests.swift",
                 "MetabolicHealthSnapshotTests.swift",
                 "MetabolicWatchSignalsTests.swift",
-                "PromptGuardTests.swift",
                 "TranslationCatalogTests.swift",
                 "BodyModelHRVTests.swift",
                 "AriaKnowledgeLedgerTests.swift",
