@@ -69,11 +69,10 @@ class DummyOrchestratorTests(unittest.TestCase):
         self.assertEqual(a["prose_summary"], b["prose_summary"])
         self.assertEqual(a["agents"], b["agents"])
 
-    def test_wobbly_speak_is_killed_as_a_connection_failure(self):
+    def test_wording_wobble_is_allowed_when_facts_hold(self):
         from backend._paths import ensure_lambda_on_path
 
         ensure_lambda_on_path()
-        from aria_core.prompt_guard import CONNECTION_FAILURE, PromptInconsistent
 
         calls = {"n": 0}
         real = dummy.friend_speak
@@ -83,9 +82,33 @@ class DummyOrchestratorTests(unittest.TestCase):
             return f"{real(*args, **kwargs)} #{calls['n']}"
 
         with patch.object(dummy, "friend_speak", side_effect=wobble):
+            row = dummy.respond("Should I train today?", seed=42, engine="lambda")
+        self.assertTrue(row.get("message") or row.get("prose_summary"))
+        self.assertGreaterEqual(calls["n"], 2)
+
+    def test_wobbly_facts_are_killed_as_a_connection_failure(self):
+        from backend._paths import ensure_lambda_on_path
+
+        ensure_lambda_on_path()
+        from aria_core.prompt_guard import CONNECTION_FAILURE, PromptInconsistent
+        from services import aria_engine as engine_mod
+
+        calls = {"n": 0}
+        real = engine_mod.generate_response
+
+        def wobble(message, ctx, **kwargs):
+            calls["n"] += 1
+            row = dict(real(message, ctx, **kwargs))
+            row["recommendation"] = f"plan #{calls['n']}"
+            if isinstance(row.get("card"), dict):
+                row["card"] = dict(row["card"], action=row["recommendation"])
+            return row
+
+        with patch.object(engine_mod, "generate_response", side_effect=wobble):
             with self.assertRaises(PromptInconsistent) as raised:
                 dummy.respond("Should I train today?", seed=42, engine="lambda")
         self.assertEqual(str(raised.exception), CONNECTION_FAILURE)
+        self.assertEqual(raised.exception.reason, "determinism")
 
     def test_cli_test_ready_exits_zero(self):
         old = sys.stdout

@@ -2036,9 +2036,9 @@ def respond(
     Default body is the FakeHealthPack twin (same fields iOS writes to HealthKit).
     Pass ``context=`` to score a SimRunner persona stream instead.
 
-    After the turn is built, SimRunner replays it once (same seed, same
-    inputs). A mismatch raises ``PromptInconsistent`` — callers treat that
-    as a connection failure and never show the wobble.
+    After the turn is built, SimRunner scores honesty and replays the facts
+    once. Honesty or determinism below 70 raises ``PromptInconsistent`` —
+    callers treat that as a connection failure and ARIA does not say it.
     """
     refuse_if_cloud()
 

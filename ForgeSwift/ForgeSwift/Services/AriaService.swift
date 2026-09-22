@@ -93,11 +93,13 @@ final class AriaService: ObservableObject {
                 agents: agents,
                 replay: true
             )
-            if PromptGuard.consistent(
-                firstMessage: first.message,
-                secondMessage: replay.message,
+            if PromptGuard.passes(
                 firstRecommendation: first.recommendation,
-                secondRecommendation: replay.recommendation
+                secondRecommendation: replay.recommendation,
+                firstResponseType: first.responseType,
+                secondResponseType: replay.responseType,
+                firstConfidence: first.confidence,
+                secondConfidence: replay.confidence
             ) {
                 AriaDummyOrchestrator.seal(first, prompt: text, store: store)
                 return first

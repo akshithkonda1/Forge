@@ -32,11 +32,13 @@ final class AriaDummyOrchestratorTests: XCTestCase {
             replay: true
         )
         XCTAssertTrue(
-            PromptGuard.consistent(
-                firstMessage: first.message,
-                secondMessage: replay.message,
+            PromptGuard.passes(
                 firstRecommendation: first.recommendation,
-                secondRecommendation: replay.recommendation
+                secondRecommendation: replay.recommendation,
+                firstResponseType: first.responseType,
+                secondResponseType: replay.responseType,
+                firstConfidence: first.confidence,
+                secondConfidence: replay.confidence
             ),
             "first=\(first.message)\nreplay=\(replay.message)"
         )
@@ -72,11 +74,13 @@ final class AriaDummyOrchestratorTests: XCTestCase {
             replay: true
         )
         XCTAssertTrue(
-            PromptGuard.consistent(
-                firstMessage: first.message,
-                secondMessage: replay.message,
+            PromptGuard.passes(
                 firstRecommendation: first.recommendation,
-                secondRecommendation: replay.recommendation
+                secondRecommendation: replay.recommendation,
+                firstResponseType: first.responseType,
+                secondResponseType: replay.responseType,
+                firstConfidence: first.confidence,
+                secondConfidence: replay.confidence
             ),
             "first=\(first.message)\nreplay=\(replay.message)"
         )

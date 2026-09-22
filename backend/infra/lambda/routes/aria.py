@@ -178,7 +178,7 @@ def _merge_fusion(response: dict[str, Any], fused: Any) -> None:
 
 
 def _checked_speak(fn, *args, **kwargs):
-    """Replay the deterministic coach once. Wobble dies as a connection failure."""
+    """Small SimRunner check. Honesty or determinism below 70 dies as a drop."""
     from aria_core import prompt_guard
 
     try:

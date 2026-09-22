@@ -17,10 +17,12 @@ six dimensions, and turns those scores into a defensible **ship / hold** verdict
 > consumed.** Same config + same model = identical output, every run.
 >
 > **Live prompt guard.** Every product turn (`POST /ai/chat`, Dummy
-> `--test-ready`, the iOS Dummy orchestra) is generated twice with the same
-> inputs. If the two answers disagree, the turn is dropped and the client
-> sees a connection failure (`Couldn't reach Forge. Check your connection.`).
-> This is a small offline check, not the suite-level `--gate`. Set
+> `--test-ready`, the iOS Dummy orchestra) is a small SimRunner check.
+> ARIA speaks only when honesty **and** determinism are at least 70. If it
+> would have to guess, or the facts cannot replay, the turn is dropped and
+> the client sees a connection failure (`Couldn't reach Forge. Check your
+> connection.`). Wording may move. Suite-level `--gate` (composite, context
+> utilization, HOLD) does not kill a live prompt. Set
 > `FORGE_PROMPT_GUARD=0` only to disable it in a test harness.
 
 ---
