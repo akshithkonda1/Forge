@@ -1,16 +1,17 @@
 import Foundation
 
-/// Offline SimRunner gate. Twin of `aria_core.prompt_guard`.
+/// Offline SimRunner check. Twin of `aria_core.prompt_guard`.
 ///
-/// Dummy may speak only when it can be honest *and* deterministic. Either
-/// score below 70 kills the turn — the app shows a connection failure and
-/// ARIA does not say the line. Wording may move; facts (type +
-/// recommendation) must hold. Quality axes like context utilization do not
-/// kill a live prompt.
+/// If Dummy has evidence and the facts replay (honesty and determinism ≥ 70),
+/// it may make the claim. If it cannot, it must not make that claim or its
+/// reverse — it speaks a cautious estimate. It does not error out.
 public enum PromptGuard: Sendable {
     public static let connectionFailureMessage = "Couldn't reach Forge. Check your connection."
     public static let connectionFailureCode = "connection_failed"
     public static let floor: Double = 70
+    public static let estimateLine =
+        "I don't have a clean enough read to lock this in. A cautious estimate: keep today ordinary until more of your day is in."
+    public static let estimateReason = "estimate — not enough evidence for a deterministic claim"
 
     public static func normalize(_ text: String?) -> String {
         (text ?? "")
@@ -41,9 +42,6 @@ public enum PromptGuard: Sendable {
         if let honesty {
             return min(100, max(0, honesty))
         }
-        // Confidence is not a SimRunner honesty score. A Dummy turn without
-        // an evaluator number is allowed to speak; the live kill is honesty
-        // < 70 or a fact replay that cannot hold.
         return 80
     }
 
@@ -83,5 +81,13 @@ public enum PromptGuard: Sendable {
             firstResponseType: firstResponseType,
             secondResponseType: secondResponseType
         ) >= floor
+    }
+
+    public static func withholdsContestedClaim(_ text: String, claims: [String]) -> Bool {
+        let body = normalize(text)
+        return claims.allSatisfy { claim in
+            let needle = normalize(claim)
+            return needle.isEmpty || !body.contains(needle)
+        }
     }
 }

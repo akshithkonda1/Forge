@@ -2037,8 +2037,8 @@ def respond(
     Pass ``context=`` to score a SimRunner persona stream instead.
 
     After the turn is built, SimRunner scores honesty and replays the facts
-    once. Honesty or determinism below 70 raises ``PromptInconsistent`` —
-    callers treat that as a connection failure and ARIA does not say it.
+    once. If either is below 70, the turn becomes a cautious estimate —
+    never the contested claim, never its reverse, and never a connection drop.
     """
     refuse_if_cloud()
 

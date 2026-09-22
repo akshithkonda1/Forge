@@ -1,16 +1,13 @@
-"""Offline per-prompt SimRunner gate — honesty and determinism, 70% floor.
+"""Offline per-prompt SimRunner check — estimate when a claim cannot hold.
 
-Every coaching turn is a small SimRunner check. The orchestrator may speak
-only when it can be honest *and* deterministic. If either score is below 70,
-the turn is not said. Callers surface that as a connection failure.
+Every coaching turn is a small SimRunner run. If ARIA has evidence and the
+facts replay (honesty and determinism ≥ 70), it may make the claim. If it
+cannot find evidence, or the claim is not deterministic, it must not make
+that claim or its reverse. It gives a cautious estimate instead.
 
-This is not the suite-level ``--gate`` (composite, context utilization, HOLD).
-Those quality axes do not kill a live prompt. Only:
-
-- epistemic honesty — if ARIA would have to guess, or is confidently wrong,
-  it will not say it
-- determinism — same facts on a replay (type + recommendation). Wording may
-  move. If the facts cannot hold, it will not say it.
+It does not error out. A connection drop would make ARIA look unreliable.
+Wording may move. Suite-level ``--gate`` (composite, context utilization,
+HOLD) does not change a live prompt.
 """
 
 from __future__ import annotations
@@ -21,6 +18,11 @@ from typing import Any, Callable
 CONNECTION_FAILURE = "Couldn't reach Forge. Check your connection."
 CONNECTION_CODE = "connection_failed"
 FLOOR = 70.0
+ESTIMATE_LINE = (
+    "I don't have a clean enough read to lock this in. "
+    "A cautious estimate: keep today ordinary until more of your day is in."
+)
+ESTIMATE_REASON = "estimate — not enough evidence for a deterministic claim"
 _OFF = frozenset({"0", "false", "off", "no"})
 _HEDGE = (
     "mixed",
@@ -38,15 +40,15 @@ _HEDGE = (
 
 
 class PromptInconsistent(Exception):
-    """Honesty or determinism is below the floor. ``str(self)`` is the public line."""
+    """Legacy name. Live path no longer raises — it estimates instead."""
 
     def __init__(self, reason: str = "") -> None:
         self.reason = reason
-        super().__init__(CONNECTION_FAILURE)
+        super().__init__(ESTIMATE_LINE)
 
     @property
     def public_message(self) -> str:
-        return CONNECTION_FAILURE
+        return ESTIMATE_LINE
 
 
 def enabled() -> bool:
@@ -99,10 +101,9 @@ def consistent(first: dict[str, Any] | None, second: dict[str, Any] | None) -> b
 def honesty_score(payload: dict[str, Any] | None) -> float:
     """0–100, SimRunner epistemic honesty on a product envelope.
 
-    An explicit ``epistemic_honesty`` / ``honesty`` value wins — that is the
-    SimRunner test result. Otherwise: refusing or asking when data is missing
-    is honest; a confident prescription on sparse data is not. Self-reported
-    confidence is not a SimRunner score and does not kill a grounded turn.
+    An explicit ``epistemic_honesty`` / ``honesty`` value wins. Refusing or
+    asking when data is missing is honest. A confident prescription on sparse
+    data is not — that turn becomes an estimate, not a claim.
     """
     row = payload if isinstance(payload, dict) else {}
     for key in ("epistemic_honesty", "honesty"):
@@ -134,8 +135,6 @@ def honesty_score(payload: dict[str, Any] | None) -> float:
         if rec and (conf is None or conf >= 0.5):
             return 0.0
         return 40.0
-    # Confidence is not a SimRunner honesty score. Without an evaluator
-    # number, a grounded turn is allowed to speak.
     return 80.0
 
 
@@ -154,18 +153,60 @@ def passes(first: dict[str, Any] | None, second: dict[str, Any] | None = None) -
     return determinism_score(first, second) >= FLOOR
 
 
+def _contested_claims(*payloads: dict[str, Any] | None) -> list[str]:
+    seen: list[str] = []
+    for payload in payloads:
+        rec = _recommendation(payload if isinstance(payload, dict) else {})
+        if rec and rec not in seen:
+            seen.append(rec)
+    return seen
+
+
+def estimate(
+    first: dict[str, Any] | None,
+    second: dict[str, Any] | None = None,
+    *,
+    reason: str = "",
+) -> dict[str, Any]:
+    """Speak an estimate. Do not assert the claim or its reverse."""
+    row = dict(first) if isinstance(first, dict) else {}
+    contested = _contested_claims(first, second)
+    row["recommendation"] = None
+    card = row.get("card")
+    if isinstance(card, dict):
+        card = dict(card)
+        card.pop("action", None)
+        card.pop("recommendation", None)
+        row["card"] = card
+    row["message"] = ESTIMATE_LINE
+    row["prose_summary"] = ESTIMATE_LINE
+    row["response_type"] = "insight"
+    try:
+        conf = float(row.get("confidence") or 0.45)
+    except (TypeError, ValueError):
+        conf = 0.45
+    row["confidence"] = min(0.45, max(0.2, conf))
+    row["confidence_reason"] = ESTIMATE_REASON
+    row["guard"] = {
+        "mode": "estimate",
+        "reason": reason or "insufficient_evidence",
+        "withheld": contested,
+    }
+    return row
+
+
 def confirm(produce: Callable[[], dict[str, Any]], *, copies: int = 2) -> dict[str, Any]:
-    """Small SimRunner run: honesty, then a fact replay. Below 70 kills the turn."""
+    """Small SimRunner run. Weak honesty or determinism becomes an estimate."""
     first = produce()
     if honesty_score(first) < FLOOR:
-        raise PromptInconsistent("honesty")
+        return estimate(first, reason="honesty")
     runs = max(2, int(copies))
     for _ in range(1, runs):
         replay = produce()
         if honesty_score(replay) < FLOOR:
-            raise PromptInconsistent("honesty")
+            return estimate(first, replay, reason="honesty")
         if determinism_score(first, replay) < FLOOR:
-            raise PromptInconsistent("determinism")
+            return estimate(first, replay, reason="determinism")
     return first
 
 

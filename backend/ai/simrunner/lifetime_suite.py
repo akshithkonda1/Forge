@@ -376,15 +376,7 @@ def _run_test_ready(args) -> int:
 
     print("ARIA Test-Ready — dummy orchestrator (SimRunner stub, no Bedrock, no prod)")
     print("-" * 70)
-    try:
-        rows = run_smoke(args.message)
-    except Exception as exc:
-        from aria_core.prompt_guard import CONNECTION_FAILURE, PromptInconsistent
-
-        if isinstance(exc, PromptInconsistent):
-            print(f"error: {CONNECTION_FAILURE}")
-            return 2
-        raise
+    rows = run_smoke(args.message)
     failed = 0
     for row in rows:
         source = row.get("reasoning_source")

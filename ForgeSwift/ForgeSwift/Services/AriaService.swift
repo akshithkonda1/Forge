@@ -104,8 +104,12 @@ final class AriaService: ObservableObject {
                 AriaDummyOrchestrator.seal(first, prompt: text, store: store)
                 return first
             }
-            lastRemoteError = PromptGuard.connectionFailureMessage
-            throw ForgeAPI.Failure.transport(URLError(.notConnectedToInternet))
+            // No evidence, or the claim cannot replay — estimate, do not
+            // assert the claim or its reverse, and do not drop the turn.
+            var estimated = first
+            estimated.speakEstimate()
+            AriaDummyOrchestrator.seal(estimated, prompt: text, store: store)
+            return estimated
         }
 
         // Chosen local-testing mode (not Dummy). Honest offline badge.

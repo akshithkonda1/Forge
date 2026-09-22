@@ -1,7 +1,8 @@
-"""Per-prompt SimRunner gate — honesty and determinism, 70% floor."""
+"""Per-prompt SimRunner check — estimate when a claim cannot hold."""
 
 from __future__ import annotations
 
+import json
 import os
 import unittest
 from unittest.mock import patch
@@ -9,7 +10,6 @@ from unittest.mock import patch
 import _bootstrap  # noqa: F401
 
 from aria_core import prompt_guard
-from responses import RouteError
 from routes import aria as aria_routes
 from services import aria_engine
 
@@ -105,6 +105,55 @@ class HonestyTests(unittest.TestCase):
         self.assertEqual(prompt_guard.honesty_score(row), 100.0)
 
 
+class EstimateTests(unittest.TestCase):
+    def test_estimate_does_not_assert_claim_or_reverse(self):
+        first = {"message": "Go lift.", "recommendation": "Go lift.", "confidence": 0.9}
+        second = {"message": "Rest today.", "recommendation": "Rest today.", "confidence": 0.9}
+        row = prompt_guard.estimate(first, second, reason="determinism")
+        blob = f"{row['message']} {row['prose_summary']}".lower()
+        self.assertIn("estimate", blob)
+        self.assertNotIn("go lift", blob)
+        self.assertNotIn("rest today", blob)
+        self.assertIsNone(row.get("recommendation"))
+        self.assertEqual(row["guard"]["mode"], "estimate")
+        self.assertEqual(row["guard"]["reason"], "determinism")
+
+    def test_honesty_below_floor_returns_estimate_not_error(self):
+        def produce():
+            return {
+                "message": "Go hard.",
+                "recommendation": "Max effort",
+                "epistemic_honesty": 40,
+                "confidence": 0.95,
+            }
+
+        row = prompt_guard.confirm(produce)
+        self.assertIn("estimate", row["message"].lower())
+        self.assertNotIn("max effort", row["message"].lower())
+        self.assertIsNone(row.get("recommendation"))
+        self.assertEqual(row["guard"]["reason"], "honesty")
+
+    def test_wobbly_facts_return_estimate_not_error(self):
+        calls = {"n": 0}
+
+        def produce():
+            calls["n"] += 1
+            return {
+                "message": "Train.",
+                "response_type": "recommendation",
+                "recommendation": "Lift" if calls["n"] == 1 else "Rest",
+                "confidence": 0.85,
+            }
+
+        row = prompt_guard.confirm(produce)
+        blob = row["message"].lower()
+        self.assertIn("estimate", blob)
+        self.assertNotIn("lift", blob)
+        self.assertNotIn("rest", blob)
+        self.assertEqual(row["guard"]["reason"], "determinism")
+        self.assertEqual(calls["n"], 2)
+
+
 class GuardSwitchTests(unittest.TestCase):
     def setUp(self):
         self._flag = os.environ.get("FORGE_PROMPT_GUARD")
@@ -144,37 +193,7 @@ class ConfirmTests(unittest.TestCase):
         row = prompt_guard.confirm(produce)
         self.assertEqual(row["recommendation"], "Easy day")
         self.assertEqual(calls["n"], 2)
-
-    def test_wobbly_facts_raise_connection_line(self):
-        calls = {"n": 0}
-
-        def produce():
-            calls["n"] += 1
-            return {
-                "message": "Train.",
-                "response_type": "recommendation",
-                "recommendation": "Lift" if calls["n"] == 1 else "Rest",
-                "confidence": 0.85,
-            }
-
-        with self.assertRaises(prompt_guard.PromptInconsistent) as raised:
-            prompt_guard.confirm(produce)
-        self.assertEqual(str(raised.exception), prompt_guard.CONNECTION_FAILURE)
-        self.assertEqual(raised.exception.reason, "determinism")
-
-    def test_honesty_below_floor_raises_connection_line(self):
-        def produce():
-            return {
-                "message": "Go hard.",
-                "recommendation": "Max effort",
-                "epistemic_honesty": 40,
-                "confidence": 0.95,
-            }
-
-        with self.assertRaises(prompt_guard.PromptInconsistent) as raised:
-            prompt_guard.confirm(produce)
-        self.assertEqual(str(raised.exception), prompt_guard.CONNECTION_FAILURE)
-        self.assertEqual(raised.exception.reason, "honesty")
+        self.assertNotEqual(row.get("guard", {}).get("mode"), "estimate")
 
 
 class EngineReplayTests(unittest.TestCase):
@@ -216,7 +235,7 @@ class ChatRouteGuardTests(unittest.TestCase):
         self.assertEqual(result.get("statusCode") or 200, 200)
         self.assertGreaterEqual(calls["n"], 2)
 
-    def test_wobbly_facts_become_a_connection_failure(self):
+    def test_wobbly_facts_become_an_estimate_not_a_drop(self):
         calls = {"n": 0}
         real = aria_engine.generate_response
 
@@ -229,14 +248,17 @@ class ChatRouteGuardTests(unittest.TestCase):
             return row
 
         with patch.object(aria_routes.aria_engine, "generate_response", side_effect=wobble):
-            with self.assertRaises(RouteError) as raised:
-                aria_routes.handle_post_ai_chat(
-                    {"message": "How did I sleep last night?", "user_id": "test-user-00000000"},
-                    user_id="test-user-00000000",
-                )
-        self.assertEqual(raised.exception.status_code, 503)
-        self.assertEqual(raised.exception.message, prompt_guard.CONNECTION_FAILURE)
-        self.assertEqual(raised.exception.code, prompt_guard.CONNECTION_CODE)
+            result = aria_routes.handle_post_ai_chat(
+                {"message": "How did I sleep last night?", "user_id": "test-user-00000000"},
+                user_id="test-user-00000000",
+            )
+        self.assertEqual(result.get("statusCode"), 200)
+        body = json.loads(result["body"])
+        blob = f"{body.get('message') or ''} {body.get('prose_summary') or ''}".lower()
+        self.assertIn("estimate", blob)
+        self.assertNotIn("plan #1", blob)
+        self.assertNotIn("plan #2", blob)
+        self.assertIsNone(body.get("recommendation"))
 
 
 if __name__ == "__main__":

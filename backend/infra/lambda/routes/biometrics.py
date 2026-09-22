@@ -175,19 +175,16 @@ def handle_post_observe(body: dict[str, Any], *, user_id: str | None = None) -> 
         voice = bool(body.get("voice_mode"))
         from aria_core import prompt_guard
 
-        try:
-            response = prompt_guard.checked(
-                lambda: aria_engine.generate_response(
-                    message,
-                    context,
-                    permissions=permissions,
-                    voice_mode=voice,
-                    persona=persona,
-                    baselines=fused.baselines,
-                )
+        response = prompt_guard.checked(
+            lambda: aria_engine.generate_response(
+                message,
+                context,
+                permissions=permissions,
+                voice_mode=voice,
+                persona=persona,
+                baselines=fused.baselines,
             )
-        except prompt_guard.PromptInconsistent as exc:
-            raise RouteError(503, exc.public_message, code=prompt_guard.CONNECTION_CODE) from exc
+        )
         payload["fusion"] = {**fused.fusion_sidecar(), **(response.get("fusion") or {})}
         if fused.persona_status != "load_failed" and persona is not None:
             try:

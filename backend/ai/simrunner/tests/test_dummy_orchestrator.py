@@ -86,11 +86,11 @@ class DummyOrchestratorTests(unittest.TestCase):
         self.assertTrue(row.get("message") or row.get("prose_summary"))
         self.assertGreaterEqual(calls["n"], 2)
 
-    def test_wobbly_facts_are_killed_as_a_connection_failure(self):
+    def test_wobbly_facts_become_an_estimate_not_a_drop(self):
         from backend._paths import ensure_lambda_on_path
 
         ensure_lambda_on_path()
-        from aria_core.prompt_guard import CONNECTION_FAILURE, PromptInconsistent
+        from aria_core import prompt_guard
         from services import aria_engine as engine_mod
 
         calls = {"n": 0}
@@ -105,10 +105,14 @@ class DummyOrchestratorTests(unittest.TestCase):
             return row
 
         with patch.object(engine_mod, "generate_response", side_effect=wobble):
-            with self.assertRaises(PromptInconsistent) as raised:
-                dummy.respond("Should I train today?", seed=42, engine="lambda")
-        self.assertEqual(str(raised.exception), CONNECTION_FAILURE)
-        self.assertEqual(raised.exception.reason, "determinism")
+            row = dummy.respond("Should I train today?", seed=42, engine="lambda")
+        blob = f"{row.get('message') or ''} {row.get('prose_summary') or ''}".lower()
+        self.assertIn("estimate", blob)
+        self.assertNotIn("plan #1", blob)
+        self.assertNotIn("plan #2", blob)
+        self.assertIsNone(row.get("recommendation"))
+        self.assertEqual(row.get("guard", {}).get("mode"), "estimate")
+        self.assertEqual(prompt_guard.ESTIMATE_LINE, row["message"])
 
     def test_cli_test_ready_exits_zero(self):
         old = sys.stdout

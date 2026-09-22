@@ -178,13 +178,10 @@ def _merge_fusion(response: dict[str, Any], fused: Any) -> None:
 
 
 def _checked_speak(fn, *args, **kwargs):
-    """Small SimRunner check. Honesty or determinism below 70 dies as a drop."""
+    """Small SimRunner check. Weak evidence becomes an estimate, not an error."""
     from aria_core import prompt_guard
 
-    try:
-        return prompt_guard.checked(lambda: fn(*args, **kwargs))
-    except prompt_guard.PromptInconsistent as exc:
-        raise RouteError(503, exc.public_message, code=prompt_guard.CONNECTION_CODE) from exc
+    return prompt_guard.checked(lambda: fn(*args, **kwargs))
 
 
 def handle_post_ai_chat(body: dict[str, Any], *, user_id: str) -> dict:

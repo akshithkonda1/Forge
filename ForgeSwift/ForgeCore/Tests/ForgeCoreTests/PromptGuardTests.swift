@@ -64,11 +64,17 @@ final class PromptGuardTests: XCTestCase {
         )
     }
 
-    func testPublicLineIsAConnectionFailure() {
-        XCTAssertEqual(
-            PromptGuard.connectionFailureMessage,
-            "Couldn't reach Forge. Check your connection."
+    func testEstimateWithholdsContestedClaims() {
+        XCTAssertTrue(
+            PromptGuard.withholdsContestedClaim(
+                PromptGuard.estimateLine,
+                claims: ["Go lift.", "Rest today."]
+            )
         )
-        XCTAssertEqual(PromptGuard.connectionFailureCode, "connection_failed")
+        XCTAssertTrue(PromptGuard.estimateLine.lowercased().contains("estimate"))
+        XCTAssertEqual(
+            PromptGuard.estimateReason,
+            "estimate — not enough evidence for a deterministic claim"
+        )
     }
 }
