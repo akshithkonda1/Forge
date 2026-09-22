@@ -156,6 +156,7 @@ let package = Package(
                 "QualityOfLifeTrainingPolicyTests.swift",
                 "AgingSnapshotTests.swift",
                 "MetabolicHealthSnapshotTests.swift",
+                "MetabolicWatchSignalsTests.swift",
                 "TranslationCatalogTests.swift",
                 "BodyModelHRVTests.swift",
                 "AriaKnowledgeLedgerTests.swift",
