@@ -33,9 +33,13 @@ enum AriaDummyOrchestrator {
         text: String,
         store: AppStore,
         agent: AriaCoachAgent,
-        agents: [String]? = nil
+        agents: [String]? = nil,
+        replay: Bool = false
     ) async -> AriaResponse {
-        AriaContextStore.shared.fileSpoken(text)
+        lastAppliedActions = []
+        if !replay {
+            AriaContextStore.shared.fileSpoken(text)
+        }
         // Prefer the live stream (just hydrated by AriaService) over a stale
         // copy; fall back to building from AppStore when the hub is empty.
         let grounding = consumeLiveGrounding(store: store)
@@ -47,7 +51,7 @@ enum AriaDummyOrchestrator {
         let facts = speechFacts(from: store, grounding: grounding)
         let readiness = grounding.readiness > 0 ? grounding.readiness : store.readiness.overall
 
-        let swarmPicture = runSwarm(store: store)
+        let swarmPicture = runSwarm(store: store, replay: replay)
         lastSwarmPicture = swarmPicture
 
         let guidance = AriaGuidancePolicy.decide(text: text)
@@ -79,7 +83,9 @@ enum AriaDummyOrchestrator {
             )
         }
 
-        let occurrence = AriaReplyVariety.beginTurn(prompt: text)
+        let occurrence = replay
+            ? AriaReplyVariety.occurrence(for: text)
+            : AriaReplyVariety.beginTurn(prompt: text)
         context.totalMessageCount = max(context.totalMessageCount, occurrence)
 
         let follow = AriaDummyTurn.followUp(in: text)
@@ -91,7 +97,7 @@ enum AriaDummyOrchestrator {
             facts: facts,
             name: trimmedName
         ) {
-            return publish(followed, prompt: text, store: store)
+            return publish(followed, prompt: text, store: store, replay: replay)
         }
 
         let personal = personalRead(store: store, swarm: swarmPicture, grounding: grounding)
@@ -173,7 +179,8 @@ enum AriaDummyOrchestrator {
                     confidence: resp.confidence
                 ),
                 prompt: text,
-                store: store
+                store: store,
+                replay: replay
             )
         }
 
@@ -229,7 +236,8 @@ enum AriaDummyOrchestrator {
                     confidence: 0.82
                 ),
                 prompt: text,
-                store: store
+                store: store,
+                replay: replay
             )
         }
 
@@ -238,8 +246,10 @@ enum AriaDummyOrchestrator {
         for joint in interpretation.joints {
             actions.append(.rememberFact("Injury context: \(joint)"))
         }
-        apply(actions, store: store)
         lastAppliedActions = actions
+        if !replay {
+            apply(actions, store: store)
+        }
 
         let seed = AriaReplyVariety.salt(
             prompt: text,
@@ -298,7 +308,8 @@ enum AriaDummyOrchestrator {
                 confidence: 0.88
             ),
             prompt: text,
-            store: store
+            store: store,
+            replay: replay
         )
     }
 
@@ -1048,10 +1059,31 @@ enum AriaDummyOrchestrator {
     }
 
     @discardableResult
-    private static func runSwarm(store: AppStore) -> AriaSwarmPicture {
+    private static func runSwarm(store: AppStore, replay: Bool = false) -> AriaSwarmPicture {
         let picture = AriaSwarm.run(snapshot: .from(store: store))
-        AriaSwarm.file(picture)
+        if !replay {
+            AriaSwarm.file(picture)
+        }
         return picture
+    }
+
+    /// Persist the side effects of a probe pair after the two answers match.
+    static func seal(_ response: AriaResponse, prompt: String, store: AppStore) {
+        AriaContextStore.shared.fileSpoken(prompt)
+        apply(lastAppliedActions, store: store)
+        if let picture = lastSwarmPicture {
+            AriaSwarm.file(picture)
+        }
+        AriaReplyVariety.remember(prompt: prompt, reply: response.message)
+        let takeaway = String(response.message.split(separator: ".").first ?? Substring(response.message))
+        if takeaway.count > 12 {
+            AriaKnowledgeLedgerStore.file(AriaKnowledgeFact(
+                category: .weSpokeAbout,
+                kind: "turn",
+                summary: String(takeaway.prefix(140)),
+                source: "aria-dummy"
+            ))
+        }
     }
 
     private static func requiredTokens(
@@ -1114,17 +1146,22 @@ enum AriaDummyOrchestrator {
         #endif
     }
 
-    private static func publish(_ response: AriaResponse, prompt: String, store: AppStore) -> AriaResponse {
+    private static func publish(
+        _ response: AriaResponse,
+        prompt: String,
+        store: AppStore,
+        replay: Bool = false
+    ) -> AriaResponse {
         var out = response
         var message = bridgeNightIfNeeded(out.message, prompt: prompt, store: store)
-        message = AriaReplyVariety.distinct(prompt: prompt, draft: message)
+        message = AriaReplyVariety.distinct(prompt: prompt, draft: message, record: !replay)
         // Last gate, after on-device polish — same order as Python Dummy
         // `friend_speak` / `_scrub_fused_speak` (vitals + cheer after generate).
         message = sanitizeSpeak(message)
         out.message = message
         out.proseSummary = message
         let takeaway = String(message.split(separator: ".").first ?? Substring(message))
-        if takeaway.count > 12 {
+        if !replay, takeaway.count > 12 {
             AriaKnowledgeLedgerStore.file(AriaKnowledgeFact(
                 category: .weSpokeAbout,
                 kind: "turn",

@@ -69,6 +69,21 @@ class DummyOrchestratorTests(unittest.TestCase):
         self.assertEqual(a["prose_summary"], b["prose_summary"])
         self.assertEqual(a["agents"], b["agents"])
 
+    def test_wobbly_speak_is_killed_as_a_connection_failure(self):
+        from aria_core.prompt_guard import CONNECTION_FAILURE, PromptInconsistent
+
+        calls = {"n": 0}
+        real = dummy.friend_speak
+
+        def wobble(*args, **kwargs):
+            calls["n"] += 1
+            return f"{real(*args, **kwargs)} #{calls['n']}"
+
+        with patch.object(dummy, "friend_speak", side_effect=wobble):
+            with self.assertRaises(PromptInconsistent) as raised:
+                dummy.respond("Should I train today?", seed=42, engine="lambda")
+        self.assertEqual(str(raised.exception), CONNECTION_FAILURE)
+
     def test_cli_test_ready_exits_zero(self):
         old = sys.stdout
         sys.stdout = io.StringIO()

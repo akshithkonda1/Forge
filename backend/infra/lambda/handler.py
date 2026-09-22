@@ -376,7 +376,11 @@ def handler(event, context=None):
         return error_response(exc)
     except PermissionError as exc:
         return error_response(RouteError(403, str(exc) or "Forbidden."))
-    except Exception:  # noqa: BLE001 - this is the boundary; it catches everything
+    except Exception as exc:  # noqa: BLE001 - this is the boundary; it catches everything
+        from aria_core.prompt_guard import CONNECTION_CODE, CONNECTION_FAILURE, PromptInconsistent
+
+        if isinstance(exc, PromptInconsistent):
+            return error_response(RouteError(503, CONNECTION_FAILURE, code=CONNECTION_CODE))
         method, path = _describe(event)
         LOGGER.exception(
             "Unhandled error serving %s %s (request %s)", method, path, request_id

@@ -177,6 +177,16 @@ def _merge_fusion(response: dict[str, Any], fused: Any) -> None:
     response["fusion"] = {**sidecar, **existing}
 
 
+def _checked_speak(fn, *args, **kwargs):
+    """Replay the deterministic coach once. Wobble dies as a connection failure."""
+    from aria_core import prompt_guard
+
+    try:
+        return prompt_guard.checked(lambda: fn(*args, **kwargs))
+    except prompt_guard.PromptInconsistent as exc:
+        raise RouteError(503, exc.public_message, code=prompt_guard.CONNECTION_CODE) from exc
+
+
 def handle_post_ai_chat(body: dict[str, Any], *, user_id: str) -> dict:
     """Layer 4 — structured ARIA chat response.
 
@@ -236,7 +246,8 @@ def handle_post_ai_chat(body: dict[str, Any], *, user_id: str) -> dict:
     # cost a chat turn — but it still consumes the fused snapshot + current
     # stance so the card is not a second picture of the body.
     if insight_mode:
-        response = aria_engine.generate_response(
+        response = _checked_speak(
+            aria_engine.generate_response,
             message,
             context,
             permissions=permissions,
@@ -274,6 +285,17 @@ def handle_post_ai_chat(body: dict[str, Any], *, user_id: str) -> dict:
         message = f"{weekly_note}\n\n{message}"
     roster = aria_engine.normalize_coach_agents(body.get("agents"), body.get("agent"))
     if aria_engine.bedrock_enabled():
+        # Offline checker runs on the deterministic envelope only. Live model
+        # text is not required to replay — that path is not SimRunner.
+        _checked_speak(
+            aria_engine.generate_response,
+            message,
+            context,
+            permissions=permissions,
+            voice_mode=voice_mode,
+            persona=persona,
+            baselines=fused.baselines,
+        )
         response = aria_engine.generate_response_live(
             message,
             context,
@@ -284,7 +306,8 @@ def handle_post_ai_chat(body: dict[str, Any], *, user_id: str) -> dict:
             baselines=fused.baselines,
         )
     else:
-        response = aria_engine.generate_response(
+        response = _checked_speak(
+            aria_engine.generate_response,
             message,
             context,
             permissions=permissions,

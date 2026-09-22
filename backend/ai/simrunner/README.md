@@ -15,6 +15,13 @@ six dimensions, and turns those scores into a defensible **ship / hold** verdict
 
 > **Offline and deterministic by default. No real API calls. No HealthKit. No tokens
 > consumed.** Same config + same model = identical output, every run.
+>
+> **Live prompt guard.** Every product turn (`POST /ai/chat`, Dummy
+> `--test-ready`, the iOS Dummy orchestra) is generated twice with the same
+> inputs. If the two answers disagree, the turn is dropped and the client
+> sees a connection failure (`Couldn't reach Forge. Check your connection.`).
+> This is a small offline check, not the suite-level `--gate`. Set
+> `FORGE_PROMPT_GUARD=0` only to disable it in a test harness.
 
 ---
 

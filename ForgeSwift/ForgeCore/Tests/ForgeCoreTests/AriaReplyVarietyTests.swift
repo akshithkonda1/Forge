@@ -101,6 +101,32 @@ final class AriaReplyVarietyTests: XCTestCase {
         XCTAssertNotEqual(a, b)
     }
 
+    func testPeekDistinctDoesNotRecord() {
+        let prompt = "what should I train today"
+        let canned = "Upper body train day, keep it honest, skip the hero session."
+        AriaReplyVariety.beginTurn(prompt: prompt, defaults: defaults)
+        let peek = AriaReplyVariety.distinct(
+            prompt: prompt,
+            draft: canned,
+            record: false,
+            defaults: defaults
+        )
+        XCTAssertEqual(peek, canned)
+        let recorded = AriaReplyVariety.distinct(
+            prompt: prompt,
+            draft: canned,
+            defaults: defaults
+        )
+        XCTAssertEqual(recorded, canned)
+        AriaReplyVariety.beginTurn(prompt: prompt, defaults: defaults)
+        let second = AriaReplyVariety.distinct(
+            prompt: prompt,
+            draft: canned,
+            defaults: defaults
+        )
+        XCTAssertNotEqual(second, recorded)
+    }
+
     func testSaltChangesWhenTheSamePromptIsPastedAgain() {
         let prompt = "what tuxedo should I wear"
         XCTAssertNotEqual(
