@@ -2035,8 +2035,41 @@ def respond(
     Never calls Bedrock, AWS, or any other cloud.
     Default body is the FakeHealthPack twin (same fields iOS writes to HealthKit).
     Pass ``context=`` to score a SimRunner persona stream instead.
+
+    After the turn is built, SimRunner scores honesty and replays the facts
+    once. If either is below 70, the turn becomes a cautious estimate —
+    never the contested claim, never its reverse, and never a connection drop.
     """
     refuse_if_cloud()
+
+    if not getattr(respond, "_replaying", False):
+        from backend._paths import ensure_lambda_on_path
+
+        ensure_lambda_on_path()
+        from aria_core import prompt_guard
+
+        if prompt_guard.enabled():
+            respond._replaying = True
+            try:
+                return prompt_guard.checked(
+                    lambda: respond(
+                        message,
+                        seed=seed,
+                        model_id=model_id,
+                        pinned=pinned,
+                        agents=agents,
+                        cycle_subjects=cycle_subjects,
+                        prior_turns=prior_turns,
+                        day_index=day_index,
+                        engine=engine,
+                        lifestyle_tags=lifestyle_tags,
+                        context=context,
+                        pack_day=pack_day,
+                        use_pack=use_pack,
+                    )
+                )
+            finally:
+                respond._replaying = False
 
     subjects = list(cycle_subjects or [])
     pinned_kind = (pinned or (agents[0] if agents else None) or "").strip().lower() or None

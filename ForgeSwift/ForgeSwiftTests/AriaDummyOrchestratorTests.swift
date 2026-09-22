@@ -8,6 +8,84 @@ import ForgeCore
 @MainActor
 final class AriaDummyOrchestratorTests: XCTestCase {
 
+    func testReplayProbeMatchesFirstSpeak() async {
+        AriaReplyVariety.reset()
+        defer { AriaReplyVariety.reset() }
+        let store = makeStore()
+        store.dailyMetrics.hrv = 58
+        store.dailyMetrics.totalSleep = 420
+        store.readiness.overall = 72
+        let prompt = "How did I sleep last night?"
+        _ = AriaReplyVariety.beginTurn(prompt: prompt)
+        let first = await AriaDummyOrchestrator.reply(
+            text: prompt,
+            store: store,
+            agent: .sleep,
+            agents: ["sleep"],
+            replay: true
+        )
+        let replay = await AriaDummyOrchestrator.reply(
+            text: prompt,
+            store: store,
+            agent: .sleep,
+            agents: ["sleep"],
+            replay: true
+        )
+        XCTAssertTrue(
+            PromptGuard.passes(
+                firstRecommendation: first.recommendation,
+                secondRecommendation: replay.recommendation,
+                firstResponseType: first.responseType,
+                secondResponseType: replay.responseType,
+                firstConfidence: first.confidence,
+                secondConfidence: replay.confidence
+            ),
+            "first=\(first.message)\nreplay=\(replay.message)"
+        )
+        XCTAssertFalse(first.message.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+    }
+
+    func testRepeatPromptStillProbesConsistently() async {
+        AriaReplyVariety.reset()
+        defer { AriaReplyVariety.reset() }
+        let store = makeStore()
+        store.dailyMetrics.hrv = 58
+        store.dailyMetrics.totalSleep = 420
+        let prompt = "What should I train today?"
+        _ = await AriaDummyOrchestrator.reply(
+            text: prompt,
+            store: store,
+            agent: .workout,
+            agents: ["workout"]
+        )
+        _ = AriaReplyVariety.beginTurn(prompt: prompt)
+        let first = await AriaDummyOrchestrator.reply(
+            text: prompt,
+            store: store,
+            agent: .workout,
+            agents: ["workout"],
+            replay: true
+        )
+        let replay = await AriaDummyOrchestrator.reply(
+            text: prompt,
+            store: store,
+            agent: .workout,
+            agents: ["workout"],
+            replay: true
+        )
+        XCTAssertTrue(
+            PromptGuard.passes(
+                firstRecommendation: first.recommendation,
+                secondRecommendation: replay.recommendation,
+                firstResponseType: first.responseType,
+                secondResponseType: replay.responseType,
+                firstConfidence: first.confidence,
+                secondConfidence: replay.confidence
+            ),
+            "first=\(first.message)\nreplay=\(replay.message)"
+        )
+    }
+
     func testStaysLocalFillIn() {
         XCTAssertFalse(AriaDummyOrchestrator.usesOffDeviceLLM)
         XCTAssertFalse(AriaDummyOrchestrator.writesCalendarEvents)

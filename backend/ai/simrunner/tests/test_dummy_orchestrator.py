@@ -69,6 +69,51 @@ class DummyOrchestratorTests(unittest.TestCase):
         self.assertEqual(a["prose_summary"], b["prose_summary"])
         self.assertEqual(a["agents"], b["agents"])
 
+    def test_wording_wobble_is_allowed_when_facts_hold(self):
+        from backend._paths import ensure_lambda_on_path
+
+        ensure_lambda_on_path()
+
+        calls = {"n": 0}
+        real = dummy.friend_speak
+
+        def wobble(*args, **kwargs):
+            calls["n"] += 1
+            return f"{real(*args, **kwargs)} #{calls['n']}"
+
+        with patch.object(dummy, "friend_speak", side_effect=wobble):
+            row = dummy.respond("Should I train today?", seed=42, engine="lambda")
+        self.assertTrue(row.get("message") or row.get("prose_summary"))
+        self.assertGreaterEqual(calls["n"], 2)
+
+    def test_wobbly_facts_become_an_estimate_not_a_drop(self):
+        from backend._paths import ensure_lambda_on_path
+
+        ensure_lambda_on_path()
+        from aria_core import prompt_guard
+        from services import aria_engine as engine_mod
+
+        calls = {"n": 0}
+        real = engine_mod.generate_response
+
+        def wobble(message, ctx, **kwargs):
+            calls["n"] += 1
+            row = dict(real(message, ctx, **kwargs))
+            row["recommendation"] = f"plan #{calls['n']}"
+            if isinstance(row.get("card"), dict):
+                row["card"] = dict(row["card"], action=row["recommendation"])
+            return row
+
+        with patch.object(engine_mod, "generate_response", side_effect=wobble):
+            row = dummy.respond("Should I train today?", seed=42, engine="lambda")
+        blob = f"{row.get('message') or ''} {row.get('prose_summary') or ''}".lower()
+        self.assertIn("estimate", blob)
+        self.assertNotIn("plan #1", blob)
+        self.assertNotIn("plan #2", blob)
+        self.assertIsNone(row.get("recommendation"))
+        self.assertEqual(row.get("guard", {}).get("mode"), "estimate")
+        self.assertEqual(prompt_guard.ESTIMATE_LINE, row["message"])
+
     def test_cli_test_ready_exits_zero(self):
         old = sys.stdout
         sys.stdout = io.StringIO()
@@ -130,7 +175,9 @@ class DummyOrchestratorTests(unittest.TestCase):
     def test_research_worthy_message_appends_a_cited_web_note(self):
         with patch.object(web_research, "look_up", return_value="From Some Source: real info.") as mock_look_up:
             row = dummy.respond("how do I improve my workout routine?", seed=1, engine="stub")
-        mock_look_up.assert_called_once_with("workout")
+        # Live prompt guard generates the turn twice; lookup must stay stable.
+        self.assertEqual(mock_look_up.call_count, 2)
+        mock_look_up.assert_called_with("workout")
         # Trailing period may be normalized when the cite is parenthesized.
         self.assertIn("From Some Source: real info", row["message"])
         blob = speak_quality.user_visible_blob(row)
@@ -143,7 +190,8 @@ class DummyOrchestratorTests(unittest.TestCase):
         self.assertEqual(plan.primary.kind, "aging")
         with patch.object(web_research, "look_up", return_value="From MedlinePlus: exercise stress test notes.") as mock_look_up:
             row = dummy.respond("what's my training age?", seed=1, engine="stub")
-        mock_look_up.assert_called_once_with("aging")
+        self.assertEqual(mock_look_up.call_count, 2)
+        mock_look_up.assert_called_with("aging")
         self.assertIn("From MedlinePlus: exercise stress test notes", row["message"])
         blob = (row["prose_summary"] + " " + row["message"]).lower()
         self.assertIn("lifestyle comparison", blob)
@@ -572,9 +620,10 @@ class DummyOrchestratorTests(unittest.TestCase):
             ) as gen:
                 with patch.object(engine_mod, "generate_response_live") as live:
                     row = dummy.respond("What should I train today?", seed=1)
-        fuse.assert_called_once()
+        # Offline checker replays the same fused generate once.
+        self.assertEqual(fuse.call_count, 2)
         self.assertFalse(fuse.call_args.kwargs.get("persist", True))
-        gen.assert_called_once()
+        self.assertEqual(gen.call_count, 2)
         live.assert_not_called()
         self.assertEqual(row["orchestration"]["engine"], dummy.ENGINE_LAMBDA)
         self.assertIn(row["fusion"]["source"], ("body_model", "payload", "persisted"))

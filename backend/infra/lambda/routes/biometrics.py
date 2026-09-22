@@ -173,13 +173,17 @@ def handle_post_observe(body: dict[str, Any], *, user_id: str | None = None) -> 
             contextual_learner.stamp_living_context(context, living)
 
         voice = bool(body.get("voice_mode"))
-        response = aria_engine.generate_response(
-            message,
-            context,
-            permissions=permissions,
-            voice_mode=voice,
-            persona=persona,
-            baselines=fused.baselines,
+        from aria_core import prompt_guard
+
+        response = prompt_guard.checked(
+            lambda: aria_engine.generate_response(
+                message,
+                context,
+                permissions=permissions,
+                voice_mode=voice,
+                persona=persona,
+                baselines=fused.baselines,
+            )
         )
         payload["fusion"] = {**fused.fusion_sidecar(), **(response.get("fusion") or {})}
         if fused.persona_status != "load_failed" and persona is not None:

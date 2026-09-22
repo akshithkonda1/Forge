@@ -91,9 +91,12 @@ public enum AriaReplyVariety: Sendable {
     }
 
     /// Rephrase `draft` until it is not a replay of a recent reply to this prompt.
+    ///
+    /// Pass `record: false` for a same-input probe — same wording, no ledger write.
     public static func distinct(
         prompt: String,
         draft: String,
+        record: Bool = true,
         defaults: UserDefaults = .standard
     ) -> String {
         let key = normalizePrompt(prompt)
@@ -123,14 +126,29 @@ public enum AriaReplyVariety: Sendable {
             )
         }
 
-        turn.recent.append(normalizeReply(chosen))
+        if record {
+            remember(prompt: prompt, reply: chosen, defaults: defaults)
+        }
+        return chosen
+    }
+
+    /// Persist a user-visible line after the offline probe pair agrees.
+    public static func remember(
+        prompt: String,
+        reply: String,
+        defaults: UserDefaults = .standard
+    ) {
+        let key = normalizePrompt(prompt)
+        guard !key.isEmpty else { return }
+        var store = load(defaults)
+        var turn = store.turns[key] ?? Turn(count: 1, recent: [])
+        turn.recent.append(normalizeReply(reply))
         if turn.recent.count > recentCap {
             turn.recent.removeFirst(turn.recent.count - recentCap)
         }
         store.turns[key] = turn
         touch(&store, key: key)
         save(store, defaults)
-        return chosen
     }
 
     public static func reset(defaults: UserDefaults = .standard) {

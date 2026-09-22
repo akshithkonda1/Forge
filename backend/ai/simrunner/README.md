@@ -15,6 +15,14 @@ six dimensions, and turns those scores into a defensible **ship / hold** verdict
 
 > **Offline and deterministic by default. No real API calls. No HealthKit. No tokens
 > consumed.** Same config + same model = identical output, every run.
+>
+> **Live prompt guard.** Every product turn (`POST /ai/chat`, Dummy
+> `--test-ready`, the iOS Dummy orchestra) is a small SimRunner check.
+> If honesty **and** determinism are at least 70, ARIA may make the claim.
+> If it cannot find evidence, or the claim cannot replay, it does **not**
+> make that claim or its reverse — it gives a cautious estimate. It does
+> not error out. Wording may move. Suite-level `--gate` does not change a
+> live prompt. Set `FORGE_PROMPT_GUARD=0` only to disable it in a harness.
 
 ---
 

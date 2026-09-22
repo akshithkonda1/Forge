@@ -75,12 +75,41 @@ final class AriaService: ObservableObject {
             isTestReady = true
             isLocalFallback = true
             lastRemoteError = nil
-            return await AriaDummyOrchestrator.reply(
+            // Increment occurrence once, then generate twice with that frozen
+            // count. Side effects (ledger, reminders, variety write) wait until
+            // the two answers match — a repeat prompt must not look like a drop.
+            _ = AriaReplyVariety.beginTurn(prompt: text)
+            let first = await AriaDummyOrchestrator.reply(
                 text: text,
                 store: store,
                 agent: agent,
-                agents: agents
+                agents: agents,
+                replay: true
             )
+            let replay = await AriaDummyOrchestrator.reply(
+                text: text,
+                store: store,
+                agent: agent,
+                agents: agents,
+                replay: true
+            )
+            if PromptGuard.passes(
+                firstRecommendation: first.recommendation,
+                secondRecommendation: replay.recommendation,
+                firstResponseType: first.responseType,
+                secondResponseType: replay.responseType,
+                firstConfidence: first.confidence,
+                secondConfidence: replay.confidence
+            ) {
+                AriaDummyOrchestrator.seal(first, prompt: text, store: store)
+                return first
+            }
+            // No evidence, or the claim cannot replay — estimate, do not
+            // assert the claim or its reverse, and do not drop the turn.
+            var estimated = first
+            estimated.speakEstimate()
+            AriaDummyOrchestrator.seal(estimated, prompt: text, store: store)
+            return estimated
         }
 
         // Chosen local-testing mode (not Dummy). Honest offline badge.

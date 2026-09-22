@@ -86,6 +86,29 @@ struct AriaResponse: Codable, Equatable {
         self.toolCallsMade = toolCallsMade
     }
 
+    /// Fact the prompt guard compares — card action, never spoken wording.
+    var recommendation: String? {
+        get { card?.action ?? card?.recommendation }
+        set {
+            guard var next = card else { return }
+            next.action = newValue
+            if newValue == nil {
+                next.recommendation = nil
+            }
+            card = next
+        }
+    }
+
+    mutating func speakEstimate() {
+        message = PromptGuard.estimateLine
+        proseSummary = PromptGuard.estimateLine
+        responseType = "insight"
+        confidence = 0.45
+        confidenceReason = PromptGuard.estimateReason
+        recommendation = nil
+        richCard = nil
+    }
+
     init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
         schemaVersion = try c.decodeIfPresent(String.self, forKey: .schemaVersion)

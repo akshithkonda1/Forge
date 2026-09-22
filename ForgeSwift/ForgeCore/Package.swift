@@ -78,6 +78,7 @@ let package = Package(
                 "Intelligence/AgingSnapshot.swift",
                 "Intelligence/MetabolicHealthSnapshot.swift",
                 "Intelligence/MetabolicWatchSignals.swift",
+                "Intelligence/PromptGuard.swift",
                 "Intelligence/TranslationCatalog.swift",
                 "Models/HealthDeviceCatalog.swift",
                 "Models/HRZones.swift",
