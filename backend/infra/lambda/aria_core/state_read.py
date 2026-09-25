@@ -203,6 +203,21 @@ def apply_to_envelope(
         target_key, target = "prose_summary", action
     else:
         return envelope
+    # Keep a host notice that has no step of its own (e.g. "You're primed")
+    # so the read+step cannot replace the line the person should hear.
+    host = ""
+    for candidate in (prose, chat):
+        if (
+            candidate
+            and not _has_step(candidate)
+            and candidate.lower() not in target.lower()
+        ):
+            host = candidate
+            break
+    if host:
+        if host[-1] not in ".!?":
+            host = f"{host}."
+        target = f"{host} {target}"
     ack = _should_ack(message, kind, direction)
     clean_clause = speak_guard.rescrub_speak(clause)
     if not clean_clause or clean_clause != clause:

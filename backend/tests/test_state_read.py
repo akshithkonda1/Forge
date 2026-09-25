@@ -1125,6 +1125,9 @@ class AcwrAndGuideLabelTests(unittest.TestCase):
             self.assertNotIn("Hug first:", line)
             self.assertNotIn("like a friend would", line)
             self.assertNotIn("restock day", line)
+            if "protect sleep tonight" in line:
+                self.assertFalse(_DIGIT.search(line), line)
+                self.assertNotIn("Hug first:", line)
 
         models = list(reg.get_models_by_tier(1) or [])
         self.assertTrue(models)

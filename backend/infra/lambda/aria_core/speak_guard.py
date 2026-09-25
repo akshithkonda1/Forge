@@ -106,6 +106,10 @@ _BARE_LABEL = re.compile(
     + "|".join(re.escape(label) for label in _SECTION_LABELS)
     + r")\s*\.(?=\s|$)"
 )
+_INLINE_SECTION = re.compile(
+    r"(?i)(?:^|(?<=\n)|(?<=[.!?]\s))(?:What I notice|One next step)\s*[:.]?\s*"
+    r"|(?:^|(?<=\n)|(?<=[.!?]\s))Why(?:\s*[.:])?(?=\s|$)"
+)
 _TRAILING_LABEL = re.compile(
     r"(?i)(?:^|[\s.])(?:"
     + "|".join(re.escape(label) for label in _SECTION_LABELS)
@@ -491,9 +495,20 @@ def _join_with_step(cleaned: str, step: str) -> str:
 
 def _strip_bare_labels(text: str) -> str:
     """Drop leftover section headers ('Why.', 'Timing.') after a body strip."""
-    out = _BARE_LABEL.sub(" ", str(text or ""))
+    out = _INLINE_SECTION.sub(" ", str(text or ""))
+    out = _BARE_LABEL.sub(" ", out)
     out = _TRAILING_LABEL.sub("", out)
     return _MULTI_SPACE.sub(" ", out).strip()
+
+
+def _is_state_read_sentence(text: str) -> bool:
+    """True when a sentence is a baseline state-read (not a host notice)."""
+    try:
+        from . import state_read
+
+        return bool(state_read._already_has_read(text))
+    except Exception:
+        return False
 
 
 def dedupe_envelope_speech(envelope: dict[str, Any]) -> dict[str, Any]:
@@ -509,7 +524,9 @@ def dedupe_envelope_speech(envelope: dict[str, Any]) -> dict[str, Any]:
         if not sentence:
             continue
         key = _norm(sentence)
-        if key and key in prose_keys:
+        # Host notices ("You're primed") can live on both fields; only a
+        # duplicate *state read* should be stripped from the chat bubble.
+        if key and key in prose_keys and _is_state_read_sentence(sentence):
             continue
         kept.append(sentence)
     chat = _dedupe_fragments(" ".join(kept)) if kept else ""

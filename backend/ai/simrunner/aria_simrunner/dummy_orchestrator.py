@@ -539,7 +539,7 @@ def specialist_notes(plan: Plan, context) -> list[SpecialistNote]:
             elif signals.recovery == "asking":
                 notes.append(SpecialistNote(
                     "recovery", "caution",
-                    "Recovery would keep today kind. Your body's asking for care, not a lecture.",
+                    "Recovery would keep today kind. That's a care day, not a lecture.",
                 ))
             else:
                 notes.append(SpecialistNote(
@@ -845,18 +845,18 @@ _CHEER_SLUDGE = re.compile(
 # Throughline is friend — bubbly / kind / taking-care. Not dry trainer bark,
 # not diagnose/treat/cure, not vitals dumps. Seed-indexed via ``_pick``.
 _WIT_PROTECT = (
-    "Your body's hung a cute 'back soon' sign — easy walk, then protect bedtime like it's the real session.",
+    "There's a cute 'back soon' sign on the door — easy walk, then protect bedtime like it's the real session.",
     "I'm with you, and I'm tucking the hero set in a drawer — keep it gentle and get to bed on purpose.",
     "Cozy-sweater day, not montage day — ten easy minutes, water nearby, lights out a little earlier.",
     "Even sparkly people need a restock — skip the extra work and steal a kinder wind-down tonight.",
     "Today whispered please-be-nice — so we will: keep it kind, light movement, protein with the next meal, real sleep.",
-    "let's not pick a fight with a tired body — soft loop, then earlier lights-out.",
+    "Nothing heroic today, friend — just an easy loop and an earlier night. Future you says thanks.",
     "I love the ambition and I'm still tucking it in — keep today kind and light and make bedtime the workout.",
     "Your tank's on the cute low-power glow — easy movement only, then we guard the night.",
     "I'm taking care of you, not casting you as the montage hero — short and kind, then wind down.",
     "The loud plan can wait in drafts — an easy walk, a simple meal, and an honest bedtime will do more.",
     "You're not failing, you're just a little crispy — keep it easy and get under the covers on time.",
-    "Yesterday's work is still in the legs, so keep today easy, have water with your next meal, and get to bed on time.",
+    "Keep today easy, friend — have water with your next meal, and protect sleep tonight.",
 )
 _WIT_PROCEED = (
     "You've got a little sparkle in the tank, and I'm with you — spend it on one clean session, then stop while it still feels good.",
@@ -970,15 +970,16 @@ def _collapse_spoken(text: str) -> str:
     body = str(text or "")
     body = re.sub(r"\bWhat I notice\s+", "", body)
     body = re.sub(r"\bOne next step\s+", " ", body)
-    body = re.sub(r"\bWhy\s+", " — ", body)
+
+    def _why_dash(match: re.Match) -> str:
+        rest = match.group(1).lstrip()
+        if rest[:1].isupper() and not rest.startswith(("I ", "I'm ", "I'll ", "I've ", "I'd ", "Zone ")):
+            rest = rest[0].lower() + rest[1:]
+        return f" — {rest}"
+
+    body = re.sub(r"\bWhy\s+([^\n]+)", _why_dash, body)
     # Internal two-word guide/HUD labels ("Hug first:", "Training load:").
     body = re.sub(r"\b[A-Z][a-z]+ [a-z]+:\s*", "", body)
-    # Why→dash must not leave " — Reassess".
-    body = re.sub(
-        r"([—–-])\s+(?!I\b)([A-Z])",
-        lambda m: f"{m.group(1)} {m.group(2).lower()}",
-        body,
-    )
     body = re.sub(r"\n{2,}", " ", body)
     return re.sub(r"\s+", " ", body).strip()
 
@@ -1035,7 +1036,7 @@ _SLEEP_TALK = {
 }
 _RECOVERY_TALK = {
     "asking": (
-        "your body's asking for a break today",
+        "today's asking for a break, not more load",
         "recovery is asking for room, not more load",
         "today's reading as a protect day",
     ),
@@ -1131,12 +1132,9 @@ def friend_speak(
         if real:
             real = real[0].upper() + real[1:]
             if extra and extra.lower() not in real.lower():
-                extra_bit = extra
-                if real[-1] not in ".!?—" and extra_bit[:1].isupper() and not extra_bit.startswith(
-                    ("I ", "I'm ", "I'll ", "I've ", "I'd ")
-                ):
-                    extra_bit = extra_bit[0].lower() + extra_bit[1:]
-                real = f"{real} — {extra_bit}" if real[-1] not in ".!?—" else f"{real} {extra}"
+                if real[-1] not in ".!?":
+                    real += "."
+                real = f"{real} {extra}"
             return _apply_speak_guard(_speak_without_vitals(real, extra, _SPEAK_FALLBACK))
         return _apply_speak_guard(_speak_without_vitals(extra, _SPEAK_FALLBACK))
     if any(n in body.lower() for n in _WIT_ALREADY):
