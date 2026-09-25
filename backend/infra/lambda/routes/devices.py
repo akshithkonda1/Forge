@@ -94,6 +94,21 @@ def handle_post_devices_seen(body: dict) -> dict:
     return ok({"accepted": accepted})
 
 
+def _safe_https_url(value: object, max_len: int) -> str | None:
+    """Only an https:// URL of sane length survives; anything else (a
+    javascript:/data: scheme, a non-string, an oversized value) is dropped
+    rather than stored, since this field is served back to every user
+    unauthenticated via GET /devices/catalog."""
+    if not isinstance(value, str):
+        return None
+    value = value.strip()
+    if not value or len(value) > max_len:
+        return None
+    if not value.lower().startswith("https://"):
+        return None
+    return value
+
+
 def _validated_device(raw: object) -> dict | None:
     if not isinstance(raw, dict):
         return None
@@ -124,12 +139,12 @@ def _validated_device(raw: object) -> dict | None:
         "writesToAppleHealth": bool(raw.get("writesToAppleHealth")),
         "hasIOSApp": bool(raw.get("hasIOSApp")),
         "worksWithAppleWatch": bool(raw.get("worksWithAppleWatch")),
-        "appStoreURL": raw.get("appStoreURL"),
+        "appStoreURL": _safe_https_url(raw.get("appStoreURL"), 400),
         "setupHint": str(raw.get("setupHint") or "")[:240],
         "symbolName": str(raw.get("symbolName") or "sensor.tag.radiowaves.forward")[:64],
         "line": str(raw.get("line") or ident)[:64],
         "generation": generation,
         "releasedYear": released_year,
         "stillCompatible": bool(raw.get("stillCompatible", True)),
-        "photoURL": raw.get("photoURL"),
+        "photoURL": _safe_https_url(raw.get("photoURL"), 400),
     }
