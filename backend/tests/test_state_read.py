@@ -873,14 +873,14 @@ class JoinAndPhraseTests(unittest.TestCase):
         self.assertNotIn("Still,", joined)
 
         synced = state_read._join_read(
-            "Sync HealthKit so I can size today's walk.",
+            "Sync HealthKit so I can size today.",
             "right around your usual",
             ack=False,
             direction="usual",
         )
         self.assertEqual(
             synced,
-            "Right around your usual. Sync HealthKit so I can size today's walk.",
+            "Right around your usual. Sync HealthKit so I can size today.",
         )
         self.assertNotIn("Still,", synced)
 
@@ -907,6 +907,21 @@ class JoinAndPhraseTests(unittest.TestCase):
             out["prose_summary"], r"(?i)right around your usual\.\s+Try a 20 minute walk"
         )
         self.assertNotIn("Still,", out["prose_summary"])
+
+        synced = state_read.apply_to_envelope(
+            {
+                "prose_summary": "Sync HealthKit so I can size today.",
+                "message": "Sync HealthKit so I can size today.",
+            },
+            ctx,
+            seed=0,
+            message="hey",
+        )
+        self.assertEqual(
+            synced["prose_summary"],
+            "Right around your usual. Sync HealthKit so I can size today.",
+        )
+        self.assertNotIn("Still,", synced["prose_summary"])
 
     def test_joins_never_capitalize_after_comma_except_i(self):
         steps = (

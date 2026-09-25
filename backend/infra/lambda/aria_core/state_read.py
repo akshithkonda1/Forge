@@ -432,7 +432,10 @@ def _pick(seed: int, options: tuple[str, ...]) -> str:
 
 def _has_step(text: str) -> bool:
     low = (text or "").lower()
-    return any(cue in low for cue in speak_guard._STEP_CUES)
+    if any(cue in low for cue in speak_guard._STEP_CUES):
+        return True
+    # Neutral sizing asks (no easy/push cue) are still a next step.
+    return "sync healthkit" in low or "size today" in low
 
 
 _READ_ALIASES = (
