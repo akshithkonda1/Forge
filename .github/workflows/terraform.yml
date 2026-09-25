@@ -214,3 +214,23 @@ jobs:
           AWS_EC2_METADATA_DISABLED: "true"
           TF_VAR_skip_aws_provider_checks: "false"
         run: terraform apply -auto-approve -input=false -no-color
+
+      # Named outputs only. Never `terraform output` or `terraform output -json`
+      # (no name): state holds identity-provider secrets. These two outputs
+      # exist only after #371.
+      - name: Write client configuration outputs
+        if: success()
+        run: |
+          terraform output -json client_configuration > client_configuration.json
+          terraform output -json dev_client_configuration > dev_client_configuration.json
+
+      - name: Upload client configuration
+        if: success()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: client-configuration
+          path: |
+            backend/infra/client_configuration.json
+            backend/infra/dev_client_configuration.json
+          if-no-files-found: error
+          retention-days: 7
