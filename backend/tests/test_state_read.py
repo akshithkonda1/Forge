@@ -724,32 +724,46 @@ class PartBBaselineBackfillTests(unittest.TestCase):
         self.assertIn(clause, state_read.SHORT_NIGHT, clause)
 
     def test_ios_shaped_payload_with_enough_nights_produces_a_sleep_read(self):
-        """Real iOS chat goes through fuse_turn (routes/aria.py:217).
+        """Real iOS chat goes through fuse_turn (routes/aria.py:231).
 
         ARIAContextPayload sleep has durationMinutes + nightsAvailable, no
-        baselineMedianMinutes. Samples arrive from /ai/observe (include_stored)
-        or Dummy. This payload is that shape.
+        baselineMedianMinutes. Remote chat does not send samples
+        (AriaOnDeviceHealthPolicy); nights are the /ai/observe snapshot
+        fuse_turn reloads when this turn has none.
         """
         from services import fusion as fusion_mod
         from services.aria_engine import DataPermissions
 
+        uid = "ios-chat-user"
+        fusion_mod.fuse_turn(
+            uid,
+            {
+                "include_stored": False,
+                "samples": _sleep_samples(14, last_min=300, usual_min=450),
+            },
+            DataPermissions.allow_all(),
+            persist=True,
+            include_stored=False,
+            load_learner=False,
+        )
         payload = {
             "include_stored": False,
-            "samples": _sleep_samples(14, last_min=300, usual_min=450),
             "context": {
                 "sleep": {"durationMinutes": 300, "nightsAvailable": 14},
                 "training": {"weeklyLoadScore": 180},
             },
         }
         self.assertNotIn("baselineMedianMinutes", payload["context"]["sleep"])
+        self.assertNotIn("samples", payload)
         fused = fusion_mod.fuse_turn(
-            "ios-chat-user",
+            uid,
             payload,
             DataPermissions.allow_all(),
             persist=False,
             include_stored=False,
             load_learner=False,
         )
+        self.assertEqual(fused.source, "persisted")
         self.assertIsNotNone(fused.context.sleep.baseline_median_minutes)
         self.assertGreaterEqual(fused.context.sleep.nights_available or 0, 7)
         clause = state_read._state_read(fused.context, seed=0)
@@ -759,17 +773,27 @@ class PartBBaselineBackfillTests(unittest.TestCase):
         from services import fusion as fusion_mod
         from services.aria_engine import DataPermissions
 
-        payload = {
-            "include_stored": False,
-            "samples": _sleep_samples(3, last_min=300, usual_min=450),
-            "context": {
-                "sleep": {"durationMinutes": 300, "nightsAvailable": 3},
-                "training": {"weeklyLoadScore": 180},
+        uid = "ios-chat-thin"
+        fusion_mod.fuse_turn(
+            uid,
+            {
+                "include_stored": False,
+                "samples": _sleep_samples(3, last_min=300, usual_min=450),
             },
-        }
+            DataPermissions.allow_all(),
+            persist=True,
+            include_stored=False,
+            load_learner=False,
+        )
         fused = fusion_mod.fuse_turn(
-            "ios-chat-thin",
-            payload,
+            uid,
+            {
+                "include_stored": False,
+                "context": {
+                    "sleep": {"durationMinutes": 300, "nightsAvailable": 3},
+                    "training": {"weeklyLoadScore": 180},
+                },
+            },
             DataPermissions.allow_all(),
             persist=False,
             include_stored=False,
