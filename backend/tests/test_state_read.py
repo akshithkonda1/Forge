@@ -42,6 +42,35 @@ _BANNED = (
     "busier",
 )
 
+# Nyx #375 grader (`9c5d18c`/`f2dbdab`) clinical list + must-fail guide lines.
+# Vitals/numbers on evidence stay allowed.
+_NYX_CLINICAL = (
+    "poor",
+    "bad",
+    "debt",
+    "deficit",
+    "exhausted",
+    "fatigued",
+    "stressed",
+    "under-recovered",
+    "overtrained",
+    "abnormal",
+    "elevated",
+)
+_NYX_GUIDE = (
+    "they have repair in the bank",
+    "usable picture is still thin",
+    "spend it on one quality session in the slot they actually use",
+    "like a friend would",
+    "restock day",
+    "sleep debt",
+    "sleep-debt",
+)
+_GUIDE_LINE = (
+    "They have repair in the bank. Spend it on one quality session "
+    "in the slot they actually use."
+)
+
 _SPEAK_QUALITY = None
 _SPEAK_QUALITY_NOTE = (
     "Nyx speak_quality is present on this branch; each phrase is gated with "
@@ -93,6 +122,49 @@ def _speech(envelope: dict) -> str:
 def _read_hits(text: str) -> list[str]:
     low = (text or "").lower()
     return [p for p in state_read.phrase_bank() if p in low]
+
+
+def _walk_strings(value):
+    if isinstance(value, str):
+        return [value] if value.strip() else []
+    if isinstance(value, dict):
+        found = []
+        for item in value.values():
+            found.extend(_walk_strings(item))
+        return found
+    if isinstance(value, (list, tuple)):
+        found = []
+        for item in value:
+            found.extend(_walk_strings(item))
+        return found
+    return []
+
+
+def _evidence_strings(card):
+    if not isinstance(card, dict):
+        return []
+    return _walk_strings(card.get("evidence"))
+
+
+def _assert_evidence_blob_clean(test, blob, *, where=""):
+    low = (blob or "").lower()
+    prefix = f"{where}: " if where else ""
+    for phrase in _NYX_GUIDE:
+        test.assertNotIn(phrase, low, f"{prefix}guide/sleep-debt in evidence: {blob}")
+    test.assertNotIn("hug first", low, f"{prefix}{blob}")
+    test.assertNotRegex(blob or "", r"\bWhy\.", f"{prefix}{blob}")
+    test.assertIsNone(
+        re.search(r"\byour body is\b", low),
+        f"{prefix}your-body framing in evidence: {blob}",
+    )
+    if _SPEAK_QUALITY is not None:
+        test.assertEqual(_SPEAK_QUALITY.medical_hits(blob), [], f"{prefix}{blob}")
+        test.assertEqual(_SPEAK_QUALITY.sludge_hits(blob), [], f"{prefix}{blob}")
+    for word in _NYX_CLINICAL:
+        test.assertIsNone(
+            re.search(rf"\b{re.escape(word)}\b", low),
+            f"{prefix}banned {word!r} in evidence: {blob}",
+        )
 
 
 class PhraseBankTests(unittest.TestCase):
@@ -1249,28 +1321,108 @@ class AcwrAndGuideLabelTests(unittest.TestCase):
             self._assert_evidence_is_clean(resp.get("card"))
 
     def _assert_evidence_is_clean(self, card):
-        ev = (card or {}).get("evidence") if isinstance(card, dict) else None
-        if not isinstance(ev, dict):
+        blob = " ".join(_evidence_strings(card))
+        if not blob.strip():
             return
-        blob = " ".join(str(v) for v in ev.values() if isinstance(v, (str, list)))
-        low = blob.lower()
-        self.assertNotIn("repair in the bank", low, blob)
-        self.assertNotIn("hug first", low, blob)
-        self.assertNotIn("like a friend would", low, blob)
-        self.assertNotIn("restock day", low, blob)
-        self.assertNotIn("sleep debt", low, blob)
-        self.assertNotIn("sleep-debt", low, blob)
-        self.assertNotRegex(blob, r"\bWhy\.", blob)
-        if _SPEAK_QUALITY is not None:
-            self.assertEqual(_SPEAK_QUALITY.medical_hits(blob), [], blob)
-            self.assertEqual(_SPEAK_QUALITY.sludge_hits(blob), [], blob)
-        for word in _BANNED:
-            if word in {"hrv", "readiness", "acwr"}:
-                continue
-            self.assertIsNone(
-                re.search(rf"\b{re.escape(word)}\b", low),
-                f"banned {word!r} in evidence: {blob}",
+        _assert_evidence_blob_clean(self, blob)
+
+
+class EvidenceCleanlinessTests(unittest.TestCase):
+    """Nyx #375: card.evidence never carries guide/writer or clinical terms."""
+
+    def test_guide_brief_never_populates_evidence(self):
+        from types import SimpleNamespace
+
+        from aria_core import aria_evidence
+
+        ctx = _health_ctx()
+        signals = aria_engine._gather_signals(ctx)
+        brief = SimpleNamespace(one_next_move=_GUIDE_LINE)
+        pattern = aria_evidence.detect_pattern(ctx, signals, [], brief=brief)
+        blob = " ".join(_walk_strings(pattern.to_dict()))
+        self.assertTrue(blob.strip(), blob)
+        _assert_evidence_blob_clean(self, blob)
+        self.assertNotIn(_GUIDE_LINE.lower(), blob.lower())
+
+    def test_sleep_debt_pattern_has_no_debt_wording(self):
+        from aria_core import aria_evidence
+
+        ctx = _health_ctx(
+            sleep=SleepContext(
+                duration_minutes=300,
+                rem_minutes=40,
+                deep_minutes=40,
+                baseline_median_minutes=450,
+                nights_available=14,
+                sleep_debt_7d_hours=7.2,
+            ),
+            readiness=ReadinessContext(
+                hrv_7day_trend=-12,
+                hrv_30day_baseline=62,
+                recovery_score=55,
+                hrv_days_available=7,
+            ),
+        )
+        signals = aria_engine._gather_signals(ctx)
+        pattern = aria_evidence.detect_pattern(ctx, signals, [])
+        blob = " ".join(_walk_strings(pattern.to_dict()))
+        _assert_evidence_blob_clean(self, blob)
+        self.assertNotIn("sleep debt", blob.lower())
+        self.assertNotIn("sleep-debt", blob.lower())
+
+    def test_dummy_wit_banks_have_no_hug_first_or_bare_why(self):
+        from backend.ai.simrunner.aria_simrunner import dummy_orchestrator as dummy
+
+        for line in dummy._WIT_PROTECT + dummy._WIT_PROCEED + dummy._WIT_HONEST:
+            self.assertNotIn("Hug first:", line, line)
+            self.assertNotIn("Why.", line, line)
+
+    def test_all_personas_and_seeds_keep_evidence_clean(self):
+        os.environ.setdefault("SIMRUNNER_TODAY", "2026-01-15")
+        from backend.ai.simrunner.aria_simrunner import dummy_orchestrator as dummy
+        from backend.ai.simrunner.backend_simulator import model_registry as reg
+        from backend.ai.simrunner.backend_simulator.behavior_engine import generate_stream
+        from backend.ai.simrunner.backend_simulator.data_generator import build_context
+
+        models = list(reg.get_models_by_tier(1) or [])
+        self.assertTrue(models)
+        seeds = tuple(range(1, 21))
+        seen_evidence = 0
+        for model in models:
+            for seed in seeds:
+                stream = generate_stream(model["behavioral_profile"], seed=seed)
+                ctx = build_context(stream, model["behavioral_profile"], 14)
+                row = dummy.respond(
+                    "Should I train today?", seed=seed, engine="lambda", context=ctx
+                )
+                speech = f"{row.get('prose_summary') or ''} {row.get('message') or ''}"
+                self.assertNotIn("Hug first:", speech, speech)
+                self.assertNotIn("Why.", speech, speech)
+                card = row.get("card")
+                blob = " ".join(_evidence_strings(card))
+                self.assertTrue(
+                    blob.strip(),
+                    f"lambda card.evidence missing for "
+                    f"{model.get('display_name') or model.get('model_id')} seed={seed}",
+                )
+                seen_evidence += 1
+                _assert_evidence_blob_clean(
+                    self,
+                    blob,
+                    where=f"{model.get('display_name') or model.get('model_id')} seed={seed}",
+                )
+        self.assertEqual(seen_evidence, len(models) * len(seeds))
+
+        for seed in seeds[:6]:
+            resp = aria_engine.generate_response(
+                "Should I train today?", _health_ctx(), seed=seed
             )
+            speech = _speech(resp)
+            self.assertNotIn("Hug first:", speech, speech)
+            self.assertNotIn("Why.", speech, speech)
+            blob = " ".join(_evidence_strings(resp.get("card")))
+            self.assertTrue(blob.strip(), f"lambda generate_response seed={seed}")
+            _assert_evidence_blob_clean(self, blob, where=f"generate_response seed={seed}")
 
 
 if __name__ == "__main__":

@@ -659,10 +659,17 @@ def _tidy(text: str) -> str:
     return cleaned
 
 
+# Internal labels that must never reach speech, even after they leave
+# card.evidence (Nyx #375 treats "usable picture is still thin" as a leak).
+_MUST_DENY = (
+    "Usable picture is still thin",
+)
+
+
 @lru_cache(maxsize=1)
 def _deny_phrases() -> tuple[str, ...]:
     here = Path(__file__).resolve().parent
-    phrases: list[str] = []
+    phrases: list[str] = list(_MUST_DENY)
     phrases.extend(_literals_from_functions(here / "context_plan.py", {"_advice", "_guide"}))
     phrases.extend(_why_literals(here / "aria_evidence.py"))
     # Longest first so a long guide swallows its shorter prefix.
