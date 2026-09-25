@@ -1,4 +1,5 @@
 import SwiftUI
+import ForgeCore
 
 struct BreakdownCardView: View {
     let label: String
@@ -15,10 +16,10 @@ struct BreakdownCardView: View {
             Circle().fill(dot).frame(width: 8, height: 8)
             VStack(alignment: .leading, spacing: 2) {
                 Text(label)
-                    .font(.system(size: 11, weight: .medium))
+                    .font(HomeType.micro)
                     .foregroundColor(.textTertiary)
                 Text("\(display)")
-                    .font(.system(size: 18, weight: .bold))
+                    .font(HomeType.metric)
                     .foregroundColor(.textPrimary)
             }
             Spacer()
@@ -52,11 +53,11 @@ struct ReadinessInsightRow: View {
                 Image(systemName: icon).font(.system(size: 15)).foregroundColor(color)
             }
             Text(title)
-                .font(.system(size: 14, weight: .medium))
+                .font(HomeType.status)
                 .foregroundColor(.textSecondary)
             Spacer()
             Text(value)
-                .font(.system(size: 14, weight: .bold))
+                .font(HomeType.label)
                 .foregroundColor(.textPrimary)
         }
         .padding(.vertical, 4)
@@ -161,11 +162,140 @@ struct ReadinessRingView: View {
     }
 }
 
+// MARK: - Home readiness ring-field (data language, not the Nest mark)
+
+/// Kinetic 5-ellipse ring-field from `AriaRingFieldGeometry`.
+/// Brand mark stays `AriaNest*` / `ARIAIdentityMark`. This field is Home
+/// readiness chrome only. Hero size (≥90) paints all five ellipses.
+struct HomeReadinessFieldView: View {
+    let score: Int
+    var size: CGFloat = HomeMetrics.heroFieldSize
+
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.forgeMinimalAnimation) private var minimalAnimation
+
+    private var frozen: Bool { reduceMotion || minimalAnimation }
+    private var clamped: Int { min(max(score, 0), 100) }
+
+    var body: some View {
+        TimelineView(.animation(minimumInterval: AriaNestGeometry.tickInterval, paused: frozen)) { timeline in
+            let time = frozen
+                ? AriaRingFieldGeometry.stillPose
+                : timeline.date.timeIntervalSinceReferenceDate
+            ZStack {
+                Canvas { context, canvasSize in
+                    HomeRingFieldCanvas.paint(
+                        context: &context,
+                        canvasSize: canvasSize,
+                        time: time,
+                        score: clamped,
+                        reduceMotion: frozen
+                    )
+                }
+                VStack(spacing: 2) {
+                    Text("\(clamped)")
+                        .font(HomeType.heroScore)
+                        .foregroundStyle(
+                            LinearGradient(
+                                colors: [.textPrimary, HomeReadiness.color(clamped)],
+                                startPoint: .top,
+                                endPoint: .bottom
+                            )
+                        )
+                        .minimumScaleFactor(0.7)
+                        .lineLimit(1)
+                        .contentTransition(.numericText())
+                    Text(HomeReadiness.label(clamped).uppercased())
+                        .font(HomeType.micro)
+                        .foregroundColor(HomeReadiness.color(clamped))
+                        .tracking(1.6)
+                    Text("Readiness")
+                        .font(HomeType.micro)
+                        .foregroundColor(.textTertiary)
+                }
+                .accessibilityHidden(true)
+            }
+        }
+        .frame(width: size, height: size)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(HomeReadiness.voiceOverLabel(clamped))
+    }
+}
+
+enum HomeRingFieldCanvas {
+    static func paint(
+        context: inout GraphicsContext,
+        canvasSize: CGSize,
+        time: Double,
+        score: Int,
+        reduceMotion: Bool
+    ) {
+        let s = min(canvasSize.width, canvasSize.height)
+        guard s >= 2 else { return }
+        let center = CGPoint(x: canvasSize.width / 2, y: canvasSize.height / 2)
+        let tint = HomeReadiness.color(score)
+        let orange = Color(hex: AriaRingFieldGeometry.forgeOrangeHex)
+        let fill = Double(min(max(score, 0), 100)) / 100.0
+
+        let haloR = s * 0.24
+        context.fill(
+            Path(ellipseIn: CGRect(
+                x: center.x - haloR, y: center.y - haloR,
+                width: haloR * 2, height: haloR * 2
+            )),
+            with: .radialGradient(
+                Gradient(colors: [
+                    tint.opacity(0.10 + 0.10 * fill),
+                    .clear
+                ]),
+                center: center,
+                startRadius: s * 0.02,
+                endRadius: haloR
+            )
+        )
+
+        for index in AriaRingFieldGeometry.visibleRingIndices(size: s).reversed() {
+            let pose = AriaRingFieldGeometry.ellipse(
+                index: index,
+                time: time,
+                speaking: false,
+                reduceMotion: reduceMotion
+            )
+            let line = AriaRingFieldGeometry.strokeWidth(size: s, index: index)
+            let width = s * CGFloat(pose.rx)
+            let height = s * CGFloat(pose.ry)
+            var path = Path(ellipseIn: CGRect(
+                x: -width / 2,
+                y: -height / 2,
+                width: width,
+                height: height
+            ))
+            let transform = CGAffineTransform.identity
+                .translatedBy(x: center.x, y: center.y)
+                .rotated(by: CGFloat(pose.rotation))
+            path = path.applying(transform)
+
+            let color: Color = index >= 3 ? orange : tint
+            context.stroke(
+                path,
+                with: .color(color.opacity(pose.opacity * 0.32)),
+                lineWidth: max(2.2, line * 2.0)
+            )
+            context.stroke(
+                path,
+                with: .color(color.opacity(min(1, pose.opacity + 0.06))),
+                lineWidth: line
+            )
+        }
+    }
+}
+
 struct StreakCalendarSection: View {
     @EnvironmentObject var store: AppStore
     /// Drives only the per-cell stagger; the card's own entrance is handled by
     /// `.homeEntrance`, so the two no longer share a flag.
     @State private var cellsAppeared = false
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     private var weekDays: [(label: String, hasWorkout: Bool, isToday: Bool)] {
         let cal = Calendar.current
@@ -197,13 +327,13 @@ struct StreakCalendarSection: View {
                         .font(.system(size: 13))
                         .foregroundColor(.ember)
                     Text("THIS WEEK")
-                        .font(.system(size: 10, weight: .semibold))
+                        .font(HomeType.micro)
                         .foregroundColor(.ember)
                         .tracking(2)
                 }
                 Spacer()
                 Text("Days you trained")
-                    .font(.system(size: 11, weight: .medium))
+                    .font(HomeType.micro)
                     .foregroundColor(.textMuted)
             }
 
@@ -211,7 +341,7 @@ struct StreakCalendarSection: View {
                 ForEach(Array(weekDays.enumerated()), id: \.offset) { i, day in
                     VStack(spacing: 8) {
                         Text(day.label)
-                            .font(.system(size: 10, weight: .semibold))
+                            .font(HomeType.micro)
                             .foregroundColor(day.isToday ? .ember : .textMuted)
                         ZStack {
                             Circle()
@@ -229,9 +359,12 @@ struct StreakCalendarSection: View {
                                 Circle().fill(Color.white.opacity(0.08)).frame(width: 8, height: 8)
                             }
                         }
-                        .scaleEffect(cellsAppeared ? 1 : 0.7)
-                        .opacity(cellsAppeared ? 1 : 0)
-                        .animation(FDS.Spring.hero.delay(0.08 + Double(i) * 0.05), value: cellsAppeared)
+                        .scaleEffect(cellsAppeared || reduceMotion ? 1 : 0.7)
+                        .opacity(cellsAppeared || reduceMotion ? 1 : 0)
+                        .animation(
+                            reduceMotion ? nil : FDS.Spring.hero.delay(0.08 + Double(i) * 0.05),
+                            value: cellsAppeared
+                        )
                     }
                     .frame(maxWidth: .infinity)
                 }
@@ -288,6 +421,7 @@ struct HomeVitalsRow: View {
         }
         .accessibilityElement(children: .combine)
         .accessibilityLabel("Sleep \(sleep), recovery \(recovery), load \(load)")
+        .accessibilityHint("Shows how last night, bounce-back, and today's load sit under readiness")
     }
 }
 
@@ -330,14 +464,16 @@ struct HomeVitalDial: View {
                         .shadow(color: color.opacity(0.38), radius: 6)
 
                     Text("\(clamped)")
-                        .font(.system(size: 18, weight: .bold, design: .rounded).monospacedDigit())
+                        .font(HomeType.metric)
                         .foregroundColor(.textPrimary)
+                        .minimumScaleFactor(0.7)
+                        .lineLimit(1)
                         .contentTransition(.numericText())
                 }
                 .frame(width: 72, height: 72)
 
                 Text(title.uppercased())
-                    .font(.system(size: 10, weight: .semibold, design: .rounded))
+                    .font(HomeType.micro)
                     .tracking(1.2)
                     .foregroundColor(.textTertiary)
             }

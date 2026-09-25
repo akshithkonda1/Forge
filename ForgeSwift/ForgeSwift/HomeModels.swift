@@ -11,9 +11,9 @@ enum HomeMetrics {
     /// while the other eleven used a literal `16` — the same number, two spellings.
     static let inset: CGFloat = FDS.Spacing.lg
     /// Vertical gap between sections, applied once by the VStack.
-    static let sectionGap: CGFloat = 12
+    static let sectionGap: CGFloat = FDS.Spacing.lg
     /// Interior padding for every card.
-    static let cardPadding: CGFloat = 16
+    static let cardPadding: CGFloat = 20
     /// Radius for elements *inside* a card. Cards themselves use the
     /// `forgeGlassCard` default (`FDS.Radius.xl`).
     static let innerRadius: CGFloat = FDS.Radius.md
@@ -21,6 +21,24 @@ enum HomeMetrics {
     static let scrollBottomClearance: CGFloat = 28
     /// How far a section rises as it fades in.
     static let entranceRise: CGFloat = 12
+    /// Hero ring-field. Must stay ≥ `AriaRingFieldGeometry.heroMinimumSize` (90)
+    /// so Home paints all five ellipses — compact 3-ring is Watch-only.
+    static let heroFieldSize: CGFloat = 132
+    /// Stack gap inside the Today hero (field → vitals → session → CTA).
+    static let heroStackGap: CGFloat = FDS.Spacing.lg
+}
+
+/// Home typography — Dynamic Type text styles, not raw point sizes.
+enum HomeType {
+    static let greeting = FDS.TypeScale.Dynamic.display
+    static let heroScore = FDS.TypeScale.Dynamic.heroScore
+    static let sessionTitle = FDS.TypeScale.Dynamic.title
+    static let status = FDS.TypeScale.Dynamic.body.weight(.medium)
+    static let body = FDS.TypeScale.Dynamic.body
+    static let label = FDS.TypeScale.Dynamic.label
+    static let micro = FDS.TypeScale.Dynamic.micro
+    static let cta = FDS.TypeScale.Dynamic.headline
+    static let metric = FDS.TypeScale.Dynamic.metric
 }
 
 /// `MainTabView` sets `.id(store.activeTab)` (ContentView.swift), so `HomeView`
@@ -50,13 +68,14 @@ private final class HomeEntranceSession: @unchecked Sendable {
 private struct HomeEntrance: ViewModifier {
     let delay: Double
     @State private var appeared = false
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     func body(content: Content) -> some View {
         content
-            .opacity(appeared ? 1 : 0)
-            .offset(y: appeared ? 0 : HomeMetrics.entranceRise)
+            .opacity(appeared || reduceMotion ? 1 : 0)
+            .offset(y: appeared || reduceMotion ? 0 : HomeMetrics.entranceRise)
             .onAppear {
-                guard !HomeEntranceSession.shared.hasPlayed else {
+                if reduceMotion || HomeEntranceSession.shared.hasPlayed {
                     appeared = true
                     return
                 }
@@ -104,14 +123,14 @@ enum HomePrimaryAction: Equatable {
 
         if score < 55 {
             let reason = guidanceOnly
-                ? "Recovery-first day — structure and rest over intensity."
-                : "Readiness is low. Protect recovery and go light."
+                ? HomeCoachCopy.easyDayGuidance
+                : HomeCoachCopy.easyDayLow
             return .recoveryDay(reason: reason)
         }
 
         if let plan = store.todayWorkout {
             if score < 70 {
-                return .recoveryDay(reason: "You're at \(score)%. This session is already pulled back.")
+                return .recoveryDay(reason: HomeCoachCopy.pulledBack(score: score))
             }
             return .startWorkout(id: plan.id, name: plan.name)
         }
@@ -123,7 +142,7 @@ enum HomePrimaryAction: Equatable {
         switch self {
         case .startWorkout:              return "Today’s session"
         case .continueWorkout:           return "Continue"
-        case .recoveryDay:               return "Recovery session"
+        case .recoveryDay:               return HomeCoachCopy.easySessionTitle
         case .buildPlan:                 return "Write session"
         }
     }

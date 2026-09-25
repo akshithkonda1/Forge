@@ -164,11 +164,12 @@ struct HomeHeaderView: View {
                     .forgeSectionLabel()
 
                 Text(greeting + (firstName.isEmpty ? "" : ", \(firstName)"))
-                    .font(FDS.TypeScale.pageTitle(28))
+                    .font(HomeType.greeting)
                     .foregroundColor(.textPrimary)
                     .lineLimit(1)
                     .minimumScaleFactor(0.78)
                     .accessibilityAddTraits(.isHeader)
+                    .accessibilityLabel(greeting + (firstName.isEmpty ? "" : ", \(firstName)"))
                     .overlay(alignment: .bottomLeading) {
                         Capsule()
                             .fill(Color.ember.opacity(0.55))
@@ -183,7 +184,7 @@ struct HomeHeaderView: View {
                 .padding(.top, 4)
                 if let ingestError = ingestErrorText, !ingestError.isEmpty {
                     Text(ingestError)
-                        .font(.system(size: 11, weight: .medium, design: .rounded))
+                        .font(HomeType.micro)
                         .foregroundColor(.warning)
                         .fixedSize(horizontal: false, vertical: true)
                         .padding(.top, 2)
@@ -191,20 +192,20 @@ struct HomeHeaderView: View {
                 }
                 if !store.metricSources.isEmpty {
                     Text(store.metricSources.prefix(3).map { CloudSourceLabel.displayName(for: $0) }.joined(separator: " · "))
-                        .font(.system(size: 11, weight: .medium, design: .rounded))
+                        .font(HomeType.micro)
                         .foregroundColor(.textTertiary)
                         .lineLimit(1)
                 }
                 if store.usingTestReadyHealthPack {
                     let life = AriaLifeRead.from(tags: AriaContextStore.shared.context.lifestyleTags)
                     Text(life.story ?? "ARIA already has this month.")
-                        .font(.system(size: 12, weight: .medium, design: .rounded))
+                        .font(HomeType.body)
                         .foregroundColor(.textSecondary)
                         .lineLimit(2)
                         .padding(.top, 2)
                 } else if let habit = AriaContextStore.shared.context.deepHabits.first {
                     Text("\(habit.category.rawValue.capitalized) · \(habit.evidence)")
-                        .font(.system(size: 11, weight: .medium, design: .rounded))
+                        .font(HomeType.micro)
                         .foregroundColor(.textTertiary)
                         .lineLimit(1)
                 }
@@ -280,7 +281,7 @@ private struct HomeDataStatusPill: View {
                         .shadow(color: isLive ? Color.vitality.opacity(0.7) : .clear, radius: 3)
                 }
                 Text(statusText)
-                    .font(.system(size: 11, weight: .semibold, design: .rounded))
+                    .font(HomeType.micro)
                     .foregroundColor(isLive ? Color.vitality : .warning)
             }
             .padding(.horizontal, 9)
@@ -328,10 +329,10 @@ private struct HomeScrollMiniHeader: View {
             ReadinessRingView(score: store.readiness.overall, size: 26, strokeWidth: 3, showLabel: false)
             VStack(alignment: .leading, spacing: 1) {
                 Text(firstName)
-                    .font(.system(size: 14, weight: .semibold, design: .rounded))
+                    .font(HomeType.status)
                     .foregroundColor(.textPrimary)
                 Text(store.todayWorkout?.name ?? homeStatusLine(store: store))
-                    .font(.system(size: 11, weight: .medium))
+                    .font(HomeType.micro)
                     .foregroundColor(.textTertiary)
                     .lineLimit(1)
             }
@@ -344,7 +345,7 @@ private struct HomeScrollMiniHeader: View {
                 }
             } label: {
                 Text(store.isWorkoutActive ? "Continue" : "Train")
-                    .font(.system(size: 13, weight: .semibold, design: .rounded))
+                    .font(HomeType.label)
                     .foregroundColor(.white)
                     .padding(.horizontal, 14)
                     .padding(.vertical, 7)
@@ -353,6 +354,7 @@ private struct HomeScrollMiniHeader: View {
                     .overlay(Capsule().stroke(Color.white.opacity(0.16), lineWidth: 1))
             }
             .buttonStyle(.plain)
+            .accessibilityLabel(store.isWorkoutActive ? "Continue session" : "Train")
         }
         .padding(.horizontal, HomeMetrics.inset)
         .padding(.top, 8)

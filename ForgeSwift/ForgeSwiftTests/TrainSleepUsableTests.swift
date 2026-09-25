@@ -123,6 +123,60 @@ final class TrainSleepUsableTests: XCTestCase {
         XCTAssertTrue(copy.message.localizedCaseInsensitiveContains("apple health"))
     }
 
+    func testHomeEasySessionCopyIsCoachNotClinical() {
+        let store = AppStore()
+        store.dailyMetrics.hrv = 55
+        store.readiness.overall = 40
+        let action = HomePrimaryAction.resolve(store: store)
+        XCTAssertEqual(action.title, HomeCoachCopy.easySessionTitle)
+        guard case .recoveryDay(let reason) = action else {
+            return XCTFail("low readiness with a life signal should be an easy day")
+        }
+        for banned in HomeCoachCopy.bannedPhrases {
+            XCTAssertFalse(reason.localizedCaseInsensitiveContains(banned), reason)
+            XCTAssertFalse(action.title.localizedCaseInsensitiveContains(banned))
+        }
+        XCTAssertEqual(reason, HomeCoachCopy.easyDayLow)
+    }
+
+    func testHomeCoachCopyNeverUsesBannedPhrases() {
+        let samples = [
+            HomeCoachCopy.easySessionTitle,
+            HomeCoachCopy.easyDayGuidance,
+            HomeCoachCopy.easyDayLow,
+            HomeCoachCopy.pulledBack(score: 62),
+            HomeReadiness.label(40),
+            HomeReadiness.voiceOverLabel(72),
+        ]
+        for sample in samples {
+            for banned in HomeCoachCopy.bannedPhrases {
+                XCTAssertFalse(sample.localizedCaseInsensitiveContains(banned), sample)
+            }
+        }
+        XCTAssertEqual(HomeReadiness.label(90), "Peak")
+        XCTAssertEqual(HomeReadiness.voiceOverLabel(72), "Readiness 72 out of 100, Good")
+    }
+
+    func testHomeTrendSeriesNeedsThreeNightsAndClampsScores() {
+        XCTAssertTrue(HomeTrendSeries.points(from: [
+            SleepData(date: "2026-09-24", totalHours: 7, deepMinutes: 60, remMinutes: 80, lightMinutes: 200, awakeMinutes: 20, score: 70),
+            SleepData(date: "2026-09-25", totalHours: 7, deepMinutes: 60, remMinutes: 80, lightMinutes: 200, awakeMinutes: 20, score: 80),
+        ]).isEmpty)
+
+        let nights = [
+            SleepData(date: "2026-09-25", totalHours: 7.2, deepMinutes: 70, remMinutes: 90, lightMinutes: 210, awakeMinutes: 15, score: 140),
+            SleepData(date: "2026-09-24", totalHours: 6.8, deepMinutes: 50, remMinutes: 80, lightMinutes: 200, awakeMinutes: 25, score: 90),
+            SleepData(date: "2026-09-23", totalHours: 6.1, deepMinutes: 40, remMinutes: 70, lightMinutes: 190, awakeMinutes: 30, score: 10),
+        ]
+        let points = HomeTrendSeries.points(from: nights)
+        XCTAssertEqual(points.map(\.score), [30, 90, 100])
+        XCTAssertEqual(HomeTrendSeries.average(points), 73)
+        let spoken = HomeTrendSeries.accessibilitySummary(points)
+        XCTAssertTrue(spoken.contains("Seven-day signal"))
+        XCTAssertTrue(spoken.contains("average 73"))
+        XCTAssertGreaterThanOrEqual(HomeMetrics.heroFieldSize, 90)
+    }
+
     private func samplePlan(sets: Int, weight: Int, duration: Int) -> WorkoutPlan {
         WorkoutPlan(
             id: "train-test",
