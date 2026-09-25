@@ -799,7 +799,7 @@ def _follow_up_reply(
     if shorter and easier:
         return _pick(seed, [
             "Alright — shorter and lighter. Ten to fifteen minutes, easy effort, done.",
-            "We cut it down and soft: a brief mobility or Zone-2 stroll, then stop.",
+            "We cut it down and soft: a brief mobility or an easy, chatty-pace zone 2 stroll, then stop.",
             "Yep — compress it. Short, kind, no hero finish.",
         ])
     if shorter:
@@ -973,7 +973,10 @@ def _collapse_spoken(text: str) -> str:
 
     def _why_dash(match: re.Match) -> str:
         rest = match.group(1).lstrip()
-        if rest[:1].isupper() and not rest.startswith(("I ", "I'm ", "I'll ", "I've ", "I'd ", "Zone ")):
+        zone = re.match(r"(Zone\s+\d\b)(.*)", rest)
+        if zone:
+            return f", {zone.group(1).lower()}{zone.group(2)}"
+        if rest[:1].isupper() and not rest.startswith(("I ", "I'm ", "I'll ", "I've ", "I'd ")):
             rest = rest[0].lower() + rest[1:]
         return f" — {rest}"
 

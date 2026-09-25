@@ -244,7 +244,7 @@ def detect_pattern(
                         else ""
                     )
                 ),
-                actions=("Show deload week", "Swap to Zone 2", "Protect tonight's sleep"),
+                actions=("Show deload week", "Swap to an easy, chatty-pace zone 2", "Protect tonight's sleep"),
                 confidence_cap=0.62 if derived.is_overtrained else 0.72,
                 reason_suffix=f"ACWR {acwr_txt} — back off load",
                 blocks_intensity=True,
@@ -271,7 +271,7 @@ def detect_pattern(
                 next_step=learned
                 or "Sleep first — protect tonight's wind-down before training volume",
                 why="A falling recovery trend plus short nights means the week is still carrying load",
-                actions=("Protect tonight's sleep", "Show recovery plan", "Swap to Zone 2"),
+                actions=("Protect tonight's sleep", "Show recovery plan", "Swap to an easy, chatty-pace zone 2"),
                 confidence_cap=0.60,
                 reason_suffix=(
                     f"HRV falling {derived.hrv_trend:.0f}% + {debt:.1f}h short this week — sleep first, "
@@ -315,7 +315,7 @@ def detect_pattern(
                 next_step=learned
                 or "Keep today low-intensity, an easy, chatty-pace zone 2 walk or mobility, not a hard session",
                 why="Readiness below 50 never gets a high-intensity call",
-                actions=("Show recovery plan", "Swap to Zone 2", "Protect tonight's sleep"),
+                actions=("Show recovery plan", "Swap to an easy, chatty-pace zone 2", "Protect tonight's sleep"),
                 confidence_cap=0.68,
                 reason_suffix=f"readiness {derived.readiness:.0f} — intensity blocked",
                 blocks_intensity=True,
@@ -401,7 +401,7 @@ def detect_pattern(
                 next_step=learned
                 or "Keep today low-intensity, an easy, chatty-pace zone 2 walk or mobility, not a hard session",
                 why="The lead signal is asking for a lighter day",
-                actions=("Show recovery plan", "Swap to Zone 2", "Protect tonight's sleep"),
+                actions=("Show recovery plan", "Swap to an easy, chatty-pace zone 2", "Protect tonight's sleep"),
                 blocks_intensity=True,
             )
         )
@@ -469,7 +469,7 @@ def plan_outline(pattern: EvidencePattern, ctx: Any, days: int = 3) -> list[dict
     outline: list[dict[str, str]] = []
     for i in range(days):
         if blocks_intensity and i == 0:
-            focus = "Recovery / Zone 2 only"
+            focus = "easy, chatty-pace zone 2 recovery"
             note = pattern.next_step
         elif blocks_intensity and i == 1:
             focus = "Mobility + easy aerobic"

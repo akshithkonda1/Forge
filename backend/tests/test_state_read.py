@@ -1260,6 +1260,8 @@ class AcwrAndGuideLabelTests(unittest.TestCase):
     def test_spoken_prose_has_no_guide_labels_or_dash_capitals(self):
         _label = re.compile(r"\b[A-Z][a-z]+ [a-z]+:")
         _dash_cap = re.compile(r"[—–-]\s+(?!I\b)[A-Z]")
+        # Iris: no "— Zone" at all — do not rely on Nyx's Zone-digit exemption.
+        _dash_zone = re.compile(r"[—–-]\s+Zone")
         os.environ.setdefault("SIMRUNNER_TODAY", "2026-01-15")
         from backend.ai.simrunner.aria_simrunner import dummy_orchestrator as dummy
         from backend.ai.simrunner.backend_simulator import model_registry as reg
@@ -1278,6 +1280,7 @@ class AcwrAndGuideLabelTests(unittest.TestCase):
         self.assertNotIn("easy body", speech)
         self.assertNotIn("like a friend would", speech)
         self.assertNotRegex(speech, _dash_cap)
+        self.assertNotRegex(speech, _dash_zone)
 
         for line in dummy._WIT_PROTECT + dummy._WIT_PROCEED + dummy._WIT_HONEST:
             self.assertNotRegex(line, _label, line)
@@ -1289,7 +1292,18 @@ class AcwrAndGuideLabelTests(unittest.TestCase):
             self.assertNotIn("your body", line.lower())
             self.assertNotIn("your body is", line.lower())
             self.assertNotRegex(line, _dash_cap, line)
+            self.assertNotRegex(line, _dash_zone, line)
             self.assertFalse(_DIGIT.search(line), line)
+
+        import inspect
+
+        self.assertNotRegex(inspect.getsource(dummy._callback), _dash_zone)
+        self.assertNotRegex(inspect.getsource(dummy._collapse_spoken), r'"Zone "')
+        collapsed = dummy._collapse_spoken(
+            "What I notice\nKeep today easy.\n\nWhy\nZone 2 walk or mobility."
+        )
+        self.assertNotRegex(collapsed, _dash_zone, collapsed)
+        self.assertIn(", zone 2 walk or mobility", collapsed)
 
         models = list(reg.get_models_by_tier(1) or [])
         self.assertTrue(models)
@@ -1297,28 +1311,46 @@ class AcwrAndGuideLabelTests(unittest.TestCase):
             for seed in (1, 7, 14):
                 stream = generate_stream(model["behavioral_profile"], seed=seed)
                 ctx = build_context(stream, model["behavioral_profile"], 14)
-                row = dummy.respond(
-                    "Should I train today?", seed=seed, engine="lambda", context=ctx
-                )
-                speech = f"{row.get('prose_summary') or ''} {row.get('message') or ''}"
-                self.assertNotRegex(speech, _label, speech)
-                self.assertNotRegex(speech, _dash_cap, speech)
-                self.assertNotRegex(speech, r"[—–-]\s+Zone", speech)
-                self.assertNotIn("Hug first:", speech)
-                self.assertNotIn("Why.", speech)
-                self._assert_evidence_is_clean(row.get("card"))
+                for engine in ("lambda", "stub"):
+                    row = dummy.respond(
+                        "Should I train today?", seed=seed, engine=engine, context=ctx
+                    )
+                    speech = f"{row.get('prose_summary') or ''} {row.get('message') or ''}"
+                    rec = row.get("recommendation") or ""
+                    step = ""
+                    if isinstance(row.get("card"), dict):
+                        step = str(row["card"].get("action") or "")
+                    blob = f"{speech} {rec} {step}"
+                    self.assertNotRegex(blob, _dash_zone, f"{engine}: {blob}")
+                    self.assertNotIn("Hug first:", speech)
+                    self.assertNotIn("Why.", speech)
+                    if engine == "lambda":
+                        self.assertNotRegex(speech, _label, speech)
+                        self.assertNotRegex(speech, _dash_cap, speech)
+                        self._assert_evidence_is_clean(row.get("card"))
 
         for seed in range(6):
             resp = aria_engine.generate_response(
                 "Should I train today?", _health_ctx(), seed=seed
             )
             speech = _speech(resp)
+            rec = ""
+            if isinstance(resp.get("card"), dict):
+                rec = str(resp["card"].get("action") or "")
+            blob = f"{speech} {rec}"
             self.assertNotRegex(speech, _label, speech)
             self.assertNotRegex(speech, _dash_cap, speech)
-            self.assertNotRegex(speech, r"[—–-]\s+Zone", speech)
+            self.assertNotRegex(blob, _dash_zone, blob)
             self.assertNotIn("Hug first:", speech)
             self.assertNotIn("Why.", speech)
             self._assert_evidence_is_clean(resp.get("card"))
+
+        plan = aria_engine.generate_response(
+            "build a plan for the next three days", _health_ctx(), seed=0
+        )
+        plan_speech = _speech(plan)
+        self.assertNotRegex(plan_speech, _dash_zone, plan_speech)
+        self.assertNotRegex(plan_speech, _dash_cap, plan_speech)
 
     def _assert_evidence_is_clean(self, card):
         blob = " ".join(_evidence_strings(card))
