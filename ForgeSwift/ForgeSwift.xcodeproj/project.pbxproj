@@ -250,6 +250,7 @@
 		1MED0A002F9FF867004091AA /* MedicationBottleScanner.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1MED09002F9FF867004091AA /* MedicationBottleScanner.swift */; };
 		1MED06002F9FF867004091AA /* fda_pharmacy_catalog.deflate in Resources */ = {isa = PBXBuildFile; fileRef = 1MED05002F9FF867004091AA /* fda_pharmacy_catalog.deflate */; };
 		1MED04000000000000000A /* MedicationPharmacyTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1MED03000000000000000A /* MedicationPharmacyTests.swift */; };
+		1TEST04A00000000000000A /* TrainingHabitsTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1TEST04900000000000000A /* TrainingHabitsTests.swift */; };
 		AA6AB39BF736B5FD37746022 /* ProfileModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB9638727829C4D00A83E2F4 /* ProfileModels.swift */; };
 		B82A3D64CC815A754DC8A65D /* AppStore+Profile.swift in Sources */ = {isa = PBXBuildFile; fileRef = D455F77E6B09ACDEEB1CA89D /* AppStore+Profile.swift */; };
 		195FDA7D73290864DD73F5BC /* ProfileComponents.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5FE4FFBC45D6BDF5B687D9C9 /* ProfileComponents.swift */; };
@@ -691,6 +692,7 @@
 		1MED09002F9FF867004091AA /* MedicationBottleScanner.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MedicationBottleScanner.swift; sourceTree = "<group>"; };
 		1MED05002F9FF867004091AA /* fda_pharmacy_catalog.deflate */ = {isa = PBXFileReference; lastKnownFileType = file; path = fda_pharmacy_catalog.deflate; sourceTree = "<group>"; };
 		1MED03000000000000000A /* MedicationPharmacyTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MedicationPharmacyTests.swift; sourceTree = "<group>"; };
+		1TEST04900000000000000A /* TrainingHabitsTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TrainingHabitsTests.swift; sourceTree = "<group>"; };
 		BB9638727829C4D00A83E2F4 /* ProfileModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProfileModels.swift; sourceTree = "<group>"; };
 		D455F77E6B09ACDEEB1CA89D /* AppStore+Profile.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "AppStore+Profile.swift"; sourceTree = "<group>"; };
 		5FE4FFBC45D6BDF5B687D9C9 /* ProfileComponents.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProfileComponents.swift; sourceTree = "<group>"; };
@@ -1294,6 +1296,7 @@
 				1TEST04100000000000000A /* TrainSleepUsableTests.swift */,
 				1TEST04700000000000000A /* SleepSurfacePresenceTests.swift */,
 				1MED03000000000000000A /* MedicationPharmacyTests.swift */,
+				1TEST04900000000000000A /* TrainingHabitsTests.swift */,
 			);
 			path = ForgeSwiftTests;
 			sourceTree = "<group>";
@@ -1882,6 +1885,7 @@
 				1TEST04200000000000000A /* TrainSleepUsableTests.swift in Sources */,
 				1TEST04800000000000000A /* SleepSurfacePresenceTests.swift in Sources */,
 				1MED04000000000000000A /* MedicationPharmacyTests.swift in Sources */,
+				1TEST04A00000000000000A /* TrainingHabitsTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

@@ -48,6 +48,7 @@ jobs:
     # Xcode 27 / iOS 27 / watchOS 27 — the SDK Forge is developed against.
     # macos-15 ships Xcode 16 and cannot compile a deployment target of 27.
     runs-on: xcode-27
+    timeout-minutes: 30
     defaults:
       run:
         working-directory: ForgeSwift
@@ -86,6 +87,7 @@ jobs:
             -scheme ForgeSwift \
             -destination 'generic/platform=iOS Simulator' \
             -configuration Debug \
+            -derivedDataPath "$RUNNER_TEMP/DerivedData" \
             -skipPackagePluginValidation \
             build-for-testing \
             CODE_SIGNING_ALLOWED=NO \
@@ -93,6 +95,64 @@ jobs:
             ONLY_ACTIVE_ARCH=NO \
             EXCLUDED_ARCHS=x86_64 \
             COMPILER_INDEX_STORE_ENABLE=NO 2>&1 | tee /tmp/ios-build.log
+
+      - name: Run ForgeSwiftTests (iOS Simulator)
+        run: |
+          set -euo pipefail
+          xcrun simctl list devices available
+          UDID="$(xcrun simctl list devices available -j | python3 -c '
+          import json, sys
+          data = json.load(sys.stdin)
+          for runtime, devices in data.get("devices", {}).items():
+              if "iOS-27" not in runtime:
+                  continue
+              for device in devices:
+                  if "iPhone" in device.get("name", ""):
+                      print(device["udid"])
+                      raise SystemExit(0)
+          print("No available iPhone on an iOS 27 runtime", file=sys.stderr)
+          raise SystemExit(1)
+          ')"
+          xcrun simctl boot "$UDID" || true
+          xcrun simctl bootstatus "$UDID" -b
+          xcstatus=0
+          xcodebuild \
+            -project ForgeSwift.xcodeproj \
+            -scheme ForgeSwift \
+            -destination "id=$UDID" \
+            -configuration Debug \
+            -derivedDataPath "$RUNNER_TEMP/DerivedData" \
+            -resultBundlePath "$RUNNER_TEMP/ForgeSwiftTests.xcresult" \
+            -parallel-testing-enabled NO \
+            -skipPackagePluginValidation \
+            test-without-building \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGN_IDENTITY="" \
+            ONLY_ACTIVE_ARCH=NO \
+            EXCLUDED_ARCHS=x86_64 \
+            COMPILER_INDEX_STORE_ENABLE=NO 2>&1 | tee /tmp/ios-test.log || xcstatus=$?
+          grep Executed /tmp/ios-test.log || true
+          exit "$xcstatus"
+
+      - name: Test failures (iOS)
+        if: failure()
+        run: |
+          echo "::group::Test failures"
+          test -f /tmp/ios-test.log || { echo "(tests did not reach this step)"; exit 0; }
+          grep -E "error:|failed|Test Case .* failed" /tmp/ios-test.log | sed 's|/Users/runner/work/Forge/Forge/||' | sort -u || echo "(no failure lines matched)"
+          echo "::endgroup::"
+          echo "::group::Failing test cases"
+          grep -E "Test Case .* failed" /tmp/ios-test.log || echo "(no failing Test Case lines)"
+          echo "::endgroup::"
+
+      - name: Upload ForgeSwiftTests xcresult
+        if: failure()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: ForgeSwiftTests-xcresult
+          path: ${{ runner.temp }}/ForgeSwiftTests.xcresult
+          retention-days: 7
+          if-no-files-found: ignore
 
       # xcodebuild logs run to ~2000 lines and bury `error:` lines thousands of
       # lines above the failure summary, which makes a red build genuinely hard
