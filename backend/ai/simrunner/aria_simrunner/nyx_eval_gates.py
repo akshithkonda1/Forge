@@ -79,8 +79,25 @@ _INVOKE_CALL_NAMES = frozenset(
         "generate_response_live",
         "InvokeModel",
         "invoke_model",
+        "InvokeModelWithBidirectionalStream",
+        "invoke_model_with_bidirectional_stream",
+        "SynthesizeSpeech",
+        "synthesize_speech",
         "converse",
+        "mint_signed_url",
+        "run_tool",
     }
+)
+
+# Live-voice spend Dummy must never reach (Nova Sonic, Polly, ElevenLabs).
+_SPEND_NAME_NEEDLES = (
+    "InvokeModelWithBidirectionalStream",
+    "invoke_model_with_bidirectional_stream",
+    "SynthesizeSpeech",
+    "synthesize_speech",
+    "elevenlabs_voice",
+    "/ai/voice/bootstrap",
+    "/ai/voice/tool",
 )
 
 _REPO_ROOT = Path(__file__).resolve().parents[4]
@@ -193,24 +210,35 @@ def _call_name(node: ast.AST) -> str:
 
 
 def dummy_invoke_call_failures(source: str) -> list[str]:
-    """FAIL GATE: Dummy source must not *call* live Bedrock / InvokeModel.
+    """FAIL GATE: Dummy source must not *call* live spend.
 
-    Mentions in comments/docstrings are allowed. ``generate_response``
-    (deterministic) is the fused Dummy speak path.
+    Covers Bedrock ``generate_response_live`` / ``InvokeModel``, Nova Sonic
+    ``InvokeModelWithBidirectionalStream``, Polly ``SynthesizeSpeech``, and
+    ElevenLabs session/tool helpers. Mentions in comments/docstrings are
+    allowed. ``generate_response`` (deterministic) is the fused Dummy path.
     """
     tree = ast.parse(source)
     fails: list[str] = []
     for node in ast.walk(tree):
-        if not isinstance(node, ast.Call):
-            continue
-        name = _call_name(node.func)
-        if name == "generate_response_live":
-            fails.append(f"generate_response_live call at line {node.lineno}")
-        if name in {"InvokeModel", "invoke_model"}:
-            fails.append(f"{name} call at line {node.lineno}")
-        if name == "converse":
-            # Dummy may mention converse in comments; a real Call is spend.
-            fails.append(f"converse call at line {node.lineno}")
+        if isinstance(node, ast.Import):
+            for alias in node.names:
+                if "elevenlabs_voice" in (alias.name or ""):
+                    fails.append(f"import {alias.name} at line {node.lineno}")
+        elif isinstance(node, ast.ImportFrom):
+            module = node.module or ""
+            if "elevenlabs_voice" in module:
+                fails.append(f"from {module} import at line {node.lineno}")
+            for alias in node.names:
+                if alias.name == "elevenlabs_voice":
+                    fails.append(f"from {module} import elevenlabs_voice at line {node.lineno}")
+        elif isinstance(node, ast.Constant) and isinstance(node.value, str):
+            for needle in _SPEND_NAME_NEEDLES:
+                if needle in node.value:
+                    fails.append(f"{needle} literal at line {node.lineno}")
+        elif isinstance(node, ast.Call):
+            name = _call_name(node.func)
+            if name in _INVOKE_CALL_NAMES:
+                fails.append(f"{name} call at line {node.lineno}")
     return fails
 
 
