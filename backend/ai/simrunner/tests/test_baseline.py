@@ -117,6 +117,34 @@ class CompareTests(unittest.TestCase):
         self.assertEqual(diffs[0].new_mission_critical, ["new query"])
         self.assertEqual(diffs[0].resolved_mission_critical, ["old query"])
 
+    def test_stub_baseline_vs_lambda_run_is_rebaseline_required_not_a_composite_drop(self):
+        """Current test_ready baselines say simrunner-stub; the run is lambda."""
+        base_rec = _minimal(composite=82.0)
+        base_rec["engine_model"] = "simrunner-stub"
+        cur = _minimal(composite=70.1)
+        cur["engine_model"] = "lambda-deterministic"
+        diffs = baseline.compare([cur], {"m": base_rec})
+        self.assertEqual(len(diffs), 1)
+        self.assertTrue(diffs[0].rebaseline_required)
+        self.assertEqual(diffs[0].engine_from, "simrunner-stub")
+        self.assertEqual(diffs[0].engine_to, "lambda-deterministic")
+        ok, reasons = baseline.gate(diffs, 3.0)
+        self.assertFalse(ok)
+        self.assertTrue(any("re-baseline required" in r for r in reasons), reasons)
+        self.assertFalse(any("composite" in r for r in reasons), reasons)
+
+    def test_matching_engines_still_score_a_composite_drop(self):
+        base_rec = _minimal(composite=82.0)
+        base_rec["engine_model"] = "lambda-deterministic"
+        cur = _minimal(composite=70.1)
+        cur["engine_model"] = "lambda-deterministic"
+        diffs = baseline.compare([cur], {"m": base_rec})
+        self.assertFalse(diffs[0].rebaseline_required)
+        ok, reasons = baseline.gate(diffs, 3.0)
+        self.assertFalse(ok)
+        self.assertTrue(any("composite" in r for r in reasons), reasons)
+        self.assertFalse(any("re-baseline required" in r for r in reasons), reasons)
+
 
 class GateTests(unittest.TestCase):
     def test_pass_when_stable(self):

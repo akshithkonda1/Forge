@@ -353,6 +353,8 @@ def _print_diffs(diffs) -> None:
         sign = "+" if d.composite_delta >= 0 else ""
         line = (f"  · {d.model_id}: composite {sign}{d.composite_delta}, "
                 f"grade {d.grade_from}{arrow}{d.grade_to}")
+        if getattr(d, "rebaseline_required", False):
+            line += f"  ⚠ re-baseline required ({d.engine_from} → {d.engine_to})"
         if d.new_mission_critical:
             line += f", +{len(d.new_mission_critical)} mission-critical"
         if d.resolved_mission_critical:

@@ -69,6 +69,24 @@ class ModelDiff:
     resolved_mission_critical: list[str]
     determinism_delta: float
     missing_baseline: bool
+    rebaseline_required: bool = False
+    engine_from: str | None = None
+    engine_to: str | None = None
+
+
+def _engine_of(rec: dict | None) -> str:
+    return str((rec or {}).get("engine_model") or "").strip()
+
+
+def _engine_mismatch(current: dict, base: dict) -> bool:
+    """True when both sides name an engine and they are not the same path.
+
+    Stub baselines vs a lambda-deterministic run is a distinct verdict
+    (re-baseline required), not a composite drop.
+    """
+    cur = _engine_of(current)
+    old = _engine_of(base)
+    return bool(cur and old and cur != old)
 
 
 def compare(current: list[dict], baseline: dict[str, dict]) -> list[ModelDiff]:
@@ -76,10 +94,14 @@ def compare(current: list[dict], baseline: dict[str, dict]) -> list[ModelDiff]:
     for rec in current:
         base = baseline.get(rec["model_id"])
         if base is None:
-            diffs.append(ModelDiff(rec["model_id"], 0.0, "—", rec["grade"], [], [], 0.0, True))
+            diffs.append(ModelDiff(
+                rec["model_id"], 0.0, "—", rec["grade"], [], [], 0.0, True,
+                engine_to=_engine_of(rec) or None,
+            ))
             continue
         cur_mc = set(rec.get("mission_critical_queries", []))
         base_mc = set(base.get("mission_critical_queries", []))
+        mismatch = _engine_mismatch(rec, base)
         diffs.append(ModelDiff(
             model_id=rec["model_id"],
             composite_delta=round(rec["composite"] - base["composite"], 1),
@@ -88,18 +110,30 @@ def compare(current: list[dict], baseline: dict[str, dict]) -> list[ModelDiff]:
             resolved_mission_critical=sorted(base_mc - cur_mc),
             determinism_delta=round((rec.get("determinism_rate") or 0) - (base.get("determinism_rate") or 0), 1),
             missing_baseline=False,
+            rebaseline_required=mismatch,
+            engine_from=_engine_of(base) or None,
+            engine_to=_engine_of(rec) or None,
         ))
     return diffs
 
 
 def gate(diffs: list[ModelDiff], max_drop: float, records: list[dict] | None = None) -> tuple[bool, list[str]]:
     """Pass unless a composite regresses, a new mission-critical appears, or
-    any tier-1 persona is still HOLD (easy lives must ship)."""
+    any tier-1 persona is still HOLD (easy lives must ship).
+
+    An engine_model mismatch is a distinct 're-baseline required' issue — it
+    is not scored as a composite drop (stub vs lambda is a different path).
+    """
     reasons: list[str] = []
     for d in diffs:
         if d.missing_baseline:
             continue
-        if d.composite_delta < -max_drop:
+        if d.rebaseline_required:
+            engines = ""
+            if d.engine_from or d.engine_to:
+                engines = f" ({d.engine_from} → {d.engine_to})"
+            reasons.append(f"{d.model_id}: re-baseline required{engines}")
+        elif d.composite_delta < -max_drop:
             reasons.append(f"{d.model_id}: composite {d.composite_delta} (exceeds -{max_drop} drop)")
         if d.new_mission_critical:
             reasons.append(f"{d.model_id}: {len(d.new_mission_critical)} new mission-critical failure(s)")
