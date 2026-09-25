@@ -1055,6 +1055,28 @@ class InsightTakeawayTests(unittest.TestCase):
 class AcwrAndGuideLabelTests(unittest.TestCase):
     def test_lambda_and_dummy_never_speak_acwr(self):
         from services.aria_engine import generate_response
+        from aria_core.aria_engine import _VITALS_SPEAK as lambda_vitals
+        from backend.ai.simrunner.aria_simrunner.dummy_orchestrator import (
+            _VITALS_SPEAK as dummy_vitals,
+        )
+
+        leak = (
+            "ACWR 1.32 sits above the 0.8–1.3 sweet spot; "
+            "protect your 22:30 wind-down"
+        )
+        self.assertRegex(leak, lambda_vitals)
+        self.assertRegex(leak, dummy_vitals)
+        self.assertTrue(speak_guard._has_banned_vitals(leak))
+        promoted = speak_guard._sized_step(
+            {"why": leak, "action": ""}, stance="protect", topic="training"
+        )
+        if promoted:
+            self.assertRegex(promoted, r"(?i)\bacwr\b")
+        spoken = speak_guard._append_guarded_step(
+            "Keep today easy.", leak, notes=[], topic="training"
+        )
+        self.assertNotRegex(spoken, r"(?i)\bacwr\b", spoken)
+        self.assertNotIn("22:30", spoken)
 
         contexts = {
             "protect": _health_ctx(
@@ -1126,29 +1148,42 @@ class AcwrAndGuideLabelTests(unittest.TestCase):
         ctx = build_context(stream, model["behavioral_profile"], 14)
         ctx.today.acwr = 1.6
         ctx.acwr = 1.6
-        for rtype, prompt in (
-            ("protect", "Should I train today?"),
-            ("proceed", "Am I making progress?"),
-            ("clarify", "What should I do?"),
-            ("recommendation", "Should I train today?"),
-        ):
-            row = dummy.respond(prompt, seed=1, engine="lambda", context=ctx)
-            blob = " ".join(
-                str(p)
-                for p in (
-                    row.get("prose_summary"),
-                    row.get("message"),
-                    row.get("recommendation"),
-                    (row.get("card") or {}).get("action")
-                    if isinstance(row.get("card"), dict)
-                    else "",
-                    (row.get("card") or {}).get("why")
-                    if isinstance(row.get("card"), dict)
-                    else "",
+        for engine in ("lambda", "stub"):
+            for rtype, prompt in (
+                ("protect", "Should I train today?"),
+                ("proceed", "Am I making progress?"),
+                ("clarify", "What should I do?"),
+                ("recommendation", "Should I train today?"),
+            ):
+                row = dummy.respond(prompt, seed=1, engine=engine, context=ctx)
+                blob = " ".join(
+                    str(p)
+                    for p in (
+                        row.get("prose_summary"),
+                        row.get("message"),
+                        row.get("recommendation"),
+                        (row.get("card") or {}).get("action")
+                        if isinstance(row.get("card"), dict)
+                        else "",
+                        (row.get("card") or {}).get("why")
+                        if isinstance(row.get("card"), dict)
+                        else "",
+                    )
+                    if p
                 )
-                if p
-            )
-            self.assertNotRegex(blob, r"(?i)\bacwr\b", f"{rtype}: {blob}")
+                step = ""
+                if isinstance(row.get("card"), dict):
+                    step = speak_guard._sized_step(
+                        row["card"],
+                        stance=str((row.get("fusion") or {}).get("stance") or ""),
+                        topic="training",
+                    ) or ""
+                self.assertNotRegex(
+                    blob, r"(?i)\bacwr\b", f"{engine}/{rtype}: {blob}"
+                )
+                self.assertNotRegex(
+                    step, r"(?i)\bacwr\b", f"{engine}/{rtype} step: {step}"
+                )
 
     def test_spoken_prose_has_no_guide_labels_or_dash_capitals(self):
         _label = re.compile(r"\b[A-Z][a-z]+ [a-z]+:")
