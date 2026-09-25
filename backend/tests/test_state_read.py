@@ -1214,6 +1214,8 @@ class AcwrAndGuideLabelTests(unittest.TestCase):
             self.assertNotIn("restock day", line)
             self.assertNotIn("easy body", line)
             self.assertNotIn("tired body", line)
+            self.assertNotIn("your body", line.lower())
+            self.assertNotIn("your body is", line.lower())
             self.assertNotRegex(line, _dash_cap, line)
             self.assertFalse(_DIGIT.search(line), line)
 
