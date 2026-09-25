@@ -147,6 +147,42 @@ class ProviderNoSpendGates(unittest.TestCase):
             nyx.dummy_invoke_call_failures("url = '/ai/voice/tool'\n")
         )
 
+    def test_dummy_path_never_reaches_elevenlabs(self):
+        """FAIL if Dummy reaches ElevenLabs session mint, tool, or client.
+
+        Reach only — not env vars. ``elevenlabs_voice.py`` stays read-only.
+        """
+        owned = (
+            pathlib.Path(dummy.__file__),
+            pathlib.Path(dummy.voice_diagnostics.__file__),
+        )
+        for path in owned:
+            src = path.read_text(encoding="utf-8")
+            self.assertEqual(nyx.dummy_invoke_call_failures(src), [], path.name)
+            self.assertNotIn("elevenlabs_voice", src)
+            self.assertNotIn("/ai/voice/bootstrap", src)
+            self.assertNotIn("/ai/voice/tool", src)
+
+        from backend._paths import ensure_lambda_on_path
+
+        ensure_lambda_on_path()
+        from services import elevenlabs_voice
+
+        def boom(*_a, **_k):
+            raise AssertionError("Dummy must not reach ElevenLabs")
+
+        names = ("mint_signed_url", "run_tool", "design_aria", "credentials", "require_api_key")
+        originals = {name: getattr(elevenlabs_voice, name) for name in names}
+        try:
+            for name in names:
+                setattr(elevenlabs_voice, name, boom)
+            for engine in ("stub", "lambda"):
+                with self.subTest(engine=engine):
+                    dummy.respond("What should I train today?", seed=1, engine=engine)
+        finally:
+            for name, fn in originals.items():
+                setattr(elevenlabs_voice, name, fn)
+
     def test_capability_stub_if_present_is_do_not_invoke(self):
         caps = nyx.try_load_provider_capabilities()
         self.assertEqual(nyx.provider_stub_failures(caps), [])
