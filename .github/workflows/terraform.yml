@@ -123,20 +123,21 @@ jobs:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
+      # Refuse apply when the only backend would be local state on this runner.
+      # Ephemeral runner disks are discarded after the job, so the next apply
+      # would not see existing resources and would create duplicates.
+      # Scans every backend/infra/*.tf file, including versions.tf.
+      - name: Refuse apply without a remote backend
+        run: |
+          if ! grep -R --include='*.tf' -E 'backend[[:space:]]+"[^"]+"' . >/dev/null; then
+            echo '::error::No remote backend block found in backend/infra/*.tf (expected in backend/infra/versions.tf). Refusing apply: ephemeral local state on a runner would create duplicate resources.'
+            exit 1
+          fi
+
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@dfe3c3f87815947d99a8997f908cb6525fc44e9e # v4
         with:
           terraform_version: 1.15.0
-
-      # Refuse apply when the only backend would be local state on this runner.
-      # Ephemeral runner disks are discarded after the job, so the next apply
-      # would not see existing resources and would create duplicates.
-      - name: Refuse apply without a remote backend
-        run: |
-          if ! grep -R --include='*.tf' -E 'backend[[:space:]]+"[^"]+"' . >/dev/null; then
-            echo '::error::No remote backend block found in backend/infra/*.tf. Refusing apply: ephemeral local state on a runner would create duplicate resources.'
-            exit 1
-          fi
 
       - name: Require AWS credentials
         run: |
