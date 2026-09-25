@@ -2157,13 +2157,35 @@ _PROTECT_DAY_STEPS = (
     "Take a short stretch this afternoon, then an early wind-down tonight.",
     "Give tonight an early wind-down, and keep the work light and easy.",
 )
+# Same guide-leak → dirty-why path on proceed/clarify (Sonnet, Command-R+).
+_PROCEED_DAY_STEPS = (
+    "Keep one honest session today, then call it.",
+    "Spend today on one quality session, then call it.",
+    "Train one thing well today, then call it.",
+)
 _ACWR_SPEAK = re.compile(r"\bacwr\b", re.I)
+# Dummy speak_quality catches "deep sleep is 12%" as well as "at 12%".
+_SLEEP_STAGE_IS_PCT = re.compile(
+    r"\b(?:deep|rem|light)\s+sleep\s+(?:at|is)\s+\d+(?:\.\d+)?\s*%",
+    re.I,
+)
 
 
 def _protect_day_step(seed: int) -> str:
     """One seeded protect-day step. Tests assert cleanliness on this bank."""
     lines = _PROTECT_DAY_STEPS
     return lines[int(seed) % len(lines)]
+
+
+def _proceed_day_step(seed: int) -> str:
+    lines = _PROCEED_DAY_STEPS
+    return lines[int(seed) % len(lines)]
+
+
+def _stance_day_step(stance: str, seed: int) -> str:
+    if (stance or "").lower() == "protect":
+        return _protect_day_step(seed)
+    return _proceed_day_step(seed)
 
 
 def _step_fails_speak_scrub(text: str) -> bool:
@@ -2183,22 +2205,45 @@ def _step_fails_speak_scrub(text: str) -> bool:
         return True
     if _ACWR_SPEAK.search(raw):
         return True
+    if _SLEEP_STAGE_IS_PCT.search(raw):
+        return True
     return False
 
 
-def _is_protect_day(envelope: dict[str, Any]) -> bool:
+def _envelope_stance(envelope: dict[str, Any]) -> str:
     fusion = envelope.get("fusion") if isinstance(envelope.get("fusion"), dict) else {}
-    return str(fusion.get("stance") or "").lower() == "protect"
+    evidence = envelope.get("evidence") if isinstance(envelope.get("evidence"), dict) else {}
+    card = envelope.get("card") if isinstance(envelope.get("card"), dict) else {}
+    ev = card.get("evidence") if isinstance(card.get("evidence"), dict) else {}
+    return str(fusion.get("stance") or evidence.get("stance") or ev.get("stance") or "")
+
+
+def _is_protect_day(envelope: dict[str, Any]) -> bool:
+    return _envelope_stance(envelope).lower() == "protect"
 
 
 def _apply_protect_day_step(envelope: dict[str, Any], seed: int) -> dict[str, Any]:
-    """When stance is protect, keep a real step instead of a scrubbed fallback."""
-    if not _is_protect_day(envelope):
-        return envelope
-    step = _protect_day_step(seed)
+    """Keep a real step when speak-guard left a vitals why in card.action.
+
+    Protect days use the take-it-easy bank. Proceed/clarify turns that share
+    the same guide-leak root cause get a number-free session step so Dummy
+    does not collapse them to ``_SPEAK_FALLBACK``.
+    """
     card = envelope.get("card") if isinstance(envelope.get("card"), dict) else None
+    action = str((card or {}).get("action") or "").strip()
+    if card is None and not envelope.get("recommendation"):
+        return envelope
+    if (
+        not _step_fails_speak_scrub(action)
+        and not _step_fails_speak_scrub(str(envelope.get("recommendation") or ""))
+        and not any(
+            _step_fails_speak_scrub(str((card or {}).get(key) or ""))
+            for key in ("recommendation", "why", "timing", "rationale", "expected_effect")
+        )
+    ):
+        return envelope
+    step = _stance_day_step(_envelope_stance(envelope), seed)
     if card is not None:
-        action = str(card.get("action") or "").strip()
         if _step_fails_speak_scrub(action):
             card["action"] = step
         rec = str(card.get("recommendation") or "").strip()

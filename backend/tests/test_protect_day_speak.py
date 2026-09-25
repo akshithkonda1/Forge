@@ -128,5 +128,55 @@ class ProtectDayLambdaTurnTests(unittest.TestCase):
         self.assertNotEqual(first, second)
 
 
+class ProceedDayGuideLeakRescueTests(unittest.TestCase):
+    """Sonnet / Command-R+ fallbacks: same guide-leak, proceed/clarify stance."""
+
+    def test_proceed_dirty_acwr_action_becomes_proceed_line(self):
+        envelope = {
+            "prose_summary": "Signals look steady.",
+            "message": "Signals look steady.",
+            "confidence": 0.7,
+            "card": {"action": "ACWR 0.63 is light — room to progress load."},
+            "fusion": {"stance": "proceed"},
+        }
+        ctx = ARIAContext()
+        out = aria_engine._finish_spoken_envelope(
+            envelope, ctx, "Should I train today?", seed=0
+        )
+        action = (out.get("card") or {}).get("action")
+        self.assertIn(action, aria_engine._PROCEED_DAY_STEPS)
+        self.assertNotEqual(action, aria_engine._DUMMY_SPEAK_FALLBACK)
+
+    def test_clarify_sleep_stage_action_becomes_proceed_line(self):
+        envelope = {
+            "prose_summary": "Last night is on the page.",
+            "message": "Last night is on the page.",
+            "confidence": 0.6,
+            "card": {
+                "action": (
+                    "Sleep: deep sleep is 12% of the night, under your usual — "
+                    "protect your 23:00 wind-down tonight."
+                )
+            },
+            "fusion": {"stance": "clarify"},
+        }
+        ctx = ARIAContext()
+        out = aria_engine._finish_spoken_envelope(
+            envelope, ctx, "Should I train today?", seed=1
+        )
+        action = (out.get("card") or {}).get("action")
+        self.assertIn(action, aria_engine._PROCEED_DAY_STEPS)
+        self.assertFalse(any(ch.isdigit() for ch in action))
+
+    def test_proceed_lines_pass_speak_quality(self):
+        for line in aria_engine._PROCEED_DAY_STEPS:
+            self.assertTrue(line.endswith("."), line)
+            self.assertIsNone(_DIGIT.search(line), line)
+            fails = speak_quality.speak_failures(
+                {"prose_summary": line, "message": line, "card": {"action": line}}
+            )
+            self.assertEqual(fails, [], (line, fails))
+
+
 if __name__ == "__main__":
     unittest.main()
