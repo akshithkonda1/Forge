@@ -472,6 +472,14 @@ class SpeechLabelAndDashCapitalTests(unittest.TestCase):
         self.assertEqual(sq.dash_capital_hits("Easy day — I'll stay with you."), [])
         self.assertEqual(sq.dash_capital_hits("Easy day – I've got you."), [])
 
+    def test_zone_digit_after_dash_passes_other_capitals_fail(self):
+        self.assertEqual(sq.dash_capital_hits("easy spin — Zone 2 only"), [])
+        self.assertEqual(sq.speak_failures({"prose_summary": "easy spin — Zone 2 only"}), [])
+        self.assertTrue(sq.dash_capital_hits("easy spin — The rest is up to you"))
+        fails = sq.speak_failures({"prose_summary": "easy spin — The rest is up to you"})
+        self.assertTrue(any("dash-capital" in f and "The" in f for f in fails), fails)
+        self.assertTrue(sq.dash_capital_hits("easy spin — Zone only"), "Zone without a digit still fails")
+
     def test_sol_protect_and_proceed_day_lines_pass(self):
         from backend._paths import ensure_lambda_on_path
 

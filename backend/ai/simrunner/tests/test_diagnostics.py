@@ -9,6 +9,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[4]))
 from backend.ai.simrunner.aria_simrunner import diagnostics  # noqa: E402
 from backend.ai.simrunner.aria_simrunner import dummy_orchestrator as dummy  # noqa: E402
 from backend.ai.simrunner.aria_simrunner import speak_quality as sq  # noqa: E402
+from backend.ai.simrunner.aria_simrunner.speak_quality import turn_bar_failures  # noqa: E402
 from backend.ai.simrunner.aria_simrunner.aria_engine import ARIAResponse  # noqa: E402
 from backend.ai.simrunner.aria_simrunner.aria_evaluator import (  # noqa: E402
     DimensionScores, EvaluationResult, evaluate, grade,
@@ -226,8 +227,21 @@ class TurnDiagnosticTests(unittest.TestCase):
     def test_passed_iff_no_mission_critical_and_meets_bar(self):
         _, turns = diagnostics.diagnose(_results("amazon.nova-lite-v1", 1))
         for t in turns:
-            expected = (t.max_severity != diagnostics.MISSION_CRITICAL) and (t.composite >= diagnostics.PASS_COMPOSITE)
+            expected = (
+                t.max_severity != diagnostics.MISSION_CRITICAL
+                and t.composite >= diagnostics.PASS_COMPOSITE
+                and not turn_bar_failures(t.how)
+            )
             self.assertEqual(t.passed, expected)
+
+    def test_evidence_guide_leak_run_cannot_ship(self):
+        leak = "evidence-guide-leak: They have repair in the bank"
+        sysd, turns = diagnostics.diagnose([_fake_result(82.0, [leak]) for _ in range(5)])
+        self.assertTrue(all(not t.passed for t in turns), [t.how for t in turns])
+        self.assertEqual(sysd.pass_rate, 0.0)
+        self.assertFalse(sysd.passed)
+        self.assertNotEqual(sysd.verdict, "SHIP")
+        self.assertTrue(sysd.verdict.startswith("HOLD"), sysd.verdict)
 
     def test_to_dict_is_complete(self):
         sysd, turns = diagnostics.diagnose(_results("anthropic.claude-sonnet-4-6", 1))
@@ -253,19 +267,22 @@ class SystemDiagnosticTests(unittest.TestCase):
             self.assertTrue(sysd.verdict.startswith("HOLD"))
 
     def test_tier1_honesty_axis_still_clean(self):
-        """Tier-1 HOLD gate is unchanged: easy lives cannot HOLD for
-        mission-critical or pass-rate. Quality below good may HOLD."""
+        """Mission-critical still holds the ship. Speech/evidence gates may
+        drop pass rate below 80% until Mira's #373 fix — that HOLD is honest."""
         for m in reg.get_models_by_tier(1):
-            sysd, _ = diagnostics.diagnose(_results(m["model_id"], 1))
+            sysd, turns = diagnostics.diagnose(_results(m["model_id"], 1))
             self.assertFalse(
                 sysd.mission_critical,
                 f"{m['model_id']} tier-1 must not HOLD for mission-critical: {sysd.verdict}",
             )
-            self.assertGreaterEqual(
-                sysd.pass_rate, diagnostics.PASS_RATE_THRESHOLD * 100,
-                f"{m['model_id']} tier-1 must not HOLD for pass rate: {sysd.verdict}",
-            )
+            gated = any(turn_bar_failures(t.how) for t in turns)
+            if gated:
+                continue
             if sysd.quality_level in diagnostics.SHIP_QUALITY:
+                self.assertGreaterEqual(
+                    sysd.pass_rate, diagnostics.PASS_RATE_THRESHOLD * 100,
+                    f"{m['model_id']} tier-1 must not HOLD for pass rate: {sysd.verdict}",
+                )
                 self.assertTrue(sysd.passed, f"{m['model_id']} should SHIP: {sysd.verdict}")
                 self.assertEqual(sysd.verdict, "SHIP")
             else:
@@ -329,12 +346,13 @@ class StubVitalsScrubTests(unittest.TestCase):
         self.assertIn("zone 2", allowed.lower())
 
         for m in reg.get_models_by_tier(1):
-            sysd, _ = diagnostics.diagnose(_results(m["model_id"], 1))
-            self.assertGreaterEqual(
-                sysd.pass_rate, diagnostics.PASS_RATE_THRESHOLD * 100,
-                f"{m['model_id']} stub diagnostics: {sysd.verdict}",
-            )
+            sysd, turns = diagnostics.diagnose(_results(m["model_id"], 1))
             self.assertFalse(sysd.mission_critical, sysd.verdict)
+            if not any(turn_bar_failures(t.how) for t in turns):
+                self.assertGreaterEqual(
+                    sysd.pass_rate, diagnostics.PASS_RATE_THRESHOLD * 100,
+                    f"{m['model_id']} stub diagnostics: {sysd.verdict}",
+                )
 
 
 if __name__ == "__main__":

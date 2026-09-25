@@ -337,12 +337,39 @@ def bare_label_hits(text: str) -> list[str]:
 def dash_capital_hits(text: str) -> list[str]:
     """Capital letter after an em/en dash or ' - ', except I / I'm / I'll / I've / I'd."""
     hits: list[str] = []
-    for match in _DASH_CAPITAL_RE.finditer(text or ""):
+    raw = text or ""
+    for match in _DASH_CAPITAL_RE.finditer(raw):
         word = match.group("word")
         if _I_CONTRACTION.match(word):
             continue
+        # Iris policy allows 'zone 2' as a training term (effort band), not a
+        # sentence restart after a dash. Exempt only 'Zone' immediately
+        # followed by a space and a digit. Any other capital after a dash
+        # still fails.
+        if word.lower() == "zone" and re.match(r" \d", raw[match.end() :]):
+            continue
         hits.append(word)
     return hits
+
+
+# These prefixes fail the Test-Ready turn bar. evaluate() copies them onto
+# EvaluationResult.failures; diagnostics._turn then marks the turn failed,
+# the same way existing speak_quality leaks already feed the turn bar.
+# evidence-vitals stays off the bar until CHECK_VITALS_ON_EVIDENCE is on.
+TURN_BAR_FAIL_PREFIXES = (
+    "speech-label:",
+    "bare-label:",
+    "dash-capital:",
+    "evidence-clinical:",
+    "evidence-medical:",
+    "evidence-sludge:",
+    "evidence-guide-leak:",
+)
+
+
+def turn_bar_failures(fails: list[str] | None) -> list[str]:
+    """Subset of speak_failures that fail a Test-Ready turn."""
+    return [item for item in (fails or []) if item.startswith(TURN_BAR_FAIL_PREFIXES)]
 
 
 def _hits(pattern: re.Pattern[str], text: str) -> list[str]:

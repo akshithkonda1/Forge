@@ -19,6 +19,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 
 from .aria_evaluator import EvaluationResult, fallback_hit_fields, grade
+from . import speak_quality
 
 # Severity ladder, most → least serious.
 MISSION_CRITICAL = "mission_critical"
@@ -141,7 +142,12 @@ def _turn(result: EvaluationResult) -> TurnDiagnostic:
     severities = [classify_severity(f) for f in result.failures]
     max_sev = min(severities, key=lambda s: _ORDER[s]) if severities else None
     what = sorted({f.split(":", 1)[0] for f in result.failures})
-    passed = (max_sev != MISSION_CRITICAL) and (result.composite_score >= PASS_COMPOSITE)
+    speech_gate = bool(speak_quality.turn_bar_failures(result.failures))
+    passed = (
+        max_sev != MISSION_CRITICAL
+        and result.composite_score >= PASS_COMPOSITE
+        and not speech_gate
+    )
     return TurnDiagnostic(
         passed=passed, tier=result.tier, query=result.query,
         model_used=result.response.model_used,

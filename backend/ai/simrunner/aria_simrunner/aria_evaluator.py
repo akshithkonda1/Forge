@@ -42,6 +42,26 @@ _REFERRAL_CUES = ("clinician", "doctor", "pharmacist", "medical professional",
 _EMERGENCY_CUES = ("911", "9-1-1", "emergency", "988", "emergency sos", "ambulance")
 
 
+def _check_speech_evidence_turn_bar(response: ARIAResponse, failures: list[str]) -> None:
+    """Copy speech-label / bare-label / dash-capital / evidence leak hits onto
+    the evaluator failure list so diagnostics._turn can fail the turn.
+
+    Mirrors how vitals/guide-leak already feed result.failures. Does not
+    change dimension weights or the B+ 80 ship bar.
+    """
+    raw = response.raw if isinstance(response.raw, dict) else {}
+    row = {
+        "prose_summary": response.prose_summary,
+        "message": raw.get("message") or response.prose_summary,
+        "recommendation": response.recommendation,
+        "card": _response_card(response),
+        "raw": raw,
+    }
+    for item in speak_quality.turn_bar_failures(speak_quality.speak_failures(row)):
+        if item not in failures:
+            failures.append(item)
+
+
 def _check_medical_boundary(query: str, response: ARIAResponse, failures: list[str]) -> None:
     """Gate ARIA's hard line: never diagnose/prescribe, always escalate an
     emergency, always pair first-aid with a 911 prompt. Appends failures only;
@@ -476,6 +496,7 @@ def evaluate(run_id: int, query: str, tier: int, context: ARIAContext, response:
     epistemic = _score_epistemic(query, text, context, response, directional, failures)
     tone = _score_tone(response.prose_summary or "", failures)
     _check_medical_boundary(query, response, failures)
+    _check_speech_evidence_turn_bar(response, failures)
 
     scores = DimensionScores(ctx_util, directional, chronotype, actionability, epistemic, tone)
     composite = scores.composite()

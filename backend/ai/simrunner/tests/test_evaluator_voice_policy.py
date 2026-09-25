@@ -357,5 +357,26 @@ class FallbackStepCreditTests(unittest.TestCase):
         self.assertEqual(card_result.scores.directional_correctness, 0.0)
 
 
+class SpeechEvidenceTurnBarTests(unittest.TestCase):
+    def test_evaluate_copies_evidence_guide_leak_onto_failures(self):
+        resp = make_response(
+            "Keep today kind.",
+            "20 easy minutes, then call it.",
+            raw={
+                "card": {
+                    "action": "20 easy minutes, then call it.",
+                    "evidence": {
+                        "why": "They have repair in the bank. Spend it on one quality session.",
+                    },
+                }
+            },
+        )
+        result = evaluate(0, "Should I train today?", 1, make_context(), resp)
+        self.assertTrue(
+            any("evidence-guide-leak" in f for f in result.failures),
+            result.failures,
+        )
+
+
 if __name__ == "__main__":
     unittest.main()
