@@ -172,6 +172,47 @@ class DummyARIAEngineUsesLambdaTests(unittest.TestCase):
         self.assertTrue(resp.recommendation)
         self.assertIn("sleep", resp.recommendation.lower())
 
+    def test_same_day_strength_never_says_zero_hours_since(self):
+        ctx, _ = _ctx()
+        ctx.days_since_last_workout = 0
+        ctx.today.workout_logged = True
+        ctx.last_workout_type = "strength"
+        row = dummy.respond("Should I train today?", seed=1, engine="lambda", context=ctx)
+        blob = " ".join(
+            str(p)
+            for p in (
+                row.get("prose_summary"),
+                row.get("message"),
+                row.get("recommendation"),
+                (row.get("card") or {}).get("action") if isinstance(row.get("card"), dict) else "",
+                (row.get("card") or {}).get("why") if isinstance(row.get("card"), dict) else "",
+            )
+            if p
+        ).lower()
+        self.assertNotIn("0 h since", blob)
+        self.assertNotIn("only 0 h since strength", blob)
+
+    def test_progress_question_gets_a_sized_recommendation(self):
+        ctx, _ = _ctx()
+        ctx.training_streak = 14
+        ctx.readiness_trend = "rising"
+        ctx.today.readiness_score = 72
+        engine = dummy.DummyARIAEngine()
+        resp = engine.respond("Am I making progress?", ctx, seed=1)
+        self.assertIsNotNone(resp.recommendation)
+        self.assertTrue(str(resp.recommendation).strip())
+        low = resp.recommendation.lower()
+        self.assertTrue(
+            any(w in low for w in ("hold", "progress", "block", "session", "minute", "variable")),
+            resp.recommendation,
+        )
+
+    def test_deterministic_path_strips_repair_in_the_bank_guide(self):
+        ctx, _ = _ctx()
+        row = dummy.respond("Should I train today?", seed=1, engine="lambda", context=ctx)
+        blob = f"{row.get('prose_summary') or ''} {row.get('message') or ''}"
+        self.assertNotIn("they have repair in the bank", blob.lower())
+
 
 if __name__ == "__main__":
     unittest.main()

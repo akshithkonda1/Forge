@@ -1,0 +1,213 @@
+"""Shared speak guard: guide/label/memory leaks, same-day hours, confidence.
+
+Bedrock stays mocked — no real AWS calls.
+"""
+
+from __future__ import annotations
+
+import json
+import os
+import types
+import unittest
+from unittest.mock import patch
+
+import _bootstrap  # noqa: F401
+
+from aria_core import aria_engine, speak_guard  # noqa: E402
+from services.aria_engine import (  # noqa: E402
+    ARIAContext,
+    ProgressContext,
+    ReadinessContext,
+    SleepContext,
+    TrainingContext,
+)
+
+
+GUIDE = "They have repair in the bank. Spend it on one quality session in the slot they actually use."
+LABEL = "Usable picture is still thin"
+MEMORY_NOTE = "You always skip Friday night sessions when work runs late"
+
+
+def _ctx(**overrides) -> ARIAContext:
+    ctx = ARIAContext(
+        sleep=SleepContext(
+            duration_minutes=440, rem_minutes=95, deep_minutes=70, hrv=58, nights_available=14
+        ),
+        readiness=ReadinessContext(
+            hrv_7day_trend=-4, hrv_30day_baseline=62, recovery_score=72, hrv_days_available=7
+        ),
+        training=TrainingContext(
+            last_workout_type="strength", hours_since_last_workout=14, weekly_load_score=60
+        ),
+        progress=ProgressContext(
+            workouts_completed_30d=18, new_personal_records=2, training_load_trend="rising"
+        ),
+    )
+    for key, value in overrides.items():
+        setattr(ctx, key, value)
+    return ctx
+
+
+class DenySetFromSourceTests(unittest.TestCase):
+    def test_deny_set_includes_context_plan_guide_strings(self):
+        phrases = speak_guard._deny_phrases()
+        self.assertTrue(any("repair in the bank" in p.lower() for p in phrases), phrases)
+        self.assertTrue(any("usable picture is still thin" in p.lower() for p in phrases), phrases)
+        # Built from the source functions, not a single hardcoded line.
+        self.assertGreater(len(phrases), 4)
+
+
+class GuardSpeakTests(unittest.TestCase):
+    def test_strips_repair_in_the_bank_and_keeps_a_step(self):
+        out = speak_guard.guard_speak(f"You're ready. {GUIDE}")
+        self.assertNotIn("they have repair in the bank", out.lower())
+        self.assertTrue(out.strip())
+        self.assertTrue(
+            any(c in out.lower() for c in ("minute", "session", "easy", "hold", "progress")),
+            out,
+        )
+
+    def test_prefers_card_action_when_guide_is_stripped(self):
+        out = speak_guard.guard_speak(
+            GUIDE,
+            card={"action": "Hold the structure and progress one variable next block"},
+        )
+        self.assertNotIn("repair in the bank", out.lower())
+        self.assertIn("progress one variable", out.lower())
+
+    def test_strips_internal_label(self):
+        out = speak_guard.guard_speak(f"{LABEL}. Keep today easy.")
+        self.assertNotIn("usable picture is still thin", out.lower())
+        self.assertIn("easy", out.lower())
+
+    def test_strips_memory_header_and_verbatim_note(self):
+        raw = f"Recent patterns: {MEMORY_NOTE}. Hold the structure and progress one variable next block."
+        out = speak_guard.guard_speak(raw, memory_notes=[MEMORY_NOTE])
+        self.assertNotIn("recent patterns:", out.lower())
+        self.assertNotIn(MEMORY_NOTE.lower(), out.lower())
+        self.assertIn("progress", out.lower())
+
+    def test_dedupes_repeated_fragments(self):
+        out = speak_guard.guard_speak(
+            "Keep today easy. Keep today easy. 20 easy minutes, then call it. 20 easy minutes, then call it."
+        )
+        self.assertEqual(out.lower().count("keep today easy"), 1)
+        self.assertEqual(out.lower().count("20 easy minutes, then call it"), 1)
+
+    def test_rewrites_zero_hours_since(self):
+        out = speak_guard.guard_speak("Only 0 h since strength — keep today easy.")
+        self.assertNotIn("0 h since", out.lower())
+        self.assertIn("earlier today", out.lower())
+
+    def test_leaves_zone_2_and_sleep_hours_alone(self):
+        text = "Sleep looked like about 7 hours. Keep it Zone 2, twenty minutes."
+        self.assertEqual(speak_guard.guard_speak(text), text)
+
+
+class DeterministicPathTests(unittest.TestCase):
+    def test_generate_response_strips_repair_in_the_bank(self):
+        resp = aria_engine.generate_response("Should I train today?", _ctx())
+        blob = f"{resp.get('prose_summary') or ''} {resp.get('message') or ''}"
+        self.assertNotIn("they have repair in the bank", blob.lower())
+
+    def test_same_day_zero_hours_never_appears(self):
+        ctx = _ctx(training=TrainingContext(last_workout_type="strength", hours_since_last_workout=0.0))
+        resp = aria_engine.generate_response("Should I train today?", ctx)
+        blob = speak_guard.user_visible(resp).lower()
+        self.assertNotIn("0 h since", blob)
+        self.assertNotIn("only 0 h since strength", blob)
+
+    def test_progress_question_maps_sized_step_into_recommendation(self):
+        resp = aria_engine.generate_response("Am I making progress?", _ctx())
+        self.assertEqual(resp["response_type"], "summary")
+        rec = resp.get("recommendation") or (resp.get("card") or {}).get("action")
+        self.assertIsNotNone(rec)
+        self.assertTrue(str(rec).strip())
+        self.assertTrue(
+            any(w in str(rec).lower() for w in ("hold", "progress", "block", "variable", "session")),
+            rec,
+        )
+
+    def test_contradiction_caps_confidence_below_point_nine(self):
+        ctx = _ctx(
+            training=TrainingContext(last_workout_type="strength", hours_since_last_workout=3.0)
+        )
+        # Direct helper — generate_response rarely emits both sides at once.
+        capped = speak_guard.cap_contradiction_confidence(
+            "Recovery window is still open. Train hard today and push for a PR.",
+            0.94,
+            hours_since=3.0,
+        )
+        self.assertLess(capped, 0.9)
+        envelope = {
+            "prose_summary": "Recovery window is still open. Go hard — high-intensity session.",
+            "confidence": 0.93,
+            "card": {"action": "Train hard today"},
+        }
+        guarded = speak_guard.guard_envelope(envelope)
+        self.assertLess(guarded["confidence"], 0.9)
+
+
+class LiveBedrockGuardTests(unittest.TestCase):
+    def setUp(self):
+        self._flag = os.environ.get("ARIA_BEDROCK_ENABLED")
+        os.environ["ARIA_BEDROCK_ENABLED"] = "true"
+        self._gateway = aria_engine._gateway
+        aria_engine._gateway = None
+
+    def tearDown(self):
+        aria_engine._gateway = self._gateway
+        if self._flag is None:
+            os.environ.pop("ARIA_BEDROCK_ENABLED", None)
+        else:
+            os.environ["ARIA_BEDROCK_ENABLED"] = self._flag
+
+    def test_bedrock_path_guards_guide_text_without_real_boto(self):
+        leaked = (
+            "You're cleared. They have repair in the bank. "
+            "Spend it on one quality session in the slot they actually use."
+        )
+        payload = json.dumps(
+            {
+                "prose_summary": leaked,
+                "response_type": "recommendation",
+                "confidence": 0.8,
+            }
+        )
+        boto_hits: list[tuple] = []
+
+        class FakeGateway:
+            def __init__(self, *args, **kwargs):
+                self.calls = []
+
+            def converse(self, **kwargs):
+                self.calls.append(kwargs)
+                return {"answer": payload}
+
+        fake = FakeGateway()
+        fake_boto = types.ModuleType("boto3")
+
+        def _no_client(*args, **kwargs):
+            boto_hits.append((args, kwargs))
+            raise AssertionError("no real boto/Bedrock client")
+
+        fake_boto.client = _no_client
+
+        with patch.dict("sys.modules", {"boto3": fake_boto}):
+            with patch.object(aria_engine, "_gateway", fake):
+                with patch("ai_router.BedrockGateway", side_effect=lambda *a, **k: fake):
+                    resp = aria_engine.generate_response_live(
+                        "Should I train today?",
+                        _ctx(),
+                    )
+
+        self.assertEqual(resp.get("reasoning_source"), "bedrock")
+        blob = speak_guard.user_visible(resp)
+        self.assertNotIn("they have repair in the bank", blob.lower())
+        self.assertTrue(blob.strip())
+        self.assertEqual(boto_hits, [])
+        self.assertEqual(len(fake.calls), 1)
+
+
+if __name__ == "__main__":
+    unittest.main()

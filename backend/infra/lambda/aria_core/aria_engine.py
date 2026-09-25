@@ -1475,13 +1475,20 @@ def _interpret_training(ctx: ARIAContext, baselines: Any = None) -> Signal | Non
     if t.hours_since_last_workout is not None:
         hrs = t.hours_since_last_workout
         label = t.last_workout_type or "your last session"
-        parts.append(f"{hrs:.0f} h since {label}")
-        if hrs < 24:
-            interp_bits.append(f"only {hrs:.0f} h since {label} — recovery window is still open")
+        # Same-day without a real hour clock used to emit "0 h since".
+        # Keep the recovery window, but never phrase a zero-hour gap that way.
+        if hrs < 1:
+            parts.append("earlier today")
+            interp_bits.append(f"{label} earlier today — recovery window is still open")
             priority = "medium"
-        elif hrs > 72:
-            interp_bits.append(f"{hrs:.0f} h of rest — you're well recovered for intensity")
-            direction = "positive"
+        else:
+            parts.append(f"{hrs:.0f} h since {label}")
+            if hrs < 24:
+                interp_bits.append(f"only {hrs:.0f} h since {label} — recovery window is still open")
+                priority = "medium"
+            elif hrs > 72:
+                interp_bits.append(f"{hrs:.0f} h of rest — you're well recovered for intensity")
+                direction = "positive"
 
     if t.acwr is not None:
         parts.append(f"ACWR {t.acwr:.2f}")
@@ -2499,6 +2506,10 @@ def _summary_response(
         "win": win,
         "risk": risk,
         "recommendation": rec,
+        # Progress lane used to leave ARIAResponse.recommendation=None because
+        # adapters only read card.action (recommendation-lane shape). Map the
+        # sized step onto action so both engines surface it.
+        "action": rec,
         "evidence": pattern.to_dict(),
         "load": load.to_dict(),
     }
@@ -2632,7 +2643,30 @@ def generate_response(
         if callback not in msg:
             envelope["message"] = f"{callback}\n\n{msg}" if msg else callback
             envelope["fusion"]["companion_callback"] = True
-    return _attach_shared_intelligence(envelope, ctx, message)
+    return _finish_spoken_envelope(envelope, ctx, message)
+
+
+def _memory_notes_from_ctx(ctx: ARIAContext) -> list[str]:
+    notes: list[str] = []
+    notes.extend(str(p) for p in (ctx.lifestyle.recent_patterns or []) if p)
+    notes.extend(str(t) for t in (ctx.lifestyle.tags or []) if t)
+    notes.extend(str(x) for x in (getattr(ctx, "last_insights", None) or []) if x)
+    return notes
+
+
+def _finish_spoken_envelope(envelope: dict[str, Any], ctx: ARIAContext, message: str) -> dict[str, Any]:
+    """Attach sidecars, then guard user-visible speak (deterministic path)."""
+    envelope = _attach_shared_intelligence(envelope, ctx, message)
+    from . import speak_guard
+
+    envelope = speak_guard.guard_envelope(envelope, memory_notes=_memory_notes_from_ctx(ctx))
+    blob = speak_guard.user_visible(envelope)
+    envelope["confidence"] = speak_guard.cap_contradiction_confidence(
+        blob,
+        envelope.get("confidence"),
+        hours_since=ctx.training.hours_since_last_workout,
+    )
+    return envelope
 
 
 def _attach_shared_intelligence(envelope: dict[str, Any], ctx: ARIAContext, message: str) -> dict[str, Any]:
@@ -2976,7 +3010,25 @@ def generate_response_live(
         fallback["reasoning_error"] = str(exc) or exc.__class__.__name__
         return fallback
 
-    return _merge_live_envelope(base, data, prose, model_id, voice_mode)
+    from . import speak_guard
+
+    card = base.get("card") if isinstance(base.get("card"), dict) else None
+    notes = _memory_notes_from_ctx(sanitized)
+    # Guard after the model returns text — Bedrock must never leak guide/label
+    # / memory-block copy into user-visible speak. Deterministic path is
+    # guarded in _finish_spoken_envelope / friend_speak.
+    prose = speak_guard.guard_speak(prose, card=card, memory_notes=notes)
+    rec = data.get("recommendation")
+    if isinstance(rec, str) and rec.strip():
+        data["recommendation"] = speak_guard.guard_speak(rec, card=card, memory_notes=notes)
+    merged = _merge_live_envelope(base, data, prose, model_id, voice_mode)
+    merged = speak_guard.guard_envelope(merged, memory_notes=notes)
+    merged["confidence"] = speak_guard.cap_contradiction_confidence(
+        speak_guard.user_visible(merged),
+        merged.get("confidence"),
+        hours_since=sanitized.training.hours_since_last_workout,
+    )
+    return merged
 
 
 # --- Tool-use + validation (Python owns truth) -------------------------------

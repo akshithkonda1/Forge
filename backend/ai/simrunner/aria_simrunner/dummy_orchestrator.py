@@ -952,6 +952,19 @@ def _speak_without_vitals(*candidates: str) -> str:
     return _SPEAK_FALLBACK
 
 
+def _apply_speak_guard(text: str, *, card: dict | None = None, notes: list[str] | None = None) -> str:
+    """Shared guide/label/memory/dedupe guard. Vitals scrub already ran."""
+    try:
+        from backend._paths import ensure_lambda_on_path
+
+        ensure_lambda_on_path()
+        from aria_core import speak_guard
+
+        return speak_guard.guard_speak(text, card=card, memory_notes=notes)
+    except Exception:
+        return text
+
+
 def _collapse_spoken(text: str) -> str:
     """One spoken reply — product cards use labeled \\n\\n sections."""
     body = str(text or "")
@@ -1111,17 +1124,18 @@ def friend_speak(
             real = real[0].upper() + real[1:]
             if extra and extra.lower() not in real.lower():
                 real = f"{real} — {extra}" if real[-1] not in ".!?—" else f"{real} {extra}"
-            return _speak_without_vitals(real, extra, _SPEAK_FALLBACK)
-        return _speak_without_vitals(extra, _SPEAK_FALLBACK)
+            return _apply_speak_guard(_speak_without_vitals(real, extra, _SPEAK_FALLBACK))
+        return _apply_speak_guard(_speak_without_vitals(extra, _SPEAK_FALLBACK))
     if any(n in body.lower() for n in _WIT_ALREADY):
-        return _speak_without_vitals(body)
+        return _apply_speak_guard(_speak_without_vitals(body))
     if _is_follow_up_speak(body) and not short_ok:
-        return _speak_without_vitals(body)
+        return _apply_speak_guard(_speak_without_vitals(body))
     if extra and extra.lower() not in body.lower():
         if body[-1] not in ".!?":
             body += "."
         body = f"{body} {extra}"
-    return _speak_without_vitals(body, extra, _SPEAK_FALLBACK)
+    spoken = _speak_without_vitals(body, extra, _SPEAK_FALLBACK)
+    return _apply_speak_guard(spoken)
 
 
 def _weave_specialists(prose: str, notes: list[SpecialistNote], seed: int) -> str:
@@ -1550,11 +1564,16 @@ def _suggest_body_session(message: str, context) -> dict | None:
     if lib is None:
         return None
     hours = None
-    days = getattr(context, "days_since_last_workout", None)
-    if context.today.workout_logged:
-        hours = 0.0
-    elif isinstance(days, (int, float)):
-        hours = float(days) * 24.0
+    try:
+        from .production_bridge import hours_since_last_workout
+
+        hours = hours_since_last_workout(context)
+    except Exception:
+        days = getattr(context, "days_since_last_workout", None)
+        if context.today.workout_logged:
+            hours = 0.0
+        elif isinstance(days, (int, float)):
+            hours = float(days) * 24.0
     suggestion = lib.maybe_suggest(
         message,
         last_workout_type=getattr(context, "last_workout_type", None),
@@ -1691,11 +1710,16 @@ def sim_context_to_chat_payload(
     steps = [r.steps for r in window3 if getattr(r, "steps", None)]
     cals = [r.active_calories for r in window3 if getattr(r, "active_calories", None)]
     hours_since = None
-    days = getattr(ctx, "days_since_last_workout", None)
-    if getattr(today, "workout_logged", False):
-        hours_since = 0.0
-    elif isinstance(days, (int, float)):
-        hours_since = float(days) * 24.0
+    try:
+        from .production_bridge import hours_since_last_workout
+
+        hours_since = hours_since_last_workout(ctx)
+    except Exception:
+        days = getattr(ctx, "days_since_last_workout", None)
+        if getattr(today, "workout_logged", False):
+            hours_since = 0.0
+        elif isinstance(days, (int, float)):
+            hours_since = float(days) * 24.0
     sleep_min = None
     if getattr(today, "total_sleep_hours", None) is not None:
         sleep_min = float(today.total_sleep_hours) * 60.0
@@ -1787,6 +1811,15 @@ def _scrub_fused_speak(envelope: dict) -> dict:
             if card.get(key):
                 card[key] = _speak_without_vitals(str(card[key]), prose)
         envelope["card"] = card
+    try:
+        from backend._paths import ensure_lambda_on_path
+
+        ensure_lambda_on_path()
+        from aria_core import speak_guard
+
+        envelope = speak_guard.guard_envelope(envelope)
+    except Exception:
+        pass
     return envelope
 
 
@@ -1887,6 +1920,10 @@ def _respond_via_lambda(
     )
     prose = _speak_without_vitals(prose)
     chat = _speak_without_vitals(chat, prose)
+    notes = [str(p) for p in (getattr(ctx, "notable_event_note", None) and [ctx.notable_event_note] or [])]
+    card_for_guard = envelope.get("card") if isinstance(envelope.get("card"), dict) else None
+    prose = _apply_speak_guard(prose, card=card_for_guard, notes=notes)
+    chat = _apply_speak_guard(chat, card=card_for_guard, notes=notes)
     envelope["prose_summary"] = prose
     envelope["message"] = chat
     diagnosis = voice_diagnostics.diagnose(prose)
@@ -1908,7 +1945,9 @@ def _respond_via_lambda(
         # DummyARIAEngine.respond() (which reads row.get("recommendation") the
         # same way the stub row already does at "recommendation": stub.recommendation)
         # gets a real value instead of always None.
-        "recommendation": card.get("action") if isinstance(card, dict) else None,
+        "recommendation": (
+            (card.get("action") or card.get("recommendation")) if isinstance(card, dict) else None
+        ),
         "restricted_domains": list(envelope.get("restricted_domains") or []),
         "agent": plan.primary.kind,
         "agents": plan.kinds,
@@ -2245,10 +2284,29 @@ class DummyARIAEngine:
         from .aria_engine import ARIAResponse
 
         row = respond(query, seed=seed, context=context, engine=ENGINE_LAMBDA)
+        rec = row.get("recommendation")
+        card = row.get("card")
+        if not rec and isinstance(card, dict):
+            rec = card.get("action") or card.get("recommendation")
+        confidence = float(row.get("confidence") or 0.74)
+        try:
+            from backend._paths import ensure_lambda_on_path
+
+            ensure_lambda_on_path()
+            from aria_core import speak_guard
+
+            blob = f"{row.get('message') or row.get('prose_summary') or ''} {rec or ''}"
+            from .production_bridge import hours_since_last_workout
+
+            confidence = speak_guard.cap_contradiction_confidence(
+                blob, confidence, hours_since=hours_since_last_workout(context)
+            )
+        except Exception:
+            pass
         return ARIAResponse(
             prose_summary=row["message"] or row["prose_summary"],
-            recommendation=row.get("recommendation"),
-            confidence=float(row.get("confidence") or 0.74),
+            recommendation=rec,
+            confidence=confidence,
             used_context=True,
             model_used=str(row.get("model") or LAMBDA_MODEL),
             query_type=row.get("agent") or "aria",
