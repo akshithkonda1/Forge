@@ -183,8 +183,6 @@ def guard_speak(
         step = _sized_step(card, stance=stance, topic=topic)
         if step and step.lower() not in cleaned.lower():
             cleaned = _append_guarded_step(cleaned, step, notes=notes, topic=topic)
-    if cleaned.strip():
-        cleaned = rescrub_speak(cleaned)
     return cleaned
 
 
@@ -468,6 +466,13 @@ def _join_with_step(cleaned: str, step: str) -> str:
     return f"{cleaned} {step}"
 
 
+def _has_banned_vitals(text: str) -> bool:
+    from .aria_engine import _VITALS_SPEAK, _strip_sleep_stage_pct
+
+    scrubbed = _strip_sleep_stage_pct(str(text or "").strip())
+    return bool(scrubbed) and bool(_VITALS_SPEAK.search(scrubbed))
+
+
 def _append_guarded_step(
     cleaned: str,
     step: str,
@@ -481,11 +486,10 @@ def _append_guarded_step(
     reach it through ``guard_speak`` after a sized step is spliced in.
     """
     step = _tidy(_strip_memory(str(step or ""), notes, original=step))
-    if not step:
-        if _is_training_topic(topic):
-            step = _SIZED_FRIEND_STEP
-        else:
-            return rescrub_speak(cleaned) if cleaned else cleaned
+    if not step or _has_banned_vitals(step):
+        step = _SIZED_FRIEND_STEP if _is_training_topic(topic) else ""
+        if not step:
+            return cleaned
     joined = _tidy(_join_with_step(cleaned, step))
     return rescrub_speak(joined, cleaned)
 

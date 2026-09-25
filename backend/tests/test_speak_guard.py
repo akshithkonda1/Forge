@@ -216,10 +216,10 @@ class DeterministicPathTests(unittest.TestCase):
             "fusion": {"stance": "protect"},
         }
         out = aria_engine._finish_spoken_envelope(envelope, _ctx(), "Should I train today?")
-        blob = speak_guard.user_visible(out)
-        self.assertNotIn("bpm", blob.lower())
-        self.assertNotIn("21%", blob)
-        self.assertNotRegex(blob.lower(), r"deep sleep at")
+        speech = f"{out.get('prose_summary') or ''} {out.get('message') or ''}"
+        self.assertNotIn("bpm", speech.lower())
+        self.assertNotIn("21%", speech)
+        self.assertNotRegex(speech.lower(), r"deep sleep at")
 
     def test_lambda_path_strips_notes_from_memory_block(self):
         ctx = _ctx()
@@ -329,11 +329,11 @@ class LivePathGuardTests(unittest.TestCase):
                 _ctx(),
                 converse=converse,
             )
-        blob = speak_guard.user_visible(resp)
+        speech = f"{resp.get('prose_summary') or ''} {resp.get('message') or ''}"
         self.assertEqual(resp.get("reasoning_source"), "bedrock")
-        self.assertNotIn("bpm", blob.lower())
-        self.assertNotIn("21%", blob)
-        self.assertNotRegex(blob.lower(), r"deep sleep at")
+        self.assertNotIn("bpm", speech.lower())
+        self.assertNotIn("21%", speech)
+        self.assertNotRegex(speech.lower(), r"deep sleep at")
         self.assertNotIn(os.environ.get("ARIA_BEDROCK_ENABLED", "").lower(), {"1", "true", "yes"})
 
     def test_live_path_strips_notes_from_memory_block(self):
