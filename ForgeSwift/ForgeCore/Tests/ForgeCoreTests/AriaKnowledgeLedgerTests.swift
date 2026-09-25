@@ -87,6 +87,32 @@ final class AriaKnowledgeLedgerTests: XCTestCase {
         )
     }
 
+    func testUserAddDropsPartnerCyclePrefixes() {
+        XCTAssertTrue(AriaInboundLifestyleStrip.isDeniedToken("partner_phase:luteal"))
+        XCTAssertTrue(AriaInboundLifestyleStrip.isDeniedToken("cycle:fertile_window"))
+        XCTAssertFalse(AriaInboundLifestyleStrip.isDeniedToken("calendar:evening:busy"))
+        XCTAssertEqual(AriaInboundLifestyleStrip.sanitize("partner_phase:luteal"), "")
+        XCTAssertEqual(
+            AriaInboundLifestyleStrip.sanitize("Keep earlier nights. partner_name:sam"),
+            "Keep earlier nights."
+        )
+
+        var ledger = AriaKnowledgeLedger()
+        ledger.file(AriaKnowledgeFact(
+            category: .weSpokeAbout,
+            kind: "user",
+            summary: "partner_phase:luteal cycle:fertile_window Keep earlier nights.",
+            source: "user"
+        ))
+        let blob = ledger.facts.map(\.summary).joined(separator: " ").lowercased()
+        XCTAssertFalse(blob.contains("partner_phase"))
+        XCTAssertFalse(blob.contains("partner_name"))
+        XCTAssertFalse(blob.contains("cycle:fertile"))
+        XCTAssertTrue(blob.contains("keep earlier nights"))
+        XCTAssertEqual(ledger.facts.first?.source, "user")
+        XCTAssertFalse(ledger.facts.first?.id.isEmpty ?? true)
+    }
+
     func testSleepNightBodyNotesStayQualitative() {
         var ledger = AriaKnowledgeLedger()
         ledger.file(AriaKnowledgeFact(

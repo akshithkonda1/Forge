@@ -288,6 +288,57 @@ public enum AriaKnowledgeLedgerStore: Sendable {
     }
 }
 
+/// Partner/cycle prefixes must never land in vault notes / user-add.
+/// Same deny list as Python ``routes.aria._DENIED_LIFESTYLE``. Rowan contract:
+/// user-add runs this strip. Sleep-stage % never belongs in Body notes either.
+public enum AriaInboundLifestyleStrip: Sendable {
+    /// Keep in lockstep with `DENIED_LIFESTYLE_PREFIXES` in nyx_eval_gates.py.
+    public static let deniedPrefixes: [String] = [
+        "partner_",
+        "support_cycle:",
+        "partner_name:",
+        "partner_phase:",
+        "partner_day:",
+        "partner_cycle:",
+        "cycle:fertile",
+        "cycle:tww",
+        "cycle:goal:trying",
+        "cycle:bleeding",
+        "cycle:condition",
+    ]
+
+    public static func isDeniedToken(_ token: String) -> Bool {
+        let lower = token.lowercased()
+        return deniedPrefixes.contains { lower.hasPrefix($0) }
+    }
+
+    public static func sanitize(_ raw: String) -> String {
+        let pieces = raw.split { $0.isWhitespace || $0.isNewline }.map(String.init)
+        let kept = pieces.filter { !isDeniedToken($0) }.joined(separator: " ")
+        return stripSleepStagePercent(kept)
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    /// Drop `deep/REM/light sleep at N%` leftovers. Minutes and hour totals stay.
+    public static func stripSleepStagePercent(_ raw: String) -> String {
+        var text = raw
+        let patterns = [
+            #"\b(?:deep|rem|light)\s+sleep\s+at\s+\d+(?:\.\d+)?\s*%"#,
+            #"\brem\s+is\s+light\s+at\s+\d+(?:\.\d+)?\s*%"#,
+        ]
+        for pattern in patterns {
+            if let regex = try? NSRegularExpression(pattern: pattern, options: [.caseInsensitive]) {
+                let range = NSRange(text.startIndex..<text.endIndex, in: text)
+                text = regex.stringByReplacingMatches(in: text, options: [], range: range, withTemplate: "")
+            }
+        }
+        while text.contains("  ") {
+            text = text.replacingOccurrences(of: "  ", with: " ")
+        }
+        return text.trimmingCharacters(in: CharacterSet(charactersIn: " ,;:—–-"))
+    }
+}
+
 /// Chat → dated fact. "I have a wedding in 2 weeks" becomes days-until, never a venue.
 public enum SpokenEventParser: Sendable {
     public static func daysUntilWedding(in text: String) -> Int? {
