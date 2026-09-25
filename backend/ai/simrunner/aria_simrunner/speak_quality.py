@@ -17,7 +17,10 @@ a recovery day.
 
 from __future__ import annotations
 
+import ast
 import re
+from functools import lru_cache
+from pathlib import Path
 
 # --- Vitals / raw metric dumps ------------------------------------------------
 # Wider than the Dummy / lambda ``_VITALS_SPEAK`` scrubber: also catch HRV %,
@@ -186,15 +189,16 @@ _DISCOURSE_MOVES = (
 def user_visible_blob(row: dict | None) -> str:
     """Join the fields a person (or voice) actually hears."""
     row = row or {}
-    card = row.get("card") or {}
+    card = row.get("card") if isinstance(row.get("card"), dict) else {}
     why = card.get("why") or card.get("timing") or ""
     parts = [
         row.get("prose_summary") or "",
         row.get("message") or "",
+        row.get("recommendation") or "",
         card.get("action") or "",
         why,
     ]
-    return " ".join(p for p in parts if p)
+    return " ".join(str(p) for p in parts if p)
 
 
 def _hits(pattern: re.Pattern[str], text: str) -> list[str]:
@@ -304,12 +308,186 @@ def has_friend_throughline(text: str) -> bool:
     return any(cue in low for cue in _FRIEND_CUES)
 
 
+# --- Guide / label / memory leaks (independent of speak_guard.py) ------------
+# These predicates must not import speak_guard. If the runtime guard regresses
+# and lets a context_plan guide, an evidence why-label, a 0 h since clock, a
+# memory-block header, or a long stored note reach speech, this grader still
+# fails the turn.
+
+_GUIDE_MUST_FAIL = (
+    "they have repair in the bank",
+    "usable picture is still thin",
+)
+
+_MEMORY_BLOCK_LABELS = (
+    "recent patterns:",
+    "[memory — long term]",
+    "[memory — short term / coming up]",
+    "[memory — long-term]",
+    "[memory — short-term / coming up]",
+)
+
+_ZERO_HOURS_RE = re.compile(r"(?:only\s+)?(?<!\d)0\s*h\s+since", re.I)
+_SENTENCE_SPLIT = re.compile(r"(?<=[.!?])\s+")
+_CLAUSE_SPLIT = re.compile(r"\s*[—–;]\s*")
+_SHORT_NOTE_CALLBACK = re.compile(r"\b(?:since you like|you like|you prefer)\b", re.I)
+
+
+def _one_line(text: str) -> str:
+    return " ".join((text or "").split()).strip()
+
+
+def _aria_core_dir() -> Path | None:
+    here = Path(__file__).resolve()
+    # speak_quality.py → …/backend/ai/simrunner/aria_simrunner
+    for parent in here.parents:
+        candidate = parent / "infra" / "lambda" / "aria_core"
+        if candidate.is_dir():
+            return candidate
+    return None
+
+
+def _literals_from_functions(path: Path, names: set[str], min_len: int) -> list[str]:
+    if not path.is_file():
+        return []
+    tree = ast.parse(path.read_text(encoding="utf-8"))
+    found: list[str] = []
+    for node in tree.body:
+        if isinstance(node, ast.FunctionDef) and node.name in names:
+            for child in ast.walk(node):
+                if isinstance(child, ast.Constant) and isinstance(child.value, str):
+                    found.append(_one_line(child.value))
+                elif isinstance(child, ast.JoinedStr):
+                    for value in child.values:
+                        if isinstance(value, ast.Constant) and isinstance(value.value, str):
+                            found.append(_one_line(value.value))
+    return [s for s in found if len(s) >= min_len]
+
+
+def _why_literals(path: Path, min_len: int) -> list[str]:
+    if not path.is_file():
+        return []
+    tree = ast.parse(path.read_text(encoding="utf-8"))
+    found: list[str] = []
+    for node in ast.walk(tree):
+        if not isinstance(node, ast.Call):
+            continue
+        for kw in node.keywords:
+            if kw.arg != "why":
+                continue
+            if isinstance(kw.value, ast.Constant) and isinstance(kw.value.value, str):
+                found.append(_one_line(kw.value.value))
+    return [s for s in found if len(s) >= min_len]
+
+
+@lru_cache(maxsize=1)
+def _guide_leak_phrases() -> tuple[str, ...]:
+    """context_plan _guide/_advice strings and aria_evidence why-labels.
+
+    Walks the source independently of speak_guard so a guard regression still
+    fails this grader.
+    """
+    phrases: list[str] = list(_GUIDE_MUST_FAIL)
+    core = _aria_core_dir()
+    if core is not None:
+        phrases.extend(_literals_from_functions(core / "context_plan.py", {"_advice", "_guide"}, 16))
+        phrases.extend(_why_literals(core / "aria_evidence.py", 12))
+    uniq: list[str] = []
+    seen: set[str] = set()
+    for phrase in sorted(phrases, key=len, reverse=True):
+        key = phrase.lower()
+        if not key or key in seen:
+            continue
+        seen.add(key)
+        uniq.append(phrase)
+    return tuple(uniq)
+
+
+def guide_leak_hits(text: str) -> list[str]:
+    """Guide/advice strings and evidence why-labels leaked into speech."""
+    low = (text or "").lower()
+    if not low.strip():
+        return []
+    found: list[str] = []
+    seen: set[str] = set()
+    for phrase in _guide_leak_phrases():
+        key = phrase.lower()
+        if key and key in low and key not in seen:
+            seen.add(key)
+            found.append(phrase)
+    return found
+
+
+def zero_hours_hits(text: str) -> list[str]:
+    """Same-day ``0 h since`` clock phrasing (e.g. 'Only 0 h since strength')."""
+    return [m.group(0) for m in _ZERO_HOURS_RE.finditer(text or "")]
+
+
+def _norm_fragment(text: str) -> str:
+    cleaned = re.sub(r"[^\w\s]", "", (text or "").lower())
+    return re.sub(r"\s{2,}", " ", cleaned).strip()
+
+
+def repeated_fragment_hits(text: str) -> list[str]:
+    """Same sentence or clause repeated inside one user-visible reply."""
+    raw = (text or "").strip()
+    if not raw:
+        return []
+    pieces: list[str] = []
+    for sentence in _SENTENCE_SPLIT.split(raw):
+        sentence = sentence.strip()
+        if not sentence:
+            continue
+        clauses = [c.strip() for c in _CLAUSE_SPLIT.split(sentence) if c.strip()]
+        pieces.extend(clauses if len(clauses) > 1 else [sentence])
+    seen: set[str] = set()
+    hits: list[str] = []
+    for piece in pieces:
+        key = _norm_fragment(piece)
+        if len(key) < 12:
+            continue
+        if key in seen and piece not in hits:
+            hits.append(piece)
+        seen.add(key)
+    return hits
+
+
+def memory_label_hits(text: str) -> list[str]:
+    """Memory-block headers such as 'Recent patterns:' read back in speech."""
+    low = (text or "").lower()
+    return [label for label in _MEMORY_BLOCK_LABELS if label in low]
+
+
+def memory_note_hits(text: str, notes: list[str] | None) -> list[str]:
+    """A stored memory note of 5+ words read back verbatim.
+
+    Short-note callbacks like 'since you like morning runs' must pass — they
+    are preference texture, not a dumped vault line.
+    """
+    blob = (text or "")
+    low = blob.lower()
+    hits: list[str] = []
+    for note in notes or []:
+        raw = _one_line(str(note or ""))
+        if not raw:
+            continue
+        words = raw.split()
+        if len(words) < 5:
+            continue
+        if _SHORT_NOTE_CALLBACK.search(raw) and len(words) <= 5:
+            continue
+        if raw.lower() in low:
+            hits.append(raw)
+    return hits
+
+
 def speak_failures(
     row: dict | None,
     *,
     prior_user: str | None = None,
     prior_reply: str | None = None,
     current_user: str | None = None,
+    memory_notes: list[str] | None = None,
 ) -> list[str]:
     """Return human-readable gate names that this row fails."""
     blob = user_visible_blob(row)
@@ -326,6 +504,43 @@ def speak_failures(
     s = sludge_hits(blob)
     if s:
         fails.append("sludge: " + ", ".join(s))
+    g = guide_leak_hits(blob)
+    if g:
+        fails.append("guide-leak: " + ", ".join(g))
+    z = zero_hours_hits(blob)
+    if z:
+        fails.append("zero-hours: " + ", ".join(z))
+    # Score each field on its own — prose + message often share a sentence
+    # and must not look like a leak when joined.
+    card = (row or {}).get("card") if isinstance((row or {}).get("card"), dict) else {}
+    fragment_fields = [
+        (row or {}).get("prose_summary") or "",
+        (row or {}).get("message") or "",
+        (row or {}).get("recommendation") or "",
+        (card or {}).get("action") or "",
+        (card or {}).get("why") or (card or {}).get("timing") or "",
+    ]
+    rf: list[str] = []
+    seen_rf: set[str] = set()
+    for field in fragment_fields:
+        for hit in repeated_fragment_hits(str(field)):
+            key = hit.lower()
+            if key not in seen_rf:
+                seen_rf.add(key)
+                rf.append(hit)
+    if rf:
+        fails.append("repeated-fragment: " + ", ".join(rf))
+    labels = memory_label_hits(blob)
+    if labels:
+        fails.append("memory-label: " + ", ".join(labels))
+    notes = memory_notes
+    if notes is None and isinstance(row, dict):
+        raw_notes = row.get("memory_notes") or row.get("notes")
+        if isinstance(raw_notes, list):
+            notes = [str(n) for n in raw_notes]
+    dumped = memory_note_hits(blob, notes)
+    if dumped:
+        fails.append("memory-note: " + ", ".join(dumped))
     if prior_reply:
         r = repetition_hits(prior_reply, (row or {}).get("prose_summary") or blob)
         if r:

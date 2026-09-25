@@ -107,6 +107,87 @@ class GateFixturesFailOnBadSpeak(unittest.TestCase):
         )
 
 
+class LeakAndMemoryGates(unittest.TestCase):
+    """Independent of speak_guard.py — catch runtime guard regressions."""
+
+    def test_guide_text_leakage_fails(self):
+        leaked = "They have repair in the bank. Spend it on one quality session."
+        self.assertTrue(sq.guide_leak_hits(leaked), leaked)
+        self.assertTrue(sq.speak_failures({"prose_summary": leaked}))
+        why = "Usable picture is still thin — keep today easy."
+        self.assertTrue(sq.guide_leak_hits(why), why)
+        self.assertTrue(sq.speak_failures({"prose_summary": why}))
+        friend = "Keep today kind. 20 easy minutes, then call it."
+        self.assertEqual(sq.guide_leak_hits(friend), [])
+        self.assertEqual(sq.speak_failures({"prose_summary": friend}), [])
+
+    def test_zero_hours_since_phrasing_fails(self):
+        bad = "Only 0 h since strength — keep today easy."
+        self.assertTrue(sq.zero_hours_hits(bad), bad)
+        self.assertTrue(sq.speak_failures({"prose_summary": bad}))
+        ok = "Only 20 h since strength — keep today easy."
+        self.assertEqual(sq.zero_hours_hits(ok), [])
+
+    def test_repeated_fragments_fail(self):
+        dup = (
+            "Keep today easy. Keep today easy. "
+            "20 easy minutes, then call it. 20 easy minutes, then call it."
+        )
+        hits = sq.repeated_fragment_hits(dup)
+        self.assertTrue(hits, dup)
+        self.assertTrue(sq.speak_failures({"prose_summary": dup}))
+        once = "Keep today easy. 20 easy minutes, then call it."
+        self.assertEqual(sq.repeated_fragment_hits(once), [])
+
+    def test_memory_block_label_read_back_fails(self):
+        labeled = "Recent patterns: you skip Friday nights. Hold the structure."
+        self.assertTrue(sq.memory_label_hits(labeled), labeled)
+        self.assertTrue(sq.speak_failures({"prose_summary": labeled}))
+        clean = "Hold the structure and keep Friday light."
+        self.assertEqual(sq.memory_label_hits(clean), [])
+
+    def test_stored_memory_note_of_five_plus_words_fails_short_callback_passes(self):
+        note = "You always skip Friday night sessions when work runs late"
+        dumped = f"Yeah — {note}. Keep today easy."
+        self.assertTrue(sq.memory_note_hits(dumped, [note]), dumped)
+        self.assertTrue(
+            sq.speak_failures({"prose_summary": dumped}, memory_notes=[note])
+        )
+        callback = "Sure — since you like morning runs, keep it easy."
+        short = "since you like morning runs"
+        self.assertEqual(sq.memory_note_hits(callback, [short]), [])
+        self.assertEqual(
+            sq.speak_failures({"prose_summary": callback}, memory_notes=[short]),
+            [],
+        )
+
+    def test_hr_bpm_sleep_stage_and_quoted_vitals_fail_including_via_card(self):
+        dumps = (
+            "HR 72 bpm — keep today easy.",
+            "Deep sleep at 19% is in a healthy band.",
+            "Readiness is 96, HRV 52ms.",
+        )
+        for text in dumps:
+            with self.subTest(text=text):
+                self.assertTrue(sq.vitals_hits(text), text)
+                self.assertTrue(sq.speak_failures({"prose_summary": text}))
+        via_card = {
+            "prose_summary": "Keep today kind.",
+            "card": {
+                "action": "HR 72 bpm then call it",
+                "why": "Deep sleep at 19%",
+            },
+        }
+        blob = sq.user_visible_blob(via_card)
+        self.assertTrue(sq.vitals_hits(blob), blob)
+        self.assertTrue(sq.speak_failures(via_card))
+        via_why_only = {
+            "prose_summary": "Keep today kind.",
+            "card": {"action": "20 easy minutes, then call it", "why": "HRV 12% below baseline"},
+        }
+        self.assertTrue(sq.speak_failures(via_why_only))
+
+
 class DummyLiveSpeakPassesFriendGates(unittest.TestCase):
     """Live Dummy path — these FAIL if #264 speak regresses."""
 
