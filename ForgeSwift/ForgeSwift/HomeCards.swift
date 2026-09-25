@@ -429,27 +429,31 @@ enum HomeTrendSeries {
     static let headerTitle = "SLEEP · LAST 7 NIGHTS"
     static let loadingVoiceOver = "Sleep, last seven nights, loading"
     static let expandHint = "Shows more detail"
-    /// Window length. Later: `shared/readiness.json` `trendWindowDays`.
+    /// Locked keys later read from `shared/readiness.json` (do not add or
+    /// read that file yet): `trendWindowDays`, `trendWindowAnchor`, `trendPoints`.
     static let trendWindowDays = 7
-    /// Window end is `lastNight` (`startOfDay(now) − 1 day`). Trailing empty
-    /// nights count as missing. Later: `shared/readiness.json` key
-    /// `trendWindowAnchor` next to `trendWindowDays`. Do not read that file yet.
     static let trendWindowAnchor = "lastNight"
+    static let trendPoints = "window"
 
-    static func snapshot(from sleeps: [SleepData], now: Date = Date()) -> HomeTrendSnapshot {
-        let slice = Array(sleeps.prefix(7))
-        var parsed: [(sleep: SleepData, date: Date)] = []
-        parsed.reserveCapacity(slice.count)
-        for sleep in slice {
-            if let date = parseNightDate(sleep.date) {
-                parsed.append((sleep, date))
-            }
+    static func snapshot(
+        from sleeps: [SleepData],
+        now: Date = Date(),
+        calendar: Calendar = .current
+    ) -> HomeTrendSnapshot {
+        let days = windowDays(now: now, calendar: calendar)
+        var byDay: [Date: (sleep: SleepData, date: Date)] = [:]
+        for sleep in sleeps {
+            guard let date = parseNightDate(sleep.date, calendar: calendar) else { continue }
+            let day = calendar.startOfDay(for: date)
+            guard days.contains(day), byDay[day] == nil else { continue }
+            byDay[day] = (sleep, date)
         }
-        let missing = missingCalendarDays(in: parsed.map(\.date), now: now)
-        guard parsed.count >= minimumNights else {
+        let missing = days.count - byDay.count
+        let inWindow = days.compactMap { byDay[$0] }
+        guard inWindow.count >= minimumNights else {
             return HomeTrendSnapshot(points: [], missingNights: missing)
         }
-        let points = parsed.reversed().enumerated().map { index, item in
+        let points = inWindow.enumerated().map { index, item in
             HomeTrendPoint(
                 id: "\(item.sleep.date)-\(index)",
                 date: item.date,
@@ -460,36 +464,46 @@ enum HomeTrendSeries {
         return HomeTrendSnapshot(points: points, missingNights: missing)
     }
 
-    static func points(from sleeps: [SleepData], now: Date = Date()) -> [HomeTrendPoint] {
-        snapshot(from: sleeps, now: now).points
+    static func points(
+        from sleeps: [SleepData],
+        now: Date = Date(),
+        calendar: Calendar = .current
+    ) -> [HomeTrendPoint] {
+        snapshot(from: sleeps, now: now, calendar: calendar).points
     }
 
-    static func parseNightDate(_ raw: String) -> Date? {
-        ISO8601DateFormatter().date(from: raw)
-            ?? DateFormatter.cachedYMD.date(from: raw)
+    static func parseNightDate(_ raw: String, calendar: Calendar = .current) -> Date? {
+        if let iso = ISO8601DateFormatter().date(from: raw) { return iso }
+        let formatter = DateFormatter()
+        formatter.calendar = calendar
+        formatter.timeZone = calendar.timeZone
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        formatter.dateFormat = "yyyy-MM-dd"
+        return formatter.date(from: raw)
     }
 
-    /// `lastNight` = `Calendar.startOfDay(for: now) − 1 day`.
+    /// `lastNight` = local `calendar.startOfDay(now) − 1 day`. Never UTC.
     static func lastNight(now: Date, calendar: Calendar = .current) -> Date? {
         calendar.date(byAdding: .day, value: -1, to: calendar.startOfDay(for: now))
     }
 
-    /// Unique `startOfDay` dates absent from the 7-day window ending on
-    /// `lastNight`. Dates after the anchor (tonight / today) do not fill a
-    /// slot and are not missing — they may still plot on the chart.
+    /// Oldest → newest `startOfDay` values for the locked window.
+    static func windowDays(now: Date, calendar: Calendar = .current) -> [Date] {
+        guard let end = lastNight(now: now, calendar: calendar) else { return [] }
+        return (0..<trendWindowDays).reversed().compactMap { offset in
+            calendar.date(byAdding: .day, value: -offset, to: end)
+                .map { calendar.startOfDay(for: $0) }
+        }
+    }
+
     static func missingCalendarDays(
         in dates: [Date],
         now: Date = Date(),
         calendar: Calendar = .current
     ) -> Int {
-        guard let end = lastNight(now: now, calendar: calendar) else { return 0 }
+        let days = windowDays(now: now, calendar: calendar)
         let present = Set(dates.map { calendar.startOfDay(for: $0) })
-        return (0..<trendWindowDays).reduce(0) { count, offset in
-            guard let day = calendar.date(byAdding: .day, value: -offset, to: end) else {
-                return count
-            }
-            return present.contains(calendar.startOfDay(for: day)) ? count : count + 1
-        }
+        return days.filter { !present.contains($0) }.count
     }
 
     static func average(_ points: [HomeTrendPoint]) -> Int? {
