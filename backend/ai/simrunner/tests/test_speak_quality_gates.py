@@ -472,14 +472,15 @@ class SpeechLabelAndDashCapitalTests(unittest.TestCase):
         self.assertEqual(sq.dash_capital_hits("Easy day — I'll stay with you."), [])
         self.assertEqual(sq.dash_capital_hits("Easy day – I've got you."), [])
 
-    def test_sol_protect_day_lines_pass(self):
+    def test_sol_protect_and_proceed_day_lines_pass(self):
         from backend._paths import ensure_lambda_on_path
 
         ensure_lambda_on_path()
         from services import aria_engine
 
         self.assertEqual(len(aria_engine._PROTECT_DAY_STEPS), 3)
-        for line in aria_engine._PROTECT_DAY_STEPS:
+        self.assertEqual(len(aria_engine._PROCEED_DAY_STEPS), 3)
+        for line in aria_engine._PROTECT_DAY_STEPS + aria_engine._PROCEED_DAY_STEPS:
             with self.subTest(line=line):
                 self.assertEqual(sq.speak_failures({"prose_summary": line, "card": {"action": line}}), [])
 
