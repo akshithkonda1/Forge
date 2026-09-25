@@ -1194,15 +1194,18 @@ class AcwrAndGuideLabelTests(unittest.TestCase):
         from backend.ai.simrunner.backend_simulator.behavior_engine import generate_stream
         from backend.ai.simrunner.backend_simulator.data_generator import build_context
 
-        speech_only = (
-            "Yesterday's work is still in the legs, so keep today easy, "
+        speech = (
+            "Yesterday's work is still in the legs, friend — keep today easy, "
             "have water with your next meal, and get to bed on time."
         )
-        self.assertIn(speech_only, dummy._WIT_PROTECT)
-        self.assertNotIn("—", speech_only)
-        self.assertNotIn("–", speech_only)
-        self.assertFalse(_DIGIT.search(speech_only), speech_only)
-        self.assertNotRegex(speech_only, _label)
+        self.assertIn(speech, dummy._WIT_PROTECT)
+        self.assertFalse(_DIGIT.search(speech), speech)
+        self.assertNotRegex(speech, _label)
+        self.assertNotIn("Hug first:", speech)
+        self.assertNotIn("restock day", speech)
+        self.assertNotIn("easy body", speech)
+        self.assertNotIn("like a friend would", speech)
+        self.assertNotRegex(speech, _dash_cap)
 
         for line in dummy._WIT_PROTECT + dummy._WIT_PROCEED + dummy._WIT_HONEST:
             self.assertNotRegex(line, _label, line)
@@ -1210,9 +1213,9 @@ class AcwrAndGuideLabelTests(unittest.TestCase):
             self.assertNotIn("like a friend would", line)
             self.assertNotIn("restock day", line)
             self.assertNotIn("easy body", line)
-            if line == speech_only:
-                self.assertNotIn("—", line)
-                self.assertFalse(_DIGIT.search(line), line)
+            self.assertNotIn("tired body", line)
+            self.assertNotRegex(line, _dash_cap, line)
+            self.assertFalse(_DIGIT.search(line), line)
 
         models = list(reg.get_models_by_tier(1) or [])
         self.assertTrue(models)
