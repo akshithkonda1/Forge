@@ -9,6 +9,7 @@ from security import (
     MAX_CHAT_MESSAGE_CHARS,
     enforce_user_rate_limit,
     sanitize_user_text,
+    validate_user_id,
 )
 from services import editable_memory
 from services.aria_context import CoachContextEngine
@@ -21,8 +22,10 @@ IngestFn = Callable[..., web_ingest.IngestResult]
 
 
 def _sanitize_line(text: str) -> str:
-    return sanitize_user_memory_text(
-        sanitize_user_text(str(text or ""), max_chars=MAX_CHAT_MESSAGE_CHARS)
+    return web_ingest.scrub_untrusted_page_text(
+        sanitize_user_memory_text(
+            sanitize_user_text(str(text or ""), max_chars=MAX_CHAT_MESSAGE_CHARS)
+        )
     )
 
 
@@ -64,12 +67,18 @@ def handle_post_ingest_url(
 ) -> dict:
     if not isinstance(body, dict):
         raise RouteError(400, "Request body must be a JSON object.")
+    try:
+        user_id = validate_user_id(user_id)
+    except ValueError as exc:
+        raise RouteError(401, "Invalid user.", code="validation_failed") from exc
     url = str(body.get("url") or "").strip()
-    persist = bool(body.get("persistMemory"))
+    persist = body.get("persistMemory") is True
     try:
         enforce_user_rate_limit(user_id, action="ingest-url", limit=20, window_hours=1)
+    except ValueError as exc:
+        raise RouteError(401, "Invalid user.", code="validation_failed") from exc
     except PermissionError as exc:
-        raise RouteError(429, str(exc) or "Too many requests.") from exc
+        raise RouteError(429, str(exc) or "Too many requests.", code="rate_limited") from exc
 
     run = ingest_fn or web_ingest.ingest_url
     result = run(url)
@@ -83,8 +92,11 @@ def handle_post_ingest_url(
         source_url=result.final_url,
         sanitize=_sanitize_line,
     )
-    candidate_text = _sanitize_line(
-        web_ingest.memory_candidate_text(kind=result.kind, extract=extract, aria_feed=aria_feed)
+    candidate_text = web_ingest.prepare_memory_note(
+        _sanitize_line(
+            web_ingest.memory_candidate_text(kind=result.kind, extract=extract, aria_feed=aria_feed)
+        ),
+        source_url=result.final_url,
     )
     folder = web_ingest.memory_folder_for(result.kind)
     category = web_ingest.memory_category_for(result.kind)

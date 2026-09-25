@@ -14,18 +14,25 @@ import json
 import re
 import socket
 import ssl
+import time
 from dataclasses import dataclass, field
 from html.parser import HTMLParser
 from typing import Any, Callable, Iterable
 from urllib.parse import urljoin, urlparse
 
+from aria_core.aria_engine import _VITALS_SPEAK, _strip_sleep_stage_pct
 from responses import RouteError
+from security import looks_like_prompt_injection
 
 
 MAX_BODY_BYTES = 512 * 1024
 TIMEOUT_SECONDS = 8.0
+FETCH_DEADLINE_SECONDS = 10.0
 MAX_REDIRECTS = 3
 MAX_READABLE_CHARS = 8_000
+MAX_WEB_MEMORY_NOTE_CHARS = 300
+CODE_VALIDATION = "validation_failed"
+CODE_UPSTREAM = "upstream_unavailable"
 ALLOWED_PORTS = {443}
 ALLOWED_SCHEMES = {"https"}
 ALLOWED_CONTENT_TYPES = frozenset(
@@ -80,7 +87,7 @@ _KIND_TO_DOMAIN = {
 }
 
 _KIND_TO_FOLDER = {
-    KIND_RECIPE: "healthHistory",
+    KIND_RECIPE: "lifestyle",
     KIND_EXERCISE_PLAN: "goals",
     KIND_HOWTO: "lifestyle",
     KIND_ARTICLE: "lifestyle",
@@ -106,6 +113,20 @@ _NAMED_METADATA = frozenset(
 )
 
 _WS_RE = re.compile(r"\s+")
+_SENTENCE_SPLIT = re.compile(r"(?<=[.!?])\s+|\n+")
+# Conservative medical-claim drop for untrusted page text. Production speak-fail
+# helpers live in SimRunner, not this Lambda package.
+_MEDICAL_CLAIM = re.compile(
+    r"(?i)\b(?:cure[sd]?|treats?|diagnos\w*)\b|\bstudies\s+prove\b"
+)
+_ASSISTANT_ADDRESSED = re.compile(
+    r"(?i)^\s*(?:"
+    r"ignore\s+(all\s+)?(previous|prior|above)"
+    r"|you\s+are\b"
+    r"|assistant\s*:"
+    r"|system\s*:"
+    r")"
+)
 
 
 class IngestError(RouteError):
@@ -114,6 +135,72 @@ class IngestError(RouteError):
 
 def _fail(code: str, message: str, status: int = 400) -> None:
     raise IngestError(status, message, code=code)
+
+
+def public_page_url(url: str) -> str:
+    """Scheme + host + path. No userinfo, query, or fragment."""
+    parsed = urlparse(url)
+    host = (parsed.hostname or "").strip().rstrip(".").lower()
+    path = parsed.path or "/"
+    return f"https://{host}{path}"
+
+
+def page_host(url: str) -> str:
+    return (urlparse(url).hostname or "").strip().rstrip(".").lower()
+
+
+def _is_ip_literal_host(host: str) -> bool:
+    try:
+        ipaddress.ip_address((host or "").strip().strip("[]"))
+    except ValueError:
+        return False
+    return True
+
+
+def _is_assistant_addressed(text: str) -> bool:
+    raw = str(text or "").strip()
+    if not raw:
+        return False
+    return bool(_ASSISTANT_ADDRESSED.search(raw) or looks_like_prompt_injection(raw))
+
+
+def scrub_untrusted_page_text(text: str) -> str:
+    """Drop vitals, medical-claim, and assistant-addressed sentences/lines.
+
+    Uses the speak-path vitals scrub (``_strip_sleep_stage_pct`` +
+    ``_VITALS_SPEAK``). Empty result means store nothing.
+    """
+    raw = str(text or "").strip()
+    if not raw:
+        return ""
+    parts = [p.strip() for p in _SENTENCE_SPLIT.split(raw) if p.strip()]
+    if not parts:
+        parts = [raw]
+    kept: list[str] = []
+    for part in parts:
+        if _is_assistant_addressed(part):
+            continue
+        if _MEDICAL_CLAIM.search(part):
+            continue
+        cleaned = _strip_sleep_stage_pct(part)
+        if not cleaned or _VITALS_SPEAK.search(cleaned):
+            continue
+        kept.append(cleaned)
+    return _collapse(" ".join(kept))
+
+
+def prepare_memory_note(text: str, *, source_url: str) -> str:
+    """Host-only provenance + 300-char cap. Empty if nothing safe remains."""
+    scrubbed = scrub_untrusted_page_text(text)
+    if not scrubbed:
+        return ""
+    host = page_host(source_url)
+    if not host:
+        return ""
+    note = _collapse(f"From {host}: {scrubbed}")
+    if len(note) <= MAX_WEB_MEMORY_NOTE_CHARS:
+        return note
+    return note[: MAX_WEB_MEMORY_NOTE_CHARS - 1].rstrip() + "…"
 
 
 # ---------------------------------------------------------------------------
@@ -146,27 +233,25 @@ def validate_https_url(raw: str) -> str:
     """Return a normalized https URL or raise ``IngestError``."""
     url = (raw or "").strip()
     if not url:
-        _fail("invalid_url", "Request body must include a non-empty 'url'.")
+        _fail(CODE_VALIDATION, "Request body must include a non-empty 'url'.")
     parsed = urlparse(url)
     if parsed.scheme.lower() not in ALLOWED_SCHEMES:
-        _fail("invalid_url", "Only https URLs can be ingested.")
+        _fail(CODE_VALIDATION, "Only https URLs can be ingested.")
     if parsed.username or parsed.password:
-        _fail("invalid_url", "URLs must not include credentials.")
+        _fail(CODE_VALIDATION, "URLs must not include credentials.")
     host = (parsed.hostname or "").strip().rstrip(".").lower()
     if not host:
-        _fail("invalid_url", "URL is missing a hostname.")
+        _fail(CODE_VALIDATION, "URL is missing a hostname.")
+    if _is_ip_literal_host(host):
+        _fail(CODE_VALIDATION, "IP-literal hosts cannot be fetched.")
     if host in BLOCKED_HOSTS or host.endswith(".localhost"):
-        _fail("blocked_target", "This host cannot be fetched.")
-    port = parsed.port or 443
-    if port not in ALLOWED_PORTS:
-        _fail("invalid_url", "Only https port 443 is allowed.")
+        _fail(CODE_VALIDATION, "This host cannot be fetched.")
     try:
-        ipaddress.ip_address(host)
+        port = parsed.port or 443
     except ValueError:
-        pass
-    else:
-        if is_blocked_ip(host):
-            _fail("blocked_target", "This address cannot be fetched.")
+        _fail(CODE_VALIDATION, "URL port is invalid.")
+    if port not in ALLOWED_PORTS:
+        _fail(CODE_VALIDATION, "Only https port 443 is allowed.")
     path = parsed.path or "/"
     query = f"?{parsed.query}" if parsed.query else ""
     return f"https://{host}{path}{query}"
@@ -180,23 +265,21 @@ def resolve_public_ips(
     """Resolve ``hostname`` and reject the target if any address is blocked."""
     host = (hostname or "").strip().rstrip(".").lower()
     if not host:
-        _fail("invalid_url", "URL is missing a hostname.")
+        _fail(CODE_VALIDATION, "URL is missing a hostname.")
+    if _is_ip_literal_host(host):
+        _fail(CODE_VALIDATION, "IP-literal hosts cannot be fetched.")
     if host in BLOCKED_HOSTS:
-        _fail("blocked_target", "This host cannot be fetched.")
+        _fail(CODE_VALIDATION, "This host cannot be fetched.")
+    lookup = resolver or _default_resolver
     try:
-        ipaddress.ip_address(host)
-        ips = [host]
-    except ValueError:
-        lookup = resolver or _default_resolver
-        try:
-            ips = lookup(host)
-        except OSError as exc:
-            raise IngestError(502, "Could not resolve that host.", code="fetch_failed") from exc
+        ips = lookup(host)
+    except OSError as exc:
+        raise IngestError(502, "Could not resolve that host.", code=CODE_UPSTREAM) from exc
     if not ips:
-        _fail("fetch_failed", "Could not resolve that host.", status=502)
+        _fail(CODE_UPSTREAM, "Could not resolve that host.", status=502)
     blocked = [ip for ip in ips if is_blocked_ip(ip)]
     if blocked:
-        _fail("blocked_target", "This host resolves to a private or metadata address.")
+        _fail(CODE_VALIDATION, "This host resolves to a private or metadata address.")
     # Preserve order, drop duplicates.
     seen: set[str] = set()
     out: list[str] = []
@@ -276,7 +359,7 @@ def default_transport(url: str, pinned_ip: str, timeout: float) -> HttpResponse:
         headers = {k.lower(): v for k, v in resp.getheaders()}
         length = _content_length(headers)
         if length is not None and length > MAX_BODY_BYTES:
-            _fail("payload_too_large", "Response is larger than the ingest limit.")
+            _fail(CODE_VALIDATION, "Response is larger than the ingest limit.")
         body = _read_capped(resp, MAX_BODY_BYTES)
         return HttpResponse(status=resp.status, headers=headers, body=body, url=url)
     finally:
@@ -303,7 +386,7 @@ def _read_capped(resp: Any, limit: int) -> bytes:
             break
         total += len(chunk)
         if total > limit:
-            _fail("payload_too_large", "Response is larger than the ingest limit.")
+            _fail(CODE_VALIDATION, "Response is larger than the ingest limit.")
         chunks.append(chunk)
     return b"".join(chunks)
 
@@ -313,6 +396,10 @@ def _media_type(headers: dict[str, str]) -> str:
     return raw
 
 
+def _upstream_unavailable(exc: BaseException, *, status: int, message: str) -> None:
+    raise IngestError(status, message, code=CODE_UPSTREAM) from exc
+
+
 def fetch_https(
     url: str,
     *,
@@ -320,44 +407,85 @@ def fetch_https(
     transport: Transport | None = None,
     timeout: float = TIMEOUT_SECONDS,
     max_redirects: int = MAX_REDIRECTS,
+    deadline_seconds: float = FETCH_DEADLINE_SECONDS,
+    clock: Callable[[], float] | None = None,
 ) -> HttpResponse:
     """HTTPS GET with DNS/IP checks on every hop. Does not send cookies."""
-    hop = validate_https_url(url)
+    now = clock or time.monotonic
+    started = now()
+
+    def remaining() -> float:
+        left = float(deadline_seconds) - (now() - started)
+        if left <= 0:
+            _fail(CODE_UPSTREAM, "The page fetch timed out.", status=504)
+        return min(float(timeout), left)
+
     send = transport or default_transport
+    hop = validate_https_url(url)
     seen: set[str] = set()
-    for _ in range(max_redirects + 1):
-        if hop in seen:
-            _fail("redirect_limit", "Redirect loop.")
-        seen.add(hop)
-        parsed = urlparse(hop)
-        ips = resolve_public_ips(parsed.hostname or "", resolver=resolver)
-        response = send(hop, ips[0], timeout)
-        if 300 <= response.status < 400:
-            location = (response.headers.get("location") or "").strip()
-            if not location:
-                _fail("fetch_failed", "Redirect was missing a Location header.", status=502)
-            nxt = urljoin(hop, location)
-            hop = validate_https_url(nxt)
-            continue
-        if response.status < 200 or response.status >= 300:
-            raise IngestError(
-                502,
-                "The page could not be fetched.",
-                code="fetch_failed",
+    try:
+        for _ in range(max_redirects + 1):
+            hop_timeout = remaining()
+            if hop in seen:
+                _fail(CODE_VALIDATION, "Redirect loop.")
+            seen.add(hop)
+            parsed = urlparse(hop)
+            remaining()
+            ips = resolve_public_ips(parsed.hostname or "", resolver=resolver)
+            hop_timeout = remaining()
+            try:
+                response = send(hop, ips[0], hop_timeout)
+            except IngestError:
+                raise
+            except http.client.HTTPException as exc:
+                _upstream_unavailable(
+                    exc, status=502, message="The page could not be fetched."
+                )
+            except (socket.timeout, TimeoutError, ssl.SSLError, ConnectionError, OSError) as exc:
+                if now() - started >= float(deadline_seconds):
+                    _upstream_unavailable(
+                        exc, status=504, message="The page fetch timed out."
+                    )
+                _upstream_unavailable(
+                    exc, status=502, message="The page could not be fetched."
+                )
+            remaining()
+            if 300 <= response.status < 400:
+                location = (response.headers.get("location") or "").strip()
+                if not location:
+                    _fail(
+                        CODE_UPSTREAM,
+                        "Redirect was missing a Location header.",
+                        status=502,
+                    )
+                nxt = urljoin(hop, location)
+                hop = validate_https_url(nxt)
+                continue
+            if response.status < 200 or response.status >= 300:
+                _fail(CODE_UPSTREAM, "The page could not be fetched.", status=502)
+            media = _media_type(response.headers)
+            if media not in ALLOWED_CONTENT_TYPES:
+                _fail(CODE_VALIDATION, "This content type cannot be ingested.")
+            if len(response.body) > MAX_BODY_BYTES:
+                _fail(CODE_VALIDATION, "Response is larger than the ingest limit.")
+            return HttpResponse(
+                status=response.status,
+                headers=response.headers,
+                body=response.body,
+                url=hop,
             )
-        media = _media_type(response.headers)
-        if media not in ALLOWED_CONTENT_TYPES:
-            _fail("unsupported_media", "This content type cannot be ingested.")
-        if len(response.body) > MAX_BODY_BYTES:
-            _fail("payload_too_large", "Response is larger than the ingest limit.")
-        return HttpResponse(
-            status=response.status,
-            headers=response.headers,
-            body=response.body,
-            url=hop,
-        )
-    _fail("redirect_limit", "Too many redirects.")
-    raise AssertionError("unreachable")
+        _fail(CODE_VALIDATION, "Too many redirects.")
+        raise AssertionError("unreachable")
+    except IngestError:
+        raise
+    except http.client.HTTPException as exc:
+        _upstream_unavailable(exc, status=502, message="The page could not be fetched.")
+        raise AssertionError("unreachable")
+    except (socket.timeout, TimeoutError, ssl.SSLError, ConnectionError, OSError) as exc:
+        if now() - started >= float(deadline_seconds):
+            _upstream_unavailable(exc, status=504, message="The page fetch timed out.")
+        _upstream_unavailable(exc, status=502, message="The page could not be fetched.")
+        raise AssertionError("unreachable")
 
 
 # ---------------------------------------------------------------------------
@@ -725,7 +853,7 @@ def build_aria_feed(
         "summary": summary or clean("Shared a web page."),
         "facts": facts,
         "untrusted": True,
-        "sourceUrl": source_url,
+        "sourceUrl": public_page_url(source_url),
     }
 
 
@@ -756,7 +884,7 @@ def memory_candidate_text(*, kind: str, extract: dict[str, Any], aria_feed: dict
     text = f"{label}: {name}"
     if preview:
         text = f"{text} — {preview}"
-    return _collapse(text, limit=400)
+    return _collapse(text)
 
 
 @dataclass
@@ -776,8 +904,8 @@ class IngestResult:
         memory_candidate: dict[str, Any],
     ) -> dict[str, Any]:
         return {
-            "url": self.url,
-            "finalUrl": self.final_url,
+            "url": public_page_url(self.url),
+            "finalUrl": public_page_url(self.final_url),
             "title": self.title,
             "kind": self.kind,
             "extract": self.extract,
@@ -796,10 +924,11 @@ def ingest_url(
 ) -> IngestResult:
     requested = validate_https_url(url)
     response = fetch_https(requested, resolver=resolver, transport=transport)
-    parsed = extract_from_html(response.body, source_url=response.url)
+    public_final = public_page_url(response.url)
+    parsed = extract_from_html(response.body, source_url=public_final)
     return IngestResult(
-        url=requested,
-        final_url=response.url,
+        url=public_page_url(requested),
+        final_url=public_final,
         title=parsed["title"],
         kind=parsed["kind"],
         extract=parsed["extract"],
