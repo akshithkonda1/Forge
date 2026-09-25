@@ -97,8 +97,14 @@ class OpenWearablesAdapterTests(unittest.TestCase):
         duration = next(s for s in adapted.observe["samples"] if s["metricType"] == "sleep-duration")
         self.assertEqual(duration["unit"], "s")
         self.assertEqual(duration["value"], 29400.0)
-        deep_stages = [s for s in adapted.observe["samples"] if s["metricType"] == "sleep-deep"]
+        deep_stages = [
+            s for s in adapted.observe["samples"]
+            if s["metricType"] == "sleep-stage" and s.get("stage") == "deep"
+        ]
         self.assertGreaterEqual(len(deep_stages), 2)  # nightly total + one interval
+        classified = classify_batch(adapted.observe["samples"])
+        self.assertEqual(classified.counts["rejected"], 0)
+        self.assertGreaterEqual(classified.counts["accepted"], 5)
         batch_stages = [m for m in adapted.health_batch["metrics"] if m["metricType"] == "sleep-stage"]
         self.assertTrue(batch_stages)
         self.assertEqual(batch_stages[0]["unit"], "minutes")

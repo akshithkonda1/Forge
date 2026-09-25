@@ -414,8 +414,12 @@ def _batch_value(spec: ForgeMetricSpec, sample: ForgeSample) -> float:
 def _to_observe(cognito_sub: str, samples: list[ForgeSample]) -> dict[str, Any]:
     payload_samples: list[dict[str, Any]] = []
     for sample in samples:
+        metric_type = sample.metric_type
+        # ARIA classify already understands sleep-stage + stage, not sleep-deep.
+        if sample.stage and metric_type.startswith("sleep-") and metric_type != "sleep-duration":
+            metric_type = "sleep-stage"
         item: dict[str, Any] = {
-            "metricType": sample.metric_type,
+            "metricType": metric_type,
             "value": sample.value,
             "unit": sample.unit,
             "startedAt": sample.started_at,
