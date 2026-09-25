@@ -1141,7 +1141,10 @@ class AcwrAndGuideLabelTests(unittest.TestCase):
                 speech = f"{row.get('prose_summary') or ''} {row.get('message') or ''}"
                 self.assertNotRegex(speech, _label, speech)
                 self.assertNotRegex(speech, _dash_cap, speech)
+                self.assertNotRegex(speech, r"[—–-]\s+Zone", speech)
                 self.assertNotIn("Hug first:", speech)
+                self.assertNotIn("Why.", speech)
+                self._assert_evidence_is_clean(row.get("card"))
 
         for seed in range(6):
             resp = aria_engine.generate_response(
@@ -1150,7 +1153,34 @@ class AcwrAndGuideLabelTests(unittest.TestCase):
             speech = _speech(resp)
             self.assertNotRegex(speech, _label, speech)
             self.assertNotRegex(speech, _dash_cap, speech)
+            self.assertNotRegex(speech, r"[—–-]\s+Zone", speech)
             self.assertNotIn("Hug first:", speech)
+            self.assertNotIn("Why.", speech)
+            self._assert_evidence_is_clean(resp.get("card"))
+
+    def _assert_evidence_is_clean(self, card):
+        ev = (card or {}).get("evidence") if isinstance(card, dict) else None
+        if not isinstance(ev, dict):
+            return
+        blob = " ".join(str(v) for v in ev.values() if isinstance(v, (str, list)))
+        low = blob.lower()
+        self.assertNotIn("repair in the bank", low, blob)
+        self.assertNotIn("hug first", low, blob)
+        self.assertNotIn("like a friend would", low, blob)
+        self.assertNotIn("restock day", low, blob)
+        self.assertNotIn("sleep debt", low, blob)
+        self.assertNotIn("sleep-debt", low, blob)
+        self.assertNotRegex(blob, r"\bWhy\.", blob)
+        if _SPEAK_QUALITY is not None:
+            self.assertEqual(_SPEAK_QUALITY.medical_hits(blob), [], blob)
+            self.assertEqual(_SPEAK_QUALITY.sludge_hits(blob), [], blob)
+        for word in _BANNED:
+            if word in {"hrv", "readiness", "acwr"}:
+                continue
+            self.assertIsNone(
+                re.search(rf"\b{re.escape(word)}\b", low),
+                f"banned {word!r} in evidence: {blob}",
+            )
 
 
 if __name__ == "__main__":

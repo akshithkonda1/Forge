@@ -212,9 +212,9 @@ def detect_pattern(
     ranked = score_signals(signals)
     lead = ranked[0].signal if ranked else None
     negative = [s.signal for s in ranked if getattr(s.signal, "direction", "") == "negative"]
+    # Guide / writer-note text on the brief (e.g. "repair in the bank")
+    # must never populate card.evidence. Pattern-local next_step only.
     learned = ""
-    if brief is not None and str(getattr(brief, "stance", "") or "") == stance:
-        learned = str(getattr(brief, "one_next_move", "") or "").strip()
 
     candidates: list[EvidencePattern] = []
 
@@ -234,11 +234,11 @@ def detect_pattern(
                     f"{_lead_interp(lead, 'fatigue is stacking')}."
                 ),
                 next_step=learned
-                or "Back off intensity — deload or Zone 2 only until load cools",
+                or "Back off intensity, deload or an easy, chatty-pace zone 2 only until load cools",
                 why=(
                     f"ACWR {acwr_txt} sits above the 0.8–1.3 sweet spot"
                     + (
-                        "; treat this as overreaching until readiness recovers"
+                        "; hold this as overreaching until you recover"
                         if derived.is_overtrained
                         else ""
                     )
@@ -264,16 +264,16 @@ def detect_pattern(
                 score=1.4,
                 stance="protect",
                 notice=(
-                    f"HRV {abs(derived.hrv_trend):.0f}% below baseline with {debt:.1f}h sleep debt — "
+                    f"HRV {abs(derived.hrv_trend):.0f}% below baseline with {debt:.1f}h short this week — "
                     f"sleep first tonight, then training"
                 ),
                 next_step=learned
                 or "Sleep first — protect tonight's wind-down before training volume",
-                why="HRV falling plus sleep debt means the autonomic system is still carrying load",
+                why="A falling recovery trend plus short nights means the week is still carrying load",
                 actions=("Protect tonight's sleep", "Show recovery plan", "Swap to Zone 2"),
                 confidence_cap=0.60,
                 reason_suffix=(
-                    f"HRV falling {derived.hrv_trend:.0f}% + {debt:.1f}h sleep debt — sleep first, "
+                    f"HRV falling {derived.hrv_trend:.0f}% + {debt:.1f}h short this week — sleep first, "
                     f"confidence capped"
                 ),
                 blocks_intensity=True,
@@ -288,14 +288,14 @@ def detect_pattern(
                 score=1.2,
                 stance="protect",
                 notice=(
-                    f"{debt_7:.1f}h of sleep debt over the week — "
+                    f"{debt_7:.1f}h short of your usual nights this week — "
                     f"{_lead_interp(lead, 'the night bank is overdrawn')}."
                 ),
                 next_step=learned or "Prioritize sleep tonight and keep today's session easy",
-                why="Seven-day sleep debt above 5h is a directional safety gate",
+                why="A week of short nights is a directional safety gate",
                 actions=("Protect tonight's sleep", "Shorten today's session", "Set a wind-down alarm"),
                 confidence_cap=0.65,
-                reason_suffix=f"{debt_7:.1f}h sleep debt — prioritize sleep",
+                reason_suffix=f"{debt_7:.1f}h short this week — prioritize sleep",
                 blocks_intensity=True,
             )
         )
@@ -312,7 +312,7 @@ def detect_pattern(
                     f"{_lead_interp(lead, 'today is a protect day')}."
                 ),
                 next_step=learned
-                or "Keep today low-intensity — Zone 2 cardio or mobility, not a hard session",
+                or "Keep today low-intensity, an easy, chatty-pace zone 2 walk or mobility, not a hard session",
                 why="Readiness below 50 never gets a high-intensity call",
                 actions=("Show recovery plan", "Swap to Zone 2", "Protect tonight's sleep"),
                 confidence_cap=0.68,
@@ -397,7 +397,7 @@ def detect_pattern(
                 stance="protect",
                 notice=_cap(getattr(driver, "interpretation", "") or "signals say protect load"),
                 next_step=learned
-                or "Keep today low-intensity — Zone 2 cardio or mobility, not a hard session",
+                or "Keep today low-intensity, an easy, chatty-pace zone 2 walk or mobility, not a hard session",
                 why=f"{getattr(driver, 'metric', 'signal')}: {getattr(driver, 'interpretation', '')}",
                 actions=("Show recovery plan", "Swap to Zone 2", "Protect tonight's sleep"),
                 blocks_intensity=True,
