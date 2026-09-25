@@ -18,10 +18,10 @@ from typing import Any
 # --- Environment -------------------------------------------------------------
 
 _PROD_LIKE = frozenset({"prod", "production", "staging", "stage"})
-# Historical unit-test / local-loop names. A deployed stack does not use this
-# list: Terraform sets FORGE_ALLOW_DEV_OVERRIDE from the explicit allowlist
-# {dev, local, sandbox} and that flag wins. Unknown names (beta, testflight,
-# prd) are fail-closed either way.
+# Historical unit-test / local-loop names. Used only when the process is not
+# running in Lambda and FORGE_ALLOW_DEV_OVERRIDE is missing or unrecognized.
+# A deployed Lambda fails closed on a missing/unknown flag; Terraform still
+# sets the flag from the explicit allowlist {dev, local, sandbox}.
 _DEV_LIKE = frozenset({"local", "dev", "development", "test", "ci", "sandbox", ""})
 
 MAX_JSON_BODY_CHARS = 256_000  # ~256 KB raw body
@@ -45,14 +45,22 @@ def _terraform_dev_override_flag() -> str:
     return (os.getenv("FORGE_ALLOW_DEV_OVERRIDE") or "").strip().lower()
 
 
+def _running_in_lambda() -> bool:
+    return bool(os.getenv("AWS_LAMBDA_FUNCTION_NAME", "").strip())
+
+
 def allow_dev_override() -> bool:
     """Unsigned tokens / test identity / demo fixtures.
 
     Fail closed. Terraform sets ``FORGE_ALLOW_DEV_OVERRIDE`` from the explicit
     allowlist (dev, local, sandbox). When that flag is present it wins, so a
     deployed stack named beta / testflight / prd / test cannot accept a
-    forged identity. Unit tests that do not set the flag keep the historical
-    ``ENVIRONMENT`` list plus ``FORGE_ALLOW_TEST_USER``.
+    forged identity.
+
+    When the flag is missing or unrecognized: a Lambda runtime
+    (``AWS_LAMBDA_FUNCTION_NAME`` set) fails closed. Local / unit-test
+    processes that omit the flag keep the historical ``ENVIRONMENT`` list
+    plus ``FORGE_ALLOW_TEST_USER``.
     """
     if is_production_like():
         return False
@@ -61,6 +69,8 @@ def allow_dev_override() -> bool:
         return False
     if flag in _TRUTHY:
         return True
+    if _running_in_lambda():
+        return False
     return environment() in _DEV_LIKE or bool(os.getenv("FORGE_ALLOW_TEST_USER"))
 
 
@@ -78,11 +88,12 @@ def demo_data_enabled() -> bool:
     cosmetic one: a user who has never granted HealthKit access would be
     coached on somebody else's invented HRV, sleep and lifts.
 
-    A deployed stack is fail-closed: Terraform sets FORGE_ALLOW_DEV_OVERRIDE
-    only for {dev, local, sandbox}. Outside that, fixtures stay off even if
-    ENVIRONMENT looks "non-prod". Unit tests that omit the flag keep the
-    historical ENVIRONMENT list, and ``FORGE_DEMO_DATA`` can force either way
-    only when the override is still allowed.
+    A deployed Lambda is fail-closed: missing or unrecognized
+    FORGE_ALLOW_DEV_OVERRIDE disables fixtures even if ENVIRONMENT looks
+    "non-prod". Terraform still sets the flag only for {dev, local, sandbox}.
+    Local / unit-test processes that omit the flag keep the historical
+    ENVIRONMENT list, and ``FORGE_DEMO_DATA`` can force either way only when
+    the override is still allowed.
     """
     if is_production_like() or not allow_dev_override():
         return False
