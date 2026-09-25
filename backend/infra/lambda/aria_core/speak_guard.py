@@ -107,8 +107,7 @@ _BARE_LABEL = re.compile(
     + r")\s*\.(?=\s|$)"
 )
 _INLINE_SECTION = re.compile(
-    r"(?i)(?:^|(?<=\n)|(?<=[.!?]\s))(?:What I notice|One next step)\s*[:.]?\s*"
-    r"|(?:^|(?<=\n)|(?<=[.!?]\s))Why(?:\s*[.:])?(?=\s|$)"
+    r"(?i)(?:^|(?<=\n)|(?<=[.!?]\s))Why(?:\s*[.:])?(?=\s|$)"
 )
 _TRAILING_LABEL = re.compile(
     r"(?i)(?:^|[\s.])(?:"

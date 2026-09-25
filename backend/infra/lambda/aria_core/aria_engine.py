@@ -2219,6 +2219,12 @@ def _recommendation_response(
         reason = f"{reason} (diverge)" if reason else "signals diverge (diverge)"
 
     action = pattern.next_step
+    # Brief writer notes may size the spoken/card step; they must not live on
+    # pattern.next_step (that dict is card.evidence).
+    if brief is not None:
+        move = str(getattr(brief, "one_next_move", "") or "").strip()
+        if move:
+            action = move
     timing = pattern.why
     if ctx.chronotype.typical_sleep_onset and pattern.blocks_intensity:
         timing = f"{timing}; protect your {ctx.chronotype.typical_sleep_onset} wind-down tonight"
