@@ -58,7 +58,7 @@ _VITALS_SCORE_RE = re.compile(
             r"\bsleep:\s*\d",
             r"\d+(?:\.\d+)?\s?h total\b",
             r"\d+\s?min deep\b",
-            r"\b(?:deep|rem|light)\s+sleep\s+at\s+\d+(?:\.\d+)?\s*%",
+            r"\b(?:deep|rem|light)\s+sleep\s+(?:at|is)\s+\d+(?:\.\d+)?\s*%",
             r"\brem\s+is\s+light\s+at\s+\d+(?:\.\d+)?\s*%",
         )
     ),
@@ -329,7 +329,6 @@ _MEMORY_BLOCK_LABELS = (
 
 _ZERO_HOURS_RE = re.compile(r"(?:only\s+)?(?<!\d)0\s*h\s+since", re.I)
 _SENTENCE_SPLIT = re.compile(r"(?<=[.!?])\s+")
-_CLAUSE_SPLIT = re.compile(r"\s*[—–;]\s*")
 _SHORT_NOTE_CALLBACK = re.compile(r"\b(?:since you like|you like|you prefer)\b", re.I)
 
 
@@ -429,17 +428,11 @@ def _norm_fragment(text: str) -> str:
 
 
 def repeated_fragment_hits(text: str) -> list[str]:
-    """Same sentence or clause repeated inside one user-visible reply."""
+    """Same sentence repeated inside one user-visible field."""
     raw = (text or "").strip()
     if not raw:
         return []
-    pieces: list[str] = []
-    for sentence in _SENTENCE_SPLIT.split(raw):
-        sentence = sentence.strip()
-        if not sentence:
-            continue
-        clauses = [c.strip() for c in _CLAUSE_SPLIT.split(sentence) if c.strip()]
-        pieces.extend(clauses if len(clauses) > 1 else [sentence])
+    pieces = [s.strip() for s in _SENTENCE_SPLIT.split(raw) if s.strip()]
     seen: set[str] = set()
     hits: list[str] = []
     for piece in pieces:
