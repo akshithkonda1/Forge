@@ -1974,6 +1974,29 @@ def _orchestration_latency_ms(message: str, seed: int, worker_count: int) -> int
     return 40 + (_fnv(message) ^ (seed * 16777619) ^ (worker_count * 31)) % 90
 
 
+# Sentinel so a failed / empty lookup (None) is still a cached turn result.
+_WEB_NOTE_UNSET = object()
+
+
+def _web_note_for_turn(kind: str) -> str | None:
+    """Fetch at most once per user turn. Prompt-guard retry reuses the cite.
+
+    The live guard regenerates a turn to rephrase; it must not hit the web
+    again. A missed or later-scrubbed note stays the same — do not re-fetch
+    hoping for a cleaner snippet.
+    """
+    cached = getattr(respond, "_turn_web_note", _WEB_NOTE_UNSET)
+    if cached is not _WEB_NOTE_UNSET:
+        return cached
+    note = web_research.look_up(kind)
+    respond._turn_web_note = note
+    return note
+
+
+def _reset_turn_web_note() -> None:
+    respond._turn_web_note = _WEB_NOTE_UNSET
+
+
 def _context_for_turn(
     *,
     seed: int,
@@ -2043,6 +2066,7 @@ def respond(
     refuse_if_cloud()
 
     if not getattr(respond, "_replaying", False):
+        _reset_turn_web_note()
         from backend._paths import ensure_lambda_on_path
 
         ensure_lambda_on_path()
@@ -2070,6 +2094,7 @@ def respond(
                 )
             finally:
                 respond._replaying = False
+                _reset_turn_web_note()
 
     subjects = list(cycle_subjects or [])
     pinned_kind = (pinned or (agents[0] if agents else None) or "").strip().lower() or None
@@ -2139,7 +2164,7 @@ def respond(
     chat = prose
     if web_research.is_research_worthy(message, plan.primary.kind):
         lookup_kind = "aging" if web_research.suggests_aging(message) or plan.primary.kind == "aging" else plan.primary.kind
-        web_note = web_research.look_up(lookup_kind)
+        web_note = _web_note_for_turn(lookup_kind)
         if web_note:
             safe_note = _scrub_speak_vitals(web_note)
             if safe_note and safe_note not in chat and not _dumps_user_speak(safe_note):
