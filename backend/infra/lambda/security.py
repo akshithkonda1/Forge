@@ -20,9 +20,13 @@ from typing import Any
 _PROD_LIKE = frozenset({"prod", "production", "staging", "stage"})
 # Historical unit-test / local-loop names. Used only when the process is not
 # running in Lambda and FORGE_ALLOW_DEV_OVERRIDE is missing or unrecognized.
-# A deployed Lambda fails closed on a missing/unknown flag; Terraform still
-# sets the flag from the explicit allowlist {dev, local, sandbox}.
+# Includes the empty string so an unset ENVIRONMENT still matches locally.
+# A deployed Lambda fails closed on a missing/unknown flag.
 _DEV_LIKE = frozenset({"local", "dev", "development", "test", "ci", "sandbox", ""})
+# Matches Terraform ``local.is_dev_pool`` / ``contains(["dev", "local",
+# "sandbox"], var.environment)``. A truthy FORGE_ALLOW_DEV_OVERRIDE counts
+# only for these names — never for "" / test / ci / beta / testflight.
+_DEV_OVERRIDE_ENVS = frozenset({"dev", "local", "sandbox"})
 
 MAX_JSON_BODY_CHARS = 256_000  # ~256 KB raw body
 MAX_CHAT_MESSAGE_CHARS = 4_000
@@ -54,10 +58,10 @@ def allow_dev_override() -> bool:
 
     Fail closed. Terraform sets ``FORGE_ALLOW_DEV_OVERRIDE`` from the explicit
     allowlist (dev, local, sandbox). A truthy flag counts only when
-    ``environment()`` is a non-empty name in ``_DEV_LIKE`` — beta /
-    testflight / prd / an unset ENVIRONMENT cannot be opened by flipping
-    the flag. ``_DEV_LIKE`` includes the empty string for the local-test
-    fallback only; an empty name is not a truthy-flag grant.
+    ``environment()`` is in ``_DEV_OVERRIDE_ENVS`` — beta / testflight /
+    prd / test / ci / an unset ENVIRONMENT cannot be opened by flipping
+    the flag. ``_DEV_LIKE`` (including ``""``, test, and ci) is used only
+    for the local-test fallback when the flag is missing or unrecognized.
 
     When the flag is missing or unrecognized: a Lambda runtime
     (``AWS_LAMBDA_FUNCTION_NAME`` set) fails closed. Local / unit-test
@@ -70,8 +74,7 @@ def allow_dev_override() -> bool:
     if flag in _FALSY:
         return False
     if flag in _TRUTHY:
-        env = environment()
-        return bool(env) and env in _DEV_LIKE
+        return environment() in _DEV_OVERRIDE_ENVS
     if _running_in_lambda():
         return False
     return environment() in _DEV_LIKE or bool(os.getenv("FORGE_ALLOW_TEST_USER"))
@@ -93,8 +96,9 @@ def demo_data_enabled() -> bool:
 
     A deployed Lambda is fail-closed: missing or unrecognized
     FORGE_ALLOW_DEV_OVERRIDE disables fixtures even if ENVIRONMENT looks
-    "non-prod". A truthy flag still requires a non-empty ``_DEV_LIKE``
-    name. Terraform sets the flag only for {dev, local, sandbox}.
+    "non-prod". A truthy flag still requires ``environment()`` in
+    ``_DEV_OVERRIDE_ENVS``. Terraform sets the flag only for
+    {dev, local, sandbox}.
     Local / unit-test processes that omit the flag keep the historical
     ENVIRONMENT list, and ``FORGE_DEMO_DATA`` can force either way only when
     the override is still allowed.
