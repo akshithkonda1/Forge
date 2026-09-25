@@ -78,7 +78,9 @@ class RetrievalProvenanceGates(unittest.TestCase):
     def test_dummy_web_retrieve_keeps_from_source_label(self):
         with patch.object(web_research, "look_up", return_value="From Some Source: real info.") as look:
             row = dummy.respond("how do I improve my workout routine?", seed=1, engine="stub")
-        look.assert_called_once()
+        # The live prompt guard (#349) generates every turn twice; lookup must stay stable.
+        self.assertEqual(look.call_count, 2)
+        look.assert_called_with("workout")
         self.assertEqual(nyx.web_cite_provenance_failures("From Some Source: real info."), [])
         self.assertIn("From Some Source", sq.user_visible_blob(row))
         self.assertEqual(sq.speak_failures(row), [])
