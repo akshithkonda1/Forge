@@ -103,9 +103,15 @@ class ProviderNoSpendGates(unittest.TestCase):
             os.environ["ENVIRONMENT"] = self._env
 
     def test_dummy_source_does_not_call_live_or_invoke_model(self):
+        owned = (
+            pathlib.Path(dummy.__file__),
+            pathlib.Path(dummy.voice_diagnostics.__file__),
+        )
+        for path in owned:
+            src = path.read_text(encoding="utf-8")
+            fails = nyx.dummy_invoke_call_failures(src)
+            self.assertEqual(fails, [], f"{path.name}: {fails}")
         src = pathlib.Path(dummy.__file__).read_text(encoding="utf-8")
-        fails = nyx.dummy_invoke_call_failures(src)
-        self.assertEqual(fails, [], fails)
         tree = ast.parse(src)
         called = {
             nyx._call_name(node.func)
@@ -114,8 +120,31 @@ class ProviderNoSpendGates(unittest.TestCase):
         }
         self.assertNotIn("generate_response_live", called)
         self.assertNotIn("InvokeModel", called)
+        self.assertNotIn("InvokeModelWithBidirectionalStream", called)
+        self.assertNotIn("invoke_model_with_bidirectional_stream", called)
+        self.assertNotIn("SynthesizeSpeech", called)
+        self.assertNotIn("synthesize_speech", called)
+        self.assertNotIn("mint_signed_url", called)
+        self.assertNotIn("run_tool", called)
         self.assertIn("generate_response_live", src)
         self.assertIn("never", src.lower())
+
+        sonic = "client.invoke_model_with_bidirectional_stream(audio)\n"
+        polly = "polly.synthesize_speech(Text='hi', OutputFormat='mp3')\n"
+        eleven = (
+            "from services import elevenlabs_voice\n"
+            "elevenlabs_voice.mint_signed_url(user_id='u')\n"
+            "path = '/ai/voice/bootstrap'\n"
+        )
+        self.assertTrue(nyx.dummy_invoke_call_failures(sonic), sonic)
+        self.assertTrue(nyx.dummy_invoke_call_failures(polly), polly)
+        self.assertTrue(nyx.dummy_invoke_call_failures(eleven), eleven)
+        self.assertTrue(
+            nyx.dummy_invoke_call_failures("elevenlabs_voice.run_tool({}, user_id='u')\n")
+        )
+        self.assertTrue(
+            nyx.dummy_invoke_call_failures("url = '/ai/voice/tool'\n")
+        )
 
     def test_capability_stub_if_present_is_do_not_invoke(self):
         caps = nyx.try_load_provider_capabilities()
@@ -340,10 +369,8 @@ class EditableMemoryPrivacyGates(unittest.TestCase):
         joined = "\n".join(p.read_text(encoding="utf-8") for p in sources)
         privacy_fails = nyx.aria_fact_privacy_strip_failures(joined)
         self.assertEqual(privacy_fails, [], privacy_fails)
-        ledger = next(p for p in sources if p.name == "AriaKnowledgeLedger.swift")
-        ledger_src = ledger.read_text(encoding="utf-8")
-        self.assertIn("partner_", ledger_src)
-        self.assertIn("cycle:fertile", ledger_src)
+        self.assertIn("enum AriaFactPrivacy", joined)
+        self.assertNotIn("enum AriaInboundLifestyleStrip", joined)
 
 
 if __name__ == "__main__":
