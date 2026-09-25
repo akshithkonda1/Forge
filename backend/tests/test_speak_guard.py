@@ -222,8 +222,13 @@ class DeterministicPathTests(unittest.TestCase):
         self.assertNotRegex(speech.lower(), r"deep sleep at")
 
     def test_lambda_path_strips_notes_from_memory_block(self):
+        self.assertGreaterEqual(len(MEMORY_NOTE.split()), 5)
         ctx = _ctx()
         ctx.last_insights = [MEMORY_NOTE]
+        # Note lives on the prompt block, not memory_notes (recent_patterns only).
+        self.assertNotIn(MEMORY_NOTE, aria_engine._memory_notes_from_ctx(ctx))
+        block = aria_engine._memory_block_from_ctx(ctx)
+        self.assertIn(MEMORY_NOTE, block)
         envelope = {
             "prose_summary": (
                 f"Right — {MEMORY_NOTE}. Hold the structure and progress one variable next block."
@@ -234,9 +239,10 @@ class DeterministicPathTests(unittest.TestCase):
             "fusion": {"stance": "protect"},
         }
         out = aria_engine._finish_spoken_envelope(envelope, ctx, "Should I train today?")
-        blob = speak_guard.user_visible(out)
-        self.assertNotIn(MEMORY_NOTE.lower(), blob.lower())
-        self.assertTrue(blob.strip())
+        speech = f"{out.get('prose_summary') or ''} {out.get('message') or ''}"
+        self.assertNotIn(MEMORY_NOTE.lower(), speech.lower())
+        self.assertNotIn("right —", speech.lower())
+        self.assertIn("progress", speech.lower())
 
 
 class LiveBedrockGuardTests(unittest.TestCase):
@@ -337,8 +343,11 @@ class LivePathGuardTests(unittest.TestCase):
         self.assertNotIn(os.environ.get("ARIA_BEDROCK_ENABLED", "").lower(), {"1", "true", "yes"})
 
     def test_live_path_strips_notes_from_memory_block(self):
+        self.assertGreaterEqual(len(MEMORY_NOTE.split()), 5)
         ctx = _ctx()
         ctx.last_insights = [MEMORY_NOTE]
+        self.assertNotIn(MEMORY_NOTE, aria_engine._memory_notes_from_ctx(ctx))
+        self.assertIn(MEMORY_NOTE, aria_engine._memory_block_from_ctx(ctx))
 
         def converse(_model_id, _system, _user):
             return json.dumps(
@@ -356,9 +365,11 @@ class LivePathGuardTests(unittest.TestCase):
             ctx,
             converse=converse,
         )
-        blob = speak_guard.user_visible(resp)
+        speech = f"{resp.get('prose_summary') or ''} {resp.get('message') or ''}"
         self.assertEqual(resp.get("reasoning_source"), "bedrock")
-        self.assertNotIn(MEMORY_NOTE.lower(), blob.lower())
+        self.assertNotIn(MEMORY_NOTE.lower(), speech.lower())
+        self.assertNotIn("right —", speech.lower())
+        self.assertIn("progress", speech.lower())
         self.assertNotIn(os.environ.get("ARIA_BEDROCK_ENABLED", "").lower(), {"1", "true", "yes"})
 
 
