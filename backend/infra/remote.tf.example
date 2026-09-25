@@ -1,17 +1,24 @@
 # Copy to remote.tf (gitignored via *_override / local choice) when the
 # state should live in S3 instead of a laptop.
 #
-#   cp remote.tf.example remote.tf
-#   terraform init -migrate-state
+#   1. Apply the sibling bootstrap stack once (plan-only until someone
+#      deliberately applies): backend/infra/bootstrap
+#   2. Copy the bucket name from that stack's `state_bucket_name` output
+#   3. cp remote.tf.example remote.tf
+#   4. terraform init -migrate-state
 #
-# iOS and Android share this stack. One state file. One account.
+# The bootstrap bucket is AES256-encrypted, blocks public access, denies
+# non-TLS, and denies principals outside this account. Locking uses the
+# Terraform 1.10+ S3 lockfile (no DynamoDB lock table).
+#
+# iOS, web, and Kotlin share this stack. One state file. One account.
 
 terraform {
   backend "s3" {
-    bucket         = "forge-tf-state"
-    key            = "backend/terraform.tfstate"
-    region         = "us-east-1"
-    dynamodb_table = "forge-tf-locks"
-    encrypt        = true
+    bucket       = "forge-tf-state-ACCOUNT_ID"
+    key          = "backend/terraform.tfstate"
+    region       = "us-east-1"
+    encrypt      = true
+    use_lockfile = true
   }
 }

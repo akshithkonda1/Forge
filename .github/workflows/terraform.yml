@@ -71,6 +71,20 @@ jobs:
       - name: Terraform Plan
         run: terraform plan -input=false -no-color
 
+      # bootstrap/ is its own root module (state bucket). The recursive fmt
+      # check above already covers it; init/validate/plan must run separately.
+      - name: Terraform Init (state bootstrap)
+        working-directory: backend/infra/bootstrap
+        run: terraform init -backend=false -input=false -no-color
+
+      - name: Terraform Validate (state bootstrap)
+        working-directory: backend/infra/bootstrap
+        run: terraform validate -no-color
+
+      - name: Terraform Plan (state bootstrap)
+        working-directory: backend/infra/bootstrap
+        run: terraform plan -input=false -no-color
+
   terraform-apply:
     name: 'Terraform Apply'
     needs: terraform-checks
