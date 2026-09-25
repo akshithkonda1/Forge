@@ -284,6 +284,15 @@ assert(markSrc.includes("NestStillSvg") && markSrc.includes("softHexPathD"), "Ar
 assert(!markSrc.includes("drawAriaRingField"), "AriaMark retired the ring-field drawer");
 assert(markSrc.includes("nestLiveCreateId"), "AriaMark wires nest live helpers");
 
+const motionDefault = readFileSync("node_modules/framer-motion/dist/es/context/MotionConfigContext.mjs", "utf8");
+assert(motionDefault.includes('reducedMotion: "never"'), "installed framer-motion defaults reducedMotion to never");
+const motionConfigHook = readFileSync(
+  "node_modules/framer-motion/dist/es/utils/reduced-motion/use-reduced-motion-config.mjs",
+  "utf8"
+);
+assert(motionConfigHook.includes('reducedMotion === "never"'), "never short-circuits the OS Reduce Motion query");
+assert(motionConfigHook.includes("return reducedMotionPreference"), "user mode forwards prefers-reduced-motion");
+
 const motionProviderSrc = readFileSync("src/components/shared/motion-config-provider.tsx", "utf8");
 assert(motionProviderSrc.includes("\"use client\""), "MotionConfig provider is a client wrapper");
 assert(motionProviderSrc.includes("reducedMotion=\"user\""), "MotionConfig respects OS Reduce Motion");
