@@ -555,9 +555,7 @@ class EditableMemoryPrivacyGates(unittest.TestCase):
             ledger.read_text(encoding="utf-8"),
             aria.read_text(encoding="utf-8"),
         )
-        if fails:
-            self.skipTest("Swift/Python deny lists differ on main: " + "; ".join(fails))
-        self.assertEqual(fails, [])
+        self.assertEqual(fails, [], fails)
 
 
 if __name__ == "__main__":
