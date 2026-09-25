@@ -166,10 +166,9 @@ struct HomeHeaderView: View {
                 Text(greeting + (firstName.isEmpty ? "" : ", \(firstName)"))
                     .font(HomeType.greeting)
                     .foregroundColor(.textPrimary)
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.78)
+                    .lineLimit(2)
+                    .fixedSize(horizontal: false, vertical: true)
                     .accessibilityAddTraits(.isHeader)
-                    .accessibilityLabel(greeting + (firstName.isEmpty ? "" : ", \(firstName)"))
                     .overlay(alignment: .bottomLeading) {
                         Capsule()
                             .fill(Color.ember.opacity(0.55))

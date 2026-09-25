@@ -20,40 +20,7 @@ struct HomeWinCard: View {
     }
 
     var body: some View {
-        HStack(spacing: 12) {
-            ZStack {
-                Circle()
-                    .fill(Color.ember.opacity(0.18))
-                    .frame(width: 42, height: 42)
-                Image(systemName: "checkmark")
-                    .font(.system(size: 16, weight: .semibold))
-                    .foregroundStyle(Color.ember)
-            }
-            VStack(alignment: .leading, spacing: 3) {
-                Text("TODAY")
-                    .forgeSectionLabel()
-                    .foregroundStyle(Color.ember)
-                Text(title)
-                    .font(HomeType.status)
-                    .foregroundColor(.textPrimary)
-                Text(subtitle)
-                    .font(HomeType.body)
-                    .foregroundColor(.textTertiary)
-                    .lineLimit(2)
-            }
-            Spacer(minLength: 0)
-            Image(systemName: "arrow.up.right")
-                .font(.system(size: 12, weight: .semibold))
-                .foregroundColor(.ember)
-        }
-        .padding(HomeMetrics.cardPadding)
-        .forgeGlassCard(accent: .ember)
-        .contentShape(Rectangle())
-        .accessibilityElement(children: .combine)
-        .accessibilityLabel("\(title). \(subtitle)")
-        .accessibilityHint("Opens the matching tab")
-        .accessibilityAddTraits(.isButton)
-        .onTapGesture {
+        Button {
             FDS.haptic(.light)
             if store.isWorkoutActive {
                 store.activeTab = .workout
@@ -63,7 +30,41 @@ struct HomeWinCard: View {
             } else {
                 store.openTrainHome()
             }
+        } label: {
+            HStack(spacing: 12) {
+                ZStack {
+                    Circle()
+                        .fill(Color.ember.opacity(0.18))
+                        .frame(width: 42, height: 42)
+                    Image(systemName: "checkmark")
+                        .font(.system(size: 16, weight: .semibold))
+                        .foregroundStyle(Color.ember)
+                }
+                VStack(alignment: .leading, spacing: 3) {
+                    Text("TODAY")
+                        .forgeSectionLabel()
+                        .foregroundStyle(Color.ember)
+                    Text(title)
+                        .font(HomeType.status)
+                        .foregroundColor(.textPrimary)
+                    Text(subtitle)
+                        .font(HomeType.body)
+                        .foregroundColor(.textTertiary)
+                        .lineLimit(2)
+                }
+                Spacer(minLength: 0)
+                Image(systemName: "arrow.up.right")
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundColor(.ember)
+            }
+            .padding(HomeMetrics.cardPadding)
+            .forgeGlassCard(accent: .ember)
+            .contentShape(Rectangle())
         }
+        .buttonStyle(.plain)
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("\(title). \(subtitle)")
+        .accessibilityHint("Opens the matching tab")
     }
 }
 
@@ -405,29 +406,56 @@ private struct HomeMetricTile: View {
 }
 
 /// Sleep-score series for the Home 7-day chart. Mapping is the existing
-/// contract: last 7 nights, need ≥3, score clamped 30…100, oldest → newest.
+/// contract: last 7 nights, need ≥3 parseable dates, score clamped 30…100,
+/// oldest → newest. Unparseable dates are skipped (never labeled as today).
 struct HomeTrendPoint: Identifiable, Equatable {
     let id: String
-    let day: String
+    let date: Date
     let score: Int
+}
+
+struct HomeTrendSnapshot: Equatable {
+    let points: [HomeTrendPoint]
+    let skippedNights: Int
 }
 
 enum HomeTrendSeries {
     static let minimumNights = 3
+    static let loadingVoiceOver = "Sleep, last seven nights, loading"
+    static let expandHint = "Shows more detail"
+
+    static func snapshot(from sleeps: [SleepData]) -> HomeTrendSnapshot {
+        let slice = Array(sleeps.prefix(7))
+        var skipped = 0
+        var parsed: [(sleep: SleepData, date: Date)] = []
+        parsed.reserveCapacity(slice.count)
+        for sleep in slice {
+            if let date = parseNightDate(sleep.date) {
+                parsed.append((sleep, date))
+            } else {
+                skipped += 1
+            }
+        }
+        guard parsed.count >= minimumNights else {
+            return HomeTrendSnapshot(points: [], skippedNights: skipped)
+        }
+        let points = parsed.reversed().enumerated().map { index, item in
+            HomeTrendPoint(
+                id: "\(item.sleep.date)-\(index)",
+                date: item.date,
+                score: min(100, max(30, item.sleep.score))
+            )
+        }
+        return HomeTrendSnapshot(points: points, skippedNights: skipped)
+    }
 
     static func points(from sleeps: [SleepData]) -> [HomeTrendPoint] {
-        let formatter = DateFormatter()
-        formatter.dateFormat = "EEE"
-        let slice = Array(sleeps.prefix(7))
-        guard slice.count >= minimumNights else { return [] }
+        snapshot(from: sleeps).points
+    }
 
-        return slice.reversed().enumerated().map { index, sleep in
-            let date = ISO8601DateFormatter().date(from: sleep.date)
-                ?? DateFormatter.cachedYMD.date(from: sleep.date)
-            let label = date.map { formatter.string(from: $0) } ?? formatter.string(from: Date())
-            let score = min(100, max(30, sleep.score))
-            return HomeTrendPoint(id: "\(sleep.date)-\(index)", day: label, score: score)
-        }
+    static func parseNightDate(_ raw: String) -> Date? {
+        ISO8601DateFormatter().date(from: raw)
+            ?? DateFormatter.cachedYMD.date(from: raw)
     }
 
     static func average(_ points: [HomeTrendPoint]) -> Int? {
@@ -435,14 +463,27 @@ enum HomeTrendSeries {
         return points.map(\.score).reduce(0, +) / points.count
     }
 
-    static func accessibilitySummary(_ points: [HomeTrendPoint]) -> String {
+    static func accessibilitySummary(_ snapshot: HomeTrendSnapshot) -> String {
+        accessibilitySummary(snapshot.points, skippedNights: snapshot.skippedNights)
+    }
+
+    static func accessibilitySummary(_ points: [HomeTrendPoint], skippedNights: Int = 0) -> String {
+        let skipped = skippedPhrase(skippedNights)
         guard !points.isEmpty else {
-            return "Seven-day signal. Not enough nights yet. Sleep a few more nights and the trend will show up here."
+            return "Sleep score, last seven nights. Not enough nights yet. \(skipped)"
         }
         let latest = points[points.count - 1]
         let avg = average(points) ?? latest.score
-        let days = points.map { "\($0.day) \($0.score)" }.joined(separator: ", ")
-        return "Seven-day signal. Latest \(latest.score), average \(avg). \(days)."
+        let formatter = DateFormatter()
+        formatter.dateFormat = "EEE"
+        let days = points.map { "\(formatter.string(from: $0.date)) \($0.score)" }.joined(separator: ", ")
+        return "Sleep score, last seven nights. Latest \(latest.score), average \(avg). \(skipped) \(days)."
+    }
+
+    static func skippedPhrase(_ count: Int) -> String {
+        if count == 0 { return "No nights skipped." }
+        if count == 1 { return "1 night skipped." }
+        return "\(count) nights skipped."
     }
 }
 
@@ -453,8 +494,12 @@ struct HomeTrendSection: View {
     @State private var chartGrown = false
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
+    private var trend: HomeTrendSnapshot {
+        HomeTrendSeries.snapshot(from: store.sleepData)
+    }
+
     private var trendData: [HomeTrendPoint] {
-        HomeTrendSeries.points(from: store.sleepData)
+        trend.points
     }
 
     private var isLoading: Bool {
@@ -489,9 +534,8 @@ struct HomeTrendSection: View {
             }
             .buttonStyle(.plain)
             .disabled(trendData.isEmpty)
-            .accessibilityLabel(HomeTrendSeries.accessibilitySummary(trendData))
-            .accessibilityHint(trendData.isEmpty ? "" : "Double tap to show more chart detail")
-            .accessibilityAddTraits(.isHeader)
+            .accessibilityHint(HomeTrendSeries.expandHint)
+            .accessibilityValue(isExpanded ? "Expanded" : "Collapsed")
 
             if isLoading {
                 RoundedRectangle(cornerRadius: HomeMetrics.innerRadius, style: .continuous)
@@ -502,7 +546,7 @@ struct HomeTrendSection: View {
                             .font(HomeType.body)
                             .foregroundColor(.textTertiary)
                     }
-                    .accessibilityLabel("Seven-day signal is loading")
+                    .accessibilityLabel(HomeTrendSeries.loadingVoiceOver)
             } else if trendData.isEmpty {
                 VStack(alignment: .leading, spacing: 4) {
                     Text("A few more nights")
@@ -514,10 +558,12 @@ struct HomeTrendSection: View {
                         .fixedSize(horizontal: false, vertical: true)
                 }
                 .accessibilityElement(children: .combine)
+                .accessibilityLabel(HomeTrendSeries.accessibilitySummary(trend))
             } else {
                 chart
                     .frame(height: isExpanded ? 140 : 88)
-                    .accessibilityHidden(true)
+                    .accessibilityElement(children: .ignore)
+                    .accessibilityLabel(HomeTrendSeries.accessibilitySummary(trend))
             }
         }
         .padding(HomeMetrics.cardPadding)
@@ -548,8 +594,8 @@ struct HomeTrendSection: View {
 
             ForEach(Array(trendData.enumerated()), id: \.element.id) { i, point in
                 AreaMark(
-                    x: .value("Day", point.day),
-                    y: .value("Score", plottedScore(point.score))
+                    x: .value("Sleep", point.date, unit: .day),
+                    y: .value("Sleep", plottedScore(point.score))
                 )
                 .foregroundStyle(
                     LinearGradient(
@@ -561,16 +607,16 @@ struct HomeTrendSection: View {
                 .interpolationMethod(.catmullRom)
 
                 LineMark(
-                    x: .value("Day", point.day),
-                    y: .value("Score", plottedScore(point.score))
+                    x: .value("Sleep", point.date, unit: .day),
+                    y: .value("Sleep", plottedScore(point.score))
                 )
                 .foregroundStyle(HomeReadiness.color(latest))
                 .lineStyle(StrokeStyle(lineWidth: 2.4, lineCap: .round))
                 .interpolationMethod(.catmullRom)
 
                 PointMark(
-                    x: .value("Day", point.day),
-                    y: .value("Score", plottedScore(point.score))
+                    x: .value("Sleep", point.date, unit: .day),
+                    y: .value("Sleep", plottedScore(point.score))
                 )
                 .foregroundStyle(HomeReadiness.color(point.score))
                 .symbolSize(i == trendData.count - 1 ? 56 : 28)
@@ -578,8 +624,8 @@ struct HomeTrendSection: View {
         }
         .chartYScale(domain: 0...100)
         .chartXAxis {
-            AxisMarks { _ in
-                AxisValueLabel()
+            AxisMarks(values: .stride(by: .day)) { _ in
+                AxisValueLabel(format: .dateTime.weekday(.abbreviated))
                     .foregroundStyle(Color.textMuted)
                     .font(HomeType.micro)
             }

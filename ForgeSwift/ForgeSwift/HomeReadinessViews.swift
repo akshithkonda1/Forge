@@ -164,21 +164,33 @@ struct ReadinessRingView: View {
 
 // MARK: - Home readiness ring-field (data language, not the Nest mark)
 
+/// Home-owned ring-field clock. Pose math stays `AriaRingFieldGeometry`
+/// (the Home readiness data language). Do not borrow `AriaNestGeometry`
+/// ticks or poses — Nest is the brand mark.
+enum HomeRingField {
+    static let tickHz: Double = 12
+    static let tickInterval: Double = 1.0 / 12.0
+}
+
 /// Kinetic 5-ellipse ring-field from `AriaRingFieldGeometry`.
 /// Brand mark stays `AriaNest*` / `ARIAIdentityMark`. This field is Home
 /// readiness chrome only. Hero size (≥90) paints all five ellipses.
 struct HomeReadinessFieldView: View {
     let score: Int
-    var size: CGFloat = HomeMetrics.heroFieldSize
+    var size: CGFloat? = nil
 
+    @ScaledMetric(relativeTo: .largeTitle) private var scaledHeroField: CGFloat = HomeMetrics.heroFieldSize
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.forgeMinimalAnimation) private var minimalAnimation
 
     private var frozen: Bool { reduceMotion || minimalAnimation }
     private var clamped: Int { min(max(score, 0), 100) }
+    private var resolvedSize: CGFloat {
+        max(AriaRingFieldGeometry.heroMinimumSize, size ?? scaledHeroField)
+    }
 
     var body: some View {
-        TimelineView(.animation(minimumInterval: AriaNestGeometry.tickInterval, paused: frozen)) { timeline in
+        TimelineView(.animation(minimumInterval: HomeRingField.tickInterval, paused: frozen)) { timeline in
             let time = frozen
                 ? AriaRingFieldGeometry.stillPose
                 : timeline.date.timeIntervalSinceReferenceDate
@@ -216,7 +228,7 @@ struct HomeReadinessFieldView: View {
                 .accessibilityHidden(true)
             }
         }
-        .frame(width: size, height: size)
+        .frame(width: resolvedSize, height: resolvedSize)
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(HomeReadiness.voiceOverLabel(clamped))
     }
@@ -234,7 +246,6 @@ enum HomeRingFieldCanvas {
         guard s >= 2 else { return }
         let center = CGPoint(x: canvasSize.width / 2, y: canvasSize.height / 2)
         let tint = HomeReadiness.color(score)
-        let orange = Color(hex: AriaRingFieldGeometry.forgeOrangeHex)
         let fill = Double(min(max(score, 0), 100)) / 100.0
 
         let haloR = s * 0.24
@@ -275,17 +286,46 @@ enum HomeRingFieldCanvas {
                 .rotated(by: CGFloat(pose.rotation))
             path = path.applying(transform)
 
-            let color: Color = index >= 3 ? orange : tint
             context.stroke(
                 path,
-                with: .color(color.opacity(pose.opacity * 0.32)),
+                with: .color(tint.opacity(pose.opacity * 0.32)),
                 lineWidth: max(2.2, line * 2.0)
             )
             context.stroke(
                 path,
-                with: .color(color.opacity(min(1, pose.opacity + 0.06))),
+                with: .color(tint.opacity(min(1, pose.opacity + 0.06))),
                 lineWidth: line
             )
+        }
+
+        // Score lives in the geometry: outer arc sweep is score / 100.
+        // TODO: Lex `shared/readiness.json` will own band thresholds, colors,
+        // and this sweep. Until then reuse `HomeReadiness` cuts (85 / 70 / 50)
+        // via `HomeReadiness.color` — do not invent a third palette.
+        let outer = AriaRingFieldGeometry.ellipseCount - 1
+        let sweepRadius = s * CGFloat(
+            AriaRingFieldGeometry.radii[outer] * (1 + AriaRingFieldGeometry.eccentricity[outer])
+        ) / 2
+        let sweepWidth = max(2.4, AriaRingFieldGeometry.strokeWidth(size: s, index: outer) * 2.2)
+        var track = Path()
+        track.addArc(
+            center: center,
+            radius: sweepRadius,
+            startAngle: .degrees(-90),
+            endAngle: .degrees(270),
+            clockwise: false
+        )
+        context.stroke(track, with: .color(tint.opacity(0.16)), lineWidth: sweepWidth)
+        if fill > 0 {
+            var arc = Path()
+            arc.addArc(
+                center: center,
+                radius: sweepRadius,
+                startAngle: .degrees(-90),
+                endAngle: .degrees(-90 + 360 * fill),
+                clockwise: false
+            )
+            context.stroke(arc, with: .color(tint.opacity(0.95)), lineWidth: sweepWidth)
         }
     }
 }
@@ -386,9 +426,10 @@ struct StreakCalendarSection: View {
     }
 }
 
-// MARK: - Glanceable vitals (Whoop dials × Oura Today scores × Apple ring fill)
+// MARK: - Glanceable vitals (compact rows — the ring-field is the only circle)
 
-/// Sleep / Recovery / Load at a glance. Always visible — not hidden behind Details.
+/// Sleep / Recovery / Load at a glance. Compact rows so the Today hero does
+/// not stack the ring-field with three circular dials.
 struct HomeVitalsRow: View {
     let sleep: Int
     let recovery: Int
@@ -396,28 +437,15 @@ struct HomeVitalsRow: View {
     var onSelect: (() -> Void)? = nil
 
     var body: some View {
-        HStack(spacing: 8) {
-            HomeVitalDial(
-                title: "Sleep",
-                value: sleep,
-                color: .steel,
-                delayIndex: 0,
-                onTap: onSelect
-            )
-            HomeVitalDial(
+        VStack(spacing: 2) {
+            HomeContributorRow(title: "Sleep", value: sleep, color: .steel, onTap: onSelect)
+            HomeContributorRow(
                 title: "Recovery",
                 value: recovery,
                 color: HomeReadiness.color(recovery),
-                delayIndex: 1,
                 onTap: onSelect
             )
-            HomeVitalDial(
-                title: "Load",
-                value: load,
-                color: .ember,
-                delayIndex: 2,
-                onTap: onSelect
-            )
+            HomeContributorRow(title: "Load", value: load, color: .ember, onTap: onSelect)
         }
         .accessibilityElement(children: .combine)
         .accessibilityLabel("Sleep \(sleep), recovery \(recovery), load \(load)")
@@ -425,17 +453,11 @@ struct HomeVitalsRow: View {
     }
 }
 
-/// Whoop-style open dial: hairline track, 1.2s ease-out fill from 12 o'clock,
-/// glow instead of a drop shadow. Tabular numerals. Reduce Motion snaps.
-struct HomeVitalDial: View {
+struct HomeContributorRow: View {
     let title: String
     let value: Int
     let color: Color
-    let delayIndex: Int
     var onTap: (() -> Void)? = nil
-
-    @State private var progress: CGFloat = 0
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     private var clamped: Int { min(max(value, 0), 100) }
 
@@ -444,53 +466,22 @@ struct HomeVitalDial: View {
             FDS.selectionHaptic()
             onTap?()
         } label: {
-            VStack(spacing: 6) {
-                ZStack {
-                    Circle()
-                        .trim(from: 0.02, to: 0.98)
-                        .stroke(Color.white.opacity(0.08), style: StrokeStyle(lineWidth: 6, lineCap: .round))
-                        .rotationEffect(.degrees(-90))
-
-                    Circle()
-                        .trim(from: 0.02, to: 0.02 + 0.96 * progress)
-                        .stroke(color.opacity(0.22), style: StrokeStyle(lineWidth: 11, lineCap: .round))
-                        .rotationEffect(.degrees(-90))
-                        .blur(radius: 6)
-
-                    Circle()
-                        .trim(from: 0.02, to: 0.02 + 0.96 * progress)
-                        .stroke(color, style: StrokeStyle(lineWidth: 6, lineCap: .round))
-                        .rotationEffect(.degrees(-90))
-                        .shadow(color: color.opacity(0.38), radius: 6)
-
-                    Text("\(clamped)")
-                        .font(HomeType.metric)
-                        .foregroundColor(.textPrimary)
-                        .minimumScaleFactor(0.7)
-                        .lineLimit(1)
-                        .contentTransition(.numericText())
-                }
-                .frame(width: 72, height: 72)
-
-                Text(title.uppercased())
-                    .font(HomeType.micro)
-                    .tracking(1.2)
-                    .foregroundColor(.textTertiary)
+            HStack(spacing: 10) {
+                RoundedRectangle(cornerRadius: 1, style: .continuous)
+                    .fill(color)
+                    .frame(width: 2, height: 16)
+                Text(title)
+                    .font(HomeType.label)
+                    .foregroundColor(.textSecondary)
+                Spacer(minLength: 8)
+                Text("\(clamped)")
+                    .font(HomeType.metric)
+                    .foregroundColor(.textPrimary)
+                    .contentTransition(.numericText())
             }
-            .frame(maxWidth: .infinity)
+            .padding(.vertical, 6)
         }
         .buttonStyle(.plain)
-        .onAppear {
-            let anim = reduceMotion
-                ? Animation.easeOut(duration: 0.12)
-                : FDS.Spring.sweepDelay(delayIndex)
-            withAnimation(anim) { progress = CGFloat(clamped) / 100 }
-        }
-        .onChange(of: value) { _, new in
-            withAnimation(reduceMotion ? .easeOut(duration: 0.12) : FDS.Spring.sweep) {
-                progress = CGFloat(min(max(new, 0), 100)) / 100
-            }
-        }
         .accessibilityLabel("\(title) \(clamped)")
     }
 }

@@ -21,8 +21,9 @@ enum HomeMetrics {
     static let scrollBottomClearance: CGFloat = 28
     /// How far a section rises as it fades in.
     static let entranceRise: CGFloat = 12
-    /// Hero ring-field. Must stay ≥ `AriaRingFieldGeometry.heroMinimumSize` (90)
-    /// so Home paints all five ellipses — compact 3-ring is Watch-only.
+    /// Hero ring-field base size. Use sites wrap this in `@ScaledMetric` and
+    /// floor at `AriaRingFieldGeometry.heroMinimumSize` (90) so all five
+    /// ellipses still paint — compact 3-ring is Watch-only.
     static let heroFieldSize: CGFloat = 132
     /// Stack gap inside the Today hero (field → vitals → session → CTA).
     static let heroStackGap: CGFloat = FDS.Spacing.lg

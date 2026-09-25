@@ -173,6 +173,7 @@ struct HomeTodayHero: View {
     @EnvironmentObject var store: AppStore
     let action: HomePrimaryAction
     @State private var showScore = false
+    @ScaledMetric(relativeTo: .largeTitle) private var heroFieldSize: CGFloat = HomeMetrics.heroFieldSize
 
     private var recovery: Bool { action.usesRecoveryChrome(store: store) }
 
@@ -185,8 +186,11 @@ struct HomeTodayHero: View {
             Text("Today")
                 .forgeSectionLabel()
 
-            HomeReadinessFieldView(score: store.readiness.overall)
-                .frame(maxWidth: .infinity)
+            HomeReadinessFieldView(
+                score: store.readiness.overall,
+                size: max(AriaRingFieldGeometry.heroMinimumSize, heroFieldSize)
+            )
+            .frame(maxWidth: .infinity)
 
             Text(homeStatusLine(store: store))
                 .font(HomeType.status)
@@ -194,7 +198,6 @@ struct HomeTodayHero: View {
                 .multilineTextAlignment(.center)
                 .frame(maxWidth: .infinity)
                 .fixedSize(horizontal: false, vertical: true)
-                .accessibilityLabel(homeStatusLine(store: store))
 
             if store.hasMeaningfulLifeSignal || store.readiness.overall > 0 {
                 HomeVitalsRow(
@@ -270,7 +273,6 @@ private struct HomeReadinessDetailStrip: View {
                 .font(HomeType.body)
                 .foregroundColor(.textSecondary)
                 .fixedSize(horizontal: false, vertical: true)
-                .accessibilityLabel(readinessWhyCopy(store: store))
         }
         .padding(12)
         .background(Color.white.opacity(0.04))
@@ -393,7 +395,10 @@ private struct HomePrimaryCTA: View {
                     )
                 } label: {
                     HStack(spacing: 6) {
+                        // One animating mark per screen: the hero ring-field
+                        // is live, so this 14pt Nest mark stays still.
                         ARIAIdentityMark(state: .idle, mood: .energized, size: 14, amplitude: 0.22)
+                            .environment(\.forgeMinimalAnimation, true)
                         Text("Why this session")
                             .font(HomeType.label)
                     }
