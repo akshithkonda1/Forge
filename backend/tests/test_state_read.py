@@ -470,9 +470,8 @@ class AttachAndPathTests(unittest.TestCase):
             include_stored=False,
             load_learner=False,
         )
-        self.assertFalse(
-            any(phrase in p.lower() for p in fused.context.lifestyle.recent_patterns)
-        )
+        # recentPatterns is user-authored — fuse_turn must not rewrite it.
+        self.assertIn(joined, fused.context.lifestyle.recent_patterns)
         self.assertIn("late_caffeine", fused.context.lifestyle.recent_patterns)
 
         living = type("Living", (), {})()
@@ -670,6 +669,483 @@ class ScoutEqualUsualAndDedupeTests(unittest.TestCase):
                         re.search(r"\d+(?:\.\d+)?\s*h\b", window, flags=re.I),
                         window,
                     )
+
+
+def _sleep_samples(nights: int, *, last_min: float = 300.0, usual_min: float = 450.0) -> list[dict]:
+    samples = []
+    for i in range(nights):
+        value = last_min if i == nights - 1 else usual_min
+        samples.append(
+            {
+                "type": "sleep",
+                "value": value,
+                "unit": "min",
+                "timestamp": f"2026-01-{i + 1:02d}T08:00:00Z",
+                "source": "apple-health",
+            }
+        )
+    return samples
+
+
+class PartBBaselineBackfillTests(unittest.TestCase):
+    """fuse_turn copies BodyModel sleep median onto ctx so Dummy/iOS can read."""
+
+    def test_dummy_14_sleep_samples_reach_state_read(self):
+        os.environ.setdefault("SIMRUNNER_TODAY", "2026-01-15")
+        from backend.ai.simrunner.aria_simrunner import dummy_orchestrator as dummy
+        from backend.ai.simrunner.backend_simulator import model_registry as reg
+        from backend.ai.simrunner.backend_simulator.behavior_engine import generate_stream
+        from backend.ai.simrunner.backend_simulator.data_generator import build_context
+        from services import fusion as fusion_mod
+        from services.aria_engine import DataPermissions
+
+        model = reg.get_models_by_tier(1)[0]
+        stream = generate_stream(model["behavioral_profile"], seed=14)
+        ctx = build_context(stream, model["behavioral_profile"], 14)
+        payload = dummy.sim_context_to_chat_payload(ctx)
+        sleep_n = sum(1 for s in payload["samples"] if s.get("type") == "sleep")
+        self.assertGreaterEqual(sleep_n, 14)
+        fused = fusion_mod.fuse_turn(
+            "test-user-00000000",
+            payload,
+            DataPermissions.allow_all(),
+            persist=False,
+            include_stored=False,
+            load_learner=False,
+        )
+        self.assertIsNotNone(fused.baselines.sleep_duration_min)
+        self.assertGreaterEqual(fused.baselines.sleep_duration_n, 14)
+        self.assertIsNotNone(fused.context.sleep.baseline_median_minutes)
+        self.assertGreaterEqual(fused.context.sleep.nights_available or 0, 7)
+        fused.context.sleep.duration_minutes = (
+            fused.context.sleep.baseline_median_minutes - 90
+        )
+        clause = state_read._state_read(fused.context, seed=0)
+        self.assertIn(clause, state_read.SHORT_NIGHT, clause)
+
+    def test_ios_shaped_payload_with_enough_nights_produces_a_sleep_read(self):
+        """Real iOS chat goes through fuse_turn (routes/aria.py:217).
+
+        ARIAContextPayload sleep has durationMinutes + nightsAvailable, no
+        baselineMedianMinutes. Samples arrive from /ai/observe (include_stored)
+        or Dummy. This payload is that shape.
+        """
+        from services import fusion as fusion_mod
+        from services.aria_engine import DataPermissions
+
+        payload = {
+            "include_stored": False,
+            "samples": _sleep_samples(14, last_min=300, usual_min=450),
+            "context": {
+                "sleep": {"durationMinutes": 300, "nightsAvailable": 14},
+                "training": {"weeklyLoadScore": 180},
+            },
+        }
+        self.assertNotIn("baselineMedianMinutes", payload["context"]["sleep"])
+        fused = fusion_mod.fuse_turn(
+            "ios-chat-user",
+            payload,
+            DataPermissions.allow_all(),
+            persist=False,
+            include_stored=False,
+            load_learner=False,
+        )
+        self.assertIsNotNone(fused.context.sleep.baseline_median_minutes)
+        self.assertGreaterEqual(fused.context.sleep.nights_available or 0, 7)
+        clause = state_read._state_read(fused.context, seed=0)
+        self.assertIn(clause, state_read.SHORT_NIGHT, clause)
+
+    def test_ios_shaped_payload_with_too_few_nights_stays_silent(self):
+        from services import fusion as fusion_mod
+        from services.aria_engine import DataPermissions
+
+        payload = {
+            "include_stored": False,
+            "samples": _sleep_samples(3, last_min=300, usual_min=450),
+            "context": {
+                "sleep": {"durationMinutes": 300, "nightsAvailable": 3},
+                "training": {"weeklyLoadScore": 180},
+            },
+        }
+        fused = fusion_mod.fuse_turn(
+            "ios-chat-thin",
+            payload,
+            DataPermissions.allow_all(),
+            persist=False,
+            include_stored=False,
+            load_learner=False,
+        )
+        self.assertLess(fused.context.sleep.nights_available or 0, 7)
+        self.assertEqual(state_read._state_read(fused.context, seed=0), "")
+
+    def test_to_aria_context_and_asdict_preserve_baseline(self):
+        from datetime import datetime, timezone
+
+        from aria_core.biometrics.body_model import BodyModel
+        from aria_core.biometrics.types import MetricType, Observation
+        from services import fusion as fusion_mod
+        from services.aria_engine import DataPermissions
+
+        obs = [
+            Observation(
+                MetricType.SLEEP_DURATION,
+                450.0 if i < 13 else 300.0,
+                "min",
+                datetime(2026, 1, i + 1, 8, tzinfo=timezone.utc),
+                source="apple-health",
+            )
+            for i in range(14)
+        ]
+        model = BodyModel.from_observations(obs)
+        body_ctx = model.to_aria_context(DataPermissions.allow_all())
+        self.assertIsNotNone(body_ctx.sleep.baseline_median_minutes)
+        restored = fusion_mod.context_from_asdict(
+            {
+                "sleep": {
+                    "duration_minutes": 300,
+                    "baseline_median_minutes": 480,
+                    "nights_available": 10,
+                }
+            }
+        )
+        self.assertEqual(restored.sleep.baseline_median_minutes, 480)
+        self.assertEqual(restored.sleep.nights_available, 10)
+
+    def test_overlay_keeps_a_client_sent_baseline(self):
+        from services import fusion as fusion_mod
+        from services.aria_engine import DataPermissions
+
+        payload = {
+            "include_stored": False,
+            "samples": _sleep_samples(2, last_min=300, usual_min=450),
+            "context": {
+                "sleep": {
+                    "durationMinutes": 300,
+                    "baselineMedianMinutes": 480,
+                    "nightsAvailable": 10,
+                }
+            },
+        }
+        fused = fusion_mod.fuse_turn(
+            "client-baseline-user",
+            payload,
+            DataPermissions.allow_all(),
+            persist=False,
+            include_stored=False,
+            load_learner=False,
+        )
+        self.assertIsNotNone(fused.context.sleep.baseline_median_minutes)
+
+
+class JoinAndPhraseTests(unittest.TestCase):
+    def test_neutral_step_is_own_sentence_not_still(self):
+        joined = state_read._join_read(
+            "Try a 20 minute walk.",
+            "right around your usual",
+            ack=False,
+            direction="usual",
+        )
+        self.assertEqual(joined, "Right around your usual. Try a 20 minute walk.")
+        self.assertNotIn("Still,", joined)
+
+        synced = state_read._join_read(
+            "Sync HealthKit so I can size today's walk.",
+            "right around your usual",
+            ack=False,
+            direction="usual",
+        )
+        self.assertEqual(
+            synced,
+            "Right around your usual. Sync HealthKit so I can size today's walk.",
+        )
+        self.assertNotIn("Still,", synced)
+
+    def test_around_usual_read_is_own_sentence(self):
+        ctx = _health_ctx(
+            sleep=SleepContext(
+                duration_minutes=440,
+                baseline_median_minutes=450,
+                nights_available=7,
+            ),
+            readiness=ReadinessContext(),
+            progress=ProgressContext(),
+        )
+        out = state_read.apply_to_envelope(
+            {
+                "prose_summary": "Try a 20 minute walk.",
+                "message": "Try a 20 minute walk.",
+            },
+            ctx,
+            seed=0,
+            message="hey",
+        )
+        self.assertRegex(
+            out["prose_summary"], r"(?i)right around your usual\.\s+Try a 20 minute walk"
+        )
+        self.assertNotIn("Still,", out["prose_summary"])
+
+    def test_joins_never_capitalize_after_comma_except_i(self):
+        steps = (
+            "Try a 20 minute walk.",
+            "Keep today easy, then call it.",
+            "Sync HealthKit so I can size today.",
+            "I will keep it easy.",
+        )
+        directions = (
+            "short",
+            "better",
+            "usual",
+            "down",
+            "up",
+            "bigger",
+            "lighter",
+            "steady",
+        )
+        for phrase in state_read.phrase_bank():
+            for step in steps:
+                for direction in directions:
+                    joined = state_read._join_read(
+                        step, phrase, ack=False, direction=direction
+                    )
+                    self.assertIsNone(
+                        re.search(r", (?!I )[A-Z]", joined),
+                        joined,
+                    )
+
+    def test_every_short_night_phrase_names_sleep(self):
+        self.assertEqual(state_read.SHORT_NIGHT[0], "short night")
+        self.assertNotIn("a bit under your usual", state_read.SHORT_NIGHT)
+        self.assertIn("a bit under your usual", state_read.READY_DOWN)
+        for phrase in state_read.SHORT_NIGHT:
+            self.assertRegex(phrase.lower(), r"\b(night|sleep)\b", phrase)
+
+    def test_user_note_with_embedded_phrase_survives_fuse_and_stamp(self):
+        from aria_core import contextual_learner, fusion
+        from services.aria_engine import DataPermissions
+
+        note = "Had a lighter week than usual because of travel"
+        payload = {"context": {"lifestyle": {"recentPatterns": [note]}}}
+        fused = fusion.fuse_turn(
+            "test-user-00000000",
+            payload,
+            DataPermissions.allow_all(),
+            persist=False,
+            include_stored=False,
+            load_learner=False,
+        )
+        self.assertEqual(fused.context.lifestyle.recent_patterns, [note])
+
+        living = type("Living", (), {})()
+        living.last_insights = ["keep Friday nights free"]
+        living.recent_patterns = [note]
+        living.current_goals = []
+        living.constraints = []
+        living.supervision_plan = None
+        stamped = contextual_learner.stamp_living_context(
+            _health_ctx(lifestyle=LifestyleContext(recent_patterns=[])),
+            living,
+        )
+        self.assertEqual(stamped.lifestyle.recent_patterns, [note])
+
+
+class InsightTakeawayTests(unittest.TestCase):
+    def test_decimal_first_sentence_is_not_stored(self):
+        from routes.aria import _insight_takeaway
+
+        self.assertEqual(
+            _insight_takeaway("Your sleep came in at 6.5 h, a bit short. Keep today easy."),
+            "",
+        )
+
+    def test_digit_free_first_sentence_is_stored_whole(self):
+        from routes.aria import _insight_takeaway
+
+        self.assertEqual(
+            _insight_takeaway("Keep today easy and protect bedtime. Extra later."),
+            "Keep today easy and protect bedtime.",
+        )
+
+    def test_chat_route_never_saves_truncated_decimal_insight(self):
+        from unittest.mock import patch
+
+        from routes.aria import handle_post_ai_chat
+        from services.aria_context import CoachContextEngine
+
+        uid = f"insight-digit-{id(self)}"
+        prose = "Your sleep came in at 6.5 h, a bit short. Keep today easy."
+        envelope = {
+            "prose_summary": prose,
+            "message": prose,
+            "response_type": "recommendation",
+            "confidence": 0.5,
+            "card": {},
+            "contextualization": {},
+        }
+        with patch("routes.aria.aria_engine.generate_response", return_value=envelope):
+            result = handle_post_ai_chat({"message": "how did I sleep?"}, user_id=uid)
+        self.assertEqual(result["statusCode"], 200)
+        insights = CoachContextEngine().get_or_create_context(uid).last_insights
+        blob = " ".join(insights)
+        self.assertNotIn("at 6", blob)
+        self.assertNotIn("6.5", blob)
+
+    def test_chat_route_saves_digit_free_first_sentence_whole(self):
+        from unittest.mock import patch
+
+        from routes.aria import handle_post_ai_chat
+        from services.aria_context import CoachContextEngine
+
+        uid = f"insight-clean-{id(self)}"
+        prose = "Keep today easy and protect bedtime. Extra later."
+        envelope = {
+            "prose_summary": prose,
+            "message": prose,
+            "response_type": "recommendation",
+            "confidence": 0.5,
+            "card": {},
+            "contextualization": {},
+        }
+        with patch("routes.aria.aria_engine.generate_response", return_value=envelope):
+            result = handle_post_ai_chat({"message": "should I train?"}, user_id=uid)
+        self.assertEqual(result["statusCode"], 200)
+        insights = CoachContextEngine().get_or_create_context(uid).last_insights
+        self.assertTrue(any("Keep today easy and protect bedtime." in i for i in insights))
+        self.assertFalse(any("Extra later" in i for i in insights))
+
+
+class AcwrAndGuideLabelTests(unittest.TestCase):
+    def test_lambda_and_dummy_never_speak_acwr(self):
+        from services.aria_engine import generate_response
+
+        contexts = {
+            "protect": _health_ctx(
+                training=TrainingContext(
+                    acwr=1.62,
+                    is_overtrained=True,
+                    weekly_load_score=90,
+                    hours_since_last_workout=8,
+                    last_workout_type="strength",
+                )
+            ),
+            "proceed": _health_ctx(
+                sleep=SleepContext(
+                    duration_minutes=450,
+                    rem_minutes=95,
+                    deep_minutes=90,
+                    baseline_median_minutes=450,
+                    nights_available=14,
+                ),
+                readiness=ReadinessContext(
+                    hrv_7day_trend=2,
+                    hrv_30day_baseline=62,
+                    recovery_score=74,
+                    hrv_days_available=14,
+                ),
+                training=TrainingContext(
+                    acwr=1.0,
+                    weekly_load_score=60,
+                    hours_since_last_workout=40,
+                    last_workout_type="strength",
+                ),
+            ),
+            "clarify": ARIAContext(),
+            "recommendation": _health_ctx(
+                training=TrainingContext(
+                    acwr=1.45,
+                    weekly_load_score=80,
+                    hours_since_last_workout=16,
+                    last_workout_type="strength",
+                )
+            ),
+        }
+        seen_types = set()
+        for label, ctx in contexts.items():
+            resp = generate_response("Should I train today?", ctx, seed=0)
+            seen_types.add(str(resp.get("response_type") or ""))
+            spoken = " ".join(
+                str(p)
+                for p in (resp.get("prose_summary"), resp.get("message"))
+                if p
+            )
+            card = resp.get("card") if isinstance(resp.get("card"), dict) else {}
+            step = speak_guard._sized_step(
+                card,
+                stance=str((resp.get("fusion") or {}).get("stance") or ""),
+                topic="training",
+            )
+            self.assertNotRegex(spoken, r"(?i)\bacwr\b", f"{label}: {spoken}")
+            self.assertNotRegex(step or "", r"(?i)\bacwr\b", f"{label} step: {step}")
+
+        os.environ.setdefault("SIMRUNNER_TODAY", "2026-01-15")
+        from backend.ai.simrunner.aria_simrunner import dummy_orchestrator as dummy
+        from backend.ai.simrunner.backend_simulator import model_registry as reg
+        from backend.ai.simrunner.backend_simulator.behavior_engine import generate_stream
+        from backend.ai.simrunner.backend_simulator.data_generator import build_context
+
+        model = reg.get_models_by_tier(1)[0]
+        stream = generate_stream(model["behavioral_profile"], seed=1)
+        ctx = build_context(stream, model["behavioral_profile"], 14)
+        ctx.today.acwr = 1.6
+        ctx.acwr = 1.6
+        for rtype, prompt in (
+            ("protect", "Should I train today?"),
+            ("proceed", "Am I making progress?"),
+            ("clarify", "What should I do?"),
+            ("recommendation", "Should I train today?"),
+        ):
+            row = dummy.respond(prompt, seed=1, engine="lambda", context=ctx)
+            blob = " ".join(
+                str(p)
+                for p in (
+                    row.get("prose_summary"),
+                    row.get("message"),
+                    row.get("recommendation"),
+                    (row.get("card") or {}).get("action")
+                    if isinstance(row.get("card"), dict)
+                    else "",
+                    (row.get("card") or {}).get("why")
+                    if isinstance(row.get("card"), dict)
+                    else "",
+                )
+                if p
+            )
+            self.assertNotRegex(blob, r"(?i)\bacwr\b", f"{rtype}: {blob}")
+
+    def test_spoken_prose_has_no_guide_labels_or_dash_capitals(self):
+        _label = re.compile(r"\b[A-Z][a-z]+ [a-z]+:")
+        _dash_cap = re.compile(r"[—–-]\s+(?!I\b)[A-Z]")
+        os.environ.setdefault("SIMRUNNER_TODAY", "2026-01-15")
+        from backend.ai.simrunner.aria_simrunner import dummy_orchestrator as dummy
+        from backend.ai.simrunner.backend_simulator import model_registry as reg
+        from backend.ai.simrunner.backend_simulator.behavior_engine import generate_stream
+        from backend.ai.simrunner.backend_simulator.data_generator import build_context
+
+        for line in dummy._WIT_PROTECT + dummy._WIT_PROCEED + dummy._WIT_HONEST:
+            self.assertNotRegex(line, _label, line)
+            self.assertNotIn("Hug first:", line)
+
+        models = list(reg.get_models_by_tier(1) or [])
+        self.assertTrue(models)
+        for model in models:
+            for seed in (1, 7, 14):
+                stream = generate_stream(model["behavioral_profile"], seed=seed)
+                ctx = build_context(stream, model["behavioral_profile"], 14)
+                row = dummy.respond(
+                    "Should I train today?", seed=seed, engine="lambda", context=ctx
+                )
+                speech = f"{row.get('prose_summary') or ''} {row.get('message') or ''}"
+                self.assertNotRegex(speech, _label, speech)
+                self.assertNotRegex(speech, _dash_cap, speech)
+                self.assertNotIn("Hug first:", speech)
+
+        for seed in range(6):
+            resp = aria_engine.generate_response(
+                "Should I train today?", _health_ctx(), seed=seed
+            )
+            speech = _speech(resp)
+            self.assertNotRegex(speech, _label, speech)
+            self.assertNotRegex(speech, _dash_cap, speech)
+            self.assertNotIn("Hug first:", speech)
 
 
 if __name__ == "__main__":

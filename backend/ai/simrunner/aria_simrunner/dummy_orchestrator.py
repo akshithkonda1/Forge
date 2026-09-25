@@ -826,7 +826,7 @@ def _follow_up_reply(
 # User-visible Dummy speak never dumps vitals/metrics. Orchestration notes may
 # still name missing HRV for guard tests; those tokens must not reach prose.
 _VITALS_SPEAK = re.compile(
-    r"\b(hrv|bpm|ms|mmhg|vo2|spo2|recovery score|sleep[- ]?debt)\b"
+    r"\b(hrv|bpm|ms|mmhg|vo2|spo2|acwr|recovery score|sleep[- ]?debt)\b"
     r"|%\s*(?:below|above|under|over)\s+baseline",
     re.I,
 )
@@ -850,13 +850,13 @@ _WIT_PROTECT = (
     "Cozy-sweater day, not montage day — ten easy minutes, water nearby, lights out a little earlier.",
     "Even sparkly people need a restock — skip the extra work and steal a kinder wind-down tonight.",
     "Today whispered please-be-nice — so we will: keep it kind, light movement, protein with the next meal, real sleep.",
-    "Friend vote: let's not pick a fight with a tired body — soft loop, then earlier lights-out.",
+    "let's not pick a fight with a tired body — soft loop, then earlier lights-out.",
     "I love the ambition and I'm still tucking it in — keep today kind and light and make bedtime the workout.",
     "Your tank's on the cute low-power glow — easy movement only, then we guard the night.",
     "I'm taking care of you, not casting you as the montage hero — short and kind, then wind down.",
     "The loud plan can wait in drafts — an easy walk, a simple meal, and an honest bedtime will do more.",
     "You're not failing, you're just a little crispy — keep it easy and get under the covers on time.",
-    "Hug first: restock day — easy body, water with the next meal, protect sleep like a friend would.",
+    "restock day — easy body, water with the next meal, protect sleep like a friend would.",
 )
 _WIT_PROCEED = (
     "You've got a little sparkle in the tank, and I'm with you — spend it on one clean session, then stop while it still feels good.",
@@ -971,6 +971,14 @@ def _collapse_spoken(text: str) -> str:
     body = re.sub(r"\bWhat I notice\s+", "", body)
     body = re.sub(r"\bOne next step\s+", " ", body)
     body = re.sub(r"\bWhy\s+", " — ", body)
+    # Internal two-word guide/HUD labels ("Hug first:", "Training load:").
+    body = re.sub(r"\b[A-Z][a-z]+ [a-z]+:\s*", "", body)
+    # Why→dash must not leave " — Reassess".
+    body = re.sub(
+        r"([—–-])\s+(?!I\b)([A-Z])",
+        lambda m: f"{m.group(1)} {m.group(2).lower()}",
+        body,
+    )
     body = re.sub(r"\n{2,}", " ", body)
     return re.sub(r"\s+", " ", body).strip()
 
@@ -1123,7 +1131,12 @@ def friend_speak(
         if real:
             real = real[0].upper() + real[1:]
             if extra and extra.lower() not in real.lower():
-                real = f"{real} — {extra}" if real[-1] not in ".!?—" else f"{real} {extra}"
+                extra_bit = extra
+                if real[-1] not in ".!?—" and extra_bit[:1].isupper() and not extra_bit.startswith(
+                    ("I ", "I'm ", "I'll ", "I've ", "I'd ")
+                ):
+                    extra_bit = extra_bit[0].lower() + extra_bit[1:]
+                real = f"{real} — {extra_bit}" if real[-1] not in ".!?—" else f"{real} {extra}"
             return _apply_speak_guard(_speak_without_vitals(real, extra, _SPEAK_FALLBACK))
         return _apply_speak_guard(_speak_without_vitals(extra, _SPEAK_FALLBACK))
     if any(n in body.lower() for n in _WIT_ALREADY):
@@ -1645,6 +1658,31 @@ def _sanitize_chat_message(message: str) -> str:
         return (message or "").strip()
 
 
+def _workout_sessions(ctx) -> list:
+    """Logged sessions in Dummy history (oldest → newest, today included)."""
+    hist = list(getattr(ctx, "history", None) or [])
+    return [r for r in hist if getattr(r, "workout_logged", False)]
+
+
+def _ios_weekly_load_score(ctx) -> float | None:
+    """AriaContextStore.swift:130 — last-7 workout minutes when >= 3 sessions."""
+    sessions = _workout_sessions(ctx)
+    if len(sessions) < 3:
+        return None
+    minutes = sum(
+        float(getattr(r, "workout_duration_minutes", 0) or 0) for r in sessions[-7:]
+    )
+    return minutes
+
+
+def _ios_training_load_trend(ctx) -> str | None:
+    """AriaContextStore.swift:188 — 'steady' when >= 3 workouts, else None.
+
+    Dummy used to map ``readiness_trend`` onto this field; iOS does not.
+    """
+    return "steady" if len(_workout_sessions(ctx)) >= 3 else None
+
+
 def _hrv_trend_points(ctx) -> float | None:
     hist = getattr(ctx, "history", None) or []
     vals = [float(r.hrv) for r in hist if getattr(r, "hrv", None) is not None]
@@ -1766,12 +1804,9 @@ def sim_context_to_chat_payload(
                 "lastWorkoutName": last,
                 "lastWorkoutDurationMinutes": getattr(today, "workout_duration_minutes", None),
                 "hoursSinceLastWorkout": hours_since,
-                # Was silently stuffing ACWR into weeklyLoadScore (a distinct
-                # field on production's TrainingContext, "normalized, null if
-                # < 3 sessions") and never setting the real acwr key at all --
-                # production's overtraining check (`t.acwr >= 1.5`) always saw
-                # None. weeklyLoadScore has no SimRunner equivalent, so it
-                # stays unset rather than carrying a wrong number.
+                # iOS AriaContextStore.swift:130 — last-7 workout minutes
+                # when there are at least 3 sessions. Never stuff ACWR here.
+                "weeklyLoadScore": _ios_weekly_load_score(ctx),
                 "acwr": getattr(today, "acwr", None),
                 "isOvertrained": bool(getattr(ctx, "is_overtrained", False)),
             },
@@ -1788,7 +1823,7 @@ def sim_context_to_chat_payload(
                 "coachingStyle": getattr(ctx, "coaching_style", None),
             },
             "progress": {
-                "trainingLoadTrend": getattr(ctx, "readiness_trend", None),
+                "trainingLoadTrend": _ios_training_load_trend(ctx),
                 "workoutsCompleted30d": getattr(ctx, "training_streak", None),
             },
             "lifestyle": {

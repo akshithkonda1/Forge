@@ -2154,7 +2154,7 @@ _SLEEP_STAGE_PCT = re.compile(
     re.I,
 )
 _VITALS_SPEAK = re.compile(
-    r"\b(hrv|bpm|ms|mmhg|vo2|spo2|recovery score|sleep[- ]?debt)\b"
+    r"\b(hrv|bpm|ms|mmhg|vo2|spo2|acwr|recovery score|sleep[- ]?debt)\b"
     r"|%\s*(?:below|above|under|over)\s+baseline"
     # Sleep-stage % leftovers _interpret_sleep still emits; strip at speak.
     r"|\b(?:deep|rem|light)\s+sleep\s+at\s+\d+(?:\.\d+)?\s*%"

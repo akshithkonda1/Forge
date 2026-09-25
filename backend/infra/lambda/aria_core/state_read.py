@@ -27,8 +27,8 @@ _HRV_UP = 5.0
 # Phrase bank. No digits, units, or clinical tokens. Positive reads included.
 SHORT_NIGHT = (
     "short night",
-    "a bit under your usual",
     "lighter night than your usual",
+    "a shorter night than your usual",
 )
 BETTER_NIGHT = (
     "better night than your usual",
@@ -226,20 +226,10 @@ def drop_from_memory(ctx: Any) -> Any:
 
     ``last_insights`` is ARIA-told (``routes/aria.py`` ``add_insight`` of the
     first ``prose_summary`` sentence). ``recentPatterns`` is user/client
-    authored — only a joined/ack reply echo is stripped, never a bare vault
-    note that happens to match a phrase.
+    authored — no path writes ARIA's reply there, so leave it untouched.
     """
     if ctx is None:
         return ctx
-    lifestyle = getattr(ctx, "lifestyle", None)
-    if lifestyle is not None:
-        patterns = list(getattr(lifestyle, "recent_patterns", None) or [])
-        filtered = reject_memory_items(patterns, from_reply=False)
-        if filtered != patterns:
-            try:
-                lifestyle.recent_patterns = filtered
-            except Exception:
-                pass
     insights = getattr(ctx, "last_insights", None)
     if insights:
         filtered = reject_memory_items(list(insights), from_reply=True)
@@ -519,6 +509,16 @@ def _aligned(direction: str, step_text: str) -> bool:
     return read_way != "neutral" and read_way == step_way
 
 
+def _opposite(direction: str, step_text: str) -> bool:
+    read_way = _read_polarity(direction)
+    step_way = _step_polarity(step_text)
+    return (
+        read_way != "neutral"
+        and step_way != "neutral"
+        and read_way != step_way
+    )
+
+
 def _has_multiday_streak(ctx: Any, *, train: str | None = None) -> bool:
     """True only with a real multi-day pattern, not one near-usual night."""
     if train == "steady":
@@ -551,9 +551,11 @@ def _join_read(speech: str, clause: str, *, ack: bool, direction: str = "") -> s
         if _aligned(direction, sentence):
             rest = _de_sentence_case(sentence)
             parts[i] = f"{lead}, so {rest}"
+        elif _opposite(direction, sentence):
+            # Only 'Still,' when read and step point opposite ways.
+            parts[i] = f"{lead}. Still, {_de_sentence_case(sentence)}"
         else:
-            # Good-news read + lighter step (or any mismatch) is not a 'so'.
-            parts[i] = f"{lead}. Still, {_sentence_case(sentence)}"
+            parts[i] = f"{lead}. {_sentence_case(sentence)}"
         return " ".join(parts)
     return speech
 

@@ -49,7 +49,7 @@ class SimContextToChatPayloadTests(unittest.TestCase):
         ctx.acwr = 1.42
         payload = dummy.sim_context_to_chat_payload(ctx)
         self.assertEqual(payload["context"]["training"]["acwr"], 1.42)
-        self.assertNotIn("weeklyLoadScore", payload["context"]["training"])
+        self.assertNotEqual(payload["context"]["training"].get("weeklyLoadScore"), 1.42)
 
     def test_carries_is_overtrained(self):
         ctx, _ = _ctx()
@@ -141,6 +141,56 @@ class QualitativeSpeakFallbackTests(unittest.TestCase):
         )
         result = dummy.friend_speak(dummy._SPEAK_FALLBACK, seed=7, signals=signals)
         self.assertTrue(any(line in result for line in dummy._WIT_HONEST + dummy._WIT_PROTECT + dummy._WIT_PROCEED))
+
+
+class IOSWeeklyLoadParityTests(unittest.TestCase):
+    """Dummy must send weeklyLoadScore / trainingLoadTrend the way iOS does.
+
+    AriaContextStore.swift:130 — last-7 workout minutes when >= 3 sessions.
+    AriaContextStore.swift:188 — trainingLoadTrend is 'steady' at that floor,
+    not Dummy ``readiness_trend``.
+    """
+
+    def test_ios_rule_three_or_more_sessions(self):
+        ctx, _ = _ctx()
+        ctx.readiness_trend = "rising"
+        for rec in ctx.history:
+            rec.workout_logged = False
+            rec.workout_duration_minutes = None
+        for rec, minutes in zip(ctx.history[-4:], (30, 40, 50, 60)):
+            rec.workout_logged = True
+            rec.workout_duration_minutes = minutes
+        payload = dummy.sim_context_to_chat_payload(ctx)
+        self.assertEqual(payload["context"]["training"]["weeklyLoadScore"], 180.0)
+        self.assertEqual(payload["context"]["progress"]["trainingLoadTrend"], "steady")
+        self.assertNotEqual(
+            payload["context"]["progress"]["trainingLoadTrend"],
+            ctx.readiness_trend,
+        )
+
+    def test_ios_rule_fewer_than_three_sessions_is_silent(self):
+        ctx, _ = _ctx()
+        ctx.readiness_trend = "falling"
+        for rec in ctx.history:
+            rec.workout_logged = False
+            rec.workout_duration_minutes = None
+        for rec, minutes in zip(ctx.history[-2:], (45, 50)):
+            rec.workout_logged = True
+            rec.workout_duration_minutes = minutes
+        payload = dummy.sim_context_to_chat_payload(ctx)
+        self.assertIsNone(payload["context"]["training"]["weeklyLoadScore"])
+        self.assertIsNone(payload["context"]["progress"]["trainingLoadTrend"])
+
+    def test_last_seven_sessions_only(self):
+        ctx, _ = _ctx()
+        for rec in ctx.history:
+            rec.workout_logged = True
+            rec.workout_duration_minutes = 10
+        for rec in ctx.history[-7:]:
+            rec.workout_duration_minutes = 20
+        payload = dummy.sim_context_to_chat_payload(ctx)
+        self.assertEqual(payload["context"]["training"]["weeklyLoadScore"], 140.0)
+        self.assertEqual(payload["context"]["progress"]["trainingLoadTrend"], "steady")
 
 
 class DummyARIAEngineUsesLambdaTests(unittest.TestCase):
