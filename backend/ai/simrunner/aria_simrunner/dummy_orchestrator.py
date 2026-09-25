@@ -2196,6 +2196,9 @@ def respond(
 
     brief, plan = _consume_learner(message, ctx, plan)
 
+    raw = getattr(stub, "raw", None) or {}
+    card = raw.get("card") if isinstance(raw.get("card"), dict) else None
+
     row = {
         "schema_version": "1.1",
         "response_type": _response_type(scenario),
@@ -2205,7 +2208,7 @@ def respond(
         "recommendation": getattr(stub, "recommendation", None),
         "message": chat,
         "suggested_actions": suggested_actions(plan, recovery_needed=recovery_needed),
-        "card": None,
+        "card": card,
         "rich_card": None,
         "restricted_domains": [],
         "agent": plan.primary.kind,
@@ -2267,6 +2270,14 @@ def respond(
             }
         )
         row["orchestration"] = orch
+    # Same user-visible vitals scrub as `_respond_via_lambda`. Prose/message
+    # already ran `_speak_without_vitals`; recommendation / card.action /
+    # card.why still came straight from the offline stub.
+    row = _scrub_fused_speak(row)
+    if row.get("recommendation"):
+        row["recommendation"] = _speak_without_vitals(
+            str(row["recommendation"]), row.get("prose_summary") or ""
+        )
     return _attach_swarm(row, ctx)
 
 
@@ -2280,10 +2291,10 @@ class DummyARIAEngine:
         from . import model_archetypes as ma
         self.archetype = ma.get("baseline")
 
-    def respond(self, query: str, context, seed: int = 0):
+    def respond(self, query: str, context, seed: int = 0, *, engine: str = ENGINE_LAMBDA):
         from .aria_engine import ARIAResponse
 
-        row = respond(query, seed=seed, context=context, engine=ENGINE_LAMBDA)
+        row = respond(query, seed=seed, context=context, engine=engine)
         rec = row.get("recommendation")
         card = row.get("card")
         if not rec and isinstance(card, dict):

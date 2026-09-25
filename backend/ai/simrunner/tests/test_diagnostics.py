@@ -2,15 +2,21 @@ import datetime
 import sys
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[4]))
 
 from backend.ai.simrunner.aria_simrunner import diagnostics  # noqa: E402
-from backend.ai.simrunner.aria_simrunner.aria_engine import ARIAEngine, ARIAResponse  # noqa: E402
+from backend.ai.simrunner.aria_simrunner import dummy_orchestrator as dummy  # noqa: E402
+from backend.ai.simrunner.aria_simrunner import speak_quality as sq  # noqa: E402
+from backend.ai.simrunner.aria_simrunner.aria_engine import ARIAResponse  # noqa: E402
 from backend.ai.simrunner.aria_simrunner.aria_evaluator import (  # noqa: E402
     DimensionScores, EvaluationResult, evaluate, grade,
 )
 from backend.ai.simrunner.aria_simrunner.aria_generator import get_queries_for_tier  # noqa: E402
+from backend.ai.simrunner.aria_simrunner.dummy_orchestrator import (  # noqa: E402
+    DummyARIAEngine, ENGINE_STUB,
+)
 from backend.ai.simrunner.backend_simulator import model_registry as reg  # noqa: E402
 from backend.ai.simrunner.backend_simulator.behavior_engine import generate_stream  # noqa: E402
 from backend.ai.simrunner.backend_simulator.data_generator import build_context  # noqa: E402
@@ -23,12 +29,12 @@ def _results(model_id, tier=None):
     profile = model["behavioral_profile"]
     t = tier or model["difficulty_tier"]
     stream = generate_stream(profile, 42, PIN)
-    engine = ARIAEngine()
+    engine = DummyARIAEngine()
     out, rid = [], 0
     for day in (7, 14, 21, 29):
         ctx = build_context(stream, profile, day)
         for q in get_queries_for_tier(t):
-            out.append(evaluate(rid, q, t, ctx, engine.respond(q, ctx, 42)))
+            out.append(evaluate(rid, q, t, ctx, engine.respond(q, ctx, 42, engine=ENGINE_STUB)))
             rid += 1
     return out
 
@@ -247,33 +253,72 @@ class SystemDiagnosticTests(unittest.TestCase):
 
     def test_tier1_honesty_axis_still_clean(self):
         """Tier-1 HOLD gate is unchanged: easy lives cannot HOLD for
-        mission-critical. Quality below good may HOLD.
-
-        The imperfect stub still quotes readiness/HRV/ACWR (see
-        ``ARIAEngine._context_phrase``). The voice-policy grader scores that
-        metric dump below the turn bar, so pass rate is no longer a stub
-        honesty signal — mission-critical is.
-        """
+        mission-critical or pass-rate. Quality below good may HOLD."""
         for m in reg.get_models_by_tier(1):
             sysd, _ = diagnostics.diagnose(_results(m["model_id"], 1))
             self.assertFalse(
                 sysd.mission_critical,
                 f"{m['model_id']} tier-1 must not HOLD for mission-critical: {sysd.verdict}",
             )
+            self.assertGreaterEqual(
+                sysd.pass_rate, diagnostics.PASS_RATE_THRESHOLD * 100,
+                f"{m['model_id']} tier-1 must not HOLD for pass rate: {sysd.verdict}",
+            )
             if sysd.quality_level in diagnostics.SHIP_QUALITY:
                 self.assertTrue(sysd.passed, f"{m['model_id']} should SHIP: {sysd.verdict}")
                 self.assertEqual(sysd.verdict, "SHIP")
             else:
                 self.assertFalse(sysd.passed, f"{m['model_id']} ok/poor must HOLD")
-                self.assertTrue(
-                    "quality" in sysd.verdict or "pass rate" in sysd.verdict,
-                    sysd.verdict,
-                )
+                self.assertIn("quality", sysd.verdict)
 
     def test_diagnosis_is_deterministic(self):
         a, _ = diagnostics.diagnose(_results("anthropic.claude-opus-4-8-adversarial"))
         b, _ = diagnostics.diagnose(_results("anthropic.claude-opus-4-8-adversarial"))
         self.assertEqual(a.to_dict(), b.to_dict())
+
+
+class StubVitalsScrubTests(unittest.TestCase):
+    """Dummy stub must drop quoted vitals and still clear the 80% honesty bar."""
+
+    def test_stub_scrubs_quoted_vitals_and_diagnostics_clear_80(self):
+        dirty = (
+            "Readiness is 95, HRV 54ms, ACWR 0.85. Resting 48 bpm. Deep sleep is 21%."
+        )
+        dirty_rec = (
+            "Hold — readiness is 40, HRV 12ms, ACWR 1.6, 62 bpm. Deep sleep is 19%."
+        )
+        dirty_card = {"action": "Easy walk — HRV 12ms.", "why": "Deep sleep is 19%."}
+
+        class FakeStub:
+            confidence = 0.74
+            recommendation = dirty_rec
+            prose_summary = dirty
+            latency_ms = 1
+            raw = {"scenario": "train", "card": dirty_card}
+
+        with patch.object(dummy, "humanize_prose", return_value=dirty), patch.object(
+            dummy, "_offline_stub", return_value=FakeStub()
+        ):
+            row = dummy.respond("What should I train today?", seed=42, engine="stub")
+
+        blob = sq.user_visible_blob(row)
+        self.assertEqual(sq.vitals_hits(blob), [], blob)
+        lowered = blob.lower()
+        for token in ("readiness is 95", "hrv", "acwr", "bpm", "21%", "19%"):
+            self.assertNotIn(token, lowered, blob)
+        allowed = dummy._speak_without_vitals(
+            "Last night was 7 hours. Zone 2 cardio 20–30 min."
+        )
+        self.assertIn("7 hours", allowed.lower())
+        self.assertIn("zone 2", allowed.lower())
+
+        for m in reg.get_models_by_tier(1):
+            sysd, _ = diagnostics.diagnose(_results(m["model_id"], 1))
+            self.assertGreaterEqual(
+                sysd.pass_rate, diagnostics.PASS_RATE_THRESHOLD * 100,
+                f"{m['model_id']} stub diagnostics: {sysd.verdict}",
+            )
+            self.assertFalse(sysd.mission_critical, sysd.verdict)
 
 
 if __name__ == "__main__":
