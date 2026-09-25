@@ -192,6 +192,8 @@ final class TrainSleepUsableTests: XCTestCase {
         XCTAssertEqual(HomeTrendSeries.trendWindowDays, 7)
         XCTAssertEqual(HomeTrendSeries.trendWindowAnchor, "lastNight")
         XCTAssertEqual(HomeTrendSeries.trendPoints, "window")
+        XCTAssertEqual(HomeTrendSeries.nightDate, "bedtime")
+        XCTAssertEqual(HomeTrendSeries.nightCutoffHour, 12)
         XCTAssertEqual(HomeTrendSeries.loadingVoiceOver, "Sleep, last seven nights, loading")
         XCTAssertEqual(HomeTrendSeries.expandHint, "Shows more detail")
         XCTAssertGreaterThanOrEqual(HomeMetrics.heroFieldSize, 90)
@@ -356,7 +358,145 @@ final class TrainSleepUsableTests: XCTestCase {
         XCTAssertEqual(snapshot.missingNights, 4)
     }
 
+    func testHomeTrendSeriesBedtimeThursday2330IsThursdayNightInWindow() {
+        let chicago = chicagoCalendar
+        let now = chicagoMorningFriday
+        let bedtime = chicagoDate(day: 24, hour: 23, minute: 30)
+        XCTAssertEqual(chicago.component(.day, from: HomeTrendSeries.nightKey(fromBedtime: bedtime, calendar: chicago)), 24)
+
+        let snapshot = HomeTrendSeries.snapshot(
+            from: [bedtimeSleep(on: bedtime, score: 80)] + windowCompanionsExcludingThursday,
+            now: now,
+            calendar: chicago
+        )
+        XCTAssertEqual(snapshot.points.count, 3)
+        XCTAssertTrue(snapshot.points.contains { chicago.component(.day, from: $0.date) == 24 })
+        XCTAssertEqual(chicago.component(.day, from: snapshot.points.last!.date), 24)
+        XCTAssertEqual(snapshot.missingNights, 4)
+    }
+
+    func testHomeTrendSeriesBedtimeFriday0030IsThursdayNightInWindow() {
+        let chicago = chicagoCalendar
+        let now = chicagoMorningFriday
+        let bedtime = chicagoDate(day: 25, hour: 0, minute: 30)
+        XCTAssertEqual(chicago.component(.day, from: HomeTrendSeries.nightKey(fromBedtime: bedtime, calendar: chicago)), 24)
+
+        let snapshot = HomeTrendSeries.snapshot(
+            from: [bedtimeSleep(on: bedtime, score: 80)] + windowCompanionsExcludingThursday,
+            now: now,
+            calendar: chicago
+        )
+        XCTAssertEqual(snapshot.points.count, 3)
+        XCTAssertTrue(snapshot.points.contains { chicago.component(.day, from: $0.date) == 24 })
+        XCTAssertEqual(chicago.component(.day, from: snapshot.points.last!.date), 24)
+        XCTAssertEqual(snapshot.missingNights, 4)
+    }
+
+    func testHomeTrendSeriesBedtimeFriday1159IsThursdayNightInWindow() {
+        let chicago = chicagoCalendar
+        let now = chicagoMorningFriday
+        let bedtime = chicagoDate(day: 25, hour: 11, minute: 59)
+        XCTAssertEqual(chicago.component(.day, from: HomeTrendSeries.nightKey(fromBedtime: bedtime, calendar: chicago)), 24)
+
+        let snapshot = HomeTrendSeries.snapshot(
+            from: [bedtimeSleep(on: bedtime, score: 80)] + windowCompanionsExcludingThursday,
+            now: now,
+            calendar: chicago
+        )
+        XCTAssertEqual(snapshot.points.count, 3)
+        XCTAssertTrue(snapshot.points.contains { chicago.component(.day, from: $0.date) == 24 })
+        XCTAssertEqual(chicago.component(.day, from: snapshot.points.last!.date), 24)
+        XCTAssertEqual(snapshot.missingNights, 4)
+    }
+
+    func testHomeTrendSeriesBedtimeFriday1200IsFridayNightOutsideWindow() {
+        let chicago = chicagoCalendar
+        let now = chicagoDate(day: 25, hour: 13)
+        let bedtime = chicagoDate(day: 25, hour: 12)
+        XCTAssertEqual(chicago.component(.day, from: HomeTrendSeries.nightKey(fromBedtime: bedtime, calendar: chicago)), 25)
+
+        let snapshot = HomeTrendSeries.snapshot(
+            from: [bedtimeSleep(on: bedtime, score: 90)] + [
+                dateOnlySleep("2026-09-24", score: 80),
+                dateOnlySleep("2026-09-23", score: 70),
+                dateOnlySleep("2026-09-22", score: 60),
+            ],
+            now: now,
+            calendar: chicago
+        )
+        XCTAssertEqual(snapshot.points.count, 3)
+        XCTAssertFalse(snapshot.points.contains { chicago.component(.day, from: $0.date) == 25 })
+        XCTAssertEqual(chicago.component(.day, from: snapshot.points.last!.date), 24)
+        XCTAssertEqual(snapshot.missingNights, 4)
+    }
+
+    func testHomeTrendSeriesPrefersOnsetBedtimeOverWakeDatedString() {
+        let chicago = chicagoCalendar
+        let now = chicagoMorningFriday
+        let onset = chicagoDate(day: 24, hour: 23, minute: 30)
+        let dummyStyle = SleepData(
+            date: "2026-09-25",
+            totalHours: 7.0,
+            deepMinutes: 60,
+            remMinutes: 80,
+            lightMinutes: 200,
+            awakeMinutes: 20,
+            score: 80,
+            onset: onset
+        )
+        let snapshot = HomeTrendSeries.snapshot(
+            from: [dummyStyle] + windowCompanionsExcludingThursday,
+            now: now,
+            calendar: chicago
+        )
+        XCTAssertEqual(chicago.component(.day, from: HomeTrendSeries.nightKey(for: dummyStyle, calendar: chicago)!), 24)
+        XCTAssertEqual(snapshot.points.count, 3)
+        XCTAssertEqual(chicago.component(.day, from: snapshot.points.last!.date), 24)
+        XCTAssertFalse(snapshot.points.contains { chicago.component(.day, from: $0.date) == 25 })
+    }
+
     private var fridaySep25: Date { ymd("2026-09-25") }
+
+    private var chicagoCalendar: Calendar {
+        var chicago = Calendar(identifier: .gregorian)
+        chicago.timeZone = TimeZone(identifier: "America/Chicago")!
+        return chicago
+    }
+
+    private var chicagoMorningFriday: Date {
+        chicagoDate(day: 25, hour: 8)
+    }
+
+    private var windowCompanionsExcludingThursday: [SleepData] {
+        [
+            dateOnlySleep("2026-09-23", score: 70),
+            dateOnlySleep("2026-09-22", score: 60),
+        ]
+    }
+
+    private func chicagoDate(day: Int, hour: Int, minute: Int = 0) -> Date {
+        chicagoCalendar.date(from: DateComponents(year: 2026, month: 9, day: day, hour: hour, minute: minute))!
+    }
+
+    private func bedtimeSleep(on start: Date, score: Int) -> SleepData {
+        let iso = ISO8601DateFormatter()
+        iso.timeZone = chicagoCalendar.timeZone
+        iso.formatOptions = [.withInternetDateTime]
+        return SleepData(
+            date: iso.string(from: start),
+            totalHours: 7.0,
+            deepMinutes: 60,
+            remMinutes: 80,
+            lightMinutes: 200,
+            awakeMinutes: 20,
+            score: score,
+            onset: start
+        )
+    }
+
+    private func dateOnlySleep(_ raw: String, score: Int) -> SleepData {
+        SleepData(date: raw, totalHours: 6.8, deepMinutes: 50, remMinutes: 80, lightMinutes: 200, awakeMinutes: 25, score: score)
+    }
 
     private func ymd(_ raw: String) -> Date {
         DateFormatter.cachedYMD.date(from: raw)!

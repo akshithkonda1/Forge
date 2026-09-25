@@ -430,10 +430,13 @@ enum HomeTrendSeries {
     static let loadingVoiceOver = "Sleep, last seven nights, loading"
     static let expandHint = "Shows more detail"
     /// Locked keys later read from `shared/readiness.json` (do not add or
-    /// read that file yet): `trendWindowDays`, `trendWindowAnchor`, `trendPoints`.
+    /// read that file yet): `trendWindowDays`, `trendWindowAnchor`,
+    /// `trendPoints`, `nightDate`, `nightCutoffHour`.
     static let trendWindowDays = 7
     static let trendWindowAnchor = "lastNight"
     static let trendPoints = "window"
+    static let nightDate = "bedtime"
+    static let nightCutoffHour = 12
 
     static func snapshot(
         from sleeps: [SleepData],
@@ -443,10 +446,9 @@ enum HomeTrendSeries {
         let days = windowDays(now: now, calendar: calendar)
         var byDay: [Date: (sleep: SleepData, date: Date)] = [:]
         for sleep in sleeps {
-            guard let date = parseNightDate(sleep.date, calendar: calendar) else { continue }
-            let day = calendar.startOfDay(for: date)
-            guard days.contains(day), byDay[day] == nil else { continue }
-            byDay[day] = (sleep, date)
+            guard let day = nightKey(for: sleep, calendar: calendar), days.contains(day) else { continue }
+            if let existing = byDay[day], existing.sleep.totalHours >= sleep.totalHours { continue }
+            byDay[day] = (sleep, day)
         }
         let missing = days.count - byDay.count
         let inWindow = days.compactMap { byDay[$0] }
@@ -473,13 +475,43 @@ enum HomeTrendSeries {
     }
 
     static func parseNightDate(_ raw: String, calendar: Calendar = .current) -> Date? {
-        if let iso = ISO8601DateFormatter().date(from: raw) { return iso }
+        if let iso = isoInstant(from: raw) { return iso }
         let formatter = DateFormatter()
         formatter.calendar = calendar
         formatter.timeZone = calendar.timeZone
         formatter.locale = Locale(identifier: "en_US_POSIX")
         formatter.dateFormat = "yyyy-MM-dd"
         return formatter.date(from: raw)
+    }
+
+    /// Bedtime (session start) in `calendar`. A start before `nightCutoffHour`
+    /// local is the previous calendar day's night. Never UTC.
+    static func nightKey(fromBedtime start: Date, calendar: Calendar = .current) -> Date {
+        let day = calendar.startOfDay(for: start)
+        guard calendar.component(.hour, from: start) < nightCutoffHour else { return day }
+        return calendar.date(byAdding: .day, value: -1, to: day).map { calendar.startOfDay(for: $0) } ?? day
+    }
+
+    /// `onset` (session start) when present; else an ISO instant in `date`;
+    /// else a pre-computed `yyyy-MM-dd` string (no start time — do not invent one).
+    static func nightKey(for sleep: SleepData, calendar: Calendar = .current) -> Date? {
+        if let onset = sleep.onset {
+            return nightKey(fromBedtime: onset, calendar: calendar)
+        }
+        if let instant = isoInstant(from: sleep.date) {
+            return nightKey(fromBedtime: instant, calendar: calendar)
+        }
+        return parseNightDate(sleep.date, calendar: calendar).map { calendar.startOfDay(for: $0) }
+    }
+
+    static func isoDateString(_ date: Date, calendar: Calendar = .current) -> String {
+        let parts = calendar.dateComponents([.year, .month, .day], from: date)
+        return String(format: "%04d-%02d-%02d", parts.year ?? 0, parts.month ?? 0, parts.day ?? 0)
+    }
+
+    private static func isoInstant(from raw: String) -> Date? {
+        guard raw.contains("T") else { return nil }
+        return ISO8601DateFormatter().date(from: raw)
     }
 
     /// `lastNight` = local `calendar.startOfDay(now) − 1 day`. Never UTC.
