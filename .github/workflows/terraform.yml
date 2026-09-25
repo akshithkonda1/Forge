@@ -1,8 +1,9 @@
 name: 'Terraform'
 
-# Checks (fmt / validate / plan with -backend=false) run on every branch and every
-# pull request. The live apply is gated separately inside the terraform-apply job,
-# so widening this trigger does not widen who can deploy.
+# Plan-only on every push and pull request that touches this workflow or
+# backend/infra. A live apply never runs from those events.
+# Apply is workflow_dispatch + run_apply=true only, in terraform-apply, after
+# the plan jobs and after GitHub Environment terraform-prod approval.
 on:
   push:
     paths:
@@ -21,11 +22,12 @@ on:
 
 permissions:
   contents: read
-  id-token: write
 
+# Plan runs on the same ref cancel each other. An in-progress apply uses its
+# own group and is never cancelled (see terraform-apply.concurrency).
 concurrency:
-  group: terraform-${{ github.ref }}
-  cancel-in-progress: true
+  group: terraform-${{ github.ref }}-${{ github.event_name == 'workflow_dispatch' && inputs.run_apply && 'apply' || 'plan' }}
+  cancel-in-progress: ${{ !(github.event_name == 'workflow_dispatch' && inputs.run_apply) }}
 
 env:
   AWS_REGION: us-east-1
@@ -71,11 +73,12 @@ jobs:
       - name: Terraform Plan
         run: terraform plan -input=false -no-color
 
-  terraform-apply:
-    name: 'Terraform Apply'
-    needs: terraform-checks
-    if: needs.terraform-checks.result == 'success'
+  terraform-prod-plan:
+    name: 'Terraform Plan (prod)'
     runs-on: ubuntu-latest
+    env:
+      AWS_EC2_METADATA_DISABLED: "true"
+      TF_VAR_skip_aws_provider_checks: "true"
 
     defaults:
       run:
@@ -91,29 +94,59 @@ jobs:
         with:
           terraform_version: 1.15.0
 
-      # Gated on `main`, which is the branch that actually exists.
-      #
-      # This previously gated on refs/heads/claude/forge-fitness-frontend-TwlOQ,
-      # a scaffold branch long since deleted, so the condition could never be
-      # true: this step never ran, the apply step below depends on its outcome,
-      # and Terraform has therefore never deployed from CI at all. Every run
-      # quietly took the plan-only path and reported success.
-      #
-      # What this now does on a push to main: apply to the environment named by
-      # TF_VAR_environment at the top of this file, which is `dev`. Still doubly
-      # gated — `continue-on-error` here means an environment with no AWS
-      # secrets configured skips the apply and falls through to plan validation
-      # rather than failing. Pull requests never apply.
-      #
-      # Before pointing this at production, change TF_VAR_environment to "prod"
-      # deliberately: it decides whether the API accepts unsigned dev-override
-      # tokens and whether seeded demo data stands in for real health metrics.
+      - name: Terraform Init
+        run: terraform init -backend=false -input=false -lockfile=readonly -no-color
+
+      - name: Terraform Plan (prod)
+        run: terraform plan -input=false -no-color -var-file=prod.tfvars
+
+  terraform-apply:
+    name: 'Terraform Apply'
+    needs: [terraform-checks, terraform-prod-plan]
+    if: github.event_name == 'workflow_dispatch' && inputs.run_apply == true
+    environment: terraform-prod
+    runs-on: ubuntu-latest
+    # Two applies must not overlap. Never cancel an apply that has started.
+    concurrency:
+      group: terraform-apply-prod
+      cancel-in-progress: false
+    permissions:
+      contents: read
+      id-token: write
+
+    defaults:
+      run:
+        shell: bash
+        working-directory: ${{ env.TF_WORKING_DIR }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@dfe3c3f87815947d99a8997f908cb6525fc44e9e # v4
+        with:
+          terraform_version: 1.15.0
+
+      # Refuse apply when the only backend would be local state on this runner.
+      # Ephemeral runner disks are discarded after the job, so the next apply
+      # would not see existing resources and would create duplicates.
+      - name: Refuse apply without a remote backend
+        run: |
+          if ! grep -R --include='*.tf' -E 'backend[[:space:]]+"[^"]+"' . >/dev/null; then
+            echo '::error::No remote backend block found in backend/infra/*.tf. Refusing apply: ephemeral local state on a runner would create duplicate resources.'
+            exit 1
+          fi
+
+      - name: Require AWS credentials
+        run: |
+          if [ -z "${{ secrets.AWS_ROLE_ARN }}" ] && { [ -z "${{ secrets.AWS_ACCESS_KEY_ID }}" ] || [ -z "${{ secrets.AWS_SECRET_ACCESS_KEY }}" ]; }; then
+            echo '::error::AWS credentials are missing. Configure AWS_ROLE_ARN (OIDC) or AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY before requesting an apply.'
+            exit 1
+          fi
+
       - name: Configure AWS credentials
         id: aws-creds
-        if: >-
-          (github.event_name == 'push' && github.ref == 'refs/heads/main')
-          || (github.event_name == 'workflow_dispatch' && inputs.run_apply == true)
-        continue-on-error: true
         uses: aws-actions/configure-aws-credentials@cbe3b392738ccf3f987d68400dafcf4b0624a56c # v4
         with:
           aws-region: ${{ env.AWS_REGION }}
@@ -122,34 +155,17 @@ jobs:
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-session-token: ${{ secrets.AWS_SESSION_TOKEN }}
 
+      - name: Credentials failed
+        if: always() && steps.aws-creds.outcome == 'failure'
+        run: |
+          echo '::error::AWS credentials failed. Apply cannot continue without working credentials.'
+          exit 1
+
       - name: Terraform Init (deploy)
-        if: steps.aws-creds.outcome == 'success'
         run: terraform init -input=false -no-color
 
       - name: Terraform Apply (deploy)
-        if: >-
-          steps.aws-creds.outcome == 'success'
-          && (
-            (github.event_name == 'push' && github.ref == 'refs/heads/main')
-            || (github.event_name == 'workflow_dispatch' && inputs.run_apply == true)
-          )
         env:
           AWS_EC2_METADATA_DISABLED: "true"
           TF_VAR_skip_aws_provider_checks: "false"
         run: terraform apply -auto-approve -input=false -no-color
-
-      - name: Terraform Plan (apply validation)
-        if: >-
-          github.event_name == 'pull_request'
-          || steps.aws-creds.outcome != 'success'
-        env:
-          AWS_EC2_METADATA_DISABLED: "true"
-          TF_VAR_skip_aws_provider_checks: "true"
-        run: |
-          terraform init -backend=false -input=false -lockfile=readonly -no-color
-          terraform plan -input=false -no-color
-          if [ "${{ github.event_name }}" = "pull_request" ]; then
-            echo "Apply validated for PR — live deploy runs after merge when AWS credentials are configured."
-          else
-            echo "Skipped live apply because AWS credentials are not configured."
-          fi
