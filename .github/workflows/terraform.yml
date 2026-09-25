@@ -100,8 +100,11 @@ jobs:
       - name: Terraform Plan (prod)
         run: terraform plan -input=false -no-color -var-file=prod.tfvars
 
+  # Applies TF_VAR_environment=dev (workflow env) despite the terraform-prod
+  # environment gate. Switching to prod.tfvars plus a saved plan is a separate
+  # later change after #371.
   terraform-apply:
-    name: 'Terraform Apply'
+    name: 'Terraform Apply (dev, approval-gated)'
     needs: [terraform-checks, terraform-prod-plan]
     if: github.event_name == 'workflow_dispatch' && inputs.run_apply == true
     environment: terraform-prod
@@ -129,7 +132,7 @@ jobs:
       # Scans every backend/infra/*.tf file, including versions.tf.
       - name: Refuse apply without a remote backend
         run: |
-          if ! grep -R --include='*.tf' -E 'backend[[:space:]]+"[^"]+"' . >/dev/null; then
+          if ! grep -R --include='*.tf' -E '^[[:space:]]*backend[[:space:]]+"' . >/dev/null; then
             echo '::error::No remote backend block found in backend/infra/*.tf (expected in backend/infra/versions.tf). Refusing apply: ephemeral local state on a runner would create duplicate resources.'
             exit 1
           fi

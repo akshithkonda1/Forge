@@ -27,11 +27,6 @@ concurrency:
 jobs:
   test:
     runs-on: ubuntu-latest
-    # upload-artifact needs actions: write when workflow permissions are
-    # contents: read only (unspecified scopes default to none).
-    permissions:
-      contents: read
-      actions: write
 
     steps:
       # Actions must be pinned to a full-length commit SHA (repo policy).
