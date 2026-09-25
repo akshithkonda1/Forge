@@ -61,8 +61,19 @@ jobs:
         with:
           terraform_version: 1.15.0
 
+      # Force a local backend so plan stays green both before and after #371
+      # adds backend/infra/backend.tf (backend "s3" {} with bucket/key omitted).
+      # Without this, `init -backend=false` then `plan` fails with
+      # "Backend initialization required". *_override.tf is gitignored.
+      # Plan jobs never touch AWS (metadata disabled, provider checks skipped).
+      # One-line `terraform { backend "local" {} }` is invalid HCL in 1.15.0
+      # (nested backend block cannot share the terraform {} line).
+      - name: Local backend override for CI plan
+        run: |
+          printf '%s\n' 'terraform {' '  backend "local" {}' '}' > ci_backend_override.tf
+
       - name: Terraform Init
-        run: terraform init -backend=false -input=false -lockfile=readonly -no-color
+        run: terraform init -input=false -lockfile=readonly -no-color
 
       - name: Terraform Format
         run: terraform fmt -check -diff -recursive -no-color
@@ -94,8 +105,13 @@ jobs:
         with:
           terraform_version: 1.15.0
 
+      # Same local override as terraform-checks. See that job for why.
+      - name: Local backend override for CI plan
+        run: |
+          printf '%s\n' 'terraform {' '  backend "local" {}' '}' > ci_backend_override.tf
+
       - name: Terraform Init
-        run: terraform init -backend=false -input=false -lockfile=readonly -no-color
+        run: terraform init -input=false -lockfile=readonly -no-color
 
       - name: Terraform Plan (prod)
         run: terraform plan -input=false -no-color -var-file=prod.tfvars
@@ -129,11 +145,21 @@ jobs:
       # Refuse apply when the only backend would be local state on this runner.
       # Ephemeral runner disks are discarded after the job, so the next apply
       # would not see existing resources and would create duplicates.
-      # Scans every backend/infra/*.tf file, including versions.tf.
+      # Checks backend.tf and versions.tf only (not *_override.tf). Ignores
+      # comments and does not treat backend "local" as remote.
       - name: Refuse apply without a remote backend
         run: |
-          if ! grep -R --include='*.tf' -E '^[[:space:]]*backend[[:space:]]+"' . >/dev/null; then
-            echo '::error::No remote backend block found in backend/infra/*.tf (expected in backend/infra/versions.tf). Refusing apply: ephemeral local state on a runner would create duplicate resources.'
+          found=0
+          for f in backend.tf versions.tf; do
+            [ -f "$f" ] || continue
+            if grep -E '^[[:space:]]*backend[[:space:]]+"' "$f" \
+              | grep -vE '^[[:space:]]*backend[[:space:]]+"local"' >/dev/null; then
+              found=1
+              break
+            fi
+          done
+          if [ "$found" -eq 0 ]; then
+            echo '::error::No remote backend block found in backend/infra/backend.tf or backend/infra/versions.tf (expected in backend/infra/versions.tf). Refusing apply: ephemeral local state on a runner would create duplicate resources. Commented lines and backend "local" do not count.'
             exit 1
           fi
 
@@ -165,8 +191,23 @@ jobs:
           echo '::error::AWS credentials failed. Apply cannot continue without working credentials.'
           exit 1
 
+      - name: Require remote state bucket and backend config
+        env:
+          TF_STATE_BUCKET: ${{ vars.TF_STATE_BUCKET }}
+        run: |
+          if [ -z "${TF_STATE_BUCKET}" ]; then
+            echo '::error::Repository variable TF_STATE_BUCKET is empty. Set it to the S3 Terraform state bucket before apply. Never hardcode a bucket.'
+            exit 1
+          fi
+          if [ ! -f backend/dev.s3.tfbackend ]; then
+            echo '::error::backend/infra/backend/dev.s3.tfbackend is missing. Apply needs this file plus TF_STATE_BUCKET.'
+            exit 1
+          fi
+
       - name: Terraform Init (deploy)
-        run: terraform init -input=false -no-color
+        env:
+          TF_STATE_BUCKET: ${{ vars.TF_STATE_BUCKET }}
+        run: terraform init -input=false -no-color -backend-config=backend/dev.s3.tfbackend -backend-config=bucket=${TF_STATE_BUCKET}
 
       - name: Terraform Apply (deploy)
         env:
