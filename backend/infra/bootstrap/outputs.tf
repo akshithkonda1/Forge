@@ -1,5 +1,5 @@
 output "state_bucket_name" {
-  description = "Encrypted S3 bucket for Terraform state. Copy into remote.tf."
+  description = "Encrypted S3 bucket for Terraform state. Substitute for ACCOUNT_ID in backend/*.s3.tfbackend."
   value       = aws_s3_bucket.tf_state.bucket
 }
 
@@ -9,16 +9,10 @@ output "state_bucket_arn" {
 }
 
 output "backend_snippet" {
-  description = "S3 backend block to copy into remote.tf after this bootstrap apply."
+  description = "Fill bucket in backend/infra/backend/<env>.s3.tfbackend after this apply. Dev and prod use different keys."
   value       = <<-EOT
-    terraform {
-      backend "s3" {
-        bucket       = "${aws_s3_bucket.tf_state.bucket}"
-        key          = "backend/terraform.tfstate"
-        region       = "${var.aws_region}"
-        encrypt      = true
-        use_lockfile = true
-      }
-    }
+    # terraform init -backend-config=backend/<env>.s3.tfbackend
+    bucket = "${aws_s3_bucket.tf_state.bucket}"
+    # key = "backend/dev/terraform.tfstate"  or  "backend/prod/terraform.tfstate"
   EOT
 }

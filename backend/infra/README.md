@@ -79,9 +79,10 @@ doubled write cost). You can store:
 - `ssm.tf`: ElevenLabs SecureString parameters
 - `cloudtrail.tf`: optional management-event trail + locked bucket
 - `outputs.tf`: `client_configuration` plus allowlist-only `dev_client_configuration`
-- `bootstrap/`: SSE-S3 state bucket (TLS-only, GetObject limited to deploy role + account root, 30-day noncurrent expiry). IdP secrets land in state
+- `bootstrap/`: SSE-S3 state bucket (TLS-only, GetObject limited to deploy role + account root, 30-day noncurrent expiry). IdP secrets land in state. **Local state** — it creates the bucket
+- `backend.tf`: partial S3 backend (`region`, `encrypt`, `use_lockfile`). Bucket and key are not in this file
+- `backend/dev.s3.tfbackend` / `backend/prod.s3.tfbackend`: per-env state keys so dev and prod never share a state file
 - `lambda/handler.py`: shared backend handler (iOS, web, Android)
-- `remote.tf.example`: optional S3 remote state (S3 lockfile, no DynamoDB)
 - `ROADMAP_IAC_READINESS.md`: indie cost / Bedrock / roadmap gates
 
 ## Usage
@@ -93,9 +94,16 @@ From this directory (`backend/infra`):
    callback/logout URL contains `example.com`). Kotlin `[0]` is already the
    custom scheme. Do **not** put Apple/Google/ElevenLabs secrets in tfvars.
 2. Before a real apply, seed the social IdP SecureString parameters listed in `terraform.tfvars.example`.
-3. Optionally apply `bootstrap/` once (pass `state_bucket_deploy_role_arn`), then
-   `cp remote.tf.example remote.tf` and substitute the bucket name.
-4. Run `terraform init`.
+3. Optionally apply `bootstrap/` once (pass `state_bucket_deploy_role_arn`).
+   That stack stays on local state because it creates the bucket. Then replace
+   `ACCOUNT_ID` in `backend/<env>.s3.tfbackend` with the
+   `state_bucket_name` suffix (`forge-tf-state-<account-id>`), or pass
+   `-backend-config=bucket=forge-tf-state-<account-id>`.
+4. Remote state is required for a real apply. Init must name an env file:
+   `terraform init -backend-config=backend/dev.s3.tfbackend`
+   Prod: `terraform init -backend-config=backend/prod.s3.tfbackend`
+   `terraform init` with no `-backend-config` fails (bucket required) and
+   does not fall back to local state. CI checks use `-backend=false`.
 5. **Plan-only (CI-safe, no credentials):**
    `AWS_EC2_METADATA_DISABLED=true TF_VAR_environment=dev TF_VAR_skip_aws_provider_checks=true terraform plan`
    Prod var set (CloudTrail on; not auto-loaded):
