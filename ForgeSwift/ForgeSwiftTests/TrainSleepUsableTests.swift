@@ -161,14 +161,14 @@ final class TrainSleepUsableTests: XCTestCase {
         XCTAssertTrue(HomeTrendSeries.points(from: [
             SleepData(date: "2026-09-24", totalHours: 7, deepMinutes: 60, remMinutes: 80, lightMinutes: 200, awakeMinutes: 20, score: 70),
             SleepData(date: "2026-09-25", totalHours: 7, deepMinutes: 60, remMinutes: 80, lightMinutes: 200, awakeMinutes: 20, score: 80),
-        ]).isEmpty)
+        ], now: fridaySep25).isEmpty)
 
         let nights = [
             SleepData(date: "2026-09-25", totalHours: 7.2, deepMinutes: 70, remMinutes: 90, lightMinutes: 210, awakeMinutes: 15, score: 140),
             SleepData(date: "2026-09-24", totalHours: 6.8, deepMinutes: 50, remMinutes: 80, lightMinutes: 200, awakeMinutes: 25, score: 90),
             SleepData(date: "2026-09-23", totalHours: 6.1, deepMinutes: 40, remMinutes: 70, lightMinutes: 190, awakeMinutes: 30, score: 10),
         ]
-        let snapshot = HomeTrendSeries.snapshot(from: nights)
+        let snapshot = HomeTrendSeries.snapshot(from: nights, now: fridaySep25)
         let points = snapshot.points
         XCTAssertEqual(points.map(\.score), [30, 90, 100])
         XCTAssertEqual(points.map(\.rawScore), [10, 90, 140])
@@ -178,14 +178,17 @@ final class TrainSleepUsableTests: XCTestCase {
         let calendar = Calendar.current
         XCTAssertEqual(points.map { calendar.component(.day, from: $0.date) }, [23, 24, 25])
         XCTAssertEqual(points.map { calendar.component(.month, from: $0.date) }, [9, 9, 9])
+        // Tonight (Fri 25) still plots; missing window is Fri 18…Thu 24 → 23, 24 present.
+        XCTAssertEqual(snapshot.missingNights, 5)
 
         let spoken = HomeTrendSeries.accessibilitySummary(snapshot)
         XCTAssertTrue(spoken.hasPrefix("Sleep score, last seven nights"), spoken)
         XCTAssertTrue(spoken.contains("Latest 140"), spoken)
         XCTAssertTrue(spoken.contains("average 80"), spoken)
-        XCTAssertTrue(spoken.contains("4 nights missing"), spoken)
+        XCTAssertTrue(spoken.contains("5 nights missing"), spoken)
         XCTAssertFalse(spoken.contains("skipped"), spoken)
         XCTAssertEqual(HomeTrendSeries.headerTitle, "SLEEP · LAST 7 NIGHTS")
+        XCTAssertEqual(HomeTrendSeries.trendWindowAnchor, "lastNight")
         XCTAssertEqual(HomeTrendSeries.loadingVoiceOver, "Sleep, last seven nights, loading")
         XCTAssertEqual(HomeTrendSeries.expandHint, "Shows more detail")
         XCTAssertGreaterThanOrEqual(HomeMetrics.heroFieldSize, 90)
@@ -202,27 +205,28 @@ final class TrainSleepUsableTests: XCTestCase {
             SleepData(date: "2026-09-23", totalHours: 6.8, deepMinutes: 50, remMinutes: 80, lightMinutes: 200, awakeMinutes: 25, score: 70),
             SleepData(date: "2026-09-22", totalHours: 6.1, deepMinutes: 40, remMinutes: 70, lightMinutes: 190, awakeMinutes: 30, score: 60),
         ]
-        let snapshot = HomeTrendSeries.snapshot(from: nights)
+        let snapshot = HomeTrendSeries.snapshot(from: nights, now: fridaySep25)
         XCTAssertEqual(snapshot.points.map(\.score), [60, 70, 80])
         XCTAssertEqual(snapshot.points.count, 3)
-        XCTAssertEqual(snapshot.missingNights, 4)
+        // Window Fri 18…Thu 24; 22 and 23 present; Fri 25 is after the anchor.
+        XCTAssertEqual(snapshot.missingNights, 5)
         XCTAssertNil(HomeTrendSeries.parseNightDate("not-a-date"))
 
         let spoken = HomeTrendSeries.accessibilitySummary(snapshot)
         XCTAssertTrue(spoken.hasPrefix("Sleep score, last seven nights"), spoken)
-        XCTAssertTrue(spoken.contains("4 nights missing"), spoken)
+        XCTAssertTrue(spoken.contains("5 nights missing"), spoken)
         XCTAssertFalse(spoken.contains("skipped"), spoken)
     }
 
     func testHomeTrendSeriesMonWedThuGapCountsFourMissingNights() {
-        // Window ends on the latest parsed night (Thu 2026-09-24):
-        // Fri 18 … Thu 24. Present: Mon 21, Wed 23, Thu 24. Missing: 18, 19, 20, 22.
+        // now = Fri 2026-09-25 → lastNight Thu 24 → window Fri 18 … Thu 24.
+        // Present: Mon 21, Wed 23, Thu 24. Missing: 18, 19, 20, 22.
         let nights = [
             SleepData(date: "2026-09-24", totalHours: 7.0, deepMinutes: 60, remMinutes: 80, lightMinutes: 200, awakeMinutes: 20, score: 80),
             SleepData(date: "2026-09-23", totalHours: 6.8, deepMinutes: 50, remMinutes: 80, lightMinutes: 200, awakeMinutes: 25, score: 70),
             SleepData(date: "2026-09-21", totalHours: 6.5, deepMinutes: 45, remMinutes: 75, lightMinutes: 190, awakeMinutes: 30, score: 60),
         ]
-        let snapshot = HomeTrendSeries.snapshot(from: nights)
+        let snapshot = HomeTrendSeries.snapshot(from: nights, now: fridaySep25)
         XCTAssertEqual(snapshot.points.count, 3)
         XCTAssertEqual(snapshot.missingNights, 4)
         XCTAssertEqual(HomeTrendSeries.missingPhrase(snapshot.missingNights), "4 nights missing")
@@ -234,19 +238,43 @@ final class TrainSleepUsableTests: XCTestCase {
         XCTAssertFalse(spoken.contains("skipped"), spoken)
     }
 
+    func testHomeTrendSeriesTrailingGapAfterWatchOffCountsMissingNights() {
+        // now = Fri 2026-09-25 → lastNight Thu 24 → window Fri 18 … Thu 24.
+        // Points only Fri 18 through Mon 21 (4 nights). Missing Tue 22, Wed 23, Thu 24.
+        let nights = [
+            SleepData(date: "2026-09-21", totalHours: 7.0, deepMinutes: 60, remMinutes: 80, lightMinutes: 200, awakeMinutes: 20, score: 80),
+            SleepData(date: "2026-09-20", totalHours: 6.8, deepMinutes: 50, remMinutes: 80, lightMinutes: 200, awakeMinutes: 25, score: 70),
+            SleepData(date: "2026-09-19", totalHours: 6.6, deepMinutes: 48, remMinutes: 76, lightMinutes: 195, awakeMinutes: 28, score: 65),
+            SleepData(date: "2026-09-18", totalHours: 6.4, deepMinutes: 45, remMinutes: 75, lightMinutes: 190, awakeMinutes: 30, score: 60),
+        ]
+        let snapshot = HomeTrendSeries.snapshot(from: nights, now: fridaySep25)
+        XCTAssertEqual(snapshot.points.count, 4)
+        XCTAssertEqual(snapshot.missingNights, 3)
+        XCTAssertEqual(HomeTrendSeries.missingPhrase(snapshot.missingNights), "3 nights missing")
+        XCTAssertEqual(
+            HomeTrendSeries.lastNight(now: fridaySep25).map { Calendar.current.startOfDay(for: $0) },
+            Calendar.current.startOfDay(for: ymd("2026-09-24"))
+        )
+
+        let spoken = HomeTrendSeries.accessibilitySummary(snapshot)
+        XCTAssertTrue(spoken.contains("3 nights missing"), spoken)
+        XCTAssertFalse(spoken.contains("skipped"), spoken)
+    }
+
     func testHomeTrendSeriesFullSevenNightsOmitsMissingPhrase() {
-        let nights = (0..<7).map { offset in
+        // Full window is Fri 18 through Thu 24 when now = Fri 25.
+        let nights = (18...24).map { day in
             SleepData(
-                date: String(format: "2026-09-%02d", 19 + offset),
+                date: String(format: "2026-09-%02d", day),
                 totalHours: 7,
                 deepMinutes: 60,
                 remMinutes: 80,
                 lightMinutes: 200,
                 awakeMinutes: 20,
-                score: 70 + offset
+                score: 70 + (day - 18)
             )
         }.reversed()
-        let snapshot = HomeTrendSeries.snapshot(from: Array(nights))
+        let snapshot = HomeTrendSeries.snapshot(from: Array(nights), now: fridaySep25)
         XCTAssertEqual(snapshot.points.count, 7)
         XCTAssertEqual(snapshot.missingNights, 0)
         XCTAssertNil(HomeTrendSeries.missingPhrase(snapshot.missingNights))
@@ -263,11 +291,14 @@ final class TrainSleepUsableTests: XCTestCase {
             SleepData(date: "2026-09-24", totalHours: 6.8, deepMinutes: 50, remMinutes: 80, lightMinutes: 200, awakeMinutes: 25, score: 65),
             SleepData(date: "2026-09-23", totalHours: 6.1, deepMinutes: 40, remMinutes: 70, lightMinutes: 190, awakeMinutes: 30, score: 22),
         ]
-        let snapshot = HomeTrendSeries.snapshot(from: nights)
+        let snapshot = HomeTrendSeries.snapshot(from: nights, now: fridaySep25)
         XCTAssertEqual(snapshot.points.map(\.rawScore), [22, 65, 70])
         XCTAssertEqual(snapshot.points.map(\.score), [30, 65, 70])
         XCTAssertEqual(snapshot.points[0].score, 30)
         XCTAssertEqual(snapshot.points[0].rawScore, 22)
+        // Fri 25 still plots; it is after lastNight and does not fill the window.
+        XCTAssertEqual(Calendar.current.component(.day, from: snapshot.points[2].date), 25)
+        XCTAssertEqual(snapshot.missingNights, 5)
 
         let spoken = HomeTrendSeries.accessibilitySummary(snapshot)
         let pointLabel = HomeTrendSeries.pointAccessibilityLabel(snapshot.points[0])
@@ -276,6 +307,12 @@ final class TrainSleepUsableTests: XCTestCase {
         XCTAssertFalse(spoken.contains("Latest 30"), spoken)
         XCTAssertTrue(pointLabel.hasSuffix(" 22"), pointLabel)
         XCTAssertFalse(pointLabel.contains("30"), pointLabel)
+    }
+
+    private var fridaySep25: Date { ymd("2026-09-25") }
+
+    private func ymd(_ raw: String) -> Date {
+        DateFormatter.cachedYMD.date(from: raw)!
     }
 
     private func samplePlan(sets: Int, weight: Int, duration: Int) -> WorkoutPlan {

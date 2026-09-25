@@ -429,8 +429,14 @@ enum HomeTrendSeries {
     static let headerTitle = "SLEEP · LAST 7 NIGHTS"
     static let loadingVoiceOver = "Sleep, last seven nights, loading"
     static let expandHint = "Shows more detail"
+    /// Window length. Later: `shared/readiness.json` `trendWindowDays`.
+    static let trendWindowDays = 7
+    /// Window end is `lastNight` (`startOfDay(now) − 1 day`). Trailing empty
+    /// nights count as missing. Later: `shared/readiness.json` key
+    /// `trendWindowAnchor` next to `trendWindowDays`. Do not read that file yet.
+    static let trendWindowAnchor = "lastNight"
 
-    static func snapshot(from sleeps: [SleepData]) -> HomeTrendSnapshot {
+    static func snapshot(from sleeps: [SleepData], now: Date = Date()) -> HomeTrendSnapshot {
         let slice = Array(sleeps.prefix(7))
         var parsed: [(sleep: SleepData, date: Date)] = []
         parsed.reserveCapacity(slice.count)
@@ -439,8 +445,7 @@ enum HomeTrendSeries {
                 parsed.append((sleep, date))
             }
         }
-        let parsedDates = parsed.map(\.date)
-        let missing = missingCalendarDays(in: parsedDates)
+        let missing = missingCalendarDays(in: parsed.map(\.date), now: now)
         guard parsed.count >= minimumNights else {
             return HomeTrendSnapshot(points: [], missingNights: missing)
         }
@@ -455,8 +460,8 @@ enum HomeTrendSeries {
         return HomeTrendSnapshot(points: points, missingNights: missing)
     }
 
-    static func points(from sleeps: [SleepData]) -> [HomeTrendPoint] {
-        snapshot(from: sleeps).points
+    static func points(from sleeps: [SleepData], now: Date = Date()) -> [HomeTrendPoint] {
+        snapshot(from: sleeps, now: now).points
     }
 
     static func parseNightDate(_ raw: String) -> Date? {
@@ -464,16 +469,22 @@ enum HomeTrendSeries {
             ?? DateFormatter.cachedYMD.date(from: raw)
     }
 
-    /// Unique `startOfDay` dates absent from a 7-day window ending on the
-    /// latest parsed night (or today when none parsed).
+    /// `lastNight` = `Calendar.startOfDay(for: now) − 1 day`.
+    static func lastNight(now: Date, calendar: Calendar = .current) -> Date? {
+        calendar.date(byAdding: .day, value: -1, to: calendar.startOfDay(for: now))
+    }
+
+    /// Unique `startOfDay` dates absent from the 7-day window ending on
+    /// `lastNight`. Dates after the anchor (tonight / today) do not fill a
+    /// slot and are not missing — they may still plot on the chart.
     static func missingCalendarDays(
         in dates: [Date],
-        calendar: Calendar = .current,
-        windowEnd: Date? = nil
+        now: Date = Date(),
+        calendar: Calendar = .current
     ) -> Int {
-        let end = calendar.startOfDay(for: windowEnd ?? dates.max() ?? Date())
+        guard let end = lastNight(now: now, calendar: calendar) else { return 0 }
         let present = Set(dates.map { calendar.startOfDay(for: $0) })
-        return (0..<7).reduce(0) { count, offset in
+        return (0..<trendWindowDays).reduce(0) { count, offset in
             guard let day = calendar.date(byAdding: .day, value: -offset, to: end) else {
                 return count
             }
