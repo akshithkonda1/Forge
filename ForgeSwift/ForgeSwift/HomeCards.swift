@@ -575,10 +575,29 @@ enum HomeTrendSeries {
         return "Sleep score, last seven nights. Latest \(latest.rawScore), average \(avg). \(days)."
     }
 
-    static func pointAccessibilityLabel(_ point: HomeTrendPoint) -> String {
+    static func ruleMarkY(_ points: [HomeTrendPoint]) -> Int? {
+        rawAverage(points)
+    }
+
+    static func weekdayFormatter(
+        calendar: Calendar = .current,
+        locale: Locale = .autoupdatingCurrent
+    ) -> DateFormatter {
         let formatter = DateFormatter()
+        formatter.calendar = calendar
+        formatter.timeZone = calendar.timeZone
+        formatter.locale = locale
         formatter.dateFormat = "EEE"
-        return "\(formatter.string(from: point.date)) \(point.rawScore)"
+        return formatter
+    }
+
+    static func pointAccessibilityLabel(
+        _ point: HomeTrendPoint,
+        calendar: Calendar = .current,
+        locale: Locale = .autoupdatingCurrent
+    ) -> String {
+        let weekday = weekdayFormatter(calendar: calendar, locale: locale).string(from: point.date)
+        return "\(weekday) \(point.rawScore)"
     }
 
     static func missingPhrase(_ count: Int) -> String? {
@@ -687,7 +706,7 @@ struct HomeTrendSection: View {
     private var chart: some View {
         let latest = trendData.last?.score ?? 0
         return Chart {
-            if let avg = HomeTrendSeries.rawAverage(trendData) {
+            if let avg = HomeTrendSeries.ruleMarkY(trendData) {
                 RuleMark(y: .value("Average", avg))
                     .foregroundStyle(Color.textMuted.opacity(0.45))
                     .lineStyle(StrokeStyle(lineWidth: 1, dash: [4, 4]))
@@ -738,8 +757,12 @@ struct HomeTrendSection: View {
         .chartYAxis(isExpanded ? .automatic : .hidden)
     }
 
+    static func plottedScore(_ score: Int, grown: Bool, reduceMotion: Bool) -> Int {
+        grown || reduceMotion ? score : 0
+    }
+
     private func plottedScore(_ score: Int) -> Int {
-        chartGrown || reduceMotion ? score : 0
+        Self.plottedScore(score, grown: chartGrown, reduceMotion: reduceMotion)
     }
 }
 

@@ -183,7 +183,11 @@ struct HomeReadinessFieldView: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.forgeMinimalAnimation) private var minimalAnimation
 
-    private var frozen: Bool { reduceMotion || minimalAnimation }
+    static func isFrozen(reduceMotion: Bool, minimal: Bool) -> Bool {
+        reduceMotion || minimal
+    }
+
+    private var frozen: Bool { Self.isFrozen(reduceMotion: reduceMotion, minimal: minimalAnimation) }
     private var clamped: Int { min(max(score, 0), 100) }
     private var resolvedSize: CGFloat {
         max(AriaRingFieldGeometry.heroMinimumSize, size ?? scaledHeroField)

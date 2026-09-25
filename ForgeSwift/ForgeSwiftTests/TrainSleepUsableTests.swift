@@ -333,16 +333,56 @@ final class TrainSleepUsableTests: XCTestCase {
         XCTAssertEqual(points[0].rawScore, 10)
         XCTAssertEqual(points[0].score, 30, "the 10 bar still plots at the 30 floor")
 
-        let rawAvg = HomeTrendSeries.rawAverage(points)
-        XCTAssertEqual(rawAvg, 66)
+        XCTAssertEqual(HomeTrendSeries.rawAverage(points), 66)
         XCTAssertEqual(HomeTrendSeries.averageCaption(points), "Avg 66")
-        XCTAssertEqual(rawAvg, 66, "chart RuleMark y is rawAverage")
+        XCTAssertEqual(HomeTrendSeries.ruleMarkY(points), 66)
+        XCTAssertNotEqual(HomeTrendSeries.ruleMarkY(points), 73)
         XCTAssertNotEqual(HomeTrendSeries.average(points), 66, "floored-score average stays off the Avg label")
 
         let spoken = HomeTrendSeries.accessibilitySummary(snapshot)
         XCTAssertTrue(spoken.contains("average 66"), spoken)
         XCTAssertFalse(spoken.contains("average 73"), spoken)
         XCTAssertFalse(spoken.contains("average 67"), spoken)
+    }
+
+    func testReduceMotionFreezesRingFieldAndChart() {
+        XCTAssertTrue(HomeReadinessFieldView.isFrozen(reduceMotion: true, minimal: false))
+        XCTAssertTrue(HomeReadinessFieldView.isFrozen(reduceMotion: false, minimal: true))
+        XCTAssertTrue(HomeReadinessFieldView.isFrozen(reduceMotion: true, minimal: true))
+        XCTAssertFalse(HomeReadinessFieldView.isFrozen(reduceMotion: false, minimal: false))
+
+        XCTAssertEqual(HomeTrendSection.plottedScore(70, grown: false, reduceMotion: true), 70)
+        XCTAssertEqual(HomeTrendSection.plottedScore(30, grown: false, reduceMotion: true), 30)
+        XCTAssertEqual(HomeTrendSection.plottedScore(70, grown: false, reduceMotion: false), 0)
+        XCTAssertEqual(HomeTrendSection.plottedScore(70, grown: true, reduceMotion: false), 70)
+        XCTAssertEqual(HomeTrendSection.plottedScore(70, grown: true, reduceMotion: true), 70)
+    }
+
+    func testHomeTrendPointLabelsNameWeekdayFriToThu() {
+        let chicago = chicagoCalendar
+        let locale = Locale(identifier: "en_US_POSIX")
+        let nights = (18...24).map { day in
+            SleepData(
+                date: String(format: "2026-09-%02d", day),
+                totalHours: 7,
+                deepMinutes: 60,
+                remMinutes: 80,
+                lightMinutes: 200,
+                awakeMinutes: 20,
+                score: 70
+            )
+        }
+        let snapshot = HomeTrendSeries.snapshot(
+            from: nights,
+            now: chicagoDate(day: 25, hour: 8),
+            calendar: chicago
+        )
+        XCTAssertEqual(snapshot.points.count, 7)
+        let weekdays = snapshot.points.map { point in
+            let label = HomeTrendSeries.pointAccessibilityLabel(point, calendar: chicago, locale: locale)
+            return String(label.split(separator: " ").first ?? "")
+        }
+        XCTAssertEqual(weekdays, ["Fri", "Sat", "Sun", "Mon", "Tue", "Wed", "Thu"])
     }
 
     func testHomeTrendSeriesLastNightJustAfterChicagoMidnightUsesLocalCalendar() {
