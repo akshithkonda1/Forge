@@ -247,10 +247,6 @@ def _router_slot_fallbacks(main_tf_path: str, slot: int) -> tuple[str, str, bool
     return id_default, name_default, False
 
 
-def _router3_fallbacks(main_tf_path: str) -> tuple[str, str, bool]:
-    return _router_slot_fallbacks(main_tf_path, 3)
-
-
 def _resolve(name: str, tfvars_raw: dict[str, str], defaults_raw: dict[str, str]) -> ResolvedVar:
     if name in tfvars_raw:
         return ResolvedVar(_coerce(tfvars_raw[name]), "tfvars_override", tfvars_raw[name])

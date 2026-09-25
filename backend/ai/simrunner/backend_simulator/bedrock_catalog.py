@@ -142,18 +142,6 @@ def is_bedrock_model(model_id: str) -> bool:
     return model_id in _BY_ID
 
 
-def models_by_provider(provider: str) -> list[BedrockModel]:
-    return [m for m in BEDROCK_CATALOG if m.provider == provider]
-
-
-def models_by_class(model_class: str) -> list[BedrockModel]:
-    return [m for m in BEDROCK_CATALOG if m.model_class == model_class]
-
-
-def text_models() -> list[BedrockModel]:
-    return [m for m in BEDROCK_CATALOG if m.modality == "text"]
-
-
 def providers() -> list[str]:
     seen: list[str] = []
     for m in BEDROCK_CATALOG:

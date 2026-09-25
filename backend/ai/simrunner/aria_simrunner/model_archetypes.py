@@ -254,23 +254,6 @@ _CLASS_OVERRIDES: dict[str, dict[str, float]] = {
 }
 
 
-def _merge_sig(*parts: dict[str, float]) -> dict[str, float]:
-    out: dict[str, float] = {
-        "hedge_boost": 0.0, "confidence_scale": 1.0, "refusal_boost": 0.0,
-        "capitulation_penalty": 0.0, "cheer_penalty": 0.0, "specificity_boost": 0.0,
-        "directness": 0.0, "safety_bias": 0.0,
-    }
-    for part in parts:
-        for k, v in part.items():
-            if k == "confidence_scale":
-                # multiplicative for confidence_scale when stacking
-                out[k] = out[k] * v if part is not parts[0] else v
-            else:
-                out[k] = v if k not in out or part is parts[0] else (out[k] + v) / 2.0
-    # simpler: last non-empty wins for most; confidence multiplies lightly
-    return out
-
-
 def _signature_for(provider: str, family: str, model_class: str) -> dict[str, float]:
     base = dict(_PROVIDER_DEFAULTS.get(provider, {
         "hedge_boost": 0.0, "confidence_scale": 1.0, "refusal_boost": 0.0,
@@ -359,10 +342,6 @@ def list_archetypes(*, styles_only: bool = False, bedrock_only: bool = False) ->
 
 def list_style_ids() -> list[str]:
     return [a.id for a in list_archetypes(styles_only=True)]
-
-
-def list_bedrock_ids() -> list[str]:
-    return [a.bedrock_model_id or a.id for a in list_archetypes(bedrock_only=True)]
 
 
 def get(archetype_id: str) -> ModelArchetype:
