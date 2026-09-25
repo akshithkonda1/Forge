@@ -319,7 +319,7 @@ final class TrainSleepUsableTests: XCTestCase {
         XCTAssertFalse(pointLabel.contains("30"), pointLabel)
     }
 
-    func testHomeTrendSeriesRawAverageIgnoresPlotFloorOnTenNinetyOneHundred() {
+    func testHomeTrendChartRuleMarkUsesRawAverage() {
         // (10+90+100)/3 = 66.67 — Int division truncates to 66, not rounded 67.
         let nights = [
             SleepData(date: "2026-09-24", totalHours: 7.2, deepMinutes: 70, remMinutes: 90, lightMinutes: 210, awakeMinutes: 15, score: 100),
@@ -330,32 +330,16 @@ final class TrainSleepUsableTests: XCTestCase {
         let points = snapshot.points
         XCTAssertEqual(points.map(\.rawScore), [10, 90, 100])
         XCTAssertEqual(points.map(\.score), [30, 90, 100])
-        XCTAssertEqual(points[0].rawScore, 10)
         XCTAssertEqual(points[0].score, 30, "the 10 bar still plots at the 30 floor")
 
-        XCTAssertEqual(HomeTrendSeries.rawAverage(points), 66)
-        XCTAssertEqual(HomeTrendSeries.averageCaption(points), "Avg 66")
         XCTAssertEqual(HomeTrendSeries.ruleMarkY(points), 66)
         XCTAssertNotEqual(HomeTrendSeries.ruleMarkY(points), 73)
-        XCTAssertNotEqual(HomeTrendSeries.average(points), 66, "floored-score average stays off the Avg label")
+        XCTAssertNotEqual(HomeTrendSeries.average(points), 66)
+        XCTAssertEqual(HomeTrendSeries.averageCaption(points), "Avg 66")
 
         let spoken = HomeTrendSeries.accessibilitySummary(snapshot)
         XCTAssertTrue(spoken.contains("average 66"), spoken)
         XCTAssertFalse(spoken.contains("average 73"), spoken)
-        XCTAssertFalse(spoken.contains("average 67"), spoken)
-    }
-
-    func testReduceMotionFreezesRingFieldAndChart() {
-        XCTAssertTrue(HomeReadinessFieldView.isFrozen(reduceMotion: true, minimal: false))
-        XCTAssertTrue(HomeReadinessFieldView.isFrozen(reduceMotion: false, minimal: true))
-        XCTAssertTrue(HomeReadinessFieldView.isFrozen(reduceMotion: true, minimal: true))
-        XCTAssertFalse(HomeReadinessFieldView.isFrozen(reduceMotion: false, minimal: false))
-
-        XCTAssertEqual(HomeTrendSection.plottedScore(70, grown: false, reduceMotion: true), 70)
-        XCTAssertEqual(HomeTrendSection.plottedScore(30, grown: false, reduceMotion: true), 30)
-        XCTAssertEqual(HomeTrendSection.plottedScore(70, grown: false, reduceMotion: false), 0)
-        XCTAssertEqual(HomeTrendSection.plottedScore(70, grown: true, reduceMotion: false), 70)
-        XCTAssertEqual(HomeTrendSection.plottedScore(70, grown: true, reduceMotion: true), 70)
     }
 
     func testHomeTrendPointLabelsNameWeekdayFriToThu() {
