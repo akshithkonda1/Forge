@@ -7,7 +7,7 @@ import { cn } from "@/lib/utils";
 import { useAppStore } from "@/stores/useAppStore";
 import { WorkoutCard } from "@/components/chat/workout-card";
 import { DataInsightCard } from "@/components/chat/data-insight-card";
-import { AriaOrb } from "@/components/onboarding/aria-companion";
+import { AriaMark } from "@/components/brand/aria-mark";
 import { useToast } from "@/stores/useToast";
 import { Send, Mic, ArrowDown } from "lucide-react";
 import type { ChatMessage } from "@/types";
@@ -163,6 +163,9 @@ export function ChatPage() {
   const scrollAreaRef = useRef<HTMLDivElement>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const wasTypingRef = useRef(false);
+  const announcedReplyIdsRef = useRef<Set<string>>(new Set());
+  const [liveAnnouncement, setLiveAnnouncement] = useState("");
 
   // -----------------------------------------------------------------------
   // Auto-scroll to bottom on new messages
@@ -243,7 +246,30 @@ export function ChatPage() {
     [addMessage, isTyping, userProfile, readiness, dailyMetrics, sleepData, speakReply]
   );
 
+  // Restore focus after a reply finishes. Do not `disabled` the field — that
+  // drops keyboard focus. Seed existing trainer ids so hydration / remounts
+  // do not re-announce, and announce each finished reply exactly once.
+  useEffect(() => {
+    const finishedReply = wasTypingRef.current && !isTyping;
+    wasTypingRef.current = isTyping;
+
+    if (finishedReply) {
+      inputRef.current?.focus();
+      const newest = [...chatMessages].reverse().find((msg) => msg.role === "trainer");
+      if (newest && !announcedReplyIdsRef.current.has(newest.id)) {
+        announcedReplyIdsRef.current.add(newest.id);
+        setLiveAnnouncement(newest.content);
+      }
+      return;
+    }
+
+    for (const msg of chatMessages) {
+      if (msg.role === "trainer") announcedReplyIdsRef.current.add(msg.id);
+    }
+  }, [chatMessages, isTyping]);
+
   const startVoice = useCallback(() => {
+    if (isTyping) return;
     const w = window as unknown as {
       SpeechRecognition?: new () => {
         lang: string;
@@ -276,7 +302,7 @@ export function ChatPage() {
       showToast("Couldn't catch that — try again or type.");
     };
     rec.start();
-  }, [sendMessage, showToast]);
+  }, [isTyping, sendMessage, showToast]);
 
   // -----------------------------------------------------------------------
   // Handlers
@@ -313,7 +339,7 @@ export function ChatPage() {
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
             <div className="relative">
-              <AriaOrb mood="focused" size={36} speaking={isTyping} />
+              <AriaMark size={36} speaking={isTyping} />
             </div>
 
             <div>
@@ -321,7 +347,7 @@ export function ChatPage() {
               <div className="flex items-center gap-1.5">
                 <span className="h-1.5 w-1.5 rounded-full bg-ember" />
                 <span className="text-xs text-text-tertiary">
-                  {isTyping ? "Reading your signals…" : "Online · recovery-first"}
+                  {isTyping ? "Thinking…" : "Here for you"}
                 </span>
               </div>
             </div>
@@ -338,12 +364,17 @@ export function ChatPage() {
         <div className="flex flex-col gap-4">
           {chatMessages.length === 0 && !isTyping && (
             <div className="mx-auto mt-10 max-w-xs text-center">
-              <AriaOrb mood="focused" size={56} />
+              {/* nestLive* allows one live nest per screen; the non-winner paints still. */}
+              <AriaMark size={56} speaking={false} />
               <p className="mt-4 text-sm leading-relaxed text-text-secondary">
                 I already have the context we built in onboarding. Ask about today, last night, or what&apos;s in the way.
               </p>
             </div>
           )}
+
+          <div className="sr-only" aria-live="polite" aria-atomic="true">
+            {liveAnnouncement}
+          </div>
           {chatMessages.map((msg) => (
             <MessageBubble
               key={msg.id}
@@ -405,6 +436,7 @@ export function ChatPage() {
           <motion.button
             type="button"
             aria-label="Speak to ARIA"
+            aria-busy={isTyping}
             onClick={startVoice}
             className="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-2xl bg-surface-elevated text-text-tertiary transition-colors hover:text-text-secondary"
             whileTap={{ scale: 0.92 }}
@@ -423,18 +455,21 @@ export function ChatPage() {
               onKeyDown={handleKeyDown}
               placeholder="Message ARIA…"
               aria-label="Message ARIA"
-              disabled={isTyping}
+              aria-busy={isTyping}
+              readOnly={isTyping}
               autoComplete="off"
               className={cn(
                 "h-11 w-full rounded-2xl border border-border bg-surface-elevated px-4 pr-12 text-sm text-text-primary placeholder:text-text-muted",
                 "outline-none transition-colors",
                 "focus:border-ember/50 focus:ring-1 focus:ring-ember/20",
-                "disabled:opacity-50"
+                isTyping && "opacity-70"
               )}
             />
 
             {/* Send button (inside input) */}
             <motion.button
+              type="button"
+              aria-label="Send message"
               onClick={handleSend}
               disabled={!inputValue.trim() || isTyping}
               className={cn(

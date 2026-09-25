@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import { Plus_Jakarta_Sans, JetBrains_Mono } from "next/font/google";
 import "./globals.css";
 
+import { MotionConfigProvider } from "@/components/shared/motion-config-provider";
 import { ToastHost } from "@/components/shared/toast-host";
 
 const sans = Plus_Jakarta_Sans({
@@ -45,8 +46,10 @@ export default function RootLayout({
   return (
     <html lang="en" className={`dark ${sans.variable} ${mono.variable}`}>
       <body className="min-h-[100dvh] bg-[#050505] font-sans antialiased">
-        {children}
-        <ToastHost />
+        <MotionConfigProvider>
+          {children}
+          <ToastHost />
+        </MotionConfigProvider>
       </body>
     </html>
   );
