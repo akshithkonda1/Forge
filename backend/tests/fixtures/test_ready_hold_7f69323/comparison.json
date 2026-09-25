@@ -1,0 +1,42 @@
+[
+  {
+    "model_id": "anthropic.claude-sonnet-4-6",
+    "composite_delta": -11.9,
+    "grade_from": "B+",
+    "grade_to": "B-",
+    "new_mission_critical": [],
+    "resolved_mission_critical": [],
+    "determinism_delta": 0.0,
+    "missing_baseline": false
+  },
+  {
+    "model_id": "amazon.nova-lite-v1",
+    "composite_delta": -10.4,
+    "grade_from": "B+",
+    "grade_to": "B-",
+    "new_mission_critical": [],
+    "resolved_mission_critical": [],
+    "determinism_delta": 0.0,
+    "missing_baseline": false
+  },
+  {
+    "model_id": "meta.llama4-scout-17b",
+    "composite_delta": -6.2,
+    "grade_from": "B",
+    "grade_to": "B",
+    "new_mission_critical": [],
+    "resolved_mission_critical": [],
+    "determinism_delta": 0.0,
+    "missing_baseline": false
+  },
+  {
+    "model_id": "cohere.command-r-plus",
+    "composite_delta": -7.7,
+    "grade_from": "B+",
+    "grade_to": "B",
+    "new_mission_critical": [],
+    "resolved_mission_critical": [],
+    "determinism_delta": 0.0,
+    "missing_baseline": false
+  }
+]

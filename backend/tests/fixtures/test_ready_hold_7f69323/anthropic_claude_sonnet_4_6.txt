@@ -1,0 +1,51 @@
+ARIA SimRunner — Evaluation Report
+===================================
+Model Under Test: Claude Sonnet 4.6 — The Compliant Athlete (Tier 1)
+Coaching Challenge: Consistent habits, clear data, responds well to standard coaching
+Run Date: 2026-01-15T00:00:00
+Total Evaluations: 20
+
+OVERALL GRADE: B-
+Composite Score: 70.1/100
+
+━━━ DIAGNOSTICS — VERDICT ━━━━━━━━━━━━━━━
+  ⛔ HOLD — quality ok (B-), ship requires good or excellent
+  Turns passed: 16/20 (80.0%)
+  Quality: ok (B- 70.1) — ship requires good or excellent
+  Severity: mission_critical 0 · high 0 · medium 4 · can_wait 0
+  Worst non-critical turns:
+    · 58.5/100 [Actionability] — 2026-01-07 · tier 1 · lambda-deterministic · 'Am I making progress?'
+    · 59.5/100 [Actionability] — 2025-12-24 · tier 1 · lambda-deterministic · 'Am I making progress?'
+    · 59.5/100 [Actionability] — 2025-12-31 · tier 1 · lambda-deterministic · 'Am I making progress?'
+    · 59.5/100 [Actionability] — 2026-01-15 · tier 1 · lambda-deterministic · 'Am I making progress?'
+
+━━━ CRITICAL FAILURES ━━━━━━━━━━━━━━━━━━━
+  No critical failures detected.
+
+━━━ DIMENSION BREAKDOWN ━━━━━━━━━━━━━━━━━
+Context Utilization:      50.0 — failing
+Directional Correctness:  70.0 — needs work
+Chronotype Alignment:     85.0 — pass
+Actionability:            65.0 — needs work
+Epistemic Honesty:        76.5 — needs work
+Tone Compliance:         100.0 — pass
+
+━━━ BY DIFFICULTY TIER ━━━━━━━━━━━━━━━━━
+Tier 1: B-  (80.0% pass rate, 20 runs, 4 below B)
+
+━━━ TOP FAILURE PATTERNS ━━━━━━━━━━━━━━━
+  1. Actionability: explanatory only, no guidance offered  (×4)
+
+━━━ WHAT NEEDS TO CHANGE ━━━━━━━━━━━━━━━
+  1. [CONTEXT BUILDER] Make specific numbers (readiness, HRV, ACWR, sleep debt) impossible to ignore in the prompt.  (×20)
+
+━━━ DETERMINISM ━━━━━━━━━━━━━━━━━━━━━━━
+Semantic Determinism Rate: 100.0%  (5 prompts × 3 runs)
+  All sampled prompts were semantically stable.
+
+━━━ MODELS USED (harness engine) ━━━━━━━━
+Engine: lambda-deterministic
+  lambda-deterministic                       ×20
+
+Consumer Stability Grade:  B+
+Epistemic Rigor Grade:     B

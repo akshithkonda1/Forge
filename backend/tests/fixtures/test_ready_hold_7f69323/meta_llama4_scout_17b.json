@@ -1,0 +1,1184 @@
+{
+  "model": {
+    "model_id": "meta.llama4-scout-17b",
+    "display_name": "Llama 4 Scout \u2014 The Weekend Warrior",
+    "difficulty_tier": 1,
+    "coaching_challenge": "Regular routine, good recovery, only trains hard a few days",
+    "derived": false
+  },
+  "engine_model": "lambda-deterministic",
+  "models_used": {
+    "lambda-deterministic": 20
+  },
+  "run_date": "2026-01-15T00:00:00",
+  "overall": {
+    "composite": 73.5,
+    "grade": "B",
+    "consumer_stability_grade": "A",
+    "epistemic_rigor_grade": "B"
+  },
+  "dimension_averages": {
+    "context_utilization": 51.2,
+    "directional_correctness": 76.2,
+    "chronotype_alignment": 85.0,
+    "actionability": 72.5,
+    "epistemic_honesty": 80.0,
+    "tone_compliance": 100.0
+  },
+  "by_tier": {
+    "1": {
+      "tier": 1,
+      "run_count": 20,
+      "avg_composite": 73.5,
+      "grade": "B",
+      "pass_rate": 85.0,
+      "failure_count": 3
+    }
+  },
+  "critical_failures": [],
+  "top_failure_patterns": [
+    "Actionability: explanatory only, no guidance offered  (\u00d73)"
+  ],
+  "top_recommendations": [
+    "[CONTEXT BUILDER] Make specific numbers (readiness, HRV, ACWR, sleep debt) impossible to ignore in the prompt.  (\u00d719)",
+    "[MODEL ROUTING] Route high-stakes recovery/override queries to the deeper model for tighter directional control.  (\u00d71)"
+  ],
+  "determinism": {
+    "semantic_determinism_rate": 100.0,
+    "sample_count": 5,
+    "runs_per_sample": 3,
+    "inconsistent": [],
+    "by_tier": {
+      "1": 100.0
+    }
+  },
+  "diagnostics": {
+    "passed": false,
+    "verdict": "HOLD \u2014 quality ok (B), ship requires good or excellent",
+    "total_turns": 20,
+    "passed_turns": 17,
+    "pass_rate": 85.0,
+    "severity_counts": {
+      "mission_critical": 0,
+      "high": 0,
+      "medium": 3,
+      "can_wait": 0
+    },
+    "overall_composite": 73.5,
+    "overall_grade": "B",
+    "quality_level": "ok",
+    "mission_critical": [],
+    "worst": [
+      {
+        "passed": false,
+        "tier": 1,
+        "query": "Am I making progress?",
+        "model_used": "lambda-deterministic",
+        "date": "2025-12-31",
+        "grade": "C",
+        "composite": 59.5,
+        "when": "2025-12-31 \u00b7 tier 1 \u00b7 lambda-deterministic \u00b7 'Am I making progress?'",
+        "what": [
+          "Actionability"
+        ],
+        "how": [
+          "Actionability: explanatory only, no guidance offered"
+        ],
+        "severities": [
+          "medium"
+        ],
+        "max_severity": "medium"
+      },
+      {
+        "passed": false,
+        "tier": 1,
+        "query": "Am I making progress?",
+        "model_used": "lambda-deterministic",
+        "date": "2026-01-07",
+        "grade": "C",
+        "composite": 59.5,
+        "when": "2026-01-07 \u00b7 tier 1 \u00b7 lambda-deterministic \u00b7 'Am I making progress?'",
+        "what": [
+          "Actionability"
+        ],
+        "how": [
+          "Actionability: explanatory only, no guidance offered"
+        ],
+        "severities": [
+          "medium"
+        ],
+        "max_severity": "medium"
+      },
+      {
+        "passed": false,
+        "tier": 1,
+        "query": "Am I making progress?",
+        "model_used": "lambda-deterministic",
+        "date": "2026-01-15",
+        "grade": "B-",
+        "composite": 65.8,
+        "when": "2026-01-15 \u00b7 tier 1 \u00b7 lambda-deterministic \u00b7 'Am I making progress?'",
+        "what": [
+          "Actionability"
+        ],
+        "how": [
+          "Actionability: explanatory only, no guidance offered"
+        ],
+        "severities": [
+          "medium"
+        ],
+        "max_severity": "medium"
+      }
+    ]
+  },
+  "multiseed": null,
+  "evaluations": [
+    {
+      "run_id": 0,
+      "query": "Should I train today?",
+      "tier": 1,
+      "context_snapshot": {
+        "date": "2025-12-24",
+        "readiness": 89,
+        "hrv": 37,
+        "hrv_7d_avg": 47.0,
+        "hrv_7d_trend": "stable",
+        "acwr": 0.97,
+        "sleep_debt_7d_hours": 2.8,
+        "readiness_7d_avg": 92.9,
+        "readiness_trend": "rising",
+        "is_overtrained": false,
+        "is_sleep_deprived": false,
+        "chronotype": "lion",
+        "life_season": "maintenance",
+        "notable_event": null,
+        "last_workout_type": "cardio",
+        "last_workout_peak_hr": null
+      },
+      "response": {
+        "prose_summary": "Prioritize sleep tonight and keep today's session easy Prioritize sleep tonight and keep today's session easy \u2014 Reassess after you recover. Hug first: restock day \u2014 easy body, water with the next meal, protect sleep like a friend would.",
+        "recommendation": "Prioritize sleep tonight and keep today's session easy",
+        "confidence": 0.65,
+        "used_context": true,
+        "model_used": "lambda-deterministic",
+        "query_type": "workout",
+        "latency_ms": 120.0,
+        "raw": {
+          "scenario": "protect",
+          "test_ready": true
+        },
+        "model_class": "",
+        "model_archetype": "baseline"
+      },
+      "scores": {
+        "context_utilization": 50.0,
+        "directional_correctness": 75.0,
+        "chronotype_alignment": 85.0,
+        "actionability": 75.0,
+        "epistemic_honesty": 80.0,
+        "tone_compliance": 100.0
+      },
+      "composite_score": 73.2,
+      "grade": "B",
+      "failures": [],
+      "recommendations": [
+        "[CONTEXT BUILDER] Make specific numbers (readiness, HRV, ACWR, sleep debt) impossible to ignore in the prompt."
+      ]
+    },
+    {
+      "run_id": 1,
+      "query": "How was my sleep last night?",
+      "tier": 1,
+      "context_snapshot": {
+        "date": "2025-12-24",
+        "readiness": 89,
+        "hrv": 37,
+        "hrv_7d_avg": 47.0,
+        "hrv_7d_trend": "stable",
+        "acwr": 0.97,
+        "sleep_debt_7d_hours": 2.8,
+        "readiness_7d_avg": 92.9,
+        "readiness_trend": "rising",
+        "is_overtrained": false,
+        "is_sleep_deprived": false,
+        "chronotype": "lion",
+        "life_season": "maintenance",
+        "notable_event": null,
+        "last_workout_type": "cardio",
+        "last_workout_peak_hr": null
+      },
+      "response": {
+        "prose_summary": "Prioritize sleep tonight and keep today's session easy Prioritize sleep tonight and keep today's session easy \u2014 Reassess after you recover. Hug first: restock day \u2014 easy body, water with the next meal, protect sleep like a friend would.",
+        "recommendation": "Prioritize sleep tonight and keep today's session easy",
+        "confidence": 0.65,
+        "used_context": true,
+        "model_used": "lambda-deterministic",
+        "query_type": "sleep",
+        "latency_ms": 55.0,
+        "raw": {
+          "scenario": "protect",
+          "test_ready": true
+        },
+        "model_class": "",
+        "model_archetype": "baseline"
+      },
+      "scores": {
+        "context_utilization": 50.0,
+        "directional_correctness": 75.0,
+        "chronotype_alignment": 85.0,
+        "actionability": 75.0,
+        "epistemic_honesty": 80.0,
+        "tone_compliance": 100.0
+      },
+      "composite_score": 73.2,
+      "grade": "B",
+      "failures": [],
+      "recommendations": [
+        "[CONTEXT BUILDER] Make specific numbers (readiness, HRV, ACWR, sleep debt) impossible to ignore in the prompt."
+      ]
+    },
+    {
+      "run_id": 2,
+      "query": "Am I making progress?",
+      "tier": 1,
+      "context_snapshot": {
+        "date": "2025-12-24",
+        "readiness": 89,
+        "hrv": 37,
+        "hrv_7d_avg": 47.0,
+        "hrv_7d_trend": "stable",
+        "acwr": 0.97,
+        "sleep_debt_7d_hours": 2.8,
+        "readiness_7d_avg": 92.9,
+        "readiness_trend": "rising",
+        "is_overtrained": false,
+        "is_sleep_deprived": false,
+        "chronotype": "lion",
+        "life_season": "maintenance",
+        "notable_event": null,
+        "last_workout_type": "cardio",
+        "last_workout_peak_hr": null
+      },
+      "response": {
+        "prose_summary": "Prioritize sleep tonight and keep today's session easy Prioritize sleep tonight and keep today's session easy \u2014 Reassess after you recover. Hug first: restock day \u2014 easy body, water with the next meal, protect sleep like a friend would.",
+        "recommendation": "Prioritize sleep tonight and keep today's session easy",
+        "confidence": 0.65,
+        "used_context": true,
+        "model_used": "lambda-deterministic",
+        "query_type": "progress",
+        "latency_ms": 124.0,
+        "raw": {
+          "scenario": "protect",
+          "test_ready": true
+        },
+        "model_class": "",
+        "model_archetype": "baseline"
+      },
+      "scores": {
+        "context_utilization": 50.0,
+        "directional_correctness": 75.0,
+        "chronotype_alignment": 85.0,
+        "actionability": 75.0,
+        "epistemic_honesty": 80.0,
+        "tone_compliance": 100.0
+      },
+      "composite_score": 73.2,
+      "grade": "B",
+      "failures": [],
+      "recommendations": [
+        "[CONTEXT BUILDER] Make specific numbers (readiness, HRV, ACWR, sleep debt) impossible to ignore in the prompt."
+      ]
+    },
+    {
+      "run_id": 3,
+      "query": "What should I focus on this week?",
+      "tier": 1,
+      "context_snapshot": {
+        "date": "2025-12-24",
+        "readiness": 89,
+        "hrv": 37,
+        "hrv_7d_avg": 47.0,
+        "hrv_7d_trend": "stable",
+        "acwr": 0.97,
+        "sleep_debt_7d_hours": 2.8,
+        "readiness_7d_avg": 92.9,
+        "readiness_trend": "rising",
+        "is_overtrained": false,
+        "is_sleep_deprived": false,
+        "chronotype": "lion",
+        "life_season": "maintenance",
+        "notable_event": null,
+        "last_workout_type": "cardio",
+        "last_workout_peak_hr": null
+      },
+      "response": {
+        "prose_summary": "Prioritize sleep tonight and keep today's session easy Prioritize sleep tonight and keep today's session easy \u2014 Reassess after you recover. Hug first: restock day \u2014 easy body, water with the next meal, protect sleep like a friend would.",
+        "recommendation": "Prioritize sleep tonight and keep today's session easy",
+        "confidence": 0.65,
+        "used_context": true,
+        "model_used": "lambda-deterministic",
+        "query_type": "aria",
+        "latency_ms": 96.0,
+        "raw": {
+          "scenario": "protect",
+          "test_ready": true
+        },
+        "model_class": "",
+        "model_archetype": "baseline"
+      },
+      "scores": {
+        "context_utilization": 50.0,
+        "directional_correctness": 75.0,
+        "chronotype_alignment": 85.0,
+        "actionability": 75.0,
+        "epistemic_honesty": 80.0,
+        "tone_compliance": 100.0
+      },
+      "composite_score": 73.2,
+      "grade": "B",
+      "failures": [],
+      "recommendations": [
+        "[CONTEXT BUILDER] Make specific numbers (readiness, HRV, ACWR, sleep debt) impossible to ignore in the prompt."
+      ]
+    },
+    {
+      "run_id": 4,
+      "query": "How's my recovery looking?",
+      "tier": 1,
+      "context_snapshot": {
+        "date": "2025-12-24",
+        "readiness": 89,
+        "hrv": 37,
+        "hrv_7d_avg": 47.0,
+        "hrv_7d_trend": "stable",
+        "acwr": 0.97,
+        "sleep_debt_7d_hours": 2.8,
+        "readiness_7d_avg": 92.9,
+        "readiness_trend": "rising",
+        "is_overtrained": false,
+        "is_sleep_deprived": false,
+        "chronotype": "lion",
+        "life_season": "maintenance",
+        "notable_event": null,
+        "last_workout_type": "cardio",
+        "last_workout_peak_hr": null
+      },
+      "response": {
+        "prose_summary": "Prioritize sleep tonight and keep today's session easy Prioritize sleep tonight and keep today's session easy \u2014 Reassess after you recover. Hug first: restock day \u2014 easy body, water with the next meal, protect sleep like a friend would.",
+        "recommendation": "Prioritize sleep tonight and keep today's session easy",
+        "confidence": 0.65,
+        "used_context": true,
+        "model_used": "lambda-deterministic",
+        "query_type": "recovery",
+        "latency_ms": 97.0,
+        "raw": {
+          "scenario": "protect",
+          "test_ready": true
+        },
+        "model_class": "",
+        "model_archetype": "baseline"
+      },
+      "scores": {
+        "context_utilization": 50.0,
+        "directional_correctness": 75.0,
+        "chronotype_alignment": 85.0,
+        "actionability": 75.0,
+        "epistemic_honesty": 80.0,
+        "tone_compliance": 100.0
+      },
+      "composite_score": 73.2,
+      "grade": "B",
+      "failures": [],
+      "recommendations": [
+        "[CONTEXT BUILDER] Make specific numbers (readiness, HRV, ACWR, sleep debt) impossible to ignore in the prompt."
+      ]
+    },
+    {
+      "run_id": 5,
+      "query": "Should I train today?",
+      "tier": 1,
+      "context_snapshot": {
+        "date": "2025-12-31",
+        "readiness": 92,
+        "hrv": 49,
+        "hrv_7d_avg": 44.6,
+        "hrv_7d_trend": "rising",
+        "acwr": 1.13,
+        "sleep_debt_7d_hours": 1.5,
+        "readiness_7d_avg": 89.0,
+        "readiness_trend": "stable",
+        "is_overtrained": false,
+        "is_sleep_deprived": false,
+        "chronotype": "lion",
+        "life_season": "maintenance",
+        "notable_event": null,
+        "last_workout_type": "hiit",
+        "last_workout_peak_hr": null
+      },
+      "response": {
+        "prose_summary": "7.3 h is below your usual 7.3 h \u2014 a personal short night. They have repair in the bank. Spend it on one quality session in the slot they actually use. \u2014 7.3 h is below your usual 7.3 h \u2014 a personal short night; protect your 22:30 wind-down tonight. Friend mode is on, sparkle included \u2014 go train, keep it cute and kind, then eat something you'll actually finish.",
+        "recommendation": "They have repair in the bank. Spend it on one quality session in the slot they actually use.",
+        "confidence": 0.82,
+        "used_context": true,
+        "model_used": "lambda-deterministic",
+        "query_type": "workout",
+        "latency_ms": 120.0,
+        "raw": {
+          "scenario": "proceed",
+          "test_ready": true
+        },
+        "model_class": "",
+        "model_archetype": "baseline"
+      },
+      "scores": {
+        "context_utilization": 50.0,
+        "directional_correctness": 75.0,
+        "chronotype_alignment": 85.0,
+        "actionability": 75.0,
+        "epistemic_honesty": 80.0,
+        "tone_compliance": 100.0
+      },
+      "composite_score": 73.2,
+      "grade": "B",
+      "failures": [],
+      "recommendations": [
+        "[CONTEXT BUILDER] Make specific numbers (readiness, HRV, ACWR, sleep debt) impossible to ignore in the prompt."
+      ]
+    },
+    {
+      "run_id": 6,
+      "query": "How was my sleep last night?",
+      "tier": 1,
+      "context_snapshot": {
+        "date": "2025-12-31",
+        "readiness": 92,
+        "hrv": 49,
+        "hrv_7d_avg": 44.6,
+        "hrv_7d_trend": "rising",
+        "acwr": 1.13,
+        "sleep_debt_7d_hours": 1.5,
+        "readiness_7d_avg": 89.0,
+        "readiness_trend": "stable",
+        "is_overtrained": false,
+        "is_sleep_deprived": false,
+        "chronotype": "lion",
+        "life_season": "maintenance",
+        "notable_event": null,
+        "last_workout_type": "hiit",
+        "last_workout_peak_hr": null
+      },
+      "response": {
+        "prose_summary": "It was a usable night \u2014 not a free pass \u2014 The mix is just the plot getting interesting \u2014 stay kind to the load and sneak in extra wind-down.",
+        "recommendation": "They have repair in the bank. Spend it on one quality session in the slot they actually use.",
+        "confidence": 0.55,
+        "used_context": true,
+        "model_used": "lambda-deterministic",
+        "query_type": "sleep",
+        "latency_ms": 55.0,
+        "raw": {
+          "scenario": "clarify",
+          "test_ready": true
+        },
+        "model_class": "",
+        "model_archetype": "baseline"
+      },
+      "scores": {
+        "context_utilization": 50.0,
+        "directional_correctness": 75.0,
+        "chronotype_alignment": 85.0,
+        "actionability": 75.0,
+        "epistemic_honesty": 80.0,
+        "tone_compliance": 100.0
+      },
+      "composite_score": 73.2,
+      "grade": "B",
+      "failures": [],
+      "recommendations": [
+        "[CONTEXT BUILDER] Make specific numbers (readiness, HRV, ACWR, sleep debt) impossible to ignore in the prompt."
+      ]
+    },
+    {
+      "run_id": 7,
+      "query": "Am I making progress?",
+      "tier": 1,
+      "context_snapshot": {
+        "date": "2025-12-31",
+        "readiness": 92,
+        "hrv": 49,
+        "hrv_7d_avg": 44.6,
+        "hrv_7d_trend": "rising",
+        "acwr": 1.13,
+        "sleep_debt_7d_hours": 1.5,
+        "readiness_7d_avg": 89.0,
+        "readiness_trend": "stable",
+        "is_overtrained": false,
+        "is_sleep_deprived": false,
+        "chronotype": "lion",
+        "life_season": "maintenance",
+        "notable_event": null,
+        "last_workout_type": "hiit",
+        "last_workout_peak_hr": null
+      },
+      "response": {
+        "prose_summary": "Last 30 days: 0 workouts in 30 days; load stable. You logged 0 sessions \u2014 consistency is the win. Load is steady \u2014 vary the stimulus so you don't plateau. \u2014 Hold the structure and progress one variable next block. The mix is just the plot getting interesting \u2014 stay kind to the load and sneak in extra wind-down.",
+        "recommendation": null,
+        "confidence": 0.55,
+        "used_context": true,
+        "model_used": "lambda-deterministic",
+        "query_type": "progress",
+        "latency_ms": 124.0,
+        "raw": {
+          "scenario": "clarify",
+          "test_ready": true
+        },
+        "model_class": "",
+        "model_archetype": "baseline"
+      },
+      "scores": {
+        "context_utilization": 50.0,
+        "directional_correctness": 50.0,
+        "chronotype_alignment": 85.0,
+        "actionability": 25.0,
+        "epistemic_honesty": 80.0,
+        "tone_compliance": 100.0
+      },
+      "composite_score": 59.5,
+      "grade": "C",
+      "failures": [
+        "Actionability: explanatory only, no guidance offered"
+      ],
+      "recommendations": [
+        "[CONTEXT BUILDER] Make specific numbers (readiness, HRV, ACWR, sleep debt) impossible to ignore in the prompt."
+      ]
+    },
+    {
+      "run_id": 8,
+      "query": "What should I focus on this week?",
+      "tier": 1,
+      "context_snapshot": {
+        "date": "2025-12-31",
+        "readiness": 92,
+        "hrv": 49,
+        "hrv_7d_avg": 44.6,
+        "hrv_7d_trend": "rising",
+        "acwr": 1.13,
+        "sleep_debt_7d_hours": 1.5,
+        "readiness_7d_avg": 89.0,
+        "readiness_trend": "stable",
+        "is_overtrained": false,
+        "is_sleep_deprived": false,
+        "chronotype": "lion",
+        "life_season": "maintenance",
+        "notable_event": null,
+        "last_workout_type": "hiit",
+        "last_workout_peak_hr": null
+      },
+      "response": {
+        "prose_summary": "7.3 h is below your usual 7.3 h \u2014 a personal short night. They have repair in the bank. Spend it on one quality session in the slot they actually use. \u2014 Usable picture is still thin. The mix is just the plot getting interesting \u2014 stay kind to the load and sneak in extra wind-down.",
+        "recommendation": "They have repair in the bank. Spend it on one quality session in the slot they actually use.",
+        "confidence": 0.55,
+        "used_context": true,
+        "model_used": "lambda-deterministic",
+        "query_type": "aria",
+        "latency_ms": 96.0,
+        "raw": {
+          "scenario": "clarify",
+          "test_ready": true
+        },
+        "model_class": "",
+        "model_archetype": "baseline"
+      },
+      "scores": {
+        "context_utilization": 50.0,
+        "directional_correctness": 75.0,
+        "chronotype_alignment": 85.0,
+        "actionability": 75.0,
+        "epistemic_honesty": 80.0,
+        "tone_compliance": 100.0
+      },
+      "composite_score": 73.2,
+      "grade": "B",
+      "failures": [],
+      "recommendations": [
+        "[CONTEXT BUILDER] Make specific numbers (readiness, HRV, ACWR, sleep debt) impossible to ignore in the prompt."
+      ]
+    },
+    {
+      "run_id": 9,
+      "query": "How's my recovery looking?",
+      "tier": 1,
+      "context_snapshot": {
+        "date": "2025-12-31",
+        "readiness": 92,
+        "hrv": 49,
+        "hrv_7d_avg": 44.6,
+        "hrv_7d_trend": "rising",
+        "acwr": 1.13,
+        "sleep_debt_7d_hours": 1.5,
+        "readiness_7d_avg": 89.0,
+        "readiness_trend": "stable",
+        "is_overtrained": false,
+        "is_sleep_deprived": false,
+        "chronotype": "lion",
+        "life_season": "maintenance",
+        "notable_event": null,
+        "last_workout_type": "hiit",
+        "last_workout_peak_hr": null
+      },
+      "response": {
+        "prose_summary": "7.3 h is below your usual 7.3 h \u2014 a personal short night. They have repair in the bank. Spend it on one quality session in the slot they actually use. \u2014 Usable picture is still thin. The mix is just the plot getting interesting \u2014 stay kind to the load and sneak in extra wind-down.",
+        "recommendation": "They have repair in the bank. Spend it on one quality session in the slot they actually use.",
+        "confidence": 0.55,
+        "used_context": true,
+        "model_used": "lambda-deterministic",
+        "query_type": "recovery",
+        "latency_ms": 97.0,
+        "raw": {
+          "scenario": "clarify",
+          "test_ready": true
+        },
+        "model_class": "",
+        "model_archetype": "baseline"
+      },
+      "scores": {
+        "context_utilization": 50.0,
+        "directional_correctness": 75.0,
+        "chronotype_alignment": 85.0,
+        "actionability": 75.0,
+        "epistemic_honesty": 80.0,
+        "tone_compliance": 100.0
+      },
+      "composite_score": 73.2,
+      "grade": "B",
+      "failures": [],
+      "recommendations": [
+        "[CONTEXT BUILDER] Make specific numbers (readiness, HRV, ACWR, sleep debt) impossible to ignore in the prompt."
+      ]
+    },
+    {
+      "run_id": 10,
+      "query": "Should I train today?",
+      "tier": 1,
+      "context_snapshot": {
+        "date": "2026-01-07",
+        "readiness": 81,
+        "hrv": 45,
+        "hrv_7d_avg": 43.4,
+        "hrv_7d_trend": "stable",
+        "acwr": 1.51,
+        "sleep_debt_7d_hours": 0.6,
+        "readiness_7d_avg": 78.6,
+        "readiness_trend": "stable",
+        "is_overtrained": true,
+        "is_sleep_deprived": false,
+        "chronotype": "lion",
+        "life_season": "maintenance",
+        "notable_event": null,
+        "last_workout_type": "cardio",
+        "last_workout_peak_hr": null
+      },
+      "response": {
+        "prose_summary": "Training's been quiet the last few days \u2014 Hug first: restock day \u2014 easy body, water with the next meal, protect sleep like a friend would.",
+        "recommendation": "Back off intensity \u2014 deload or Zone 2 only until load cools",
+        "confidence": 0.62,
+        "used_context": true,
+        "model_used": "lambda-deterministic",
+        "query_type": "workout",
+        "latency_ms": 120.0,
+        "raw": {
+          "scenario": "protect",
+          "test_ready": true
+        },
+        "model_class": "",
+        "model_archetype": "baseline"
+      },
+      "scores": {
+        "context_utilization": 50.0,
+        "directional_correctness": 100.0,
+        "chronotype_alignment": 85.0,
+        "actionability": 100.0,
+        "epistemic_honesty": 80.0,
+        "tone_compliance": 100.0
+      },
+      "composite_score": 83.2,
+      "grade": "B+",
+      "failures": [],
+      "recommendations": [
+        "[CONTEXT BUILDER] Make specific numbers (readiness, HRV, ACWR, sleep debt) impossible to ignore in the prompt."
+      ]
+    },
+    {
+      "run_id": 11,
+      "query": "How was my sleep last night?",
+      "tier": 1,
+      "context_snapshot": {
+        "date": "2026-01-07",
+        "readiness": 81,
+        "hrv": 45,
+        "hrv_7d_avg": 43.4,
+        "hrv_7d_trend": "stable",
+        "acwr": 1.51,
+        "sleep_debt_7d_hours": 0.6,
+        "readiness_7d_avg": 78.6,
+        "readiness_trend": "stable",
+        "is_overtrained": true,
+        "is_sleep_deprived": false,
+        "chronotype": "lion",
+        "life_season": "maintenance",
+        "notable_event": null,
+        "last_workout_type": "cardio",
+        "last_workout_peak_hr": null
+      },
+      "response": {
+        "prose_summary": "It was a usable night \u2014 not a free pass \u2014 Hug first: restock day \u2014 easy body, water with the next meal, protect sleep like a friend would.",
+        "recommendation": "Back off intensity \u2014 deload or Zone 2 only until load cools",
+        "confidence": 0.62,
+        "used_context": true,
+        "model_used": "lambda-deterministic",
+        "query_type": "sleep",
+        "latency_ms": 55.0,
+        "raw": {
+          "scenario": "protect",
+          "test_ready": true
+        },
+        "model_class": "",
+        "model_archetype": "baseline"
+      },
+      "scores": {
+        "context_utilization": 50.0,
+        "directional_correctness": 100.0,
+        "chronotype_alignment": 85.0,
+        "actionability": 100.0,
+        "epistemic_honesty": 80.0,
+        "tone_compliance": 100.0
+      },
+      "composite_score": 83.2,
+      "grade": "B+",
+      "failures": [],
+      "recommendations": [
+        "[CONTEXT BUILDER] Make specific numbers (readiness, HRV, ACWR, sleep debt) impossible to ignore in the prompt."
+      ]
+    },
+    {
+      "run_id": 12,
+      "query": "Am I making progress?",
+      "tier": 1,
+      "context_snapshot": {
+        "date": "2026-01-07",
+        "readiness": 81,
+        "hrv": 45,
+        "hrv_7d_avg": 43.4,
+        "hrv_7d_trend": "stable",
+        "acwr": 1.51,
+        "sleep_debt_7d_hours": 0.6,
+        "readiness_7d_avg": 78.6,
+        "readiness_trend": "stable",
+        "is_overtrained": true,
+        "is_sleep_deprived": false,
+        "chronotype": "lion",
+        "life_season": "maintenance",
+        "notable_event": null,
+        "last_workout_type": "cardio",
+        "last_workout_peak_hr": null
+      },
+      "response": {
+        "prose_summary": "Last 30 days: 0 workouts in 30 days; load stable. You logged 0 sessions \u2014 consistency is the win. Hug first: restock day \u2014 easy body, water with the next meal, protect sleep like a friend would.",
+        "recommendation": null,
+        "confidence": 0.62,
+        "used_context": true,
+        "model_used": "lambda-deterministic",
+        "query_type": "progress",
+        "latency_ms": 124.0,
+        "raw": {
+          "scenario": "protect",
+          "test_ready": true
+        },
+        "model_class": "",
+        "model_archetype": "baseline"
+      },
+      "scores": {
+        "context_utilization": 50.0,
+        "directional_correctness": 50.0,
+        "chronotype_alignment": 85.0,
+        "actionability": 25.0,
+        "epistemic_honesty": 80.0,
+        "tone_compliance": 100.0
+      },
+      "composite_score": 59.5,
+      "grade": "C",
+      "failures": [
+        "Actionability: explanatory only, no guidance offered"
+      ],
+      "recommendations": [
+        "[CONTEXT BUILDER] Make specific numbers (readiness, HRV, ACWR, sleep debt) impossible to ignore in the prompt."
+      ]
+    },
+    {
+      "run_id": 13,
+      "query": "What should I focus on this week?",
+      "tier": 1,
+      "context_snapshot": {
+        "date": "2026-01-07",
+        "readiness": 81,
+        "hrv": 45,
+        "hrv_7d_avg": 43.4,
+        "hrv_7d_trend": "stable",
+        "acwr": 1.51,
+        "sleep_debt_7d_hours": 0.6,
+        "readiness_7d_avg": 78.6,
+        "readiness_trend": "stable",
+        "is_overtrained": true,
+        "is_sleep_deprived": false,
+        "chronotype": "lion",
+        "life_season": "maintenance",
+        "notable_event": null,
+        "last_workout_type": "cardio",
+        "last_workout_peak_hr": null
+      },
+      "response": {
+        "prose_summary": "Hug first: restock day \u2014 easy body, water with the next meal, protect sleep like a friend would.",
+        "recommendation": "Back off intensity \u2014 deload or Zone 2 only until load cools",
+        "confidence": 0.62,
+        "used_context": true,
+        "model_used": "lambda-deterministic",
+        "query_type": "aria",
+        "latency_ms": 96.0,
+        "raw": {
+          "scenario": "protect",
+          "test_ready": true
+        },
+        "model_class": "",
+        "model_archetype": "baseline"
+      },
+      "scores": {
+        "context_utilization": 50.0,
+        "directional_correctness": 100.0,
+        "chronotype_alignment": 85.0,
+        "actionability": 100.0,
+        "epistemic_honesty": 80.0,
+        "tone_compliance": 100.0
+      },
+      "composite_score": 83.2,
+      "grade": "B+",
+      "failures": [],
+      "recommendations": [
+        "[CONTEXT BUILDER] Make specific numbers (readiness, HRV, ACWR, sleep debt) impossible to ignore in the prompt."
+      ]
+    },
+    {
+      "run_id": 14,
+      "query": "How's my recovery looking?",
+      "tier": 1,
+      "context_snapshot": {
+        "date": "2026-01-07",
+        "readiness": 81,
+        "hrv": 45,
+        "hrv_7d_avg": 43.4,
+        "hrv_7d_trend": "stable",
+        "acwr": 1.51,
+        "sleep_debt_7d_hours": 0.6,
+        "readiness_7d_avg": 78.6,
+        "readiness_trend": "stable",
+        "is_overtrained": true,
+        "is_sleep_deprived": false,
+        "chronotype": "lion",
+        "life_season": "maintenance",
+        "notable_event": null,
+        "last_workout_type": "cardio",
+        "last_workout_peak_hr": null
+      },
+      "response": {
+        "prose_summary": "Your body's asking for a break today \u2014 Hug first: restock day \u2014 easy body, water with the next meal, protect sleep like a friend would.",
+        "recommendation": "Back off intensity \u2014 deload or Zone 2 only until load cools",
+        "confidence": 0.62,
+        "used_context": true,
+        "model_used": "lambda-deterministic",
+        "query_type": "recovery",
+        "latency_ms": 97.0,
+        "raw": {
+          "scenario": "protect",
+          "test_ready": true
+        },
+        "model_class": "",
+        "model_archetype": "baseline"
+      },
+      "scores": {
+        "context_utilization": 50.0,
+        "directional_correctness": 100.0,
+        "chronotype_alignment": 85.0,
+        "actionability": 100.0,
+        "epistemic_honesty": 80.0,
+        "tone_compliance": 100.0
+      },
+      "composite_score": 83.2,
+      "grade": "B+",
+      "failures": [],
+      "recommendations": [
+        "[CONTEXT BUILDER] Make specific numbers (readiness, HRV, ACWR, sleep debt) impossible to ignore in the prompt."
+      ]
+    },
+    {
+      "run_id": 15,
+      "query": "Should I train today?",
+      "tier": 1,
+      "context_snapshot": {
+        "date": "2026-01-15",
+        "readiness": 72,
+        "hrv": 42,
+        "hrv_7d_avg": 42.0,
+        "hrv_7d_trend": "falling",
+        "acwr": 1.32,
+        "sleep_debt_7d_hours": 4.1,
+        "readiness_7d_avg": 86.1,
+        "readiness_trend": "falling",
+        "is_overtrained": false,
+        "is_sleep_deprived": true,
+        "chronotype": "lion",
+        "life_season": "maintenance",
+        "notable_event": null,
+        "last_workout_type": "strength",
+        "last_workout_peak_hr": null
+      },
+      "response": {
+        "prose_summary": "Yesterday's work is still in the legs \u2014 Hug first: restock day \u2014 easy body, water with the next meal, protect sleep like a friend would.",
+        "recommendation": "Sleep is the lever. Keep tonight protected before adding training load.",
+        "confidence": 0.72,
+        "used_context": true,
+        "model_used": "lambda-deterministic",
+        "query_type": "workout",
+        "latency_ms": 120.0,
+        "raw": {
+          "scenario": "protect",
+          "test_ready": true
+        },
+        "model_class": "",
+        "model_archetype": "baseline"
+      },
+      "scores": {
+        "context_utilization": 50.0,
+        "directional_correctness": 75.0,
+        "chronotype_alignment": 85.0,
+        "actionability": 75.0,
+        "epistemic_honesty": 80.0,
+        "tone_compliance": 100.0
+      },
+      "composite_score": 73.2,
+      "grade": "B",
+      "failures": [],
+      "recommendations": [
+        "[CONTEXT BUILDER] Make specific numbers (readiness, HRV, ACWR, sleep debt) impossible to ignore in the prompt."
+      ]
+    },
+    {
+      "run_id": 16,
+      "query": "How was my sleep last night?",
+      "tier": 1,
+      "context_snapshot": {
+        "date": "2026-01-15",
+        "readiness": 72,
+        "hrv": 42,
+        "hrv_7d_avg": 42.0,
+        "hrv_7d_trend": "falling",
+        "acwr": 1.32,
+        "sleep_debt_7d_hours": 4.1,
+        "readiness_7d_avg": 86.1,
+        "readiness_trend": "falling",
+        "is_overtrained": false,
+        "is_sleep_deprived": true,
+        "chronotype": "lion",
+        "life_season": "maintenance",
+        "notable_event": null,
+        "last_workout_type": "strength",
+        "last_workout_peak_hr": null
+      },
+      "response": {
+        "prose_summary": "You woke up already spending energy you didn't bank \u2014 Hug first: restock day \u2014 easy body, water with the next meal, protect sleep like a friend would.",
+        "recommendation": "Sleep is the lever. Keep tonight protected before adding training load.",
+        "confidence": 0.72,
+        "used_context": true,
+        "model_used": "lambda-deterministic",
+        "query_type": "sleep",
+        "latency_ms": 55.0,
+        "raw": {
+          "scenario": "protect",
+          "test_ready": true
+        },
+        "model_class": "",
+        "model_archetype": "baseline"
+      },
+      "scores": {
+        "context_utilization": 50.0,
+        "directional_correctness": 75.0,
+        "chronotype_alignment": 85.0,
+        "actionability": 75.0,
+        "epistemic_honesty": 80.0,
+        "tone_compliance": 100.0
+      },
+      "composite_score": 73.2,
+      "grade": "B",
+      "failures": [],
+      "recommendations": [
+        "[CONTEXT BUILDER] Make specific numbers (readiness, HRV, ACWR, sleep debt) impossible to ignore in the prompt."
+      ]
+    },
+    {
+      "run_id": 17,
+      "query": "Am I making progress?",
+      "tier": 1,
+      "context_snapshot": {
+        "date": "2026-01-15",
+        "readiness": 72,
+        "hrv": 42,
+        "hrv_7d_avg": 42.0,
+        "hrv_7d_trend": "falling",
+        "acwr": 1.32,
+        "sleep_debt_7d_hours": 4.1,
+        "readiness_7d_avg": 86.1,
+        "readiness_trend": "falling",
+        "is_overtrained": false,
+        "is_sleep_deprived": true,
+        "chronotype": "lion",
+        "life_season": "maintenance",
+        "notable_event": null,
+        "last_workout_type": "strength",
+        "last_workout_peak_hr": null
+      },
+      "response": {
+        "prose_summary": "Last 30 days: 1 workouts in 30 days; load falling. You logged 1 sessions \u2014 consistency is the win. Hug first: restock day \u2014 easy body, water with the next meal, protect sleep like a friend would.",
+        "recommendation": null,
+        "confidence": 0.72,
+        "used_context": true,
+        "model_used": "lambda-deterministic",
+        "query_type": "progress",
+        "latency_ms": 124.0,
+        "raw": {
+          "scenario": "protect",
+          "test_ready": true
+        },
+        "model_class": "",
+        "model_archetype": "baseline"
+      },
+      "scores": {
+        "context_utilization": 75.0,
+        "directional_correctness": 50.0,
+        "chronotype_alignment": 85.0,
+        "actionability": 25.0,
+        "epistemic_honesty": 80.0,
+        "tone_compliance": 100.0
+      },
+      "composite_score": 65.8,
+      "grade": "B-",
+      "failures": [
+        "Actionability: explanatory only, no guidance offered"
+      ],
+      "recommendations": [
+        "[MODEL ROUTING] Route high-stakes recovery/override queries to the deeper model for tighter directional control."
+      ]
+    },
+    {
+      "run_id": 18,
+      "query": "What should I focus on this week?",
+      "tier": 1,
+      "context_snapshot": {
+        "date": "2026-01-15",
+        "readiness": 72,
+        "hrv": 42,
+        "hrv_7d_avg": 42.0,
+        "hrv_7d_trend": "falling",
+        "acwr": 1.32,
+        "sleep_debt_7d_hours": 4.1,
+        "readiness_7d_avg": 86.1,
+        "readiness_trend": "falling",
+        "is_overtrained": false,
+        "is_sleep_deprived": true,
+        "chronotype": "lion",
+        "life_season": "maintenance",
+        "notable_event": null,
+        "last_workout_type": "strength",
+        "last_workout_peak_hr": null
+      },
+      "response": {
+        "prose_summary": "Hug first: restock day \u2014 easy body, water with the next meal, protect sleep like a friend would.",
+        "recommendation": "Sleep is the lever. Keep tonight protected before adding training load.",
+        "confidence": 0.72,
+        "used_context": true,
+        "model_used": "lambda-deterministic",
+        "query_type": "aria",
+        "latency_ms": 96.0,
+        "raw": {
+          "scenario": "protect",
+          "test_ready": true
+        },
+        "model_class": "",
+        "model_archetype": "baseline"
+      },
+      "scores": {
+        "context_utilization": 50.0,
+        "directional_correctness": 75.0,
+        "chronotype_alignment": 85.0,
+        "actionability": 75.0,
+        "epistemic_honesty": 80.0,
+        "tone_compliance": 100.0
+      },
+      "composite_score": 73.2,
+      "grade": "B",
+      "failures": [],
+      "recommendations": [
+        "[CONTEXT BUILDER] Make specific numbers (readiness, HRV, ACWR, sleep debt) impossible to ignore in the prompt."
+      ]
+    },
+    {
+      "run_id": 19,
+      "query": "How's my recovery looking?",
+      "tier": 1,
+      "context_snapshot": {
+        "date": "2026-01-15",
+        "readiness": 72,
+        "hrv": 42,
+        "hrv_7d_avg": 42.0,
+        "hrv_7d_trend": "falling",
+        "acwr": 1.32,
+        "sleep_debt_7d_hours": 4.1,
+        "readiness_7d_avg": 86.1,
+        "readiness_trend": "falling",
+        "is_overtrained": false,
+        "is_sleep_deprived": true,
+        "chronotype": "lion",
+        "life_season": "maintenance",
+        "notable_event": null,
+        "last_workout_type": "strength",
+        "last_workout_peak_hr": null
+      },
+      "response": {
+        "prose_summary": "Recovery is steady, nothing urgent either way \u2014 Hug first: restock day \u2014 easy body, water with the next meal, protect sleep like a friend would.",
+        "recommendation": "Sleep is the lever. Keep tonight protected before adding training load.",
+        "confidence": 0.72,
+        "used_context": true,
+        "model_used": "lambda-deterministic",
+        "query_type": "recovery",
+        "latency_ms": 97.0,
+        "raw": {
+          "scenario": "protect",
+          "test_ready": true
+        },
+        "model_class": "",
+        "model_archetype": "baseline"
+      },
+      "scores": {
+        "context_utilization": 50.0,
+        "directional_correctness": 75.0,
+        "chronotype_alignment": 85.0,
+        "actionability": 75.0,
+        "epistemic_honesty": 80.0,
+        "tone_compliance": 100.0
+      },
+      "composite_score": 73.2,
+      "grade": "B",
+      "failures": [],
+      "recommendations": [
+        "[CONTEXT BUILDER] Make specific numbers (readiness, HRV, ACWR, sleep debt) impossible to ignore in the prompt."
+      ]
+    }
+  ],
+  "live_config_check": null
+}

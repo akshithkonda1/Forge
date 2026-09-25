@@ -1,0 +1,51 @@
+ARIA SimRunner — Evaluation Report
+===================================
+Model Under Test: Llama 4 Scout — The Weekend Warrior (Tier 1)
+Coaching Challenge: Regular routine, good recovery, only trains hard a few days
+Run Date: 2026-01-15T00:00:00
+Total Evaluations: 20
+
+OVERALL GRADE: B
+Composite Score: 73.5/100
+
+━━━ DIAGNOSTICS — VERDICT ━━━━━━━━━━━━━━━
+  ⛔ HOLD — quality ok (B), ship requires good or excellent
+  Turns passed: 17/20 (85.0%)
+  Quality: ok (B 73.5) — ship requires good or excellent
+  Severity: mission_critical 0 · high 0 · medium 3 · can_wait 0
+  Worst non-critical turns:
+    · 59.5/100 [Actionability] — 2025-12-31 · tier 1 · lambda-deterministic · 'Am I making progress?'
+    · 59.5/100 [Actionability] — 2026-01-07 · tier 1 · lambda-deterministic · 'Am I making progress?'
+    · 65.8/100 [Actionability] — 2026-01-15 · tier 1 · lambda-deterministic · 'Am I making progress?'
+
+━━━ CRITICAL FAILURES ━━━━━━━━━━━━━━━━━━━
+  No critical failures detected.
+
+━━━ DIMENSION BREAKDOWN ━━━━━━━━━━━━━━━━━
+Context Utilization:      51.2 — failing
+Directional Correctness:  76.2 — needs work
+Chronotype Alignment:     85.0 — pass
+Actionability:            72.5 — needs work
+Epistemic Honesty:        80.0 — pass
+Tone Compliance:         100.0 — pass
+
+━━━ BY DIFFICULTY TIER ━━━━━━━━━━━━━━━━━
+Tier 1: B  (85.0% pass rate, 20 runs, 3 below B)
+
+━━━ TOP FAILURE PATTERNS ━━━━━━━━━━━━━━━
+  1. Actionability: explanatory only, no guidance offered  (×3)
+
+━━━ WHAT NEEDS TO CHANGE ━━━━━━━━━━━━━━━
+  1. [CONTEXT BUILDER] Make specific numbers (readiness, HRV, ACWR, sleep debt) impossible to ignore in the prompt.  (×19)
+  2. [MODEL ROUTING] Route high-stakes recovery/override queries to the deeper model for tighter directional control.  (×1)
+
+━━━ DETERMINISM ━━━━━━━━━━━━━━━━━━━━━━━
+Semantic Determinism Rate: 100.0%  (5 prompts × 3 runs)
+  All sampled prompts were semantically stable.
+
+━━━ MODELS USED (harness engine) ━━━━━━━━
+Engine: lambda-deterministic
+  lambda-deterministic                       ×20
+
+Consumer Stability Grade:  A
+Epistemic Rigor Grade:     B
