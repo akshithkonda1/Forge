@@ -406,47 +406,53 @@ private struct HomeMetricTile: View {
 }
 
 /// Sleep-score series for the Home 7-day chart. Mapping is the existing
-/// contract: last 7 nights, need ≥3 parseable dates, score clamped 30…100,
-/// oldest → newest. Unparseable dates are skipped (never labeled as today).
+/// contract: last 7 nights, need ≥3 parseable dates, visual score clamped
+/// 30…100, oldest → newest. Unparseable dates are dropped (never labeled
+/// as today). VoiceOver speaks `rawScore`; the chart plots `score`.
 struct HomeTrendPoint: Identifiable, Equatable {
     let id: String
     let date: Date
+    /// Visual / plotted value — 30…100 floor and cap.
     let score: Int
+    /// Unclamped source score — VoiceOver and per-point labels.
+    let rawScore: Int
 }
 
 struct HomeTrendSnapshot: Equatable {
     let points: [HomeTrendPoint]
-    let skippedNights: Int
+    /// Calendar days in the 7-day window with no parsed night.
+    let missingNights: Int
 }
 
 enum HomeTrendSeries {
     static let minimumNights = 3
+    static let headerTitle = "SLEEP · LAST 7 NIGHTS"
     static let loadingVoiceOver = "Sleep, last seven nights, loading"
     static let expandHint = "Shows more detail"
 
     static func snapshot(from sleeps: [SleepData]) -> HomeTrendSnapshot {
         let slice = Array(sleeps.prefix(7))
-        var skipped = 0
         var parsed: [(sleep: SleepData, date: Date)] = []
         parsed.reserveCapacity(slice.count)
         for sleep in slice {
             if let date = parseNightDate(sleep.date) {
                 parsed.append((sleep, date))
-            } else {
-                skipped += 1
             }
         }
+        let parsedDates = parsed.map(\.date)
+        let missing = missingCalendarDays(in: parsedDates)
         guard parsed.count >= minimumNights else {
-            return HomeTrendSnapshot(points: [], skippedNights: skipped)
+            return HomeTrendSnapshot(points: [], missingNights: missing)
         }
         let points = parsed.reversed().enumerated().map { index, item in
             HomeTrendPoint(
                 id: "\(item.sleep.date)-\(index)",
                 date: item.date,
-                score: min(100, max(30, item.sleep.score))
+                score: min(100, max(30, item.sleep.score)),
+                rawScore: item.sleep.score
             )
         }
-        return HomeTrendSnapshot(points: points, skippedNights: skipped)
+        return HomeTrendSnapshot(points: points, missingNights: missing)
     }
 
     static func points(from sleeps: [SleepData]) -> [HomeTrendPoint] {
@@ -458,32 +464,64 @@ enum HomeTrendSeries {
             ?? DateFormatter.cachedYMD.date(from: raw)
     }
 
+    /// Unique `startOfDay` dates absent from a 7-day window ending on the
+    /// latest parsed night (or today when none parsed).
+    static func missingCalendarDays(
+        in dates: [Date],
+        calendar: Calendar = .current,
+        windowEnd: Date? = nil
+    ) -> Int {
+        let end = calendar.startOfDay(for: windowEnd ?? dates.max() ?? Date())
+        let present = Set(dates.map { calendar.startOfDay(for: $0) })
+        return (0..<7).reduce(0) { count, offset in
+            guard let day = calendar.date(byAdding: .day, value: -offset, to: end) else {
+                return count
+            }
+            return present.contains(calendar.startOfDay(for: day)) ? count : count + 1
+        }
+    }
+
     static func average(_ points: [HomeTrendPoint]) -> Int? {
         guard !points.isEmpty else { return nil }
         return points.map(\.score).reduce(0, +) / points.count
     }
 
-    static func accessibilitySummary(_ snapshot: HomeTrendSnapshot) -> String {
-        accessibilitySummary(snapshot.points, skippedNights: snapshot.skippedNights)
+    static func rawAverage(_ points: [HomeTrendPoint]) -> Int? {
+        guard !points.isEmpty else { return nil }
+        return points.map(\.rawScore).reduce(0, +) / points.count
     }
 
-    static func accessibilitySummary(_ points: [HomeTrendPoint], skippedNights: Int = 0) -> String {
-        let skipped = skippedPhrase(skippedNights)
+    static func accessibilitySummary(_ snapshot: HomeTrendSnapshot) -> String {
+        accessibilitySummary(snapshot.points, missingNights: snapshot.missingNights)
+    }
+
+    static func accessibilitySummary(_ points: [HomeTrendPoint], missingNights: Int = 0) -> String {
+        let missing = missingPhrase(missingNights)
         guard !points.isEmpty else {
-            return "Sleep score, last seven nights. Not enough nights yet. \(skipped)"
+            if let missing {
+                return "Sleep score, last seven nights. Not enough nights yet. \(missing)."
+            }
+            return "Sleep score, last seven nights. Not enough nights yet."
         }
         let latest = points[points.count - 1]
-        let avg = average(points) ?? latest.score
-        let formatter = DateFormatter()
-        formatter.dateFormat = "EEE"
-        let days = points.map { "\(formatter.string(from: $0.date)) \($0.score)" }.joined(separator: ", ")
-        return "Sleep score, last seven nights. Latest \(latest.score), average \(avg). \(skipped) \(days)."
+        let avg = rawAverage(points) ?? latest.rawScore
+        let days = points.map(pointAccessibilityLabel).joined(separator: ", ")
+        if let missing {
+            return "Sleep score, last seven nights. Latest \(latest.rawScore), average \(avg). \(missing). \(days)."
+        }
+        return "Sleep score, last seven nights. Latest \(latest.rawScore), average \(avg). \(days)."
     }
 
-    static func skippedPhrase(_ count: Int) -> String {
-        if count == 0 { return "No nights skipped." }
-        if count == 1 { return "1 night skipped." }
-        return "\(count) nights skipped."
+    static func pointAccessibilityLabel(_ point: HomeTrendPoint) -> String {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "EEE"
+        return "\(formatter.string(from: point.date)) \(point.rawScore)"
+    }
+
+    static func missingPhrase(_ count: Int) -> String? {
+        if count <= 0 { return nil }
+        if count == 1 { return "1 night missing" }
+        return "\(count) nights missing"
     }
 }
 
@@ -516,7 +554,7 @@ struct HomeTrendSection: View {
                 }
             } label: {
                 HStack {
-                    Text("7-DAY SIGNAL")
+                    Text(HomeTrendSeries.headerTitle)
                         .forgeSectionLabel()
                     Spacer()
                     if isLoading {
@@ -534,6 +572,7 @@ struct HomeTrendSection: View {
             }
             .buttonStyle(.plain)
             .disabled(trendData.isEmpty)
+            .accessibilityLabel(HomeTrendSeries.headerTitle)
             .accessibilityHint(HomeTrendSeries.expandHint)
             .accessibilityValue(isExpanded ? "Expanded" : "Collapsed")
 
@@ -605,6 +644,7 @@ struct HomeTrendSection: View {
                     )
                 )
                 .interpolationMethod(.catmullRom)
+                .accessibilityHidden(true)
 
                 LineMark(
                     x: .value("Sleep", point.date, unit: .day),
@@ -613,6 +653,7 @@ struct HomeTrendSection: View {
                 .foregroundStyle(HomeReadiness.color(latest))
                 .lineStyle(StrokeStyle(lineWidth: 2.4, lineCap: .round))
                 .interpolationMethod(.catmullRom)
+                .accessibilityHidden(true)
 
                 PointMark(
                     x: .value("Sleep", point.date, unit: .day),
@@ -620,6 +661,7 @@ struct HomeTrendSection: View {
                 )
                 .foregroundStyle(HomeReadiness.color(point.score))
                 .symbolSize(i == trendData.count - 1 ? 56 : 28)
+                .accessibilityLabel(HomeTrendSeries.pointAccessibilityLabel(point))
             }
         }
         .chartYScale(domain: 0...100)
