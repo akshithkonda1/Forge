@@ -505,5 +505,171 @@ class AttachAndPathTests(unittest.TestCase):
         )
 
 
+class ScoutEqualUsualAndDedupeTests(unittest.TestCase):
+    """Nyx Scout day-14: equal 7.3 h called short, sentence twice, digits, Why."""
+
+    def test_equal_and_near_usual_are_never_short(self):
+        from services.aria_engine import SLEEP_SHORT_MARGIN_MIN, _interpret_sleep
+
+        class _Base:
+            sleep_duration_min = 7.3 * 60
+            sleep_duration_n = 14
+            deep_frac = None
+            rem_frac = None
+            efficiency = None
+
+            def personal(self, metric):
+                return metric in {"sleep_duration", "sleep"}
+
+        usual = 7.3 * 60
+        for night in (usual, usual - 1.0, usual + 1.0, usual - SLEEP_SHORT_MARGIN_MIN + 1):
+            ctx = _health_ctx(
+                sleep=SleepContext(
+                    duration_minutes=night,
+                    rem_minutes=95,
+                    deep_minutes=90,
+                    nights_available=14,
+                )
+            )
+            sig = _interpret_sleep(ctx, _Base())
+            self.assertIsNotNone(sig)
+            low = sig.interpretation.lower()
+            self.assertNotIn("short night", low, (night, sig.interpretation))
+            self.assertNotIn("short for you", low, (night, sig.interpretation))
+            self.assertNotEqual(sig.direction, "negative", (night, sig.interpretation))
+
+    def test_state_read_clause_never_has_digits_across_grid(self):
+        from services.aria_engine import _interpret_sleep
+
+        class _Base:
+            def __init__(self, usual_min):
+                self.sleep_duration_min = usual_min
+                self.sleep_duration_n = 14
+                self.deep_frac = None
+                self.rem_frac = None
+                self.efficiency = None
+
+            def personal(self, metric):
+                return metric in {"sleep_duration", "sleep"}
+
+        markers = (
+            "short night",
+            "short for you",
+            "around your usual",
+            "solid night",
+        )
+        for night in range(300, 541, 20):
+            for usual in range(360, 541, 20):
+                ctx = _health_ctx(
+                    sleep=SleepContext(
+                        duration_minutes=night,
+                        rem_minutes=95,
+                        deep_minutes=90,
+                        nights_available=14,
+                        baseline_median_minutes=usual,
+                        baseline_mad_minutes=15,
+                    )
+                )
+                clause = state_read._state_read(ctx, seed=night + usual)
+                if clause:
+                    self.assertFalse(_DIGIT.search(clause), clause)
+                sig = _interpret_sleep(ctx, _Base(usual))
+                if sig is None:
+                    continue
+                for bit in sig.interpretation.split(";"):
+                    if any(m in bit.lower() for m in markers):
+                        self.assertFalse(_DIGIT.search(bit), bit)
+
+    def test_read_sentence_never_appears_twice(self):
+        ctx = _health_ctx()
+        resp = aria_engine.generate_response("Should I train today?", ctx, seed=0)
+        speech = f"{resp.get('prose_summary') or ''} {resp.get('message') or ''}"
+        hits = _read_hits(speech)
+        self.assertTrue(hits, speech)
+        for hit in set(hits):
+            self.assertEqual(speech.lower().count(hit), 1, speech)
+        doubled = speak_guard.dedupe_envelope_speech(
+            {
+                "prose_summary": "7.3 h is below your usual 7.3 h — a personal short night.",
+                "message": "7.3 h is below your usual 7.3 h — a personal short night. Keep it easy.",
+            }
+        )
+        blob = f"{doubled['prose_summary']} {doubled['message']}"
+        self.assertEqual(
+            blob.lower().count("personal short night"),
+            1,
+            blob,
+        )
+
+    def test_no_bare_section_labels_in_speech(self):
+        cleaned = speak_guard.guard_speak(
+            "a personal short night. Why. Sync HealthKit."
+        )
+        self.assertNotRegex(cleaned, r"(?i)\bWhy\.")
+        self.assertNotRegex(cleaned, r"(?i)\bTiming\.")
+        joined = speak_guard._join_with_step(
+            "a personal short night. Why",
+            "Sync HealthKit",
+        )
+        self.assertNotRegex(joined, r"(?i)\bWhy\.")
+        self.assertIn("Sync HealthKit", joined)
+        ctx = _health_ctx()
+        resp = aria_engine.generate_response("Should I train today?", ctx, seed=0)
+        speech = speak_guard.user_visible(resp)
+        for label in ("Why.", "Timing.", "Rationale.", "What I notice."):
+            self.assertNotIn(label, speech, speech)
+
+    def test_dummy_personas_short_night_clause_has_no_digits(self):
+        """Fail if any Dummy persona/seed speaks a short-night clause with a digit."""
+        os.environ.setdefault("SIMRUNNER_TODAY", "2026-01-15")
+        from backend.ai.simrunner.aria_simrunner import dummy_orchestrator as dummy
+        from backend.ai.simrunner.backend_simulator import model_registry as reg
+        from backend.ai.simrunner.backend_simulator.behavior_engine import generate_stream
+        from backend.ai.simrunner.backend_simulator.data_generator import build_context
+        from services import fusion as fusion_mod
+        from services import aria_engine as engine_mod
+
+        permissions = engine_mod.DataPermissions.allow_all()
+        markers = ("short night", "short for you", "around your usual")
+        models = []
+        for tier in (1, 2, 3):
+            models.extend(reg.get_models_by_tier(tier) or [])
+        self.assertTrue(models)
+        for model in models:
+            stream = generate_stream(model["behavioral_profile"], seed=14)
+            ctx = build_context(stream, model["behavioral_profile"], 14)
+            payload = dummy.sim_context_to_chat_payload(ctx)
+            fused = fusion_mod.fuse_turn(
+                "test-user-00000000",
+                payload,
+                permissions,
+                persist=False,
+                include_stored=False,
+                load_learner=False,
+            )
+            resp = engine_mod.generate_response(
+                "Should I train today?",
+                fused.context,
+                permissions=permissions,
+                baselines=fused.baselines,
+                seed=14,
+            )
+            speech = speak_guard.user_visible(resp)
+            self.assertIsNone(
+                re.search(
+                    r"(?i)\d+(?:\.\d+)?\s*h\s+is\s+(?:below|around)\s+your\s+usual",
+                    speech,
+                ),
+                speech,
+            )
+            for phrase in markers:
+                for match in re.finditer(re.escape(phrase), speech, flags=re.I):
+                    window = speech[max(0, match.start() - 24): match.end() + 8]
+                    self.assertFalse(
+                        re.search(r"\d+(?:\.\d+)?\s*h\b", window, flags=re.I),
+                        window,
+                    )
+
+
 if __name__ == "__main__":
     unittest.main()

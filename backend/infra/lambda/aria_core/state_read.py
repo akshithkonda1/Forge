@@ -430,9 +430,19 @@ def _has_step(text: str) -> bool:
     return any(cue in low for cue in speak_guard._STEP_CUES)
 
 
+_READ_ALIASES = (
+    "personal short night",
+    "short for you",
+    "around your usual",
+    "a short night",
+)
+
+
 def _already_has_read(text: str) -> bool:
     low = (text or "").lower()
-    return any(phrase in low for phrase in _PHRASE_SET)
+    if any(phrase in low for phrase in _PHRASE_SET):
+        return True
+    return any(alias in low for alias in _READ_ALIASES)
 
 
 def _user_sleep_dir(message: str) -> str | None:
