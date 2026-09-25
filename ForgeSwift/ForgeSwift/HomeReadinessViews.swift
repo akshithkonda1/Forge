@@ -184,7 +184,7 @@ struct HomeReadinessFieldView: View {
     @Environment(\.forgeMinimalAnimation) private var minimalAnimation
 
     static func isFrozen(reduceMotion: Bool, minimal: Bool) -> Bool {
-        reduceMotion || minimal
+        HomeTrendMath.isFrozen(reduceMotion: reduceMotion, minimal: minimal)
     }
 
     private var frozen: Bool { Self.isFrozen(reduceMotion: reduceMotion, minimal: minimalAnimation) }

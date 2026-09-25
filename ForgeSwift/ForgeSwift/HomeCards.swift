@@ -459,7 +459,7 @@ enum HomeTrendSeries {
             HomeTrendPoint(
                 id: "\(item.sleep.date)-\(index)",
                 date: item.date,
-                score: min(100, max(30, item.sleep.score)),
+                score: HomeTrendMath.clampedPlotScore(item.sleep.score),
                 rawScore: item.sleep.score
             )
         }
@@ -544,8 +544,7 @@ enum HomeTrendSeries {
     }
 
     static func rawAverage(_ points: [HomeTrendPoint]) -> Int? {
-        guard !points.isEmpty else { return nil }
-        return points.map(\.rawScore).reduce(0, +) / points.count
+        HomeTrendMath.ruleMarkY(points.map(\.rawScore))
     }
 
     /// Header “Avg N” — same integer truncation as `rawAverage`. The 30 floor
@@ -576,19 +575,7 @@ enum HomeTrendSeries {
     }
 
     static func ruleMarkY(_ points: [HomeTrendPoint]) -> Int? {
-        rawAverage(points)
-    }
-
-    static func weekdayFormatter(
-        calendar: Calendar = .current,
-        locale: Locale = .autoupdatingCurrent
-    ) -> DateFormatter {
-        let formatter = DateFormatter()
-        formatter.calendar = calendar
-        formatter.timeZone = calendar.timeZone
-        formatter.locale = locale
-        formatter.dateFormat = "EEE"
-        return formatter
+        HomeTrendMath.ruleMarkY(points.map(\.rawScore))
     }
 
     static func pointAccessibilityLabel(
@@ -596,7 +583,7 @@ enum HomeTrendSeries {
         calendar: Calendar = .current,
         locale: Locale = .autoupdatingCurrent
     ) -> String {
-        let weekday = weekdayFormatter(calendar: calendar, locale: locale).string(from: point.date)
+        let weekday = HomeTrendMath.weekdayLabel(for: point.date, calendar: calendar, locale: locale)
         return "\(weekday) \(point.rawScore)"
     }
 
@@ -758,7 +745,7 @@ struct HomeTrendSection: View {
     }
 
     static func plottedScore(_ score: Int, grown: Bool, reduceMotion: Bool) -> Int {
-        grown || reduceMotion ? score : 0
+        HomeTrendMath.plottedScore(score, grown: grown, reduceMotion: reduceMotion)
     }
 
     private func plottedScore(_ score: Int) -> Int {

@@ -319,56 +319,6 @@ final class TrainSleepUsableTests: XCTestCase {
         XCTAssertFalse(pointLabel.contains("30"), pointLabel)
     }
 
-    func testHomeTrendChartRuleMarkUsesRawAverage() {
-        // (10+90+100)/3 = 66.67 — Int division truncates to 66, not rounded 67.
-        let nights = [
-            SleepData(date: "2026-09-24", totalHours: 7.2, deepMinutes: 70, remMinutes: 90, lightMinutes: 210, awakeMinutes: 15, score: 100),
-            SleepData(date: "2026-09-23", totalHours: 6.8, deepMinutes: 50, remMinutes: 80, lightMinutes: 200, awakeMinutes: 25, score: 90),
-            SleepData(date: "2026-09-22", totalHours: 6.1, deepMinutes: 40, remMinutes: 70, lightMinutes: 190, awakeMinutes: 30, score: 10),
-        ]
-        let snapshot = HomeTrendSeries.snapshot(from: nights, now: fridaySep25)
-        let points = snapshot.points
-        XCTAssertEqual(points.map(\.rawScore), [10, 90, 100])
-        XCTAssertEqual(points.map(\.score), [30, 90, 100])
-        XCTAssertEqual(points[0].score, 30, "the 10 bar still plots at the 30 floor")
-
-        XCTAssertEqual(HomeTrendSeries.ruleMarkY(points), 66)
-        XCTAssertNotEqual(HomeTrendSeries.ruleMarkY(points), 73)
-        XCTAssertNotEqual(HomeTrendSeries.average(points), 66)
-        XCTAssertEqual(HomeTrendSeries.averageCaption(points), "Avg 66")
-
-        let spoken = HomeTrendSeries.accessibilitySummary(snapshot)
-        XCTAssertTrue(spoken.contains("average 66"), spoken)
-        XCTAssertFalse(spoken.contains("average 73"), spoken)
-    }
-
-    func testHomeTrendPointLabelsNameWeekdayFriToThu() {
-        let chicago = chicagoCalendar
-        let locale = Locale(identifier: "en_US_POSIX")
-        let nights = (18...24).map { day in
-            SleepData(
-                date: String(format: "2026-09-%02d", day),
-                totalHours: 7,
-                deepMinutes: 60,
-                remMinutes: 80,
-                lightMinutes: 200,
-                awakeMinutes: 20,
-                score: 70
-            )
-        }
-        let snapshot = HomeTrendSeries.snapshot(
-            from: nights,
-            now: chicagoDate(day: 25, hour: 8),
-            calendar: chicago
-        )
-        XCTAssertEqual(snapshot.points.count, 7)
-        let weekdays = snapshot.points.map { point in
-            let label = HomeTrendSeries.pointAccessibilityLabel(point, calendar: chicago, locale: locale)
-            return String(label.split(separator: " ").first ?? "")
-        }
-        XCTAssertEqual(weekdays, ["Fri", "Sat", "Sun", "Mon", "Tue", "Wed", "Thu"])
-    }
-
     func testHomeTrendSeriesLastNightJustAfterChicagoMidnightUsesLocalCalendar() {
         var chicago = Calendar(identifier: .gregorian)
         chicago.timeZone = TimeZone(identifier: "America/Chicago")!

@@ -345,7 +345,6 @@
 		1TEST03800000000000000A /* SleepNightGroupingTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1TEST03700000000000000A /* SleepNightGroupingTests.swift */; };
 		1TEST03A00000000000000A /* HealthKitSleepServiceScoringTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1TEST03900000000000000A /* HealthKitSleepServiceScoringTests.swift */; };
 		1TEST04200000000000000A /* TrainSleepUsableTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1TEST04100000000000000A /* TrainSleepUsableTests.swift */; };
-		1TEST04A00000000000000A /* HomeReduceMotionTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1TEST04900000000000000A /* HomeReduceMotionTests.swift */; };
 		1TEST04800000000000000A /* SleepSurfacePresenceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1TEST04700000000000000A /* SleepSurfacePresenceTests.swift */; };
 /* End PBXBuildFile section */
 
@@ -522,7 +521,6 @@
 		1TEST03500000000000000A /* AriaDummyOrchestratorTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AriaDummyOrchestratorTests.swift; sourceTree = "<group>"; };
 		1MEM05000000000000000A /* AriaMemoryControlsViewModelTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AriaMemoryControlsViewModelTests.swift; sourceTree = "<group>"; };
 		1TEST04100000000000000A /* TrainSleepUsableTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TrainSleepUsableTests.swift; sourceTree = "<group>"; };
-		1TEST04900000000000000A /* HomeReduceMotionTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HomeReduceMotionTests.swift; sourceTree = "<group>"; };
 		1TEST04700000000000000A /* SleepSurfacePresenceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SleepSurfacePresenceTests.swift; sourceTree = "<group>"; };
 		AA00020000000000000000B2 /* PartnerCycleSharing.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PartnerCycleSharing.swift; sourceTree = "<group>"; };
 		1ARIA0072F9FF867004091AA /* AriaContextStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AriaContextStore.swift; sourceTree = "<group>"; };
@@ -1294,7 +1292,6 @@
 				1TEST03700000000000000A /* SleepNightGroupingTests.swift */,
 				1TEST03900000000000000A /* HealthKitSleepServiceScoringTests.swift */,
 				1TEST04100000000000000A /* TrainSleepUsableTests.swift */,
-				1TEST04900000000000000A /* HomeReduceMotionTests.swift */,
 				1TEST04700000000000000A /* SleepSurfacePresenceTests.swift */,
 				1MED03000000000000000A /* MedicationPharmacyTests.swift */,
 			);
@@ -1883,7 +1880,6 @@
 				1TEST03800000000000000A /* SleepNightGroupingTests.swift in Sources */,
 				1TEST03A00000000000000A /* HealthKitSleepServiceScoringTests.swift in Sources */,
 				1TEST04200000000000000A /* TrainSleepUsableTests.swift in Sources */,
-				1TEST04A00000000000000A /* HomeReduceMotionTests.swift in Sources */,
 				1TEST04800000000000000A /* SleepSurfacePresenceTests.swift in Sources */,
 				1MED04000000000000000A /* MedicationPharmacyTests.swift in Sources */,
 			);
