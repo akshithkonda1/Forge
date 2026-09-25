@@ -129,6 +129,15 @@ class StateReadSelectionTests(unittest.TestCase):
         clause = state_read._state_read(ctx, seed=0)
         self.assertIn(clause, state_read.BETTER_NIGHT)
 
+    def test_training_trend_without_load_score_is_not_a_baseline(self):
+        ctx = ARIAContext(
+            progress=ProgressContext(training_load_trend="rising"),
+            training=TrainingContext(weekly_load_score=None),
+        )
+        self.assertEqual(state_read._state_read(ctx, seed=0), "")
+        ctx.training = TrainingContext(weekly_load_score=70)
+        self.assertIn(state_read._state_read(ctx, seed=0), state_read.BIGGER_LOAD)
+
     def test_no_baseline_gives_no_read(self):
         ctx = ARIAContext(
             sleep=SleepContext(duration_minutes=300),

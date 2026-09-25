@@ -243,7 +243,9 @@ def _select(ctx: Any, seed: int) -> tuple[str, str] | None:
         return "readiness", _pick(seed, READY_DOWN)
     if ready == "up":
         return "readiness", _pick(seed, READY_UP)
-    if sleep == "usual" or train == "steady" or ready == "steady":
+    # Positive "around usual" only when last night was judged against a
+    # 7-day sleep baseline. A lone "stable" trend is not enough data.
+    if sleep == "usual":
         return "steady", _pick(seed, CONSISTENT)
     return None
 
@@ -269,7 +271,12 @@ def _sleep_signal(ctx: Any) -> str | None:
 
 def _train_signal(ctx: Any) -> str | None:
     progress = getattr(ctx, "progress", None)
+    training = getattr(ctx, "training", None)
     if progress is None:
+        return None
+    # A trend label without a load score is not a personal training baseline
+    # (Dummy maps readiness_trend onto this field).
+    if _num(getattr(training, "weekly_load_score", None)) is None:
         return None
     trend = str(getattr(progress, "training_load_trend", None) or "").strip().lower()
     if trend in {"rising", "up"}:
