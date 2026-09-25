@@ -548,6 +548,12 @@ enum HomeTrendSeries {
         return points.map(\.rawScore).reduce(0, +) / points.count
     }
 
+    /// Header “Avg N” — same integer truncation as `rawAverage`. The 30 floor
+    /// is plot height only.
+    static func averageCaption(_ points: [HomeTrendPoint]) -> String? {
+        rawAverage(points).map { "Avg \($0)" }
+    }
+
     static func accessibilitySummary(_ snapshot: HomeTrendSnapshot) -> String {
         accessibilitySummary(snapshot.points, missingNights: snapshot.missingNights)
     }
@@ -616,8 +622,8 @@ struct HomeTrendSection: View {
                     Spacer()
                     if isLoading {
                         ProgressView().controlSize(.mini)
-                    } else if let avg = HomeTrendSeries.average(trendData) {
-                        Text("Avg \(avg)")
+                    } else if let caption = HomeTrendSeries.averageCaption(trendData) {
+                        Text(caption)
                             .font(HomeType.micro)
                             .foregroundColor(.textMuted)
                         Image(systemName: "chevron.down")
@@ -681,7 +687,7 @@ struct HomeTrendSection: View {
     private var chart: some View {
         let latest = trendData.last?.score ?? 0
         return Chart {
-            if let avg = HomeTrendSeries.average(trendData) {
+            if let avg = HomeTrendSeries.rawAverage(trendData) {
                 RuleMark(y: .value("Average", avg))
                     .foregroundStyle(Color.textMuted.opacity(0.45))
                     .lineStyle(StrokeStyle(lineWidth: 1, dash: [4, 4]))
