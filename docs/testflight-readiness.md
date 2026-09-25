@@ -60,7 +60,7 @@ Ranked by user-visible impact on a TestFlight first session.
 | Q10 | Chat polish | **QUALITY** | Chat | Empty state is already atmospheric (Nest mark). Message list, rich cards, and input chrome need a calm pass. Dummy ARIA stays default. |
 | Q11 | Onboarding / auth | **QUALITY** | Onboarding | Interview + Forge prep + age-gate (13+). DEBUG skip only. Age-blocked is clinical-legal, not coach. Reduce Motion on interview voice delay exists; ambient motion should be audited on-device. |
 | Q12 | Settings / You | **QUALITY** | Settings | Hero + destinations grid is dense. Privacy row is honest about the missing URL. Backend URL editor is a tester foot-gun — keep Dummy as default; do not expose a live Bedrock toggle in TestFlight. |
-| Q13 | Watch Home | **QUALITY** | Watch | Glanceable, strong VoiceOver. Readiness is nest orb + `ReadinessRing`, **not** the phone ring-field. Compact Watch sizes are allowed to stay 3-ring compact (`AriaRingFieldGeometry.visibleRingIndices`). Dedicated PR should paint ring-field for score, Nest for ARIA only. |
+| Q13 | Watch Home | **QUALITY** | Watch | Glanceable, strong VoiceOver. Readiness is `AuroraOrbWatch` (ember paint restored on purpose by #347) plus `ReadinessRing`, **not** a nest orb. `AriaNestMarkWatch` is Watch onboarding only — the brand split is already correct on Watch. Follow-up: keep the #347 ember; show the score in `ReadinessRing` geometry tinted by readiness band (Lex `shared/readiness.json`); keep the nest off Watch Home; one live mark per screen; ticks at 12 Hz or less. |
 | Q14 | Widgets / Live Activities / StandBy | **QUALITY** | Widgets | Shared `WidgetChrome` + App Group snapshot. Placeholders exist. Empty Support glance is good. StandBy uses Nest face (correct — brand, not readiness). Lock Screen / home-screen type is still caption-sized fixed. |
 | Q15 | Three readiness palettes | **QUALITY** | Home / Chat / Theme | `HomeReadiness` (Peak/Good/Fair/Low · vitality/ember/steel/alert), `Theme+Readiness` (Primed/Ready/Moderate/**Recovery** · success/steel/warning/danger), ForgeCore `ReadinessBand`. Unifying is a design decision, not a drive-by. Home keeps its own words; Theme’s “Recovery” label is a later copy pass. |
 | Q16 | `AriaLogo.png` still in the catalog | **QUALITY / retire** | Assets | `Assets.xcassets/AriaLogo.imageset/AriaLogo.png` (~505 KB). Chime still names asset `"AriaLogo"` (`AriaWelcomeChime`). Live UI mark is procedural Nest. **List for retirement** once the chime uses a generated frame or silence. Do not add new raster brand assets. |
@@ -251,7 +251,7 @@ See the Home PR body for the same list. Short form:
 4. **Chat** — empty already good; message rhythm + rich cards; Dummy stays.
 5. **Onboarding** — Health why-screen + motion freeze; no graph changes.
 6. **Settings + legal** — wire Akshith’s URL; tidy Privacy row; no Bedrock toggle.
-7. **Watch Home** — ring-field for score, Nest for ARIA; compact 3-ring rule.
+7. **Watch Home** — keep the #347 ember; score in `ReadinessRing` tinted by readiness band (Lex `shared/readiness.json`); nest off Watch Home; one live mark; ticks ≤12 Hz.
 8. **Widgets** — snapshot empty/error, type, StandBy Nest-only.
 
 Parallel (not UI): deploy-target 26.x with real `@available` (B2); `ExportOptions.plist`; retire `AriaLogo.png`; unify readiness vocabulary after a design call.
