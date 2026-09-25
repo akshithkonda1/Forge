@@ -82,6 +82,11 @@ def build_narrative(
         add(f"  Quality: {diagnostic.quality_level} "
             f"({diagnostic.overall_grade} {diagnostic.overall_composite}) "
             f"— ship requires good or excellent")
+        add(
+            f"  Fallback hits: {getattr(diagnostic, 'fallback_hits', 0)}/"
+            f"{getattr(diagnostic, 'fallback_turns', diagnostic.total_turns)} "
+            f"(recommendation/card.action/message resolved to _SPEAK_FALLBACK)"
+        )
         add(f"  Severity: mission_critical {sc['mission_critical']} · high {sc['high']} · "
             f"medium {sc['medium']} · can_wait {sc['can_wait']}")
         if diagnostic.mission_critical:

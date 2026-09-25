@@ -19,6 +19,9 @@ from backend.ai.simrunner.aria_simrunner.aria_evaluator import (  # noqa: E402
     evaluate,
     _has_credit_step,
 )
+from backend.ai.simrunner.aria_simrunner.dummy_orchestrator import (  # noqa: E402
+    _SPEAK_FALLBACK,
+)
 from backend.ai.simrunner.aria_simrunner.stability_analyzer import analyze  # noqa: E402
 from backend.ai.simrunner.backend_simulator.behavior_engine import DailyRecord  # noqa: E402
 from backend.ai.simrunner.backend_simulator.data_generator import ARIAContext  # noqa: E402
@@ -40,23 +43,26 @@ _HOLD_FILES = {
 }
 
 
-def make_record(readiness=70, hrv=55, acwr=1.0):
+def make_record(readiness=70, hrv=55, acwr=1.0, sleep_hours=7.5, training_load=0.0):
     return DailyRecord(
-        date="2026-01-15", total_sleep_hours=7.5, deep_sleep_minutes=80, rem_sleep_minutes=95,
+        date="2026-01-15", total_sleep_hours=sleep_hours, deep_sleep_minutes=80, rem_sleep_minutes=95,
         sleep_score=80, hrv=hrv, resting_hr=55, readiness_score=readiness, steps=9000,
         active_calories=500, workout_logged=False, workout_type=None,
-        workout_duration_minutes=None, workout_intensity=None, training_load=0.0,
+        workout_duration_minutes=None, workout_intensity=None, training_load=training_load,
         acwr=acwr, notes=None,
     )
 
 
-def make_context(readiness=70, hrv=55, acwr=1.0, sleep_debt=0.0, hrv_trend="stable"):
-    today = make_record(readiness, hrv, acwr)
+def make_context(
+    readiness=70, hrv=55, acwr=1.0, sleep_debt=0.0, hrv_trend="stable",
+    *, sleep_hours=7.5, readiness_trend="stable", training_load=0.0,
+):
+    today = make_record(readiness, hrv, acwr, sleep_hours=sleep_hours, training_load=training_load)
     return ARIAContext(
         user_name="Test", chronotype="bear", experience_level="intermediate",
         coaching_style="balanced", occupation="tester", life_season="maintenance",
         today=today, hrv_7d_avg=float(hrv), hrv_7d_trend=hrv_trend, sleep_debt_7d_hours=sleep_debt,
-        readiness_7d_avg=float(readiness), readiness_trend="stable", acwr=acwr,
+        readiness_7d_avg=float(readiness), readiness_trend=readiness_trend, acwr=acwr,
         training_streak=0, days_since_last_workout=1, target_sleep_hours=8.0, target_wake_hour=7.0,
         is_overtrained=acwr > 1.4, is_sleep_deprived=sleep_debt > 4.0,
         has_notable_event=False, notable_event_note=None, history=[today],
@@ -259,6 +265,96 @@ class HoldFixtureRescoreTests(unittest.TestCase):
         self.assertEqual(honest.scores.context_utilization, 100.0)
         self.assertEqual(honest.scores.actionability, 100.0)
         self.assertGreaterEqual(honest.composite_score, 80.0)
+
+
+class DataTiedContextCreditTests(unittest.TestCase):
+    """Full context credit only when the spoken read matches this turn's data."""
+
+    def test_generic_line_gets_no_context_credit(self):
+        resp = make_response("Sleep matters. Recovery is important.", "20 easy minutes, then call it.")
+        result = evaluate(0, "Should I train today?", 1, make_context(), resp)
+        self.assertNotEqual(result.scores.context_utilization, 100.0)
+        self.assertLess(result.scores.context_utilization, 80.0)
+
+    def test_contradicting_read_gets_no_context_credit(self):
+        long_night = make_context(sleep_hours=9.0)
+        short_claim = make_response(
+            "Short night — a bit under your usual.",
+            "20 easy minutes, then call it.",
+        )
+        short_result = evaluate(0, "How was my sleep last night?", 1, long_night, short_claim)
+        self.assertEqual(short_result.scores.context_utilization, 0.0, short_result.failures)
+
+        falling = make_context(hrv_trend="falling", readiness_trend="falling")
+        steady_claim = make_response(
+            "Steadier than last week and more consistent.",
+            "20 easy minutes, then call it.",
+        )
+        steady_result = evaluate(0, "Should I train today?", 1, falling, steady_claim)
+        self.assertEqual(steady_result.scores.context_utilization, 0.0, steady_result.failures)
+
+        light_week = make_context(acwr=0.7)
+        load_claim = make_response(
+            "Bigger training week than usual.",
+            "20 easy minutes, then call it.",
+        )
+        load_result = evaluate(0, "Should I train today?", 1, light_week, load_claim)
+        self.assertEqual(load_result.scores.context_utilization, 0.0, load_result.failures)
+
+    def test_correct_data_tied_read_gets_full_context_credit(self):
+        short_night = make_context(sleep_hours=6.5)
+        short_resp = make_response(
+            "Short night — a bit under your usual.",
+            "20 easy minutes, then call it.",
+        )
+        short_result = evaluate(0, "How was my sleep last night?", 1, short_night, short_resp)
+        self.assertEqual(short_result.scores.context_utilization, 100.0, short_result.failures)
+
+        stable = make_context(hrv_trend="stable", readiness_trend="stable")
+        steady_resp = make_response(
+            "Steadier than last week and more consistent.",
+            "20 easy minutes, then call it.",
+        )
+        steady_result = evaluate(0, "Should I train today?", 1, stable, steady_resp)
+        self.assertEqual(steady_result.scores.context_utilization, 100.0, steady_result.failures)
+
+        heavy = make_context(acwr=1.25)
+        load_resp = make_response(
+            "Bigger training week than usual.",
+            "20 easy minutes, then call it.",
+        )
+        load_result = evaluate(0, "Should I train today?", 1, heavy, load_resp)
+        self.assertEqual(load_result.scores.context_utilization, 100.0, load_result.failures)
+
+        long_night = make_context(sleep_hours=9.0)
+        better_resp = make_response(
+            "Better night than your usual.",
+            "20 easy minutes, then call it.",
+        )
+        better_result = evaluate(0, "How was my sleep last night?", 1, long_night, better_resp)
+        self.assertEqual(better_result.scores.context_utilization, 100.0, better_result.failures)
+
+
+class FallbackStepCreditTests(unittest.TestCase):
+    def test_speak_fallback_step_gets_zero_actionability_and_directional(self):
+        rec_only = make_response("Keep today kind.", _SPEAK_FALLBACK)
+        rec_result = evaluate(0, "Should I train today?", 1, make_context(), rec_only)
+        self.assertEqual(rec_result.scores.actionability, 0.0, rec_result.failures)
+        self.assertEqual(rec_result.scores.directional_correctness, 0.0, rec_result.failures)
+
+        only_step = make_response(_SPEAK_FALLBACK, _SPEAK_FALLBACK)
+        only_result = evaluate(0, "Should I train today?", 1, make_context(), only_step)
+        self.assertEqual(only_result.scores.actionability, 0.0)
+        self.assertEqual(only_result.scores.directional_correctness, 0.0)
+
+        via_card = make_response(
+            "Keep today kind.",
+            None,
+            raw={"card": {"action": _SPEAK_FALLBACK, "why": "20 easy minutes, then call it."}},
+        )
+        card_result = evaluate(0, "Should I train today?", 1, make_context(), via_card)
+        self.assertEqual(card_result.scores.actionability, 0.0)
+        self.assertEqual(card_result.scores.directional_correctness, 0.0)
 
 
 if __name__ == "__main__":

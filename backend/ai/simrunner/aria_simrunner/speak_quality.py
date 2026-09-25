@@ -185,6 +185,29 @@ _DISCOURSE_MOVES = (
     "forget it",
 )
 
+# Clinical / deficit language in speech. Whole-word, case-insensitive.
+# Immediate "not X" is allowed ('not bad'); compounds ('badminton') pass.
+_CLINICAL_TERMS = (
+    "poor",
+    "bad",
+    "debt",
+    "deficit",
+    "exhausted",
+    "fatigued",
+    "stressed",
+    "under-recovered",
+    "overtrained",
+    "abnormal",
+    "elevated",
+)
+_CLINICAL_RE = re.compile(
+    r"\b(?P<neg>not\s+)?(?P<term>"
+    + "|".join(re.escape(term) for term in _CLINICAL_TERMS)
+    + r")\b",
+    re.I,
+)
+_YOUR_BODY_IS_RE = re.compile(r"\byour body is\b", re.I)
+
 
 def user_visible_blob(row: dict | None) -> str:
     """Join the fields a person (or voice) actually hears."""
@@ -263,6 +286,27 @@ def medical_hits(text: str) -> list[str]:
 def sludge_hits(text: str) -> list[str]:
     """Generic-AI filler / rewriter meta prefixes."""
     return _hits(_SLUDGE_RE, text or "")
+
+
+def clinical_hits(text: str) -> list[str]:
+    """Banned clinical / deficit words in speech. ``not bad`` is not a hit."""
+    found: list[str] = []
+    seen: set[str] = set()
+    for match in _CLINICAL_RE.finditer(text or ""):
+        if match.group("neg"):
+            continue
+        term = match.group("term")
+        key = term.lower()
+        if key not in seen:
+            seen.add(key)
+            found.append(term)
+    for match in _YOUR_BODY_IS_RE.finditer(text or ""):
+        phrase = match.group(0)
+        key = phrase.lower()
+        if key not in seen:
+            seen.add(key)
+            found.append(phrase)
+    return found
 
 
 def repetition_hits(prev_reply: str, curr_reply: str) -> list[str]:
@@ -497,6 +541,9 @@ def speak_failures(
     s = sludge_hits(blob)
     if s:
         fails.append("sludge: " + ", ".join(s))
+    c = clinical_hits(blob)
+    if c:
+        fails.append("clinical: " + ", ".join(c))
     g = guide_leak_hits(blob)
     if g:
         fails.append("guide-leak: " + ", ".join(g))

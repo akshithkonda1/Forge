@@ -15,7 +15,7 @@ from backend.ai.simrunner.aria_simrunner.aria_evaluator import (  # noqa: E402
 )
 from backend.ai.simrunner.aria_simrunner.aria_generator import get_queries_for_tier  # noqa: E402
 from backend.ai.simrunner.aria_simrunner.dummy_orchestrator import (  # noqa: E402
-    DummyARIAEngine, ENGINE_STUB,
+    DummyARIAEngine, ENGINE_STUB, _SPEAK_FALLBACK,
 )
 from backend.ai.simrunner.backend_simulator import model_registry as reg  # noqa: E402
 from backend.ai.simrunner.backend_simulator.behavior_engine import generate_stream  # noqa: E402
@@ -235,7 +235,8 @@ class TurnDiagnosticTests(unittest.TestCase):
         for key in ("passed", "tier", "query", "model_used", "date", "grade",
                     "composite", "when", "what", "how", "severities", "max_severity"):
             self.assertIn(key, d)
-        for key in ("overall_composite", "overall_grade", "quality_level"):
+        for key in ("overall_composite", "overall_grade", "quality_level",
+                    "fallback_hits", "fallback_turns"):
             self.assertIn(key, sysd.to_dict())
 
 
@@ -275,6 +276,21 @@ class SystemDiagnosticTests(unittest.TestCase):
         a, _ = diagnostics.diagnose(_results("anthropic.claude-opus-4-8-adversarial"))
         b, _ = diagnostics.diagnose(_results("anthropic.claude-opus-4-8-adversarial"))
         self.assertEqual(a.to_dict(), b.to_dict())
+
+    def test_fallback_hits_count_speak_fallback_on_step_or_message(self):
+        clean = _fake_result(82.0)
+        fallback_rec = _fake_result(82.0)
+        fallback_rec.response.recommendation = _SPEAK_FALLBACK
+        fallback_msg = _fake_result(82.0)
+        fallback_msg.response.recommendation = "20 easy minutes, then call it."
+        fallback_msg.response.prose_summary = _SPEAK_FALLBACK
+        fallback_card = _fake_result(82.0)
+        fallback_card.response.recommendation = None
+        fallback_card.response.raw = {"card": {"action": _SPEAK_FALLBACK}}
+        sysd, _ = diagnostics.diagnose([clean, fallback_rec, fallback_msg, fallback_card])
+        self.assertEqual(sysd.fallback_hits, 3)
+        self.assertEqual(sysd.fallback_turns, 4)
+        self.assertIn("fallback_hits", sysd.to_dict())
 
 
 class StubVitalsScrubTests(unittest.TestCase):

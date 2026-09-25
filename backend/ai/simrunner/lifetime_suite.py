@@ -253,6 +253,11 @@ def run_model(
     print(f"    Grade {stability.overall_grade}  ({stability.overall_composite}/100)  "
           f"· {stability.total_runs} evals · determinism {det_str}")
     print(f"    verdict: {mark} {diagnostic.verdict}  ·  pass rate {diagnostic.pass_rate}%")
+    print(
+        f"    fallback hits: {getattr(diagnostic, 'fallback_hits', 0)}/"
+        f"{getattr(diagnostic, 'fallback_turns', diagnostic.total_turns)} "
+        f"(recommendation/card.action/message → _SPEAK_FALLBACK)"
+    )
     if multiseed:
         c = multiseed["composite"]
         print(f"    multi-seed: {c.mean} ± {c.stdev} over {seed_count} seeds "

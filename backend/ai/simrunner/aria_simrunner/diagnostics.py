@@ -18,7 +18,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 
-from .aria_evaluator import EvaluationResult, grade
+from .aria_evaluator import EvaluationResult, fallback_hit_fields, grade
 
 # Severity ladder, most → least serious.
 MISSION_CRITICAL = "mission_critical"
@@ -119,6 +119,8 @@ class SystemDiagnostic:
     quality_level: str = "poor"
     mission_critical: list[TurnDiagnostic] = field(default_factory=list)
     worst: list[TurnDiagnostic] = field(default_factory=list)
+    fallback_hits: int = 0
+    fallback_turns: int = 0
 
     def to_dict(self) -> dict:
         return {
@@ -130,6 +132,8 @@ class SystemDiagnostic:
             "quality_level": self.quality_level,
             "mission_critical": [t.to_dict() for t in self.mission_critical],
             "worst": [t.to_dict() for t in self.worst],
+            "fallback_hits": self.fallback_hits,
+            "fallback_turns": self.fallback_turns,
         }
 
 
@@ -185,11 +189,14 @@ def diagnose(results: list[EvaluationResult]) -> tuple[SystemDiagnostic, list[Tu
         key=lambda t: t.composite,
     )[:5]
 
+    fallback_hits = sum(1 for result in results if fallback_hit_fields(result.response))
+
     report = SystemDiagnostic(
         passed=system_passed, verdict=verdict, total_turns=total,
         passed_turns=passed_turns, pass_rate=pass_rate, severity_counts=counts,
         overall_composite=overall_composite, overall_grade=overall_grade,
         quality_level=level,
         mission_critical=mission_critical, worst=worst,
+        fallback_hits=fallback_hits, fallback_turns=total,
     )
     return report, turns

@@ -88,6 +88,24 @@ class GateFixturesFailOnBadSpeak(unittest.TestCase):
             with self.subTest(text=text):
                 self.assertEqual(sq.medical_hits(text), [], text)
 
+    def test_clinical_words_fail_whole_word_not_bad_and_badminton_pass(self):
+        terms = (
+            "poor", "bad", "debt", "deficit", "exhausted", "fatigued",
+            "stressed", "under-recovered", "overtrained", "abnormal", "elevated",
+        )
+        for term in terms:
+            with self.subTest(term=term):
+                line = f"Today looks {term}."
+                self.assertTrue(sq.clinical_hits(line), line)
+                self.assertTrue(sq.speak_failures({"prose_summary": line}), line)
+        body = "Your body is asking for a lighter day."
+        self.assertTrue(sq.clinical_hits(body), body)
+        self.assertTrue(sq.speak_failures({"prose_summary": body}), body)
+        self.assertEqual(sq.clinical_hits("That's not bad."), [])
+        self.assertEqual(sq.speak_failures({"prose_summary": "That's not bad."}), [])
+        self.assertEqual(sq.clinical_hits("Want to play badminton tonight?"), [])
+        self.assertEqual(sq.speak_failures({"prose_summary": "Want to play badminton tonight?"}), [])
+
     def test_sludge_and_repetition_gates_fail_on_generic_ai(self):
         sludge = "Great question! As an AI, I hope this helps. Let me know if you have any questions."
         self.assertTrue(sq.sludge_hits(sludge), sludge)

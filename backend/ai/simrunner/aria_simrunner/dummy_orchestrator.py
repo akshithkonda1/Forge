@@ -926,6 +926,7 @@ def _dumps_user_speak(text: str) -> bool:
         or speak_quality.bark_hits(raw)
         or speak_quality.medical_hits(raw)
         or speak_quality.sludge_hits(raw)
+        or speak_quality.clinical_hits(raw)
     )
 
 

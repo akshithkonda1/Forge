@@ -133,6 +133,21 @@ def _has(text: str, *words: str) -> bool:
     return any(w in text for w in words)
 
 
+def _has_phrase(text: str, *phrases: str) -> bool:
+    """Substring for multi-word cues; whole-word for single tokens.
+
+    Bare ``rising`` must not match ``surprising``.
+    """
+    t = text or ""
+    for phrase in phrases:
+        if " " in phrase or "-" in phrase:
+            if phrase in t:
+                return True
+        elif re.search(rf"\b{re.escape(phrase)}\b", t):
+            return True
+    return False
+
+
 # Keyword groups -------------------------------------------------------------
 _HIGH_INTENSITY = ("high intensity", "high-intensity", "go hard", "train hard", "as hard as possible",
                    "heavy", "max effort", "push for a pr", "hiit")
@@ -160,21 +175,25 @@ _SIZED_STEP_RE = re.compile(
 )
 _PROGRESS_STEP = "hold the structure and progress one variable next block"
 
-# Plain-language state (Iris): trend, direction, or lifestyle cue — not numbers.
-_STATE_TREND = (
-    "steadier than last week", "than last week", "trending", "trend",
-    "rising", "falling", "declining", "lower than usual", "higher than usual",
-    "steadier", "heavier than", "lighter than",
+# Data-tied plain-language state (Iris). Full context credit only when the
+# spoken claim is true of this persona on this turn — not a generic line
+# and not a read that contradicts the snapshot.
+_SLEEP_SHORT_PHRASES = (
+    "a bit under your usual", "under your usual", "short night",
+    "slept short", "rough night", "late night", "a bit under",
 )
-_STATE_DIRECTION = (
-    "a bit under your usual", "under your usual", "above your usual",
-    "a bit under", "a bit over", "over your usual",
+_SLEEP_LONG_PHRASES = (
+    "better night than your usual", "better night", "above your usual",
+    "over your usual", "a bit over",
 )
-_STATE_LIFESTYLE = (
-    "short night", "busy evening", "long day", "rough night",
-    "late night", "slept short", "earlier today", "recovery window",
-    "still carrying", "last night", "the night",
+_STEADIER_PHRASES = (
+    "steadier than last week", "more consistent", "steadier",
 )
+_LOAD_UP_PHRASES = (
+    "bigger training week than usual", "bigger training week", "heavier than",
+)
+_TREND_UP_PHRASES = ("higher than usual", "rising")
+_TREND_DOWN_PHRASES = ("lower than usual", "declining", "falling")
 
 # Cues that flip a phrase from a recommendation into its opposite ("no high-intensity",
 # "don't add load"). Used by _advocates so hold/recovery advice isn't scored as its inverse.
@@ -272,9 +291,174 @@ def _usable_recommendation(response: ARIAResponse) -> bool:
     return True
 
 
-def _reads_state_plain(text: str) -> bool:
+def _last_night_sleep(ctx: ARIAContext) -> float | None:
+    hours = getattr(ctx.today, "total_sleep_hours", None)
+    if isinstance(hours, (int, float)):
+        return float(hours)
+    return None
+
+
+def _usual_sleep(ctx: ARIAContext) -> float | None:
+    """7-day usual sleep for this persona.
+
+    Mean of history nights other than today. When the snapshot has no prior
+    nights (typical unit fixtures), fall back to ``target_sleep_hours``.
+    """
+    today_date = getattr(ctx.today, "date", None)
+    nights: list[float] = []
+    for rec in ctx.history or []:
+        if today_date is not None and getattr(rec, "date", None) == today_date:
+            continue
+        hours = getattr(rec, "total_sleep_hours", None)
+        if isinstance(hours, (int, float)):
+            nights.append(float(hours))
+    if nights:
+        return sum(nights) / len(nights)
+    target = getattr(ctx, "target_sleep_hours", None)
+    if isinstance(target, (int, float)):
+        return float(target)
+    return None
+
+
+def _trend_labels(ctx: ARIAContext) -> tuple[str, str]:
+    return (
+        str(getattr(ctx, "hrv_7d_trend", "") or "").lower(),
+        str(getattr(ctx, "readiness_trend", "") or "").lower(),
+    )
+
+
+def _trend_supports_steadier(ctx: ARIAContext) -> bool:
+    hrv, ready = _trend_labels(ctx)
+    if "falling" in (hrv, ready):
+        return False
+    return hrv in ("stable", "rising") or ready in ("stable", "rising")
+
+
+def _trend_is_rising(ctx: ARIAContext) -> bool:
+    hrv, ready = _trend_labels(ctx)
+    return hrv == "rising" or ready == "rising"
+
+
+def _trend_is_falling(ctx: ARIAContext) -> bool:
+    hrv, ready = _trend_labels(ctx)
+    return hrv == "falling" or ready == "falling"
+
+
+def _load_is_up(ctx: ARIAContext) -> bool:
+    acwr = float(getattr(ctx, "acwr", 0) or 0)
+    if acwr > 1.0 or bool(getattr(ctx, "is_overtrained", False)):
+        return True
+    today_date = getattr(ctx.today, "date", None)
+    prior: list[float] = []
+    today_load = getattr(ctx.today, "training_load", None)
+    for rec in ctx.history or []:
+        if today_date is not None and getattr(rec, "date", None) == today_date:
+            continue
+        load = getattr(rec, "training_load", None)
+        if isinstance(load, (int, float)):
+            prior.append(float(load))
+    if prior and isinstance(today_load, (int, float)):
+        return float(today_load) > (sum(prior) / len(prior))
+    loads: list[float] = []
+    for rec in ctx.history or []:
+        load = getattr(rec, "training_load", None)
+        if isinstance(load, (int, float)):
+            loads.append(float(load))
+    if len(loads) >= 4:
+        mid = len(loads) // 2
+        older, recent = loads[:mid], loads[mid:]
+        if older and recent:
+            return (sum(recent) / len(recent)) > (sum(older) / len(older))
+    return False
+
+
+def _state_read_verdict(text: str, ctx: ARIAContext) -> str:
+    """``tied`` / ``contradict`` / ``none`` for a plain-language state read.
+
+    A generic line never becomes ``tied``. A claim that is false for this
+    persona this turn is ``contradict``.
+    """
     t = (text or "").lower()
-    return _has(t, *_STATE_TREND) or _has(t, *_STATE_DIRECTION) or _has(t, *_STATE_LIFESTYLE)
+    claimed = False
+    contradicted = False
+
+    last = _last_night_sleep(ctx)
+    usual = _usual_sleep(ctx)
+    sleep_below = last is not None and usual is not None and last < usual
+    sleep_above = last is not None and usual is not None and last > usual
+
+    checks = (
+        (_SLEEP_SHORT_PHRASES, sleep_below),
+        (_SLEEP_LONG_PHRASES, sleep_above),
+        (_STEADIER_PHRASES, _trend_supports_steadier(ctx)),
+        (_LOAD_UP_PHRASES, _load_is_up(ctx)),
+        (_TREND_UP_PHRASES, _trend_is_rising(ctx)),
+        (_TREND_DOWN_PHRASES, _trend_is_falling(ctx)),
+    )
+    for phrases, supported in checks:
+        if not _has_phrase(t, *phrases):
+            continue
+        claimed = True
+        if not supported:
+            contradicted = True
+
+    if contradicted:
+        return "contradict"
+    if claimed:
+        return "tied"
+    return "none"
+
+
+def _norm_speak(text: str) -> str:
+    cleaned = re.sub(r"[^\w\s]", " ", (text or "").lower())
+    return re.sub(r"\s+", " ", cleaned).strip()
+
+
+def _fallback_sentinel() -> str:
+    from .dummy_orchestrator import _SPEAK_FALLBACK
+
+    return _SPEAK_FALLBACK
+
+
+def is_essentially_fallback(text: str) -> bool:
+    """True when ``text`` equals Dummy ``_SPEAK_FALLBACK`` after light normalize."""
+    spoken = _norm_speak(text)
+    sentinel = _norm_speak(_fallback_sentinel())
+    if not spoken or not sentinel:
+        return False
+    if spoken == sentinel:
+        return True
+    return spoken.startswith(sentinel) and len(spoken) - len(sentinel) <= 12
+
+
+def _primary_step(response: ARIAResponse) -> str:
+    rec = (response.recommendation or "").strip()
+    if rec:
+        return rec
+    card = _response_card(response)
+    return str(card.get("action") or "").strip()
+
+
+def is_fallback_step(response: ARIAResponse) -> bool:
+    """Recommendation or card.action is the generic ``_SPEAK_FALLBACK`` step."""
+    if is_essentially_fallback(response.recommendation or ""):
+        return True
+    action = _response_card(response).get("action")
+    if action and is_essentially_fallback(str(action)):
+        return True
+    return is_essentially_fallback(_primary_step(response))
+
+
+def fallback_hit_fields(response: ARIAResponse) -> list[str]:
+    """User-visible fields that resolved to ``_SPEAK_FALLBACK`` this turn."""
+    card = _response_card(response)
+    raw = response.raw if isinstance(response.raw, dict) else {}
+    candidates = {
+        "recommendation": response.recommendation,
+        "card.action": card.get("action"),
+        "message": raw.get("message") or response.prose_summary,
+    }
+    return [name for name, value in candidates.items() if value and is_essentially_fallback(str(value))]
 
 
 def evaluate(run_id: int, query: str, tier: int, context: ARIAContext, response: ARIAResponse) -> EvaluationResult:
@@ -315,16 +499,22 @@ def _score_context_utilization(
     *,
     spoken: str = "",
 ) -> float:
-    """ARIA's voice policy bans vitals/metric dumps in speech, so the grader
-    must not require raw numbers.
+    """Context-use credit is a data-tied state read, not a vibe check.
 
-    Policy (from Iris, ARIA quality owner): context-use full credit when the
-    reply reads the user's state in plain words — a trend ('steadier than last
-    week'), a direction ('a bit under your usual'), or a lifestyle cue (short
-    night, busy evening); readiness/HRV/ACWR numbers never needed.
+    Reason: a generic line ('sleep matters', 'recovery is important') can
+    be said to anyone, and a contradicting read ('short night' after a
+    long one) is worse than silence. Full credit only when the spoken
+    claim is true of this persona on this turn — 'short night' / 'a bit
+    under your usual' only if last night is below their 7-day usual
+    (target sleep when history is only today); 'steadier than last week'
+    / 'more consistent' only if the trend is not falling; 'bigger
+    training week than usual' only if load is actually up; 'better night
+    than your usual' only if sleep is above usual. Vitals/metric dumps
+    still score 0. Readiness/HRV/ACWR numbers are never required.
     """
     t = ctx.today
     blob = (spoken or text).lower()
+    verdict = _state_read_verdict(blob, ctx)
 
     # Contradiction: claims peak/recovered while data says otherwise.
     contradicts = (
@@ -340,7 +530,10 @@ def _score_context_utilization(
     elif speak_quality.guide_leak_hits(spoken or text) or speak_quality.zero_hours_hits(spoken or text):
         failures.append("Context utilization: guide text or '0 h since' is not a state read")
         raw = 0.0
-    elif _reads_state_plain(blob):
+    elif verdict == "contradict":
+        failures.append("Context utilization: state read contradicts this persona's data")
+        raw = 0.0
+    elif verdict == "tied":
         raw = 100.0
     elif _has(blob, "train", "rest", "recover", "easy", "hard", "load", "sleep"):
         raw = 50.0
@@ -398,6 +591,9 @@ def _score_directional(text: str, rec: str, ctx: ARIAContext, mult: float,
 
     # All hard rules pass — one sized second-person step is full credit.
     # Numbers in speech are not required; zone 2 and sleep minutes/hours are fine.
+    # The generic Dummy speak fallback is not a step — zero, not 75/100.
+    if is_fallback_step(response):
+        return 0.0
     if _has_credit_step(response):
         raw = 100.0
     elif _usable_recommendation(response):
@@ -433,6 +629,9 @@ def _score_actionability(
 ) -> float:
     if _has(text, "i can't help", "consult a doctor", "i'm unable", "cannot assist"):
         failures.append("Actionability: response is evasive or refuses to engage")
+        return 0.0
+    if is_fallback_step(response):
+        failures.append("Actionability: generic speak fallback is not a step")
         return 0.0
     blob = spoken or text
     if speak_quality.guide_leak_hits(blob):
@@ -476,7 +675,7 @@ def _score_epistemic(query: str, text: str, ctx: ARIAContext, response: ARIAResp
             return 25.0
         return 60.0
 
-    if directional == 0.0 and response.confidence > 0.6:
+    if directional == 0.0 and response.confidence > 0.6 and not is_fallback_step(response):
         failures.append("Epistemic honesty: confidently wrong (high confidence on a directional violation)")
         return 0.0
     return 80.0 if response.confidence <= 0.9 else 70.0
