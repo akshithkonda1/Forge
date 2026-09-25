@@ -391,21 +391,46 @@ def iter_swift_privacy_sources() -> list[Path]:
     ]
 
 
+_SWIFT_STRIP_PREFIXES = ("partner_", "partner_phase:", "cycle:fertile")
+
+
+def _required_swift_strip_prefixes() -> tuple[str, ...]:
+    """Prefixes the Swift strip must cover, intersected with the Python deny list."""
+    deny = {item.lower() for item in DENIED_LIFESTYLE_PREFIXES}
+    return tuple(item for item in _SWIFT_STRIP_PREFIXES if item.lower() in deny)
+
+
 def aria_fact_privacy_strip_failures(source: str) -> list[str]:
-    """If AriaFactPrivacy exists, its sanitizer must deny partner/cycle prefixes."""
+    """If AriaFactPrivacy exists, user-add must strip partner/cycle prefixes.
+
+    Pass when ``sanitizeSummary`` contains the deny prefixes itself, or when
+    it calls ``AriaInboundLifestyleStrip.sanitize`` and that enum's
+    ``deniedPrefixes`` includes ``partner_``, ``partner_phase:``, and
+    ``cycle:fertile`` (checked against ``DENIED_LIFESTYLE_PREFIXES``).
+    """
     if "enum AriaFactPrivacy" not in source and "AriaFactPrivacy" not in source:
         return []
-    # Narrow to the sanitizer body when present so calendar-only gates fail.
+    required = _required_swift_strip_prefixes()
     blob = source
     marker = "func sanitizeSummary"
     if marker in source:
         blob = source.split(marker, 1)[-1]
     low = blob.lower()
-    missing = [
-        prefix
-        for prefix in ("partner_", "cycle:fertile", "partner_phase")
-        if prefix not in low
-    ]
-    if missing:
-        return [f"AriaFactPrivacy sanitizer missing {item}" for item in missing]
-    return []
+    if all(prefix.lower() in low for prefix in required):
+        return []
+    if "AriaInboundLifestyleStrip.sanitize" in blob:
+        enum_low = source.lower()
+        missing = [
+            prefix
+            for prefix in required
+            if prefix.lower() not in enum_low
+        ]
+        if missing:
+            return [
+                f"AriaInboundLifestyleStrip.deniedPrefixes missing {item}"
+                for item in missing
+            ]
+        if "deniedPrefixes" not in source and "deniedprefixes" not in enum_low:
+            return ["AriaInboundLifestyleStrip missing deniedPrefixes"]
+        return []
+    return [f"AriaFactPrivacy sanitizer missing {item}" for item in required]

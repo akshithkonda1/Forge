@@ -452,40 +452,55 @@ class EditableMemoryPrivacyGates(unittest.TestCase):
             self.assertIn(prefix, aria, prefix)
 
     def test_swift_sanitize_summary_reads_real_aria_fact_privacy(self):
-        """Read the real Swift sanitizer. Do not feed a hand-written header.
+        """Read real Swift sources. Pass if sanitizeSummary strips or delegates."""
+        inline = (
+            "enum AriaFactPrivacy {\n"
+            "    func sanitizeSummary(_ raw: String) -> String {\n"
+            "        let denied = [\"partner_\", \"partner_phase:\", \"cycle:fertile\"]\n"
+            "        return raw\n"
+            "    }\n"
+            "}\n"
+        )
+        helper = (
+            "enum AriaFactPrivacy {\n"
+            "    func sanitizeSummary(_ raw: String) -> String {\n"
+            "        return AriaInboundLifestyleStrip.sanitize(raw)\n"
+            "    }\n"
+            "}\n"
+            "enum AriaInboundLifestyleStrip {\n"
+            "    static let deniedPrefixes: [String] = "
+            "[\"partner_\", \"partner_phase:\", \"cycle:fertile\"]\n"
+            "}\n"
+        )
+        calendar_only = (
+            "enum AriaFactPrivacy {\n"
+            "    func sanitizeSummary(_ raw: String) -> String {\n"
+            "        if raw.contains(\"calendar:title\") { return \"\" }\n"
+            "        return raw\n"
+            "    }\n"
+            "}\n"
+        )
+        helper_empty = (
+            "enum AriaFactPrivacy {\n"
+            "    func sanitizeSummary(_ raw: String) -> String {\n"
+            "        return AriaInboundLifestyleStrip.sanitize(raw)\n"
+            "    }\n"
+            "}\n"
+            "enum AriaInboundLifestyleStrip {\n"
+            "    static let deniedPrefixes: [String] = [\"calendar:title:\"]\n"
+            "}\n"
+        )
+        self.assertEqual(nyx.aria_fact_privacy_strip_failures(inline), [], inline)
+        self.assertEqual(nyx.aria_fact_privacy_strip_failures(helper), [], helper)
+        self.assertTrue(nyx.aria_fact_privacy_strip_failures(calendar_only), calendar_only)
+        self.assertTrue(nyx.aria_fact_privacy_strip_failures(helper_empty), helper_empty)
 
-        On current main, AriaFactPrivacy.sanitizeSummary is missing
-        partner_ / cycle:fertile (it still calls the deleted
-        AriaInboundLifestyleStrip helper). Do not paper over that.
-        """
-        path = nyx.repo_file(
-            "ForgeSwift",
-            "ForgeCore",
-            "Sources",
-            "ForgeCore",
-            "Intelligence",
-            "AriaMemoryControls.swift",
-        )
-        self.assertTrue(path.is_file(), path)
-        src = path.read_text(encoding="utf-8")
-        self.assertIn("enum AriaFactPrivacy", src)
-        self.assertIn("func sanitizeSummary", src)
-        ledger = nyx.repo_file(
-            "ForgeSwift",
-            "ForgeCore",
-            "Sources",
-            "ForgeCore",
-            "Intelligence",
-            "AriaKnowledgeLedger.swift",
-        )
-        self.assertNotIn("enum AriaInboundLifestyleStrip", ledger.read_text(encoding="utf-8"))
-        fails = nyx.aria_fact_privacy_strip_failures(src)
-        if fails:
-            self.skipTest(
-                "Swift AriaFactPrivacy.sanitizeSummary is missing the partner/cycle "
-                f"strip ({fails}). Python-only deny-list gate remains."
-            )
-        self.assertEqual(fails, [])
+        sources = nyx.iter_swift_privacy_sources()
+        self.assertTrue(sources, "AriaMemoryControls.swift / AriaKnowledgeLedger.swift")
+        joined = "\n".join(path.read_text(encoding="utf-8") for path in sources)
+        self.assertIn("enum AriaFactPrivacy", joined)
+        self.assertIn("func sanitizeSummary", joined)
+        self.assertEqual(nyx.aria_fact_privacy_strip_failures(joined), [])
 
 
 if __name__ == "__main__":
