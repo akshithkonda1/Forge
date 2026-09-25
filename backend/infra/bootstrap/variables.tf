@@ -17,6 +17,17 @@ variable "state_bucket_name" {
   nullable    = true
 }
 
+variable "state_bucket_deploy_role_arn" {
+  description = <<-EOT
+    IAM role ARN allowed to s3:GetObject on the state bucket, in addition to
+    the account root (root is never denied — a locked-out account cannot
+    recover IdP secrets that land in state). When skip_aws_provider_checks is
+    true this is unused; the policy uses placeholder ARNs so CI can plan.
+  EOT
+  type        = string
+  default     = ""
+}
+
 variable "tags" {
   description = "Additional tags applied to the state bucket."
   type        = map(string)

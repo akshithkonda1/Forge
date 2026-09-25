@@ -8,10 +8,25 @@ locals {
   name_prefix           = lower(replace("${var.project_name}-${var.environment}", "_", "-"))
   account_id_for_naming = var.skip_aws_provider_checks ? "ci" : data.aws_caller_identity.current[0].account_id
 
-  # Staging rides with production: unsigned dev-override tokens stay off, and
-  # log retention / localhost app clients follow the same split.
+  # Staging rides with production for log retention. Localhost OAuth clients
+  # and unsigned dev-override tokens are an explicit allowlist — not "anything
+  # that is not prod". beta / testflight / prd / test / ci / development get
+  # neither clients nor override tokens. Fail closed.
   is_prod_like = contains(["prod", "production", "staging", "stage"], var.environment)
-  is_dev_pool  = !local.is_prod_like
+  is_dev_pool  = contains(["dev", "local", "sandbox"], var.environment)
+
+  # Real apply (skip_aws_provider_checks = false) must not ship placeholder
+  # OAuth URLs. CI plan keeps the example.com defaults so it can run without
+  # credentials. Variable validation cannot reference other vars on older TF,
+  # so clients enforce this with a lifecycle precondition.
+  oauth_urls_contain_example_com = anytrue([
+    for url in concat(
+      var.cognito_web_callback_urls,
+      var.cognito_web_logout_urls,
+      var.cognito_kotlin_callback_urls,
+      var.cognito_kotlin_logout_urls,
+    ) : strcontains(url, "example.com")
+  ])
 
   # 30 days in prod-like accounts, 14 in every other pool. An explicit
   # log_retention_days wins when an operator wants something else.

@@ -1,15 +1,25 @@
 # Management-event CloudTrail to a locked, encrypted S3 bucket.
 # The first copy of management events is free. No data events (those bill).
+#
+# Gated by create_cloudtrail (default false): there must be exactly one trail
+# per AWS account. Enable this on one stack only. Additional trails in the
+# same account start billing. The bucket uses its own
+# force_destroy_cloudtrail_bucket (default false) so wiping uploads cannot
+# take the audit log with it.
 
 resource "aws_s3_bucket" "cloudtrail" {
+  count = var.create_cloudtrail ? 1 : 0
+
   bucket        = local.cloudtrail_bucket_name
-  force_destroy = var.force_destroy_uploads_bucket
+  force_destroy = var.force_destroy_cloudtrail_bucket
 
   tags = local.common_tags
 }
 
 resource "aws_s3_bucket_public_access_block" "cloudtrail" {
-  bucket = aws_s3_bucket.cloudtrail.id
+  count = var.create_cloudtrail ? 1 : 0
+
+  bucket = aws_s3_bucket.cloudtrail[0].id
 
   block_public_acls       = true
   block_public_policy     = true
@@ -18,7 +28,9 @@ resource "aws_s3_bucket_public_access_block" "cloudtrail" {
 }
 
 resource "aws_s3_bucket_ownership_controls" "cloudtrail" {
-  bucket = aws_s3_bucket.cloudtrail.id
+  count = var.create_cloudtrail ? 1 : 0
+
+  bucket = aws_s3_bucket.cloudtrail[0].id
 
   rule {
     object_ownership = "BucketOwnerEnforced"
@@ -26,7 +38,9 @@ resource "aws_s3_bucket_ownership_controls" "cloudtrail" {
 }
 
 resource "aws_s3_bucket_versioning" "cloudtrail" {
-  bucket = aws_s3_bucket.cloudtrail.id
+  count = var.create_cloudtrail ? 1 : 0
+
+  bucket = aws_s3_bucket.cloudtrail[0].id
 
   versioning_configuration {
     status = "Enabled"
@@ -34,7 +48,9 @@ resource "aws_s3_bucket_versioning" "cloudtrail" {
 }
 
 resource "aws_s3_bucket_server_side_encryption_configuration" "cloudtrail" {
-  bucket = aws_s3_bucket.cloudtrail.id
+  count = var.create_cloudtrail ? 1 : 0
+
+  bucket = aws_s3_bucket.cloudtrail[0].id
 
   rule {
     apply_server_side_encryption_by_default {
@@ -45,7 +61,9 @@ resource "aws_s3_bucket_server_side_encryption_configuration" "cloudtrail" {
 }
 
 resource "aws_s3_bucket_lifecycle_configuration" "cloudtrail" {
-  bucket = aws_s3_bucket.cloudtrail.id
+  count = var.create_cloudtrail ? 1 : 0
+
+  bucket = aws_s3_bucket.cloudtrail[0].id
 
   rule {
     id     = "expire-management-events"
@@ -68,6 +86,8 @@ resource "aws_s3_bucket_lifecycle_configuration" "cloudtrail" {
 }
 
 data "aws_iam_policy_document" "cloudtrail_bucket" {
+  count = var.create_cloudtrail ? 1 : 0
+
   statement {
     sid    = "AWSCloudTrailAclCheck"
     effect = "Allow"
@@ -78,7 +98,7 @@ data "aws_iam_policy_document" "cloudtrail_bucket" {
     }
 
     actions   = ["s3:GetBucketAcl"]
-    resources = [aws_s3_bucket.cloudtrail.arn]
+    resources = [aws_s3_bucket.cloudtrail[0].arn]
 
     condition {
       test     = "StringEquals"
@@ -103,7 +123,7 @@ data "aws_iam_policy_document" "cloudtrail_bucket" {
     }
 
     actions   = ["s3:PutObject"]
-    resources = ["${aws_s3_bucket.cloudtrail.arn}/AWSLogs/${local.account_id_for_naming}/*"]
+    resources = ["${aws_s3_bucket.cloudtrail[0].arn}/AWSLogs/${local.account_id_for_naming}/*"]
 
     condition {
       test     = "StringEquals"
@@ -129,8 +149,8 @@ data "aws_iam_policy_document" "cloudtrail_bucket" {
 
     actions = ["s3:*"]
     resources = [
-      aws_s3_bucket.cloudtrail.arn,
-      "${aws_s3_bucket.cloudtrail.arn}/*",
+      aws_s3_bucket.cloudtrail[0].arn,
+      "${aws_s3_bucket.cloudtrail[0].arn}/*",
     ]
 
     condition {
@@ -142,8 +162,10 @@ data "aws_iam_policy_document" "cloudtrail_bucket" {
 }
 
 resource "aws_s3_bucket_policy" "cloudtrail" {
-  bucket = aws_s3_bucket.cloudtrail.id
-  policy = data.aws_iam_policy_document.cloudtrail_bucket.json
+  count = var.create_cloudtrail ? 1 : 0
+
+  bucket = aws_s3_bucket.cloudtrail[0].id
+  policy = data.aws_iam_policy_document.cloudtrail_bucket[0].json
 
   depends_on = [
     aws_s3_bucket_public_access_block.cloudtrail,
@@ -152,8 +174,10 @@ resource "aws_s3_bucket_policy" "cloudtrail" {
 }
 
 resource "aws_cloudtrail" "management" {
+  count = var.create_cloudtrail ? 1 : 0
+
   name                          = "${local.name_prefix}-management"
-  s3_bucket_name                = aws_s3_bucket.cloudtrail.id
+  s3_bucket_name                = aws_s3_bucket.cloudtrail[0].id
   include_global_service_events = true
   is_multi_region_trail         = true
   enable_log_file_validation    = true

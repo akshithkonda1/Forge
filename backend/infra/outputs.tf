@@ -44,12 +44,12 @@ output "cognito_kotlin_client_id" {
 }
 
 output "cognito_web_localhost_client_id" {
-  description = "Dev-pool-only web localhost client ID. Null in prod-like environments."
+  description = "Dev-allowlist-only web localhost client ID. Null unless environment is dev, local, or sandbox."
   value       = try(aws_cognito_user_pool_client.web_localhost[0].id, null)
 }
 
 output "cognito_kotlin_localhost_client_id" {
-  description = "Dev-pool-only Kotlin localhost client ID. Null in prod-like environments."
+  description = "Dev-allowlist-only Kotlin localhost client ID. Null unless environment is dev, local, or sandbox."
   value       = try(aws_cognito_user_pool_client.kotlin_localhost[0].id, null)
 }
 
@@ -74,8 +74,8 @@ output "uploads_bucket_name" {
 }
 
 output "cloudtrail_bucket_name" {
-  description = "Locked bucket that receives CloudTrail management events."
-  value       = aws_s3_bucket.cloudtrail.bucket
+  description = "Locked bucket that receives CloudTrail management events. Null unless create_cloudtrail is true."
+  value       = var.create_cloudtrail ? aws_s3_bucket.cloudtrail[0].bucket : null
 }
 
 output "elevenlabs_parameter_names" {
@@ -88,20 +88,23 @@ output "elevenlabs_parameter_names" {
 }
 
 output "client_configuration" {
-  description = "Shared config object for generate_client_config and the other frontends."
+  description = "Shared config object for generate_client_config and the other frontends. Localhost client IDs live in dev_client_configuration."
   value = {
     apiBaseUrl = aws_apigatewayv2_api.http.api_endpoint
     cognito = {
-      region                  = var.aws_region
-      userPoolId              = aws_cognito_user_pool.forge.id
-      domain                  = local.hosted_ui_domain
-      hostedUiDomain          = local.hosted_ui_domain
-      webClientId             = aws_cognito_user_pool_client.web.id
-      iosClientId             = aws_cognito_user_pool_client.ios.id
-      kotlinClientId          = aws_cognito_user_pool_client.kotlin.id
-      webLocalhostClientId    = try(aws_cognito_user_pool_client.web_localhost[0].id, null)
-      kotlinLocalhostClientId = try(aws_cognito_user_pool_client.kotlin_localhost[0].id, null)
-      identityPoolId          = aws_cognito_identity_pool.forge.id
+      region            = var.aws_region
+      userPoolId        = aws_cognito_user_pool.forge.id
+      hostedUiDomain    = local.hosted_ui_domain
+      webClientId       = aws_cognito_user_pool_client.web.id
+      iosClientId       = aws_cognito_user_pool_client.ios.id
+      kotlinClientId    = aws_cognito_user_pool_client.kotlin.id
+      identityPoolId    = aws_cognito_identity_pool.forge.id
+      iosRedirectUri    = var.cognito_ios_callback_urls[0]
+      webRedirectUri    = var.cognito_web_callback_urls[0]
+      kotlinRedirectUri = var.cognito_kotlin_callback_urls[0]
+      iosLogoutUri      = var.cognito_ios_logout_urls[0]
+      webLogoutUri      = var.cognito_web_logout_urls[0]
+      kotlinLogoutUri   = var.cognito_kotlin_logout_urls[0]
     }
     storage = {
       uploadsBucket    = aws_s3_bucket.uploads.bucket
@@ -109,4 +112,12 @@ output "client_configuration" {
       keyPrefixPattern = "private/{identityId}/"
     }
   }
+}
+
+output "dev_client_configuration" {
+  description = "Localhost client IDs. Null unless environment is on the dev allowlist (dev, local, sandbox)."
+  value = local.is_dev_pool ? {
+    webLocalhostClientId    = aws_cognito_user_pool_client.web_localhost[0].id
+    kotlinLocalhostClientId = aws_cognito_user_pool_client.kotlin_localhost[0].id
+  } : null
 }

@@ -61,8 +61,10 @@ resource "aws_cognito_identity_provider" "google" {
     username = "sub"
   }
 
-  # Cognito rewrites provider_details with OIDC metadata after create.
-  # Rotating the SSM secret requires -replace on this resource.
+  # Cognito rewrites provider_details with OIDC metadata after create, so
+  # Terraform must ignore_changes. Rotate the SSM secret with
+  # `aws cognito-idp update-identity-provider` (never terraform apply
+  # -replace / taint — that recreates the IdP and can unlink existing users).
   lifecycle {
     ignore_changes = [provider_details]
   }
@@ -86,11 +88,16 @@ resource "aws_cognito_identity_provider" "apple" {
     username = "sub"
   }
 
+  # Same ignore_changes as Google. Rotate via
+  # `aws cognito-idp update-identity-provider`, never -replace.
   lifecycle {
     ignore_changes = [provider_details]
   }
 }
 
+# Kotlin [0] is the custom scheme (kotlinRedirectUri / kotlinLogoutUri).
+# An https App Link may follow as a second entry only; it works only once
+# assetlinks.json is live on that domain.
 resource "aws_cognito_user_pool_client" "kotlin" {
   name         = "${local.name_prefix}-kotlin"
   user_pool_id = aws_cognito_user_pool.forge.id
@@ -124,10 +131,21 @@ resource "aws_cognito_user_pool_client" "kotlin" {
     aws_cognito_identity_provider.google,
     aws_cognito_identity_provider.apple,
   ]
+
+  lifecycle {
+    # Variable validation cannot reference skip_aws_provider_checks on older TF.
+    precondition {
+      condition     = var.skip_aws_provider_checks || !local.oauth_urls_contain_example_com
+      error_message = "Web or Kotlin callback/logout URLs contain example.com. Set the real per-environment https (or custom-scheme) URLs in tfvars before a real apply. CI plan with skip_aws_provider_checks may keep the placeholders."
+    }
+  }
 }
 
-# Localhost OAuth clients live only on the dev pool. Production clients never
-# list http://localhost so a leaked prod client id cannot complete a loopback
+# Localhost OAuth clients exist only when environment is on the explicit
+# allowlist (dev, local, sandbox). Any other name — prod, staging, beta,
+# testflight, prd, test, ci — gets no localhost clients and no localhost IDs
+# on the JWT authorizer audience. Production clients never list
+# http://localhost so a leaked prod client id cannot complete a loopback
 # redirect.
 resource "aws_cognito_user_pool_client" "web_localhost" {
   count = local.is_dev_pool ? 1 : 0

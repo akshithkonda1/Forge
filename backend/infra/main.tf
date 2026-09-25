@@ -276,6 +276,13 @@ resource "aws_cognito_user_pool_client" "web" {
     aws_cognito_identity_provider.google,
     aws_cognito_identity_provider.apple,
   ]
+
+  lifecycle {
+    precondition {
+      condition     = var.skip_aws_provider_checks || !local.oauth_urls_contain_example_com
+      error_message = "Web or Kotlin callback/logout URLs contain example.com. Set the real per-environment https (or custom-scheme) URLs in tfvars before a real apply. CI plan with skip_aws_provider_checks may keep the placeholders."
+    }
+  }
 }
 
 resource "aws_cognito_user_pool_client" "ios" {
@@ -541,6 +548,9 @@ resource "aws_lambda_function" "backend" {
       APP_DATA_TABLE_NAME                     = aws_dynamodb_table.app_data.name
       ARIA_BEDROCK_ENABLED                    = var.aria_bedrock_enabled ? "true" : "false"
       ENVIRONMENT                             = var.environment
+      # Fail-closed twin of local.is_dev_pool. Only dev/local/sandbox get
+      # unsigned override tokens and seeded demo data.
+      FORGE_ALLOW_DEV_OVERRIDE = local.is_dev_pool ? "true" : "false"
       # Router slots. Passing "" would override ai_router.py's default with an
       # empty model id, so an unset variable falls back to the code default.
       # Inert while ARIA_BEDROCK_ENABLED is false. Slot 1/2 ids match
@@ -618,13 +628,16 @@ resource "aws_apigatewayv2_route" "proxy" {
 }
 
 resource "aws_apigatewayv2_route" "health" {
-  api_id    = aws_apigatewayv2_api.http.id
-  route_key = "GET /health"
-  target    = "integrations/${aws_apigatewayv2_integration.backend.id}"
+  api_id             = aws_apigatewayv2_api.http.id
+  route_key          = "GET /health"
+  target             = "integrations/${aws_apigatewayv2_integration.backend.id}"
+  authorization_type = "NONE"
 }
 
 # Public product shelf only. POST /devices/catalog/seen stays on the JWT
 # {proxy+} route. More-specific static routes win over ANY /{proxy+}.
+# Clients should cache this catalog — the per-route throttle is a scrape
+# ceiling (2 rps / burst 10), not a page-load budget.
 resource "aws_apigatewayv2_route" "devices_catalog" {
   api_id             = aws_apigatewayv2_api.http.id
   route_key          = "GET /devices/catalog"
@@ -666,6 +679,12 @@ resource "aws_apigatewayv2_stage" "default" {
     throttling_rate_limit  = var.devices_catalog_throttling_rate_limit
   }
 
+  route_settings {
+    route_key              = aws_apigatewayv2_route.health.route_key
+    throttling_burst_limit = var.health_throttling_burst_limit
+    throttling_rate_limit  = var.health_throttling_rate_limit
+  }
+
   depends_on = [aws_cloudwatch_log_resource_policy.api_access]
 
   tags = local.common_tags
@@ -683,6 +702,10 @@ resource "aws_lambda_permission" "api_gateway" {
 # $25/mo ceiling. First two AWS Budgets are free. Claude Marketplace token
 # charges may appear under the model provider, not "Amazon Bedrock", so this
 # is an account-level COST budget rather than a Bedrock-only filter.
+#
+# The budget only ALERTS — it never stops spend (no ACTUAL/FORECASTED action
+# that blocks APIs). ElevenLabs is billed outside AWS, so it is invisible
+# here; the ElevenLabs cap lives in the app quota, not this budget.
 resource "aws_budgets_budget" "spend_guard" {
   count = var.enable_spend_guard ? 1 : 0
 
@@ -701,6 +724,13 @@ resource "aws_budgets_budget" "spend_guard" {
       threshold_type             = "PERCENTAGE"
       notification_type          = "ACTUAL"
       subscriber_email_addresses = [var.spend_guard_notification_email]
+    }
+  }
+
+  lifecycle {
+    precondition {
+      condition     = var.skip_aws_provider_checks || var.spend_guard_notification_email != ""
+      error_message = "spend_guard_notification_email must be non-empty on a real apply when enable_spend_guard is true. The budget only alerts (it never stops spend); ElevenLabs spend is invisible to it."
     }
   }
 

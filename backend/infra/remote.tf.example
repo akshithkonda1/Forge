@@ -7,8 +7,12 @@
 #   3. cp remote.tf.example remote.tf
 #   4. terraform init -migrate-state
 #
-# The bootstrap bucket is AES256-encrypted, blocks public access, denies
-# non-TLS, and denies principals outside this account. Locking uses the
+# The bootstrap bucket is SSE-S3 (AES256, $0 — no customer KMS), blocks
+# public access, denies non-TLS, expires noncurrent versions after 30 days,
+# denies s3:GetObject unless the principal is the deploy role (or its
+# assumed-role session) or the account root, and denies principals outside
+# this account. Root is never locked out: Cognito IdP client secrets land
+# in this state file after the first real apply. Locking uses the
 # Terraform 1.10+ S3 lockfile (no DynamoDB lock table).
 #
 # iOS, web, and Kotlin share this stack. One state file. One account.
