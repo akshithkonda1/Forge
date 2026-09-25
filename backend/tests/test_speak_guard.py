@@ -103,6 +103,65 @@ class GuardSpeakTests(unittest.TestCase):
         text = "Sleep looked like about 7 hours. Keep it Zone 2, twenty minutes."
         self.assertEqual(speak_guard.guard_speak(text), text)
 
+    def test_zero_hours_keeps_words_after_single_label(self):
+        out = speak_guard.guard_speak("0 h since strength so keep it easy.")
+        self.assertNotIn("0 h since", out.lower())
+        self.assertIn("strength earlier today", out.lower())
+        self.assertIn("so keep it easy", out.lower())
+
+    def test_join_inserts_period_before_appended_step(self):
+        out = speak_guard.guard_speak(
+            f"You're ready today {GUIDE}",
+            card={"action": "Keep it shorter and lighter — 20 easy minutes, then call it"},
+        )
+        self.assertNotIn("today Keep it", out)
+        self.assertRegex(out, r"today\.\s+Keep it")
+        self.assertTrue(out.rstrip().endswith("."))
+
+    def test_training_fallback_not_used_for_sleep_or_food(self):
+        train = speak_guard.guard_speak(GUIDE, topic="training")
+        self.assertIn("20 easy minutes", train.lower())
+        self.assertIn("then call it", train.lower())
+        sleep = speak_guard.guard_speak(GUIDE, topic="sleep")
+        self.assertNotIn("20 easy minutes", sleep.lower())
+        food = speak_guard.guard_speak(GUIDE, topic="food")
+        self.assertNotIn("20 easy minutes", food.lower())
+
+    def test_clarify_fallback_asks_how_you_slept(self):
+        out = speak_guard.guard_speak(GUIDE, stance="clarify")
+        self.assertIn("tell me how you slept and i'll size today", out.lower())
+        self.assertNotIn("give me one missing signal", out.lower())
+
+    def test_short_note_callback_survives(self):
+        out = speak_guard.guard_speak(
+            "Since you like morning runs, keep today easy.",
+            memory_notes=["prefers morning runs"],
+        )
+        self.assertIn("since you like morning runs", out.lower())
+        self.assertIn("keep today easy", out.lower())
+
+    def test_long_note_readback_drops_whole_sentence(self):
+        raw = (
+            f"I remember {MEMORY_NOTE}, so we'll go gentle. "
+            "Hold the structure and progress one variable next block."
+        )
+        out = speak_guard.guard_speak(raw, memory_notes=[MEMORY_NOTE])
+        self.assertNotIn(MEMORY_NOTE.lower(), out.lower())
+        self.assertNotIn("i remember", out.lower())
+        self.assertNotIn("so we'll go gentle", out.lower())
+        self.assertIn("progress", out.lower())
+
+    def test_inline_goals_colon_is_not_stripped(self):
+        text = "Two goals: sleep and steps"
+        self.assertEqual(speak_guard.guard_speak(text), text)
+
+    def test_header_on_same_line_as_note_is_still_caught(self):
+        block = f"Recent patterns: {MEMORY_NOTE}"
+        raw = f"{MEMORY_NOTE}. Hold the structure and progress one variable next block."
+        out = speak_guard.guard_speak(raw, memory_block=block)
+        self.assertNotIn(MEMORY_NOTE.lower(), out.lower())
+        self.assertIn("progress", out.lower())
+
 
 class DeterministicPathTests(unittest.TestCase):
     def test_generate_response_strips_repair_in_the_bank(self):
@@ -146,6 +205,38 @@ class DeterministicPathTests(unittest.TestCase):
         }
         guarded = speak_guard.guard_envelope(envelope)
         self.assertLess(guarded["confidence"], 0.9)
+
+    def test_lambda_path_rescrubs_vitals_from_added_step(self):
+        dirty = "Keep it easy at 72 bpm with deep sleep at 21%"
+        envelope = {
+            "prose_summary": GUIDE,
+            "message": GUIDE,
+            "confidence": 0.8,
+            "card": {"action": dirty},
+            "fusion": {"stance": "protect"},
+        }
+        out = aria_engine._finish_spoken_envelope(envelope, _ctx(), "Should I train today?")
+        blob = speak_guard.user_visible(out)
+        self.assertNotIn("bpm", blob.lower())
+        self.assertNotIn("21%", blob)
+        self.assertNotRegex(blob.lower(), r"deep sleep at")
+
+    def test_lambda_path_strips_notes_from_memory_block(self):
+        ctx = _ctx()
+        ctx.last_insights = [MEMORY_NOTE]
+        envelope = {
+            "prose_summary": (
+                f"Right — {MEMORY_NOTE}. Hold the structure and progress one variable next block."
+            ),
+            "message": f"Right — {MEMORY_NOTE}. Hold the structure.",
+            "confidence": 0.7,
+            "card": {"action": "Hold the structure and progress one variable next block"},
+            "fusion": {"stance": "protect"},
+        }
+        out = aria_engine._finish_spoken_envelope(envelope, ctx, "Should I train today?")
+        blob = speak_guard.user_visible(out)
+        self.assertNotIn(MEMORY_NOTE.lower(), blob.lower())
+        self.assertTrue(blob.strip())
 
 
 class LiveBedrockGuardTests(unittest.TestCase):
@@ -207,6 +298,68 @@ class LiveBedrockGuardTests(unittest.TestCase):
         self.assertTrue(blob.strip())
         self.assertEqual(boto_hits, [])
         self.assertEqual(len(fake.calls), 1)
+
+
+class LivePathGuardTests(unittest.TestCase):
+    """Live path with an injected converse — ARIA_BEDROCK_ENABLED stays off."""
+
+    def test_bedrock_flag_stays_off(self):
+        self.assertNotIn(os.environ.get("ARIA_BEDROCK_ENABLED", "").lower(), {"1", "true", "yes"})
+
+    def test_live_path_rescrubs_vitals_from_added_step(self):
+        dirty = "Keep it easy at 72 bpm with deep sleep at 21%"
+        base = aria_engine.generate_response("Should I train today?", _ctx())
+        card = dict(base.get("card") or {})
+        card["action"] = dirty
+        base = dict(base)
+        base["card"] = card
+
+        def converse(_model_id, _system, _user):
+            return json.dumps(
+                {
+                    "prose_summary": GUIDE,
+                    "response_type": "recommendation",
+                    "confidence": 0.8,
+                }
+            )
+
+        with patch.object(aria_engine, "generate_response", return_value=base):
+            resp = aria_engine.generate_response_live(
+                "Should I train today?",
+                _ctx(),
+                converse=converse,
+            )
+        blob = speak_guard.user_visible(resp)
+        self.assertEqual(resp.get("reasoning_source"), "bedrock")
+        self.assertNotIn("bpm", blob.lower())
+        self.assertNotIn("21%", blob)
+        self.assertNotRegex(blob.lower(), r"deep sleep at")
+        self.assertNotIn(os.environ.get("ARIA_BEDROCK_ENABLED", "").lower(), {"1", "true", "yes"})
+
+    def test_live_path_strips_notes_from_memory_block(self):
+        ctx = _ctx()
+        ctx.last_insights = [MEMORY_NOTE]
+
+        def converse(_model_id, _system, _user):
+            return json.dumps(
+                {
+                    "prose_summary": (
+                        f"Right — {MEMORY_NOTE}. Hold the structure and progress one variable next block."
+                    ),
+                    "response_type": "recommendation",
+                    "confidence": 0.8,
+                }
+            )
+
+        resp = aria_engine.generate_response_live(
+            "Should I train today?",
+            ctx,
+            converse=converse,
+        )
+        blob = speak_guard.user_visible(resp)
+        self.assertEqual(resp.get("reasoning_source"), "bedrock")
+        self.assertNotIn(MEMORY_NOTE.lower(), blob.lower())
+        self.assertNotIn(os.environ.get("ARIA_BEDROCK_ENABLED", "").lower(), {"1", "true", "yes"})
 
 
 if __name__ == "__main__":
