@@ -81,11 +81,11 @@ tags = {
 # spend_guard_limit_usd             = 25
 # spend_guard_notification_email    = "ops@example.com"
 #
-# Exactly one management-event CloudTrail per AWS account. Default false.
-# Enable on one stack only. The trail bucket has its own force_destroy
-# (default false) — do not reuse force_destroy_uploads_bucket.
-# create_cloudtrail                 = false
-# force_destroy_cloudtrail_bucket   = false
+# Exactly one management-event CloudTrail per AWS account. Default false so
+# a shared-account dev stack does not create a second trail. The committed
+# prod var set (prod.tfvars) turns it on: terraform plan -var-file=prod.tfvars
+# force_destroy_cloudtrail_bucket stays false — do not reuse
+# force_destroy_uploads_bucket.
 #
 # Catalog clients should cache GET /devices/catalog (2 rps / burst 10).
 # GET /health stays public (1 rps / burst 5).

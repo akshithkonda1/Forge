@@ -41,7 +41,8 @@ Apply-failure catalog (also plan-only): [`TERRAFORM_PLAN.md`](TERRAFORM_PLAN.md)
 - Parameter Store SecureString parameters for `ELEVENLABS_*` (standard tier; seed after apply)
 - CloudWatch log groups with retention (30 prod / 14 dev)
 - Optional CloudTrail management-event trail (`create_cloudtrail`, default
-  **false** — exactly one trail per AWS account; enable on one stack only).
+  **false** — exactly one trail per AWS account). `prod.tfvars` sets it true
+  so the prod stack owns the trail; a shared-account `dev` plan stays false.
   The trail bucket has its own `force_destroy_cloudtrail_bucket` (default false)
 - AWS Budgets spend guard (default on, $25/mo). **Alerts only — never stops
   spend.** ElevenLabs is invisible to it; that cap lives in the app quota.
@@ -97,12 +98,14 @@ From this directory (`backend/infra`):
 4. Run `terraform init`.
 5. **Plan-only (CI-safe, no credentials):**
    `AWS_EC2_METADATA_DISABLED=true TF_VAR_environment=dev TF_VAR_skip_aws_provider_checks=true terraform plan`
-   `.github/workflows/terraform.yml` job `terraform-checks` runs init / fmt / validate / plan this way on every PR. **PRs never apply.**
+   Prod var set (CloudTrail on; not auto-loaded):
+   `AWS_EC2_METADATA_DISABLED=true TF_VAR_skip_aws_provider_checks=true terraform plan -var-file=prod.tfvars`
+   `.github/workflows/terraform.yml` job `terraform-checks` runs the dev plan
+   on every PR. **PRs never apply.**
 6. `terraform apply` is a paid-account decision. Dummy-offline must not apply.
    Do not set `aria_bedrock_enabled = true` for indie cheapest path.
    Set `spend_guard_notification_email` (required on a real apply when the
-   budget is enabled). Set `create_cloudtrail = true` on **one** stack in the
-   account if you want the management-event trail.
+   budget is enabled). CloudTrail is enabled in `prod.tfvars` only.
 7. If you did apply and need ElevenLabs, seed the three `/…/ai/ELEVENLABS_*`
    parameters with `aws ssm put-parameter --overwrite` so the key never lands in state.
 8. Rotate Apple/Google IdP secrets with
