@@ -760,9 +760,10 @@ class LiveBedrockDegradeTests(unittest.TestCase):
         def boom(*_args):
             raise RuntimeError("bedrock unavailable")
 
+        ctx = full_context()
         resp = aria_engine.generate_response_live(
-            "should I train today?", full_context(), converse=boom)
-        deterministic = aria_engine.generate_response("should I train today?", full_context())
+            "should I train today?", ctx, converse=boom)
+        deterministic = aria_engine.generate_response("should I train today?", ctx)
 
         self.assertEqual(resp["reasoning_source"], "deterministic")
         self.assertIn("bedrock unavailable", resp["reasoning_error"])
