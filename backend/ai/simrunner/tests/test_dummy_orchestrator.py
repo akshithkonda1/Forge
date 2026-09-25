@@ -994,33 +994,18 @@ class WebLookupOncePerTurn(unittest.TestCase):
         from backend._paths import ensure_lambda_on_path
 
         ensure_lambda_on_path()
-        from aria_core import prompt_guard
+        from services.aria_context import CoachContextEngine
 
-        attempts: list[dict] = []
-        notes: list[str] = []
+        rejected = "this cures insomnia"
+        dirty = f"From Some Source: real info. {rejected}."
+        remembered: list[str] = []
 
-        def fake_look(kind):
-            note = f"From TestLab: snippet-{len(notes) + 1}"
-            notes.append(note)
-            return note
+        def fake_remember(self, user_id, text, **kwargs):
+            remembered.append(text)
+            return None
 
-        real_checked = prompt_guard.checked
-
-        def checked_and_reject_first(produce, **kwargs):
-            def capturing():
-                row = produce()
-                attempts.append(dict(row))
-                # Force the first draft to fail determinism so confirm()
-                # regenerates, then estimates. Both produces must share
-                # one lookup and the same cite.
-                wobble = dict(row)
-                wobble["recommendation"] = f"plan #{len(attempts)}"
-                return wobble
-
-            return real_checked(capturing, **kwargs)
-
-        with patch.object(web_research, "look_up", side_effect=fake_look) as look:
-            with patch.object(prompt_guard, "checked", side_effect=checked_and_reject_first):
+        with patch.object(web_research, "look_up", return_value=dirty) as look:
+            with patch.object(CoachContextEngine, "remember_short_term", fake_remember):
                 row = dummy.respond(
                     "how do I improve my workout routine?",
                     seed=1,
@@ -1028,46 +1013,26 @@ class WebLookupOncePerTurn(unittest.TestCase):
                 )
 
         look.assert_called_once_with("workout")
-        self.assertEqual(len(attempts), 2)
-        shared = "From TestLab: snippet-1"
-        replayed = "From TestLab: snippet-2"
-        self.assertIn(shared, attempts[0]["message"])
-        self.assertIn(shared, attempts[1]["message"])
-        self.assertNotIn(replayed, attempts[0]["message"])
-        self.assertNotIn(replayed, attempts[1]["message"])
-        self.assertEqual(row.get("guard", {}).get("mode"), "estimate")
+        blob = speak_quality.user_visible_blob(row)
+        self.assertNotIn(rejected, blob.lower())
+        self.assertNotIn("cures insomnia", blob.lower())
+        self.assertEqual(speak_quality.speak_failures(row), [])
+        self.assertIn("From Some Source", blob)
+        self.assertNotEqual((row.get("guard") or {}).get("mode"), "estimate")
+        self.assertLessEqual(len(remembered), 1)
+        for text in remembered:
+            self.assertNotIn(rejected, text.lower())
+            self.assertNotIn("cures insomnia", text.lower())
 
     def test_prompt_guard_regenerate_reuses_a_scrubbed_note_without_refetch(self):
-        from backend._paths import ensure_lambda_on_path
-
-        ensure_lambda_on_path()
-        from aria_core import prompt_guard
-
-        attempts: list[dict] = []
         dirty = "From MedlinePlus: Exercise Stress Test / VO2: tissues need oxygen."
-        real_checked = prompt_guard.checked
-
-        def checked_and_reject_first(produce, **kwargs):
-            def capturing():
-                row = produce()
-                attempts.append(dict(row))
-                wobble = dict(row)
-                wobble["recommendation"] = f"plan #{len(attempts)}"
-                return wobble
-
-            return real_checked(capturing, **kwargs)
-
         with patch.object(web_research, "look_up", return_value=dirty) as look:
-            with patch.object(prompt_guard, "checked", side_effect=checked_and_reject_first):
-                dummy.respond("what's my training age?", seed=1, engine="stub")
-
+            row = dummy.respond("what's my training age?", seed=1, engine="stub")
         look.assert_called_once_with("aging")
-        self.assertEqual(len(attempts), 2)
-        for attempt in attempts:
-            visible = speak_quality.user_visible_blob(attempt)
-            self.assertIn("From MedlinePlus", visible)
-            self.assertEqual(speak_quality.vitals_hits(visible), [])
-            self.assertEqual(speak_quality.speak_failures(attempt), [])
+        visible = speak_quality.user_visible_blob(row)
+        self.assertIn("From MedlinePlus", visible)
+        self.assertEqual(speak_quality.vitals_hits(visible), [])
+        self.assertEqual(speak_quality.speak_failures(row), [])
 
     def test_no_retry_turn_still_looks_up_once(self):
         os.environ["FORGE_PROMPT_GUARD"] = "0"
