@@ -194,6 +194,35 @@ class StateReadSelectionTests(unittest.TestCase):
         ctx.current_goals = []
         self.assertTrue(state_read._state_read(ctx, seed=0))
 
+    def test_near_usual_night_is_not_called_consistent(self):
+        ctx = _health_ctx(
+            sleep=SleepContext(
+                duration_minutes=440,
+                baseline_median_minutes=450,
+                nights_available=7,
+            ),
+            readiness=ReadinessContext(),
+            progress=ProgressContext(),
+        )
+        clause = state_read._state_read(ctx, seed=0)
+        self.assertIn(clause, state_read.AROUND_USUAL)
+        self.assertEqual(clause, "right around your usual")
+        self.assertNotIn("consistent", clause)
+
+    def test_consistent_needs_a_multiday_streak(self):
+        ctx = _health_ctx(
+            sleep=SleepContext(
+                duration_minutes=440,
+                baseline_median_minutes=450,
+                nights_available=7,
+            ),
+            readiness=ReadinessContext(),
+            progress=ProgressContext(workouts_completed_30d=18),
+        )
+        clause = state_read._state_read(ctx, seed=0)
+        self.assertIn(clause, state_read.CONSISTENT)
+        self.assertIn("consistent", clause)
+
 
 class AttachAndPathTests(unittest.TestCase):
     def test_read_once_only_with_step_and_joined(self):
@@ -221,6 +250,67 @@ class AttachAndPathTests(unittest.TestCase):
         out = state_read.apply_to_envelope(envelope, ctx, seed=0, message="hey")
         self.assertEqual(out["prose_summary"], "All good.")
         self.assertEqual(_read_hits(out["prose_summary"]), [])
+
+    def test_skips_when_user_says_terrible_but_data_is_better_night(self):
+        ctx = _health_ctx(
+            sleep=SleepContext(
+                duration_minutes=540,
+                baseline_median_minutes=420,
+                nights_available=7,
+            ),
+            readiness=ReadinessContext(),
+            progress=ProgressContext(),
+        )
+        self.assertIn(state_read._state_read(ctx, seed=0), state_read.BETTER_NIGHT)
+        envelope = {
+            "prose_summary": "Keep today easy, then call it.",
+            "message": "Keep today easy, then call it.",
+        }
+        out = state_read.apply_to_envelope(
+            envelope, ctx, seed=0, message="I slept terribly"
+        )
+        self.assertEqual(out["prose_summary"], "Keep today easy, then call it.")
+        self.assertEqual(_read_hits(out["prose_summary"]), [])
+
+    def test_skips_when_user_says_great_but_data_is_short_night(self):
+        ctx = _health_ctx()
+        self.assertIn(state_read._state_read(ctx, seed=0), state_read.SHORT_NIGHT)
+        envelope = {
+            "prose_summary": "Keep today easy, then call it.",
+            "message": "Keep today easy, then call it.",
+        }
+        out = state_read.apply_to_envelope(
+            envelope, ctx, seed=0, message="I slept great"
+        )
+        self.assertEqual(out["prose_summary"], "Keep today easy, then call it.")
+        self.assertEqual(_read_hits(out["prose_summary"]), [])
+
+    def test_good_news_read_with_lighter_step_is_not_a_so(self):
+        ctx = _health_ctx(
+            sleep=SleepContext(
+                duration_minutes=540,
+                baseline_median_minutes=420,
+                nights_available=7,
+            ),
+            readiness=ReadinessContext(),
+            progress=ProgressContext(),
+        )
+        envelope = {
+            "prose_summary": "Keep today easy, then call it.",
+            "message": "Keep today easy, then call it.",
+        }
+        out = state_read.apply_to_envelope(
+            envelope, ctx, seed=0, message="Should I train today?"
+        )
+        speech = out["prose_summary"]
+        self.assertTrue(_read_hits(speech), speech)
+        self.assertNotRegex(speech, r"(?i),\s+so\s+")
+        self.assertRegex(speech, r"(?i)\.\s+Still,")
+        self.assertIn("easy", speech.lower())
+        self.assertTrue(
+            any(p in speech.lower() for p in state_read.BETTER_NIGHT),
+            speech,
+        )
 
     def test_user_already_said_sleep_is_ack_not_news(self):
         ctx = _health_ctx()

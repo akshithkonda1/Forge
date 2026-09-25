@@ -55,6 +55,12 @@ READY_UP = (
     "you've been really consistent",
     "holding up better than last week",
 )
+# Single near-usual night — never "consistent" (that needs a multi-day streak).
+AROUND_USUAL = (
+    "right around your usual",
+    "about your usual",
+    "close to your usual",
+)
 CONSISTENT = (
     "you've been really consistent",
     "steadier than last week",
@@ -62,7 +68,14 @@ CONSISTENT = (
 )
 
 PHRASE_BANK: tuple[str, ...] = (
-    SHORT_NIGHT + BETTER_NIGHT + BIGGER_LOAD + LIGHTER_LOAD + READY_DOWN + READY_UP + CONSISTENT
+    SHORT_NIGHT
+    + BETTER_NIGHT
+    + BIGGER_LOAD
+    + LIGHTER_LOAD
+    + READY_DOWN
+    + READY_UP
+    + AROUND_USUAL
+    + CONSISTENT
 )
 
 _BANNED_WORDS = (
@@ -83,7 +96,7 @@ _BANNED_WORDS = (
     "busier",
 )
 
-_USER_SLEEP_STATED = re.compile(
+_USER_SLEEP_BAD = re.compile(
     r"\b("
     r"i\s+slept\s+(?:terribly|terrible|awful|badly|poorly|rough|little)"
     r"|slept\s+(?:terribly|terrible|awful|badly|poorly)"
@@ -98,15 +111,41 @@ _USER_SLEEP_STATED = re.compile(
     r")\b",
     re.I,
 )
-
-_USER_TRAIN_STATED = re.compile(
+_USER_SLEEP_GOOD = re.compile(
+    r"\b("
+    r"i\s+slept\s+(?:great|well|amazing|awesome|solid|better|good)"
+    r"|slept\s+(?:great|well|amazing|awesome|solid)"
+    r"|great\s+night"
+    r"|amazing\s+night"
+    r"|solid\s+night"
+    r"|good\s+night"
+    r"|best\s+sleep"
+    r"|slept\s+like\s+a\s+rock"
+    r")\b",
+    re.I,
+)
+_USER_TRAIN_BIG = re.compile(
     r"\b("
     r"(?:big|bigger|heavy|heavier|huge)\s+(?:training\s+)?week"
-    r"|(?:light|lighter|easy|easier)\s+(?:training\s+)?week"
     r"|trained\s+a\s+lot"
+    r")\b",
+    re.I,
+)
+_USER_TRAIN_LIGHT = re.compile(
+    r"\b("
+    r"(?:light|lighter|easy|easier)\s+(?:training\s+)?week"
     r"|haven'?t\s+trained"
     r"|didn'?t\s+train"
     r")\b",
+    re.I,
+)
+_EASY_STEP = re.compile(
+    r"\b(easy|lighter|shorter|call it|protect|gentle|wind-down|wind down|recover)\b",
+    re.I,
+)
+_PUSH_STEP = re.compile(
+    r"\b(train hard|quality session|green light|push|hard session|go train|"
+    r"high[- ]intensity)\b",
     re.I,
 )
 
@@ -147,7 +186,9 @@ def apply_to_envelope(
     selected = _select(ctx, seed)
     if not selected:
         return envelope
-    kind, clause = selected
+    kind, clause, direction = selected
+    if _contradicts_user(message, kind, direction):
+        return envelope
     prose = str(envelope.get("prose_summary") or "")
     chat = str(envelope.get("message") or "")
     if _already_has_read(prose) or _already_has_read(chat):
@@ -162,11 +203,11 @@ def apply_to_envelope(
         target_key, target = "prose_summary", action
     else:
         return envelope
-    ack = _should_ack(message, kind)
+    ack = _should_ack(message, kind, direction)
     clean_clause = speak_guard.rescrub_speak(clause)
     if not clean_clause or clean_clause != clause:
         return envelope
-    updated = _join_read(target, clause, ack=ack)
+    updated = _join_read(target, clause, ack=ack, direction=direction)
     if not updated or updated == target:
         return envelope
     # Host speech may already carry live-path numbers; never all-or-nothing
@@ -225,28 +266,31 @@ def is_state_read_memory(text: str) -> bool:
     return low in _PHRASE_SET
 
 
-def _select(ctx: Any, seed: int) -> tuple[str, str] | None:
+def _select(ctx: Any, seed: int) -> tuple[str, str, str] | None:
     if ctx is None:
         return None
     sleep = _sleep_signal(ctx)
     train = _train_signal(ctx)
     ready = _ready_signal(ctx)
     if sleep == "short":
-        return "sleep", _pick(seed, SHORT_NIGHT)
+        return "sleep", _pick(seed, SHORT_NIGHT), "short"
     if sleep == "better":
-        return "sleep", _pick(seed, BETTER_NIGHT)
+        return "sleep", _pick(seed, BETTER_NIGHT), "better"
     if train == "bigger":
-        return "training", _pick(seed, BIGGER_LOAD)
+        return "training", _pick(seed, BIGGER_LOAD), "bigger"
     if train == "lighter":
-        return "training", _pick(seed, LIGHTER_LOAD)
+        return "training", _pick(seed, LIGHTER_LOAD), "lighter"
     if ready == "down":
-        return "readiness", _pick(seed, READY_DOWN)
+        return "readiness", _pick(seed, READY_DOWN), "down"
     if ready == "up":
-        return "readiness", _pick(seed, READY_UP)
-    # Positive "around usual" only when last night was judged against a
-    # 7-day sleep baseline. A lone "stable" trend is not enough data.
+        return "readiness", _pick(seed, READY_UP), "up"
+    if train == "steady":
+        return "steady", _pick(seed, CONSISTENT), "steady"
+    # A single near-usual night is not a streak.
     if sleep == "usual":
-        return "steady", _pick(seed, CONSISTENT)
+        if _has_multiday_streak(ctx, train=train):
+            return "steady", _pick(seed, CONSISTENT), "steady"
+        return "sleep", _pick(seed, AROUND_USUAL), "usual"
     return None
 
 
@@ -319,15 +363,97 @@ def _already_has_read(text: str) -> bool:
     return any(phrase in low for phrase in _PHRASE_SET)
 
 
-def _should_ack(message: str, kind: str) -> bool:
-    if kind == "sleep" and _USER_SLEEP_STATED.search(message or ""):
-        return True
-    if kind == "training" and _USER_TRAIN_STATED.search(message or ""):
-        return True
+def _user_sleep_dir(message: str) -> str | None:
+    text = message or ""
+    if _USER_SLEEP_BAD.search(text):
+        return "bad"
+    if _USER_SLEEP_GOOD.search(text):
+        return "good"
+    return None
+
+
+def _user_train_dir(message: str) -> str | None:
+    text = message or ""
+    if _USER_TRAIN_BIG.search(text):
+        return "bigger"
+    if _USER_TRAIN_LIGHT.search(text):
+        return "lighter"
+    return None
+
+
+def _contradicts_user(message: str, kind: str, direction: str) -> bool:
+    """Skip when the user's words point the opposite way from the data."""
+    if kind == "sleep":
+        claimed = _user_sleep_dir(message)
+        if claimed == "bad" and direction == "better":
+            return True
+        if claimed == "good" and direction == "short":
+            return True
+        return False
+    if kind == "training":
+        claimed = _user_train_dir(message)
+        if claimed == "bigger" and direction == "lighter":
+            return True
+        if claimed == "lighter" and direction == "bigger":
+            return True
+        return False
     return False
 
 
-def _join_read(speech: str, clause: str, *, ack: bool) -> str:
+def _should_ack(message: str, kind: str, direction: str = "") -> bool:
+    if kind == "sleep":
+        claimed = _user_sleep_dir(message)
+        if claimed == "bad" and direction == "short":
+            return True
+        if claimed == "good" and direction == "better":
+            return True
+        return False
+    if kind == "training":
+        claimed = _user_train_dir(message)
+        return bool(claimed) and claimed == direction
+    return False
+
+
+def _read_polarity(direction: str) -> str:
+    if direction in {"short", "down", "lighter"}:
+        return "easy"
+    if direction in {"better", "up", "bigger"}:
+        return "push"
+    return "neutral"
+
+
+def _step_polarity(text: str) -> str:
+    if _EASY_STEP.search(text or ""):
+        return "easy"
+    if _PUSH_STEP.search(text or ""):
+        return "push"
+    return "neutral"
+
+
+def _aligned(direction: str, step_text: str) -> bool:
+    read_way = _read_polarity(direction)
+    step_way = _step_polarity(step_text)
+    return read_way != "neutral" and read_way == step_way
+
+
+def _has_multiday_streak(ctx: Any, *, train: str | None = None) -> bool:
+    """True only with a real multi-day pattern, not one near-usual night."""
+    if train == "steady":
+        return True
+    progress = getattr(ctx, "progress", None)
+    workouts = _int(getattr(progress, "workouts_completed_30d", None)) if progress else None
+    return workouts is not None and workouts >= 7
+
+
+def _sentence_case(text: str) -> str:
+    if not text:
+        return text
+    if text[0].islower():
+        return text[0].upper() + text[1:]
+    return text
+
+
+def _join_read(speech: str, clause: str, *, ack: bool, direction: str = "") -> str:
     if not clause or not (speech or "").strip():
         return speech
     lead = f"yeah, {clause}" if ack else clause
@@ -339,8 +465,12 @@ def _join_read(speech: str, clause: str, *, ack: bool) -> str:
     for i, sentence in enumerate(parts):
         if not _has_step(sentence):
             continue
-        rest = _de_sentence_case(sentence)
-        parts[i] = f"{lead}, so {rest}"
+        if _aligned(direction, sentence):
+            rest = _de_sentence_case(sentence)
+            parts[i] = f"{lead}, so {rest}"
+        else:
+            # Good-news read + lighter step (or any mismatch) is not a 'so'.
+            parts[i] = f"{lead}. Still, {_sentence_case(sentence)}"
         return " ".join(parts)
     return speech
 
