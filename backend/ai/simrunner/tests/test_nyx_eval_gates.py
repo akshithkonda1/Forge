@@ -396,18 +396,23 @@ class EditableMemoryPrivacyGates(unittest.TestCase):
         self.assertEqual(nyx.vault_note_privacy_failures(hours), [])
 
     def test_swift_user_add_path_strips_or_aria_fact_privacy_must(self):
-        """Rowan: user-add runs the same strip. #307 calendar gate is OK;
-        partner/cycle on AriaFactPrivacy is the named gap — fail if that
-        enum exists without the prefixes. Ledger file() on this branch
-        must mention the deny list either way.
+        """#314 owns partner/cycle inside AriaFactPrivacy.sanitizeSummary.
+
+        This PR does not inline a second Swift strip. Keep the enum helper
+        gone. Score #314's landed Python user-add deny list so the gate
+        still fails if those prefixes disappear from the strip source.
         """
         sources = nyx.iter_swift_privacy_sources()
         self.assertTrue(sources, "AriaKnowledgeLedger.swift must exist")
         joined = "\n".join(p.read_text(encoding="utf-8") for p in sources)
-        privacy_fails = nyx.aria_fact_privacy_strip_failures(joined)
-        self.assertEqual(privacy_fails, [], privacy_fails)
         self.assertIn("enum AriaFactPrivacy", joined)
         self.assertNotIn("enum AriaInboundLifestyleStrip", joined)
+        aria = nyx.repo_file("backend/infra/lambda/routes/aria.py").read_text(encoding="utf-8")
+        self.assertIn("def sanitize_user_memory_text", aria)
+        privacy_fails = nyx.aria_fact_privacy_strip_failures(
+            "enum AriaFactPrivacy\nfunc sanitizeSummary\n" + aria
+        )
+        self.assertEqual(privacy_fails, [], privacy_fails)
 
 
 if __name__ == "__main__":

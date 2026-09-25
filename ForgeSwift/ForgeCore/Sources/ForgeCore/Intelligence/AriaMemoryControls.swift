@@ -152,39 +152,8 @@ public enum AriaFactPrivacy: Sendable {
         "On this phone. Calendar titles, people on the invite, and places never land here. I don't share this off-device."
 
     public static func sanitizeSummary(_ raw: String) -> String {
-        // Partner/cycle prefixes — same deny list as Python routes.aria
-        // `_DENIED_LIFESTYLE` (`partner_phase`, `partner_name`, `cycle:fertile`).
-        let denied = [
-            "partner_",
-            "support_cycle:",
-            "partner_name:",
-            "partner_phase:",
-            "partner_day:",
-            "partner_cycle:",
-            "cycle:fertile",
-            "cycle:tww",
-            "cycle:goal:trying",
-            "cycle:bleeding",
-            "cycle:condition",
-        ]
-        var text = raw.split { $0.isWhitespace || $0.isNewline }
-            .map(String.init)
-            .filter { token in
-                let lower = token.lowercased()
-                return !denied.contains { lower.hasPrefix($0) }
-            }
-            .joined(separator: " ")
-        if let stagePct = try? NSRegularExpression(
-            pattern: #"\b(?:deep|rem|light)\s+sleep\s+at\s+\d+(?:\.\d+)?\s*%|\brem\s+is\s+light\s+at\s+\d+(?:\.\d+)?\s*%"#,
-            options: [.caseInsensitive]
-        ) {
-            let range = NSRange(text.startIndex..<text.endIndex, in: text)
-            text = stagePct.stringByReplacingMatches(in: text, options: [], range: range, withTemplate: "")
-        }
-        while text.contains("  ") {
-            text = text.replacingOccurrences(of: "  ", with: " ")
-        }
-        text = text.trimmingCharacters(in: CharacterSet(charactersIn: " ,;:—–-"))
+        // Partner/cycle prefixes + sleep-stage % first (ledger file / user-add).
+        var text = AriaInboundLifestyleStrip.sanitize(raw)
         guard !text.isEmpty else { return "" }
 
         // Capture calendar leaks before dropping calendar:* / email tokens —
