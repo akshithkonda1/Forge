@@ -89,10 +89,12 @@ _INVOKE_CALL_NAMES = frozenset(
         "design_aria",
         "handle_get_ai_voice_bootstrap",
         "handle_post_ai_voice_tool",
+        "handle_post_ingest_url",
     }
 )
 
-# Live-voice spend Dummy must never reach (Nova Sonic, Polly, ElevenLabs).
+# Live-voice / ingest spend Dummy must never reach (Nova Sonic, Polly,
+# ElevenLabs, Mira #369 /ingest/url).
 _SPEND_NAME_NEEDLES = (
     "InvokeModelWithBidirectionalStream",
     "invoke_model_with_bidirectional_stream",
@@ -101,6 +103,20 @@ _SPEND_NAME_NEEDLES = (
     "elevenlabs_voice",
     "/ai/voice/bootstrap",
     "/ai/voice/tool",
+    "/ingest/url",
+)
+
+_INGEST_SPEND_CALL_NAMES = frozenset(
+    {
+        "generate_response_live",
+        "InvokeModel",
+        "invoke_model",
+        "converse",
+        "InvokeModelWithBidirectionalStream",
+        "invoke_model_with_bidirectional_stream",
+        "SynthesizeSpeech",
+        "synthesize_speech",
+    }
 )
 
 _REPO_ROOT = Path(__file__).resolve().parents[4]
@@ -210,6 +226,69 @@ def _call_name(node: ast.AST) -> str:
     if isinstance(node, ast.Attribute):
         return node.attr
     return ""
+
+
+def _ast_parents(tree: ast.AST) -> dict[ast.AST, ast.AST]:
+    parents: dict[ast.AST, ast.AST] = {}
+    for node in ast.walk(tree):
+        for child in ast.iter_child_nodes(node):
+            parents[child] = node
+    return parents
+
+
+def _mentions_bedrock_enabled_flag(node: ast.AST) -> bool:
+    for child in ast.walk(node):
+        if isinstance(child, ast.Name) and child.id == "ARIA_BEDROCK_ENABLED":
+            return True
+        if isinstance(child, ast.Attribute) and child.attr == "ARIA_BEDROCK_ENABLED":
+            return True
+        if isinstance(child, ast.Constant) and child.value == "ARIA_BEDROCK_ENABLED":
+            return True
+    return False
+
+
+def _call_is_flag_guarded(node: ast.AST, parents: dict[ast.AST, ast.AST]) -> bool:
+    current = node
+    while current in parents:
+        current = parents[current]
+        if isinstance(current, ast.If) and _mentions_bedrock_enabled_flag(current.test):
+            return True
+    return False
+
+
+def ingest_url_no_spend_failures(source: str) -> list[str]:
+    """FAIL GATE: /ingest/url extract must stay deterministic $0.
+
+    Unguarded ``generate_response_live`` / ``InvokeModel`` / ``converse`` /
+    Nova Sonic / Polly calls fail. A future summarize/classify step is
+    allowed only when lexically inside ``if ARIA_BEDROCK_ENABLED``.
+    """
+    tree = ast.parse(source)
+    parents = _ast_parents(tree)
+    fails: list[str] = []
+    for node in ast.walk(tree):
+        if not isinstance(node, ast.Call):
+            continue
+        name = _call_name(node.func)
+        if name not in _INGEST_SPEND_CALL_NAMES:
+            continue
+        if _call_is_flag_guarded(node, parents):
+            continue
+        fails.append(f"unguarded {name} call at line {node.lineno}")
+    return fails
+
+
+def find_ingest_url_modules() -> list[Path]:
+    """#369 handler + extract. Empty until that PR lands on tip."""
+    found: list[Path] = []
+    for rel in (
+        ("backend", "infra", "lambda", "routes", "ingest.py"),
+        ("backend", "infra", "lambda", "services", "web_ingest.py"),
+    ):
+        path = repo_file(*rel)
+        if path.is_file():
+            found.append(path)
+    return found
 
 
 def dummy_invoke_call_failures(source: str) -> list[str]:

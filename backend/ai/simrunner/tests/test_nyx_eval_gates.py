@@ -146,6 +146,13 @@ class ProviderNoSpendGates(unittest.TestCase):
         self.assertTrue(
             nyx.dummy_invoke_call_failures("url = '/ai/voice/tool'\n")
         )
+        self.assertTrue(
+            nyx.dummy_invoke_call_failures("path = '/ingest/url'\n")
+        )
+        self.assertTrue(
+            nyx.dummy_invoke_call_failures("handle_post_ingest_url(user_id='u', body={})\n")
+        )
+        self.assertNotIn("/ingest/url", src)
 
     def test_dummy_path_never_reaches_elevenlabs(self):
         """FAIL if Dummy reaches ElevenLabs session mint, tool, or client.
@@ -162,6 +169,8 @@ class ProviderNoSpendGates(unittest.TestCase):
             self.assertNotIn("elevenlabs_voice", src)
             self.assertNotIn("/ai/voice/bootstrap", src)
             self.assertNotIn("/ai/voice/tool", src)
+            self.assertNotIn("/ingest/url", src)
+            self.assertNotIn("handle_post_ingest_url", src)
 
         from backend._paths import ensure_lambda_on_path
 
@@ -219,6 +228,37 @@ class ProviderNoSpendGates(unittest.TestCase):
         finally:
             bedrock_client.converse = original
             engine_mod.generate_response_live = live
+
+    def test_ingest_url_no_spend_fixtures_and_module(self):
+        """#369 /ingest/url extract stays $0. Skip module scan until it lands."""
+        unguarded = (
+            "def handle_post_ingest_url(body):\n"
+            "    return converse(model='x', messages=[])\n"
+        )
+        guarded = (
+            "def handle_post_ingest_url(body):\n"
+            "    extract = {'title': 'plain python'}\n"
+            "    if ARIA_BEDROCK_ENABLED:\n"
+            "        extract['summary'] = converse(model='x', messages=[])\n"
+            "    return extract\n"
+        )
+        env_guarded = (
+            "def classify(text):\n"
+            "    if os.environ.get('ARIA_BEDROCK_ENABLED'):\n"
+            "        return generate_response_live(text)\n"
+            "    return text\n"
+        )
+        self.assertTrue(nyx.ingest_url_no_spend_failures(unguarded), unguarded)
+        self.assertEqual(nyx.ingest_url_no_spend_failures(guarded), [], guarded)
+        self.assertEqual(nyx.ingest_url_no_spend_failures(env_guarded), [], env_guarded)
+
+        modules = nyx.find_ingest_url_modules()
+        if not modules:
+            self.skipTest("POST /ingest/url handler not on this tree yet (#369)")
+        for path in modules:
+            src = path.read_text(encoding="utf-8")
+            fails = nyx.ingest_url_no_spend_failures(src)
+            self.assertEqual(fails, [], f"{path}: {fails}")
 
 
 class SleepAndWakeSpeakNoMetricDump(unittest.TestCase):
