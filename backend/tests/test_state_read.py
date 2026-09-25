@@ -1123,6 +1123,8 @@ class AcwrAndGuideLabelTests(unittest.TestCase):
         for line in dummy._WIT_PROTECT + dummy._WIT_PROCEED + dummy._WIT_HONEST:
             self.assertNotRegex(line, _label, line)
             self.assertNotIn("Hug first:", line)
+            self.assertNotIn("like a friend would", line)
+            self.assertNotIn("restock day", line)
 
         models = list(reg.get_models_by_tier(1) or [])
         self.assertTrue(models)
