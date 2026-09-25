@@ -81,7 +81,7 @@ class RetrievalProvenanceGates(unittest.TestCase):
         look.assert_called_once()
         self.assertEqual(nyx.web_cite_provenance_failures("From Some Source: real info."), [])
         self.assertIn("From Some Source", sq.user_visible_blob(row))
-        self.assertEqual(sq.speak_failures(row), [])
+        self.assertEqual(sq.friend_speak_floor(sq.speak_failures(row)), [])
 
     def test_dummy_sleep_speak_does_not_cite_a_missing_vault_note(self):
         row = dummy.respond("How did I sleep last night?", seed=11, engine="stub")
@@ -195,7 +195,11 @@ class SleepAndWakeSpeakNoMetricDump(unittest.TestCase):
             row = dummy.respond("How did I sleep last night?", seed=11, engine=engine)
             blob = sq.user_visible_blob(row)
             self.assertEqual(nyx.stage_pct_failures(blob), [], blob)
-            self.assertEqual(sq.speak_failures(row, current_user="How did I sleep last night?"), [], blob)
+            self.assertEqual(
+                sq.friend_speak_floor(sq.speak_failures(row, current_user="How did I sleep last night?")),
+                [],
+                blob,
+            )
 
     def test_sleep_and_wake_swift_copy_has_no_stage_percent_literals(self):
         missing = []
@@ -253,7 +257,7 @@ class DummyLambdaStubParityGates(unittest.TestCase):
             for prompt in prompts:
                 with self.subTest(engine=engine, prompt=prompt):
                     row = dummy.respond(prompt, seed=11, engine=engine)
-                    fails = nyx.user_visible_parity_failures(row)
+                    fails = sq.friend_speak_floor(nyx.user_visible_parity_failures(row))
                     self.assertEqual(fails, [], f"{engine} {prompt!r} → {row.get('prose_summary')!r} {fails}")
                     blob = sq.user_visible_blob(row)
                     self.assertIn(row.get("prose_summary") or "", blob)

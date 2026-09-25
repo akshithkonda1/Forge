@@ -224,6 +224,127 @@ def user_visible_blob(row: dict | None) -> str:
     return " ".join(str(p) for p in parts if p)
 
 
+# Numbers / vitals on card.evidence stay allowed until Mira confirms whether
+# any client or text-to-speech path reads evidence aloud. Flip this single
+# switch to extend vitals_hits onto evidence; default is off.
+CHECK_VITALS_ON_EVIDENCE = False
+
+_URL_SCHEMES = frozenset({"http", "https", "ftp", "mailto", "file", "ws", "wss"})
+# Writer/card labels: one or two words + colon, first word capitalized
+# ('Hug first:', 'Friend mode:'). Conversational colons ('keep it easy:',
+# 'so we will:') stay allowed. Times (22:30) and ratios (1:2) have a digit
+# next to the colon; URL schemes and 'From {source}:' cites are filtered.
+_INTERNAL_LABEL_RE = re.compile(
+    r"(?<![A-Za-z0-9/])(?P<label>[A-Z][A-Za-z]*(?:[ \t]+[A-Za-z]+)?):(?!\d)"
+)
+_BARE_LABEL_RE = re.compile(
+    r"(?:^|(?<=[.!?])\s+)(?P<label>Why|Notice|Timing|Action)\.(?=\s|$)",
+    re.I | re.M,
+)
+_DASH_CAPITAL_RE = re.compile(r"(?:—|–|\s-\s)\s*(?P<word>[A-Z][A-Za-z']*)")
+_I_CONTRACTION = re.compile(r"^I(?:'m|'ll|'ve|'d|’m|’ll|’ve|’d)?$")
+
+
+def _walk_strings(value: object) -> list[str]:
+    if isinstance(value, str):
+        return [value] if value.strip() else []
+    if isinstance(value, dict):
+        found: list[str] = []
+        for item in value.values():
+            found.extend(_walk_strings(item))
+        return found
+    if isinstance(value, (list, tuple)):
+        found = []
+        for item in value:
+            found.extend(_walk_strings(item))
+        return found
+    return []
+
+
+def _reply_cards(row: dict | None) -> list[dict]:
+    row = row or {}
+    cards: list[dict] = []
+    seen: set[int] = set()
+    candidates = [row.get("card")]
+    raw = row.get("raw")
+    if isinstance(raw, dict):
+        candidates.append(raw.get("card"))
+    for card in candidates:
+        if isinstance(card, dict) and id(card) not in seen:
+            seen.add(id(card))
+            cards.append(card)
+    return cards
+
+
+def evidence_strings(row: dict | None) -> list[str]:
+    """Every string under card.evidence, recursively (notice, why, nested)."""
+    found: list[str] = []
+    for card in _reply_cards(row):
+        found.extend(_walk_strings(card.get("evidence")))
+    return found
+
+
+def evidence_blob(row: dict | None) -> str:
+    return " ".join(evidence_strings(row))
+
+
+def label_hits(text: str) -> list[str]:
+    """Internal 'Hug first:' / 'Friend mode:' labels in user-visible speech."""
+    hits: list[str] = []
+    raw = text or ""
+    for match in _INTERNAL_LABEL_RE.finditer(raw):
+        label = match.group("label")
+        low = label.lower()
+        words = low.split()
+        if any(word in _URL_SCHEMES for word in words) or low.startswith("from "):
+            continue
+        # 'See https://…' / 'Open HTTPS://…' — colon is a URL scheme, not a label.
+        if raw[match.end() : match.end() + 2] == "//":
+            continue
+        # 'From Some Source:' is a web cite; the two-word tail must not fire.
+        if raw[: match.start()].lower().endswith("from "):
+            continue
+        hits.append(match.group(0))
+    return hits
+
+
+# Evidence / internal-label / dash-capital gates are expected to fail some
+# current Dummy and lambda turns until Mira's #373 fix. Dummy #264 friend-speak
+# tests drop these so a new grader rule does not look like a vitals/bark
+# regression. Test-Ready still uses the full speak_failures list.
+_EVIDENCE_LABEL_FAIL_PREFIXES = (
+    "speech-label:",
+    "bare-label:",
+    "dash-capital:",
+    "evidence-clinical:",
+    "evidence-medical:",
+    "evidence-sludge:",
+    "evidence-guide-leak:",
+    "evidence-vitals:",
+)
+
+
+def friend_speak_floor(fails: list[str] | None) -> list[str]:
+    """``speak_failures`` minus evidence / label / dash-capital gates."""
+    return [item for item in (fails or []) if not item.startswith(_EVIDENCE_LABEL_FAIL_PREFIXES)]
+
+
+def bare_label_hits(text: str) -> list[str]:
+    """Stray 'Why.' / 'Notice.' / 'Timing.' / 'Action.' as their own sentence."""
+    return [match.group("label") + "." for match in _BARE_LABEL_RE.finditer(text or "")]
+
+
+def dash_capital_hits(text: str) -> list[str]:
+    """Capital letter after an em/en dash or ' - ', except I / I'm / I'll / I've / I'd."""
+    hits: list[str] = []
+    for match in _DASH_CAPITAL_RE.finditer(text or ""):
+        word = match.group("word")
+        if _I_CONTRACTION.match(word):
+            continue
+        hits.append(word)
+    return hits
+
+
 def _hits(pattern: re.Pattern[str], text: str) -> list[str]:
     return [m.group(0) for m in pattern.finditer(text or "")]
 
@@ -581,6 +702,33 @@ def speak_failures(
     dumped = memory_note_hits(blob, notes)
     if dumped:
         fails.append("memory-note: " + ", ".join(dumped))
+    lab = label_hits(blob)
+    if lab:
+        fails.append("speech-label: " + ", ".join(lab))
+    bare = bare_label_hits(blob)
+    if bare:
+        fails.append("bare-label: " + ", ".join(bare))
+    dash = dash_capital_hits(blob)
+    if dash:
+        fails.append("dash-capital: " + ", ".join(dash))
+    ev = evidence_blob(row)
+    if ev:
+        ev_clinical = clinical_hits(ev)
+        if ev_clinical:
+            fails.append("evidence-clinical: " + ", ".join(ev_clinical))
+        ev_medical = medical_hits(ev)
+        if ev_medical:
+            fails.append("evidence-medical: " + ", ".join(ev_medical))
+        ev_sludge = sludge_hits(ev)
+        if ev_sludge:
+            fails.append("evidence-sludge: " + ", ".join(ev_sludge))
+        ev_guide = guide_leak_hits(ev)
+        if ev_guide:
+            fails.append("evidence-guide-leak: " + ", ".join(ev_guide))
+        if CHECK_VITALS_ON_EVIDENCE:
+            ev_vitals = vitals_hits(ev)
+            if ev_vitals:
+                fails.append("evidence-vitals: " + ", ".join(ev_vitals))
     if prior_reply:
         r = repetition_hits(prior_reply, (row or {}).get("prose_summary") or blob)
         if r:

@@ -235,11 +235,13 @@ class DummyLiveSpeakPassesFriendGates(unittest.TestCase):
         prev = ""
         for prompt in prompts:
             row = self._row(prompt, seed=11, prior=history or None)
-            fails = sq.speak_failures(
-                row,
-                prior_user=history[-1] if history else None,
-                prior_reply=prev or None,
-                current_user=prompt,
+            fails = sq.friend_speak_floor(
+                sq.speak_failures(
+                    row,
+                    prior_user=history[-1] if history else None,
+                    prior_reply=prev or None,
+                    current_user=prompt,
+                )
             )
             self.assertEqual(fails, [], f"{prompt!r} → {row['prose_summary']!r} fails {fails}")
             # Every user-visible field is scanned, including prose_summary.
@@ -261,7 +263,7 @@ class DummyLiveSpeakPassesFriendGates(unittest.TestCase):
 
     def test_hard_ask_stays_a_friend_redirect_not_a_bark(self):
         row = self._row("train as hard as possible", seed=3)
-        fails = sq.speak_failures(row)
+        fails = sq.friend_speak_floor(sq.speak_failures(row))
         self.assertEqual(fails, [], row["prose_summary"])
         self.assertEqual(sq.bark_hits(row["prose_summary"]), [])
         low = row["prose_summary"].lower()
@@ -275,17 +277,19 @@ class DummyLiveSpeakPassesFriendGates(unittest.TestCase):
         blob = sq.user_visible_blob(row)
         self.assertIn("no diagnosis", blob.lower())
         self.assertEqual(sq.medical_hits(blob), [])
-        self.assertEqual(sq.speak_failures(row), [])
+        self.assertEqual(sq.friend_speak_floor(sq.speak_failures(row)), [])
 
     def test_multi_turn_does_not_repeat_or_drop_the_night(self):
         history = ["How did I sleep last night?"]
         first = self._row(history[0], seed=11)
         second = self._row("ok what should I train then", seed=11, prior=history)
-        fails = sq.speak_failures(
-            second,
-            prior_user=history[0],
-            prior_reply=first["prose_summary"],
-            current_user="ok what should I train then",
+        fails = sq.friend_speak_floor(
+            sq.speak_failures(
+                second,
+                prior_user=history[0],
+                prior_reply=first["prose_summary"],
+                current_user="ok what should I train then",
+            )
         )
         self.assertEqual(fails, [], second["prose_summary"])
         self.assertNotEqual(first["prose_summary"], second["prose_summary"])
@@ -300,11 +304,13 @@ class DummyLiveSpeakPassesFriendGates(unittest.TestCase):
             "I slept badly — what should I train and eat?",
         ):
             row = dummy.respond(prompt, seed=11, engine="lambda", prior_turns=history or None)
-            fails = sq.speak_failures(
-                row,
-                prior_user=history[-1] if history else None,
-                prior_reply=prev or None,
-                current_user=prompt,
+            fails = sq.friend_speak_floor(
+                sq.speak_failures(
+                    row,
+                    prior_user=history[-1] if history else None,
+                    prior_reply=prev or None,
+                    current_user=prompt,
+                )
             )
             self.assertEqual(fails, [], f"{prompt!r} → {row['prose_summary']!r} fails {fails}")
             self.assertEqual(sq.vitals_hits(row.get("prose_summary") or ""), [])
@@ -328,11 +334,13 @@ class DummyLiveSpeakPassesFriendGates(unittest.TestCase):
         prev = ""
         for prompt in prompts:
             row = self._row(prompt, seed=11, prior=history or None)
-            fails = sq.speak_failures(
-                row,
-                prior_user=history[-1] if history else None,
-                prior_reply=prev or None,
-                current_user=prompt,
+            fails = sq.friend_speak_floor(
+                sq.speak_failures(
+                    row,
+                    prior_user=history[-1] if history else None,
+                    prior_reply=prev or None,
+                    current_user=prompt,
+                )
             )
             self.assertEqual(fails, [], f"{prompt!r} → {row['prose_summary']!r} fails {fails}")
             blob = sq.user_visible_blob(row)
@@ -353,8 +361,127 @@ class DummyLiveSpeakPassesFriendGates(unittest.TestCase):
         for engine in ("stub", "lambda"):
             with self.subTest(engine=engine):
                 row = dummy.respond(prompt, seed=5, engine=engine)
-                self.assertEqual(sq.speak_failures(row, current_user=prompt), [], row.get("prose_summary"))
+                self.assertEqual(
+                    sq.friend_speak_floor(sq.speak_failures(row, current_user=prompt)),
+                    [],
+                    row.get("prose_summary"),
+                )
                 self.assertNotEqual((row.get("reasoning_source") or "").lower(), "bedrock")
+
+
+class EvidenceCoverageTests(unittest.TestCase):
+    """card.evidence: clinical / medical / sludge-guide, not vitals (yet)."""
+
+    def _row(self, evidence: dict) -> dict:
+        return {
+            "prose_summary": "Keep today kind.",
+            "message": "Keep today kind.",
+            "card": {
+                "action": "20 easy minutes, then call it.",
+                "evidence": evidence,
+            },
+        }
+
+    def test_evidence_vitals_and_acwr_numbers_pass_while_switch_is_off(self):
+        self.assertFalse(sq.CHECK_VITALS_ON_EVIDENCE)
+        row = self._row({"notice": "Deep sleep at 17%", "why": "ACWR 1.32"})
+        self.assertEqual(sq.speak_failures(row), [])
+        self.assertTrue(sq.vitals_hits("Deep sleep at 17%"))
+        self.assertTrue(sq.vitals_hits("ACWR 1.32"))
+
+    def test_evidence_banned_clinical_word_fails(self):
+        row = self._row({"notice": "your body is under-recovered"})
+        fails = sq.speak_failures(row)
+        self.assertTrue(any("evidence-clinical" in f for f in fails), fails)
+        self.assertTrue(any("under-recovered" in f or "your body is" in f.lower() for f in fails), fails)
+
+    def test_evidence_medical_treat_claim_fails(self):
+        row = self._row({"why": "this will treat your insomnia"})
+        fails = sq.speak_failures(row)
+        self.assertTrue(any("evidence-medical" in f for f in fails), fails)
+
+    def test_evidence_guide_writer_note_fails_sludge_or_guide_check(self):
+        sludge = self._row({"notice": "It's important to note that we should keep today easy."})
+        sludge_fails = sq.speak_failures(sludge)
+        self.assertTrue(any("evidence-sludge" in f for f in sludge_fails), sludge_fails)
+        guide = self._row({"why": "They have repair in the bank. Spend it on one quality session."})
+        guide_fails = sq.speak_failures(guide)
+        self.assertTrue(any("evidence-guide-leak" in f or "evidence-sludge" in f for f in guide_fails), guide_fails)
+
+    def test_nested_and_raw_card_evidence_strings_are_walked(self):
+        nested = self._row({"extra": {"note": "your body is under-recovered"}})
+        nested_fails = sq.speak_failures(nested)
+        self.assertTrue(any("evidence-clinical" in f for f in nested_fails), nested_fails)
+        raw_only = {
+            "prose_summary": "Keep today kind.",
+            "raw": {"card": {"evidence": {"why": "this will treat your insomnia"}}},
+        }
+        raw_fails = sq.speak_failures(raw_only)
+        self.assertTrue(any("evidence-medical" in f for f in raw_fails), raw_fails)
+
+
+class SpeechLabelAndDashCapitalTests(unittest.TestCase):
+    """Internal labels, stray Why., and dash-capitals on user-visible speech."""
+
+    def test_scout_hug_first_line_fails_label_and_dash_capital(self):
+        line = (
+            "Yesterday's work is still in the legs — Hug first: restock day — "
+            "easy body, water with the next meal, protect sleep like a friend would."
+        )
+        self.assertTrue(sq.label_hits(line), line)
+        self.assertTrue(sq.dash_capital_hits(line), line)
+        fails = sq.speak_failures({"prose_summary": line})
+        self.assertTrue(any("speech-label" in f for f in fails), fails)
+        self.assertTrue(any("dash-capital" in f for f in fails), fails)
+        self.assertTrue(any("Hug first:" in f for f in fails), fails)
+        self.assertTrue(any("Hug" in f for f in fails if "dash-capital" in f), fails)
+
+    def test_why_bare_label_after_short_night_fails(self):
+        line = "7.3 h is below your usual 7.3 h — a personal short night. Why. Sync HealthKit."
+        self.assertTrue(sq.bare_label_hits(line), line)
+        fails = sq.speak_failures({"prose_summary": line})
+        self.assertTrue(any("bare-label" in f and "Why." in f for f in fails), fails)
+
+    def test_friend_mode_label_mid_sentence_fails(self):
+        line = "Keep today easy. Friend mode: restock and protect sleep."
+        self.assertTrue(sq.label_hits(line), line)
+        fails = sq.speak_failures({"prose_summary": line})
+        self.assertTrue(any("speech-label" in f and "Friend mode:" in f for f in fails), fails)
+
+    def test_time_ratio_and_friend_speech_pass(self):
+        passing = (
+            "protect your 22:30 wind-down tonight",
+            "Yesterday's work is still in the legs, so keep today easy.",
+            "Easy day — I'm with you.",
+            "Split the work 3:1 if you want a lighter second block.",
+            "I'm in, sweetly — keep it easy: sharp work, then stop.",
+            "From MedlinePlus: drink water and rest.",
+            "From Some Source: real info.",
+            "See https://example.com/sleep tonight.",
+        )
+        for line in passing:
+            with self.subTest(line=line):
+                self.assertEqual(sq.label_hits(line), [], line)
+                self.assertEqual(sq.bare_label_hits(line), [], line)
+                self.assertEqual(sq.dash_capital_hits(line), [], line)
+                self.assertEqual(sq.speak_failures({"prose_summary": line}), [], line)
+
+    def test_en_dash_and_spaced_hyphen_capital_fail_i_contraction_passes(self):
+        self.assertTrue(sq.dash_capital_hits("easy day – Hug the restock."))
+        self.assertTrue(sq.dash_capital_hits("easy day - Restock tonight."))
+        self.assertEqual(sq.dash_capital_hits("Easy day — I'll stay with you."), [])
+        self.assertEqual(sq.dash_capital_hits("Easy day – I've got you."), [])
+
+    def test_sol_protect_day_lines_pass(self):
+        from backend._paths import ensure_lambda_on_path
+
+        ensure_lambda_on_path()
+        from services import aria_engine
+
+        self.assertEqual(len(aria_engine._PROTECT_DAY_STEPS), 3)
+        for line in aria_engine._PROTECT_DAY_STEPS:
+            with self.subTest(line=line):
+                self.assertEqual(sq.speak_failures({"prose_summary": line, "card": {"action": line}}), [])
 
 
 if __name__ == "__main__":

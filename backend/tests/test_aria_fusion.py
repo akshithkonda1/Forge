@@ -358,7 +358,7 @@ class FusionContractTests(unittest.TestCase):
         self.assertTrue(speak_quality.vitals_hits(dirty["prose_summary"]))
 
     def _assert_no_vitals_speak(self, r: dict) -> None:
-        fails = speak_quality.speak_failures(r)
+        fails = speak_quality.friend_speak_floor(speak_quality.speak_failures(r))
         self.assertEqual(fails, [], fails)
         self.assertEqual(speak_quality.vitals_hits(r.get("prose_summary") or ""), [])
         self.assertEqual(speak_quality.bark_hits(speak_quality.user_visible_blob(r)), [])

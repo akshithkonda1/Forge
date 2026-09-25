@@ -183,7 +183,7 @@ class DummyOrchestratorTests(unittest.TestCase):
         blob = speak_quality.user_visible_blob(row)
         self.assertIn("From Some Source", blob)
         self.assertIn("real info", blob)
-        self.assertEqual(speak_quality.speak_failures(row), [])
+        self.assertEqual(speak_quality.friend_speak_floor(speak_quality.speak_failures(row)), [])
 
     def test_training_age_looks_up_aging_web_source(self):
         plan = dummy.plan_workers("what's my training age?")
@@ -553,7 +553,7 @@ class DummyOrchestratorTests(unittest.TestCase):
 
     def test_dummy_speak_stays_a_friend_not_a_clinician(self):
         row = dummy.respond("I slept badly — what should I train and eat?", seed=1, engine="stub")
-        fails = speak_quality.speak_failures(row)
+        fails = speak_quality.friend_speak_floor(speak_quality.speak_failures(row))
         self.assertEqual(fails, [], fails)
         self.assertTrue(speak_quality.has_friend_throughline(speak_quality.user_visible_blob(row)))
         self.assertNotIn("\n\n", row["message"])
@@ -713,7 +713,7 @@ class DummyOrchestratorTests(unittest.TestCase):
 
     def test_lambda_engine_speak_stays_a_friend_not_a_clinician(self):
         row = dummy.respond("What should I train today?", seed=1, engine="lambda")
-        fails = speak_quality.speak_failures(row)
+        fails = speak_quality.friend_speak_floor(speak_quality.speak_failures(row))
         self.assertEqual(fails, [], fails)
         self.assertEqual(speak_quality.medical_hits(speak_quality.user_visible_blob(row)), [])
         self.assertEqual(speak_quality.bark_hits(speak_quality.user_visible_blob(row)), [])
@@ -965,7 +965,7 @@ class DummyOrchestratorTests(unittest.TestCase):
         self.assertIn("Swarm read", row["thinking"])
 
     def _assert_no_vitals_speak(self, row: dict) -> None:
-        fails = speak_quality.speak_failures(row)
+        fails = speak_quality.friend_speak_floor(speak_quality.speak_failures(row))
         self.assertEqual(fails, [], fails)
         blob = speak_quality.user_visible_blob(row)
         self.assertTrue(blob.strip())
