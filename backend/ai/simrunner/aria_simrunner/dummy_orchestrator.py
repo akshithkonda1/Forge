@@ -856,7 +856,7 @@ _WIT_PROTECT = (
     "I'm taking care of you, not casting you as the montage hero — short and kind, then wind down.",
     "The loud plan can wait in drafts — an easy walk, a simple meal, and an honest bedtime will do more.",
     "You're not failing, you're just a little crispy — keep it easy and get under the covers on time.",
-    "Keep today easy, friend — have water with your next meal, and protect sleep tonight.",
+    "Yesterday's work is still in the legs, so keep today easy, have water with your next meal, and get to bed on time.",
 )
 _WIT_PROCEED = (
     "You've got a little sparkle in the tank, and I'm with you — spend it on one clean session, then stop while it still feels good.",

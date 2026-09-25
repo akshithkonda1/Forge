@@ -794,6 +794,11 @@ class DummyOrchestratorTests(unittest.TestCase):
             "sharp over loud",
             "heroics no",
         )
+        # Iris: this protect line is spoken English, not "funny take — improve".
+        speech_only = (
+            "Yesterday's work is still in the legs, so keep today easy, "
+            "have water with your next meal, and get to bed on time."
+        )
         seen: set[str] = set()
         for name, lines in banks.items():
             self.assertGreaterEqual(len(lines), 8, name)
@@ -801,12 +806,18 @@ class DummyOrchestratorTests(unittest.TestCase):
                 with self.subTest(bank=name, line=line):
                     self.assertNotIn(line, seen, "wit rotation needs unique lines")
                     seen.add(line)
-                    self.assertIn("—", line, "funny take — useful improve")
-                    low = line.lower()
-                    self.assertTrue(
-                        any(tok in low for tok in funny),
-                        f"{name} missing funny take: {line!r}",
-                    )
+                    if line == speech_only:
+                        self.assertNotIn("—", line)
+                        self.assertNotIn("Hug first:", line)
+                        self.assertFalse(any(ch.isdigit() for ch in line), line)
+                        low = line.lower()
+                    else:
+                        self.assertIn("—", line, "funny take — useful improve")
+                        low = line.lower()
+                        self.assertTrue(
+                            any(tok in low for tok in funny),
+                            f"{name} missing funny take: {line!r}",
+                        )
                     self.assertTrue(
                         any(tok in low for tok in useful),
                         f"{name} missing useful improve: {line!r}",
