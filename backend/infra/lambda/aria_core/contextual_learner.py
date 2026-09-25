@@ -1704,8 +1704,14 @@ def stamp_living_context(ctx: Any, living: Any) -> Any:
     """
     if ctx is None or living is None:
         return ctx
-    insights = list(getattr(living, "last_insights", None) or [])
-    patterns = list(getattr(living, "recent_patterns", None) or [])
+    from . import state_read
+
+    insights = state_read.reject_memory_items(
+        getattr(living, "last_insights", None) or []
+    )
+    patterns = state_read.reject_memory_items(
+        getattr(living, "recent_patterns", None) or []
+    )
     goals = list(getattr(living, "current_goals", None) or [])
     constraints = list(getattr(living, "constraints", None) or [])
     try:
@@ -1722,7 +1728,9 @@ def stamp_living_context(ctx: Any, living: Any) -> Any:
             pass
     lifestyle = getattr(ctx, "lifestyle", None)
     if lifestyle is not None:
-        existing_p = list(getattr(lifestyle, "recent_patterns", None) or [])
+        existing_p = state_read.reject_memory_items(
+            getattr(lifestyle, "recent_patterns", None) or []
+        )
         existing_g = list(getattr(lifestyle, "goals", None) or [])
         for item in patterns:
             if item not in existing_p:

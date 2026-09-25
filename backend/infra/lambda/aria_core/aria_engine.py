@@ -2537,6 +2537,7 @@ def generate_response(
     voice_mode: bool = False,
     persona: Any = None,
     baselines: Any = None,
+    seed: int | None = None,
 ) -> dict[str, Any]:
     """Top-level entry: message + context (+ permissions) -> response envelope.
 
@@ -2643,7 +2644,7 @@ def generate_response(
         if callback not in msg:
             envelope["message"] = f"{callback}\n\n{msg}" if msg else callback
             envelope["fusion"]["companion_callback"] = True
-    return _finish_spoken_envelope(envelope, ctx, message)
+    return _finish_spoken_envelope(envelope, ctx, message, seed=seed)
 
 
 def _memory_notes_from_ctx(ctx: ARIAContext) -> list[str]:
@@ -2692,11 +2693,24 @@ def _topic_from_message(message: str) -> str:
     return domain
 
 
-def _finish_spoken_envelope(envelope: dict[str, Any], ctx: ARIAContext, message: str) -> dict[str, Any]:
+def _finish_spoken_envelope(
+    envelope: dict[str, Any],
+    ctx: ARIAContext,
+    message: str,
+    *,
+    seed: int | None = None,
+) -> dict[str, Any]:
     """Attach sidecars, then guard user-visible speak (deterministic path)."""
     envelope = _attach_shared_intelligence(envelope, ctx, message)
     from . import speak_guard
+    from . import state_read
 
+    envelope = state_read.apply_to_envelope(
+        envelope,
+        ctx,
+        seed=state_read.turn_seed(ctx, message, seed),
+        message=message,
+    )
     envelope = speak_guard.guard_envelope(
         envelope,
         memory_notes=_memory_notes_from_ctx(ctx),
@@ -2993,6 +3007,7 @@ def generate_response_live(
     agents: list[str] | None = None,
     persona: Any = None,
     baselines: Any = None,
+    seed: int | None = None,
 ) -> dict[str, Any]:
     """Top-level entry for the live path: deterministic reasoning, then a real
     Claude pass overlaid on top. Falls back to the deterministic envelope on any
@@ -3004,6 +3019,7 @@ def generate_response_live(
         voice_mode=voice_mode,
         persona=persona,
         baselines=baselines,
+        seed=seed,
     )
     caller = converse or _default_converse
     roster = normalize_coach_agents(agents, agent)
@@ -3084,6 +3100,14 @@ def generate_response_live(
             topic=topic,
         )
     merged = _merge_live_envelope(base, data, prose, model_id, voice_mode)
+    from . import state_read
+
+    merged = state_read.apply_to_envelope(
+        merged,
+        sanitized,
+        seed=state_read.turn_seed(sanitized, message, seed),
+        message=message,
+    )
     merged = speak_guard.guard_envelope(
         merged,
         memory_notes=notes,

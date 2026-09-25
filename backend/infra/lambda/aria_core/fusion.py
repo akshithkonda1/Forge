@@ -255,6 +255,9 @@ def fuse_turn(
             observation_count = _int(stored.get("observation_count"))
 
     context = overlay_context(client_ctx, body_ctx, owned)
+    from . import state_read
+
+    context = state_read.drop_from_memory(context)
     context, restricted = aria_engine.apply_permissions(context, permissions)
     if snapshot_dict is not None:
         snapshot_dict = redact_snapshot(dict(snapshot_dict), permissions)
