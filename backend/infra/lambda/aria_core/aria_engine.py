@@ -2143,6 +2143,81 @@ _VITALS_SPEAK = re.compile(
     re.I,
 )
 _SPEAK_FALLBACK = "Fit training around the day you already have."
+# Dummy's all-or-nothing scrub collapses a dirty card.action to this line.
+_DUMMY_SPEAK_FALLBACK = (
+    "I'm with you. Let's pick one next step that respects today rather than performing it."
+)
+
+# Protect / take-it-easy days: a real, number-free step so the vitals scrub
+# cannot drop every candidate and fall through to _SPEAK_FALLBACK. Seed-picks
+# one of three so back-to-back turns do not repeat. Voice: light, kind, one
+# small thing to do; no digits, no vitals, no clinical rest-prescription.
+_PROTECT_DAY_STEPS = (
+    "Keep today kind with an easy fifteen-minute walk, then call it.",
+    "Take a short stretch this afternoon, then an early wind-down tonight.",
+    "Give tonight an early wind-down, and keep the work light and easy.",
+)
+_ACWR_SPEAK = re.compile(r"\bacwr\b", re.I)
+
+
+def _protect_day_step(seed: int) -> str:
+    """One seeded protect-day step. Tests assert cleanliness on this bank."""
+    lines = _PROTECT_DAY_STEPS
+    return lines[int(seed) % len(lines)]
+
+
+def _step_fails_speak_scrub(text: str) -> bool:
+    """True when Dummy's vitals/speak scrub would drop this candidate step."""
+    raw = str(text or "").strip()
+    if not raw:
+        return True
+    lowered = raw.lower().rstrip(".")
+    if lowered == _SPEAK_FALLBACK.lower().rstrip("."):
+        return True
+    if lowered == _DUMMY_SPEAK_FALLBACK.lower().rstrip("."):
+        return True
+    if "let's pick one next step" in lowered:
+        return True
+    cleaned = _strip_sleep_stage_pct(raw)
+    if _VITALS_SPEAK.search(cleaned):
+        return True
+    if _ACWR_SPEAK.search(raw):
+        return True
+    return False
+
+
+def _is_protect_day(envelope: dict[str, Any]) -> bool:
+    fusion = envelope.get("fusion") if isinstance(envelope.get("fusion"), dict) else {}
+    return str(fusion.get("stance") or "").lower() == "protect"
+
+
+def _apply_protect_day_step(envelope: dict[str, Any], seed: int) -> dict[str, Any]:
+    """When stance is protect, keep a real step instead of a scrubbed fallback."""
+    if not _is_protect_day(envelope):
+        return envelope
+    step = _protect_day_step(seed)
+    card = envelope.get("card") if isinstance(envelope.get("card"), dict) else None
+    if card is not None:
+        action = str(card.get("action") or "").strip()
+        if _step_fails_speak_scrub(action):
+            card["action"] = step
+        rec = str(card.get("recommendation") or "").strip()
+        if rec and _step_fails_speak_scrub(rec):
+            card["recommendation"] = step
+        for key in ("why", "timing", "rationale", "expected_effect"):
+            raw = str(card.get(key) or "").strip()
+            if raw and _step_fails_speak_scrub(raw):
+                card[key] = step
+        envelope["card"] = card
+        action = str(card.get("action") or "").strip()
+    else:
+        action = ""
+    top = str(envelope.get("recommendation") or "").strip()
+    if top and _step_fails_speak_scrub(top):
+        envelope["recommendation"] = action or step
+    elif not top and action:
+        envelope["recommendation"] = action
+    return envelope
 
 
 def _strip_sleep_stage_pct(text: str) -> str:
@@ -2705,6 +2780,7 @@ def _finish_spoken_envelope(
     from . import speak_guard
     from . import state_read
 
+    turn = state_read.turn_seed(ctx, message, seed)
     envelope = speak_guard.guard_envelope(
         envelope,
         memory_notes=_memory_notes_from_ctx(ctx),
@@ -2714,9 +2790,13 @@ def _finish_spoken_envelope(
     envelope = state_read.apply_to_envelope(
         envelope,
         ctx,
-        seed=state_read.turn_seed(ctx, message, seed),
+        seed=turn,
         message=message,
     )
+    # After the guard, a protect-day next_step that was a context_plan guide
+    # phrase gets replaced by card.why (often an ACWR dump). Dummy then drops
+    # every candidate and lands on _SPEAK_FALLBACK. Put a real step back.
+    envelope = _apply_protect_day_step(envelope, turn)
     blob = speak_guard.user_visible(envelope)
     envelope["confidence"] = speak_guard.cap_contradiction_confidence(
         blob,
