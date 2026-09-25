@@ -225,19 +225,17 @@ class PromptIsometricRenderingTests(unittest.TestCase):
 
 
 class EvaluatorIsometricTests(unittest.TestCase):
-    def test_context_utilization_credits_citing_the_peak_hr(self):
+    def test_context_utilization_credits_plain_language_isometric_read(self):
         ctx = _context(
             today=_daily_record(readiness_score=63, acwr=1.0),
             last_workout_type="isometric", last_workout_peak_hr=148,
             hrv_7d_avg=55.0, sleep_debt_7d_hours=0.0, readiness_7d_avg=63.0, acwr=1.0,
         )
         resp = ARIAResponse(
-            prose_summary="Your last session spiked HR to 148 briefly -- expected from a hold, not overtraining.",
-            recommendation="Train normally today.", confidence=0.7, used_context=True,
+            prose_summary="Last session's spike was brief — expected from a hold, not overtraining. Steadier than last week.",
+            recommendation="20 easy minutes, then call it.", confidence=0.7, used_context=True,
             model_used="opus", query_type="training_decision", latency_ms=500.0, raw={},
         )
-        # tier=1 -> tier_multiplier=1.0, so a "specific hit" (100.0 raw) scores
-        # a clean 100.0 with no division to account for.
         result = evaluate(0, "What should I train today?", 1, ctx, resp)
         self.assertEqual(result.scores.context_utilization, 100.0)
 

@@ -11,6 +11,7 @@ import re
 from dataclasses import asdict, dataclass
 
 from ..backend_simulator.data_generator import ARIAContext
+from . import speak_quality
 from .aria_engine import ARIAResponse
 
 # ARIA's medical-boundary is the *production* policy, not a SimRunner copy — the
@@ -142,6 +143,39 @@ _HEDGE = ("mixed", "not sure", "uncertain", "wouldn't read too much", "watch the
           "could", "might", "unclear", "genuinely mixed", "recheck", "i don't have enough")
 _SPECIFIC = (re.compile(r"\b\d+\s?(%|min|minutes|sets?|reps?|x)\b"), re.compile(r"zone\s?\d"))
 
+# Second-person step sized in time, effort, or count. Sleep minutes/hour
+# totals and "zone 2" are allowed; readiness/HRV/ACWR numbers are not a step.
+_SIZED_STEP_RE = re.compile(
+    r"|".join(
+        (
+            r"\b\d+\s*(?:easy\s+)?(?:min|minutes)\b",
+            r"\b(?:twenty|fifteen|ten|thirty|forty)\s+(?:easy\s+)?minutes\b",
+            r"\bone set fewer\b",
+            r"\b\d+\s*(?:sets?|reps?)\b",
+            r"\bzone\s*-?\s*2\b",
+            r"\b\d+\s*(?:hours?|hrs?)\b",
+        )
+    ),
+    re.I,
+)
+_PROGRESS_STEP = "hold the structure and progress one variable next block"
+
+# Plain-language state (Iris): trend, direction, or lifestyle cue — not numbers.
+_STATE_TREND = (
+    "steadier than last week", "than last week", "trending", "trend",
+    "rising", "falling", "declining", "lower than usual", "higher than usual",
+    "steadier", "heavier than", "lighter than",
+)
+_STATE_DIRECTION = (
+    "a bit under your usual", "under your usual", "above your usual",
+    "a bit under", "a bit over", "over your usual",
+)
+_STATE_LIFESTYLE = (
+    "short night", "busy evening", "long day", "rough night",
+    "late night", "slept short", "earlier today", "recovery window",
+    "still carrying", "last night", "the night",
+)
+
 # Cues that flip a phrase from a recommendation into its opposite ("no high-intensity",
 # "don't add load"). Used by _advocates so hold/recovery advice isn't scored as its inverse.
 _NEGATION_CUES = ("no ", "not ", "n't", "avoid", "instead of", "rather than", "hold ",
@@ -177,17 +211,84 @@ def _is_timing_query(query: str, prose: str) -> bool:
                 "morning", "evening", "wake", "what time", "go now", "it's 11")
 
 
+def _response_card(response: ARIAResponse) -> dict:
+    raw = response.raw if isinstance(response.raw, dict) else {}
+    card = raw.get("card")
+    return card if isinstance(card, dict) else {}
+
+
+def _spoken_blob(response: ARIAResponse) -> str:
+    return speak_quality.user_visible_blob(
+        {
+            "prose_summary": response.prose_summary,
+            "recommendation": response.recommendation,
+            "card": _response_card(response),
+        }
+    )
+
+
+def _step_source(response: ARIAResponse) -> str:
+    """card.action / card.why / recommendation — the only fields that can be a step."""
+    card = _response_card(response)
+    return " ".join(
+        str(p) for p in (
+            response.recommendation or "",
+            card.get("action") or "",
+            card.get("why") or "",
+        ) if p
+    )
+
+
+def _is_progress_step(text: str) -> bool:
+    return _PROGRESS_STEP in (text or "").lower()
+
+
+def _has_sized_step(text: str) -> bool:
+    """Time / effort / count step. The progress-block line is handled separately."""
+    raw = text or ""
+    if _is_progress_step(raw):
+        return False
+    return bool(_SIZED_STEP_RE.search(raw))
+
+
+def _has_credit_step(response: ARIAResponse) -> bool:
+    """Full actionability/directional credit: one sized second-person step.
+
+    'Hold the structure and progress one variable next block' counts only
+    when it lives on recommendation, not when it is merely in prose.
+    """
+    rec = response.recommendation or ""
+    if _is_progress_step(rec):
+        return True
+    return _has_sized_step(_step_source(response))
+
+
+def _usable_recommendation(response: ARIAResponse) -> bool:
+    rec = (response.recommendation or "").strip()
+    if not rec:
+        return False
+    if speak_quality.guide_leak_hits(rec) or speak_quality.zero_hours_hits(rec):
+        return False
+    return True
+
+
+def _reads_state_plain(text: str) -> bool:
+    t = (text or "").lower()
+    return _has(t, *_STATE_TREND) or _has(t, *_STATE_DIRECTION) or _has(t, *_STATE_LIFESTYLE)
+
+
 def evaluate(run_id: int, query: str, tier: int, context: ARIAContext, response: ARIAResponse) -> EvaluationResult:
     prose = (response.prose_summary or "").lower()
     rec = (response.recommendation or "").lower()
     text = prose + " " + rec
+    spoken = _spoken_blob(response)
     mult = tier_multiplier(tier)
     failures: list[str] = []
 
-    ctx_util = _score_context_utilization(text, context, mult, failures)
+    ctx_util = _score_context_utilization(text, context, mult, failures, spoken=spoken)
     directional = _score_directional(text, rec, context, mult, failures, response)
     chronotype = _score_chronotype(query, prose, rec, context, failures)
-    actionability = _score_actionability(text, response, failures)
+    actionability = _score_actionability(text, response, failures, spoken=spoken)
     epistemic = _score_epistemic(query, text, context, response, directional, failures)
     tone = _score_tone(response.prose_summary or "", failures)
     _check_medical_boundary(query, response, failures)
@@ -206,15 +307,24 @@ def evaluate(run_id: int, query: str, tier: int, context: ARIAContext, response:
 
 # Dimension scorers ----------------------------------------------------------
 
-def _score_context_utilization(text: str, ctx: ARIAContext, mult: float, failures: list[str]) -> float:
+def _score_context_utilization(
+    text: str,
+    ctx: ARIAContext,
+    mult: float,
+    failures: list[str],
+    *,
+    spoken: str = "",
+) -> float:
+    """ARIA's voice policy bans vitals/metric dumps in speech, so the grader
+    must not require raw numbers.
+
+    Policy (from Iris, ARIA quality owner): context-use full credit when the
+    reply reads the user's state in plain words — a trend ('steadier than last
+    week'), a direction ('a bit under your usual'), or a lifestyle cue (short
+    night, busy evening); readiness/HRV/ACWR numbers never needed.
+    """
     t = ctx.today
-    numbers = {str(t.readiness_score), str(round(ctx.hrv_7d_avg)),
-               f"{ctx.acwr}", str(round(ctx.sleep_debt_7d_hours, 1)), str(round(ctx.readiness_7d_avg))}
-    if t.hrv is not None:
-        numbers.add(str(t.hrv))
-    if ctx.last_workout_type == "isometric" and ctx.last_workout_peak_hr is not None:
-        numbers.add(str(ctx.last_workout_peak_hr))
-    specific_hits = sum(1 for n in numbers if n and n in text)
+    blob = (spoken or text).lower()
 
     # Contradiction: claims peak/recovered while data says otherwise.
     contradicts = (
@@ -224,11 +334,15 @@ def _score_context_utilization(text: str, ctx: ARIAContext, mult: float, failure
     if contradicts:
         failures.append(f"Context utilization: response contradicts context (readiness={t.readiness_score}, acwr={ctx.acwr})")
         raw = 0.0
-    elif specific_hits >= 1:
+    elif speak_quality.vitals_hits(spoken or text):
+        failures.append("Context utilization: quoted vitals/metric dump in speech")
+        raw = 0.0
+    elif speak_quality.guide_leak_hits(spoken or text) or speak_quality.zero_hours_hits(spoken or text):
+        failures.append("Context utilization: guide text or '0 h since' is not a state read")
+        raw = 0.0
+    elif _reads_state_plain(blob):
         raw = 100.0
-    elif _has(text, "declining", "rising", "falling", "trend", "lower than usual", "trending", "7-day"):
-        raw = 75.0
-    elif _has(text, "train", "rest", "recover", "easy", "hard", "load", "sleep"):
+    elif _has(blob, "train", "rest", "recover", "easy", "hard", "load", "sleep"):
         raw = 50.0
     else:
         raw = 25.0
@@ -282,10 +396,11 @@ def _score_directional(text: str, rec: str, ctx: ARIAContext, mult: float,
             )
             return 0.0
 
-    # All hard rules pass — score on specificity.
-    if response.recommendation and any(p.search(rec) for p in _SPECIFIC):
+    # All hard rules pass — one sized second-person step is full credit.
+    # Numbers in speech are not required; zone 2 and sleep minutes/hours are fine.
+    if _has_credit_step(response):
         raw = 100.0
-    elif response.recommendation:
+    elif _usable_recommendation(response):
         raw = 75.0
     else:
         raw = 50.0
@@ -309,11 +424,28 @@ def _score_chronotype(query: str, prose: str, rec: str, ctx: ARIAContext, failur
     return 85.0
 
 
-def _score_actionability(text: str, response: ARIAResponse, failures: list[str]) -> float:
+def _score_actionability(
+    text: str,
+    response: ARIAResponse,
+    failures: list[str],
+    *,
+    spoken: str = "",
+) -> float:
     if _has(text, "i can't help", "consult a doctor", "i'm unable", "cannot assist"):
         failures.append("Actionability: response is evasive or refuses to engage")
         return 0.0
-    if response.recommendation:
+    blob = spoken or text
+    if speak_quality.guide_leak_hits(blob):
+        failures.append("Actionability: guide/internal copy is not a step")
+        if not _has_credit_step(response):
+            return 25.0
+    if speak_quality.zero_hours_hits(blob):
+        failures.append("Actionability: '0 h since' is not a step")
+        if not _has_credit_step(response):
+            return 25.0
+    if _has_credit_step(response):
+        return 100.0
+    if _usable_recommendation(response):
         if any(p.search(text) for p in _SPECIFIC) or _has(text, "zone 2", "mobility", "sets", "reps"):
             return 100.0
         return 75.0
@@ -397,7 +529,10 @@ def _recommendations(failures: list[str], scores: DimensionScores, ctx: ARIACont
     if "over-cheerful" in joined or "evasive" in joined:
         recs.append("[SYSTEM PROMPT] Tighten tone: calm and declarative, no cheerleading, no evasion on non-medical queries.")
     if "context utilization" in joined or scores.context_utilization < 60:
-        recs.append("[CONTEXT BUILDER] Make specific numbers (readiness, HRV, ACWR, sleep debt) impossible to ignore in the prompt.")
+        recs.append(
+            "[CONTEXT BUILDER] Have the reply read the user's state in plain words "
+            "— a trend, a direction, or a lifestyle cue. Do not dump readiness/HRV/ACWR numbers."
+        )
     if scores.directional_correctness < 100 and not recs:
         recs.append("[MODEL ROUTING] Route high-stakes recovery/override queries to the deeper model for tighter directional control.")
     if not recs:

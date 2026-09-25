@@ -2311,7 +2311,11 @@ class DummyARIAEngine:
             model_used=str(row.get("model") or LAMBDA_MODEL),
             query_type=row.get("agent") or "aria",
             latency_ms=float((row.get("orchestration") or {}).get("latency_ms") or 40),
-            raw={"scenario": row.get("scenario") or "dummy", "test_ready": True},
+            raw={
+                "scenario": row.get("scenario") or "dummy",
+                "test_ready": True,
+                "card": card,
+            },
         )
 
     def detect_model(self) -> str:

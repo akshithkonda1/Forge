@@ -83,7 +83,7 @@ class DirectionalRuleTests(unittest.TestCase):
 class TierStrictnessTests(unittest.TestCase):
     def test_same_response_scores_lower_at_higher_tier(self):
         ctx = make_context(readiness=72)
-        resp = make_response("Readiness is 72, looking solid.", "Train moderately.")
+        resp = make_response("Steadier than last week, looking solid.", "Train moderately.")
         t1 = evaluate(0, "Should I train today?", 1, ctx, resp)
         t4 = evaluate(0, "Should I train today?", 4, ctx, resp)
         self.assertLess(t4.scores.directional_correctness, t1.scores.directional_correctness)
