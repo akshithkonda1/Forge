@@ -1386,7 +1386,7 @@ def _interpret_sleep(ctx: ARIAContext, baselines: Any = None) -> Signal | None:
     else:
         if usual_hours is not None:
             if hours + 1e-9 < usual_hours - margin_h:
-                interp_bits.append("a personal short night")
+                interp_bits.append("below your usual")
                 direction = "negative"
                 priority = "high"
             elif abs(hours - usual_hours) <= margin_h:

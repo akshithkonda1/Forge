@@ -556,6 +556,7 @@ class ScoutEqualUsualAndDedupeTests(unittest.TestCase):
             "short night",
             "short for you",
             "around your usual",
+            "below your usual",
             "solid night",
         )
         for night in range(300, 541, 20):
@@ -630,7 +631,7 @@ class ScoutEqualUsualAndDedupeTests(unittest.TestCase):
         from services import aria_engine as engine_mod
 
         permissions = engine_mod.DataPermissions.allow_all()
-        markers = ("short night", "short for you", "around your usual")
+        markers = ("short night", "short for you", "around your usual", "below your usual")
         models = []
         for tier in (1, 2, 3):
             models.extend(reg.get_models_by_tier(tier) or [])

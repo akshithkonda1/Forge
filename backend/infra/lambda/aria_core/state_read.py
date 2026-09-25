@@ -434,6 +434,7 @@ _READ_ALIASES = (
     "personal short night",
     "short for you",
     "around your usual",
+    "below your usual",
     "a short night",
 )
 
