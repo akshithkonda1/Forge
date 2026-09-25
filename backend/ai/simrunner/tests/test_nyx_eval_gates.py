@@ -502,6 +502,63 @@ class EditableMemoryPrivacyGates(unittest.TestCase):
         self.assertIn("func sanitizeSummary", joined)
         self.assertEqual(nyx.aria_fact_privacy_strip_failures(joined), [])
 
+    def test_swift_python_lifestyle_deny_lists_lockstep(self):
+        """Two-way lockstep: Swift deniedPrefixes vs Python _DENIED_LIFESTYLE."""
+        swift_base = (
+            "public static let deniedPrefixes: [String] = [\n"
+            '        "partner_",\n'
+            '        "cycle:fertile",\n'
+            "    ]\n"
+        )
+        python_base = (
+            "_DENIED_LIFESTYLE = re.compile(\n"
+            '    r"(?i)^(?:"\n'
+            '    r"partner_"\n'
+            '    r"|cycle:fertile"\n'
+            '    r")"\n'
+            ")\n"
+        )
+        swift_extra = swift_base.replace(
+            '"cycle:fertile",\n',
+            '"cycle:fertile",\n        "swift_only_token",\n',
+        )
+        python_extra = python_base.replace(
+            '    r"|cycle:fertile"\n',
+            '    r"|cycle:fertile"\n    r"|python_only_token"\n',
+        )
+        swift_only = nyx.lifestyle_deny_lockstep_failures(swift_extra, python_base)
+        self.assertTrue(swift_only, swift_only)
+        self.assertTrue(
+            any("swift_only_token" in item and "Python" in item for item in swift_only),
+            swift_only,
+        )
+        python_only = nyx.lifestyle_deny_lockstep_failures(swift_base, python_extra)
+        self.assertTrue(python_only, python_only)
+        self.assertTrue(
+            any("python_only_token" in item and "Swift" in item for item in python_only),
+            python_only,
+        )
+        self.assertEqual(nyx.lifestyle_deny_lockstep_failures(swift_base, python_base), [])
+
+        ledger = nyx.repo_file(
+            "ForgeSwift",
+            "ForgeCore",
+            "Sources",
+            "ForgeCore",
+            "Intelligence",
+            "AriaKnowledgeLedger.swift",
+        )
+        aria = nyx.repo_file("backend", "infra", "lambda", "routes", "aria.py")
+        self.assertTrue(ledger.is_file(), ledger)
+        self.assertTrue(aria.is_file(), aria)
+        fails = nyx.lifestyle_deny_lockstep_failures(
+            ledger.read_text(encoding="utf-8"),
+            aria.read_text(encoding="utf-8"),
+        )
+        if fails:
+            self.skipTest("Swift/Python deny lists differ on main: " + "; ".join(fails))
+        self.assertEqual(fails, [])
+
 
 if __name__ == "__main__":
     unittest.main()

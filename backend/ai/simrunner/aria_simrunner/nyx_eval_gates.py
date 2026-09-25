@@ -434,3 +434,90 @@ def aria_fact_privacy_strip_failures(source: str) -> list[str]:
             return ["AriaInboundLifestyleStrip missing deniedPrefixes"]
         return []
     return [f"AriaFactPrivacy sanitizer missing {item}" for item in required]
+
+
+_SWIFT_DENIED_PREFIXES_RE = re.compile(
+    r"deniedPrefixes\s*:\s*\[String\]\s*=\s*\[(.*?)\]",
+    re.S,
+)
+_QUOTED_TOKEN_RE = re.compile(r'"([^"]+)"')
+_PYTHON_RAW_STRING_RE = re.compile(r'r["\']([^"\']+)["\']')
+
+
+def parse_swift_denied_prefixes(source: str) -> list[str]:
+    """Read ``AriaInboundLifestyleStrip.deniedPrefixes`` from real Swift."""
+    match = _SWIFT_DENIED_PREFIXES_RE.search(source or "")
+    if not match:
+        return []
+    return _QUOTED_TOKEN_RE.findall(match.group(1))
+
+
+def _balanced_call_args(source: str, start: int) -> str:
+    """Slice from ``start`` (an open paren) through its matching close."""
+    depth = 0
+    quote: str | None = None
+    index = start
+    while index < len(source):
+        char = source[index]
+        if quote:
+            if char == "\\" and index + 1 < len(source):
+                index += 2
+                continue
+            if char == quote:
+                quote = None
+            index += 1
+            continue
+        if char in {'"', "'"}:
+            quote = char
+            index += 1
+            continue
+        if char == "(":
+            depth += 1
+        elif char == ")":
+            depth -= 1
+            if depth == 0:
+                return source[start : index + 1]
+        index += 1
+    return ""
+
+
+def parse_python_denied_lifestyle(source: str) -> list[str]:
+    """Read ``_DENIED_LIFESTYLE`` tokens from real ``routes/aria.py`` source."""
+    marker = source.find("_DENIED_LIFESTYLE")
+    if marker < 0:
+        return []
+    open_paren = source.find("(", marker)
+    if open_paren < 0:
+        return []
+    blob = _balanced_call_args(source, open_paren)
+    tokens: list[str] = []
+    for part in _PYTHON_RAW_STRING_RE.findall(blob):
+        piece = part.lstrip("|")
+        if part.startswith("(?i)") or re.fullmatch(r"[()^?:|]+", piece or ""):
+            continue
+        if piece:
+            tokens.append(piece)
+    return tokens
+
+
+def lifestyle_deny_lockstep_failures(swift_source: str, python_source: str) -> list[str]:
+    """FAIL GATE: Swift deniedPrefixes and Python _DENIED_LIFESTYLE must match.
+
+    Names each missing token and which side lacks it. Does not edit either list.
+    """
+    swift = parse_swift_denied_prefixes(swift_source)
+    python = parse_python_denied_lifestyle(python_source)
+    swift_set = {item.lower() for item in swift}
+    python_set = {item.lower() for item in python}
+    fails: list[str] = []
+    if not swift:
+        fails.append("missing from Swift: deniedPrefixes list not found")
+    if not python:
+        fails.append("missing from Python: _DENIED_LIFESTYLE list not found")
+    for token in python:
+        if token.lower() not in swift_set:
+            fails.append(f"missing from Swift: {token}")
+    for token in swift:
+        if token.lower() not in python_set:
+            fails.append(f"missing from Python: {token}")
+    return fails
