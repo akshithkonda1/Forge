@@ -86,6 +86,9 @@ _INVOKE_CALL_NAMES = frozenset(
         "converse",
         "mint_signed_url",
         "run_tool",
+        "design_aria",
+        "handle_get_ai_voice_bootstrap",
+        "handle_post_ai_voice_tool",
     }
 )
 
