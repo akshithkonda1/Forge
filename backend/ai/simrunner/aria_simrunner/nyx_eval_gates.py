@@ -89,12 +89,11 @@ _INVOKE_CALL_NAMES = frozenset(
         "design_aria",
         "handle_get_ai_voice_bootstrap",
         "handle_post_ai_voice_tool",
-        "handle_post_ingest_url",
     }
 )
 
-# Live-voice / ingest spend Dummy must never reach (Nova Sonic, Polly,
-# ElevenLabs, Mira #369 /ingest/url).
+# Live-voice spend Dummy must never reach (Nova Sonic, Polly, ElevenLabs).
+# `/ingest/url` is not a needle: Dummy may call the #369 extract ($0).
 _SPEND_NAME_NEEDLES = (
     "InvokeModelWithBidirectionalStream",
     "invoke_model_with_bidirectional_stream",
@@ -103,7 +102,6 @@ _SPEND_NAME_NEEDLES = (
     "elevenlabs_voice",
     "/ai/voice/bootstrap",
     "/ai/voice/tool",
-    "/ingest/url",
 )
 
 _INGEST_SPEND_CALL_NAMES = frozenset(
@@ -291,15 +289,33 @@ def find_ingest_url_modules() -> list[Path]:
     return found
 
 
+def _docstring_constants(tree: ast.AST) -> set[ast.AST]:
+    """First ``Expr`` constant of a module, class, or function body."""
+    found: set[ast.AST] = set()
+
+    def take(body: list[ast.stmt]) -> None:
+        if body and isinstance(body[0], ast.Expr) and isinstance(body[0].value, ast.Constant):
+            found.add(body[0].value)
+
+    take(tree.body)
+    for node in ast.walk(tree):
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
+            take(node.body)
+    return found
+
+
 def dummy_invoke_call_failures(source: str) -> list[str]:
     """FAIL GATE: Dummy source must not *call* live spend.
 
     Covers Bedrock ``generate_response_live`` / ``InvokeModel``, Nova Sonic
     ``InvokeModelWithBidirectionalStream``, Polly ``SynthesizeSpeech``, and
     ElevenLabs session/tool helpers. Mentions in comments/docstrings are
-    allowed. ``generate_response`` (deterministic) is the fused Dummy path.
+    allowed. String literals and real Calls still fail.
+    ``generate_response`` (deterministic) is the fused Dummy path.
+    ``/ingest/url`` is not spend — Dummy may reach the #369 extract.
     """
     tree = ast.parse(source)
+    docstrings = _docstring_constants(tree)
     fails: list[str] = []
     for node in ast.walk(tree):
         if isinstance(node, ast.Import):
@@ -314,6 +330,8 @@ def dummy_invoke_call_failures(source: str) -> list[str]:
                 if alias.name == "elevenlabs_voice":
                     fails.append(f"from {module} import elevenlabs_voice at line {node.lineno}")
         elif isinstance(node, ast.Constant) and isinstance(node.value, str):
+            if node in docstrings:
+                continue
             for needle in _SPEND_NAME_NEEDLES:
                 if needle in node.value:
                     fails.append(f"{needle} literal at line {node.lineno}")
