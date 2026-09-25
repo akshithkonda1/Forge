@@ -2705,17 +2705,17 @@ def _finish_spoken_envelope(
     from . import speak_guard
     from . import state_read
 
-    envelope = state_read.apply_to_envelope(
-        envelope,
-        ctx,
-        seed=state_read.turn_seed(ctx, message, seed),
-        message=message,
-    )
     envelope = speak_guard.guard_envelope(
         envelope,
         memory_notes=_memory_notes_from_ctx(ctx),
         memory_block=_memory_block_from_ctx(ctx),
         topic=_topic_from_message(message),
+    )
+    envelope = state_read.apply_to_envelope(
+        envelope,
+        ctx,
+        seed=state_read.turn_seed(ctx, message, seed),
+        message=message,
     )
     blob = speak_guard.user_visible(envelope)
     envelope["confidence"] = speak_guard.cap_contradiction_confidence(
@@ -3102,17 +3102,17 @@ def generate_response_live(
     merged = _merge_live_envelope(base, data, prose, model_id, voice_mode)
     from . import state_read
 
-    merged = state_read.apply_to_envelope(
-        merged,
-        sanitized,
-        seed=state_read.turn_seed(sanitized, message, seed),
-        message=message,
-    )
     merged = speak_guard.guard_envelope(
         merged,
         memory_notes=notes,
         memory_block=memory_block,
         topic=topic,
+    )
+    merged = state_read.apply_to_envelope(
+        merged,
+        sanitized,
+        seed=state_read.turn_seed(sanitized, message, seed),
+        message=message,
     )
     merged["confidence"] = speak_guard.cap_contradiction_confidence(
         speak_guard.user_visible(merged),

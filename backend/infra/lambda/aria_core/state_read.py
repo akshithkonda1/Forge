@@ -152,17 +152,28 @@ def apply_to_envelope(
     chat = str(envelope.get("message") or "")
     if _already_has_read(prose) or _already_has_read(chat):
         return envelope
+    card = envelope.get("card") if isinstance(envelope.get("card"), dict) else {}
+    action = str(card.get("action") or card.get("recommendation") or "").strip()
     if _has_step(prose):
         target_key, target = "prose_summary", prose
     elif _has_step(chat):
         target_key, target = "message", chat
+    elif action and _has_step(action):
+        target_key, target = "prose_summary", action
     else:
         return envelope
     ack = _should_ack(message, kind)
+    clean_clause = speak_guard.rescrub_speak(clause)
+    if not clean_clause or clean_clause != clause:
+        return envelope
     updated = _join_read(target, clause, ack=ack)
     if not updated or updated == target:
         return envelope
-    updated = speak_guard.rescrub_speak(updated, target)
+    # Host speech may already carry live-path numbers; never all-or-nothing
+    # discard it. Only refuse the read if *we* introduced new vitals.
+    if speak_guard._has_banned_vitals(updated) and not speak_guard._has_banned_vitals(target):
+        return envelope
+    updated = speak_guard._tidy(updated)
     envelope[target_key] = updated
     if target_key == "prose_summary" and chat == prose:
         envelope["message"] = updated

@@ -61,11 +61,23 @@ def _health_ctx(**overrides) -> ARIAContext:
         timestamp="2026-01-15T08:00:00+00:00",
         sleep=SleepContext(
             duration_minutes=300,
+            rem_minutes=95,
+            deep_minutes=90,
+            hrv=58,
             baseline_median_minutes=450,
-            nights_available=7,
+            nights_available=14,
         ),
-        readiness=ReadinessContext(hrv_7day_trend=-2, hrv_days_available=7),
-        training=TrainingContext(last_workout_type="easy run", hours_since_last_workout=20),
+        readiness=ReadinessContext(
+            hrv_7day_trend=-12,
+            hrv_30day_baseline=62,
+            recovery_score=48,
+            hrv_days_available=7,
+        ),
+        training=TrainingContext(
+            last_workout_type="strength",
+            hours_since_last_workout=14,
+            weekly_load_score=60,
+        ),
         progress=ProgressContext(),
         lifestyle=LifestyleContext(),
     )
@@ -228,7 +240,7 @@ class AttachAndPathTests(unittest.TestCase):
         def converse(_model_id, _system, _user):
             return json.dumps(
                 {
-                    "prose_summary": "Keep today easy — 20 easy minutes, then call it.",
+                    "prose_summary": "Keep today easy, then call it.",
                     "response_type": "recommendation",
                     "confidence": 0.8,
                 }
