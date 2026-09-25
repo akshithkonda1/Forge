@@ -2651,12 +2651,58 @@ def _memory_notes_from_ctx(ctx: ARIAContext) -> list[str]:
     return [str(p) for p in (ctx.lifestyle.recent_patterns or []) if p]
 
 
+def _memory_block_from_ctx(ctx: ARIAContext) -> str:
+    """Equivalent of ``memory_prompt_block`` from fields already on ``ARIAContext``."""
+    long_term: list[str] = []
+    patterns = [str(p) for p in (ctx.lifestyle.recent_patterns or []) if p]
+    insights = [
+        str(x).strip()
+        for x in (getattr(ctx, "last_insights", None) or [])
+        if str(x).strip()
+    ]
+    goals = [
+        str(x).strip()
+        for x in (getattr(ctx, "current_goals", None) or [])
+        if str(x).strip()
+    ]
+    constraints = [str(c) for c in (ctx.profile.constraints or []) if c]
+    if goals:
+        long_term.append("goals: " + "; ".join(goals[:5]))
+    if constraints:
+        long_term.append("constraints: " + "; ".join(constraints[:5]))
+    if patterns:
+        long_term.append("patterns: " + "; ".join(patterns[:5]))
+    if insights:
+        long_term.append("recently told them: " + "; ".join(insights[:3]))
+    if not long_term:
+        return ""
+    lines = ["[MEMORY — long term]"]
+    lines.extend(f"- {entry}" for entry in long_term)
+    return "\n".join(lines)
+
+
+def _topic_from_message(message: str) -> str:
+    domain = _focus_domain(message) or ""
+    if domain == "sleep":
+        return "sleep"
+    if domain == "nutrition":
+        return "food"
+    if domain == "training":
+        return "training"
+    return domain
+
+
 def _finish_spoken_envelope(envelope: dict[str, Any], ctx: ARIAContext, message: str) -> dict[str, Any]:
     """Attach sidecars, then guard user-visible speak (deterministic path)."""
     envelope = _attach_shared_intelligence(envelope, ctx, message)
     from . import speak_guard
 
-    envelope = speak_guard.guard_envelope(envelope, memory_notes=_memory_notes_from_ctx(ctx))
+    envelope = speak_guard.guard_envelope(
+        envelope,
+        memory_notes=_memory_notes_from_ctx(ctx),
+        memory_block=_memory_block_from_ctx(ctx),
+        topic=_topic_from_message(message),
+    )
     blob = speak_guard.user_visible(envelope)
     envelope["confidence"] = speak_guard.cap_contradiction_confidence(
         blob,
@@ -3011,15 +3057,39 @@ def generate_response_live(
 
     card = base.get("card") if isinstance(base.get("card"), dict) else None
     notes = _memory_notes_from_ctx(sanitized)
+    memory_block = _memory_block_from_ctx(sanitized)
+    topic = _topic_from_message(message)
+    fusion = base.get("fusion") if isinstance(base.get("fusion"), dict) else {}
+    stance = str(fusion.get("stance") or "")
     # Guard after the model returns text — Bedrock must never leak guide/label
     # / memory-block copy into user-visible speak. Deterministic path is
-    # guarded in _finish_spoken_envelope / friend_speak.
-    prose = speak_guard.guard_speak(prose, card=card, memory_notes=notes)
+    # guarded in _finish_spoken_envelope / friend_speak. rescrub_speak runs
+    # inside guard_speak whenever a step is appended.
+    prose = speak_guard.guard_speak(
+        prose,
+        card=card,
+        memory_notes=notes,
+        memory_block=memory_block,
+        stance=stance,
+        topic=topic,
+    )
     rec = data.get("recommendation")
     if isinstance(rec, str) and rec.strip():
-        data["recommendation"] = speak_guard.guard_speak(rec, card=card, memory_notes=notes)
+        data["recommendation"] = speak_guard.guard_speak(
+            rec,
+            card=card,
+            memory_notes=notes,
+            memory_block=memory_block,
+            stance=stance,
+            topic=topic,
+        )
     merged = _merge_live_envelope(base, data, prose, model_id, voice_mode)
-    merged = speak_guard.guard_envelope(merged, memory_notes=notes)
+    merged = speak_guard.guard_envelope(
+        merged,
+        memory_notes=notes,
+        memory_block=memory_block,
+        topic=topic,
+    )
     merged["confidence"] = speak_guard.cap_contradiction_confidence(
         speak_guard.user_visible(merged),
         merged.get("confidence"),

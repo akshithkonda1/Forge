@@ -6,8 +6,10 @@ and dedupes repeated sentences/clauses. When a strip would leave the reply
 without a step, inserts one sized second-person friend step (preferring
 ``card.action`` / ``card.why`` when those are themselves clean).
 
-Vitals scrub lives elsewhere (``_speak_without_vitals`` / ``_VITALS_SPEAK``).
-This module does not treat sleep minutes/hours or ``zone 2`` as banned.
+Vitals scrub lives in ``rescrub_speak`` (the engine ``_speak_without_vitals``
+helper). An added step is memory-stripped and re-scrubbed so it cannot
+reintroduce bpm / sleep-stage % or stored notes. Sleep minutes/hours and
+``zone 2`` stay allowed.
 """
 
 from __future__ import annotations
@@ -82,8 +84,7 @@ _TRAIN_HARD_RE = re.compile(
 )
 
 _ZERO_HOURS_RE = re.compile(
-    r"(?:only\s+)?0\s*h\s+since(?:\s+(?P<label>[A-Za-z][\w\s-]{0,40}?))?"
-    r"(?=\s*[—–.,;:]|$)",
+    r"(?:only\s+)?0\s*h\s+since(?:\s+(?P<label>[A-Za-z][\w-]*))?",
     re.I,
 )
 
@@ -141,6 +142,21 @@ def cap_contradiction_confidence(
     return value
 
 
+def rescrub_speak(*candidates: str) -> str:
+    """Re-run the engine vitals scrub. Shared by lambda/friend_speak and live.
+
+    ``_speak_without_vitals`` is all-or-nothing: a candidate with bpm / sleep-stage
+    % is skipped in favor of the next clean candidate. Empty input stays empty
+    so a sleep/food reply that lost its step is not replaced with training copy.
+    """
+    nonempty = [c for c in candidates if str(c or "").strip()]
+    if not nonempty:
+        return candidates[0] if candidates else ""
+    from .aria_engine import _speak_without_vitals
+
+    return _speak_without_vitals(*nonempty)
+
+
 def guard_speak(
     text: str,
     *,
@@ -148,6 +164,7 @@ def guard_speak(
     memory_notes: Iterable[str] | None = None,
     memory_block: str | None = None,
     stance: str = "",
+    topic: str = "",
 ) -> str:
     """Return user-visible speak with guide/label/memory leaks removed."""
     raw = str(text or "")
@@ -156,16 +173,18 @@ def guard_speak(
     notes = [str(n).strip() for n in (memory_notes or []) if str(n).strip()]
     if memory_block:
         notes.extend(_notes_from_memory_block(memory_block))
+    topic = _infer_topic(topic, card, stance, raw)
     cleaned = _rewrite_zero_hours(raw)
     cleaned = _strip_denied(cleaned, _deny_phrases())
-    cleaned = _strip_memory(cleaned, notes)
+    cleaned = _strip_memory(cleaned, notes, original=raw)
     cleaned = _dedupe_fragments(cleaned)
     cleaned = _tidy(cleaned)
     if _lost_its_step(raw, cleaned):
-        step = _sized_step(card, stance=stance)
+        step = _sized_step(card, stance=stance, topic=topic)
         if step and step.lower() not in cleaned.lower():
-            cleaned = f"{cleaned} {step}".strip() if cleaned else step
-            cleaned = _tidy(cleaned)
+            cleaned = _append_guarded_step(cleaned, step, notes=notes, topic=topic)
+    if cleaned.strip():
+        cleaned = rescrub_speak(cleaned)
     return cleaned
 
 
@@ -174,12 +193,14 @@ def guard_envelope(
     *,
     memory_notes: Iterable[str] | None = None,
     memory_block: str | None = None,
+    topic: str = "",
 ) -> dict[str, Any]:
     """Apply ``guard_speak`` to every user-visible field on a response envelope."""
     card = envelope.get("card") if isinstance(envelope.get("card"), dict) else None
     notes = list(memory_notes or [])
     fusion = envelope.get("fusion") if isinstance(envelope.get("fusion"), dict) else {}
     stance = str(fusion.get("stance") or "")
+    topic = topic or _infer_topic("", card, stance, user_visible(envelope))
     for key in ("prose_summary", "message", "recommendation"):
         if envelope.get(key):
             envelope[key] = guard_speak(
@@ -188,6 +209,7 @@ def guard_envelope(
                 memory_notes=notes,
                 memory_block=memory_block,
                 stance=stance,
+                topic=topic,
             )
     if isinstance(card, dict):
         guarded = dict(card)
@@ -199,6 +221,7 @@ def guard_envelope(
                     memory_notes=notes,
                     memory_block=memory_block,
                     stance=stance,
+                    topic=topic,
                 )
         envelope["card"] = guarded
     rec = envelope.get("recommendation") or recommendation_from_card(
@@ -258,8 +281,40 @@ def _strip_denied(text: str, phrases: tuple[str, ...]) -> str:
     return out
 
 
-def _strip_memory(text: str, notes: list[str]) -> str:
+def _word_count(text: str) -> int:
+    return len([w for w in re.split(r"\s+", (text or "").strip()) if w])
+
+
+def _appears_after_memory_label(text: str, note: str) -> bool:
+    if not text or not note:
+        return False
+    labels = [re.escape(h) for h in _MEMORY_HEADERS]
+    labels += [re.escape(lab) for lab in _MEMORY_LINE_LABELS]
+    return bool(
+        re.search(rf"(?:{'|'.join(labels)})\s*{re.escape(note)}", text, flags=re.I)
+    )
+
+
+def _note_is_readback(note: str, text: str) -> bool:
+    """A stored note is a readback if it is ≥5 words or sits after a memory label."""
+    if not note or not text or note.lower() not in text.lower():
+        return False
+    if _word_count(note) >= 5:
+        return True
+    return _appears_after_memory_label(text, note)
+
+
+def _drop_sentences_containing(text: str, needle: str) -> str:
+    parts = [s.strip() for s in _SENTENCE_SPLIT.split((text or "").strip()) if s.strip()]
+    if not parts:
+        return "" if needle.lower() in (text or "").lower() else text
+    kept = [s for s in parts if needle.lower() not in s.lower()]
+    return " ".join(kept)
+
+
+def _strip_memory(text: str, notes: list[str], *, original: str | None = None) -> str:
     out = text
+    source = original if original is not None else text
     for header in _MEMORY_HEADERS:
         out = re.sub(re.escape(header), "", out, flags=re.I)
     out = re.sub(
@@ -269,12 +324,12 @@ def _strip_memory(text: str, notes: list[str]) -> str:
         out,
         flags=re.I,
     )
-    out = re.sub(r"\b(?:knows|goals|constraints|patterns|recently told them|supervision plan|ask next):\s*", "", out, flags=re.I)
     for note in notes:
-        if len(note) < 8:
+        if not _note_is_readback(note, source) and not _note_is_readback(note, out):
             continue
-        if note.lower() in out.lower():
-            out = re.sub(re.escape(note), "", out, flags=re.I)
+        if note.lower() not in out.lower():
+            continue
+        out = _drop_sentences_containing(out, note)
     return out
 
 
@@ -284,6 +339,10 @@ def _notes_from_memory_block(block: str) -> list[str]:
         line = raw.strip().lstrip("-* ").strip()
         if not line or line.startswith("["):
             continue
+        for header in _MEMORY_HEADERS:
+            if line.lower().startswith(header.lower()):
+                line = line[len(header):].strip()
+                break
         for label in _MEMORY_LINE_LABELS:
             if line.lower().startswith(label):
                 line = line[len(label):].strip()
@@ -338,7 +397,7 @@ _STANCE_FRIEND_STEPS = {
     "protect": "Keep it shorter and lighter — 20 easy minutes, then call it",
     "proceed": "One quality session, then call it",
     "fuel": "Protein and water with the next meal, then keep the session easy",
-    "clarify": "Give me one missing signal and we'll size today",
+    "clarify": "Tell me how you slept and I'll size today",
 }
 
 _PATTERN_FRIEND_STEPS = {
@@ -355,7 +414,83 @@ def _action_fits_stance(raw: str, stance: str) -> bool:
     return True
 
 
-def _sized_step(card: dict[str, Any] | None, *, stance: str = "") -> str:
+_SLEEP_TOPIC_RE = re.compile(r"\b(sleep|slept|rem|bedtime|wind-down|bed)\b", re.I)
+_FOOD_TOPIC_RE = re.compile(
+    r"\b(food|eat|meal|protein|calorie|diet|hydrat|nutrition|macro)\b", re.I
+)
+_TRAIN_TOPIC_RE = re.compile(r"\b(train|workout|session|lift|run|load)\b", re.I)
+
+
+def _infer_topic(topic: str, card: dict[str, Any] | None, stance: str, text: str) -> str:
+    explicit = (topic or "").strip().lower()
+    if explicit in {"training", "sleep", "food", "other"}:
+        return explicit
+    key = ""
+    if isinstance(card, dict):
+        ev = card.get("evidence") if isinstance(card.get("evidence"), dict) else {}
+        key = str(ev.get("key") or "")
+        card_topic = str(card.get("topic") or "").strip().lower()
+        if card_topic in {"training", "sleep", "food", "other"}:
+            return card_topic
+    if key == "sleep_debt" or "sleep" in key:
+        return "sleep"
+    if key == "fuel_gap" or (stance or "").lower() == "fuel":
+        return "food"
+    blob = f"{key} {stance} {text}"
+    if _FOOD_TOPIC_RE.search(blob):
+        return "food"
+    if _SLEEP_TOPIC_RE.search(blob) and not _TRAIN_TOPIC_RE.search(blob):
+        return "sleep"
+    if _TRAIN_TOPIC_RE.search(blob) or key in {
+        "under_recovery",
+        "low_readiness",
+        "overreaching",
+        "green_light",
+    }:
+        return "training"
+    return explicit or "other"
+
+
+def _is_training_topic(topic: str) -> bool:
+    return (topic or "").lower() in {"training", "workout", "session", "progress", "activity"}
+
+
+def _join_with_step(cleaned: str, step: str) -> str:
+    """Join speak + step with a sentence boundary; the step always ends with '.'."""
+    step = (step or "").strip()
+    if step and step[-1] not in ".!?":
+        step += "."
+    cleaned = (cleaned or "").rstrip()
+    if not cleaned:
+        return step
+    if cleaned[-1] not in ".!?":
+        return f"{cleaned}. {step}"
+    return f"{cleaned} {step}"
+
+
+def _append_guarded_step(
+    cleaned: str,
+    step: str,
+    *,
+    notes: list[str],
+    topic: str = "",
+) -> str:
+    """Memory-strip the added step, join it, then re-scrub vitals.
+
+    Shared helper for the lambda/friend_speak path and the live path — both
+    reach it through ``guard_speak`` after a sized step is spliced in.
+    """
+    step = _tidy(_strip_memory(str(step or ""), notes, original=step))
+    if not step:
+        if _is_training_topic(topic):
+            step = _SIZED_FRIEND_STEP
+        else:
+            return rescrub_speak(cleaned) if cleaned else cleaned
+    joined = _tidy(_join_with_step(cleaned, step))
+    return rescrub_speak(joined, cleaned)
+
+
+def _sized_step(card: dict[str, Any] | None, *, stance: str = "", topic: str = "") -> str:
     denied = _deny_phrases()
     evidence: dict[str, Any] = {}
     pattern = ""
@@ -363,6 +498,7 @@ def _sized_step(card: dict[str, Any] | None, *, stance: str = "") -> str:
         evidence = card.get("evidence") if isinstance(card.get("evidence"), dict) else {}
         stance = stance or str(evidence.get("stance") or card.get("stance") or "")
         pattern = str(evidence.get("key") or "")
+        topic = topic or _infer_topic(str(card.get("topic") or ""), card, stance, "")
         for key in ("action", "recommendation"):
             raw = str(card.get(key) or "").strip()
             if _is_usable_step(raw, denied) and _action_fits_stance(raw, stance):
@@ -386,7 +522,9 @@ def _sized_step(card: dict[str, Any] | None, *, stance: str = "") -> str:
         return _PATTERN_FRIEND_STEPS[pattern]
     if stance in _STANCE_FRIEND_STEPS:
         return _STANCE_FRIEND_STEPS[stance]
-    return _SIZED_FRIEND_STEP
+    if _is_training_topic(topic):
+        return _SIZED_FRIEND_STEP
+    return ""
 
 
 def _dedupe_fragments(text: str) -> str:
