@@ -147,6 +147,7 @@ def guard_speak(
     card: dict[str, Any] | None = None,
     memory_notes: Iterable[str] | None = None,
     memory_block: str | None = None,
+    stance: str = "",
 ) -> str:
     """Return user-visible speak with guide/label/memory leaks removed."""
     raw = str(text or "")
@@ -161,7 +162,7 @@ def guard_speak(
     cleaned = _dedupe_fragments(cleaned)
     cleaned = _tidy(cleaned)
     if _lost_its_step(raw, cleaned):
-        step = _sized_step(card)
+        step = _sized_step(card, stance=stance)
         if step and step.lower() not in cleaned.lower():
             cleaned = f"{cleaned} {step}".strip() if cleaned else step
             cleaned = _tidy(cleaned)
@@ -177,6 +178,8 @@ def guard_envelope(
     """Apply ``guard_speak`` to every user-visible field on a response envelope."""
     card = envelope.get("card") if isinstance(envelope.get("card"), dict) else None
     notes = list(memory_notes or [])
+    fusion = envelope.get("fusion") if isinstance(envelope.get("fusion"), dict) else {}
+    stance = str(fusion.get("stance") or "")
     for key in ("prose_summary", "message", "recommendation"):
         if envelope.get(key):
             envelope[key] = guard_speak(
@@ -184,6 +187,7 @@ def guard_envelope(
                 card=card,
                 memory_notes=notes,
                 memory_block=memory_block,
+                stance=stance,
             )
     if isinstance(card, dict):
         guarded = dict(card)
@@ -194,6 +198,7 @@ def guard_envelope(
                     card=card,
                     memory_notes=notes,
                     memory_block=memory_block,
+                    stance=stance,
                 )
         envelope["card"] = guarded
     rec = envelope.get("recommendation") or recommendation_from_card(
@@ -299,19 +304,88 @@ def _lost_its_step(original: str, cleaned: str) -> bool:
     return original_had_denied
 
 
-def _sized_step(card: dict[str, Any] | None) -> str:
+_GENERIC_STEPS = (
+    "reassess after you recover",
+    "fit the session around the day you already have",
+    "fit training around the day you already have",
+)
+
+
+def _is_usable_step(raw: str, denied: tuple[str, ...]) -> bool:
+    text = str(raw or "").strip()
+    if not text:
+        return False
+    if text.lower().rstrip(".") in _GENERIC_STEPS:
+        return False
+    if any(p.lower() in text.lower() for p in denied):
+        return False
+    if any(lab in text.lower() for lab in ("usable picture", "still thin")):
+        return False
+    return True
+
+
+_HARD_STEP_CUES = (
+    "hard session",
+    "green light",
+    "high-intensity",
+    "high intensity",
+    "push for",
+    "train hard",
+    "go hard",
+)
+
+_STANCE_FRIEND_STEPS = {
+    "protect": "Keep it shorter and lighter — 20 easy minutes, then call it",
+    "proceed": "One quality session, then call it",
+    "fuel": "Protein and water with the next meal, then keep the session easy",
+    "clarify": "Give me one missing signal and we'll size today",
+}
+
+_PATTERN_FRIEND_STEPS = {
+    "sleep_debt": "Protect sleep tonight — 20 easy minutes, then call it",
+    "under_recovery": "Protect sleep tonight — 20 easy minutes, then call it",
+    "low_readiness": "Keep today easy — 20 easy minutes, then call it",
+    "overreaching": "Back the load off — 20 easy minutes, then call it",
+}
+
+
+def _action_fits_stance(raw: str, stance: str) -> bool:
+    if (stance or "").lower() == "protect" and any(cue in raw.lower() for cue in _HARD_STEP_CUES):
+        return False
+    return True
+
+
+def _sized_step(card: dict[str, Any] | None, *, stance: str = "") -> str:
     denied = _deny_phrases()
+    evidence: dict[str, Any] = {}
+    pattern = ""
     if isinstance(card, dict):
-        for key in ("action", "why", "recommendation", "timing"):
+        evidence = card.get("evidence") if isinstance(card.get("evidence"), dict) else {}
+        stance = stance or str(evidence.get("stance") or card.get("stance") or "")
+        pattern = str(evidence.get("key") or "")
+        for key in ("action", "recommendation"):
             raw = str(card.get(key) or "").strip()
-            if not raw:
-                continue
-            if any(p.lower() in raw.lower() for p in denied):
-                continue
-            if any(lab.lower() in raw.lower() for lab in ("usable picture", "still thin")):
-                continue
-            if any(cue in raw.lower() for cue in _STEP_CUES) or len(raw.split()) <= 16:
+            if _is_usable_step(raw, denied) and _action_fits_stance(raw, stance):
                 return raw.rstrip(".")
+        for key in ("why", "timing"):
+            raw = str(card.get(key) or "").strip()
+            if (
+                _is_usable_step(raw, denied)
+                and any(cue in raw.lower() for cue in _STEP_CUES)
+                and _action_fits_stance(raw, stance)
+            ):
+                return raw.rstrip(".")
+        for action in evidence.get("actions") or ():
+            raw = str(action or "").strip()
+            if _is_usable_step(raw, denied) and _action_fits_stance(raw, stance):
+                return raw.rstrip(".")
+        next_step = str(evidence.get("next_step") or "").strip()
+        if _is_usable_step(next_step, denied) and _action_fits_stance(next_step, stance):
+            return next_step.rstrip(".")
+    if pattern in _PATTERN_FRIEND_STEPS:
+        return _PATTERN_FRIEND_STEPS[pattern]
+    if stance in _STANCE_FRIEND_STEPS:
+        return _STANCE_FRIEND_STEPS[stance]
     return _SIZED_FRIEND_STEP
 
 

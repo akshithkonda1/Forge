@@ -2647,11 +2647,8 @@ def generate_response(
 
 
 def _memory_notes_from_ctx(ctx: ARIAContext) -> list[str]:
-    notes: list[str] = []
-    notes.extend(str(p) for p in (ctx.lifestyle.recent_patterns or []) if p)
-    notes.extend(str(t) for t in (ctx.lifestyle.tags or []) if t)
-    notes.extend(str(x) for x in (getattr(ctx, "last_insights", None) or []) if x)
-    return notes
+    """Stored pattern lines only — companion callbacks may paraphrase insights."""
+    return [str(p) for p in (ctx.lifestyle.recent_patterns or []) if p]
 
 
 def _finish_spoken_envelope(envelope: dict[str, Any], ctx: ARIAContext, message: str) -> dict[str, Any]:
