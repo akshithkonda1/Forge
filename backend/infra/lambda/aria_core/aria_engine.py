@@ -2153,15 +2153,22 @@ _DUMMY_SPEAK_FALLBACK = (
 # one of three so back-to-back turns do not repeat. Voice: light, kind, one
 # small thing to do; no digits, no vitals, no clinical rest-prescription.
 _PROTECT_DAY_STEPS = (
-    "Keep today kind with an easy fifteen-minute walk, then call it.",
+    "Keep today kind with an easy fifteen-minute walk, then settle in early.",
     "Take a short stretch this afternoon, then an early wind-down tonight.",
-    "Give tonight an early wind-down, and keep the work light and easy.",
+    "Have a big glass of water with lunch and keep any training light and easy.",
 )
-# Same guide-leak → dirty-why path on proceed/clarify (Sonnet, Command-R+).
+# Same guide-leak → dirty-why path on proceed (Sonnet, Command-R+).
 _PROCEED_DAY_STEPS = (
-    "Keep one honest session today, then call it.",
-    "Spend today on one quality session, then call it.",
-    "Train one thing well today, then call it.",
+    "Keep today to one solid session you'd be happy with.",
+    "You're good to go, so spend today on one quality session.",
+    "Train one thing well today, then enjoy the rest of your evening.",
+)
+# Clarify turns are missing one thing (sleep, last session, or context).
+# Never reuse a proceed line: ask for that one gap, then size the day.
+_CLARIFY_DAY_STEPS = (
+    "Tell me how you slept and I'll size today.",
+    "Tell me about your last session and I'll size today.",
+    "Tell me the one thing I'm missing and I'll size today.",
 )
 _ACWR_SPEAK = re.compile(r"\bacwr\b", re.I)
 # Dummy speak_quality catches "deep sleep is 12%" as well as "at 12%".
@@ -2182,9 +2189,17 @@ def _proceed_day_step(seed: int) -> str:
     return lines[int(seed) % len(lines)]
 
 
+def _clarify_day_step(seed: int) -> str:
+    lines = _CLARIFY_DAY_STEPS
+    return lines[int(seed) % len(lines)]
+
+
 def _stance_day_step(stance: str, seed: int) -> str:
-    if (stance or "").lower() == "protect":
+    label = (stance or "").lower()
+    if label == "protect":
         return _protect_day_step(seed)
+    if label == "clarify":
+        return _clarify_day_step(seed)
     return _proceed_day_step(seed)
 
 
@@ -2225,9 +2240,10 @@ def _is_protect_day(envelope: dict[str, Any]) -> bool:
 def _apply_protect_day_step(envelope: dict[str, Any], seed: int) -> dict[str, Any]:
     """Keep a real step when speak-guard left a vitals why in card.action.
 
-    Protect days use the take-it-easy bank. Proceed/clarify turns that share
-    the same guide-leak root cause get a number-free session step so Dummy
-    does not collapse them to ``_SPEAK_FALLBACK``.
+    Protect days use the take-it-easy bank. Proceed turns that share the
+    same guide-leak root cause get a number-free session step. Clarify
+    turns use their own ask-for-the-gap bank and never a proceed line, so
+    Dummy does not collapse them to ``_SPEAK_FALLBACK``.
     """
     card = envelope.get("card") if isinstance(envelope.get("card"), dict) else None
     action = str((card or {}).get("action") or "").strip()
