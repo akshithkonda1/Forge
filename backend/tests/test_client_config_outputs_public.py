@@ -19,43 +19,52 @@ _OUTPUTS_TF = _INFRA / "outputs.tf"
 _CLIENT_OUTPUT = "client_configuration"
 _DEV_OUTPUT = "dev_client_configuration"
 
-# Flattened object keys (every ``ident =`` inside the value expression).
-_CLIENT_CONFIGURATION_KEYS = frozenset({
+# Exact nested key-path set from the live outputs (including parents).
+_CLIENT_CONFIGURATION_PATHS = frozenset({
     "apiBaseUrl",
     "cognito",
-    "region",
-    "userPoolId",
-    "hostedUiDomain",
-    "webClientId",
-    "iosClientId",
-    "kotlinClientId",
-    "identityPoolId",
-    "iosRedirectUri",
-    "webRedirectUri",
-    "kotlinRedirectUri",
-    "iosLogoutUri",
-    "webLogoutUri",
-    "kotlinLogoutUri",
+    "cognito.region",
+    "cognito.userPoolId",
+    "cognito.hostedUiDomain",
+    "cognito.webClientId",
+    "cognito.iosClientId",
+    "cognito.kotlinClientId",
+    "cognito.identityPoolId",
+    "cognito.iosRedirectUri",
+    "cognito.webRedirectUri",
+    "cognito.kotlinRedirectUri",
+    "cognito.iosLogoutUri",
+    "cognito.webLogoutUri",
+    "cognito.kotlinLogoutUri",
     "storage",
-    "uploadsBucket",
-    "accessLevel",
-    "keyPrefixPattern",
+    "storage.uploadsBucket",
+    "storage.accessLevel",
+    "storage.keyPrefixPattern",
 })
 
-_DEV_CLIENT_CONFIGURATION_KEYS = frozenset({
+_DEV_CLIENT_CONFIGURATION_PATHS = frozenset({
     "webLocalhostClientId",
     "kotlinLocalhostClientId",
 })
 
+# Key names and referenced resource attribute names only — not string values.
 _SECRET_RE = re.compile(
-    r"secret|token|password|private|credential|provider_details|override|api_key|client_secret",
+    r"secret|token|password|private_key|privatekey|credential|"
+    r"provider_details|override|api_key|client_secret",
     re.IGNORECASE,
 )
 
 _OUTPUT_HEAD = re.compile(r'output\s+"([^"]+)"\s*\{')
 _CLIENT_HEAD = re.compile(r'resource\s+"aws_cognito_user_pool_client"\s+"([^"]+)"\s*\{')
 _KEY_ASSIGN = re.compile(r"([A-Za-z_][A-Za-z0-9_]*)\s*=")
-_ATTR_REF = re.compile(r"\.([A-Za-z_][A-Za-z0-9_]*)")
+_REF_CHAIN = re.compile(
+    r"\b(?:"
+    r"aws_[A-Za-z0-9_]+(?:\.[A-Za-z_][A-Za-z0-9_]*)+"
+    r"|var\.[A-Za-z_][A-Za-z0-9_]*"
+    r"|local\.[A-Za-z_][A-Za-z0-9_]*"
+    r"|data\.[A-Za-z_][A-Za-z0-9_]*(?:\.[A-Za-z_][A-Za-z0-9_]*)+"
+    r")"
+)
 _SENSITIVE_TRUE = re.compile(r"(?m)^\s*sensitive\s*=\s*true\b")
 _GENERATE_SECRET_TRUE = re.compile(r"(?m)^\s*generate_secret\s*=\s*true\b")
 
@@ -91,6 +100,19 @@ def _matching_brace(text: str, start: int) -> int:
     raise ValueError("unbalanced {")
 
 
+def _without_strings(text: str) -> str:
+    out: list[str] = []
+    i = 0
+    while i < len(text):
+        if text[i] in ("'", '"'):
+            i = _skip_string(text, i)
+            out.append(" ")
+            continue
+        out.append(text[i])
+        i += 1
+    return "".join(out)
+
+
 def _named_blocks(hcl: str, head: re.Pattern[str]) -> dict[str, str]:
     found: dict[str, str] = {}
     for match in head.finditer(hcl):
@@ -115,10 +137,11 @@ def value_expression(block: str) -> str:
     return block[match.end() :].rstrip().removesuffix("}").strip()
 
 
-def object_keys(value_expr: str) -> set[str]:
-    keys: set[str] = set()
+def object_key_paths(value_expr: str) -> set[str]:
+    """Dotted paths for every object key, including parent objects."""
+    paths: set[str] = set()
 
-    def walk(start: int) -> None:
+    def walk(start: int, prefix: str) -> None:
         end = _matching_brace(value_expr, start)
         body = value_expr[start + 1 : end]
         depth = 0
@@ -128,8 +151,6 @@ def object_keys(value_expr: str) -> set[str]:
                 j = _skip_string(body, j)
                 continue
             if body[j] == "{":
-                if depth == 0:
-                    walk(start + 1 + j)
                 depth += 1
                 j += 1
                 continue
@@ -140,8 +161,15 @@ def object_keys(value_expr: str) -> set[str]:
             if depth == 0:
                 assign = _KEY_ASSIGN.match(body, j)
                 if assign:
-                    keys.add(assign.group(1))
+                    name = assign.group(1)
+                    path = f"{prefix}.{name}" if prefix else name
+                    paths.add(path)
                     j = assign.end()
+                    k = j
+                    while k < len(body) and body[k] in " \t\n":
+                        k += 1
+                    if k < len(body) and body[k] == "{":
+                        walk(start + 1 + k, path)
                     continue
             j += 1
 
@@ -152,15 +180,27 @@ def object_keys(value_expr: str) -> set[str]:
             i = _skip_string(value_expr, i)
             continue
         if ch == "{":
-            walk(i)
+            walk(i, "")
             i = _matching_brace(value_expr, i) + 1
             continue
         i += 1
-    return keys
+    return paths
 
 
-def referenced_attributes(value_expr: str) -> set[str]:
-    return set(_ATTR_REF.findall(value_expr))
+def referenced_resource_attributes(value_expr: str) -> set[str]:
+    """Last identifier of each resource/var/local/data reference, not strings."""
+    attrs: set[str] = set()
+    for match in _REF_CHAIN.finditer(_without_strings(value_expr)):
+        attrs.add(match.group(0).rsplit(".", 1)[-1].split("[", 1)[0])
+    return attrs
+
+
+def key_names(paths: set[str]) -> set[str]:
+    names: set[str] = set()
+    for path in paths:
+        names.add(path)
+        names.update(path.split("."))
+    return names
 
 
 def secret_hits(names: set[str]) -> set[str]:
@@ -172,8 +212,8 @@ def check_outputs_public(hcl: str) -> list[str]:
     violations: list[str] = []
     blocks = output_blocks(hcl)
     allowlists = {
-        _CLIENT_OUTPUT: _CLIENT_CONFIGURATION_KEYS,
-        _DEV_OUTPUT: _DEV_CLIENT_CONFIGURATION_KEYS,
+        _CLIENT_OUTPUT: _CLIENT_CONFIGURATION_PATHS,
+        _DEV_OUTPUT: _DEV_CLIENT_CONFIGURATION_PATHS,
     }
     for name, allow in allowlists.items():
         if name not in blocks:
@@ -183,12 +223,15 @@ def check_outputs_public(hcl: str) -> list[str]:
         if _SENSITIVE_TRUE.search(block):
             violations.append(f"{name}: sensitive = true")
         expr = value_expression(block)
-        keys = object_keys(expr)
-        if keys != allow:
+        paths = object_key_paths(expr)
+        if paths != allow:
+            extra = sorted(paths - allow)
+            missing = sorted(allow - paths)
             violations.append(
-                f"{name}: keys {sorted(keys)} != allowlist {sorted(allow)}"
+                f"{name}: key paths {sorted(paths)} != allowlist "
+                f"(extra={extra} missing={missing})"
             )
-        hits = secret_hits(keys | referenced_attributes(expr))
+        hits = secret_hits(key_names(paths) | referenced_resource_attributes(expr))
         if hits:
             violations.append(f"{name}: secret-pattern names {sorted(hits)}")
     return violations
@@ -227,7 +270,17 @@ class ClientConfigOutputsPublicTests(unittest.TestCase):
 output "client_configuration" {
   sensitive = true
   value = {
-    client_secret = aws_cognito_user_pool_client.web.client_secret
+    apiBaseUrl = aws_apigatewayv2_api.http.api_endpoint
+    cognito = {
+      region              = var.aws_region
+      client_secret       = aws_cognito_user_pool_client.web.client_secret
+      unexpectedNested    = aws_cognito_identity_provider.google.provider_details
+    }
+    storage = {
+      uploadsBucket    = aws_s3_bucket.uploads.bucket
+      accessLevel      = "private"
+      keyPrefixPattern = "private/{identityId}/"
+    }
   }
 }
 
@@ -248,7 +301,20 @@ output "dev_client_configuration" {
             any("client_secret" in item for item in violations),
             violations,
         )
+        self.assertTrue(
+            any("cognito.unexpectedNested" in item for item in violations),
+            violations,
+        )
+        self.assertTrue(
+            any("provider_details" in item for item in violations),
+            violations,
+        )
         self.assertIn(_CLIENT_OUTPUT, joined)
+        # String literals must not trip the secret pattern.
+        self.assertFalse(
+            any("accessLevel" in item and "secret-pattern" in item for item in violations),
+            violations,
+        )
 
     def test_synthetic_generate_secret_true_is_caught(self):
         synthetic = """
