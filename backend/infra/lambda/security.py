@@ -53,9 +53,11 @@ def allow_dev_override() -> bool:
     """Unsigned tokens / test identity / demo fixtures.
 
     Fail closed. Terraform sets ``FORGE_ALLOW_DEV_OVERRIDE`` from the explicit
-    allowlist (dev, local, sandbox). When that flag is present it wins, so a
-    deployed stack named beta / testflight / prd / test cannot accept a
-    forged identity.
+    allowlist (dev, local, sandbox). A truthy flag counts only when
+    ``environment()`` is a non-empty name in ``_DEV_LIKE`` — beta /
+    testflight / prd / an unset ENVIRONMENT cannot be opened by flipping
+    the flag. ``_DEV_LIKE`` includes the empty string for the local-test
+    fallback only; an empty name is not a truthy-flag grant.
 
     When the flag is missing or unrecognized: a Lambda runtime
     (``AWS_LAMBDA_FUNCTION_NAME`` set) fails closed. Local / unit-test
@@ -68,7 +70,8 @@ def allow_dev_override() -> bool:
     if flag in _FALSY:
         return False
     if flag in _TRUTHY:
-        return True
+        env = environment()
+        return bool(env) and env in _DEV_LIKE
     if _running_in_lambda():
         return False
     return environment() in _DEV_LIKE or bool(os.getenv("FORGE_ALLOW_TEST_USER"))
@@ -90,7 +93,8 @@ def demo_data_enabled() -> bool:
 
     A deployed Lambda is fail-closed: missing or unrecognized
     FORGE_ALLOW_DEV_OVERRIDE disables fixtures even if ENVIRONMENT looks
-    "non-prod". Terraform still sets the flag only for {dev, local, sandbox}.
+    "non-prod". A truthy flag still requires a non-empty ``_DEV_LIKE``
+    name. Terraform sets the flag only for {dev, local, sandbox}.
     Local / unit-test processes that omit the flag keep the historical
     ENVIRONMENT list, and ``FORGE_DEMO_DATA`` can force either way only when
     the override is still allowed.

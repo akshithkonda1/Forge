@@ -123,8 +123,42 @@ class LambdaDevOverrideFailClosedTests(unittest.TestCase):
     def test_lambda_explicit_flag_true_accepts_dev_override_token(self):
         os.environ["ENVIRONMENT"] = "dev"
         os.environ["FORGE_ALLOW_DEV_OVERRIDE"] = "true"
+        self.assertTrue(allow_dev_override())
+        self.assertTrue(demo_data_enabled())
         response = self._get_dashboard_with_override_token()
         self.assertEqual(response["statusCode"], 200)
+
+    def test_lambda_sandbox_flag_true_accepts_dev_override_token(self):
+        os.environ["ENVIRONMENT"] = "sandbox"
+        os.environ["FORGE_ALLOW_DEV_OVERRIDE"] = "true"
+        self.assertTrue(allow_dev_override())
+        self.assertTrue(demo_data_enabled())
+        response = self._get_dashboard_with_override_token()
+        self.assertEqual(response["statusCode"], 200)
+
+    def test_lambda_beta_flag_true_still_rejects_dev_override_token(self):
+        os.environ["ENVIRONMENT"] = "beta"
+        os.environ["FORGE_ALLOW_DEV_OVERRIDE"] = "true"
+        self.assertFalse(allow_dev_override())
+        self.assertFalse(demo_data_enabled())
+        response = self._get_dashboard_with_override_token()
+        self.assertEqual(response["statusCode"], 401)
+
+    def test_lambda_testflight_flag_true_still_rejects_dev_override_token(self):
+        os.environ["ENVIRONMENT"] = "testflight"
+        os.environ["FORGE_ALLOW_DEV_OVERRIDE"] = "true"
+        self.assertFalse(allow_dev_override())
+        self.assertFalse(demo_data_enabled())
+        response = self._get_dashboard_with_override_token()
+        self.assertEqual(response["statusCode"], 401)
+
+    def test_lambda_unset_environment_flag_true_still_rejects_dev_override_token(self):
+        os.environ.pop("ENVIRONMENT", None)
+        os.environ["FORGE_ALLOW_DEV_OVERRIDE"] = "true"
+        self.assertFalse(allow_dev_override())
+        self.assertFalse(demo_data_enabled())
+        response = self._get_dashboard_with_override_token()
+        self.assertEqual(response["statusCode"], 401)
 
     def test_lambda_test_user_flag_does_not_open_override_when_dev_flag_unset(self):
         os.environ["ENVIRONMENT"] = "beta"
