@@ -1976,157 +1976,52 @@ def _orchestration_latency_ms(message: str, seed: int, worker_count: int) -> int
 
 # Sentinel so a failed / empty lookup (None) is still a cached turn result.
 _WEB_NOTE_UNSET = object()
-# Same untrusted-page medical drop as #369 ``web_ingest.scrub_untrusted_page_text``.
-_UNTRUSTED_MEDICAL = re.compile(
-    r"(?i)\b(?:cure[sd]?|treats?|diagnos\w*)\b|\bstudies\s+prove\b"
-)
-_UNTRUSTED_SENTENCE = re.compile(r"(?<=[.!?])\s+|\n+")
-_UNTRUSTED_ASSISTANT = re.compile(
-    r"(?i)^\s*(?:"
-    r"ignore\s+(all\s+)?(previous|prior|above)"
-    r"|you\s+are\b"
-    r"|assistant\s*:"
-    r"|system\s*:"
-    r")"
-)
-_FROM_LABEL = re.compile(r"(From\s+[^:]+:)\s*(.*)", re.I | re.S)
+# Main ``speak_quality.medical_hits`` does not fire on "this cures insomnia".
+_LOCAL_CURE_CLAIM = re.compile(r"(?i)\bthis cures\b")
 
 
-def _sanitize_untrusted_web_note(text: str) -> str:
-    """#369 untrusted-input rule before a reused cite is spoken or stored.
+def _sanitize_reused_web_note(text: str) -> str:
+    """Reuse-path cite: main vitals/medical scrub, plus a local cure-claim drop.
 
-    ``sanitize_user_text`` + vault/memory scrub, then drop medical-claim,
-    assistant-addressed, and vitals sentences. Keep a leading ``From …:``
-    label so retry still has a source citation.
+    # TODO: fold into #369 untrusted-input sanitizer
     """
-    raw = str(text or "").strip()
-    if not raw:
-        return ""
-    try:
-        from backend._paths import ensure_lambda_on_path
-
-        ensure_lambda_on_path()
-        from security import MAX_CHAT_MESSAGE_CHARS, sanitize_user_text
-
-        raw = sanitize_user_text(raw, max_chars=MAX_CHAT_MESSAGE_CHARS)
-        try:
-            from routes.aria import sanitize_user_memory_text
-
-            raw = sanitize_user_memory_text(raw)
-        except Exception:
-            pass
-        try:
-            from services import web_ingest
-
-            label_match = _FROM_LABEL.match(raw)
-            label = label_match.group(1) if label_match else ""
-            body = label_match.group(2) if label_match else raw
-            scrubbed = web_ingest.scrub_untrusted_page_text(body or raw)
-            if label:
-                return f"{label} {scrubbed}".strip() if scrubbed else label
-            return scrubbed
-        except Exception:
-            pass
-    except Exception:
-        pass
-    label_match = _FROM_LABEL.match(raw)
-    label = label_match.group(1) if label_match else ""
-    body = label_match.group(2) if label_match else raw
-    parts = [p.strip() for p in _UNTRUSTED_SENTENCE.split(body) if p.strip()] or ([body] if body else [])
-    kept: list[str] = []
-    for part in parts:
-        if _UNTRUSTED_ASSISTANT.search(part):
-            continue
-        try:
-            from security import looks_like_prompt_injection
-
-            if looks_like_prompt_injection(part):
-                continue
-        except Exception:
-            pass
-        if _UNTRUSTED_MEDICAL.search(part):
-            continue
-        cleaned = _scrub_speak_vitals(part)
-        if not cleaned or _dumps_user_speak(cleaned):
-            continue
-        kept.append(cleaned)
-    scrubbed = " ".join(kept).strip()
-    if label:
-        return f"{label} {scrubbed}".strip() if scrubbed else label
-    return scrubbed
-
-
-def _untrusted_web_claim_hits(text: str) -> bool:
-    return bool(_UNTRUSTED_MEDICAL.search(str(text or "")))
+    raw = _scrub_speak_vitals(text)
+    raw = _LOCAL_CURE_CLAIM.sub("", raw)
+    raw = re.sub(r"\s+", " ", raw).strip(" .")
+    if raw and _dumps_user_speak(raw):
+        label = re.match(r"(From\s+[^:]+:)", raw, re.I)
+        return label.group(1) if label else ""
+    return raw
 
 
 def _turn_speak_rejected(row: dict) -> bool:
-    """Speak-fail plus a leftover #369 untrusted claim from this turn's web note."""
+    """Speak-fail, or a leftover local cure-claim from this turn's web note."""
     if speak_quality.speak_failures(row):
         return True
     raw = getattr(respond, "_turn_web_note", _WEB_NOTE_UNSET)
-    if raw is _WEB_NOTE_UNSET or not raw or not _untrusted_web_claim_hits(str(raw)):
+    if raw is _WEB_NOTE_UNSET or not raw or not _LOCAL_CURE_CLAIM.search(str(raw)):
         return False
-    blob = speak_quality.user_visible_blob(row).lower()
-    for part in _UNTRUSTED_SENTENCE.split(str(raw)):
-        part = part.strip()
-        if part and _untrusted_web_claim_hits(part) and part.lower().rstrip(".") in blob:
-            return True
-    return False
+    return bool(_LOCAL_CURE_CLAIM.search(speak_quality.user_visible_blob(row)))
 
 
 def _web_note_for_turn(kind: str) -> tuple[str | None, bool]:
     """Fetch at most once per user turn. Prompt-guard retry reuses the cite.
 
     First attempt returns the raw lookup (vitals-scrubbed at the attach site).
-    Reuse runs the #369 untrusted sanitizer — retry only rephrases; it must
-    not re-fetch, and a rejected medical claim must not come back.
+    Reuse runs the main Dummy speak scrub plus a local cure-claim drop.
     """
     cached = getattr(respond, "_turn_web_note", _WEB_NOTE_UNSET)
     if cached is not _WEB_NOTE_UNSET:
         if not cached:
             return None, True
-        return _sanitize_untrusted_web_note(str(cached)), True
+        return _sanitize_reused_web_note(str(cached)), True
     note = web_research.look_up(kind)
     respond._turn_web_note = note
     return note, False
 
 
-def _persist_accepted_web_note() -> None:
-    """#369 persistMemory path: one STM write after the accepted reply only."""
-    if getattr(respond, "_turn_web_persisted", False):
-        return
-    raw = getattr(respond, "_turn_web_note", _WEB_NOTE_UNSET)
-    if raw is _WEB_NOTE_UNSET or not raw:
-        return
-    note = _sanitize_untrusted_web_note(str(raw))
-    if not note or _untrusted_web_claim_hits(note):
-        respond._turn_web_persisted = True
-        return
-    try:
-        from backend._paths import ensure_lambda_on_path
-
-        ensure_lambda_on_path()
-        from services.aria_context import CoachContextEngine
-
-        CoachContextEngine().remember_short_term(
-            "test-user-00000000",
-            note,
-            source="web",
-            category="note",
-        )
-    except Exception:
-        pass
-    respond._turn_web_persisted = True
-
-
 def _checked_dummy_turn(produce, prompt_guard):
-    """Replay the turn. Speak-fail and the prompt guard run on every attempt.
-
-    A medical/untrusted cite rejects the first draft and regenerates. The
-    retry reuses the cached lookup after the #369 sanitizer. Persist only
-    once the final reply is accepted — never the rejected claim.
-    """
+    """Replay the turn. Speak-fail and the prompt guard run on every attempt."""
     first = produce()
     first_rejected = _turn_speak_rejected(first)
     if prompt_guard.honesty_score(first) < prompt_guard.FLOOR and not first_rejected:
@@ -2135,7 +2030,6 @@ def _checked_dummy_turn(produce, prompt_guard):
         second = produce()
         if _turn_speak_rejected(second) or prompt_guard.honesty_score(second) < prompt_guard.FLOOR:
             return prompt_guard.estimate(first, second, reason="speak")
-        _persist_accepted_web_note()
         return second
     second = produce()
     if _turn_speak_rejected(second) or not prompt_guard.passes(first, second):
@@ -2143,13 +2037,11 @@ def _checked_dummy_turn(produce, prompt_guard):
             "honesty" if prompt_guard.honesty_score(second) < prompt_guard.FLOOR else "determinism"
         )
         return prompt_guard.estimate(first, second, reason=reason)
-    _persist_accepted_web_note()
     return first
 
 
 def _reset_turn_web_note() -> None:
     respond._turn_web_note = _WEB_NOTE_UNSET
-    respond._turn_web_persisted = False
 
 
 def _context_for_turn(
@@ -2332,8 +2224,8 @@ def respond(
                 if safe_note and safe_note not in chat:
                     chat = f"{chat} ({safe_note.rstrip('.')})"
     draft = {"prose_summary": prose, "message": chat}
-    # Keep a rejected first draft dirty so speak-fail / untrusted-claim can
-    # fire. Retry already ran the #369 sanitizer — apply the usual speak guard.
+    # Keep a rejected first draft dirty so speak-fail / a leftover cure-claim
+    # can fire. Retry already ran ``_sanitize_reused_web_note``.
     if reused or not _turn_speak_rejected(draft):
         prose = _speak_without_vitals(prose)
         chat = _speak_without_vitals(chat, prose)
@@ -2419,10 +2311,7 @@ def respond(
             }
         )
         row["orchestration"] = orch
-    row = _attach_swarm(row, ctx)
-    if not getattr(respond, "_replaying", False) and not _turn_speak_rejected(row):
-        _persist_accepted_web_note()
-    return row
+    return _attach_swarm(row, ctx)
 
 
 class DummyARIAEngine:

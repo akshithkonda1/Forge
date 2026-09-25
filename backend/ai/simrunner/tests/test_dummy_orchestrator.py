@@ -998,14 +998,8 @@ class WebLookupOncePerTurn(unittest.TestCase):
 
         rejected = "this cures insomnia"
         dirty = f"From Some Source: real info. {rejected}."
-        remembered: list[str] = []
-
-        def fake_remember(self, user_id, text, **kwargs):
-            remembered.append(text)
-            return None
-
         with patch.object(web_research, "look_up", return_value=dirty) as look:
-            with patch.object(CoachContextEngine, "remember_short_term", fake_remember):
+            with patch.object(CoachContextEngine, "remember_short_term") as remember:
                 row = dummy.respond(
                     "how do I improve my workout routine?",
                     seed=1,
@@ -1013,16 +1007,13 @@ class WebLookupOncePerTurn(unittest.TestCase):
                 )
 
         look.assert_called_once_with("workout")
+        remember.assert_not_called()
         blob = speak_quality.user_visible_blob(row)
         self.assertNotIn(rejected, blob.lower())
         self.assertNotIn("cures insomnia", blob.lower())
         self.assertEqual(speak_quality.speak_failures(row), [])
         self.assertIn("From Some Source", blob)
         self.assertNotEqual((row.get("guard") or {}).get("mode"), "estimate")
-        self.assertLessEqual(len(remembered), 1)
-        for text in remembered:
-            self.assertNotIn(rejected, text.lower())
-            self.assertNotIn("cures insomnia", text.lower())
 
     def test_prompt_guard_regenerate_reuses_a_scrubbed_note_without_refetch(self):
         dirty = "From MedlinePlus: Exercise Stress Test / VO2: tissues need oxygen."
