@@ -1707,10 +1707,12 @@ def stamp_living_context(ctx: Any, living: Any) -> Any:
     from . import state_read
 
     insights = state_read.reject_memory_items(
-        getattr(living, "last_insights", None) or []
+        getattr(living, "last_insights", None) or [],
+        from_reply=True,
     )
     patterns = state_read.reject_memory_items(
-        getattr(living, "recent_patterns", None) or []
+        getattr(living, "recent_patterns", None) or [],
+        from_reply=False,
     )
     goals = list(getattr(living, "current_goals", None) or [])
     constraints = list(getattr(living, "constraints", None) or [])

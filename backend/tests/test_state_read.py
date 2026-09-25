@@ -366,24 +366,61 @@ class AttachAndPathTests(unittest.TestCase):
         before_patterns = list(ctx.lifestyle.recent_patterns)
         before_block = aria_engine._memory_block_from_ctx(ctx)
         resp = aria_engine.generate_response("Should I train today?", ctx, seed=0)
-        self.assertTrue(_read_hits(_speech(resp)))
+        speech = _speech(resp)
+        self.assertTrue(_read_hits(speech), speech)
         self.assertEqual(list(ctx.lifestyle.recent_patterns), before_patterns)
         self.assertEqual(aria_engine._memory_block_from_ctx(ctx), before_block)
         self.assertEqual(state_read.reject_memory_items(ctx.lifestyle.recent_patterns), before_patterns)
 
-    def test_fuse_turn_and_stamp_drop_a_state_read_from_memory(self):
+    def test_joined_read_sentence_does_not_write_memory(self):
+        """A turn that speaks a joined read must not land in patterns / the block."""
+        patterns = ["late_caffeine"]
+        insight = "keep Friday nights free"
+        ctx = _health_ctx(lifestyle=LifestyleContext(recent_patterns=list(patterns)))
+        ctx.last_insights = [insight]
+        before_patterns = list(ctx.lifestyle.recent_patterns)
+        before_insights = list(ctx.last_insights)
+        before_block = aria_engine._memory_block_from_ctx(ctx)
+        resp = aria_engine.generate_response("Should I train today?", ctx, seed=0)
+        speech = _speech(resp)
+        self.assertTrue(_read_hits(speech), speech)
+        self.assertRegex(speech, r"(?i)short night,\s+so\s+")
+        self.assertEqual(list(ctx.lifestyle.recent_patterns), before_patterns)
+        self.assertEqual(list(ctx.last_insights), before_insights)
+        self.assertEqual(aria_engine._memory_block_from_ctx(ctx), before_block)
+
+        # The chat route saves the first prose_summary sentence via add_insight
+        # (routes/aria.py). Next-turn stamp must strip the clause, not the user note.
+        takeaway = str(resp.get("prose_summary") or "").split(".")[0].strip()
+        self.assertRegex(takeaway, r"(?i)short night")
+        living = type("Living", (), {})()
+        living.last_insights = [takeaway]
+        living.recent_patterns = list(before_patterns)
+        living.current_goals = []
+        living.constraints = []
+        living.supervision_plan = None
+        from aria_core import contextual_learner
+
+        stamped = contextual_learner.stamp_living_context(
+            _health_ctx(lifestyle=LifestyleContext(recent_patterns=list(before_patterns))),
+            living,
+        )
+        blob = " ".join(stamped.last_insights).lower()
+        self.assertNotIn("short night", blob, stamped.last_insights)
+        self.assertEqual(list(stamped.lifestyle.recent_patterns), before_patterns)
+        block = aria_engine._memory_block_from_ctx(stamped)
+        self.assertNotIn("short night", block.lower(), block)
+
+    def test_user_vault_note_matching_a_phrase_survives(self):
         from aria_core import contextual_learner, fusion
         from services.aria_engine import DataPermissions
 
-        phrase = state_read.SHORT_NIGHT[0]
+        note = "lighter week than usual"
+        self.assertIn(note, state_read.phrase_bank())
+        self.assertFalse(state_read.is_state_read_memory(note))
         payload = {
             "context": {
-                "sleep": {
-                    "durationMinutes": 300,
-                    "baselineMedianMinutes": 450,
-                    "nightsAvailable": 7,
-                },
-                "lifestyle": {"recentPatterns": [phrase, "late_caffeine"]},
+                "lifestyle": {"recentPatterns": [note, "late_caffeine"]},
             }
         }
         fused = fusion.fuse_turn(
@@ -394,11 +431,52 @@ class AttachAndPathTests(unittest.TestCase):
             include_stored=False,
             load_learner=False,
         )
-        self.assertNotIn(phrase, fused.context.lifestyle.recent_patterns)
+        self.assertIn(note, fused.context.lifestyle.recent_patterns)
         self.assertIn("late_caffeine", fused.context.lifestyle.recent_patterns)
 
         living = type("Living", (), {})()
-        living.last_insights = [phrase]
+        living.last_insights = ["keep Friday nights free"]
+        living.recent_patterns = [note]
+        living.current_goals = []
+        living.constraints = []
+        living.supervision_plan = None
+        stamped = contextual_learner.stamp_living_context(
+            _health_ctx(lifestyle=LifestyleContext(recent_patterns=[])),
+            living,
+        )
+        self.assertIn(note, stamped.lifestyle.recent_patterns)
+
+    def test_fuse_turn_and_stamp_drop_a_state_read_from_memory(self):
+        from aria_core import contextual_learner, fusion
+        from services.aria_engine import DataPermissions
+
+        phrase = state_read.SHORT_NIGHT[0]
+        joined = f"{phrase}, so keep it easy."
+        payload = {
+            "context": {
+                "sleep": {
+                    "durationMinutes": 300,
+                    "baselineMedianMinutes": 450,
+                    "nightsAvailable": 7,
+                },
+                "lifestyle": {"recentPatterns": [joined, "late_caffeine"]},
+            }
+        }
+        fused = fusion.fuse_turn(
+            "test-user-00000000",
+            payload,
+            DataPermissions.allow_all(),
+            persist=False,
+            include_stored=False,
+            load_learner=False,
+        )
+        self.assertFalse(
+            any(phrase in p.lower() for p in fused.context.lifestyle.recent_patterns)
+        )
+        self.assertIn("late_caffeine", fused.context.lifestyle.recent_patterns)
+
+        living = type("Living", (), {})()
+        living.last_insights = [joined, phrase]
         living.recent_patterns = [phrase, "late_caffeine"]
         living.current_goals = []
         living.constraints = []
@@ -407,8 +485,11 @@ class AttachAndPathTests(unittest.TestCase):
             _health_ctx(lifestyle=LifestyleContext(recent_patterns=["late_caffeine"])),
             living,
         )
-        self.assertNotIn(phrase, stamped.lifestyle.recent_patterns)
-        self.assertNotIn(phrase, stamped.last_insights)
+        # Bare phrase in recentPatterns is a user note — keep it.
+        self.assertIn(phrase, stamped.lifestyle.recent_patterns)
+        self.assertIn("late_caffeine", stamped.lifestyle.recent_patterns)
+        insight_blob = " ".join(stamped.last_insights).lower()
+        self.assertNotIn(phrase, insight_blob, stamped.last_insights)
 
     def test_combined_speech_still_passes_vitals_scrub(self):
         ctx = _health_ctx()
