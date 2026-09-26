@@ -91,6 +91,29 @@ _ZERO_HOURS_RE = re.compile(
 _MULTI_SPACE = re.compile(r"\s{2,}")
 _SENTENCE_SPLIT = re.compile(r"(?<=[.!?])\s+")
 _CLAUSE_SPLIT = re.compile(r"(\s*[—–;]\s*)")
+# Structured-message headers that become "Why." / "Timing." when the body
+# is stripped. Never leave a bare label in spoken text.
+_SECTION_LABELS = (
+    "What I notice",
+    "One next step",
+    "Why",
+    "Timing",
+    "Rationale",
+    "Expected effect",
+)
+_BARE_LABEL = re.compile(
+    r"(?i)(?:^|(?<=[.!?]\s))(?:"
+    + "|".join(re.escape(label) for label in _SECTION_LABELS)
+    + r")\s*\.(?=\s|$)"
+)
+_INLINE_SECTION = re.compile(
+    r"(?i)(?:^|(?<=\n)|(?<=[.!?]\s))Why(?:\s*[.:])?(?=\s|$)"
+)
+_TRAILING_LABEL = re.compile(
+    r"(?i)(?:^|[\s.])(?:"
+    + "|".join(re.escape(label) for label in _SECTION_LABELS)
+    + r")\s*[.:]?\s*$"
+)
 
 
 def user_visible(row: dict[str, Any] | None) -> str:
@@ -177,7 +200,9 @@ def guard_speak(
     cleaned = _rewrite_zero_hours(raw)
     cleaned = _strip_denied(cleaned, _deny_phrases())
     cleaned = _strip_memory(cleaned, notes, original=raw)
+    cleaned = _strip_bare_labels(cleaned)
     cleaned = _dedupe_fragments(cleaned)
+    cleaned = _strip_bare_labels(cleaned)
     cleaned = _tidy(cleaned)
     if _lost_its_step(raw, cleaned):
         step = _sized_step(card, stance=stance, topic=topic)
@@ -458,12 +483,57 @@ def _join_with_step(cleaned: str, step: str) -> str:
     step = (step or "").strip()
     if step and step[-1] not in ".!?":
         step += "."
-    cleaned = (cleaned or "").rstrip()
+    cleaned = _TRAILING_LABEL.sub("", (cleaned or "")).rstrip(" \t,;:—–-.")
+    cleaned = _strip_bare_labels(cleaned).rstrip()
     if not cleaned:
         return step
     if cleaned[-1] not in ".!?":
         return f"{cleaned}. {step}"
     return f"{cleaned} {step}"
+
+
+def _strip_bare_labels(text: str) -> str:
+    """Drop leftover section headers ('Why.', 'Timing.') after a body strip."""
+    out = _INLINE_SECTION.sub(" ", str(text or ""))
+    out = _BARE_LABEL.sub(" ", out)
+    out = _TRAILING_LABEL.sub("", out)
+    return _MULTI_SPACE.sub(" ", out).strip()
+
+
+def _is_state_read_sentence(text: str) -> bool:
+    """True when a sentence is a baseline state-read (not a host notice)."""
+    try:
+        from . import state_read
+
+        return bool(state_read._already_has_read(text))
+    except Exception:
+        return False
+
+
+def dedupe_envelope_speech(envelope: dict[str, Any]) -> dict[str, Any]:
+    """A read sentence must not appear twice across prose + message."""
+    prose = _dedupe_fragments(str(envelope.get("prose_summary") or ""))
+    chat = str(envelope.get("message") or "")
+    prose_keys = {
+        _norm(part) for part in _SENTENCE_SPLIT.split(prose) if part.strip()
+    }
+    kept: list[str] = []
+    for part in _SENTENCE_SPLIT.split(chat):
+        sentence = part.strip()
+        if not sentence:
+            continue
+        key = _norm(sentence)
+        # Host notices ("You're primed") can live on both fields; only a
+        # duplicate *state read* should be stripped from the chat bubble.
+        if key and key in prose_keys and _is_state_read_sentence(sentence):
+            continue
+        kept.append(sentence)
+    chat = _dedupe_fragments(" ".join(kept)) if kept else ""
+    if prose:
+        envelope["prose_summary"] = prose
+    if "message" in envelope:
+        envelope["message"] = chat or prose
+    return envelope
 
 
 def _has_banned_vitals(text: str) -> bool:
@@ -589,10 +659,17 @@ def _tidy(text: str) -> str:
     return cleaned
 
 
+# Internal labels that must never reach speech, even after they leave
+# card.evidence (Nyx #375 treats "usable picture is still thin" as a leak).
+_MUST_DENY = (
+    "Usable picture is still thin",
+)
+
+
 @lru_cache(maxsize=1)
 def _deny_phrases() -> tuple[str, ...]:
     here = Path(__file__).resolve().parent
-    phrases: list[str] = []
+    phrases: list[str] = list(_MUST_DENY)
     phrases.extend(_literals_from_functions(here / "context_plan.py", {"_advice", "_guide"}))
     phrases.extend(_why_literals(here / "aria_evidence.py"))
     # Longest first so a long guide swallows its shorter prefix.

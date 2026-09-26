@@ -1707,11 +1707,12 @@ def stamp_living_context(ctx: Any, living: Any) -> Any:
     from . import state_read
 
     insights = state_read.reject_memory_items(
-        getattr(living, "last_insights", None) or []
+        getattr(living, "last_insights", None) or [],
+        from_reply=True,
     )
-    patterns = state_read.reject_memory_items(
-        getattr(living, "recent_patterns", None) or []
-    )
+    # recentPatterns is user/client authored — never strip phrase-bank
+    # fragments out of a vault note.
+    patterns = list(getattr(living, "recent_patterns", None) or [])
     goals = list(getattr(living, "current_goals", None) or [])
     constraints = list(getattr(living, "constraints", None) or [])
     try:
@@ -1728,9 +1729,7 @@ def stamp_living_context(ctx: Any, living: Any) -> Any:
             pass
     lifestyle = getattr(ctx, "lifestyle", None)
     if lifestyle is not None:
-        existing_p = state_read.reject_memory_items(
-            getattr(lifestyle, "recent_patterns", None) or []
-        )
+        existing_p = list(getattr(lifestyle, "recent_patterns", None) or [])
         existing_g = list(getattr(lifestyle, "goals", None) or [])
         for item in patterns:
             if item not in existing_p:

@@ -358,7 +358,7 @@ class ARIAEngine:
     def _recovery_rec(self, rng, arch: ma.ModelArchetype) -> str:
         if ma.prefer_specific(rng, arch):
             return (
-                "Keep it easy today — Zone 2 cardio 20–30 min or mobility, "
+                "Keep it easy today, an easy, chatty-pace zone 2 walk or mobility, "
                 "no high-intensity work. Reassess tomorrow."
             )
         return "Keep it easy today — light movement only, no high-intensity work. Reassess tomorrow."

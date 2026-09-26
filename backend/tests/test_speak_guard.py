@@ -373,5 +373,18 @@ class LivePathGuardTests(unittest.TestCase):
         self.assertNotIn(os.environ.get("ARIA_BEDROCK_ENABLED", "").lower(), {"1", "true", "yes"})
 
 
+class BareLabelLeakTests(unittest.TestCase):
+    def test_join_with_step_does_not_emit_bare_why(self):
+        spoken = speak_guard._join_with_step(
+            "a personal short night. Why",
+            "Sync HealthKit",
+        )
+        self.assertNotRegex(spoken, r"(?i)\bWhy\.")
+        self.assertRegex(spoken, r"(?i)sync healthkit")
+        guarded = speak_guard.guard_speak("personal short night. Why. Timing.")
+        self.assertNotRegex(guarded, r"(?i)\bWhy\.")
+        self.assertNotRegex(guarded, r"(?i)\bTiming\.")
+
+
 if __name__ == "__main__":
     unittest.main()

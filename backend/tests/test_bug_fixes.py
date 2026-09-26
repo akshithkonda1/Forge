@@ -6,6 +6,7 @@ the subsystem the defect lived in.
 
 import json
 import os
+import re
 import sys
 import unittest
 from datetime import datetime, timezone
@@ -58,15 +59,21 @@ class SleepDurationThresholdTests(unittest.TestCase):
             duration_minutes=390, efficiency=0.95, rem_minutes=95,
             deep_minutes=95, hrv=58, resting_hr=52, nights_available=14)))
         self.assertIsNotNone(sig)
-        self.assertIn("7 h floor", sig.interpretation)
+        self.assertRegex(sig.interpretation, r"short night")
         self.assertEqual(sig.direction, "negative")
+        short_bits = [
+            b for b in sig.interpretation.split(";") if "short night" in b.lower()
+        ]
+        self.assertTrue(short_bits)
+        for bit in short_bits:
+            self.assertIsNone(re.search(r"\d", bit), bit)
 
     def test_eight_hours_is_not_flagged_for_duration(self):
         sig = _interpret_sleep(_ctx(sleep=SleepContext(
             duration_minutes=480, efficiency=0.95, rem_minutes=110,
             deep_minutes=110, hrv=58, resting_hr=52, nights_available=14)))
         self.assertIsNotNone(sig)
-        self.assertNotIn("7 h floor", sig.interpretation)
+        self.assertNotRegex(sig.interpretation, r"short night")
 
 
 class PersonalSleepBandTests(unittest.TestCase):
@@ -81,7 +88,12 @@ class PersonalSleepBandTests(unittest.TestCase):
             baseline_median_minutes=390, baseline_mad_minutes=20)))
         self.assertIsNotNone(sig)
         self.assertIn("short for you", sig.interpretation)
-        self.assertIn("personal low", sig.interpretation)
+        short_bits = [
+            b for b in sig.interpretation.split(";") if "short for you" in b.lower()
+        ]
+        self.assertTrue(short_bits)
+        for bit in short_bits:
+            self.assertIsNone(re.search(r"\d", bit), bit)
         self.assertNotIn("7 h floor", sig.interpretation)
         self.assertEqual(sig.direction, "negative")
         self.assertEqual(sig.baseline_kind, "personal")
@@ -93,7 +105,7 @@ class PersonalSleepBandTests(unittest.TestCase):
             baseline_median_minutes=390, baseline_mad_minutes=20)))
         self.assertIsNotNone(sig)
         self.assertIn("around your usual", sig.interpretation)
-        self.assertNotIn("7 h floor", sig.interpretation)
+        self.assertNotRegex(sig.interpretation, r"short night")
         self.assertNotEqual(sig.direction, "negative")
 
     def test_having_a_baseline_does_not_force_a_good_night_negative(self):
@@ -102,7 +114,7 @@ class PersonalSleepBandTests(unittest.TestCase):
             deep_minutes=110, hrv=58, resting_hr=52, nights_available=14,
             baseline_median_minutes=450, baseline_mad_minutes=20)))
         self.assertIsNotNone(sig)
-        self.assertNotIn("7 h floor", sig.interpretation)
+        self.assertNotRegex(sig.interpretation, r"short night")
         self.assertNotEqual(sig.direction, "negative")
         self.assertEqual(sig.baseline_kind, "personal")
 

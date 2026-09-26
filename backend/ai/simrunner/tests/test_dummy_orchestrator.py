@@ -861,7 +861,7 @@ class DummyOrchestratorTests(unittest.TestCase):
             self.assertEqual(speak_quality.bark_hits(spoken), [])
 
     def test_friend_speak_short_ok_appends_wit_to_fused_notices(self):
-        short = "Keep today low-intensity — Zone 2 cardio or mobility, not a hard session"
+        short = "Keep today low-intensity, an easy, chatty-pace zone 2 walk or mobility, not a hard session"
         self.assertLess(len(short.split()), 28)
         spoken = dummy.friend_speak(short, seed=2, stance="protect")
         extra = dummy._wit_line(2, "protect")

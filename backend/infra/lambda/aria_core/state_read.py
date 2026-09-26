@@ -27,8 +27,8 @@ _HRV_UP = 5.0
 # Phrase bank. No digits, units, or clinical tokens. Positive reads included.
 SHORT_NIGHT = (
     "short night",
-    "a bit under your usual",
     "lighter night than your usual",
+    "a shorter night than your usual",
 )
 BETTER_NIGHT = (
     "better night than your usual",
@@ -203,6 +203,21 @@ def apply_to_envelope(
         target_key, target = "prose_summary", action
     else:
         return envelope
+    # Keep a host notice that has no step of its own (e.g. "You're primed")
+    # so the read+step cannot replace the line the person should hear.
+    host = ""
+    for candidate in (prose, chat):
+        if (
+            candidate
+            and not _has_step(candidate)
+            and candidate.lower() not in target.lower()
+        ):
+            host = candidate
+            break
+    if host:
+        if host[-1] not in ".!?":
+            host = f"{host}."
+        target = f"{host} {target}"
     ack = _should_ack(message, kind, direction)
     clean_clause = speak_guard.rescrub_speak(clause)
     if not clean_clause or clean_clause != clause:
@@ -222,21 +237,17 @@ def apply_to_envelope(
 
 
 def drop_from_memory(ctx: Any) -> Any:
-    """Strip phrase-bank clauses out of recentPatterns / insights if they landed."""
+    """Strip state-read clauses that came from ARIA's own reply.
+
+    ``last_insights`` is ARIA-told (``routes/aria.py`` ``add_insight`` of the
+    first ``prose_summary`` sentence). ``recentPatterns`` is user/client
+    authored — no path writes ARIA's reply there, so leave it untouched.
+    """
     if ctx is None:
         return ctx
-    lifestyle = getattr(ctx, "lifestyle", None)
-    if lifestyle is not None:
-        patterns = list(getattr(lifestyle, "recent_patterns", None) or [])
-        filtered = reject_memory_items(patterns)
-        if filtered != patterns:
-            try:
-                lifestyle.recent_patterns = filtered
-            except Exception:
-                pass
     insights = getattr(ctx, "last_insights", None)
     if insights:
-        filtered = reject_memory_items(list(insights))
+        filtered = reject_memory_items(list(insights), from_reply=True)
         if filtered != list(insights):
             try:
                 ctx.last_insights = filtered
@@ -245,25 +256,91 @@ def drop_from_memory(ctx: Any) -> Any:
     return ctx
 
 
-def reject_memory_items(items: Iterable[str]) -> list[str]:
-    """Keep stored notes that are not a state-read clause (or a yeah-ack of one)."""
+def reject_memory_items(
+    items: Iterable[str], *, from_reply: bool = False
+) -> list[str]:
+    """Keep user notes; strip a state-read clause out of ARIA-reply items."""
     kept: list[str] = []
     for raw in items:
         text = str(raw or "").strip()
-        if text and not is_state_read_memory(text):
+        if not text:
+            continue
+        if not is_state_read_memory(text, from_reply=from_reply):
             kept.append(text)
+            continue
+        cleaned = strip_state_read_clause(text)
+        if cleaned:
+            kept.append(cleaned)
     return kept
 
 
-def is_state_read_memory(text: str) -> bool:
-    low = (text or "").strip().lower().rstrip(".!")
+def is_state_read_memory(text: str, *, from_reply: bool = False) -> bool:
+    """True only for items that originated as ARIA's spoken reply.
+
+    A user vault note that exactly matches a phrase (``lighter week than
+    usual``) is not ARIA memory. ``from_reply=True`` is last_insights —
+    the add_insight takeaway path. Without that flag, only a joined or
+    yeah-ack sentence (substring, not exact-phrase-only) counts.
+    """
+    raw = (text or "").strip()
+    if not raw:
+        return False
+    if from_reply:
+        return _clause_in_text(raw) is not None
+    return _looks_like_reply_read(raw)
+
+
+def strip_state_read_clause(text: str) -> str:
+    """Remove a phrase-bank clause from an ARIA-reply sentence; keep the rest."""
+    raw = (text or "").strip()
+    if not raw:
+        return ""
+    parts = [s.strip() for s in _SENTENCE_SPLIT.split(raw) if s.strip()]
+    kept = [_strip_clause_from_sentence(part) for part in parts]
+    return " ".join(part for part in kept if part)
+
+
+def _clause_in_text(text: str) -> str | None:
+    low = (text or "").strip().lower()
+    if not low:
+        return None
+    for phrase in _PHRASES_LONGEST:
+        if phrase in low:
+            return phrase
+    return None
+
+
+def _looks_like_reply_read(text: str) -> bool:
+    """Joined ``{read}, so {step}`` / ``Yeah, {read}`` — not a bare phrase."""
+    low = (text or "").strip().lower()
     if not low:
         return False
-    if low.startswith("yeah, "):
-        low = low[6:].strip()
-    elif low.startswith("yeah "):
-        low = low[5:].strip()
-    return low in _PHRASE_SET
+    if low.startswith("yeah,") or low.startswith("yeah "):
+        return _clause_in_text(low) is not None
+    if _clause_in_text(low) is None:
+        return False
+    leftover = _strip_clause_from_sentence(text)
+    return bool(leftover)
+
+
+def _strip_clause_from_sentence(sent: str) -> str:
+    phrase = _clause_in_text(sent)
+    if not phrase:
+        return (sent or "").strip()
+    leftover = re.sub(
+        rf"(?:yeah,\s+|yeah\s+)?{re.escape(phrase)}",
+        "",
+        sent,
+        count=1,
+        flags=re.I,
+    )
+    leftover = re.sub(r"^\s*,\s*so\s+", "", leftover, flags=re.I)
+    leftover = re.sub(r"^\s*so\s+", "", leftover, flags=re.I)
+    leftover = re.sub(r"^\s*still,\s+", "", leftover, flags=re.I)
+    leftover = leftover.strip(" \t,;—!.")
+    if not leftover:
+        return ""
+    return _sentence_case(leftover)
 
 
 def _select(ctx: Any, seed: int) -> tuple[str, str, str] | None:
@@ -355,12 +432,26 @@ def _pick(seed: int, options: tuple[str, ...]) -> str:
 
 def _has_step(text: str) -> bool:
     low = (text or "").lower()
-    return any(cue in low for cue in speak_guard._STEP_CUES)
+    if any(cue in low for cue in speak_guard._STEP_CUES):
+        return True
+    # Neutral sizing asks (no easy/push cue) are still a next step.
+    return "sync healthkit" in low or "size today" in low
+
+
+_READ_ALIASES = (
+    "personal short night",
+    "short for you",
+    "around your usual",
+    "below your usual",
+    "a short night",
+)
 
 
 def _already_has_read(text: str) -> bool:
     low = (text or "").lower()
-    return any(phrase in low for phrase in _PHRASE_SET)
+    if any(phrase in low for phrase in _PHRASE_SET):
+        return True
+    return any(alias in low for alias in _READ_ALIASES)
 
 
 def _user_sleep_dir(message: str) -> str | None:
@@ -436,6 +527,16 @@ def _aligned(direction: str, step_text: str) -> bool:
     return read_way != "neutral" and read_way == step_way
 
 
+def _opposite(direction: str, step_text: str) -> bool:
+    read_way = _read_polarity(direction)
+    step_way = _step_polarity(step_text)
+    return (
+        read_way != "neutral"
+        and step_way != "neutral"
+        and read_way != step_way
+    )
+
+
 def _has_multiday_streak(ctx: Any, *, train: str | None = None) -> bool:
     """True only with a real multi-day pattern, not one near-usual night."""
     if train == "steady":
@@ -468,9 +569,11 @@ def _join_read(speech: str, clause: str, *, ack: bool, direction: str = "") -> s
         if _aligned(direction, sentence):
             rest = _de_sentence_case(sentence)
             parts[i] = f"{lead}, so {rest}"
+        elif _opposite(direction, sentence):
+            # Only 'Still,' when read and step point opposite ways.
+            parts[i] = f"{lead}. Still, {_de_sentence_case(sentence)}"
         else:
-            # Good-news read + lighter step (or any mismatch) is not a 'so'.
-            parts[i] = f"{lead}. Still, {_sentence_case(sentence)}"
+            parts[i] = f"{lead}. {_sentence_case(sentence)}"
         return " ".join(parts)
     return speech
 
@@ -515,4 +618,5 @@ def _assert_bank_clean() -> None:
 
 
 _PHRASE_SET = frozenset(p.lower() for p in PHRASE_BANK)
+_PHRASES_LONGEST = tuple(sorted(_PHRASE_SET, key=len, reverse=True))
 _assert_bank_clean()

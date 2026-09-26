@@ -62,6 +62,9 @@ EFFICIENCY_REF = 0.85        # below this we flag fragmented sleep
 
 # Minimum nights of sleep history required to speak about a personal baseline.
 MIN_SLEEP_BASELINE_NIGHTS = 3
+# Minutes below usual before a night is "short". Equal / near-usual (same
+# 7.3 h after rounding) must never be called short.
+SLEEP_SHORT_MARGIN_MIN = 30.0
 
 # Habit tags (`habit:<id>:<domain>:<score>`) can flag multi-night variance even
 # when last night looks fine. Cap so the live overlay treats them as uncertain.
@@ -1350,45 +1353,55 @@ def _interpret_sleep(ctx: ARIAContext, baselines: Any = None) -> Signal | None:
         direction = "negative"
         priority = "high"
 
-    duration_floor = usual_hours if usual_hours is not None else 7.0
     used_personal_mad = (
         s.baseline_median_minutes is not None
         and s.baseline_mad_minutes is not None
         and s.baseline_mad_minutes > 1e-9
     )
+    margin_h = SLEEP_SHORT_MARGIN_MIN / 60.0
     if used_personal_mad:
         mad = s.baseline_mad_minutes
         # 1.4826*MAD ≈ sigma; use 2 sigma as personal low band (≈ 95% interval)
         personal_low = s.baseline_median_minutes - 2 * 1.4826 * mad
         usual = s.baseline_median_minutes / 60
-        if s.duration_minutes < personal_low:
-            interp_bits.append(
-                f"{hours:.1f} h is below your usual {usual:.1f} h "
-                f"(personal low ~{personal_low / 60:.1f} h) — short for you"
-            )
+        delta_min = s.baseline_median_minutes - s.duration_minutes
+        # Equal / near-usual (same 7.3 h after rounding) is never short,
+        # even when a tiny MAD puts personal_low on top of tonight.
+        if (
+            s.duration_minutes < personal_low
+            and delta_min >= SLEEP_SHORT_MARGIN_MIN
+        ):
+            interp_bits.append("short for you")
             direction = "negative"
             priority = "high"
-        elif s.duration_minutes >= s.baseline_median_minutes - mad:
-            interp_bits.append(f"{hours:.1f} h is around your usual {usual:.1f} h")
+        elif s.duration_minutes >= s.baseline_median_minutes - max(mad, SLEEP_SHORT_MARGIN_MIN):
+            interp_bits.append("around your usual")
             if direction == "neutral":
                 direction = "positive"
-        interp_bits = [b for b in interp_bits if "below the 7 h floor" not in b]
+        interp_bits = [b for b in interp_bits if "7 h floor" not in b]
         baseline_note = (
             f"vs your usual {usual:.1f} h (personal baseline, n={s.nights_available or '?'})"
         )
         kind = "personal"
     else:
-        if hours < duration_floor:
-            if usual_hours is not None:
-                interp_bits.append(
-                    f"{hours:.1f} h is below your usual {usual_hours:.1f} h — a personal short night"
-                )
-            else:
-                interp_bits.append(f"{hours:.1f} h is below the 7 h floor for cognitive recovery")
+        if usual_hours is not None:
+            if hours + 1e-9 < usual_hours - margin_h:
+                interp_bits.append("below your usual")
+                direction = "negative"
+                priority = "high"
+            elif abs(hours - usual_hours) <= margin_h:
+                interp_bits.append("around your usual")
+                if direction == "neutral":
+                    direction = "positive"
+            elif hours >= max(usual_hours + 0.5, 7.5) and direction == "neutral":
+                interp_bits.append("a solid night")
+                direction = "positive"
+        elif hours < 7.0:
+            interp_bits.append("a short night — below a full night for recovery")
             direction = "negative"
             priority = "high"
-        elif hours >= max(duration_floor + 0.5, 7.5) and direction == "neutral":
-            interp_bits.append(f"{hours:.1f} h is solid duration")
+        elif hours >= 7.5 and direction == "neutral":
+            interp_bits.append("a solid night")
             direction = "positive"
         if personal_sleep:
             baseline_note = (
@@ -2092,8 +2105,14 @@ def _structured_message(notice: str, next_step: str, why: str | None = None) -> 
     labeled sections instead of a metric dump. ARIA is a lifestyle coach, not a
     clinician — this states what it notices and one concrete next step, with an
     optional brief why. The card still carries the precise numbers for clients
-    that render it. Voice mode bypasses this (``_envelope`` speaks the prose)."""
-    sections = [f"What I notice\n{notice.strip()}", f"One next step\n{next_step.strip()}"]
+    that render it. Voice mode bypasses this (``_envelope`` speaks the prose).
+    Empty bodies are omitted so a stripped why cannot leave a bare ``Why.``.
+    """
+    sections: list[str] = []
+    if notice and notice.strip():
+        sections.append(f"What I notice\n{notice.strip()}")
+    if next_step and next_step.strip():
+        sections.append(f"One next step\n{next_step.strip()}")
     if why and why.strip():
         sections.append(f"Why\n{why.strip()}")
     return "\n\n".join(sections)
@@ -2135,7 +2154,7 @@ _SLEEP_STAGE_PCT = re.compile(
     re.I,
 )
 _VITALS_SPEAK = re.compile(
-    r"\b(hrv|bpm|ms|mmhg|vo2|spo2|recovery score|sleep[- ]?debt)\b"
+    r"\b(hrv|bpm|ms|mmhg|vo2|spo2|acwr|recovery score|sleep[- ]?debt)\b"
     r"|%\s*(?:below|above|under|over)\s+baseline"
     # Sleep-stage % leftovers _interpret_sleep still emits; strip at speak.
     r"|\b(?:deep|rem|light)\s+sleep\s+at\s+\d+(?:\.\d+)?\s*%"
@@ -2336,6 +2355,12 @@ def _recommendation_response(
         reason = f"{reason} (diverge)" if reason else "signals diverge (diverge)"
 
     action = pattern.next_step
+    # Brief writer notes may size the spoken/card step; they must not live on
+    # pattern.next_step (that dict is card.evidence).
+    if brief is not None:
+        move = str(getattr(brief, "one_next_move", "") or "").strip()
+        if move:
+            action = move
     timing = pattern.why
     if ctx.chronotype.typical_sleep_onset and pattern.blocks_intensity:
         timing = f"{timing}; protect your {ctx.chronotype.typical_sleep_onset} wind-down tonight"
@@ -2858,6 +2883,7 @@ def _finish_spoken_envelope(
     # phrase gets replaced by card.why (often an ACWR dump). Dummy then drops
     # every candidate and lands on _SPEAK_FALLBACK. Put a real step back.
     envelope = _apply_protect_day_step(envelope, turn)
+    envelope = speak_guard.dedupe_envelope_speech(envelope)
     blob = speak_guard.user_visible(envelope)
     envelope["confidence"] = speak_guard.cap_contradiction_confidence(
         blob,
@@ -3255,6 +3281,7 @@ def generate_response_live(
         seed=state_read.turn_seed(sanitized, message, seed),
         message=message,
     )
+    merged = speak_guard.dedupe_envelope_speech(merged)
     merged["confidence"] = speak_guard.cap_contradiction_confidence(
         speak_guard.user_visible(merged),
         merged.get("confidence"),
