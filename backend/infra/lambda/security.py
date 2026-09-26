@@ -25,6 +25,22 @@ MAX_CHAT_MESSAGE_CHARS = 4_000
 MAX_ARCHETYPE_DESCRIPTION_CHARS = 2_000
 MAX_USER_ID_CHARS = 128
 
+# Inventory for the upcoming monthly AI quota. No quota helper yet — do not
+# invent a counter here. Add a route when it becomes a counted/paid call.
+PAID_AI_ROUTES = frozenset(
+    {
+        "/ai/chat",
+        "/ai/archetype",
+        "/ai/router",
+        "/ai/voice/tool",
+        "/ai/voice/design",
+        "/ai/weekly-review",
+        "/ai/observe",
+        "/ingest/url",
+        "/v1/ingest/url",
+    }
+)
+
 _TRUTHY = frozenset({"1", "true", "yes", "on"})
 _FALSY = frozenset({"0", "false", "no", "off"})
 

@@ -602,3 +602,111 @@ export interface DailyStoryInsight {
   domain: string; // "aging" | "readiness" | "activity" | "sleep"
   evidence: string;
 }
+
+// ---------------------------------------------------------------------------
+// Web ingestion (POST /ingest/url; future POST /v1/ingest/url). Issue #365.
+// Server-side HTTPS fetch + readable-text / schema.org JSON-LD extract.
+// Output is a typed sidecar for ARIA — never a biometric or clinical row.
+// Keep in sync with services/web_ingest.py and routes/ingest.py.
+// ---------------------------------------------------------------------------
+
+export type WebIngestKind =
+  | "recipe"
+  | "exercise-plan"
+  | "how-to"
+  | "article"
+  | "generic";
+
+export interface IngestUrlRequest {
+  url: string;
+  /** When true, persist a sanitized short-term memory note if Rowan allows. */
+  persistMemory?: boolean;
+}
+
+export interface RecipeExtract {
+  kind: "recipe";
+  name: string;
+  description?: string | null;
+  ingredients: string[];
+  instructions: string[];
+  prepTime?: string | null;
+  cookTime?: string | null;
+  totalTime?: string | null;
+  recipeYield?: string | null;
+  nutrition?: Record<string, string> | null;
+}
+
+export interface ExercisePlanExtract {
+  kind: "exercise-plan";
+  name: string;
+  description?: string | null;
+  activityDuration?: string | null;
+  exerciseType?: string | null;
+  intensity?: string | null;
+  workPattern?: string | null;
+  additionalVariable?: string | null;
+}
+
+export interface HowToStep {
+  name?: string;
+  text: string;
+}
+
+export interface HowToExtract {
+  kind: "how-to";
+  name: string;
+  description?: string | null;
+  steps: HowToStep[];
+  totalTime?: string | null;
+  supply: string[];
+  tool: string[];
+}
+
+export interface ArticleExtract {
+  kind: "article";
+  headline: string;
+  description?: string | null;
+  author?: string | null;
+  text: string;
+}
+
+export interface GenericExtract {
+  kind: "generic";
+  title: string;
+  text: string;
+}
+
+export type WebIngestExtract =
+  | RecipeExtract
+  | ExercisePlanExtract
+  | HowToExtract
+  | ArticleExtract
+  | GenericExtract;
+
+export interface WebIngestAriaFeed {
+  domain: AriaDataDomain;
+  summary: string;
+  facts: string[];
+  /** Required. Callers must not fold this into measured AriaContext fields. */
+  untrusted: true;
+  sourceUrl: string;
+}
+
+export interface WebIngestMemoryCandidate {
+  text: string;
+  category: string;
+  folder: string;
+  persisted: boolean;
+}
+
+export interface IngestUrlResponse {
+  url: string;
+  finalUrl: string;
+  title: string;
+  kind: WebIngestKind;
+  extract: WebIngestExtract;
+  readableText: string;
+  schemaTypes: string[];
+  ariaFeed: WebIngestAriaFeed;
+  memoryCandidate: WebIngestMemoryCandidate;
+}
