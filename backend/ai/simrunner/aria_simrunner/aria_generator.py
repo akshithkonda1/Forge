@@ -43,11 +43,3 @@ QUERY_BANK: dict[str, list[str]] = {
 
 def get_queries_for_tier(tier: int) -> list[str]:
     return list(QUERY_BANK.get(f"tier_{tier}", []))
-
-
-def get_all_queries() -> list[tuple[int, str]]:
-    pairs: list[tuple[int, str]] = []
-    for tier in range(1, 6):
-        for query in get_queries_for_tier(tier):
-            pairs.append((tier, query))
-    return pairs
