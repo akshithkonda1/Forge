@@ -230,8 +230,12 @@ def detect_pattern(
                 score=1.35 + (0.15 if derived.is_overtrained else 0.0),
                 stance="protect",
                 notice=(
-                    f"Workload is running hot (ACWR {acwr_txt}"
-                    f"{', overtraining risk' if derived.is_overtrained else ''}) — "
+                    # User-visible: no raw "ACWR 1.51" — the vitals scrub bans the
+                    # jargon, but the safety gate requires the risk itself to be
+                    # spoken. "Workload is running hot" + "overtraining risk"
+                    # satisfies both.
+                    f"Workload is running hot"
+                    f"{', overtraining risk' if derived.is_overtrained else ''} — "
                     f"fatigue is stacking."
                 ),
                 next_step=learned

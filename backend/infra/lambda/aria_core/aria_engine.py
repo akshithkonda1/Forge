@@ -2525,6 +2525,13 @@ def _summary_response(
         rec = f"Next block: bias toward your {goal} goal — {_GOAL_FOCUS[goal]}."
 
     prose = f"Last 30 days: {headline}. {win}"
+    if pattern.blocks_intensity:
+        # A blocking pattern (overreaching, sleep debt, low readiness) is safety-critical:
+        # its notice must be spoken, not just carded. The notice carries the directional
+        # signal ("Workload is running hot", "11.7h short...") the safety gate requires
+        # in the user-visible text. Without this, the overtraining notice lives only in
+        # card["risk"], which the spoken/chat surface never reads.
+        prose = f"{prose} {risk}"
     card = None if voice_mode else {
         "period_days": 30,
         "headline": headline,
