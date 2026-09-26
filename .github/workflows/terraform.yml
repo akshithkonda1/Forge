@@ -1,8 +1,9 @@
 name: 'Terraform'
 
-# Checks (fmt / validate / plan with -backend=false) run on every branch and every
-# pull request. The live apply is gated separately inside the terraform-apply job,
-# so widening this trigger does not widen who can deploy.
+# Plan-only on every push and pull request that touches this workflow or
+# backend/infra. A live apply never runs from those events.
+# Apply is workflow_dispatch + run_apply=true only, in terraform-apply, after
+# the plan jobs and after GitHub Environment terraform-prod approval.
 on:
   push:
     paths:
@@ -21,11 +22,12 @@ on:
 
 permissions:
   contents: read
-  id-token: write
 
+# Plan runs on the same ref cancel each other. An in-progress apply uses its
+# own group and is never cancelled (see terraform-apply.concurrency).
 concurrency:
-  group: terraform-${{ github.ref }}
-  cancel-in-progress: true
+  group: terraform-${{ github.ref }}-${{ github.event_name == 'workflow_dispatch' && inputs.run_apply && 'apply' || 'plan' }}
+  cancel-in-progress: ${{ !(github.event_name == 'workflow_dispatch' && inputs.run_apply) }}
 
 env:
   AWS_REGION: us-east-1
@@ -59,8 +61,19 @@ jobs:
         with:
           terraform_version: 1.15.0
 
+      # Force a local backend so plan stays green both before and after #371
+      # adds backend/infra/backend.tf (backend "s3" {} with bucket/key omitted).
+      # Without this, `init -backend=false` then `plan` fails with
+      # "Backend initialization required". *_override.tf is gitignored.
+      # Plan jobs never touch AWS (metadata disabled, provider checks skipped).
+      # One-line `terraform { backend "local" {} }` is invalid HCL in 1.15.0
+      # (nested backend block cannot share the terraform {} line).
+      - name: Local backend override for CI plan
+        run: |
+          printf '%s\n' 'terraform {' '  backend "local" {}' '}' > ci_backend_override.tf
+
       - name: Terraform Init
-        run: terraform init -backend=false -input=false -lockfile=readonly -no-color
+        run: terraform init -input=false -lockfile=readonly -no-color
 
       - name: Terraform Format
         run: terraform fmt -check -diff -recursive -no-color
@@ -71,11 +84,12 @@ jobs:
       - name: Terraform Plan
         run: terraform plan -input=false -no-color
 
-  terraform-apply:
-    name: 'Terraform Apply'
-    needs: terraform-checks
-    if: needs.terraform-checks.result == 'success'
+  terraform-prod-plan:
+    name: 'Terraform Plan (prod)'
     runs-on: ubuntu-latest
+    env:
+      AWS_EC2_METADATA_DISABLED: "true"
+      TF_VAR_skip_aws_provider_checks: "true"
 
     defaults:
       run:
@@ -91,29 +105,78 @@ jobs:
         with:
           terraform_version: 1.15.0
 
-      # Gated on `main`, which is the branch that actually exists.
-      #
-      # This previously gated on refs/heads/claude/forge-fitness-frontend-TwlOQ,
-      # a scaffold branch long since deleted, so the condition could never be
-      # true: this step never ran, the apply step below depends on its outcome,
-      # and Terraform has therefore never deployed from CI at all. Every run
-      # quietly took the plan-only path and reported success.
-      #
-      # What this now does on a push to main: apply to the environment named by
-      # TF_VAR_environment at the top of this file, which is `dev`. Still doubly
-      # gated — `continue-on-error` here means an environment with no AWS
-      # secrets configured skips the apply and falls through to plan validation
-      # rather than failing. Pull requests never apply.
-      #
-      # Before pointing this at production, change TF_VAR_environment to "prod"
-      # deliberately: it decides whether the API accepts unsigned dev-override
-      # tokens and whether seeded demo data stands in for real health metrics.
+      # Same local override as terraform-checks. See that job for why.
+      - name: Local backend override for CI plan
+        run: |
+          printf '%s\n' 'terraform {' '  backend "local" {}' '}' > ci_backend_override.tf
+
+      - name: Terraform Init
+        run: terraform init -input=false -lockfile=readonly -no-color
+
+      - name: Terraform Plan (prod)
+        run: terraform plan -input=false -no-color -var-file=prod.tfvars
+
+  # Applies TF_VAR_environment=dev (workflow env) despite the terraform-prod
+  # environment gate. Switching to prod.tfvars plus a saved plan is a separate
+  # later change after #371.
+  terraform-apply:
+    name: 'Terraform Apply (dev, approval-gated)'
+    needs: [terraform-checks, terraform-prod-plan]
+    if: github.event_name == 'workflow_dispatch' && inputs.run_apply == true
+    environment: terraform-prod
+    runs-on: ubuntu-latest
+    # Two applies must not overlap. Never cancel an apply that has started.
+    concurrency:
+      group: terraform-apply-prod
+      cancel-in-progress: false
+    permissions:
+      contents: read
+      id-token: write
+
+    defaults:
+      run:
+        shell: bash
+        working-directory: ${{ env.TF_WORKING_DIR }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      # Refuse apply when the only backend would be local state on this runner.
+      # Ephemeral runner disks are discarded after the job, so the next apply
+      # would not see existing resources and would create duplicates.
+      # Checks backend.tf and versions.tf only (not *_override.tf). Ignores
+      # comments and does not treat backend "local" as remote.
+      - name: Refuse apply without a remote backend
+        run: |
+          found=0
+          for f in backend.tf versions.tf; do
+            [ -f "$f" ] || continue
+            if grep -E '^[[:space:]]*backend[[:space:]]+"' "$f" \
+              | grep -vE '^[[:space:]]*backend[[:space:]]+"local"' >/dev/null; then
+              found=1
+              break
+            fi
+          done
+          if [ "$found" -eq 0 ]; then
+            echo '::error::No remote backend block found in backend/infra/backend.tf or backend/infra/versions.tf (expected in backend/infra/versions.tf). Refusing apply: ephemeral local state on a runner would create duplicate resources. Commented lines and backend "local" do not count.'
+            exit 1
+          fi
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@dfe3c3f87815947d99a8997f908cb6525fc44e9e # v4
+        with:
+          terraform_version: 1.15.0
+
+      - name: Require AWS credentials
+        run: |
+          if [ -z "${{ secrets.AWS_ROLE_ARN }}" ] && { [ -z "${{ secrets.AWS_ACCESS_KEY_ID }}" ] || [ -z "${{ secrets.AWS_SECRET_ACCESS_KEY }}" ]; }; then
+            echo '::error::AWS credentials are missing. Configure AWS_ROLE_ARN (OIDC) or AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY before requesting an apply.'
+            exit 1
+          fi
+
       - name: Configure AWS credentials
         id: aws-creds
-        if: >-
-          (github.event_name == 'push' && github.ref == 'refs/heads/main')
-          || (github.event_name == 'workflow_dispatch' && inputs.run_apply == true)
-        continue-on-error: true
         uses: aws-actions/configure-aws-credentials@cbe3b392738ccf3f987d68400dafcf4b0624a56c # v4
         with:
           aws-region: ${{ env.AWS_REGION }}
@@ -122,34 +185,52 @@ jobs:
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-session-token: ${{ secrets.AWS_SESSION_TOKEN }}
 
+      - name: Credentials failed
+        if: always() && steps.aws-creds.outcome == 'failure'
+        run: |
+          echo '::error::AWS credentials failed. Apply cannot continue without working credentials.'
+          exit 1
+
+      - name: Require remote state bucket and backend config
+        env:
+          TF_STATE_BUCKET: ${{ vars.TF_STATE_BUCKET }}
+        run: |
+          if [ -z "${TF_STATE_BUCKET}" ]; then
+            echo '::error::Repository variable TF_STATE_BUCKET is empty. Set it to the S3 Terraform state bucket before apply. Never hardcode a bucket.'
+            exit 1
+          fi
+          if [ ! -f backend/dev.s3.tfbackend ]; then
+            echo '::error::backend/infra/backend/dev.s3.tfbackend is missing. Apply needs this file plus TF_STATE_BUCKET.'
+            exit 1
+          fi
+
       - name: Terraform Init (deploy)
-        if: steps.aws-creds.outcome == 'success'
-        run: terraform init -input=false -no-color
+        env:
+          TF_STATE_BUCKET: ${{ vars.TF_STATE_BUCKET }}
+        run: terraform init -input=false -no-color -backend-config=backend/dev.s3.tfbackend -backend-config=bucket=${TF_STATE_BUCKET}
 
       - name: Terraform Apply (deploy)
-        if: >-
-          steps.aws-creds.outcome == 'success'
-          && (
-            (github.event_name == 'push' && github.ref == 'refs/heads/main')
-            || (github.event_name == 'workflow_dispatch' && inputs.run_apply == true)
-          )
         env:
           AWS_EC2_METADATA_DISABLED: "true"
           TF_VAR_skip_aws_provider_checks: "false"
         run: terraform apply -auto-approve -input=false -no-color
 
-      - name: Terraform Plan (apply validation)
-        if: >-
-          github.event_name == 'pull_request'
-          || steps.aws-creds.outcome != 'success'
-        env:
-          AWS_EC2_METADATA_DISABLED: "true"
-          TF_VAR_skip_aws_provider_checks: "true"
+      # Named outputs only. Never `terraform output` or `terraform output -json`
+      # (no name): state holds identity-provider secrets. These two outputs
+      # exist only after #371.
+      - name: Write client configuration outputs
+        if: success()
         run: |
-          terraform init -backend=false -input=false -lockfile=readonly -no-color
-          terraform plan -input=false -no-color
-          if [ "${{ github.event_name }}" = "pull_request" ]; then
-            echo "Apply validated for PR — live deploy runs after merge when AWS credentials are configured."
-          else
-            echo "Skipped live apply because AWS credentials are not configured."
-          fi
+          terraform output -json client_configuration > client_configuration.json
+          terraform output -json dev_client_configuration > dev_client_configuration.json
+
+      - name: Upload client configuration
+        if: success()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: client-configuration
+          path: |
+            backend/infra/client_configuration.json
+            backend/infra/dev_client_configuration.json
+          if-no-files-found: error
+          retention-days: 7
