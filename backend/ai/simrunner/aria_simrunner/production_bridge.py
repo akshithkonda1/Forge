@@ -38,7 +38,9 @@ Two structural gaps are real, not smoothed over:
 
 from __future__ import annotations
 
+import os
 import time
+from datetime import date, datetime
 from typing import TYPE_CHECKING, Any
 
 from ..backend_simulator.data_generator import ARIAContext as SimContext
@@ -64,6 +66,95 @@ def _chronotype_times(chrono: str) -> tuple[str | None, str | None]:
         return None, None
     onset = (wake - sleep_hours) % 24
     return _clock(onset), _clock(wake)
+
+
+def _as_datetime(value: Any) -> datetime | None:
+    """Best-effort parse of a workout/now timestamp. None when nothing usable."""
+    if value is None:
+        return None
+    if isinstance(value, datetime):
+        return value.replace(tzinfo=None)
+    if isinstance(value, date):
+        return datetime(value.year, value.month, value.day, 12, 0, 0)
+    if isinstance(value, (int, float)) and not isinstance(value, bool):
+        try:
+            return datetime.utcfromtimestamp(float(value))
+        except (OverflowError, OSError, ValueError):
+            return None
+    text = str(value).strip()
+    if not text:
+        return None
+    text = text.replace("Z", "")
+    for fmt in ("%Y-%m-%dT%H:%M:%S.%f", "%Y-%m-%dT%H:%M:%S", "%Y-%m-%d %H:%M:%S", "%Y-%m-%d"):
+        try:
+            return datetime.strptime(text[:26], fmt)
+        except ValueError:
+            continue
+    try:
+        return datetime.fromisoformat(text)
+    except ValueError:
+        return None
+
+
+def _context_now(ctx: Any) -> datetime:
+    """Simulated 'now' so same-day hours are not measured against the wall clock."""
+    for name in ("now", "as_of", "reference_now"):
+        parsed = _as_datetime(getattr(ctx, name, None))
+        if parsed is not None:
+            return parsed
+    today = getattr(getattr(ctx, "today", None), "date", None) or os.getenv("SIMRUNNER_TODAY")
+    pinned = _as_datetime(today)
+    if pinned is not None:
+        wall = datetime.now()
+        return pinned.replace(hour=wall.hour, minute=wall.minute, second=wall.second, microsecond=0)
+    return datetime.now()
+
+
+def _timestamp_candidates(ctx: Any) -> list[Any]:
+    today = getattr(ctx, "today", None)
+    names = (
+        "last_workout_ended_at",
+        "last_workout_at",
+        "workout_ended_at",
+        "workout_at",
+        "last_workout_timestamp",
+    )
+    found: list[Any] = []
+    for obj in (ctx, today):
+        if obj is None:
+            continue
+        for name in names:
+            value = getattr(obj, name, None)
+            if value is not None:
+                found.append(value)
+    return found
+
+
+def hours_since_last_workout(ctx: Any) -> float | None:
+    """Hours since the last session.
+
+    Same-day used to be ``days_since * 24`` → ``0``, which the engine phrased
+    as ``0 h since``. Prefer real hours from timestamps when present; otherwise
+    return ``0.0`` for a same-day workout so the recovery window stays open and
+    speak can say ``earlier today`` instead of ``0 h since``.
+    """
+    days = getattr(ctx, "days_since_last_workout", None)
+    today = getattr(ctx, "today", None)
+    same_day = days == 0 or bool(getattr(today, "workout_logged", False))
+    now = _context_now(ctx)
+    for raw in _timestamp_candidates(ctx):
+        ended = _as_datetime(raw)
+        if ended is None:
+            continue
+        hours = (now - ended).total_seconds() / 3600.0
+        if hours < 0:
+            continue
+        return round(hours, 2)
+    if same_day:
+        return 0.0
+    if isinstance(days, (int, float)) and not isinstance(days, bool):
+        return float(days) * 24.0
+    return None
 
 
 def to_production_context(ctx: SimContext) -> "ProdContext":
@@ -109,7 +200,7 @@ def to_production_context(ctx: SimContext) -> "ProdContext":
         ),
         training=prod.TrainingContext(
             last_workout_type=ctx.last_workout_type,
-            hours_since_last_workout=float(ctx.days_since_last_workout * 24),
+            hours_since_last_workout=hours_since_last_workout(ctx),
             acwr=t.acwr,
             is_overtrained=ctx.is_overtrained,
         ),
@@ -144,7 +235,9 @@ def from_production_envelope(
     """
     prose = str(envelope.get("prose_summary") or envelope.get("message") or "")
     card = envelope.get("card")
-    recommendation = card.get("action") if isinstance(card, dict) else None
+    recommendation = envelope.get("recommendation")
+    if not recommendation and isinstance(card, dict):
+        recommendation = card.get("action") or card.get("recommendation")
 
     confidence = envelope.get("confidence")
     try:
@@ -152,6 +245,19 @@ def from_production_envelope(
     except (TypeError, ValueError):
         confidence = 0.5
     confidence = max(0.0, min(1.0, confidence))
+    try:
+        from backend._paths import ensure_lambda_on_path
+
+        ensure_lambda_on_path()
+        from aria_core import speak_guard
+
+        blob = f"{prose} {recommendation or ''}"
+        hours = hours_since_last_workout(context) if context is not None else None
+        confidence = speak_guard.cap_contradiction_confidence(
+            blob, confidence, hours_since=hours
+        )
+    except Exception:
+        pass
 
     return ARIAResponse(
         prose_summary=prose,

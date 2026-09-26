@@ -62,6 +62,9 @@ EFFICIENCY_REF = 0.85        # below this we flag fragmented sleep
 
 # Minimum nights of sleep history required to speak about a personal baseline.
 MIN_SLEEP_BASELINE_NIGHTS = 3
+# Minutes below usual before a night is "short". Equal / near-usual (same
+# 7.3 h after rounding) must never be called short.
+SLEEP_SHORT_MARGIN_MIN = 30.0
 
 # Habit tags (`habit:<id>:<domain>:<score>`) can flag multi-night variance even
 # when last night looks fine. Cap so the live overlay treats them as uncertain.
@@ -1350,45 +1353,55 @@ def _interpret_sleep(ctx: ARIAContext, baselines: Any = None) -> Signal | None:
         direction = "negative"
         priority = "high"
 
-    duration_floor = usual_hours if usual_hours is not None else 7.0
     used_personal_mad = (
         s.baseline_median_minutes is not None
         and s.baseline_mad_minutes is not None
         and s.baseline_mad_minutes > 1e-9
     )
+    margin_h = SLEEP_SHORT_MARGIN_MIN / 60.0
     if used_personal_mad:
         mad = s.baseline_mad_minutes
         # 1.4826*MAD ≈ sigma; use 2 sigma as personal low band (≈ 95% interval)
         personal_low = s.baseline_median_minutes - 2 * 1.4826 * mad
         usual = s.baseline_median_minutes / 60
-        if s.duration_minutes < personal_low:
-            interp_bits.append(
-                f"{hours:.1f} h is below your usual {usual:.1f} h "
-                f"(personal low ~{personal_low / 60:.1f} h) — short for you"
-            )
+        delta_min = s.baseline_median_minutes - s.duration_minutes
+        # Equal / near-usual (same 7.3 h after rounding) is never short,
+        # even when a tiny MAD puts personal_low on top of tonight.
+        if (
+            s.duration_minutes < personal_low
+            and delta_min >= SLEEP_SHORT_MARGIN_MIN
+        ):
+            interp_bits.append("short for you")
             direction = "negative"
             priority = "high"
-        elif s.duration_minutes >= s.baseline_median_minutes - mad:
-            interp_bits.append(f"{hours:.1f} h is around your usual {usual:.1f} h")
+        elif s.duration_minutes >= s.baseline_median_minutes - max(mad, SLEEP_SHORT_MARGIN_MIN):
+            interp_bits.append("around your usual")
             if direction == "neutral":
                 direction = "positive"
-        interp_bits = [b for b in interp_bits if "below the 7 h floor" not in b]
+        interp_bits = [b for b in interp_bits if "7 h floor" not in b]
         baseline_note = (
             f"vs your usual {usual:.1f} h (personal baseline, n={s.nights_available or '?'})"
         )
         kind = "personal"
     else:
-        if hours < duration_floor:
-            if usual_hours is not None:
-                interp_bits.append(
-                    f"{hours:.1f} h is below your usual {usual_hours:.1f} h — a personal short night"
-                )
-            else:
-                interp_bits.append(f"{hours:.1f} h is below the 7 h floor for cognitive recovery")
+        if usual_hours is not None:
+            if hours + 1e-9 < usual_hours - margin_h:
+                interp_bits.append("below your usual")
+                direction = "negative"
+                priority = "high"
+            elif abs(hours - usual_hours) <= margin_h:
+                interp_bits.append("around your usual")
+                if direction == "neutral":
+                    direction = "positive"
+            elif hours >= max(usual_hours + 0.5, 7.5) and direction == "neutral":
+                interp_bits.append("a solid night")
+                direction = "positive"
+        elif hours < 7.0:
+            interp_bits.append("a short night — below a full night for recovery")
             direction = "negative"
             priority = "high"
-        elif hours >= max(duration_floor + 0.5, 7.5) and direction == "neutral":
-            interp_bits.append(f"{hours:.1f} h is solid duration")
+        elif hours >= 7.5 and direction == "neutral":
+            interp_bits.append("a solid night")
             direction = "positive"
         if personal_sleep:
             baseline_note = (
@@ -1475,13 +1488,20 @@ def _interpret_training(ctx: ARIAContext, baselines: Any = None) -> Signal | Non
     if t.hours_since_last_workout is not None:
         hrs = t.hours_since_last_workout
         label = t.last_workout_type or "your last session"
-        parts.append(f"{hrs:.0f} h since {label}")
-        if hrs < 24:
-            interp_bits.append(f"only {hrs:.0f} h since {label} — recovery window is still open")
+        # Same-day without a real hour clock used to emit "0 h since".
+        # Keep the recovery window, but never phrase a zero-hour gap that way.
+        if hrs < 1:
+            parts.append("earlier today")
+            interp_bits.append(f"{label} earlier today — recovery window is still open")
             priority = "medium"
-        elif hrs > 72:
-            interp_bits.append(f"{hrs:.0f} h of rest — you're well recovered for intensity")
-            direction = "positive"
+        else:
+            parts.append(f"{hrs:.0f} h since {label}")
+            if hrs < 24:
+                interp_bits.append(f"only {hrs:.0f} h since {label} — recovery window is still open")
+                priority = "medium"
+            elif hrs > 72:
+                interp_bits.append(f"{hrs:.0f} h of rest — you're well recovered for intensity")
+                direction = "positive"
 
     if t.acwr is not None:
         parts.append(f"ACWR {t.acwr:.2f}")
@@ -2085,8 +2105,14 @@ def _structured_message(notice: str, next_step: str, why: str | None = None) -> 
     labeled sections instead of a metric dump. ARIA is a lifestyle coach, not a
     clinician — this states what it notices and one concrete next step, with an
     optional brief why. The card still carries the precise numbers for clients
-    that render it. Voice mode bypasses this (``_envelope`` speaks the prose)."""
-    sections = [f"What I notice\n{notice.strip()}", f"One next step\n{next_step.strip()}"]
+    that render it. Voice mode bypasses this (``_envelope`` speaks the prose).
+    Empty bodies are omitted so a stripped why cannot leave a bare ``Why.``.
+    """
+    sections: list[str] = []
+    if notice and notice.strip():
+        sections.append(f"What I notice\n{notice.strip()}")
+    if next_step and next_step.strip():
+        sections.append(f"One next step\n{next_step.strip()}")
     if why and why.strip():
         sections.append(f"Why\n{why.strip()}")
     return "\n\n".join(sections)
@@ -2128,7 +2154,7 @@ _SLEEP_STAGE_PCT = re.compile(
     re.I,
 )
 _VITALS_SPEAK = re.compile(
-    r"\b(hrv|bpm|ms|mmhg|vo2|spo2|recovery score|sleep[- ]?debt)\b"
+    r"\b(hrv|bpm|ms|mmhg|vo2|spo2|acwr|recovery score|sleep[- ]?debt)\b"
     r"|%\s*(?:below|above|under|over)\s+baseline"
     # Sleep-stage % leftovers _interpret_sleep still emits; strip at speak.
     r"|\b(?:deep|rem|light)\s+sleep\s+at\s+\d+(?:\.\d+)?\s*%"
@@ -2193,6 +2219,12 @@ def _recommendation_response(
         reason = f"{reason} (diverge)" if reason else "signals diverge (diverge)"
 
     action = pattern.next_step
+    # Brief writer notes may size the spoken/card step; they must not live on
+    # pattern.next_step (that dict is card.evidence).
+    if brief is not None:
+        move = str(getattr(brief, "one_next_move", "") or "").strip()
+        if move:
+            action = move
     timing = pattern.why
     if ctx.chronotype.typical_sleep_onset and pattern.blocks_intensity:
         timing = f"{timing}; protect your {ctx.chronotype.typical_sleep_onset} wind-down tonight"
@@ -2493,12 +2525,23 @@ def _summary_response(
         rec = f"Next block: bias toward your {goal} goal — {_GOAL_FOCUS[goal]}."
 
     prose = f"Last 30 days: {headline}. {win}"
+    if pattern.blocks_intensity:
+        # A blocking pattern (overreaching, sleep debt, low readiness) is safety-critical:
+        # its notice must be spoken, not just carded. The notice carries the directional
+        # signal ("Workload is running hot", "11.7h short...") the safety gate requires
+        # in the user-visible text. Without this, the overtraining notice lives only in
+        # card["risk"], which the spoken/chat surface never reads.
+        prose = f"{prose} {risk}"
     card = None if voice_mode else {
         "period_days": 30,
         "headline": headline,
         "win": win,
         "risk": risk,
         "recommendation": rec,
+        # Progress lane used to leave ARIAResponse.recommendation=None because
+        # adapters only read card.action (recommendation-lane shape). Map the
+        # sized step onto action so both engines surface it.
+        "action": rec,
         "evidence": pattern.to_dict(),
         "load": load.to_dict(),
     }
@@ -2526,6 +2569,7 @@ def generate_response(
     voice_mode: bool = False,
     persona: Any = None,
     baselines: Any = None,
+    seed: int | None = None,
 ) -> dict[str, Any]:
     """Top-level entry: message + context (+ permissions) -> response envelope.
 
@@ -2632,7 +2676,87 @@ def generate_response(
         if callback not in msg:
             envelope["message"] = f"{callback}\n\n{msg}" if msg else callback
             envelope["fusion"]["companion_callback"] = True
-    return _attach_shared_intelligence(envelope, ctx, message)
+    return _finish_spoken_envelope(envelope, ctx, message, seed=seed)
+
+
+def _memory_notes_from_ctx(ctx: ARIAContext) -> list[str]:
+    """Stored pattern lines only — companion callbacks may paraphrase insights."""
+    return [str(p) for p in (ctx.lifestyle.recent_patterns or []) if p]
+
+
+def _memory_block_from_ctx(ctx: ARIAContext) -> str:
+    """Equivalent of ``memory_prompt_block`` from fields already on ``ARIAContext``."""
+    long_term: list[str] = []
+    patterns = [str(p) for p in (ctx.lifestyle.recent_patterns or []) if p]
+    insights = [
+        str(x).strip()
+        for x in (getattr(ctx, "last_insights", None) or [])
+        if str(x).strip()
+    ]
+    goals = [
+        str(x).strip()
+        for x in (getattr(ctx, "current_goals", None) or [])
+        if str(x).strip()
+    ]
+    constraints = [str(c) for c in (ctx.profile.constraints or []) if c]
+    if goals:
+        long_term.append("goals: " + "; ".join(goals[:5]))
+    if constraints:
+        long_term.append("constraints: " + "; ".join(constraints[:5]))
+    if patterns:
+        long_term.append("patterns: " + "; ".join(patterns[:5]))
+    if insights:
+        long_term.append("recently told them: " + "; ".join(insights[:3]))
+    if not long_term:
+        return ""
+    lines = ["[MEMORY — long term]"]
+    lines.extend(f"- {entry}" for entry in long_term)
+    return "\n".join(lines)
+
+
+def _topic_from_message(message: str) -> str:
+    domain = _focus_domain(message) or ""
+    if domain == "sleep":
+        return "sleep"
+    if domain == "nutrition":
+        return "food"
+    if domain == "training":
+        return "training"
+    return domain
+
+
+def _finish_spoken_envelope(
+    envelope: dict[str, Any],
+    ctx: ARIAContext,
+    message: str,
+    *,
+    seed: int | None = None,
+) -> dict[str, Any]:
+    """Attach sidecars, then guard user-visible speak (deterministic path)."""
+    envelope = _attach_shared_intelligence(envelope, ctx, message)
+    from . import speak_guard
+    from . import state_read
+
+    envelope = speak_guard.guard_envelope(
+        envelope,
+        memory_notes=_memory_notes_from_ctx(ctx),
+        memory_block=_memory_block_from_ctx(ctx),
+        topic=_topic_from_message(message),
+    )
+    envelope = state_read.apply_to_envelope(
+        envelope,
+        ctx,
+        seed=state_read.turn_seed(ctx, message, seed),
+        message=message,
+    )
+    envelope = speak_guard.dedupe_envelope_speech(envelope)
+    blob = speak_guard.user_visible(envelope)
+    envelope["confidence"] = speak_guard.cap_contradiction_confidence(
+        blob,
+        envelope.get("confidence"),
+        hours_since=ctx.training.hours_since_last_workout,
+    )
+    return envelope
 
 
 def _attach_shared_intelligence(envelope: dict[str, Any], ctx: ARIAContext, message: str) -> dict[str, Any]:
@@ -2916,6 +3040,7 @@ def generate_response_live(
     agents: list[str] | None = None,
     persona: Any = None,
     baselines: Any = None,
+    seed: int | None = None,
 ) -> dict[str, Any]:
     """Top-level entry for the live path: deterministic reasoning, then a real
     Claude pass overlaid on top. Falls back to the deterministic envelope on any
@@ -2927,6 +3052,7 @@ def generate_response_live(
         voice_mode=voice_mode,
         persona=persona,
         baselines=baselines,
+        seed=seed,
     )
     caller = converse or _default_converse
     roster = normalize_coach_agents(agents, agent)
@@ -2976,7 +3102,58 @@ def generate_response_live(
         fallback["reasoning_error"] = str(exc) or exc.__class__.__name__
         return fallback
 
-    return _merge_live_envelope(base, data, prose, model_id, voice_mode)
+    from . import speak_guard
+
+    card = base.get("card") if isinstance(base.get("card"), dict) else None
+    notes = _memory_notes_from_ctx(sanitized)
+    memory_block = _memory_block_from_ctx(sanitized)
+    topic = _topic_from_message(message)
+    fusion = base.get("fusion") if isinstance(base.get("fusion"), dict) else {}
+    stance = str(fusion.get("stance") or "")
+    # Guard after the model returns text — Bedrock must never leak guide/label
+    # / memory-block copy into user-visible speak. Deterministic path is
+    # guarded in _finish_spoken_envelope / friend_speak. rescrub_speak runs
+    # inside guard_speak whenever a step is appended.
+    prose = speak_guard.guard_speak(
+        prose,
+        card=card,
+        memory_notes=notes,
+        memory_block=memory_block,
+        stance=stance,
+        topic=topic,
+    )
+    rec = data.get("recommendation")
+    if isinstance(rec, str) and rec.strip():
+        data["recommendation"] = speak_guard.guard_speak(
+            rec,
+            card=card,
+            memory_notes=notes,
+            memory_block=memory_block,
+            stance=stance,
+            topic=topic,
+        )
+    merged = _merge_live_envelope(base, data, prose, model_id, voice_mode)
+    from . import state_read
+
+    merged = speak_guard.guard_envelope(
+        merged,
+        memory_notes=notes,
+        memory_block=memory_block,
+        topic=topic,
+    )
+    merged = state_read.apply_to_envelope(
+        merged,
+        sanitized,
+        seed=state_read.turn_seed(sanitized, message, seed),
+        message=message,
+    )
+    merged = speak_guard.dedupe_envelope_speech(merged)
+    merged["confidence"] = speak_guard.cap_contradiction_confidence(
+        speak_guard.user_visible(merged),
+        merged.get("confidence"),
+        hours_since=sanitized.training.hours_since_last_workout,
+    )
+    return merged
 
 
 # --- Tool-use + validation (Python owns truth) -------------------------------

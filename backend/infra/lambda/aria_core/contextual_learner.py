@@ -1704,7 +1704,14 @@ def stamp_living_context(ctx: Any, living: Any) -> Any:
     """
     if ctx is None or living is None:
         return ctx
-    insights = list(getattr(living, "last_insights", None) or [])
+    from . import state_read
+
+    insights = state_read.reject_memory_items(
+        getattr(living, "last_insights", None) or [],
+        from_reply=True,
+    )
+    # recentPatterns is user/client authored — never strip phrase-bank
+    # fragments out of a vault note.
     patterns = list(getattr(living, "recent_patterns", None) or [])
     goals = list(getattr(living, "current_goals", None) or [])
     constraints = list(getattr(living, "constraints", None) or [])

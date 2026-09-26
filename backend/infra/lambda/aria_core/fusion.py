@@ -254,7 +254,26 @@ def fuse_turn(
             source = "persisted"
             observation_count = _int(stored.get("observation_count"))
 
+    # Overlay replaces the whole sleep object. Keep a client-sent baseline
+    # on the body projection so it is not wiped when BodyModel omitted it.
+    if (
+        body_ctx is not None
+        and body_ctx.sleep.baseline_median_minutes is None
+        and client_ctx.sleep.baseline_median_minutes is not None
+    ):
+        body_ctx.sleep.baseline_median_minutes = client_ctx.sleep.baseline_median_minutes
+
     context = overlay_context(client_ctx, body_ctx, owned)
+    if (
+        context.sleep.baseline_median_minutes is None
+        and baselines.sleep_duration_min is not None
+    ):
+        context.sleep.baseline_median_minutes = baselines.sleep_duration_min
+        if baselines.sleep_duration_n:
+            context.sleep.nights_available = baselines.sleep_duration_n
+    from . import state_read
+
+    context = state_read.drop_from_memory(context)
     context, restricted = aria_engine.apply_permissions(context, permissions)
     if snapshot_dict is not None:
         snapshot_dict = redact_snapshot(dict(snapshot_dict), permissions)
@@ -383,6 +402,10 @@ def context_from_asdict(raw: Any) -> aria_engine.ARIAContext | None:
             hrv=_num(sleep.get("hrv")),
             resting_hr=_num(sleep.get("resting_hr")),
             nights_available=_int_or_none(sleep.get("nights_available")),
+            baseline_median_minutes=_num(sleep.get("baseline_median_minutes")),
+            baseline_mad_minutes=_num(sleep.get("baseline_mad_minutes")),
+            sleep_debt_7d_hours=_num(sleep.get("sleep_debt_7d_hours")),
+            target_hours=_num(sleep.get("target_hours")),
         ),
         readiness=aria_engine.ReadinessContext(
             hrv_7day_trend=_num(readiness.get("hrv_7day_trend")),

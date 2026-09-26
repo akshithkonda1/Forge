@@ -45,6 +45,20 @@ def _denied_lifestyle_token(token: str) -> bool:
     return bool(_DENIED_LIFESTYLE.search(str(token or "").strip()))
 
 
+def _insight_takeaway(prose: str) -> str:
+    """First real sentence of ``prose_summary``. Skip any takeaway with a digit.
+
+    ``str.split(".")`` used to cut ``6.5 h`` down to ``...at 6``.
+    """
+    text = str(prose or "").strip()
+    if not text:
+        return ""
+    first = re.split(r"(?<=[.!?])\s+", text, maxsplit=1)[0].strip()
+    if not first or re.search(r"\d", first):
+        return ""
+    return first
+
+
 def sanitize_user_memory_text(raw: str) -> str:
     """Refuse/strip partner/cycle tokens from a user-authored vault note.
 
@@ -409,7 +423,7 @@ def handle_post_ai_chat(body: dict[str, Any], *, user_id: str) -> dict:
 
     if memory and not voice_mode:
         response["message"] = f"{memory}\n\n{response['message']}"
-    takeaway = str(response.get("prose_summary") or "").split(".")[0].strip()
+    takeaway = _insight_takeaway(response.get("prose_summary") or "")
     if (
         takeaway
         and len(takeaway) > 12
