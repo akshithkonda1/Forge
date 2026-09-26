@@ -567,7 +567,7 @@ enum HomeTrendSeries {
         }
         let latest = points[points.count - 1]
         let avg = rawAverage(points) ?? latest.rawScore
-        let days = points.map(pointAccessibilityLabel).joined(separator: ", ")
+        let days = points.map { pointAccessibilityLabel($0) }.joined(separator: ", ")
         if let missing {
             return "Sleep score, last seven nights. Latest \(latest.rawScore), average \(avg). \(missing). \(days)."
         }
