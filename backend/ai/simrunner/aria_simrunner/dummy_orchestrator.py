@@ -1902,13 +1902,18 @@ def _respond_via_lambda(
         "suggested_actions": list(envelope.get("suggested_actions") or suggested_actions(plan)),
         "card": card,
         "rich_card": envelope.get("rich_card"),
-        # Production's envelope has no top-level "recommendation" key -- only
-        # the recommendation response_type's card carries one, as card["action"]
-        # (see aria_engine.py's _recommendation_response). Set it explicitly so
+        # Production's envelope has no top-level "recommendation" key -- each
+        # response_type's card carries its actionable text under its own name:
+        # card["action"] for recommendation/insight (aria_engine.py's
+        # _recommendation_response/_insight_response), card["recommendation"]
+        # for summary (_summary_response). Set it explicitly so
         # DummyARIAEngine.respond() (which reads row.get("recommendation") the
         # same way the stub row already does at "recommendation": stub.recommendation)
-        # gets a real value instead of always None.
-        "recommendation": card.get("action") if isinstance(card, dict) else None,
+        # gets a real value instead of always None whenever the card actually
+        # has one, whichever key it's filed under.
+        "recommendation": (
+            (card.get("action") or card.get("recommendation")) if isinstance(card, dict) else None
+        ),
         "restricted_domains": list(envelope.get("restricted_domains") or []),
         "agent": plan.primary.kind,
         "agents": plan.kinds,
