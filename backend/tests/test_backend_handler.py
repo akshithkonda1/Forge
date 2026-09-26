@@ -559,11 +559,13 @@ class AuthAndAISecurityTests(unittest.TestCase):
         os.environ["ENVIRONMENT"] = "test"
         os.environ["FORGE_ALLOW_ANON_TEST_USER"] = "true"
         os.environ.pop("FORGE_TEST_USER_ID", None)
+        os.environ.pop("FORGE_ALLOW_DEV_OVERRIDE", None)
 
     def tearDown(self):
         os.environ.pop("ENVIRONMENT", None)
         os.environ.pop("FORGE_ALLOW_ANON_TEST_USER", None)
         os.environ.pop("FORGE_TEST_USER_ID", None)
+        os.environ.pop("FORGE_ALLOW_DEV_OVERRIDE", None)
 
     def test_production_rejects_unauthenticated(self):
         os.environ["ENVIRONMENT"] = "production"
@@ -598,6 +600,24 @@ class AuthAndAISecurityTests(unittest.TestCase):
         ev["headers"] = {"authorization": f"Bearer {token}"}
         response = handler(ev, None)
         self.assertEqual(response["statusCode"], 200)
+
+    def test_fail_closed_override_flag_rejects_the_dev_override_token(self):
+        import base64
+
+        os.environ["ENVIRONMENT"] = "dev"
+        os.environ["FORGE_ALLOW_DEV_OVERRIDE"] = "false"
+        os.environ.pop("FORGE_ALLOW_ANON_TEST_USER", None)
+        os.environ.pop("FORGE_TEST_USER_ID", None)
+
+        def b64url(obj):
+            raw = json.dumps(obj, separators=(",", ":"), sort_keys=True).encode()
+            return base64.urlsafe_b64encode(raw).decode().rstrip("=")
+
+        token = b64url({"alg": "none", "typ": "JWT"}) + "." + b64url({"sub": "test-user-00000000"}) + "."
+        ev = event("GET", "/dashboard/today")
+        ev["headers"] = {"authorization": f"Bearer {token}"}
+        response = handler(ev, None)
+        self.assertEqual(response["statusCode"], 401)
 
     def test_production_rejects_the_dev_override_token(self):
         import base64

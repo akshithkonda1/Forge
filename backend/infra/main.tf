@@ -104,16 +104,42 @@ data "aws_iam_policy_document" "backend_lambda" {
   }
 
   statement {
-    sid = "AISecretRead"
+    sid = "ElevenLabsParameterRead"
 
     actions = [
-      "secretsmanager:DescribeSecret",
-      "secretsmanager:GetSecretValue",
+      "ssm:GetParameter",
+      "ssm:GetParameters",
     ]
 
     resources = [
-      aws_secretsmanager_secret.ai_provider.arn,
+      aws_ssm_parameter.elevenlabs_api_key.arn,
+      aws_ssm_parameter.elevenlabs_voice_id.arn,
+      aws_ssm_parameter.elevenlabs_agent_id.arn,
     ]
+  }
+
+  statement {
+    sid = "ElevenLabsParameterDecrypt"
+
+    actions = [
+      "kms:Decrypt",
+    ]
+
+    resources = [
+      "arn:aws:kms:${var.aws_region}:${local.account_id_for_naming}:key/*",
+    ]
+
+    condition {
+      test     = "ForAnyValue:StringEquals"
+      variable = "kms:ResourceAliases"
+      values   = ["alias/aws/ssm"]
+    }
+
+    condition {
+      test     = "StringEquals"
+      variable = "kms:ViaService"
+      values   = ["ssm.${var.aws_region}.amazonaws.com"]
+    }
   }
 
   statement {
@@ -189,6 +215,11 @@ data "aws_iam_policy_document" "authenticated_identity_s3_access" {
 resource "aws_cognito_user_pool" "forge" {
   name = "${local.name_prefix}-users"
 
+  # ESSENTIALS: free prefix domain + managed login for the authorization-code
+  # + PKCE flow and Apple/Google IdPs. LITE is cheaper after 10k MAU but does
+  # not include managed login. At ~1k MAU Essentials is still $0 (10k free).
+  user_pool_tier = var.cognito_user_pool_tier
+
   auto_verified_attributes = ["email"]
   username_attributes      = ["email"]
 
@@ -216,13 +247,18 @@ resource "aws_cognito_user_pool_client" "web" {
   name         = "${local.name_prefix}-web"
   user_pool_id = aws_cognito_user_pool.forge.id
 
-  generate_secret               = false
-  prevent_user_existence_errors = "ENABLED"
-  supported_identity_providers  = ["COGNITO"]
+  generate_secret                      = false
+  prevent_user_existence_errors        = "ENABLED"
+  enable_token_revocation              = true
+  allowed_oauth_flows_user_pool_client = true
+  allowed_oauth_flows                  = ["code"]
+  allowed_oauth_scopes                 = local.cognito_oauth_scopes
+  supported_identity_providers         = local.cognito_oauth_idps
+  callback_urls                        = var.cognito_web_callback_urls
+  logout_urls                          = var.cognito_web_logout_urls
 
   explicit_auth_flows = [
     "ALLOW_REFRESH_TOKEN_AUTH",
-    "ALLOW_USER_PASSWORD_AUTH",
     "ALLOW_USER_SRP_AUTH",
   ]
 
@@ -234,6 +270,18 @@ resource "aws_cognito_user_pool_client" "web" {
     access_token  = "hours"
     id_token      = "hours"
     refresh_token = "days"
+  }
+
+  depends_on = [
+    aws_cognito_identity_provider.google,
+    aws_cognito_identity_provider.apple,
+  ]
+
+  lifecycle {
+    precondition {
+      condition     = var.skip_aws_provider_checks || !local.oauth_urls_contain_example_com
+      error_message = "Web or Kotlin callback/logout URLs contain example.com. Set the real per-environment https (or custom-scheme) URLs in tfvars before a real apply. CI plan with skip_aws_provider_checks may keep the placeholders."
+    }
   }
 }
 
@@ -241,13 +289,18 @@ resource "aws_cognito_user_pool_client" "ios" {
   name         = "${local.name_prefix}-ios"
   user_pool_id = aws_cognito_user_pool.forge.id
 
-  generate_secret               = false
-  prevent_user_existence_errors = "ENABLED"
-  supported_identity_providers  = ["COGNITO"]
+  generate_secret                      = false
+  prevent_user_existence_errors        = "ENABLED"
+  enable_token_revocation              = true
+  allowed_oauth_flows_user_pool_client = true
+  allowed_oauth_flows                  = ["code"]
+  allowed_oauth_scopes                 = local.cognito_oauth_scopes
+  supported_identity_providers         = local.cognito_oauth_idps
+  callback_urls                        = var.cognito_ios_callback_urls
+  logout_urls                          = var.cognito_ios_logout_urls
 
   explicit_auth_flows = [
     "ALLOW_REFRESH_TOKEN_AUTH",
-    "ALLOW_USER_PASSWORD_AUTH",
     "ALLOW_USER_SRP_AUTH",
   ]
 
@@ -260,22 +313,25 @@ resource "aws_cognito_user_pool_client" "ios" {
     id_token      = "hours"
     refresh_token = "days"
   }
+
+  depends_on = [
+    aws_cognito_identity_provider.google,
+    aws_cognito_identity_provider.apple,
+  ]
 }
 
 resource "aws_cognito_identity_pool" "forge" {
   identity_pool_name               = "${local.name_prefix}-identity"
   allow_unauthenticated_identities = false
 
-  cognito_identity_providers {
-    client_id               = aws_cognito_user_pool_client.web.id
-    provider_name           = aws_cognito_user_pool.forge.endpoint
-    server_side_token_check = true
-  }
+  dynamic "cognito_identity_providers" {
+    for_each = local.cognito_app_client_ids
 
-  cognito_identity_providers {
-    client_id               = aws_cognito_user_pool_client.ios.id
-    provider_name           = aws_cognito_user_pool.forge.endpoint
-    server_side_token_check = true
+    content {
+      client_id               = cognito_identity_providers.value
+      provider_name           = aws_cognito_user_pool.forge.endpoint
+      server_side_token_check = true
+    }
   }
 }
 
@@ -397,26 +453,44 @@ resource "aws_s3_bucket_lifecycle_configuration" "uploads" {
   }
 }
 
-resource "aws_secretsmanager_secret" "ai_provider" {
-  name                    = "${local.name_prefix}/ai/provider"
-  description             = "Forge AI credentials. Seed JSON keys ELEVENLABS_API_KEY, ELEVENLABS_ARIA_VOICE_ID, and ELEVENLABS_ARIA_AGENT_ID for ARIA's designed live mouth. Dummy / Device Hub does not need this secret."
-  recovery_window_in_days = 7
-
-  tags = local.common_tags
-}
-
 resource "aws_cloudwatch_log_group" "backend_lambda" {
   name              = "/aws/lambda/${local.name_prefix}-api"
-  retention_in_days = var.log_retention_days
+  retention_in_days = local.log_retention_days
 
   tags = local.common_tags
 }
 
 resource "aws_cloudwatch_log_group" "api_access" {
   name              = "/aws/apigateway/${local.name_prefix}-http-api"
-  retention_in_days = var.log_retention_days
+  retention_in_days = local.log_retention_days
 
   tags = local.common_tags
+}
+
+data "aws_iam_policy_document" "api_access_logs" {
+  statement {
+    sid    = "AllowAPIGatewayAccessLogs"
+    effect = "Allow"
+
+    principals {
+      type        = "Service"
+      identifiers = ["apigateway.amazonaws.com"]
+    }
+
+    actions = [
+      "logs:CreateLogStream",
+      "logs:PutLogEvents",
+    ]
+
+    resources = [
+      "${aws_cloudwatch_log_group.api_access.arn}:*",
+    ]
+  }
+}
+
+resource "aws_cloudwatch_log_resource_policy" "api_access" {
+  policy_name     = "${local.name_prefix}-apigw-access-logs"
+  policy_document = data.aws_iam_policy_document.api_access_logs.json
 }
 
 resource "aws_iam_role" "backend_lambda" {
@@ -458,6 +532,7 @@ resource "aws_lambda_function" "backend" {
   role          = aws_iam_role.backend_lambda.arn
   runtime       = "python3.12"
   handler       = "handler.handler"
+  architectures = var.lambda_architectures
 
   filename         = data.archive_file.backend_lambda.output_path
   source_code_hash = data.archive_file.backend_lambda.output_base64sha256
@@ -467,10 +542,15 @@ resource "aws_lambda_function" "backend" {
 
   environment {
     variables = {
-      AI_PROVIDER_SECRET_ARN = aws_secretsmanager_secret.ai_provider.arn
-      APP_DATA_TABLE_NAME    = aws_dynamodb_table.app_data.name
-      ARIA_BEDROCK_ENABLED   = var.aria_bedrock_enabled ? "true" : "false"
-      ENVIRONMENT            = var.environment
+      ELEVENLABS_API_KEY_PARAMETER_NAME       = aws_ssm_parameter.elevenlabs_api_key.name
+      ELEVENLABS_ARIA_VOICE_ID_PARAMETER_NAME = aws_ssm_parameter.elevenlabs_voice_id.name
+      ELEVENLABS_ARIA_AGENT_ID_PARAMETER_NAME = aws_ssm_parameter.elevenlabs_agent_id.name
+      APP_DATA_TABLE_NAME                     = aws_dynamodb_table.app_data.name
+      ARIA_BEDROCK_ENABLED                    = var.aria_bedrock_enabled ? "true" : "false"
+      ENVIRONMENT                             = var.environment
+      # Fail-closed twin of local.is_dev_pool. Only dev/local/sandbox get
+      # unsigned override tokens and seeded demo data.
+      FORGE_ALLOW_DEV_OVERRIDE = local.is_dev_pool ? "true" : "false"
       # Router slots. Passing "" would override ai_router.py's default with an
       # empty model id, so an unset variable falls back to the code default.
       # Inert while ARIA_BEDROCK_ENABLED is false. Slot 1/2 ids match
@@ -501,11 +581,8 @@ resource "aws_apigatewayv2_authorizer" "cognito" {
   identity_sources = ["$request.header.Authorization"]
 
   jwt_configuration {
-    audience = [
-      aws_cognito_user_pool_client.web.id,
-      aws_cognito_user_pool_client.ios.id,
-    ]
-    issuer = "https://cognito-idp.${var.aws_region}.amazonaws.com/${aws_cognito_user_pool.forge.id}"
+    audience = local.cognito_app_client_ids
+    issuer   = "https://cognito-idp.${var.aws_region}.amazonaws.com/${aws_cognito_user_pool.forge.id}"
   }
 }
 
@@ -551,9 +628,21 @@ resource "aws_apigatewayv2_route" "proxy" {
 }
 
 resource "aws_apigatewayv2_route" "health" {
-  api_id    = aws_apigatewayv2_api.http.id
-  route_key = "GET /health"
-  target    = "integrations/${aws_apigatewayv2_integration.backend.id}"
+  api_id             = aws_apigatewayv2_api.http.id
+  route_key          = "GET /health"
+  target             = "integrations/${aws_apigatewayv2_integration.backend.id}"
+  authorization_type = "NONE"
+}
+
+# Public product shelf only. POST /devices/catalog/seen stays on the JWT
+# {proxy+} route. More-specific static routes win over ANY /{proxy+}.
+# Clients should cache this catalog — the per-route throttle is a scrape
+# ceiling (2 rps / burst 10), not a page-load budget.
+resource "aws_apigatewayv2_route" "devices_catalog" {
+  api_id             = aws_apigatewayv2_api.http.id
+  route_key          = "GET /devices/catalog"
+  target             = "integrations/${aws_apigatewayv2_integration.backend.id}"
+  authorization_type = "NONE"
 }
 
 resource "aws_apigatewayv2_stage" "default" {
@@ -574,6 +663,8 @@ resource "aws_apigatewayv2_stage" "default" {
       responseLength    = "$context.responseLength"
       integrationError  = "$context.integration.error"
       integrationStatus = "$context.integration.integrationStatus"
+      authorizerError   = "$context.authorizer.error"
+      authorizerStatus  = "$context.authorizer.status"
     })
   }
 
@@ -581,6 +672,20 @@ resource "aws_apigatewayv2_stage" "default" {
     throttling_burst_limit = 100
     throttling_rate_limit  = 50
   }
+
+  route_settings {
+    route_key              = aws_apigatewayv2_route.devices_catalog.route_key
+    throttling_burst_limit = var.devices_catalog_throttling_burst_limit
+    throttling_rate_limit  = var.devices_catalog_throttling_rate_limit
+  }
+
+  route_settings {
+    route_key              = aws_apigatewayv2_route.health.route_key
+    throttling_burst_limit = var.health_throttling_burst_limit
+    throttling_rate_limit  = var.health_throttling_rate_limit
+  }
+
+  depends_on = [aws_cloudwatch_log_resource_policy.api_access]
 
   tags = local.common_tags
 }
@@ -593,12 +698,14 @@ resource "aws_lambda_permission" "api_gateway" {
   source_arn    = "${aws_apigatewayv2_api.http.execution_arn}/*/*"
 }
 
-# Optional monthly cost budget. Default off — Dummy-offline and an apply with
-# defaults create zero budget resources ($0). First two AWS Budgets are free;
-# this still must not be enabled until someone is willing to apply the stack.
-# Claude Marketplace token charges may appear under the model provider, not
-# "Amazon Bedrock", so this is an account-level COST budget rather than a
-# Bedrock-only filter.
+# Monthly COST budget. Default on for step 1 so an apply cannot forget the
+# $25/mo ceiling. First two AWS Budgets are free. Claude Marketplace token
+# charges may appear under the model provider, not "Amazon Bedrock", so this
+# is an account-level COST budget rather than a Bedrock-only filter.
+#
+# The budget only ALERTS — it never stops spend (no ACTUAL/FORECASTED action
+# that blocks APIs). ElevenLabs is billed outside AWS, so it is invisible
+# here; the ElevenLabs cap lives in the app quota, not this budget.
 resource "aws_budgets_budget" "spend_guard" {
   count = var.enable_spend_guard ? 1 : 0
 
@@ -617,6 +724,13 @@ resource "aws_budgets_budget" "spend_guard" {
       threshold_type             = "PERCENTAGE"
       notification_type          = "ACTUAL"
       subscriber_email_addresses = [var.spend_guard_notification_email]
+    }
+  }
+
+  lifecycle {
+    precondition {
+      condition     = var.skip_aws_provider_checks || var.spend_guard_notification_email != ""
+      error_message = "spend_guard_notification_email must be non-empty on a real apply when enable_spend_guard is true. The budget only alerts (it never stops spend); ElevenLabs spend is invisible to it."
     }
   }
 

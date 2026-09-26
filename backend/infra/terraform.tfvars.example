@@ -1,9 +1,9 @@
 aws_region   = "us-east-1"
 project_name = "forge"
 
-# Required, no default. Anything outside prod/production/staging/stage leaves the
-# unsigned dev-override token accepted and serves seeded demo data in place of a
-# user's own health metrics. Set "prod" for anything real people log into.
+# Required, no default. Localhost clients, unsigned dev-override tokens, and
+# seeded demo data are allowlisted to {dev, local, sandbox} only. Any other
+# name (beta, testflight, prd, test, ci, staging, prod) is fail-closed.
 environment = "dev"
 
 allowed_origins = [
@@ -13,14 +13,40 @@ allowed_origins = [
 # Optional: set this only if you want to override the generated bucket name.
 # uploads_bucket_name = "forge-dev-123456789012-us-east-1-uploads"
 
-# Seed the AI provider secret out-of-band after apply so it never lands in Terraform state.
-# With the default project/environment values, the secret name will be:
-# forge-dev/ai/provider
+# Public PKCE clients. iOS defaults are forge://auth/callback and
+# forge://auth/logout. Kotlin [0] is the custom scheme
+# (com.forge.app://auth/callback|logout). An https App Link may follow as a
+# second entry only — it works only once assetlinks.json is live on that
+# domain. Web URLs below are placeholders: a real apply (skip_aws_provider_checks
+# = false) fails if any web or Kotlin callback/logout URL contains example.com.
+# Apple / Google client secrets go in Parameter Store SecureString, never here.
+# cognito_web_callback_urls    = ["https://app.example.com/auth/callback"]
+# cognito_web_logout_urls      = ["https://app.example.com/auth/logout"]
+# cognito_kotlin_callback_urls = [
+#   "com.forge.app://auth/callback",
+#   "https://app.example.com/kotlin/auth/callback", # after assetlinks.json
+# ]
+# cognito_kotlin_logout_urls = [
+#   "com.forge.app://auth/logout",
+#   "https://app.example.com/kotlin/auth/logout", # after assetlinks.json
+# ]
+
+# Seed ElevenLabs after apply so the values never land in Terraform state:
+#   aws ssm put-parameter --name /forge-dev/ai/ELEVENLABS_API_KEY \
+#     --type SecureString --overwrite --value 'replace-me'
+# Same for ELEVENLABS_ARIA_VOICE_ID and ELEVENLABS_ARIA_AGENT_ID.
 #
-# Example:
-# aws secretsmanager put-secret-value \
-#   --secret-id forge-dev/ai/provider \
-#   --secret-string '{"OPENAI_API_KEY":"replace-me"}'
+# Before the first real apply, also seed the social IdP parameters Terraform
+# reads (names only; values stay out of this file):
+#   /forge-dev/cognito/google/client_id
+#   /forge-dev/cognito/google/client_secret
+#   /forge-dev/cognito/apple/client_id
+#   /forge-dev/cognito/apple/team_id
+#   /forge-dev/cognito/apple/key_id
+#   /forge-dev/cognito/apple/private_key
+#
+# Rotate those IdP secrets with `aws cognito-idp update-identity-provider`
+# after put-parameter. Never terraform apply -replace on the IdP resources.
 
 tags = {
   Owner = "Forge"
@@ -48,8 +74,22 @@ tags = {
 # ai_router_model_3_id   = "global.xai.grok-4.6"
 # ai_router_model_3_name = "Grok"
 #
-# Optional monthly cost budget. Default false — no budget resource, $0 even
-# after apply. First two AWS Budgets are free; still skip until a live account.
-# enable_spend_guard                = false
-# spend_guard_limit_usd             = 5
-# spend_guard_notification_email    = ""
+# Spend guard is on by default ($25/mo). First two AWS Budgets are free.
+# The budget only ALERTS — it never stops spend. ElevenLabs is invisible to
+# it; that cap lives in the app quota. A real apply requires the email.
+# enable_spend_guard                = true
+# spend_guard_limit_usd             = 25
+# spend_guard_notification_email    = "ops@example.com"
+#
+# Exactly one management-event CloudTrail per AWS account. Default false so
+# a shared-account dev stack does not create a second trail. The committed
+# prod var set (prod.tfvars) turns it on: terraform plan -var-file=prod.tfvars
+# force_destroy_cloudtrail_bucket stays false — do not reuse
+# force_destroy_uploads_bucket.
+#
+# Catalog clients should cache GET /devices/catalog (2 rps / burst 10).
+# GET /health stays public (1 rps / burst 5).
+# devices_catalog_throttling_rate_limit  = 2
+# devices_catalog_throttling_burst_limit = 10
+# health_throttling_rate_limit           = 1
+# health_throttling_burst_limit          = 5
