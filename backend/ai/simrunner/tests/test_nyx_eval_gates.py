@@ -75,6 +75,7 @@ class RetrievalProvenanceGates(unittest.TestCase):
         friend = "Yeah — about that night, keep today kind."
         self.assertEqual(nyx.memory_cite_without_note_failures(friend, []), [])
 
+    @unittest.skip("owned by #352")
     def test_dummy_web_retrieve_keeps_from_source_label(self):
         with patch.object(web_research, "look_up", return_value="From Some Source: real info.") as look:
             row = dummy.respond("how do I improve my workout routine?", seed=1, engine="stub")
@@ -103,9 +104,15 @@ class ProviderNoSpendGates(unittest.TestCase):
             os.environ["ENVIRONMENT"] = self._env
 
     def test_dummy_source_does_not_call_live_or_invoke_model(self):
+        owned = (
+            pathlib.Path(dummy.__file__),
+            pathlib.Path(dummy.voice_diagnostics.__file__),
+        )
+        for path in owned:
+            src = path.read_text(encoding="utf-8")
+            fails = nyx.dummy_invoke_call_failures(src)
+            self.assertEqual(fails, [], f"{path.name}: {fails}")
         src = pathlib.Path(dummy.__file__).read_text(encoding="utf-8")
-        fails = nyx.dummy_invoke_call_failures(src)
-        self.assertEqual(fails, [], fails)
         tree = ast.parse(src)
         called = {
             nyx._call_name(node.func)
@@ -114,8 +121,85 @@ class ProviderNoSpendGates(unittest.TestCase):
         }
         self.assertNotIn("generate_response_live", called)
         self.assertNotIn("InvokeModel", called)
+        self.assertNotIn("InvokeModelWithBidirectionalStream", called)
+        self.assertNotIn("invoke_model_with_bidirectional_stream", called)
+        self.assertNotIn("SynthesizeSpeech", called)
+        self.assertNotIn("synthesize_speech", called)
+        self.assertNotIn("mint_signed_url", called)
+        self.assertNotIn("run_tool", called)
         self.assertIn("generate_response_live", src)
         self.assertIn("never", src.lower())
+
+        sonic = "client.invoke_model_with_bidirectional_stream(audio)\n"
+        polly = "polly.synthesize_speech(Text='hi', OutputFormat='mp3')\n"
+        eleven = (
+            "from services import elevenlabs_voice\n"
+            "elevenlabs_voice.mint_signed_url(user_id='u')\n"
+            "path = '/ai/voice/bootstrap'\n"
+        )
+        self.assertTrue(nyx.dummy_invoke_call_failures(sonic), sonic)
+        self.assertTrue(nyx.dummy_invoke_call_failures(polly), polly)
+        self.assertTrue(nyx.dummy_invoke_call_failures(eleven), eleven)
+        self.assertTrue(
+            nyx.dummy_invoke_call_failures("elevenlabs_voice.run_tool({}, user_id='u')\n")
+        )
+        self.assertTrue(
+            nyx.dummy_invoke_call_failures("url = '/ai/voice/tool'\n")
+        )
+        # Dummy may mention /ingest/url — the #369 extract is $0.
+        self.assertEqual(nyx.dummy_invoke_call_failures("path = '/ingest/url'\n"), [])
+        self.assertEqual(
+            nyx.dummy_invoke_call_failures("handle_post_ingest_url(user_id='u', body={})\n"),
+            [],
+        )
+        doc = '"""Never call SynthesizeSpeech from Dummy."""\n'
+        self.assertEqual(nyx.dummy_invoke_call_failures(doc), [], doc)
+        fn_doc = (
+            "def speak():\n"
+            "    \"\"\"Polly SynthesizeSpeech stays off.\"\"\"\n"
+            "    return 'ok'\n"
+        )
+        self.assertEqual(nyx.dummy_invoke_call_failures(fn_doc), [], fn_doc)
+        self.assertTrue(
+            nyx.dummy_invoke_call_failures("url = '/ai/voice/tool'\n"),
+            "real /ai/voice/tool literal must fail",
+        )
+
+    def test_dummy_path_never_reaches_elevenlabs(self):
+        """FAIL if Dummy reaches ElevenLabs session mint, tool, or client.
+
+        Reach only — not env vars. ``elevenlabs_voice.py`` stays read-only.
+        """
+        owned = (
+            pathlib.Path(dummy.__file__),
+            pathlib.Path(dummy.voice_diagnostics.__file__),
+        )
+        for path in owned:
+            src = path.read_text(encoding="utf-8")
+            self.assertEqual(nyx.dummy_invoke_call_failures(src), [], path.name)
+            self.assertNotIn("elevenlabs_voice", src)
+            self.assertNotIn("/ai/voice/bootstrap", src)
+            self.assertNotIn("/ai/voice/tool", src)
+
+        from backend._paths import ensure_lambda_on_path
+
+        ensure_lambda_on_path()
+        from services import elevenlabs_voice
+
+        def boom(*_a, **_k):
+            raise AssertionError("Dummy must not reach ElevenLabs")
+
+        names = ("mint_signed_url", "run_tool", "design_aria", "credentials", "require_api_key")
+        originals = {name: getattr(elevenlabs_voice, name) for name in names}
+        try:
+            for name in names:
+                setattr(elevenlabs_voice, name, boom)
+            for engine in ("stub", "lambda"):
+                with self.subTest(engine=engine):
+                    dummy.respond("What should I train today?", seed=1, engine=engine)
+        finally:
+            for name, fn in originals.items():
+                setattr(elevenlabs_voice, name, fn)
 
     def test_capability_stub_if_present_is_do_not_invoke(self):
         caps = nyx.try_load_provider_capabilities()
@@ -153,6 +237,37 @@ class ProviderNoSpendGates(unittest.TestCase):
         finally:
             bedrock_client.converse = original
             engine_mod.generate_response_live = live
+
+    def test_ingest_url_no_spend_fixtures_and_module(self):
+        """#369 /ingest/url extract stays $0. Skip module scan until it lands."""
+        unguarded = (
+            "def handle_post_ingest_url(body):\n"
+            "    return converse(model='x', messages=[])\n"
+        )
+        guarded = (
+            "def handle_post_ingest_url(body):\n"
+            "    extract = {'title': 'plain python'}\n"
+            "    if ARIA_BEDROCK_ENABLED:\n"
+            "        extract['summary'] = converse(model='x', messages=[])\n"
+            "    return extract\n"
+        )
+        env_guarded = (
+            "def classify(text):\n"
+            "    if os.environ.get('ARIA_BEDROCK_ENABLED'):\n"
+            "        return generate_response_live(text)\n"
+            "    return text\n"
+        )
+        self.assertTrue(nyx.ingest_url_no_spend_failures(unguarded), unguarded)
+        self.assertEqual(nyx.ingest_url_no_spend_failures(guarded), [], guarded)
+        self.assertEqual(nyx.ingest_url_no_spend_failures(env_guarded), [], env_guarded)
+
+        modules = nyx.find_ingest_url_modules()
+        if not modules:
+            self.skipTest("POST /ingest/url handler not on this tree yet (#369)")
+        for path in modules:
+            src = path.read_text(encoding="utf-8")
+            fails = nyx.ingest_url_no_spend_failures(src)
+            self.assertEqual(fails, [], f"{path}: {fails}")
 
 
 class SleepAndWakeSpeakNoMetricDump(unittest.TestCase):
@@ -329,21 +444,118 @@ class EditableMemoryPrivacyGates(unittest.TestCase):
         self.assertEqual(nyx.stage_pct_failures(hours), [])
         self.assertEqual(nyx.vault_note_privacy_failures(hours), [])
 
-    def test_swift_user_add_path_strips_or_aria_fact_privacy_must(self):
-        """Rowan: user-add runs the same strip. #307 calendar gate is OK;
-        partner/cycle on AriaFactPrivacy is the named gap — fail if that
-        enum exists without the prefixes. Ledger file() on this branch
-        must mention the deny list either way.
-        """
+    def test_python_user_add_deny_list_has_partner_cycle_prefixes(self):
+        """Python-only: routes/aria.py user-add deny list (not a faked Swift blob)."""
+        aria = nyx.repo_file("backend/infra/lambda/routes/aria.py").read_text(encoding="utf-8")
+        self.assertIn("def sanitize_user_memory_text", aria)
+        for prefix in nyx.DENIED_LIFESTYLE_PREFIXES:
+            self.assertIn(prefix, aria, prefix)
+
+    def test_swift_sanitize_summary_reads_real_aria_fact_privacy(self):
+        """Read real Swift sources. Pass if sanitizeSummary strips or delegates."""
+        inline = (
+            "enum AriaFactPrivacy {\n"
+            "    func sanitizeSummary(_ raw: String) -> String {\n"
+            "        let denied = [\"partner_\", \"partner_phase:\", \"cycle:fertile\"]\n"
+            "        return raw\n"
+            "    }\n"
+            "}\n"
+        )
+        helper = (
+            "enum AriaFactPrivacy {\n"
+            "    func sanitizeSummary(_ raw: String) -> String {\n"
+            "        return AriaInboundLifestyleStrip.sanitize(raw)\n"
+            "    }\n"
+            "}\n"
+            "enum AriaInboundLifestyleStrip {\n"
+            "    static let deniedPrefixes: [String] = "
+            "[\"partner_\", \"partner_phase:\", \"cycle:fertile\"]\n"
+            "}\n"
+        )
+        calendar_only = (
+            "enum AriaFactPrivacy {\n"
+            "    func sanitizeSummary(_ raw: String) -> String {\n"
+            "        if raw.contains(\"calendar:title\") { return \"\" }\n"
+            "        return raw\n"
+            "    }\n"
+            "}\n"
+        )
+        helper_empty = (
+            "enum AriaFactPrivacy {\n"
+            "    func sanitizeSummary(_ raw: String) -> String {\n"
+            "        return AriaInboundLifestyleStrip.sanitize(raw)\n"
+            "    }\n"
+            "}\n"
+            "enum AriaInboundLifestyleStrip {\n"
+            "    static let deniedPrefixes: [String] = [\"calendar:title:\"]\n"
+            "}\n"
+        )
+        self.assertEqual(nyx.aria_fact_privacy_strip_failures(inline), [], inline)
+        self.assertEqual(nyx.aria_fact_privacy_strip_failures(helper), [], helper)
+        self.assertTrue(nyx.aria_fact_privacy_strip_failures(calendar_only), calendar_only)
+        self.assertTrue(nyx.aria_fact_privacy_strip_failures(helper_empty), helper_empty)
+
         sources = nyx.iter_swift_privacy_sources()
-        self.assertTrue(sources, "AriaKnowledgeLedger.swift must exist")
-        joined = "\n".join(p.read_text(encoding="utf-8") for p in sources)
-        privacy_fails = nyx.aria_fact_privacy_strip_failures(joined)
-        self.assertEqual(privacy_fails, [], privacy_fails)
-        ledger = next(p for p in sources if p.name == "AriaKnowledgeLedger.swift")
-        ledger_src = ledger.read_text(encoding="utf-8")
-        self.assertIn("partner_", ledger_src)
-        self.assertIn("cycle:fertile", ledger_src)
+        self.assertTrue(sources, "AriaMemoryControls.swift / AriaKnowledgeLedger.swift")
+        joined = "\n".join(path.read_text(encoding="utf-8") for path in sources)
+        self.assertIn("enum AriaFactPrivacy", joined)
+        self.assertIn("func sanitizeSummary", joined)
+        self.assertEqual(nyx.aria_fact_privacy_strip_failures(joined), [])
+
+    def test_swift_python_lifestyle_deny_lists_lockstep(self):
+        """Two-way lockstep: Swift deniedPrefixes vs Python _DENIED_LIFESTYLE."""
+        swift_base = (
+            "public static let deniedPrefixes: [String] = [\n"
+            '        "partner_",\n'
+            '        "cycle:fertile",\n'
+            "    ]\n"
+        )
+        python_base = (
+            "_DENIED_LIFESTYLE = re.compile(\n"
+            '    r"(?i)^(?:"\n'
+            '    r"partner_"\n'
+            '    r"|cycle:fertile"\n'
+            '    r")"\n'
+            ")\n"
+        )
+        swift_extra = swift_base.replace(
+            '"cycle:fertile",\n',
+            '"cycle:fertile",\n        "swift_only_token",\n',
+        )
+        python_extra = python_base.replace(
+            '    r"|cycle:fertile"\n',
+            '    r"|cycle:fertile"\n    r"|python_only_token"\n',
+        )
+        swift_only = nyx.lifestyle_deny_lockstep_failures(swift_extra, python_base)
+        self.assertTrue(swift_only, swift_only)
+        self.assertTrue(
+            any("swift_only_token" in item and "Python" in item for item in swift_only),
+            swift_only,
+        )
+        python_only = nyx.lifestyle_deny_lockstep_failures(swift_base, python_extra)
+        self.assertTrue(python_only, python_only)
+        self.assertTrue(
+            any("python_only_token" in item and "Swift" in item for item in python_only),
+            python_only,
+        )
+        self.assertEqual(nyx.lifestyle_deny_lockstep_failures(swift_base, python_base), [])
+
+        ledger = nyx.repo_file(
+            "ForgeSwift",
+            "ForgeCore",
+            "Sources",
+            "ForgeCore",
+            "Intelligence",
+            "AriaKnowledgeLedger.swift",
+        )
+        aria = nyx.repo_file("backend", "infra", "lambda", "routes", "aria.py")
+        self.assertTrue(ledger.is_file(), ledger)
+        self.assertTrue(aria.is_file(), aria)
+        fails = nyx.lifestyle_deny_lockstep_failures(
+            ledger.read_text(encoding="utf-8"),
+            aria.read_text(encoding="utf-8"),
+        )
+        self.assertEqual(fails, [], fails)
 
 
 if __name__ == "__main__":

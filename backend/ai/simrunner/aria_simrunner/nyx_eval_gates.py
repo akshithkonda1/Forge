@@ -79,7 +79,41 @@ _INVOKE_CALL_NAMES = frozenset(
         "generate_response_live",
         "InvokeModel",
         "invoke_model",
+        "InvokeModelWithBidirectionalStream",
+        "invoke_model_with_bidirectional_stream",
+        "SynthesizeSpeech",
+        "synthesize_speech",
         "converse",
+        "mint_signed_url",
+        "run_tool",
+        "design_aria",
+        "handle_get_ai_voice_bootstrap",
+        "handle_post_ai_voice_tool",
+    }
+)
+
+# Live-voice spend Dummy must never reach (Nova Sonic, Polly, ElevenLabs).
+# `/ingest/url` is not a needle: Dummy may call the #369 extract ($0).
+_SPEND_NAME_NEEDLES = (
+    "InvokeModelWithBidirectionalStream",
+    "invoke_model_with_bidirectional_stream",
+    "SynthesizeSpeech",
+    "synthesize_speech",
+    "elevenlabs_voice",
+    "/ai/voice/bootstrap",
+    "/ai/voice/tool",
+)
+
+_INGEST_SPEND_CALL_NAMES = frozenset(
+    {
+        "generate_response_live",
+        "InvokeModel",
+        "invoke_model",
+        "converse",
+        "InvokeModelWithBidirectionalStream",
+        "invoke_model_with_bidirectional_stream",
+        "SynthesizeSpeech",
+        "synthesize_speech",
     }
 )
 
@@ -192,25 +226,119 @@ def _call_name(node: ast.AST) -> str:
     return ""
 
 
-def dummy_invoke_call_failures(source: str) -> list[str]:
-    """FAIL GATE: Dummy source must not *call* live Bedrock / InvokeModel.
+def _ast_parents(tree: ast.AST) -> dict[ast.AST, ast.AST]:
+    parents: dict[ast.AST, ast.AST] = {}
+    for node in ast.walk(tree):
+        for child in ast.iter_child_nodes(node):
+            parents[child] = node
+    return parents
 
-    Mentions in comments/docstrings are allowed. ``generate_response``
-    (deterministic) is the fused Dummy speak path.
+
+def _mentions_bedrock_enabled_flag(node: ast.AST) -> bool:
+    for child in ast.walk(node):
+        if isinstance(child, ast.Name) and child.id == "ARIA_BEDROCK_ENABLED":
+            return True
+        if isinstance(child, ast.Attribute) and child.attr == "ARIA_BEDROCK_ENABLED":
+            return True
+        if isinstance(child, ast.Constant) and child.value == "ARIA_BEDROCK_ENABLED":
+            return True
+    return False
+
+
+def _call_is_flag_guarded(node: ast.AST, parents: dict[ast.AST, ast.AST]) -> bool:
+    current = node
+    while current in parents:
+        current = parents[current]
+        if isinstance(current, ast.If) and _mentions_bedrock_enabled_flag(current.test):
+            return True
+    return False
+
+
+def ingest_url_no_spend_failures(source: str) -> list[str]:
+    """FAIL GATE: /ingest/url extract must stay deterministic $0.
+
+    Unguarded ``generate_response_live`` / ``InvokeModel`` / ``converse`` /
+    Nova Sonic / Polly calls fail. A future summarize/classify step is
+    allowed only when lexically inside ``if ARIA_BEDROCK_ENABLED``.
     """
     tree = ast.parse(source)
+    parents = _ast_parents(tree)
     fails: list[str] = []
     for node in ast.walk(tree):
         if not isinstance(node, ast.Call):
             continue
         name = _call_name(node.func)
-        if name == "generate_response_live":
-            fails.append(f"generate_response_live call at line {node.lineno}")
-        if name in {"InvokeModel", "invoke_model"}:
-            fails.append(f"{name} call at line {node.lineno}")
-        if name == "converse":
-            # Dummy may mention converse in comments; a real Call is spend.
-            fails.append(f"converse call at line {node.lineno}")
+        if name not in _INGEST_SPEND_CALL_NAMES:
+            continue
+        if _call_is_flag_guarded(node, parents):
+            continue
+        fails.append(f"unguarded {name} call at line {node.lineno}")
+    return fails
+
+
+def find_ingest_url_modules() -> list[Path]:
+    """#369 handler + extract. Empty until that PR lands on tip."""
+    found: list[Path] = []
+    for rel in (
+        ("backend", "infra", "lambda", "routes", "ingest.py"),
+        ("backend", "infra", "lambda", "services", "web_ingest.py"),
+    ):
+        path = repo_file(*rel)
+        if path.is_file():
+            found.append(path)
+    return found
+
+
+def _docstring_constants(tree: ast.AST) -> set[ast.AST]:
+    """First ``Expr`` constant of a module, class, or function body."""
+    found: set[ast.AST] = set()
+
+    def take(body: list[ast.stmt]) -> None:
+        if body and isinstance(body[0], ast.Expr) and isinstance(body[0].value, ast.Constant):
+            found.add(body[0].value)
+
+    take(tree.body)
+    for node in ast.walk(tree):
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
+            take(node.body)
+    return found
+
+
+def dummy_invoke_call_failures(source: str) -> list[str]:
+    """FAIL GATE: Dummy source must not *call* live spend.
+
+    Covers Bedrock ``generate_response_live`` / ``InvokeModel``, Nova Sonic
+    ``InvokeModelWithBidirectionalStream``, Polly ``SynthesizeSpeech``, and
+    ElevenLabs session/tool helpers. Mentions in comments/docstrings are
+    allowed. String literals and real Calls still fail.
+    ``generate_response`` (deterministic) is the fused Dummy path.
+    ``/ingest/url`` is not spend — Dummy may reach the #369 extract.
+    """
+    tree = ast.parse(source)
+    docstrings = _docstring_constants(tree)
+    fails: list[str] = []
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Import):
+            for alias in node.names:
+                if "elevenlabs_voice" in (alias.name or ""):
+                    fails.append(f"import {alias.name} at line {node.lineno}")
+        elif isinstance(node, ast.ImportFrom):
+            module = node.module or ""
+            if "elevenlabs_voice" in module:
+                fails.append(f"from {module} import at line {node.lineno}")
+            for alias in node.names:
+                if alias.name == "elevenlabs_voice":
+                    fails.append(f"from {module} import elevenlabs_voice at line {node.lineno}")
+        elif isinstance(node, ast.Constant) and isinstance(node.value, str):
+            if node in docstrings:
+                continue
+            for needle in _SPEND_NAME_NEEDLES:
+                if needle in node.value:
+                    fails.append(f"{needle} literal at line {node.lineno}")
+        elif isinstance(node, ast.Call):
+            name = _call_name(node.func)
+            if name in _INVOKE_CALL_NAMES:
+                fails.append(f"{name} call at line {node.lineno}")
     return fails
 
 
@@ -263,21 +391,133 @@ def iter_swift_privacy_sources() -> list[Path]:
     ]
 
 
+_SWIFT_STRIP_PREFIXES = ("partner_", "partner_phase:", "cycle:fertile")
+
+
+def _required_swift_strip_prefixes() -> tuple[str, ...]:
+    """Prefixes the Swift strip must cover, intersected with the Python deny list."""
+    deny = {item.lower() for item in DENIED_LIFESTYLE_PREFIXES}
+    return tuple(item for item in _SWIFT_STRIP_PREFIXES if item.lower() in deny)
+
+
 def aria_fact_privacy_strip_failures(source: str) -> list[str]:
-    """If AriaFactPrivacy exists, its sanitizer must deny partner/cycle prefixes."""
+    """If AriaFactPrivacy exists, user-add must strip partner/cycle prefixes.
+
+    Pass when ``sanitizeSummary`` contains the deny prefixes itself, or when
+    it calls ``AriaInboundLifestyleStrip.sanitize`` and that enum's
+    ``deniedPrefixes`` includes ``partner_``, ``partner_phase:``, and
+    ``cycle:fertile`` (checked against ``DENIED_LIFESTYLE_PREFIXES``).
+    """
     if "enum AriaFactPrivacy" not in source and "AriaFactPrivacy" not in source:
         return []
-    # Narrow to the sanitizer body when present so calendar-only gates fail.
+    required = _required_swift_strip_prefixes()
     blob = source
     marker = "func sanitizeSummary"
     if marker in source:
         blob = source.split(marker, 1)[-1]
     low = blob.lower()
-    missing = [
-        prefix
-        for prefix in ("partner_", "cycle:fertile", "partner_phase")
-        if prefix not in low
-    ]
-    if missing:
-        return [f"AriaFactPrivacy sanitizer missing {item}" for item in missing]
-    return []
+    if all(prefix.lower() in low for prefix in required):
+        return []
+    if "AriaInboundLifestyleStrip.sanitize" in blob:
+        enum_low = source.lower()
+        missing = [
+            prefix
+            for prefix in required
+            if prefix.lower() not in enum_low
+        ]
+        if missing:
+            return [
+                f"AriaInboundLifestyleStrip.deniedPrefixes missing {item}"
+                for item in missing
+            ]
+        if "deniedPrefixes" not in source and "deniedprefixes" not in enum_low:
+            return ["AriaInboundLifestyleStrip missing deniedPrefixes"]
+        return []
+    return [f"AriaFactPrivacy sanitizer missing {item}" for item in required]
+
+
+_SWIFT_DENIED_PREFIXES_RE = re.compile(
+    r"deniedPrefixes\s*:\s*\[String\]\s*=\s*\[(.*?)\]",
+    re.S,
+)
+_QUOTED_TOKEN_RE = re.compile(r'"([^"]+)"')
+_PYTHON_RAW_STRING_RE = re.compile(r'r["\']([^"\']+)["\']')
+
+
+def parse_swift_denied_prefixes(source: str) -> list[str]:
+    """Read ``AriaInboundLifestyleStrip.deniedPrefixes`` from real Swift."""
+    match = _SWIFT_DENIED_PREFIXES_RE.search(source or "")
+    if not match:
+        return []
+    return _QUOTED_TOKEN_RE.findall(match.group(1))
+
+
+def _balanced_call_args(source: str, start: int) -> str:
+    """Slice from ``start`` (an open paren) through its matching close."""
+    depth = 0
+    quote: str | None = None
+    index = start
+    while index < len(source):
+        char = source[index]
+        if quote:
+            if char == "\\" and index + 1 < len(source):
+                index += 2
+                continue
+            if char == quote:
+                quote = None
+            index += 1
+            continue
+        if char in {'"', "'"}:
+            quote = char
+            index += 1
+            continue
+        if char == "(":
+            depth += 1
+        elif char == ")":
+            depth -= 1
+            if depth == 0:
+                return source[start : index + 1]
+        index += 1
+    return ""
+
+
+def parse_python_denied_lifestyle(source: str) -> list[str]:
+    """Read ``_DENIED_LIFESTYLE`` tokens from real ``routes/aria.py`` source."""
+    marker = source.find("_DENIED_LIFESTYLE")
+    if marker < 0:
+        return []
+    open_paren = source.find("(", marker)
+    if open_paren < 0:
+        return []
+    blob = _balanced_call_args(source, open_paren)
+    tokens: list[str] = []
+    for part in _PYTHON_RAW_STRING_RE.findall(blob):
+        piece = part.lstrip("|")
+        if part.startswith("(?i)") or re.fullmatch(r"[()^?:|]+", piece or ""):
+            continue
+        if piece:
+            tokens.append(piece)
+    return tokens
+
+
+def lifestyle_deny_lockstep_failures(swift_source: str, python_source: str) -> list[str]:
+    """FAIL GATE: Swift deniedPrefixes and Python _DENIED_LIFESTYLE must match.
+
+    Names each missing token and which side lacks it. Does not edit either list.
+    """
+    swift = parse_swift_denied_prefixes(swift_source)
+    python = parse_python_denied_lifestyle(python_source)
+    swift_set = {item.lower() for item in swift}
+    python_set = {item.lower() for item in python}
+    fails: list[str] = []
+    if not swift:
+        fails.append("missing from Swift: deniedPrefixes list not found")
+    if not python:
+        fails.append("missing from Python: _DENIED_LIFESTYLE list not found")
+    for token in python:
+        if token.lower() not in swift_set:
+            fails.append(f"missing from Swift: {token}")
+    for token in swift:
+        if token.lower() not in python_set:
+            fails.append(f"missing from Python: {token}")
+    return fails
