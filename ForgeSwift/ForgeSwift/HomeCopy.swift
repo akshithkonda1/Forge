@@ -70,6 +70,25 @@ enum HomeReadiness {
         default: return "Low"
         }
     }
+
+    /// Spoken band — same cuts as `label`, written for VoiceOver.
+    static func voiceOverLabel(_ score: Int) -> String {
+        "Readiness \(score) out of 100, \(label(score))"
+    }
+}
+
+/// Friend-coach strings for the Home primary action. Never "recovery week"
+/// or "recovery-first" — those are banned product copy.
+enum HomeCoachCopy {
+    static let easySessionTitle = "Easy session"
+    static let easyDayGuidance = "Easy day — keep the structure, skip the intensity."
+    static let easyDayLow = "You're running a bit low. Keep today light."
+
+    static func pulledBack(score: Int) -> String {
+        "You're at \(score)%. This session is already pulled back."
+    }
+
+    static let bannedPhrases = ["recovery-first", "recovery week"]
 }
 
 @MainActor

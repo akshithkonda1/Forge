@@ -173,6 +173,7 @@ struct HomeTodayHero: View {
     @EnvironmentObject var store: AppStore
     let action: HomePrimaryAction
     @State private var showScore = false
+    @ScaledMetric(relativeTo: .largeTitle) private var heroFieldSize: CGFloat = HomeMetrics.heroFieldSize
 
     private var recovery: Bool { action.usesRecoveryChrome(store: store) }
 
@@ -181,9 +182,22 @@ struct HomeTodayHero: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
+        VStack(alignment: .leading, spacing: HomeMetrics.heroStackGap) {
             Text("Today")
                 .forgeSectionLabel()
+
+            HomeReadinessFieldView(
+                score: store.readiness.overall,
+                size: max(AriaRingFieldGeometry.heroMinimumSize, heroFieldSize)
+            )
+            .frame(maxWidth: .infinity)
+
+            Text(homeStatusLine(store: store))
+                .font(HomeType.status)
+                .foregroundColor(.textSecondary)
+                .multilineTextAlignment(.center)
+                .frame(maxWidth: .infinity)
+                .fixedSize(horizontal: false, vertical: true)
 
             if store.hasMeaningfulLifeSignal || store.readiness.overall > 0 {
                 HomeVitalsRow(
@@ -191,7 +205,7 @@ struct HomeTodayHero: View {
                     recovery: store.readiness.recoveryScore,
                     load: store.readiness.stressLevel
                 ) {
-                    withAnimation(FDS.Spring.standard) { showScore.toggle() }
+                    withAnimation(FDS.adaptiveAnimation(FDS.Spring.standard)) { showScore.toggle() }
                 }
             }
 
@@ -200,21 +214,17 @@ struct HomeTodayHero: View {
             if let session = store.todayWorkout {
                 VStack(alignment: .leading, spacing: 4) {
                     Text(displaySessionName(session.name))
-                        .font(.system(size: 20, weight: .semibold, design: .rounded))
+                        .font(HomeType.sessionTitle)
                         .foregroundColor(.textPrimary)
                         .fixedSize(horizontal: false, vertical: true)
-                    Text(homeStatusLine(store: store))
-                        .font(.system(size: 13, weight: .medium))
-                        .foregroundColor(.textSecondary)
                     Text("\(session.duration) min · \(session.intensity.label)")
-                        .font(.system(size: 12, weight: .semibold, design: .rounded))
+                        .font(HomeType.label)
                         .foregroundColor(.textTertiary)
                 }
-            } else {
-                Text(homeStatusLine(store: store))
-                    .font(.system(size: 15, weight: .medium, design: .rounded))
-                    .foregroundColor(.textSecondary)
-                    .fixedSize(horizontal: false, vertical: true)
+                .accessibilityElement(children: .combine)
+                .accessibilityLabel(
+                    "\(displaySessionName(session.name)), \(session.duration) minutes, \(session.intensity.label)"
+                )
             }
 
             if !aging.oneBreathLine.isEmpty {
@@ -224,7 +234,7 @@ struct HomeTodayHero: View {
                     store.pendingLifestyleSegment = "lifetime"
                 } label: {
                     Text(aging.oneBreathLine)
-                        .font(.system(size: 16, weight: .semibold, design: .rounded))
+                        .font(HomeType.status)
                         .foregroundColor(.textPrimary)
                         .multilineTextAlignment(.leading)
                         .frame(maxWidth: .infinity, alignment: .leading)
@@ -245,6 +255,7 @@ struct HomeTodayHero: View {
         .padding(HomeMetrics.cardPadding)
         .forgeGlassCard(accent: recovery ? .steel : .ember)
         .homeEntrance(delay: 0.06)
+        .accessibilityElement(children: .contain)
     }
 }
 
@@ -259,7 +270,7 @@ private struct HomeReadinessDetailStrip: View {
                 readinessFact("HRV", store.dailyMetrics.hrv, unit: "ms")
             }
             Text(readinessWhyCopy(store: store))
-                .font(.system(size: 12, weight: .medium))
+                .font(HomeType.body)
                 .foregroundColor(.textSecondary)
                 .fixedSize(horizontal: false, vertical: true)
         }
@@ -275,14 +286,18 @@ private struct HomeReadinessDetailStrip: View {
     private func readinessFact(_ label: String, _ value: Int, unit: String = "") -> some View {
         VStack(alignment: .leading, spacing: 2) {
             Text(label.uppercased())
-                .font(.system(size: 9, weight: .semibold, design: .rounded))
+                .font(HomeType.micro)
                 .foregroundColor(.textTertiary)
                 .tracking(0.6)
             Text(unit.isEmpty ? "\(value)" : "\(value)\(unit)")
-                .font(.system(size: 15, weight: .semibold, design: .rounded))
+                .font(HomeType.metric)
                 .foregroundColor(.textPrimary)
+                .minimumScaleFactor(0.75)
+                .lineLimit(1)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel(unit.isEmpty ? "\(label) \(value)" : "\(label) \(value) \(unit)")
     }
 }
 
@@ -296,7 +311,7 @@ private struct HomeLifeChipRow: View {
                     Image(systemName: chip.icon)
                         .font(.system(size: 10, weight: .semibold))
                     Text(chip.label)
-                        .font(.system(size: 12, weight: .semibold, design: .rounded))
+                        .font(HomeType.label)
                 }
                 .foregroundColor(.textPrimary)
                 .padding(.horizontal, 10)
@@ -306,6 +321,8 @@ private struct HomeLifeChipRow: View {
                 .overlay(Capsule().stroke(Color.white.opacity(0.12), lineWidth: 0.8))
             }
         }
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel(chips.map(\.label).joined(separator: ", "))
     }
 }
 
@@ -313,6 +330,7 @@ private struct HomePrimaryCTA: View {
     @EnvironmentObject var store: AppStore
     let action: HomePrimaryAction
     @State private var pressed = false
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
@@ -325,12 +343,12 @@ private struct HomePrimaryCTA: View {
                         .font(.system(size: 16, weight: .semibold))
                     VStack(alignment: .leading, spacing: 2) {
                         Text(action.title)
-                            .font(.system(size: 17, weight: .bold, design: .rounded))
+                            .font(HomeType.cta)
                             .lineLimit(1)
                             .minimumScaleFactor(0.85)
                         if let subtitle = action.subtitle(store: store) {
                             Text(subtitle)
-                                .font(.system(size: 12, weight: .medium))
+                                .font(HomeType.micro)
                                 .foregroundColor(.white.opacity(0.85))
                                 .lineLimit(2)
                         }
@@ -357,15 +375,15 @@ private struct HomePrimaryCTA: View {
                 .shadow(color: Color.ember.opacity(0.34), radius: 10, y: 4)
             }
             .buttonStyle(.plain)
-            .scaleEffect(pressed ? 0.98 : 1)
-            .animation(FDS.Spring.snap, value: pressed)
+            .scaleEffect(pressed && !reduceMotion ? 0.98 : 1)
+            .animation(reduceMotion ? nil : FDS.Spring.snap, value: pressed)
             .simultaneousGesture(
                 DragGesture(minimumDistance: 0)
                     .onChanged { _ in pressed = true }
                     .onEnded { _ in pressed = false }
             )
             .accessibilityLabel(action.title)
-            .accessibilityHint(action.subtitle(store: store) ?? "Double tap to activate")
+            .accessibilityHint(action.subtitle(store: store) ?? "Opens today's session")
 
             HStack(spacing: 10) {
                 Button {
@@ -377,9 +395,12 @@ private struct HomePrimaryCTA: View {
                     )
                 } label: {
                     HStack(spacing: 6) {
+                        // One animating mark per screen: the hero ring-field
+                        // is live, so this 14pt Nest mark stays still.
                         ARIAIdentityMark(state: .idle, mood: .energized, size: 14, amplitude: 0.22)
+                            .environment(\.forgeMinimalAnimation, true)
                         Text("Why this session")
-                            .font(.system(size: 13, weight: .semibold))
+                            .font(HomeType.label)
                     }
                     .foregroundColor(.textSecondary)
                     .frame(maxWidth: .infinity)
@@ -392,6 +413,8 @@ private struct HomePrimaryCTA: View {
                     )
                 }
                 .buttonStyle(.plain)
+                .accessibilityLabel("Why this session")
+                .accessibilityHint("Asks ARIA why today's session looks like this")
 
                 Button {
                     FDS.haptic(.light)
@@ -401,7 +424,7 @@ private struct HomePrimaryCTA: View {
                         Image(systemName: "leaf.fill")
                             .font(.system(size: 12, weight: .semibold))
                         Text("Lifestyle")
-                            .font(.system(size: 13, weight: .semibold))
+                            .font(HomeType.label)
                     }
                     .foregroundColor(Color.vitality)
                     .frame(maxWidth: .infinity)
@@ -414,6 +437,8 @@ private struct HomePrimaryCTA: View {
                     )
                 }
                 .buttonStyle(.plain)
+                .accessibilityLabel("Lifestyle")
+                .accessibilityHint("Opens the Lifestyle tab")
             }
         }
     }

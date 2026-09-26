@@ -6,8 +6,8 @@ import HealthKit
 /// samples by `Calendar.current.startOfDay(for: sample.endDate)` with no
 /// cross-midnight adjustment, so any night spanning midnight (nearly every
 /// real night) fragmented into two partial `SleepNightSample`s. This locks
-/// the fix: a -12h shift on `startDate` before bucketing, same technique as
-/// `SleepNight.groupIntoNights` in ForgeCore's SleepModels.swift.
+/// the bedtime + noon-cutoff key (`HomeTrendSeries.nightDate` / `nightCutoffHour`)
+/// on HealthKit `startDate`, same night-of rule as `SleepNight.groupIntoNights`.
 @MainActor
 final class SleepNightGroupingTests: XCTestCase {
 
@@ -31,9 +31,10 @@ final class SleepNightGroupingTests: XCTestCase {
             sample(.asleepCore, start: start1, end: end1),
             sample(.asleepDeep, start: start2, end: end2),
         ]
-        let nights = HealthKitManager.makeSleepNightSamples(from: samples)
+        let nights = HealthKitManager.makeSleepNightSamples(from: samples, calendar: calendar)
         XCTAssertEqual(nights.count, 1, "one continuous night spanning midnight must not fragment")
         XCTAssertEqual(nights.first?.totalHours ?? 0, 8, accuracy: 0.01)
+        XCTAssertEqual(nights.first?.date, "2026-09-10", "23:00 start is that calendar day's night")
     }
 
     func testTwoSeparateNightsStillProduceTwoEntries() {
@@ -47,7 +48,7 @@ final class SleepNightGroupingTests: XCTestCase {
             sample(.asleepCore, start: night1Start, end: night1End),
             sample(.asleepCore, start: night2Start, end: night2End),
         ]
-        let nights = HealthKitManager.makeSleepNightSamples(from: samples)
+        let nights = HealthKitManager.makeSleepNightSamples(from: samples, calendar: calendar)
         XCTAssertEqual(nights.count, 2, "nights several days apart must stay separate")
     }
 
@@ -62,7 +63,7 @@ final class SleepNightGroupingTests: XCTestCase {
             sample(.awake, start: wakeInterruption, end: backToSleep),
             sample(.asleepDeep, start: backToSleep, end: finalWake),
         ]
-        let nights = HealthKitManager.makeSleepNightSamples(from: samples)
+        let nights = HealthKitManager.makeSleepNightSamples(from: samples, calendar: calendar)
         XCTAssertEqual(nights.count, 1)
         XCTAssertEqual(nights.first?.awakeMinutes, 20)
         XCTAssertEqual(nights.first?.onset, onset, "onset must come from the first asleep sample, not the awake gap")
@@ -71,5 +72,41 @@ final class SleepNightGroupingTests: XCTestCase {
 
     func testEmptySamplesProduceNoNights() {
         XCTAssertTrue(HealthKitManager.makeSleepNightSamples(from: []).isEmpty)
+    }
+
+    func testNightDateUsesStartDateWithNoonCutoffNotEndDate() {
+        let thu2330 = calendar.date(from: DateComponents(year: 2026, month: 9, day: 24, hour: 23, minute: 30))!
+        let fri0030 = calendar.date(from: DateComponents(year: 2026, month: 9, day: 25, hour: 0, minute: 30))!
+        let fri1159 = calendar.date(from: DateComponents(year: 2026, month: 9, day: 25, hour: 11, minute: 59))!
+        let fri1200 = calendar.date(from: DateComponents(year: 2026, month: 9, day: 25, hour: 12))!
+
+        XCTAssertEqual(
+            HealthKitManager.makeSleepNightSamples(
+                from: [sample(.asleepCore, start: thu2330, end: calendar.date(byAdding: .hour, value: 7, to: thu2330)!)],
+                calendar: calendar
+            ).first?.date,
+            "2026-09-24"
+        )
+        XCTAssertEqual(
+            HealthKitManager.makeSleepNightSamples(
+                from: [sample(.asleepCore, start: fri0030, end: calendar.date(byAdding: .hour, value: 7, to: fri0030)!)],
+                calendar: calendar
+            ).first?.date,
+            "2026-09-24"
+        )
+        XCTAssertEqual(
+            HealthKitManager.makeSleepNightSamples(
+                from: [sample(.asleepCore, start: fri1159, end: calendar.date(byAdding: .hour, value: 2, to: fri1159)!)],
+                calendar: calendar
+            ).first?.date,
+            "2026-09-24"
+        )
+        XCTAssertEqual(
+            HealthKitManager.makeSleepNightSamples(
+                from: [sample(.asleepCore, start: fri1200, end: calendar.date(byAdding: .hour, value: 1, to: fri1200)!)],
+                calendar: calendar
+            ).first?.date,
+            "2026-09-25"
+        )
     }
 }

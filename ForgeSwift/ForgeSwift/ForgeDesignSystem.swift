@@ -49,6 +49,20 @@ enum FDS {
         static func micro(_ size: CGFloat = 10) -> Font {
             .system(size: size, weight: .semibold, design: .rounded)
         }
+
+        /// Dynamic Type–aware tokens. Prefer these on new Home work so
+        /// larger text sizes stay Oura-grade instead of clipping.
+        enum Dynamic {
+            static let pageTitle = Font.system(.title, design: .rounded).weight(.semibold)
+            static let display = Font.system(.title2, design: .rounded).weight(.semibold)
+            static let title = Font.system(.title3, design: .rounded).weight(.semibold)
+            static let headline = Font.system(.headline, design: .rounded).weight(.semibold)
+            static let body = Font.subheadline
+            static let label = Font.system(.caption, design: .rounded).weight(.semibold)
+            static let micro = Font.system(.caption2, design: .rounded).weight(.semibold)
+            static let metric = Font.system(.title3, design: .rounded).weight(.bold).monospacedDigit()
+            static let heroScore = Font.system(.largeTitle, design: .rounded).weight(.bold).monospacedDigit()
+        }
     }
     
     // MARK: - Duration
