@@ -1,0 +1,40 @@
+{
+  "type": "heart_rate.created",
+  "data": {
+    "user_id": "550e8400-e29b-41d4-a716-446655440000",
+    "provider": "garmin",
+    "series_type": "heart_rate",
+    "sample_count": 3,
+    "start_time": "2025-12-19T07:30:00+01:00",
+    "end_time": "2025-12-19T07:40:00+01:00",
+    "samples": [
+      {
+        "timestamp": "2025-12-19T07:30:00+01:00",
+        "zone_offset": "+01:00",
+        "type": "heart_rate",
+        "value": 62,
+        "unit": "bpm",
+        "source": { "provider": "garmin", "device": "Forerunner 255" },
+        "is_daily_total": null
+      },
+      {
+        "timestamp": "2025-12-19T07:35:00+01:00",
+        "zone_offset": "+01:00",
+        "type": "heart_rate",
+        "value": 65,
+        "unit": "bpm",
+        "source": { "provider": "garmin", "device": "Forerunner 255" },
+        "is_daily_total": null
+      },
+      {
+        "timestamp": "2025-12-19T07:40:00+01:00",
+        "zone_offset": "+01:00",
+        "type": "heart_rate",
+        "value": 70,
+        "unit": "bpm",
+        "source": { "provider": "garmin", "device": "Forerunner 255" },
+        "is_daily_total": null
+      }
+    ]
+  }
+}

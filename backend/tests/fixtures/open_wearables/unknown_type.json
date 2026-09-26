@@ -1,0 +1,25 @@
+{
+  "type": "heart_rate.created",
+  "data": {
+    "user_id": "550e8400-e29b-41d4-a716-446655440000",
+    "provider": "whoop",
+    "series_type": "nike_fuel",
+    "samples": [
+      {
+        "timestamp": "2025-12-19T07:30:00+00:00",
+        "type": "nike_fuel",
+        "value": 12,
+        "unit": "count",
+        "source": { "provider": "whoop" }
+      },
+      {
+        "timestamp": "2025-12-19T07:31:00+00:00",
+        "type": "steps",
+        "value": 140,
+        "unit": "count",
+        "source": { "provider": "whoop" },
+        "is_daily_total": false
+      }
+    ]
+  }
+}
