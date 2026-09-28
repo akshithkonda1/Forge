@@ -75,7 +75,6 @@ class RetrievalProvenanceGates(unittest.TestCase):
         friend = "Yeah — about that night, keep today kind."
         self.assertEqual(nyx.memory_cite_without_note_failures(friend, []), [])
 
-    @unittest.skip("owned by #352")
     def test_dummy_web_retrieve_keeps_from_source_label(self):
         with patch.object(web_research, "look_up", return_value="From Some Source: real info.") as look:
             row = dummy.respond("how do I improve my workout routine?", seed=1, engine="stub")
