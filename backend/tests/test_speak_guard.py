@@ -411,6 +411,29 @@ class ButtonSentenceTests(unittest.TestCase):
             )
         )
 
+    def test_any_spoken_sentence_matching_card_action_is_a_button(self):
+        card = {"action": "Keep today easy."}
+        self.assertTrue(speak_guard.is_button_sentence("Keep today easy.", card))
+        self.assertTrue(speak_guard.is_button_sentence("keep today easy", card))
+        self.assertTrue(speak_guard.spoken_has_button("Keep today easy.", card))
+        self.assertFalse(
+            speak_guard.is_button_sentence(
+                "Keep today easy and call it a win.", card
+            )
+        )
+        self.assertFalse(
+            speak_guard.spoken_has_button(
+                "Keep today easy and call it a win.", card
+            )
+        )
+        overtrain = {"action": aria_engine.BUTTON_OVERTRAIN}
+        self.assertTrue(
+            speak_guard.is_button_sentence(aria_engine.BUTTON_OVERTRAIN, overtrain)
+        )
+        self.assertFalse(
+            speak_guard.is_button_sentence(aria_engine.SPOKEN_PROTECT_STEP, overtrain)
+        )
+
 
 class BlockingPatternSpeakTests(unittest.TestCase):
     _BANNED = re.compile(
@@ -428,6 +451,10 @@ class BlockingPatternSpeakTests(unittest.TestCase):
             self.assertNotRegex(blob, self._STUCK_UNIT)
             self.assertNotRegex(blob, self._BANNED)
             self.assertFalse(speak_guard.spoken_has_button(blob, resp.get("card")))
+            if line == aria_engine.SPOKEN_SHORT_SLEEP:
+                self.assertLessEqual(len(re.findall(r"(?i)\bsleep\b", blob)), 1, blob)
+            why = "You've had a run of short nights, so sleep comes first."
+            self.assertNotIn(why, blob)
 
     def test_blocking_pattern_speaks_clean_line_never_risk_memory(self):
         from routes.aria import _insight_takeaway
@@ -488,6 +515,34 @@ class BlockingPatternSpeakTests(unittest.TestCase):
         )
         self.assertEqual(hot["message"], hot["prose_summary"])
         self._assert_clean_spoken(hot, aria_engine.SPOKEN_OVERTRAIN)
+
+        hot_text = aria_engine.generate_response(
+            "should I train hard today?", only_load, voice_mode=False
+        )
+        sleep_text = aria_engine.generate_response(
+            "should I train hard today?", both, voice_mode=False
+        )
+        self._assert_clean_spoken(sleep_text, aria_engine.SPOKEN_SHORT_SLEEP)
+        self._assert_clean_spoken(hot_text, aria_engine.SPOKEN_OVERTRAIN)
+        sleep_card = sleep_text.get("card") or {}
+        hot_card = hot_text.get("card") or {}
+        self.assertEqual(sleep_card.get("action"), aria_engine.BUTTON_SHORT_SLEEP)
+        self.assertEqual(hot_card.get("action"), aria_engine.BUTTON_OVERTRAIN)
+        for text_resp in (sleep_text, hot_text):
+            action = ((text_resp.get("card") or {}).get("action") or "").strip()
+            spoken = f"{text_resp.get('message') or ''} {text_resp.get('prose_summary') or ''}"
+            for part in re.split(r"(?<=[.!?])\s+", spoken):
+                sentence = part.strip()
+                if not sentence or not action:
+                    continue
+                self.assertNotEqual(
+                    speak_guard._norm(sentence),
+                    speak_guard._norm(action),
+                    (sentence, action),
+                )
+            self.assertFalse(
+                speak_guard.spoken_has_button(spoken, text_resp.get("card"))
+            )
 
         dynamodb.clear_local_store()
         uid = f"block-speak-{id(self)}"

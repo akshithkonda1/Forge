@@ -1609,6 +1609,70 @@ class PhrasePickHashTests(unittest.TestCase):
         # Different turn may collide on a small pool; rotation is covered above.
         self.assertIn(other, dummy._WIT_PROTECT)
 
+    def test_growing_history_rotates_without_explicit_turn(self):
+        from routes.aria import _request_turn
+
+        self.assertEqual(_request_turn({}), 0)
+        self.assertEqual(_request_turn({"turn": 4}), 4)
+        growing = []
+        for n in (1, 5, 9, 13, 17, 21):
+            body = {
+                "conversation": {
+                    "recentTurns": [
+                        {"role": "user", "content": f"turn-{i}"} for i in range(n)
+                    ]
+                }
+            }
+            self.assertIsNone(body.get("turn"))
+            turn = _request_turn(body)
+            self.assertEqual(turn, n)
+            growing.append(
+                state_read._pick(state_read.phrase_key(self._UID, turn), state_read.SHORT_NIGHT)
+            )
+        self.assertGreaterEqual(len(set(growing)), 2, growing)
+        nested = _request_turn(
+            {"context": {"conversation": {"totalTurns": 11, "recentTurns": []}}}
+        )
+        self.assertEqual(nested, 11)
+
+    def test_remember_me_off_through_route_keeps_same_user_turn_text(self):
+        import json
+
+        from routes.aria import handle_post_ai_chat
+        from services import editable_memory
+        from storage import dynamodb
+
+        dynamodb.clear_local_store()
+        uid = "remember-off-phrase"
+        body = {
+            "message": "Should I train today?",
+            "user_id": uid,
+            "turn": self._TURN,
+            "context": {
+                "sleep": {
+                    "durationMinutes": 300,
+                    "nightsAvailable": 14,
+                    "baselineMedianMinutes": 450,
+                },
+                "readiness": {
+                    "hrv7DayTrend": -12,
+                    "recoveryScore": 48,
+                    "hrvDaysAvailable": 7,
+                },
+                "training": {"weeklyLoadScore": 60},
+            },
+        }
+        editable_memory.put_settings(
+            uid, editable_memory.CompanionMemorySettings(memory_enabled=True)
+        )
+        on = json.loads(handle_post_ai_chat(body, user_id=uid)["body"])
+        editable_memory.put_settings(
+            uid, editable_memory.CompanionMemorySettings(memory_enabled=False)
+        )
+        off = json.loads(handle_post_ai_chat(body, user_id=uid)["body"])
+        self.assertEqual(on["prose_summary"], off["prose_summary"])
+        self.assertTrue(on["prose_summary"].strip())
+
 
 if __name__ == "__main__":
     unittest.main()

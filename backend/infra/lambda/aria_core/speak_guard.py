@@ -403,7 +403,8 @@ def is_button_sentence(sentence: str, card: dict[str, Any] | None = None) -> boo
 
     Fails ``Show deload week.`` (and any ``^Show \\w+( \\w+)?\\.$`` label).
     Passes ``Show up for ten easy minutes and call it a win.``
-    Also fails a sentence that exactly equals a button-like ``card.action``.
+    Also fails any sentence that exactly equals ``card.action`` (normalized
+    for case, whitespace, and a trailing period), not only ``Show …`` labels.
     """
     text = str(sentence or "").strip()
     if not text:
@@ -425,10 +426,7 @@ def is_button_sentence(sentence: str, card: dict[str, Any] | None = None) -> boo
             buttons.append(raw)
     text_key = _norm(text)
     for raw in buttons:
-        ended_raw = raw if raw.endswith(".") else f"{raw}."
-        if _norm(raw) != text_key:
-            continue
-        if _SHOW_BUTTON.match(raw) or _SHOW_BUTTON.match(ended_raw) or raw.lower().startswith("show "):
+        if _norm(raw) == text_key:
             return True
     return False
 

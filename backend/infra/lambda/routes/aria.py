@@ -210,16 +210,54 @@ def _merge_fusion(response: dict[str, Any], fused: Any) -> None:
     response["fusion"] = {**sidecar, **existing}
 
 
+def _conversation_block(body: dict[str, Any]) -> dict[str, Any]:
+    """Conversation history from this request body only — never persisted memory."""
+    conv = body.get("conversation")
+    if isinstance(conv, dict):
+        return conv
+    ctx = body.get("context")
+    if isinstance(ctx, dict) and isinstance(ctx.get("conversation"), dict):
+        return ctx["conversation"]
+    return {}
+
+
+def _turn_from_history(body: dict[str, Any]) -> int:
+    """Count prior turns from the inbound conversation payload."""
+    conv = _conversation_block(body)
+    for key in ("totalTurns", "total_turns"):
+        raw = conv.get(key)
+        if raw is None:
+            continue
+        try:
+            return max(0, int(raw))
+        except (TypeError, ValueError):
+            pass
+    for key in ("recentTurns", "recent_turns"):
+        recent = conv.get(key)
+        if isinstance(recent, list):
+            return len(recent)
+    for key in ("history", "prior_turns", "messages"):
+        rows = body.get(key)
+        if isinstance(rows, list):
+            return len(rows)
+    return 0
+
+
 def _request_turn(body: dict[str, Any]) -> int:
-    """Turn counter from the request/session only — never memory or notes."""
+    """Turn counter from the request/session, else inbound conversation history.
+
+    Never reads remember_short_term, last_insights, notes, or persisted fusion.
+    """
     raw = body.get("turn")
     session = body.get("session")
     if raw is None and isinstance(session, dict):
         raw = session.get("turn")
-    try:
-        return max(0, int(raw))
-    except (TypeError, ValueError):
-        return 0
+    if raw is not None:
+        try:
+            return max(0, int(raw))
+        except (TypeError, ValueError):
+            pass
+    return _turn_from_history(body)
 
 
 def _checked_speak(fn, *args, **kwargs):

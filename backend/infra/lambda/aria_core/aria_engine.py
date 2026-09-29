@@ -2197,9 +2197,10 @@ def _lifestyle_notice(notice: str, brief: Any, fallback: str) -> str:
 # Spoken safety lines for a blocking pattern. Raw card['risk'] / pattern.notice
 # (ACWR, "overtraining risk", "11.7h short") is never spoken.
 SPOKEN_OVERTRAIN = "Your training has climbed fast lately, so let's ease off for a few days."
-SPOKEN_SHORT_SLEEP = "You've been running short on sleep this week, so sleep comes first."
+SPOKEN_SHORT_SLEEP = "You've been running short this week, so sleep comes first."
 SPOKEN_PROTECT_STEP = "Keep today easy and call it a win."
-SPOKEN_SLEEP_STEP = "Keep today easy, then sleep first tonight."
+BUTTON_SHORT_SLEEP = "Keep today easy."
+BUTTON_OVERTRAIN = "Back off and keep today easy."
 _SPOKEN_JARGON = re.compile(r"(?i)\b(?:overtrain\w*|overreach\w*|fatigue|deload|acwr)\b")
 
 
@@ -2234,8 +2235,12 @@ def spoken_safety_line(pattern: Any, load: Any = None) -> str:
 
 
 def _spoken_protect_step(action: str, *, sleep_first: bool = False) -> str:
-    """Protect step that is safe to speak — no buttons, jargon, digits, or guides."""
-    line = SPOKEN_SLEEP_STEP if sleep_first else SPOKEN_PROTECT_STEP
+    """Protect step that is safe to speak — no buttons, jargon, digits, or guides.
+
+    Short-sleep and overtrain share the same spoken step so ``sleep`` is not
+    repeated after ``SPOKEN_SHORT_SLEEP``. ``sleep_first`` is kept for callers.
+    """
+    line = SPOKEN_PROTECT_STEP
     return line if line.endswith(".") else f"{line}."
 
 
@@ -2328,6 +2333,12 @@ def _compose_blocking_speak(
             if part.strip() and not re.search(r"\d", part)
         )
     step = _spoken_protect_step(action, sleep_first=safety == SPOKEN_SHORT_SLEEP)
+    if safety == SPOKEN_SHORT_SLEEP and existing:
+        existing = " ".join(
+            part.strip()
+            for part in re.split(r"(?<=[.!?])\s+", existing)
+            if part.strip() and not re.search(r"(?i)\bsleep\b", part)
+        )
     parts: list[str] = []
     if safety:
         parts.append(safety if safety.endswith(".") else f"{safety}.")
@@ -2459,15 +2470,15 @@ def _recommendation_response(
             action, sleep_first=spoken_safety_line(pattern, load) == SPOKEN_SHORT_SLEEP
         )
         if card is not None:
-            # Evaluator directional tokens live on card.action, not spoken
-            # prose. "back off" is allowed; overtrain/deload/acwr are not spoken.
+            # Buttons stay off the spoken line. Overtrain keeps a directional
+            # "back off" token for SimRunner; short-sleep gets its own label.
             if spoken_safety_line(pattern, load) == SPOKEN_OVERTRAIN:
-                card["action"] = "Back off and keep today easy."
-            elif spoken_action:
-                card["action"] = spoken_action
+                card["action"] = BUTTON_OVERTRAIN
+            else:
+                card["action"] = BUTTON_SHORT_SLEEP
         notice = prose
-        if why and (_SPOKEN_JARGON.search(why) or re.search(r"\d", why)):
-            why = None
+        # Never fold evidence.why ("…so sleep comes first.") into spoken text.
+        why = None
     elif (pattern.notice or "").strip().lower().rstrip(".") in _GENERIC_NOTICES:
         # Clarify / empty-protect notices are not a data read — keep the
         # lead interpretation so replies still reference real numbers.
@@ -2481,7 +2492,11 @@ def _recommendation_response(
         confidence_reason=reason,
         prose_summary=prose,
         card=card,
-        message=_structured_message(notice, spoken_action, why),
+        message=(
+            prose
+            if pattern.blocks_intensity
+            else _structured_message(notice, spoken_action, why)
+        ),
         suggested_actions=actions,
         voice_mode=voice_mode,
     )
