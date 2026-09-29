@@ -602,7 +602,8 @@ def _join_read(speech: str, clause: str, *, ack: bool, direction: str = "") -> s
     sentence = parts[step_i]
     safety_parts = [part for part in parts if _is_safety_sentence(part)]
     if safety_parts:
-        # Safety line must lead; never pull the protect step in front of it.
+        # Iris: safety, then the exact protect step, then the read as its
+        # own sentence. Do not fold the step into "short night, so …".
         rest = [
             part
             for i, part in enumerate(parts)

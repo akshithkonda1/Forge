@@ -2411,6 +2411,15 @@ def _compose_blocking_speak(
             for part in re.split(r"(?<=[.!?])\s+", existing)
             if part.strip() and not re.search(r"(?i)\bsleep\b", part)
         )
+    if not safety:
+        # protect_cluster and other blocked patterns without a dedicated
+        # spoken line must keep the interpreter / habit read (usual, variance).
+        parts = []
+        if existing:
+            parts.append(_end_spoken(existing))
+        if step and _norm_spoken(step) not in _norm_spoken(existing):
+            parts.append(_end_spoken(step))
+        return " ".join(parts) or _end_spoken(step)
     parts: list[str] = []
     if safety:
         parts.append(_end_spoken(safety))
@@ -3031,6 +3040,34 @@ def _topic_from_message(message: str) -> str:
     return domain
 
 
+def _blocking_safety_in(text: str) -> str:
+    blob = _norm_spoken(text)
+    if _norm_spoken(SPOKEN_SHORT_SLEEP) in blob:
+        return SPOKEN_SHORT_SLEEP
+    if _norm_spoken(SPOKEN_OVERTRAIN) in blob:
+        return SPOKEN_OVERTRAIN
+    return ""
+
+
+def _maybe_polish_blocking_envelope(envelope: dict[str, Any]) -> dict[str, Any]:
+    """Clean safety + step + drop orphans before a state read is attached."""
+    evidence = envelope.get("evidence") if isinstance(envelope.get("evidence"), dict) else {}
+    if not evidence.get("blocks_intensity"):
+        return envelope
+    blob = f"{envelope.get('prose_summary') or ''} {envelope.get('message') or ''}"
+    safety = _blocking_safety_in(blob)
+    if not safety:
+        return envelope
+    polished = _polish_blocking_speak(
+        envelope.get("prose_summary") or blob,
+        safety=safety,
+        step=SPOKEN_PROTECT_STEP,
+    )
+    envelope["prose_summary"] = polished
+    envelope["message"] = polished
+    return envelope
+
+
 def _finish_spoken_envelope(
     envelope: dict[str, Any],
     ctx: ARIAContext,
@@ -3052,6 +3089,9 @@ def _finish_spoken_envelope(
         memory_block=_memory_block_from_ctx(ctx),
         topic=_topic_from_message(message),
     )
+    # Drop orphan interpreter fragments before the state read attaches, so
+    # aliases like "below your usual" cannot shadow the phrase-bank clause.
+    envelope = _maybe_polish_blocking_envelope(envelope)
     envelope = state_read.apply_to_envelope(
         envelope,
         ctx,
@@ -3060,23 +3100,14 @@ def _finish_spoken_envelope(
     )
     envelope = speak_guard.dedupe_envelope_speech(envelope)
     evidence = envelope.get("evidence") if isinstance(envelope.get("evidence"), dict) else {}
-    if evidence.get("blocks_intensity"):
-        blob = f"{envelope.get('prose_summary') or ''} {envelope.get('message') or ''}"
-        if _norm_spoken(SPOKEN_SHORT_SLEEP) in _norm_spoken(blob):
-            safety = SPOKEN_SHORT_SLEEP
-        elif _norm_spoken(SPOKEN_OVERTRAIN) in _norm_spoken(blob):
-            safety = SPOKEN_OVERTRAIN
-        else:
-            safety = ""
-        if safety:
-            polished = _polish_blocking_speak(
-                envelope.get("prose_summary") or blob,
-                safety=safety,
-                step=SPOKEN_PROTECT_STEP,
-            )
-            envelope["prose_summary"] = polished
-            # Blocking text and voice both speak the same direction line + step.
-            envelope["message"] = polished
+    if evidence.get("blocks_intensity") and _blocking_safety_in(
+        f"{envelope.get('prose_summary') or ''} {envelope.get('message') or ''}"
+    ):
+        # Do not re-polish after the read — that dropped "Short night." /
+        # "Not quite at your usual." Sync text and voice only.
+        spoken = envelope.get("prose_summary") or envelope.get("message")
+        envelope["prose_summary"] = spoken
+        envelope["message"] = spoken
     elif voice_mode:
         # Voice speaks one line: keep message identical to prose after reads/dedupe.
         envelope["message"] = envelope.get("prose_summary") or envelope.get("message")

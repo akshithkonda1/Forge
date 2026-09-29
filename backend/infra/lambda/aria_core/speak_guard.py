@@ -124,9 +124,13 @@ def user_visible(row: dict[str, Any] | None) -> str:
     """Join the fields a person (or voice) actually hears."""
     row = row or {}
     card = row.get("card") if isinstance(row.get("card"), dict) else {}
+    prose = str(row.get("prose_summary") or "")
+    chat = str(row.get("message") or "")
+    if chat and prose and _norm(chat) == _norm(prose):
+        chat = ""
     parts = [
-        row.get("prose_summary") or "",
-        row.get("message") or "",
+        prose,
+        chat,
         row.get("recommendation") or "",
         card.get("action") or "",
         card.get("why") or "",

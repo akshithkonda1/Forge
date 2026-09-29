@@ -457,15 +457,16 @@ class AttachAndPathTests(unittest.TestCase):
         resp = aria_engine.generate_response("Should I train today?", ctx, seed=0)
         speech = _speech(resp)
         self.assertTrue(_read_hits(speech), speech)
-        self.assertRegex(speech, r"(?i)short night,\s+so\s+")
+        self.assertRegex(speech, r"(?i)short night")
         self.assertEqual(list(ctx.lifestyle.recent_patterns), before_patterns)
         self.assertEqual(list(ctx.last_insights), before_insights)
         self.assertEqual(aria_engine._memory_block_from_ctx(ctx), before_block)
 
         # The chat route saves the first prose_summary sentence via add_insight
-        # (routes/aria.py). Next-turn stamp must strip the clause, not the user note.
+        # (routes/aria.py). On a blocking turn that is the approved safety line;
+        # the short-night read stays a later sentence and must not be stored.
         takeaway = str(resp.get("prose_summary") or "").split(".")[0].strip()
-        self.assertRegex(takeaway, r"(?i)short night")
+        self.assertEqual(takeaway.rstrip("."), aria_engine.SPOKEN_SHORT_SLEEP.rstrip("."))
         living = type("Living", (), {})()
         living.last_insights = [takeaway]
         living.recent_patterns = list(before_patterns)
@@ -656,7 +657,7 @@ class ScoutEqualUsualAndDedupeTests(unittest.TestCase):
     def test_read_sentence_never_appears_twice(self):
         ctx = _health_ctx()
         resp = aria_engine.generate_response("Should I train today?", ctx, seed=0)
-        speech = f"{resp.get('prose_summary') or ''} {resp.get('message') or ''}"
+        speech = _speech(resp)
         hits = _read_hits(speech)
         self.assertTrue(hits, speech)
         for hit in set(hits):
