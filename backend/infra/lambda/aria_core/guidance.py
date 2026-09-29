@@ -87,6 +87,101 @@ _SELF_HARM = (
     "take my own life", "don't want to be here", "dont want to be here",
 )
 
+# Cardiac / stroke / syncope phrasing that is not already in _EMERGENCY_STATE.
+# Combination rules stay tight so training soreness ("chest is sore after
+# chest day") remains COACH.
+_CHEST_MARKERS = (
+    "chest pain", "chest pressure", "chest tightness", "chest feels tight",
+    "chest is tight", "chest hurt", "chest hurts", "pain in my chest",
+    "pain in the chest", "pressure in my chest", "pressure in the chest",
+    "tightness in my chest", "my chest hurts", "my chest hurt",
+)
+_SEVERE_CHEST = (
+    "crushing chest pressure", "crushing chest pain",
+    "crushing pressure in my chest", "crushing pain in my chest",
+)
+_CHEST_COMPANIONS = (
+    "arm is numb", "arm numb", "numb arm", "numbness in my arm",
+    "numbness in the arm", "arm hurts", "arm pain", "pain in my arm",
+    "pain in the arm", "left arm", "right arm", "jaw ache", "jaw aches",
+    "jaw pain", "jaw hurts", "jaw hurt", "ache in my jaw", "back pain",
+    "pain in my back", "shortness of breath", "short of breath",
+    "can't breathe", "cant breathe", "cannot breathe", "hard to breathe",
+    "difficulty breathing", "cold sweat", "cold sweats", "clammy",
+)
+_STROKE_STANDALONE = (
+    "face is drooping", "face drooping", "drooping face", "face droops",
+    "face is droopy", "slurred speech", "speech is slurred", "words are slurred",
+    "slurring my words", "slurring words", "sudden confusion",
+    "suddenly confused", "worst headache",
+)
+_SYNCOPE_STANDALONE = (
+    "fainted", "fainting", "blacked out", "blacking out", "passed out",
+)
+_NOT_BREATHING = (
+    "not breathing", "isn't breathing", "isnt breathing", "stopped breathing",
+)
+_UNRESPONSIVE = (
+    "unresponsive", "won't wake up", "wont wake up", "unconscious",
+    "not responding",
+)
+_NO_CIRCULATION = (
+    "no pulse", "no heartbeat",
+)
+_CANT_TALK_RIGHT_RE = re.compile(r"\bcan(?:not|'?t) talk right(?! now)\b")
+_ONE_SIDED_DEFICIT_RE = re.compile(
+    r"\b(?:one|left|right) side\b.{0,40}\b(?:weak|weaker|numb|numbness)\b|"
+    r"\b(?:weak|weaker|numb|numbness)\b.{0,40}\b(?:one|left|right) side\b"
+)
+
+
+def _is_cardiac_red_flag(lower: str) -> bool:
+    if _has(lower, _SEVERE_CHEST):
+        return True
+    if "crushing" in lower and _has(lower, _CHEST_MARKERS):
+        return True
+    if not _has(lower, _CHEST_MARKERS):
+        return False
+    if _has(lower, _CHEST_COMPANIONS):
+        return True
+    return _has_word(lower, ("jaw",)) and _has(
+        lower, ("ache", "aches", "aching", "pain", "hurt", "hurts", "numb")
+    )
+
+
+def _is_stroke_red_flag(lower: str) -> bool:
+    if _has(lower, _STROKE_STANDALONE) or _has(lower, ("having a stroke",)):
+        return True
+    if _CANT_TALK_RIGHT_RE.search(lower):
+        return True
+    return bool(_ONE_SIDED_DEFICIT_RE.search(lower))
+
+
+def _is_syncope_red_flag(lower: str) -> bool:
+    return _has(lower, _SYNCOPE_STANDALONE)
+
+
+def _is_cardiac_reply(lower: str) -> bool:
+    return _is_cardiac_red_flag(lower) or _has(lower, ("heart attack",))
+
+
+def _needs_cpr(lower: str) -> bool:
+    """CPR only for arrest: not breathing, unresponsive, or no circulation."""
+    return (
+        _has(lower, _NOT_BREATHING)
+        or _has(lower, _UNRESPONSIVE)
+        or _has(lower, _NO_CIRCULATION)
+    )
+
+
+def _is_acute_red_flag(lower: str) -> bool:
+    """Life-threatening cardiac, stroke, or syncope cues not in _EMERGENCY_STATE."""
+    return (
+        _is_cardiac_red_flag(lower)
+        or _is_stroke_red_flag(lower)
+        or _is_syncope_red_flag(lower)
+    )
+
 # --- First-aid how-to (helping someone; information is in-bounds) ------------
 _HOWTO_CUES = (
     "how do i", "how to", "how can i", "what do i do", "what should i do",
@@ -172,7 +267,8 @@ def _detect_first_aid_topics(lower: str) -> list[str]:
     if _has(lower, ("bleeding", "blood", "tourniquet", "cut", "wound", "nosebleed")):
         topics.append("bleeding")
     if _has(lower, ("collapsed", "passed out", "unconscious", "unresponsive",
-                    "won't wake", "wont wake", "fainted")):
+                    "won't wake", "wont wake", "fainted", "blacked out",
+                    "blacking out")):
         topics.append("unconscious")
     if _has(lower, ("seizure", "convulsing")):
         topics.append("seizure")
@@ -235,6 +331,53 @@ _CRISIS_LINE = (
     "text 988 for the Suicide & Crisis Lifeline, any time. If you're in immediate "
     "danger, call 911 now."
 )
+# Iris: every physical emergency opens with these three words. CPR digits are
+# only spoken when compressions are actually indicated.
+_EMERGENCY_OPEN = "Call 911 now."
+_EMERGENCY_CPR_STEPS = (
+    "hard, fast chest compressions in the center of the chest — about "
+    "100–120 a minute, roughly 2 inches deep, letting the chest come all "
+    "the way back up between each. If you're trained, add 2 rescue breaths "
+    "every 30 compressions. Keep going until help arrives or the person "
+    "starts to wake up."
+)
+_EMERGENCY_CPR = f"Start CPR: {_EMERGENCY_CPR_STEPS}"
+_EMERGENCY_CPR_IF_NEEDED = f"If they're not breathing, start CPR: {_EMERGENCY_CPR_STEPS}"
+_EMERGENCY_CARDIAC = (
+    "Stop what you're doing and sit or lie down somewhere safe. Don't drive "
+    "yourself, and unlock the door so help can get in."
+)
+_EMERGENCY_STROKE = (
+    "Note the time the symptoms started, don't eat or drink anything, and "
+    "don't drive. Stay with them if it's someone else."
+)
+_EMERGENCY_FAINT = (
+    "Lie down flat and stay down, don't get back on the equipment or drive, "
+    "and keep someone with you if you can."
+)
+
+
+def _self_harm_prose() -> str:
+    """Crisis line already ends with call 911 now — do not lead with it twice."""
+    crisis = _CRISIS_LINE.strip()
+    if crisis.lower().rstrip(".").endswith("call 911 now"):
+        return crisis
+    return f"{_EMERGENCY_OPEN} {crisis}"
+
+
+def _emergency_prose(lower: str) -> str:
+    """Pick steps by red-flag type. Not-breathing / unresponsive CPR wins."""
+    if _has(lower, _SELF_HARM):
+        return _self_harm_prose()
+    if _needs_cpr(lower):
+        return f"{_EMERGENCY_OPEN} {_EMERGENCY_CPR}"
+    if _is_cardiac_reply(lower):
+        return f"{_EMERGENCY_OPEN} {_EMERGENCY_CARDIAC}"
+    if _is_stroke_red_flag(lower):
+        return f"{_EMERGENCY_OPEN} {_EMERGENCY_STROKE}"
+    if _is_syncope_red_flag(lower):
+        return f"{_EMERGENCY_OPEN} {_EMERGENCY_FAINT}"
+    return f"{_EMERGENCY_OPEN} {_EMERGENCY_CPR_IF_NEEDED}"
 
 
 def _first_aid_body(lower: str) -> str:
@@ -246,6 +389,8 @@ def classify_band(message: str) -> str:
     if _has(lower, _SELF_HARM):
         return EMERGENCY
     if _has(lower, _ESCALATION_REQUEST) or _has(lower, _EMERGENCY_STATE):
+        return EMERGENCY
+    if _is_acute_red_flag(lower):
         return EMERGENCY
     if _has(lower, _HOWTO_CUES) and _has_word(lower, _FIRST_AID_TOPICS):
         return FIRST_AID
@@ -262,20 +407,7 @@ def assess(message: str) -> Guidance | None:
         return None
 
     if band == EMERGENCY:
-        parts = [
-            "If this is an emergency, call 911 (or your local emergency number) "
-            "right now — or use your phone's Emergency SOS. That comes first."
-        ]
-        if _has(lower, _SELF_HARM):
-            # A crisis message gets the lifeline, not generic CPR/bleeding steps.
-            parts.append(_CRISIS_LINE)
-        else:
-            parts.append(_first_aid_body(lower))
-        parts.append(
-            "I'm a lifestyle coach, not a doctor, so I can't diagnose what's "
-            "happening — but getting emergency help matters most right now."
-        )
-        prose = " ".join(p.strip() for p in parts if p.strip())
+        prose = _emergency_prose(lower)
         return Guidance(
             band=EMERGENCY,
             prose=prose,
