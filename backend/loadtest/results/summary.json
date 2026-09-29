@@ -1,0 +1,16 @@
+{
+  "generated_at": "2026-09-29T03:41:40.951486+00:00",
+  "files": [
+    "baseline.json",
+    "baseline.md",
+    "stress.json",
+    "stress.md"
+  ],
+  "guards_final": {
+    "bedrock_client": 0,
+    "bedrock_invoke": 0,
+    "elevenlabs_http": 0,
+    "elevenlabs_api": 0,
+    "total": 0
+  }
+}

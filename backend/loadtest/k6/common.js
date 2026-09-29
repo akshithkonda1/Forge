@@ -52,14 +52,15 @@ export function requireLocalDummyEnv() {
   if (!base) {
     fail('BASE_URL is required and must be a localhost URL');
   }
-  let parsed;
-  try {
-    parsed = new URL(base);
-  } catch (err) {
-    fail(`BASE_URL is not a valid URL: ${base}`);
+  // k6's URL() rejects http://127.0.0.1:3001 on 2.3.0. Parse host by hand.
+  const ipv6 = /^https?:\/\/\[([^\]]+)\](?::\d+)?(?:[/?#].*)?$/i.exec(base);
+  const ipv4 = /^https?:\/\/([^[/:?#]+)(?::\d+)?(?:[/?#].*)?$/i.exec(base);
+  const host = ipv6 ? ipv6[1] : ipv4 ? ipv4[1] : '';
+  if (!host) {
+    fail(`BASE_URL is not a valid http(s) URL: ${base}`);
   }
-  if (!LOOPBACK.has(parsed.hostname)) {
-    fail(`BASE_URL must target localhost/127.0.0.1, got host ${parsed.hostname}`);
+  if (!LOOPBACK.has(host)) {
+    fail(`BASE_URL must target localhost/127.0.0.1, got host ${host}`);
   }
   if (__ENV.ARIA_BEDROCK_ENABLED !== 'false') {
     fail("ARIA_BEDROCK_ENABLED must be the string 'false'");
