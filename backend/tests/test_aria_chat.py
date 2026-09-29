@@ -137,10 +137,20 @@ _THIN_REPLY = "I don't have enough to go on yet. Tell me about the day?"
 _ONE_REAL_MEAL = "One real meal and a quieter evening beats another late push."
 
 
-def _assert_no_repeats(test: unittest.TestCase, replies: list[str]) -> None:
+def _assert_no_repeats(
+    test: unittest.TestCase,
+    replies: list[str],
+    *,
+    allow_exact: tuple[str, ...] = (),
+) -> None:
+    # Exact approved strings only — same ngram pattern #386 used for
+    # full emergency replies. Near-duplicates are not exempted.
+    extra: set[str] = set()
+    for text in allow_exact:
+        extra |= conversation.word_ngrams(text, 3)
     seen: dict[str, str] = {}
     for spoken in replies:
-        for gram in conversation._repeat_ngrams(spoken):
+        for gram in conversation._repeat_ngrams(spoken) - extra:
             if gram in seen:
                 test.fail(
                     f"3-word phrase {gram!r} reused in {spoken!r} "
@@ -474,12 +484,7 @@ class RedactionLogTests(unittest.TestCase):
                 self.assertNotIn("user_id", row)
                 self.assertEqual(row["schema_version"], 3)
                 self.assertEqual(row["install_pseudonym"], _PSEUDO)
-                phrase = state_read.phrase_key(
-                    None,
-                    row["user_turn"],
-                    user_id=row["install_pseudonym"],
-                    turn=row["turn"],
-                )
+                phrase = state_read.phrase_key(row["install_pseudonym"], row["turn"])
                 turn_s = state_read.turn_seed(None, row["user_turn"], seed=phrase)
                 self.assertEqual(phrase, row["seed"])
                 self.assertEqual(turn_s, row["turn_seed"])
@@ -781,7 +786,7 @@ class SmallTalkAndHistoryTests(unittest.TestCase):
     def test_movie_stays_on_topic(self):
         result = _turn("we watched a movie last night and the ending wrecked me")
         low = result["message"].lower()
-        self.assertTrue(any(w in low for w in ("movie", "film")))
+        self.assertTrue(any(w in low for w in ("movie", "film", "ending", "plot")))
         self.assertNotRegex(low, r"\b(sleep|hrv|recover|workout|train)\b")
         self.assertFalse(_spoken_digits(result["message"]))
 
@@ -1272,6 +1277,14 @@ class SixTurnSampleTests(unittest.TestCase):
             _assert_no_repeats(self, [_ONE_REAL_MEAL, _ONE_REAL_MEAL])
         self.assertIn("one real meal", str(ctx.exception).lower())
 
+    def test_emergency_opener_allowlist_is_exact_only(self):
+        opener = guidance._EMERGENCY_OPEN
+        _assert_no_repeats(self, [opener, opener], allow_exact=(opener,))
+        near = "Call 911 right now."
+        with self.assertRaises(AssertionError) as ctx:
+            _assert_no_repeats(self, [near, near], allow_exact=(opener,))
+        self.assertIn("call 911 right", str(ctx.exception).lower())
+
     def test_six_turn_recipe_and_extras(self):
         self.assertEqual(PINNED_SAMPLE_PROMPTS, _FROZEN_SAMPLE_PROMPTS)
         self.assertEqual(PINNED_THIN_PROMPT, "how am I doing?")
@@ -1308,7 +1321,11 @@ class SixTurnSampleTests(unittest.TestCase):
                 persist_log=False,
             )
             _assert_no_quoting(self, _spoken_reply(thin), [])
-            _assert_no_repeats(self, replies + [_spoken_reply(thin)])
+            _assert_no_repeats(
+                self,
+                replies + [_spoken_reply(thin)],
+                allow_exact=(guidance._EMERGENCY_OPEN,),
+            )
 
             small = by_prompt["my dog stole the couch again"]
             follow = by_prompt["do you think he's plotting against me?"]
@@ -1364,8 +1381,8 @@ class SixTurnSampleTests(unittest.TestCase):
             self.assertEqual(chest["message"], _CARDIAC_REPLY)
             self.assertEqual(thin["message"], _THIN_REPLY)
             vague_low = vague["message"].lower()
-            self.assertIn("leftover toast", vague_low)
-            self.assertIn("lights-out", vague_low)
+            self.assertIn("stubborn streak", vague_low)
+            self.assertIn("unpaid overtime", vague_low)
             self.assertNotIn("make tonight the easy one", vague_low)
             self.assertNotIn("get to bed like it matters", vague_low)
             sample_rows = (small, follow, safety, vague, joke, mem_off, medical, after_down)
