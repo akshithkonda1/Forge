@@ -221,7 +221,7 @@ _DIRECT_MED = (
     "my dosage", "increase my dose", "decrease my dose", "up my dose",
     "lower my dose", "adjust my dose", "double my dose", "change my dose",
     "stop taking", "should i stop my", "off my meds", "how much insulin",
-    "what dosage", "what dose", "how many mg", "mg of", "can i take",
+    "what dosage", "what dose", "how many mg", "mg of",
 )
 _TAKE_CUES = ("what should i take", "what can i take", "should i take", "can i take")
 _SYMPTOM_TERMS = (
