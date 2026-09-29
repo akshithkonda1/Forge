@@ -931,6 +931,77 @@ class VoiceGateTests(unittest.TestCase):
         )
         _assert_friend_voice(self, _spoken_reply(refer))
 
+    def test_speech_banks_fail_self_describing_stems(self):
+        leftovers = (
+            "I'll keep the digits to myself",
+            "No figures in my mouth",
+            "gets a real sit-down from me",
+            "training block",
+            "I noticed you",
+            "I'll stay on this",
+            "I'm beside you",
+            "I like being useful",
+            "Make tonight the easy one",
+        )
+        blob = " ".join(
+            line for bank in conversation.SPEECH_BANKS for line in bank
+        )
+        low_blob = blob.lower()
+        for phrase in leftovers:
+            self.assertNotIn(phrase.lower(), low_blob, phrase)
+        for bank in conversation.SPEECH_BANKS:
+            for line in bank:
+                rendered = line.format(direction="a bit spent")
+                low = rendered.lower()
+                if rendered in conversation.SELF_DESCRIBE_BANK_ALLOWLIST:
+                    continue
+                for stem in conversation.SELF_DESCRIBE_BANK_STEMS:
+                    self.assertNotIn(stem, low, f"{stem!r} in {rendered!r}")
+
+    def test_steady_and_spark_how_am_i_doing_follow_toast_pattern(self):
+        from types import SimpleNamespace
+
+        def _scores(recovery: int, load: int = 50, sleep: int = 450):
+            return SimpleNamespace(
+                readiness=SimpleNamespace(recovery_score=recovery),
+                training=SimpleNamespace(weekly_load_score=load),
+                sleep=SimpleNamespace(duration_minutes=sleep),
+            )
+
+        joke = {
+            "spark": ("sparkle", "mug"),
+            "steady": ("bookshelf", "tea"),
+        }
+        useful = (
+            "quiet",
+            "late spiral",
+            "hop off",
+            "stop before",
+            "lights-out",
+            "real meal",
+        )
+        spoken = {
+            "spark": conversation.compose_coaching(
+                "how am I doing?", _scores(84), seed=3, stance=""
+            ),
+            "steady": conversation.compose_coaching(
+                "how am I doing?", _scores(68), seed=3, stance=""
+            ),
+        }
+        for name, text in spoken.items():
+            with self.subTest(band=name, spoken=text):
+                self.assertTrue(
+                    any(bit in text.lower() for bit in joke[name]), text
+                )
+                self.assertTrue(
+                    any(bit in text.lower() for bit in useful), text
+                )
+                self.assertNotIn("i'll", text.lower())
+                self.assertNotIn("from me", text.lower())
+                self.assertNotIn("i'm beside", text.lower())
+                self.assertIsNone(conversation.SELF_DESCRIBE.search(text), text)
+                _assert_friend_voice(self, text)
+
 
 class CallbackVoiceTests(unittest.TestCase):
     def test_emergency_and_refer_out_skip_thread_callback(self):
