@@ -2196,7 +2196,9 @@ def _lifestyle_notice(notice: str, brief: Any, fallback: str) -> str:
 
 # Spoken safety lines for a blocking pattern. Raw card['risk'] / pattern.notice
 # (ACWR, "overtraining risk", "11.7h short") is never spoken.
-SPOKEN_OVERTRAIN = "Your training has climbed fast lately, so let's ease off for a few days."
+SPOKEN_OVERTRAIN = (
+    "Your training has climbed fast lately, so let's ease off and rest up for a few days."
+)
 SPOKEN_SHORT_SLEEP = "You've been running short this week, so sleep comes first."
 SPOKEN_PROTECT_STEP = "Keep today easy and call it a win."
 BUTTON_SHORT_SLEEP = "Keep today easy."
@@ -2242,6 +2244,17 @@ def _spoken_protect_step(action: str, *, sleep_first: bool = False) -> str:
     """
     line = SPOKEN_PROTECT_STEP
     return line if line.endswith(".") else f"{line}."
+
+
+def _blocking_card_action(pattern: Any, load: Any = None) -> str:
+    """Card-only back-off button when ``blocks_intensity``. Never spoken.
+
+    Shared by recommendation / summary / insight / plan so an overtrained
+    user is never told to progress, push, or add.
+    """
+    if spoken_safety_line(pattern, load) == SPOKEN_OVERTRAIN:
+        return BUTTON_OVERTRAIN
+    return BUTTON_SHORT_SLEEP
 
 
 _GENERIC_NOTICES = {
@@ -2472,10 +2485,7 @@ def _recommendation_response(
         if card is not None:
             # Buttons stay off the spoken line. Overtrain keeps a directional
             # "back off" token for SimRunner; short-sleep gets its own label.
-            if spoken_safety_line(pattern, load) == SPOKEN_OVERTRAIN:
-                card["action"] = BUTTON_OVERTRAIN
-            else:
-                card["action"] = BUTTON_SHORT_SLEEP
+            card["action"] = _blocking_card_action(pattern, load)
         notice = prose
         # Never fold evidence.why ("…so sleep comes first.") into spoken text.
         why = None
@@ -2548,9 +2558,14 @@ def _plan_response(
         "evidence": pattern.to_dict(),
         "load": load.to_dict(),
     }
+    plan_step = outline[0]["note"]
+    if pattern.blocks_intensity:
+        plan_step = _spoken_protect_step(plan_step)
+        if card is not None:
+            card["action"] = _blocking_card_action(pattern, load)
     message_text = _structured_message(
         prose,
-        outline[0]["note"],
+        plan_step,
         f"Day 2: {outline[1]['focus']}. Day 3: {outline[2]['focus']}.",
     )
     envelope = _envelope(
@@ -2614,17 +2629,23 @@ def _insight_response(
         return _clarification_response(ctx, restricted, voice_mode)
 
     prose = f"{lead.metric}: {lead.current_value}. {_cap(lead.interpretation)}."
+    insight_step = pattern.next_step
     if pattern.blocks_intensity:
         safety = spoken_safety_line(pattern, load)
         if safety and safety.lower() not in prose.lower():
             prose = f"{prose} {safety}"
+        insight_step = _spoken_protect_step(insight_step)
     card = None if voice_mode else {
         "metric": lead.metric,
         "current_value": lead.current_value,
         "vs_baseline": lead.vs_baseline,
         "interpretation": lead.interpretation,
         "priority": lead.priority,
-        "action": pattern.next_step,
+        "action": (
+            _blocking_card_action(pattern, load)
+            if pattern.blocks_intensity
+            else pattern.next_step
+        ),
         "evidence": pattern.to_dict(),
         "load": load.to_dict(),
     }
@@ -2644,7 +2665,7 @@ def _insight_response(
     # deflection back to the user.
     message = _structured_message(
         _cap(lead.interpretation),
-        pattern.next_step,
+        insight_step,
         why,
     )
     envelope = _envelope(
@@ -2720,6 +2741,10 @@ def _summary_response(
     rec = "Hold the structure and progress one variable next block."
     if goal in _GOAL_FOCUS:
         rec = f"Next block: bias toward your {goal} goal — {_GOAL_FOCUS[goal]}."
+    if pattern.blocks_intensity:
+        # Never tell an overtrained / blocked user to progress. Button is
+        # card-only and shares the recommendation-lane back-off constant.
+        rec = _blocking_card_action(pattern, load)
 
     prose = f"Last 30 days: {headline}. {win}"
     if pattern.blocks_intensity:

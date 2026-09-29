@@ -615,7 +615,11 @@ def _append_guarded_step(
     step = _tidy(_strip_memory(str(step or ""), notes, original=step))
     if not step or _has_banned_vitals(step):
         low = cleaned.lower()
-        if "ease off for a few days" in low or "sleep comes first" in low:
+        if (
+            "ease off and rest up for a few days" in low
+            or "ease off for a few days" in low
+            or "sleep comes first" in low
+        ):
             step = "Keep today easy and call it a win"
         else:
             step = _SIZED_FRIEND_STEP if _is_training_topic(topic) else ""

@@ -579,6 +579,51 @@ class BlockingPatternSpeakTests(unittest.TestCase):
             hot_insights,
         )
 
+    def test_progress_question_overtrained_uses_backoff_button(self):
+        ctx = ARIAContext(
+            sleep=SleepContext(
+                duration_minutes=480, nights_available=10, sleep_debt_7d_hours=0
+            ),
+            readiness=ReadinessContext(
+                hrv_7day_trend=2, recovery_score=72, hrv_days_available=7
+            ),
+            training=TrainingContext(
+                weekly_load_score=95,
+                acwr=1.51,
+                is_overtrained=True,
+                hours_since_last_workout=36,
+            ),
+            progress=ProgressContext(
+                workouts_completed_30d=18,
+                new_personal_records=2,
+                training_load_trend="rising",
+            ),
+        )
+        resp = aria_engine.generate_response("Am I making progress?", ctx)
+        self.assertEqual(resp["response_type"], "summary")
+        action = ((resp.get("card") or {}).get("action") or "")
+        self.assertEqual(action, aria_engine.BUTTON_OVERTRAIN)
+        self.assertNotIn("progress", action.lower())
+        self.assertNotIn("push", action.lower())
+        self.assertNotIn("add", action.lower())
+        why = "You've had a run of short nights, so sleep comes first."
+        for blob in (resp.get("message") or "", resp.get("prose_summary") or ""):
+            self.assertIn(aria_engine.SPOKEN_OVERTRAIN, blob)
+            self.assertNotRegex(blob, self._BANNED, blob)
+            self.assertNotIn(why, blob)
+        spoken = f"{resp.get('message') or ''} {resp.get('prose_summary') or ''}"
+        self.assertFalse(speak_guard.spoken_has_button(spoken, resp.get("card")))
+        voice = aria_engine.generate_response(
+            "Am I making progress?", ctx, voice_mode=True
+        )
+        self.assertEqual(voice["message"], voice["prose_summary"])
+        self.assertIn(aria_engine.SPOKEN_OVERTRAIN, voice["prose_summary"])
+        self.assertFalse(
+            speak_guard.spoken_has_button(
+                voice["prose_summary"], voice.get("card")
+            )
+        )
+
 
 if __name__ == "__main__":
     unittest.main()
