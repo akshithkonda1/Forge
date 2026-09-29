@@ -179,6 +179,43 @@ def _pick(seed: int, options: list[str]) -> str:
     return options[abs(seed) % len(options)]
 
 
+def _phrase_user_id(model_id: str | None) -> str:
+    """Fixed per-persona request id. Never read from memory or notes."""
+    return str(model_id or "").strip() or "test-user-00000000"
+
+
+def _phrase_turn(prior_turns: list[str] | None, seed: int) -> int:
+    """Turn counter from the session (prior turns) or the request seed."""
+    if prior_turns is not None:
+        return len(prior_turns) + 1
+    try:
+        return int(seed)
+    except (TypeError, ValueError):
+        return 0
+
+
+def _phrase_pick_seed(
+    seed: int,
+    user_id: str | None = None,
+    turn: int | None = None,
+) -> int:
+    """sha256(user_id + turn) when those are present; else the explicit seed."""
+    if user_id is None and turn is None:
+        return int(seed)
+    try:
+        from backend._paths import ensure_lambda_on_path
+
+        ensure_lambda_on_path()
+        from aria_core import state_read
+
+        return state_read.phrase_key(user_id, turn)
+    except Exception:
+        import hashlib
+
+        raw = f"{user_id or ''}\0{int(turn or 0)}".encode("utf-8")
+        return int.from_bytes(hashlib.sha256(raw).digest()[:8], "big") & 0xFFFFFFFF
+
+
 @dataclass(frozen=True)
 class Worker:
     id: str
@@ -987,7 +1024,13 @@ def _collapse_spoken(text: str) -> str:
     return re.sub(r"\s+", " ", body).strip()
 
 
-def _wit_line(seed: int, stance: str = "", signals: SignalRead | None = None) -> str:
+def _wit_line(
+    seed: int,
+    stance: str = "",
+    signals: SignalRead | None = None,
+    user_id: str | None = None,
+    turn: int | None = None,
+) -> str:
     """One seed-indexed bank line. Same banks as PR #284 — no parallel system."""
     sleep = getattr(signals, "sleep", "") if signals is not None else ""
     if stance == "protect" or sleep == "thin":
@@ -996,7 +1039,8 @@ def _wit_line(seed: int, stance: str = "", signals: SignalRead | None = None) ->
         bank = _WIT_PROCEED
     else:
         bank = _WIT_HONEST
-    return _pick(seed ^ 17, list(bank))
+    pick = _phrase_pick_seed(seed, user_id, turn)
+    return _pick(pick ^ 17, list(bank))
 
 
 # --- Topic-aware, number-free substance for the scrub-fallback path ----------
@@ -1110,6 +1154,8 @@ def friend_speak(
     guidance: str | None = None,
     short_ok: bool = False,
     topic: str = "",
+    user_id: str | None = None,
+    turn: int | None = None,
 ) -> str:
     """Bubbly/kind friend with a point — funny take + one useful improve.
 
@@ -1125,7 +1171,7 @@ def friend_speak(
         return str(text or "").strip()
     body = _CHEER_SLUDGE.sub("that's real work", _collapse_spoken(text))
     body = re.sub(r"^[\s.,;:—–\-]+", "", body).strip()
-    extra = _wit_line(seed, stance, signals)
+    extra = _wit_line(seed, stance, signals, user_id=user_id, turn=turn)
     if not body or body == _SPEAK_FALLBACK or _THIN_SPEAK.match(body):
         # The real engine often DID build a substantive answer here — it just
         # got fully scrubbed for citing a raw number (see _qualitative_speak's
@@ -1893,6 +1939,7 @@ def _respond_via_lambda(
     day_index: int,
     prior_turns: list[str] | None,
     lifestyle_tags: list[str] | None,
+    model_id: str | None = None,
 ) -> dict:
     """Product path: fuse the synthetic day, then deterministic generate_response."""
     fusion_mod, engine_mod = _production_fusion()
@@ -1920,12 +1967,16 @@ def _respond_via_lambda(
         load_learner=True,
     )
     # Deterministic speak only. generate_response_live is never on this path.
+    phrase_uid = _phrase_user_id(model_id)
+    phrase_turn = _phrase_turn(prior_turns, seed)
     envelope = engine_mod.generate_response(
         safe,
         fused.context,
         permissions=permissions,
         persona=fused.persona,
         baselines=fused.baselines,
+        user_id=phrase_uid,
+        turn=phrase_turn,
     )
     envelope = _scrub_fused_speak(envelope)
     envelope = _bridge_fused_memory(envelope, prior_turns, seed, intents)
@@ -1944,6 +1995,8 @@ def _respond_via_lambda(
         guidance=guidance,
         short_ok=True,
         topic=plan.primary.kind,
+        user_id=phrase_uid,
+        turn=phrase_turn,
     )
     chat = friend_speak(
         envelope.get("message") or prose,
@@ -1953,6 +2006,8 @@ def _respond_via_lambda(
         guidance=guidance,
         short_ok=True,
         topic=plan.primary.kind,
+        user_id=phrase_uid,
+        turn=phrase_turn,
     )
     prose = _speak_without_vitals(prose)
     chat = _speak_without_vitals(chat, prose)
@@ -2240,10 +2295,12 @@ def respond(
             if key in _KINDS and key not in plan.kinds:
                 plan.workers.append(Worker(key, key, None, False))
 
-    ctx, _model = _context_for_turn(
+    ctx, model = _context_for_turn(
         seed=seed, model_id=model_id, day_index=day_index,
         context=context, pack_day=pack_day, use_pack=use_pack,
     )
+    phrase_uid = _phrase_user_id(model_id or (model or {}).get("model_id"))
+    phrase_turn = _phrase_turn(prior_turns, seed)
     if (engine or ENGINE_LAMBDA).strip().lower() == ENGINE_LAMBDA:
         return _respond_via_lambda(
             message,
@@ -2254,6 +2311,7 @@ def respond(
             day_index=day_index,
             prior_turns=prior_turns,
             lifestyle_tags=lifestyle_tags,
+            model_id=phrase_uid,
         )
     stub = _offline_stub(message, ctx, seed)
     signals = read_signals(ctx)
@@ -2283,7 +2341,14 @@ def respond(
         stub_stance = "proceed"
     else:
         stub_stance = ""
-    prose = friend_speak(prose, seed=seed, stance=stub_stance, signals=signals)
+    prose = friend_speak(
+        prose,
+        seed=seed,
+        stance=stub_stance,
+        signals=signals,
+        user_id=phrase_uid,
+        turn=phrase_turn,
+    )
     # Optional web note stays as a short trailing cite — not a specialist dump.
     # Scrub vitals inside the cite first so VO2 in a MedlinePlus title cannot
     # make `_speak_without_vitals` discard the whole "From …" provenance.

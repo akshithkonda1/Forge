@@ -11,8 +11,8 @@ the same seed always yields the same wording (SimRunner replay).
 
 from __future__ import annotations
 
+import hashlib
 import re
-import zlib
 from typing import Any, Iterable
 
 from . import speak_guard
@@ -158,12 +158,34 @@ def phrase_bank() -> tuple[str, ...]:
     return PHRASE_BANK
 
 
-def turn_seed(ctx: Any, message: str, seed: int | None = None) -> int:
-    """Deterministic turn/user/day seed. Explicit seed wins for tests/replay."""
+def phrase_key(user_id: str | None, turn: int | None) -> int:
+    """Stable sha256 of request/session user id + turn. No date or clock.
+
+    Uses hashlib.sha256 (not Python's randomized ``hash()``). The id and
+    counter come from the request/session only — never memory, persona,
+    notes, last_insights, calendar, or wall clock.
+    """
+    uid = str(user_id or "")
+    try:
+        counter = int(turn) if turn is not None else 0
+    except (TypeError, ValueError):
+        counter = 0
+    digest = hashlib.sha256(f"{uid}\0{counter}".encode("utf-8")).digest()
+    return int.from_bytes(digest[:8], "big") & 0xFFFFFFFF
+
+
+def turn_seed(
+    ctx: Any,
+    message: str,
+    seed: int | None = None,
+    *,
+    user_id: str | None = None,
+    turn: int | None = None,
+) -> int:
+    """Deterministic phrase seed. Explicit seed wins for tests/replay."""
     if seed is not None:
         return int(seed) & 0xFFFFFFFF
-    raw = f"{getattr(ctx, 'timestamp', '') or ''}|{message or ''}"
-    return zlib.adler32(raw.encode("utf-8", "replace")) & 0xFFFFFFFF
+    return phrase_key(user_id, turn)
 
 
 def _state_read(ctx: Any, seed: int) -> str:

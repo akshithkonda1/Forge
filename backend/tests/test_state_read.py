@@ -8,6 +8,7 @@ from __future__ import annotations
 import json
 import os
 import re
+import time
 import unittest
 
 import _bootstrap  # noqa: F401
@@ -1455,6 +1456,144 @@ class EvidenceCleanlinessTests(unittest.TestCase):
             blob = " ".join(_evidence_strings(resp.get("card")))
             self.assertTrue(blob.strip(), f"lambda generate_response seed={seed}")
             _assert_evidence_blob_clean(self, blob, where=f"generate_response seed={seed}")
+
+
+class PhrasePickHashTests(unittest.TestCase):
+    """Phrase pick is sha256(user_id + turn) — no date, clock, or TZ."""
+
+    _UID = "phrase-user-pin"
+    _TURN = 7
+
+    def _restore_tz(self, previous: str | None) -> None:
+        if previous is None:
+            os.environ.pop("TZ", None)
+        else:
+            os.environ["TZ"] = previous
+        time.tzset()
+
+    def _set_tz(self, tz: str) -> None:
+        os.environ["TZ"] = tz
+        time.tzset()
+
+    def test_phrase_key_is_timezone_and_date_independent(self):
+        from datetime import datetime, timezone
+        from unittest.mock import patch
+
+        previous = os.environ.get("TZ")
+        key = state_read.phrase_key(self._UID, self._TURN)
+        self.assertEqual(
+            state_read.turn_seed(None, "hello", user_id=self._UID, turn=self._TURN),
+            key,
+        )
+        self.assertEqual(
+            state_read.turn_seed(None, "hello", 3, user_id=self._UID, turn=self._TURN),
+            3,
+        )
+        keys: list[int] = []
+        clauses: list[str] = []
+        midnight_utc = datetime(2026, 1, 15, 5, 30, tzinfo=timezone.utc)
+        other_date = datetime(2026, 6, 2, 5, 30, tzinfo=timezone.utc)
+        try:
+            for tz, frozen in (
+                ("UTC", midnight_utc),
+                ("America/Chicago", midnight_utc),
+                ("UTC", other_date),
+                ("America/Chicago", other_date),
+            ):
+                self._set_tz(tz)
+                with patch(
+                    "aria_core.aria_engine.datetime.now", return_value=frozen
+                ):
+                    keys.append(state_read.phrase_key(self._UID, self._TURN))
+                    clauses.append(
+                        state_read._pick(
+                            state_read.phrase_key(self._UID, self._TURN),
+                            state_read.SHORT_NIGHT,
+                        )
+                    )
+        finally:
+            self._restore_tz(previous)
+        self.assertEqual(len(set(keys)), 1, keys)
+        self.assertEqual(len(set(clauses)), 1, clauses)
+
+    def test_different_turns_rotate_protect_proceed_clarify_pools(self):
+        uid = "phrase-user-rotate"
+        from backend.ai.simrunner.aria_simrunner import dummy_orchestrator as dummy
+
+        for pool in (
+            state_read.SHORT_NIGHT,
+            state_read.BIGGER_LOAD,
+            state_read.READY_DOWN,
+        ):
+            picked = [
+                state_read._pick(state_read.phrase_key(uid, turn), pool)
+                for turn in range(24)
+            ]
+            self.assertGreaterEqual(len(set(picked)), 2, pool)
+        for stance, bank in (
+            ("protect", dummy._WIT_PROTECT),
+            ("proceed", dummy._WIT_PROCEED),
+            ("honest", dummy._WIT_HONEST),
+        ):
+            lines = {
+                dummy._wit_line(0, stance, user_id=uid, turn=turn)
+                for turn in range(36)
+            }
+            self.assertGreaterEqual(len(lines), 2, (stance, lines))
+            self.assertTrue(lines <= set(bank), (stance, lines - set(bank)))
+
+    def test_pinned_user_turn_matches_across_tz_dates_and_memory_off(self):
+        previous = os.environ.get("TZ")
+        ctx = _health_ctx()
+        memory_ctx = _health_ctx()
+        memory_ctx.lifestyle = LifestyleContext()
+        spoken: list[str] = []
+        try:
+            for tz in ("UTC", "America/Chicago"):
+                self._set_tz(tz)
+                a = aria_engine.generate_response(
+                    "Should I train today?",
+                    ctx,
+                    user_id=self._UID,
+                    turn=self._TURN,
+                )
+                b = aria_engine.generate_response(
+                    "Should I train today?",
+                    memory_ctx,
+                    user_id=self._UID,
+                    turn=self._TURN,
+                )
+                spoken.append(a["prose_summary"])
+                spoken.append(b["prose_summary"])
+                self.assertEqual(a["prose_summary"], b["prose_summary"])
+        finally:
+            self._restore_tz(previous)
+        self.assertEqual(len(set(spoken)), 1, spoken)
+
+    def test_dummy_wit_pinned_user_turn_is_tz_stable(self):
+        from backend.ai.simrunner.aria_simrunner import dummy_orchestrator as dummy
+
+        previous = os.environ.get("TZ")
+        lines: list[str] = []
+        try:
+            for tz in ("UTC", "America/Chicago"):
+                self._set_tz(tz)
+                lines.append(
+                    dummy._wit_line(
+                        99, "protect", user_id=self._UID, turn=self._TURN
+                    )
+                )
+                lines.append(
+                    dummy._wit_line(
+                        0, "protect", user_id=self._UID, turn=self._TURN
+                    )
+                )
+        finally:
+            self._restore_tz(previous)
+        self.assertEqual(len(set(lines)), 1, lines)
+        other = dummy._wit_line(99, "protect", user_id=self._UID, turn=self._TURN + 1)
+        # Different turn may collide on a small pool; rotation is covered above.
+        self.assertIn(other, dummy._WIT_PROTECT)
 
 
 if __name__ == "__main__":

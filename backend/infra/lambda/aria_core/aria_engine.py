@@ -2458,6 +2458,13 @@ def _recommendation_response(
         spoken_action = _spoken_protect_step(
             action, sleep_first=spoken_safety_line(pattern, load) == SPOKEN_SHORT_SLEEP
         )
+        if card is not None:
+            # Evaluator directional tokens live on card.action, not spoken
+            # prose. "back off" is allowed; overtrain/deload/acwr are not spoken.
+            if spoken_safety_line(pattern, load) == SPOKEN_OVERTRAIN:
+                card["action"] = "Back off and keep today easy."
+            elif spoken_action:
+                card["action"] = spoken_action
         notice = prose
         if why and (_SPOKEN_JARGON.search(why) or re.search(r"\d", why)):
             why = None
@@ -2753,6 +2760,8 @@ def generate_response(
     persona: Any = None,
     baselines: Any = None,
     seed: int | None = None,
+    user_id: str | None = None,
+    turn: int | None = None,
 ) -> dict[str, Any]:
     """Top-level entry: message + context (+ permissions) -> response envelope.
 
@@ -2859,7 +2868,15 @@ def generate_response(
         if callback not in msg:
             envelope["message"] = f"{callback}\n\n{msg}" if msg else callback
             envelope["fusion"]["companion_callback"] = True
-    return _finish_spoken_envelope(envelope, ctx, message, seed=seed, voice_mode=voice_mode)
+    return _finish_spoken_envelope(
+        envelope,
+        ctx,
+        message,
+        seed=seed,
+        voice_mode=voice_mode,
+        user_id=user_id,
+        turn=turn,
+    )
 
 
 def _memory_notes_from_ctx(ctx: ARIAContext) -> list[str]:
@@ -2915,6 +2932,8 @@ def _finish_spoken_envelope(
     *,
     seed: int | None = None,
     voice_mode: bool = False,
+    user_id: str | None = None,
+    turn: int | None = None,
 ) -> dict[str, Any]:
     """Attach sidecars, then guard user-visible speak (deterministic path)."""
     envelope = _attach_shared_intelligence(envelope, ctx, message)
@@ -2930,7 +2949,7 @@ def _finish_spoken_envelope(
     envelope = state_read.apply_to_envelope(
         envelope,
         ctx,
-        seed=state_read.turn_seed(ctx, message, seed),
+        seed=state_read.turn_seed(ctx, message, seed, user_id=user_id, turn=turn),
         message=message,
     )
     envelope = speak_guard.dedupe_envelope_speech(envelope)
@@ -3228,6 +3247,8 @@ def generate_response_live(
     persona: Any = None,
     baselines: Any = None,
     seed: int | None = None,
+    user_id: str | None = None,
+    turn: int | None = None,
 ) -> dict[str, Any]:
     """Top-level entry for the live path: deterministic reasoning, then a real
     Claude pass overlaid on top. Falls back to the deterministic envelope on any
@@ -3240,6 +3261,8 @@ def generate_response_live(
         persona=persona,
         baselines=baselines,
         seed=seed,
+        user_id=user_id,
+        turn=turn,
     )
     caller = converse or _default_converse
     roster = normalize_coach_agents(agents, agent)
@@ -3331,7 +3354,7 @@ def generate_response_live(
     merged = state_read.apply_to_envelope(
         merged,
         sanitized,
-        seed=state_read.turn_seed(sanitized, message, seed),
+        seed=state_read.turn_seed(sanitized, message, seed, user_id=user_id, turn=turn),
         message=message,
     )
     merged = speak_guard.dedupe_envelope_speech(merged)

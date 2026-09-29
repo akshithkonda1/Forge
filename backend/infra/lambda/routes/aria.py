@@ -46,10 +46,11 @@ def _denied_lifestyle_token(token: str) -> bool:
 
 
 _RISK_MEMORY = re.compile(
-    r"(?i)\b(?:overtrain\w*|overreach\w*|fatigue|deload|acwr)\b"
+    r"(?i)\b(?:overtrain\w*|overreach\w*|fatigue|deload|acwr|debt)\b"
     r"|workload is running hot"
     r"|\d+(?:\.\d+)?\s*h short"
 )
+_STUCK_UNIT = re.compile(r"\d+(?:\.\d+)?[A-Za-z]")
 
 
 def _insight_takeaway(prose: str) -> str:
@@ -63,7 +64,7 @@ def _insight_takeaway(prose: str) -> str:
     if not text:
         return ""
     first = re.split(r"(?<=[.!?])\s+", text, maxsplit=1)[0].strip()
-    if not first or re.search(r"\d", first):
+    if not first or re.search(r"\d", first) or _STUCK_UNIT.search(first):
         return ""
     if _RISK_MEMORY.search(first):
         return ""
@@ -209,6 +210,18 @@ def _merge_fusion(response: dict[str, Any], fused: Any) -> None:
     response["fusion"] = {**sidecar, **existing}
 
 
+def _request_turn(body: dict[str, Any]) -> int:
+    """Turn counter from the request/session only — never memory or notes."""
+    raw = body.get("turn")
+    session = body.get("session")
+    if raw is None and isinstance(session, dict):
+        raw = session.get("turn")
+    try:
+        return max(0, int(raw))
+    except (TypeError, ValueError):
+        return 0
+
+
 def _checked_speak(fn, *args, **kwargs):
     """Small SimRunner check. Weak evidence becomes an estimate, not an error."""
     from aria_core import prompt_guard
@@ -249,6 +262,7 @@ def handle_post_ai_chat(body: dict[str, Any], *, user_id: str) -> dict:
     fused = fusion_mod.fuse_turn(uid, payload, permissions, persist=True, load_learner=True)
     context = fused.context
     persona = fused.persona
+    turn = _request_turn(body)
     from services import editable_memory
 
     mem_settings = editable_memory.get_settings(uid)
@@ -283,6 +297,8 @@ def handle_post_ai_chat(body: dict[str, Any], *, user_id: str) -> dict:
             voice_mode=voice_mode,
             persona=persona,
             baselines=fused.baselines,
+            user_id=uid,
+            turn=turn,
         )
         _merge_fusion(response, fused)
         response.update(
@@ -324,6 +340,8 @@ def handle_post_ai_chat(body: dict[str, Any], *, user_id: str) -> dict:
             voice_mode=voice_mode,
             persona=persona,
             baselines=fused.baselines,
+            user_id=uid,
+            turn=turn,
         )
         response = aria_engine.generate_response_live(
             message,
@@ -333,6 +351,8 @@ def handle_post_ai_chat(body: dict[str, Any], *, user_id: str) -> dict:
             agents=roster,
             persona=persona,
             baselines=fused.baselines,
+            user_id=uid,
+            turn=turn,
         )
     else:
         response = _checked_speak(
@@ -343,6 +363,8 @@ def handle_post_ai_chat(body: dict[str, Any], *, user_id: str) -> dict:
             voice_mode=voice_mode,
             persona=persona,
             baselines=fused.baselines,
+            user_id=uid,
+            turn=turn,
         )
         response["agent"] = roster[0]
         response["agents"] = roster

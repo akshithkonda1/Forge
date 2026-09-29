@@ -413,7 +413,10 @@ class ButtonSentenceTests(unittest.TestCase):
 
 
 class BlockingPatternSpeakTests(unittest.TestCase):
-    _BANNED = re.compile(r"(?i)\b(?:overtrain\w*|overreach\w*|fatigue|deload|acwr)\b")
+    _BANNED = re.compile(
+        r"(?i)\b(?:overtrain\w*|overreach\w*|fatigue|deload|acwr|debt)\b"
+    )
+    _STUCK_UNIT = re.compile(r"\d+(?:\.\d+)?[A-Za-z]")
 
     def _assert_clean_spoken(self, resp, line: str) -> None:
         spoken_m = resp.get("message") or ""
@@ -422,6 +425,7 @@ class BlockingPatternSpeakTests(unittest.TestCase):
         self.assertIn(line, spoken_p)
         for blob in (spoken_m, spoken_p):
             self.assertFalse(re.search(r"\d", blob), blob)
+            self.assertNotRegex(blob, self._STUCK_UNIT)
             self.assertNotRegex(blob, self._BANNED)
             self.assertFalse(speak_guard.spoken_has_button(blob, resp.get("card")))
 
@@ -495,6 +499,8 @@ class BlockingPatternSpeakTests(unittest.TestCase):
         risk = (resp.get("evidence") or {}).get("notice") or ""
         for item in insights:
             self.assertNotRegex(item, self._BANNED, insights)
+            self.assertNotRegex(item, r"(?i)\bdebt\b", insights)
+            self.assertNotRegex(item, self._STUCK_UNIT, insights)
             if risk:
                 self.assertNotIn(risk, item)
         clean = aria_engine.SPOKEN_SHORT_SLEEP.rstrip(".")
@@ -502,6 +508,20 @@ class BlockingPatternSpeakTests(unittest.TestCase):
             not insights
             or all(item.strip().rstrip(".") == clean for item in insights),
             insights,
+        )
+        takeaway_hot = _insight_takeaway(hot["prose_summary"])
+        if takeaway_hot:
+            engine.add_insight(uid + "-hot", takeaway_hot[:180])
+        hot_insights = engine.get_or_create_context(uid + "-hot").last_insights
+        for item in hot_insights:
+            self.assertNotRegex(item, self._BANNED, hot_insights)
+            self.assertNotRegex(item, r"(?i)\bdebt\b", hot_insights)
+            self.assertNotRegex(item, self._STUCK_UNIT, hot_insights)
+        hot_clean = aria_engine.SPOKEN_OVERTRAIN.rstrip(".")
+        self.assertTrue(
+            not hot_insights
+            or all(item.strip().rstrip(".") == hot_clean for item in hot_insights),
+            hot_insights,
         )
 
 
