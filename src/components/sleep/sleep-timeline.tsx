@@ -21,6 +21,14 @@ interface StageInfo {
 export function SleepTimeline() {
   const sleepData = useAppStore((s) => s.sleepData);
   const latest = sleepData[0];
+  if (!latest) {
+    return (
+      <div className="rounded-xl border border-border bg-surface p-4">
+        <h3 className="mb-3 text-sm font-semibold text-white">Sleep Stages</h3>
+        <p className="text-sm text-text-secondary">No sleep logged yet</p>
+      </div>
+    );
+  }
 
   const totalMinutes =
     latest.awakeMinutes + latest.lightMinutes + latest.deepMinutes + latest.remMinutes;

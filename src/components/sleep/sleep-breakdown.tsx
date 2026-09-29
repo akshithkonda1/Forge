@@ -63,6 +63,14 @@ function BreakdownCard({
 export function SleepBreakdown() {
   const sleepData = useAppStore((s) => s.sleepData);
   const latest = sleepData[0];
+  if (!latest) {
+    return (
+      <div>
+        <h3 className="mb-3 text-sm font-semibold text-white">Breakdown</h3>
+        <p className="text-sm text-text-secondary">No sleep logged yet</p>
+      </div>
+    );
+  }
 
   const deepPercent = (latest.deepMinutes / DEEP_GOAL) * 100;
   const remPercent = (latest.remMinutes / REM_GOAL) * 100;

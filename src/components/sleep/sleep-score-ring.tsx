@@ -7,6 +7,13 @@ import { cn } from "@/lib/utils";
 export function SleepScoreRing() {
   const sleepData = useAppStore((s) => s.sleepData);
   const latest = sleepData[0];
+  if (!latest) {
+    return (
+      <div className="flex flex-col items-center gap-3 py-6">
+        <p className="text-sm text-text-secondary">No sleep logged yet</p>
+      </div>
+    );
+  }
   const score = Math.max(0, Math.min(100, latest.score));
 
   const size = 160;

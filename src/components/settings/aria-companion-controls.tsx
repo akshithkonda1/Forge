@@ -6,7 +6,7 @@ import { cn } from "@/lib/utils";
 import { useAppStore } from "@/stores/useAppStore";
 import { useToast } from "@/stores/useToast";
 import { Sheet } from "@/components/ui/sheet";
-import { ARIA_TONE_ORDER, ARIA_TONES } from "@/lib/aria-companion";
+import { ARIA_TONE_ORDER, ARIA_TONES, resolveCoachingStyle } from "@/lib/aria-companion";
 import type { CoachingStyle } from "@/types";
 
 const TONE_ICONS: Record<CoachingStyle, typeof MessageCircle> = {
@@ -33,7 +33,7 @@ export function AriaCompanionControls({
   const updateProfile = useAppStore((s) => s.updateProfile);
   const showToast = useToast((s) => s.show);
   const [open, setOpen] = useState(false);
-  const tone = ARIA_TONES[userProfile.coachingStyle];
+  const tone = ARIA_TONES[resolveCoachingStyle(userProfile.coachingStyle)];
 
   return (
     <>
