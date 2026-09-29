@@ -229,6 +229,11 @@ _SYMPTOM_TERMS = (
     "vomiting", "diarrhea", "rash", "cramps", "ache", "sore throat", "infection",
     "dizzy", "dizziness", "chest",
 )
+_MED_TERMS = (
+    "ibuprofen", "tylenol", "aspirin", "advil", "acetaminophen", "paracetamol",
+    "insulin", "medication", "medicine", "meds", "pill", "tablet", "drug",
+    "prescription", "antibiotic",
+)
 
 # --- Prescriptive-medical output detector (defense in depth) ----------------
 _DOSE_RE = re.compile(r"\b\d+(\.\d+)?\s?(mg|mcg|milligrams|micrograms|ml|units?|iu)\b")
@@ -254,7 +259,9 @@ def _is_diagnosis_request(lower: str) -> bool:
 def _is_prescription_request(lower: str) -> bool:
     if _has(lower, _DIRECT_MED):
         return True
-    return _has(lower, _TAKE_CUES) and _has(lower, _SYMPTOM_TERMS)
+    return _has(lower, _TAKE_CUES) and (
+        _has(lower, _SYMPTOM_TERMS) or _has(lower, _MED_TERMS)
+    )
 
 
 def _detect_first_aid_topics(lower: str) -> list[str]:
