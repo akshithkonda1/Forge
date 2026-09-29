@@ -1,0 +1,5 @@
+# Test-only. Do not install into the Lambda package or runtime image.
+# Production stays stdlib + lazy boto3 (see requirements.txt).
+-r requirements.txt
+moto>=5.0,<6
+pytest>=8.0
