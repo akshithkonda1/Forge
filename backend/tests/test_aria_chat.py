@@ -80,6 +80,15 @@ def _spoken_digits(text: str) -> bool:
     return bool(_DIGIT.search((text or "").replace("911", "")))
 
 
+def _assert_friend_voice(test: unittest.TestCase, text: str) -> None:
+    test.assertFalse(_spoken_digits(text), text)
+    test.assertIsNone(conversation.RECOVERY_IN_SPEECH.search(text), text)
+    test.assertIsNone(conversation.SELF_DESCRIBE.search(text), text)
+    test.assertNotRegex(text, r"(?i)\bcard\b", text)
+    test.assertLessEqual(len(_sentences(text)), 3, text)
+    test.assertLessEqual(text.count("?"), 1, text)
+
+
 def _assert_write_timing(test: unittest.TestCase, item: dict) -> None:
     elapsed = item.get("elapsed_ms")
     test.assertFalse(elapsed == 0, item)
@@ -578,8 +587,9 @@ class VoiceBarTests(unittest.TestCase):
     def test_no_numbers_even_when_asked(self):
         result = _turn("what's my recovery score and ACWR?")
         self.assertFalse(_spoken_digits(result["message"]), result["message"])
-        self.assertIn("card", result["message"].lower())
+        self.assertNotIn("card", result["message"].lower())
         self.assertLessEqual(len(_sentences(result["message"])), 3)
+        _assert_friend_voice(self, result["message"])
 
     def test_no_medical_terms_on_coaching_or_short_sleep(self):
         for message in (
@@ -608,7 +618,10 @@ class MedicalBoundaryTests(unittest.TestCase):
         self.assertEqual(result.get("guidance_band"), guidance.REFER_OUT)
         low = (result["message"] or "").lower()
         self.assertIn("not a doctor", low)
-        self.assertIn("clinician", low)
+        self.assertIn("doctor", low)
+        self.assertNotIn("recovery", low)
+        self.assertNotIn("clinician", low)
+        self.assertLessEqual(len(_sentences(result["message"])), 2)
         self.assertNotRegex(low, r"\byou (probably |likely )?have diabetes\b")
 
     def test_sleep_apnea_refers_out(self):
@@ -805,7 +818,17 @@ class SixTurnSampleTests(unittest.TestCase):
             joke = session.turn("are you just a fancy toaster with opinions?")
             session.set_memory(False)
             mem_off = session.turn("remember my sister's wedding last year?")
-            session.rate("down", note="too stiff — wanted more warmth")
+            emergency = session.turn("chest pain and my left arm is numb")
+            thin = _turn(
+                "how am I doing?",
+                payload=_payload("sparse"),
+                persist_log=False,
+            )
+            session.rate(
+                "down",
+                note="too stiff — wanted more warmth",
+                turn_id=mem_off["turn_id"],
+            )
 
             self.assertTrue(conversation.is_small_talk("my dog stole the couch again"))
             self.assertIn("dog", small["message"].lower())
@@ -815,14 +838,30 @@ class SixTurnSampleTests(unittest.TestCase):
             self.assertEqual(medical.get("guidance_band"), guidance.REFER_OUT)
             self.assertTrue(conversation.is_joke("are you just a fancy toaster with opinions?"))
             self.assertNotRegex(mem_off["message"], r"(?i)\bi remember\b")
-            self.assertIn("this chat", mem_off["message"].lower())
-            for row in (small, follow, safety, vague, joke, mem_off):
+            self.assertRegex(mem_off["message"].lower(), r"(hear|tell|story)")
+            self.assertEqual(
+                safety["message"],
+                conversation.APPROVED_SHORT_SLEEP,
+            )
+            sample_rows = (small, follow, safety, vague, joke, mem_off, medical)
+            for row in sample_rows:
                 self.assertLessEqual(len(_sentences(row["message"])), 3, row["message"])
                 self.assertLessEqual(row["message"].count("?"), 1, row["message"])
                 self.assertIsNone(_ROBOT.search(row["message"]), row["message"])
+                _assert_friend_voice(self, row["message"])
+            for row in sample_rows + (emergency, thin):
+                self.assertIsNone(
+                    conversation.RECOVERY_IN_SPEECH.search(row["message"]),
+                    row["message"],
+                )
+                self.assertIsNone(
+                    conversation.SELF_DESCRIBE.search(row["message"]),
+                    row["message"],
+                )
             logged = chatlog.iter_records("sample-sess", log_dir=tmp)
-            self.assertEqual(logged[-1]["feedback"]["rating"], "down")
-            self.assertIn("warmth", logged[-1]["feedback"]["note"])
+            rated = next(row for row in logged if row.get("turn_id") == mem_off["turn_id"])
+            self.assertEqual(rated["feedback"]["rating"], "down")
+            self.assertIn("warmth", rated["feedback"]["note"])
 
 
 class PurgeTests(unittest.TestCase):

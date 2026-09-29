@@ -79,109 +79,121 @@ _BUTTON_READ = re.compile(
 )
 _DASH_CAP = re.compile(r"([—–-])(\s+)(?!I\b|I'm\b|I'll\b|I've\b)([A-Z])")
 
+# PR 380 `cursor/spoken-safety-tip-fix-f013` speech bank, copied word for word.
+# `SPOKEN_SHORT_SLEEP` / `SPOKEN_PROTECT_STEP`: backend/infra/lambda/aria_core/aria_engine.py:2202–2203
+# Dummy closer `_SAFETY_CLOSER`: backend/ai/simrunner/aria_simrunner/dummy_orchestrator.py:873
+SPOKEN_SHORT_SLEEP = "You've been running short on sleep this week, so sleep comes first."
+SPOKEN_PROTECT_STEP = "Keep today easy and call it a win."
+SAFETY_CLOSER = "Future you says thanks."
+APPROVED_SHORT_SLEEP = f"{SPOKEN_SHORT_SLEEP} {SPOKEN_PROTECT_STEP} {SAFETY_CLOSER}"
+
+RECOVERY_IN_SPEECH = re.compile(r"(?i)\brecovery\b")
+SELF_DESCRIBE = re.compile(
+    r"(?i)\b("
+    r"i won't|"
+    r"i don't claim|"
+    r"i(?:'| a)?m keeping you|"
+    r"i only have this chat"
+    r")\b"
+)
+_CARD_POINTER = re.compile(
+    r"(?i)\b(figures live on the card|check the card|the card has|the card holds)\b"
+)
+
 _GREET = (
-    "Hey — I'm here. I don't need a training question to show up.",
-    "Hi. Glad you pinged; I like hearing from you even when the day's quiet.",
-    "I'm here. You don't have to perform a perfect check-in with me.",
-    "Hey. I was already keeping you company — say whatever is actually on your mind.",
-    "Hi. I'm your friend in this, not a scoreboard. What's landing for you?",
-    "I'm with you. No agenda from me unless you want one.",
-    "Hey — I noticed you reached out. That's enough of a reason to talk.",
-    "I'm here, and I'm not going to turn this into a briefing unless you ask.",
-    "Hey. I can be witty later — first I just want to sit with you for a second.",
+    "Hey — you pinged like someone who already did the hard part. What's actually landing?",
+    "Hi. I was sitting here like a plant that texts back. What's the texture of the day?",
+    "I'm here, and I brought snacks for the tangent. What's going on over there?",
+    "Hey. Glad you showed up. What's actually on your mind?",
+    "Hi. I'm your friend in this. What's landing for you?",
+    "I'm with you. What's the day doing?",
+    "Hey — you reached out, so something's stirring. What is it?",
     "Okay — I'm listening. What's the texture of the day over there?",
 )
 _MOVIE = (
-    "I'm here for the movie, not a health pivot. What stuck — the ending, or some tiny beat nobody else noticed?",
-    "Movie talk is a real answer. Tell me the vibe, not a rating.",
+    "That ending followed you home like a stray plot twist. Sit with it a minute, then tell me the beat that stuck.",
+    "Movie hangover is a real condition and I'm not curing it. What vibe did it leave in the room?",
     "I'm staying on the film. Was it the kind that follows you out of the room?",
     "Yeah — I'll sit with the movie. What did it do to you?",
 )
 _DOG = (
-    "Your dog running the house is the plot, and I'm not changing the channel. What's the latest stunt?",
-    "I'm a little on the dog's side — don't tell them. How's the chaos landing for you?",
-    "Couch theft is character development. I want the scene, not a training note.",
-    "Ha — a dog with a plan. I'm here for that story.",
+    "Your dog just unionized the furniture. A walk after dinner might buy the cushion back.",
+    "I'm a little on the dog's side — they negotiated the couch fair and square. Toss a toy before they annex the bed.",
+    "Couch theft is a hostile takeover with extra slobber. Bribe them with a walk and you might get a seat again.",
+    "Ha — a four-legged landlord with no lease. Reclaim one corner, then take the long way around the block.",
+)
+_DOG_FOLLOW = (
+    "A couch coup and a long game? Yeah, he's running a tiny crime family. A walk before dinner might stall the next plot.",
+    "Plotting? He's already got the high ground and the remote. A treat and a loop around the block could buy a ceasefire.",
 )
 _BAD_DAY = (
-    "A rough day gets a real sit-down from me, not a pep talk. Want to vent, or want one tiny kindness?",
-    "Bad days count. I'll stay on this, not pivot to a program.",
-    "I'm with you in the mess. We can just sit here a minute.",
-    "Yeah — a crummy day is allowed to be the whole topic.",
+    "A rough day gets a real sit-down from me. Want to vent, or want one tiny kindness?",
+    "Bad days count. I'm with you in the mess — we can just sit here a minute.",
+    "Yeah — a crummy day is allowed to be the whole topic. I'm here.",
 )
 _JOKE = (
-    "Ha — a toaster with taste? I'll take it. Still your friend in this, not a gadget reciting buttons.",
-    "I'll laugh with you. I don't claim to be human, and I won't get precious about it.",
-    "Okay, I'll play. Tease away — I can take a joke without turning it into a lecture.",
-    "That's fair. I'm ARIA, not a person, and I can still be in on the bit.",
+    "Fancy toaster? Then here's your perfectly browned take: I'm here, and I'm on your side tonight.",
+    "If I'm a toaster, I pop a little warmth with the crumbs. Tell me what's actually toasting over there.",
+    "A toaster with opinions would at least own the bagel setting. I'll keep the warmth coming while you talk.",
+    "Ha — a toaster with taste. I'll stay crispy-kind and keep you company.",
 )
 _WEEKEND = (
     "Weekends rewrite the clock for me too. What did yours actually feel like?",
-    "I hope the weekend left you a little more yourself. Unpack it or ignore it — I'm here.",
-    "Weekends are sneaky — they look empty and still spend you. I'm listening.",
+    "Weekends are sneaky — they look empty and still spend you. Unpack it or ignore it, I'm here.",
     "Tell me the honest weekend, not the one you'd post.",
 )
 _BORED = (
     "Boredom's a signal, not a character flaw. We can wander or pick one small kindness.",
-    "I'm not going to invent a montage because you're restless. Want company, or a tiny next step?",
-    "Restless days are allowed. I can keep you company without turning it into a program.",
-    "I'm with you in the dull stretch. Sometimes a walk and a real meal beat a new plan.",
+    "Restless days are allowed. Sometimes a walk and a real meal beat a new plan.",
+    "I'm with you in the dull stretch. Want company, or a tiny next step?",
 )
 _THANKS = (
     "You're welcome. I like being useful without making it a performance.",
     "Anytime. I'll still be here when the question is smaller than a training block.",
-    "Glad it landed. I don't need a trophy for showing up.",
-    "Of course. That's the job I actually want — a friend who notices.",
+    "Glad it landed. That's the job I actually want — a friend who notices.",
 )
 _WHO = (
-    "I'm ARIA — a lifestyle friend in Forge, not a doctor. I notice your days and I talk like a companion.",
-    "I'm ARIA. I speak as I, I don't diagnose, and I won't bark you into a hero set.",
-    "I'm your Forge companion. Witty when it helps, honest when it matters, never a clinician.",
-    "I'm ARIA. I keep you company and I keep the medical line: lifestyle only.",
+    "I'm ARIA — a lifestyle friend with a sense of humor. What's on your mind?",
+    "I'm ARIA. Witty when it helps, honest when it matters. What do you need?",
 )
 _GENERIC = (
-    "I'm here. You can talk about the work or about the rest of your life — both count.",
-    "I noticed you. That's the whole opening. What's actually going on?",
-    "I'm listening. I won't turn every sentence into a plan.",
-    "Say more if you want. I can hold a tangent without grading it.",
-    "I'm with you. We can stay off the metrics and still be specific about your life.",
-    "I like when you talk to me like a friend. Keep going.",
+    "I'm here, and I brought snacks for the tangent. What's actually going on?",
+    "I noticed you. What's actually going on?",
+    "Say more if you want — I'll stay on this.",
+    "I'm with you. Tell me the specific thing, not the polished version.",
 )
 _THIN = (
-    "I don't have enough to go on yet. Tell me about the day and I'll stay honest.",
-    "I don't have enough to go on yet — I won't invent a read.",
-    "Thin picture on my side. I can keep you company, but I won't fake a status.",
+    "I don't have enough to go on yet. Tell me about the day — sleep, mood, what you actually did.",
+    "I don't have enough to go on yet. What's the day felt like from your side?",
 )
 _COACH_SPENT = (
-    "You look a bit spent, so I'm keeping today kind. The card has the figures if you want them.",
-    "The week has been asking a lot — I'm not adding a hero set. Check the card for the numbers.",
-    "You read a little crispy around the edges. Direction is protect; the card holds the plan.",
+    "You're a little crispy, like toast that almost made it. Make tonight the easy one and get to bed like it matters.",
+    "You've got that leftover-sparkle look, which is cute until it isn't. Soften the day and lights out earlier.",
+    "A stubborn streak and a short tank — that's a combo. Walk, eat, and call it before you prove anything.",
 )
 _COACH_STEADY = (
-    "You look reasonably put together from here. I'll keep the useful thought small — the card has the figures.",
-    "Steady enough to be honest: stay kind, don't prove anything. The card has the details.",
+    "You look reasonably put together from here. Stay kind, and don't prove anything tonight.",
+    "Steady enough: keep the useful thought small and leave a little in the tank.",
 )
 _COACH_SPARK = (
-    "There's a bit more sparkle on you today. Still no montage from me — the card has the figures.",
-    "You seem a little more put together. One useful thought: spend that gently. The card has the numbers.",
+    "There's a bit more sparkle on you today. Spend it gently and stop while it still feels good.",
+    "You seem a little more put together. One useful thought: spend that kindly.",
 )
-_SAFETY = (
-    "Short rest plus a hard session is a protect day — I'm not cheering a push. The card holds the plan.",
-    "That's a lot to ask of a short night. I'm keeping you safe, not heroic. Figures live on the card.",
-    "Hard work on thin rest is a no from me. Soften the session; the card has the shape.",
-)
+_SAFETY = (APPROVED_SHORT_SLEEP,)
 _NUMBER_ASK = (
-    "I keep the figures on the card, not in my mouth. Direction-wise you look {direction}.",
-    "No numbers from me — the card has them. From here you read {direction}.",
+    "I'll keep the digits to myself. From here you look {direction}.",
+    "No figures in my mouth. You read {direction}.",
 )
 _HABIT = (
     "A slightly earlier lights-out would help more than another grind.",
     "One real meal and a quieter evening is the useful thought.",
-    "If anything ties back, it's a kinder night, not a new program.",
 )
 _MEMORY_OFF = (
-    "I only have this chat to go on — I won't pretend I kept a note from another day.",
-    "Memory is off, so I won't claim I kept anything from outside this chat.",
+    "I don't have that one — I'd love to hear about it.",
+    "That one's not with me. Tell me the story?",
+)
+_REFER_OUT_SPEAK = (
+    "I'm not a doctor, so I can't diagnose that — a doctor can check it properly. I'm glad to help with sleep habits meanwhile.",
 )
 
 
@@ -289,8 +301,18 @@ def _safety_turn(message: str, ctx: Any) -> bool:
     )
 
 
-def _bank_for(message: str) -> tuple[str, ...]:
+def _bank_for(message: str, prior: list[str] | None = None) -> tuple[str, ...]:
     lower = (message or "").lower()
+    last = str((prior or [""])[-1] or "")
+    follow = bool(prior) and (
+        _FOLLOW_RE.search(message or "") or topic_of(message) in {"small_talk", "coach"}
+    )
+    if follow and topic_of(last) == "dog" and is_small_talk(message, prior):
+        return _DOG_FOLLOW
+    if follow and topic_of(last) == "movie" and is_small_talk(message, prior):
+        return _MOVIE
+    if follow and topic_of(last) == "joke" and is_small_talk(message, prior):
+        return _JOKE
     if _JOKE_RE.search(lower):
         return _JOKE
     if _MOVIE_RE.search(lower):
@@ -394,6 +416,8 @@ def polish_iris(
     text = text.replace("911", "\ue000")
     text = _ANY_NUMBER.sub("", text)
     text = text.replace("\ue000", "911")
+    text = RECOVERY_IN_SPEECH.sub("rest", text)
+    text = _CARD_POINTER.sub("", text)
     if not memory_enabled:
         text = _REMEMBER_OUTSIDE.sub("in this chat", text)
     text = _DASH_CAP.sub(lambda m: f"{m.group(1)}{m.group(2)}{m.group(3).lower()}", text)
@@ -426,8 +450,14 @@ def compose_small_talk(
 ) -> str:
     """Warm, first-person, number-free small talk. Deterministic per seed."""
     topic = topic_of(message)
-    opener = _callback(list(prior or []), seed, message)
-    bank = _bank_for(message)
+    last = str((prior or [""])[-1] or "")
+    if prior and is_small_talk(message, prior) and topic_of(last) in {"dog", "movie", "joke"}:
+        topic = topic_of(last)
+    bank = _bank_for(message, prior)
+    # Follow-up banks already name the thread — skip a prefix that turns into filler.
+    opener = ""
+    if bank not in {_DOG_FOLLOW, _DOG, _MOVIE, _JOKE}:
+        opener = _callback(list(prior or []), seed, message)
     body = _pick(seed, bank)
     habit = _habit_line(seed, topic)
     parts = [opener + body if opener else body]
@@ -453,13 +483,19 @@ def compose_coaching(
     last_spoken: str = "",
     stance: str = "",
 ) -> str:
-    """Direction in words, point to the card, never a number or a diagnosis."""
+    """Direction in words, never a number or a diagnosis."""
     if data_is_thin(ctx):
         spoken = _pick(seed, _THIN)
     elif _NUMBER_ASK_RE.search(message or ""):
         spoken = _pick(seed, _NUMBER_ASK).format(direction=_direction(ctx))
     elif _safety_turn(message, ctx):
-        spoken = _pick(seed, _SAFETY)
+        return polish_iris(
+            APPROVED_SHORT_SLEEP,
+            memory_enabled=memory_enabled,
+            last_spoken=last_spoken,
+            seed=seed,
+            alternatives=_SAFETY,
+        )
     else:
         recovery, load, sleep_min = _ctx_scores(ctx)
         if stance == "protect" or (
@@ -474,8 +510,6 @@ def compose_coaching(
             spoken = _pick(seed, _COACH_SPARK)
         else:
             spoken = _pick(seed, _COACH_STEADY)
-        if not memory_enabled and "how am i" in (message or "").lower():
-            spoken = spoken + " I only have this chat — I won't pretend I remember another day."
     topic = topic_of(message)
     habit = _habit_line(seed, topic)
     if habit and habit.lower() not in spoken.lower():
@@ -505,19 +539,11 @@ def apply_conversation(
     """
     band = str(envelope.get("guidance_band") or guidance.classify_band(message) or "")
     if band in (guidance.EMERGENCY, guidance.FIRST_AID, guidance.REFER_OUT):
-        spoken = polish_iris(
-            str(envelope.get("message") or envelope.get("prose_summary") or ""),
-            memory_enabled=memory_enabled,
-            last_spoken=last_spoken,
-            seed=seed,
-        )
-        # Keep 911 / clinician / not-a-doctor lines from the engine.
-        engine_text = str(envelope.get("message") or "")
-        if band == guidance.EMERGENCY and "911" in engine_text:
-            spoken = engine_text
-        elif band == guidance.REFER_OUT and (
-            "not a doctor" in engine_text.lower() or "clinician" in engine_text.lower()
-        ):
+        engine_text = str(envelope.get("message") or envelope.get("prose_summary") or "")
+        # 911 / first-aid stay on the engine path. Refer-out is two friend sentences.
+        if band == guidance.REFER_OUT:
+            spoken = _pick(seed, _REFER_OUT_SPEAK)
+        else:
             spoken = engine_text
         envelope["message"] = spoken
         envelope["prose_summary"] = spoken
