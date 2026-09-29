@@ -7,6 +7,9 @@ import Foundation
 public enum HealthKitOnboardingAuthorization: Sendable {
 
     public static let connectedDefaultsKey = "HealthKitOnboardingReadConnected"
+    public static let emptyBackfillShownDefaultsKey = "HealthKitOnboardingEmptyBackfillShown"
+    public static let emptyBackfillLine =
+        "No sleep data yet. You can manage access in Health anytime."
 
     public enum TapAction: String, Equatable, Sendable {
         case requestReadAuthorization
@@ -99,6 +102,16 @@ public enum HealthKitOnboardingAuthorization: Sendable {
         guard calendar.isDate(nightKey, inSameDayAs: lastNight) else { return nil }
         guard let hours, hours > 0 else { return nil }
         return PublishedSleepFields(hours: hours, score: score)
+    }
+
+    /// First completed request + empty backfill, once. Relaunch must not
+    /// show the line again (`alreadyShown` from the UserDefaults flag).
+    public static func shouldShowEmptyBackfillLine(
+        requestCompletedWithoutError: Bool,
+        nightCount: Int,
+        alreadyShown: Bool
+    ) -> Bool {
+        requestCompletedWithoutError && nightCount == 0 && !alreadyShown
     }
 }
 

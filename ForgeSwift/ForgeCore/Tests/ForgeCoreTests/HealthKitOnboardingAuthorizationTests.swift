@@ -131,4 +131,39 @@ final class HealthKitOnboardingAuthorizationTests: XCTestCase {
         XCTAssertEqual(published?.hours, 7.5)
         XCTAssertEqual(published?.score, 88)
     }
+
+    func testEmptyBackfillLineOnlyOnCompletedRequestWithZeroNights() {
+        XCTAssertTrue(
+            HealthKitOnboardingAuthorization.shouldShowEmptyBackfillLine(
+                requestCompletedWithoutError: true,
+                nightCount: 0,
+                alreadyShown: false
+            )
+        )
+        XCTAssertFalse(
+            HealthKitOnboardingAuthorization.shouldShowEmptyBackfillLine(
+                requestCompletedWithoutError: true,
+                nightCount: 2,
+                alreadyShown: false
+            )
+        )
+        XCTAssertFalse(
+            HealthKitOnboardingAuthorization.shouldShowEmptyBackfillLine(
+                requestCompletedWithoutError: true,
+                nightCount: 0,
+                alreadyShown: true
+            )
+        )
+        XCTAssertFalse(
+            HealthKitOnboardingAuthorization.shouldShowEmptyBackfillLine(
+                requestCompletedWithoutError: false,
+                nightCount: 0,
+                alreadyShown: false
+            )
+        )
+        XCTAssertEqual(
+            HealthKitOnboardingAuthorization.emptyBackfillLine,
+            "No sleep data yet. You can manage access in Health anytime."
+        )
+    }
 }

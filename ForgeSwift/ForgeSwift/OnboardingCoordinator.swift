@@ -66,8 +66,10 @@ final class OnboardingCoordinator {
     }
     /// First Health hydrate after Allow — nest shows Pulling…, not Connected yet.
     var isHealthPulling = false
-    /// Deny → Health Sharing copy from #263, shown under the Health nest.
+    /// Request-throws copy only. Empty-store / deny-in-sheet uses `emptyBackfillLine`.
     var lastHealthSharingHint: String?
+    /// One-time empty-backfill line under Continue. Never restored on relaunch.
+    var emptyBackfillLine: String?
 
     /// Back walks the active graph. Intro and Name have no predecessor —
     /// leaving the interview is sign-out, not a silent return to the splash.
@@ -285,7 +287,8 @@ final class OnboardingCoordinator {
             isHealthPulling = true
             Task {
                 await refreshHealthDataQuietly()
-                publishOnboardingHealthWidgets()
+                let nights = await HealthKitSleepService.shared.fetchRecentSleepData(days: 14)
+                publishOnboardingHealthWidgets(nights: nights)
                 isHealthPulling = false
             }
         case .requestReadAuthorization:
@@ -296,7 +299,7 @@ final class OnboardingCoordinator {
         case .stayWithoutRedirect:
             appendUser("I'll add it later")
             FDS.haptic(.light)
-            lastHealthSharingHint = AriaInterviewVoice.healthEnableLater
+            lastHealthSharingHint = nil
             Task { await ariaSay(AriaInterviewVoice.acknowledgeHealthSkip(), mood: .calm) }
         }
     }
@@ -634,6 +637,10 @@ final class OnboardingCoordinator {
                 await refreshHealthDataQuietly()
                 let nights = await HealthKitSleepService.shared.fetchRecentSleepData(days: 14)
                 publishOnboardingHealthWidgets(nights: nights)
+                applyEmptyBackfillLine(
+                    requestCompletedWithoutError: true,
+                    nightCount: nights.count
+                )
                 isHealthPulling = false
                 let snap = briefingSnapshot()
                 await ariaSay(
@@ -643,13 +650,14 @@ final class OnboardingCoordinator {
             } else {
                 healthKitState = .denied
                 isHealthPulling = false
-                lastHealthSharingHint = AriaInterviewVoice.healthEnableLater
+                lastHealthSharingHint = nil
                 await ariaSay(AriaInterviewVoice.acknowledgeHealthSkip(), mood: .calm)
             }
         } catch {
             healthKitState = .denied
             isHealthPulling = false
             lastHealthSharingHint = AriaInterviewVoice.healthEnableLater
+            emptyBackfillLine = nil
             await ariaSay(AriaInterviewVoice.acknowledgeHealthSkip(), mood: .calm)
         }
     }
@@ -749,6 +757,22 @@ final class OnboardingCoordinator {
         WatchSnapshotStore.update { snap in
             snap.sleepMinutes = published.map { $0.hours * 60 }
             snap.sleepQualityScore = published?.score
+        }
+    }
+
+    /// First empty backfill after a completed request, once. Flag persists
+    /// so relaunch never re-shows the line.
+    private func applyEmptyBackfillLine(requestCompletedWithoutError: Bool, nightCount: Int) {
+        let key = HealthKitOnboardingAuthorization.emptyBackfillShownDefaultsKey
+        let alreadyShown = UserDefaults.standard.bool(forKey: key)
+        let show = HealthKitOnboardingAuthorization.shouldShowEmptyBackfillLine(
+            requestCompletedWithoutError: requestCompletedWithoutError,
+            nightCount: nightCount,
+            alreadyShown: alreadyShown
+        )
+        emptyBackfillLine = show ? HealthKitOnboardingAuthorization.emptyBackfillLine : nil
+        if show {
+            UserDefaults.standard.set(true, forKey: key)
         }
     }
 

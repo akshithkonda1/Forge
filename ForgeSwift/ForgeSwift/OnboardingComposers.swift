@@ -574,13 +574,18 @@ struct HealthComposer: View {
                 .frame(maxWidth: .infinity).frame(height: 44)
                 .forgeGlassCard(cornerRadius: 14, accent: .ember)
 
-            if coordinator.healthKitState != .authorized {
-                Button("Open Health Sharing") { coordinator.openHealthSharingManually() }
-                    .font(.system(size: 13, weight: .medium))
-                    .foregroundStyle(Color.textTertiary)
-                    .frame(maxWidth: .infinity)
-                    .padding(.top, 4)
-                    .accessibilityLabel("Open Health Sharing")
+            if let line = coordinator.emptyBackfillLine {
+                HStack(alignment: .top, spacing: 10) {
+                    Text(line)
+                        .font(.system(size: 12, weight: .medium))
+                        .foregroundStyle(Color.textTertiary)
+                        .fixedSize(horizontal: false, vertical: true)
+                    Button("Open Health Sharing") { coordinator.openHealthSharingManually() }
+                        .font(.system(size: 13, weight: .medium))
+                        .foregroundStyle(Color.textTertiary)
+                        .fixedSize()
+                        .accessibilityLabel("Open Health Sharing")
+                }
             }
         }
     }
