@@ -369,7 +369,7 @@ class DummyARIAEngineUsesLambdaTests(unittest.TestCase):
         card = row.get("card") if isinstance(row.get("card"), dict) else {}
         action = str(card.get("action") or rec)
         self.assertIn("zone 2", action.lower())
-        self.assertEqual(action, "Back off — swap to an easy, chatty-pace zone 2.")
+        self.assertEqual(action, "Back off the hard stuff — swap to an easy, chatty-pace zone 2.")
         banned = re.compile(r"(?i)\b(?:deload|overtrain|recovery)\b")
         for blob in (spoken, action, rec):
             self.assertNotRegex(blob, banned, blob)
@@ -395,8 +395,9 @@ class DummyARIAEngineUsesLambdaTests(unittest.TestCase):
         rec = str(row.get("recommendation") or "")
         card = row.get("card") if isinstance(row.get("card"), dict) else {}
         action = str(card.get("action") or rec)
-        self.assertIn("back off", action.lower())
-        self.assertIn("back off", rec.lower())
+        expected = "Back off the hard stuff — swap to an easy, chatty-pace zone 2."
+        self.assertEqual(action, expected)
+        self.assertEqual(rec, expected)
         self.assertEqual(spoken_ban_hits(action), ())
         self.assertEqual(spoken_ban_hits(rec), ())
 

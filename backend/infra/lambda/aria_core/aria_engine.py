@@ -2348,7 +2348,7 @@ def _blocking_card_action(pattern: Any, load: Any = None, message: str = "") -> 
     """
     if _focus_domain(message) == "sleep":
         if _is_overtrained_load(pattern, load):
-            return f"Back off — {ZONE2_SWAP[0].lower()}{ZONE2_SWAP[1:]}"
+            return f"Back off the hard stuff — {ZONE2_SWAP[0].lower()}{ZONE2_SWAP[1:]}"
         if _pattern_offers_zone2(pattern):
             return ZONE2_SWAP
     if spoken_safety_line(pattern, load, message=message) == SPOKEN_OVERTRAIN:

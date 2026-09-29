@@ -811,7 +811,8 @@ class BlockingPatternSpeakTests(unittest.TestCase):
         card = resp.get("card") or {}
         action = str(card.get("action") or "")
         self.assertEqual(
-            action, f"Back off — {aria_engine.ZONE2_SWAP[0].lower()}{aria_engine.ZONE2_SWAP[1:]}"
+            action,
+            f"Back off the hard stuff — {aria_engine.ZONE2_SWAP[0].lower()}{aria_engine.ZONE2_SWAP[1:]}",
         )
         self.assertIn("zone 2", action.lower())
         self.assertIn("back off", action.lower())
