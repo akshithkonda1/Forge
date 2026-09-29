@@ -64,16 +64,25 @@ cleanup() {
 }
 trap cleanup EXIT
 
+set +e
 k6 run \
+  --out "json=${LOADTEST_RESULTS_DIR}/${SCENARIO}.k6.json" \
   --env "BASE_URL=$BASE_URL" \
   --env "ARIA_BEDROCK_ENABLED=$ARIA_BEDROCK_ENABLED" \
   --env "ARIA_VOICE_ENABLED=$ARIA_VOICE_ENABLED" \
   --env "LOADTEST_RESULTS_DIR=$LOADTEST_RESULTS_DIR" \
   "backend/loadtest/k6/${SCENARIO}.js"
+k6_rc=$?
+set -e
+if [[ ! -f "${LOADTEST_RESULTS_DIR}/summary.json" ]]; then
+  echo "k6 exited $k6_rc and wrote no summary.json" >&2
+  exit "$k6_rc"
+fi
 
 python3 backend/loadtest/summarize.py \
   --scenario "$SCENARIO" \
   --base-url "$BASE_URL" \
-  --results-dir "$LOADTEST_RESULTS_DIR"
+  --results-dir "$LOADTEST_RESULTS_DIR" \
+  --k6-json "${LOADTEST_RESULTS_DIR}/${SCENARIO}.k6.json"
 
-echo "Wrote $LOADTEST_RESULTS_DIR/summary.json and $LOADTEST_RESULTS_DIR/summary.md"
+echo "Wrote $LOADTEST_RESULTS_DIR/${SCENARIO}.json and $LOADTEST_RESULTS_DIR/${SCENARIO}.md"

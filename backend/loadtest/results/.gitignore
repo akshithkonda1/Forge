@@ -1,2 +1,8 @@
 *
 !.gitignore
+!baseline.json
+!baseline.md
+!stress.json
+!stress.md
+!summary.json
+!summary.md

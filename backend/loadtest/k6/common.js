@@ -7,6 +7,7 @@ http.setResponseCallback(http.expectedStatuses({ min: 200, max: 399 }));
 const routeReqs = new Counter('route_reqs');
 const routeErrs = new Counter('route_errors');
 const routeDur = new Trend('route_duration', true);
+const routeStatus = new Counter('route_status');
 
 const LOOPBACK = new Set(['127.0.0.1', 'localhost', '::1']);
 
@@ -81,6 +82,7 @@ export function requestRoute(base, route) {
   routeReqs.add(1, tags);
   routeErrs.add(failed ? 1 : 0, tags);
   routeDur.add(res.timings.duration, tags);
+  routeStatus.add(1, { route: route.name, status: String(res.status) });
   check(
     res,
     {
@@ -108,23 +110,43 @@ export function fetchGuards(base) {
   return { status: res.status, payload };
 }
 
+function ensureRoute(byRoute, route) {
+  if (!byRoute[route]) {
+    byRoute[route] = {
+      requests: 0,
+      errors: 0,
+      error_rate: 0,
+      requests_per_second: null,
+      latency_ms: {},
+      status_codes: {},
+    };
+  }
+  return byRoute[route];
+}
+
 function extractRouteStats(metrics) {
   const byRoute = {};
   for (const [name, metric] of Object.entries(metrics || {})) {
-    const tagged = /^route_(reqs|errors|duration)\{.*route:([^}]+).*\}$/.exec(name);
+    const tagged = /^route_(reqs|errors|duration|status)\{(.+)\}$/.exec(name);
     if (tagged) {
       const kind = tagged[1];
-      const route = tagged[2];
-      byRoute[route] = byRoute[route] || { requests: 0, errors: 0, error_rate: 0, latency_ms: {} };
+      const tags = tagged[2];
+      const routeMatch = /route:([^,}]+)/.exec(tags);
+      const statusMatch = /status:([^,}]+)/.exec(tags);
+      if (!routeMatch) continue;
+      const stats = ensureRoute(byRoute, routeMatch[1]);
       const values = metric.values || {};
-      if (kind === 'reqs') byRoute[route].requests = values.count || 0;
-      if (kind === 'errors') byRoute[route].errors = values.count || 0;
+      if (kind === 'reqs') stats.requests = values.count || 0;
+      if (kind === 'errors') stats.errors = values.count || 0;
       if (kind === 'duration') {
-        byRoute[route].latency_ms = {
+        stats.latency_ms = {
           p50: values['p(50)'] || values.med || null,
           p95: values['p(95)'] || null,
           p99: values['p(99)'] || null,
         };
+      }
+      if (kind === 'status' && statusMatch) {
+        stats.status_codes[statusMatch[1]] = values.count || 0;
       }
       continue;
     }
@@ -132,22 +154,22 @@ function extractRouteStats(metrics) {
     for (const [subName, subMetric] of Object.entries(sub)) {
       const routeMatch = /route:([^,}]+)/.exec(subName);
       if (!routeMatch) continue;
-      const route = routeMatch[1];
-      byRoute[route] = byRoute[route] || { requests: 0, errors: 0, error_rate: 0, latency_ms: {} };
-      if (name === 'route_reqs') byRoute[route].requests = (subMetric.values && subMetric.values.count) || 0;
-      if (name === 'route_errors') byRoute[route].errors = (subMetric.values && subMetric.values.count) || 0;
+      const stats = ensureRoute(byRoute, routeMatch[1]);
+      const values = subMetric.values || {};
+      if (name === 'route_reqs') stats.requests = values.count || 0;
+      if (name === 'route_errors') stats.errors = values.count || 0;
       if (name === 'route_duration') {
-        const values = subMetric.values || {};
-        byRoute[route].latency_ms = {
+        stats.latency_ms = {
           p50: values['p(50)'] || values.med || null,
           p95: values['p(95)'] || null,
           p99: values['p(99)'] || null,
         };
       }
+      if (name === 'route_status') {
+        const statusMatch = /status:([^,}]+)/.exec(subName);
+        if (statusMatch) stats.status_codes[statusMatch[1]] = values.count || 0;
+      }
     }
-  }
-  for (const stats of Object.values(byRoute)) {
-    stats.error_rate = stats.requests ? stats.errors / stats.requests : 0;
   }
   return byRoute;
 }
@@ -176,6 +198,10 @@ export function buildReport(data, extra) {
   const byRoute = extractRouteStats(metrics);
   if (extra && extra.routeStats) {
     Object.assign(byRoute, extra.routeStats);
+  }
+  for (const stats of Object.values(byRoute)) {
+    stats.error_rate = stats.requests ? stats.errors / stats.requests : 0;
+    stats.requests_per_second = stats.requests ? stats.requests / durationSec : 0;
   }
   return {
     scenario: extra.scenario,
