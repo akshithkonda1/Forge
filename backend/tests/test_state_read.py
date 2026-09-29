@@ -98,9 +98,9 @@ def _health_ctx(**overrides) -> ARIAContext:
             nights_available=14,
         ),
         readiness=ReadinessContext(
-            hrv_7day_trend=-12,
+            hrv_7day_trend=1.0,
             hrv_30day_baseline=62,
-            recovery_score=48,
+            recovery_score=62,
             hrv_days_available=7,
         ),
         training=TrainingContext(
@@ -463,10 +463,31 @@ class AttachAndPathTests(unittest.TestCase):
         self.assertEqual(aria_engine._memory_block_from_ctx(ctx), before_block)
 
         # The chat route saves the first prose_summary sentence via add_insight
-        # (routes/aria.py). On a blocking turn that is the approved safety line;
-        # the short-night read stays a later sentence and must not be stored.
-        takeaway = str(resp.get("prose_summary") or "").split(".")[0].strip()
+        # (routes/aria.py). On a real short-sleep safety turn that is the
+        # approved line; a state-read is not stored.
+        blocking = _health_ctx(
+            sleep=SleepContext(
+                duration_minutes=300,
+                baseline_median_minutes=450,
+                nights_available=14,
+                sleep_debt_7d_hours=6.5,
+            ),
+            readiness=ReadinessContext(
+                hrv_7day_trend=-14,
+                hrv_30day_baseline=62,
+                recovery_score=42,
+                hrv_days_available=7,
+            ),
+        )
+        block_resp = aria_engine.generate_response(
+            "Should I train today?", blocking, seed=0
+        )
+        takeaway = str(block_resp.get("prose_summary") or "").split(".")[0].strip()
         self.assertEqual(takeaway.rstrip("."), aria_engine.SPOKEN_SHORT_SLEEP.rstrip("."))
+        self.assertEqual(
+            block_resp.get("prose_summary"),
+            f"{aria_engine.SPOKEN_SHORT_SLEEP} {aria_engine.SPOKEN_PROTECT_STEP}",
+        )
         living = type("Living", (), {})()
         living.last_insights = [takeaway]
         living.recent_patterns = list(before_patterns)

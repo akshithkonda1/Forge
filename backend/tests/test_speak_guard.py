@@ -464,16 +464,30 @@ class BlockingPatternSpeakTests(unittest.TestCase):
         spoken_m = resp.get("message") or ""
         spoken_p = resp.get("prose_summary") or ""
         self.assertEqual(spoken_m, spoken_p)
+        from aria_core import state_read
+
+        closer = aria_engine.SPOKEN_SAFETY_CLOSER
+        step = aria_engine.SPOKEN_PROTECT_STEP
         for blob in (spoken_m, spoken_p):
             safety_at = blob.find(safety)
-            step_at = blob.find(aria_engine.SPOKEN_PROTECT_STEP)
+            step_at = blob.find(step)
             self.assertGreaterEqual(safety_at, 0, blob)
             self.assertGreaterEqual(step_at, 0, blob)
             self.assertLess(safety_at, step_at, blob)
-            for part in re.split(r"(?<=[.!?])\s+", blob):
-                sentence = part.strip()
-                if not sentence:
-                    continue
+            parts = [p.strip() for p in re.split(r"(?<=[.!?])\s+", blob) if p.strip()]
+            self.assertGreaterEqual(len(parts), 2, blob)
+            self.assertEqual(parts[0], safety, blob)
+            self.assertEqual(parts[1], step, blob)
+            after = parts[2:]
+            self.assertLessEqual(len(after), 1, blob)
+            if after:
+                self.assertEqual(after, [closer], blob)
+                self.assertFalse(state_read._has_step(closer), closer)
+            extra_steps = [
+                p for p in after if p != closer and state_read._has_step(p)
+            ]
+            self.assertEqual(extra_steps, [], blob)
+            for sentence in parts:
                 body = sentence.rstrip(".!?…")
                 words = re.findall(r"[A-Za-z0-9']+", body)
                 self.assertGreaterEqual(len(words), 3, sentence)
@@ -517,6 +531,10 @@ class BlockingPatternSpeakTests(unittest.TestCase):
         )
         # Protect's spoken line wins when overreaching and sleep-protect both fire.
         self.assertEqual(resp["message"], resp["prose_summary"])
+        self.assertEqual(
+            resp["prose_summary"],
+            f"{aria_engine.SPOKEN_SHORT_SLEEP} {aria_engine.SPOKEN_PROTECT_STEP}",
+        )
         self._assert_clean_spoken(resp, aria_engine.SPOKEN_SHORT_SLEEP)
         self.assertNotIn(aria_engine.SPOKEN_OVERTRAIN, resp["prose_summary"])
         notice = (resp.get("evidence") or {}).get("notice") or ""
@@ -540,6 +558,10 @@ class BlockingPatternSpeakTests(unittest.TestCase):
             "should I train hard today?", only_load, voice_mode=True
         )
         self.assertEqual(hot["message"], hot["prose_summary"])
+        self.assertEqual(
+            hot["prose_summary"],
+            f"{aria_engine.SPOKEN_OVERTRAIN} {aria_engine.SPOKEN_PROTECT_STEP}",
+        )
         self._assert_clean_spoken(hot, aria_engine.SPOKEN_OVERTRAIN)
 
         hot_text = aria_engine.generate_response(
@@ -652,6 +674,10 @@ class BlockingPatternSpeakTests(unittest.TestCase):
             "Am I making progress?", ctx, voice_mode=True
         )
         self.assertEqual(voice["message"], voice["prose_summary"])
+        self.assertEqual(
+            voice["prose_summary"],
+            f"{aria_engine.SPOKEN_OVERTRAIN} {aria_engine.SPOKEN_PROTECT_STEP}",
+        )
         self.assertIn(aria_engine.SPOKEN_OVERTRAIN, voice["prose_summary"])
         self.assertFalse(re.search(r"\d", voice["prose_summary"] or ""))
         self.assertFalse(
@@ -659,6 +685,108 @@ class BlockingPatternSpeakTests(unittest.TestCase):
                 voice["prose_summary"], voice.get("card")
             )
         )
+
+    def test_safety_turns_have_one_step_and_step_free_closer(self):
+        from services.aria_engine import (
+            ARIAContext,
+            ReadinessContext,
+            SleepContext,
+            TrainingContext,
+        )
+
+        short = ARIAContext(
+            sleep=SleepContext(
+                duration_minutes=360,
+                nights_available=10,
+                sleep_debt_7d_hours=6.5,
+            ),
+            readiness=ReadinessContext(
+                hrv_7day_trend=-14,
+                hrv_30day_baseline=60,
+                recovery_score=42,
+                hrv_days_available=7,
+            ),
+            training=TrainingContext(
+                weekly_load_score=40,
+                acwr=1.1,
+                is_overtrained=False,
+                hours_since_last_workout=36,
+            ),
+        )
+        heavy = ARIAContext(
+            sleep=SleepContext(
+                duration_minutes=480, nights_available=10, sleep_debt_7d_hours=0
+            ),
+            readiness=ReadinessContext(
+                hrv_7day_trend=2, recovery_score=72, hrv_days_available=7
+            ),
+            training=TrainingContext(
+                weekly_load_score=95,
+                acwr=1.7,
+                is_overtrained=True,
+                hours_since_last_workout=36,
+            ),
+        )
+        both = ARIAContext(
+            sleep=SleepContext(
+                duration_minutes=360,
+                nights_available=10,
+                sleep_debt_7d_hours=6.5,
+            ),
+            readiness=ReadinessContext(
+                hrv_7day_trend=-14,
+                hrv_30day_baseline=60,
+                recovery_score=42,
+                hrv_days_available=7,
+            ),
+            training=TrainingContext(
+                weekly_load_score=88,
+                acwr=1.62,
+                is_overtrained=True,
+                hours_since_last_workout=10,
+            ),
+        )
+        short_line = (
+            f"{aria_engine.SPOKEN_SHORT_SLEEP} {aria_engine.SPOKEN_PROTECT_STEP}"
+        )
+        heavy_line = (
+            f"{aria_engine.SPOKEN_OVERTRAIN} {aria_engine.SPOKEN_PROTECT_STEP}"
+        )
+        cases = (
+            (short, "should I train hard today?", short_line, aria_engine.SPOKEN_SHORT_SLEEP),
+            (heavy, "should I train hard today?", heavy_line, aria_engine.SPOKEN_OVERTRAIN),
+            (both, "should I train hard today?", short_line, aria_engine.SPOKEN_SHORT_SLEEP),
+        )
+        for ctx, q, exact, safety in cases:
+            for voice in (True, False):
+                resp = aria_engine.generate_response(q, ctx, voice_mode=voice)
+                self.assertEqual(resp["message"], resp["prose_summary"], resp)
+                self.assertEqual(resp["prose_summary"], exact, resp["prose_summary"])
+                self._assert_clean_spoken(resp, safety)
+        progress = ARIAContext(
+            sleep=SleepContext(
+                duration_minutes=480, nights_available=10, sleep_debt_7d_hours=0
+            ),
+            readiness=ReadinessContext(
+                hrv_7day_trend=2, recovery_score=72, hrv_days_available=7
+            ),
+            training=TrainingContext(
+                weekly_load_score=95,
+                acwr=1.51,
+                is_overtrained=True,
+                hours_since_last_workout=36,
+            ),
+            progress=ProgressContext(
+                workouts_completed_30d=18,
+                new_personal_records=2,
+                training_load_trend="rising",
+            ),
+        )
+        summary = aria_engine.generate_response("Am I making progress?", progress)
+        self.assertEqual(summary["response_type"], "summary")
+        self.assertEqual(summary["message"], summary["prose_summary"])
+        self.assertEqual(summary["prose_summary"], heavy_line)
+        self._assert_clean_spoken(summary, aria_engine.SPOKEN_OVERTRAIN)
 
 
 if __name__ == "__main__":

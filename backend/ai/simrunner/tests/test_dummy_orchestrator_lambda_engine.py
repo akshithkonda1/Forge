@@ -310,6 +310,11 @@ class DummyARIAEngineUsesLambdaTests(unittest.TestCase):
             self.assertFalse(re.search(r"\d", resp.prose_summary or ""), resp.prose_summary)
             self.assertNotIn("load steady", spoken.lower())
             self.assertNotIn("last 30 days", (resp.prose_summary or "").lower())
+            self.assertEqual(
+                resp.prose_summary,
+                "Your training has climbed fast lately, so let's ease off and rest up "
+                "for a few days. Keep today easy and call it a win. Future you says thanks.",
+            )
 
     def test_progress_question_gets_a_sized_recommendation(self):
         ctx, _ = _ctx()

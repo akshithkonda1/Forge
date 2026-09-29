@@ -2201,6 +2201,7 @@ SPOKEN_OVERTRAIN = (
 )
 SPOKEN_SHORT_SLEEP = "You've been running short on sleep this week, so sleep comes first."
 SPOKEN_PROTECT_STEP = "Keep today easy and call it a win."
+SPOKEN_SAFETY_CLOSER = "Future you says thanks."
 BUTTON_SHORT_SLEEP = "Keep today easy."
 BUTTON_OVERTRAIN = "Back off and keep today easy."
 _SPOKEN_JARGON = re.compile(r"(?i)\b(?:overtrain\w*|overreach\w*|fatigue|deload|acwr)\b")
@@ -2265,28 +2266,29 @@ def _is_blocking_orphan(sentence: str) -> bool:
 
 
 def _polish_blocking_speak(text: str, *, safety: str = "", step: str = "") -> str:
-    """Safety line, then protect step, then any remaining clauses."""
+    """Safety line, then exactly one protect step, then an optional closer."""
     safety = _end_spoken(safety)
     step = _end_spoken(step) or _end_spoken(SPOKEN_PROTECT_STEP)
+    closer = _end_spoken(SPOKEN_SAFETY_CLOSER)
     kept = [_end_spoken(p) for p in _split_spoken(text) if not _is_blocking_orphan(p)]
     saf: list[str] = []
     steps: list[str] = []
-    rest: list[str] = []
+    closers: list[str] = []
     for part in kept:
         key = _norm_spoken(part)
         if safety and key == _norm_spoken(safety):
             saf.append(safety)
         elif step and key == _norm_spoken(step):
             steps.append(step)
-        else:
-            rest.append(part)
+        elif key == _norm_spoken(closer):
+            closers.append(closer)
     if safety and not saf:
         saf = [safety]
     if step and not steps:
         steps = [step]
     seen: set[str] = set()
     ordered: list[str] = []
-    for part in (*saf, *steps, *rest):
+    for part in (*saf, *steps, *closers):
         key = _norm_spoken(part)
         if not key or key in seen:
             continue
@@ -2393,24 +2395,10 @@ def _compose_blocking_speak(
     action: str,
     notice: str,
 ) -> str:
-    """Clean safety line before the protect step; keep the rest of the prose."""
+    """Clean safety line, then exactly one protect step."""
     existing = _existing_blocking_prose(signals, brief, notice, pattern)
     safety = spoken_safety_line(pattern, load)
-    if safety and existing:
-        # The clean direction line must stay digit-free; keep only digit-less
-        # existing sentences (e.g. "below your usual") beside it.
-        existing = " ".join(
-            part.strip()
-            for part in re.split(r"(?<=[.!?])\s+", existing)
-            if part.strip() and not re.search(r"\d", part)
-        )
     step = _spoken_protect_step(action, sleep_first=safety == SPOKEN_SHORT_SLEEP)
-    if safety == SPOKEN_SHORT_SLEEP and existing:
-        existing = " ".join(
-            part.strip()
-            for part in re.split(r"(?<=[.!?])\s+", existing)
-            if part.strip() and not re.search(r"(?i)\bsleep\b", part)
-        )
     if not safety:
         # protect_cluster and other blocked patterns without a dedicated
         # spoken line must keep the interpreter / habit read (usual, variance).
@@ -2420,14 +2408,9 @@ def _compose_blocking_speak(
         if step and _norm_spoken(step) not in _norm_spoken(existing):
             parts.append(_end_spoken(step))
         return " ".join(parts) or _end_spoken(step)
-    parts: list[str] = []
-    if safety:
-        parts.append(_end_spoken(safety))
-    if step:
-        parts.append(_end_spoken(step))
-    if existing:
-        parts.append(_end_spoken(existing))
-    return _polish_blocking_speak(" ".join(parts), safety=safety, step=step)
+    return _polish_blocking_speak(
+        f"{safety} {step}", safety=safety, step=step
+    )
 
 
 def _recommendation_response(
@@ -2544,9 +2527,6 @@ def _recommendation_response(
         # Real short-sleep / overtrain only. protect_cluster, low_readiness,
         # and life-rhythm do not get the spoken safety / protect lines.
         prose = _compose_blocking_speak(pattern, load, signals, brief, action, notice)
-        extras = [bit for bit in notice_bits[1:] if bit]
-        if extras:
-            prose = f"{prose} {' '.join(extras)}"
         spoken_action = _spoken_protect_step(
             action, sleep_first=safety == SPOKEN_SHORT_SLEEP
         )

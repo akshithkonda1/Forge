@@ -870,6 +870,16 @@ _VITALS_SPEAK = re.compile(
 _SPEAK_FALLBACK = (
     "I'm with you. Let's pick one next step that respects today rather than performing it."
 )
+_SAFETY_CLOSER = "Future you says thanks."
+_SAFETY_PREFIXES = (
+    "you've been running short on sleep this week",
+    "your training has climbed fast lately",
+)
+
+
+def _safety_speak_body(text: str) -> bool:
+    low = (text or "").strip().lower()
+    return any(low.startswith(prefix) or f". {prefix}" in low for prefix in _SAFETY_PREFIXES)
 _CHEER_SLUDGE = re.compile(
     r"\b("
     r"crushing it|you're killing it|you got this|you've got this|"
@@ -887,7 +897,7 @@ _WIT_PROTECT = (
     "Cozy-sweater day, not montage day — ten easy minutes, water nearby, and sleep first, lights out a little earlier.",
     "Even sparkly people need a restock — skip the extra work and protect sleep tonight with a kinder wind-down.",
     "Today whispered please-be-nice — so we will: keep it kind, light movement, protein with the next meal, and put sleep first.",
-    "Nothing heroic today, friend — just an easy loop, then sleep first tonight. Future you says thanks.",
+    "Nothing heroic today, friend — a soft pause. Future you says thanks.",
     "I love the ambition and I'm still tucking it in — keep today kind and light, sleep first, training later.",
     "Your tank's on the cute low-power glow — easy movement only, then we protect sleep tonight.",
     "I'm taking care of you, not casting you as the montage hero — short and kind, then prioritize sleep.",
@@ -1172,6 +1182,13 @@ def friend_speak(
     body = _CHEER_SLUDGE.sub("that's real work", _collapse_spoken(text))
     body = re.sub(r"^[\s.,;:—–\-]+", "", body).strip()
     extra = _wit_line(seed, stance, signals, user_id=user_id, turn=turn)
+    if _safety_speak_body(body):
+        closer = _SAFETY_CLOSER
+        if closer.lower() not in body.lower():
+            if body[-1] not in ".!?":
+                body += "."
+            body = f"{body} {closer}"
+        return _apply_speak_guard(_speak_without_vitals(body))
     if not body or body == _SPEAK_FALLBACK or _THIN_SPEAK.match(body):
         # The real engine often DID build a substantive answer here — it just
         # got fully scrubbed for citing a raw number (see _qualitative_speak's

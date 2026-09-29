@@ -208,11 +208,19 @@ def apply_to_envelope(
     selected = _select(ctx, seed)
     if not selected:
         return envelope
+    prose = str(envelope.get("prose_summary") or "")
+    chat = str(envelope.get("message") or "")
+    # Real short-sleep / overtrain already has the one approved step.
+    # Do not attach "Not quite at your usual" / "Bigger training week".
+    if any(
+        _is_safety_sentence(part)
+        for part in _SENTENCE_SPLIT.split(f"{prose} {chat}")
+        if part.strip()
+    ):
+        return envelope
     kind, clause, direction = selected
     if _contradicts_user(message, kind, direction):
         return envelope
-    prose = str(envelope.get("prose_summary") or "")
-    chat = str(envelope.get("message") or "")
     if _already_has_read(prose) or _already_has_read(chat):
         return envelope
     card = envelope.get("card") if isinstance(envelope.get("card"), dict) else {}
