@@ -2,20 +2,17 @@
 
 name: Swift
 
-# Runs on every branch and every pull request. Path filters keep it off changes
-# that cannot affect the app; branch filters are deliberately absent so main and
-# feature branches are gated identically.
+# pull_request is unfiltered so required checks always report. Push stays
+# limited to main and the Swift/widget paths. The heavy job no-ops green
+# when nothing Swift-relevant changed.
 on:
   push:
+    branches: [main]
     paths:
       - "ForgeSwift/**"
       - "ForgeWidget/**"
       - ".github/workflows/swift.yml"
   pull_request:
-    paths:
-      - "ForgeSwift/**"
-      - "ForgeWidget/**"
-      - ".github/workflows/swift.yml"
 
 permissions:
   contents: read
@@ -46,7 +43,27 @@ env:
     EXCLUDED_ARCHS=x86_64
 
 jobs:
+  changes:
+    name: swift-changes
+    runs-on: ubuntu-latest
+    outputs:
+      relevant: ${{ steps.filter.outputs.relevant }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 2
+      - uses: dorny/paths-filter@ceb8a2b8f2d89434be7ff52d3de7ec3738c5cc9d # v4.0.3
+        id: filter
+        with:
+          filters: |
+            relevant:
+              - "ForgeSwift/**"
+              - "ForgeWidget/**"
+              - ".github/workflows/swift.yml"
+
   build:
+    name: swift-build
+    needs: changes
     # Xcode 27 / iOS 27 / watchOS 27 — the SDK Forge is developed against.
     # macos-15 ships Xcode 16 and cannot compile a deployment target of 27.
     runs-on: xcode-27
@@ -55,26 +72,36 @@ jobs:
         working-directory: ForgeSwift
 
     steps:
+      - name: No-op (no relevant changes)
+        if: needs.changes.outputs.relevant != 'true'
+        working-directory: ${{ github.workspace }}
+        run: echo "No Swift changes; succeeding as a no-op so required checks report."
+
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        if: needs.changes.outputs.relevant == 'true'
 
       - name: Show Xcode / platforms
+        if: needs.changes.outputs.relevant == 'true'
         run: |
           xcodebuild -version
           xcrun simctl list runtimes 2>/dev/null | head -40 || true
           xcodebuild -project ForgeSwift.xcodeproj -list
 
       - name: Resolve package dependencies
+        if: needs.changes.outputs.relevant == 'true'
         run: |
           xcodebuild -resolvePackageDependencies \
             -project ForgeSwift.xcodeproj \
             -scheme ForgeSwift
 
       - name: Test ForgeCore
+        if: needs.changes.outputs.relevant == 'true'
         run: |
           cd ForgeCore
           swift test
 
       - name: Build ForgeSwift + tests (iOS Simulator)
+        if: needs.changes.outputs.relevant == 'true'
         run: |
           set -euo pipefail
           # `build-for-testing` rather than `build`, so the ForgeSwiftTests
@@ -100,7 +127,7 @@ jobs:
       # lines above the failure summary, which makes a red build genuinely hard
       # to diagnose from the web UI. Echo just the diagnostics at the end.
       - name: Compile errors (iOS)
-        if: failure()
+        if: failure() && needs.changes.outputs.relevant == 'true'
         run: |
           echo "::group::Swift errors"
           test -f /tmp/ios-build.log || { echo "(build did not reach this step)"; exit 0; }
@@ -111,6 +138,7 @@ jobs:
         # Scheme builds ForgeWatch and embeds ForgeWatchWidgets with package
         # products resolved. Do not use bare -target for widgets — SPM product
         # linkage (ForgeCore) is not applied the same way without the scheme.
+        if: needs.changes.outputs.relevant == 'true'
         run: |
           set -euo pipefail
           xcodebuild \
@@ -126,7 +154,7 @@ jobs:
             COMPILER_INDEX_STORE_ENABLE=NO 2>&1 | tee /tmp/watch-build.log
 
       - name: Compile errors (watchOS)
-        if: failure()
+        if: failure() && needs.changes.outputs.relevant == 'true'
         run: |
           echo "::group::Swift errors"
           test -f /tmp/watch-build.log || { echo "(build did not reach this step)"; exit 0; }
@@ -142,6 +170,7 @@ jobs:
       # It roughly doubles this job; the alternative is finding out at archive
       # time, or from the App Store.
       - name: Build ForgeSwift (iOS, Release)
+        if: needs.changes.outputs.relevant == 'true'
         run: |
           set -euo pipefail
           xcodebuild \
@@ -158,7 +187,7 @@ jobs:
             COMPILER_INDEX_STORE_ENABLE=NO 2>&1 | tee /tmp/ios-release.log
 
       - name: Compile errors (iOS, Release)
-        if: failure()
+        if: failure() && needs.changes.outputs.relevant == 'true'
         run: |
           echo "::group::Swift errors"
           test -f /tmp/ios-release.log || { echo "(build did not reach this step)"; exit 0; }
@@ -166,6 +195,7 @@ jobs:
           echo "::endgroup::"
 
       - name: Build ForgeWatch + Widgets (watchOS, Release)
+        if: needs.changes.outputs.relevant == 'true'
         run: |
           set -euo pipefail
           xcodebuild \
@@ -181,7 +211,7 @@ jobs:
             COMPILER_INDEX_STORE_ENABLE=NO 2>&1 | tee /tmp/watch-release.log
 
       - name: Compile errors (watchOS, Release)
-        if: failure()
+        if: failure() && needs.changes.outputs.relevant == 'true'
         run: |
           echo "::group::Swift errors"
           test -f /tmp/watch-release.log || { echo "(build did not reach this step)"; exit 0; }

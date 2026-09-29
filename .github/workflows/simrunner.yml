@@ -1,15 +1,20 @@
-# Run the ARIA SimRunner test suite + an offline smoke on PRs.
+# Run the ARIA SimRunner unit suite + an offline smoke on PRs.
 # SimRunner is stdlib-only, so there is no dependency install step.
+# Dummy regression / tier-1 HOLD is a separate job (not the required check).
 
 name: SimRunner
 
-# Always run. Path filters hid SimRunner the same way they hid Backend CI:
-# frontend-only commits on main skipped this workflow while the previous
-# backend merge was already red. The filters were also too narrow —
-# `backend/ai/**` + `backend/simrunner/**` miss `backend/infra/lambda/**`,
-# which SimRunner imports (production_bridge / dummy lambda engine). A
-# NameError in aria_core then never re-ran this job. No branch or path filter.
-on: [push, pull_request]
+# pull_request is unfiltered so required checks always report. Push keeps a
+# path filter. backend/infra/lambda/** is included because SimRunner imports
+# the production engine from there.
+on:
+  push:
+    paths:
+      - "backend/ai/**"
+      - "backend/simrunner/**"
+      - "backend/infra/lambda/**"
+      - ".github/workflows/simrunner.yml"
+  pull_request:
 
 permissions:
   contents: read
@@ -19,23 +24,59 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  test:
+  changes:
+    name: simrunner-changes
     runs-on: ubuntu-latest
-
+    outputs:
+      relevant: ${{ steps.filter.outputs.relevant }}
     steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 2
+      - uses: dorny/paths-filter@ceb8a2b8f2d89434be7ff52d3de7ec3738c5cc9d # v4.0.3
+        id: filter
+        with:
+          filters: |
+            relevant:
+              - "backend/ai/**"
+              - "backend/simrunner/**"
+              - "backend/infra/lambda/**"
+              - ".github/workflows/simrunner.yml"
+
+  test:
+    name: simrunner-unit
+    needs: changes
+    runs-on: ubuntu-latest
+    steps:
+      - name: No-op (no relevant changes)
+        if: needs.changes.outputs.relevant != 'true'
+        run: echo "No SimRunner changes; succeeding as a no-op so required checks report."
+
       # Actions must be pinned to a full-length commit SHA (repo policy).
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        if: needs.changes.outputs.relevant == 'true'
 
       # No setup-python: the harness is stdlib-only and Python 3.10+, so the
       # runner's system python3 (3.12 on ubuntu-24.04) is sufficient.
       - name: Unit + property + determinism tests
+        if: needs.changes.outputs.relevant == 'true'
         run: python3 -m unittest discover -s backend/ai/simrunner/tests -p "test_*.py" -v
 
       - name: Tier-1 smoke (offline, no network, no tokens)
+        if: needs.changes.outputs.relevant == 'true'
         run: python3 -m backend.ai.simrunner
 
       - name: Test-Ready dummy smoke (no AWS)
+        if: needs.changes.outputs.relevant == 'true'
         run: python3 -m backend.ai.simrunner --test-ready --gate
+
+  dummy-gate:
+    name: simrunner-dummy-gate
+    needs: changes
+    if: needs.changes.outputs.relevant == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Test-Ready product eval (dummy orchestra, fail on tier-1 HOLD)
         env:
