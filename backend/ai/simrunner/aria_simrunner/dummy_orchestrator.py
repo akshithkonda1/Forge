@@ -1723,11 +1723,37 @@ def _ios_weekly_load_score(ctx) -> float | None:
 
 
 def _ios_training_load_trend(ctx) -> str | None:
-    """AriaContextStore.swift:188 — 'steady' when >= 3 workouts, else None.
+    """Load wording from the same ACWR / overtrain flag as the safety line.
 
-    Dummy used to map ``readiness_trend`` onto this field; iOS does not.
+    iOS AriaContextStore.swift:188 hardcodes ``steady`` at >= 3 sessions.
+    That second source is how Scout t13 / Command-R+ t8 said ``load steady``
+    next to ACWR 1.51. Dummy now derives rising from the overtrain signal
+    and only uses the iOS floor when load is not blocked.
     """
-    return "steady" if len(_workout_sessions(ctx)) >= 3 else None
+    try:
+        from .production_bridge import training_load_trend_from_load
+
+        return training_load_trend_from_load(ctx)
+    except Exception:
+        return "steady" if len(_workout_sessions(ctx)) >= 3 else None
+
+
+def _ios_workouts_completed_30d(ctx) -> int | None:
+    """30-day session count from the pinned stream, never ``training_streak``.
+
+    AriaContextStore.swift:109 cuts back from ``Date()`` (wall clock). Dummy
+    must use ``today.date`` / ``SIMRUNNER_TODAY`` so a 2026-01-15 persona
+    is not counted against real now.
+    """
+    try:
+        from .production_bridge import workouts_completed_30d
+
+        return workouts_completed_30d(ctx)
+    except Exception:
+        n = getattr(ctx, "workouts_completed_30d", None)
+        if isinstance(n, int) and not isinstance(n, bool) and n > 0:
+            return n
+        return None
 
 
 def _hrv_trend_points(ctx) -> float | None:
@@ -1871,7 +1897,7 @@ def sim_context_to_chat_payload(
             },
             "progress": {
                 "trainingLoadTrend": _ios_training_load_trend(ctx),
-                "workoutsCompleted30d": getattr(ctx, "training_streak", None),
+                "workoutsCompleted30d": _ios_workouts_completed_30d(ctx),
             },
             "lifestyle": {
                 "tags": tags,

@@ -2768,11 +2768,22 @@ def _summary_response(
         facts.append(f"{p.workouts_completed_30d} workouts in 30 days")
     if p.new_personal_records:
         facts.append(f"{p.new_personal_records} new PR{'s' if p.new_personal_records != 1 else ''}")
-    if p.training_load_trend:
-        facts.append(f"load {p.training_load_trend}")
+    # Card-only load wording. When intensity is blocked, use the same
+    # ACWR / overtrain signal as the climbed-fast line — never "load steady"
+    # from a second source (iOS three-session floor / Dummy training_streak).
+    trend_word = (p.training_load_trend or "").strip().lower()
+    if pattern.blocks_intensity and (
+        load.is_overtrained
+        or (load.acwr is not None and load.acwr >= aria_evidence.ACWR_OVERREACH)
+    ):
+        trend_word = "rising"
+    elif pattern.blocks_intensity and trend_word == "steady":
+        trend_word = ""
+    if trend_word:
+        facts.append(f"load {trend_word}")
     headline = "; ".join(facts) or "limited progress data"
 
-    trend = (p.training_load_trend or "steady").lower()
+    trend = (trend_word or p.training_load_trend or "steady").lower()
     if trend == "rising":
         risk = "Load is climbing — schedule a deload before fatigue outpaces adaptation."
     elif trend == "falling":

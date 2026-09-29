@@ -44,6 +44,9 @@ class ContextConversionTests(unittest.TestCase):
         self.assertEqual(prod.training.hours_since_last_workout, production_bridge.hours_since_last_workout(ctx))
         self.assertEqual(prod.profile.experience_level, ctx.experience_level)
         self.assertEqual(prod.profile.coaching_style, ctx.coaching_style)
+        self.assertEqual(prod.progress.workouts_completed_30d, ctx.workouts_completed_30d)
+        if ctx.is_overtrained or ctx.acwr >= 1.5:
+            self.assertEqual(prod.progress.training_load_trend, "rising")
 
     def test_missing_signal_stays_none_not_fabricated(self):
         ctx = _context(day_index=29, seed=3)

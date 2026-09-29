@@ -645,6 +645,9 @@ class BlockingPatternSpeakTests(unittest.TestCase):
         self.assertFalse(speak_guard.spoken_has_button(spoken, resp.get("card")))
         card = resp.get("card") or {}
         self.assertTrue(re.search(r"\d", str(card.get("headline") or "")), card)
+        self.assertNotIn("load steady", (card.get("headline") or "").lower())
+        self.assertNotIn("load steady", (card.get("win") or "").lower())
+        self.assertIn("load rising", (card.get("headline") or "").lower())
         voice = aria_engine.generate_response(
             "Am I making progress?", ctx, voice_mode=True
         )
