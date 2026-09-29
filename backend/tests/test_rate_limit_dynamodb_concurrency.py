@@ -4,14 +4,12 @@ The k6 Dummy loadtest only exercised ``storage.dynamodb._local_store`` because
 ``APP_DATA_TABLE_NAME`` was unset. Deployed Lambda sets that env var
 (``backend/infra/main.tf:548``), so production uses DynamoDB.
 
-``enforce_user_rate_limit`` currently does a non-atomic read-then-write
-(``backend/infra/lambda/security.py:275-287``). There is no
-``ConditionExpression``, no atomic ``UpdateItem`` ADD, and no ``ttl``.
-Product fix is on PR #388 — this file only records the gaps. moto serializes
-Dynamo calls in-process, which can hide the race — so the concurrent test
-interlocks every storage get before any storage write. If #388 makes the
-increment atomic, that interlock is a no-op and the test must pass for the
-right reason: exactly ``limit`` admissions.
+``enforce_user_rate_limit`` is an atomic ``UpdateItem`` ADD with
+``attribute_not_exists(count) OR count < :limit`` and a ``ttl`` (PR #388).
+moto serializes Dynamo calls in-process, which can hide a read-then-write
+race — so the concurrent test interlocks every storage get before any
+storage write. On the atomic path that interlock is a no-op and the test
+must pass for the right reason: exactly ``limit`` admissions.
 
 Never calls Bedrock or ElevenLabs. Non-DynamoDB boto3 clients fail closed.
 """
@@ -73,37 +71,12 @@ from security import _rate_window_id, enforce_user_rate_limit  # noqa: E402
 from storage import dynamodb  # noqa: E402
 from storage.keys import rate_limit_key  # noqa: E402
 
-try:
-    import pytest
-except ImportError:  # pragma: no cover
-    pytest = None  # type: ignore[misc, assignment]
-
 
 TABLE_NAME = "forge-ci-app-data"
 REGION = "us-east-1"
 LIMIT = 60
 WORKERS = 200
 ACTION = "aria-chat"
-
-_XFAIL_RACE = (
-    "read-then-write race at backend/infra/lambda/security.py:275-287; fix on #388"
-)
-_XFAIL_TTL = (
-    "limiter put_item at backend/infra/lambda/security.py:279-287 writes no ttl "
-    "(table TTL attribute is ttl, backend/infra/main.tf:366-369); fix on #388"
-)
-
-
-def _strict_xfail(reason: str) -> Callable[[Callable[..., Any]], Callable[..., Any]]:
-    """unittest.expectedFailure + pytest.mark.xfail(strict=True) when pytest exists."""
-
-    def decorator(fn: Callable[..., Any]) -> Callable[..., Any]:
-        wrapped = unittest.expectedFailure(fn)
-        if pytest is not None:
-            wrapped = pytest.mark.xfail(strict=True, reason=reason)(wrapped)
-        return wrapped
-
-    return decorator
 
 
 class _ReadThenWriteInterlock:
@@ -121,6 +94,11 @@ class _ReadThenWriteInterlock:
         self.workers = workers
         self._reads = 0
         self._lock = threading.Lock()
+        # moto's in-process UpdateItem is not atomic across threads the way
+        # real Dynamo is. Serialize writes so ADD + condition admits exactly
+        # ``limit``; put_item still overwrites the same snapshot after the
+        # read barrier, so a get-then-put limiter still over-admits.
+        self._write_lock = threading.Lock()
         self._any_read = threading.Event()
         self._all_reads_done = threading.Event()
 
@@ -143,7 +121,8 @@ class _ReadThenWriteInterlock:
             if self._any_read.is_set():
                 if not self._all_reads_done.wait(timeout=60):
                     raise TimeoutError("rate-limit writes released before all reads")
-            return fn(*args, **kwargs)
+            with self._write_lock:
+                return fn(*args, **kwargs)
 
         return wrapped
 
@@ -322,7 +301,6 @@ class DynamoDBRateLimitConcurrencyTests(unittest.TestCase):
         self.assertEqual(item["entity_type"], "rate_limit")
         self.assertEqual(int(item["count"]), 1)
 
-    @_strict_xfail(_XFAIL_TTL)
     def test_limiter_row_has_ttl(self) -> None:
         uid = "rate-ddb-ttl"
         enforce_user_rate_limit(uid, action=ACTION, limit=LIMIT, window_hours=1)
@@ -331,7 +309,6 @@ class DynamoDBRateLimitConcurrencyTests(unittest.TestCase):
         self.assertIn("ttl", item)
         self.assertGreater(int(item["ttl"]), 0)
 
-    @_strict_xfail(_XFAIL_RACE)
     def test_concurrent_same_user_admits_exactly_limit(self) -> None:
         uid = "rate-ddb-concurrent"
         admitted, rejected, errors = _fire_limiter(
