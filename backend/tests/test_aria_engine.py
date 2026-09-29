@@ -562,7 +562,7 @@ class NewDomainReasoningTests(unittest.TestCase):
             primary_goal="lose-fat", experience_level="beginner", constraints=["left knee"]))
         resp = aria_engine.generate_response("should I train today?", ctx)
         self.assertEqual(resp["response_type"], "recommendation")
-        self.assertIn("deficit", resp["card"]["expected_effect"])
+        self.assertIn("fat-loss work", resp["card"]["expected_effect"])
         self.assertIn("knee", resp["message"].lower())
         self.assertIn("consistency", resp["message"].lower())
 
