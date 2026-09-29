@@ -2199,7 +2199,7 @@ def _lifestyle_notice(notice: str, brief: Any, fallback: str) -> str:
 SPOKEN_OVERTRAIN = (
     "Your training has climbed fast lately, so let's ease off and rest up for a few days."
 )
-SPOKEN_SHORT_SLEEP = "You've been running short this week, so sleep comes first."
+SPOKEN_SHORT_SLEEP = "You've been running short on sleep this week, so sleep comes first."
 SPOKEN_PROTECT_STEP = "Keep today easy and call it a win."
 BUTTON_SHORT_SLEEP = "Keep today easy."
 BUTTON_OVERTRAIN = "Back off and keep today easy."
@@ -2234,6 +2234,65 @@ def spoken_safety_line(pattern: Any, load: Any = None) -> str:
     if key == "overreaching" or bool(getattr(load, "is_overtrained", False)):
         return SPOKEN_OVERTRAIN
     return ""
+
+
+def _norm_spoken(text: str) -> str:
+    return re.sub(r"\s+", " ", (text or "").strip().lower()).rstrip(".!?")
+
+
+def _split_spoken(text: str) -> list[str]:
+    return [p.strip() for p in re.split(r"(?<=[.!?])\s+", (text or "").strip()) if p.strip()]
+
+
+def _end_spoken(text: str) -> str:
+    line = (text or "").strip()
+    if not line:
+        return ""
+    return line if line.endswith((".", "!", "?")) else f"{line}."
+
+
+def _is_blocking_orphan(sentence: str) -> bool:
+    """Drop garbled leftovers like ``a solid night.`` (lowercase / too short)."""
+    body = (sentence or "").strip().rstrip(".!?…")
+    if not body:
+        return True
+    words = re.findall(r"[A-Za-z0-9']+", body)
+    if len(words) < 3:
+        return True
+    if body[0].islower() and not body.startswith(("I ", "I'm ", "I'll ", "I've ", "I'd ")):
+        return True
+    return False
+
+
+def _polish_blocking_speak(text: str, *, safety: str = "", step: str = "") -> str:
+    """Safety line, then protect step, then any remaining clauses."""
+    safety = _end_spoken(safety)
+    step = _end_spoken(step) or _end_spoken(SPOKEN_PROTECT_STEP)
+    kept = [_end_spoken(p) for p in _split_spoken(text) if not _is_blocking_orphan(p)]
+    saf: list[str] = []
+    steps: list[str] = []
+    rest: list[str] = []
+    for part in kept:
+        key = _norm_spoken(part)
+        if safety and key == _norm_spoken(safety):
+            saf.append(safety)
+        elif step and key == _norm_spoken(step):
+            steps.append(step)
+        else:
+            rest.append(part)
+    if safety and not saf:
+        saf = [safety]
+    if step and not steps:
+        steps = [step]
+    seen: set[str] = set()
+    ordered: list[str] = []
+    for part in (*saf, *steps, *rest):
+        key = _norm_spoken(part)
+        if not key or key in seen:
+            continue
+        seen.add(key)
+        ordered.append(part)
+    return " ".join(ordered)
 
 
 def _spoken_protect_step(action: str, *, sleep_first: bool = False) -> str:
@@ -2354,12 +2413,12 @@ def _compose_blocking_speak(
         )
     parts: list[str] = []
     if safety:
-        parts.append(safety if safety.endswith(".") else f"{safety}.")
+        parts.append(_end_spoken(safety))
+    if step:
+        parts.append(_end_spoken(step))
     if existing:
-        parts.append(existing if existing.endswith((".", "!", "?")) else f"{existing}.")
-    if step and step.lower() not in " ".join(parts).lower():
-        parts.append(step if step.endswith(".") else f"{step}.")
-    return " ".join(parts) or step
+        parts.append(_end_spoken(existing))
+    return _polish_blocking_speak(" ".join(parts), safety=safety, step=step)
 
 
 def _recommendation_response(
@@ -2746,14 +2805,19 @@ def _summary_response(
         # card-only and shares the recommendation-lane back-off constant.
         rec = _blocking_card_action(pattern, load)
 
-    prose = f"Last 30 days: {headline}. {win}"
+    # Numeric 30-day recap ("Last 30 days: 0 workouts… load steady") is
+    # pre-existing on main; when intensity is blocked it contradicts the
+    # safety line and leaks digits. Keep those facts on the card only.
     if pattern.blocks_intensity:
-        # Safety-critical direction is spoken as a clean line — never the raw
-        # card['risk'] notice ("Workload is running hot", "11.7h short...").
         safety = spoken_safety_line(pattern, load)
-        if safety:
-            step = _spoken_protect_step("", sleep_first=safety == SPOKEN_SHORT_SLEEP)
-            prose = f"{prose} {safety} {step}"
+        step = _spoken_protect_step("", sleep_first=safety == SPOKEN_SHORT_SLEEP)
+        prose = _polish_blocking_speak(
+            f"{safety} {step}", safety=safety, step=step
+        )
+        message = prose
+    else:
+        prose = f"Last 30 days: {headline}. {win}"
+        message = _structured_message(prose, risk, rec)
     card = None if voice_mode else {
         "period_days": 30,
         "headline": headline,
@@ -2767,15 +2831,6 @@ def _summary_response(
         "evidence": pattern.to_dict(),
         "load": load.to_dict(),
     }
-    summary_notice = f"Last 30 days: {headline}. {win}"
-    if pattern.blocks_intensity:
-        safety = spoken_safety_line(pattern, load)
-        if safety:
-            summary_notice = f"{summary_notice} {safety}"
-        rec_spoken = _spoken_protect_step(rec)
-        message = _structured_message(summary_notice, rec_spoken, None)
-    else:
-        message = _structured_message(summary_notice, risk, rec)
     envelope = _envelope(
         response_type="summary",
         confidence=confidence,
@@ -2993,7 +3048,25 @@ def _finish_spoken_envelope(
         message=message,
     )
     envelope = speak_guard.dedupe_envelope_speech(envelope)
-    if voice_mode:
+    evidence = envelope.get("evidence") if isinstance(envelope.get("evidence"), dict) else {}
+    if evidence.get("blocks_intensity"):
+        blob = f"{envelope.get('prose_summary') or ''} {envelope.get('message') or ''}"
+        if _norm_spoken(SPOKEN_SHORT_SLEEP) in _norm_spoken(blob):
+            safety = SPOKEN_SHORT_SLEEP
+        elif _norm_spoken(SPOKEN_OVERTRAIN) in _norm_spoken(blob):
+            safety = SPOKEN_OVERTRAIN
+        else:
+            safety = ""
+        if safety:
+            polished = _polish_blocking_speak(
+                envelope.get("prose_summary") or blob,
+                safety=safety,
+                step=SPOKEN_PROTECT_STEP,
+            )
+            envelope["prose_summary"] = polished
+            # Blocking text and voice both speak the same direction line + step.
+            envelope["message"] = polished
+    elif voice_mode:
         # Voice speaks one line: keep message identical to prose after reads/dedupe.
         envelope["message"] = envelope.get("prose_summary") or envelope.get("message")
     blob = speak_guard.user_visible(envelope)

@@ -452,9 +452,35 @@ class BlockingPatternSpeakTests(unittest.TestCase):
             self.assertNotRegex(blob, self._BANNED)
             self.assertFalse(speak_guard.spoken_has_button(blob, resp.get("card")))
             if line == aria_engine.SPOKEN_SHORT_SLEEP:
-                self.assertLessEqual(len(re.findall(r"(?i)\bsleep\b", blob)), 1, blob)
+                in_line = len(re.findall(r"(?i)\bsleep\b", line))
+                self.assertLessEqual(
+                    len(re.findall(r"(?i)\bsleep\b", blob)), in_line, blob
+                )
             why = "You've had a run of short nights, so sleep comes first."
             self.assertNotIn(why, blob)
+        self._assert_blocking_shape(resp, line)
+
+    def _assert_blocking_shape(self, resp, safety: str) -> None:
+        spoken_m = resp.get("message") or ""
+        spoken_p = resp.get("prose_summary") or ""
+        self.assertEqual(spoken_m, spoken_p)
+        for blob in (spoken_m, spoken_p):
+            safety_at = blob.find(safety)
+            step_at = blob.find(aria_engine.SPOKEN_PROTECT_STEP)
+            self.assertGreaterEqual(safety_at, 0, blob)
+            self.assertGreaterEqual(step_at, 0, blob)
+            self.assertLess(safety_at, step_at, blob)
+            for part in re.split(r"(?<=[.!?])\s+", blob):
+                sentence = part.strip()
+                if not sentence:
+                    continue
+                body = sentence.rstrip(".!?…")
+                words = re.findall(r"[A-Za-z0-9']+", body)
+                self.assertGreaterEqual(len(words), 3, sentence)
+                if not body.startswith(("I ", "I'm ", "I'll ", "I've ", "I'd ")):
+                    self.assertFalse(
+                        body[:1].islower(), f"lowercase fragment: {sentence!r}"
+                    )
 
     def test_blocking_pattern_speaks_clean_line_never_risk_memory(self):
         from routes.aria import _insight_takeaway
@@ -611,13 +637,20 @@ class BlockingPatternSpeakTests(unittest.TestCase):
             self.assertIn(aria_engine.SPOKEN_OVERTRAIN, blob)
             self.assertNotRegex(blob, self._BANNED, blob)
             self.assertNotIn(why, blob)
+            self.assertFalse(re.search(r"\d", blob), blob)
+            self.assertNotIn("load steady", blob.lower())
+            self.assertNotIn("last 30 days", blob.lower())
+        self._assert_clean_spoken(resp, aria_engine.SPOKEN_OVERTRAIN)
         spoken = f"{resp.get('message') or ''} {resp.get('prose_summary') or ''}"
         self.assertFalse(speak_guard.spoken_has_button(spoken, resp.get("card")))
+        card = resp.get("card") or {}
+        self.assertTrue(re.search(r"\d", str(card.get("headline") or "")), card)
         voice = aria_engine.generate_response(
             "Am I making progress?", ctx, voice_mode=True
         )
         self.assertEqual(voice["message"], voice["prose_summary"])
         self.assertIn(aria_engine.SPOKEN_OVERTRAIN, voice["prose_summary"])
+        self.assertFalse(re.search(r"\d", voice["prose_summary"] or ""))
         self.assertFalse(
             speak_guard.spoken_has_button(
                 voice["prose_summary"], voice.get("card")

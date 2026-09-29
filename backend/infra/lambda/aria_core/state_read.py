@@ -576,6 +576,17 @@ def _sentence_case(text: str) -> str:
     return text
 
 
+_SAFETY_PREFIXES = (
+    "you've been running short",
+    "your training has climbed fast lately",
+)
+
+
+def _is_safety_sentence(sentence: str) -> bool:
+    low = (sentence or "").strip().lower()
+    return any(low.startswith(prefix) for prefix in _SAFETY_PREFIXES)
+
+
 def _join_read(speech: str, clause: str, *, ack: bool, direction: str = "") -> str:
     if not clause or not (speech or "").strip():
         return speech
@@ -589,6 +600,20 @@ def _join_read(speech: str, clause: str, *, ack: bool, direction: str = "") -> s
     if step_i is None:
         return speech
     sentence = parts[step_i]
+    safety_parts = [part for part in parts if _is_safety_sentence(part)]
+    if safety_parts:
+        # Safety line must lead; never pull the protect step in front of it.
+        rest = [
+            part
+            for i, part in enumerate(parts)
+            if i != step_i and not _is_safety_sentence(part)
+        ]
+        lead_line = lead if lead.endswith((".", "!", "?")) else f"{lead}."
+        extra = []
+        if lead_line.lower().rstrip(".") not in " ".join(rest).lower():
+            extra = [lead_line]
+        step = sentence if sentence.endswith((".", "!", "?")) else f"{sentence}."
+        return " ".join([*safety_parts, step, *extra, *rest])
     if _aligned(direction, sentence):
         joined = f"{lead}, so {_de_sentence_case(sentence)}"
     elif _opposite(direction, sentence):

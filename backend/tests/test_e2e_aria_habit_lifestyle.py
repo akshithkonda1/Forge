@@ -138,7 +138,11 @@ class SleepFirstGateTests(unittest.TestCase):
         self.assertEqual(resp["response_type"], "recommendation")
         self.assertIn("sleep", resp["prose_summary"].lower())
         self.assertIn("sleep comes first", resp["prose_summary"].lower())
-        self.assertLessEqual(len(re.findall(r"(?i)\bsleep\b", resp["prose_summary"])), 1)
+        self.assertIn("running short on sleep", resp["prose_summary"].lower())
+        in_line = len(re.findall(r"(?i)\bsleep\b", aria_engine.SPOKEN_SHORT_SLEEP))
+        self.assertLessEqual(
+            len(re.findall(r"(?i)\bsleep\b", resp["prose_summary"])), in_line
+        )
         self.assertLessEqual(resp["confidence"], 0.60)
 
     def test_no_gate_when_sleep_ok(self):
