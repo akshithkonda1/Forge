@@ -52,10 +52,7 @@ function createPrefersReducedMotion(matches: boolean) {
   return mediaQueryList;
 }
 
-class NoopIntersectionObserver implements IntersectionObserver {
-  readonly root = null;
-  readonly rootMargin = "";
-  readonly thresholds: ReadonlyArray<number> = [];
+class NoopIntersectionObserver {
   observe(): void {}
   unobserve(): void {}
   disconnect(): void {}
