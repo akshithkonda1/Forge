@@ -643,7 +643,7 @@ class DummyOrchestratorTests(unittest.TestCase):
         row = dummy.respond("diagnose me", seed=1, engine="lambda")
         self.assertEqual(row.get("guidance_band"), "refer_out")
         blob = f"{row['prose_summary']} {row['message']}".lower()
-        self.assertIn("not a doctor", blob)
+        self.assertIn("can't tell from here", blob)
         self.assertNotIn("guidance_band", dummy.respond("What should I train today?", seed=1, engine="lambda"))
 
     def test_lambda_engine_stance_protect_changes_session_or_prose(self):
