@@ -297,27 +297,55 @@ class RedactionLogTests(unittest.TestCase):
 
     def test_no_uid_in_log_and_replay_recomputes_phrase_key(self):
         uid = "real-user-alice-42"
+        uid_sha = hashlib.sha256(uid.encode("utf-8")).hexdigest()
         with tempfile.TemporaryDirectory() as tmp:
-            result = _turn(
-                "hey, how's it going?",
+            payload = _payload()
+            payload["calendar_events"] = [{"title": "Dr. Patel follow-up"}]
+            first = _turn(
+                "hey about Dr. Patel follow-up",
                 user_id=uid,
+                payload=payload,
                 log_dir=tmp,
                 session_id="priv-sess",
             )
-            blob = Path(result["log_path"]).read_text(encoding="utf-8")
-            self.assertNotIn(uid, blob)
-            self.assertNotIn(hashlib.sha256(uid.encode("utf-8")).hexdigest(), blob)
-            row = json.loads(blob.strip().splitlines()[0])
-            self.assertNotIn("user_id", row)
-            recomputed = state_read.phrase_key(
-                None,
-                row["user_turn"],
-                user_id=row["install_pseudonym"],
-                turn=row["turn"],
+            second = _turn(
+                "still on that Busy window?",
+                user_id=uid,
+                payload=payload,
+                history=[
+                    {"role": "user", "content": "hey about Dr. Patel follow-up"},
+                    {"role": "assistant", "content": first["message"]},
+                ],
+                log_dir=tmp,
+                session_id="priv-sess",
             )
-            self.assertEqual(recomputed, row["seed"])
-            for code in row["stance_inputs"]:
-                self.assertIn(code, chatlog.ALLOWED_STANCE_INPUTS)
+            blob = Path(second["log_path"]).read_text(encoding="utf-8")
+            self.assertNotIn(uid, blob)
+            self.assertNotIn(uid_sha, blob)
+            self.assertNotIn(uid_sha[:16], blob)
+            self.assertNotIn("Dr. Patel follow-up", blob)
+            self.assertNotIn("user_id", blob)
+            rows = [json.loads(line) for line in blob.splitlines() if line.strip()]
+            self.assertGreaterEqual(len(rows), 2)
+            for row in rows:
+                self.assertNotIn("user_id", row)
+                self.assertEqual(row["schema_version"], 2)
+                self.assertEqual(row["install_pseudonym"], _PSEUDO)
+                phrase = state_read.phrase_key(
+                    None,
+                    row["user_turn"],
+                    user_id=row["install_pseudonym"],
+                    turn=row["turn"],
+                )
+                turn_s = state_read.turn_seed(None, row["user_turn"], seed=phrase)
+                self.assertEqual(phrase, row["seed"])
+                self.assertEqual(turn_s, row["turn_seed"])
+                self.assertEqual(turn_s, row["seed"])
+                for code in row["stance_inputs"]:
+                    self.assertIn(code, chatlog.ALLOWED_STANCE_INPUTS)
+            # Request history is sanitized, never the raw calendar title.
+            self.assertTrue(rows[1]["request_history"])
+            self.assertNotIn("Dr. Patel follow-up", json.dumps(rows[1]["request_history"]))
 
     def test_leak_calendar_title_partner_and_rating_note(self):
         with tempfile.TemporaryDirectory() as tmp:

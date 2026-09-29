@@ -166,32 +166,38 @@ def run_turn(
 
     raw_payload = payload if isinstance(payload, dict) else {}
     needles = chatlog.collect_needles(raw_payload, safe)
+    # Sanitize before keys and before write so replay from the log matches.
+    spoken_in = chatlog.sanitize_logged_text(safe, needles) or safe
     body = _prepare_payload(raw_payload, memory_enabled=memory_enabled)
-    body["message"] = safe
+    body["message"] = spoken_in
     context = body.get("context")
     if isinstance(context, dict) and not (context.get("timestamp") or context.get("ts")):
         context = dict(context)
         context["timestamp"] = "2026-01-15T12:00:00Z"
         body["context"] = context
     turn_index, prior = _turn_from_history(history)
+    prior = [chatlog.sanitize_logged_text(item, needles) or item for item in prior]
     last_spoken = _last_assistant(history)
 
     # Phrase key / turn seed from the per-install pseudonym, never a real uid.
+    # Searched the repo first: no existing per-install id; see install.py.
     pseudonym = str(install_pseudonym or "").strip() or install_mod.load_or_create_pseudonym(
         config_dir
     )
     phrase = state_read.phrase_key(
         None,
-        safe,
+        spoken_in,
         user_id=pseudonym,
         turn=turn_index,
         seed=seed,
     )
+    # Explicit seed wins inside turn_seed — that seed is the phrase_key above.
+    turn_s = state_read.turn_seed(None, spoken_in, seed=phrase)
 
     # Engine pin: Dummy chat always uses dummy_orchestrator.respond(engine="lambda")
     # through fuse_turn — never the SimRunner stub, even if ARIA_BEDROCK_ENABLED=true.
     row = dummy_respond(
-        safe,
+        spoken_in,
         engine=ENGINE_LAMBDA,
         chat_payload=body,
         prior_turns=prior,
@@ -201,18 +207,19 @@ def run_turn(
     )
     ctx = _ctx_from_payload(body)
     envelope = dict(row)
+    envelope.pop("user_id", None)
     if "guidance_band" not in envelope:
-        envelope["guidance_band"] = guidance.classify_band(safe)
+        envelope["guidance_band"] = guidance.classify_band(spoken_in)
     envelope = conversation.apply_conversation(
         envelope,
-        safe,
+        spoken_in,
         ctx,
         seed=phrase,
         prior=prior,
         memory_enabled=memory_enabled,
         last_spoken=last_spoken,
     )
-    envelope = speak_guard.guard_envelope(envelope, topic=safe)
+    envelope = speak_guard.guard_envelope(envelope, topic=spoken_in)
 
     wall_ms = int((time.perf_counter() - started) * 1000)
     cpu1 = _cpu_seconds()
@@ -227,7 +234,7 @@ def run_turn(
         seed=phrase,
         install_pseudonym=pseudonym,
         memory_enabled=memory_enabled,
-        user_message=safe,
+        user_message=spoken_in,
         envelope=envelope,
         payload=body,
         request_history=prior,
@@ -235,9 +242,9 @@ def run_turn(
         wall_ms=wall_ms,
         cpu_ms=cpu_ms,
         thin=conversation.data_is_thin(ctx),
-        small_talk=conversation.is_small_talk(safe, prior),
-        safety=conversation._safety_turn(safe, ctx),
-        number_ask=bool(conversation._NUMBER_ASK_RE.search(safe)),
+        small_talk=conversation.is_small_talk(spoken_in, prior),
+        safety=conversation._safety_turn(spoken_in, ctx),
+        number_ask=bool(conversation._NUMBER_ASK_RE.search(spoken_in)),
         ctx=ctx,
     )
     log_path = None
@@ -256,6 +263,7 @@ def run_turn(
         "turn_id": turn_id,
         "turn": turn_index,
         "seed": phrase,
+        "turn_seed": turn_s,
         "memory_enabled": memory_enabled,
         "install_pseudonym": pseudonym,
         "user_turn_key": record["user_turn_key"],

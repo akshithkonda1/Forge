@@ -291,6 +291,7 @@ def build_record(
         "turn_id": turn_id,
         "turn": int(turn),
         "seed": int(seed),
+        "turn_seed": int(seed),
         "install_pseudonym": str(install_pseudonym),
         "user_turn_key": user_turn_key(install_pseudonym, turn),
         "memory_off": not bool(memory_enabled),
