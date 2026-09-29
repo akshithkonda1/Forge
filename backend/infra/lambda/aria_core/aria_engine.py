@@ -2560,10 +2560,12 @@ def _recommendation_response(
     elif (pattern.notice or "").strip().lower().rstrip(".") in _GENERIC_NOTICES:
         # Ordinary protect_cluster / clarify / mid-band: keep the lead
         # interpretation (variance, usual). Do not inject a protect line.
+        # Extras (constraint, last-session ask) stay on the 61f5568 notice.
         existing = _existing_blocking_prose(signals, brief, "", pattern)
+        extras = [bit for bit in notice_bits[1:] if bit]
         if existing:
             prose = existing
-            notice = existing
+            notice = " ".join([existing, *extras]) if extras else existing
     envelope = _envelope(
         response_type="recommendation",
         confidence=confidence,
