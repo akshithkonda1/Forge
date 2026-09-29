@@ -7,9 +7,12 @@ only for unresponsive / not-breathing arrest.
 
 from __future__ import annotations
 
+import json
 import os
 import re
 import unittest
+from dataclasses import asdict
+from unittest.mock import patch
 
 import _bootstrap  # noqa: F401
 
@@ -21,16 +24,36 @@ CARDIAC_REPLY = (
     "Call 911 now. Stop what you're doing and sit or lie down somewhere safe. "
     "Don't drive yourself, and unlock the door so help can get in."
 )
+CARDIAC_HELPER_REPLY = (
+    "Call 911 now. Help them sit or lie down, don't let them drive, unlock "
+    "the door and stay with them."
+)
 STROKE_REPLY = (
-    "Call 911 now. Note the time the symptoms started, don't eat or drink "
-    "anything, and don't drive. Stay with them if it's someone else."
+    "Call 911 now. Note the time it started, don't eat or drink anything, "
+    "don't drive, unlock the door and don't stay alone."
+)
+STROKE_HELPER_REPLY = (
+    "Call 911 now. Note the time it started, give them nothing to eat or "
+    "drink, and stay with them."
 )
 FAINT_REPLY = (
     "Call 911 now. Lie down flat and stay down, don't get back on the "
     "equipment or drive, and keep someone with you if you can."
 )
+FAINT_HELPER_REPLY = f"Call 911 now. {guidance._EMERGENCY_FAINT_HELPER}"
 CPR_REPLY = f"Call 911 now. {guidance._EMERGENCY_CPR}"
 CONDITIONAL_CPR_REPLY = f"Call 911 now. {guidance._EMERGENCY_CPR_IF_NEEDED}"
+PATIENT_FALLBACK_REPLY = (
+    f"Call 911 now. {guidance._EMERGENCY_PATIENT_FALLBACK}"
+)
+SLEEP_REFER_REPLY = (
+    "I can't tell from here — a doctor can check it properly. "
+    "Meanwhile I'm glad to help with sleep habits."
+)
+HABIT_REFER_REPLY = (
+    "I can't tell from here — a doctor can check it properly. "
+    "Meanwhile I'm glad to help with the everyday habits side."
+)
 
 CARDIAC_PHRASES = (
     "chest pain and my left arm is numb",
@@ -46,11 +69,13 @@ CARDIAC_PHRASES = (
 STROKE_PHRASES = (
     "my face is drooping",
     "I cant lift my right arm and my words are slurred",
-    "my dad is suddenly confused and cant talk right",
-    "her speech is slurred",
     "sudden worst headache of my life",
     "one side of my body is numb",
     "the left side of my face is drooping",
+)
+STROKE_HELPER_PHRASES = (
+    "my dad is suddenly confused and cant talk right",
+    "her speech is slurred",
     "he's suddenly confused",
 )
 
@@ -58,9 +83,11 @@ SYNCOPE_PHRASES = (
     "I passed out on the treadmill",
     "I fainted during my run",
     "I blacked out after squats",
+    "I was fainting during intervals",
+)
+SYNCOPE_HELPER_PHRASES = (
     "she fainted after her workout",
     "he blacked out on the bike",
-    "I was fainting during intervals",
 )
 
 CPR_PHRASES = (
@@ -120,12 +147,22 @@ class StrokeRedFlagTests(unittest.TestCase):
             with self.subTest(message=message):
                 _assert_typed_emergency(self, message, STROKE_REPLY, cpr=False)
 
+    def test_stroke_helper_phrases_get_helper_steps(self):
+        for message in STROKE_HELPER_PHRASES:
+            with self.subTest(message=message):
+                _assert_typed_emergency(self, message, STROKE_HELPER_REPLY, cpr=False)
+
 
 class SyncopeRedFlagTests(unittest.TestCase):
     def test_syncope_phrases_get_lie_down_steps(self):
         for message in SYNCOPE_PHRASES:
             with self.subTest(message=message):
                 _assert_typed_emergency(self, message, FAINT_REPLY, cpr=False)
+
+    def test_syncope_helper_phrases_get_helper_steps(self):
+        for message in SYNCOPE_HELPER_PHRASES:
+            with self.subTest(message=message):
+                _assert_typed_emergency(self, message, FAINT_HELPER_REPLY, cpr=True)
 
 
 class ArrestCprTests(unittest.TestCase):
@@ -146,7 +183,12 @@ class OtherEmergencyTests(unittest.TestCase):
 
     def test_heart_attack_uses_cardiac_steps(self):
         _assert_typed_emergency(
-            self, "I think he's having a heart attack", CARDIAC_REPLY, cpr=False
+            self, "I think he's having a heart attack", CARDIAC_HELPER_REPLY, cpr=False
+        )
+
+    def test_patient_overdose_is_fallback_without_cpr(self):
+        _assert_typed_emergency(
+            self, "I overdosed", PATIENT_FALLBACK_REPLY, cpr=False
         )
 
 
@@ -249,7 +291,7 @@ class EmergencyBedrockBypassTests(unittest.TestCase):
         os.environ["ARIA_BEDROCK_ENABLED"] = "true"
         try:
             for message, band, needle in (
-                ("do I have diabetes?", guidance.REFER_OUT, "not a doctor"),
+                ("do I have diabetes?", guidance.REFER_OUT, "everyday habits"),
                 ("I feel suicidal and want to die", guidance.EMERGENCY, "988"),
             ):
                 with self.subTest(message=message):
@@ -349,6 +391,147 @@ class GuardrailDoesNotWriteMemoryTests(unittest.TestCase):
             with self.subTest(message=message):
                 aria_engine.generate_response(message, ctx)
                 self.assertEqual(list(ctx.last_insights), before, message)
+
+
+class HelperPatientSplitTests(unittest.TestCase):
+    def test_helper_cases_have_no_patient_only_steps(self):
+        cases = (
+            ("my dad has chest pain and his arm is numb", CARDIAC_HELPER_REPLY),
+            ("she has slurred speech", STROKE_HELPER_REPLY),
+            ("my friend fainted", FAINT_HELPER_REPLY),
+            ("she overdosed", CONDITIONAL_CPR_REPLY),
+        )
+        banned = (
+            "stop what you're doing",
+            "don't drive yourself",
+            "don't stay alone",
+            "lie down flat and stay down",
+            "unlock the door and stay on the line",
+        )
+        for message, expected in cases:
+            with self.subTest(message=message):
+                assessed = guidance.assess(message)
+                self.assertEqual(assessed.prose, expected, message)
+                low = assessed.prose.lower()
+                for bit in banned:
+                    self.assertNotIn(bit, low, message)
+
+    def test_patient_cases_contain_no_them_and_no_cpr(self):
+        cases = (
+            ("chest pain and my left arm is numb", CARDIAC_REPLY),
+            ("my face feels droopy", STROKE_REPLY),
+            ("I just fainted", FAINT_REPLY),
+            ("I overdosed", PATIENT_FALLBACK_REPLY),
+        )
+        for message, expected in cases:
+            with self.subTest(message=message):
+                assessed = guidance.assess(message)
+                self.assertEqual(assessed.prose, expected, message)
+                low = assessed.prose.lower()
+                self.assertNotIn("them", low, message)
+                self.assertNotIn("start cpr", low, message)
+                self.assertNotIn("compressions", low, message)
+                self.assertNotIn("Start first aid", assessed.suggested_actions)
+
+    def test_refer_out_is_two_warm_sentences(self):
+        diabetes = guidance.assess("do I have diabetes?")
+        apnea = guidance.assess("do I have sleep apnea?")
+        self.assertEqual(diabetes.prose, HABIT_REFER_REPLY)
+        self.assertEqual(apnea.prose, SLEEP_REFER_REPLY)
+        for assessed in (diabetes, apnea):
+            low = assessed.prose.lower()
+            self.assertNotIn("recovery", low)
+            self.assertNotIn("not a doctor", low)
+            self.assertNotIn("medication", low)
+            self.assertNotIn("pharmacist", low)
+            self.assertEqual(assessed.band, guidance.REFER_OUT)
+
+
+class ChatRouteSafetyTests(unittest.TestCase):
+    """Rowan + Sol: /ai/chat does not persist safety turns or call Bedrock."""
+
+    def setUp(self):
+        from storage import dynamodb
+
+        dynamodb.clear_local_store()
+
+    def _chat(self, uid: str, message: str, **env):
+        import json
+        from routes.aria import handle_post_ai_chat
+
+        result = handle_post_ai_chat({"message": message}, user_id=uid)
+        self.assertEqual(result["statusCode"], 200, result)
+        return json.loads(result["body"])
+
+    def test_safety_turns_do_not_write_memory_or_persona(self):
+        from services.aria_context import CoachContextEngine
+        from services import contextual_learner
+
+        uid = "safety-memory-lock"
+        engine = CoachContextEngine()
+        living = engine.get_or_create_context(uid)
+        living.last_insights = ["keep today easy"]
+        living.recent_patterns = ["easy weeks"]
+        engine.update_context(
+            uid,
+            {
+                "last_insights": list(living.last_insights),
+                "recent_patterns": list(living.recent_patterns),
+            },
+        )
+        persona = contextual_learner.load(uid)
+        before_insights = list(engine.get_or_create_context(uid).last_insights)
+        before_patterns = list(engine.get_or_create_context(uid).recent_patterns)
+        before_persona = asdict(persona)
+        for message in (
+            "chest pain and my left arm is numb",
+            "do I have sleep apnea?",
+            "I feel suicidal and want to die",
+        ):
+            with self.subTest(message=message):
+                self._chat(uid, message)
+                after = engine.get_or_create_context(uid)
+                self.assertEqual(list(after.last_insights), before_insights, message)
+                self.assertEqual(list(after.recent_patterns), before_patterns, message)
+                loaded = contextual_learner.load(uid)
+                after_persona = asdict(loaded)
+                self.assertEqual(after_persona, before_persona, message)
+                blob = " ".join(after.last_insights + after.recent_patterns).lower()
+                self.assertNotIn("suicidal", blob)
+                self.assertNotIn("want to die", blob)
+                persona_blob = str(after_persona).lower()
+                self.assertNotIn("suicidal", persona_blob)
+                self.assertNotIn("want to die", persona_blob)
+
+    def test_chat_route_skips_bedrock_on_safety_bands(self):
+        previous = os.environ.get("ARIA_BEDROCK_ENABLED")
+        os.environ["ARIA_BEDROCK_ENABLED"] = "true"
+        calls: list = []
+
+        def boom(model_id, system, user):
+            calls.append((model_id, system, user))
+            raise AssertionError("Bedrock called")
+
+        try:
+            with patch(
+                "services.aria_engine._default_converse", boom
+            ), patch(
+                "aria_core.aria_engine._default_converse", boom
+            ):
+                for message, expected in (
+                    ("chest pain and my left arm is numb", CARDIAC_REPLY),
+                    ("do I have sleep apnea?", SLEEP_REFER_REPLY),
+                    ("I feel suicidal and want to die", guidance._CRISIS_LINE),
+                ):
+                    with self.subTest(message=message):
+                        body = self._chat("sol-chat-lock", message)
+                        self.assertEqual(body["message"], expected, message)
+                        self.assertEqual(calls, [], message)
+        finally:
+            if previous is None:
+                os.environ.pop("ARIA_BEDROCK_ENABLED", None)
+            else:
+                os.environ["ARIA_BEDROCK_ENABLED"] = previous
 
 
 if __name__ == "__main__":

@@ -349,14 +349,46 @@ _EMERGENCY_CARDIAC = (
     "Stop what you're doing and sit or lie down somewhere safe. Don't drive "
     "yourself, and unlock the door so help can get in."
 )
+_EMERGENCY_CARDIAC_HELPER = (
+    "Help them sit or lie down, don't let them drive, unlock the door and "
+    "stay with them."
+)
 _EMERGENCY_STROKE = (
-    "Note the time the symptoms started, don't eat or drink anything, and "
-    "don't drive. Stay with them if it's someone else."
+    "Note the time it started, don't eat or drink anything, don't drive, "
+    "unlock the door and don't stay alone."
+)
+_EMERGENCY_STROKE_HELPER = (
+    "Note the time it started, give them nothing to eat or drink, and stay "
+    "with them."
 )
 _EMERGENCY_FAINT = (
     "Lie down flat and stay down, don't get back on the equipment or drive, "
     "and keep someone with you if you can."
 )
+_EMERGENCY_FAINT_HELPER = (
+    "Lay them flat. If they don't wake up or aren't breathing normally, "
+    f"start CPR: {_EMERGENCY_CPR_STEPS}"
+)
+_EMERGENCY_PATIENT_FALLBACK = "Unlock the door and stay on the line."
+_HELPER_PERSON = (
+    "my dad", "my mom", "my mum", "my father", "my mother",
+    "my friend", "my wife", "my husband", "my partner",
+    "my brother", "my sister", "my girlfriend", "my boyfriend",
+    "my son", "my daughter", "someone",
+)
+_HELPER_PRONOUN_RE = re.compile(
+    r"\b(he|she|they|him|her|them|his|hers|their|he's|she's|they're)\b"
+)
+_SLEEP_REFER = (
+    "sleep apnea", "sleep apnoea", "apnea", "apnoea", "insomnia", "sleep",
+)
+
+
+def _is_helper_phrasing(lower: str) -> bool:
+    """True when the user is talking about someone else."""
+    if _has(lower, _HELPER_PERSON):
+        return True
+    return bool(_HELPER_PRONOUN_RE.search(lower))
 
 
 def _self_harm_prose() -> str:
@@ -367,18 +399,34 @@ def _self_harm_prose() -> str:
     return f"{_EMERGENCY_OPEN} {crisis}"
 
 
+def _refer_out_prose(lower: str) -> str:
+    habit = "sleep habits" if _has(lower, _SLEEP_REFER) else "the everyday habits side"
+    return (
+        "I can't tell from here — a doctor can check it properly. "
+        f"Meanwhile I'm glad to help with {habit}."
+    )
+
+
 def _emergency_prose(lower: str) -> str:
     """Pick steps by red-flag type. Not-breathing / unresponsive CPR wins."""
+    helper = _is_helper_phrasing(lower)
     if _has(lower, _SELF_HARM):
         return _self_harm_prose()
     if _needs_cpr(lower):
         return f"{_EMERGENCY_OPEN} {_EMERGENCY_CPR}"
     if _is_cardiac_reply(lower):
-        return f"{_EMERGENCY_OPEN} {_EMERGENCY_CARDIAC}"
+        body = _EMERGENCY_CARDIAC_HELPER if helper else _EMERGENCY_CARDIAC
+        return f"{_EMERGENCY_OPEN} {body}"
     if _is_stroke_red_flag(lower):
-        return f"{_EMERGENCY_OPEN} {_EMERGENCY_STROKE}"
+        body = _EMERGENCY_STROKE_HELPER if helper else _EMERGENCY_STROKE
+        return f"{_EMERGENCY_OPEN} {body}"
     if _is_syncope_red_flag(lower):
-        return f"{_EMERGENCY_OPEN} {_EMERGENCY_FAINT}"
+        body = _EMERGENCY_FAINT_HELPER if helper else _EMERGENCY_FAINT
+        return f"{_EMERGENCY_OPEN} {body}"
+    if helper:
+        return f"{_EMERGENCY_OPEN} {_EMERGENCY_CPR_IF_NEEDED}"
+    if re.search(r"\b(i|i'm|i've|me|my)\b", lower):
+        return f"{_EMERGENCY_OPEN} {_EMERGENCY_PATIENT_FALLBACK}"
     return f"{_EMERGENCY_OPEN} {_EMERGENCY_CPR_IF_NEEDED}"
 
 
@@ -410,12 +458,16 @@ def assess(message: str) -> Guidance | None:
 
     if band == EMERGENCY:
         prose = _emergency_prose(lower)
+        helper = _is_helper_phrasing(lower) and not _has(lower, _SELF_HARM)
+        actions = ["Call 911", "Stay on the line"]
+        if helper:
+            actions = ["Call 911", "Start first aid", "Stay on the line"]
         return Guidance(
             band=EMERGENCY,
             prose=prose,
             message=prose,
             confidence_reason="Safety policy: possible emergency — escalate to 911.",
-            suggested_actions=["Call 911", "Start first aid", "Stay on the line"],
+            suggested_actions=actions,
             wants_escalation=True,
         )
 
@@ -434,14 +486,7 @@ def assess(message: str) -> Guidance | None:
         )
 
     # REFER_OUT
-    prose = (
-        "I'm your lifestyle coach here in Forge — not a doctor — so I can't "
-        "diagnose conditions or make medication decisions. That kind of call "
-        "deserves a licensed clinician who can actually examine you, so please "
-        "loop in your doctor or pharmacist on this one. What I can help with is "
-        "the lifestyle side around it — sleep, training load, recovery, stress, "
-        "nutrition — whenever you want to go there."
-    )
+    prose = _refer_out_prose(lower)
     return Guidance(
         band=REFER_OUT,
         prose=prose,

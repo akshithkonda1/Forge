@@ -116,8 +116,12 @@ class GuidanceContentTests(unittest.TestCase):
     def test_refer_out_declines_without_diagnosing(self):
         g = guidance.assess("do I have diabetes")
         low = g.prose.lower()
-        self.assertIn("not a doctor", low)
-        self.assertIn("clinician", low)
+        self.assertIn("can't tell from here", low)
+        self.assertIn("everyday habits", low)
+        self.assertNotIn("recovery", low)
+        self.assertNotIn("not a doctor", low)
+        self.assertNotIn("medication", low)
+        self.assertNotIn("pharmacist", low)
         for banned in ("you have", "you probably have", "i diagnose"):
             self.assertNotIn(banned, low)
 
