@@ -339,8 +339,18 @@ def handle_post_ai_chat(body: dict[str, Any], *, user_id: str) -> dict:
 
     from services import contextual_learner
     from services import fusion as fusion_mod
+    from services import guidance
 
-    fused = fusion_mod.fuse_turn(uid, payload, permissions, persist=True, load_learner=True)
+    safety_band = guidance.classify_band(message)
+    safety_lock = safety_band in (guidance.EMERGENCY, guidance.REFER_OUT)
+
+    fused = fusion_mod.fuse_turn(
+        uid,
+        payload,
+        permissions,
+        persist=not safety_lock,
+        load_learner=True,
+    )
     context = fused.context
     persona = fused.persona
     turn = _request_turn(body)
@@ -353,7 +363,13 @@ def handle_post_ai_chat(body: dict[str, Any], *, user_id: str) -> dict:
     raw_patterns = list(getattr(living, "recent_patterns", None) or [])
     living.lifestyle_tags = _filter_lifestyle_tokens(raw_tags)
     living.recent_patterns = _filter_lifestyle_tokens(raw_patterns)
-    if living.lifestyle_tags != raw_tags or living.recent_patterns != raw_patterns:
+    if (
+        not safety_lock
+        and (
+            living.lifestyle_tags != raw_tags
+            or living.recent_patterns != raw_patterns
+        )
+    ):
         _context.update_context(
             uid,
             {
@@ -361,8 +377,11 @@ def handle_post_ai_chat(body: dict[str, Any], *, user_id: str) -> dict:
                 "recent_patterns": living.recent_patterns,
             },
         )
+    elif safety_lock:
+        living.lifestyle_tags = raw_tags
+        living.recent_patterns = raw_patterns
     tags = _lifestyle_tags(context, living, permissions)
-    if permissions.allows("lifestyle") and allow_ingest:
+    if permissions.allows("lifestyle") and allow_ingest and not safety_lock:
         contextual_learner.stamp_living_context(context, living)
 
     # Lifestyle cards: deterministic only. No Bedrock, no Dynamo relationship
@@ -380,6 +399,7 @@ def handle_post_ai_chat(body: dict[str, Any], *, user_id: str) -> dict:
             baselines=fused.baselines,
             user_id=uid,
             turn=turn,
+            guidance_band=safety_band,
         )
         _merge_fusion(response, fused)
         response.update(
@@ -393,7 +413,7 @@ def handle_post_ai_chat(body: dict[str, Any], *, user_id: str) -> dict:
         )
         return ok(response)
 
-    if fused.persona_status != "load_failed" and persona is not None:
+    if fused.persona_status != "load_failed" and persona is not None and not safety_lock:
         try:
             contextual_learner.observe_turn(
                 persona,
@@ -406,7 +426,7 @@ def handle_post_ai_chat(body: dict[str, Any], *, user_id: str) -> dict:
             fused.persona_error = f"observe_turn:{exc.__class__.__name__}: {exc}"
 
     weekly_note = weekly_review.briefing_for_chat(uid)
-    if weekly_note:
+    if weekly_note and not safety_lock:
         message = f"{weekly_note}\n\n{message}"
     roster = aria_engine.normalize_coach_agents(body.get("agents"), body.get("agent"))
     if aria_engine.bedrock_enabled():
@@ -422,6 +442,7 @@ def handle_post_ai_chat(body: dict[str, Any], *, user_id: str) -> dict:
             baselines=fused.baselines,
             user_id=uid,
             turn=turn,
+            guidance_band=safety_band,
         )
         response = aria_engine.generate_response_live(
             message,
@@ -433,6 +454,7 @@ def handle_post_ai_chat(body: dict[str, Any], *, user_id: str) -> dict:
             baselines=fused.baselines,
             user_id=uid,
             turn=turn,
+            guidance_band=safety_band,
         )
     else:
         response = _checked_speak(
@@ -445,6 +467,7 @@ def handle_post_ai_chat(body: dict[str, Any], *, user_id: str) -> dict:
             baselines=fused.baselines,
             user_id=uid,
             turn=turn,
+            guidance_band=safety_band,
         )
         response["agent"] = roster[0]
         response["agents"] = roster
@@ -453,7 +476,7 @@ def handle_post_ai_chat(body: dict[str, Any], *, user_id: str) -> dict:
     # Background Swarm: Grok-agentic read/evaluate/write over the wearable
     # dataset. Deterministic here — no Bedrock — so dummy/test-ready ARIA
     # exercises the same contract without plugging in a model.
-    if not insight_mode:
+    if not insight_mode and not safety_lock:
         from services import aria_swarm as swarm_mod
 
         snapshot = fused.snapshot if isinstance(fused.snapshot, dict) else {}
@@ -461,7 +484,11 @@ def handle_post_ai_chat(body: dict[str, Any], *, user_id: str) -> dict:
             context=context,
             samples=payload.get("samples") if isinstance(payload.get("samples"), list) else None,
             connected=snapshot.get("sources") or [],
-            persist_to=_context if permissions.allows("lifestyle") and allow_ingest else None,
+            persist_to=(
+                _context
+                if permissions.allows("lifestyle") and allow_ingest
+                else None
+            ),
             user_id=uid,
         )
 
@@ -473,7 +500,8 @@ def handle_post_ai_chat(body: dict[str, Any], *, user_id: str) -> dict:
     memory_block = ""
     checkin_payload: dict[str, Any] | None = None
     calendar_ingested: list[dict[str, Any]] = []
-    if permissions.allows("lifestyle") and allow_ingest:
+    memory: str | None = None
+    if permissions.allows("lifestyle") and allow_ingest and not safety_lock:
         events = payload.get("calendar_events")
         if isinstance(events, list):
             calendar_ingested = [m.to_dict() for m in _context.ingest_calendar_events(uid, events)]
@@ -482,8 +510,8 @@ def handle_post_ai_chat(body: dict[str, Any], *, user_id: str) -> dict:
         checkin = _context.daily_checkin(uid)
         checkin_payload = checkin.to_dict() if checkin else None
         memory_block = _context.memory_prompt_block(uid)
-
-    memory = _context.memory_reference(uid, message) if permissions.allows("lifestyle") else None
+    if permissions.allows("lifestyle") and not safety_lock:
+        memory = _context.memory_reference(uid, message)
     # Phase 1: relationship only grows on non-clarification + >24h since last promotion
     # (prevents chat spam inflating trust). Uses dedicated last_promoted_at, not last_updated.
     response_type = str(response.get("response_type") or "")
@@ -510,7 +538,7 @@ def handle_post_ai_chat(body: dict[str, Any], *, user_id: str) -> dict:
 
     brief = response.get("contextualization") if isinstance(response.get("contextualization"), dict) else {}
     shipped_stance = str((response.get("fusion") or {}).get("stance") or brief.get("stance") or "")
-    if persona is not None and fused.persona_status != "load_failed":
+    if persona is not None and fused.persona_status != "load_failed" and not safety_lock:
         try:
             probs = brief.get("stance_probs") or {}
             stance = shipped_stance or str(brief.get("stance") or "")
@@ -541,7 +569,7 @@ def handle_post_ai_chat(body: dict[str, Any], *, user_id: str) -> dict:
                 response["fusion"]["persona_error"] = f"commit:{exc.__class__.__name__}: {exc}"
                 response["fusion"]["persona_status"] = fused.persona_status
 
-    if memory and not voice_mode:
+    if memory and not voice_mode and not safety_lock:
         response["message"] = f"{memory}\n\n{response['message']}"
     takeaway = _insight_takeaway(response.get("prose_summary") or "")
     if (
@@ -549,6 +577,7 @@ def handle_post_ai_chat(body: dict[str, Any], *, user_id: str) -> dict:
         and len(takeaway) > 12
         and permissions.allows("lifestyle")
         and allow_ingest
+        and not safety_lock
     ):
         _context.add_insight(uid, takeaway[:180])
 

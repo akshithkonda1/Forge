@@ -1004,7 +1004,8 @@ class MedicalBoundaryTests(unittest.TestCase):
         low = spoken.lower()
         self.assertIn("can't tell from here", low)
         self.assertIn("doctor can check", low)
-        self.assertIn("sleep habits", low)
+        self.assertIn("day-to-day stuff around it", low)
+        self.assertNotIn("sleep habits", low)
         self.assertNotIn("not a doctor", low)
         self.assertNotIn("diabetes", low)
         self.assertNotIn("medication", low)
@@ -1030,6 +1031,22 @@ class MedicalBoundaryTests(unittest.TestCase):
         self.assertNotIn("pharmacist", low)
         self.assertIsNone(conversation.SELF_DESCRIBE.search(spoken), spoken)
         self.assertNotRegex(low, r"\byou (probably |likely )?have sleep apnea\b")
+
+    def test_medication_question_refers_out(self):
+        result = _turn("should I up my dose")
+        self.assertEqual(result.get("guidance_band"), guidance.REFER_OUT)
+        spoken = _spoken_reply(result)
+        self.assertEqual(
+            spoken,
+            "That one's a call for your doctor or pharmacist — they know what you're on. "
+            "I'm glad to help with the day-to-day stuff around it.",
+        )
+        low = spoken.lower()
+        self.assertIn("pharmacist", low)
+        self.assertNotIn("not a doctor", low)
+        self.assertNotIn("recovery", low)
+        self.assertNotRegex(spoken, r"\d")
+        self.assertIsNone(conversation.SELF_DESCRIBE.search(spoken), spoken)
 
     def test_emergency_still_escalates(self):
         result = _turn("he's not breathing — call 911")

@@ -2864,6 +2864,7 @@ def generate_response(
     seed: int | None = None,
     user_id: str | None = None,
     turn: int | None = None,
+    guidance_band: str | None = None,
 ) -> dict[str, Any]:
     """Top-level entry: message + context (+ permissions) -> response envelope.
 
@@ -2886,7 +2887,7 @@ def generate_response(
     # be talked around by the live model.
     from . import guidance
 
-    guardrail = guidance.assess(message)
+    guardrail = guidance.assess(message, band=guidance_band)
     if guardrail is not None:
         envelope = _envelope(
             response_type="clarification",
@@ -3391,6 +3392,7 @@ def generate_response_live(
     seed: int | None = None,
     user_id: str | None = None,
     turn: int | None = None,
+    guidance_band: str | None = None,
 ) -> dict[str, Any]:
     """Top-level entry for the live path: deterministic reasoning, then a real
     Claude pass overlaid on top. Falls back to the deterministic envelope on any
@@ -3405,6 +3407,7 @@ def generate_response_live(
         seed=seed,
         user_id=user_id,
         turn=turn,
+        guidance_band=guidance_band,
     )
     caller = converse or _default_converse
     roster = normalize_coach_agents(agents, agent)
