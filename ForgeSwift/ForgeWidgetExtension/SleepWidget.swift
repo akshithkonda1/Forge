@@ -14,32 +14,42 @@ struct SleepWidgetView: View {
             VStack(spacing: 1) {
                 Image(systemName: "moon.stars.fill")
                     .font(.caption)
-                Text(String(format: "%.1fh", snap.sleepHours))
+                Text(HomeWidgetSleepDisplay.hoursText(snap, style: .circular))
                     .font(.system(.caption2, design: .rounded).weight(.bold))
+                    .multilineTextAlignment(.center)
+                    .minimumScaleFactor(0.6)
+                    .lineLimit(2)
             }
         case .accessoryRectangular, .accessoryInline:
             HStack(spacing: 6) {
                 Image(systemName: "moon.stars.fill")
-                Text(String(format: "%.1f h last night", snap.sleepHours))
+                Text(HomeWidgetSleepDisplay.hoursText(snap, style: .lastNight))
                     .font(.caption.weight(.semibold))
+                    .minimumScaleFactor(0.7)
+                    .lineLimit(1)
             }
         default:
             VStack(alignment: .leading, spacing: 8) {
                 WidgetChrome.eyebrow("Sleep", color: ForgePalette.violet)
-                HStack(alignment: .firstTextBaseline, spacing: 4) {
-                    Text(String(format: "%.1f", snap.sleepHours))
-                        .font(.system(size: 36, weight: .bold, design: .rounded))
-                        .foregroundStyle(ForgePalette.textPrimary)
-                    Text("hours")
-                        .font(.caption.weight(.semibold))
-                        .foregroundStyle(ForgePalette.textSecondary)
+                if HomeWidgetSleepDisplay.hasHoursToShow(snap.sleepHours) {
+                    HStack(alignment: .firstTextBaseline, spacing: 4) {
+                        Text(HomeWidgetSleepDisplay.hoursText(snap, style: .number))
+                            .font(.system(size: 36, weight: .bold, design: .rounded))
+                            .foregroundStyle(ForgePalette.textPrimary)
+                        Text("hours")
+                            .font(.caption.weight(.semibold))
+                            .foregroundStyle(ForgePalette.textSecondary)
+                    }
+                } else {
+                    WidgetChrome.empty(HomeWidgetSleepDisplay.emptyCopy)
                 }
                 if let score = snap.sleepScore {
                     Text("Score \(score)")
                         .font(.caption)
                         .foregroundStyle(ForgePalette.violet)
                 }
-                if let window = snap.sleepWindowTitle, family != .systemSmall {
+                if HomeWidgetSleepDisplay.hasHoursToShow(snap.sleepHours),
+                   let window = snap.sleepWindowTitle, family != .systemSmall {
                     Text(window)
                         .font(.caption.weight(.medium))
                         .foregroundStyle(ForgePalette.textSecondary)
