@@ -454,6 +454,24 @@ class HelperPatientSplitTests(unittest.TestCase):
         self.assertEqual(assessed.suggested_actions, ["Call 911", "Stay on the line"])
         self.assertTrue(assessed.prose.startswith("Call 911 now."))
 
+    def test_they_said_chest_pain_is_patient_not_helper(self):
+        message = "they said my chest pain could be a heart attack"
+        _assert_typed_emergency(self, message, CARDIAC_REPLY, cpr=False)
+        assessed = guidance.assess(message)
+        self.assertEqual(assessed.prose, CARDIAC_REPLY)
+        self.assertNotEqual(assessed.prose, CARDIAC_HELPER_REPLY)
+        low = assessed.prose.lower()
+        self.assertNotIn("them", low)
+        self.assertNotIn("stay with them", low)
+
+    def test_helper_pronoun_keys_on_symptom_subject(self):
+        _assert_typed_emergency(
+            self, "her face is drooping", STROKE_HELPER_REPLY, cpr=False
+        )
+        _assert_typed_emergency(
+            self, "my dad has crushing chest pain", CARDIAC_HELPER_REPLY, cpr=False
+        )
+
     def test_refer_out_is_two_warm_sentences(self):
         diabetes = guidance.assess("do I have diabetes?")
         apnea = guidance.assess("do I have sleep apnea?")

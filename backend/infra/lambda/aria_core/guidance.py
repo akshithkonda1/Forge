@@ -377,7 +377,20 @@ _HELPER_PERSON = (
     "my son", "my daughter", "someone",
 )
 _HELPER_PRONOUN_RE = re.compile(
-    r"\b(he|she|they|him|her|them|his|hers|their|he's|she's|they're)\b"
+    r"""
+    \b(?:
+        (?:her|his|their)\s+
+        (?:face|arm|chest|jaw|head|speech|side|body|words?|pulse)
+      |
+        (?:he|she|they|he's|she's|they're|hes|shes|theyre)\s+
+        (?:not\s+)?
+        (?:
+            breathing|collapsed|fainted|fainting|overdosed|blacked|passed
+          | having|has|have|had|is|are|isn't|isnt|unresponsive|suddenly
+        )
+    )\b
+    """,
+    re.VERBOSE,
 )
 _SLEEP_REFER = (
     "sleep apnea", "sleep apnoea", "apnea", "apnoea", "insomnia", "sleep",
@@ -393,7 +406,12 @@ _MEDICATION_REFER = (
 
 
 def _is_helper_phrasing(lower: str) -> bool:
-    """True when the user is talking about someone else."""
+    """True when the symptom's subject is someone else.
+
+    Keys on a helper person (``my dad``) or a pronoun attached to the
+    symptom (``her face``, ``he's having``). A bare ``they`` in
+    ``they said my chest pain…`` is not helper phrasing.
+    """
     if _has(lower, _HELPER_PERSON):
         return True
     return bool(_HELPER_PRONOUN_RE.search(lower))
