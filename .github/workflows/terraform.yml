@@ -130,9 +130,6 @@ jobs:
       - name: Terraform Plan (prod)
         run: terraform plan -input=false -no-color -var-file=prod.tfvars
 
-  # Applies TF_VAR_environment=dev (workflow env) despite the terraform-prod
-  # environment gate. Switching to prod.tfvars plus a saved plan is a separate
-  # later change after #371.
   terraform-apply:
     name: 'Terraform Apply (dev, approval-gated)'
     needs: [terraform-checks, terraform-prod-plan]
@@ -191,6 +188,10 @@ jobs:
 
       - name: Configure AWS credentials
         id: aws-creds
+        if: >-
+          (github.event_name == 'push' && github.ref == 'refs/heads/main')
+          || (github.event_name == 'workflow_dispatch' && inputs.run_apply == true)
+        continue-on-error: true
         uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd # v4
         with:
           aws-region: ${{ env.AWS_REGION }}
