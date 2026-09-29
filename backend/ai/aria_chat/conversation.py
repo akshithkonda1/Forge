@@ -180,11 +180,10 @@ _GENERIC = (
     "I'm beside you. Tell me the specific thing, not the polished version.",
 )
 _THIN = (
-    "I don't have enough to go on yet. Tell me about the day — sleep, mood, what you actually did.",
-    "I don't have enough to go on yet. What's the day felt like from your side?",
+    "I don't have enough to go on yet. Tell me about the day?",
 )
 _COACH_SPENT = (
-    "You're running on leftover toast energy — charming, until the crumbs stage a coup. Make tonight the easy one and get to bed like it matters.",
+    "You're running on leftover toast energy — charming, until the crumbs stage a coup.",
     "You look like a phone that opened one more app on fumes. Soften the day and lights out earlier.",
     "That stubborn streak is doing unpaid overtime. Walk, eat, and call it before you prove anything.",
 )
@@ -206,8 +205,8 @@ _HABIT = (
     "One real meal and a quieter evening beats another late push.",
 )
 _MEMORY_OFF = (
-    "I don't have that one — I'd love to hear about it.",
-    "That one's not with me. Tell me the story?",
+    "That one's not with me. I'd love to hear about it.",
+    "That moment isn't sitting here. Tell me the story?",
 )
 _REFER_OUT_SPEAK = (
     "I can't tell from here — a doctor can check it properly. Meanwhile I'm glad to help with sleep habits.",
@@ -600,8 +599,15 @@ def compose_coaching(
     """Direction in words, never a number or a diagnosis."""
     used = list(prior_spoken or [])
     if data_is_thin(ctx):
-        spoken = _pick_fresh(seed, _THIN, used)
-    elif _NUMBER_ASK_RE.search(message or ""):
+        # Ask the question and stop — no habit tip on thin data.
+        return polish_iris(
+            _pick_fresh(seed, _THIN, used),
+            memory_enabled=memory_enabled,
+            last_spoken=last_spoken,
+            seed=seed,
+            alternatives=_THIN,
+        )
+    if _NUMBER_ASK_RE.search(message or ""):
         spoken = _pick(seed, _NUMBER_ASK).format(direction=_direction(ctx))
     elif _safety_turn(message, ctx):
         return polish_iris(

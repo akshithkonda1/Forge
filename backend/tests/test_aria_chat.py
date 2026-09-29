@@ -848,8 +848,13 @@ class VoiceBarTests(unittest.TestCase):
 
     def test_thin_data_is_honest(self):
         result = _turn("how am I doing?", payload=_payload("sparse"))
-        self.assertIn("enough to go on", result["message"].lower())
+        self.assertEqual(
+            result["message"],
+            "I don't have enough to go on yet. Tell me about the day?",
+        )
         self.assertNotRegex(result["message"].lower(), r"\bi remember\b")
+        self.assertNotIn("real meal", result["message"].lower())
+        self.assertNotIn("quieter evening", result["message"].lower())
 
     def test_never_claims_human(self):
         result = _turn("are you just a fancy toaster with opinions?")
@@ -1269,7 +1274,7 @@ class SixTurnSampleTests(unittest.TestCase):
             )
             by_prompt: dict[str, dict] = {}
             earlier_user: list[str] = []
-            replies: list[str] = []
+            repeat_replies: list[str] = []
             for prompt in PINNED_SAMPLE_PROMPTS:
                 if prompt == "remember my sister's wedding last year?":
                     session.set_memory(False)
@@ -1278,7 +1283,9 @@ class SixTurnSampleTests(unittest.TestCase):
                 spoken = _spoken_reply(row)
                 _assert_no_quoting(self, spoken, earlier_user)
                 earlier_user.append(prompt)
-                replies.append(spoken)
+                # Whole-sample no-repeat, including thin below. Skip emergency-band text.
+                if row.get("guidance_band") != guidance.EMERGENCY:
+                    repeat_replies.append(spoken)
                 if prompt == "remember my sister's wedding last year?":
                     session.rate(
                         "down",
@@ -1290,8 +1297,10 @@ class SixTurnSampleTests(unittest.TestCase):
                 payload=_payload("sparse"),
                 persist_log=False,
             )
-            _assert_no_quoting(self, _spoken_reply(thin), [])
-            _assert_no_repeats(self, replies)
+            thin_spoken = _spoken_reply(thin)
+            _assert_no_quoting(self, thin_spoken, [])
+            repeat_replies.append(thin_spoken)
+            _assert_no_repeats(self, repeat_replies)
 
             small = by_prompt["my dog stole the couch again"]
             follow = by_prompt["do you think he's plotting against me?"]
@@ -1312,6 +1321,10 @@ class SixTurnSampleTests(unittest.TestCase):
             self.assertIsNone(_MEDICAL.search(safety["message"]))
             self.assertFalse(_spoken_digits(vague["message"]))
             self.assertNotRegex(vague["message"], r"(?i)the useful (?:bit|thought)")
+            self.assertIn("leftover toast", vague["message"].lower())
+            self.assertIn("earlier lights-out", vague["message"].lower())
+            self.assertNotIn("make tonight the easy one", vague["message"].lower())
+            self.assertNotIn("get to bed like it matters", vague["message"].lower())
             self.assertEqual(medical.get("guidance_band"), guidance.REFER_OUT)
             self.assertTrue(
                 medical.get("guidance_band") == guidance.REFER_OUT
@@ -1341,7 +1354,10 @@ class SixTurnSampleTests(unittest.TestCase):
             self.assertNotRegex(emergency["message"], r"(?i)^okay,\s+on")
             self.assertEqual(emergency.get("guidance_band"), guidance.EMERGENCY)
             self.assertIn("911", emergency["message"])
-            self.assertIn("enough to go on", thin["message"].lower())
+            self.assertEqual(
+                thin["message"],
+                "I don't have enough to go on yet. Tell me about the day?",
+            )
             sample_rows = (small, follow, safety, vague, joke, mem_off, medical, after_down)
             for row in sample_rows:
                 self.assertLessEqual(len(_sentences(row["message"])), 3, row["message"])
