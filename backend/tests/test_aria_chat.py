@@ -950,6 +950,63 @@ class NoNetworkSessionTests(unittest.TestCase):
             self.assertEqual(row["feedback"]["rating"], "down")
 
 
+class ReplayFieldTests(unittest.TestCase):
+    def test_logged_turn_carries_five_replay_fields(self):
+        secret = "UNIQUE_REPLAY_USER_PHRASE_XYZ"
+        with tempfile.TemporaryDirectory() as tmp:
+            session = ChatSession(
+                payload=_payload(),
+                log_dir=tmp,
+                session_id="replay-fields-sess",
+                memory_enabled=False,
+                install_pseudonym=_PSEUDO,
+            )
+            session.turn(secret)
+            session.turn("still on that tangent?")
+            rows = [
+                json.loads(line)
+                for line in Path(session.log_path).read_text().splitlines()
+                if line.strip()
+            ]
+            self.assertGreaterEqual(len(rows), 2)
+            self.assertEqual(session.commit_sha, rows[0]["commit_sha"])
+            self.assertEqual(rows[0]["commit_sha"], rows[1]["commit_sha"])
+            for row in rows:
+                self.assertEqual(row["engine"], "dummy")
+                self.assertTrue(row["commit_sha"])
+                self.assertNotEqual(row["commit_sha"], "")
+                self.assertIsInstance(row["seed"], int)
+                self.assertTrue(str(row["user_turn_key"]).startswith("utk:"))
+                self.assertIsInstance(row["stance_inputs"], list)
+                self.assertTrue(row["stance_inputs"])
+                for code in row["stance_inputs"]:
+                    self.assertIsInstance(code, str)
+                    self.assertIn(code, chatlog.ALLOWED_STANCE_INPUTS)
+                replay = {
+                    "engine": row["engine"],
+                    "commit_sha": row["commit_sha"],
+                    "seed": row["seed"],
+                    "user_turn_key": row["user_turn_key"],
+                    "stance_inputs": row["stance_inputs"],
+                }
+                blob = json.dumps(replay)
+                self.assertNotIn(secret, blob)
+                self.assertNotIn("still on that tangent", blob)
+                self.assertEqual(row["schema_version"], 3)
+            with patch.dict(os.environ, {"GIT_SHA": "abc123deadbeef"}):
+                self.assertEqual(chatlog.git_commit_sha(refresh=True), "abc123deadbeef")
+            with patch.dict(
+                os.environ,
+                {"GIT_SHA": "", "ARIA_CHAT_COMMIT": "", "GITHUB_SHA": ""},
+            ):
+                with patch(
+                    "backend.ai.aria_chat.logging.subprocess.check_output",
+                    side_effect=FileNotFoundError("git"),
+                ):
+                    self.assertEqual(chatlog.git_commit_sha(refresh=True), "unknown")
+            chatlog.git_commit_sha(refresh=True)
+
+
 class SchemaTelemetryTests(unittest.TestCase):
     def test_dummy_telemetry_is_counts_and_reason_codes(self):
         with tempfile.TemporaryDirectory() as tmp:

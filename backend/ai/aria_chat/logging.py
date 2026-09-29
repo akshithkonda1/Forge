@@ -31,6 +31,8 @@ from routes.aria import (  # noqa: E402
 SCHEMA_VERSION = 3
 ENGINE = "dummy"
 UNTIMED_DUMMY = "untimed_dummy"
+_UNKNOWN_SHA = "unknown"
+_CACHED_COMMIT_SHA: str | None = None
 _GRADER_KEYS = frozenset({
     "grader_score",
     "grader",
@@ -109,10 +111,20 @@ def default_export_dir() -> Path:
     return REPO_ROOT / "backend" / "ai" / "aria_chat" / "fixtures"
 
 
-def git_commit_sha() -> str:
-    pinned = (os.getenv("ARIA_CHAT_COMMIT") or os.getenv("GITHUB_SHA") or "").strip()
-    if pinned:
-        return pinned[:40]
+def git_commit_sha(*, refresh: bool = False) -> str:
+    """Read once at session start. Never fail if git is missing.
+
+    Order: ``GIT_SHA`` / ``ARIA_CHAT_COMMIT`` / ``GITHUB_SHA``, then
+    ``git rev-parse HEAD``, then the literal ``unknown``.
+    """
+    global _CACHED_COMMIT_SHA
+    if _CACHED_COMMIT_SHA is not None and not refresh:
+        return _CACHED_COMMIT_SHA
+    for key in ("GIT_SHA", "ARIA_CHAT_COMMIT", "GITHUB_SHA"):
+        pinned = (os.getenv(key) or "").strip()
+        if pinned:
+            _CACHED_COMMIT_SHA = pinned[:40]
+            return _CACHED_COMMIT_SHA
     try:
         out = subprocess.check_output(
             ["git", "rev-parse", "HEAD"],
@@ -120,9 +132,10 @@ def git_commit_sha() -> str:
             text=True,
             timeout=3,
         )
-        return (out or "").strip()[:40] or "unknown"
+        _CACHED_COMMIT_SHA = (out or "").strip()[:40] or _UNKNOWN_SHA
     except Exception:
-        return "unknown"
+        _CACHED_COMMIT_SHA = _UNKNOWN_SHA
+    return _CACHED_COMMIT_SHA
 
 
 def user_turn_key(pseudonym: str, turn: int) -> str:
@@ -458,6 +471,7 @@ def build_record(
     safety: bool = False,
     number_ask: bool = False,
     ctx: Any = None,
+    commit_sha: str | None = None,
 ) -> dict[str, Any]:
     """Build a versioned JSONL row. Redact before the caller writes."""
     found = list(needles or []) or collect_needles(payload, user_message)
@@ -487,22 +501,13 @@ def build_record(
             )
         ),
     )
-    record = {
-        "schema_version": SCHEMA_VERSION,
+    # Five replay fields: small, no user text. Written after scrub so a
+    # needle cannot rewrite engine / SHA / seed / turn key / reason codes.
+    replay = {
         "engine": ENGINE,
-        "commit_sha": git_commit_sha(),
-        "session_id": session_id,
-        "turn_id": turn_id,
-        "turn": int(turn),
+        "commit_sha": str(commit_sha or git_commit_sha() or _UNKNOWN_SHA),
         "seed": int(seed),
-        "turn_seed": int(seed),
-        "install_pseudonym": str(install_pseudonym),
         "user_turn_key": user_turn_key(install_pseudonym, turn),
-        "memory_off": not bool(memory_enabled),
-        "user_turn": clean_user,
-        "request_history": history,
-        "stance": stance,
-        "guidance_band": band,
         "stance_inputs": stance_inputs_from(
             envelope,
             thin=thin,
@@ -511,6 +516,24 @@ def build_record(
             number_ask=number_ask,
             ctx=ctx,
         ),
+    }
+    record = {
+        "schema_version": SCHEMA_VERSION,
+        "engine": replay["engine"],
+        "commit_sha": replay["commit_sha"],
+        "session_id": session_id,
+        "turn_id": turn_id,
+        "turn": int(turn),
+        "seed": replay["seed"],
+        "turn_seed": int(seed),
+        "install_pseudonym": str(install_pseudonym),
+        "user_turn_key": replay["user_turn_key"],
+        "memory_off": not bool(memory_enabled),
+        "user_turn": clean_user,
+        "request_history": history,
+        "stance": stance,
+        "guidance_band": band,
+        "stance_inputs": replay["stance_inputs"],
         "reply": {
             "message": str(envelope.get("message") or ""),
             "prose_summary": str(envelope.get("prose_summary") or ""),
@@ -525,7 +548,9 @@ def build_record(
         "cpu_ms": int(cpu_ms) if cpu_ms is not None else 0,
         "timestamp": datetime.now(timezone.utc).isoformat(),
     }
-    return _scrub_obj(record, found)
+    cleaned = _scrub_obj(record, found)
+    cleaned.update(replay)
+    return cleaned
 
 
 def session_path(session_id: str, log_dir: Path | None = None) -> Path:

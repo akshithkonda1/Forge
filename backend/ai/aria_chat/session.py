@@ -157,6 +157,7 @@ def run_turn(
     install_pseudonym: str | None = None,
     config_dir: Any = None,
     last_rating: str | None = None,
+    commit_sha: str | None = None,
 ) -> dict[str, Any]:
     """One Dummy chat turn. Never calls ``generate_response_live`` or Bedrock."""
     assert_dummy_engine(engine)
@@ -237,6 +238,7 @@ def run_turn(
 
     turn_id = f"{session_id or 'anon'}-{turn_index + 1:04d}-{uuid.uuid4().hex[:8]}"
     sid = session_id or f"sess-{uuid.uuid4().hex[:12]}"
+    sha = str(commit_sha or chatlog.git_commit_sha() or chatlog._UNKNOWN_SHA)
     record = chatlog.build_record(
         session_id=sid,
         turn_id=turn_id,
@@ -256,6 +258,7 @@ def run_turn(
         safety=conversation._safety_turn(spoken_in, ctx),
         number_ask=bool(conversation._NUMBER_ASK_RE.search(spoken_in)),
         ctx=ctx,
+        commit_sha=sha,
     )
     log_path = None
     if persist_log:
@@ -346,6 +349,8 @@ class ChatSession:
         self.last_turn_id: str | None = None
         self.last_rating: str | None = None
         self.log_path: str | None = None
+        # Replay SHA once at session start — never a per-turn git call.
+        self.commit_sha = chatlog.git_commit_sha()
         self.needles = chatlog.collect_needles(payload if isinstance(payload, dict) else {}, "")
 
     def turn(self, message: str) -> dict[str, Any]:
@@ -360,6 +365,7 @@ class ChatSession:
             install_pseudonym=self.install_pseudonym,
             config_dir=self.config_dir,
             last_rating=self.last_rating,
+            commit_sha=self.commit_sha,
         )
         # Consume a thumbs-down warmer after exactly one reply.
         self.last_rating = None
