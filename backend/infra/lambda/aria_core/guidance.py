@@ -111,7 +111,8 @@ _CHEST_COMPANIONS = (
 )
 _STROKE_STANDALONE = (
     "face is drooping", "face drooping", "drooping face", "face droops",
-    "face is droopy", "slurred speech", "speech is slurred", "words are slurred",
+    "face is droopy", "face feels droopy", "slurred speech", "speech is slurred",
+    "words are slurred",
     "slurring my words", "slurring words", "sudden confusion",
     "suddenly confused", "worst headache",
 )
