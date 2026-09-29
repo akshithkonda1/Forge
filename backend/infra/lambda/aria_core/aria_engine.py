@@ -2321,15 +2321,36 @@ def _pattern_offers_zone2(pattern: Any) -> bool:
     return "zone 2" in blob
 
 
+def _is_overtrained_load(pattern: Any, load: Any) -> bool:
+    """True when the evidence load is overreaching (flag, ACWR, or pattern)."""
+    if load is not None and bool(getattr(load, "is_overtrained", False)):
+        return True
+    if str(getattr(pattern, "key", "") or "") == "overreaching":
+        return True
+    acwr = getattr(load, "acwr", None) if load is not None else None
+    if acwr is None:
+        return False
+    from .aria_evidence import ACWR_OVERREACH
+
+    try:
+        return float(acwr) >= ACWR_OVERREACH
+    except (TypeError, ValueError):
+        return False
+
+
 def _blocking_card_action(pattern: Any, load: Any = None, message: str = "") -> str:
     """Card-only back-off button when ``blocks_intensity``. Never spoken.
 
     Shared by recommendation / summary / insight / plan so an overtrained
     user is never told to progress, push, or add. A sleep question keeps
-    the ordinary zone 2 swap instead of the training-load button.
+    the ordinary zone 2 swap; when they are also overtrained, prefix a
+    load cue on that same card so directional scoring still sees it.
     """
-    if _focus_domain(message) == "sleep" and _pattern_offers_zone2(pattern):
-        return ZONE2_SWAP
+    if _focus_domain(message) == "sleep":
+        if _is_overtrained_load(pattern, load):
+            return f"Back off — {ZONE2_SWAP[0].lower()}{ZONE2_SWAP[1:]}"
+        if _pattern_offers_zone2(pattern):
+            return ZONE2_SWAP
     if spoken_safety_line(pattern, load, message=message) == SPOKEN_OVERTRAIN:
         return BUTTON_OVERTRAIN
     return BUTTON_SHORT_SLEEP

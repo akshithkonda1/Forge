@@ -810,8 +810,11 @@ class BlockingPatternSpeakTests(unittest.TestCase):
         self.assertIn(aria_engine.SPOKEN_SHORT_SLEEP, spoken)
         card = resp.get("card") or {}
         action = str(card.get("action") or "")
-        self.assertEqual(action, aria_engine.ZONE2_SWAP)
+        self.assertEqual(
+            action, f"Back off — {aria_engine.ZONE2_SWAP[0].lower()}{aria_engine.ZONE2_SWAP[1:]}"
+        )
         self.assertIn("zone 2", action.lower())
+        self.assertIn("back off", action.lower())
         self.assertNotIn("deload", action.lower())
         visible = " ".join(
             [
