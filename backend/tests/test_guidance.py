@@ -117,7 +117,7 @@ class GuidanceContentTests(unittest.TestCase):
         g = guidance.assess("do I have diabetes")
         low = g.prose.lower()
         self.assertIn("can't tell from here", low)
-        self.assertIn("everyday habits", low)
+        self.assertIn("day-to-day stuff around it", low)
         self.assertNotIn("recovery", low)
         self.assertNotIn("not a doctor", low)
         self.assertNotIn("medication", low)

@@ -221,9 +221,9 @@ _DIRECT_MED = (
     "my dosage", "increase my dose", "decrease my dose", "up my dose",
     "lower my dose", "adjust my dose", "double my dose", "change my dose",
     "stop taking", "should i stop my", "off my meds", "how much insulin",
-    "what dosage", "what dose", "how many mg", "mg of",
+    "what dosage", "what dose", "how many mg", "mg of", "can i take",
 )
-_TAKE_CUES = ("what should i take", "what can i take", "should i take")
+_TAKE_CUES = ("what should i take", "what can i take", "should i take", "can i take")
 _SYMPTOM_TERMS = (
     "pain", "headache", "migraine", "fever", "cough", "cold", "flu", "nausea",
     "vomiting", "diarrhea", "rash", "cramps", "ache", "sore throat", "infection",
@@ -382,6 +382,14 @@ _HELPER_PRONOUN_RE = re.compile(
 _SLEEP_REFER = (
     "sleep apnea", "sleep apnoea", "apnea", "apnoea", "insomnia", "sleep",
 )
+_DIAGNOSIS_REFER_OPEN = (
+    "I can't tell from here — a doctor can check it properly. "
+    "Meanwhile I'm glad to help with "
+)
+_MEDICATION_REFER = (
+    "That one's a call for your doctor or pharmacist — they know what you're on. "
+    "I'm glad to help with the day-to-day stuff around it."
+)
 
 
 def _is_helper_phrasing(lower: str) -> bool:
@@ -400,11 +408,10 @@ def _self_harm_prose() -> str:
 
 
 def _refer_out_prose(lower: str) -> str:
-    habit = "sleep habits" if _has(lower, _SLEEP_REFER) else "the everyday habits side"
-    return (
-        "I can't tell from here — a doctor can check it properly. "
-        f"Meanwhile I'm glad to help with {habit}."
-    )
+    if _is_prescription_request(lower):
+        return _MEDICATION_REFER
+    habit = "sleep habits" if _has(lower, _SLEEP_REFER) else "the day-to-day stuff around it"
+    return f"{_DIAGNOSIS_REFER_OPEN}{habit}."
 
 
 def _emergency_prose(lower: str) -> str:
@@ -449,12 +456,17 @@ def classify_band(message: str) -> str:
     return COACH
 
 
-def assess(message: str) -> Guidance | None:
-    """Return a Guidance for a boundary/emergency message, or None for COACH."""
+def assess(message: str, band: str | None = None) -> Guidance | None:
+    """Return a Guidance for a boundary/emergency message, or None for COACH.
+
+    When ``band`` is passed (chat route), skip ``classify_band`` — the caller
+    already classified once.
+    """
     lower = (message or "").lower()
-    band = classify_band(message)
-    if band == COACH:
+    resolved = band if band is not None else classify_band(message)
+    if resolved == COACH or not resolved:
         return None
+    band = resolved
 
     if band == EMERGENCY:
         prose = _emergency_prose(lower)
@@ -485,16 +497,17 @@ def assess(message: str) -> Guidance | None:
             wants_escalation=False,
         )
 
-    # REFER_OUT
-    prose = _refer_out_prose(lower)
-    return Guidance(
-        band=REFER_OUT,
-        prose=prose,
-        message=prose,
-        confidence_reason="Safety policy: ARIA suggests lifestyle, never diagnoses or prescribes.",
-        suggested_actions=["Talk to a clinician", "Work on the lifestyle side", "Ask me something else"],
-        wants_escalation=False,
-    )
+    if band == REFER_OUT:
+        prose = _refer_out_prose(lower)
+        return Guidance(
+            band=REFER_OUT,
+            prose=prose,
+            message=prose,
+            confidence_reason="Safety policy: ARIA suggests lifestyle, never diagnoses or prescribes.",
+            suggested_actions=["Talk to a clinician", "Work on the lifestyle side", "Ask me something else"],
+            wants_escalation=False,
+        )
+    return None
 
 
 def contains_prescriptive_medical_language(text: str) -> bool:

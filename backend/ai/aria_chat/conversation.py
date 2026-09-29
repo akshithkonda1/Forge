@@ -210,6 +210,8 @@ _MEMORY_OFF = (
 )
 _REFER_OUT_SPEAK = (
     "I can't tell from here — a doctor can check it properly. Meanwhile I'm glad to help with sleep habits.",
+    "I can't tell from here — a doctor can check it properly. Meanwhile I'm glad to help with the day-to-day stuff around it.",
+    "That one's a call for your doctor or pharmacist — they know what you're on. I'm glad to help with the day-to-day stuff around it.",
 )
 _WARMER_AFTER_DOWN = (
     "I'm still here. Want to pick up the thread, or start a smaller one?",
@@ -259,6 +261,9 @@ _SAFE_REPEAT_NGRAMS = (
     | word_ngrams(SPOKEN_PROTECT_STEP, 3)
     | word_ngrams(SAFETY_CLOSER, 3)
     | _emergency_allow_ngrams()
+    | word_ngrams(_REFER_OUT_SPEAK[0], 3)
+    | word_ngrams(_REFER_OUT_SPEAK[1], 3)
+    | word_ngrams(_REFER_OUT_SPEAK[2], 3)
 )
 
 

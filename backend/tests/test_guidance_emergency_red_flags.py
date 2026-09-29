@@ -52,7 +52,11 @@ SLEEP_REFER_REPLY = (
 )
 HABIT_REFER_REPLY = (
     "I can't tell from here — a doctor can check it properly. "
-    "Meanwhile I'm glad to help with the everyday habits side."
+    "Meanwhile I'm glad to help with the day-to-day stuff around it."
+)
+MEDICATION_REFER_REPLY = (
+    "That one's a call for your doctor or pharmacist — they know what you're on. "
+    "I'm glad to help with the day-to-day stuff around it."
 )
 
 CARDIAC_PHRASES = (
@@ -291,7 +295,7 @@ class EmergencyBedrockBypassTests(unittest.TestCase):
         os.environ["ARIA_BEDROCK_ENABLED"] = "true"
         try:
             for message, band, needle in (
-                ("do I have diabetes?", guidance.REFER_OUT, "everyday habits"),
+                ("do I have diabetes?", guidance.REFER_OUT, "day-to-day stuff around it"),
                 ("I feel suicidal and want to die", guidance.EMERGENCY, "988"),
             ):
                 with self.subTest(message=message):
@@ -436,15 +440,38 @@ class HelperPatientSplitTests(unittest.TestCase):
     def test_refer_out_is_two_warm_sentences(self):
         diabetes = guidance.assess("do I have diabetes?")
         apnea = guidance.assess("do I have sleep apnea?")
+        medication = guidance.assess("should I up my dose")
         self.assertEqual(diabetes.prose, HABIT_REFER_REPLY)
         self.assertEqual(apnea.prose, SLEEP_REFER_REPLY)
-        for assessed in (diabetes, apnea):
+        self.assertEqual(medication.prose, MEDICATION_REFER_REPLY)
+        for assessed, allow_pharmacist in (
+            (diabetes, False),
+            (apnea, False),
+            (medication, True),
+        ):
             low = assessed.prose.lower()
             self.assertNotIn("recovery", low)
             self.assertNotIn("not a doctor", low)
-            self.assertNotIn("medication", low)
-            self.assertNotIn("pharmacist", low)
             self.assertEqual(assessed.band, guidance.REFER_OUT)
+            if allow_pharmacist:
+                self.assertIn("pharmacist", low)
+            else:
+                self.assertNotIn("pharmacist", low)
+                self.assertNotIn("medication", low)
+
+    def test_refer_out_wording_pinned_to_trigger(self):
+        apnea = guidance.assess("do I have sleep apnea?")
+        self.assertEqual(apnea.prose, SLEEP_REFER_REPLY)
+        self.assertEqual(apnea.band, guidance.REFER_OUT)
+        self.assertNotIn("pharmacist", apnea.prose.lower())
+        med = guidance.assess("can I take ibuprofen")
+        self.assertEqual(med.prose, MEDICATION_REFER_REPLY)
+        self.assertEqual(med.band, guidance.REFER_OUT)
+        self.assertNotIn("ibuprofen", med.prose.lower())
+        self.assertNotRegex(med.prose, r"\d")
+        self.assertIn("pharmacist", med.prose.lower())
+        self.assertNotIn("not a doctor", med.prose.lower())
+        self.assertNotIn("recovery", med.prose.lower())
 
 
 class ChatRouteSafetyTests(unittest.TestCase):
@@ -512,26 +539,82 @@ class ChatRouteSafetyTests(unittest.TestCase):
             calls.append((model_id, system, user))
             raise AssertionError("Bedrock called")
 
+        def boom_swarm(*args, **kwargs):
+            raise AssertionError("swarm called")
+
         try:
             with patch(
                 "services.aria_engine._default_converse", boom
             ), patch(
                 "aria_core.aria_engine._default_converse", boom
+            ), patch(
+                "services.aria_swarm.run_swarm", boom_swarm
             ):
                 for message, expected in (
                     ("chest pain and my left arm is numb", CARDIAC_REPLY),
                     ("do I have sleep apnea?", SLEEP_REFER_REPLY),
+                    ("should I up my dose", MEDICATION_REFER_REPLY),
                     ("I feel suicidal and want to die", guidance._CRISIS_LINE),
                 ):
                     with self.subTest(message=message):
                         body = self._chat("sol-chat-lock", message)
                         self.assertEqual(body["message"], expected, message)
                         self.assertEqual(calls, [], message)
+                        self.assertFalse(body.get("swarm"), message)
         finally:
             if previous is None:
                 os.environ.pop("ARIA_BEDROCK_ENABLED", None)
             else:
                 os.environ["ARIA_BEDROCK_ENABLED"] = previous
+
+    def test_route_band_equals_engine_band(self):
+        real = guidance.classify_band
+        calls: list[str] = []
+
+        def spy(message):
+            calls.append(message)
+            return real(message)
+
+        cases = (
+            "chest pain and my left arm is numb",
+            "do I have sleep apnea?",
+            "should I up my dose",
+            "I feel suicidal and want to die",
+        )
+        with patch.object(guidance, "classify_band", spy):
+            for message in cases:
+                with self.subTest(message=message):
+                    before = len(calls)
+                    expected = real(message)
+                    body = self._chat("one-classifier", message)
+                    self.assertEqual(calls[before:], [message], message)
+                    self.assertEqual(body.get("guidance_band"), expected, message)
+
+    def test_safety_replies_skip_memory_and_checkin_fields(self):
+        from services.aria_context import CoachContextEngine
+
+        uid = "safety-memory-prefix"
+        engine = CoachContextEngine()
+        engine.update_context(
+            uid,
+            {
+                "last_insights": ["SEEDED_MEMORY_NOTE focused on recovery"],
+                "relationship_level": 5,
+            },
+        )
+        engine.record_life_fact(uid, "SEEDED_MEMORY_NOTE trains at dawn")
+        for message, opener in (
+            ("chest pain and my left arm is numb", "Call 911 now."),
+            ("I feel suicidal and want to die", "You matter,"),
+        ):
+            with self.subTest(message=message):
+                body = self._chat(uid, message)
+                self.assertTrue(body["message"].startswith(opener), body["message"])
+                self.assertNotIn("memory", body)
+                self.assertNotIn("memory_reference", body)
+                self.assertNotIn("checkin", body)
+                self.assertNotIn("SEEDED_MEMORY_NOTE", body["message"])
+                self.assertNotIn("recovery", body["message"].lower())
 
 
 if __name__ == "__main__":

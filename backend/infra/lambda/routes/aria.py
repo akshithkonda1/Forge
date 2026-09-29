@@ -399,6 +399,7 @@ def handle_post_ai_chat(body: dict[str, Any], *, user_id: str) -> dict:
             baselines=fused.baselines,
             user_id=uid,
             turn=turn,
+            guidance_band=safety_band,
         )
         _merge_fusion(response, fused)
         response.update(
@@ -442,6 +443,7 @@ def handle_post_ai_chat(body: dict[str, Any], *, user_id: str) -> dict:
             baselines=fused.baselines,
             user_id=uid,
             turn=turn,
+            guidance_band=safety_band,
         )
         response = aria_engine.generate_response_live(
             message,
@@ -453,6 +455,7 @@ def handle_post_ai_chat(body: dict[str, Any], *, user_id: str) -> dict:
             baselines=fused.baselines,
             user_id=uid,
             turn=turn,
+            guidance_band=safety_band,
         )
     else:
         response = _checked_speak(
@@ -465,6 +468,7 @@ def handle_post_ai_chat(body: dict[str, Any], *, user_id: str) -> dict:
             baselines=fused.baselines,
             user_id=uid,
             turn=turn,
+            guidance_band=safety_band,
         )
         response["agent"] = roster[0]
         response["agents"] = roster
@@ -473,7 +477,7 @@ def handle_post_ai_chat(body: dict[str, Any], *, user_id: str) -> dict:
     # Background Swarm: Grok-agentic read/evaluate/write over the wearable
     # dataset. Deterministic here — no Bedrock — so dummy/test-ready ARIA
     # exercises the same contract without plugging in a model.
-    if not insight_mode:
+    if not insight_mode and not safety_lock:
         from services import aria_swarm as swarm_mod
 
         snapshot = fused.snapshot if isinstance(fused.snapshot, dict) else {}
@@ -483,7 +487,7 @@ def handle_post_ai_chat(body: dict[str, Any], *, user_id: str) -> dict:
             connected=snapshot.get("sources") or [],
             persist_to=(
                 _context
-                if permissions.allows("lifestyle") and allow_ingest and not safety_lock
+                if permissions.allows("lifestyle") and allow_ingest
                 else None
             ),
             user_id=uid,
@@ -497,6 +501,7 @@ def handle_post_ai_chat(body: dict[str, Any], *, user_id: str) -> dict:
     memory_block = ""
     checkin_payload: dict[str, Any] | None = None
     calendar_ingested: list[dict[str, Any]] = []
+    memory: str | None = None
     if permissions.allows("lifestyle") and allow_ingest and not safety_lock:
         events = payload.get("calendar_events")
         if isinstance(events, list):
@@ -506,8 +511,8 @@ def handle_post_ai_chat(body: dict[str, Any], *, user_id: str) -> dict:
         checkin = _context.daily_checkin(uid)
         checkin_payload = checkin.to_dict() if checkin else None
         memory_block = _context.memory_prompt_block(uid)
-
-    memory = _context.memory_reference(uid, message) if permissions.allows("lifestyle") else None
+    if permissions.allows("lifestyle") and not safety_lock:
+        memory = _context.memory_reference(uid, message)
     # Phase 1: relationship only grows on non-clarification + >24h since last promotion
     # (prevents chat spam inflating trust). Uses dedicated last_promoted_at, not last_updated.
     response_type = str(response.get("response_type") or "")
@@ -577,18 +582,18 @@ def handle_post_ai_chat(body: dict[str, Any], *, user_id: str) -> dict:
     ):
         _context.add_insight(uid, takeaway[:180])
 
-    response.update(
-        {
-            "rich_card": None,
-            "context_updates": {"relationship_level": updated_level},
-            "memory_reference": memory,
-            "memory": memory_block or None,
-            "checkin": checkin_payload,
-            "calendar_ingested": calendar_ingested,
-            "missing_fields": aria_engine.apply_permissions(context, permissions)[0].missing_fields,
-            "user_id": uid,
-        }
-    )
+    extras: dict[str, Any] = {
+        "rich_card": None,
+        "context_updates": {"relationship_level": updated_level},
+        "missing_fields": aria_engine.apply_permissions(context, permissions)[0].missing_fields,
+        "user_id": uid,
+    }
+    if not safety_lock:
+        extras["memory_reference"] = memory
+        extras["memory"] = memory_block or None
+        extras["checkin"] = checkin_payload
+        extras["calendar_ingested"] = calendar_ingested
+    response.update(extras)
     return ok(response)
 
 
