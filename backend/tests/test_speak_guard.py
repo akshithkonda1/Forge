@@ -788,6 +788,69 @@ class BlockingPatternSpeakTests(unittest.TestCase):
         self.assertEqual(summary["prose_summary"], heavy_line)
         self._assert_clean_spoken(summary, aria_engine.SPOKEN_OVERTRAIN)
 
+    def test_sleep_question_never_uses_training_template(self):
+        heavy = ARIAContext(
+            sleep=SleepContext(
+                duration_minutes=480, nights_available=10, sleep_debt_7d_hours=0
+            ),
+            readiness=ReadinessContext(
+                hrv_7day_trend=2, recovery_score=72, hrv_days_available=7
+            ),
+            training=TrainingContext(
+                weekly_load_score=95,
+                acwr=1.7,
+                is_overtrained=True,
+                hours_since_last_workout=36,
+            ),
+        )
+        banned = re.compile(r"(?i)\b(?:deload|overtrain|recovery)\b")
+        resp = aria_engine.generate_response("How was my sleep last night?", heavy)
+        spoken = f"{resp.get('message') or ''} {resp.get('prose_summary') or ''}"
+        self.assertNotIn(aria_engine.SPOKEN_OVERTRAIN, spoken)
+        self.assertIn(aria_engine.SPOKEN_SHORT_SLEEP, spoken)
+        card = resp.get("card") or {}
+        action = str(card.get("action") or "")
+        self.assertEqual(action, aria_engine.ZONE2_SWAP)
+        self.assertIn("zone 2", action.lower())
+        self.assertNotIn("deload", action.lower())
+        visible = " ".join(
+            [
+                spoken,
+                action,
+                str(card.get("interpretation") or ""),
+                str(card.get("metric") or ""),
+            ]
+        )
+        self.assertNotRegex(visible, banned, visible)
+
+    def test_ordinary_train_day_keeps_zone2_card(self):
+        day = ARIAContext(
+            sleep=SleepContext(
+                duration_minutes=480, nights_available=10, sleep_debt_7d_hours=0
+            ),
+            readiness=ReadinessContext(
+                hrv_7day_trend=-2, recovery_score=42, hrv_days_available=7
+            ),
+            training=TrainingContext(
+                weekly_load_score=55,
+                acwr=1.05,
+                is_overtrained=False,
+                hours_since_last_workout=20,
+            ),
+        )
+        resp = aria_engine.generate_response("Should I train today?", day)
+        spoken = f"{resp.get('message') or ''} {resp.get('prose_summary') or ''}"
+        self.assertNotIn(aria_engine.SPOKEN_OVERTRAIN, spoken)
+        card = resp.get("card") or {}
+        blob = " ".join(
+            [
+                str(card.get("action") or ""),
+                " ".join(str(item) for item in (resp.get("suggested_actions") or [])),
+                spoken,
+            ]
+        ).lower()
+        self.assertIn("zone 2", blob, (card, resp.get("suggested_actions"), spoken))
+
 
 if __name__ == "__main__":
     unittest.main()
