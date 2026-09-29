@@ -137,10 +137,20 @@ _THIN_REPLY = "I don't have enough to go on yet. Tell me about the day?"
 _ONE_REAL_MEAL = "One real meal and a quieter evening beats another late push."
 
 
-def _assert_no_repeats(test: unittest.TestCase, replies: list[str]) -> None:
+def _assert_no_repeats(
+    test: unittest.TestCase,
+    replies: list[str],
+    *,
+    allow_exact: tuple[str, ...] = (),
+) -> None:
+    # Exact approved strings only — same ngram pattern #386 used for
+    # full emergency replies. Near-duplicates are not exempted.
+    extra: set[str] = set()
+    for text in allow_exact:
+        extra |= conversation.word_ngrams(text, 3)
     seen: dict[str, str] = {}
     for spoken in replies:
-        for gram in conversation._repeat_ngrams(spoken):
+        for gram in conversation._repeat_ngrams(spoken) - extra:
             if gram in seen:
                 test.fail(
                     f"3-word phrase {gram!r} reused in {spoken!r} "
@@ -1272,6 +1282,14 @@ class SixTurnSampleTests(unittest.TestCase):
             _assert_no_repeats(self, [_ONE_REAL_MEAL, _ONE_REAL_MEAL])
         self.assertIn("one real meal", str(ctx.exception).lower())
 
+    def test_emergency_opener_allowlist_is_exact_only(self):
+        opener = guidance._EMERGENCY_OPEN
+        _assert_no_repeats(self, [opener, opener], allow_exact=(opener,))
+        near = "Call 911 right now."
+        with self.assertRaises(AssertionError) as ctx:
+            _assert_no_repeats(self, [near, near], allow_exact=(opener,))
+        self.assertIn("call 911 right", str(ctx.exception).lower())
+
     def test_six_turn_recipe_and_extras(self):
         self.assertEqual(PINNED_SAMPLE_PROMPTS, _FROZEN_SAMPLE_PROMPTS)
         self.assertEqual(PINNED_THIN_PROMPT, "how am I doing?")
@@ -1308,7 +1326,11 @@ class SixTurnSampleTests(unittest.TestCase):
                 persist_log=False,
             )
             _assert_no_quoting(self, _spoken_reply(thin), [])
-            _assert_no_repeats(self, replies + [_spoken_reply(thin)])
+            _assert_no_repeats(
+                self,
+                replies + [_spoken_reply(thin)],
+                allow_exact=(guidance._EMERGENCY_OPEN,),
+            )
 
             small = by_prompt["my dog stole the couch again"]
             follow = by_prompt["do you think he's plotting against me?"]
