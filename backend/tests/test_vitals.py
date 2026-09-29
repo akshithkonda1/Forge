@@ -122,10 +122,13 @@ class GenerateResponseTests(unittest.TestCase):
         self.assertIn("SpO2", resp["prose_summary"])
 
     def test_restricted_vitals_never_reaches_the_prompt(self):
-        ctx = ARIAContext(vitals=VitalsContext(blood_pressure_systolic=180, blood_pressure_diastolic=120))
+        ctx = ARIAContext(
+            timestamp="2026-01-01T00:00:00+00:00",
+            vitals=VitalsContext(blood_pressure_systolic=180, blood_pressure_diastolic=120),
+        )
         block = ctx.user_model_block(restricted=["vitals"])
-        self.assertNotIn("180", block)
-        self.assertNotIn("120", block)
+        self.assertNotRegex(block, r"(?<!\d)180(?!\d)")
+        self.assertNotRegex(block, r"(?<!\d)120(?!\d)")
         self.assertNotIn("vitals.rule", block)
 
 

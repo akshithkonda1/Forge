@@ -49,7 +49,7 @@ class SimContextToChatPayloadTests(unittest.TestCase):
         ctx.acwr = 1.42
         payload = dummy.sim_context_to_chat_payload(ctx)
         self.assertEqual(payload["context"]["training"]["acwr"], 1.42)
-        self.assertNotIn("weeklyLoadScore", payload["context"]["training"])
+        self.assertNotEqual(payload["context"]["training"].get("weeklyLoadScore"), 1.42)
 
     def test_carries_is_overtrained(self):
         ctx, _ = _ctx()
@@ -143,6 +143,56 @@ class QualitativeSpeakFallbackTests(unittest.TestCase):
         self.assertTrue(any(line in result for line in dummy._WIT_HONEST + dummy._WIT_PROTECT + dummy._WIT_PROCEED))
 
 
+class IOSWeeklyLoadParityTests(unittest.TestCase):
+    """Dummy must send weeklyLoadScore / trainingLoadTrend the way iOS does.
+
+    AriaContextStore.swift:130 — last-7 workout minutes when >= 3 sessions.
+    AriaContextStore.swift:188 — trainingLoadTrend is 'steady' at that floor,
+    not Dummy ``readiness_trend``.
+    """
+
+    def test_ios_rule_three_or_more_sessions(self):
+        ctx, _ = _ctx()
+        ctx.readiness_trend = "rising"
+        for rec in ctx.history:
+            rec.workout_logged = False
+            rec.workout_duration_minutes = None
+        for rec, minutes in zip(ctx.history[-4:], (30, 40, 50, 60)):
+            rec.workout_logged = True
+            rec.workout_duration_minutes = minutes
+        payload = dummy.sim_context_to_chat_payload(ctx)
+        self.assertEqual(payload["context"]["training"]["weeklyLoadScore"], 180.0)
+        self.assertEqual(payload["context"]["progress"]["trainingLoadTrend"], "steady")
+        self.assertNotEqual(
+            payload["context"]["progress"]["trainingLoadTrend"],
+            ctx.readiness_trend,
+        )
+
+    def test_ios_rule_fewer_than_three_sessions_is_silent(self):
+        ctx, _ = _ctx()
+        ctx.readiness_trend = "falling"
+        for rec in ctx.history:
+            rec.workout_logged = False
+            rec.workout_duration_minutes = None
+        for rec, minutes in zip(ctx.history[-2:], (45, 50)):
+            rec.workout_logged = True
+            rec.workout_duration_minutes = minutes
+        payload = dummy.sim_context_to_chat_payload(ctx)
+        self.assertIsNone(payload["context"]["training"]["weeklyLoadScore"])
+        self.assertIsNone(payload["context"]["progress"]["trainingLoadTrend"])
+
+    def test_last_seven_sessions_only(self):
+        ctx, _ = _ctx()
+        for rec in ctx.history:
+            rec.workout_logged = True
+            rec.workout_duration_minutes = 10
+        for rec in ctx.history[-7:]:
+            rec.workout_duration_minutes = 20
+        payload = dummy.sim_context_to_chat_payload(ctx)
+        self.assertEqual(payload["context"]["training"]["weeklyLoadScore"], 140.0)
+        self.assertEqual(payload["context"]["progress"]["trainingLoadTrend"], "steady")
+
+
 class DummyARIAEngineUsesLambdaTests(unittest.TestCase):
     def test_respond_calls_the_real_engine_not_the_scripted_stub(self):
         ctx, _ = _ctx()
@@ -171,6 +221,47 @@ class DummyARIAEngineUsesLambdaTests(unittest.TestCase):
         self.assertIsInstance(resp.recommendation, str)
         self.assertTrue(resp.recommendation)
         self.assertIn("sleep", resp.recommendation.lower())
+
+    def test_same_day_strength_never_says_zero_hours_since(self):
+        ctx, _ = _ctx()
+        ctx.days_since_last_workout = 0
+        ctx.today.workout_logged = True
+        ctx.last_workout_type = "strength"
+        row = dummy.respond("Should I train today?", seed=1, engine="lambda", context=ctx)
+        blob = " ".join(
+            str(p)
+            for p in (
+                row.get("prose_summary"),
+                row.get("message"),
+                row.get("recommendation"),
+                (row.get("card") or {}).get("action") if isinstance(row.get("card"), dict) else "",
+                (row.get("card") or {}).get("why") if isinstance(row.get("card"), dict) else "",
+            )
+            if p
+        ).lower()
+        self.assertNotIn("0 h since", blob)
+        self.assertNotIn("only 0 h since strength", blob)
+
+    def test_progress_question_gets_a_sized_recommendation(self):
+        ctx, _ = _ctx()
+        ctx.training_streak = 14
+        ctx.readiness_trend = "rising"
+        ctx.today.readiness_score = 72
+        engine = dummy.DummyARIAEngine()
+        resp = engine.respond("Am I making progress?", ctx, seed=1)
+        self.assertIsNotNone(resp.recommendation)
+        self.assertTrue(str(resp.recommendation).strip())
+        low = resp.recommendation.lower()
+        self.assertTrue(
+            any(w in low for w in ("hold", "progress", "block", "session", "minute", "variable")),
+            resp.recommendation,
+        )
+
+    def test_deterministic_path_strips_repair_in_the_bank_guide(self):
+        ctx, _ = _ctx()
+        row = dummy.respond("Should I train today?", seed=1, engine="lambda", context=ctx)
+        blob = f"{row.get('prose_summary') or ''} {row.get('message') or ''}"
+        self.assertNotIn("they have repair in the bank", blob.lower())
 
 
 if __name__ == "__main__":

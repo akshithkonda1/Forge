@@ -284,4 +284,32 @@ assert(markSrc.includes("NestStillSvg") && markSrc.includes("softHexPathD"), "Ar
 assert(!markSrc.includes("drawAriaRingField"), "AriaMark retired the ring-field drawer");
 assert(markSrc.includes("nestLiveCreateId"), "AriaMark wires nest live helpers");
 
+const motionDefault = readFileSync("node_modules/framer-motion/dist/es/context/MotionConfigContext.mjs", "utf8");
+assert(motionDefault.includes('reducedMotion: "never"'), "installed framer-motion defaults reducedMotion to never");
+const motionConfigHook = readFileSync(
+  "node_modules/framer-motion/dist/es/utils/reduced-motion/use-reduced-motion-config.mjs",
+  "utf8"
+);
+assert(motionConfigHook.includes('reducedMotion === "never"'), "never short-circuits the OS Reduce Motion query");
+assert(motionConfigHook.includes("return reducedMotionPreference"), "user mode forwards prefers-reduced-motion");
+
+const motionProviderSrc = readFileSync("src/components/shared/motion-config-provider.tsx", "utf8");
+assert(motionProviderSrc.includes("\"use client\""), "MotionConfig provider is a client wrapper");
+assert(motionProviderSrc.includes("reducedMotion=\"user\""), "MotionConfig respects OS Reduce Motion");
+assert(motionProviderSrc.includes("MotionConfig"), "provider renders MotionConfig");
+
+const layoutSrc = readFileSync("src/app/layout.tsx", "utf8");
+assert(layoutSrc.includes("MotionConfigProvider"), "root layout wraps the app in MotionConfig");
+
+const chatSrc = readFileSync("src/components/chat/chat-page.tsx", "utf8");
+assert(chatSrc.includes("AriaMark"), "chat uses nest AriaMark");
+assert(!chatSrc.includes("AriaOrb"), "chat no longer uses legacy AriaOrb");
+assert(chatSrc.includes("aria-label=\"Send message\""), "send button has an accessible name");
+assert(chatSrc.includes("aria-live=\"polite\""), "chat has a polite live region");
+assert(chatSrc.includes("readOnly={isTyping}"), "composer stays focusable while ARIA replies");
+assert(chatSrc.includes("aria-busy={isTyping}"), "composer exposes busy while a reply is pending");
+assert(chatSrc.includes("Here for you") && chatSrc.includes("Thinking…"), "chat status uses friend-register copy");
+assert(!/recovery-first|Reading your signals|Adaptive Recovery/i.test(chatSrc), "chat header avoids clinical copy");
+assert(!/\b(tone|persona_enabled|memory_enabled)\b/.test(chatSrc), "chat does not read unversioned contract fields");
+
 console.log("aria frontend checks passed");

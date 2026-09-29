@@ -65,11 +65,17 @@ class _EnvCase(unittest.TestCase):
         coach_routes.set_router_invoker(None)
         self._saved = {
             k: os.environ.get(k)
-            for k in ("ENVIRONMENT", "FORGE_DEMO_DATA", "FORGE_ALLOW_ANON_TEST_USER")
+            for k in (
+                "ENVIRONMENT",
+                "FORGE_DEMO_DATA",
+                "FORGE_ALLOW_ANON_TEST_USER",
+                "FORGE_ALLOW_DEV_OVERRIDE",
+            )
         }
         os.environ["ENVIRONMENT"] = self.ENV
         os.environ.pop("FORGE_DEMO_DATA", None)
         os.environ.pop("FORGE_ALLOW_ANON_TEST_USER", None)
+        os.environ.pop("FORGE_ALLOW_DEV_OVERRIDE", None)
 
     def tearDown(self):
         dynamodb_store.clear_local_store()
@@ -101,10 +107,23 @@ class DemoGateTests(_EnvCase):
                 self.assertFalse(demo_data_enabled())
 
     def test_dev_environments_keep_demo_data_by_default(self):
-        for env in ("local", "dev", "development", "test", "ci", ""):
+        for env in ("local", "dev", "development", "test", "ci", "sandbox", ""):
             with self.subTest(env=env):
                 os.environ["ENVIRONMENT"] = env
                 self.assertTrue(demo_data_enabled())
+
+    def test_unknown_environment_names_are_fail_closed(self):
+        for env in ("beta", "testflight", "prd"):
+            with self.subTest(env=env):
+                os.environ["ENVIRONMENT"] = env
+                self.assertFalse(demo_data_enabled())
+
+    def test_terraform_override_flag_wins_over_environment_name(self):
+        os.environ["ENVIRONMENT"] = "dev"
+        os.environ["FORGE_ALLOW_DEV_OVERRIDE"] = "false"
+        self.assertFalse(demo_data_enabled())
+        os.environ["FORGE_DEMO_DATA"] = "true"
+        self.assertFalse(demo_data_enabled())
 
     def test_dev_can_opt_out_of_demo_data(self):
         os.environ["ENVIRONMENT"] = "dev"

@@ -386,6 +386,7 @@ class BodyModel:
                 resting_hr=self.latest(MetricType.RESTING_HEART_RATE),
                 nights_available=len(self.series.get(MetricType.SLEEP_DURATION, []))
                 or len(self.series.get(MetricType.SLEEP_DEEP, [])) or None,
+                baseline_median_minutes=self.baseline(MetricType.SLEEP_DURATION),
                 sleep_debt_7d_hours=self._sleep_debt_7d_hours(),
                 target_hours=self._SLEEP_TARGET_HOURS_DEFAULT,
             )

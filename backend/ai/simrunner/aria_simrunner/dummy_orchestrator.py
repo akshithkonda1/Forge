@@ -539,7 +539,7 @@ def specialist_notes(plan: Plan, context) -> list[SpecialistNote]:
             elif signals.recovery == "asking":
                 notes.append(SpecialistNote(
                     "recovery", "caution",
-                    "Recovery would keep today kind. Your body's asking for care, not a lecture.",
+                    "Recovery would keep today kind. That's a care day, not a lecture.",
                 ))
             else:
                 notes.append(SpecialistNote(
@@ -799,7 +799,7 @@ def _follow_up_reply(
     if shorter and easier:
         return _pick(seed, [
             "Alright — shorter and lighter. Ten to fifteen minutes, easy effort, done.",
-            "We cut it down and soft: a brief mobility or Zone-2 stroll, then stop.",
+            "We cut it down and soft: a brief mobility or an easy, chatty-pace zone 2 stroll, then stop.",
             "Yep — compress it. Short, kind, no hero finish.",
         ])
     if shorter:
@@ -826,7 +826,7 @@ def _follow_up_reply(
 # User-visible Dummy speak never dumps vitals/metrics. Orchestration notes may
 # still name missing HRV for guard tests; those tokens must not reach prose.
 _VITALS_SPEAK = re.compile(
-    r"\b(hrv|bpm|ms|mmhg|vo2|spo2|recovery score|sleep[- ]?debt)\b"
+    r"\b(hrv|bpm|ms|mmhg|vo2|spo2|acwr|recovery score|sleep[- ]?debt)\b"
     r"|%\s*(?:below|above|under|over)\s+baseline",
     re.I,
 )
@@ -845,18 +845,18 @@ _CHEER_SLUDGE = re.compile(
 # Throughline is friend — bubbly / kind / taking-care. Not dry trainer bark,
 # not diagnose/treat/cure, not vitals dumps. Seed-indexed via ``_pick``.
 _WIT_PROTECT = (
-    "Your body's hung a cute 'back soon' sign — easy walk, then protect bedtime like it's the real session.",
-    "I'm with you, and I'm tucking the hero set in a drawer — keep it gentle and get to bed on purpose.",
-    "Cozy-sweater day, not montage day — ten easy minutes, water nearby, lights out a little earlier.",
-    "Even sparkly people need a restock — skip the extra work and steal a kinder wind-down tonight.",
-    "Today whispered please-be-nice — so we will: keep it kind, light movement, protein with the next meal, real sleep.",
-    "Friend vote: let's not pick a fight with a tired body — soft loop, then earlier lights-out.",
-    "I love the ambition and I'm still tucking it in — keep today kind and light and make bedtime the workout.",
-    "Your tank's on the cute low-power glow — easy movement only, then we guard the night.",
-    "I'm taking care of you, not casting you as the montage hero — short and kind, then wind down.",
-    "The loud plan can wait in drafts — an easy walk, a simple meal, and an honest bedtime will do more.",
-    "You're not failing, you're just a little crispy — keep it easy and get under the covers on time.",
-    "Hug first: restock day — easy body, water with the next meal, protect sleep like a friend would.",
+    "There's a cute 'back soon' sign on the door — easy walk, then protect sleep like it's the real session.",
+    "I'm with you, and I'm tucking the hero set in a drawer — keep it gentle and prioritize sleep on purpose.",
+    "Cozy-sweater day, not montage day — ten easy minutes, water nearby, and sleep first, lights out a little earlier.",
+    "Even sparkly people need a restock — skip the extra work and protect sleep tonight with a kinder wind-down.",
+    "Today whispered please-be-nice — so we will: keep it kind, light movement, protein with the next meal, and put sleep first.",
+    "Nothing heroic today, friend — just an easy loop and prioritize sleep tonight. Future you says thanks.",
+    "I love the ambition and I'm still tucking it in — keep today kind and light, sleep first, training later.",
+    "Your tank's on the cute low-power glow — easy movement only, then we protect sleep tonight.",
+    "I'm taking care of you, not casting you as the montage hero — short and kind, then prioritize sleep.",
+    "The loud plan can wait in drafts — an easy walk, a simple meal, and sleep first will do more.",
+    "You're not failing, you're just a little crispy — keep it easy and protect sleep tonight.",
+    "Yesterday's work is still in the legs, friend — keep today easy, have water with your next meal, and put sleep first tonight.",
 )
 _WIT_PROCEED = (
     "You've got a little sparkle in the tank, and I'm with you — spend it on one clean session, then stop while it still feels good.",
@@ -952,12 +952,37 @@ def _speak_without_vitals(*candidates: str) -> str:
     return _SPEAK_FALLBACK
 
 
+def _apply_speak_guard(text: str, *, card: dict | None = None, notes: list[str] | None = None) -> str:
+    """Shared guide/label/memory/dedupe guard. Vitals scrub already ran."""
+    try:
+        from backend._paths import ensure_lambda_on_path
+
+        ensure_lambda_on_path()
+        from aria_core import speak_guard
+
+        return speak_guard.guard_speak(text, card=card, memory_notes=notes)
+    except Exception:
+        return text
+
+
 def _collapse_spoken(text: str) -> str:
     """One spoken reply — product cards use labeled \\n\\n sections."""
     body = str(text or "")
     body = re.sub(r"\bWhat I notice\s+", "", body)
     body = re.sub(r"\bOne next step\s+", " ", body)
-    body = re.sub(r"\bWhy\s+", " — ", body)
+
+    def _why_dash(match: re.Match) -> str:
+        rest = match.group(1).lstrip()
+        zone = re.match(r"(Zone\s+\d\b)(.*)", rest)
+        if zone:
+            return f", {zone.group(1).lower()}{zone.group(2)}"
+        if rest[:1].isupper() and not rest.startswith(("I ", "I'm ", "I'll ", "I've ", "I'd ")):
+            rest = rest[0].lower() + rest[1:]
+        return f" — {rest}"
+
+    body = re.sub(r"\bWhy\s+([^\n]+)", _why_dash, body)
+    # Internal two-word guide/HUD labels ("Hug first:", "Training load:").
+    body = re.sub(r"\b[A-Z][a-z]+ [a-z]+:\s*", "", body)
     body = re.sub(r"\n{2,}", " ", body)
     return re.sub(r"\s+", " ", body).strip()
 
@@ -1014,7 +1039,7 @@ _SLEEP_TALK = {
 }
 _RECOVERY_TALK = {
     "asking": (
-        "your body's asking for a break today",
+        "today's asking for a break, not more load",
         "recovery is asking for room, not more load",
         "today's reading as a protect day",
     ),
@@ -1110,18 +1135,21 @@ def friend_speak(
         if real:
             real = real[0].upper() + real[1:]
             if extra and extra.lower() not in real.lower():
-                real = f"{real} — {extra}" if real[-1] not in ".!?—" else f"{real} {extra}"
-            return _speak_without_vitals(real, extra, _SPEAK_FALLBACK)
-        return _speak_without_vitals(extra, _SPEAK_FALLBACK)
+                if real[-1] not in ".!?":
+                    real += "."
+                real = f"{real} {extra}"
+            return _apply_speak_guard(_speak_without_vitals(real, extra, _SPEAK_FALLBACK))
+        return _apply_speak_guard(_speak_without_vitals(extra, _SPEAK_FALLBACK))
     if any(n in body.lower() for n in _WIT_ALREADY):
-        return _speak_without_vitals(body)
+        return _apply_speak_guard(_speak_without_vitals(body))
     if _is_follow_up_speak(body) and not short_ok:
-        return _speak_without_vitals(body)
+        return _apply_speak_guard(_speak_without_vitals(body))
     if extra and extra.lower() not in body.lower():
         if body[-1] not in ".!?":
             body += "."
         body = f"{body} {extra}"
-    return _speak_without_vitals(body, extra, _SPEAK_FALLBACK)
+    spoken = _speak_without_vitals(body, extra, _SPEAK_FALLBACK)
+    return _apply_speak_guard(spoken)
 
 
 def _weave_specialists(prose: str, notes: list[SpecialistNote], seed: int) -> str:
@@ -1550,11 +1578,16 @@ def _suggest_body_session(message: str, context) -> dict | None:
     if lib is None:
         return None
     hours = None
-    days = getattr(context, "days_since_last_workout", None)
-    if context.today.workout_logged:
-        hours = 0.0
-    elif isinstance(days, (int, float)):
-        hours = float(days) * 24.0
+    try:
+        from .production_bridge import hours_since_last_workout
+
+        hours = hours_since_last_workout(context)
+    except Exception:
+        days = getattr(context, "days_since_last_workout", None)
+        if context.today.workout_logged:
+            hours = 0.0
+        elif isinstance(days, (int, float)):
+            hours = float(days) * 24.0
     suggestion = lib.maybe_suggest(
         message,
         last_workout_type=getattr(context, "last_workout_type", None),
@@ -1626,6 +1659,31 @@ def _sanitize_chat_message(message: str) -> str:
         return (message or "").strip()
 
 
+def _workout_sessions(ctx) -> list:
+    """Logged sessions in Dummy history (oldest → newest, today included)."""
+    hist = list(getattr(ctx, "history", None) or [])
+    return [r for r in hist if getattr(r, "workout_logged", False)]
+
+
+def _ios_weekly_load_score(ctx) -> float | None:
+    """AriaContextStore.swift:130 — last-7 workout minutes when >= 3 sessions."""
+    sessions = _workout_sessions(ctx)
+    if len(sessions) < 3:
+        return None
+    minutes = sum(
+        float(getattr(r, "workout_duration_minutes", 0) or 0) for r in sessions[-7:]
+    )
+    return minutes
+
+
+def _ios_training_load_trend(ctx) -> str | None:
+    """AriaContextStore.swift:188 — 'steady' when >= 3 workouts, else None.
+
+    Dummy used to map ``readiness_trend`` onto this field; iOS does not.
+    """
+    return "steady" if len(_workout_sessions(ctx)) >= 3 else None
+
+
 def _hrv_trend_points(ctx) -> float | None:
     hist = getattr(ctx, "history", None) or []
     vals = [float(r.hrv) for r in hist if getattr(r, "hrv", None) is not None]
@@ -1691,11 +1749,16 @@ def sim_context_to_chat_payload(
     steps = [r.steps for r in window3 if getattr(r, "steps", None)]
     cals = [r.active_calories for r in window3 if getattr(r, "active_calories", None)]
     hours_since = None
-    days = getattr(ctx, "days_since_last_workout", None)
-    if getattr(today, "workout_logged", False):
-        hours_since = 0.0
-    elif isinstance(days, (int, float)):
-        hours_since = float(days) * 24.0
+    try:
+        from .production_bridge import hours_since_last_workout
+
+        hours_since = hours_since_last_workout(ctx)
+    except Exception:
+        days = getattr(ctx, "days_since_last_workout", None)
+        if getattr(today, "workout_logged", False):
+            hours_since = 0.0
+        elif isinstance(days, (int, float)):
+            hours_since = float(days) * 24.0
     sleep_min = None
     if getattr(today, "total_sleep_hours", None) is not None:
         sleep_min = float(today.total_sleep_hours) * 60.0
@@ -1742,12 +1805,9 @@ def sim_context_to_chat_payload(
                 "lastWorkoutName": last,
                 "lastWorkoutDurationMinutes": getattr(today, "workout_duration_minutes", None),
                 "hoursSinceLastWorkout": hours_since,
-                # Was silently stuffing ACWR into weeklyLoadScore (a distinct
-                # field on production's TrainingContext, "normalized, null if
-                # < 3 sessions") and never setting the real acwr key at all --
-                # production's overtraining check (`t.acwr >= 1.5`) always saw
-                # None. weeklyLoadScore has no SimRunner equivalent, so it
-                # stays unset rather than carrying a wrong number.
+                # iOS AriaContextStore.swift:130 — last-7 workout minutes
+                # when there are at least 3 sessions. Never stuff ACWR here.
+                "weeklyLoadScore": _ios_weekly_load_score(ctx),
                 "acwr": getattr(today, "acwr", None),
                 "isOvertrained": bool(getattr(ctx, "is_overtrained", False)),
             },
@@ -1764,7 +1824,7 @@ def sim_context_to_chat_payload(
                 "coachingStyle": getattr(ctx, "coaching_style", None),
             },
             "progress": {
-                "trainingLoadTrend": getattr(ctx, "readiness_trend", None),
+                "trainingLoadTrend": _ios_training_load_trend(ctx),
                 "workoutsCompleted30d": getattr(ctx, "training_streak", None),
             },
             "lifestyle": {
@@ -1787,6 +1847,15 @@ def _scrub_fused_speak(envelope: dict) -> dict:
             if card.get(key):
                 card[key] = _speak_without_vitals(str(card[key]), prose)
         envelope["card"] = card
+    try:
+        from backend._paths import ensure_lambda_on_path
+
+        ensure_lambda_on_path()
+        from aria_core import speak_guard
+
+        envelope = speak_guard.guard_envelope(envelope)
+    except Exception:
+        pass
     return envelope
 
 
@@ -1887,6 +1956,10 @@ def _respond_via_lambda(
     )
     prose = _speak_without_vitals(prose)
     chat = _speak_without_vitals(chat, prose)
+    notes = [str(p) for p in (getattr(ctx, "notable_event_note", None) and [ctx.notable_event_note] or [])]
+    card_for_guard = envelope.get("card") if isinstance(envelope.get("card"), dict) else None
+    prose = _apply_speak_guard(prose, card=card_for_guard, notes=notes)
+    chat = _apply_speak_guard(chat, card=card_for_guard, notes=notes)
     envelope["prose_summary"] = prose
     envelope["message"] = chat
     diagnosis = voice_diagnostics.diagnose(prose)
@@ -1902,13 +1975,18 @@ def _respond_via_lambda(
         "suggested_actions": list(envelope.get("suggested_actions") or suggested_actions(plan)),
         "card": card,
         "rich_card": envelope.get("rich_card"),
-        # Production's envelope has no top-level "recommendation" key -- only
-        # the recommendation response_type's card carries one, as card["action"]
-        # (see aria_engine.py's _recommendation_response). Set it explicitly so
+        # Production's envelope has no top-level "recommendation" key -- each
+        # response_type's card carries its actionable text under its own name:
+        # card["action"] for recommendation/insight (aria_engine.py's
+        # _recommendation_response/_insight_response), card["recommendation"]
+        # for summary (_summary_response). Set it explicitly so
         # DummyARIAEngine.respond() (which reads row.get("recommendation") the
         # same way the stub row already does at "recommendation": stub.recommendation)
-        # gets a real value instead of always None.
-        "recommendation": card.get("action") if isinstance(card, dict) else None,
+        # gets a real value instead of always None whenever the card actually
+        # has one, whichever key it's filed under.
+        "recommendation": (
+            (card.get("action") or card.get("recommendation")) if isinstance(card, dict) else None
+        ),
         "restricted_domains": list(envelope.get("restricted_domains") or []),
         "agent": plan.primary.kind,
         "agents": plan.kinds,
@@ -1972,6 +2050,76 @@ def _respond_via_lambda(
 def _orchestration_latency_ms(message: str, seed: int, worker_count: int) -> int:
     """Fake-but-stable overhead: scoring + fan-out, not a wall-clock sleep."""
     return 40 + (_fnv(message) ^ (seed * 16777619) ^ (worker_count * 31)) % 90
+
+
+# Sentinel so a failed / empty lookup (None) is still a cached turn result.
+_WEB_NOTE_UNSET = object()
+# Main ``speak_quality.medical_hits`` does not fire on "this cures insomnia".
+_LOCAL_CURE_CLAIM = re.compile(r"(?i)\bthis cures\b")
+
+
+def _sanitize_reused_web_note(text: str) -> str:
+    """Reuse-path cite: main vitals/medical scrub, plus a local cure-claim drop.
+
+    # TODO: fold into #369 untrusted-input sanitizer
+    """
+    raw = _scrub_speak_vitals(text)
+    raw = _LOCAL_CURE_CLAIM.sub("", raw)
+    raw = re.sub(r"\s+", " ", raw).strip(" .")
+    if raw and _dumps_user_speak(raw):
+        label = re.match(r"(From\s+[^:]+:)", raw, re.I)
+        return label.group(1) if label else ""
+    return raw
+
+
+def _turn_speak_rejected(row: dict) -> bool:
+    """Speak-fail, or a leftover local cure-claim from this turn's web note."""
+    if speak_quality.speak_failures(row):
+        return True
+    raw = getattr(respond, "_turn_web_note", _WEB_NOTE_UNSET)
+    if raw is _WEB_NOTE_UNSET or not raw or not _LOCAL_CURE_CLAIM.search(str(raw)):
+        return False
+    return bool(_LOCAL_CURE_CLAIM.search(speak_quality.user_visible_blob(row)))
+
+
+def _web_note_for_turn(kind: str) -> tuple[str | None, bool]:
+    """Fetch at most once per user turn. Prompt-guard retry reuses the cite.
+
+    First attempt returns the raw lookup (vitals-scrubbed at the attach site).
+    Reuse runs the main Dummy speak scrub plus a local cure-claim drop.
+    """
+    cached = getattr(respond, "_turn_web_note", _WEB_NOTE_UNSET)
+    if cached is not _WEB_NOTE_UNSET:
+        if not cached:
+            return None, True
+        return _sanitize_reused_web_note(str(cached)), True
+    note = web_research.look_up(kind)
+    respond._turn_web_note = note
+    return note, False
+
+
+def _checked_dummy_turn(produce, prompt_guard):
+    """Replay the turn. Speak-fail and the prompt guard run on every attempt."""
+    first = produce()
+    first_rejected = _turn_speak_rejected(first)
+    if prompt_guard.honesty_score(first) < prompt_guard.FLOOR and not first_rejected:
+        return prompt_guard.estimate(first, reason="honesty")
+    if first_rejected:
+        second = produce()
+        if _turn_speak_rejected(second) or prompt_guard.honesty_score(second) < prompt_guard.FLOOR:
+            return prompt_guard.estimate(first, second, reason="speak")
+        return second
+    second = produce()
+    if _turn_speak_rejected(second) or not prompt_guard.passes(first, second):
+        reason = "speak" if _turn_speak_rejected(second) else (
+            "honesty" if prompt_guard.honesty_score(second) < prompt_guard.FLOOR else "determinism"
+        )
+        return prompt_guard.estimate(first, second, reason=reason)
+    return first
+
+
+def _reset_turn_web_note() -> None:
+    respond._turn_web_note = _WEB_NOTE_UNSET
 
 
 def _context_for_turn(
@@ -2043,6 +2191,7 @@ def respond(
     refuse_if_cloud()
 
     if not getattr(respond, "_replaying", False):
+        _reset_turn_web_note()
         from backend._paths import ensure_lambda_on_path
 
         ensure_lambda_on_path()
@@ -2051,7 +2200,7 @@ def respond(
         if prompt_guard.enabled():
             respond._replaying = True
             try:
-                return prompt_guard.checked(
+                return _checked_dummy_turn(
                     lambda: respond(
                         message,
                         seed=seed,
@@ -2066,10 +2215,12 @@ def respond(
                         context=context,
                         pack_day=pack_day,
                         use_pack=use_pack,
-                    )
+                    ),
+                    prompt_guard,
                 )
             finally:
                 respond._replaying = False
+                _reset_turn_web_note()
 
     subjects = list(cycle_subjects or [])
     pinned_kind = (pinned or (agents[0] if agents else None) or "").strip().lower() or None
@@ -2137,15 +2288,25 @@ def respond(
     # Scrub vitals inside the cite first so VO2 in a MedlinePlus title cannot
     # make `_speak_without_vitals` discard the whole "From …" provenance.
     chat = prose
+    reused = False
     if web_research.is_research_worthy(message, plan.primary.kind):
         lookup_kind = "aging" if web_research.suggests_aging(message) or plan.primary.kind == "aging" else plan.primary.kind
-        web_note = web_research.look_up(lookup_kind)
+        web_note, reused = _web_note_for_turn(lookup_kind)
         if web_note:
-            safe_note = _scrub_speak_vitals(web_note)
-            if safe_note and safe_note not in chat and not _dumps_user_speak(safe_note):
-                chat = f"{chat} ({safe_note.rstrip('.')})"
-    prose = _speak_without_vitals(prose)
-    chat = _speak_without_vitals(chat, prose)
+            if reused:
+                safe_note = web_note
+                if safe_note and safe_note not in chat and not _dumps_user_speak(safe_note):
+                    chat = f"{chat} ({safe_note.rstrip('.')})"
+            else:
+                safe_note = _scrub_speak_vitals(web_note)
+                if safe_note and safe_note not in chat:
+                    chat = f"{chat} ({safe_note.rstrip('.')})"
+    draft = {"prose_summary": prose, "message": chat}
+    # Keep a rejected first draft dirty so speak-fail / a leftover cure-claim
+    # can fire. Retry already ran ``_sanitize_reused_web_note``.
+    if reused or not _turn_speak_rejected(draft):
+        prose = _speak_without_vitals(prose)
+        chat = _speak_without_vitals(chat, prose)
     recovery_needed = scenario == "recovery_first" or ctx.today.readiness_score < 50
 
     # Diagnosed against the primary reply alone, not the full chat: supporting
@@ -2245,10 +2406,29 @@ class DummyARIAEngine:
         from .aria_engine import ARIAResponse
 
         row = respond(query, seed=seed, context=context, engine=ENGINE_LAMBDA)
+        rec = row.get("recommendation")
+        card = row.get("card")
+        if not rec and isinstance(card, dict):
+            rec = card.get("action") or card.get("recommendation")
+        confidence = float(row.get("confidence") or 0.74)
+        try:
+            from backend._paths import ensure_lambda_on_path
+
+            ensure_lambda_on_path()
+            from aria_core import speak_guard
+
+            blob = f"{row.get('message') or row.get('prose_summary') or ''} {rec or ''}"
+            from .production_bridge import hours_since_last_workout
+
+            confidence = speak_guard.cap_contradiction_confidence(
+                blob, confidence, hours_since=hours_since_last_workout(context)
+            )
+        except Exception:
+            pass
         return ARIAResponse(
             prose_summary=row["message"] or row["prose_summary"],
-            recommendation=row.get("recommendation"),
-            confidence=float(row.get("confidence") or 0.74),
+            recommendation=rec,
+            confidence=confidence,
             used_context=True,
             model_used=str(row.get("model") or LAMBDA_MODEL),
             query_type=row.get("agent") or "aria",

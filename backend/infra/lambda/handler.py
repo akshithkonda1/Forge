@@ -291,6 +291,13 @@ def _route(event, _context):
 
             return health.handle_post_health_batch(user_id, body)
 
+        # Future public base path is /v1/ingest/url. Both names hit this handler
+        # so clients can switch without a Terraform change (ANY /{proxy+}).
+        if method == "POST" and path in ("/ingest/url", "/v1/ingest/url"):
+            from routes import ingest
+
+            return ingest.handle_post_ingest_url(user_id, body)
+
         if method == "POST" and path == "/coach/messages":
             from routes import coach
 
