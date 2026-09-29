@@ -113,9 +113,21 @@ _STROKE_STANDALONE = (
     "face is drooping", "face drooping", "drooping face", "face droops",
     "face is droopy", "face feels droopy", "slurred speech", "speech is slurred",
     "words are slurred",
-    "slurring my words", "slurring words", "sudden confusion",
+    "slurring my words", "slurring words",
+    "slurring his words", "slurring her words", "slurring their words",
+    "sudden confusion",
     "suddenly confused", "worst headache",
 )
+# Sore or tight after lifting stays COACH. "Chest pain" after a lift is
+# unclear — treat that as emergency, not training soreness.
+_LIFT_CHEST_CONTEXT = (
+    "after bench", "after chest day", "after lifting", "after press",
+    "after workout", "after training", "after push",
+    "from bench", "from chest day", "from lifting",
+    "chest day",
+)
+_LIFT_SORENESS = ("sore", "tight", "tightness")
+_LIFT_NOT_SORENESS = ("pain", "hurt", "hurts", "pressure", "crushing")
 _SYNCOPE_STANDALONE = (
     "fainted", "fainting", "blacked out", "blacking out", "passed out",
 )
@@ -136,13 +148,28 @@ _ONE_SIDED_DEFICIT_RE = re.compile(
 )
 
 
+def _is_lift_chest_soreness(lower: str) -> bool:
+    """Sore or tight after lifting is training. Pain after a lift is not."""
+    if _has(lower, _LIFT_NOT_SORENESS):
+        return False
+    if not _has(lower, _LIFT_SORENESS):
+        return False
+    return _has(lower, _LIFT_CHEST_CONTEXT) or "bench" in lower
+
+
 def _is_cardiac_red_flag(lower: str) -> bool:
+    if _is_lift_chest_soreness(lower):
+        return False
     if _has(lower, _SEVERE_CHEST):
         return True
     if "crushing" in lower and _has(lower, _CHEST_MARKERS):
         return True
     if not _has(lower, _CHEST_MARKERS):
         return False
+    # Someone else having chest pain is emergency without crushing.
+    # Unclear pain (pain after a lift, no soreness cue) also escalates.
+    if _is_helper_phrasing(lower):
+        return True
     if _has(lower, _CHEST_COMPANIONS):
         return True
     return _has_word(lower, ("jaw",)) and _has(
