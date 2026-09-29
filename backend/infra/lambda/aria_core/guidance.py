@@ -87,6 +87,74 @@ _SELF_HARM = (
     "take my own life", "don't want to be here", "dont want to be here",
 )
 
+# Cardiac / stroke / syncope phrasing that is not already in _EMERGENCY_STATE.
+# Combination rules stay tight so training soreness ("chest is sore after
+# chest day") remains COACH.
+_CHEST_MARKERS = (
+    "chest pain", "chest pressure", "chest tightness", "chest feels tight",
+    "chest is tight", "chest hurt", "chest hurts", "pain in my chest",
+    "pain in the chest", "pressure in my chest", "pressure in the chest",
+    "tightness in my chest", "my chest hurts", "my chest hurt",
+)
+_SEVERE_CHEST = (
+    "crushing chest pressure", "crushing chest pain",
+    "crushing pressure in my chest", "crushing pain in my chest",
+)
+_CHEST_COMPANIONS = (
+    "arm is numb", "arm numb", "numb arm", "numbness in my arm",
+    "numbness in the arm", "arm hurts", "arm pain", "pain in my arm",
+    "pain in the arm", "left arm", "right arm", "jaw ache", "jaw aches",
+    "jaw pain", "jaw hurts", "jaw hurt", "ache in my jaw", "back pain",
+    "pain in my back", "shortness of breath", "short of breath",
+    "can't breathe", "cant breathe", "cannot breathe", "hard to breathe",
+    "difficulty breathing", "cold sweat", "cold sweats", "clammy",
+)
+_STROKE_STANDALONE = (
+    "face is drooping", "face drooping", "drooping face", "face droops",
+    "face is droopy", "slurred speech", "speech is slurred", "words are slurred",
+    "slurring my words", "slurring words", "sudden confusion",
+    "suddenly confused", "worst headache",
+)
+_SYNCOPE_STANDALONE = (
+    "fainted", "fainting", "blacked out", "blacking out",
+)
+_CANT_TALK_RIGHT_RE = re.compile(r"\bcan(?:not|'?t) talk right(?! now)\b")
+_ONE_SIDED_DEFICIT_RE = re.compile(
+    r"\b(?:one|left|right) side\b.{0,40}\b(?:weak|weaker|numb|numbness)\b|"
+    r"\b(?:weak|weaker|numb|numbness)\b.{0,40}\b(?:one|left|right) side\b"
+)
+
+
+def _is_cardiac_red_flag(lower: str) -> bool:
+    if _has(lower, _SEVERE_CHEST):
+        return True
+    if "crushing" in lower and _has(lower, _CHEST_MARKERS):
+        return True
+    if not _has(lower, _CHEST_MARKERS):
+        return False
+    if _has(lower, _CHEST_COMPANIONS):
+        return True
+    return _has_word(lower, ("jaw",)) and _has(
+        lower, ("ache", "aches", "aching", "pain", "hurt", "hurts", "numb")
+    )
+
+
+def _is_stroke_red_flag(lower: str) -> bool:
+    if _has(lower, _STROKE_STANDALONE):
+        return True
+    if _CANT_TALK_RIGHT_RE.search(lower):
+        return True
+    return bool(_ONE_SIDED_DEFICIT_RE.search(lower))
+
+
+def _is_acute_red_flag(lower: str) -> bool:
+    """Life-threatening cardiac, stroke, or syncope cues not in _EMERGENCY_STATE."""
+    return (
+        _is_cardiac_red_flag(lower)
+        or _is_stroke_red_flag(lower)
+        or _has(lower, _SYNCOPE_STANDALONE)
+    )
+
 # --- First-aid how-to (helping someone; information is in-bounds) ------------
 _HOWTO_CUES = (
     "how do i", "how to", "how can i", "what do i do", "what should i do",
@@ -172,7 +240,8 @@ def _detect_first_aid_topics(lower: str) -> list[str]:
     if _has(lower, ("bleeding", "blood", "tourniquet", "cut", "wound", "nosebleed")):
         topics.append("bleeding")
     if _has(lower, ("collapsed", "passed out", "unconscious", "unresponsive",
-                    "won't wake", "wont wake", "fainted")):
+                    "won't wake", "wont wake", "fainted", "blacked out",
+                    "blacking out")):
         topics.append("unconscious")
     if _has(lower, ("seizure", "convulsing")):
         topics.append("seizure")
@@ -246,6 +315,8 @@ def classify_band(message: str) -> str:
     if _has(lower, _SELF_HARM):
         return EMERGENCY
     if _has(lower, _ESCALATION_REQUEST) or _has(lower, _EMERGENCY_STATE):
+        return EMERGENCY
+    if _is_acute_red_flag(lower):
         return EMERGENCY
     if _has(lower, _HOWTO_CUES) and _has_word(lower, _FIRST_AID_TOPICS):
         return FIRST_AID
