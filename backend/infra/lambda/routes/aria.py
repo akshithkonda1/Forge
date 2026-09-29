@@ -581,17 +581,17 @@ def handle_post_ai_chat(body: dict[str, Any], *, user_id: str) -> dict:
     ):
         _context.add_insight(uid, takeaway[:180])
 
-    response.update(
-        {
-            "rich_card": None,
-            "context_updates": {"relationship_level": updated_level},
-            "memory_reference": memory,
-            "memory": memory_block or None,
-            "checkin": checkin_payload,
-            "calendar_ingested": calendar_ingested,
-            "missing_fields": aria_engine.apply_permissions(context, permissions)[0].missing_fields,
-        }
-    )
+    extras: dict[str, Any] = {
+        "rich_card": None,
+        "context_updates": {"relationship_level": updated_level},
+        "missing_fields": aria_engine.apply_permissions(context, permissions)[0].missing_fields,
+    }
+    if not safety_lock:
+        extras["memory_reference"] = memory
+        extras["memory"] = memory_block or None
+        extras["checkin"] = checkin_payload
+        extras["calendar_ingested"] = calendar_ingested
+    response.update(extras)
     return ok(response)
 
 
