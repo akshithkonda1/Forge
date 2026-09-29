@@ -5,13 +5,13 @@ The k6 Dummy loadtest only exercised ``storage.dynamodb._local_store`` because
 (``backend/infra/main.tf:548``), so production uses DynamoDB.
 
 ``enforce_user_rate_limit`` currently does a non-atomic read-then-write
-(``backend/infra/lambda/security.py:275`` ``get_item``, then
-``security.py:279`` ``put_item``). There is no ``ConditionExpression`` and no
-atomic ``UpdateItem`` ADD. moto serializes Dynamo calls in-process, which can
-hide that race — so the concurrent test interlocks every storage get before
-any storage write. If the increment is later made atomic, that interlock is a
-no-op (no get happens, or the write itself is conditional) and the test must
-pass for the right reason: exactly ``limit`` admissions.
+(``backend/infra/lambda/security.py:275-287``). There is no
+``ConditionExpression``, no atomic ``UpdateItem`` ADD, and no ``ttl``.
+Product fix is on PR #388 — this file only records the gaps. moto serializes
+Dynamo calls in-process, which can hide the race — so the concurrent test
+interlocks every storage get before any storage write. If #388 makes the
+increment atomic, that interlock is a no-op and the test must pass for the
+right reason: exactly ``limit`` admissions.
 
 Never calls Bedrock or ElevenLabs. Non-DynamoDB boto3 clients fail closed.
 """
@@ -85,10 +85,12 @@ LIMIT = 60
 WORKERS = 200
 ACTION = "aria-chat"
 
-_XFAIL_REASON = (
-    "read-then-write increment at backend/infra/lambda/security.py:275 "
-    "(dynamodb.get_item) then security.py:279 (dynamodb.put_item); "
-    "no ConditionExpression, no UpdateItem ADD — concurrent containers over-admit"
+_XFAIL_RACE = (
+    "read-then-write race at backend/infra/lambda/security.py:275-287; fix on #388"
+)
+_XFAIL_TTL = (
+    "limiter put_item at backend/infra/lambda/security.py:279-287 writes no ttl "
+    "(table TTL attribute is ttl, backend/infra/main.tf:366-369); fix on #388"
 )
 
 
@@ -305,7 +307,7 @@ class DynamoDBRateLimitConcurrencyTests(unittest.TestCase):
         self.assertEqual(item_a["pk"], f"USER#{user_a}")
         self.assertEqual(item_b["pk"], f"USER#{user_b}")
 
-    def test_window_key_and_ttl_attribute_written(self) -> None:
+    def test_window_key_is_written(self) -> None:
         uid = "rate-ddb-window"
         enforce_user_rate_limit(uid, action=ACTION, limit=LIMIT, window_hours=1)
         bucket = f"{ACTION}:{_rate_window_id(hours=1)}"
@@ -319,13 +321,17 @@ class DynamoDBRateLimitConcurrencyTests(unittest.TestCase):
         self.assertEqual(item["action"], ACTION)
         self.assertEqual(item["entity_type"], "rate_limit")
         self.assertEqual(int(item["count"]), 1)
-        # Table TTL attribute is ``ttl`` (backend/infra/main.tf:366-368).
-        # The current put_item payload at security.py:279-287 does not set it;
-        # when present (a later increment that adds expiry), require a real epoch.
-        if item.get("ttl") is not None:
-            self.assertGreater(int(item["ttl"]), 0)
 
-    @_strict_xfail(_XFAIL_REASON)
+    @_strict_xfail(_XFAIL_TTL)
+    def test_limiter_row_has_ttl(self) -> None:
+        uid = "rate-ddb-ttl"
+        enforce_user_rate_limit(uid, action=ACTION, limit=LIMIT, window_hours=1)
+        item = _stored_rate_limit_item(uid)
+        self.assertIsNotNone(item)
+        self.assertIn("ttl", item)
+        self.assertGreater(int(item["ttl"]), 0)
+
+    @_strict_xfail(_XFAIL_RACE)
     def test_concurrent_same_user_admits_exactly_limit(self) -> None:
         uid = "rate-ddb-concurrent"
         admitted, rejected, errors = _fire_limiter(
