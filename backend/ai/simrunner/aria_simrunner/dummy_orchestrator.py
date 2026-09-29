@@ -2433,17 +2433,23 @@ def respond(
     # make `_speak_without_vitals` discard the whole "From …" provenance.
     chat = prose
     reused = False
+    source_cite = None
     if web_research.is_research_worthy(message, plan.primary.kind):
         lookup_kind = "aging" if web_research.suggests_aging(message) or plan.primary.kind == "aging" else plan.primary.kind
         web_note, reused = _web_note_for_turn(lookup_kind)
         if web_note:
             if reused:
                 safe_note = web_note
-                if safe_note and safe_note not in chat and not _dumps_user_speak(safe_note):
-                    chat = f"{chat} ({safe_note.rstrip('.')})"
             else:
                 safe_note = _scrub_speak_vitals(web_note)
-                if safe_note and safe_note not in chat:
+            if safe_note:
+                # Aging cites live on the card/source field — not in spoken reply.
+                if lookup_kind == "aging":
+                    source_cite = safe_note.rstrip(".")
+                elif reused:
+                    if safe_note not in chat and not _dumps_user_speak(safe_note):
+                        chat = f"{chat} ({safe_note.rstrip('.')})"
+                elif safe_note not in chat:
                     chat = f"{chat} ({safe_note.rstrip('.')})"
     draft = {"prose_summary": prose, "message": chat}
     # Keep a rejected first draft dirty so speak-fail / a leftover cure-claim
@@ -2471,7 +2477,8 @@ def respond(
         "recommendation": getattr(stub, "recommendation", None),
         "message": chat,
         "suggested_actions": suggested_actions(plan, recovery_needed=recovery_needed),
-        "card": None,
+        "card": {"source": source_cite} if source_cite else None,
+        "source": source_cite,
         "rich_card": None,
         "restricted_domains": [],
         "agent": plan.primary.kind,
