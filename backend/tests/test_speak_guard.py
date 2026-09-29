@@ -860,10 +860,15 @@ class SpokenBanSourceTests(unittest.TestCase):
             "not a doctor",
             "i won't",
             "i don't claim",
+            "i'm not going to",
             "keep the digits",
             "no figures",
         ):
             self.assertIn(phrase, SPOKEN_BANNED)
+        self.assertEqual(
+            spoken_ban_hits("I'm not going to guess without data."),
+            ("i'm not going to",),
+        )
         self.assertEqual(
             spoken_ban_hits("If last night felt bad, that's the read"),
             ("bad",),

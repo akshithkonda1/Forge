@@ -34,7 +34,7 @@ _REFER_OUT: tuple[tuple[str, str], ...] = (
     ("should i stop taking", "Never change a prescription on my say-so — that's between you and whoever prescribed it."),
     ("increase my dose", "Dosing is your prescriber's call, not mine."),
     ("do i have", "I can't diagnose, and guessing at one would be worse than useless. That's a question for a clinician."),
-    ("is this cancer", "I can't answer that, and I'm not going to guess. Please see a doctor."),
+    ("is this cancer", "That's one for a doctor to look at properly. Please get it checked soon."),
     ("make myself throw up", "I won't help with that. Please talk to a doctor or an eating-disorder helpline — that's the help that's actually useful here."),
     ("how little can i eat", "I'm not going to help you undereat. If food feels like this right now, a doctor or a dietitian is the right person."),
     ("stop eating for", "I won't build that. If you want to talk about fuelling properly, I'm here for that."),

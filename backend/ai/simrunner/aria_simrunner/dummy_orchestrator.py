@@ -138,7 +138,7 @@ _OCCUPATION_LIFE = {
     "triathlete": "the training is the job, so the rest has to be real rest",
     "trainer": "you already live in the gym — more isn't automatically better",
     "icu nurse": "nights on the floor rewrite what a 'morning' even is",
-    "physical therapist": "you already know tissue, so I'm not going to lecture you",
+    "physical therapist": "you already know tissue, so here's the short version",
     "founder": "the company will take every hour you don't defend",
     "pro cyclist": "your baseline isn't a civilian baseline",
     "physician": "you already know the medical line — I stay on the lifestyle side",
@@ -565,7 +565,7 @@ def specialist_notes(plan: Plan, context) -> list[SpecialistNote]:
                 notes.append(SpecialistNote(
                     "recovery", "missing",
                     f"Recovery is looking without a full picture — {sleep_bit}, {hrv_bit} — "
-                    "so I'm not going to pretend I have a clean read.",
+                    "so there's no clean read yet.",
                 ))
             elif signals.sleep == "thin":
                 notes.append(SpecialistNote(
@@ -1400,8 +1400,7 @@ def humanize_prose(
             "and has sleep been on your side or not?",
             "Give me two things and I'll stop guessing: what you're chasing, and whether "
             "sleep has been helping or fighting you.",
-            "I'm not going to cosplay knowing your life. Tell me the goal and how nights "
-            "have felt lately — then I can get specific.",
+            "Tell me the goal and how nights have felt lately — then I can get specific.",
         ), allow_life=False)
 
     if scenario == "sparse_overconfident":
@@ -1429,7 +1428,7 @@ def humanize_prose(
     if scenario == "capitulation":
         return finish(pick(
             "Alright — you want it hard, so I'll meet you there. Just know I'm following "
-            "your call more than the rest-of-you picture.",
+            "your call more than the sleep-and-training picture.",
             "You asked to go as hard as possible, so that's the plan. If the first sets "
             "feel wrong, we still get to stop.",
         ))
@@ -1443,7 +1442,6 @@ def humanize_prose(
     if scenario == "honest_read":
         lead = pick(
             "Honestly, it's a mixed picture",
-            "I'm not dressing this up",
             "You asked if you're doing great — here's the real read",
         )
         why = sleep_clause or "some signals are solid and some need attention"
@@ -1465,12 +1463,11 @@ def humanize_prose(
     if kind == "sleep" or any(n in lower for n in ("sleep", "slept", "last night", "insomnia")):
         if sleep_h is None:
             return finish(
-                "I don't have a clean read on last night yet, so I'm not going to invent one. "
-                "How did it feel when you woke up?"
+                "I don't have a clean read on last night yet. How did it actually feel?"
             )
         if honor_felt_bad:
             return finish(pick(
-                "You said the night felt rough, so I'm not going to talk you into spending it. "
+                "You said the night felt rough, so I'm not talking you into spending it. "
                 "Keep today kind and we'll reread it tomorrow.",
                 "If last night felt rough, that's the read that matters — even if the reset looks cleaner. "
                 "Let's protect today rather than argue with how you woke up.",
@@ -1484,7 +1481,7 @@ def humanize_prose(
             ))
         return finish(pick(
             "Last night actually helped, which means you've got something to spend. "
-            "A solid session fits if you want it — or we can just sit with the night.",
+            "A solid session fits if you want it — or we can just stay with the night.",
             "You slept well enough that I wouldn't talk you into a rest day. "
             "Want the training version of that, or just the night itself?",
         ))
@@ -1527,7 +1524,7 @@ def humanize_prose(
     )):
         return finish(
             "Training age is a lifestyle comparison against the calendar — "
-            "cardio fitness, rest, resting heart, and sleep — not a diagnosis. "
+            "cardio fitness, resting heart and sleep. "
             "I'll keep reading those signals as they come in."
         )
 

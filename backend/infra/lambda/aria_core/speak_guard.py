@@ -46,6 +46,7 @@ SPOKEN_BANNED = (
     "not a doctor",
     "i won't",
     "i don't claim",
+    "i'm not going to",
     "keep the digits",
     "no figures",
 )

@@ -994,6 +994,9 @@ class VoiceGateTests(unittest.TestCase):
             "I'm beside you",
             "I like being useful",
             "Make tonight the easy one",
+            "I can sit with",
+            "I can stay on",
+            "bookshelf that finally sat still",
         )
         blob = " ".join(
             line for bank in conversation.SPEECH_BANKS for line in bank
@@ -1020,7 +1023,7 @@ class VoiceGateTests(unittest.TestCase):
 
         joke = {
             "spark": ("sparkle", "mug"),
-            "steady": ("bookshelf", "tea"),
+            "steady": ("dishwasher", "tea"),
         }
         useful = (
             "quiet",

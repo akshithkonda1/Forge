@@ -2130,12 +2130,9 @@ def _clarification_response(ctx: ARIAContext, restricted: list[str], voice_mode:
         question = "What did last night's sleep look like — roughly how many hours, and did you train today?"
         why = "no usable sleep, HRV, recovery, or activity signal in this request"
         actions = ["Sync HealthKit", "Log last night's sleep", "Tell ARIA about today"]
-    prose = f"I'm not going to guess without data. {question}"
+    prose = f"Quick one first: {question}"
     card = None if voice_mode else {"question": question, "why": why}
-    message = _structured_message(
-        "I don't have enough to read your day yet — I'd rather ask than guess.",
-        question,
-    )
+    message = _structured_message("Quick one first.", question)
     return _envelope(
         response_type="clarification",
         confidence=0.2,
