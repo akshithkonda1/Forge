@@ -458,8 +458,6 @@ def _is_usable_step(raw: str, denied: tuple[str, ...]) -> bool:
         return False
     if is_button_sentence(text):
         return False
-    if _SPOKEN_JARGON.search(text):
-        return False
     if any(p.lower() in text.lower() for p in denied):
         return False
     if any(lab in text.lower() for lab in ("usable picture", "still thin")):

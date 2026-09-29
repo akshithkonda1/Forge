@@ -271,7 +271,7 @@ def normalize_coach_agents(raw: Any | None, single: Any | None = None) -> list[s
 
 
 def _utcnow_iso() -> str:
-    return datetime.now(timezone.utc).isoformat()
+    return datetime.now(timezone.utc).replace(microsecond=0).isoformat()
 
 
 @dataclass
@@ -2259,7 +2259,11 @@ def _existing_blocking_prose(
         move = str(getattr(brief, "one_next_move", "") or "").strip()
         # Skip cold-start "still learning how you work" copy — it drowns out
         # the signal interpretation the tests (and the person) need to hear.
-        useful = re.compile(r"(?i)\b(?:variance|irregular|usual|habit|sleep timing)\b")
+        useful = re.compile(
+            r"(?i)(?:\bvariance\b|\birregular\b|\busual\b|\bhabit\b|"
+            r"sleep timing|\bwedding\b|day you already have|shorter session|"
+            r"calendar:(?:kind|evening|busy))"
+        )
         if how and useful.search(how):
             candidates.append(how)
         if move and useful.search(move) and not _SPOKEN_JARGON.search(move):
@@ -2289,6 +2293,15 @@ def _existing_blocking_prose(
         return ""
     notice_key = (getattr(pattern, "notice", "") or "").strip().lower().rstrip(".")
     if notice_key and cleaned.lower().rstrip(".") == notice_key:
+        return ""
+    # Let state_read attach the joined "short night, so …" / "Yeah, …" form
+    # instead of treating the interpreter's "a short night — …" as the read.
+    cleaned = re.sub(
+        r"(?i)a short night\s*[—–-]\s*below a full night for recovery\.?\s*",
+        "",
+        cleaned,
+    ).strip()
+    if not cleaned:
         return ""
     if not cleaned.endswith((".", "!", "?")):
         cleaned = f"{cleaned}."
@@ -2439,6 +2452,9 @@ def _recommendation_response(
         # lead interpretation / state-read later) and put the clean line
         # before the protect step.
         prose = _compose_blocking_speak(pattern, load, signals, brief, action, notice)
+        extras = [bit for bit in notice_bits[1:] if bit]
+        if extras:
+            prose = f"{prose} {' '.join(extras)}"
         spoken_action = _spoken_protect_step(
             action, sleep_first=spoken_safety_line(pattern, load) == SPOKEN_SHORT_SLEEP
         )
