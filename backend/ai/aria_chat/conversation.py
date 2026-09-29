@@ -210,6 +210,8 @@ _MEMORY_OFF = (
 )
 _REFER_OUT_SPEAK = (
     "I can't tell from here — a doctor can check it properly. Meanwhile I'm glad to help with sleep habits.",
+    "I can't tell from here — a doctor can check it properly. Meanwhile I'm glad to help with the day-to-day stuff around it.",
+    "That one's a call for your doctor or pharmacist — they know what you're on. I'm glad to help with the day-to-day stuff around it.",
 )
 _WARMER_AFTER_DOWN = (
     "I'm still here. Want to pick up the thread, or start a smaller one?",
@@ -238,10 +240,14 @@ def _emergency_allow_ngrams() -> set[str]:
     """Exact approved emergency strings only — never a whole band."""
     replies = (
         f"{guidance._EMERGENCY_OPEN} {guidance._EMERGENCY_CARDIAC}",
+        f"{guidance._EMERGENCY_OPEN} {guidance._EMERGENCY_CARDIAC_HELPER}",
         f"{guidance._EMERGENCY_OPEN} {guidance._EMERGENCY_STROKE}",
+        f"{guidance._EMERGENCY_OPEN} {guidance._EMERGENCY_STROKE_HELPER}",
         f"{guidance._EMERGENCY_OPEN} {guidance._EMERGENCY_FAINT}",
+        f"{guidance._EMERGENCY_OPEN} {guidance._EMERGENCY_FAINT_HELPER}",
         f"{guidance._EMERGENCY_OPEN} {guidance._EMERGENCY_CPR}",
         f"{guidance._EMERGENCY_OPEN} {guidance._EMERGENCY_CPR_IF_NEEDED}",
+        f"{guidance._EMERGENCY_OPEN} {guidance._EMERGENCY_PATIENT_FALLBACK}",
         guidance._CRISIS_LINE,
     )
     grams: set[str] = set()
@@ -255,6 +261,9 @@ _SAFE_REPEAT_NGRAMS = (
     | word_ngrams(SPOKEN_PROTECT_STEP, 3)
     | word_ngrams(SAFETY_CLOSER, 3)
     | _emergency_allow_ngrams()
+    | word_ngrams(_REFER_OUT_SPEAK[0], 3)
+    | word_ngrams(_REFER_OUT_SPEAK[1], 3)
+    | word_ngrams(_REFER_OUT_SPEAK[2], 3)
 )
 
 
@@ -705,11 +714,8 @@ def apply_conversation(
     if band in (guidance.EMERGENCY, guidance.FIRST_AID, guidance.REFER_OUT):
         engine_text = str(envelope.get("message") or envelope.get("prose_summary") or "")
         assessed = guidance.assess(message)
-        # 911 / first-aid stay on guidance.py copy. Never keep a thread callback
-        # that quotes earlier user text. Refer-out is two friend sentences.
-        if band == guidance.REFER_OUT:
-            spoken = _pick(seed, _REFER_OUT_SPEAK)
-        elif assessed is not None:
+        # 911 / first-aid / refer-out stay on guidance.py copy.
+        if assessed is not None:
             spoken = _strip_thread_callback(assessed.message)
         else:
             spoken = _strip_thread_callback(engine_text)
