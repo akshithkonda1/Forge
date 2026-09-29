@@ -218,13 +218,8 @@ def run_turn(
     pseudonym = str(install_pseudonym or "").strip() or install_mod.load_or_create_pseudonym(
         config_dir
     )
-    phrase = state_read.phrase_key(
-        None,
-        spoken_in,
-        user_id=pseudonym,
-        turn=turn_index,
-        seed=seed,
-    )
+    # Pseudonym + turn only. Dummy seed is a third sha256 input, never a raw uid.
+    phrase = state_read.phrase_key(pseudonym, turn_index, seed)
     # Explicit seed wins inside turn_seed — that seed is the phrase_key above.
     turn_s = state_read.turn_seed(None, spoken_in, seed=phrase)
 
