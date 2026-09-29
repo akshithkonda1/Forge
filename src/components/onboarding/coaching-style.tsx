@@ -74,7 +74,10 @@ export default function CoachingStyleScreen({ onComplete }: CoachingStyleProps) 
       <PremiumAtmosphere accent="#FF6B2B" secondary="#A9D8FF" intensity={0.5} />
       <div className="relative z-10 flex flex-1 flex-col">
         <PremiumEntrance index={0} className="mb-4">
-          <h2 className="mb-2 text-3xl font-semibold tracking-tight text-text-primary">
+          <h2
+            id="coaching-style-heading"
+            className="mb-2 text-3xl font-semibold tracking-tight text-text-primary"
+          >
             How do you like to be coached?
           </h2>
           <p className="text-text-tertiary">
@@ -96,7 +99,11 @@ export default function CoachingStyleScreen({ onComplete }: CoachingStyleProps) 
           />
         </div>
 
-        <div className="flex flex-col gap-3">
+        <div
+          role="group"
+          aria-labelledby="coaching-style-heading"
+          className="flex flex-col gap-3"
+        >
           {styles.map((style) => {
             const isSelected = selected === style.value;
             return (

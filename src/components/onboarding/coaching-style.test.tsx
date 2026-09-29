@@ -20,9 +20,13 @@ describe("CoachingStyleScreen", () => {
   it("exposes coaching-style options to assistive tech", () => {
     render(<CoachingStyleScreen onComplete={() => {}} />);
 
+    const group = screen.getByRole("group", { name: /how do you like to be coached/i });
+    expect(group).toBeTruthy();
+
     const challenge = screen.getByRole("button", { name: /challenge me/i });
     expect(challenge.getAttribute("aria-hidden")).toBeNull();
     expect(challenge.getAttribute("aria-pressed")).toBe("false");
+    expect(group.contains(challenge)).toBe(true);
 
     expect(screen.getByRole("button", { name: /keep it balanced/i })).toBeTruthy();
     expect(screen.getByRole("button", { name: /be patient with me/i })).toBeTruthy();

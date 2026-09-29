@@ -1,25 +1,52 @@
-import { render, screen } from "@testing-library/react";
-import { afterEach, describe, expect, it } from "vitest";
+import { cleanup, render, screen } from "@testing-library/react";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { useAppStore } from "@/stores/useAppStore";
 
+import { RecoveryTrends } from "./recovery-trends";
 import { SleepBreakdown } from "./sleep-breakdown";
+import { SleepPage } from "./sleep-page";
 import { SleepScoreRing } from "./sleep-score-ring";
 import { SleepTimeline } from "./sleep-timeline";
+
+vi.mock("next/dynamic", async () => {
+  const { RecoveryTrends } = await import("./recovery-trends");
+  return { default: () => RecoveryTrends };
+});
+
+vi.mock("@/components/brand/premium-atmosphere", () => ({
+  PremiumAtmosphere: () => null,
+  PremiumEntrance: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
+}));
 
 const originalSleep = useAppStore.getState().sleepData;
 
 describe("sleep empty night", () => {
   afterEach(() => {
+    cleanup();
     useAppStore.setState({ sleepData: originalSleep });
   });
 
-  it("does not crash the score ring, timeline, or breakdown when sleepData is empty", () => {
+  it("guards ring, timeline, and breakdown so empty sleepData cannot crash", () => {
     useAppStore.setState({ sleepData: [] });
 
     expect(() => render(<SleepScoreRing />)).not.toThrow();
     expect(() => render(<SleepTimeline />)).not.toThrow();
     expect(() => render(<SleepBreakdown />)).not.toThrow();
-    expect(screen.getAllByText("No sleep logged yet").length).toBe(3);
+    expect(screen.getAllByText("No sleep yet").length).toBe(3);
+  });
+
+  it("renders one page empty state and still mounts RecoveryTrends", () => {
+    useAppStore.setState({ sleepData: [] });
+
+    expect(() => render(<RecoveryTrends />)).not.toThrow();
+    expect(screen.getByText("Recovery Trend")).toBeTruthy();
+    cleanup();
+
+    expect(() => render(<SleepPage />)).not.toThrow();
+    expect(screen.getAllByText("No sleep yet").length).toBe(1);
+    expect(screen.queryByText("Sleep Stages")).toBeNull();
+    expect(screen.queryByText("Breakdown")).toBeNull();
+    expect(screen.getByText("Recovery Trend")).toBeTruthy();
   });
 });

@@ -10,7 +10,7 @@ export function SleepScoreRing() {
   if (!latest) {
     return (
       <div className="flex flex-col items-center gap-3 py-6">
-        <p className="text-sm text-text-secondary">No sleep logged yet</p>
+        <p className="text-sm text-text-secondary">No sleep yet</p>
       </div>
     );
   }

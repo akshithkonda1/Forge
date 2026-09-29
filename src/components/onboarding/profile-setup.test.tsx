@@ -13,8 +13,8 @@ vi.mock("@/components/brand/premium-atmosphere", () => ({
 import ProfileSetup from "./profile-setup";
 
 describe("ProfileSetup", () => {
-  it("gives the name field an accessible name", () => {
+  it("labels the name field with the onboarding question", () => {
     render(<ProfileSetup onNext={() => {}} />);
-    expect(screen.getByLabelText("Your name")).toBeTruthy();
+    expect(screen.getByLabelText("What should ARIA call you?")).toBeTruthy();
   });
 });

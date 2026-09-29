@@ -25,7 +25,7 @@ export function SleepTimeline() {
     return (
       <div className="rounded-xl border border-border bg-surface p-4">
         <h3 className="mb-3 text-sm font-semibold text-white">Sleep Stages</h3>
-        <p className="text-sm text-text-secondary">No sleep logged yet</p>
+        <p className="text-sm text-text-secondary">No sleep yet</p>
       </div>
     );
   }

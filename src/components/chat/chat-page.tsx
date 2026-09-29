@@ -155,6 +155,7 @@ export function ChatPage() {
     sleepData,
     startWorkout,
     setActiveTab,
+    activeTab,
   } = useAppStore();
   const showToast = useToast((s) => s.show);
 
@@ -259,6 +260,13 @@ export function ChatPage() {
       }
     };
   }, []);
+
+  useEffect(() => {
+    if (activeTab === "chat") return;
+    if (typeof window !== "undefined" && "speechSynthesis" in window) {
+      window.speechSynthesis.cancel();
+    }
+  }, [activeTab]);
 
   // Restore focus after a reply finishes. Do not `disabled` the field — that
   // drops keyboard focus. Seed existing trainer ids so hydration / remounts

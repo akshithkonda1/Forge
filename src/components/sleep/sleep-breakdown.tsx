@@ -67,7 +67,7 @@ export function SleepBreakdown() {
     return (
       <div>
         <h3 className="mb-3 text-sm font-semibold text-white">Breakdown</h3>
-        <p className="text-sm text-text-secondary">No sleep logged yet</p>
+        <p className="text-sm text-text-secondary">No sleep yet</p>
       </div>
     );
   }
