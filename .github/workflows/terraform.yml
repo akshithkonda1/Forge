@@ -98,6 +98,42 @@ jobs:
         working-directory: backend/infra/bootstrap
         run: terraform plan -input=false -no-color
 
+  terraform-prod-plan:
+    name: 'Terraform Plan (prod)'
+    runs-on: ubuntu-latest
+    # Push/PR plan only. No AWS, no secrets, no OIDC. Dummy provider checks
+    # plus -refresh=false so missing credentials cannot turn this job red.
+    permissions:
+      contents: read
+    env:
+      AWS_EC2_METADATA_DISABLED: "true"
+      TF_VAR_skip_aws_provider_checks: "true"
+
+    defaults:
+      run:
+        shell: bash
+        working-directory: ${{ env.TF_WORKING_DIR }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@dfe3c3f87815947d99a8997f908cb6525fc44e9e # v4
+        with:
+          terraform_version: 1.15.0
+
+      # Same local override as terraform-checks. See that job for why.
+      - name: Local backend override for CI plan
+        run: |
+          printf '%s\n' 'terraform {' '  backend "local" {}' '}' > ci_backend_override.tf
+
+      - name: Terraform Init
+        run: terraform init -input=false -lockfile=readonly -no-color
+
+      - name: Terraform Plan (prod)
+        run: terraform plan -input=false -no-color -refresh=false -var-file=prod.tfvars
+
   terraform-apply:
     name: 'Terraform Apply (dev, approval-gated)'
     needs: [terraform-checks, terraform-prod-plan]
@@ -156,11 +192,7 @@ jobs:
 
       - name: Configure AWS credentials
         id: aws-creds
-        if: >-
-          (github.event_name == 'push' && github.ref == 'refs/heads/main')
-          || (github.event_name == 'workflow_dispatch' && inputs.run_apply == true)
-        continue-on-error: true
-        uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd # v4
+        uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd # v6.3.0
         with:
           aws-region: ${{ env.AWS_REGION }}
           role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
@@ -169,7 +201,7 @@ jobs:
           aws-session-token: ${{ secrets.AWS_SESSION_TOKEN }}
 
       - name: Credentials failed
-        if: always() && steps.aws-creds.outcome == 'failure'
+        if: failure() && steps.aws-creds.outcome == 'failure'
         run: |
           echo '::error::AWS credentials failed. Apply cannot continue without working credentials.'
           exit 1
