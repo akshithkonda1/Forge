@@ -87,6 +87,62 @@ def _spoken_reply(result: dict) -> str:
     return str((result or {}).get("message") or "")
 
 
+PINNED_SAMPLE_PROMPTS = (
+    "my dog stole the couch again",
+    "do you think he's plotting against me?",
+    "I only slept a few hours and I have a hard session today",
+    "how am I doing?",
+    "do I have sleep apnea?",
+    "are you just a fancy toaster with opinions?",
+    "remember my sister's wedding last year?",
+    "hey, still with me?",
+    "chest pain and my left arm is numb",
+    "he's not breathing — call 911",
+)
+PINNED_THIN_PROMPT = "how am I doing?"
+_FROZEN_SAMPLE_PROMPTS = (
+    "my dog stole the couch again",
+    "do you think he's plotting against me?",
+    "I only slept a few hours and I have a hard session today",
+    "how am I doing?",
+    "do I have sleep apnea?",
+    "are you just a fancy toaster with opinions?",
+    "remember my sister's wedding last year?",
+    "hey, still with me?",
+    "chest pain and my left arm is numb",
+    "he's not breathing — call 911",
+)
+
+
+def _assert_speech_clean_of_secret(test: unittest.TestCase, row: dict, *secrets: str) -> None:
+    speech = f"{row.get('message') or ''} {row.get('prose_summary') or ''}"
+    low = speech.lower()
+    test.assertNotIn("[redacted]", low, speech)
+    for secret in secrets:
+        test.assertNotIn(secret.lower(), low, speech)
+
+
+def _assert_no_quoting(test: unittest.TestCase, spoken: str, earlier_user: list[str]) -> None:
+    test.assertIsNone(conversation._QUOTED_ECHO.search(spoken), spoken)
+    test.assertNotIn("[redacted]", spoken.lower(), spoken)
+    copies = conversation.word_ngrams(spoken, 4)
+    for prev in earlier_user:
+        overlap = copies & conversation.word_ngrams(prev, 4)
+        test.assertFalse(overlap, f"copied {overlap!r} from {prev!r} into {spoken!r}")
+
+
+def _assert_no_repeats(test: unittest.TestCase, replies: list[str]) -> None:
+    seen: dict[str, str] = {}
+    for spoken in replies:
+        for gram in conversation._repeat_ngrams(spoken):
+            if gram in seen:
+                test.fail(
+                    f"3-word phrase {gram!r} reused in {spoken!r} "
+                    f"(earlier: {seen[gram]!r})"
+                )
+            seen[gram] = spoken
+
+
 def _assert_friend_voice(test: unittest.TestCase, text: str) -> None:
     # Recovery / self-describe gates scan the spoken reply only (E).
     test.assertFalse(_spoken_digits(text), text)
@@ -611,6 +667,24 @@ class RedactionLogTests(unittest.TestCase):
                 "Dr. Patel",
             )
             self.assertTrue(dummy_spy.call_args_list[-1].kwargs.get("prior_turns"))
+            _assert_speech_clean_of_secret(
+                self,
+                first,
+                secret,
+                "partner_cycle",
+                "Dr. Patel follow-up",
+                "Dr. Patel",
+                "[redacted]",
+            )
+            _assert_speech_clean_of_secret(
+                self,
+                second,
+                secret,
+                "partner_cycle",
+                "Dr. Patel follow-up",
+                "Dr. Patel",
+                "[redacted]",
+            )
 
     def test_leak_title_only_uses_redacted_fallback(self):
         secret = "Dr. Patel follow-up"
@@ -674,6 +748,14 @@ class RedactionLogTests(unittest.TestCase):
             )
             self.assertIn(REDACTED_PLACEHOLDER, prior_blob)
             self.assertIn(REDACTED_PLACEHOLDER, _leak_blob(*fuse_seen))
+            _assert_speech_clean_of_secret(
+                self,
+                result,
+                secret,
+                "Dr. Patel follow-up",
+                "Dr. Patel",
+                "[redacted]",
+            )
 
 
 class SmallTalkAndHistoryTests(unittest.TestCase):
@@ -727,7 +809,7 @@ class SmallTalkAndHistoryTests(unittest.TestCase):
         low = spoken.lower()
         self.assertTrue(any(w in low for w in ("couch", "plot", "strategy", "dog")))
         self.assertTrue(
-            any(w in low for w in ("walk", "snack", "loop", "dinner", "block")),
+            any(w in low for w in ("walk", "stroll", "snack", "loop", "supper", "lane", "plot")),
             spoken,
         )
         self.assertNotRegex(low, r"\b(?:i(?:'| a)?m aria|about aria|talk(?:ing)? about aria)\b")
@@ -780,10 +862,12 @@ class VoiceBarTests(unittest.TestCase):
         self.assertTrue(
             any(
                 bit in spoken.lower()
-                for bit in ("tea", "sit", "shoes", "breath", "side", "warmth")
+                for bit in ("toaster", "bagel", "crumbs", "counter", "shoes", "breath")
             ),
             spoken,
         )
+        self.assertNotIn("perfectly browned take", spoken.lower())
+        self.assertNotIn("on your side", spoken.lower())
         _assert_friend_voice(self, spoken)
 
 
@@ -828,6 +912,9 @@ class VoiceGateTests(unittest.TestCase):
             "kept a note",
             "the useful bit",
             "the useful thought",
+            "we'll take this kindly",
+            "I'm on your side",
+            "perfectly browned take",
         ):
             self.assertIsNotNone(conversation.SELF_DESCRIBE.search(phrase), phrase)
         refer = _turn("do I have sleep apnea?")
@@ -889,9 +976,11 @@ class CallbackVoiceTests(unittest.TestCase):
         self.assertNotIn("wedding", spoken.lower())
         self.assertNotIn("sister", spoken.lower())
         self.assertTrue(
-            any(w in spoken.lower() for w in ("right here with you", "on your side")),
+            any(w in spoken.lower() for w in ("still here", "glad you stayed")),
             spoken,
         )
+        self.assertNotIn("on your side", spoken.lower())
+        self.assertNotIn("take this kindly", spoken.lower())
         self.assertNotRegex(spoken, r"(?i)\b(rating|feedback|noted)\b")
         _assert_friend_voice(self, spoken)
 
@@ -960,9 +1049,11 @@ class FeedbackHookTests(unittest.TestCase):
             after = session.turn("hey, still with me?")
             spoken = _spoken_reply(after)
             self.assertTrue(
-                any(w in spoken.lower() for w in ("right here with you", "on your side")),
+                any(w in spoken.lower() for w in ("still here", "glad you stayed")),
                 spoken,
             )
+            self.assertNotIn("on your side", spoken.lower())
+            self.assertNotIn("take this kindly", spoken.lower())
             self.assertNotRegex(spoken, r"(?i)\b(rating|feedback|noted)\b")
             _assert_friend_voice(self, spoken)
 
@@ -1165,6 +1256,9 @@ class SchemaTelemetryTests(unittest.TestCase):
 
 class SixTurnSampleTests(unittest.TestCase):
     def test_six_turn_recipe_and_extras(self):
+        self.assertEqual(PINNED_SAMPLE_PROMPTS, _FROZEN_SAMPLE_PROMPTS)
+        self.assertEqual(PINNED_THIN_PROMPT, "how am I doing?")
+        self.assertIn("chest pain and my left arm is numb", PINNED_SAMPLE_PROMPTS)
         with tempfile.TemporaryDirectory() as tmp:
             session = ChatSession(
                 payload=_payload(),
@@ -1173,29 +1267,42 @@ class SixTurnSampleTests(unittest.TestCase):
                 memory_enabled=True,
                 install_pseudonym=_PSEUDO,
             )
-            small = session.turn("my dog stole the couch again")
-            follow = session.turn("do you think he's plotting against me?")
-            safety = session.turn(
-                "I only slept a few hours and I have a hard session today"
-            )
-            vague = session.turn("how am I doing?")
-            medical = session.turn("do I have sleep apnea?")
-            joke = session.turn("are you just a fancy toaster with opinions?")
-            session.set_memory(False)
-            mem_off = session.turn("remember my sister's wedding last year?")
-            session.rate(
-                "down",
-                note="too stiff — wanted more warmth",
-                turn_id=mem_off["turn_id"],
-            )
-            after_down = session.turn("hey, still with me?")
-            chest = session.turn("chest pain and my left arm is numb")
-            emergency = session.turn("he's not breathing — call 911")
+            by_prompt: dict[str, dict] = {}
+            earlier_user: list[str] = []
+            replies: list[str] = []
+            for prompt in PINNED_SAMPLE_PROMPTS:
+                if prompt == "remember my sister's wedding last year?":
+                    session.set_memory(False)
+                row = session.turn(prompt)
+                by_prompt[prompt] = row
+                spoken = _spoken_reply(row)
+                _assert_no_quoting(self, spoken, earlier_user)
+                earlier_user.append(prompt)
+                replies.append(spoken)
+                if prompt == "remember my sister's wedding last year?":
+                    session.rate(
+                        "down",
+                        note="too stiff — wanted more warmth",
+                        turn_id=row["turn_id"],
+                    )
             thin = _turn(
-                "how am I doing?",
+                PINNED_THIN_PROMPT,
                 payload=_payload("sparse"),
                 persist_log=False,
             )
+            _assert_no_quoting(self, _spoken_reply(thin), [])
+            _assert_no_repeats(self, replies)
+
+            small = by_prompt["my dog stole the couch again"]
+            follow = by_prompt["do you think he's plotting against me?"]
+            safety = by_prompt["I only slept a few hours and I have a hard session today"]
+            vague = by_prompt["how am I doing?"]
+            medical = by_prompt["do I have sleep apnea?"]
+            joke = by_prompt["are you just a fancy toaster with opinions?"]
+            mem_off = by_prompt["remember my sister's wedding last year?"]
+            after_down = by_prompt["hey, still with me?"]
+            chest = by_prompt["chest pain and my left arm is numb"]
+            emergency = by_prompt["he's not breathing — call 911"]
 
             self.assertTrue(conversation.is_small_talk("my dog stole the couch again"))
             self.assertIn("dog", small["message"].lower())
@@ -1206,11 +1313,17 @@ class SixTurnSampleTests(unittest.TestCase):
             self.assertFalse(_spoken_digits(vague["message"]))
             self.assertNotRegex(vague["message"], r"(?i)the useful (?:bit|thought)")
             self.assertEqual(medical.get("guidance_band"), guidance.REFER_OUT)
+            self.assertTrue(
+                medical.get("guidance_band") == guidance.REFER_OUT
+                or medical.get("emergency_escalation")
+                or medical.get("medical_escalation"),
+                medical,
+            )
             self.assertNotIn("apnea", medical["message"].lower())
             self.assertNotIn("not a doctor", medical["message"].lower())
             self.assertTrue(conversation.is_joke("are you just a fancy toaster with opinions?"))
             self.assertNotRegex(joke["message"], r"(?i)\b(hero set|trainer bark)\b")
-            self.assertNotRegex(joke["message"], r"(?i)the useful (?:bit|thought)")
+            self.assertNotIn("perfectly browned take", joke["message"].lower())
             self.assertNotRegex(mem_off["message"], r"(?i)\bi remember\b")
             self.assertRegex(mem_off["message"].lower(), r"(hear|tell|story)")
             self.assertEqual(
@@ -1219,13 +1332,13 @@ class SixTurnSampleTests(unittest.TestCase):
             )
             after_low = after_down["message"].lower()
             self.assertTrue(
-                any(w in after_low for w in ("right here with you", "on your side")),
+                any(w in after_low for w in ("still here", "glad you stayed")),
                 after_down["message"],
             )
+            self.assertNotIn("on your side", after_low)
+            self.assertNotIn("take this kindly", after_low)
             self.assertNotRegex(after_down["message"], r"(?i)\b(rating|feedback|noted)\b")
-            self.assertIsNone(conversation._QUOTED_ECHO.search(after_down["message"]), after_down["message"])
             self.assertNotRegex(emergency["message"], r"(?i)^okay,\s+on")
-            self.assertIsNone(conversation._QUOTED_ECHO.search(emergency["message"]), emergency["message"])
             self.assertEqual(emergency.get("guidance_band"), guidance.EMERGENCY)
             self.assertIn("911", emergency["message"])
             self.assertIn("enough to go on", thin["message"].lower())

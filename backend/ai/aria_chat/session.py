@@ -188,6 +188,7 @@ def run_turn(
     turn_index, prior = _turn_from_history(history)
     prior = [_sanitize_or_placeholder(item, needles) for item in prior]
     last_spoken = _last_assistant(history)
+    prior_spoken = conversation.prior_spoken_from_history(history)
 
     # Phrase key / turn seed from the per-install pseudonym, never a real uid.
     # Searched the repo first: no existing per-install id; see install.py.
@@ -229,6 +230,7 @@ def run_turn(
         memory_enabled=memory_enabled,
         last_spoken=last_spoken,
         last_rating=str(last_rating or ""),
+        prior_spoken=prior_spoken,
     )
     envelope = speak_guard.guard_envelope(envelope, topic=spoken_in)
 
