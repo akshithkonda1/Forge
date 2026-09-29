@@ -96,6 +96,68 @@ def _as_datetime(value: Any) -> datetime | None:
         return None
 
 
+def pinned_today(ctx: Any) -> date | None:
+    """Simulated calendar day — never ``date.today()`` / wall clock.
+
+    Order: explicit ctx clock, then ``today.date``, then ``SIMRUNNER_TODAY``.
+    """
+    for name in ("now", "as_of", "reference_now"):
+        parsed = _as_datetime(getattr(ctx, name, None))
+        if parsed is not None:
+            return parsed.date()
+    today = getattr(getattr(ctx, "today", None), "date", None) or os.getenv("SIMRUNNER_TODAY")
+    parsed = _as_datetime(today)
+    return parsed.date() if parsed else None
+
+
+def workouts_completed_30d(ctx: Any) -> int | None:
+    """Count logged sessions in the same pinned 30-day series ACWR uses."""
+    n = getattr(ctx, "workouts_completed_30d", None)
+    if isinstance(n, int) and not isinstance(n, bool):
+        return n if n > 0 else None
+    today = pinned_today(ctx)
+    hist = list(getattr(ctx, "history", None) or [])
+    today_rec = getattr(ctx, "today", None)
+    if today_rec is not None and today_rec not in hist:
+        hist = [*hist, today_rec]
+    sessions = [r for r in hist if getattr(r, "workout_logged", False)]
+    if today is None:
+        count = len(sessions)
+        return count if count > 0 else None
+    from datetime import timedelta
+
+    cutoff = today - timedelta(days=30)
+    count = 0
+    for rec in sessions:
+        ended = _as_datetime(getattr(rec, "date", None))
+        if ended is None:
+            count += 1
+            continue
+        day = ended.date()
+        if cutoff < day <= today:
+            count += 1
+    return count if count > 0 else None
+
+
+def training_load_trend_from_load(ctx: Any) -> str | None:
+    """Load wording from the same ACWR / overtrain flag as the safety line.
+
+    iOS still hardcodes ``steady`` at three sessions. On a blocking /
+    overreached day that contradicts ``climbed fast``, so Dummy derives
+    ``rising`` from ACWR instead of inventing a second source.
+    """
+    acwr = getattr(ctx, "acwr", None)
+    if acwr is None:
+        acwr = getattr(getattr(ctx, "today", None), "acwr", None)
+    if getattr(ctx, "is_overtrained", False) or (
+        isinstance(acwr, (int, float)) and not isinstance(acwr, bool) and acwr >= 1.5
+    ):
+        return "rising"
+    hist = list(getattr(ctx, "history", None) or [])
+    n = sum(1 for r in hist if getattr(r, "workout_logged", False))
+    return "steady" if n >= 3 else None
+
+
 def _context_now(ctx: Any) -> datetime:
     """Simulated 'now' so same-day hours are not measured against the wall clock."""
     for name in ("now", "as_of", "reference_now"):
@@ -203,6 +265,10 @@ def to_production_context(ctx: SimContext) -> "ProdContext":
             hours_since_last_workout=hours_since_last_workout(ctx),
             acwr=t.acwr,
             is_overtrained=ctx.is_overtrained,
+        ),
+        progress=prod.ProgressContext(
+            workouts_completed_30d=workouts_completed_30d(ctx),
+            training_load_trend=training_load_trend_from_load(ctx),
         ),
         chronotype=prod.ChronotypeContext(
             typical_sleep_onset=onset,

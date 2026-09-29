@@ -15,8 +15,10 @@
 from __future__ import annotations
 
 import os
+import re
 import sys
 import unittest
+from datetime import date, timedelta
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[4]))
@@ -144,16 +146,20 @@ class QualitativeSpeakFallbackTests(unittest.TestCase):
 
 
 class IOSWeeklyLoadParityTests(unittest.TestCase):
-    """Dummy must send weeklyLoadScore / trainingLoadTrend the way iOS does.
+    """weeklyLoadScore still matches iOS; load trend follows the ACWR signal.
 
     AriaContextStore.swift:130 — last-7 workout minutes when >= 3 sessions.
-    AriaContextStore.swift:188 — trainingLoadTrend is 'steady' at that floor,
-    not Dummy ``readiness_trend``.
+    AriaContextStore.swift:188 hardcodes trainingLoadTrend 'steady' at that
+    floor. Dummy used to copy that, which put 'load steady' next to ACWR 1.51.
+    Non-blocking days still use the iOS floor; overreach uses 'rising'.
     """
 
     def test_ios_rule_three_or_more_sessions(self):
         ctx, _ = _ctx()
         ctx.readiness_trend = "rising"
+        ctx.is_overtrained = False
+        ctx.acwr = 1.0
+        ctx.today.acwr = 1.0
         for rec in ctx.history:
             rec.workout_logged = False
             rec.workout_duration_minutes = None
@@ -183,6 +189,9 @@ class IOSWeeklyLoadParityTests(unittest.TestCase):
 
     def test_last_seven_sessions_only(self):
         ctx, _ = _ctx()
+        ctx.is_overtrained = False
+        ctx.acwr = 1.0
+        ctx.today.acwr = 1.0
         for rec in ctx.history:
             rec.workout_logged = True
             rec.workout_duration_minutes = 10
@@ -220,7 +229,9 @@ class DummyARIAEngineUsesLambdaTests(unittest.TestCase):
         resp = engine.respond("Should I train today?", ctx, seed=1)
         self.assertIsInstance(resp.recommendation, str)
         self.assertTrue(resp.recommendation)
-        self.assertIn("sleep", resp.recommendation.lower())
+        # Sleep lives on the spoken line; the button stays distinct.
+        self.assertEqual(resp.recommendation.rstrip("."), "Keep today easy")
+        self.assertIn("sleep", (resp.prose_summary or "").lower())
 
     def test_same_day_strength_never_says_zero_hours_since(self):
         ctx, _ = _ctx()
@@ -242,6 +253,69 @@ class DummyARIAEngineUsesLambdaTests(unittest.TestCase):
         self.assertNotIn("0 h since", blob)
         self.assertNotIn("only 0 h since strength", blob)
 
+    def test_workouts_completed_30d_matches_pinned_acwr_load_series(self):
+        """Recap count uses SIMRUNNER_TODAY + the same stream ACWR used.
+
+        Main 61f5568 mapped training_streak (often 0 on a rest day) and
+        hardcoded 'steady', so Scout t13 spoke '0 workouts' next to ACWR 1.51.
+        That is a different load source, not Dummy reading datetime.now.
+        iOS AriaContextStore.swift:109 cuts back from Date() — a harness
+        clock mismatch if HealthKit dates are pinned to 2026-01-15.
+        A wall-clock last-30-days filter from date.today() finds 0 on this
+        stream; the pinned ACWR series does not.
+        """
+        os.environ["SIMRUNNER_TODAY"] = "2026-01-15"
+        model = reg.get_model("meta.llama4-scout-17b")
+        stream = generate_stream(model["behavioral_profile"], seed=42)
+        day_index = 21
+        ctx = build_context(stream, model["behavioral_profile"], day_index)
+        window = stream[max(0, day_index - 29): day_index + 1]
+        expected = sum(1 for rec in window if rec.workout_logged)
+        self.assertGreater(expected, 0)
+        self.assertEqual(ctx.workouts_completed_30d, expected)
+        self.assertEqual(ctx.today.date, window[-1].date)
+        self.assertTrue(str(ctx.today.date).startswith("2026-01-"))
+
+        wall_cutoff = date.today() - timedelta(days=30)
+        wall_count = 0
+        for rec in window:
+            if not rec.workout_logged:
+                continue
+            try:
+                rec_day = date.fromisoformat(str(rec.date)[:10])
+            except ValueError:
+                continue
+            if rec_day > wall_cutoff:
+                wall_count += 1
+        self.assertEqual(
+            wall_count,
+            0,
+            "wall-clock last-30-days would find workouts; recap must not use date.today()",
+        )
+
+        from backend.ai.simrunner.aria_simrunner import production_bridge
+
+        self.assertEqual(production_bridge.pinned_today(ctx), date.fromisoformat(ctx.today.date[:10]))
+        self.assertNotEqual(production_bridge.pinned_today(ctx), date.today())
+        self.assertEqual(production_bridge.workouts_completed_30d(ctx), expected)
+
+        payload = dummy.sim_context_to_chat_payload(ctx)
+        self.assertEqual(payload["context"]["progress"]["workoutsCompleted30d"], expected)
+        if ctx.is_overtrained or ctx.acwr >= 1.5:
+            self.assertEqual(payload["context"]["progress"]["trainingLoadTrend"], "rising")
+        engine = dummy.DummyARIAEngine()
+        resp = engine.respond("Am I making progress?", ctx, seed=42)
+        spoken = f"{resp.prose_summary or ''} {getattr(resp, 'recommendation', '') or ''}"
+        if ctx.is_overtrained:
+            self.assertFalse(re.search(r"\d", resp.prose_summary or ""), resp.prose_summary)
+            self.assertNotIn("load steady", spoken.lower())
+            self.assertNotIn("last 30 days", (resp.prose_summary or "").lower())
+            self.assertEqual(
+                resp.prose_summary,
+                "Your training has climbed fast lately, so let's ease off and rest up "
+                "for a few days. Keep today easy and call it a win. Future you says thanks.",
+            )
+
     def test_progress_question_gets_a_sized_recommendation(self):
         ctx, _ = _ctx()
         ctx.training_streak = 14
@@ -253,7 +327,19 @@ class DummyARIAEngineUsesLambdaTests(unittest.TestCase):
         self.assertTrue(str(resp.recommendation).strip())
         low = resp.recommendation.lower()
         self.assertTrue(
-            any(w in low for w in ("hold", "progress", "block", "session", "minute", "variable")),
+            any(
+                w in low
+                for w in (
+                    "hold",
+                    "progress",
+                    "block",
+                    "session",
+                    "minute",
+                    "variable",
+                    "back off",
+                    "easy",
+                )
+            ),
             resp.recommendation,
         )
 

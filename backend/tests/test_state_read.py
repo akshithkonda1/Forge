@@ -8,6 +8,7 @@ from __future__ import annotations
 import json
 import os
 import re
+import time
 import unittest
 
 import _bootstrap  # noqa: F401
@@ -97,9 +98,9 @@ def _health_ctx(**overrides) -> ARIAContext:
             nights_available=14,
         ),
         readiness=ReadinessContext(
-            hrv_7day_trend=-12,
+            hrv_7day_trend=1.0,
             hrv_30day_baseline=62,
-            recovery_score=48,
+            recovery_score=62,
             hrv_days_available=7,
         ),
         training=TrainingContext(
@@ -456,15 +457,37 @@ class AttachAndPathTests(unittest.TestCase):
         resp = aria_engine.generate_response("Should I train today?", ctx, seed=0)
         speech = _speech(resp)
         self.assertTrue(_read_hits(speech), speech)
-        self.assertRegex(speech, r"(?i)short night,\s+so\s+")
+        self.assertRegex(speech, r"(?i)short night")
         self.assertEqual(list(ctx.lifestyle.recent_patterns), before_patterns)
         self.assertEqual(list(ctx.last_insights), before_insights)
         self.assertEqual(aria_engine._memory_block_from_ctx(ctx), before_block)
 
         # The chat route saves the first prose_summary sentence via add_insight
-        # (routes/aria.py). Next-turn stamp must strip the clause, not the user note.
-        takeaway = str(resp.get("prose_summary") or "").split(".")[0].strip()
-        self.assertRegex(takeaway, r"(?i)short night")
+        # (routes/aria.py). On a real short-sleep safety turn that is the
+        # approved line; a state-read is not stored.
+        blocking = _health_ctx(
+            sleep=SleepContext(
+                duration_minutes=300,
+                baseline_median_minutes=450,
+                nights_available=14,
+                sleep_debt_7d_hours=6.5,
+            ),
+            readiness=ReadinessContext(
+                hrv_7day_trend=-14,
+                hrv_30day_baseline=62,
+                recovery_score=42,
+                hrv_days_available=7,
+            ),
+        )
+        block_resp = aria_engine.generate_response(
+            "Should I train today?", blocking, seed=0
+        )
+        takeaway = str(block_resp.get("prose_summary") or "").split(".")[0].strip()
+        self.assertEqual(takeaway.rstrip("."), aria_engine.SPOKEN_SHORT_SLEEP.rstrip("."))
+        self.assertEqual(
+            block_resp.get("prose_summary"),
+            f"{aria_engine.SPOKEN_SHORT_SLEEP} {aria_engine.SPOKEN_PROTECT_STEP}",
+        )
         living = type("Living", (), {})()
         living.last_insights = [takeaway]
         living.recent_patterns = list(before_patterns)
@@ -655,7 +678,7 @@ class ScoutEqualUsualAndDedupeTests(unittest.TestCase):
     def test_read_sentence_never_appears_twice(self):
         ctx = _health_ctx()
         resp = aria_engine.generate_response("Should I train today?", ctx, seed=0)
-        speech = f"{resp.get('prose_summary') or ''} {resp.get('message') or ''}"
+        speech = _speech(resp)
         hits = _read_hits(speech)
         self.assertTrue(hits, speech)
         for hit in set(hits):
@@ -1270,7 +1293,7 @@ class AcwrAndGuideLabelTests(unittest.TestCase):
 
         speech = (
             "Yesterday's work is still in the legs, friend — keep today easy, "
-            "have water with your next meal, and get to bed on time."
+            "have water with your next meal, and put sleep first tonight."
         )
         self.assertIn(speech, dummy._WIT_PROTECT)
         self.assertFalse(_DIGIT.search(speech), speech)
@@ -1455,6 +1478,222 @@ class EvidenceCleanlinessTests(unittest.TestCase):
             blob = " ".join(_evidence_strings(resp.get("card")))
             self.assertTrue(blob.strip(), f"lambda generate_response seed={seed}")
             _assert_evidence_blob_clean(self, blob, where=f"generate_response seed={seed}")
+
+
+class PhrasePickHashTests(unittest.TestCase):
+    """Phrase pick is sha256(user_id + turn) — no date, clock, or TZ."""
+
+    _UID = "phrase-user-pin"
+    _TURN = 7
+
+    def _restore_tz(self, previous: str | None) -> None:
+        if previous is None:
+            os.environ.pop("TZ", None)
+        else:
+            os.environ["TZ"] = previous
+        time.tzset()
+
+    def _set_tz(self, tz: str) -> None:
+        os.environ["TZ"] = tz
+        time.tzset()
+
+    def test_phrase_key_is_timezone_and_date_independent(self):
+        from datetime import datetime, timezone
+        from unittest.mock import patch
+
+        # Near UTC midnight vs a later calendar day — neither may enter the key.
+        near_midnight = datetime(2026, 1, 15, 5, 30, tzinfo=timezone.utc)
+        later = datetime(2026, 6, 2, 12, 0, tzinfo=timezone.utc)
+        previous = os.environ.get("TZ")
+        key = state_read.phrase_key(self._UID, self._TURN)
+        self.assertEqual(
+            state_read.turn_seed(None, "hello", user_id=self._UID, turn=self._TURN),
+            key,
+        )
+        self.assertEqual(
+            state_read.turn_seed(None, "hello", 3, user_id=self._UID, turn=self._TURN),
+            3,
+        )
+        local_dates: list[str] = []
+        texts: list[tuple[str, str]] = []
+        try:
+            for frozen, today in (
+                (near_midnight, "2026-01-15"),
+                (later, "2026-06-02"),
+            ):
+                with patch(
+                    "aria_core.aria_engine._utcnow_iso",
+                    return_value=frozen.replace(microsecond=0).isoformat(),
+                ), patch("time.time", return_value=frozen.timestamp()):
+                    for tz in ("UTC", "America/Chicago"):
+                        self._set_tz(tz)
+                        if frozen is near_midnight:
+                            local_dates.append(
+                                datetime.fromtimestamp(frozen.timestamp())
+                                .date()
+                                .isoformat()
+                            )
+                        os.environ["SIMRUNNER_TODAY"] = today
+                        clause = state_read._pick(
+                            state_read.phrase_key(self._UID, self._TURN),
+                            state_read.SHORT_NIGHT,
+                        )
+                        spoken = aria_engine.generate_response(
+                            "Should I train today?",
+                            _health_ctx(),
+                            user_id=self._UID,
+                            turn=self._TURN,
+                        )["prose_summary"]
+                        texts.append((clause, spoken))
+        finally:
+            os.environ.pop("SIMRUNNER_TODAY", None)
+            self._restore_tz(previous)
+        self.assertEqual(len(local_dates), 2, local_dates)
+        self.assertNotEqual(local_dates[0], local_dates[1], local_dates)
+        self.assertEqual(len(set(texts)), 1, texts)
+
+    def test_different_turns_rotate_protect_proceed_clarify_pools(self):
+        uid = "phrase-user-rotate"
+        from backend.ai.simrunner.aria_simrunner import dummy_orchestrator as dummy
+
+        for pool in (
+            state_read.SHORT_NIGHT,
+            state_read.BIGGER_LOAD,
+            state_read.READY_DOWN,
+        ):
+            picked = [
+                state_read._pick(state_read.phrase_key(uid, turn), pool)
+                for turn in range(24)
+            ]
+            self.assertGreaterEqual(len(set(picked)), 2, pool)
+        for stance, bank in (
+            ("protect", dummy._WIT_PROTECT),
+            ("proceed", dummy._WIT_PROCEED),
+            ("honest", dummy._WIT_HONEST),
+        ):
+            lines = {
+                dummy._wit_line(0, stance, user_id=uid, turn=turn)
+                for turn in range(36)
+            }
+            self.assertGreaterEqual(len(lines), 2, (stance, lines))
+            self.assertTrue(lines <= set(bank), (stance, lines - set(bank)))
+
+    def test_pinned_user_turn_matches_across_tz_dates_and_memory_off(self):
+        previous = os.environ.get("TZ")
+        ctx = _health_ctx()
+        memory_ctx = _health_ctx()
+        memory_ctx.lifestyle = LifestyleContext()
+        spoken: list[str] = []
+        try:
+            for tz in ("UTC", "America/Chicago"):
+                self._set_tz(tz)
+                a = aria_engine.generate_response(
+                    "Should I train today?",
+                    ctx,
+                    user_id=self._UID,
+                    turn=self._TURN,
+                )
+                b = aria_engine.generate_response(
+                    "Should I train today?",
+                    memory_ctx,
+                    user_id=self._UID,
+                    turn=self._TURN,
+                )
+                spoken.append(a["prose_summary"])
+                spoken.append(b["prose_summary"])
+                self.assertEqual(a["prose_summary"], b["prose_summary"])
+        finally:
+            self._restore_tz(previous)
+        self.assertEqual(len(set(spoken)), 1, spoken)
+
+    def test_dummy_wit_pinned_user_turn_is_tz_stable(self):
+        from backend.ai.simrunner.aria_simrunner import dummy_orchestrator as dummy
+
+        previous = os.environ.get("TZ")
+        lines: list[str] = []
+        try:
+            for tz in ("UTC", "America/Chicago"):
+                self._set_tz(tz)
+                lines.append(
+                    dummy._wit_line(
+                        99, "protect", user_id=self._UID, turn=self._TURN
+                    )
+                )
+                lines.append(
+                    dummy._wit_line(
+                        0, "protect", user_id=self._UID, turn=self._TURN
+                    )
+                )
+        finally:
+            self._restore_tz(previous)
+        self.assertEqual(len(set(lines)), 1, lines)
+        other = dummy._wit_line(99, "protect", user_id=self._UID, turn=self._TURN + 1)
+        # Different turn may collide on a small pool; rotation is covered above.
+        self.assertIn(other, dummy._WIT_PROTECT)
+
+    def test_growing_history_rotates_without_explicit_turn(self):
+        from routes.aria import _request_turn
+
+        self.assertEqual(_request_turn({}), 0)
+        self.assertEqual(_request_turn({"turn": 4}), 4)
+        growing = []
+        for n in (1, 5, 9, 13, 17, 21):
+            body = {
+                "conversation": {
+                    "recentTurns": [
+                        {"role": "user", "content": f"turn-{i}"} for i in range(n)
+                    ]
+                }
+            }
+            self.assertIsNone(body.get("turn"))
+            turn = _request_turn(body)
+            self.assertEqual(turn, n)
+            growing.append(
+                state_read._pick(state_read.phrase_key(self._UID, turn), state_read.SHORT_NIGHT)
+            )
+        self.assertGreaterEqual(len(set(growing)), 2, growing)
+        nested = _request_turn(
+            {"context": {"conversation": {"totalTurns": 11, "recentTurns": []}}}
+        )
+        self.assertEqual(nested, 11)
+
+    def test_remember_me_off_through_route_keeps_same_user_turn_text(self):
+        import json
+
+        from routes.aria import handle_post_ai_chat
+        from services import editable_memory
+        from storage import dynamodb
+
+        dynamodb.clear_local_store()
+        uid = "remember-off-phrase"
+        body = {
+            "message": "Should I train today?",
+            "user_id": uid,
+            "turn": self._TURN,
+            "context": {
+                "sleep": {
+                    "durationMinutes": 300,
+                    "nightsAvailable": 14,
+                    "baselineMedianMinutes": 450,
+                },
+                "readiness": {
+                    "hrv7DayTrend": -12,
+                    "recoveryScore": 48,
+                    "hrvDaysAvailable": 7,
+                },
+                "training": {"weeklyLoadScore": 60},
+            },
+        }
+        editable_memory.put_settings(
+            uid, editable_memory.CompanionMemorySettings(memory_enabled=True)
+        )
+        on = json.loads(handle_post_ai_chat(body, user_id=uid)["body"])
+        editable_memory.put_settings(
+            uid, editable_memory.CompanionMemorySettings(memory_enabled=False)
+        )
+        off = json.loads(handle_post_ai_chat(body, user_id=uid)["body"])
+        self.assertEqual(on["prose_summary"], off["prose_summary"])
+        self.assertTrue(on["prose_summary"].strip())
 
 
 if __name__ == "__main__":

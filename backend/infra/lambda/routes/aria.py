@@ -88,17 +88,36 @@ def _denied_lifestyle_token(token: str) -> bool:
     return bool(_DENIED_LIFESTYLE.search(str(token or "").strip()))
 
 
+_RISK_MEMORY = re.compile(
+    r"(?i)\b(?:overtrain\w*|overreach\w*|fatigue|deload|acwr|debt)\b"
+    r"|workload is running hot"
+    r"|\d+(?:\.\d+)?\s*h short"
+)
+_STUCK_UNIT = re.compile(r"\d+(?:\.\d+)?[A-Za-z]")
+
+
 def _insight_takeaway(prose: str) -> str:
     """First real sentence of ``prose_summary``. Skip any takeaway with a digit.
 
     ``str.split(".")`` used to cut ``6.5 h`` down to ``...at 6``.
+    Blocking-pattern ``card['risk']`` wording and state-read clauses are never
+    stored in last_insights.
     """
     text = str(prose or "").strip()
     if not text:
         return ""
     first = re.split(r"(?<=[.!?])\s+", text, maxsplit=1)[0].strip()
-    if not first or re.search(r"\d", first):
+    if not first or re.search(r"\d", first) or _STUCK_UNIT.search(first):
         return ""
+    if _RISK_MEMORY.search(first):
+        return ""
+    try:
+        from aria_core import state_read
+
+        if state_read._already_has_read(first):
+            return ""
+    except Exception:
+        pass
     return first
 
 
@@ -234,6 +253,56 @@ def _merge_fusion(response: dict[str, Any], fused: Any) -> None:
     response["fusion"] = {**sidecar, **existing}
 
 
+def _conversation_block(body: dict[str, Any]) -> dict[str, Any]:
+    """Conversation history from this request body only — never persisted memory."""
+    conv = body.get("conversation")
+    if isinstance(conv, dict):
+        return conv
+    ctx = body.get("context")
+    if isinstance(ctx, dict) and isinstance(ctx.get("conversation"), dict):
+        return ctx["conversation"]
+    return {}
+
+
+def _turn_from_history(body: dict[str, Any]) -> int:
+    """Count prior turns from the inbound conversation payload."""
+    conv = _conversation_block(body)
+    for key in ("totalTurns", "total_turns"):
+        raw = conv.get(key)
+        if raw is None:
+            continue
+        try:
+            return max(0, int(raw))
+        except (TypeError, ValueError):
+            pass
+    for key in ("recentTurns", "recent_turns"):
+        recent = conv.get(key)
+        if isinstance(recent, list):
+            return len(recent)
+    for key in ("history", "prior_turns", "messages"):
+        rows = body.get(key)
+        if isinstance(rows, list):
+            return len(rows)
+    return 0
+
+
+def _request_turn(body: dict[str, Any]) -> int:
+    """Turn counter from the request/session, else inbound conversation history.
+
+    Never reads remember_short_term, last_insights, notes, or persisted fusion.
+    """
+    raw = body.get("turn")
+    session = body.get("session")
+    if raw is None and isinstance(session, dict):
+        raw = session.get("turn")
+    if raw is not None:
+        try:
+            return max(0, int(raw))
+        except (TypeError, ValueError):
+            pass
+    return _turn_from_history(body)
+
+
 def _checked_speak(fn, *args, **kwargs):
     """Small SimRunner check. Weak evidence becomes an estimate, not an error."""
     from aria_core import prompt_guard
@@ -274,6 +343,7 @@ def handle_post_ai_chat(body: dict[str, Any], *, user_id: str) -> dict:
     fused = fusion_mod.fuse_turn(uid, payload, permissions, persist=True, load_learner=True)
     context = fused.context
     persona = fused.persona
+    turn = _request_turn(body)
     from services import editable_memory
 
     mem_settings = editable_memory.get_settings(uid)
@@ -308,6 +378,8 @@ def handle_post_ai_chat(body: dict[str, Any], *, user_id: str) -> dict:
             voice_mode=voice_mode,
             persona=persona,
             baselines=fused.baselines,
+            user_id=uid,
+            turn=turn,
         )
         _merge_fusion(response, fused)
         response.update(
@@ -349,6 +421,8 @@ def handle_post_ai_chat(body: dict[str, Any], *, user_id: str) -> dict:
             voice_mode=voice_mode,
             persona=persona,
             baselines=fused.baselines,
+            user_id=uid,
+            turn=turn,
         )
         response = aria_engine.generate_response_live(
             message,
@@ -358,6 +432,8 @@ def handle_post_ai_chat(body: dict[str, Any], *, user_id: str) -> dict:
             agents=roster,
             persona=persona,
             baselines=fused.baselines,
+            user_id=uid,
+            turn=turn,
         )
     else:
         response = _checked_speak(
@@ -368,6 +444,8 @@ def handle_post_ai_chat(body: dict[str, Any], *, user_id: str) -> dict:
             voice_mode=voice_mode,
             persona=persona,
             baselines=fused.baselines,
+            user_id=uid,
+            turn=turn,
         )
         response["agent"] = roster[0]
         response["agents"] = roster

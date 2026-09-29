@@ -91,6 +91,10 @@ _ZERO_HOURS_RE = re.compile(
 _MULTI_SPACE = re.compile(r"\s{2,}")
 _SENTENCE_SPLIT = re.compile(r"(?<=[.!?])\s+")
 _CLAUSE_SPLIT = re.compile(r"(\s*[—–;]\s*)")
+# Card/button copy: "Show deload week." / "Show recovery plan." — never spoken.
+# "Show up for ten easy minutes..." has more than two words after Show, so it passes.
+_SHOW_BUTTON = re.compile(r"^Show \w+( \w+)?\.$")
+_SPOKEN_JARGON = re.compile(r"(?i)\b(?:overtrain\w*|overreach\w*|fatigue|deload|acwr)\b")
 # Structured-message headers that become "Why." / "Timing." when the body
 # is stripped. Never leave a bare label in spoken text.
 _SECTION_LABELS = (
@@ -120,9 +124,13 @@ def user_visible(row: dict[str, Any] | None) -> str:
     """Join the fields a person (or voice) actually hears."""
     row = row or {}
     card = row.get("card") if isinstance(row.get("card"), dict) else {}
+    prose = str(row.get("prose_summary") or "")
+    chat = str(row.get("message") or "")
+    if chat and prose and _norm(chat) == _norm(prose):
+        chat = ""
     parts = [
-        row.get("prose_summary") or "",
-        row.get("message") or "",
+        prose,
+        chat,
         row.get("recommendation") or "",
         card.get("action") or "",
         card.get("why") or "",
@@ -200,6 +208,7 @@ def guard_speak(
     cleaned = _rewrite_zero_hours(raw)
     cleaned = _strip_denied(cleaned, _deny_phrases())
     cleaned = _strip_memory(cleaned, notes, original=raw)
+    cleaned = _strip_button_sentences(cleaned, card)
     cleaned = _strip_bare_labels(cleaned)
     cleaned = _dedupe_fragments(cleaned)
     cleaned = _strip_bare_labels(cleaned)
@@ -393,11 +402,63 @@ _GENERIC_STEPS = (
 )
 
 
+def is_button_sentence(sentence: str, card: dict[str, Any] | None = None) -> bool:
+    """True when a sentence is card-button copy, not a spoken line.
+
+    Fails ``Show deload week.`` (and any ``^Show \\w+( \\w+)?\\.$`` label).
+    Passes ``Show up for ten easy minutes and call it a win.``
+    Also fails any sentence that exactly equals ``card.action`` (normalized
+    for case, whitespace, and a trailing period), not only ``Show …`` labels.
+    """
+    text = str(sentence or "").strip()
+    if not text:
+        return False
+    ended = text if text.endswith(".") else f"{text}."
+    if _SHOW_BUTTON.match(text) or _SHOW_BUTTON.match(ended):
+        return True
+    if not isinstance(card, dict):
+        return False
+    buttons: list[str] = []
+    for key in ("action", "recommendation"):
+        raw = str(card.get(key) or "").strip()
+        if raw:
+            buttons.append(raw)
+    ev = card.get("evidence") if isinstance(card.get("evidence"), dict) else {}
+    for action in ev.get("actions") or ():
+        raw = str(action or "").strip()
+        if raw:
+            buttons.append(raw)
+    text_key = _norm(text)
+    for raw in buttons:
+        if _norm(raw) == text_key:
+            return True
+    return False
+
+
+def spoken_has_button(text: str, card: dict[str, Any] | None = None) -> bool:
+    """True when any spoken sentence is a card/button label."""
+    for part in _SENTENCE_SPLIT.split(str(text or "").strip()):
+        sentence = part.strip()
+        if sentence and is_button_sentence(sentence, card):
+            return True
+    return False
+
+
+def _strip_button_sentences(text: str, card: dict[str, Any] | None = None) -> str:
+    parts = [s.strip() for s in _SENTENCE_SPLIT.split((text or "").strip()) if s.strip()]
+    if not parts:
+        return text
+    kept = [s for s in parts if not is_button_sentence(s, card)]
+    return " ".join(kept)
+
+
 def _is_usable_step(raw: str, denied: tuple[str, ...]) -> bool:
     text = str(raw or "").strip()
     if not text:
         return False
     if text.lower().rstrip(".") in _GENERIC_STEPS:
+        return False
+    if is_button_sentence(text):
         return False
     if any(p.lower() in text.lower() for p in denied):
         return False
@@ -557,7 +618,15 @@ def _append_guarded_step(
     """
     step = _tidy(_strip_memory(str(step or ""), notes, original=step))
     if not step or _has_banned_vitals(step):
-        step = _SIZED_FRIEND_STEP if _is_training_topic(topic) else ""
+        low = cleaned.lower()
+        if (
+            "ease off and rest up for a few days" in low
+            or "ease off for a few days" in low
+            or "sleep comes first" in low
+        ):
+            step = "Keep today easy and call it a win"
+        else:
+            step = _SIZED_FRIEND_STEP if _is_training_topic(topic) else ""
         if not step:
             return cleaned
     joined = _tidy(_join_with_step(cleaned, step))

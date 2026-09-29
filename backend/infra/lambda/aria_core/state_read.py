@@ -11,8 +11,8 @@ the same seed always yields the same wording (SimRunner replay).
 
 from __future__ import annotations
 
+import hashlib
 import re
-import zlib
 from typing import Any, Iterable
 
 from . import speak_guard
@@ -158,12 +158,34 @@ def phrase_bank() -> tuple[str, ...]:
     return PHRASE_BANK
 
 
-def turn_seed(ctx: Any, message: str, seed: int | None = None) -> int:
-    """Deterministic turn/user/day seed. Explicit seed wins for tests/replay."""
+def phrase_key(user_id: str | None, turn: int | None) -> int:
+    """Stable sha256 of request/session user id + turn. No date or clock.
+
+    Uses hashlib.sha256 (not Python's randomized ``hash()``). The id and
+    counter come from the request/session only — never memory, persona,
+    notes, last_insights, calendar, or wall clock.
+    """
+    uid = str(user_id or "")
+    try:
+        counter = int(turn) if turn is not None else 0
+    except (TypeError, ValueError):
+        counter = 0
+    digest = hashlib.sha256(f"{uid}\0{counter}".encode("utf-8")).digest()
+    return int.from_bytes(digest[:8], "big") & 0xFFFFFFFF
+
+
+def turn_seed(
+    ctx: Any,
+    message: str,
+    seed: int | None = None,
+    *,
+    user_id: str | None = None,
+    turn: int | None = None,
+) -> int:
+    """Deterministic phrase seed. Explicit seed wins for tests/replay."""
     if seed is not None:
         return int(seed) & 0xFFFFFFFF
-    raw = f"{getattr(ctx, 'timestamp', '') or ''}|{message or ''}"
-    return zlib.adler32(raw.encode("utf-8", "replace")) & 0xFFFFFFFF
+    return phrase_key(user_id, turn)
 
 
 def phrase_key(
@@ -208,11 +230,19 @@ def apply_to_envelope(
     selected = _select(ctx, seed)
     if not selected:
         return envelope
+    prose = str(envelope.get("prose_summary") or "")
+    chat = str(envelope.get("message") or "")
+    # Real short-sleep / overtrain already has the one approved step.
+    # Do not attach "Not quite at your usual" / "Bigger training week".
+    if any(
+        _is_safety_sentence(part)
+        for part in _SENTENCE_SPLIT.split(f"{prose} {chat}")
+        if part.strip()
+    ):
+        return envelope
     kind, clause, direction = selected
     if _contradicts_user(message, kind, direction):
         return envelope
-    prose = str(envelope.get("prose_summary") or "")
-    chat = str(envelope.get("message") or "")
     if _already_has_read(prose) or _already_has_read(chat):
         return envelope
     card = envelope.get("card") if isinstance(envelope.get("card"), dict) else {}
@@ -576,6 +606,17 @@ def _sentence_case(text: str) -> str:
     return text
 
 
+_SAFETY_PREFIXES = (
+    "you've been running short",
+    "your training has climbed fast lately",
+)
+
+
+def _is_safety_sentence(sentence: str) -> bool:
+    low = (sentence or "").strip().lower()
+    return any(low.startswith(prefix) for prefix in _SAFETY_PREFIXES)
+
+
 def _join_read(speech: str, clause: str, *, ack: bool, direction: str = "") -> str:
     if not clause or not (speech or "").strip():
         return speech
@@ -585,6 +626,25 @@ def _join_read(speech: str, clause: str, *, ack: bool, direction: str = "") -> s
     parts = [s.strip() for s in _SENTENCE_SPLIT.split(body) if s.strip()]
     if not parts:
         return speech
+    safety_parts = [part for part in parts if _is_safety_sentence(part)]
+    if safety_parts:
+        # Real short-sleep / overtrain only: safety, then the exact protect
+        # step, then the read. Ordinary turns keep the 61f5568 in-place join.
+        step_i = next((i for i, sentence in enumerate(parts) if _has_step(sentence)), None)
+        if step_i is None:
+            return speech
+        sentence = parts[step_i]
+        rest = [
+            part
+            for i, part in enumerate(parts)
+            if i != step_i and not _is_safety_sentence(part)
+        ]
+        lead_line = lead if lead.endswith((".", "!", "?")) else f"{lead}."
+        extra = []
+        if lead_line.lower().rstrip(".") not in " ".join(rest).lower():
+            extra = [lead_line]
+        step = sentence if sentence.endswith((".", "!", "?")) else f"{sentence}."
+        return " ".join([*safety_parts, step, *extra, *rest])
     for i, sentence in enumerate(parts):
         if not _has_step(sentence):
             continue

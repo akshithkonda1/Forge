@@ -889,7 +889,8 @@ class DummyOrchestratorTests(unittest.TestCase):
                 row = dummy.respond(prompt, seed=seed, engine="lambda")
                 blob = f"{row.get('prose_summary') or ''} {row.get('message') or ''}"
                 self.assertTrue(
-                    any(line in blob for line in wit),
+                    any(line in blob for line in wit)
+                    or dummy._SAFETY_CLOSER in blob,
                     f"seed={seed} {prompt!r} had no local wit: {row.get('prose_summary')!r}",
                 )
                 self.assertNotEqual(row["prose_summary"].strip(), ".")

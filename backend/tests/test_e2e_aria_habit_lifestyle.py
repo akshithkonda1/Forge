@@ -5,6 +5,7 @@ Locks the contract that ``habit:<id>:<domain>:<score>`` tags (at least
 separate path (short night + falling HRV) and must not be the reason a habit
 tag appears to "work".
 """
+import re
 import unittest
 
 import _bootstrap  # noqa: F401
@@ -106,6 +107,7 @@ class SleepVarianceHabitSteersProseTests(unittest.TestCase):
         self.assertTrue(_mentions_variance_or_irregular(resp["confidence_reason"]))
         # Sleep-first gate needs short sleep + falling HRV — this path must not use it.
         self.assertNotIn("sleep debt", resp["confidence_reason"].lower())
+        self.assertNotIn("sleep comes first", resp["prose_summary"].lower())
         self.assertNotIn("sleep first", resp["prose_summary"].lower())
 
     def test_same_metrics_without_habit_tag_do_not_claim_variance(self):
@@ -135,7 +137,12 @@ class SleepFirstGateTests(unittest.TestCase):
         resp = aria_engine.generate_response("should I train hard today?", ctx)
         self.assertEqual(resp["response_type"], "recommendation")
         self.assertIn("sleep", resp["prose_summary"].lower())
-        self.assertIn("sleep first", resp["prose_summary"].lower())
+        self.assertIn("sleep comes first", resp["prose_summary"].lower())
+        self.assertIn("running short on sleep", resp["prose_summary"].lower())
+        in_line = len(re.findall(r"(?i)\bsleep\b", aria_engine.SPOKEN_SHORT_SLEEP))
+        self.assertLessEqual(
+            len(re.findall(r"(?i)\bsleep\b", resp["prose_summary"])), in_line
+        )
         self.assertLessEqual(resp["confidence"], 0.60)
 
     def test_no_gate_when_sleep_ok(self):

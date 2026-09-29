@@ -80,6 +80,9 @@ class ARIAContext:
     # not sustained cardio strain) specifically, not just "trained N days ago."
     last_workout_type: str | None = None
     last_workout_peak_hr: int | None = None
+    # Same 30-day stream window ACWR is computed from (not a consecutive
+    # streak, not a wall-clock Date() cutoff).
+    workouts_completed_30d: int | None = None
 
 
 def _mean(values: list[float]) -> float:
@@ -156,6 +159,9 @@ def build_context(stream: list[DailyRecord], profile: dict, day_index: int = 29)
         ) if value is None
     ]
 
+    window30 = stream[max(0, day_index - 29): day_index + 1]
+    workouts_30d = sum(1 for r in window30 if r.workout_logged)
+
     return ARIAContext(
         user_name=str(profile.get("occupation", "user")).title().split("→")[0],
         chronotype=chrono,
@@ -189,6 +195,7 @@ def build_context(stream: list[DailyRecord], profile: dict, day_index: int = 29)
         missing_fields=missing_fields,
         last_workout_type=last_workout_type,
         last_workout_peak_hr=last_workout_peak_hr,
+        workouts_completed_30d=workouts_30d if workouts_30d > 0 else None,
     )
 
 

@@ -179,6 +179,43 @@ def _pick(seed: int, options: list[str]) -> str:
     return options[abs(seed) % len(options)]
 
 
+def _phrase_user_id(model_id: str | None) -> str:
+    """Fixed per-persona request id. Never read from memory or notes."""
+    return str(model_id or "").strip() or "test-user-00000000"
+
+
+def _phrase_turn(prior_turns: list[str] | None, seed: int) -> int:
+    """Turn counter from the session (prior turns) or the request seed."""
+    if prior_turns is not None:
+        return len(prior_turns) + 1
+    try:
+        return int(seed)
+    except (TypeError, ValueError):
+        return 0
+
+
+def _phrase_pick_seed(
+    seed: int,
+    user_id: str | None = None,
+    turn: int | None = None,
+) -> int:
+    """sha256(user_id + turn) when those are present; else the explicit seed."""
+    if user_id is None and turn is None:
+        return int(seed)
+    try:
+        from backend._paths import ensure_lambda_on_path
+
+        ensure_lambda_on_path()
+        from aria_core import state_read
+
+        return state_read.phrase_key(user_id, turn)
+    except Exception:
+        import hashlib
+
+        raw = f"{user_id or ''}\0{int(turn or 0)}".encode("utf-8")
+        return int.from_bytes(hashlib.sha256(raw).digest()[:8], "big") & 0xFFFFFFFF
+
+
 @dataclass(frozen=True)
 class Worker:
     id: str
@@ -833,6 +870,16 @@ _VITALS_SPEAK = re.compile(
 _SPEAK_FALLBACK = (
     "I'm with you. Let's pick one next step that respects today rather than performing it."
 )
+_SAFETY_CLOSER = "Future you says thanks."
+_SAFETY_PREFIXES = (
+    "you've been running short on sleep this week",
+    "your training has climbed fast lately",
+)
+
+
+def _safety_speak_body(text: str) -> bool:
+    low = (text or "").strip().lower()
+    return any(low.startswith(prefix) or f". {prefix}" in low for prefix in _SAFETY_PREFIXES)
 _CHEER_SLUDGE = re.compile(
     r"\b("
     r"crushing it|you're killing it|you got this|you've got this|"
@@ -850,7 +897,7 @@ _WIT_PROTECT = (
     "Cozy-sweater day, not montage day — ten easy minutes, water nearby, and sleep first, lights out a little earlier.",
     "Even sparkly people need a restock — skip the extra work and protect sleep tonight with a kinder wind-down.",
     "Today whispered please-be-nice — so we will: keep it kind, light movement, protein with the next meal, and put sleep first.",
-    "Nothing heroic today, friend — just an easy loop and prioritize sleep tonight. Future you says thanks.",
+    "Nothing heroic today, friend — just an easy loop, then sleep first tonight. Future you says thanks.",
     "I love the ambition and I'm still tucking it in — keep today kind and light, sleep first, training later.",
     "Your tank's on the cute low-power glow — easy movement only, then we protect sleep tonight.",
     "I'm taking care of you, not casting you as the montage hero — short and kind, then prioritize sleep.",
@@ -987,7 +1034,13 @@ def _collapse_spoken(text: str) -> str:
     return re.sub(r"\s+", " ", body).strip()
 
 
-def _wit_line(seed: int, stance: str = "", signals: SignalRead | None = None) -> str:
+def _wit_line(
+    seed: int,
+    stance: str = "",
+    signals: SignalRead | None = None,
+    user_id: str | None = None,
+    turn: int | None = None,
+) -> str:
     """One seed-indexed bank line. Same banks as PR #284 — no parallel system."""
     sleep = getattr(signals, "sleep", "") if signals is not None else ""
     if stance == "protect" or sleep == "thin":
@@ -996,7 +1049,8 @@ def _wit_line(seed: int, stance: str = "", signals: SignalRead | None = None) ->
         bank = _WIT_PROCEED
     else:
         bank = _WIT_HONEST
-    return _pick(seed ^ 17, list(bank))
+    pick = _phrase_pick_seed(seed, user_id, turn)
+    return _pick(pick ^ 17, list(bank))
 
 
 # --- Topic-aware, number-free substance for the scrub-fallback path ----------
@@ -1110,6 +1164,8 @@ def friend_speak(
     guidance: str | None = None,
     short_ok: bool = False,
     topic: str = "",
+    user_id: str | None = None,
+    turn: int | None = None,
 ) -> str:
     """Bubbly/kind friend with a point — funny take + one useful improve.
 
@@ -1125,7 +1181,14 @@ def friend_speak(
         return str(text or "").strip()
     body = _CHEER_SLUDGE.sub("that's real work", _collapse_spoken(text))
     body = re.sub(r"^[\s.,;:—–\-]+", "", body).strip()
-    extra = _wit_line(seed, stance, signals)
+    extra = _wit_line(seed, stance, signals, user_id=user_id, turn=turn)
+    if _safety_speak_body(body):
+        closer = _SAFETY_CLOSER
+        if closer.lower() not in body.lower():
+            if body[-1] not in ".!?":
+                body += "."
+            body = f"{body} {closer}"
+        return _apply_speak_guard(_speak_without_vitals(body))
     if not body or body == _SPEAK_FALLBACK or _THIN_SPEAK.match(body):
         # The real engine often DID build a substantive answer here — it just
         # got fully scrubbed for citing a raw number (see _qualitative_speak's
@@ -1677,11 +1740,37 @@ def _ios_weekly_load_score(ctx) -> float | None:
 
 
 def _ios_training_load_trend(ctx) -> str | None:
-    """AriaContextStore.swift:188 — 'steady' when >= 3 workouts, else None.
+    """Load wording from the same ACWR / overtrain flag as the safety line.
 
-    Dummy used to map ``readiness_trend`` onto this field; iOS does not.
+    iOS AriaContextStore.swift:188 hardcodes ``steady`` at >= 3 sessions.
+    That second source is how Scout t13 / Command-R+ t8 said ``load steady``
+    next to ACWR 1.51. Dummy now derives rising from the overtrain signal
+    and only uses the iOS floor when load is not blocked.
     """
-    return "steady" if len(_workout_sessions(ctx)) >= 3 else None
+    try:
+        from .production_bridge import training_load_trend_from_load
+
+        return training_load_trend_from_load(ctx)
+    except Exception:
+        return "steady" if len(_workout_sessions(ctx)) >= 3 else None
+
+
+def _ios_workouts_completed_30d(ctx) -> int | None:
+    """30-day session count from the pinned stream, never ``training_streak``.
+
+    AriaContextStore.swift:109 cuts back from ``Date()`` (wall clock). Dummy
+    must use ``today.date`` / ``SIMRUNNER_TODAY`` so a 2026-01-15 persona
+    is not counted against real now.
+    """
+    try:
+        from .production_bridge import workouts_completed_30d
+
+        return workouts_completed_30d(ctx)
+    except Exception:
+        n = getattr(ctx, "workouts_completed_30d", None)
+        if isinstance(n, int) and not isinstance(n, bool) and n > 0:
+            return n
+        return None
 
 
 def _hrv_trend_points(ctx) -> float | None:
@@ -1825,7 +1914,7 @@ def sim_context_to_chat_payload(
             },
             "progress": {
                 "trainingLoadTrend": _ios_training_load_trend(ctx),
-                "workoutsCompleted30d": getattr(ctx, "training_streak", None),
+                "workoutsCompleted30d": _ios_workouts_completed_30d(ctx),
             },
             "lifestyle": {
                 "tags": tags,
@@ -1960,6 +2049,8 @@ def _respond_via_lambda(
         guidance=guidance,
         short_ok=True,
         topic=plan.primary.kind,
+        user_id=phrase_uid,
+        turn=phrase_turn,
     )
     chat = friend_speak(
         envelope.get("message") or prose,
@@ -1969,6 +2060,8 @@ def _respond_via_lambda(
         guidance=guidance,
         short_ok=True,
         topic=plan.primary.kind,
+        user_id=phrase_uid,
+        turn=phrase_turn,
     )
     prose = _speak_without_vitals(prose)
     chat = _speak_without_vitals(chat, prose)
@@ -2321,7 +2414,14 @@ def respond(
         stub_stance = "proceed"
     else:
         stub_stance = ""
-    prose = friend_speak(prose, seed=seed, stance=stub_stance, signals=signals)
+    prose = friend_speak(
+        prose,
+        seed=seed,
+        stance=stub_stance,
+        signals=signals,
+        user_id=phrase_uid,
+        turn=phrase_turn,
+    )
     # Optional web note stays as a short trailing cite — not a specialist dump.
     # Scrub vitals inside the cite first so VO2 in a MedlinePlus title cannot
     # make `_speak_without_vitals` discard the whole "From …" provenance.

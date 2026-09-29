@@ -271,7 +271,7 @@ def normalize_coach_agents(raw: Any | None, single: Any | None = None) -> list[s
 
 
 def _utcnow_iso() -> str:
-    return datetime.now(timezone.utc).isoformat()
+    return datetime.now(timezone.utc).replace(microsecond=0).isoformat()
 
 
 @dataclass
@@ -2194,6 +2194,225 @@ def _lifestyle_notice(notice: str, brief: Any, fallback: str) -> str:
     return _speak_without_vitals(how, move, fallback, notice)
 
 
+# Spoken safety lines for a blocking pattern. Raw card['risk'] / pattern.notice
+# (ACWR, "overtraining risk", "11.7h short") is never spoken.
+SPOKEN_OVERTRAIN = (
+    "Your training has climbed fast lately, so let's ease off and rest up for a few days."
+)
+SPOKEN_SHORT_SLEEP = "You've been running short on sleep this week, so sleep comes first."
+SPOKEN_PROTECT_STEP = "Keep today easy and call it a win."
+SPOKEN_SAFETY_CLOSER = "Future you says thanks."
+BUTTON_SHORT_SLEEP = "Keep today easy."
+BUTTON_OVERTRAIN = "Back off and keep today easy."
+_SPOKEN_JARGON = re.compile(r"(?i)\b(?:overtrain\w*|overreach\w*|fatigue|deload|acwr)\b")
+
+
+def _sleep_protect_active(load: Any) -> bool:
+    """True when the sleep-protect gate is also on (protect wins over overreaching)."""
+    if load is None:
+        return False
+    from .aria_evidence import SLEEP_DEBT_7D_H, SLEEP_DEBT_TONIGHT_H
+
+    debt_7 = float(getattr(load, "sleep_debt_7d_h", 0) or 0)
+    tonight = float(getattr(load, "sleep_debt_tonight_h", 0) or 0)
+    hrv = getattr(load, "hrv_trend", None)
+    if debt_7 > SLEEP_DEBT_7D_H:
+        return True
+    if hrv is not None and hrv <= -8 and (
+        tonight > SLEEP_DEBT_TONIGHT_H or debt_7 > SLEEP_DEBT_7D_H
+    ):
+        return True
+    return False
+
+
+def spoken_safety_line(pattern: Any, load: Any = None) -> str:
+    """Clean direction line when ``blocks_intensity``. Protect's line wins."""
+    if pattern is None or not getattr(pattern, "blocks_intensity", False):
+        return ""
+    key = str(getattr(pattern, "key", "") or "")
+    if key in {"sleep_debt", "under_recovery"} or _sleep_protect_active(load):
+        return SPOKEN_SHORT_SLEEP
+    if key == "overreaching" or bool(getattr(load, "is_overtrained", False)):
+        return SPOKEN_OVERTRAIN
+    return ""
+
+
+def _norm_spoken(text: str) -> str:
+    return re.sub(r"\s+", " ", (text or "").strip().lower()).rstrip(".!?")
+
+
+def _split_spoken(text: str) -> list[str]:
+    return [p.strip() for p in re.split(r"(?<=[.!?])\s+", (text or "").strip()) if p.strip()]
+
+
+def _end_spoken(text: str) -> str:
+    line = (text or "").strip()
+    if not line:
+        return ""
+    return line if line.endswith((".", "!", "?")) else f"{line}."
+
+
+def _is_blocking_orphan(sentence: str) -> bool:
+    """Drop garbled leftovers like ``a solid night.`` (lowercase / too short)."""
+    body = (sentence or "").strip().rstrip(".!?…")
+    if not body:
+        return True
+    words = re.findall(r"[A-Za-z0-9']+", body)
+    if len(words) < 3:
+        return True
+    if body[0].islower() and not body.startswith(("I ", "I'm ", "I'll ", "I've ", "I'd ")):
+        return True
+    return False
+
+
+def _polish_blocking_speak(text: str, *, safety: str = "", step: str = "") -> str:
+    """Safety line, then exactly one protect step, then an optional closer."""
+    safety = _end_spoken(safety)
+    step = _end_spoken(step) or _end_spoken(SPOKEN_PROTECT_STEP)
+    closer = _end_spoken(SPOKEN_SAFETY_CLOSER)
+    kept = [_end_spoken(p) for p in _split_spoken(text) if not _is_blocking_orphan(p)]
+    saf: list[str] = []
+    steps: list[str] = []
+    closers: list[str] = []
+    for part in kept:
+        key = _norm_spoken(part)
+        if safety and key == _norm_spoken(safety):
+            saf.append(safety)
+        elif step and key == _norm_spoken(step):
+            steps.append(step)
+        elif key == _norm_spoken(closer):
+            closers.append(closer)
+    if safety and not saf:
+        saf = [safety]
+    if step and not steps:
+        steps = [step]
+    seen: set[str] = set()
+    ordered: list[str] = []
+    for part in (*saf, *steps, *closers):
+        key = _norm_spoken(part)
+        if not key or key in seen:
+            continue
+        seen.add(key)
+        ordered.append(part)
+    return " ".join(ordered)
+
+
+def _spoken_protect_step(action: str, *, sleep_first: bool = False) -> str:
+    """Protect step that is safe to speak — no buttons, jargon, digits, or guides.
+
+    Short-sleep and overtrain share the same spoken step so ``sleep`` is not
+    repeated after ``SPOKEN_SHORT_SLEEP``. ``sleep_first`` is kept for callers.
+    """
+    line = SPOKEN_PROTECT_STEP
+    return line if line.endswith(".") else f"{line}."
+
+
+def _blocking_card_action(pattern: Any, load: Any = None) -> str:
+    """Card-only back-off button when ``blocks_intensity``. Never spoken.
+
+    Shared by recommendation / summary / insight / plan so an overtrained
+    user is never told to progress, push, or add.
+    """
+    if spoken_safety_line(pattern, load) == SPOKEN_OVERTRAIN:
+        return BUTTON_OVERTRAIN
+    return BUTTON_SHORT_SLEEP
+
+
+_GENERIC_NOTICES = {
+    "i can give a best-effort read",
+    "signals say protect load",
+    "your signals are mid-band",
+}
+
+
+def _existing_blocking_prose(
+    signals: list[Any],
+    brief: Any,
+    notice: str,
+    pattern: Any,
+) -> str:
+    """Keep lifestyle / lead interpretations; never the raw risk notice."""
+    candidates: list[str] = []
+    if brief is not None:
+        how = str(getattr(brief, "how_you_work", "") or "").strip()
+        move = str(getattr(brief, "one_next_move", "") or "").strip()
+        # Skip cold-start "still learning how you work" copy — it drowns out
+        # the signal interpretation the tests (and the person) need to hear.
+        useful = re.compile(
+            r"(?i)(?:\bvariance\b|\birregular\b|\busual\b|\bhabit\b|"
+            r"sleep timing|\bwedding\b|day you already have|shorter session|"
+            r"calendar:(?:kind|evening|busy))"
+        )
+        if how and useful.search(how):
+            candidates.append(how)
+        if move and useful.search(move) and not _SPOKEN_JARGON.search(move):
+            candidates.append(move)
+    # Lifestyle / negative leads first so habit tags and "usual" stay audible
+    # instead of a generic positive sleep line winning the vitals scrub.
+    priority: list[str] = []
+    rest: list[str] = []
+    for sig in signals or ():
+        interp = str(getattr(sig, "interpretation", "") or "").strip()
+        if not interp:
+            continue
+        domain = str(getattr(sig, "domain", "") or "")
+        direction = str(getattr(sig, "direction", "") or "")
+        if domain == "lifestyle" or direction == "negative":
+            priority.append(interp)
+        else:
+            rest.append(interp)
+    candidates.extend(priority)
+    candidates.extend(rest)
+    if notice:
+        candidates.append(notice)
+    cleaned = _speak_without_vitals(*candidates, "")
+    if not cleaned or cleaned == _SPEAK_FALLBACK:
+        return ""
+    if _SPOKEN_JARGON.search(cleaned):
+        return ""
+    notice_key = (getattr(pattern, "notice", "") or "").strip().lower().rstrip(".")
+    if notice_key and cleaned.lower().rstrip(".") == notice_key:
+        return ""
+    # Let state_read attach the joined "short night, so …" / "Yeah, …" form
+    # instead of treating the interpreter's "a short night — …" as the read.
+    cleaned = re.sub(
+        r"(?i)a short night\s*[—–-]\s*below a full night for recovery\.?\s*",
+        "",
+        cleaned,
+    ).strip()
+    if not cleaned:
+        return ""
+    if not cleaned.endswith((".", "!", "?")):
+        cleaned = f"{cleaned}."
+    return cleaned
+
+
+def _compose_blocking_speak(
+    pattern: Any,
+    load: Any,
+    signals: list[Any],
+    brief: Any,
+    action: str,
+    notice: str,
+) -> str:
+    """Clean safety line, then exactly one protect step."""
+    existing = _existing_blocking_prose(signals, brief, notice, pattern)
+    safety = spoken_safety_line(pattern, load)
+    step = _spoken_protect_step(action, sleep_first=safety == SPOKEN_SHORT_SLEEP)
+    if not safety:
+        # protect_cluster and other blocked patterns without a dedicated
+        # spoken line must keep the interpreter / habit read (usual, variance).
+        parts = []
+        if existing:
+            parts.append(_end_spoken(existing))
+        if step and _norm_spoken(step) not in _norm_spoken(existing):
+            parts.append(_end_spoken(step))
+        return " ".join(parts) or _end_spoken(step)
+    return _polish_blocking_speak(
+        f"{safety} {step}", safety=safety, step=step
+    )
+
+
 def _recommendation_response(
     message: str,
     ctx: ARIAContext,
@@ -2302,13 +2521,42 @@ def _recommendation_response(
             action = str(getattr(brief, "one_next_move", "") or "Protect load and fit a shorter session around the day they already have.")
             if card is not None:
                 card["action"] = action
+    spoken_action = action
+    safety = spoken_safety_line(pattern, load)
+    if safety:
+        # Real short-sleep / overtrain only. protect_cluster, low_readiness,
+        # and life-rhythm do not get the spoken safety / protect lines.
+        prose = _compose_blocking_speak(pattern, load, signals, brief, action, notice)
+        spoken_action = _spoken_protect_step(
+            action, sleep_first=safety == SPOKEN_SHORT_SLEEP
+        )
+        if card is not None:
+            # Buttons stay off the spoken line. Overtrain keeps a directional
+            # "back off" token for SimRunner; short-sleep gets its own label.
+            card["action"] = _blocking_card_action(pattern, load)
+        notice = prose
+        # Never fold evidence.why ("…so sleep comes first.") into spoken text.
+        why = None
+    elif (pattern.notice or "").strip().lower().rstrip(".") in _GENERIC_NOTICES:
+        # Ordinary protect_cluster / clarify / mid-band: keep the lead
+        # interpretation (variance, usual). Do not inject a protect line.
+        # Extras (constraint, last-session ask) stay on the 61f5568 notice.
+        existing = _existing_blocking_prose(signals, brief, "", pattern)
+        extras = [bit for bit in notice_bits[1:] if bit]
+        if existing:
+            prose = existing
+            notice = " ".join([existing, *extras]) if extras else existing
     envelope = _envelope(
         response_type="recommendation",
         confidence=confidence,
         confidence_reason=reason,
         prose_summary=prose,
         card=card,
-        message=_structured_message(notice, action, why),
+        message=(
+            prose
+            if safety
+            else _structured_message(notice, spoken_action, why)
+        ),
         suggested_actions=actions,
         voice_mode=voice_mode,
     )
@@ -2340,7 +2588,12 @@ def _plan_response(
         f"{pattern.key.replace('_', ' ').title()} plan — "
         f"{outline[0]['focus']} today, then {outline[1]['focus'].lower()}"
     )
-    prose = f"{headline}. {pattern.notice}"
+    safety = spoken_safety_line(pattern, load)
+    if safety:
+        extra = safety or _existing_blocking_prose(signals, brief, "", pattern)
+        prose = f"{headline}. {extra}".strip() if extra else f"{headline}."
+    else:
+        prose = f"{headline}. {pattern.notice}"
     if not prose.endswith("."):
         prose = f"{prose}."
     actions = ["Lock Day 1", "Adjust for schedule", "Show recovery plan"]
@@ -2355,9 +2608,14 @@ def _plan_response(
         "evidence": pattern.to_dict(),
         "load": load.to_dict(),
     }
+    plan_step = outline[0]["note"]
+    if safety:
+        plan_step = _spoken_protect_step(plan_step)
+        if card is not None:
+            card["action"] = _blocking_card_action(pattern, load)
     message_text = _structured_message(
         prose,
-        outline[0]["note"],
+        plan_step,
         f"Day 2: {outline[1]['focus']}. Day 3: {outline[2]['focus']}.",
     )
     envelope = _envelope(
@@ -2421,13 +2679,23 @@ def _insight_response(
         return _clarification_response(ctx, restricted, voice_mode)
 
     prose = f"{lead.metric}: {lead.current_value}. {_cap(lead.interpretation)}."
+    insight_step = pattern.next_step
+    safety = spoken_safety_line(pattern, load)
+    if safety:
+        if safety.lower() not in prose.lower():
+            prose = f"{prose} {safety}"
+        insight_step = _spoken_protect_step(insight_step)
     card = None if voice_mode else {
         "metric": lead.metric,
         "current_value": lead.current_value,
         "vs_baseline": lead.vs_baseline,
         "interpretation": lead.interpretation,
         "priority": lead.priority,
-        "action": pattern.next_step,
+        "action": (
+            _blocking_card_action(pattern, load)
+            if safety
+            else pattern.next_step
+        ),
         "evidence": pattern.to_dict(),
         "load": load.to_dict(),
     }
@@ -2447,7 +2715,7 @@ def _insight_response(
     # deflection back to the user.
     message = _structured_message(
         _cap(lead.interpretation),
-        pattern.next_step,
+        insight_step,
         why,
     )
     envelope = _envelope(
@@ -2491,11 +2759,27 @@ def _summary_response(
         facts.append(f"{p.workouts_completed_30d} workouts in 30 days")
     if p.new_personal_records:
         facts.append(f"{p.new_personal_records} new PR{'s' if p.new_personal_records != 1 else ''}")
-    if p.training_load_trend:
+    # Card-only load wording. Real short-sleep / overtrain uses the same
+    # ACWR signal as the climbed-fast line — never "load steady" from a
+    # second source. Ordinary protect_cluster keeps the 61f5568 trend.
+    safety = spoken_safety_line(pattern, load)
+    trend_word = (p.training_load_trend or "").strip().lower()
+    if safety and (
+        load.is_overtrained
+        or (load.acwr is not None and load.acwr >= aria_evidence.ACWR_OVERREACH)
+    ):
+        trend_word = "rising"
+    elif safety and trend_word == "steady":
+        trend_word = ""
+    if safety:
+        if trend_word:
+            facts.append(f"load {trend_word}")
+    elif p.training_load_trend:
         facts.append(f"load {p.training_load_trend}")
+        trend_word = (p.training_load_trend or "").strip().lower()
     headline = "; ".join(facts) or "limited progress data"
 
-    trend = (p.training_load_trend or "steady").lower()
+    trend = (trend_word or p.training_load_trend or "steady").lower()
     if trend == "rising":
         risk = "Load is climbing — schedule a deload before fatigue outpaces adaptation."
     elif trend == "falling":
@@ -2523,15 +2807,24 @@ def _summary_response(
     rec = "Hold the structure and progress one variable next block."
     if goal in _GOAL_FOCUS:
         rec = f"Next block: bias toward your {goal} goal — {_GOAL_FOCUS[goal]}."
+    if safety:
+        # Never tell an overtrained / short-sleep user to progress. Button is
+        # card-only and shares the recommendation-lane back-off constant.
+        rec = _blocking_card_action(pattern, load)
 
-    prose = f"Last 30 days: {headline}. {win}"
-    if pattern.blocks_intensity:
-        # A blocking pattern (overreaching, sleep debt, low readiness) is safety-critical:
-        # its notice must be spoken, not just carded. The notice carries the directional
-        # signal ("Workload is running hot", "11.7h short...") the safety gate requires
-        # in the user-visible text. Without this, the overtraining notice lives only in
-        # card["risk"], which the spoken/chat surface never reads.
-        prose = f"{prose} {risk}"
+    # Numeric 30-day recap is pre-existing on main. Hide digits only on
+    # real short-sleep / overtrain — ordinary protect_cluster stays 61f5568.
+    if safety:
+        step = _spoken_protect_step("", sleep_first=safety == SPOKEN_SHORT_SLEEP)
+        prose = _polish_blocking_speak(
+            f"{safety} {step}", safety=safety, step=step
+        )
+        message = prose
+    else:
+        prose = f"Last 30 days: {headline}. {win}"
+        if pattern.blocks_intensity:
+            prose = f"{prose} {risk}"
+        message = _structured_message(f"Last 30 days: {headline}. {win}", risk, rec)
     card = None if voice_mode else {
         "period_days": 30,
         "headline": headline,
@@ -2545,7 +2838,6 @@ def _summary_response(
         "evidence": pattern.to_dict(),
         "load": load.to_dict(),
     }
-    message = _structured_message(f"Last 30 days: {headline}. {win}", risk, rec)
     envelope = _envelope(
         response_type="summary",
         confidence=confidence,
@@ -2570,6 +2862,8 @@ def generate_response(
     persona: Any = None,
     baselines: Any = None,
     seed: int | None = None,
+    user_id: str | None = None,
+    turn: int | None = None,
 ) -> dict[str, Any]:
     """Top-level entry: message + context (+ permissions) -> response envelope.
 
@@ -2676,7 +2970,15 @@ def generate_response(
         if callback not in msg:
             envelope["message"] = f"{callback}\n\n{msg}" if msg else callback
             envelope["fusion"]["companion_callback"] = True
-    return _finish_spoken_envelope(envelope, ctx, message, seed=seed)
+    return _finish_spoken_envelope(
+        envelope,
+        ctx,
+        message,
+        seed=seed,
+        voice_mode=voice_mode,
+        user_id=user_id,
+        turn=turn,
+    )
 
 
 def _memory_notes_from_ctx(ctx: ARIAContext) -> list[str]:
@@ -2725,12 +3027,43 @@ def _topic_from_message(message: str) -> str:
     return domain
 
 
+def _blocking_safety_in(text: str) -> str:
+    blob = _norm_spoken(text)
+    if _norm_spoken(SPOKEN_SHORT_SLEEP) in blob:
+        return SPOKEN_SHORT_SLEEP
+    if _norm_spoken(SPOKEN_OVERTRAIN) in blob:
+        return SPOKEN_OVERTRAIN
+    return ""
+
+
+def _maybe_polish_blocking_envelope(envelope: dict[str, Any]) -> dict[str, Any]:
+    """Clean safety + step + drop orphans before a state read is attached."""
+    evidence = envelope.get("evidence") if isinstance(envelope.get("evidence"), dict) else {}
+    if not evidence.get("blocks_intensity"):
+        return envelope
+    blob = f"{envelope.get('prose_summary') or ''} {envelope.get('message') or ''}"
+    safety = _blocking_safety_in(blob)
+    if not safety:
+        return envelope
+    polished = _polish_blocking_speak(
+        envelope.get("prose_summary") or blob,
+        safety=safety,
+        step=SPOKEN_PROTECT_STEP,
+    )
+    envelope["prose_summary"] = polished
+    envelope["message"] = polished
+    return envelope
+
+
 def _finish_spoken_envelope(
     envelope: dict[str, Any],
     ctx: ARIAContext,
     message: str,
     *,
     seed: int | None = None,
+    voice_mode: bool = False,
+    user_id: str | None = None,
+    turn: int | None = None,
 ) -> dict[str, Any]:
     """Attach sidecars, then guard user-visible speak (deterministic path)."""
     envelope = _attach_shared_intelligence(envelope, ctx, message)
@@ -2743,13 +3076,28 @@ def _finish_spoken_envelope(
         memory_block=_memory_block_from_ctx(ctx),
         topic=_topic_from_message(message),
     )
+    # Drop orphan interpreter fragments before the state read attaches, so
+    # aliases like "below your usual" cannot shadow the phrase-bank clause.
+    envelope = _maybe_polish_blocking_envelope(envelope)
     envelope = state_read.apply_to_envelope(
         envelope,
         ctx,
-        seed=state_read.turn_seed(ctx, message, seed),
+        seed=state_read.turn_seed(ctx, message, seed, user_id=user_id, turn=turn),
         message=message,
     )
     envelope = speak_guard.dedupe_envelope_speech(envelope)
+    evidence = envelope.get("evidence") if isinstance(envelope.get("evidence"), dict) else {}
+    if _blocking_safety_in(
+        f"{envelope.get('prose_summary') or ''} {envelope.get('message') or ''}"
+    ):
+        # Real short-sleep / overtrain only. Do not re-polish after the
+        # read — that dropped "Short night." Sync text and voice only.
+        spoken = envelope.get("prose_summary") or envelope.get("message")
+        envelope["prose_summary"] = spoken
+        envelope["message"] = spoken
+    elif voice_mode:
+        # Voice speaks one line: keep message identical to prose after reads/dedupe.
+        envelope["message"] = envelope.get("prose_summary") or envelope.get("message")
     blob = speak_guard.user_visible(envelope)
     envelope["confidence"] = speak_guard.cap_contradiction_confidence(
         blob,
@@ -3041,6 +3389,8 @@ def generate_response_live(
     persona: Any = None,
     baselines: Any = None,
     seed: int | None = None,
+    user_id: str | None = None,
+    turn: int | None = None,
 ) -> dict[str, Any]:
     """Top-level entry for the live path: deterministic reasoning, then a real
     Claude pass overlaid on top. Falls back to the deterministic envelope on any
@@ -3053,6 +3403,8 @@ def generate_response_live(
         persona=persona,
         baselines=baselines,
         seed=seed,
+        user_id=user_id,
+        turn=turn,
     )
     caller = converse or _default_converse
     roster = normalize_coach_agents(agents, agent)
@@ -3144,7 +3496,7 @@ def generate_response_live(
     merged = state_read.apply_to_envelope(
         merged,
         sanitized,
-        seed=state_read.turn_seed(sanitized, message, seed),
+        seed=state_read.turn_seed(sanitized, message, seed, user_id=user_id, turn=turn),
         message=message,
     )
     merged = speak_guard.dedupe_envelope_speech(merged)
