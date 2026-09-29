@@ -46,15 +46,15 @@ export function SleepPage() {
               <PremiumEntrance index={3}>
                 <SleepBreakdown />
               </PremiumEntrance>
+              <PremiumEntrance index={4}>
+                <RecoveryTrends />
+              </PremiumEntrance>
             </>
           ) : (
             <PremiumEntrance index={1}>
               <p className="text-sm text-text-secondary">No sleep yet</p>
             </PremiumEntrance>
           )}
-          <PremiumEntrance index={4}>
-            <RecoveryTrends />
-          </PremiumEntrance>
           <PremiumEntrance index={5}>
             <AiSleepInsight />
           </PremiumEntrance>

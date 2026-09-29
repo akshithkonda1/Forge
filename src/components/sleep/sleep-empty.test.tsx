@@ -36,17 +36,16 @@ describe("sleep empty night", () => {
     expect(screen.getAllByText("No sleep yet").length).toBe(3);
   });
 
-  it("renders one page empty state and still mounts RecoveryTrends", () => {
+  it("renders one page empty state and does not show RecoveryTrends charts", () => {
     useAppStore.setState({ sleepData: [] });
 
     expect(() => render(<RecoveryTrends />)).not.toThrow();
-    expect(screen.getByText("Recovery Trend")).toBeTruthy();
     cleanup();
 
     expect(() => render(<SleepPage />)).not.toThrow();
     expect(screen.getAllByText("No sleep yet").length).toBe(1);
     expect(screen.queryByText("Sleep Stages")).toBeNull();
     expect(screen.queryByText("Breakdown")).toBeNull();
-    expect(screen.getByText("Recovery Trend")).toBeTruthy();
+    expect(screen.queryByText("Recovery Trend")).toBeNull();
   });
 });
