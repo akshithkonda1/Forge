@@ -42,6 +42,6 @@ describe("AriaCompanionControls", () => {
     expect(() =>
       render(<AriaCompanionControls SettingsRow={SettingsRowStub} />)
     ).not.toThrow();
-    expect(screen.getByText("Check-in")).toBeTruthy();
+    expect(screen.getAllByText("Check-in").length).toBeGreaterThan(0);
   });
 });

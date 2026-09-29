@@ -165,7 +165,7 @@ export function ChatPage() {
   const scrollAreaRef = useRef<HTMLDivElement>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
-  const replyTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const replyTimerRef = useRef<number | null>(null);
   const wasTypingRef = useRef(false);
   const announcedReplyIdsRef = useRef<Set<string>>(new Set());
   const [liveAnnouncement, setLiveAnnouncement] = useState("");
@@ -225,7 +225,7 @@ export function ChatPage() {
       // Show typing indicator, then respond
       setIsTyping(true);
 
-      if (replyTimerRef.current) window.clearTimeout(replyTimerRef.current);
+      if (replyTimerRef.current !== null) window.clearTimeout(replyTimerRef.current);
       replyTimerRef.current = window.setTimeout(() => {
         replyTimerRef.current = null;
         const { content, richCard } = getTrainerResponse(
@@ -253,7 +253,7 @@ export function ChatPage() {
 
   useEffect(() => {
     return () => {
-      if (replyTimerRef.current) window.clearTimeout(replyTimerRef.current);
+      if (replyTimerRef.current !== null) window.clearTimeout(replyTimerRef.current);
       if (typeof window !== "undefined" && "speechSynthesis" in window) {
         window.speechSynthesis.cancel();
       }
