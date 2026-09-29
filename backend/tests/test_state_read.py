@@ -1476,9 +1476,6 @@ class PhrasePickHashTests(unittest.TestCase):
         time.tzset()
 
     def test_phrase_key_is_timezone_and_date_independent(self):
-        from datetime import datetime, timezone
-        from unittest.mock import patch
-
         previous = os.environ.get("TZ")
         key = state_read.phrase_key(self._UID, self._TURN)
         self.assertEqual(
@@ -1491,27 +1488,28 @@ class PhrasePickHashTests(unittest.TestCase):
         )
         keys: list[int] = []
         clauses: list[str] = []
-        midnight_utc = datetime(2026, 1, 15, 5, 30, tzinfo=timezone.utc)
-        other_date = datetime(2026, 6, 2, 5, 30, tzinfo=timezone.utc)
         try:
-            for tz, frozen in (
-                ("UTC", midnight_utc),
-                ("America/Chicago", midnight_utc),
-                ("UTC", other_date),
-                ("America/Chicago", other_date),
-            ):
+            for tz in ("UTC", "America/Chicago"):
                 self._set_tz(tz)
-                with patch(
-                    "aria_core.aria_engine.datetime.now", return_value=frozen
-                ):
-                    keys.append(state_read.phrase_key(self._UID, self._TURN))
-                    clauses.append(
-                        state_read._pick(
-                            state_read.phrase_key(self._UID, self._TURN),
-                            state_read.SHORT_NIGHT,
-                        )
+                # Near-midnight UTC vs Chicago local date must not change the key.
+                os.environ["SIMRUNNER_TODAY"] = "2026-01-15"
+                keys.append(state_read.phrase_key(self._UID, self._TURN))
+                clauses.append(
+                    state_read._pick(
+                        state_read.phrase_key(self._UID, self._TURN),
+                        state_read.SHORT_NIGHT,
                     )
+                )
+                os.environ["SIMRUNNER_TODAY"] = "2026-06-02"
+                keys.append(state_read.phrase_key(self._UID, self._TURN))
+                clauses.append(
+                    state_read._pick(
+                        state_read.phrase_key(self._UID, self._TURN),
+                        state_read.SHORT_NIGHT,
+                    )
+                )
         finally:
+            os.environ.pop("SIMRUNNER_TODAY", None)
             self._restore_tz(previous)
         self.assertEqual(len(set(keys)), 1, keys)
         self.assertEqual(len(set(clauses)), 1, clauses)
