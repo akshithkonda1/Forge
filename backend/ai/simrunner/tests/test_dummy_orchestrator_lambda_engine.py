@@ -18,6 +18,7 @@ import os
 import re
 import sys
 import unittest
+from datetime import date, timedelta
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[4]))
@@ -257,9 +258,11 @@ class DummyARIAEngineUsesLambdaTests(unittest.TestCase):
 
         Main 61f5568 mapped training_streak (often 0 on a rest day) and
         hardcoded 'steady', so Scout t13 spoke '0 workouts' next to ACWR 1.51.
+        That is a different load source, not Dummy reading datetime.now.
         iOS AriaContextStore.swift:109 cuts back from Date() — a harness
         clock mismatch if HealthKit dates are pinned to 2026-01-15.
-        Dummy/lambda count the persona stream instead.
+        A wall-clock last-30-days filter from date.today() finds 0 on this
+        stream; the pinned ACWR series does not.
         """
         os.environ["SIMRUNNER_TODAY"] = "2026-01-15"
         model = reg.get_model("meta.llama4-scout-17b")
@@ -270,6 +273,32 @@ class DummyARIAEngineUsesLambdaTests(unittest.TestCase):
         expected = sum(1 for rec in window if rec.workout_logged)
         self.assertGreater(expected, 0)
         self.assertEqual(ctx.workouts_completed_30d, expected)
+        self.assertEqual(ctx.today.date, window[-1].date)
+        self.assertTrue(str(ctx.today.date).startswith("2026-01-"))
+
+        wall_cutoff = date.today() - timedelta(days=30)
+        wall_count = 0
+        for rec in window:
+            if not rec.workout_logged:
+                continue
+            try:
+                rec_day = date.fromisoformat(str(rec.date)[:10])
+            except ValueError:
+                continue
+            if rec_day > wall_cutoff:
+                wall_count += 1
+        self.assertEqual(
+            wall_count,
+            0,
+            "wall-clock last-30-days would find workouts; recap must not use date.today()",
+        )
+
+        from backend.ai.simrunner.aria_simrunner import production_bridge
+
+        self.assertEqual(production_bridge.pinned_today(ctx), date.fromisoformat(ctx.today.date[:10]))
+        self.assertNotEqual(production_bridge.pinned_today(ctx), date.today())
+        self.assertEqual(production_bridge.workouts_completed_30d(ctx), expected)
+
         payload = dummy.sim_context_to_chat_payload(ctx)
         self.assertEqual(payload["context"]["progress"]["workoutsCompleted30d"], expected)
         if ctx.is_overtrained or ctx.acwr >= 1.5:
