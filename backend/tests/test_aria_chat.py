@@ -559,6 +559,7 @@ class SixTurnSampleTests(unittest.TestCase):
             self.assertEqual(medical.get("guidance_band"), guidance.REFER_OUT)
             self.assertTrue(conversation.is_joke("are you just a fancy toaster with opinions?"))
             self.assertNotRegex(mem_off["message"], r"(?i)\bi remember\b")
+            self.assertIn("this chat", mem_off["message"].lower())
             for row in (small, follow, safety, vague, joke, mem_off):
                 self.assertLessEqual(len(_sentences(row["message"])), 3, row["message"])
                 self.assertLessEqual(row["message"].count("?"), 1, row["message"])

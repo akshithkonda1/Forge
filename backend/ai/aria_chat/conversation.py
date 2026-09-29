@@ -525,6 +525,20 @@ def apply_conversation(
 
     fusion = envelope.get("fusion") if isinstance(envelope.get("fusion"), dict) else {}
     stance = str(fusion.get("stance") or "")
+    if (not memory_enabled) and re.search(r"(?i)\bremember\b", message or ""):
+        spoken = polish_iris(
+            _pick(seed, _MEMORY_OFF),
+            memory_enabled=False,
+            last_spoken=last_spoken,
+            seed=seed,
+            alternatives=_MEMORY_OFF,
+        )
+        envelope["message"] = spoken
+        envelope["prose_summary"] = spoken
+        card = envelope.get("card") if isinstance(envelope.get("card"), dict) else {}
+        if not card.get("action"):
+            envelope["card"] = {**card, "action": "keep tonight kind"}
+        return speak_guard.guard_envelope(envelope, topic="lifestyle")
     if is_small_talk(message, prior):
         spoken = compose_small_talk(
             message,
