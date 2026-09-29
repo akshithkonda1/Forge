@@ -264,7 +264,7 @@ def _conversation_block(body: dict[str, Any]) -> dict[str, Any]:
     return {}
 
 
-def _turn_from_history(body: dict[str, Any]) -> int:
+def _turn_count_from_conversation(body: dict[str, Any]) -> int:
     """Count prior turns from the inbound conversation payload."""
     conv = _conversation_block(body)
     for key in ("totalTurns", "total_turns"):
@@ -300,7 +300,7 @@ def _request_turn(body: dict[str, Any]) -> int:
             return max(0, int(raw))
         except (TypeError, ValueError):
             pass
-    return _turn_from_history(body)
+    return _turn_count_from_conversation(body)
 
 
 def _checked_speak(fn, *args, **kwargs):
