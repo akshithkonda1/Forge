@@ -274,32 +274,37 @@ final class OnboardingCoordinator {
     func connectHealthKit() {
         guard step == .health else { return }
         interruptInterviewVoice()
-        let action = HealthKitLiveEvidence.reconnectAction(
-            isLive: healthKitState == .authorized,
-            canPresentSheet: HealthKitManager.shared.canPresentAuthorizationSheet
+        let action = HealthKitOnboardingAuthorization.tapAction(
+            alreadyConnected: healthKitState == .authorized,
+            healthAvailable: healthKitState != .unavailable && HKHealthStore.isHealthDataAvailable()
         )
         switch action {
-        case .resync:
+        case .refreshAlreadyConnected:
             appendUser("Connect Apple Health")
             FDS.haptic(.medium)
             isHealthPulling = true
             Task {
                 await refreshHealthDataQuietly()
+                publishOnboardingHealthWidgets()
                 isHealthPulling = false
             }
-        case .requestSheet:
+        case .requestReadAuthorization:
             appendUser("Connect Apple Health")
             FDS.haptic(.medium)
             lastHealthSharingHint = nil
             Task { await requestHealthKit() }
-        case .openHealthSharing:
-            appendUser("Open Health Sharing")
+        case .stayWithoutRedirect:
+            appendUser("I'll add it later")
             FDS.haptic(.light)
-            healthKitState = healthKitState == .unavailable ? .unavailable : .denied
-            lastHealthSharingHint = HealthKitLiveEvidence.sharingAfterDeny
-            HealthKitManager.shared.openAppleHealthSharingDestination()
+            lastHealthSharingHint = AriaInterviewVoice.healthEnableLater
             Task { await ariaSay(AriaInterviewVoice.acknowledgeHealthSkip(), mood: .calm) }
         }
+    }
+
+    /// Optional secondary control — never automatic, never a gate.
+    func openHealthSharingManually() {
+        guard step == .health else { return }
+        HealthKitManager.shared.openAppleHealthSharingDestination()
     }
 
     func skipHealthKit() {
@@ -616,13 +621,17 @@ final class OnboardingCoordinator {
 
         do {
             try await connectAppleHealthForFirstTime()
-            let live = await HealthKitManager.shared.checkAuthorizationStatus()
-                || (healthSnapshot?.hasData == true)
-            if live {
+            let connected = HealthKitOnboardingAuthorization.isConnected(
+                requestCompletedWithoutError: true
+            )
+            if connected {
                 healthKitState = .authorized
+                prepHealthConnected = true
                 lastHealthSharingHint = nil
                 await HealthKitManager.shared.applyConnectedHealthToForge()
                 await refreshHealthDataQuietly()
+                _ = await HealthKitSleepService.shared.fetchRecentSleepData(days: 14)
+                publishOnboardingHealthWidgets()
                 isHealthPulling = false
                 let snap = briefingSnapshot()
                 await ariaSay(
@@ -632,15 +641,13 @@ final class OnboardingCoordinator {
             } else {
                 healthKitState = .denied
                 isHealthPulling = false
-                lastHealthSharingHint = HealthKitManager.shared.canPresentAuthorizationSheet
-                    ? nil
-                    : HealthKitLiveEvidence.sharingAfterDeny
+                lastHealthSharingHint = AriaInterviewVoice.healthEnableLater
                 await ariaSay(AriaInterviewVoice.acknowledgeHealthSkip(), mood: .calm)
             }
         } catch {
             healthKitState = .denied
             isHealthPulling = false
-            lastHealthSharingHint = HealthKitLiveEvidence.sharingAfterDeny
+            lastHealthSharingHint = AriaInterviewVoice.healthEnableLater
             await ariaSay(AriaInterviewVoice.acknowledgeHealthSkip(), mood: .calm)
         }
     }
@@ -679,12 +686,12 @@ final class OnboardingCoordinator {
         ariaOrbState = .listening
     }
 
-    /// System Health sheet first, then (on the sim) write the Test-Ready pack
-    /// into HealthKit so the read-back is a real first integration.
+    /// In-app READ-only HealthKit sheet, then (on the sim) write the
+    /// Test-Ready pack so the read-back is a real first integration.
     private func connectAppleHealthForFirstTime() async throws {
+        try await HealthKitManager.shared.requestOnboardingReadAuthorization()
         #if targetEnvironment(simulator)
         if AriaService.shouldUseTestReadyDummy {
-            try await HealthKitManager.shared.requestTestReadyPackAuthorization()
             let pack = FakeHealthPack.generate(seed: AppStore.testReadySessionSeed)
             if let today = pack.today {
                 healthSnapshot = HealthDataSnapshot(
@@ -710,10 +717,24 @@ final class OnboardingCoordinator {
                     }
                 }
             }
-            return
         }
         #endif
-        try await HealthKitManager.shared.requestAuthorization()
+    }
+
+    /// Existing App Group writers — HomeWidgetSnapshotStore.save and
+    /// WatchSnapshotStore.save — already call WidgetCenter.reloadAllTimelines.
+    /// Neither snapshot has a connected/health-authorized flag.
+    private func publishOnboardingHealthWidgets() {
+        HomeWidgetSnapshotStore.update { snap in
+            if let hours = healthSnapshot?.sleepHours, hours > 0 {
+                snap.sleepHours = hours
+            }
+        }
+        WatchSnapshotStore.update { snap in
+            if let hours = healthSnapshot?.sleepHours, hours > 0 {
+                snap.sleepMinutes = hours * 60
+            }
+        }
     }
 
     private func briefingSnapshot() -> AriaFirstHealthBriefing.Snapshot {
@@ -842,6 +863,9 @@ final class OnboardingCoordinator {
         }
         let healthConnected = healthKitState == .authorized
         prepHealthConnected = healthConnected
+        if healthConnected {
+            store.healthKitLive = true
+        }
 
         AriaContextStore.shared.seedFromOnboarding(
             name: profile.trimmedName,

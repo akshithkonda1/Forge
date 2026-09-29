@@ -445,6 +445,48 @@ class HealthKitManager: ObservableObject {
         try await requestFullAppleHealthAuthorization()
     }
 
+    /// ARIA onboarding / Apple Health sync: in-app READ-only Allow sheet.
+    /// Empty `toShare`. No Health Records. A completed request (no error)
+    /// is persisted as connected so onboarding does not bounce to Health
+    /// Sharing just because WRITE status is hidden or samples have not
+    /// landed yet.
+    func requestOnboardingReadAuthorization() async throws {
+        guard isHealthDataAvailable() else {
+            authorizationErrorMessage = "Health data is not available on this device."
+            throw HealthKitError.notAvailable
+        }
+
+        let safeRead = HealthKitAuthorizationPlan.sanitizedReadTypes(
+            HealthKitAuthorizationPlan.onboardingReadTypes,
+            supportsHealthRecords: false
+        )
+        let safeShare = HealthKitAuthorizationPlan.onboardingShareTypes
+        guard !safeRead.isEmpty else {
+            authorizationErrorMessage = "Health data is not available on this device."
+            throw HealthKitError.notAvailable
+        }
+        guard safeShare.isEmpty else {
+            authorizationErrorMessage = "Health data is not available on this device."
+            throw HealthKitError.notAvailable
+        }
+
+        try await presentAuthorization(toShare: safeShare, read: safeRead)
+        persistOnboardingReadConnected()
+    }
+
+    /// Completed onboarding request = connected. Do not probe WRITE status
+    /// or samples — READ grant cannot be queried.
+    func persistOnboardingReadConnected() {
+        UserDefaults.standard.set(true, forKey: authorizationRequestedKey)
+        UserDefaults.standard.set(
+            true,
+            forKey: HealthKitOnboardingAuthorization.connectedDefaultsKey
+        )
+        authorizationErrorMessage = nil
+        isAuthorized = true
+        startBidirectionalSync()
+    }
+
     var canRequestStructuredRecords: Bool {
         isHealthDataAvailable() && healthStore.supportsHealthRecords()
     }

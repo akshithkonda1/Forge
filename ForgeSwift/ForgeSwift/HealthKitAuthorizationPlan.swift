@@ -163,6 +163,16 @@ enum HealthKitAuthorizationPlan: Sendable {
         return types
     }
 
+    /// ARIA onboarding Allow sheet: existing lifestyle read catalog, no
+    /// Health Records. Share set is empty so iOS shows a READ-only sheet.
+    static var onboardingReadTypes: Set<HKObjectType> {
+        readTypes(includeClinical: HealthKitOnboardingAuthorization.onboardingIncludesClinicalTypes)
+    }
+
+    static var onboardingShareTypes: Set<HKSampleType> {
+        []
+    }
+
     static var clinicalReadTypes: Set<HKObjectType> {
         Set(structuredClinicalIdentifiers.map { HKClinicalType($0) as HKObjectType })
     }

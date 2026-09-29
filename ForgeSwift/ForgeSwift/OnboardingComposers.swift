@@ -573,6 +573,15 @@ struct HealthComposer: View {
                 .foregroundStyle(Color.textPrimary)
                 .frame(maxWidth: .infinity).frame(height: 44)
                 .forgeGlassCard(cornerRadius: 14, accent: .ember)
+
+            if coordinator.healthKitState != .authorized {
+                Button("Open Health Sharing") { coordinator.openHealthSharingManually() }
+                    .font(.system(size: 13, weight: .medium))
+                    .foregroundStyle(Color.textTertiary)
+                    .frame(maxWidth: .infinity)
+                    .padding(.top, 4)
+                    .accessibilityLabel("Open Health Sharing")
+            }
         }
     }
 }

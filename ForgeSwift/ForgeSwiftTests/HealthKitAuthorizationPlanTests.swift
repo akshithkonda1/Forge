@@ -87,6 +87,20 @@ final class HealthKitAuthorizationPlanTests: XCTestCase {
         XCTAssertGreaterThan(types.count, 60, "first connect must ask for the full Health catalog")
     }
 
+    func testOnboardingReadSheetIsReadOnlyWithoutClinical() {
+        XCTAssertTrue(HealthKitAuthorizationPlan.onboardingShareTypes.isEmpty)
+        let types = HealthKitAuthorizationPlan.onboardingReadTypes
+        XCTAssertFalse(types.contains { $0 is HKClinicalType })
+        XCTAssertTrue(types.contains(HKCategoryType(.sleepAnalysis)))
+        XCTAssertTrue(types.contains(HKQuantityType(.heartRateVariabilitySDNN)))
+        XCTAssertTrue(types.contains(HKQuantityType(.restingHeartRate)))
+        XCTAssertTrue(types.contains(HKQuantityType(.appleSleepingWristTemperature)))
+        XCTAssertEqual(
+            types,
+            HealthKitAuthorizationPlan.readTypes(includeClinical: false)
+        )
+    }
+
     func testUnavailableHealthNeverRequestsClinical() {
         XCTAssertFalse(
             HealthKitAuthorizationPlan.shouldRequestClinical(
