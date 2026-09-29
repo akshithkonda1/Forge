@@ -2235,13 +2235,11 @@ def spoken_safety_line(pattern: Any, load: Any = None, message: str = "") -> str
     if pattern is None or not getattr(pattern, "blocks_intensity", False):
         return ""
     key = str(getattr(pattern, "key", "") or "")
-    if (
-        _focus_domain(message) == "sleep"
-        or key in {"sleep_debt", "under_recovery"}
-        or _sleep_protect_active(load)
-    ):
+    if key in {"sleep_debt", "under_recovery"} or _sleep_protect_active(load):
         return SPOKEN_SHORT_SLEEP
     if key == "overreaching" or bool(getattr(load, "is_overtrained", False)):
+        if _focus_domain(message) == "sleep":
+            return SPOKEN_SHORT_SLEEP
         return SPOKEN_OVERTRAIN
     return ""
 
