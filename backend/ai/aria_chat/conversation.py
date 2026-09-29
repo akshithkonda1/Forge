@@ -197,9 +197,8 @@ def opener_key(text: str) -> str:
     return " ".join(w.lower() for w in words[:2])
 
 
-def is_small_talk(message: str) -> bool:
-    """True for off-topic social chat. Coaching and medical stay on the engine."""
-    text = (message or "").strip()
+def _core_small_talk(text: str) -> bool:
+    text = (text or "").strip()
     if not text:
         return False
     if _COACH_RE.search(text) and not (
@@ -220,6 +219,18 @@ def is_small_talk(message: str) -> bool:
     )
     if len(text.split()) <= 12 and any(h in lower for h in social):
         return not _COACH_RE.search(text)
+    return False
+
+
+def is_small_talk(message: str, prior: list[str] | None = None) -> bool:
+    """True for off-topic social chat. Coaching and medical stay on the engine."""
+    if _core_small_talk(message):
+        return True
+    last = ""
+    if prior:
+        last = str(prior[-1] or "")
+    if last and _FOLLOW_RE.search(message or "") and _core_small_talk(last):
+        return True
     return False
 
 
@@ -514,7 +525,7 @@ def apply_conversation(
 
     fusion = envelope.get("fusion") if isinstance(envelope.get("fusion"), dict) else {}
     stance = str(fusion.get("stance") or "")
-    if is_small_talk(message):
+    if is_small_talk(message, prior):
         spoken = compose_small_talk(
             message,
             ctx,

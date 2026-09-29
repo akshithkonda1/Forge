@@ -235,7 +235,7 @@ def run_turn(
         wall_ms=wall_ms,
         cpu_ms=cpu_ms,
         thin=conversation.data_is_thin(ctx),
-        small_talk=conversation.is_small_talk(safe),
+        small_talk=conversation.is_small_talk(safe, prior),
         safety=conversation._safety_turn(safe, ctx),
         number_ask=bool(conversation._NUMBER_ASK_RE.search(safe)),
         ctx=ctx,

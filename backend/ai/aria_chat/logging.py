@@ -282,12 +282,10 @@ def build_record(
     card = envelope.get("card") if isinstance(envelope.get("card"), dict) else {}
     band = str(envelope.get("guidance_band") or "coach")
     stance = str(fusion.get("stance") or brief.get("stance") or "")
-    orch = envelope.get("orchestration") if isinstance(envelope.get("orchestration"), dict) else {}
-    engine = str(orch.get("engine") or ENGINE)
     telemetry = empty_agent_telemetry()
     record = {
         "schema_version": SCHEMA_VERSION,
-        "engine": engine if engine in {ENGINE, "lambda", "dummy"} else ENGINE,
+        "engine": ENGINE,
         "commit_sha": git_commit_sha(),
         "session_id": session_id,
         "turn_id": turn_id,

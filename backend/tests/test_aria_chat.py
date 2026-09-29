@@ -63,8 +63,9 @@ def _event(body, *, user_id="local-founder"):
 
 def _turn(message: str, **kwargs):
     kwargs.setdefault("payload", _payload())
-    kwargs.setdefault("persist_log", False)
     kwargs.setdefault("install_pseudonym", _PSEUDO)
+    if "persist_log" not in kwargs:
+        kwargs["persist_log"] = kwargs.get("log_dir") is not None
     return run_turn(message, **kwargs)
 
 
@@ -120,14 +121,20 @@ class RoutingGateTests(unittest.TestCase):
         self.assertEqual(result["dummy_engine"], ENGINE_LAMBDA)
 
     def test_bedrock_enabled_true_does_not_construct_boto3_client(self):
+        import sys
+        import types
+
         created = []
 
         def capture_client(*args, **kwargs):
             created.append((args, kwargs))
             raise AssertionError("boto3.client constructed")
 
+        fake_boto = types.ModuleType("boto3")
+        fake_boto.client = capture_client  # type: ignore[attr-defined]
+        fake_boto.resource = capture_client  # type: ignore[attr-defined]
         with patch.dict(os.environ, {"ARIA_BEDROCK_ENABLED": "true"}):
-            with patch("boto3.client", new=capture_client):
+            with patch.dict(sys.modules, {"boto3": fake_boto}):
                 result = _turn("hey, how's it going?")
         self.assertEqual(created, [])
         self.assertEqual(result["engine"], "dummy")
