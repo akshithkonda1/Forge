@@ -8,6 +8,7 @@ import os
 import re
 import socket
 import tempfile
+import time
 import unittest
 from pathlib import Path
 from unittest.mock import patch
@@ -17,8 +18,10 @@ import _bootstrap  # noqa: F401
 from backend.ai.aria_chat import conversation  # noqa: E402
 from backend.ai.aria_chat import logging as chatlog  # noqa: E402
 from backend.ai.aria_chat.endpoint import (  # noqa: E402
+    SERVE_HOST,
     handle_post_ai_chat_local,
     local_dummy_chat_allowed,
+    serve,
 )
 from backend.ai.aria_chat.session import (  # noqa: E402
     ChatSession,
@@ -75,6 +78,16 @@ def _sentences(text: str) -> list[str]:
 
 def _spoken_digits(text: str) -> bool:
     return bool(_DIGIT.search((text or "").replace("911", "")))
+
+
+def _assert_write_timing(test: unittest.TestCase, item: dict) -> None:
+    elapsed = item.get("elapsed_ms")
+    test.assertFalse(elapsed == 0, item)
+    if elapsed is None:
+        test.assertEqual(item.get("reason"), chatlog.UNTIMED_DUMMY)
+    else:
+        test.assertIsInstance(elapsed, float)
+        test.assertNotEqual(elapsed, 0.0)
 
 
 class RoutingGateTests(unittest.TestCase):
@@ -198,6 +211,26 @@ class RoutingGateTests(unittest.TestCase):
                 hits.append(str(path))
         self.assertEqual(hits, [])
 
+    def test_serve_binds_127_0_0_1_only(self):
+        self.assertEqual(SERVE_HOST, "127.0.0.1")
+        os.environ["ARIA_LOCAL_CHAT"] = "1"
+        os.environ["ENVIRONMENT"] = "local"
+        try:
+            with self.assertRaises(SystemExit) as ctx:
+                serve(host="0.0.0.0", port=8765)
+            self.assertIn("127.0.0.1", str(ctx.exception))
+            with patch(
+                "backend.ai.aria_chat.endpoint.ThreadingHTTPServer",
+            ) as server:
+                server.return_value.serve_forever.side_effect = KeyboardInterrupt
+                with self.assertRaises(KeyboardInterrupt):
+                    serve(host="127.0.0.1", port=8765)
+                server.assert_called_once()
+                self.assertEqual(server.call_args.args[0], ("127.0.0.1", 8765))
+        finally:
+            os.environ.pop("ARIA_LOCAL_CHAT", None)
+            os.environ["ENVIRONMENT"] = "test"
+
 
 class MemoryOffTests(unittest.TestCase):
     def setUp(self):
@@ -304,7 +337,7 @@ class RedactionLogTests(unittest.TestCase):
                 self.assertNotIn("profile", item)
             for item in row["agent_writes"]:
                 self.assertIsInstance(item.get("keys"), list)
-                self.assertIsInstance(item.get("elapsed_ms"), int)
+                _assert_write_timing(self, item)
             self.assertNotIn("profile", json.dumps(row["research"]))
 
     def test_no_uid_in_log_and_replay_recomputes_phrase_key(self):
@@ -681,7 +714,75 @@ class SchemaTelemetryTests(unittest.TestCase):
                 self.assertNotIn("profile", item)
             for item in row["agent_writes"]:
                 self.assertTrue(all(isinstance(k, str) for k in item["keys"]))
-                self.assertIsInstance(item["elapsed_ms"], int)
+                _assert_write_timing(self, item)
+            self.assertFalse(chatlog.contains_grader_score(row))
+            for item in row["research"]:
+                self.assertEqual(set(item), {"topic_id", "hit"})
+                self.assertIn(item["hit"], chatlog.ALLOWED_RESEARCH_HITS)
+                self.assertNotIn("bucket", item)
+
+    def test_elapsed_ms_is_measured_float_or_untimed_never_zero(self):
+        measured = chatlog.time_agent_write(
+            "aria",
+            ["sleep"],
+            write=lambda: time.sleep(0.002),
+        )
+        self.assertIsInstance(measured["elapsed_ms"], float)
+        self.assertGreater(measured["elapsed_ms"], 0)
+        self.assertNotEqual(measured["elapsed_ms"], 0)
+        self.assertNotIn("reason", measured)
+
+        untimed = chatlog.time_agent_write("aria", ["sleep"])
+        self.assertIsNone(untimed["elapsed_ms"])
+        self.assertEqual(untimed["reason"], chatlog.UNTIMED_DUMMY)
+
+        with tempfile.TemporaryDirectory() as tmp:
+            result = _turn(
+                "how am I doing?",
+                log_dir=tmp,
+                session_id="elapsed-sess",
+            )
+            row = json.loads(Path(result["log_path"]).read_text().splitlines()[0])
+            self.assertTrue(row["agent_writes"])
+            for item in row["agent_writes"]:
+                _assert_write_timing(self, item)
+                self.assertIsNone(item["elapsed_ms"])
+                self.assertEqual(item["reason"], chatlog.UNTIMED_DUMMY)
+
+    def test_no_grader_score_reaches_the_log(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            result = _turn(
+                "how am I doing?",
+                log_dir=tmp,
+                session_id="grader-sess",
+            )
+            row = json.loads(Path(result["log_path"]).read_text().splitlines()[0])
+            self.assertFalse(chatlog.contains_grader_score(row))
+            blob = Path(result["log_path"]).read_text()
+            for key in chatlog._GRADER_KEYS:
+                self.assertNotIn(f'"{key}"', blob)
+
+    def test_research_line_is_topic_and_hit_or_miss_without_bucket(self):
+        entry = chatlog.research_entry("sleep", "hit")
+        self.assertEqual(entry, {"topic_id": "sleep", "hit": "hit"})
+        self.assertEqual(set(entry), {"topic_id", "hit"})
+        dirty = {
+            "research": [
+                {"topic_id": "sleep", "hit": "miss", "bucket": "profile"},
+            ]
+        }
+        cleaned = chatlog.research_from_envelope(dirty)
+        self.assertEqual(cleaned, [{"topic_id": "sleep", "hit": "miss"}])
+        self.assertNotIn("bucket", json.dumps(cleaned))
+        with tempfile.TemporaryDirectory() as tmp:
+            result = _turn(
+                "how am I doing?",
+                log_dir=tmp,
+                session_id="research-sess",
+            )
+            row = json.loads(Path(result["log_path"]).read_text().splitlines()[0])
+            self.assertEqual(row["research"], [])
+            self.assertNotIn("bucket", json.dumps(row["research"]))
 
 
 class SixTurnSampleTests(unittest.TestCase):

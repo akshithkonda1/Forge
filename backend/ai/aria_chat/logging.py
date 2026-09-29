@@ -11,6 +11,8 @@ import json
 import os
 import re
 import subprocess
+import time
+from collections.abc import Callable
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -28,6 +30,31 @@ from routes.aria import (  # noqa: E402
 
 SCHEMA_VERSION = 3
 ENGINE = "dummy"
+UNTIMED_DUMMY = "untimed_dummy"
+_GRADER_KEYS = frozenset({
+    "grader_score",
+    "grader",
+    "nyx_score",
+    "eval_score",
+    "judge_score",
+    "grade_score",
+    "nyx_grade",
+})
+
+
+def contains_grader_score(value: Any) -> bool:
+    """True when a Nyx/grader score key is present anywhere in a log row."""
+    if isinstance(value, dict):
+        for key, item in value.items():
+            lowered = str(key).lower()
+            if lowered in _GRADER_KEYS or "grader" in lowered:
+                return True
+            if contains_grader_score(item):
+                return True
+        return False
+    if isinstance(value, list):
+        return any(contains_grader_score(item) for item in value)
+    return False
 
 ALLOWED_STANCE_INPUTS = frozenset({
     "protect",
@@ -282,6 +309,59 @@ def empty_agent_telemetry() -> dict[str, Any]:
     }
 
 
+def research_entry(topic_id: str, hit_or_miss: str) -> dict[str, str]:
+    """One research line: topic id + hit|miss. No profile bucket."""
+    status = hit_or_miss if hit_or_miss in ALLOWED_RESEARCH_HITS else "miss"
+    return {"topic_id": str(topic_id), "hit": status}
+
+
+def research_from_envelope(envelope: dict[str, Any] | None) -> list[dict[str, str]]:
+    """Keep only topic_id + hit|miss. Dummy chat does not call look_up."""
+    raw = envelope.get("research") if isinstance(envelope, dict) else None
+    if not isinstance(raw, list):
+        return []
+    out: list[dict[str, str]] = []
+    for item in raw:
+        if not isinstance(item, dict):
+            continue
+        topic = str(item.get("topic_id") or "").strip()
+        if not topic:
+            continue
+        status = item.get("hit") or item.get("status") or "miss"
+        out.append(research_entry(topic, str(status)))
+    return out
+
+
+def time_agent_write(
+    kind: str,
+    keys: list[str],
+    write: Callable[[], Any] | None = None,
+) -> dict[str, Any]:
+    """Time one agent write with ``perf_counter``. Never log ``0`` as a placeholder.
+
+    Dummy reconstructs writes after the fact and has no per-agent timer, so
+    those rows are ``elapsed_ms: null`` with ``reason: untimed_dummy``.
+    """
+    if write is None:
+        return {
+            "kind": kind,
+            "keys": list(keys),
+            "elapsed_ms": None,
+            "reason": UNTIMED_DUMMY,
+        }
+    started = time.perf_counter()
+    write()
+    elapsed_ms = (time.perf_counter() - started) * 1000.0
+    if elapsed_ms == 0:
+        return {
+            "kind": kind,
+            "keys": list(keys),
+            "elapsed_ms": None,
+            "reason": UNTIMED_DUMMY,
+        }
+    return {"kind": kind, "keys": list(keys), "elapsed_ms": float(elapsed_ms)}
+
+
 def _wake_reason(message: str, *, has_data: bool) -> str:
     if "?" in (message or ""):
         return "question"
@@ -344,11 +424,12 @@ def telemetry_from_envelope(
             continue
         seen.add(kind)
         woken.append({"kind": kind, "wake_reason": reason})
-        writes.append({"kind": kind, "keys": list(keys), "elapsed_ms": 0})
+        # Dummy has no per-agent write timer at the fuse/plan call site.
+        writes.append(time_agent_write(kind, keys))
     base["agents_woken"] = woken
     base["agent_writes"] = writes
     # No Dummy research / LLM / network / sub-agent path on this chat pin.
-    base["research"] = []
+    base["research"] = research_from_envelope(envelope)
     base["subagent_spawn_count"] = 0
     base["max_depth"] = 0
     base["budget_exhausted"] = False

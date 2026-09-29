@@ -77,10 +77,19 @@ class _LocalChatHandler(BaseHTTPRequestHandler):
         self._send(200, result)
 
 
-def serve(host: str = "127.0.0.1", port: int = 8765) -> None:
-    """Block on a local HTTP server. Refuses to bind when the flag is off."""
+SERVE_HOST = "127.0.0.1"
+
+
+def serve(host: str = SERVE_HOST, port: int = 8765) -> None:
+    """Block on a local HTTP server. Refuses to bind when the flag is off.
+
+    Binds ``127.0.0.1`` only. Any other ``--host`` is refused.
+    """
     if not local_dummy_chat_allowed():
         raise SystemExit("refused: set ARIA_LOCAL_CHAT=1 (and not a production-like ENVIRONMENT)")
-    server = ThreadingHTTPServer((host, port), _LocalChatHandler)
-    print(f"ARIA Dummy local chat on http://{host}:{port}/ai/chat/local")
+    bind = (host or "").strip()
+    if bind != SERVE_HOST:
+        raise SystemExit(f"refused: --serve binds {SERVE_HOST} only")
+    server = ThreadingHTTPServer((SERVE_HOST, port), _LocalChatHandler)
+    print(f"ARIA Dummy local chat on http://{SERVE_HOST}:{port}/ai/chat/local")
     server.serve_forever()

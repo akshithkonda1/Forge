@@ -60,7 +60,7 @@ path), plus `commit_sha`, `seed`, hashed `user_turn_key`, `install_pseudonym`,
 `prose_summary`, `card_action`), a feedback hook, and a
 `context_snapshot_ref` (no raw PII). Per-turn telemetry is reason codes and
 counts only: `agents_woken` (`kind` + `wake_reason`), `agent_writes`
-(key names + `elapsed_ms`), `research` (`topic_id` + hit/miss; empty in Dummy),
+(key names + `elapsed_ms` as a measured float, or `null` with `reason: untimed_dummy` — never `0`), `research` (`topic_id` + hit/miss; empty in Dummy),
 spawn count / depth / `budget_exhausted`, `llm_calls`, `network_calls`,
 `wall_ms`, `cpu_ms`. Calendar titles and partner / cycle tokens
 are redacted **before** write, even when memory is off. No raw user id is
