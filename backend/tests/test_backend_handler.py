@@ -688,6 +688,70 @@ class AuthAndAISecurityTests(unittest.TestCase):
         ids = [device["id"] for device in catalog["devices"]]
         self.assertIn("discovered-suunto-race", ids)
 
+    def test_devices_seen_drops_unsafe_urls_but_keeps_real_https_ones(self):
+        # appStoreURL/photoURL are served back to every user, unauthenticated,
+        # via GET /devices/catalog -- a javascript:/data:/non-string value
+        # submitted by any one logged-in user must never survive into that
+        # shared, public response.
+        seen = handler(
+            event(
+                "POST",
+                "/devices/catalog/seen",
+                {
+                    "devices": [
+                        {
+                            "id": "malicious-device",
+                            "name": "Evil Tracker",
+                            "maker": "Evil Corp",
+                            "category": "wearable",
+                            "summary": "Attempts an unsafe URL.",
+                            "metrics": ["Apple Health"],
+                            "writesToAppleHealth": True,
+                            "hasIOSApp": True,
+                            "worksWithAppleWatch": False,
+                            "appStoreURL": "javascript:alert(document.cookie)",
+                            "photoURL": {"nested": "not-a-string"},
+                            "setupHint": "n/a",
+                            "symbolName": "sensor.tag.radiowaves.forward",
+                            "line": "malicious-device",
+                            "generation": 1,
+                            "releasedYear": 2026,
+                            "stillCompatible": True,
+                        },
+                        {
+                            "id": "legit-device",
+                            "name": "Legit Watch",
+                            "maker": "Legit Inc",
+                            "category": "wearable",
+                            "summary": "A real device with a real link.",
+                            "metrics": ["Apple Health"],
+                            "writesToAppleHealth": True,
+                            "hasIOSApp": True,
+                            "worksWithAppleWatch": False,
+                            "appStoreURL": "https://apps.apple.com/app/id123456789",
+                            "photoURL": "https://cdn.example.com/legit-watch.png",
+                            "setupHint": "n/a",
+                            "symbolName": "sensor.tag.radiowaves.forward",
+                            "line": "legit-device",
+                            "generation": 1,
+                            "releasedYear": 2026,
+                            "stillCompatible": True,
+                        },
+                    ]
+                },
+            ),
+            None,
+        )
+        self.assertEqual(seen["statusCode"], 200)
+        self.assertEqual(body(seen)["accepted"], 2)
+
+        catalog = body(handler(event("GET", "/devices/catalog"), None))
+        by_id = {d["id"]: d for d in catalog["devices"]}
+        self.assertIsNone(by_id["malicious-device"]["appStoreURL"])
+        self.assertIsNone(by_id["malicious-device"]["photoURL"])
+        self.assertEqual(by_id["legit-device"]["appStoreURL"], "https://apps.apple.com/app/id123456789")
+        self.assertEqual(by_id["legit-device"]["photoURL"], "https://cdn.example.com/legit-watch.png")
+
     def test_production_devices_seen_requires_auth(self):
         os.environ["ENVIRONMENT"] = "production"
         os.environ.pop("FORGE_ALLOW_ANON_TEST_USER", None)
