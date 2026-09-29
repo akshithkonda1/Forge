@@ -982,6 +982,8 @@ class VoiceGateTests(unittest.TestCase):
         _assert_friend_voice(self, _spoken_reply(refer))
 
     def test_speech_banks_fail_self_describing_stems(self):
+        from aria_core.speak_guard import spoken_ban_hits
+
         leftovers = (
             "I'll keep the digits to myself",
             "No figures in my mouth",
@@ -1002,14 +1004,8 @@ class VoiceGateTests(unittest.TestCase):
         for bank in conversation.SPEECH_BANKS:
             for line in bank:
                 rendered = line.format(direction="a bit spent")
-                low = rendered.lower()
-                if rendered in conversation.SELF_DESCRIBE_BANK_ALLOWLIST:
-                    continue
-                for stem in conversation.SELF_DESCRIBE_BANK_STEMS:
-                    self.assertNotIn(stem, low, f"{stem!r} in {rendered!r}")
-                self.assertNotIn("deload", low, rendered)
-                self.assertNotIn("overtrain", low, rendered)
-                self.assertNotIn("recovery", low, rendered)
+                hits = spoken_ban_hits(rendered)
+                self.assertEqual(hits, (), f"{hits!r} in {rendered!r}")
                 self.assertFalse(_spoken_digits(rendered), rendered)
 
     def test_steady_and_spark_how_am_i_doing_follow_toast_pattern(self):

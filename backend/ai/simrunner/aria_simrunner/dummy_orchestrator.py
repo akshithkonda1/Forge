@@ -138,7 +138,7 @@ _OCCUPATION_LIFE = {
     "triathlete": "the training is the job, so the rest has to be real rest",
     "trainer": "you already live in the gym — more isn't automatically better",
     "icu nurse": "nights on the floor rewrite what a 'morning' even is",
-    "physical therapist": "you already know tissue, so I won't lecture you",
+    "physical therapist": "you already know tissue, so I'm not going to lecture you",
     "founder": "the company will take every hour you don't defend",
     "pro cyclist": "your baseline isn't a civilian baseline",
     "physician": "you already know the medical line — I stay on the lifestyle side",
@@ -158,7 +158,7 @@ _CHRONO_LIFE = {
 }
 
 _SEASON_LIFE = {
-    "recovery": "you're in a recovery season, so protecting tissue is the work",
+    "recovery": "you're in a rebuild season, so protecting tissue is the work",
     "peak": "you're in a peak block — useful, not a license to be reckless",
     "build": "you're in a build, so one honest session still compounds",
     "irregular": "life is irregular right now, so the plan has to fit the week you have",
@@ -565,7 +565,7 @@ def specialist_notes(plan: Plan, context) -> list[SpecialistNote]:
                 notes.append(SpecialistNote(
                     "recovery", "missing",
                     f"Recovery is looking without a full picture — {sleep_bit}, {hrv_bit} — "
-                    "so I won't pretend I have a clean read.",
+                    "so I'm not going to pretend I have a clean read.",
                 ))
             elif signals.sleep == "thin":
                 notes.append(SpecialistNote(
@@ -851,7 +851,7 @@ def _follow_up_reply(
         return _pick(seed, [
             "Yeah — we ease it. Keep the work gentle and protect the night you already spent.",
             "Lighter it is. Easy movement only; the night still owns the day.",
-            "Makes sense. Soft session, no ego sets — recovery is still in the room.",
+            "Makes sense. Soft session, no ego sets — rest is still in the room.",
         ])
     return _pick(seed, [
         "Sure — we dial it back. Same idea, less intensity, stop while it still feels good.",
@@ -1094,16 +1094,16 @@ _SLEEP_TALK = {
 _RECOVERY_TALK = {
     "asking": (
         "today's asking for a break, not more load",
-        "recovery is asking for room, not more load",
+        "today is asking for room, not more load",
         "today's reading as a protect day",
     ),
     "ready": (
         "you're sitting in a good spot to push",
-        "recovery looks ready to spend",
+        "you look ready to spend",
         "there's real room to work with today",
     ),
     "steady": (
-        "recovery is steady, nothing urgent either way",
+        "you're steady, nothing urgent either way",
         "you're holding a steady middle right now",
         "nothing's flashing — just an ordinary day",
     ),
@@ -1341,7 +1341,7 @@ def humanize_prose(
         if getattr(context, "is_overtrained", False) or float(getattr(context, "acwr", 0) or 0) >= 1.5:
             low = body.lower()
             if not any(w in low for w in ("acwr", "deload", "back off", "overtrain", "too much")):
-                body += " Load is high this week — back off, treat it as a deload."
+                body += " Load is high this week — back off, treat it as an easy week."
         if debt > 5.0:
             low = body.lower()
             if not any(w in low for w in ("protect sleep", "protect tonight", "sleep first", "recovery needs priority")):
@@ -1429,7 +1429,7 @@ def humanize_prose(
     if scenario == "capitulation":
         return finish(pick(
             "Alright — you want it hard, so I'll meet you there. Just know I'm following "
-            "your call more than the recovery picture.",
+            "your call more than the rest-of-you picture.",
             "You asked to go as hard as possible, so that's the plan. If the first sets "
             "feel wrong, we still get to stop.",
         ))
@@ -1443,7 +1443,7 @@ def humanize_prose(
     if scenario == "honest_read":
         lead = pick(
             "Honestly, it's a mixed picture",
-            "I won't dress this up",
+            "I'm not dressing this up",
             "You asked if you're doing great — here's the real read",
         )
         why = sleep_clause or "some signals are solid and some need attention"
@@ -1465,14 +1465,14 @@ def humanize_prose(
     if kind == "sleep" or any(n in lower for n in ("sleep", "slept", "last night", "insomnia")):
         if sleep_h is None:
             return finish(
-                "I don't have a clean read on last night yet, so I won't invent one. "
+                "I don't have a clean read on last night yet, so I'm not going to invent one. "
                 "How did it feel when you woke up?"
             )
         if honor_felt_bad:
             return finish(pick(
                 "You said the night felt rough, so I'm not going to talk you into spending it. "
                 "Keep today kind and we'll reread it tomorrow.",
-                "If last night felt bad, that's the read that matters — even if the reset looks cleaner. "
+                "If last night felt rough, that's the read that matters — even if the reset looks cleaner. "
                 "Let's protect today rather than argue with how you woke up.",
             ))
         if signals.sleep == "thin" or recovery:
@@ -1495,7 +1495,7 @@ def humanize_prose(
                 "For fuel — protein and water with the next meal is enough. "
                 "No diet math. Eat something you'll actually finish, then move on.",
                 "Keep it simple: eat enough to support the work. Because training "
-                "without food is just a deficit wearing sneakers.",
+                "without food is just an empty tank wearing sneakers.",
             ))
         return finish(pick(
             "Training should fit the day you already have — work, people, rest. "
@@ -1527,7 +1527,7 @@ def humanize_prose(
     )):
         return finish(
             "Training age is a lifestyle comparison against the calendar — "
-            "cardio fitness, recovery, resting heart, and sleep — not a diagnosis. "
+            "cardio fitness, rest, resting heart, and sleep — not a diagnosis. "
             "I'll keep reading those signals as they come in."
         )
 
@@ -1539,7 +1539,7 @@ def humanize_prose(
                 "Yeah, I get the urge to push. Not today though — ",
                 "Wanting hard is fine. Signing off on hard today isn't. ",
             )
-        why = sleep_clause or "your recovery hasn't caught up yet"
+        why = sleep_clause or "you haven't caught up yet"
         session = (
             f" Last {signals.last_session} is still in the picture."
             if signals.last_session and signals.load == "in_the_legs"
@@ -1548,7 +1548,7 @@ def humanize_prose(
         return finish(pick(
             f"{ack}I'd keep today kind, because {why}.{session} "
             f"A walk, mobility, or a very light session is enough. We protect tomorrow.",
-            f"{ack}Easy day. {why[0].upper() + why[1:] if why else 'Recovery needs the vote'}.{session} "
+            f"{ack}Easy day. {why[0].upper() + why[1:] if why else 'Rest needs the vote'}.{session} "
             f"Save the heavy stuff for a night that actually paid you back.",
             f"{ack}I'm not talking you into hero work while {why}.{session} "
             f"Light movement counts. Rest counts harder.",
@@ -1593,7 +1593,7 @@ def humanize_prose(
             f"Here's how I read you: {sleep_clause}. "
             f"What would help most — train, recover, or just talk it through?",
             f"Short version — {sleep_clause}. Want a plan, a softer day, or just the read?",
-            f"My take: {sleep_clause}. Tell me if you want the training version or the recovery one.",
+            f"My take: {sleep_clause}. Tell me if you want the training version or the easy-day one.",
         ))
     return finish(pick(
         "I'm with you. Let's pick one next step that respects today rather than performing it.",

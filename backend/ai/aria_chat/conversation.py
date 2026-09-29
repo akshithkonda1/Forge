@@ -145,7 +145,7 @@ _DOG_FOLLOW = (
 )
 _BAD_DAY = (
     "A rough day gets a real sit-down. Want to vent, or want one tiny kindness?",
-    "Bad days count. I'm with you in the mess — we can just sit here a minute.",
+    "Rough days count. I'm with you in the mess — we can just sit here a minute.",
     "Yeah — a crummy day is allowed to be the whole topic. I'm here.",
 )
 _JOKE = (
@@ -238,38 +238,6 @@ SPEECH_BANKS = (
     _MEMORY_OFF,
     _REFER_OUT_SPEAK,
     _WARMER_AFTER_DOWN,
-)
-# Whole-bank scan: these stems fail unless the exact line is allowlisted.
-SELF_DESCRIBE_BANK_STEMS = (
-    "i'll",
-    "from me",
-    "i'm beside",
-    "digits",
-    "figures",
-)
-SELF_DESCRIBE_BANK_ALLOWLIST = frozenset(
-    {
-        "I'm ARIA — a lifestyle friend with a sense of humor. What's on your mind?",
-        "I'm ARIA. Witty when it helps, honest when it matters. What do you need?",
-        "I'm still here. Want to pick up the thread, or start a smaller one?",
-        "I'm a little on the dog's side — they negotiated the couch fair and square. Toss a toy before they annex the bed.",
-        "That story isn't with me — I'd love to hear about it.",
-        "I don't have enough to go on yet. Tell me about the day?",
-        "I can't tell from here — a doctor can check it properly. Meanwhile I'm glad to help with sleep habits.",
-        "I can't tell from here — a doctor can check it properly. Meanwhile I'm glad to help with the day-to-day stuff around it.",
-        "That one's a call for your doctor or pharmacist — they know what you're on. I'm glad to help with the day-to-day stuff around it.",
-        "I'm here, and I brought snacks for the tangent. What's actually going on?",
-        "I'm here, and I brought snacks for the tangent. What's going on over there?",
-        "Hi. I'm your friend in this. What's landing for you?",
-        "I'm with you in the mess — we can just sit here a minute.",
-        "I'm with you in the dull stretch. Want company, or a tiny next step?",
-        "I'm staying on the film. Was it the kind that follows you out of the room?",
-        "Movie hangover is a real condition and I'm not curing it. What vibe did it leave in the room?",
-        "Weekends rewrite the clock for me too. What did yours actually feel like?",
-        "Weekends are sneaky — they look empty and still spend you. Unpack it or ignore it, I'm here.",
-        "Tell me the honest weekend, not the one you'd post.",
-        "Yeah — a crummy day is allowed to be the whole topic. I'm here.",
-    }
 )
 _HERO_OR_BARK = re.compile(
     r"(?i)\b(hero set|trainer bark|crush(?:ing)? it|beast mode|you got this)\b"

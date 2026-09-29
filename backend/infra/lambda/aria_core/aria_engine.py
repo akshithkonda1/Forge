@@ -1335,7 +1335,7 @@ def _interpret_sleep(ctx: ARIAContext, baselines: Any = None) -> Signal | None:
             vs = "your usual" if personal_sleep and getattr(baselines, "deep_frac", None) else f"the ~{DEEP_SLEEP_REF_FRAC * 100:.0f}% typical floor"
             interp_bits.append(
                 f"deep sleep is {deep_frac * 100:.0f}% of the night, under {vs} "
-                "— the stage that drives physical recovery came up short"
+                "— your deepest sleep came up short"
             )
         else:
             interp_bits.append(f"deep sleep at {deep_frac * 100:.0f}% is in a healthy band")
@@ -2089,7 +2089,7 @@ def _calibrate_confidence(
 # --- Profile-aware shaping ----------------------------------------------------
 
 _GOAL_FOCUS = {
-    "lose-fat": "keeps you in the deficit without torching recovery",
+    "lose-fat": "keeps fat-loss work from eating the rest of the week",
     "build-muscle": "protects the hypertrophy stimulus you're building",
     "improve-endurance": "keeps aerobic adaptation on track",
     "athletic-performance": "keeps you sharp for performance",
@@ -2130,7 +2130,7 @@ def _clarification_response(ctx: ARIAContext, restricted: list[str], voice_mode:
         question = "What did last night's sleep look like — roughly how many hours, and did you train today?"
         why = "no usable sleep, HRV, recovery, or activity signal in this request"
         actions = ["Sync HealthKit", "Log last night's sleep", "Tell ARIA about today"]
-    prose = f"I won't guess without data. {question}"
+    prose = f"I'm not going to guess without data. {question}"
     card = None if voice_mode else {"question": question, "why": why}
     message = _structured_message(
         "I don't have enough to read your day yet — I'd rather ask than guess.",

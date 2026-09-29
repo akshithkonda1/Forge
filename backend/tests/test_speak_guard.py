@@ -852,5 +852,36 @@ class BlockingPatternSpeakTests(unittest.TestCase):
         self.assertIn("zone 2", blob, (card, resp.get("suggested_actions"), spoken))
 
 
+class SpokenBanSourceTests(unittest.TestCase):
+    def test_iris_bar_and_floor_share_one_list(self):
+        from aria_core.speak_guard import SPOKEN_BANNED, spoken_ban_hits
+
+        for phrase in (
+            "not a doctor",
+            "i won't",
+            "i don't claim",
+            "keep the digits",
+            "no figures",
+        ):
+            self.assertIn(phrase, SPOKEN_BANNED)
+        self.assertEqual(
+            spoken_ban_hits("If last night felt bad, that's the read"),
+            ("bad",),
+        )
+        self.assertEqual(
+            spoken_ban_hits("so I won't invent one"),
+            ("i won't",),
+        )
+        self.assertEqual(
+            spoken_ban_hits("I'll keep the digits to myself. No figures in my mouth."),
+            ("keep the digits", "no figures"),
+        )
+        self.assertEqual(spoken_ban_hits("overtraining flag is set"), ("overtrain",))
+        self.assertEqual(spoken_ban_hits("treat it as a deload"), ("deload",))
+        self.assertEqual(spoken_ban_hits("the recovery one"), ("recovery",))
+        self.assertEqual(spoken_ban_hits("I don't have enough to go on yet."), ())
+        self.assertEqual(spoken_ban_hits("If last night felt rough"), ())
+
+
 if __name__ == "__main__":
     unittest.main()
