@@ -41,6 +41,49 @@ _DENIED_LIFESTYLE = re.compile(
 _BUSY_WINDOW_LABEL = "Busy window"
 
 
+def _history_text(item: Any) -> str:
+    if isinstance(item, str):
+        return item.strip()
+    if not isinstance(item, dict):
+        return ""
+    return str(
+        item.get("content")
+        or item.get("message")
+        or item.get("text")
+        or ""
+    ).strip()
+
+
+def _history_role(item: Any) -> str:
+    if isinstance(item, str):
+        return "user"
+    if not isinstance(item, dict):
+        return ""
+    return str(item.get("role") or item.get("speaker") or "user").strip().lower()
+
+
+def _turn_from_history(history: Any) -> tuple[int, list[str]]:
+    """Turn index and prior user texts from request/session history only.
+
+    Never reads notes, STM, last_insights, or persisted fusion. History items
+    are ``{role, content}`` dicts or raw strings (treated as user). The current
+    message is not in ``history`` — turn index is the count of prior user lines.
+    """
+    if not isinstance(history, list) or not history:
+        return 0, []
+    prior: list[str] = []
+    user_count = 0
+    for item in history:
+        text = _history_text(item)
+        if not text:
+            continue
+        role = _history_role(item)
+        if role in ("", "user", "human"):
+            prior.append(text)
+            user_count += 1
+    return user_count, prior
+
+
 def _denied_lifestyle_token(token: str) -> bool:
     return bool(_DENIED_LIFESTYLE.search(str(token or "").strip()))
 

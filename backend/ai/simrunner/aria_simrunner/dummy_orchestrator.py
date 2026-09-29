@@ -1868,6 +1868,9 @@ def _bridge_fused_memory(
     """Keep a spoken night/sleep thread on the lambda engine (single-turn product)."""
     if not prior_turns:
         return envelope
+    band = str(envelope.get("guidance_band") or "").strip().lower()
+    if band in {"emergency", "first_aid", "refer_out"}:
+        return envelope
     opener = _callback(prior_turns, seed, intents)
     if not opener:
         return envelope
@@ -1893,6 +1896,9 @@ def _respond_via_lambda(
     day_index: int,
     prior_turns: list[str] | None,
     lifestyle_tags: list[str] | None,
+    chat_payload: dict | None = None,
+    fuse_user_id: str | None = None,
+    load_learner: bool = True,
 ) -> dict:
     """Product path: fuse the synthetic day, then deterministic generate_response."""
     fusion_mod, engine_mod = _production_fusion()
@@ -1900,8 +1906,14 @@ def _respond_via_lambda(
         raise RuntimeError("lambda engine requires services.fusion and services.aria_engine")
 
     safe = _sanitize_chat_message(message)
-    payload = sim_context_to_chat_payload(ctx, lifestyle_tags=lifestyle_tags)
-    payload["message"] = safe
+    if chat_payload is not None:
+        payload = dict(chat_payload)
+        payload["message"] = safe
+    elif ctx is not None:
+        payload = sim_context_to_chat_payload(ctx, lifestyle_tags=lifestyle_tags)
+        payload["message"] = safe
+    else:
+        payload = {"message": safe, "context": {}}
     # Compose with the inbound sanitizer already on this branch — partner/cycle
     # PII and calendar titles never reach fuse_turn.
     try:
@@ -1912,20 +1924,24 @@ def _respond_via_lambda(
         pass
     permissions = engine_mod.DataPermissions.allow_all()
     fused = fusion_mod.fuse_turn(
-        "test-user-00000000",
+        fuse_user_id if fuse_user_id is not None else "test-user-00000000",
         payload,
         permissions,
         persist=False,
         include_stored=False,
-        load_learner=True,
+        load_learner=load_learner,
     )
     # Deterministic speak only. generate_response_live is never on this path.
+    gen_kwargs = {}
+    if chat_payload is not None:
+        gen_kwargs["seed"] = seed
     envelope = engine_mod.generate_response(
         safe,
         fused.context,
         permissions=permissions,
         persona=fused.persona,
         baselines=fused.baselines,
+        **gen_kwargs,
     )
     envelope = _scrub_fused_speak(envelope)
     envelope = _bridge_fused_memory(envelope, prior_turns, seed, intents)
@@ -1933,7 +1949,7 @@ def _respond_via_lambda(
     existing = envelope.get("fusion") if isinstance(envelope.get("fusion"), dict) else {}
     envelope["fusion"] = {**sidecar, **existing}
     stance = envelope["fusion"].get("stance")
-    signals = read_signals(ctx)
+    signals = read_signals(ctx) if ctx is not None else None
     guidance = envelope.get("guidance_band")
     # Fused notices are often <28 words; Dummy hypertune still needs local wit.
     prose = friend_speak(
@@ -1956,7 +1972,14 @@ def _respond_via_lambda(
     )
     prose = _speak_without_vitals(prose)
     chat = _speak_without_vitals(chat, prose)
-    notes = [str(p) for p in (getattr(ctx, "notable_event_note", None) and [ctx.notable_event_note] or [])]
+    notes = [
+        str(p)
+        for p in (
+            (getattr(ctx, "notable_event_note", None) and [ctx.notable_event_note] or [])
+            if ctx is not None
+            else []
+        )
+    ]
     card_for_guard = envelope.get("card") if isinstance(envelope.get("card"), dict) else None
     prose = _apply_speak_guard(prose, card=card_for_guard, notes=notes)
     chat = _apply_speak_guard(chat, card=card_for_guard, notes=notes)
@@ -2016,10 +2039,10 @@ def _respond_via_lambda(
             "observation_count": fused.observation_count,
             "stance": stance,
             "persona": {
-                "occupation": getattr(ctx, "occupation", None),
-                "chronotype": getattr(ctx, "chronotype", None),
-                "season": getattr(ctx, "life_season", None),
-                "experience": getattr(ctx, "experience_level", None),
+                "occupation": getattr(ctx, "occupation", None) if ctx is not None else None,
+                "chronotype": getattr(ctx, "chronotype", None) if ctx is not None else None,
+                "season": getattr(ctx, "life_season", None) if ctx is not None else None,
+                "experience": getattr(ctx, "experience_level", None) if ctx is not None else None,
             },
             "latency_ms": orch_ms,
             "engine_latency_ms": 0,
@@ -2171,6 +2194,9 @@ def respond(
     context=None,
     pack_day=None,
     use_pack: bool = False,
+    chat_payload: dict | None = None,
+    fuse_user_id: str | None = None,
+    load_learner: bool = True,
 ) -> dict:
     """One SimRunner turn. Default ``engine="lambda"`` hypertunes against fused
     product speak (``fuse_turn`` + ``generate_response``). ``engine="stub"``
@@ -2215,6 +2241,9 @@ def respond(
                         context=context,
                         pack_day=pack_day,
                         use_pack=use_pack,
+                        chat_payload=chat_payload,
+                        fuse_user_id=fuse_user_id,
+                        load_learner=load_learner,
                     ),
                     prompt_guard,
                 )
@@ -2240,10 +2269,16 @@ def respond(
             if key in _KINDS and key not in plan.kinds:
                 plan.workers.append(Worker(key, key, None, False))
 
-    ctx, _model = _context_for_turn(
-        seed=seed, model_id=model_id, day_index=day_index,
-        context=context, pack_day=pack_day, use_pack=use_pack,
-    )
+    chat_mode = chat_payload is not None
+    if chat_mode:
+        # Chat pins fuse_turn on the provided payload. Do not build a
+        # SimRunner stub / persona stream — that path is engine="stub".
+        ctx = None
+    else:
+        ctx, _model = _context_for_turn(
+            seed=seed, model_id=model_id, day_index=day_index,
+            context=context, pack_day=pack_day, use_pack=use_pack,
+        )
     if (engine or ENGINE_LAMBDA).strip().lower() == ENGINE_LAMBDA:
         return _respond_via_lambda(
             message,
@@ -2254,6 +2289,9 @@ def respond(
             day_index=day_index,
             prior_turns=prior_turns,
             lifestyle_tags=lifestyle_tags,
+            chat_payload=chat_payload,
+            fuse_user_id=fuse_user_id,
+            load_learner=load_learner,
         )
     stub = _offline_stub(message, ctx, seed)
     signals = read_signals(ctx)

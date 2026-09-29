@@ -1,0 +1,718 @@
+"""Local JSONL session eval logs. Redact before write. Dummy-only.
+
+Schema v3 records engine, commit SHA, seed, hashed user+turn key, stance,
+and per-turn telemetry as reason codes / counts only. Never a raw uid.
+"""
+
+from __future__ import annotations
+
+import hashlib
+import json
+import os
+import re
+import subprocess
+import time
+from collections.abc import Callable
+from datetime import datetime, timezone
+from pathlib import Path
+from typing import Any
+
+from backend._paths import REPO_ROOT, ensure_lambda_on_path
+
+ensure_lambda_on_path()
+
+from routes.aria import (  # noqa: E402
+    sanitize_inbound_chat_payload,
+    sanitize_user_memory_text,
+    _DENIED_LIFESTYLE,
+    _BUSY_WINDOW_LABEL,
+)
+
+SCHEMA_VERSION = 3
+ENGINE = "dummy"
+UNTIMED_DUMMY = "untimed_dummy"
+_UNKNOWN_SHA = "unknown"
+_CACHED_COMMIT_SHA: str | None = None
+_GRADER_KEYS = frozenset({
+    "grader_score",
+    "grader",
+    "nyx_score",
+    "eval_score",
+    "judge_score",
+    "grade_score",
+    "nyx_grade",
+})
+
+
+def contains_grader_score(value: Any) -> bool:
+    """True when a Nyx/grader score key is present anywhere in a log row."""
+    if isinstance(value, dict):
+        for key, item in value.items():
+            lowered = str(key).lower()
+            if lowered in _GRADER_KEYS or "grader" in lowered:
+                return True
+            if contains_grader_score(item):
+                return True
+        return False
+    if isinstance(value, list):
+        return any(contains_grader_score(item) for item in value)
+    return False
+
+ALLOWED_STANCE_INPUTS = frozenset({
+    "protect",
+    "proceed",
+    "fuel",
+    "clarify",
+    "band_coach",
+    "band_first_aid",
+    "band_emergency",
+    "band_refer_out",
+    "thin_data",
+    "small_talk",
+    "safety_protect",
+    "sleep_short",
+    "load_high",
+    "recovery_low",
+    "number_ask",
+})
+ALLOWED_WAKE_REASONS = frozenset({"data_delta", "question", "digest", "always_on"})
+ALLOWED_RESEARCH_HITS = frozenset({"hit", "miss"})
+
+_PARTNER_NEEDLE = re.compile(
+    r"(?i)\b(partner_cycle|partner_name|partner_phase|partner_day|"
+    r"support_cycle|cycle:fertile|cycle:tww|cycle:bleeding)\b"
+)
+_SPOKEN_METRIC = re.compile(
+    r"(?i)\b\d+(?:\.\d+)?\s*(bpm|ms|mmhg|hrv|kcal|spo2|acwr)\b"
+)
+_MEMORY_KEYS = frozenset({
+    "memory_prompt_block",
+    "persona",
+    "recentPatterns",
+    "recent_patterns",
+    "last_insights",
+    "lastInsights",
+    "notes",
+    "current_goals",
+    "currentGoals",
+    "memory",
+})
+
+
+def default_log_dir() -> Path:
+    """Gitignored local dir. Override with ``ARIA_CHAT_LOG_DIR``."""
+    env = (os.getenv("ARIA_CHAT_LOG_DIR") or "").strip()
+    if env:
+        return Path(env).expanduser()
+    return REPO_ROOT / "backend" / "ai" / "chat_sessions"
+
+
+def default_export_dir() -> Path:
+    return REPO_ROOT / "backend" / "ai" / "aria_chat" / "fixtures"
+
+
+def git_commit_sha(*, refresh: bool = False) -> str:
+    """Read once at session start. Never fail if git is missing.
+
+    Order: ``GIT_SHA`` / ``ARIA_CHAT_COMMIT`` / ``GITHUB_SHA``, then
+    ``git rev-parse HEAD``, then the literal ``unknown``.
+    """
+    global _CACHED_COMMIT_SHA
+    if _CACHED_COMMIT_SHA is not None and not refresh:
+        return _CACHED_COMMIT_SHA
+    for key in ("GIT_SHA", "ARIA_CHAT_COMMIT", "GITHUB_SHA"):
+        pinned = (os.getenv(key) or "").strip()
+        if pinned:
+            _CACHED_COMMIT_SHA = pinned[:40]
+            return _CACHED_COMMIT_SHA
+    try:
+        out = subprocess.check_output(
+            ["git", "rev-parse", "HEAD"],
+            cwd=str(REPO_ROOT),
+            text=True,
+            timeout=3,
+        )
+        _CACHED_COMMIT_SHA = (out or "").strip()[:40] or _UNKNOWN_SHA
+    except Exception:
+        _CACHED_COMMIT_SHA = _UNKNOWN_SHA
+    return _CACHED_COMMIT_SHA
+
+
+def user_turn_key(pseudonym: str, turn: int) -> str:
+    """Hashed install-pseudonym + turn. Never a raw user id."""
+    raw = f"{pseudonym}|{int(turn)}"
+    return "utk:" + hashlib.sha256(raw.encode("utf-8")).hexdigest()[:16]
+
+
+def collect_needles(payload: dict[str, Any], message: str) -> list[str]:
+    needles: list[str] = []
+    events = payload.get("calendar_events") if isinstance(payload, dict) else None
+    if isinstance(events, list):
+        for event in events:
+            if not isinstance(event, dict):
+                continue
+            for key in ("title", "summary", "name", "location", "place"):
+                value = event.get(key)
+                text = str(value or "").strip()
+                if text and text != _BUSY_WINDOW_LABEL:
+                    needles.append(text)
+            attendees = event.get("attendees") or event.get("attendee")
+            if isinstance(attendees, list):
+                for person in attendees:
+                    label = person.get("name") if isinstance(person, dict) else person
+                    text = str(label or "").strip()
+                    if text:
+                        needles.append(text)
+            elif attendees:
+                needles.append(str(attendees).strip())
+    blob = json.dumps(payload, default=str) + " " + str(message or "")
+    for match in _PARTNER_NEEDLE.finditer(blob):
+        needles.append(match.group(0))
+    seen: set[str] = set()
+    out: list[str] = []
+    for item in needles:
+        if item not in seen:
+            seen.add(item)
+            out.append(item)
+    return out
+
+
+def sanitize_logged_text(
+    text: str,
+    needles: list[str] | None = None,
+    payload: dict[str, Any] | None = None,
+) -> str:
+    """Same inbound sanitizer ingest uses, then needle + partner scrub.
+
+    User turns, request history, and rating notes all go through
+    ``sanitize_inbound_chat_payload`` before any write.
+    """
+    raw = str(text or "")
+    bag: dict[str, Any] = {"message": raw}
+    events: list[dict[str, Any]] = []
+    tags: list[str] = list(raw.split())
+    if isinstance(payload, dict):
+        raw_events = payload.get("calendar_events")
+        if isinstance(raw_events, list):
+            events.extend(item for item in raw_events if isinstance(item, dict))
+        ctx = payload.get("context") if isinstance(payload.get("context"), dict) else {}
+        life = ctx.get("lifestyle") if isinstance(ctx.get("lifestyle"), dict) else {}
+        tags.extend(str(t) for t in (life.get("tags") or []) if t)
+    for needle in needles or []:
+        if needle:
+            events.append({"title": needle, "summary": needle, "name": needle})
+    if events:
+        bag["calendar_events"] = events
+    bag["context"] = {"lifestyle": {"tags": tags}}
+    clean_payload = sanitize_inbound_chat_payload(bag)
+    cleaned = sanitize_user_memory_text(str(clean_payload.get("message") or raw)) or ""
+    found = list(needles or []) + collect_needles(payload or {}, raw)
+    return _scrub_string(cleaned, found)
+
+
+def _scrub_string(text: str, needles: list[str]) -> str:
+    cleaned = sanitize_user_memory_text(text) or str(text or "")
+    for needle in needles:
+        if needle:
+            cleaned = cleaned.replace(needle, _BUSY_WINDOW_LABEL)
+    cleaned = _DENIED_LIFESTYLE.sub("", cleaned)
+    cleaned = _PARTNER_NEEDLE.sub("", cleaned)
+    return re.sub(r"\s{2,}", " ", cleaned).strip()
+
+
+def _drop_memory_keys(value: Any) -> Any:
+    if isinstance(value, dict):
+        return {
+            str(k): _drop_memory_keys(v)
+            for k, v in value.items()
+            if str(k) not in _MEMORY_KEYS
+        }
+    if isinstance(value, list):
+        return [_drop_memory_keys(item) for item in value]
+    return value
+
+
+def _scrub_obj(value: Any, needles: list[str]) -> Any:
+    value = _drop_memory_keys(value)
+    if isinstance(value, str):
+        return _scrub_string(value, needles)
+    if isinstance(value, list):
+        return [_scrub_obj(item, needles) for item in value]
+    if isinstance(value, dict):
+        return {str(k): _scrub_obj(v, needles) for k, v in value.items()}
+    return value
+
+
+def context_snapshot_ref(
+    payload: dict[str, Any],
+    *,
+    memory_enabled: bool,
+    turn: int,
+    seed: int,
+) -> str:
+    """Stable hash of a sanitized, PII-free context snapshot for later replay."""
+    clean = sanitize_inbound_chat_payload(payload if isinstance(payload, dict) else {})
+    ctx = clean.get("context") if isinstance(clean.get("context"), dict) else {}
+    snapshot = {
+        "domains": sorted(k for k, v in ctx.items() if v),
+        "memory_off": not bool(memory_enabled),
+        "turn": int(turn),
+        "seed": int(seed),
+        "engine": ENGINE,
+    }
+    raw = json.dumps(snapshot, sort_keys=True, separators=(",", ":"))
+    return "sha256:" + hashlib.sha256(raw.encode("utf-8")).hexdigest()[:16]
+
+
+def stance_inputs_from(
+    envelope: dict[str, Any],
+    *,
+    thin: bool = False,
+    small_talk: bool = False,
+    safety: bool = False,
+    number_ask: bool = False,
+    ctx: Any = None,
+) -> list[str]:
+    """Reason codes only — never raw vitals or free text."""
+    codes: list[str] = []
+    fusion = envelope.get("fusion") if isinstance(envelope.get("fusion"), dict) else {}
+    brief = (
+        envelope.get("contextualization")
+        if isinstance(envelope.get("contextualization"), dict)
+        else {}
+    )
+    stance = str(fusion.get("stance") or brief.get("stance") or "")
+    if stance in {"protect", "proceed", "fuel", "clarify"}:
+        codes.append(stance)
+    band = str(envelope.get("guidance_band") or "coach")
+    band_code = f"band_{band}"
+    if band_code in ALLOWED_STANCE_INPUTS:
+        codes.append(band_code)
+    if thin:
+        codes.append("thin_data")
+    if small_talk:
+        codes.append("small_talk")
+    if safety:
+        codes.append("safety_protect")
+    if number_ask:
+        codes.append("number_ask")
+    recovery = getattr(getattr(ctx, "readiness", None), "recovery_score", None)
+    load = getattr(getattr(ctx, "training", None), "weekly_load_score", None)
+    sleep_min = getattr(getattr(ctx, "sleep", None), "duration_minutes", None)
+    if isinstance(recovery, (int, float)) and recovery < 55:
+        codes.append("recovery_low")
+    if isinstance(load, (int, float)) and load >= 80:
+        codes.append("load_high")
+    if isinstance(sleep_min, (int, float)) and sleep_min < 400:
+        codes.append("sleep_short")
+    return [c for c in codes if c in ALLOWED_STANCE_INPUTS]
+
+
+def empty_agent_telemetry() -> dict[str, Any]:
+    """Zeros for concepts Dummy does not run. Logging only — no new services."""
+    return {
+        "agents_woken": [],
+        "agent_writes": [],
+        "research": [],
+        "subagent_spawn_count": 0,
+        "max_depth": 0,
+        "budget_exhausted": False,
+        "llm_calls": 0,
+        "network_calls": 0,
+    }
+
+
+def research_entry(topic_id: str, hit_or_miss: str) -> dict[str, str]:
+    """One research line: topic id + hit|miss. No profile bucket."""
+    status = hit_or_miss if hit_or_miss in ALLOWED_RESEARCH_HITS else "miss"
+    return {"topic_id": str(topic_id), "hit": status}
+
+
+def research_from_envelope(envelope: dict[str, Any] | None) -> list[dict[str, str]]:
+    """Keep only topic_id + hit|miss. Dummy chat does not call look_up."""
+    raw = envelope.get("research") if isinstance(envelope, dict) else None
+    if not isinstance(raw, list):
+        return []
+    out: list[dict[str, str]] = []
+    for item in raw:
+        if not isinstance(item, dict):
+            continue
+        topic = str(item.get("topic_id") or "").strip()
+        if not topic:
+            continue
+        status = item.get("hit") or item.get("status") or "miss"
+        out.append(research_entry(topic, str(status)))
+    return out
+
+
+def time_agent_write(
+    kind: str,
+    keys: list[str],
+    write: Callable[[], Any] | None = None,
+) -> dict[str, Any]:
+    """Time one agent write with ``perf_counter``. Never log ``0`` as a placeholder.
+
+    Dummy reconstructs writes after the fact and has no per-agent timer, so
+    those rows are ``elapsed_ms: null`` with ``reason: untimed_dummy``.
+    """
+    if write is None:
+        return {
+            "kind": kind,
+            "keys": list(keys),
+            "elapsed_ms": None,
+            "reason": UNTIMED_DUMMY,
+        }
+    started = time.perf_counter()
+    write()
+    elapsed_ms = (time.perf_counter() - started) * 1000.0
+    if elapsed_ms == 0:
+        return {
+            "kind": kind,
+            "keys": list(keys),
+            "elapsed_ms": None,
+            "reason": UNTIMED_DUMMY,
+        }
+    return {"kind": kind, "keys": list(keys), "elapsed_ms": float(elapsed_ms)}
+
+
+def _wake_reason(message: str, *, has_data: bool) -> str:
+    if "?" in (message or ""):
+        return "question"
+    if has_data:
+        return "data_delta"
+    return "always_on"
+
+
+def _context_key_names(envelope: dict[str, Any]) -> list[str]:
+    """Personal-model / context key names only — no values, no free text."""
+    names: list[str] = []
+    fusion = envelope.get("fusion") if isinstance(envelope.get("fusion"), dict) else {}
+    brief = (
+        envelope.get("contextualization")
+        if isinstance(envelope.get("contextualization"), dict)
+        else {}
+    )
+    for raw in list(fusion.get("owned_domains") or []) + list(brief.get("prioritize") or []):
+        key = str(raw or "").strip()
+        if key and re.fullmatch(r"[a-z][a-z0-9_]*", key.lower()):
+            names.append(key.lower())
+    seen: set[str] = set()
+    out: list[str] = []
+    for key in names:
+        if key not in seen:
+            seen.add(key)
+            out.append(key)
+    return out
+
+
+def telemetry_from_envelope(
+    envelope: dict[str, Any],
+    *,
+    message: str = "",
+    has_data: bool = False,
+) -> dict[str, Any]:
+    """Reason codes and counts from Dummy call sites. No profile bucket here.
+
+    Chat lambda does not call ``web_research.look_up`` and does not spawn
+    sub-agents, so ``research`` stays ``[]`` and spawn fields stay 0/false.
+    ``plan_workers`` still runs and is recorded under ``agents_woken``.
+    """
+    base = empty_agent_telemetry()
+    workers = envelope.get("workers") if isinstance(envelope.get("workers"), list) else []
+    kinds = envelope.get("agents") if isinstance(envelope.get("agents"), list) else []
+    if not workers and kinds:
+        workers = [{"kind": str(k)} for k in kinds if k]
+    reason = _wake_reason(message, has_data=has_data)
+    if reason not in ALLOWED_WAKE_REASONS:
+        reason = "always_on"
+    keys = _context_key_names(envelope)
+    woken: list[dict[str, str]] = []
+    writes: list[dict[str, Any]] = []
+    seen: set[str] = set()
+    for worker in workers:
+        if not isinstance(worker, dict):
+            continue
+        kind = str(worker.get("kind") or "").strip().lower()
+        if not kind or kind in seen:
+            continue
+        seen.add(kind)
+        woken.append({"kind": kind, "wake_reason": reason})
+        # Dummy has no per-agent write timer at the fuse/plan call site.
+        writes.append(time_agent_write(kind, keys))
+    base["agents_woken"] = woken
+    base["agent_writes"] = writes
+    # No Dummy research / LLM / network / sub-agent path on this chat pin.
+    base["research"] = research_from_envelope(envelope)
+    base["subagent_spawn_count"] = 0
+    base["max_depth"] = 0
+    base["budget_exhausted"] = False
+    base["llm_calls"] = 0
+    base["network_calls"] = 0
+    return base
+
+
+def build_record(
+    *,
+    session_id: str,
+    turn_id: str,
+    turn: int,
+    seed: int,
+    install_pseudonym: str,
+    memory_enabled: bool,
+    user_message: str,
+    envelope: dict[str, Any],
+    payload: dict[str, Any],
+    request_history: list[str] | None = None,
+    needles: list[str] | None = None,
+    wall_ms: int | None = None,
+    cpu_ms: int | None = None,
+    thin: bool = False,
+    small_talk: bool = False,
+    safety: bool = False,
+    number_ask: bool = False,
+    ctx: Any = None,
+    commit_sha: str | None = None,
+) -> dict[str, Any]:
+    """Build a versioned JSONL row. Redact before the caller writes."""
+    found = list(needles or []) or collect_needles(payload, user_message)
+    clean_user = sanitize_logged_text(user_message, found, payload=payload)
+    history = [
+        sanitize_logged_text(item, found, payload=payload)
+        for item in (request_history or [])
+    ]
+    fusion = envelope.get("fusion") if isinstance(envelope.get("fusion"), dict) else {}
+    brief = (
+        envelope.get("contextualization")
+        if isinstance(envelope.get("contextualization"), dict)
+        else {}
+    )
+    card = envelope.get("card") if isinstance(envelope.get("card"), dict) else {}
+    band = str(envelope.get("guidance_band") or "coach")
+    stance = str(fusion.get("stance") or brief.get("stance") or "")
+    telemetry = telemetry_from_envelope(
+        envelope,
+        message=clean_user,
+        has_data=any(
+            isinstance(v, (int, float))
+            for v in (
+                getattr(getattr(ctx, "readiness", None), "recovery_score", None),
+                getattr(getattr(ctx, "training", None), "weekly_load_score", None),
+                getattr(getattr(ctx, "sleep", None), "duration_minutes", None),
+            )
+        ),
+    )
+    # Five replay fields: small, no user text. Written after scrub so a
+    # needle cannot rewrite engine / SHA / seed / turn key / reason codes.
+    replay = {
+        "engine": ENGINE,
+        "commit_sha": str(commit_sha or git_commit_sha() or _UNKNOWN_SHA),
+        "seed": int(seed),
+        "user_turn_key": user_turn_key(install_pseudonym, turn),
+        "stance_inputs": stance_inputs_from(
+            envelope,
+            thin=thin,
+            small_talk=small_talk,
+            safety=safety,
+            number_ask=number_ask,
+            ctx=ctx,
+        ),
+    }
+    record = {
+        "schema_version": SCHEMA_VERSION,
+        "engine": replay["engine"],
+        "commit_sha": replay["commit_sha"],
+        "session_id": session_id,
+        "turn_id": turn_id,
+        "turn": int(turn),
+        "seed": replay["seed"],
+        "turn_seed": int(seed),
+        "install_pseudonym": str(install_pseudonym),
+        "user_turn_key": replay["user_turn_key"],
+        "memory_off": not bool(memory_enabled),
+        "user_turn": clean_user,
+        "request_history": history,
+        "stance": stance,
+        "guidance_band": band,
+        "stance_inputs": replay["stance_inputs"],
+        "reply": {
+            "message": str(envelope.get("message") or ""),
+            "prose_summary": str(envelope.get("prose_summary") or ""),
+            "card_action": str(card.get("action") or card.get("recommendation") or ""),
+        },
+        "feedback": {"rating": None, "note": ""},
+        "context_snapshot_ref": context_snapshot_ref(
+            payload, memory_enabled=memory_enabled, turn=turn, seed=seed
+        ),
+        **telemetry,
+        "wall_ms": int(wall_ms) if wall_ms is not None else 0,
+        "cpu_ms": int(cpu_ms) if cpu_ms is not None else 0,
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+    }
+    cleaned = _scrub_obj(record, found)
+    cleaned.update(replay)
+    return cleaned
+
+
+def session_path(session_id: str, log_dir: Path | None = None) -> Path:
+    directory = Path(log_dir) if log_dir is not None else default_log_dir()
+    directory.mkdir(parents=True, exist_ok=True)
+    return directory / f"{session_id}.jsonl"
+
+
+def append_record(record: dict[str, Any], *, log_dir: Path | None = None) -> Path:
+    """Write one already-redacted JSONL line."""
+    path = session_path(str(record.get("session_id") or "session"), log_dir)
+    with path.open("a", encoding="utf-8") as handle:
+        handle.write(json.dumps(record, ensure_ascii=False) + "\n")
+    return path
+
+
+def set_feedback(
+    turn_id: str,
+    *,
+    rating: str | None = None,
+    note: str | None = None,
+    session_id: str | None = None,
+    log_dir: Path | None = None,
+    needles: list[str] | None = None,
+) -> dict[str, Any] | None:
+    """Set thumbs up/down + optional note on a prior turn. Local rewrite."""
+    directory = Path(log_dir) if log_dir is not None else default_log_dir()
+    if not directory.exists():
+        return None
+    if session_id:
+        paths = [directory / f"{session_id}.jsonl"]
+    else:
+        paths = sorted(directory.glob("*.jsonl"))
+    rating_norm = None
+    if rating is not None:
+        key = str(rating).strip().lower()
+        if key in {"up", "1", "+", "good"}:
+            rating_norm = "up"
+        elif key in {"down", "0", "-", "bad"}:
+            rating_norm = "down"
+        else:
+            rating_norm = key
+    note_clean = sanitize_logged_text(note, needles) if note else None
+    updated: dict[str, Any] | None = None
+    for path in paths:
+        if not path.is_file():
+            continue
+        lines = path.read_text(encoding="utf-8").splitlines()
+        changed = False
+        out: list[str] = []
+        for line in lines:
+            if not line.strip():
+                continue
+            try:
+                row = json.loads(line)
+            except json.JSONDecodeError:
+                out.append(line)
+                continue
+            if str(row.get("turn_id") or "") != str(turn_id):
+                out.append(line)
+                continue
+            feedback = row.get("feedback") if isinstance(row.get("feedback"), dict) else {}
+            if rating_norm is not None:
+                feedback["rating"] = rating_norm
+            if note_clean is not None:
+                feedback["note"] = note_clean
+            row["feedback"] = feedback
+            row = _scrub_obj(row, list(needles or []))
+            updated = row
+            out.append(json.dumps(row, ensure_ascii=False))
+            changed = True
+        if changed:
+            path.write_text("\n".join(out) + ("\n" if out else ""), encoding="utf-8")
+            if updated is not None:
+                return updated
+    return updated
+
+
+def _export_row_ok(row: dict[str, Any], needles: list[str] | None = None) -> dict[str, Any]:
+    """Re-run ingest redaction. Drop memory keys. Keep speech digit-free."""
+    found = list(needles or [])
+    row["user_turn"] = sanitize_logged_text(str(row.get("user_turn") or ""), found)
+    row["request_history"] = [
+        sanitize_logged_text(str(item or ""), found)
+        for item in (row.get("request_history") or [])
+    ]
+    feedback = row.get("feedback") if isinstance(row.get("feedback"), dict) else {}
+    if feedback.get("note"):
+        feedback["note"] = sanitize_logged_text(str(feedback.get("note") or ""), found)
+        row["feedback"] = feedback
+    row = _drop_memory_keys(row)
+    row = _scrub_obj(row, found)
+    reply = row.get("reply") if isinstance(row.get("reply"), dict) else {}
+    for key in ("message", "prose_summary"):
+        text = str(reply.get(key) or "")
+        if _SPOKEN_METRIC.search(text) or (
+            re.search(r"\d", text.replace("911", ""))
+        ):
+            reply[key] = re.sub(r"\d+(?:\.\d+)?", "", text)
+            reply[key] = re.sub(r"\s{2,}", " ", reply[key]).strip()
+    row["reply"] = reply
+    return row
+
+
+def export_session(
+    session_id: str,
+    *,
+    dest: Path | None = None,
+    log_dir: Path | None = None,
+    needles: list[str] | None = None,
+) -> Path:
+    """Copy a sanitized session into repo fixtures (or ``dest``). Re-redacts."""
+    source = session_path(session_id, log_dir)
+    if not source.is_file():
+        raise FileNotFoundError(f"no session log at {source}")
+    target_dir = Path(dest) if dest is not None else default_export_dir()
+    if target_dir.suffix == ".jsonl":
+        target = target_dir
+        target.parent.mkdir(parents=True, exist_ok=True)
+    else:
+        target_dir.mkdir(parents=True, exist_ok=True)
+        target = target_dir / source.name
+    lines = []
+    for line in source.read_text(encoding="utf-8").splitlines():
+        if not line.strip():
+            continue
+        try:
+            row = json.loads(line)
+        except json.JSONDecodeError:
+            continue
+        row = _export_row_ok(row, needles)
+        lines.append(json.dumps(row, ensure_ascii=False))
+    target.write_text("\n".join(lines) + ("\n" if lines else ""), encoding="utf-8")
+    return target
+
+
+def iter_records(session_id: str, *, log_dir: Path | None = None) -> list[dict[str, Any]]:
+    path = session_path(session_id, log_dir)
+    if not path.is_file():
+        return []
+    rows: list[dict[str, Any]] = []
+    for line in path.read_text(encoding="utf-8").splitlines():
+        if not line.strip():
+            continue
+        try:
+            rows.append(json.loads(line))
+        except json.JSONDecodeError:
+            continue
+    return rows
+
+
+def purge_logs(log_dir: Path | None = None) -> int:
+    """Delete local JSONL session logs. Memory-off does not do this."""
+    directory = Path(log_dir) if log_dir is not None else default_log_dir()
+    if not directory.exists():
+        return 0
+    removed = 0
+    for path in directory.glob("*.jsonl"):
+        path.unlink()
+        removed += 1
+    return removed
+
+
+def contains_spoken_metric_digits(text: str) -> bool:
+    return bool(_SPOKEN_METRIC.search(text or ""))

@@ -212,6 +212,7 @@ _CONDITION_TERMS = (
     "arthritis", "depression", "anxiety disorder", "adhd", "std", "sti", "uti",
     "hypertension", "thyroid", "anemia", "ulcer", "appendicitis", "blood clot",
     "dvt", "hernia", "kidney stone", "gallstone", "sepsis", "meningitis",
+    "sleep apnea", "sleep apnoea", "apnea", "apnoea",
 )
 _DIRECT_MED = (
     "prescribe", "prescription for", "what medication", "which medication",
