@@ -1479,8 +1479,9 @@ class PhrasePickHashTests(unittest.TestCase):
         from datetime import datetime, timezone
         from unittest.mock import patch
 
-        # 05:30 UTC on 2026-01-15 is still 2026-01-14 in America/Chicago.
-        frozen = datetime(2026, 1, 15, 5, 30, tzinfo=timezone.utc)
+        # Near UTC midnight vs a later calendar day — neither may enter the key.
+        near_midnight = datetime(2026, 1, 15, 5, 30, tzinfo=timezone.utc)
+        later = datetime(2026, 6, 2, 12, 0, tzinfo=timezone.utc)
         previous = os.environ.get("TZ")
         key = state_read.phrase_key(self._UID, self._TURN)
         self.assertEqual(
@@ -1494,40 +1495,40 @@ class PhrasePickHashTests(unittest.TestCase):
         local_dates: list[str] = []
         texts: list[tuple[str, str]] = []
         try:
-            with patch(
-                "aria_core.aria_engine._utcnow_iso",
-                return_value=frozen.replace(microsecond=0).isoformat(),
-            ), patch("time.time", return_value=frozen.timestamp()):
-                for tz in ("UTC", "America/Chicago"):
-                    self._set_tz(tz)
-                    local_dates.append(
-                        datetime.fromtimestamp(frozen.timestamp()).date().isoformat()
-                    )
-                    os.environ["SIMRUNNER_TODAY"] = "2026-01-15"
-                    clause = state_read._pick(
-                        state_read.phrase_key(self._UID, self._TURN),
-                        state_read.SHORT_NIGHT,
-                    )
-                    spoken = aria_engine.generate_response(
-                        "Should I train today?",
-                        _health_ctx(),
-                        user_id=self._UID,
-                        turn=self._TURN,
-                    )["prose_summary"]
-                    os.environ["SIMRUNNER_TODAY"] = "2026-06-02"
-                    self.assertEqual(
-                        clause,
-                        state_read._pick(
+            for frozen, today in (
+                (near_midnight, "2026-01-15"),
+                (later, "2026-06-02"),
+            ):
+                with patch(
+                    "aria_core.aria_engine._utcnow_iso",
+                    return_value=frozen.replace(microsecond=0).isoformat(),
+                ), patch("time.time", return_value=frozen.timestamp()):
+                    for tz in ("UTC", "America/Chicago"):
+                        self._set_tz(tz)
+                        if frozen is near_midnight:
+                            local_dates.append(
+                                datetime.fromtimestamp(frozen.timestamp())
+                                .date()
+                                .isoformat()
+                            )
+                        os.environ["SIMRUNNER_TODAY"] = today
+                        clause = state_read._pick(
                             state_read.phrase_key(self._UID, self._TURN),
                             state_read.SHORT_NIGHT,
-                        ),
-                    )
-                    texts.append((clause, spoken))
+                        )
+                        spoken = aria_engine.generate_response(
+                            "Should I train today?",
+                            _health_ctx(),
+                            user_id=self._UID,
+                            turn=self._TURN,
+                        )["prose_summary"]
+                        texts.append((clause, spoken))
         finally:
             os.environ.pop("SIMRUNNER_TODAY", None)
             self._restore_tz(previous)
+        self.assertEqual(len(local_dates), 2, local_dates)
         self.assertNotEqual(local_dates[0], local_dates[1], local_dates)
-        self.assertEqual(texts[0], texts[1], texts)
+        self.assertEqual(len(set(texts)), 1, texts)
 
     def test_different_turns_rotate_protect_proceed_clarify_pools(self):
         uid = "phrase-user-rotate"
