@@ -8,6 +8,7 @@ only for unresponsive / not-breathing arrest.
 from __future__ import annotations
 
 import os
+import re
 import unittest
 
 import _bootstrap  # noqa: F401
@@ -155,11 +156,17 @@ class SelfHarmEmergencyTests(unittest.TestCase):
         self.assertEqual(assessed.band, guidance.EMERGENCY)
         self.assertTrue(assessed.wants_escalation)
         self.assertEqual(assessed.prose, guidance._CRISIS_LINE)
-        self.assertEqual(assessed.prose.lower().count("call 911 now"), 1)
-        self.assertFalse(assessed.prose.startswith("Call 911 now"))
         low = assessed.prose.lower()
+        self.assertTrue(low.startswith("you matter"))
+        self.assertIn("988", assessed.prose)
+        self.assertIn("call or text", low)
+        self.assertEqual(assessed.prose.count("911"), 1)
+        self.assertEqual(low.count("call 911 now"), 1)
+        self.assertFalse(assessed.prose.startswith("Call 911 now"))
         self.assertNotIn("chest compress", low)
         self.assertNotIn("start cpr", low)
+        self.assertNotIn("lifestyle coach", low)
+        self.assertNotIn("joke", low)
 
 
 class TrainingSorenessStaysCoachTests(unittest.TestCase):
@@ -237,6 +244,113 @@ class EmergencyBedrockBypassTests(unittest.TestCase):
         self.assertNotIn("Start CPR", result["message"])
         self.assertNotIn("compressions", result["message"].lower())
 
+    def test_refer_out_and_self_harm_skip_mocked_bedrock(self):
+        previous = os.environ.get("ARIA_BEDROCK_ENABLED")
+        os.environ["ARIA_BEDROCK_ENABLED"] = "true"
+        try:
+            for message, band, needle in (
+                ("do I have diabetes?", guidance.REFER_OUT, "not a doctor"),
+                ("I feel suicidal and want to die", guidance.EMERGENCY, "988"),
+            ):
+                with self.subTest(message=message):
+                    calls: list[tuple] = []
+
+                    def fake_converse(model_id, system, user):
+                        calls.append((model_id, system, user))
+                        return '{"prose_summary": "model tried to answer"}'
+
+                    result = aria_engine.generate_response_live(
+                        message, self._ctx(), converse=fake_converse
+                    )
+                    self.assertEqual(result["guidance_band"], band, message)
+                    self.assertEqual(calls, [], message)
+                    self.assertIn(needle, result["message"].lower(), message)
+                    expected = guidance.assess(message)
+                    self.assertEqual(result["message"], expected.message, message)
+        finally:
+            if previous is None:
+                os.environ.pop("ARIA_BEDROCK_ENABLED", None)
+            else:
+                os.environ["ARIA_BEDROCK_ENABLED"] = previous
+
+
+class PatientVsBystanderTests(unittest.TestCase):
+    def test_patient_phrasings_get_patient_steps_without_cpr(self):
+        cases = (
+            ("my arm is numb with chest pain", CARDIAC_REPLY),
+            ("my face feels droopy", STROKE_REPLY),
+            ("I just fainted", FAINT_REPLY),
+        )
+        for message, expected in cases:
+            with self.subTest(message=message):
+                _assert_typed_emergency(self, message, expected, cpr=False)
+
+    def test_bystander_arrest_gets_cpr(self):
+        for message in (
+            "he's not breathing",
+            "she collapsed and isn't breathing",
+        ):
+            with self.subTest(message=message):
+                _assert_typed_emergency(self, message, CPR_REPLY, cpr=True)
+
+    def test_collapsed_without_breathing_info_is_conditional_cpr(self):
+        _assert_typed_emergency(self, "she collapsed", CONDITIONAL_CPR_REPLY, cpr=True)
+
+
+class EmergencyDigitRuleTests(unittest.TestCase):
+    """On the emergency band, only 911, 988, and CPR compression digits."""
+
+    _TOKEN = re.compile(r"\d+")
+    _PATIENT = {"911"}
+    _CRISIS = {"911", "988"}
+    _CPR = {"911", "100", "120", "2", "30"}
+
+    def _digits(self, text: str) -> set[str]:
+        return set(self._TOKEN.findall(text))
+
+    def test_patient_replies_only_use_911(self):
+        for message, expected in (
+            ("chest pain and my left arm is numb", CARDIAC_REPLY),
+            ("my face is drooping", STROKE_REPLY),
+            ("I just fainted", FAINT_REPLY),
+        ):
+            with self.subTest(message=message):
+                assessed = guidance.assess(message)
+                self.assertEqual(assessed.prose, expected)
+                self.assertEqual(self._digits(assessed.prose), self._PATIENT)
+
+    def test_cpr_replies_may_use_compression_numbers(self):
+        for message in ("he's not breathing", "call 911 now"):
+            with self.subTest(message=message):
+                assessed = guidance.assess(message)
+                digits = self._digits(assessed.prose)
+                self.assertTrue(digits <= self._CPR, digits)
+                self.assertIn("911", digits)
+                self.assertIn("100", digits)
+                self.assertIn("120", digits)
+
+    def test_self_harm_allows_988_and_911_only(self):
+        assessed = guidance.assess("I feel suicidal and want to die")
+        self.assertEqual(self._digits(assessed.prose), self._CRISIS)
+
+
+class GuardrailDoesNotWriteMemoryTests(unittest.TestCase):
+    """Engine path: safety bands do not mutate companion memory on the context."""
+
+    def test_emergency_self_harm_and_refer_out_leave_insights_untouched(self):
+        ctx = aria_engine.ARIAContext.from_payload({"user_id": "memory-guard"})
+        ctx.last_insights = ["keep today easy"]
+        before = list(ctx.last_insights)
+        for message in (
+            "chest pain and my left arm is numb",
+            "I feel suicidal and want to die",
+            "do I have diabetes?",
+        ):
+            with self.subTest(message=message):
+                aria_engine.generate_response(message, ctx)
+                self.assertEqual(list(ctx.last_insights), before, message)
+
 
 if __name__ == "__main__":
     unittest.main()
+
