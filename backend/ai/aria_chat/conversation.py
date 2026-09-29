@@ -124,7 +124,7 @@ _DOG = (
 )
 _DOG_FOLLOW = (
     "A couch coup and a long game? Yeah, he's running a tiny crime family. A walk before dinner might stall the next plot.",
-    "Plotting? He's already got the high ground and the remote. A treat and a loop around the block could buy a ceasefire.",
+    "Plotting? He's already got the high ground and the remote. A snack and a loop around the block could buy a ceasefire.",
 )
 _BAD_DAY = (
     "A rough day gets a real sit-down from me. Want to vent, or want one tiny kindness?",
