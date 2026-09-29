@@ -1,14 +1,18 @@
 """Dummy-only chat turn: ingest → personal model → stance → conversation.
 
-Multi-turn state comes only from the request/session history
-(``routes.aria._turn_from_history``). Memory-off never reads notes,
-``remember_short_term``, ``last_insights``, or persisted fusion.
+Pinned to ``dummy_orchestrator.respond(engine="lambda")`` through
+``fuse_turn``, never the SimRunner stub. Multi-turn state comes only from
+the request/session history (``routes.aria._turn_from_history``).
+Memory-off never reads notes, ``remember_short_term``, ``last_insights``,
+or persisted fusion.
 """
 
 from __future__ import annotations
 
 import os
+import time
 import uuid
+from types import SimpleNamespace
 from typing import Any
 
 from backend._paths import ensure_lambda_on_path
@@ -22,12 +26,15 @@ from routes.aria import (  # noqa: E402
     sanitize_inbound_chat_payload,
 )
 from security import MAX_CHAT_MESSAGE_CHARS, sanitize_user_text  # noqa: E402
-from services import aria_engine  # noqa: E402
 from services import editable_memory  # noqa: E402
-from services import fusion as fusion_mod  # noqa: E402
 from services import guidance  # noqa: E402
+from backend.ai.simrunner.aria_simrunner.dummy_orchestrator import (  # noqa: E402
+    ENGINE_LAMBDA,
+    respond as dummy_respond,
+)
 
 from . import conversation
+from . import install as install_mod
 from . import logging as chatlog
 
 ENGINE = "dummy"
@@ -79,6 +86,54 @@ def _prepare_payload(payload: dict[str, Any], *, memory_enabled: bool) -> dict[s
     return clean
 
 
+def _last_assistant(history: list | None) -> str:
+    if not isinstance(history, list):
+        return ""
+    for item in reversed(history):
+        if not isinstance(item, dict):
+            continue
+        role = str(item.get("role") or item.get("speaker") or "").strip().lower()
+        if role in {"assistant", "aria", "bot"}:
+            return str(item.get("content") or item.get("message") or item.get("text") or "")
+    return ""
+
+
+def _ctx_from_payload(body: dict[str, Any]) -> SimpleNamespace:
+    """Request-context scores for Iris speak. No second fuse, no Dynamo."""
+    context = body.get("context") if isinstance(body.get("context"), dict) else {}
+    sleep = context.get("sleep") if isinstance(context.get("sleep"), dict) else {}
+    readiness = context.get("readiness") if isinstance(context.get("readiness"), dict) else {}
+    training = context.get("training") if isinstance(context.get("training"), dict) else {}
+
+    def _num(*keys: str, bag: dict) -> Any:
+        for key in keys:
+            value = bag.get(key)
+            if isinstance(value, (int, float)):
+                return value
+        return None
+
+    return SimpleNamespace(
+        readiness=SimpleNamespace(
+            recovery_score=_num("recoveryScore", "recovery_score", bag=readiness)
+        ),
+        training=SimpleNamespace(
+            weekly_load_score=_num("weeklyLoadScore", "weekly_load_score", bag=training)
+        ),
+        sleep=SimpleNamespace(
+            duration_minutes=_num("durationMinutes", "duration_minutes", bag=sleep)
+        ),
+    )
+
+
+def _cpu_seconds() -> float | None:
+    try:
+        import resource
+
+        return float(resource.getrusage(resource.RUSAGE_SELF).ru_utime)
+    except Exception:
+        return None
+
+
 def run_turn(
     message: str,
     *,
@@ -92,9 +147,13 @@ def run_turn(
     log_dir: Any = None,
     engine: str | None = None,
     persist_log: bool = True,
+    install_pseudonym: str | None = None,
+    config_dir: Any = None,
 ) -> dict[str, Any]:
     """One Dummy chat turn. Never calls ``generate_response_live`` or Bedrock."""
     assert_dummy_engine(engine)
+    started = time.perf_counter()
+    cpu0 = _cpu_seconds()
     safe = sanitize_user_text(str(message or ""), max_chars=MAX_CHAT_MESSAGE_CHARS)
     if not safe:
         raise ValueError("message is required.")
@@ -102,64 +161,62 @@ def run_turn(
     if memory_enabled is None:
         memory_enabled = True
     memory_enabled = bool(memory_enabled)
-    # Honor the same contract as editable_memory.auto_ingest_allowed without
-    # reading Dynamo settings (that would be a memory read on Dummy chat).
     mem_row = editable_memory.CompanionMemorySettings(memory_enabled=memory_enabled)
     memory_enabled = editable_memory.auto_ingest_allowed(mem_row)
 
-    body = _prepare_payload(payload or {}, memory_enabled=memory_enabled)
+    raw_payload = payload if isinstance(payload, dict) else {}
+    needles = chatlog.collect_needles(raw_payload, safe)
+    body = _prepare_payload(raw_payload, memory_enabled=memory_enabled)
     body["message"] = safe
-    # Stable clock so two identical Dummy turns do not drift on ctx.timestamp.
     context = body.get("context")
     if isinstance(context, dict) and not (context.get("timestamp") or context.get("ts")):
         context = dict(context)
         context["timestamp"] = "2026-01-15T12:00:00Z"
         body["context"] = context
     turn_index, prior = _turn_from_history(history)
-    permissions = aria_engine.DataPermissions.from_payload(body.get("permissions"))
+    last_spoken = _last_assistant(history)
 
-    # Empty fuse user_id when memory is off: skip load_body_snapshot + persona
-    # Dynamo. Personal model still runs via generate_response (cold-start).
-    fuse_uid = "" if not memory_enabled else ""
-    fused = fusion_mod.fuse_turn(
-        fuse_uid,
-        body,
-        permissions,
-        persist=False,
-        include_stored=False,
-        load_learner=False,
+    # Phrase key / turn seed from the per-install pseudonym, never a real uid.
+    pseudonym = str(install_pseudonym or "").strip() or install_mod.load_or_create_pseudonym(
+        config_dir
     )
-    ctx = fused.context
     phrase = state_read.phrase_key(
-        ctx,
+        None,
         safe,
-        user_id=user_id,
+        user_id=pseudonym,
         turn=turn_index,
         seed=seed,
     )
-    envelope = aria_engine.generate_response(
+
+    # Engine pin: Dummy chat always uses dummy_orchestrator.respond(engine="lambda")
+    # through fuse_turn — never the SimRunner stub, even if ARIA_BEDROCK_ENABLED=true.
+    row = dummy_respond(
         safe,
-        ctx,
-        permissions=permissions,
-        voice_mode=voice_mode,
-        persona=None,
-        baselines=fused.baselines,
-        seed=phrase,
+        engine=ENGINE_LAMBDA,
+        chat_payload=body,
+        prior_turns=prior,
+        seed=int(phrase),
+        fuse_user_id="",
+        load_learner=False,
     )
-    sidecar = fused.fusion_sidecar()
-    existing = envelope.get("fusion") if isinstance(envelope.get("fusion"), dict) else {}
-    envelope["fusion"] = {**sidecar, **existing}
+    ctx = _ctx_from_payload(body)
+    envelope = dict(row)
     if "guidance_band" not in envelope:
         envelope["guidance_band"] = guidance.classify_band(safe)
-
     envelope = conversation.apply_conversation(
         envelope,
         safe,
         ctx,
         seed=phrase,
         prior=prior,
+        memory_enabled=memory_enabled,
+        last_spoken=last_spoken,
     )
     envelope = speak_guard.guard_envelope(envelope, topic=safe)
+
+    wall_ms = int((time.perf_counter() - started) * 1000)
+    cpu1 = _cpu_seconds()
+    cpu_ms = int((cpu1 - cpu0) * 1000) if cpu0 is not None and cpu1 is not None else 0
 
     turn_id = f"{session_id or 'anon'}-{turn_index + 1:04d}-{uuid.uuid4().hex[:8]}"
     sid = session_id or f"sess-{uuid.uuid4().hex[:12]}"
@@ -168,20 +225,31 @@ def run_turn(
         turn_id=turn_id,
         turn=turn_index,
         seed=phrase,
-        user_id=user_id,
+        install_pseudonym=pseudonym,
         memory_enabled=memory_enabled,
         user_message=safe,
         envelope=envelope,
         payload=body,
+        request_history=prior,
+        needles=needles,
+        wall_ms=wall_ms,
+        cpu_ms=cpu_ms,
+        thin=conversation.data_is_thin(ctx),
+        small_talk=conversation.is_small_talk(safe),
+        safety=conversation._safety_turn(safe, ctx),
+        number_ask=bool(conversation._NUMBER_ASK_RE.search(safe)),
+        ctx=ctx,
     )
     log_path = None
     if persist_log:
         log_path = chatlog.append_record(record, log_dir=log_dir)
 
     card = envelope.get("card") if isinstance(envelope.get("card"), dict) else {}
+    orch = envelope.get("orchestration") if isinstance(envelope.get("orchestration"), dict) else {}
     return {
         **envelope,
         "engine": ENGINE,
+        "dummy_engine": orch.get("engine") or ENGINE_LAMBDA,
         "schema_version": envelope.get("schema_version") or "1.1",
         "log_schema_version": SCHEMA_VERSION,
         "session_id": sid,
@@ -189,17 +257,20 @@ def run_turn(
         "turn": turn_index,
         "seed": phrase,
         "memory_enabled": memory_enabled,
-        "user_id": user_id,
+        "install_pseudonym": pseudonym,
+        "user_turn_key": record["user_turn_key"],
+        "commit_sha": record["commit_sha"],
         "log_path": str(log_path) if log_path else None,
         "log_record": record,
         "card_action": card.get("action") or card.get("recommendation"),
         "reasoning_source": "dummy-chat",
         "model": "lambda-deterministic",
+        "needles": needles,
     }
 
 
 def run_local_chat_turn(body: dict[str, Any], *, user_id: str) -> dict[str, Any]:
-    """HTTP adapter for ``POST /ai/chat/local``. Dummy only."""
+    """HTTP adapter for the optional local Dummy server. Dummy only."""
     payload = body if isinstance(body, dict) else {}
     assert_dummy_engine(payload.get("engine"))
     message = str(payload.get("message") or "")
@@ -236,6 +307,8 @@ class ChatSession:
         log_dir: Any = None,
         session_id: str | None = None,
         profile: str = "depleted",
+        install_pseudonym: str | None = None,
+        config_dir: Any = None,
     ) -> None:
         from backend.ai import aria_cli
 
@@ -246,10 +319,15 @@ class ChatSession:
         self.user_id = user_id
         self.memory_enabled = bool(memory_enabled)
         self.log_dir = log_dir
+        self.config_dir = config_dir if config_dir is not None else log_dir
         self.session_id = session_id or f"sess-{uuid.uuid4().hex[:12]}"
+        self.install_pseudonym = install_pseudonym or install_mod.load_or_create_pseudonym(
+            self.config_dir
+        )
         self.history: list[dict[str, str]] = []
         self.last_turn_id: str | None = None
         self.log_path: str | None = None
+        self.needles = chatlog.collect_needles(payload if isinstance(payload, dict) else {}, "")
 
     def turn(self, message: str) -> dict[str, Any]:
         result = run_turn(
@@ -260,11 +338,17 @@ class ChatSession:
             memory_enabled=self.memory_enabled,
             session_id=self.session_id,
             log_dir=self.log_dir,
+            install_pseudonym=self.install_pseudonym,
+            config_dir=self.config_dir,
         )
         self.history.append({"role": "user", "content": str(message)})
         self.history.append({"role": "assistant", "content": str(result.get("message") or "")})
         self.last_turn_id = str(result.get("turn_id") or "")
         self.log_path = result.get("log_path")
+        extra = result.get("needles") or []
+        for item in extra:
+            if item not in self.needles:
+                self.needles.append(item)
         return result
 
     def reset(self) -> None:
@@ -285,9 +369,13 @@ class ChatSession:
             note=note or None,
             session_id=self.session_id,
             log_dir=self.log_dir,
+            needles=self.needles,
         )
 
     def export(self, dest: Any = None) -> Any:
         return chatlog.export_session(
             self.session_id, dest=dest, log_dir=self.log_dir
         )
+
+    def purge(self) -> int:
+        return chatlog.purge_logs(self.log_dir)

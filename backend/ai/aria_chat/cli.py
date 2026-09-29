@@ -19,6 +19,7 @@ _HELP = """Commands
   /memory off       memory-off — no notes / STM / last_insights / fusion
   /memory on        allow request-payload memory fields only (still no Dynamo)
   /export [path]    copy sanitized JSONL into fixtures (or path)
+  /purge            delete local JSONL logs (memory-off does not do this)
   /help             this text
   /quit             leave
 Dummy-only. Bedrock stays off. Logs go to backend/ai/chat_sessions/ (gitignored)
@@ -41,6 +42,13 @@ def _build_parser() -> argparse.ArgumentParser:
         "--context-file",
         help="JSON /ai/chat-shaped body instead of a built-in profile.",
     )
+    parser.add_argument(
+        "--serve",
+        action="store_true",
+        help="Local Dummy HTTP server. Refused unless ARIA_LOCAL_CHAT=1.",
+    )
+    parser.add_argument("--host", default="127.0.0.1")
+    parser.add_argument("--port", type=int, default=8765)
     return parser
 
 
@@ -74,6 +82,11 @@ def _print_turn(message: str, result: dict, *, raw: bool) -> None:
 
 def main(argv: list[str] | None = None) -> int:
     args = _build_parser().parse_args(argv)
+    if args.serve:
+        from .endpoint import serve
+
+        serve(host=args.host, port=args.port)
+        return 0
     payload = None
     if args.context_file:
         payload = json.loads(Path(args.context_file).read_text(encoding="utf-8"))
@@ -140,6 +153,10 @@ def main(argv: list[str] | None = None) -> int:
             dest = Path(arg1) if arg1 else None
             path = session.export(dest)
             print(f"exported {path}")
+            return False
+        if cmd == "/purge":
+            n = session.purge()
+            print(f"purged {n} log file(s)")
             return False
         print("unknown command — /help")
         return False
