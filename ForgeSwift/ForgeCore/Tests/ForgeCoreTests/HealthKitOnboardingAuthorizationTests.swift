@@ -82,4 +82,53 @@ final class HealthKitOnboardingAuthorizationTests: XCTestCase {
             "HealthKitOnboardingReadConnected"
         )
     }
+
+    func testOnboardingConnectedKeyIsLiveWithoutWriteOrSamples() {
+        XCTAssertTrue(
+            HealthKitOnboardingAuthorization.isLive(
+                canWrite: false,
+                hasReadableSamples: false,
+                onboardingConnected: true
+            )
+        )
+        XCTAssertFalse(
+            HealthKitOnboardingAuthorization.isLive(
+                canWrite: false,
+                hasReadableSamples: false,
+                onboardingConnected: false
+            )
+        )
+        XCTAssertTrue(
+            HealthKitOnboardingAuthorization.isLive(
+                canWrite: true,
+                hasReadableSamples: false,
+                onboardingConnected: false
+            )
+        )
+    }
+
+    func testWeekOldNightIsNotPublishedAndLastNightIs() {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = TimeZone(identifier: "America/Chicago")!
+        let lastNight = calendar.date(from: DateComponents(year: 2026, month: 9, day: 24))!
+        let weekOld = calendar.date(from: DateComponents(year: 2026, month: 9, day: 17))!
+        XCTAssertNil(
+            HealthKitOnboardingAuthorization.publishedSleepFields(
+                nightKey: weekOld,
+                lastNight: lastNight,
+                hours: 7.5,
+                score: 88,
+                calendar: calendar
+            )
+        )
+        let published = HealthKitOnboardingAuthorization.publishedSleepFields(
+            nightKey: lastNight,
+            lastNight: lastNight,
+            hours: 7.5,
+            score: 88,
+            calendar: calendar
+        )
+        XCTAssertEqual(published?.hours, 7.5)
+        XCTAssertEqual(published?.score, 88)
+    }
 }

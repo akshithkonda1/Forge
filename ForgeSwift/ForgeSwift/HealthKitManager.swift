@@ -387,8 +387,17 @@ class HealthKitManager: ObservableObject {
         // HealthKit hides read authorization. A shown Allow sheet / UserDefaults
         // `HealthKitAuthorizationRequested` is not a grant — Deny and empty
         // reads must stay offline. Write-sharing or a real sample is live.
+        // Onboarding READ-only persist is the extra OR: that key is set only
+        // after a completed onboarding request, never from finishAuthorizationRequest.
         let readable = await hasReadableHealthEvidence()
-        isAuthorized = HealthKitLiveEvidence.isLive(canWrite: canWrite, hasReadableSamples: readable)
+        let onboardingConnected = UserDefaults.standard.bool(
+            forKey: HealthKitOnboardingAuthorization.connectedDefaultsKey
+        )
+        isAuthorized = HealthKitOnboardingAuthorization.isLive(
+            canWrite: canWrite,
+            hasReadableSamples: readable,
+            onboardingConnected: onboardingConnected
+        )
         if isAuthorized {
             startBidirectionalSync()
         } else {

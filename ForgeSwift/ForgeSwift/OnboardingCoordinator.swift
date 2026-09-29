@@ -729,21 +729,26 @@ final class OnboardingCoordinator {
     /// `WidgetCenter.shared.reloadAllTimelines()` when WidgetKit is imported).
     /// Watch companion writer: `WatchSnapshotStore.save` in
     /// `ForgeCore/Utils/WatchSnapshotStore.swift` (same reload).
-    /// Neither `HomeWidgetSnapshot` nor `WatchSnapshot` has a connected /
-    /// health-authorized flag — connected is persisted only via
-    /// `HealthKitOnboardingAuthorization.connectedDefaultsKey` after a
-    /// completed request (never `authorizationStatus(for:)`).
+    /// Sleep fields publish only when the newest night is last night
+    /// (`HomeTrendSeries.nightKey` / `lastNight`, bedtime + 12:00 local).
+    /// Neither snapshot has a connected / health-authorized flag.
     private func publishOnboardingHealthWidgets(nights: [SleepData] = []) {
-        let night = nights.first
-        let hours = night?.totalHours ?? healthSnapshot?.sleepHours
-        let score = night?.score
+        let calendar = Calendar.current
+        let newest = nights.first
+        let published = HealthKitOnboardingAuthorization.publishedSleepFields(
+            nightKey: newest.flatMap { HomeTrendSeries.nightKey(for: $0, calendar: calendar) },
+            lastNight: HomeTrendSeries.lastNight(now: Date(), calendar: calendar),
+            hours: newest?.totalHours,
+            score: newest?.score,
+            calendar: calendar
+        )
         HomeWidgetSnapshotStore.update { snap in
-            if let hours, hours > 0 { snap.sleepHours = hours }
-            if let score { snap.sleepScore = score }
+            snap.sleepHours = published?.hours ?? 0
+            snap.sleepScore = published?.score
         }
         WatchSnapshotStore.update { snap in
-            if let hours, hours > 0 { snap.sleepMinutes = hours * 60 }
-            if let score { snap.sleepQualityScore = score }
+            snap.sleepMinutes = published.map { $0.hours * 60 }
+            snap.sleepQualityScore = published?.score
         }
     }
 

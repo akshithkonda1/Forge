@@ -73,4 +73,41 @@ public enum HealthKitOnboardingAuthorization: Sendable {
     public static func persistConnected(requestCompletedWithoutError: Bool) -> Bool {
         requestCompletedWithoutError
     }
+
+    /// Relaunch: a completed onboarding READ request stays live even when
+    /// WRITE status and samples are empty. Non-onboarding paths pass
+    /// `onboardingConnected: false` and keep the write/sample probe.
+    public static func isLive(
+        canWrite: Bool,
+        hasReadableSamples: Bool,
+        onboardingConnected: Bool
+    ) -> Bool {
+        canWrite || hasReadableSamples || onboardingConnected
+    }
+
+    /// Sleep fields for widgets. Only last night (same start-of-day as
+    /// `HomeTrendSeries.lastNight` / `nightKey`) is published; older nights
+    /// return nil so Home/Watch show empty copy.
+    public static func publishedSleepFields(
+        nightKey: Date?,
+        lastNight: Date?,
+        hours: Double?,
+        score: Int?,
+        calendar: Calendar = .current
+    ) -> PublishedSleepFields? {
+        guard let nightKey, let lastNight else { return nil }
+        guard calendar.isDate(nightKey, inSameDayAs: lastNight) else { return nil }
+        guard let hours, hours > 0 else { return nil }
+        return PublishedSleepFields(hours: hours, score: score)
+    }
+}
+
+public struct PublishedSleepFields: Equatable, Sendable {
+    public var hours: Double
+    public var score: Int?
+
+    public init(hours: Double, score: Int?) {
+        self.hours = hours
+        self.score = score
+    }
 }
