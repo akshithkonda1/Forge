@@ -283,7 +283,7 @@ class RedactionLogTests(unittest.TestCase):
             self.assertNotIn("partner_name:sam", blob)
             row = json.loads(blob.strip().splitlines()[0])
             self.assertEqual(row["engine"], "dummy")
-            self.assertEqual(row["schema_version"], 2)
+            self.assertEqual(row["schema_version"], 3)
             self.assertTrue(row["commit_sha"])
             self.assertTrue(row["user_turn_key"].startswith("utk:"))
             self.assertIn("stance", row)
@@ -293,7 +293,19 @@ class RedactionLogTests(unittest.TestCase):
             self.assertEqual(row["llm_calls"], 0)
             self.assertEqual(row["network_calls"], 0)
             self.assertEqual(row["research"], [])
-            self.assertEqual(row["agents_woken"], [])
+            self.assertGreaterEqual(row["wall_ms"], 0)
+            self.assertGreaterEqual(row["cpu_ms"], 0)
+            self.assertEqual(row["subagent_spawn_count"], 0)
+            self.assertEqual(row["max_depth"], 0)
+            self.assertFalse(row["budget_exhausted"])
+            for item in row["agents_woken"]:
+                self.assertIn(item["wake_reason"], chatlog.ALLOWED_WAKE_REASONS)
+                self.assertTrue(item["kind"])
+                self.assertNotIn("profile", item)
+            for item in row["agent_writes"]:
+                self.assertIsInstance(item.get("keys"), list)
+                self.assertIsInstance(item.get("elapsed_ms"), int)
+            self.assertNotIn("profile", json.dumps(row["research"]))
 
     def test_no_uid_in_log_and_replay_recomputes_phrase_key(self):
         uid = "real-user-alice-42"
@@ -329,7 +341,7 @@ class RedactionLogTests(unittest.TestCase):
             self.assertGreaterEqual(len(rows), 2)
             for row in rows:
                 self.assertNotIn("user_id", row)
-                self.assertEqual(row["schema_version"], 2)
+                self.assertEqual(row["schema_version"], 3)
                 self.assertEqual(row["install_pseudonym"], _PSEUDO)
                 phrase = state_read.phrase_key(
                     None,
@@ -639,7 +651,37 @@ class NoNetworkSessionTests(unittest.TestCase):
             row = chatlog.iter_records("net-sess", log_dir=tmp)[0]
             self.assertEqual(row["network_calls"], 0)
             self.assertEqual(row["llm_calls"], 0)
+            self.assertEqual(row["research"], [])
             self.assertEqual(row["feedback"]["rating"], "down")
+
+
+class SchemaTelemetryTests(unittest.TestCase):
+    def test_dummy_telemetry_is_counts_and_reason_codes(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            result = _turn(
+                "how am I doing?",
+                log_dir=tmp,
+                session_id="tel-sess",
+            )
+            row = json.loads(Path(result["log_path"]).read_text().splitlines()[0])
+            self.assertEqual(row["schema_version"], 3)
+            self.assertEqual(row["llm_calls"], 0)
+            self.assertEqual(row["network_calls"], 0)
+            self.assertEqual(row["research"], [])
+            self.assertEqual(row["subagent_spawn_count"], 0)
+            self.assertEqual(row["max_depth"], 0)
+            self.assertFalse(row["budget_exhausted"])
+            self.assertGreaterEqual(row["wall_ms"], 0)
+            self.assertGreaterEqual(row["cpu_ms"], 0)
+            self.assertNotIn("profile", json.dumps(row["research"]))
+            self.assertNotIn(row["install_pseudonym"], json.dumps(row["research"]))
+            for item in row["agents_woken"]:
+                self.assertIn("kind", item)
+                self.assertIn(item["wake_reason"], chatlog.ALLOWED_WAKE_REASONS)
+                self.assertNotIn("profile", item)
+            for item in row["agent_writes"]:
+                self.assertTrue(all(isinstance(k, str) for k in item["keys"]))
+                self.assertIsInstance(item["elapsed_ms"], int)
 
 
 class SixTurnSampleTests(unittest.TestCase):

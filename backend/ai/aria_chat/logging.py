@@ -1,6 +1,6 @@
 """Local JSONL session eval logs. Redact before write. Dummy-only.
 
-Schema v2 records engine, commit SHA, seed, hashed user+turn key, stance,
+Schema v3 records engine, commit SHA, seed, hashed user+turn key, stance,
 and per-turn telemetry as reason codes / counts only. Never a raw uid.
 """
 
@@ -26,7 +26,7 @@ from routes.aria import (  # noqa: E402
     _BUSY_WINDOW_LABEL,
 )
 
-SCHEMA_VERSION = 2
+SCHEMA_VERSION = 3
 ENGINE = "dummy"
 
 ALLOWED_STANCE_INPUTS = frozenset({
@@ -269,7 +269,7 @@ def stance_inputs_from(
 
 
 def empty_agent_telemetry() -> dict[str, Any]:
-    """Dummy has no agent / research / LLM path. Log zeros, not inventions."""
+    """Zeros for concepts Dummy does not run. Logging only — no new services."""
     return {
         "agents_woken": [],
         "agent_writes": [],
@@ -280,6 +280,81 @@ def empty_agent_telemetry() -> dict[str, Any]:
         "llm_calls": 0,
         "network_calls": 0,
     }
+
+
+def _wake_reason(message: str, *, has_data: bool) -> str:
+    if "?" in (message or ""):
+        return "question"
+    if has_data:
+        return "data_delta"
+    return "always_on"
+
+
+def _context_key_names(envelope: dict[str, Any]) -> list[str]:
+    """Personal-model / context key names only — no values, no free text."""
+    names: list[str] = []
+    fusion = envelope.get("fusion") if isinstance(envelope.get("fusion"), dict) else {}
+    brief = (
+        envelope.get("contextualization")
+        if isinstance(envelope.get("contextualization"), dict)
+        else {}
+    )
+    for raw in list(fusion.get("owned_domains") or []) + list(brief.get("prioritize") or []):
+        key = str(raw or "").strip()
+        if key and re.fullmatch(r"[a-z][a-z0-9_]*", key.lower()):
+            names.append(key.lower())
+    seen: set[str] = set()
+    out: list[str] = []
+    for key in names:
+        if key not in seen:
+            seen.add(key)
+            out.append(key)
+    return out
+
+
+def telemetry_from_envelope(
+    envelope: dict[str, Any],
+    *,
+    message: str = "",
+    has_data: bool = False,
+) -> dict[str, Any]:
+    """Reason codes and counts from Dummy call sites. No profile bucket here.
+
+    Chat lambda does not call ``web_research.look_up`` and does not spawn
+    sub-agents, so ``research`` stays ``[]`` and spawn fields stay 0/false.
+    ``plan_workers`` still runs and is recorded under ``agents_woken``.
+    """
+    base = empty_agent_telemetry()
+    workers = envelope.get("workers") if isinstance(envelope.get("workers"), list) else []
+    kinds = envelope.get("agents") if isinstance(envelope.get("agents"), list) else []
+    if not workers and kinds:
+        workers = [{"kind": str(k)} for k in kinds if k]
+    reason = _wake_reason(message, has_data=has_data)
+    if reason not in ALLOWED_WAKE_REASONS:
+        reason = "always_on"
+    keys = _context_key_names(envelope)
+    woken: list[dict[str, str]] = []
+    writes: list[dict[str, Any]] = []
+    seen: set[str] = set()
+    for worker in workers:
+        if not isinstance(worker, dict):
+            continue
+        kind = str(worker.get("kind") or "").strip().lower()
+        if not kind or kind in seen:
+            continue
+        seen.add(kind)
+        woken.append({"kind": kind, "wake_reason": reason})
+        writes.append({"kind": kind, "keys": list(keys), "elapsed_ms": 0})
+    base["agents_woken"] = woken
+    base["agent_writes"] = writes
+    # No Dummy research / LLM / network / sub-agent path on this chat pin.
+    base["research"] = []
+    base["subagent_spawn_count"] = 0
+    base["max_depth"] = 0
+    base["budget_exhausted"] = False
+    base["llm_calls"] = 0
+    base["network_calls"] = 0
+    return base
 
 
 def build_record(
@@ -319,7 +394,18 @@ def build_record(
     card = envelope.get("card") if isinstance(envelope.get("card"), dict) else {}
     band = str(envelope.get("guidance_band") or "coach")
     stance = str(fusion.get("stance") or brief.get("stance") or "")
-    telemetry = empty_agent_telemetry()
+    telemetry = telemetry_from_envelope(
+        envelope,
+        message=clean_user,
+        has_data=any(
+            isinstance(v, (int, float))
+            for v in (
+                getattr(getattr(ctx, "readiness", None), "recovery_score", None),
+                getattr(getattr(ctx, "training", None), "weekly_load_score", None),
+                getattr(getattr(ctx, "sleep", None), "duration_minutes", None),
+            )
+        ),
+    )
     record = {
         "schema_version": SCHEMA_VERSION,
         "engine": ENGINE,

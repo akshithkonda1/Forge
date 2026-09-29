@@ -54,11 +54,15 @@ REPL commands: `/up` `/down` `/note <text>` `/reset` `/memory off` `/memory on`
 Default directory: `backend/ai/chat_sessions/` (gitignored). Override with
 `ARIA_CHAT_LOG_DIR` or use `~/.forge/aria_chat/` by pointing that env var.
 
-Each session is a JSONL file. Schema `schema_version=2`, `engine=dummy` (lambda
+Each session is a JSONL file. Schema `schema_version=3`, `engine=dummy` (lambda
 path), plus `commit_sha`, `seed`, hashed `user_turn_key`, `install_pseudonym`,
 `stance`, `stance_inputs` (reason codes only), reply (`message`,
 `prose_summary`, `card_action`), a feedback hook, and a
-`context_snapshot_ref` (no raw PII). Calendar titles and partner / cycle tokens
+`context_snapshot_ref` (no raw PII). Per-turn telemetry is reason codes and
+counts only: `agents_woken` (`kind` + `wake_reason`), `agent_writes`
+(key names + `elapsed_ms`), `research` (`topic_id` + hit/miss; empty in Dummy),
+spawn count / depth / `budget_exhausted`, `llm_calls`, `network_calls`,
+`wall_ms`, `cpu_ms`. Calendar titles and partner / cycle tokens
 are redacted **before** write, even when memory is off. No raw user id is
 logged. `/purge` deletes local logs; `/memory off` does not.
 
