@@ -760,9 +760,15 @@ class LiveBedrockDegradeTests(unittest.TestCase):
         def boom(*_args):
             raise RuntimeError("bedrock unavailable")
 
+        # Pin the timestamp: turn_seed() hashes ctx.timestamp, and ARIAContext
+        # stamps "now" with microsecond precision — two full_context() calls
+        # would otherwise seed different phrase picks and flake.
+        ctx_live = full_context()
+        ctx_det = full_context()
+        ctx_det.timestamp = ctx_live.timestamp
         resp = aria_engine.generate_response_live(
-            "should I train today?", full_context(), converse=boom)
-        deterministic = aria_engine.generate_response("should I train today?", full_context())
+            "should I train today?", ctx_live, converse=boom)
+        deterministic = aria_engine.generate_response("should I train today?", ctx_det)
 
         self.assertEqual(resp["reasoning_source"], "deterministic")
         self.assertIn("bedrock unavailable", resp["reasoning_error"])
