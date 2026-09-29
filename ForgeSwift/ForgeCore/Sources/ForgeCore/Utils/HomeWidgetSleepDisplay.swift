@@ -20,13 +20,19 @@ import Foundation
 ///   `"Score N"` without inventing `"0.0 hours"`.
 public enum HomeWidgetSleepDisplay: Sendable {
 
-    /// Calm empty copy for every family that would otherwise show hours.
-    /// Plain language — no Health, denied, or clinical wording.
+    /// Locked empty copy for every family that can fit a phrase:
+    /// accessoryRectangular, accessoryInline, system small/medium/large,
+    /// and Today. Plain language — no Health, denied, or clinical wording.
     public static let emptyCopy = "No sleep yet"
 
+    /// accessoryCircular is too small for the phrase. Moon icon + em dash.
+    public static let circularEmptyCopy = "—"
+
     public enum HoursStyle: Equatable, Sendable {
-        /// accessoryCircular and Today medium metric: `"7.4h"`.
+        /// Today medium metric: `"7.4h"` or `emptyCopy`.
         case compact
+        /// accessoryCircular: `"7.4h"` or `circularEmptyCopy`.
+        case circular
         /// accessoryRectangular / accessoryInline: `"7.4 h last night"`.
         case lastNight
         /// system families hero number: `"7.4"`.
@@ -48,9 +54,11 @@ public enum HomeWidgetSleepDisplay: Sendable {
     }
 
     public static func hoursText(_ hours: Double, style: HoursStyle) -> String {
-        guard hasHoursToShow(hours) else { return emptyCopy }
+        guard hasHoursToShow(hours) else {
+            return style == .circular ? circularEmptyCopy : emptyCopy
+        }
         switch style {
-        case .compact:
+        case .compact, .circular:
             return String(format: "%.1fh", hours)
         case .lastNight:
             return String(format: "%.1f h last night", hours)

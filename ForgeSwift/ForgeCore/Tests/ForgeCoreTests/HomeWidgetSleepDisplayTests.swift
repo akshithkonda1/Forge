@@ -42,23 +42,32 @@ final class HomeWidgetSleepDisplayTests: XCTestCase {
 
     func testHoursStylesMatchWidgetFamilies() {
         XCTAssertEqual(HomeWidgetSleepDisplay.hoursText(7.4, style: .compact), "7.4h")
+        XCTAssertEqual(HomeWidgetSleepDisplay.hoursText(7.4, style: .circular), "7.4h")
         XCTAssertEqual(HomeWidgetSleepDisplay.hoursText(7.4, style: .lastNight), "7.4 h last night")
         XCTAssertEqual(HomeWidgetSleepDisplay.hoursText(7.4, style: .number), "7.4")
         XCTAssertEqual(HomeWidgetSleepDisplay.hoursText(7.4, style: .hoursSleep), "7.4 h sleep")
     }
 
-    func testEveryHoursStyleUsesEmptyCopyWhenHoursAreMissing() {
-        for style: HomeWidgetSleepDisplay.HoursStyle in [.compact, .lastNight, .number, .hoursSleep] {
-            XCTAssertEqual(
-                HomeWidgetSleepDisplay.hoursText(0, style: style),
-                "No sleep yet"
-            )
-        }
+    func testLockedEmptyCopyConstants() {
         XCTAssertEqual(HomeWidgetSleepDisplay.emptyCopy, "No sleep yet")
+        XCTAssertEqual(HomeWidgetSleepDisplay.circularEmptyCopy, "—")
         let copy = HomeWidgetSleepDisplay.emptyCopy.lowercased()
         XCTAssertFalse(copy.contains("denied"))
         XCTAssertFalse(copy.contains("healthkit"))
         XCTAssertFalse(copy.contains("apnea"))
         XCTAssertFalse(copy.contains("insomnia"))
+    }
+
+    func testEmptyCopyByFamily() {
+        for style: HomeWidgetSleepDisplay.HoursStyle in [.compact, .lastNight, .number, .hoursSleep] {
+            XCTAssertEqual(
+                HomeWidgetSleepDisplay.hoursText(0, style: style),
+                HomeWidgetSleepDisplay.emptyCopy
+            )
+        }
+        XCTAssertEqual(
+            HomeWidgetSleepDisplay.hoursText(0, style: .circular),
+            HomeWidgetSleepDisplay.circularEmptyCopy
+        )
     }
 }
