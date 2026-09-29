@@ -2204,6 +2204,7 @@ SPOKEN_PROTECT_STEP = "Keep today easy and call it a win."
 SPOKEN_SAFETY_CLOSER = "Future you says thanks."
 BUTTON_SHORT_SLEEP = "Keep today easy."
 BUTTON_OVERTRAIN = "Back off and keep today easy."
+ZONE2_SWAP = "Swap to an easy, chatty-pace zone 2."
 _SPOKEN_JARGON = re.compile(r"(?i)\b(?:overtrain\w*|overreach\w*|fatigue|deload|acwr)\b")
 
 
@@ -2225,14 +2226,20 @@ def _sleep_protect_active(load: Any) -> bool:
     return False
 
 
-def spoken_safety_line(pattern: Any, load: Any = None) -> str:
-    """Clean direction line when ``blocks_intensity``. Protect's line wins."""
+def spoken_safety_line(pattern: Any, load: Any = None, message: str = "") -> str:
+    """Clean direction line when ``blocks_intensity``. Protect's line wins.
+
+    The question's topic wins over a competing load pattern: a sleep ask
+    never speaks the training-load line.
+    """
     if pattern is None or not getattr(pattern, "blocks_intensity", False):
         return ""
     key = str(getattr(pattern, "key", "") or "")
     if key in {"sleep_debt", "under_recovery"} or _sleep_protect_active(load):
         return SPOKEN_SHORT_SLEEP
     if key == "overreaching" or bool(getattr(load, "is_overtrained", False)):
+        if _focus_domain(message) == "sleep":
+            return SPOKEN_SHORT_SLEEP
         return SPOKEN_OVERTRAIN
     return ""
 
@@ -2307,13 +2314,26 @@ def _spoken_protect_step(action: str, *, sleep_first: bool = False) -> str:
     return line if line.endswith(".") else f"{line}."
 
 
-def _blocking_card_action(pattern: Any, load: Any = None) -> str:
+def _pattern_offers_zone2(pattern: Any) -> bool:
+    blob = " ".join(
+        [
+            str(getattr(pattern, "next_step", "") or ""),
+            " ".join(str(item) for item in (getattr(pattern, "actions", ()) or ())),
+        ]
+    ).lower()
+    return "zone 2" in blob
+
+
+def _blocking_card_action(pattern: Any, load: Any = None, message: str = "") -> str:
     """Card-only back-off button when ``blocks_intensity``. Never spoken.
 
     Shared by recommendation / summary / insight / plan so an overtrained
-    user is never told to progress, push, or add.
+    user is never told to progress, push, or add. A sleep question keeps
+    the ordinary zone 2 swap instead of the training-load button.
     """
-    if spoken_safety_line(pattern, load) == SPOKEN_OVERTRAIN:
+    if _focus_domain(message) == "sleep" and _pattern_offers_zone2(pattern):
+        return ZONE2_SWAP
+    if spoken_safety_line(pattern, load, message=message) == SPOKEN_OVERTRAIN:
         return BUTTON_OVERTRAIN
     return BUTTON_SHORT_SLEEP
 
@@ -2394,10 +2414,11 @@ def _compose_blocking_speak(
     brief: Any,
     action: str,
     notice: str,
+    message: str = "",
 ) -> str:
     """Clean safety line, then exactly one protect step."""
     existing = _existing_blocking_prose(signals, brief, notice, pattern)
-    safety = spoken_safety_line(pattern, load)
+    safety = spoken_safety_line(pattern, load, message=message)
     step = _spoken_protect_step(action, sleep_first=safety == SPOKEN_SHORT_SLEEP)
     if not safety:
         # protect_cluster and other blocked patterns without a dedicated
@@ -2522,18 +2543,20 @@ def _recommendation_response(
             if card is not None:
                 card["action"] = action
     spoken_action = action
-    safety = spoken_safety_line(pattern, load)
+    safety = spoken_safety_line(pattern, load, message=message)
     if safety:
         # Real short-sleep / overtrain only. protect_cluster, low_readiness,
         # and life-rhythm do not get the spoken safety / protect lines.
-        prose = _compose_blocking_speak(pattern, load, signals, brief, action, notice)
+        prose = _compose_blocking_speak(
+            pattern, load, signals, brief, action, notice, message=message
+        )
         spoken_action = _spoken_protect_step(
             action, sleep_first=safety == SPOKEN_SHORT_SLEEP
         )
         if card is not None:
             # Buttons stay off the spoken line. Overtrain keeps a directional
             # "back off" token for SimRunner; short-sleep gets its own label.
-            card["action"] = _blocking_card_action(pattern, load)
+            card["action"] = _blocking_card_action(pattern, load, message=message)
         notice = prose
         # Never fold evidence.why ("…so sleep comes first.") into spoken text.
         why = None
@@ -2588,7 +2611,7 @@ def _plan_response(
         f"{pattern.key.replace('_', ' ').title()} plan — "
         f"{outline[0]['focus']} today, then {outline[1]['focus'].lower()}"
     )
-    safety = spoken_safety_line(pattern, load)
+    safety = spoken_safety_line(pattern, load, message=message)
     if safety:
         extra = safety or _existing_blocking_prose(signals, brief, "", pattern)
         prose = f"{headline}. {extra}".strip() if extra else f"{headline}."
@@ -2612,7 +2635,7 @@ def _plan_response(
     if safety:
         plan_step = _spoken_protect_step(plan_step)
         if card is not None:
-            card["action"] = _blocking_card_action(pattern, load)
+            card["action"] = _blocking_card_action(pattern, load, message=message)
     message_text = _structured_message(
         prose,
         plan_step,
@@ -2680,7 +2703,7 @@ def _insight_response(
 
     prose = f"{lead.metric}: {lead.current_value}. {_cap(lead.interpretation)}."
     insight_step = pattern.next_step
-    safety = spoken_safety_line(pattern, load)
+    safety = spoken_safety_line(pattern, load, message=message)
     if safety:
         if safety.lower() not in prose.lower():
             prose = f"{prose} {safety}"
@@ -2692,7 +2715,7 @@ def _insight_response(
         "interpretation": lead.interpretation,
         "priority": lead.priority,
         "action": (
-            _blocking_card_action(pattern, load)
+            _blocking_card_action(pattern, load, message=message)
             if safety
             else pattern.next_step
         ),

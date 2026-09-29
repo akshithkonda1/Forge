@@ -221,13 +221,18 @@ _DIRECT_MED = (
     "my dosage", "increase my dose", "decrease my dose", "up my dose",
     "lower my dose", "adjust my dose", "double my dose", "change my dose",
     "stop taking", "should i stop my", "off my meds", "how much insulin",
-    "what dosage", "what dose", "how many mg", "mg of", "can i take",
+    "what dosage", "what dose", "how many mg", "mg of",
 )
 _TAKE_CUES = ("what should i take", "what can i take", "should i take", "can i take")
 _SYMPTOM_TERMS = (
     "pain", "headache", "migraine", "fever", "cough", "cold", "flu", "nausea",
     "vomiting", "diarrhea", "rash", "cramps", "ache", "sore throat", "infection",
     "dizzy", "dizziness", "chest",
+)
+_MED_TERMS = (
+    "ibuprofen", "tylenol", "aspirin", "advil", "acetaminophen", "paracetamol",
+    "insulin", "medication", "medicine", "meds", "pill", "tablet", "drug",
+    "prescription", "antibiotic",
 )
 
 # --- Prescriptive-medical output detector (defense in depth) ----------------
@@ -254,7 +259,9 @@ def _is_diagnosis_request(lower: str) -> bool:
 def _is_prescription_request(lower: str) -> bool:
     if _has(lower, _DIRECT_MED):
         return True
-    return _has(lower, _TAKE_CUES) and _has(lower, _SYMPTOM_TERMS)
+    return _has(lower, _TAKE_CUES) and (
+        _has(lower, _SYMPTOM_TERMS) or _has(lower, _MED_TERMS)
+    )
 
 
 def _detect_first_aid_topics(lower: str) -> list[str]:
@@ -377,7 +384,20 @@ _HELPER_PERSON = (
     "my son", "my daughter", "someone",
 )
 _HELPER_PRONOUN_RE = re.compile(
-    r"\b(he|she|they|him|her|them|his|hers|their|he's|she's|they're)\b"
+    r"""
+    \b(?:
+        (?:her|his|their)\s+
+        (?:face|arm|chest|jaw|head|speech|side|body|words?|pulse)
+      |
+        (?:he|she|they|he's|she's|they're|hes|shes|theyre)\s+
+        (?:not\s+)?
+        (?:
+            breathing|collapsed|fainted|fainting|overdosed|blacked|passed
+          | having|has|have|had|is|are|isn't|isnt|unresponsive|suddenly
+        )
+    )\b
+    """,
+    re.VERBOSE,
 )
 _SLEEP_REFER = (
     "sleep apnea", "sleep apnoea", "apnea", "apnoea", "insomnia", "sleep",
@@ -393,7 +413,12 @@ _MEDICATION_REFER = (
 
 
 def _is_helper_phrasing(lower: str) -> bool:
-    """True when the user is talking about someone else."""
+    """True when the symptom's subject is someone else.
+
+    Keys on a helper person (``my dad``) or a pronoun attached to the
+    symptom (``her face``, ``he's having``). A bare ``they`` in
+    ``they said my chest pain…`` is not helper phrasing.
+    """
     if _has(lower, _HELPER_PERSON):
         return True
     return bool(_HELPER_PRONOUN_RE.search(lower))

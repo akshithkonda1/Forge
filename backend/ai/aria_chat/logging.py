@@ -77,6 +77,39 @@ ALLOWED_STANCE_INPUTS = frozenset({
 })
 ALLOWED_WAKE_REASONS = frozenset({"data_delta", "question", "digest", "always_on"})
 ALLOWED_RESEARCH_HITS = frozenset({"hit", "miss"})
+REDACTED_USER_TURN = "[redacted]"
+
+
+def _is_emergency_user_text(text: str) -> bool:
+    from services import guidance
+
+    return guidance.classify_band(text or "") == guidance.EMERGENCY
+
+
+def _redact_emergency_user_text(text: str, *, band: str = "") -> str:
+    """Emergency (including self-harm) user text is never stored."""
+    if str(band or "").strip().lower() == "emergency" or _is_emergency_user_text(text):
+        return REDACTED_USER_TURN
+    return text
+
+
+def _redact_emergency_history(
+    history: list[str] | None,
+    found: list[str],
+    payload: dict[str, Any] | None = None,
+) -> list[str]:
+    out: list[str] = []
+    for item in history or []:
+        raw = str(item or "")
+        if raw == REDACTED_USER_TURN or _is_emergency_user_text(raw):
+            out.append(REDACTED_USER_TURN)
+            continue
+        clean = sanitize_logged_text(raw, found, payload=payload)
+        if clean == REDACTED_USER_TURN or _is_emergency_user_text(clean):
+            out.append(REDACTED_USER_TURN)
+        else:
+            out.append(clean)
+    return out
 
 _PARTNER_NEEDLE = re.compile(
     r"(?i)\b(partner_cycle|partner_name|partner_phase|partner_day|"
@@ -475,11 +508,12 @@ def build_record(
 ) -> dict[str, Any]:
     """Build a versioned JSONL row. Redact before the caller writes."""
     found = list(needles or []) or collect_needles(payload, user_message)
+    band = str(envelope.get("guidance_band") or "coach")
     clean_user = sanitize_logged_text(user_message, found, payload=payload)
-    history = [
-        sanitize_logged_text(item, found, payload=payload)
-        for item in (request_history or [])
-    ]
+    clean_user = _redact_emergency_user_text(clean_user, band=band)
+    if _is_emergency_user_text(user_message):
+        clean_user = REDACTED_USER_TURN
+    history = _redact_emergency_history(request_history, found, payload)
     fusion = envelope.get("fusion") if isinstance(envelope.get("fusion"), dict) else {}
     brief = (
         envelope.get("contextualization")
@@ -487,7 +521,6 @@ def build_record(
         else {}
     )
     card = envelope.get("card") if isinstance(envelope.get("card"), dict) else {}
-    band = str(envelope.get("guidance_band") or "coach")
     stance = str(fusion.get("stance") or brief.get("stance") or "")
     telemetry = telemetry_from_envelope(
         envelope,
@@ -632,11 +665,18 @@ def set_feedback(
 def _export_row_ok(row: dict[str, Any], needles: list[str] | None = None) -> dict[str, Any]:
     """Re-run ingest redaction. Drop memory keys. Keep speech digit-free."""
     found = list(needles or [])
-    row["user_turn"] = sanitize_logged_text(str(row.get("user_turn") or ""), found)
-    row["request_history"] = [
-        sanitize_logged_text(str(item or ""), found)
-        for item in (row.get("request_history") or [])
-    ]
+    band = str(row.get("guidance_band") or "")
+    raw_user = str(row.get("user_turn") or "")
+    row["user_turn"] = _redact_emergency_user_text(
+        sanitize_logged_text(raw_user, found),
+        band=band,
+    )
+    if _is_emergency_user_text(raw_user):
+        row["user_turn"] = REDACTED_USER_TURN
+    row["request_history"] = _redact_emergency_history(
+        [str(item or "") for item in (row.get("request_history") or [])],
+        found,
+    )
     feedback = row.get("feedback") if isinstance(row.get("feedback"), dict) else {}
     if feedback.get("note"):
         feedback["note"] = sanitize_logged_text(str(feedback.get("note") or ""), found)

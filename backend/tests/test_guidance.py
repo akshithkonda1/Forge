@@ -69,9 +69,13 @@ class BandClassificationTests(unittest.TestCase):
             "do I have enough protein in my diet",
             "how do I improve my 5k time",
             "what should I take for my long run",  # gear/fuel, not a symptom
+            "Can I take a rest day tomorrow?",
+            "can i take today off from running?",
         ]:
             self.assertEqual(guidance.classify_band(msg), guidance.COACH, msg)
         self.assertIsNone(guidance.assess("should I train hard today?"))
+        self.assertIsNone(guidance.assess("Can I take a rest day tomorrow?"))
+        self.assertIsNone(guidance.assess("can i take today off from running?"))
 
     def test_burn_substring_does_not_misfire_first_aid(self):
         # "burn" must match as a whole word only — these are lifestyle topics,

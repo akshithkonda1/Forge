@@ -349,6 +349,56 @@ class DummyARIAEngineUsesLambdaTests(unittest.TestCase):
         blob = f"{row.get('prose_summary') or ''} {row.get('message') or ''}"
         self.assertNotIn("they have repair in the bank", blob.lower())
 
+    def test_sleep_question_under_high_load_never_uses_training_template(self):
+        ctx, _ = _ctx()
+        ctx.is_overtrained = True
+        ctx.acwr = 1.7
+        ctx.today.acwr = 1.7
+        ctx.sleep_debt_7d_hours = 0
+        row = dummy.respond(
+            "How was my sleep last night?",
+            seed=1,
+            engine="lambda",
+            context=ctx,
+        )
+        spoken = f"{row.get('prose_summary') or ''} {row.get('message') or ''}"
+        self.assertNotIn("your training has climbed fast lately", spoken.lower())
+        self.assertIn("you've been running short on sleep", spoken.lower())
+        rec = str(row.get("recommendation") or "")
+        card = row.get("card") if isinstance(row.get("card"), dict) else {}
+        action = str(card.get("action") or rec)
+        self.assertIn("zone 2", action.lower())
+        self.assertEqual(action, "Swap to an easy, chatty-pace zone 2.")
+        banned = re.compile(r"(?i)\b(?:deload|overtrain|recovery)\b")
+        for blob in (spoken, action, rec):
+            self.assertNotRegex(blob, banned, blob)
+
+    def test_ordinary_train_day_keeps_zone2_card(self):
+        ctx, _ = _ctx()
+        ctx.is_overtrained = False
+        ctx.acwr = 1.05
+        ctx.today.acwr = 1.05
+        ctx.sleep_debt_7d_hours = 0
+        ctx.today.readiness_score = 42
+        row = dummy.respond(
+            "Should I train today?",
+            seed=1,
+            engine="lambda",
+            context=ctx,
+        )
+        spoken = f"{row.get('prose_summary') or ''} {row.get('message') or ''}"
+        self.assertNotIn("your training has climbed fast lately", spoken.lower())
+        card = row.get("card") if isinstance(row.get("card"), dict) else {}
+        blob = " ".join(
+            [
+                spoken,
+                str(row.get("recommendation") or ""),
+                str(card.get("action") or ""),
+                " ".join(str(item) for item in (row.get("suggested_actions") or [])),
+            ]
+        ).lower()
+        self.assertIn("zone 2", blob, blob)
+
 
 if __name__ == "__main__":
     unittest.main()
