@@ -421,10 +421,10 @@ class HelperPatientSplitTests(unittest.TestCase):
                     self.assertNotIn(bit, low, message)
 
     def test_patient_cases_contain_no_them_and_no_cpr(self):
+        # Phrases not already pinned by #384 PatientVsBystanderTests.
         cases = (
             ("chest pain and my left arm is numb", CARDIAC_REPLY),
-            ("my face feels droopy", STROKE_REPLY),
-            ("I just fainted", FAINT_REPLY),
+            ("I passed out on the treadmill", FAINT_REPLY),
             ("I overdosed", PATIENT_FALLBACK_REPLY),
         )
         for message, expected in cases:
@@ -433,9 +433,26 @@ class HelperPatientSplitTests(unittest.TestCase):
                 self.assertEqual(assessed.prose, expected, message)
                 low = assessed.prose.lower()
                 self.assertNotIn("them", low, message)
+                self.assertNotIn("stay with them", low, message)
                 self.assertNotIn("start cpr", low, message)
                 self.assertNotIn("compressions", low, message)
                 self.assertNotIn("Start first aid", assessed.suggested_actions)
+                self.assertEqual(assessed.suggested_actions, ["Call 911", "Stay on the line"])
+
+    def test_droopy_face_is_patient_stroke_without_them(self):
+        """#384 added the droopy trigger; this pin is the unmixed patient reply."""
+        assessed = guidance.assess("my face feels droopy")
+        self.assertEqual(assessed.band, guidance.EMERGENCY)
+        self.assertEqual(assessed.prose, STROKE_REPLY)
+        low = assessed.prose.lower()
+        self.assertNotIn("them", low)
+        self.assertNotIn("stay with them", low)
+        self.assertNotIn("if it's someone else", low)
+        self.assertNotIn("start cpr", low)
+        self.assertNotIn("compressions", low)
+        self.assertNotIn("Start first aid", assessed.suggested_actions)
+        self.assertEqual(assessed.suggested_actions, ["Call 911", "Stay on the line"])
+        self.assertTrue(assessed.prose.startswith("Call 911 now."))
 
     def test_refer_out_is_two_warm_sentences(self):
         diabetes = guidance.assess("do I have diabetes?")
