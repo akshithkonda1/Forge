@@ -26,8 +26,16 @@ class StructuredReplyTests(unittest.TestCase):
     def test_recommendation_has_labeled_sections(self):
         r = self._resp(REC, "should I train hard today?")
         self.assertEqual(r["response_type"], "recommendation")
-        self.assertIn("What I notice", r["message"])
-        self.assertIn("One next step", r["message"])
+        # Blocking safety speaks a clean line — no structured labels, no
+        # evidence.why fold-in. Labels stay on summary / insight / clarify.
+        self.assertNotIn("What I notice", r["message"])
+        self.assertNotIn("One next step", r["message"])
+        self.assertIn(A.SPOKEN_OVERTRAIN, r["message"])
+        self.assertIn(A.SPOKEN_PROTECT_STEP, r["message"])
+        self.assertNotIn(
+            "You've had a run of short nights, so sleep comes first.",
+            r["message"],
+        )
 
     def test_summary_and_insight_are_structured(self):
         s = self._resp(SUM, "how is my progress this month?")
