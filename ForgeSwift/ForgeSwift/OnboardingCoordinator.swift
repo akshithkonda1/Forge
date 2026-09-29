@@ -608,6 +608,8 @@ final class OnboardingCoordinator {
     func requestHealthKit() async {
         guard healthKitState != .authorized else {
             await refreshHealthDataQuietly()
+            let nights = await HealthKitSleepService.shared.fetchRecentSleepData(days: 14)
+            publishOnboardingHealthWidgets(nights: nights)
             return
         }
         guard healthKitState != .unavailable else {
@@ -630,8 +632,8 @@ final class OnboardingCoordinator {
                 lastHealthSharingHint = nil
                 await HealthKitManager.shared.applyConnectedHealthToForge()
                 await refreshHealthDataQuietly()
-                _ = await HealthKitSleepService.shared.fetchRecentSleepData(days: 14)
-                publishOnboardingHealthWidgets()
+                let nights = await HealthKitSleepService.shared.fetchRecentSleepData(days: 14)
+                publishOnboardingHealthWidgets(nights: nights)
                 isHealthPulling = false
                 let snap = briefingSnapshot()
                 await ariaSay(
@@ -721,19 +723,27 @@ final class OnboardingCoordinator {
         #endif
     }
 
-    /// Existing App Group writers — HomeWidgetSnapshotStore.save and
-    /// WatchSnapshotStore.save — already call WidgetCenter.reloadAllTimelines.
-    /// Neither snapshot has a connected/health-authorized flag.
-    private func publishOnboardingHealthWidgets() {
+    /// Writes the shared App Group snapshots after onboarding read+backfill.
+    /// Writer: `HomeWidgetSnapshotStore.save` in
+    /// `ForgeCore/Utils/HomeWidgetSnapshot.swift` (calls
+    /// `WidgetCenter.shared.reloadAllTimelines()` when WidgetKit is imported).
+    /// Watch companion writer: `WatchSnapshotStore.save` in
+    /// `ForgeCore/Utils/WatchSnapshotStore.swift` (same reload).
+    /// Neither `HomeWidgetSnapshot` nor `WatchSnapshot` has a connected /
+    /// health-authorized flag — connected is persisted only via
+    /// `HealthKitOnboardingAuthorization.connectedDefaultsKey` after a
+    /// completed request (never `authorizationStatus(for:)`).
+    private func publishOnboardingHealthWidgets(nights: [SleepData] = []) {
+        let night = nights.first
+        let hours = night?.totalHours ?? healthSnapshot?.sleepHours
+        let score = night?.score
         HomeWidgetSnapshotStore.update { snap in
-            if let hours = healthSnapshot?.sleepHours, hours > 0 {
-                snap.sleepHours = hours
-            }
+            if let hours, hours > 0 { snap.sleepHours = hours }
+            if let score { snap.sleepScore = score }
         }
         WatchSnapshotStore.update { snap in
-            if let hours = healthSnapshot?.sleepHours, hours > 0 {
-                snap.sleepMinutes = hours * 60
-            }
+            if let hours, hours > 0 { snap.sleepMinutes = hours * 60 }
+            if let score { snap.sleepQualityScore = score }
         }
     }
 
