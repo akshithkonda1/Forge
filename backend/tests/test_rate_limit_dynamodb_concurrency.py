@@ -302,12 +302,30 @@ class DynamoDBRateLimitConcurrencyTests(unittest.TestCase):
         self.assertEqual(int(item["count"]), 1)
 
     def test_limiter_row_has_ttl(self) -> None:
+        import time
+        from decimal import Decimal
+
+        from security import _rate_window
+
         uid = "rate-ddb-ttl"
+        # Adjacent windows: this test can cross an hour boundary.
+        before_ttl = _rate_window(hours=1)[1]
         enforce_user_rate_limit(uid, action=ACTION, limit=LIMIT, window_hours=1)
+        after_ttl = _rate_window(hours=1)[1]
         item = _stored_rate_limit_item(uid)
         self.assertIsNotNone(item)
         self.assertIn("ttl", item)
-        self.assertGreater(int(item["ttl"]), 0)
+        raw_ttl = item["ttl"]
+        # boto3/moto return Decimal; Dynamo TTL requires whole epoch seconds.
+        self.assertNotIsInstance(raw_ttl, str)
+        self.assertIsInstance(raw_ttl, (Decimal, int))
+        self.assertEqual(raw_ttl, int(raw_ttl))
+        ttl = int(raw_ttl)
+        # Same formula as security._rate_window: window_end + 3600s.
+        self.assertIn(ttl, {before_ttl, after_ttl})
+        now = time.time()
+        ten_years = 10 * 365 * 24 * 60 * 60
+        self.assertLessEqual(abs(ttl - now), ten_years)
 
     def test_concurrent_same_user_admits_exactly_limit(self) -> None:
         uid = "rate-ddb-concurrent"
