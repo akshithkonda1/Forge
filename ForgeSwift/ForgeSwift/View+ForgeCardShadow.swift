@@ -17,7 +17,7 @@ extension View {
     /// Compact section eyebrow used on Home / Sleep / Profile headers.
     func forgeSectionLabel() -> some View {
         self
-            .font(.system(size: 11, weight: .semibold, design: .rounded))
+            .font(FDS.TypeScale.Dynamic.label)
             .foregroundStyle(Color.textTertiary)
             .tracking(1.4)
             .textCase(.uppercase)

@@ -81,10 +81,6 @@ def emergency_event_key(user_id: str, at_iso: str) -> dict:
     return {"pk": f"USER#{user_id}", "sk": f"{EMERGENCY_EVENT_PREFIX}{at_iso}"}
 
 
-def emergency_event_prefix() -> str:
-    return EMERGENCY_EVENT_PREFIX
-
-
 CATALOG_PK = "CATALOG#DEVICES"
 
 

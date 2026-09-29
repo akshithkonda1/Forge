@@ -175,8 +175,7 @@ class DummyOrchestratorTests(unittest.TestCase):
     def test_research_worthy_message_appends_a_cited_web_note(self):
         with patch.object(web_research, "look_up", return_value="From Some Source: real info.") as mock_look_up:
             row = dummy.respond("how do I improve my workout routine?", seed=1, engine="stub")
-        # Live prompt guard generates the turn twice; lookup must stay stable.
-        self.assertEqual(mock_look_up.call_count, 2)
+        mock_look_up.assert_called_once()
         mock_look_up.assert_called_with("workout")
         # Trailing period may be normalized when the cite is parenthesized.
         self.assertIn("From Some Source: real info", row["message"])
@@ -190,7 +189,7 @@ class DummyOrchestratorTests(unittest.TestCase):
         self.assertEqual(plan.primary.kind, "aging")
         with patch.object(web_research, "look_up", return_value="From MedlinePlus: exercise stress test notes.") as mock_look_up:
             row = dummy.respond("what's my training age?", seed=1, engine="stub")
-        self.assertEqual(mock_look_up.call_count, 2)
+        mock_look_up.assert_called_once()
         mock_look_up.assert_called_with("aging")
         self.assertIn("From MedlinePlus: exercise stress test notes", row["message"])
         blob = (row["prose_summary"] + " " + row["message"]).lower()
@@ -970,3 +969,73 @@ class DummyOrchestratorTests(unittest.TestCase):
         blob = speak_quality.user_visible_blob(row)
         self.assertTrue(blob.strip())
         self.assertEqual(speak_quality.vitals_hits(row.get("prose_summary") or ""), [])
+
+
+class WebLookupOncePerTurn(unittest.TestCase):
+    """Prompt-guard retry may rephrase; it must not fetch the web again."""
+
+    def setUp(self):
+        self._env = os.environ.get("ENVIRONMENT")
+        self._guard = os.environ.get("FORGE_PROMPT_GUARD")
+        os.environ.pop("ENVIRONMENT", None)
+        os.environ.pop("FORGE_PROMPT_GUARD", None)
+
+    def tearDown(self):
+        if self._env is None:
+            os.environ.pop("ENVIRONMENT", None)
+        else:
+            os.environ["ENVIRONMENT"] = self._env
+        if self._guard is None:
+            os.environ.pop("FORGE_PROMPT_GUARD", None)
+        else:
+            os.environ["FORGE_PROMPT_GUARD"] = self._guard
+
+    def test_prompt_guard_regenerate_looks_up_once_and_reuses_note(self):
+        from backend._paths import ensure_lambda_on_path
+
+        ensure_lambda_on_path()
+        from services.aria_context import CoachContextEngine
+
+        rejected = "this cures insomnia"
+        dirty = f"From Some Source: real info. {rejected}."
+        with patch.object(web_research, "look_up", return_value=dirty) as look:
+            with patch.object(CoachContextEngine, "remember_short_term") as remember:
+                row = dummy.respond(
+                    "how do I improve my workout routine?",
+                    seed=1,
+                    engine="stub",
+                )
+
+        look.assert_called_once_with("workout")
+        remember.assert_not_called()
+        blob = speak_quality.user_visible_blob(row)
+        self.assertNotIn(rejected, blob.lower())
+        self.assertNotIn("cures insomnia", blob.lower())
+        self.assertEqual(speak_quality.speak_failures(row), [])
+        self.assertIn("From Some Source", blob)
+        self.assertNotEqual((row.get("guard") or {}).get("mode"), "estimate")
+
+    def test_prompt_guard_regenerate_reuses_a_scrubbed_note_without_refetch(self):
+        dirty = "From MedlinePlus: Exercise Stress Test / VO2: tissues need oxygen."
+        with patch.object(web_research, "look_up", return_value=dirty) as look:
+            row = dummy.respond("what's my training age?", seed=1, engine="stub")
+        look.assert_called_once_with("aging")
+        visible = speak_quality.user_visible_blob(row)
+        self.assertIn("From MedlinePlus", visible)
+        self.assertEqual(speak_quality.vitals_hits(visible), [])
+        self.assertEqual(speak_quality.speak_failures(row), [])
+
+    def test_no_retry_turn_still_looks_up_once(self):
+        os.environ["FORGE_PROMPT_GUARD"] = "0"
+        with patch.object(
+            web_research, "look_up", return_value="From Some Source: real info."
+        ) as look:
+            row = dummy.respond("how do I improve my workout routine?", seed=1, engine="stub")
+        look.assert_called_once_with("workout")
+        self.assertIn("From Some Source: real info", row["message"])
+        self.assertNotEqual((row.get("guard") or {}).get("mode"), "estimate")
+
+    def test_turn_with_no_web_need_looks_up_zero_times(self):
+        with patch.object(web_research, "look_up") as look:
+            dummy.respond("What should I train today?", seed=1, engine="stub")
+        look.assert_not_called()

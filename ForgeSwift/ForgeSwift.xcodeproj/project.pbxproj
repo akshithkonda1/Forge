@@ -2109,7 +2109,7 @@
 				INFOPLIST_FILE = "ForgeSwift/Info-Add.plist";
 				INFOPLIST_KEY_CFBundleDisplayName = "Forge ";
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.lifestyle";
-				INFOPLIST_KEY_NSAppleMusicUsageDescription = "This allows users to access the vast libraries of Apple Music ";
+				INFOPLIST_KEY_NSAppleMusicUsageDescription = "Forge uses Apple Music so you can play and control your music during workouts.";
 				INFOPLIST_KEY_NSCameraUsageDescription = "Forge uses the camera to photograph medication bottles so you can add what you already take when search cannot find it, and to scan food barcodes for meals. The photo stays on this iPhone.";
 				INFOPLIST_KEY_NSContactsUsageDescription = "Forge looks for contacts who already use Forge so you can train together. Contacts stay on this iPhone — Forge never uploads your address book.";
 				INFOPLIST_KEY_NSHealthShareUsageDescription = "Forge reads Health app data such as activity, workouts, sleep, heart metrics, body measurements, cycle health, mobility, hydration, nutrition, and structured records to personalize training, recovery, and coaching.";
@@ -2155,7 +2155,7 @@
 				INFOPLIST_FILE = "ForgeSwift/Info-Add.plist";
 				INFOPLIST_KEY_CFBundleDisplayName = "Forge ";
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.lifestyle";
-				INFOPLIST_KEY_NSAppleMusicUsageDescription = "This allows users to access the vast libraries of Apple Music ";
+				INFOPLIST_KEY_NSAppleMusicUsageDescription = "Forge uses Apple Music so you can play and control your music during workouts.";
 				INFOPLIST_KEY_NSCameraUsageDescription = "Forge uses the camera to photograph medication bottles so you can add what you already take when search cannot find it, and to scan food barcodes for meals. The photo stays on this iPhone.";
 				INFOPLIST_KEY_NSContactsUsageDescription = "Forge looks for contacts who already use Forge so you can train together. Contacts stay on this iPhone — Forge never uploads your address book.";
 				INFOPLIST_KEY_NSHealthShareUsageDescription = "Forge reads Health app data such as activity, workouts, sleep, heart metrics, body measurements, cycle health, mobility, hydration, nutrition, and structured records to personalize training, recovery, and coaching.";

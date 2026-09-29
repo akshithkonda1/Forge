@@ -617,17 +617,18 @@ extension HealthKitManager {
     /// Groups raw sleep-analysis samples into one entry per night. Pulled out of
     /// `fetchRecentSleepSessions` so it can be unit tested without a live
     /// HealthKit query.
-    static func makeSleepNightSamples(from samples: [HKCategorySample]) -> [SleepNightSample] {
+    static func makeSleepNightSamples(
+        from samples: [HKCategorySample],
+        calendar: Calendar = .current
+    ) -> [SleepNightSample] {
         guard !samples.isEmpty else { return [] }
 
-        // Bucket by the day containing each sample's start, shifted back 12h —
-        // so a sample starting at 23:40 and one starting at 02:10 land in the
-        // same night instead of fragmenting into two partial ones. Same
-        // technique as SleepNight.groupIntoNights (ForgeCore's SleepModels.swift).
+        // Date the night from HealthKit `startDate` (bedtime), local noon cutoff
+        // — same `nightDate` / `nightCutoffHour` rule as HomeTrendSeries.
+        // `endDate` is wake only and is not the key.
         let grouped = Dictionary(grouping: samples) { sample -> String in
-            let shifted = sample.startDate.addingTimeInterval(-12 * 3600)
-            let day = Calendar.current.startOfDay(for: shifted)
-            return ISO8601DateFormatter().string(from: day).prefix(10).description
+            let night = HomeTrendSeries.nightKey(fromBedtime: sample.startDate, calendar: calendar)
+            return HomeTrendSeries.isoDateString(night, calendar: calendar)
         }
 
         let nights: [SleepNightSample] = grouped.compactMap { date, daySamples in
