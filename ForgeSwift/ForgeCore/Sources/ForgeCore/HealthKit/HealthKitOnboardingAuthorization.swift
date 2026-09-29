@@ -9,7 +9,7 @@ public enum HealthKitOnboardingAuthorization: Sendable {
     public static let connectedDefaultsKey = "HealthKitOnboardingReadConnected"
     public static let emptyBackfillShownDefaultsKey = "HealthKitOnboardingEmptyBackfillShown"
     public static let emptyBackfillLine =
-        "No sleep data yet. You can manage access in Health anytime."
+        "No sleep yet. You can manage access in Health anytime."
 
     public enum TapAction: String, Equatable, Sendable {
         case requestReadAuthorization
