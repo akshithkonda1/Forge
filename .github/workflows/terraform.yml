@@ -101,6 +101,10 @@ jobs:
   terraform-prod-plan:
     name: 'Terraform Plan (prod)'
     runs-on: ubuntu-latest
+    # Push/PR plan only. No AWS, no secrets, no OIDC. Dummy provider checks
+    # plus -refresh=false so missing credentials cannot turn this job red.
+    permissions:
+      contents: read
     env:
       AWS_EC2_METADATA_DISABLED: "true"
       TF_VAR_skip_aws_provider_checks: "true"
@@ -128,7 +132,7 @@ jobs:
         run: terraform init -input=false -lockfile=readonly -no-color
 
       - name: Terraform Plan (prod)
-        run: terraform plan -input=false -no-color -var-file=prod.tfvars
+        run: terraform plan -input=false -no-color -refresh=false -var-file=prod.tfvars
 
   terraform-apply:
     name: 'Terraform Apply (dev, approval-gated)'
