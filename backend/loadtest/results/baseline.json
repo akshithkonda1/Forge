@@ -1,0 +1,203 @@
+{
+  "scenario": "baseline",
+  "duration_seconds": 60.018954,
+  "requests": 888,
+  "requests_per_second": 14.795326156467171,
+  "latency_ms": {
+    "p50": 1.152332,
+    "p95": 6.473762399999999,
+    "p99": 8.488508309999999
+  },
+  "error_rate": 0.037162162162162164,
+  "error_rate_overall": 0.037162162162162164,
+  "errors": 33,
+  "generated_at": "2026-09-29T03:41:28.502285+00:00",
+  "guards": {
+    "status": 200,
+    "payload": {
+      "ok": true,
+      "counts": {
+        "bedrock_client": 0,
+        "bedrock_invoke": 0,
+        "elevenlabs_http": 0,
+        "elevenlabs_api": 0
+      },
+      "total": 0
+    }
+  },
+  "vm": {
+    "cpu_count": 4,
+    "ram_kib": 16398384,
+    "ram_gib": 15.64,
+    "backend": {
+      "server": "backend/loadtest/run_server.py \u2192 ThreadingHTTPServer",
+      "workers": 1,
+      "worker_model": "single process, thread-per-request (no gunicorn/uvicorn workers)"
+    }
+  },
+  "peak_rps": {
+    "peak_1s_http_reqs": 15,
+    "samples": 62,
+    "min_1s_http_reqs": 1,
+    "median_1s_http_reqs": 15
+  },
+  "per_route": {
+    "GET /me": {
+      "requests": 82,
+      "errors": 0,
+      "error_rate": 0.0,
+      "requests_per_second": 1.3662350730071038,
+      "latency_ms": {
+        "p50": 0.991374,
+        "p95": 3.4784272500000024,
+        "p99": 6.740334619999994
+      },
+      "status_codes": {
+        "200": 82
+      }
+    },
+    "GET /chat/threads/current": {
+      "requests": 79,
+      "errors": 0,
+      "error_rate": 0.0,
+      "requests_per_second": 1.316250863019039,
+      "latency_ms": {
+        "p50": 0.965159,
+        "p95": 2.9666614999999976,
+        "p99": 7.088045119999999
+      },
+      "status_codes": {
+        "200": 79
+      }
+    },
+    "GET /devices/catalog": {
+      "requests": 71,
+      "errors": 0,
+      "error_rate": 0.0,
+      "requests_per_second": 1.1829596363841997,
+      "latency_ms": {
+        "p50": 1.005448,
+        "p95": 2.6395075,
+        "p99": 5.674329599999998
+      },
+      "status_codes": {
+        "200": 71
+      }
+    },
+    "POST /ai/observe": {
+      "requests": 89,
+      "errors": 0,
+      "error_rate": 0.0,
+      "requests_per_second": 1.482864896312588,
+      "latency_ms": {
+        "p50": 1.863195,
+        "p95": 3.0244853999999997,
+        "p99": 9.550168480000005
+      },
+      "status_codes": {
+        "200": 89
+      }
+    },
+    "GET /progress/summary": {
+      "requests": 91,
+      "errors": 0,
+      "error_rate": 0.0,
+      "requests_per_second": 1.516187702971298,
+      "latency_ms": {
+        "p50": 0.974838,
+        "p95": 2.9414145,
+        "p99": 3.892495399999991
+      },
+      "status_codes": {
+        "200": 91
+      }
+    },
+    "GET /workouts/today": {
+      "requests": 68,
+      "errors": 0,
+      "error_rate": 0.0,
+      "requests_per_second": 1.1329754263961347,
+      "latency_ms": {
+        "p50": 0.9551645,
+        "p95": 2.3987372999999996,
+        "p99": 3.678780669999999
+      },
+      "status_codes": {
+        "200": 68
+      }
+    },
+    "POST /ai/chat": {
+      "requests": 92,
+      "errors": 33,
+      "error_rate": 0.358695652173913,
+      "requests_per_second": 1.5328491063006529,
+      "latency_ms": {
+        "p50": 6.143247499999999,
+        "p95": 8.5315431,
+        "p99": 11.99034931
+      },
+      "status_codes": {
+        "200": 59,
+        "429": 33
+      }
+    },
+    "GET /sleep": {
+      "requests": 89,
+      "errors": 0,
+      "error_rate": 0.0,
+      "requests_per_second": 1.482864896312588,
+      "latency_ms": {
+        "p50": 0.93827,
+        "p95": 2.9225911999999985,
+        "p99": 5.046464040000004
+      },
+      "status_codes": {
+        "200": 89
+      }
+    },
+    "GET /health": {
+      "requests": 72,
+      "errors": 0,
+      "error_rate": 0.0,
+      "requests_per_second": 1.1996210397135545,
+      "latency_ms": {
+        "p50": 0.9187085,
+        "p95": 2.864385050000002,
+        "p99": 6.920861540000002
+      },
+      "status_codes": {
+        "200": 72
+      }
+    },
+    "GET /workouts/history": {
+      "requests": 79,
+      "errors": 0,
+      "error_rate": 0.0,
+      "requests_per_second": 1.316250863019039,
+      "latency_ms": {
+        "p50": 1.086959,
+        "p95": 4.176826499999988,
+        "p99": 7.324791339999999
+      },
+      "status_codes": {
+        "200": 79
+      }
+    },
+    "GET /dashboard/today": {
+      "requests": 76,
+      "errors": 0,
+      "error_rate": 0.0,
+      "requests_per_second": 1.266266653030974,
+      "latency_ms": {
+        "p50": 1.4894500000000002,
+        "p95": 2.6941345,
+        "p99": 4.91196725
+      },
+      "status_codes": {
+        "200": 76
+      }
+    }
+  },
+  "breaking_point": null,
+  "aborted": false
+}

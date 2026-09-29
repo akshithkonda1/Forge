@@ -88,6 +88,96 @@ class UpdateItemFieldIndependenceTests(unittest.TestCase):
 
         self.assertEqual(result["name"], "Stays")
 
+    def test_conditional_add_is_atomic_under_the_local_lock(self):
+        pk, sk = "USER#add-race", "RATELIMIT#aria-chat"
+        admitted = 0
+        denied = 0
+        errors: list[Exception] = []
+        lock = threading.Lock()
+        thread_count = 80
+        barrier = threading.Barrier(thread_count)
+
+        def increment() -> None:
+            nonlocal admitted, denied
+            barrier.wait()
+            try:
+                dynamodb.update_item(
+                    pk,
+                    sk,
+                    {"entity_type": "rate_limit"},
+                    add={"count": 1},
+                    condition_expression="attribute_not_exists(#c) OR #c < :limit",
+                    expression_attribute_names={"#c": "count"},
+                    expression_attribute_values={":limit": 10},
+                )
+                with lock:
+                    admitted += 1
+            except dynamodb.ConditionalCheckFailed:
+                with lock:
+                    denied += 1
+            except Exception as exc:  # noqa: BLE001
+                errors.append(exc)
+
+        threads = [threading.Thread(target=increment) for _ in range(thread_count)]
+        for thread in threads:
+            thread.start()
+        for thread in threads:
+            thread.join()
+
+        self.assertEqual(errors, [])
+        self.assertEqual(admitted, 10)
+        self.assertEqual(denied, 70)
+        self.assertEqual(int(dynamodb.get_item(pk, sk)["count"]), 10)
+
+    def test_query_prefix_survives_concurrent_writes(self):
+        """Iterating _local_store while writers mutate used to raise RuntimeError."""
+        errors: list[Exception] = []
+        stop = threading.Event()
+
+        def writer(index: int) -> None:
+            try:
+                for step in range(40):
+                    dynamodb.put_item(
+                        {
+                            "pk": "USER#scan-race",
+                            "sk": f"ITEM#{index:03d}#{step:03d}",
+                            "n": step,
+                        }
+                    )
+                    dynamodb.update_item(
+                        "USER#scan-race",
+                        f"ITEM#{index:03d}#{step:03d}",
+                        {"n": step},
+                        add={"count": 1},
+                    )
+            except Exception as exc:  # noqa: BLE001
+                errors.append(exc)
+
+        def reader() -> None:
+            try:
+                while not stop.is_set():
+                    dynamodb.query_prefix("USER#scan-race", "ITEM#")
+                    dynamodb.query_prefix_desc("USER#scan-race", "ITEM#")
+                    dynamodb.get_item("USER#scan-race", "ITEM#000#000")
+            except Exception as exc:  # noqa: BLE001
+                errors.append(exc)
+
+        writers = [threading.Thread(target=writer, args=(i,)) for i in range(8)]
+        readers = [threading.Thread(target=reader) for _ in range(4)]
+        for thread in readers:
+            thread.start()
+        for thread in writers:
+            thread.start()
+        for thread in writers:
+            thread.join()
+        stop.set()
+        for thread in readers:
+            thread.join()
+
+        self.assertEqual(errors, [])
+        found = dynamodb.query_prefix("USER#scan-race", "ITEM#")
+        self.assertEqual(len(found), 8 * 40)
+
 
 if __name__ == "__main__":
     unittest.main()
