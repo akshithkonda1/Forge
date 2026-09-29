@@ -7,9 +7,16 @@ ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 cd "$ROOT"
 
 SCENARIO="${1:-}"
-if [[ "$SCENARIO" != "baseline" && "$SCENARIO" != "stress" ]]; then
-  echo "usage: $0 baseline|stress" >&2
-  exit 2
+case "$SCENARIO" in
+  baseline|stress|stress-limiter|stress-capacity) ;;
+  *)
+    echo "usage: $0 baseline|stress|stress-limiter|stress-capacity" >&2
+    exit 2
+    ;;
+esac
+STRESS_LIKE=0
+if [[ "$SCENARIO" == stress || "$SCENARIO" == stress-* ]]; then
+  STRESS_LIKE=1
 fi
 
 if ! command -v k6 >/dev/null 2>&1; then
@@ -29,9 +36,9 @@ export LOADTEST_RESULTS_DIR="${LOADTEST_RESULTS_DIR:-backend/loadtest/results}"
 export FORGE_LOADTEST_GUARD_FILE="${FORGE_LOADTEST_GUARD_FILE:-/tmp/forge-loadtest-guard.json}"
 export PYTHONPATH="${ROOT}/backend/loadtest${PYTHONPATH:+:$PYTHONPATH}"
 
-# Baseline keeps a shared test user. Stress must not: Dummy JWT identities
-# (loadtest-<vu>-<iter>) only win when FORGE_TEST_USER_ID is unset.
-if [[ "$SCENARIO" == "stress" ]]; then
+# Baseline keeps a shared test user. Stress passes must not: Dummy JWT
+# identities only win when FORGE_TEST_USER_ID is unset.
+if [[ "$STRESS_LIKE" -eq 1 ]]; then
   unset FORGE_TEST_USER_ID || true
 else
   export FORGE_TEST_USER_ID="${FORGE_TEST_USER_ID:-loadtest-user}"
@@ -68,10 +75,10 @@ kill_dummy() {
 
 start_dummy() {
   rm -f "$FORGE_LOADTEST_GUARD_FILE"
-  if [[ "$SCENARIO" == "stress" ]]; then
+  if [[ "$STRESS_LIKE" -eq 1 ]]; then
     # Rate-limit counters live in storage.dynamodb._local_store (in-memory)
     # when APP_DATA_TABLE_NAME is unset. A new process clears that state.
-    # Do not export FORGE_TEST_USER_ID — per-VU Bearer tokens must win.
+    # Do not export FORGE_TEST_USER_ID — Bearer tokens must win.
     env -u FORGE_TEST_USER_ID \
       python3 backend/loadtest/run_server.py >"$LOADTEST_RESULTS_DIR/server.log" 2>&1 &
   else
@@ -94,7 +101,7 @@ start_dummy() {
 }
 
 STARTED_SERVER=0
-if [[ "$SCENARIO" == "stress" ]]; then
+if [[ "$STRESS_LIKE" -eq 1 ]]; then
   kill_dummy
   start_dummy
   STARTED_SERVER=1
@@ -104,7 +111,7 @@ elif ! curl -sf "$BASE_URL/health" >/dev/null; then
 fi
 
 CPU_PID=""
-if [[ "$SCENARIO" == "stress" && -f "$LOADTEST_RESULTS_DIR/server.pid" ]]; then
+if [[ "$STRESS_LIKE" -eq 1 && -f "$LOADTEST_RESULTS_DIR/server.pid" ]]; then
   python3 backend/loadtest/sample_cpu.py \
     --pid "$(cat "$LOADTEST_RESULTS_DIR/server.pid")" \
     --out "$LOADTEST_RESULTS_DIR/cpu.jsonl" \

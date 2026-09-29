@@ -116,9 +116,13 @@ function classifyStatus(status) {
   };
 }
 
-export function requestRoute(base, route, userId) {
+export function requestRoute(base, route, userId, opts) {
   const url = `${base}${route.path}`;
   const tags = { route: route.name };
+  // Only tag user when asked — unique-per-iteration IDs explode k6 cardinality.
+  if (opts && opts.tagUser && userId) {
+    tags.user = String(userId);
+  }
   const headers = { 'content-type': 'application/json' };
   if (userId) {
     headers.Authorization = dummyBearer(userId);
@@ -148,10 +152,10 @@ export function requestRoute(base, route, userId) {
   return res;
 }
 
-export function hitMix(base, userId) {
+export function hitMix(base, userId, opts) {
   const routes = READ_ROUTES.concat(WRITE_ROUTES);
   const route = routes[Math.floor(Math.random() * routes.length)];
-  return requestRoute(base, route, userId);
+  return requestRoute(base, route, userId, opts);
 }
 
 export function fetchGuards(base) {

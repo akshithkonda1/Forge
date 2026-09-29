@@ -13,6 +13,8 @@ on:
         options:
           - baseline
           - stress
+          - stress-limiter
+          - stress-capacity
         default: baseline
 
 permissions:
@@ -50,12 +52,14 @@ jobs:
           browser: false
 
       - name: Preflight refuse-to-run gates
-        run: python3 -m unittest backend.loadtest.test_preflight backend.loadtest.test_guard -v
+        run: python3 -m unittest backend.loadtest.test_preflight backend.loadtest.test_guard backend.loadtest.test_summarize -v
 
       - name: k6 inspect (syntax only)
         run: |
           k6 inspect backend/loadtest/k6/baseline.js
           k6 inspect backend/loadtest/k6/stress.js
+          k6 inspect backend/loadtest/k6/stress-limiter.js
+          k6 inspect backend/loadtest/k6/stress-capacity.js
 
       - name: Run chosen Dummy scenario
         run: bash backend/loadtest/run.sh "${{ inputs.scenario }}"

@@ -15,9 +15,10 @@ These numbers are a **local Dummy backend ceiling** on a single-process `Threadi
 ## Scenarios
 
 1. **baseline** (smoke): 3 VUs for 1 minute across `/health`, the main read routes, `POST /ai/chat`, and `POST /ai/observe`. Uses the shared `FORGE_TEST_USER_ID=loadtest-user` identity.
-2. **stress**: ramping arrival rate (20 → 1000 rps, hard stop at the ceiling) with `preAllocatedVUs=250` / `maxVUs=2000`. Each iteration authenticates as a distinct Dummy user (`loadtest-<vu>-<iter>` unsigned Bearer JWT) so the per-user 60/hour `aria-chat` limiter does not cap throughput. The limiter itself is not disabled or patched. Abort when **non-429** errors reach 1% or p95 exceeds 2s; 429s are counted per route but do not abort. `dropped_iterations` is recorded so a k6 VU shortage cannot look like capacity.
+2. **stress-limiter**: same 20 → 1000 rps ramp, one shared Dummy user (`sub=loadtest-limiter`). Measures the built-in 60/hour `aria-chat` limiter under concurrency. 429s are counted per route and never abort. Abort only when **non-429** errors reach 1% or p95 exceeds 2s.
+3. **stress-capacity**: same ramp, distinct Dummy user per VU/iteration (`loadtest-<vu>-<iter>`) so each user stays at one request (≤60 chat/hour). Product limiter is unchanged — no override. Finds Dummy process capacity. `stress` is an alias of this pass.
 
-Stress always restarts the Dummy process first. Rate-limit counters live in the in-memory `storage.dynamodb._local_store` when `APP_DATA_TABLE_NAME` is unset, so a fresh process clears that state.
+Both stress passes restart Dummy first (in-memory `_local_store` when `APP_DATA_TABLE_NAME` is unset). `dropped_iterations` is recorded. Hard stop at the 1000 rps ceiling.
 
 Neither scenario is run by CI on push/PR. The optional workflow is `workflow_dispatch` only. BASE_URL lives in the k6 env/script only — not in `ForgeSwift/**` plists, `generate_client_config`, or any client config (`--check` rejects loopback).
 
@@ -36,9 +37,13 @@ export FORGE_ALLOW_ANON_TEST_USER=true
 export FORGE_TEST_USER_ID=loadtest-user
 bash backend/loadtest/run.sh baseline
 
-# stress (run.sh unsets FORGE_TEST_USER_ID, restarts Dummy, unique JWT per VU/iter)
+# limiter as built (one shared JWT user; 429s do not abort)
 unset FORGE_TEST_USER_ID
-bash backend/loadtest/run.sh stress
+bash backend/loadtest/run.sh stress-limiter
+
+# capacity (spread users so each stays under 60 chat/hour)
+unset FORGE_TEST_USER_ID
+bash backend/loadtest/run.sh stress-capacity
 ```
 
 `run.sh` starts `python3 backend/loadtest/run_server.py` if `/health` is not already up (stress always restarts), runs k6, then writes:
@@ -51,7 +56,8 @@ bash backend/loadtest/run.sh stress
 
 ```bash
 k6 inspect backend/loadtest/k6/baseline.js
-k6 inspect backend/loadtest/k6/stress.js
+k6 inspect backend/loadtest/k6/stress-limiter.js
+k6 inspect backend/loadtest/k6/stress-capacity.js
 k6 archive backend/loadtest/k6/baseline.js -O /tmp/forge-loadtest-baseline.tar
 ```
 

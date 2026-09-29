@@ -26,6 +26,9 @@ STRESS_STAGES = (
     (20.0, 1000.0, 1000.0),
 )
 STRESS_CEILING_RPS = STRESS_STAGES[-1][2]
+STRESS_SCENARIOS = frozenset({"stress", "stress-limiter", "stress-capacity"})
+ARIA_CHAT_LIMIT = 60
+CHAT_ROUTE = "POST /ai/chat"
 
 
 def _load_json(path: Path) -> dict:
@@ -243,6 +246,160 @@ def _overall_from_k6_json(path: Path) -> dict:
     }
     _attach_error_rates(out, requests)
     return out
+
+
+def _latency_by_status_from_k6_json(path: Path) -> dict:
+    """p50/p95/p99 of http_req_duration split by HTTP status (and chat 200 vs 429)."""
+    by_status: dict[str, list[float]] = defaultdict(list)
+    chat_by_status: dict[str, list[float]] = defaultdict(list)
+    if not path.is_file():
+        return {}
+    with path.open(encoding="utf-8") as handle:
+        for line in handle:
+            line = line.strip()
+            if not line:
+                continue
+            try:
+                point = json.loads(line)
+            except json.JSONDecodeError:
+                continue
+            if point.get("type") != "Point" or point.get("metric") != "http_req_duration":
+                continue
+            data = point.get("data") or {}
+            tags = data.get("tags") or {}
+            route = tags.get("route") or ""
+            if route.startswith("GET /__loadtest"):
+                continue
+            status = str(tags.get("status") or "0")
+            dur = float(data.get("value") or 0)
+            by_status[status].append(dur)
+            if route == CHAT_ROUTE:
+                chat_by_status[status].append(dur)
+
+    def pack(groups: dict[str, list[float]]) -> dict:
+        out = {}
+        for status, durs in sorted(groups.items()):
+            out[status] = {
+                "count": len(durs),
+                "p50": _percentile(durs, 0.50),
+                "p95": _percentile(durs, 0.95),
+                "p99": _percentile(durs, 0.99),
+            }
+        return out
+
+    overall = pack(by_status)
+    chat = pack(chat_by_status)
+    compare = None
+    if "200" in chat or "429" in chat:
+        compare = {
+            "chat_200": chat.get("200"),
+            "chat_429": chat.get("429"),
+        }
+    return {"by_status": overall, "chat": chat, "chat_200_vs_429": compare}
+
+
+def chat_admission_verdict(admitted_200: int, limited_429: int, *, limit: int = ARIA_CHAT_LIMIT) -> str:
+    if admitted_200 > limit:
+        return "over-admission"
+    if admitted_200 == limit:
+        return "exact"
+    if limited_429 > 0:
+        return "under-admission"
+    return "under-limit-no-429"
+
+
+def _chat_admission_from_k6_json(path: Path, *, limit: int = ARIA_CHAT_LIMIT) -> dict:
+    """Count POST /ai/chat 200s per tagged user against the 60/hour limiter."""
+    by_user: dict[str, dict[str, int]] = {}
+    untagged = _empty_error_split()
+    untagged_ok = 0
+    if path.is_file():
+        with path.open(encoding="utf-8") as handle:
+            for line in handle:
+                line = line.strip()
+                if not line:
+                    continue
+                try:
+                    point = json.loads(line)
+                except json.JSONDecodeError:
+                    continue
+                if point.get("type") != "Point" or point.get("metric") != "http_reqs":
+                    continue
+                data = point.get("data") or {}
+                tags = data.get("tags") or {}
+                if tags.get("route") != CHAT_ROUTE:
+                    continue
+                n = int(data.get("value") or 0)
+                status = str(tags.get("status") or "0")
+                user = tags.get("user")
+                kind = classify_status(status)
+                if not user:
+                    if kind == "ok":
+                        untagged_ok += n
+                    else:
+                        untagged[kind] += n
+                    continue
+                slot = by_user.setdefault(user, {"200": 0, "429": 0, "5xx": 0, "other": 0})
+                if status == "200":
+                    slot["200"] += n
+                elif status == "429":
+                    slot["429"] += n
+                elif kind == "5xx":
+                    slot["5xx"] += n
+                else:
+                    slot["other"] += n
+
+    per_user = []
+    verdicts = defaultdict(int)
+    for user, counts in sorted(by_user.items()):
+        verdict = chat_admission_verdict(counts["200"], counts["429"], limit=limit)
+        verdicts[verdict] += 1
+        per_user.append(
+            {
+                "user": user,
+                "chat_200": counts["200"],
+                "chat_429": counts["429"],
+                "chat_5xx": counts["5xx"],
+                "chat_other": counts["other"],
+                "limit": limit,
+                "verdict": verdict,
+            }
+        )
+    over = [row for row in per_user if row["verdict"] == "over-admission"]
+    under = [row for row in per_user if row["verdict"] == "under-admission"]
+    exact = [row for row in per_user if row["verdict"] == "exact"]
+    finding = "no tagged chat users"
+    if not per_user and untagged_ok:
+        finding = (
+            f"no user tags (spread-identity pass); {untagged_ok} untagged chat 200s "
+            f"(each loadtest-<vu>-<iter> user makes one request, so ≤1 chat)"
+        )
+    if per_user:
+        if over:
+            finding = (
+                f"over-admission: {len(over)} user(s) got more than {limit} chat 200s "
+                f"(max {max(r['chat_200'] for r in over)})"
+            )
+        elif under:
+            finding = (
+                f"under-admission: {len(under)} user(s) got 429s before {limit} chat 200s "
+                f"(min 200s {min(r['chat_200'] for r in under)})"
+            )
+        elif exact:
+            finding = f"exact: {len(exact)} user(s) allowed exactly {limit} chat 200s"
+        else:
+            finding = f"no user reached the {limit}/hour chat cap"
+    return {
+        "limit": limit,
+        "action": "aria-chat",
+        "tagged_users": len(per_user),
+        "verdicts": dict(verdicts),
+        "finding": finding,
+        "keeps_exactly_60": bool(per_user) and not over and not under and bool(exact),
+        "per_user": per_user,
+        "untagged_chat_200": untagged_ok,
+        "untagged_chat_errors": dict(untagged),
+    }
 
 
 def _peak_rps_from_k6_json(path: Path) -> dict | None:
@@ -529,9 +686,47 @@ def _md(report: dict) -> str:
         f"- rate_limit_patched: {rate_limit.get('patched', False)}",
         f"- backend_restarted_before_run: {rate_limit.get('restarted_before_run', False)}",
         "",
-        "## Per route",
+        "## Chat limiter admission (60/hour aria-chat)",
         "",
     ]
+    admission = report.get("chat_admission") or {}
+    if admission:
+        lines.extend(
+            [
+                f"- finding: {admission.get('finding')}",
+                f"- keeps_exactly_60: {admission.get('keeps_exactly_60')}",
+                f"- tagged_users: {admission.get('tagged_users')}",
+                f"- verdicts: {json.dumps(admission.get('verdicts') or {})}",
+                "",
+            ]
+        )
+        per_user = admission.get("per_user") or []
+        if per_user:
+            lines.append("| user | chat_200 | chat_429 | chat_5xx | chat_other | verdict |")
+            lines.append("| --- | ---: | ---: | ---: | ---: | --- |")
+            for row in per_user[:20]:
+                lines.append(
+                    f"| {row.get('user')} | {row.get('chat_200')} | {row.get('chat_429')} | "
+                    f"{row.get('chat_5xx')} | {row.get('chat_other')} | {row.get('verdict')} |"
+                )
+            if len(per_user) > 20:
+                lines.append(f"| … | {len(per_user) - 20} more users omitted | | | | |")
+            lines.append("")
+    else:
+        lines.append("_not measured (no user tags on chat requests)_")
+        lines.append("")
+    lat_status = report.get("latency_by_status") or {}
+    compare = lat_status.get("chat_200_vs_429") or {}
+    lines.extend(
+        [
+            "## Latency 200 vs 429 (POST /ai/chat)",
+            "",
+            json.dumps(compare, indent=2) if compare else "_no chat 200/429 latency samples_",
+            "",
+            "## Per route",
+            "",
+        ]
+    )
     per_route = report.get("per_route") or {}
     if not per_route:
         lines.append("_no per-route samples_")
@@ -600,14 +795,22 @@ def main() -> None:
     report["cpu"] = _load_json(results / "cpu.json") or None
     duration = float(report.get("duration_seconds") or 0)
     report["per_route"] = _routes_from_k6_json(k6_json, duration)
-    if args.scenario == "stress":
+    report["latency_by_status"] = _latency_by_status_from_k6_json(k6_json)
+    report["chat_admission"] = _chat_admission_from_k6_json(k6_json)
+    if args.scenario in STRESS_SCENARIOS:
         series = _timeseries_from_k6_json(k6_json)
         report["breaking_point"] = _derive_stress_breaking_point(report, series)
         report["aborted"] = report["breaking_point"]["aborted"]
-        report["identity"] = {
-            "scheme": "unsigned Dummy Bearer JWT, sub=loadtest-<vu>-<iter>",
-            "forge_test_user_id": None,
-        }
+        if args.scenario == "stress-limiter":
+            report["identity"] = {
+                "scheme": "unsigned Dummy Bearer JWT, sub=loadtest-limiter (single shared user)",
+                "forge_test_user_id": None,
+            }
+        else:
+            report["identity"] = {
+                "scheme": "unsigned Dummy Bearer JWT, sub=loadtest-<vu>-<iter>",
+                "forge_test_user_id": None,
+            }
         report["rate_limit"] = {
             "patched": False,
             "store": "in-memory storage.dynamodb._local_store (APP_DATA_TABLE_NAME unset)",

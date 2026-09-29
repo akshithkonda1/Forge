@@ -6,6 +6,7 @@ import unittest
 
 from backend.loadtest.summarize import (
     STRESS_CEILING_RPS,
+    chat_admission_verdict,
     classify_status,
     _derive_stress_breaking_point,
     _interpolated_arrival_rate,
@@ -91,5 +92,20 @@ class StressThresholdTests(unittest.TestCase):
         self.assertGreaterEqual(point["first_break"]["p95_ms"], 2000)
 
 
+class ChatAdmissionTests(unittest.TestCase):
+    def test_exact_sixty_is_exact(self):
+        self.assertEqual(chat_admission_verdict(60, 400), "exact")
+
+    def test_sixty_one_is_over_admission(self):
+        self.assertEqual(chat_admission_verdict(61, 10), "over-admission")
+
+    def test_429_before_sixty_is_under_admission(self):
+        self.assertEqual(chat_admission_verdict(40, 5), "under-admission")
+
+    def test_no_429_below_limit_is_not_a_limiter_failure(self):
+        self.assertEqual(chat_admission_verdict(10, 0), "under-limit-no-429")
+
+
 if __name__ == "__main__":
     unittest.main()
+

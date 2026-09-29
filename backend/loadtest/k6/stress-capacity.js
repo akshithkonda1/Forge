@@ -3,7 +3,8 @@ import { inferBreakingPoint, stressOptions } from './ramp.js';
 
 const RESULTS_DIR = __ENV.LOADTEST_RESULTS_DIR || 'backend/loadtest/results';
 
-// Backward-compatible alias of stress-capacity (spread synthetic users).
+// Distinct Dummy user per VU/iteration so each stays at 1 request (≤60 chat
+// per hour). The product limiter is unchanged. 429s never abort.
 export const options = stressOptions();
 
 export function setup() {
@@ -23,7 +24,7 @@ export function handleSummary(data) {
   const durationMs = (data.state && data.state.testRunDurationMs) || 0;
   const aborted = Object.values(data.thresholds || {}).some((t) => t && t.ok === false);
   const report = buildReport(data, {
-    scenario: 'stress',
+    scenario: 'stress-capacity',
     breakingPoint: inferBreakingPoint(durationMs, aborted),
     guards: null,
     aborted,
