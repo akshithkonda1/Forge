@@ -55,6 +55,7 @@ enum AriaInterviewVoice {
     static let healthBody =
         "If you connect Apple Health, I can learn your sleep and movement with you — so I can take care of you better, not to judge."
     static let healthDenyLine = "All good… I’m still here."
+    static let healthEnableLater = "You can enable Apple Health later."
     static let habitsWrapper = "So I can learn more about you"
 
     static func healthStatusLabel(state: HealthKitState, pulling: Bool) -> String {

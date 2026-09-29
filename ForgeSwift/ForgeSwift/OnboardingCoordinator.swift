@@ -66,8 +66,10 @@ final class OnboardingCoordinator {
     }
     /// First Health hydrate after Allow — nest shows Pulling…, not Connected yet.
     var isHealthPulling = false
-    /// Deny → Health Sharing copy from #263, shown under the Health nest.
+    /// Request-throws copy only. Empty-store / deny-in-sheet uses `emptyBackfillLine`.
     var lastHealthSharingHint: String?
+    /// One-time empty-backfill line under Continue. Never restored on relaunch.
+    var emptyBackfillLine: String?
 
     /// Back walks the active graph. Intro and Name have no predecessor —
     /// leaving the interview is sign-out, not a silent return to the splash.
@@ -274,32 +276,38 @@ final class OnboardingCoordinator {
     func connectHealthKit() {
         guard step == .health else { return }
         interruptInterviewVoice()
-        let action = HealthKitLiveEvidence.reconnectAction(
-            isLive: healthKitState == .authorized,
-            canPresentSheet: HealthKitManager.shared.canPresentAuthorizationSheet
+        let action = HealthKitOnboardingAuthorization.tapAction(
+            alreadyConnected: healthKitState == .authorized,
+            healthAvailable: healthKitState != .unavailable && HKHealthStore.isHealthDataAvailable()
         )
         switch action {
-        case .resync:
+        case .refreshAlreadyConnected:
             appendUser("Connect Apple Health")
             FDS.haptic(.medium)
             isHealthPulling = true
             Task {
                 await refreshHealthDataQuietly()
+                let nights = await HealthKitSleepService.shared.fetchRecentSleepData(days: 14)
+                publishOnboardingHealthWidgets(nights: nights)
                 isHealthPulling = false
             }
-        case .requestSheet:
+        case .requestReadAuthorization:
             appendUser("Connect Apple Health")
             FDS.haptic(.medium)
             lastHealthSharingHint = nil
             Task { await requestHealthKit() }
-        case .openHealthSharing:
-            appendUser("Open Health Sharing")
+        case .stayWithoutRedirect:
+            appendUser("I'll add it later")
             FDS.haptic(.light)
-            healthKitState = healthKitState == .unavailable ? .unavailable : .denied
-            lastHealthSharingHint = HealthKitLiveEvidence.sharingAfterDeny
-            HealthKitManager.shared.openAppleHealthSharingDestination()
+            lastHealthSharingHint = nil
             Task { await ariaSay(AriaInterviewVoice.acknowledgeHealthSkip(), mood: .calm) }
         }
+    }
+
+    /// Optional secondary control — never automatic, never a gate.
+    func openHealthSharingManually() {
+        guard step == .health else { return }
+        HealthKitManager.shared.openAppleHealthSharingDestination()
     }
 
     func skipHealthKit() {
@@ -603,6 +611,8 @@ final class OnboardingCoordinator {
     func requestHealthKit() async {
         guard healthKitState != .authorized else {
             await refreshHealthDataQuietly()
+            let nights = await HealthKitSleepService.shared.fetchRecentSleepData(days: 14)
+            publishOnboardingHealthWidgets(nights: nights)
             return
         }
         guard healthKitState != .unavailable else {
@@ -616,13 +626,21 @@ final class OnboardingCoordinator {
 
         do {
             try await connectAppleHealthForFirstTime()
-            let live = await HealthKitManager.shared.checkAuthorizationStatus()
-                || (healthSnapshot?.hasData == true)
-            if live {
+            let connected = HealthKitOnboardingAuthorization.isConnected(
+                requestCompletedWithoutError: true
+            )
+            if connected {
                 healthKitState = .authorized
+                prepHealthConnected = true
                 lastHealthSharingHint = nil
                 await HealthKitManager.shared.applyConnectedHealthToForge()
                 await refreshHealthDataQuietly()
+                let nights = await HealthKitSleepService.shared.fetchRecentSleepData(days: 14)
+                publishOnboardingHealthWidgets(nights: nights)
+                applyEmptyBackfillLine(
+                    requestCompletedWithoutError: true,
+                    nightCount: nights.count
+                )
                 isHealthPulling = false
                 let snap = briefingSnapshot()
                 await ariaSay(
@@ -632,15 +650,14 @@ final class OnboardingCoordinator {
             } else {
                 healthKitState = .denied
                 isHealthPulling = false
-                lastHealthSharingHint = HealthKitManager.shared.canPresentAuthorizationSheet
-                    ? nil
-                    : HealthKitLiveEvidence.sharingAfterDeny
+                lastHealthSharingHint = nil
                 await ariaSay(AriaInterviewVoice.acknowledgeHealthSkip(), mood: .calm)
             }
         } catch {
             healthKitState = .denied
             isHealthPulling = false
-            lastHealthSharingHint = HealthKitLiveEvidence.sharingAfterDeny
+            lastHealthSharingHint = AriaInterviewVoice.healthEnableLater
+            emptyBackfillLine = nil
             await ariaSay(AriaInterviewVoice.acknowledgeHealthSkip(), mood: .calm)
         }
     }
@@ -679,12 +696,12 @@ final class OnboardingCoordinator {
         ariaOrbState = .listening
     }
 
-    /// System Health sheet first, then (on the sim) write the Test-Ready pack
-    /// into HealthKit so the read-back is a real first integration.
+    /// In-app READ-only HealthKit sheet, then (on the sim) write the
+    /// Test-Ready pack so the read-back is a real first integration.
     private func connectAppleHealthForFirstTime() async throws {
+        try await HealthKitManager.shared.requestOnboardingReadAuthorization()
         #if targetEnvironment(simulator)
         if AriaService.shouldUseTestReadyDummy {
-            try await HealthKitManager.shared.requestTestReadyPackAuthorization()
             let pack = FakeHealthPack.generate(seed: AppStore.testReadySessionSeed)
             if let today = pack.today {
                 healthSnapshot = HealthDataSnapshot(
@@ -710,10 +727,53 @@ final class OnboardingCoordinator {
                     }
                 }
             }
-            return
         }
         #endif
-        try await HealthKitManager.shared.requestAuthorization()
+    }
+
+    /// Writes the shared App Group snapshots after onboarding read+backfill.
+    /// Writer: `HomeWidgetSnapshotStore.save` in
+    /// `ForgeCore/Utils/HomeWidgetSnapshot.swift` (calls
+    /// `WidgetCenter.shared.reloadAllTimelines()` when WidgetKit is imported).
+    /// Watch companion writer: `WatchSnapshotStore.save` in
+    /// `ForgeCore/Utils/WatchSnapshotStore.swift` (same reload).
+    /// Sleep fields publish only when the newest night is last night
+    /// (`HomeTrendSeries.nightKey` / `lastNight`, bedtime + 12:00 local).
+    /// Neither snapshot has a connected / health-authorized flag.
+    private func publishOnboardingHealthWidgets(nights: [SleepData] = []) {
+        let calendar = Calendar.current
+        let newest = nights.first
+        let published = HealthKitOnboardingAuthorization.publishedSleepFields(
+            nightKey: newest.flatMap { HomeTrendSeries.nightKey(for: $0, calendar: calendar) },
+            lastNight: HomeTrendSeries.lastNight(now: Date(), calendar: calendar),
+            hours: newest?.totalHours,
+            score: newest?.score,
+            calendar: calendar
+        )
+        HomeWidgetSnapshotStore.update { snap in
+            snap.sleepHours = published?.hours ?? 0
+            snap.sleepScore = published?.score
+        }
+        WatchSnapshotStore.update { snap in
+            snap.sleepMinutes = published.map { $0.hours * 60 }
+            snap.sleepQualityScore = published?.score
+        }
+    }
+
+    /// First empty backfill after a completed request, once. Flag persists
+    /// so relaunch never re-shows the line.
+    private func applyEmptyBackfillLine(requestCompletedWithoutError: Bool, nightCount: Int) {
+        let key = HealthKitOnboardingAuthorization.emptyBackfillShownDefaultsKey
+        let alreadyShown = UserDefaults.standard.bool(forKey: key)
+        let show = HealthKitOnboardingAuthorization.shouldShowEmptyBackfillLine(
+            requestCompletedWithoutError: requestCompletedWithoutError,
+            nightCount: nightCount,
+            alreadyShown: alreadyShown
+        )
+        emptyBackfillLine = show ? HealthKitOnboardingAuthorization.emptyBackfillLine : nil
+        if show {
+            UserDefaults.standard.set(true, forKey: key)
+        }
     }
 
     private func briefingSnapshot() -> AriaFirstHealthBriefing.Snapshot {
@@ -842,6 +902,9 @@ final class OnboardingCoordinator {
         }
         let healthConnected = healthKitState == .authorized
         prepHealthConnected = healthConnected
+        if healthConnected {
+            store.healthKitLive = true
+        }
 
         AriaContextStore.shared.seedFromOnboarding(
             name: profile.trimmedName,

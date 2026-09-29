@@ -12,6 +12,7 @@ final class FriendFirstOnboardingTests: XCTestCase {
             "If you connect Apple Health, I can learn your sleep and movement with you — so I can take care of you better, not to judge."
         )
         XCTAssertEqual(AriaInterviewVoice.healthDenyLine, "All good… I’m still here.")
+        XCTAssertEqual(AriaInterviewVoice.healthEnableLater, "You can enable Apple Health later.")
         XCTAssertEqual(AriaInterviewVoice.acknowledgeHealthSkip(), AriaInterviewVoice.healthDenyLine)
         XCTAssertEqual(
             AriaInterviewVoice.acknowledgeHealthContinue(health: .denied, calendar: .unknown),
