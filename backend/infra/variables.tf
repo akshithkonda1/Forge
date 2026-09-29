@@ -12,11 +12,14 @@ variable "project_name" {
 
 variable "environment" {
   description = <<-EOT
-    Deployment environment name. This is a security control, not a label: the
-    Lambda reads it as ENVIRONMENT and uses it to decide whether unsigned
-    dev-override tokens are accepted and whether seeded demo data may stand in
-    for a user's own health data. Both are enabled for the non-production names
-    and disabled for prod/production/staging/stage.
+    Deployment environment name. This is a security control, not a label.
+
+    Localhost Cognito clients, unsigned dev-override tokens, and seeded demo
+    data are allowlisted to environment in {dev, local, sandbox} only. Any
+    other name (beta, testflight, prd, test, ci, development, staging, prod)
+    is fail-closed: no localhost clients, no localhost IDs on the JWT
+    audience, and Terraform sets FORGE_ALLOW_DEV_OVERRIDE=false so the Lambda
+    rejects unsigned tokens.
 
     Deliberately has no default. A value of "dev" inherited by accident is a
     production API that accepts a forged identity, so the choice is made at the
@@ -25,14 +28,14 @@ variable "environment" {
   type        = string
 
   validation {
-    # An unrecognised name (a typo like "produciton") would fall outside the
-    # backend's production allowlist and be treated as a dev environment, so
-    # the set is closed here rather than left to a substring match at runtime.
+    # Closed set so a typo like "produciton" cannot be applied. Adding a new
+    # name here does not grant localhost clients or override tokens — those
+    # require a second add to local.is_dev_pool.
     condition = contains(
-      ["local", "dev", "development", "test", "ci", "stage", "staging", "prod", "production"],
+      ["local", "dev", "development", "test", "ci", "sandbox", "stage", "staging", "prod", "production"],
       var.environment
     )
-    error_message = "environment must be one of: local, dev, development, test, ci, stage, staging, prod, production."
+    error_message = "environment must be one of: local, dev, development, test, ci, sandbox, stage, staging, prod, production."
   }
 }
 
@@ -62,15 +65,168 @@ variable "force_destroy_uploads_bucket" {
 }
 
 variable "log_retention_days" {
-  description = "CloudWatch log retention in days."
+  description = <<-EOT
+    Override CloudWatch log retention in days. Null (the default) uses 30 in
+    prod-like environments and 14 everywhere else, including the CI plan.
+  EOT
   type        = number
-  default     = 14
+  default     = null
+  nullable    = true
 }
 
 variable "lambda_memory_size" {
-  description = "Memory size for the shared Forge backend Lambda."
+  description = "Memory size for the shared Forge backend Lambda. 256 MB is the free-tier default on arm64."
   type        = number
-  default     = 512
+  default     = 256
+}
+
+variable "lambda_architectures" {
+  description = "Lambda instruction set. arm64 (Graviton) is cheaper than x86_64 at the same memory."
+  type        = list(string)
+  default     = ["arm64"]
+}
+
+variable "cognito_user_pool_tier" {
+  description = <<-EOT
+    Cognito feature plan. ESSENTIALS is required for the free prefix domain
+    (managed login / hosted UI) that public PKCE clients and social IdPs use.
+    LITE is cheaper after 10k MAU but does not include managed login. At the
+    ~1k MAU cost ceiling Essentials is still inside the 10k MAU free allowance.
+  EOT
+  type        = string
+  default     = "ESSENTIALS"
+
+  validation {
+    condition     = contains(["LITE", "ESSENTIALS", "PLUS"], var.cognito_user_pool_tier)
+    error_message = "cognito_user_pool_tier must be LITE, ESSENTIALS, or PLUS."
+  }
+}
+
+variable "cognito_domain_prefix" {
+  description = "Optional override for the free Cognito prefix domain. Null uses {project}-{env}-{account}."
+  type        = string
+  default     = null
+  nullable    = true
+}
+
+variable "cognito_ios_callback_urls" {
+  description = "Exact iOS OAuth callback URLs. Default is the Forge custom scheme. Index [0] is iosRedirectUri."
+  type        = list(string)
+  default     = ["forge://auth/callback"]
+
+  validation {
+    condition     = length(var.cognito_ios_callback_urls) > 0
+    error_message = "cognito_ios_callback_urls must contain at least one URL."
+  }
+}
+
+variable "cognito_ios_logout_urls" {
+  description = "Exact iOS OAuth logout URLs. Default is the Forge custom-scheme logout. Index [0] is iosLogoutUri."
+  type        = list(string)
+  default     = ["forge://auth/logout"]
+
+  validation {
+    condition     = length(var.cognito_ios_logout_urls) > 0
+    error_message = "cognito_ios_logout_urls must contain at least one URL."
+  }
+}
+
+variable "cognito_web_callback_urls" {
+  description = "Web app OAuth callback URLs. Not secrets — set these per environment. Defaults are placeholders so CI can plan; a real apply rejects example.com."
+  type        = list(string)
+  default     = ["https://app.example.com/auth/callback"]
+
+  validation {
+    condition     = length(var.cognito_web_callback_urls) > 0
+    error_message = "cognito_web_callback_urls must contain at least one URL."
+  }
+}
+
+variable "cognito_web_logout_urls" {
+  description = "Web app OAuth logout URLs. A real apply rejects example.com."
+  type        = list(string)
+  default     = ["https://app.example.com/auth/logout"]
+
+  validation {
+    condition     = length(var.cognito_web_logout_urls) > 0
+    error_message = "cognito_web_logout_urls must contain at least one URL."
+  }
+}
+
+variable "cognito_kotlin_callback_urls" {
+  description = <<-EOT
+    Kotlin / Android OAuth callback URLs. Index [0] is the custom scheme
+    (kotlinRedirectUri). An https App Link may follow as a second entry only;
+    it works only once assetlinks.json is live on that domain.
+  EOT
+  type        = list(string)
+  default     = ["com.forge.app://auth/callback"]
+
+  validation {
+    condition     = length(var.cognito_kotlin_callback_urls) > 0
+    error_message = "cognito_kotlin_callback_urls must contain at least one URL."
+  }
+}
+
+variable "cognito_kotlin_logout_urls" {
+  description = <<-EOT
+    Kotlin / Android OAuth logout URLs. Index [0] is the custom scheme
+    (kotlinLogoutUri). An https App Link may follow as a second entry only;
+    it works only once assetlinks.json is live on that domain.
+  EOT
+  type        = list(string)
+  default     = ["com.forge.app://auth/logout"]
+
+  validation {
+    condition     = length(var.cognito_kotlin_logout_urls) > 0
+    error_message = "cognito_kotlin_logout_urls must contain at least one URL."
+  }
+}
+
+variable "cognito_localhost_callback_urls" {
+  description = "Dev-pool-only localhost callback URLs for web and Kotlin clients."
+  type        = list(string)
+  default = [
+    "http://localhost:3000/auth/callback",
+    "http://127.0.0.1:3000/auth/callback",
+    "http://localhost:8080/auth/callback",
+    "http://127.0.0.1:8080/auth/callback",
+  ]
+}
+
+variable "cognito_localhost_logout_urls" {
+  description = "Dev-pool-only localhost logout URLs for web and Kotlin clients."
+  type        = list(string)
+  default = [
+    "http://localhost:3000/auth/logout",
+    "http://127.0.0.1:3000/auth/logout",
+    "http://localhost:8080/auth/logout",
+    "http://127.0.0.1:8080/auth/logout",
+  ]
+}
+
+variable "devices_catalog_throttling_rate_limit" {
+  description = "Steady-state requests per second for the public GET /devices/catalog route. Clients should cache; 2 rps is a scrape ceiling, not a page-load budget."
+  type        = number
+  default     = 2
+}
+
+variable "devices_catalog_throttling_burst_limit" {
+  description = "Burst request limit for the public GET /devices/catalog route."
+  type        = number
+  default     = 10
+}
+
+variable "health_throttling_rate_limit" {
+  description = "Steady-state requests per second for the public GET /health route."
+  type        = number
+  default     = 1
+}
+
+variable "health_throttling_burst_limit" {
+  description = "Burst request limit for the public GET /health route."
+  type        = number
+  default     = 5
 }
 
 variable "lambda_timeout" {
@@ -156,25 +312,48 @@ variable "ai_router_model_3_name" {
 
 variable "enable_spend_guard" {
   description = <<-EOT
-    Create an optional monthly AWS Budgets COST budget. Default false: Dummy-
-    offline and an apply with module defaults create no budget resource.
-    Enable only on a live applied account. First two AWS Budgets are free;
-    notifications need spend_guard_notification_email.
+    Create the monthly AWS Budgets COST budget. Default true for the all-AWS
+    step-1 stack so an apply cannot forget the $25/mo ceiling. First two AWS
+    Budgets are free. The budget only ALERTS — it never stops spend. ElevenLabs
+    charges are invisible to it (they are not AWS cost); the ElevenLabs cap
+    lives in the app quota, not this budget. Dummy-offline still must not
+    apply this module.
+  EOT
+  type        = bool
+  default     = true
+}
+
+variable "spend_guard_limit_usd" {
+  description = "Monthly USD limit for the spend-guard budget. $25 is the 1k-MAU ceiling for this stack (Bedrock is a separate AWS line; ElevenLabs is not visible here)."
+  type        = number
+  default     = 25
+}
+
+variable "spend_guard_notification_email" {
+  description = <<-EOT
+    Required on a real apply when enable_spend_guard is true (lifecycle
+    precondition). Subscribes this address at 80% actual spend. CI plan with
+    skip_aws_provider_checks may leave this empty.
+  EOT
+  type        = string
+  default     = ""
+}
+
+variable "create_cloudtrail" {
+  description = <<-EOT
+    Create the management-event CloudTrail, its locked bucket, and the bucket
+    policy. Default false: there must be exactly one trail per AWS account, so
+    enable this on one stack only (typically the first / account-level apply).
+    Additional trails in the same account start billing.
   EOT
   type        = bool
   default     = false
 }
 
-variable "spend_guard_limit_usd" {
-  description = "Monthly USD limit for the optional spend-guard budget. Unused while enable_spend_guard is false."
-  type        = number
-  default     = 5
-}
-
-variable "spend_guard_notification_email" {
-  description = "If set with enable_spend_guard, subscribe this address at 80% actual spend. Empty skips notifications."
-  type        = string
-  default     = ""
+variable "force_destroy_cloudtrail_bucket" {
+  description = "Whether Terraform may delete a non-empty CloudTrail bucket. Default false — audit logs should not vanish with the stack."
+  type        = bool
+  default     = false
 }
 
 variable "tags" {
