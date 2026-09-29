@@ -62,28 +62,6 @@ def _history_role(item: Any) -> str:
     return str(item.get("role") or item.get("speaker") or "user").strip().lower()
 
 
-def _prior_user_turns(history: Any) -> tuple[int, list[str]]:
-    """Turn index and prior user texts from a history list only.
-
-    Shared helper for Dummy chat. The route ``_turn_from_history`` stays
-    body-shaped and is not called with a list. History items are
-    ``{role, content}`` dicts or raw strings (treated as user).
-    """
-    if not isinstance(history, list) or not history:
-        return 0, []
-    prior: list[str] = []
-    user_count = 0
-    for item in history:
-        text = _history_text(item)
-        if not text:
-            continue
-        role = _history_role(item)
-        if role in ("", "user", "human"):
-            prior.append(text)
-            user_count += 1
-    return user_count, prior
-
-
 def _denied_lifestyle_token(token: str) -> bool:
     return bool(_DENIED_LIFESTYLE.search(str(token or "").strip()))
 

@@ -27,6 +27,7 @@ from backend.ai.aria_chat.session import (  # noqa: E402
     REDACTED_PLACEHOLDER,
     ChatSession,
     _sanitize_or_placeholder,
+    _turn_from_history,
     assert_dummy_engine,
     run_turn,
 )
@@ -39,7 +40,6 @@ from aria_core import state_read  # noqa: E402
 from handler import handler  # noqa: E402
 from routes.aria import (  # noqa: E402
     _DENIED_LIFESTYLE,
-    _prior_user_turns,
     sanitize_inbound_chat_payload,
 )
 from services import guidance  # noqa: E402
@@ -129,6 +129,12 @@ def _assert_no_quoting(test: unittest.TestCase, spoken: str, earlier_user: list[
     for prev in earlier_user:
         overlap = copies & conversation.word_ngrams(prev, 4)
         test.assertFalse(overlap, f"copied {overlap!r} from {prev!r} into {spoken!r}")
+
+
+_CARDIAC_REPLY = f"{guidance._EMERGENCY_OPEN} {guidance._EMERGENCY_CARDIAC}"
+_CPR_REPLY = f"{guidance._EMERGENCY_OPEN} {guidance._EMERGENCY_CPR}"
+_THIN_REPLY = "I don't have enough to go on yet. Tell me about the day?"
+_ONE_REAL_MEAL = "One real meal and a quieter evening beats another late push."
 
 
 def _assert_no_repeats(test: unittest.TestCase, replies: list[str]) -> None:
@@ -791,7 +797,7 @@ class SmallTalkAndHistoryTests(unittest.TestCase):
         self.assertNotEqual(first["message"], second["message"])
         self.assertEqual(second["message"], again["message"])
         self.assertEqual(second["seed"], again["seed"])
-        self.assertEqual(_prior_user_turns(history)[0], 1)
+        self.assertEqual(_turn_from_history(history)[0], 1)
 
     def test_follow_up_refers_to_earlier_turn(self):
         tmp = tempfile.TemporaryDirectory()
@@ -817,7 +823,7 @@ class SmallTalkAndHistoryTests(unittest.TestCase):
         _assert_friend_voice(self, spoken)
 
     def test_turn_from_history_ignores_persisted_shape(self):
-        turn, prior = _prior_user_turns(
+        turn, prior = _turn_from_history(
             [
                 {"role": "user", "content": "hello"},
                 {"role": "assistant", "content": "Hi."},
@@ -848,7 +854,7 @@ class VoiceBarTests(unittest.TestCase):
 
     def test_thin_data_is_honest(self):
         result = _turn("how am I doing?", payload=_payload("sparse"))
-        self.assertIn("enough to go on", result["message"].lower())
+        self.assertEqual(result["message"], _THIN_REPLY)
         self.assertNotRegex(result["message"].lower(), r"\bi remember\b")
 
     def test_never_claims_human(self):
@@ -1025,6 +1031,12 @@ class MedicalBoundaryTests(unittest.TestCase):
         self.assertEqual(result.get("guidance_band"), guidance.EMERGENCY)
         self.assertTrue(result.get("emergency_escalation"))
         self.assertIn("911", result["message"])
+
+    def test_chest_pain_is_cardiac_emergency(self):
+        result = _turn("chest pain and my left arm is numb")
+        self.assertEqual(result.get("guidance_band"), guidance.EMERGENCY)
+        self.assertTrue(result.get("emergency_escalation"))
+        self.assertEqual(result["message"], _CARDIAC_REPLY)
 
 
 class FeedbackHookTests(unittest.TestCase):
@@ -1255,6 +1267,11 @@ class SchemaTelemetryTests(unittest.TestCase):
 
 
 class SixTurnSampleTests(unittest.TestCase):
+    def test_one_real_meal_twice_fails_no_repeat(self):
+        with self.assertRaises(AssertionError) as ctx:
+            _assert_no_repeats(self, [_ONE_REAL_MEAL, _ONE_REAL_MEAL])
+        self.assertIn("one real meal", str(ctx.exception).lower())
+
     def test_six_turn_recipe_and_extras(self):
         self.assertEqual(PINNED_SAMPLE_PROMPTS, _FROZEN_SAMPLE_PROMPTS)
         self.assertEqual(PINNED_THIN_PROMPT, "how am I doing?")
@@ -1291,7 +1308,7 @@ class SixTurnSampleTests(unittest.TestCase):
                 persist_log=False,
             )
             _assert_no_quoting(self, _spoken_reply(thin), [])
-            _assert_no_repeats(self, replies)
+            _assert_no_repeats(self, replies + [_spoken_reply(thin)])
 
             small = by_prompt["my dog stole the couch again"]
             follow = by_prompt["do you think he's plotting against me?"]
@@ -1340,8 +1357,17 @@ class SixTurnSampleTests(unittest.TestCase):
             self.assertNotRegex(after_down["message"], r"(?i)\b(rating|feedback|noted)\b")
             self.assertNotRegex(emergency["message"], r"(?i)^okay,\s+on")
             self.assertEqual(emergency.get("guidance_band"), guidance.EMERGENCY)
+            self.assertEqual(emergency["message"], _CPR_REPLY)
             self.assertIn("911", emergency["message"])
-            self.assertIn("enough to go on", thin["message"].lower())
+            self.assertEqual(chest.get("guidance_band"), guidance.EMERGENCY)
+            self.assertTrue(chest.get("emergency_escalation"))
+            self.assertEqual(chest["message"], _CARDIAC_REPLY)
+            self.assertEqual(thin["message"], _THIN_REPLY)
+            vague_low = vague["message"].lower()
+            self.assertIn("leftover toast", vague_low)
+            self.assertIn("lights-out", vague_low)
+            self.assertNotIn("make tonight the easy one", vague_low)
+            self.assertNotIn("get to bed like it matters", vague_low)
             sample_rows = (small, follow, safety, vague, joke, mem_off, medical, after_down)
             for row in sample_rows:
                 self.assertLessEqual(len(_sentences(row["message"])), 3, row["message"])

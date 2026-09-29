@@ -2,7 +2,7 @@
 
 Pinned to ``dummy_orchestrator.respond(engine="lambda")`` through
 ``fuse_turn``, never the SimRunner stub. Multi-turn state comes only from
-the request/session history (``routes.aria._prior_user_turns``).
+the request/session history (local ``_turn_from_history`` on sanitized turns).
 Memory-off never reads notes, ``remember_short_term``, ``last_insights``,
 or persisted fusion.
 """
@@ -19,10 +19,19 @@ from backend._paths import ensure_lambda_on_path
 
 ensure_lambda_on_path()
 
+import zlib as _zlib  # noqa: E402
+
 from aria_core import speak_guard  # noqa: E402
 from aria_core import state_read  # noqa: E402
+
+# PR 380 `state_read.phrase_key` uses zlib without importing it. Bind it here
+# so Dummy chat can seed turns without editing that file.
+if getattr(state_read, "zlib", None) is None:
+    state_read.zlib = _zlib
+
 from routes.aria import (  # noqa: E402
-    _prior_user_turns,
+    _history_role,
+    _history_text,
     sanitize_inbound_chat_payload,
 )
 from security import MAX_CHAT_MESSAGE_CHARS, sanitize_user_text  # noqa: E402
@@ -40,6 +49,36 @@ from . import logging as chatlog
 ENGINE = "dummy"
 SCHEMA_VERSION = chatlog.SCHEMA_VERSION
 REDACTED_PLACEHOLDER = "[redacted]"
+
+
+def _turn_from_history(history: Any) -> tuple[int, list[str]]:
+    """Turn index and prior user texts from request/session history only.
+
+    Copied from the 382 helper. ``routes.aria`` also defines a later
+    ``_turn_from_history(body) -> int`` that shadows it after #380 merged.
+    Dummy chat must keep the history-list contract.
+    """
+    if not isinstance(history, list) or not history:
+        return 0, []
+    prior: list[str] = []
+    user_count = 0
+    for item in history:
+        text = _history_text(item)
+        if not text:
+            continue
+        role = _history_role(item)
+        if role in ("", "user", "human"):
+            prior.append(text)
+            user_count += 1
+    return user_count, prior
+
+
+def _bind_dummy_phrase_ids(prior: list[str], seed: int) -> None:
+    """Unblock Dummy hypertune after #380 left ``phrase_uid`` unbound."""
+    from backend.ai.simrunner.aria_simrunner import dummy_orchestrator as dummy_mod
+
+    dummy_mod.phrase_uid = ""
+    dummy_mod.phrase_turn = len(prior) + 1 if prior else int(seed) & 0xFFFFFFFF
 
 
 def _sanitize_or_placeholder(text: str, needles: list[str] | None) -> str:
@@ -212,7 +251,7 @@ def run_turn(
     # Sanitize first. Never hand raw turns to the route body helper, and
     # do not add history/recentTurns/messages fields that would be re-read raw.
     sanitized_history = _sanitize_history(history, needles)
-    turn_index, prior = _prior_user_turns(sanitized_history)
+    turn_index, prior = _turn_from_history(sanitized_history)
     last_spoken = _last_assistant(sanitized_history)
     prior_spoken = conversation.prior_spoken_from_history(sanitized_history)
 
@@ -231,22 +270,37 @@ def run_turn(
     # Explicit seed wins inside turn_seed — that seed is the phrase_key above.
     turn_s = state_read.turn_seed(None, spoken_in, seed=phrase)
 
-    # Engine pin: Dummy chat always uses dummy_orchestrator.respond(engine="lambda")
-    # through fuse_turn — never the SimRunner stub, even if ARIA_BEDROCK_ENABLED=true.
-    row = dummy_respond(
-        spoken_in,
-        engine=ENGINE_LAMBDA,
-        chat_payload=body,
-        prior_turns=prior,
-        seed=int(phrase),
-        fuse_user_id="",
-        load_learner=False,
-    )
     ctx = _ctx_from_payload(body)
-    envelope = dict(row)
-    envelope.pop("user_id", None)
-    if "guidance_band" not in envelope:
-        envelope["guidance_band"] = guidance.classify_band(spoken_in)
+    guardrail = guidance.assess(spoken_in)
+    if guardrail is not None:
+        # Safety copy is guidance.py only. Skip Dummy hypertune so a broken
+        # orchestrator cannot replace the cardiac / CPR / crisis line.
+        envelope = {
+            "message": guardrail.message,
+            "prose_summary": guardrail.prose,
+            "guidance_band": guardrail.band,
+            "emergency_escalation": guardrail.wants_escalation,
+            "confidence_reason": guardrail.confidence_reason,
+            "suggested_actions": list(guardrail.suggested_actions),
+            "response_type": "clarification",
+        }
+    else:
+        # Engine pin: Dummy chat always uses dummy_orchestrator.respond(engine="lambda")
+        # through fuse_turn — never the SimRunner stub, even if ARIA_BEDROCK_ENABLED=true.
+        _bind_dummy_phrase_ids(prior, int(phrase))
+        row = dummy_respond(
+            spoken_in,
+            engine=ENGINE_LAMBDA,
+            chat_payload=body,
+            prior_turns=prior,
+            seed=int(phrase),
+            fuse_user_id="",
+            load_learner=False,
+        )
+        envelope = dict(row)
+        envelope.pop("user_id", None)
+        if "guidance_band" not in envelope:
+            envelope["guidance_band"] = guidance.classify_band(spoken_in)
     envelope = conversation.apply_conversation(
         envelope,
         spoken_in,
