@@ -38,7 +38,12 @@ class ProfileTests(unittest.TestCase):
     def test_depleted_user_is_coached_to_recover(self):
         env = _respond("should I train today?", "depleted")
         self.assertEqual(env["response_type"], "recommendation")
-        self.assertTrue(any(ch.isdigit() for ch in env["message"]))
+        low = env["message"].lower()
+        self.assertTrue(
+            any(w in low for w in ("recover", "easy", "protect", "deload", "sleep")),
+            env["message"],
+        )
+        self.assertNotRegex(env["message"], r"(?i)\bacwr\b")
 
     def test_primed_user_is_cleared_to_push(self):
         env = _respond("should I train today?", "primed")

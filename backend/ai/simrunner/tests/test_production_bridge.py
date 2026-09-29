@@ -12,9 +12,12 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[4]))
 os.environ.setdefault("SIMRUNNER_TODAY", "2026-01-15")
 
+from backend._paths import ensure_lambda_on_path  # noqa: E402
 from backend.ai.simrunner.aria_simrunner import aria_evaluator, production_bridge  # noqa: E402
 from backend.ai.simrunner.aria_simrunner.aria_engine import ARIAEngine, ARIAResponse  # noqa: E402
 from backend.ai.simrunner.backend_simulator import behavior_engine, data_generator  # noqa: E402
+
+ensure_lambda_on_path()
 
 _PROFILE = {
     "chronotype": "wolf",
@@ -38,7 +41,7 @@ class ContextConversionTests(unittest.TestCase):
         self.assertEqual(prod.readiness.recovery_score, float(ctx.today.readiness_score))
         self.assertEqual(prod.training.acwr, ctx.today.acwr)
         self.assertEqual(prod.training.is_overtrained, ctx.is_overtrained)
-        self.assertEqual(prod.training.hours_since_last_workout, float(ctx.days_since_last_workout * 24))
+        self.assertEqual(prod.training.hours_since_last_workout, production_bridge.hours_since_last_workout(ctx))
         self.assertEqual(prod.profile.experience_level, ctx.experience_level)
         self.assertEqual(prod.profile.coaching_style, ctx.coaching_style)
 
@@ -59,6 +62,38 @@ class ContextConversionTests(unittest.TestCase):
             self.assertIsNotNone(prod.chronotype.typical_sleep_onset)
             self.assertIsNotNone(prod.chronotype.typical_wake_time)
             self.assertRegex(prod.chronotype.typical_wake_time, r"^\d{2}:\d{2}$")
+
+    def test_same_day_uses_real_hours_from_timestamps(self):
+        ctx = _context(day_index=20, seed=3)
+        ctx.days_since_last_workout = 0
+        ctx.today.workout_logged = True
+        ctx.last_workout_type = "strength"
+        ctx.last_workout_ended_at = "2026-01-15T10:00:00"
+        ctx.now = "2026-01-15T16:00:00"
+        self.assertEqual(production_bridge.hours_since_last_workout(ctx), 6.0)
+        prod = production_bridge.to_production_context(ctx)
+        self.assertEqual(prod.training.hours_since_last_workout, 6.0)
+        from aria_core.aria_engine import _interpret_training
+
+        signal = _interpret_training(prod)
+        blob = f"{signal.current_value} {signal.interpretation}"
+        self.assertNotIn("0 h since", blob.lower())
+        self.assertIn("6 h since", blob.lower())
+
+    def test_same_day_without_timestamps_never_emits_zero_hours(self):
+        ctx = _context(day_index=20, seed=3)
+        ctx.days_since_last_workout = 0
+        ctx.today.workout_logged = True
+        ctx.last_workout_type = "strength"
+        self.assertEqual(production_bridge.hours_since_last_workout(ctx), 0.0)
+        prod = production_bridge.to_production_context(ctx)
+        from aria_core.aria_engine import _interpret_training
+
+        signal = _interpret_training(prod)
+        blob = f"{signal.current_value} {signal.interpretation}"
+        self.assertNotIn("0 h since", blob.lower())
+        self.assertNotIn("only 0 h since", blob.lower())
+        self.assertIn("earlier today", blob.lower())
 
     def test_hrv_trend_is_none_without_a_week_of_data(self):
         ctx = _context(day_index=29, seed=3)
@@ -85,6 +120,41 @@ class ResponseConversionTests(unittest.TestCase):
         self.assertEqual(resp.recommendation, "Moderate session.")
         self.assertEqual(resp.confidence, 0.72)
         self.assertEqual(resp.model_archetype, "production")
+
+    def test_summary_envelope_maps_progress_step_into_recommendation(self):
+        envelope = {
+            "response_type": "summary",
+            "confidence": 0.7,
+            "prose_summary": "Last 30 days: 18 sessions.",
+            "card": {
+                "recommendation": "Hold the structure and progress one variable next block.",
+            },
+        }
+        ctx = _context()
+        resp = production_bridge.from_production_envelope(
+            envelope, context=ctx, model_used="prod", query_type="progress_check",
+            model_class="sonnet", latency_ms=1.0,
+        )
+        self.assertEqual(
+            resp.recommendation,
+            "Hold the structure and progress one variable next block.",
+        )
+
+    def test_contradiction_caps_confidence_below_point_nine(self):
+        envelope = {
+            "response_type": "recommendation",
+            "confidence": 0.95,
+            "prose_summary": "Recovery window is still open. Train hard today — push for a PR.",
+            "card": {"action": "Train at high intensity today."},
+        }
+        ctx = _context()
+        ctx.days_since_last_workout = 0
+        ctx.today.workout_logged = True
+        resp = production_bridge.from_production_envelope(
+            envelope, context=ctx, model_used="prod", query_type="q",
+            model_class="sonnet", latency_ms=1.0,
+        )
+        self.assertLess(resp.confidence, 0.9)
 
     def test_clarification_envelope_has_no_recommendation(self):
         envelope = {
