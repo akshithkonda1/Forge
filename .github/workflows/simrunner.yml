@@ -1,6 +1,7 @@
 # Run the ARIA SimRunner unit suite + an offline smoke on PRs.
 # SimRunner is stdlib-only, so there is no dependency install step.
-# Dummy regression / tier-1 HOLD is a separate job (not the required check).
+# Dummy HOLD product eval + Dummy regression gate are a separate job
+# (simrunner-regression-gate). That job is not required while on HOLD.
 
 name: SimRunner
 
@@ -70,8 +71,8 @@ jobs:
         if: needs.changes.outputs.relevant == 'true'
         run: python3 -m backend.ai.simrunner --test-ready --gate
 
-  dummy-gate:
-    name: simrunner-dummy-gate
+  regression-gate:
+    name: simrunner-regression-gate
     needs: changes
     if: needs.changes.outputs.relevant == 'true'
     runs-on: ubuntu-latest
