@@ -176,11 +176,13 @@ export default function ProfileSetup({ onNext, onBack }: ProfileSetupProps) {
               </PremiumEntrance>
               <input
                 ref={nameRef}
+                id="profile-name"
                 type="text"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 onInput={(e) => setName((e.target as HTMLInputElement).value)}
                 placeholder="Enter your name"
+                aria-label="Your name"
                 autoFocus
                 className={cn(
                   "premium-field-idle w-full rounded-xl border border-border bg-surface px-5 py-4",

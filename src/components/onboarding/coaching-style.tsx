@@ -111,7 +111,7 @@ export default function CoachingStyleScreen({ onComplete }: CoachingStyleProps) 
                     ? "border-white/20 bg-white/[0.06]"
                     : "border-border bg-surface hover:border-border-light"
                 )}
-                aria-hidden
+                aria-pressed={isSelected}
               >
                 <div
                   className={cn(
