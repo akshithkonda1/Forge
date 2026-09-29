@@ -180,8 +180,8 @@ _HABIT = (
     "If anything ties back, it's a kinder night, not a new program.",
 )
 _MEMORY_OFF = (
-    "I only have this chat to go on — I won't pretend I remember anything outside it.",
-    "Memory is off, so I won't claim I remember something from another day.",
+    "I only have this chat to go on — I won't pretend I kept a note from another day.",
+    "Memory is off, so I won't claim I kept anything from outside this chat.",
 )
 
 
