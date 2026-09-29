@@ -215,7 +215,7 @@ class DummyLiveSpeakPassesFriendGates(unittest.TestCase):
         self.assertEqual(diagnose.get("guidance_band"), "refer_out")
         self.assertEqual(sq.medical_hits(sq.user_visible_blob(diagnose)), [])
         self.assertEqual(sq.bark_hits(sq.user_visible_blob(diagnose)), [])
-        self.assertIn("not a doctor", (diagnose.get("prose_summary") or "").lower())
+        self.assertIn("can't tell from here", (diagnose.get("prose_summary") or "").lower())
 
     def test_multi_turn_recovery_and_forget_theme_stays_friend_not_clinic(self):
         """Dummy parity for upcoming memory-off / recovery themes — no vitals/bark/clinic/sludge."""

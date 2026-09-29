@@ -21,7 +21,7 @@ struct TodayWidgetView: View {
             WidgetChrome.eyebrow("Today", color: ForgePalette.ember)
             HStack(spacing: 14) {
                 metric("Readiness", value: "\(snap.readiness)", tint: ReadinessBand(score: snap.readiness).color)
-                metric("Sleep", value: String(format: "%.1fh", snap.sleepHours), tint: ForgePalette.violet)
+                metric("Sleep", value: HomeWidgetSleepDisplay.hoursText(snap, style: .compact), tint: ForgePalette.violet)
                 metric("Water", value: "\(Int((snap.hydrationFraction * 100).rounded()))%", tint: Color(forgeHex: "4A9EFF"))
             }
             if let rec = snap.topRecommendation {
@@ -50,8 +50,9 @@ struct TodayWidgetView: View {
                 Spacer(minLength: 0)
                 VStack(alignment: .trailing, spacing: 8) {
                     row(icon: "moon.stars.fill", tint: ForgePalette.violet,
-                        title: String(format: "%.1f h sleep", snap.sleepHours),
-                        detail: snap.sleepWindowTitle)
+                        title: HomeWidgetSleepDisplay.hoursText(snap, style: .hoursSleep),
+                        detail: HomeWidgetSleepDisplay.hasHoursToShow(snap.sleepHours)
+                            ? snap.sleepWindowTitle : nil)
                     row(icon: "drop.fill", tint: Color(forgeHex: "4A9EFF"),
                         title: "\(Int(snap.hydrationMl.rounded())) ml",
                         detail: "\(Int((snap.hydrationFraction * 100).rounded()))% of need")
@@ -86,6 +87,8 @@ struct TodayWidgetView: View {
             Text(value)
                 .font(.system(size: 20, weight: .bold, design: .rounded))
                 .foregroundStyle(tint)
+                .minimumScaleFactor(0.7)
+                .lineLimit(2)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
     }
