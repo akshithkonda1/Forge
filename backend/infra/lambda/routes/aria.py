@@ -586,6 +586,8 @@ def handle_post_ai_chat(body: dict[str, Any], *, user_id: str) -> dict:
         "context_updates": {"relationship_level": updated_level},
         "missing_fields": aria_engine.apply_permissions(context, permissions)[0].missing_fields,
     }
+    if safety_lock:
+        extras["safety_lock"] = True
     if not safety_lock:
         extras["memory_reference"] = memory
         extras["memory"] = memory_block or None
