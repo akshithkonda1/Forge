@@ -45,10 +45,19 @@ def _denied_lifestyle_token(token: str) -> bool:
     return bool(_DENIED_LIFESTYLE.search(str(token or "").strip()))
 
 
+_RISK_MEMORY = re.compile(
+    r"(?i)\b(?:overtrain\w*|overreach\w*|fatigue|deload|acwr)\b"
+    r"|workload is running hot"
+    r"|\d+(?:\.\d+)?\s*h short"
+)
+
+
 def _insight_takeaway(prose: str) -> str:
     """First real sentence of ``prose_summary``. Skip any takeaway with a digit.
 
     ``str.split(".")`` used to cut ``6.5 h`` down to ``...at 6``.
+    Blocking-pattern ``card['risk']`` wording and state-read clauses are never
+    stored in last_insights.
     """
     text = str(prose or "").strip()
     if not text:
@@ -56,6 +65,15 @@ def _insight_takeaway(prose: str) -> str:
     first = re.split(r"(?<=[.!?])\s+", text, maxsplit=1)[0].strip()
     if not first or re.search(r"\d", first):
         return ""
+    if _RISK_MEMORY.search(first):
+        return ""
+    try:
+        from aria_core import state_read
+
+        if state_read._already_has_read(first):
+            return ""
+    except Exception:
+        pass
     return first
 
 

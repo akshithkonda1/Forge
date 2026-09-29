@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import types
 import unittest
 from unittest.mock import patch
@@ -384,6 +385,124 @@ class BareLabelLeakTests(unittest.TestCase):
         guarded = speak_guard.guard_speak("personal short night. Why. Timing.")
         self.assertNotRegex(guarded, r"(?i)\bWhy\.")
         self.assertNotRegex(guarded, r"(?i)\bTiming\.")
+
+
+class ButtonSentenceTests(unittest.TestCase):
+    def test_show_deload_week_is_a_button_show_up_is_not(self):
+        self.assertTrue(speak_guard.is_button_sentence("Show deload week."))
+        self.assertTrue(speak_guard.spoken_has_button("Show deload week."))
+        self.assertFalse(
+            speak_guard.is_button_sentence(
+                "Show up for ten easy minutes and call it a win."
+            )
+        )
+        self.assertFalse(
+            speak_guard.spoken_has_button(
+                "Show up for ten easy minutes and call it a win."
+            )
+        )
+        card = {"action": "Show deload week."}
+        self.assertTrue(
+            speak_guard.is_button_sentence("Show deload week.", card)
+        )
+        self.assertFalse(
+            speak_guard.is_button_sentence(
+                "Show up for ten easy minutes and call it a win.", card
+            )
+        )
+
+
+class BlockingPatternSpeakTests(unittest.TestCase):
+    _BANNED = re.compile(r"(?i)\b(?:overtrain\w*|overreach\w*|fatigue|deload|acwr)\b")
+
+    def _assert_clean_spoken(self, resp, line: str) -> None:
+        spoken_m = resp.get("message") or ""
+        spoken_p = resp.get("prose_summary") or ""
+        self.assertIn(line, spoken_m)
+        self.assertIn(line, spoken_p)
+        for blob in (spoken_m, spoken_p):
+            self.assertFalse(re.search(r"\d", blob), blob)
+            self.assertNotRegex(blob, self._BANNED)
+            self.assertFalse(speak_guard.spoken_has_button(blob, resp.get("card")))
+
+    def test_blocking_pattern_speaks_clean_line_never_risk_memory(self):
+        from routes.aria import _insight_takeaway
+        from services.aria_context import CoachContextEngine
+        from services.aria_engine import (
+            ARIAContext,
+            ReadinessContext,
+            SleepContext,
+            TrainingContext,
+        )
+        from storage import dynamodb
+
+        both = ARIAContext(
+            sleep=SleepContext(
+                duration_minutes=360,
+                nights_available=10,
+                sleep_debt_7d_hours=6.5,
+            ),
+            readiness=ReadinessContext(
+                hrv_7day_trend=-14,
+                hrv_30day_baseline=60,
+                recovery_score=42,
+                hrv_days_available=7,
+            ),
+            training=TrainingContext(
+                weekly_load_score=88,
+                acwr=1.62,
+                is_overtrained=True,
+                hours_since_last_workout=10,
+            ),
+        )
+        resp = aria_engine.generate_response(
+            "should I train hard today?", both, voice_mode=True
+        )
+        # Protect's spoken line wins when overreaching and sleep-protect both fire.
+        self.assertEqual(resp["message"], resp["prose_summary"])
+        self._assert_clean_spoken(resp, aria_engine.SPOKEN_SHORT_SLEEP)
+        self.assertNotIn(aria_engine.SPOKEN_OVERTRAIN, resp["prose_summary"])
+        notice = (resp.get("evidence") or {}).get("notice") or ""
+        self.assertTrue(
+            re.search(r"(?i)overtrain|workload is running hot", notice), notice
+        )
+
+        only_load = ARIAContext(
+            sleep=SleepContext(duration_minutes=480, nights_available=10, sleep_debt_7d_hours=0),
+            readiness=ReadinessContext(
+                hrv_7day_trend=2, recovery_score=72, hrv_days_available=7
+            ),
+            training=TrainingContext(
+                weekly_load_score=95,
+                acwr=1.7,
+                is_overtrained=True,
+                hours_since_last_workout=36,
+            ),
+        )
+        hot = aria_engine.generate_response(
+            "should I train hard today?", only_load, voice_mode=True
+        )
+        self.assertEqual(hot["message"], hot["prose_summary"])
+        self._assert_clean_spoken(hot, aria_engine.SPOKEN_OVERTRAIN)
+
+        dynamodb.clear_local_store()
+        uid = f"block-speak-{id(self)}"
+        takeaway = _insight_takeaway(resp["prose_summary"])
+        engine = CoachContextEngine()
+        if takeaway:
+            engine.add_insight(uid, takeaway[:180])
+        insights = engine.get_or_create_context(uid).last_insights
+        risk = (resp.get("evidence") or {}).get("notice") or ""
+        for item in insights:
+            self.assertNotRegex(item, self._BANNED, insights)
+            if risk:
+                self.assertNotIn(risk, item)
+        clean = aria_engine.SPOKEN_SHORT_SLEEP.rstrip(".")
+        self.assertTrue(
+            not insights
+            or all(item.strip().rstrip(".") == clean for item in insights),
+            insights,
+        )
 
 
 if __name__ == "__main__":

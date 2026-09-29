@@ -1270,7 +1270,7 @@ class AcwrAndGuideLabelTests(unittest.TestCase):
 
         speech = (
             "Yesterday's work is still in the legs, friend — keep today easy, "
-            "have water with your next meal, and get to bed on time."
+            "have water with your next meal, and put sleep first tonight."
         )
         self.assertIn(speech, dummy._WIT_PROTECT)
         self.assertFalse(_DIGIT.search(speech), speech)

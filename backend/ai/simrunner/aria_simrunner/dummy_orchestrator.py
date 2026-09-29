@@ -850,7 +850,7 @@ _WIT_PROTECT = (
     "Cozy-sweater day, not montage day — ten easy minutes, water nearby, and sleep first, lights out a little earlier.",
     "Even sparkly people need a restock — skip the extra work and protect sleep tonight with a kinder wind-down.",
     "Today whispered please-be-nice — so we will: keep it kind, light movement, protein with the next meal, and put sleep first.",
-    "Nothing heroic today, friend — just an easy loop and prioritize sleep tonight. Future you says thanks.",
+    "Nothing heroic today, friend — just an easy loop, then sleep first tonight. Future you says thanks.",
     "I love the ambition and I'm still tucking it in — keep today kind and light, sleep first, training later.",
     "Your tank's on the cute low-power glow — easy movement only, then we protect sleep tonight.",
     "I'm taking care of you, not casting you as the montage hero — short and kind, then prioritize sleep.",

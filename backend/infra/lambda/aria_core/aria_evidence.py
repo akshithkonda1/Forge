@@ -297,7 +297,7 @@ def detect_pattern(
                     f"the night bank is overdrawn."
                 ),
                 next_step=learned or "Prioritize sleep tonight and keep today's session easy",
-                why="A week of short nights is a directional safety gate",
+                why="You've had a run of short nights, so sleep comes first.",
                 actions=("Protect tonight's sleep", "Shorten today's session", "Set a wind-down alarm"),
                 confidence_cap=0.65,
                 reason_suffix=f"{debt_7:.1f}h short this week — prioritize sleep",
@@ -386,7 +386,7 @@ def detect_pattern(
                 notice="I can give a best-effort read",
                 next_step=learned
                 or "Best-effort read from what I have, then the one missing signal",
-                why="The picture is still missing a signal",
+                why="One piece is still missing, so today stays simple.",
                 actions=("Sync HealthKit", "Tell ARIA about last night", "Today's workout"),
                 confidence_cap=0.55,
                 reason_suffix="sparse signals — clarify before locking the call",
@@ -404,7 +404,7 @@ def detect_pattern(
                 notice="Signals say protect load",
                 next_step=learned
                 or "Keep today low-intensity, an easy, chatty-pace zone 2 walk or mobility, not a hard session",
-                why="The lead signal is asking for a lighter day",
+                why="Today looks like a lighter day.",
                 actions=("Show recovery plan", "Swap to an easy, chatty-pace zone 2", "Protect tonight's sleep"),
                 blocks_intensity=True,
             )
@@ -425,7 +425,7 @@ def detect_pattern(
                 stance="proceed",
                 notice="You're primed — signals look strong.",
                 next_step=learned or "Green light for intensity — this is a day to push",
-                why="Signals look strong enough for a quality session",
+                why="You look ready for one quality session today.",
                 actions=("Build a hard session", "Set a PR target", "Review readiness"),
             )
         )
@@ -439,7 +439,7 @@ def detect_pattern(
             notice="Your signals are mid-band",
             next_step=learned
             or "Train at moderate intensity with controlled progressive overload",
-            why="steady stimulus without overreaching",
+            why="Keep training steady without piling on too much.",
             actions=("Today's workout", "Tune intensity", "Check sleep trend"),
         )
     )
