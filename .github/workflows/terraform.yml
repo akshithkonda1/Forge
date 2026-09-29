@@ -1,7 +1,7 @@
 name: 'Terraform'
 
-# Plan-only on every push and pull request that touches this workflow or
-# backend/infra. A live apply never runs from those events.
+# Plan-only. pull_request is unfiltered so required checks always report.
+# Push keeps a path filter. A live apply never runs from push/PR.
 # Apply is workflow_dispatch + run_apply=true only, in terraform-apply, after
 # the plan jobs and after GitHub Environment terraform-prod approval.
 on:
@@ -10,9 +10,6 @@ on:
       - '.github/workflows/terraform.yml'
       - 'backend/infra/**'
   pull_request:
-    paths:
-      - '.github/workflows/terraform.yml'
-      - 'backend/infra/**'
   workflow_dispatch:
     inputs:
       run_apply:
@@ -40,8 +37,31 @@ env:
   TF_VAR_environment: dev
 
 jobs:
+  changes:
+    name: terraform-changes
+    runs-on: ubuntu-latest
+    outputs:
+      relevant: ${{ github.event_name == 'workflow_dispatch' && 'true' || steps.filter.outputs.relevant }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        if: github.event_name != 'workflow_dispatch'
+        with:
+          fetch-depth: 2
+      - uses: dorny/paths-filter@ceb8a2b8f2d89434be7ff52d3de7ec3738c5cc9d # v4.0.3
+        if: github.event_name != 'workflow_dispatch'
+        id: filter
+        with:
+          filters: |
+            relevant:
+              - '.github/workflows/terraform.yml'
+              - 'backend/infra/**'
+      - name: Dispatch always plans
+        if: github.event_name == 'workflow_dispatch'
+        run: echo "workflow_dispatch — plan jobs run for real"
+
   terraform-checks:
     name: 'Terraform Checks'
+    needs: changes
     runs-on: ubuntu-latest
     env:
       AWS_EC2_METADATA_DISABLED: "true"
@@ -53,13 +73,21 @@ jobs:
         working-directory: ${{ env.TF_WORKING_DIR }}
 
     steps:
+      - name: No-op (no relevant changes)
+        if: needs.changes.outputs.relevant != 'true'
+        working-directory: ${{ github.workspace }}
+        run: echo "No terraform changes; succeeding as a no-op so required checks report."
+
       - name: Checkout
+        if: needs.changes.outputs.relevant == 'true'
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Setup Terraform
+        if: needs.changes.outputs.relevant == 'true'
         uses: hashicorp/setup-terraform@dfe3c3f87815947d99a8997f908cb6525fc44e9e # v4
         with:
           terraform_version: 1.15.0
+          terraform_wrapper: false
 
       # Force a local backend so plan stays green both before and after #371
       # adds backend/infra/backend.tf (backend "s3" {} with bucket/key omitted).
@@ -69,37 +97,46 @@ jobs:
       # One-line `terraform { backend "local" {} }` is invalid HCL in 1.15.0
       # (nested backend block cannot share the terraform {} line).
       - name: Local backend override for CI plan
+        if: needs.changes.outputs.relevant == 'true'
         run: |
           printf '%s\n' 'terraform {' '  backend "local" {}' '}' > ci_backend_override.tf
 
       - name: Terraform Init
+        if: needs.changes.outputs.relevant == 'true'
         run: terraform init -input=false -lockfile=readonly -no-color
 
       - name: Terraform Format
+        if: needs.changes.outputs.relevant == 'true'
         run: terraform fmt -check -diff -recursive -no-color
 
       - name: Terraform Validate
+        if: needs.changes.outputs.relevant == 'true'
         run: terraform validate -no-color
 
       - name: Terraform Plan
+        if: needs.changes.outputs.relevant == 'true'
         run: terraform plan -input=false -no-color
 
       # bootstrap/ is its own root module (state bucket). The recursive fmt
       # check above already covers it; init/validate/plan must run separately.
       - name: Terraform Init (state bootstrap)
+        if: needs.changes.outputs.relevant == 'true'
         working-directory: backend/infra/bootstrap
         run: terraform init -backend=false -input=false -no-color
 
       - name: Terraform Validate (state bootstrap)
+        if: needs.changes.outputs.relevant == 'true'
         working-directory: backend/infra/bootstrap
         run: terraform validate -no-color
 
       - name: Terraform Plan (state bootstrap)
+        if: needs.changes.outputs.relevant == 'true'
         working-directory: backend/infra/bootstrap
         run: terraform plan -input=false -no-color
 
   terraform-prod-plan:
     name: 'Terraform Plan (prod)'
+    needs: changes
     runs-on: ubuntu-latest
     # Push/PR plan only. No AWS, no secrets, no OIDC. Dummy provider checks
     # plus -refresh=false so missing credentials cannot turn this job red.
@@ -115,23 +152,34 @@ jobs:
         working-directory: ${{ env.TF_WORKING_DIR }}
 
     steps:
+      - name: No-op (no relevant changes)
+        if: needs.changes.outputs.relevant != 'true'
+        working-directory: ${{ github.workspace }}
+        run: echo "No terraform changes; succeeding as a no-op so required checks report."
+
       - name: Checkout
+        if: needs.changes.outputs.relevant == 'true'
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Setup Terraform
+        if: needs.changes.outputs.relevant == 'true'
         uses: hashicorp/setup-terraform@dfe3c3f87815947d99a8997f908cb6525fc44e9e # v4
         with:
           terraform_version: 1.15.0
+          terraform_wrapper: false
 
       # Same local override as terraform-checks. See that job for why.
       - name: Local backend override for CI plan
+        if: needs.changes.outputs.relevant == 'true'
         run: |
           printf '%s\n' 'terraform {' '  backend "local" {}' '}' > ci_backend_override.tf
 
       - name: Terraform Init
+        if: needs.changes.outputs.relevant == 'true'
         run: terraform init -input=false -lockfile=readonly -no-color
 
       - name: Terraform Plan (prod)
+        if: needs.changes.outputs.relevant == 'true'
         run: terraform plan -input=false -no-color -refresh=false -var-file=prod.tfvars
 
   terraform-apply:
@@ -174,7 +222,7 @@ jobs:
             fi
           done
           if [ "$found" -eq 0 ]; then
-            echo '::error::No remote backend block found in backend/infra/backend.tf or backend/infra/versions.tf (expected in backend/infra/versions.tf). Refusing apply: ephemeral local state on a runner would create duplicate resources. Commented lines and backend "local" do not count.'
+            echo '::error::No remote backend block found in backend/infra/backend.tf or backend/infra/versions.tf (expected in backend/infra/backend.tf). Refusing apply: ephemeral local state on a runner would create duplicate resources. Commented lines and backend "local" do not count.'
             exit 1
           fi
 
@@ -182,6 +230,7 @@ jobs:
         uses: hashicorp/setup-terraform@dfe3c3f87815947d99a8997f908cb6525fc44e9e # v4
         with:
           terraform_version: 1.15.0
+          terraform_wrapper: false
 
       - name: Require AWS credentials
         run: |
