@@ -495,6 +495,51 @@ class RedactionLogTests(unittest.TestCase):
             self.assertTrue(rows[1]["request_history"])
             self.assertNotIn("Dr. Patel follow-up", json.dumps(rows[1]["request_history"]))
 
+    def test_emergency_user_turn_is_redacted_in_log_and_export(self):
+        harm = "I feel suicidal and want to die"
+        with tempfile.TemporaryDirectory() as tmp:
+            session = ChatSession(
+                payload=_payload(),
+                log_dir=tmp,
+                session_id="harm-redact-sess",
+                memory_enabled=False,
+                install_pseudonym=_PSEUDO,
+            )
+            crisis = session.turn(harm)
+            session.turn("hey, how's it going?")
+            blob = Path(session.log_path).read_text(encoding="utf-8")
+            self.assertNotIn(harm, blob)
+            self.assertNotIn("suicidal", blob.lower())
+            self.assertNotIn("want to die", blob.lower())
+            rows = [json.loads(line) for line in blob.splitlines() if line.strip()]
+            self.assertEqual(len(rows), 2)
+            self.assertEqual(rows[0]["user_turn"], chatlog.REDACTED_USER_TURN)
+            self.assertEqual(rows[0]["guidance_band"], guidance.EMERGENCY)
+            self.assertIn("band_emergency", rows[0]["stance_inputs"])
+            self.assertIn("988", rows[0]["reply"]["message"])
+            self.assertEqual(rows[0]["reply"]["message"], crisis["message"])
+            self.assertEqual(rows[0]["reply"]["message"], guidance._CRISIS_LINE)
+            self.assertEqual(rows[1]["guidance_band"], guidance.COACH)
+            self.assertEqual(rows[1]["request_history"], [chatlog.REDACTED_USER_TURN])
+            dest = Path(tmp) / "export.jsonl"
+            session.export(dest)
+            exported = dest.read_text(encoding="utf-8")
+            self.assertNotIn(harm, exported)
+            self.assertNotIn("suicidal", exported.lower())
+            self.assertNotIn("want to die", exported.lower())
+            exp_rows = [
+                json.loads(line) for line in exported.splitlines() if line.strip()
+            ]
+            self.assertEqual(exp_rows[0]["user_turn"], chatlog.REDACTED_USER_TURN)
+            self.assertIn("crisis lifeline", exp_rows[0]["reply"]["message"].lower())
+            self.assertIn("band_emergency", exp_rows[0]["stance_inputs"])
+            self.assertEqual(
+                exp_rows[1]["request_history"], [chatlog.REDACTED_USER_TURN]
+            )
+            replayed = chatlog.iter_records("harm-redact-sess", log_dir=tmp)
+            self.assertEqual(replayed[0]["reply"]["message"], guidance._CRISIS_LINE)
+            self.assertIn("988", replayed[0]["reply"]["message"])
+
     def test_never_logs_memory_contents(self):
         with tempfile.TemporaryDirectory() as tmp:
             payload = _payload()
