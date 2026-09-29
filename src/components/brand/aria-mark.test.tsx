@@ -1,4 +1,4 @@
-import { cleanup, render } from "@testing-library/react";
+import { act, cleanup, render } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { ARIA_MARK_COMPACT_MAX, ariaMarkShouldSpin, nestLiveReset } from "@/lib/aria-mark";
@@ -6,11 +6,14 @@ import { ARIA_MARK_COMPACT_MAX, ariaMarkShouldSpin, nestLiveReset } from "@/lib/
 import { AriaMark } from "./aria-mark";
 
 /**
- * Compact ceiling is 32 (`ARIA_MARK.wordmarkPrimaryMax`). Mid/hero marks
- * (36 and 56) can spin when Reduce Motion is off; they stay still when it is on.
+ * Compact ceiling is 32 (`ARIA_MARK.wordmarkPrimaryMax`). Mid marks (36, 56)
+ * spin only when Reduce Motion is off. The nest loop schedules with
+ * `requestAnimationFrame` only — `NEST_PAINT_INTERVAL_MS` throttles paint
+ * inside `tick`, it does not queue the next frame.
  */
-const STILL_WITH_REDUCE = [36, 56] as const;
-const SPIN_SIZE = 36;
+const SPIN_SIZES = [36, 56] as const;
+const COMPACT_SIZE = 32;
+const ADVANCED_TICKS = 8;
 
 type MediaChangeListener = (event: MediaQueryListEvent) => void;
 
@@ -52,6 +55,35 @@ function createPrefersReducedMotion(matches: boolean) {
   return mediaQueryList;
 }
 
+function createFake2dContext(): CanvasRenderingContext2D {
+  const gradient = { addColorStop() {} };
+  return {
+    canvas: document.createElement("canvas"),
+    clearRect() {},
+    save() {},
+    restore() {},
+    beginPath() {},
+    moveTo() {},
+    lineTo() {},
+    closePath() {},
+    stroke() {},
+    fill() {},
+    arc() {},
+    ellipse() {},
+    translate() {},
+    rotate() {},
+    scale() {},
+    createRadialGradient() {
+      return gradient;
+    },
+    fillStyle: "#000",
+    strokeStyle: "#000",
+    lineCap: "round",
+    lineJoin: "round",
+    lineWidth: 1,
+  } as unknown as CanvasRenderingContext2D;
+}
+
 class NoopIntersectionObserver {
   observe(): void {}
   unobserve(): void {}
@@ -62,120 +94,162 @@ class NoopIntersectionObserver {
 }
 
 describe("AriaMark Reduce Motion", () => {
-  const pendingFrames = new Map<number, FrameRequestCallback>();
-  let nextFrameId = 1;
   let media: ReturnType<typeof createPrefersReducedMotion>;
   let rafSpy: ReturnType<typeof vi.spyOn>;
   let cancelSpy: ReturnType<typeof vi.spyOn>;
-  let getContextSpy: ReturnType<typeof vi.spyOn>;
 
-  function pendingLoopCount(): number {
-    return pendingFrames.size;
+  function rafCallCount(): number {
+    return rafSpy.mock.calls.length;
   }
 
-  function flushOneFrame(now = performance.now() + 100): void {
-    const scheduled = [...pendingFrames.entries()];
-    pendingFrames.clear();
-    for (const [, callback] of scheduled) {
-      callback(now);
+  function lastScheduledRafId(): number {
+    const result = rafSpy.mock.results.at(-1);
+    expect(result).toBeDefined();
+    expect(result?.type).toBe("return");
+    expect(typeof result?.value).toBe("number");
+    return Number(result?.value);
+  }
+
+  function flushReact(): void {
+    act(() => {
+      vi.advanceTimersByTime(0);
+    });
+  }
+
+  /** Spin: each advanced animation frame must queue a brand-new RAF. */
+  function assertKeepsQueueingFrames(steps = ADVANCED_TICKS): void {
+    expect(rafCallCount()).toBeGreaterThan(0);
+    for (let step = 0; step < steps; step += 1) {
+      const queuedBefore = rafCallCount();
+      const pendingId = lastScheduledRafId();
+      act(() => {
+        vi.advanceTimersToNextFrame();
+      });
+      expect(rafCallCount()).toBe(queuedBefore + 1);
+      expect(lastScheduledRafId()).not.toBe(pendingId);
+    }
+  }
+
+  /**
+   * No spin: the synchronous first `tick` must not leave a continuing loop.
+   * Consume at most one leftover frame, then further ticks must queue nothing.
+   */
+  function assertNoNewFrameAfterFirstTick(steps = ADVANCED_TICKS): void {
+    if (rafCallCount() > 0) {
+      expect(rafCallCount()).toBe(1);
+      act(() => {
+        vi.advanceTimersToNextFrame();
+      });
+    }
+    const afterFirstTick = rafCallCount();
+    for (let step = 0; step < steps; step += 1) {
+      act(() => {
+        vi.advanceTimersToNextFrame();
+      });
+      expect(rafCallCount()).toBe(afterFirstTick);
     }
   }
 
   beforeEach(() => {
     nestLiveReset();
-    pendingFrames.clear();
-    nextFrameId = 1;
+    vi.useFakeTimers();
     media = createPrefersReducedMotion(false);
 
     window.matchMedia = vi.fn(() => media as unknown as MediaQueryList);
-    getContextSpy = vi
-      .spyOn(HTMLCanvasElement.prototype, "getContext")
-      .mockReturnValue(null);
-    rafSpy = vi.spyOn(window, "requestAnimationFrame").mockImplementation((callback) => {
-      const id = nextFrameId;
-      nextFrameId += 1;
-      pendingFrames.set(id, callback);
-      return id;
-    });
-    cancelSpy = vi.spyOn(window, "cancelAnimationFrame").mockImplementation((id) => {
-      pendingFrames.delete(id);
-    });
+    vi.spyOn(HTMLCanvasElement.prototype, "getContext").mockImplementation(((
+      id: string
+    ) => {
+      if (id === "2d") return createFake2dContext();
+      return null;
+    }) as HTMLCanvasElement["getContext"]);
+    rafSpy = vi.spyOn(window, "requestAnimationFrame");
+    cancelSpy = vi.spyOn(window, "cancelAnimationFrame");
     vi.stubGlobal("IntersectionObserver", NoopIntersectionObserver);
   });
 
   afterEach(() => {
     cleanup();
     nestLiveReset();
-    getContextSpy.mockRestore();
-    rafSpy.mockRestore();
-    cancelSpy.mockRestore();
+    vi.useRealTimers();
     vi.unstubAllGlobals();
     vi.restoreAllMocks();
   });
 
   it("ariaMarkShouldSpin is false at 36 and 56 when Reduce Motion is on", () => {
-    expect(ARIA_MARK_COMPACT_MAX).toBe(32);
+    expect(ARIA_MARK_COMPACT_MAX).toBe(COMPACT_SIZE);
     expect(ariaMarkShouldSpin(36, true)).toBe(false);
     expect(ariaMarkShouldSpin(56, true)).toBe(false);
-    expect(ariaMarkShouldSpin(SPIN_SIZE, false)).toBe(true);
+    expect(ariaMarkShouldSpin(36, false)).toBe(true);
+    expect(ariaMarkShouldSpin(56, false)).toBe(true);
+    expect(ariaMarkShouldSpin(COMPACT_SIZE, false)).toBe(false);
   });
 
-  it("does not start a continuing animation loop at 36 or 56 when Reduce Motion is on", () => {
-    media.matches = true;
+  it("keeps queueing animation frames at 36 and 56 when Reduce Motion is off", () => {
+    media.matches = false;
 
-    for (const size of STILL_WITH_REDUCE) {
+    for (const size of SPIN_SIZES) {
       rafSpy.mockClear();
-      pendingFrames.clear();
+      cancelSpy.mockClear();
       const { unmount } = render(<AriaMark size={size} />);
-      expect(ariaMarkShouldSpin(size, true)).toBe(false);
-      expect(pendingLoopCount()).toBe(0);
-      expect(rafSpy).not.toHaveBeenCalled();
-      flushOneFrame();
-      expect(pendingLoopCount()).toBe(0);
+      flushReact();
+      expect(ariaMarkShouldSpin(size, false)).toBe(true);
+      assertKeepsQueueingFrames();
       unmount();
     }
   });
 
-  it("starts the loop with Reduce Motion off, stops on change, and resumes when cleared", async () => {
-    const { unmount } = render(<AriaMark size={SPIN_SIZE} />);
+  it("does not queue a frame after the first tick at 36 or 56 when Reduce Motion is on", () => {
+    media.matches = true;
 
-    await vi.waitFor(() => {
-      expect(pendingLoopCount()).toBeGreaterThan(0);
-    });
-    expect(rafSpy).toHaveBeenCalled();
+    for (const size of SPIN_SIZES) {
+      rafSpy.mockClear();
+      cancelSpy.mockClear();
+      const { unmount } = render(<AriaMark size={size} />);
+      flushReact();
+      expect(ariaMarkShouldSpin(size, true)).toBe(false);
+      assertNoNewFrameAfterFirstTick();
+      unmount();
+    }
+  });
 
-    const scheduledBeforeFlush = pendingLoopCount();
-    flushOneFrame();
-    expect(pendingLoopCount()).toBeGreaterThan(0);
-    expect(pendingLoopCount()).toBe(scheduledBeforeFlush);
-
-    media.dispatchChange(true);
-    await vi.waitFor(() => {
-      expect(pendingLoopCount()).toBe(0);
-    });
-    expect(cancelSpy).toHaveBeenCalled();
-    flushOneFrame();
-    expect(pendingLoopCount()).toBe(0);
-
-    media.dispatchChange(false);
-    await vi.waitFor(() => {
-      expect(pendingLoopCount()).toBeGreaterThan(0);
-    });
-    flushOneFrame();
-    expect(pendingLoopCount()).toBeGreaterThan(0);
-
+  it("does not queue a frame after the first tick at compact size 32 even when Reduce Motion is off", () => {
+    media.matches = false;
+    const { unmount } = render(<AriaMark size={COMPACT_SIZE} />);
+    flushReact();
+    expect(ariaMarkShouldSpin(COMPACT_SIZE, false)).toBe(false);
+    assertNoNewFrameAfterFirstTick();
     unmount();
   });
 
-  it("removes matchMedia change listeners on unmount", async () => {
-    const { unmount } = render(<AriaMark size={SPIN_SIZE} />);
+  it("cancels the pending frame when Reduce Motion turns on mid-session and resumes when it turns off", () => {
+    for (const size of SPIN_SIZES) {
+      rafSpy.mockClear();
+      cancelSpy.mockClear();
+      media.matches = false;
+      const { unmount } = render(<AriaMark size={size} />);
+      flushReact();
+      assertKeepsQueueingFrames();
 
-    await vi.waitFor(() => {
-      expect(media.listenerCount()).toBeGreaterThan(0);
-    });
+      const pendingId = lastScheduledRafId();
+      act(() => {
+        media.dispatchChange(true);
+      });
+      expect(cancelSpy).toHaveBeenCalledWith(pendingId);
+      rafSpy.mockClear();
+      assertNoNewFrameAfterFirstTick();
 
-    const added = media.listenerCount();
-    expect(added).toBeGreaterThan(0);
+      act(() => {
+        media.dispatchChange(false);
+      });
+      assertKeepsQueueingFrames();
+      unmount();
+    }
+  });
+
+  it("removes matchMedia change listeners on unmount", () => {
+    const { unmount } = render(<AriaMark size={36} />);
+    flushReact();
+    expect(media.listenerCount()).toBeGreaterThan(0);
     unmount();
     expect(media.listenerCount()).toBe(0);
   });
