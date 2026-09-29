@@ -1,6 +1,6 @@
 """Iris speak overlay on top of ingest → personal model → stance.
 
-Friend first: a warm, witty take plus one useful thought, usually 1-3
+Friend first: a warm, witty take plus one useful point, usually 1-3
 sentences, at most one question back. Small talk stays on that topic.
 No numbers in speech. Never a doctor. Honest when data is thin.
 """
@@ -96,7 +96,18 @@ SELF_DESCRIBE = re.compile(
     r"not a doctor|"
     r"keep you safe|"
     r"turn it into a plan|"
-    r"kept a note"
+    r"kept a note|"
+    r"the useful bit|"
+    r"the useful thought"
+    r")"
+)
+_QUOTED_ECHO = re.compile(r"[“”\"]")
+_THREAD_CALLBACK_LEAD = re.compile(
+    r"(?is)^\s*(?:"
+    r"(?:okay|ok|yeah|right|still with you)(?:,|\s+on|\s+about)?\s+[“\"].*?[”\"]\s*[—–-]\s+"
+    r"|(?:yeah|okay|ok|right|still with you)\s*[—–-]\s+"
+    r"|(?:still on|picking up|you were asking|from the training|on the workout|after what you said)"
+    r"[^.!?]*?[—–:]\s+"
     r")"
 )
 _CARD_POINTER = re.compile(
@@ -135,7 +146,7 @@ _BAD_DAY = (
     "Yeah — a crummy day is allowed to be the whole topic. I'm here.",
 )
 _JOKE = (
-    "Fancy toaster? Then here's your perfectly browned take: I'm here, and I'm on your side. A quiet cup of tea while we talk is the useful bit.",
+    "Fancy toaster? Then here's your perfectly browned take: I'm here, and I'm on your side. A quiet cup of tea while we talk wouldn't hurt.",
     "If I'm a toaster, I pop a little warmth with the crumbs. Sit with whatever's toasting — you don't have to perform.",
     "A toaster with opinions would at least own the bagel setting. I'll keep the warmth coming; kick your shoes off and stay a minute.",
     "Ha — a toaster with taste. I'll stay crispy-kind. A slow breath and a real sit-down beats rushing the next thing.",
@@ -170,17 +181,17 @@ _THIN = (
     "I don't have enough to go on yet. What's the day felt like from your side?",
 )
 _COACH_SPENT = (
-    "You're a little crispy, like toast that almost made it. Make tonight the easy one and get to bed like it matters.",
-    "You've got that leftover-sparkle look, which is cute until it isn't. Soften the day and lights out earlier.",
-    "A stubborn streak and a short tank — that's a combo. Walk, eat, and call it before you prove anything.",
+    "You're running on leftover toast energy — charming, until the crumbs stage a coup. Make tonight the easy one and get to bed like it matters.",
+    "You look like a phone that opened one more app on fumes. Soften the day and lights out earlier.",
+    "That stubborn streak is doing unpaid overtime. Walk, eat, and call it before you prove anything.",
 )
 _COACH_STEADY = (
     "You look reasonably put together from here. Stay kind, and don't prove anything tonight.",
-    "Steady enough: keep the useful thought small and leave a little in the tank.",
+    "Steady enough. Leave a little in the tank and keep tonight kind.",
 )
 _COACH_SPARK = (
     "There's a bit more sparkle on you today. Spend it gently and stop while it still feels good.",
-    "You seem a little more put together. One useful thought: spend that kindly.",
+    "You seem a little more put together. Spend that kindly and stop while it still feels good.",
 )
 _SAFETY = (APPROVED_SHORT_SLEEP,)
 _NUMBER_ASK = (
@@ -189,7 +200,7 @@ _NUMBER_ASK = (
 )
 _HABIT = (
     "A slightly earlier lights-out would help more than another grind.",
-    "One real meal and a quieter evening is the useful thought.",
+    "One real meal and a quieter evening would help more than another grind.",
 )
 _MEMORY_OFF = (
     "I don't have that one — I'd love to hear about it.",
@@ -345,11 +356,25 @@ def _bank_for(message: str, prior: list[str] | None = None) -> tuple[str, ...]:
     return _GENERIC
 
 
+def _strip_thread_callback(text: str) -> str:
+    """Drop a Dummy/Iris thread opener, especially one that quotes prior user text."""
+    cleaned = _THREAD_CALLBACK_LEAD.sub("", text or "", count=1).strip()
+    if cleaned and cleaned[0].islower():
+        cleaned = cleaned[0].upper() + cleaned[1:]
+    return cleaned
+
+
 def _callback(prior: list[str], seed: int, message: str) -> str:
     if not prior:
         return ""
     last = (prior[-1] or "").strip()
     if not last:
+        return ""
+    if guidance.classify_band(message) in (
+        guidance.EMERGENCY,
+        guidance.FIRST_AID,
+        guidance.REFER_OUT,
+    ):
         return ""
     if guidance.classify_band(last) != guidance.COACH:
         return ""
@@ -371,18 +396,8 @@ def _callback(prior: list[str], seed: int, message: str) -> str:
             "Still with you on the movie — ",
             "Yeah, about that film — ",
         ))
-    snippet = [
-        w for w in last.replace("?", "").split()
-        if w.lower() not in {"i", "a", "the", "to", "and", "you", "my"}
-    ][:3]
-    if not snippet:
-        return _pick(seed ^ 13, ("Yeah — ", "Okay — ", "Still with you — "))
-    bit = " ".join(snippet)
-    return _pick(seed ^ 13, (
-        f"Yeah — about “{bit}” — ",
-        f"Still with you on “{bit}” — ",
-        f"Okay, on “{bit}” — ",
-    ))
+    # Never echo raw user text in quotes.
+    return _pick(seed ^ 13, ("Yeah — ", "Okay — ", "Still with you — "))
 
 
 def _habit_line(seed: int, topic: str) -> str:
@@ -458,6 +473,7 @@ def compose_small_talk(
     prior: list[str] | None = None,
     memory_enabled: bool = True,
     last_spoken: str = "",
+    last_rating: str = "",
 ) -> str:
     """Warm, first-person, number-free small talk. Deterministic per seed."""
     topic = topic_of(message)
@@ -466,8 +482,12 @@ def compose_small_talk(
         topic = topic_of(last)
     bank = _bank_for(message, prior)
     # Follow-up banks already name the thread — skip a prefix that turns into filler.
+    # After a thumbs-down, skip the callback so we never quote the user's text.
     opener = ""
-    if bank not in {_DOG_FOLLOW, _DOG, _MOVIE, _JOKE}:
+    if (
+        bank not in {_DOG_FOLLOW, _DOG, _MOVIE, _JOKE}
+        and str(last_rating or "").strip().lower() != "down"
+    ):
         opener = _callback(list(prior or []), seed, message)
     body = _pick(seed, bank)
     habit = _habit_line(seed, topic)
@@ -540,6 +560,8 @@ def _warm_after_down(spoken: str, seed: int, last_spoken: str = "") -> str:
     combined = f"{prefix} {spoken}".strip()
     combined = _RATING_TALK.sub("", combined)
     combined = _HERO_OR_BARK.sub("", combined)
+    combined = _QUOTED_ECHO.sub("", combined)
+    combined = _strip_thread_callback(combined)
     return polish_iris(
         combined,
         last_spoken=last_spoken,
@@ -567,11 +589,12 @@ def apply_conversation(
     down = str(last_rating or "").strip().lower() == "down"
     if band in (guidance.EMERGENCY, guidance.FIRST_AID, guidance.REFER_OUT):
         engine_text = str(envelope.get("message") or envelope.get("prose_summary") or "")
-        # 911 / first-aid stay on the engine path. Refer-out is two friend sentences.
+        # 911 / first-aid stay on the engine path. Never keep a thread callback
+        # that quotes earlier user text. Refer-out is two friend sentences.
         if band == guidance.REFER_OUT:
             spoken = _pick(seed, _REFER_OUT_SPEAK)
         else:
-            spoken = engine_text
+            spoken = _strip_thread_callback(engine_text)
         envelope["message"] = spoken
         envelope["prose_summary"] = spoken
         return speak_guard.guard_envelope(envelope, topic=message)
@@ -602,6 +625,7 @@ def apply_conversation(
             prior=prior,
             memory_enabled=memory_enabled,
             last_spoken=last_spoken,
+            last_rating=last_rating,
         )
     else:
         spoken = compose_coaching(

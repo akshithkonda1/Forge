@@ -826,6 +826,8 @@ class VoiceGateTests(unittest.TestCase):
             "keep you safe",
             "turn it into a plan",
             "kept a note",
+            "the useful bit",
+            "the useful thought",
         ):
             self.assertIsNotNone(conversation.SELF_DESCRIBE.search(phrase), phrase)
         refer = _turn("do I have sleep apnea?")
@@ -835,6 +837,63 @@ class VoiceGateTests(unittest.TestCase):
             refer["message"],
         )
         _assert_friend_voice(self, _spoken_reply(refer))
+
+
+class CallbackVoiceTests(unittest.TestCase):
+    def test_emergency_and_refer_out_skip_thread_callback(self):
+        tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(tmp.cleanup)
+        session = ChatSession(
+            payload=_payload(),
+            memory_enabled=False,
+            install_pseudonym=_PSEUDO,
+            log_dir=tmp.name,
+        )
+        session.turn("hey, still with me?")
+        session.turn("my dog stole the couch again")
+        emergency = session.turn("he's not breathing — call 911")
+        spoken = _spoken_reply(emergency)
+        self.assertEqual(emergency.get("guidance_band"), guidance.EMERGENCY)
+        self.assertNotRegex(spoken, r"(?i)^okay,\s+on")
+        self.assertNotRegex(spoken, r"(?i)okay,\s+on\s+[“\"]")
+        self.assertNotIn("hey, still with", spoken.lower())
+        self.assertIsNone(conversation._QUOTED_ECHO.search(spoken), spoken)
+        self.assertIn("911", spoken)
+        refer = session.turn("do I have sleep apnea?")
+        refer_spoken = _spoken_reply(refer)
+        self.assertEqual(refer.get("guidance_band"), guidance.REFER_OUT)
+        self.assertNotRegex(refer_spoken, r"(?i)^okay,\s+on")
+        self.assertIsNone(conversation._QUOTED_ECHO.search(refer_spoken), refer_spoken)
+        self.assertNotIn("hey, still with", refer_spoken.lower())
+        self.assertNotIn("dog", refer_spoken.lower())
+
+    def test_callback_never_quotes_user_text(self):
+        prior = ["remember my sister's wedding last year?"]
+        opener = conversation._callback(prior, seed=7, message="hey, still with me?")
+        self.assertNotIn("wedding", opener)
+        self.assertNotIn("sister", opener)
+        self.assertIsNone(conversation._QUOTED_ECHO.search(opener), opener)
+        tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(tmp.cleanup)
+        session = ChatSession(
+            payload=_payload(),
+            memory_enabled=False,
+            install_pseudonym=_PSEUDO,
+            log_dir=tmp.name,
+        )
+        session.turn("remember my sister's wedding last year?")
+        session.rate("down", note="too stiff — wanted more warmth")
+        after = session.turn("hey, still with me?")
+        spoken = _spoken_reply(after)
+        self.assertIsNone(conversation._QUOTED_ECHO.search(spoken), spoken)
+        self.assertNotIn("wedding", spoken.lower())
+        self.assertNotIn("sister", spoken.lower())
+        self.assertTrue(
+            any(w in spoken.lower() for w in ("right here with you", "on your side")),
+            spoken,
+        )
+        self.assertNotRegex(spoken, r"(?i)\b(rating|feedback|noted)\b")
+        _assert_friend_voice(self, spoken)
 
 
 class MedicalBoundaryTests(unittest.TestCase):
@@ -1130,6 +1189,7 @@ class SixTurnSampleTests(unittest.TestCase):
                 turn_id=mem_off["turn_id"],
             )
             after_down = session.turn("hey, still with me?")
+            chest = session.turn("chest pain and my left arm is numb")
             emergency = session.turn("he's not breathing — call 911")
             thin = _turn(
                 "how am I doing?",
@@ -1144,11 +1204,13 @@ class SixTurnSampleTests(unittest.TestCase):
             self.assertNotRegex(follow_low, r"\b(?:i(?:'| a)?m aria|about aria)\b")
             self.assertIsNone(_MEDICAL.search(safety["message"]))
             self.assertFalse(_spoken_digits(vague["message"]))
+            self.assertNotRegex(vague["message"], r"(?i)the useful (?:bit|thought)")
             self.assertEqual(medical.get("guidance_band"), guidance.REFER_OUT)
             self.assertNotIn("apnea", medical["message"].lower())
             self.assertNotIn("not a doctor", medical["message"].lower())
             self.assertTrue(conversation.is_joke("are you just a fancy toaster with opinions?"))
             self.assertNotRegex(joke["message"], r"(?i)\b(hero set|trainer bark)\b")
+            self.assertNotRegex(joke["message"], r"(?i)the useful (?:bit|thought)")
             self.assertNotRegex(mem_off["message"], r"(?i)\bi remember\b")
             self.assertRegex(mem_off["message"].lower(), r"(hear|tell|story)")
             self.assertEqual(
@@ -1161,6 +1223,9 @@ class SixTurnSampleTests(unittest.TestCase):
                 after_down["message"],
             )
             self.assertNotRegex(after_down["message"], r"(?i)\b(rating|feedback|noted)\b")
+            self.assertIsNone(conversation._QUOTED_ECHO.search(after_down["message"]), after_down["message"])
+            self.assertNotRegex(emergency["message"], r"(?i)^okay,\s+on")
+            self.assertIsNone(conversation._QUOTED_ECHO.search(emergency["message"]), emergency["message"])
             self.assertEqual(emergency.get("guidance_band"), guidance.EMERGENCY)
             self.assertIn("911", emergency["message"])
             self.assertIn("enough to go on", thin["message"].lower())
@@ -1170,7 +1235,7 @@ class SixTurnSampleTests(unittest.TestCase):
                 self.assertLessEqual(row["message"].count("?"), 1, row["message"])
                 self.assertIsNone(_ROBOT.search(row["message"]), row["message"])
                 _assert_friend_voice(self, row["message"])
-            for row in sample_rows + (emergency, thin):
+            for row in sample_rows + (chest, emergency, thin):
                 self.assertIsNone(
                     conversation.RECOVERY_IN_SPEECH.search(row["message"]),
                     row["message"],

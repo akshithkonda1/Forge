@@ -1868,6 +1868,9 @@ def _bridge_fused_memory(
     """Keep a spoken night/sleep thread on the lambda engine (single-turn product)."""
     if not prior_turns:
         return envelope
+    band = str(envelope.get("guidance_band") or "").strip().lower()
+    if band in {"emergency", "first_aid", "refer_out"}:
+        return envelope
     opener = _callback(prior_turns, seed, intents)
     if not opener:
         return envelope
