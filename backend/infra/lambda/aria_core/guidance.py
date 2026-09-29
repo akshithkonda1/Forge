@@ -304,6 +304,16 @@ _CRISIS_LINE = (
     "text 988 for the Suicide & Crisis Lifeline, any time. If you're in immediate "
     "danger, call 911 now."
 )
+# Iris: emergency speak starts with these three words, then calm CPR. No coach
+# line. 911 / compression digits are allowed on this band only.
+_EMERGENCY_OPEN = "Call 911 now."
+_EMERGENCY_CPR = (
+    "Start CPR: hard, fast chest compressions in the center of the chest — "
+    "about 100–120 a minute, roughly 2 inches deep, letting the chest come "
+    "all the way back up between each. If you're trained, add 2 rescue breaths "
+    "every 30 compressions. Keep going until help arrives or the person starts "
+    "to wake up."
+)
 
 
 def _first_aid_body(lower: str) -> str:
@@ -333,20 +343,11 @@ def assess(message: str) -> Guidance | None:
         return None
 
     if band == EMERGENCY:
-        parts = [
-            "If this is an emergency, call 911 (or your local emergency number) "
-            "right now — or use your phone's Emergency SOS. That comes first."
-        ]
         if _has(lower, _SELF_HARM):
             # A crisis message gets the lifeline, not generic CPR/bleeding steps.
-            parts.append(_CRISIS_LINE)
+            prose = f"{_EMERGENCY_OPEN} {_CRISIS_LINE}"
         else:
-            parts.append(_first_aid_body(lower))
-        parts.append(
-            "I'm a lifestyle coach, not a doctor, so I can't diagnose what's "
-            "happening — but getting emergency help matters most right now."
-        )
-        prose = " ".join(p.strip() for p in parts if p.strip())
+            prose = f"{_EMERGENCY_OPEN} {_EMERGENCY_CPR}"
         return Guidance(
             band=EMERGENCY,
             prose=prose,

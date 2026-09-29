@@ -7,10 +7,13 @@ call 911) stay emergency.
 
 from __future__ import annotations
 
+import os
 import unittest
 
 import _bootstrap  # noqa: F401
 
+from aria_core import state_read  # noqa: E402
+from services import aria_engine  # noqa: E402
 from services import guidance  # noqa: E402
 
 # User-facing examples plus several natural variants per red-flag family.
@@ -68,7 +71,11 @@ def _assert_911_emergency(test: unittest.TestCase, message: str) -> None:
     test.assertIsNotNone(assessed, message)
     test.assertEqual(assessed.band, guidance.EMERGENCY, message)
     test.assertTrue(assessed.wants_escalation, message)
-    test.assertIn("911", assessed.prose, message)
+    test.assertTrue(assessed.prose.startswith("Call 911 now"), message)
+    test.assertIn("CPR", assessed.prose, message)
+    low = assessed.prose.lower()
+    test.assertNotIn("lifestyle coach", low, message)
+    test.assertNotIn("not a doctor", low, message)
 
 
 class CardiacRedFlagTests(unittest.TestCase):
@@ -107,6 +114,65 @@ class TrainingSorenessStaysCoachTests(unittest.TestCase):
                     guidance.classify_band(message), guidance.COACH, message
                 )
                 self.assertIsNone(guidance.assess(message), message)
+
+
+class EmergencyDigitExceptionTests(unittest.TestCase):
+    """Nyx: 911 / compression digits are an emergency-band exception only."""
+
+    def test_same_digits_fail_the_existing_check_off_emergency_band(self):
+        assessed = guidance.assess("chest pain and my left arm is numb")
+        self.assertEqual(assessed.band, guidance.EMERGENCY)
+        self.assertTrue(state_read._DIGIT.search(assessed.prose))
+        self.assertIn("911", assessed.prose)
+        self.assertRegex(assessed.prose, r"100[–-]120")
+
+        self.assertEqual(
+            guidance.classify_band("should I train hard today?"), guidance.COACH
+        )
+        coach_with_same_digits = (
+            "Call 911 now. Start CPR: about 100–120 compressions a minute."
+        )
+        with self.assertRaises(ValueError):
+            if state_read._DIGIT.search(coach_with_same_digits):
+                raise ValueError(
+                    f"state-read phrase has a digit: {coach_with_same_digits!r}"
+                )
+
+
+class EmergencyBedrockBypassTests(unittest.TestCase):
+    """Sol: even with Bedrock flagged on, the emergency turn never calls it."""
+
+    def _ctx(self):
+        return aria_engine.ARIAContext.from_payload({"user_id": "u"})
+
+    def test_chest_pain_turn_skips_mocked_bedrock(self):
+        calls: list[tuple] = []
+
+        def fake_converse(model_id, system, user):
+            calls.append((model_id, system, user))
+            return '{"prose_summary": "joke about skipping chest day"}'
+
+        previous = os.environ.get("ARIA_BEDROCK_ENABLED")
+        os.environ["ARIA_BEDROCK_ENABLED"] = "true"
+        try:
+            result = aria_engine.generate_response_live(
+                "chest pain and my left arm is numb",
+                self._ctx(),
+                converse=fake_converse,
+            )
+        finally:
+            if previous is None:
+                os.environ.pop("ARIA_BEDROCK_ENABLED", None)
+            else:
+                os.environ["ARIA_BEDROCK_ENABLED"] = previous
+
+        self.assertEqual(result["guidance_band"], guidance.EMERGENCY)
+        self.assertTrue(result["emergency_escalation"])
+        self.assertTrue(result["message"].startswith("Call 911 now"))
+        self.assertEqual(result["message"], result["prose_summary"])
+        self.assertEqual(calls, [])
+        self.assertNotIn("lifestyle coach", result["message"].lower())
+        self.assertNotIn("joke", result["message"].lower())
 
 
 if __name__ == "__main__":
