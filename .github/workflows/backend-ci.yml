@@ -51,7 +51,14 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         if: needs.changes.outputs.relevant == 'true'
 
+      - name: Undefined names (ruff F821)
+        if: needs.changes.outputs.relevant == 'true'
+        run: |
+          python3 -m pip install --user 'ruff==0.13.2'
+          python3 -m ruff check backend --select F821
+
       - name: Install backend test-only dependencies
+        if: needs.changes.outputs.relevant == 'true'
         run: python3 -m pip install --user -r backend/requirements-dev.txt
 
       - name: Backend unit tests (lambda + ARIA + biometrics)
