@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { cn } from "@/lib/utils";
 import {
   ARIA_MARK,
@@ -114,7 +114,9 @@ export function AriaMark({
   const hero = size >= ARIA_MARK.heroMinimumSize;
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const speakingRef = useRef(speaking);
-  speakingRef.current = speaking;
+  useLayoutEffect(() => {
+    speakingRef.current = speaking;
+  }, [speaking]);
   const idRef = useRef(0);
   const [visible, setVisible] = useState(true);
   const [live, setLive] = useState(false);

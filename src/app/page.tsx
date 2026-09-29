@@ -125,6 +125,9 @@ export default function Page() {
   const [showLaunchMeet, setShowLaunchMeet] = useState(true);
   const [returning] = useState(() => peekPersistedOnboarded());
   const [showSplash, setShowSplash] = useState(!didFinishSplash);
+  if (!visited.includes(activeTab)) {
+    setVisited([...visited, activeTab]);
+  }
 
   useEffect(() => {
     const finish = () => setHasHydrated(true);
@@ -159,7 +162,6 @@ export default function Page() {
   }, [hasHydrated, isOnboarded, chatMessages.length, seedAriaWelcome]);
 
   useEffect(() => {
-    setVisited((prev) => (prev.includes(activeTab) ? prev : [...prev, activeTab]));
     mainRef.current?.scrollTo({ top: 0 });
     window.scrollTo(0, 0);
   }, [activeTab]);

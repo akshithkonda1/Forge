@@ -1,6 +1,6 @@
-# Gates the Next.js/TypeScript frontend: typecheck + production build.
-# (Lint is intentionally not gated yet — see README/PR notes: Next 16 removed
-# `next lint`, and eslint-plugin-react does not yet support ESLint 10.)
+# Gates the Next.js/TypeScript frontend: lint + typecheck + test + production build.
+# Lint is now gated (flat eslint.config.mjs; settings.react.version pinned because
+# eslint-plugin-react 'detect' uses context.getFilename(), removed in ESLint 10).
 # pnpm comes from Corepack (the packageManager field), so no setup-node is needed.
 
 name: Frontend CI
@@ -17,6 +17,8 @@ on:
       - "tsconfig.json"
       - "next.config.ts"
       - "postcss.config.mjs"
+      - "eslint.config.mjs"
+      - "vitest.config.mts"
       - ".github/workflows/frontend-ci.yml"
   pull_request:
     paths:
@@ -27,6 +29,8 @@ on:
       - "tsconfig.json"
       - "next.config.ts"
       - "postcss.config.mjs"
+      - "eslint.config.mjs"
+      - "vitest.config.mts"
       - ".github/workflows/frontend-ci.yml"
 
 permissions:
@@ -48,8 +52,14 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      - name: Lint
+        run: pnpm lint
+
       - name: Typecheck
         run: pnpm exec tsc --noEmit
+
+      - name: Test
+        run: pnpm test
 
       - name: Build
         run: pnpm build

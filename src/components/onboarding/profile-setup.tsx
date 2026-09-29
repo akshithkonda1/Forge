@@ -86,10 +86,10 @@ export default function ProfileSetup({ onNext, onBack }: ProfileSetupProps) {
     );
   };
 
-  const canProceed = () => {
+  const canProceedFromState = () => {
     switch (section) {
       case 0:
-        return readName().length > 0;
+        return name.trim().length > 0;
       case 1:
         return selectedGoals.length > 0;
       case 2:
@@ -99,6 +99,11 @@ export default function ProfileSetup({ onNext, onBack }: ProfileSetupProps) {
       default:
         return false;
     }
+  };
+
+  const canProceed = () => {
+    if (section === 0) return readName().length > 0;
+    return canProceedFromState();
   };
 
   const handleContinue = () => {
@@ -324,11 +329,11 @@ export default function ProfileSetup({ onNext, onBack }: ProfileSetupProps) {
               e.preventDefault();
               handleContinue();
             }}
-            disabled={!canProceed()}
+            disabled={!canProceedFromState()}
             className={cn(
               "relative flex flex-1 min-h-[64px] items-center justify-between rounded-full px-6 py-5 text-[17px] font-semibold",
               "transition-[filter,box-shadow,background-color] duration-150 touch-manipulation select-none",
-              canProceed()
+              canProceedFromState()
                 ? "bg-[#F7F4F0] text-[#0A0A0A] shadow-[0_10px_30px_rgba(247,244,240,0.14)] active:brightness-[0.92] active:shadow-none"
                 : "bg-surface-elevated text-white/35"
             )}
