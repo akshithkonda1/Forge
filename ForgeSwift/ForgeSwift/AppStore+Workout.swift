@@ -71,9 +71,13 @@ extension AppStore {
         let planId = todayWorkout?.id ?? "today-workout"
         if let workout = todayWorkout, completed {
             let minutes = max(1, (elapsedSeconds ?? (workout.duration * 60)) / 60)
+            let finishedAt = WorkoutSessionStamp.finishedAt(
+                startedAt: startedAt,
+                elapsedSeconds: elapsedSeconds
+            )
             let history = WorkoutHistory(
                 id: UUID().uuidString,
-                date: ISO8601DateFormatter().string(from: Date()),
+                date: ISO8601DateFormatter().string(from: finishedAt),
                 name: workout.name,
                 type: workout.type,
                 duration: minutes,
@@ -82,11 +86,11 @@ extension AppStore {
             )
             workoutHistory.insert(history, at: 0)
             let energy = energyKilocalories ?? Double(workout.estimatedCalories)
-            let started = startedAt ?? Date().addingTimeInterval(-TimeInterval(max(1, minutes) * 60))
+            let started = startedAt ?? finishedAt.addingTimeInterval(-TimeInterval(max(1, minutes) * 60))
             Task {
                 await HealthKitManager.shared.saveTrainWorkout(
                     startedAt: started,
-                    endedAt: Date(),
+                    endedAt: finishedAt,
                     name: workout.name,
                     energyKilocalories: energy
                 )
@@ -264,5 +268,22 @@ extension AppStore {
             )
             personalRecords.append(newRecord)
         }
+    }
+}
+
+/// Finish time belongs to the session, not the moment `endWorkout` runs.
+/// HealthKit and history used to stamp `Date()` after summary work, so a
+/// delayed finish (confirm sheet, HR flush) moved the session forward.
+enum WorkoutSessionStamp {
+    static func finishedAt(
+        startedAt: Date?,
+        elapsedSeconds: Int?,
+        now: Date = Date()
+    ) -> Date {
+        guard let startedAt else { return now }
+        if let elapsedSeconds {
+            return startedAt.addingTimeInterval(TimeInterval(max(0, elapsedSeconds)))
+        }
+        return now
     }
 }
