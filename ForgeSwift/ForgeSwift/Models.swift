@@ -631,6 +631,63 @@ struct WorkoutHistory: Identifiable {
     var intensity: WorkoutIntensity
 }
 
+/// Calendar-day window for `workoutsCompleted30d`. HealthKit merge, the
+/// Test-Ready pack, and demo fixtures store `yyyy-MM-dd`; in-app finishes
+/// store a full ISO-8601 instant. A default `ISO8601DateFormatter` parses
+/// only the latter, so the 30-day count used to drop almost every session.
+enum WorkoutHistoryWindow {
+    static let days = 30
+
+    /// Instant for a full ISO-8601 string; local start-of-day for `yyyy-MM-dd`.
+    /// Never UTC-only `yyyy-MM-dd` — that shifts the day west of UTC.
+    static func parseDate(_ raw: String, calendar: Calendar = .current) -> Date? {
+        let trimmed = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return nil }
+
+        if trimmed.contains("T") {
+            let fractional = ISO8601DateFormatter()
+            fractional.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+            let instant = ISO8601DateFormatter()
+            instant.formatOptions = [.withInternetDateTime]
+            if let date = fractional.date(from: trimmed) ?? instant.date(from: trimmed) {
+                return date
+            }
+        }
+
+        let day = DateFormatter()
+        day.calendar = calendar
+        day.timeZone = calendar.timeZone
+        day.locale = Locale(identifier: "en_US_POSIX")
+        day.dateFormat = "yyyy-MM-dd"
+        if let date = day.date(from: String(trimmed.prefix(10))) {
+            return calendar.startOfDay(for: date)
+        }
+        return nil
+    }
+
+    /// Inclusive last `days` local calendar days ending on `now`'s day.
+    /// `days: 30` is today plus the previous 29 days — not `now - 30` with
+    /// an exclusive `>` (that window is one day short and time-of-day biased).
+    static func completedCount(
+        in history: [WorkoutHistory],
+        days: Int = WorkoutHistoryWindow.days,
+        now: Date = Date(),
+        calendar: Calendar = .current
+    ) -> Int {
+        guard days > 0 else { return 0 }
+        let today = calendar.startOfDay(for: now)
+        guard let start = calendar.date(byAdding: .day, value: -(days - 1), to: today) else {
+            return 0
+        }
+        return history.reduce(0) { count, item in
+            guard let parsed = parseDate(item.date, calendar: calendar) else { return count }
+            let day = calendar.startOfDay(for: parsed)
+            guard day >= start, day <= today else { return count }
+            return count + 1
+        }
+    }
+}
+
 struct PersonalRecord: Identifiable {
     var id: String { exercise }
     var exercise: String
