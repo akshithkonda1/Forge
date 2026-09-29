@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import hashlib
 import re
+import zlib
 from typing import Any, Iterable
 
 from . import speak_guard
@@ -158,7 +159,7 @@ def phrase_bank() -> tuple[str, ...]:
     return PHRASE_BANK
 
 
-def phrase_key(user_id: str | None, turn: int | None) -> int:
+def _sha256_phrase_key(user_id: str | None, turn: int | None) -> int:
     """Stable sha256 of request/session user id + turn. No date or clock.
 
     Uses hashlib.sha256 (not Python's randomized ``hash()``). The id and
@@ -185,10 +186,10 @@ def turn_seed(
     """Deterministic phrase seed. Explicit seed wins for tests/replay."""
     if seed is not None:
         return int(seed) & 0xFFFFFFFF
-    return phrase_key(user_id, turn)
+    return _sha256_phrase_key(user_id, turn)
 
 
-def phrase_key(
+def _dummy_phrase_key(
     ctx: Any,
     message: str,
     *,
@@ -208,6 +209,21 @@ def phrase_key(
     uid = str(user_id or "").strip() or getattr(ctx, "user_id", "") or ""
     raw = f"{uid}|{int(turn)}|{message or ''}"
     return zlib.adler32(raw.encode("utf-8", "replace")) & 0xFFFFFFFF
+
+
+def phrase_key(*args: Any, **kwargs: Any) -> int:
+    """Dispatch the two post-merge callers onto their original algorithms.
+
+    ``phrase_key(user_id, turn)`` is sha256 of id + turn (#380).
+    ``phrase_key(ctx, message, user_id=, turn=, seed=)`` is Dummy chat (#382).
+    """
+    if {"user_id", "turn", "seed"} & kwargs.keys() or (
+        len(args) >= 2 and isinstance(args[1], str)
+    ):
+        return _dummy_phrase_key(*args, **kwargs)
+    user_id = args[0] if args else None
+    turn = args[1] if len(args) > 1 else None
+    return _sha256_phrase_key(user_id, turn)
 
 
 def _state_read(ctx: Any, seed: int) -> str:
