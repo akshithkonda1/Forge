@@ -166,6 +166,28 @@ def turn_seed(ctx: Any, message: str, seed: int | None = None) -> int:
     return zlib.adler32(raw.encode("utf-8", "replace")) & 0xFFFFFFFF
 
 
+def phrase_key(
+    ctx: Any,
+    message: str,
+    *,
+    user_id: str = "",
+    turn: int = 0,
+    seed: int | None = None,
+) -> int:
+    """Deterministic phrasing key for one user+turn. Wraps ``turn_seed``.
+
+    Dummy chat and replay use this so variation is stable per person and turn,
+    never ``random``. An explicit ``seed`` still wins.
+    """
+    if seed is not None:
+        return turn_seed(ctx, message, seed)
+    # User+turn only — do not fold ctx.timestamp (that would make two
+    # otherwise identical Dummy chats disagree).
+    uid = str(user_id or "").strip() or getattr(ctx, "user_id", "") or ""
+    raw = f"{uid}|{int(turn)}|{message or ''}"
+    return zlib.adler32(raw.encode("utf-8", "replace")) & 0xFFFFFFFF
+
+
 def _state_read(ctx: Any, seed: int) -> str:
     """Return one short clause, or empty when there is no personal baseline."""
     selected = _select(ctx, seed)

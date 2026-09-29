@@ -173,6 +173,13 @@ def _route(event, _context):
 
             return aria.handle_post_ai_chat(body, user_id=user_id)
 
+        # Dev-only Dummy chat. Refused unless ARIA_LOCAL_CHAT is set; never
+        # a Bedrock/Grok/Claude path. See routes.aria.local_dummy_chat_allowed.
+        if method == "POST" and path == "/ai/chat/local":
+            from routes import aria
+
+            return aria.handle_post_ai_chat_local(body, user_id=user_id)
+
         if method == "GET" and path == "/ai/voice/bootstrap":
             from routes import aria
 

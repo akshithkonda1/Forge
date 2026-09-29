@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import copy
+import os
 import re
 from typing import Any
 
@@ -39,6 +40,67 @@ _DENIED_LIFESTYLE = re.compile(
     r")"
 )
 _BUSY_WINDOW_LABEL = "Busy window"
+
+# Dev-only Dummy chat. Never a Bedrock/Grok/Claude path. Off unless a local
+# flag is set, and always refused in production-like environments.
+_LOCAL_CHAT_TRUE = frozenset({"1", "true", "yes", "on"})
+
+
+def local_dummy_chat_allowed() -> bool:
+    """True only for a local/dev Dummy chat endpoint. Bedrock stays off."""
+    from security import is_production_like
+
+    if is_production_like():
+        return False
+    flag = (
+        os.getenv("ARIA_LOCAL_CHAT")
+        or os.getenv("FORGE_ARIA_LOCAL_CHAT")
+        or ""
+    ).strip().lower()
+    return flag in _LOCAL_CHAT_TRUE
+
+
+def _history_text(item: Any) -> str:
+    if isinstance(item, str):
+        return item.strip()
+    if not isinstance(item, dict):
+        return ""
+    return str(
+        item.get("content")
+        or item.get("message")
+        or item.get("text")
+        or ""
+    ).strip()
+
+
+def _history_role(item: Any) -> str:
+    if isinstance(item, str):
+        return "user"
+    if not isinstance(item, dict):
+        return ""
+    return str(item.get("role") or item.get("speaker") or "user").strip().lower()
+
+
+def _turn_from_history(history: Any) -> tuple[int, list[str]]:
+    """Turn index and prior user texts from request/session history only.
+
+    Never reads notes, STM, last_insights, or persisted fusion. History items
+    are ``{role, content}`` dicts or raw strings (treated as user). The current
+    message is not in ``history`` — turn index is the count of prior user lines.
+    """
+    if not isinstance(history, list) or not history:
+        return 0, []
+    prior: list[str] = []
+    user_count = 0
+    for item in history:
+        text = _history_text(item)
+        if not text:
+            continue
+        role = _history_role(item)
+        prior.append(text)
+        if role in ("", "user", "human"):
+            user_count += 1
+    return user_count, prior
 
 
 def _denied_lifestyle_token(token: str) -> bool:
@@ -577,3 +639,19 @@ def handle_post_ai_voice_design(body: dict[str, Any], *, user_id: str) -> dict:
     _bind_user(body, user_id)
     preview_index = int(body.get("preview_index") or 0)
     return ok(elevenlabs_voice.design_aria(preview_index=preview_index))
+
+
+def handle_post_ai_chat_local(body: dict[str, Any], *, user_id: str) -> dict:
+    """POST /ai/chat/local — Dummy-only founder chat. Refused unless flagged.
+
+    Routing gate: never constructs a Bedrock/Grok/Claude client. Multi-turn
+    state comes only from request ``history`` via ``_turn_from_history``.
+    """
+    if not local_dummy_chat_allowed():
+        raise RouteError(403, "Local Dummy chat is disabled.")
+    uid = _bind_user(body, user_id)
+    try:
+        from backend.ai.aria_chat.session import run_local_chat_turn
+    except ImportError as exc:
+        raise RouteError(503, "Local Dummy chat is not available.") from exc
+    return ok(run_local_chat_turn(body, user_id=uid))
