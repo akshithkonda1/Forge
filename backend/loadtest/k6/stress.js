@@ -1,17 +1,20 @@
-import { sleep } from 'k6';
 import { buildReport, fetchGuards, hitMix, requireLocalDummyEnv, textSummaryLocal } from './common.js';
 
 const RESULTS_DIR = __ENV.LOADTEST_RESULTS_DIR || 'backend/loadtest/results';
 
-// Ramp arrival rate until p95 or errors trip abortOnFail. Cap is 80 rps —
-// enough to find a Dummy-process breaking point without pretending this is
-// a production cluster.
-const STAGES = [
-  { duration: '15s', target: 5 },
-  { duration: '15s', target: 15 },
-  { duration: '15s', target: 30 },
-  { duration: '15s', target: 50 },
-  { duration: '15s', target: 80 },
+// Ramp arrival rate until non-429 errors or p95 trip abortOnFail. Ceiling is
+// 1000 rps — high enough to find Dummy ThreadingHTTPServer degradation on
+// 4 CPUs. 429s are counted but do not abort (per-user limiter is still on).
+export const STAGES = [
+  { duration: '20s', target: 20 },
+  { duration: '20s', target: 50 },
+  { duration: '20s', target: 100 },
+  { duration: '20s', target: 200 },
+  { duration: '20s', target: 400 },
+  { duration: '20s', target: 600 },
+  { duration: '20s', target: 800 },
+  { duration: '20s', target: 1000 },
+  { duration: '20s', target: 1000 },
 ];
 
 export const options = {
@@ -20,13 +23,13 @@ export const options = {
       executor: 'ramping-arrival-rate',
       startRate: 1,
       timeUnit: '1s',
-      preAllocatedVUs: 20,
-      maxVUs: 80,
+      preAllocatedVUs: 250,
+      maxVUs: 2000,
       stages: STAGES,
     },
   },
   thresholds: {
-    http_req_failed: [{ threshold: 'rate<0.01', abortOnFail: true }],
+    non_429_errors: [{ threshold: 'rate<0.01', abortOnFail: true }],
     http_req_duration: [{ threshold: 'p(95)<2000', abortOnFail: true }],
   },
   summaryTrendStats: ['avg', 'min', 'med', 'p(50)', 'p(95)', 'p(99)', 'max'],
@@ -52,8 +55,9 @@ export function inferBreakingPoint(durationMs, aborted) {
         failed_at_target_rps: aborted ? stage.target : null,
         held_through_target_rps: aborted ? lastTarget : stage.target,
         duration_seconds: durationSec,
+        ceiling_rps: STAGES[STAGES.length - 1].target,
         note: aborted
-          ? `p95 or error-rate abort during ramp to ${stage.target} rps`
+          ? `p95 or non-429 error-rate abort during ramp to ${stage.target} rps`
           : `cap reached at ${stage.target} rps without abort`,
       };
     }
@@ -66,6 +70,7 @@ export function inferBreakingPoint(durationMs, aborted) {
     failed_at_target_rps: null,
     held_through_target_rps: cap,
     duration_seconds: durationSec,
+    ceiling_rps: cap,
     note: `cap reached at ${cap} rps without abort`,
   };
 }
@@ -76,8 +81,7 @@ export function setup() {
 }
 
 export default function (data) {
-  hitMix(data.base);
-  sleep(0.01);
+  hitMix(data.base, `loadtest-${__VU}-${__ITER}`);
 }
 
 export function teardown(data) {

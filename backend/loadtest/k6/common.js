@@ -1,6 +1,7 @@
+import encoding from 'k6/encoding';
 import http from 'k6/http';
 import { check, fail } from 'k6';
-import { Counter, Trend } from 'k6/metrics';
+import { Counter, Rate, Trend } from 'k6/metrics';
 
 http.setResponseCallback(http.expectedStatuses({ min: 200, max: 399 }));
 
@@ -8,6 +9,13 @@ const routeReqs = new Counter('route_reqs');
 const routeErrs = new Counter('route_errors');
 const routeDur = new Trend('route_duration', true);
 const routeStatus = new Counter('route_status');
+const route429 = new Counter('route_429');
+const route5xx = new Counter('route_5xx');
+const routeOtherErr = new Counter('route_other_errors');
+
+// Abort threshold uses this Rate, not http_req_failed (which includes 429).
+export const non429Errors = new Rate('non_429_errors');
+export const http429s = new Rate('http_429s');
 
 const LOOPBACK = new Set(['127.0.0.1', 'localhost', '::1']);
 
@@ -71,17 +79,63 @@ export function requireLocalDummyEnv() {
   return base.replace(/\/$/, '');
 }
 
-export function requestRoute(base, route) {
+function b64url(obj) {
+  try {
+    return encoding.b64encode(JSON.stringify(obj), 'rawurl');
+  } catch (err) {
+    return encoding
+      .b64encode(JSON.stringify(obj))
+      .replace(/\+/g, '-')
+      .replace(/\//g, '_')
+      .replace(/=+$/g, '');
+  }
+}
+
+/** Unsigned Dummy JWT. Server must not set FORGE_TEST_USER_ID or that env wins. */
+export function dummyBearer(userId) {
+  const header = b64url({ alg: 'none', typ: 'JWT' });
+  const payload = b64url({ sub: String(userId) });
+  return `Bearer ${header}.${payload}.`;
+}
+
+export function syntheticUserId() {
+  return `loadtest-${__VU}-${__ITER}`;
+}
+
+function classifyStatus(status) {
+  const is429 = status === 429;
+  const is5xx = status >= 500 && status <= 599;
+  const isNetwork = status === 0;
+  const isOther = !is429 && !is5xx && (isNetwork || status >= 400);
+  return {
+    is429,
+    is5xx,
+    isOther,
+    isNon429Err: is5xx || isOther,
+    isAnyErr: is429 || is5xx || isOther,
+  };
+}
+
+export function requestRoute(base, route, userId) {
   const url = `${base}${route.path}`;
   const tags = { route: route.name };
-  const params = { tags, headers: { 'content-type': 'application/json' } };
+  const headers = { 'content-type': 'application/json' };
+  if (userId) {
+    headers.Authorization = dummyBearer(userId);
+  }
+  const params = { tags, headers };
   const res =
     route.method === 'POST'
       ? http.post(url, JSON.stringify(route.body || {}), params)
       : http.get(url, params);
-  const failed = res.status === 0 || res.status >= 400;
+  const kind = classifyStatus(res.status);
   routeReqs.add(1, tags);
-  routeErrs.add(failed ? 1 : 0, tags);
+  routeErrs.add(kind.isAnyErr ? 1 : 0, tags);
+  route429.add(kind.is429 ? 1 : 0, tags);
+  route5xx.add(kind.is5xx ? 1 : 0, tags);
+  routeOtherErr.add(kind.isOther ? 1 : 0, tags);
+  non429Errors.add(kind.isNon429Err);
+  http429s.add(kind.is429);
   routeDur.add(res.timings.duration, tags);
   routeStatus.add(1, { route: route.name, status: String(res.status) });
   check(
@@ -94,10 +148,10 @@ export function requestRoute(base, route) {
   return res;
 }
 
-export function hitMix(base) {
+export function hitMix(base, userId) {
   const routes = READ_ROUTES.concat(WRITE_ROUTES);
   const route = routes[Math.floor(Math.random() * routes.length)];
-  return requestRoute(base, route);
+  return requestRoute(base, route, userId);
 }
 
 export function fetchGuards(base) {
@@ -204,6 +258,11 @@ export function buildReport(data, extra) {
     stats.error_rate = stats.requests ? stats.errors / stats.requests : 0;
     stats.requests_per_second = stats.requests ? stats.requests / durationSec : 0;
   }
+  const dropped =
+    (metrics.dropped_iterations &&
+      metrics.dropped_iterations.values &&
+      metrics.dropped_iterations.values.count) ||
+    0;
   return {
     scenario: extra.scenario,
     generated_at: new Date().toISOString(),
@@ -218,6 +277,7 @@ export function buildReport(data, extra) {
     },
     error_rate: failed,
     error_rate_overall: failed,
+    dropped_iterations: dropped,
     per_route: byRoute,
     breaking_point: extra.breakingPoint || null,
     guards: extra.guards || null,

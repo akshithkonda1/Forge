@@ -26,7 +26,7 @@ jobs:
   loadtest:
     name: Local Dummy k6
     runs-on: ubuntu-latest
-    timeout-minutes: 25
+    timeout-minutes: 30
     env:
       BASE_URL: http://127.0.0.1:3001
       HOST: 127.0.0.1
@@ -35,6 +35,8 @@ jobs:
       ARIA_VOICE_ENABLED: "false"
       ENVIRONMENT: local
       FORGE_ALLOW_ANON_TEST_USER: "true"
+      # Baseline uses this shared id. Stress unsets it in run.sh so each
+      # VU/iteration can send a distinct Dummy Bearer JWT.
       FORGE_TEST_USER_ID: loadtest-user
       LOADTEST_RESULTS_DIR: backend/loadtest/results
     steps:

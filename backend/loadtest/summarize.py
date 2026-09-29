@@ -13,6 +13,21 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 
+# Must match backend/loadtest/k6/stress.js STAGES (duration_s, start_rate, target).
+STRESS_STAGES = (
+    (20.0, 1.0, 20.0),
+    (20.0, 20.0, 50.0),
+    (20.0, 50.0, 100.0),
+    (20.0, 100.0, 200.0),
+    (20.0, 200.0, 400.0),
+    (20.0, 400.0, 600.0),
+    (20.0, 600.0, 800.0),
+    (20.0, 800.0, 1000.0),
+    (20.0, 1000.0, 1000.0),
+)
+STRESS_CEILING_RPS = STRESS_STAGES[-1][2]
+
+
 def _load_json(path: Path) -> dict:
     if not path.is_file():
         return {}
@@ -46,6 +61,8 @@ def _vm_facts() -> dict:
             "server": "backend/loadtest/run_server.py → ThreadingHTTPServer",
             "workers": 1,
             "worker_model": "single process, thread-per-request (no gunicorn/uvicorn workers)",
+            "not": "Lambda or API Gateway",
+            "numbers_mean": "local Dummy backend ceiling on this VM, not production capacity",
         },
     }
 
@@ -61,6 +78,37 @@ def _percentile(values: list[float], q: float) -> float | None:
     hi = min(lo + 1, len(ordered) - 1)
     frac = idx - lo
     return ordered[lo] * (1 - frac) + ordered[hi] * frac
+
+
+def classify_status(status: str) -> str:
+    """Return 'ok', '429', '5xx', or 'other' (network/timeout/other 4xx)."""
+    if status == "429":
+        return "429"
+    if status.isdigit():
+        code = int(status)
+        if 200 <= code < 400:
+            return "ok"
+        if 500 <= code <= 599:
+            return "5xx"
+    return "other"
+
+
+def _empty_error_split() -> dict[str, int]:
+    return {"5xx": 0, "429": 0, "other": 0}
+
+
+def _attach_error_rates(stats: dict, reqs: int) -> dict:
+    split = stats.setdefault("errors_split", _empty_error_split())
+    stats["errors_5xx"] = split["5xx"]
+    stats["errors_429"] = split["429"]
+    stats["errors_other"] = split["other"]
+    stats["errors_non_429"] = split["5xx"] + split["other"]
+    stats["error_rate"] = (stats.get("errors") or 0) / reqs if reqs else 0
+    stats["error_rate_5xx"] = split["5xx"] / reqs if reqs else 0
+    stats["error_rate_429"] = split["429"] / reqs if reqs else 0
+    stats["error_rate_other"] = split["other"] / reqs if reqs else 0
+    stats["error_rate_non_429"] = stats["errors_non_429"] / reqs if reqs else 0
+    return stats
 
 
 def _routes_from_k6_json(path: Path, duration_seconds: float) -> dict:
@@ -86,25 +134,33 @@ def _routes_from_k6_json(path: Path, duration_seconds: float) -> dict:
                 continue
             stats = by_route.setdefault(
                 route,
-                {"requests": 0, "errors": 0, "durations_ms": [], "status_codes": defaultdict(int)},
+                {
+                    "requests": 0,
+                    "errors": 0,
+                    "durations_ms": [],
+                    "status_codes": defaultdict(int),
+                    "errors_split": _empty_error_split(),
+                },
             )
             metric = point.get("metric")
             if metric == "http_reqs":
-                stats["requests"] += int(data.get("value") or 0)
+                n = int(data.get("value") or 0)
+                stats["requests"] += n
                 status = str(tags.get("status") or "0")
-                stats["status_codes"][status] += int(data.get("value") or 0)
-                if status == "0" or (status.isdigit() and int(status) >= 400):
-                    stats["errors"] += int(data.get("value") or 0)
+                stats["status_codes"][status] += n
+                kind = classify_status(status)
+                if kind != "ok":
+                    stats["errors"] += n
+                    stats["errors_split"][kind] += n
             elif metric == "http_req_duration":
                 stats["durations_ms"].append(float(data.get("value") or 0))
     out = {}
     for name, stats in by_route.items():
         durs = stats["durations_ms"]
         reqs = stats["requests"]
-        out[name] = {
+        row = {
             "requests": reqs,
             "errors": stats["errors"],
-            "error_rate": (stats["errors"] / reqs) if reqs else 0,
             "requests_per_second": (reqs / duration_seconds) if duration_seconds else 0,
             "latency_ms": {
                 "p50": _percentile(durs, 0.50),
@@ -112,7 +168,10 @@ def _routes_from_k6_json(path: Path, duration_seconds: float) -> dict:
                 "p99": _percentile(durs, 0.99),
             },
             "status_codes": dict(sorted(stats["status_codes"].items())),
+            "errors_split": dict(stats["errors_split"]),
         }
+        _attach_error_rates(row, reqs)
+        out[name] = row
     return out
 
 
@@ -122,6 +181,8 @@ def _overall_from_k6_json(path: Path) -> dict:
     durations: list[float] = []
     requests = 0
     errors = 0
+    split = _empty_error_split()
+    dropped = 0
     if not path.is_file():
         return {}
     with path.open(encoding="utf-8") as handle:
@@ -135,7 +196,11 @@ def _overall_from_k6_json(path: Path) -> dict:
                 continue
             if point.get("type") != "Point":
                 continue
+            metric = point.get("metric")
             data = point.get("data") or {}
+            if metric == "dropped_iterations":
+                dropped += int(data.get("value") or 0)
+                continue
             tags = data.get("tags") or {}
             route = tags.get("route") or ""
             if route.startswith("GET /__loadtest"):
@@ -146,22 +211,22 @@ def _overall_from_k6_json(path: Path) -> dict:
                     times.append(datetime.fromisoformat(str(raw).replace("Z", "+00:00")))
                 except ValueError:
                     pass
-            metric = point.get("metric")
             if metric == "http_reqs":
                 n = int(data.get("value") or 0)
                 requests += n
                 status = str(tags.get("status") or "0")
-                if status == "0" or (status.isdigit() and int(status) >= 400):
+                kind = classify_status(status)
+                if kind != "ok":
                     errors += n
+                    split[kind] += n
             elif metric == "http_req_duration":
                 durations.append(float(data.get("value") or 0))
     if times:
         duration = (max(times) - min(times)).total_seconds()
-        # k6 test duration includes the last request; add nothing if identical
         duration = max(duration, 1e-6)
     else:
         duration = 0.0
-    return {
+    out = {
         "duration_seconds": duration,
         "requests": requests,
         "requests_per_second": requests / duration if duration else 0,
@@ -173,7 +238,11 @@ def _overall_from_k6_json(path: Path) -> dict:
         "error_rate": errors / requests if requests else 0,
         "error_rate_overall": errors / requests if requests else 0,
         "errors": errors,
+        "errors_split": dict(split),
+        "dropped_iterations": dropped,
     }
+    _attach_error_rates(out, requests)
+    return out
 
 
 def _peak_rps_from_k6_json(path: Path) -> dict | None:
@@ -193,6 +262,9 @@ def _peak_rps_from_k6_json(path: Path) -> dict | None:
             if point.get("type") != "Point" or point.get("metric") != "http_reqs":
                 continue
             data = point.get("data") or {}
+            tags = data.get("tags") or {}
+            if str(tags.get("route") or "").startswith("GET /__loadtest"):
+                continue
             raw = data.get("time")
             if not raw:
                 continue
@@ -204,22 +276,73 @@ def _peak_rps_from_k6_json(path: Path) -> dict | None:
     if not buckets:
         return {"note": "k6 json had no http_reqs points"}
     peak_ts = max(buckets, key=buckets.get)
+    values = sorted(buckets.values())
     return {
         "peak_1s_http_reqs": buckets[peak_ts],
         "samples": len(buckets),
         "min_1s_http_reqs": min(buckets.values()),
-        "median_1s_http_reqs": sorted(buckets.values())[len(buckets) // 2],
+        "median_1s_http_reqs": values[len(values) // 2],
     }
 
 
-STRESS_STAGES = (
-    # (duration_s, start_rate, target_rate)
-    (15.0, 1.0, 5.0),
-    (15.0, 5.0, 15.0),
-    (15.0, 15.0, 30.0),
-    (15.0, 30.0, 50.0),
-    (15.0, 50.0, 80.0),
-)
+def _timeseries_from_k6_json(path: Path) -> list[dict]:
+    """Per-second request, latency, and error-split buckets."""
+    if not path.is_file():
+        return []
+    buckets: dict[int, dict] = {}
+    with path.open(encoding="utf-8") as handle:
+        for line in handle:
+            line = line.strip()
+            if not line:
+                continue
+            try:
+                point = json.loads(line)
+            except json.JSONDecodeError:
+                continue
+            if point.get("type") != "Point":
+                continue
+            data = point.get("data") or {}
+            tags = data.get("tags") or {}
+            if str(tags.get("route") or "").startswith("GET /__loadtest"):
+                continue
+            raw = data.get("time")
+            if not raw:
+                continue
+            try:
+                when = datetime.fromisoformat(str(raw).replace("Z", "+00:00"))
+            except ValueError:
+                continue
+            ts = int(when.timestamp())
+            slot = buckets.setdefault(
+                ts,
+                {"t": ts, "requests": 0, "durs": [], "split": _empty_error_split()},
+            )
+            metric = point.get("metric")
+            if metric == "http_reqs":
+                n = int(data.get("value") or 0)
+                slot["requests"] += n
+                kind = classify_status(str(tags.get("status") or "0"))
+                if kind != "ok":
+                    slot["split"][kind] += n
+            elif metric == "http_req_duration":
+                slot["durs"].append(float(data.get("value") or 0))
+    series = []
+    for ts in sorted(buckets):
+        slot = buckets[ts]
+        reqs = slot["requests"]
+        split = slot["split"]
+        series.append(
+            {
+                "t": ts,
+                "requests": reqs,
+                "p95_ms": _percentile(slot["durs"], 0.95),
+                "errors_5xx": split["5xx"],
+                "errors_429": split["429"],
+                "errors_other": split["other"],
+                "errors_non_429": split["5xx"] + split["other"],
+            }
+        )
+    return series
 
 
 def _interpolated_arrival_rate(duration_seconds: float) -> dict:
@@ -246,16 +369,69 @@ def _interpolated_arrival_rate(duration_seconds: float) -> dict:
     }
 
 
-def _derive_stress_breaking_point(report: dict) -> dict:
+def _rolling_mean(values: list[float], window: int) -> list[float | None]:
+    out: list[float | None] = []
+    acc = 0.0
+    for i, value in enumerate(values):
+        acc += value
+        if i >= window:
+            acc -= values[i - window]
+            out.append(acc / window)
+        elif i + 1 >= window:
+            out.append(acc / window)
+        else:
+            out.append(None)
+    return out
+
+
+def _derive_stress_breaking_point(report: dict, series: list[dict] | None = None) -> dict:
     duration = float(report.get("duration_seconds") or 0)
-    error_rate = float(report.get("error_rate_overall") or 0)
+    non_429_rate = float(report.get("error_rate_non_429") or 0)
     p95 = (report.get("latency_ms") or {}).get("p95")
     planned = sum(stage[0] for stage in STRESS_STAGES)
     aborted = duration < planned - 0.5
     interp = _interpolated_arrival_rate(duration)
+    series = series or []
+
+    first_break = None
+    cum_reqs = 0
+    cum_non_429 = 0
+    t0 = series[0]["t"] if series else None
+    for slot in series:
+        cum_reqs += slot["requests"]
+        cum_non_429 += slot["errors_non_429"]
+        slot_p95 = slot.get("p95_ms")
+        cum_rate = cum_non_429 / cum_reqs if cum_reqs else 0.0
+        reasons = []
+        if slot_p95 is not None and slot_p95 >= 2000:
+            reasons.append(f"p95_ms {slot_p95:.3f} >= 2000")
+        if cum_reqs >= 20 and cum_rate >= 0.01:
+            reasons.append(f"non_429_error_rate {cum_rate:.4f} >= 0.01")
+        if reasons:
+            elapsed = (slot["t"] - t0) if t0 is not None else duration
+            first_break = {
+                "elapsed_seconds": elapsed,
+                "reason": reasons,
+                "p95_ms": slot_p95,
+                "non_429_error_rate_cumulative": cum_rate,
+                "requests_that_second": slot["requests"],
+                **_interpolated_arrival_rate(elapsed),
+            }
+            break
+
+    before = []
+    if first_break and t0 is not None:
+        cutoff = t0 + first_break["elapsed_seconds"]
+        before = [s["requests"] for s in series if s["t"] < cutoff]
+    elif series:
+        before = [s["requests"] for s in series]
+    peak_1s = max(before) if before else (report.get("peak_rps") or {}).get("peak_1s_http_reqs")
+    rolling = [v for v in _rolling_mean([float(x) for x in before], 5) if v is not None]
+    peak_sustained = max(rolling) if rolling else peak_1s
+
     reasons = []
-    if error_rate >= 0.01:
-        reasons.append(f"error_rate {error_rate:.4f} >= 0.01")
+    if non_429_rate >= 0.01:
+        reasons.append(f"non_429_error_rate {non_429_rate:.4f} >= 0.01")
     if p95 is not None and p95 >= 2000:
         reasons.append(f"p95_ms {p95} >= 2000")
     codes = []
@@ -263,8 +439,18 @@ def _derive_stress_breaking_point(report: dict) -> dict:
         for status, count in (stats.get("status_codes") or {}).items():
             if status == "0" or (str(status).isdigit() and int(status) >= 400):
                 codes.append(f"{name} {status}×{count}")
-    peak = (report.get("peak_rps") or {}).get("peak_1s_http_reqs")
-    if aborted and reasons:
+
+    never_broke = first_break is None and not aborted and not reasons
+    if first_break:
+        note = (
+            f"first break at {first_break['elapsed_seconds']:.2f}s: "
+            + "; ".join(first_break["reason"])
+            + f" (arrival ~{first_break['interpolated_arrival_rps']:.2f} rps, "
+            + f"that-second {first_break['requests_that_second']} req/s)"
+        )
+    elif never_broke:
+        note = f"never broke by the ceiling of {STRESS_CEILING_RPS:.0f} rps"
+    elif aborted and reasons:
         note = (
             f"aborted at {duration:.2f}s of {planned:.0f}s planned: "
             + "; ".join(reasons)
@@ -274,16 +460,27 @@ def _derive_stress_breaking_point(report: dict) -> dict:
         note = f"cap reached at {interp['stage_target_rps']} rps without abort"
     else:
         note = f"stopped at {duration:.2f}s without a recorded threshold reason"
+
+    break_interp = first_break or interp
     return {
         "aborted": aborted,
-        "reason": reasons,
+        "never_broke_by_ceiling": never_broke,
+        "ceiling_rps": STRESS_CEILING_RPS,
+        "reason": (first_break or {}).get("reason") or reasons,
         "error_status_codes": codes,
         "p95_ms_at_stop": p95,
+        "non_429_error_rate_at_stop": non_429_rate,
         "interpolated_arrival_rps_at_stop": interp["interpolated_arrival_rps"],
-        "failed_at_target_rps": interp["stage_target_rps"] if aborted else None,
+        "arrival_rps_at_first_break": break_interp.get("interpolated_arrival_rps"),
+        "rps_at_first_break": (first_break or {}).get("requests_that_second"),
+        "failed_at_target_rps": (
+            None if never_broke else (first_break or interp).get("stage_target_rps") if (first_break or aborted) else None
+        ),
         "held_through_target_rps": interp["last_completed_target_rps"],
-        "peak_1s_http_reqs_before_stop": peak,
+        "peak_1s_http_reqs_before_stop": peak_1s,
+        "peak_sustained_5s_rps_before_break": peak_sustained,
         "duration_seconds": duration,
+        "first_break": first_break,
         "note": note,
     }
 
@@ -296,6 +493,10 @@ def _md(report: dict) -> str:
     vm = report.get("vm") or {}
     backend = vm.get("backend") or {}
     peak = report.get("peak_rps") or {}
+    cpu = report.get("cpu") or {}
+    split = report.get("errors_split") or {}
+    identity = report.get("identity") or {}
+    rate_limit = report.get("rate_limit") or {}
     lines = [
         f"# Dummy loadtest — {report.get('scenario', 'unknown')}",
         "",
@@ -306,10 +507,27 @@ def _md(report: dict) -> str:
         f"- p95_ms: {latency.get('p95')}",
         f"- p99_ms: {latency.get('p99')}",
         f"- error_rate_overall: {report.get('error_rate_overall')}",
+        f"- error_rate_5xx: {report.get('error_rate_5xx')}",
+        f"- error_rate_429: {report.get('error_rate_429')}",
+        f"- error_rate_other: {report.get('error_rate_other')}",
+        f"- error_rate_non_429: {report.get('error_rate_non_429')}",
+        f"- errors_5xx: {split.get('5xx', report.get('errors_5xx'))}",
+        f"- errors_429: {split.get('429', report.get('errors_429'))}",
+        f"- errors_other: {split.get('other', report.get('errors_other'))}",
+        f"- dropped_iterations: {report.get('dropped_iterations')}",
         f"- duration_seconds: {report.get('duration_seconds')}",
         f"- vm_cpu_count: {vm.get('cpu_count')}",
         f"- vm_ram_gib: {vm.get('ram_gib')}",
         f"- backend_workers: {backend.get('workers')} ({backend.get('worker_model')})",
+        f"- backend_is_not: {backend.get('not')}",
+        f"- numbers_mean: {backend.get('numbers_mean')}",
+        "",
+        "## Identity and rate limiter",
+        "",
+        f"- identity: {identity.get('scheme', 'n/a')}",
+        f"- rate_limit_store: {rate_limit.get('store', 'n/a')}",
+        f"- rate_limit_patched: {rate_limit.get('patched', False)}",
+        f"- backend_restarted_before_run: {rate_limit.get('restarted_before_run', False)}",
         "",
         "## Per route",
         "",
@@ -318,16 +536,20 @@ def _md(report: dict) -> str:
     if not per_route:
         lines.append("_no per-route samples_")
     else:
-        lines.append("| route | requests | rps | error_rate | status_codes | p50_ms | p95_ms | p99_ms |")
-        lines.append("| --- | ---: | ---: | ---: | --- | ---: | ---: | ---: |")
+        lines.append(
+            "| route | requests | rps | p50_ms | p95_ms | p99_ms | 5xx | 429 | other | "
+            "err_5xx | err_429 | err_other |"
+        )
+        lines.append("| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |")
         for name, stats in sorted(per_route.items()):
             lat = stats.get("latency_ms") or {}
-            codes = stats.get("status_codes") or {}
-            code_s = ", ".join(f"{k}:{v}" for k, v in sorted(codes.items(), key=lambda kv: kv[0]))
             lines.append(
                 f"| {name} | {stats.get('requests', 0)} | {stats.get('requests_per_second')} | "
-                f"{stats.get('error_rate', 0)} | {code_s or 'n/a'} | "
-                f"{lat.get('p50')} | {lat.get('p95')} | {lat.get('p99')} |"
+                f"{lat.get('p50')} | {lat.get('p95')} | {lat.get('p99')} | "
+                f"{stats.get('errors_5xx', 0)} | {stats.get('errors_429', 0)} | "
+                f"{stats.get('errors_other', 0)} | "
+                f"{stats.get('error_rate_5xx', 0)} | {stats.get('error_rate_429', 0)} | "
+                f"{stats.get('error_rate_other', 0)} |"
             )
     lines.extend(
         [
@@ -339,6 +561,10 @@ def _md(report: dict) -> str:
             "## Peak 1s request rate (from k6 json)",
             "",
             json.dumps(peak, indent=2) if peak else "_not measured_",
+            "",
+            "## CPU samples",
+            "",
+            json.dumps(cpu, indent=2) if cpu else "_not sampled_",
             "",
             "## Zero-Bedrock / Zero-ElevenLabs guard",
             "",
@@ -371,14 +597,34 @@ def main() -> None:
     report["guards"] = _fetch_guards(args.base_url)
     report["vm"] = _vm_facts()
     report["peak_rps"] = _peak_rps_from_k6_json(k6_json)
+    report["cpu"] = _load_json(results / "cpu.json") or None
     duration = float(report.get("duration_seconds") or 0)
     report["per_route"] = _routes_from_k6_json(k6_json, duration)
     if args.scenario == "stress":
-        report["breaking_point"] = _derive_stress_breaking_point(report)
+        series = _timeseries_from_k6_json(k6_json)
+        report["breaking_point"] = _derive_stress_breaking_point(report, series)
         report["aborted"] = report["breaking_point"]["aborted"]
+        report["identity"] = {
+            "scheme": "unsigned Dummy Bearer JWT, sub=loadtest-<vu>-<iter>",
+            "forge_test_user_id": None,
+        }
+        report["rate_limit"] = {
+            "patched": False,
+            "store": "in-memory storage.dynamodb._local_store (APP_DATA_TABLE_NAME unset)",
+            "restarted_before_run": True,
+        }
     else:
         report["breaking_point"] = None
         report["aborted"] = False
+        report["identity"] = {
+            "scheme": "FORGE_TEST_USER_ID=loadtest-user",
+            "forge_test_user_id": "loadtest-user",
+        }
+        report["rate_limit"] = {
+            "patched": False,
+            "store": "in-memory storage.dynamodb._local_store (APP_DATA_TABLE_NAME unset)",
+            "restarted_before_run": False,
+        }
     summary_path = results / "summary.json"
     text = json.dumps(report, indent=2) + "\n"
     summary_path.write_text(text, encoding="utf-8")
