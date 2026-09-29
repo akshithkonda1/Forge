@@ -195,7 +195,6 @@ jobs:
         if: >-
           (github.event_name == 'push' && github.ref == 'refs/heads/main')
           || (github.event_name == 'workflow_dispatch' && inputs.run_apply == true)
-        continue-on-error: true
         uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd # v4
         with:
           aws-region: ${{ env.AWS_REGION }}
