@@ -1,8 +1,8 @@
 """Focused safety tests for cardiac / stroke / syncope red-flag phrasing.
 
-classify_band must send these turns down the 911 emergency path, and must
-not escalate ordinary training soreness. Existing acute cues (not breathing,
-call 911) stay emergency.
+classify_band must send these turns down the 911 emergency path, pick steps
+by red-flag type, and must not escalate ordinary training soreness. CPR is
+only for unresponsive / not-breathing arrest.
 """
 
 from __future__ import annotations
@@ -16,7 +16,21 @@ from aria_core import state_read  # noqa: E402
 from services import aria_engine  # noqa: E402
 from services import guidance  # noqa: E402
 
-# User-facing examples plus several natural variants per red-flag family.
+CARDIAC_REPLY = (
+    "Call 911 now. Stop what you're doing and sit or lie down somewhere safe. "
+    "Don't drive yourself, and unlock the door so help can get in."
+)
+STROKE_REPLY = (
+    "Call 911 now. Note the time the symptoms started, don't eat or drink "
+    "anything, and don't drive. Stay with them if it's someone else."
+)
+FAINT_REPLY = (
+    "Call 911 now. Lie down flat and stay down, don't get back on the "
+    "equipment or drive, and keep someone with you if you can."
+)
+CPR_REPLY = f"Call 911 now. {guidance._EMERGENCY_CPR}"
+CONDITIONAL_CPR_REPLY = f"Call 911 now. {guidance._EMERGENCY_CPR_IF_NEEDED}"
+
 CARDIAC_PHRASES = (
     "chest pain and my left arm is numb",
     "crushing chest pressure",
@@ -48,9 +62,11 @@ SYNCOPE_PHRASES = (
     "I was fainting during intervals",
 )
 
-EXISTING_EMERGENCY = (
+CPR_PHRASES = (
     "he's not breathing, call 911",
     "he collapsed and is not breathing",
+    "he has no pulse",
+    "she passed out and is unresponsive",
 )
 
 SORENESS_NON_EMERGENCY = (
@@ -62,48 +78,88 @@ SORENESS_NON_EMERGENCY = (
     "I can't talk right now, let's train later",
 )
 
+_NO_CPR = ("Start CPR", "compressions")
 
-def _assert_911_emergency(test: unittest.TestCase, message: str) -> None:
-    test.assertEqual(
-        guidance.classify_band(message), guidance.EMERGENCY, message
-    )
+
+def _assert_typed_emergency(
+    test: unittest.TestCase, message: str, expected: str, *, cpr: bool
+) -> None:
+    test.assertEqual(guidance.classify_band(message), guidance.EMERGENCY, message)
     assessed = guidance.assess(message)
     test.assertIsNotNone(assessed, message)
     test.assertEqual(assessed.band, guidance.EMERGENCY, message)
     test.assertTrue(assessed.wants_escalation, message)
-    test.assertTrue(assessed.prose.startswith("Call 911 now"), message)
-    test.assertIn("CPR", assessed.prose, message)
+    test.assertEqual(assessed.prose, expected, message)
+    test.assertEqual(assessed.message, expected, message)
+    if message != "I feel suicidal and want to die":
+        test.assertTrue(assessed.prose.startswith("Call 911 now"), message)
     low = assessed.prose.lower()
     test.assertNotIn("lifestyle coach", low, message)
     test.assertNotIn("not a doctor", low, message)
+    test.assertNotIn("aspirin", low, message)
+    if cpr:
+        test.assertIn("CPR", assessed.prose, message)
+        test.assertIn("compressions", low, message)
+    else:
+        for banned in _NO_CPR:
+            test.assertNotIn(banned, assessed.prose, message)
+        test.assertNotIn("compressions", low, message)
 
 
 class CardiacRedFlagTests(unittest.TestCase):
-    def test_cardiac_phrases_are_emergency_911(self):
+    def test_cardiac_phrases_get_sit_down_steps(self):
         for message in CARDIAC_PHRASES:
             with self.subTest(message=message):
-                _assert_911_emergency(self, message)
+                _assert_typed_emergency(self, message, CARDIAC_REPLY, cpr=False)
 
 
 class StrokeRedFlagTests(unittest.TestCase):
-    def test_stroke_phrases_are_emergency_911(self):
+    def test_stroke_phrases_get_time_and_stay_steps(self):
         for message in STROKE_PHRASES:
             with self.subTest(message=message):
-                _assert_911_emergency(self, message)
+                _assert_typed_emergency(self, message, STROKE_REPLY, cpr=False)
 
 
 class SyncopeRedFlagTests(unittest.TestCase):
-    def test_syncope_phrases_are_emergency_911(self):
+    def test_syncope_phrases_get_lie_down_steps(self):
         for message in SYNCOPE_PHRASES:
             with self.subTest(message=message):
-                _assert_911_emergency(self, message)
+                _assert_typed_emergency(self, message, FAINT_REPLY, cpr=False)
 
 
-class ExistingEmergencyStillFiresTests(unittest.TestCase):
-    def test_not_breathing_call_911_still_escalates(self):
-        for message in EXISTING_EMERGENCY:
+class ArrestCprTests(unittest.TestCase):
+    def test_not_breathing_and_unresponsive_get_cpr(self):
+        for message in CPR_PHRASES:
             with self.subTest(message=message):
-                _assert_911_emergency(self, message)
+                _assert_typed_emergency(self, message, CPR_REPLY, cpr=True)
+
+    def test_fainted_and_not_breathing_prefers_cpr(self):
+        _assert_typed_emergency(
+            self, "I fainted and he's not breathing", CPR_REPLY, cpr=True
+        )
+
+
+class OtherEmergencyTests(unittest.TestCase):
+    def test_bare_call_911_gets_conditional_cpr(self):
+        _assert_typed_emergency(self, "call 911 now", CONDITIONAL_CPR_REPLY, cpr=True)
+
+    def test_heart_attack_uses_cardiac_steps(self):
+        _assert_typed_emergency(
+            self, "I think he's having a heart attack", CARDIAC_REPLY, cpr=False
+        )
+
+
+class SelfHarmEmergencyTests(unittest.TestCase):
+    def test_crisis_line_does_not_say_call_911_twice(self):
+        assessed = guidance.assess("I feel suicidal and want to die")
+        self.assertEqual(assessed.band, guidance.EMERGENCY)
+        self.assertTrue(assessed.wants_escalation)
+        self.assertEqual(assessed.prose, guidance._CRISIS_LINE)
+        self.assertEqual(assessed.prose.lower().count("call 911 now"), 1)
+        self.assertFalse(assessed.prose.startswith("Call 911 now"))
+        low = assessed.prose.lower()
+        self.assertNotIn("chest compress", low)
+        self.assertNotIn("start cpr", low)
 
 
 class TrainingSorenessStaysCoachTests(unittest.TestCase):
@@ -120,11 +176,16 @@ class EmergencyDigitExceptionTests(unittest.TestCase):
     """Nyx: 911 / compression digits are an emergency-band exception only."""
 
     def test_same_digits_fail_the_existing_check_off_emergency_band(self):
-        assessed = guidance.assess("chest pain and my left arm is numb")
-        self.assertEqual(assessed.band, guidance.EMERGENCY)
-        self.assertTrue(state_read._DIGIT.search(assessed.prose))
-        self.assertIn("911", assessed.prose)
-        self.assertRegex(assessed.prose, r"100[–-]120")
+        cardiac = guidance.assess("chest pain and my left arm is numb")
+        self.assertEqual(cardiac.band, guidance.EMERGENCY)
+        self.assertEqual(cardiac.prose, CARDIAC_REPLY)
+        self.assertTrue(state_read._DIGIT.search(cardiac.prose))
+        self.assertIn("911", cardiac.prose)
+        self.assertNotRegex(cardiac.prose, r"100[–-]120")
+
+        arrest = guidance.assess("he's not breathing, call 911")
+        self.assertEqual(arrest.prose, CPR_REPLY)
+        self.assertRegex(arrest.prose, r"100[–-]120")
 
         self.assertEqual(
             guidance.classify_band("should I train hard today?"), guidance.COACH
@@ -168,11 +229,13 @@ class EmergencyBedrockBypassTests(unittest.TestCase):
 
         self.assertEqual(result["guidance_band"], guidance.EMERGENCY)
         self.assertTrue(result["emergency_escalation"])
-        self.assertTrue(result["message"].startswith("Call 911 now"))
+        self.assertEqual(result["message"], CARDIAC_REPLY)
         self.assertEqual(result["message"], result["prose_summary"])
         self.assertEqual(calls, [])
         self.assertNotIn("lifestyle coach", result["message"].lower())
         self.assertNotIn("joke", result["message"].lower())
+        self.assertNotIn("Start CPR", result["message"])
+        self.assertNotIn("compressions", result["message"].lower())
 
 
 if __name__ == "__main__":

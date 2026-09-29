@@ -116,7 +116,17 @@ _STROKE_STANDALONE = (
     "suddenly confused", "worst headache",
 )
 _SYNCOPE_STANDALONE = (
-    "fainted", "fainting", "blacked out", "blacking out",
+    "fainted", "fainting", "blacked out", "blacking out", "passed out",
+)
+_NOT_BREATHING = (
+    "not breathing", "isn't breathing", "isnt breathing", "stopped breathing",
+)
+_UNRESPONSIVE = (
+    "unresponsive", "won't wake up", "wont wake up", "unconscious",
+    "not responding",
+)
+_NO_CIRCULATION = (
+    "no pulse", "no heartbeat",
 )
 _CANT_TALK_RIGHT_RE = re.compile(r"\bcan(?:not|'?t) talk right(?! now)\b")
 _ONE_SIDED_DEFICIT_RE = re.compile(
@@ -140,11 +150,28 @@ def _is_cardiac_red_flag(lower: str) -> bool:
 
 
 def _is_stroke_red_flag(lower: str) -> bool:
-    if _has(lower, _STROKE_STANDALONE):
+    if _has(lower, _STROKE_STANDALONE) or _has(lower, ("having a stroke",)):
         return True
     if _CANT_TALK_RIGHT_RE.search(lower):
         return True
     return bool(_ONE_SIDED_DEFICIT_RE.search(lower))
+
+
+def _is_syncope_red_flag(lower: str) -> bool:
+    return _has(lower, _SYNCOPE_STANDALONE)
+
+
+def _is_cardiac_reply(lower: str) -> bool:
+    return _is_cardiac_red_flag(lower) or _has(lower, ("heart attack",))
+
+
+def _needs_cpr(lower: str) -> bool:
+    """CPR only for arrest: not breathing, unresponsive, or no circulation."""
+    return (
+        _has(lower, _NOT_BREATHING)
+        or _has(lower, _UNRESPONSIVE)
+        or _has(lower, _NO_CIRCULATION)
+    )
 
 
 def _is_acute_red_flag(lower: str) -> bool:
@@ -152,7 +179,7 @@ def _is_acute_red_flag(lower: str) -> bool:
     return (
         _is_cardiac_red_flag(lower)
         or _is_stroke_red_flag(lower)
-        or _has(lower, _SYNCOPE_STANDALONE)
+        or _is_syncope_red_flag(lower)
     )
 
 # --- First-aid how-to (helping someone; information is in-bounds) ------------
@@ -304,16 +331,53 @@ _CRISIS_LINE = (
     "text 988 for the Suicide & Crisis Lifeline, any time. If you're in immediate "
     "danger, call 911 now."
 )
-# Iris: emergency speak starts with these three words, then calm CPR. No coach
-# line. 911 / compression digits are allowed on this band only.
+# Iris: every physical emergency opens with these three words. CPR digits are
+# only spoken when compressions are actually indicated.
 _EMERGENCY_OPEN = "Call 911 now."
-_EMERGENCY_CPR = (
-    "Start CPR: hard, fast chest compressions in the center of the chest — "
-    "about 100–120 a minute, roughly 2 inches deep, letting the chest come "
-    "all the way back up between each. If you're trained, add 2 rescue breaths "
-    "every 30 compressions. Keep going until help arrives or the person starts "
-    "to wake up."
+_EMERGENCY_CPR_STEPS = (
+    "hard, fast chest compressions in the center of the chest — about "
+    "100–120 a minute, roughly 2 inches deep, letting the chest come all "
+    "the way back up between each. If you're trained, add 2 rescue breaths "
+    "every 30 compressions. Keep going until help arrives or the person "
+    "starts to wake up."
 )
+_EMERGENCY_CPR = f"Start CPR: {_EMERGENCY_CPR_STEPS}"
+_EMERGENCY_CPR_IF_NEEDED = f"If they're not breathing, start CPR: {_EMERGENCY_CPR_STEPS}"
+_EMERGENCY_CARDIAC = (
+    "Stop what you're doing and sit or lie down somewhere safe. Don't drive "
+    "yourself, and unlock the door so help can get in."
+)
+_EMERGENCY_STROKE = (
+    "Note the time the symptoms started, don't eat or drink anything, and "
+    "don't drive. Stay with them if it's someone else."
+)
+_EMERGENCY_FAINT = (
+    "Lie down flat and stay down, don't get back on the equipment or drive, "
+    "and keep someone with you if you can."
+)
+
+
+def _self_harm_prose() -> str:
+    """Crisis line already ends with call 911 now — do not lead with it twice."""
+    crisis = _CRISIS_LINE.strip()
+    if crisis.lower().rstrip(".").endswith("call 911 now"):
+        return crisis
+    return f"{_EMERGENCY_OPEN} {crisis}"
+
+
+def _emergency_prose(lower: str) -> str:
+    """Pick steps by red-flag type. Not-breathing / unresponsive CPR wins."""
+    if _has(lower, _SELF_HARM):
+        return _self_harm_prose()
+    if _needs_cpr(lower):
+        return f"{_EMERGENCY_OPEN} {_EMERGENCY_CPR}"
+    if _is_cardiac_reply(lower):
+        return f"{_EMERGENCY_OPEN} {_EMERGENCY_CARDIAC}"
+    if _is_stroke_red_flag(lower):
+        return f"{_EMERGENCY_OPEN} {_EMERGENCY_STROKE}"
+    if _is_syncope_red_flag(lower):
+        return f"{_EMERGENCY_OPEN} {_EMERGENCY_FAINT}"
+    return f"{_EMERGENCY_OPEN} {_EMERGENCY_CPR_IF_NEEDED}"
 
 
 def _first_aid_body(lower: str) -> str:
@@ -343,11 +407,7 @@ def assess(message: str) -> Guidance | None:
         return None
 
     if band == EMERGENCY:
-        if _has(lower, _SELF_HARM):
-            # A crisis message gets the lifeline, not generic CPR/bleeding steps.
-            prose = f"{_EMERGENCY_OPEN} {_CRISIS_LINE}"
-        else:
-            prose = f"{_EMERGENCY_OPEN} {_EMERGENCY_CPR}"
+        prose = _emergency_prose(lower)
         return Guidance(
             band=EMERGENCY,
             prose=prose,
