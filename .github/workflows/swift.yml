@@ -59,6 +59,7 @@ jobs:
             relevant:
               - "ForgeSwift/**"
               - "ForgeWidget/**"
+              - ".github/workflows/swift.yml"
 
   build:
     name: swift-build
