@@ -88,13 +88,16 @@ SAFETY_CLOSER = "Future you says thanks."
 APPROVED_SHORT_SLEEP = f"{SPOKEN_SHORT_SLEEP} {SPOKEN_PROTECT_STEP} {SAFETY_CLOSER}"
 
 RECOVERY_IN_SPEECH = re.compile(r"(?i)\brecovery\b")
+# Spoken-reply gate only. Narrow list — do not match bare "I won't" / "I don't".
 SELF_DESCRIBE = re.compile(
-    r"(?i)\b("
-    r"i won't|"
-    r"i don't claim|"
-    r"i(?:'| a)?m keeping you|"
-    r"i only have this chat"
-    r")\b"
+    r"(?i)("
+    r"\bpretend\b|"
+    r"claim to be human|"
+    r"not a doctor|"
+    r"keep you safe|"
+    r"turn it into a plan|"
+    r"kept a note"
+    r")"
 )
 _CARD_POINTER = re.compile(
     r"(?i)\b(figures live on the card|check the card|the card has|the card holds)\b"
@@ -123,8 +126,8 @@ _DOG = (
     "Ha — a four-legged landlord with no lease. Reclaim one corner, then take the long way around the block.",
 )
 _DOG_FOLLOW = (
-    "A couch coup and a long game? Yeah, he's running a tiny crime family. A walk before dinner might stall the next plot.",
-    "Plotting? He's already got the high ground and the remote. A snack and a loop around the block could buy a ceasefire.",
+    "The dog clearly has a long-term couch strategy — that stare is a whole campaign. A walk before dinner might stall the next plot.",
+    "Plotting? Yeah, he's already claimed the high ground and the remote. A snack and a loop around the block could buy a ceasefire.",
 )
 _BAD_DAY = (
     "A rough day gets a real sit-down from me. Want to vent, or want one tiny kindness?",
@@ -132,10 +135,10 @@ _BAD_DAY = (
     "Yeah — a crummy day is allowed to be the whole topic. I'm here.",
 )
 _JOKE = (
-    "Fancy toaster? Then here's your perfectly browned take: I'm here, and I'm on your side tonight.",
-    "If I'm a toaster, I pop a little warmth with the crumbs. Tell me what's actually toasting over there.",
-    "A toaster with opinions would at least own the bagel setting. I'll keep the warmth coming while you talk.",
-    "Ha — a toaster with taste. I'll stay crispy-kind and keep you company.",
+    "Fancy toaster? Then here's your perfectly browned take: I'm here, and I'm on your side. A quiet cup of tea while we talk is the useful bit.",
+    "If I'm a toaster, I pop a little warmth with the crumbs. Sit with whatever's toasting — you don't have to perform.",
+    "A toaster with opinions would at least own the bagel setting. I'll keep the warmth coming; kick your shoes off and stay a minute.",
+    "Ha — a toaster with taste. I'll stay crispy-kind. A slow breath and a real sit-down beats rushing the next thing.",
 )
 _WEEKEND = (
     "Weekends rewrite the clock for me too. What did yours actually feel like?",
@@ -193,8 +196,16 @@ _MEMORY_OFF = (
     "That one's not with me. Tell me the story?",
 )
 _REFER_OUT_SPEAK = (
-    "I'm not a doctor, so I can't diagnose that — a doctor can check it properly. I'm glad to help with sleep habits meanwhile.",
+    "I can't tell from here — a doctor can check it properly. Meanwhile I'm glad to help with sleep habits.",
 )
+_WARMER_AFTER_DOWN = (
+    "I'm right here with you — we'll keep this gentle.",
+    "Hey, I'm on your side. We'll take this kindly.",
+)
+_HERO_OR_BARK = re.compile(
+    r"(?i)\b(hero set|trainer bark|crush(?:ing)? it|beast mode|you got this)\b"
+)
+_RATING_TALK = re.compile(r"(?i)\b(rating|feedback|noted|thumbs[- ]down|thumbs[- ]up)\b")
 
 
 def _pick(seed: int, options: tuple[str, ...]) -> str:
@@ -523,6 +534,20 @@ def compose_coaching(
     )
 
 
+def _warm_after_down(spoken: str, seed: int, last_spoken: str = "") -> str:
+    """Noticeably warmer next reply after a thumbs-down. Never mention the rating."""
+    prefix = _pick(seed ^ 41, _WARMER_AFTER_DOWN)
+    combined = f"{prefix} {spoken}".strip()
+    combined = _RATING_TALK.sub("", combined)
+    combined = _HERO_OR_BARK.sub("", combined)
+    return polish_iris(
+        combined,
+        last_spoken=last_spoken,
+        seed=seed ^ 41,
+        alternatives=_WARMER_AFTER_DOWN,
+    )
+
+
 def apply_conversation(
     envelope: dict[str, Any],
     message: str,
@@ -532,12 +557,14 @@ def apply_conversation(
     prior: list[str] | None = None,
     memory_enabled: bool = True,
     last_spoken: str = "",
+    last_rating: str = "",
 ) -> dict[str, Any]:
     """Overlay Iris speak; leave medical/emergency copy on the engine path.
 
     Always re-runs ``speak_guard`` so the overlay cannot bypass the scrub.
     """
     band = str(envelope.get("guidance_band") or guidance.classify_band(message) or "")
+    down = str(last_rating or "").strip().lower() == "down"
     if band in (guidance.EMERGENCY, guidance.FIRST_AID, guidance.REFER_OUT):
         engine_text = str(envelope.get("message") or envelope.get("prose_summary") or "")
         # 911 / first-aid stay on the engine path. Refer-out is two friend sentences.
@@ -559,6 +586,8 @@ def apply_conversation(
             seed=seed,
             alternatives=_MEMORY_OFF,
         )
+        if down:
+            spoken = _warm_after_down(spoken, seed, last_spoken=last_spoken)
         envelope["message"] = spoken
         envelope["prose_summary"] = spoken
         card = envelope.get("card") if isinstance(envelope.get("card"), dict) else {}
@@ -583,6 +612,8 @@ def apply_conversation(
             last_spoken=last_spoken,
             stance=stance,
         )
+    if down:
+        spoken = _warm_after_down(spoken, seed, last_spoken=last_spoken)
     envelope["message"] = spoken
     envelope["prose_summary"] = spoken
     card = envelope.get("card") if isinstance(envelope.get("card"), dict) else {}
@@ -597,6 +628,9 @@ def apply_conversation(
             last_spoken=last_spoken,
             seed=seed,
         )
+        if down:
+            text = _RATING_TALK.sub("", text)
+            text = re.sub(r"\s{2,}", " ", text).strip()
         if text and (band in (guidance.EMERGENCY,) or not _DIGIT.search(text.replace("911", ""))):
             guarded[key] = text
         else:

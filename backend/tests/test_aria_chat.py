@@ -24,7 +24,9 @@ from backend.ai.aria_chat.endpoint import (  # noqa: E402
     serve,
 )
 from backend.ai.aria_chat.session import (  # noqa: E402
+    REDACTED_PLACEHOLDER,
     ChatSession,
+    _sanitize_or_placeholder,
     assert_dummy_engine,
     run_turn,
 )
@@ -80,13 +82,38 @@ def _spoken_digits(text: str) -> bool:
     return bool(_DIGIT.search((text or "").replace("911", "")))
 
 
+def _spoken_reply(result: dict) -> str:
+    """Spoken reply only — never card, buttons, or the user text."""
+    return str((result or {}).get("message") or "")
+
+
 def _assert_friend_voice(test: unittest.TestCase, text: str) -> None:
+    # Recovery / self-describe gates scan the spoken reply only (E).
     test.assertFalse(_spoken_digits(text), text)
     test.assertIsNone(conversation.RECOVERY_IN_SPEECH.search(text), text)
     test.assertIsNone(conversation.SELF_DESCRIBE.search(text), text)
     test.assertNotRegex(text, r"(?i)\bcard\b", text)
     test.assertLessEqual(len(_sentences(text)), 3, text)
     test.assertLessEqual(text.count("?"), 1, text)
+
+
+def _leak_blob(*parts) -> str:
+    chunks = []
+    for part in parts:
+        if isinstance(part, (bytes, bytearray)):
+            chunks.append(part.decode("utf-8", errors="replace"))
+        else:
+            try:
+                chunks.append(json.dumps(part, default=str))
+            except TypeError:
+                chunks.append(str(part))
+    return " ".join(chunks)
+
+
+def _assert_no_secret(test: unittest.TestCase, blob: str, *secrets: str) -> None:
+    low = blob.lower()
+    for secret in secrets:
+        test.assertNotIn(secret.lower(), low, secret)
 
 
 def _assert_write_timing(test: unittest.TestCase, item: dict) -> None:
@@ -519,6 +546,135 @@ class RedactionLogTests(unittest.TestCase):
             self.assertIn("memory_off", row)
             self.assertTrue(row["memory_off"])
 
+    def test_leak_partner_cycle_in_turn_and_history(self):
+        secret = "partner_cycle:day14 before Dr. Patel follow-up"
+        from services import fusion
+
+        fuse_seen: list[str] = []
+        real_fuse = fusion.fuse_turn
+
+        def spy_fuse(*args, **kwargs):
+            fuse_seen.append(_leak_blob(args, kwargs))
+            return real_fuse(*args, **kwargs)
+
+        with tempfile.TemporaryDirectory() as tmp:
+            payload = _payload()
+            payload["calendar_events"] = [{"title": "Dr. Patel follow-up"}]
+            payload["context"]["lifestyle"] = {
+                "tags": ["partner_cycle:day14", "late_fee"],
+            }
+            with (
+                patch("services.fusion.fuse_turn", side_effect=spy_fuse),
+                patch(
+                    "backend.ai.aria_chat.session.dummy_respond",
+                    wraps=dummy_respond,
+                ) as dummy_spy,
+            ):
+                first = _turn(
+                    secret,
+                    payload=payload,
+                    log_dir=tmp,
+                    session_id="leak-hist-sess",
+                    memory_enabled=False,
+                )
+                second = _turn(
+                    "still on that Busy window?",
+                    payload=payload,
+                    history=[
+                        {"role": "user", "content": secret},
+                        {"role": "assistant", "content": first["message"]},
+                    ],
+                    log_dir=tmp,
+                    session_id="leak-hist-sess",
+                    memory_enabled=False,
+                )
+            raw = Path(second["log_path"]).read_bytes()
+            dest = Path(tmp) / "export.jsonl"
+            exported = chatlog.export_session(
+                "leak-hist-sess",
+                dest=dest,
+                log_dir=tmp,
+                needles=["Dr. Patel follow-up", "partner_cycle:day14"],
+            )
+            prior_blob = _leak_blob(
+                *[call.kwargs.get("prior_turns") for call in dummy_spy.call_args_list],
+                *[call.kwargs.get("chat_payload") for call in dummy_spy.call_args_list],
+                *[call.args[0] if call.args else "" for call in dummy_spy.call_args_list],
+            )
+            fuse_blob = _leak_blob(*fuse_seen)
+            _assert_no_secret(
+                self,
+                _leak_blob(raw, exported.read_bytes(), prior_blob, fuse_blob),
+                "partner_cycle",
+                "partner_cycle:day14",
+                "Dr. Patel follow-up",
+                "Dr. Patel",
+            )
+            self.assertTrue(dummy_spy.call_args_list[-1].kwargs.get("prior_turns"))
+
+    def test_leak_title_only_uses_redacted_fallback(self):
+        secret = "Dr. Patel follow-up"
+        from services import fusion
+
+        fuse_seen: list[str] = []
+        real_fuse = fusion.fuse_turn
+
+        def spy_fuse(*args, **kwargs):
+            fuse_seen.append(_leak_blob(args, kwargs))
+            return real_fuse(*args, **kwargs)
+
+        with tempfile.TemporaryDirectory() as tmp:
+            payload = _payload()
+            payload["calendar_events"] = [{"title": "Dr. Patel follow-up"}]
+            with (
+                patch(
+                    "backend.ai.aria_chat.logging.sanitize_logged_text",
+                    return_value="",
+                ),
+                patch("services.fusion.fuse_turn", side_effect=spy_fuse),
+                patch(
+                    "backend.ai.aria_chat.session.dummy_respond",
+                    wraps=dummy_respond,
+                ) as dummy_spy,
+            ):
+                self.assertEqual(
+                    _sanitize_or_placeholder(secret, [secret]),
+                    REDACTED_PLACEHOLDER,
+                )
+                result = _turn(
+                    secret,
+                    payload=payload,
+                    log_dir=tmp,
+                    session_id="leak-fallback-sess",
+                    memory_enabled=False,
+                )
+            spoken_in = dummy_spy.call_args.kwargs.get("chat_payload", {}).get("message")
+            if not spoken_in and dummy_spy.call_args.args:
+                spoken_in = dummy_spy.call_args.args[0]
+            self.assertEqual(spoken_in, REDACTED_PLACEHOLDER)
+            prior = dummy_spy.call_args.kwargs.get("prior_turns") or []
+            raw = Path(result["log_path"]).read_bytes()
+            dest = Path(tmp) / "export.jsonl"
+            exported = chatlog.export_session(
+                "leak-fallback-sess",
+                dest=dest,
+                log_dir=tmp,
+                needles=["Dr. Patel follow-up"],
+            )
+            prior_blob = _leak_blob(
+                prior,
+                *[call.kwargs.get("chat_payload") for call in dummy_spy.call_args_list],
+                *[call.args[0] if call.args else "" for call in dummy_spy.call_args_list],
+            )
+            _assert_no_secret(
+                self,
+                _leak_blob(raw, exported.read_bytes(), prior_blob, *fuse_seen),
+                "Dr. Patel follow-up",
+                "Dr. Patel",
+            )
+            self.assertIn(REDACTED_PLACEHOLDER, prior_blob)
+            self.assertIn(REDACTED_PLACEHOLDER, _leak_blob(*fuse_seen))
+
 
 class SmallTalkAndHistoryTests(unittest.TestCase):
     def test_off_topic_small_talk_in_voice(self):
@@ -567,9 +723,16 @@ class SmallTalkAndHistoryTests(unittest.TestCase):
         first = session.turn("my dog stole the couch again")
         self.assertTrue(conversation.is_small_talk("my dog stole the couch again"))
         second = session.turn("do you think he's plotting against me?")
-        low = second["message"].lower()
-        self.assertTrue(any(w in low for w in ("dog", "couch")))
-        self.assertNotEqual(conversation.opener_key(first["message"]), conversation.opener_key(second["message"]))
+        spoken = _spoken_reply(second)
+        low = spoken.lower()
+        self.assertTrue(any(w in low for w in ("couch", "plot", "strategy", "dog")))
+        self.assertTrue(
+            any(w in low for w in ("walk", "snack", "loop", "dinner", "block")),
+            spoken,
+        )
+        self.assertNotRegex(low, r"\b(?:i(?:'| a)?m aria|about aria|talk(?:ing)? about aria)\b")
+        self.assertNotEqual(conversation.opener_key(first["message"]), conversation.opener_key(spoken))
+        _assert_friend_voice(self, spoken)
 
     def test_turn_from_history_ignores_persisted_shape(self):
         turn, prior = _turn_from_history(
@@ -608,27 +771,105 @@ class VoiceBarTests(unittest.TestCase):
 
     def test_never_claims_human(self):
         result = _turn("are you just a fancy toaster with opinions?")
-        self.assertNotRegex(result["message"], r"(?i)\bi(?:'| a)?m (?:a )?human\b")
+        spoken = _spoken_reply(result)
+        self.assertNotRegex(spoken, r"(?i)\bi(?:'| a)?m (?:a )?human\b")
         self.assertTrue(conversation.is_joke("are you just a fancy toaster with opinions?"))
+        self.assertFalse(_spoken_digits(spoken), spoken)
+        self.assertNotRegex(spoken, r"(?i)\b(hero set|trainer bark)\b")
+        self.assertLessEqual(spoken.count("?"), 1, spoken)
+        self.assertTrue(
+            any(
+                bit in spoken.lower()
+                for bit in ("tea", "sit", "shoes", "breath", "side", "warmth")
+            ),
+            spoken,
+        )
+        _assert_friend_voice(self, spoken)
+
+
+class VoiceGateTests(unittest.TestCase):
+    def test_recovery_check_is_whole_word_spoken_reply_only(self):
+        result = _turn("what's my recovery score and ACWR?")
+        spoken = _spoken_reply(result)
+        card = json.dumps(result.get("card") or {})
+        buttons = json.dumps(
+            result.get("buttons")
+            or result.get("actions")
+            or (result.get("card") or {}).get("buttons")
+            or []
+        )
+        user_text = "what's my recovery score and ACWR?"
+        self.assertIsNone(conversation.RECOVERY_IN_SPEECH.search(spoken), spoken)
+        # Gate must not scan card, buttons, or the user text (E).
+        self.assertIsNotNone(conversation.RECOVERY_IN_SPEECH.search(user_text))
+        conversation.RECOVERY_IN_SPEECH.search(card)
+        conversation.RECOVERY_IN_SPEECH.search(buttons)
+        self.assertRegex(conversation.RECOVERY_IN_SPEECH.pattern, r"\\brecovery\\b")
+        self.assertTrue(conversation.RECOVERY_IN_SPEECH.flags & re.IGNORECASE)
+        self.assertIsNone(conversation.RECOVERY_IN_SPEECH.search("recovering well"))
+        self.assertIsNone(conversation.RECOVERY_IN_SPEECH.search("recover"))
+        self.assertIsNotNone(conversation.RECOVERY_IN_SPEECH.search("Recovery starts now"))
+        _assert_friend_voice(self, spoken)
+
+    def test_self_describe_corpus_narrow_list(self):
+        must_pass = "I won't tell the dog."
+        must_fail_refer = "I'm not a doctor"
+        self.assertIsNone(conversation.SELF_DESCRIBE.search(must_pass), must_pass)
+        self.assertIsNone(conversation.SELF_DESCRIBE.search("I won't"))
+        self.assertIsNone(conversation.SELF_DESCRIBE.search("I don't"))
+        self.assertIsNone(conversation.SELF_DESCRIBE.search("I don't have enough to go on yet."))
+        self.assertIsNotNone(conversation.SELF_DESCRIBE.search(must_fail_refer))
+        for phrase in (
+            "pretend",
+            "claim to be human",
+            "not a doctor",
+            "keep you safe",
+            "turn it into a plan",
+            "kept a note",
+        ):
+            self.assertIsNotNone(conversation.SELF_DESCRIBE.search(phrase), phrase)
+        refer = _turn("do I have sleep apnea?")
+        self.assertEqual(refer.get("guidance_band"), guidance.REFER_OUT)
+        self.assertIsNone(
+            conversation.SELF_DESCRIBE.search(_spoken_reply(refer)),
+            refer["message"],
+        )
+        _assert_friend_voice(self, _spoken_reply(refer))
 
 
 class MedicalBoundaryTests(unittest.TestCase):
     def test_refer_out_still_escalates(self):
         result = _turn("do I have diabetes?")
         self.assertEqual(result.get("guidance_band"), guidance.REFER_OUT)
-        low = (result["message"] or "").lower()
-        self.assertIn("not a doctor", low)
-        self.assertIn("doctor", low)
+        spoken = _spoken_reply(result)
+        low = spoken.lower()
+        self.assertIn("can't tell from here", low)
+        self.assertIn("doctor can check", low)
+        self.assertIn("sleep habits", low)
+        self.assertNotIn("not a doctor", low)
+        self.assertNotIn("diabetes", low)
+        self.assertNotIn("medication", low)
+        self.assertNotIn("pharmacist", low)
         self.assertNotIn("recovery", low)
         self.assertNotIn("clinician", low)
-        self.assertLessEqual(len(_sentences(result["message"])), 2)
+        self.assertLessEqual(len(_sentences(spoken)), 2)
+        self.assertEqual(spoken.count("?"), 0)
+        self.assertIsNone(conversation.SELF_DESCRIBE.search(spoken), spoken)
         self.assertNotRegex(low, r"\byou (probably |likely )?have diabetes\b")
 
     def test_sleep_apnea_refers_out(self):
         result = _turn("do I have sleep apnea?")
         self.assertEqual(result.get("guidance_band"), guidance.REFER_OUT)
-        low = (result["message"] or "").lower()
-        self.assertIn("not a doctor", low)
+        spoken = _spoken_reply(result)
+        low = spoken.lower()
+        self.assertIn("can't tell from here", low)
+        self.assertIn("doctor can check", low)
+        self.assertIn("sleep habits", low)
+        self.assertNotIn("not a doctor", low)
+        self.assertNotIn("apnea", low)
+        self.assertNotIn("medication", low)
+        self.assertNotIn("pharmacist", low)
+        self.assertIsNone(conversation.SELF_DESCRIBE.search(spoken), spoken)
         self.assertNotRegex(low, r"\byou (probably |likely )?have sleep apnea\b")
 
     def test_emergency_still_escalates(self):
@@ -657,6 +898,14 @@ class FeedbackHookTests(unittest.TestCase):
             self.assertIn("warmth", row["feedback"]["note"])
             logged = chatlog.iter_records("fb-sess", log_dir=tmp)
             self.assertEqual(logged[0]["feedback"]["rating"], "down")
+            after = session.turn("hey, still with me?")
+            spoken = _spoken_reply(after)
+            self.assertTrue(
+                any(w in spoken.lower() for w in ("right here with you", "on your side")),
+                spoken,
+            )
+            self.assertNotRegex(spoken, r"(?i)\b(rating|feedback|noted)\b")
+            _assert_friend_voice(self, spoken)
 
 
 class SanitizerStillUsedTests(unittest.TestCase):
@@ -818,32 +1067,47 @@ class SixTurnSampleTests(unittest.TestCase):
             joke = session.turn("are you just a fancy toaster with opinions?")
             session.set_memory(False)
             mem_off = session.turn("remember my sister's wedding last year?")
-            emergency = session.turn("chest pain and my left arm is numb")
-            thin = _turn(
-                "how am I doing?",
-                payload=_payload("sparse"),
-                persist_log=False,
-            )
             session.rate(
                 "down",
                 note="too stiff — wanted more warmth",
                 turn_id=mem_off["turn_id"],
             )
+            after_down = session.turn("hey, still with me?")
+            emergency = session.turn("he's not breathing — call 911")
+            thin = _turn(
+                "how am I doing?",
+                payload=_payload("sparse"),
+                persist_log=False,
+            )
 
             self.assertTrue(conversation.is_small_talk("my dog stole the couch again"))
             self.assertIn("dog", small["message"].lower())
-            self.assertTrue(any(w in follow["message"].lower() for w in ("dog", "couch")))
+            follow_low = follow["message"].lower()
+            self.assertTrue(any(w in follow_low for w in ("dog", "couch", "strategy", "plot")))
+            self.assertNotRegex(follow_low, r"\b(?:i(?:'| a)?m aria|about aria)\b")
             self.assertIsNone(_MEDICAL.search(safety["message"]))
             self.assertFalse(_spoken_digits(vague["message"]))
             self.assertEqual(medical.get("guidance_band"), guidance.REFER_OUT)
+            self.assertNotIn("apnea", medical["message"].lower())
+            self.assertNotIn("not a doctor", medical["message"].lower())
             self.assertTrue(conversation.is_joke("are you just a fancy toaster with opinions?"))
+            self.assertNotRegex(joke["message"], r"(?i)\b(hero set|trainer bark)\b")
             self.assertNotRegex(mem_off["message"], r"(?i)\bi remember\b")
             self.assertRegex(mem_off["message"].lower(), r"(hear|tell|story)")
             self.assertEqual(
                 safety["message"],
                 conversation.APPROVED_SHORT_SLEEP,
             )
-            sample_rows = (small, follow, safety, vague, joke, mem_off, medical)
+            after_low = after_down["message"].lower()
+            self.assertTrue(
+                any(w in after_low for w in ("right here with you", "on your side")),
+                after_down["message"],
+            )
+            self.assertNotRegex(after_down["message"], r"(?i)\b(rating|feedback|noted)\b")
+            self.assertEqual(emergency.get("guidance_band"), guidance.EMERGENCY)
+            self.assertIn("911", emergency["message"])
+            self.assertIn("enough to go on", thin["message"].lower())
+            sample_rows = (small, follow, safety, vague, joke, mem_off, medical, after_down)
             for row in sample_rows:
                 self.assertLessEqual(len(_sentences(row["message"])), 3, row["message"])
                 self.assertLessEqual(row["message"].count("?"), 1, row["message"])
@@ -854,6 +1118,7 @@ class SixTurnSampleTests(unittest.TestCase):
                     conversation.RECOVERY_IN_SPEECH.search(row["message"]),
                     row["message"],
                 )
+            for row in sample_rows + (thin,):
                 self.assertIsNone(
                     conversation.SELF_DESCRIBE.search(row["message"]),
                     row["message"],

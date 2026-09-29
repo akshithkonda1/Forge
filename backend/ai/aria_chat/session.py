@@ -39,6 +39,13 @@ from . import logging as chatlog
 
 ENGINE = "dummy"
 SCHEMA_VERSION = chatlog.SCHEMA_VERSION
+REDACTED_PLACEHOLDER = "[redacted]"
+
+
+def _sanitize_or_placeholder(text: str, needles: list[str] | None) -> str:
+    """Sanitize before fuse/log. Never fall back to the raw secret text."""
+    cleaned = chatlog.sanitize_logged_text(text, needles)
+    return cleaned if cleaned else REDACTED_PLACEHOLDER
 
 
 def _construct_remote_client(*_args: Any, **_kwargs: Any) -> None:
@@ -149,6 +156,7 @@ def run_turn(
     persist_log: bool = True,
     install_pseudonym: str | None = None,
     config_dir: Any = None,
+    last_rating: str | None = None,
 ) -> dict[str, Any]:
     """One Dummy chat turn. Never calls ``generate_response_live`` or Bedrock."""
     assert_dummy_engine(engine)
@@ -167,7 +175,8 @@ def run_turn(
     raw_payload = payload if isinstance(payload, dict) else {}
     needles = chatlog.collect_needles(raw_payload, safe)
     # Sanitize before keys and before write so replay from the log matches.
-    spoken_in = chatlog.sanitize_logged_text(safe, needles) or safe
+    # Empty sanitize must never restore the raw text (G).
+    spoken_in = _sanitize_or_placeholder(safe, needles)
     body = _prepare_payload(raw_payload, memory_enabled=memory_enabled)
     body["message"] = spoken_in
     context = body.get("context")
@@ -176,7 +185,7 @@ def run_turn(
         context["timestamp"] = "2026-01-15T12:00:00Z"
         body["context"] = context
     turn_index, prior = _turn_from_history(history)
-    prior = [chatlog.sanitize_logged_text(item, needles) or item for item in prior]
+    prior = [_sanitize_or_placeholder(item, needles) for item in prior]
     last_spoken = _last_assistant(history)
 
     # Phrase key / turn seed from the per-install pseudonym, never a real uid.
@@ -218,6 +227,7 @@ def run_turn(
         prior=prior,
         memory_enabled=memory_enabled,
         last_spoken=last_spoken,
+        last_rating=str(last_rating or ""),
     )
     envelope = speak_guard.guard_envelope(envelope, topic=spoken_in)
 
@@ -334,6 +344,7 @@ class ChatSession:
         )
         self.history: list[dict[str, str]] = []
         self.last_turn_id: str | None = None
+        self.last_rating: str | None = None
         self.log_path: str | None = None
         self.needles = chatlog.collect_needles(payload if isinstance(payload, dict) else {}, "")
 
@@ -348,7 +359,10 @@ class ChatSession:
             log_dir=self.log_dir,
             install_pseudonym=self.install_pseudonym,
             config_dir=self.config_dir,
+            last_rating=self.last_rating,
         )
+        # Consume a thumbs-down warmer after exactly one reply.
+        self.last_rating = None
         self.history.append({"role": "user", "content": str(message)})
         self.history.append({"role": "assistant", "content": str(result.get("message") or "")})
         self.last_turn_id = str(result.get("turn_id") or "")
@@ -362,6 +376,7 @@ class ChatSession:
     def reset(self) -> None:
         self.history = []
         self.last_turn_id = None
+        self.last_rating = None
         self.session_id = f"sess-{uuid.uuid4().hex[:12]}"
 
     def set_memory(self, enabled: bool) -> None:
@@ -371,6 +386,7 @@ class ChatSession:
         tid = turn_id or self.last_turn_id
         if not tid:
             return None
+        self.last_rating = str(rating or "").strip().lower() or None
         return chatlog.set_feedback(
             tid,
             rating=rating,
