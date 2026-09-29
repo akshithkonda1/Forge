@@ -1,7 +1,8 @@
 # Gates the Next.js/TypeScript frontend: lint + typecheck + test + production build.
 # Lint is now gated (flat eslint.config.mjs; settings.react.version pinned because
 # eslint-plugin-react 'detect' uses context.getFilename(), removed in ESLint 10).
-# pnpm comes from Corepack (the packageManager field), so no setup-node is needed.
+# pnpm comes from Corepack (the packageManager field). setup-node pins Node 22
+# so `node --experimental-strip-types` can run the ARIA frontend contract.
 
 name: Frontend CI
 
@@ -19,6 +20,8 @@ on:
       - "postcss.config.mjs"
       - "eslint.config.mjs"
       - "vitest.config.mts"
+      - "shared/**"
+      - "scripts/check-aria-frontend.ts"
       - ".github/workflows/frontend-ci.yml"
   pull_request:
     paths:
@@ -31,6 +34,8 @@ on:
       - "postcss.config.mjs"
       - "eslint.config.mjs"
       - "vitest.config.mts"
+      - "shared/**"
+      - "scripts/check-aria-frontend.ts"
       - ".github/workflows/frontend-ci.yml"
 
 permissions:
@@ -44,7 +49,12 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Setup Node
+        uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5.0.0
+        with:
+          node-version: 22
 
       - name: Enable pnpm (Corepack)
         run: corepack enable
@@ -60,6 +70,13 @@ jobs:
 
       - name: Test
         run: pnpm test
+
+      # Drift gate: src/lib/aria-mark.ts must stay lockstep with
+      # shared/aria-mark.json. This script existed but was never a CI step, so
+      # a contract-only edit of shared/ also skipped this workflow (path
+      # filter omitted shared/**).
+      - name: ARIA frontend contract
+        run: node --experimental-strip-types scripts/check-aria-frontend.ts
 
       - name: Build
         run: pnpm build

@@ -3,19 +3,13 @@
 
 name: SimRunner
 
-# Runs on every branch and every pull request — main included. Path filters scope
-# it to SimRunner; there is deliberately no branch filter.
-on:
-  push:
-    paths:
-      - "backend/ai/**"
-      - "backend/simrunner/**"
-      - ".github/workflows/simrunner.yml"
-  pull_request:
-    paths:
-      - "backend/ai/**"
-      - "backend/simrunner/**"
-      - ".github/workflows/simrunner.yml"
+# Always run. Path filters hid SimRunner the same way they hid Backend CI:
+# frontend-only commits on main skipped this workflow while the previous
+# backend merge was already red. The filters were also too narrow —
+# `backend/ai/**` + `backend/simrunner/**` miss `backend/infra/lambda/**`,
+# which SimRunner imports (production_bridge / dummy lambda engine). A
+# NameError in aria_core then never re-ran this job. No branch or path filter.
+on: [push, pull_request]
 
 permissions:
   contents: read
@@ -30,7 +24,7 @@ jobs:
 
     steps:
       # Actions must be pinned to a full-length commit SHA (repo policy).
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       # No setup-python: the harness is stdlib-only and Python 3.10+, so the
       # runner's system python3 (3.12 on ubuntu-24.04) is sufficient.

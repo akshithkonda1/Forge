@@ -417,8 +417,8 @@ def _discover_projects() -> list[str]:
 def main(argv: list[str]) -> int:
     paths = argv[1:] or _discover_projects()
     if not paths:
-        print("check-pbxproj: no project.pbxproj found")
-        return 0
+        print("check-pbxproj: no project.pbxproj found", file=sys.stderr)
+        return 1
 
     findings: list[str] = []
     for p in paths:

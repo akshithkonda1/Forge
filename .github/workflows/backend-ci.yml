@@ -4,17 +4,12 @@
 
 name: Backend CI
 
-# Runs on every branch and every pull request — main included. Path filters scope
-# it to the backend; there is deliberately no branch filter.
-on:
-  push:
-    paths:
-      - "backend/**"
-      - ".github/workflows/backend-ci.yml"
-  pull_request:
-    paths:
-      - "backend/**"
-      - ".github/workflows/backend-ci.yml"
+# Always run. Path filters hid a red backend: HEAD of main (#377, frontend-only)
+# showed every check green while Backend CI never started, even though the
+# previous backend merge (#378) was FAILED (failures=15, errors=164). Skipped
+# required/visible checks treated that redness as "not this commit". There is
+# deliberately no branch filter and no path filter.
+on: [push, pull_request]
 
 permissions:
   contents: read
@@ -27,7 +22,7 @@ jobs:
   test:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Backend unit tests (lambda + ARIA + biometrics)
         run: python3 -m unittest discover -s backend/tests -p "test_*.py" -v
