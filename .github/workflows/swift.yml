@@ -59,14 +59,14 @@ jobs:
             relevant:
               - "ForgeSwift/**"
               - "ForgeWidget/**"
-              - ".github/workflows/swift.yml"
 
   build:
     name: swift-build
     needs: changes
-    # Xcode 27 / iOS 27 / watchOS 27 — the SDK Forge is developed against.
+    # Xcode 27 / iOS 27 / watchOS 27 when Swift sources changed. The no-op
+    # path stays on ubuntu-latest so a non-Swift PR does not start macOS.
     # macos-15 ships Xcode 16 and cannot compile a deployment target of 27.
-    runs-on: xcode-27
+    runs-on: ${{ needs.changes.outputs.relevant == 'true' && 'xcode-27' || 'ubuntu-latest' }}
     defaults:
       run:
         working-directory: ForgeSwift
@@ -75,7 +75,7 @@ jobs:
       - name: No-op (no relevant changes)
         if: needs.changes.outputs.relevant != 'true'
         working-directory: ${{ github.workspace }}
-        run: echo "No Swift changes; succeeding as a no-op so required checks report."
+        run: echo "No Swift changes; succeeding as a no-op so required checks report. runner_os=${RUNNER_OS}"
 
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         if: needs.changes.outputs.relevant == 'true'
