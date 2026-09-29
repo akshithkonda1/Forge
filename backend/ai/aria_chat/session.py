@@ -2,7 +2,7 @@
 
 Pinned to ``dummy_orchestrator.respond(engine="lambda")`` through
 ``fuse_turn``, never the SimRunner stub. Multi-turn state comes only from
-the request/session history (``routes.aria._turn_from_history``).
+the request/session history (``routes.aria._prior_user_turns``).
 Memory-off never reads notes, ``remember_short_term``, ``last_insights``,
 or persisted fusion.
 """
@@ -22,7 +22,7 @@ ensure_lambda_on_path()
 from aria_core import speak_guard  # noqa: E402
 from aria_core import state_read  # noqa: E402
 from routes.aria import (  # noqa: E402
-    _turn_from_history,
+    _prior_user_turns,
     sanitize_inbound_chat_payload,
 )
 from security import MAX_CHAT_MESSAGE_CHARS, sanitize_user_text  # noqa: E402
@@ -46,6 +46,30 @@ def _sanitize_or_placeholder(text: str, needles: list[str] | None) -> str:
     """Sanitize before fuse/log. Never fall back to the raw secret text."""
     cleaned = chatlog.sanitize_logged_text(text, needles)
     return cleaned if cleaned else REDACTED_PLACEHOLDER
+
+
+def _sanitize_history(history: list | None, needles: list[str] | None) -> list:
+    """Sanitize every history text field before turn-index or Dummy prior_turns."""
+    if not isinstance(history, list):
+        return []
+    out: list = []
+    for item in history:
+        if isinstance(item, str):
+            out.append(_sanitize_or_placeholder(item, needles))
+            continue
+        if not isinstance(item, dict):
+            continue
+        row = dict(item)
+        text = str(row.get("content") or row.get("message") or row.get("text") or "")
+        cleaned = _sanitize_or_placeholder(text, needles)
+        if "content" in row or not (row.get("message") or row.get("text")):
+            row["content"] = cleaned
+        elif "message" in row:
+            row["message"] = cleaned
+        else:
+            row["text"] = cleaned
+        out.append(row)
+    return out
 
 
 def _construct_remote_client(*_args: Any, **_kwargs: Any) -> None:
@@ -185,10 +209,12 @@ def run_turn(
         context = dict(context)
         context["timestamp"] = "2026-01-15T12:00:00Z"
         body["context"] = context
-    turn_index, prior = _turn_from_history(history)
-    prior = [_sanitize_or_placeholder(item, needles) for item in prior]
-    last_spoken = _last_assistant(history)
-    prior_spoken = conversation.prior_spoken_from_history(history)
+    # Sanitize first. Never hand raw turns to the route body helper, and
+    # do not add history/recentTurns/messages fields that would be re-read raw.
+    sanitized_history = _sanitize_history(history, needles)
+    turn_index, prior = _prior_user_turns(sanitized_history)
+    last_spoken = _last_assistant(sanitized_history)
+    prior_spoken = conversation.prior_spoken_from_history(sanitized_history)
 
     # Phrase key / turn seed from the per-install pseudonym, never a real uid.
     # Searched the repo first: no existing per-install id; see install.py.

@@ -39,7 +39,7 @@ from aria_core import state_read  # noqa: E402
 from handler import handler  # noqa: E402
 from routes.aria import (  # noqa: E402
     _DENIED_LIFESTYLE,
-    _turn_from_history,
+    _prior_user_turns,
     sanitize_inbound_chat_payload,
 )
 from services import guidance  # noqa: E402
@@ -791,7 +791,7 @@ class SmallTalkAndHistoryTests(unittest.TestCase):
         self.assertNotEqual(first["message"], second["message"])
         self.assertEqual(second["message"], again["message"])
         self.assertEqual(second["seed"], again["seed"])
-        self.assertEqual(_turn_from_history(history)[0], 1)
+        self.assertEqual(_prior_user_turns(history)[0], 1)
 
     def test_follow_up_refers_to_earlier_turn(self):
         tmp = tempfile.TemporaryDirectory()
@@ -817,7 +817,7 @@ class SmallTalkAndHistoryTests(unittest.TestCase):
         _assert_friend_voice(self, spoken)
 
     def test_turn_from_history_ignores_persisted_shape(self):
-        turn, prior = _turn_from_history(
+        turn, prior = _prior_user_turns(
             [
                 {"role": "user", "content": "hello"},
                 {"role": "assistant", "content": "Hi."},

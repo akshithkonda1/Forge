@@ -62,12 +62,12 @@ def _history_role(item: Any) -> str:
     return str(item.get("role") or item.get("speaker") or "user").strip().lower()
 
 
-def _turn_from_history(history: Any) -> tuple[int, list[str]]:
-    """Turn index and prior user texts from request/session history only.
+def _prior_user_turns(history: Any) -> tuple[int, list[str]]:
+    """Turn index and prior user texts from a history list only.
 
-    Never reads notes, STM, last_insights, or persisted fusion. History items
-    are ``{role, content}`` dicts or raw strings (treated as user). The current
-    message is not in ``history`` — turn index is the count of prior user lines.
+    Shared helper for Dummy chat. The route ``_turn_from_history`` stays
+    body-shaped and is not called with a list. History items are
+    ``{role, content}`` dicts or raw strings (treated as user).
     """
     if not isinstance(history, list) or not history:
         return 0, []
@@ -264,7 +264,7 @@ def _conversation_block(body: dict[str, Any]) -> dict[str, Any]:
     return {}
 
 
-def _turn_count_from_conversation(body: dict[str, Any]) -> int:
+def _turn_from_history(body: dict[str, Any]) -> int:
     """Count prior turns from the inbound conversation payload."""
     conv = _conversation_block(body)
     for key in ("totalTurns", "total_turns"):
@@ -300,7 +300,7 @@ def _request_turn(body: dict[str, Any]) -> int:
             return max(0, int(raw))
         except (TypeError, ValueError):
             pass
-    return _turn_count_from_conversation(body)
+    return _turn_from_history(body)
 
 
 def _checked_speak(fn, *args, **kwargs):
