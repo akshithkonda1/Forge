@@ -19,16 +19,8 @@ from backend._paths import ensure_lambda_on_path
 
 ensure_lambda_on_path()
 
-import zlib as _zlib  # noqa: E402
-
 from aria_core import speak_guard  # noqa: E402
 from aria_core import state_read  # noqa: E402
-
-# PR 380 `state_read.phrase_key` uses zlib without importing it. Bind it here
-# so Dummy chat can seed turns without editing that file.
-if getattr(state_read, "zlib", None) is None:
-    state_read.zlib = _zlib
-
 from routes.aria import (  # noqa: E402
     _history_role,
     _history_text,
@@ -71,14 +63,6 @@ def _turn_from_history(history: Any) -> tuple[int, list[str]]:
             prior.append(text)
             user_count += 1
     return user_count, prior
-
-
-def _bind_dummy_phrase_ids(prior: list[str], seed: int) -> None:
-    """Unblock Dummy hypertune after #380 left ``phrase_uid`` unbound."""
-    from backend.ai.simrunner.aria_simrunner import dummy_orchestrator as dummy_mod
-
-    dummy_mod.phrase_uid = ""
-    dummy_mod.phrase_turn = len(prior) + 1 if prior else int(seed) & 0xFFFFFFFF
 
 
 def _sanitize_or_placeholder(text: str, needles: list[str] | None) -> str:
@@ -261,7 +245,6 @@ def run_turn(
     else:
         # Engine pin: Dummy chat always uses dummy_orchestrator.respond(engine="lambda")
         # through fuse_turn — never the SimRunner stub, even if ARIA_BEDROCK_ENABLED=true.
-        _bind_dummy_phrase_ids(prior, int(phrase))
         row = dummy_respond(
             spoken_in,
             engine=ENGINE_LAMBDA,
