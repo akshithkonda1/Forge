@@ -29,6 +29,11 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v4
 
+      - name: Undefined names (ruff F821)
+        run: |
+          python3 -m pip install --user 'ruff==0.13.2'
+          python3 -m ruff check backend --select F821
+
       - name: Backend unit tests (lambda + ARIA + biometrics)
         run: python3 -m unittest discover -s backend/tests -p "test_*.py" -v
 
