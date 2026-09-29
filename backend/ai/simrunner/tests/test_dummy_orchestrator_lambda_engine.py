@@ -220,7 +220,9 @@ class DummyARIAEngineUsesLambdaTests(unittest.TestCase):
         resp = engine.respond("Should I train today?", ctx, seed=1)
         self.assertIsInstance(resp.recommendation, str)
         self.assertTrue(resp.recommendation)
-        self.assertIn("sleep", resp.recommendation.lower())
+        # Sleep lives on the spoken line; the button stays distinct.
+        self.assertEqual(resp.recommendation.rstrip("."), "Keep today easy")
+        self.assertIn("sleep", (resp.prose_summary or "").lower())
 
     def test_same_day_strength_never_says_zero_hours_since(self):
         ctx, _ = _ctx()
