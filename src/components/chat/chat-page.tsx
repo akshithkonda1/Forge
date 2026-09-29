@@ -51,8 +51,10 @@ function TypingIndicator() {
 // Message bubble component (inline, spec-compliant)
 // ---------------------------------------------------------------------------
 
-function formatTime(date: Date): string {
-  return date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+export function formatChatTime(date: Date | string | number): string {
+  const parsed = date instanceof Date ? date : new Date(date);
+  if (Number.isNaN(parsed.getTime())) return "";
+  return parsed.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
 }
 
 function MessageBubble({
@@ -132,7 +134,7 @@ function MessageBubble({
 
         {/* Timestamp */}
         <span className="px-1 text-[10px] text-text-tertiary">
-          {formatTime(message.timestamp)}
+          {formatChatTime(message.timestamp)}
         </span>
       </div>
     </div>
@@ -163,6 +165,7 @@ export function ChatPage() {
   const scrollAreaRef = useRef<HTMLDivElement>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const replyTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const wasTypingRef = useRef(false);
   const announcedReplyIdsRef = useRef<Set<string>>(new Set());
   const [liveAnnouncement, setLiveAnnouncement] = useState("");
@@ -222,7 +225,9 @@ export function ChatPage() {
       // Show typing indicator, then respond
       setIsTyping(true);
 
-      window.setTimeout(() => {
+      if (replyTimerRef.current) window.clearTimeout(replyTimerRef.current);
+      replyTimerRef.current = window.setTimeout(() => {
+        replyTimerRef.current = null;
         const { content, richCard } = getTrainerResponse(
           trimmed,
           userProfile,
@@ -245,6 +250,15 @@ export function ChatPage() {
     },
     [addMessage, isTyping, userProfile, readiness, dailyMetrics, sleepData, speakReply]
   );
+
+  useEffect(() => {
+    return () => {
+      if (replyTimerRef.current) window.clearTimeout(replyTimerRef.current);
+      if (typeof window !== "undefined" && "speechSynthesis" in window) {
+        window.speechSynthesis.cancel();
+      }
+    };
+  }, []);
 
   // Restore focus after a reply finishes. Do not `disabled` the field — that
   // drops keyboard focus. Seed existing trainer ids so hydration / remounts

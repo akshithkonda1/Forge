@@ -123,17 +123,26 @@ export default function Page() {
   const mainRef = useRef<HTMLElement>(null);
   const [visited, setVisited] = useState<TabId[]>([activeTab]);
   const [showLaunchMeet, setShowLaunchMeet] = useState(true);
-  const [returning] = useState(() => peekPersistedOnboarded());
+  // Peek localStorage only after mount — the initializer would disagree with SSR.
+  const [returning, setReturning] = useState(false);
   const [showSplash, setShowSplash] = useState(!didFinishSplash);
   if (!visited.includes(activeTab)) {
     setVisited([...visited, activeTab]);
   }
 
   useEffect(() => {
+    setReturning(peekPersistedOnboarded());
+  }, []);
+
+  useEffect(() => {
     const finish = () => setHasHydrated(true);
     const unsub = useAppStore.persist.onFinishHydration(finish);
     if (useAppStore.persist.hasHydrated()) finish();
-    return unsub;
+    const failsafe = window.setTimeout(finish, 250);
+    return () => {
+      unsub();
+      window.clearTimeout(failsafe);
+    };
   }, [setHasHydrated]);
 
   useEffect(() => {
