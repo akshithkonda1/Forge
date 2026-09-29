@@ -111,11 +111,20 @@ def collect_needles(payload: dict[str, Any], message: str) -> list[str]:
         for event in events:
             if not isinstance(event, dict):
                 continue
-            for key in ("title", "summary", "name"):
+            for key in ("title", "summary", "name", "location", "place"):
                 value = event.get(key)
                 text = str(value or "").strip()
                 if text and text != _BUSY_WINDOW_LABEL:
                     needles.append(text)
+            attendees = event.get("attendees") or event.get("attendee")
+            if isinstance(attendees, list):
+                for person in attendees:
+                    label = person.get("name") if isinstance(person, dict) else person
+                    text = str(label or "").strip()
+                    if text:
+                        needles.append(text)
+            elif attendees:
+                needles.append(str(attendees).strip())
     blob = json.dumps(payload, default=str) + " " + str(message or "")
     for match in _PARTNER_NEEDLE.finditer(blob):
         needles.append(match.group(0))
@@ -128,12 +137,37 @@ def collect_needles(payload: dict[str, Any], message: str) -> list[str]:
     return out
 
 
-def sanitize_logged_text(text: str, needles: list[str] | None = None) -> str:
-    """Same inbound sanitizer ingest uses, then needle + partner scrub."""
+def sanitize_logged_text(
+    text: str,
+    needles: list[str] | None = None,
+    payload: dict[str, Any] | None = None,
+) -> str:
+    """Same inbound sanitizer ingest uses, then needle + partner scrub.
+
+    User turns, request history, and rating notes all go through
+    ``sanitize_inbound_chat_payload`` before any write.
+    """
     raw = str(text or "")
-    clean_payload = sanitize_inbound_chat_payload({"message": raw})
+    bag: dict[str, Any] = {"message": raw}
+    events: list[dict[str, Any]] = []
+    tags: list[str] = list(raw.split())
+    if isinstance(payload, dict):
+        raw_events = payload.get("calendar_events")
+        if isinstance(raw_events, list):
+            events.extend(item for item in raw_events if isinstance(item, dict))
+        ctx = payload.get("context") if isinstance(payload.get("context"), dict) else {}
+        life = ctx.get("lifestyle") if isinstance(ctx.get("lifestyle"), dict) else {}
+        tags.extend(str(t) for t in (life.get("tags") or []) if t)
+    for needle in needles or []:
+        if needle:
+            events.append({"title": needle, "summary": needle, "name": needle})
+    if events:
+        bag["calendar_events"] = events
+    bag["context"] = {"lifestyle": {"tags": tags}}
+    clean_payload = sanitize_inbound_chat_payload(bag)
     cleaned = sanitize_user_memory_text(str(clean_payload.get("message") or raw)) or ""
-    return _scrub_string(cleaned, list(needles or []))
+    found = list(needles or []) + collect_needles(payload or {}, raw)
+    return _scrub_string(cleaned, found)
 
 
 def _scrub_string(text: str, needles: list[str]) -> str:
@@ -271,8 +305,11 @@ def build_record(
 ) -> dict[str, Any]:
     """Build a versioned JSONL row. Redact before the caller writes."""
     found = list(needles or []) or collect_needles(payload, user_message)
-    clean_user = sanitize_logged_text(user_message, found)
-    history = [sanitize_logged_text(item, found) for item in (request_history or [])]
+    clean_user = sanitize_logged_text(user_message, found, payload=payload)
+    history = [
+        sanitize_logged_text(item, found, payload=payload)
+        for item in (request_history or [])
+    ]
     fusion = envelope.get("fusion") if isinstance(envelope.get("fusion"), dict) else {}
     brief = (
         envelope.get("contextualization")
@@ -400,9 +437,20 @@ def set_feedback(
     return updated
 
 
-def _export_row_ok(row: dict[str, Any]) -> dict[str, Any]:
-    """Re-run redaction. Drop memory keys. Keep speech digit-free."""
-    row = _scrub_obj(row, [])
+def _export_row_ok(row: dict[str, Any], needles: list[str] | None = None) -> dict[str, Any]:
+    """Re-run ingest redaction. Drop memory keys. Keep speech digit-free."""
+    found = list(needles or [])
+    row["user_turn"] = sanitize_logged_text(str(row.get("user_turn") or ""), found)
+    row["request_history"] = [
+        sanitize_logged_text(str(item or ""), found)
+        for item in (row.get("request_history") or [])
+    ]
+    feedback = row.get("feedback") if isinstance(row.get("feedback"), dict) else {}
+    if feedback.get("note"):
+        feedback["note"] = sanitize_logged_text(str(feedback.get("note") or ""), found)
+        row["feedback"] = feedback
+    row = _drop_memory_keys(row)
+    row = _scrub_obj(row, found)
     reply = row.get("reply") if isinstance(row.get("reply"), dict) else {}
     for key in ("message", "prose_summary"):
         text = str(reply.get(key) or "")
@@ -420,6 +468,7 @@ def export_session(
     *,
     dest: Path | None = None,
     log_dir: Path | None = None,
+    needles: list[str] | None = None,
 ) -> Path:
     """Copy a sanitized session into repo fixtures (or ``dest``). Re-redacts."""
     source = session_path(session_id, log_dir)
@@ -440,7 +489,7 @@ def export_session(
             row = json.loads(line)
         except json.JSONDecodeError:
             continue
-        row = _export_row_ok(row)
+        row = _export_row_ok(row, needles)
         lines.append(json.dumps(row, ensure_ascii=False))
     target.write_text("\n".join(lines) + ("\n" if lines else ""), encoding="utf-8")
     return target

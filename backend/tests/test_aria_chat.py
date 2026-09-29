@@ -347,6 +347,89 @@ class RedactionLogTests(unittest.TestCase):
             self.assertTrue(rows[1]["request_history"])
             self.assertNotIn("Dr. Patel follow-up", json.dumps(rows[1]["request_history"]))
 
+    def test_never_logs_memory_contents(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            payload = _payload()
+            payload["memory_prompt_block"] = "SECRET_PROMPT_BLOCK"
+            payload["notes"] = ["SECRET_COMPANION_NOTE"]
+            payload["persona"] = {"voice": "SECRET_PERSONA"}
+            payload["context"]["last_insights"] = ["SECRET_INSIGHT"]
+            payload["context"]["lifestyle"] = {
+                "tags": ["late_fee"],
+                "recentPatterns": ["SECRET_PATTERN"],
+            }
+            result = _turn(
+                "hey, how's it going?",
+                payload=payload,
+                memory_enabled=True,
+                log_dir=tmp,
+                session_id="mem-log-sess",
+            )
+            blob = Path(result["log_path"]).read_text(encoding="utf-8")
+            for secret in (
+                "SECRET_PROMPT_BLOCK",
+                "SECRET_COMPANION_NOTE",
+                "SECRET_PERSONA",
+                "SECRET_INSIGHT",
+                "SECRET_PATTERN",
+            ):
+                self.assertNotIn(secret, blob)
+            row = json.loads(blob.strip().splitlines()[0])
+            for key in (
+                "memory_prompt_block",
+                "persona",
+                "recentPatterns",
+                "last_insights",
+                "notes",
+            ):
+                self.assertNotIn(key, row)
+            self.assertIn("memory_off", row)
+            self.assertFalse(row["memory_off"])
+            for code in row["stance_inputs"]:
+                self.assertIn(code, chatlog.ALLOWED_STANCE_INPUTS)
+
+    def test_export_rechecks_redaction(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            session_id = "dirty-export"
+            path = Path(tmp) / f"{session_id}.jsonl"
+            dirty = {
+                "schema_version": 2,
+                "engine": "dummy",
+                "user_turn": "partner_cycle:day14 at Dr. Patel follow-up",
+                "request_history": ["calendar:title:Sister's wedding"],
+                "feedback": {
+                    "rating": "down",
+                    "note": "partner_cycle:day14 at Dr. Patel follow-up",
+                },
+                "reply": {
+                    "message": "HRV 44 and 6 hours",
+                    "prose_summary": "score 88",
+                },
+                "last_insights": ["SECRET_INSIGHT"],
+                "persona": {"voice": "SECRET_PERSONA"},
+                "stance_inputs": ["protect"],
+            }
+            path.write_text(json.dumps(dirty) + "\n", encoding="utf-8")
+            dest = Path(tmp) / "out.jsonl"
+            chatlog.export_session(
+                session_id,
+                dest=dest,
+                log_dir=tmp,
+                needles=["Dr. Patel follow-up", "Sister's wedding"],
+            )
+            text = dest.read_text(encoding="utf-8")
+            self.assertIsNone(_DENIED_LIFESTYLE.search(text), text)
+            self.assertNotIn("Dr. Patel follow-up", text)
+            self.assertNotIn("Sister's wedding", text)
+            self.assertNotIn("partner_cycle", text)
+            self.assertNotIn("SECRET_INSIGHT", text)
+            self.assertNotIn("SECRET_PERSONA", text)
+            row = json.loads(text.strip().splitlines()[0])
+            speech = row["reply"]["message"] + " " + row["reply"]["prose_summary"]
+            self.assertFalse(_spoken_digits(speech), speech)
+            self.assertNotIn("last_insights", row)
+            self.assertNotIn("persona", row)
+
     def test_leak_calendar_title_partner_and_rating_note(self):
         with tempfile.TemporaryDirectory() as tmp:
             payload = _payload()
@@ -379,6 +462,8 @@ class RedactionLogTests(unittest.TestCase):
             row = json.loads(text.strip().splitlines()[0])
             speech = row["reply"]["message"] + " " + row["reply"]["prose_summary"]
             self.assertFalse(_spoken_digits(speech), speech)
+            self.assertIn("memory_off", row)
+            self.assertTrue(row["memory_off"])
 
 
 class SmallTalkAndHistoryTests(unittest.TestCase):

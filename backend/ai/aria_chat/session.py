@@ -382,7 +382,10 @@ class ChatSession:
 
     def export(self, dest: Any = None) -> Any:
         return chatlog.export_session(
-            self.session_id, dest=dest, log_dir=self.log_dir
+            self.session_id,
+            dest=dest,
+            log_dir=self.log_dir,
+            needles=self.needles,
         )
 
     def purge(self) -> int:
