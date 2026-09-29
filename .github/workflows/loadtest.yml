@@ -1,0 +1,68 @@
+# Optional Dummy-local k6 harness. Never runs on push or pull_request.
+# Starts backend/loadtest/run_server.py on 127.0.0.1 only. No AWS, no
+# secrets, no Bedrock, no ElevenLabs.
+
+name: Local Dummy load test
+
+on:
+  workflow_dispatch:
+    inputs:
+      scenario:
+        description: Scenario to run against the local Dummy backend
+        type: choice
+        options:
+          - baseline
+          - stress
+        default: baseline
+
+permissions:
+  contents: read
+
+concurrency:
+  group: loadtest-local-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  loadtest:
+    name: Local Dummy k6
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    env:
+      BASE_URL: http://127.0.0.1:3001
+      HOST: 127.0.0.1
+      PORT: "3001"
+      ARIA_BEDROCK_ENABLED: "false"
+      ARIA_VOICE_ENABLED: "false"
+      ENVIRONMENT: local
+      FORGE_ALLOW_ANON_TEST_USER: "true"
+      FORGE_TEST_USER_ID: loadtest-user
+      LOADTEST_RESULTS_DIR: backend/loadtest/results
+    steps:
+      # Actions must be pinned to a full-length commit SHA (repo policy).
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Install k6
+        uses: grafana/setup-k6-action@43b9fc21641a76002687994433dd586f56e791b1 # v1.2.2
+        with:
+          k6-version: v2.3.0
+          browser: false
+
+      - name: Preflight refuse-to-run gates
+        run: python3 -m unittest backend.loadtest.test_preflight backend.loadtest.test_guard -v
+
+      - name: k6 inspect (syntax only)
+        run: |
+          k6 inspect backend/loadtest/k6/baseline.js
+          k6 inspect backend/loadtest/k6/stress.js
+
+      - name: Run chosen Dummy scenario
+        run: bash backend/loadtest/run.sh "${{ inputs.scenario }}"
+
+      - name: Upload results
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: loadtest-results
+          path: backend/loadtest/results/
+          if-no-files-found: warn
+          retention-days: 14

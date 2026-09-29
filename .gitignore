@@ -68,6 +68,10 @@ backend/simrunner/reports/
 # Dummy ARIA local chat sessions (eval JSONL; export fixtures separately)
 backend/ai/chat_sessions/
 
+# Local Dummy loadtest output (k6 JSON + markdown)
+backend/loadtest/results/*
+!backend/loadtest/results/.gitignore
+
 # Accidental nested monorepo clone (use ForgeWidget/ for widgets)
 /Forge/
 ForgeSwift/ForgeCore/.build/
