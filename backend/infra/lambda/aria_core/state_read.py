@@ -596,14 +596,14 @@ def _join_read(speech: str, clause: str, *, ack: bool, direction: str = "") -> s
     parts = [s.strip() for s in _SENTENCE_SPLIT.split(body) if s.strip()]
     if not parts:
         return speech
-    step_i = next((i for i, sentence in enumerate(parts) if _has_step(sentence)), None)
-    if step_i is None:
-        return speech
-    sentence = parts[step_i]
     safety_parts = [part for part in parts if _is_safety_sentence(part)]
     if safety_parts:
-        # Iris: safety, then the exact protect step, then the read as its
-        # own sentence. Do not fold the step into "short night, so …".
+        # Real short-sleep / overtrain only: safety, then the exact protect
+        # step, then the read. Ordinary turns keep the 61f5568 in-place join.
+        step_i = next((i for i, sentence in enumerate(parts) if _has_step(sentence)), None)
+        if step_i is None:
+            return speech
+        sentence = parts[step_i]
         rest = [
             part
             for i, part in enumerate(parts)
@@ -615,20 +615,19 @@ def _join_read(speech: str, clause: str, *, ack: bool, direction: str = "") -> s
             extra = [lead_line]
         step = sentence if sentence.endswith((".", "!", "?")) else f"{sentence}."
         return " ".join([*safety_parts, step, *extra, *rest])
-    if _aligned(direction, sentence):
-        joined = f"{lead}, so {_de_sentence_case(sentence)}"
-    elif _opposite(direction, sentence):
-        # Only 'Still,' when read and step point opposite ways.
-        joined = f"{lead}. Still, {_de_sentence_case(sentence)}"
-    else:
-        joined = f"{lead}. {_sentence_case(sentence)}"
-    if step_i == 0:
-        parts[0] = joined
+    for i, sentence in enumerate(parts):
+        if not _has_step(sentence):
+            continue
+        if _aligned(direction, sentence):
+            rest = _de_sentence_case(sentence)
+            parts[i] = f"{lead}, so {rest}"
+        elif _opposite(direction, sentence):
+            # Only 'Still,' when read and step point opposite ways.
+            parts[i] = f"{lead}. Still, {_de_sentence_case(sentence)}"
+        else:
+            parts[i] = f"{lead}. {_sentence_case(sentence)}"
         return " ".join(parts)
-    # Host / safety lines stay; the joined read+step leads so the first
-    # sentence is the takeaway existing tests assert.
-    rest = [part for i, part in enumerate(parts) if i != step_i]
-    return " ".join([joined, *rest])
+    return speech
 
 
 def _de_sentence_case(text: str) -> str:

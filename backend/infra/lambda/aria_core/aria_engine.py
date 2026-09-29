@@ -2539,16 +2539,16 @@ def _recommendation_response(
             if card is not None:
                 card["action"] = action
     spoken_action = action
-    if pattern.blocks_intensity:
-        # Never speak the raw risk notice. Keep existing prose (lifestyle /
-        # lead interpretation / state-read later) and put the clean line
-        # before the protect step.
+    safety = spoken_safety_line(pattern, load)
+    if safety:
+        # Real short-sleep / overtrain only. protect_cluster, low_readiness,
+        # and life-rhythm do not get the spoken safety / protect lines.
         prose = _compose_blocking_speak(pattern, load, signals, brief, action, notice)
         extras = [bit for bit in notice_bits[1:] if bit]
         if extras:
             prose = f"{prose} {' '.join(extras)}"
         spoken_action = _spoken_protect_step(
-            action, sleep_first=spoken_safety_line(pattern, load) == SPOKEN_SHORT_SLEEP
+            action, sleep_first=safety == SPOKEN_SHORT_SLEEP
         )
         if card is not None:
             # Buttons stay off the spoken line. Overtrain keeps a directional
@@ -2558,8 +2558,8 @@ def _recommendation_response(
         # Never fold evidence.why ("…so sleep comes first.") into spoken text.
         why = None
     elif (pattern.notice or "").strip().lower().rstrip(".") in _GENERIC_NOTICES:
-        # Clarify / empty-protect notices are not a data read — keep the
-        # lead interpretation so replies still reference real numbers.
+        # Ordinary protect_cluster / clarify / mid-band: keep the lead
+        # interpretation (variance, usual). Do not inject a protect line.
         existing = _existing_blocking_prose(signals, brief, "", pattern)
         if existing:
             prose = existing
@@ -2572,7 +2572,7 @@ def _recommendation_response(
         card=card,
         message=(
             prose
-            if pattern.blocks_intensity
+            if safety
             else _structured_message(notice, spoken_action, why)
         ),
         suggested_actions=actions,
@@ -2606,8 +2606,8 @@ def _plan_response(
         f"{pattern.key.replace('_', ' ').title()} plan — "
         f"{outline[0]['focus']} today, then {outline[1]['focus'].lower()}"
     )
-    if pattern.blocks_intensity:
-        safety = spoken_safety_line(pattern, load)
+    safety = spoken_safety_line(pattern, load)
+    if safety:
         extra = safety or _existing_blocking_prose(signals, brief, "", pattern)
         prose = f"{headline}. {extra}".strip() if extra else f"{headline}."
     else:
@@ -2627,7 +2627,7 @@ def _plan_response(
         "load": load.to_dict(),
     }
     plan_step = outline[0]["note"]
-    if pattern.blocks_intensity:
+    if safety:
         plan_step = _spoken_protect_step(plan_step)
         if card is not None:
             card["action"] = _blocking_card_action(pattern, load)
@@ -2698,9 +2698,9 @@ def _insight_response(
 
     prose = f"{lead.metric}: {lead.current_value}. {_cap(lead.interpretation)}."
     insight_step = pattern.next_step
-    if pattern.blocks_intensity:
-        safety = spoken_safety_line(pattern, load)
-        if safety and safety.lower() not in prose.lower():
+    safety = spoken_safety_line(pattern, load)
+    if safety:
+        if safety.lower() not in prose.lower():
             prose = f"{prose} {safety}"
         insight_step = _spoken_protect_step(insight_step)
     card = None if voice_mode else {
@@ -2711,7 +2711,7 @@ def _insight_response(
         "priority": lead.priority,
         "action": (
             _blocking_card_action(pattern, load)
-            if pattern.blocks_intensity
+            if safety
             else pattern.next_step
         ),
         "evidence": pattern.to_dict(),
@@ -2777,19 +2777,24 @@ def _summary_response(
         facts.append(f"{p.workouts_completed_30d} workouts in 30 days")
     if p.new_personal_records:
         facts.append(f"{p.new_personal_records} new PR{'s' if p.new_personal_records != 1 else ''}")
-    # Card-only load wording. When intensity is blocked, use the same
-    # ACWR / overtrain signal as the climbed-fast line — never "load steady"
-    # from a second source (iOS three-session floor / Dummy training_streak).
+    # Card-only load wording. Real short-sleep / overtrain uses the same
+    # ACWR signal as the climbed-fast line — never "load steady" from a
+    # second source. Ordinary protect_cluster keeps the 61f5568 trend.
+    safety = spoken_safety_line(pattern, load)
     trend_word = (p.training_load_trend or "").strip().lower()
-    if pattern.blocks_intensity and (
+    if safety and (
         load.is_overtrained
         or (load.acwr is not None and load.acwr >= aria_evidence.ACWR_OVERREACH)
     ):
         trend_word = "rising"
-    elif pattern.blocks_intensity and trend_word == "steady":
+    elif safety and trend_word == "steady":
         trend_word = ""
-    if trend_word:
-        facts.append(f"load {trend_word}")
+    if safety:
+        if trend_word:
+            facts.append(f"load {trend_word}")
+    elif p.training_load_trend:
+        facts.append(f"load {p.training_load_trend}")
+        trend_word = (p.training_load_trend or "").strip().lower()
     headline = "; ".join(facts) or "limited progress data"
 
     trend = (trend_word or p.training_load_trend or "steady").lower()
@@ -2820,16 +2825,14 @@ def _summary_response(
     rec = "Hold the structure and progress one variable next block."
     if goal in _GOAL_FOCUS:
         rec = f"Next block: bias toward your {goal} goal — {_GOAL_FOCUS[goal]}."
-    if pattern.blocks_intensity:
-        # Never tell an overtrained / blocked user to progress. Button is
+    if safety:
+        # Never tell an overtrained / short-sleep user to progress. Button is
         # card-only and shares the recommendation-lane back-off constant.
         rec = _blocking_card_action(pattern, load)
 
-    # Numeric 30-day recap ("Last 30 days: 0 workouts… load steady") is
-    # pre-existing on main; when intensity is blocked it contradicts the
-    # safety line and leaks digits. Keep those facts on the card only.
-    if pattern.blocks_intensity:
-        safety = spoken_safety_line(pattern, load)
+    # Numeric 30-day recap is pre-existing on main. Hide digits only on
+    # real short-sleep / overtrain — ordinary protect_cluster stays 61f5568.
+    if safety:
         step = _spoken_protect_step("", sleep_first=safety == SPOKEN_SHORT_SLEEP)
         prose = _polish_blocking_speak(
             f"{safety} {step}", safety=safety, step=step
@@ -2837,7 +2840,9 @@ def _summary_response(
         message = prose
     else:
         prose = f"Last 30 days: {headline}. {win}"
-        message = _structured_message(prose, risk, rec)
+        if pattern.blocks_intensity:
+            prose = f"{prose} {risk}"
+        message = _structured_message(f"Last 30 days: {headline}. {win}", risk, rec)
     card = None if voice_mode else {
         "period_days": 30,
         "headline": headline,
@@ -3100,11 +3105,11 @@ def _finish_spoken_envelope(
     )
     envelope = speak_guard.dedupe_envelope_speech(envelope)
     evidence = envelope.get("evidence") if isinstance(envelope.get("evidence"), dict) else {}
-    if evidence.get("blocks_intensity") and _blocking_safety_in(
+    if _blocking_safety_in(
         f"{envelope.get('prose_summary') or ''} {envelope.get('message') or ''}"
     ):
-        # Do not re-polish after the read — that dropped "Short night." /
-        # "Not quite at your usual." Sync text and voice only.
+        # Real short-sleep / overtrain only. Do not re-polish after the
+        # read — that dropped "Short night." Sync text and voice only.
         spoken = envelope.get("prose_summary") or envelope.get("message")
         envelope["prose_summary"] = spoken
         envelope["message"] = spoken
