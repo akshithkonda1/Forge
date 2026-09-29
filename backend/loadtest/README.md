@@ -15,7 +15,9 @@ The Dummy process is started with a sitecustomize/import guard. Bedrock client c
 1. **baseline** (smoke): 3 VUs for 1 minute across `/health`, the main read routes, `POST /ai/chat`, and `POST /ai/observe`.
 2. **stress**: ramping arrival rate (5 → 80 rps) until p95 > 2s or errors ≥ 1%. The last held rate is the breaking point.
 
-Neither scenario is run by CI on push/PR. The optional workflow is `workflow_dispatch` only.
+These numbers cover the backend only; the TestFlight Dummy build never calls the backend.
+
+Neither scenario is run by CI on push/PR. The optional workflow is `workflow_dispatch` only. BASE_URL lives in the k6 env/script only — not in `ForgeSwift/**` plists, `generate_client_config`, or any client config (`--check` rejects loopback).
 
 ## Run
 
