@@ -388,7 +388,6 @@ def handle_post_ai_chat(body: dict[str, Any], *, user_id: str) -> dict:
                 "context_updates": {},
                 "memory_reference": None,
                 "missing_fields": aria_engine.apply_permissions(context, permissions)[0].missing_fields,
-                "user_id": uid,
                 "reasoning_source": "deterministic",
             }
         )
@@ -562,7 +561,6 @@ def handle_post_ai_chat(body: dict[str, Any], *, user_id: str) -> dict:
             "checkin": checkin_payload,
             "calendar_ingested": calendar_ingested,
             "missing_fields": aria_engine.apply_permissions(context, permissions)[0].missing_fields,
-            "user_id": uid,
         }
     )
     return ok(response)
