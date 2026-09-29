@@ -186,6 +186,11 @@ def _callback(prior: list[str], seed: int) -> str:
     last = (prior[-1] or "").strip()
     if not last:
         return ""
+    # Don't stitch a medical or coaching prior onto small talk.
+    if guidance.classify_band(last) != guidance.COACH:
+        return ""
+    if _COACH_RE.search(last):
+        return ""
     snippet = [
         w for w in last.replace("?", "").split()
         if w.lower() not in {"i", "a", "the", "to", "and", "you"}

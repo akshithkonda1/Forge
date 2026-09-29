@@ -97,8 +97,8 @@ def _turn_from_history(history: Any) -> tuple[int, list[str]]:
         if not text:
             continue
         role = _history_role(item)
-        prior.append(text)
         if role in ("", "user", "human"):
+            prior.append(text)
             user_count += 1
     return user_count, prior
 

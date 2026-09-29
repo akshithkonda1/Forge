@@ -253,7 +253,7 @@ class SmallTalkAndHistoryTests(unittest.TestCase):
             ]
         )
         self.assertEqual(turn, 2)
-        self.assertEqual(len(prior), 3)
+        self.assertEqual(prior, ["hello", "how am I doing?"])
 
 
 class MedicalBoundaryTests(unittest.TestCase):
