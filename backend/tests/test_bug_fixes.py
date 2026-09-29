@@ -4,6 +4,7 @@ Each test fails against the pre-fix code and passes after the fix. Grouped by
 the subsystem the defect lived in.
 """
 
+import inspect
 import json
 import os
 import re
@@ -11,6 +12,7 @@ import sys
 import unittest
 from datetime import datetime, timezone
 from pathlib import Path
+from unittest.mock import patch
 
 import _bootstrap  # noqa: F401
 
@@ -446,6 +448,83 @@ class CoachContextSeesTheSameSleepAriaChatAlreadyHasTests(unittest.TestCase):
         synced_body = json.loads(handle_post_coach_sleep_insight(synced_uid, {})["body"])
         self.assertIn("synced data", synced_body["insight"].lower())
         self.assertNotIn("no sleep logged", synced_body["insight"].lower())
+
+
+class ChatResponseDoesNotEchoUserIdTests(unittest.TestCase):
+    """routes/aria.py stamped the auth principal onto both /ai/chat JSON
+    bodies (insight card and the full turn). Clients already have the JWT
+    subject — echoing it is a PII leak in logs and screenshots."""
+
+    def _envelope(self) -> dict:
+        return {
+            "message": "Hello.",
+            "prose_summary": "Hello.",
+            "response_type": "recommendation",
+            "card": {"action": "Easy walk"},
+            "contextualization": {"stance": "proceed", "bucket": "", "sources": ()},
+            "fusion": {"stance": "proceed"},
+        }
+
+    def _post(self, body: dict, uid: str) -> dict:
+        from routes.aria import handle_post_ai_chat
+
+        with patch("services.aria_engine.generate_response", return_value=self._envelope()):
+            result = handle_post_ai_chat(body, user_id=uid)
+        self.assertEqual(result["statusCode"], 200)
+        return json.loads(result["body"])
+
+    def test_regular_chat_json_omits_user_id(self):
+        uid = f"no-echo-chat-{id(self)}"
+        payload = self._post({"message": "hello", "recent_metrics": {"readiness": 80}}, uid)
+        self.assertNotIn("user_id", payload)
+        self.assertNotEqual(payload.get("user_id"), uid)
+        dumped = json.dumps(payload)
+        self.assertNotIn(uid, dumped)
+
+    def test_insight_mode_json_omits_user_id(self):
+        uid = f"no-echo-insight-{id(self)}"
+        payload = self._post(
+            {
+                "message": "Analyze my lifestyle today.",
+                "mode": "insight",
+                "recent_metrics": {"readiness": 72},
+            },
+            uid,
+        )
+        self.assertNotIn("user_id", payload)
+        self.assertNotEqual(payload.get("user_id"), uid)
+        self.assertEqual(payload.get("reasoning_source"), "deterministic")
+        dumped = json.dumps(payload)
+        self.assertNotIn(uid, dumped)
+
+
+class LifeRhythmImportGuardTests(unittest.TestCase):
+    """aria_evidence.detect_pattern wrapped `from services.aria_engine import
+    life_rhythm_training_plan` in `except Exception`, so a real bug in that
+    import (AttributeError on a circular load, RuntimeError from a broken
+    shim) was swallowed and life-rhythm protect silently dropped. Import
+    failure is ImportError — including Python 3 circular-import ImportError."""
+
+    def test_life_rhythm_import_guard_is_importerror(self):
+        from aria_core import aria_evidence
+
+        src = inspect.getsource(aria_evidence.detect_pattern)
+        idx = src.index("from services.aria_engine import life_rhythm_training_plan")
+        window = src[idx : idx + 200]
+        self.assertIn("except ImportError", window)
+        self.assertNotIn("except Exception", window)
+
+    def test_import_succeeds_and_depleted_qol_still_blocks_intensity(self):
+        from services import aria_engine, aria_evidence
+
+        plan = aria_engine.life_rhythm_training_plan
+        self.assertTrue(callable(plan))
+        ctx = aria_engine.ARIAContext.from_payload(
+            {"context": {"lifestyle": {"tags": ["qol:40", "qol:band:depleted"]}}}
+        )
+        pattern = aria_evidence.detect_pattern(ctx, signals=[], restricted=[])
+        self.assertEqual(pattern.stance, "protect")
+        self.assertTrue(pattern.blocks_intensity)
 
 
 if __name__ == "__main__":
