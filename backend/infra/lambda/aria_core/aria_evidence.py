@@ -332,7 +332,7 @@ def detect_pattern(
         if isinstance(qol, (int, float)):
             try:
                 from services.aria_engine import life_rhythm_training_plan
-            except Exception:  # pragma: no cover - defensive import
+            except ImportError:  # pragma: no cover - defensive import
                 life_rhythm_training_plan = None  # type: ignore
             band = getattr(getattr(ctx, "lifestyle", None), "quality_of_life_band", None)
             pillars = getattr(getattr(ctx, "lifestyle", None), "quality_of_life_pillars", None) or {}

@@ -802,7 +802,7 @@ class AuthAndAISecurityTests(unittest.TestCase):
         )
         self.assertEqual(response["statusCode"], 200)
         payload = body(response)
-        self.assertEqual(payload.get("user_id"), "auth-user-123")
+        self.assertNotIn("user_id", payload)
         self.assertTrue(payload.get("message") or payload.get("prose_summary"))
 
     def test_ai_chat_sanitizes_and_accepts_long_message_truncated(self):

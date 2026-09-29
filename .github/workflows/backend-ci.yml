@@ -1,6 +1,6 @@
 # Gates the backend Python test suite (lambda handler + ARIA engine + biometrics).
-# These ~101 tests previously ran in no CI workflow. Stdlib-only (boto3 is lazy),
-# so the runner's system python3 is sufficient — no setup-python needed.
+# Most tests are stdlib-only (boto3 is lazy). The DynamoDB rate-limit concurrency
+# test needs moto + boto3 from backend/requirements-dev.txt (never Lambda runtime).
 
 name: Backend CI
 
@@ -50,6 +50,9 @@ jobs:
 
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         if: needs.changes.outputs.relevant == 'true'
+
+      - name: Install backend test-only dependencies
+        run: python3 -m pip install --user -r backend/requirements-dev.txt
 
       - name: Backend unit tests (lambda + ARIA + biometrics)
         if: needs.changes.outputs.relevant == 'true'

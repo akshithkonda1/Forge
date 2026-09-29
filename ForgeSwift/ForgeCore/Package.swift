@@ -104,6 +104,7 @@ let package = Package(
                 "Utils/PublishGate.swift",
                 "Utils/WatchSnapshotStore.swift",
                 "Utils/HomeWidgetSnapshot.swift",
+                "Utils/HomeWidgetSleepDisplay.swift",
                 "Utils/PartnerSupportGlance.swift",
                 "Cloud/ForgeCloudContracts.swift",
             ]
@@ -123,6 +124,7 @@ let package = Package(
                 "ContextRulesTests.swift",
                 "HealthDeviceCatalogTests.swift",
                 "HomeWidgetSnapshotTests.swift",
+                "HomeWidgetSleepDisplayTests.swift",
                 "HomeReduceMotionTests.swift",
                 "HydrationEngineTests.swift",
                 "MindfulnessSuggestionEngineTests.swift",
