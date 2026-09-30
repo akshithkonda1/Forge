@@ -864,7 +864,12 @@ def _follow_up_reply(
 # still name missing HRV for guard tests; those tokens must not reach prose.
 _VITALS_SPEAK = re.compile(
     r"\b(hrv|bpm|ms|mmhg|vo2|spo2|acwr|recovery score|sleep[- ]?debt)\b"
-    r"|%\s*(?:below|above|under|over)\s+baseline",
+    r"|%\s*(?:below|above|under|over)\s+baseline"
+    r"|\b(?:deep|rem|light)\s+sleep\s+(?:is|at|was)\s+\d+(?:\.\d+)?\s*%"
+    r"|\b(?:deep|rem|light)\s+sleep\s+(?:is|at|was)\s+[a-z]+\s+percent\b"
+    r"|\brem\s+is\s+light\s+at\s+\d+(?:\.\d+)?\s*%"
+    r"|%"
+    r"|\bpercent\b",
     re.I,
 )
 _SPEAK_FALLBACK = (

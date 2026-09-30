@@ -1332,13 +1332,9 @@ def _interpret_sleep(ctx: ARIAContext, baselines: Any = None) -> Signal | None:
         if deep_frac < deep_floor:
             direction = "negative"
             priority = "high"
-            vs = "your usual" if personal_sleep and getattr(baselines, "deep_frac", None) else f"the ~{DEEP_SLEEP_REF_FRAC * 100:.0f}% typical floor"
-            interp_bits.append(
-                f"deep sleep is {deep_frac * 100:.0f}% of the night, under {vs} "
-                "— your deepest sleep came up short"
-            )
+            interp_bits.append("your deepest sleep came up short")
         else:
-            interp_bits.append(f"deep sleep at {deep_frac * 100:.0f}% is in a healthy band")
+            interp_bits.append("your deepest sleep was in a healthy band")
 
     if s.rem_minutes is not None and s.duration_minutes:
         rem_frac = s.rem_minutes / s.duration_minutes
@@ -2146,16 +2142,20 @@ def _clarification_response(ctx: ARIAContext, restricted: list[str], voice_mode:
 
 
 _SLEEP_STAGE_PCT = re.compile(
-    r"\b(?:deep|rem|light)\s+sleep\s+at\s+\d+(?:\.\d+)?\s*%"
+    r"\b(?:deep|rem|light)\s+sleep\s+(?:is|at|was)\s+\d+(?:\.\d+)?\s*%"
+    r"|\b(?:deep|rem|light)\s+sleep\s+(?:is|at|was)\s+[a-z]+\s+percent\b"
     r"|\brem\s+is\s+light\s+at\s+\d+(?:\.\d+)?\s*%",
     re.I,
 )
 _VITALS_SPEAK = re.compile(
     r"\b(hrv|bpm|ms|mmhg|vo2|spo2|acwr|recovery score|sleep[- ]?debt)\b"
     r"|%\s*(?:below|above|under|over)\s+baseline"
-    # Sleep-stage % leftovers _interpret_sleep still emits; strip at speak.
-    r"|\b(?:deep|rem|light)\s+sleep\s+at\s+\d+(?:\.\d+)?\s*%"
-    r"|\brem\s+is\s+light\s+at\s+\d+(?:\.\d+)?\s*%",
+    # Sleep-stage leftovers (is/at/was, digits or "twelve percent") — strip at speak.
+    r"|\b(?:deep|rem|light)\s+sleep\s+(?:is|at|was)\s+\d+(?:\.\d+)?\s*%"
+    r"|\b(?:deep|rem|light)\s+sleep\s+(?:is|at|was)\s+[a-z]+\s+percent\b"
+    r"|\brem\s+is\s+light\s+at\s+\d+(?:\.\d+)?\s*%"
+    r"|%"
+    r"|\bpercent\b",
     re.I,
 )
 _SPEAK_FALLBACK = "Fit training around the day you already have."

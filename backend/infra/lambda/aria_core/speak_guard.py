@@ -267,6 +267,10 @@ def guard_speak(
         step = _sized_step(card, stance=stance, topic=topic)
         if step and step.lower() not in cleaned.lower():
             cleaned = _append_guarded_step(cleaned, step, notes=notes, topic=topic)
+    # Shared vitals path — live Bedrock and Dummy banks cannot bypass
+    # ``_VITALS_SPEAK`` / sleep-stage % leftovers.
+    if cleaned.strip() and _has_banned_vitals(cleaned):
+        cleaned = rescrub_speak(cleaned)
     return cleaned
 
 

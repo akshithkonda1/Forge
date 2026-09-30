@@ -52,6 +52,54 @@ def _ctx(**overrides) -> ARIAContext:
     return ctx
 
 
+class DeepSleepInterpSpeakTests(unittest.TestCase):
+    """Command R+ Dummy used to speak 'Deep sleep is 12%' / '15%'."""
+
+    def test_low_deep_sleep_line_has_no_digit_or_percent(self):
+        cases = (
+            (48, 400),   # 12%
+            (60, 400),   # 15%
+            (70, 440),   # ~16%, under the typical floor
+        )
+        for deep, total in cases:
+            with self.subTest(deep=deep, total=total):
+                sig = _interpret_sleep(_ctx(sleep=SleepContext(
+                    duration_minutes=total, efficiency=0.95, rem_minutes=95,
+                    deep_minutes=deep, hrv=58, resting_hr=52, nights_available=14)))
+                self.assertIsNotNone(sig)
+                bits = [
+                    b.strip()
+                    for b in sig.interpretation.split(";")
+                    if "deep" in b.lower()
+                ]
+                self.assertTrue(bits, sig.interpretation)
+                for bit in bits:
+                    self.assertNotIn("%", bit, bit)
+                    self.assertIsNone(re.search(r"\d", bit), bit)
+                    self.assertNotRegex(bit, r"(?i)\bpercent\b", bit)
+                self.assertIn("your deepest sleep came up short", sig.interpretation)
+
+    def test_deep_sleep_is_percent_cannot_bypass_vitals_scrub(self):
+        from aria_core.aria_engine import _VITALS_SPEAK, _speak_without_vitals
+        from aria_core.speak_guard import SPOKEN_BANNED, guard_speak, spoken_ban_hits
+        from backend.ai.simrunner.aria_simrunner.dummy_orchestrator import (
+            _VITALS_SPEAK as dummy_vitals,
+            _speak_without_vitals as dummy_speak,
+        )
+
+        leak = "Deep sleep is 12% of the night — your deepest sleep came up short"
+        self.assertRegex(leak, _VITALS_SPEAK)
+        self.assertRegex(leak, dummy_vitals)
+        spoken = _speak_without_vitals(leak)
+        dummy_spoken = dummy_speak(leak)
+        guarded = guard_speak(leak)
+        for text in (spoken, dummy_spoken, guarded):
+            self.assertNotIn("%", text, text)
+            self.assertIsNone(re.search(r"\d", text), text)
+            self.assertNotRegex(text, r"(?i)\bpercent\b", text)
+            self.assertEqual(spoken_ban_hits(text), (), SPOKEN_BANNED)
+
+
 class SleepDurationThresholdTests(unittest.TestCase):
     """aria_engine: 6–7 h nights were silently unflagged while the message
     claimed a '7 h floor'."""
