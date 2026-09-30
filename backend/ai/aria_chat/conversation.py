@@ -305,6 +305,18 @@ def prior_spoken_from_history(history: list | None) -> list[str]:
     return out
 
 
+_SIT_STEM = re.compile(r"(?i)\bsit(?:s|ting)?\b|\bsat\b")
+_STAY_STEM = re.compile(r"(?i)\bstay(?:s|ed|ing)?\b")
+
+
+def _stem_count(text: str, pattern: re.Pattern[str]) -> int:
+    return len(pattern.findall(text or ""))
+
+
+def _session_has_stem(prior_spoken: list[str] | None, pattern: re.Pattern[str]) -> bool:
+    return any(_stem_count(prev, pattern) for prev in (prior_spoken or []))
+
+
 def _repeat_ngrams(text: str) -> set[str]:
     return word_ngrams(text, 3) - _SAFE_REPEAT_NGRAMS
 
@@ -339,8 +351,14 @@ def _pick_fresh(
     start = abs(int(seed)) % len(options)
     ordered = options[start:] + options[:start]
     for cand in ordered:
-        if not _overlaps_prior(cand, prior_spoken):
-            return cand
+        if _overlaps_prior(cand, prior_spoken):
+            continue
+        # At most one sit / stay stem per session, same rule for both.
+        if _session_has_stem(prior_spoken, _SIT_STEM) and _stem_count(cand, _SIT_STEM):
+            continue
+        if _session_has_stem(prior_spoken, _STAY_STEM) and _stem_count(cand, _STAY_STEM):
+            continue
+        return cand
     return ordered[0]
 
 

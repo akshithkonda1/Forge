@@ -1,5 +1,6 @@
 import io
 import os
+import re
 import sys
 import unittest
 from pathlib import Path
@@ -1066,3 +1067,118 @@ class WebLookupOncePerTurn(unittest.TestCase):
         with patch.object(web_research, "look_up") as look:
             dummy.respond("What should I train today?", seed=1, engine="stub")
         look.assert_not_called()
+
+
+_PERCENT_WORD = re.compile(r"(?i)\bpercent\b")
+_SIT_STEM = re.compile(r"(?i)\bsit(?:s|ting)?\b|\bsat\b")
+_STAY_STEM = re.compile(r"(?i)\bstay(?:s|ed|ing)?\b")
+
+
+def _spoken_fields(row: dict) -> dict[str, str]:
+    fields = {
+        "prose_summary": str(row.get("prose_summary") or ""),
+        "message": str(row.get("message") or ""),
+        "spoken": str(row.get("spoken") or ""),
+        "friend_speak": str(row.get("friend_speak") or ""),
+    }
+    return {key: value for key, value in fields.items() if value}
+
+
+def _dummy_speech_banks() -> dict[str, tuple[str, ...]]:
+    banks: dict[str, tuple[str, ...]] = {
+        "wit_protect": tuple(dummy._WIT_PROTECT),
+        "wit_proceed": tuple(dummy._WIT_PROCEED),
+        "wit_honest": tuple(dummy._WIT_HONEST),
+        "safety_prefixes": tuple(dummy._SAFETY_PREFIXES),
+        "safety_closer": (dummy._SAFETY_CLOSER,),
+        "speak_fallback": (dummy._SPEAK_FALLBACK,),
+        "occupation_life": tuple(dummy._OCCUPATION_LIFE.values()),
+        "chrono_life": tuple(v for v in dummy._CHRONO_LIFE.values() if v),
+    }
+    for name, mapping in (
+        ("sleep_talk", dummy._SLEEP_TALK),
+        ("recovery_talk", dummy._RECOVERY_TALK),
+        ("load_talk", dummy._LOAD_TALK),
+    ):
+        for key, lines in mapping.items():
+            banks[f"{name}.{key}"] = tuple(lines)
+    return banks
+
+
+class DummyPercentAndStaySweepTests(unittest.TestCase):
+    def test_every_dummy_bank_has_no_percent_sign_or_word(self):
+        for name, lines in _dummy_speech_banks().items():
+            for line in lines:
+                with self.subTest(bank=name, line=line):
+                    self.assertNotIn("%", line, line)
+                    self.assertIsNone(_PERCENT_WORD.search(line), line)
+
+    def test_every_dummy_persona_session_has_no_percent_and_one_stay_stem(self):
+        from backend.ai.simrunner.backend_simulator import model_registry as reg
+        from backend.ai.simrunner.backend_simulator.behavior_engine import generate_stream
+        from backend.ai.simrunner.backend_simulator.data_generator import build_context
+
+        prompts = (
+            "How did I sleep last night?",
+            "What should I train today?",
+            "how do I show up for them",
+        )
+        models = list(reg.BEDROCK_MODEL_REGISTRY)
+        self.assertTrue(models)
+        for model in models:
+            stream = generate_stream(model["behavioral_profile"], seed=1)
+            ctx = build_context(stream, model["behavioral_profile"], 14)
+            history: list[str] = []
+            session_blob = []
+            label = model.get("display_name") or model.get("model_id")
+            for prompt in prompts:
+                row = dummy.respond(
+                    prompt,
+                    seed=1,
+                    engine="stub",
+                    prior_turns=history or None,
+                    model_id=model["model_id"],
+                    context=ctx,
+                )
+                fields = _spoken_fields(row)
+                self.assertTrue(fields, label)
+                for field, text in fields.items():
+                    with self.subTest(persona=label, prompt=prompt, field=field):
+                        self.assertNotIn("%", text, text)
+                        self.assertIsNone(_PERCENT_WORD.search(text), text)
+                        self.assertNotRegex(text, r"(?i)\brecovery\b", text)
+                session_blob.append(" ".join(fields.values()))
+                history.append(prompt)
+            joined = " ".join(session_blob)
+            self.assertLessEqual(
+                len(_STAY_STEM.findall(joined)),
+                1,
+                f"{label} stay stem: {joined}",
+            )
+            self.assertLessEqual(
+                len(_SIT_STEM.findall(joined)),
+                1,
+                f"{label} sit stem: {joined}",
+            )
+
+    def test_command_r_plus_lambda_sleep_has_no_percent(self):
+        from backend.ai.simrunner.backend_simulator import model_registry as reg
+        from backend.ai.simrunner.backend_simulator.behavior_engine import generate_stream
+        from backend.ai.simrunner.backend_simulator.data_generator import build_context
+
+        model = next(
+            m for m in reg.BEDROCK_MODEL_REGISTRY if m["model_id"] == "cohere.command-r-plus"
+        )
+        stream = generate_stream(model["behavioral_profile"], seed=1)
+        ctx = build_context(stream, model["behavioral_profile"], 14)
+        row = dummy.respond(
+            "How did I sleep last night?",
+            seed=1,
+            engine="lambda",
+            model_id=model["model_id"],
+            context=ctx,
+        )
+        for field, text in _spoken_fields(row).items():
+            with self.subTest(field=field):
+                self.assertNotIn("%", text, text)
+                self.assertIsNone(_PERCENT_WORD.search(text), text)

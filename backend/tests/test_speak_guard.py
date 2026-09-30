@@ -306,6 +306,55 @@ class LiveBedrockGuardTests(unittest.TestCase):
         self.assertEqual(boto_hits, [])
         self.assertEqual(len(fake.calls), 1)
 
+    def test_live_scrubs_deep_sleep_percent_without_real_boto(self):
+        leaks = ("Deep sleep was 12%", "deep sleep was twelve percent")
+        for leaked in leaks:
+            with self.subTest(leaked=leaked):
+                payload = json.dumps(
+                    {
+                        "prose_summary": leaked,
+                        "response_type": "insight",
+                        "confidence": 0.8,
+                    }
+                )
+                boto_hits: list[tuple] = []
+
+                class FakeGateway:
+                    def __init__(self, *args, **kwargs):
+                        self.calls = []
+
+                    def converse(self, **kwargs):
+                        self.calls.append(kwargs)
+                        return {"answer": payload}
+
+                fake = FakeGateway()
+                fake_boto = types.ModuleType("boto3")
+
+                def _no_client(*args, **kwargs):
+                    boto_hits.append((args, kwargs))
+                    raise AssertionError("no real boto/Bedrock client")
+
+                fake_boto.client = _no_client
+
+                with patch.dict("sys.modules", {"boto3": fake_boto}):
+                    with patch.object(aria_engine, "_gateway", fake):
+                        with patch("ai_router.BedrockGateway", side_effect=lambda *a, **k: fake):
+                            resp = aria_engine.generate_response_live(
+                                "How did I sleep last night?",
+                                _ctx(),
+                            )
+
+                self.assertEqual(resp.get("reasoning_source"), "bedrock")
+                self.assertEqual(len(fake.calls), 1)
+                self.assertEqual(boto_hits, [])
+                speech = " ".join(
+                    str(resp.get(key) or "")
+                    for key in ("spoken", "prose_summary", "message", "friend_speak")
+                )
+                self.assertNotIn("%", speech, speech)
+                self.assertIsNone(re.search(r"\d", speech), speech)
+                self.assertNotRegex(speech, r"(?i)\bpercent\b", speech)
+
 
 class LivePathGuardTests(unittest.TestCase):
     """Live path with an injected converse — ARIA_BEDROCK_ENABLED stays off."""

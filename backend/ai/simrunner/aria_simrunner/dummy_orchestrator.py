@@ -132,7 +132,7 @@ _OCCUPATION_LIFE = {
     "accountant": "month-end doesn't care about your training block",
     "consultant": "travel and clients eat the hours first",
     "warehouse lead": "shift work moves the whole day around",
-    "engineer": "a sitting-all-day job still costs the body",
+    "engineer": "a desk-all-day job still costs the body",
     "software engineer": "crunch weeks steal from sleep before they steal from work",
     "designer": "creative days run long and dinner gets late",
     "triathlete": "the training is the job, so the rest has to be real rest",
@@ -141,7 +141,7 @@ _OCCUPATION_LIFE = {
     "physical therapist": "you already know tissue, so here's the short version",
     "founder": "the company will take every hour you don't defend",
     "pro cyclist": "your baseline isn't a civilian baseline",
-    "physician": "you already know the medical line — I stay on the lifestyle side",
+    "physician": "you already know the medical line — I keep to the lifestyle side",
     "firefighter": "the job spikes you; training shouldn't pile on blindly",
     "climber": "your sport already asks for holds and patience",
     "marketer": "the calendar is loud even when the body is quiet",
@@ -928,7 +928,7 @@ _WIT_HONEST = (
     "Mixed isn't a villain origin story — hold the load kind and steady and steal twenty extra minutes of wind-down.",
     "I can be kind and sweet and still tell you the weather's meh — same effort as yesterday, protein and water with the next meal.",
     "The plot got interesting, not doomed — keep one honest session size and protect bedtime.",
-    "Hug with a point — stay kind and moderate, make the next meal simple, and get to bed on purpose.",
+    "Hug with a point — keep it kind and moderate, make the next meal simple, and get to bed on purpose.",
     "The day's a maybe, and that's allowed — easy-moderate work, then a softer night.",
     "I'm with you in the messy middle — don't add load, do add a kinder wind-down.",
     "Funny thing, friend: mixed days are where the care shows — hold steady and lights-out a little earlier.",
@@ -936,7 +936,7 @@ _WIT_HONEST = (
     "Today's neither fireworks nor a flop — keep the work kind and honest and the bedtime real.",
     "I'll keep you company, friend, and keep you honest — no extra volume, yes to water and a gentler night.",
     "Hold-steady chapter, not a villain lecture — one familiar session, then protect sleep like it matters (it does).",
-    "The mix is just the plot getting interesting — stay kind to the load and sneak in extra wind-down.",
+    "The mix is just the plot getting interesting — keep it kind to the load and sneak in extra wind-down.",
 )
 _WIT_ALREADY = tuple(
     dict.fromkeys(
@@ -1103,7 +1103,7 @@ _RECOVERY_TALK = {
         "today's reading as a protect day",
     ),
     "ready": (
-        "you're sitting in a good spot to push",
+        "you're in a good spot to push",
         "you look ready to spend",
         "there's real room to work with today",
     ),
@@ -1160,6 +1160,19 @@ def _is_follow_up_speak(body: str) -> bool:
     return any(lead.startswith(p) for p in _FOLLOW_UP_LEADS)
 
 
+_SIT_STEM = re.compile(r"(?i)\bsit(?:s|ting)?\b|\bsat\b")
+_STAY_STEM = re.compile(r"(?i)\bstay(?:s|ed|ing)?\b")
+
+
+def _stem_count(text: str, pattern: re.Pattern[str]) -> int:
+    return len(pattern.findall(text or ""))
+
+
+def _stems_ok(*parts: str) -> bool:
+    blob = " ".join(p for p in parts if p)
+    return _stem_count(blob, _SIT_STEM) <= 1 and _stem_count(blob, _STAY_STEM) <= 1
+
+
 def friend_speak(
     text: str,
     *,
@@ -1202,7 +1215,7 @@ def friend_speak(
         real = _qualitative_speak(seed, topic, signals)
         if real:
             real = real[0].upper() + real[1:]
-            if extra and extra.lower() not in real.lower():
+            if extra and extra.lower() not in real.lower() and _stems_ok(real, extra):
                 if real[-1] not in ".!?":
                     real += "."
                 real = f"{real} {extra}"
@@ -1212,7 +1225,7 @@ def friend_speak(
         return _apply_speak_guard(_speak_without_vitals(body))
     if _is_follow_up_speak(body) and not short_ok:
         return _apply_speak_guard(_speak_without_vitals(body))
-    if extra and extra.lower() not in body.lower():
+    if extra and extra.lower() not in body.lower() and _stems_ok(body, extra):
         if body[-1] not in ".!?":
             body += "."
         body = f"{body} {extra}"
@@ -1585,7 +1598,7 @@ def humanize_prose(
             f"There's room to train — not a parade.{session_bit} I'd take a solid moderate-to-hard session "
             "and see how the first sets feel.",
             f"Today can handle real work.{session_bit} One honest session, one variable progressed — that's the play.",
-            f"Go train — just stay honest about how set one feels.{session_bit}",
+            f"Go train — just keep it honest about how set one feels.{session_bit}",
             f"There's room for a real session today.{session_bit} Want me to sketch it?",
         ))
 
