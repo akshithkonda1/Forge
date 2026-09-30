@@ -76,6 +76,31 @@ final class AriaService: ObservableObject {
             return Self.safetyResponse(decision)
         }
 
+        let reply = try await routeMessage(
+            text,
+            store: store,
+            localGenerator: localGenerator,
+            voiceMode: voiceMode,
+            mode: mode,
+            agent: agent,
+            agents: agents
+        )
+        return isInsight ? reply : Self.withCareLine(reply, for: text)
+    }
+
+    /// Dummy, Local testing, Live, or the offline fallback — whichever this
+    /// build and mode choose. `sendMessage` has already decided safety.
+    private func routeMessage(
+        _ text: String,
+        store: AppStore,
+        localGenerator: TrainerResponseGenerator,
+        voiceMode: Bool,
+        mode: String?,
+        agent: AriaCoachAgent,
+        agents: [String]?
+    ) async throws -> AriaResponse {
+        let isInsight = mode == "insight"
+
         // Catalog must exist before ARIA resolves brand/generic/archetype.
         await MedicationPharmacy.prepare()
         // Full chat may read structured records. Lifestyle cards must not.
@@ -222,6 +247,26 @@ final class AriaService: ObservableObject {
             rich: contextStore.buildRichContext(from: store),
             agent: agent
         )
+    }
+
+    /// Lead a coaching reply with its care line ("Sharp is the kind I take
+    /// seriously…"), whichever path wrote it. `/ai/chat` already leads with the
+    /// same line, and on-device voice may have appended it, so it is never
+    /// added twice. Live's thin-reply swap to a plan narrative would otherwise
+    /// drop it.
+    static func withCareLine(_ reply: AriaResponse, for text: String) -> AriaResponse {
+        guard let line = AriaGuidancePolicy.careLine(text: text) else { return reply }
+        var response = reply
+        let message = reply.message.trimmingCharacters(in: .whitespacesAndNewlines)
+        let prose = (reply.proseSummary ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+        if !message.contains(line) {
+            let joiner = message == prose ? " " : "\n\n"
+            response.message = message.isEmpty ? line : line + joiner + message
+        }
+        if !prose.isEmpty, !prose.contains(line) {
+            response.proseSummary = line + " " + prose
+        }
+        return response
     }
 
     /// The chat reply for a safety decision. Same copy `/ai/chat` returns.

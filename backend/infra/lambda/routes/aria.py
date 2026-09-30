@@ -87,6 +87,10 @@ def _insight_takeaway(prose: str) -> str:
     first = re.split(r"(?<=[.!?])\s+", text, maxsplit=1)[0].strip()
     if not first or re.search(r"\d", first) or _STUCK_UNIT.search(first):
         return ""
+    # A question is not something we landed on: "Last time we landed on Quick
+    # one first: What did last night's sleep look like…?"
+    if first.endswith("?"):
+        return ""
     if _RISK_MEMORY.search(first):
         return ""
     try:
@@ -565,7 +569,15 @@ def handle_post_ai_chat(body: dict[str, Any], *, user_id: str) -> dict:
 
     if memory and not voice_mode and not safety_lock:
         response["message"] = f"{memory}\n\n{response['message']}"
-    takeaway = _insight_takeaway(response.get("prose_summary") or "")
+    prose = str(response.get("prose_summary") or "")
+    from aria_core import aria_guidance_policy
+
+    care = None if safety_lock else aria_guidance_policy.care_line(message, safety_band=safety_band)
+    if care and prose.startswith(care):
+        # The care line is a caution, not a takeaway ("Last time we landed on
+        # Numbness is worth a professional opinion").
+        prose = prose[len(care):].strip()
+    takeaway = _insight_takeaway(prose)
     if (
         takeaway
         and len(takeaway) > 12

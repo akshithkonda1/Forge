@@ -3183,7 +3183,14 @@ def _finish_spoken_envelope(
         envelope.get("confidence"),
         hours_since=ctx.training.hours_since_last_workout,
     )
-    return envelope
+    # Care line last ("Sharp is the kind I take seriously…"): the same line
+    # Dummy and on-device lead with, after every speak rewrite so none trims it.
+    from . import aria_guidance_policy
+    from . import guidance
+
+    return aria_guidance_policy.with_care_line(
+        envelope, message, safety_band=str(envelope.get("guidance_band") or guidance.COACH)
+    )
 
 
 def _attach_shared_intelligence(envelope: dict[str, Any], ctx: ARIAContext, message: str) -> dict[str, Any]:
@@ -3607,7 +3614,13 @@ def generate_response_live(
         merged.get("confidence"),
         hours_since=sanitized.training.hours_since_last_workout,
     )
-    return merged
+    # The model's prose replaced the deterministic reply; lead it again.
+    from . import aria_guidance_policy
+    from . import guidance
+
+    return aria_guidance_policy.with_care_line(
+        merged, message, safety_band=str(merged.get("guidance_band") or guidance.COACH)
+    )
 
 
 # --- Tool-use + validation (Python owns truth) -------------------------------

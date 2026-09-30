@@ -36,12 +36,20 @@ final class AriaSafetyTriageTests: XCTestCase {
             }
         }
 
+        struct Care: Decodable {
+            let text: String
+            let band: String
+            let matched: String?
+            let line: String?
+        }
+
         let turns: [Row]
         let answers: [Row]
         let checkIns: [CheckIn]
+        let care: [Care]
 
         enum CodingKeys: String, CodingKey {
-            case turns, answers
+            case turns, answers, care
             case checkIns = "check_ins"
         }
     }
@@ -124,6 +132,21 @@ final class AriaSafetyTriageTests: XCTestCase {
                 ),
                 row.message
             )
+        }
+    }
+
+    /// The care line every chat path leads a coaching reply with, and the
+    /// misfires the old substring needles made ("what are my numbers today"
+    /// got the numbness line). aria_guidance_policy.py asserts the same rows.
+    func testCareLinesMatchSharedCorpus() throws {
+        let corpus = try Self.loadCorpus()
+        XCTAssertGreaterThanOrEqual(corpus.care.count, 20)
+        for row in corpus.care {
+            let decision = AriaGuidancePolicy.decide(text: row.text)
+            XCTAssertEqual(decision.band.rawValue, row.band, "«\(row.text)»")
+            XCTAssertEqual(decision.matched, row.matched, "«\(row.text)»")
+            XCTAssertEqual(decision.line, row.line, "«\(row.text)»")
+            XCTAssertEqual(AriaGuidancePolicy.careLine(text: row.text), row.line, "«\(row.text)»")
         }
     }
 

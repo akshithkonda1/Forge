@@ -1,7 +1,7 @@
 {
   "schema": 1,
   "source": "backend/infra/lambda/aria_core/guidance.py",
-  "about": "Shared ARIA safety corpus. Python (backend/tests/test_safety_triage.py) and Swift (ForgeCore AriaSafetyTriageTests) both assert every row, so the backend, the Dummy, and the on-device path cannot drift. Bands: coach | first_aid | emergency | refer_out | triage | coach_with_care. 'prose' is the exact copy ARIA speaks.",
+  "about": "Shared ARIA safety corpus. Python (backend/tests/test_safety_triage.py) and Swift (ForgeCore AriaSafetyTriageTests) both assert every row, so the backend, the Dummy, and the on-device path cannot drift. Bands: coach | first_aid | emergency | refer_out | triage | coach_with_care. 'prose' is the exact copy ARIA speaks. 'care' rows pin aria_guidance_policy / AriaGuidancePolicy: the care line every path leads a coaching reply with, and the misfires it must not make.",
   "turns": [
     {
       "text": "I feel suicidal and want to die",
@@ -1077,6 +1077,158 @@
       "self_harm": true,
       "relationship_level": 8,
       "message": "Hey. I'm really glad you're here. You were in a really hard moment. How are you feeling now? 988 is there any time, call or text."
+    }
+  ],
+  "care": [
+    {
+      "text": "My knee has hurt for weeks, what should I train today?",
+      "band": "coachWithCare",
+      "matched": "for weeks",
+      "line": "Pain that's stuck around for weeks is worth getting looked at properly — I can work around it, but I can't tell you what it is."
+    },
+    {
+      "text": "my shoulder has been sore for weeks, can I still press",
+      "band": "coachWithCare",
+      "matched": "for weeks",
+      "line": "Pain that's stuck around for weeks is worth getting looked at properly — I can work around it, but I can't tell you what it is."
+    },
+    {
+      "text": "my knee has been bothering me for weeks",
+      "band": "coachWithCare",
+      "matched": "for weeks",
+      "line": "Pain that's stuck around for weeks is worth getting looked at properly — I can work around it, but I can't tell you what it is."
+    },
+    {
+      "text": "my lower back has ached for months",
+      "band": "coachWithCare",
+      "matched": "for months",
+      "line": "Months is long enough to get it assessed. I'll keep the work clear of it in the meantime."
+    },
+    {
+      "text": "my back pain is getting worse, can I still lift?",
+      "band": "coachWithCare",
+      "matched": "getting worse",
+      "line": "If it's trending worse rather than settling, get it seen. I'll keep today away from it."
+    },
+    {
+      "text": "I get a sharp pain in my knee when I squat",
+      "band": "coachWithCare",
+      "matched": "sharp pain",
+      "line": "Sharp is the kind I take seriously — worth a professional look. Nothing today should reproduce it."
+    },
+    {
+      "text": "I get sharp pains in my hip on lunges",
+      "band": "coachWithCare",
+      "matched": "sharp pains",
+      "line": "Sharp is the kind I take seriously — worth a professional look. Nothing today should reproduce it."
+    },
+    {
+      "text": "I can't put weight on my ankle",
+      "band": "coachWithCare",
+      "matched": "can't put weight",
+      "line": "If you can't load it at all, that's an assessment, not a training tweak."
+    },
+    {
+      "text": "I can’t put weight on my left foot",
+      "band": "coachWithCare",
+      "matched": "can't put weight",
+      "line": "If you can't load it at all, that's an assessment, not a training tweak."
+    },
+    {
+      "text": "my ankle is swollen from yesterday",
+      "band": "coachWithCare",
+      "matched": "swollen",
+      "line": "Swelling that hasn't settled deserves a look. I'll route around it."
+    },
+    {
+      "text": "numbness in my foot after long runs",
+      "band": "coachWithCare",
+      "matched": "numbness",
+      "line": "Numbness is worth a professional opinion. I'll keep load off it."
+    },
+    {
+      "text": "my fingers go numb when I deadlift",
+      "band": "coachWithCare",
+      "matched": "go numb",
+      "line": "Numbness is worth a professional opinion. I'll keep load off it."
+    },
+    {
+      "text": "my hand goes numb on the bike",
+      "band": "coachWithCare",
+      "matched": "goes numb",
+      "line": "Numbness is worth a professional opinion. I'll keep load off it."
+    },
+    {
+      "text": "I'm pregnant, can I keep lifting?",
+      "band": "coachWithCare",
+      "matched": "i'm pregnant",
+      "line": "Training through pregnancy is real and doable, but the parameters are your doctor's to set — bring me what they say and I'll build inside it."
+    },
+    {
+      "text": "I’m pregnant — is running still ok?",
+      "band": "coachWithCare",
+      "matched": "i'm pregnant",
+      "line": "Training through pregnancy is real and doable, but the parameters are your doctor's to set — bring me what they say and I'll build inside it."
+    },
+    {
+      "text": "I am 20 weeks pregnant, can I still squat?",
+      "band": "coachWithCare",
+      "matched": "weeks pregnant",
+      "line": "Training through pregnancy is real and doable, but the parameters are your doctor's to set — bring me what they say and I'll build inside it."
+    },
+    {
+      "text": "I'm in my second trimester, what should I change?",
+      "band": "coachWithCare",
+      "matched": "my second trimester",
+      "line": "Training through pregnancy is real and doable, but the parameters are your doctor's to set — bring me what they say and I'll build inside it."
+    },
+    {
+      "text": "what are my numbers today",
+      "band": "coach",
+      "matched": null,
+      "line": null
+    },
+    {
+      "text": "I have been training for weeks, what next?",
+      "band": "coach",
+      "matched": null,
+      "line": null
+    },
+    {
+      "text": "I've been running for months and feel great",
+      "band": "coach",
+      "matched": null,
+      "line": null
+    },
+    {
+      "text": "my squat is getting worse",
+      "band": "coach",
+      "matched": null,
+      "line": null
+    },
+    {
+      "text": "my sleep is getting worse",
+      "band": "coach",
+      "matched": null,
+      "line": null
+    },
+    {
+      "text": "my wife is pregnant, how can I support her?",
+      "band": "coach",
+      "matched": null,
+      "line": null
+    },
+    {
+      "text": "I feel numb about the whole thing",
+      "band": "coach",
+      "matched": null,
+      "line": null
+    },
+    {
+      "text": "should I train hard today?",
+      "band": "coach",
+      "matched": null,
+      "line": null
     }
   ]
 }

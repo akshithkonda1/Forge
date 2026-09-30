@@ -66,6 +66,17 @@ class SharedCorpusTests(unittest.TestCase):
                 want = {k: v for k, v in row.items() if k not in ("text", "reply_topic")}
                 self.assertEqual(got, want)
 
+    def test_care_rows_match_corpus(self):
+        self.assertGreaterEqual(len(CORPUS["care"]), 20)
+        for row in CORPUS["care"]:
+            with self.subTest(text=row["text"]):
+                decision = gp.decide(row["text"])
+                self.assertEqual(
+                    {"band": decision.band, "matched": decision.matched, "line": decision.line},
+                    {k: row[k] for k in ("band", "matched", "line")},
+                )
+                self.assertEqual(gp.care_line(row["text"]), row["line"])
+
     def test_check_ins_match_corpus(self):
         for row in CORPUS["check_ins"]:
             with self.subTest(row=row):
@@ -434,6 +445,96 @@ class SleepAskUnderLoadTests(unittest.TestCase):
             with self.subTest(question=question):
                 resp = aria_engine.generate_response(question, self.HEAVY)
                 self.assertIn(aria_engine.SPOKEN_OVERTRAIN, resp["message"])
+
+
+class CareLineParityTests(unittest.TestCase):
+    """The care line leads a coaching reply on every path. Production used to
+    keep it in the sharedIntelligence sidecar and answer "I'm pregnant, can I
+    keep lifting?" with a sleep question."""
+
+    CARE = [row for row in CORPUS["care"] if row["line"]]
+    PLAIN = [row for row in CORPUS["care"] if not row["line"]]
+
+    def setUp(self):
+        from storage import dynamodb
+
+        dynamodb.clear_local_store()
+
+    def _route(self, uid: str, message: str) -> dict:
+        from routes.aria import handle_post_ai_chat
+
+        result = handle_post_ai_chat({"message": message}, user_id=uid)
+        self.assertEqual(result["statusCode"], 200, result)
+        return json.loads(result["body"])
+
+    def test_route_engine_and_dummy_lead_with_the_care_line(self):
+        from backend.ai.aria_chat.session import run_turn
+
+        for row in self.CARE:
+            with self.subTest(text=row["text"]):
+                route = self._route("care-lead", row["text"])
+                engine = aria_engine.generate_response(
+                    row["text"], ARIAContext.from_payload({"user_id": "care-lead"})
+                )
+                dummy = run_turn(row["text"], persist_log=False, install_pseudonym="inst-care")
+                for body in (route, engine, dummy):
+                    self.assertTrue(body["message"].startswith(row["line"]), body["message"])
+                    self.assertTrue(body["prose_summary"].startswith(row["line"]), body["prose_summary"])
+                    self.assertEqual(body["message"].count(row["line"]), 1)
+                self.assertNotIn("safety", route)
+                self.assertFalse(route.get("safety_lock"))
+                self.assertEqual(route["sharedIntelligence"]["guidance"]["line"], row["line"])
+
+    def test_misfires_stay_plain_coaching(self):
+        from backend.ai.aria_chat.session import run_turn
+
+        lines = {row["line"] for row in self.CARE}
+        for row in self.PLAIN:
+            with self.subTest(text=row["text"]):
+                route = self._route("care-plain", row["text"])
+                dummy = run_turn(row["text"], persist_log=False, install_pseudonym="inst-care")
+                for body in (route, dummy):
+                    for line in lines:
+                        self.assertNotIn(line, body["message"])
+
+    def test_live_model_reply_is_led_again(self):
+        text = "I get a sharp pain in my knee when I squat"
+        line = gp.care_line(text)
+        payload = json.dumps({"prose_summary": "Keep the knee out of it today."})
+        resp = aria_engine.generate_response_live(
+            text, SleepAskUnderLoadTests.HEAVY, converse=lambda *a: payload
+        )
+        self.assertEqual(resp["reasoning_source"], "bedrock")
+        self.assertTrue(resp["prose_summary"].startswith(line), resp["prose_summary"])
+        self.assertTrue(resp["message"].startswith(line), resp["message"])
+        self.assertEqual(resp["message"].count(line), 1)
+
+    def test_voice_reply_stays_one_line(self):
+        text = "my ankle is swollen from yesterday"
+        resp = aria_engine.generate_response(
+            text, ARIAContext.from_payload({"user_id": "care-voice"}), voice_mode=True
+        )
+        self.assertEqual(resp["message"], resp["prose_summary"])
+        self.assertTrue(resp["message"].startswith(gp.care_line(text)))
+
+    def test_care_line_and_questions_are_not_remembered_as_takeaways(self):
+        from routes.aria import _insight_takeaway
+        from services.aria_context import CoachContextEngine
+
+        uid = "care-memory"
+        for row in self.CARE[:3]:
+            self._route(uid, row["text"])
+        insights = CoachContextEngine().get_or_create_context(uid).last_insights
+        for row in self.CARE:
+            for insight in insights:
+                self.assertNotIn(row["line"], insight)
+        self.assertEqual(
+            _insight_takeaway("Quick one first: What did last night's sleep look like?"), ""
+        )
+        self.assertEqual(
+            _insight_takeaway("Keep today easy and protect sleep. More later."),
+            "Keep today easy and protect sleep.",
+        )
 
 
 if __name__ == "__main__":

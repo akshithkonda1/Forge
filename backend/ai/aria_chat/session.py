@@ -19,6 +19,7 @@ from backend._paths import ensure_lambda_on_path
 
 ensure_lambda_on_path()
 
+from aria_core import aria_guidance_policy  # noqa: E402
 from aria_core import speak_guard  # noqa: E402
 from aria_core import state_read  # noqa: E402
 from routes.aria import (  # noqa: E402
@@ -316,6 +317,13 @@ def run_turn(
         prior_spoken=prior_spoken,
     )
     envelope = speak_guard.guard_envelope(envelope, topic=spoken_in)
+    if guardrail is None:
+        # Same care line /ai/chat and the phone lead a coaching reply with.
+        envelope = aria_guidance_policy.with_care_line(
+            envelope,
+            spoken_in,
+            safety_band=str(envelope.get("guidance_band") or guidance.COACH),
+        )
 
     wall_ms = int((time.perf_counter() - started) * 1000)
     cpu1 = _cpu_seconds()
