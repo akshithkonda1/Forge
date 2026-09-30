@@ -2219,8 +2219,11 @@ SPOKEN_SHORT_SLEEP = "You've been running short on sleep this week, so sleep com
 SPOKEN_SLEEP_GUARD = "Sleep is the thing to guard tonight."
 SPOKEN_PROTECT_STEP = "Keep today easy and call it a win."
 SPOKEN_SAFETY_CLOSER = "Future you says thanks."
-BUTTON_SHORT_SLEEP = "Keep today easy."
-BUTTON_OVERTRAIN = "Back off and keep today easy."
+# Card-only buttons: a concrete, sized step (never spoken — the spoken line
+# stays SPOKEN_PROTECT_STEP). "20 easy minutes" is the speak guard's own sized
+# friend step; zone 2 and mobility are the house easy-day options.
+BUTTON_SHORT_SLEEP = "Keep today easy: an easy 20 minutes or mobility, then call it."
+BUTTON_OVERTRAIN = "Back off: 20 easy minutes in zone 2 or mobility, nothing hard."
 ZONE2_SWAP = "Swap to an easy, chatty-pace zone 2."
 _SPOKEN_JARGON = re.compile(r"(?i)\b(?:overtrain\w*|overreach\w*|fatigue|deload|acwr)\b")
 
@@ -2867,7 +2870,7 @@ def _summary_response(
         win = "You're showing up — that's the foundation."
 
     goal = ctx.profile.primary_goal
-    rec = "Hold the structure and progress one variable next block."
+    rec = "Hold the structure and add one thing next block: 2 sets a week or 5 minutes a session."
     if goal in _GOAL_FOCUS:
         rec = f"Next block: bias toward your {goal} goal — {_GOAL_FOCUS[goal]}."
     if safety:
