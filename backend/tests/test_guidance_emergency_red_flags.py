@@ -690,7 +690,8 @@ class ChatRouteSafetyTests(unittest.TestCase):
             else:
                 os.environ["ARIA_BEDROCK_ENABLED"] = previous
 
-    def test_insight_mode_still_sets_safety_lock(self):
+    def test_insight_mode_emergency_sets_safety_lock_without_memory_keys(self):
+        memory_keys = ("memory", "memory_reference", "checkin", "calendar_ingested")
         for message, band in (
             ("he's having chest pain", guidance.EMERGENCY),
             ("do I have sleep apnea?", guidance.REFER_OUT),
@@ -701,9 +702,21 @@ class ChatRouteSafetyTests(unittest.TestCase):
                 self.assertTrue(body.get("safety_lock"), message)
                 self.assertEqual(body.get("reasoning_source"), "deterministic")
                 self.assertEqual(body.get("context_updates"), {})
-                self.assertNotIn("memory", body)
-                self.assertNotIn("memory_reference", body)
-                self.assertNotIn("checkin", body)
+                for key in memory_keys:
+                    self.assertNotIn(key, body)
+
+        normal = self._chat(
+            "insight-safety-lock",
+            "Analyze my lifestyle today in 2-3 sentences.",
+            mode="insight",
+        )
+        self.assertFalse(normal.get("safety_lock"))
+        self.assertEqual(normal.get("reasoning_source"), "deterministic")
+        self.assertEqual(normal.get("context_updates"), {})
+        self.assertIsNone(normal.get("memory_reference"))
+        self.assertNotIn("memory", normal)
+        self.assertNotIn("checkin", normal)
+        self.assertNotIn("calendar_ingested", normal)
 
     def test_safety_replies_skip_memory_and_checkin_fields(self):
         from services.aria_context import CoachContextEngine

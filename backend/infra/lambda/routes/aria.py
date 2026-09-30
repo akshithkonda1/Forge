@@ -288,6 +288,35 @@ def _checked_speak(fn, *args, **kwargs):
     return prompt_guard.checked(lambda: fn(*args, **kwargs))
 
 
+_MEMORY_SIDECAR_KEYS = ("memory", "memory_reference", "checkin", "calendar_ingested")
+
+
+def _attach_chat_sidecar(
+    extras: dict[str, Any],
+    *,
+    safety_lock: bool,
+    memory: str | None = None,
+    memory_block: str = "",
+    checkin_payload: dict[str, Any] | None = None,
+    calendar_ingested: list[dict[str, Any]] | None = None,
+) -> dict[str, Any]:
+    """Coach turns attach memory sidecars; safety turns lock and omit them.
+
+    Shared by the insight early return and the main chat path so an emergency
+    in ``mode: insight`` cannot ship unlocked memory keys to the phone.
+    """
+    if safety_lock:
+        extras["safety_lock"] = True
+        for key in _MEMORY_SIDECAR_KEYS:
+            extras.pop(key, None)
+        return extras
+    extras["memory_reference"] = memory
+    extras["memory"] = memory_block or None
+    extras["checkin"] = checkin_payload
+    extras["calendar_ingested"] = list(calendar_ingested or [])
+    return extras
+
+
 def handle_post_ai_chat(body: dict[str, Any], *, user_id: str) -> dict:
     """Layer 4 — structured ARIA chat response.
 
@@ -388,7 +417,7 @@ def handle_post_ai_chat(body: dict[str, Any], *, user_id: str) -> dict:
             "reasoning_source": "deterministic",
         }
         if safety_lock:
-            extras["safety_lock"] = True
+            _attach_chat_sidecar(extras, safety_lock=True)
         else:
             extras["memory_reference"] = None
         response.update(extras)
@@ -567,13 +596,14 @@ def handle_post_ai_chat(body: dict[str, Any], *, user_id: str) -> dict:
         "context_updates": {"relationship_level": updated_level},
         "missing_fields": aria_engine.apply_permissions(context, permissions)[0].missing_fields,
     }
-    if safety_lock:
-        extras["safety_lock"] = True
-    if not safety_lock:
-        extras["memory_reference"] = memory
-        extras["memory"] = memory_block or None
-        extras["checkin"] = checkin_payload
-        extras["calendar_ingested"] = calendar_ingested
+    _attach_chat_sidecar(
+        extras,
+        safety_lock=safety_lock,
+        memory=memory,
+        memory_block=memory_block,
+        checkin_payload=checkin_payload,
+        calendar_ingested=calendar_ingested,
+    )
     response.update(extras)
     return ok(response)
 
