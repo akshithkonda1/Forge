@@ -1,7 +1,7 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, useSyncExternalStore, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import { useAppStore, type TabId } from "@/stores/useAppStore";
 import { BottomNav } from "@/components/shared/bottom-nav";
@@ -37,6 +37,12 @@ const ProfileTab = dynamic(
 
 const TABS: TabId[] = ["home", "chat", "workout", "sleep", "profile"];
 let didFinishSplash = false;
+
+function subscribeForgeOnboarded(onChange: () => void) {
+  if (typeof window === "undefined") return () => {};
+  window.addEventListener("storage", onChange);
+  return () => window.removeEventListener("storage", onChange);
+}
 
 function TabSkeleton({ label }: { label: string }) {
   return (
@@ -123,7 +129,12 @@ export default function Page() {
   const mainRef = useRef<HTMLElement>(null);
   const [visited, setVisited] = useState<TabId[]>([activeTab]);
   const [showLaunchMeet, setShowLaunchMeet] = useState(true);
-  const [returning] = useState(() => peekPersistedOnboarded());
+  // Server snapshot is always false so SSR and the hydrated first paint match.
+  const returning = useSyncExternalStore(
+    subscribeForgeOnboarded,
+    peekPersistedOnboarded,
+    () => false
+  );
   const [showSplash, setShowSplash] = useState(!didFinishSplash);
   if (!visited.includes(activeTab)) {
     setVisited([...visited, activeTab]);
@@ -133,7 +144,11 @@ export default function Page() {
     const finish = () => setHasHydrated(true);
     const unsub = useAppStore.persist.onFinishHydration(finish);
     if (useAppStore.persist.hasHydrated()) finish();
-    return unsub;
+    const failsafe = window.setTimeout(finish, 250);
+    return () => {
+      unsub();
+      window.clearTimeout(failsafe);
+    };
   }, [setHasHydrated]);
 
   useEffect(() => {

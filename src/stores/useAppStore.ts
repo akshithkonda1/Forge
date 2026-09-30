@@ -11,6 +11,7 @@ import type {
   PersonalRecord,
 } from "@/types";
 import { welcomeChatMessage } from "@/lib/aria-onboarding";
+import { resolveCoachingStyle } from "@/lib/aria-companion";
 
 export type TabId = "home" | "chat" | "workout" | "sleep" | "profile";
 
@@ -173,7 +174,12 @@ export const useAppStore = create<AppState>()(
   isOnboarded: false,
   onboardingStep: 0,
   setOnboarded: (val) => set({ isOnboarded: val }),
-  setOnboardingStep: (step) => set({ onboardingStep: Math.max(0, step) }),
+  setOnboardingStep: (step) =>
+    set({
+      onboardingStep: Number.isFinite(step)
+        ? Math.max(0, Math.min(3, Math.trunc(step)))
+        : 0,
+    }),
   hasMetAria: false,
   meetAria: () => set({ hasMetAria: true }),
   resetSession: () =>
@@ -305,12 +311,18 @@ export const useAppStore = create<AppState>()(
           state.userProfile = {
             ...mockProfile,
             ...state.userProfile,
+            coachingStyle: resolveCoachingStyle(state.userProfile.coachingStyle),
             connectedDevices: state.userProfile.connectedDevices ?? [],
             fitnessGoals: state.userProfile.fitnessGoals ?? mockProfile.fitnessGoals,
             preferredWorkouts:
               state.userProfile.preferredWorkouts ?? mockProfile.preferredWorkouts,
             weeklySchedule: state.userProfile.weeklySchedule ?? mockProfile.weeklySchedule,
           };
+        }
+        if (typeof state?.onboardingStep === "number") {
+          state.onboardingStep = Number.isFinite(state.onboardingStep)
+            ? Math.max(0, Math.min(3, Math.trunc(state.onboardingStep)))
+            : 0;
         }
         state?.setHasHydrated(true);
       },

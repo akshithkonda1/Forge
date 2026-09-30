@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useRef, useState } from "react";
+import { useMemo, useState } from "react";
 import { cn } from "@/lib/utils";
 import { useAppStore } from "@/stores/useAppStore";
 import type { FitnessGoal, ExperienceLevel, WorkoutType } from "@/types";
@@ -62,17 +62,10 @@ export default function ProfileSetup({ onNext, onBack }: ProfileSetupProps) {
 
   const [section, setSection] = useState(0);
   const [name, setName] = useState("");
-  const nameRef = useRef<HTMLInputElement>(null);
   const [selectedGoals, setSelectedGoals] = useState<FitnessGoal[]>([]);
   const [experienceLevel, setExperienceLevel] =
     useState<ExperienceLevel | null>(null);
   const [selectedWorkouts, setSelectedWorkouts] = useState<WorkoutType[]>([]);
-
-  const readName = () => {
-    const fromRef = nameRef.current?.value?.trim() ?? "";
-    const fromState = name.trim();
-    return fromRef || fromState;
-  };
 
   const toggleGoal = (goal: FitnessGoal) => {
     setSelectedGoals((prev) =>
@@ -101,25 +94,14 @@ export default function ProfileSetup({ onNext, onBack }: ProfileSetupProps) {
     }
   };
 
-  const canProceed = () => {
-    if (section === 0) return readName().length > 0;
-    return canProceedFromState();
-  };
-
   const handleContinue = () => {
-    if (section === 0) {
-      const trimmed = readName();
-      if (!trimmed) return;
-      setName(trimmed);
-    } else if (!canProceed()) {
-      return;
-    }
+    if (!canProceedFromState()) return;
 
     if (section < 3) {
       setSection((s) => s + 1);
     } else {
       updateProfile({
-        name: readName() || name.trim(),
+        name: name.trim(),
         fitnessGoals: selectedGoals,
         experienceLevel: experienceLevel!,
         preferredWorkouts: selectedWorkouts,
@@ -167,7 +149,10 @@ export default function ProfileSetup({ onNext, onBack }: ProfileSetupProps) {
           {section === 0 && (
             <div className="flex flex-1 flex-col pt-4">
               <PremiumEntrance index={1}>
-                <h2 className="mb-2 text-3xl font-semibold tracking-tight text-text-primary">
+                <h2
+                  id="profile-name-heading"
+                  className="mb-2 text-3xl font-semibold tracking-tight text-text-primary"
+                >
                   What should ARIA call you?
                 </h2>
                 <p className="mb-8 text-text-tertiary">
@@ -175,12 +160,13 @@ export default function ProfileSetup({ onNext, onBack }: ProfileSetupProps) {
                 </p>
               </PremiumEntrance>
               <input
-                ref={nameRef}
+                id="profile-name"
                 type="text"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 onInput={(e) => setName((e.target as HTMLInputElement).value)}
                 placeholder="Enter your name"
+                aria-labelledby="profile-name-heading"
                 autoFocus
                 className={cn(
                   "premium-field-idle w-full rounded-xl border border-border bg-surface px-5 py-4",
@@ -189,7 +175,7 @@ export default function ProfileSetup({ onNext, onBack }: ProfileSetupProps) {
                   "focus:border-white/30 focus:ring-1 focus:ring-white/15"
                 )}
                 onKeyDown={(e) => {
-                  if (e.key === "Enter" && readName()) handleContinue();
+                  if (e.key === "Enter" && name.trim()) handleContinue();
                 }}
               />
             </div>
@@ -320,12 +306,12 @@ export default function ProfileSetup({ onNext, onBack }: ProfileSetupProps) {
             type="button"
             aria-label="Continue"
             onPointerUp={(e) => {
-              if (!canProceed()) return;
+              if (!canProceedFromState()) return;
               e.preventDefault();
               handleContinue();
             }}
             onClick={(e) => {
-              if (!canProceed()) return;
+              if (!canProceedFromState()) return;
               e.preventDefault();
               handleContinue();
             }}
