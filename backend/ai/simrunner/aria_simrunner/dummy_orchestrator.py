@@ -2313,7 +2313,7 @@ def _context_feed(situation, evidence) -> dict:
 # Sentences that push effort. When the situation read says rest / refer, or a
 # conflict says keep it light, these contradict the verdict and are dropped.
 _PUSH_SPEAK = re.compile(
-    r"(?i)\breal work\b|\bpush\b|\bgo hard\b|\bheavy\b|\bmax(?:imal)?\b|\bextra sets\b"
+    r"(?i)\breal work\b|\bpush\b|\bgo hard\b|\bmax(?:imal)?\b|\bextra sets\b"
     r"|\bprogress one thing\b|\bhard (?:session|day|block)\b|\bgo big\b|\bsend it\b"
 )
 _SENTENCE_SPLIT = re.compile(r"(?<=[.!?])\s+")

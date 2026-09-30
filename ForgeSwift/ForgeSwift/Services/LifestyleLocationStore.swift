@@ -6,8 +6,11 @@ import Combine
 /// Live location + nearby Apple Maps places for Lifestyle.
 ///
 /// Default is always the user. Live GPS first, then the last place we
-/// saved for them on this iPhone. Coordinates never leave the device —
-/// not ARIA, not the backend, not a snapshot. Apple Maps search runs
+/// saved for them on this iPhone. Precise coordinates never leave the
+/// device — not ARIA, not the backend, not a snapshot. The one exception:
+/// in Dummy / local testing, `AriaWebResearch.prefetchEnvironment` sends a
+/// location rounded to one decimal (~11 km) to Open-Meteo for weather and
+/// air quality. Never Forge's backend, never Scout. Apple Maps search runs
 /// on-device / through Apple, not Forge. Cold `kCLErrorLocationUnknown`
 /// is ignored. Simulator and “Designed for iPhone” on macOS have no GPS
 /// radio — they need a simulated pin or a Wi‑Fi location from the Mac.

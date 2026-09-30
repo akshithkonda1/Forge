@@ -1,3 +1,4 @@
+import CoreLocation
 import Foundation
 import ForgeCore
 
@@ -191,5 +192,94 @@ enum AriaWebResearch {
             .joined(separator: " ")
         guard !collapsed.isEmpty else { return nil }
         return String(collapsed.prefix(1800))
+    }
+
+    // MARK: - Situation-driven outside context (Dummy perception)
+    //
+    // The Dummy perceives a turn (`AriaSituation`), then asks here for what
+    // only the outside world knows. Same gate as every lookup in this file:
+    // local testing or the Test-Ready Dummy, never a live-backend session.
+    //
+    //   research(_:)        Scout → MedlinePlus / openFDA / PubMed → catalog
+    //   prefetchEnvironment  weather + air for a location rounded to ~11 km,
+    //                        refreshed in the background so turns stay instant
+    //   cachedEnvironment    the last fresh read, sync and network-free
+
+    private static var environmentRead: AriaEnvironmentRead?
+    private static var environmentTask: Task<Void, Never>?
+    static let environmentTTL: TimeInterval = 45 * 60
+
+    private static var evidenceCache: [String: (at: Date, evidence: AriaWebEvidence?)] = [:]
+    /// Covers PromptGuard's double generation and quick repeat asks.
+    static let evidenceTTL: TimeInterval = 10 * 60
+
+    /// Latest weather / air read while fresh. Dummy reads this mid-turn.
+    static var cachedEnvironment: AriaEnvironmentRead? {
+        guard let read = environmentRead,
+              Date().timeIntervalSince(read.capturedAt) < environmentTTL else { return nil }
+        return read
+    }
+
+    /// Refresh weather / air in the background when the cached read is stale.
+    /// The first turn after launch may miss it; the next one has it.
+    static func prefetchEnvironment() {
+        guard liveFetchAllowed(question: "", domainRawValue: "lifestyle") else { return }
+        guard cachedEnvironment == nil, environmentTask == nil else { return }
+        guard let coordinate = LifestyleLocationStore.shared.currentLocation?.coordinate else { return }
+        // Rounded before it leaves this function: ~11 km, never a precise fix.
+        let lat = (coordinate.latitude * 10).rounded() / 10
+        let lon = (coordinate.longitude * 10).rounded() / 10
+        environmentTask = Task { @MainActor in
+            let read = await AriaWebSources.environment(latitude: lat, longitude: lon)
+            if let read { AriaWebResearch.environmentRead = read }
+            AriaWebResearch.environmentTask = nil
+        }
+    }
+
+    /// Best outside evidence for one research need, or nil.
+    static func research(_ need: AriaResearchNeed, salt: UInt64) async -> AriaWebEvidence? {
+        guard !need.query.isEmpty,
+              liveFetchAllowed(question: need.query, domainRawValue: need.topic) else { return nil }
+        let key = "\(need.topic)|\(need.query)"
+        if let hit = evidenceCache[key], Date().timeIntervalSince(hit.at) < evidenceTTL {
+            return hit.evidence
+        }
+        var evidence = await AriaScoutClient.research(query: need.query, topic: need.topic)
+        if evidence == nil {
+            evidence = await AriaWebSources.healthSearch(need)
+        }
+        if evidence == nil {
+            evidence = await catalogEvidence(need, salt: salt)
+        }
+        evidenceCache[key] = (Date(), evidence)
+        return evidence
+    }
+
+    /// The curated catalog as structured evidence (not a pre-voiced snippet),
+    /// so ARIA — and Apple's on-device model when present — reason over it.
+    private static func catalogEvidence(_ need: AriaResearchNeed, salt: UInt64) async -> AriaWebEvidence? {
+        let topic = AriaReferenceTopic(rawValue: need.topic)
+            ?? AriaReferenceCatalog.resolvedTopic(domainRawValue: need.topic, question: need.query)
+        for pick in AriaReferenceCatalog.picks(topic: topic, question: need.query, salt: salt) {
+            guard let url = pick.source.pageURL,
+                  let result = try? await session.data(from: url),
+                  let http = result.1 as? HTTPURLResponse, http.statusCode == 200,
+                  let text = extractText(from: result.0), !text.isEmpty else { continue }
+            return AriaWebEvidence(
+                text: AriaWebParsers.clip(text),
+                sources: [.init(title: pick.source.title, url: pick.source.url)],
+                via: .catalog,
+                confidence: 0.45
+            )
+        }
+        return nil
+    }
+
+    /// Test helper — clears the situation caches between XCTest cases.
+    static func resetSituationCachesForTests() {
+        environmentTask?.cancel()
+        environmentTask = nil
+        environmentRead = nil
+        evidenceCache.removeAll()
     }
 }
