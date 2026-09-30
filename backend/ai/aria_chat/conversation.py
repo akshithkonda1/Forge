@@ -180,11 +180,10 @@ _GENERIC = (
     "I'm beside you. Tell me the specific thing, not the polished version.",
 )
 _THIN = (
-    "I don't have enough to go on yet. Tell me about the day — sleep, mood, what you actually did.",
-    "I don't have enough to go on yet. What's the day felt like from your side?",
+    "I don't have enough to go on yet. Tell me about the day?",
 )
 _COACH_SPENT = (
-    "You're running on leftover toast energy — charming, until the crumbs stage a coup. Make tonight the easy one and get to bed like it matters.",
+    "You're running on leftover toast energy — charming, until the crumbs stage a coup.",
     "You look like a phone that opened one more app on fumes. Soften the day and lights out earlier.",
     "That stubborn streak is doing unpaid overtime. Walk, eat, and call it before you prove anything.",
 )
@@ -206,11 +205,13 @@ _HABIT = (
     "One real meal and a quieter evening beats another late push.",
 )
 _MEMORY_OFF = (
-    "I don't have that one — I'd love to hear about it.",
+    "That story isn't with me — I'd love to hear about it.",
     "That one's not with me. Tell me the story?",
 )
 _REFER_OUT_SPEAK = (
     "I can't tell from here — a doctor can check it properly. Meanwhile I'm glad to help with sleep habits.",
+    "I can't tell from here — a doctor can check it properly. Meanwhile I'm glad to help with the day-to-day stuff around it.",
+    "That one's a call for your doctor or pharmacist — they know what you're on. I'm glad to help with the day-to-day stuff around it.",
 )
 _WARMER_AFTER_DOWN = (
     "I'm still here. Want to pick up the thread, or start a smaller one?",
@@ -235,10 +236,34 @@ def word_ngrams(text: str, n: int) -> set[str]:
     return {" ".join(words[i : i + n]) for i in range(len(words) - n + 1)}
 
 
+def _emergency_allow_ngrams() -> set[str]:
+    """Exact approved emergency strings only — never a whole band."""
+    replies = (
+        f"{guidance._EMERGENCY_OPEN} {guidance._EMERGENCY_CARDIAC}",
+        f"{guidance._EMERGENCY_OPEN} {guidance._EMERGENCY_CARDIAC_HELPER}",
+        f"{guidance._EMERGENCY_OPEN} {guidance._EMERGENCY_STROKE}",
+        f"{guidance._EMERGENCY_OPEN} {guidance._EMERGENCY_STROKE_HELPER}",
+        f"{guidance._EMERGENCY_OPEN} {guidance._EMERGENCY_FAINT}",
+        f"{guidance._EMERGENCY_OPEN} {guidance._EMERGENCY_FAINT_HELPER}",
+        f"{guidance._EMERGENCY_OPEN} {guidance._EMERGENCY_CPR}",
+        f"{guidance._EMERGENCY_OPEN} {guidance._EMERGENCY_CPR_IF_NEEDED}",
+        f"{guidance._EMERGENCY_OPEN} {guidance._EMERGENCY_PATIENT_FALLBACK}",
+        guidance._CRISIS_LINE,
+    )
+    grams: set[str] = set()
+    for text in replies:
+        grams |= word_ngrams(text, 3)
+    return grams
+
+
 _SAFE_REPEAT_NGRAMS = (
     word_ngrams(SPOKEN_SHORT_SLEEP, 3)
     | word_ngrams(SPOKEN_PROTECT_STEP, 3)
     | word_ngrams(SAFETY_CLOSER, 3)
+    | _emergency_allow_ngrams()
+    | word_ngrams(_REFER_OUT_SPEAK[0], 3)
+    | word_ngrams(_REFER_OUT_SPEAK[1], 3)
+    | word_ngrams(_REFER_OUT_SPEAK[2], 3)
 )
 
 
@@ -601,6 +626,13 @@ def compose_coaching(
     used = list(prior_spoken or [])
     if data_is_thin(ctx):
         spoken = _pick_fresh(seed, _THIN, used)
+        return polish_iris(
+            spoken,
+            memory_enabled=memory_enabled,
+            last_spoken=last_spoken,
+            seed=seed,
+            alternatives=_THIN,
+        )
     elif _NUMBER_ASK_RE.search(message or ""):
         spoken = _pick(seed, _NUMBER_ASK).format(direction=_direction(ctx))
     elif _safety_turn(message, ctx):
@@ -681,10 +713,10 @@ def apply_conversation(
     used_spoken = list(prior_spoken or [])
     if band in (guidance.EMERGENCY, guidance.FIRST_AID, guidance.REFER_OUT):
         engine_text = str(envelope.get("message") or envelope.get("prose_summary") or "")
-        # 911 / first-aid stay on the engine path. Never keep a thread callback
-        # that quotes earlier user text. Refer-out is two friend sentences.
-        if band == guidance.REFER_OUT:
-            spoken = _pick(seed, _REFER_OUT_SPEAK)
+        assessed = guidance.assess(message)
+        # 911 / first-aid / refer-out stay on guidance.py copy.
+        if assessed is not None:
+            spoken = _strip_thread_callback(assessed.message)
         else:
             spoken = _strip_thread_callback(engine_text)
         envelope["message"] = spoken

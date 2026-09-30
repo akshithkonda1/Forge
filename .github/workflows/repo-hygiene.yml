@@ -27,7 +27,7 @@ jobs:
 
     steps:
       # Actions must be pinned to a full-length commit SHA (repo policy).
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Scan tracked files
         run: scripts/check-conflict-copies.sh
@@ -37,7 +37,7 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       # project.pbxproj is hand-edited in this repo, and its two nastiest
       # failures — a source file in no target, a build file pointing at a
@@ -58,7 +58,7 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       # Supporter-facing code must never name MenstrualCycleSnapshot, and the
       # Messages extension must never gain a purchase check. Neither is
@@ -72,7 +72,7 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       # A function pasted twice into the same type is an 'invalid redeclaration'
       # error that only appears on macOS, minutes into a build, and blocks every
@@ -86,7 +86,7 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       # Splitting a class into Type.swift + Type+Concern.swift changes what
       # `private` means: from "this type" to "this file". A private member read
@@ -102,7 +102,7 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       # A permission-gated API without its Info.plist usage string is not a
       # warning and not a denied permission — iOS sends SIGABRT the moment the
@@ -118,7 +118,7 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       # Info-Add.plist carries the API base URL, Cognito ids and environment
       # name that ForgeAuthConfig reads at launch. The committed values are
@@ -141,7 +141,7 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       # ForgeCore's Package.swift names every file instead of letting SwiftPM
       # walk the directory, to avoid picking up Finder " 2.swift" duplicates.
@@ -159,7 +159,7 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       # WidgetKit only shows what the bundle lists, so a widget that is on
       # disk, in the Xcode target and compiling can still be invisible on
@@ -175,7 +175,7 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       # LocalTestingOrchestrator's own doc comment promises it holds no
       # network transport — AriaWebResearch is the one intentional, isolated
@@ -186,3 +186,20 @@ jobs:
       # gated behind AriaOperatingMode.isLocalTesting, both compile clean.
       - name: Check AriaWebResearch stays isolated
         run: python3 scripts/check-aria-web-research.py
+
+  aria-mark:
+    name: ARIA mark assets
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      # scripts/check-aria-mark.py used to SystemExit(0) when pillow/numpy
+      # were missing, so a runner without those packages reported success
+      # without looking at a single pixel. Fail closed: install the deps
+      # and actually inspect the mark.
+      - name: Install pillow/numpy
+        run: python3 -m pip install --user pillow numpy
+
+      - name: Check ARIA mark assets
+        run: python3 scripts/check-aria-mark.py

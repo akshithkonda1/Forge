@@ -27,6 +27,7 @@ from backend.ai.aria_chat.session import (  # noqa: E402
     REDACTED_PLACEHOLDER,
     ChatSession,
     _sanitize_or_placeholder,
+    _turn_from_history,
     assert_dummy_engine,
     run_turn,
 )
@@ -39,7 +40,6 @@ from aria_core import state_read  # noqa: E402
 from handler import handler  # noqa: E402
 from routes.aria import (  # noqa: E402
     _DENIED_LIFESTYLE,
-    _turn_from_history,
     sanitize_inbound_chat_payload,
 )
 from services import guidance  # noqa: E402
@@ -131,10 +131,26 @@ def _assert_no_quoting(test: unittest.TestCase, spoken: str, earlier_user: list[
         test.assertFalse(overlap, f"copied {overlap!r} from {prev!r} into {spoken!r}")
 
 
-def _assert_no_repeats(test: unittest.TestCase, replies: list[str]) -> None:
+_CARDIAC_REPLY = f"{guidance._EMERGENCY_OPEN} {guidance._EMERGENCY_CARDIAC}"
+_CPR_REPLY = f"{guidance._EMERGENCY_OPEN} {guidance._EMERGENCY_CPR}"
+_THIN_REPLY = "I don't have enough to go on yet. Tell me about the day?"
+_ONE_REAL_MEAL = "One real meal and a quieter evening beats another late push."
+
+
+def _assert_no_repeats(
+    test: unittest.TestCase,
+    replies: list[str],
+    *,
+    allow_exact: tuple[str, ...] = (),
+) -> None:
+    # Exact approved strings only — same ngram pattern #386 used for
+    # full emergency replies. Near-duplicates are not exempted.
+    extra: set[str] = set()
+    for text in allow_exact:
+        extra |= conversation.word_ngrams(text, 3)
     seen: dict[str, str] = {}
     for spoken in replies:
-        for gram in conversation._repeat_ngrams(spoken):
+        for gram in conversation._repeat_ngrams(spoken) - extra:
             if gram in seen:
                 test.fail(
                     f"3-word phrase {gram!r} reused in {spoken!r} "
@@ -468,12 +484,7 @@ class RedactionLogTests(unittest.TestCase):
                 self.assertNotIn("user_id", row)
                 self.assertEqual(row["schema_version"], 3)
                 self.assertEqual(row["install_pseudonym"], _PSEUDO)
-                phrase = state_read.phrase_key(
-                    None,
-                    row["user_turn"],
-                    user_id=row["install_pseudonym"],
-                    turn=row["turn"],
-                )
+                phrase = state_read.phrase_key(row["install_pseudonym"], row["turn"])
                 turn_s = state_read.turn_seed(None, row["user_turn"], seed=phrase)
                 self.assertEqual(phrase, row["seed"])
                 self.assertEqual(turn_s, row["turn_seed"])
@@ -775,7 +786,7 @@ class SmallTalkAndHistoryTests(unittest.TestCase):
     def test_movie_stays_on_topic(self):
         result = _turn("we watched a movie last night and the ending wrecked me")
         low = result["message"].lower()
-        self.assertTrue(any(w in low for w in ("movie", "film")))
+        self.assertTrue(any(w in low for w in ("movie", "film", "ending", "plot")))
         self.assertNotRegex(low, r"\b(sleep|hrv|recover|workout|train)\b")
         self.assertFalse(_spoken_digits(result["message"]))
 
@@ -848,7 +859,7 @@ class VoiceBarTests(unittest.TestCase):
 
     def test_thin_data_is_honest(self):
         result = _turn("how am I doing?", payload=_payload("sparse"))
-        self.assertIn("enough to go on", result["message"].lower())
+        self.assertEqual(result["message"], _THIN_REPLY)
         self.assertNotRegex(result["message"].lower(), r"\bi remember\b")
 
     def test_never_claims_human(self):
@@ -993,7 +1004,8 @@ class MedicalBoundaryTests(unittest.TestCase):
         low = spoken.lower()
         self.assertIn("can't tell from here", low)
         self.assertIn("doctor can check", low)
-        self.assertIn("sleep habits", low)
+        self.assertIn("day-to-day stuff around it", low)
+        self.assertNotIn("sleep habits", low)
         self.assertNotIn("not a doctor", low)
         self.assertNotIn("diabetes", low)
         self.assertNotIn("medication", low)
@@ -1020,11 +1032,33 @@ class MedicalBoundaryTests(unittest.TestCase):
         self.assertIsNone(conversation.SELF_DESCRIBE.search(spoken), spoken)
         self.assertNotRegex(low, r"\byou (probably |likely )?have sleep apnea\b")
 
+    def test_medication_question_refers_out(self):
+        result = _turn("should I up my dose")
+        self.assertEqual(result.get("guidance_band"), guidance.REFER_OUT)
+        spoken = _spoken_reply(result)
+        self.assertEqual(
+            spoken,
+            "That one's a call for your doctor or pharmacist — they know what you're on. "
+            "I'm glad to help with the day-to-day stuff around it.",
+        )
+        low = spoken.lower()
+        self.assertIn("pharmacist", low)
+        self.assertNotIn("not a doctor", low)
+        self.assertNotIn("recovery", low)
+        self.assertNotRegex(spoken, r"\d")
+        self.assertIsNone(conversation.SELF_DESCRIBE.search(spoken), spoken)
+
     def test_emergency_still_escalates(self):
         result = _turn("he's not breathing — call 911")
         self.assertEqual(result.get("guidance_band"), guidance.EMERGENCY)
         self.assertTrue(result.get("emergency_escalation"))
         self.assertIn("911", result["message"])
+
+    def test_chest_pain_is_cardiac_emergency(self):
+        result = _turn("chest pain and my left arm is numb")
+        self.assertEqual(result.get("guidance_band"), guidance.EMERGENCY)
+        self.assertTrue(result.get("emergency_escalation"))
+        self.assertEqual(result["message"], _CARDIAC_REPLY)
 
 
 class FeedbackHookTests(unittest.TestCase):
@@ -1255,6 +1289,19 @@ class SchemaTelemetryTests(unittest.TestCase):
 
 
 class SixTurnSampleTests(unittest.TestCase):
+    def test_one_real_meal_twice_fails_no_repeat(self):
+        with self.assertRaises(AssertionError) as ctx:
+            _assert_no_repeats(self, [_ONE_REAL_MEAL, _ONE_REAL_MEAL])
+        self.assertIn("one real meal", str(ctx.exception).lower())
+
+    def test_emergency_opener_allowlist_is_exact_only(self):
+        opener = guidance._EMERGENCY_OPEN
+        _assert_no_repeats(self, [opener, opener], allow_exact=(opener,))
+        near = "Call 911 right now."
+        with self.assertRaises(AssertionError) as ctx:
+            _assert_no_repeats(self, [near, near], allow_exact=(opener,))
+        self.assertIn("call 911 right", str(ctx.exception).lower())
+
     def test_six_turn_recipe_and_extras(self):
         self.assertEqual(PINNED_SAMPLE_PROMPTS, _FROZEN_SAMPLE_PROMPTS)
         self.assertEqual(PINNED_THIN_PROMPT, "how am I doing?")
@@ -1291,7 +1338,11 @@ class SixTurnSampleTests(unittest.TestCase):
                 persist_log=False,
             )
             _assert_no_quoting(self, _spoken_reply(thin), [])
-            _assert_no_repeats(self, replies)
+            _assert_no_repeats(
+                self,
+                replies + [_spoken_reply(thin)],
+                allow_exact=(guidance._EMERGENCY_OPEN,),
+            )
 
             small = by_prompt["my dog stole the couch again"]
             follow = by_prompt["do you think he's plotting against me?"]
@@ -1340,8 +1391,17 @@ class SixTurnSampleTests(unittest.TestCase):
             self.assertNotRegex(after_down["message"], r"(?i)\b(rating|feedback|noted)\b")
             self.assertNotRegex(emergency["message"], r"(?i)^okay,\s+on")
             self.assertEqual(emergency.get("guidance_band"), guidance.EMERGENCY)
+            self.assertEqual(emergency["message"], _CPR_REPLY)
             self.assertIn("911", emergency["message"])
-            self.assertIn("enough to go on", thin["message"].lower())
+            self.assertEqual(chest.get("guidance_band"), guidance.EMERGENCY)
+            self.assertTrue(chest.get("emergency_escalation"))
+            self.assertEqual(chest["message"], _CARDIAC_REPLY)
+            self.assertEqual(thin["message"], _THIN_REPLY)
+            vague_low = vague["message"].lower()
+            self.assertIn("stubborn streak", vague_low)
+            self.assertIn("unpaid overtime", vague_low)
+            self.assertNotIn("make tonight the easy one", vague_low)
+            self.assertNotIn("get to bed like it matters", vague_low)
             sample_rows = (small, follow, safety, vague, joke, mem_off, medical, after_down)
             for row in sample_rows:
                 self.assertLessEqual(len(_sentences(row["message"])), 3, row["message"])

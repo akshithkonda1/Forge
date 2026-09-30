@@ -158,10 +158,16 @@ def phrase_bank() -> tuple[str, ...]:
     return PHRASE_BANK
 
 
-def phrase_key(user_id: str | None, turn: int | None) -> int:
+def phrase_key(
+    user_id: str | None,
+    turn: int | None,
+    seed: int | None = None,
+) -> int:
     """Stable sha256 of request/session user id + turn. No date or clock.
 
-    Uses hashlib.sha256 (not Python's randomized ``hash()``). The id and
+    Uses hashlib.sha256 (not Python's randomized ``hash()``). Dummy chat may
+    pass its seed as a third input; that seed is mixed into the same digest.
+    Two-arg callers (``phrase_key(uid, turn)``) are unchanged. The id and
     counter come from the request/session only — never memory, persona,
     notes, last_insights, calendar, or wall clock.
     """
@@ -170,7 +176,10 @@ def phrase_key(user_id: str | None, turn: int | None) -> int:
         counter = int(turn) if turn is not None else 0
     except (TypeError, ValueError):
         counter = 0
-    digest = hashlib.sha256(f"{uid}\0{counter}".encode("utf-8")).digest()
+    raw = f"{uid}\0{counter}"
+    if seed is not None:
+        raw = f"{raw}\0{int(seed) & 0xFFFFFFFF}"
+    digest = hashlib.sha256(raw.encode("utf-8")).digest()
     return int.from_bytes(digest[:8], "big") & 0xFFFFFFFF
 
 
@@ -186,28 +195,6 @@ def turn_seed(
     if seed is not None:
         return int(seed) & 0xFFFFFFFF
     return phrase_key(user_id, turn)
-
-
-def phrase_key(
-    ctx: Any,
-    message: str,
-    *,
-    user_id: str = "",
-    turn: int = 0,
-    seed: int | None = None,
-) -> int:
-    """Deterministic phrasing key for one user+turn. Wraps ``turn_seed``.
-
-    Dummy chat and replay use this so variation is stable per person and turn,
-    never ``random``. An explicit ``seed`` still wins.
-    """
-    if seed is not None:
-        return turn_seed(ctx, message, seed)
-    # User+turn only — do not fold ctx.timestamp (that would make two
-    # otherwise identical Dummy chats disagree).
-    uid = str(user_id or "").strip() or getattr(ctx, "user_id", "") or ""
-    raw = f"{uid}|{int(turn)}|{message or ''}"
-    return zlib.adler32(raw.encode("utf-8", "replace")) & 0xFFFFFFFF
 
 
 def _state_read(ctx: Any, seed: int) -> str:

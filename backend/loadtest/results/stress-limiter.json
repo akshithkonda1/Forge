@@ -1,0 +1,478 @@
+{
+  "scenario": "stress-limiter",
+  "duration_seconds": 180.398371,
+  "requests": 73406,
+  "requests_per_second": 406.9105479893718,
+  "latency_ms": {
+    "p50": 0.4573735,
+    "p95": 1.2108552499999998,
+    "p99": 2.9585130499999805
+  },
+  "error_rate": 0.0912731929270087,
+  "error_rate_overall": 0.0912731929270087,
+  "errors": 6700,
+  "errors_split": {
+    "5xx": 0,
+    "429": 6700,
+    "other": 0
+  },
+  "dropped_iterations": 0,
+  "errors_5xx": 0,
+  "errors_429": 6700,
+  "errors_other": 0,
+  "errors_non_429": 0,
+  "error_rate_5xx": 0.0,
+  "error_rate_429": 0.0912731929270087,
+  "error_rate_other": 0.0,
+  "error_rate_non_429": 0.0,
+  "generated_at": "2026-09-29T03:57:39.460762+00:00",
+  "guards": {
+    "status": 200,
+    "payload": {
+      "ok": true,
+      "counts": {
+        "bedrock_client": 0,
+        "bedrock_invoke": 0,
+        "elevenlabs_http": 0,
+        "elevenlabs_api": 0
+      },
+      "total": 0
+    }
+  },
+  "vm": {
+    "cpu_count": 4,
+    "ram_kib": 16398384,
+    "ram_gib": 15.64,
+    "backend": {
+      "server": "backend/loadtest/run_server.py \u2192 ThreadingHTTPServer",
+      "workers": 1,
+      "worker_model": "single process, thread-per-request (no gunicorn/uvicorn workers)",
+      "not": "Lambda or API Gateway",
+      "numbers_mean": "local Dummy backend ceiling on this VM, not production capacity"
+    }
+  },
+  "peak_rps": {
+    "peak_1s_http_reqs": 1015,
+    "samples": 181,
+    "min_1s_http_reqs": 1,
+    "median_1s_http_reqs": 298
+  },
+  "cpu": {
+    "samples": 181,
+    "interval_seconds": 1.0,
+    "backend_pid": 45432,
+    "host_cpu_pct": {
+      "avg": 12.00210223850415,
+      "max": 31.094527363184078,
+      "min": 0.25062656641604564
+    },
+    "backend_cpu_pct": {
+      "avg": 21.876054246217265,
+      "max": 51.985238452196946,
+      "min": 0.0,
+      "note": "percent of one CPU (100 = one core fully used)"
+    }
+  },
+  "per_route": {
+    "POST /ai/observe": {
+      "requests": 6624,
+      "errors": 0,
+      "requests_per_second": 36.71873511540745,
+      "latency_ms": {
+        "p50": 0.9825975,
+        "p95": 1.6176322499999995,
+        "p99": 2.949107529999994
+      },
+      "status_codes": {
+        "200": 6624
+      },
+      "errors_split": {
+        "5xx": 0,
+        "429": 0,
+        "other": 0
+      },
+      "errors_5xx": 0,
+      "errors_429": 0,
+      "errors_other": 0,
+      "errors_non_429": 0,
+      "error_rate": 0.0,
+      "error_rate_5xx": 0.0,
+      "error_rate_429": 0.0,
+      "error_rate_other": 0.0,
+      "error_rate_non_429": 0.0
+    },
+    "GET /sleep": {
+      "requests": 6684,
+      "errors": 0,
+      "requests_per_second": 37.05133235377164,
+      "latency_ms": {
+        "p50": 0.436203,
+        "p95": 0.9944242499999997,
+        "p99": 2.7931246700000005
+      },
+      "status_codes": {
+        "200": 6684
+      },
+      "errors_split": {
+        "5xx": 0,
+        "429": 0,
+        "other": 0
+      },
+      "errors_5xx": 0,
+      "errors_429": 0,
+      "errors_other": 0,
+      "errors_non_429": 0,
+      "error_rate": 0.0,
+      "error_rate_5xx": 0.0,
+      "error_rate_429": 0.0,
+      "error_rate_other": 0.0,
+      "error_rate_non_429": 0.0
+    },
+    "GET /devices/catalog": {
+      "requests": 6565,
+      "errors": 0,
+      "requests_per_second": 36.391681164349315,
+      "latency_ms": {
+        "p50": 0.417275,
+        "p95": 1.0630591999999996,
+        "p99": 3.3703739599999967
+      },
+      "status_codes": {
+        "200": 6565
+      },
+      "errors_split": {
+        "5xx": 0,
+        "429": 0,
+        "other": 0
+      },
+      "errors_5xx": 0,
+      "errors_429": 0,
+      "errors_other": 0,
+      "errors_non_429": 0,
+      "error_rate": 0.0,
+      "error_rate_5xx": 0.0,
+      "error_rate_429": 0.0,
+      "error_rate_other": 0.0,
+      "error_rate_non_429": 0.0
+    },
+    "GET /progress/summary": {
+      "requests": 6861,
+      "errors": 0,
+      "requests_per_second": 38.032494206946026,
+      "latency_ms": {
+        "p50": 0.439901,
+        "p95": 0.967798,
+        "p99": 2.584640999999995
+      },
+      "status_codes": {
+        "200": 6861
+      },
+      "errors_split": {
+        "5xx": 0,
+        "429": 0,
+        "other": 0
+      },
+      "errors_5xx": 0,
+      "errors_429": 0,
+      "errors_other": 0,
+      "errors_non_429": 0,
+      "error_rate": 0.0,
+      "error_rate_5xx": 0.0,
+      "error_rate_429": 0.0,
+      "error_rate_other": 0.0,
+      "error_rate_non_429": 0.0
+    },
+    "GET /workouts/today": {
+      "requests": 6559,
+      "errors": 0,
+      "requests_per_second": 36.3584214405129,
+      "latency_ms": {
+        "p50": 0.412634,
+        "p95": 0.9570579999999997,
+        "p99": 2.5173960200000005
+      },
+      "status_codes": {
+        "200": 6559
+      },
+      "errors_split": {
+        "5xx": 0,
+        "429": 0,
+        "other": 0
+      },
+      "errors_5xx": 0,
+      "errors_429": 0,
+      "errors_other": 0,
+      "errors_non_429": 0,
+      "error_rate": 0.0,
+      "error_rate_5xx": 0.0,
+      "error_rate_429": 0.0,
+      "error_rate_other": 0.0,
+      "error_rate_non_429": 0.0
+    },
+    "POST /ai/chat": {
+      "requests": 6760,
+      "errors": 6700,
+      "requests_per_second": 37.47262218903296,
+      "latency_ms": {
+        "p50": 0.4149445,
+        "p95": 1.052095949999999,
+        "p99": 5.3790289799999975
+      },
+      "status_codes": {
+        "200": 60,
+        "429": 6700
+      },
+      "errors_split": {
+        "5xx": 0,
+        "429": 6700,
+        "other": 0
+      },
+      "errors_5xx": 0,
+      "errors_429": 6700,
+      "errors_other": 0,
+      "errors_non_429": 0,
+      "error_rate": 0.9911242603550295,
+      "error_rate_5xx": 0.0,
+      "error_rate_429": 0.9911242603550295,
+      "error_rate_other": 0.0,
+      "error_rate_non_429": 0.0
+    },
+    "GET /me": {
+      "requests": 6700,
+      "errors": 0,
+      "requests_per_second": 37.14002495066876,
+      "latency_ms": {
+        "p50": 0.416472,
+        "p95": 0.9772931499999996,
+        "p99": 3.00523257
+      },
+      "status_codes": {
+        "200": 6700
+      },
+      "errors_split": {
+        "5xx": 0,
+        "429": 0,
+        "other": 0
+      },
+      "errors_5xx": 0,
+      "errors_429": 0,
+      "errors_other": 0,
+      "errors_non_429": 0,
+      "error_rate": 0.0,
+      "error_rate_5xx": 0.0,
+      "error_rate_429": 0.0,
+      "error_rate_other": 0.0,
+      "error_rate_non_429": 0.0
+    },
+    "GET /health": {
+      "requests": 6788,
+      "errors": 0,
+      "requests_per_second": 37.62783423360292,
+      "latency_ms": {
+        "p50": 0.388752,
+        "p95": 0.9284160499999999,
+        "p99": 2.844025060000012
+      },
+      "status_codes": {
+        "200": 6788
+      },
+      "errors_split": {
+        "5xx": 0,
+        "429": 0,
+        "other": 0
+      },
+      "errors_5xx": 0,
+      "errors_429": 0,
+      "errors_other": 0,
+      "errors_non_429": 0,
+      "error_rate": 0.0,
+      "error_rate_5xx": 0.0,
+      "error_rate_429": 0.0,
+      "error_rate_other": 0.0,
+      "error_rate_non_429": 0.0
+    },
+    "GET /chat/threads/current": {
+      "requests": 6590,
+      "errors": 0,
+      "requests_per_second": 36.53026334700107,
+      "latency_ms": {
+        "p50": 0.4188045,
+        "p95": 0.9299191499999988,
+        "p99": 2.4695527499999828
+      },
+      "status_codes": {
+        "200": 6590
+      },
+      "errors_split": {
+        "5xx": 0,
+        "429": 0,
+        "other": 0
+      },
+      "errors_5xx": 0,
+      "errors_429": 0,
+      "errors_other": 0,
+      "errors_non_429": 0,
+      "error_rate": 0.0,
+      "error_rate_5xx": 0.0,
+      "error_rate_429": 0.0,
+      "error_rate_other": 0.0,
+      "error_rate_non_429": 0.0
+    },
+    "GET /workouts/history": {
+      "requests": 6606,
+      "errors": 0,
+      "requests_per_second": 36.618955943898186,
+      "latency_ms": {
+        "p50": 0.4376645,
+        "p95": 0.970268,
+        "p99": 2.5999245999999903
+      },
+      "status_codes": {
+        "200": 6606
+      },
+      "errors_split": {
+        "5xx": 0,
+        "429": 0,
+        "other": 0
+      },
+      "errors_5xx": 0,
+      "errors_429": 0,
+      "errors_other": 0,
+      "errors_non_429": 0,
+      "error_rate": 0.0,
+      "error_rate_5xx": 0.0,
+      "error_rate_429": 0.0,
+      "error_rate_other": 0.0,
+      "error_rate_non_429": 0.0
+    },
+    "GET /dashboard/today": {
+      "requests": 6669,
+      "errors": 0,
+      "requests_per_second": 36.96818304418059,
+      "latency_ms": {
+        "p50": 0.711536,
+        "p95": 1.2870679999999997,
+        "p99": 2.791642079999999
+      },
+      "status_codes": {
+        "200": 6669
+      },
+      "errors_split": {
+        "5xx": 0,
+        "429": 0,
+        "other": 0
+      },
+      "errors_5xx": 0,
+      "errors_429": 0,
+      "errors_other": 0,
+      "errors_non_429": 0,
+      "error_rate": 0.0,
+      "error_rate_5xx": 0.0,
+      "error_rate_429": 0.0,
+      "error_rate_other": 0.0,
+      "error_rate_non_429": 0.0
+    }
+  },
+  "latency_by_status": {
+    "by_status": {
+      "200": {
+        "count": 66706,
+        "p50": 0.4649355,
+        "p95": 1.2238297500000002,
+        "p99": 2.977071649999985
+      },
+      "429": {
+        "count": 6700,
+        "p50": 0.413887,
+        "p95": 0.9595214999999999,
+        "p99": 2.7223443400000016
+      }
+    },
+    "chat": {
+      "200": {
+        "count": 60,
+        "p50": 5.8934999999999995,
+        "p95": 9.14221935,
+        "p99": 25.767893989999866
+      },
+      "429": {
+        "count": 6700,
+        "p50": 0.413887,
+        "p95": 0.9595214999999999,
+        "p99": 2.7223443400000016
+      }
+    },
+    "chat_200_vs_429": {
+      "chat_200": {
+        "count": 60,
+        "p50": 5.8934999999999995,
+        "p95": 9.14221935,
+        "p99": 25.767893989999866
+      },
+      "chat_429": {
+        "count": 6700,
+        "p50": 0.413887,
+        "p95": 0.9595214999999999,
+        "p99": 2.7223443400000016
+      }
+    }
+  },
+  "chat_admission": {
+    "limit": 60,
+    "action": "aria-chat",
+    "tagged_users": 1,
+    "verdicts": {
+      "exact": 1
+    },
+    "finding": "exact: 1 user(s) allowed exactly 60 chat 200s",
+    "keeps_exactly_60": true,
+    "per_user": [
+      {
+        "user": "loadtest-limiter",
+        "chat_200": 60,
+        "chat_429": 6700,
+        "chat_5xx": 0,
+        "chat_other": 0,
+        "limit": 60,
+        "verdict": "exact"
+      }
+    ],
+    "untagged_chat_200": 0,
+    "untagged_chat_errors": {
+      "5xx": 0,
+      "429": 0,
+      "other": 0
+    }
+  },
+  "breaking_point": {
+    "aborted": false,
+    "never_broke_by_ceiling": true,
+    "ceiling_rps": 1000.0,
+    "reason": [],
+    "error_status_codes": [
+      "POST /ai/chat 429\u00d76700"
+    ],
+    "p95_ms_at_stop": 1.2108552499999998,
+    "non_429_error_rate_at_stop": 0.0,
+    "interpolated_arrival_rps_at_stop": 1000.0,
+    "arrival_rps_at_first_break": 1000.0,
+    "rps_at_first_break": null,
+    "failed_at_target_rps": null,
+    "held_through_target_rps": 1000.0,
+    "peak_1s_http_reqs_before_stop": 1015,
+    "peak_sustained_5s_rps_before_break": 1003.0,
+    "duration_seconds": 180.398371,
+    "first_break": null,
+    "note": "never broke by the ceiling of 1000 rps"
+  },
+  "aborted": false,
+  "identity": {
+    "scheme": "unsigned Dummy Bearer JWT, sub=loadtest-limiter (single shared user)",
+    "forge_test_user_id": null
+  },
+  "rate_limit": {
+    "patched": false,
+    "store": "in-memory storage.dynamodb._local_store (APP_DATA_TABLE_NAME unset)",
+    "restarted_before_run": true
+  }
+}

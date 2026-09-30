@@ -16,7 +16,10 @@ already does flows straight from real ingested data.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any
+from typing import TYPE_CHECKING, Any
+
+if TYPE_CHECKING:
+    from services import aria_engine
 
 from . import estimators, statistics as st
 from .estimators import Estimate
@@ -365,7 +368,7 @@ class BodyModel:
 
     # -- projection onto the ARIA coaching context ----------------------------
 
-    def to_aria_context(self, permissions: "aria_engine.DataPermissions | None" = None) -> aria_engine.ARIAContext:
+    def to_aria_context(self, permissions: "aria_engine.DataPermissions | None" = None) -> "aria_engine.ARIAContext":
         """Project the model onto ARIAContext, skipping permission-denied domains."""
         from services import aria_engine
 

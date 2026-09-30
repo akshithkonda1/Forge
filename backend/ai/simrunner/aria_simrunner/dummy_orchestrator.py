@@ -1988,6 +1988,7 @@ def _respond_via_lambda(
     chat_payload: dict | None = None,
     fuse_user_id: str | None = None,
     load_learner: bool = True,
+    model_id: str | None = None,
 ) -> dict:
     """Product path: fuse the synthetic day, then deterministic generate_response."""
     fusion_mod, engine_mod = _production_fusion()
@@ -2040,6 +2041,8 @@ def _respond_via_lambda(
     stance = envelope["fusion"].get("stance")
     signals = read_signals(ctx) if ctx is not None else None
     guidance = envelope.get("guidance_band")
+    phrase_uid = _phrase_user_id(model_id if model_id is not None else fuse_user_id)
+    phrase_turn = _phrase_turn(prior_turns, seed)
     # Fused notices are often <28 words; Dummy hypertune still needs local wit.
     prose = friend_speak(
         envelope.get("prose_summary") or "",
@@ -2367,11 +2370,16 @@ def respond(
         # Chat pins fuse_turn on the provided payload. Do not build a
         # SimRunner stub / persona stream — that path is engine="stub".
         ctx = None
+        model = None
     else:
-        ctx, _model = _context_for_turn(
+        ctx, model = _context_for_turn(
             seed=seed, model_id=model_id, day_index=day_index,
             context=context, pack_day=pack_day, use_pack=use_pack,
         )
+    phrase_uid = _phrase_user_id(
+        model_id or ((model or {}).get("model_id") if isinstance(model, dict) else None)
+    )
+    phrase_turn = _phrase_turn(prior_turns, seed)
     if (engine or ENGINE_LAMBDA).strip().lower() == ENGINE_LAMBDA:
         return _respond_via_lambda(
             message,
@@ -2385,6 +2393,7 @@ def respond(
             chat_payload=chat_payload,
             fuse_user_id=fuse_user_id,
             load_learner=load_learner,
+            model_id=phrase_uid,
         )
     stub = _offline_stub(message, ctx, seed)
     signals = read_signals(ctx)
