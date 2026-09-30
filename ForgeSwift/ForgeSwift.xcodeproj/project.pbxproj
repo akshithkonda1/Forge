@@ -71,6 +71,7 @@
 		1ARIA0A12F9FF867004091AA /* AriaDummyTurn.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1ARIA0A02F9FF867004091AA /* AriaDummyTurn.swift */; };
 		E253EA2C98A65A874B759C2D /* AriaDummyOrchestra.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4037051CD3CE0ED7697AF3B9 /* AriaDummyOrchestra.swift */; };
 		AB0F4D3EC7E7E2FA36B5E1FB /* AriaSwarmSnapshotStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 335EC6E914FAB2D083783711 /* AriaSwarmSnapshotStore.swift */; };
+		694CE8353A7C9975F44813CC /* AriaSafetyDialer.swift in Sources */ = {isa = PBXBuildFile; fileRef = D95AA36301EEE87626F4BBE4 /* AriaSafetyDialer.swift */; };
 		1ARIA0B12F9FF867004091AA /* AriaLiveGrounding.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1ARIA0B02F9FF867004091AA /* AriaLiveGrounding.swift */; };
 		1TRAIN012F9FF867004091AA /* TrainingHabits.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1TRAIN002F9FF867004091AA /* TrainingHabits.swift */; };
 		1ARIA0962F9FF867004091AA /* AriaOperatingMode.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1ARIA0952F9FF867004091AA /* AriaOperatingMode.swift */; };
@@ -495,6 +496,7 @@
 		1ARIA0A02F9FF867004091AA /* AriaDummyTurn.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AriaDummyTurn.swift; sourceTree = "<group>"; };
 		4037051CD3CE0ED7697AF3B9 /* AriaDummyOrchestra.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AriaDummyOrchestra.swift; sourceTree = "<group>"; };
 		335EC6E914FAB2D083783711 /* AriaSwarmSnapshotStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AriaSwarmSnapshotStore.swift; sourceTree = "<group>"; };
+		D95AA36301EEE87626F4BBE4 /* AriaSafetyDialer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AriaSafetyDialer.swift; sourceTree = "<group>"; };
 		1ARIA0B02F9FF867004091AA /* AriaLiveGrounding.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AriaLiveGrounding.swift; sourceTree = "<group>"; };
 		1TRAIN002F9FF867004091AA /* TrainingHabits.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TrainingHabits.swift; sourceTree = "<group>"; };
 		1ARIA0952F9FF867004091AA /* AriaOperatingMode.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AriaOperatingMode.swift; sourceTree = "<group>"; };
@@ -905,6 +907,7 @@
 				1ARIA0A02F9FF867004091AA /* AriaDummyTurn.swift */,
 				4037051CD3CE0ED7697AF3B9 /* AriaDummyOrchestra.swift */,
 				335EC6E914FAB2D083783711 /* AriaSwarmSnapshotStore.swift */,
+				D95AA36301EEE87626F4BBE4 /* AriaSafetyDialer.swift */,
 				1ARIA0B02F9FF867004091AA /* AriaLiveGrounding.swift */,
 				1TRAIN002F9FF867004091AA /* TrainingHabits.swift */,
 				1ARIA0952F9FF867004091AA /* AriaOperatingMode.swift */,
@@ -1583,6 +1586,7 @@
 				1ARIA0A12F9FF867004091AA /* AriaDummyTurn.swift in Sources */,
 				E253EA2C98A65A874B759C2D /* AriaDummyOrchestra.swift in Sources */,
 				AB0F4D3EC7E7E2FA36B5E1FB /* AriaSwarmSnapshotStore.swift in Sources */,
+				694CE8353A7C9975F44813CC /* AriaSafetyDialer.swift in Sources */,
 				1ARIA0B12F9FF867004091AA /* AriaLiveGrounding.swift in Sources */,
 				1TRAIN012F9FF867004091AA /* TrainingHabits.swift in Sources */,
 				1ARIA0962F9FF867004091AA /* AriaOperatingMode.swift in Sources */,
