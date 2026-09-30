@@ -604,7 +604,10 @@ class ChatRouteSafetyTests(unittest.TestCase):
             else:
                 os.environ["ARIA_BEDROCK_ENABLED"] = previous
 
-    def test_route_band_equals_engine_band(self):
+    def test_route_engine_and_dummy_agree_on_band(self):
+        from backend.ai import aria_cli
+        from backend.ai.aria_chat.session import run_turn
+
         real = guidance.classify_band
         calls: list[str] = []
 
@@ -613,19 +616,33 @@ class ChatRouteSafetyTests(unittest.TestCase):
             return real(message)
 
         cases = (
-            "chest pain and my left arm is numb",
-            "do I have sleep apnea?",
-            "should I up my dose",
-            "I feel suicidal and want to die",
+            ("chest pain and my left arm is numb", guidance.EMERGENCY),
+            ("do I have sleep apnea?", guidance.REFER_OUT),
+            ("should I up my dose", guidance.REFER_OUT),
+            ("I feel suicidal and want to die", guidance.EMERGENCY),
         )
-        with patch.object(guidance, "classify_band", spy):
-            for message in cases:
-                with self.subTest(message=message):
-                    before = len(calls)
-                    expected = real(message)
+        for message, expected in cases:
+            with self.subTest(message=message):
+                before = len(calls)
+                with patch.object(guidance, "classify_band", spy):
                     body = self._chat("one-classifier", message)
-                    self.assertEqual(calls[before:], [message], message)
-                    self.assertEqual(body.get("guidance_band"), expected, message)
+                    engine = aria_engine.generate_response(
+                        message,
+                        aria_engine.ARIAContext.from_payload(
+                            {"user_id": "one-classifier"}
+                        ),
+                        guidance_band=expected,
+                    )
+                dummy = run_turn(
+                    message,
+                    payload={"context": aria_cli.PROFILES["depleted"]["context"]},
+                    persist_log=False,
+                    install_pseudonym="inst-band-agree",
+                )
+                self.assertEqual(calls[before:], [message], message)
+                self.assertEqual(body.get("guidance_band"), expected, message)
+                self.assertEqual(engine.get("guidance_band"), expected, message)
+                self.assertEqual(dummy.get("guidance_band"), expected, message)
 
     def test_third_person_emergency_skips_bedrock_and_omits_memory_keys(self):
         previous = os.environ.get("ARIA_BEDROCK_ENABLED")
@@ -692,9 +709,13 @@ class ChatRouteSafetyTests(unittest.TestCase):
             with self.subTest(message=message):
                 body = self._chat(uid, message)
                 self.assertTrue(body["message"].startswith(opener), body["message"])
+                if opener == "Call 911 now.":
+                    first = body["message"].split(".", 1)[0] + "."
+                    self.assertEqual(first, "Call 911 now.")
                 self.assertNotIn("memory", body)
                 self.assertNotIn("memory_reference", body)
                 self.assertNotIn("checkin", body)
+                self.assertNotIn("calendar_ingested", body)
                 self.assertNotIn("SEEDED_MEMORY_NOTE", body["message"])
                 self.assertNotIn("recovery", body["message"].lower())
 

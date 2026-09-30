@@ -319,7 +319,8 @@ def handle_post_ai_chat(body: dict[str, Any], *, user_id: str) -> dict:
     from services import fusion as fusion_mod
     from services import guidance
 
-    safety_band = guidance.classify_band(message)
+    guardrail = guidance.assess(message)
+    safety_band = guardrail.band if guardrail else guidance.COACH
     safety_lock = safety_band in (guidance.EMERGENCY, guidance.REFER_OUT)
 
     fused = fusion_mod.fuse_turn(
