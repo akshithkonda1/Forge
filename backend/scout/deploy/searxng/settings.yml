@@ -1,0 +1,32 @@
+# SearXNG for ARIA Scout. Private to the compose network — never public.
+# server.secret_key is overridden by the SEARXNG_SECRET environment variable.
+use_default_settings: true
+
+server:
+  secret_key: "overridden-by-SEARXNG_SECRET"
+  limiter: false
+  image_proxy: false
+  public_instance: false
+
+search:
+  safe_search: 1
+  default_lang: "en"
+  formats:
+    - html
+    - json
+
+# Google is first in line; data-center IPs are often rate-limited by Google,
+# so the other general engines stay on to keep answers flowing.
+engines:
+  - name: google
+    disabled: false
+  - name: bing
+    disabled: false
+  - name: duckduckgo
+    disabled: false
+  - name: brave
+    disabled: false
+  - name: wikipedia
+    disabled: false
+  - name: pubmed
+    disabled: false

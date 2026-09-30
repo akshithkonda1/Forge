@@ -1066,3 +1066,38 @@ class WebLookupOncePerTurn(unittest.TestCase):
         with patch.object(web_research, "look_up") as look:
             dummy.respond("What should I train today?", seed=1, engine="stub")
         look.assert_not_called()
+
+
+class DummyPerceptionTurns(unittest.TestCase):
+    """Every turn perceives, judges case by case, and records what fed ARIA."""
+
+    def test_both_engines_speak_the_sharpest_conflict(self):
+        for engine in ("stub", "lambda"):
+            with self.subTest(engine=engine), patch.object(web_research, "research", return_value=None):
+                row = dummy.respond("I have a fever, can I still train today?", seed=3, engine=engine)
+                self.assertEqual(row["situation"]["posture"], "rest")
+                self.assertEqual(row["orchestration"]["situation"]["conflicts"][0], "illness_vs_training")
+                self.assertIn("rest and fluids", row["message"])
+                self.assertIn("Posture: rest.", row["context_feed"]["brief"])
+                self.assertEqual(speak_quality.vitals_hits(row["message"]), [])
+
+    def test_plain_turn_adds_nothing_and_needs_no_research(self):
+        with patch.object(web_research, "research") as research:
+            row = dummy.respond("What should I train today?", seed=1, engine="stub")
+        research.assert_not_called()
+        self.assertEqual(row["situation"]["conflicts"], [])
+        self.assertIsNone(row["context_feed"]["evidence"])
+
+    def test_evidence_is_cited_and_fetched_once_per_turn(self):
+        evidence = web_research.Evidence(
+            text="Adults need seven or more hours of sleep.",
+            sources=[{"title": "CDC", "url": "https://www.cdc.gov/sleep"}],
+            via="scout",
+        )
+        with patch.object(web_research, "research", return_value=evidence) as research:
+            row = dummy.respond("How much sleep do adults actually need?", seed=5, engine="lambda")
+        self.assertEqual(research.call_count, 1)
+        self.assertIn("From cdc.gov:", row["message"])
+        self.assertEqual(row["context_feed"]["evidence"]["via"], "scout")
+        self.assertTrue(row["context_feed"]["evidence"]["untrusted"])
+        self.assertEqual(row["orchestration"]["situation"]["evidence"], "scout")

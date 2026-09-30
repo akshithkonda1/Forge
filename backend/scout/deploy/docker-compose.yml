@@ -1,0 +1,51 @@
+# ARIA Scout stack: Caddy (TLS, only public port) → Scout → SearXNG.
+# Secrets come from scout.env written at boot (never committed):
+#   SCOUT_SHARED_KEY, SEARXNG_SECRET, SCOUT_DOMAIN, AWS_REGION, SCOUT_MODEL_ID
+name: aria-scout
+
+services:
+  searxng:
+    image: ${SEARXNG_IMAGE:-searxng/searxng:latest}
+    restart: unless-stopped
+    environment:
+      SEARXNG_SECRET: ${SEARXNG_SECRET:?SEARXNG_SECRET is required}
+      SEARXNG_BASE_URL: http://searxng:8080/
+    volumes:
+      - ./searxng/settings.yml:/etc/searxng/settings.yml:ro
+    networks: [scout]
+    # No published ports: SearXNG is reachable only from Scout.
+
+  scout:
+    build:
+      context: ../../..
+      dockerfile: backend/scout/deploy/Dockerfile
+    restart: unless-stopped
+    depends_on: [searxng]
+    environment:
+      SCOUT_SHARED_KEY: ${SCOUT_SHARED_KEY:?SCOUT_SHARED_KEY is required}
+      SCOUT_SEARXNG_URL: http://searxng:8080
+      SCOUT_MODEL_ID: ${SCOUT_MODEL_ID:-global.xai.grok-4.7}
+      ARIA_BEDROCK_ENABLED: ${ARIA_BEDROCK_ENABLED:-true}
+      AWS_REGION: ${AWS_REGION:-us-east-1}
+      ENVIRONMENT: ${ENVIRONMENT:-dev}
+    networks: [scout]
+
+  caddy:
+    image: ${CADDY_IMAGE:-caddy:2}
+    restart: unless-stopped
+    depends_on: [scout]
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      SCOUT_DOMAIN: ${SCOUT_DOMAIN:?SCOUT_DOMAIN is required}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+    networks: [scout]
+
+networks:
+  scout: {}
+
+volumes:
+  caddy_data: {}

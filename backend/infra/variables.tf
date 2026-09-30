@@ -361,3 +361,60 @@ variable "tags" {
   type        = map(string)
   default     = {}
 }
+
+# --- ARIA Scout (agentic research computer; scout.tf) ------------------------
+
+variable "enable_scout" {
+  description = "Create ARIA Scout: one small ARM EC2 (SearXNG + Scout + Caddy) behind POST /scout/research. Off by default — nothing is created or billed while false."
+  type        = bool
+  default     = false
+}
+
+variable "scout_instance_type" {
+  description = "Scout EC2 size. t4g.small (2 GB) fits SearXNG + Scout comfortably; t4g.micro halves the bill but runs tight."
+  type        = string
+  default     = "t4g.small"
+}
+
+variable "scout_shared_key" {
+  description = "Secret API Gateway injects as x-scout-key; Scout refuses every call without it. >= 32 chars when enable_scout is true. Supply via TF_VAR_scout_shared_key."
+  type        = string
+  default     = ""
+  sensitive   = true
+}
+
+variable "scout_domain" {
+  description = "Hostname Caddy serves Scout's TLS certificate for. Empty uses <elastic-ip-with-dashes>.sslip.io (free, no DNS to manage)."
+  type        = string
+  default     = ""
+}
+
+variable "scout_model_id" {
+  description = "Bedrock model Scout reasons with. Grok 4.7 Global cross-Region inference profile by default."
+  type        = string
+  default     = "global.xai.grok-4.7"
+}
+
+variable "scout_searxng_image" {
+  description = "SearXNG container image. Pin a dated tag or digest for reproducible boots."
+  type        = string
+  default     = "searxng/searxng:latest"
+}
+
+variable "scout_compose_version" {
+  description = "Docker Compose v2 release installed on the Scout host."
+  type        = string
+  default     = "v2.29.7"
+}
+
+variable "scout_throttling_burst_limit" {
+  description = "API Gateway burst limit for POST /scout/research (Scout also rate-limits per user)."
+  type        = number
+  default     = 5
+}
+
+variable "scout_throttling_rate_limit" {
+  description = "API Gateway steady-state requests/second for POST /scout/research."
+  type        = number
+  default     = 1
+}

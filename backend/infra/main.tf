@@ -685,6 +685,17 @@ resource "aws_apigatewayv2_stage" "default" {
     throttling_rate_limit  = var.health_throttling_rate_limit
   }
 
+  # ARIA Scout research route (scout.tf) — only when enable_scout is true.
+  dynamic "route_settings" {
+    for_each = local.scout_enabled ? [local.scout_route_key] : []
+
+    content {
+      route_key              = route_settings.value
+      throttling_burst_limit = var.scout_throttling_burst_limit
+      throttling_rate_limit  = var.scout_throttling_rate_limit
+    }
+  }
+
   depends_on = [aws_cloudwatch_log_resource_policy.api_access]
 
   tags = local.common_tags
