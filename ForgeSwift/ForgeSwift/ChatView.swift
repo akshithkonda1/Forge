@@ -1,4 +1,5 @@
 import SwiftUI
+import ForgeCore
 
 extension View {
     func cornerRadius(_ radius: CGFloat, corners: UIRectCorner) -> some View {
@@ -315,6 +316,18 @@ struct ChatView: View {
         let trimmed = text.trimmingCharacters(in: .whitespaces)
         guard !trimmed.isEmpty, !isTyping, !store.isGeneratingResponse else { return }
 
+        // "Call 911" / "Call or text 988" / "Call Poison Control" during a
+        // safety session place the call instead of chatting about it. That is
+        // escalation achieved: voice off, then the relationship check-in.
+        if store.ariaSafetySession != nil, let number = AriaSafetyDialer.number(forAction: trimmed) {
+            choreographedHaptic(.messageSent, mood: ariaMood)
+            AriaSafetyDialer.dial(number)
+            speech.cancel()
+            withAnimation(FDS.Spring.hero) { showVoiceOrb = false }
+            store.safetyEscalationAchieved()
+            return
+        }
+
         choreographedHaptic(.messageSent, mood: ariaMood)
 
         if trimmed.lowercased().contains("not feeling") {
@@ -338,11 +351,28 @@ struct ChatView: View {
             isTyping = false
             if store.isInAriaFirstBond { showQuickActions = true }
             choreographedHaptic(.messageReceived, mood: ariaMood)
+            // Voice-first safety: a triage question or an emergency turns
+            // ARIA's voice on by itself, and triage listens for the answer.
+            let safety = store.ariaSafetySession
+            if let safety, safety.wantsVoice {
+                store.ariaVoiceMode = true
+                withAnimation(FDS.Spring.hero) { showVoiceOrb = true }
+                AriaVoiceSession.shared.start(store: store, speech: speech, captureMic: safety.isTriage)
+            }
             if store.ariaVoiceMode || showVoiceOrb || AriaVoiceSession.shared.isActive,
-               let reply = store.chatMessages.last(where: { $0.role == .trainer }) {
-                AriaVoiceSession.shared.speakChatReply(
-                    AriaResponse(proseSummary: reply.content, message: reply.content)
-                )
+               let reply = store.chatMessages.last(where: {
+                   $0.role == .trainer && !AppStore.isSafetyCheckIn($0)
+               }) {
+                let spoken = AriaResponse(proseSummary: reply.content, message: reply.content)
+                if safety?.isResolved == true {
+                    // Responsible resolution: say it, then voice turns off.
+                    // The check-in bubble is already posted under the reply.
+                    store.ariaVoiceMode = false
+                    withAnimation(FDS.Spring.hero) { showVoiceOrb = false }
+                    AriaVoiceSession.shared.speakAndEnd(spoken)
+                } else {
+                    AriaVoiceSession.shared.speakChatReply(spoken)
+                }
             }
         }
     }

@@ -26,6 +26,8 @@ final class AriaService: ObservableObject {
     /// orchestra — same idea as SimRunner: no production ARIA instance, no
     /// Bedrock. This is the path for tuning ARIA before live AI.
     static var shouldUseTestReadyDummy: Bool {
+        // Production build: the Dummy is compiled out, so tester mode is too.
+        guard AriaDummyOrchestra.isCompiledIn else { return false }
         if AriaOperatingMode.hasOverride {
             return AriaOperatingMode.current.isDummy
         }
@@ -57,6 +59,23 @@ final class AriaService: ObservableObject {
         agents: [String]? = nil
     ) async throws -> AriaResponse {
         let isInsight = mode == "insight"
+
+        // Safety first, on every path — Dummy, Local testing, Live, and the
+        // offline fallback — decided on this iPhone with the backend's own
+        // classifier (ForgeCore AriaSafetyTriage mirrors guidance.py), so a
+        // 911 or triage turn never waits on the network, the medication
+        // catalog, or HealthKit, and never reaches a coach.
+        // The pending triage question rides along, so "yes" / "no" resolves
+        // case by case. Plain refer-out keeps each path's own wording.
+        if !isInsight, let decision = AriaSafetyTriage.assess(
+            text,
+            triageTopic: store.pendingTriageTopic,
+            relationshipLevel: contextStore.context.relationshipLevel
+        ), decision.band != AriaSafetyBand.referOut || decision.safety != nil {
+            lastRemoteError = nil
+            return Self.safetyResponse(decision)
+        }
+
         // Catalog must exist before ARIA resolves brand/generic/archetype.
         await MedicationPharmacy.prepare()
         // Full chat may read structured records. Lifestyle cards must not.
@@ -69,8 +88,10 @@ final class AriaService: ObservableObject {
         // first — never Bedrock. Required so we can tune ARIA without AI.
         // Instantaneous live grounding: pull latest on-device samples into
         // AppStore + the stream before Dummy speaks, so replies use data
-        // that is already there instead of inventing vitals.
-        if Self.shouldUseTestReadyDummy || AriaOperatingMode.current.isDummy {
+        // that is already there instead of inventing vitals. Reached only
+        // through AriaDummyOrchestra, which is nil in a production build.
+        if Self.shouldUseTestReadyDummy || AriaOperatingMode.current.isDummy,
+           let dummy = AriaDummyOrchestra.provider {
             await store.refreshMetricsForAriaTurn()
             isTestReady = true
             isLocalFallback = true
@@ -79,14 +100,14 @@ final class AriaService: ObservableObject {
             // count. Side effects (ledger, reminders, variety write) wait until
             // the two answers match — a repeat prompt must not look like a drop.
             _ = AriaReplyVariety.beginTurn(prompt: text)
-            let first = await AriaDummyOrchestrator.reply(
+            let first = await dummy.reply(
                 text: text,
                 store: store,
                 agent: agent,
                 agents: agents,
                 replay: true
             )
-            let replay = await AriaDummyOrchestrator.reply(
+            let replay = await dummy.reply(
                 text: text,
                 store: store,
                 agent: agent,
@@ -101,14 +122,14 @@ final class AriaService: ObservableObject {
                 firstConfidence: first.confidence,
                 secondConfidence: replay.confidence
             ) {
-                AriaDummyOrchestrator.seal(first, prompt: text, store: store)
+                dummy.seal(first, prompt: text, store: store)
                 return first
             }
             // No evidence, or the claim cannot replay — estimate, do not
             // assert the claim or its reverse, and do not drop the turn.
             var estimated = first
             estimated.speakEstimate()
-            AriaDummyOrchestrator.seal(estimated, prompt: text, store: store)
+            dummy.seal(estimated, prompt: text, store: store)
             return estimated
         }
 
@@ -201,6 +222,21 @@ final class AriaService: ObservableObject {
             rich: contextStore.buildRichContext(from: store),
             agent: agent
         )
+    }
+
+    /// The chat reply for a safety decision. Same copy `/ai/chat` returns.
+    static func safetyResponse(_ decision: AriaSafetyDecision) -> AriaResponse {
+        var response = AriaResponse(
+            responseType: "clarification",
+            confidenceReason: "Safety policy — decided on this iPhone, same copy as the backend.",
+            proseSummary: decision.prose,
+            message: decision.prose,
+            suggestedActions: decision.suggestedActions,
+            confidence: 1.0
+        )
+        response.guidanceBand = decision.band
+        response.safety = decision.safety
+        return response
     }
 
     func fetchProactiveMessage(store: AppStore) async -> String? {

@@ -41,9 +41,10 @@ enum AriaOperatingMode: String, CaseIterable, Identifiable {
     }
 
     /// Explicit DEBUG/Settings choice. Pass `nil` to clear and re-resolve.
+    /// `.dummy` is refused (treated as "clear") when the Dummy is compiled out.
     @MainActor
     static func setOverride(_ mode: AriaOperatingMode?) {
-        if let mode {
+        if let mode, mode.isAvailable {
             UserDefaults.standard.set(mode.rawValue, forKey: overrideKey)
         } else {
             UserDefaults.standard.removeObject(forKey: overrideKey)
@@ -53,13 +54,25 @@ enum AriaOperatingMode: String, CaseIterable, Identifiable {
 
     @MainActor
     static var hasOverride: Bool {
-        UserDefaults.standard.string(forKey: overrideKey) != nil
+        guard let raw = UserDefaults.standard.string(forKey: overrideKey),
+              let mode = AriaOperatingMode(rawValue: raw) else { return false }
+        return mode.isAvailable
+    }
+
+    /// Modes this build can actually run. A production build has no Dummy.
+    static var selectableCases: [AriaOperatingMode] {
+        allCases.filter { $0.isAvailable }
+    }
+
+    /// False only for `.dummy` in a build with the Dummy compiled out.
+    var isAvailable: Bool {
+        self != .dummy || AriaDummyOrchestra.isCompiledIn
     }
 
     /// Bundle / Info.plist only — safe during `ForgeAuthClient` init.
     static func resolveFromBundle() -> AriaOperatingMode {
         let config = ForgeAuthConfig.fromInfoDictionary(Bundle.main.infoDictionary ?? [:])
-        #if DEBUG
+        #if DEBUG && FORGE_DUMMY_ORCHESTRA
         if config.environment.lowercased() == "dummy" || config.apiIsLoopback {
             return .dummy
         }
@@ -69,13 +82,17 @@ enum AriaOperatingMode: String, CaseIterable, Identifiable {
 
     @MainActor
     static func resolve() -> AriaOperatingMode {
+        // A `.dummy` override persisted by an older TestFlight build is
+        // ignored once the Dummy is compiled out.
         if let raw = UserDefaults.standard.string(forKey: overrideKey),
-           let mode = AriaOperatingMode(rawValue: raw) {
+           let mode = AriaOperatingMode(rawValue: raw),
+           mode.isAvailable {
             return mode
         }
         // Session-aware when auth client is ready.
         let client = ForgeAuthClient.shared
-        if client.canUseDevOverride,
+        if AriaDummyOrchestra.isCompiledIn,
+           client.canUseDevOverride,
            (client.session?.mode == .devOverride
             || client.config.environment.lowercased() == "dummy"
             || client.config.apiIsLoopback

@@ -2,6 +2,9 @@ import XCTest
 @testable import ForgeSwift
 import ForgeCore
 
+// Dummy orchestra only — compiled out with it (FORGE_DUMMY_ORCHESTRA).
+#if FORGE_DUMMY_ORCHESTRA
+
 /// Locks the dummy orchestra as a local fill-in for the unfinished backend:
 /// multi-causal turns, transcript follow-ups, Forge-local events, refer-out,
 /// and no off-device LLM.
@@ -309,7 +312,12 @@ final class AriaDummyOrchestratorTests: XCTestCase {
             agents: ["workout"]
         )
         let lower = reply.message.lowercased()
-        XCTAssertTrue(lower.contains("chest") || lower.contains("emergency") || lower.contains("medical"))
+        // Bare chest pain is voice-first triage now: stop, two questions, and
+        // the 911 net (ForgeCore AriaSafetyTriage, same copy as the backend).
+        XCTAssertTrue(
+            lower.contains("chest") || lower.contains("emergency")
+                || lower.contains("medical") || lower.contains("call 911")
+        )
         XCTAssertNil(reply.richCard)
         XCTAssertTrue(reply.confidenceReason?.contains("referred out") == true)
     }
@@ -1159,3 +1167,4 @@ final class AriaDummyOrchestratorTests: XCTestCase {
         return store
     }
 }
+#endif

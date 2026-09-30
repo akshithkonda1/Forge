@@ -32,6 +32,9 @@ final class AriaVoiceSession {
     private var startGeneration = 0
     @ObservationIgnored
     private var capturesMic = false
+    /// Set by `speakAndEnd`: the session stops once this line is spoken.
+    @ObservationIgnored
+    private var endsAfterSpeaking = false
 
     var activeTransport: AriaVoiceTransport? { isActive ? transport : nil }
 
@@ -75,6 +78,7 @@ final class AriaVoiceSession {
     }
 
     func stop() {
+        endsAfterSpeaking = false
         startGeneration += 1
         liveSocket?.close()
         liveSocket = nil
@@ -127,8 +131,27 @@ final class AriaVoiceSession {
         }
     }
 
+    /// Speak the last line of a safety session, then end voice. ARIA's voice
+    /// turns off once a responsible resolution is reached.
+    func speakAndEnd(_ reply: AriaResponse) {
+        guard isActive else { return }
+        capturesMic = false
+        endsAfterSpeaking = true
+        speakChatReply(reply)
+        // Muted or empty line: no didFinish callback is coming, so end now
+        // rather than leave the session open.
+        if !AriaPresence.shared.isSpeaking {
+            stop()
+        }
+    }
+
     /// Dummy fill-in finished (or was silent). Resume listening for the next turn.
     func mouthDidFinish() {
+        if endsAfterSpeaking {
+            endsAfterSpeaking = false
+            stop()
+            return
+        }
         guard isActive, phase == .speaking else { return }
         guard transport?.usesOnDeviceBrain == true else { return }
         markListening()

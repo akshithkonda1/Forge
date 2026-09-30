@@ -224,8 +224,10 @@ final class CurrentPracticeAPITests: XCTestCase {
         XCTAssertEqual(FakeCalendarPack.horizonDays, 365)
         XCTAssertFalse(CalendarManager.writesToPersonalCalendars)
         XCTAssertFalse(FakeCalendarPack.writesToPersonalCalendars)
+        #if FORGE_DUMMY_ORCHESTRA
         XCTAssertFalse(AriaDummyOrchestrator.usesOffDeviceLLM)
         XCTAssertFalse(AriaDummyTurn.usesOffDeviceLLM)
+        #endif
         XCTAssertEqual(AriaOnboardingGuide.welcomeTitle, "Hey — I'm ARIA.")
         XCTAssertTrue(QualityOfLifeLivingStore.isQuestion("what's my quality of life"))
         XCTAssertFalse(QualityOfLifeLivingStore.isQuestion("what should I train today"))

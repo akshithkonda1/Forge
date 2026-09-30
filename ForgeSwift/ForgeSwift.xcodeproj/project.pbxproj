@@ -69,6 +69,8 @@
 		1CAL0812F9FF867004091AA /* CalendarManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1CAL0802F9FF867004091AA /* CalendarManager.swift */; };
 		1ARIA0812F9FF867004091AA /* AriaDummyOrchestrator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1ARIA0802F9FF867004091AA /* AriaDummyOrchestrator.swift */; };
 		1ARIA0A12F9FF867004091AA /* AriaDummyTurn.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1ARIA0A02F9FF867004091AA /* AriaDummyTurn.swift */; };
+		E253EA2C98A65A874B759C2D /* AriaDummyOrchestra.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4037051CD3CE0ED7697AF3B9 /* AriaDummyOrchestra.swift */; };
+		AB0F4D3EC7E7E2FA36B5E1FB /* AriaSwarmSnapshotStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 335EC6E914FAB2D083783711 /* AriaSwarmSnapshotStore.swift */; };
 		1ARIA0B12F9FF867004091AA /* AriaLiveGrounding.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1ARIA0B02F9FF867004091AA /* AriaLiveGrounding.swift */; };
 		1TRAIN012F9FF867004091AA /* TrainingHabits.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1TRAIN002F9FF867004091AA /* TrainingHabits.swift */; };
 		1ARIA0962F9FF867004091AA /* AriaOperatingMode.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1ARIA0952F9FF867004091AA /* AriaOperatingMode.swift */; };
@@ -491,6 +493,8 @@
 		1CAL0802F9FF867004091AA /* CalendarManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CalendarManager.swift; sourceTree = "<group>"; };
 		1ARIA0802F9FF867004091AA /* AriaDummyOrchestrator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AriaDummyOrchestrator.swift; sourceTree = "<group>"; };
 		1ARIA0A02F9FF867004091AA /* AriaDummyTurn.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AriaDummyTurn.swift; sourceTree = "<group>"; };
+		4037051CD3CE0ED7697AF3B9 /* AriaDummyOrchestra.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AriaDummyOrchestra.swift; sourceTree = "<group>"; };
+		335EC6E914FAB2D083783711 /* AriaSwarmSnapshotStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AriaSwarmSnapshotStore.swift; sourceTree = "<group>"; };
 		1ARIA0B02F9FF867004091AA /* AriaLiveGrounding.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AriaLiveGrounding.swift; sourceTree = "<group>"; };
 		1TRAIN002F9FF867004091AA /* TrainingHabits.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TrainingHabits.swift; sourceTree = "<group>"; };
 		1ARIA0952F9FF867004091AA /* AriaOperatingMode.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AriaOperatingMode.swift; sourceTree = "<group>"; };
@@ -899,6 +903,8 @@
 				1CAL0802F9FF867004091AA /* CalendarManager.swift */,
 				1ARIA0802F9FF867004091AA /* AriaDummyOrchestrator.swift */,
 				1ARIA0A02F9FF867004091AA /* AriaDummyTurn.swift */,
+				4037051CD3CE0ED7697AF3B9 /* AriaDummyOrchestra.swift */,
+				335EC6E914FAB2D083783711 /* AriaSwarmSnapshotStore.swift */,
 				1ARIA0B02F9FF867004091AA /* AriaLiveGrounding.swift */,
 				1TRAIN002F9FF867004091AA /* TrainingHabits.swift */,
 				1ARIA0952F9FF867004091AA /* AriaOperatingMode.swift */,
@@ -1575,6 +1581,8 @@
 				1CAL0812F9FF867004091AA /* CalendarManager.swift in Sources */,
 				1ARIA0812F9FF867004091AA /* AriaDummyOrchestrator.swift in Sources */,
 				1ARIA0A12F9FF867004091AA /* AriaDummyTurn.swift in Sources */,
+				E253EA2C98A65A874B759C2D /* AriaDummyOrchestra.swift in Sources */,
+				AB0F4D3EC7E7E2FA36B5E1FB /* AriaSwarmSnapshotStore.swift in Sources */,
 				1ARIA0B12F9FF867004091AA /* AriaLiveGrounding.swift in Sources */,
 				1TRAIN012F9FF867004091AA /* TrainingHabits.swift in Sources */,
 				1ARIA0962F9FF867004091AA /* AriaOperatingMode.swift in Sources */,
@@ -2020,6 +2028,7 @@
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				ENABLE_TESTABILITY = YES;
 				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				FORGE_DUMMY_ORCHESTRA_CONDITION = FORGE_DUMMY_ORCHESTRA;
 				GCC_C_LANGUAGE_STANDARD = gnu17;
 				GCC_DYNAMIC_NO_PIC = NO;
 				GCC_NO_COMMON_BLOCKS = YES;
@@ -2040,7 +2049,7 @@
 				ONLY_ACTIVE_ARCH = YES;
 				SDKROOT = iphoneos;
 				STRING_CATALOG_GENERATE_SYMBOLS = YES;
-				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "DEBUG $(inherited)";
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "DEBUG $(inherited) $(FORGE_DUMMY_ORCHESTRA_CONDITION)";
 				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
 			};
 			name = Debug;
@@ -2085,6 +2094,7 @@
 				ENABLE_NS_ASSERTIONS = NO;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				FORGE_DUMMY_ORCHESTRA_CONDITION = FORGE_DUMMY_ORCHESTRA;
 				GCC_C_LANGUAGE_STANDARD = gnu17;
 				GCC_NO_COMMON_BLOCKS = YES;
 				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
@@ -2098,6 +2108,7 @@
 				ONLY_ACTIVE_ARCH = YES;
 				SDKROOT = iphoneos;
 				STRING_CATALOG_GENERATE_SYMBOLS = YES;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "$(inherited) $(FORGE_DUMMY_ORCHESTRA_CONDITION)";
 				SWIFT_COMPILATION_MODE = wholemodule;
 				VALIDATE_PRODUCT = YES;
 			};
