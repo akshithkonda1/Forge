@@ -523,7 +523,8 @@ class ChatRouteSafetyTests(unittest.TestCase):
         import json
         from routes.aria import handle_post_ai_chat
 
-        result = handle_post_ai_chat({"message": message}, user_id=uid)
+        payload = {"message": message, **env}
+        result = handle_post_ai_chat(payload, user_id=uid)
         self.assertEqual(result["statusCode"], 200, result)
         return json.loads(result["body"])
 
@@ -688,6 +689,21 @@ class ChatRouteSafetyTests(unittest.TestCase):
                 os.environ.pop("ARIA_BEDROCK_ENABLED", None)
             else:
                 os.environ["ARIA_BEDROCK_ENABLED"] = previous
+
+    def test_insight_mode_still_sets_safety_lock(self):
+        for message, band in (
+            ("he's having chest pain", guidance.EMERGENCY),
+            ("do I have sleep apnea?", guidance.REFER_OUT),
+        ):
+            with self.subTest(message=message):
+                body = self._chat("insight-safety-lock", message, mode="insight")
+                self.assertEqual(body.get("guidance_band"), band, message)
+                self.assertTrue(body.get("safety_lock"), message)
+                self.assertEqual(body.get("reasoning_source"), "deterministic")
+                self.assertEqual(body.get("context_updates"), {})
+                self.assertNotIn("memory", body)
+                self.assertNotIn("memory_reference", body)
+                self.assertNotIn("checkin", body)
 
     def test_safety_replies_skip_memory_and_checkin_fields(self):
         from services.aria_context import CoachContextEngine

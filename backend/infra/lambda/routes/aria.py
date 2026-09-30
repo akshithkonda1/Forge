@@ -381,15 +381,17 @@ def handle_post_ai_chat(body: dict[str, Any], *, user_id: str) -> dict:
             guidance_band=safety_band,
         )
         _merge_fusion(response, fused)
-        response.update(
-            {
-                "rich_card": None,
-                "context_updates": {},
-                "memory_reference": None,
-                "missing_fields": aria_engine.apply_permissions(context, permissions)[0].missing_fields,
-                "reasoning_source": "deterministic",
-            }
-        )
+        extras = {
+            "rich_card": None,
+            "context_updates": {},
+            "missing_fields": aria_engine.apply_permissions(context, permissions)[0].missing_fields,
+            "reasoning_source": "deterministic",
+        }
+        if safety_lock:
+            extras["safety_lock"] = True
+        else:
+            extras["memory_reference"] = None
+        response.update(extras)
         return ok(response)
 
     if fused.persona_status != "load_failed" and persona is not None and not safety_lock:
