@@ -10,8 +10,10 @@ from __future__ import annotations
 import json
 import os
 import re
+import tempfile
 import unittest
 from dataclasses import asdict
+from pathlib import Path
 from unittest.mock import patch
 
 import _bootstrap  # noqa: F401
@@ -454,6 +456,24 @@ class HelperPatientSplitTests(unittest.TestCase):
         self.assertEqual(assessed.suggested_actions, ["Call 911", "Stay on the line"])
         self.assertTrue(assessed.prose.startswith("Call 911 now."))
 
+    def test_they_said_chest_pain_is_patient_not_helper(self):
+        message = "they said my chest pain could be a heart attack"
+        _assert_typed_emergency(self, message, CARDIAC_REPLY, cpr=False)
+        assessed = guidance.assess(message)
+        self.assertEqual(assessed.prose, CARDIAC_REPLY)
+        self.assertNotEqual(assessed.prose, CARDIAC_HELPER_REPLY)
+        low = assessed.prose.lower()
+        self.assertNotIn("them", low)
+        self.assertNotIn("stay with them", low)
+
+    def test_helper_pronoun_keys_on_symptom_subject(self):
+        _assert_typed_emergency(
+            self, "her face is drooping", STROKE_HELPER_REPLY, cpr=False
+        )
+        _assert_typed_emergency(
+            self, "my dad has crushing chest pain", CARDIAC_HELPER_REPLY, cpr=False
+        )
+
     def test_refer_out_is_two_warm_sentences(self):
         diabetes = guidance.assess("do I have diabetes?")
         apnea = guidance.assess("do I have sleep apnea?")
@@ -624,6 +644,51 @@ class ChatRouteSafetyTests(unittest.TestCase):
                 self.assertEqual(engine.get("guidance_band"), expected, message)
                 self.assertEqual(dummy.get("guidance_band"), expected, message)
 
+    def test_third_person_emergency_skips_bedrock_and_omits_memory_keys(self):
+        previous = os.environ.get("ARIA_BEDROCK_ENABLED")
+        os.environ["ARIA_BEDROCK_ENABLED"] = "true"
+        calls: list = []
+
+        def boom(model_id, system, user):
+            calls.append((model_id, system, user))
+            raise AssertionError("Bedrock called")
+
+        def boom_swarm(*args, **kwargs):
+            raise AssertionError("swarm called")
+
+        phrases = (
+            "he's having chest pain",
+            "my dad has chest pain",
+            "my dad has chest pain after bench",
+            "she is slurring her words",
+            "my grandpa is slurring his words",
+        )
+        try:
+            with patch(
+                "services.aria_engine._default_converse", boom
+            ), patch(
+                "aria_core.aria_engine._default_converse", boom
+            ), patch(
+                "services.aria_swarm.run_swarm", boom_swarm
+            ):
+                for message in phrases:
+                    with self.subTest(message=message):
+                        body = self._chat("third-person-lock", message)
+                        self.assertEqual(
+                            body.get("guidance_band"), guidance.EMERGENCY, message
+                        )
+                        self.assertTrue(body.get("safety_lock"), message)
+                        self.assertTrue(body.get("emergency_escalation"), message)
+                        self.assertEqual(calls, [], message)
+                        self.assertFalse(body.get("swarm"), message)
+                        self.assertNotIn("memory", body)
+                        self.assertNotIn("memory_reference", body)
+        finally:
+            if previous is None:
+                os.environ.pop("ARIA_BEDROCK_ENABLED", None)
+            else:
+                os.environ["ARIA_BEDROCK_ENABLED"] = previous
+
     def test_safety_replies_skip_memory_and_checkin_fields(self):
         from services.aria_context import CoachContextEngine
 
@@ -653,6 +718,134 @@ class ChatRouteSafetyTests(unittest.TestCase):
                 self.assertNotIn("calendar_ingested", body)
                 self.assertNotIn("SEEDED_MEMORY_NOTE", body["message"])
                 self.assertNotIn("recovery", body["message"].lower())
+
+
+THIRD_PERSON_EMERGENCY_CASES = (
+    ("he's having chest pain", CARDIAC_HELPER_REPLY),
+    ("my dad has chest pain", CARDIAC_HELPER_REPLY),
+    ("my dad has chest pain after bench", CARDIAC_HELPER_REPLY),
+    ("she is slurring her words", STROKE_HELPER_REPLY),
+    ("my grandpa is slurring his words", STROKE_HELPER_REPLY),
+)
+THIRD_PERSON_COACH_CASES = (
+    "my chest is sore after chest day",
+    "his chest is sore after bench",
+    "I was slurring my lines at rehearsal",
+)
+
+
+class ThirdPersonEmergencyParityTests(unittest.TestCase):
+    """assess() and /ai/chat must agree. Dummy logs redact emergencies only."""
+
+    def setUp(self):
+        from storage import dynamodb
+
+        dynamodb.clear_local_store()
+
+    def _chat(self, uid: str, message: str):
+        from routes.aria import handle_post_ai_chat
+
+        result = handle_post_ai_chat({"message": message}, user_id=uid)
+        self.assertEqual(result["statusCode"], 200, result)
+        return json.loads(result["body"])
+
+    def _bands(self, message: str):
+        assessed = guidance.assess(message)
+        assess_band = assessed.band if assessed is not None else guidance.COACH
+        body = self._chat("third-person-parity", message)
+        chat_band = body.get("guidance_band") or guidance.COACH
+        return assess_band, chat_band, assessed, body
+
+    def test_emergency_cases_agree_and_use_helper_reply(self):
+        for message, expected in THIRD_PERSON_EMERGENCY_CASES:
+            with self.subTest(message=message):
+                assess_band, chat_band, assessed, body = self._bands(message)
+                self.assertEqual(assess_band, guidance.EMERGENCY, message)
+                self.assertEqual(chat_band, guidance.EMERGENCY, message)
+                self.assertEqual(assess_band, chat_band, message)
+                self.assertIsNotNone(assessed, message)
+                self.assertEqual(assessed.prose, expected, message)
+                self.assertEqual(assessed.message, expected, message)
+                self.assertEqual(body["message"], expected, message)
+
+    def test_coach_cases_agree_and_stay_coach(self):
+        for message in THIRD_PERSON_COACH_CASES:
+            with self.subTest(message=message):
+                assess_band, chat_band, assessed, body = self._bands(message)
+                self.assertEqual(assess_band, guidance.COACH, message)
+                self.assertEqual(chat_band, guidance.COACH, message)
+                self.assertEqual(assess_band, chat_band, message)
+                self.assertIsNone(assessed, message)
+                self.assertNotEqual(body.get("guidance_band"), guidance.EMERGENCY, message)
+                self.assertNotEqual(body.get("message"), CARDIAC_HELPER_REPLY, message)
+                self.assertNotEqual(body.get("message"), STROKE_HELPER_REPLY, message)
+
+    def test_dummy_log_redacts_emergency_and_keeps_coach_text(self):
+        from backend.ai.aria_chat import logging as chatlog
+        from backend.ai.aria_chat.session import ChatSession
+
+        next_turn = "hey, how's it going?"
+        cases = [
+            (message, True) for message, _expected in THIRD_PERSON_EMERGENCY_CASES
+        ] + [(message, False) for message in THIRD_PERSON_COACH_CASES]
+        for message, emergency in cases:
+            with self.subTest(message=message, emergency=emergency):
+                with tempfile.TemporaryDirectory() as tmp:
+                    session = ChatSession(
+                        payload={"context": {}},
+                        log_dir=tmp,
+                        session_id=f"parity-{abs(hash(message)) % 10_000_000}",
+                        memory_enabled=False,
+                        install_pseudonym="inst-third-person",
+                    )
+                    session.turn(message)
+                    session.turn(next_turn)
+                    blob = Path(session.log_path).read_text(encoding="utf-8")
+                    rows = [
+                        json.loads(line)
+                        for line in blob.splitlines()
+                        if line.strip()
+                    ]
+                    self.assertEqual(len(rows), 2, message)
+                    dest = Path(tmp) / "export.jsonl"
+                    session.export(dest)
+                    exported = dest.read_text(encoding="utf-8")
+                    exp_rows = [
+                        json.loads(line)
+                        for line in exported.splitlines()
+                        if line.strip()
+                    ]
+                    if emergency:
+                        self.assertEqual(
+                            rows[0]["user_turn"], chatlog.REDACTED_USER_TURN, message
+                        )
+                        self.assertEqual(
+                            rows[1]["request_history"],
+                            [chatlog.REDACTED_USER_TURN],
+                            message,
+                        )
+                        self.assertEqual(
+                            exp_rows[0]["user_turn"],
+                            chatlog.REDACTED_USER_TURN,
+                            message,
+                        )
+                        self.assertEqual(
+                            exp_rows[1]["request_history"],
+                            [chatlog.REDACTED_USER_TURN],
+                            message,
+                        )
+                        self.assertNotIn(message, blob)
+                        self.assertNotIn(message, exported)
+                    else:
+                        self.assertEqual(rows[0]["user_turn"], message, message)
+                        self.assertEqual(rows[1]["request_history"], [message], message)
+                        self.assertEqual(exp_rows[0]["user_turn"], message, message)
+                        self.assertEqual(
+                            exp_rows[1]["request_history"], [message], message
+                        )
+                        self.assertNotEqual(
+                            rows[0]["user_turn"], chatlog.REDACTED_USER_TURN, message
+                        )
 
 
 if __name__ == "__main__":

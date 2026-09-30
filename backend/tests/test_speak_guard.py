@@ -788,6 +788,109 @@ class BlockingPatternSpeakTests(unittest.TestCase):
         self.assertEqual(summary["prose_summary"], heavy_line)
         self._assert_clean_spoken(summary, aria_engine.SPOKEN_OVERTRAIN)
 
+    def test_sleep_question_never_uses_training_template(self):
+        heavy = ARIAContext(
+            sleep=SleepContext(
+                duration_minutes=480, nights_available=10, sleep_debt_7d_hours=0
+            ),
+            readiness=ReadinessContext(
+                hrv_7day_trend=2, recovery_score=72, hrv_days_available=7
+            ),
+            training=TrainingContext(
+                weekly_load_score=95,
+                acwr=1.7,
+                is_overtrained=True,
+                hours_since_last_workout=36,
+            ),
+        )
+        banned = re.compile(r"(?i)\b(?:deload|overtrain|recovery)\b")
+        resp = aria_engine.generate_response("How was my sleep last night?", heavy)
+        spoken = f"{resp.get('message') or ''} {resp.get('prose_summary') or ''}"
+        self.assertNotIn(aria_engine.SPOKEN_OVERTRAIN, spoken)
+        self.assertIn(aria_engine.SPOKEN_SHORT_SLEEP, spoken)
+        card = resp.get("card") or {}
+        action = str(card.get("action") or "")
+        self.assertEqual(
+            action,
+            f"Back off the hard stuff — {aria_engine.ZONE2_SWAP[0].lower()}{aria_engine.ZONE2_SWAP[1:]}",
+        )
+        self.assertIn("zone 2", action.lower())
+        self.assertIn("back off", action.lower())
+        self.assertNotIn("deload", action.lower())
+        visible = " ".join(
+            [
+                spoken,
+                action,
+                str(card.get("interpretation") or ""),
+                str(card.get("metric") or ""),
+            ]
+        )
+        self.assertNotRegex(visible, banned, visible)
+
+    def test_ordinary_train_day_keeps_zone2_card(self):
+        day = ARIAContext(
+            sleep=SleepContext(
+                duration_minutes=480, nights_available=10, sleep_debt_7d_hours=0
+            ),
+            readiness=ReadinessContext(
+                hrv_7day_trend=-2, recovery_score=42, hrv_days_available=7
+            ),
+            training=TrainingContext(
+                weekly_load_score=55,
+                acwr=1.05,
+                is_overtrained=False,
+                hours_since_last_workout=20,
+            ),
+        )
+        resp = aria_engine.generate_response("Should I train today?", day)
+        spoken = f"{resp.get('message') or ''} {resp.get('prose_summary') or ''}"
+        self.assertNotIn(aria_engine.SPOKEN_OVERTRAIN, spoken)
+        card = resp.get("card") or {}
+        blob = " ".join(
+            [
+                str(card.get("action") or ""),
+                " ".join(str(item) for item in (resp.get("suggested_actions") or [])),
+                spoken,
+            ]
+        ).lower()
+        self.assertIn("zone 2", blob, (card, resp.get("suggested_actions"), spoken))
+
+
+class SpokenBanSourceTests(unittest.TestCase):
+    def test_iris_bar_and_floor_share_one_list(self):
+        from aria_core.speak_guard import SPOKEN_BANNED, spoken_ban_hits
+
+        for phrase in (
+            "not a doctor",
+            "i won't",
+            "i don't claim",
+            "i'm not going to",
+            "keep the digits",
+            "no figures",
+        ):
+            self.assertIn(phrase, SPOKEN_BANNED)
+        self.assertEqual(
+            spoken_ban_hits("I'm not going to guess without data."),
+            ("i'm not going to",),
+        )
+        self.assertEqual(
+            spoken_ban_hits("If last night felt bad, that's the read"),
+            ("bad",),
+        )
+        self.assertEqual(
+            spoken_ban_hits("so I won't invent one"),
+            ("i won't",),
+        )
+        self.assertEqual(
+            spoken_ban_hits("I'll keep the digits to myself. No figures in my mouth."),
+            ("keep the digits", "no figures"),
+        )
+        self.assertEqual(spoken_ban_hits("overtraining flag is set"), ("overtrain",))
+        self.assertEqual(spoken_ban_hits("treat it as a deload"), ("deload",))
+        self.assertEqual(spoken_ban_hits("the recovery one"), ("recovery",))
+        self.assertEqual(spoken_ban_hits("I don't have enough to go on yet."), ())
+        self.assertEqual(spoken_ban_hits("If last night felt rough"), ())
+
 
 if __name__ == "__main__":
     unittest.main()

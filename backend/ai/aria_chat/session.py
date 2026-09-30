@@ -2,7 +2,7 @@
 
 Pinned to ``dummy_orchestrator.respond(engine="lambda")`` through
 ``fuse_turn``, never the SimRunner stub. Multi-turn state comes only from
-the request/session history (``routes.aria._turn_from_history``).
+the request/session history (local ``_turn_from_history`` on sanitized turns).
 Memory-off never reads notes, ``remember_short_term``, ``last_insights``,
 or persisted fusion.
 """
@@ -19,16 +19,8 @@ from backend._paths import ensure_lambda_on_path
 
 ensure_lambda_on_path()
 
-import zlib as _zlib  # noqa: E402
-
 from aria_core import speak_guard  # noqa: E402
 from aria_core import state_read  # noqa: E402
-
-# PR 380 `state_read.phrase_key` uses zlib without importing it. Bind it here
-# so Dummy chat can seed turns without editing that file.
-if getattr(state_read, "zlib", None) is None:
-    state_read.zlib = _zlib
-
 from routes.aria import (  # noqa: E402
     _history_role,
     _history_text,
@@ -73,18 +65,34 @@ def _turn_from_history(history: Any) -> tuple[int, list[str]]:
     return user_count, prior
 
 
-def _bind_dummy_phrase_ids(prior: list[str], seed: int) -> None:
-    """Unblock Dummy hypertune after #380 left ``phrase_uid`` unbound."""
-    from backend.ai.simrunner.aria_simrunner import dummy_orchestrator as dummy_mod
-
-    dummy_mod.phrase_uid = ""
-    dummy_mod.phrase_turn = len(prior) + 1 if prior else int(seed) & 0xFFFFFFFF
-
-
 def _sanitize_or_placeholder(text: str, needles: list[str] | None) -> str:
     """Sanitize before fuse/log. Never fall back to the raw secret text."""
     cleaned = chatlog.sanitize_logged_text(text, needles)
     return cleaned if cleaned else REDACTED_PLACEHOLDER
+
+
+def _sanitize_history(history: list | None, needles: list[str] | None) -> list:
+    """Sanitize every history text field before turn-index or Dummy prior_turns."""
+    if not isinstance(history, list):
+        return []
+    out: list = []
+    for item in history:
+        if isinstance(item, str):
+            out.append(_sanitize_or_placeholder(item, needles))
+            continue
+        if not isinstance(item, dict):
+            continue
+        row = dict(item)
+        text = str(row.get("content") or row.get("message") or row.get("text") or "")
+        cleaned = _sanitize_or_placeholder(text, needles)
+        if "content" in row or not (row.get("message") or row.get("text")):
+            row["content"] = cleaned
+        elif "message" in row:
+            row["message"] = cleaned
+        else:
+            row["text"] = cleaned
+        out.append(row)
+    return out
 
 
 def _construct_remote_client(*_args: Any, **_kwargs: Any) -> None:
@@ -224,23 +232,20 @@ def run_turn(
         context = dict(context)
         context["timestamp"] = "2026-01-15T12:00:00Z"
         body["context"] = context
-    turn_index, prior = _turn_from_history(history)
-    prior = [_sanitize_or_placeholder(item, needles) for item in prior]
-    last_spoken = _last_assistant(history)
-    prior_spoken = conversation.prior_spoken_from_history(history)
+    # Sanitize first. Never hand raw turns to the route body helper, and
+    # do not add history/recentTurns/messages fields that would be re-read raw.
+    sanitized_history = _sanitize_history(history, needles)
+    turn_index, prior = _turn_from_history(sanitized_history)
+    last_spoken = _last_assistant(sanitized_history)
+    prior_spoken = conversation.prior_spoken_from_history(sanitized_history)
 
     # Phrase key / turn seed from the per-install pseudonym, never a real uid.
     # Searched the repo first: no existing per-install id; see install.py.
     pseudonym = str(install_pseudonym or "").strip() or install_mod.load_or_create_pseudonym(
         config_dir
     )
-    phrase = state_read.phrase_key(
-        None,
-        spoken_in,
-        user_id=pseudonym,
-        turn=turn_index,
-        seed=seed,
-    )
+    # Pseudonym + turn only. Dummy seed is a third sha256 input, never a raw uid.
+    phrase = state_read.phrase_key(pseudonym, turn_index, seed)
     # Explicit seed wins inside turn_seed — that seed is the phrase_key above.
     turn_s = state_read.turn_seed(None, spoken_in, seed=phrase)
 
@@ -261,7 +266,6 @@ def run_turn(
     else:
         # Engine pin: Dummy chat always uses dummy_orchestrator.respond(engine="lambda")
         # through fuse_turn — never the SimRunner stub, even if ARIA_BEDROCK_ENABLED=true.
-        _bind_dummy_phrase_ids(prior, int(phrase))
         row = dummy_respond(
             spoken_in,
             engine=ENGINE_LAMBDA,

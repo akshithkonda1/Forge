@@ -62,28 +62,6 @@ def _history_role(item: Any) -> str:
     return str(item.get("role") or item.get("speaker") or "user").strip().lower()
 
 
-def _turn_from_history(history: Any) -> tuple[int, list[str]]:
-    """Turn index and prior user texts from request/session history only.
-
-    Never reads notes, STM, last_insights, or persisted fusion. History items
-    are ``{role, content}`` dicts or raw strings (treated as user). The current
-    message is not in ``history`` — turn index is the count of prior user lines.
-    """
-    if not isinstance(history, list) or not history:
-        return 0, []
-    prior: list[str] = []
-    user_count = 0
-    for item in history:
-        text = _history_text(item)
-        if not text:
-            continue
-        role = _history_role(item)
-        if role in ("", "user", "human"):
-            prior.append(text)
-            user_count += 1
-    return user_count, prior
-
-
 def _denied_lifestyle_token(token: str) -> bool:
     return bool(_DENIED_LIFESTYLE.search(str(token or "").strip()))
 
@@ -264,7 +242,7 @@ def _conversation_block(body: dict[str, Any]) -> dict[str, Any]:
     return {}
 
 
-def _turn_count_from_conversation(body: dict[str, Any]) -> int:
+def _turn_from_history(body: dict[str, Any]) -> int:
     """Count prior turns from the inbound conversation payload."""
     conv = _conversation_block(body)
     for key in ("totalTurns", "total_turns"):
@@ -300,7 +278,7 @@ def _request_turn(body: dict[str, Any]) -> int:
             return max(0, int(raw))
         except (TypeError, ValueError):
             pass
-    return _turn_count_from_conversation(body)
+    return _turn_from_history(body)
 
 
 def _checked_speak(fn, *args, **kwargs):
@@ -409,7 +387,6 @@ def handle_post_ai_chat(body: dict[str, Any], *, user_id: str) -> dict:
                 "context_updates": {},
                 "memory_reference": None,
                 "missing_fields": aria_engine.apply_permissions(context, permissions)[0].missing_fields,
-                "user_id": uid,
                 "reasoning_source": "deterministic",
             }
         )
@@ -587,8 +564,9 @@ def handle_post_ai_chat(body: dict[str, Any], *, user_id: str) -> dict:
         "rich_card": None,
         "context_updates": {"relationship_level": updated_level},
         "missing_fields": aria_engine.apply_permissions(context, permissions)[0].missing_fields,
-        "user_id": uid,
     }
+    if safety_lock:
+        extras["safety_lock"] = True
     if not safety_lock:
         extras["memory_reference"] = memory
         extras["memory"] = memory_block or None

@@ -16,10 +16,12 @@ repo_root=$(git rev-parse --show-toplevel)
 checker="$repo_root/scripts/check-conflict-copies.sh"
 
 # The hook is committed but the checker could be missing on an old branch —
-# never block a commit because the tooling is absent.
-[ -x "$checker" ] || exit 0
+# never block a commit because the tooling is absent. Require the file, not
+# +x: a non-executable tracked script used to make this hook exit 0 and skip
+# the scan entirely.
+[ -f "$checker" ] || exit 0
 
-if ! "$checker" --staged; then
+if ! bash "$checker" --staged; then
     echo
     echo "Commit blocked. Unstage them with:  git restore --staged <file>"
     exit 1

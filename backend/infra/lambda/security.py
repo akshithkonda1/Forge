@@ -241,16 +241,28 @@ SECURITY LAW (mandatory):
 
 
 
-def _rate_window_id(*, hours: int = 1) -> str:
-    """UTC hour bucket id, stable across workers."""
-    from datetime import datetime, timezone
+def _rate_window(*, hours: int = 1) -> tuple[str, int]:
+    """UTC hour bucket id and Dynamo TTL (epoch seconds).
+
+    TTL is the window end plus a 1h margin so a late read in the next
+    bucket cannot resurrect a just-expired counter. Matches the table TTL
+    attribute ``ttl`` in ``backend/infra/main.tf``.
+    """
+    from datetime import datetime, timedelta, timezone
 
     now = datetime.now(timezone.utc)
     # Floor to ``hours``-wide buckets (default: 1h).
     floored = now.replace(minute=0, second=0, microsecond=0)
     if hours > 1:
         floored = floored.replace(hour=(floored.hour // hours) * hours)
-    return floored.strftime("%Y-%m-%dT%H")
+    window_end = floored + timedelta(hours=hours)
+    ttl = int((window_end + timedelta(hours=1)).timestamp())
+    return floored.strftime("%Y-%m-%dT%H"), ttl
+
+
+def _rate_window_id(*, hours: int = 1) -> str:
+    """UTC hour bucket id, stable across workers."""
+    return _rate_window(hours=hours)[0]
 
 
 def enforce_user_rate_limit(
@@ -262,26 +274,33 @@ def enforce_user_rate_limit(
 ) -> None:
     """Raise ``PermissionError`` when ``user_id`` exceeds ``limit`` for ``action``.
 
-    Backed by Dynamo (or the in-memory local store in tests). Failures to read
-    the counter fail closed only when a counter already exists and is over
-    limit; a missing table in local/dev simply uses the in-memory store.
+    Atomic Dynamo ``UpdateItem`` (``ADD count :1`` with
+    ``attribute_not_exists(count) OR count < :limit``). The in-memory local
+    store honors the same condition under its lock. A failed condition
+    maps to the same ``PermissionError("rate limit exceeded")`` that routes
+    already turn into a 429.
     """
     from storage import dynamodb
     from storage.keys import rate_limit_key
 
     uid = validate_user_id(user_id)
-    bucket = f"{action}:{_rate_window_id(hours=window_hours)}"
+    window_id, ttl = _rate_window(hours=window_hours)
+    bucket = f"{action}:{window_id}"
     key = rate_limit_key(uid, bucket)
-    item = dynamodb.get_item(key["pk"], key["sk"]) or {}
-    count = int(item.get("count") or 0)
-    if count >= limit:
-        raise PermissionError("rate limit exceeded")
-    dynamodb.put_item(
-        {
-            **key,
-            "count": count + 1,
-            "action": action,
-            "window": bucket,
-            "entity_type": "rate_limit",
-        }
-    )
+    try:
+        dynamodb.update_item(
+            key["pk"],
+            key["sk"],
+            {
+                "action": action,
+                "window": bucket,
+                "entity_type": "rate_limit",
+                "ttl": ttl,
+            },
+            add={"count": 1},
+            condition_expression="attribute_not_exists(#c) OR #c < :limit",
+            expression_attribute_names={"#c": "count"},
+            expression_attribute_values={":limit": limit},
+        )
+    except dynamodb.ConditionalCheckFailed as exc:
+        raise PermissionError("rate limit exceeded") from exc

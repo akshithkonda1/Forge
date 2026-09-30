@@ -75,7 +75,7 @@ final class AriaContextStore: ObservableObject {
         let lastWorkout = store.workoutHistory.first
         let hoursSinceWorkout: Double? = {
             guard let lastWorkout,
-                  let date = iso.date(from: lastWorkout.date) else { return nil }
+                  let date = WorkoutHistoryWindow.parseDate(lastWorkout.date) else { return nil }
             return Date().timeIntervalSince(date) / 3600
         }()
 
@@ -106,11 +106,7 @@ final class AriaContextStore: ObservableObject {
         let hrvTrend: Double? = observedReadiness?.hrv7DayTrend
         let hrvDaysAvailable: Int? = observedReadiness?.hrvDaysAvailable
 
-        let cutoff = Calendar.current.date(byAdding: .day, value: -30, to: Date())
-        let workouts30d = store.workoutHistory.filter {
-            guard let date = iso.date(from: $0.date), let cutoff else { return false }
-            return date > cutoff
-        }.count
+        let workouts30d = WorkoutHistoryWindow.completedCount(in: store.workoutHistory)
 
         let sleepDomain = ARIAContextPayload.SleepDomain(
             durationMinutes: lastSleep.map { $0.totalHours * 60 },
@@ -185,7 +181,7 @@ final class AriaContextStore: ObservableObject {
         let progressDomain = ARIAContextPayload.ProgressDomain(
             workoutsCompleted30d: workouts30d > 0 ? workouts30d : nil,
             newPersonalRecords: store.personalRecords.isEmpty ? nil : store.personalRecords.count,
-            trainingLoadTrend: store.workoutHistory.count >= 3 ? "steady" : nil,
+            trainingLoadTrend: workouts30d >= 3 ? "steady" : nil,
             recoveryConsistencyDelta: nil
         )
         let cyclePhaseDirective: String? = {

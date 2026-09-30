@@ -1,20 +1,18 @@
 # Gates the backend Python test suite (lambda handler + ARIA engine + biometrics).
-# These ~101 tests previously ran in no CI workflow. Stdlib-only (boto3 is lazy),
-# so the runner's system python3 is sufficient — no setup-python needed.
+# Most tests are stdlib-only (boto3 is lazy). The DynamoDB rate-limit concurrency
+# test needs moto + boto3 from backend/requirements-dev.txt (never Lambda runtime).
 
 name: Backend CI
 
-# Runs on every branch and every pull request — main included. Path filters scope
-# it to the backend; there is deliberately no branch filter.
+# pull_request is unfiltered so required checks always report. Push keeps a
+# path filter (main included). The heavy job never skips: it no-ops green
+# when the changes job says nothing relevant changed.
 on:
   push:
     paths:
       - "backend/**"
       - ".github/workflows/backend-ci.yml"
   pull_request:
-    paths:
-      - "backend/**"
-      - ".github/workflows/backend-ci.yml"
 
 permissions:
   contents: read
@@ -24,18 +22,54 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  changes:
+    name: backend-changes
+    runs-on: ubuntu-latest
+    outputs:
+      relevant: ${{ steps.filter.outputs.relevant }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 2
+      - uses: dorny/paths-filter@ceb8a2b8f2d89434be7ff52d3de7ec3738c5cc9d # v4.0.3
+        id: filter
+        with:
+          filters: |
+            relevant:
+              - "backend/**"
+              - ".github/workflows/backend-ci.yml"
+
   test:
+    name: backend-test
+    needs: changes
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v4
+      - name: No-op (no relevant changes)
+        if: needs.changes.outputs.relevant != 'true'
+        run: echo "No backend changes; succeeding as a no-op so required checks report."
+
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        if: needs.changes.outputs.relevant == 'true'
+
+      - name: Undefined names (ruff F821)
+        if: needs.changes.outputs.relevant == 'true'
+        run: |
+          python3 -m pip install --user 'ruff==0.13.2'
+          python3 -m ruff check backend --select F821
+
+      - name: Install backend test-only dependencies
+        if: needs.changes.outputs.relevant == 'true'
+        run: python3 -m pip install --user -r backend/requirements-dev.txt
 
       - name: Backend unit tests (lambda + ARIA + biometrics)
+        if: needs.changes.outputs.relevant == 'true'
         run: python3 -m unittest discover -s backend/tests -p "test_*.py" -v
 
       # Explicit AI gate so the Bedrock kill-switch, the QoL "life rhythm" wiring,
       # and the ARIA habit/lifestyle e2e always run on this PR and are visible as
       # their own check. Stdlib-only, Linux — no Mac/iOS, no AWS, Bedrock off.
       - name: AI / ARIA gate (Bedrock kill-switch + QoL life-rhythm + e2e)
+        if: needs.changes.outputs.relevant == 'true'
         working-directory: backend/tests
         run: |
           python3 -m unittest -v \

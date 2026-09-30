@@ -29,3 +29,13 @@ export const ARIA_TONES: Record<
     line: "I'll be an honest peer. Kind, and I won't flinch.",
   },
 };
+
+/** Persist / API can hand back a stale or empty style. Never throw on lookup. */
+export function resolveCoachingStyle(
+  style: string | null | undefined
+): CoachingStyle {
+  if (style && Object.prototype.hasOwnProperty.call(ARIA_TONES, style)) {
+    return style as CoachingStyle;
+  }
+  return "balanced";
+}

@@ -10,8 +10,9 @@ try:
     import numpy as np
     from PIL import Image
 except ImportError:
-    print("skip: pillow/numpy not installed")
-    raise SystemExit(0)
+    print("error: pillow and numpy are required for this check", file=sys.stderr)
+    print("install: python3 -m pip install pillow numpy", file=sys.stderr)
+    raise SystemExit(1)
 
 ROOT = Path(__file__).resolve().parents[1]
 PATHS = [

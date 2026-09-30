@@ -119,7 +119,7 @@ _CARD_POINTER = re.compile(
 
 _GREET = (
     "Hey — you pinged like someone who already did the hard part. What's actually landing?",
-    "Hi. I was sitting here like a plant that texts back. What's the texture of the day?",
+    "Hi. I was parked here like a plant that texts back. What's the texture of the day?",
     "I'm here, and I brought snacks for the tangent. What's going on over there?",
     "Hey. Glad you showed up. What's on your mind?",
     "Hi. I'm your friend in this. What's landing for you?",
@@ -128,10 +128,10 @@ _GREET = (
     "Okay — I'm listening. Paint the room for me.",
 )
 _MOVIE = (
-    "That ending followed you home like a stray plot twist. Sit with it a minute, then tell me the beat that stuck.",
+    "That ending followed you home like a stray plot twist. Give it a minute, then tell me the beat that stuck.",
     "Movie hangover is a real condition and I'm not curing it. What vibe did it leave in the room?",
     "I'm staying on the film. Was it the kind that follows you out of the room?",
-    "Yeah — sitting with the movie. What did it do to you?",
+    "Yeah — staying with the movie. What did it do to you?",
 )
 _DOG = (
     "Your dog just unionized the furniture. A walk after dinner might win the cushion back.",
@@ -144,14 +144,14 @@ _DOG_FOLLOW = (
     "Plotting? Yeah, he's already claimed the high ground and the remote. A snack and a loop down the lane could pause the coup.",
 )
 _BAD_DAY = (
-    "A rough day gets a real sit-down. Want to vent, or want one tiny kindness?",
-    "Bad days count. I'm with you in the mess — we can just sit here a minute.",
+    "A rough day gets a real pause. Want to vent, or want one tiny kindness?",
+    "Rough days count. I'm with you in the mess — we can just stay here a minute.",
     "Yeah — a crummy day is allowed to be the whole topic. I'm here.",
 )
 _JOKE = (
-    "If I'm a toaster, my only setting is 'opinions' and it jams. Sit with whatever's warming — you don't have to perform.",
+    "If I'm a toaster, my only setting is 'opinions' and it jams. Stay with whatever's warming — you don't have to perform.",
     "A talking toaster would at least own the bagel slot. Kick your shoes off and stay a minute.",
-    "Ha — then I pop crumbs, not lectures. A slow breath and a real sit-down beats rushing the next thing.",
+    "Ha — then I pop crumbs, not lectures. A slow breath and a real pause beats rushing the next thing.",
     "Toaster? Heat stays low. Tell me what's actually on the counter.",
 )
 _WEEKEND = (
@@ -167,7 +167,7 @@ _BORED = (
 _THANKS = (
     "You're welcome. What do you want to chew on next?",
     "Anytime. The smaller question counts too.",
-    "Glad it landed. What else is sitting with you?",
+    "Glad it landed. What else is on your mind?",
 )
 _WHO = (
     "I'm ARIA — a lifestyle friend with a sense of humor. What's on your mind?",
@@ -175,9 +175,9 @@ _WHO = (
 )
 _GENERIC = (
     "I'm here, and I brought snacks for the tangent. What's actually going on?",
-    "Say the unpolished version. I can sit with what's going on.",
-    "Say more if you want. I can stay on the specific thing.",
-    "Tell me the specific thing, not the polished version. I can sit with it.",
+    "Say the unpolished version. What's actually going on?",
+    "Say more if you want. What's the specific thing?",
+    "Tell me the specific thing, not the polished version.",
 )
 _THIN = (
     "I don't have enough to go on yet. Tell me about the day?",
@@ -188,7 +188,7 @@ _COACH_SPENT = (
     "That stubborn streak is doing unpaid overtime. Walk, eat, and call it before you prove anything.",
 )
 _COACH_STEADY = (
-    "You look like a bookshelf that finally sat still. Keep tonight quiet and don't stack another errand.",
+    "You're running like a dishwasher on eco mode: quiet, steady, gets it done. Keep tonight soft and skip the extra errand.",
     "Steady — like tea that hasn't gone cold. Leave a little room and skip the late spiral.",
 )
 _COACH_SPARK = (
@@ -238,38 +238,6 @@ SPEECH_BANKS = (
     _MEMORY_OFF,
     _REFER_OUT_SPEAK,
     _WARMER_AFTER_DOWN,
-)
-# Whole-bank scan: these stems fail unless the exact line is allowlisted.
-SELF_DESCRIBE_BANK_STEMS = (
-    "i'll",
-    "from me",
-    "i'm beside",
-    "digits",
-    "figures",
-)
-SELF_DESCRIBE_BANK_ALLOWLIST = frozenset(
-    {
-        "I'm ARIA — a lifestyle friend with a sense of humor. What's on your mind?",
-        "I'm ARIA. Witty when it helps, honest when it matters. What do you need?",
-        "I'm still here. Want to pick up the thread, or start a smaller one?",
-        "I'm a little on the dog's side — they negotiated the couch fair and square. Toss a toy before they annex the bed.",
-        "That story isn't with me — I'd love to hear about it.",
-        "I don't have enough to go on yet. Tell me about the day?",
-        "I can't tell from here — a doctor can check it properly. Meanwhile I'm glad to help with sleep habits.",
-        "I can't tell from here — a doctor can check it properly. Meanwhile I'm glad to help with the day-to-day stuff around it.",
-        "That one's a call for your doctor or pharmacist — they know what you're on. I'm glad to help with the day-to-day stuff around it.",
-        "I'm here, and I brought snacks for the tangent. What's actually going on?",
-        "I'm here, and I brought snacks for the tangent. What's going on over there?",
-        "Hi. I'm your friend in this. What's landing for you?",
-        "I'm with you in the mess — we can just sit here a minute.",
-        "I'm with you in the dull stretch. Want company, or a tiny next step?",
-        "I'm staying on the film. Was it the kind that follows you out of the room?",
-        "Movie hangover is a real condition and I'm not curing it. What vibe did it leave in the room?",
-        "Weekends rewrite the clock for me too. What did yours actually feel like?",
-        "Weekends are sneaky — they look empty and still spend you. Unpack it or ignore it, I'm here.",
-        "Tell me the honest weekend, not the one you'd post.",
-        "Yeah — a crummy day is allowed to be the whole topic. I'm here.",
-    }
 )
 _HERO_OR_BARK = re.compile(
     r"(?i)\b(hero set|trainer bark|crush(?:ing)? it|beast mode|you got this)\b"

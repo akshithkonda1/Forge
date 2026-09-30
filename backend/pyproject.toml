@@ -11,7 +11,14 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-dev = []
+dev = [
+    "moto>=5.0,<6",
+    "pytest>=8.0",
+]
+test = [
+    "moto>=5.0,<6",
+    "pytest>=8.0",
+]
 
 [tool.pytest.ini_options]
 testpaths = ["tests", "ai/simrunner/tests"]
