@@ -67,11 +67,7 @@ final class AriaService: ObservableObject {
         // catalog, or HealthKit, and never reaches a coach.
         // The pending triage question rides along, so "yes" / "no" resolves
         // case by case. Plain refer-out keeps each path's own wording.
-        if !isInsight, let decision = AriaSafetyTriage.assess(
-            text,
-            triageTopic: store.pendingTriageTopic,
-            relationshipLevel: contextStore.context.relationshipLevel
-        ), decision.band != AriaSafetyBand.referOut || decision.safety != nil {
+        if !isInsight, let decision = safetyDecision(for: text, store: store) {
             lastRemoteError = nil
             return Self.safetyResponse(decision)
         }
@@ -86,6 +82,25 @@ final class AriaService: ObservableObject {
             agents: agents
         )
         return isInsight ? reply : Self.withCareLine(reply, for: text)
+    }
+
+    /// The on-device 911 / triage decision for a chat turn, or nil for
+    /// ordinary coaching. Plain refer-out keeps each path's own wording.
+    func safetyDecision(for text: String, store: AppStore) -> AriaSafetyDecision? {
+        guard let decision = AriaSafetyTriage.assess(
+            text,
+            triageTopic: store.pendingTriageTopic,
+            relationshipLevel: contextStore.context.relationshipLevel
+        ), decision.band != AriaSafetyBand.referOut || decision.safety != nil else {
+            return nil
+        }
+        return decision
+    }
+
+    /// Whether this turn is a safety turn. Voice uses it to keep the
+    /// conversation on this iPhone's own voice instead of the live agent.
+    func decidesSafetyOnDevice(_ text: String, store: AppStore) -> Bool {
+        safetyDecision(for: text, store: store) != nil
     }
 
     /// Dummy, Local testing, Live, or the offline fallback — whichever this

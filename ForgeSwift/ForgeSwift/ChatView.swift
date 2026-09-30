@@ -342,7 +342,8 @@ struct ChatView: View {
 
         sendTask?.cancel()
         if store.ariaVoiceMode || showVoiceOrb {
-            AriaVoiceSession.shared.start(store: store, speech: speech, captureMic: false)
+            let safetyTurn = AriaService.shared.decidesSafetyOnDevice(trimmed, store: store)
+            AriaVoiceSession.shared.start(store: store, speech: speech, captureMic: false, onDevice: safetyTurn)
             AriaVoiceSession.shared.markThinking()
         }
         sendTask = Task {
@@ -352,12 +353,16 @@ struct ChatView: View {
             if store.isInAriaFirstBond { showQuickActions = true }
             choreographedHaptic(.messageReceived, mood: ariaMood)
             // Voice-first safety: a triage question or an emergency turns
-            // ARIA's voice on by itself, and triage listens for the answer.
+            // ARIA's voice on by itself, on this iPhone's own voice; triage
+            // listens for the answer once the question has been asked.
             let safety = store.ariaSafetySession
             if let safety, safety.wantsVoice {
                 store.ariaVoiceMode = true
                 withAnimation(FDS.Spring.hero) { showVoiceOrb = true }
-                AriaVoiceSession.shared.start(store: store, speech: speech, captureMic: safety.isTriage)
+                AriaVoiceSession.shared.start(store: store, speech: speech, captureMic: false, onDevice: true)
+                if safety.isTriage {
+                    AriaVoiceSession.shared.listenAfterSpeaking()
+                }
             }
             if store.ariaVoiceMode || showVoiceOrb || AriaVoiceSession.shared.isActive,
                let reply = store.chatMessages.last(where: {
