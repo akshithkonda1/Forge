@@ -60,6 +60,7 @@ export function ActiveWorkoutView() {
   const [showEndConfirm, setShowEndConfirm] = useState(false);
 
   const restTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const endConfirmTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const exercises = todayWorkout?.exercises ?? [];
   const currentExercise = exercises[activeWorkout.currentExerciseIndex];
 
@@ -178,12 +179,23 @@ export function ActiveWorkoutView() {
     if (restTimerRef.current) clearInterval(restTimerRef.current);
   }, []);
 
+  useEffect(() => {
+    return () => {
+      if (endConfirmTimerRef.current) clearTimeout(endConfirmTimerRef.current);
+    };
+  }, []);
+
   const handleEndWorkout = useCallback(() => {
     if (!showEndConfirm) {
       setShowEndConfirm(true);
-      setTimeout(() => setShowEndConfirm(false), 3000);
+      if (endConfirmTimerRef.current) clearTimeout(endConfirmTimerRef.current);
+      endConfirmTimerRef.current = setTimeout(() => {
+        endConfirmTimerRef.current = null;
+        setShowEndConfirm(false);
+      }, 3000);
       return;
     }
+    if (endConfirmTimerRef.current) clearTimeout(endConfirmTimerRef.current);
     endWorkout();
   }, [showEndConfirm, endWorkout]);
 

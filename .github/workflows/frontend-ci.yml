@@ -1,12 +1,13 @@
 # Gates the Next.js/TypeScript frontend: lint + typecheck + test + production build.
 # Lint is now gated (flat eslint.config.mjs; settings.react.version pinned because
 # eslint-plugin-react 'detect' uses context.getFilename(), removed in ESLint 10).
-# pnpm comes from Corepack (the packageManager field), so no setup-node is needed.
+# pnpm comes from Corepack (the packageManager field). setup-node pins Node 22
+# so `node --experimental-strip-types` can run the ARIA frontend contract.
 
 name: Frontend CI
 
-# Runs on every branch and every pull request — main included. Path filters scope
-# it to the frontend; there is deliberately no branch filter.
+# pull_request is unfiltered so required checks always report. Push keeps a
+# path filter. The heavy job no-ops green when nothing frontend-relevant changed.
 on:
   push:
     paths:
@@ -19,19 +20,10 @@ on:
       - "postcss.config.mjs"
       - "eslint.config.mjs"
       - "vitest.config.mts"
+      - "shared/**"
+      - "scripts/check-aria-frontend.ts"
       - ".github/workflows/frontend-ci.yml"
   pull_request:
-    paths:
-      - "src/**"
-      - "public/**"
-      - "package.json"
-      - "pnpm-lock.yaml"
-      - "tsconfig.json"
-      - "next.config.ts"
-      - "postcss.config.mjs"
-      - "eslint.config.mjs"
-      - "vitest.config.mts"
-      - ".github/workflows/frontend-ci.yml"
 
 permissions:
   contents: read
@@ -41,25 +33,84 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  changes:
+    name: frontend-changes
+    runs-on: ubuntu-latest
+    outputs:
+      relevant: ${{ steps.filter.outputs.relevant }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 2
+      - uses: dorny/paths-filter@ceb8a2b8f2d89434be7ff52d3de7ec3738c5cc9d # v4.0.3
+        id: filter
+        with:
+          filters: |
+            relevant:
+              - "src/**"
+              - "public/**"
+              - "package.json"
+              - "pnpm-lock.yaml"
+              - "tsconfig.json"
+              - "next.config.ts"
+              - "postcss.config.mjs"
+              - "eslint.config.mjs"
+              - "vitest.config.mts"
+              - "shared/**"
+              - "scripts/check-aria-frontend.ts"
+              - ".github/workflows/frontend-ci.yml"
+
   build:
+    name: frontend-build
+    needs: changes
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v4
+      - name: No-op (no relevant changes)
+        if: needs.changes.outputs.relevant != 'true'
+        run: echo "No frontend changes; succeeding as a no-op so required checks report."
+
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        if: needs.changes.outputs.relevant == 'true'
+
+      - name: Setup Node
+        if: needs.changes.outputs.relevant == 'true'
+        uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5.0.0
+        with:
+          node-version: 22
+          # v5 turns package-manager-cache on when package.json has
+          # packageManager. That looks for `pnpm` during setup, before
+          # Corepack has enabled it, and fails the job in ~1s
+          # (run 36517939769).
+          package-manager-cache: false
 
       - name: Enable pnpm (Corepack)
+        if: needs.changes.outputs.relevant == 'true'
         run: corepack enable
 
       - name: Install dependencies
+        if: needs.changes.outputs.relevant == 'true'
         run: pnpm install --frozen-lockfile
 
       - name: Lint
+        if: needs.changes.outputs.relevant == 'true'
         run: pnpm lint
 
       - name: Typecheck
+        if: needs.changes.outputs.relevant == 'true'
         run: pnpm exec tsc --noEmit
 
       - name: Test
+        if: needs.changes.outputs.relevant == 'true'
         run: pnpm test
 
+      # Drift gate: src/lib/aria-mark.ts must stay lockstep with
+      # shared/aria-mark.json. This script existed but was never a CI step, so
+      # a contract-only edit of shared/ also skipped this workflow (path
+      # filter omitted shared/**).
+      - name: ARIA frontend contract
+        if: needs.changes.outputs.relevant == 'true'
+        run: node --experimental-strip-types scripts/check-aria-frontend.ts
+
       - name: Build
+        if: needs.changes.outputs.relevant == 'true'
         run: pnpm build

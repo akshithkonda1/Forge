@@ -13,8 +13,12 @@ on the same line of `ForgeWatchWidgetBundle.body`, and the merge kept one.
 The file stayed on disk, stayed in the Xcode target, and stayed compiling,
 so every gate we had was green while the watch face lost a complication.
 
-Scope is the directory containing the bundle, which is how these extensions
-are laid out. Live Activities live outside both bundle directories and are
+Scope is the directory containing the bundle plus extra roots that the
+Xcode project compiles into that bundle. `LifestyleWidget` lives in
+`ForgeWidget/` and is referenced from the pbxproj as
+`../../ForgeWidget/LifestyleWidget.swift`. A parent-only walk never saw
+it, so dropping `LifestyleWidget()` from the bundle still passed.
+Live Activities live outside both bundle directories and are
 deliberately not required here.
 """
 
@@ -36,6 +40,13 @@ LINE_COMMENT = re.compile(r"//[^\n]*")
 # `struct Foo: Widget` — but not `: WidgetBundle`, and not `WidgetConfiguration`.
 WIDGET_DECL = re.compile(r"\bstruct\s+([A-Za-z_]\w*)\s*:\s*Widget\s*(?:\{|$)", re.M)
 BUNDLE_DECL = re.compile(r"\bstruct\s+([A-Za-z_]\w*)\s*:\s*WidgetBundle\b")
+
+# Out-of-tree sources the pbxproj compiles into a named bundle.
+# LifestyleWidget.swift is the only file under ForgeWidget/ and belongs to
+# ForgeWidgetExtensionBundle, not the watch complications bundle.
+EXTRA_WIDGET_ROOTS = {
+    "ForgeWidgetExtensionBundle.swift": [ROOT / "ForgeWidget"],
+}
 
 
 def strip_comments(text: str) -> str:
@@ -60,9 +71,12 @@ def main() -> int:
         registered = set(re.findall(r"\b([A-Za-z_]\w*)\s*\(\s*\)", body))
 
         declared: dict[str, Path] = {}
-        for swift in sorted(scope.rglob("*.swift")):
-            for name in WIDGET_DECL.findall(strip_comments(swift.read_text(encoding="utf-8"))):
-                declared[name] = swift
+        extra_roots = EXTRA_WIDGET_ROOTS.get(bundle_path.name, [])
+        search_roots = [scope, *[root for root in extra_roots if root.is_dir()]]
+        for search_root in search_roots:
+            for swift in sorted(search_root.rglob("*.swift")):
+                for name in WIDGET_DECL.findall(strip_comments(swift.read_text(encoding="utf-8"))):
+                    declared[name] = swift
 
         orphans = sorted(set(declared) - registered)
         rel = bundle_path.relative_to(ROOT)

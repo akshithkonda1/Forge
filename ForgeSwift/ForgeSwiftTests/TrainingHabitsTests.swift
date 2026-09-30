@@ -1,9 +1,11 @@
 import XCTest
 @testable import ForgeSwift
+import ForgeCore
 
 /// The algorithmic Train learner: every catalog exercise discoverable through
 /// suggestions, every focus producing valid plans, sports first-class, and
 /// the weekday pattern actually changing future rankings.
+@MainActor
 final class TrainingHabitsTests: XCTestCase {
 
     // MARK: - Focus coverage

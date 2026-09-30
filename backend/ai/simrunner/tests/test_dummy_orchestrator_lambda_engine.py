@@ -25,6 +25,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[4]))
 os.environ.setdefault("SIMRUNNER_TODAY", "2026-01-15")
 
 from backend.ai.simrunner.aria_simrunner import dummy_orchestrator as dummy  # noqa: E402
+from backend.ai.simrunner.aria_simrunner.aria_generator import get_queries_for_tier  # noqa: E402
 from backend.ai.simrunner.backend_simulator import model_registry as reg  # noqa: E402
 from backend.ai.simrunner.backend_simulator.behavior_engine import generate_stream  # noqa: E402
 from backend.ai.simrunner.backend_simulator.data_generator import build_context  # noqa: E402
@@ -368,10 +369,37 @@ class DummyARIAEngineUsesLambdaTests(unittest.TestCase):
         card = row.get("card") if isinstance(row.get("card"), dict) else {}
         action = str(card.get("action") or rec)
         self.assertIn("zone 2", action.lower())
-        self.assertEqual(action, "Swap to an easy, chatty-pace zone 2.")
+        self.assertEqual(action, "Back off the hard stuff — swap to an easy, chatty-pace zone 2.")
         banned = re.compile(r"(?i)\b(?:deload|overtrain|recovery)\b")
         for blob in (spoken, action, rec):
             self.assertNotRegex(blob, banned, blob)
+
+    def test_sleep_question_at_overtrained_acwr_rec_backs_off(self):
+        from backend._paths import ensure_lambda_on_path
+
+        ensure_lambda_on_path()
+        from aria_core.aria_evidence import ACWR_OVERREACH
+        from aria_core.speak_guard import spoken_ban_hits
+
+        ctx, _ = _ctx()
+        ctx.is_overtrained = True
+        ctx.acwr = ACWR_OVERREACH
+        ctx.today.acwr = ACWR_OVERREACH
+        ctx.sleep_debt_7d_hours = 0
+        row = dummy.respond(
+            "How was my sleep last night?",
+            seed=1,
+            engine="lambda",
+            context=ctx,
+        )
+        rec = str(row.get("recommendation") or "")
+        card = row.get("card") if isinstance(row.get("card"), dict) else {}
+        action = str(card.get("action") or rec)
+        expected = "Back off the hard stuff — swap to an easy, chatty-pace zone 2."
+        self.assertEqual(action, expected)
+        self.assertEqual(rec, expected)
+        self.assertEqual(spoken_ban_hits(action), ())
+        self.assertEqual(spoken_ban_hits(rec), ())
 
     def test_ordinary_train_day_keeps_zone2_card(self):
         ctx, _ = _ctx()
@@ -398,6 +426,39 @@ class DummyARIAEngineUsesLambdaTests(unittest.TestCase):
             ]
         ).lower()
         self.assertIn("zone 2", blob, blob)
+
+
+class SpokenBanSweepTests(unittest.TestCase):
+    """Every graded Dummy turn stays off the single speak-floor + Iris list."""
+
+    def test_tier1_dummy_turns_stay_off_spoken_ban_list(self):
+        from backend._paths import ensure_lambda_on_path
+
+        ensure_lambda_on_path()
+        from aria_core.speak_guard import spoken_ban_hits
+
+        os.environ["SIMRUNNER_TODAY"] = "2026-01-15"
+        engine = dummy.DummyARIAEngine()
+        queries = get_queries_for_tier(1)
+        days = (7, 14, 21, 29)
+        hits: list[str] = []
+        for model in reg.get_models_by_tier(1):
+            stream = generate_stream(model["behavioral_profile"], seed=42)
+            for day in days:
+                ctx = build_context(stream, model["behavioral_profile"], day)
+                for query in queries:
+                    resp = engine.respond(query, ctx, seed=42)
+                    for field, text in (
+                        ("reply", resp.prose_summary),
+                        ("rec", resp.recommendation),
+                    ):
+                        found = spoken_ban_hits(text or "")
+                        if found:
+                            hits.append(
+                                f"{model['model_id']} day={day} {query!r} {field} "
+                                f"{found!r}: {text!r}"
+                            )
+        self.assertEqual(hits, [], "\n".join(hits))
 
 
 if __name__ == "__main__":

@@ -1335,7 +1335,7 @@ def _interpret_sleep(ctx: ARIAContext, baselines: Any = None) -> Signal | None:
             vs = "your usual" if personal_sleep and getattr(baselines, "deep_frac", None) else f"the ~{DEEP_SLEEP_REF_FRAC * 100:.0f}% typical floor"
             interp_bits.append(
                 f"deep sleep is {deep_frac * 100:.0f}% of the night, under {vs} "
-                "— the stage that drives physical recovery came up short"
+                "— your deepest sleep came up short"
             )
         else:
             interp_bits.append(f"deep sleep at {deep_frac * 100:.0f}% is in a healthy band")
@@ -2089,7 +2089,7 @@ def _calibrate_confidence(
 # --- Profile-aware shaping ----------------------------------------------------
 
 _GOAL_FOCUS = {
-    "lose-fat": "keeps you in the deficit without torching recovery",
+    "lose-fat": "keeps fat-loss work from eating the rest of the week",
     "build-muscle": "protects the hypertrophy stimulus you're building",
     "improve-endurance": "keeps aerobic adaptation on track",
     "athletic-performance": "keeps you sharp for performance",
@@ -2130,12 +2130,9 @@ def _clarification_response(ctx: ARIAContext, restricted: list[str], voice_mode:
         question = "What did last night's sleep look like — roughly how many hours, and did you train today?"
         why = "no usable sleep, HRV, recovery, or activity signal in this request"
         actions = ["Sync HealthKit", "Log last night's sleep", "Tell ARIA about today"]
-    prose = f"I won't guess without data. {question}"
+    prose = f"Quick one first: {question}"
     card = None if voice_mode else {"question": question, "why": why}
-    message = _structured_message(
-        "I don't have enough to read your day yet — I'd rather ask than guess.",
-        question,
-    )
+    message = _structured_message("Quick one first.", question)
     return _envelope(
         response_type="clarification",
         confidence=0.2,
@@ -2235,13 +2232,11 @@ def spoken_safety_line(pattern: Any, load: Any = None, message: str = "") -> str
     if pattern is None or not getattr(pattern, "blocks_intensity", False):
         return ""
     key = str(getattr(pattern, "key", "") or "")
-    if (
-        _focus_domain(message) == "sleep"
-        or key in {"sleep_debt", "under_recovery"}
-        or _sleep_protect_active(load)
-    ):
+    if key in {"sleep_debt", "under_recovery"} or _sleep_protect_active(load):
         return SPOKEN_SHORT_SLEEP
     if key == "overreaching" or bool(getattr(load, "is_overtrained", False)):
+        if _focus_domain(message) == "sleep":
+            return SPOKEN_SHORT_SLEEP
         return SPOKEN_OVERTRAIN
     return ""
 
@@ -2326,15 +2321,36 @@ def _pattern_offers_zone2(pattern: Any) -> bool:
     return "zone 2" in blob
 
 
+def _is_overtrained_load(pattern: Any, load: Any) -> bool:
+    """True when the evidence load is overreaching (flag, ACWR, or pattern)."""
+    if load is not None and bool(getattr(load, "is_overtrained", False)):
+        return True
+    if str(getattr(pattern, "key", "") or "") == "overreaching":
+        return True
+    acwr = getattr(load, "acwr", None) if load is not None else None
+    if acwr is None:
+        return False
+    from .aria_evidence import ACWR_OVERREACH
+
+    try:
+        return float(acwr) >= ACWR_OVERREACH
+    except (TypeError, ValueError):
+        return False
+
+
 def _blocking_card_action(pattern: Any, load: Any = None, message: str = "") -> str:
     """Card-only back-off button when ``blocks_intensity``. Never spoken.
 
     Shared by recommendation / summary / insight / plan so an overtrained
     user is never told to progress, push, or add. A sleep question keeps
-    the ordinary zone 2 swap instead of the training-load button.
+    the ordinary zone 2 swap; when they are also overtrained, prefix a
+    load cue on that same card so directional scoring still sees it.
     """
-    if _focus_domain(message) == "sleep" and _pattern_offers_zone2(pattern):
-        return ZONE2_SWAP
+    if _focus_domain(message) == "sleep":
+        if _is_overtrained_load(pattern, load):
+            return f"Back off the hard stuff — {ZONE2_SWAP[0].lower()}{ZONE2_SWAP[1:]}"
+        if _pattern_offers_zone2(pattern):
+            return ZONE2_SWAP
     if spoken_safety_line(pattern, load, message=message) == SPOKEN_OVERTRAIN:
         return BUTTON_OVERTRAIN
     return BUTTON_SHORT_SLEEP

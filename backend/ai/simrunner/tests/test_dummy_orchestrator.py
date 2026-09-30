@@ -185,38 +185,60 @@ class DummyOrchestratorTests(unittest.TestCase):
         self.assertEqual(speak_quality.speak_failures(row), [])
 
     def test_training_age_looks_up_aging_web_source(self):
+        from backend._paths import ensure_lambda_on_path
+
+        ensure_lambda_on_path()
+        from aria_core.speak_guard import SPOKEN_BANNED, spoken_ban_hits
+
         plan = dummy.plan_workers("what's my training age?")
         self.assertEqual(plan.primary.kind, "aging")
         with patch.object(web_research, "look_up", return_value="From MedlinePlus: exercise stress test notes.") as mock_look_up:
             row = dummy.respond("what's my training age?", seed=1, engine="stub")
         mock_look_up.assert_called_once()
         mock_look_up.assert_called_with("aging")
-        self.assertIn("From MedlinePlus: exercise stress test notes", row["message"])
-        blob = (row["prose_summary"] + " " + row["message"]).lower()
-        self.assertIn("lifestyle comparison", blob)
-        self.assertIn("not a diagnosis", blob)
-        visible = speak_quality.user_visible_blob(row)
-        self.assertIn("From MedlinePlus", visible)
-        self.assertEqual(speak_quality.medical_hits(visible), [])
+        spoken = f"{row.get('prose_summary') or ''} {row.get('message') or ''}"
+        spoken_low = spoken.lower()
+        self.assertIn("cardio fitness, resting heart and sleep", spoken_low)
+        self.assertNotIn("not a diagnosis", spoken_low)
+        self.assertNotIn("diagnos", spoken_low)
+        self.assertEqual(spoken_ban_hits(spoken), (), SPOKEN_BANNED)
+        card = row.get("card") if isinstance(row.get("card"), dict) else {}
+        cite = " ".join(
+            (
+                str(row.get("source") or ""),
+                str(card.get("source") or ""),
+                str(card.get("cite") or ""),
+            )
+        )
+        self.assertIn("medlineplus", cite.lower())
+        self.assertIn("From MedlinePlus", cite)
+        self.assertNotIn("medlineplus", spoken_low)
+        self.assertNotIn("http", spoken_low)
+        self.assertNotIn("www", spoken_low)
+        self.assertEqual(speak_quality.medical_hits(spoken), [])
 
     def test_aging_cite_keeps_source_label_without_vitals_dump(self):
         """KNOWN TIP-RED if VO2 in a cite title strips the source label.
 
         Dummy scrubs user-visible speak of vitals tokens including ``vo2``.
-        Retrieval provenance still requires ``From MedlinePlus`` in the blob
-        a person sees, without leaking a VO2 vitals dump.
+        Retrieval provenance still requires ``From MedlinePlus`` on the
+        card/source field, without leaking a VO2 vitals dump.
         """
         note = "From MedlinePlus: Exercise Stress Test / VO2: tissues need oxygen."
         with patch.object(web_research, "look_up", return_value=note):
             row = dummy.respond("what's my training age?", seed=1, engine="stub")
-        visible = speak_quality.user_visible_blob(row)
+        card = row.get("card") if isinstance(row.get("card"), dict) else {}
+        cite = " ".join((str(row.get("source") or ""), str(card.get("source") or "")))
         self.assertIn(
             "From MedlinePlus",
-            visible,
+            cite,
             "FAIL-CLOSED: a VO2 mention in a research cite must not strip the "
-            "source label from user-visible speak",
+            "source label from the card/source field",
         )
-        self.assertEqual(speak_quality.vitals_hits(visible), [])
+        spoken = f"{row.get('prose_summary') or ''} {row.get('message') or ''}"
+        self.assertNotIn("medlineplus", spoken.lower())
+        self.assertEqual(speak_quality.vitals_hits(spoken), [])
+        self.assertEqual(speak_quality.vitals_hits(cite), [])
 
     def test_non_research_message_never_calls_web_research(self):
         with patch.object(web_research, "look_up") as mock_look_up:
@@ -1021,9 +1043,13 @@ class WebLookupOncePerTurn(unittest.TestCase):
         with patch.object(web_research, "look_up", return_value=dirty) as look:
             row = dummy.respond("what's my training age?", seed=1, engine="stub")
         look.assert_called_once_with("aging")
-        visible = speak_quality.user_visible_blob(row)
-        self.assertIn("From MedlinePlus", visible)
-        self.assertEqual(speak_quality.vitals_hits(visible), [])
+        card = row.get("card") if isinstance(row.get("card"), dict) else {}
+        cite = " ".join((str(row.get("source") or ""), str(card.get("source") or "")))
+        self.assertIn("From MedlinePlus", cite)
+        spoken = f"{row.get('prose_summary') or ''} {row.get('message') or ''}"
+        self.assertNotIn("medlineplus", spoken.lower())
+        self.assertEqual(speak_quality.vitals_hits(spoken), [])
+        self.assertEqual(speak_quality.vitals_hits(cite), [])
         self.assertEqual(speak_quality.speak_failures(row), [])
 
     def test_no_retry_turn_still_looks_up_once(self):

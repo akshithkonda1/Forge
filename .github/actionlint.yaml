@@ -1,0 +1,5 @@
+# xcode-27 is this repo's self-hosted macOS runner (Xcode 27 / iOS 27).
+# Without the label here, actionlint treats it as unknown.
+self-hosted-runner:
+  labels:
+    - xcode-27

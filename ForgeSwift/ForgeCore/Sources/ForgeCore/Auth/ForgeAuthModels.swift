@@ -53,11 +53,30 @@ public struct ForgeAuthConfig: Equatable, Sendable {
     public static let testUserId = "test-user-00000000"
     public static let testEmail = "tester@forge.dev"
 
-    public static let defaultLocalAPI = URL(string: "http://127.0.0.1:3001")!
     /// Dummy-offline / TestFlight-safe. An empty Info.plist API URL must not
     /// become `127.0.0.1` — that host is unreachable from a device and must
     /// not ship as `apiBaseUrl`. Host-less, so `apiIsLoopback` stays true.
     public static let dummyOfflineAPI = URL(string: "dummy-offline://")!
+
+    /// Mac / Device Hub loopback. The `127.0.0.1` literal is Debug-only so a
+    /// Release / TestFlight binary cannot compile it in as a fallback.
+    #if DEBUG
+    public static let defaultLocalAPI = URL(string: "http://127.0.0.1:3001")!
+    #else
+    public static let defaultLocalAPI = dummyOfflineAPI
+    #endif
+
+    /// Empty `FORGEAPIBaseURL`: Dummy env and Release always land on
+    /// `dummy-offline://`. Debug + non-dummy keeps the loopback for Xcode.
+    public static func fallbackAPI(
+        environment: String,
+        debugBuild: Bool = ForgeAuthPolicy.isDebugBuild
+    ) -> URL {
+        if environment.lowercased() == "dummy" || !debugBuild {
+            return dummyOfflineAPI
+        }
+        return defaultLocalAPI
+    }
 
     public static func fromInfoDictionary(_ info: [String: Any]) -> ForgeAuthConfig {
         let env = (info["FORGEEnvironment"] as? String)?.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -69,10 +88,8 @@ public struct ForgeAuthConfig: Equatable, Sendable {
         let apiBaseURL: URL
         if let api, !api.isEmpty, let parsed = URL(string: api) {
             apiBaseURL = parsed
-        } else if environment.lowercased() == "dummy" {
-            apiBaseURL = dummyOfflineAPI
         } else {
-            apiBaseURL = defaultLocalAPI
+            apiBaseURL = fallbackAPI(environment: environment)
         }
         return ForgeAuthConfig(
             apiBaseURL: apiBaseURL,
