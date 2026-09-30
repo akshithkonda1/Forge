@@ -1110,7 +1110,7 @@ class CallbackVoiceTests(unittest.TestCase):
         self.assertNotIn("wedding", spoken.lower())
         self.assertNotIn("sister", spoken.lower())
         self.assertTrue(
-            any(w in spoken.lower() for w in ("still here", "glad you stayed")),
+            any(w in spoken.lower() for w in ("still here", "glad you're back")),
             spoken,
         )
         self.assertNotIn("on your side", spoken.lower())
@@ -1206,7 +1206,7 @@ class FeedbackHookTests(unittest.TestCase):
             after = session.turn("hey, still with me?")
             spoken = _spoken_reply(after)
             self.assertTrue(
-                any(w in spoken.lower() for w in ("still here", "glad you stayed")),
+                any(w in spoken.lower() for w in ("still here", "glad you're back")),
                 spoken,
             )
             self.assertNotIn("on your side", spoken.lower())
@@ -1506,7 +1506,7 @@ class SixTurnSampleTests(unittest.TestCase):
             )
             after_low = after_down["message"].lower()
             self.assertTrue(
-                any(w in after_low for w in ("still here", "glad you stayed")),
+                any(w in after_low for w in ("still here", "glad you're back")),
                 after_down["message"],
             )
             self.assertNotIn("on your side", after_low)

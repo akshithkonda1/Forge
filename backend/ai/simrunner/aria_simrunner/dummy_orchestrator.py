@@ -1486,7 +1486,7 @@ def humanize_prose(
             ))
         return finish(pick(
             "Last night actually helped, which means you've got something to spend. "
-            "A solid session fits if you want it — or we can just stay with the night.",
+            "A solid session fits if you want it — or tell me more about the night first.",
             "You slept well enough that I wouldn't talk you into a rest day. "
             "Want the training version of that, or just the night itself?",
         ))
@@ -1508,8 +1508,7 @@ def humanize_prose(
 
     if kind == "cycle":
         return finish(pick(
-            "This stays between you and who you're supporting — no chart, no diagnosis, "
-            "just how to show up as a human. What would feel most helpful right now?",
+            "Let's keep this about how to show up for them. What would feel most helpful right now?",
             "Cycle support here is about care, not a calendar. Tell me what they need "
             "and I'll keep it human.",
         ), allow_life=False)

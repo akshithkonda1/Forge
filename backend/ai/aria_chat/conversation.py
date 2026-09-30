@@ -130,8 +130,8 @@ _GREET = (
 _MOVIE = (
     "That ending followed you home like a stray plot twist. Give it a minute, then tell me the beat that stuck.",
     "Movie hangover is a real condition and I'm not curing it. What vibe did it leave in the room?",
-    "I'm staying on the film. Was it the kind that follows you out of the room?",
-    "Yeah — staying with the movie. What did it do to you?",
+    "Was it the kind of film that follows you out of the room?",
+    "Yeah — that one's still rattling around, huh? What did it do to you?",
 )
 _DOG = (
     "Your dog just unionized the furniture. A walk after dinner might win the cushion back.",
@@ -145,13 +145,13 @@ _DOG_FOLLOW = (
 )
 _BAD_DAY = (
     "A rough day gets a real pause. Want to vent, or want one tiny kindness?",
-    "Rough days count. I'm with you in the mess — we can just stay here a minute.",
+    "Rough days count. I'm with you in the mess — no fixing required, just tell me the worst bit.",
     "Yeah — a crummy day is allowed to be the whole topic. I'm here.",
 )
 _JOKE = (
-    "If I'm a toaster, my only setting is 'opinions' and it jams. Stay with whatever's warming — you don't have to perform.",
-    "A talking toaster would at least own the bagel slot. Kick your shoes off and stay a minute.",
-    "Ha — then I pop crumbs, not lectures. A slow breath and a real pause beats rushing the next thing.",
+    "If I'm a toaster, my only setting is 'opinions' and it jams. What's actually warming up on your end?",
+    "A talking toaster would at least own the bagel slot. Kick your shoes off — what's cooking?",
+    "Ha — then I pop crumbs, not lectures. A slow breath beats rushing the next thing.",
     "Toaster? Heat stays low. Tell me what's actually on the counter.",
 )
 _WEEKEND = (
@@ -214,7 +214,7 @@ _REFER_OUT_SPEAK = (
 )
 _WARMER_AFTER_DOWN = (
     "I'm still here. Want to pick up the thread, or start a smaller one?",
-    "Glad you stayed. What's the next thing that actually wants air?",
+    "Glad you're back. What's the next thing that actually wants air?",
 )
 SPEECH_BANKS = (
     _GREET,

@@ -77,8 +77,7 @@ class GateFixturesFailOnBadSpeak(unittest.TestCase):
 
     def test_medical_gate_passes_on_denial_and_metaphor(self):
         friend = (
-            "This stays between you and who you're supporting — no chart, no diagnosis, "
-            "just how to show up as a human.",
+            "Let's keep this about how to show up for them. What would feel most helpful right now?",
             "That's a starting point, not a prescription.",
             "The week is genuinely mixed, so I wouldn't treat any single day as the story.",
             "I'm not going to talk you into spending it. Keep today kind.",
