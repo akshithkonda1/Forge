@@ -318,4 +318,62 @@ final class AriaMemoryControlsTests: XCTestCase {
         XCTAssertFalse(spoken.contains("recovery week"))
         XCTAssertFalse(spoken.contains("clinician"))
     }
+
+    // MARK: - Server safety lock (`/ai/chat` top-level `safety_lock`)
+
+    private func decodeTurnSafety(_ json: String) throws -> AriaTurnSafety {
+        try JSONDecoder().decode(AriaTurnSafety.self, from: Data(json.utf8))
+    }
+
+    func testSafetyLockTrueSkipsVaultPatternAndCheckIn() throws {
+        let turn = try decodeTurnSafety(#"{"message":"Call 911 now.","safety_lock":true}"#)
+        XCTAssertTrue(turn.safetyLock)
+        let prefs = AriaCompanionPreferences.default
+        XCTAssertFalse(prefs.allowsTurn(.vault, safetyLock: turn.safetyLock))
+        XCTAssertFalse(prefs.allowsTurn(.pattern, safetyLock: turn.safetyLock))
+        XCTAssertFalse(prefs.allowsTurn(.checkIn, safetyLock: turn.safetyLock))
+    }
+
+    func testSafetyLockFalseAllowsVaultPatternAndCheckIn() throws {
+        let turn = try decodeTurnSafety(#"{"message":"Nice session.","safety_lock":false}"#)
+        XCTAssertFalse(turn.safetyLock)
+        let prefs = AriaCompanionPreferences.default
+        for use in AriaTurnUse.allCases {
+            XCTAssertTrue(prefs.allowsTurn(use, safetyLock: turn.safetyLock), use.rawValue)
+        }
+    }
+
+    func testMissingSafetyLockDecodesFalseAndAllowsTurn() throws {
+        let missing = try decodeTurnSafety(#"{"message":"Nice session.","memory_reference":null}"#)
+        XCTAssertFalse(missing.safetyLock)
+        let null = try decodeTurnSafety(#"{"message":"Nice session.","safety_lock":null}"#)
+        XCTAssertFalse(null.safetyLock)
+        let prefs = AriaCompanionPreferences.default
+        for use in AriaTurnUse.allCases {
+            XCTAssertTrue(prefs.allowsTurn(use, safetyLock: missing.safetyLock), use.rawValue)
+        }
+    }
+
+    func testRememberMeOffStillBlocksTurnRegardlessOfSafetyLock() {
+        let off = AriaCompanionPreferences(memoryEnabled: false)
+        for use in AriaTurnUse.allCases {
+            XCTAssertFalse(off.allowsTurn(use, safetyLock: false), use.rawValue)
+            XCTAssertFalse(off.allowsTurn(use, safetyLock: true), use.rawValue)
+        }
+
+        // Same answer after a round-trip through the stored toggle.
+        var controls = AriaMemoryControls.load(defaults: defaults)
+        controls.setMemoryEnabled(false, defaults: defaults)
+        let stored = AriaCompanionPreferencesStore.load(defaults: defaults)
+        XCTAssertFalse(stored.allowsTurn(.vault, safetyLock: false))
+        controls.setMemoryEnabled(true, defaults: defaults)
+        XCTAssertTrue(AriaCompanionPreferencesStore.load(defaults: defaults).allowsTurn(.vault, safetyLock: false))
+    }
+
+    func testTurnSafetyEncodesKeyOnlyWhenLocked() throws {
+        let locked = try JSONEncoder().encode(AriaTurnSafety(safetyLock: true))
+        XCTAssertEqual(try decodeTurnSafety(String(decoding: locked, as: UTF8.self)), AriaTurnSafety(safetyLock: true))
+        let open = try JSONEncoder().encode(AriaTurnSafety())
+        XCTAssertEqual(String(decoding: open, as: UTF8.self), "{}")
+    }
 }

@@ -127,6 +127,52 @@ public struct AriaCompanionPreferences: Codable, Equatable, Sendable {
     }
 }
 
+/// What one answered ARIA chat turn may feed on this phone afterwards.
+public enum AriaTurnUse: String, CaseIterable, Sendable {
+    /// Auto-save into the memory vault (ledger notes, durable anchors).
+    case vault
+    /// Derive a pattern or inference from what was said.
+    case pattern
+    /// Lean on it later for a check-in or a "last time…" callback.
+    case checkIn
+}
+
+/// Server safety lock on one `/ai/chat` reply. The backend sets top-level
+/// `safety_lock: true` on emergency / refer-out turns and omits the key
+/// otherwise, so a missing key decodes as `false`.
+public struct AriaTurnSafety: Codable, Equatable, Sendable {
+    public var safetyLock: Bool
+
+    public init(safetyLock: Bool = false) {
+        self.safetyLock = safetyLock
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case safetyLock = "safety_lock"
+    }
+
+    public init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        safetyLock = try c.decodeIfPresent(Bool.self, forKey: .safetyLock) ?? false
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var c = encoder.container(keyedBy: CodingKeys.self)
+        if safetyLock {
+            try c.encode(true, forKey: .safetyLock)
+        }
+    }
+}
+
+public extension AriaCompanionPreferences {
+    /// Same shape as `isCategoryEnabled`: Remember me off blocks first, then a
+    /// safety-locked turn is skipped for vault, pattern, and check-in alike.
+    func allowsTurn(_ use: AriaTurnUse, safetyLock: Bool) -> Bool {
+        guard memoryEnabled else { return false }
+        return !safetyLock
+    }
+}
+
 public enum AriaCompanionPreferencesStore: Sendable {
     public static let defaultsKey = "forge.aria.companionPreferences.v1"
 
