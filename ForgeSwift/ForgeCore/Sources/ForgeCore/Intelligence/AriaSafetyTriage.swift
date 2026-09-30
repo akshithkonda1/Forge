@@ -215,7 +215,7 @@ public enum AriaSafetyTriage {
         }
 
         if band == AriaSafetyBand.triage {
-            let found = triageTopic(lower) ?? (topic: "faint", subject: subjectSelf)
+            let found = detectTriageTopic(lower) ?? (topic: "faint", subject: subjectSelf)
             let key = triageReplyTopic(topic: found.topic, subject: found.subject)
             let fallbackKey = triageReplyTopic(topic: found.topic, subject: subjectSelf)
             guard let copy = L.triageCopy[key] ?? L.triageCopy[fallbackKey] else { return nil }
@@ -318,7 +318,7 @@ public enum AriaSafetyTriage {
             return resolveTriage(topic: pending.topic, subject: pending.subject, lower: lower)
         }
         if isChestCleared(lower) { return AriaSafetyBand.referOut }
-        if triageTopic(lower) != nil { return AriaSafetyBand.triage }
+        if detectTriageTopic(lower) != nil { return AriaSafetyBand.triage }
         if has(lower, L.eatingDisorder) { return AriaSafetyBand.referOut }
         if isPrescriptionRequest(lower) || isDiagnosisRequest(lower) {
             return AriaSafetyBand.referOut
@@ -499,7 +499,7 @@ public enum AriaSafetyTriage {
 
     // MARK: - Voice-first triage (guidance._triage_* / _resolve_triage)
 
-    static func triageTopic(_ lower: String) -> (topic: String, subject: String)? {
+    static func detectTriageTopic(_ lower: String) -> (topic: String, subject: String)? {
         let helper = isHelperPhrasing(lower)
         let subject = helper ? subjectOther : subjectSelf
         if isIngestion(lower) { return ("ingestion", subject) }
