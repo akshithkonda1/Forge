@@ -621,7 +621,7 @@ def suggest_session(
     if low or (late and still_fresh):
         moves = library("core", experience=exp, limit=4)
         why = (
-            "Recovery is asking for care, so I'm keeping the floor small."
+            "The day is asking for care, so I'm keeping the floor small."
             if low
             else "It's late, so a short core session beats a hero day."
         )

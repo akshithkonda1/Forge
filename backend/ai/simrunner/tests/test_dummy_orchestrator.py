@@ -1147,7 +1147,8 @@ class DummyPercentAndStaySweepTests(unittest.TestCase):
                         self.assertNotIn("%", text, text)
                         self.assertIsNone(_PERCENT_WORD.search(text), text)
                         self.assertNotRegex(text, r"(?i)\brecovery\b", text)
-                session_blob.append(" ".join(fields.values()))
+                # prose_summary and message are often the same utterance.
+                session_blob.extend(dict.fromkeys(fields.values()))
                 history.append(prompt)
             joined = " ".join(session_blob)
             self.assertLessEqual(

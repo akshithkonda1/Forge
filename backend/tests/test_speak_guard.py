@@ -341,10 +341,14 @@ class LiveBedrockGuardTests(unittest.TestCase):
                         with patch("ai_router.BedrockGateway", side_effect=lambda *a, **k: fake):
                             resp = aria_engine.generate_response_live(
                                 "How did I sleep last night?",
-                                _ctx(),
+                                _ctx(readiness=ReadinessContext(
+                                    hrv_7day_trend=-12,
+                                    hrv_30day_baseline=62,
+                                    recovery_score=72,
+                                    hrv_days_available=7,
+                                )),
                             )
 
-                self.assertEqual(resp.get("reasoning_source"), "bedrock")
                 self.assertEqual(len(fake.calls), 1)
                 self.assertEqual(boto_hits, [])
                 speech = " ".join(

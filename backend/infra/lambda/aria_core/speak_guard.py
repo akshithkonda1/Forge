@@ -268,8 +268,9 @@ def guard_speak(
         if step and step.lower() not in cleaned.lower():
             cleaned = _append_guarded_step(cleaned, step, notes=notes, topic=topic)
     # Shared vitals path — live Bedrock and Dummy banks cannot bypass
-    # ``_VITALS_SPEAK`` / sleep-stage % leftovers.
-    if cleaned.strip() and _has_banned_vitals(cleaned):
+    # ``_VITALS_SPEAK`` / sleep-stage % leftovers. Always rescrub: a strip
+    # that empties the clause would otherwise leave the dirty original.
+    if cleaned.strip():
         cleaned = rescrub_speak(cleaned)
     return cleaned
 
