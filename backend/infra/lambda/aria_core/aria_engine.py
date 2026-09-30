@@ -2151,11 +2151,10 @@ _VITALS_SPEAK = re.compile(
     r"\b(hrv|bpm|ms|mmhg|vo2|spo2|acwr|recovery score|sleep[- ]?debt)\b"
     r"|%\s*(?:below|above|under|over)\s+baseline"
     # Sleep-stage leftovers (is/at/was, digits or "twelve percent") — strip at speak.
+    # No bare ``%`` / ``percent``: insight may keep ``70 min deep (16%)``.
     r"|\b(?:deep|rem|light)\s+sleep\s+(?:is|at|was)\s+\d+(?:\.\d+)?\s*%"
     r"|\b(?:deep|rem|light)\s+sleep\s+(?:is|at|was)\s+[a-z]+\s+percent\b"
-    r"|\brem\s+is\s+light\s+at\s+\d+(?:\.\d+)?\s*%"
-    r"|%"
-    r"|\bpercent\b",
+    r"|\brem\s+is\s+light\s+at\s+\d+(?:\.\d+)?\s*%",
     re.I,
 )
 _SPEAK_FALLBACK = "Fit training around the day you already have."

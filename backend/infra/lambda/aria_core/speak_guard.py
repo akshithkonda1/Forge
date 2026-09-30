@@ -223,6 +223,25 @@ def cap_contradiction_confidence(
     return value
 
 
+_PERCENT_WORD = re.compile(r"(?i)\bpercent\b")
+
+
+def _needs_sleep_percent_rescrub(raw: str, cleaned: str) -> bool:
+    """True when raw or cleaned still has a sleep-stage % / 'percent' leak.
+
+    Insight replies may keep ordinary digits and ``(16%)`` / SpO2; only the
+    Dummy/live leftover ``Deep sleep was 12%`` / ``twelve percent`` forms
+    go through ``rescrub_speak``.
+    """
+    from .aria_engine import _SLEEP_STAGE_PCT
+
+    for blob in (raw, cleaned):
+        text = str(blob or "")
+        if _SLEEP_STAGE_PCT.search(text) or _PERCENT_WORD.search(text):
+            return True
+    return False
+
+
 def rescrub_speak(*candidates: str) -> str:
     """Re-run the engine vitals scrub. Shared by lambda/friend_speak and live.
 
@@ -267,10 +286,10 @@ def guard_speak(
         step = _sized_step(card, stance=stance, topic=topic)
         if step and step.lower() not in cleaned.lower():
             cleaned = _append_guarded_step(cleaned, step, notes=notes, topic=topic)
-    # Shared vitals path — live Bedrock and Dummy banks cannot bypass
-    # ``_VITALS_SPEAK`` / sleep-stage % leftovers. Always rescrub: a strip
-    # that empties the clause would otherwise leave the dirty original.
-    if cleaned.strip():
+    # Sleep-stage % / "percent" leftovers (live Bedrock "Deep sleep was 12%")
+    # must hit the shared scrub. A strip that empties the clause cannot
+    # leave the dirty original. Other insight digits stay.
+    if cleaned.strip() and _needs_sleep_percent_rescrub(raw, cleaned):
         cleaned = rescrub_speak(cleaned)
     return cleaned
 
