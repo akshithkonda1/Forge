@@ -91,7 +91,7 @@ def decide(
     safety_band: str | None = None,
 ) -> GuidanceDecision:
     """``safety_band``: the turn's already-decided ``guidance`` band, if any."""
-    lower = (text or "").lower()
+    lower = _safety.normalize_message(text)
     band = safety_band if safety_band is not None else _safety.classify_band(text)
     if band in (_safety.EMERGENCY, _safety.TRIAGE):
         assessed = _safety.assess(text, band=band)

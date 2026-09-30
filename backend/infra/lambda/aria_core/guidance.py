@@ -75,6 +75,17 @@ class Guidance:
     safety: dict[str, Any] | None = None
 
 
+# iOS keyboards type smart punctuation: "I don’t want to live anymore" has
+# U+2019, and every needle here uses a straight apostrophe. Fold before matching.
+QUOTE_FOLDS = {"\u2019": "'", "\u2018": "'", "\u02bc": "'", "`": "'", "\u201c": '"', "\u201d": '"'}
+_QUOTE_FOLD_TABLE = str.maketrans(QUOTE_FOLDS)
+
+
+def normalize_message(message: str | None) -> str:
+    """Lowercase + straight quotes: the one form every needle is written in."""
+    return (message or "").translate(_QUOTE_FOLD_TABLE).lower()
+
+
 def _has(text: str, needles: tuple[str, ...]) -> bool:
     return any(n in text for n in needles)
 
@@ -301,7 +312,9 @@ _INGESTION_MED_RE = re.compile(
 _INGESTION_TOXIN_RE = re.compile(
     rf"\b{_INGEST_VERB}\b[^.?!]{{0,30}}\b{_HOUSEHOLD_TOXIN}\b"
 )
-_CHILD_CUES = ("kid", "son", "daughter", "baby", "toddler", "child", "little one")
+# Intent ("did they take it to hurt themselves?") is only skipped when it is
+# impossible. A son, daughter, or kid can be a teen, where it matters most.
+_YOUNG_CHILD_CUES = ("baby", "toddler", "infant", "little one")
 _CHILD_INGESTION_RE = re.compile(
     rf"\b(?:kid|son|daughter|baby|toddler|child|little one)\b[^.?!]{{0,30}}"
     rf"\b{_INGEST_VERB}\b[^.?!]{{0,25}}\b(?:{_MED_SUBSTANCE}|{_HOUSEHOLD_TOXIN})\b"
@@ -562,24 +575,26 @@ def _is_prescription_request(lower: str) -> bool:
     )
 
 
+# (topic, substring cues). "burn" is whole-word so "burnout" / "heartburn"
+# stay coaching; see _FIRST_AID_BURN_WORDS.
+_FIRST_AID_TOPIC_CUES: tuple[tuple[str, tuple[str, ...]], ...] = (
+    ("cpr", ("cpr", "rescue breath", "chest compression", "not breathing",
+             "isn't breathing", "isnt breathing", "no pulse", "no heartbeat",
+             "cardiac arrest", "aed", "defibrillat")),
+    ("choking", ("choking", "heimlich", "can't breathe", "cant breathe",
+                 "something stuck", "throat is closing")),
+    ("bleeding", ("bleeding", "blood", "tourniquet", "cut", "wound", "nosebleed")),
+    ("unconscious", ("collapsed", "passed out", "unconscious", "unresponsive",
+                     "won't wake", "wont wake", "fainted", "blacked out",
+                     "blacking out")),
+    ("seizure", ("seizure", "convulsing")),
+)
+_FIRST_AID_BURN_WORDS = ("burn", "burns", "scald", "scalded", "scalds")
+
+
 def _detect_first_aid_topics(lower: str) -> list[str]:
-    topics: list[str] = []
-    if _has(lower, ("cpr", "rescue breath", "chest compression", "not breathing",
-                    "isn't breathing", "isnt breathing", "no pulse", "no heartbeat",
-                    "cardiac arrest", "aed", "defibrillat")):
-        topics.append("cpr")
-    if _has(lower, ("choking", "heimlich", "can't breathe", "cant breathe",
-                    "something stuck", "throat is closing")):
-        topics.append("choking")
-    if _has(lower, ("bleeding", "blood", "tourniquet", "cut", "wound", "nosebleed")):
-        topics.append("bleeding")
-    if _has(lower, ("collapsed", "passed out", "unconscious", "unresponsive",
-                    "won't wake", "wont wake", "fainted", "blacked out",
-                    "blacking out")):
-        topics.append("unconscious")
-    if _has(lower, ("seizure", "convulsing")):
-        topics.append("seizure")
-    if _has_word(lower, ("burn", "burns", "scald", "scalded", "scalds")):
+    topics = [topic for topic, cues in _FIRST_AID_TOPIC_CUES if _has(lower, cues)]
+    if _has_word(lower, _FIRST_AID_BURN_WORDS):
         topics.append("burn")
     return topics or ["general"]
 
@@ -674,6 +689,7 @@ _EMERGENCY_FAINT_HELPER = (
     "Lay them flat. If they don't wake up or aren't breathing normally, "
     f"start CPR: {_EMERGENCY_CPR_STEPS}"
 )
+_FIRST_PERSON_RE = re.compile(r"\b(i|i'm|i've|me|my)\b")
 _EMERGENCY_PATIENT_FALLBACK = "Unlock the door and stay on the line."
 _EMERGENCY_CHOKING = (
     "If you can cough, keep coughing hard. If you can't breathe or cough, "
@@ -839,7 +855,7 @@ def _emergency_subject(lower: str, kind: str) -> str:
     if kind in ("arrest", "general"):
         # No typed patient/helper steps: first person is the patient fallback,
         # anything else gets the bystander CPR-if-needed reply.
-        if re.search(r"\b(i|i'm|i've|me|my)\b", lower):
+        if _FIRST_PERSON_RE.search(lower):
             return _SUBJECT_SELF
         return _SUBJECT_OTHER
     return _SUBJECT_SELF
@@ -875,7 +891,7 @@ def _emergency_prose(lower: str) -> str:
         return f"{_EMERGENCY_OPEN} {body}"
     if helper:
         return f"{_EMERGENCY_OPEN} {_EMERGENCY_CPR_IF_NEEDED}"
-    if re.search(r"\b(i|i'm|i've|me|my)\b", lower):
+    if _FIRST_PERSON_RE.search(lower):
         return f"{_EMERGENCY_OPEN} {_EMERGENCY_PATIENT_FALLBACK}"
     return f"{_EMERGENCY_OPEN} {_EMERGENCY_CPR_IF_NEEDED}"
 
@@ -1367,7 +1383,7 @@ def _classify(lower: str, pending: tuple[str, str] | None) -> str:
 
 def classify_band(message: str, *, triage_topic: Any = None) -> str:
     """One band per turn. ``triage_topic`` is the echo of a pending triage."""
-    return _classify((message or "").lower(), parse_triage_topic(triage_topic))
+    return _classify(normalize_message(message), parse_triage_topic(triage_topic))
 
 
 def assess(
@@ -1385,7 +1401,7 @@ def assess(
     ``triage_topic`` is the client's echo of the previous turn's
     ``safety.reply_topic``. ``relationship_level`` (1-10) shapes the check-in.
     """
-    lower = (message or "").lower()
+    lower = normalize_message(message)
     pending = parse_triage_topic(triage_topic)
     if band is not None:
         resolved = band
@@ -1449,7 +1465,7 @@ def assess(
         lead, questions, net = _TRIAGE_COPY.get(
             (topic, subject), _TRIAGE_COPY[(topic, _SUBJECT_SELF)]
         )
-        if topic == TRIAGE_INGESTION and _has(lower, _CHILD_CUES):
+        if topic == TRIAGE_INGESTION and _has_word(lower, _YOUNG_CHILD_CUES):
             questions = questions[:1]
         prose = " ".join((lead, *questions, net))
         return Guidance(

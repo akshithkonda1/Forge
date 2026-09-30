@@ -37,11 +37,20 @@ public struct AriaGuidanceDecision: Sendable, Equatable {
     public var matched: String?
     /// Ready-to-use line for the two non-ordinary bands.
     public var line: String?
+    /// Voice-first safety session on 911 and triage turns: voice on/off, the
+    /// triage question's reply topic, and the relationship check-in.
+    public var safety: AriaSafetySession?
 
-    public init(band: AriaGuidanceBand, matched: String? = nil, line: String? = nil) {
+    public init(
+        band: AriaGuidanceBand,
+        matched: String? = nil,
+        line: String? = nil,
+        safety: AriaSafetySession? = nil
+    ) {
         self.band = band
         self.matched = matched
         self.line = line
+        self.safety = safety
     }
 }
 
@@ -91,7 +100,23 @@ public enum AriaGuidancePolicy {
     ]
 
     public static func decide(text: String, guidanceOnlyMode: Bool = false) -> AriaGuidanceDecision {
-        let lower = text.lowercased()
+        let lower = AriaSafetyTriage.normalize(text)
+
+        // Emergencies and voice-first triage come from the one safety
+        // classifier the backend uses (AriaSafetyTriage mirrors guidance.py).
+        // This list alone used to coach "I think I'm having a heart attack",
+        // "I overdosed", and "he's having a seizure".
+        let safetyBand = AriaSafetyTriage.classifyBand(text)
+        if safetyBand == AriaSafetyBand.emergency || safetyBand == AriaSafetyBand.triage,
+           let decision = AriaSafetyTriage.assess(text) {
+            let matched = referOut.first { lower.contains($0.needle) }?.needle ?? safetyBand
+            return AriaGuidanceDecision(
+                band: .referOut,
+                matched: matched,
+                line: decision.prose,
+                safety: decision.safety
+            )
+        }
 
         for entry in referOut where lower.contains(entry.needle) {
             return AriaGuidanceDecision(band: .referOut, matched: entry.needle, line: entry.line)

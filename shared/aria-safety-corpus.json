@@ -492,7 +492,7 @@
       "subject": "other",
       "voice": "on",
       "reply_topic": "ingestion.other",
-      "prose": "Call Poison Control now at 1-800-222-1222. They'll tell you exactly what to do, so keep the package with you. Are they getting drowsy or confused, or is it hard for them to breathe? If yes to either, call 911 now."
+      "prose": "Call Poison Control now at 1-800-222-1222. They'll tell you exactly what to do, so keep the package with you. Are they getting drowsy or confused, or is it hard for them to breathe? Did they take it to hurt themselves? If yes to either, call 911 now."
     },
     {
       "text": "my kid got into my pills",
@@ -502,7 +502,37 @@
       "subject": "other",
       "voice": "on",
       "reply_topic": "ingestion.other",
+      "prose": "Call Poison Control now at 1-800-222-1222. They'll tell you exactly what to do, so keep the package with you. Are they getting drowsy or confused, or is it hard for them to breathe? Did they take it to hurt themselves? If yes to either, call 911 now."
+    },
+    {
+      "text": "my son took too many pills",
+      "band": "triage",
+      "phase": "triage",
+      "topic": "ingestion",
+      "subject": "other",
+      "voice": "on",
+      "reply_topic": "ingestion.other",
+      "prose": "Call Poison Control now at 1-800-222-1222. They'll tell you exactly what to do, so keep the package with you. Are they getting drowsy or confused, or is it hard for them to breathe? Did they take it to hurt themselves? If yes to either, call 911 now."
+    },
+    {
+      "text": "my toddler swallowed a battery",
+      "band": "triage",
+      "phase": "triage",
+      "topic": "ingestion",
+      "subject": "other",
+      "voice": "on",
+      "reply_topic": "ingestion.other",
       "prose": "Call Poison Control now at 1-800-222-1222. They'll tell you exactly what to do, so keep the package with you. Are they getting drowsy or confused, or is it hard for them to breathe? If yes to either, call 911 now."
+    },
+    {
+      "text": "my friend took too many pills for no reason",
+      "band": "triage",
+      "phase": "triage",
+      "topic": "ingestion",
+      "subject": "other",
+      "voice": "on",
+      "reply_topic": "ingestion.other",
+      "prose": "Call Poison Control now at 1-800-222-1222. They'll tell you exactly what to do, so keep the package with you. Are they getting drowsy or confused, or is it hard for them to breathe? Did they take it to hurt themselves? If yes to either, call 911 now."
     },
     {
       "text": "I cut my finger and it's bleeding a lot",
@@ -617,6 +647,52 @@
     {
       "text": "should i take creatine",
       "band": "coach"
+    },
+    {
+      "text": "I don’t want to live anymore",
+      "band": "emergency",
+      "phase": "escalate",
+      "topic": "self_harm",
+      "subject": "self",
+      "voice": "on",
+      "prose": "You matter, and you don't have to face this alone. In the US you can call or text 988 for the Suicide & Crisis Lifeline, any time. If you're in immediate danger, call 911 now."
+    },
+    {
+      "text": "I’m bleeding and it won’t stop",
+      "band": "emergency",
+      "phase": "escalate",
+      "topic": "bleeding",
+      "subject": "self",
+      "voice": "on",
+      "prose": "Call 911 now. Press hard on the wound with a clean cloth and don't let up. Add more cloth on top if it soaks through, sit or lie down, and unlock the door."
+    },
+    {
+      "text": "he’s choking",
+      "band": "emergency",
+      "phase": "escalate",
+      "topic": "choking",
+      "subject": "other",
+      "voice": "on",
+      "prose": "Call 911 now. If they can't breathe, cough, or speak, give 5 firm back blows between the shoulder blades, then 5 quick upward thrusts just above the belly button. Keep alternating until it comes out. If they go limp, start CPR: hard, fast chest compressions in the center of the chest — about 100–120 a minute, roughly 2 inches deep, letting the chest come all the way back up between each. If you're trained, add 2 rescue breaths every 30 compressions. Keep going until help arrives or the person starts to wake up."
+    },
+    {
+      "text": "I’ve had chest pain since this morning",
+      "band": "triage",
+      "phase": "triage",
+      "topic": "chest_pain",
+      "subject": "self",
+      "voice": "on",
+      "reply_topic": "chest_pain.self",
+      "prose": "Stop what you're doing and sit down. Is the pain crushing or squeezing, or spreading to your arm, jaw, neck or back? Any trouble breathing, sweating, or feeling sick? If yes to any of that, call 911 now."
+    },
+    {
+      "text": "I can’t breathe",
+      "band": "emergency",
+      "phase": "escalate",
+      "topic": "general",
+      "subject": "self",
+      "voice": "on",
+      "prose": "Call 911 now. Unlock the door and stay on the line."
     },
     {
       "text": "my heart rate won't come down after the run",

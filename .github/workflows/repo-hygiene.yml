@@ -187,6 +187,20 @@ jobs:
       - name: Check AriaWebResearch stays isolated
         run: python3 scripts/check-aria-web-research.py
 
+  aria-safety-lexicon:
+    name: ARIA safety lexicon matches guidance.py
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      # The phone decides 911 / triage turns offline with ForgeCore's
+      # AriaSafetyLexicon, generated from backend guidance.py. A needle or a
+      # line of copy changed on one side only would compile clean and pass
+      # each side's own tests while the two quietly disagree on a 911 turn.
+      - name: Check generated Swift lexicon is current
+        run: python3 scripts/generate_aria_safety_swift.py --check
+
   aria-mark:
     name: ARIA mark assets
     runs-on: ubuntu-latest
