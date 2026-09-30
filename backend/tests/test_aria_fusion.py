@@ -200,11 +200,7 @@ class StanceChangesPlanTests(unittest.TestCase):
         self.assertEqual(personal["fusion"]["baseline_kind"], "personal")
         self.assertEqual(personal["fusion"]["stance"], "protect")
         self.assertNotEqual(population["card"]["action"], personal["card"]["action"])
-        # Personalization is surfaced: the personal-baseline response differs
-        # from the population-baseline response in action and rationale.
-        # (Exact "usual" wording varies by speak-guard revision; the durable
-        # contract is that the plan changes, not the specific phrase.)
-        self.assertTrue(personal.get("prose_summary") or personal["card"].get("rationale"))
+        self.assertIn("usual", (personal.get("prose_summary") or "").lower() + (personal["card"].get("rationale") or "").lower())
 
 
 class PersonaErrorAndInsightTests(unittest.TestCase):
@@ -340,12 +336,15 @@ class FusionContractTests(unittest.TestCase):
         r = aria_engine.generate_response("What should I train today?", ctx)
         self.assertEqual(r["fusion"]["stance"], "protect")
         self._assert_no_vitals_speak(r)
+        # Real short-sleep safety is the approved two-sentence line only —
+        # lifestyle extras (wedding / shorter session) used to ride after it.
         blob = speak_quality.user_visible_blob(r).lower()
+        self.assertEqual(
+            r.get("prose_summary"),
+            f"{aria_engine.SPOKEN_SHORT_SLEEP} {aria_engine.SPOKEN_PROTECT_STEP}",
+        )
         self.assertTrue(
-            "wedding" in blob
-            or "calendar" in blob
-            or "day you already have" in blob
-            or "shorter session" in blob,
+            "sleep comes first" in blob and "keep today easy and call it a win" in blob,
             r.get("prose_summary"),
         )
 

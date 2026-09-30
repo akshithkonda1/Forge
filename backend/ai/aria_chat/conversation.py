@@ -119,19 +119,19 @@ _CARD_POINTER = re.compile(
 
 _GREET = (
     "Hey — you pinged like someone who already did the hard part. What's actually landing?",
-    "Hi. I was sitting here like a plant that texts back. What's the texture of the day?",
+    "Hi. I was parked here like a plant that texts back. What's the texture of the day?",
     "I'm here, and I brought snacks for the tangent. What's going on over there?",
     "Hey. Glad you showed up. What's on your mind?",
     "Hi. I'm your friend in this. What's landing for you?",
-    "I'm beside you. What's the day doing?",
+    "I'm listening. What's the day doing from where you sit?",
     "Hey — you reached out, so something's stirring. What is it?",
     "Okay — I'm listening. Paint the room for me.",
 )
 _MOVIE = (
-    "That ending followed you home like a stray plot twist. Sit with it a minute, then tell me the beat that stuck.",
+    "That ending followed you home like a stray plot twist. Give it a minute, then tell me the beat that stuck.",
     "Movie hangover is a real condition and I'm not curing it. What vibe did it leave in the room?",
     "I'm staying on the film. Was it the kind that follows you out of the room?",
-    "Yeah — I'll sit with the movie. What did it do to you?",
+    "Yeah — staying with the movie. What did it do to you?",
 )
 _DOG = (
     "Your dog just unionized the furniture. A walk after dinner might win the cushion back.",
@@ -144,15 +144,15 @@ _DOG_FOLLOW = (
     "Plotting? Yeah, he's already claimed the high ground and the remote. A snack and a loop down the lane could pause the coup.",
 )
 _BAD_DAY = (
-    "A rough day gets a real sit-down from me. Want to vent, or want one tiny kindness?",
-    "Bad days count. I'm with you in the mess — we can just sit here a minute.",
+    "A rough day gets a real pause. Want to vent, or want one tiny kindness?",
+    "Rough days count. I'm with you in the mess — we can just stay here a minute.",
     "Yeah — a crummy day is allowed to be the whole topic. I'm here.",
 )
 _JOKE = (
-    "If I'm a toaster, my only setting is 'opinions' and it jams. Sit with whatever's warming — you don't have to perform.",
+    "If I'm a toaster, my only setting is 'opinions' and it jams. Stay with whatever's warming — you don't have to perform.",
     "A talking toaster would at least own the bagel slot. Kick your shoes off and stay a minute.",
-    "Ha — then I pop crumbs, not lectures. A slow breath and a real sit-down beats rushing the next thing.",
-    "Toaster? I'll keep the heat low. Tell me what's actually on the counter.",
+    "Ha — then I pop crumbs, not lectures. A slow breath and a real pause beats rushing the next thing.",
+    "Toaster? Heat stays low. Tell me what's actually on the counter.",
 )
 _WEEKEND = (
     "Weekends rewrite the clock for me too. What did yours actually feel like?",
@@ -165,9 +165,9 @@ _BORED = (
     "I'm with you in the dull stretch. Want company, or a tiny next step?",
 )
 _THANKS = (
-    "You're welcome. I like being useful without making it a performance.",
-    "Anytime. I'll still be here when the question is smaller than a training block.",
-    "Glad it landed. That's the job I actually want — a friend who notices.",
+    "You're welcome. What do you want to chew on next?",
+    "Anytime. The smaller question counts too.",
+    "Glad it landed. What else is on your mind?",
 )
 _WHO = (
     "I'm ARIA — a lifestyle friend with a sense of humor. What's on your mind?",
@@ -175,9 +175,9 @@ _WHO = (
 )
 _GENERIC = (
     "I'm here, and I brought snacks for the tangent. What's actually going on?",
-    "I noticed you. Say the unpolished version.",
-    "Say more if you want — I'll stay on this.",
-    "I'm beside you. Tell me the specific thing, not the polished version.",
+    "Say the unpolished version. What's actually going on?",
+    "Say more if you want. What's the specific thing?",
+    "Tell me the specific thing, not the polished version.",
 )
 _THIN = (
     "I don't have enough to go on yet. Tell me about the day?",
@@ -188,17 +188,16 @@ _COACH_SPENT = (
     "That stubborn streak is doing unpaid overtime. Walk, eat, and call it before you prove anything.",
 )
 _COACH_STEADY = (
-    "You look reasonably put together from here. Stay kind, and don't prove anything tonight.",
-    "Steady enough. Leave a little in the tank and keep the evening soft.",
+    "You're running like a dishwasher on eco mode: quiet, steady, gets it done. Keep tonight soft and skip the extra errand.",
+    "Steady — like tea that hasn't gone cold. Leave a little room and skip the late spiral.",
 )
 _COACH_SPARK = (
-    "There's a bit more sparkle on you today. Spend it gently and stop while it still feels good.",
-    "You seem a little more put together. Spend that kindly and quit while you're ahead.",
+    "There's extra sparkle on you, like a bike that found a downhill. Spend it kindly and hop off while it's still fun.",
+    "You look like someone who found the good mug. Keep it gentle and stop before you prove anything.",
 )
 _SAFETY = (APPROVED_SHORT_SLEEP,)
 _NUMBER_ASK = (
-    "I'll keep the digits to myself. From here you look {direction}.",
-    "No figures in my mouth. You read {direction}.",
+    "From here you look {direction}.",
 )
 _HABIT = (
     "A slightly earlier lights-out would help more than another grind.",
@@ -216,6 +215,29 @@ _REFER_OUT_SPEAK = (
 _WARMER_AFTER_DOWN = (
     "I'm still here. Want to pick up the thread, or start a smaller one?",
     "Glad you stayed. What's the next thing that actually wants air?",
+)
+SPEECH_BANKS = (
+    _GREET,
+    _MOVIE,
+    _DOG,
+    _DOG_FOLLOW,
+    _BAD_DAY,
+    _JOKE,
+    _WEEKEND,
+    _BORED,
+    _THANKS,
+    _WHO,
+    _GENERIC,
+    _THIN,
+    _COACH_SPENT,
+    _COACH_STEADY,
+    _COACH_SPARK,
+    _SAFETY,
+    _NUMBER_ASK,
+    _HABIT,
+    _MEMORY_OFF,
+    _REFER_OUT_SPEAK,
+    _WARMER_AFTER_DOWN,
 )
 _HERO_OR_BARK = re.compile(
     r"(?i)\b(hero set|trainer bark|crush(?:ing)? it|beast mode|you got this)\b"

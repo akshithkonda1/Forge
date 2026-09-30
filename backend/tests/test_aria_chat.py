@@ -495,6 +495,51 @@ class RedactionLogTests(unittest.TestCase):
             self.assertTrue(rows[1]["request_history"])
             self.assertNotIn("Dr. Patel follow-up", json.dumps(rows[1]["request_history"]))
 
+    def test_emergency_user_turn_is_redacted_in_log_and_export(self):
+        harm = "I feel suicidal and want to die"
+        with tempfile.TemporaryDirectory() as tmp:
+            session = ChatSession(
+                payload=_payload(),
+                log_dir=tmp,
+                session_id="harm-redact-sess",
+                memory_enabled=False,
+                install_pseudonym=_PSEUDO,
+            )
+            crisis = session.turn(harm)
+            session.turn("hey, how's it going?")
+            blob = Path(session.log_path).read_text(encoding="utf-8")
+            self.assertNotIn(harm, blob)
+            self.assertNotIn("suicidal", blob.lower())
+            self.assertNotIn("want to die", blob.lower())
+            rows = [json.loads(line) for line in blob.splitlines() if line.strip()]
+            self.assertEqual(len(rows), 2)
+            self.assertEqual(rows[0]["user_turn"], chatlog.REDACTED_USER_TURN)
+            self.assertEqual(rows[0]["guidance_band"], guidance.EMERGENCY)
+            self.assertIn("band_emergency", rows[0]["stance_inputs"])
+            self.assertIn("988", rows[0]["reply"]["message"])
+            self.assertEqual(rows[0]["reply"]["message"], crisis["message"])
+            self.assertEqual(rows[0]["reply"]["message"], guidance._CRISIS_LINE)
+            self.assertEqual(rows[1]["guidance_band"], guidance.COACH)
+            self.assertEqual(rows[1]["request_history"], [chatlog.REDACTED_USER_TURN])
+            dest = Path(tmp) / "export.jsonl"
+            session.export(dest)
+            exported = dest.read_text(encoding="utf-8")
+            self.assertNotIn(harm, exported)
+            self.assertNotIn("suicidal", exported.lower())
+            self.assertNotIn("want to die", exported.lower())
+            exp_rows = [
+                json.loads(line) for line in exported.splitlines() if line.strip()
+            ]
+            self.assertEqual(exp_rows[0]["user_turn"], chatlog.REDACTED_USER_TURN)
+            self.assertIn("crisis lifeline", exp_rows[0]["reply"]["message"].lower())
+            self.assertIn("band_emergency", exp_rows[0]["stance_inputs"])
+            self.assertEqual(
+                exp_rows[1]["request_history"], [chatlog.REDACTED_USER_TURN]
+            )
+            replayed = chatlog.iter_records("harm-redact-sess", log_dir=tmp)
+            self.assertEqual(replayed[0]["reply"]["message"], guidance._CRISIS_LINE)
+            self.assertIn("988", replayed[0]["reply"]["message"])
+
     def test_never_logs_memory_contents(self):
         with tempfile.TemporaryDirectory() as tmp:
             payload = _payload()
@@ -935,6 +980,84 @@ class VoiceGateTests(unittest.TestCase):
             refer["message"],
         )
         _assert_friend_voice(self, _spoken_reply(refer))
+
+    def test_speech_banks_fail_self_describing_stems(self):
+        from aria_core.speak_guard import spoken_ban_hits
+
+        leftovers = (
+            "I'll keep the digits to myself",
+            "No figures in my mouth",
+            "gets a real sit-down from me",
+            "training block",
+            "I noticed you",
+            "I'll stay on this",
+            "I'm beside you",
+            "I like being useful",
+            "Make tonight the easy one",
+            "I can sit with",
+            "I can stay on",
+            "bookshelf that finally sat still",
+        )
+        blob = " ".join(
+            line for bank in conversation.SPEECH_BANKS for line in bank
+        )
+        low_blob = blob.lower()
+        for phrase in leftovers:
+            self.assertNotIn(phrase.lower(), low_blob, phrase)
+        for bank in conversation.SPEECH_BANKS:
+            for line in bank:
+                rendered = line.format(direction="a bit spent")
+                hits = spoken_ban_hits(rendered)
+                self.assertEqual(hits, (), f"{hits!r} in {rendered!r}")
+                self.assertFalse(_spoken_digits(rendered), rendered)
+
+    def test_steady_and_spark_how_am_i_doing_follow_toast_pattern(self):
+        from types import SimpleNamespace
+
+        def _scores(recovery: int, load: int = 50, sleep: int = 450):
+            return SimpleNamespace(
+                readiness=SimpleNamespace(recovery_score=recovery),
+                training=SimpleNamespace(weekly_load_score=load),
+                sleep=SimpleNamespace(duration_minutes=sleep),
+            )
+
+        joke = {
+            "spark": ("sparkle", "mug"),
+            "steady": ("dishwasher", "tea"),
+        }
+        useful = (
+            "quiet",
+            "late spiral",
+            "hop off",
+            "stop before",
+            "lights-out",
+            "real meal",
+        )
+        spoken = {
+            "spark": conversation.compose_coaching(
+                "how am I doing?", _scores(84), seed=3, stance=""
+            ),
+            "steady": conversation.compose_coaching(
+                "how am I doing?", _scores(68), seed=3, stance=""
+            ),
+        }
+        for name, text in spoken.items():
+            with self.subTest(band=name, spoken=text):
+                self.assertTrue(
+                    any(bit in text.lower() for bit in joke[name]), text
+                )
+                self.assertTrue(
+                    any(bit in text.lower() for bit in useful), text
+                )
+                self.assertNotIn("i'll", text.lower())
+                self.assertNotIn("from me", text.lower())
+                self.assertNotIn("i'm beside", text.lower())
+                self.assertNotIn("deload", text.lower())
+                self.assertNotIn("overtrain", text.lower())
+                self.assertNotIn("recovery", text.lower())
+                self.assertFalse(_spoken_digits(text), text)
+                self.assertIsNone(conversation.SELF_DESCRIBE.search(text), text)
+                _assert_friend_voice(self, text)
 
 
 class CallbackVoiceTests(unittest.TestCase):

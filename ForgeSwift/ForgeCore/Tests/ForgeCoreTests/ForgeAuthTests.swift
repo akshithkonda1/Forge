@@ -205,20 +205,42 @@ final class ForgeAuthTests: XCTestCase {
         XCTAssertFalse(config.isProductionLike)
         XCTAssertEqual(config.environment, "dummy")
         XCTAssertEqual(config.apiBaseURL, ForgeAuthConfig.dummyOfflineAPI)
-        XCTAssertNotEqual(config.apiBaseURL, ForgeAuthConfig.defaultLocalAPI)
+        XCTAssertEqual(config.apiBaseURL.absoluteString, "dummy-offline://")
         XCTAssertFalse(config.apiBaseURL.absoluteString.contains("127.0.0.1"))
         XCTAssertFalse(config.apiBaseURL.absoluteString.contains("localhost"))
         XCTAssertTrue(config.apiIsLoopback, "host-less dummy-offline URL keeps Device Hub on Dummy")
     }
 
-    func testEmptyDevPlistStillUsesLocalAPI() {
+    func testEmptyDevPlistUsesLoopbackOnlyInDebug() {
         let config = ForgeAuthConfig.fromInfoDictionary([
             "FORGEAPIBaseURL": "",
             "FORGEEnvironment": "dev",
         ])
-        XCTAssertEqual(config.apiBaseURL, ForgeAuthConfig.defaultLocalAPI)
         XCTAssertTrue(config.apiIsLoopback)
         XCTAssertFalse(config.cognitoConfigured)
+        #if DEBUG
+        XCTAssertEqual(config.apiBaseURL, ForgeAuthConfig.defaultLocalAPI)
+        XCTAssertEqual(config.apiBaseURL.host, "127.0.0.1")
+        #else
+        XCTAssertEqual(config.apiBaseURL, ForgeAuthConfig.dummyOfflineAPI)
+        XCTAssertFalse(config.apiBaseURL.absoluteString.contains("127.0.0.1"))
+        #endif
+    }
+
+    func testReleaseFallbackNeverUsesLoopbackLiteral() {
+        let release = ForgeAuthConfig.fallbackAPI(environment: "dev", debugBuild: false)
+        XCTAssertEqual(release, ForgeAuthConfig.dummyOfflineAPI)
+        XCTAssertEqual(release.absoluteString, "dummy-offline://")
+        XCTAssertFalse(release.absoluteString.contains("127.0.0.1"))
+        XCTAssertFalse(release.absoluteString.contains("localhost"))
+        XCTAssertEqual(
+            ForgeAuthConfig.fallbackAPI(environment: "dummy", debugBuild: true),
+            ForgeAuthConfig.dummyOfflineAPI
+        )
+        #if !DEBUG
+        XCTAssertEqual(ForgeAuthConfig.defaultLocalAPI, ForgeAuthConfig.dummyOfflineAPI)
+        XCTAssertFalse(ForgeAuthConfig.defaultLocalAPI.absoluteString.contains("127.0.0.1"))
+        #endif
     }
 
     private func base64URL(_ string: String) -> String {

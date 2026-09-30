@@ -455,6 +455,50 @@ final class TrainSleepUsableTests: XCTestCase {
         XCTAssertFalse(snapshot.points.contains { chicago.component(.day, from: $0.date) == 25 })
     }
 
+    func testOnboardingWidgetUsesStoredNightDateNotRekeyedOnset() {
+        // #381 called nightKey(for:), which re-applies the noon cutoff to
+        // onset. A HealthKit night already stored as night_date "2026-09-24"
+        // with a 10:00 onset then keys to the 23rd and last-night widgets
+        // stay empty.
+        let chicago = chicagoCalendar
+        let lastNight = chicago.date(from: DateComponents(year: 2026, month: 9, day: 24))!
+        let onset = chicagoDate(day: 24, hour: 10)
+        let night = SleepData(
+            date: "2026-09-24",
+            totalHours: 7.4,
+            deepMinutes: 80,
+            remMinutes: 90,
+            lightMinutes: 210,
+            awakeMinutes: 18,
+            score: 86,
+            onset: onset
+        )
+        let rekeyed = HomeTrendSeries.nightKey(for: night, calendar: chicago)
+        XCTAssertEqual(chicago.component(.day, from: rekeyed!), 23)
+        let nightDate = HomeTrendSeries.parseNightDate(night.date, calendar: chicago).map {
+            chicago.startOfDay(for: $0)
+        }
+        XCTAssertEqual(chicago.component(.day, from: nightDate!), 24)
+        XCTAssertNil(
+            HealthKitOnboardingAuthorization.publishedSleepFields(
+                nightKey: rekeyed,
+                lastNight: lastNight,
+                hours: night.totalHours,
+                score: night.score,
+                calendar: chicago
+            )
+        )
+        let published = HealthKitOnboardingAuthorization.publishedSleepFields(
+            nightKey: nightDate,
+            lastNight: lastNight,
+            hours: night.totalHours,
+            score: night.score,
+            calendar: chicago
+        )
+        XCTAssertEqual(published?.hours, 7.4)
+        XCTAssertEqual(published?.score, 86)
+    }
+
     private var fridaySep25: Date { ymd("2026-09-25") }
 
     private var chicagoCalendar: Calendar {

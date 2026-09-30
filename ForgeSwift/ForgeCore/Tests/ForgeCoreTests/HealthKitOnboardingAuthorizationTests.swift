@@ -163,7 +163,7 @@ final class HealthKitOnboardingAuthorizationTests: XCTestCase {
         )
         XCTAssertEqual(
             HealthKitOnboardingAuthorization.emptyBackfillLine,
-            "No sleep data yet. You can manage access in Health anytime."
+            "No sleep yet. You can manage access in Health anytime."
         )
     }
 }

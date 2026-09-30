@@ -22,6 +22,56 @@ from typing import Any, Iterable
 
 _SIZED_FRIEND_STEP = "20 easy minutes, then call it"
 
+# Single Dummy spoken-floor + Iris self-describe source. Tests import this;
+# do not copy it into conversation.py or SimRunner.
+# Words: whole-word. Phrases: substring. Stems: prefix. All case-insensitive.
+SPOKEN_BANNED = (
+    "poor",
+    "bad",
+    "debt",
+    "deficit",
+    "exhausted",
+    "fatigued",
+    "stressed",
+    "under-recovered",
+    "abnormal",
+    "elevated",
+    "your body is",
+    "tired body",
+    "recovery",
+    "overtrain",
+    "overreach",
+    "fatigu",
+    "deload",
+    "not a doctor",
+    "i won't",
+    "i don't claim",
+    "i'm not going to",
+    "keep the digits",
+    "no figures",
+)
+_SPOKEN_BANNED_STEMS = frozenset({"overtrain", "overreach", "fatigu", "deload"})
+_CURLY_APOS = str.maketrans({"\u2019": "'", "\u2018": "'", "`": "'"})
+
+
+def spoken_ban_hits(text: str) -> tuple[str, ...]:
+    """Banned tokens found in user-visible reply/rec/bank text."""
+    raw = (text or "").translate(_CURLY_APOS).lower()
+    if not raw.strip():
+        return ()
+    hits: list[str] = []
+    for token in SPOKEN_BANNED:
+        needle = token.lower()
+        if needle in _SPOKEN_BANNED_STEMS:
+            if re.search(rf"\b{re.escape(needle)}", raw):
+                hits.append(token)
+        elif " " in needle or "'" in needle:
+            if needle in raw:
+                hits.append(token)
+        elif re.search(rf"\b{re.escape(needle)}\b", raw):
+            hits.append(token)
+    return tuple(hits)
+
 _MEMORY_HEADERS = (
     "Recent patterns:",
     "[MEMORY — long term]",

@@ -194,4 +194,41 @@ final class CycleVaultAppTests: XCTestCase {
         XCTAssertTrue(payload.lifestyle.tags.contains("persona:stressed"))
         XCTAssertTrue(payload.profile.constraints.isEmpty)
     }
+
+    func testRemoteChatRequestSendsConversationTotalTurns() throws {
+        var payload = ARIAContextPayload(
+            timestamp: "2026-09-29T00:00:00Z",
+            sleep: .init(),
+            readiness: .init(),
+            training: .init(),
+            activity: .init(),
+            chronotype: .init(),
+            body: .init(),
+            nutrition: .init(),
+            profile: .init(),
+            progress: .init(),
+            lifestyle: .init()
+        )
+        payload.conversation = .init(
+            recentTurns: [.init(role: "user", content: "hi")],
+            summary: nil,
+            totalTurns: 11
+        )
+        payload = AriaOnDeviceHealthPolicy.strippedForRemoteInference(payload)
+        XCTAssertEqual(payload.conversation?.totalTurns, 11)
+
+        let request = AriaChatRequest(
+            userId: "user-1",
+            message: "hi",
+            context: payload,
+            recentMetrics: nil,
+            permissions: nil,
+            voiceMode: false
+        )
+        let data = try JSONEncoder().encode(request)
+        let json = try XCTUnwrap(JSONSerialization.jsonObject(with: data) as? [String: Any])
+        let context = try XCTUnwrap(json["context"] as? [String: Any])
+        let conversation = try XCTUnwrap(context["conversation"] as? [String: Any])
+        XCTAssertEqual(conversation["totalTurns"] as? Int, 11)
+    }
 }

@@ -737,14 +737,16 @@ final class OnboardingCoordinator {
     /// `WidgetCenter.shared.reloadAllTimelines()` when WidgetKit is imported).
     /// Watch companion writer: `WatchSnapshotStore.save` in
     /// `ForgeCore/Utils/WatchSnapshotStore.swift` (same reload).
-    /// Sleep fields publish only when the newest night is last night
-    /// (`HomeTrendSeries.nightKey` / `lastNight`, bedtime + 12:00 local).
+    /// Sleep fields publish only when the newest night's stored `date`
+    /// (`night_date`, already bedtime-grouped by HealthKit) matches
+    /// `HomeTrendSeries.lastNight`. Do not re-key via `nightKey(for:)`,
+    /// which re-applies the noon cutoff to `onset` and can miss last night.
     /// Neither snapshot has a connected / health-authorized flag.
     private func publishOnboardingHealthWidgets(nights: [SleepData] = []) {
         let calendar = Calendar.current
         let newest = nights.first
         let published = HealthKitOnboardingAuthorization.publishedSleepFields(
-            nightKey: newest.flatMap { HomeTrendSeries.nightKey(for: $0, calendar: calendar) },
+            nightKey: newest.flatMap { HomeTrendSeries.parseNightDate($0.date, calendar: calendar).map { calendar.startOfDay(for: $0) } },
             lastNight: HomeTrendSeries.lastNight(now: Date(), calendar: calendar),
             hours: newest?.totalHours,
             score: newest?.score,
