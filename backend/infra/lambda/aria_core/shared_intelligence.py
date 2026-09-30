@@ -53,6 +53,7 @@ def compute(
     *,
     watch: WatchContext | None = None,
     message: str = "",
+    safety_band: str | None = None,
     sleep_hours: float | None = None,
     deep_minutes: float | None = None,
     rem_minutes: float | None = None,
@@ -259,7 +260,11 @@ def compute(
         now=moment,
     )
 
-    guidance = aria_guidance_policy.decide(message) if message else None
+    # ``safety_band`` is the chat turn's already-decided guidance band, so the
+    # sidecar never classifies the same message a second time.
+    guidance = (
+        aria_guidance_policy.decide(message, safety_band=safety_band) if message else None
+    )
 
     circadian = None
     if night_hours and night_hours > 0:
@@ -314,7 +319,13 @@ def compute(
     }
 
 
-def from_aria_context(ctx: Any, *, message: str = "", now: datetime | None = None) -> dict[str, Any]:
+def from_aria_context(
+    ctx: Any,
+    *,
+    message: str = "",
+    now: datetime | None = None,
+    safety_band: str | None = None,
+) -> dict[str, Any]:
     """Duck-typed over ``ARIAContext`` so this module never imports aria_engine."""
     sleep = getattr(ctx, "sleep", None)
     readiness = getattr(ctx, "readiness", None)
@@ -369,6 +380,7 @@ def from_aria_context(ctx: Any, *, message: str = "", now: datetime | None = Non
         living_tags=tags,
         weight_kg=getattr(body, "weight_kg", None) if body else None,
         exercise_minutes=getattr(training, "last_workout_duration_minutes", None) if training else None,
+        safety_band=safety_band,
     )
 
 

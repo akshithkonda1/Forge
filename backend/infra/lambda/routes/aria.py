@@ -319,9 +319,16 @@ def handle_post_ai_chat(body: dict[str, Any], *, user_id: str) -> dict:
     from services import fusion as fusion_mod
     from services import guidance
 
-    guardrail = guidance.assess(message)
+    # Voice-first triage: the client echoes the previous turn's
+    # ``safety.reply_topic`` so this answer resolves case by case. Unknown or
+    # forged tokens are dropped by the whitelist parse.
+    pending_triage = guidance.parse_triage_topic(body.get("triage_topic"))
+    triage_token = (
+        guidance.triage_reply_topic(*pending_triage) if pending_triage else None
+    )
+    guardrail = guidance.assess(message, triage_topic=triage_token)
     safety_band = guardrail.band if guardrail else guidance.COACH
-    safety_lock = safety_band in (guidance.EMERGENCY, guidance.REFER_OUT)
+    safety_lock = safety_band in guidance.SAFETY_LOCK_BANDS
 
     fused = fusion_mod.fuse_turn(
         uid,
@@ -379,6 +386,8 @@ def handle_post_ai_chat(body: dict[str, Any], *, user_id: str) -> dict:
             user_id=uid,
             turn=turn,
             guidance_band=safety_band,
+            triage_topic=triage_token,
+            relationship_level=living.relationship_level,
         )
         _merge_fusion(response, fused)
         response.update(
@@ -422,6 +431,8 @@ def handle_post_ai_chat(body: dict[str, Any], *, user_id: str) -> dict:
             user_id=uid,
             turn=turn,
             guidance_band=safety_band,
+            triage_topic=triage_token,
+            relationship_level=living.relationship_level,
         )
         response = aria_engine.generate_response_live(
             message,
@@ -434,6 +445,8 @@ def handle_post_ai_chat(body: dict[str, Any], *, user_id: str) -> dict:
             user_id=uid,
             turn=turn,
             guidance_band=safety_band,
+            triage_topic=triage_token,
+            relationship_level=living.relationship_level,
         )
     else:
         response = _checked_speak(
@@ -447,6 +460,8 @@ def handle_post_ai_chat(body: dict[str, Any], *, user_id: str) -> dict:
             user_id=uid,
             turn=turn,
             guidance_band=safety_band,
+            triage_topic=triage_token,
+            relationship_level=living.relationship_level,
         )
         response["agent"] = roster[0]
         response["agents"] = roster

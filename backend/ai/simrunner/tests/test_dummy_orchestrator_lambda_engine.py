@@ -364,7 +364,9 @@ class DummyARIAEngineUsesLambdaTests(unittest.TestCase):
         )
         spoken = f"{row.get('prose_summary') or ''} {row.get('message') or ''}"
         self.assertNotIn("your training has climbed fast lately", spoken.lower())
-        self.assertIn("you've been running short on sleep", spoken.lower())
+        # sleep_debt_7d_hours = 0: never claim a shortfall the data doesn't show.
+        self.assertNotIn("you've been running short on sleep", spoken.lower())
+        self.assertIn("sleep is the thing to guard tonight", spoken.lower())
         rec = str(row.get("recommendation") or "")
         card = row.get("card") if isinstance(row.get("card"), dict) else {}
         action = str(card.get("action") or rec)

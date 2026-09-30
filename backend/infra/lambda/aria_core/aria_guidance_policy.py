@@ -1,9 +1,15 @@
 """Three-band Dummy / on-device guidance — coach, coach-with-care, refer-out.
 
 Python port of ForgeCore's ``AriaGuidancePolicy.swift``. The four-band
-``guidance.assess`` path (first-aid / emergency / refer_out) still runs on
-``generate_response``. This module is what Dummy and native chat use so a
+``guidance.assess`` path (first-aid / emergency / refer_out / triage) still runs
+on ``generate_response``. This module is what Dummy and native chat use so a
 Kotlin client does not reimplement the needles.
+
+Emergencies and voice-first triage are decided by ``guidance`` — the one safety
+classifier — before these needles run, so Dummy, on-device, and ``/ai/chat``
+can never disagree on a 911 turn (they did: "I think I'm having a heart
+attack" used to coach here). The decision then carries guidance's copy and its
+``safety`` session block.
 
 Stdlib only. Deterministic. Pure -- no I/O.
 """
@@ -11,6 +17,9 @@ Stdlib only. Deterministic. Pure -- no I/O.
 from __future__ import annotations
 
 from dataclasses import dataclass
+from typing import Any
+
+from . import guidance as _safety
 
 COACH = "coach"
 COACH_WITH_CARE = "coachWithCare"
@@ -61,17 +70,38 @@ class GuidanceDecision:
     band: str
     matched: str | None = None
     line: str | None = None
+    # guidance.safety_session block for emergency / triage turns.
+    safety: dict[str, Any] | None = None
 
     def to_dict(self) -> dict:
-        return {"band": self.band, "matched": self.matched, "line": self.line}
+        out = {"band": self.band, "matched": self.matched, "line": self.line}
+        if self.safety is not None:
+            out["safety"] = self.safety
+        return out
 
 
 def _body_related(lower: str) -> bool:
     return any(marker in lower for marker in _BODY_MARKERS)
 
 
-def decide(text: str, guidance_only_mode: bool = False) -> GuidanceDecision:
+def decide(
+    text: str,
+    guidance_only_mode: bool = False,
+    *,
+    safety_band: str | None = None,
+) -> GuidanceDecision:
+    """``safety_band``: the turn's already-decided ``guidance`` band, if any."""
     lower = (text or "").lower()
+    band = safety_band if safety_band is not None else _safety.classify_band(text)
+    if band in (_safety.EMERGENCY, _safety.TRIAGE):
+        assessed = _safety.assess(text, band=band)
+        matched = next((needle for needle, _ in _REFER_OUT if needle in lower), band)
+        return GuidanceDecision(
+            band=REFER_OUT,
+            matched=matched,
+            line=assessed.prose if assessed else None,
+            safety=assessed.safety if assessed else None,
+        )
     for needle, line in _REFER_OUT:
         if needle in lower:
             return GuidanceDecision(band=REFER_OUT, matched=needle, line=line)

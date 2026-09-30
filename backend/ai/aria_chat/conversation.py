@@ -489,11 +489,7 @@ def _callback(prior: list[str], seed: int, message: str) -> str:
     last = (prior[-1] or "").strip()
     if not last:
         return ""
-    if guidance.classify_band(message) in (
-        guidance.EMERGENCY,
-        guidance.FIRST_AID,
-        guidance.REFER_OUT,
-    ):
+    if guidance.classify_band(message) in guidance.SAFETY_BANDS:
         return ""
     if guidance.classify_band(last) != guidance.COACH:
         return ""
@@ -733,10 +729,12 @@ def apply_conversation(
     band = str(envelope.get("guidance_band") or guidance.classify_band(message) or "")
     down = str(last_rating or "").strip().lower() == "down"
     used_spoken = list(prior_spoken or [])
-    if band in (guidance.EMERGENCY, guidance.FIRST_AID, guidance.REFER_OUT):
+    if band in guidance.SAFETY_BANDS:
         engine_text = str(envelope.get("message") or envelope.get("prose_summary") or "")
-        assessed = guidance.assess(message)
-        # 911 / first-aid / refer-out stay on guidance.py copy.
+        # A voice-first safety session was decided with the pending triage
+        # topic; re-assessing the bare answer ("no") would drop that context.
+        assessed = None if envelope.get("safety") else guidance.assess(message)
+        # 911 / first-aid / refer-out / triage stay on guidance.py copy.
         if assessed is not None:
             spoken = _strip_thread_callback(assessed.message)
         else:
