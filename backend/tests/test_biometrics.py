@@ -484,7 +484,9 @@ class PipelineIntegrationTests(unittest.TestCase):
         resp = aria_engine.generate_response("how am I recovering?", ctx)
 
         self.assertIn(resp["response_type"], ("insight", "recommendation"))
-        self.assertTrue(any(ch.isdigit() for ch in resp["prose_summary"]))  # references real data
+        # Deep sleep 48/430 used to speak "is 11%"; speak is now qualitative.
+        self.assertEqual(ctx.sleep.deep_minutes, 48.0)
+        self.assertIn("deepest sleep", resp["prose_summary"].lower())
         self.assertEqual(resp["schema_version"], aria_engine.SCHEMA_VERSION)
 
 

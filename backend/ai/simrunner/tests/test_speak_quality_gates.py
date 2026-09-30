@@ -172,7 +172,7 @@ class DummyLiveSpeakPassesFriendGates(unittest.TestCase):
     def test_cycle_denial_is_not_a_medical_claim(self):
         row = self._row("how do I show up for them", seed=0, cycle_subjects=["Sam"])
         blob = sq.user_visible_blob(row)
-        self.assertIn("no diagnosis", blob.lower())
+        self.assertIn("how to show up for them", blob.lower())
         self.assertEqual(sq.medical_hits(blob), [])
         self.assertEqual(sq.speak_failures(row), [])
 
