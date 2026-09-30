@@ -530,7 +530,12 @@ extension AppStore {
             }
 
             // Harvest durable facts from this exchange (goal language, injuries, etc.).
-            harvestDurableMemory(userText: text, ariaText: aria.message)
+            // A safety-locked turn (#396) never lands in the vault, never becomes
+            // a pattern, and never feeds a check-in. Remember me off is still
+            // enforced inside the vault write itself, unchanged.
+            if !aria.safetyLock {
+                harvestDurableMemory(userText: text, ariaText: aria.message)
+            }
 
             let trainerMessage = ChatMessage(
                 id: UUID().uuidString,

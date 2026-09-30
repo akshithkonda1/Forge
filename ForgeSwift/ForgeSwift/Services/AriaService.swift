@@ -164,11 +164,14 @@ final class AriaService: ObservableObject {
                 contextStore.applyUpdates(updates)
             }
             var response = remote
-            if response.memoryReference == nil {
+            // Safety-locked turn: backend omits memory_reference on purpose.
+            // Do not backfill a local "last time…" callback, and do not derive
+            // a plan card / training-theme pattern from it.
+            if response.memoryReference == nil, !response.safetyLock {
                 response.memoryReference = contextStore.memoryReference(for: text)
             }
             // Backend prose without a card still gets a concrete themed plan card.
-            if AriaThemeResolver.isPlanRequest(text), response.richCard == nil {
+            if !response.safetyLock, AriaThemeResolver.isPlanRequest(text), response.richCard == nil {
                 let plan = AriaPlanEngine.evaluate(input: text, context: store.makeTrainerContext(query: text))
                 if plan.shouldPersistTheme {
                     store.setTrainingTheme(plan.theme, source: "chat")

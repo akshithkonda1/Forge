@@ -31,6 +31,8 @@ struct AriaResponse: Codable, Equatable {
     var memoryReference: String? = nil
     var missingFields: [String]? = nil
     var toolCallsMade: [String]? = nil
+    /// Backend `safety_lock` (emergency / refer-out). Missing key → false.
+    var safetyLock: Bool = false
 
     enum CodingKeys: String, CodingKey {
         case schemaVersion = "schema_version"
@@ -50,6 +52,7 @@ struct AriaResponse: Codable, Equatable {
         case missingFields = "missing_fields"
         case toolCallsMade = "tool_calls_made"
         case toolCallsMadeCamel = "toolCallsMade"
+        case safetyLock = "safety_lock"
     }
 
     init(
@@ -128,6 +131,7 @@ struct AriaResponse: Codable, Equatable {
         missingFields = try c.decodeIfPresent([String].self, forKey: .missingFields)
         toolCallsMade = try c.decodeIfPresent([String].self, forKey: .toolCallsMade)
             ?? c.decodeIfPresent([String].self, forKey: .toolCallsMadeCamel)
+        safetyLock = try AriaTurnSafety(from: decoder).safetyLock
     }
 
     func encode(to encoder: Encoder) throws {
@@ -147,6 +151,9 @@ struct AriaResponse: Codable, Equatable {
         try c.encodeIfPresent(memoryReference, forKey: .memoryReference)
         try c.encodeIfPresent(missingFields, forKey: .missingFields)
         try c.encodeIfPresent(toolCallsMade, forKey: .toolCallsMade)
+        if safetyLock {
+            try c.encode(true, forKey: .safetyLock)
+        }
     }
 
     /// Best single line for the voice orb: the dedicated prose summary when the
