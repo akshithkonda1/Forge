@@ -7,7 +7,8 @@ import Foundation
 /// order, and never silently upgrades dummy → cloud. Dummy and local testing
 /// stay on-device (SpeechManager STT + dummy/local brain via chat). Live opens
 /// ElevenLabs ConvAI with a short-lived signed URL from Forge — the API key
-/// never lands on the phone.
+/// never lands on the phone. A 911 / triage session is the exception: it is
+/// always on-device (`keepingOnDevice`), so ARIA's own copy is what is said.
 @MainActor
 @Observable
 final class AriaVoiceSession {
@@ -32,13 +33,19 @@ final class AriaVoiceSession {
     private var startGeneration = 0
     @ObservationIgnored
     private var capturesMic = false
+    /// Set by `speakAndEnd`: the session stops once this line is spoken.
+    @ObservationIgnored
+    private var endsAfterSpeaking = false
 
     var activeTransport: AriaVoiceTransport? { isActive ? transport : nil }
 
     private init() {}
 
-    func start(store: AppStore, speech: SpeechManager, captureMic: Bool = true) {
+    /// `onDevice`: a safety session. Never ConvAI; a live session running
+    /// when one begins restarts on this iPhone's own voice.
+    func start(store: AppStore, speech: SpeechManager, captureMic: Bool = true, onDevice: Bool = false) {
         let resuming = isActive && self.store === store && self.speech === speech
+            && !(onDevice && transport?.requiresNetwork == true)
         if AriaSpokenMute.shouldUnmuteForNewSession(isResumingExistingSession: resuming) {
             AriaSpokenMute.unmuteBecauseVoiceSessionStarted()
         }
@@ -53,7 +60,7 @@ final class AriaVoiceSession {
         self.store = store
         self.speech = speech
         capturesMic = captureMic
-        let chosen = AriaVoiceTransport.resolveCurrent()
+        let chosen = AriaVoiceTransport.resolveCurrent().keepingOnDevice(onDevice)
         transport = chosen
         isActive = true
         lastError = nil
@@ -75,6 +82,7 @@ final class AriaVoiceSession {
     }
 
     func stop() {
+        endsAfterSpeaking = false
         startGeneration += 1
         liveSocket?.close()
         liveSocket = nil
@@ -127,8 +135,35 @@ final class AriaVoiceSession {
         }
     }
 
+    /// Triage: ARIA asks first, then the mic opens for the answer
+    /// (`mouthDidFinish` → `markListening`). Opening it before the question
+    /// would cut her off mid-line: recording takes the audio session.
+    func listenAfterSpeaking() {
+        guard isActive, transport?.usesOnDeviceBrain == true else { return }
+        capturesMic = true
+    }
+
+    /// Speak the last line of a safety session, then end voice. ARIA's voice
+    /// turns off once a responsible resolution is reached.
+    func speakAndEnd(_ reply: AriaResponse) {
+        guard isActive else { return }
+        capturesMic = false
+        endsAfterSpeaking = true
+        speakChatReply(reply)
+        // Muted or empty line: no didFinish callback is coming, so end now
+        // rather than leave the session open.
+        if !AriaPresence.shared.isSpeaking {
+            stop()
+        }
+    }
+
     /// Dummy fill-in finished (or was silent). Resume listening for the next turn.
     func mouthDidFinish() {
+        if endsAfterSpeaking {
+            endsAfterSpeaking = false
+            stop()
+            return
+        }
         guard isActive, phase == .speaking else { return }
         guard transport?.usesOnDeviceBrain == true else { return }
         markListening()
@@ -239,6 +274,14 @@ final class AriaVoiceSession {
     }
 
     private func runLiveTool(_ call: AriaLiveConvAIClient.ToolCall, generation: Int) async {
+        // A 911 / triage turn is never left to the live agent. Close it and
+        // hand the words to chat: the safety flow speaks ARIA's copy verbatim
+        // on-device and resolves the answer case by case.
+        if let store, AriaService.shared.decidesSafetyOnDevice(call.message, store: store) {
+            stop()
+            store.openChat(with: call.message)
+            return
+        }
         applyPhase(.thinking)
         speech?.voiceState = .processing
         do {

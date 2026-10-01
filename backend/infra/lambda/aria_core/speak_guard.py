@@ -704,13 +704,15 @@ def _sized_step(card: dict[str, Any] | None, *, stance: str = "", topic: str = "
                 and _action_fits_stance(raw, stance)
             ):
                 return raw.rstrip(".")
+        # The pattern's own sized step before its chip labels: "Build a hard
+        # session" is a button, not a step anyone can act on.
+        next_step = str(evidence.get("next_step") or "").strip()
+        if _is_usable_step(next_step, denied) and _action_fits_stance(next_step, stance):
+            return next_step.rstrip(".")
         for action in evidence.get("actions") or ():
             raw = str(action or "").strip()
             if _is_usable_step(raw, denied) and _action_fits_stance(raw, stance):
                 return raw.rstrip(".")
-        next_step = str(evidence.get("next_step") or "").strip()
-        if _is_usable_step(next_step, denied) and _action_fits_stance(next_step, stance):
-            return next_step.rstrip(".")
     if pattern in _PATTERN_FRIEND_STEPS:
         return _PATTERN_FRIEND_STEPS[pattern]
     if stance in _STANCE_FRIEND_STEPS:

@@ -259,6 +259,8 @@ final class TrainingHabitsTests: XCTestCase {
         XCTAssertFalse(TrainingHabits.isBoxChip("chest day was hard"))
     }
 
+    // Dummy orchestra only — compiled out with it.
+    #if FORGE_DUMMY_ORCHESTRA
     func testBareChipTextRoutesToTraining() {
         let signals = AriaIntentInput(text: "Chest")
         let turn = AriaDummyTurn.interpret(
@@ -328,4 +330,5 @@ final class TrainingHabitsTests: XCTestCase {
         )
         XCTAssertNotNil(store.todayWorkout, "delegated mode builds without asking")
     }
+    #endif
 }

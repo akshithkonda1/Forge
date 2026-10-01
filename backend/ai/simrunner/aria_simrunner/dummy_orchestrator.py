@@ -1955,7 +1955,7 @@ def _bridge_fused_memory(
     if not prior_turns:
         return envelope
     band = str(envelope.get("guidance_band") or "").strip().lower()
-    if band in {"emergency", "first_aid", "refer_out"}:
+    if band in {"emergency", "first_aid", "refer_out", "triage", "coach_with_care"}:
         return envelope
     opener = _callback(prior_turns, seed, intents)
     if not opener:

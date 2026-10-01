@@ -67,6 +67,8 @@ ALLOWED_STANCE_INPUTS = frozenset({
     "band_first_aid",
     "band_emergency",
     "band_refer_out",
+    "band_triage",
+    "band_coach_with_care",
     "thin_data",
     "small_talk",
     "safety_protect",
@@ -78,17 +80,26 @@ ALLOWED_STANCE_INPUTS = frozenset({
 ALLOWED_WAKE_REASONS = frozenset({"data_delta", "question", "digest", "always_on"})
 ALLOWED_RESEARCH_HITS = frozenset({"hit", "miss"})
 REDACTED_USER_TURN = "[redacted]"
+# Emergency, voice-first triage, and care turns: the user's words are never
+# stored. Band reason codes and ARIA's reply stay for replay.
+_REDACTED_BANDS = frozenset({"emergency", "triage", "coach_with_care"})
 
 
 def _is_emergency_user_text(text: str) -> bool:
     from services import guidance
 
-    return guidance.classify_band(text or "") == guidance.EMERGENCY
+    return guidance.classify_band(text or "") in (guidance.EMERGENCY, guidance.TRIAGE)
 
 
-def _redact_emergency_user_text(text: str, *, band: str = "") -> str:
-    """Emergency (including self-harm) user text is never stored."""
-    if str(band or "").strip().lower() == "emergency" or _is_emergency_user_text(text):
+def _redact_emergency_user_text(
+    text: str, *, band: str = "", safety_session: bool = False
+) -> str:
+    """Emergency (including self-harm) and triage user text is never stored."""
+    if (
+        safety_session
+        or str(band or "").strip().lower() in _REDACTED_BANDS
+        or _is_emergency_user_text(text)
+    ):
         return REDACTED_USER_TURN
     return text
 
@@ -510,7 +521,11 @@ def build_record(
     found = list(needles or []) or collect_needles(payload, user_message)
     band = str(envelope.get("guidance_band") or "coach")
     clean_user = sanitize_logged_text(user_message, found, payload=payload)
-    clean_user = _redact_emergency_user_text(clean_user, band=band)
+    clean_user = _redact_emergency_user_text(
+        clean_user,
+        band=band,
+        safety_session=isinstance(envelope.get("safety"), dict),
+    )
     if _is_emergency_user_text(user_message):
         clean_user = REDACTED_USER_TURN
     history = _redact_emergency_history(request_history, found, payload)

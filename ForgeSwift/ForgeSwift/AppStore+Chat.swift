@@ -509,9 +509,18 @@ extension AppStore {
                 agent: plan.primary.kind,
                 agents: plan.backendIds
             )
+            // Voice-first safety: a triage question stays open for exactly one
+            // answer; anything else closes it.
+            let safety = aria.safety
+            ariaSafetySession = safety
+            pendingTriageTopic = safety?.isTriage == true ? safety?.replyTopic : nil
+            let safetyTurn = safety != nil
+                || (aria.guidanceBand.map { $0 != AriaSafetyBand.coach } ?? false)
+
             // Dummy already wove every worker into one causal reply. Tacking
             // supporting briefs on would double-speak and break the fill-in.
-            if !AriaService.shared.isTestReady {
+            // A safety reply never carries coaching underneath it.
+            if !AriaService.shared.isTestReady, !safetyTurn {
                 let extras = await AriaCoachAgentRouter.supportingBriefs(
                     plan: plan,
                     store: self,
@@ -530,7 +539,10 @@ extension AppStore {
             }
 
             // Harvest durable facts from this exchange (goal language, injuries, etc.).
-            harvestDurableMemory(userText: text, ariaText: aria.message)
+            // Never from a safety turn — the backend skips memory there too.
+            if !safetyTurn {
+                harvestDurableMemory(userText: text, ariaText: aria.message)
+            }
 
             let trainerMessage = ChatMessage(
                 id: UUID().uuidString,
@@ -556,6 +568,16 @@ extension AppStore {
             )
             chatMessages.append(trainerMessage)
             beginStreamingReveal(for: trainerMessage.id, fullLength: trainerMessage.content.count)
+            // Relationship check-in: right after a responsible resolution, or
+            // held until escalation is achieved (see safetyEscalationAchieved).
+            if let checkIn = safety?.checkIn {
+                if checkIn.after == "resolution" {
+                    pendingSafetyCheckIn = nil
+                    postSafetyCheckIn(checkIn.message)
+                } else {
+                    pendingSafetyCheckIn = checkIn.message
+                }
+            }
         } catch {
             let errorMessage = ChatMessage(
                 id: UUID().uuidString,
@@ -569,6 +591,39 @@ extension AppStore {
         }
 
         isGeneratingResponse = false
+        persistChatHistory()
+    }
+
+    /// Check-in bubbles carry this id prefix so voice never reads one back as
+    /// "the reply" and tests can find them.
+    static let safetyCheckInIDPrefix = "aria-safety-checkin-"
+
+    static func isSafetyCheckIn(_ message: ChatMessage) -> Bool {
+        message.id.hasPrefix(safetyCheckInIDPrefix)
+    }
+
+    /// Escalation achieved (the 911 / 988 / Poison Control call was placed):
+    /// ARIA's voice turns off and the relationship check-in is posted.
+    func safetyEscalationAchieved() {
+        ariaVoiceMode = false
+        AriaVoiceSession.shared.stop()
+        ariaSafetySession = nil
+        pendingTriageTopic = nil
+        if let message = pendingSafetyCheckIn {
+            pendingSafetyCheckIn = nil
+            postSafetyCheckIn(message)
+        }
+    }
+
+    func postSafetyCheckIn(_ message: String) {
+        let checkIn = ChatMessage(
+            id: Self.safetyCheckInIDPrefix + UUID().uuidString,
+            role: .trainer,
+            content: message,
+            timestamp: Date()
+        )
+        chatMessages.append(checkIn)
+        lastSuggestedActions = []
         persistChatHistory()
     }
 

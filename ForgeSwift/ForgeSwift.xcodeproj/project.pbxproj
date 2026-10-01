@@ -69,6 +69,9 @@
 		1CAL0812F9FF867004091AA /* CalendarManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1CAL0802F9FF867004091AA /* CalendarManager.swift */; };
 		1ARIA0812F9FF867004091AA /* AriaDummyOrchestrator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1ARIA0802F9FF867004091AA /* AriaDummyOrchestrator.swift */; };
 		1ARIA0A12F9FF867004091AA /* AriaDummyTurn.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1ARIA0A02F9FF867004091AA /* AriaDummyTurn.swift */; };
+		E253EA2C98A65A874B759C2D /* AriaDummyOrchestra.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4037051CD3CE0ED7697AF3B9 /* AriaDummyOrchestra.swift */; };
+		AB0F4D3EC7E7E2FA36B5E1FB /* AriaSwarmSnapshotStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 335EC6E914FAB2D083783711 /* AriaSwarmSnapshotStore.swift */; };
+		694CE8353A7C9975F44813CC /* AriaSafetyDialer.swift in Sources */ = {isa = PBXBuildFile; fileRef = D95AA36301EEE87626F4BBE4 /* AriaSafetyDialer.swift */; };
 		1ARIA0B12F9FF867004091AA /* AriaLiveGrounding.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1ARIA0B02F9FF867004091AA /* AriaLiveGrounding.swift */; };
 		1TRAIN012F9FF867004091AA /* TrainingHabits.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1TRAIN002F9FF867004091AA /* TrainingHabits.swift */; };
 		1ARIA0962F9FF867004091AA /* AriaOperatingMode.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1ARIA0952F9FF867004091AA /* AriaOperatingMode.swift */; };
@@ -336,6 +339,7 @@
 		1TEST02600000000000000A /* AriaSigilTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1TEST02500000000000000A /* AriaSigilTests.swift */; };
 		1TEST02800000000000000A /* AriaSpokenVoiceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1TEST02700000000000000A /* AriaSpokenVoiceTests.swift */; };
 		1TEST03400000000000000A /* AriaVoiceSessionTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1TEST03300000000000000A /* AriaVoiceSessionTests.swift */; };
+		A69C5E8D6A38B1C55A04BB31 /* AriaSafetyChatTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F9FA18FE0B4C1581AEFA023B /* AriaSafetyChatTests.swift */; };
 		1TEST02A00000000000000A /* AriaLogoPresenceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1TEST02900000000000000A /* AriaLogoPresenceTests.swift */; };
 		1TEST04600000000000000A /* ForgeSplashFireTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1TEST04500000000000000A /* ForgeSplashFireTests.swift */; };
 		1TEST02C00000000000000A /* CurrentPracticeAPITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1TEST02B00000000000000A /* CurrentPracticeAPITests.swift */; };
@@ -491,6 +495,9 @@
 		1CAL0802F9FF867004091AA /* CalendarManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CalendarManager.swift; sourceTree = "<group>"; };
 		1ARIA0802F9FF867004091AA /* AriaDummyOrchestrator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AriaDummyOrchestrator.swift; sourceTree = "<group>"; };
 		1ARIA0A02F9FF867004091AA /* AriaDummyTurn.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AriaDummyTurn.swift; sourceTree = "<group>"; };
+		4037051CD3CE0ED7697AF3B9 /* AriaDummyOrchestra.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AriaDummyOrchestra.swift; sourceTree = "<group>"; };
+		335EC6E914FAB2D083783711 /* AriaSwarmSnapshotStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AriaSwarmSnapshotStore.swift; sourceTree = "<group>"; };
+		D95AA36301EEE87626F4BBE4 /* AriaSafetyDialer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AriaSafetyDialer.swift; sourceTree = "<group>"; };
 		1ARIA0B02F9FF867004091AA /* AriaLiveGrounding.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AriaLiveGrounding.swift; sourceTree = "<group>"; };
 		1TRAIN002F9FF867004091AA /* TrainingHabits.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TrainingHabits.swift; sourceTree = "<group>"; };
 		1ARIA0952F9FF867004091AA /* AriaOperatingMode.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AriaOperatingMode.swift; sourceTree = "<group>"; };
@@ -516,6 +523,7 @@
 		1TEST02500000000000000A /* AriaSigilTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AriaSigilTests.swift; sourceTree = "<group>"; };
 		1TEST02700000000000000A /* AriaSpokenVoiceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AriaSpokenVoiceTests.swift; sourceTree = "<group>"; };
 		1TEST03300000000000000A /* AriaVoiceSessionTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AriaVoiceSessionTests.swift; sourceTree = "<group>"; };
+		F9FA18FE0B4C1581AEFA023B /* AriaSafetyChatTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AriaSafetyChatTests.swift; sourceTree = "<group>"; };
 		1TEST02900000000000000A /* AriaLogoPresenceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AriaLogoPresenceTests.swift; sourceTree = "<group>"; };
 		1TEST04500000000000000A /* ForgeSplashFireTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ForgeSplashFireTests.swift; sourceTree = "<group>"; };
 		1TEST02B00000000000000A /* CurrentPracticeAPITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CurrentPracticeAPITests.swift; sourceTree = "<group>"; };
@@ -899,6 +907,9 @@
 				1CAL0802F9FF867004091AA /* CalendarManager.swift */,
 				1ARIA0802F9FF867004091AA /* AriaDummyOrchestrator.swift */,
 				1ARIA0A02F9FF867004091AA /* AriaDummyTurn.swift */,
+				4037051CD3CE0ED7697AF3B9 /* AriaDummyOrchestra.swift */,
+				335EC6E914FAB2D083783711 /* AriaSwarmSnapshotStore.swift */,
+				D95AA36301EEE87626F4BBE4 /* AriaSafetyDialer.swift */,
 				1ARIA0B02F9FF867004091AA /* AriaLiveGrounding.swift */,
 				1TRAIN002F9FF867004091AA /* TrainingHabits.swift */,
 				1ARIA0952F9FF867004091AA /* AriaOperatingMode.swift */,
@@ -1288,6 +1299,7 @@
 				1TEST04500000000000000A /* ForgeSplashFireTests.swift */,
 				1TEST02700000000000000A /* AriaSpokenVoiceTests.swift */,
 				1TEST03300000000000000A /* AriaVoiceSessionTests.swift */,
+				F9FA18FE0B4C1581AEFA023B /* AriaSafetyChatTests.swift */,
 				1TEST02900000000000000A /* AriaLogoPresenceTests.swift */,
 				1TEST02B00000000000000A /* CurrentPracticeAPITests.swift */,
 				1TEST02D00000000000000A /* HealthKitAuthorizationPlanTests.swift */,
@@ -1575,6 +1587,9 @@
 				1CAL0812F9FF867004091AA /* CalendarManager.swift in Sources */,
 				1ARIA0812F9FF867004091AA /* AriaDummyOrchestrator.swift in Sources */,
 				1ARIA0A12F9FF867004091AA /* AriaDummyTurn.swift in Sources */,
+				E253EA2C98A65A874B759C2D /* AriaDummyOrchestra.swift in Sources */,
+				AB0F4D3EC7E7E2FA36B5E1FB /* AriaSwarmSnapshotStore.swift in Sources */,
+				694CE8353A7C9975F44813CC /* AriaSafetyDialer.swift in Sources */,
 				1ARIA0B12F9FF867004091AA /* AriaLiveGrounding.swift in Sources */,
 				1TRAIN012F9FF867004091AA /* TrainingHabits.swift in Sources */,
 				1ARIA0962F9FF867004091AA /* AriaOperatingMode.swift in Sources */,
@@ -1878,6 +1893,7 @@
 				1TEST04600000000000000A /* ForgeSplashFireTests.swift in Sources */,
 				1TEST02800000000000000A /* AriaSpokenVoiceTests.swift in Sources */,
 				1TEST03400000000000000A /* AriaVoiceSessionTests.swift in Sources */,
+				A69C5E8D6A38B1C55A04BB31 /* AriaSafetyChatTests.swift in Sources */,
 				1TEST02A00000000000000A /* AriaLogoPresenceTests.swift in Sources */,
 				1TEST02C00000000000000A /* CurrentPracticeAPITests.swift in Sources */,
 				1TEST02E00000000000000A /* HealthKitAuthorizationPlanTests.swift in Sources */,
@@ -2020,6 +2036,7 @@
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				ENABLE_TESTABILITY = YES;
 				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				FORGE_DUMMY_ORCHESTRA_CONDITION = FORGE_DUMMY_ORCHESTRA;
 				GCC_C_LANGUAGE_STANDARD = gnu17;
 				GCC_DYNAMIC_NO_PIC = NO;
 				GCC_NO_COMMON_BLOCKS = YES;
@@ -2040,7 +2057,7 @@
 				ONLY_ACTIVE_ARCH = YES;
 				SDKROOT = iphoneos;
 				STRING_CATALOG_GENERATE_SYMBOLS = YES;
-				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "DEBUG $(inherited)";
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "DEBUG $(inherited) $(FORGE_DUMMY_ORCHESTRA_CONDITION)";
 				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
 			};
 			name = Debug;
@@ -2085,6 +2102,7 @@
 				ENABLE_NS_ASSERTIONS = NO;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				FORGE_DUMMY_ORCHESTRA_CONDITION = FORGE_DUMMY_ORCHESTRA;
 				GCC_C_LANGUAGE_STANDARD = gnu17;
 				GCC_NO_COMMON_BLOCKS = YES;
 				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
@@ -2098,6 +2116,7 @@
 				ONLY_ACTIVE_ARCH = YES;
 				SDKROOT = iphoneos;
 				STRING_CATALOG_GENERATE_SYMBOLS = YES;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "$(inherited) $(FORGE_DUMMY_ORCHESTRA_CONDITION)";
 				SWIFT_COMPILATION_MODE = wholemodule;
 				VALIDATE_PRODUCT = YES;
 			};

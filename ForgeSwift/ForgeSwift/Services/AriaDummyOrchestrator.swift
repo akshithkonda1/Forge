@@ -1,6 +1,10 @@
 import Foundation
 import ForgeCore
 
+// Dummy orchestra only. Compiled out of production builds — see
+// AriaDummyOrchestra.swift and docs/aria-dummy-cutover.md.
+#if FORGE_DUMMY_ORCHESTRA
+
 /// On-device fill-in for ARIA while the live backend is still incomplete.
 ///
 /// Device Hub / tester builds must feel like a connected backend so we can
@@ -1643,3 +1647,27 @@ enum AriaDummyOrchestrator {
         return "\(opener) \(body) \(invite)".replacingOccurrences(of: "  ", with: " ").trimmingCharacters(in: .whitespaces)
     }
 }
+
+/// `AriaDummyOrchestra.provider` in builds that carry the Dummy.
+struct AriaDummyOrchestratorProvider: AriaDummyOrchestraProviding {
+    func reply(
+        text: String,
+        store: AppStore,
+        agent: AriaCoachAgent,
+        agents: [String]?,
+        replay: Bool
+    ) async -> AriaResponse {
+        await AriaDummyOrchestrator.reply(
+            text: text,
+            store: store,
+            agent: agent,
+            agents: agents,
+            replay: replay
+        )
+    }
+
+    func seal(_ response: AriaResponse, prompt: String, store: AppStore) {
+        AriaDummyOrchestrator.seal(response, prompt: prompt, store: store)
+    }
+}
+#endif

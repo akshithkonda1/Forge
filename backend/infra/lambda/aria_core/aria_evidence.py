@@ -273,7 +273,7 @@ def detect_pattern(
                     f"sleep first tonight, then training"
                 ),
                 next_step=learned
-                or "Sleep first — protect tonight's wind-down before training volume",
+                or "Sleep first — protect tonight's wind-down, and keep today to an easy 20 minutes or mobility",
                 why="A falling recovery trend plus short nights means the week is still carrying load",
                 actions=("Protect tonight's sleep", "Show recovery plan", "Swap to an easy, chatty-pace zone 2"),
                 confidence_cap=0.60,
@@ -296,7 +296,7 @@ def detect_pattern(
                     f"{debt_7:.1f}h short of your usual nights this week — "
                     f"the night bank is overdrawn."
                 ),
-                next_step=learned or "Prioritize sleep tonight and keep today's session easy",
+                next_step=learned or "Prioritize sleep tonight and keep today to an easy 20 minutes or mobility",
                 why="You've had a run of short nights, so sleep comes first.",
                 actions=("Protect tonight's sleep", "Shorten today's session", "Set a wind-down alarm"),
                 confidence_cap=0.65,
@@ -354,7 +354,7 @@ def detect_pattern(
                             f"ease the session so the grade can climb"
                         ),
                         next_step=learned
-                        or "Keep today light so the life grade can climb",
+                        or "Keep today light — an easy 20 minutes or mobility — so the life grade can climb",
                         why="Lifestyle QoL is strained or depleted — training follows the life grade",
                         actions=("Keep it light", "Show recovery plan", "Open Lifestyle"),
                         confidence_cap=0.70,
@@ -372,7 +372,7 @@ def detect_pattern(
                 stance="fuel",
                 notice="Fuel first — protein and water before load",
                 next_step=learned
-                or "Protein and water with the next meal, then train inside the day you have",
+                or "Protein and water with the next meal, then 20 to 30 easy minutes inside the day you have",
                 why="Nutrition is the limiting signal right now",
                 actions=("Log the next meal", "Today's workout", "Check hydration"),
             )
@@ -385,7 +385,7 @@ def detect_pattern(
                 stance="clarify",
                 notice="I can give a best-effort read",
                 next_step=learned
-                or "Best-effort read from what I have, then the one missing signal",
+                or "Best-effort read: an easy 20 minutes today, then add the one missing signal",
                 why="One piece is still missing, so today stays simple.",
                 actions=("Sync HealthKit", "Tell ARIA about last night", "Today's workout"),
                 confidence_cap=0.55,
@@ -424,7 +424,8 @@ def detect_pattern(
                 score=0.85,
                 stance="proceed",
                 notice="You're primed — signals look strong.",
-                next_step=learned or "Green light for intensity — this is a day to push",
+                next_step=learned
+                or "Green light: one quality session, 20 to 30 minutes of real work, then stop while it's crisp",
                 why="You look ready for one quality session today.",
                 actions=("Build a hard session", "Set a PR target", "Review readiness"),
             )
@@ -438,7 +439,7 @@ def detect_pattern(
             stance="proceed" if stance in ("", "proceed") else (stance or "proceed"),
             notice="Your signals are mid-band",
             next_step=learned
-            or "Train at moderate intensity with controlled progressive overload",
+            or "Train at moderate intensity: 30 to 45 minutes with one small step up in load",
             why="Keep training steady without piling on too much.",
             actions=("Today's workout", "Tune intensity", "Check sleep trend"),
         )

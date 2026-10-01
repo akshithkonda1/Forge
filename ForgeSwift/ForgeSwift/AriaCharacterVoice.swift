@@ -79,6 +79,14 @@ enum AriaVoiceTransport: String, Equatable, Sendable {
     }
 
     var requiresNetwork: Bool { self == .live }
+
+    /// A safety session speaks ARIA's own 911 / triage copy on this iPhone
+    /// and hears the answer with on-device speech, so chat decides it. The
+    /// live voice agent (ConvAI) would put its own words on an emergency and
+    /// has no pending triage question to resolve "yes" / "no" against.
+    func keepingOnDevice(_ onDevice: Bool) -> AriaVoiceTransport {
+        onDevice && requiresNetwork ? .localTesting : self
+    }
 }
 
 /// Who is allowed to make sound, and with what renderer.

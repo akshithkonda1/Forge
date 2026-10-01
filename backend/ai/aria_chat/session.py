@@ -19,6 +19,7 @@ from backend._paths import ensure_lambda_on_path
 
 ensure_lambda_on_path()
 
+from aria_core import aria_guidance_policy  # noqa: E402
 from aria_core import speak_guard  # noqa: E402
 from aria_core import state_read  # noqa: E402
 from routes.aria import (  # noqa: E402
@@ -188,6 +189,17 @@ def _cpu_seconds() -> float | None:
         return None
 
 
+def _relationship_level(payload: dict[str, Any]) -> int:
+    """Relationship level (1-10) from the Dummy payload; 1 when absent."""
+    for source in (payload, payload.get("context") if isinstance(payload.get("context"), dict) else {}):
+        raw = source.get("relationship_level") if isinstance(source, dict) else None
+        try:
+            return max(1, min(10, int(raw)))
+        except (TypeError, ValueError):
+            continue
+    return 1
+
+
 def run_turn(
     message: str,
     *,
@@ -205,8 +217,14 @@ def run_turn(
     config_dir: Any = None,
     last_rating: str | None = None,
     commit_sha: str | None = None,
+    triage_topic: str | None = None,
 ) -> dict[str, Any]:
-    """One Dummy chat turn. Never calls ``generate_response_live`` or Bedrock."""
+    """One Dummy chat turn. Never calls ``generate_response_live`` or Bedrock.
+
+    ``triage_topic`` is the previous turn's ``safety.reply_topic`` — the same
+    echo the app sends to ``/ai/chat`` — so a triage answer resolves the same
+    way on Dummy as in production.
+    """
     assert_dummy_engine(engine)
     started = time.perf_counter()
     cpu0 = _cpu_seconds()
@@ -250,7 +268,13 @@ def run_turn(
     turn_s = state_read.turn_seed(None, spoken_in, seed=phrase)
 
     ctx = _ctx_from_payload(body)
-    guardrail = guidance.assess(spoken_in)
+    pending_triage = guidance.parse_triage_topic(triage_topic)
+    triage_token = guidance.triage_reply_topic(*pending_triage) if pending_triage else None
+    guardrail = guidance.assess(
+        spoken_in,
+        triage_topic=triage_token,
+        relationship_level=_relationship_level(raw_payload),
+    )
     if guardrail is not None:
         # Safety copy is guidance.py only. Skip Dummy hypertune so a broken
         # orchestrator cannot replace the cardiac / CPR / crisis line.
@@ -263,6 +287,8 @@ def run_turn(
             "suggested_actions": list(guardrail.suggested_actions),
             "response_type": "clarification",
         }
+        if guardrail.safety is not None:
+            envelope["safety"] = guardrail.safety
     else:
         # Engine pin: Dummy chat always uses dummy_orchestrator.respond(engine="lambda")
         # through fuse_turn — never the SimRunner stub, even if ARIA_BEDROCK_ENABLED=true.
@@ -291,6 +317,13 @@ def run_turn(
         prior_spoken=prior_spoken,
     )
     envelope = speak_guard.guard_envelope(envelope, topic=spoken_in)
+    if guardrail is None:
+        # Same care line /ai/chat and the phone lead a coaching reply with.
+        envelope = aria_guidance_policy.with_care_line(
+            envelope,
+            spoken_in,
+            safety_band=str(envelope.get("guidance_band") or guidance.COACH),
+        )
 
     wall_ms = int((time.perf_counter() - started) * 1000)
     cpu1 = _cpu_seconds()
@@ -373,6 +406,7 @@ def run_local_chat_turn(body: dict[str, Any], *, user_id: str) -> dict[str, Any]
         voice_mode=bool(payload.get("voice_mode")),
         session_id=str(payload.get("session_id") or "") or None,
         persist_log=bool(payload.get("persist_log", True)),
+        triage_topic=payload.get("triage_topic"),
     )
 
 
@@ -406,6 +440,8 @@ class ChatSession:
             self.config_dir
         )
         self.history: list[dict[str, str]] = []
+        # Pending voice-first triage question, echoed on the next turn.
+        self.pending_triage: str | None = None
         self.last_turn_id: str | None = None
         self.last_rating: str | None = None
         self.log_path: str | None = None
@@ -426,10 +462,33 @@ class ChatSession:
             config_dir=self.config_dir,
             last_rating=self.last_rating,
             commit_sha=self.commit_sha,
+            triage_topic=self.pending_triage,
+        )
+        # A triage question is answered exactly once; the next turn is fresh
+        # unless this reply opened a new one.
+        safety = result.get("safety") if isinstance(result.get("safety"), dict) else {}
+        self.pending_triage = (
+            str(safety.get("reply_topic") or "") or None
+            if safety.get("phase") == "triage"
+            else None
         )
         # Consume a thumbs-down warmer after exactly one reply.
         self.last_rating = None
-        self.history.append({"role": "user", "content": str(message)})
+        # Safety-session turns (emergency, triage, the triage answer) never
+        # re-enter later rows via request_history: "no, it was an accident"
+        # only reads as harmless on its own.
+        band = str(result.get("guidance_band") or "")
+        private = isinstance(result.get("safety"), dict) or band in (
+            guidance.EMERGENCY,
+            guidance.TRIAGE,
+            guidance.CARE,
+        )
+        self.history.append(
+            {
+                "role": "user",
+                "content": chatlog.REDACTED_USER_TURN if private else str(message),
+            }
+        )
         self.history.append({"role": "assistant", "content": str(result.get("message") or "")})
         self.last_turn_id = str(result.get("turn_id") or "")
         self.log_path = result.get("log_path")
@@ -441,6 +500,7 @@ class ChatSession:
 
     def reset(self) -> None:
         self.history = []
+        self.pending_triage = None
         self.last_turn_id = None
         self.last_rating = None
         self.session_id = f"sess-{uuid.uuid4().hex[:12]}"
