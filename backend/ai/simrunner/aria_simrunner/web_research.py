@@ -249,9 +249,13 @@ class Evidence:
     sources: list[dict] = field(default_factory=list)
     via: str = "catalog"  # scout | medlineplus | pubmed | openfda | catalog
     confidence: float = 0.5
+    scout_mode: str | None = None  # offline | local | remote when via == "scout"
 
     def as_dict(self) -> dict:
-        return {"text": self.text, "sources": list(self.sources), "via": self.via, "confidence": self.confidence, "untrusted": True}
+        row = {"text": self.text, "sources": list(self.sources), "via": self.via, "confidence": self.confidence, "untrusted": True}
+        if self.scout_mode:
+            row["scout_mode"] = self.scout_mode
+        return row
 
     def cite(self) -> str:
         host = ""
@@ -404,6 +408,32 @@ def environment(lat: float, lon: float) -> EnvironmentRead | None:
 
 
 def _scout(need: ResearchNeed) -> Evidence | None:
+    """The Scout dummy. ``FORGE_SCOUT_MODE`` picks how Scout runs:
+
+    offline (default) — the Scout agent in-process over its fixture corpus;
+    local  — the Scout agent in-process over keyless public search;
+    remote — the deployed Scout server (``FORGE_SCOUT_URL``);
+    off    — skip Scout.
+    """
+    from backend.scout import modes as scout_modes
+
+    mode = scout_modes.scout_mode()
+    if mode == scout_modes.OFF:
+        return None
+    if mode == scout_modes.REMOTE:
+        if _running_on_cloud_or_prod():
+            return None
+        evidence = _scout_remote(need)
+    elif mode == scout_modes.LOCAL and _running_on_cloud_or_prod():
+        return None
+    else:
+        evidence = evidence_from_brief(scout_modes.research(need.query, topic=need.topic, mode=mode) or {})
+    if evidence is not None:
+        evidence.scout_mode = mode
+    return evidence
+
+
+def _scout_remote(need: ResearchNeed) -> Evidence | None:
     url = (os.getenv("FORGE_SCOUT_URL") or "").strip()
     if not url.startswith("https://"):
         return None
@@ -487,10 +517,20 @@ def _catalog(need: ResearchNeed) -> Evidence | None:
 
 
 def research(need: ResearchNeed) -> Evidence | None:
-    """Best outside evidence for one need: Scout → health APIs → catalog."""
-    if not web_enabled() or not need.query:
+    """Best outside evidence for one need: Scout dummy → health APIs → catalog.
+
+    The Scout dummy always runs (its default ``offline`` mode touches no
+    network). The direct health APIs and catalog stay behind
+    ``FORGE_DUMMY_WEB``.
+    """
+    if not need.query:
         return None
-    for source in (_scout, _health_search, _catalog):
+    evidence = _scout(need)
+    if evidence is not None and evidence.text:
+        return evidence
+    if not web_enabled():
+        return None
+    for source in (_health_search, _catalog):
         evidence = source(need)
         if evidence is not None and evidence.text:
             return evidence

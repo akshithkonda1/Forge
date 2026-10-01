@@ -67,12 +67,16 @@ class Scout:
         fetch: Fetcher | None = None,
         cache: BriefCache | None = None,
         clock: Callable[[], float] = time.monotonic,
+        synth_reserve_seconds: float = SYNTH_RESERVE_SECONDS,
     ) -> None:
         self.brain = brain or RulesBrain()
         self.searcher = searcher or SearxngClient()
         self.fetch = fetch
         self.cache = cache if cache is not None else BriefCache()
         self.clock = clock
+        # Time held back for the brain's synthesis. Grok needs ~9 s; the rules
+        # brain needs almost none, so in-process Scouts lend it to search.
+        self.synth_reserve = synth_reserve_seconds
 
     def research(self, query: str, *, topic: str = "", budget_seconds: float = DEFAULT_BUDGET_SECONDS) -> dict:
         started = self.clock()
@@ -90,11 +94,11 @@ class Scout:
             return max(0.0, budget_seconds - (self.clock() - started))
 
         queries = self.brain.plan(safe, topic=topic) or [safe]
-        hits = self._search_all(queries, timeout=max(0.5, min(5.0, left() - SYNTH_RESERVE_SECONDS - 1.0)))
+        hits = self._search_all(queries, timeout=max(0.5, min(5.0, left() - self.synth_reserve - 1.0)))
         ranked = rank_hits(hits, limit=MAX_PAGES)
         if not ranked:
             return _empty_brief(safe, topic, reason="no_results", queries=queries)
-        pages = read_pages(ranked, fetch=self.fetch, deadline_seconds=max(0.5, min(6.5, left() - SYNTH_RESERVE_SECONDS)))
+        pages = read_pages(ranked, fetch=self.fetch, deadline_seconds=max(0.5, min(6.5, left() - self.synth_reserve)))
         if not pages:
             return _empty_brief(safe, topic, reason="unreadable", queries=queries)
         synthesis: Synthesis = self.brain.synthesize(safe, pages)

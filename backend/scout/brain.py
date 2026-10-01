@@ -89,6 +89,11 @@ class RulesBrain:
                     continue
                 candidates.append((overlap * (0.5 + page.trust), sentence, page))
         candidates.sort(key=lambda item: item[0], reverse=True)
+        # Supporting points must be about the question, not share one stray
+        # word with it ("adults"): keep sentences within half the best score.
+        if candidates:
+            floor = candidates[0][0] * 0.5
+            candidates = [c for c in candidates if c[0] >= floor]
         points: list[Point] = []
         used_pages: set[str] = set()
         for _score, sentence, page in candidates:

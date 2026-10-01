@@ -303,5 +303,120 @@ class ServerTests(unittest.TestCase):
         self.assertTrue(authorized("x", "x"))
 
 
+
+# --- Scout dummy: offline fixtures, keyless local search, modes -------------
+
+from unittest.mock import patch  # noqa: E402
+
+from backend.scout import fixtures as scout_fixtures  # noqa: E402
+from backend.scout import keyless  # noqa: E402
+from backend.scout import modes as scout_modes  # noqa: E402
+
+
+class FixtureCorpusTests(unittest.TestCase):
+    def test_every_page_is_https_public_health(self):
+        for page in scout_fixtures.PAGES:
+            self.assertTrue(page.url.startswith("https://"), page.url)
+            self.assertGreaterEqual(trust_for_host(page.url.split("/")[2]), 0.9, page.url)
+            self.assertTrue(page.topics)
+
+    def test_search_is_deterministic_and_topic_aware(self):
+        first = scout_fixtures.FixtureSearcher("sleep").search("how much sleep adults")
+        second = scout_fixtures.FixtureSearcher("sleep").search("how much sleep adults")
+        self.assertEqual([h.url for h in first], [h.url for h in second])
+        self.assertIn("cdc.gov/sleep", first[0].url)
+        self.assertEqual(scout_fixtures.FixtureSearcher().search(""), [])
+
+    def test_fetch_known_and_unknown(self):
+        url = scout_fixtures.PAGES[0].url
+        self.assertEqual(scout_fixtures.fixture_fetch(url)[0], url)
+        with self.assertRaises(LookupError):
+            scout_fixtures.fixture_fetch("https://example.com/none")
+
+
+WIKI = json.dumps({"query": {"pages": {
+    "2": {"index": 2, "title": "Sleep deprivation", "fullurl": "https://en.wikipedia.org/wiki/Sleep_deprivation", "extract": "Sleep deprivation is a condition of not having adequate sleep."},
+    "1": {"index": 1, "title": "Sleep", "fullurl": "https://en.wikipedia.org/wiki/Sleep", "extract": "Sleep is a state of reduced mental and physical activity."},
+    "3": {"index": 3, "title": "Bad", "fullurl": "http://insecure", "extract": "x"},
+}}}).encode()
+DDG = json.dumps({"Heading": "Creatine", "AbstractText": "Creatine is an organic compound found in muscle.", "AbstractURL": "https://en.wikipedia.org/wiki/Creatine"}).encode()
+MEDLINE = (b'<nlmSearchResult><list><document url="https://medlineplus.gov/healthysleep.html">'
+           b'<content name="title">Healthy &lt;span&gt;Sleep&lt;/span&gt;</content>'
+           b'<content name="FullSummary">&lt;p&gt;Adults need seven or more hours of sleep.&lt;/p&gt;</content>'
+           b'</document></list></nlmSearchResult>')
+PM_IDS = b'{"esearchresult":{"idlist":["111"]}}'
+PM_SUM = b'{"result":{"uids":["111"],"111":{"title":"Sleep and recovery in athletes.","source":"J Sports Sci","pubdate":"2023 Jan"}}}'
+
+
+class KeylessTests(unittest.TestCase):
+    def test_parsers(self):
+        wiki = keyless.parse_wikipedia(WIKI)
+        self.assertEqual([h.title for h in wiki], ["Sleep", "Sleep deprivation"])
+        self.assertEqual(keyless.parse_duckduckgo(DDG)[0].engines, ["duckduckgo"])
+        self.assertEqual(keyless.parse_duckduckgo(b'{"AbstractText":""}'), [])
+        med = keyless.parse_medlineplus(MEDLINE)
+        self.assertEqual(med[0].title, "Healthy Sleep")
+        self.assertNotIn("<p>", med[0].snippet)
+        self.assertEqual(keyless.pubmed_ids(PM_IDS), ["111"])
+        self.assertEqual(keyless.parse_pubmed(PM_IDS, PM_SUM)[0].url, "https://pubmed.ncbi.nlm.nih.gov/111/")
+        for bad in (b"junk", b"{}"):
+            self.assertEqual(keyless.parse_wikipedia(bad), [])
+            self.assertEqual(keyless.parse_medlineplus(bad), [])
+
+    def _transport(self, url, timeout):
+        for needle, body in (("wikipedia", WIKI), ("duckduckgo", DDG), ("wsearch", MEDLINE), ("esearch", PM_IDS), ("esummary", PM_SUM)):
+            if needle in url:
+                return body
+        raise OSError("no route")
+
+    def test_searcher_merges_all_sources(self):
+        hits = keyless.KeylessSearcher(transport=self._transport).search("sleep adults")
+        self.assertEqual(
+            {e for h in hits for e in h.engines},
+            {"wikipedia", "duckduckgo", "medlineplus", "pubmed"},
+        )
+
+    def test_searcher_fails_soft(self):
+        def down(url, timeout):
+            raise OSError("down")
+        self.assertEqual(keyless.KeylessSearcher(transport=down).search("sleep"), [])
+
+    def test_local_scout_end_to_end_reads_snippets(self):
+        scout = scout_agent.Scout(
+            brain=RulesBrain(),
+            searcher=keyless.KeylessSearcher(transport=self._transport),
+            fetch=keyless.snippet_fetch,
+            synth_reserve_seconds=1.0,
+        )
+        brief = scout.research("how much sleep do adults need", topic="sleep")
+        self.assertTrue(brief["answer"])
+        self.assertIn("medlineplus.gov", {s["host"] for s in brief["sources"]})
+
+
+class ModeTests(unittest.TestCase):
+    def setUp(self):
+        scout_modes.reset_for_tests()
+
+    def test_mode_resolution(self):
+        self.assertEqual(scout_modes.scout_mode({}), "offline")
+        self.assertEqual(scout_modes.scout_mode({"FORGE_SCOUT_MODE": "LOCAL"}), "local")
+        self.assertEqual(scout_modes.scout_mode({"FORGE_SCOUT_MODE": "bogus"}), "offline")
+
+    def test_offline_research_is_cited_and_networkless(self):
+        with patch("urllib.request.urlopen") as net:
+            brief = scout_modes.research("how much sleep do adults need", topic="sleep", mode="offline")
+        net.assert_not_called()
+        self.assertEqual(brief["mode"], "offline")
+        self.assertEqual({s["host"] for s in brief["sources"]}, {"www.cdc.gov", "www.nhlbi.nih.gov"})
+
+    def test_remote_and_off_have_no_in_process_scout(self):
+        for mode in ("remote", "off"):
+            self.assertIsNone(scout_modes.in_process_scout(mode))
+            self.assertIsNone(scout_modes.research("sleep", mode=mode))
+
+    def test_off_topic_offline_question_returns_none(self):
+        self.assertIsNone(scout_modes.research("quantum chromodynamics lattice", mode="offline"))
+
+
 if __name__ == "__main__":
     unittest.main()

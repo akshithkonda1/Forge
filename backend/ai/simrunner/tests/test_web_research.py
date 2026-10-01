@@ -235,9 +235,12 @@ class ExpandedGatingTests(unittest.TestCase):
     NEED = ResearchNeed(query="creatine sleep", topic="nutrition", why="test")
 
     def setUp(self):
-        self._saved = {k: os.environ.get(k) for k in ("FORGE_DUMMY_WEB", "FORGE_SCOUT_URL", "ENVIRONMENT", "AWS_LAMBDA_FUNCTION_NAME")}
+        self._saved = {k: os.environ.get(k) for k in ("FORGE_DUMMY_WEB", "FORGE_SCOUT_URL", "FORGE_SCOUT_MODE", "ENVIRONMENT", "AWS_LAMBDA_FUNCTION_NAME")}
         for k in self._saved:
             os.environ.pop(k, None)
+        from backend.scout import modes as scout_modes
+
+        scout_modes.reset_for_tests()
 
     def tearDown(self):
         for key, value in self._saved.items():
@@ -246,18 +249,29 @@ class ExpandedGatingTests(unittest.TestCase):
             else:
                 os.environ[key] = value
 
-    def test_dark_by_default(self):
+    def test_default_is_offline_scout_with_no_network(self):
         with patch.object(web_research, "urlopen") as mock_urlopen:
-            self.assertIsNone(web_research.research(self.NEED))
+            evidence = web_research.research(ResearchNeed("how much sleep do adults need", "sleep", "t"))
             self.assertIsNone(web_research.environment(40.71, -74.01))
         mock_urlopen.assert_not_called()
+        self.assertEqual((evidence.via, evidence.scout_mode), ("scout", "offline"))
+        self.assertTrue(evidence.cite().startswith("From cdc.gov:"))
 
-    def test_refuses_in_cloud_even_when_enabled(self):
-        os.environ["FORGE_DUMMY_WEB"] = "1"
-        os.environ["AWS_LAMBDA_FUNCTION_NAME"] = "forge-api"
+    def test_scout_off_and_web_off_is_dark(self):
+        os.environ["FORGE_SCOUT_MODE"] = "off"
         with patch.object(web_research, "urlopen") as mock_urlopen:
             self.assertIsNone(web_research.research(self.NEED))
         mock_urlopen.assert_not_called()
+
+    def test_refuses_network_in_cloud_even_when_enabled(self):
+        os.environ["FORGE_DUMMY_WEB"] = "1"
+        os.environ["AWS_LAMBDA_FUNCTION_NAME"] = "forge-api"
+        for mode in ("local", "remote"):
+            os.environ["FORGE_SCOUT_MODE"] = mode
+            os.environ["FORGE_SCOUT_URL"] = "https://api.example.com/scout/research"
+            with patch.object(web_research, "urlopen") as mock_urlopen:
+                self.assertIsNone(web_research.research(self.NEED))
+            mock_urlopen.assert_not_called()
 
     def _responses(self, mapping):
         def fake(request, timeout=0):
@@ -268,19 +282,21 @@ class ExpandedGatingTests(unittest.TestCase):
             raise URLError("no route")
         return fake
 
-    def test_scout_first(self):
+    def test_remote_scout_first(self):
         os.environ["FORGE_DUMMY_WEB"] = "1"
+        os.environ["FORGE_SCOUT_MODE"] = "remote"
         os.environ["FORGE_SCOUT_URL"] = "https://api.example.com/scout/research"
         brief = b'{"answer":"Creatine may blunt some sleep-loss effects.","sources":[{"title":"PubMed","url":"https://pubmed.ncbi.nlm.nih.gov/1/"}],"confidence":0.7}'
         with patch.object(web_research, "urlopen", side_effect=self._responses({"scout/research": brief})) as m:
             ev = web_research.research(self.NEED)
-        self.assertEqual(ev.via, "scout")
+        self.assertEqual((ev.via, ev.scout_mode), ("scout", "remote"))
         sent = m.call_args_list[0].args[0]
         self.assertEqual(sent.get_method(), "POST")
         self.assertIn(b"creatine sleep", sent.data)
 
     def test_falls_back_to_health_apis_then_catalog(self):
         os.environ["FORGE_DUMMY_WEB"] = "1"
+        os.environ["FORGE_SCOUT_MODE"] = "off"
         with patch.object(web_research, "urlopen", side_effect=self._responses({"wsearch.nlm.nih.gov": MEDLINE_XML})):
             self.assertEqual(web_research.research(self.NEED).via, "medlineplus")
         with patch.object(web_research, "urlopen", side_effect=self._responses({"esearch": PUBMED_IDS, "esummary": PUBMED_SUMMARY})):
