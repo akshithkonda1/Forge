@@ -283,9 +283,12 @@ class ServerTests(unittest.TestCase):
         status, brief = self._post({"query": "how much sleep do adults need", "topic": "sleep"})
         self.assertEqual(status, 200)
         self.assertTrue(brief["answer"])
-        self.assertEqual(self._post({"query": "sleep"})[0], 200)
-        self.assertEqual(self._post({"query": "sleep"})[0], 429)
-        self.assertEqual(self._post({"query": "sleep"}, user="u2")[0], 200)
+        self.assertEqual(self._post({"query": "sleep adults"})[0], 200)
+        # A one-term handoff never activates, so it does not spend the budget.
+        status, decision = self._post({"query": "sleep"})
+        self.assertEqual((status, decision["activate"]), (200, False))
+        self.assertEqual(self._post({"query": "sleep adults"})[0], 429)
+        self.assertEqual(self._post({"query": "sleep adults"}, user="u2")[0], 200)
 
     def test_bad_body(self):
         self.assertEqual(self._post({"nope": 1})[0], 400)
