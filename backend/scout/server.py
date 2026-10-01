@@ -1,18 +1,13 @@
-"""Scout's HTTP surface. Stdlib ``ThreadingHTTPServer`` behind Caddy (TLS).
+"""Scout's HTTP surface. Stdlib ThreadingHTTPServer behind Caddy (TLS).
 
-Request path in production:
-
-    iPhone ──JWT──▶ API Gateway (Cognito authorizer)
-                     │  injects x-scout-key (shared secret) + x-forge-user (JWT sub)
-                     ▼
-                  Caddy :443 on the Scout EC2 ──▶ this server :8088 ──▶ SearXNG
-
-Fail-closed: with no ``SCOUT_SHARED_KEY`` configured every research call is
-refused. Only ``GET /healthz`` is open. Query text is never logged.
+The process stays up. It does not search until gate.evaluate says the turn
+is a lookup. The mission brief is scrubbed keywords only. Pages and the
+mission are dumped when the run ends. Query text is never logged.
 
 Routes:
-  POST /research   {"query": str, "topic": str?}  → brief JSON
-  GET  /healthz    → {"ok": true, "brain": "grok"|"rules"}
+  POST /gate       {prompt|query} -> activate decision, no search
+  POST /research   {prompt|query, topic?} -> brief, or activate=false
+  GET  /healthz
 """
 
 from __future__ import annotations
@@ -26,6 +21,8 @@ import time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 from .agent import Scout
+from .gate import evaluate
+from .retention import working_set
 
 _log = logging.getLogger("forge.scout")
 
@@ -35,8 +32,6 @@ PER_USER_PER_HOUR = 30
 
 
 class RateLimiter:
-    """Sliding one-hour window per user, plus a global concurrency cap."""
-
     def __init__(self, *, per_hour: int = PER_USER_PER_HOUR, concurrent: int = MAX_CONCURRENT_JOBS, clock=time.monotonic) -> None:
         self._per_hour = per_hour
         self._clock = clock
@@ -70,9 +65,9 @@ def authorized(header_value: str | None, expected: str | None) -> bool:
 
 def make_handler(scout: Scout, limiter: RateLimiter, shared_key: str | None, brain_name: str):
     class Handler(BaseHTTPRequestHandler):
-        server_version = "ForgeScout/1.0"
+        server_version = "ForgeScout/1.1"
 
-        def log_message(self, fmt: str, *args) -> None:  # noqa: A003 — keep query strings out of logs
+        def log_message(self, fmt: str, *args) -> None:
             _log.info("%s %s", self.command, self.path.split("?", 1)[0])
 
         def _send(self, status: int, payload: dict) -> None:
@@ -84,34 +79,55 @@ def make_handler(scout: Scout, limiter: RateLimiter, shared_key: str | None, bra
             self.end_headers()
             self.wfile.write(body)
 
-        def do_GET(self) -> None:  # noqa: N802
+        def do_GET(self) -> None:
             if self.path == "/healthz":
                 self._send(200, {"ok": True, "brain": brain_name})
                 return
             self._send(404, {"message": "Not found."})
 
-        def do_POST(self) -> None:  # noqa: N802
-            if self.path.split("?", 1)[0] != "/research":
-                self._send(404, {"message": "Not found."})
-                return
-            if not authorized(self.headers.get("x-scout-key"), shared_key):
-                self._send(401, {"message": "Unauthorized."})
-                return
-            user = (self.headers.get("x-forge-user") or "anonymous").strip()[:128]
+        def _read_body(self) -> dict | None:
             try:
                 length = int(self.headers.get("Content-Length") or 0)
             except ValueError:
                 length = -1
             if length <= 0 or length > MAX_BODY_BYTES:
                 self._send(400, {"message": "Body must be JSON under 4 KB."})
-                return
+                return None
             try:
                 body = json.loads(self.rfile.read(length).decode("utf-8"))
             except (ValueError, UnicodeDecodeError):
                 self._send(400, {"message": "Body must be JSON."})
+                return None
+            if not isinstance(body, dict):
+                self._send(400, {"message": "Body must be a JSON object."})
+                return None
+            return body
+
+        def _prompt(self, body: dict) -> str | None:
+            raw = body.get("prompt") if isinstance(body.get("prompt"), str) else body.get("query")
+            if not isinstance(raw, str) or not raw.strip():
+                self._send(400, {"message": "Body must include a 'prompt' or 'query' string."})
+                return None
+            return raw
+
+        def do_POST(self) -> None:
+            path = self.path.split("?", 1)[0]
+            if path not in ("/research", "/gate"):
+                self._send(404, {"message": "Not found."})
                 return
-            if not isinstance(body, dict) or not isinstance(body.get("query"), str):
-                self._send(400, {"message": "Body must include a 'query' string."})
+            if not authorized(self.headers.get("x-scout-key"), shared_key):
+                self._send(401, {"message": "Unauthorized."})
+                return
+            user = (self.headers.get("x-forge-user") or "anonymous").strip()[:128]
+            body = self._read_body()
+            if body is None:
+                return
+            prompt = self._prompt(body)
+            if prompt is None:
+                return
+            decision = evaluate(prompt)
+            if path == "/gate" or not decision.activate or decision.mission is None:
+                self._send(200, decision.as_dict())
                 return
             if not limiter.allow(user):
                 self._send(429, {"message": "Scout is resting — try again later."})
@@ -121,7 +137,12 @@ def make_handler(scout: Scout, limiter: RateLimiter, shared_key: str | None, bra
                 return
             try:
                 started = time.monotonic()
-                brief = scout.research(body["query"], topic=str(body.get("topic") or ""))
+                with working_set() as held:
+                    held.mission = decision.mission.question
+                    brief = scout.research(held.mission, topic=str(body.get("topic") or ""))
+                brief["activate"] = True
+                brief["reason"] = decision.reason
+                brief["mission"] = decision.mission.as_dict()
                 _log.info(
                     "research brain=%s sources=%d cached=%s ms=%d",
                     brief.get("brain"), len(brief.get("sources") or []), brief.get("cached"),
@@ -137,7 +158,7 @@ def make_handler(scout: Scout, limiter: RateLimiter, shared_key: str | None, bra
     return Handler
 
 
-def serve(host: str = "0.0.0.0", port: int | None = None) -> None:  # noqa: S104 — container-internal
+def serve(host: str = "0.0.0.0", port: int | None = None) -> None:
     from .brain import default_brain
 
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s %(message)s")
