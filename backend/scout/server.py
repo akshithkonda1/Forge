@@ -1,8 +1,9 @@
-"""Scout's HTTP surface. Stdlib ThreadingHTTPServer behind Caddy (TLS).
+"""Scout's HTTP surface.
 
-The process stays up. It does not search until gate.evaluate says the turn
-is a lookup. The mission brief is scrubbed keywords only. Pages and the
-mission are dumped when the run ends. Query text is never logged.
+The process stays up. A full prompt is gated. A query-only body is an
+already-decided handoff: scrubbed again, still refused if it is a crisis,
+then searched. Pages and the mission are dumped when the run ends.
+Query text is never logged.
 
 Routes:
   POST /gate       {prompt|query} -> activate decision, no search
@@ -21,7 +22,7 @@ import time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 from .agent import Scout
-from .gate import evaluate
+from .gate import evaluate, from_handoff
 from .retention import working_set
 
 _log = logging.getLogger("forge.scout")
@@ -125,7 +126,9 @@ def make_handler(scout: Scout, limiter: RateLimiter, shared_key: str | None, bra
             prompt = self._prompt(body)
             if prompt is None:
                 return
-            decision = evaluate(prompt)
+            # A full prompt is gated. A query-only body is an already-decided handoff.
+            already = body.get("handoff") is True or not isinstance(body.get("prompt"), str)
+            decision = from_handoff(prompt) if already and path == "/research" else evaluate(prompt)
             if path == "/gate" or not decision.activate or decision.mission is None:
                 self._send(200, decision.as_dict())
                 return
