@@ -5,9 +5,8 @@ Scout's process can stay up. It must not search on every chat turn. ARIA
 scrubbed keywords plus a mission, never the raw message, never names,
 numbers, or samples. A no means ARIA keeps talking and Scout stays idle.
 
-This gate is deterministic on purpose. A later small classifier can replace
-the cue lists without changing the brief shape. Crisis language never
-activates Scout — guidance owns those turns.
+``from_handoff`` is for a caller that already decided. It still scrubs and
+still refuses crisis language. It does not require a lookup cue.
 """
 
 from __future__ import annotations
@@ -21,82 +20,31 @@ _RELATION = re.compile(
     r"\b(?:wife|husband|partner|girlfriend|boyfriend|mom|dad|mother|father|son|daughter|brother|sister)\s+[A-Z][a-z]+\b"
 )
 
-# Phrases that mean "this answer is not in the session." Bias toward firing:
-# a false positive is one unused brief; a false negative is a stale answer.
 _LOOKUP_CUES = (
-    "look up",
-    "look this up",
-    "search for",
-    "what is",
-    "what are",
-    "what does",
-    "what's the latest",
-    "whats the latest",
-    "latest on",
-    "how does",
-    "how do",
-    "how much",
-    "how many",
-    "how long",
-    "how often",
-    "is it true",
-    "is it safe",
-    "evidence",
-    "studies",
-    "study on",
-    "research on",
-    "side effects",
-    "versus",
-    " vs ",
-    "definition of",
-    "what happened",
-    "news about",
-    "weather",
-    "air quality",
-    "aqi",
+    "look up", "look this up", "search for", "what is", "what are", "what does",
+    "what's the latest", "whats the latest", "latest on", "how does", "how do",
+    "how much", "how many", "how long", "how often", "is it true", "is it safe",
+    "evidence", "studies", "study on", "research on", "side effects", "versus",
+    " vs ", "definition of", "what happened", "news about", "weather",
+    "air quality", "aqi",
 )
 
-# Coaching and body-state turns stay inside ARIA. These lose to an explicit
-# lookup cue ("look up whether I should train") so the handoff still fires.
 _SESSION_CUES = (
-    "should i train",
-    "should i workout",
-    "should i work out",
-    "how did i sleep",
-    "my readiness",
-    "my recovery",
-    "my hrv",
-    "last night",
-    "leg day",
-    "today's session",
-    "todays session",
-    "how are you",
-    "good morning",
+    "should i train", "should i workout", "should i work out", "how did i sleep",
+    "my readiness", "my recovery", "my hrv", "last night", "leg day",
+    "today's session", "todays session", "how are you", "good morning",
 )
 
-# Scout does not research a crisis. Guidance / the phone owns that path.
 _SAFETY_OFF = (
-    "kill myself",
-    "want to die",
-    "end my life",
-    "don't want to live",
-    "dont want to live",
-    "suicidal",
-    "heart attack",
-    "chest pain",
-    "can't breathe",
-    "cant breathe",
-    "overdosed",
-    "overdose",
-    "not breathing",
-    "call 911",
+    "kill myself", "want to die", "end my life", "don't want to live",
+    "dont want to live", "suicidal", "heart attack", "chest pain",
+    "can't breathe", "cant breathe", "overdosed", "overdose",
+    "not breathing", "call 911",
 )
 
 
 @dataclass
 class MissionBrief:
-    """What Scout is allowed to see. Already scrubbed."""
-
     question: str
     terms: list[str]
     prefer: list[str] = field(default_factory=list)
@@ -135,8 +83,15 @@ def _prefer(terms: list[str]) -> list[str]:
     return ["web"]
 
 
+def _mission(text: str, private_terms) -> MissionBrief | None:
+    scrubbed = scrub_query(text, private_terms)
+    terms = [part for part in scrubbed.split() if part]
+    if len(terms) < 2:
+        return None
+    return MissionBrief(question=scrubbed, terms=terms, prefer=_prefer(terms), retain=False)
+
+
 def evaluate(prompt: str, private_terms: tuple[str, ...] | list[str] = ()) -> GateDecision:
-    """Flip Scout on only when this prompt is a lookup, and only with a brief."""
     text = str(prompt or "").strip()
     if not text:
         return GateDecision(False, "empty")
@@ -144,16 +99,24 @@ def evaluate(prompt: str, private_terms: tuple[str, ...] | list[str] = ()) -> Ga
     lower = text.lower()
     if _has(lower, _SAFETY_OFF):
         return GateDecision(False, "safety")
-    scrubbed = scrub_query(text, private_terms)
-    terms = [part for part in scrubbed.split() if part]
     explicit = _has(lower, _LOOKUP_CUES)
     session = _has(lower, _SESSION_CUES) and not explicit
-    if session or not explicit or len(terms) < 2:
-        return GateDecision(False, "session" if session or not explicit else "no_terms")
-    mission = MissionBrief(
-        question=scrubbed,
-        terms=terms,
-        prefer=_prefer(terms),
-        retain=False,
-    )
+    if session or not explicit:
+        return GateDecision(False, "session")
+    mission = _mission(text, private_terms)
+    if mission is None:
+        return GateDecision(False, "no_terms")
     return GateDecision(True, "lookup", mission)
+
+
+def from_handoff(query: str, private_terms: tuple[str, ...] | list[str] = ()) -> GateDecision:
+    """Caller already decided this is a lookup. Still scrub. Still refuse a crisis."""
+    text = _RELATION.sub(" ", str(query or "").strip())
+    if not text:
+        return GateDecision(False, "empty")
+    if _has(text.lower(), _SAFETY_OFF):
+        return GateDecision(False, "safety")
+    mission = _mission(text, private_terms)
+    if mission is None:
+        return GateDecision(False, "no_terms")
+    return GateDecision(True, "handoff", mission)
