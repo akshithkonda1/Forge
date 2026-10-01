@@ -236,15 +236,50 @@ enum AriaWebResearch {
         }
     }
 
+    /// Settings / DEBUG override for the Scout dummy: offline, local, remote, off.
+    static let scoutModeKey = "forge.aria.scout.mode"
+
+    /// Which Scout the Dummy uses this turn.
+    ///
+    /// XCTest → `offline` (the full Scout loop over the built-in corpus, no
+    /// network). Otherwise an explicit override wins; else `remote` when the
+    /// Scout server is reachable with a signed-in session, and `local` (keyless
+    /// public search, on the phone) when it is not.
+    static var scoutMode: AriaScoutMode {
+        if NSClassFromString("XCTestCase") != nil { return .offline }
+        if let raw = UserDefaults.standard.string(forKey: scoutModeKey),
+           let mode = AriaScoutMode(rawValue: raw) {
+            return mode
+        }
+        return AriaScoutClient.isAvailable ? .remote : .local
+    }
+
     /// Best outside evidence for one research need, or nil.
+    ///
+    /// The Scout dummy runs first in its current mode; the keyless health
+    /// search and the curated catalog are the fallbacks.
     static func research(_ need: AriaResearchNeed, salt: UInt64) async -> AriaWebEvidence? {
-        guard !need.query.isEmpty,
-              liveFetchAllowed(question: need.query, domainRawValue: need.topic) else { return nil }
-        let key = "\(need.topic)|\(need.query)"
+        guard !need.query.isEmpty else { return nil }
+        let mode = scoutMode
+        if mode == .offline {
+            // No network at all — allowed in every operating mode and in tests.
+            return AriaScoutDummy.offline(query: need.query, topic: need.topic)?.evidence
+        }
+        guard liveFetchAllowed(question: need.query, domainRawValue: need.topic) else { return nil }
+        let key = "\(mode.rawValue)|\(need.topic)|\(need.query)"
         if let hit = evidenceCache[key], Date().timeIntervalSince(hit.at) < evidenceTTL {
             return hit.evidence
         }
-        var evidence = await AriaScoutClient.research(query: need.query, topic: need.topic)
+        var evidence: AriaWebEvidence?
+        if mode == .remote {
+            evidence = await AriaScoutClient.research(query: need.query, topic: need.topic)
+        }
+        if evidence == nil, mode == .remote || mode == .local {
+            // Remote unreachable → the same Scout loop runs on the phone.
+            evidence = await AriaScoutDummy.local(query: need.query, topic: need.topic) { query in
+                await AriaWebSources.keylessSearch(query)
+            }?.evidence
+        }
         if evidence == nil {
             evidence = await AriaWebSources.healthSearch(need)
         }

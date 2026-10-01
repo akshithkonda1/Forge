@@ -1154,7 +1154,12 @@ final class AriaDummyOrchestratorTests: XCTestCase {
         XCTAssertTrue(reply.message.contains("rest and fluids"), reply.message)
         XCTAssertNil(store.todayWorkout, "a sick turn must not put a session on the board")
         XCTAssertTrue(reply.confidenceReason?.contains("situation · rest") ?? false)
-        XCTAssertNil(AriaDummyOrchestrator.lastEvidence, "tests stay network-free")
+        // Under XCTest the Scout dummy runs offline: cited, deterministic, no network.
+        let evidence = AriaDummyOrchestrator.lastEvidence
+        XCTAssertEqual(evidence?.via, .scout)
+        XCTAssertEqual(evidence?.scoutMode, "offline")
+        XCTAssertEqual(evidence?.sources.first?.host, "medlineplus.gov")
+        XCTAssertTrue(reply.message.contains("From medlineplus.gov:"), reply.message)
     }
 
     func testFeelsGreatOnAShortNightCapsTheCeiling() async {

@@ -21,9 +21,10 @@ import ForgeCore
 /// and judges it case by case (`AriaSituation`) — "you feel great, but the
 /// night was short", sick vs training, an event two days out, heat or smoke
 /// outside. The verdict shapes the plan and leads the reply. When a question
-/// needs the outside world, `AriaWebResearch` brings back cited evidence
-/// (Scout → keyless health search → curated catalog) that Apple's on-device
-/// model reasons over alongside the situation read.
+/// needs the outside world, the Scout dummy researches it (`AriaScoutDummy`
+/// via `AriaWebResearch`: offline corpus, keyless local search, or the Scout
+/// server) and brings back cited evidence that Apple's on-device model
+/// reasons over alongside the situation read.
 @MainActor
 enum AriaDummyOrchestrator {
 
@@ -315,9 +316,10 @@ enum AriaDummyOrchestrator {
             grounded = "\(line) \(grounded)"
         }
         // Outside knowledge only when the situation read says the question
-        // needs it. Tests stay network-free.
+        // needs it. The Scout dummy answers first; under XCTest it runs in
+        // offline mode (built-in corpus), so tests exercise it network-free.
         var evidence: AriaWebEvidence? = nil
-        if NSClassFromString("XCTestCase") == nil, let need = situation.research.first {
+        if let need = situation.research.first {
             evidence = await AriaWebResearch.research(need, salt: seed)
         }
         lastEvidence = evidence

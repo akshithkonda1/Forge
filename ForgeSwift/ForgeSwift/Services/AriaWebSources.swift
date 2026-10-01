@@ -85,6 +85,53 @@ enum AriaWebSources {
         return nil
     }
 
+    /// Keyless live search for the Scout dummy's `local` mode: MedlinePlus,
+    /// Wikipedia, DuckDuckGo Instant Answer and PubMed, in parallel. Each hit
+    /// carries its own snippet, so no full page is ever downloaded.
+    static func keylessSearch(_ query: String) async -> [AriaScoutHit] {
+        let q = query.trimmingCharacters(in: .whitespaces)
+        guard !q.isEmpty else { return [] }
+        async let medline = keylessMedline(q)
+        async let wiki = keylessWikipedia(q)
+        async let ddg = keylessDuckDuckGo(q)
+        async let pubmed = keylessPubMed(q)
+        return await medline + wiki + ddg + pubmed
+    }
+
+    private static func keylessMedline(_ q: String) async -> [AriaScoutHit] {
+        guard let url = makeURL("https://wsearch.nlm.nih.gov/ws/query", ["db": "healthTopics", "retmax": "3", "term": q]),
+              let data = await get(url, accept: "application/xml") else { return [] }
+        return AriaScoutDummy.medlinePlusHits(data)
+    }
+
+    private static func keylessWikipedia(_ q: String) async -> [AriaScoutHit] {
+        guard let url = makeURL("https://en.wikipedia.org/w/api.php", [
+            "action": "query", "format": "json", "generator": "search", "gsrsearch": q, "gsrlimit": "3",
+            "prop": "extracts|info", "exintro": "1", "explaintext": "1", "exchars": "900", "inprop": "url",
+        ]), let data = await get(url) else { return [] }
+        return AriaScoutDummy.wikipediaHits(data)
+    }
+
+    private static func keylessDuckDuckGo(_ q: String) async -> [AriaScoutHit] {
+        guard let url = makeURL("https://api.duckduckgo.com/", [
+            "q": q, "format": "json", "no_html": "1", "skip_disambig": "1",
+        ]), let data = await get(url) else { return [] }
+        return AriaScoutDummy.duckDuckGoHits(data)
+    }
+
+    private static func keylessPubMed(_ q: String) async -> [AriaScoutHit] {
+        guard let idsURL = makeURL("https://eutils.ncbi.nlm.nih.gov/entrez/eutils/esearch.fcgi", [
+            "db": "pubmed", "term": q, "retmax": "3", "retmode": "json", "sort": "relevance",
+        ]), let idsData = await get(idsURL) else { return [] }
+        let ids = AriaWebParsers.pubmedIDs(idsData)
+        guard !ids.isEmpty,
+              let sumURL = makeURL("https://eutils.ncbi.nlm.nih.gov/entrez/eutils/esummary.fcgi", [
+                  "db": "pubmed", "id": ids.joined(separator: ","), "retmode": "json",
+              ]),
+              let sumData = await get(sumURL) else { return [] }
+        return AriaScoutDummy.pubmedHits(sumData)
+    }
+
     /// Weather + air for a coarse location. Coordinates are rounded here too,
     /// so a caller cannot accidentally send a precise fix.
     static func environment(latitude: Double, longitude: Double) async -> AriaEnvironmentRead? {

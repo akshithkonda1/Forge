@@ -36,6 +36,12 @@ enum AriaScoutClient {
         return URLSession(configuration: config)
     }()
 
+    /// True when a remote call could succeed: enabled, an https non-loopback
+    /// API, and a signed-in session to carry the Cognito JWT.
+    static var isAvailable: Bool {
+        isEnabled && endpoint() != nil && ForgeAuthClient.shared.authorizationHeader() != nil
+    }
+
     static func endpoint() -> URL? {
         let base = AriaService.shared.baseURL
         guard base.scheme == "https",

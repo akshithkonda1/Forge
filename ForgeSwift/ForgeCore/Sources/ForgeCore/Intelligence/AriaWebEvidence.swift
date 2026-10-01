@@ -26,12 +26,15 @@ public struct AriaWebEvidence: Equatable, Sendable {
     public var sources: [Source]
     public var via: Via
     public var confidence: Double
+    /// Which Scout produced it when `via == .scout`: offline / local / remote.
+    public var scoutMode: String?
 
-    public init(text: String, sources: [Source], via: Via, confidence: Double = 0.5) {
+    public init(text: String, sources: [Source], via: Via, confidence: Double = 0.5, scoutMode: String? = nil) {
         self.text = text
         self.sources = sources
         self.via = via
         self.confidence = confidence
+        self.scoutMode = scoutMode
     }
 
     /// Short spoken cite: "From cdc.gov: …".

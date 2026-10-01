@@ -42,6 +42,21 @@ terraform output scout_research_url
 - Google often rate-limits data-center IPs. SearXNG keeps answering from the other
   engines, and each brief lists the engines that responded.
 
+## Scout dummy (inside the Dummy orchestrator)
+
+The Dummy carries its own Scout: the same plan → search → rank → read →
+cross-check loop with the rules brain, in four modes.
+
+| Mode | Searches | Network | Where it's used |
+|---|---|---|---|
+| `offline` | built-in corpus of public-health pages (`fixtures.py`, `AriaScoutDummy.fixtures`) | none | tests, CI, SimRunner (Python default), iOS under XCTest |
+| `local` | keyless: Wikipedia, DuckDuckGo Instant Answer, MedlinePlus, PubMed (`keyless.py`) | public APIs, no key | iOS default when the server isn't reachable |
+| `remote` | this server | Forge API (Cognito JWT) | iOS default when signed in and reachable; falls back to `local` |
+| `off` | — | — | disable Scout |
+
+Python: `FORGE_SCOUT_MODE=offline|local|remote|off` (remote also needs
+`FORGE_SCOUT_URL`). iOS: UserDefaults key `forge.aria.scout.mode`.
+
 ## Run locally
 
 ```bash
