@@ -1,0 +1,46 @@
+#!/bin/bash
+# ARIA Scout boot: Docker + compose, pull the code bundle, write secrets,
+# start Caddy → Scout → SearXNG. Rendered by scout.tf (templatefile).
+set -euo pipefail
+
+dnf install -y docker unzip openssl
+systemctl enable --now docker
+
+# Compose v2 plugin (AL2023 docker has no compose plugin in dnf).
+mkdir -p /usr/local/lib/docker/cli-plugins
+curl -fsSL -o /usr/local/lib/docker/cli-plugins/docker-compose \
+  "https://github.com/docker/compose/releases/download/${compose_version}/docker-compose-linux-aarch64"
+chmod +x /usr/local/lib/docker/cli-plugins/docker-compose
+
+# 1 GB swap so SearXNG + Scout + a Docker build fit on a 2 GB t4g.small.
+if [ ! -f /swapfile ]; then
+  dd if=/dev/zero of=/swapfile bs=1M count=1024
+  chmod 600 /swapfile
+  mkswap /swapfile
+  swapon /swapfile
+  echo '/swapfile none swap sw 0 0' >> /etc/fstab
+fi
+
+mkdir -p /opt/forge/backend
+aws s3 cp "${bundle_uri}" /tmp/scout-bundle.zip --region "${aws_region}"
+unzip -o -q /tmp/scout-bundle.zip -d /opt/forge/backend
+rm -f /tmp/scout-bundle.zip
+
+SHARED_KEY="$(aws ssm get-parameter --with-decryption --name '${shared_key_name}' \
+  --query Parameter.Value --output text --region '${aws_region}')"
+
+DEPLOY=/opt/forge/backend/scout/deploy
+umask 077
+cat > "$DEPLOY/.env" <<ENV
+SCOUT_SHARED_KEY=$SHARED_KEY
+SEARXNG_SECRET=$(openssl rand -hex 32)
+SCOUT_DOMAIN=${scout_domain}
+SCOUT_MODEL_ID=${scout_model_id}
+SEARXNG_IMAGE=${searxng_image}
+AWS_REGION=${aws_region}
+ENVIRONMENT=${environment}
+ARIA_BEDROCK_ENABLED=true
+ENV
+
+cd "$DEPLOY"
+docker compose up -d --build

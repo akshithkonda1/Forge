@@ -19,6 +19,8 @@ public enum AriaReferenceTopic: String, Sendable, CaseIterable {
     case cycle
     case fever
     case aging
+    /// Training outside in heat — hydration and heat-illness pages.
+    case heat
 }
 
 public struct AriaReferenceSource: Sendable, Equatable {
@@ -54,11 +56,13 @@ public enum AriaReferenceCatalog {
             AriaReferenceSource(title: "MedlinePlus: Exercise and Physical Fitness", url: "https://medlineplus.gov/exerciseandphysicalfitness.html"),
             AriaReferenceSource(title: "CDC: Adult Physical Activity Guidelines", url: "https://www.cdc.gov/physical-activity-basics/guidelines/adults.html"),
             AriaReferenceSource(title: "NIH: Benefits of Exercise", url: "https://www.nih.gov/health-information/benefits-exercise"),
+            AriaReferenceSource(title: "MedlinePlus: Fitness and Exercise", url: "https://medlineplus.gov/fitnessandexercise.html"),
         ],
         .nutrition: [
             AriaReferenceSource(title: "NIH: Protein Fact Sheet", url: "https://ods.od.nih.gov/factsheets/Protein-Consumer/"),
             AriaReferenceSource(title: "MedlinePlus: Healthy Eating", url: "https://medlineplus.gov/healthyeating.html"),
             AriaReferenceSource(title: "CDC: Nutrition", url: "https://www.cdc.gov/nutrition/index.html"),
+            AriaReferenceSource(title: "MedlinePlus: Fluid and Electrolyte Balance", url: "https://medlineplus.gov/fluidandelectrolytebalance.html"),
         ],
         .progress: [
             AriaReferenceSource(title: "CDC: Physical Activity Guidelines", url: "https://www.cdc.gov/physical-activity-basics/guidelines/adults.html"),
@@ -100,6 +104,10 @@ public enum AriaReferenceCatalog {
             AriaReferenceSource(title: "CDC: Measuring Physical Activity Intensity", url: "https://www.cdc.gov/physical-activity-basics/measuring/index.html"),
             AriaReferenceSource(title: "NHLBI: Physical Activity and Your Heart", url: "https://www.nhlbi.nih.gov/health/heart/physical-activity"),
             AriaReferenceSource(title: "MedlinePlus: Exercise and Physical Fitness", url: "https://medlineplus.gov/exerciseandphysicalfitness.html"),
+        ],
+        .heat: [
+            AriaReferenceSource(title: "MedlinePlus: Heat Illness", url: "https://medlineplus.gov/heatillness.html"),
+            AriaReferenceSource(title: "MedlinePlus: Fluid and Electrolyte Balance", url: "https://medlineplus.gov/fluidandelectrolytebalance.html"),
         ],
     ]
 

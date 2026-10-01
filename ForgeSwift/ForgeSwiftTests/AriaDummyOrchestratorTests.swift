@@ -1142,6 +1142,96 @@ final class AriaDummyOrchestratorTests: XCTestCase {
         return store
     }
 
+    // MARK: - Situation verdict (perception)
+
+    func testSickTurnRestsInsteadOfBuildingASession() async {
+        AriaReplyVariety.reset()
+        defer { AriaReplyVariety.reset() }
+        let store = makeStore()
+        store.dailyMetrics.totalSleep = 450
+        store.todayWorkout = nil
+        let reply = await AriaDummyOrchestrator.reply(
+            text: "I have a fever, can I still train today?",
+            store: store,
+            agent: .workout,
+            agents: ["workout"],
+            replay: true
+        )
+        let situation = AriaDummyOrchestrator.lastSituation
+        XCTAssertEqual(situation?.posture, .rest)
+        XCTAssertTrue(reply.message.contains("rest and fluids"), reply.message)
+        XCTAssertNil(store.todayWorkout, "a sick turn must not put a session on the board")
+        XCTAssertTrue(reply.confidenceReason?.contains("situation · rest") ?? false)
+        // Under XCTest the Scout dummy runs offline: cited, deterministic, no network.
+        let evidence = AriaDummyOrchestrator.lastEvidence
+        XCTAssertEqual(evidence?.via, .scout)
+        XCTAssertEqual(evidence?.scoutMode, "offline")
+        XCTAssertEqual(evidence?.sources.first?.host, "medlineplus.gov")
+        XCTAssertTrue(reply.message.contains("From medlineplus.gov:"), reply.message)
+    }
+
+    func testFeelsGreatOnAShortNightCapsTheCeiling() async {
+        AriaReplyVariety.reset()
+        defer { AriaReplyVariety.reset() }
+        let store = makeStore()
+        store.dailyMetrics.totalSleep = 300
+        store.readiness.overall = 45
+        let reply = await AriaDummyOrchestrator.reply(
+            text: "I feel great, let's go hard on leg day",
+            store: store,
+            agent: .workout,
+            agents: ["workout"],
+            replay: true
+        )
+        let situation = AriaDummyOrchestrator.lastSituation
+        XCTAssertEqual(situation?.posture, .protect)
+        XCTAssertTrue(situation?.decisions.keepLight ?? false)
+        if let workout = store.todayWorkout {
+            XCTAssertNotEqual(workout.intensity, .max)
+            XCTAssertNotEqual(workout.intensity, .high)
+        }
+        XCTAssertFalse(reply.message.isEmpty)
+    }
+
+    func testRedFlagRefersOutBeforeAnyPlan() async {
+        let store = makeStore()
+        store.todayWorkout = nil
+        let reply = await AriaDummyOrchestrator.reply(
+            // Guidance already refers chest pain; perception covers the gaps.
+            text: "shortness of breath when I run, should I keep training?",
+            store: store,
+            agent: .workout,
+            agents: ["workout"],
+            replay: true
+        )
+        XCTAssertTrue(reply.message.contains("clinician"), reply.message)
+        XCTAssertNil(store.todayWorkout)
+    }
+
+    func testAgreeDropsPushesButKeepsTheLedger() {
+        let read = AriaSituation.perceive(AriaSituationInput(prompt: "I have a fever, can I train?", sleepHours: 7.5, readiness: 80))
+        let text = "Today can handle real work. Sleep did its job.\n\nOn the board:\n• Push-up — 3 × 10"
+        let out = AriaDummyOrchestrator.agree(text, with: read)
+        XCTAssertTrue(out.hasPrefix("You're sick"), out)
+        XCTAssertFalse(out.contains("real work"))
+        XCTAssertTrue(out.contains("Sleep did its job."))
+        XCTAssertTrue(out.contains("• Push-up — 3 × 10"), "ledger bullets are never filtered")
+    }
+
+    func testPerceptionInputScrubsKnownNames() {
+        let store = makeStore()
+        let input = AriaDummyPerception.input(
+            prompt: "Sam here — how much protein should I eat?",
+            store: store,
+            grounding: .empty,
+            life: store.makeTrainerContext().lifeRead,
+            environment: nil
+        )
+        XCTAssertTrue(input.privateTerms.contains("Sam"))
+        let read = AriaSituation.perceive(input)
+        XCTAssertFalse(read.research.first?.query.contains("sam") ?? true)
+    }
+
     private func makeStore() -> AppStore {
         let store = AppStore()
         store.chatMessages = []
