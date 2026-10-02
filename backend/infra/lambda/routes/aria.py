@@ -87,6 +87,10 @@ def _insight_takeaway(prose: str) -> str:
     first = re.split(r"(?<=[.!?])\s+", text, maxsplit=1)[0].strip()
     if not first or re.search(r"\d", first) or _STUCK_UNIT.search(first):
         return ""
+    # A question is not something we landed on: "Last time we landed on Quick
+    # one first: What did last night's sleep look like…?"
+    if first.endswith("?"):
+        return ""
     if _RISK_MEMORY.search(first):
         return ""
     try:
@@ -348,9 +352,16 @@ def handle_post_ai_chat(body: dict[str, Any], *, user_id: str) -> dict:
     from services import fusion as fusion_mod
     from services import guidance
 
-    guardrail = guidance.assess(message)
+    # Voice-first triage: the client echoes the previous turn's
+    # ``safety.reply_topic`` so this answer resolves case by case. Unknown or
+    # forged tokens are dropped by the whitelist parse.
+    pending_triage = guidance.parse_triage_topic(body.get("triage_topic"))
+    triage_token = (
+        guidance.triage_reply_topic(*pending_triage) if pending_triage else None
+    )
+    guardrail = guidance.assess(message, triage_topic=triage_token)
     safety_band = guardrail.band if guardrail else guidance.COACH
-    safety_lock = safety_band in (guidance.EMERGENCY, guidance.REFER_OUT)
+    safety_lock = safety_band in guidance.SAFETY_LOCK_BANDS
 
     fused = fusion_mod.fuse_turn(
         uid,
@@ -408,6 +419,8 @@ def handle_post_ai_chat(body: dict[str, Any], *, user_id: str) -> dict:
             user_id=uid,
             turn=turn,
             guidance_band=safety_band,
+            triage_topic=triage_token,
+            relationship_level=living.relationship_level,
         )
         _merge_fusion(response, fused)
         extras = {
@@ -453,6 +466,8 @@ def handle_post_ai_chat(body: dict[str, Any], *, user_id: str) -> dict:
             user_id=uid,
             turn=turn,
             guidance_band=safety_band,
+            triage_topic=triage_token,
+            relationship_level=living.relationship_level,
         )
         response = aria_engine.generate_response_live(
             message,
@@ -465,6 +480,8 @@ def handle_post_ai_chat(body: dict[str, Any], *, user_id: str) -> dict:
             user_id=uid,
             turn=turn,
             guidance_band=safety_band,
+            triage_topic=triage_token,
+            relationship_level=living.relationship_level,
         )
     else:
         response = _checked_speak(
@@ -478,6 +495,8 @@ def handle_post_ai_chat(body: dict[str, Any], *, user_id: str) -> dict:
             user_id=uid,
             turn=turn,
             guidance_band=safety_band,
+            triage_topic=triage_token,
+            relationship_level=living.relationship_level,
         )
         response["agent"] = roster[0]
         response["agents"] = roster
@@ -581,7 +600,15 @@ def handle_post_ai_chat(body: dict[str, Any], *, user_id: str) -> dict:
 
     if memory and not voice_mode and not safety_lock:
         response["message"] = f"{memory}\n\n{response['message']}"
-    takeaway = _insight_takeaway(response.get("prose_summary") or "")
+    prose = str(response.get("prose_summary") or "")
+    from aria_core import aria_guidance_policy
+
+    care = None if safety_lock else aria_guidance_policy.care_line(message, safety_band=safety_band)
+    if care and prose.startswith(care):
+        # The care line is a caution, not a takeaway ("Last time we landed on
+        # Numbness is worth a professional opinion").
+        prose = prose[len(care):].strip()
+    takeaway = _insight_takeaway(prose)
     if (
         takeaway
         and len(takeaway) > 12

@@ -108,6 +108,41 @@ def main() -> int:
         else:
             print(f"✓ {DUMMY.relative_to(ROOT)}: no network transport")
 
+    # Dummy perception gathers on-device signals only. Weather arrives as an
+    # argument from AriaWebResearch's cache; this file must never fetch.
+    perception = SERVICES_DIR / "AriaDummyPerception.swift"
+    if not perception.is_file():
+        status = 1
+        print(f"✗ {perception.relative_to(ROOT)} not found — Dummy perception must stay network-free.")
+    else:
+        perception_hits = NETWORK_TERMS.findall(strip_comments(perception.read_text(encoding="utf-8")))
+        if perception_hits:
+            status = 1
+            print(f"✗ {perception.relative_to(ROOT)} references {sorted(set(perception_hits))} — "
+                  f"perception reads what is already on the phone; outside data belongs in AriaWebResearch.")
+        else:
+            print(f"✓ {perception.relative_to(ROOT)}: no network transport")
+
+    # The keyless health / weather sources and the Scout client are
+    # AriaWebResearch's collaborators, not public entry points: calling them
+    # from anywhere else would skip its local-testing / Test-Ready gate.
+    for name in ("AriaWebSources", "AriaScoutClient"):
+        ref = re.compile(rf"\b{name}\b")
+        own = SERVICES_DIR / f"{name}.swift"
+        stray = []
+        for path in sorted(ROOT.joinpath("ForgeSwift").rglob("*.swift")):
+            if path in (own, WEB_RESEARCH) or "Tests" in path.parts or path.name.endswith("Tests.swift"):
+                continue
+            if ref.search(strip_comments(path.read_text(encoding="utf-8"))):
+                stray.append(path)
+        if stray:
+            status = 1
+            for path in stray:
+                print(f"✗ {path.relative_to(ROOT)}: references {name} — only AriaWebResearch.swift may "
+                      f"call it, so every outside fetch stays behind the Dummy / local-testing gate.")
+        else:
+            print(f"✓ {name} is referenced only from AriaWebResearch and its own file")
+
     aging_norms = SERVICES_DIR / "AriaAgingNorms.swift"
     allowed_web = {ORCHESTRATOR, WEB_RESEARCH, DUMMY, aging_norms}
     swift_files = sorted(ROOT.joinpath("ForgeSwift").rglob("*.swift"))

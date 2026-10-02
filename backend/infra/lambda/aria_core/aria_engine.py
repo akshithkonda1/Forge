@@ -1239,6 +1239,23 @@ def _focus_domain(message: str) -> str | None:
     return None
 
 
+# Sleep asks that never say "sleep": "How was my night?", "why do I keep waking
+# up at 3am?", "did I get enough shut-eye?". Only consulted when no other
+# domain claimed the message, so "last night's run" stays training.
+_SLEEP_ASK_RE = re.compile(
+    r"\b(?:how was my night|my night|rest(?:ed)? well|well rested|waking up|"
+    r"wake up at|woke up|keep waking|shut-?eye|naps?|napp\w*|insomnia|asleep|"
+    r"hours did i get|enough rest)\b"
+)
+
+
+def _is_sleep_question(message: str) -> bool:
+    domain = _focus_domain(message)
+    if domain is not None:
+        return domain == "sleep"
+    return bool(_SLEEP_ASK_RE.search((message or "").lower()))
+
+
 def classify_request(message: str, ctx: ARIAContext) -> str:
     """Return the response_type: insight | recommendation | plan | summary | clarification."""
     text = (message or "").lower()
@@ -2196,10 +2213,16 @@ SPOKEN_OVERTRAIN = (
     "Your training has climbed fast lately, so let's ease off and rest up for a few days."
 )
 SPOKEN_SHORT_SLEEP = "You've been running short on sleep this week, so sleep comes first."
+# A sleep question under a hot training load when sleep itself is NOT short.
+# Stays on the asked topic without claiming a shortfall the data doesn't show.
+SPOKEN_SLEEP_GUARD = "Sleep is the thing to guard tonight."
 SPOKEN_PROTECT_STEP = "Keep today easy and call it a win."
 SPOKEN_SAFETY_CLOSER = "Future you says thanks."
-BUTTON_SHORT_SLEEP = "Keep today easy."
-BUTTON_OVERTRAIN = "Back off and keep today easy."
+# Card-only buttons: a concrete, sized step (never spoken — the spoken line
+# stays SPOKEN_PROTECT_STEP). "20 easy minutes" is the speak guard's own sized
+# friend step; zone 2 and mobility are the house easy-day options.
+BUTTON_SHORT_SLEEP = "Keep today easy: an easy 20 minutes or mobility, then call it."
+BUTTON_OVERTRAIN = "Back off: 20 easy minutes in zone 2 or mobility, nothing hard."
 ZONE2_SWAP = "Swap to an easy, chatty-pace zone 2."
 _SPOKEN_JARGON = re.compile(r"(?i)\b(?:overtrain\w*|overreach\w*|fatigue|deload|acwr)\b")
 
@@ -2234,8 +2257,10 @@ def spoken_safety_line(pattern: Any, load: Any = None, message: str = "") -> str
     if key in {"sleep_debt", "under_recovery"} or _sleep_protect_active(load):
         return SPOKEN_SHORT_SLEEP
     if key == "overreaching" or bool(getattr(load, "is_overtrained", False)):
-        if _focus_domain(message) == "sleep":
-            return SPOKEN_SHORT_SLEEP
+        if _is_sleep_question(message):
+            # Sleep protect is off on this branch, so "running short on sleep"
+            # would be a false claim. Stay on sleep; the card carries the load.
+            return SPOKEN_SLEEP_GUARD
         return SPOKEN_OVERTRAIN
     return ""
 
@@ -2345,7 +2370,7 @@ def _blocking_card_action(pattern: Any, load: Any = None, message: str = "") -> 
     the ordinary zone 2 swap; when they are also overtrained, prefix a
     load cue on that same card so directional scoring still sees it.
     """
-    if _focus_domain(message) == "sleep":
+    if _is_sleep_question(message):
         if _is_overtrained_load(pattern, load):
             return f"Back off the hard stuff — {ZONE2_SWAP[0].lower()}{ZONE2_SWAP[1:]}"
         if _pattern_offers_zone2(pattern):
@@ -2844,7 +2869,7 @@ def _summary_response(
         win = "You're showing up — that's the foundation."
 
     goal = ctx.profile.primary_goal
-    rec = "Hold the structure and progress one variable next block."
+    rec = "Hold the structure and add one thing next block: 2 sets a week or 5 minutes a session."
     if goal in _GOAL_FOCUS:
         rec = f"Next block: bias toward your {goal} goal — {_GOAL_FOCUS[goal]}."
     if safety:
@@ -2905,6 +2930,8 @@ def generate_response(
     user_id: str | None = None,
     turn: int | None = None,
     guidance_band: str | None = None,
+    triage_topic: str | None = None,
+    relationship_level: int | None = None,
 ) -> dict[str, Any]:
     """Top-level entry: message + context (+ permissions) -> response envelope.
 
@@ -2927,7 +2954,12 @@ def generate_response(
     # be talked around by the live model.
     from . import guidance
 
-    guardrail = guidance.assess(message, band=guidance_band)
+    guardrail = guidance.assess(
+        message,
+        band=guidance_band,
+        triage_topic=triage_topic,
+        relationship_level=relationship_level or 1,
+    )
     if guardrail is not None:
         envelope = _envelope(
             response_type="clarification",
@@ -2942,6 +2974,9 @@ def generate_response(
         envelope["restricted_domains"] = restricted
         envelope["guidance_band"] = guardrail.band
         envelope["emergency_escalation"] = guardrail.wants_escalation
+        if guardrail.safety is not None:
+            # Voice on/off + triage questions + relationship check-in.
+            envelope["safety"] = guardrail.safety
         return _attach_shared_intelligence(envelope, ctx, message)
 
     from . import contextual_learner
@@ -3072,6 +3107,8 @@ def _blocking_safety_in(text: str) -> str:
     blob = _norm_spoken(text)
     if _norm_spoken(SPOKEN_SHORT_SLEEP) in blob:
         return SPOKEN_SHORT_SLEEP
+    if _norm_spoken(SPOKEN_SLEEP_GUARD) in blob:
+        return SPOKEN_SLEEP_GUARD
     if _norm_spoken(SPOKEN_OVERTRAIN) in blob:
         return SPOKEN_OVERTRAIN
     return ""
@@ -3145,14 +3182,38 @@ def _finish_spoken_envelope(
         envelope.get("confidence"),
         hours_since=ctx.training.hours_since_last_workout,
     )
-    return envelope
+    # Care line last ("Sharp is the kind I take seriously…"): the same line
+    # Dummy and on-device lead with, after every speak rewrite so none trims it.
+    from . import aria_guidance_policy
+    from . import guidance
+
+    return aria_guidance_policy.with_care_line(
+        envelope, message, safety_band=str(envelope.get("guidance_band") or guidance.COACH)
+    )
 
 
 def _attach_shared_intelligence(envelope: dict[str, Any], ctx: ARIAContext, message: str) -> dict[str, Any]:
     """JSON facts native iOS/Android UIs decode. Never imported at module load."""
     from . import shared_intelligence
 
-    sidecar = shared_intelligence.from_aria_context(ctx, message=message)
+    from . import guidance
+
+    sidecar = shared_intelligence.from_aria_context(
+        ctx,
+        message=message,
+        safety_band=str(envelope.get("guidance_band") or guidance.COACH),
+    )
+    safety = envelope.get("safety")
+    if isinstance(safety, dict):
+        # A triage answer ("yes") only means something with its pending topic;
+        # native UIs get this turn's own decision, never a bare re-read.
+        band = str(envelope.get("guidance_band") or "")
+        sidecar["guidance"] = {
+            "band": "coachWithCare" if band == guidance.CARE else "referOut",
+            "matched": band,
+            "line": envelope.get("message"),
+            "safety": safety,
+        }
     restricted = envelope.get("restricted_domains") or []
     if "training" in restricted:
         sidecar["workoutSuggestion"] = None
@@ -3433,6 +3494,8 @@ def generate_response_live(
     user_id: str | None = None,
     turn: int | None = None,
     guidance_band: str | None = None,
+    triage_topic: str | None = None,
+    relationship_level: int | None = None,
 ) -> dict[str, Any]:
     """Top-level entry for the live path: deterministic reasoning, then a real
     Claude pass overlaid on top. Falls back to the deterministic envelope on any
@@ -3448,6 +3511,8 @@ def generate_response_live(
         user_id=user_id,
         turn=turn,
         guidance_band=guidance_band,
+        triage_topic=triage_topic,
+        relationship_level=relationship_level,
     )
     caller = converse or _default_converse
     roster = normalize_coach_agents(agents, agent)
@@ -3548,7 +3613,13 @@ def generate_response_live(
         merged.get("confidence"),
         hours_since=sanitized.training.hours_since_last_workout,
     )
-    return merged
+    # The model's prose replaced the deterministic reply; lead it again.
+    from . import aria_guidance_policy
+    from . import guidance
+
+    return aria_guidance_policy.with_care_line(
+        merged, message, safety_band=str(merged.get("guidance_band") or guidance.COACH)
+    )
 
 
 # --- Tool-use + validation (Python owns truth) -------------------------------

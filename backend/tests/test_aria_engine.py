@@ -800,7 +800,10 @@ class LiveBedrockDegradeTests(unittest.TestCase):
         resp = aria_engine.generate_response_live(
             "how did I sleep?", full_context(), converse=lambda *a: payload)
         self.assertEqual(resp["reasoning_source"], "bedrock")
-        self.assertEqual(resp["prose_summary"], "All good.")
+        # The JSON object is used and the trailing chatter is dropped. The
+        # engine may still close a step-less reply with its sized step.
+        self.assertTrue(resp["prose_summary"].startswith("All good."), resp["prose_summary"])
+        self.assertNotIn("Hope that helps", resp["prose_summary"])
 
     def test_live_falls_back_when_prose_is_missing(self):
         payload = json.dumps({"response_type": "insight", "confidence": 0.5})

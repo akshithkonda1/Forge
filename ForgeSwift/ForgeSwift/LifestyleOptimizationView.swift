@@ -177,7 +177,7 @@ struct TodaysFocusCard: View {
             ZStack(alignment: .topLeading) {
                 // Background gradient
                 LinearGradient(
-                    colors: focusArea.gradient + [focusArea.gradient.first!.opacity(0.3)],
+                    colors: focusArea.gradient + [(focusArea.gradient.first ?? .ember).opacity(0.3)],
                     startPoint: .topLeading,
                     endPoint: .bottomTrailing
                 )

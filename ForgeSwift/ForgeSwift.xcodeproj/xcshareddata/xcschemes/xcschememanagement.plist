@@ -42,6 +42,11 @@
 			<key>primary</key>
 			<true/>
 		</dict>
+		<key>AB0005000000000000000001</key>
+		<dict>
+			<key>primary</key>
+			<true/>
+		</dict>
 	</dict>
 </dict>
 </plist>

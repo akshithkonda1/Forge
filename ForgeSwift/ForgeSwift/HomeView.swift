@@ -76,6 +76,9 @@ struct HomeView: View {
                         HomeDayPreviewStrip()
                         StreakCalendarSection()
                         HomeTrendSection(isExpanded: $showTrend)
+                        // Exclusive: tomorrow's readiness forecast + pro-grade load timeline.
+                        ReadinessForecastCard()
+                        LoadTimelineView()
                             .padding(.bottom, HomeMetrics.scrollBottomClearance)
                 }
                 .padding(.horizontal, HomeMetrics.inset)

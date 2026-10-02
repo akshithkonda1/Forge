@@ -27,6 +27,11 @@
 	<key>NSCalendarsFullAccessUsageDescription</key>
 	<string>Forge reads your calendar to see busy windows so ARIA can fit training around your day, and may add labeled demo events to a Forge-owned calendar. Titles stay on this iPhone — Forge never uploads your calendar.</string>
 
+	<key>NSRemindersUsageDescription</key>
+	<string>Forge counts your open reminders — overdue, due today, high priority — so ARIA can fit training around your workload. Titles and notes stay on this iPhone and are never stored or uploaded.</string>
+	<key>NSRemindersFullAccessUsageDescription</key>
+	<string>Forge counts your open reminders — overdue, due today, high priority — so ARIA can fit training around your workload. Titles and notes stay on this iPhone and are never stored or uploaded.</string>
+
 	<key>CKSharingSupported</key>
 	<true/>
 

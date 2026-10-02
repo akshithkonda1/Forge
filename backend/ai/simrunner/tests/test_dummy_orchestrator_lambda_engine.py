@@ -230,8 +230,12 @@ class DummyARIAEngineUsesLambdaTests(unittest.TestCase):
         resp = engine.respond("Should I train today?", ctx, seed=1)
         self.assertIsInstance(resp.recommendation, str)
         self.assertTrue(resp.recommendation)
-        # Sleep lives on the spoken line; the button stays distinct.
-        self.assertEqual(resp.recommendation.rstrip("."), "Keep today easy")
+        # Sleep lives on the spoken line; the button stays distinct and
+        # carries a sized step (card-only, never spoken).
+        from aria_core.aria_engine import BUTTON_SHORT_SLEEP
+
+        self.assertEqual(resp.recommendation, BUTTON_SHORT_SLEEP)
+        self.assertTrue(resp.recommendation.startswith("Keep today easy"))
         self.assertIn("sleep", (resp.prose_summary or "").lower())
 
     def test_same_day_strength_never_says_zero_hours_since(self):
@@ -364,7 +368,9 @@ class DummyARIAEngineUsesLambdaTests(unittest.TestCase):
         )
         spoken = f"{row.get('prose_summary') or ''} {row.get('message') or ''}"
         self.assertNotIn("your training has climbed fast lately", spoken.lower())
-        self.assertIn("you've been running short on sleep", spoken.lower())
+        # sleep_debt_7d_hours = 0: never claim a shortfall the data doesn't show.
+        self.assertNotIn("you've been running short on sleep", spoken.lower())
+        self.assertIn("sleep is the thing to guard tonight", spoken.lower())
         rec = str(row.get("recommendation") or "")
         card = row.get("card") if isinstance(row.get("card"), dict) else {}
         action = str(card.get("action") or rec)

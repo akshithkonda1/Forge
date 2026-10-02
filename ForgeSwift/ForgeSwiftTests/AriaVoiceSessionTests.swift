@@ -20,6 +20,16 @@ final class AriaVoiceSessionTests: XCTestCase {
         )
     }
 
+    func testSafetySessionNeverUsesTheLiveAgent() {
+        // The 911 / triage copy is spoken on this iPhone and the answer comes
+        // back through chat; ConvAI would put its own words on an emergency.
+        XCTAssertEqual(AriaVoiceTransport.live.keepingOnDevice(true), .localTesting)
+        XCTAssertEqual(AriaVoiceTransport.dummy.keepingOnDevice(true), .dummy)
+        XCTAssertEqual(AriaVoiceTransport.localTesting.keepingOnDevice(true), .localTesting)
+        XCTAssertEqual(AriaVoiceTransport.live.keepingOnDevice(false), .live)
+        XCTAssertTrue(AriaVoiceTransport.live.keepingOnDevice(true).usesOnDeviceBrain)
+    }
+
     func testLiveIsOnlyWhenNeitherDummyNorLocal() {
         XCTAssertEqual(
             AriaVoiceTransport.resolve(shouldUseTestReadyDummy: false, isLocalTesting: false),

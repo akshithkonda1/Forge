@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<!-- The app group is the only capability this extension gets. It is used
+	     to read the three Life Context switches and the app's inbox public key,
+	     and to deposit sealed fact boxes the app alone can open.
+
+	     Deliberately absent: HealthKit, iCloud/CloudKit, keychain sharing, and
+	     any network entitlement. The extension holds a conversation the user
+	     handed over; it must not be able to send it anywhere or read anything
+	     else of theirs. -->
+	<key>com.apple.security.application-groups</key>
+	<array>
+		<string>group.com.forge.ForgeSwift</string>
+	</array>
+</dict>
+</plist>

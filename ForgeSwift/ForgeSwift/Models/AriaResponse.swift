@@ -34,6 +34,14 @@ struct AriaResponse: Codable, Equatable {
     /// Backend `safety_lock` (emergency / refer-out). Missing key → false.
     var safetyLock: Bool = false
 
+    // --- safety (guidance.py / ForgeCore AriaSafetyTriage) ---
+    /// `coach` | `first_aid` | `emergency` | `refer_out` | `triage` |
+    /// `coach_with_care`. Nil on ordinary coaching.
+    var guidanceBand: String? = nil
+    /// Voice-first safety session: voice on/off, the triage question's reply
+    /// topic, and the relationship check-in. Nil on ordinary coaching.
+    var safety: AriaSafetySession? = nil
+
     enum CodingKeys: String, CodingKey {
         case schemaVersion = "schema_version"
         case responseType = "response_type"
@@ -53,6 +61,8 @@ struct AriaResponse: Codable, Equatable {
         case toolCallsMade = "tool_calls_made"
         case toolCallsMadeCamel = "toolCallsMade"
         case safetyLock = "safety_lock"
+        case guidanceBand = "guidance_band"
+        case safety
     }
 
     init(
@@ -132,6 +142,9 @@ struct AriaResponse: Codable, Equatable {
         toolCallsMade = try c.decodeIfPresent([String].self, forKey: .toolCallsMade)
             ?? c.decodeIfPresent([String].self, forKey: .toolCallsMadeCamel)
         safetyLock = try AriaTurnSafety(from: decoder).safetyLock
+        guidanceBand = try c.decodeIfPresent(String.self, forKey: .guidanceBand)
+        // A malformed safety block must never cost the user the reply itself.
+        safety = try? c.decodeIfPresent(AriaSafetySession.self, forKey: .safety)
     }
 
     func encode(to encoder: Encoder) throws {
@@ -154,6 +167,8 @@ struct AriaResponse: Codable, Equatable {
         if safetyLock {
             try c.encode(true, forKey: .safetyLock)
         }
+        try c.encodeIfPresent(guidanceBand, forKey: .guidanceBand)
+        try c.encodeIfPresent(safety, forKey: .safety)
     }
 
     /// Best single line for the voice orb: the dedicated prose summary when the

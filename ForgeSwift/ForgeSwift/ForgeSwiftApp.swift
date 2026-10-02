@@ -56,6 +56,8 @@ struct ForgeSwiftApp: App {
                         firstName: store.userProfile.name
                             .split(separator: " ").first.map(String.init)
                     )
+                    // Facts the Share extension sealed while Forge was closed.
+                    MessageContextStore.shared.drainShareInbox()
                     Task {
                         await store.flushPendingWidgetWater(openHydrationOnSuccess: true)
                         store.publishHomeWidgets()
