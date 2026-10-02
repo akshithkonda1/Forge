@@ -40,6 +40,7 @@ SUPPRESS_IDS = {
     "F0C100000000000000000002",  # ForgeWatchWidgets
     "F0C100000000000000000003",  # ForgeWidgetExtension
     "AA00050000000000000000C1",  # ForgeMessagesExtension
+    "AB0005000000000000000001",  # ForgeShareExtension
 }
 
 MANAGEMENT_PATHS = [

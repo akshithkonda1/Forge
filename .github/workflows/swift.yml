@@ -221,11 +221,11 @@ jobs:
             COMPILER_INDEX_STORE_ENABLE=NO 2>&1 | tee /tmp/ios-release-no-dummy.log
           bin=/tmp/dd-no-dummy/Build/Products/Release-iphonesimulator/ForgeSwift.app/ForgeSwift
           test -f "$bin"
-          if grep -a -q -E "AriaDummyOrchestrator|AriaDummyTurn" "$bin"; then
+          if grep -a -q -E "AriaDummyOrchestrator|AriaDummyTurn|SyntheticMessageProvider" "$bin"; then
             echo "::error::Dummy orchestra types found in the stripped production binary"
             exit 1
           fi
-          echo "Dummy orchestra absent from the production binary."
+          echo "Dummy orchestra (and the synthetic Messages provider) absent from the production binary."
 
       - name: Compile errors (iOS, Release, Dummy stripped)
         if: failure() && needs.changes.outputs.relevant == 'true'

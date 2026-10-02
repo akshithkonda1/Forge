@@ -481,6 +481,9 @@ struct SettingsPageView: View {
                     .buttonStyle(.plain)
                 }
 
+                // Life Context — Reminders and shared conversations, off by default.
+                LifeContextSettingsSection()
+
                 // Health features
                 sectionHeader("Health Features")
                 SectionCard {

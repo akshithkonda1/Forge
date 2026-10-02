@@ -1321,6 +1321,13 @@ enum AriaDummyOrchestrator {
                 parts.append("Calendar shows \(busy) busy window\(busy == 1 ? "" : "s") today — I don't read the titles.")
             }
         }
+        // Life Context: counts and structured facts only, read on this iPhone.
+        if let reminders = RemindersManager.shared.spokenLine {
+            parts.append(reminders)
+        }
+        if let brief = MessageContextStore.shared.contextBrief() {
+            parts.append("From what you've shared with me: \(brief).")
+        }
         let notes = store.durableMemoryAnchors.prefix(4)
         if notes.isEmpty {
             parts.append("Nothing durable yet — tell me to write it down and I will.")
