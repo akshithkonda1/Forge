@@ -58,10 +58,35 @@ _VITALS_SCORE_RE = re.compile(
             r"\b(?:deep|rem|light)\s+sleep\s+(?:is|at|was)\s+\d+(?:\.\d+)?\s*%",
             r"\b(?:deep|rem|light)\s+sleep\s+(?:is|at|was)\s+[a-z]+\s+percent\b",
             r"\brem\s+is\s+light\s+at\s+\d+(?:\.\d+)?\s*%",
-            r"\bpercent\b",
         )
     ),
     re.I,
+)
+
+# Word "percent" only counts as a vitals dump when a metric word sits in the
+# same sentence within ~6 words. "hundred percent sure" is ordinary speech.
+_PERCENT_WORD = re.compile(r"(?i)\bpercent\b")
+_PERCENT_SENTENCE = re.compile(r"(?<=[.!?])\s+")
+_PERCENT_TOKEN = re.compile(r"[A-Za-z0-9]+")
+_PERCENT_NEAR_VITALS = (
+    "sleep",
+    "deep",
+    "rem",
+    "hrv",
+    "spo2",
+    "oxygen",
+    "heart rate",
+    "resting",
+    "readiness",
+    "vo2",
+    "strain",
+    "battery",
+    "bpm",
+    "mmhg",
+    "acwr",
+    "sleep debt",
+    "sleep-debt",
+    "recovery score",
 )
 
 # --- Cold bark / drill-sergeant ----------------------------------------------
@@ -203,11 +228,46 @@ def _hits(pattern: re.Pattern[str], text: str) -> list[str]:
     return [m.group(0) for m in pattern.finditer(text or "")]
 
 
+def _percent_near_vitals(text: str) -> list[str]:
+    """True hits for the word percent sitting next to a vitals term.
+
+    Window is the same sentence, about six words before or after. Digit ``%``
+    leftovers stay on ``_VITALS_SCORE_RE``.
+    """
+    blob = text or ""
+    if not _PERCENT_WORD.search(blob):
+        return []
+    terms = tuple(
+        tuple(term.replace("-", " ").split()) for term in _PERCENT_NEAR_VITALS
+    )
+    hits: list[str] = []
+    for sentence in _PERCENT_SENTENCE.split(blob) or [blob]:
+        words = [w.lower() for w in _PERCENT_TOKEN.findall(sentence)]
+        if "percent" not in words:
+            continue
+        vital_at: list[int] = []
+        for index, _word in enumerate(words):
+            for parts in terms:
+                end = index + len(parts)
+                if words[index:end] == list(parts):
+                    vital_at.extend(range(index, end))
+        if not vital_at:
+            continue
+        for index, word in enumerate(words):
+            if word != "percent":
+                continue
+            if any(abs(index - pos) <= 6 and index != pos for pos in vital_at):
+                hits.append("percent")
+                break
+    return hits
+
+
 def vitals_hits(text: str) -> list[str]:
     """Tokens / score dumps that must never appear in user-visible speak."""
     low = (text or "").lower()
     found = [tok for tok in _VITALS_TOKENS if tok in low]
     found.extend(_hits(_VITALS_SCORE_RE, text or ""))
+    found.extend(_percent_near_vitals(text or ""))
     # Preserve order, drop dupes (token + regex can both fire on "hrv 12%").
     seen: set[str] = set()
     out: list[str] = []

@@ -37,10 +37,29 @@ class GateFixturesFailOnBadSpeak(unittest.TestCase):
             "Cap it at fifteen minutes and keep the quality high.",
             "Only 20 h since strength — keep today easy.",
             "Spend the readiness on one quality session.",
+            "I'm a hundred percent sure we keep today kind.",
+            "I'm a hundred percent with you on that.",
         )
         for text in friend:
             with self.subTest(text=text):
                 self.assertEqual(sq.vitals_hits(text), [], text)
+
+    def test_vitals_gate_percent_word_needs_nearby_metric(self):
+        allowed = (
+            "hundred percent sure",
+            "a hundred percent with you on that",
+        )
+        for text in allowed:
+            with self.subTest(text=text):
+                self.assertEqual(sq.vitals_hits(text), [], text)
+        dumps = (
+            "deep sleep was twelve percent",
+            "twelve percent of your night was deep",
+            "your HRV is up ten percent",
+        )
+        for text in dumps:
+            with self.subTest(text=text):
+                self.assertTrue(sq.vitals_hits(text), text)
 
     def test_bark_gate_fails_on_crush_it_and_drill_sergeant(self):
         barks = (
@@ -81,10 +100,14 @@ class GateFixturesFailOnBadSpeak(unittest.TestCase):
             "That's a starting point, not a prescription.",
             "The week is genuinely mixed, so I wouldn't treat any single day as the story.",
             "I'm not going to talk you into spending it. Keep today kind.",
+            "I'm not giving you a diagnosis here, just how the week felt.",
         )
         for text in friend:
             with self.subTest(text=text):
                 self.assertEqual(sq.medical_hits(text), [], text)
+        denial = "I'm not giving you a diagnosis here, just how the week felt."
+        self.assertIn("diagnosis", denial.lower())
+        self.assertEqual(sq.medical_hits(denial), [])
 
     def test_sludge_and_repetition_gates_fail_on_generic_ai(self):
         sludge = "Great question! As an AI, I hope this helps. Let me know if you have any questions."
