@@ -921,7 +921,8 @@ enum ExerciseLibrary {
     static func sportSession(named: String, minutes: Int, completed: Bool) -> WorkoutPlan {
         let def = match(named) ?? sports.first { $0.name.compare(named, options: .caseInsensitive) == .orderedSame }
             ?? sports.first
-            ?? calisthenics.first!
+            ?? calisthenics.first
+            ?? preconditionFailure("ExerciseCatalog: catalog contains no sports or calisthenics definitions")
         var row = asPlanRow(def)
         row.sets = 1
         row.reps = "\(max(10, minutes)) min"
