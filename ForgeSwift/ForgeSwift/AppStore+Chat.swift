@@ -541,7 +541,7 @@ extension AppStore {
             // Harvest durable facts from this exchange (goal language, injuries, etc.).
             // Never from a safety turn — the backend skips memory there too.
             // Remember me off is still enforced inside the vault write itself.
-            if !safetyTurn {
+            if !safetyTurn, !aria.safetyLock {
                 harvestDurableMemory(userText: text, ariaText: aria.message)
             }
 

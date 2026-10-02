@@ -225,11 +225,9 @@ final class AriaService: ObservableObject {
                 contextStore.applyUpdates(updates)
             }
             var response = remote
-            // Same gate as AppStore+Chat: a safety session or a non-coach
-            // guidance band. Do not backfill a local "last time…" callback,
-            // and do not derive a plan card / training-theme pattern from it.
-            let safetyTurn = response.safety != nil
-                || (response.guidanceBand.map { $0 != AriaSafetyBand.coach } ?? false)
+            // Safety session or backend `safety_lock`: do not backfill a local
+            // "last time…" callback, and do not derive a plan card / theme.
+            let safetyTurn = response.safety != nil || response.safetyLock
             if response.memoryReference == nil, !safetyTurn {
                 response.memoryReference = contextStore.memoryReference(for: text)
             }

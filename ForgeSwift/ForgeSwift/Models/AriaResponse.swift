@@ -31,6 +31,8 @@ struct AriaResponse: Codable, Equatable {
     var memoryReference: String? = nil
     var missingFields: [String]? = nil
     var toolCallsMade: [String]? = nil
+    /// Backend `safety_lock` (emergency / refer-out). Missing key → false.
+    var safetyLock: Bool = false
 
     // --- safety (guidance.py / ForgeCore AriaSafetyTriage) ---
     /// `coach` | `first_aid` | `emergency` | `refer_out` | `triage` |
@@ -58,6 +60,7 @@ struct AriaResponse: Codable, Equatable {
         case missingFields = "missing_fields"
         case toolCallsMade = "tool_calls_made"
         case toolCallsMadeCamel = "toolCallsMade"
+        case safetyLock = "safety_lock"
         case guidanceBand = "guidance_band"
         case safety
     }
@@ -138,6 +141,7 @@ struct AriaResponse: Codable, Equatable {
         missingFields = try c.decodeIfPresent([String].self, forKey: .missingFields)
         toolCallsMade = try c.decodeIfPresent([String].self, forKey: .toolCallsMade)
             ?? c.decodeIfPresent([String].self, forKey: .toolCallsMadeCamel)
+        safetyLock = try AriaTurnSafety(from: decoder).safetyLock
         guidanceBand = try c.decodeIfPresent(String.self, forKey: .guidanceBand)
         // A malformed safety block must never cost the user the reply itself.
         safety = try? c.decodeIfPresent(AriaSafetySession.self, forKey: .safety)
@@ -160,6 +164,9 @@ struct AriaResponse: Codable, Equatable {
         try c.encodeIfPresent(memoryReference, forKey: .memoryReference)
         try c.encodeIfPresent(missingFields, forKey: .missingFields)
         try c.encodeIfPresent(toolCallsMade, forKey: .toolCallsMade)
+        if safetyLock {
+            try c.encode(true, forKey: .safetyLock)
+        }
         try c.encodeIfPresent(guidanceBand, forKey: .guidanceBand)
         try c.encodeIfPresent(safety, forKey: .safety)
     }
