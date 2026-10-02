@@ -1,16 +1,26 @@
 """Three-band Dummy / on-device guidance — coach, coach-with-care, refer-out.
 
 Python port of ForgeCore's ``AriaGuidancePolicy.swift``. The four-band
-``guidance.assess`` path (first-aid / emergency / refer_out) still runs on
-``generate_response``. This module is what Dummy and native chat use so a
+``guidance.assess`` path (first-aid / emergency / refer_out / triage) still runs
+on ``generate_response``. This module is what Dummy and native chat use so a
 Kotlin client does not reimplement the needles.
+
+Emergencies and voice-first triage are decided by ``guidance`` — the one safety
+classifier — before these needles run, so Dummy, on-device, and ``/ai/chat``
+can never disagree on a 911 turn (they did: "I think I'm having a heart
+attack" used to coach here). The decision then carries guidance's copy and its
+``safety`` session block.
 
 Stdlib only. Deterministic. Pure -- no I/O.
 """
 
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass
+from typing import Any
+
+from . import guidance as _safety
 
 COACH = "coach"
 COACH_WITH_CARE = "coachWithCare"
@@ -40,18 +50,45 @@ _REFER_OUT: tuple[tuple[str, str], ...] = (
     ("stop eating for", "I won't build that. If you want to talk about fuelling properly, I'm here for that."),
 )
 
-_CARE: tuple[tuple[str, str], ...] = (
-    ("for weeks", "Pain that's stuck around for weeks is worth getting looked at properly — I can work around it, but I can't tell you what it is."),
-    ("for months", "Months is long enough to get it assessed. I'll keep the work clear of it in the meantime."),
-    ("getting worse", "If it's trending worse rather than settling, get it seen. I'll keep today away from it."),
-    ("sharp pain", "Sharp is the kind I take seriously — worth a professional look. Nothing today should reproduce it."),
-    ("dizzy", "Dizziness I'd want a doctor's read on. Let's keep today low and off your feet where we can."),
-    ("lightheaded", "Worth mentioning to a doctor if it repeats. Today we go easy."),
-    ("can't put weight", "If you can't load it at all, that's an assessment, not a training tweak."),
-    ("swollen", "Swelling that hasn't settled deserves a look. I'll route around it."),
-    ("numb", "Numbness is worth a professional opinion. I'll keep load off it."),
-    ("pregnant", "Training through pregnancy is real and doable, but the parameters are your doctor's to set — bring me what they say and I'll build inside it."),
+_PAIN_WEEKS = "Pain that's stuck around for weeks is worth getting looked at properly — I can work around it, but I can't tell you what it is."
+_NUMB = "Numbness is worth a professional opinion. I'll keep load off it."
+
+# (needles, line, needs a body word). Needles match whole words: as substrings
+# "numb" matched "what are my numbers today". A duration or trend cue is not a
+# symptom on its own ("I've been training for weeks", "my squat is getting
+# worse"), and bare "numb" can be emotional, so those need a body word too.
+# Pregnancy is first person only: "my wife is pregnant" is not a care turn.
+_CARE: tuple[tuple[tuple[str, ...], str, bool], ...] = (
+    (("for weeks",), _PAIN_WEEKS, True),
+    (("for months",), "Months is long enough to get it assessed. I'll keep the work clear of it in the meantime.", True),
+    (("getting worse",), "If it's trending worse rather than settling, get it seen. I'll keep today away from it.", True),
+    (("sharp pain", "sharp pains"), "Sharp is the kind I take seriously — worth a professional look. Nothing today should reproduce it.", False),
+    (("dizzy",), "Dizziness I'd want a doctor's read on. Let's keep today low and off your feet where we can.", False),
+    (("lightheaded", "light headed"), "Worth mentioning to a doctor if it repeats. Today we go easy.", False),
+    (("can't put weight", "cant put weight"), "If you can't load it at all, that's an assessment, not a training tweak.", False),
+    (("swollen",), "Swelling that hasn't settled deserves a look. I'll route around it.", False),
+    (("numbness", "go numb", "goes numb", "going numb", "went numb", "gone numb"), _NUMB, False),
+    (("numb",), _NUMB, True),
+    (
+        (
+            "i'm pregnant", "im pregnant", "i am pregnant", "weeks pregnant",
+            "months pregnant", "while pregnant", "being pregnant", "my pregnancy",
+            "during pregnancy", "my first trimester", "my second trimester",
+            "my third trimester",
+        ),
+        "Training through pregnancy is real and doable, but the parameters are your doctor's to set — bring me what they say and I'll build inside it.",
+        False,
+    ),
 )
+
+_BODY_PARTS = frozenset({
+    "ankle", "ankles", "arm", "arms", "back", "calf", "calves", "chest", "elbow",
+    "elbows", "face", "finger", "fingers", "foot", "feet", "glute", "glutes",
+    "groin", "hamstring", "hamstrings", "hand", "hands", "head", "heel", "hip",
+    "hips", "jaw", "joint", "joints", "knee", "knees", "leg", "legs", "lip",
+    "lips", "neck", "quad", "quads", "rib", "ribs", "shin", "shins", "shoulder",
+    "shoulders", "spine", "thigh", "thighs", "toe", "toes", "wrist", "wrists",
+})
 
 _BODY_MARKERS = ("pain", "hurt", "sore", "injury", "ache", "strain", "symptom", "flare")
 
@@ -61,23 +98,61 @@ class GuidanceDecision:
     band: str
     matched: str | None = None
     line: str | None = None
+    # guidance.safety_session block for emergency / triage turns.
+    safety: dict[str, Any] | None = None
 
     def to_dict(self) -> dict:
-        return {"band": self.band, "matched": self.matched, "line": self.line}
+        out = {"band": self.band, "matched": self.matched, "line": self.line}
+        if self.safety is not None:
+            out["safety"] = self.safety
+        return out
 
 
 def _body_related(lower: str) -> bool:
     return any(marker in lower for marker in _BODY_MARKERS)
 
 
-def decide(text: str, guidance_only_mode: bool = False) -> GuidanceDecision:
-    lower = (text or "").lower()
+def _words(lower: str) -> str:
+    """" a b c " — letters, digits and apostrophes, so needles match whole words."""
+    return " " + " ".join(re.findall(r"[a-z0-9']+", lower)) + " "
+
+
+def _care(lower: str) -> tuple[str, str] | None:
+    words = _words(lower)
+    body = _body_related(lower) or any(f" {part} " in words for part in _BODY_PARTS)
+    for needles, line, needs_body in _CARE:
+        if needs_body and not body:
+            continue
+        for needle in needles:
+            if f" {needle} " in words:
+                return needle, line
+    return None
+
+
+def decide(
+    text: str,
+    guidance_only_mode: bool = False,
+    *,
+    safety_band: str | None = None,
+) -> GuidanceDecision:
+    """``safety_band``: the turn's already-decided ``guidance`` band, if any."""
+    lower = _safety.normalize_message(text)
+    band = safety_band if safety_band is not None else _safety.classify_band(text)
+    if band in (_safety.EMERGENCY, _safety.TRIAGE):
+        assessed = _safety.assess(text, band=band)
+        matched = next((needle for needle, _ in _REFER_OUT if needle in lower), band)
+        return GuidanceDecision(
+            band=REFER_OUT,
+            matched=matched,
+            line=assessed.prose if assessed else None,
+            safety=assessed.safety if assessed else None,
+        )
     for needle, line in _REFER_OUT:
         if needle in lower:
             return GuidanceDecision(band=REFER_OUT, matched=needle, line=line)
-    for needle, line in _CARE:
-        if needle in lower:
-            return GuidanceDecision(band=COACH_WITH_CARE, matched=needle, line=line)
+    care = _care(lower)
+    if care is not None:
+        return GuidanceDecision(band=COACH_WITH_CARE, matched=care[0], line=care[1])
     if guidance_only_mode and _body_related(lower):
         return GuidanceDecision(
             band=COACH_WITH_CARE,
@@ -85,6 +160,47 @@ def decide(text: str, guidance_only_mode: bool = False) -> GuidanceDecision:
             line="Structure and pacing from me; anything diagnostic stays with your clinician.",
         )
     return GuidanceDecision(band=COACH)
+
+
+def care_line(text: str, *, safety_band: str | None = None) -> str | None:
+    """The line a coaching reply to ``text`` leads with, or None.
+
+    Dummy, Local testing, Live and on-device all carry the same line for the
+    same turn; production used to put it only in the ``sharedIntelligence``
+    sidecar and answer "I'm pregnant, can I keep lifting?" with a sleep
+    question.
+
+    ``safety_band``: the turn's already-decided ``guidance`` band, so a turn is
+    classified once.
+    """
+    decision = decide(text, safety_band=safety_band)
+    return decision.line if decision.band == COACH_WITH_CARE else None
+
+
+def with_care_line(
+    envelope: dict[str, Any],
+    text: str,
+    *,
+    safety_band: str | None = None,
+) -> dict[str, Any]:
+    """Lead a coaching envelope's reply and spoken line with its care line.
+
+    Runs last, after every speak rewrite, so the line is never trimmed or
+    deduped away. Safety envelopes never reach here: an emergency or triage
+    turn is ``REFER_OUT``, not care.
+    """
+    line = care_line(text, safety_band=safety_band)
+    if not line:
+        return envelope
+    message = str(envelope.get("message") or "").strip()
+    prose = str(envelope.get("prose_summary") or "").strip()
+    one_line = message == prose
+    if line not in prose:
+        envelope["prose_summary"] = f"{line} {prose}".strip()
+    if line not in message:
+        joiner = " " if one_line else "\n\n"
+        envelope["message"] = f"{line}{joiner}{message}" if message else line
+    return envelope
 
 
 def should_remind_on_ordinary_turn(turn_index: int) -> bool:

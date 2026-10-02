@@ -133,7 +133,7 @@ struct SettingsPageView: View {
                             Text(AriaOperatingMode.current.badge)
                                 .font(.system(size: 11))
                                 .foregroundColor(.textMuted)
-                            ForEach(AriaOperatingMode.allCases) { mode in
+                            ForEach(AriaOperatingMode.selectableCases) { mode in
                                 Button {
                                     AriaOperatingMode.setOverride(mode)
                                 } label: {
@@ -480,6 +480,9 @@ struct SettingsPageView: View {
                     }
                     .buttonStyle(.plain)
                 }
+
+                // Life Context — Reminders and shared conversations, off by default.
+                LifeContextSettingsSection()
 
                 // Health features
                 sectionHeader("Health Features")

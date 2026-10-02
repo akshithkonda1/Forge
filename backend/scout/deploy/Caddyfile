@@ -1,0 +1,11 @@
+# Automatic HTTPS (Let's Encrypt) for the Scout host. Only /research and
+# /healthz are forwarded; everything else is a 404 at the edge.
+{$SCOUT_DOMAIN} {
+	@scout path /research /healthz
+	handle @scout {
+		reverse_proxy scout:8088
+	}
+	handle {
+		respond "Not found" 404
+	}
+}

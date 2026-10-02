@@ -184,6 +184,7 @@ final class AriaCoachAgentRouterTests: XCTestCase {
         )
     }
 
+    #if FORGE_DUMMY_ORCHESTRA
     func testCommaSplicedRunOnSpawnsBothAgents() {
         // AriaDummyTurn.clauses now splits on commas too, so a run-on with
         // no "and"/"then"/dash still reaches the clause-aware path as two
@@ -191,6 +192,7 @@ final class AriaCoachAgentRouterTests: XCTestCase {
         let parts = AriaDummyTurn.clauses(in: "I slept badly, want to hit the gym")
         XCTAssertEqual(parts.count, 2)
     }
+    #endif
 
     func testPinLeadsButDoesNotBlockOthers() {
         let ctx = AriaCoachAgentRouter.Context(pinned: .progress, cycleAvailable: false)

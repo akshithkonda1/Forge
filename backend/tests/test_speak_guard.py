@@ -860,7 +860,9 @@ class BlockingPatternSpeakTests(unittest.TestCase):
         resp = aria_engine.generate_response("How was my sleep last night?", heavy)
         spoken = f"{resp.get('message') or ''} {resp.get('prose_summary') or ''}"
         self.assertNotIn(aria_engine.SPOKEN_OVERTRAIN, spoken)
-        self.assertIn(aria_engine.SPOKEN_SHORT_SLEEP, spoken)
+        # 8 h, no 7-day debt: never claim a shortfall the data doesn't show.
+        self.assertNotIn(aria_engine.SPOKEN_SHORT_SLEEP, spoken)
+        self.assertIn(aria_engine.SPOKEN_SLEEP_GUARD, spoken)
         card = resp.get("card") or {}
         action = str(card.get("action") or "")
         self.assertEqual(

@@ -121,3 +121,13 @@ output "dev_client_configuration" {
     kotlinLocalhostClientId = aws_cognito_user_pool_client.kotlin_localhost[0].id
   } : null
 }
+
+output "scout_research_url" {
+  description = "ARIA Scout research endpoint (Cognito JWT). Empty when enable_scout is false."
+  value       = local.scout_enabled ? "${aws_apigatewayv2_api.http.api_endpoint}/scout/research" : ""
+}
+
+output "scout_host" {
+  description = "Scout EC2 TLS hostname (Caddy). Empty when enable_scout is false."
+  value       = local.scout_domain
+}

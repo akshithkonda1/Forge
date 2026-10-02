@@ -78,6 +78,14 @@ REQUIREMENTS: list[tuple[str, str, str]] = [
     (r"\bPHPhotoLibrary\b|\bPHAsset\b",
      "NSPhotoLibraryUsageDescription",
      "the photo library"),
+    # iOS 17+ aborts on requestFullAccessToReminders without the FullAccess key;
+    # the older key is still read by earlier systems and by review.
+    (r"\brequestFullAccessToReminders\b|\bfetchReminders\b|\bpredicateForIncompleteReminders\b",
+     "NSRemindersFullAccessUsageDescription",
+     "Reminders"),
+    (r"\brequestFullAccessToReminders\b|\bfetchReminders\b|\bpredicateForIncompleteReminders\b",
+     "NSRemindersUsageDescription",
+     "Reminders (legacy key)"),
 ]
 
 SKIP_DIRS = {".git", "build", "DerivedData", ".build", "node_modules", "Tests"}
@@ -94,6 +102,7 @@ TARGET_SOURCES: dict[str, list[str]] = {
     "ForgeWatchWidgets": ["ForgeSwift/ForgeWatch/Complications"],
     "ForgeWidgetExtension": ["ForgeSwift/ForgeWidgetExtension"],
     "ForgeMessagesExtension": ["ForgeSwift/ForgeMessagesExtension"],
+    "ForgeShareExtension": ["ForgeSwift/ForgeShareExtension"],
 }
 
 

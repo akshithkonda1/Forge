@@ -125,7 +125,7 @@ def honesty_score(payload: dict[str, Any] | None) -> float:
     hedged = any(h in text for h in _HEDGE)
     kind = _norm(row.get("response_type") or row.get("query_type"))
     band = _norm(row.get("guidance_band"))
-    if band in {"refer_out", "emergency", "first_aid"} or kind == "clarification":
+    if band in {"refer_out", "emergency", "first_aid", "triage", "coach_with_care"} or kind == "clarification":
         return 100.0
     if asking:
         return 100.0

@@ -444,6 +444,10 @@ enum MenstrualCycleEngine {
 
     /// Spotting-only isolated days don't open a new cycle; need light+ or multi-day bleed.
     private static func makeEpisodeIfValid(_ days: [String], logs: [CycleDayLog]) -> PeriodEpisode? {
+        // Defensive: every force-unwrap below assumes a non-empty `days`.
+        // The flow guards imply this, but state it explicitly so a future
+        // caller change can't introduce a crash.
+        guard !days.isEmpty else { return nil }
         let flows = days.compactMap { d in logs.first(where: { $0.dayKey == d })?.flow }
         let peak = flows.max(by: { $0.sortWeight < $1.sortWeight }) ?? .unspecified
         let hasRealFlow = flows.contains { $0 == .light || $0 == .medium || $0 == .heavy }

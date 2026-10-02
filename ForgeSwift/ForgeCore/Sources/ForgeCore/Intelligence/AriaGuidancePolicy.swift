@@ -37,11 +37,20 @@ public struct AriaGuidanceDecision: Sendable, Equatable {
     public var matched: String?
     /// Ready-to-use line for the two non-ordinary bands.
     public var line: String?
+    /// Voice-first safety session on 911 and triage turns: voice on/off, the
+    /// triage question's reply topic, and the relationship check-in.
+    public var safety: AriaSafetySession?
 
-    public init(band: AriaGuidanceBand, matched: String? = nil, line: String? = nil) {
+    public init(
+        band: AriaGuidanceBand,
+        matched: String? = nil,
+        line: String? = nil,
+        safety: AriaSafetySession? = nil
+    ) {
         self.band = band
         self.matched = matched
         self.line = line
+        self.safety = safety
     }
 }
 
@@ -74,30 +83,75 @@ public enum AriaGuidancePolicy {
         ("stop eating for", "I won't build that. If you want to talk about fuelling properly, I'm here for that."),
     ]
 
+    private static let painForWeeks = "Pain that's stuck around for weeks is worth getting looked at properly — I can work around it, but I can't tell you what it is."
+    private static let numbnessLine = "Numbness is worth a professional opinion. I'll keep load off it."
+
     /// Real, common, and worth naming once — then coaching anyway. These are
     /// the cases where deflecting entirely would fail someone who has a
     /// perfectly reasonable training question attached.
-    private static let care: [(needle: String, line: String)] = [
-        ("for weeks", "Pain that's stuck around for weeks is worth getting looked at properly — I can work around it, but I can't tell you what it is."),
-        ("for months", "Months is long enough to get it assessed. I'll keep the work clear of it in the meantime."),
-        ("getting worse", "If it's trending worse rather than settling, get it seen. I'll keep today away from it."),
-        ("sharp pain", "Sharp is the kind I take seriously — worth a professional look. Nothing today should reproduce it."),
-        ("dizzy", "Dizziness I'd want a doctor's read on. Let's keep today low and off your feet where we can."),
-        ("lightheaded", "Worth mentioning to a doctor if it repeats. Today we go easy."),
-        ("can't put weight", "If you can't load it at all, that's an assessment, not a training tweak."),
-        ("swollen", "Swelling that hasn't settled deserves a look. I'll route around it."),
-        ("numb", "Numbness is worth a professional opinion. I'll keep load off it."),
-        ("pregnant", "Training through pregnancy is real and doable, but the parameters are your doctor's to set — bring me what they say and I'll build inside it."),
+    ///
+    /// Needles match whole words: as substrings, "numb" matched "what are my
+    /// numbers today". A duration or trend cue is not a symptom on its own
+    /// ("I've been training for weeks", "my squat is getting worse"), and bare
+    /// "numb" can be emotional, so those need a body word too. Pregnancy is
+    /// first person only: "my wife is pregnant" is not a care turn. Mirrors
+    /// aria_guidance_policy.py; the shared corpus's "care" rows pin both.
+    private static let care: [(needles: [String], line: String, needsBody: Bool)] = [
+        (["for weeks"], painForWeeks, true),
+        (["for months"], "Months is long enough to get it assessed. I'll keep the work clear of it in the meantime.", true),
+        (["getting worse"], "If it's trending worse rather than settling, get it seen. I'll keep today away from it.", true),
+        (["sharp pain", "sharp pains"], "Sharp is the kind I take seriously — worth a professional look. Nothing today should reproduce it.", false),
+        (["dizzy"], "Dizziness I'd want a doctor's read on. Let's keep today low and off your feet where we can.", false),
+        (["lightheaded", "light headed"], "Worth mentioning to a doctor if it repeats. Today we go easy.", false),
+        (["can't put weight", "cant put weight"], "If you can't load it at all, that's an assessment, not a training tweak.", false),
+        (["swollen"], "Swelling that hasn't settled deserves a look. I'll route around it.", false),
+        (["numbness", "go numb", "goes numb", "going numb", "went numb", "gone numb"], numbnessLine, false),
+        (["numb"], numbnessLine, true),
+        (
+            [
+                "i'm pregnant", "im pregnant", "i am pregnant", "weeks pregnant",
+                "months pregnant", "while pregnant", "being pregnant", "my pregnancy",
+                "during pregnancy", "my first trimester", "my second trimester",
+                "my third trimester",
+            ],
+            "Training through pregnancy is real and doable, but the parameters are your doctor's to set — bring me what they say and I'll build inside it.",
+            false
+        ),
+    ]
+
+    private static let bodyParts: Set<String> = [
+        "ankle", "ankles", "arm", "arms", "back", "calf", "calves", "chest", "elbow",
+        "elbows", "face", "finger", "fingers", "foot", "feet", "glute", "glutes",
+        "groin", "hamstring", "hamstrings", "hand", "hands", "head", "heel", "hip",
+        "hips", "jaw", "joint", "joints", "knee", "knees", "leg", "legs", "lip",
+        "lips", "neck", "quad", "quads", "rib", "ribs", "shin", "shins", "shoulder",
+        "shoulders", "spine", "thigh", "thighs", "toe", "toes", "wrist", "wrists",
     ]
 
     public static func decide(text: String, guidanceOnlyMode: Bool = false) -> AriaGuidanceDecision {
-        let lower = text.lowercased()
+        let lower = AriaSafetyTriage.normalize(text)
+
+        // Emergencies and voice-first triage come from the one safety
+        // classifier the backend uses (AriaSafetyTriage mirrors guidance.py).
+        // This list alone used to coach "I think I'm having a heart attack",
+        // "I overdosed", and "he's having a seizure".
+        let safetyBand = AriaSafetyTriage.classifyBand(text)
+        if safetyBand == AriaSafetyBand.emergency || safetyBand == AriaSafetyBand.triage,
+           let decision = AriaSafetyTriage.assess(text) {
+            let matched = referOut.first { lower.contains($0.needle) }?.needle ?? safetyBand
+            return AriaGuidanceDecision(
+                band: .referOut,
+                matched: matched,
+                line: decision.prose,
+                safety: decision.safety
+            )
+        }
 
         for entry in referOut where lower.contains(entry.needle) {
             return AriaGuidanceDecision(band: .referOut, matched: entry.needle, line: entry.line)
         }
-        for entry in care where lower.contains(entry.needle) {
-            return AriaGuidanceDecision(band: .coachWithCare, matched: entry.needle, line: entry.line)
+        if let match = careMatch(lower) {
+            return AriaGuidanceDecision(band: .coachWithCare, matched: match.needle, line: match.line)
         }
 
         // Someone who declared a condition during onboarding gets the careful
@@ -112,6 +166,44 @@ public enum AriaGuidancePolicy {
         }
 
         return AriaGuidanceDecision(band: .coach)
+    }
+
+    /// The line a coaching reply to `text` leads with, or nil. Dummy, Local
+    /// testing, Live (`/ai/chat` leads with the same line) and the offline
+    /// fallback all carry it; see `AriaService.withCareLine`.
+    public static func careLine(text: String) -> String? {
+        let decision = decide(text: text)
+        return decision.band == .coachWithCare ? decision.line : nil
+    }
+
+    private static func careMatch(_ lower: String) -> (needle: String, line: String)? {
+        let padded: String = words(lower)
+        let body: Bool = bodyRelated(lower) || bodyParts.contains { padded.contains(" \($0) ") }
+        for entry in care where body || !entry.needsBody {
+            if let needle = entry.needles.first(where: { padded.contains(" \($0) ") }) {
+                return (needle, entry.line)
+            }
+        }
+        return nil
+    }
+
+    /// " a b c ": runs of ASCII letters, digits and apostrophes, one space
+    /// apart, so needles match whole words (aria_guidance_policy._words).
+    static func words(_ lower: String) -> String {
+        var out: String = ""
+        var gap: Bool = false
+        for character in lower {
+            let code: UInt8 = character.asciiValue ?? 0
+            let keep: Bool = (code >= 97 && code <= 122) || (code >= 48 && code <= 57) || code == 39
+            if keep {
+                if gap, !out.isEmpty { out.append(" ") }
+                out.append(character)
+                gap = false
+            } else {
+                gap = true
+            }
+        }
+        return " " + out + " "
     }
 
     private static func bodyRelated(_ lower: String) -> Bool {

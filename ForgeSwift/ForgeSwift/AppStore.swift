@@ -168,6 +168,13 @@ final class AppStore: ObservableObject {
     /// Cycle intimacy CTA → seeded ARIA conversation (user opener + ARIA opening).
     @Published var pendingIntimacySession: IntimacyChatSession? = nil
     @Published var lastSuggestedActions: [String] = []
+    /// Voice-first safety session from the latest reply (triage / escalate /
+    /// resolved). Chat turns ARIA's voice on or off from it.
+    @Published var ariaSafetySession: AriaSafetySession? = nil
+    /// The open triage question's reply topic. The next chat turn answers it.
+    var pendingTriageTopic: String? = nil
+    /// Relationship check-in to post once escalation is achieved.
+    var pendingSafetyCheckIn: String? = nil
     @Published var healthKitLive: Bool = false
     /// First Health sync after connect — You / Home show “Pulling…”, not a blank Home.
     @Published var isHealthKitPulling: Bool = false

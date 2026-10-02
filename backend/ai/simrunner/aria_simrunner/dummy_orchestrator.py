@@ -46,6 +46,7 @@ from ..backend_simulator import model_registry
 from ..backend_simulator.behavior_engine import generate_stream
 from ..backend_simulator.data_generator import build_context
 from .aria_engine import ARIAEngine
+from . import perception
 from . import speak_quality
 from . import voice_diagnostics
 from . import web_research
@@ -1972,7 +1973,7 @@ def _bridge_fused_memory(
     if not prior_turns:
         return envelope
     band = str(envelope.get("guidance_band") or "").strip().lower()
-    if band in {"emergency", "first_aid", "refer_out"}:
+    if band in {"emergency", "first_aid", "refer_out", "triage", "coach_with_care"}:
         return envelope
     opener = _callback(prior_turns, seed, intents)
     if not opener:
@@ -2093,6 +2094,13 @@ def _respond_via_lambda(
     card_for_guard = envelope.get("card") if isinstance(envelope.get("card"), dict) else None
     prose = _apply_speak_guard(prose, card=card_for_guard, notes=notes)
     chat = _apply_speak_guard(chat, card=card_for_guard, notes=notes)
+    situation, evidence = _perceive_turn(message, ctx, prior_turns)
+    prose = _with_situation_line(prose, situation)
+    chat = _with_situation_line(chat, situation)
+    if evidence is not None:
+        cite = _scrub_speak_vitals(evidence.cite())
+        if cite and cite not in chat and not _dumps_user_speak(cite):
+            chat = f"{chat} ({cite.rstrip('.')})"
     envelope["prose_summary"] = prose
     envelope["message"] = chat
     diagnosis = voice_diagnostics.diagnose(prose)
@@ -2129,6 +2137,8 @@ def _respond_via_lambda(
         "model": LAMBDA_MODEL,
         "user_id": "test-user-00000000",
         "voice_diagnosis": diagnosis.as_dict(),
+        "situation": situation.feed(),
+        "context_feed": _context_feed(situation, evidence),
         "thinking": (
             f"Heard {', '.join(h.kind for h in intents[:3]) or plan.primary.kind}. "
             f"Fused {stance or 'stance'} via BodyModel ({fused.source}); Bedrock off."
@@ -2148,6 +2158,11 @@ def _respond_via_lambda(
             "owned_domains": list(fused.owned_domains),
             "observation_count": fused.observation_count,
             "stance": stance,
+            "situation": {
+                "posture": situation.posture,
+                "conflicts": [c.kind for c in situation.conflicts],
+                "evidence": evidence.via if evidence is not None else None,
+            },
             "persona": {
                 "occupation": getattr(ctx, "occupation", None) if ctx is not None else None,
                 "chronotype": getattr(ctx, "chronotype", None) if ctx is not None else None,
@@ -2253,6 +2268,86 @@ def _checked_dummy_turn(produce, prompt_guard):
 
 def _reset_turn_web_note() -> None:
     respond._turn_web_note = _WEB_NOTE_UNSET
+    respond._turn_outside = None
+    respond._turn_evidence = None
+
+
+def _outside_for_turn(message: str):
+    """Weather/air + outside evidence, fetched at most once per user turn.
+
+    Dark unless ``FORGE_DUMMY_WEB=1`` (SimRunner stays offline and
+    deterministic by default). Location comes from ``FORGE_DUMMY_LAT`` /
+    ``FORGE_DUMMY_LON`` and is rounded before it leaves the machine.
+    """
+    cached = getattr(respond, "_turn_outside", None)
+    if cached is not None and cached[0] == message:
+        return cached[1]
+    env = None
+    lat, lon = os.getenv("FORGE_DUMMY_LAT"), os.getenv("FORGE_DUMMY_LON")
+    if lat and lon:
+        try:
+            env = web_research.environment(float(lat), float(lon))
+        except ValueError:
+            env = None
+    respond._turn_outside = (message, env)
+    return env
+
+
+def _local_hour() -> int | None:
+    raw = (os.getenv("FORGE_DUMMY_HOUR") or "").strip()
+    return int(raw) % 24 if raw.isdigit() else None
+
+
+def _perceive_turn(message: str, ctx, prior_turns: list[str] | None):
+    """Perception + case-by-case evaluation, plus outside evidence when enabled."""
+    situation = perception.perceive(
+        message,
+        ctx=ctx,
+        prior_turns=prior_turns,
+        environment=_outside_for_turn(message),
+        local_hour=_local_hour(),
+    )
+    evidence = None
+    if situation.research:
+        cache = getattr(respond, "_turn_evidence", None)
+        if cache is not None and cache[0] == message:
+            evidence = cache[1]
+        else:
+            evidence = web_research.research(situation.research[0])
+            respond._turn_evidence = (message, evidence)
+    return situation, evidence
+
+
+def _context_feed(situation, evidence) -> dict:
+    """Everything this turn fed to ARIA: situation read + untrusted evidence."""
+    return {
+        "situation": situation.feed(),
+        "brief": situation.brief(),
+        "evidence": evidence.as_dict() if evidence is not None else None,
+    }
+
+
+# Sentences that push effort. When the situation read says rest / refer, or a
+# conflict says keep it light, these contradict the verdict and are dropped.
+_PUSH_SPEAK = re.compile(
+    r"(?i)\breal work\b|\bpush\b|\bgo hard\b|\bmax(?:imal)?\b|\bextra sets\b"
+    r"|\bprogress one thing\b|\bhard (?:session|day|block)\b|\bgo big\b|\bsend it\b"
+)
+_SENTENCE_SPLIT = re.compile(r"(?<=[.!?])\s+")
+
+
+def _with_situation_line(text: str, situation) -> str:
+    """Lead with the sharpest conflict; make the rest of the turn agree with it."""
+    line = situation.spoken_line
+    if not line or not text:
+        return text
+    d = situation.decisions
+    if d.rest or d.refer_out or d.keep_light:
+        kept = [s for s in _SENTENCE_SPLIT.split(text) if s.strip() and not _PUSH_SPEAK.search(s)]
+        text = " ".join(kept)
+    if line in text:
+        return text
+    return f"{line} {text}".strip()
 
 
 def _context_for_turn(
@@ -2468,13 +2563,25 @@ def respond(
                         chat = f"{chat} ({safe_note.rstrip('.')})"
                 elif safe_note not in chat:
                     chat = f"{chat} ({safe_note.rstrip('.')})"
+    situation, evidence = _perceive_turn(message, ctx, prior_turns)
+    prose = _with_situation_line(prose, situation)
+    chat = _with_situation_line(chat, situation)
+    if evidence is not None and source_cite is None:
+        cite = _scrub_speak_vitals(evidence.cite())
+        if cite and cite not in chat and not _dumps_user_speak(cite):
+            chat = f"{chat} ({cite.rstrip('.')})"
     draft = {"prose_summary": prose, "message": chat}
     # Keep a rejected first draft dirty so speak-fail / a leftover cure-claim
     # can fire. Retry already ran ``_sanitize_reused_web_note``.
     if reused or not _turn_speak_rejected(draft):
         prose = _speak_without_vitals(prose)
         chat = _speak_without_vitals(chat, prose)
-    recovery_needed = scenario == "recovery_first" or ctx.today.readiness_score < 50
+    recovery_needed = (
+        scenario == "recovery_first"
+        or ctx.today.readiness_score < 50
+        or situation.decisions.keep_light
+        or situation.decisions.rest
+    )
 
     # Diagnosed against the primary reply alone, not the full chat: supporting
     # briefs are asides by design. Folding them in would mark a human primary
@@ -2506,6 +2613,8 @@ def respond(
         "model": STUB_MODEL,
         "user_id": "test-user-00000000",
         "voice_diagnosis": diagnosis.as_dict(),
+        "situation": situation.feed(),
+        "context_feed": _context_feed(situation, evidence),
         "thinking": thinking_line(scenario, ctx, plan, intents),
         "scenario": scenario,
         "stub_prose": stub.prose_summary,
@@ -2533,6 +2642,11 @@ def respond(
                 "chronotype": getattr(ctx, "chronotype", None),
                 "season": getattr(ctx, "life_season", None),
                 "experience": getattr(ctx, "experience_level", None),
+            },
+            "situation": {
+                "posture": situation.posture,
+                "conflicts": [c.kind for c in situation.conflicts],
+                "evidence": evidence.via if evidence is not None else None,
             },
             "latency_ms": orch_ms,
             "engine_latency_ms": engine_ms,

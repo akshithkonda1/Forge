@@ -216,6 +216,7 @@ def check(path: str) -> list[str]:
     findings += unquoted_value_findings(path, text)
     findings += duplicate_object_findings(path, text)
     findings += missing_input_findings(path, objects)
+    findings += unregistered_source_findings(path, objects)
     return findings
 
 
@@ -237,6 +238,59 @@ def missing_input_findings(path: str, objects: dict[str, str]) -> list[str]:
 
     Only `<group>`-relative Swift references are resolved. Anything rooted in
     SDKROOT, BUILT_PRODUCTS_DIR or DEVELOPER_DIR is not on disk here.
+    """
+    findings: list[str] = []
+    for oid, (rel, resolved) in resolved_swift_refs(path, objects).items():
+        if not os.path.exists(resolved):
+            shown = os.path.relpath(resolved, os.getcwd())
+            findings.append(
+                f"{path}: {oid} compiles {rel!r} but nothing is at {shown} — "
+                "a file registered against the wrong group resolves to the wrong folder."
+            )
+    return findings
+
+
+def unregistered_source_findings(path: str, objects: dict[str, str]) -> list[str]:
+    """Swift files on disk that the project never mentions.
+
+    The other direction from `missing_input_findings`, and the one no ID-graph
+    rule can see: a new file with no `PBXFileReference` at all has no id to
+    dangle. AriaSafetyDialer.swift was committed that way; ChatView called it,
+    the editor was happy, and the macOS build failed with "cannot find
+    'AriaSafetyDialer' in scope" because the target never compiled it.
+
+    Swift packages under the project folder (a `Package.swift` beside them)
+    build through SwiftPM, not the project, and are skipped.
+    """
+    project_dir = os.path.dirname(os.path.dirname(os.path.abspath(path)))
+    registered = {
+        os.path.normpath(resolved)
+        for _, resolved in resolved_swift_refs(path, objects).values()
+    }
+    findings: list[str] = []
+    for dirpath, dirnames, filenames in os.walk(project_dir):
+        _prune(dirpath, dirnames)
+        if "Package.swift" in filenames:
+            dirnames[:] = []
+            continue
+        for name in sorted(filenames):
+            if not name.endswith(".swift"):
+                continue
+            full = os.path.normpath(os.path.join(dirpath, name))
+            if full not in registered:
+                shown = os.path.relpath(full, os.getcwd())
+                findings.append(
+                    f"{path}: {shown} is not in the project — no target compiles it. "
+                    "Register it with scripts/pbxproj_files.py add."
+                )
+    return findings
+
+
+def resolved_swift_refs(path: str, objects: dict[str, str]) -> dict[str, tuple[str, str]]:
+    """Swift file references -> (own path, path on disk).
+
+    `<group>` paths are relative to the enclosing groups; `SOURCE_ROOT` paths
+    to the folder holding the .xcodeproj (MusicControllerFactory.swift is one).
     """
     project_dir = os.path.dirname(os.path.dirname(os.path.abspath(path)))
 
@@ -265,12 +319,18 @@ def missing_input_findings(path: str, objects: dict[str, str]) -> list[str]:
         match = re.search(r"sourceTree = (.+?);", body)
         return match.group(1).strip().strip('"') if match else ""
 
-    findings: list[str] = []
+    refs: dict[str, tuple[str, str]] = {}
     for oid, body in objects.items():
         if isa_of(body) != "PBXFileReference":
             continue
         rel = own_path(body)
-        if not rel.endswith(".swift") or source_tree(body) != "<group>":
+        if not rel.endswith(".swift"):
+            continue
+        tree = source_tree(body)
+        if tree == "SOURCE_ROOT":
+            refs[oid] = (rel, os.path.join(project_dir, rel))
+            continue
+        if tree != "<group>":
             continue
 
         # Walk up, collecting each ancestor group's own path component.
@@ -284,14 +344,8 @@ def missing_input_findings(path: str, objects: dict[str, str]) -> list[str]:
                 parts.insert(0, component)
             cursor = parent
 
-        resolved = os.path.join(project_dir, *parts)
-        if not os.path.exists(resolved):
-            shown = os.path.relpath(resolved, os.getcwd())
-            findings.append(
-                f"{path}: {oid} compiles {rel!r} but nothing is at {shown} — "
-                "a file registered against the wrong group resolves to the wrong folder."
-            )
-    return findings
+        refs[oid] = (rel, os.path.join(project_dir, *parts))
+    return refs
 
 
 # The characters Xcode leaves unquoted in a value. It quotes anything else —
