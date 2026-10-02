@@ -96,7 +96,8 @@ final class LifeContextVaultTests: XCTestCase {
         let publicKey = try vault.inboxPublicKey()
         let facts = [fact("Flight Thursday 6pm", hash: "c3")]
         let url = try LifeContextInbox.deposit(facts, toPublicKey: publicKey, container: container)
-        XCTAssertEqual(LifeContextInbox.pendingBoxes(in: container), [url])
+        // Compare names: the directory listing resolves /var → /private/var on macOS.
+        XCTAssertEqual(LifeContextInbox.pendingBoxes(in: container).map(\.lastPathComponent), [url.lastPathComponent])
         let boxed = try Data(contentsOf: url)
         XCTAssertNil(boxed.range(of: Data("Flight".utf8)))
         XCTAssertEqual(try vault.openInbox(boxed), facts)
