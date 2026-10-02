@@ -129,7 +129,7 @@ _GREET = (
 )
 _MOVIE = (
     "That ending followed you home like a stray plot twist. Give it a minute, then tell me the beat that stuck.",
-    "Movie hangover is a real condition and I'm not curing it. What vibe did it leave in the room?",
+    "Movie hangover is real. What vibe did it leave in the room?",
     "Was it the kind of film that follows you out of the room?",
     "Yeah — that one's still rattling around, huh? What did it do to you?",
 )

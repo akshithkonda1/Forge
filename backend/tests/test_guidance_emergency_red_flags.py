@@ -691,32 +691,60 @@ class ChatRouteSafetyTests(unittest.TestCase):
                 os.environ["ARIA_BEDROCK_ENABLED"] = previous
 
     def test_insight_mode_emergency_sets_safety_lock_without_memory_keys(self):
+        previous = os.environ.get("ARIA_BEDROCK_ENABLED")
+        os.environ["ARIA_BEDROCK_ENABLED"] = "true"
+        converse_calls: list = []
+        swarm_calls: list = []
         memory_keys = ("memory", "memory_reference", "checkin", "calendar_ingested")
-        for message, band in (
-            ("he's having chest pain", guidance.EMERGENCY),
-            ("do I have sleep apnea?", guidance.REFER_OUT),
-        ):
-            with self.subTest(message=message):
-                body = self._chat("insight-safety-lock", message, mode="insight")
-                self.assertEqual(body.get("guidance_band"), band, message)
-                self.assertTrue(body.get("safety_lock"), message)
-                self.assertEqual(body.get("reasoning_source"), "deterministic")
-                self.assertEqual(body.get("context_updates"), {})
-                for key in memory_keys:
-                    self.assertNotIn(key, body)
 
-        normal = self._chat(
-            "insight-safety-lock",
-            "Analyze my lifestyle today in 2-3 sentences.",
-            mode="insight",
-        )
-        self.assertFalse(normal.get("safety_lock"))
-        self.assertEqual(normal.get("reasoning_source"), "deterministic")
-        self.assertEqual(normal.get("context_updates"), {})
-        self.assertIsNone(normal.get("memory_reference"))
-        self.assertNotIn("memory", normal)
-        self.assertNotIn("checkin", normal)
-        self.assertNotIn("calendar_ingested", normal)
+        def boom(model_id, system, user):
+            converse_calls.append((model_id, system, user))
+            raise AssertionError("Bedrock called")
+
+        def boom_swarm(*args, **kwargs):
+            swarm_calls.append((args, kwargs))
+            raise AssertionError("swarm called")
+
+        try:
+            with patch(
+                "services.aria_engine._default_converse", boom
+            ), patch(
+                "aria_core.aria_engine._default_converse", boom
+            ), patch(
+                "services.aria_swarm.run_swarm", boom_swarm
+            ):
+                for message, band in (
+                    ("he's having chest pain", guidance.EMERGENCY),
+                    ("do I have sleep apnea?", guidance.REFER_OUT),
+                ):
+                    with self.subTest(message=message):
+                        body = self._chat("insight-safety-lock", message, mode="insight")
+                        self.assertEqual(body.get("guidance_band"), band, message)
+                        self.assertTrue(body.get("safety_lock"), message)
+                        self.assertEqual(body.get("reasoning_source"), "deterministic")
+                        self.assertEqual(body.get("context_updates"), {})
+                        for key in memory_keys:
+                            self.assertNotIn(key, body)
+
+                normal = self._chat(
+                    "insight-safety-lock",
+                    "Analyze my lifestyle today in 2-3 sentences.",
+                    mode="insight",
+                )
+                self.assertFalse(normal.get("safety_lock"))
+                self.assertEqual(normal.get("reasoning_source"), "deterministic")
+                self.assertEqual(normal.get("context_updates"), {})
+                self.assertIsNone(normal.get("memory_reference"))
+                self.assertNotIn("memory", normal)
+                self.assertNotIn("checkin", normal)
+                self.assertNotIn("calendar_ingested", normal)
+                self.assertEqual(converse_calls, [])
+                self.assertEqual(swarm_calls, [])
+        finally:
+            if previous is None:
+                os.environ.pop("ARIA_BEDROCK_ENABLED", None)
+            else:
+                os.environ["ARIA_BEDROCK_ENABLED"] = previous
 
     def test_safety_replies_skip_memory_and_checkin_fields(self):
         from services.aria_context import CoachContextEngine
