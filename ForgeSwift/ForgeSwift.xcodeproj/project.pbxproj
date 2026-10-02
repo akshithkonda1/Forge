@@ -33,6 +33,12 @@
 		AA00010000000000000000C2 /* InviteBubble.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00020000000000000000C2 /* InviteBubble.swift */; };
 		AA00010000000000000000C3 /* InviteScreens.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00020000000000000000C3 /* InviteScreens.swift */; };
 		AA00010000000000000000C8 /* ForgeMessagesExtension.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = AA00020000000000000000C6 /* ForgeMessagesExtension.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+		AB0001000000000000000001 /* ShareViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB0002000000000000000001 /* ShareViewController.swift */; };
+		AB0001000000000000000002 /* ShareExtensionProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB0002000000000000000002 /* ShareExtensionProvider.swift */; };
+		AB0001000000000000000003 /* MessageIngestionProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = C3DC7E4E7AE1EC9D7393F78D /* MessageIngestionProvider.swift */; };
+		AB0001000000000000000004 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = AB0002000000000000000004 /* PrivacyInfo.xcprivacy */; };
+		AB0001000000000000000005 /* ForgeCore in Frameworks */ = {isa = PBXBuildFile; productRef = AB000F000000000000000001 /* ForgeCore */; };
+		AB0001000000000000000006 /* ForgeShareExtension.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = AB0002000000000000000006 /* ForgeShareExtension.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		1WC0012F9FF867004091AA /* SexualHealthCoach.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1WC0022F9FF867004091AA /* SexualHealthCoach.swift */; };
 		1WC0032F9FF867004091AA /* SexualHealthCurriculum.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1WC0042F9FF867004091AA /* SexualHealthCurriculum.swift */; };
 		1WC0052F9FF867004091AA /* CyclePhaseCoachingDirective.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1WC0062F9FF867004091AA /* CyclePhaseCoachingDirective.swift */; };
@@ -67,6 +73,10 @@
 		1ARIA0062F9FF867004091AA /* AriaService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1ARIA0052F9FF867004091AA /* AriaService.swift */; };
 		1ARIA0712F9FF867004091AA /* AriaCoachAgent.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1ARIA0702F9FF867004091AA /* AriaCoachAgent.swift */; };
 		1CAL0812F9FF867004091AA /* CalendarManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1CAL0802F9FF867004091AA /* CalendarManager.swift */; };
+		BD44CB29B1C5A37446D3258C /* RemindersManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 754850FBB7BD6E199116739D /* RemindersManager.swift */; };
+		2FEADA2261D6DB5CB3BC7A57 /* MessageIngestionProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = C3DC7E4E7AE1EC9D7393F78D /* MessageIngestionProvider.swift */; };
+		8476307558B65C7981970E21 /* SyntheticMessageProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = 32350DBC3FF0F1EB3FB57E0F /* SyntheticMessageProvider.swift */; };
+		EBA0B17CF404B8CEB685F5A9 /* MessageContextStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 904E2DBF3528606C6DA474C1 /* MessageContextStore.swift */; };
 		1ARIA0812F9FF867004091AA /* AriaDummyOrchestrator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1ARIA0802F9FF867004091AA /* AriaDummyOrchestrator.swift */; };
 		1ARIA0A12F9FF867004091AA /* AriaDummyTurn.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1ARIA0A02F9FF867004091AA /* AriaDummyTurn.swift */; };
 		E253EA2C98A65A874B759C2D /* AriaDummyOrchestra.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4037051CD3CE0ED7697AF3B9 /* AriaDummyOrchestra.swift */; };
@@ -263,6 +273,7 @@
 		3CDFEAC2734D2F45D94565CB /* ProfileEditorView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3A34CBCE5BC782847437A33A /* ProfileEditorView.swift */; };
 		FABCB777FF39597DE2CB2523 /* CoachingStylePickerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5BE5A2F4F6EEFE45674113B2 /* CoachingStylePickerView.swift */; };
 		0AF23A887EDD96C00F754936 /* DataPermissionsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = DB90BFB6F1FEB4F1ADCB75B7 /* DataPermissionsView.swift */; };
+		B597C4C352B4E207C245C9BA /* LifeContextSettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 50C44B32AD7D873FEE4C2077 /* LifeContextSettingsView.swift */; };
 		AA000100000000000000000C /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = AA000200000000000000000C /* Assets.xcassets */; };
 		F0B100000000000000000001 /* ForgeWatchApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = F0F100000000000000000001 /* ForgeWatchApp.swift */; };
 		8DFBF2E9C6DAB939290C66BB /* ForgeWatchIntents.swift in Sources */ = {isa = PBXBuildFile; fileRef = DBC3A2D5AFA4571FF47AB5FE /* ForgeWatchIntents.swift */; };
@@ -358,6 +369,13 @@
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
+		AB000C000000000000000001 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = AA0008000000000000000001 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = AB0005000000000000000001;
+			remoteInfo = ForgeShareExtension;
+		};
 		AA000C0000000000000000C1 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = AA0008000000000000000001 /* Project object */;
@@ -426,6 +444,7 @@
 			files = (
 				F0B100000000000000000034 /* ForgeWidgetExtension.appex in Embed Foundation Extensions */,
 				AA00010000000000000000C8 /* ForgeMessagesExtension.appex in Embed Foundation Extensions */,
+				AB0001000000000000000006 /* ForgeShareExtension.appex in Embed Foundation Extensions */,
 			);
 			name = "Embed Foundation Extensions";
 			runOnlyForDeploymentPostprocessing = 0;
@@ -462,6 +481,12 @@
 		AA00020000000000000000C4 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		AA00020000000000000000C5 /* ForgeMessagesExtension.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = ForgeMessagesExtension.entitlements; sourceTree = "<group>"; };
 		AA00020000000000000000C6 /* ForgeMessagesExtension.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = ForgeMessagesExtension.appex; sourceTree = BUILT_PRODUCTS_DIR; };
+		AB0002000000000000000001 /* ShareViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShareViewController.swift; sourceTree = "<group>"; };
+		AB0002000000000000000002 /* ShareExtensionProvider.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShareExtensionProvider.swift; sourceTree = "<group>"; };
+		AB0002000000000000000003 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		AB0002000000000000000004 /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
+		AB0002000000000000000005 /* ForgeShareExtension.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = ForgeShareExtension.entitlements; sourceTree = "<group>"; };
+		AB0002000000000000000006 /* ForgeShareExtension.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = ForgeShareExtension.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 		1WC0022F9FF867004091AA /* SexualHealthCoach.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SexualHealthCoach.swift; sourceTree = "<group>"; };
 		1WC0042F9FF867004091AA /* SexualHealthCurriculum.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SexualHealthCurriculum.swift; sourceTree = "<group>"; };
 		1WC0062F9FF867004091AA /* CyclePhaseCoachingDirective.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CyclePhaseCoachingDirective.swift; sourceTree = "<group>"; };
@@ -496,6 +521,10 @@
 		1ARIA0052F9FF867004091AA /* AriaService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AriaService.swift; sourceTree = "<group>"; };
 		1ARIA0702F9FF867004091AA /* AriaCoachAgent.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AriaCoachAgent.swift; sourceTree = "<group>"; };
 		1CAL0802F9FF867004091AA /* CalendarManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CalendarManager.swift; sourceTree = "<group>"; };
+		754850FBB7BD6E199116739D /* RemindersManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RemindersManager.swift; sourceTree = "<group>"; };
+		C3DC7E4E7AE1EC9D7393F78D /* MessageIngestionProvider.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MessageIngestionProvider.swift; sourceTree = "<group>"; };
+		32350DBC3FF0F1EB3FB57E0F /* SyntheticMessageProvider.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SyntheticMessageProvider.swift; sourceTree = "<group>"; };
+		904E2DBF3528606C6DA474C1 /* MessageContextStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MessageContextStore.swift; sourceTree = "<group>"; };
 		1ARIA0802F9FF867004091AA /* AriaDummyOrchestrator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AriaDummyOrchestrator.swift; sourceTree = "<group>"; };
 		1ARIA0A02F9FF867004091AA /* AriaDummyTurn.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AriaDummyTurn.swift; sourceTree = "<group>"; };
 		4037051CD3CE0ED7697AF3B9 /* AriaDummyOrchestra.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AriaDummyOrchestra.swift; sourceTree = "<group>"; };
@@ -716,6 +745,7 @@
 		3A34CBCE5BC782847437A33A /* ProfileEditorView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProfileEditorView.swift; sourceTree = "<group>"; };
 		5BE5A2F4F6EEFE45674113B2 /* CoachingStylePickerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CoachingStylePickerView.swift; sourceTree = "<group>"; };
 		DB90BFB6F1FEB4F1ADCB75B7 /* DataPermissionsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DataPermissionsView.swift; sourceTree = "<group>"; };
+		50C44B32AD7D873FEE4C2077 /* LifeContextSettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LifeContextSettingsView.swift; sourceTree = "<group>"; };
 		AA000200000000000000000C /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		AA000200000000000000000D /* ForgeSwift.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = ForgeSwift.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		F0F100000000000000000001 /* ForgeWatchApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ForgeWatchApp.swift; sourceTree = "<group>"; };
@@ -789,6 +819,14 @@
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
+		AB0003000000000000000001 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				AB0001000000000000000005 /* ForgeCore in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		AA00030000000000000000C1 /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
@@ -911,6 +949,10 @@
 				1EHKS0012F9FF867004091AA /* HealthKitSleepService.swift */,
 				1ARIA0052F9FF867004091AA /* AriaService.swift */,
 				1CAL0802F9FF867004091AA /* CalendarManager.swift */,
+				754850FBB7BD6E199116739D /* RemindersManager.swift */,
+				C3DC7E4E7AE1EC9D7393F78D /* MessageIngestionProvider.swift */,
+				32350DBC3FF0F1EB3FB57E0F /* SyntheticMessageProvider.swift */,
+				904E2DBF3528606C6DA474C1 /* MessageContextStore.swift */,
 				1ARIA0802F9FF867004091AA /* AriaDummyOrchestrator.swift */,
 				1ARIA0A02F9FF867004091AA /* AriaDummyTurn.swift */,
 				4037051CD3CE0ED7697AF3B9 /* AriaDummyOrchestra.swift */,
@@ -1081,6 +1123,7 @@
 				3A34CBCE5BC782847437A33A /* ProfileEditorView.swift */,
 				5BE5A2F4F6EEFE45674113B2 /* CoachingStylePickerView.swift */,
 				DB90BFB6F1FEB4F1ADCB75B7 /* DataPermissionsView.swift */,
+				50C44B32AD7D873FEE4C2077 /* LifeContextSettingsView.swift */,
 				AA000200000000000000000C /* Assets.xcassets */,
 				1ED842E22F90C15300693D3E /* LifestyleView.swift */,
 				A81F3C2E9B4D7018256E90A1 /* LifestyleInterviewOverlay.swift */,
@@ -1140,6 +1183,7 @@
 				F0F100000000000000000019 /* ForgeWatchWidgets.appex */,
 				F0F100000000000000000025 /* ForgeWidgetExtension.appex */,
 				AA00020000000000000000C6 /* ForgeMessagesExtension.appex */,
+				AB0002000000000000000006 /* ForgeShareExtension.appex */,
 				1TEST00700000000000000A /* ForgeSwiftTests.xctest */,
 			);
 			name = Products;
@@ -1155,8 +1199,21 @@
 				F0A100000000000000000006 /* LiveActivities */,
 				F0A100000000000000000007 /* ForgeWidgetExtension */,
 				AA00040000000000000000C1 /* ForgeMessagesExtension */,
+				AB0004000000000000000001 /* ForgeShareExtension */,
 				AA0004000000000000000002 /* Products */,
 			);
+			sourceTree = "<group>";
+		};
+		AB0004000000000000000001 /* ForgeShareExtension */ = {
+			isa = PBXGroup;
+			children = (
+				AB0002000000000000000004 /* PrivacyInfo.xcprivacy */,
+				AB0002000000000000000001 /* ShareViewController.swift */,
+				AB0002000000000000000002 /* ShareExtensionProvider.swift */,
+				AB0002000000000000000003 /* Info.plist */,
+				AB0002000000000000000005 /* ForgeShareExtension.entitlements */,
+			);
+			path = ForgeShareExtension;
 			sourceTree = "<group>";
 		};
 		AA00040000000000000000C1 /* ForgeMessagesExtension */ = {
@@ -1328,6 +1385,26 @@
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
+		AB0005000000000000000001 /* ForgeShareExtension */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = AB0006000000000000000001 /* Build configuration list for PBXNativeTarget "ForgeShareExtension" */;
+			buildPhases = (
+				AB0007000000000000000001 /* Sources */,
+				AB0003000000000000000001 /* Frameworks */,
+				AB0007000000000000000002 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = ForgeShareExtension;
+			packageProductDependencies = (
+				AB000F000000000000000001 /* ForgeCore */,
+			);
+			productName = ForgeShareExtension;
+			productReference = AB0002000000000000000006 /* ForgeShareExtension.appex */;
+			productType = "com.apple.product-type.app-extension";
+		};
 		AA00050000000000000000C1 /* ForgeMessagesExtension */ = {
 			isa = PBXNativeTarget;
 			buildConfigurationList = AA00060000000000000000C1 /* Build configuration list for PBXNativeTarget "ForgeMessagesExtension" */;
@@ -1364,6 +1441,7 @@
 				F0C300000000000000000002 /* PBXTargetDependency */,
 				F0C300000000000000000003 /* PBXTargetDependency */,
 				AA000B0000000000000000C1 /* PBXTargetDependency */,
+				AB000B000000000000000001 /* PBXTargetDependency */,
 			);
 			name = ForgeSwift;
 			packageProductDependencies = (
@@ -1477,6 +1555,9 @@
 					AA00050000000000000000C1 = {
 						CreatedOnToolsVersion = 15.3;
 					};
+					AB0005000000000000000001 = {
+						CreatedOnToolsVersion = 15.3;
+					};
 				};
 			};
 			buildConfigurationList = AA0006000000000000000001 /* Build configuration list for PBXProject "ForgeSwift" */;
@@ -1497,12 +1578,21 @@
 				F0C100000000000000000002 /* ForgeWatchWidgets */,
 				F0C100000000000000000003 /* ForgeWidgetExtension */,
 				AA00050000000000000000C1 /* ForgeMessagesExtension */,
+				AB0005000000000000000001 /* ForgeShareExtension */,
 				1TEST00100000000000000A /* ForgeSwiftTests */,
 			);
 		};
 /* End PBXProject section */
 
 /* Begin PBXResourcesBuildPhase section */
+		AB0007000000000000000002 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				AB0001000000000000000004 /* PrivacyInfo.xcprivacy in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		AA00070000000000000000C2 /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
@@ -1549,6 +1639,16 @@
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
+		AB0007000000000000000001 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				AB0001000000000000000001 /* ShareViewController.swift in Sources */,
+				AB0001000000000000000002 /* ShareExtensionProvider.swift in Sources */,
+				AB0001000000000000000003 /* MessageIngestionProvider.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		AA00070000000000000000C1 /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
@@ -1594,6 +1694,10 @@
 				1ARIA0062F9FF867004091AA /* AriaService.swift in Sources */,
 				1ARIA0712F9FF867004091AA /* AriaCoachAgent.swift in Sources */,
 				1CAL0812F9FF867004091AA /* CalendarManager.swift in Sources */,
+				BD44CB29B1C5A37446D3258C /* RemindersManager.swift in Sources */,
+				2FEADA2261D6DB5CB3BC7A57 /* MessageIngestionProvider.swift in Sources */,
+				8476307558B65C7981970E21 /* SyntheticMessageProvider.swift in Sources */,
+				EBA0B17CF404B8CEB685F5A9 /* MessageContextStore.swift in Sources */,
 				1ARIA0812F9FF867004091AA /* AriaDummyOrchestrator.swift in Sources */,
 				1ARIA0A12F9FF867004091AA /* AriaDummyTurn.swift in Sources */,
 				E253EA2C98A65A874B759C2D /* AriaDummyOrchestra.swift in Sources */,
@@ -1797,6 +1901,7 @@
 				3CDFEAC2734D2F45D94565CB /* ProfileEditorView.swift in Sources */,
 				FABCB777FF39597DE2CB2523 /* CoachingStylePickerView.swift in Sources */,
 				0AF23A887EDD96C00F754936 /* DataPermissionsView.swift in Sources */,
+				B597C4C352B4E207C245C9BA /* LifeContextSettingsView.swift in Sources */,
 				F0F1000000000000000000A1 /* LifestyleTargets.swift in Sources */,
 				FWSETED02 /* SettingsEditorViews.swift in Sources */,
 				FWNSCHED02 /* ForgeNotificationScheduler.swift in Sources */,
@@ -1924,6 +2029,11 @@
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */
+		AB000B000000000000000001 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = AB0005000000000000000001 /* ForgeShareExtension */;
+			targetProxy = AB000C000000000000000001 /* PBXContainerItemProxy */;
+		};
 		AA000B0000000000000000C1 /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
 			target = AA00050000000000000000C1 /* ForgeMessagesExtension */;
@@ -1952,6 +2062,60 @@
 /* End PBXTargetDependency section */
 
 /* Begin XCBuildConfiguration section */
+		AB0009000000000000000001 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_ENTITLEMENTS = ForgeShareExtension/ForgeShareExtension.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = L85K85Q7MB;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = ForgeShareExtension/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = Forge;
+				IPHONEOS_DEPLOYMENT_TARGET = 27.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.forge.ForgeSwift.share;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SKIP_INSTALL = YES;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		AB0009000000000000000002 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_ENTITLEMENTS = ForgeShareExtension/ForgeShareExtension.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = L85K85Q7MB;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = ForgeShareExtension/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = Forge;
+				IPHONEOS_DEPLOYMENT_TARGET = 27.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.forge.ForgeSwift.share;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SKIP_INSTALL = YES;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
 		AA00090000000000000000C1 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
@@ -2157,6 +2321,8 @@
 				INFOPLIST_KEY_NSHealthClinicalHealthRecordsShareUsageDescription = "Forge reads structured Health records — allergies, medications, conditions, immunizations, labs, procedures, and clinical vitals — so ARIA can coach around what is already on this iPhone. Names and dates only. Not notes. Not insurance. Nothing leaves this iPhone.";
 				INFOPLIST_KEY_NSCalendarsUsageDescription = "Forge reads your calendar to see busy windows so ARIA can fit training around your day, and may add labeled demo events to a Forge-owned calendar. Titles stay on this iPhone — Forge never uploads your calendar.";
 				INFOPLIST_KEY_NSCalendarsFullAccessUsageDescription = "Forge reads your calendar to see busy windows so ARIA can fit training around your day, and may add labeled demo events to a Forge-owned calendar. Titles stay on this iPhone — Forge never uploads your calendar.";
+				INFOPLIST_KEY_NSRemindersFullAccessUsageDescription = "Forge counts your open reminders — overdue, due today, high priority — so ARIA can fit training around your workload. Titles and notes stay on this iPhone and are never stored or uploaded.";
+				INFOPLIST_KEY_NSRemindersUsageDescription = "Forge counts your open reminders — overdue, due today, high priority — so ARIA can fit training around your workload. Titles and notes stay on this iPhone and are never stored or uploaded.";
 				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "Forge uses your location to show nearby restaurants on Apple Maps and log meals faster. Location stays on this iPhone — Forge never uploads it.";
 				INFOPLIST_KEY_NSMicrophoneUsageDescription = "Forge uses the microphone so you can talk to your coach and log workouts hands-free. Audio is transcribed on this iPhone and is never stored or uploaded.";
 				INFOPLIST_KEY_NSSpeechRecognitionUsageDescription = "Forge turns what you say into text so you can ask your coach questions and log meals and sets by voice.";
@@ -2203,6 +2369,8 @@
 				INFOPLIST_KEY_NSHealthClinicalHealthRecordsShareUsageDescription = "Forge reads structured Health records — allergies, medications, conditions, immunizations, labs, procedures, and clinical vitals — so ARIA can coach around what is already on this iPhone. Names and dates only. Not notes. Not insurance. Nothing leaves this iPhone.";
 				INFOPLIST_KEY_NSCalendarsUsageDescription = "Forge reads your calendar to see busy windows so ARIA can fit training around your day, and may add labeled demo events to a Forge-owned calendar. Titles stay on this iPhone — Forge never uploads your calendar.";
 				INFOPLIST_KEY_NSCalendarsFullAccessUsageDescription = "Forge reads your calendar to see busy windows so ARIA can fit training around your day, and may add labeled demo events to a Forge-owned calendar. Titles stay on this iPhone — Forge never uploads your calendar.";
+				INFOPLIST_KEY_NSRemindersFullAccessUsageDescription = "Forge counts your open reminders — overdue, due today, high priority — so ARIA can fit training around your workload. Titles and notes stay on this iPhone and are never stored or uploaded.";
+				INFOPLIST_KEY_NSRemindersUsageDescription = "Forge counts your open reminders — overdue, due today, high priority — so ARIA can fit training around your workload. Titles and notes stay on this iPhone and are never stored or uploaded.";
 				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "Forge uses your location to show nearby restaurants on Apple Maps and log meals faster. Location stays on this iPhone — Forge never uploads it.";
 				INFOPLIST_KEY_NSMicrophoneUsageDescription = "Forge uses the microphone so you can talk to your coach and log workouts hands-free. Audio is transcribed on this iPhone and is never stored or uploaded.";
 				INFOPLIST_KEY_NSSpeechRecognitionUsageDescription = "Forge turns what you say into text so you can ask your coach questions and log meals and sets by voice.";
@@ -2449,6 +2617,15 @@
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
+		AB0006000000000000000001 /* Build configuration list for PBXNativeTarget "ForgeShareExtension" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				AB0009000000000000000001 /* Debug */,
+				AB0009000000000000000002 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
 		AA0006000000000000000001 /* Build configuration list for PBXProject "ForgeSwift" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
@@ -2515,6 +2692,10 @@
 /* End XCConfigurationList section */
 
 /* Begin XCSwiftPackageProductDependency section */
+		AB000F000000000000000001 /* ForgeCore */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = ForgeCore;
+		};
 		AA000F0000000000000000C1 /* ForgeCore */ = {
 			isa = XCSwiftPackageProductDependency;
 			productName = ForgeCore;

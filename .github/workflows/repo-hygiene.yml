@@ -67,6 +67,21 @@ jobs:
       - name: Check partner-visible surfaces
         run: scripts/check-partner-redaction.sh
 
+  life-context-privacy:
+    name: Life Context privacy boundary
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      # Reminders and shared conversations are read on this iPhone and only
+      # counts and Forge-written facts may leave the code that reads them. A
+      # print(), a Codable conformance on MessageTurn, a URLSession, or a tag
+      # merged into ARIA's persisted context would each break that silently —
+      # no build fails and no test notices. This decides it from the text.
+      - name: Check Life Context privacy boundary
+        run: python3 scripts/check-life-context-privacy.py
+
   duplicate-decls:
     name: No duplicate Swift declarations
     runs-on: ubuntu-latest

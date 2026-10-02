@@ -24,6 +24,16 @@ enum AriaOnDeviceHealthPolicy {
     static let remoteInferenceLine =
         "Claude and Grok never receive your HealthKit samples. They see what you type. Health stays on this device."
 
+    /// Prefix of the Life Context brief in `lifestyle.recentPatterns`.
+    static let lifeContextBriefPrefix = "life_context_brief: "
+
+    /// Reminders counts and shared-conversation facts are on-device only:
+    /// they never reach Claude, Grok, or the Forge backend.
+    static func isOnDeviceOnlyLifeContext(_ value: String) -> Bool {
+        let v = value.lowercased()
+        return v.hasPrefix("reminders:") || v.hasPrefix("life_context")
+    }
+
     static func isHealthLedgerTag(_ tag: String) -> Bool {
         let t = tag.lowercased()
         if t.hasPrefix("cycle:") || t.hasPrefix("cycle_phase:") || t.hasPrefix("cycle_day:")
@@ -56,14 +66,14 @@ enum AriaOnDeviceHealthPolicy {
         }
         out.lifestyle.cyclePhaseDirective = nil
         out.lifestyle.tags = out.lifestyle.tags
-            .filter { !isHealthLedgerTag($0) && !$0.hasPrefix("med_onfile:") }
+            .filter { !isHealthLedgerTag($0) && !$0.hasPrefix("med_onfile:") && !isOnDeviceOnlyLifeContext($0) }
             .map { tag in
                 tag.hasPrefix("calendar:") ? (FakeCalendarPack.isAllowedIngestTag(tag) ? tag : nil) : tag
             }
             .compactMap { $0 }
         out.lifestyle.recentPatterns = out.lifestyle.recentPatterns.filter { pattern in
             let p = pattern.lowercased()
-            return !p.hasPrefix("cycle:") && !p.contains("cycle_phase")
+            return !p.hasPrefix("cycle:") && !p.contains("cycle_phase") && !isOnDeviceOnlyLifeContext(pattern)
         }
         out.profile.constraints = out.profile.constraints.filter { line in
             let l = line.lowercased()
