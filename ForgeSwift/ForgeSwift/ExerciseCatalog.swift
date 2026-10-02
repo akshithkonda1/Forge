@@ -919,10 +919,11 @@ enum ExerciseLibrary {
 
     /// One sport as a session row ARIA can put on today's plan or into history.
     static func sportSession(named: String, minutes: Int, completed: Bool) -> WorkoutPlan {
-        let def = match(named) ?? sports.first { $0.name.compare(named, options: .caseInsensitive) == .orderedSame }
+        guard let def = match(named) ?? sports.first { $0.name.compare(named, options: .caseInsensitive) == .orderedSame }
             ?? sports.first
-            ?? calisthenics.first
-            ?? preconditionFailure("ExerciseCatalog: catalog contains no sports or calisthenics definitions")
+            ?? calisthenics.first else {
+            preconditionFailure("ExerciseCatalog: catalog contains no sports or calisthenics definitions")
+        }
         var row = asPlanRow(def)
         row.sets = 1
         row.reps = "\(max(10, minutes)) min"

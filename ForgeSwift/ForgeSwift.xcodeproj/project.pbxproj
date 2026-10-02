@@ -207,6 +207,8 @@
 		4A125A771F1A069647744C7B /* OnboardingComposers.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5D1B4CAD5FA5D25B74EC6E1C /* OnboardingComposers.swift */; };
 		6CBB68B52859EB1DA316AE05 /* OnboardingComponents.swift in Sources */ = {isa = PBXBuildFile; fileRef = 946C46A9CAC2E8FAA15F2A6E /* OnboardingComponents.swift */; };
 		AA0001000000000000000007 /* HomeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0002000000000000000007 /* HomeView.swift */; };
+		34C39157B5A9C9DA6F774E5D /* LoadTimelineView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A70C3B03C237B6BD88A0B4FE /* LoadTimelineView.swift */; };
+		917943B402BD923F0744751D /* ReadinessForecastCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0A7C69703A221B9AF36E0CC1 /* ReadinessForecastCard.swift */; };
 		CBEEDC3EE856524D0A77DB39 /* HomeModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = E1809DC7E4D2571C21FC2FC6 /* HomeModels.swift */; };
 		DA2E7330C7F2CD27BE372197 /* HomeHeroCards.swift in Sources */ = {isa = PBXBuildFile; fileRef = A9660E66E6D13D3CCB7D0411 /* HomeHeroCards.swift */; };
 		477615BBC4667F2CD2D411F3 /* HomeARIABriefingCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = 220C4368102CD8AD1BD12253 /* HomeARIABriefingCard.swift */; };
@@ -679,6 +681,8 @@
 		5D1B4CAD5FA5D25B74EC6E1C /* OnboardingComposers.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnboardingComposers.swift; sourceTree = "<group>"; };
 		946C46A9CAC2E8FAA15F2A6E /* OnboardingComponents.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnboardingComponents.swift; sourceTree = "<group>"; };
 		AA0002000000000000000007 /* HomeView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HomeView.swift; sourceTree = "<group>"; };
+		A70C3B03C237B6BD88A0B4FE /* LoadTimelineView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LoadTimelineView.swift; sourceTree = "<group>"; };
+		0A7C69703A221B9AF36E0CC1 /* ReadinessForecastCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReadinessForecastCard.swift; sourceTree = "<group>"; };
 		E1809DC7E4D2571C21FC2FC6 /* HomeModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HomeModels.swift; sourceTree = "<group>"; };
 		A9660E66E6D13D3CCB7D0411 /* HomeHeroCards.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HomeHeroCards.swift; sourceTree = "<group>"; };
 		220C4368102CD8AD1BD12253 /* HomeARIABriefingCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HomeARIABriefingCard.swift; sourceTree = "<group>"; };
@@ -1056,6 +1060,8 @@
 				5D1B4CAD5FA5D25B74EC6E1C /* OnboardingComposers.swift */,
 				946C46A9CAC2E8FAA15F2A6E /* OnboardingComponents.swift */,
 				AA0002000000000000000007 /* HomeView.swift */,
+				A70C3B03C237B6BD88A0B4FE /* LoadTimelineView.swift */,
+				0A7C69703A221B9AF36E0CC1 /* ReadinessForecastCard.swift */,
 				E1809DC7E4D2571C21FC2FC6 /* HomeModels.swift */,
 				A9660E66E6D13D3CCB7D0411 /* HomeHeroCards.swift */,
 				220C4368102CD8AD1BD12253 /* HomeARIABriefingCard.swift */,
@@ -1830,6 +1836,8 @@
 				4D8E544D568595AB65EBB3A4 /* RestaurantCatalog.swift in Sources */,
 				1E9C57122F915D9800F365E3 /* VoiceCoachManager.swift in Sources */,
 				AA0001000000000000000007 /* HomeView.swift in Sources */,
+				34C39157B5A9C9DA6F774E5D /* LoadTimelineView.swift in Sources */,
+				917943B402BD923F0744751D /* ReadinessForecastCard.swift in Sources */,
 				CBEEDC3EE856524D0A77DB39 /* HomeModels.swift in Sources */,
 				DA2E7330C7F2CD27BE372197 /* HomeHeroCards.swift in Sources */,
 				477615BBC4667F2CD2D411F3 /* HomeARIABriefingCard.swift in Sources */,
