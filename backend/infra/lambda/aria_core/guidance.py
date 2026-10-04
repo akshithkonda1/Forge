@@ -458,12 +458,30 @@ def _is_cardiac_reply(lower: str) -> bool:
     return _is_cardiac_red_flag(lower) or _has(lower, ("heart attack",))
 
 
+# Arrest-quality breathing. Kept off _EMERGENCY_STATE so the Swift generator
+# does not need a new needle. Agonal alone is emergency; gasping / weird /
+# shallow only change a how-to unresponsive turn (those stay emergency CPR).
+_ABNORMAL_BREATHING = (
+    "agonal",
+    "gasping",
+    "barely breathing",
+    "breathing weird",
+    "breathing shallow",
+    "shallow breathing",
+)
+
+
+def _has_abnormal_breathing(lower: str) -> bool:
+    return _has(lower, _ABNORMAL_BREATHING)
+
+
 def _needs_cpr(lower: str) -> bool:
     """CPR only for arrest: not breathing, unresponsive, or no circulation."""
     return (
         _has(lower, _NOT_BREATHING)
         or _has(lower, _UNRESPONSIVE)
         or _has(lower, _NO_CIRCULATION)
+        or _has(lower, ("agonal",))
     )
 
 
@@ -471,7 +489,8 @@ def _is_acute_red_flag(lower: str) -> bool:
     """Life-threatening cues not in _EMERGENCY_STATE.
 
     Cardiac, stroke (BE-FAST), syncope, airway swelling, heavy bleeding, head
-    injury with a red flag, and ingestion with intent or danger.
+    injury with a red flag, ingestion with intent or danger, and agonal
+    breathing (arrest-quality, not a generated emergency needle).
     """
     return (
         _is_cardiac_red_flag(lower)
@@ -481,6 +500,7 @@ def _is_acute_red_flag(lower: str) -> bool:
         or _is_bleeding_emergency(lower)
         or _is_head_injury_emergency(lower)
         or _is_ingestion_emergency(lower)
+        or _has(lower, ("agonal",))
     )
 
 # --- First-aid how-to (helping someone; information is in-bounds) ------------
@@ -697,8 +717,8 @@ _EMERGENCY_FAINT = (
     "and keep someone with you if you can."
 )
 _FAINT_TRAINING = (
-    "run", "running", "workout", "lift", "lifting", "bench", "set", "ride",
-    "riding", "class", "gym", "training", "squats", "practice",
+    "run", "running", "workout", "lift", "lifting", "bench", "ride",
+    "riding", "gym", "training", "squats", "practice",
 )
 _EMERGENCY_FAINT_RESOLVED = (
     "Call 911 now, even if you feel okay again. "
@@ -889,19 +909,18 @@ def _emergency_subject(lower: str, kind: str) -> str:
 def _faint_emergency_prose(lower: str, *, helper: bool = False) -> str:
     """Chat and Scout share this faint reply.
 
-    Training words ("running", "lifting") get the mid-workout 911 line even
-    without a resolved cue, so "I fainted while running" matches chat and
-    Scout. A resolved cue without training words keeps the standard
-    911-even-if-okay line. Helper phrasing without those cues keeps the
-    bystander CPR-if-needed reply. Anything else keeps the standard opener
-    plus ``_EMERGENCY_FAINT``.
+    Bystander / helper phrasing wins first, so "she fainted after her
+    workout" keeps the lay-them-flat CPR-if-needed reply. Training words
+    ("running", "lifting") then get the mid-workout 911 line. A resolved
+    cue without training words keeps the standard 911-even-if-okay line.
+    Anything else keeps the standard opener plus ``_EMERGENCY_FAINT``.
     """
+    if helper or _is_helper_phrasing(lower):
+        return f"{_EMERGENCY_OPEN} {_EMERGENCY_FAINT_HELPER}"
     if _has_word(lower, _FAINT_TRAINING):
         return _EMERGENCY_FAINT_RESOLVED_TRAINING
     if _has(lower, _URGENT_RESOLVED):
         return _EMERGENCY_FAINT_RESOLVED
-    if helper:
-        return f"{_EMERGENCY_OPEN} {_EMERGENCY_FAINT_HELPER}"
     return f"{_EMERGENCY_OPEN} {_EMERGENCY_FAINT}"
 
 
@@ -1404,12 +1423,17 @@ def safety_session(
 
 
 def _howto_unresponsive_breathing(lower: str) -> bool:
-    """How-to for an unresponsive person who is still breathing is first aid."""
+    """How-to for an unresponsive person who is still breathing is first aid.
+
+    Abnormal / agonal breathing is arrest, not a first-aid how-to.
+    """
     if not _has(lower, _HOWTO_CUES):
         return False
     if not _has(lower, ("unresponsive", "unconscious")):
         return False
     if _has(lower, _NOT_BREATHING) or _has(lower, _NO_CIRCULATION):
+        return False
+    if _has_abnormal_breathing(lower):
         return False
     return "breathing" in lower
 
@@ -1640,6 +1664,15 @@ def contains_prescriptive_medical_language(text: str) -> bool:
 
 # Iris-approved. Plain sentence after the speak guard — no parentheses, no prefix.
 CLINICIAN_DISCLAIMER = "Worth running anything medical past your doctor first."
+_DOSE_LINE_MARKERS = (
+    "dosing is your prescriber's call",
+    "doctor or pharmacist",
+)
+
+
+def _has_dose_line(text: str) -> bool:
+    lower = (text or "").lower()
+    return any(marker in lower for marker in _DOSE_LINE_MARKERS)
 
 
 def append_clinician_disclaimer(text: str) -> str:
@@ -1647,14 +1680,22 @@ def append_clinician_disclaimer(text: str) -> str:
     text = (text or "").rstrip()
     if CLINICIAN_DISCLAIMER in text:
         return text or CLINICIAN_DISCLAIMER
+    if _has_dose_line(text):
+        return text
     if not text:
         return CLINICIAN_DISCLAIMER
     return f"{text}\n\n{CLINICIAN_DISCLAIMER}"
 
 
 def apply_clinician_disclaimer(envelope: dict) -> dict:
-    """After the speak guard: soften prescriptive COACH copy. Idempotent."""
+    """After the speak guard: soften prescriptive COACH copy. Idempotent.
+
+    A dosing / pharmacist line replaces the doctor disclaimer so the two
+    never stack.
+    """
     spoken = str(envelope.get("message") or "")
+    if _has_dose_line(spoken):
+        return envelope
     if not contains_prescriptive_medical_language(spoken):
         return envelope
     envelope["message"] = append_clinician_disclaimer(spoken)
@@ -1688,6 +1729,17 @@ ACTION_CHECKED_TODAY = "Get it checked today"
 # AriaSafetyTriage.swift.
 _SCOUT_EMERGENCY_EXTRAS = (
     "heavy bleeding",
+)
+# Scout-only: a period / cycle mention keeps bare "heavy bleeding" off the
+# emergency tier. Chat never classifies "heavy bleeding" as EMERGENCY, so
+# this must not touch classify_band / the Swift generator.
+_SCOUT_CYCLE_WORDS = (
+    "period", "menstrual", "menstruation", "flow", "cycle", "spotting",
+)
+_SCOUT_BLEEDING_RED_FLAGS = (
+    "fainted", "almost fainted", "passed out", "dizzy", "lightheaded",
+    "light-headed", "light headed", "pregnant", "pregnancy", "chest pain",
+    "can't stand", "cant stand", "cannot stand",
 )
 
 # Intent / plan, on top of _is_self_harm. Thoughts without these stay calmer.
@@ -1917,10 +1969,29 @@ def _is_scout_stress(lower: str) -> bool:
     return _has(lower, _STRESS_BURNOUT) and _has(lower, _STRESS_HOPELESS)
 
 
+def _scout_period_excludes_heavy_bleeding(lower: str) -> bool:
+    """Bare heavy period bleeding is not a Scout emergency.
+
+    Red flags (faint, soak-through, pregnancy, chest pain, can't stand)
+    keep the sidecar on ``emergency_now``.
+    """
+    if not _has(lower, _SCOUT_EMERGENCY_EXTRAS):
+        return False
+    if not _has_word(lower, _SCOUT_CYCLE_WORDS):
+        return False
+    if _has(lower, _SCOUT_BLEEDING_RED_FLAGS):
+        return False
+    if "soaking" in lower and ("pad" in lower or "tampon" in lower):
+        return False
+    if "every hour" in lower and ("pad" in lower or "tampon" in lower):
+        return False
+    return True
+
+
 def _is_scout_emergency_extra(lower: str) -> bool:
     """Sidecar-only emergencies chat does not already classify as EMERGENCY."""
     if _has(lower, _SCOUT_EMERGENCY_EXTRAS):
-        return True
+        return not _scout_period_excludes_heavy_bleeding(lower)
     if _has(lower, _CHEST_MARKERS) and not _is_lift_chest_soreness(lower):
         return True
     if _BLEEDING_TRIAGE_RE.search(lower):
@@ -1964,7 +2035,7 @@ def scout_emergency_line(message: str) -> str:
     lower = normalize_message(message)
     kind = _scout_emergency_kind(lower)
     if kind == "faint":
-        return _faint_emergency_prose(lower)
+        return _faint_emergency_prose(lower, helper=_is_helper_phrasing(lower))
     return (
         f"{_EMERGENCY_OPEN} {SCOUT_EMERGENCY_HELP} {_scout_emergency_steps(kind)}"
     )
