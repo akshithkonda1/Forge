@@ -26,12 +26,17 @@ enum AriaOnDeviceHealthPolicy {
 
     /// Prefix of the Life Context brief in `lifestyle.recentPatterns`.
     static let lifeContextBriefPrefix = "life_context_brief: "
+    static let lifeOpsBriefPrefix = "life_ops_brief: "
 
-    /// Reminders counts and shared-conversation facts are on-device only:
-    /// they never reach Claude, Grok, or the Forge backend.
+    /// Reminders counts, shared-conversation facts, and the Life Ops digest
+    /// (calendar + reminder load). Built fresh for this payload and never
+    /// written into `context`, so none of it is persisted. On-device ARIA
+    /// reads it; AriaOnDeviceHealthPolicy strips it before /ai/chat.
     static func isOnDeviceOnlyLifeContext(_ value: String) -> Bool {
         let v = value.lowercased()
-        return v.hasPrefix("reminders:") || v.hasPrefix("life_context")
+        return v.hasPrefix("reminders:")
+            || v.hasPrefix("life_context")
+            || v.hasPrefix("life_ops")
     }
 
     static func isHealthLedgerTag(_ tag: String) -> Bool {

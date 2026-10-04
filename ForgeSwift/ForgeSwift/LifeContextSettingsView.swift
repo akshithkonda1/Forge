@@ -35,7 +35,7 @@ struct LifeContextSettingsSection: View {
                 .padding(.top, 28)
                 .padding(.bottom, 10)
                 .accessibilityAddTraits(.isHeader)
-            Text("Optional, and on this iPhone. ARIA reads counts and short facts — never a reminder title or a message.")
+            Text("Optional, and on this iPhone. ARIA reads counts and short facts — never a reminder title, a message, or a calendar title. Mail and GitHub stay off this phone.")
                 .font(.system(size: 12))
                 .foregroundColor(.textTertiary)
                 .fixedSize(horizontal: false, vertical: true)
@@ -240,6 +240,19 @@ struct LifeContextKnowledgeView: View {
                             .foregroundColor(.textTertiary)
                     }
                     .accessibilityElement(children: .combine)
+                }
+                let digest = LifeOpsBoard.digest()
+                if !digest.isQuiet {
+                    card(title: "Life Ops", accent: .ember) {
+                        Text(digest.summaryLine)
+                            .font(.system(size: 14))
+                            .foregroundColor(.textPrimary)
+                        Text("Calendar kinds and reminder counts — never titles, mail, or GitHub. On this iPhone only.")
+                            .font(.system(size: 12))
+                            .foregroundColor(.textTertiary)
+                    }
+                    .accessibilityElement(children: .combine)
+                    .accessibilityLabel("Life Ops: \(digest.summaryLine)")
                 }
                 factsCard
                 #if FORGE_DUMMY_ORCHESTRA

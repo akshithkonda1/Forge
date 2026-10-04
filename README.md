@@ -33,7 +33,7 @@ ARIA is the heart of Forge. She’s an **AI lifestyle coach** — a companion wh
 
 She might catch that your sleep is sliding, that training is stacking up, or that a habit you care about keeps getting crowded out. Then she helps you do something small about it.
 
-She is a **lifestyle coach, never a doctor**. She does not diagnose, treat, cure, or prescribe. If something looks like a real emergency, she hands you to your phone — Emergency SOS, or 988 if you’re in crisis.
+She is a **lifestyle coach, never a doctor**. She does not diagnose, treat, cure, or prescribe. If something looks like a real emergency, she hands you to your phone — Emergency SOS, 988 or 911 if you’re in crisis.
 
 ## What you can do today
 

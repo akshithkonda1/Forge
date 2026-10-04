@@ -2,7 +2,7 @@ import Foundation
 
 /// Deterministic Test-Ready Health stream.
 ///
-/// Same idea as SimRunner's 30-day persona: sleep stages, HRV, resting HR,
+/// Same idea as SimRunner's 30-day persona. Days are causal: sleep debt, load, and a short illness arc change the next morning. Local rules only: sleep stages, HRV, resting HR,
 /// steps, calories, water, and a few sessions. On the iOS 27 simulator the
 /// app writes this into HealthKit when the process session seed changes, then
 /// reads it back through the normal HealthKit path. A new Simulator launch
@@ -355,21 +355,27 @@ public struct FakeHealthPack: Sendable, Equatable {
         let bias = PersonaBias.forLabel(personaLabel)
         var built: [FakeHealthDay] = []
         built.reserveCapacity(count)
-
-        for offset in 0..<count {
+        // Oldest first so today is caused by the month behind it. The public
+        // array stays newest-first. No model, no network — a running body.
+        var carry = HealthCarry()
+        var chronological: [FakeHealthDay] = []
+        chronological.reserveCapacity(count)
+        for offset in stride(from: count - 1, through: 0, by: -1) {
             let dayStart = calendar.date(byAdding: .day, value: -offset, to: todayStart) ?? todayStart
-            built.append(
-                makeDay(
-                    offset: offset,
-                    dayStart: dayStart,
-                    calendar: calendar,
-                    plan: plan,
-                    bias: bias,
-                    seed: effectiveSeed,
-                    rng: &rng
-                )
+            let day = makeDay(
+                offset: offset,
+                dayStart: dayStart,
+                calendar: calendar,
+                plan: plan,
+                bias: bias,
+                seed: effectiveSeed,
+                carry: carry,
+                rng: &rng
             )
+            chronological.append(day)
+            carry.absorb(day, startingIllness: offset == plan.warmDay)
         }
+        built = Array(chronological.reversed())
         // Post-pass: felt-vs-energy calibration. Each day's predicted energy
         // is derived from its trailing nights (suffix), exactly as
         // EnergySchedule does — so the drift `felt - predicted` is the
@@ -527,11 +533,13 @@ public struct FakeHealthPack: Sendable, Equatable {
         plan: DayPlan,
         bias: PersonaBias,
         seed: Int,
+        carry: HealthCarry,
         rng: inout SplitMix64
     ) -> FakeHealthDay {
         let weekday = calendar.component(.weekday, from: dayStart)   // 1 = Sunday
         let isWeekend = weekday == 1 || weekday == 7
-        let workout = session(offset: offset, phase: plan.trainingPhase)
+        let planned = session(offset: offset, phase: plan.trainingPhase)
+        let workout = adaptSession(planned, carry: carry, offset: offset)
 
         // The evening that precedes this day's night. Generated first, because
         // everything below reads from it.
@@ -563,7 +571,14 @@ public struct FakeHealthPack: Sendable, Equatable {
         }
         // Today must stay citable no matter what the evening did.
         if offset == 0 { asleepMinutes = max(asleepMinutes, 5 * 60 + 25) }
-        asleepMinutes = max(4 * 60 + 40, asleepMinutes)
+        // Rebound: two short nights buy a longer one, unless this night was planned short.
+        if offset != 0, !shortNight, carry.consecutiveShort >= 2 {
+            asleepMinutes += 25 + min(20, carry.sleepDebtMinutes / 12)
+        }
+        if offset != 0, carry.illnessDaysLeft > 0 {
+            asleepMinutes += 18
+        }
+        asleepMinutes = max(4 * 60 + 40, min(9 * 60 + 10, asleepMinutes))
 
         var onsetHour = 23
         var onsetMinute = rng.int(0...40)
@@ -614,9 +629,22 @@ public struct FakeHealthPack: Sendable, Equatable {
 
         var hrv = 52 + rng.int(-6...8) + bias.hrv
         var rhr = 58 + rng.int(-4...5) + bias.rhr
+        // Pull toward the running week so a bad stretch is a trend, not noise.
+        hrv = (hrv + carry.hrvEMA) / 2
         if shortNight || hardSessionYesterday {
             hrv -= rng.int(8...14)
             rhr += rng.int(3...7)
+        }
+        if carry.sleepDebtMinutes > 70 {
+            hrv -= min(10, carry.sleepDebtMinutes / 18)
+            rhr += min(4, carry.sleepDebtMinutes / 40)
+        }
+        if carry.illnessDaysLeft > 0, offset != 0 {
+            hrv -= 6
+            rhr += 3
+        }
+        if carry.acuteLoad > 150 {
+            hrv -= 3
         }
         // Alcohol is the clearest single-night signal in real HRV data, so it is
         // the clearest thing for ARIA to have an opinion about here.
@@ -654,7 +682,7 @@ public struct FakeHealthPack: Sendable, Equatable {
             rng: &rng
         )
 
-        let (felt, storyLine) = feltAndStory(
+        let (felt, baseStory) = feltAndStory(
             offset: offset,
             shortNight: shortNight,
             lateNight: lateNight,
@@ -663,11 +691,17 @@ public struct FakeHealthPack: Sendable, Equatable {
             hrv: hrv,
             sleepScore: sleepScore
         )
+        let storyLine = causalStory(baseStory, carry: carry, hrv: hrv, offset: offset)
 
         // Tenths of a degree via int so SplitMix64 stays the only rng.
         let bodyTemp: Double
-        if offset == plan.warmDay {
+        if offset == 0 {
+            // Today stays citable. The fever arc lives on earlier days.
+            bodyTemp = 97.7 + Double(rng.int(0...8)) / 10
+        } else if offset == plan.warmDay {
             bodyTemp = 100.4 + Double(rng.int(0...4)) / 10
+        } else if carry.illnessDaysLeft > 0 {
+            bodyTemp = 99.1 + Double(rng.int(0...6)) / 10
         } else {
             bodyTemp = 97.7 + Double(rng.int(0...8)) / 10
         }
@@ -712,6 +746,97 @@ public struct FakeHealthPack: Sendable, Equatable {
             predictedEnergyAtWake: nil,
             feltEnergyAnchor: feltAnchor
         )
+    }
+
+
+    /// Running body. Updated oldest → newest. Deterministic. No cloud.
+    fileprivate struct HealthCarry {
+        var sleepDebtMinutes: Int = 0
+        var consecutiveShort: Int = 0
+        var illnessDaysLeft: Int = 0
+        var hrvEMA: Int = 54
+        var acuteLoad: Int = 0
+
+        mutating func absorb(_ day: FakeHealthDay, startingIllness: Bool) {
+            let slept = day.night.totalMinutes
+            let gap = max(0, (7 * 60 + 20) - Int(slept))
+            sleepDebtMinutes = min(240, (sleepDebtMinutes * 2 / 3) + gap / 2)
+            if Int(slept) < 6 * 60 {
+                consecutiveShort += 1
+            } else {
+                consecutiveShort = 0
+            }
+            if startingIllness {
+                illnessDaysLeft = 2
+            } else if illnessDaysLeft > 0 {
+                illnessDaysLeft -= 1
+            }
+            let load: Int
+            switch day.workout?.intensity {
+            case "high": load = 42
+            case "moderate": load = 24
+            case "low": load = 10
+            default: load = 0
+            }
+            acuteLoad = min(220, acuteLoad * 3 / 4 + load)
+            hrvEMA = (hrvEMA * 3 + day.hrvMs) / 4
+        }
+    }
+
+    /// High strain or stacked debt changes the session. Strength type is kept
+    /// so the month still has a liftable story; intensity is what yields.
+    private static func adaptSession(
+        _ workout: FakeHealthWorkout?,
+        carry: HealthCarry,
+        offset: Int
+    ) -> FakeHealthWorkout? {
+        guard offset != 0, let workout else { return workout }
+        if carry.illnessDaysLeft > 0 {
+            return FakeHealthWorkout(
+                name: "Easy walk",
+                type: .mobility,
+                durationMinutes: 22,
+                intensity: "low",
+                volume: 0
+            )
+        }
+        if carry.sleepDebtMinutes > 120, workout.intensity == "high" {
+            return FakeHealthWorkout(
+                name: "Deload \(workout.name)",
+                type: workout.type,
+                durationMinutes: max(30, workout.durationMinutes - 18),
+                intensity: "low",
+                volume: workout.volume / 2
+            )
+        }
+        if carry.acuteLoad > 150, workout.type == .cardio {
+            return FakeHealthWorkout(
+                name: "Recovery spin",
+                type: .cardio,
+                durationMinutes: 28,
+                intensity: "low",
+                volume: 0
+            )
+        }
+        return workout
+    }
+
+    private static func causalStory(_ base: String, carry: HealthCarry, hrv: Int, offset: Int) -> String {
+        if offset == 0 { return base }
+        if carry.illnessDaysLeft > 0 {
+            return base + " Temperature is still up from the warm stretch, so the session yielded."
+        }
+        let under = carry.hrvEMA - hrv
+        if carry.consecutiveShort >= 2 {
+            return base + " That is night \(carry.consecutiveShort) short — HRV is following the debt, not the calendar."
+        }
+        if carry.sleepDebtMinutes > 90, under >= 4 {
+            return base + " HRV is \(under) ms under the running week."
+        }
+        if carry.acuteLoad > 150 {
+            return base + " Load from the last few sessions is still on the body."
+        }
+        return base
     }
 
     /// A sentence a companion could say. Derived from the day's own facts so
@@ -1045,7 +1170,7 @@ public struct FakeHealthPack: Sendable, Equatable {
         let nightsOrdered = days.reversed().map { $0.night }
         var result = days
         for idx in days.indices {
-            let offset = idx // 0 = today (newest)
+            // idx 0 = today (newest)
             // Trailing nights *before* this day's night — what was known at wake.
             // For today, that's days[1...]; for day 5, days[6...].
             let trailingCount = days.count - idx - 1

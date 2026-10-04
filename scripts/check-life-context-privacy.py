@@ -36,10 +36,12 @@ LIFE_CONTEXT_SOURCES = [
     "ForgeSwift/ForgeCore/Sources/ForgeCore/Intelligence/MessageContextEngine.swift",
     "ForgeSwift/ForgeCore/Sources/ForgeCore/Intelligence/SharedConversationParser.swift",
     "ForgeSwift/ForgeCore/Sources/ForgeCore/Intelligence/LifeContextBrief.swift",
+    "ForgeSwift/ForgeCore/Sources/ForgeCore/Intelligence/LifeOpsDigest.swift",
     "ForgeSwift/ForgeCore/Sources/ForgeCore/Models/LifeContextModels.swift",
     "ForgeSwift/ForgeCore/Sources/ForgeCore/Models/RemindersWorkload.swift",
     "ForgeSwift/ForgeCore/Sources/ForgeCore/Security/LifeContextVault.swift",
     "ForgeSwift/ForgeSwift/Services/RemindersManager.swift",
+    "ForgeSwift/ForgeSwift/Services/LifeOpsBoard.swift",
     "ForgeSwift/ForgeSwift/Services/MessageIngestionProvider.swift",
     "ForgeSwift/ForgeSwift/Services/SyntheticMessageProvider.swift",
     "ForgeSwift/ForgeSwift/Services/MessageContextStore.swift",
@@ -133,6 +135,8 @@ def main() -> int:
     policy = strip_comments(read(POLICY))
     if policy.count("isOnDeviceOnlyLifeContext(") < 3:
         findings.append(f"{POLICY}: remote strip must drop Life Context from tags and patterns")
+    if "life_ops" not in policy:
+        findings.append(f"{POLICY}: remote strip must also drop Life Ops tags")
 
     with open(SHARE_ENTITLEMENTS, "rb") as handle:
         entitlements = plistlib.load(handle)

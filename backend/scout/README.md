@@ -1,24 +1,50 @@
 # ARIA Scout
 
-The agentic research sidecar ARIA calls when a turn needs the open web. The process stays up. It does not search until the gate says the prompt is a lookup.
+The agentic research sidecar ARIA calls when a turn needs the open web. The process stays up. It does not search until the gate says yes: anything health related, or a lookup on any other topic.
 
 ```
 ARIA prompt ── gate.evaluate ── no ──▶ keep talking, Scout idle
                  │
                 yes (scrubbed mission only)
                  ▼
-EC2 t4g.small: Caddy → Scout :8088 → SearXNG
+    EC2 t4g.small: Caddy → Scout :8088 → SearXNG
                          └─▶ Grok on Bedrock synthesizes, then the working set is dumped
 ```
 
 ## Gate
 
-`backend/scout/gate.py` reads the prompt and flips Scout on only for a lookup ("look up", "what is", "latest on", evidence, weather). Coaching ("should I train") stays off. Crisis language stays off — guidance owns that path.
+`backend/scout/gate.py` reads the prompt and flips Scout on when:
+
+- **It is health related.** Symptoms, body parts, injuries, medications, supplements, nutrition, sleep, stress, heat. No lookup wording is needed ("I have a fever"), and one unambiguous keyword is enough (`fever`).
+- **It is a lookup on anything else** ("look up", "what is", "latest on", evidence, weather), with at least two keywords.
+
+It stays off for questions about the user's own data ("how did I sleep", "my HRV", "should I train"). If the same prompt also asks for outside facts, it turns on.
+
+Ambiguous everyday words do not wake Scout alone: `back`, `period`, `cold`, `hot`, `condition`, `drug`, `iron`, `sugar`, `mood`, `heart`, and similar. They count only with another health word, a lookup cue, or an activity word ("my back hurts", "iron supplement", "is it too hot to run"). "I'm back from work", "hot take", "what a period of my life", and "cold brew is great" stay off.
+
+## Safety tiers
+
+Crisis wording is **not** kept in `gate.py`. The gate asks `backend/infra/lambda/aria_core/guidance.py` for the Scout tier and reuses that copy. Templates are fixed and filled with the symptom — never model-written, and they work with Bedrock off. Suggested actions use exactly `Call 911` and `Call or text 988` (the app's tap-to-call chips).
+
+| Tier | Example | Opens with | 911 | 988 | Search |
+|---|---|---|---|---|---|
+| Emergency now | chest pain, can't breathe, stroke signs, overdose, passed out, seizure, heavy bleeding | `Call 911 now.` naming the symptom | yes | no | yes |
+| Self-harm with intent/plan | "I want to die" | `Call or text 988 now.` plus call 911 if in danger right now | yes | yes | **no** |
+| Self-harm thoughts, no plan | "I don't want to be here" | calmer 988 offer | no | yes | **no** |
+| Urgent, not emergency | fever for several days; a faint that has passed; chest tightness after a workout that went away | get checked today by a doctor or urgent care | `Call 911 if` + that symptom's warning signs | no | yes |
+| Stress / panic / burnout | burned out, panic | (research) + `988 is there to call or text anytime, not just in a crisis.` | no | yes | yes |
+| Ordinary health | "I have a fever" | no safety line | no | no | yes |
+
+The safety line is the **first** thing in the answer, so the clients' 420-character front-clip (`AriaWebParsers.maxEvidenceChars` in `AriaWebEvidence.swift`, `web_research._clip`, `gate.CLIENT_EVIDENCE_CHARS`) cannot drop it. Self-harm tiers return the reviewed reply with the 988 source and never start a Scout run. If a crisis request is rate limited or the lookup fails, the reply is still a **200** that carries the safety line and a fixed https source.
+
+Chat `assess()` / `classify_band()` are unchanged: ARIA still speaks the existing emergency and 988 copy. Scout extras (`overdose`, `heavy bleeding`) are sidecar-only so the Swift lexicon does not need a regenerate.
+
+A query-only body is a handoff (`from_handoff`): the caller already decided, so no lookup wording is needed. It is still scrubbed and still gets the safety line.
 
 A yes is a mission brief: scrubbed keywords, preferred sources, `retain: false`. Names after a relationship word, numbers, and contacts never enter the brief.
 
 - `POST /gate` returns that decision and does not search.
-- `POST /research` runs the same gate. `activate: false` means no SearXNG call and no Bedrock call.
+- `POST /research` runs the same gate. `activate: false` means no SearXNG call and no Bedrock call. Self-harm returns the fixed reply without searching.
 
 ## Dump
 

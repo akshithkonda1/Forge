@@ -28,6 +28,11 @@ final class LifestyleAssetTests: XCTestCase {
         XCTAssertEqual(LifestyleAssetIndex.classify(title: "Dinner at Bar Isabel"), .dinner)
         XCTAssertEqual(LifestyleAssetIndex.classify(title: "Dentist"), .appointment)
         XCTAssertEqual(LifestyleAssetIndex.classify(title: "Standup"), .work)
+        XCTAssertEqual(LifestyleAssetIndex.classify(title: "Stay at citizenM Chicago Downtown"), .travel)
+        XCTAssertEqual(LifestyleAssetIndex.classify(title: "SRE interview at Cisco"), .work)
+        XCTAssertTrue(LifestyleAssetIndex.isInterviewHold(title: "SRE interview at Cisco"))
+        XCTAssertTrue(LifestyleAssetIndex.isInterviewHold(title: "Phone screen with recruiter"))
+        XCTAssertFalse(LifestyleAssetIndex.isInterviewHold(title: "Standup"))
         XCTAssertNil(LifestyleAssetIndex.classify(title: "Random hold"))
     }
 
@@ -92,5 +97,50 @@ final class LifestyleAssetTests: XCTestCase {
         let tags = LifestyleAssetIndex.ingestTags(from: assets)
         XCTAssertEqual(tags, ["calendar:horizon:wedding:12"])
         XCTAssertTrue(LifestyleAssetIndex.titlesStayOnDevice(assets))
+    }
+
+    func testFarTravelStaysOnTheBoardWithoutReshapingTraining() throws {
+        let start = pinnedNow.addingTimeInterval(60 * 86_400)
+        let stay = LifestyleAssetIndex.fromCalendarFields(
+            title: "Stay at citizenM Chicago Downtown",
+            placeName: "Chicago",
+            start: start,
+            end: start.addingTimeInterval(4 * 86_400),
+            isAllDay: true,
+            notes: nil,
+            url: nil,
+            now: pinnedNow,
+            calendar: calendar
+        )
+        let asset = try XCTUnwrap(stay)
+        XCTAssertEqual(asset.kind, .travel)
+        XCTAssertEqual(asset.daysUntil, 60)
+        XCTAssertTrue(LifestyleAssetIndex.isInWorkingSet(asset))
+        XCTAssertTrue(LifestyleAssetIndex.ingestTags(from: [asset]).isEmpty)
+        XCTAssertTrue(LifestyleAssetIndex.titlesStayOnDevice([asset]))
+        let spoken = LifestyleAssetIndex.spokenInventory([asset])
+        XCTAssertTrue(spoken?.contains("60 days") == true)
+        XCTAssertFalse(spoken?.localizedCaseInsensitiveContains("citizenM") == true)
+        XCTAssertFalse(spoken?.localizedCaseInsensitiveContains("Chicago") == true)
+    }
+
+    func testInterviewHoldIsFlaggedAtIngestWithoutLeakingTheTitle() {
+        let start = pinnedNow.addingTimeInterval(2 * 86_400)
+        let asset = LifestyleAssetIndex.fromCalendarFields(
+            title: "SRE interview at Cisco",
+            placeName: "Zoom",
+            start: start,
+            end: start.addingTimeInterval(3600),
+            isAllDay: false,
+            notes: nil,
+            url: nil,
+            now: pinnedNow,
+            calendar: calendar
+        )
+        XCTAssertEqual(asset?.kind, .work)
+        XCTAssertEqual(asset?.isInterview, true)
+        XCTAssertEqual(asset?.structuredSummary, "a work block in 2 days")
+        XCTAssertFalse(asset?.structuredSummary.contains("Cisco") == true)
+        XCTAssertFalse(asset?.structuredSummary.contains("Zoom") == true)
     }
 }

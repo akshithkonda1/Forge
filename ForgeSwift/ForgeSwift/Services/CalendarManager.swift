@@ -6,8 +6,9 @@ import ForgeCore
 
 /// Apple Calendar — so ARIA knows your time, not just your HRV.
 /// Like HealthKit, it's optional and on-device. ARIA only sees a summary
-/// of **this calendar week**: busy windows and classified kinds (wedding,
-/// game, trip) — never titles, attendees, or notes.
+/// of **this calendar week** (busy windows and classified kinds) plus a
+/// 21-day headline horizon and 90-day travel window — never titles,
+/// attendees, or notes.
 ///
 /// Simulator Test-Ready loads the same `FakeCalendarPack` in memory so
 /// ARIA can be assessed against a real week — no EventKit, no Calendar
@@ -288,7 +289,7 @@ final class CalendarManager: ObservableObject {
         await fetchRange(start: window.start, end: window.end)
     }
 
-    /// Classify this week plus 21-day headlines from EventKit into sortable assets.
+    /// Classify this week, 21-day headlines, and 90-day travel from EventKit.
     func refreshLifestyleAssets() async {
         if usesMemoryCalendar { return }
         guard isAuthorized || Self.hasReadAccess(authorizationStatus()) else { return }
@@ -297,7 +298,7 @@ final class CalendarManager: ObservableObject {
         let week = FakeCalendarPack.weekWindow(containing: now, calendar: cal)
         let horizonEnd = cal.date(
             byAdding: .day,
-            value: LifestyleAssetIndex.workingHorizonDays,
+            value: LifestyleAssetIndex.ingestHorizonDays,
             to: cal.startOfDay(for: now)
         ) ?? week.end
         let end = max(week.end, horizonEnd)
@@ -317,7 +318,7 @@ final class CalendarManager: ObservableObject {
                 url: event.url,
                 source: .eventKit
             )
-        })
+        }.filter { LifestyleAssetIndex.isInWorkingSet($0) })
         horizonTags = LifestyleAssetIndex.ingestTags(from: lifestyleAssets)
     }
 
