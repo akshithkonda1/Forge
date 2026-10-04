@@ -68,6 +68,13 @@ def spoken_ban_hits(text: str) -> tuple[str, ...]:
         elif " " in needle or "'" in needle:
             if needle in raw:
                 hits.append(token)
+        elif needle == "recovery":
+            # Jargon ("recovery window") is banned. A recovery *score*
+            # ("recovery 58") is a vitals form, not coaching jargon.
+            if re.search(r"\brecovery\b", raw) and not re.search(
+                r"\brecovery\s+(?:score\b|\d)", raw
+            ):
+                hits.append(token)
         elif re.search(rf"\b{re.escape(needle)}\b", raw):
             hits.append(token)
     return tuple(hits)
@@ -234,17 +241,50 @@ _DIGIT_PERCENT = re.compile(
 )
 
 
+_LABEL_SPLIT = re.compile(
+    r"(?:^|[\n\s])("
+    + "|".join(re.escape(label) for label in _SECTION_LABELS)
+    + r")\s*\n"
+)
+
+
+def _spoken_units(text: str) -> list[str]:
+    """Sentences, with structured labels split off so a banned body cannot
+    take ``One next step`` / ``What I notice`` / ``Why`` with it."""
+    units: list[str] = []
+    for sent in _SENTENCE_SPLIT.split(str(text or "")):
+        sent = sent.strip()
+        if not sent:
+            continue
+        pieces = _LABEL_SPLIT.split(sent)
+        for piece in pieces:
+            bit = str(piece or "").strip()
+            if bit:
+                units.append(bit)
+    return units
+
+
+def _join_spoken_units(units: list[str]) -> str:
+    """Rejoin units, keeping a newline after structured labels."""
+    parts: list[str] = []
+    labels = {label.lower() for label in _SECTION_LABELS}
+    for unit in units:
+        if unit.lower() in labels:
+            parts.append(f"\n{unit}\n")
+        else:
+            if parts and not str(parts[-1]).endswith("\n"):
+                parts.append(" ")
+            parts.append(unit)
+    return "".join(parts).strip()
+
+
 def drop_digit_percent_sentences(text: str) -> str:
     """Drop sentences that speak a digit percent (``is 13% of the night``)."""
     raw = str(text or "").strip()
     if not raw:
         return raw
-    kept = [
-        part.strip()
-        for part in _SENTENCE_SPLIT.split(raw)
-        if part.strip() and not _DIGIT_PERCENT.search(part)
-    ]
-    return " ".join(kept).strip()
+    kept = [part for part in _spoken_units(raw) if not _DIGIT_PERCENT.search(part)]
+    return _join_spoken_units(kept)
 
 
 def drop_banned_sentences(text: str) -> str:
@@ -252,12 +292,8 @@ def drop_banned_sentences(text: str) -> str:
     raw = str(text or "").strip()
     if not raw:
         return raw
-    kept = [
-        part.strip()
-        for part in _SENTENCE_SPLIT.split(raw)
-        if part.strip() and not spoken_ban_hits(part)
-    ]
-    return " ".join(kept).strip()
+    kept = [part for part in _spoken_units(raw) if not spoken_ban_hits(part)]
+    return _join_spoken_units(kept)
 
 
 _PREPOSITION_LEAD = re.compile(
@@ -296,12 +332,8 @@ def drop_leftover_fragments(text: str) -> str:
     raw = str(text or "").strip()
     if not raw:
         return raw
-    kept = [
-        part.strip()
-        for part in _SENTENCE_SPLIT.split(raw)
-        if part.strip() and not is_leftover_fragment(part)
-    ]
-    return " ".join(kept).strip()
+    kept = [part for part in _spoken_units(raw) if not is_leftover_fragment(part)]
+    return _join_spoken_units(kept)
 
 
 _SKIP_SPOKEN_BAN_BANDS = frozenset({"emergency", "first_aid", "refer_out"})
