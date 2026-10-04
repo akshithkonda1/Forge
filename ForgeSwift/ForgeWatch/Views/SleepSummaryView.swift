@@ -89,7 +89,7 @@ struct SleepSummaryView: View {
 
     private var headerAccessibility: String {
         guard let night = health.sleepSummary else {
-            return "No sleep data yet for last night."
+            return "No sleep yet."
         }
         var text = "Slept \(night.durationLabel)"
         if let quality = health.readiness?.sleepQuality, quality > 0 {

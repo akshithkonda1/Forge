@@ -26,6 +26,8 @@ private struct SleepQualityComplicationView: View {
     let entry: SnapshotEntry
     @Environment(\.widgetFamily) private var family
 
+    private static let emptyLabel = "No sleep yet"
+
     private var quality: Int? { entry.snapshot?.sleepQualityScore }
     private var durationText: String? {
         guard let minutes = entry.snapshot?.sleepMinutes else { return nil }
@@ -81,7 +83,7 @@ private struct SleepQualityComplicationView: View {
         switch (durationText, quality) {
         case let (duration?, quality?): return "\(duration) · \(quality)"
         case let (duration?, nil):      return duration
-        default:                        return "No sleep data yet"
+        default:                        return Self.emptyLabel
         }
     }
 
@@ -126,7 +128,7 @@ private struct SleepQualityComplicationView: View {
     }
 
     private var inline: some View {
-        Text(cornerLabel == "No sleep data yet" ? "Sleep: syncing…" : "Sleep \(cornerLabel)")
+        Text(cornerLabel == Self.emptyLabel ? "Sleep: syncing…" : "Sleep \(cornerLabel)")
             .accessibilityLabel(accessibilityText)
     }
 
