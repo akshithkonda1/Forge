@@ -1039,7 +1039,7 @@ def _drop_dirty_parentheticals(text: str) -> str:
         inner = match.group(1).strip()
         return f"({inner})" if _cite_ok_for_speak(inner) else ""
 
-    cleaned = re.sub(r"\s*\(([^)]{1,240})\)", keep, str(text or ""))
+    cleaned = re.sub(r"\(([^)]{1,240})\)", keep, str(text or ""))
     return re.sub(r"\s{2,}", " ", cleaned).strip()
 
 
