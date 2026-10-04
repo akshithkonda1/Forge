@@ -36,6 +36,8 @@ final class RemindersWorkloadTests: XCTestCase {
             ("Call about the thing", "Work", .work),
             ("Thing", "Groceries", .errand),
             ("Thing", "Household", .home),
+            ("Reply to recruiter", nil, .work),
+            ("Prep phone screen", nil, .work),
             ("Random note", nil, .other),
             ("", nil, .other),
         ]

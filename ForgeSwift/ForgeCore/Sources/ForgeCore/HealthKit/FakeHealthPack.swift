@@ -759,9 +759,9 @@ public struct FakeHealthPack: Sendable, Equatable {
 
         mutating func absorb(_ day: FakeHealthDay, startingIllness: Bool) {
             let slept = day.night.totalMinutes
-            let gap = max(0, (7 * 60 + 20) - slept)
+            let gap = max(0, (7 * 60 + 20) - Int(slept))
             sleepDebtMinutes = min(240, (sleepDebtMinutes * 2 / 3) + gap / 2)
-            if slept < 6 * 60 {
+            if Int(slept) < 6 * 60 {
                 consecutiveShort += 1
             } else {
                 consecutiveShort = 0
@@ -1170,7 +1170,7 @@ public struct FakeHealthPack: Sendable, Equatable {
         let nightsOrdered = days.reversed().map { $0.night }
         var result = days
         for idx in days.indices {
-            let offset = idx // 0 = today (newest)
+            // idx 0 = today (newest)
             // Trailing nights *before* this day's night — what was known at wake.
             // For today, that's days[1...]; for day 5, days[6...].
             let trailingCount = days.count - idx - 1

@@ -194,13 +194,19 @@ final class AriaContextStore: ObservableObject {
             let text = CyclePhaseCoachingDirective.directive(for: phase, domain: domain)
             return text.isEmpty ? nil : text
         }()
-        // Life Context — Reminders counts and shared-conversation facts. Built
-        // fresh for this payload and never written into `context`, so none of
-        // it is persisted. On-device ARIA reads it; AriaOnDeviceHealthPolicy
+        // Life Context — Reminders counts, shared-conversation facts, and the
+        // Life Ops digest. Built fresh for this payload and never written
+        // into `context`. On-device ARIA reads it; AriaOnDeviceHealthPolicy
         // strips it before /ai/chat.
-        let lifeContextTags = RemindersManager.shared.ariaTags + MessageContextStore.shared.ariaTags()
-        let lifeContextPatterns = MessageContextStore.shared.contextBrief()
+        let digest = LifeOpsBoard.digest()
+        let lifeContextTags = RemindersManager.shared.ariaTags
+            + MessageContextStore.shared.ariaTags()
+            + digest.ariaTags
+        var lifeContextPatterns = MessageContextStore.shared.contextBrief()
             .map { [AriaOnDeviceHealthPolicy.lifeContextBriefPrefix + $0] } ?? []
+        if let ops = digest.spokenLine {
+            lifeContextPatterns.append(AriaOnDeviceHealthPolicy.lifeOpsBriefPrefix + ops)
+        }
         let lifestyleDomain = ARIAContextPayload.LifestyleDomain(
             tags: context.lifestyleTags + lifeContextTags,
             recentPatterns: patterns + lifeContextPatterns,

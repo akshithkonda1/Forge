@@ -205,7 +205,7 @@ public enum RemindersClassifier {
         (.work, [
             "report", "deck", "slides", "presentation", "meeting", "client", "deadline", "submit", "standup",
             "stand up", "1 1", "project", "proposal", "boss", "manager", "interview", "timesheet",
-            "expense report", "office", "work",
+            "expense report", "office", "work", "recruiter", "phone screen",
         ]),
         (.finance, [
             "pay", "bill", "bills", "rent", "mortgage", "tax", "taxes", "bank", "invoice", "transfer",

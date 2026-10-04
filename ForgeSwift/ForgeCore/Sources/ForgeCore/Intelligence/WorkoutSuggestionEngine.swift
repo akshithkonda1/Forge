@@ -107,7 +107,8 @@ public enum EventTrainingPolicy: Sendable {
         if let wedding = horizon.first(where: { $0.kind == "wedding" }) {
             return weddingPlan(daysUntil: wedding.days)
         }
-        if let trip = horizon.first(where: { $0.kind == "flight" || $0.kind == "travel" }) {
+        if let trip = horizon.first(where: { $0.kind == "flight" || $0.kind == "travel" }),
+           trip.days <= LifestyleAssetIndex.workingHorizonDays {
             return travelPlan(kind: trip.kind, daysUntil: trip.days)
         }
         if let game = horizon.first(where: { $0.kind == "game" }) {
