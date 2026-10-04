@@ -42,6 +42,16 @@ FAINT_REPLY = (
     "Call 911 now. Lie down flat and stay down, don't get back on the "
     "equipment or drive, and keep someone with you if you can."
 )
+FAINT_RESOLVED_REPLY = (
+    "Call 911 now, even if you feel okay again. "
+    "Passing out needs a proper look right away. "
+    "Lie down, skip driving, and keep someone with you."
+)
+FAINT_RESOLVED_TRAINING_REPLY = (
+    "Call 911 now, even if you feel okay again. "
+    "Passing out mid-workout needs a proper look right away. "
+    "Lie down, skip driving, and keep someone with you."
+)
 FAINT_HELPER_REPLY = f"Call 911 now. {guidance._EMERGENCY_FAINT_HELPER}"
 CPR_REPLY = f"Call 911 now. {guidance._EMERGENCY_CPR}"
 CONDITIONAL_CPR_REPLY = f"Call 911 now. {guidance._EMERGENCY_CPR_IF_NEEDED}"
@@ -164,6 +174,23 @@ class SyncopeRedFlagTests(unittest.TestCase):
         for message in SYNCOPE_PHRASES:
             with self.subTest(message=message):
                 _assert_typed_emergency(self, message, FAINT_REPLY, cpr=False)
+
+    def test_resolved_faint_variants_match_chat_and_scout(self):
+        rows = (
+            ("I fainted earlier but I'm fine now", FAINT_RESOLVED_REPLY),
+            ("I fainted during my run, I'm fine now", FAINT_RESOLVED_TRAINING_REPLY),
+            ("I passed out", FAINT_REPLY),
+        )
+        for message, expected in rows:
+            with self.subTest(message=message):
+                _assert_typed_emergency(self, message, expected, cpr=False)
+                self.assertEqual(guidance.scout_emergency_line(message), expected)
+                self.assertEqual(
+                    guidance.scout_safety(message).line, expected, message
+                )
+                self.assertEqual(
+                    guidance.scout_safety(message).tier, guidance.TIER_EMERGENCY
+                )
 
     def test_syncope_helper_phrases_get_helper_steps(self):
         for message in SYNCOPE_HELPER_PHRASES:
@@ -381,14 +408,6 @@ class PatientVsBystanderTests(unittest.TestCase):
 class EmergencyDigitRuleTests(unittest.TestCase):
     """On the emergency band, only 911, 988, and CPR compression digits."""
 
-    _TOKEN = re.compile(r"\d+")
-    _PATIENT = {"911"}
-    _CRISIS = {"911", "988"}
-    _CPR = {"911", "100", "120", "2", "30"}
-
-    def _digits(self, text: str) -> set[str]:
-        return set(self._TOKEN.findall(text))
-
     def test_patient_replies_only_use_911(self):
         for message, expected in (
             ("chest pain and my left arm is numb", CARDIAC_REPLY),
@@ -398,21 +417,48 @@ class EmergencyDigitRuleTests(unittest.TestCase):
             with self.subTest(message=message):
                 assessed = guidance.assess(message)
                 self.assertEqual(assessed.prose, expected)
-                self.assertEqual(self._digits(assessed.prose), self._PATIENT)
+                self.assertEqual(
+                    guidance.extra_speak_digits(assessed.prose, message),
+                    frozenset(),
+                )
+                self.assertEqual(
+                    guidance.allowed_speak_digits(message),
+                    guidance.SPEAK_DIGITS,
+                )
 
     def test_cpr_replies_may_use_compression_numbers(self):
         for message in ("he's not breathing", "call 911 now"):
             with self.subTest(message=message):
                 assessed = guidance.assess(message)
-                digits = self._digits(assessed.prose)
-                self.assertTrue(digits <= self._CPR, digits)
-                self.assertIn("911", digits)
-                self.assertIn("100", digits)
-                self.assertIn("120", digits)
+                self.assertEqual(
+                    guidance.extra_speak_digits(assessed.prose, message),
+                    frozenset(),
+                )
+                self.assertTrue(
+                    guidance.CPR_SPEAK_DIGITS <= guidance.allowed_speak_digits(message)
+                )
+                self.assertIn("911", set(re.findall(r"\d+", assessed.prose)))
+                self.assertIn("100", set(re.findall(r"\d+", assessed.prose)))
+                self.assertIn("120", set(re.findall(r"\d+", assessed.prose)))
 
     def test_self_harm_allows_988_and_911_only(self):
-        assessed = guidance.assess("I feel suicidal and want to die")
-        self.assertEqual(self._digits(assessed.prose), self._CRISIS)
+        message = "I feel suicidal and want to die"
+        assessed = guidance.assess(message)
+        self.assertEqual(
+            guidance.extra_speak_digits(assessed.prose, message),
+            frozenset(),
+        )
+        self.assertEqual(
+            set(re.findall(r"\d+", assessed.prose)),
+            set(guidance.SPEAK_DIGITS),
+        )
+
+    def test_faint_reply_cannot_keep_cpr_digits(self):
+        dirty = f"{FAINT_REPLY} {guidance._EMERGENCY_CPR_STEPS}"
+        self.assertEqual(
+            guidance.extra_speak_digits(dirty, "I just fainted") & guidance.CPR_SPEAK_DIGITS,
+            guidance.CPR_SPEAK_DIGITS,
+        )
 
 
 class GuardrailDoesNotWriteMemoryTests(unittest.TestCase):

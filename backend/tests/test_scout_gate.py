@@ -3,9 +3,11 @@
 from __future__ import annotations
 
 import json
+import os
 import re
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
 import _bootstrap  # noqa: F401
 
@@ -153,6 +155,10 @@ _STRESS_EXAMPLES = (
     "I'm burned out and there's no point",
     "I'm burned out and having panic attacks",
 )
+_SELF_HARM_EXAMPLES = (
+    "I feel suicidal and want to die",
+    "I don't want to be here",
+)
 _SAFETY_EXAMPLES = (
     "Look up chest pain, I think I'm having a heart attack.",
     "I can't breathe",
@@ -230,11 +236,17 @@ class SafetyTierTests(unittest.TestCase):
             "he's having a seizure",
             "I'm bleeding out",
         )
+        from aria_core import guidance
+
         for prompt in cases:
             decision = self._tier(prompt)
             self.assertEqual(decision.tier, TIER_EMERGENCY, prompt)
             self.assertTrue(decision.safety.startswith("Call 911 now."), prompt)
-            self.assertIn("This needs emergency help right away.", decision.safety, prompt)
+            kind = guidance._emergency_kind(guidance.normalize_message(prompt))
+            if kind == "faint":
+                self.assertEqual(decision.safety, guidance.scout_emergency_line(prompt), prompt)
+            else:
+                self.assertIn("This needs emergency help right away.", decision.safety, prompt)
             self.assertIn(ACTION_911, decision.actions, prompt)
             self.assertNotIn("988", decision.safety, prompt)
             self._assert_fixed_query(decision, prompt)
@@ -288,15 +300,32 @@ class SafetyTierTests(unittest.TestCase):
             self._assert_fixed_query(decision, prompt)
 
     def test_fainted_during_run_is_emergency_when_chat_says_emergency(self) -> None:
-        prompt = "I fainted during my run, I'm fine now"
         from aria_core import guidance
 
-        self.assertEqual(guidance.classify_band(prompt), guidance.EMERGENCY)
-        decision = self._tier(prompt)
-        self.assertEqual(decision.tier, TIER_EMERGENCY)
-        self.assertNotEqual(decision.tier, TIER_URGENT)
-        self.assertTrue(decision.safety.startswith("Call 911 now."))
-        self._assert_fixed_query(decision, prompt)
+        rows = (
+            (
+                "I fainted earlier but I'm fine now",
+                guidance._EMERGENCY_FAINT_RESOLVED,
+            ),
+            (
+                "I fainted during my run, I'm fine now",
+                guidance._EMERGENCY_FAINT_RESOLVED_TRAINING,
+            ),
+            (
+                "I passed out",
+                f"{guidance._EMERGENCY_OPEN} {guidance._EMERGENCY_FAINT}",
+            ),
+        )
+        for prompt, expected in rows:
+            with self.subTest(prompt=prompt):
+                self.assertEqual(guidance.classify_band(prompt), guidance.EMERGENCY)
+                self.assertEqual(guidance.assess(prompt).prose, expected)
+                self.assertEqual(guidance.scout_emergency_line(prompt), expected)
+                decision = self._tier(prompt)
+                self.assertEqual(decision.tier, TIER_EMERGENCY, prompt)
+                self.assertNotEqual(decision.tier, TIER_URGENT, prompt)
+                self.assertEqual(decision.safety, expected, prompt)
+                self._assert_fixed_query(decision, prompt)
 
     def test_panic_attack_appends_softened_988_and_does_not_lock(self) -> None:
         prompt = "having a panic attack"
@@ -347,37 +376,109 @@ class SafetyTierTests(unittest.TestCase):
         self.assertEqual(with_safety("", SCOUT_SELF_HARM_THOUGHTS_LINE), SCOUT_SELF_HARM_THOUGHTS_LINE)
 
     def test_every_guidance_emergency_phrase_is_emergency_tier(self) -> None:
+        from aria_core import guidance
+
         phrases = emergency_phrases()
         self.assertGreaterEqual(len(phrases), 20)
         for phrase in phrases:
             decision = evaluate(phrase)
             self.assertEqual(decision.tier, TIER_EMERGENCY, phrase)
             self.assertTrue(decision.safety.startswith("Call 911 now."), phrase)
-            self.assertIn("This needs emergency help right away.", decision.safety, phrase)
+            kind = guidance._emergency_kind(guidance.normalize_message(phrase))
+            if kind == "faint":
+                self.assertEqual(decision.safety, guidance.scout_emergency_line(phrase), phrase)
+            else:
+                self.assertIn("This needs emergency help right away.", decision.safety, phrase)
             self.assertIn(ACTION_911, decision.actions, phrase)
             self._assert_fixed_query(decision, phrase)
 
     def test_chat_and_scout_agree_on_emergency_parity_table(self) -> None:
         from aria_core import guidance
+        from aria_core.speak_guard import spoken_ban_hits
+        from backend.ai.aria_chat.session import run_turn
 
-        rows = list(emergency_phrases()) + [
-            "I fainted during my run, I'm fine now",
-            "I fainted earlier but I'm fine now",
-            *_URGENT_EXAMPLES,
-            *_STRESS_EXAMPLES,
-            _PENDING_CHEST_AFTER_BENCH,
-        ]
+        faint_message = {
+            "I fainted earlier but I'm fine now": guidance._EMERGENCY_FAINT_RESOLVED,
+            "I fainted during my run, I'm fine now": guidance._EMERGENCY_FAINT_RESOLVED_TRAINING,
+        }
+        # phrase, expected Dummy /ai/chat message (None = coach/stress: no 911/988 line)
+        rows: list[tuple[str, str | None]] = []
+        for phrase in emergency_phrases():
+            assessed = guidance.assess(phrase)
+            rows.append((phrase, assessed.message if assessed is not None else None))
+        for phrase, expected in faint_message.items():
+            rows.append((phrase, expected))
+        for phrase in _SELF_HARM_EXAMPLES:
+            assessed = guidance.assess(phrase)
+            rows.append((phrase, assessed.message if assessed is not None else guidance._CRISIS_LINE))
+        for phrase in (*_URGENT_EXAMPLES, *_STRESS_EXAMPLES):
+            assessed = guidance.assess(phrase)
+            rows.append((phrase, assessed.message if assessed is not None else None))
+        rows.append((_PENDING_CHEST_AFTER_BENCH, None))
         self.assertGreaterEqual(len(rows), 20)
-        for phrase in rows:
-            with self.subTest(phrase=phrase):
-                if phrase == _PENDING_CHEST_AFTER_BENCH:
-                    self.skipTest(_PENDING_CHEST_REASON)
-                chat = guidance.classify_band(phrase)
-                scout = guidance.scout_safety(phrase)
-                if chat == guidance.EMERGENCY:
-                    self.assertIsNotNone(scout, phrase)
-                    self.assertEqual(scout.tier, TIER_EMERGENCY, phrase)
-                    self.assertNotEqual(scout.tier, TIER_URGENT, phrase)
+
+        def boom(*_args, **_kwargs):
+            raise AssertionError("live model called")
+
+        previous = os.environ.get("ARIA_BEDROCK_ENABLED")
+        os.environ["ARIA_BEDROCK_ENABLED"] = "true"
+        try:
+            with patch(
+                "services.aria_engine._default_converse", boom
+            ), patch(
+                "aria_core.aria_engine._default_converse", boom
+            ), patch(
+                "services.aria_swarm.run_swarm", boom
+            ):
+                for phrase, expected in rows:
+                    with self.subTest(phrase=phrase):
+                        if phrase == _PENDING_CHEST_AFTER_BENCH:
+                            self.skipTest(_PENDING_CHEST_REASON)
+                        chat = guidance.classify_band(phrase)
+                        scout = guidance.scout_safety(phrase)
+                        dummy = run_turn(
+                            phrase,
+                            persist_log=False,
+                            memory_enabled=False,
+                        )
+                        spoken = str(dummy.get("message") or "")
+                        if chat == guidance.EMERGENCY:
+                            self.assertIsNotNone(scout, phrase)
+                            if phrase in _SELF_HARM_EXAMPLES:
+                                self.assertIn(
+                                    scout.tier,
+                                    (TIER_SELF_HARM_INTENT, TIER_SELF_HARM_THOUGHTS),
+                                    phrase,
+                                )
+                            else:
+                                self.assertEqual(scout.tier, TIER_EMERGENCY, phrase)
+                                self.assertNotEqual(scout.tier, TIER_URGENT, phrase)
+                            self.assertTrue(
+                                spoken.startswith("Call 911 now")
+                                or "988" in spoken,
+                                spoken,
+                            )
+                        if expected is not None:
+                            self.assertEqual(spoken, expected, phrase)
+                        if phrase in faint_message:
+                            self.assertEqual(spoken, faint_message[phrase], phrase)
+                        if phrase in _SELF_HARM_EXAMPLES:
+                            self.assertIn("988", spoken, phrase)
+                            self.assertEqual(spoken, guidance._CRISIS_LINE, phrase)
+                        if phrase in _STRESS_EXAMPLES:
+                            self.assertNotIn("988", spoken, phrase)
+                            self.assertEqual(_digits(spoken), set(), phrase)
+                        self.assertEqual(spoken_ban_hits(spoken), (), spoken)
+                        self.assertEqual(
+                            guidance.extra_speak_digits(spoken, phrase),
+                            frozenset(),
+                            spoken,
+                        )
+        finally:
+            if previous is None:
+                os.environ.pop("ARIA_BEDROCK_ENABLED", None)
+            else:
+                os.environ["ARIA_BEDROCK_ENABLED"] = previous
 
     def test_every_safety_example_uses_a_fixed_query(self) -> None:
         for prompt in _SAFETY_EXAMPLES:

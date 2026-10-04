@@ -57,6 +57,13 @@ SAFETY_LOCK_BANDS = frozenset({EMERGENCY, REFER_OUT, TRIAGE, CARE})
 # replies whose copy comes from this module only.
 SAFETY_BANDS = frozenset({FIRST_AID, EMERGENCY, REFER_OUT, TRIAGE, CARE})
 
+# Spoken-digit exemptions. 911 / 988 are always allowed. CPR compression
+# digits are only allowed on chat's arrest copy (not-breathing / no pulse /
+# unresponsive). Helper faint / other replies that mention CPR still fail.
+SPEAK_DIGITS = frozenset({"911", "988"})
+CPR_SPEAK_DIGITS = frozenset({"100", "120", "2", "30"})
+_SPEAK_DIGIT_RE = re.compile(r"\d+")
+
 
 @dataclass
 class Guidance:
@@ -689,6 +696,19 @@ _EMERGENCY_FAINT = (
     "Lie down flat and stay down, don't get back on the equipment or drive, "
     "and keep someone with you if you can."
 )
+_FAINT_TRAINING = (
+    "run", "workout", "lift", "bench", "set", "ride", "class", "gym", "training",
+)
+_EMERGENCY_FAINT_RESOLVED = (
+    "Call 911 now, even if you feel okay again. "
+    "Passing out needs a proper look right away. "
+    "Lie down, skip driving, and keep someone with you."
+)
+_EMERGENCY_FAINT_RESOLVED_TRAINING = (
+    "Call 911 now, even if you feel okay again. "
+    "Passing out mid-workout needs a proper look right away. "
+    "Lie down, skip driving, and keep someone with you."
+)
 _EMERGENCY_FAINT_HELPER = (
     "Lay them flat. If they don't wake up or aren't breathing normally, "
     f"start CPR: {_EMERGENCY_CPR_STEPS}"
@@ -865,6 +885,28 @@ def _emergency_subject(lower: str, kind: str) -> str:
     return _SUBJECT_SELF
 
 
+def _faint_emergency_prose(lower: str, *, helper: bool = False) -> str:
+    """Chat and Scout share this faint reply.
+
+    A resolved cue ("I'm fine now", "feel okay") gets the 911-even-if-okay
+    line. Training words swap in the mid-workout sentence. No resolved cue
+    keeps the standard opener plus ``_EMERGENCY_FAINT``.
+    """
+    if _has(lower, _URGENT_RESOLVED):
+        passing = (
+            "Passing out mid-workout needs a proper look right away."
+            if _has_word(lower, _FAINT_TRAINING)
+            else "Passing out needs a proper look right away."
+        )
+        return (
+            "Call 911 now, even if you feel okay again. "
+            f"{passing} Lie down, skip driving, and keep someone with you."
+        )
+    if helper:
+        return f"{_EMERGENCY_OPEN} {_EMERGENCY_FAINT_HELPER}"
+    return f"{_EMERGENCY_OPEN} {_EMERGENCY_FAINT}"
+
+
 def _emergency_prose(lower: str) -> str:
     """Pick steps by red-flag type. Not-breathing / unresponsive CPR wins."""
     helper = _is_helper_phrasing(lower)
@@ -885,6 +927,8 @@ def _emergency_prose(lower: str) -> str:
         "bleeding": (_EMERGENCY_BLEEDING, _EMERGENCY_BLEEDING_HELPER),
         "head_injury": (_EMERGENCY_HEAD, _EMERGENCY_HEAD_HELPER),
     }
+    if kind == "faint":
+        return _faint_emergency_prose(lower, helper=helper)
     if kind in steps:
         patient, helper_body = steps[kind]
         return f"{_EMERGENCY_OPEN} {helper_body if helper else patient}"
@@ -1390,6 +1434,37 @@ def classify_band(message: str, *, triage_topic: Any = None) -> str:
     return _classify(normalize_message(message), parse_triage_topic(triage_topic))
 
 
+def _uses_arrest_cpr_copy(message: str) -> bool:
+    """True only for chat's arrest reply (not-breathing / cardiac arrest)."""
+    if classify_band(message) != EMERGENCY:
+        return False
+    lower = normalize_message(message)
+    if _emergency_kind(lower) == "arrest":
+        return True
+    return _emergency_prose(lower) in {
+        f"{_EMERGENCY_OPEN} {_EMERGENCY_CPR}",
+        f"{_EMERGENCY_OPEN} {_EMERGENCY_CPR_IF_NEEDED}",
+    }
+
+
+def allowed_speak_digits(message: str) -> frozenset[str]:
+    """Digits allowed in user-visible speech for this user turn.
+
+    911 and 988 are always allowed. CPR compression digits are allowed
+    only when this turn's chat copy is the arrest reply.
+    """
+    allowed = set(SPEAK_DIGITS)
+    if _uses_arrest_cpr_copy(message):
+        allowed |= CPR_SPEAK_DIGITS
+    return frozenset(allowed)
+
+
+def extra_speak_digits(text: str, user_message: str) -> frozenset[str]:
+    """Digits in ``text`` that this turn is not allowed to speak."""
+    found = set(_SPEAK_DIGIT_RE.findall(text or ""))
+    return frozenset(found - allowed_speak_digits(user_message))
+
+
 def assess(
     message: str,
     band: str | None = None,
@@ -1609,6 +1684,7 @@ _URGENT_RESOLVED = (
     "went away", "has passed", "it passed", "that passed",
     "i'm fine", "im fine", "i'm okay", "im okay", "i'm ok", "im ok",
     "feeling better", "after it passed",
+    "feel okay", "feel ok", "feeling okay", "feeling ok",
 )
 _AFTER_EXERCISE = (
     "after a workout", "after my workout", "after the workout",
@@ -1853,9 +1929,15 @@ def _scout_emergency_steps(kind: str) -> str:
 
 
 def scout_emergency_line(message: str) -> str:
-    """Call 911 now, a fixed help line, then kind-specific steps. No symptom label."""
+    """Call 911 now, a fixed help line, then kind-specific steps. No symptom label.
+
+    Faint copy is shared with chat ``_emergency_prose`` so a resolved cue
+    cannot drift between the two paths.
+    """
     lower = normalize_message(message)
     kind = _scout_emergency_kind(lower)
+    if kind == "faint":
+        return _faint_emergency_prose(lower)
     return (
         f"{_EMERGENCY_OPEN} {SCOUT_EMERGENCY_HELP} {_scout_emergency_steps(kind)}"
     )
