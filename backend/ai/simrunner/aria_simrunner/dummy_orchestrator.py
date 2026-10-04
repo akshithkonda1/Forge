@@ -2013,7 +2013,7 @@ def sim_context_to_chat_payload(
     }
 
 
-def _scrub_fused_speak(envelope: dict) -> dict:
+def _scrub_fused_speak(envelope: dict, topic: str = "") -> dict:
     """Compose with the Iris vitals scrub already on this branch — don't replace it."""
     prose = _speak_without_vitals(envelope.get("prose_summary") or "")
     chat = _speak_without_vitals(envelope.get("message") or "", prose)
@@ -2031,7 +2031,7 @@ def _scrub_fused_speak(envelope: dict) -> dict:
         ensure_lambda_on_path()
         from aria_core import speak_guard
 
-        envelope = speak_guard.guard_envelope(envelope)
+        envelope = speak_guard.guard_envelope(envelope, topic=topic)
     except Exception:
         pass
     return envelope
@@ -2122,7 +2122,7 @@ def _respond_via_lambda(
         baselines=fused.baselines,
         **gen_kwargs,
     )
-    envelope = _scrub_fused_speak(envelope)
+    envelope = _scrub_fused_speak(envelope, topic=safe)
     envelope = _bridge_fused_memory(envelope, prior_turns, seed, intents)
     sidecar = fused.fusion_sidecar()
     existing = envelope.get("fusion") if isinstance(envelope.get("fusion"), dict) else {}

@@ -3150,11 +3150,18 @@ def _finish_spoken_envelope(
     from . import speak_guard
     from . import state_read
 
+    from . import guidance as _guidance
+
+    guard_topic = (
+        message
+        if str(envelope.get("guidance_band") or "") in _guidance.SAFETY_BANDS
+        else _topic_from_message(message)
+    )
     envelope = speak_guard.guard_envelope(
         envelope,
         memory_notes=_memory_notes_from_ctx(ctx),
         memory_block=_memory_block_from_ctx(ctx),
-        topic=_topic_from_message(message),
+        topic=guard_topic,
     )
     # Drop orphan interpreter fragments before the state read attaches, so
     # aliases like "below your usual" cannot shadow the phrase-bank clause.
@@ -3570,14 +3577,20 @@ def generate_response_live(
     card = base.get("card") if isinstance(base.get("card"), dict) else None
     notes = _memory_notes_from_ctx(sanitized)
     memory_block = _memory_block_from_ctx(sanitized)
-    topic = _topic_from_message(message)
+    from . import guidance as _guidance_live
+
+    live_band = str(base.get("guidance_band") or "")
+    topic = (
+        message
+        if live_band in _guidance_live.SAFETY_BANDS
+        else _topic_from_message(message)
+    )
     fusion = base.get("fusion") if isinstance(base.get("fusion"), dict) else {}
     stance = str(fusion.get("stance") or "")
     # Guard after the model returns text — Bedrock must never leak guide/label
     # / memory-block copy into user-visible speak. Deterministic path is
     # guarded in _finish_spoken_envelope / friend_speak. rescrub_speak runs
     # inside guard_speak whenever a step is appended.
-    live_band = str(base.get("guidance_band") or "")
     live_lock = bool(base.get("safety_lock"))
     raw_overlay = prose
     prose = speak_guard.guard_speak(

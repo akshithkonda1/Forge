@@ -338,14 +338,43 @@ def drop_leftover_fragments(text: str) -> str:
     return _join_spoken_units(kept)
 
 
-_SKIP_SPOKEN_BAN_BANDS = frozenset({"emergency", "first_aid", "refer_out"})
+def _route_band(band: str | None) -> str:
+    return str(band or "").strip().lower()
 
 
-def _skip_spoken_ban_drop(*, band: str | None = None, safety_lock: bool = False) -> bool:
-    """Safety copy is reviewed by hand — skip the ban drop on those bands."""
-    if str(band or "").strip().lower() in _SKIP_SPOKEN_BAN_BANDS:
-        return True
-    return False
+def _is_safety_band(band: str | None) -> bool:
+    from . import guidance
+
+    return _route_band(band) in guidance.SAFETY_BANDS
+
+
+def _is_reviewed_safety_copy(text: str, band: str | None, topic: str) -> bool:
+    """True when the route already classified a safety band and ``text`` is
+    exactly the guidance.py copy for that utterance. Does not re-run
+    ``classify_band``.
+    """
+    from . import guidance
+
+    if not _is_safety_band(band):
+        return False
+    utterance = str(topic or "").strip()
+    if not utterance:
+        return False
+    assessed = guidance.assess(utterance, band=_route_band(band))
+    if assessed is None:
+        return False
+    raw = str(text or "").strip()
+    return raw in {
+        str(assessed.message or "").strip(),
+        str(assessed.prose or "").strip(),
+    }
+
+
+def _skip_spoken_ban_drop(
+    *, band: str | None = None, topic: str = "", text: str = ""
+) -> bool:
+    """Skip SPOKEN_BANNED drops only for exact reviewed safety copy."""
+    return _is_reviewed_safety_copy(text, band, topic)
 
 
 def _needs_sleep_percent_rescrub(raw: str, cleaned: str) -> bool:
@@ -397,31 +426,37 @@ def guard_speak(
     and, on coaching turns, sentences that contain a ``SPOKEN_BANNED``
     phrase. Those drops run before the vitals strip so a leftover
     ``of the night.`` cannot survive. Card / rec fields pass
-    ``spoken=False`` so ``(16%)`` HUD copy can stay. Emergency / first-aid
-    / refer-out copy is reviewed by hand and is returned unchanged.
+    ``spoken=False`` so ``(16%)`` HUD copy can stay. Safety-band copy
+    still runs memory / guide / vitals / quote scrubs. The SPOKEN_BANNED
+    drop is skipped only when the route band is in ``guidance.SAFETY_BANDS``
+    and ``text`` is exactly the guidance.py copy.
     """
     raw = str(text or "")
     if not raw.strip():
         return raw
-    if str(band or "").strip().lower() in _SKIP_SPOKEN_BAN_BANDS:
-        return raw
     notes = [str(n).strip() for n in (memory_notes or []) if str(n).strip()]
     if memory_block:
         notes.extend(_notes_from_memory_block(memory_block))
+    utterance = topic
     topic = _infer_topic(topic, card, stance, raw)
+    safety_band = _is_safety_band(band)
+    reviewed = _is_reviewed_safety_copy(raw, band, utterance)
     cleaned = _rewrite_zero_hours(raw)
     cleaned = _strip_denied(cleaned, _deny_phrases())
     cleaned = _strip_memory(cleaned, notes, original=raw)
+    if reviewed and cleaned.strip() == raw.strip():
+        return raw
     cleaned = _strip_button_sentences(cleaned, card)
     cleaned = _strip_bare_labels(cleaned)
-    cleaned = _dedupe_fragments(cleaned)
-    cleaned = _strip_bare_labels(cleaned)
-    cleaned = _tidy(cleaned)
-    if _lost_its_step(raw, cleaned):
-        step = _sized_step(card, stance=stance, topic=topic)
-        if step and step.lower() not in cleaned.lower():
-            cleaned = _append_guarded_step(cleaned, step, notes=notes, topic=topic)
-    skip_ban = _skip_spoken_ban_drop(band=band, safety_lock=safety_lock)
+    if not safety_band:
+        cleaned = _dedupe_fragments(cleaned)
+        cleaned = _strip_bare_labels(cleaned)
+        cleaned = _tidy(cleaned)
+        if _lost_its_step(raw, cleaned):
+            step = _sized_step(card, stance=stance, topic=topic)
+            if step and step.lower() not in cleaned.lower():
+                cleaned = _append_guarded_step(cleaned, step, notes=notes, topic=topic)
+    skip_ban = _skip_spoken_ban_drop(band=band, topic=utterance, text=raw)
 
     def _spoken_drops(text: str) -> str:
         if not spoken:

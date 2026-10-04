@@ -82,13 +82,15 @@ ALLOWED_RESEARCH_HITS = frozenset({"hit", "miss"})
 REDACTED_USER_TURN = "[redacted]"
 # Emergency, voice-first triage, and care turns: the user's words are never
 # stored. Band reason codes and ARIA's reply stay for replay.
-_REDACTED_BANDS = frozenset({"emergency", "triage", "coach_with_care"})
+_REDACTED_BANDS = frozenset({
+    "emergency", "triage", "coach_with_care", "refer_out", "care",
+})
 
 
 def _is_emergency_user_text(text: str) -> bool:
     from services import guidance
 
-    return guidance.classify_band(text or "") in (guidance.EMERGENCY, guidance.TRIAGE)
+    return guidance.classify_band(text or "") in guidance.SAFETY_LOCK_BANDS
 
 
 def _redact_emergency_user_text(
