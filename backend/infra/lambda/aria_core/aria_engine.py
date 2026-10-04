@@ -3584,6 +3584,13 @@ def generate_response_live(
         stance=stance,
         topic=topic,
     )
+    # Guarded live text can be empty (sleep digit-% drop). Never ship a
+    # blank message — fall back to the deterministic Dummy/lambda reply.
+    if not str(prose or "").strip():
+        fallback = dict(base)
+        fallback["reasoning_source"] = "deterministic"
+        fallback["reasoning_error"] = "guarded live prose empty"
+        return fallback
     rec = data.get("recommendation")
     if isinstance(rec, str) and rec.strip():
         data["recommendation"] = speak_guard.guard_speak(

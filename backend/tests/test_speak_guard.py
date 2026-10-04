@@ -359,6 +359,44 @@ class LiveBedrockGuardTests(unittest.TestCase):
                 self.assertIsNone(re.search(r"\d", speech), speech)
                 self.assertNotRegex(speech, r"(?i)\bpercent\b", speech)
 
+    def test_guarded_deep_sleep_percent_falls_back_to_deterministic(self):
+        leak = "Deep sleep is 13% of the night."
+        boto_hits: list[tuple] = []
+
+        def converse(_model_id, _system, _user):
+            return json.dumps(
+                {
+                    "prose_summary": leak,
+                    "response_type": "insight",
+                    "confidence": 0.8,
+                }
+            )
+
+        fake_boto = types.ModuleType("boto3")
+
+        def _no_client(*args, **kwargs):
+            boto_hits.append((args, kwargs))
+            raise AssertionError("no real boto/Bedrock client")
+
+        fake_boto.client = _no_client
+        ctx = _ctx()
+        expected = aria_engine.generate_response("How did I sleep last night?", ctx)
+
+        with patch.dict("sys.modules", {"boto3": fake_boto}):
+            with patch.object(aria_engine, "_gateway", None):
+                resp = aria_engine.generate_response_live(
+                    "How did I sleep last night?",
+                    ctx,
+                    converse=converse,
+                )
+
+        spoken = str(resp.get("message") or "")
+        self.assertTrue(spoken.strip(), spoken)
+        self.assertEqual(spoken, expected.get("message"))
+        self.assertEqual(resp.get("reasoning_source"), "deterministic")
+        self.assertEqual(boto_hits, [])
+        self.assertNotIn(leak, spoken)
+
 
 class LivePathGuardTests(unittest.TestCase):
     """Live path with an injected converse — ARIA_BEDROCK_ENABLED stays off."""
