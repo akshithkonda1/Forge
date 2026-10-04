@@ -3762,9 +3762,16 @@ def _validate_model_numbers(
 
 
 def _attach_live_overlay(envelope: dict[str, Any], raw: str) -> dict[str, Any]:
-    """Park the unguarded live line on ``card.overlay``. Not spoken."""
+    """Park the unguarded live line on ``card.overlay``. Not spoken.
+
+    Voice mode keeps ``card`` as ``None``; the HUD line then lives on
+    top-level ``overlay`` instead.
+    """
     text = str(raw or "").strip()
     if not text:
+        return envelope
+    if envelope.get("card") is None:
+        envelope["overlay"] = text
         return envelope
     card = dict(envelope.get("card") or {})
     card["overlay"] = text
