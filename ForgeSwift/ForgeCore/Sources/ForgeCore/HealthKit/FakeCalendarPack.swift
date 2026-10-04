@@ -2,7 +2,7 @@ import Foundation
 
 /// Deterministic Test-Ready calendar stream.
 ///
-/// This exists to test ARIA, not to decorate Calendar.app. A real phone holds
+/// This exists to test ARIA, not to decorate Calendar.app. Weeks are not flat: travel return mornings and seed-shifted crunch blocks change what is free. Local rules only. A real phone holds
 /// a year of standups, 1:1s, dinners, a few trips, a wedding, games — then
 /// ARIA only *thinks* about the week she's in. Seed-shaped like
 /// `FakeHealthPack` so Device Hub can catch her fitting training around this
@@ -754,6 +754,7 @@ private struct CalendarYearBuilder {
         placeDinners()
         placeAppointments()
         placeSocial()
+        placeLifeRhythm()
         placeTodayRemainder()
         ensureCurrentWeekReadable()
     }
@@ -1027,6 +1028,53 @@ private struct CalendarYearBuilder {
                 minute: rng.int(0...40),
                 minutes: rng.int(60...150)
             )
+        }
+    }
+
+
+    /// Local life rhythm. No model. Travel return mornings stay open-but-marked,
+    /// and crunch weeks stack work instead of a flat year of identical Tuesdays.
+    mutating func placeLifeRhythm() {
+        // Morning after the trip ends, not every day inside it.
+        let returns = travelOffsets.filter { !travelOffsets.contains($0 + 1) }.sorted()
+        for offset in returns {
+            let back = offset + 1
+            guard back >= 0, back <= FakeCalendarPack.horizonDays else { continue }
+            if hasKind(.wedding, on: back) || hasKind(.flight, on: back) { continue }
+            if hasKind(.appointment, on: back) { continue }
+            addTimed(
+                .appointment,
+                title: "Easy morning after travel",
+                place: "Home",
+                offset: back,
+                hour: 9,
+                minute: rng.int(0...20),
+                minutes: rng.int(45...75),
+                force: false
+            )
+        }
+
+        // Crunch seasons: 5 weekday blocks, about every 6 weeks, seed-shifted.
+        let seasonStart = rng.int(8...20)
+        var cursor = seasonStart
+        while cursor < FakeCalendarPack.horizonDays - 5 {
+            let crunch = rng.int(1...100) <= 55
+            if crunch {
+                for day in cursor..<(cursor + 5) {
+                    if isWeekend(day) || travelOffsets.contains(day) { continue }
+                    if hasKind(.wedding, on: day) || hasKind(.flight, on: day) { continue }
+                    addTimed(
+                        .work,
+                        title: "Focus block",
+                        place: PlaceBank.pick(PlaceBank.workPlaces, &rng),
+                        offset: day,
+                        hour: rng.int(13...15),
+                        minute: rng.int(0...20),
+                        minutes: rng.int(90...150)
+                    )
+                }
+            }
+            cursor += rng.int(28...42)
         }
     }
 
