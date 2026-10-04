@@ -363,6 +363,10 @@ _NOT_BREATHING = (
 _UNRESPONSIVE = (
     "unresponsive", "won't wake up", "wont wake up", "unconscious",
     "not responding",
+    "isn't waking up", "isnt waking up",
+    "can't wake him", "cant wake him",
+    "can't wake her", "cant wake her",
+    "can't wake them", "cant wake them",
 )
 _NO_CIRCULATION = (
     "no pulse", "no heartbeat",
@@ -483,6 +487,11 @@ def _needs_cpr(lower: str) -> bool:
         or _has(lower, _NO_CIRCULATION)
         or _has(lower, ("agonal",))
     )
+
+
+def _needs_unconditional_cpr(lower: str) -> bool:
+    """True arrest: not breathing or no pulse. Unresponsive uses conditional CPR."""
+    return _has(lower, _NOT_BREATHING) or _has(lower, _NO_CIRCULATION)
 
 
 def _is_acute_red_flag(lower: str) -> bool:
@@ -695,7 +704,9 @@ _EMERGENCY_CPR_STEPS = (
     "starts to wake up."
 )
 _EMERGENCY_CPR = f"Start CPR: {_EMERGENCY_CPR_STEPS}"
-_EMERGENCY_CPR_IF_NEEDED = f"If they're not breathing, start CPR: {_EMERGENCY_CPR_STEPS}"
+_EMERGENCY_CPR_IF_NEEDED = (
+    f"If they're not breathing normally, start CPR: {_EMERGENCY_CPR_STEPS}"
+)
 _EMERGENCY_CARDIAC = (
     "Stop what you're doing and sit or lie down somewhere safe. Don't drive "
     "yourself, and unlock the door so help can get in."
@@ -931,7 +942,9 @@ def _emergency_prose(lower: str) -> str:
     if kind == "self_harm":
         return _self_harm_prose()
     if kind == "arrest":
-        return f"{_EMERGENCY_OPEN} {_EMERGENCY_CPR}"
+        if _needs_unconditional_cpr(lower):
+            return f"{_EMERGENCY_OPEN} {_EMERGENCY_CPR}"
+        return f"{_EMERGENCY_OPEN} {_EMERGENCY_CPR_IF_NEEDED}"
     if kind == "ingestion_intent":
         body = _EMERGENCY_INGESTION_HELPER if helper else _EMERGENCY_INGESTION_INTENT
         return f"{_EMERGENCY_OPEN} {body}"
@@ -1422,28 +1435,14 @@ def safety_session(
     return block
 
 
-def _howto_unresponsive_breathing(lower: str) -> bool:
-    """How-to for an unresponsive person who is still breathing is first aid.
-
-    Abnormal / agonal breathing is arrest, not a first-aid how-to.
-    """
-    if not _has(lower, _HOWTO_CUES):
-        return False
-    if not _has(lower, ("unresponsive", "unconscious")):
-        return False
-    if _has(lower, _NOT_BREATHING) or _has(lower, _NO_CIRCULATION):
-        return False
-    if _has_abnormal_breathing(lower):
-        return False
-    return "breathing" in lower
-
-
 def _classify(lower: str, pending: tuple[str, str] | None) -> str:
     if _is_self_harm(lower):
         return EMERGENCY
-    if _howto_unresponsive_breathing(lower):
-        return FIRST_AID
-    if _has(lower, _ESCALATION_REQUEST) or _has(lower, _EMERGENCY_STATE):
+    if (
+        _has(lower, _ESCALATION_REQUEST)
+        or _has(lower, _EMERGENCY_STATE)
+        or _has(lower, _UNRESPONSIVE)
+    ):
         return EMERGENCY
     if _is_acute_red_flag(lower):
         return EMERGENCY
@@ -1469,17 +1468,32 @@ def classify_band(message: str, *, triage_topic: Any = None) -> str:
     return _classify(normalize_message(message), parse_triage_topic(triage_topic))
 
 
-def _uses_arrest_cpr_copy(message: str) -> bool:
-    """True only for chat's arrest reply (not-breathing / cardiac arrest)."""
-    if classify_band(message) != EMERGENCY:
-        return False
+def _reviewed_cpr_copy(message: str) -> str:
+    """Reviewed chat copy that may carry the CPR compression digits."""
     lower = normalize_message(message)
-    if _emergency_kind(lower) == "arrest":
-        return True
-    return _emergency_prose(lower) in {
-        f"{_EMERGENCY_OPEN} {_EMERGENCY_CPR}",
-        f"{_EMERGENCY_OPEN} {_EMERGENCY_CPR_IF_NEEDED}",
-    }
+    band = classify_band(message)
+    if band == EMERGENCY:
+        return _emergency_prose(lower)
+    if band == FIRST_AID:
+        return _first_aid_body(lower)
+    return ""
+
+
+def _uses_arrest_cpr_copy(message: str) -> bool:
+    """True when this turn's reviewed copy includes the CPR compression digits.
+
+    Not keyed to the literal ``Start CPR:`` opener — unconditional arrest,
+    the conditional ``not breathing normally`` line, bystander-faint helper
+    CPR (``_EMERGENCY_CPR_IF_NEEDED`` / faint-helper), and FIRST_AID CPR
+    how-to share 100–120, 2 inches, 2 breaths, and 30 compressions.
+    """
+    copy = _reviewed_cpr_copy(message)
+    return (
+        "100–120" in copy
+        and "2 inches" in copy
+        and "2 rescue breaths" in copy
+        and "30 compressions" in copy
+    )
 
 
 def allowed_speak_digits(message: str) -> frozenset[str]:
@@ -1730,17 +1744,6 @@ ACTION_CHECKED_TODAY = "Get it checked today"
 _SCOUT_EMERGENCY_EXTRAS = (
     "heavy bleeding",
 )
-# Scout-only: a period / cycle mention keeps bare "heavy bleeding" off the
-# emergency tier. Chat never classifies "heavy bleeding" as EMERGENCY, so
-# this must not touch classify_band / the Swift generator.
-_SCOUT_CYCLE_WORDS = (
-    "period", "menstrual", "menstruation", "flow", "cycle", "spotting",
-)
-_SCOUT_BLEEDING_RED_FLAGS = (
-    "fainted", "almost fainted", "passed out", "dizzy", "lightheaded",
-    "light-headed", "light headed", "pregnant", "pregnancy", "chest pain",
-    "can't stand", "cant stand", "cannot stand",
-)
 
 # Intent / plan, on top of _is_self_harm. Thoughts without these stay calmer.
 _SELF_HARM_INTENT = (
@@ -1779,8 +1782,8 @@ _STRESS_HOPELESS = (
 
 # Digit-free arrest steps for Scout (chat still uses the CPR digit copy).
 _SCOUT_ARREST_STEPS = (
-    "Start CPR if they are not breathing — hard, fast compressions in the "
-    "center of the chest — and stay on the line."
+    "Start CPR if they're not breathing normally — hard, fast compressions "
+    "in the center of the chest — and stay on the line."
 )
 _SCOUT_SEIZURE_STEPS = (
     "If you feel one coming, get down on the floor away from anything hard. "
@@ -1969,29 +1972,10 @@ def _is_scout_stress(lower: str) -> bool:
     return _has(lower, _STRESS_BURNOUT) and _has(lower, _STRESS_HOPELESS)
 
 
-def _scout_period_excludes_heavy_bleeding(lower: str) -> bool:
-    """Bare heavy period bleeding is not a Scout emergency.
-
-    Red flags (faint, soak-through, pregnancy, chest pain, can't stand)
-    keep the sidecar on ``emergency_now``.
-    """
-    if not _has(lower, _SCOUT_EMERGENCY_EXTRAS):
-        return False
-    if not _has_word(lower, _SCOUT_CYCLE_WORDS):
-        return False
-    if _has(lower, _SCOUT_BLEEDING_RED_FLAGS):
-        return False
-    if "soaking" in lower and ("pad" in lower or "tampon" in lower):
-        return False
-    if "every hour" in lower and ("pad" in lower or "tampon" in lower):
-        return False
-    return True
-
-
 def _is_scout_emergency_extra(lower: str) -> bool:
     """Sidecar-only emergencies chat does not already classify as EMERGENCY."""
     if _has(lower, _SCOUT_EMERGENCY_EXTRAS):
-        return not _scout_period_excludes_heavy_bleeding(lower)
+        return True
     if _has(lower, _CHEST_MARKERS) and not _is_lift_chest_soreness(lower):
         return True
     if _BLEEDING_TRIAGE_RE.search(lower):
