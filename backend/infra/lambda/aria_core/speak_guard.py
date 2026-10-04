@@ -398,10 +398,12 @@ def guard_speak(
     phrase. Those drops run before the vitals strip so a leftover
     ``of the night.`` cannot survive. Card / rec fields pass
     ``spoken=False`` so ``(16%)`` HUD copy can stay. Emergency / first-aid
-    / refer-out copy skips the ban drop — that text is reviewed by hand.
+    / refer-out copy is reviewed by hand and is returned unchanged.
     """
     raw = str(text or "")
     if not raw.strip():
+        return raw
+    if str(band or "").strip().lower() in _SKIP_SPOKEN_BAN_BANDS:
         return raw
     notes = [str(n).strip() for n in (memory_notes or []) if str(n).strip()]
     if memory_block:

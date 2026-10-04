@@ -583,28 +583,25 @@ class LiveBedrockGuardTests(unittest.TestCase):
         self.assertIsNone(aria_engine._overlay_score_label("Keep today easy."))
 
     def test_safety_turns_have_no_overlay_on_dummy_and_chat_route(self):
+        from aria_core import guidance
         from backend.ai.aria_chat.session import run_turn
         from routes.aria import handle_post_ai_chat
         from storage import dynamodb
 
         dynamodb.clear_local_store()
         rows = (
-            ("he's not breathing", "911"),
-            ("how do I do CPR?", "911"),
-            ("do I have diabetes?", None),
+            "he's not breathing",
+            "how do I do CPR?",
+            "do I have diabetes?",
         )
         previous = os.environ.get("ARIA_BEDROCK_ENABLED")
         os.environ["ARIA_BEDROCK_ENABLED"] = "1"
         boto_hits: list[tuple] = []
+        converse_hits: list[tuple] = []
 
-        def converse(_model_id, _system, _user):
-            return json.dumps(
-                {
-                    "prose_summary": _LIVE_RECOVERY_LEAK,
-                    "response_type": "clarification",
-                    "confidence": 1.0,
-                }
-            )
+        def converse(*args, **kwargs):
+            converse_hits.append((args, kwargs))
+            raise AssertionError("converse called on a locked safety row")
 
         fake_boto = types.ModuleType("boto3")
 
@@ -619,14 +616,18 @@ class LiveBedrockGuardTests(unittest.TestCase):
                     with patch("services.aria_engine._default_converse", converse):
                         with patch("aria_core.aria_engine._default_converse", converse):
                             with patch("services.aria_swarm.run_swarm", lambda *_a, **_k: {}):
-                                for phrase, needle in rows:
+                                for phrase in rows:
+                                    expected = guidance.assess(phrase)
+                                    self.assertIsNotNone(expected, phrase)
+                                    locked = expected.message
                                     with self.subTest(path="dummy", phrase=phrase):
                                         dummy = run_turn(
                                             phrase,
                                             persist_log=False,
                                             memory_enabled=False,
                                         )
-                                        _assert_no_safety_overlay(self, dummy, needle)
+                                        self.assertEqual(dummy.get("message"), locked)
+                                        _assert_no_safety_overlay(self, dummy)
                                     with self.subTest(path="route", phrase=phrase):
                                         result = handle_post_ai_chat(
                                             {"message": phrase},
@@ -636,13 +637,15 @@ class LiveBedrockGuardTests(unittest.TestCase):
                                         if isinstance(body, str):
                                             body = json.loads(body)
                                         self.assertEqual(result.get("statusCode"), 200, result)
-                                        _assert_no_safety_overlay(self, body, needle)
+                                        self.assertEqual(body.get("message"), locked)
+                                        _assert_no_safety_overlay(self, body)
         finally:
             if previous is None:
                 os.environ.pop("ARIA_BEDROCK_ENABLED", None)
             else:
                 os.environ["ARIA_BEDROCK_ENABLED"] = previous
         self.assertEqual(boto_hits, [])
+        self.assertEqual(converse_hits, [])
 
 
 class LivePathGuardTests(unittest.TestCase):
