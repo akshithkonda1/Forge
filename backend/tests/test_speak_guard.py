@@ -29,15 +29,47 @@ LABEL = "Usable picture is still thin"
 MEMORY_NOTE = "You always skip Friday night sessions when work runs late"
 
 
+_LIVE_RECOVERY_LEAK = "Call 911 now. Recovery 58, so keep it easy."
+
+
+def _user_visible_payload(row: dict) -> str:
+    """Every field a person can read or hear, including overlays."""
+    row = row or {}
+    card = row.get("card") if isinstance(row.get("card"), dict) else {}
+    parts = [
+        speak_guard.user_visible(row),
+        row.get("message"),
+        row.get("prose_summary"),
+        row.get("recommendation"),
+        row.get("overlay"),
+        card.get("overlay"),
+        card.get("interpretation"),
+        card.get("question"),
+    ]
+    actions = row.get("suggested_actions") or []
+    if isinstance(actions, (list, tuple)):
+        parts.extend(actions)
+    for value in card.values():
+        if isinstance(value, (str, int, float)):
+            parts.append(value)
+        elif isinstance(value, (list, tuple)):
+            parts.extend(value)
+    return " ".join(str(part) for part in parts if part not in (None, ""))
+
+
 def _assert_no_safety_overlay(test, row, needle=None):
     card = row.get("card") if isinstance(row.get("card"), dict) else {}
     card_overlay = str(card.get("overlay") or "")
     top_overlay = str(row.get("overlay") or "")
     spoken = str(row.get("message") or "")
+    blob = _user_visible_payload(row)
     test.assertFalse(card_overlay.strip(), card_overlay)
     test.assertFalse(top_overlay.strip(), top_overlay)
     test.assertNotIn("overlay", card)
     test.assertFalse(str(row.get("overlay") or "").strip())
+    test.assertNotIn(_LIVE_RECOVERY_LEAK, blob)
+    test.assertNotIn("recovery", blob.lower(), blob)
+    test.assertNotIn("58", blob, blob)
     if needle:
         test.assertIn(needle, spoken, spoken)
 
@@ -568,7 +600,7 @@ class LiveBedrockGuardTests(unittest.TestCase):
         def converse(_model_id, _system, _user):
             return json.dumps(
                 {
-                    "prose_summary": "Call 911 now. Recovery 58, so keep it easy.",
+                    "prose_summary": _LIVE_RECOVERY_LEAK,
                     "response_type": "clarification",
                     "confidence": 1.0,
                 }
