@@ -16,6 +16,7 @@ import _bootstrap  # noqa: F401
 
 from backend.scout import agent as scout_agent
 from backend.scout.brain import GrokBrain, RulesBrain
+from backend.scout.gate import CLIENT_EVIDENCE_CHARS, EMERGENCY_LINE, SELF_HARM_LINE
 from backend.scout.privacy import scrub_query
 from backend.scout.reader import Page, read_pages, strip_injection
 from backend.scout.search import SearchHit, SearxngClient, rank_hits, trust_for_host
@@ -284,11 +285,34 @@ class ServerTests(unittest.TestCase):
         self.assertEqual(status, 200)
         self.assertTrue(brief["answer"])
         self.assertEqual(self._post({"query": "sleep adults"})[0], 200)
-        # A one-term handoff never activates, so it does not spend the budget.
-        status, decision = self._post({"query": "sleep"})
+        # A one-term non-health handoff never activates, so it does not spend the budget.
+        status, decision = self._post({"query": "python"})
         self.assertEqual((status, decision["activate"]), (200, False))
         self.assertEqual(self._post({"query": "sleep adults"})[0], 429)
         self.assertEqual(self._post({"query": "sleep adults"}, user="u2")[0], 200)
+
+    def test_one_health_word_is_accepted(self):
+        status, brief = self._post({"query": "sleep"})
+        self.assertEqual(status, 200)
+        self.assertTrue(brief["activate"])
+        self.assertEqual(brief["mission"]["terms"], ["sleep"])
+
+    def test_crisis_is_researched_and_ends_with_the_safety_line(self):
+        status, brief = self._post({"prompt": "I have chest pain, what could cause it"})
+        self.assertEqual(status, 200)
+        self.assertEqual(brief["reason"], "safety")
+        self.assertTrue(brief["answer"].endswith(EMERGENCY_LINE))
+        self.assertLessEqual(len(brief["answer"]), CLIENT_EVIDENCE_CHARS)
+        self.assertTrue(brief["sources"])
+
+    def test_crisis_keeps_the_safety_line_when_rate_limited(self):
+        self._post({"query": "sleep adults"})
+        self._post({"query": "sleep adults"})
+        self.assertEqual(self._post({"query": "sleep adults"})[0], 429)
+        status, brief = self._post({"prompt": "I want to die"})
+        self.assertEqual(status, 200)
+        self.assertEqual(brief["answer"], SELF_HARM_LINE)
+        self.assertTrue(brief["sources"][0]["url"].startswith("https://"))
 
     def test_bad_body(self):
         self.assertEqual(self._post({"nope": 1})[0], 400)

@@ -1,6 +1,6 @@
 # ARIA Scout
 
-The agentic research sidecar ARIA calls when a turn needs the open web. The process stays up. It does not search until the gate says the prompt is a lookup.
+The agentic research sidecar ARIA calls when a turn needs the open web. The process stays up. It does not search until the gate says yes: anything health related, or a lookup on any other topic.
 
 ```
 ARIA prompt ── gate.evaluate ── no ──▶ keep talking, Scout idle
@@ -13,7 +13,16 @@ EC2 t4g.small: Caddy → Scout :8088 → SearXNG
 
 ## Gate
 
-`backend/scout/gate.py` reads the prompt and flips Scout on only for a lookup ("look up", "what is", "latest on", evidence, weather). Coaching ("should I train") stays off. Crisis language stays off — guidance owns that path.
+`backend/scout/gate.py` reads the prompt and flips Scout on when:
+
+- **It is health related.** Symptoms, body parts, injuries, medications, supplements, nutrition, sleep, stress, heat. No lookup wording is needed ("I have a fever"), and one keyword is enough (`fever`).
+- **It is a lookup on anything else** ("look up", "what is", "latest on", evidence, weather), with at least two keywords.
+
+It stays off for questions about the user's own data ("how did I sleep", "my HRV", "should I train"). If the same prompt also asks for outside facts, it turns on.
+
+**Crisis language is researched too.** For an emergency ("chest pain", "can't breathe", "overdose"), the decision carries "If this is an emergency, call 911 now." For self-harm, it carries a 988 line, and Scout searches for crisis support instead of the user's words. The server always puts that line at the end of the answer. It shortens the answer so the line survives the clients' 420-character clip. If Scout is rate limited or the lookup fails, the reply is still a 200 that carries the safety line and a fixed source.
+
+A query-only body is a handoff (`from_handoff`): the caller already decided, so no lookup wording is needed. It is still scrubbed and still gets the safety line.
 
 A yes is a mission brief: scrubbed keywords, preferred sources, `retain: false`. Names after a relationship word, numbers, and contacts never enter the brief.
 

@@ -1,8 +1,11 @@
 """Scout's HTTP surface.
 
-The process stays up. A full prompt is gated. A query-only body is an
-already-decided handoff: scrubbed again, still refused if it is a crisis,
-then searched. Pages and the mission are dumped when the run ends.
+The process stays up. A full prompt is gated: anything health related wakes
+Scout, other topics need a lookup cue. A query-only body is an
+already-decided handoff: scrubbed again, then searched. Crisis language is
+researched too, and its safety line ("call 911", "call or text 988") is
+always the last thing in the answer, even when the lookup fails or is
+rate limited. Pages and the mission are dumped when the run ends.
 Query text is never logged.
 
 Routes:
@@ -22,7 +25,7 @@ import time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 from .agent import Scout
-from .gate import evaluate, from_handoff
+from .gate import evaluate, from_handoff, safety_source, with_safety
 from .retention import working_set
 
 _log = logging.getLogger("forge.scout")
@@ -132,11 +135,25 @@ def make_handler(scout: Scout, limiter: RateLimiter, shared_key: str | None, bra
             if path == "/gate" or not decision.activate or decision.mission is None:
                 self._send(200, decision.as_dict())
                 return
+            safety = decision.safety
+
+            def refuse(status: int, message: str) -> None:
+                if safety:
+                    # A crisis never loses its safety line to a limit or an error.
+                    # 200 with a fixed source, because both clients drop anything else.
+                    self._send(200, {
+                        "activate": True, "reason": decision.reason, "answer": safety,
+                        "sources": [safety_source(safety)], "confidence": 0.5,
+                        "safety": safety, "message": message,
+                    })
+                    return
+                self._send(status, {"message": message})
+
             if not limiter.allow(user):
-                self._send(429, {"message": "Scout is resting — try again later."})
+                refuse(429, "Scout is resting — try again later.")
                 return
             if not limiter.acquire():
-                self._send(429, {"message": "Scout is busy — try again shortly."})
+                refuse(429, "Scout is busy — try again shortly.")
                 return
             try:
                 started = time.monotonic()
@@ -146,6 +163,11 @@ def make_handler(scout: Scout, limiter: RateLimiter, shared_key: str | None, bra
                 brief["activate"] = True
                 brief["reason"] = decision.reason
                 brief["mission"] = decision.mission.as_dict()
+                if safety:
+                    brief["answer"] = with_safety(str(brief.get("answer") or ""), safety)
+                    brief["safety"] = safety
+                    if not brief.get("sources"):
+                        brief["sources"] = [safety_source(safety)]
                 _log.info(
                     "research brain=%s sources=%d cached=%s ms=%d",
                     brief.get("brain"), len(brief.get("sources") or []), brief.get("cached"),
@@ -154,7 +176,7 @@ def make_handler(scout: Scout, limiter: RateLimiter, shared_key: str | None, bra
                 self._send(200, brief)
             except Exception:
                 _log.exception("research failed")
-                self._send(502, {"message": "Scout could not finish that lookup."})
+                refuse(502, "Scout could not finish that lookup.")
             finally:
                 limiter.release()
 
