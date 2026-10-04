@@ -614,6 +614,21 @@ class LiveBedrockGuardTests(unittest.TestCase):
             "how do I do CPR?",
             "do I have diabetes?",
             "should I increase my dose",
+            "how do I help, he's unresponsive and breathing slowly",
+            "how do I help someone unresponsive with irregular breathing",
+            "how do I help, she's unconscious and breathing strangely",
+            "how do I help, he's unresponsive but breathing",
+            "how do I help, he's unresponsive and breathing shallow",
+            "how do I help someone unresponsive and breathing slowly",
+            "what should I do my dad is unconscious and breathing slowly",
+            "how do I help someone unresponsive whose breathing is irregular",
+            "she's unconscious and breathing strangely what should I do",
+            "how do I help someone unresponsive but breathing",
+            "he's unconscious but breathing normally, how do I help",
+            "unresponsive but breathing normally",
+            "she collapsed and isn't waking up",
+            "he won't wake up",
+            "I can't wake her",
         )
         seen: list[str] = []
         for phrase in (
@@ -743,6 +758,7 @@ class LiveBedrockGuardTests(unittest.TestCase):
 
         params = inspect.signature(speak_guard._skip_spoken_ban_drop).parameters
         self.assertNotIn("safety_lock", params)
+        self.assertNotIn("safety_lock", inspect.signature(speak_guard.guard_speak).parameters)
         phrase = "how do I do CPR?"
         copy = guidance.assess(phrase).message
         self.assertIn("\n", copy)

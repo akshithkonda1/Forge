@@ -127,7 +127,28 @@ CPR_PHRASES = (
     "he's not breathing, call 911",
     "he collapsed and is not breathing",
     "he has no pulse",
+)
+CONDITIONAL_ARREST_PHRASES = (
     "she passed out and is unresponsive",
+    "unresponsive and barely breathing",
+    "he's unresponsive and gasping",
+    "not responding, breathing weird",
+    "agonal breathing",
+    "how do I help, he's unresponsive and breathing slowly",
+    "how do I help someone unresponsive with irregular breathing",
+    "how do I help, she's unconscious and breathing strangely",
+    "how do I help, he's unresponsive but breathing",
+    "how do I help, he's unresponsive and breathing shallow",
+    "how do I help someone unresponsive and breathing slowly",
+    "what should I do my dad is unconscious and breathing slowly",
+    "how do I help someone unresponsive whose breathing is irregular",
+    "she's unconscious and breathing strangely what should I do",
+    "how do I help someone unresponsive but breathing",
+    "he's unconscious but breathing normally, how do I help",
+    "unresponsive but breathing normally",
+    "she collapsed and isn't waking up",
+    "he won't wake up",
+    "I can't wake her",
 )
 
 SORENESS_NON_EMERGENCY = (
@@ -252,13 +273,58 @@ class ArrestCprTests(unittest.TestCase):
             self, "I fainted and he's not breathing", CPR_REPLY, cpr=True
         )
 
-    def test_unresponsive_abnormal_breathing_is_emergency_cpr(self):
-        for message in ABNORMAL_BREATHING_PHRASES:
+    def test_unresponsive_and_howto_rows_get_conditional_cpr(self):
+        for message in (*ABNORMAL_BREATHING_PHRASES, *CONDITIONAL_ARREST_PHRASES):
             with self.subTest(message=message):
-                _assert_typed_emergency(self, message, CPR_REPLY, cpr=True)
+                _assert_typed_emergency(self, message, CONDITIONAL_CPR_REPLY, cpr=True)
+                self.assertEqual(guidance.classify_band(message), guidance.EMERGENCY)
                 self.assertIn(guidance.classify_band(message), guidance.SAFETY_LOCK_BANDS)
-                self.assertTrue(guidance.assess(message).message.startswith("Call 911 now."))
-                self.assertIn("CPR", guidance.assess(message).message)
+                self.assertTrue(
+                    guidance.assess(message).message.startswith("Call 911 now.")
+                )
+                self.assertTrue(
+                    guidance.assess(message).message.startswith(
+                        "Call 911 now. If they're not breathing normally, start CPR:"
+                    ),
+                    guidance.assess(message).message,
+                )
+                self.assertNotEqual(guidance.classify_band(message), guidance.FIRST_AID)
+
+    def test_wont_wake_variants_are_locked_conditional_cpr(self):
+        from backend.ai.aria_chat.session import run_turn
+        from backend.ai.simrunner.tests.test_red_flags_sweep import _post_chat
+
+        self.assertIn("isn't waking up", guidance._UNRESPONSIVE)
+        self.assertIn("isnt waking up", guidance._UNRESPONSIVE)
+        self.assertIn("won't wake up", guidance._UNRESPONSIVE)
+        self.assertIn("wont wake up", guidance._UNRESPONSIVE)
+        self.assertIn("can't wake him", guidance._UNRESPONSIVE)
+        self.assertIn("cant wake him", guidance._UNRESPONSIVE)
+        self.assertIn("can't wake her", guidance._UNRESPONSIVE)
+        self.assertIn("cant wake her", guidance._UNRESPONSIVE)
+        self.assertIn("can't wake them", guidance._UNRESPONSIVE)
+        self.assertIn("cant wake them", guidance._UNRESPONSIVE)
+        for message in (
+            "she collapsed and isn't waking up",
+            "he won't wake up",
+            "I can't wake her",
+        ):
+            with self.subTest(message=message):
+                _assert_typed_emergency(self, message, CONDITIONAL_CPR_REPLY, cpr=True)
+                self.assertIn(guidance.classify_band(message), guidance.SAFETY_LOCK_BANDS)
+                dummy = run_turn(message, persist_log=False, memory_enabled=False)
+                routed = _post_chat(f"wake-{abs(hash(message)) % 10**8}", message)
+                self.assertEqual(dummy.get("message"), CONDITIONAL_CPR_REPLY)
+                self.assertEqual(dummy.get("guidance_band"), guidance.EMERGENCY)
+                self.assertTrue(dummy.get("safety_lock"))
+                self.assertEqual(routed.get("message"), CONDITIONAL_CPR_REPLY)
+                self.assertEqual(routed.get("guidance_band"), guidance.EMERGENCY)
+                self.assertTrue(routed.get("safety_lock"))
+                scout = guidance.scout_safety(message)
+                self.assertIsNotNone(scout)
+                self.assertEqual(scout.tier, guidance.TIER_EMERGENCY)
+                self.assertTrue(scout.safety_lock)
+                self.assertIn(guidance._SCOUT_ARREST_STEPS, scout.line)
 
 
 class OtherEmergencyTests(unittest.TestCase):
@@ -478,7 +544,16 @@ class EmergencyDigitRuleTests(unittest.TestCase):
                 )
 
     def test_cpr_replies_may_use_compression_numbers(self):
-        for message in ("he's not breathing", "call 911 now"):
+        from backend.ai.aria_chat.session import run_turn
+        from backend.ai.simrunner.tests.test_red_flags_sweep import _post_chat
+
+        for message in (
+            "he's not breathing",
+            "call 911 now",
+            "how do I help someone unresponsive but breathing",
+            "she fainted after her workout",
+            "how do I do CPR?",
+        ):
             with self.subTest(message=message):
                 assessed = guidance.assess(message)
                 self.assertEqual(
@@ -488,9 +563,29 @@ class EmergencyDigitRuleTests(unittest.TestCase):
                 self.assertTrue(
                     guidance.CPR_SPEAK_DIGITS <= guidance.allowed_speak_digits(message)
                 )
-                self.assertIn("911", set(re.findall(r"\d+", assessed.prose)))
-                self.assertIn("100", set(re.findall(r"\d+", assessed.prose)))
-                self.assertIn("120", set(re.findall(r"\d+", assessed.prose)))
+                digits = set(re.findall(r"\d+", assessed.prose))
+                self.assertIn("911", digits)
+                self.assertIn("100", digits)
+                self.assertIn("120", digits)
+                self.assertIn("2", digits)
+                self.assertIn("30", digits)
+                dummy = run_turn(message, persist_log=False, memory_enabled=False)
+                routed = _post_chat(f"cpr-digits-{abs(hash(message)) % 10**8}", message)
+                for spoken, path in (
+                    (str(dummy.get("message") or ""), "dummy"),
+                    (str(routed.get("message") or ""), "route"),
+                ):
+                    self.assertEqual(spoken, assessed.message, path)
+                    self.assertEqual(
+                        guidance.extra_speak_digits(spoken, message),
+                        frozenset(),
+                        path,
+                    )
+                    spoken_digits = set(re.findall(r"\d+", spoken))
+                    self.assertIn("100", spoken_digits, path)
+                    self.assertIn("120", spoken_digits, path)
+                    self.assertIn("2", spoken_digits, path)
+                    self.assertIn("30", spoken_digits, path)
 
     def test_self_harm_allows_988_and_911_only(self):
         message = "I feel suicidal and want to die"

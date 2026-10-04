@@ -517,8 +517,12 @@ class SpokenBanSweepTests(unittest.TestCase):
                 extras = guidance.extra_speak_digits(spoken, query)
                 if extras and "23:00" in spoken:
                     self.skipTest("pending digit decision")
-                # FIRST_AID how-to copy keeps reviewed CPR digits (100/120/2/30).
-                if guidance.classify_band(query) != guidance.FIRST_AID:
+                # FIRST_AID CPR copy keeps reviewed 100/120/2/30; other how-to
+                # steps may still speak count digits (back blows, minutes).
+                if (
+                    guidance.classify_band(query) != guidance.FIRST_AID
+                    or "cpr" in query.lower()
+                ):
                     self.assertEqual(extras, frozenset(), spoken)
         self.assertEqual(hits, [], "\n".join(hits))
 

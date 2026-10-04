@@ -415,7 +415,6 @@ class SafetyTierTests(unittest.TestCase):
             "how do I do CPR?",
             "what do I do if someone is choking",
             "how to stop severe bleeding",
-            "what do I do if someone is unresponsive but breathing",
         )
         refer_out_phrases = (
             "do I have diabetes?",
@@ -519,9 +518,6 @@ class SafetyTierTests(unittest.TestCase):
                         if phrase in first_aid_phrases:
                             self.assertEqual(chat, guidance.FIRST_AID, phrase)
                             self.assertEqual(routed.get("guidance_band"), guidance.FIRST_AID, phrase)
-                            if "unresponsive but breathing" in phrase:
-                                self.assertIn("onto their side", spoken, spoken)
-                                self.assertIn("onto their side", route_spoken, route_spoken)
                         if phrase in refer_out_phrases:
                             self.assertEqual(chat, guidance.REFER_OUT, phrase)
                             self.assertEqual(routed.get("guidance_band"), guidance.REFER_OUT, phrase)
@@ -535,7 +531,7 @@ class SafetyTierTests(unittest.TestCase):
                                     route_spoken,
                                 )
                         self.assertEqual(spoken_ban_hits(spoken), (), spoken)
-                        if chat != guidance.FIRST_AID:
+                        if chat != guidance.FIRST_AID or "cpr" in phrase.lower():
                             self.assertEqual(
                                 guidance.extra_speak_digits(spoken, phrase),
                                 frozenset(),
@@ -569,33 +565,59 @@ class SafetyTierTests(unittest.TestCase):
             guidance.classify_band("heavy bleeding on my period"), guidance.EMERGENCY
         )
 
-    def test_scout_period_bleeding_exclusion_and_red_flags(self) -> None:
+    def test_scout_heavy_bleeding_matches_main_including_period(self) -> None:
         from aria_core import guidance
 
-        bare = guidance.scout_safety("heavy bleeding on my period")
-        self.assertIsNone(bare)
         self.assertNotEqual(
             guidance.classify_band("heavy bleeding on my period"), guidance.EMERGENCY
         )
-        self.assertEqual(
-            guidance.scout_safety("heavy bleeding after a fall").tier,
-            TIER_EMERGENCY,
-        )
         for phrase in (
-            "heavy bleeding on my period and I almost fainted",
-            "heavy bleeding on my period, soaking a pad every hour",
-            "heavy bleeding and I'm pregnant",
+            "heavy bleeding on my period",
+            "heavy bleeding from a cut during my period",
+            "heavy bleeding during my cycle ride",
+            "heavy bleeding after a miscarriage",
+            "heavy bleeding postpartum",
+            "heavy bleeding and I feel faint",
+            "heavy bleeding after a fall",
         ):
             with self.subTest(phrase=phrase):
                 found = guidance.scout_safety(phrase)
                 self.assertIsNotNone(found, phrase)
                 self.assertEqual(found.tier, TIER_EMERGENCY, phrase)
                 self.assertTrue(found.line.startswith("Call 911 now."), found.line)
-                self.assertNotIn("heavy bleeding", found.line.lower())
-        extra = guidance.scout_safety(
-            "heavy bleeding on my period, soaking a pad every hour"
+                self.assertIn("This needs emergency help right away.", found.line)
+
+    def test_scout_bystander_faint_and_unresponsive_are_emergency_now(self) -> None:
+        from aria_core import guidance
+
+        arrest = (
+            "Start CPR if they're not breathing normally — hard, fast compressions "
+            "in the center of the chest — and stay on the line."
         )
-        self.assertIn("This needs emergency help right away.", extra.line)
+        self.assertEqual(guidance._SCOUT_ARREST_STEPS, arrest)
+        gasping = guidance.scout_safety("he's unresponsive and gasping")
+        self.assertEqual(gasping.tier, TIER_EMERGENCY)
+        self.assertIn(arrest, gasping.line)
+        self.assertEqual(guidance.extra_speak_digits(gasping.line, "he's unresponsive and gasping"), frozenset())
+        for phrase in (
+            "my friend passed out",
+            "she fainted after her workout",
+            "he's unresponsive and gasping",
+            "how do I help someone unresponsive and breathing slowly",
+            "what should I do my dad is unconscious and breathing slowly",
+            "how do I help someone unresponsive whose breathing is irregular",
+            "she's unconscious and breathing strangely what should I do",
+            "how do I help someone unresponsive but breathing",
+            "unconscious but breathing normally",
+            "she collapsed and isn't waking up",
+            "he won't wake up",
+            "I can't wake her",
+        ):
+            with self.subTest(phrase=phrase):
+                self.assertEqual(guidance.classify_band(phrase), guidance.EMERGENCY, phrase)
+                found = guidance.scout_safety(phrase)
+                self.assertIsNotNone(found, phrase)
+                self.assertEqual(found.tier, TIER_EMERGENCY, phrase)
 
 
 class ClipLimitLockTests(unittest.TestCase):

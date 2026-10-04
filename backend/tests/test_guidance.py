@@ -42,7 +42,6 @@ class BandClassificationTests(unittest.TestCase):
             "how do I do CPR?",
             "what do I do if someone is choking",
             "how to stop severe bleeding",
-            "what do I do if someone is unresponsive but breathing",
         ]:
             self.assertEqual(guidance.classify_band(msg), guidance.FIRST_AID, msg)
 
