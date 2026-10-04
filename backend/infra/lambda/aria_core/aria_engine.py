@@ -3592,8 +3592,8 @@ def generate_response_live(
     )
     # Guarded live text can be empty (sleep digit-% drop or a banned
     # "recovery 58" sentence). Never ship a blank message — fall back to
-    # the deterministic Dummy/lambda reply. The raw live line stays on
-    # card.overlay so HUD numbers survive the spoken ban.
+    # the deterministic Dummy/lambda reply. A score-only HUD label is
+    # attached separately; the raw live sentence is never copied.
     if not str(prose or "").strip():
         fallback = dict(base)
         fallback["reasoning_source"] = "deterministic"
@@ -3761,20 +3761,57 @@ def _validate_model_numbers(
     return all(any(_numbers_roughly_match(value, t) for t in truth) for value in cited)
 
 
+# HUD score label. Iris-confirmed. Swap this constant if the label changes.
+OVERLAY_SCORE_LABEL = "Readiness {n}"
+_OVERLAY_SCORE_RE = re.compile(
+    r"(?i)\b(?:recovery|readiness)(?:\s+score)?\s*[:\-]?\s*(\d{1,3})\b"
+)
+_SAFETY_OVERLAY_BANDS = frozenset({"emergency", "first_aid", "refer_out"})
+
+
+def _overlay_score_label(raw: str) -> str | None:
+    """Extract a recovery/readiness score and render ``OVERLAY_SCORE_LABEL``."""
+    match = _OVERLAY_SCORE_RE.search(str(raw or ""))
+    if not match:
+        return None
+    return OVERLAY_SCORE_LABEL.format(n=match.group(1))
+
+
+def _is_safety_overlay_turn(envelope: dict[str, Any]) -> bool:
+    """True when HUD overlay must stay off (911 / first-aid / refer-out / lock)."""
+    band = str(envelope.get("guidance_band") or "").strip().lower()
+    if band in _SAFETY_OVERLAY_BANDS:
+        return True
+    return bool(envelope.get("safety_lock"))
+
+
+def _clear_overlays(envelope: dict[str, Any]) -> dict[str, Any]:
+    envelope.pop("overlay", None)
+    card = envelope.get("card")
+    if isinstance(card, dict) and "overlay" in card:
+        card = dict(card)
+        card.pop("overlay", None)
+        envelope["card"] = card
+    return envelope
+
+
 def _attach_live_overlay(envelope: dict[str, Any], raw: str) -> dict[str, Any]:
-    """Park the unguarded live line on ``card.overlay``. Not spoken.
+    """Park a score-only HUD label. Not spoken.
 
     Voice mode keeps ``card`` as ``None``; the HUD line then lives on
-    top-level ``overlay`` instead.
+    top-level ``overlay`` instead. Safety turns never get an overlay.
+    No extractable score leaves the overlay unset — never copy raw prose.
     """
-    text = str(raw or "").strip()
-    if not text:
+    if _is_safety_overlay_turn(envelope):
+        return _clear_overlays(envelope)
+    label = _overlay_score_label(raw)
+    if not label:
         return envelope
     if envelope.get("card") is None:
-        envelope["overlay"] = text
+        envelope["overlay"] = label
         return envelope
     card = dict(envelope.get("card") or {})
-    card["overlay"] = text
+    card["overlay"] = label
     envelope["card"] = card
     return envelope
 

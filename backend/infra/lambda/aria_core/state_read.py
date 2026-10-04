@@ -37,7 +37,7 @@ BETTER_NIGHT = (
 )
 BIGGER_LOAD = (
     "bigger training week than usual",
-    "more training than last week",
+    "you've trained more than last week",
     "heavier week than your usual",
 )
 LIGHTER_LOAD = (

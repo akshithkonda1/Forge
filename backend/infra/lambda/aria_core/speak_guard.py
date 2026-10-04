@@ -258,16 +258,25 @@ def _spoken_units(text: str) -> list[str]:
 
 
 def _join_spoken_units(units: list[str]) -> str:
-    """Rejoin units, keeping a newline after structured labels."""
+    """Rejoin units, keeping a newline after structured labels.
+
+    A body that follows a structured label starts with a capital letter
+    (``What I notice`` / ``your deepest…`` → ``Your deepest…``).
+    """
     parts: list[str] = []
     labels = {label.lower() for label in _SECTION_LABELS}
+    after_label = False
     for unit in units:
         if unit.lower() in labels:
             parts.append(f"\n{unit}\n")
-        else:
-            if parts and not str(parts[-1]).endswith("\n"):
-                parts.append(" ")
-            parts.append(unit)
+            after_label = True
+            continue
+        if after_label and unit and unit[0].islower():
+            unit = unit[0].upper() + unit[1:]
+        after_label = False
+        if parts and not str(parts[-1]).endswith("\n"):
+            parts.append(" ")
+        parts.append(unit)
     return "".join(parts).strip()
 
 
@@ -444,9 +453,10 @@ def guard_envelope(
 ) -> dict[str, Any]:
     """Apply ``guard_speak`` to spoken fields (``message``, ``prose_summary``).
 
-    Card / overlay fields are not spoken-scrubbed — HUD copy like
-    ``recovery 58`` stays on ``card.overlay``. Recommendation and card
-    action/why still get the non-spoken guard (memory/guide only).
+    Card / overlay fields are not spoken-scrubbed. Overlay copy is a
+    score-only HUD label (``Readiness {n}``), never raw recovery text.
+    Recommendation and card action/why still get the non-spoken guard
+    (memory/guide only).
     """
     card = envelope.get("card") if isinstance(envelope.get("card"), dict) else None
     notes = list(memory_notes or [])

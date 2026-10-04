@@ -29,6 +29,19 @@ LABEL = "Usable picture is still thin"
 MEMORY_NOTE = "You always skip Friday night sessions when work runs late"
 
 
+def _assert_no_safety_overlay(test, row, needle=None):
+    card = row.get("card") if isinstance(row.get("card"), dict) else {}
+    card_overlay = str(card.get("overlay") or "")
+    top_overlay = str(row.get("overlay") or "")
+    spoken = str(row.get("message") or "")
+    test.assertFalse(card_overlay.strip(), card_overlay)
+    test.assertFalse(top_overlay.strip(), top_overlay)
+    test.assertNotIn("overlay", card)
+    test.assertFalse(str(row.get("overlay") or "").strip())
+    if needle:
+        test.assertIn(needle, spoken, spoken)
+
+
 def _ctx(**overrides) -> ARIAContext:
     ctx = ARIAContext(
         sleep=SleepContext(
@@ -445,53 +458,159 @@ class LiveBedrockGuardTests(unittest.TestCase):
 
         self.assertEqual(spoken_ban_hits("recovery 58"), ("recovery",))
         self.assertEqual(spoken_ban_hits("Recovery 58, so keep it easy."), ("recovery",))
+        self.assertEqual(aria_engine.OVERLAY_SCORE_LABEL, "Readiness {n}")
 
+        fallback = (
+            "What I notice\n"
+            "Your deepest sleep came up short. You've trained more than last week. "
+            "Still, keep today low-intensity, an easy, chatty-pace zone 2 walk or "
+            "mobility, not a hard session."
+        )
         rows = (
             "Recovery 58, so keep it easy.",
             "Your recovery window is still open, recovery 58.",
         )
         ctx = _ctx()
         expected = aria_engine.generate_response("Should I train today?", ctx)
+        self.assertEqual(str(expected.get("message") or ""), fallback)
         for leak in rows:
-            with self.subTest(leak=leak):
-                boto_hits: list[tuple] = []
+            for voice_mode in (False, True):
+                with self.subTest(leak=leak, voice_mode=voice_mode):
+                    boto_hits: list[tuple] = []
 
-                def converse(_model_id, _system, _user, _leak=leak):
-                    return json.dumps(
-                        {
-                            "prose_summary": _leak,
-                            "response_type": "recommendation",
-                            "confidence": 0.8,
-                        }
-                    )
-
-                fake_boto = types.ModuleType("boto3")
-
-                def _no_client(*args, **kwargs):
-                    boto_hits.append((args, kwargs))
-                    raise AssertionError("no real boto/Bedrock client")
-
-                fake_boto.client = _no_client
-                with patch.dict("sys.modules", {"boto3": fake_boto}):
-                    with patch.object(aria_engine, "_gateway", None):
-                        resp = aria_engine.generate_response_live(
-                            "Should I train today?",
-                            ctx,
-                            converse=converse,
+                    def converse(_model_id, _system, _user, _leak=leak):
+                        return json.dumps(
+                            {
+                                "prose_summary": _leak,
+                                "response_type": "recommendation",
+                                "confidence": 0.8,
+                            }
                         )
 
-                spoken = str(resp.get("message") or "")
-                self.assertTrue(spoken.strip(), spoken)
-                self.assertNotIn("recovery", spoken.lower(), spoken)
-                self.assertNotIn("58", spoken, spoken)
-                self.assertNotIn(leak, spoken)
-                card = resp.get("card") if isinstance(resp.get("card"), dict) else {}
-                overlay = str(card.get("overlay") or "")
-                self.assertEqual(overlay, leak)
-                self.assertIn("58", overlay)
-                self.assertEqual(boto_hits, [])
-                if spoken == str(expected.get("message") or ""):
-                    self.assertEqual(resp.get("reasoning_source"), "deterministic")
+                    fake_boto = types.ModuleType("boto3")
+
+                    def _no_client(*args, **kwargs):
+                        boto_hits.append((args, kwargs))
+                        raise AssertionError("no real boto/Bedrock client")
+
+                    fake_boto.client = _no_client
+                    with patch.dict("sys.modules", {"boto3": fake_boto}):
+                        with patch.object(aria_engine, "_gateway", None):
+                            resp = aria_engine.generate_response_live(
+                                "Should I train today?",
+                                ctx,
+                                converse=converse,
+                                voice_mode=voice_mode,
+                            )
+
+                    spoken = str(resp.get("message") or "")
+                    prose = str(resp.get("prose_summary") or "")
+                    card = resp.get("card") if isinstance(resp.get("card"), dict) else {}
+                    card_overlay = str(card.get("overlay") or "")
+                    top_overlay = str(resp.get("overlay") or "")
+                    overlay = card_overlay or top_overlay
+                    self.assertTrue(spoken.strip(), spoken)
+                    if not voice_mode:
+                        self.assertEqual(spoken, fallback)
+                    self.assertNotIn("recovery", spoken.lower(), spoken)
+                    self.assertNotIn("recovery", prose.lower(), prose)
+                    self.assertNotIn("recovery", card_overlay.lower(), card_overlay)
+                    self.assertNotIn("recovery", top_overlay.lower(), top_overlay)
+                    self.assertNotIn("58", spoken, spoken)
+                    self.assertNotIn(leak, spoken)
+                    self.assertEqual(overlay, "Readiness 58")
+                    if voice_mode:
+                        self.assertIsNone(resp.get("card"))
+                        self.assertEqual(top_overlay, "Readiness 58")
+                        self.assertEqual(card_overlay, "")
+                    else:
+                        self.assertEqual(card_overlay, "Readiness 58")
+                        self.assertEqual(top_overlay, "")
+                    self.assertEqual(boto_hits, [])
+                    if spoken == str(expected.get("message") or ""):
+                        self.assertEqual(resp.get("reasoning_source"), "deterministic")
+
+    def test_live_overlay_stays_unset_when_no_score_can_be_extracted(self):
+        def converse(_model_id, _system, _user):
+            return json.dumps(
+                {
+                    "prose_summary": "Keep today easy and call it a win.",
+                    "response_type": "recommendation",
+                    "confidence": 0.8,
+                }
+            )
+
+        resp = aria_engine.generate_response_live(
+            "Should I train today?",
+            _ctx(),
+            converse=converse,
+        )
+        card = resp.get("card") if isinstance(resp.get("card"), dict) else {}
+        self.assertFalse(str(card.get("overlay") or "").strip())
+        self.assertFalse(str(resp.get("overlay") or "").strip())
+        self.assertIsNone(aria_engine._overlay_score_label("Keep today easy."))
+
+    def test_safety_turns_have_no_overlay_on_dummy_and_chat_route(self):
+        from backend.ai.aria_chat.session import run_turn
+        from routes.aria import handle_post_ai_chat
+        from storage import dynamodb
+
+        dynamodb.clear_local_store()
+        rows = (
+            ("he's not breathing", "911"),
+            ("how do I do CPR?", "911"),
+            ("do I have diabetes?", None),
+        )
+        previous = os.environ.get("ARIA_BEDROCK_ENABLED")
+        os.environ["ARIA_BEDROCK_ENABLED"] = "1"
+        boto_hits: list[tuple] = []
+
+        def converse(_model_id, _system, _user):
+            return json.dumps(
+                {
+                    "prose_summary": "Call 911 now. Recovery 58, so keep it easy.",
+                    "response_type": "clarification",
+                    "confidence": 1.0,
+                }
+            )
+
+        fake_boto = types.ModuleType("boto3")
+
+        def _no_client(*args, **kwargs):
+            boto_hits.append((args, kwargs))
+            raise AssertionError("no real boto/Bedrock client")
+
+        fake_boto.client = _no_client
+        try:
+            with patch.dict("sys.modules", {"boto3": fake_boto}):
+                with patch.object(aria_engine, "_gateway", None):
+                    with patch("services.aria_engine._default_converse", converse):
+                        with patch("aria_core.aria_engine._default_converse", converse):
+                            with patch("services.aria_swarm.run_swarm", lambda *_a, **_k: {}):
+                                for phrase, needle in rows:
+                                    with self.subTest(path="dummy", phrase=phrase):
+                                        dummy = run_turn(
+                                            phrase,
+                                            persist_log=False,
+                                            memory_enabled=False,
+                                        )
+                                        _assert_no_safety_overlay(self, dummy, needle)
+                                    with self.subTest(path="route", phrase=phrase):
+                                        result = handle_post_ai_chat(
+                                            {"message": phrase},
+                                            user_id=f"overlay-safety-{abs(hash(phrase)) % 10**8}",
+                                        )
+                                        body = result.get("body")
+                                        if isinstance(body, str):
+                                            body = json.loads(body)
+                                        self.assertEqual(result.get("statusCode"), 200, result)
+                                        _assert_no_safety_overlay(self, body, needle)
+        finally:
+            if previous is None:
+                os.environ.pop("ARIA_BEDROCK_ENABLED", None)
+            else:
+                os.environ["ARIA_BEDROCK_ENABLED"] = previous
+        self.assertEqual(boto_hits, [])
 
 
 class LivePathGuardTests(unittest.TestCase):

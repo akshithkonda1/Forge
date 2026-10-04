@@ -618,8 +618,11 @@ class LiveBedrockTests(unittest.TestCase):
         self.assertNotIn("recovery", spoken.lower(), spoken)
         self.assertNotIn("recovery", str(resp.get("prose_summary") or "").lower())
         overlay = str((resp.get("card") or {}).get("overlay") or "")
-        self.assertIn("58", overlay)
-        self.assertIn("recovery 58", overlay.lower())
+        top_overlay = str(resp.get("overlay") or "")
+        self.assertEqual(overlay, "Readiness 58")
+        self.assertEqual(top_overlay, "")
+        self.assertNotIn("recovery", overlay.lower())
+        self.assertNotIn("recovery", top_overlay.lower())
         if resp.get("reasoning_source") == "bedrock":
             self.assertEqual(resp["confidence"], 0.71)
             self.assertEqual(resp["confidence_reason"], "full sleep + HRV-trend data, signals coherent")
@@ -880,6 +883,7 @@ class LiveBedrockDegradeTests(unittest.TestCase):
         self.assertIsNone(resp["card"])
         self.assertEqual(resp["message"], resp["prose_summary"])
         self.assertEqual(resp["model"], "anthropic.claude-sonnet-4-6")
+        self.assertFalse(str(resp.get("overlay") or "").strip())
 
     def test_live_respects_permissions_in_the_prompt_and_envelope(self):
         captured = {}

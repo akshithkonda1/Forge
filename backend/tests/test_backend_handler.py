@@ -427,8 +427,12 @@ class CoachRouteTests(unittest.TestCase):
         self.assertTrue(spoken.strip(), spoken)
         self.assertNotIn("recovery", spoken.lower(), spoken)
         overlay = str((payload.get("card") or {}).get("overlay") or "")
-        self.assertIn("Live read", overlay)
-        self.assertIn("48", overlay)
+        top_overlay = str(payload.get("overlay") or "")
+        self.assertEqual(overlay, "Readiness 48")
+        self.assertEqual(top_overlay, "")
+        self.assertNotIn("recovery", overlay.lower())
+        self.assertNotIn("Live read", overlay)
+        self.assertNotIn("recovery", str(payload.get("prose_summary") or "").lower())
         self.assertIn(payload.get("reasoning_source"), {"bedrock", "deterministic"})
 
     def test_aria_chat_falls_back_when_bedrock_disabled(self):
