@@ -1,11 +1,14 @@
 """Scout's HTTP surface.
 
 The process stays up. A full prompt is gated: anything health related wakes
-Scout, other topics need a lookup cue. A query-only body is an
-already-decided handoff: scrubbed again, then searched. The safety line
-from guidance.py leads the answer so a client clip cannot drop it.
-Self-harm tiers return the fixed 988 reply and never search. Rate limits
-and lookup errors still return 200 with the line and a fixed source.
+Scout, other topics need a lookup cue. Bare stress/anxious wording does
+not wake Scout on its own. A query-only body is an already-decided
+handoff: scrubbed again, then searched. Emergency, urgent, and self-harm
+lines from guidance.py lead the answer so a client clip cannot drop them.
+The stress line is appended after coaching. Safety searches use a fixed
+query per kind. Self-harm tiers return the fixed 988 reply and never
+search. Rate limits and lookup errors still return 200 with the line and
+a fixed source.
 Pages and the mission are dumped when the run ends. Query text is never
 logged.
 
@@ -26,7 +29,7 @@ import time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 from .agent import Scout
-from .gate import evaluate, from_handoff, safety_source, with_safety
+from .gate import TIER_STRESS, evaluate, from_handoff, safety_source, with_safety
 from .retention import working_set
 
 _log = logging.getLogger("forge.scout")
@@ -179,9 +182,18 @@ def make_handler(scout: Scout, limiter: RateLimiter, shared_key: str | None, bra
                 brief["reason"] = decision.reason
                 brief["mission"] = decision.mission.as_dict()
                 if safety:
-                    brief["answer"] = with_safety(str(brief.get("answer") or ""), safety)
+                    brief["answer"] = with_safety(
+                        str(brief.get("answer") or ""),
+                        safety,
+                        lead=decision.tier != TIER_STRESS,
+                    )
                     brief["safety"] = safety
                     brief["tier"] = decision.tier
+                    brief["search"] = decision.search
+                    if decision.actions:
+                        brief["actions"] = list(decision.actions)
+                    if decision.safety_lock:
+                        brief["safety_lock"] = True
                     if not brief.get("sources"):
                         brief["sources"] = [source]
                 _log.info(

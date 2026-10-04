@@ -315,6 +315,8 @@ class ServerTests(unittest.TestCase):
         self.assertLessEqual(len(brief["answer"]), CLIENT_EVIDENCE_CHARS)
         self.assertTrue(brief["sources"])
         self.assertGreater(len(self.searcher.queries), len(before))
+        self.assertTrue(any("emergency" in q for q in self.searcher.queries[len(before):]))
+        self.assertFalse(any("could" in q or "cause" in q for q in self.searcher.queries[len(before):]))
 
     def test_self_harm_returns_the_fixed_reply_and_never_searches(self):
         before = list(self.searcher.queries)

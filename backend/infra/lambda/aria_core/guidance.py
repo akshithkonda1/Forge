@@ -1615,11 +1615,11 @@ _AFTER_EXERCISE = (
     "after working out", "after exercise", "after training",
     "after i worked out", "after the run", "after my run",
 )
-_STRESS_PHRASES = (
-    "panic attack", "burned out", "burnt out",
-)
-_STRESS_WORDS = (
-    "panic", "anxiety", "anxious", "burnout", "stressed", "stress",
+_STRESS_PANIC = ("panic attack",)
+_STRESS_BURNOUT = ("burned out", "burnt out", "burnout")
+_STRESS_HOPELESS = (
+    "hopeless", "can't go on", "cant go on", "cannot go on",
+    "no point", "give up", "giving up",
 )
 
 # Digit-free arrest steps for Scout (chat still uses the CPR digit copy).
@@ -1628,8 +1628,9 @@ _SCOUT_ARREST_STEPS = (
     "center of the chest — and stay on the line."
 )
 _SCOUT_SEIZURE_STEPS = (
-    "Clear space around you, cushion your head, and don't put anything in "
-    "your mouth. Stay on the line."
+    "If you feel one coming, get down on the floor away from anything hard. "
+    "If someone's with you, have them cushion your head and keep anything "
+    "out of your mouth. Stay on the line."
 )
 
 SCOUT_SELF_HARM_INTENT_LINE = (
@@ -1637,13 +1638,105 @@ SCOUT_SELF_HARM_INTENT_LINE = (
     "If you're in danger right now, call 911."
 )
 SCOUT_SELF_HARM_THOUGHTS_LINE = (
-    "You can call or text 988 if you want someone to talk to. "
-    "You don't have to go through this alone."
+    "I'm really glad you told me. You don't have to carry this alone. "
+    "You can call or text 988 anytime and talk it through with someone."
 )
 SCOUT_STRESS_LINE = (
-    "988 is there to call or text anytime, not just in a crisis."
+    "If it ever feels like too much, 988 is there to call or text, "
+    "not just for a crisis."
 )
-SCOUT_URGENT_OPEN = "Get it checked today by a doctor or urgent care."
+SCOUT_EMERGENCY_HELP = "This needs emergency help right away."
+SCOUT_URGENT_OPEN = "Let's get this checked today by a doctor or urgent care."
+SCOUT_URGENT_FEVER = (
+    "Call 911 if breathing gets hard or you get confused."
+)
+SCOUT_URGENT_FAINT = (
+    "Call 911 if you pass out again or get chest pain or trouble breathing."
+)
+SCOUT_URGENT_CHEST = (
+    "Call 911 if the pain comes back, spreads to your arm or jaw, "
+    "or you get short of breath."
+)
+SCOUT_URGENT_GENERIC = (
+    "Call 911 if chest pain, trouble breathing, or confusion shows up."
+)
+
+# Fixed SearXNG queries for safety tiers. Never built from the user's words.
+SCOUT_SEARCH_QUERIES: dict[str, tuple[str, tuple[str, ...]]] = {
+    "cardiac": (
+        "chest pain emergency warning signs",
+        ("chest", "pain", "emergency", "warning", "signs"),
+    ),
+    "stroke": (
+        "stroke emergency warning signs",
+        ("stroke", "emergency", "warning", "signs"),
+    ),
+    "faint": (
+        "fainting emergency warning signs",
+        ("fainting", "emergency", "warning", "signs"),
+    ),
+    "arrest": (
+        "not breathing emergency warning signs",
+        ("not", "breathing", "emergency", "warning", "signs"),
+    ),
+    "allergy": (
+        "anaphylaxis emergency warning signs",
+        ("anaphylaxis", "emergency", "warning", "signs"),
+    ),
+    "bleeding": (
+        "severe bleeding emergency first aid",
+        ("severe", "bleeding", "emergency", "first", "aid"),
+    ),
+    "choking": (
+        "choking emergency first aid",
+        ("choking", "emergency", "first", "aid"),
+    ),
+    "head_injury": (
+        "head injury emergency warning signs",
+        ("head", "injury", "emergency", "warning", "signs"),
+    ),
+    "ingestion": (
+        "overdose emergency warning signs",
+        ("overdose", "emergency", "warning", "signs"),
+    ),
+    "ingestion_intent": (
+        "overdose emergency warning signs",
+        ("overdose", "emergency", "warning", "signs"),
+    ),
+    "seizure": (
+        "seizure emergency first aid",
+        ("seizure", "emergency", "first", "aid"),
+    ),
+    "general": (
+        "medical emergency warning signs",
+        ("medical", "emergency", "warning", "signs"),
+    ),
+    "urgent": (
+        "when to see a doctor urgent care",
+        ("when", "see", "doctor", "urgent", "care"),
+    ),
+    "urgent_fever": (
+        "fever when to see a doctor",
+        ("fever", "when", "see", "doctor"),
+    ),
+    "urgent_faint": (
+        "fainting when to see a doctor",
+        ("fainting", "when", "see", "doctor"),
+    ),
+    "urgent_chest": (
+        "chest pain when to see a doctor",
+        ("chest", "pain", "when", "see", "doctor"),
+    ),
+    "stress": (
+        "panic attack when to get help",
+        ("panic", "attack", "when", "get", "help"),
+    ),
+}
+
+
+def scout_search_query(kind: str) -> tuple[str, tuple[str, ...]]:
+    """Fixed question + terms for a Scout safety kind. Never user text."""
+    return SCOUT_SEARCH_QUERIES.get(kind) or SCOUT_SEARCH_QUERIES["general"]
 
 
 @dataclass
@@ -1655,6 +1748,8 @@ class ScoutSafety:
     actions: list[str] = field(default_factory=list)
     search: bool = True
     kind: str = ""
+    # Stress never locks the turn. Emergency and self-harm match chat.
+    safety_lock: bool = False
 
 
 def emergency_phrases() -> tuple[str, ...]:
@@ -1702,53 +1797,41 @@ def _is_scout_urgent(lower: str) -> bool:
     return False
 
 
+def _scout_urgent_kind(lower: str) -> str:
+    if "fever" in lower:
+        return "urgent_fever"
+    if _has(lower, _SYNCOPE_STANDALONE):
+        return "urgent_faint"
+    if _has(lower, _CHEST_MARKERS):
+        return "urgent_chest"
+    return "urgent"
+
+
 def _is_scout_stress(lower: str) -> bool:
-    return _has(lower, _STRESS_PHRASES) or _has_word(lower, _STRESS_WORDS)
-
-
-def _is_scout_emergency(lower: str) -> bool:
-    """Acute danger for the sidecar, including chest pain and extras."""
-    if _is_self_harm(lower) or _is_scout_urgent(lower):
-        return False
-    if classify_band(lower) == EMERGENCY:
+    """Panic attack, or burnout with a hopeless cue. Bare stress is not a tier."""
+    if _has(lower, _STRESS_PANIC):
         return True
+    return _has(lower, _STRESS_BURNOUT) and _has(lower, _STRESS_HOPELESS)
+
+
+def _is_scout_emergency_extra(lower: str) -> bool:
+    """Sidecar-only emergencies chat does not already classify as EMERGENCY."""
     if _has(lower, _SCOUT_EMERGENCY_EXTRAS):
         return True
     if _has(lower, _CHEST_MARKERS) and not _is_lift_chest_soreness(lower):
         return True
-    return bool(_BLEEDING_TRIAGE_RE.search(lower))
+    if _BLEEDING_TRIAGE_RE.search(lower):
+        return True
+    return _is_ingestion(lower)
 
 
-def _scout_symptom_label(lower: str, kind: str) -> str:
-    labeled = (
-        ("chest pain", _CHEST_MARKERS),
-        ("trouble breathing", ("can't breathe", "cant breathe", "cannot breathe", "not breathing", "stopped breathing")),
-        ("stroke signs", _STROKE_STANDALONE + ("having a stroke",)),
-        ("an overdose", _OVERDOSE_WORDS),
-        ("passing out", _SYNCOPE_STANDALONE),
-        ("a seizure", ("seizure", "convulsing")),
-        ("heavy bleeding", ("heavy bleeding", "bleeding out", "gushing blood", "won't stop bleeding", "wont stop bleeding")),
-        ("throat closing", _ALLERGY_EMERGENCY),
-        ("choking", ("choking",)),
-        ("a head injury", ("head injury", "hit my head", "hit his head", "hit her head")),
-        ("a heart attack", ("heart attack",)),
-    )
-    for label, needles in labeled:
-        if _has(lower, needles):
-            return label
-    return {
-        "cardiac": "chest pain",
-        "stroke": "stroke signs",
-        "faint": "passing out",
-        "arrest": "not breathing",
-        "allergy": "throat closing",
-        "bleeding": "heavy bleeding",
-        "seizure": "a seizure",
-        "ingestion": "an overdose",
-        "ingestion_intent": "an overdose",
-        "choking": "choking",
-        "head_injury": "a head injury",
-    }.get(kind, "this")
+def _scout_emergency_kind(lower: str) -> str:
+    kind = _emergency_kind(lower)
+    if _has(lower, _SCOUT_EMERGENCY_EXTRAS) and kind in ("self_harm", "general"):
+        kind = "ingestion" if "overdose" in lower else "bleeding"
+    if kind == "self_harm":
+        return "general"
+    return kind
 
 
 def _scout_emergency_steps(kind: str) -> str:
@@ -1770,35 +1853,33 @@ def _scout_emergency_steps(kind: str) -> str:
 
 
 def scout_emergency_line(message: str) -> str:
-    """Opens with Call 911 now, names the symptom, then existing steps."""
+    """Call 911 now, a fixed help line, then kind-specific steps. No symptom label."""
     lower = normalize_message(message)
-    kind = _emergency_kind(lower)
-    if _has(lower, _SCOUT_EMERGENCY_EXTRAS) and kind == "general":
-        kind = "ingestion" if "overdose" in lower else "bleeding"
-    if kind == "self_harm":
-        kind = "general"
-    symptom = _scout_symptom_label(lower, kind)
+    kind = _scout_emergency_kind(lower)
     return (
-        f"{_EMERGENCY_OPEN} {symptom[0].upper() + symptom[1:]} needs emergency "
-        f"help. {_scout_emergency_steps(kind)}"
+        f"{_EMERGENCY_OPEN} {SCOUT_EMERGENCY_HELP} {_scout_emergency_steps(kind)}"
     )
 
 
 def scout_urgent_line(message: str) -> str:
     lower = normalize_message(message)
     if "fever" in lower:
-        warning = "the fever comes with trouble breathing or you become confused"
+        warning = SCOUT_URGENT_FEVER
     elif _has(lower, _SYNCOPE_STANDALONE):
-        warning = "you faint again, or chest pain or trouble breathing shows up"
+        warning = SCOUT_URGENT_FAINT
     elif _has(lower, _CHEST_MARKERS):
-        warning = "the pain comes back and spreads to the arm, or you're short of breath"
+        warning = SCOUT_URGENT_CHEST
     else:
-        warning = "chest pain, trouble breathing, or confusion shows up"
-    return f"{SCOUT_URGENT_OPEN} Call 911 if {warning}."
+        warning = SCOUT_URGENT_GENERIC
+    return f"{SCOUT_URGENT_OPEN} {warning}"
 
 
 def scout_safety(message: str) -> ScoutSafety | None:
-    """Scout tier + fixed copy. None means ordinary (no safety line)."""
+    """Scout tier + fixed copy. None means ordinary (no safety line).
+
+    Chat ``classify_band()`` wins: a chat EMERGENCY is never an urgent tier.
+    Self-harm stays on the 988 Scout tiers even though chat marks it emergency.
+    """
     lower = normalize_message(message)
     if not lower:
         return None
@@ -1809,6 +1890,7 @@ def scout_safety(message: str) -> ScoutSafety | None:
             [ACTION_988, ACTION_911],
             search=False,
             kind="self_harm",
+            safety_lock=True,
         )
     if _is_self_harm(lower):
         return ScoutSafety(
@@ -1817,27 +1899,37 @@ def scout_safety(message: str) -> ScoutSafety | None:
             [ACTION_988],
             search=False,
             kind="self_harm",
+            safety_lock=True,
         )
-    if _is_scout_urgent(lower):
-        return ScoutSafety(
-            TIER_URGENT,
-            scout_urgent_line(lower),
-            [ACTION_CHECKED_TODAY, ACTION_911],
-            search=True,
-            kind="urgent",
-        )
-    if _is_scout_emergency(lower):
-        kind = _emergency_kind(lower)
-        if _has(lower, _SCOUT_EMERGENCY_EXTRAS) and kind in ("self_harm", "general"):
-            kind = "ingestion" if "overdose" in lower else "bleeding"
-        if kind == "self_harm":
-            kind = "general"
+    if classify_band(message) == EMERGENCY:
+        kind = _scout_emergency_kind(lower)
         return ScoutSafety(
             TIER_EMERGENCY,
             scout_emergency_line(lower),
             [ACTION_911],
             search=True,
             kind=kind,
+            safety_lock=True,
+        )
+    if _is_scout_urgent(lower):
+        kind = _scout_urgent_kind(lower)
+        return ScoutSafety(
+            TIER_URGENT,
+            scout_urgent_line(lower),
+            [ACTION_CHECKED_TODAY, ACTION_911],
+            search=True,
+            kind=kind,
+            safety_lock=False,
+        )
+    if _is_scout_emergency_extra(lower):
+        kind = _scout_emergency_kind(lower)
+        return ScoutSafety(
+            TIER_EMERGENCY,
+            scout_emergency_line(lower),
+            [ACTION_911],
+            search=True,
+            kind=kind,
+            safety_lock=True,
         )
     if _is_scout_stress(lower):
         return ScoutSafety(
@@ -1846,5 +1938,6 @@ def scout_safety(message: str) -> ScoutSafety | None:
             [ACTION_988],
             search=True,
             kind="stress",
+            safety_lock=False,
         )
     return None

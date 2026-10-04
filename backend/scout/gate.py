@@ -10,11 +10,14 @@ single unambiguous health keyword is enough ("fever"). Ambiguous everyday
 words (back, period, cold, hot, heart, …) count only with another health
 word or a lookup cue. Other topics still need a lookup cue and two
 keywords. Questions about the user's own data ("how did I sleep", "my
-HRV") stay off unless they also ask for outside facts.
+HRV") stay off unless they also ask for outside facts. Bare stress,
+stressed, anxious, and anxiety do not wake Scout on their own.
 
 Crisis wording and the safety line come from ``guidance.py`` — gate does
-not keep its own crisis lists. The safety line leads the answer so a
-client clip cannot drop it. Self-harm tiers never search.
+not keep its own crisis lists. Emergency, urgent, and self-harm lines
+lead the answer so a client clip cannot drop them. The stress line
+follows the coaching text. Safety tiers never search the user's words;
+each kind has a fixed query. Self-harm tiers never search.
 
 ``from_handoff`` is for a caller that already decided. It still scrubs
 and still attaches the safety line. It does not require a lookup cue.
@@ -65,6 +68,7 @@ SCOUT_SELF_HARM_THOUGHTS_LINE = _guidance.SCOUT_SELF_HARM_THOUGHTS_LINE
 SCOUT_STRESS_LINE = _guidance.SCOUT_STRESS_LINE
 emergency_phrases = _guidance.emergency_phrases
 scout_safety = _guidance.scout_safety
+scout_search_query = _guidance.scout_search_query
 
 # Clients clip evidence from the front to this many characters
 # (ForgeCore AriaWebEvidence.swift — AriaWebParsers.maxEvidenceChars,
@@ -99,7 +103,7 @@ _HEALTH_WORDS = frozenset(
     hydration hydrate dehydrated dehydration fasting sugar sodium alcohol
     sleep insomnia nap circadian apnea snoring
     hrv vo2 vo2max overtraining cardio endurance mobility stretching
-    anxiety anxious depression depressed stress stressed burnout panic mood
+    depression depressed burnout panic mood
     heat heatstroke hot humid humidity sunburn uv altitude
     """.split()
 )
@@ -142,11 +146,13 @@ class GateDecision:
     activate: bool
     reason: str
     mission: MissionBrief | None = None
-    # Set for a Scout safety tier. The server puts this line first.
+    # Set for a Scout safety tier. Emergency/urgent/self-harm lead the answer;
+    # the stress line is appended after coaching.
     safety: str | None = None
     tier: str = TIER_NONE
     search: bool = True
     actions: list[str] = field(default_factory=list)
+    safety_lock: bool = False
 
     def as_dict(self) -> dict:
         out = {
@@ -160,6 +166,8 @@ class GateDecision:
             out["safety"] = self.safety
         if self.actions:
             out["actions"] = list(self.actions)
+        if self.safety_lock:
+            out["safety_lock"] = True
         return out
 
 
@@ -212,8 +220,24 @@ def _mission(text: str, private_terms, *, min_terms: int = 2) -> MissionBrief | 
     return MissionBrief(question=scrubbed, terms=terms, prefer=_prefer(terms), retain=False)
 
 
+def _fixed_safety_mission(kind: str) -> MissionBrief:
+    """One canned query per safety kind. Never the user's tokens."""
+    question, terms = _guidance.scout_search_query(kind)
+    return MissionBrief(
+        question=question,
+        terms=list(terms),
+        prefer=["medlineplus", "pubmed"],
+        retain=False,
+    )
+
+
 def _crisis(text: str, private_terms) -> GateDecision | None:
-    """Ask guidance for the Scout tier. Self-harm never searches."""
+    """Ask guidance for the Scout tier. Self-harm never searches.
+
+    Safety searches use a fixed query for the kind. ``private_terms`` is
+    unused here because the user's words never enter the brief.
+    """
+    del private_terms
     found = _guidance.scout_safety(text)
     if found is None:
         return None
@@ -221,20 +245,12 @@ def _crisis(text: str, private_terms) -> GateDecision | None:
         return GateDecision(
             True, "safety", None, found.line,
             tier=found.tier, search=False, actions=list(found.actions),
+            safety_lock=found.safety_lock,
         )
-    mission = _mission(text, private_terms, min_terms=1)
-    if mission is None:
-        mission = MissionBrief(
-            question="medical emergency warning signs",
-            terms=["medical", "emergency", "warning", "signs"],
-            prefer=["medlineplus", "pubmed"],
-            retain=False,
-        )
-    else:
-        mission.prefer = ["medlineplus", "pubmed"]
     return GateDecision(
-        True, "safety", mission, found.line,
+        True, "safety", _fixed_safety_mission(found.kind), found.line,
         tier=found.tier, search=True, actions=list(found.actions),
+        safety_lock=found.safety_lock,
     )
 
 
@@ -246,14 +262,21 @@ def safety_source(line: str = "", *, tier: str | None = None) -> dict:
     return dict(EMERGENCY_SOURCE)
 
 
-def with_safety(answer: str, line: str, limit: int = CLIENT_EVIDENCE_CHARS) -> str:
-    """Safety line first so a front-clip cannot drop it."""
+def with_safety(
+    answer: str,
+    line: str,
+    limit: int = CLIENT_EVIDENCE_CHARS,
+    *,
+    lead: bool = True,
+) -> str:
+    """Attach the safety line. Emergency/urgent/self-harm lead so a front-clip
+    cannot drop them. Stress follows the coaching text (``lead=False``)."""
     line = str(line or "").strip()
     body = " ".join(str(answer or "").split())
     if not line:
         return body[:limit] if len(body) > limit else body
     if not body:
-        return line
+        return line[:limit] if len(line) > limit else line
     room = limit - len(line) - 2
     if room <= 0:
         return line[:limit]
@@ -261,7 +284,9 @@ def with_safety(answer: str, line: str, limit: int = CLIENT_EVIDENCE_CHARS) -> s
         cut = body[:room]
         stop = cut.rfind(".")
         body = cut[: stop + 1].strip() if stop > 0 else ""
-    text = f"{line}\n\n{body}" if body else line
+    text = f"{line}\n\n{body}" if lead else f"{body}\n\n{line}"
+    if not body:
+        text = line
     return text if len(text) <= limit else text[:limit]
 
 
