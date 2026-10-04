@@ -451,7 +451,7 @@ public struct FakeCalendarPack: Sendable, Equatable {
         events: [FakeCalendarEvent],
         now: Date = Date(),
         calendar: Calendar = .current,
-        withinDays: Int = 21
+        withinDays: Int = LifestyleAssetIndex.workingHorizonDays
     ) -> [String] {
         let start = calendar.startOfDay(for: now)
         var nearest: [FakeCalendarEvent.Kind: Int] = [:]

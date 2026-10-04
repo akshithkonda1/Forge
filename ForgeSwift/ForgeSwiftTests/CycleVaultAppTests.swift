@@ -141,8 +141,19 @@ final class CycleVaultAppTests: XCTestCase {
             profile: .init(constraints: ["cycle luteal volume cap"]),
             progress: .init(workoutsCompleted30d: 12),
             lifestyle: .init(
-                tags: ["cycle_phase:luteal", "persona:stressed"],
-                recentPatterns: ["cycle:bleeding"],
+                tags: [
+                    "cycle_phase:luteal",
+                    "persona:stressed",
+                    "life_ops:load:heavy",
+                    "life_ops:interview:1",
+                    "life_ops:travel:d60",
+                    "reminders:overdue:2",
+                ],
+                recentPatterns: [
+                    "cycle:bleeding",
+                    "life_ops_brief: The board is heavy — overdue reminders or a packed calendar.",
+                    "life_context_brief: a shared conversation fact",
+                ],
                 goals: ["run"],
                 cyclePhaseDirective: "secret phase law"
             ),
@@ -191,6 +202,11 @@ final class CycleVaultAppTests: XCTestCase {
         XCTAssertEqual(payload.medicationLayer?.onFile.count, 0)
         XCTAssertEqual(payload.medicationLayer?.mentioned.first?.generic, "cenobamate")
         XCTAssertFalse(payload.lifestyle.tags.contains { $0.hasPrefix("cycle") })
+        XCTAssertFalse(payload.lifestyle.tags.contains { $0.hasPrefix("life_ops") })
+        XCTAssertFalse(payload.lifestyle.tags.contains { $0.hasPrefix("reminders:") })
+        XCTAssertFalse(payload.lifestyle.recentPatterns.contains { $0.lowercased().hasPrefix("life_ops") })
+        XCTAssertFalse(payload.lifestyle.recentPatterns.contains { $0.lowercased().hasPrefix("life_context") })
+        XCTAssertFalse(payload.lifestyle.recentPatterns.contains { $0.hasPrefix("cycle:") })
         XCTAssertTrue(payload.lifestyle.tags.contains("persona:stressed"))
         XCTAssertTrue(payload.profile.constraints.isEmpty)
     }

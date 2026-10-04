@@ -1007,6 +1007,14 @@ enum AriaDummyOrchestrator {
                 next.intensity = .moderate
             }
         }
+        if let ops = LifeOpsBoard.digest().trainingPlan {
+            if ops.reduceVolume {
+                next.duration = min(next.duration, max(20, ops.maxDuration))
+            }
+            if ops.keepLight, next.intensity == .max || next.intensity == .high {
+                next.intensity = .moderate
+            }
+        }
         return next
     }
 
@@ -1324,6 +1332,9 @@ enum AriaDummyOrchestrator {
         // Life Context: counts and structured facts only, read on this iPhone.
         if let reminders = RemindersManager.shared.spokenLine {
             parts.append(reminders)
+        }
+        if let ops = LifeOpsBoard.digest().spokenLine {
+            parts.append(ops)
         }
         if let brief = MessageContextStore.shared.contextBrief() {
             parts.append("From what you've shared with me: \(brief).")

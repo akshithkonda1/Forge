@@ -74,6 +74,7 @@
 		1ARIA0712F9FF867004091AA /* AriaCoachAgent.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1ARIA0702F9FF867004091AA /* AriaCoachAgent.swift */; };
 		1CAL0812F9FF867004091AA /* CalendarManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1CAL0802F9FF867004091AA /* CalendarManager.swift */; };
 		BD44CB29B1C5A37446D3258C /* RemindersManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 754850FBB7BD6E199116739D /* RemindersManager.swift */; };
+		LOPS0022F9FF867004091AA /* LifeOpsBoard.swift in Sources */ = {isa = PBXBuildFile; fileRef = LOPS0012F9FF867004091AA /* LifeOpsBoard.swift */; };
 		2FEADA2261D6DB5CB3BC7A57 /* MessageIngestionProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = C3DC7E4E7AE1EC9D7393F78D /* MessageIngestionProvider.swift */; };
 		8476307558B65C7981970E21 /* SyntheticMessageProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = 32350DBC3FF0F1EB3FB57E0F /* SyntheticMessageProvider.swift */; };
 		EBA0B17CF404B8CEB685F5A9 /* MessageContextStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 904E2DBF3528606C6DA474C1 /* MessageContextStore.swift */; };
@@ -522,6 +523,7 @@
 		1ARIA0702F9FF867004091AA /* AriaCoachAgent.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AriaCoachAgent.swift; sourceTree = "<group>"; };
 		1CAL0802F9FF867004091AA /* CalendarManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CalendarManager.swift; sourceTree = "<group>"; };
 		754850FBB7BD6E199116739D /* RemindersManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RemindersManager.swift; sourceTree = "<group>"; };
+		LOPS0012F9FF867004091AA /* LifeOpsBoard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LifeOpsBoard.swift; sourceTree = "<group>"; };
 		C3DC7E4E7AE1EC9D7393F78D /* MessageIngestionProvider.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MessageIngestionProvider.swift; sourceTree = "<group>"; };
 		32350DBC3FF0F1EB3FB57E0F /* SyntheticMessageProvider.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SyntheticMessageProvider.swift; sourceTree = "<group>"; };
 		904E2DBF3528606C6DA474C1 /* MessageContextStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MessageContextStore.swift; sourceTree = "<group>"; };
@@ -950,6 +952,7 @@
 				1ARIA0052F9FF867004091AA /* AriaService.swift */,
 				1CAL0802F9FF867004091AA /* CalendarManager.swift */,
 				754850FBB7BD6E199116739D /* RemindersManager.swift */,
+				LOPS0012F9FF867004091AA /* LifeOpsBoard.swift */,
 				C3DC7E4E7AE1EC9D7393F78D /* MessageIngestionProvider.swift */,
 				32350DBC3FF0F1EB3FB57E0F /* SyntheticMessageProvider.swift */,
 				904E2DBF3528606C6DA474C1 /* MessageContextStore.swift */,
@@ -1695,6 +1698,7 @@
 				1ARIA0712F9FF867004091AA /* AriaCoachAgent.swift in Sources */,
 				1CAL0812F9FF867004091AA /* CalendarManager.swift in Sources */,
 				BD44CB29B1C5A37446D3258C /* RemindersManager.swift in Sources */,
+				LOPS0022F9FF867004091AA /* LifeOpsBoard.swift in Sources */,
 				2FEADA2261D6DB5CB3BC7A57 /* MessageIngestionProvider.swift in Sources */,
 				8476307558B65C7981970E21 /* SyntheticMessageProvider.swift in Sources */,
 				EBA0B17CF404B8CEB685F5A9 /* MessageContextStore.swift in Sources */,

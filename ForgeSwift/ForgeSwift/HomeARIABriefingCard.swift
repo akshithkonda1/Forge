@@ -352,6 +352,11 @@ enum HomeARIABriefingBuilder {
             beats.append(.init(text: "Partner or daughter to support? I can learn that context.", priority: .ambient))
         }
 
+        let opsDigest = LifeOpsBoard.digest()
+        if let ops = opsDigest.spokenLine {
+            beats.append(.init(text: ops, priority: opsDigest.load == .heavy ? .urgent : .timely))
+        }
+
         if let emotion = AriaContextStore.shared.context.lifestyleTags.first(where: { $0.hasPrefix("emotion:") && !$0.contains("about_other") }) {
             let raw = emotion.replacingOccurrences(of: "emotion:", with: "")
             if let need = AriaEmotionalNeed(rawValue: raw), need != .crisis {

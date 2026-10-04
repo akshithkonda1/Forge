@@ -92,6 +92,7 @@ let package = Package(
                 "Intelligence/MessageContextEngine.swift",
                 "Intelligence/SharedConversationParser.swift",
                 "Intelligence/LifeContextBrief.swift",
+                "Intelligence/LifeOpsDigest.swift",
                 "Models/HealthDeviceCatalog.swift",
                 "Models/HRZones.swift",
                 "Models/LifestyleContext.swift",
@@ -199,6 +200,7 @@ let package = Package(
                 "SharedConversationParserTests.swift",
                 "RemindersWorkloadTests.swift",
                 "LifeContextVaultTests.swift",
+                "LifeOpsDigestTests.swift",
             ]
         ),
     ],
