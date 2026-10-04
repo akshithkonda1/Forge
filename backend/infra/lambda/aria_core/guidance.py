@@ -1557,3 +1557,289 @@ def append_clinician_disclaimer(text: str) -> str:
     if not text:
         return disclaimer
     return f"{text}\n\n{disclaimer}"
+
+
+# --- Scout sidecar tiers (additions; chat assess() is unchanged) --------------
+# Scout asks this module for a tier and reuses this wording. Chat still uses
+# assess() / classify_band(). These templates are fixed, never model-written.
+# Tap-to-call chips must use ACTION_911 / ACTION_988 exactly.
+
+TIER_EMERGENCY = "emergency_now"
+TIER_SELF_HARM_INTENT = "self_harm_intent"
+TIER_SELF_HARM_THOUGHTS = "self_harm_thoughts"
+TIER_URGENT = "urgent"
+TIER_STRESS = "stress"
+TIER_NONE = "none"
+
+ACTION_911 = "Call 911"
+ACTION_988 = "Call or text 988"
+ACTION_CHECKED_TODAY = "Get it checked today"
+
+# Standalone needles already classified as emergency, plus two Scout extras
+# ("overdose", "heavy bleeding") that are not in the exported lexicon lists —
+# adding them to _EMERGENCY_STATE would require regenerating AriaSafetyLexicon.swift.
+_SCOUT_EMERGENCY_EXTRAS = (
+    "overdose",
+    "heavy bleeding",
+)
+
+# Intent / plan, on top of _is_self_harm. Thoughts without these stay calmer.
+_SELF_HARM_INTENT = (
+    "kill myself", "want to die", "end my life", "take my own life",
+    "commit suicide", "suicide plan", "have a plan", "i have a plan",
+    "going to kill", "end it tonight", "tonight i will",
+    "harm myself", "harming myself",
+)
+_SELF_HARM_INTENT_RE = re.compile(
+    r"\b(?:plan to (?:kill|end|hurt)|going to (?:kill myself|end it|end my life)|"
+    r"have a plan|wrote a note|got the pills)\b"
+    r"|\bcut(?:ting)? myself\b"
+)
+
+_URGENT_DURATION = (
+    "for several days", "for a few days", "for days", "for a week",
+    "all week", "days now", "for two days", "for three days",
+)
+_URGENT_RESOLVED = (
+    "went away", "has passed", "it passed", "that passed",
+    "i'm fine", "im fine", "i'm okay", "im okay", "i'm ok", "im ok",
+    "feeling better", "after it passed",
+)
+_AFTER_EXERCISE = (
+    "after a workout", "after my workout", "after the workout",
+    "after working out", "after exercise", "after training",
+    "after i worked out", "after the run", "after my run",
+)
+_STRESS_PHRASES = (
+    "panic attack", "burned out", "burnt out",
+)
+_STRESS_WORDS = (
+    "panic", "anxiety", "anxious", "burnout", "stressed", "stress",
+)
+
+# Digit-free arrest steps for Scout (chat still uses the CPR digit copy).
+_SCOUT_ARREST_STEPS = (
+    "Start CPR if they are not breathing — hard, fast compressions in the "
+    "center of the chest — and stay on the line."
+)
+_SCOUT_SEIZURE_STEPS = (
+    "Clear space around you, cushion your head, and don't put anything in "
+    "your mouth. Stay on the line."
+)
+
+SCOUT_SELF_HARM_INTENT_LINE = (
+    "Call or text 988 now. You don't have to face this alone. "
+    "If you're in danger right now, call 911."
+)
+SCOUT_SELF_HARM_THOUGHTS_LINE = (
+    "You can call or text 988 if you want someone to talk to. "
+    "You don't have to go through this alone."
+)
+SCOUT_STRESS_LINE = (
+    "988 is there to call or text anytime, not just in a crisis."
+)
+SCOUT_URGENT_OPEN = "Get it checked today by a doctor or urgent care."
+
+
+@dataclass
+class ScoutSafety:
+    """Fixed Scout safety line, actions, and whether a search may run."""
+
+    tier: str
+    line: str
+    actions: list[str] = field(default_factory=list)
+    search: bool = True
+    kind: str = ""
+
+
+def emergency_phrases() -> tuple[str, ...]:
+    """Needles that must land in Scout's emergency tier.
+
+    Unions the chat-path emergency lists with Scout extras. Used by the
+    gate sweep so a new emergency phrase cannot be added here and missed
+    in Scout.
+    """
+    seen: list[str] = []
+    for group in (
+        _EMERGENCY_STATE,
+        _STROKE_STANDALONE,
+        _ALLERGY_EMERGENCY,
+        _SYNCOPE_STANDALONE,
+        _SEVERE_CHEST,
+        _NOT_BREATHING,
+        _UNRESPONSIVE,
+        _NO_CIRCULATION,
+        _SCOUT_EMERGENCY_EXTRAS,
+    ):
+        for phrase in group:
+            if phrase not in seen:
+                seen.append(phrase)
+    return tuple(seen)
+
+
+def _is_self_harm_intent(lower: str) -> bool:
+    if not _is_self_harm(lower):
+        return False
+    return _has(lower, _SELF_HARM_INTENT) or bool(_SELF_HARM_INTENT_RE.search(lower))
+
+
+def _is_scout_urgent(lower: str) -> bool:
+    if "fever" in lower and _has(lower, _URGENT_DURATION):
+        return True
+    if _has(lower, _SYNCOPE_STANDALONE) and _has(lower, _URGENT_RESOLVED):
+        return True
+    if (
+        _has(lower, _CHEST_MARKERS)
+        and (_has(lower, _AFTER_EXERCISE) or _has(lower, _LIFT_CHEST_CONTEXT))
+        and _has(lower, _URGENT_RESOLVED)
+    ):
+        return True
+    return False
+
+
+def _is_scout_stress(lower: str) -> bool:
+    return _has(lower, _STRESS_PHRASES) or _has_word(lower, _STRESS_WORDS)
+
+
+def _is_scout_emergency(lower: str) -> bool:
+    """Acute danger for the sidecar, including chest pain and extras."""
+    if _is_self_harm(lower) or _is_scout_urgent(lower):
+        return False
+    if classify_band(lower) == EMERGENCY:
+        return True
+    if _has(lower, _SCOUT_EMERGENCY_EXTRAS):
+        return True
+    if _has(lower, _CHEST_MARKERS) and not _is_lift_chest_soreness(lower):
+        return True
+    return bool(_BLEEDING_TRIAGE_RE.search(lower))
+
+
+def _scout_symptom_label(lower: str, kind: str) -> str:
+    labeled = (
+        ("chest pain", _CHEST_MARKERS),
+        ("trouble breathing", ("can't breathe", "cant breathe", "cannot breathe", "not breathing", "stopped breathing")),
+        ("stroke signs", _STROKE_STANDALONE + ("having a stroke",)),
+        ("an overdose", ("overdosed", "overdosing", "overdose")),
+        ("passing out", _SYNCOPE_STANDALONE),
+        ("a seizure", ("seizure", "convulsing")),
+        ("heavy bleeding", ("heavy bleeding", "bleeding out", "gushing blood", "won't stop bleeding", "wont stop bleeding")),
+        ("throat closing", _ALLERGY_EMERGENCY),
+        ("choking", ("choking",)),
+        ("a head injury", ("head injury", "hit my head", "hit his head", "hit her head")),
+        ("a heart attack", ("heart attack",)),
+    )
+    for label, needles in labeled:
+        if _has(lower, needles):
+            return label
+    return {
+        "cardiac": "chest pain",
+        "stroke": "stroke signs",
+        "faint": "passing out",
+        "arrest": "not breathing",
+        "allergy": "throat closing",
+        "bleeding": "heavy bleeding",
+        "seizure": "a seizure",
+        "ingestion": "an overdose",
+        "ingestion_intent": "an overdose",
+        "choking": "choking",
+        "head_injury": "a head injury",
+    }.get(kind, "this")
+
+
+def _scout_emergency_steps(kind: str) -> str:
+    steps = {
+        "cardiac": _EMERGENCY_CARDIAC,
+        "stroke": _EMERGENCY_STROKE,
+        "faint": _EMERGENCY_FAINT,
+        "allergy": _EMERGENCY_ALLERGY,
+        "bleeding": _EMERGENCY_BLEEDING,
+        "choking": _EMERGENCY_CHOKING,
+        "head_injury": _EMERGENCY_HEAD,
+        "ingestion": _EMERGENCY_INGESTION,
+        "ingestion_intent": _EMERGENCY_INGESTION_INTENT,
+        "seizure": _SCOUT_SEIZURE_STEPS,
+        "arrest": _SCOUT_ARREST_STEPS,
+        "general": _EMERGENCY_PATIENT_FALLBACK,
+    }
+    return steps.get(kind, _EMERGENCY_PATIENT_FALLBACK)
+
+
+def scout_emergency_line(message: str) -> str:
+    """Opens with Call 911 now, names the symptom, then existing steps."""
+    lower = normalize_message(message)
+    kind = _emergency_kind(lower)
+    if _has(lower, _SCOUT_EMERGENCY_EXTRAS) and kind == "general":
+        kind = "ingestion" if "overdose" in lower else "bleeding"
+    if kind == "self_harm":
+        kind = "general"
+    symptom = _scout_symptom_label(lower, kind)
+    return (
+        f"{_EMERGENCY_OPEN} {symptom[0].upper() + symptom[1:]} needs emergency "
+        f"help. {_scout_emergency_steps(kind)}"
+    )
+
+
+def scout_urgent_line(message: str) -> str:
+    lower = normalize_message(message)
+    if "fever" in lower:
+        warning = "the fever comes with trouble breathing or you become confused"
+    elif _has(lower, _SYNCOPE_STANDALONE):
+        warning = "you faint again, or chest pain or trouble breathing shows up"
+    elif _has(lower, _CHEST_MARKERS):
+        warning = "the pain comes back and spreads to the arm, or you're short of breath"
+    else:
+        warning = "chest pain, trouble breathing, or confusion shows up"
+    return f"{SCOUT_URGENT_OPEN} Call 911 if {warning}."
+
+
+def scout_safety(message: str) -> ScoutSafety | None:
+    """Scout tier + fixed copy. None means ordinary (no safety line)."""
+    lower = normalize_message(message)
+    if not lower:
+        return None
+    if _is_self_harm_intent(lower):
+        return ScoutSafety(
+            TIER_SELF_HARM_INTENT,
+            SCOUT_SELF_HARM_INTENT_LINE,
+            [ACTION_988, ACTION_911],
+            search=False,
+            kind="self_harm",
+        )
+    if _is_self_harm(lower):
+        return ScoutSafety(
+            TIER_SELF_HARM_THOUGHTS,
+            SCOUT_SELF_HARM_THOUGHTS_LINE,
+            [ACTION_988],
+            search=False,
+            kind="self_harm",
+        )
+    if _is_scout_urgent(lower):
+        return ScoutSafety(
+            TIER_URGENT,
+            scout_urgent_line(lower),
+            [ACTION_CHECKED_TODAY, ACTION_911],
+            search=True,
+            kind="urgent",
+        )
+    if _is_scout_emergency(lower):
+        kind = _emergency_kind(lower)
+        if _has(lower, _SCOUT_EMERGENCY_EXTRAS) and kind in ("self_harm", "general"):
+            kind = "ingestion" if "overdose" in lower else "bleeding"
+        if kind == "self_harm":
+            kind = "general"
+        return ScoutSafety(
+            TIER_EMERGENCY,
+            scout_emergency_line(lower),
+            [ACTION_911],
+            search=True,
+            kind=kind,
+        )
+    if _is_scout_stress(lower):
+        return ScoutSafety(
+            TIER_STRESS,
+            SCOUT_STRESS_LINE,
+            [ACTION_988],
+            search=True,
+            kind="stress",
+        )
+    return None
