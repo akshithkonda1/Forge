@@ -228,7 +228,7 @@ _SENTENCE_SPLIT = re.compile(r"(?<=[.!?])\s+")
 # Spoken path only. Cards may keep ``(16%)``; a sentence like
 # ``Deep sleep is 13% of the night`` must not reach the final message.
 _DIGIT_PERCENT = re.compile(
-    r"\d+(?:\.\d+)?\s*%"
+    r"\b(?:deep|rem|light)\s+sleep\s+(?:is|at|was)\s+\d+(?:\.\d+)?\s*%"
     r"|\bis\s+\d+(?:\.\d+)?\s*%\s+of the night\b",
     re.I,
 )
