@@ -312,6 +312,14 @@ class SafetyTierTests(unittest.TestCase):
                 guidance._EMERGENCY_FAINT_RESOLVED_TRAINING,
             ),
             (
+                "I fainted while running",
+                guidance._EMERGENCY_FAINT_RESOLVED_TRAINING,
+            ),
+            (
+                "passed out after lifting",
+                guidance._EMERGENCY_FAINT_RESOLVED_TRAINING,
+            ),
+            (
                 "I passed out",
                 f"{guidance._EMERGENCY_OPEN} {guidance._EMERGENCY_FAINT}",
             ),
@@ -400,6 +408,8 @@ class SafetyTierTests(unittest.TestCase):
         faint_message = {
             "I fainted earlier but I'm fine now": guidance._EMERGENCY_FAINT_RESOLVED,
             "I fainted during my run, I'm fine now": guidance._EMERGENCY_FAINT_RESOLVED_TRAINING,
+            "I fainted while running": guidance._EMERGENCY_FAINT_RESOLVED_TRAINING,
+            "passed out after lifting": guidance._EMERGENCY_FAINT_RESOLVED_TRAINING,
         }
         # phrase, expected Dummy /ai/chat message (None = coach/stress: no 911/988 line)
         rows: list[tuple[str, str | None]] = []

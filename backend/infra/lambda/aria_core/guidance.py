@@ -697,7 +697,8 @@ _EMERGENCY_FAINT = (
     "and keep someone with you if you can."
 )
 _FAINT_TRAINING = (
-    "run", "workout", "lift", "bench", "set", "ride", "class", "gym", "training",
+    "run", "running", "workout", "lift", "lifting", "bench", "set", "ride",
+    "riding", "class", "gym", "training", "squats", "practice",
 )
 _EMERGENCY_FAINT_RESOLVED = (
     "Call 911 now, even if you feel okay again. "
@@ -888,20 +889,17 @@ def _emergency_subject(lower: str, kind: str) -> str:
 def _faint_emergency_prose(lower: str, *, helper: bool = False) -> str:
     """Chat and Scout share this faint reply.
 
-    A resolved cue ("I'm fine now", "feel okay") gets the 911-even-if-okay
-    line. Training words swap in the mid-workout sentence. No resolved cue
-    keeps the standard opener plus ``_EMERGENCY_FAINT``.
+    Training words ("running", "lifting") get the mid-workout 911 line even
+    without a resolved cue, so "I fainted while running" matches chat and
+    Scout. A resolved cue without training words keeps the standard
+    911-even-if-okay line. Helper phrasing without those cues keeps the
+    bystander CPR-if-needed reply. Anything else keeps the standard opener
+    plus ``_EMERGENCY_FAINT``.
     """
+    if _has_word(lower, _FAINT_TRAINING):
+        return _EMERGENCY_FAINT_RESOLVED_TRAINING
     if _has(lower, _URGENT_RESOLVED):
-        passing = (
-            "Passing out mid-workout needs a proper look right away."
-            if _has_word(lower, _FAINT_TRAINING)
-            else "Passing out needs a proper look right away."
-        )
-        return (
-            "Call 911 now, even if you feel okay again. "
-            f"{passing} Lie down, skip driving, and keep someone with you."
-        )
+        return _EMERGENCY_FAINT_RESOLVED
     if helper:
         return f"{_EMERGENCY_OPEN} {_EMERGENCY_FAINT_HELPER}"
     return f"{_EMERGENCY_OPEN} {_EMERGENCY_FAINT}"

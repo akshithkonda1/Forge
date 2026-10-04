@@ -97,13 +97,19 @@ STROKE_HELPER_PHRASES = (
 
 SYNCOPE_PHRASES = (
     "I passed out on the treadmill",
-    "I fainted during my run",
-    "I blacked out after squats",
     "I was fainting during intervals",
 )
+SYNCOPE_TRAINING_PHRASES = (
+    "I fainted during my run",
+    "I blacked out after squats",
+    "I fainted while running",
+    "passed out after lifting",
+)
 SYNCOPE_HELPER_PHRASES = (
-    "she fainted after her workout",
     "he blacked out on the bike",
+)
+SYNCOPE_HELPER_TRAINING_PHRASES = (
+    "she fainted after her workout",
 )
 
 CPR_PHRASES = (
@@ -175,10 +181,21 @@ class SyncopeRedFlagTests(unittest.TestCase):
             with self.subTest(message=message):
                 _assert_typed_emergency(self, message, FAINT_REPLY, cpr=False)
 
+    def test_syncope_training_phrases_get_mid_workout_911(self):
+        for message in SYNCOPE_TRAINING_PHRASES:
+            with self.subTest(message=message):
+                _assert_typed_emergency(
+                    self, message, FAINT_RESOLVED_TRAINING_REPLY, cpr=False
+                )
+                self.assertEqual(guidance.scout_emergency_line(message), FAINT_RESOLVED_TRAINING_REPLY)
+                self.assertEqual(guidance.scout_safety(message).line, FAINT_RESOLVED_TRAINING_REPLY)
+
     def test_resolved_faint_variants_match_chat_and_scout(self):
         rows = (
             ("I fainted earlier but I'm fine now", FAINT_RESOLVED_REPLY),
             ("I fainted during my run, I'm fine now", FAINT_RESOLVED_TRAINING_REPLY),
+            ("I fainted while running", FAINT_RESOLVED_TRAINING_REPLY),
+            ("passed out after lifting", FAINT_RESOLVED_TRAINING_REPLY),
             ("I passed out", FAINT_REPLY),
         )
         for message, expected in rows:
@@ -196,6 +213,13 @@ class SyncopeRedFlagTests(unittest.TestCase):
         for message in SYNCOPE_HELPER_PHRASES:
             with self.subTest(message=message):
                 _assert_typed_emergency(self, message, FAINT_HELPER_REPLY, cpr=True)
+
+    def test_syncope_helper_training_phrases_get_mid_workout_911(self):
+        for message in SYNCOPE_HELPER_TRAINING_PHRASES:
+            with self.subTest(message=message):
+                _assert_typed_emergency(
+                    self, message, FAINT_RESOLVED_TRAINING_REPLY, cpr=False
+                )
 
 
 class ArrestCprTests(unittest.TestCase):
