@@ -4,15 +4,36 @@ import sys
 import unittest
 from pathlib import Path
 from types import SimpleNamespace
+from unittest.mock import patch
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[4]))
 
+from backend.ai.simrunner.aria_simrunner import dummy_orchestrator as dummy  # noqa: E402
 from backend.ai.simrunner.aria_simrunner import perception as p  # noqa: E402
+from backend.ai.simrunner.aria_simrunner import web_research  # noqa: E402
+
+FEELS_GOOD_SHORT_NIGHT = (
+    "You feel good, but last night ran short — I'll trust the feeling and cap the ceiling."
+)
+FEELS_LOW_NUMBERS_READY = (
+    "Everything looks ready on paper, but you don't feel it — how you feel wins today."
+)
+HARD_DAY_EASY_BODY = (
+    "You want a hard day on a body that's asking for an easy one — we'll bank the effort instead of spending it."
+)
 
 
 def ctx(sleep=7.8, readiness=80, debt=0.0, overtrained=False, trend="steady", streak=0, rest_days=1, chrono="lark"):
     return SimpleNamespace(
-        today=SimpleNamespace(total_sleep_hours=sleep, readiness_score=readiness),
+        today=SimpleNamespace(
+            total_sleep_hours=sleep,
+            readiness_score=readiness,
+            workout_logged=False,
+            workout_type="rest",
+            deep_sleep_minutes=55,
+            rem_sleep_minutes=90,
+            hrv=58,
+        ),
         sleep_debt_7d_hours=debt,
         is_overtrained=overtrained,
         readiness_trend=trend,
@@ -46,12 +67,42 @@ class ConflictTests(unittest.TestCase):
         self.assertIn("intent_vs_recovery", kinds)
         self.assertTrue(s.decisions.keep_light)
         self.assertEqual(s.posture, "protect")
-        self.assertTrue(s.spoken_line)
+        self.assertEqual(s.spoken_line, FEELS_GOOD_SHORT_NIGHT)
+        said = next(c.line for c in s.conflicts if c.kind == "said_vs_measured")
+        intent = next(c.line for c in s.conflicts if c.kind == "intent_vs_recovery")
+        self.assertEqual(said, FEELS_GOOD_SHORT_NIGHT)
+        self.assertEqual(intent, HARD_DAY_EASY_BODY)
+        self.assertEqual(dummy._apply_speak_guard(FEELS_GOOD_SHORT_NIGHT), FEELS_GOOD_SHORT_NIGHT)
 
     def test_feels_low_but_numbers_ready(self):
         s = p.perceive("I'm exhausted, what should I train?", ctx=ctx())
         self.assertIn("said_vs_measured", [c.kind for c in s.conflicts])
-        self.assertIn("how you feel wins", s.spoken_line)
+        self.assertEqual(s.spoken_line, FEELS_LOW_NUMBERS_READY)
+        self.assertEqual(dummy._apply_speak_guard(FEELS_LOW_NUMBERS_READY), FEELS_LOW_NUMBERS_READY)
+
+    def test_said_vs_measured_lines_survive_speak_guard_as_message_lead(self):
+        rows = (
+            (
+                "I feel great, let's go hard on leg day",
+                ctx(sleep=5.2, readiness=45),
+                FEELS_GOOD_SHORT_NIGHT,
+            ),
+            (
+                "I'm exhausted, what should I train?",
+                ctx(),
+                FEELS_LOW_NUMBERS_READY,
+            ),
+        )
+        for prompt, body, line in rows:
+            with self.subTest(prompt=prompt):
+                with patch.object(web_research, "research", return_value=None):
+                    row = dummy.respond(prompt, seed=3, engine="lambda", context=body)
+                spoken = str(row.get("message") or "")
+                guarded = dummy._apply_speak_guard(spoken)
+                self.assertEqual(dummy._apply_speak_guard(line), line, prompt)
+                self.assertTrue(spoken.startswith(line), spoken)
+                self.assertTrue(guarded.startswith(line), guarded)
+                self.assertEqual(guarded.split("\n", 1)[0][: len(line)], line)
 
     def test_illness_and_red_flags(self):
         sick = p.perceive("I have a fever, can I still run?", ctx=ctx())

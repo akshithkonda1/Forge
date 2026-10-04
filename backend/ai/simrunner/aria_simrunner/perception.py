@@ -369,14 +369,14 @@ def perceive(
         decisions.keep_light = True
         conflicts.append(Conflict(
             "said_vs_measured",
-            "You feel good, and your body is still paying for a short night — I'll trust the feeling and cap the ceiling.",
+            "You feel good, but last night ran short — I'll trust the feeling and cap the ceiling.",
             "medium",
         ))
     if negative and recovery == "ready" and training_ask:
         decisions.keep_light = True
         conflicts.append(Conflict(
             "said_vs_measured",
-            "Your body looks ready, but you don't feel it — how you feel wins today.",
+            "Everything looks ready on paper, but you don't feel it — how you feel wins today.",
             "medium",
         ))
     if wants_hard and (recovery == "asking" or band("load") == "overreached"):
