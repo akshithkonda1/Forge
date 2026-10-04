@@ -1,7 +1,9 @@
+import copy
 import json
 import os
 import sys
 import unittest
+from datetime import datetime, timezone
 from pathlib import Path
 
 import _bootstrap  # noqa: F401
@@ -384,14 +386,32 @@ class PermissionEnforcementTests(unittest.TestCase):
         self.assertEqual(set(resp["restricted_domains"]), {"body", "nutrition"})
 
     def test_asking_about_a_restricted_domain_is_declined_clearly(self):
-        ctx = full_context(body=aria_engine.BodyContext(weight_trend_kg=-1.2))
-        resp = aria_engine.generate_response(
-            "how's my weight trend?", ctx,
-            permissions=aria_engine.DataPermissions.from_payload({"body": False}),
+        # Whole-response leak check: no body number anywhere in the JSON.
+        # circadian.hourOfDay is hour + minute/60, so 21:15 → 21.25 and
+        # 11:15 → 11.25 both stringify with a "1.2" substring. Freeze the
+        # clock at both times, prove the mocked hour, then drop hourOfDay
+        # before scanning the rest of the payload.
+        frozen = (
+            (datetime(2026, 9, 30, 21, 15, tzinfo=timezone.utc), 21.25),
+            (datetime(2026, 9, 30, 11, 15, tzinfo=timezone.utc), 11.25),
         )
-        self.assertEqual(resp["response_type"], "clarification")
-        self.assertIn("off", resp["prose_summary"].lower())
-        self.assertNotIn("1.2", json.dumps(resp))
+        for moment, expected_hour in frozen:
+            with self.subTest(hour=expected_hour):
+                ctx = full_context(body=aria_engine.BodyContext(weight_trend_kg=-1.2))
+                ctx.timestamp = moment.isoformat()
+                resp = aria_engine.generate_response(
+                    "how's my weight trend?", ctx,
+                    permissions=aria_engine.DataPermissions.from_payload({"body": False}),
+                )
+                self.assertEqual(resp["response_type"], "clarification")
+                self.assertIn("off", resp["prose_summary"].lower())
+                hour = resp["sharedIntelligence"]["circadian"]["hourOfDay"]
+                self.assertEqual(hour, expected_hour)
+                payload = copy.deepcopy(resp)
+                circadian = (payload.get("sharedIntelligence") or {}).get("circadian")
+                if isinstance(circadian, dict):
+                    circadian.pop("hourOfDay", None)
+                self.assertNotIn("1.2", json.dumps(payload))
 
     def test_no_permissions_means_nothing_restricted(self):
         resp = aria_engine.generate_response("how did I sleep?", full_context())

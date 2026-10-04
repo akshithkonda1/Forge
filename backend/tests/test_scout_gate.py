@@ -257,8 +257,11 @@ class SafetyTierTests(unittest.TestCase):
 
         assessed = guidance.assess("I don't want to be here")
         self.assertEqual(assessed.prose, guidance._CRISIS_LINE)
-        self.assertEqual(guidance.classify_band("overdose"), guidance.COACH)
+        self.assertEqual(guidance.classify_band("overdose"), guidance.EMERGENCY)
         self.assertEqual(guidance.classify_band("heavy bleeding"), guidance.COACH)
+        self.assertNotEqual(
+            guidance.classify_band("heavy bleeding on my period"), guidance.EMERGENCY
+        )
 
 
 class ClipLimitLockTests(unittest.TestCase):

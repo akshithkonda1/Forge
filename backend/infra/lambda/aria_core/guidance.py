@@ -110,12 +110,16 @@ _ESCALATION_REQUEST = (
     "call 911", "call 9-1-1", "dial 911", "call emergency", "call an ambulance",
     "call the ambulance", "get an ambulance", "emergency sos", "call for help",
 )
+# Bare "overdose" belongs with overdosed/overdosing so chat and Scout share one
+# list. "heavy bleeding" stays out of this tuple: the Swift generator cannot
+# emit a cycle-word exclusion, and Forge tracks periods as normal bleeding.
+_OVERDOSE_WORDS = ("overdosed", "overdosing", "overdose")
 _EMERGENCY_STATE = (
     "not breathing", "isn't breathing", "isnt breathing", "stopped breathing",
     "won't wake up", "wont wake up", "unresponsive", "no pulse", "no heartbeat",
     "collapsed", "passed out", "unconscious", "having a heart attack",
-    "heart attack", "having a stroke", "face is drooping", "overdosed",
-    "overdosing", "bleeding out", "won't stop bleeding", "wont stop bleeding",
+    "heart attack", "having a stroke", "face is drooping", *_OVERDOSE_WORDS,
+    "bleeding out", "won't stop bleeding", "wont stop bleeding",
     "gushing blood", "drowning", "not responding", "turning blue", "seizure",
     "convulsing", "anaphylaxis", "anaphylactic", "throat is closing",
     "can't breathe", "cant breathe", "cannot breathe",
@@ -841,7 +845,7 @@ def _emergency_kind(lower: str) -> str:
         return "head_injury"
     if _has(lower, ("seizure", "convulsing")):
         return "seizure"
-    if _is_ingestion(lower) or _has(lower, ("overdosed", "overdosing")):
+    if _is_ingestion(lower) or _has(lower, _OVERDOSE_WORDS):
         return "ingestion"
     return "general"
 
@@ -886,7 +890,7 @@ def _emergency_prose(lower: str) -> str:
         return f"{_EMERGENCY_OPEN} {helper_body if helper else patient}"
     if kind == "seizure" and helper:
         return f"{_EMERGENCY_OPEN} {_EMERGENCY_SEIZURE_HELPER}"
-    if kind == "ingestion" and not _has(lower, ("overdosed", "overdosing")):
+    if kind == "ingestion" and not _has(lower, _OVERDOSE_WORDS):
         body = _EMERGENCY_INGESTION_HELPER if helper else _EMERGENCY_INGESTION
         return f"{_EMERGENCY_OPEN} {body}"
     if helper:
@@ -1575,11 +1579,12 @@ ACTION_911 = "Call 911"
 ACTION_988 = "Call or text 988"
 ACTION_CHECKED_TODAY = "Get it checked today"
 
-# Standalone needles already classified as emergency, plus two Scout extras
-# ("overdose", "heavy bleeding") that are not in the exported lexicon lists —
-# adding them to _EMERGENCY_STATE would require regenerating AriaSafetyLexicon.swift.
+# Standalone needles already classified as emergency, plus one Scout extra.
+# "overdose" lives in _EMERGENCY_STATE / _OVERDOSE_WORDS. "heavy bleeding"
+# stays Scout-only: adding it to the chat band would 911 a period, and the
+# Swift generator cannot emit a cycle-word exclusion without hand-editing
+# AriaSafetyTriage.swift.
 _SCOUT_EMERGENCY_EXTRAS = (
-    "overdose",
     "heavy bleeding",
 )
 
@@ -1719,7 +1724,7 @@ def _scout_symptom_label(lower: str, kind: str) -> str:
         ("chest pain", _CHEST_MARKERS),
         ("trouble breathing", ("can't breathe", "cant breathe", "cannot breathe", "not breathing", "stopped breathing")),
         ("stroke signs", _STROKE_STANDALONE + ("having a stroke",)),
-        ("an overdose", ("overdosed", "overdosing", "overdose")),
+        ("an overdose", _OVERDOSE_WORDS),
         ("passing out", _SYNCOPE_STANDALONE),
         ("a seizure", ("seizure", "convulsing")),
         ("heavy bleeding", ("heavy bleeding", "bleeding out", "gushing blood", "won't stop bleeding", "wont stop bleeding")),

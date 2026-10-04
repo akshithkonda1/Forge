@@ -205,6 +205,38 @@ final class AriaSafetyTriageTests: XCTestCase {
         }
     }
 
+    func testOverdoseAndBleedingFollowUpRows() {
+        let overdose = "I took an overdose"
+        XCTAssertEqual(AriaSafetyTriage.classifyBand(overdose), AriaSafetyBand.emergency)
+        XCTAssertEqual(
+            AriaSafetyTriage.emergencyKind(AriaSafetyTriage.normalize(overdose)),
+            "ingestion"
+        )
+        let assessed = AriaSafetyTriage.assess(overdose)
+        XCTAssertEqual(assessed?.band, AriaSafetyBand.emergency)
+        XCTAssertEqual(assessed?.suggestedActions.first, "Call 911")
+        XCTAssertTrue(assessed?.suggestedActions.contains("Call 911") == true)
+
+        XCTAssertNotEqual(
+            AriaSafetyTriage.classifyBand("There's heavy bleeding"),
+            AriaSafetyBand.emergency
+        )
+        XCTAssertNotEqual(
+            AriaSafetyTriage.classifyBand("heavy bleeding on my period"),
+            AriaSafetyBand.emergency
+        )
+        if let period = AriaSafetyTriage.assess("heavy bleeding on my period") {
+            XCTAssertNotEqual(period.band, AriaSafetyBand.emergency)
+            XCTAssertFalse(period.prose.contains("Call 911 now."))
+        }
+
+        // "hurts" is lift-not-soreness, so this is chest triage today.
+        XCTAssertEqual(
+            AriaSafetyTriage.classifyBand("My chest hurts after bench"),
+            AriaSafetyBand.triage
+        )
+    }
+
     func testSessionDecodesTheBackendContract() throws {
         let json = """
         {"schema": 1, "phase": "resolved", "topic": "faint", "subject": "self", "voice": "off",

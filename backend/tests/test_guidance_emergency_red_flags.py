@@ -197,6 +197,39 @@ class OtherEmergencyTests(unittest.TestCase):
             self, "I overdosed", PATIENT_FALLBACK_REPLY, cpr=False
         )
 
+    def test_bare_overdose_is_emergency_ingestion(self):
+        message = "I took an overdose"
+        lower = guidance.normalize_message(message)
+        self.assertEqual(guidance.classify_band(message), guidance.EMERGENCY)
+        self.assertEqual(guidance._emergency_kind(lower), "ingestion")
+        assessed = guidance.assess(message)
+        self.assertIsNotNone(assessed)
+        self.assertEqual(assessed.band, guidance.EMERGENCY)
+        self.assertEqual(assessed.prose, PATIENT_FALLBACK_REPLY)
+        self.assertEqual(assessed.suggested_actions[0], "Call 911")
+        self.assertIn("Call 911", assessed.suggested_actions)
+
+    def test_heavy_bleeding_on_period_is_not_chat_emergency(self):
+        for message in ("heavy bleeding on my period", "There's heavy bleeding"):
+            with self.subTest(message=message):
+                self.assertNotEqual(
+                    guidance.classify_band(message), guidance.EMERGENCY, message
+                )
+                assessed = guidance.assess(message)
+                if assessed is not None:
+                    self.assertNotEqual(assessed.band, guidance.EMERGENCY, message)
+                    self.assertNotIn("Call 911 now.", assessed.prose)
+
+    def test_chest_hurts_after_bench_is_todays_band(self):
+        message = "My chest hurts after bench"
+        band = guidance.classify_band(message)
+        assessed = guidance.assess(message)
+        # "hurts" is a lift-not-soreness cue, so this is chest triage, not
+        # emergency and not coach. Pin today's band; do not invent a new one.
+        self.assertEqual(band, guidance.TRIAGE)
+        self.assertIsNotNone(assessed)
+        self.assertEqual(assessed.band, guidance.TRIAGE)
+
 
 class SelfHarmEmergencyTests(unittest.TestCase):
     def test_crisis_line_does_not_say_call_911_twice(self):

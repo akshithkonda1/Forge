@@ -75,6 +75,7 @@ enum AriaSafetyLexicon {
         "face is drooping",
         "overdosed",
         "overdosing",
+        "overdose",
         "bleeding out",
         "won't stop bleeding",
         "wont stop bleeding",
@@ -659,6 +660,7 @@ enum AriaSafetyLexicon {
     static let overdoseWords: [String] = [
         "overdosed",
         "overdosing",
+        "overdose",
     ]
 
     static let heartAttack: [String] = [

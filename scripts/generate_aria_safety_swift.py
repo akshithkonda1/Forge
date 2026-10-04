@@ -78,7 +78,7 @@ NEEDLES = {
     "woundNeedsLookCues": g._WOUND_NEEDS_LOOK_CUES,
     "negators": tuple(sorted(g._NEGATORS)),
     "seizureWords": ("seizure", "convulsing"),
-    "overdoseWords": ("overdosed", "overdosing"),
+    "overdoseWords": g._OVERDOSE_WORDS,
     "heartAttack": ("heart attack",),
     "havingAStroke": ("having a stroke",),
     "jawWord": ("jaw",),
