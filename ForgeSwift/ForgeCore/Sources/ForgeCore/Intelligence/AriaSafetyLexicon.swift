@@ -247,6 +247,14 @@ enum AriaSafetyLexicon {
         "wont wake up",
         "unconscious",
         "not responding",
+        "isn't waking up",
+        "isnt waking up",
+        "can't wake him",
+        "cant wake him",
+        "can't wake her",
+        "cant wake her",
+        "can't wake them",
+        "cant wake them",
     ]
 
     static let noCirculation: [String] = [
@@ -786,7 +794,7 @@ enum AriaSafetyLexicon {
 
     static let emergencyOpen = "Call 911 now."
     static let emergencyCpr = "Start CPR: hard, fast chest compressions in the center of the chest — about 100–120 a minute, roughly 2 inches deep, letting the chest come all the way back up between each. If you're trained, add 2 rescue breaths every 30 compressions. Keep going until help arrives or the person starts to wake up."
-    static let emergencyCprIfNeeded = "If they're not breathing, start CPR: hard, fast chest compressions in the center of the chest — about 100–120 a minute, roughly 2 inches deep, letting the chest come all the way back up between each. If you're trained, add 2 rescue breaths every 30 compressions. Keep going until help arrives or the person starts to wake up."
+    static let emergencyCprIfNeeded = "If they're not breathing normally, start CPR: hard, fast chest compressions in the center of the chest — about 100–120 a minute, roughly 2 inches deep, letting the chest come all the way back up between each. If you're trained, add 2 rescue breaths every 30 compressions. Keep going until help arrives or the person starts to wake up."
     static let cardiac = "Stop what you're doing and sit or lie down somewhere safe. Don't drive yourself, and unlock the door so help can get in."
     static let cardiacHelper = "Help them sit or lie down, don't let them drive, unlock the door and stay with them."
     static let stroke = "Note the time it started, don't eat or drink anything, don't drive, unlock the door and don't stay alone."
