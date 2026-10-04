@@ -384,21 +384,27 @@ def guard_speak(
         if step and step.lower() not in cleaned.lower():
             cleaned = _append_guarded_step(cleaned, step, notes=notes, topic=topic)
     skip_ban = _skip_spoken_ban_drop(band=band, safety_lock=safety_lock)
-    if spoken:
-        cleaned = drop_digit_percent_sentences(cleaned)
+
+    def _spoken_drops(text: str) -> str:
+        if not spoken:
+            return text
+        text = drop_digit_percent_sentences(text)
         if not skip_ban:
-            cleaned = drop_banned_sentences(cleaned)
-        cleaned = drop_leftover_fragments(cleaned)
+            text = drop_banned_sentences(text)
+        return drop_leftover_fragments(text)
+
+    before_drops = cleaned
+    cleaned = _spoken_drops(cleaned)
     # Sleep-stage % / "percent" leftovers (live Bedrock "Deep sleep was 12%")
     # must hit the shared scrub. A strip that empties the clause cannot
     # leave the dirty original. Other insight digits stay.
     if cleaned.strip() and _needs_sleep_percent_rescrub(raw, cleaned):
-        cleaned = rescrub_speak(cleaned)
-        if spoken:
-            cleaned = drop_digit_percent_sentences(cleaned)
-            if not skip_ban:
-                cleaned = drop_banned_sentences(cleaned)
-            cleaned = drop_leftover_fragments(cleaned)
+        cleaned = _spoken_drops(rescrub_speak(cleaned))
+    if spoken and not cleaned.strip() and before_drops.strip():
+        # Percent / ban drop emptied a still-speakable turn. Rescrub that
+        # post-memory text so live keeps a clean fallback, not a blank
+        # message and not a restored memory note.
+        cleaned = _spoken_drops(rescrub_speak(before_drops))
     return cleaned
 
 
@@ -417,6 +423,8 @@ def guard_envelope(
     topic = topic or _infer_topic("", card, stance, user_visible(envelope))
     band = str(envelope.get("guidance_band") or "")
     safety_lock = bool(envelope.get("safety_lock"))
+    original_blob = user_visible(envelope)
+    original_hours = _hours_hint(envelope)
     for key in ("prose_summary", "message"):
         if envelope.get(key):
             envelope[key] = guard_speak(
@@ -465,9 +473,9 @@ def guard_envelope(
         envelope["recommendation"] = rec
     blob = user_visible(envelope)
     envelope["confidence"] = cap_contradiction_confidence(
-        blob,
+        f"{original_blob} {blob}",
         envelope.get("confidence"),
-        hours_since=_hours_hint(envelope),
+        hours_since=original_hours,
     )
     return envelope
 
