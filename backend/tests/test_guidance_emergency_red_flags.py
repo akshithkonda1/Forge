@@ -110,6 +110,17 @@ SYNCOPE_HELPER_PHRASES = (
 )
 SYNCOPE_HELPER_TRAINING_PHRASES = (
     "she fainted after her workout",
+    "my son passed out at practice",
+    "my friend passed out in class",
+)
+SYNCOPE_SELF_CLASS_PHRASES = (
+    "i passed out in class",
+)
+ABNORMAL_BREATHING_PHRASES = (
+    "unresponsive and barely breathing",
+    "he's unresponsive and gasping",
+    "not responding, breathing weird",
+    "agonal breathing",
 )
 
 CPR_PHRASES = (
@@ -214,12 +225,20 @@ class SyncopeRedFlagTests(unittest.TestCase):
             with self.subTest(message=message):
                 _assert_typed_emergency(self, message, FAINT_HELPER_REPLY, cpr=True)
 
-    def test_syncope_helper_training_phrases_get_mid_workout_911(self):
+    def test_syncope_helper_training_phrases_get_bystander_reply(self):
         for message in SYNCOPE_HELPER_TRAINING_PHRASES:
             with self.subTest(message=message):
-                _assert_typed_emergency(
-                    self, message, FAINT_RESOLVED_TRAINING_REPLY, cpr=False
-                )
+                _assert_typed_emergency(self, message, FAINT_HELPER_REPLY, cpr=True)
+                self.assertIn("them", FAINT_HELPER_REPLY.lower())
+                self.assertNotIn(" you.", FAINT_HELPER_REPLY)
+                self.assertEqual(guidance.scout_emergency_line(message), FAINT_HELPER_REPLY)
+                self.assertEqual(guidance.scout_safety(message).line, FAINT_HELPER_REPLY)
+
+    def test_self_faint_in_class_is_not_mid_workout(self):
+        for message in SYNCOPE_SELF_CLASS_PHRASES:
+            with self.subTest(message=message):
+                _assert_typed_emergency(self, message, FAINT_REPLY, cpr=False)
+                self.assertEqual(guidance.scout_emergency_line(message), FAINT_REPLY)
 
 
 class ArrestCprTests(unittest.TestCase):
@@ -232,6 +251,14 @@ class ArrestCprTests(unittest.TestCase):
         _assert_typed_emergency(
             self, "I fainted and he's not breathing", CPR_REPLY, cpr=True
         )
+
+    def test_unresponsive_abnormal_breathing_is_emergency_cpr(self):
+        for message in ABNORMAL_BREATHING_PHRASES:
+            with self.subTest(message=message):
+                _assert_typed_emergency(self, message, CPR_REPLY, cpr=True)
+                self.assertIn(guidance.classify_band(message), guidance.SAFETY_LOCK_BANDS)
+                self.assertTrue(guidance.assess(message).message.startswith("Call 911 now."))
+                self.assertIn("CPR", guidance.assess(message).message)
 
 
 class OtherEmergencyTests(unittest.TestCase):

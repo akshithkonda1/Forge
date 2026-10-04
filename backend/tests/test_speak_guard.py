@@ -5,11 +5,14 @@ Bedrock stays mocked — no real AWS calls.
 
 from __future__ import annotations
 
+import inspect
 import json
 import os
 import re
+import tempfile
 import types
 import unittest
+from pathlib import Path
 from unittest.mock import patch
 
 import _bootstrap  # noqa: F401
@@ -584,16 +587,43 @@ class LiveBedrockGuardTests(unittest.TestCase):
 
     def test_safety_turns_have_no_overlay_on_dummy_and_chat_route(self):
         from aria_core import guidance
-        from backend.ai.aria_chat.session import run_turn
-        from routes.aria import handle_post_ai_chat
+        from backend.ai.aria_chat import logging as chatlog
+        from backend.ai.aria_chat.session import ChatSession, run_turn
+        from backend.ai.simrunner.tests.test_red_flags_sweep import (
+            _dynamo_memory_snapshot,
+            _post_chat,
+            _session_memory_snapshot,
+        )
+        from backend.tests.test_scout_gate import (
+            _SELF_HARM_EXAMPLES,
+            _URGENT_EXAMPLES,
+        )
         from storage import dynamodb
 
         dynamodb.clear_local_store()
-        rows = (
-            "he's not breathing",
+        extras = (
+            "she fainted after her workout",
+            "my son passed out at practice",
+            "i passed out in class",
+            "unresponsive and barely breathing",
+            "he's unresponsive and gasping",
+            "not responding, breathing weird",
+            "agonal breathing",
+            "I had a seizure",
+            "I passed out mid-workout",
             "how do I do CPR?",
             "do I have diabetes?",
+            "should I increase my dose",
         )
+        seen: list[str] = []
+        for phrase in (
+            *guidance.emergency_phrases(),
+            *_URGENT_EXAMPLES,
+            *_SELF_HARM_EXAMPLES,
+            *extras,
+        ):
+            if phrase not in seen:
+                seen.append(phrase)
         previous = os.environ.get("ARIA_BEDROCK_ENABLED")
         os.environ["ARIA_BEDROCK_ENABLED"] = "1"
         boto_hits: list[tuple] = []
@@ -610,35 +640,96 @@ class LiveBedrockGuardTests(unittest.TestCase):
             raise AssertionError("no real boto/Bedrock client")
 
         fake_boto.client = _no_client
+
         try:
             with patch.dict("sys.modules", {"boto3": fake_boto}):
                 with patch.object(aria_engine, "_gateway", None):
                     with patch("services.aria_engine._default_converse", converse):
                         with patch("aria_core.aria_engine._default_converse", converse):
                             with patch("services.aria_swarm.run_swarm", lambda *_a, **_k: {}):
-                                for phrase in rows:
+                                for phrase in seen:
                                     expected = guidance.assess(phrase)
-                                    self.assertIsNotNone(expected, phrase)
+                                    band = (
+                                        expected.band
+                                        if expected is not None
+                                        else guidance.classify_band(phrase)
+                                    )
+                                    if expected is None or band not in guidance.SAFETY_BANDS:
+                                        continue
                                     locked = expected.message
                                     with self.subTest(path="dummy", phrase=phrase):
                                         dummy = run_turn(
                                             phrase,
                                             persist_log=False,
-                                            memory_enabled=False,
+                                            memory_enabled=True,
                                         )
                                         self.assertEqual(dummy.get("message"), locked)
                                         _assert_no_safety_overlay(self, dummy)
+                                        with tempfile.TemporaryDirectory() as tmp:
+                                            session = ChatSession(
+                                                payload={"context": {}},
+                                                log_dir=tmp,
+                                                session_id=f"lock-{abs(hash(phrase)) % 10_000_000}",
+                                                memory_enabled=True,
+                                                install_pseudonym="inst-lock-rows",
+                                            )
+                                            session.turn(phrase)
+                                            blob = Path(session.log_path).read_text(
+                                                encoding="utf-8"
+                                            )
+                                            rows = [
+                                                json.loads(line)
+                                                for line in blob.splitlines()
+                                                if line.strip()
+                                            ]
+                                        if band in guidance.SAFETY_LOCK_BANDS:
+                                            self.assertEqual(
+                                                rows[0]["user_turn"],
+                                                chatlog.REDACTED_USER_TURN,
+                                                phrase,
+                                            )
                                     with self.subTest(path="route", phrase=phrase):
-                                        result = handle_post_ai_chat(
-                                            {"message": phrase},
-                                            user_id=f"overlay-safety-{abs(hash(phrase)) % 10**8}",
-                                        )
-                                        body = result.get("body")
-                                        if isinstance(body, str):
-                                            body = json.loads(body)
-                                        self.assertEqual(result.get("statusCode"), 200, result)
-                                        self.assertEqual(body.get("message"), locked)
-                                        _assert_no_safety_overlay(self, body)
+                                        uid = f"overlay-safety-{abs(hash(phrase)) % 10**8}"
+                                        before_session = _session_memory_snapshot(uid)
+                                        before_dynamo = _dynamo_memory_snapshot()
+                                        posted = _post_chat(uid, phrase)
+                                        self.assertEqual(posted.get("message"), locked)
+                                        _assert_no_safety_overlay(self, posted)
+                                        if band in guidance.SAFETY_LOCK_BANDS:
+                                            self.assertEqual(
+                                                _session_memory_snapshot(uid),
+                                                before_session,
+                                                phrase,
+                                            )
+                                            self.assertEqual(
+                                                _dynamo_memory_snapshot(),
+                                                before_dynamo,
+                                                phrase,
+                                            )
+                                        elif (
+                                            band == guidance.FIRST_AID
+                                            and guidance._is_helper_phrasing(
+                                                guidance.normalize_message(phrase)
+                                            )
+                                            and any(
+                                                cue in phrase.lower()
+                                                for cue in (
+                                                    "fainted",
+                                                    "passed out",
+                                                    "blacked out",
+                                                )
+                                            )
+                                        ):
+                                            self.assertEqual(
+                                                _session_memory_snapshot(uid),
+                                                before_session,
+                                                phrase,
+                                            )
+                                            self.assertEqual(
+                                                _dynamo_memory_snapshot(),
+                                                before_dynamo,
+                                                phrase,
+                                            )
         finally:
             if previous is None:
                 os.environ.pop("ARIA_BEDROCK_ENABLED", None)
@@ -646,6 +737,130 @@ class LiveBedrockGuardTests(unittest.TestCase):
                 os.environ["ARIA_BEDROCK_ENABLED"] = previous
         self.assertEqual(boto_hits, [])
         self.assertEqual(converse_hits, [])
+
+    def test_guard_speak_skips_only_ban_on_exact_safety_copy(self):
+        from aria_core import guidance
+
+        params = inspect.signature(speak_guard._skip_spoken_ban_drop).parameters
+        self.assertNotIn("safety_lock", params)
+        phrase = "how do I do CPR?"
+        copy = guidance.assess(phrase).message
+        self.assertIn("\n", copy)
+        out = speak_guard.guard_speak(copy, band=guidance.FIRST_AID, topic=phrase)
+        self.assertEqual(out, copy)
+        leak = speak_guard.guard_speak(
+            _LIVE_RECOVERY_LEAK,
+            band=guidance.EMERGENCY,
+            topic="he's not breathing",
+        )
+        self.assertNotIn("recovery", leak.lower())
+        self.assertNotIn("58", leak)
+        dirty = f"{copy} {GUIDE}"
+        scrubbed = speak_guard.guard_speak(
+            dirty,
+            band=guidance.FIRST_AID,
+            topic=phrase,
+            memory_notes=[GUIDE],
+        )
+        self.assertNotIn("repair in the bank", scrubbed.lower())
+        self.assertIn("911", scrubbed)
+
+    def test_not_a_doctor_is_banned_and_dropped_on_coach_paths(self):
+        from routes.aria import handle_post_ai_chat
+
+        self.assertIn("not a doctor", speak_guard.SPOKEN_BANNED)
+        self.assertIn(
+            "not a doctor",
+            speak_guard.spoken_ban_hits("I'm not a doctor. Keep today easy."),
+        )
+        dummy = speak_guard.guard_speak(
+            "I'm not a doctor. Keep today easy with an easy zone 2 walk.",
+            band="coach",
+        )
+        self.assertNotIn("not a doctor", dummy.lower())
+        self.assertIn("zone 2", dummy.lower())
+
+        def converse(_model_id, _system, _user):
+            return json.dumps(
+                {
+                    "prose_summary": "I'm not a doctor. Keep today easy with an easy zone 2 walk.",
+                    "response_type": "recommendation",
+                    "confidence": 0.8,
+                }
+            )
+
+        live = aria_engine.generate_response_live(
+            "Should I train today?",
+            _ctx(),
+            converse=converse,
+        )
+        self.assertNotIn("not a doctor", str(live.get("message") or "").lower())
+        previous = os.environ.get("ARIA_BEDROCK_ENABLED")
+        os.environ["ARIA_BEDROCK_ENABLED"] = "1"
+        try:
+            with patch("services.aria_engine._default_converse", converse):
+                with patch("aria_core.aria_engine._default_converse", converse):
+                    result = handle_post_ai_chat(
+                        {"message": "Should I train today?"},
+                        user_id="coach-not-doctor",
+                    )
+            body = result.get("body")
+            if isinstance(body, str):
+                body = json.loads(body)
+            self.assertNotIn("not a doctor", str(body.get("message") or "").lower())
+        finally:
+            if previous is None:
+                os.environ.pop("ARIA_BEDROCK_ENABLED", None)
+            else:
+                os.environ["ARIA_BEDROCK_ENABLED"] = previous
+
+    def test_medical_coach_ends_with_clinician_and_dose_line_replaces_it(self):
+        from aria_core import guidance
+        from routes.aria import handle_post_ai_chat
+
+        clinician = "Worth running anything medical past your doctor first."
+        self.assertEqual(guidance.CLINICIAN_DISCLAIMER, clinician)
+
+        def converse(_model_id, _system, _user):
+            return json.dumps(
+                {
+                    "prose_summary": "You should take 400 mg of ibuprofen every 6 hours.",
+                    "response_type": "insight",
+                    "confidence": 0.8,
+                }
+            )
+
+        live = aria_engine.generate_response_live(
+            "my knee is sore after running",
+            _ctx(),
+            converse=converse,
+        )
+        spoken = str(live.get("message") or "")
+        self.assertTrue(spoken.endswith(clinician), spoken)
+        self.assertEqual(spoken.count(clinician), 1)
+
+        dose_env = guidance.apply_clinician_disclaimer(
+            {
+                "message": (
+                    "Take 400 mg of ibuprofen. Dosing is your prescriber's call, "
+                    "not mine."
+                )
+            }
+        )
+        dose_spoken = str(dose_env.get("message") or "")
+        self.assertIn("Dosing is your prescriber's call", dose_spoken)
+        self.assertNotIn(clinician, dose_spoken)
+
+        result = handle_post_ai_chat(
+            {"message": "should I increase my dose"},
+            user_id="dose-line-user",
+        )
+        body = result.get("body")
+        if isinstance(body, str):
+            body = json.loads(body)
+        route_spoken = str(body.get("message") or "")
+        self.assertIn("doctor or pharmacist", route_spoken.lower())
+        self.assertNotIn(clinician, route_spoken)
 
 
 class LivePathGuardTests(unittest.TestCase):

@@ -569,6 +569,34 @@ class SafetyTierTests(unittest.TestCase):
             guidance.classify_band("heavy bleeding on my period"), guidance.EMERGENCY
         )
 
+    def test_scout_period_bleeding_exclusion_and_red_flags(self) -> None:
+        from aria_core import guidance
+
+        bare = guidance.scout_safety("heavy bleeding on my period")
+        self.assertIsNone(bare)
+        self.assertNotEqual(
+            guidance.classify_band("heavy bleeding on my period"), guidance.EMERGENCY
+        )
+        self.assertEqual(
+            guidance.scout_safety("heavy bleeding after a fall").tier,
+            TIER_EMERGENCY,
+        )
+        for phrase in (
+            "heavy bleeding on my period and I almost fainted",
+            "heavy bleeding on my period, soaking a pad every hour",
+            "heavy bleeding and I'm pregnant",
+        ):
+            with self.subTest(phrase=phrase):
+                found = guidance.scout_safety(phrase)
+                self.assertIsNotNone(found, phrase)
+                self.assertEqual(found.tier, TIER_EMERGENCY, phrase)
+                self.assertTrue(found.line.startswith("Call 911 now."), found.line)
+                self.assertNotIn("heavy bleeding", found.line.lower())
+        extra = guidance.scout_safety(
+            "heavy bleeding on my period, soaking a pad every hour"
+        )
+        self.assertIn("This needs emergency help right away.", extra.line)
+
 
 class ClipLimitLockTests(unittest.TestCase):
     def test_client_clip_limit_matches_swift_and_simrunner(self) -> None:
