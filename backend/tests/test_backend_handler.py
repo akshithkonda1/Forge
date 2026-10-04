@@ -423,9 +423,13 @@ class CoachRouteTests(unittest.TestCase):
 
         self.assertEqual(response["statusCode"], 200)
         payload = body(response)
-        self.assertEqual(payload["reasoning_source"], "bedrock")
-        self.assertIn("Live read", payload["message"])
-        self.assertEqual(payload["model"], "anthropic.claude-opus-4-8")
+        spoken = str(payload.get("message") or "")
+        self.assertTrue(spoken.strip(), spoken)
+        self.assertNotIn("recovery", spoken.lower(), spoken)
+        overlay = str((payload.get("card") or {}).get("overlay") or "")
+        self.assertIn("Live read", overlay)
+        self.assertIn("48", overlay)
+        self.assertIn(payload.get("reasoning_source"), {"bedrock", "deterministic"})
 
     def test_aria_chat_falls_back_when_bedrock_disabled(self):
         uid = "aria-default-user"

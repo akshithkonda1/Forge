@@ -68,13 +68,6 @@ def spoken_ban_hits(text: str) -> tuple[str, ...]:
         elif " " in needle or "'" in needle:
             if needle in raw:
                 hits.append(token)
-        elif needle == "recovery":
-            # Jargon ("recovery window") is banned. A recovery *score*
-            # ("recovery 58") is a vitals form, not coaching jargon.
-            if re.search(r"\brecovery\b", raw) and not re.search(
-                r"\brecovery\s+(?:score\b|\d)", raw
-            ):
-                hits.append(token)
         elif re.search(rf"\b{re.escape(needle)}\b", raw):
             hits.append(token)
     return tuple(hits)
@@ -449,7 +442,12 @@ def guard_envelope(
     memory_block: str | None = None,
     topic: str = "",
 ) -> dict[str, Any]:
-    """Apply ``guard_speak`` to every user-visible field on a response envelope."""
+    """Apply ``guard_speak`` to spoken fields (``message``, ``prose_summary``).
+
+    Card / overlay fields are not spoken-scrubbed — HUD copy like
+    ``recovery 58`` stays on ``card.overlay``. Recommendation and card
+    action/why still get the non-spoken guard (memory/guide only).
+    """
     card = envelope.get("card") if isinstance(envelope.get("card"), dict) else None
     notes = list(memory_notes or [])
     fusion = envelope.get("fusion") if isinstance(envelope.get("fusion"), dict) else {}

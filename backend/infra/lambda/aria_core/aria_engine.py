@@ -3579,6 +3579,7 @@ def generate_response_live(
     # inside guard_speak whenever a step is appended.
     live_band = str(base.get("guidance_band") or "")
     live_lock = bool(base.get("safety_lock"))
+    raw_overlay = prose
     prose = speak_guard.guard_speak(
         prose,
         card=card,
@@ -3589,13 +3590,15 @@ def generate_response_live(
         band=live_band,
         safety_lock=live_lock,
     )
-    # Guarded live text can be empty (sleep digit-% drop). Never ship a
-    # blank message — fall back to the deterministic Dummy/lambda reply.
+    # Guarded live text can be empty (sleep digit-% drop or a banned
+    # "recovery 58" sentence). Never ship a blank message — fall back to
+    # the deterministic Dummy/lambda reply. The raw live line stays on
+    # card.overlay so HUD numbers survive the spoken ban.
     if not str(prose or "").strip():
         fallback = dict(base)
         fallback["reasoning_source"] = "deterministic"
         fallback["reasoning_error"] = "guarded live prose empty"
-        return fallback
+        return _attach_live_overlay(fallback, raw_overlay)
     rec = data.get("recommendation")
     if isinstance(rec, str) and rec.strip():
         data["recommendation"] = speak_guard.guard_speak(
@@ -3605,6 +3608,7 @@ def generate_response_live(
             memory_block=memory_block,
             stance=stance,
             topic=topic,
+            spoken=False,
             band=live_band,
             safety_lock=live_lock,
         )
@@ -3636,7 +3640,7 @@ def generate_response_live(
     merged = aria_guidance_policy.with_care_line(
         merged, message, safety_band=str(merged.get("guidance_band") or guidance.COACH)
     )
-    return guidance.apply_clinician_disclaimer(merged)
+    return _attach_live_overlay(guidance.apply_clinician_disclaimer(merged), raw_overlay)
 
 
 # --- Tool-use + validation (Python owns truth) -------------------------------
@@ -3755,6 +3759,17 @@ def _validate_model_numbers(
         return True
 
     return all(any(_numbers_roughly_match(value, t) for t in truth) for value in cited)
+
+
+def _attach_live_overlay(envelope: dict[str, Any], raw: str) -> dict[str, Any]:
+    """Park the unguarded live line on ``card.overlay``. Not spoken."""
+    text = str(raw or "").strip()
+    if not text:
+        return envelope
+    card = dict(envelope.get("card") or {})
+    card["overlay"] = text
+    envelope["card"] = card
+    return envelope
 
 
 def _merge_live_envelope(

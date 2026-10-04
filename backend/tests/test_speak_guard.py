@@ -440,6 +440,59 @@ class LiveBedrockGuardTests(unittest.TestCase):
         self.assertEqual(boto_hits, [])
         self.assertTrue(resp.get("safety_softened"))
 
+    def test_live_recovery_score_drops_from_message_stays_on_card_overlay(self):
+        from aria_core.speak_guard import spoken_ban_hits
+
+        self.assertEqual(spoken_ban_hits("recovery 58"), ("recovery",))
+        self.assertEqual(spoken_ban_hits("Recovery 58, so keep it easy."), ("recovery",))
+
+        rows = (
+            "Recovery 58, so keep it easy.",
+            "Your recovery window is still open, recovery 58.",
+        )
+        ctx = _ctx()
+        expected = aria_engine.generate_response("Should I train today?", ctx)
+        for leak in rows:
+            with self.subTest(leak=leak):
+                boto_hits: list[tuple] = []
+
+                def converse(_model_id, _system, _user, _leak=leak):
+                    return json.dumps(
+                        {
+                            "prose_summary": _leak,
+                            "response_type": "recommendation",
+                            "confidence": 0.8,
+                        }
+                    )
+
+                fake_boto = types.ModuleType("boto3")
+
+                def _no_client(*args, **kwargs):
+                    boto_hits.append((args, kwargs))
+                    raise AssertionError("no real boto/Bedrock client")
+
+                fake_boto.client = _no_client
+                with patch.dict("sys.modules", {"boto3": fake_boto}):
+                    with patch.object(aria_engine, "_gateway", None):
+                        resp = aria_engine.generate_response_live(
+                            "Should I train today?",
+                            ctx,
+                            converse=converse,
+                        )
+
+                spoken = str(resp.get("message") or "")
+                self.assertTrue(spoken.strip(), spoken)
+                self.assertNotIn("recovery", spoken.lower(), spoken)
+                self.assertNotIn("58", spoken, spoken)
+                self.assertNotIn(leak, spoken)
+                card = resp.get("card") if isinstance(resp.get("card"), dict) else {}
+                overlay = str(card.get("overlay") or "")
+                self.assertEqual(overlay, leak)
+                self.assertIn("58", overlay)
+                self.assertEqual(boto_hits, [])
+                if spoken == str(expected.get("message") or ""):
+                    self.assertEqual(resp.get("reasoning_source"), "deterministic")
+
 
 class LivePathGuardTests(unittest.TestCase):
     """Live path with an injected converse — ARIA_BEDROCK_ENABLED stays off."""
@@ -1024,6 +1077,7 @@ class SpokenBanSourceTests(unittest.TestCase):
         self.assertEqual(spoken_ban_hits("overtraining flag is set"), ("overtrain",))
         self.assertEqual(spoken_ban_hits("treat it as a deload"), ("deload",))
         self.assertEqual(spoken_ban_hits("the recovery one"), ("recovery",))
+        self.assertEqual(spoken_ban_hits("recovery 58"), ("recovery",))
         self.assertEqual(spoken_ban_hits("I don't have enough to go on yet."), ())
         self.assertEqual(spoken_ban_hits("If last night felt rough"), ())
 
