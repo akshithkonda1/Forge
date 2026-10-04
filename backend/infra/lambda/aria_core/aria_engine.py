@@ -3189,9 +3189,10 @@ def _finish_spoken_envelope(
     from . import aria_guidance_policy
     from . import guidance
 
-    return aria_guidance_policy.with_care_line(
+    envelope = aria_guidance_policy.with_care_line(
         envelope, message, safety_band=str(envelope.get("guidance_band") or guidance.COACH)
     )
+    return guidance.apply_clinician_disclaimer(envelope)
 
 
 def _attach_shared_intelligence(envelope: dict[str, Any], ctx: ARIAContext, message: str) -> dict[str, Any]:
@@ -3576,6 +3577,8 @@ def generate_response_live(
     # / memory-block copy into user-visible speak. Deterministic path is
     # guarded in _finish_spoken_envelope / friend_speak. rescrub_speak runs
     # inside guard_speak whenever a step is appended.
+    live_band = str(base.get("guidance_band") or "")
+    live_lock = bool(base.get("safety_lock"))
     prose = speak_guard.guard_speak(
         prose,
         card=card,
@@ -3583,6 +3586,8 @@ def generate_response_live(
         memory_block=memory_block,
         stance=stance,
         topic=topic,
+        band=live_band,
+        safety_lock=live_lock,
     )
     # Guarded live text can be empty (sleep digit-% drop). Never ship a
     # blank message — fall back to the deterministic Dummy/lambda reply.
@@ -3600,6 +3605,8 @@ def generate_response_live(
             memory_block=memory_block,
             stance=stance,
             topic=topic,
+            band=live_band,
+            safety_lock=live_lock,
         )
     merged = _merge_live_envelope(base, data, prose, model_id, voice_mode)
     from . import state_read
@@ -3626,9 +3633,10 @@ def generate_response_live(
     from . import aria_guidance_policy
     from . import guidance
 
-    return aria_guidance_policy.with_care_line(
+    merged = aria_guidance_policy.with_care_line(
         merged, message, safety_band=str(merged.get("guidance_band") or guidance.COACH)
     )
+    return guidance.apply_clinician_disclaimer(merged)
 
 
 # --- Tool-use + validation (Python owns truth) -------------------------------
@@ -3811,10 +3819,6 @@ def _merge_live_envelope(
     # clinician disclaimer rather than trust it silently.
     from . import guidance
 
-    if guidance.contains_prescriptive_medical_language(merged.get("message") or ""):
-        merged["message"] = guidance.append_clinician_disclaimer(merged["message"])
-        merged["prose_summary"] = guidance.append_clinician_disclaimer(merged["prose_summary"])
-        merged["safety_softened"] = True
     return merged
 
 

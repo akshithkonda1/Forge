@@ -1010,7 +1010,7 @@ _CITE_KEEP_DIGITS = re.compile(r"\b(?:911|988)\b")
 
 
 def _cite_ok_for_speak(cite: str) -> bool:
-    """Parenthetical cites may not carry digits or spoken-banned words."""
+    """Parenthetical cites may not carry digits, fragments, or spoken-banned words."""
     raw = str(cite or "").strip()
     if not raw or _dumps_user_speak(raw):
         return False
@@ -1023,8 +1023,11 @@ def _cite_ok_for_speak(cite: str) -> bool:
         from backend._paths import ensure_lambda_on_path
 
         ensure_lambda_on_path()
-        from aria_core.speak_guard import spoken_ban_hits
+        from aria_core.speak_guard import is_leftover_fragment, spoken_ban_hits
 
+        body = re.sub(r"(?i)^from\s+[^:]+:\s*", "", raw).strip()
+        if not body or is_leftover_fragment(body):
+            return False
         if spoken_ban_hits(raw):
             return False
     except Exception:
@@ -1043,11 +1046,18 @@ def _drop_dirty_parentheticals(text: str) -> str:
     return re.sub(r"\s{2,}", " ", cleaned).strip()
 
 
-def _apply_speak_guard(text: str, *, card: dict | None = None, notes: list[str] | None = None) -> str:
-    """Shared guide/label/memory/dedupe guard. Vitals scrub already ran.
+def _apply_speak_guard(
+    text: str,
+    *,
+    card: dict | None = None,
+    notes: list[str] | None = None,
+    band: str | None = None,
+    safety_lock: bool = False,
+) -> str:
+    """Shared guide/label/memory/dedupe guard. % and ban drops run first.
 
-    Cite appends go through this same path so a digit or ``recovery`` leak
-    in ``(From …)`` cannot survive on the spoken message.
+    Cite appends go through this same path so a digit, fragment, or
+    ``recovery`` leak in ``(From …)`` cannot survive on the spoken message.
     """
     try:
         from backend._paths import ensure_lambda_on_path
@@ -1055,7 +1065,13 @@ def _apply_speak_guard(text: str, *, card: dict | None = None, notes: list[str] 
         ensure_lambda_on_path()
         from aria_core import speak_guard
 
-        cleaned = speak_guard.guard_speak(text, card=card, memory_notes=notes)
+        cleaned = speak_guard.guard_speak(
+            text,
+            card=card,
+            memory_notes=notes,
+            band=band,
+            safety_lock=safety_lock,
+        )
     except Exception:
         cleaned = text
     return _drop_dirty_parentheticals(cleaned)
@@ -2148,6 +2164,9 @@ def _respond_via_lambda(
     situation, evidence = _perceive_turn(
         message, ctx, prior_turns, guidance_band=envelope.get("guidance_band")
     )
+    deterministic_chat = str(envelope.get("message") or "").strip()
+    deterministic_prose = str(envelope.get("prose_summary") or "").strip()
+    band = envelope.get("guidance_band")
     prose = _with_situation_line(prose, situation)
     chat = _with_situation_line(chat, situation)
     if evidence is not None:
@@ -2156,10 +2175,25 @@ def _respond_via_lambda(
             chat = f"{chat} ({cite.rstrip('.')})"
     prose = _speak_without_vitals(prose)
     chat = _speak_without_vitals(chat, prose)
-    prose = _apply_speak_guard(prose, card=card_for_guard, notes=notes)
-    chat = _apply_speak_guard(chat, card=card_for_guard, notes=notes)
+    prose = _apply_speak_guard(prose, card=card_for_guard, notes=notes, band=band)
+    chat = _apply_speak_guard(chat, card=card_for_guard, notes=notes, band=band)
+    if not str(chat or "").strip():
+        chat = deterministic_chat or deterministic_prose or _SPEAK_FALLBACK
+    if not str(prose or "").strip():
+        prose = deterministic_prose or deterministic_chat or _SPEAK_FALLBACK
     envelope["prose_summary"] = prose
     envelope["message"] = chat
+    try:
+        from backend._paths import ensure_lambda_on_path
+
+        ensure_lambda_on_path()
+        from aria_core import guidance as guidance_mod
+
+        envelope = guidance_mod.apply_clinician_disclaimer(envelope)
+        prose = str(envelope.get("prose_summary") or prose)
+        chat = str(envelope.get("message") or chat)
+    except Exception:
+        pass
     diagnosis = voice_diagnostics.diagnose(prose)
     orch_ms = _orchestration_latency_ms(message, seed, len(plan.workers))
     brief = envelope.get("contextualization") if isinstance(envelope.get("contextualization"), dict) else None

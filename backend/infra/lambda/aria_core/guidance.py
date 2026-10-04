@@ -633,9 +633,9 @@ _FIRST_AID_STEPS: dict[str, str] = {
     ),
     "unconscious": (
         "Someone unresponsive: Call 911 now. Check whether they're breathing "
-        "normally. If they're not, start CPR (hard, fast chest compressions). If "
-        "they are breathing, roll them onto their side (recovery position) and "
-        "stay with them until help arrives."
+        "normally. If they're not, start CPR (hard, fast chest compressions). "
+        "If they are breathing, roll them onto their side and stay with them "
+        "until help arrives."
     ),
     "seizure": (
         "Seizure: Call 911 if it lasts over 5 minutes, repeats, or they don't wake "
@@ -1403,9 +1403,22 @@ def safety_session(
     return block
 
 
+def _howto_unresponsive_breathing(lower: str) -> bool:
+    """How-to for an unresponsive person who is still breathing is first aid."""
+    if not _has(lower, _HOWTO_CUES):
+        return False
+    if not _has(lower, ("unresponsive", "unconscious")):
+        return False
+    if _has(lower, _NOT_BREATHING) or _has(lower, _NO_CIRCULATION):
+        return False
+    return "breathing" in lower
+
+
 def _classify(lower: str, pending: tuple[str, str] | None) -> str:
     if _is_self_harm(lower):
         return EMERGENCY
+    if _howto_unresponsive_breathing(lower):
+        return FIRST_AID
     if _has(lower, _ESCALATION_REQUEST) or _has(lower, _EMERGENCY_STATE):
         return EMERGENCY
     if _is_acute_red_flag(lower):
@@ -1625,15 +1638,31 @@ def contains_prescriptive_medical_language(text: str) -> bool:
     return _has(lower, _PRESCRIBE_ASSERTION)
 
 
+# Iris-approved. Plain sentence after the speak guard — no parentheses, no prefix.
+CLINICIAN_DISCLAIMER = "Worth running anything medical past your doctor first."
+
+
 def append_clinician_disclaimer(text: str) -> str:
-    disclaimer = (
-        "(Reminder: I'm a lifestyle coach, not a doctor — please confirm anything "
-        "medical with a licensed clinician.)"
-    )
+    """Append ``CLINICIAN_DISCLAIMER`` once. Call after ``guard_speak``."""
     text = (text or "").rstrip()
+    if CLINICIAN_DISCLAIMER in text:
+        return text or CLINICIAN_DISCLAIMER
     if not text:
-        return disclaimer
-    return f"{text}\n\n{disclaimer}"
+        return CLINICIAN_DISCLAIMER
+    return f"{text}\n\n{CLINICIAN_DISCLAIMER}"
+
+
+def apply_clinician_disclaimer(envelope: dict) -> dict:
+    """After the speak guard: soften prescriptive COACH copy. Idempotent."""
+    spoken = str(envelope.get("message") or "")
+    if not contains_prescriptive_medical_language(spoken):
+        return envelope
+    envelope["message"] = append_clinician_disclaimer(spoken)
+    prose = str(envelope.get("prose_summary") or "")
+    if prose:
+        envelope["prose_summary"] = append_clinician_disclaimer(prose)
+    envelope["safety_softened"] = True
+    return envelope
 
 
 # --- Scout sidecar tiers (additions; chat assess() is unchanged) --------------

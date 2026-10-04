@@ -328,6 +328,7 @@ def run_turn(
             spoken_in,
             safety_band=str(envelope.get("guidance_band") or guidance.COACH),
         )
+    envelope = guidance.apply_clinician_disclaimer(envelope)
 
     wall_ms = int((time.perf_counter() - started) * 1000)
     cpu1 = _cpu_seconds()

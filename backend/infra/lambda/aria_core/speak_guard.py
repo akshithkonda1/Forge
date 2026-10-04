@@ -247,6 +247,71 @@ def drop_digit_percent_sentences(text: str) -> str:
     return " ".join(kept).strip()
 
 
+def drop_banned_sentences(text: str) -> str:
+    """Drop any sentence that contains a ``SPOKEN_BANNED`` phrase."""
+    raw = str(text or "").strip()
+    if not raw:
+        return raw
+    kept = [
+        part.strip()
+        for part in _SENTENCE_SPLIT.split(raw)
+        if part.strip() and not spoken_ban_hits(part)
+    ]
+    return " ".join(kept).strip()
+
+
+_PREPOSITION_LEAD = re.compile(
+    r"(?i)^(?:of|to|for|from|in|on|at|with|by|as|than|vs|versus|into|onto|"
+    r"over|under|after|before|about|between)\b"
+)
+_FRAGMENT_VERB = re.compile(
+    r"(?i)\b(?:is|are|was|were|be|been|being|am|do|does|did|have|has|had|"
+    r"will|would|can|could|should|may|might|must|need|needs|keep|keeps|"
+    r"trust|wins|looks|feel|feels|get|gets|call|stay|lie|skip|train|cap|"
+    r"help|check|take|roll|start|press|give|keep|"
+    r"i'm|i've|you're|it's|that's)\b"
+)
+_CITE_LEAD = re.compile(r"(?i)^from\s+[^:]+:\s*")
+
+
+def is_leftover_fragment(part: str) -> bool:
+    """True for a leftover clause that starts with a preposition, or a
+    short verbless stub left after a % / banned-sentence drop."""
+    s = str(part or "").strip().strip("()[]")
+    if not s:
+        return True
+    body = _CITE_LEAD.sub("", s).strip()
+    if not body:
+        return True
+    if _PREPOSITION_LEAD.match(body):
+        return True
+    words = re.findall(r"[A-Za-z']+", body)
+    return len(words) <= 4 and not _FRAGMENT_VERB.search(body)
+
+
+def drop_leftover_fragments(text: str) -> str:
+    """Throw away leftover fragments after a % or banned-sentence drop."""
+    raw = str(text or "").strip()
+    if not raw:
+        return raw
+    kept = [
+        part.strip()
+        for part in _SENTENCE_SPLIT.split(raw)
+        if part.strip() and not is_leftover_fragment(part)
+    ]
+    return " ".join(kept).strip()
+
+
+_SKIP_SPOKEN_BAN_BANDS = frozenset({"emergency", "first_aid", "refer_out"})
+
+
+def _skip_spoken_ban_drop(*, band: str | None = None, safety_lock: bool = False) -> bool:
+    """Safety copy is reviewed by hand — skip the ban drop on those bands."""
+    if str(band or "").strip().lower() in _SKIP_SPOKEN_BAN_BANDS:
+        return True
+    return False
+
+
 def _needs_sleep_percent_rescrub(raw: str, cleaned: str) -> bool:
     """True when raw or cleaned still has a sleep-stage % / 'percent' leak.
 
@@ -287,11 +352,17 @@ def guard_speak(
     stance: str = "",
     topic: str = "",
     spoken: bool = True,
+    band: str | None = None,
+    safety_lock: bool = False,
 ) -> str:
     """Return user-visible speak with guide/label/memory leaks removed.
 
-    ``spoken=True`` (message / prose) also drops digit-percent sentences.
-    Card / rec fields pass ``spoken=False`` so ``(16%)`` HUD copy can stay.
+    ``spoken=True`` (message / prose) also drops digit-percent sentences
+    and, on coaching turns, sentences that contain a ``SPOKEN_BANNED``
+    phrase. Those drops run before the vitals strip so a leftover
+    ``of the night.`` cannot survive. Card / rec fields pass
+    ``spoken=False`` so ``(16%)`` HUD copy can stay. Emergency / first-aid
+    / refer-out copy skips the ban drop — that text is reviewed by hand.
     """
     raw = str(text or "")
     if not raw.strip():
@@ -312,13 +383,22 @@ def guard_speak(
         step = _sized_step(card, stance=stance, topic=topic)
         if step and step.lower() not in cleaned.lower():
             cleaned = _append_guarded_step(cleaned, step, notes=notes, topic=topic)
+    skip_ban = _skip_spoken_ban_drop(band=band, safety_lock=safety_lock)
+    if spoken:
+        cleaned = drop_digit_percent_sentences(cleaned)
+        if not skip_ban:
+            cleaned = drop_banned_sentences(cleaned)
+        cleaned = drop_leftover_fragments(cleaned)
     # Sleep-stage % / "percent" leftovers (live Bedrock "Deep sleep was 12%")
     # must hit the shared scrub. A strip that empties the clause cannot
     # leave the dirty original. Other insight digits stay.
     if cleaned.strip() and _needs_sleep_percent_rescrub(raw, cleaned):
         cleaned = rescrub_speak(cleaned)
-    if spoken:
-        cleaned = drop_digit_percent_sentences(cleaned)
+        if spoken:
+            cleaned = drop_digit_percent_sentences(cleaned)
+            if not skip_ban:
+                cleaned = drop_banned_sentences(cleaned)
+            cleaned = drop_leftover_fragments(cleaned)
     return cleaned
 
 
@@ -335,6 +415,8 @@ def guard_envelope(
     fusion = envelope.get("fusion") if isinstance(envelope.get("fusion"), dict) else {}
     stance = str(fusion.get("stance") or "")
     topic = topic or _infer_topic("", card, stance, user_visible(envelope))
+    band = str(envelope.get("guidance_band") or "")
+    safety_lock = bool(envelope.get("safety_lock"))
     for key in ("prose_summary", "message"):
         if envelope.get(key):
             envelope[key] = guard_speak(
@@ -345,6 +427,8 @@ def guard_envelope(
                 stance=stance,
                 topic=topic,
                 spoken=True,
+                band=band,
+                safety_lock=safety_lock,
             )
     if envelope.get("recommendation"):
         envelope["recommendation"] = guard_speak(
@@ -355,6 +439,8 @@ def guard_envelope(
             stance=stance,
             topic=topic,
             spoken=False,
+            band=band,
+            safety_lock=safety_lock,
         )
     if isinstance(card, dict):
         guarded = dict(card)
@@ -368,6 +454,8 @@ def guard_envelope(
                     stance=stance,
                     topic=topic,
                     spoken=False,
+                    band=band,
+                    safety_lock=safety_lock,
                 )
         envelope["card"] = guarded
     rec = envelope.get("recommendation") or recommendation_from_card(
