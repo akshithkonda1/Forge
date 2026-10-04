@@ -418,7 +418,6 @@ def guard_speak(
     topic: str = "",
     spoken: bool = True,
     band: str | None = None,
-    safety_lock: bool = False,
 ) -> str:
     """Return user-visible speak with guide/label/memory leaks removed.
 
@@ -501,7 +500,6 @@ def guard_envelope(
     stance = str(fusion.get("stance") or "")
     topic = topic or _infer_topic("", card, stance, user_visible(envelope))
     band = str(envelope.get("guidance_band") or "")
-    safety_lock = bool(envelope.get("safety_lock"))
     original_blob = user_visible(envelope)
     original_hours = _hours_hint(envelope)
     for key in ("prose_summary", "message"):
@@ -515,7 +513,6 @@ def guard_envelope(
                 topic=topic,
                 spoken=True,
                 band=band,
-                safety_lock=safety_lock,
             )
     if envelope.get("recommendation"):
         envelope["recommendation"] = guard_speak(
@@ -527,7 +524,6 @@ def guard_envelope(
             topic=topic,
             spoken=False,
             band=band,
-            safety_lock=safety_lock,
         )
     if isinstance(card, dict):
         guarded = dict(card)
@@ -542,7 +538,6 @@ def guard_envelope(
                     topic=topic,
                     spoken=False,
                     band=band,
-                    safety_lock=safety_lock,
                 )
         envelope["card"] = guarded
     rec = envelope.get("recommendation") or recommendation_from_card(

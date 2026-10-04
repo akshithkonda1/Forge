@@ -3591,7 +3591,6 @@ def generate_response_live(
     # / memory-block copy into user-visible speak. Deterministic path is
     # guarded in _finish_spoken_envelope / friend_speak. rescrub_speak runs
     # inside guard_speak whenever a step is appended.
-    live_lock = bool(base.get("safety_lock"))
     raw_overlay = prose
     prose = speak_guard.guard_speak(
         prose,
@@ -3601,7 +3600,6 @@ def generate_response_live(
         stance=stance,
         topic=topic,
         band=live_band,
-        safety_lock=live_lock,
     )
     # Guarded live text can be empty (sleep digit-% drop or a banned
     # "recovery 58" sentence). Never ship a blank message — fall back to
@@ -3623,7 +3621,6 @@ def generate_response_live(
             topic=topic,
             spoken=False,
             band=live_band,
-            safety_lock=live_lock,
         )
     merged = _merge_live_envelope(base, data, prose, model_id, voice_mode)
     from . import state_read

@@ -1055,7 +1055,6 @@ def _apply_speak_guard(
     card: dict | None = None,
     notes: list[str] | None = None,
     band: str | None = None,
-    safety_lock: bool = False,
 ) -> str:
     """Shared guide/label/memory/dedupe guard. % and ban drops run first.
 
@@ -1073,7 +1072,6 @@ def _apply_speak_guard(
             card=card,
             memory_notes=notes,
             band=band,
-            safety_lock=safety_lock,
         )
     except Exception:
         cleaned = text
