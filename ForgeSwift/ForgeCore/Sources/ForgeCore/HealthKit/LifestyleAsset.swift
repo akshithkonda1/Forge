@@ -61,6 +61,8 @@ public struct LifestyleAsset: Sendable, Equatable, Identifiable {
     public var isAllDay: Bool
     public var daysUntil: Int
     public var source: Source
+    /// Decided at ingest from the title, then the title is only kept on-device.
+    public var isInterview: Bool
     /// On-device only.
     public var title: String
     /// On-device only.
@@ -75,7 +77,8 @@ public struct LifestyleAsset: Sendable, Equatable, Identifiable {
         daysUntil: Int,
         source: Source,
         title: String,
-        placeName: String
+        placeName: String,
+        isInterview: Bool = false
     ) {
         self.id = id
         self.kind = kind
@@ -86,6 +89,7 @@ public struct LifestyleAsset: Sendable, Equatable, Identifiable {
         self.source = source
         self.title = title
         self.placeName = placeName
+        self.isInterview = isInterview
     }
 
     public var bucket: Bucket { Bucket.from(kind: kind) }
@@ -107,6 +111,9 @@ public struct LifestyleAsset: Sendable, Equatable, Identifiable {
 public enum LifestyleAssetIndex: Sendable {
     /// This week (every kind) plus headlines in the next `withinDays`.
     public static let workingHorizonDays = 21
+    /// Flights and trips ARIA should still *know about* this far out.
+    /// Training policy still only reshapes sessions inside `workingHorizonDays`.
+    public static let travelHorizonDays = 90
 
     public static func workingSet(
         from pack: FakeCalendarPack,
@@ -117,11 +124,23 @@ public enum LifestyleAssetIndex: Sendable {
         let window = FakeCalendarPack.weekWindow(containing: now, calendar: calendar)
         let start = calendar.startOfDay(for: now)
         let horizonEnd = calendar.date(byAdding: .day, value: withinDays + 1, to: start) ?? now
+        let travelEnd = calendar.date(byAdding: .day, value: travelHorizonDays + 1, to: start) ?? horizonEnd
         let picked = pack.events.filter { event in
             FakeCalendarPack.overlapsWindow(event, start: window.start, end: window.end)
                 || (event.kind.isHeadline && event.start >= start && event.start < horizonEnd)
+                || ((event.kind == .flight || event.kind == .travel)
+                    && event.start >= start && event.start < travelEnd)
         }
         return sort(picked.map { from(event: $0, now: now, calendar: calendar, source: .memory) })
+    }
+
+    /// EventKit fetch window: this week, 21-day headlines, 90-day travel.
+    public static var ingestHorizonDays: Int { max(workingHorizonDays, travelHorizonDays) }
+
+    /// Keep classified events in the 21-day working set, plus farther travel.
+    public static func isInWorkingSet(_ asset: LifestyleAsset) -> Bool {
+        if asset.daysUntil <= workingHorizonDays { return true }
+        return asset.bucket == .travel && asset.daysUntil <= travelHorizonDays
     }
 
     public static func from(
@@ -138,7 +157,8 @@ public enum LifestyleAssetIndex: Sendable {
             daysUntil: max(0, FakeCalendarPack.dayOffset(of: event, from: now, calendar: calendar)),
             source: source,
             title: event.title,
-            placeName: event.placeName
+            placeName: event.placeName,
+            isInterview: isInterviewHold(title: event.title)
         )
     }
 
@@ -171,7 +191,8 @@ public enum LifestyleAssetIndex: Sendable {
             daysUntil: max(0, days),
             source: source,
             title: title ?? "",
-            placeName: placeName ?? ""
+            placeName: placeName ?? "",
+            isInterview: isInterviewHold(title: title ?? "", notes: notes)
         )
     }
 
@@ -181,18 +202,30 @@ public enum LifestyleAssetIndex: Sendable {
         guard !blob.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return nil }
         if matches(blob, ["wedding", "bridal", "ceremony", "reception"]) { return .wedding }
         if matches(blob, ["flight", "airport", "depart", "boarding"]) { return .flight }
-        if matches(blob, ["trip", "vacation", "hotel", "travel", "getaway"]) { return .travel }
+        if matches(blob, [
+            "trip", "vacation", "hotel", "travel", "getaway", "stay at", "airbnb",
+        ]) { return .travel }
         if matches(blob, ["kickoff", "kick-off"]) || titleGame(blob) { return .game }
         if matches(blob, ["dinner"]) { return .dinner }
         if matches(blob, ["birthday", "family dinner", "brunch with"]) { return .family }
         if matches(blob, ["dentist", "doctor", "appointment", "physical", "checkup", "check-up"]) {
             return .appointment
         }
+        if isInterviewHold(title: title, notes: notes) { return .work }
         if matches(blob, ["standup", "stand-up", "1:1", "1-1", "sync", "all-hands", "sprint"]) {
             return .work
         }
         if matches(blob, ["drinks", "party", "hangout", "hang out"]) { return .social }
         return nil
+    }
+
+    /// Job-hunt holds. Counted on-device; ARIA only ever sees the count.
+    public static func isInterviewHold(title: String, notes: String? = nil) -> Bool {
+        let blob = (title + " " + (notes ?? "")).lowercased()
+        return matches(blob, [
+            "interview", "recruiter", "phone screen", "phone-screen",
+            "onsite", "on-site", "job application",
+        ])
     }
 
     public static func sort(_ assets: [LifestyleAsset]) -> [LifestyleAsset] {
@@ -215,7 +248,7 @@ public enum LifestyleAssetIndex: Sendable {
     public static func ingestTags(from assets: [LifestyleAsset]) -> [String] {
         var tags: [String] = []
         var nearest: [FakeCalendarEvent.Kind: Int] = [:]
-        for asset in assets where asset.isHeadline {
+        for asset in assets where asset.isHeadline && asset.daysUntil <= workingHorizonDays {
             if let existing = nearest[asset.kind], existing <= asset.daysUntil { continue }
             nearest[asset.kind] = asset.daysUntil
         }

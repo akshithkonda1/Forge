@@ -74,6 +74,7 @@
 		1ARIA0712F9FF867004091AA /* AriaCoachAgent.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1ARIA0702F9FF867004091AA /* AriaCoachAgent.swift */; };
 		1CAL0812F9FF867004091AA /* CalendarManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1CAL0802F9FF867004091AA /* CalendarManager.swift */; };
 		BD44CB29B1C5A37446D3258C /* RemindersManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 754850FBB7BD6E199116739D /* RemindersManager.swift */; };
+		LOPS0022F9FF867004091AA /* LifeOpsBoard.swift in Sources */ = {isa = PBXBuildFile; fileRef = LOPS0012F9FF867004091AA /* LifeOpsBoard.swift */; };
 		2FEADA2261D6DB5CB3BC7A57 /* MessageIngestionProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = C3DC7E4E7AE1EC9D7393F78D /* MessageIngestionProvider.swift */; };
 		8476307558B65C7981970E21 /* SyntheticMessageProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = 32350DBC3FF0F1EB3FB57E0F /* SyntheticMessageProvider.swift */; };
 		EBA0B17CF404B8CEB685F5A9 /* MessageContextStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 904E2DBF3528606C6DA474C1 /* MessageContextStore.swift */; };
@@ -214,6 +215,8 @@
 		BABC54B4506AFAABCC62995B /* HomeCycleModule.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5CD2504EB7FF2240F6ADC290 /* HomeCycleModule.swift */; };
 		AB10DEFDAF19A3B38E122F17 /* HomeCards.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7A0381C148DB04CDCCA8B766 /* HomeCards.swift */; };
 		79F46F73D48458B779562937 /* HomeReadinessViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = B82DA6E64D1C7B517050D7FC /* HomeReadinessViews.swift */; };
+		34C39157B5A9C9DA6F774E5D /* LoadTimelineView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A70C3B03C237B6BD88A0B4FE /* LoadTimelineView.swift */; };
+		917943B402BD923F0744751D /* ReadinessForecastCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0A7C69703A221B9AF36E0CC1 /* ReadinessForecastCard.swift */; };
 		C5AAE2E6F4609C4595542DE9 /* HomeOverlays.swift in Sources */ = {isa = PBXBuildFile; fileRef = 666BD8AA30A9A97B0D676632 /* HomeOverlays.swift */; };
 		3CA296A1780DDB7EE484486E /* HomeCopy.swift in Sources */ = {isa = PBXBuildFile; fileRef = A9A27D1156644101FD07B5D6 /* HomeCopy.swift */; };
 		AA00010000000000000000A1 /* HomeAuroraBackground.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00020000000000000000A1 /* HomeAuroraBackground.swift */; };
@@ -522,6 +525,7 @@
 		1ARIA0702F9FF867004091AA /* AriaCoachAgent.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AriaCoachAgent.swift; sourceTree = "<group>"; };
 		1CAL0802F9FF867004091AA /* CalendarManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CalendarManager.swift; sourceTree = "<group>"; };
 		754850FBB7BD6E199116739D /* RemindersManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RemindersManager.swift; sourceTree = "<group>"; };
+		LOPS0012F9FF867004091AA /* LifeOpsBoard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LifeOpsBoard.swift; sourceTree = "<group>"; };
 		C3DC7E4E7AE1EC9D7393F78D /* MessageIngestionProvider.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MessageIngestionProvider.swift; sourceTree = "<group>"; };
 		32350DBC3FF0F1EB3FB57E0F /* SyntheticMessageProvider.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SyntheticMessageProvider.swift; sourceTree = "<group>"; };
 		904E2DBF3528606C6DA474C1 /* MessageContextStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MessageContextStore.swift; sourceTree = "<group>"; };
@@ -686,6 +690,8 @@
 		5CD2504EB7FF2240F6ADC290 /* HomeCycleModule.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HomeCycleModule.swift; sourceTree = "<group>"; };
 		7A0381C148DB04CDCCA8B766 /* HomeCards.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HomeCards.swift; sourceTree = "<group>"; };
 		B82DA6E64D1C7B517050D7FC /* HomeReadinessViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HomeReadinessViews.swift; sourceTree = "<group>"; };
+		A70C3B03C237B6BD88A0B4FE /* LoadTimelineView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LoadTimelineView.swift; sourceTree = "<group>"; };
+		0A7C69703A221B9AF36E0CC1 /* ReadinessForecastCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReadinessForecastCard.swift; sourceTree = "<group>"; };
 		666BD8AA30A9A97B0D676632 /* HomeOverlays.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HomeOverlays.swift; sourceTree = "<group>"; };
 		A9A27D1156644101FD07B5D6 /* HomeCopy.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HomeCopy.swift; sourceTree = "<group>"; };
 		AA00020000000000000000A1 /* HomeAuroraBackground.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HomeAuroraBackground.swift; sourceTree = "<group>"; };
@@ -950,6 +956,7 @@
 				1ARIA0052F9FF867004091AA /* AriaService.swift */,
 				1CAL0802F9FF867004091AA /* CalendarManager.swift */,
 				754850FBB7BD6E199116739D /* RemindersManager.swift */,
+				LOPS0012F9FF867004091AA /* LifeOpsBoard.swift */,
 				C3DC7E4E7AE1EC9D7393F78D /* MessageIngestionProvider.swift */,
 				32350DBC3FF0F1EB3FB57E0F /* SyntheticMessageProvider.swift */,
 				904E2DBF3528606C6DA474C1 /* MessageContextStore.swift */,
@@ -1063,6 +1070,8 @@
 				5CD2504EB7FF2240F6ADC290 /* HomeCycleModule.swift */,
 				7A0381C148DB04CDCCA8B766 /* HomeCards.swift */,
 				B82DA6E64D1C7B517050D7FC /* HomeReadinessViews.swift */,
+				A70C3B03C237B6BD88A0B4FE /* LoadTimelineView.swift */,
+				0A7C69703A221B9AF36E0CC1 /* ReadinessForecastCard.swift */,
 				666BD8AA30A9A97B0D676632 /* HomeOverlays.swift */,
 				A9A27D1156644101FD07B5D6 /* HomeCopy.swift */,
 				AA00020000000000000000A1 /* HomeAuroraBackground.swift */,
@@ -1695,6 +1704,7 @@
 				1ARIA0712F9FF867004091AA /* AriaCoachAgent.swift in Sources */,
 				1CAL0812F9FF867004091AA /* CalendarManager.swift in Sources */,
 				BD44CB29B1C5A37446D3258C /* RemindersManager.swift in Sources */,
+				LOPS0022F9FF867004091AA /* LifeOpsBoard.swift in Sources */,
 				2FEADA2261D6DB5CB3BC7A57 /* MessageIngestionProvider.swift in Sources */,
 				8476307558B65C7981970E21 /* SyntheticMessageProvider.swift in Sources */,
 				EBA0B17CF404B8CEB685F5A9 /* MessageContextStore.swift in Sources */,
@@ -1837,6 +1847,8 @@
 				BABC54B4506AFAABCC62995B /* HomeCycleModule.swift in Sources */,
 				AB10DEFDAF19A3B38E122F17 /* HomeCards.swift in Sources */,
 				79F46F73D48458B779562937 /* HomeReadinessViews.swift in Sources */,
+				34C39157B5A9C9DA6F774E5D /* LoadTimelineView.swift in Sources */,
+				917943B402BD923F0744751D /* ReadinessForecastCard.swift in Sources */,
 				C5AAE2E6F4609C4595542DE9 /* HomeOverlays.swift in Sources */,
 				3CA296A1780DDB7EE484486E /* HomeCopy.swift in Sources */,
 				AA00010000000000000000A1 /* HomeAuroraBackground.swift in Sources */,

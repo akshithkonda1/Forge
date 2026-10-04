@@ -39,5 +39,8 @@ final class EventTrainingPolicyTests: XCTestCase {
         let game = EventTrainingPolicy.plan(fromTags: ["calendar:horizon:game:2"])
         XCTAssertEqual(game?.kind, "game")
         XCTAssertTrue(game?.reason.localizedCaseInsensitiveContains("window") == true)
+        XCTAssertNil(EventTrainingPolicy.plan(fromTags: ["calendar:horizon:travel:60"]))
+        XCTAssertNotNil(EventTrainingPolicy.plan(fromTags: ["calendar:horizon:travel:21"]))
+        XCTAssertNil(EventTrainingPolicy.plan(fromTags: ["calendar:horizon:travel:22"]))
     }
 }
