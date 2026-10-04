@@ -2161,7 +2161,8 @@ def _clarification_response(ctx: ARIAContext, restricted: list[str], voice_mode:
 _SLEEP_STAGE_PCT = re.compile(
     r"\b(?:deep|rem|light)\s+sleep\s+(?:is|at|was)\s+\d+(?:\.\d+)?\s*%"
     r"|\b(?:deep|rem|light)\s+sleep\s+(?:is|at|was)\s+[a-z]+\s+percent\b"
-    r"|\brem\s+is\s+light\s+at\s+\d+(?:\.\d+)?\s*%",
+    r"|\brem\s+is\s+light\s+at\s+\d+(?:\.\d+)?\s*%"
+    r"|\bis\s+\d+(?:\.\d+)?\s*%\s+of the night\b",
     re.I,
 )
 _VITALS_SPEAK = re.compile(
@@ -2171,7 +2172,8 @@ _VITALS_SPEAK = re.compile(
     # No bare ``%`` / ``percent``: insight may keep ``70 min deep (16%)``.
     r"|\b(?:deep|rem|light)\s+sleep\s+(?:is|at|was)\s+\d+(?:\.\d+)?\s*%"
     r"|\b(?:deep|rem|light)\s+sleep\s+(?:is|at|was)\s+[a-z]+\s+percent\b"
-    r"|\brem\s+is\s+light\s+at\s+\d+(?:\.\d+)?\s*%",
+    r"|\brem\s+is\s+light\s+at\s+\d+(?:\.\d+)?\s*%"
+    r"|\bis\s+\d+(?:\.\d+)?\s*%\s+of the night\b",
     re.I,
 )
 _SPEAK_FALLBACK = "Fit training around the day you already have."

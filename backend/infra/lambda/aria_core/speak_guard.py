@@ -224,6 +224,27 @@ def cap_contradiction_confidence(
 
 
 _PERCENT_WORD = re.compile(r"(?i)\bpercent\b")
+_SENTENCE_SPLIT = re.compile(r"(?<=[.!?])\s+")
+# Spoken path only. Cards may keep ``(16%)``; a sentence like
+# ``Deep sleep is 13% of the night`` must not reach the final message.
+_DIGIT_PERCENT = re.compile(
+    r"\d+(?:\.\d+)?\s*%"
+    r"|\bis\s+\d+(?:\.\d+)?\s*%\s+of the night\b",
+    re.I,
+)
+
+
+def drop_digit_percent_sentences(text: str) -> str:
+    """Drop sentences that speak a digit percent (``is 13% of the night``)."""
+    raw = str(text or "").strip()
+    if not raw:
+        return raw
+    kept = [
+        part.strip()
+        for part in _SENTENCE_SPLIT.split(raw)
+        if part.strip() and not _DIGIT_PERCENT.search(part)
+    ]
+    return " ".join(kept).strip()
 
 
 def _needs_sleep_percent_rescrub(raw: str, cleaned: str) -> bool:
@@ -265,8 +286,13 @@ def guard_speak(
     memory_block: str | None = None,
     stance: str = "",
     topic: str = "",
+    spoken: bool = True,
 ) -> str:
-    """Return user-visible speak with guide/label/memory leaks removed."""
+    """Return user-visible speak with guide/label/memory leaks removed.
+
+    ``spoken=True`` (message / prose) also drops digit-percent sentences.
+    Card / rec fields pass ``spoken=False`` so ``(16%)`` HUD copy can stay.
+    """
     raw = str(text or "")
     if not raw.strip():
         return raw
@@ -291,6 +317,8 @@ def guard_speak(
     # leave the dirty original. Other insight digits stay.
     if cleaned.strip() and _needs_sleep_percent_rescrub(raw, cleaned):
         cleaned = rescrub_speak(cleaned)
+    if spoken:
+        cleaned = drop_digit_percent_sentences(cleaned)
     return cleaned
 
 
@@ -307,7 +335,7 @@ def guard_envelope(
     fusion = envelope.get("fusion") if isinstance(envelope.get("fusion"), dict) else {}
     stance = str(fusion.get("stance") or "")
     topic = topic or _infer_topic("", card, stance, user_visible(envelope))
-    for key in ("prose_summary", "message", "recommendation"):
+    for key in ("prose_summary", "message"):
         if envelope.get(key):
             envelope[key] = guard_speak(
                 str(envelope[key]),
@@ -316,7 +344,18 @@ def guard_envelope(
                 memory_block=memory_block,
                 stance=stance,
                 topic=topic,
+                spoken=True,
             )
+    if envelope.get("recommendation"):
+        envelope["recommendation"] = guard_speak(
+            str(envelope["recommendation"]),
+            card=card,
+            memory_notes=notes,
+            memory_block=memory_block,
+            stance=stance,
+            topic=topic,
+            spoken=False,
+        )
     if isinstance(card, dict):
         guarded = dict(card)
         for key in ("action", "why", "rationale", "timing", "recommendation", "interpretation"):
@@ -328,6 +367,7 @@ def guard_envelope(
                     memory_block=memory_block,
                     stance=stance,
                     topic=topic,
+                    spoken=False,
                 )
         envelope["card"] = guarded
     rec = envelope.get("recommendation") or recommendation_from_card(

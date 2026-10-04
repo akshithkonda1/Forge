@@ -1005,17 +1005,72 @@ def _speak_without_vitals(*candidates: str) -> str:
     return _SPEAK_FALLBACK
 
 
+_CITE_DIGIT = re.compile(r"\d")
+_CITE_KEEP_DIGITS = re.compile(r"\b(?:911|988)\b")
+
+
+def _cite_ok_for_speak(cite: str) -> bool:
+    """Parenthetical cites may not carry digits or spoken-banned words."""
+    raw = str(cite or "").strip()
+    if not raw or _dumps_user_speak(raw):
+        return False
+    leftover = _CITE_KEEP_DIGITS.sub("", raw)
+    if _CITE_DIGIT.search(leftover):
+        return False
+    if re.search(r"(?i)\brecovery\b", raw):
+        return False
+    try:
+        from backend._paths import ensure_lambda_on_path
+
+        ensure_lambda_on_path()
+        from aria_core.speak_guard import spoken_ban_hits
+
+        if spoken_ban_hits(raw):
+            return False
+    except Exception:
+        pass
+    return True
+
+
+def _drop_dirty_parentheticals(text: str) -> str:
+    """Strip cite-like ``(…)`` clauses that would leak digits or banned words."""
+
+    def keep(match: re.Match[str]) -> str:
+        inner = match.group(1).strip()
+        return f"({inner})" if _cite_ok_for_speak(inner) else ""
+
+    cleaned = re.sub(r"\s*\(([^)]{1,240})\)", keep, str(text or ""))
+    return re.sub(r"\s{2,}", " ", cleaned).strip()
+
+
 def _apply_speak_guard(text: str, *, card: dict | None = None, notes: list[str] | None = None) -> str:
-    """Shared guide/label/memory/dedupe guard. Vitals scrub already ran."""
+    """Shared guide/label/memory/dedupe guard. Vitals scrub already ran.
+
+    Cite appends go through this same path so a digit or ``recovery`` leak
+    in ``(From …)`` cannot survive on the spoken message.
+    """
     try:
         from backend._paths import ensure_lambda_on_path
 
         ensure_lambda_on_path()
         from aria_core import speak_guard
 
-        return speak_guard.guard_speak(text, card=card, memory_notes=notes)
+        cleaned = speak_guard.guard_speak(text, card=card, memory_notes=notes)
     except Exception:
-        return text
+        cleaned = text
+    return _drop_dirty_parentheticals(cleaned)
+
+
+def _guidance_band_for_message(message: str) -> str | None:
+    try:
+        from backend._paths import ensure_lambda_on_path
+
+        ensure_lambda_on_path()
+        from aria_core import guidance
+
+        return guidance.classify_band(message)
+    except Exception:
+        return None
 
 
 def _collapse_spoken(text: str) -> str:
@@ -2081,8 +2136,6 @@ def _respond_via_lambda(
         user_id=phrase_uid,
         turn=phrase_turn,
     )
-    prose = _speak_without_vitals(prose)
-    chat = _speak_without_vitals(chat, prose)
     notes = [
         str(p)
         for p in (
@@ -2092,15 +2145,19 @@ def _respond_via_lambda(
         )
     ]
     card_for_guard = envelope.get("card") if isinstance(envelope.get("card"), dict) else None
-    prose = _apply_speak_guard(prose, card=card_for_guard, notes=notes)
-    chat = _apply_speak_guard(chat, card=card_for_guard, notes=notes)
-    situation, evidence = _perceive_turn(message, ctx, prior_turns)
+    situation, evidence = _perceive_turn(
+        message, ctx, prior_turns, guidance_band=envelope.get("guidance_band")
+    )
     prose = _with_situation_line(prose, situation)
     chat = _with_situation_line(chat, situation)
     if evidence is not None:
         cite = _scrub_speak_vitals(evidence.cite())
         if cite and cite not in chat and not _dumps_user_speak(cite):
             chat = f"{chat} ({cite.rstrip('.')})"
+    prose = _speak_without_vitals(prose)
+    chat = _speak_without_vitals(chat, prose)
+    prose = _apply_speak_guard(prose, card=card_for_guard, notes=notes)
+    chat = _apply_speak_guard(chat, card=card_for_guard, notes=notes)
     envelope["prose_summary"] = prose
     envelope["message"] = chat
     diagnosis = voice_diagnostics.diagnose(prose)
@@ -2298,7 +2355,12 @@ def _local_hour() -> int | None:
     return int(raw) % 24 if raw.isdigit() else None
 
 
-def _perceive_turn(message: str, ctx, prior_turns: list[str] | None):
+def _perceive_turn(
+    message: str,
+    ctx,
+    prior_turns: list[str] | None,
+    guidance_band: str | None = None,
+):
     """Perception + case-by-case evaluation, plus outside evidence when enabled."""
     situation = perception.perceive(
         message,
@@ -2306,6 +2368,7 @@ def _perceive_turn(message: str, ctx, prior_turns: list[str] | None):
         prior_turns=prior_turns,
         environment=_outside_for_turn(message),
         local_hour=_local_hour(),
+        guidance_band=guidance_band,
     )
     evidence = None
     if situation.research:
@@ -2540,12 +2603,12 @@ def respond(
         user_id=phrase_uid,
         turn=phrase_turn,
     )
-    # Optional web note stays as a short trailing cite — not a specialist dump.
-    # Scrub vitals inside the cite first so VO2 in a MedlinePlus title cannot
-    # make `_speak_without_vitals` discard the whole "From …" provenance.
+    # Situation line first, then trailing cites, then the speak guard so a
+    # digit / recovery cite cannot skip the scrub.
     chat = prose
     reused = False
     source_cite = None
+    pending_web_cite = None
     if web_research.is_research_worthy(message, plan.primary.kind):
         lookup_kind = "aging" if web_research.suggests_aging(message) or plan.primary.kind == "aging" else plan.primary.kind
         web_note, reused = _web_note_for_turn(lookup_kind)
@@ -2558,17 +2621,25 @@ def respond(
                 # Aging cites live on the card/source field — not in spoken reply.
                 if lookup_kind == "aging":
                     source_cite = safe_note.rstrip(".")
-                elif reused:
-                    if safe_note not in chat and not _dumps_user_speak(safe_note):
-                        chat = f"{chat} ({safe_note.rstrip('.')})"
-                elif safe_note not in chat:
-                    chat = f"{chat} ({safe_note.rstrip('.')})"
-    situation, evidence = _perceive_turn(message, ctx, prior_turns)
+                else:
+                    pending_web_cite = safe_note
+    situation, evidence = _perceive_turn(
+        message,
+        ctx,
+        prior_turns,
+        guidance_band=_guidance_band_for_message(message),
+    )
     prose = _with_situation_line(prose, situation)
     chat = _with_situation_line(chat, situation)
+    if pending_web_cite and pending_web_cite not in chat:
+        if reused:
+            if _cite_ok_for_speak(pending_web_cite):
+                chat = f"{chat} ({pending_web_cite.rstrip('.')})"
+        else:
+            chat = f"{chat} ({pending_web_cite.rstrip('.')})"
     if evidence is not None and source_cite is None:
         cite = _scrub_speak_vitals(evidence.cite())
-        if cite and cite not in chat and not _dumps_user_speak(cite):
+        if cite and cite not in chat:
             chat = f"{chat} ({cite.rstrip('.')})"
     draft = {"prose_summary": prose, "message": chat}
     # Keep a rejected first draft dirty so speak-fail / a leftover cure-claim
@@ -2576,6 +2647,8 @@ def respond(
     if reused or not _turn_speak_rejected(draft):
         prose = _speak_without_vitals(prose)
         chat = _speak_without_vitals(chat, prose)
+        prose = _apply_speak_guard(prose)
+        chat = _apply_speak_guard(chat)
     recovery_needed = (
         scenario == "recovery_first"
         or ctx.today.readiness_score < 50

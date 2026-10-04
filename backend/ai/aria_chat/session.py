@@ -305,6 +305,10 @@ def run_turn(
         envelope.pop("user_id", None)
         if "guidance_band" not in envelope:
             envelope["guidance_band"] = guidance.classify_band(spoken_in)
+    band = str(envelope.get("guidance_band") or "")
+    envelope["safety_lock"] = band in guidance.SAFETY_LOCK_BANDS
+    if envelope["safety_lock"]:
+        memory_enabled = False
     envelope = conversation.apply_conversation(
         envelope,
         spoken_in,

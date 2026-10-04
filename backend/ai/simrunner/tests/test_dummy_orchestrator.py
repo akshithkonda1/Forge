@@ -4,6 +4,7 @@ import re
 import sys
 import unittest
 from pathlib import Path
+from types import SimpleNamespace
 from unittest.mock import patch
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[4]))
@@ -1188,6 +1189,38 @@ class DummyPercentAndStaySweepTests(unittest.TestCase):
 class DummyPerceptionTurns(unittest.TestCase):
     """Every turn perceives, judges case by case, and records what fed ARIA."""
 
+    def test_exhausted_train_lambda_message_has_no_recovery_percent_or_digits(self):
+        from backend._paths import ensure_lambda_on_path
+
+        ensure_lambda_on_path()
+        from aria_core import guidance
+        from aria_core.speak_guard import spoken_ban_hits
+
+        prompt = "I'm exhausted, what should I train?"
+        ctx = SimpleNamespace(
+            today=SimpleNamespace(
+                total_sleep_hours=7.8,
+                readiness_score=80,
+                workout_logged=False,
+                workout_type="rest",
+                deep_sleep_minutes=55,
+                rem_sleep_minutes=90,
+                hrv=58,
+            ),
+            sleep_debt_7d_hours=0.0,
+            is_overtrained=False,
+            readiness_trend="steady",
+            training_streak=0,
+            days_since_last_workout=1,
+            chronotype="lark",
+        )
+        row = dummy.respond(prompt, seed=3, engine="lambda", context=ctx)
+        spoken = str(row.get("message") or "")
+        self.assertEqual(spoken_ban_hits(spoken), ())
+        self.assertNotIn("%", spoken)
+        self.assertEqual(guidance.extra_speak_digits(spoken, prompt), frozenset())
+        self.assertNotRegex(spoken, r"(?i)\brecovery\b")
+
     def test_both_engines_speak_the_sharpest_conflict(self):
         for engine in ("stub", "lambda"):
             with self.subTest(engine=engine), patch.object(web_research, "research", return_value=None):
@@ -1218,3 +1251,28 @@ class DummyPerceptionTurns(unittest.TestCase):
         self.assertEqual(row["context_feed"]["evidence"]["via"], "scout")
         self.assertTrue(row["context_feed"]["evidence"]["untrusted"])
         self.assertEqual(row["orchestration"]["situation"]["evidence"], "scout")
+
+    def test_final_message_scrubs_digit_cite_and_recovery(self):
+        """Cite appends go through the speak guard: digits and recovery leave speech."""
+        rows = (
+            ("150 minutes a week", "150"),
+            ("recovery after a hard block", "recovery"),
+        )
+        for text, needle in rows:
+            evidence = web_research.Evidence(
+                text=text,
+                sources=[{"title": "CDC", "url": "https://www.cdc.gov/sleep"}],
+                via="scout",
+            )
+            for engine in ("lambda", "stub"):
+                with self.subTest(text=text, engine=engine):
+                    with patch.object(web_research, "research", return_value=evidence):
+                        row = dummy.respond(
+                            "How much sleep do adults actually need?",
+                            seed=5,
+                            engine=engine,
+                        )
+                    spoken = str(row.get("message") or "")
+                    self.assertNotIn(needle, spoken.lower() if needle == "recovery" else spoken)
+                    self.assertNotIn("150 minutes a week", spoken.lower())
+                    self.assertNotRegex(spoken, r"(?i)\brecovery\b")

@@ -58,9 +58,17 @@ class ConflictTests(unittest.TestCase):
         self.assertEqual(sick.posture, "rest")
         self.assertTrue(sick.decisions.rest)
         self.assertEqual(sick.research[0].topic, "fever")
-        flag = p.perceive("chest pain when I run", ctx=ctx())
+        flag = p.perceive(
+            "chest pain when I run", ctx=ctx(), guidance_band="emergency"
+        )
         self.assertEqual(flag.posture, "refer")
         self.assertTrue(flag.decisions.refer_out)
+        triage = p.perceive(
+            "chest pain when I run", ctx=ctx(), guidance_band="triage"
+        )
+        self.assertFalse(triage.decisions.refer_out)
+        coach = p.perceive("chest pain when I run", ctx=ctx())
+        self.assertFalse(coach.decisions.refer_out)
 
     def test_event_taper(self):
         s = p.perceive("Wedding tomorrow, what should I train?", ctx=ctx())

@@ -87,7 +87,7 @@ class DeepSleepInterpSpeakTests(unittest.TestCase):
             _speak_without_vitals as dummy_speak,
         )
 
-        leak = "Deep sleep is 12% of the night — your deepest sleep came up short"
+        leak = "Deep sleep is 13% of the night — your deepest sleep came up short"
         self.assertRegex(leak, _VITALS_SPEAK)
         self.assertRegex(leak, dummy_vitals)
         spoken = _speak_without_vitals(leak)
@@ -98,6 +98,32 @@ class DeepSleepInterpSpeakTests(unittest.TestCase):
             self.assertIsNone(re.search(r"\d", text), text)
             self.assertNotRegex(text, r"(?i)\bpercent\b", text)
             self.assertEqual(spoken_ban_hits(text), (), SPOKEN_BANNED)
+
+    def test_digit_percent_sentence_dropped_from_message_not_card(self):
+        from aria_core.speak_guard import drop_digit_percent_sentences, guard_envelope, guard_speak
+
+        leak = "Deep sleep is 13% of the night. Keep today kind."
+        cleaned = drop_digit_percent_sentences(leak)
+        self.assertNotIn("%", cleaned)
+        self.assertNotIn("13", cleaned)
+        self.assertIn("Keep today kind", cleaned)
+        spoken = guard_speak(leak, spoken=True)
+        self.assertNotIn("%", spoken)
+        self.assertNotIn("13", spoken)
+        card_kept = "70 min deep (16%)"
+        self.assertIn("%", guard_speak(card_kept, spoken=False))
+        env = guard_envelope(
+            {
+                "message": leak,
+                "prose_summary": leak,
+                "recommendation": card_kept,
+                "card": {"action": card_kept, "why": card_kept},
+            }
+        )
+        self.assertNotIn("%", env["message"])
+        self.assertNotIn("%", env["prose_summary"])
+        self.assertIn("%", env["recommendation"])
+        self.assertIn("%", env["card"]["action"])
 
 
 class SleepDurationThresholdTests(unittest.TestCase):

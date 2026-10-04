@@ -47,10 +47,13 @@ _ILLNESS = (
     "sick with", "a cold", "covid", "sore throat", "chills", "vomit", "nausea",
     "stomach bug", "congested", "sinus infection",
 )
+# Sweep corpus only. Genuine emergency needles live in guidance.py;
+# ``red_flag`` is set from the chat band, not these substrings.
 _RED_FLAGS = (
     "chest pain", "chest tightness", "fainted", "passed out", "shortness of breath",
     "can't breathe", "cannot breathe", "numb arm", "slurred",
 )
+_GUIDANCE_RED_FLAG_BANDS = frozenset({"emergency", "refer_out"})
 _JOINTS = ("knee", "shoulder", "back", "hip", "ankle", "wrist", "elbow", "neck")
 _PAIN = ("pain", "hurt", "hurts", "injur", "tweak", "sprain", "strain", "pulled")
 _EVENTS = (
@@ -293,8 +296,14 @@ def perceive(
     environment: EnvironmentRead | None = None,
     local_hour: int | None = None,
     private_terms: tuple[str, ...] = (),
+    guidance_band: str | None = None,
 ) -> Situation:
-    """Read everything available for this turn and judge it. Pure function."""
+    """Read everything available for this turn and judge it. Pure function.
+
+    ``guidance_band`` is the chat classifier's decision. ``red_flag`` is
+    true only for EMERGENCY / REFER_OUT so a triage chest line cannot
+    mint a clinician referral on its own.
+    """
     lower = f" {str(message or '').lower().strip()} "
     signals = _measured(ctx)
     unknowns: list[str] = []
@@ -320,7 +329,7 @@ def perceive(
     outdoor = training_ask and _has(lower, _OUTDOOR)
     # "sick of my job" is a mood, not an illness.
     ill = _has(lower, _ILLNESS) and not re.search(r"sick (?:of|and tired)", lower)
-    red_flag = _has(lower, _RED_FLAGS)
+    red_flag = str(guidance_band or "").strip().lower() in _GUIDANCE_RED_FLAG_BANDS
     joints = [j for j in _JOINTS if _has(lower, (j,)) and _has(lower, _PAIN)]
     days = event_days(lower)
     if ill:
@@ -367,7 +376,7 @@ def perceive(
         decisions.keep_light = True
         conflicts.append(Conflict(
             "said_vs_measured",
-            "The recovery read looks ready, but you don't feel it — how you feel wins today.",
+            "Your body looks ready, but you don't feel it — how you feel wins today.",
             "medium",
         ))
     if wants_hard and (recovery == "asking" or band("load") == "overreached"):
