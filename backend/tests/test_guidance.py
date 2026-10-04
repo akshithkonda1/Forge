@@ -42,6 +42,7 @@ class BandClassificationTests(unittest.TestCase):
             "how do I do CPR?",
             "what do I do if someone is choking",
             "how to stop severe bleeding",
+            "what do I do if someone is unresponsive but breathing",
         ]:
             self.assertEqual(guidance.classify_band(msg), guidance.FIRST_AID, msg)
 
@@ -142,7 +143,17 @@ class PrescriptiveDetectorTests(unittest.TestCase):
 
     def test_disclaimer_appended_once(self):
         out = guidance.append_clinician_disclaimer("Here's a plan.")
-        self.assertIn("not a doctor", out)
+        self.assertEqual(
+            out,
+            f"Here's a plan.\n\n{guidance.CLINICIAN_DISCLAIMER}",
+        )
+        self.assertNotIn("not a doctor", out.lower())
+        self.assertNotIn("lifestyle coach", out.lower())
+        self.assertNotIn("reminder", out.lower())
+        self.assertEqual(
+            guidance.append_clinician_disclaimer(out),
+            out,
+        )
 
 
 class EngineWiringTests(unittest.TestCase):
@@ -184,7 +195,13 @@ class EngineWiringTests(unittest.TestCase):
             "my knee is sore after running", self._ctx(), converse=fake_converse
         )
         self.assertTrue(r.get("safety_softened"))
-        self.assertIn("not a doctor", r["message"].lower())
+        clinician = "Worth running anything medical past your doctor first."
+        self.assertEqual(guidance.CLINICIAN_DISCLAIMER, clinician)
+        self.assertIn(clinician, r["message"])
+        self.assertTrue(r["message"].endswith(clinician), r["message"])
+        self.assertNotIn("not a doctor", r["message"].lower())
+        self.assertNotIn("lifestyle coach", r["message"].lower())
+        self.assertNotIn("reminder", r["message"].lower())
 
 
 class ChatRouteWiringTests(unittest.TestCase):

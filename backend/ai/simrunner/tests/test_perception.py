@@ -104,6 +104,26 @@ class ConflictTests(unittest.TestCase):
                 self.assertTrue(guarded.startswith(line), guarded)
                 self.assertEqual(guarded.split("\n", 1)[0][: len(line)], line)
 
+    def test_banned_spoken_line_is_dropped_and_turn_still_leads(self):
+        banned = "Your body is still paying for a short night — I'll trust the feeling."
+        sit = SimpleNamespace(
+            spoken_line=banned,
+            decisions=SimpleNamespace(rest=False, refer_out=False, keep_light=True),
+        )
+        with patch.object(dummy, "_perceive_turn", return_value=(sit, None)):
+            with patch.object(web_research, "research", return_value=None):
+                row = dummy.respond(
+                    "I'm exhausted, what should I train?",
+                    seed=3,
+                    engine="lambda",
+                    context=ctx(),
+                )
+        spoken = str(row.get("message") or "")
+        self.assertNotIn("your body is", spoken.lower(), spoken)
+        self.assertTrue(spoken.strip(), spoken)
+        self.assertFalse(spoken.startswith(banned), spoken)
+        self.assertEqual(dummy._apply_speak_guard(banned), "")
+
     def test_illness_and_red_flags(self):
         sick = p.perceive("I have a fever, can I still run?", ctx=ctx())
         self.assertEqual(sick.posture, "rest")

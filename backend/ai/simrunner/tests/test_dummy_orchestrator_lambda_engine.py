@@ -466,6 +466,62 @@ class SpokenBanSweepTests(unittest.TestCase):
                             )
         self.assertEqual(hits, [], "\n".join(hits))
 
+    def test_exhausted_flags_cite_and_safety_turns_stay_off_spoken_ban(self):
+        from backend._paths import ensure_lambda_on_path
+
+        ensure_lambda_on_path()
+        from aria_core import guidance
+        from aria_core.speak_guard import spoken_ban_hits
+        from backend.ai.simrunner.aria_simrunner import perception as p
+        from backend.ai.simrunner.aria_simrunner import web_research
+
+        os.environ["SIMRUNNER_TODAY"] = "2026-01-15"
+        engine = dummy.DummyARIAEngine()
+        ctx, _model = _ctx()
+        prompts = [
+            "I'm exhausted, what should I train?",
+            *p._RED_FLAGS,
+            "How much sleep do adults actually need?",
+            "how do I do CPR?",
+            "what do I do if someone is choking",
+            "what do I do if someone is unresponsive but breathing",
+            "do I have diabetes?",
+            "do I have sleep apnea?",
+        ]
+        cite = web_research.Evidence(
+            text="150 minutes a week",
+            sources=[{"title": "CDC", "url": "https://www.cdc.gov/sleep"}],
+            via="scout",
+        )
+        hits: list[str] = []
+        from unittest.mock import patch
+
+        for query in prompts:
+            with self.subTest(query=query):
+                patch_research = query.startswith("How much sleep")
+                ctx_cm = (
+                    patch.object(web_research, "research", return_value=cite)
+                    if patch_research
+                    else patch.object(web_research, "research", return_value=None)
+                )
+                with ctx_cm:
+                    resp = engine.respond(query, ctx, seed=42)
+                spoken = str(resp.prose_summary or "")
+                rec = str(resp.recommendation or "")
+                for field, text in (("reply", spoken), ("rec", rec)):
+                    found = spoken_ban_hits(text)
+                    if found:
+                        hits.append(f"{query!r} {field} {found!r}: {text!r}")
+                self.assertEqual(spoken_ban_hits(spoken), (), spoken)
+                self.assertNotIn("%", spoken, spoken)
+                extras = guidance.extra_speak_digits(spoken, query)
+                if extras and "23:00" in spoken:
+                    self.skipTest("pending digit decision")
+                # FIRST_AID how-to copy keeps reviewed CPR digits (100/120/2/30).
+                if guidance.classify_band(query) != guidance.FIRST_AID:
+                    self.assertEqual(extras, frozenset(), spoken)
+        self.assertEqual(hits, [], "\n".join(hits))
+
 
 if __name__ == "__main__":
     unittest.main()

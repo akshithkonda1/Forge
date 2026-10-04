@@ -397,6 +397,49 @@ class LiveBedrockGuardTests(unittest.TestCase):
         self.assertEqual(boto_hits, [])
         self.assertNotIn(leak, spoken)
 
+    def test_prescriptive_live_reply_appends_clinician_after_guard(self):
+        from aria_core import guidance
+
+        boto_hits: list[tuple] = []
+
+        def converse(_model_id, _system, _user):
+            return json.dumps(
+                {
+                    "prose_summary": "You should take 400 mg of ibuprofen every 6 hours.",
+                    "response_type": "insight",
+                    "confidence": 0.8,
+                }
+            )
+
+        fake_boto = types.ModuleType("boto3")
+
+        def _no_client(*args, **kwargs):
+            boto_hits.append((args, kwargs))
+            raise AssertionError("no real boto/Bedrock client")
+
+        fake_boto.client = _no_client
+        with patch.dict("sys.modules", {"boto3": fake_boto}):
+            with patch.object(aria_engine, "_gateway", None):
+                resp = aria_engine.generate_response_live(
+                    "my knee is sore after running",
+                    _ctx(),
+                    converse=converse,
+                )
+
+        spoken = str(resp.get("message") or "")
+        clinician = "Worth running anything medical past your doctor first."
+        self.assertEqual(guidance.CLINICIAN_DISCLAIMER, clinician)
+        self.assertIn(clinician, spoken)
+        self.assertTrue(spoken.endswith(clinician), spoken)
+        self.assertNotIn("(", clinician)
+        self.assertNotIn(")", clinician)
+        self.assertFalse(clinician.lower().startswith("reminder"))
+        self.assertNotIn("not a doctor", spoken.lower())
+        self.assertNotIn("lifestyle coach", spoken.lower())
+        self.assertNotIn("reminder", spoken.lower())
+        self.assertEqual(boto_hits, [])
+        self.assertTrue(resp.get("safety_softened"))
+
 
 class LivePathGuardTests(unittest.TestCase):
     """Live path with an injected converse — ARIA_BEDROCK_ENABLED stays off."""

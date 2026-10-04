@@ -1276,3 +1276,22 @@ class DummyPerceptionTurns(unittest.TestCase):
                     self.assertNotIn(needle, spoken.lower() if needle == "recovery" else spoken)
                     self.assertNotIn("150 minutes a week", spoken.lower())
                     self.assertNotRegex(spoken, r"(?i)\brecovery\b")
+
+    def test_apply_speak_guard_drops_night_percent_fragments(self):
+        plain = dummy._apply_speak_guard("Deep sleep is 13% of the night.")
+        self.assertNotIn("of the night", plain.lower())
+        self.assertNotIn("%", plain)
+
+        leftover = dummy._apply_speak_guard("Keep today kind. (From cdc.gov: of the night)")
+        self.assertNotIn("of the night", leftover.lower())
+        self.assertNotIn("from cdc.gov", leftover.lower())
+        self.assertNotIn("()", leftover)
+        self.assertIn("Keep today kind", leftover)
+
+        cite = dummy._apply_speak_guard(
+            "Keep today kind. (From cdc.gov: Deep sleep is 13% of the night.)"
+        )
+        self.assertNotIn("of the night", cite.lower())
+        self.assertNotIn("%", cite)
+        self.assertNotIn("from cdc.gov", cite.lower())
+        self.assertIn("Keep today kind", cite)
