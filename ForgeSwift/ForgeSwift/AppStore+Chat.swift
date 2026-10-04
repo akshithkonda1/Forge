@@ -516,6 +516,7 @@ extension AppStore {
             pendingTriageTopic = safety?.isTriage == true ? safety?.replyTopic : nil
             let safetyTurn = safety != nil
                 || (aria.guidanceBand.map { $0 != AriaSafetyBand.coach } ?? false)
+                || aria.safetyLock
 
             // Dummy already wove every worker into one causal reply. Tacking
             // supporting briefs on would double-speak and break the fill-in.

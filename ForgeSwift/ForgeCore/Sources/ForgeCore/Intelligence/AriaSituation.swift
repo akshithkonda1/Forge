@@ -431,11 +431,11 @@ public enum AriaSituation {
         }
         if saidGood && (sleepBand == "thin" || recovery == "asking") {
             decisions.keepLight = true
-            conflicts.append(.init(kind: "said_vs_measured", line: "You feel good, and your body is still paying for a short night — I'll trust the feeling and cap the ceiling.", severity: .medium))
+            conflicts.append(.init(kind: "said_vs_measured", line: "You feel good, but last night ran short — I'll trust the feeling and cap the ceiling.", severity: .medium))
         }
         if saidLow && recovery == "ready" && trainingAsk {
             decisions.keepLight = true
-            conflicts.append(.init(kind: "said_vs_measured", line: "The recovery read looks ready, but you don't feel it — how you feel wins today.", severity: .medium))
+            conflicts.append(.init(kind: "said_vs_measured", line: "Everything looks ready on paper, but you don't feel it — how you feel wins today.", severity: .medium))
         }
         if hard && (recovery == "asking" || load == "overreached") {
             decisions.keepLight = true
