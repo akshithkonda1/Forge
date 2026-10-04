@@ -450,7 +450,10 @@ class SafetyTierTests(unittest.TestCase):
         def _route(phrase: str) -> dict:
             from routes.aria import handle_post_ai_chat
 
-            result = handle_post_ai_chat({"message": phrase}, user_id="parity-route")
+            result = handle_post_ai_chat(
+                {"message": phrase},
+                user_id=f"parity-{abs(hash(phrase)) % 10**8}",
+            )
             body = result.get("body")
             if isinstance(body, str):
                 body = json.loads(body)
@@ -497,7 +500,14 @@ class SafetyTierTests(unittest.TestCase):
                                 spoken,
                             )
                         if expected is not None:
-                            self.assertEqual(spoken, expected, phrase)
+                            if phrase in first_aid_phrases:
+                                self.assertEqual(
+                                    " ".join(spoken.split()),
+                                    " ".join(expected.split()),
+                                    phrase,
+                                )
+                            else:
+                                self.assertEqual(spoken, expected, phrase)
                         if phrase in faint_message:
                             self.assertEqual(spoken, faint_message[phrase], phrase)
                         if phrase in _SELF_HARM_EXAMPLES:

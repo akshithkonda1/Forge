@@ -108,7 +108,11 @@ class ConflictTests(unittest.TestCase):
         banned = "Your body is still paying for a short night — I'll trust the feeling."
         sit = SimpleNamespace(
             spoken_line=banned,
+            posture="protect",
+            conflicts=(),
             decisions=SimpleNamespace(rest=False, refer_out=False, keep_light=True),
+            feed=lambda: {},
+            brief=lambda: "",
         )
         with patch.object(dummy, "_perceive_turn", return_value=(sit, None)):
             with patch.object(web_research, "research", return_value=None):

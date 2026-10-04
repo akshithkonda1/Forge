@@ -1023,10 +1023,13 @@ def _cite_ok_for_speak(cite: str) -> bool:
         from backend._paths import ensure_lambda_on_path
 
         ensure_lambda_on_path()
-        from aria_core.speak_guard import is_leftover_fragment, spoken_ban_hits
+        from aria_core.speak_guard import _PREPOSITION_LEAD, spoken_ban_hits
 
         body = re.sub(r"(?i)^from\s+[^:]+:\s*", "", raw).strip()
-        if not body or is_leftover_fragment(body):
+        if not body:
+            return False
+        # Drop ``of the night`` leftovers. Keep short factual cites (``real info``).
+        if _PREPOSITION_LEAD.match(body.strip().strip("()[]")):
             return False
         if spoken_ban_hits(raw):
             return False

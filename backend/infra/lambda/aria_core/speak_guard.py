@@ -283,9 +283,11 @@ def is_leftover_fragment(part: str) -> bool:
     body = _CITE_LEAD.sub("", s).strip()
     if not body:
         return True
-    if _PREPOSITION_LEAD.match(body):
-        return True
+    if not _PREPOSITION_LEAD.match(body):
+        return False
     words = re.findall(r"[A-Za-z']+", body)
+    # ``of the night.`` is a leftover. ``After what you said about sleeping —``
+    # is a Dummy prior-turn bridge and must stay.
     return len(words) <= 4 and not _FRAGMENT_VERB.search(body)
 
 
