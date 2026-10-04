@@ -215,6 +215,8 @@
 		BABC54B4506AFAABCC62995B /* HomeCycleModule.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5CD2504EB7FF2240F6ADC290 /* HomeCycleModule.swift */; };
 		AB10DEFDAF19A3B38E122F17 /* HomeCards.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7A0381C148DB04CDCCA8B766 /* HomeCards.swift */; };
 		79F46F73D48458B779562937 /* HomeReadinessViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = B82DA6E64D1C7B517050D7FC /* HomeReadinessViews.swift */; };
+		34C39157B5A9C9DA6F774E5D /* LoadTimelineView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A70C3B03C237B6BD88A0B4FE /* LoadTimelineView.swift */; };
+		917943B402BD923F0744751D /* ReadinessForecastCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0A7C69703A221B9AF36E0CC1 /* ReadinessForecastCard.swift */; };
 		C5AAE2E6F4609C4595542DE9 /* HomeOverlays.swift in Sources */ = {isa = PBXBuildFile; fileRef = 666BD8AA30A9A97B0D676632 /* HomeOverlays.swift */; };
 		3CA296A1780DDB7EE484486E /* HomeCopy.swift in Sources */ = {isa = PBXBuildFile; fileRef = A9A27D1156644101FD07B5D6 /* HomeCopy.swift */; };
 		AA00010000000000000000A1 /* HomeAuroraBackground.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00020000000000000000A1 /* HomeAuroraBackground.swift */; };
@@ -688,6 +690,8 @@
 		5CD2504EB7FF2240F6ADC290 /* HomeCycleModule.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HomeCycleModule.swift; sourceTree = "<group>"; };
 		7A0381C148DB04CDCCA8B766 /* HomeCards.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HomeCards.swift; sourceTree = "<group>"; };
 		B82DA6E64D1C7B517050D7FC /* HomeReadinessViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HomeReadinessViews.swift; sourceTree = "<group>"; };
+		A70C3B03C237B6BD88A0B4FE /* LoadTimelineView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LoadTimelineView.swift; sourceTree = "<group>"; };
+		0A7C69703A221B9AF36E0CC1 /* ReadinessForecastCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReadinessForecastCard.swift; sourceTree = "<group>"; };
 		666BD8AA30A9A97B0D676632 /* HomeOverlays.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HomeOverlays.swift; sourceTree = "<group>"; };
 		A9A27D1156644101FD07B5D6 /* HomeCopy.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HomeCopy.swift; sourceTree = "<group>"; };
 		AA00020000000000000000A1 /* HomeAuroraBackground.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HomeAuroraBackground.swift; sourceTree = "<group>"; };
@@ -1066,6 +1070,8 @@
 				5CD2504EB7FF2240F6ADC290 /* HomeCycleModule.swift */,
 				7A0381C148DB04CDCCA8B766 /* HomeCards.swift */,
 				B82DA6E64D1C7B517050D7FC /* HomeReadinessViews.swift */,
+				A70C3B03C237B6BD88A0B4FE /* LoadTimelineView.swift */,
+				0A7C69703A221B9AF36E0CC1 /* ReadinessForecastCard.swift */,
 				666BD8AA30A9A97B0D676632 /* HomeOverlays.swift */,
 				A9A27D1156644101FD07B5D6 /* HomeCopy.swift */,
 				AA00020000000000000000A1 /* HomeAuroraBackground.swift */,
@@ -1841,6 +1847,8 @@
 				BABC54B4506AFAABCC62995B /* HomeCycleModule.swift in Sources */,
 				AB10DEFDAF19A3B38E122F17 /* HomeCards.swift in Sources */,
 				79F46F73D48458B779562937 /* HomeReadinessViews.swift in Sources */,
+				34C39157B5A9C9DA6F774E5D /* LoadTimelineView.swift in Sources */,
+				917943B402BD923F0744751D /* ReadinessForecastCard.swift in Sources */,
 				C5AAE2E6F4609C4595542DE9 /* HomeOverlays.swift in Sources */,
 				3CA296A1780DDB7EE484486E /* HomeCopy.swift in Sources */,
 				AA00010000000000000000A1 /* HomeAuroraBackground.swift in Sources */,
