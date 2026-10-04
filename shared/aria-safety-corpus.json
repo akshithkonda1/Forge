@@ -289,7 +289,7 @@
       "topic": "general",
       "subject": "other",
       "voice": "on",
-      "prose": "Call 911 now. If they're not breathing, start CPR: hard, fast chest compressions in the center of the chest — about 100–120 a minute, roughly 2 inches deep, letting the chest come all the way back up between each. If you're trained, add 2 rescue breaths every 30 compressions. Keep going until help arrives or the person starts to wake up."
+      "prose": "Call 911 now. If they're not breathing normally, start CPR: hard, fast chest compressions in the center of the chest — about 100–120 a minute, roughly 2 inches deep, letting the chest come all the way back up between each. If you're trained, add 2 rescue breaths every 30 compressions. Keep going until help arrives or the person starts to wake up."
     },
     {
       "text": "I'm bleeding and it won't stop",
@@ -343,7 +343,7 @@
       "topic": "ingestion",
       "subject": "other",
       "voice": "on",
-      "prose": "Call 911 now. If they're not breathing, start CPR: hard, fast chest compressions in the center of the chest — about 100–120 a minute, roughly 2 inches deep, letting the chest come all the way back up between each. If you're trained, add 2 rescue breaths every 30 compressions. Keep going until help arrives or the person starts to wake up."
+      "prose": "Call 911 now. If they're not breathing normally, start CPR: hard, fast chest compressions in the center of the chest — about 100–120 a minute, roughly 2 inches deep, letting the chest come all the way back up between each. If you're trained, add 2 rescue breaths every 30 compressions. Keep going until help arrives or the person starts to wake up."
     },
     {
       "text": "I took a bunch of pills on purpose",
