@@ -106,8 +106,12 @@ jobs:
         run: |
           set -euo pipefail
           # Compiling the test bundle is not running it. A green Swift job
-          # that never executes ForgeSwiftTests is a lie. Prefer a booted
-          # iOS Simulator destination when the runner has one.
+          # that never executes ForgeSwiftTests is a lie. Fail closed when
+          # no iPhone simulator exists. A booted destination is required:
+          # xcodebuild's own boot has raced CoreSimulator's service hub
+          # (DTServiceHub bless interrupted, test runner exits before XCTest
+          # connects, then 600s of diagnostic collection). That is not a
+          # test failure. Assertion failures still fail the job immediately.
           python3 - <<'PY'
           import json, subprocess, sys
           raw = subprocess.check_output(["xcrun", "simctl", "list", "devices", "available", "-j"], text=True)
@@ -118,27 +122,72 @@ jobs:
                   continue
               for row in rows or []:
                   if row.get("isAvailable") and "iPhone" in (row.get("name") or ""):
-                      devices.append((runtime, row["udid"], row["name"]))
+                      devices.append((runtime, row["udid"], row["name"], row.get("state") or ""))
           if not devices:
               print("::error::No available iPhone simulator; ForgeSwiftTests would stay un-run.")
               sys.exit(1)
-          devices.sort(reverse=True)
-          udid = devices[0][1]
-          print(f"Using simulator {devices[0][2]} ({udid}) on {devices[0][0]}")
-          open("/tmp/ios-sim-udid", "w").write(udid)
+          booted = [d for d in devices if d[3] == "Booted"]
+          pool = booted or devices
+          pool.sort(reverse=True)
+          chosen = pool[0]
+          print(f"Using simulator {chosen[2]} ({chosen[1]}) on {chosen[0]} state={chosen[3] or 'Shutdown'}")
+          open("/tmp/ios-sim-udid", "w").write(chosen[1])
           PY
           UDID=$(cat /tmp/ios-sim-udid)
+          xcrun simctl shutdown all || true
+          xcrun simctl boot "$UDID"
+          xcrun simctl bootstatus "$UDID" -b
+          DERIVED=/tmp/dd-ios-tests
           xcodebuild \
             -project ForgeSwift.xcodeproj \
             -scheme ForgeSwift \
             -destination "platform=iOS Simulator,id=$UDID" \
+            -derivedDataPath "$DERIVED" \
             -configuration Debug \
             -skipPackagePluginValidation \
-            test \
-            -only-testing:ForgeSwiftTests \
+            build-for-testing \
             CODE_SIGNING_ALLOWED=NO \
             CODE_SIGN_IDENTITY="" \
-            COMPILER_INDEX_STORE_ENABLE=NO 2>&1 | tee /tmp/ios-test.log
+            COMPILER_INDEX_STORE_ENABLE=NO 2>&1 | tee /tmp/ios-test-build.log
+          run_tests() {
+            xcodebuild \
+              -project ForgeSwift.xcodeproj \
+              -scheme ForgeSwift \
+              -destination "platform=iOS Simulator,id=$UDID" \
+              -derivedDataPath "$DERIVED" \
+              -configuration Debug \
+              -skipPackagePluginValidation \
+              -collect-test-diagnostics never \
+              test-without-building \
+              -only-testing:ForgeSwiftTests \
+              CODE_SIGNING_ALLOWED=NO \
+              CODE_SIGN_IDENTITY="" \
+              COMPILER_INDEX_STORE_ENABLE=NO
+          }
+          attempt=1
+          while [ "$attempt" -le 2 ]; do
+            set +e
+            run_tests 2>&1 | tee /tmp/ios-test.log
+            code=${PIPESTATUS[0]}
+            set -e
+            if [ "$code" -eq 0 ] && grep -q "TEST SUCCEEDED" /tmp/ios-test.log; then
+              exit 0
+            fi
+            if grep -E -q "failed \\(|XCTAssert" /tmp/ios-test.log; then
+              echo "::error::ForgeSwiftTests reported an assertion failure."
+              exit "${code:-1}"
+            fi
+            if [ "$attempt" -eq 2 ]; then
+              echo "::error::ForgeSwiftTests did not pass (exit ${code:-1})."
+              exit "${code:-1}"
+            fi
+            echo "Test runner exited before XCTest attached. Rebooting the simulator and retrying once."
+            xcrun simctl shutdown "$UDID" || true
+            sleep 5
+            xcrun simctl boot "$UDID"
+            xcrun simctl bootstatus "$UDID" -b
+            attempt=$((attempt + 1))
+          done
 
 
       - name: Build ForgeSwift + tests (iOS Simulator)
@@ -171,8 +220,11 @@ jobs:
         if: failure() && needs.changes.outputs.relevant == 'true'
         run: |
           echo "::group::Swift errors"
+          if test -f /tmp/ios-test-build.log; then
+            grep -E "error: " /tmp/ios-test-build.log | sed 's|/Users/runner/work/Forge/Forge/||' | sort -u || true
+          fi
           if test -f /tmp/ios-test.log; then
-            grep -E "error: |failed \(|XCTAssert" /tmp/ios-test.log | sed 's|/Users/runner/work/Forge/Forge/||' | sort -u || true
+            grep -E "error: |failed \\(|XCTAssert|test runner crashed|TEST FAILED|DTServiceHub|TEST SUCCEEDED" /tmp/ios-test.log | sed 's|/Users/runner/work/Forge/Forge/||' | sort -u || true
           fi
           test -f /tmp/ios-build.log || { echo "(build did not reach this step)"; exit 0; }
           grep -E "error: " /tmp/ios-build.log | sed 's|/Users/runner/work/Forge/Forge/||' | sort -u || echo "(no error: lines matched)"
