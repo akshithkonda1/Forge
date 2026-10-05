@@ -789,11 +789,14 @@ final class AriaDummyOrchestratorTests: XCTestCase {
                 "must not fabricate a read on a night with no sleep sample: \(reply.message)"
             )
         }
-        // The honest gap is "last night isn't on the board yet" — it refuses
-        // a fabricated middling night without the older sync-status phrases.
+        // Empty-night copy is variety-picked and already refuses a fabricated
+        // readout. One line says the night isn't on the board; another says
+        // it isn't here and that ARIA is not inventing it. Both are honest.
         let honestGap = [
             "don't have", "no sleep sample", "nothing's synced", "pending sync",
             "isn't on the board", "isn’t on the board", "not on the board",
+            "isn't here", "isn’t here", "no inventing", "what's already here",
+            "what’s already here", "missing sleep data",
         ]
         XCTAssertTrue(
             honestGap.contains { lower.contains($0) },
