@@ -74,6 +74,14 @@ public enum ReplyShapeEngine {
             bits.append("Tomorrow's forecast is \(forecast.0) (\(forecast.1.rawValue)).")
         }
 
+        if let budget = ariaTags.compactMap(TomorrowBudgets.parseTag).first,
+           budget != .neither,
+           tomorrowAsk || lower.contains("split") || lower.contains("budget") {
+            lanes.append("shape:budget")
+            if headline == "What you asked" { headline = "Two budgets" }
+            bits.append(TomorrowBudgets.coachingLine(budget))
+        }
+
         if let working, working.0 == .overreacher || working.1 == .capHeroics {
             lanes.append("shape:working")
             if headline == "What you asked" { headline = "How you work" }

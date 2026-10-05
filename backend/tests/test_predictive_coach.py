@@ -186,6 +186,37 @@ class CoachContextHobbyTests(unittest.TestCase):
         block = coach_context.context_to_prompt_block(out)
         self.assertIn("open_gently", block)
         self.assertIn("peopleEnergy", block)
+        self.assertEqual(out["tomorrowBudgets"]["constraint"], "people")
+        self.assertIn("people-budget", out["tomorrowBudgets"]["coachingLine"].lower())
+
+
+class TomorrowBudgetTests(unittest.TestCase):
+    def test_green_body_thin_people_is_a_split(self):
+        from aria_core import tomorrow_budgets as tb
+
+        snap = tb.snapshot("push", "keep_rhythm", "thin")
+        self.assertEqual(snap.constraint, tb.PEOPLE)
+        self.assertTrue(snap.is_split)
+        self.assertIn("people-budget", snap.coaching_line.lower())
+
+    def test_cap_heroics_thins_the_body_on_a_push_score(self):
+        from aria_core import tomorrow_budgets as tb
+
+        snap = tb.snapshot("push", "cap_heroics", "open")
+        self.assertEqual(snap.constraint, tb.BODY)
+
+    def test_reply_names_the_split(self):
+        from aria_core import reply_shape as rs
+
+        shape = rs.shape(
+            "How should I train around tomorrow?",
+            ["forecast:tomorrow:80:push", "tomorrow_budget:people"],
+            False,
+            False,
+            False,
+        )
+        self.assertIn("shape:budget", shape.lanes)
+        self.assertIn("people-budget", shape.detail.lower())
 
 
 class ReplyShapeTests(unittest.TestCase):

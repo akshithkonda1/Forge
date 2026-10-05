@@ -69,6 +69,10 @@ enum HomeInsightFlow {
         forecast.chatPrompt
     }
 
+    static func tomorrowPrompt(picture: PredictiveCoach.Picture) -> String {
+        "\(picture.forecast.chatPrompt) \(picture.budgets.coachingLine)"
+    }
+
     static func hobbyPrompt(hobby: HobbyPathEngine.Snapshot) -> String {
         hobby.chatPrompt
     }

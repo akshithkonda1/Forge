@@ -72,6 +72,18 @@ final class ReplyShapeEngineTests: XCTestCase {
             || shape.detail.lowercased().contains("tomorrow"))
     }
 
+    func testTomorrowAskNamesTheScarceBudget() {
+        let shape = ReplyShapeEngine.shape(
+            prompt: "How should I train around tomorrow?",
+            ariaTags: ["forecast:tomorrow:80:push", "tomorrow_budget:people"],
+            localFallback: false,
+            scoutUsed: false,
+            estimate: false
+        )
+        XCTAssertTrue(shape.lanes.contains("shape:budget"))
+        XCTAssertTrue(shape.detail.lowercased().contains("people-budget"))
+    }
+
     func testScoutIsNamedAsOutsideThenLife() {
         let shape = ReplyShapeEngine.shape(
             prompt: "hey",

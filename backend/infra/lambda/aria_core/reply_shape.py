@@ -10,6 +10,7 @@ from typing import Any
 
 from . import hobby_path as hp
 from . import readiness_forecast as rf
+from . import tomorrow_budgets as tb
 from . import user_working_model as uwm
 
 ESTIMATE = "shape:estimate"
@@ -101,6 +102,17 @@ def shape(
         if headline == "What you asked":
             headline = "Tomorrow's readiness"
         bits.append(f"Tomorrow's forecast is {forecast[0]} ({forecast[1]}).")
+
+    budget = next((parsed for token in tags if (parsed := tb.parse_tag(token))), None)
+    if (
+        budget
+        and budget != tb.NEITHER
+        and ("tomorrow" in lower or "split" in lower or "budget" in lower)
+    ):
+        lanes.append("shape:budget")
+        if headline == "What you asked":
+            headline = "Two budgets"
+        bits.append(tb.coaching_line(budget))
 
     if working:
         tendency, stance = working

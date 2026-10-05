@@ -268,7 +268,7 @@ enum AriaDummyOrchestrator {
         }
 
         if text.lowercased().contains("tomorrow") {
-            let steer = picture.forecast.steeringLine
+            let steer = picture.budgets.coachingLine + " " + picture.forecast.steeringLine
             if beats.isEmpty == false {
                 beats[0].prose = steer + " " + beats[0].prose
             }

@@ -306,6 +306,7 @@ public enum PredictiveCoach {
         public var forecast: ReadinessForecastEngine.Forecast
         public var working: UserWorkingModel.Snapshot
         public var hobby: HobbyPathEngine.Snapshot
+        public var budgets: TomorrowBudgets.Snapshot
         public var keepLight: Bool
         public var ariaTags: [String]
         public var steeringLine: String
@@ -327,13 +328,19 @@ public enum PredictiveCoach {
             tomorrowPosture: forecast.posture,
             wakeHour: wakeHour
         )
+        let budgets = TomorrowBudgets.snapshot(
+            posture: forecast.posture,
+            stance: working.stance,
+            peopleEnergy: hobby.peopleEnergy
+        )
         return Picture(
             forecast: forecast,
             working: working,
             hobby: hobby,
+            budgets: budgets,
             keepLight: forecast.posture.keepLight || working.stance == .capHeroics,
-            ariaTags: forecast.ariaTags + working.ariaTags + hobby.ariaTags,
-            steeringLine: "\(working.steeringLine) \(forecast.steeringLine) \(hobby.coachingLine) \(hobby.windowLine)"
+            ariaTags: forecast.ariaTags + working.ariaTags + hobby.ariaTags + budgets.ariaTags,
+            steeringLine: "\(working.steeringLine) \(forecast.steeringLine) \(hobby.coachingLine) \(hobby.windowLine) \(budgets.coachingLine)"
         )
     }
 }

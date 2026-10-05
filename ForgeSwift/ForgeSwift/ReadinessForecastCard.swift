@@ -19,6 +19,10 @@ struct ReadinessForecastCard: View {
         store.predictiveCoachPicture().forecast
     }
 
+    private var budgets: TomorrowBudgets.Snapshot {
+        store.predictiveCoachPicture().budgets
+    }
+
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
             HStack {
@@ -39,6 +43,13 @@ struct ReadinessForecastCard: View {
                         .font(HomeType.body)
                         .foregroundColor(.textTertiary)
                         .lineLimit(3)
+                    Text(budgets.headline)
+                        .font(FDS.TypeScale.label(12))
+                        .foregroundStyle(Color.ember)
+                    Text(budgets.coachingLine)
+                        .font(HomeType.body)
+                        .foregroundColor(.textSecondary)
+                        .lineLimit(3)
                 }
             }
 
@@ -53,7 +64,7 @@ struct ReadinessForecastCard: View {
 
             Button {
                 FDS.haptic(.light)
-                store.openChat(with: HomeInsightFlow.tomorrowPrompt(forecast: forecast), voice: false)
+                store.openChat(with: HomeInsightFlow.tomorrowPrompt(picture: store.predictiveCoachPicture()), voice: false)
             } label: {
                 HStack {
                     Image(systemName: "message.fill")
@@ -75,7 +86,7 @@ struct ReadinessForecastCard: View {
         .padding(HomeMetrics.cardPadding)
         .forgeGlassCard(accent: .ember)
         .accessibilityElement(children: .combine)
-        .accessibilityLabel("Tomorrow's readiness forecast: \(forecast.predictedScore). \(forecast.recommendation)")
+        .accessibilityLabel("Tomorrow's readiness forecast: \(forecast.predictedScore). \(forecast.recommendation) \(budgets.headline). \(budgets.coachingLine)")
     }
 
     // MARK: - Pieces

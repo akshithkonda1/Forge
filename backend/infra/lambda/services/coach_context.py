@@ -159,6 +159,7 @@ def _attach_predictions(context: dict[str, Any]) -> dict[str, Any]:
         from aria_core import readiness_forecast as rf
         from aria_core import user_working_model as uwm
         from aria_core import hobby_path as hp
+        from aria_core import tomorrow_budgets as tb
     except Exception:
         return context
 
@@ -226,9 +227,11 @@ def _attach_predictions(context: dict[str, Any]) -> dict[str, Any]:
     ), tomorrow_posture=fc.posture)
     hobbies, social, wake = _hobby_inputs(context)
     hobby = hp.snapshot(social, hobbies, working, tomorrow_posture=fc.posture, wake_hour=wake)
+    budgets = tb.snapshot(fc.posture, working.stance, hobby.people_energy)
     context["tomorrowForecast"] = fc.to_dict()
     context["workingModel"] = working.to_dict()
     context["hobbyPath"] = hobby.to_dict()
+    context["tomorrowBudgets"] = budgets.to_dict()
     return context
 
 
@@ -283,6 +286,13 @@ def context_to_prompt_block(context: dict[str, Any]) -> str:
             "peopleEnergy": hobby.get("peopleEnergy"),
             "freeDayWindow": hobby.get("freeDayWindow"),
             "windowLine": hobby.get("windowLine"),
+        }
+    budgets = context.get("tomorrowBudgets") or {}
+    if budgets.get("constraint"):
+        compact["tomorrowBudgets"] = {
+            "constraint": budgets.get("constraint"),
+            "headline": budgets.get("headline"),
+            "coachingLine": budgets.get("coachingLine"),
         }
     return json.dumps(compact, separators=(",", ":"))
 
