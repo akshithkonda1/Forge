@@ -480,7 +480,8 @@ enum AriaDummyTurn {
         if let train {
             sentences.append(clip(train.prose, limit: 280))
         }
-        if let food, askedFood || train == nil {
+        let characterAnswer = QualityOfLifeLivingStore.isCharacterQuestion(prompt)
+        if let food, askedFood || train == nil || characterAnswer {
             let lowerFood = food.prose.lowercased()
             let calendarThought = interpretation.readCalendar
                 || lowerFood.contains("calendar")
@@ -492,7 +493,13 @@ enum AriaDummyTurn {
                 || lowerFood.contains("quality of life")
                 || lowerFood.contains("tux")
                 || lowerFood.contains("suit")
-            let limit = calendarThought ? 280 : 140
+            // Character answers always end with the on-device sentence.
+            // A 140-character clip stops at "light eater." and drops it.
+            let keepWhole = characterAnswer
+                || lowerFood.contains("on-device")
+                || lowerFood.contains("don't have to ask the model")
+                || lowerFood.contains("don’t have to ask the model")
+            let limit = keepWhole ? 480 : (calendarThought ? 280 : 140)
             sentences.append(clip(food.prose, limit: limit))
         }
         if let body, sleep != nil {

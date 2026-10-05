@@ -71,6 +71,9 @@ enum MedicationPharmacy {
     private static var sortedTokens: [String] = []
     private static var tokenRows: [String: [Int]] = [:]
     private static var ready = false
+    /// Why the last bundled load succeeded or fell back to seeds. Tests
+    /// surface this when the federal catalog does not come back.
+    static var loadDiagnostics = ""
 
     static var isReady: Bool {
         lock.withLock { ready }
@@ -411,15 +414,25 @@ enum MedicationPharmacy {
     }
 
     private static func loadBundledCatalog() -> [FDAMedication] {
-        for (url, compressed) in catalogFileURLs() {
-            guard let raw = try? Data(contentsOf: url), !raw.isEmpty else { continue }
+        var notes: [String] = []
+        let urls = catalogFileURLs()
+        notes.append("candidates=\(urls.count)")
+        for (url, compressed) in urls {
+            guard FileManager.default.fileExists(atPath: url.path),
+                  let raw = try? Data(contentsOf: url), !raw.isEmpty else {
+                notes.append("miss \(url.lastPathComponent)")
+                continue
+            }
+            let magic = raw.prefix(2).map { String(format: "%02x", $0) }.joined()
+            notes.append("read \(raw.count)b \(magic) z=\(compressed)")
             let text: String
             if compressed {
-                guard let decoded = inflateZlib(raw) else { continue }
+                guard let decoded = inflateZlib(raw, notes: &notes) else { continue }
                 text = decoded
             } else if let decoded = String(data: raw, encoding: .utf8) {
                 text = decoded
             } else {
+                notes.append("utf8 fail")
                 continue
             }
             var rows: [FDAMedication] = []
@@ -429,29 +442,265 @@ enum MedicationPharmacy {
                     rows.append(row)
                 }
             }
-            if !rows.isEmpty { return rows }
+            notes.append("parsed \(rows.count)")
+            if !rows.isEmpty {
+                loadDiagnostics = notes.joined(separator: "; ")
+                return rows
+            }
         }
+        notes.append("fallback seeds")
+        loadDiagnostics = notes.joined(separator: "; ")
         return fallbackSeeds()
     }
 
-    private static func inflateZlib(_ raw: Data) -> String? {
-        if let text = inflateViaFoundation(raw) { return text }
-        // NSData's one-shot zlib path has failed on this ~17MB catalog in the
-        // simulator test host (the bundle file is present; the decode throws
-        // and the pharmacy falls back to four seeds). Stream it instead.
-        return inflateViaCompression(raw)
+    /// RFC 1950/1951 inflater. The simulator test host's one-shot
+    /// `NSData.decompressed` and `compression_decode_buffer` both returned
+    /// nothing for this ~17MB catalog, so the pharmacy fell back to four
+    /// seeds. This reader is what the bundled file actually inflates with.
+    private enum ZlibInflate {
+        private struct Boom: Error {}
+
+        private struct Reader {
+            var data: [UInt8]
+            var pos = 0
+            var bitbuf: UInt64 = 0
+            var bitcnt = 0
+
+            mutating func bits(_ n: Int) throws -> Int {
+                while bitcnt < n {
+                    if pos >= data.count { throw Boom() }
+                    bitbuf |= UInt64(data[pos]) << bitcnt
+                    pos += 1
+                    bitcnt += 8
+                }
+                let mask = (UInt64(1) << UInt64(n)) - 1
+                let value = Int(bitbuf & mask)
+                bitbuf >>= n
+                bitcnt -= n
+                return value
+            }
+
+            mutating func align() {
+                let drop = bitcnt % 8
+                if drop != 0 {
+                    bitbuf >>= drop
+                    bitcnt -= drop
+                }
+            }
+
+            mutating func bytes(_ n: Int) throws -> [UInt8] {
+                align()
+                var out: [UInt8] = []
+                out.reserveCapacity(n)
+                while out.count < n {
+                    if bitcnt >= 8 {
+                        out.append(UInt8(bitbuf & 0xFF))
+                        bitbuf >>= 8
+                        bitcnt -= 8
+                    } else {
+                        if pos >= data.count { throw Boom() }
+                        let take = min(n - out.count, data.count - pos)
+                        out.append(contentsOf: data[pos..<(pos + take)])
+                        pos += take
+                    }
+                }
+                return out
+            }
+
+            mutating func symbol(_ accel: [(Int, Int)?]) throws -> Int {
+                while bitcnt < 15, pos < data.count {
+                    bitbuf |= UInt64(data[pos]) << bitcnt
+                    pos += 1
+                    bitcnt += 8
+                }
+                let peeked = Int(bitbuf & 0x7FFF)
+                guard let hit = accel[peeked] else { throw Boom() }
+                let (sym, length) = hit
+                if bitcnt < length { throw Boom() }
+                bitbuf >>= length
+                bitcnt -= length
+                return sym
+            }
+        }
+
+        private static let lenBase = [3,4,5,6,7,8,9,10,11,13,15,17,19,23,27,31,35,43,51,59,67,83,99,115,131,163,195,227,258]
+        private static let lenExtra = [0,0,0,0,0,0,0,0,1,1,1,1,2,2,2,2,3,3,3,3,4,4,4,4,5,5,5,5,0]
+        private static let distBase = [1,2,3,4,5,7,9,13,17,25,33,49,65,97,129,193,257,385,513,769,1025,1537,2049,3073,4097,6145,8193,12289,16385,24577]
+        private static let distExtra = [0,0,0,0,1,1,2,2,3,3,4,4,5,5,6,6,7,7,8,8,9,9,10,10,11,11,12,12,13,13]
+        private static let order = [16,17,18,0,8,7,9,6,10,5,11,4,12,3,13,2,14,1,15]
+
+        private static func accel(_ lengths: [Int]) -> [(Int, Int)?] {
+            var counts = [Int](repeating: 0, count: 16)
+            for length in lengths where length > 0 {
+                counts[length] += 1
+            }
+            var code = 0
+            var next = [Int](repeating: 0, count: 16)
+            for bits in 1..<16 {
+                code = (code + counts[bits - 1]) << 1
+                next[bits] = code
+            }
+            var table = [(Int, Int)?](repeating: nil, count: 1 << 15)
+            for (sym, length) in lengths.enumerated() where length > 0 {
+                var canonical = next[length]
+                next[length] += 1
+                var reversed = 0
+                var remaining = canonical
+                for _ in 0..<length {
+                    reversed = (reversed << 1) | (remaining & 1)
+                    remaining >>= 1
+                }
+                var index = reversed
+                let step = 1 << length
+                while index < table.count {
+                    table[index] = (sym, length)
+                    index += step
+                }
+            }
+            return table
+        }
+
+        private static let fixedLit: [(Int, Int)?] = {
+            var lengths = [Int](repeating: 8, count: 144)
+            lengths.append(contentsOf: [Int](repeating: 9, count: 112))
+            lengths.append(contentsOf: [Int](repeating: 7, count: 24))
+            lengths.append(contentsOf: [Int](repeating: 8, count: 8))
+            return accel(lengths)
+        }()
+        private static let fixedDist: [(Int, Int)?] = accel([Int](repeating: 5, count: 32))
+
+        private static func blocks(_ data: [UInt8]) throws -> [UInt8] {
+            var reader = Reader(data: data)
+            var out: [UInt8] = []
+            out.reserveCapacity(18_000_000)
+            while true {
+                let final = try reader.bits(1)
+                let kind = try reader.bits(2)
+                if kind == 0 {
+                    let lengthBytes = try reader.bytes(2)
+                    let nlenBytes = try reader.bytes(2)
+                    let length = Int(lengthBytes[0]) | (Int(lengthBytes[1]) << 8)
+                    let nlen = Int(nlenBytes[0]) | (Int(nlenBytes[1]) << 8)
+                    if length ^ 0xFFFF != nlen { throw Boom() }
+                    out.append(contentsOf: try reader.bytes(length))
+                } else if kind == 1 || kind == 2 {
+                    let lit: [(Int, Int)?]
+                    let dist: [(Int, Int)?]
+                    if kind == 1 {
+                        lit = fixedLit
+                        dist = fixedDist
+                    } else {
+                        let hlit = try reader.bits(5) + 257
+                        let hdist = try reader.bits(5) + 1
+                        let hclen = try reader.bits(4) + 4
+                        var clen = [Int](repeating: 0, count: 19)
+                        for index in 0..<hclen {
+                            clen[order[index]] = try reader.bits(3)
+                        }
+                        let codeLen = accel(clen)
+                        var lengths: [Int] = []
+                        lengths.reserveCapacity(hlit + hdist)
+                        while lengths.count < hlit + hdist {
+                            let sym = try reader.symbol(codeLen)
+                            if sym < 16 {
+                                lengths.append(sym)
+                            } else if sym == 16 {
+                                guard let last = lengths.last else { throw Boom() }
+                                lengths.append(contentsOf: [Int](repeating: last, count: try reader.bits(2) + 3))
+                            } else if sym == 17 {
+                                lengths.append(contentsOf: [Int](repeating: 0, count: try reader.bits(3) + 3))
+                            } else {
+                                lengths.append(contentsOf: [Int](repeating: 0, count: try reader.bits(7) + 11))
+                            }
+                        }
+                        if lengths.count != hlit + hdist { throw Boom() }
+                        lit = accel(Array(lengths.prefix(hlit)))
+                        dist = accel(Array(lengths.suffix(hdist)))
+                    }
+                    while true {
+                        let sym = try reader.symbol(lit)
+                        if sym < 256 {
+                            out.append(UInt8(sym))
+                        } else if sym == 256 {
+                            break
+                        } else {
+                            let index = sym - 257
+                            let extra = lenExtra[index]
+                            let length = lenBase[index] + (extra > 0 ? try reader.bits(extra) : 0)
+                            let dsym = try reader.symbol(dist)
+                            let dextra = distExtra[dsym]
+                            let distance = distBase[dsym] + (dextra > 0 ? try reader.bits(dextra) : 0)
+                            if distance <= 0 || distance > out.count { throw Boom() }
+                            for _ in 0..<length {
+                                out.append(out[out.count - distance])
+                            }
+                        }
+                    }
+                } else {
+                    throw Boom()
+                }
+                if final == 1 { break }
+            }
+            return out
+        }
+
+        static func inflate(_ raw: Data) -> Data? {
+            let bytes = [UInt8](raw)
+            guard bytes.count > 6, bytes[0] == 0x78 else { return nil }
+            let header = Int(bytes[0]) * 256 + Int(bytes[1])
+            guard header % 31 == 0 else { return nil }
+            var offset = 2
+            if bytes[1] & 0x20 != 0 { offset += 4 }
+            guard offset < bytes.count else { return nil }
+            guard let out = try? blocks(Array(bytes[offset...])) else { return nil }
+            guard !out.isEmpty else { return nil }
+            return Data(out)
+        }
     }
 
-    private static func inflateViaFoundation(_ raw: Data) -> String? {
-        guard let inflated = try? (raw as NSData).decompressed(using: .zlib) as Data,
-              let text = String(data: inflated, encoding: .utf8),
-              !text.isEmpty else { return nil }
-        return text
+    /// The shipped catalog is zlib (RFC 1950, header `78 da`) and inflates to
+    /// about 17MB. Prefer the in-process inflater; Apple's one-shot helpers
+    /// stay as backups. Raw DEFLATE (header and Adler trailer stripped) is
+    /// tried because `COMPRESSION_ZLIB` is the raw format on some OS versions.
+    private static func inflateZlib(_ raw: Data, notes: inout [String]) -> String? {
+        if let data = ZlibInflate.inflate(raw),
+           let text = String(data: data, encoding: .utf8), text.contains("|") {
+            notes.append("pure \(data.count)")
+            return text
+        }
+        var attempts: [(String, Data)] = [("zlib", raw)]
+        if raw.count > 6, raw[raw.startIndex] == 0x78 {
+            let payload = raw.subdata(in: raw.index(raw.startIndex, offsetBy: 2)..<raw.index(raw.endIndex, offsetBy: -4))
+            attempts.append(("raw", payload))
+        }
+        for (label, bytes) in attempts {
+            if let data = inflateViaStream(bytes),
+               let text = String(data: data, encoding: .utf8), text.contains("|") {
+                notes.append("stream \(label) \(data.count)")
+                return text
+            }
+            if let data = inflateViaBuffer(bytes),
+               let text = String(data: data, encoding: .utf8), text.contains("|") {
+                notes.append("buffer \(label) \(data.count)")
+                return text
+            }
+        }
+        if let data = inflateViaFoundation(raw),
+           let text = String(data: data, encoding: .utf8), text.contains("|") {
+            notes.append("foundation \(data.count)")
+            return text
+        }
+        notes.append("inflate failed")
+        return nil
     }
 
-    private static func inflateViaCompression(_ raw: Data) -> String? {
-        // Catalog inflates to ~17MB. Leave headroom so a short read is a
-        // failure, not a truncated UTF-8 string that parses as nothing.
+    private static func inflateViaFoundation(_ raw: Data) -> Data? {
+        guard let inflated = try? (raw as NSData).decompressed(using: .zlib) else { return nil }
+        let data = inflated as Data
+        return data.isEmpty ? nil : data
+    }
+
+    private static func inflateViaBuffer(_ raw: Data) -> Data? {
         let capacity = 32 * 1024 * 1024
         let destination = UnsafeMutablePointer<UInt8>.allocate(capacity: capacity)
         defer { destination.deallocate() }
@@ -467,9 +716,50 @@ enum MedicationPharmacy {
             )
         }
         guard produced > 0 else { return nil }
-        let data = Data(bytes: destination, count: produced)
-        return String(data: data, encoding: .utf8)
+        return Data(bytes: destination, count: produced)
     }
+
+    /// Chunked decode so a 17MB catalog does not depend on one 32MB one-shot.
+    private static func inflateViaStream(_ raw: Data) -> Data? {
+        guard !raw.isEmpty else { return nil }
+        let streamPointer = UnsafeMutablePointer<compression_stream>.allocate(capacity: 1)
+        defer { streamPointer.deallocate() }
+        guard compression_stream_init(streamPointer, COMPRESSION_STREAM_DECODE, COMPRESSION_ZLIB) != COMPRESSION_STATUS_ERROR else {
+            return nil
+        }
+        defer { compression_stream_destroy(streamPointer) }
+
+        let chunk = 64 * 1024
+        let destination = UnsafeMutablePointer<UInt8>.allocate(capacity: chunk)
+        defer { destination.deallocate() }
+        var output = Data()
+        output.reserveCapacity(min(max(raw.count * 8, 1024), 20 * 1024 * 1024))
+        let cap = 40 * 1024 * 1024
+        let finished: Bool = raw.withUnsafeBytes { source in
+            guard let base = source.bindMemory(to: UInt8.self).baseAddress else { return false }
+            streamPointer.pointee.src_ptr = base
+            streamPointer.pointee.src_size = raw.count
+            while output.count < cap {
+                streamPointer.pointee.dst_ptr = destination
+                streamPointer.pointee.dst_size = chunk
+                let status = compression_stream_process(streamPointer, COMPRESSION_STREAM_FINALIZE)
+                let wrote = chunk - streamPointer.pointee.dst_size
+                if wrote > 0 {
+                    output.append(destination, count: wrote)
+                }
+                if status == COMPRESSION_STATUS_END { return true }
+                if status == COMPRESSION_STATUS_ERROR { return false }
+                if wrote == 0 { return false }
+            }
+            return false
+        }
+        guard finished, !output.isEmpty else { return nil }
+        return output
+    }
+
+    /// Anchor so `Bundle(for:)` resolves the app module that copied the catalog,
+    /// including when a test host's `Bundle.main` is not that bundle.
+    private final class BundleAnchor: NSObject {}
 
     private static func catalogFileURLs() -> [(URL, Bool)] {
         var urls: [(URL, Bool)] = []
@@ -479,8 +769,7 @@ enum MedicationPharmacy {
             guard seen.insert(path).inserted else { return }
             urls.append((url, compressed))
         }
-        let bundles = [Bundle.main] + Bundle.allBundles + Bundle.allFrameworks
-        for bundle in bundles {
+        func addBundle(_ bundle: Bundle) {
             if let deflate = bundle.url(forResource: catalogResource, withExtension: "deflate") {
                 add(deflate, compressed: true)
             }
@@ -489,14 +778,41 @@ enum MedicationPharmacy {
             }
             // Unknown UTIs are sometimes copied into the app but skipped by
             // url(forResource:withExtension:). The file sits at the bundle root.
-            if let root = bundle.resourceURL {
+            let roots = [bundle.resourceURL, bundle.bundleURL].compactMap { $0 }
+            for root in roots {
                 add(root.appendingPathComponent("\(catalogResource).deflate"), compressed: true)
                 add(root.appendingPathComponent("\(catalogResource).txt"), compressed: false)
             }
         }
+        var bundles = [Bundle.main] + Bundle.allBundles + Bundle.allFrameworks
+        bundles.append(Bundle(for: BundleAnchor.self))
+        if let app = Bundle(identifier: "com.forge.ForgeSwift") {
+            bundles.append(app)
+        }
+        for bundle in bundles {
+            addBundle(bundle)
+        }
         let folder = URL(fileURLWithPath: #filePath).deletingLastPathComponent()
         add(folder.appendingPathComponent("\(catalogResource).deflate"), compressed: true)
         add(folder.appendingPathComponent("\(catalogResource).txt"), compressed: false)
+        // Last resort: walk the app bundle. A generic `file` UTI can hide the
+        // resource from url(forResource:) even after CpResource copies it.
+        if let root = Bundle(identifier: "com.forge.ForgeSwift")?.bundleURL ?? Bundle(for: BundleAnchor.self).bundleURL {
+            if let enumerator = FileManager.default.enumerator(
+                at: root,
+                includingPropertiesForKeys: nil,
+                options: [.skipsHiddenFiles]
+            ) {
+                for case let url as URL in enumerator {
+                    let name = url.lastPathComponent
+                    if name == "\(catalogResource).deflate" {
+                        add(url, compressed: true)
+                    } else if name == "\(catalogResource).txt" {
+                        add(url, compressed: false)
+                    }
+                }
+            }
+        }
         return urls
     }
 

@@ -923,10 +923,17 @@ enum AriaDummyOrchestrator {
                 opener: "You're driving — what are we training?"
             ))
         }
-        // "Skip legs, still train" / an angry knee already named the
-        // constraint. Asking "what part" again drops the plan the person
-        // just asked for.
-        if interpretation.skipLegs || !interpretation.joints.isEmpty {
+        // "Skip legs, still train" / a knee named in this message already
+        // constrains the session. Asking "what part" again drops the plan
+        // they just asked for. A remembered joint from another turn does
+        // not — "what should I train" still opens the box, or a stored
+        // knee turns the ask into an unrequested lats plan.
+        let spokenJoints = AriaDummyTurn.joints(in: text, remembered: [])
+        let spokenSkipsLegs = lower.contains("skip legs")
+            || lower.contains("less legs")
+            || lower.contains("no squats")
+            || spokenJoints.contains(where: { ["knee", "hip", "ankle"].contains($0) })
+        if spokenSkipsLegs {
             return .proceed(altFocus: TrainingFocus.from(text: text))
         }
         // An explicit body part is a choice: record it, learn it, build it.
@@ -1189,10 +1196,18 @@ enum AriaDummyOrchestrator {
 
     private static func consumeLiveGrounding(store: AppStore) -> AriaLiveGroundingSnapshot {
         let hub = AriaLiveGroundingHub.shared
+        // The store passed into this turn is the board. The hub is only a
+        // publish of that store (HealthKit hydrate writes the store, then
+        // publishes). Preferring a leftover hub hid a short night and a low
+        // readiness the caller had just written onto the store.
+        let built = AriaLiveGroundingSnapshot.from(store: store)
+        if built.hasLifeSignal {
+            hub.publish(built, force: true)
+            return built
+        }
         if hub.latest.hasLifeSignal {
             return hub.latest
         }
-        let built = AriaLiveGroundingSnapshot.from(store: store)
         hub.publish(built, force: true)
         return built
     }

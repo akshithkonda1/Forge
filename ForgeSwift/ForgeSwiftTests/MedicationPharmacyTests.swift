@@ -8,8 +8,16 @@ final class MedicationPharmacyTests: XCTestCase {
     }
 
     func testCatalogExceedsTenThousand() {
-        XCTAssertGreaterThanOrEqual(MedicationPharmacy.count, MedicationPharmacy.minimumCount)
-        XCTAssertGreaterThanOrEqual(MedicationPharmacy.all().count, 50_000, "NDC + drugs@FDA + CDC CVX must ship as a federal-scale catalog")
+        XCTAssertGreaterThanOrEqual(
+            MedicationPharmacy.count,
+            MedicationPharmacy.minimumCount,
+            MedicationPharmacy.loadDiagnostics
+        )
+        XCTAssertGreaterThanOrEqual(
+            MedicationPharmacy.all().count,
+            50_000,
+            "NDC + drugs@FDA + CDC CVX must ship as a federal-scale catalog. \(MedicationPharmacy.loadDiagnostics)"
+        )
     }
 
     func testSearchFindsKnownFDADrugs() {
