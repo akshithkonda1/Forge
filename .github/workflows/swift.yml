@@ -116,6 +116,8 @@ jobs:
           # Compile with the simulator shut down, boot it only to run, and
           # kill xcodebuild as soon as a bless failure shows up. A second
           # 600s wait on a booted sim dropped the runner (lost communication).
+          # ENABLE_DEBUG_DYLIB stays off for this build: Xcode's debug dylib
+          # stub launches, then the test runner exits before XCTest connects.
           # Assertion failures still fail the job immediately.
           python3 - <<'PY'
           import json, subprocess, sys
@@ -165,7 +167,8 @@ jobs:
             CODE_SIGNING_ALLOWED=NO \
             CODE_SIGN_IDENTITY="" \
             ONLY_ACTIVE_ARCH=YES \
-            COMPILER_INDEX_STORE_ENABLE=NO 2>&1 | tee /tmp/ios-test-build.log
+            COMPILER_INDEX_STORE_ENABLE=NO \
+            ENABLE_DEBUG_DYLIB=NO 2>&1 | tee /tmp/ios-test-build.log
           boot_sim() {
             local reset="${1:-}"
             xcrun simctl shutdown "$UDID" || true
@@ -226,7 +229,8 @@ jobs:
               CODE_SIGNING_ALLOWED=NO \
               CODE_SIGN_IDENTITY="" \
               ONLY_ACTIVE_ARCH=YES \
-              COMPILER_INDEX_STORE_ENABLE=NO >> /tmp/ios-test.log 2>&1 &
+              COMPILER_INDEX_STORE_ENABLE=NO \
+              ENABLE_DEBUG_DYLIB=NO >> /tmp/ios-test.log 2>&1 &
             local xpid=$!
             tail -n +1 -f /tmp/ios-test.log &
             local tpid=$!
@@ -262,7 +266,29 @@ jobs:
             fi
             kill "$tpid" 2>/dev/null || true
             wait "$tpid" 2>/dev/null || true
+            # errexit is not local. A non-zero return while it is on
+            # aborts the step before the caller can retry.
+            set +e
             return "$code"
+          }
+          dump_launch_log() {
+            echo "::group::ForgeSwift device log"
+            xcrun simctl spawn "$UDID" log show --last 2m --style compact --predicate 'processImagePath CONTAINS "ForgeSwift"' > /tmp/ios-device.log 2>/dev/null &
+            local lpid=$!
+            local waited=0
+            while kill -0 "$lpid" 2>/dev/null; do
+              if [ "$waited" -ge 40 ]; then
+                kill -TERM "$lpid" 2>/dev/null || true
+                break
+              fi
+              sleep 5
+              waited=$((waited + 5))
+            done
+            wait "$lpid" 2>/dev/null || true
+            if [ -f /tmp/ios-device.log ]; then
+              tail -n 80 /tmp/ios-device.log || true
+            fi
+            echo "::endgroup::"
           }
           finish() {
             shutdown_sim
@@ -284,6 +310,7 @@ jobs:
               exit "${code:-1}"
             fi
             if [ "$attempt" -eq 2 ]; then
+              dump_launch_log || true
               echo "::error::ForgeSwiftTests did not pass (exit ${code:-1})."
               exit "${code:-1}"
             fi
