@@ -742,7 +742,10 @@ enum MedicationPharmacy {
             while output.count < cap {
                 streamPointer.pointee.dst_ptr = destination
                 streamPointer.pointee.dst_size = chunk
-                let status = compression_stream_process(streamPointer, COMPRESSION_STREAM_FINALIZE)
+                let status = compression_stream_process(
+                    streamPointer,
+                    Int32(COMPRESSION_STREAM_FINALIZE.rawValue)
+                )
                 let wrote = chunk - streamPointer.pointee.dst_size
                 if wrote > 0 {
                     output.append(destination, count: wrote)
@@ -797,19 +800,19 @@ enum MedicationPharmacy {
         add(folder.appendingPathComponent("\(catalogResource).txt"), compressed: false)
         // Last resort: walk the app bundle. A generic `file` UTI can hide the
         // resource from url(forResource:) even after CpResource copies it.
-        if let root = Bundle(identifier: "com.forge.ForgeSwift")?.bundleURL ?? Bundle(for: BundleAnchor.self).bundleURL {
-            if let enumerator = FileManager.default.enumerator(
-                at: root,
-                includingPropertiesForKeys: nil,
-                options: [.skipsHiddenFiles]
-            ) {
-                for case let url as URL in enumerator {
-                    let name = url.lastPathComponent
-                    if name == "\(catalogResource).deflate" {
-                        add(url, compressed: true)
-                    } else if name == "\(catalogResource).txt" {
-                        add(url, compressed: false)
-                    }
+        let root = Bundle(identifier: "com.forge.ForgeSwift")?.bundleURL
+            ?? Bundle(for: BundleAnchor.self).bundleURL
+        if let enumerator = FileManager.default.enumerator(
+            at: root,
+            includingPropertiesForKeys: nil,
+            options: [.skipsHiddenFiles]
+        ) {
+            for case let url as URL in enumerator {
+                let name = url.lastPathComponent
+                if name == "\(catalogResource).deflate" {
+                    add(url, compressed: true)
+                } else if name == "\(catalogResource).txt" {
+                    add(url, compressed: false)
                 }
             }
         }
