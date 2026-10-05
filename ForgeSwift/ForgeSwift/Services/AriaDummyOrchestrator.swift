@@ -688,9 +688,11 @@ enum AriaDummyOrchestrator {
                     curious: lower.contains("curious") || lower.contains("pottery"),
                     skipGroups: lower.contains("skip group") || lower.contains("group stuff")
                 )
-                let prose = [spoken, picture.hobby.coachingLine]
-                    .filter { !$0.isEmpty }
-                    .joined(separator: " ")
+                let people = PeopleDirectoryStore.load().coachingPeople
+                let prose = spoken + PeopleDirectory.hobbySuffix(
+                    path: picture.hobby.path,
+                    people: people
+                )
                 return AriaDummyBeat(
                     domain: .lifestyle,
                     prose: prose,
