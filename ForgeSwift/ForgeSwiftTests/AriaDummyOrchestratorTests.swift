@@ -548,7 +548,20 @@ final class AriaDummyOrchestratorTests: XCTestCase {
     }
 
     func testCalendarKindsSteerTrainingWithoutLeakingTitles() async throws {
-        defer { AriaContextStore.shared.applyCalendarIngestTags([]) }
+        // Earlier cases in this process persist a weekday pattern. This ask
+        // is the no-pattern case: the box opens, then chest still steers
+        // around the week.
+        let habitsKey = AppStore.trainingHabitsKey
+        let habitsPrevious = UserDefaults.standard.data(forKey: habitsKey)
+        defer {
+            AriaContextStore.shared.applyCalendarIngestTags([])
+            if let habitsPrevious {
+                UserDefaults.standard.set(habitsPrevious, forKey: habitsKey)
+            } else {
+                UserDefaults.standard.removeObject(forKey: habitsKey)
+            }
+        }
+        UserDefaults.standard.removeObject(forKey: habitsKey)
         AriaContextStore.shared.applyCalendarIngestTags([
             "calendar:busy:3",
             "calendar:week:busy:9",
