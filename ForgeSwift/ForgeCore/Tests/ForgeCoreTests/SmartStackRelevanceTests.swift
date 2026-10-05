@@ -106,4 +106,19 @@ final class SmartStackRelevanceTests: XCTestCase {
         let idle = SmartStackRelevance.score(for: WatchSnapshot(), now: now)!.score
         XCTAssertTrue(live > bedtime && bedtime > reset && reset > idle)
     }
+
+    func testEveningProtectForecastBeatsAmbientAndLosesToWindDown() {
+        var comps = Calendar.current.dateComponents([.year, .month, .day], from: now)
+        comps.hour = 20
+        comps.minute = 0
+        let evening = Calendar.current.date(from: comps) ?? now
+        var snap = WatchSnapshot()
+        snap.tomorrowPredictedScore = 52
+        snap.tomorrowPosture = ReadinessForecastEngine.Posture.protect.rawValue
+        let score = SmartStackRelevance.score(for: snap, now: evening)?.score
+        XCTAssertEqual(score, SmartStackRelevance.flagged * 0.55)
+        let bedtime = SmartStackRelevance.score(for: snapshot(windDown: evening), now: evening)!.score
+        XCTAssertGreaterThan(bedtime, score!)
+        XCTAssertGreaterThan(score!, SmartStackRelevance.ambient)
+    }
 }

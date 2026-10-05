@@ -93,6 +93,19 @@ public enum ReadinessForecastEngine {
         case protect
         /// Take the rest day. The forecast is confident it pays off.
         case rest
+
+        public var glanceTitle: String {
+            switch self {
+            case .push: return "Green light"
+            case .steady: return "Steady"
+            case .protect: return "Protect"
+            case .rest: return "Rest"
+            }
+        }
+
+        public var keepLight: Bool {
+            self == .protect || self == .rest
+        }
     }
 
     public struct Driver: Sendable, Identifiable {
@@ -119,6 +132,40 @@ public enum ReadinessForecastEngine {
         public var drivers: [Driver]
         public var recommendation: String
         public var posture: Posture
+
+        /// Tags ARIA already reads on `lifestyle.recentPatterns`.
+        public var ariaTags: [String] {
+            [
+                "forecast:tomorrow:\(predictedScore):\(posture.rawValue)",
+                "forecast:confidence:\(confidence.rawValue)",
+            ]
+        }
+
+        /// The prompt Home, Watch, and tests all send when someone asks ARIA
+        /// about tomorrow. One function — the button is not a tab switch.
+        public var chatPrompt: String {
+            "Tomorrow's readiness looks like \(predictedScore) with a \(posture.rawValue) day. \(recommendation) How should I train around that?"
+        }
+
+        /// One line ARIA can lead with. Lifestyle coach, not a diagnosis.
+        public var steeringLine: String {
+            switch posture {
+            case .push:
+                return "Tomorrow looks available — keep the hard session if they want it."
+            case .steady:
+                return "Tomorrow looks like a normal training day — keep the plan."
+            case .protect:
+                return "Tomorrow looks like a cap-intensity day — protect the session, don't add load."
+            case .rest:
+                return "Tomorrow looks like a rest day — showing up easy beats pushing through."
+            }
+        }
+
+        public var glanceTitle: String { posture.glanceTitle }
+
+        public var glanceLine: String {
+            "Tomorrow \(predictedScore) · \(glanceTitle)"
+        }
     }
 
     // MARK: - Model

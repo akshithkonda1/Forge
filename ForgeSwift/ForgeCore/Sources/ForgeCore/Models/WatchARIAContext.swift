@@ -14,6 +14,8 @@ public struct WatchARIAContext: Codable, Sendable, Equatable {
     // Readiness snapshot (locally calculated or synced)
     public var readinessOverall: Int?
     public var readinessConfidence: Double?
+    public var tomorrowPredictedScore: Int?
+    public var tomorrowPosture: String?
 
     // Recent HRV trend over the last 1-4h: negative = dipping.
     public var hrvRecentMs: Double?

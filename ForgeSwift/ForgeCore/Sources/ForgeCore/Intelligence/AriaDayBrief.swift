@@ -45,6 +45,14 @@ public enum AriaDayBrief {
             actionBit = "Next: a short reset when you want it"
         }
 
-        return "\(readinessBit) · \(sleepBit). \(actionBit)."
+        let tomorrowBit: String
+        if let score = context.tomorrowPredictedScore {
+            let title = ReadinessGlanceCopy.postureTitle(context.tomorrowPosture) ?? "forecast"
+            tomorrowBit = " Tomorrow \(score) (\(title))."
+        } else {
+            tomorrowBit = ""
+        }
+
+        return "\(readinessBit) · \(sleepBit). \(actionBit).\(tomorrowBit)"
     }
 }

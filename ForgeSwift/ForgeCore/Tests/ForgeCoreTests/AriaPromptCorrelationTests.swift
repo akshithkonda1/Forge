@@ -96,4 +96,14 @@ final class AriaPromptCorrelationTests: XCTestCase {
             AriaPromptCorrelation.requiredMentions(in: "what's up at the gym").contains("up at")
         )
     }
+
+    func testHobbyAskIsLifestyleNotAGymSession() {
+        let prompt = "help me pick a hobby"
+        let asked = AriaPromptCorrelation.askedDomains(in: prompt)
+        XCTAssertTrue(asked.contains(.lifestyle), "\(asked)")
+        XCTAssertFalse(asked.contains(.training), "\(asked)")
+        let gymAside = AriaPromptCorrelation.askedDomains(in: "something besides the gym")
+        XCTAssertTrue(gymAside.contains(.lifestyle), "\(gymAside)")
+        XCTAssertFalse(gymAside.contains(.training), "\(gymAside)")
+    }
 }

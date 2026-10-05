@@ -84,6 +84,9 @@ public extension QualityOfLifePersona {
         for hobby in (hobbies ?? []).prefix(4) {
             tags.append(hobby.livingTag)
         }
+        if let energy = socialEnergy0to10 {
+            tags.append(String(format: "living:social:%.0f", energy.rounded()))
+        }
         if let hours = sleepNeedPreferenceHours {
             tags.append(String(format: "living:sleep_need:%.1f", hours))
         }
@@ -173,6 +176,12 @@ public extension QualityOfLifeLivingStore {
             "do i like strength",
         ]
         return phrases.contains { lower.contains($0) }
+    }
+
+    /// Chat that is asking for a hobby / free-day path — answer from HobbyPathEngine.
+    static func isHobbyQuestion(_ text: String) -> Bool {
+        if isQuestion(text) { return false }
+        return HobbyPathEngine.isHobbyQuestion(text)
     }
 
     static func characterLine(

@@ -166,6 +166,10 @@ enum AriaDummyOrchestrator {
            !interpretation.domains.contains(.lifestyle) {
             interpretation.domains.append(.lifestyle)
         }
+        if QualityOfLifeLivingStore.isHobbyQuestion(text),
+           !interpretation.domains.contains(.lifestyle) {
+            interpretation.domains.append(.lifestyle)
+        }
         interpretation.domains = AriaPromptCorrelation.filterDomains(
             interpretation.domains,
             toPrompt: text
@@ -178,6 +182,13 @@ enum AriaDummyOrchestrator {
            let qolPlan = QualityOfLifeTrainingPolicy.plan(fromTags: AriaContextStore.shared.context.lifestyleTags),
            qolPlan.keepLight {
             interpretation.keepLight = true
+        }
+        let picture = store.predictiveCoachPicture()
+        if picture.keepLight, AriaPromptCorrelation.trainingAsk(text.lowercased()) {
+            interpretation.keepLight = true
+        }
+        if text.lowercased().contains("tomorrow") || text.contains("\(picture.forecast.predictedScore)") {
+            interpretation.keepLight = interpretation.keepLight || picture.keepLight
         }
         if personal.keepLight, AriaPromptCorrelation.trainingAsk(text.lowercased()) {
             interpretation.keepLight = true
@@ -254,6 +265,13 @@ enum AriaDummyOrchestrator {
                     suggestedActions: ["What's on my calendar?"]
                 )
             )
+        }
+
+        if text.lowercased().contains("tomorrow") {
+            let steer = picture.forecast.steeringLine
+            if beats.isEmpty == false {
+                beats[0].prose = steer + " " + beats[0].prose
+            }
         }
 
         if beats.isEmpty {
@@ -656,6 +674,17 @@ enum AriaDummyOrchestrator {
                         variety: AriaReplyVariety.occurrence(for: text)
                     ),
                     suggestedActions: ["What's my quality of life?", "What should I train today?"]
+                )
+            }
+            if QualityOfLifeLivingStore.isHobbyQuestion(text) {
+                let hobby = store.predictiveCoachPicture().hobby
+                let start = hobby.suggestions.first.map { "Start with \($0.firstStep)" } ?? ""
+                return AriaDummyBeat(
+                    domain: .lifestyle,
+                    prose: [hobby.coachingLine, hobby.windowLine, start]
+                        .filter { !$0.isEmpty }
+                        .joined(separator: " "),
+                    suggestedActions: ["Open Lifestyle", hobby.suggestions.first.map { $0.hobby.title } ?? "Pick a hobby"]
                 )
             }
             if text.lowercased().contains("eat") || text.lowercased().contains("food")

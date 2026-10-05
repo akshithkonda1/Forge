@@ -1,4 +1,5 @@
 import SwiftUI
+import ForgeCore
 
 /// Home → Chat handoff copy. Lives next to the briefing card so chips, mic,
 /// deep links, and first-bond needles cannot drift from each other.
@@ -14,6 +15,9 @@ enum HomeInsightFlow {
 
     static func destination(for insight: String) -> Destination {
         let lower = insight.lowercased()
+        if HobbyPathEngine.isHobbyQuestion(insight) {
+            return .lifestyle
+        }
         if lower.contains("hrv") || lower.contains("sleep") || lower.contains("recovery") || lower.contains("resting hr") {
             return .sleep
         }
@@ -35,7 +39,7 @@ enum HomeInsightFlow {
         case .workout:
             store.activeTab = .workout
         case .lifestyle:
-            store.pendingLifestyleSegment = "nutrition"
+            store.pendingLifestyleSegment = lifestyleSegment(for: insight)
             store.activeTab = .lifestyle
         case .chat:
             store.openChat(with: "Tell me more about: \(insight)", voice: false, isProactive: true)
@@ -59,6 +63,19 @@ enum HomeInsightFlow {
     static func continueAndPersist(briefing: String) -> String {
         persistBriefing(briefing)
         return continuePrompt(briefing: briefing)
+    }
+
+    static func tomorrowPrompt(forecast: ReadinessForecastEngine.Forecast) -> String {
+        forecast.chatPrompt
+    }
+
+    static func hobbyPrompt(hobby: HobbyPathEngine.Snapshot) -> String {
+        hobby.chatPrompt
+    }
+
+    /// Hobby / free-day copy lands on Wellbeing, not the nutrition map.
+    static func lifestyleSegment(for insight: String) -> String {
+        HobbyPathEngine.isHobbyQuestion(insight) ? "wellbeing" : "nutrition"
     }
 }
 
@@ -355,6 +372,11 @@ enum HomeARIABriefingBuilder {
         let opsDigest = LifeOpsBoard.digest()
         if let ops = opsDigest.spokenLine {
             beats.append(.init(text: ops, priority: opsDigest.load == .heavy ? .urgent : .timely))
+        }
+
+        let hobby = store.predictiveCoachPicture().hobby
+        if hobby.path == .restoreQuiet || hobby.path == .openGently {
+            beats.append(.init(text: hobby.headline + ". " + hobby.windowLine, priority: .timely))
         }
 
         if let emotion = AriaContextStore.shared.context.lifestyleTags.first(where: { $0.hasPrefix("emotion:") && !$0.contains("about_other") }) {

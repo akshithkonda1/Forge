@@ -495,4 +495,28 @@ final class HomeInsightFlowTests: XCTestCase {
     func testGenericRoutesToChat() {
         XCTAssertEqual(HomeInsightFlow.destination(for: "Want to talk about your week?"), .chat)
     }
+
+    func testHobbyCopyRoutesToLifestyle() {
+        XCTAssertEqual(HomeInsightFlow.destination(for: "Help me pick a hobby"), .lifestyle)
+        XCTAssertEqual(HomeInsightFlow.destination(for: "I'm burned out socially"), .lifestyle)
+        XCTAssertEqual(HomeInsightFlow.lifestyleSegment(for: "Help me pick a hobby"), "wellbeing")
+        XCTAssertEqual(HomeInsightFlow.lifestyleSegment(for: "You're behind on hydration"), "nutrition")
+    }
+
+    func testTomorrowPromptIsTheForecastChatPrompt() {
+        let forecast = ReadinessForecastEngine.forecast(
+            ReadinessForecastEngine.Input(
+                currentReadiness: 40,
+                sleepMinutes: 300,
+                hrvMs: 40,
+                hrvBaselineMs: 60,
+                restingHR: 62,
+                restingHRBaseline: 55,
+                todayStrain: 19,
+                stressLevel: 80
+            )
+        )
+        XCTAssertEqual(HomeInsightFlow.tomorrowPrompt(forecast: forecast), forecast.chatPrompt)
+        XCTAssertTrue(HomeInsightFlow.tomorrowPrompt(forecast: forecast).contains("How should I train around that?"))
+    }
 }

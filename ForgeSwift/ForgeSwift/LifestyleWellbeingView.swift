@@ -9,6 +9,7 @@ struct WellbeingView: View {
 
     var body: some View {
         VStack(spacing: 20) {
+            HobbyPathCard()
             HabitLoopListCard(vm: vm)
             DailyHabitsCard()
             MindfulnessCard(vm: vm)
@@ -704,5 +705,83 @@ struct AIInsightCard: View {
         .onTapGesture {
             withAnimation(.spring(duration: 0.3, bounce: 0.28)) { expanded.toggle() }
         }
+    }
+}
+
+/// Wellbeing isn't only fitness. ARIA names a hobby path from how this
+/// person actually works — reserved vs burned-out social energy — and the
+/// same snapshot Chat / Home send.
+struct HobbyPathCard: View {
+    @EnvironmentObject var store: AppStore
+
+    private var hobby: HobbyPathEngine.Snapshot {
+        store.predictiveCoachPicture().hobby
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack {
+                Text("HOBBY PATH")
+                    .font(.system(size: 10, weight: .black))
+                    .foregroundColor(.textTertiary)
+                    .tracking(2)
+                Spacer()
+                Text(hobby.path.rawValue.replacingOccurrences(of: "_", with: " "))
+                    .font(.system(size: 11, weight: .semibold))
+                    .foregroundStyle(Color.ember)
+                    .textCase(.uppercase)
+            }
+            Text(hobby.headline)
+                .font(.system(size: 16, weight: .semibold, design: .rounded))
+                .foregroundColor(.textPrimary)
+            Text(hobby.coachingLine)
+                .font(.system(size: 13))
+                .foregroundColor(.textSecondary)
+                .lineSpacing(3)
+            Text(hobby.windowLine)
+                .font(.system(size: 12))
+                .foregroundColor(.textTertiary)
+                .lineSpacing(3)
+            ForEach(hobby.suggestions.prefix(3)) { item in
+                HStack(alignment: .top, spacing: 10) {
+                    Image(systemName: "circle.fill")
+                        .font(.system(size: 5))
+                        .foregroundStyle(Color.ember)
+                        .padding(.top, 6)
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(item.hobby.title)
+                            .font(.system(size: 13, weight: .semibold))
+                            .foregroundColor(.textPrimary)
+                        Text(item.firstStep)
+                            .font(.system(size: 12))
+                            .foregroundColor(.textTertiary)
+                    }
+                }
+            }
+            Button {
+                FDS.haptic(.light)
+                store.openChat(with: HomeInsightFlow.hobbyPrompt(hobby: hobby), voice: false)
+            } label: {
+                HStack {
+                    Image(systemName: "message.fill")
+                        .font(.system(size: 12, weight: .semibold))
+                    Text("Ask ARIA to pick a hobby")
+                        .font(.system(size: 13, weight: .semibold))
+                    Spacer()
+                    Image(systemName: "arrow.up.right")
+                        .font(.system(size: 11, weight: .semibold))
+                }
+                .foregroundStyle(Color.ember)
+                .padding(.vertical, 10)
+                .padding(.horizontal, 12)
+                .background(Color.ember.opacity(0.12))
+                .clipShape(RoundedRectangle(cornerRadius: 12))
+            }
+            .buttonStyle(.plain)
+        }
+        .padding(18)
+        .forgeGlassCard(cornerRadius: 16, accent: .ember)
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("\(hobby.headline). \(hobby.coachingLine) \(hobby.windowLine)")
     }
 }

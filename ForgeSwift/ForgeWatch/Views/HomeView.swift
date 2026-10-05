@@ -101,43 +101,56 @@ struct HomeView: View {
     // MARK: Header
 
     private var readinessHeader: some View {
-        HapticButton(haptic: .click) {
-            path.append(.mindfulness)
-        } label: {
-            ZStack {
-                AuroraOrbWatch(
-                    accent: health.readiness?.band.color ?? ForgePalette.steel,
-                    size: 92,
-                    intensity: health.readiness?.confidence ?? 0.3
-                )
-                ReadinessRing(
-                    score: health.readiness?.overall,
-                    confidence: health.readiness?.confidence ?? 0
-                ) {
-                    VStack(spacing: 0) {
-                        if let readiness = health.readiness, readiness.confidence > 0 {
-                            Text("\(readiness.overall)")
-                                .font(ForgeType.metric(26))
-                                .foregroundStyle(ForgePalette.textPrimary)
-                            Text(readiness.band.label)
-                                .font(.system(size: 9.5, weight: .medium))
-                                .foregroundStyle(readiness.band.color)
-                        } else {
-                            Image(systemName: "sparkles")
-                                .font(.system(size: 16))
-                                .foregroundStyle(ForgePalette.textTertiary)
+        VStack(spacing: ForgeDS.Spacing.sm) {
+            HapticButton(haptic: .click) {
+                path.append(.mindfulness)
+            } label: {
+                ZStack {
+                    AuroraOrbWatch(
+                        accent: health.readiness?.band.color ?? ForgePalette.steel,
+                        size: 92,
+                        intensity: health.readiness?.confidence ?? 0.3
+                    )
+                    ReadinessRing(
+                        score: health.readiness?.overall,
+                        confidence: health.readiness?.confidence ?? 0
+                    ) {
+                        VStack(spacing: 0) {
+                            if let readiness = health.readiness, readiness.confidence > 0 {
+                                Text("\(readiness.overall)")
+                                    .font(ForgeType.metric(26))
+                                    .foregroundStyle(ForgePalette.textPrimary)
+                                Text(readiness.band.label)
+                                    .font(.system(size: 9.5, weight: .medium))
+                                    .foregroundStyle(readiness.band.color)
+                            } else {
+                                Image(systemName: "sparkles")
+                                    .font(.system(size: 16))
+                                    .foregroundStyle(ForgePalette.textTertiary)
+                            }
                         }
                     }
+                    .frame(width: 108, height: 108)
                 }
-                .frame(width: 108, height: 108)
+                .frame(maxWidth: .infinity)
+                .padding(.top, ForgeDS.Spacing.xs)
             }
-            .frame(maxWidth: .infinity)
-            .padding(.top, ForgeDS.Spacing.xs)
+            .buttonStyle(.plain)
+            .sensoryFeedback(.selection, trigger: health.readiness?.overall)
+            .accessibilityAddTraits(.isButton)
+            .accessibilityHint("Opens the guided reset. Workout and sleep are further down Home.")
+
+            if let tomorrow = ReadinessGlanceCopy.homeTomorrowLine(
+                score: WatchSnapshotStore.load()?.tomorrowPredictedScore,
+                postureRaw: WatchSnapshotStore.load()?.tomorrowPosture
+            ) {
+                Text(tomorrow)
+                    .font(.system(size: 11, weight: .medium))
+                    .foregroundStyle(ForgePalette.textTertiary)
+                    .frame(maxWidth: .infinity, alignment: .center)
+                    .accessibilityLabel(tomorrow)
+            }
         }
-        .buttonStyle(.plain)
-        .sensoryFeedback(.selection, trigger: health.readiness?.overall)
-        .accessibilityAddTraits(.isButton)
-        .accessibilityHint("Opens the guided reset. Workout and sleep are further down Home.")
     }
 
     // MARK: Sections

@@ -7,6 +7,7 @@ final class HumanLivingCharacterTests: XCTestCase {
         let persona = QualityOfLifePersona(
             archetype: .homebody,
             sleepNeedPreferenceHours: 7.5,
+            socialEnergy0to10: 2,
             nutritionRelationship: "fuel",
             eatingRhythm: .light,
             movementPreference: .cardio,
@@ -19,6 +20,7 @@ final class HumanLivingCharacterTests: XCTestCase {
         XCTAssertTrue(tags.contains("living:move:cardio"))
         XCTAssertTrue(tags.contains("living:hobby:cooking"))
         XCTAssertTrue(tags.contains("living:hobby:reading"))
+        XCTAssertTrue(tags.contains("living:social:2"))
         XCTAssertTrue(tags.contains("living:sleep_need:7.5"))
         XCTAssertFalse(tags.contains { $0.contains("uncle") || $0.contains("family") })
     }
@@ -44,6 +46,8 @@ final class HumanLivingCharacterTests: XCTestCase {
         XCTAssertTrue(QualityOfLifeLivingStore.isCharacterQuestion("how do I live"))
         XCTAssertFalse(QualityOfLifeLivingStore.isCharacterQuestion("what's my quality of life"))
         XCTAssertFalse(QualityOfLifeLivingStore.isCharacterQuestion("what should I eat today"))
+        XCTAssertTrue(QualityOfLifeLivingStore.isHobbyQuestion("help me pick a hobby"))
+        XCTAssertFalse(QualityOfLifeLivingStore.isHobbyQuestion("what's my quality of life"))
     }
 
     func testLegacyPersonaDecodeWithoutLivingFields() throws {

@@ -62,6 +62,8 @@ extension WatchSnapshot {
         snapshot.readinessOverall = 82
         snapshot.readinessBand = .ready
         snapshot.readinessConfidence = 0.9
+        snapshot.tomorrowPredictedScore = 71
+        snapshot.tomorrowPosture = ReadinessForecastEngine.Posture.steady.rawValue
         snapshot.sleepQualityScore = 84
         snapshot.sleepMinutes = 7 * 60 + 32
         snapshot.recommendedPractice = .focusReset
