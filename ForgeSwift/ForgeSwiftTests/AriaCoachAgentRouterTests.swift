@@ -519,4 +519,27 @@ final class HomeInsightFlowTests: XCTestCase {
         XCTAssertEqual(HomeInsightFlow.tomorrowPrompt(forecast: forecast), forecast.chatPrompt)
         XCTAssertTrue(HomeInsightFlow.tomorrowPrompt(forecast: forecast).contains("How should I train around that?"))
     }
+
+    func testReplyShapeChipCopyRoundTripsOnChatMessage() throws {
+        let shape = ReplyShapeEngine.shape(
+            prompt: "help me pick a hobby",
+            ariaTags: ["hobby_path:open_gently", "hobby_people:thin"],
+            localFallback: true,
+            scoutUsed: false,
+            estimate: false
+        )
+        let message = ChatMessage(
+            id: "shape-1",
+            role: .trainer,
+            content: "Start cooking alone.",
+            timestamp: Date(),
+            replyShapeHeadline: shape.chipLabel,
+            replyShapeDetail: shape.detail
+        )
+        let data = try JSONEncoder().encode(message)
+        let decoded = try JSONDecoder().decode(ChatMessage.self, from: data)
+        XCTAssertEqual(decoded.replyShapeHeadline, shape.chipLabel)
+        XCTAssertEqual(decoded.replyShapeDetail, shape.detail)
+        XCTAssertTrue(decoded.replyShapeHeadline?.hasPrefix("What shaped this") == true)
+    }
 }

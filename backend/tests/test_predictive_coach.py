@@ -187,3 +187,41 @@ class CoachContextHobbyTests(unittest.TestCase):
         self.assertIn("open_gently", block)
         self.assertIn("peopleEnergy", block)
 
+
+class ReplyShapeTests(unittest.TestCase):
+    def test_estimate_wins_and_stays_non_clinical(self):
+        from aria_core import reply_shape as rs
+
+        shape = rs.shape(
+            "what should I train tomorrow",
+            ["working:overreacher:cap_heroics", "hobby_people:thin"],
+            True,
+            True,
+            True,
+        )
+        self.assertEqual(shape.lanes, [rs.ESTIMATE])
+        self.assertIn("estimate", shape.chip_label.lower())
+        blob = (shape.headline + shape.detail).lower()
+        for needle in ("diagnos", "disorder", "prescrib", "therap", "clinical"):
+            self.assertNotIn(needle, blob)
+
+    def test_hobby_ask_names_people_energy(self):
+        from aria_core import reply_shape as rs
+
+        shape = rs.shape(
+            "help me pick a hobby",
+            ["hobby_path:restore_quiet", "hobby_people:thin"],
+            True,
+            False,
+            False,
+        )
+        self.assertIn(rs.HOBBY, shape.lanes)
+        self.assertIn(rs.LOCAL, shape.lanes)
+        self.assertTrue(shape.chip_label.startswith("What shaped this"))
+        self.assertTrue(
+            "people-energy" in shape.headline.lower()
+            or "people-energy" in shape.detail.lower()
+            or "quiet" in shape.detail.lower()
+        )
+
+

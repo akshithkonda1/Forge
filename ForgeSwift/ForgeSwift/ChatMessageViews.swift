@@ -237,6 +237,13 @@ struct MessageBubbleView: View {
                             .padding(.top, 2)
                     }
 
+                    if isTrainer, let headline = message.replyShapeHeadline {
+                        ReplyShapeChip(
+                            headline: headline,
+                            detail: message.replyShapeDetail
+                        )
+                    }
+
                     // Timestamp
                     if showTimestamp {
                         HStack(spacing: 4) {
@@ -458,5 +465,55 @@ struct TypingIndicatorView: View {
                 withAnimation(.easeInOut(duration: 0.2)) { showLabel = false }
             }
         }
+    }
+}
+
+/// Tap-to-expand honesty chip. Names the living signals that bent this turn.
+struct ReplyShapeChip: View {
+    let headline: String
+    var detail: String? = nil
+    @State private var expanded = false
+
+    var body: some View {
+        Button {
+            guard detail != nil else { return }
+            FDS.haptic(.light)
+            withAnimation(.easeInOut(duration: 0.18)) { expanded.toggle() }
+        } label: {
+            VStack(alignment: .leading, spacing: 4) {
+                HStack(spacing: 5) {
+                    Image(systemName: "point.3.connected.trianglepath.dotted")
+                        .font(.system(size: 9, weight: .semibold))
+                        .foregroundColor(.steel.opacity(0.85))
+                    Text(headline)
+                        .font(.system(size: 11, weight: .medium))
+                        .foregroundColor(.textTertiary)
+                        .lineLimit(expanded ? 3 : 1)
+                    if detail != nil {
+                        Image(systemName: expanded ? "chevron.down" : "chevron.right")
+                            .font(.system(size: 8, weight: .semibold))
+                            .foregroundColor(.textMuted)
+                    }
+                }
+                if expanded, let detail, !detail.isEmpty {
+                    Text(detail)
+                        .font(.system(size: 11))
+                        .foregroundColor(.textMuted)
+                        .lineSpacing(2)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+            }
+            .padding(.horizontal, 10).padding(.vertical, 6)
+            .background(Color.steel.opacity(0.08))
+            .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+            .overlay(
+                RoundedRectangle(cornerRadius: 12, style: .continuous)
+                    .stroke(Color.steel.opacity(0.18), lineWidth: 0.5)
+            )
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(headline)
+        .accessibilityHint(detail == nil ? "" : "Shows what shaped this reply")
+        .accessibilityValue(expanded ? (detail ?? "") : "")
     }
 }

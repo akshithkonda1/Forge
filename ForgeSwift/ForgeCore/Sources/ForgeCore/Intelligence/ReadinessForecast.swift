@@ -168,6 +168,14 @@ public enum ReadinessForecastEngine {
         }
     }
 
+    public static func parseTag(_ token: String) -> (Int, Posture)? {
+        let parts = token.split(separator: ":").map(String.init)
+        guard parts.count >= 4, parts[0] == "forecast", parts[1] == "tomorrow",
+              let score = Int(parts[2]),
+              let posture = Posture(rawValue: parts[3]) else { return nil }
+        return (score, posture)
+    }
+
     // MARK: - Model
 
     public static func forecast(_ input: Input) -> Forecast {
