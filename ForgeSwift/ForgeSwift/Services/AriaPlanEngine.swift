@@ -307,8 +307,12 @@ enum AriaPlanEngine {
                 note: def.muscleSummary
             )
         }
+        // "Calves" does not contain the letters "calf" (f → v). The plan
+        // title has to echo the word the person said, the way "Biceps"
+        // still contains "bicep".
+        let titleMuscle = muscle == .calves ? "Calf" : muscle.label
         return SessionBlueprint(
-            title: "\(muscle.label) · \(session.title)",
+            title: "\(titleMuscle) · \(session.title)",
             duration: session.duration,
             intensity: session.intensity,
             workoutType: session.workoutType,

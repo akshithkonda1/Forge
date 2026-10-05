@@ -22,6 +22,7 @@ public enum AriaPromptCorrelation: Sendable {
         }
 
         if QualityOfLifeLivingStore.isQuestion(trimmed) { add(.lifestyle) }
+        if QualityOfLifeLivingStore.isCharacterQuestion(trimmed) { add(.lifestyle) }
         if HobbyPathEngine.isHobbyQuestion(trimmed) { add(.lifestyle) }
         if PeopleDirectory.isQuestion(trimmed) { add(.lifestyle) }
         if AriaReferenceCatalog.questionSuggestsEventPrep(trimmed) { add(.lifestyle) }

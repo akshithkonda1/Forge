@@ -278,7 +278,7 @@ enum AriaSpokenVoice: Sendable {
 enum AriaNeuralVoicePromptPolicy: Sendable {
     static let promptedKey = "aria.spoken.neuralVoicePromptShown"
     static let title = "Device Hub fill-in"
-    static let body = "Tester builds can play a local fill-in so you hear that a mouth ran. ARIA's designed character voice is live-only — never compact Samantha, and never Apple catalog TTS as production."
+    static let body = "Tester builds can play a local fill-in so you hear that a mouth ran. ARIA's designed character voice is live-only — never a compact catalog voice, and never Apple catalog TTS as production."
     static let settingsPath = "Settings → Accessibility → Spoken Content → Voices → English → Zoe (Premium) for the dummy fill-in only"
     static let actionTitle = "Got it"
 

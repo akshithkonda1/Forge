@@ -45,8 +45,18 @@ final class AriaMemoryControlsViewModelTests: XCTestCase {
         XCTAssertTrue(model.commitDraft())
         XCTAssertEqual(model.facts(in: .mood).count, 1)
 
+        // A kind word plus a street is reduced to the kind. The address and
+        // the guest name are not stored. A place with no kind is refused.
         model.beginAdd(to: .events)
         model.draftSummary = "Dinner with Maya at 12 Main Street"
+        XCTAssertTrue(model.commitDraft())
+        let kept = model.facts(in: .events).first?.summary ?? ""
+        XCTAssertEqual(kept, "This week: dinner out.")
+        XCTAssertFalse(kept.localizedCaseInsensitiveContains("street"))
+        XCTAssertFalse(kept.localizedCaseInsensitiveContains("maya"))
+
+        model.beginAdd(to: .events)
+        model.draftSummary = "Meet Maya at 44 Oak Avenue"
         XCTAssertFalse(model.commitDraft())
         XCTAssertEqual(model.addError, AriaMemoryControlsViewModel.privacyRefusal)
 

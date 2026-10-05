@@ -1,3 +1,4 @@
+import Compression
 import Foundation
 import os
 
@@ -434,25 +435,68 @@ enum MedicationPharmacy {
     }
 
     private static func inflateZlib(_ raw: Data) -> String? {
-        do {
-            let inflated = try (raw as NSData).decompressed(using: .zlib)
-            return String(data: inflated as Data, encoding: .utf8)
-        } catch {
-            return nil
+        if let text = inflateViaFoundation(raw) { return text }
+        // NSData's one-shot zlib path has failed on this ~17MB catalog in the
+        // simulator test host (the bundle file is present; the decode throws
+        // and the pharmacy falls back to four seeds). Stream it instead.
+        return inflateViaCompression(raw)
+    }
+
+    private static func inflateViaFoundation(_ raw: Data) -> String? {
+        guard let inflated = try? (raw as NSData).decompressed(using: .zlib) as Data,
+              let text = String(data: inflated, encoding: .utf8),
+              !text.isEmpty else { return nil }
+        return text
+    }
+
+    private static func inflateViaCompression(_ raw: Data) -> String? {
+        // Catalog inflates to ~17MB. Leave headroom so a short read is a
+        // failure, not a truncated UTF-8 string that parses as nothing.
+        let capacity = 32 * 1024 * 1024
+        let destination = UnsafeMutablePointer<UInt8>.allocate(capacity: capacity)
+        defer { destination.deallocate() }
+        let produced = raw.withUnsafeBytes { source -> Int in
+            guard let base = source.bindMemory(to: UInt8.self).baseAddress else { return 0 }
+            return compression_decode_buffer(
+                destination,
+                capacity,
+                base,
+                raw.count,
+                nil,
+                COMPRESSION_ZLIB
+            )
         }
+        guard produced > 0 else { return nil }
+        let data = Data(bytes: destination, count: produced)
+        return String(data: data, encoding: .utf8)
     }
 
     private static func catalogFileURLs() -> [(URL, Bool)] {
         var urls: [(URL, Bool)] = []
-        if let deflate = Bundle.main.url(forResource: catalogResource, withExtension: "deflate") {
-            urls.append((deflate, true))
+        var seen = Set<String>()
+        func add(_ url: URL, compressed: Bool) {
+            let path = url.path
+            guard seen.insert(path).inserted else { return }
+            urls.append((url, compressed))
         }
-        if let txt = Bundle.main.url(forResource: catalogResource, withExtension: "txt") {
-            urls.append((txt, false))
+        let bundles = [Bundle.main] + Bundle.allBundles + Bundle.allFrameworks
+        for bundle in bundles {
+            if let deflate = bundle.url(forResource: catalogResource, withExtension: "deflate") {
+                add(deflate, compressed: true)
+            }
+            if let txt = bundle.url(forResource: catalogResource, withExtension: "txt") {
+                add(txt, compressed: false)
+            }
+            // Unknown UTIs are sometimes copied into the app but skipped by
+            // url(forResource:withExtension:). The file sits at the bundle root.
+            if let root = bundle.resourceURL {
+                add(root.appendingPathComponent("\(catalogResource).deflate"), compressed: true)
+                add(root.appendingPathComponent("\(catalogResource).txt"), compressed: false)
+            }
         }
         let folder = URL(fileURLWithPath: #filePath).deletingLastPathComponent()
-        urls.append((folder.appendingPathComponent("\(catalogResource).deflate"), true))
-        urls.append((folder.appendingPathComponent("\(catalogResource).txt"), false))
+        add(folder.appendingPathComponent("\(catalogResource).deflate"), compressed: true)
+        add(folder.appendingPathComponent("\(catalogResource).txt"), compressed: false)
         return urls
     }
 

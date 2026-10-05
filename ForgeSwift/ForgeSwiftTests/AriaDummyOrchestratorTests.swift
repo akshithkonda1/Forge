@@ -364,16 +364,17 @@ final class AriaDummyOrchestratorTests: XCTestCase {
             lower.contains("sleep") || lower.contains("night") || lower.contains("slept"),
             "expected a sleep cause in \(reply.message)"
         )
+        // A vague "what should I train" opens the suggestion box instead of
+        // guessing a session. Sleep and food still get answered on this turn.
         XCTAssertTrue(
-            lower.contains("minute") || lower.contains("session") || store.todayWorkout != nil,
-            "expected a session in \(reply.message)"
+            lower.contains("what part") || lower.contains("target") || lower.contains("where")
+                || lower.contains("minute") || lower.contains("session") || store.todayWorkout != nil,
+            "expected the body-part box or a session in \(reply.message)"
         )
         XCTAssertTrue(
             lower.contains("eat") || lower.contains("food") || lower.contains("protein"),
             "expected a food beat in \(reply.message)"
         )
-        XCTAssertEqual(reply.richCard?.type, "workout_plan")
-        XCTAssertNotNil(store.todayWorkout)
         XCTAssertTrue(reply.confidenceReason?.contains("Local fill-in") == true)
     }
 
@@ -788,7 +789,12 @@ final class AriaDummyOrchestratorTests: XCTestCase {
                 "must not fabricate a read on a night with no sleep sample: \(reply.message)"
             )
         }
-        let honestGap = ["don't have", "no sleep sample", "nothing's synced", "pending sync"]
+        // The honest gap is "last night isn't on the board yet" — it refuses
+        // a fabricated middling night without the older sync-status phrases.
+        let honestGap = [
+            "don't have", "no sleep sample", "nothing's synced", "pending sync",
+            "isn't on the board", "isn’t on the board", "not on the board",
+        ]
         XCTAssertTrue(
             honestGap.contains { lower.contains($0) },
             "must say plainly that there is no sleep data yet: \(reply.message)"

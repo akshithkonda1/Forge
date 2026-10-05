@@ -28,6 +28,12 @@ final class AriaService: ObservableObject {
     static var shouldUseTestReadyDummy: Bool {
         // Production build: the Dummy is compiled out, so tester mode is too.
         guard AriaDummyOrchestra.isCompiledIn else { return false }
+        // XCTest sets the same simulator env as a Device Hub Run, and Debug
+        // falls back to loopback. Either one would seed the fake pack on a
+        // delay and clobber the store the test configured.
+        if ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] != nil {
+            return false
+        }
         if AriaOperatingMode.hasOverride {
             return AriaOperatingMode.current.isDummy
         }

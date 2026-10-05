@@ -72,7 +72,11 @@ final class CurrentPracticeAPITests: XCTestCase {
     func testHealthKitObserverStopIsIdempotent() {
         HealthKitManager.shared.stopBidirectionalSync()
         HealthKitManager.shared.stopBidirectionalSync()
-        XCTAssertEqual(HealthKitManager.bidirectionalSampleTypes.count, 12)
+        // Twelve types always. Heart-rate variability RMSSD is appended only
+        // when this OS actually exposes the quantity type (13 on current
+        // simulator SDKs, 12 where the identifier is unknown).
+        let rmssd = HealthKitHRVQuantity.rmssdTypeIfAvailable == nil ? 0 : 1
+        XCTAssertEqual(HealthKitManager.bidirectionalSampleTypes.count, 12 + rmssd)
         XCTAssertTrue(HealthKitManager.bidirectionalSampleTypes.contains(HKQuantityType(.dietaryWater)))
         XCTAssertTrue(HealthKitManager.bidirectionalSampleTypes.contains(HKCategoryType(.sleepAnalysis)))
     }

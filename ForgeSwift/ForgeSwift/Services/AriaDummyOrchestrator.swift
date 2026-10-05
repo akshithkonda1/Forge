@@ -178,6 +178,18 @@ enum AriaDummyOrchestrator {
             interpretation.domains,
             toPrompt: text
         )
+        // Chips, delegation, and "I played basketball" are training even
+        // though they don't say "train" / "workout". filterDomains drops
+        // them otherwise, and the suggestion box never sees the tap.
+        let lowerText = text.lowercased()
+        let trainingTap = interpretation.recordedSport != nil
+            || TrainingHabits.isBoxChip(text)
+            || TrainingHabits.isTakeChargePhrase(in: lowerText)
+            || TrainingHabits.isUserLedPhrase(in: lowerText)
+            || TrainingFocus.from(text: text) != nil
+        if trainingTap, !interpretation.domains.contains(.training) {
+            interpretation.domains.append(.training)
+        }
         let calendarOutcome = FakeCalendarPack.outcome(fromTags: life.calendarIngestPayload())
         if calendarOutcome.keepLight, AriaPromptCorrelation.trainingAsk(text.lowercased()) {
             interpretation.keepLight = true
@@ -600,6 +612,13 @@ enum AriaDummyOrchestrator {
                 actions: actions
             )
         case .nutrition, .lifestyle:
+            // A chip or a body-part answer is the training turn. The generic
+            // lifestyle filler was answering "chest" with a persona line and
+            // never building the plan the box promised.
+            if TrainingHabits.isBoxChip(text) || TrainingFocus.from(text: text) != nil
+                || TrainingHabits.isTakeChargePhrase(in: text.lowercased()) {
+                return nil
+            }
             if let ml = interpretation.logWaterMl {
                 let ounces = Int((ml / 29.5735).rounded())
                 return AriaDummyBeat(
@@ -904,6 +923,12 @@ enum AriaDummyOrchestrator {
                 opener: "You're driving — what are we training?"
             ))
         }
+        // "Skip legs, still train" / an angry knee already named the
+        // constraint. Asking "what part" again drops the plan the person
+        // just asked for.
+        if interpretation.skipLegs || !interpretation.joints.isEmpty {
+            return .proceed(altFocus: TrainingFocus.from(text: text))
+        }
         // An explicit body part is a choice: record it, learn it, build it.
         if let focus = TrainingFocus.from(text: text) {
             var habits = store.trainingHabits
@@ -1004,8 +1029,15 @@ enum AriaDummyOrchestrator {
         interpretation: AriaDummyInterpretation,
         life: AriaLifeRead
     ) -> String? {
-        if let event = EventTrainingPolicy.plan(fromTags: eventTags(interpretation: interpretation, life: life)) {
+        let tags = eventTags(interpretation: interpretation, life: life)
+        if let event = EventTrainingPolicy.plan(fromTags: tags) {
             return event.reason
+        }
+        // Classified kinds (wedding, travel, evening) shorten the session
+        // even without a horizon day-count. Say why, or the plan changes
+        // and the reply never mentions the week.
+        if let fit = FakeCalendarPack.thinkingLine(fromTags: tags) {
+            return fit
         }
         return QualityOfLifeTrainingPolicy.plan(fromTags: AriaContextStore.shared.context.lifestyleTags)?.reason
     }

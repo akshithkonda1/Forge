@@ -158,7 +158,12 @@ public enum ContextualParsingEngine {
     /// inflection, or a small typo.
     private static func tokenMatches(_ token: Token, needle: String, needleLemma: String) -> Bool {
         if token.text == needle { return true }
-        if token.lemma == needle || token.lemma == needleLemma { return true }
+        // Contractions lemmatize to the bare verb ("don't" → "do") on Apple's
+        // NaturalLanguage tagger. That made the decline needle "don't" fire
+        // on "do it" and "what do you know about me". A contraction needle
+        // matches its own surface (and a one-edit typo like "dont"), not the verb.
+        let contraction = needle.contains("'") || needle.contains("\u{2019}")
+        if !contraction, token.lemma == needle || token.lemma == needleLemma { return true }
         if token.text.hasPrefix(needle) {
             let leftover = token.text.dropFirst(needle.count)
             if leftover.count <= 2 { return true }
