@@ -101,6 +101,46 @@ jobs:
           cd ForgeCore
           swift test
 
+      - name: Run ForgeSwiftTests (iOS Simulator)
+        if: needs.changes.outputs.relevant == 'true'
+        run: |
+          set -euo pipefail
+          # Compiling the test bundle is not running it. A green Swift job
+          # that never executes ForgeSwiftTests is a lie. Prefer a booted
+          # iOS Simulator destination when the runner has one.
+          python3 - <<'PY'
+          import json, subprocess, sys
+          raw = subprocess.check_output(["xcrun", "simctl", "list", "devices", "available", "-j"], text=True)
+          data = json.loads(raw)
+          devices = []
+          for runtime, rows in (data.get("devices") or {}).items():
+              if "iOS" not in runtime:
+                  continue
+              for row in rows or []:
+                  if row.get("isAvailable") and "iPhone" in (row.get("name") or ""):
+                      devices.append((runtime, row["udid"], row["name"]))
+          if not devices:
+              print("::error::No available iPhone simulator; ForgeSwiftTests would stay un-run.")
+              sys.exit(1)
+          devices.sort(reverse=True)
+          udid = devices[0][1]
+          print(f"Using simulator {devices[0][2]} ({udid}) on {devices[0][0]}")
+          open("/tmp/ios-sim-udid", "w").write(udid)
+          PY
+          UDID=$(cat /tmp/ios-sim-udid)
+          xcodebuild \
+            -project ForgeSwift.xcodeproj \
+            -scheme ForgeSwift \
+            -destination "platform=iOS Simulator,id=$UDID" \
+            -configuration Debug \
+            -skipPackagePluginValidation \
+            test \
+            -only-testing:ForgeSwiftTests \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGN_IDENTITY="" \
+            COMPILER_INDEX_STORE_ENABLE=NO 2>&1 | tee /tmp/ios-test.log
+
+
       - name: Build ForgeSwift + tests (iOS Simulator)
         if: needs.changes.outputs.relevant == 'true'
         run: |
@@ -131,6 +171,9 @@ jobs:
         if: failure() && needs.changes.outputs.relevant == 'true'
         run: |
           echo "::group::Swift errors"
+          if test -f /tmp/ios-test.log; then
+            grep -E "error: |failed \(|XCTAssert" /tmp/ios-test.log | sed 's|/Users/runner/work/Forge/Forge/||' | sort -u || true
+          fi
           test -f /tmp/ios-build.log || { echo "(build did not reach this step)"; exit 0; }
           grep -E "error: " /tmp/ios-build.log | sed 's|/Users/runner/work/Forge/Forge/||' | sort -u || echo "(no error: lines matched)"
           echo "::endgroup::"
