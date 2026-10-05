@@ -277,7 +277,30 @@ final class TrainingHabitsTests: XCTestCase {
     // MARK: - Integration (through the orchestrator)
 
     func testVagueRequestShowsSuggestionBox() async {
+        // Chip taps and knee plans earlier in this process persist a weekday
+        // focus and an injury anchor. This case is the empty-pattern ask:
+        // the box opens, and a leftover knee must not build Upper Lats.
+        let habitsKey = AppStore.trainingHabitsKey
+        let memoryKey = AppStore.durableMemoryKey
+        let habitsPrevious = UserDefaults.standard.data(forKey: habitsKey)
+        let memoryPrevious = UserDefaults.standard.data(forKey: memoryKey)
+        defer {
+            if let habitsPrevious {
+                UserDefaults.standard.set(habitsPrevious, forKey: habitsKey)
+            } else {
+                UserDefaults.standard.removeObject(forKey: habitsKey)
+            }
+            if let memoryPrevious {
+                UserDefaults.standard.set(memoryPrevious, forKey: memoryKey)
+            } else {
+                UserDefaults.standard.removeObject(forKey: memoryKey)
+            }
+        }
+        UserDefaults.standard.removeObject(forKey: habitsKey)
+        UserDefaults.standard.removeObject(forKey: memoryKey)
         let store = AppStore()
+        store.durableMemoryAnchors = []
+        store.trainingHabits = TrainingHabits()
         let reply = await AriaDummyOrchestrator.reply(
             text: "what should I train today",
             store: store,

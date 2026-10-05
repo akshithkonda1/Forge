@@ -379,7 +379,13 @@ enum AriaDummyTurn {
             || text.lowercased().contains("easy session")
 
         var extra: [String] = [text]
-        if skipLegs { extra.append("lats upper body skip legs") }
+        // Only the words in this message pick a substitute muscle. A
+        // remembered knee still sets skipLegs so a built plan can leave
+        // squats off, but it must not rewrite "what should I train" into lats.
+        let textSkipsLegs = text.lowercased().contains("skip legs")
+            || text.lowercased().contains("less legs")
+            || text.lowercased().contains("no squats")
+        if textSkipsLegs { extra.append("lats upper body skip legs") }
         if jointsFound.contains("shoulder") || jointsFound.contains("elbow") {
             extra.append("keep pressing light")
         }
