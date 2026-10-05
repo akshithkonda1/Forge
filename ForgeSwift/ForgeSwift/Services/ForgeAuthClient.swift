@@ -40,7 +40,11 @@ final class ForgeAuthClient: ObservableObject {
         if config.apiBaseURL.host != nil, UserDefaults.standard.string(forKey: "forge.api.baseURL") == nil {
             UserDefaults.standard.set(config.apiBaseURL.absoluteString, forKey: "forge.api.baseURL")
         }
-        installTestReadySessionIfNeeded()
+        // `shared` is still being initialized. A synchronous operating-mode
+        // refresh reads `ForgeAuthClient.shared` and traps in the static
+        // addressor (XCTest then reports the test runner crashed before it
+        // connected). Refresh on the next turn, after `shared` is published.
+        installTestReadySessionIfNeeded(deferOperatingModeRefresh: true)
     }
 
     /// Xcode Device Hub (simulator or a plugged-in phone) and loopback API
@@ -49,6 +53,11 @@ final class ForgeAuthClient: ObservableObject {
     /// the phone (`127.0.0.1`).
     @discardableResult
     func installTestReadySessionIfNeeded() -> ForgeAuthSession? {
+        installTestReadySessionIfNeeded(deferOperatingModeRefresh: false)
+    }
+
+    @discardableResult
+    private func installTestReadySessionIfNeeded(deferOperatingModeRefresh: Bool) -> ForgeAuthSession? {
         let allowed = ForgeAuthPolicy.devOverrideAllowed(
             userEnabled: devOverrideEnabled,
             config: config
@@ -65,7 +74,13 @@ final class ForgeAuthClient: ObservableObject {
         if session?.mode == .devOverride { return session }
         let minted = DevAuthOverride.session()
         try? persist(minted)
-        AriaOperatingMode.refresh()
+        if deferOperatingModeRefresh {
+            Task { @MainActor in
+                AriaOperatingMode.refresh()
+            }
+        } else {
+            AriaOperatingMode.refresh()
+        }
         return minted
     }
 
