@@ -781,6 +781,7 @@ final class AriaContextStore: ObservableObject {
             }
         }
         tags.append(contentsOf: QualityOfLifeLivingStore.livingTags())
+        tags.append(contentsOf: PeopleDirectoryStore.load().ariaTags)
 
         if let stats {
             tags.append("protein:\(Int(stats.protein))g")
@@ -838,7 +839,7 @@ final class AriaContextStore: ObservableObject {
         }
         let habitConstraints = HabitEngine.constraints(for: habits)
         context.recentPatterns = Array(patterns.suffix(12))
-        let owned = ["qol:", "stress:", "nutrition_score:", "sleep_quality:", "protein:", "steps:", "hydration:", "recovery:", "sleep:", "movement:", "meals_logged:", "habit_", "living:"]
+        let owned = ["qol:", "stress:", "nutrition_score:", "sleep_quality:", "protein:", "steps:", "hydration:", "recovery:", "sleep:", "movement:", "meals_logged:", "habit_", "living:", "people:"]
         var merged = context.lifestyleTags.filter { tag in
             !owned.contains { tag.hasPrefix($0) }
         }

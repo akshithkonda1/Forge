@@ -170,6 +170,10 @@ enum AriaDummyOrchestrator {
            !interpretation.domains.contains(.lifestyle) {
             interpretation.domains.append(.lifestyle)
         }
+        if PeopleDirectory.isQuestion(text),
+           !interpretation.domains.contains(.lifestyle) {
+            interpretation.domains.append(.lifestyle)
+        }
         interpretation.domains = AriaPromptCorrelation.filterDomains(
             interpretation.domains,
             toPrompt: text
@@ -685,6 +689,13 @@ enum AriaDummyOrchestrator {
                         .filter { !$0.isEmpty }
                         .joined(separator: " "),
                     suggestedActions: ["Open Lifestyle", hobby.suggestions.first.map { $0.hobby.title } ?? "Pick a hobby"]
+                )
+            }
+            if PeopleDirectory.isQuestion(text) {
+                return AriaDummyBeat(
+                    domain: .lifestyle,
+                    prose: PeopleDirectoryStore.load().spokenLine,
+                    suggestedActions: ["Open Lifestyle", "Help me pick a hobby"]
                 )
             }
             if text.lowercased().contains("eat") || text.lowercased().contains("food")

@@ -317,7 +317,8 @@ public enum PredictiveCoach {
         workingInput: UserWorkingModel.Input,
         socialEnergy0to10: Double? = nil,
         currentHobbies: [LivingHobby] = [],
-        wakeHour: Double? = nil
+        wakeHour: Double? = nil,
+        knownPeople: [PeopleDirectory.Person] = []
     ) -> Picture {
         let forecast = ReadinessForecastEngine.forecast(forecastInput)
         let working = UserWorkingModel.snapshot(workingInput, tomorrowPosture: forecast.posture)
@@ -326,12 +327,21 @@ public enum PredictiveCoach {
             currentHobbies: currentHobbies,
             working: working,
             tomorrowPosture: forecast.posture,
-            wakeHour: wakeHour
+            wakeHour: wakeHour,
+            knownPeople: knownPeople
         )
         let budgets = TomorrowBudgets.snapshot(
             posture: forecast.posture,
             stance: working.stance,
             peopleEnergy: hobby.peopleEnergy
+        )
+        let peopleTags = knownPeople.isEmpty ? [] : PeopleDirectory.Directory(
+            optedIn: true,
+            contactsAccess: .granted,
+            people: knownPeople
+        ).ariaTags
+        let peopleLine = peopleTags.isEmpty ? "" : " " + PeopleDirectory.promptLine(
+            for: PeopleDirectory.Directory(optedIn: true, people: knownPeople)
         )
         return Picture(
             forecast: forecast,
@@ -339,8 +349,8 @@ public enum PredictiveCoach {
             hobby: hobby,
             budgets: budgets,
             keepLight: forecast.posture.keepLight || working.stance == .capHeroics,
-            ariaTags: forecast.ariaTags + working.ariaTags + hobby.ariaTags + budgets.ariaTags,
-            steeringLine: "\(working.steeringLine) \(forecast.steeringLine) \(hobby.coachingLine) \(hobby.windowLine) \(budgets.coachingLine)"
+            ariaTags: forecast.ariaTags + working.ariaTags + hobby.ariaTags + budgets.ariaTags + peopleTags,
+            steeringLine: "\(working.steeringLine) \(forecast.steeringLine) \(hobby.coachingLine) \(hobby.windowLine) \(budgets.coachingLine)\(peopleLine)"
         )
     }
 }

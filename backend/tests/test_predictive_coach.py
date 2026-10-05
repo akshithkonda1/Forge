@@ -175,7 +175,13 @@ class CoachContextHobbyTests(unittest.TestCase):
             "readiness": {"overall": 72, "hrv": 60, "restingHR": 55, "stressLevel": 30},
             "recentSleep": [{"totalHours": 8, "score": 80, "date": "2026-10-04"}],
             "recentWorkouts": [],
-            "lifestyleTags": ["living:hobby:cooking", "living:social:2"],
+            "lifestyleTags": [
+                "living:hobby:cooking",
+                "living:social:2",
+                "people:Sam:partner",
+                "people:5551212:friend",
+                "people:sam@x.com:friend",
+            ],
             "chronotype": {"typicalWakeTime": "10:30"},
         }
         out = coach_context._attach_predictions(ctx)
@@ -188,6 +194,9 @@ class CoachContextHobbyTests(unittest.TestCase):
         self.assertIn("peopleEnergy", block)
         self.assertEqual(out["tomorrowBudgets"]["constraint"], "people")
         self.assertIn("people-budget", out["tomorrowBudgets"]["coachingLine"].lower())
+        self.assertIn("Sam", out["hobbyPath"]["coachingLine"])
+        self.assertNotIn("555", out["hobbyPath"]["coachingLine"])
+        self.assertNotIn("@", out["hobbyPath"]["coachingLine"])
 
 
 class TomorrowBudgetTests(unittest.TestCase):

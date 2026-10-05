@@ -119,7 +119,8 @@ public enum HobbyPathEngine {
         currentHobbies: [LivingHobby],
         working: UserWorkingModel.Snapshot,
         tomorrowPosture: ReadinessForecastEngine.Posture? = nil,
-        wakeHour: Double? = nil
+        wakeHour: Double? = nil,
+        knownPeople: [PeopleDirectory.Person] = []
     ) -> Snapshot {
         let band = socialBand(energy: socialEnergy0to10, working: working)
         let path = path(for: band, working: working, hobbies: currentHobbies)
@@ -132,7 +133,8 @@ public enum HobbyPathEngine {
             peopleEnergy: energy,
             freeDayWindow: window,
             headline: headline(for: path),
-            coachingLine: coachingLine(for: path, suggestions: suggestions),
+            coachingLine: coachingLine(for: path, suggestions: suggestions)
+                + PeopleDirectory.hobbySuffix(path: path, people: knownPeople),
             suggestions: suggestions
         )
     }

@@ -578,7 +578,8 @@ extension AppStore {
             workingInput: workingInput,
             socialEnergy0to10: persona.socialEnergy0to10,
             currentHobbies: persona.hobbies ?? [],
-            wakeHour: wakeHour
+            wakeHour: wakeHour,
+            knownPeople: PeopleDirectoryStore.load().coachingPeople
         )
     }
 

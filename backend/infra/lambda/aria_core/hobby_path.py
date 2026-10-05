@@ -136,6 +136,7 @@ def snapshot(
     working: uwm.Snapshot,
     tomorrow_posture: str | None = None,
     wake_hour: float | None = None,
+    known_people: list[dict] | None = None,
 ) -> Snapshot:
     hobbies = [h for h in (current_hobbies or []) if h in TITLES]
     band = _band(social_energy_0_to_10, working)
@@ -149,7 +150,7 @@ def snapshot(
         people_energy=energy,
         free_day_window=window,
         headline=_headline(path),
-        coaching_line=_coaching(path, suggestions),
+        coaching_line=_coaching(path, suggestions) + _people_suffix(path, known_people or []),
         suggestions=suggestions,
     )
 
@@ -254,6 +255,23 @@ def _headline(path: str) -> str:
         KEEP_RHYTHM: "Keep the free-day you already like",
         EXPLORE: "The healthiest version of you isn't only fitter",
     }.get(path, EXPLORE)
+
+
+def _people_suffix(path: str, people: list[dict]) -> str:
+    if not people:
+        return ""
+    first = people[0]
+    name = str(first.get("firstName") or first.get("first_name") or "").strip()
+    relation = str(first.get("relation") or "friend").replace("_", " ")
+    if not name or "@" in name or any(ch.isdigit() for ch in name):
+        return ""
+    if path == OPEN_GENTLY:
+        return (
+            f" If you want company later, {name} ({relation}) is someone you already named — not a stranger."
+        )
+    if path == RESTORE_QUIET:
+        return f" Leave {name} off the calendar this week."
+    return ""
 
 
 def _coaching(path: str, suggestions: list[Suggestion]) -> str:

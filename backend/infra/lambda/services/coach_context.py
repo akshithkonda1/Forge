@@ -226,7 +226,13 @@ def _attach_predictions(context: dict[str, Any]) -> dict[str, Any]:
         weekend_sleep_avg=(sum(weekend) / len(weekend)) if weekend else None,
     ), tomorrow_posture=fc.posture)
     hobbies, social, wake = _hobby_inputs(context)
-    hobby = hp.snapshot(social, hobbies, working, tomorrow_posture=fc.posture, wake_hour=wake)
+    known = _known_people(context)
+    hobby = hp.snapshot(
+        social, hobbies, working,
+        tomorrow_posture=fc.posture,
+        wake_hour=wake,
+        known_people=known,
+    )
     budgets = tb.snapshot(fc.posture, working.stance, hobby.people_energy)
     context["tomorrowForecast"] = fc.to_dict()
     context["workingModel"] = working.to_dict()
@@ -329,3 +335,26 @@ def _hobby_inputs(context: dict[str, Any]) -> tuple[list[str], float | None, flo
         except ValueError:
             wake = None
     return hobbies, social, wake
+
+
+def _known_people(context: dict[str, Any]) -> list[dict[str, str]]:
+    """First name + label only. Contact ids, phones, and emails never qualify."""
+    tokens: list[str] = []
+    for blob in (
+        context.get("lifestyleTags"),
+        (context.get("lifestyle") or {}).get("tags"),
+        (context.get("lifestyle") or {}).get("recentPatterns"),
+        context.get("people"),
+    ):
+        if isinstance(blob, list):
+            tokens.extend(str(t) for t in blob)
+    people: list[dict[str, str]] = []
+    for token in tokens:
+        parts = token.split(":")
+        if len(parts) < 3 or parts[0] != "people" or parts[1] == "count":
+            continue
+        name, relation = parts[1], parts[2]
+        if not name or "@" in name or any(ch.isdigit() for ch in name):
+            continue
+        people.append({"firstName": name, "relation": relation})
+    return people[:8]
