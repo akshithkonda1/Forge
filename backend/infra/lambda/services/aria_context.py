@@ -547,7 +547,16 @@ class CoachContextEngine:
         if context.constraints:
             long_term.append("constraints: " + "; ".join(context.constraints[:5]))
         if context.recent_patterns:
-            long_term.append("patterns: " + "; ".join(context.recent_patterns[:5]))
+            try:
+                from aria_core import hobby_fit as hf
+                patterns = [
+                    p for p in context.recent_patterns
+                    if p and not hf.blocked_memory_token(str(p))
+                ]
+            except Exception:
+                patterns = list(context.recent_patterns)
+            if patterns:
+                long_term.append("patterns: " + "; ".join(patterns[:5]))
         if context.last_insights:
             long_term.append("recently told them: " + "; ".join(context.last_insights[:3]))
         plan = context.supervision_plan if isinstance(context.supervision_plan, dict) else None

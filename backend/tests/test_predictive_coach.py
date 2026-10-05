@@ -197,6 +197,13 @@ class CoachContextHobbyTests(unittest.TestCase):
         self.assertIn("Sam", out["hobbyPath"]["coachingLine"])
         self.assertNotIn("555", out["hobbyPath"]["coachingLine"])
         self.assertNotIn("@", out["hobbyPath"]["coachingLine"])
+        self.assertEqual(out["mentality_signal"], "quiet")
+        self.assertEqual(out["hobbies"][0]["id"], "cooking")
+        self.assertEqual(out["hobbies"][0]["kind"], "creative")
+        self.assertNotIn("mentality:", " ".join(ctx["lifestyleTags"]))
+        self.assertIn("quiet stretch", block)
+        self.assertNotIn("drained_social", block)
+        self.assertNotIn("mentality_signal", block)
 
 
 class TomorrowBudgetTests(unittest.TestCase):
@@ -263,5 +270,139 @@ class ReplyShapeTests(unittest.TestCase):
             or "people-energy" in shape.detail.lower()
             or "quiet" in shape.detail.lower()
         )
+
+
+def _working(tendency, stance="keep_rhythm", feel="mixed"):
+    return uwm.Snapshot(
+        tendency=tendency,
+        stance=stance,
+        predicted_feel=feel,
+        confidence="low",
+        drivers=[],
+        steering_line="",
+    )
+
+
+class HobbyFitTests(unittest.TestCase):
+    def test_four_mentality_values_and_speak_phrases(self):
+        from aria_core import hobby_fit as hf
+
+        cases = [
+            (hp.RESERVED, hp.THIN, _working(uwm.PROTECTOR), hf.QUIET, "quiet stretch"),
+            (hp.SOCIABLE, hp.OPEN, _working(uwm.STEADY, feel=uwm.AVAILABLE), hf.OPEN, "up for a little more"),
+            (hp.BURNED_OUT, hp.THIN, _working(uwm.OVERREACHER), hf.DRAINED_SOCIAL, "lots on lately"),
+            (hp.MIXED, hp.ENOUGH, _working(uwm.REBUILDING, uwm.REBUILD_TRUST), hf.RESTORED, "a calmer patch"),
+        ]
+        for band, energy, working, signal, phrase in cases:
+            got = hf.mentality_signal(band, energy, working)
+            self.assertEqual(got, signal)
+            self.assertEqual(hf.speak(got), phrase)
+            line = hf.canon_line(got)
+            self.assertTrue(hf.speech_is_clean(line), line)
+            self.assertNotIn("drained_social", line)
+            self.assertNotIn("introvert", line.lower())
+
+    def test_canon_samples_and_dismissal(self):
+        from aria_core import hobby_fit as hf
+
+        self.assertIn("quieter stretch", hf.canon_line(hf.QUIET))
+        self.assertIn("lumpy bowl", hf.canon_line(hf.QUIET, curious=True))
+        self.assertIn("Lots on lately", hf.canon_line(hf.DRAINED_SOCIAL))
+        self.assertIn("skip group stuff", hf.canon_line(hf.DRAINED_SOCIAL, skip_groups=True))
+        cool = hf.cool_down_line("Hike club")
+        self.assertEqual(
+            cool,
+            "Hike club's still around if you ever want another look. It's not going anywhere.",
+        )
+        self.assertEqual(hf.on_dismissal("Hike club"), "")
+        self.assertNotIn("Hike", hf.on_dismissal("Hike club"))
+        self.assertTrue(hf.speech_is_clean(cool))
+
+    def test_hobbies_shape_drops_pii_and_stays_out_of_patterns(self):
+        from aria_core import hobby_fit as hf
+        from services import coach_context
+
+        rows = hf.normalize_hobbies([
+            {
+                "id": "pottery",
+                "label": "Pottery nights",
+                "kind": "creative",
+                "interest": "high",
+                "last_engaged_at": "2026-10-01",
+            },
+            {"label": "sam@x.com", "kind": "social"},
+            {"label": "Call 5551212"},
+        ])
+        self.assertEqual(len(rows), 1)
+        self.assertEqual(rows[0]["id"], "pottery")
+        self.assertEqual(rows[0]["kind"], "creative")
+        self.assertEqual(rows[0]["interest"], "high")
+        self.assertEqual(rows[0]["last_engaged_at"], "2026-10-01")
+
+        patterns = ["living:social:2", "mentality:drained_social"]
+        ctx = {
+            "readiness": {"overall": 70},
+            "recentSleep": [],
+            "recentWorkouts": [],
+            "lifestyleTags": ["living:social:2", "living:hobby:reading"],
+            "lifestyle": {"recentPatterns": list(patterns)},
+            "hobbies": rows + [{"label": "partner_cycle:day secret book"}],
+        }
+        out = coach_context._attach_predictions(ctx)
+        self.assertEqual(out["mentality_signal"], "quiet")
+        self.assertEqual(out["hobbies"][0]["label"], "Pottery nights")
+        self.assertNotIn("sam@", str(out["hobbies"]))
+        self.assertEqual(out["lifestyle"]["recentPatterns"], patterns)
+        block = coach_context.context_to_prompt_block(out)
+        self.assertIn("quiet stretch", block)
+        self.assertIn("Pottery nights", block)
+        self.assertNotIn("drained_social", block)
+        self.assertNotIn("@", block)
+
+    def test_chat_speaks_phrase_and_memory_drops_enum(self):
+        from aria_core import aria_engine
+        from aria_core import hobby_fit as hf
+        from routes.aria import sanitize_inbound_chat_payload
+
+        line = hf.chat_line(
+            "help me pick a hobby",
+            ["hobby_social:burned_out", "hobby_people:thin", "people:Sam:partner", "people:5551212:friend"],
+        )
+        self.assertIn("Lots on lately", line)
+        self.assertIn("Sam", line)
+        self.assertNotIn("555", line)
+        self.assertNotIn("drained_social", line)
+
+        ctx = ARIAContext(
+            lifestyle=LifestyleContext(
+                tags=["hobby_social:reserved", "hobby_people:thin"],
+                recent_patterns=["mentality:drained_social", "hobby_row:pottery"],
+            )
+        )
+        resp = aria_engine.generate_response("help me pick a quiet hobby", ctx, seed=0)
+        spoken = f"{resp.get('prose_summary', '')} {resp.get('message', '')}"
+        self.assertIn("quieter stretch", spoken)
+        self.assertNotIn("drained_social", spoken)
+        self.assertTrue(hf.speech_is_clean(spoken) or "drained_social" not in spoken)
+
+        memory = aria_engine._memory_block_from_ctx(ctx)
+        self.assertNotIn("drained_social", memory)
+        self.assertNotIn("hobby_row", memory)
+
+        clean = sanitize_inbound_chat_payload({
+            "message": "help me pick a hobby",
+            "hobbies": [{"label": "Pottery nights", "kind": "creative", "interest": "low"}],
+            "recentPatterns": ["mentality:open", "living:hobby:cooking"],
+            "context": {"lifestyle": {"recentPatterns": ["mentality_signal:restored"]}},
+        })
+        self.assertEqual(clean["hobbies"][0]["label"], "Pottery nights")
+        self.assertEqual(clean["hobbies"][0]["kind"], "creative")
+        self.assertNotIn("mentality:open", clean["recentPatterns"])
+        self.assertIn("living:hobby:cooking", clean["recentPatterns"])
+        self.assertNotIn(
+            "mentality_signal:restored",
+            clean["context"]["lifestyle"]["recentPatterns"],
+        )
+        self.assertNotIn("hobbies", clean["recentPatterns"])
 
 

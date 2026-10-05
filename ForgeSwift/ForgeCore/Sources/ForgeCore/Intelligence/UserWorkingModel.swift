@@ -307,6 +307,9 @@ public enum PredictiveCoach {
         public var working: UserWorkingModel.Snapshot
         public var hobby: HobbyPathEngine.Snapshot
         public var budgets: TomorrowBudgets.Snapshot
+        public var mentality: HobbyFit.Signal
+        public var hobbyFitSpeak: String
+        public var fitHobbies: [HobbyFit.Hobby]
         public var keepLight: Bool
         public var ariaTags: [String]
         public var steeringLine: String
@@ -335,6 +338,12 @@ public enum PredictiveCoach {
             stance: working.stance,
             peopleEnergy: hobby.peopleEnergy
         )
+        let mentality = HobbyFit.signal(
+            socialBand: hobby.socialBand,
+            peopleEnergy: hobby.peopleEnergy,
+            working: working
+        )
+        let fitHobbies = HobbyFit.hobbies(from: currentHobbies)
         let peopleTags = knownPeople.isEmpty ? [] : PeopleDirectory.Directory(
             optedIn: true,
             contactsAccess: .granted,
@@ -348,9 +357,12 @@ public enum PredictiveCoach {
             working: working,
             hobby: hobby,
             budgets: budgets,
+            mentality: mentality,
+            hobbyFitSpeak: HobbyFit.speak(mentality),
+            fitHobbies: fitHobbies,
             keepLight: forecast.posture.keepLight || working.stance == .capHeroics,
             ariaTags: forecast.ariaTags + working.ariaTags + hobby.ariaTags + budgets.ariaTags + peopleTags,
-            steeringLine: "\(working.steeringLine) \(forecast.steeringLine) \(hobby.coachingLine) \(hobby.windowLine) \(budgets.coachingLine)\(peopleLine)"
+            steeringLine: "\(working.steeringLine) \(forecast.steeringLine) \(hobby.coachingLine) \(hobby.windowLine) \(budgets.coachingLine)\(peopleLine) \(HobbyFit.speak(mentality))"
         )
     }
 }

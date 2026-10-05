@@ -160,6 +160,7 @@ def _attach_predictions(context: dict[str, Any]) -> dict[str, Any]:
         from aria_core import user_working_model as uwm
         from aria_core import hobby_path as hp
         from aria_core import tomorrow_budgets as tb
+        from aria_core import hobby_fit as hf
     except Exception:
         return context
 
@@ -234,10 +235,19 @@ def _attach_predictions(context: dict[str, Any]) -> dict[str, Any]:
         known_people=known,
     )
     budgets = tb.snapshot(fc.posture, working.stance, hobby.people_energy)
+    signal = hf.mentality_signal(hobby.social_band, hobby.people_energy, working)
+    explicit = context.get("hobbies")
+    if isinstance(explicit, list) and any(isinstance(item, dict) for item in explicit):
+        fit_hobbies = hf.normalize_hobbies(explicit)
+    else:
+        fit_hobbies = hf.hobbies_from_living(hobbies)
     context["tomorrowForecast"] = fc.to_dict()
     context["workingModel"] = working.to_dict()
     context["hobbyPath"] = hobby.to_dict()
     context["tomorrowBudgets"] = budgets.to_dict()
+    # Stable field for coach routes. Speech and memory use ``hobbyFit.speak``.
+    context["mentality_signal"] = signal
+    context["hobbies"] = fit_hobbies
     return context
 
 
@@ -300,6 +310,27 @@ def context_to_prompt_block(context: dict[str, Any]) -> str:
             "headline": budgets.get("headline"),
             "coachingLine": budgets.get("coachingLine"),
         }
+    signal = context.get("mentality_signal")
+    if signal:
+        try:
+            from aria_core import hobby_fit as hf
+            phrase = hf.speak(str(signal))
+        except Exception:
+            phrase = ""
+        if phrase:
+            compact["hobbyFit"] = {
+                "speak": phrase,
+                "hobbies": [
+                    {
+                        "id": row.get("id"),
+                        "label": row.get("label"),
+                        "kind": row.get("kind"),
+                        "interest": row.get("interest"),
+                    }
+                    for row in (context.get("hobbies") or [])[:6]
+                    if isinstance(row, dict) and row.get("label")
+                ],
+            }
     return json.dumps(compact, separators=(",", ":"))
 
 

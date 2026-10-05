@@ -681,14 +681,20 @@ enum AriaDummyOrchestrator {
                 )
             }
             if QualityOfLifeLivingStore.isHobbyQuestion(text) {
-                let hobby = store.predictiveCoachPicture().hobby
-                let start = hobby.suggestions.first.map { "Start with \($0.firstStep)" } ?? ""
+                let picture = store.predictiveCoachPicture()
+                let lower = text.lowercased()
+                let spoken = HobbyFit.canonLine(
+                    signal: picture.mentality,
+                    curious: lower.contains("curious") || lower.contains("pottery"),
+                    skipGroups: lower.contains("skip group") || lower.contains("group stuff")
+                )
+                let prose = [spoken, picture.hobby.coachingLine]
+                    .filter { !$0.isEmpty }
+                    .joined(separator: " ")
                 return AriaDummyBeat(
                     domain: .lifestyle,
-                    prose: [hobby.coachingLine, hobby.windowLine, start]
-                        .filter { !$0.isEmpty }
-                        .joined(separator: " "),
-                    suggestedActions: ["Open Lifestyle", hobby.suggestions.first.map { $0.hobby.title } ?? "Pick a hobby"]
+                    prose: prose,
+                    suggestedActions: ["Open Lifestyle", picture.fitHobbies.first?.label ?? "Pick a hobby"]
                 )
             }
             if PeopleDirectory.isQuestion(text) {

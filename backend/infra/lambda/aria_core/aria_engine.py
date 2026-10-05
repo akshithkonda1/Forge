@@ -3187,6 +3187,15 @@ def generate_response(
         "evidence_key": (envelope.get("evidence") or {}).get("key"),
         "load": envelope.get("load"),
     }
+    from . import hobby_fit as hf
+
+    tokens = list(ctx.lifestyle.recent_patterns or []) + list(ctx.lifestyle.tags or [])
+    spoken = hf.chat_line(message, tokens)
+    if spoken:
+        for key in ("prose_summary", "message"):
+            current = str(envelope.get(key) or "")
+            if spoken not in current:
+                envelope[key] = f"{spoken} {current}".strip()
     callback = _companion_callback(ctx)
     if callback:
         msg = str(envelope.get("message") or "")
@@ -3205,14 +3214,29 @@ def generate_response(
 
 
 def _memory_notes_from_ctx(ctx: ARIAContext) -> list[str]:
-    """Stored pattern lines only — companion callbacks may paraphrase insights."""
-    return [str(p) for p in (ctx.lifestyle.recent_patterns or []) if p]
+    """Stored pattern lines only — companion callbacks may paraphrase insights.
+
+    Hobby Fit enum rows stay out. The vault owns hobby labels.
+    """
+    from . import hobby_fit as hf
+
+    return [
+        str(p)
+        for p in (ctx.lifestyle.recent_patterns or [])
+        if p and not hf.blocked_memory_token(str(p))
+    ]
 
 
 def _memory_block_from_ctx(ctx: ARIAContext) -> str:
     """Equivalent of ``memory_prompt_block`` from fields already on ``ARIAContext``."""
     long_term: list[str] = []
-    patterns = [str(p) for p in (ctx.lifestyle.recent_patterns or []) if p]
+    from . import hobby_fit as hf
+
+    patterns = [
+        str(p)
+        for p in (ctx.lifestyle.recent_patterns or [])
+        if p and not hf.blocked_memory_token(str(p))
+    ]
     insights = [
         str(x).strip()
         for x in (getattr(ctx, "last_insights", None) or [])

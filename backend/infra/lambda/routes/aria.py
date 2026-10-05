@@ -140,12 +140,33 @@ def sanitize_user_memory_text(raw: str) -> str:
 def _filter_lifestyle_tokens(values: Any) -> list[str]:
     if not isinstance(values, list):
         return []
+    try:
+        from aria_core import hobby_fit as hf
+    except Exception:
+        hf = None
     kept: list[str] = []
     for item in values:
         text = str(item).strip()
-        if text and not _denied_lifestyle_token(text):
-            kept.append(text)
+        if not text or _denied_lifestyle_token(text):
+            continue
+        if hf is not None and hf.blocked_memory_token(text):
+            continue
+        kept.append(text)
     return kept
+
+
+def _sanitize_hobby_rows(values: Any) -> list[dict[str, Any]]:
+    """Hobby labels only. Rows never flatten into recentPatterns."""
+    try:
+        from aria_core import hobby_fit as hf
+    except Exception:
+        return []
+    return hf.normalize_hobbies(values)
+
+
+def _sanitize_hobby_fields(container: dict[str, Any]) -> None:
+    if "hobbies" in container:
+        container["hobbies"] = _sanitize_hobby_rows(container.get("hobbies"))
 
 
 def _sanitize_lifestyle_dict(lifestyle: dict[str, Any]) -> None:
@@ -199,6 +220,15 @@ def sanitize_inbound_chat_payload(payload: dict[str, Any]) -> dict[str, Any]:
     for key in ("recentPatterns", "recent_patterns"):
         if key in clean:
             clean[key] = _filter_lifestyle_tokens(clean.get(key))
+    _sanitize_hobby_fields(clean)
+    if isinstance(context, dict):
+        _sanitize_hobby_fields(context)
+        lifestyle = context.get("lifestyle")
+        if isinstance(lifestyle, dict):
+            _sanitize_hobby_fields(lifestyle)
+    lifestyle = clean.get("lifestyle")
+    if isinstance(lifestyle, dict):
+        _sanitize_hobby_fields(lifestyle)
     if "calendar_events" in clean:
         clean["calendar_events"] = _redact_calendar_event_titles(clean.get("calendar_events"))
     return clean
