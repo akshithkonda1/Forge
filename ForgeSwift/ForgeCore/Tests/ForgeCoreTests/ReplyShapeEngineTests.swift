@@ -17,9 +17,9 @@ final class ReplyShapeEngineTests: XCTestCase {
             ),
             workingInput: UserWorkingModel.Input(
                 habitStreakDays: 6,
+                weeklyMood0to10: 3,
                 acwr: 1.7,
-                highStrainLowRecoveryDays: 4,
-                weeklyMood0to10: 3
+                highStrainLowRecoveryDays: 4
             ),
             socialEnergy0to10: 9,
             currentHobbies: [.gym]
