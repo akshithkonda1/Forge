@@ -34,6 +34,17 @@ final class AriaContextStore: ObservableObject {
         return id
     }
 
+    private static func clockLabel(_ hour: Double) -> String {
+        var wrapped = hour.truncatingRemainder(dividingBy: 24)
+        if wrapped < 0 { wrapped += 24 }
+        let h = Int(wrapped)
+        let m = Int(((wrapped - Double(h)) * 60).rounded())
+        if m >= 60 {
+            return String(format: "%02d:%02d", (h + 1) % 24, 0)
+        }
+        return String(format: "%02d:%02d", h, m)
+    }
+
     func configure(userId: String? = nil) {
         let trimmed = userId?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
         let resolved = trimmed.isEmpty ? Self.stableUserId() : trimmed
@@ -69,6 +80,10 @@ final class AriaContextStore: ObservableObject {
         }
         if CrossZoneConsistency.blocksHighIntensity(zone), !patterns.contains("recovery_day_signal") {
             patterns.append("recovery_day_signal")
+        }
+        let picture = store.predictiveCoachPicture()
+        for tag in picture.ariaTags where !patterns.contains(tag) {
+            patterns.append(tag)
         }
         context.recentPatterns = patterns
 
@@ -121,7 +136,11 @@ final class AriaContextStore: ObservableObject {
             hrv7DayTrend: hrvTrend,
             hrv30DayBaseline: hrvBaseline,
             recoveryScore: Double(store.readiness.recoveryScore),
-            hrvDaysAvailable: hrvDaysAvailable
+            hrvDaysAvailable: hrvDaysAvailable,
+            tomorrowPredictedScore: Double(picture.forecast.predictedScore),
+            tomorrowPosture: picture.forecast.posture.rawValue,
+            tomorrowConfidence: picture.forecast.confidence.rawValue,
+            tomorrowRecommendation: picture.forecast.recommendation
         )
         let weeklyLoad: Double?
         if store.workoutHistory.count >= 3 {
@@ -147,11 +166,24 @@ final class AriaContextStore: ObservableObject {
             steps3DayAvg: steps3,
             activeCalories3DayAvg: activityCalories
         )
-        let chronotypeDomain = ARIAContextPayload.ChronotypeDomain(
-            typicalSleepOnset: nil,
-            typicalWakeTime: nil,
-            consistencyScore: nil
-        )
+        let chronotypeDomain: ARIAContextPayload.ChronotypeDomain = {
+            let nights = store.sleepData.compactMap { entry -> CircadianRhythm.Night? in
+                guard let onset = entry.onset, let wake = entry.wake, wake > onset else { return nil }
+                return CircadianRhythm.Night(onset: onset, wake: wake, asleepHours: entry.totalHours)
+            }.sorted { $0.wake < $1.wake }
+            guard let phase = CircadianRhythm.phase(from: nights) else {
+                return ARIAContextPayload.ChronotypeDomain(
+                    typicalSleepOnset: nil,
+                    typicalWakeTime: nil,
+                    consistencyScore: nil
+                )
+            }
+            return ARIAContextPayload.ChronotypeDomain(
+                typicalSleepOnset: Self.clockLabel(phase.onsetHour),
+                typicalWakeTime: Self.clockLabel(phase.wakeHour),
+                consistencyScore: phase.confidence
+            )
+        }()
         let todayStats = HealthKitManager.shared.todayStats
         let agingSnap = AgingBridge.snapshot(
             age: store.userProfile.age,
@@ -749,6 +781,7 @@ final class AriaContextStore: ObservableObject {
             }
         }
         tags.append(contentsOf: QualityOfLifeLivingStore.livingTags())
+        tags.append(contentsOf: PeopleDirectoryStore.load().ariaTags)
 
         if let stats {
             tags.append("protein:\(Int(stats.protein))g")
@@ -806,7 +839,7 @@ final class AriaContextStore: ObservableObject {
         }
         let habitConstraints = HabitEngine.constraints(for: habits)
         context.recentPatterns = Array(patterns.suffix(12))
-        let owned = ["qol:", "stress:", "nutrition_score:", "sleep_quality:", "protein:", "steps:", "hydration:", "recovery:", "sleep:", "movement:", "meals_logged:", "habit_", "living:"]
+        let owned = ["qol:", "stress:", "nutrition_score:", "sleep_quality:", "protein:", "steps:", "hydration:", "recovery:", "sleep:", "movement:", "meals_logged:", "habit_", "living:", "people:"]
         var merged = context.lifestyleTags.filter { tag in
             !owned.contains { tag.hasPrefix($0) }
         }

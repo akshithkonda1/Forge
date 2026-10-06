@@ -454,24 +454,15 @@ enum MenstrualCycleEngine {
         let multiDaySpotting = days.count >= 2 && flows.contains(where: { $0.isBleeding })
         guard hasRealFlow || multiDaySpotting else { return nil }
 
-        // True start: first medium/heavy if present within first 2 days; else first bleeding day.
-        let start: String = {
-            let ordered = days.sorted()
-            for key in ordered.prefix(2) {
-                if let f = logs.first(where: { $0.dayKey == key })?.flow,
-                   f == .medium || f == .heavy {
-                    return key
-                }
-            }
-            for key in ordered {
-                if let f = logs.first(where: { $0.dayKey == key })?.flow, f.isBleeding, f != .spotting {
-                    return key
-                }
-            }
-            return ordered.first!
-        }()
-        let end = days.sorted().last!
-        let count = (CycleDayKey.daysBetween(start, end) ?? 0) + 1
+        // The episode starts on the first bleeding day in the run, including
+        // spotting that sits against real flow. Promoting the first medium/heavy
+        // day dropped that spotting day and shifted the cycle start.
+        // dayCount is logged days only — a missed log in the middle is not a
+        // bleeding day we invented.
+        let ordered = days.sorted()
+        let start = ordered[0]
+        let end = ordered[ordered.count - 1]
+        let count = ordered.count
         return PeriodEpisode(
             id: start,
             startDayKey: start,

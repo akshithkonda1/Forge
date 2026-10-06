@@ -295,6 +295,11 @@ class ReadinessContext:
     hrv_30day_baseline: float | None = None
     recovery_score: float | None = None   # 0-100
     hrv_days_available: int | None = None  # history depth (for confidence)
+    # Optional tomorrow forecast — never a required missing_fields leaf.
+    tomorrow_predicted_score: int | None = None
+    tomorrow_posture: str | None = None
+    tomorrow_confidence: str | None = None
+    tomorrow_recommendation: str | None = None
 
 
 @dataclass
@@ -832,6 +837,18 @@ class ARIAContext:
                 hrv_30day_baseline=_num(readiness.get("hrv30DayBaseline")),
                 recovery_score=_num(readiness.get("recoveryScore")),
                 hrv_days_available=_int(readiness.get("hrvDaysAvailable")),
+                tomorrow_predicted_score=_int(
+                    readiness.get("tomorrowPredictedScore") or readiness.get("tomorrow_predicted_score")
+                ),
+                tomorrow_posture=_str(
+                    readiness.get("tomorrowPosture") or readiness.get("tomorrow_posture")
+                ),
+                tomorrow_confidence=_str(
+                    readiness.get("tomorrowConfidence") or readiness.get("tomorrow_confidence")
+                ),
+                tomorrow_recommendation=_str(
+                    readiness.get("tomorrowRecommendation") or readiness.get("tomorrow_recommendation")
+                ),
             ),
             training=TrainingContext(
                 last_workout_type=_str(training.get("lastWorkoutType")),
@@ -1089,6 +1106,16 @@ class ARIAContext:
                 "concerning or a repeated pattern, say it's worth a conversation with a clinician rather "
                 "than assessing it yourself"
             )
+        r = self.readiness
+        if r.tomorrow_predicted_score is not None:
+            lines.append(
+                f"- readiness.tomorrow: {r.tomorrow_predicted_score}/100 "
+                f"posture={r.tomorrow_posture or 'unknown'} "
+                f"confidence={r.tomorrow_confidence or 'unknown'} "
+                "[forecast of tomorrow morning — lifestyle guide, never a medical claim]"
+            )
+            if r.tomorrow_recommendation:
+                lines.append(f"- readiness.tomorrow_recommendation: {r.tomorrow_recommendation}")
         return "\n".join(lines)
 
 
@@ -1480,6 +1507,28 @@ def _interpret_readiness(ctx: ARIAContext, baselines: Any = None) -> Signal | No
             if direction != "negative":
                 direction = "positive"
             interp_bits.append(f"recovery score {r.recovery_score:.0f} is strong")
+
+    if r.tomorrow_predicted_score is not None:
+        parts.append(f"tomorrow {r.tomorrow_predicted_score}/100")
+        posture = (r.tomorrow_posture or "").lower()
+        if posture in ("protect", "rest"):
+            direction = "negative"
+            if priority == "low":
+                priority = "medium"
+            interp_bits.append(
+                f"tomorrow's readiness is forecast at {r.tomorrow_predicted_score} "
+                f"({posture}) — cap intensity, this is a lifestyle guide not a diagnosis"
+            )
+        elif posture == "push":
+            if direction != "negative":
+                direction = "positive"
+            interp_bits.append(
+                f"tomorrow's readiness is forecast at {r.tomorrow_predicted_score} — available for the hard session"
+            )
+        else:
+            interp_bits.append(
+                f"tomorrow's readiness is forecast at {r.tomorrow_predicted_score} — keep the plan"
+            )
 
     return Signal(
         "readiness", "Readiness", ", ".join(parts), vs,
@@ -1925,6 +1974,85 @@ def _interpret_progress(ctx: ARIAContext, baselines: Any = None) -> Signal | Non
     return Signal("progress", "Progress", ", ".join(parts), "vs 30-day trend", interpretation, priority, direction)
 
 
+def _working_model_signal(ctx: ARIAContext) -> Signal | None:
+    """How this person tends to work, from tags the client already sends.
+
+    Lifestyle coach language only — never a clinical mental-health claim.
+    """
+    from . import user_working_model as uwm
+
+    parsed = None
+    for token in ctx.lifestyle.recent_patterns or []:
+        parsed = uwm.parse_tag(token)
+        if parsed:
+            break
+    if parsed is None:
+        for token in ctx.lifestyle.tags or []:
+            parsed = uwm.parse_tag(token)
+            if parsed:
+                break
+    if parsed is None:
+        from . import hobby_path as hp
+
+        hobby_only = None
+        for token in list(ctx.lifestyle.recent_patterns or []) + list(ctx.lifestyle.tags or []):
+            hobby_only = hp.parse_tag(token)
+            if hobby_only:
+                break
+        if hobby_only == hp.RESTORE_QUIET:
+            return Signal(
+                "lifestyle",
+                "Hobby path",
+                f"hobby_path:{hobby_only}",
+                "vs how you spend a free day",
+                "Quieter free-day hobbies fit this week — not a fuller calendar.",
+                "low",
+                "neutral",
+            )
+        if hobby_only == hp.OPEN_GENTLY:
+            return Signal(
+                "lifestyle",
+                "Hobby path",
+                f"hobby_path:{hobby_only}",
+                "vs how you spend a free day",
+                "Start a hobby alone; light contact can come later if they want it.",
+                "low",
+                "neutral",
+            )
+        return None
+    tendency, stance = parsed
+    direction = "negative" if stance == uwm.CAP_HEROICS or tendency == uwm.REBUILDING else "neutral"
+    priority = "medium" if stance == uwm.CAP_HEROICS else "low"
+    interp = uwm._steering(tendency, uwm.FLAT if stance == uwm.CAP_HEROICS else uwm.MIXED)
+    from . import hobby_path as hp
+
+    hobby_path = None
+    for token in list(ctx.lifestyle.recent_patterns or []) + list(ctx.lifestyle.tags or []):
+        hobby_path = hp.parse_tag(token)
+        if hobby_path:
+            break
+    if hobby_path == hp.RESTORE_QUIET:
+        interp = f"{interp} Quieter free-day hobbies fit this week — not a fuller calendar."
+    elif hobby_path == hp.OPEN_GENTLY:
+        interp = f"{interp} Start a hobby alone; light contact can come later if they want it."
+    people = None
+    for token in list(ctx.lifestyle.recent_patterns or []) + list(ctx.lifestyle.tags or []):
+        if str(token).startswith("hobby_people:"):
+            people = str(token).split(":", 1)[-1]
+            break
+    if people == "thin":
+        interp = f"{interp} Tomorrow's people-energy looks thin — quieter contact, not a fuller calendar."
+    return Signal(
+        "lifestyle",
+        "How you work",
+        f"working:{tendency}:{stance}",
+        "vs your own habit, feel, and load patterns",
+        interp,
+        priority,
+        direction,
+    )
+
+
 def _interpret_lifestyle(ctx: ARIAContext, baselines: Any = None) -> Signal | None:
     """Turn lifestyle habit tags and QoL into a Signal the rest of the engine can use.
 
@@ -1974,6 +2102,9 @@ def _interpret_lifestyle(ctx: ARIAContext, baselines: Any = None) -> Signal | No
             )
     habit = _sleep_variance_habit(ctx)
     if habit is None:
+        working = _working_model_signal(ctx)
+        if working is not None:
+            return working
         return None
     habit_id, domain, score = habit
     return Signal(
@@ -2538,6 +2669,21 @@ def _recommendation_response(
     if not ctx.has_training_history and "training" not in restricted and ctx.training.acwr is None:
         actions = actions[:2] + ["Tell ARIA your last workout"]
         notice_bits.append("I don't have your recent training load yet — what and when was your last real session?")
+    if ctx.readiness.tomorrow_predicted_score is not None:
+        posture = (ctx.readiness.tomorrow_posture or "").lower()
+        notice_bits.append(
+            f"Tomorrow's readiness is forecast at {ctx.readiness.tomorrow_predicted_score}"
+            + (f" ({posture})" if posture else "")
+            + " — a lifestyle guide for how hard tomorrow should be, not a diagnosis."
+        )
+    from . import user_working_model as uwm
+
+    for token in list(ctx.lifestyle.recent_patterns or []) + list(ctx.lifestyle.tags or []):
+        parsed = uwm.parse_tag(token)
+        if parsed:
+            tendency, _stance = parsed
+            notice_bits.append(uwm._steering(tendency, uwm.MIXED))
+            break
 
     is_lifestyle = brief is not None and str(getattr(brief, "lead_domain", "") or "") == "lifestyle"
     notice = _lifestyle_notice(" ".join(notice_bits), brief, action)
@@ -3041,6 +3187,15 @@ def generate_response(
         "evidence_key": (envelope.get("evidence") or {}).get("key"),
         "load": envelope.get("load"),
     }
+    from . import hobby_fit as hf
+
+    tokens = list(ctx.lifestyle.recent_patterns or []) + list(ctx.lifestyle.tags or [])
+    spoken = hf.chat_line(message, tokens)
+    if spoken:
+        for key in ("prose_summary", "message"):
+            current = str(envelope.get(key) or "")
+            if spoken not in current:
+                envelope[key] = f"{spoken} {current}".strip()
     callback = _companion_callback(ctx)
     if callback:
         msg = str(envelope.get("message") or "")
@@ -3059,14 +3214,29 @@ def generate_response(
 
 
 def _memory_notes_from_ctx(ctx: ARIAContext) -> list[str]:
-    """Stored pattern lines only — companion callbacks may paraphrase insights."""
-    return [str(p) for p in (ctx.lifestyle.recent_patterns or []) if p]
+    """Stored pattern lines only — companion callbacks may paraphrase insights.
+
+    Hobby Fit enum rows stay out. The vault owns hobby labels.
+    """
+    from . import hobby_fit as hf
+
+    return [
+        str(p)
+        for p in (ctx.lifestyle.recent_patterns or [])
+        if p and not hf.blocked_memory_token(str(p))
+    ]
 
 
 def _memory_block_from_ctx(ctx: ARIAContext) -> str:
     """Equivalent of ``memory_prompt_block`` from fields already on ``ARIAContext``."""
     long_term: list[str] = []
-    patterns = [str(p) for p in (ctx.lifestyle.recent_patterns or []) if p]
+    from . import hobby_fit as hf
+
+    patterns = [
+        str(p)
+        for p in (ctx.lifestyle.recent_patterns or [])
+        if p and not hf.blocked_memory_token(str(p))
+    ]
     insights = [
         str(x).strip()
         for x in (getattr(ctx, "last_insights", None) or [])

@@ -2326,7 +2326,7 @@
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.lifestyle";
 				INFOPLIST_KEY_NSAppleMusicUsageDescription = "Forge uses Apple Music so you can play and control your music during workouts.";
 				INFOPLIST_KEY_NSCameraUsageDescription = "Forge uses the camera to photograph medication bottles so you can add what you already take when search cannot find it, and to scan food barcodes for meals. The photo stays on this iPhone.";
-				INFOPLIST_KEY_NSContactsUsageDescription = "Forge looks for contacts who already use Forge so you can train together. Contacts stay on this iPhone — Forge never uploads your address book.";
+				INFOPLIST_KEY_NSContactsUsageDescription = "Forge can read first names you pick so ARIA knows your people for social stretch and quieter weeks. Phone numbers, emails, and the rest of the address book stay in Contacts and are not uploaded. Lifestyle coaching only — not a medical read.";
 				INFOPLIST_KEY_NSHealthShareUsageDescription = "Forge reads Health app data such as activity, workouts, sleep, heart metrics, body measurements, cycle health, mobility, hydration, nutrition, and structured records to personalize training, recovery, and coaching.";
 				INFOPLIST_KEY_NSHealthUpdateUsageDescription = "Forge saves workouts, nutrition, hydration, and energy data to the Health app so your fitness history stays complete and personalized.";
 				INFOPLIST_KEY_NSHealthClinicalHealthRecordsUsageDescription = "Forge reads structured Health records — allergies, medications, conditions, immunizations, labs, procedures, and clinical vitals — so ARIA can coach around what is already on this iPhone. Names and dates only. Not notes. Not insurance. Nothing leaves this iPhone.";
@@ -2374,7 +2374,7 @@
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.lifestyle";
 				INFOPLIST_KEY_NSAppleMusicUsageDescription = "Forge uses Apple Music so you can play and control your music during workouts.";
 				INFOPLIST_KEY_NSCameraUsageDescription = "Forge uses the camera to photograph medication bottles so you can add what you already take when search cannot find it, and to scan food barcodes for meals. The photo stays on this iPhone.";
-				INFOPLIST_KEY_NSContactsUsageDescription = "Forge looks for contacts who already use Forge so you can train together. Contacts stay on this iPhone — Forge never uploads your address book.";
+				INFOPLIST_KEY_NSContactsUsageDescription = "Forge can read first names you pick so ARIA knows your people for social stretch and quieter weeks. Phone numbers, emails, and the rest of the address book stay in Contacts and are not uploaded. Lifestyle coaching only — not a medical read.";
 				INFOPLIST_KEY_NSHealthShareUsageDescription = "Forge reads Health app data such as activity, workouts, sleep, heart metrics, body measurements, cycle health, mobility, hydration, nutrition, and structured records to personalize training, recovery, and coaching.";
 				INFOPLIST_KEY_NSHealthUpdateUsageDescription = "Forge saves workouts, nutrition, hydration, and energy data to the Health app so your fitness history stays complete and personalized.";
 				INFOPLIST_KEY_NSHealthClinicalHealthRecordsUsageDescription = "Forge reads structured Health records — allergies, medications, conditions, immunizations, labs, procedures, and clinical vitals — so ARIA can coach around what is already on this iPhone. Names and dates only. Not notes. Not insurance. Nothing leaves this iPhone.";

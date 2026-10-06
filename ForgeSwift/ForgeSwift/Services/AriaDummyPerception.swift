@@ -26,6 +26,9 @@ enum AriaDummyPerception {
         let sleepHours: Double? = {
             if let hours = grounding.sleepHours, hours > 0 { return hours }
             if let night = store.sleepData.first, night.totalHours > 0 { return night.totalHours }
+            if store.dailyMetrics.totalSleep > 0 {
+                return Double(store.dailyMetrics.totalSleep) / 60.0
+            }
             return nil
         }()
         let readiness: Int? = {

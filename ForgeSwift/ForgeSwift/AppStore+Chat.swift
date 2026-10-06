@@ -544,6 +544,7 @@ extension AppStore {
                 harvestDurableMemory(userText: text, ariaText: aria.message)
             }
 
+            let shaped = replyShape(prompt: text, response: aria)
             let trainerMessage = ChatMessage(
                 id: UUID().uuidString,
                 role: .trainer,
@@ -564,7 +565,9 @@ extension AppStore {
                 suggestedActions: aria.suggestedActions,
                 memoryReference: aria.memoryReference,
                 confidenceReason: aria.confidenceReason,
-                coachAgent: plan.primary.kind.rawValue
+                coachAgent: plan.primary.kind.rawValue,
+                replyShapeHeadline: shaped.chipLabel,
+                replyShapeDetail: shaped.detail
             )
             chatMessages.append(trainerMessage)
             beginStreamingReveal(for: trainerMessage.id, fullLength: trainerMessage.content.count)
@@ -625,6 +628,25 @@ extension AppStore {
         chatMessages.append(checkIn)
         lastSuggestedActions = []
         persistChatHistory()
+    }
+
+    /// What shaped this reply — same helper Home / Dummy / remote all feed.
+    private func replyShape(prompt: String, response: AriaResponse) -> ReplyShapeEngine.Shape {
+        let picture = predictiveCoachPicture()
+        let reason = (response.confidenceReason ?? "").lowercased()
+        let tools = (response.toolCallsMade ?? []).joined(separator: " ").lowercased()
+        let scoutUsed = reason.contains("evidence")
+            || tools.contains("scout")
+            || tools.contains("research")
+        let estimate = response.message == PromptGuard.estimateLine
+            || reason.contains("estimate")
+        return ReplyShapeEngine.shape(
+            prompt: prompt,
+            ariaTags: picture.ariaTags,
+            localFallback: AriaService.shared.isLocalFallback,
+            scoutUsed: scoutUsed,
+            estimate: estimate
+        )
     }
 
     /// Lightweight durable-memory extraction — production-minded, no LLM required.

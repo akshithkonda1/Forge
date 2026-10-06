@@ -481,6 +481,8 @@ struct SettingsPageView: View {
                     .buttonStyle(.plain)
                 }
 
+                PeopleSettingsSection()
+
                 // Life Context — Reminders and shared conversations, off by default.
                 LifeContextSettingsSection()
 

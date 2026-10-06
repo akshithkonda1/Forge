@@ -214,6 +214,7 @@ struct HomeLifestylePreviewCard: View {
     var body: some View {
         Button {
             FDS.haptic(.light)
+            store.pendingLifestyleSegment = "wellbeing"
             store.activeTab = .lifestyle
         } label: {
             VStack(alignment: .leading, spacing: 14) {
@@ -263,10 +264,10 @@ struct HomeLifestylePreviewCard: View {
                 }
 
                 HStack(spacing: 8) {
-                    Image(systemName: "fork.knife")
+                    Image(systemName: "leaf.fill")
                         .font(.system(size: 12, weight: .semibold))
                         .foregroundStyle(Color.amber)
-                    Text("Nutrition · hydration · wellbeing — tap water for the full page")
+                    Text(hobbyPreview)
                         .font(FDS.TypeScale.body(12))
                         .foregroundColor(.textTertiary)
                         .lineLimit(2)
@@ -283,6 +284,11 @@ struct HomeLifestylePreviewCard: View {
         .homeEntrance(delay: 0.22)
         .accessibilityLabel("Lifestyle preview")
         .accessibilityHint("Opens the Lifestyle tab")
+    }
+
+    private var hobbyPreview: String {
+        let line = store.predictiveCoachPicture().hobby.headline
+        return "\(line) — wellbeing isn't only fitness"
     }
 
     private func lifestyleChip(icon: String, value: String, label: String, color: Color) -> some View {

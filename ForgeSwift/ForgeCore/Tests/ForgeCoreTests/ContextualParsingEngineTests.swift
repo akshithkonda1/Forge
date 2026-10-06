@@ -69,6 +69,11 @@ final class ContextualParsingEngineTests: XCTestCase {
         // Below the fuzzy floor: any "typo" at this length is usually just a
         // different real word, so no fuzzy tolerance is applied.
         XCTAssertFalse(ContextualParsingEngine.containsWord("let's go run a test", "rest"))
+        // Apple's tagger lemmatizes "don't" to "do". That must not make the
+        // decline needle match "do it" or "what do you know".
+        XCTAssertFalse(ContextualParsingEngine.matches("do it", "don't"))
+        XCTAssertFalse(ContextualParsingEngine.matches("what do you know about me", "don't"))
+        XCTAssertTrue(ContextualParsingEngine.matches("dont", "don't"))
     }
 
     func testTypoTooFarAwayDoesNotMatch() {

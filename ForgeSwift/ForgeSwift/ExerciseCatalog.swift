@@ -96,9 +96,16 @@ enum TargetMuscle: String, CaseIterable, Identifiable, Hashable {
             ("quad", .quads),
             ("chest", .chest),
             ("pec", .chest),
+            // Before the "legs" / "back" chips so "skip legs" plus a lat
+            // constraint still builds upper-body work.
             ("lats", .lats),
             ("lat ", .lats),
             ("trap", .traps),
+            // Chip labels. Longer back phrases are already above so
+            // "upper back" does not collapse into "back".
+            ("legs", .quads),
+            ("arms", .biceps),
+            ("back", .upperBack),
             ("core", .abs),
             ("abs", .abs),
             ("ab ", .abs),

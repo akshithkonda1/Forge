@@ -379,7 +379,13 @@ enum AriaDummyTurn {
             || text.lowercased().contains("easy session")
 
         var extra: [String] = [text]
-        if skipLegs { extra.append("lats upper body skip legs") }
+        // Only the words in this message pick a substitute muscle. A
+        // remembered knee still sets skipLegs so a built plan can leave
+        // squats off, but it must not rewrite "what should I train" into lats.
+        let textSkipsLegs = text.lowercased().contains("skip legs")
+            || text.lowercased().contains("less legs")
+            || text.lowercased().contains("no squats")
+        if textSkipsLegs { extra.append("lats upper body skip legs") }
         if jointsFound.contains("shoulder") || jointsFound.contains("elbow") {
             extra.append("keep pressing light")
         }
@@ -480,7 +486,8 @@ enum AriaDummyTurn {
         if let train {
             sentences.append(clip(train.prose, limit: 280))
         }
-        if let food, askedFood || train == nil {
+        let characterAnswer = QualityOfLifeLivingStore.isCharacterQuestion(prompt)
+        if let food, askedFood || train == nil || characterAnswer {
             let lowerFood = food.prose.lowercased()
             let calendarThought = interpretation.readCalendar
                 || lowerFood.contains("calendar")
@@ -492,7 +499,13 @@ enum AriaDummyTurn {
                 || lowerFood.contains("quality of life")
                 || lowerFood.contains("tux")
                 || lowerFood.contains("suit")
-            let limit = calendarThought ? 280 : 140
+            // Character answers always end with the on-device sentence.
+            // A 140-character clip stops at "light eater." and drops it.
+            let keepWhole = characterAnswer
+                || lowerFood.contains("on-device")
+                || lowerFood.contains("don't have to ask the model")
+                || lowerFood.contains("don’t have to ask the model")
+            let limit = keepWhole ? 480 : (calendarThought ? 280 : 140)
             sentences.append(clip(food.prose, limit: limit))
         }
         if let body, sleep != nil {

@@ -16,43 +16,11 @@ struct ReadinessForecastCard: View {
     @EnvironmentObject var store: AppStore
 
     private var forecast: ReadinessForecastEngine.Forecast {
-        let metrics = store.dailyMetrics
-        let readiness = store.readiness
-        let sessions = loadSessions(from: store.workoutHistory)
-        let loadPicture = TrainingLoadModel.picture(sessions: sessions)
+        store.predictiveCoachPicture().forecast
+    }
 
-        // Today's strain from completed sessions.
-        let todayStrain = loadPicture.days.last?.strain ?? 0
-
-        // This evening's planned session, if any.
-        let plannedStrain: Double = {
-            guard let plan = store.todayWorkout, !store.didTrainToday else { return 0 }
-            return TrainingLoadModel.Session(
-                date: Date(),
-                durationMinutes: plan.duration,
-                intensityLevel: intensityLevel(for: plan.intensity)
-            ).strain
-        }()
-
-        let hrvBaseline: Int? = {
-            guard let base = AriaContextStore.shared.lastObservedContext?.readiness.hrv30DayBaseline,
-                  base > 0 else { return nil }
-            return Int(base)
-        }()
-
-        let input = ReadinessForecastEngine.Input(
-            currentReadiness: readiness.overall,
-            sleepMinutes: metrics.totalSleep,
-            hrvMs: metrics.hrv,
-            hrvBaselineMs: hrvBaseline,
-            restingHR: metrics.restingHR,
-            todayStrain: todayStrain,
-            plannedStrain: plannedStrain,
-            acwr: loadPicture.acwr,
-            stressLevel: readiness.stressLevel,
-            isLutealPhase: nil
-        )
-        return ReadinessForecastEngine.forecast(input)
+    private var budgets: TomorrowBudgets.Snapshot {
+        store.predictiveCoachPicture().budgets
     }
 
     var body: some View {
@@ -75,6 +43,13 @@ struct ReadinessForecastCard: View {
                         .font(HomeType.body)
                         .foregroundColor(.textTertiary)
                         .lineLimit(3)
+                    Text(budgets.headline)
+                        .font(FDS.TypeScale.label(12))
+                        .foregroundStyle(Color.ember)
+                    Text(budgets.coachingLine)
+                        .font(HomeType.body)
+                        .foregroundColor(.textSecondary)
+                        .lineLimit(3)
                 }
             }
 
@@ -89,7 +64,7 @@ struct ReadinessForecastCard: View {
 
             Button {
                 FDS.haptic(.light)
-                store.activeTab = .chat
+                store.openChat(with: HomeInsightFlow.tomorrowPrompt(picture: store.predictiveCoachPicture()), voice: false)
             } label: {
                 HStack {
                     Image(systemName: "message.fill")
@@ -111,7 +86,7 @@ struct ReadinessForecastCard: View {
         .padding(HomeMetrics.cardPadding)
         .forgeGlassCard(accent: .ember)
         .accessibilityElement(children: .combine)
-        .accessibilityLabel("Tomorrow's readiness forecast: \(forecast.predictedScore). \(forecast.recommendation)")
+        .accessibilityLabel("Tomorrow's readiness forecast: \(forecast.predictedScore). \(forecast.recommendation) \(budgets.headline). \(budgets.coachingLine)")
     }
 
     // MARK: - Pieces
@@ -193,28 +168,6 @@ struct ReadinessForecastCard: View {
                 .font(.system(size: 13, weight: .bold))
                 .foregroundStyle(driver.impact < 0 ? Color.danger : Color.success)
                 .monospacedDigit()
-        }
-    }
-
-    // MARK: - Mapping
-
-    private func loadSessions(from history: [WorkoutHistory]) -> [TrainingLoadModel.Session] {
-        history.compactMap { entry in
-            guard let date = WorkoutHistoryWindow.parseDate(entry.date) else { return nil }
-            return TrainingLoadModel.Session(
-                date: date,
-                durationMinutes: entry.duration,
-                intensityLevel: intensityLevel(for: entry.intensity)
-            )
-        }
-    }
-
-    private func intensityLevel(for intensity: WorkoutIntensity) -> Int {
-        switch intensity {
-        case .low: return 1
-        case .moderate: return 2
-        case .high: return 3
-        case .max: return 4
         }
     }
 }

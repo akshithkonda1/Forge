@@ -15,6 +15,9 @@ public struct WatchSnapshot: Codable, Sendable, Equatable {
     public var readinessOverall: Int?
     public var readinessBand: ReadinessBand?
     public var readinessConfidence: Double?
+    /// Tomorrow-morning forecast. Optional so older snapshots still decode.
+    public var tomorrowPredictedScore: Int?
+    public var tomorrowPosture: String?
 
     public var sleepQualityScore: Int?
     public var sleepMinutes: Double?

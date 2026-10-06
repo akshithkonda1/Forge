@@ -495,4 +495,51 @@ final class HomeInsightFlowTests: XCTestCase {
     func testGenericRoutesToChat() {
         XCTAssertEqual(HomeInsightFlow.destination(for: "Want to talk about your week?"), .chat)
     }
+
+    func testHobbyCopyRoutesToLifestyle() {
+        XCTAssertEqual(HomeInsightFlow.destination(for: "Help me pick a hobby"), .lifestyle)
+        XCTAssertEqual(HomeInsightFlow.destination(for: "I'm burned out socially"), .lifestyle)
+        XCTAssertEqual(HomeInsightFlow.lifestyleSegment(for: "Help me pick a hobby"), "wellbeing")
+        XCTAssertEqual(HomeInsightFlow.lifestyleSegment(for: "You're behind on hydration"), "nutrition")
+    }
+
+    func testTomorrowPromptIsTheForecastChatPrompt() {
+        let forecast = ReadinessForecastEngine.forecast(
+            ReadinessForecastEngine.Input(
+                currentReadiness: 40,
+                sleepMinutes: 300,
+                hrvMs: 40,
+                hrvBaselineMs: 60,
+                restingHR: 62,
+                restingHRBaseline: 55,
+                todayStrain: 19,
+                stressLevel: 80
+            )
+        )
+        XCTAssertEqual(HomeInsightFlow.tomorrowPrompt(forecast: forecast), forecast.chatPrompt)
+        XCTAssertTrue(HomeInsightFlow.tomorrowPrompt(forecast: forecast).contains("How should I train around that?"))
+    }
+
+    func testReplyShapeChipCopyRoundTripsOnChatMessage() throws {
+        let shape = ReplyShapeEngine.shape(
+            prompt: "help me pick a hobby",
+            ariaTags: ["hobby_path:open_gently", "hobby_people:thin"],
+            localFallback: true,
+            scoutUsed: false,
+            estimate: false
+        )
+        let message = ChatMessage(
+            id: "shape-1",
+            role: .trainer,
+            content: "Start cooking alone.",
+            timestamp: Date(),
+            replyShapeHeadline: shape.chipLabel,
+            replyShapeDetail: shape.detail
+        )
+        let data = try JSONEncoder().encode(message)
+        let decoded = try JSONDecoder().decode(ChatMessage.self, from: data)
+        XCTAssertEqual(decoded.replyShapeHeadline, shape.chipLabel)
+        XCTAssertEqual(decoded.replyShapeDetail, shape.detail)
+        XCTAssertTrue(decoded.replyShapeHeadline?.hasPrefix("What shaped this") == true)
+    }
 }

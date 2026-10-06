@@ -2,6 +2,7 @@ import SwiftUI
 import Combine
 import Charts
 import UIKit
+import Contacts
 import ForgeCore
 
 struct WellbeingView: View {
@@ -9,6 +10,8 @@ struct WellbeingView: View {
 
     var body: some View {
         VStack(spacing: 20) {
+            YourPeopleCard()
+            HobbyPathCard()
             HabitLoopListCard(vm: vm)
             DailyHabitsCard()
             MindfulnessCard(vm: vm)
@@ -704,5 +707,387 @@ struct AIInsightCard: View {
         .onTapGesture {
             withAnimation(.spring(duration: 0.3, bounce: 0.28)) { expanded.toggle() }
         }
+    }
+}
+
+/// Wellbeing isn't only fitness. ARIA names a hobby path from how this
+/// person actually works — reserved vs burned-out social energy — and the
+/// same snapshot Chat / Home send.
+struct HobbyPathCard: View {
+    @EnvironmentObject var store: AppStore
+
+    private var hobby: HobbyPathEngine.Snapshot {
+        store.predictiveCoachPicture().hobby
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack {
+                Text("HOBBY PATH")
+                    .font(.system(size: 10, weight: .black))
+                    .foregroundColor(.textTertiary)
+                    .tracking(2)
+                Spacer()
+                Text(hobby.path.rawValue.replacingOccurrences(of: "_", with: " "))
+                    .font(.system(size: 11, weight: .semibold))
+                    .foregroundStyle(Color.ember)
+                    .textCase(.uppercase)
+            }
+            Text(hobby.headline)
+                .font(.system(size: 16, weight: .semibold, design: .rounded))
+                .foregroundColor(.textPrimary)
+            Text(hobby.coachingLine)
+                .font(.system(size: 13))
+                .foregroundColor(.textSecondary)
+                .lineSpacing(3)
+            Text(hobby.windowLine)
+                .font(.system(size: 12))
+                .foregroundColor(.textTertiary)
+                .lineSpacing(3)
+            ForEach(hobby.suggestions.prefix(3)) { item in
+                HStack(alignment: .top, spacing: 10) {
+                    Image(systemName: "circle.fill")
+                        .font(.system(size: 5))
+                        .foregroundStyle(Color.ember)
+                        .padding(.top, 6)
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(item.hobby.title)
+                            .font(.system(size: 13, weight: .semibold))
+                            .foregroundColor(.textPrimary)
+                        Text(item.firstStep)
+                            .font(.system(size: 12))
+                            .foregroundColor(.textTertiary)
+                    }
+                }
+            }
+            Button {
+                FDS.haptic(.light)
+                store.openChat(with: HomeInsightFlow.hobbyPrompt(hobby: hobby), voice: false)
+            } label: {
+                HStack {
+                    Image(systemName: "message.fill")
+                        .font(.system(size: 12, weight: .semibold))
+                    Text("Ask ARIA to pick a hobby")
+                        .font(.system(size: 13, weight: .semibold))
+                    Spacer()
+                    Image(systemName: "arrow.up.right")
+                        .font(.system(size: 11, weight: .semibold))
+                }
+                .foregroundStyle(Color.ember)
+                .padding(.vertical, 10)
+                .padding(.horizontal, 12)
+                .background(Color.ember.opacity(0.12))
+                .clipShape(RoundedRectangle(cornerRadius: 12))
+            }
+            .buttonStyle(.plain)
+        }
+        .padding(18)
+        .forgeGlassCard(cornerRadius: 16, accent: .ember)
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("\(hobby.headline). \(hobby.coachingLine) \(hobby.windowLine)")
+    }
+}
+
+struct YourPeopleCard: View {
+    @EnvironmentObject var store: AppStore
+    @State private var directory = PeopleDirectoryStore.load()
+    @State private var showSheet = false
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("YOUR PEOPLE")
+                .font(.system(size: 10, weight: .black))
+                .foregroundColor(.textTertiary)
+                .tracking(2)
+            if directory.coachingPeople.isEmpty {
+                Text("ARIA doesn't know who matters yet.")
+                    .font(.system(size: 16, weight: .semibold, design: .rounded))
+                    .foregroundColor(.textPrimary)
+                Text("Pick a few first names — partner, roommate, training buddy. Not your whole address book. Phone numbers stay in Contacts.")
+                    .font(.system(size: 13))
+                    .foregroundColor(.textSecondary)
+            } else {
+                ForEach(directory.coachingPeople) { person in
+                    Text("\(person.firstName) · \(person.relation.title)")
+                        .font(.system(size: 14, weight: .semibold))
+                        .foregroundColor(.textPrimary)
+                }
+            }
+            Button {
+                FDS.haptic(.light)
+                showSheet = true
+            } label: {
+                Text(directory.coachingPeople.isEmpty ? "Add your people" : "Edit your people")
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundStyle(Color.ember)
+            }
+            .buttonStyle(.plain)
+        }
+        .padding(18)
+        .forgeGlassCard(cornerRadius: 16, accent: .ember)
+        .sheet(isPresented: $showSheet, onDismiss: reload) {
+            YourPeopleSheet()
+                .environmentObject(store)
+        }
+        .onAppear(perform: reload)
+    }
+
+    private func reload() {
+        directory = PeopleDirectoryStore.load()
+        store.objectWillChange.send()
+    }
+}
+
+struct PeopleSettingsSection: View {
+    @EnvironmentObject var store: AppStore
+    @State private var directory = PeopleDirectoryStore.load()
+    @State private var showSheet = false
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            Text("Your people")
+                .forgeSectionLabel()
+                .padding(.top, 28)
+                .padding(.bottom, 10)
+            Text(honesty)
+                .font(.system(size: 12))
+                .foregroundColor(.textTertiary)
+                .padding(.bottom, 10)
+            SectionCard {
+                SettingsRow(
+                    icon: "person.2.fill",
+                    iconColor: .ember,
+                    label: "Contacts access",
+                    trailingText: accessLabel
+                )
+                Divider().background(Color.borderColor)
+                Button {
+                    showSheet = true
+                } label: {
+                    SettingsRow(icon: "person.crop.circle.badge.plus", iconColor: .steel, label: "Edit your people", trailingText: countLabel, showChevron: true)
+                }
+                .buttonStyle(.plain)
+                Divider().background(Color.borderColor)
+                Button {
+                    PeopleDirectoryStore.forget()
+                    directory = PeopleDirectoryStore.load()
+                    store.objectWillChange.send()
+                } label: {
+                    SettingsRow(icon: "trash", iconColor: Color(hex: "EF4444"), label: "Forget your people", trailingText: "On this iPhone")
+                }
+                .buttonStyle(.plain)
+                Divider().background(Color.borderColor)
+                Button {
+                    if let url = URL(string: UIApplication.openSettingsURLString) {
+                        UIApplication.shared.open(url)
+                    }
+                } label: {
+                    SettingsRow(icon: "gear", iconColor: .textSecondary, label: "Revoke Contacts in Settings", showChevron: true)
+                }
+                .buttonStyle(.plain)
+            }
+        }
+        .sheet(isPresented: $showSheet, onDismiss: { directory = PeopleDirectoryStore.load() }) {
+            YourPeopleSheet().environmentObject(store)
+        }
+        .onAppear { directory = PeopleDirectoryStore.load() }
+    }
+
+    private var countLabel: String {
+        let n = directory.coachingPeople.count
+        return n == 1 ? "1 person" : "\(n) people"
+    }
+
+    private var accessLabel: String {
+        switch directory.contactsAccess {
+        case .granted: return "Allowed"
+        case .denied: return "Off"
+        case .notAsked: return "Not asked"
+        }
+    }
+
+    private var honesty: String {
+        switch directory.contactsAccess {
+        case .denied:
+            return "Contacts access is off. You can still type a first name. Forge stores that name and a label on this iPhone — never a phone number or email, and never a medical read. Turn Contacts back on in iPhone Settings → Forge."
+        case .granted:
+            return "Contacts is allowed. ARIA only keeps the first names you confirm, plus a label. The rest of the address book stays in Contacts and is not uploaded."
+        case .notAsked:
+            return "Optional. ARIA can use a few first names for social stretch and quieter weeks. Nothing is read until you ask."
+        }
+    }
+}
+
+struct YourPeopleSheet: View {
+    @EnvironmentObject var store: AppStore
+    @Environment(\.dismiss) private var dismiss
+    @State private var directory = PeopleDirectoryStore.load()
+    @State private var draft = ""
+    @State private var relation: PeopleDirectory.Relation = .friend
+    @State private var suggestions: [(name: String, id: String)] = []
+    @State private var notice: String?
+
+    var body: some View {
+        NavigationStack {
+            ScrollView {
+                VStack(alignment: .leading, spacing: 16) {
+                    Text("First names and a label only. Phone numbers, emails, and the rest of your address book stay in Contacts. This is lifestyle coaching — not a read on your social life.")
+                        .font(.system(size: 13))
+                        .foregroundColor(.textSecondary)
+                    if let notice {
+                        Text(notice)
+                            .font(.system(size: 12))
+                            .foregroundColor(.textTertiary)
+                    }
+                    if directory.contactsAccess != .granted {
+                        Button("Allow Contacts (optional)") {
+                            Task { await requestContacts() }
+                        }
+                        .font(.system(size: 14, weight: .semibold))
+                        .foregroundStyle(Color.ember)
+                    }
+                    HStack {
+                        TextField("First name", text: $draft)
+                            .textInputAutocapitalization(.words)
+                        Menu(relation.title) {
+                            ForEach(PeopleDirectory.Relation.allCases, id: \.self) { item in
+                                Button(item.title) { relation = item }
+                            }
+                        }
+                        Button("Add") { addDraft() }
+                            .font(.system(size: 14, weight: .semibold))
+                    }
+                    if !suggestions.isEmpty {
+                        Text("From Contacts — tap to confirm")
+                            .font(.system(size: 12, weight: .semibold))
+                            .foregroundColor(.textTertiary)
+                        ForEach(suggestions, id: \.id) { row in
+                            Button {
+                                confirm(name: row.name, identifier: row.id)
+                            } label: {
+                                Text(row.name)
+                                    .frame(maxWidth: .infinity, alignment: .leading)
+                            }
+                            .buttonStyle(.plain)
+                        }
+                    }
+                    ForEach(directory.people) { person in
+                        HStack {
+                            Text("\(person.firstName) · \(person.relation.title)")
+                            Spacer()
+                            Button("Remove") { remove(person) }
+                                .font(.system(size: 12, weight: .semibold))
+                                .foregroundStyle(Color.ember)
+                        }
+                    }
+                }
+                .padding(16)
+            }
+            .navigationTitle("Your people")
+            .toolbar {
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Done") { dismiss() }
+                }
+            }
+        }
+        .onAppear { refreshSuggestionsIfAllowed() }
+    }
+
+    private func persist(_ next: PeopleDirectory.Directory) {
+        var updated = next
+        updated.optedIn = true
+        updated.people = Array(updated.people.prefix(PeopleDirectory.maxPeople))
+        PeopleDirectoryStore.save(updated)
+        directory = updated
+        store.objectWillChange.send()
+    }
+
+    private func addDraft() {
+        guard let person = PeopleDirectory.admit(rawName: draft, relation: relation) else {
+            notice = "Use a first name. Not an email or a phone number."
+            return
+        }
+        notice = nil
+        draft = ""
+        var next = directory
+        next.people.removeAll { $0.firstName.lowercased() == person.firstName.lowercased() }
+        next.people.append(person)
+        persist(next)
+    }
+
+    private func confirm(name: String, identifier: String) {
+        guard let person = PeopleDirectory.admit(rawName: name, relation: relation, contactIdentifier: identifier) else { return }
+        var next = directory
+        next.contactsAccess = .granted
+        next.people.removeAll { $0.contactIdentifier == identifier || $0.firstName.lowercased() == person.firstName.lowercased() }
+        next.people.append(person)
+        persist(next)
+    }
+
+    private func remove(_ person: PeopleDirectory.Person) {
+        var next = directory
+        next.people.removeAll { $0.id == person.id }
+        persist(next)
+    }
+
+    private func requestContacts() async {
+        let ok = await PeopleContactsBridge.requestAccess()
+        var next = directory
+        next.contactsAccess = ok ? .granted : .denied
+        if ok { next.optedIn = true }
+        PeopleDirectoryStore.save(next)
+        directory = next
+        notice = ok ? "Pick the people who matter. The rest stay in Contacts." : "Contacts stayed off. You can still type a first name."
+        if ok { suggestions = PeopleContactsBridge.suggestions() }
+    }
+
+    private func refreshSuggestionsIfAllowed() {
+        let status = PeopleContactsBridge.currentAccess()
+        if directory.contactsAccess != status {
+            var next = directory
+            next.contactsAccess = status
+            directory = next
+            PeopleDirectoryStore.save(next)
+        }
+        if status == .granted {
+            suggestions = PeopleContactsBridge.suggestions()
+        }
+    }
+}
+
+enum PeopleContactsBridge {
+    static func currentAccess() -> PeopleDirectory.ContactsAccess {
+        switch CNContactStore.authorizationStatus(for: .contacts) {
+        case .authorized, .limited:
+            return .granted
+        case .denied, .restricted:
+            return .denied
+        case .notDetermined:
+            return .notAsked
+        @unknown default:
+            return .notAsked
+        }
+    }
+
+    static func requestAccess() async -> Bool {
+        await withCheckedContinuation { continuation in
+            CNContactStore().requestAccess(for: .contacts) { granted, _ in
+                continuation.resume(returning: granted)
+            }
+        }
+    }
+
+    /// Given name + identifier only. Phone and email keys are not requested.
+    static func suggestions() -> [(name: String, id: String)] {
+        let store = CNContactStore()
+        let request = CNContactFetchRequest(keysToFetch: [CNContactGivenNameKey as CNKeyDescriptor])
+        request.unifyResults = true
+        var rows: [(name: String, id: String)] = []
+        try? store.enumerateContacts(with: request) { contact, stop in
+            guard let person = PeopleDirectory.admit(rawName: contact.givenName, contactIdentifier: contact.identifier) else { return }
+            rows.append((person.firstName, contact.identifier))
+            if rows.count >= 40 { stop.pointee = true }
+        }
+        return rows
     }
 }

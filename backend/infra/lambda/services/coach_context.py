@@ -121,7 +121,7 @@ def gather_user_context(user_id: str) -> dict[str, Any]:
     # empty -- a real, non-demo account with no logged nights.
     display_sleep = recent_sleep or _sleep_rows_from_body_snapshot(user_id)
 
-    return {
+    package = {
         "profile": profile,
         "readiness": current_readiness,
         "recentSleep": display_sleep[:7],
@@ -135,6 +135,120 @@ def gather_user_context(user_id: str) -> dict[str, Any]:
         # with a score to trend yet" (see _sleep_rows_from_body_snapshot).
         "hasLoggedSleep": has_logged_sleep,
     }
+    return _attach_predictions(package)
+
+
+def _intensity_level(raw: Any) -> int:
+    key = str(raw or "moderate").lower()
+    return {"low": 1, "moderate": 2, "high": 3, "max": 4}.get(key, 2)
+
+
+def _session_strain(workout: dict[str, Any]) -> float:
+    duration = float(workout.get("duration") or 0)
+    raw = duration * _intensity_level(workout.get("intensity")) / 17.0
+    return max(0.0, min(21.0, raw))
+
+
+def _attach_predictions(context: dict[str, Any]) -> dict[str, Any]:
+    """Tomorrow-readiness + working-model on the same package coach routes already send.
+
+    Uses numbers already in this context. Missing signals degrade confidence,
+    never invent a clinical claim.
+    """
+    try:
+        from aria_core import readiness_forecast as rf
+        from aria_core import user_working_model as uwm
+        from aria_core import hobby_path as hp
+        from aria_core import tomorrow_budgets as tb
+        from aria_core import hobby_fit as hf
+    except Exception:
+        return context
+
+    overall = readiness_overall(context) or 0
+    sleep_rows = list(context.get("recentSleep") or [])
+    last_sleep = sleep_rows[0] if sleep_rows else {}
+    sleep_minutes = 0
+    hours = last_sleep.get("totalHours")
+    if isinstance(hours, (int, float)) and not isinstance(hours, bool):
+        sleep_minutes = int(round(hours * 60))
+    workouts = list(context.get("recentWorkouts") or [])
+    today = today_iso()
+    today_strain = 0.0
+    if workouts and str(workouts[0].get("date") or "") == today:
+        today_strain = _session_strain(workouts[0])
+    plan = context.get("todayPlan") or {}
+    planned = 0.0
+    if plan and str(plan.get("date") or today) == today:
+        planned = _session_strain(plan)
+
+    readiness_item = context.get("readiness") or {}
+    hrv = readiness_item.get("hrv") or last_sleep.get("hrv")
+    rhr = readiness_item.get("restingHR") or last_sleep.get("restingHR")
+    stress = readiness_item.get("stressLevel")
+    fc = rf.forecast(rf.ForecastInput(
+        current_readiness=overall or 0,
+        sleep_minutes=sleep_minutes,
+        hrv_ms=int(hrv) if isinstance(hrv, (int, float)) and not isinstance(hrv, bool) else 0,
+        resting_hr=int(rhr) if isinstance(rhr, (int, float)) and not isinstance(rhr, bool) else 0,
+        today_strain=today_strain,
+        planned_strain=planned,
+        stress_level=int(stress) if isinstance(stress, (int, float)) and not isinstance(stress, bool) else 30,
+    ))
+
+    scores: list[int] = []
+    weekday: list[float] = []
+    weekend: list[float] = []
+    for row in sleep_rows:
+        score = row.get("score")
+        if isinstance(score, (int, float)) and not isinstance(score, bool):
+            scores.append(int(score))
+            day = str(row.get("date") or "")
+            try:
+                from datetime import date as _date
+                wd = _date.fromisoformat(day[:10]).weekday()
+            except Exception:
+                wd = None
+            if wd is not None:
+                (weekend if wd >= 5 else weekday).append(float(score))
+
+    heavy_on_thin = 0
+    for workout in workouts[:14]:
+        if _intensity_level(workout.get("intensity")) >= 3:
+            heavy_on_thin += 1
+    recovery = context.get("recoveryTrend") or {}
+    if not (isinstance(recovery.get("delta"), (int, float)) and recovery.get("delta") < 0):
+        heavy_on_thin = 0
+
+    working = uwm.snapshot(uwm.WorkingInput(
+        sleep_scores=scores,
+        readiness_today=overall or None,
+        high_strain_low_recovery_days=heavy_on_thin,
+        weekday_sleep_avg=(sum(weekday) / len(weekday)) if weekday else None,
+        weekend_sleep_avg=(sum(weekend) / len(weekend)) if weekend else None,
+    ), tomorrow_posture=fc.posture)
+    hobbies, social, wake = _hobby_inputs(context)
+    known = _known_people(context)
+    hobby = hp.snapshot(
+        social, hobbies, working,
+        tomorrow_posture=fc.posture,
+        wake_hour=wake,
+        known_people=known,
+    )
+    budgets = tb.snapshot(fc.posture, working.stance, hobby.people_energy)
+    signal = hf.mentality_signal(hobby.social_band, hobby.people_energy, working)
+    explicit = context.get("hobbies")
+    if isinstance(explicit, list) and any(isinstance(item, dict) for item in explicit):
+        fit_hobbies = hf.normalize_hobbies(explicit)
+    else:
+        fit_hobbies = hf.hobbies_from_living(hobbies)
+    context["tomorrowForecast"] = fc.to_dict()
+    context["workingModel"] = working.to_dict()
+    context["hobbyPath"] = hobby.to_dict()
+    context["tomorrowBudgets"] = budgets.to_dict()
+    # Stable field for coach routes. Speech and memory use ``hobbyFit.speak``.
+    context["mentality_signal"] = signal
+    context["hobbies"] = fit_hobbies
+    return context
 
 
 def readiness_overall(context: dict[str, Any]) -> int | None:
@@ -165,4 +279,113 @@ def context_to_prompt_block(context: dict[str, Any]) -> str:
         "lastWorkoutType": (context.get("recentWorkouts") or [{}])[0].get("type"),
         "todayPlanName": (context.get("todayPlan") or {}).get("name"),
     }
+    forecast = context.get("tomorrowForecast") or {}
+    if forecast.get("predictedScore") is not None:
+        compact["tomorrowForecast"] = {
+            "score": forecast.get("predictedScore"),
+            "posture": forecast.get("posture"),
+            "steeringLine": forecast.get("steeringLine"),
+        }
+    working = context.get("workingModel") or {}
+    if working.get("tendency"):
+        compact["workingModel"] = {
+            "tendency": working.get("tendency"),
+            "stance": working.get("stance"),
+            "steeringLine": working.get("steeringLine"),
+        }
+    hobby = context.get("hobbyPath") or {}
+    if hobby.get("path"):
+        compact["hobbyPath"] = {
+            "path": hobby.get("path"),
+            "headline": hobby.get("headline"),
+            "coachingLine": hobby.get("coachingLine"),
+            "peopleEnergy": hobby.get("peopleEnergy"),
+            "freeDayWindow": hobby.get("freeDayWindow"),
+            "windowLine": hobby.get("windowLine"),
+        }
+    budgets = context.get("tomorrowBudgets") or {}
+    if budgets.get("constraint"):
+        compact["tomorrowBudgets"] = {
+            "constraint": budgets.get("constraint"),
+            "headline": budgets.get("headline"),
+            "coachingLine": budgets.get("coachingLine"),
+        }
+    signal = context.get("mentality_signal")
+    if signal:
+        try:
+            from aria_core import hobby_fit as hf
+            phrase = hf.speak(str(signal))
+        except Exception:
+            phrase = ""
+        if phrase:
+            compact["hobbyFit"] = {
+                "speak": phrase,
+                "hobbies": [
+                    {
+                        "id": row.get("id"),
+                        "label": row.get("label"),
+                        "kind": row.get("kind"),
+                        "interest": row.get("interest"),
+                    }
+                    for row in (context.get("hobbies") or [])[:6]
+                    if isinstance(row, dict) and row.get("label")
+                ],
+            }
     return json.dumps(compact, separators=(",", ":"))
+
+
+def _hobby_inputs(context: dict[str, Any]) -> tuple[list[str], float | None, float | None]:
+    """Read living chips the client already sends. Never invent a persona."""
+    tokens: list[str] = []
+    for blob in (
+        context.get("lifestyleTags"),
+        context.get("livingTags"),
+        (context.get("lifestyle") or {}).get("tags"),
+        (context.get("lifestyle") or {}).get("recentPatterns"),
+        (context.get("profile") or {}).get("livingTags"),
+    ):
+        if isinstance(blob, list):
+            tokens.extend(str(t) for t in blob)
+    hobbies: list[str] = []
+    social: float | None = None
+    for token in tokens:
+        if token.startswith("living:hobby:"):
+            hobbies.append(token.split(":")[-1])
+        elif token.startswith("living:social:"):
+            try:
+                social = float(token.split(":")[-1])
+            except ValueError:
+                pass
+    wake: float | None = None
+    chrono = context.get("chronotype") or {}
+    label = chrono.get("typicalWakeTime") or chrono.get("typical_wake_time")
+    if isinstance(label, str) and ":" in label:
+        try:
+            hours, minutes = label.split(":", 1)
+            wake = int(hours) + int(minutes[:2]) / 60.0
+        except ValueError:
+            wake = None
+    return hobbies, social, wake
+
+
+def _known_people(context: dict[str, Any]) -> list[dict[str, str]]:
+    """First name + label only. Contact ids, phones, and emails never qualify."""
+    tokens: list[str] = []
+    for blob in (
+        context.get("lifestyleTags"),
+        (context.get("lifestyle") or {}).get("tags"),
+        (context.get("lifestyle") or {}).get("recentPatterns"),
+        context.get("people"),
+    ):
+        if isinstance(blob, list):
+            tokens.extend(str(t) for t in blob)
+    people: list[dict[str, str]] = []
+    for token in tokens:
+        parts = token.split(":")
+        if len(parts) < 3 or parts[0] != "people" or parts[1] == "count":
+            continue
+        name, relation = parts[1], parts[2]
+        if not name or "@" in name or any(ch.isdigit() for ch in name):
+            continue
+        people.append({"firstName": name, "relation": relation})
+    return people[:8]

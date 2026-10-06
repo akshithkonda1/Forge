@@ -169,6 +169,11 @@ public enum ForgeAuthPolicy {
         debugBuild: Bool
     ) -> Bool {
         guard debugBuild else { return false }
+        // The iOS test host always has SIMULATOR_UDID / OS_ACTIVITY_DT_MODE.
+        // That is XCTest, not a person pressing Run in Device Hub. Treating it
+        // as a Device Hub launch auto-installs the tester session and the
+        // fake health pack, which overwrites the vitals a test just set.
+        if environment["XCTestConfigurationFilePath"] != nil { return false }
         if environment["OS_ACTIVITY_DT_MODE"] != nil { return true }
         if environment["SIMULATOR_DEVICE_NAME"] != nil { return true }
         if environment["SIMULATOR_UDID"] != nil { return true }

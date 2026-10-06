@@ -39,6 +39,10 @@ struct ARIAContextPayload: Codable, Equatable {
         var hrv30DayBaseline: Double? = nil
         var recoveryScore: Double? = nil
         var hrvDaysAvailable: Int? = nil
+        var tomorrowPredictedScore: Double? = nil
+        var tomorrowPosture: String? = nil
+        var tomorrowConfidence: String? = nil
+        var tomorrowRecommendation: String? = nil
     }
 
     struct TrainingDomain: Codable, Equatable {

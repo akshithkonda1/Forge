@@ -64,6 +64,10 @@ jobs:
   build:
     name: swift-build
     needs: changes
+    # The test step used to sit ~13 minutes in diagnostic collection after a
+    # simulator bless failure, and a retry of that on a booted sim starved the
+    # xcode-27 runner until it lost contact. Keep the job bounded.
+    timeout-minutes: 90
     # Xcode 27 / iOS 27 / watchOS 27 when Swift sources changed. The no-op
     # path stays on ubuntu-latest so a non-Swift PR does not start macOS.
     # macos-15 ships Xcode 16 and cannot compile a deployment target of 27.
@@ -101,6 +105,221 @@ jobs:
           cd ForgeCore
           swift test
 
+      - name: Run ForgeSwiftTests (iOS Simulator)
+        if: needs.changes.outputs.relevant == 'true'
+        run: |
+          set -euo pipefail
+          # Compiling the test bundle is not running it. Fail closed when no
+          # iPhone simulator exists. xcodebuild's own boot has raced
+          # CoreSimulator (DTServiceHub bless interrupted, test runner exits
+          # before XCTest connects, then ~600s of diagnostic collection).
+          # Compile with the simulator shut down, boot it only to run, and
+          # kill xcodebuild as soon as a bless failure shows up. A second
+          # 600s wait on a booted sim dropped the runner (lost communication).
+          # ENABLE_DEBUG_DYLIB stays off for this build: Xcode's debug dylib
+          # stub launches, then the test runner exits before XCTest connects.
+          # Assertion failures still fail the job immediately.
+          python3 - <<'PY'
+          import json, subprocess, sys
+          raw = subprocess.check_output(["xcrun", "simctl", "list", "devices", "available", "-j"], text=True)
+          data = json.loads(raw)
+          devices = []
+          for runtime, rows in (data.get("devices") or {}).items():
+              if "iOS" not in runtime:
+                  continue
+              for row in rows or []:
+                  if row.get("isAvailable") and "iPhone" in (row.get("name") or ""):
+                      devices.append((runtime, row["udid"], row["name"], row.get("state") or ""))
+          if not devices:
+              print("::error::No available iPhone simulator; ForgeSwiftTests would stay un-run.")
+              sys.exit(1)
+          def rank(device):
+              _runtime, udid, name, state = device
+              penalty = 0
+              if "17e" in name:
+                  penalty += 50
+              if "Pro Max" in name:
+                  penalty += 30
+              elif "Pro" in name:
+                  penalty += 10
+              if state == "Booted":
+                  penalty -= 5
+              return (penalty, name, udid)
+          devices.sort(key=rank)
+          print("iPhone simulators: " + ", ".join(f"{d[2]}:{d[3] or 'Shutdown'}" for d in devices))
+          chosen = devices[0]
+          print(f"Using simulator {chosen[2]} ({chosen[1]}) on {chosen[0]} state={chosen[3] or 'Shutdown'}")
+          open("/tmp/ios-sim-udid", "w").write(chosen[1])
+          PY
+          UDID=$(cat /tmp/ios-sim-udid)
+          DERIVED=/tmp/dd-ios-tests
+          rm -rf "$DERIVED"
+          # Compile before any simulator is resident. The later generic
+          # build-for-testing still runs; this copy is the one we execute.
+          xcodebuild \
+            -project ForgeSwift.xcodeproj \
+            -scheme ForgeSwift \
+            -destination "platform=iOS Simulator,id=$UDID" \
+            -derivedDataPath "$DERIVED" \
+            -configuration Debug \
+            -skipPackagePluginValidation \
+            build-for-testing \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGN_IDENTITY="" \
+            ONLY_ACTIVE_ARCH=YES \
+            COMPILER_INDEX_STORE_ENABLE=NO \
+            ENABLE_DEBUG_DYLIB=NO 2>&1 | tee /tmp/ios-test-build.log
+          boot_sim() {
+            local reset="${1:-}"
+            xcrun simctl shutdown "$UDID" || true
+            if [ "$reset" = "reset" ]; then
+              killall -9 com.apple.CoreSimulator.CoreSimulatorService >/dev/null 2>&1 || true
+              sleep 2
+            fi
+            xcrun simctl boot "$UDID"
+            xcrun simctl bootstatus "$UDID" -b &
+            local bpid=$!
+            local waited=0
+            while kill -0 "$bpid" 2>/dev/null; do
+              if [ "$waited" -ge 180 ]; then
+                kill -TERM "$bpid" 2>/dev/null || true
+                echo "::error::Simulator bootstatus exceeded 180s."
+                return 1
+              fi
+              sleep 5
+              waited=$((waited + 5))
+            done
+            set +e
+            wait "$bpid"
+            local bcode=$?
+            set -e
+            if [ "$bcode" -ne 0 ]; then
+              echo "::error::simctl bootstatus failed ($bcode)."
+              return 1
+            fi
+            open -a Simulator --args -CurrentDeviceUDID "$UDID" >/dev/null 2>&1 || true
+            local i
+            for i in 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15; do
+              if xcrun simctl spawn "$UDID" launchctl print system >/dev/null 2>&1; then
+                echo "Simulator $UDID accepts commands."
+                return 0
+              fi
+              sleep 2
+            done
+            echo "::error::Simulator $UDID booted but did not accept commands."
+            return 1
+          }
+          shutdown_sim() {
+            xcrun simctl shutdown "$UDID" || true
+            osascript -e 'quit app "Simulator"' >/dev/null 2>&1 || true
+          }
+          run_tests() {
+            : > /tmp/ios-test.log
+            set -m || true
+            xcodebuild \
+              -project ForgeSwift.xcodeproj \
+              -scheme ForgeSwift \
+              -destination "platform=iOS Simulator,id=$UDID" \
+              -derivedDataPath "$DERIVED" \
+              -configuration Debug \
+              -skipPackagePluginValidation \
+              test-without-building \
+              -only-testing:ForgeSwiftTests \
+              -collect-test-diagnostics never \
+              CODE_SIGNING_ALLOWED=NO \
+              CODE_SIGN_IDENTITY="" \
+              ONLY_ACTIVE_ARCH=YES \
+              COMPILER_INDEX_STORE_ENABLE=NO \
+              ENABLE_DEBUG_DYLIB=NO >> /tmp/ios-test.log 2>&1 &
+            local xpid=$!
+            tail -n +1 -f /tmp/ios-test.log &
+            local tpid=$!
+            local waited=0
+            local code=0
+            while kill -0 "$xpid" 2>/dev/null; do
+              if grep -q "failed to bless" /tmp/ios-test.log; then
+                echo "Stopping xcodebuild after DTServiceHub bless failure."
+                kill -TERM -- -"$xpid" 2>/dev/null || kill -TERM "$xpid" 2>/dev/null || true
+                sleep 2
+                kill -KILL -- -"$xpid" 2>/dev/null || true
+                code=75
+                break
+              fi
+              if [ "$waited" -ge 720 ]; then
+                echo "Stopping xcodebuild after 720s so diagnostic collection cannot pin the runner."
+                kill -TERM -- -"$xpid" 2>/dev/null || kill -TERM "$xpid" 2>/dev/null || true
+                sleep 2
+                kill -KILL -- -"$xpid" 2>/dev/null || true
+                code=124
+                break
+              fi
+              sleep 5
+              waited=$((waited + 5))
+            done
+            if [ "$code" -eq 0 ]; then
+              set +e
+              wait "$xpid"
+              code=$?
+              set -e
+            else
+              wait "$xpid" 2>/dev/null || true
+            fi
+            kill "$tpid" 2>/dev/null || true
+            wait "$tpid" 2>/dev/null || true
+            # errexit is not local. A non-zero return while it is on
+            # aborts the step before the caller can retry.
+            set +e
+            return "$code"
+          }
+          dump_launch_log() {
+            echo "::group::ForgeSwift device log"
+            xcrun simctl spawn "$UDID" log show --last 2m --style compact --predicate 'processImagePath CONTAINS "ForgeSwift"' > /tmp/ios-device.log 2>/dev/null &
+            local lpid=$!
+            local waited=0
+            while kill -0 "$lpid" 2>/dev/null; do
+              if [ "$waited" -ge 40 ]; then
+                kill -TERM "$lpid" 2>/dev/null || true
+                break
+              fi
+              sleep 5
+              waited=$((waited + 5))
+            done
+            wait "$lpid" 2>/dev/null || true
+            if [ -f /tmp/ios-device.log ]; then
+              tail -n 80 /tmp/ios-device.log || true
+            fi
+            echo "::endgroup::"
+          }
+          finish() {
+            shutdown_sim
+            rm -rf "$DERIVED" || true
+          }
+          trap finish EXIT
+          boot_sim
+          attempt=1
+          while [ "$attempt" -le 2 ]; do
+            set +e
+            run_tests
+            code=$?
+            set -e
+            if [ "$code" -eq 0 ] && grep -q "TEST SUCCEEDED" /tmp/ios-test.log; then
+              exit 0
+            fi
+            if grep -E -q "failed \\(|XCTAssert" /tmp/ios-test.log; then
+              echo "::error::ForgeSwiftTests reported an assertion failure."
+              exit "${code:-1}"
+            fi
+            if [ "$attempt" -eq 2 ]; then
+              dump_launch_log || true
+              echo "::error::ForgeSwiftTests did not pass (exit ${code:-1})."
+              exit "${code:-1}"
+            fi
+            echo "Test runner did not attach. Resetting CoreSimulator and retrying once."
+            boot_sim reset
+            attempt=$((attempt + 1))
+          done
+
+
       - name: Build ForgeSwift + tests (iOS Simulator)
         if: needs.changes.outputs.relevant == 'true'
         run: |
@@ -131,6 +350,12 @@ jobs:
         if: failure() && needs.changes.outputs.relevant == 'true'
         run: |
           echo "::group::Swift errors"
+          if test -f /tmp/ios-test-build.log; then
+            grep -E "error: " /tmp/ios-test-build.log | sed 's|/Users/runner/work/Forge/Forge/||' | sort -u || true
+          fi
+          if test -f /tmp/ios-test.log; then
+            grep -E "error: |failed \\(|XCTAssert|test runner crashed|TEST FAILED|DTServiceHub|TEST SUCCEEDED" /tmp/ios-test.log | sed 's|/Users/runner/work/Forge/Forge/||' | sort -u || true
+          fi
           test -f /tmp/ios-build.log || { echo "(build did not reach this step)"; exit 0; }
           grep -E "error: " /tmp/ios-build.log | sed 's|/Users/runner/work/Forge/Forge/||' | sort -u || echo "(no error: lines matched)"
           echo "::endgroup::"

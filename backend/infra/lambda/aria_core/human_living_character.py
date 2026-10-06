@@ -38,6 +38,7 @@ def living_tags(
     movement_preference: str | None = None,
     hobbies: list[str] | None = None,
     sleep_need_preference_hours: float | None = None,
+    social_energy_0_to_10: float | None = None,
 ) -> list[str]:
     tags: list[str] = []
     if archetype and archetype != "unset":
@@ -51,6 +52,8 @@ def living_tags(
         tags.append(f"living:move:{movement_preference}")
     for hobby in (hobbies or [])[:4]:
         tags.append(f"living:hobby:{hobby}")
+    if social_energy_0_to_10 is not None:
+        tags.append(f"living:social:{int(round(social_energy_0_to_10))}")
     if sleep_need_preference_hours is not None:
         tags.append(f"living:sleep_need:{sleep_need_preference_hours:.1f}")
     return tags

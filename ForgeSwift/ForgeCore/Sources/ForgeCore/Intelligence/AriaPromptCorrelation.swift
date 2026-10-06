@@ -22,6 +22,9 @@ public enum AriaPromptCorrelation: Sendable {
         }
 
         if QualityOfLifeLivingStore.isQuestion(trimmed) { add(.lifestyle) }
+        if QualityOfLifeLivingStore.isCharacterQuestion(trimmed) { add(.lifestyle) }
+        if HobbyPathEngine.isHobbyQuestion(trimmed) { add(.lifestyle) }
+        if PeopleDirectory.isQuestion(trimmed) { add(.lifestyle) }
         if AriaReferenceCatalog.questionSuggestsEventPrep(trimmed) { add(.lifestyle) }
         if calendarAsk(lower) { add(.lifestyle) }
         if boardAsk(lower) { add(.progress) }
@@ -35,6 +38,7 @@ public enum AriaPromptCorrelation: Sendable {
         for domain in AriaIntentResolver.actionable(ranked, limit: 4) {
             let score = ranked.first(where: { $0.domain == domain })?.score ?? 0
             if domain == .lifestyle, score < 2, !QualityOfLifeLivingStore.isQuestion(trimmed),
+               !HobbyPathEngine.isHobbyQuestion(trimmed),
                !AriaReferenceCatalog.questionSuggestsEventPrep(trimmed), !calendarAsk(lower) {
                 continue
             }
@@ -42,6 +46,10 @@ public enum AriaPromptCorrelation: Sendable {
         }
 
         if AriaReferenceCatalog.questionSuggestsEventPrep(trimmed), !trainingAsk(lower) {
+            asked.removeAll { $0 == .training }
+        }
+        if HobbyPathEngine.isHobbyQuestion(trimmed),
+           !["train", "workout", "session", "lift"].contains(where: { lower.contains($0) }) {
             asked.removeAll { $0 == .training }
         }
         return asked
@@ -68,7 +76,7 @@ public enum AriaPromptCorrelation: Sendable {
             "sleep", "slept", "train", "workout", "eat", "food", "protein",
             "water", "calendar", "wedding", "tuxedo", "tux", "qol",
             "quality of life", "knee", "shoulder", "progress", "cycle",
-            "period", "wear", "suit",
+            "period", "wear", "suit", "hobby", "hobbies",
         ]
         var found = stems.filter { lower.contains($0) }
         if ScheduleGoalParser.isScheduleAsk(lower), !found.contains("up at") {

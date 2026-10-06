@@ -191,12 +191,36 @@ final class WatchHealthKitManager {
         pushSleepSampleIfNeeded()
     }
 
+    private func tomorrowForecast() -> ReadinessForecastEngine.Forecast {
+        let todayStrain: Double = {
+            guard let hours = hoursSinceLastWorkout else { return 0 }
+            if hours < 8 { return 12 }
+            if hours < 16 { return 6 }
+            return 2
+        }()
+        return ReadinessForecastEngine.forecast(
+            ReadinessForecastEngine.Input(
+                currentReadiness: readiness?.overall ?? 0,
+                sleepMinutes: Int(sleepSummary?.totalMinutes ?? 0),
+                hrvMs: Int(hrvRecentMs ?? 0),
+                hrvBaselineMs: hrvBaselineMs.map { Int($0.rounded()) },
+                restingHR: Int(restingHeartRate ?? 0),
+                restingHRBaseline: restingHeartRateBaseline.map { Int($0.rounded()) },
+                todayStrain: todayStrain,
+                stressLevel: 30
+            )
+        )
+    }
+
     private func publishSnapshot() {
         // Recommendation fields are owned by ARIAWatchService; only touch ours.
+        let forecast = tomorrowForecast()
         WatchSnapshotStore.update { snapshot in
             snapshot.readinessOverall = readiness?.overall
             snapshot.readinessBand = readiness.map { $0.band }
             snapshot.readinessConfidence = readiness?.confidence
+            snapshot.tomorrowPredictedScore = forecast.predictedScore
+            snapshot.tomorrowPosture = forecast.posture.rawValue
             snapshot.sleepQualityScore = readiness?.sleepQuality
             snapshot.sleepMinutes = sleepSummary?.totalMinutes
             snapshot.mindfulMinutesToday = mindfulMinutesToday
@@ -325,6 +349,9 @@ final class WatchHealthKitManager {
         var context = WatchARIAContext()
         context.readinessOverall = readiness?.overall
         context.readinessConfidence = readiness?.confidence
+        let forecast = tomorrowForecast()
+        context.tomorrowPredictedScore = forecast.predictedScore
+        context.tomorrowPosture = forecast.posture.rawValue
         context.hrvRecentMs = hrvRecentMs
         context.hrvTrendMs = hrvTrendMs
         context.sleepMinutes = sleepSummary?.totalMinutes

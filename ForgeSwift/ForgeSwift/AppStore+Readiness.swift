@@ -488,6 +488,110 @@ extension AppStore {
             || (healthKitLive && (dailyMetrics.steps > 0 || dailyMetrics.activeCalories > 0))
     }
 
+    /// Tomorrow-readiness + how-this-person-works. Home, ARIA context, and
+    /// the dummy orchestra all call this — the card is not a private copy.
+    func predictiveCoachPicture() -> PredictiveCoach.Picture {
+        let sessions = workoutHistory.compactMap { entry -> TrainingLoadModel.Session? in
+            guard let date = WorkoutHistoryWindow.parseDate(entry.date) else { return nil }
+            return TrainingLoadModel.Session(
+                date: date,
+                durationMinutes: entry.duration,
+                intensityLevel: Self.strainIntensityLevel(entry.intensity)
+            )
+        }
+        let loadPicture = TrainingLoadModel.picture(sessions: sessions)
+        let todayStrain = loadPicture.days.last?.strain ?? 0
+        let plannedStrain: Double = {
+            guard let plan = todayWorkout, !didTrainToday else { return 0 }
+            return TrainingLoadModel.Session(
+                date: Date(),
+                durationMinutes: plan.duration,
+                intensityLevel: Self.strainIntensityLevel(plan.intensity)
+            ).strain
+        }()
+        let hrvBaseline: Int? = {
+            guard let base = AriaContextStore.shared.lastObservedContext?.readiness.hrv30DayBaseline,
+                  base > 0 else { return nil }
+            return Int(base)
+        }()
+        let luteal: Bool? = {
+            let cycle = MenstrualHealthStore.shared
+            guard cycle.settings.enabled, cycle.settings.shareWithAria else { return nil }
+            return cycle.snapshot.phase == .luteal
+        }()
+        let forecastInput = ReadinessForecastEngine.Input(
+            currentReadiness: readiness.overall,
+            sleepMinutes: dailyMetrics.totalSleep,
+            hrvMs: dailyMetrics.hrv,
+            hrvBaselineMs: hrvBaseline,
+            restingHR: dailyMetrics.restingHR,
+            todayStrain: todayStrain,
+            plannedStrain: plannedStrain,
+            acwr: loadPicture.acwr,
+            stressLevel: readiness.stressLevel,
+            isLutealPhase: luteal
+        )
+
+        let habits = LifestyleWellbeingStore.loadHabits()
+        let completion: Double? = habits.isEmpty
+            ? nil
+            : Double(habits.filter(\.done).count) / Double(habits.count)
+        let scores = sleepData.prefix(14).map(\.score)
+        let weekdayScores = sleepData.compactMap { entry -> Int? in
+            guard let date = WorkoutHistoryWindow.parseDate(entry.date) else { return nil }
+            let weekday = Calendar.current.component(.weekday, from: date) // 1 Sun
+            if weekday == 1 || weekday == 7 { return nil }
+            return entry.score
+        }
+        let weekendScores = sleepData.compactMap { entry -> Int? in
+            guard let date = WorkoutHistoryWindow.parseDate(entry.date) else { return nil }
+            let weekday = Calendar.current.component(.weekday, from: date)
+            if weekday == 1 || weekday == 7 { return entry.score }
+            return nil
+        }
+        var heavyOnThin = 0
+        let sleepByDay = Dictionary(sleepData.map { ($0.date, $0.score) }, uniquingKeysWith: { _, new in new })
+        for day in loadPicture.days {
+            guard day.strain >= 16 else { continue }
+            if let score = sleepByDay[day.dayKey], score < 70 { heavyOnThin += 1 }
+        }
+
+        let workingInput = UserWorkingModel.Input(
+            habitStreakDays: LifestyleWellbeingStore.habitStreak(),
+            todayHabitCompletion: completion,
+            weeklyMood0to10: AriaKnowledgeLedgerStore.load().latestWeeklyMood(),
+            acwr: loadPicture.acwr,
+            sleepScores: Array(scores),
+            readinessToday: readiness.overall,
+            highStrainLowRecoveryDays: heavyOnThin,
+            weekdaySleepAvg: weekdayScores.isEmpty ? nil : Double(weekdayScores.reduce(0, +)) / Double(weekdayScores.count),
+            weekendSleepAvg: weekendScores.isEmpty ? nil : Double(weekendScores.reduce(0, +)) / Double(weekendScores.count)
+        )
+        let persona = QualityOfLifeLivingStore.loadPersonaForCoaching()
+        let nights = sleepData.compactMap { entry -> CircadianRhythm.Night? in
+            guard let onset = entry.onset, let wake = entry.wake, wake > onset else { return nil }
+            return CircadianRhythm.Night(onset: onset, wake: wake, asleepHours: entry.totalHours)
+        }.sorted { $0.wake < $1.wake }
+        let wakeHour = CircadianRhythm.phase(from: nights)?.wakeHour
+        return PredictiveCoach.picture(
+            forecastInput: forecastInput,
+            workingInput: workingInput,
+            socialEnergy0to10: persona.socialEnergy0to10,
+            currentHobbies: persona.hobbies ?? [],
+            wakeHour: wakeHour,
+            knownPeople: PeopleDirectoryStore.load().coachingPeople
+        )
+    }
+
+    private static func strainIntensityLevel(_ intensity: WorkoutIntensity) -> Int {
+        switch intensity {
+        case .low: return 1
+        case .moderate: return 2
+        case .high: return 3
+        case .max: return 4
+        }
+    }
+
     /// Rebuild today's session from readiness, cycle, equipment, constraints, theme.
     /// Skipped while a session is in progress so we don't yank the floor out.
     func rebuildTodayPlanFromLife() {

@@ -89,4 +89,28 @@ final class ReadinessForecastTests: XCTestCase {
         XCTAssertEqual(forecast.posture, .rest)
         XCTAssertTrue(forecast.recommendation.lowercased().contains("rest day"))
     }
+
+    func testChatPromptAndAriaTagsAreWhatProductionSends() {
+        var input = baseInput()
+        input.currentReadiness = 40
+        input.sleepMinutes = 300
+        input.todayStrain = 19
+        let forecast = ReadinessForecastEngine.forecast(input)
+        XCTAssertTrue(forecast.chatPrompt.contains("\(forecast.predictedScore)"))
+        XCTAssertTrue(forecast.chatPrompt.contains("rest"))
+        XCTAssertTrue(forecast.chatPrompt.contains("How should I train around that?"))
+        XCTAssertTrue(forecast.ariaTags.contains { $0.hasPrefix("forecast:tomorrow:") })
+        XCTAssertTrue(forecast.ariaTags.contains("forecast:confidence:\(forecast.confidence.rawValue)"))
+        XCTAssertTrue(forecast.posture.keepLight)
+        XCTAssertTrue(forecast.steeringLine.lowercased().contains("rest"))
+        XCTAssertEqual(forecast.glanceTitle, "Rest")
+        XCTAssertTrue(forecast.glanceLine.hasPrefix("Tomorrow \(forecast.predictedScore)"))
+    }
+
+    func testProtectPostureKeepsLight() {
+        XCTAssertTrue(ReadinessForecastEngine.Posture.protect.keepLight)
+        XCTAssertTrue(ReadinessForecastEngine.Posture.rest.keepLight)
+        XCTAssertFalse(ReadinessForecastEngine.Posture.push.keepLight)
+        XCTAssertFalse(ReadinessForecastEngine.Posture.steady.keepLight)
+    }
 }

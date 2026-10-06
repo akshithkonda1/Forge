@@ -364,16 +364,17 @@ final class AriaDummyOrchestratorTests: XCTestCase {
             lower.contains("sleep") || lower.contains("night") || lower.contains("slept"),
             "expected a sleep cause in \(reply.message)"
         )
+        // A vague "what should I train" opens the suggestion box instead of
+        // guessing a session. Sleep and food still get answered on this turn.
         XCTAssertTrue(
-            lower.contains("minute") || lower.contains("session") || store.todayWorkout != nil,
-            "expected a session in \(reply.message)"
+            lower.contains("what part") || lower.contains("target") || lower.contains("where")
+                || lower.contains("minute") || lower.contains("session") || store.todayWorkout != nil,
+            "expected the body-part box or a session in \(reply.message)"
         )
         XCTAssertTrue(
             lower.contains("eat") || lower.contains("food") || lower.contains("protein"),
             "expected a food beat in \(reply.message)"
         )
-        XCTAssertEqual(reply.richCard?.type, "workout_plan")
-        XCTAssertNotNil(store.todayWorkout)
         XCTAssertTrue(reply.confidenceReason?.contains("Local fill-in") == true)
     }
 
@@ -547,7 +548,20 @@ final class AriaDummyOrchestratorTests: XCTestCase {
     }
 
     func testCalendarKindsSteerTrainingWithoutLeakingTitles() async throws {
-        defer { AriaContextStore.shared.applyCalendarIngestTags([]) }
+        // Earlier cases in this process persist a weekday pattern. This ask
+        // is the no-pattern case: the box opens, then chest still steers
+        // around the week.
+        let habitsKey = AppStore.trainingHabitsKey
+        let habitsPrevious = UserDefaults.standard.data(forKey: habitsKey)
+        defer {
+            AriaContextStore.shared.applyCalendarIngestTags([])
+            if let habitsPrevious {
+                UserDefaults.standard.set(habitsPrevious, forKey: habitsKey)
+            } else {
+                UserDefaults.standard.removeObject(forKey: habitsKey)
+            }
+        }
+        UserDefaults.standard.removeObject(forKey: habitsKey)
         AriaContextStore.shared.applyCalendarIngestTags([
             "calendar:busy:3",
             "calendar:week:busy:9",
@@ -788,7 +802,15 @@ final class AriaDummyOrchestratorTests: XCTestCase {
                 "must not fabricate a read on a night with no sleep sample: \(reply.message)"
             )
         }
-        let honestGap = ["don't have", "no sleep sample", "nothing's synced", "pending sync"]
+        // Empty-night copy is variety-picked and already refuses a fabricated
+        // readout. One line says the night isn't on the board; another says
+        // it isn't here and that ARIA is not inventing it. Both are honest.
+        let honestGap = [
+            "don't have", "no sleep sample", "nothing's synced", "pending sync",
+            "isn't on the board", "isn’t on the board", "not on the board",
+            "isn't here", "isn’t here", "no inventing", "what's already here",
+            "what’s already here", "missing sleep data",
+        ]
         XCTAssertTrue(
             honestGap.contains { lower.contains($0) },
             "must say plainly that there is no sleep data yet: \(reply.message)"

@@ -84,16 +84,16 @@ private struct ReadinessComplicationView: View {
         VStack(alignment: .leading, spacing: 2) {
             HStack(spacing: 4) {
                 Circle().fill(tint).frame(width: 7, height: 7)
-                Text(score.map { "Readiness \($0)" } ?? "Readiness")
+                Text(headline)
                     .font(.system(size: 13, weight: .semibold, design: .rounded))
                     .widgetAccentable()
-                if let band {
+                if let band, !ReadinessGlanceCopy.isEvening(hour: hour) {
                     Text("· \(band.label)")
                         .font(.system(size: 13, weight: .medium))
                         .foregroundStyle(.secondary)
                 }
             }
-            Text(band?.supportiveDescriptor ?? "Wear your watch a little and Forge will catch up.")
+            Text(subline)
                 .font(.system(size: 11))
                 .foregroundStyle(.secondary)
                 .lineLimit(2)
@@ -103,12 +103,36 @@ private struct ReadinessComplicationView: View {
     }
 
     private var inline: some View {
-        Text(score.flatMap { s in band.map { "Readiness \(s) · \($0.label)" } } ?? "Readiness syncing…")
+        Text(headline)
             .accessibilityLabel(accessibilityText)
     }
 
+    private var hour: Int {
+        Calendar.current.component(.hour, from: entry.date)
+    }
+
+    private var headline: String {
+        ReadinessGlanceCopy.complicationLine(
+            today: score,
+            tomorrow: entry.snapshot?.tomorrowPredictedScore,
+            postureRaw: entry.snapshot?.tomorrowPosture,
+            hour: hour
+        )
+    }
+
+    private var subline: String {
+        if ReadinessGlanceCopy.isEvening(hour: hour), entry.snapshot?.tomorrowPredictedScore != nil {
+            return "A guide for tomorrow, not a grade."
+        }
+        return band?.supportiveDescriptor ?? "Wear your watch a little and Forge will catch up."
+    }
+
     private var accessibilityText: String {
-        guard let score, let band else { return "Readiness is still syncing. Open Forge to update." }
-        return "Readiness \(score) out of 100, \(band.label). \(band.supportiveDescriptor)"
+        ReadinessGlanceCopy.accessibilityLine(
+            today: score,
+            tomorrow: entry.snapshot?.tomorrowPredictedScore,
+            postureRaw: entry.snapshot?.tomorrowPosture,
+            hour: hour
+        )
     }
 }

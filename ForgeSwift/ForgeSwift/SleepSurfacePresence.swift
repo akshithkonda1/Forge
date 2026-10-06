@@ -23,7 +23,7 @@ enum SleepResearchHook: String, CaseIterable, Equatable, Sendable {
         case .debt:
             return "Debt vs energy framing once the brief lands."
         case .windDown:
-            return "Tonight wind-down density vs peer sound/ritual craft."
+            return "Tonight wind-down density vs peer sound/ritual craft — waits for the brief."
         }
     }
 }

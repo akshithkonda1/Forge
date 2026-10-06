@@ -647,7 +647,10 @@ struct WakeToneDSP: Sendable {
         self.sound = sound
         eventAt = 4_000
         eventAmp = 0
-        rng = 0xA5A5_1234 &+ UInt32(sound.rawValue.hashValue)
+        // `hashValue` is a full-width Int. A negative hash traps
+        // ("Negative value is not representable"); a hash above UInt32.max
+        // traps ("Not enough bits"). Truncating wraps both into the seed.
+        rng = 0xA5A5_1234 &+ UInt32(truncatingIfNeeded: sound.rawValue.hashValue)
         escalated = false
     }
 

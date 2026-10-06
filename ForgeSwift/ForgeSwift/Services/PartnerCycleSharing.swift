@@ -115,8 +115,30 @@ final class PartnerCycleSharing: ObservableObject {
         let isOwner: Bool
     }
 
-    private let container: CKContainer
-    private var database: CKDatabase { container.privateCloudDatabase }
+    /// Nil when this process is the XCTest host. `CKContainer(identifier:)`
+    /// aborts if the binary has no iCloud entitlement, which is how the
+    /// unsigned simulator test build is produced. Sharing still constructs
+    /// the container for a normal launch.
+    private let container: CKContainer?
+    private var database: CKDatabase {
+        get throws {
+            guard let container else {
+                throw NSError(domain: "PartnerCycleSharing", code: 2, userInfo: [
+                    NSLocalizedDescriptionKey: "CloudKit is not available in this test run."
+                ])
+            }
+            return container.privateCloudDatabase
+        }
+    }
+
+    private func sharedCloudDatabase() throws -> CKDatabase {
+        guard let container else {
+            throw NSError(domain: "PartnerCycleSharing", code: 2, userInfo: [
+                NSLocalizedDescriptionKey: "CloudKit is not available in this test run."
+            ])
+        }
+        return container.sharedCloudDatabase
+    }
 
     /// Custom zone — see the note above on why this is not the default zone.
     private static let zoneID = CKRecordZone.ID(zoneName: "PartnerCycleDigest",
@@ -125,7 +147,11 @@ final class PartnerCycleSharing: ObservableObject {
     private static let digestRecordName = "currentDigest"
 
     init(containerIdentifier: String = "iCloud.com.forge.ForgeSwift") {
-        self.container = CKContainer(identifier: containerIdentifier)
+        if ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] != nil {
+            self.container = nil
+        } else {
+            self.container = CKContainer(identifier: containerIdentifier)
+        }
         if let data = UserDefaults.standard.data(forKey: Self.inviteKey),
            let invite = try? JSONDecoder().decode(PartnerCycleInvite.self, from: data) {
             currentInvite = invite
@@ -486,7 +512,7 @@ final class PartnerCycleSharing: ObservableObject {
     @discardableResult
     func fetchSharedDigest() async -> [ReceivedDigest] {
         do {
-            let zones = try await container.sharedCloudDatabase.allRecordZones()
+            let zones = try await sharedCloudDatabase().allRecordZones()
             var found: [ReceivedDigest] = []
 
             for zone in zones where zone.zoneID.zoneName == Self.zoneID.zoneName {
@@ -494,7 +520,7 @@ final class PartnerCycleSharing: ObservableObject {
                 // One person's zone being unreadable — mid-revocation, a
                 // transient error — must not cost the supporter everyone else's
                 // digest, so this continues rather than throwing out of the loop.
-                guard let record = try? await container.sharedCloudDatabase.record(for: id),
+                guard let record = try? await sharedCloudDatabase().record(for: id),
                       let data = record["payload"] as? Data,
                       let digest = try? JSONDecoder().decode(PartnerCycleDigest.self, from: data)
                 else { continue }
@@ -547,14 +573,14 @@ final class PartnerCycleSharing: ObservableObject {
         let zoneID = CKRecordZone.ID(zoneName: Self.zoneID.zoneName, ownerName: zoneOwner)
         let recordID = CKRecord.ID(recordName: Self.digestRecordName, zoneID: zoneID)
         do {
-            let record = try await container.sharedCloudDatabase.record(for: recordID)
+            let record = try await sharedCloudDatabase().record(for: recordID)
             guard let data = record["payload"] as? Data,
                   let digest = try? JSONDecoder().decode(PartnerCycleDigest.self, from: data)
             else { return false }
             let updated = digest.markingPeriodFinished(on: dayKey)
             record["payload"] = try JSONEncoder().encode(updated) as CKRecordValue
             record["asOfDayKey"] = updated.asOfDayKey as CKRecordValue
-            _ = try await container.sharedCloudDatabase.save(record)
+            _ = try await sharedCloudDatabase().save(record)
             if let idx = receivedDigests.firstIndex(where: { $0.id == zoneOwner }) {
                 receivedDigests[idx] = ReceivedDigest(
                     id: receivedDigests[idx].id,
@@ -674,7 +700,7 @@ final class PartnerCycleSharing: ObservableObject {
         subscription.notificationInfo = info
 
         do {
-            _ = try await container.sharedCloudDatabase.modifySubscriptions(
+            _ = try await sharedCloudDatabase().modifySubscriptions(
                 saving: [subscription], deleting: []
             )
             UserDefaults.standard.set(true, forKey: flag)

@@ -445,6 +445,9 @@ struct ChatMessage: Identifiable, Codable {
     var confidenceReason: String? = nil
     /// Which specialist answered. Optional so older transcripts still decode.
     var coachAgent: String? = nil
+    /// What shaped this reply — living signals, not a model name.
+    var replyShapeHeadline: String? = nil
+    var replyShapeDetail: String? = nil
 }
 
 struct SleepData: Identifiable {

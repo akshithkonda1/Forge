@@ -276,6 +276,12 @@ final class AppStore: ObservableObject {
 
         // Real nights, history, and today's session come from Apple Health + this
         // person's profile — never demo sleep or "Upper Body Power".
+        // The test host constructs AppStore per case. A delayed refresh would
+        // republish the grounding hub (and, outside XCTest, the Test-Ready
+        // pack) on top of values the test just wrote.
+        if ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] != nil {
+            return
+        }
         Task { @MainActor in
             // Let the first frame (and splash dismiss) land before HealthKit
             // work. Test-Ready pack rewrites wait until after Home is loaded.

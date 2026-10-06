@@ -44,6 +44,16 @@ final class ForgeAuthTests: XCTestCase {
                 debugBuild: true
             )
         )
+        XCTAssertFalse(
+            ForgeAuthPolicy.isXcodeDeviceHubLaunch(
+                environment: [
+                    "SIMULATOR_UDID": "test-host",
+                    "OS_ACTIVITY_DT_MODE": "enable",
+                    "XCTestConfigurationFilePath": "/tmp/ForgeSwiftTests.xctestconfiguration",
+                ],
+                debugBuild: true
+            )
+        )
     }
 
     func testLoopbackAPIAndXcodeLaunchAutoInstallTester() {

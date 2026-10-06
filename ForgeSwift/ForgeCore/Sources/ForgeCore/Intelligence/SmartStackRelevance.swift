@@ -64,6 +64,15 @@ public enum SmartStackRelevance {
             return Relevance(score: flagged * 0.7)
         }
 
+        // Evening: a protect/rest forecast is worth surfacing on the wrist
+        // before an ambient today-score. Live workouts and wind-down still win.
+        let hour = Calendar.current.component(.hour, from: now)
+        if ReadinessGlanceCopy.isEvening(hour: hour),
+           let posture = snapshot.tomorrowPosture,
+           ReadinessForecastEngine.Posture(rawValue: posture)?.keepLight == true {
+            return Relevance(score: flagged * 0.55, duration: 60 * 60)
+        }
+
         return Relevance(score: ambient)
     }
 
