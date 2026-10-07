@@ -9,8 +9,25 @@ import ForgeCore
 // reliably between iPhone and Watch — WCSession application context is the
 // reliable companion path for testing in Xcode.
 
+enum WatchCompanionSyncPolicy {
+    static let coalesceSeconds: TimeInterval = 8
+
+    static func shouldPush(
+        force: Bool,
+        lastSync: Date?,
+        now: Date = Date(),
+        mayTalkToWatch: Bool
+    ) -> Bool {
+        guard mayTalkToWatch else { return false }
+        if force { return true }
+        guard let lastSync else { return true }
+        return now.timeIntervalSince(lastSync) >= coalesceSeconds
+    }
+}
+
 enum WatchAriaConfigBridge {
     static let appGroupID = "group.com.forge.ForgeSwift"
+    static var lastSuccessfulPushAt: Date?
 
     enum Keys {
         static let baseURL = "forge.aria.baseURL"
@@ -27,7 +44,7 @@ enum WatchAriaConfigBridge {
     }
 
     @MainActor
-    static func sync(firstName: String? = nil) {
+    static func sync(firstName: String? = nil, force: Bool = false) {
         let baseURL = AriaService.shared.baseURL.absoluteString
         let userId = AriaContextStore.shared.context.userId
         let name = firstName
@@ -66,7 +83,23 @@ enum WatchAriaConfigBridge {
 
         // WatchConnectivity — reliable for paired simulator + device.
         // Full payload (including secrets) is pushed here only.
+        // Hard no-op when the phone should not talk to Watch.
+        #if os(iOS)
+        guard WCSession.isSupported() else { return }
+        let session = WCSession.default
+        let mayTalk = PhoneDependency.phoneMayTalkToWatch(
+            isActivated: session.activationState == .activated,
+            isPaired: session.isPaired,
+            isWatchAppInstalled: session.isWatchAppInstalled
+        )
+        guard WatchCompanionSyncPolicy.shouldPush(
+            force: force,
+            lastSync: lastSuccessfulPushAt,
+            mayTalkToWatch: mayTalk
+        ) else { return }
         pushOverWatchConnectivity(payload)
+        lastSuccessfulPushAt = Date()
+        #endif
     }
 
     private static func pushOverWatchConnectivity(_ payload: [String: String]) {

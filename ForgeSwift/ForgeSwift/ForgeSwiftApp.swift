@@ -13,10 +13,8 @@ struct ForgeSwiftApp: App {
     init() {
         SecureStoreMigration.run(from: .standard, to: KeychainStore())
         // Listens for watch workout state and mirrors it into a Live
-        // Activity (lock screen + Dynamic Island). Also owns WCSession
-        // on the phone so companion config can flow to ForgeWatch.
-        // Owns WCSession on the phone; pushes companion config in activationDidCompleteWith
-        // once the session is actually active. The onAppear sync below is the UI-ready pass.
+        // Activity (lock screen + Dynamic Island). Owns WCSession on
+        // the phone; one companion sync after activation.
         WorkoutActivityCoordinator.shared.activate()
     }
 
@@ -28,27 +26,19 @@ struct ForgeSwiftApp: App {
                 .environment(SleepWindDownPlayer.shared)
                 .preferredColorScheme(.dark)
                 .onAppear {
-                    // Re-sync when UI is up (WCSession may not be activated in init).
-                    let firstName = store.userProfile.name
-                        .split(separator: " ").first.map(String.init)
-                    WatchAriaConfigBridge.sync(firstName: firstName)
+                    // WCSession companion sync is owned by
+                    // WorkoutActivityCoordinator.activationDidCompleteWith.
+                    // Do not retry on a 1.5 / 4 / 8s ladder from here.
                     HealthDeviceCatalogSync.shared.loadCached()
                     Task {
                         let sources = await HealthKitManager.shared.knownHealthSources()
                         await HealthDeviceCatalogSync.shared.refresh(healthSources: sources)
                     }
-                    // Dual-sim / companion launches: watch often boots a few seconds
-                    // after the phone. Retry so ARIA URL + name land after WCSession
-                    // becomes reachable (App Groups are unreliable in Simulator).
-                    for delay in [1.5, 4.0, 8.0] {
-                        DispatchQueue.main.asyncAfter(deadline: .now() + delay) {
-                            WatchAriaConfigBridge.sync(firstName: firstName)
-                        }
-                    }
                 }
                 .onChange(of: store.userProfile.name) { _, name in
                     WatchAriaConfigBridge.sync(
-                        firstName: name.split(separator: " ").first.map(String.init)
+                        firstName: name.split(separator: " ").first.map(String.init),
+                        force: true
                     )
                 }
                 .onReceive(NotificationCenter.default.publisher(for: UIApplication.didBecomeActiveNotification)) { _ in

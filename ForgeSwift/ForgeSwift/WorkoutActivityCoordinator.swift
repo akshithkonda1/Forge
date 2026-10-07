@@ -35,7 +35,8 @@ final class WorkoutActivityCoordinator: NSObject, WCSessionDelegate {
         let session = WCSession.default
         session.delegate = self
         session.activate()
-        // If already active (re-launch), push companion config immediately.
+        // Already-active re-launch: one push. activationDidCompleteWith
+        // is coalesced if it fires again immediately after.
         if session.activationState == .activated {
             Task { @MainActor in
                 WatchAriaConfigBridge.sync()

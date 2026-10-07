@@ -159,13 +159,21 @@ enum LifestyleWidgetBridge {
             topCategory: top?.category.rawValue,
             updatedAt: Date()
         )
-        guard let defaults = UserDefaults(suiteName: appGroup),
-              let data = try? JSONEncoder().encode(snapshot) else { return }
-        defaults.set(data, forKey: snapshotKey)
-        WidgetCenter.shared.reloadTimelines(ofKind: kind)
-        HomeWidgetSnapshotStore.update { snap in
+        let lifestyleChanged: Bool
+        if let existing = loadSnapshot(), existing.hasSameWidgetContent(as: snapshot) {
+            lifestyleChanged = false
+        } else {
+            guard let defaults = UserDefaults(suiteName: appGroup),
+                  let data = try? JSONEncoder().encode(snapshot) else { return }
+            defaults.set(data, forKey: snapshotKey)
+            lifestyleChanged = true
+        }
+        HomeWidgetSnapshotStore.update(reloadWidgets: false) { snap in
             snap.qol = metrics.qualityOfLifeScore
             snap.topRecommendation = top?.title
+        }
+        if lifestyleChanged {
+            WidgetCenter.shared.reloadTimelines(ofKind: kind)
         }
     }
 
