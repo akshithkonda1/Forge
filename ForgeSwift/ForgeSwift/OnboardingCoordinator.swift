@@ -41,6 +41,8 @@ final class OnboardingCoordinator {
 
     var calendarState: HealthKitState = .unknown
     var calendarBusyToday: Int = 0
+    var contactsState: HealthKitState = .unknown
+    var remindersState: HealthKitState = .unknown
 
     // MARK: Presence
 
@@ -132,6 +134,7 @@ final class OnboardingCoordinator {
         guard !hasStarted else { return }
         hasStarted = true
         seedFromSignUpDraft()
+        refreshNestPermissionStates()
         step = AriaInterviewStep(OnboardingGraph.normalized(step.graph))
         Task { await runIntro() }
     }
@@ -248,11 +251,16 @@ final class OnboardingCoordinator {
     func continueFromHealth() {
         guard step == .health else { return }
         interruptInterviewVoice()
-        appendUser(healthKitState == .authorized && calendarState == .authorized ? "Connected both" : healthKitState == .authorized ? "Health connected" : calendarState == .authorized ? "Calendar connected" : "Continue")
+        appendUser(healthContinueUserLine())
         FDS.haptic(.light)
         Task {
             await ariaSay(
-                AriaInterviewVoice.acknowledgeHealthContinue(health: healthKitState, calendar: calendarState),
+                AriaInterviewVoice.acknowledgeHealthContinue(
+                    health: healthKitState,
+                    calendar: calendarState,
+                    contacts: contactsState,
+                    reminders: remindersState
+                ),
                 mood: .focused
             )
             await advanceTo(.freeTime)
@@ -326,6 +334,36 @@ final class OnboardingCoordinator {
 
     func skipCalendar() {
         calendarState = .denied
+    }
+
+    func connectContacts() {
+        guard step == .health else { return }
+        interruptInterviewVoice()
+        appendUser("Connect Contacts")
+        FDS.haptic(.medium)
+        contactsState = .requesting
+        Task { await requestContacts() }
+    }
+
+    func skipContacts() {
+        if contactsState != .authorized {
+            contactsState = .denied
+        }
+    }
+
+    func connectReminders() {
+        guard step == .health else { return }
+        interruptInterviewVoice()
+        appendUser("Connect Reminders")
+        FDS.haptic(.medium)
+        remindersState = .requesting
+        Task { await requestReminders() }
+    }
+
+    func skipReminders() {
+        if remindersState != .authorized {
+            remindersState = .denied
+        }
     }
 
     func toggleGoal(_ goal: OnboardingFitnessGoal) {
@@ -696,6 +734,53 @@ final class OnboardingCoordinator {
         ariaOrbState = .listening
     }
 
+    func requestContacts() async {
+        contactsState = .requesting
+        ariaOrbState = .processing
+        let ok = await PeopleContactsBridge.requestAccess()
+        var directory = PeopleDirectoryStore.load()
+        directory.contactsAccess = ok ? .granted : .denied
+        if ok { directory.optedIn = true }
+        PeopleDirectoryStore.save(directory)
+        contactsState = ok ? .authorized : .denied
+        await ariaSay(AriaInterviewVoice.acknowledgeContacts(contactsState), mood: ok ? .energized : .calm)
+        ariaOrbState = .listening
+    }
+
+    func requestReminders() async {
+        remindersState = .requesting
+        ariaOrbState = .processing
+        await RemindersManager.shared.setEnabled(true)
+        let connected = RemindersManager.shared.accessState == .connected
+        remindersState = connected ? .authorized : .denied
+        await ariaSay(AriaInterviewVoice.acknowledgeReminders(remindersState), mood: connected ? .energized : .calm)
+        ariaOrbState = .listening
+    }
+
+    func refreshNestPermissionStates() {
+        switch PeopleContactsBridge.currentAccess() {
+        case .granted: contactsState = .authorized
+        case .denied: contactsState = .denied
+        case .notAsked: contactsState = .unknown
+        }
+        switch RemindersManager.shared.accessState {
+        case .connected: remindersState = .authorized
+        case .denied: remindersState = .denied
+        case .off, .notConnected: remindersState = .unknown
+        }
+    }
+
+    private func healthContinueUserLine() -> String {
+        var parts: [String] = []
+        if healthKitState == .authorized { parts.append("Health") }
+        if calendarState == .authorized { parts.append("Calendar") }
+        if contactsState == .authorized { parts.append("Contacts") }
+        if remindersState == .authorized { parts.append("Reminders") }
+        if parts.isEmpty { return "Continue" }
+        if parts.count == 1 { return "\(parts[0]) connected" }
+        return "Connected \(parts.joined(separator: ", "))"
+    }
+
     /// In-app READ-only HealthKit sheet, then (on the sim) write the
     /// Test-Ready pack so the read-back is a real first integration.
     private func connectAppleHealthForFirstTime() async throws {
@@ -1040,6 +1125,12 @@ final class OnboardingCoordinator {
             submitName()
         case .connectHealth:
             connectHealthKit()
+        case .connectCalendar:
+            Task { await connectCalendar() }
+        case .connectContacts:
+            connectContacts()
+        case .connectReminders:
+            connectReminders()
         case .skipHealthAndContinue:
             skipHealthAndContinue()
         case .continueHealth:
@@ -1088,6 +1179,12 @@ final class OnboardingCoordinator {
             submitName()
         case .connectHealth:
             connectHealthKit()
+        case .connectCalendar:
+            Task { await connectCalendar() }
+        case .connectContacts:
+            connectContacts()
+        case .connectReminders:
+            connectReminders()
         case .skipHealthAndContinue:
             skipHealthAndContinue()
         case .continueHealth:

@@ -1,4 +1,5 @@
 import Foundation
+import ForgeCore
 
 /// ARIA's speaker identity and the voice-session routing contract.
 ///
@@ -12,6 +13,9 @@ import Foundation
 /// * **Local testing** — same session UX, on-device brain, DEBUG fill-in.
 /// * **Live** — ElevenLabs ConvAI with the designed `voice_id` named ARIA.
 ///   Apple catalog TTS is never the production mouth. Live failure is silence.
+/// * **Fish Audio** — configured cloud TTS (`docs.fish.audio`) when
+///   `FISH_AUDIO_API_KEY` is set in env or client config. Bearer + `model`
+///   header (`s2.1-pro` / `s2.1-pro-free`). No key means this path is off.
 ///
 /// This file must stay network-free (`URLSession` / `URLRequest` / ElevenLabs
 /// hosts). Routing is decided here; live I/O lives in `AriaVoiceSession`.
@@ -44,6 +48,9 @@ enum AriaCharacterVoice: Sendable {
     /// Live stream failure stays quiet. Dummy never silently "upgrades" to cloud.
     static let liveFailureFallsBackToAppleTTS = false
     static let dummyUpgradesToLiveOnFailure = false
+
+    /// Fish Audio is a configured mouth, not a silent upgrade from Dummy.
+    static let dummyUpgradesToFishAudioOnFailure = false
 }
 
 /// Same gates as `AriaService.sendMessage`, in the same order: test-ready dummy
@@ -124,6 +131,18 @@ enum AriaVoiceMouth: Sendable {
         let prose = reply.proseSummary?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
         if !prose.isEmpty { return prose }
         return reply.message.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    /// Fish Audio only when a live key is present and they have not muted.
+    static func shouldEnqueueFishAudio(isMuted: Bool, hasKey: Bool) -> Bool {
+        !isMuted && hasKey
+    }
+
+    static func currentFishAudioConfig(
+        environment: [String: String] = ProcessInfo.processInfo.environment,
+        infoDictionary: [String: Any] = Bundle.main.infoDictionary ?? [:]
+    ) -> AriaFishAudioVoice.Config {
+        AriaFishAudioVoice.resolve(environment: environment, infoDictionary: infoDictionary)
     }
 }
 

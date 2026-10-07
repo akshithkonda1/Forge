@@ -418,7 +418,7 @@ extension AppStore {
         } else {
             chatMessages = [msg]
         }
-        lastSuggestedActions = turn.replies
+        lastSuggestedActions = AriaFirstBond.repliesForDisplay(turn.replies)
         beginStreamingReveal(for: msg.id, fullLength: msg.content.count)
         persistChatHistory()
     }
@@ -431,6 +431,28 @@ extension AppStore {
         AriaContextStore.shared.applyUpdates(["relationship_level": nextLevel])
         AriaContextStore.shared.addInsight("We started. First conversation.")
         rememberDurable("ARIA is a lifestyle coach — not a doctor, not a game. She reads Apple Health.")
+    }
+
+    /// Required user-facing Skip for the first-time tutorial. Not the DEBUG Skip All.
+    func skipAriaFirstBond() {
+        guard isInAriaFirstBond, !hasCompletedAriaUseOnboarding else { return }
+        let turn = AriaFirstBond.skip(bondContext())
+        if !turn.message.isEmpty {
+            let reply = ChatMessage(
+                id: AriaFirstBond.replyIDPrefix + UUID().uuidString,
+                role: .trainer,
+                content: turn.message,
+                timestamp: Date(),
+                confidence: 0.93,
+                suggestedActions: [],
+                coachAgent: AriaCoachAgent.aria.rawValue
+            )
+            chatMessages.append(reply)
+            beginStreamingReveal(for: reply.id, fullLength: reply.content.count)
+        }
+        lastSuggestedActions = []
+        completeAriaFirstBond()
+        persistChatHistory()
     }
 
     /// Send a message through ARIA (remote when available, local fallback).
@@ -462,7 +484,7 @@ extension AppStore {
                     coachAgent: AriaCoachAgent.aria.rawValue
                 )
                 chatMessages.append(reply)
-                lastSuggestedActions = turn.replies
+                lastSuggestedActions = AriaFirstBond.repliesForDisplay(turn.replies)
                 ariaFirstBondBeat = turn.next
                 isGeneratingResponse = false
                 beginStreamingReveal(for: reply.id, fullLength: reply.content.count)

@@ -116,6 +116,23 @@ final class AriaInterviewVoiceTests: XCTestCase {
             .missed,
             "substring 'yes' in yesterday must not trigger connect"
         )
+        XCTAssertEqual(
+            AriaInterviewVoice.matchSpoken("connect Contacts", step: .health, profile: profile),
+            .connectContacts
+        )
+        XCTAssertEqual(
+            AriaInterviewVoice.matchSpoken("Reminders later", step: .health, profile: profile),
+            .skipHealthAndContinue,
+            "later still skips the whole nest"
+        )
+        XCTAssertEqual(
+            AriaInterviewVoice.matchSpoken("connect Reminders", step: .health, profile: profile),
+            .connectReminders
+        )
+        XCTAssertEqual(
+            AriaInterviewVoice.matchSpoken("Apple Calendar", step: .health, profile: profile),
+            .connectCalendar
+        )
     }
 
     func testSuggestedRepliesStayOnTheSixBeatGraph() {

@@ -36,7 +36,7 @@ enum AriaInterviewVoice {
         switch step {
         case .intro: return ""
         case .name: return "Say your first name, or type it."
-        case .health: return "Say “connect Health” or “later.”"
+        case .health: return "Say “connect Health,” “Calendar,” “Contacts,” “Reminders,” or “later.”"
         case .details: return ""
         case .goals: return "Name a goal, or say “continue.”"
         case .experience: return "Say beginner, a few years, advanced, or elite."
@@ -56,6 +56,12 @@ enum AriaInterviewVoice {
         "If you connect Apple Health, I can learn your sleep and movement with you — so I can take care of you better, not to judge."
     static let healthDenyLine = "All good… I’m still here."
     static let healthEnableLater = "You can enable Apple Health later."
+    static let contactsBody =
+        "If you connect Contacts, I can learn first names you pick — not the whole book, and never phone numbers."
+    static let contactsEnableLater = "You can enable Contacts later in Settings."
+    static let remindersBody =
+        "If you connect Reminders, I count overdue and due-today — titles stay on this iPhone."
+    static let remindersEnableLater = "You can enable Reminders later in Settings."
     static let habitsWrapper = "So I can learn more about you"
 
     static func healthStatusLabel(state: HealthKitState, pulling: Bool) -> String {
@@ -75,6 +81,9 @@ enum AriaInterviewVoice {
             case startTalking
             case confirmName
             case connectHealth
+            case connectCalendar
+            case connectContacts
+            case connectReminders
             case skipHealthAndContinue
             case continueHealth
             case experience(ExperienceLevel)
@@ -97,7 +106,9 @@ enum AriaInterviewVoice {
         step: AriaInterviewStep,
         profile: OnboardingProfile,
         health: HealthKitState,
-        calendar: HealthKitState
+        calendar: HealthKitState,
+        contacts: HealthKitState = .unknown,
+        reminders: HealthKitState = .unknown
     ) -> [Reply] {
         switch step {
         case .intro, .details, .ready:
@@ -119,7 +130,8 @@ enum AriaInterviewVoice {
             if health != .authorized {
                 rows.append(Reply(id: "health-connect", label: "Connect Apple Health", kind: .connectHealth))
             }
-            if health == .authorized || calendar == .authorized {
+            if health == .authorized || calendar == .authorized
+                || contacts == .authorized || reminders == .authorized {
                 rows.append(Reply(id: "health-continue", label: "That’s enough — continue", kind: .continueHealth))
             }
             rows.append(Reply(id: "health-later", label: "I’ll add it later", kind: .skipHealthAndContinue))
@@ -258,17 +270,41 @@ enum AriaInterviewVoice {
         healthDenyLine
     }
 
-    static func acknowledgeHealthContinue(health: HealthKitState, calendar: HealthKitState) -> String {
-        switch (health == .authorized, calendar == .authorized) {
-        case (true, true):
-            return "Health and calendar are in. I’ll learn your sleep and movement with you — not to judge."
-        case (true, false):
+    static func acknowledgeHealthContinue(
+        health: HealthKitState,
+        calendar: HealthKitState,
+        contacts: HealthKitState = .unknown,
+        reminders: HealthKitState = .unknown
+    ) -> String {
+        var parts: [String] = []
+        if health == .authorized { parts.append("Health") }
+        if calendar == .authorized { parts.append("calendar") }
+        if contacts == .authorized { parts.append("people") }
+        if reminders == .authorized { parts.append("reminders") }
+        if parts.isEmpty { return healthDenyLine }
+        if parts == ["Health"] {
             return "Health is in. I’ll learn your sleep and movement with you — not to judge."
-        case (false, true):
-            return "Calendar’s in. Health whenever you’re ready. \(healthDenyLine)"
-        case (false, false):
-            return healthDenyLine
         }
+        if parts == ["calendar"] {
+            return "Calendar’s in. Health whenever you’re ready. \(healthDenyLine)"
+        }
+        if parts == ["Health", "calendar"] {
+            return "Health and calendar are in. I’ll learn your sleep and movement with you — not to judge."
+        }
+        let listed = parts.joined(separator: ", ")
+        return "\(listed.prefix(1).uppercased() + listed.dropFirst()) are in. I’ll keep up with you — not to judge."
+    }
+
+    static func acknowledgeContacts(_ state: HealthKitState) -> String {
+        state == .authorized
+            ? "Contacts in — first names you pick, not the whole book."
+            : "\(healthDenyLine) \(contactsEnableLater)"
+    }
+
+    static func acknowledgeReminders(_ state: HealthKitState) -> String {
+        state == .authorized
+            ? "Reminders in — counts only. Titles stay on this iPhone."
+            : "\(healthDenyLine) \(remindersEnableLater)"
     }
 
     static func acknowledgeDetails() -> String {
@@ -352,6 +388,9 @@ enum AriaInterviewVoice {
         case fillName(String)
         case confirmName
         case connectHealth
+        case connectCalendar
+        case connectContacts
+        case connectReminders
         case skipHealthAndContinue
         case continueHealth
         case experience(ExperienceLevel)
@@ -394,6 +433,15 @@ enum AriaInterviewVoice {
             if lower.contains("later") || lower.contains("skip") || lower.contains("not now")
                 || lower.contains("no thanks") {
                 return .skipHealthAndContinue
+            }
+            if lower.contains("contact") {
+                return .connectContacts
+            }
+            if lower.contains("reminder") {
+                return .connectReminders
+            }
+            if lower.contains("calendar") {
+                return .connectCalendar
             }
             if lower.contains("continue") || lower.contains("enough") || lower.contains("that's it")
                 || lower.contains("thats it") {

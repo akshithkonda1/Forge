@@ -1,4 +1,5 @@
 import XCTest
+import ForgeCore
 @testable import ForgeSwift
 
 /// Dummy voice session uses the same gates as chat. Live bootstrap is never
@@ -47,6 +48,24 @@ final class AriaVoiceSessionTests: XCTestCase {
         XCTAssertEqual(AriaCharacterVoice.liveConvAILLM, "claude-sonnet-4-6")
         XCTAssertFalse(AriaCharacterVoice.liveTTSModel.contains("turbo"))
         XCTAssertFalse(AriaCharacterVoice.liveASRProvider == "elevenlabs")
+        XCTAssertFalse(AriaCharacterVoice.dummyUpgradesToFishAudioOnFailure)
+    }
+
+    func testFishAudioMouthRequiresAConfiguredKey() {
+        XCTAssertFalse(AriaVoiceMouth.shouldEnqueueFishAudio(isMuted: true, hasKey: true))
+        XCTAssertFalse(AriaVoiceMouth.shouldEnqueueFishAudio(isMuted: false, hasKey: false))
+        XCTAssertTrue(AriaVoiceMouth.shouldEnqueueFishAudio(isMuted: false, hasKey: true))
+        let missing = AriaVoiceMouth.currentFishAudioConfig(
+            environment: [:],
+            infoDictionary: [:]
+        )
+        XCTAssertFalse(missing.isConfigured)
+        let live = AriaVoiceMouth.currentFishAudioConfig(
+            environment: [AriaFishAudioVoice.apiKeyEnvironment: "test-key-not-for-commit"],
+            infoDictionary: [:]
+        )
+        XCTAssertTrue(live.isConfigured)
+        XCTAssertEqual(live.model, AriaFishAudioVoice.defaultModel)
     }
 
     func testMuteGatesDummyAndLiveFillIn() {

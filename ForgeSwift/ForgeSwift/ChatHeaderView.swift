@@ -83,6 +83,26 @@ struct ChatHeaderView: View {
 
             Spacer()
 
+            if store.isInAriaFirstBond {
+                Button {
+                    store.skipAriaFirstBond()
+                } label: {
+                    Text(AriaFirstBond.skipLabel)
+                        .font(.system(size: 13, weight: .semibold, design: .rounded))
+                        .foregroundColor(.textTertiary)
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 6)
+                        .background(Color.white.opacity(0.05))
+                        .clipShape(Capsule())
+                        .overlay(
+                            Capsule().stroke(Color(hex: "7EC8FF").opacity(0.28), lineWidth: 1)
+                        )
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("Skip tutorial")
+                .accessibilityHint("Ends the first conversation with ARIA. You can talk anytime.")
+            }
+
             AriaSpokenMuteButton()
 
             VStack(spacing: 2) {

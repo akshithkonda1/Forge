@@ -8,7 +8,7 @@ enum AriaMeetCopy: Sendable {
     static let lead = "I was designed for Forge — I power how you train, recover, and live the day."
     static let pairingForbidden = "FORGE × ARIA"
     static let talkCta = "Talk with ARIA"
-    static let skipCta = "Look around first"
+    static let skipCta = "Skip"
 
     static let capabilities: [(title: String, body: String, icon: String)] = [
         ("Train today", "What to do with the body you woke up with — not a plan from last week.", "dumbbell.fill"),
@@ -124,6 +124,8 @@ struct AriaMeetView: View {
                             .padding(.vertical, 10)
                     }
                     .buttonStyle(.plain)
+                    .accessibilityLabel("Skip")
+                    .accessibilityHint("Skip the first meeting and look around Forge.")
                 }
                 .padding(.horizontal, 22)
                 .padding(.bottom, 20)

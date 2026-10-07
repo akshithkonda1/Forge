@@ -262,7 +262,9 @@ struct AriaInterviewLayout: View {
             step: beat,
             profile: coordinator.profile,
             health: coordinator.healthKitState,
-            calendar: coordinator.calendarState
+            calendar: coordinator.calendarState,
+            contacts: coordinator.contactsState,
+            reminders: coordinator.remindersState
         )
         if !replies.isEmpty {
             VStack(alignment: .leading, spacing: 8) {
