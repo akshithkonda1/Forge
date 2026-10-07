@@ -209,6 +209,7 @@ class VoiceRouteTests(unittest.TestCase):
         os.environ.pop("FISH_AUDIO_API_KEY", None)
         os.environ.pop("FISH_AUDIO_MODEL", None)
         os.environ.pop("AI_PROVIDER_SECRET_ARN", None)
+        os.environ.pop("ARIA_FISH_VOICE_ENABLED", None)
 
     def tearDown(self):
         provider_secrets.reset_cache()
@@ -217,6 +218,7 @@ class VoiceRouteTests(unittest.TestCase):
         os.environ.pop("ELEVENLABS_ARIA_VOICE_ID", None)
         os.environ.pop("FISH_AUDIO_API_KEY", None)
         os.environ.pop("FISH_AUDIO_MODEL", None)
+        os.environ.pop("ARIA_FISH_VOICE_ENABLED", None)
 
     def test_bootstrap_without_key_is_unconfigured(self):
         response = handler(event("GET", "/ai/voice/bootstrap", user_id="user-1"), None)
@@ -383,6 +385,8 @@ class VoiceRouteTests(unittest.TestCase):
         self.assertFalse(any("agents/create" in call for call in calls))
 
     def test_fish_tts_without_key_is_unconfigured(self):
+        # Flag on so we reach the Hex key check (flag off is 503 fish_disabled).
+        os.environ["ARIA_FISH_VOICE_ENABLED"] = "true"
         response = handler(
             event("POST", "/ai/voice/fish-tts", {"text": "I'm ARIA."}, user_id="user-1"),
             None,
@@ -396,6 +400,7 @@ class VoiceRouteTests(unittest.TestCase):
         self.assertIn("/ai/voice/fish-tts", PAID_AI_ROUTES)
 
     def test_fish_tts_empty_text_is_rejected(self):
+        os.environ["ARIA_FISH_VOICE_ENABLED"] = "true"
         os.environ["FISH_AUDIO_API_KEY"] = "fish_test_never_echo"
         provider_secrets.reset_cache()
         response = handler(
@@ -408,6 +413,7 @@ class VoiceRouteTests(unittest.TestCase):
     def test_fish_tts_uses_bearer_and_free_model_and_never_echoes_the_key(self):
         import base64
 
+        os.environ["ARIA_FISH_VOICE_ENABLED"] = "true"
         os.environ["FISH_AUDIO_API_KEY"] = "fish_test_never_echo"
         os.environ["FISH_AUDIO_MODEL"] = "s2.1-pro-free"
         provider_secrets.reset_cache()

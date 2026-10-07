@@ -80,6 +80,7 @@ class FishFlagAndRouteTests(unittest.TestCase):
 
     def test_speak_is_on_the_paid_ai_allowlist(self):
         self.assertIn("/ai/voice/speak", PAID_AI_ROUTES)
+        self.assertIn("/ai/voice/fish-tts", PAID_AI_ROUTES)
 
     def test_unset_flag_is_false_and_needs_no_key(self):
         with _FishFlag(None, key=None):
@@ -99,6 +100,45 @@ class FishFlagAndRouteTests(unittest.TestCase):
                 fish_audio_voice.speak({"message": "hi"}, http=fake_http)
             self.assertEqual(raised.exception.code, "fish_disabled")
             self.assertEqual(calls, [])
+
+    def test_handler_fish_tts_flag_off_is_503_without_fish_http(self):
+        with _FishFlag("false", key=None):
+            fake_http, calls = _fake_http(self, message="already guarded")
+            with patch.object(fish_audio_voice, "_stdlib_http", fake_http):
+                response = handler(
+                    event(
+                        "POST",
+                        "/ai/voice/fish-tts",
+                        {"text": "already guarded"},
+                        user_id="user-1",
+                    ),
+                    None,
+                )
+        self.assertEqual(response["statusCode"], 503)
+        payload = body(response)
+        self.assertEqual(payload["code"], "fish_disabled")
+        self.assertEqual(calls, [])
+        blob = json.dumps(payload).lower()
+        self.assertNotIn("sk_", blob)
+        self.assertNotIn("fish_audio_api_key", blob)
+
+    def test_speak_ignores_hex_text_and_requires_message(self):
+        """Iris voice bar: speak stays ``{message}``. Hex ``text`` is not a synonym."""
+        with _FishFlag("true", key="sk_fish_test"):
+            fake_http, calls = _fake_http(self, message="I'm ARIA.")
+            with patch.object(fish_audio_voice, "_stdlib_http", fake_http):
+                response = handler(
+                    event(
+                        "POST",
+                        "/ai/voice/speak",
+                        {"text": "I'm ARIA."},
+                        user_id="user-1",
+                    ),
+                    None,
+                )
+        self.assertEqual(response["statusCode"], 400)
+        self.assertIn("message", body(response)["message"])
+        self.assertEqual(calls, [])
 
     def test_handler_flag_off_is_503_without_fish_http(self):
         with _FishFlag("false", key=None):
@@ -172,6 +212,32 @@ class FishFlagAndRouteTests(unittest.TestCase):
         self.assertNotIn(key, response["body"])
         self.assertNotIn("Authorization", json.dumps(response["headers"]))
 
+    def test_handler_fish_tts_flag_on_returns_json_envelope(self):
+        message = nyx_voice_check.IRIS_LIFESTYLE_FIXTURES[0]
+        key = "sk_super_secret_fish_do_not_ship"
+        with _FishFlag("true", key=key):
+            fake_http, calls = _fake_http(self, message=message, key=key)
+            with patch.object(fish_audio_voice, "_stdlib_http", fake_http):
+                response = handler(
+                    event(
+                        "POST",
+                        "/ai/voice/fish-tts",
+                        {"text": message, "hobby": "pottery"},
+                        user_id="user-1",
+                    ),
+                    None,
+                )
+        self.assertEqual(response["statusCode"], 200)
+        payload = body(response)
+        self.assertEqual(payload["format"], "mp3")
+        self.assertEqual(payload["model"], "s2.1-pro-free")
+        self.assertEqual(payload["audio_base64"], base64.b64encode(FAKE_MP3).decode("ascii"))
+        self.assertEqual(len(calls), 1)
+        raw = json.loads(calls[0][3].decode("utf-8"))
+        self.assertEqual(raw["text"], message)
+        self.assertNotIn("hobby", raw)
+        self.assertNotIn(key, json.dumps(payload))
+
     def test_refuses_to_echo_the_api_key(self):
         key = "sk_leaky_fish"
         with _FishFlag("true", key=key):
@@ -242,6 +308,11 @@ class SpeakMemoryPinTests(unittest.TestCase):
             "def handle_post_ai_voice_speak" + speak_fn
         )
         self.assertTrue(forbidden.isdisjoint(route_names), route_names & forbidden)
+        hex_fn = route.split("def handle_post_ai_voice_fish_tts", 1)[1].split("\ndef ", 1)[0]
+        hex_names = _called_or_imported(
+            "def handle_post_ai_voice_fish_tts" + hex_fn
+        )
+        self.assertTrue(forbidden.isdisjoint(hex_names), hex_names & forbidden)
 
     def test_speak_does_not_call_fuse_or_memory(self):
         message = "already guarded line"

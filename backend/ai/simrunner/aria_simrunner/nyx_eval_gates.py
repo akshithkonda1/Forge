@@ -90,6 +90,7 @@ _INVOKE_CALL_NAMES = frozenset(
         "handle_get_ai_voice_bootstrap",
         "handle_post_ai_voice_tool",
         "handle_post_ai_voice_speak",
+        "handle_post_ai_voice_fish_tts",
     }
 )
 
@@ -105,6 +106,7 @@ _SPEND_NAME_NEEDLES = (
     "/ai/voice/tool",
     "fish_audio_voice",
     "/ai/voice/speak",
+    "/ai/voice/fish-tts",
     "api.fish.audio",
 )
 
