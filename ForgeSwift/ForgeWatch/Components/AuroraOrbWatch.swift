@@ -11,8 +11,8 @@ import ForgeCore
 //    lobes would read as noise, a stroked ring would read as a halo)
 //  - ticks at 12 Hz with ≤0.15 Hz spatial wobble (epilepsy bar)
 //  - freezes to a still pose when Reduce Motion, Minimal Animation, or
-//    always-on dimming is on; Reduce Motion keeps an opacity swell only
-//    (same contract as BreathingOrb)
+//    always-on dimming is on; TimelineView is paused in those cases
+//    (same still-pose contract as AriaNestMarkWatch)
 //
 // Geometry numbers lockstep with AriaSigilGeometry (iOS target — Watch
 // cannot see that file without pulling AROrbState into ForgeCore). Do
@@ -31,7 +31,7 @@ struct AuroraOrbWatch: View {
     private var staticRendering: Bool { reduceMotion || minimalAnimation }
 
     var body: some View {
-        TimelineView(.animation(minimumInterval: WatchEmberGeometry.tickInterval, paused: luminanceReduced)) { timeline in
+        TimelineView(.animation(minimumInterval: WatchEmberGeometry.tickInterval, paused: luminanceReduced || staticRendering)) { timeline in
             let t = timeline.date.timeIntervalSinceReferenceDate
             emberCanvas(time: t, staticRendering: staticRendering || luminanceReduced)
         }
