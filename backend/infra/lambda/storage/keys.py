@@ -73,6 +73,19 @@ def aria_short_term_prefix() -> str:
     return SHORT_TERM_MEMORY_PREFIX
 
 
+# Durable vault folder notes. STM may point at these; TTL on STM must not
+# delete the vault row. Folder ids match editable_memory.MEMORY_FOLDERS.
+VAULT_NOTE_PREFIX = "ARIA#VAULT#"
+
+
+def aria_vault_note_key(user_id: str, folder: str, note_id: str) -> dict:
+    return {"pk": f"USER#{user_id}", "sk": f"{VAULT_NOTE_PREFIX}{folder}#{note_id}"}
+
+
+def aria_vault_folder_prefix(folder: str) -> str:
+    return f"{VAULT_NOTE_PREFIX}{folder}#"
+
+
 EMERGENCY_EVENT_PREFIX = "EMERGENCY#"
 
 

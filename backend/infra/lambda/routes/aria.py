@@ -404,6 +404,26 @@ def handle_post_ai_chat(body: dict[str, Any], *, user_id: str) -> dict:
     if permissions.allows("lifestyle") and allow_ingest and not safety_lock:
         contextual_learner.stamp_living_context(context, living)
 
+    # Slice 3: typed open loops — one path vault Events ↔ STM. SAFETY_LOCK
+    # and remember-me off write neither store. Speak stays coach words.
+    open_loop = None
+    if permissions.allows("lifestyle") and not insight_mode:
+        from services import open_loops as open_loops_mod
+
+        open_loop = open_loops_mod.file_open_loop(
+            _context,
+            uid,
+            message,
+            settings=mem_settings,
+            safety_lock=safety_lock,
+        )
+        if open_loop is not None:
+            tag = open_loop.horizon_tag
+            if tag not in context.lifestyle.tags:
+                context.lifestyle.tags.append(tag)
+            if tag not in context.lifestyle.recent_patterns:
+                context.lifestyle.recent_patterns.append(tag)
+
     # Lifestyle cards: deterministic only. No Bedrock, no Dynamo relationship
     # bump, no weekly briefing, no learner write-back. Opening a tab must not
     # cost a chat turn — but it still consumes the fused snapshot + current
@@ -599,6 +619,14 @@ def handle_post_ai_chat(body: dict[str, Any], *, user_id: str) -> dict:
 
     if memory and not voice_mode and not safety_lock:
         response["message"] = f"{memory}\n\n{response['message']}"
+    if open_loop is not None and not safety_lock:
+        from services import open_loops as open_loops_mod
+
+        # Coach words only — never a raw vault dump on the spoken path.
+        response["message"] = open_loops_mod.scrub_vault_dump(str(response.get("message") or ""))
+        response["prose_summary"] = open_loops_mod.scrub_vault_dump(
+            str(response.get("prose_summary") or "")
+        )
     prose = str(response.get("prose_summary") or "")
     from aria_core import aria_guidance_policy
 
@@ -629,6 +657,8 @@ def handle_post_ai_chat(body: dict[str, Any], *, user_id: str) -> dict:
         extras["memory"] = memory_block or None
         extras["checkin"] = checkin_payload
         extras["calendar_ingested"] = calendar_ingested
+        if open_loop is not None:
+            extras["open_loop"] = open_loop.to_dict()
     response.update(extras)
     return ok(response)
 

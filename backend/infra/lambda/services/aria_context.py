@@ -171,6 +171,10 @@ class MemoryItem:
     created_at: datetime = field(default_factory=_utcnow)
     expires_at: datetime | None = None
     event_at: datetime | None = None
+    # When set, this STM row is a TTL index over a vault folder note.
+    # Expiry / forget_short_term must not delete that vault row.
+    vault_id: str | None = None
+    folder: str | None = None
 
     def is_active(self, now: datetime) -> bool:
         return self.expires_at is None or self.expires_at > now
@@ -188,6 +192,10 @@ class MemoryItem:
             "expires_at": self.expires_at.isoformat() if self.expires_at else None,
             "event_at": self.event_at.isoformat() if self.event_at else None,
         }
+        if self.vault_id:
+            item["vault_id"] = self.vault_id
+        if self.folder:
+            item["folder"] = self.folder
         if self.expires_at is not None:
             # DynamoDB TTL attribute (epoch seconds). Harmless in the local store.
             item["ttl"] = int(self.expires_at.timestamp())
@@ -203,6 +211,8 @@ class MemoryItem:
             created_at=_parse_dt(item.get("created_at")) or _utcnow(),
             expires_at=_parse_dt(item.get("expires_at")),
             event_at=_parse_dt(item.get("event_at")),
+            vault_id=(str(item["vault_id"]) if item.get("vault_id") else None),
+            folder=(str(item["folder"]) if item.get("folder") else None),
         )
 
     def to_dict(self) -> dict[str, Any]:
@@ -213,6 +223,8 @@ class MemoryItem:
             "category": self.category,
             "expires_at": self.expires_at.isoformat() if self.expires_at else None,
             "event_at": self.event_at.isoformat() if self.event_at else None,
+            "vault_id": self.vault_id,
+            "folder": self.folder,
         }
 
 
@@ -335,6 +347,8 @@ class CoachContextEngine:
         event_at: datetime | None = None,
         mem_id: str | None = None,
         now: datetime | None = None,
+        vault_id: str | None = None,
+        folder: str | None = None,
     ) -> MemoryItem | None:
         text = text.strip()
         if not text:
@@ -355,6 +369,8 @@ class CoachContextEngine:
             created_at=now,
             expires_at=expires_at,
             event_at=event_at,
+            vault_id=vault_id,
+            folder=folder,
         )
         dynamodb.put_item(item.to_item(user_id))
         return item
@@ -379,8 +395,49 @@ class CoachContextEngine:
         return items
 
     def forget_short_term(self, user_id: str, mem_id: str) -> None:
+        """Drop the STM row only. Linked vault Events notes are left intact."""
         key = keys.aria_short_term_key(user_id, mem_id)
         dynamodb.delete_item(key["pk"], key["sk"])
+
+    # ------------------------------------------------------------------
+    # Vault folder notes (durable). STM may index these; no TTL here.
+    # ------------------------------------------------------------------
+    def put_vault_note(
+        self,
+        user_id: str,
+        folder: str,
+        note: dict[str, Any],
+    ) -> dict[str, Any]:
+        note_id = str(note.get("id") or "").strip()
+        if not user_id or not folder or not note_id:
+            return {}
+        payload = dict(note)
+        payload["id"] = note_id
+        payload["folder"] = folder
+        key = keys.aria_vault_note_key(user_id, folder, note_id)
+        dynamodb.put_item({**key, "payload": payload, "user_id": user_id})
+        return payload
+
+    def get_vault_note(self, user_id: str, folder: str, note_id: str) -> dict[str, Any] | None:
+        if not user_id or not folder or not note_id:
+            return None
+        key = keys.aria_vault_note_key(user_id, folder, note_id)
+        row = dynamodb.get_item(key["pk"], key["sk"])
+        if not row:
+            return None
+        payload = row.get("payload") if isinstance(row, dict) else None
+        return dict(payload) if isinstance(payload, dict) else None
+
+    def vault_notes(self, user_id: str, folder: str) -> list[dict[str, Any]]:
+        if not user_id or not folder:
+            return []
+        rows = dynamodb.query_prefix(keys.user_pk(user_id), keys.aria_vault_folder_prefix(folder))
+        notes: list[dict[str, Any]] = []
+        for row in rows:
+            payload = row.get("payload") if isinstance(row, dict) else None
+            if isinstance(payload, dict) and payload.get("id"):
+                notes.append(dict(payload))
+        return notes
 
     def ingest_calendar_events(
         self,
@@ -460,6 +517,7 @@ class CoachContextEngine:
                 self.forget_short_term(user_id, item.id)
                 graduated.append(item.text)
             elif not item.is_active(now):
+                # STM TTL only. Linked vault Events notes stay on this path.
                 self.forget_short_term(user_id, item.id)
                 forgotten.append(item.text)
             else:
