@@ -12,6 +12,7 @@ on:
       - "ForgeSwift/**"
       - "ForgeWidget/**"
       - ".github/workflows/swift.yml"
+      - "scripts/xcode_test_outcome.py"
   pull_request:
 
 permissions:
@@ -60,6 +61,7 @@ jobs:
               - "ForgeSwift/**"
               - "ForgeWidget/**"
               - ".github/workflows/swift.yml"
+              - "scripts/xcode_test_outcome.py"
 
   build:
     name: swift-build
@@ -302,10 +304,14 @@ jobs:
             run_tests
             code=$?
             set -e
-            if [ "$code" -eq 0 ] && grep -q "TEST SUCCEEDED" /tmp/ios-test.log; then
+            outcome=$(python3 "$GITHUB_WORKSPACE/scripts/xcode_test_outcome.py" /tmp/ios-test.log)
+            # Xcode 27 test-without-building prints ** TEST EXECUTE SUCCEEDED **.
+            # A naive TEST SUCCEEDED grep misses that banner and retries into
+            # DTServiceHub flakes. The helper matches both full banners only.
+            if [ "$code" -eq 0 ] && [ "$outcome" = "success" ]; then
               exit 0
             fi
-            if grep -E -q "failed \\(|XCTAssert" /tmp/ios-test.log; then
+            if [ "$outcome" = "failed" ]; then
               echo "::error::ForgeSwiftTests reported an assertion failure."
               exit "${code:-1}"
             fi
@@ -354,7 +360,7 @@ jobs:
             grep -E "error: " /tmp/ios-test-build.log | sed 's|/Users/runner/work/Forge/Forge/||' | sort -u || true
           fi
           if test -f /tmp/ios-test.log; then
-            grep -E "error: |failed \\(|XCTAssert|test runner crashed|TEST FAILED|DTServiceHub|TEST SUCCEEDED" /tmp/ios-test.log | sed 's|/Users/runner/work/Forge/Forge/||' | sort -u || true
+            grep -E "error: |failed \\(|XCTAssert|test runner crashed|TEST FAILED|DTServiceHub|TEST SUCCEEDED|TEST EXECUTE SUCCEEDED" /tmp/ios-test.log | sed 's|/Users/runner/work/Forge/Forge/||' | sort -u || true
           fi
           test -f /tmp/ios-build.log || { echo "(build did not reach this step)"; exit 0; }
           grep -E "error: " /tmp/ios-build.log | sed 's|/Users/runner/work/Forge/Forge/||' | sort -u || echo "(no error: lines matched)"
