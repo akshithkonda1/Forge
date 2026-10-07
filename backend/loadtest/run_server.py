@@ -3,7 +3,7 @@
 
 Binds 127.0.0.1 only. Refuses to start unless ARIA_BEDROCK_ENABLED and
 ARIA_VOICE_ENABLED are exactly ``false``. Adds GET /__loadtest/guards so the
-k6 teardown can prove Bedrock and ElevenLabs were never touched.
+k6 teardown can prove Bedrock, ElevenLabs, and Fish Audio were never touched.
 """
 
 from __future__ import annotations
