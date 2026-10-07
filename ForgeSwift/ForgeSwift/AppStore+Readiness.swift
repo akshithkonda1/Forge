@@ -1006,6 +1006,7 @@ struct PredictiveCoachPictureKey: Equatable {
     var sleepMinutes: Int
     var hrv: Int
     var restingHR: Int
+    var steps: Int
     var stress: Int
     var workoutCount: Int
     var lastWorkout: String
@@ -1021,12 +1022,28 @@ struct PredictiveCoachPictureKey: Equatable {
     var peopleCount: Int
     var weeklyMood: Int
 
+    var signature: String {
+        [
+            "\(overall)",
+            "\(sleepMinutes)",
+            "\(hrv)",
+            "\(restingHR)",
+            "\(steps)",
+            todayPlan,
+            didTrainToday ? "1" : "0",
+            "\(workoutCount)",
+            "\(habitDone)",
+            sleepSig,
+        ].joined(separator: "|")
+    }
+
     @MainActor
     init(store: AppStore) {
         overall = store.readiness.overall
         sleepMinutes = store.dailyMetrics.totalSleep
         hrv = store.dailyMetrics.hrv
         restingHR = store.dailyMetrics.restingHR
+        steps = store.dailyMetrics.steps
         stress = store.readiness.stressLevel
         workoutCount = store.workoutHistory.count
         lastWorkout = store.workoutHistory.first.map {

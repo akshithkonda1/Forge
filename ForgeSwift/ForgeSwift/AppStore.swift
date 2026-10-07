@@ -85,7 +85,7 @@ final class AppStore: ObservableObject {
     /// `forge://cycle/sharing` deep link the Messages extension uses when it has
     /// no invite staged and has to hand the user back to the app.
     @Published var pendingCycleSharingOpen: Bool = false
-    /// Lifestyle sub-segment deep link: `nutrition` | `restaurants` | `wellbeing` | `aiOptimization`
+    /// Lifestyle sub-segment deep link: `nutrition` | `restaurants` | `wellbeing` | `aiOptimization` | `home` / `tomorrow`
     @Published var pendingLifestyleSegment: String? = nil
     /// When true, main shell presents Hydration full-screen.
     @Published var pendingHydrationOpen: Bool = false
@@ -338,10 +338,11 @@ final class AppStore: ObservableObject {
     var backgroundLifeHydrateTask: Task<Void, Never>?
     /// Pack applied in memory; written to HealthKit after Home is interactive.
     var pendingTestReadyHealthPack: FakeHealthPack?
-    /// Home / briefing cards share one PredictiveCoach.picture. Invalidated
-    /// when readiness, sleep, or habits that feed the picture change.
+    /// Home + Lifestyle share one PredictiveCoach.picture. Phase A fingerprint
+    /// (readiness / sleep / habits) plus #419's steps / plan signature.
     var cachedPredictiveCoachPicture: PredictiveCoach.Picture?
     var cachedPredictiveCoachPictureKey: PredictiveCoachPictureKey?
+    var cachedPredictiveCoachKey: String? { cachedPredictiveCoachPictureKey?.signature }
 
     static let onboardedDefaultsKey = "forge.onboarding.completed"
     static let profileDefaultsKey = "forge.user.profile.v1"

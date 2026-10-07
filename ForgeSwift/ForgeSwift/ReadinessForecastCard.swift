@@ -5,62 +5,75 @@ import ForgeCore
 // MARK: - Tomorrow's Readiness Forecast Card
 // ============================================================
 
-/// Nobody in the consumer space forecasts tomorrow's readiness — Oura,
-/// Whoop, and Apple Health all report today's state. This card predicts
-/// tomorrow morning from tonight's signals, names every driver, and tells
-/// the person what to do about it.
+/// Tomorrow morning, tonight. Home (At Home) and Lifestyle share this plate
+/// so the forecast is one world-class surface — not a stub in either place.
 ///
-/// The engine is transparent by design: each point of movement is attributed,
-/// so the forecast can coach instead of just scoring.
+/// Lifestyle coach only: posture and drivers, never a diagnosis.
 struct ReadinessForecastCard: View {
     @EnvironmentObject var store: AppStore
+    var compact: Bool = false
 
     private var picture: PredictiveCoach.Picture {
         store.predictiveCoachPicture()
     }
 
-    private var forecast: ReadinessForecastEngine.Forecast {
-        picture.forecast
-    }
-
-    private var budgets: TomorrowBudgets.Snapshot {
-        picture.budgets
-    }
-
     var body: some View {
-        VStack(alignment: .leading, spacing: 14) {
+        let forecast = picture.forecast
+        let budgets = picture.budgets
+        let energy = postureColor(forecast.posture)
+        VStack(alignment: .leading, spacing: compact ? 12 : 14) {
             HStack {
                 Text("TOMORROW'S READINESS")
                     .forgeSectionLabel()
-                    .foregroundStyle(Color.ember)
+                    .foregroundStyle(HudChrome.plate)
                 Spacer()
-                confidencePill
+                confidencePill(forecast.confidence)
             }
 
-            HStack(spacing: 16) {
-                scoreRing
+            HStack(spacing: compact ? 12 : 16) {
+                HudProgressRing(
+                    progress: forecast.predictedScore,
+                    energy: energy,
+                    size: compact ? HudChrome.compactRingSize : 108,
+                    stroke: compact ? HudChrome.compactStroke : 7
+                ) {
+                    VStack(spacing: 0) {
+                        Text("\(forecast.predictedScore)")
+                            .font(compact ? HomeType.metric : HomeType.heroScore)
+                            .foregroundColor(.textPrimary)
+                            .minimumScaleFactor(0.7)
+                            .lineLimit(1)
+                        Text("TOMORROW")
+                            .font(FDS.TypeScale.label(8))
+                            .foregroundColor(HudChrome.plate)
+                            .tracking(0.8)
+                    }
+                    .accessibilityHidden(true)
+                }
                 VStack(alignment: .leading, spacing: 6) {
-                    Text(postureTitle)
+                    Text(postureTitle(forecast.posture))
                         .font(HomeType.status)
                         .foregroundColor(.textPrimary)
                     Text(forecast.recommendation)
                         .font(HomeType.body)
                         .foregroundColor(.textTertiary)
-                        .lineLimit(3)
+                        .lineLimit(compact ? 2 : 3)
                     Text(budgets.headline)
                         .font(FDS.TypeScale.label(12))
-                        .foregroundStyle(Color.ember)
-                    Text(budgets.coachingLine)
-                        .font(HomeType.body)
-                        .foregroundColor(.textSecondary)
-                        .lineLimit(3)
+                        .foregroundStyle(energy)
+                    if !compact {
+                        Text(budgets.coachingLine)
+                            .font(HomeType.body)
+                            .foregroundColor(.textSecondary)
+                            .lineLimit(3)
+                    }
                 }
             }
 
             if !forecast.drivers.isEmpty {
                 Divider().background(Color.white.opacity(0.08))
                 VStack(spacing: 10) {
-                    ForEach(forecast.drivers.prefix(3)) { driver in
+                    ForEach(forecast.drivers.prefix(compact ? 2 : 3)) { driver in
                         driverRow(driver)
                     }
                 }
@@ -79,24 +92,21 @@ struct ReadinessForecastCard: View {
                     Image(systemName: "arrow.up.right")
                         .font(.system(size: 11, weight: .semibold))
                 }
-                .foregroundStyle(Color.ember)
+                .foregroundStyle(HudChrome.plate)
                 .padding(.vertical, 10)
                 .padding(.horizontal, 14)
-                .background(Color.ember.opacity(0.12))
+                .background(HudChrome.plate.opacity(0.12))
                 .clipShape(RoundedRectangle(cornerRadius: 12))
             }
             .buttonStyle(.plain)
         }
-        .padding(HomeMetrics.cardPadding)
-        .forgeGlassCard(accent: .ember)
+        .hudPlate(energy: energy, compact: compact)
         .accessibilityElement(children: .combine)
         .accessibilityLabel("Tomorrow's readiness forecast: \(forecast.predictedScore). \(forecast.recommendation) \(budgets.headline). \(budgets.coachingLine)")
     }
 
-    // MARK: - Pieces
-
-    private var confidencePill: some View {
-        let (label, color): (String, Color) = switch forecast.confidence {
+    private func confidencePill(_ confidence: ReadinessForecastEngine.Confidence) -> some View {
+        let (label, color): (String, Color) = switch confidence {
         case .high: ("High confidence", Color.success)
         case .medium: ("Medium confidence", Color.warning)
         case .low: ("Early signal", Color.textTertiary)
@@ -110,29 +120,8 @@ struct ReadinessForecastCard: View {
             .clipShape(Capsule())
     }
 
-    private var scoreRing: some View {
-        ZStack {
-            Circle()
-                .stroke(Color.white.opacity(0.08), lineWidth: 10)
-                .frame(width: 84, height: 84)
-            Circle()
-                .trim(from: 0, to: CGFloat(forecast.predictedScore) / 100)
-                .stroke(postureColor, style: StrokeStyle(lineWidth: 10, lineCap: .round))
-                .frame(width: 84, height: 84)
-                .rotationEffect(.degrees(-90))
-            VStack(spacing: 0) {
-                Text("\(forecast.predictedScore)")
-                    .font(.system(size: 26, weight: .bold))
-                    .foregroundColor(.textPrimary)
-                Text("TOMORROW")
-                    .font(FDS.TypeScale.label(8))
-                    .foregroundColor(.textTertiary)
-            }
-        }
-    }
-
-    private var postureTitle: String {
-        switch forecast.posture {
+    private func postureTitle(_ posture: ReadinessForecastEngine.Posture) -> String {
+        switch posture {
         case .push: return "Green light"
         case .steady: return "Steady as planned"
         case .protect: return "Protect tomorrow"
@@ -140,10 +129,10 @@ struct ReadinessForecastCard: View {
         }
     }
 
-    private var postureColor: Color {
-        switch forecast.posture {
+    private func postureColor(_ posture: ReadinessForecastEngine.Posture) -> Color {
+        switch posture {
         case .push: return .success
-        case .steady: return .ember
+        case .steady: return HudChrome.plate
         case .protect: return .warning
         case .rest: return .danger
         }
