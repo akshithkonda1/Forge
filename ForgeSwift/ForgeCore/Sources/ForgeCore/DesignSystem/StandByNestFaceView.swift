@@ -69,18 +69,25 @@ public struct StandByNestFaceView: View {
     public var body: some View {
         VStack(alignment: .leading, spacing: 7) {
             HStack(alignment: .top, spacing: 4) {
-                VStack(alignment: .leading, spacing: 0) {
-                    Text("\(snapshot.readiness)")
-                        .font(.system(size: 28, weight: .bold, design: .rounded))
-                        .foregroundStyle(clockColor)
-                        .contentTransition(.numericText())
-                        .minimumScaleFactor(0.8)
-                        .lineLimit(1)
-                    Text(snapshot.readinessLabel)
-                        .font(.system(size: 10, weight: .semibold, design: .rounded))
-                        .tracking(0.4)
-                        .foregroundStyle(nightMode ? clockColor.opacity(0.85) : band.color)
+                ZStack {
+                    StandByHudTicks(
+                        progress: Double(min(max(snapshot.readiness, 0), 100)) / 100,
+                        color: clockColor
+                    )
+                    VStack(spacing: 0) {
+                        Text("\(snapshot.readiness)")
+                            .font(.system(size: 26, weight: .bold, design: .rounded))
+                            .foregroundStyle(clockColor)
+                            .contentTransition(.numericText())
+                            .minimumScaleFactor(0.8)
+                            .lineLimit(1)
+                        Text(snapshot.readinessLabel)
+                            .font(.system(size: 9, weight: .semibold, design: .rounded))
+                            .tracking(0.4)
+                            .foregroundStyle(nightMode ? clockColor.opacity(0.85) : band.color)
+                    }
                 }
+                .frame(width: 72, height: 72)
                 Spacer(minLength: 4)
                 AriaNestMarkStandBy(size: 22, frozen: frozen, nightMode: nightMode)
             }
@@ -123,6 +130,49 @@ public struct StandByNestFaceView: View {
     }
 
     private static let timeFormat = Date.FormatStyle(date: .omitted, time: .shortened)
+}
+
+/// Luminous HUD ticks — same Iron Man 2 energy as the Wake Screen, no 12 Hz.
+struct StandByHudTicks: View {
+    var progress: Double
+    var color: Color
+
+    var body: some View {
+        Canvas { context, size in
+            let s = min(size.width, size.height)
+            let center = CGPoint(x: size.width / 2, y: size.height / 2)
+            let outer = s / 2 - 1
+            for i in 0..<24 {
+                let major = i.isMultiple(of: 6)
+                let angle = Double(i) / 24 * .pi * 2 - .pi / 2
+                let inner = outer - (major ? 6 : 3)
+                var path = Path()
+                path.move(to: CGPoint(
+                    x: center.x + CGFloat(cos(angle)) * inner,
+                    y: center.y + CGFloat(sin(angle)) * inner
+                ))
+                path.addLine(to: CGPoint(
+                    x: center.x + CGFloat(cos(angle)) * outer,
+                    y: center.y + CGFloat(sin(angle)) * outer
+                ))
+                context.stroke(
+                    path,
+                    with: .color(major ? color.opacity(0.8) : color.opacity(0.28)),
+                    lineWidth: major ? 1.4 : 0.7
+                )
+            }
+            var arc = Path()
+            arc.addArc(
+                center: center,
+                radius: outer - 9,
+                startAngle: .degrees(-90),
+                endAngle: .degrees(-90 + 360 * min(1, max(0, progress))),
+                clockwise: false
+            )
+            context.stroke(arc, with: .color(color.opacity(0.9)), lineWidth: 2)
+        }
+        .accessibilityHidden(true)
+    }
 }
 
 /// Idle nest only. Same geometry as Watch `AriaNestMarkWatch`. Still-pose when

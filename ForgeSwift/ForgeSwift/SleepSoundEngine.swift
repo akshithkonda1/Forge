@@ -1,4 +1,5 @@
 import AVFoundation
+import MediaPlayer
 import Observation
 import os
 import UIKit
@@ -15,11 +16,14 @@ final class SleepWindDownPlayer {
     private(set) var isPlaying = false
     private(set) var remainingSeconds = 0
     private(set) var kind: SleepSoundKind = SleepSoundKind.stored ?? .brown
+    private(set) var mix: [SleepSoundKind] = SleepSoundKind.stored.map { [$0] } ?? [.brown]
+    var linksAppleMusic = false
     var volume: Double = 0.75 {
-        didSet { engine?.mainMixerNode.outputVolume = Float(volume) }
+        didSet { applyOutputVolume() }
     }
 
     var remainingLabel: String {
+        if remainingSeconds < 0 { return "Until stop" }
         let m = remainingSeconds / 60
         let s = remainingSeconds % 60
         return String(format: "%d:%02d left", m, s)
@@ -78,11 +82,32 @@ final class SleepWindDownPlayer {
 
     func start(kind: SleepSoundKind? = nil, minutes: Int = 30) {
         if let kind {
-            self.kind = kind
-            kind.persist()
+            if isPlaying {
+                if mix.contains(kind) {
+                    mix.removeAll { $0 == kind }
+                    if mix.isEmpty {
+                        stop()
+                        return
+                    }
+                } else if mix.count < 3 {
+                    mix.append(kind)
+                } else {
+                    mix[mix.count - 1] = kind
+                }
+            } else {
+                mix = [kind]
+            }
         }
+        startMix(kinds: mix, minutes: minutes)
+    }
+
+    func startMix(kinds: [SleepSoundKind], minutes: Int) {
+        let layers = Array(kinds.prefix(3))
+        mix = layers.isEmpty ? [.brown] : layers
+        kind = mix[0]
+        mix[0].persist()
         stop(deactivateSession: false)
-        renderer.reset(kind: self.kind)
+        renderer.reset(kinds: mix)
         #if targetEnvironment(simulator)
         // Same RemoteIO 0 Hz abort as the welcome chime. Device still plays.
         return
@@ -99,7 +124,7 @@ final class SleepWindDownPlayer {
             return noErr
         }
         engine.attach(source)
-        engine.mainMixerNode.outputVolume = Float(volume)
+        applyOutputVolume(on: engine)
         do {
             #if compiler(>=6.4)
             try engine.connectNode(source, to: engine.mainMixerNode, format: format)
@@ -119,7 +144,7 @@ final class SleepWindDownPlayer {
                 return
             }
             self.engine = engine
-            self.remainingSeconds = max(1, holdMinutes) * 60
+            self.remainingSeconds = holdMinutes <= 0 ? -1 : max(1, holdMinutes) * 60
             self.isPlaying = true
             self.wasInterrupted = false
             self.startCountdown()
@@ -135,10 +160,17 @@ final class SleepWindDownPlayer {
         engine = nil
         isPlaying = false
         remainingSeconds = 0
-        renderer.reset(kind: kind)
+        renderer.reset(kinds: mix)
+        if linksAppleMusic {
+            MPMusicPlayerController.systemMusicPlayer.pause()
+        }
         if deactivateSession {
             ForgePlaybackSession.deactivate()
         }
+    }
+
+    private func applyOutputVolume(on engine: AVAudioEngine? = nil) {
+        (engine ?? self.engine)?.mainMixerNode.outputVolume = Float(volume)
     }
 
     private func startCountdown() {
@@ -151,6 +183,7 @@ final class SleepWindDownPlayer {
                     return
                 }
                 guard let self, self.isPlaying else { return }
+                if remainingSeconds < 0 { continue }
                 remainingSeconds -= 1
                 if remainingSeconds <= 0 {
                     stop()
@@ -202,6 +235,7 @@ final class SleepWakePlayer {
     @ObservationIgnored private var currentAlarm: ForgeAlarm?
     @ObservationIgnored private var startedAt = Date()
     @ObservationIgnored private var escalateTask: Task<Void, Never>?
+    @ObservationIgnored private var mixerRampTask: Task<Void, Never>?
     @ObservationIgnored private var hapticTask: Task<Void, Never>?
     @ObservationIgnored private var wasInterrupted = false
     #if compiler(>=6.4)
@@ -308,6 +342,7 @@ final class SleepWakePlayer {
             self.engine = engine
             self.isPlaying = true
             self.wasInterrupted = false
+            self.startMixerRamp(seconds: ramp.rampSeconds)
             self.startEscalation(rampSeconds: ramp.rampSeconds, struggling: struggling)
             self.syncHapticCadence()
         }
@@ -321,6 +356,8 @@ final class SleepWakePlayer {
     func stop(deactivateSession: Bool = true, clearFailsafe: Bool = true) {
         escalateTask?.cancel()
         escalateTask = nil
+        mixerRampTask?.cancel()
+        mixerRampTask = nil
         hapticTask?.cancel()
         hapticTask = nil
         wasInterrupted = false
@@ -336,6 +373,28 @@ final class SleepWakePlayer {
         renderer.reset(rampSeconds: 0.4)
         if deactivateSession {
             ForgePlaybackSession.deactivate()
+        }
+    }
+
+    private func startMixerRamp(seconds: Double) {
+        mixerRampTask?.cancel()
+        engine?.mainMixerNode.outputVolume = SleepVolumeRamp.gain(elapsed: 0, seconds: seconds)
+        guard seconds > 0.5 else { return }
+        mixerRampTask = Task { @MainActor [weak self] in
+            while !Task.isCancelled {
+                guard let self, self.isPlaying || self.fault.isFailClosed else { return }
+                let elapsed = Date().timeIntervalSince(self.startedAt)
+                self.engine?.mainMixerNode.outputVolume = SleepVolumeRamp.gain(
+                    elapsed: elapsed,
+                    seconds: seconds
+                )
+                if elapsed >= seconds { return }
+                do {
+                    try await Task.sleep(for: .milliseconds(50))
+                } catch {
+                    return
+                }
+            }
         }
     }
 
@@ -439,18 +498,37 @@ final class SleepWakePlayer {
 /// One unfair lock per render quantum — not per sample — so the audio thread
 /// does not bounce the lock thousands of times a callback.
 final class SoundscapeRenderer: @unchecked Sendable {
-    private let lock = OSAllocatedUnfairLock(initialState: SoundscapeDSP())
+    private struct State: Sendable {
+        var layers: [SoundscapeDSP] = [SoundscapeDSP()]
+    }
+
+    private let lock = OSAllocatedUnfairLock(initialState: State())
 
     func reset(kind: SleepSoundKind) {
-        lock.withLock { $0.reset(kind: kind) }
+        reset(kinds: [kind])
+    }
+
+    func reset(kinds: [SleepSoundKind]) {
+        let unique = Array(kinds.prefix(3))
+        lock.withLock { state in
+            let seeds = unique.isEmpty ? [SleepSoundKind.brown] : unique
+            state.layers = seeds.map { kind in
+                var dsp = SoundscapeDSP()
+                dsp.reset(kind: kind)
+                return dsp
+            }
+        }
     }
 
     func render(into data: UnsafeMutablePointer<Float>, frames: Int) {
-        // Audio-thread pointer is not Sendable; `withLockUnchecked` is the
-        // realtime-safe escape hatch (no extra buffer allocation).
-        lock.withLockUnchecked { dsp in
+        lock.withLockUnchecked { state in
+            let n = Float(max(1, state.layers.count))
             for i in 0..<frames {
-                data[i] = dsp.nextSample()
+                var sample: Float = 0
+                for index in state.layers.indices {
+                    sample += state.layers[index].nextSample()
+                }
+                data[i] = max(-1, min(1, sample / n))
             }
         }
     }
@@ -701,6 +779,14 @@ struct WakeToneDSP: Sendable {
             tone = Float(s1 * 0.10) + drop * 0.18
         case .softPiano:
             tone = Float(s1 * 0.28 + s2 * 0.16) * Float(0.7 + 0.3 * sin(t * 0.5))
+        case .radarSweep:
+            let sweep = 0.5 + 0.5 * sin(t * 2.2)
+            tone = Float(s1 * 0.26 + s2 * 0.18) * Float(sweep)
+        case .crystalRise:
+            tone = Float(s1 * 0.20 + s2 * 0.24) * Float(0.55 + 0.45 * sin(t * 0.35))
+        case .analogPulse:
+            let pulse = frames % 6_615 < 2_205 ? Float(1) : Float(0.15)
+            tone = Float(s1 * 0.30 + s2 * 0.12) * pulse
         }
         return max(-1, min(1, tone * env))
     }

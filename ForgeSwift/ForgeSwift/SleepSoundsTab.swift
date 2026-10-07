@@ -5,7 +5,9 @@ struct SleepSoundsTab: View {
     @State private var selectedCategory: SleepSoundCategory? = nil
     @State private var sleepTimer: Int = 30
 
-    let timerOptions = [15, 30, 45, 60, 90]
+    let timerOptions = SleepMixTimer.options
+    @StateObject private var music = MusicControllerFactory.make(for: .appleMusic)
+    @State private var playlists = SleepForgePlaylistStore.load()
 
     private var libraryGroups: [(category: SleepSoundCategory, items: [SleepSoundItem])] {
         let cats = selectedCategory.map { [$0] } ?? Array(SleepSoundCategory.allCases)
@@ -30,12 +32,45 @@ struct SleepSoundsTab: View {
                                 Button {
                                     sleepTimer = mins
                                 } label: {
-                                    Text("\(mins)m")
+                                    Text(SleepMixTimer.label(mins))
                                         .font(.system(size: 13, weight: .semibold))
                                         .foregroundColor(sleepTimer == mins ? .white : .textTertiary)
                                         .padding(.horizontal, 14).padding(.vertical, 8)
-                                        .background(sleepTimer == mins ? Color(hex: "6366F1") : Color.surface)
+                                        .background(sleepTimer == mins ? Color(hex: SleepHud.plateHex) : Color.surface)
                                         .cornerRadius(20)
+                                }
+                                .buttonStyle(.plain)
+                            }
+                        }
+                    }
+                    Text("Tap a second sound while one is playing to mix up to three. Timer stops generated beds and linked Apple Music.")
+                        .font(.system(size: 12))
+                        .foregroundColor(.textTertiary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+
+                SleepAppleMusicCard(music: music, player: player, minutes: sleepTimer)
+
+                if !playlists.isEmpty {
+                    EditorSection(title: "FORGE PLAYLISTS") {
+                        VStack(spacing: 8) {
+                            ForEach(playlists) { list in
+                                Button {
+                                    let kinds = list.kinds.compactMap(SleepSoundKind.init(rawValue:))
+                                    player.startMix(kinds: kinds, minutes: list.minutes)
+                                } label: {
+                                    HStack {
+                                        Image(systemName: "music.note.list")
+                                            .foregroundColor(Color(hex: SleepHud.plateHex))
+                                        Text(list.name)
+                                            .font(.system(size: 14, weight: .semibold))
+                                            .foregroundColor(.textPrimary)
+                                        Spacer()
+                                        Text(SleepMixTimer.label(list.minutes))
+                                            .font(.system(size: 12))
+                                            .foregroundColor(.textTertiary)
+                                    }
+                                    .padding(.vertical, 4)
                                 }
                                 .buttonStyle(.plain)
                             }
@@ -44,10 +79,24 @@ struct SleepSoundsTab: View {
                 }
 
                 EditorSection(title: "LIBRARY") {
-                    Text("Pick one. Each is generated on this phone — café chatter, noise colors, lo-fi, nature. No account, no files.")
-                        .font(.system(size: 13))
-                        .foregroundColor(.textSecondary)
-                        .fixedSize(horizontal: false, vertical: true)
+                    HStack {
+                        Text("Generated on this phone. Mix up to three, or save the mix as a Forge playlist.")
+                            .font(.system(size: 13))
+                            .foregroundColor(.textSecondary)
+                            .fixedSize(horizontal: false, vertical: true)
+                        Spacer()
+                        Button("Save mix") {
+                            SleepForgePlaylistStore.add(
+                                name: player.mix.map(\.displayName).joined(separator: " + "),
+                                kinds: player.mix,
+                                minutes: sleepTimer
+                            )
+                            playlists = SleepForgePlaylistStore.load()
+                            FDS.haptic(.light)
+                        }
+                        .font(.system(size: 13, weight: .semibold))
+                        .foregroundColor(Color(hex: SleepHud.plateHex))
+                    }
                 }
 
                 EditorSection(title: "CATEGORIES") {
@@ -95,7 +144,7 @@ struct SleepSoundsTab: View {
                             ForEach(group.items) { sound in
                                 SoundLibraryRow(
                                     sound: sound,
-                                    isActive: player.isPlaying && player.kind == sound.kind,
+                                    isActive: player.isPlaying && player.mix.contains(sound.kind),
                                     onTap: {
                                         FDS.haptic(.medium)
                                         if player.isPlaying, player.kind == sound.kind {
@@ -168,6 +217,56 @@ struct SleepSoundsTab: View {
         .forgeGlassCard(cornerRadius: 18, accent: Color(hex: "6366F1"))
         .accessibilityElement(children: .combine)
         .accessibilityLabel("Now playing \(player.kind.displayName), \(player.remainingLabel)")
+    }
+}
+
+struct SleepAppleMusicCard: View {
+    @ObservedObject var music: AnyMusicController
+    @Bindable var player: SleepWindDownPlayer
+    var minutes: Int
+
+    var body: some View {
+        EditorSection(title: "APPLE MUSIC") {
+            VStack(alignment: .leading, spacing: 10) {
+                Text("Forge can ride whatever is already in Apple Music. Timed stop pauses it with the generated beds. Forge playlists are local mixes — creating a catalog playlist needs your Apple Music key on device, never in the repo.")
+                    .font(.system(size: 12))
+                    .foregroundColor(.textTertiary)
+                    .fixedSize(horizontal: false, vertical: true)
+                if music.isAuthorized {
+                    HStack(spacing: 12) {
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(music.nowPlaying?.title ?? "Nothing playing")
+                                .font(.system(size: 14, weight: .semibold))
+                                .foregroundColor(.textPrimary)
+                            Text(music.nowPlaying?.artist ?? "Play from Apple Music, then link the timer")
+                                .font(.system(size: 12))
+                                .foregroundColor(.textTertiary)
+                        }
+                        Spacer()
+                        Button(music.nowPlaying?.isPlaying == true ? "Pause" : "Play") {
+                            music.togglePlayPause()
+                            player.linksAppleMusic = true
+                        }
+                        .font(.system(size: 13, weight: .semibold))
+                        .foregroundColor(Color(hex: SleepHud.plateHex))
+                    }
+                    Toggle("Stop Apple Music with the timer", isOn: $player.linksAppleMusic)
+                        .tint(Color(hex: SleepHud.plateHex))
+                        .font(.system(size: 13, weight: .medium))
+                } else {
+                    Button("Connect Apple Music") {
+                        Task { await music.requestAccess() }
+                    }
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundColor(.white)
+                    .padding(.horizontal, 14)
+                    .padding(.vertical, 8)
+                    .background(Color(hex: "FA2D48"))
+                    .clipShape(Capsule())
+                }
+            }
+        }
+        .onAppear { music.refresh() }
     }
 }
 

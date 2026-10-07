@@ -23,7 +23,7 @@ struct SleepView: View {
             sleepScore: store.sleepData.first?.score,
             lastNightHours: store.sleepData.first?.totalHours,
             smartWindowMinutes: alarmStore.next.map {
-                hkService.adaptiveSmartWakeMinutes(base: $0.smartWakeWindow)
+                hkService.adaptiveSmartWakeMinutes(base: $0.smartWakeWindow, depth: alarmStore.sleeperDepth)
             }
         )
     }
