@@ -110,7 +110,8 @@ struct HomeView: View {
         }
         .animation(.easeInOut(duration: 0.22), value: showHeaderBlur)
         .task {
-            await store.refreshDailyData()
+            // Launch hydrate is owned by AppStore.init. Home only reads
+            // after that pass — do not start a second refreshDailyData here.
             proactiveInsight = await AriaService.shared.fetchProactiveMessage(store: store)
             MenstrualHealthStore.shared.refresh(from: store)
         }

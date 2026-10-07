@@ -15,12 +15,16 @@ import ForgeCore
 struct ReadinessForecastCard: View {
     @EnvironmentObject var store: AppStore
 
+    private var picture: PredictiveCoach.Picture {
+        store.predictiveCoachPicture()
+    }
+
     private var forecast: ReadinessForecastEngine.Forecast {
-        store.predictiveCoachPicture().forecast
+        picture.forecast
     }
 
     private var budgets: TomorrowBudgets.Snapshot {
-        store.predictiveCoachPicture().budgets
+        picture.budgets
     }
 
     var body: some View {
@@ -64,7 +68,7 @@ struct ReadinessForecastCard: View {
 
             Button {
                 FDS.haptic(.light)
-                store.openChat(with: HomeInsightFlow.tomorrowPrompt(picture: store.predictiveCoachPicture()), voice: false)
+                store.openChat(with: HomeInsightFlow.tomorrowPrompt(picture: picture), voice: false)
             } label: {
                 HStack {
                     Image(systemName: "message.fill")

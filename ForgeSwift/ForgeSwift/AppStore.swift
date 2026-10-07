@@ -283,6 +283,8 @@ final class AppStore: ObservableObject {
             return
         }
         Task { @MainActor in
+            // Sole launch owner for refreshDailyData. Home must not start a
+            // second pass — the coalesce window is a backstop, not a second owner.
             // Let the first frame (and splash dismiss) land before HealthKit
             // work. Test-Ready pack rewrites wait until after Home is loaded.
             // Simulator never writes EventKit.
@@ -336,6 +338,10 @@ final class AppStore: ObservableObject {
     var backgroundLifeHydrateTask: Task<Void, Never>?
     /// Pack applied in memory; written to HealthKit after Home is interactive.
     var pendingTestReadyHealthPack: FakeHealthPack?
+    /// Home / briefing cards share one PredictiveCoach.picture. Invalidated
+    /// when readiness, sleep, or habits that feed the picture change.
+    var cachedPredictiveCoachPicture: PredictiveCoach.Picture?
+    var cachedPredictiveCoachPictureKey: PredictiveCoachPictureKey?
 
     static let onboardedDefaultsKey = "forge.onboarding.completed"
     static let profileDefaultsKey = "forge.user.profile.v1"
