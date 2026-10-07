@@ -44,7 +44,7 @@ def require_api_key(*, get_secret_value=None) -> str:
     if not key or key.upper() == "UNSET":
         raise RouteError(
             503,
-            "Fish Audio is not configured. Set FISH_AUDIO_API_KEY in env or the AI provider secret.",
+            "Fish Audio is not configured.",
             code="fish_audio_unconfigured",
         )
     return key

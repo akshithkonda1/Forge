@@ -392,7 +392,7 @@ class VoiceRouteTests(unittest.TestCase):
         self.assertEqual(payload["code"], "fish_audio_unconfigured")
         blob = json.dumps(payload).lower()
         self.assertNotIn("bearer", blob)
-        self.assertNotIn("fish_audio_api_key", blob)
+        self.assertNotIn("authorization", blob)
         self.assertIn("/ai/voice/fish-tts", PAID_AI_ROUTES)
 
     def test_fish_tts_empty_text_is_rejected(self):
