@@ -163,6 +163,13 @@ class ProviderNoSpendGates(unittest.TestCase):
             nyx.dummy_invoke_call_failures("url = '/ai/voice/tool'\n"),
             "real /ai/voice/tool literal must fail",
         )
+        self.assertTrue(
+            nyx.dummy_invoke_call_failures("url = '/ai/voice/speak'\n"),
+            "real /ai/voice/speak literal must fail",
+        )
+        self.assertTrue(
+            nyx.dummy_invoke_call_failures("from services import fish_audio_voice\n")
+        )
 
     def test_dummy_path_never_reaches_elevenlabs(self):
         """FAIL if Dummy reaches ElevenLabs session mint, tool, or client.
@@ -179,6 +186,9 @@ class ProviderNoSpendGates(unittest.TestCase):
             self.assertNotIn("elevenlabs_voice", src)
             self.assertNotIn("/ai/voice/bootstrap", src)
             self.assertNotIn("/ai/voice/tool", src)
+            self.assertNotIn("fish_audio_voice", src)
+            self.assertNotIn("/ai/voice/speak", src)
+            self.assertNotIn("api.fish.audio", src)
 
         from backend._paths import ensure_lambda_on_path
 
@@ -199,6 +209,21 @@ class ProviderNoSpendGates(unittest.TestCase):
         finally:
             for name, fn in originals.items():
                 setattr(elevenlabs_voice, name, fn)
+
+        from services import fish_audio_voice
+
+        def fish_boom(*_a, **_k):
+            raise AssertionError("Dummy must not reach Fish Audio")
+
+        fish_names = ("speak", "synthesize", "require_api_key")
+        fish_originals = {name: getattr(fish_audio_voice, name) for name in fish_names}
+        try:
+            for name in fish_names:
+                setattr(fish_audio_voice, name, fish_boom)
+            dummy.respond("What should I train today?", seed=1, engine="lambda")
+        finally:
+            for name, fn in fish_originals.items():
+                setattr(fish_audio_voice, name, fn)
 
     def test_capability_stub_if_present_is_do_not_invoke(self):
         caps = nyx.try_load_provider_capabilities()
@@ -555,6 +580,19 @@ class EditableMemoryPrivacyGates(unittest.TestCase):
             aria.read_text(encoding="utf-8"),
         )
         self.assertEqual(fails, [], fails)
+
+
+class NyxVoiceCheckStubTests(unittest.TestCase):
+    """Iris lifestyle fixtures — text path only. No Fish / ElevenLabs HTTP."""
+
+    def test_iris_fixtures_pass_and_fail_pins_reject(self):
+        from backend.ai.simrunner.aria_simrunner import nyx_voice_check as voice
+
+        self.assertEqual(voice.iris_fixture_failures(), [])
+        self.assertTrue(voice.voice_check_failures("recovery day, take it easy"))
+        self.assertTrue(voice.voice_check_failures("HRV 41 and readiness 62"))
+        self.assertTrue(voice.voice_check_failures("I am not a doctor"))
+        self.assertTrue(voice.named_dose_failures("melatonin 5 mg tonight"))
 
 
 if __name__ == "__main__":
