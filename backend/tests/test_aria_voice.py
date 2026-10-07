@@ -13,7 +13,9 @@ import _bootstrap  # noqa: F401
 from handler import handler  # noqa: E402
 from responses import RouteError  # noqa: E402
 from services import elevenlabs_voice  # noqa: E402
+from services import fish_audio_voice  # noqa: E402
 from services import provider_secrets  # noqa: E402
+from security import PAID_AI_ROUTES  # noqa: E402
 
 from test_backend_handler import body, event  # noqa: E402
 
@@ -77,6 +79,29 @@ class VoiceDesignPromptTests(unittest.TestCase):
         self.assertIn("shouldUseTestReadyDummy", SWIFT_VOICE.read_text(encoding="utf-8"))
         self.assertNotIn("api.elevenlabs.io", SWIFT_VOICE.read_text(encoding="utf-8"))
 
+    def test_fish_audio_hex_path_stays_off_dummy_offline(self):
+        voice = SWIFT_VOICE.read_text(encoding="utf-8")
+        presence = (
+            REPO / "ForgeSwift" / "ForgeSwift" / "AriaPresence.swift"
+        ).read_text(encoding="utf-8")
+        core = (
+            REPO
+            / "ForgeSwift"
+            / "ForgeCore"
+            / "Sources"
+            / "ForgeCore"
+            / "Intelligence"
+            / "AriaFishAudioVoice.swift"
+        ).read_text(encoding="utf-8")
+        self.assertIn("shouldEnqueueFishAudioViaBackend", voice)
+        self.assertIn("speakViaFishAudioBackend", presence)
+        self.assertIn("ForgeAPI.send", presence)
+        self.assertIn("ai/voice/fish-tts", core)
+        self.assertIn("dummy-offline", core)
+        self.assertIn("s2.1-pro-free", core)
+        self.assertIn("Bearer", core)
+        self.assertNotIn("sk_", core)
+
 
 class VoiceMustRunContractTests(unittest.TestCase):
     """Dummy-offline / Voice-mode start must actually produce a mouth."""
@@ -112,6 +137,8 @@ class ProviderSecretTests(unittest.TestCase):
                 "ELEVENLABS_API_KEY",
                 "ELEVENLABS_ARIA_VOICE_ID",
                 "ELEVENLABS_ARIA_AGENT_ID",
+                "FISH_AUDIO_API_KEY",
+                "FISH_AUDIO_MODEL",
                 "AI_PROVIDER_SECRET_ARN",
             )
         }
@@ -146,6 +173,30 @@ class ProviderSecretTests(unittest.TestCase):
         self.assertEqual(creds["ELEVENLABS_API_KEY"], "from-secret")
         self.assertEqual(creds["ELEVENLABS_ARIA_VOICE_ID"], "voice_aria")
 
+    def test_fish_audio_env_key_is_used_without_boto(self):
+        os.environ["FISH_AUDIO_API_KEY"] = "fish_test_live_key"
+        os.environ["FISH_AUDIO_MODEL"] = "s2.1-pro-free"
+        creds = provider_secrets.load_ai_provider_secret(
+            get_secret_value=lambda _arn: '{"FISH_AUDIO_API_KEY":"from-secret"}'
+        )
+        self.assertEqual(creds["FISH_AUDIO_API_KEY"], "fish_test_live_key")
+        self.assertEqual(creds["FISH_AUDIO_MODEL"], "s2.1-pro-free")
+
+    def test_fish_audio_secret_fills_when_env_empty(self):
+        os.environ.pop("FISH_AUDIO_API_KEY", None)
+        os.environ.pop("FISH_AUDIO_MODEL", None)
+        os.environ["AI_PROVIDER_SECRET_ARN"] = "arn:aws:secretsmanager:us-east-1:1:secret:ai"
+        creds = provider_secrets.load_ai_provider_secret(
+            get_secret_value=lambda _arn: json.dumps(
+                {
+                    "FISH_AUDIO_API_KEY": "from-secret-fish",
+                    "FISH_AUDIO_MODEL": "s2.1-pro-free",
+                }
+            )
+        )
+        self.assertEqual(creds["FISH_AUDIO_API_KEY"], "from-secret-fish")
+        self.assertEqual(creds["FISH_AUDIO_MODEL"], "s2.1-pro-free")
+
 
 class VoiceRouteTests(unittest.TestCase):
     def setUp(self):
@@ -155,6 +206,8 @@ class VoiceRouteTests(unittest.TestCase):
         os.environ.pop("ELEVENLABS_API_KEY", None)
         os.environ.pop("ELEVENLABS_ARIA_AGENT_ID", None)
         os.environ.pop("ELEVENLABS_ARIA_VOICE_ID", None)
+        os.environ.pop("FISH_AUDIO_API_KEY", None)
+        os.environ.pop("FISH_AUDIO_MODEL", None)
         os.environ.pop("AI_PROVIDER_SECRET_ARN", None)
 
     def tearDown(self):
@@ -162,6 +215,8 @@ class VoiceRouteTests(unittest.TestCase):
         os.environ.pop("ELEVENLABS_API_KEY", None)
         os.environ.pop("ELEVENLABS_ARIA_AGENT_ID", None)
         os.environ.pop("ELEVENLABS_ARIA_VOICE_ID", None)
+        os.environ.pop("FISH_AUDIO_API_KEY", None)
+        os.environ.pop("FISH_AUDIO_MODEL", None)
 
     def test_bootstrap_without_key_is_unconfigured(self):
         response = handler(event("GET", "/ai/voice/bootstrap", user_id="user-1"), None)
@@ -326,6 +381,84 @@ class VoiceRouteTests(unittest.TestCase):
         self.assertEqual(designed["agent_id"], "agent_existing")
         self.assertTrue(any(call.startswith("PATCH ") for call in calls))
         self.assertFalse(any("agents/create" in call for call in calls))
+
+    def test_fish_tts_without_key_is_unconfigured(self):
+        response = handler(
+            event("POST", "/ai/voice/fish-tts", {"text": "I'm ARIA."}, user_id="user-1"),
+            None,
+        )
+        self.assertEqual(response["statusCode"], 503)
+        payload = body(response)
+        self.assertEqual(payload["code"], "fish_audio_unconfigured")
+        blob = json.dumps(payload).lower()
+        self.assertNotIn("bearer", blob)
+        self.assertNotIn("fish_audio_api_key", blob)
+        self.assertIn("/ai/voice/fish-tts", PAID_AI_ROUTES)
+
+    def test_fish_tts_empty_text_is_rejected(self):
+        os.environ["FISH_AUDIO_API_KEY"] = "fish_test_never_echo"
+        provider_secrets.reset_cache()
+        response = handler(
+            event("POST", "/ai/voice/fish-tts", {"text": "   "}, user_id="user-1"),
+            None,
+        )
+        self.assertEqual(response["statusCode"], 400)
+        self.assertEqual(body(response)["code"], "fish_audio_empty_text")
+
+    def test_fish_tts_uses_bearer_and_free_model_and_never_echoes_the_key(self):
+        import base64
+
+        os.environ["FISH_AUDIO_API_KEY"] = "fish_test_never_echo"
+        os.environ["FISH_AUDIO_MODEL"] = "s2.1-pro-free"
+        provider_secrets.reset_cache()
+        audio = b"ID3fake-mp3"
+
+        def fake_http(method, url, headers, raw):
+            self.assertEqual(method, "POST")
+            self.assertEqual(url, fish_audio_voice.FISH_TTS_URL)
+            self.assertEqual(headers.get("Authorization"), "Bearer fish_test_never_echo")
+            self.assertEqual(headers.get("model"), "s2.1-pro-free")
+            self.assertEqual(headers.get("Content-Type"), "application/json")
+            payload = json.loads(raw.decode("utf-8"))
+            self.assertEqual(payload["text"], "I'm ARIA.")
+            self.assertEqual(payload["format"], "mp3")
+            return 200, audio
+
+        synthesized = fish_audio_voice.synthesize("  I'm ARIA.  ", http=fake_http)
+        self.assertEqual(synthesized, audio)
+
+        original = fish_audio_voice._stdlib_http
+        fish_audio_voice._stdlib_http = fake_http
+        try:
+            response = handler(
+                event(
+                    "POST",
+                    "/ai/voice/fish-tts",
+                    {"text": "I'm ARIA."},
+                    user_id="user-1",
+                ),
+                None,
+            )
+        finally:
+            fish_audio_voice._stdlib_http = original
+
+        self.assertEqual(response["statusCode"], 200)
+        payload = body(response)
+        self.assertEqual(payload["format"], "mp3")
+        self.assertEqual(payload["model"], "s2.1-pro-free")
+        self.assertEqual(payload["audio_base64"], base64.b64encode(audio).decode("ascii"))
+        blob = json.dumps(payload)
+        self.assertNotIn("fish_test_never_echo", blob)
+        self.assertNotIn("Authorization", blob)
+        self.assertNotIn("Bearer", blob)
+
+    def test_fish_tts_unknown_model_falls_back_to_free_tier(self):
+        self.assertEqual(fish_audio_voice.sanitize_model("not-a-model"), "s2.1-pro-free")
+        self.assertEqual(fish_audio_voice.sanitize_model(None), "s2.1-pro-free")
+        self.assertEqual(fish_audio_voice.DEFAULT_MODEL, "s2.1-pro-free")
+        headers = fish_audio_voice.build_headers("fish_test_never_echo", "garbage")
+        self.assertEqual(headers["Authorization"], "Bearer fish_test_never_echo")
+        self.assertEqual(headers["model"], "s2.1-pro-free")
 
 
 if __name__ == "__main__":

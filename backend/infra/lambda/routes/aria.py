@@ -763,3 +763,24 @@ def handle_post_ai_voice_design(body: dict[str, Any], *, user_id: str) -> dict:
     _bind_user(body, user_id)
     preview_index = int(body.get("preview_index") or 0)
     return ok(elevenlabs_voice.design_aria(preview_index=preview_index))
+
+
+def handle_post_ai_voice_fish_tts(body: dict[str, Any], *, user_id: str) -> dict:
+    """POST /ai/voice/fish-tts — Fish Audio speech. The API key never leaves Lambda."""
+    from base64 import b64encode
+
+    from services import fish_audio_voice
+
+    _bind_user(body, user_id)
+    text = sanitize_user_text(str(body.get("text") or ""), max_chars=900)
+    audio = fish_audio_voice.synthesize(text)
+    creds = fish_audio_voice.credentials()
+    payload = {
+        "format": "mp3",
+        "model": fish_audio_voice.sanitize_model(creds.get("FISH_AUDIO_MODEL")),
+        "audio_base64": b64encode(audio).decode("ascii"),
+    }
+    key = (creds.get("FISH_AUDIO_API_KEY") or "").strip()
+    if key and any(key in str(value) for value in payload.values()):
+        raise RouteError(503, "Fish Audio refused to echo the API key.", code="fish_audio_key_leak")
+    return ok(payload)

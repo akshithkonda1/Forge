@@ -188,6 +188,11 @@ def _route(event, _context):
 
             return aria.handle_post_ai_voice_design(body, user_id=user_id)
 
+        if method == "POST" and path == "/ai/voice/fish-tts":
+            from routes import aria
+
+            return aria.handle_post_ai_voice_fish_tts(body, user_id=user_id)
+
         if method == "POST" and path == "/ai/weekly-review":
             from routes import aria
 

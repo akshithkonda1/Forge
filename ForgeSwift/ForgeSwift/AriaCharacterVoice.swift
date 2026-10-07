@@ -13,9 +13,12 @@ import ForgeCore
 /// * **Local testing** — same session UX, on-device brain, DEBUG fill-in.
 /// * **Live** — ElevenLabs ConvAI with the designed `voice_id` named ARIA.
 ///   Apple catalog TTS is never the production mouth. Live failure is silence.
-/// * **Fish Audio** — configured cloud TTS (`docs.fish.audio`) when
-///   `FISH_AUDIO_API_KEY` is set in env or client config. Bearer + `model`
-///   header (`s2.1-pro` / `s2.1-pro-free`). No key means this path is off.
+/// * **Fish Audio** — configured cloud TTS (`docs.fish.audio`). Hex keeps
+///   `FISH_AUDIO_API_KEY` on Lambda (env / Secrets). The phone POSTs
+///   `/ai/voice/fish-tts`. Dummy / Device Hub may also resolve a local key
+///   from env, Keychain (`forge.voice.fishAudio.apiKey`), or Info.plist.
+///   Bearer + `model` header (`s2.1-pro` / `s2.1-pro-free`). Dummy-offline
+///   never calls Hex. No local key and no backend means this path is off.
 ///
 /// This file must stay network-free (`URLSession` / `URLRequest` / ElevenLabs
 /// hosts). Routing is decided here; live I/O lives in `AriaVoiceSession`.
@@ -133,16 +136,36 @@ enum AriaVoiceMouth: Sendable {
         return reply.message.trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
-    /// Fish Audio only when a live key is present and they have not muted.
+    /// Local Fish Audio only when a live key is present and they have not muted.
     static func shouldEnqueueFishAudio(isMuted: Bool, hasKey: Bool) -> Bool {
         !isMuted && hasKey
     }
 
+    /// Hex proxy when the phone has no key. Dummy-offline is not reachable.
+    static func shouldEnqueueFishAudioViaBackend(
+        isMuted: Bool,
+        hasLocalKey: Bool,
+        backendReachable: Bool
+    ) -> Bool {
+        !isMuted && !hasLocalKey && backendReachable
+    }
+
     static func currentFishAudioConfig(
         environment: [String: String] = ProcessInfo.processInfo.environment,
-        infoDictionary: [String: Any] = Bundle.main.infoDictionary ?? [:]
+        infoDictionary: [String: Any] = Bundle.main.infoDictionary ?? [:],
+        secureStore: SecureStore? = nil
     ) -> AriaFishAudioVoice.Config {
-        AriaFishAudioVoice.resolve(environment: environment, infoDictionary: infoDictionary)
+        let stored: String?
+        if let secureStore {
+            stored = try? secureStore.string(forKey: AriaFishAudioVoice.keychainAPIKeyAccount)
+        } else {
+            stored = try? KeychainStore().string(forKey: AriaFishAudioVoice.keychainAPIKeyAccount)
+        }
+        return AriaFishAudioVoice.resolve(
+            environment: environment,
+            infoDictionary: infoDictionary,
+            secureStoreValue: stored
+        )
     }
 }
 

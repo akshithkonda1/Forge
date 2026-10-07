@@ -55,16 +55,49 @@ final class AriaVoiceSessionTests: XCTestCase {
         XCTAssertFalse(AriaVoiceMouth.shouldEnqueueFishAudio(isMuted: true, hasKey: true))
         XCTAssertFalse(AriaVoiceMouth.shouldEnqueueFishAudio(isMuted: false, hasKey: false))
         XCTAssertTrue(AriaVoiceMouth.shouldEnqueueFishAudio(isMuted: false, hasKey: true))
+        XCTAssertFalse(
+            AriaVoiceMouth.shouldEnqueueFishAudioViaBackend(
+                isMuted: false,
+                hasLocalKey: false,
+                backendReachable: false
+            ),
+            "Dummy-offline must not POST Hex"
+        )
+        XCTAssertFalse(
+            AriaVoiceMouth.shouldEnqueueFishAudioViaBackend(
+                isMuted: false,
+                hasLocalKey: true,
+                backendReachable: true
+            )
+        )
+        XCTAssertTrue(
+            AriaVoiceMouth.shouldEnqueueFishAudioViaBackend(
+                isMuted: false,
+                hasLocalKey: false,
+                backendReachable: true
+            )
+        )
+        let store = InMemorySecureStore()
         let missing = AriaVoiceMouth.currentFishAudioConfig(
             environment: [:],
-            infoDictionary: [:]
+            infoDictionary: [:],
+            secureStore: store
         )
         XCTAssertFalse(missing.isConfigured)
-        let live = AriaVoiceMouth.currentFishAudioConfig(
-            environment: [AriaFishAudioVoice.apiKeyEnvironment: "test-key-not-for-commit"],
-            infoDictionary: [:]
+        try? store.set("test-key-not-for-commit", forKey: AriaFishAudioVoice.keychainAPIKeyAccount)
+        let fromKeychain = AriaVoiceMouth.currentFishAudioConfig(
+            environment: [:],
+            infoDictionary: [:],
+            secureStore: store
         )
-        XCTAssertTrue(live.isConfigured)
+        XCTAssertTrue(fromKeychain.isConfigured)
+        XCTAssertEqual(fromKeychain.apiKey, "test-key-not-for-commit")
+        let live = AriaVoiceMouth.currentFishAudioConfig(
+            environment: [AriaFishAudioVoice.apiKeyEnvironment: "env-key-not-for-commit"],
+            infoDictionary: [:],
+            secureStore: store
+        )
+        XCTAssertEqual(live.apiKey, "env-key-not-for-commit")
         XCTAssertEqual(live.model, AriaFishAudioVoice.defaultModel)
     }
 
