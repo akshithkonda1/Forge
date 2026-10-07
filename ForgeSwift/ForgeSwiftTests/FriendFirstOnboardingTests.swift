@@ -35,6 +35,11 @@ final class FriendFirstOnboardingTests: XCTestCase {
             AriaInterviewVoice.healthStatusLabel(state: .requesting, pulling: false),
             "Pulling…"
         )
+
+        XCTAssertTrue(AriaInterviewVoice.contactsBody.localizedCaseInsensitiveContains("first names"))
+        XCTAssertTrue(AriaInterviewVoice.remindersBody.localizedCaseInsensitiveContains("titles stay"))
+        XCTAssertFalse(AriaInterviewVoice.contactsBody.localizedCaseInsensitiveContains("diagnos"))
+        XCTAssertFalse(AriaInterviewVoice.remindersBody.localizedCaseInsensitiveContains("medical"))
     }
 
     func testHabitsAreThreeFriendChipsAndCapAtThree() {
@@ -149,5 +154,6 @@ final class FriendFirstOnboardingTests: XCTestCase {
         XCTAssertEqual(AriaInterviewStep.freeTime.progressLabel, "Habits")
         XCTAssertEqual(AriaInterviewStep.coaching.progressLabel, "Tone")
         XCTAssertEqual(AriaInterviewStep.ready.progressLabel, "First chat")
+        XCTAssertEqual(AriaMeetCopy.skipCta, "Skip")
     }
 }

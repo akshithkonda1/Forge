@@ -2,6 +2,7 @@ import AVFoundation
 import CoreGraphics
 import Foundation
 import Observation
+import ForgeCore
 
 enum AROrbState: Equatable, Sendable {
     case idle, listening, processing, speaking
@@ -124,6 +125,10 @@ final class AriaPresence: NSObject, AVSpeechSynthesizerDelegate {
 
     @ObservationIgnored
     private let synthesizer = AVSpeechSynthesizer()
+    @ObservationIgnored
+    private var fishPlayer: AVAudioPlayer?
+    @ObservationIgnored
+    private var fishGeneration = 0
 
     private override init() {
         super.init()
@@ -166,6 +171,19 @@ final class AriaPresence: NSObject, AVSpeechSynthesizerDelegate {
     ) {
         guard AriaSpokenMute.allowsSpeech else { return }
         guard AriaSpeechPrep.spokenLine(in: text) != nil else { return }
+        let fish = AriaVoiceMouth.currentFishAudioConfig()
+        if AriaVoiceMouth.shouldEnqueueFishAudio(isMuted: false, hasKey: fish.isConfigured) {
+            speakViaFishAudio(text, config: fish, interrupt: interrupt, session: session)
+            return
+        }
+        if AriaVoiceMouth.shouldEnqueueFishAudioViaBackend(
+            isMuted: false,
+            hasLocalKey: fish.isConfigured,
+            backendReachable: AriaFishAudioVoice.isBackendReachable(AriaService.shared.baseURL)
+        ) {
+            speakViaFishAudioBackend(text, interrupt: interrupt, session: session)
+            return
+        }
         let transport = AriaVoiceSession.shared.activeTransport
         guard AriaVoiceMouth.shouldEnqueueAppleUtterance(
             isMuted: false,
@@ -188,8 +206,89 @@ final class AriaPresence: NSObject, AVSpeechSynthesizerDelegate {
     }
 
     func stopSpeaking() {
+        fishGeneration += 1
+        fishPlayer?.stop()
+        fishPlayer = nil
         synthesizer.stopSpeaking(at: .immediate)
         isSpeaking = false
+    }
+
+    /// Local Fish key (Dummy / Device Hub). Failure stays silent.
+    private func speakViaFishAudio(
+        _ text: String,
+        config: AriaFishAudioVoice.Config,
+        interrupt: Bool,
+        session: ForgePlaybackSession
+    ) {
+        guard let request = AriaFishAudioVoice.makeRequest(text: text, config: config) else { return }
+        playFishAudio(request: request, interrupt: interrupt, session: session, viaBackend: false)
+    }
+
+    /// Hex: Lambda holds `FISH_AUDIO_API_KEY`. Dummy-offline never reaches here.
+    private func speakViaFishAudioBackend(
+        _ text: String,
+        interrupt: Bool,
+        session: ForgePlaybackSession
+    ) {
+        guard let request = AriaFishAudioVoice.makeBackendRequest(
+            text: text,
+            baseURL: AriaService.shared.baseURL
+        ) else { return }
+        playFishAudio(request: request, interrupt: interrupt, session: session, viaBackend: true)
+    }
+
+    private func playFishAudio(
+        request: URLRequest,
+        interrupt: Bool,
+        session: ForgePlaybackSession,
+        viaBackend: Bool
+    ) {
+        if interrupt {
+            synthesizer.stopSpeaking(at: .immediate)
+            fishPlayer?.stop()
+            fishPlayer = nil
+        }
+        fishGeneration += 1
+        let generation = fishGeneration
+        isSpeaking = true
+        Task { @MainActor in
+            try? await session.activate()
+            do {
+                let data: Data
+                if viaBackend {
+                    let (payload, _) = try await ForgeAPI.send(request)
+                    guard generation == fishGeneration else { return }
+                    guard let speech = AriaFishAudioVoice.decodeBackendSpeech(payload) else {
+                        isSpeaking = false
+                        return
+                    }
+                    data = speech.audio
+                } else {
+                    let (payload, response) = try await URLSession.shared.data(for: request)
+                    guard generation == fishGeneration else { return }
+                    guard let http = response as? HTTPURLResponse, http.statusCode == 200, !payload.isEmpty else {
+                        isSpeaking = false
+                        return
+                    }
+                    data = payload
+                }
+                let player = try AVAudioPlayer(data: data)
+                player.prepareToPlay()
+                fishPlayer = player
+                player.play()
+                let nanos = UInt64(max(0.35, player.duration) * 1_000_000_000)
+                try? await Task.sleep(nanoseconds: nanos)
+                guard generation == fishGeneration else { return }
+                if fishPlayer === player {
+                    fishPlayer = nil
+                    isSpeaking = false
+                    AriaVoiceSession.shared.mouthDidFinish()
+                }
+            } catch {
+                guard generation == fishGeneration else { return }
+                isSpeaking = false
+            }
+        }
     }
 
     nonisolated func speechSynthesizer(_ synthesizer: AVSpeechSynthesizer, didFinish utterance: AVSpeechUtterance) {

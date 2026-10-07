@@ -276,6 +276,13 @@ class RoadmapFlagAndSecretHygieneTests(unittest.TestCase):
         problems = mod.secret_leak_problems(parsed, source="Info-Add.plist")
         self.assertTrue(any("credential" in p or "secret" in p.lower() for p in problems))
 
+    def test_fish_audio_api_key_in_plist_is_refused(self):
+        self.assertIn("FISH_AUDIO", mod.SECRET_KEY_MARKERS)
+        parsed = dict(_base())
+        parsed["FISH_AUDIO_API_KEY"] = "sk_live_should_never_ship"
+        problems = mod.secret_leak_problems(parsed, source="Info-Add.plist")
+        self.assertTrue(any("FISH_AUDIO" in p for p in problems))
+
     def test_bedrock_arn_value_is_refused(self):
         parsed = dict(_base())
         parsed["FORGEModelId"] = "arn:aws:bedrock:us-east-1:123:inference-profile/x"

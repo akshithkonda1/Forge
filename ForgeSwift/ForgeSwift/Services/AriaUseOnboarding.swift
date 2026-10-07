@@ -33,7 +33,8 @@ enum AriaFirstBond {
             let t = raw.trimmingCharacters(in: .whitespacesAndNewlines)
             let lower = t.lowercased()
             if lower.contains("come back") || lower.contains("not now")
-                || lower.contains("look around") || lower == "later" {
+                || lower.contains("look around") || lower == "later"
+                || AriaFirstBond.isSkipPhrase(raw) {
                 return .leave
             }
             if lower.contains("did you see") || lower.contains("what did you")
@@ -75,6 +76,7 @@ enum AriaFirstBond {
         var finishes: Bool { next == .done }
     }
 
+    static let skipLabel = "Skip"
     static let yesNo = ["Yes.", "No.", "Not sure."]
     static let stayReplies = ["I’m here.", "What did you actually see?", "Not now."]
     static let inviteReplies = [
@@ -84,13 +86,29 @@ enum AriaFirstBond {
         "I’ll come back.",
     ]
 
+    /// Tutorial chips always include Skip — not only the DEBUG Skip All.
+    static func repliesForDisplay(_ base: [String]) -> [String] {
+        if base.isEmpty { return [] }
+        if base.contains(skipLabel) { return base }
+        return base + [skipLabel]
+    }
+
+    static func isSkipPhrase(_ raw: String) -> Bool {
+        let lower = raw.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        return lower == "skip" || lower == "skip." || lower.hasPrefix("skip ")
+    }
+
+    static func skip(_ context: Context) -> Turn {
+        farewell(context)
+    }
+
     static func start(_ context: Context) -> Turn {
         turn(for: .opening, answer: .stay, context: context, isOpening: true)
     }
 
     static func advance(beat: Beat, userText: String, context: Context) -> Turn {
         let answer = Answer.parse(userText)
-        if answer == .leave {
+        if isSkipPhrase(userText) || answer == .leave {
             return farewell(context)
         }
         if shouldHandoffToCoach(userText) {

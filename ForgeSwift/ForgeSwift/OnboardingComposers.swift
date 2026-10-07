@@ -558,6 +558,20 @@ struct HealthComposer: View {
                     state: coordinator.calendarState,
                     action: { Task { await coordinator.connectCalendar() } }
                 )
+                ConnectionRow(
+                    icon: "person.2.fill", color: Color(hex: "7EC8FF"),
+                    title: "Contacts",
+                    subtitle: "First names you pick — never the whole book",
+                    state: coordinator.contactsState,
+                    action: coordinator.connectContacts
+                )
+                ConnectionRow(
+                    icon: "checklist", color: .ember,
+                    title: "Reminders",
+                    subtitle: "Counts only — titles stay on this iPhone",
+                    state: coordinator.remindersState,
+                    action: coordinator.connectReminders
+                )
             }
 
             if let hint = coordinator.lastHealthSharingHint, !hint.isEmpty {
@@ -633,7 +647,10 @@ private struct ConnectionRow: View {
             }
         }
         .padding(14).background(Color.surfaceElevated.opacity(0.7)).clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
-        .overlay { RoundedRectangle(cornerRadius: 16).stroke(Color.white.opacity(0.06), lineWidth: 1) }
+        .overlay {
+            RoundedRectangle(cornerRadius: 16)
+                .stroke(Color(hex: "7EC8FF").opacity(isLive ? 0.42 : 0.14), lineWidth: 1)
+        }
     }
 }
 

@@ -340,6 +340,23 @@ final class AriaFirstBondTests: XCTestCase {
         XCTAssertTrue(turn.message.contains("ours"))
     }
 
+    func testSkipEndsTheTutorialFromAnyBeat() {
+        XCTAssertEqual(AriaFirstBond.skipLabel, "Skip")
+        XCTAssertTrue(AriaFirstBond.isSkipPhrase("Skip"))
+        XCTAssertTrue(AriaFirstBond.isSkipPhrase("skip this"))
+        XCTAssertFalse(AriaFirstBond.isSkipPhrase("Yes."))
+        let skipped = AriaFirstBond.skip(ctx())
+        XCTAssertTrue(skipped.finishes)
+        XCTAssertTrue(skipped.message.contains("ours"))
+        let mid = AriaFirstBond.advance(beat: .health, userText: "Skip", context: ctx())
+        XCTAssertTrue(mid.finishes)
+        XCTAssertEqual(
+            AriaFirstBond.repliesForDisplay(AriaFirstBond.yesNo),
+            AriaFirstBond.yesNo + [AriaFirstBond.skipLabel]
+        )
+        XCTAssertEqual(AriaFirstBond.repliesForDisplay([]), [])
+    }
+
     func testRealQuestionHandoffAfterChecks() {
         XCTAssertTrue(AriaFirstBond.shouldHandoffToCoach("How did I sleep?"))
         XCTAssertFalse(AriaFirstBond.shouldHandoffToCoach("Yes."))

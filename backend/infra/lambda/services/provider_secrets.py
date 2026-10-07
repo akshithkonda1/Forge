@@ -1,9 +1,11 @@
-"""Cached loader for ElevenLabs credentials.
+"""Cached loader for AI provider credentials (ElevenLabs, Fish Audio).
 
 Production reads Parameter Store SecureString names from
-``ELEVENLABS_*_PARAMETER_NAME``. Tests and a local Lambda can overlay
-process env or the legacy ``AI_PROVIDER_SECRET_ARN`` JSON secret.
-Empty overlay values do not wipe a key that came from SSM / Secrets Manager.
+``ELEVENLABS_*_PARAMETER_NAME`` / ``FISH_AUDIO_API_KEY_PARAMETER_NAME``.
+Tests and a local Lambda can overlay process env or the legacy
+``AI_PROVIDER_SECRET_ARN`` JSON secret. Empty overlay values do not wipe
+a key that came from SSM / Secrets Manager. The phone never receives
+these values — ``generate_client_config`` refuses them in Info-Add.plist.
 """
 
 from __future__ import annotations
@@ -18,12 +20,15 @@ _KEYS = (
     "ELEVENLABS_API_KEY",
     "ELEVENLABS_ARIA_VOICE_ID",
     "ELEVENLABS_ARIA_AGENT_ID",
+    "FISH_AUDIO_API_KEY",
+    "FISH_AUDIO_MODEL",
 )
 
 _PARAMETER_ENV = {
     "ELEVENLABS_API_KEY": "ELEVENLABS_API_KEY_PARAMETER_NAME",
     "ELEVENLABS_ARIA_VOICE_ID": "ELEVENLABS_ARIA_VOICE_ID_PARAMETER_NAME",
     "ELEVENLABS_ARIA_AGENT_ID": "ELEVENLABS_ARIA_AGENT_ID_PARAMETER_NAME",
+    "FISH_AUDIO_API_KEY": "FISH_AUDIO_API_KEY_PARAMETER_NAME",
 }
 
 

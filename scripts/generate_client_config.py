@@ -107,6 +107,7 @@ SECRET_KEY_MARKERS = (
     "ELEVENLABS",
     "ANTHROPIC",
     "OPENAI",
+    "FISH_AUDIO",
 )
 SECRET_VALUE_MARKERS = (
     "arn:aws:secretsmanager",
