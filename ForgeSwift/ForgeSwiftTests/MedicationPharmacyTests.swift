@@ -72,6 +72,15 @@ final class MedicationPharmacyTests: XCTestCase {
         XCTAssertFalse(hits.items.isEmpty)
     }
 
+    func testShowAllLimitLoadsTheFullCurrentPage() {
+        XCTAssertEqual(MedicationPharmacy.showAllLimit, 1_000)
+        XCTAssertGreaterThan(MedicationPharmacy.showAllLimit, 40)
+        let page = MedicationPharmacy.search("tablet", limit: MedicationPharmacy.showAllLimit)
+        XCTAssertGreaterThan(page.items.count, 12)
+        XCTAssertLessThanOrEqual(page.items.count, MedicationPharmacy.showAllLimit)
+        XCTAssertEqual(page.items.count, min(page.total, MedicationPharmacy.showAllLimit))
+    }
+
     func testEntriesHaveStableIdsAndBothNames() {
         let rows = MedicationPharmacy.all()
         let ids = Set(rows.map(\.id))

@@ -245,12 +245,23 @@ struct ClinicalDataNonPHIView: View {
                 }
 
                 if page.items.count < page.total {
-                    Button("Show more (\(page.items.count.formatted()) of \(page.total.formatted()))") {
-                        visibleLimit += 40
-                        applySearch()
+                    VStack(spacing: 10) {
+                        Button("Show more (\(page.items.count.formatted()) of \(page.total.formatted()))") {
+                            visibleLimit += 40
+                            applySearch()
+                        }
+                        .font(.system(size: 14, weight: .semibold))
+                        .foregroundColor(.ember)
+                        Button("Show all") {
+                            visibleLimit = min(page.total, MedicationPharmacy.showAllLimit)
+                            applySearch()
+                        }
+                        .font(.system(size: 14, weight: .semibold))
+                        .foregroundColor(Color(hex: "7EC8FF"))
+                        .accessibilityLabel("Show all medications")
+                        .accessibilityHint("Loads the full current list, up to \(MedicationPharmacy.showAllLimit) rows.")
                     }
-                    .font(.system(size: 14, weight: .semibold))
-                    .foregroundColor(.ember)
+                    .frame(maxWidth: .infinity)
                 }
             }
         }
