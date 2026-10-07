@@ -151,6 +151,13 @@ def _filter_lifestyle_tokens(values: Any) -> list[str]:
             continue
         if hf is not None and hf.blocked_memory_token(text):
             continue
+        try:
+            from services import coach_context as _cc
+
+            if _cc.people_tag_is_dirty(text):
+                continue
+        except Exception:
+            pass
         kept.append(text)
     return kept
 
@@ -403,6 +410,15 @@ def handle_post_ai_chat(body: dict[str, Any], *, user_id: str) -> dict:
     tags = _lifestyle_tags(context, living, permissions)
     if permissions.allows("lifestyle") and allow_ingest and not safety_lock:
         contextual_learner.stamp_living_context(context, living)
+        from services import coach_context as _coach_context
+
+        _coach_context.file_people_tags(
+            uid,
+            payload,
+            allow_ingest=True,
+            safety_lock=False,
+            engine=_context,
+        )
 
     # Lifestyle cards: deterministic only. No Bedrock, no Dynamo relationship
     # bump, no weekly briefing, no learner write-back. Opening a tab must not
@@ -771,8 +787,22 @@ def handle_post_ai_voice_speak(body: dict[str, Any], *, user_id: str) -> dict:
     Speak-only. Does not fuse, remember, observe, or re-run ``guard_speak``.
     Dummy / on-device speech stays the default when the flag is off.
     Success is raw ``audio/mpeg`` via ``ok_bytes`` (APIGW binary), not JSON.
+    Body is ``{message}`` only — Hex ``text`` is not a synonym (Iris).
     """
     _bind_user(body, user_id)
     from services import fish_audio_voice
 
     return ok_bytes(fish_audio_voice.speak(body))
+
+
+def handle_post_ai_voice_fish_tts(body: dict[str, Any], *, user_id: str) -> dict:
+    """POST /ai/voice/fish-tts — Hex alias of the same Fish ``synthesize()``.
+
+    Flag, key, and HTTP client are shared with speak. Envelope differs:
+    Hex body is ``{text}``; success is JSON ``{format, model, audio_base64}``.
+    Iris hold: do not fold this shape into speak.
+    """
+    _bind_user(body, user_id)
+    from services import fish_audio_voice
+
+    return ok(fish_audio_voice.fish_tts(body))

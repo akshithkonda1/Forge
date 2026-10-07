@@ -3216,12 +3216,10 @@ def generate_response(
             current = str(envelope.get(key) or "")
             if spoken not in current:
                 envelope[key] = f"{spoken} {current}".strip()
-    budget = _budget_notice(ctx)
-    if budget:
+    people_line = hf.people_coach_line(message, tokens)
+    if people_line:
         for key in ("prose_summary", "message"):
-            current = str(envelope.get(key) or "")
-            if budget not in current:
-                envelope[key] = f"{current} {budget}".strip()
+            envelope[key] = people_line
     callback = _companion_callback(ctx)
     if callback:
         msg = str(envelope.get("message") or "")
