@@ -47,6 +47,7 @@ struct ReadinessForecastCard: View {
                             .font(FDS.TypeScale.label(8))
                             .foregroundColor(HudChrome.plate)
                             .tracking(0.8)
+                            .hudInArcText()
                     }
                     .accessibilityHidden(true)
                 }

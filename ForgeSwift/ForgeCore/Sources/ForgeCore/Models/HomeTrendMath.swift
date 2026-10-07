@@ -2,11 +2,11 @@ import Foundation
 
 /// Home sleep-trend and Reduce Motion decisions. Pure Foundation — no SwiftUI.
 ///
-/// Locked keys later read from `shared/readiness.json` (do not add or read
-/// that file yet): plot floor 30, `ruleMarkY` = raw Int-truncated average.
+/// Plot floor / cap lockstep with `shared/readiness.json` via
+/// `HomeReadinessTokens`. `ruleMarkY` stays raw Int-truncated average.
 public enum HomeTrendMath {
-    public static let plotFloor = 30
-    public static let plotCap = 100
+    public static let plotFloor = HomeReadinessTokens.plotFloor
+    public static let plotCap = HomeReadinessTokens.plotCap
 
     public static func isFrozen(reduceMotion: Bool, minimal: Bool) -> Bool {
         reduceMotion || minimal

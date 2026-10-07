@@ -106,9 +106,104 @@ final class HomeTodayProgressTests: XCTestCase {
         XCTAssertEqual(HudChrome.sweep(from: 50), 0.5, accuracy: 0.0001)
         XCTAssertEqual(HudChrome.sweep(from: 100), 1)
         XCTAssertEqual(HudChrome.sweep(from: 140), 1)
-        XCTAssertEqual(HudChrome.tickCount, 36)
+        XCTAssertEqual(HudChrome.tickCount, HomeReadinessTokens.tickCount)
+        XCTAssertEqual(HudChrome.majorEvery, HomeReadinessTokens.majorEvery)
+        XCTAssertEqual(HudChrome.tickCount, 48)
         XCTAssertEqual(HudChrome.majorEvery, 6)
+        XCTAssertEqual(HudChrome.tickHz, 6, accuracy: 0.0001)
+        XCTAssertLessThanOrEqual(HudChrome.tickHz, HomeReadinessTokens.tickHzCeiling)
+        XCTAssertLessThanOrEqual(HudChrome.tickHz, AriaNestGeometry.paintHz)
         XCTAssertGreaterThan(HomeMetrics.hudRadius, 0)
+        XCTAssertEqual(HudChrome.plate.forgeHexString, HomeReadinessTokens.plateHex)
+        XCTAssertEqual(HudChrome.emberSteel.forgeHexString, HomeReadinessTokens.emberSteelHex)
+        XCTAssertEqual(HudChrome.inArcMinimumScale, 0.7, accuracy: 0.0001)
+        XCTAssertEqual(HudChrome.inArcMinimumScale, CGFloat(HomeReadinessTokens.inArcMinimumScale), accuracy: 0.0001)
+        XCTAssertTrue(HomeReadinessTokens.showsInArcMeta(isAccessibilitySize: false))
+        XCTAssertFalse(HomeReadinessTokens.showsInArcMeta(isAccessibilitySize: true))
+        let trough = HomeReadinessTokens.paintedTickOpacity(major: true, armed: true, glow: 0.62)
+        let crest = HomeReadinessTokens.paintedTickOpacity(major: true, armed: true, glow: 1)
+        XCTAssertEqual(trough, crest, accuracy: 0.0001)
+        XCTAssertGreaterThanOrEqual(trough, HomeReadinessTokens.tickChromeFloor)
+        XCTAssertGreaterThanOrEqual(trough, 0.70)
+    }
+
+    func testReduceMotionPaintsFinalValueAndPausesClock() {
+        XCTAssertEqual(
+            HomeReadinessTokens.ringSweep(percent: 80, reduceMotion: true, animatedProgress: 0),
+            0.8,
+            accuracy: 0.0001
+        )
+        XCTAssertTrue(
+            HudChrome.isClockPaused(
+                reduceMotion: true, sceneActive: true, onscreen: true, animate: true
+            )
+        )
+        XCTAssertTrue(
+            HudChrome.isClockPaused(
+                reduceMotion: false, sceneActive: false, onscreen: true, animate: true
+            )
+        )
+        XCTAssertTrue(
+            HudChrome.isClockPaused(
+                reduceMotion: false, sceneActive: true, onscreen: false, animate: true
+            )
+        )
+        XCTAssertFalse(
+            HudChrome.isClockPaused(
+                reduceMotion: false, sceneActive: true, onscreen: true, animate: true
+            )
+        )
+        XCTAssertEqual(HomeReadinessTokens.headGlow(time: 0.4, paused: true), 1, accuracy: 0.0001)
+        XCTAssertEqual(HomeReadinessTokens.headGlow(time: 9, paused: true), 1, accuracy: 0.0001)
+        XCTAssertTrue(HomeTrendMath.isFrozen(reduceMotion: true, minimal: false))
+    }
+
+    func testCopyNeverUsesClinicalOrForeignBandNames() {
+        let surface = [
+            TodayProgress.headerTitle,
+            TodayProgress.emptyLine,
+            TodayProgress.vibeLine(score: 90, empty: false, hasLife: true),
+            TodayProgress.vibeLine(score: 72, empty: false, hasLife: true),
+            TodayProgress.vibeLine(score: 60, empty: true, hasLife: true),
+            TodayProgress.vibeLine(score: 40, empty: true, hasLife: false),
+            HomeReadiness.label(90),
+            HomeReadiness.label(72),
+            HomeReadiness.label(60),
+            HomeReadiness.label(40),
+            HomeReadiness.voiceOverLabel(72),
+            HomeCoachCopy.easyDayLow,
+            HomeCoachCopy.pulledBack(score: 62),
+        ]
+        for line in surface {
+            for banned in TodayProgress.bannedPhrases {
+                XCTAssertFalse(line.lowercased().contains(banned), "\(line) contained \(banned)")
+            }
+            for foreign in HomeReadinessTokens.foreignBandLabels {
+                XCTAssertFalse(line == foreign, "HUD band slid into \(foreign)")
+            }
+        }
+        XCTAssertEqual(HomeReadiness.label(90), "Peak")
+        XCTAssertEqual(HomeReadiness.label(72), "Good")
+        XCTAssertEqual(HomeReadiness.label(60), "Fair")
+        XCTAssertEqual(HomeReadiness.label(40), "Low")
+        XCTAssertEqual(HomeReadiness.color(90).forgeHexString, "22C55E")
+        XCTAssertEqual(HomeReadiness.color(72).forgeHexString, "F5A524")
+        XCTAssertEqual(HomeReadiness.color(60).forgeHexString, "5B8DEF")
+        XCTAssertEqual(HomeReadiness.color(40).forgeHexString, "EF4444")
+    }
+
+    func testNestGeometryUntouchedAndNotUsedAsProgressChrome() {
+        XCTAssertEqual(AriaNestGeometry.kind, "soft-hex-field")
+        XCTAssertEqual(AriaNestGeometry.mixLock, "B+E")
+        XCTAssertEqual(AriaNestGeometry.ringCount, 3)
+        XCTAssertEqual(AriaNestGeometry.ringHex, ["F7F4F0", "A9D8FF", "FF4D00"])
+        XCTAssertEqual(AriaNestGeometry.radii, [0.46, 0.52, 0.58])
+        XCTAssertEqual(AriaNestGeometry.tickHz, 12, accuracy: 0.0001)
+        XCTAssertEqual(AriaNestGeometry.stillPoseAngleDeg, 18, accuracy: 0.0001)
+        XCTAssertNotEqual(HomeReadinessTokens.kind, AriaNestGeometry.kind)
+        XCTAssertNotEqual(HudChrome.tickCount, AriaNestGeometry.ringCount)
+        XCTAssertLessThan(HudChrome.tickHz, AriaNestGeometry.tickHz)
+        XCTAssertEqual(HomeReadinessFieldView.isFrozen(reduceMotion: true, minimal: false), true)
     }
 
     func testLifestyleDeepLinkSendsTomorrowAndAtHomeToWellbeing() {
@@ -141,5 +236,7 @@ final class HomeTodayProgressTests: XCTestCase {
         XCTAssertEqual(TodayProgress.trackCount, 5)
         XCTAssertGreaterThanOrEqual(HudChrome.ringSize, 160)
         XCTAssertGreaterThanOrEqual(HudChrome.compactRingSize, 80)
+        XCTAssertEqual(HudChrome.ringSize, CGFloat(HomeReadinessTokens.ringSize))
+        XCTAssertEqual(HudChrome.stroke, CGFloat(HomeReadinessTokens.stroke), accuracy: 0.0001)
     }
 }

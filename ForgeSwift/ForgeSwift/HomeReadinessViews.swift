@@ -334,9 +334,8 @@ enum HomeRingFieldCanvas {
         }
 
         // Score lives in the geometry: outer arc sweep is score / 100.
-        // TODO: Lex `shared/readiness.json` will own band thresholds, colors,
-        // and this sweep. Until then reuse `HomeReadiness` cuts (85 / 70 / 50)
-        // via `HomeReadiness.color` — do not invent a third palette.
+        // Band cuts / hex live in `shared/readiness.json` via `HomeReadiness`.
+        // This kinetic field is not mounted on Today — HUD chrome is.
         let outer = AriaRingFieldGeometry.ellipseCount - 1
         let sweepRadius = s * CGFloat(
             AriaRingFieldGeometry.radii[outer] * (1 + AriaRingFieldGeometry.eccentricity[outer])

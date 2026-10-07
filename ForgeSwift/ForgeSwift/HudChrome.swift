@@ -1,33 +1,54 @@
 import SwiftUI
+import ForgeCore
 
-/// Iron Man 2 HUD energy — clean luminous ticks and a sweep, not 1940s
-/// atom-split chrome. Shared by Home Today and Tomorrow's Readiness so the
-/// two surfaces hand-in-hand.
+/// Iron Man 2 HUD energy — thin luminous ticks and a sweep, not the
+/// kinetic atom-orbit ring-field and not the Nest brand mark.
 ///
-/// Cheap by design: one-shot sweep, no TimelineView, no forever pulse.
-/// Reduce Motion skips the fill and paints the finished ring.
+/// Shared by Home Today and Tomorrow's Readiness so the two plates
+/// hand-in-hand. Tokens come from `shared/readiness.json` /
+/// `HomeReadinessTokens`. Cheap by design: one-shot sweep plus a lean
+/// ≤6 Hz glow that pauses when Reduce Motion, backgrounded, or offscreen.
 enum HudChrome {
-    static let tickCount = 36
-    static let majorEvery = 6
-    static let ringSize: CGFloat = 168
-    static let compactRingSize: CGFloat = 92
-    static let stroke: CGFloat = 8
-    static let compactStroke: CGFloat = 6
+    static let tickCount = HomeReadinessTokens.tickCount
+    static let majorEvery = HomeReadinessTokens.majorEvery
+    static let ringSize = CGFloat(HomeReadinessTokens.ringSize)
+    static let compactRingSize = CGFloat(HomeReadinessTokens.compactRingSize)
+    static let stroke = CGFloat(HomeReadinessTokens.stroke)
+    static let compactStroke = CGFloat(HomeReadinessTokens.compactStroke)
+    static let tickHz = HomeReadinessTokens.tickHz
+    static let tickInterval = HomeReadinessTokens.tickInterval
+    static let inArcMinimumScale = CGFloat(HomeReadinessTokens.inArcMinimumScale)
 
-    /// HUD cyan-steel. Brand ember stays the energy accent — this is the
-    /// luminous plate the sweep rides on.
-    static let plate = Color(hex: "7EC8FF")
+    /// HUD cyan-steel plate. Brand ember stays the energy accent — this is
+    /// the luminous plate the sweep rides on.
+    static let plate = Color(hex: HomeReadinessTokens.plateHex)
+    static let emberSteel = Color(hex: HomeReadinessTokens.emberSteelHex)
 
     static func energy(for score: Int) -> Color {
         HomeReadiness.color(score)
     }
 
     static func sweep(from percent: Int) -> CGFloat {
-        CGFloat(min(max(percent, 0), 100)) / 100
+        CGFloat(HomeReadinessTokens.sweep(from: percent))
+    }
+
+    static func isClockPaused(
+        reduceMotion: Bool,
+        sceneActive: Bool,
+        onscreen: Bool,
+        animate: Bool
+    ) -> Bool {
+        HomeReadinessTokens.isClockPaused(
+            reduceMotion: reduceMotion,
+            sceneActive: sceneActive,
+            onscreen: onscreen,
+            animate: animate
+        )
     }
 }
 
 /// Concentric HUD progress ring. Center content is the caller's score/vibe.
+/// Outer ticks + sweep are Home chrome — never `AriaNestGeometry`.
 struct HudProgressRing<Center: View>: View {
     var progress: Int
     var energy: Color
@@ -37,65 +58,107 @@ struct HudProgressRing<Center: View>: View {
     @ViewBuilder var center: () -> Center
 
     @State private var sweep: CGFloat = 0
+    @State private var isOnscreen = true
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.scenePhase) private var scenePhase
+
+    private var target: CGFloat { HudChrome.sweep(from: progress) }
+    private var paused: Bool {
+        HudChrome.isClockPaused(
+            reduceMotion: reduceMotion,
+            sceneActive: scenePhase == .active,
+            onscreen: isOnscreen,
+            animate: animate
+        )
+    }
 
     var body: some View {
-        let target = HudChrome.sweep(from: progress)
+        let ring = size - 24
         ZStack {
-            HudTickRing(size: size, energy: energy)
-            Circle()
-                .stroke(HudChrome.plate.opacity(0.14), style: StrokeStyle(lineWidth: stroke, lineCap: .round))
-                .frame(width: size - 22, height: size - 22)
-            Circle()
-                .trim(from: 0, to: sweep)
-                .stroke(
-                    AngularGradient(
-                        colors: [
-                            energy.opacity(0.45),
-                            energy,
-                            HudChrome.plate.opacity(0.95),
-                            energy
-                        ],
-                        center: .center,
-                        startAngle: .degrees(-90),
-                        endAngle: .degrees(270)
-                    ),
-                    style: StrokeStyle(lineWidth: stroke, lineCap: .round)
+            TimelineView(.animation(minimumInterval: HudChrome.tickInterval, paused: paused)) { timeline in
+                let glow = HomeReadinessTokens.headGlow(
+                    time: paused
+                        ? 0
+                        : timeline.date.timeIntervalSinceReferenceDate,
+                    paused: paused
                 )
-                .frame(width: size - 22, height: size - 22)
-                .rotationEffect(.degrees(-90))
-                .shadow(color: energy.opacity(0.45), radius: 10)
-            if sweep > 0.02 {
-                Circle()
-                    .fill(HudChrome.plate)
-                    .frame(width: stroke * 0.7, height: stroke * 0.7)
-                    .shadow(color: HudChrome.plate, radius: 5)
-                    .offset(y: -(size - 22) / 2)
-                    .rotationEffect(.degrees(-90 + Double(sweep) * 360))
+                ZStack {
+                    HudTickRing(size: size, energy: energy, sweep: sweep)
+                    Circle()
+                        .stroke(HudChrome.plate.opacity(0.10), style: StrokeStyle(lineWidth: 1))
+                        .frame(width: ring + 10, height: ring + 10)
+                    Circle()
+                        .stroke(HudChrome.plate.opacity(0.16), style: StrokeStyle(lineWidth: stroke, lineCap: .round))
+                        .frame(width: ring, height: ring)
+                    Circle()
+                        .trim(from: 0, to: sweep)
+                        .stroke(
+                            AngularGradient(
+                                colors: [
+                                    energy.opacity(0.35),
+                                    energy,
+                                    HudChrome.emberSteel.opacity(0.95),
+                                    HudChrome.plate,
+                                    energy
+                                ],
+                                center: .center,
+                                startAngle: .degrees(-90),
+                                endAngle: .degrees(270)
+                            ),
+                            style: StrokeStyle(lineWidth: stroke, lineCap: .round)
+                        )
+                        .frame(width: ring, height: ring)
+                        .rotationEffect(.degrees(-90))
+                        .shadow(color: energy.opacity(0.28 + 0.22 * glow), radius: 8)
+                    if sweep > 0.02 {
+                        Circle()
+                            .fill(HudChrome.plate)
+                            .frame(width: stroke * 0.85, height: stroke * 0.85)
+                            .shadow(color: HudChrome.plate.opacity(0.55 + 0.45 * glow), radius: 5)
+                            .offset(y: -ring / 2)
+                            .rotationEffect(.degrees(-90 + Double(sweep) * 360))
+                    }
+                }
             }
             center()
         }
         .frame(width: size, height: size)
         .onAppear {
-            if reduceMotion || !animate {
+            isOnscreen = true
+            applySweep(animated: !paused)
+        }
+        .onDisappear { isOnscreen = false }
+        .onScrollVisibilityChange { isOnscreen = $0 }
+        .onChange(of: scenePhase) { _, phase in
+            if phase != .active {
                 sweep = target
-            } else {
-                withAnimation(FDS.Spring.sweep.delay(0.12)) { sweep = target }
             }
         }
-        .onChange(of: progress) { _, new in
-            let next = HudChrome.sweep(from: new)
-            withAnimation(reduceMotion ? .easeOut(duration: 0.12) : FDS.Spring.sweep) {
-                sweep = next
-            }
+        .onChange(of: progress) { _, _ in
+            applySweep(animated: !paused)
+        }
+    }
+
+    private func applySweep(animated: Bool) {
+        let next = HomeReadinessTokens.ringSweep(
+            percent: progress,
+            reduceMotion: reduceMotion || !animated,
+            animatedProgress: nil
+        )
+        if animated && !reduceMotion {
+            withAnimation(FDS.Spring.sweep.delay(0.12)) { sweep = CGFloat(next) }
+        } else {
+            sweep = CGFloat(next)
         }
     }
 }
 
-/// Outer HUD ticks — luminous hash marks, not rivets or atom petals.
+/// Outer HUD ticks — luminous hash marks that arm along the sweep.
+/// Not rivets, atom petals, or Nest hexes.
 struct HudTickRing: View {
     var size: CGFloat
     var energy: Color
+    var sweep: CGFloat
 
     var body: some View {
         Canvas { context, canvas in
@@ -104,8 +167,9 @@ struct HudTickRing: View {
             let outer = s / 2 - 1
             for i in 0..<HudChrome.tickCount {
                 let major = i.isMultiple(of: HudChrome.majorEvery)
+                let armed = HomeReadinessTokens.tickArmed(index: i, sweep: Double(sweep))
                 let angle = Double(i) / Double(HudChrome.tickCount) * .pi * 2 - .pi / 2
-                let inner = outer - (major ? 9 : 5)
+                let inner = outer - (major ? 10 : 5)
                 var path = Path()
                 path.move(to: CGPoint(
                     x: center.x + CGFloat(cos(angle)) * inner,
@@ -115,11 +179,20 @@ struct HudTickRing: View {
                     x: center.x + CGFloat(cos(angle)) * outer,
                     y: center.y + CGFloat(sin(angle)) * outer
                 ))
-                context.stroke(
-                    path,
-                    with: .color(major ? energy.opacity(0.72) : HudChrome.plate.opacity(0.28)),
-                    lineWidth: major ? 1.6 : 0.8
+                let opacity = HomeReadinessTokens.paintedTickOpacity(
+                    major: major, armed: armed, glow: 0
                 )
+                let color: Color
+                if major && armed {
+                    color = energy.opacity(opacity)
+                } else if armed {
+                    color = HudChrome.plate.opacity(opacity)
+                } else if major {
+                    color = HudChrome.emberSteel.opacity(opacity)
+                } else {
+                    color = HudChrome.plate.opacity(opacity)
+                }
+                context.stroke(path, with: .color(color), lineWidth: major ? 1.5 : 0.7)
             }
         }
         .frame(width: size, height: size)
@@ -142,7 +215,7 @@ struct HudPlate: ViewModifier {
                     RoundedRectangle(cornerRadius: HomeMetrics.hudRadius, style: .continuous)
                         .fill(
                             LinearGradient(
-                                colors: [energy.opacity(0.10), HudChrome.plate.opacity(0.04), .clear],
+                                colors: [energy.opacity(0.10), HudChrome.plate.opacity(0.05), .clear],
                                 startPoint: .topLeading,
                                 endPoint: .bottomTrailing
                             )
@@ -151,8 +224,9 @@ struct HudPlate: ViewModifier {
                         .strokeBorder(
                             LinearGradient(
                                 colors: [
-                                    HudChrome.plate.opacity(0.38),
-                                    energy.opacity(0.22),
+                                    HudChrome.plate.opacity(0.42),
+                                    HudChrome.emberSteel.opacity(0.28),
+                                    energy.opacity(0.20),
                                     Color.white.opacity(0.06)
                                 ],
                                 startPoint: .topLeading,
@@ -178,25 +252,21 @@ private struct HudCornerBrackets: View {
             let h = geo.size.height
             let arm: CGFloat = 14
             Path { path in
-                // Top leading
                 path.move(to: CGPoint(x: 0, y: arm))
                 path.addLine(to: CGPoint(x: 0, y: 0))
                 path.addLine(to: CGPoint(x: arm, y: 0))
-                // Top trailing
                 path.move(to: CGPoint(x: w - arm, y: 0))
                 path.addLine(to: CGPoint(x: w, y: 0))
                 path.addLine(to: CGPoint(x: w, y: arm))
-                // Bottom trailing
                 path.move(to: CGPoint(x: w, y: h - arm))
                 path.addLine(to: CGPoint(x: w, y: h))
                 path.addLine(to: CGPoint(x: w - arm, y: h))
-                // Bottom leading
                 path.move(to: CGPoint(x: arm, y: h))
                 path.addLine(to: CGPoint(x: 0, y: h))
                 path.addLine(to: CGPoint(x: 0, y: h - arm))
             }
-            .stroke(HudChrome.plate.opacity(0.55), lineWidth: 1.1)
-            .shadow(color: energy.opacity(0.35), radius: 3)
+            .stroke(HudChrome.plate.opacity(0.58), lineWidth: 1.1)
+            .shadow(color: energy.opacity(0.32), radius: 3)
         }
         .allowsHitTesting(false)
         .accessibilityHidden(true)
@@ -206,6 +276,11 @@ private struct HudCornerBrackets: View {
 extension View {
     func hudPlate(energy: Color, compact: Bool = false) -> some View {
         modifier(HudPlate(energy: energy, compact: compact))
+    }
+
+    /// Constrained HUD type — same floor as the in-arc score.
+    func hudInArcText() -> some View {
+        minimumScaleFactor(HudChrome.inArcMinimumScale).lineLimit(1)
     }
 }
 

@@ -171,10 +171,14 @@ enum HomeLifeSentence {
 /// One card: today's progress ring, readiness vibe, the session, the one thing to do.
 struct HomeTodayHero: View {
     @EnvironmentObject var store: AppStore
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     let action: HomePrimaryAction
     @State private var showScore = false
 
     private var recovery: Bool { action.usesRecoveryChrome(store: store) }
+    private var showInArcMeta: Bool {
+        HomeReadinessTokens.showsInArcMeta(isAccessibilitySize: dynamicTypeSize.isAccessibilitySize)
+    }
 
     private var aging: AgingSnapshot {
         AgingBridge.snapshot(store: store)
@@ -209,22 +213,34 @@ struct HomeTodayHero: View {
                                 endPoint: .bottom
                             )
                         )
-                        .minimumScaleFactor(0.7)
-                        .lineLimit(1)
+                        .hudInArcText()
                         .contentTransition(.numericText())
-                    Text("TODAY")
-                        .font(HomeType.micro)
-                        .foregroundColor(HudChrome.plate)
-                        .tracking(1.6)
-                    Text("\(snap.completed)/\(snap.total)")
-                        .font(HomeType.micro)
-                        .foregroundColor(.textTertiary)
+                    if showInArcMeta {
+                        Text(snap.vibeLabel.uppercased())
+                            .font(HomeType.micro)
+                            .foregroundColor(energy)
+                            .tracking(1.6)
+                            .hudInArcText()
+                        Text("\(snap.completed)/\(snap.total)")
+                            .font(HomeType.micro)
+                            .foregroundColor(HudChrome.plate.opacity(0.72))
+                            .hudInArcText()
+                    }
                 }
                 .accessibilityHidden(true)
             }
             .frame(maxWidth: .infinity)
             .accessibilityElement(children: .ignore)
             .accessibilityLabel(snap.voiceOverLabel)
+
+            if !showInArcMeta {
+                Text("\(snap.vibeLabel) · \(snap.completed)/\(snap.total)")
+                    .font(HomeType.micro)
+                    .foregroundColor(energy)
+                    .hudInArcText()
+                    .frame(maxWidth: .infinity)
+                    .accessibilityHidden(true)
+            }
 
             Text(snap.vibeLine)
                 .font(HomeType.status)
@@ -459,8 +475,8 @@ private struct HomePrimaryCTA: View {
                     )
                 } label: {
                     HStack(spacing: 6) {
-                        // One animating mark per screen: the hero ring-field
-                        // is live, so this 14pt Nest mark stays still.
+                        // One live mark per screen: Today chrome is the HUD
+                        // ring, so this 14pt Nest mark stays still.
                         ARIAIdentityMark(state: .idle, mood: .energized, size: 14, amplitude: 0.22)
                             .environment(\.forgeMinimalAnimation, true)
                         Text("Why this session")

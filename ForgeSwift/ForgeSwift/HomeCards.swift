@@ -435,14 +435,12 @@ enum HomeTrendSeries {
     static let headerTitle = "SLEEP · LAST 7 NIGHTS"
     static let loadingVoiceOver = "Sleep, last seven nights, loading"
     static let expandHint = "Shows more detail"
-    /// Locked keys later read from `shared/readiness.json` (do not add or
-    /// read that file yet): `trendWindowDays`, `trendWindowAnchor`,
-    /// `trendPoints`, `nightDate`, `nightCutoffHour`.
-    static let trendWindowDays = 7
-    static let trendWindowAnchor = "lastNight"
-    static let trendPoints = "window"
-    static let nightDate = "bedtime"
-    static let nightCutoffHour = 12
+    /// Lockstep with `shared/readiness.json` / `HomeReadinessTokens`.
+    static let trendWindowDays = HomeReadinessTokens.trendWindowDays
+    static let trendWindowAnchor = HomeReadinessTokens.trendWindowAnchor
+    static let trendPoints = HomeReadinessTokens.trendPoints
+    static let nightDate = HomeReadinessTokens.nightDate
+    static let nightCutoffHour = HomeReadinessTokens.nightCutoffHour
 
     static func snapshot(
         from sleeps: [SleepData],
