@@ -173,8 +173,9 @@ enum HomeRingField {
 }
 
 /// Kinetic 5-ellipse ring-field from `AriaRingFieldGeometry`.
-/// Brand mark stays `AriaNest*` / `ARIAIdentityMark`. This field is Home
-/// readiness chrome only. Hero size (≥90) paints all five ellipses.
+/// Brand mark stays `AriaNest*` / `ARIAIdentityMark`. Today's hero is the
+/// HUD progress ring (`HudProgressRing`) — this field is no longer mounted
+/// on Home, so the 12 Hz TimelineView is idle unless a caller paints it.
 struct HomeReadinessFieldView: View {
     let score: Int
     var size: CGFloat? = nil

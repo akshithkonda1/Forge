@@ -85,7 +85,7 @@ final class AppStore: ObservableObject {
     /// `forge://cycle/sharing` deep link the Messages extension uses when it has
     /// no invite staged and has to hand the user back to the app.
     @Published var pendingCycleSharingOpen: Bool = false
-    /// Lifestyle sub-segment deep link: `nutrition` | `restaurants` | `wellbeing` | `aiOptimization`
+    /// Lifestyle sub-segment deep link: `nutrition` | `restaurants` | `wellbeing` | `aiOptimization` | `home` / `tomorrow`
     @Published var pendingLifestyleSegment: String? = nil
     /// When true, main shell presents Hydration full-screen.
     @Published var pendingHydrationOpen: Bool = false
@@ -331,6 +331,10 @@ final class AppStore: ObservableObject {
     /// Serializes overlapping refreshDailyData() so the empty-profile launch
     /// fetch and the post-interview prep fetch cannot clobber each other.
     var refreshDailyDataTail: Task<Void, Never>?
+    /// Home + Lifestyle both ask for tomorrow's picture in the same frame.
+    /// Cache by a cheap signature so idle renders don't rebuild the coach.
+    var cachedPredictiveCoachPicture: PredictiveCoach.Picture?
+    var cachedPredictiveCoachKey: String?
     /// 30-day HealthKit history, cloud dashboard, and deferred Test-Ready
     /// HealthKit pack write. Home does not wait on this.
     var backgroundLifeHydrateTask: Task<Void, Never>?

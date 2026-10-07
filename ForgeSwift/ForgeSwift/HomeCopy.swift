@@ -91,6 +91,25 @@ enum HomeCoachCopy {
     static let bannedPhrases = ["recovery-first", "recovery week"]
 }
 
+/// Lifestyle deep-links Home and ARIA already send. Kept here so tests can
+/// lock "At Home" / tomorrow without spinning the whole Lifestyle view.
+enum LifestyleDeepLink {
+    static func segment(from raw: String) -> LifestyleSegment? {
+        switch raw.lowercased() {
+        case "nutrition": return .nutrition
+        case "restaurants", "meals", "food", "places", "map": return .restaurants
+        case "wellbeing", "wellness": return .wellbeing
+        case "ai", "aioptimization", "optimize": return .aiOptimization
+        case "lifetime", "aging", "heart", "cardio", "metabolic", "glucose", "stelo":
+            return .lifetime
+        case "cook", "cooking", "homecooking": return .homeCooking
+        case "home", "athome", "at-home", "tomorrow":
+            return .wellbeing
+        default: return LifestyleSegment(rawValue: Int(raw) ?? -1)
+        }
+    }
+}
+
 @MainActor
 func homeStatusLine(store: AppStore) -> String {
     let score = store.readiness.overall
