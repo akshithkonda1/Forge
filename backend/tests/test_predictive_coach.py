@@ -352,7 +352,13 @@ class HobbyFitTests(unittest.TestCase):
         self.assertEqual(out["mentality_signal"], "quiet")
         self.assertEqual(out["hobbies"][0]["label"], "Pottery nights")
         self.assertNotIn("sam@", str(out["hobbies"]))
-        self.assertEqual(out["lifestyle"]["recentPatterns"], patterns)
+        result_patterns = out["lifestyle"]["recentPatterns"]
+        for p in patterns:
+            self.assertIn(p, result_patterns)
+        self.assertTrue(
+            any(p.startswith("forecast:tomorrow:") for p in result_patterns),
+            "picture tags should be injected into recentPatterns",
+        )
         block = coach_context.context_to_prompt_block(out)
         self.assertIn("quiet stretch", block)
         self.assertIn("Pottery nights", block)
@@ -404,5 +410,114 @@ class HobbyFitTests(unittest.TestCase):
             clean["context"]["lifestyle"]["recentPatterns"],
         )
         self.assertNotIn("hobbies", clean["recentPatterns"])
+
+
+class PictureTagsFlowTests(unittest.TestCase):
+    """Verify that PredictiveCoach.picture ariaTags thread into
+    coach_context recentPatterns and aria_engine responses."""
+
+    def test_attach_predictions_injects_picture_tags_into_patterns(self):
+        from services import coach_context
+
+        ctx = {
+            "readiness": {"overall": 72, "hrv": 60, "restingHR": 55, "stressLevel": 30},
+            "recentSleep": [{"totalHours": 8, "score": 80, "date": "2026-10-04"}],
+            "recentWorkouts": [],
+            "lifestyle": {"tags": [], "recentPatterns": []},
+        }
+        out = coach_context._attach_predictions(ctx)
+        patterns = out["lifestyle"]["recentPatterns"]
+        has_forecast = any(p.startswith("forecast:tomorrow:") for p in patterns)
+        has_working = any(p.startswith("working:") for p in patterns)
+        has_budget = any(p.startswith("tomorrow_budget:") for p in patterns)
+        self.assertTrue(has_forecast, f"Missing forecast tag in {patterns}")
+        self.assertTrue(has_working, f"Missing working tag in {patterns}")
+        self.assertTrue(has_budget, f"Missing budget tag in {patterns}")
+
+    def test_budget_tag_is_consistent_between_home_and_chat(self):
+        """The budget tag in recentPatterns must match what Home shows
+        from tomorrowBudgets."""
+        from services import coach_context
+
+        ctx = {
+            "readiness": {"overall": 72, "hrv": 60, "restingHR": 55, "stressLevel": 30},
+            "recentSleep": [{"totalHours": 8, "score": 80, "date": "2026-10-04"}],
+            "recentWorkouts": [],
+            "lifestyleTags": ["living:social:2"],
+            "lifestyle": {"tags": ["living:social:2"], "recentPatterns": []},
+            "chronotype": {"typicalWakeTime": "07:00"},
+        }
+        out = coach_context._attach_predictions(ctx)
+        budget_dict = out["tomorrowBudgets"]
+        expected_tag = f"tomorrow_budget:{budget_dict['constraint']}"
+        patterns = out["lifestyle"]["recentPatterns"]
+        self.assertIn(expected_tag, patterns)
+
+    def test_chat_response_cites_budget_when_tag_present(self):
+        """generate_response must include budget coaching line when
+        tomorrow_budget: tag is in lifestyle.recent_patterns."""
+        from aria_core import aria_engine
+        from aria_core import tomorrow_budgets as tb
+
+        ctx = ARIAContext(
+            readiness=ReadinessContext(
+                recovery_score=70,
+                tomorrow_predicted_score=80,
+                tomorrow_posture="push",
+            ),
+            lifestyle=LifestyleContext(
+                recent_patterns=[
+                    "working:steady:keep_rhythm",
+                    "tomorrow_budget:people",
+                ],
+            ),
+        )
+        resp = aria_engine.generate_response("how should I train tomorrow", ctx, seed=0)
+        blob = f"{resp.get('prose_summary', '')} {resp.get('message', '')}"
+        self.assertIn("people", blob.lower())
+
+    def test_chat_response_omits_budget_when_neither(self):
+        """If budget is 'neither', the coaching line should NOT appear."""
+        from aria_core import aria_engine
+
+        ctx = ARIAContext(
+            readiness=ReadinessContext(recovery_score=70),
+            lifestyle=LifestyleContext(
+                recent_patterns=[
+                    "working:steady:keep_rhythm",
+                    "tomorrow_budget:neither",
+                ],
+            ),
+        )
+        resp = aria_engine.generate_response("how should I train tomorrow", ctx, seed=0)
+        blob = f"{resp.get('prose_summary', '')} {resp.get('message', '')}"
+        self.assertNotIn("Split day", blob)
+
+    def test_overreacher_budget_body_flows_through(self):
+        """An overreacher with cap_heroics should produce a body budget
+        that flows from picture through to the response."""
+        from services import coach_context
+        from aria_core import tomorrow_budgets as tb
+
+        ctx = {
+            "readiness": {"overall": 52, "hrv": 40, "restingHR": 72, "stressLevel": 70},
+            "recentSleep": [
+                {"totalHours": 5.5, "score": 58, "date": "2026-10-04"},
+                {"totalHours": 6, "score": 62, "date": "2026-10-03"},
+            ],
+            "recentWorkouts": [
+                {"date": "2026-10-04", "intensity": "high", "duration": 60},
+                {"date": "2026-10-03", "intensity": "high", "duration": 55},
+                {"date": "2026-10-02", "intensity": "high", "duration": 50},
+            ],
+            "recoveryTrend": {"delta": -5},
+            "lifestyle": {"tags": [], "recentPatterns": []},
+        }
+        out = coach_context._attach_predictions(ctx)
+        patterns = out["lifestyle"]["recentPatterns"]
+        budget_tags = [p for p in patterns if p.startswith("tomorrow_budget:")]
+        self.assertTrue(len(budget_tags) > 0, "No budget tag found")
+        budget_val = budget_tags[0].split(":")[1]
+        self.assertEqual(budget_val, out["tomorrowBudgets"]["constraint"])
 
 

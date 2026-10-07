@@ -248,6 +248,24 @@ def _attach_predictions(context: dict[str, Any]) -> dict[str, Any]:
     # Stable field for coach routes. Speech and memory use ``hobbyFit.speak``.
     context["mentality_signal"] = signal
     context["hobbies"] = fit_hobbies
+
+    # Thread picture ariaTags into lifestyle.recentPatterns so Dummy/Chat
+    # replies cite the same tomorrow_budget:/working: tags Home already shows.
+    picture_tags: list[str] = []
+    picture_tags.extend(fc.aria_tags)
+    picture_tags.extend(working.aria_tags)
+    picture_tags.extend(budgets.aria_tags)
+    picture_tags.extend(hobby.aria_tags)
+    lifestyle = context.get("lifestyle")
+    if isinstance(lifestyle, dict):
+        existing = list(lifestyle.get("recentPatterns") or lifestyle.get("recent_patterns") or [])
+        for tag in picture_tags:
+            if tag not in existing:
+                existing.append(tag)
+        lifestyle["recentPatterns"] = existing
+        if "recent_patterns" in lifestyle:
+            lifestyle["recent_patterns"] = list(existing)
+
     return context
 
 

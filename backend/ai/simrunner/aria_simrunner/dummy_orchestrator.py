@@ -1820,6 +1820,56 @@ def _stream_samples(ctx) -> list[dict]:
     return samples
 
 
+def _picture_tags_from_sim(ctx) -> list[str]:
+    """Compute PredictiveCoach.picture ariaTags from SimRunner context.
+
+    Mirrors what the Swift ``predictiveCoachPicture()`` and Python
+    ``coach_context._attach_predictions`` produce so Dummy/Chat replies
+    cite the same ``tomorrow_budget:`` / ``working:`` tags Home shows.
+    """
+    try:
+        from backend._paths import ensure_lambda_on_path
+        ensure_lambda_on_path()
+        from aria_core import readiness_forecast as rf
+        from aria_core import user_working_model as uwm
+        from aria_core import tomorrow_budgets as tb
+    except Exception:
+        return []
+    today = getattr(ctx, "today", None)
+    if today is None:
+        return []
+    readiness = getattr(today, "readiness_score", None) or 0
+    sleep_hours = getattr(today, "total_sleep_hours", None) or 0
+    sleep_min = int(round(float(sleep_hours) * 60))
+    hrv = getattr(today, "hrv", None)
+    rhr = getattr(today, "resting_hr", None)
+    strain = getattr(today, "today_strain", None) or 0
+    stress = getattr(today, "stress_level", None) or 30
+    fc = rf.forecast(rf.ForecastInput(
+        current_readiness=int(readiness),
+        sleep_minutes=sleep_min,
+        hrv_ms=int(hrv) if isinstance(hrv, (int, float)) else 0,
+        resting_hr=int(rhr) if isinstance(rhr, (int, float)) else 0,
+        today_strain=float(strain),
+        stress_level=int(stress),
+    ))
+    acwr = getattr(today, "acwr", None)
+    high_strain = 0
+    if acwr is not None and float(acwr) >= 1.5:
+        high_strain = 4
+    working = uwm.snapshot(uwm.WorkingInput(
+        readiness_today=int(readiness) if readiness else None,
+        high_strain_low_recovery_days=high_strain,
+    ), tomorrow_posture=fc.posture)
+    people_energy = "open"
+    budgets = tb.snapshot(fc.posture, working.stance, people_energy)
+    result: list[str] = []
+    result.extend(fc.aria_tags)
+    result.extend(working.aria_tags)
+    result.extend(budgets.aria_tags)
+    return result
+
+
 def sim_context_to_chat_payload(
     ctx,
     *,
@@ -1854,6 +1904,9 @@ def sim_context_to_chat_payload(
     patterns = [p for p in (getattr(ctx, "occupation", None), getattr(ctx, "life_season", None)) if p]
     if getattr(ctx, "notable_event_note", None):
         patterns.append(str(ctx.notable_event_note))
+    for ptag in _picture_tags_from_sim(ctx):
+        if ptag not in patterns:
+            patterns.append(ptag)
     wake = getattr(ctx, "target_wake_hour", None)
     wake_s = f"{int(wake):02d}:00" if isinstance(wake, (int, float)) else None
     target_sleep = getattr(ctx, "target_sleep_hours", None)
