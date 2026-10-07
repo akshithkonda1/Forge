@@ -1,4 +1,5 @@
 import SwiftUI
+import ForgeCore
 
 @MainActor
 func readinessWhyCopy(store: AppStore) -> String {
@@ -45,30 +46,18 @@ func displaySessionName(_ name: String) -> String {
 
 /// Home's own readiness palette and vocabulary.
 ///
-/// Deliberately not `readinessColor(for:)` from Theme+Readiness.swift: that one
-/// uses different thresholds, different colours and different words ("Primed /
-/// Ready / Moderate / Recovery" against success/steel/warning/danger), and Chat
-/// has a third variant again. Unifying them changes what three screens look
-/// like, which is a design decision and not a side effect of moving files — so
-/// the behaviour here is preserved exactly and merely given a name that cannot
-/// collide with the other two now that it has left its single file.
+/// Cuts, hex, and Peak / Good / Fair / Low labels come from
+/// `shared/readiness.json` via `HomeReadinessTokens`. Deliberately not
+/// `readinessColor(for:)` from Theme+Readiness.swift ("Primed / Ready /
+/// Moderate / Recovery") and not ForgeCore `ReadinessBand`. Unifying those
+/// is a later design pass — Home keeps its words.
 enum HomeReadiness {
     static func color(_ score: Int) -> Color {
-        switch score {
-        case 85...: return Color.vitality
-        case 70..<85: return Color.ember
-        case 50..<70: return Color.steel
-        default: return Color.alert
-        }
+        Color(hex: HomeReadinessTokens.hex(for: score))
     }
 
     static func label(_ score: Int) -> String {
-        switch score {
-        case 85...: return "Peak"
-        case 70..<85: return "Good"
-        case 50..<70: return "Fair"
-        default: return "Low"
-        }
+        HomeReadinessTokens.label(for: score)
     }
 
     /// Spoken band — same cuts as `label`, written for VoiceOver.

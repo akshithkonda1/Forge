@@ -1,4 +1,5 @@
 import SwiftUI
+import ForgeCore
 
 // ============================================================
 // MARK: - Readiness band
@@ -13,20 +14,20 @@ enum HomeReadinessBand: Int, Hashable {
     case low, fair, good, peak
 
     init(score: Int) {
-        switch score {
-        case 85...:   self = .peak
-        case 70..<85: self = .good
-        case 50..<70: self = .fair
-        default:      self = .low
+        switch HomeReadinessTokens.band(for: score) {
+        case .peak: self = .peak
+        case .good: self = .good
+        case .fair: self = .fair
+        case .low:  self = .low
         }
     }
 
     var tint: Color {
         switch self {
-        case .peak: return Color.vitality
-        case .good: return .ember
-        case .fair: return .steel
-        case .low:  return Color.alert
+        case .peak: return Color(hex: HomeReadinessTokens.Band.peak.hex)
+        case .good: return Color(hex: HomeReadinessTokens.Band.good.hex)
+        case .fair: return Color(hex: HomeReadinessTokens.Band.fair.hex)
+        case .low:  return Color(hex: HomeReadinessTokens.Band.low.hex)
         }
     }
 

@@ -1,0 +1,43 @@
+{
+  "kind": "home-progress-hud",
+  "surface": "phone-home",
+  "mixLock": "chrome-not-nest",
+  "notes": "Phone Home Today Progress HUD chrome. Nest brand stays procedural AriaNestGeometry (soft-hex-field) — never mount this file as the logo. Watch / StandBy / web are out of scope. Band names are Peak / Good / Fair / Low — Home vocabulary, not Primed / Ready / Moderate / Recovery and not clinical labels.",
+  "bands": [
+    { "id": "peak", "label": "Peak", "min": 85, "hex": "22C55E", "token": "vitality" },
+    { "id": "good", "label": "Good", "min": 70, "hex": "FF4D00", "token": "ember" },
+    { "id": "fair", "label": "Fair", "min": 50, "hex": "5B8DEF", "token": "steel" },
+    { "id": "low", "label": "Low", "min": 0, "hex": "EF4444", "token": "alert" }
+  ],
+  "hud": {
+    "plateHex": "7EC8FF",
+    "emberSteelHex": "7BA6F7",
+    "tickCount": 48,
+    "majorEvery": 6,
+    "ringSize": 168,
+    "compactRingSize": 92,
+    "stroke": 5.5,
+    "compactStroke": 4.5,
+    "tickHz": 6,
+    "tickHzCeiling": 12,
+    "glowHz": 0.35
+  },
+  "trend": {
+    "plotFloor": 30,
+    "plotCap": 100,
+    "trendWindowDays": 7,
+    "trendWindowAnchor": "lastNight",
+    "trendPoints": "window",
+    "nightDate": "bedtime",
+    "nightCutoffHour": 12
+  },
+  "bannedSurfacePhrases": [
+    "diagnos",
+    "treat",
+    "prescribe",
+    "cure",
+    "medical advice",
+    "recovery-first",
+    "recovery week"
+  ]
+}
