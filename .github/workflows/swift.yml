@@ -4,7 +4,9 @@ name: Swift
 
 # pull_request is unfiltered so required checks always report. Push stays
 # limited to main and the Swift/widget paths. The heavy job no-ops green
-# when nothing Swift-relevant changed.
+# when nothing Swift-relevant changed. workflow_dispatch always runs the
+# real swift-build (ForgeCore tests + ForgeSwiftTests + builds) so tip
+# can be re-checked after a backend-only merge skipped the path filter.
 on:
   push:
     branches: [main]
@@ -14,6 +16,7 @@ on:
       - ".github/workflows/swift.yml"
       - "scripts/xcode_test_outcome.py"
   pull_request:
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -48,12 +51,14 @@ jobs:
     name: swift-changes
     runs-on: ubuntu-latest
     outputs:
-      relevant: ${{ steps.filter.outputs.relevant }}
+      relevant: ${{ github.event_name == 'workflow_dispatch' && 'true' || steps.filter.outputs.relevant }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        if: github.event_name != 'workflow_dispatch'
         with:
           fetch-depth: 2
       - uses: dorny/paths-filter@ceb8a2b8f2d89434be7ff52d3de7ec3738c5cc9d # v4.0.3
+        if: github.event_name != 'workflow_dispatch'
         id: filter
         with:
           filters: |
@@ -62,6 +67,9 @@ jobs:
               - "ForgeWidget/**"
               - ".github/workflows/swift.yml"
               - "scripts/xcode_test_outcome.py"
+      - name: Dispatch always builds
+        if: github.event_name == 'workflow_dispatch'
+        run: echo "workflow_dispatch — swift-build runs for real"
 
   build:
     name: swift-build
