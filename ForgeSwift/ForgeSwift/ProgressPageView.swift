@@ -40,6 +40,8 @@ struct ProgressPageView: View {
                 }
                 .padding(.top, 48)
 
+                StatsMosaicCard()
+
                 if isInitialLoading {
                     ForgeSkeletonBlock(height: 88, cornerRadius: 16)
                     ForgeSkeletonBlock(height: 160, cornerRadius: 16)

@@ -2,6 +2,262 @@ import SwiftUI
 import UIKit
 import ForgeCore
 
+/// Manual overlay for the Progress mosaic. Same day only — Health stays the
+/// ingest path; this is the honest write when the watch was off.
+enum StatsManualLog {
+    static let storageKey = "forge.stats.manual.v1"
+
+    struct Entry: Codable, Equatable {
+        var dayKey: String
+        var sleepHours: Double?
+        var waterGlasses: Double?
+        var steps: Int?
+        var habitsDone: Int?
+    }
+
+    static func dayKey(now: Date = Date(), calendar: Calendar = .current) -> String {
+        let c = calendar.dateComponents([.year, .month, .day], from: now)
+        return String(format: "%04d-%02d-%02d", c.year ?? 0, c.month ?? 0, c.day ?? 0)
+    }
+
+    static func load(defaults: UserDefaults = .standard, now: Date = Date()) -> Entry {
+        let key = dayKey(now: now)
+        guard let data = defaults.data(forKey: storageKey),
+              let entry = try? JSONDecoder().decode(Entry.self, from: data),
+              entry.dayKey == key else {
+            return Entry(dayKey: key)
+        }
+        return entry
+    }
+
+    static func save(_ entry: Entry, defaults: UserDefaults = .standard) {
+        guard let data = try? JSONEncoder().encode(entry) else { return }
+        defaults.set(data, forKey: storageKey)
+    }
+}
+
+struct StatsMosaicCard: View {
+    @EnvironmentObject var store: AppStore
+    @ObservedObject private var health = HealthKitManager.shared
+    @State private var showManual = false
+
+    private var mosaic: StatsMosaic.Snapshot {
+        let manual = StatsManualLog.load()
+        let sleepHours: Double?
+        let sleepManual: Bool
+        if let logged = manual.sleepHours {
+            sleepHours = logged
+            sleepManual = true
+        } else if store.dailyMetrics.totalSleep > 0 {
+            sleepHours = Double(store.dailyMetrics.totalSleep) / 60
+            sleepManual = false
+        } else if let hours = health.todayStats?.sleepHours, hours > 0 {
+            sleepHours = hours
+            sleepManual = false
+        } else {
+            sleepHours = nil
+            sleepManual = false
+        }
+
+        let water: Double?
+        let waterManual: Bool
+        if let logged = manual.waterGlasses {
+            water = logged
+            waterManual = true
+        } else if let glasses = health.todayStats?.water, glasses > 0 {
+            water = glasses
+            waterManual = false
+        } else {
+            water = nil
+            waterManual = false
+        }
+
+        let steps: Int?
+        let stepsManual: Bool
+        if let logged = manual.steps {
+            steps = logged
+            stepsManual = true
+        } else if store.dailyMetrics.steps > 0 {
+            steps = store.dailyMetrics.steps
+            stepsManual = false
+        } else if let healthSteps = health.todayStats?.steps, healthSteps > 0 {
+            steps = healthSteps
+            stepsManual = false
+        } else {
+            steps = nil
+            stepsManual = false
+        }
+
+        return StatsMosaic.snapshot(
+            StatsMosaic.Input(
+                sleepHours: sleepHours,
+                sleepManual: sleepManual,
+                workoutsThisWeek: workoutsThisWeek,
+                workoutGoal: 3,
+                waterGlasses: water,
+                waterManual: waterManual,
+                steps: steps,
+                stepsManual: stepsManual,
+                habitsDone: manual.habitsDone ?? 0,
+                habitsGoal: 3
+            )
+        )
+    }
+
+    private var workoutsThisWeek: Int {
+        let calendar = Calendar.current
+        let start = calendar.date(from: calendar.dateComponents([.yearForWeekOfYear, .weekOfYear], from: Date())) ?? Date()
+        return store.workoutHistory.filter { workout in
+            guard let date = ForgeDates.parse(workout.date) else { return false }
+            return date >= start
+        }.count
+    }
+
+    var body: some View {
+        let snap = mosaic
+        VStack(alignment: .leading, spacing: 14) {
+            HStack(alignment: .firstTextBaseline) {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("TODAY’S MOSAIC")
+                        .font(.system(size: 11, weight: .black))
+                        .foregroundColor(Color(hex: "7EC8FF"))
+                        .tracking(1.6)
+                    Text("\(snap.dayPercent)% · \(snap.doneCount)/5 tracks")
+                        .font(.system(size: 20, weight: .semibold, design: .rounded))
+                        .foregroundColor(.textPrimary)
+                }
+                Spacer()
+                Button("Log") { showManual = true }
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundColor(.ember)
+                    .accessibilityLabel("Log today’s stats manually")
+            }
+
+            LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 10) {
+                ForEach(snap.tiles) { tile in
+                    Button {
+                        store.openChat(with: tile.ariaPrompt, voice: false)
+                    } label: {
+                        VStack(alignment: .leading, spacing: 6) {
+                            HStack {
+                                Text(tile.track.title.uppercased())
+                                    .font(.system(size: 10, weight: .bold))
+                                    .foregroundColor(Color(hex: "7EC8FF"))
+                                    .tracking(1.1)
+                                Spacer()
+                                Circle()
+                                    .fill(tile.source == .empty ? Color.white.opacity(0.12) : Color.ember)
+                                    .frame(width: 6, height: 6)
+                            }
+                            Text(tile.headline)
+                                .font(.system(size: 22, weight: .bold, design: .rounded))
+                                .foregroundColor(.textPrimary)
+                            Text(tile.detail)
+                                .font(.system(size: 11, weight: .medium))
+                                .foregroundColor(.textTertiary)
+                            ProgressView(value: tile.progress)
+                                .tint(Color(hex: "7EC8FF"))
+                        }
+                        .padding(12)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .background(Color.surfaceElevated.opacity(0.8))
+                        .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 14)
+                                .stroke(Color(hex: "7EC8FF").opacity(tile.source == .empty ? 0.12 : 0.38), lineWidth: 1)
+                        )
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel("\(tile.track.title), \(tile.headline), \(tile.detail)")
+                    .accessibilityHint("Ask ARIA about this track")
+                }
+            }
+
+            Button {
+                store.openChat(with: snap.mosaicLine, voice: false)
+            } label: {
+                Text("Ask ARIA about this picture")
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundColor(.textPrimary)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 12)
+                    .background(Color.ember.opacity(0.16))
+                    .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 12)
+                            .stroke(Color(hex: "7EC8FF").opacity(0.28), lineWidth: 1)
+                    )
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel("Ask ARIA about today’s mosaic")
+        }
+        .padding(16)
+        .background(Color.surface.opacity(0.92))
+        .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 18)
+                .stroke(Color(hex: "7EC8FF").opacity(0.22), lineWidth: 1)
+        )
+        .sheet(isPresented: $showManual) {
+            StatsManualEntrySheet()
+                .environmentObject(store)
+        }
+    }
+}
+
+struct StatsManualEntrySheet: View {
+    @Environment(\.dismiss) private var dismiss
+    @State private var entry = StatsManualLog.load()
+
+    var body: some View {
+        NavigationStack {
+            Form {
+                Section {
+                    Text("Apple Health is the ingest path. Log here only when the day is missing — lifestyle numbers, not a clinical chart.")
+                        .font(.system(size: 13))
+                        .foregroundColor(.textSecondary)
+                }
+                Section("Sleep (hours)") {
+                    TextField("7.5", value: $entry.sleepHours, format: .number)
+                        .keyboardType(.decimalPad)
+                }
+                Section("Water (glasses)") {
+                    TextField("8", value: $entry.waterGlasses, format: .number)
+                        .keyboardType(.decimalPad)
+                }
+                Section("Steps") {
+                    TextField("8000", value: $entry.steps, format: .number)
+                        .keyboardType(.numberPad)
+                }
+                Section("Habits marked") {
+                    Stepper(value: Binding(
+                        get: { entry.habitsDone ?? 0 },
+                        set: { entry.habitsDone = $0 }
+                    ), in: 0...3) {
+                        Text("\(entry.habitsDone ?? 0) of 3")
+                    }
+                }
+            }
+            .navigationTitle("Log today")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Cancel") { dismiss() }
+                }
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Save") {
+                        var next = entry
+                        next.dayKey = StatsManualLog.dayKey()
+                        StatsManualLog.save(next)
+                        dismiss()
+                    }
+                }
+            }
+        }
+        .preferredColorScheme(.dark)
+    }
+}
+
 struct QuickStatsOverviewView: View {
     @EnvironmentObject var store: AppStore
     let timeRange: ProgressPageView.TimeRange

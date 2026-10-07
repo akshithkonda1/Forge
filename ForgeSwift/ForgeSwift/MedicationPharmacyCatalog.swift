@@ -58,6 +58,8 @@ struct PharmacySearchPage: Sendable {
 /// watchdog-kill the app. Search hits brand, generic, archetype, and disease.
 enum MedicationPharmacy {
     static let minimumCount = 10_000
+    /// Honest Show all cap so a 50k browse does not mount every row.
+    static let showAllLimit = 1_000
     private static let extrasKey = "forge.pharmacy.openfda.v3"
     private static let extrasAtKey = "forge.pharmacy.openfda.at.v3"
     private static let savedKey = "forge.pharmacy.saved.v1"
