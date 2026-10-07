@@ -52,9 +52,9 @@ def parse_tag(token: str) -> str | None:
 def coaching_line(constraint: str) -> str:
     return {
         BOTH: "Tomorrow both budgets are thin. A short walk or nothing — no hero session, no extra plans.",
-        PEOPLE: "Split day. Your body can take the session. Your people-budget cannot take the calendar.",
-        BODY: "Split day. People are fine if you want them. Don't stack a hard session on a thin body.",
-        NEITHER: "Neither budget is the limit. Spend one if you want — not both, just to prove you can.",
+        PEOPLE: "Split day. Your body can take the session. Your people-budget can't take another packed calendar.",
+        BODY: "Split day. People are fine if you want them. Don't stack a hard session on a thin body-budget.",
+        NEITHER: "Neither budget is the limit. Spend one if you want — no need to burn both.",
     }.get(constraint, "")
 
 

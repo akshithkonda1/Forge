@@ -352,7 +352,13 @@ class HobbyFitTests(unittest.TestCase):
         self.assertEqual(out["mentality_signal"], "quiet")
         self.assertEqual(out["hobbies"][0]["label"], "Pottery nights")
         self.assertNotIn("sam@", str(out["hobbies"]))
-        self.assertEqual(out["lifestyle"]["recentPatterns"], patterns)
+        result_patterns = out["lifestyle"]["recentPatterns"]
+        for p in patterns:
+            self.assertIn(p, result_patterns)
+        self.assertTrue(
+            any(p.startswith("forecast:tomorrow:") for p in result_patterns),
+            "picture tags should be injected into recentPatterns",
+        )
         block = coach_context.context_to_prompt_block(out)
         self.assertIn("quiet stretch", block)
         self.assertIn("Pottery nights", block)

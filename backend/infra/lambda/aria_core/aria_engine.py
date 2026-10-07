@@ -2330,6 +2330,22 @@ def _speak_without_vitals(*candidates: str) -> str:
     return _SPEAK_FALLBACK
 
 
+def _budget_notice(ctx: ARIAContext) -> str | None:
+    """Read ``tomorrow_budget:*`` from patterns and return a coaching line.
+
+    These tags come from ``PredictiveCoach.picture`` (Swift) and
+    ``coach_context._attach_predictions`` (Python). Fail closed: if no
+    budget tag is present, return ``None`` rather than inventing a split.
+    """
+    from . import tomorrow_budgets as tb
+
+    for token in list(ctx.lifestyle.recent_patterns or []) + list(ctx.lifestyle.tags or []):
+        parsed = tb.parse_tag(token)
+        if parsed and parsed != tb.NEITHER:
+            return tb.coaching_line(parsed)
+    return None
+
+
 def _lifestyle_notice(notice: str, brief: Any, fallback: str) -> str:
     """Lifestyle turns speak the life, not a vitals dump."""
     if brief is None or str(getattr(brief, "lead_domain", "") or "") != "lifestyle":
@@ -2684,6 +2700,10 @@ def _recommendation_response(
             tendency, _stance = parsed
             notice_bits.append(uwm._steering(tendency, uwm.MIXED))
             break
+
+    budget_line = _budget_notice(ctx)
+    if budget_line:
+        notice_bits.append(budget_line)
 
     is_lifestyle = brief is not None and str(getattr(brief, "lead_domain", "") or "") == "lifestyle"
     notice = _lifestyle_notice(" ".join(notice_bits), brief, action)
