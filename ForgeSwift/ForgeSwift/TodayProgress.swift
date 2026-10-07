@@ -1,10 +1,11 @@
 import Foundation
+import ForgeCore
 
 /// Today's Progress — how the day is filling in, not a medical score.
 ///
-/// Home lost the progress ring when the hero became a kinetic readiness field.
-/// This snapshot is the day itself: sleep, train, water, movement, habits.
-/// Readiness is the vibe chrome around that ring, never a diagnosis.
+/// Outer HUD ring + score are Home chrome (`HudProgressRing`). Nest stays
+/// the brand mark (`AriaNestGeometry`). This snapshot is the day itself:
+/// sleep, train, water, movement, habits. Readiness is vibe tint + label.
 enum TodayProgress {
     struct Track: Identifiable, Equatable {
         let id: String
@@ -50,7 +51,7 @@ enum TodayProgress {
     static let trackCount = 5
     static let headerTitle = "TODAY'S PROGRESS"
     static let emptyLine = "Nothing logged yet — that's fine."
-    static let bannedPhrases = ["diagnos", "treat", "prescribe", "cure", "medical advice"]
+    static let bannedPhrases = HomeReadinessTokens.bannedSurfacePhrases
 
     static func snapshot(_ input: Input) -> Snapshot {
         let sleep = sleepTrack(hours: input.sleepHours)

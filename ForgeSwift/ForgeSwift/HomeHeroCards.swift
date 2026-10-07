@@ -212,13 +212,13 @@ struct HomeTodayHero: View {
                         .minimumScaleFactor(0.7)
                         .lineLimit(1)
                         .contentTransition(.numericText())
-                    Text("TODAY")
+                    Text(snap.vibeLabel.uppercased())
                         .font(HomeType.micro)
-                        .foregroundColor(HudChrome.plate)
+                        .foregroundColor(energy)
                         .tracking(1.6)
                     Text("\(snap.completed)/\(snap.total)")
                         .font(HomeType.micro)
-                        .foregroundColor(.textTertiary)
+                        .foregroundColor(HudChrome.plate.opacity(0.72))
                 }
                 .accessibilityHidden(true)
             }
@@ -459,8 +459,8 @@ private struct HomePrimaryCTA: View {
                     )
                 } label: {
                     HStack(spacing: 6) {
-                        // One animating mark per screen: the hero ring-field
-                        // is live, so this 14pt Nest mark stays still.
+                        // One live mark per screen: Today chrome is the HUD
+                        // ring, so this 14pt Nest mark stays still.
                         ARIAIdentityMark(state: .idle, mood: .energized, size: 14, amplitude: 0.22)
                             .environment(\.forgeMinimalAnimation, true)
                         Text("Why this session")
