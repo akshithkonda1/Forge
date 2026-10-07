@@ -3196,6 +3196,10 @@ def generate_response(
             current = str(envelope.get(key) or "")
             if spoken not in current:
                 envelope[key] = f"{spoken} {current}".strip()
+    people_line = hf.people_coach_line(message, tokens)
+    if people_line:
+        for key in ("prose_summary", "message"):
+            envelope[key] = people_line
     callback = _companion_callback(ctx)
     if callback:
         msg = str(envelope.get("message") or "")

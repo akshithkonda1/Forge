@@ -324,6 +324,61 @@ def is_hobby_question(message: str) -> bool:
     return any(phrase in lower for phrase in phrases)
 
 
+_PEOPLE_QUESTION = (
+    "who are your people",
+    "who are my people",
+    "name my people",
+    "who matters to me",
+)
+
+
+def is_people_question(message: str) -> bool:
+    lower = str(message or "").lower()
+    return any(phrase in lower for phrase in _PEOPLE_QUESTION)
+
+
+def _named_people(tokens: list[str] | None) -> list[dict[str, str]]:
+    people: list[dict[str, str]] = []
+    for token in tokens or []:
+        parts = str(token).split(":")
+        if len(parts) < 3 or parts[0] != "people" or parts[1] == "count":
+            continue
+        name = parts[1]
+        if not name or "@" in name or any(ch.isdigit() for ch in name):
+            continue
+        if name.lower().startswith(("partner_", "cycle", "support_cycle")):
+            continue
+        people.append({"firstName": name, "relation": parts[2]})
+        if len(people) >= 8:
+            break
+    return people
+
+
+def people_coach_line(message: str, tokens: list[str] | None) -> str | None:
+    """Coach words only. Never a raw people: dump or 'Your people: A, B' list."""
+    if not is_people_question(message):
+        return None
+    people = _named_people(tokens)
+    if not people:
+        return (
+            "I can keep a first name and a label when Remember me is on. "
+            "Name them in Lifestyle if you want — not a phone number."
+        )
+    first = people[0]
+    name = str(first.get("firstName") or "").strip()
+    relation = str(first.get("relation") or "friend").replace("_", " ").strip()
+    line = (
+        f"If the week is quiet, leave {name} ({relation}) off the calendar. "
+        "A reserved week can stretch toward someone you already named — not a stranger."
+    )
+    if not speech_is_clean(line) or "people:" in line.lower():
+        return (
+            "Keep a quieter week off the calendar. Stretch toward someone you "
+            "already named later — not a stranger."
+        )
+    return line
+
+
 def chat_line(message: str, tokens: list[str] | None) -> str | None:
     """Spoken line for Dummy / Chat. None when this turn is not a hobby ask."""
     if not is_hobby_question(message):
@@ -348,14 +403,5 @@ def _named_person_suffix(signal: str, tokens: list[str] | None) -> str:
     path = hp.OPEN_GENTLY if signal == QUIET else hp.RESTORE_QUIET if signal == DRAINED_SOCIAL else ""
     if not path:
         return ""
-    people: list[dict[str, str]] = []
-    for token in tokens or []:
-        parts = str(token).split(":")
-        if len(parts) < 3 or parts[0] != "people" or parts[1] == "count":
-            continue
-        name = parts[1]
-        if not name or "@" in name or any(ch.isdigit() for ch in name):
-            continue
-        people.append({"firstName": name, "relation": parts[2]})
-        break
+    people = _named_people(tokens)[:1]
     return hp._people_suffix(path, people)

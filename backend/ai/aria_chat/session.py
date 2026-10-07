@@ -133,6 +133,26 @@ def _strip_memory_fields(payload: dict[str, Any]) -> dict[str, Any]:
     return clean
 
 
+def _file_dummy_people(
+    user_id: str,
+    payload: dict[str, Any],
+    *,
+    memory_enabled: bool,
+    safety_band: str,
+) -> None:
+    """Dummy/stub only. Remember-me off and SAFETY_LOCK_BANDS write nothing."""
+    if not memory_enabled:
+        return
+    from services import coach_context
+
+    coach_context.file_people_tags(
+        user_id,
+        payload,
+        allow_ingest=True,
+        safety_lock=safety_band in guidance.SAFETY_LOCK_BANDS,
+    )
+
+
 def _prepare_payload(payload: dict[str, Any], *, memory_enabled: bool) -> dict[str, Any]:
     raw = payload if isinstance(payload, dict) else {}
     clean = sanitize_inbound_chat_payload(raw)
@@ -317,6 +337,12 @@ def run_turn(
         prior_spoken=prior_spoken,
     )
     envelope = speak_guard.guard_envelope(envelope, topic=spoken_in)
+    _file_dummy_people(
+        user_id,
+        body,
+        memory_enabled=memory_enabled,
+        safety_band=str(envelope.get("guidance_band") or ""),
+    )
     if guardrail is None:
         # Same care line /ai/chat and the phone lead a coaching reply with.
         envelope = aria_guidance_policy.with_care_line(
