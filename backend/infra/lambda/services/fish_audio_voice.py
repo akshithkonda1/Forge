@@ -166,7 +166,8 @@ def synthesize(
 ) -> bytes:
     """POST text to Fish Audio. Callers must already have checked the flag."""
     key = require_api_key()
-    payload = json.dumps({"text": text, "format": "mp3"}).encode("utf-8")
+    line = (text or "").strip()
+    payload = json.dumps({"text": line, "format": "mp3"}).encode("utf-8")
     caller = http or _stdlib_http
     status, audio = caller(
         "POST",
