@@ -175,7 +175,7 @@ enum SleepAlarmScheduler {
 
         let windows: [UUID: Int] = await MainActor.run {
             Dictionary(uniqueKeysWithValues: alarms.map { alarm in
-                (alarm.id, HealthKitSleepService.shared.adaptiveSmartWakeMinutes(base: alarm.smartWakeWindow, depth: sleeperDepth))
+                (alarm.id, HealthKitSleepService.shared.adaptiveSmartWakeMinutes(base: alarm.smartWakeWindow, depth: ForgeAlarmStore.shared.sleeperDepth))
             })
         }
 
@@ -361,7 +361,7 @@ enum SleepAlarmScheduler {
     ) async {
         let alarms = ForgeAlarmStore.shared.alarms
         guard let alarm = SleepWakeEngine.nextAlarm(in: alarms, now: now), alarm.isSmartWake else { return }
-        let window = HealthKitSleepService.shared.adaptiveSmartWakeMinutes(base: alarm.smartWakeWindow, depth: sleeperDepth)
+        let window = HealthKitSleepService.shared.adaptiveSmartWakeMinutes(base: alarm.smartWakeWindow, depth: ForgeAlarmStore.shared.sleeperDepth)
         guard let hard = SleepWakeEngine.nextHardFire(alarm: alarm, now: now) else { return }
         let smart = SleepWakeEngine.smartWakeFire(hard: hard, windowMinutes: window)
         let decision = SmartWakeEarlyFire.decide(
@@ -555,6 +555,7 @@ struct AlarmTab: View {
 struct NextAlarmHero: View {
     let alarm: ForgeAlarm
     @ObservedObject private var hk = HealthKitSleepService.shared
+    @ObservedObject private var store = ForgeAlarmStore.shared
 
     private var timeString: String {
         let f = DateFormatter(); f.dateFormat = "h:mm"
@@ -593,7 +594,7 @@ struct NextAlarmHero: View {
                 .font(.system(size: 14))
                 .foregroundColor(.textSecondary)
             if alarm.isSmartWake {
-                let lead = hk.adaptiveSmartWakeMinutes(base: alarm.smartWakeWindow, depth: sleeperDepth)
+                let lead = hk.adaptiveSmartWakeMinutes(base: alarm.smartWakeWindow, depth: store.sleeperDepth)
                 Text("Smart wake opens \(lead) min earlier tonight. Hard alarm still fires.")
                     .font(.system(size: 12))
                     .foregroundColor(.textTertiary)

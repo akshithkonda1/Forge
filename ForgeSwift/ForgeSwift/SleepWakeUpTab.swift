@@ -661,11 +661,10 @@ struct VolumeRampPreview: View {
     let curve: VolumeRampCurve
 
     private func height(for x: CGFloat) -> CGFloat {
-        switch curve {
-        case .instant: return x > 0.02 ? 1.0 : 0
-        case .gentle:  return min(1.0, x * 6.67)
-        case .gradual: return x * x
-        }
+        CGFloat(SleepVolumeRamp.gain(
+            elapsed: TimeInterval(x) * curve.rampSeconds,
+            seconds: curve.rampSeconds
+        ))
     }
 
     var body: some View {
