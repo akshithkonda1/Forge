@@ -72,6 +72,47 @@ def spoken_ban_hits(text: str) -> tuple[str, ...]:
             hits.append(token)
     return tuple(hits)
 
+
+# Stance / picture / posture-label tokens must never be spoken. The bare verb
+# "protect" is legitimate Iris speech; only the parenthetical label is denied.
+_SPOKEN_STANCE_TOKENS = (
+    "cap_heroics",
+    "keep_rhythm",
+    "hold_the_line",
+    "rebuild_trust",
+)
+_SPOKEN_WORKING_TAG_RE = re.compile(
+    r"(?i)working:(?:overreacher|protector|weekend_drop|rebuilding|"
+    r"steady|unknown|feel|confidence):"
+)
+_SPOKEN_POSTURE_LABEL_RE = re.compile(r"(?i)\((?:protect|rest|push|steady)\)")
+
+
+def spoken_engine_token_hits(text: str) -> tuple[str, ...]:
+    """Engine tokens found in spoken ``message`` / ``prose_summary``."""
+    raw = text or ""
+    if not raw.strip():
+        return ()
+    lower = raw.lower()
+    hits: list[str] = []
+    for token in _SPOKEN_STANCE_TOKENS:
+        if token in lower:
+            hits.append(token)
+    if "pictureariatags" in lower:
+        hits.append("pictureAriaTags")
+    if "forecast:tomorrow:" in lower:
+        hits.append("forecast:tomorrow:")
+    if "tomorrow_budget:" in lower:
+        hits.append("tomorrow_budget:")
+    if _SPOKEN_WORKING_TAG_RE.search(raw):
+        hits.append("working:")
+    for match in _SPOKEN_POSTURE_LABEL_RE.finditer(raw):
+        label = match.group(0).lower()
+        if label not in hits:
+            hits.append(label)
+    return tuple(hits)
+
+
 _PEOPLE_TAG_RE = re.compile(r"\bpeople:[^\s,.;]+", re.I)
 _YOUR_PEOPLE_LIST_RE = re.compile(r"(?i)your people:\s*[^.?!]+[.?!]?")
 

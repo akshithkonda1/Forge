@@ -270,6 +270,20 @@ def _attach_predictions(context: dict[str, Any]) -> dict[str, Any]:
     picture_tags.extend(budgets.aria_tags)
     context["pictureAriaTags"] = picture_tags
 
+    # Slice 1: Dummy/Chat also read lifestyle.recentPatterns. Deduped inject
+    # of the same picture tags Home already shows — no hobby tags.
+    lifestyle = context.get("lifestyle")
+    if isinstance(lifestyle, dict):
+        existing = list(
+            lifestyle.get("recentPatterns") or lifestyle.get("recent_patterns") or []
+        )
+        for tag in picture_tags:
+            if tag not in existing:
+                existing.append(tag)
+        lifestyle["recentPatterns"] = existing
+        if "recent_patterns" in lifestyle:
+            lifestyle["recent_patterns"] = list(existing)
+
     return context
 
 

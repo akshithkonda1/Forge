@@ -1517,7 +1517,7 @@ def _interpret_readiness(ctx: ARIAContext, baselines: Any = None) -> Signal | No
                 priority = "medium"
             interp_bits.append(
                 f"tomorrow's readiness is forecast at {r.tomorrow_predicted_score} "
-                f"({posture}) — cap intensity, this is a lifestyle guide not a diagnosis"
+                "— cap intensity, this is a lifestyle guide not a diagnosis"
             )
         elif posture == "push":
             if direction != "negative":
@@ -2686,11 +2686,9 @@ def _recommendation_response(
         actions = actions[:2] + ["Tell ARIA your last workout"]
         notice_bits.append("I don't have your recent training load yet — what and when was your last real session?")
     if ctx.readiness.tomorrow_predicted_score is not None:
-        posture = (ctx.readiness.tomorrow_posture or "").lower()
         notice_bits.append(
             f"Tomorrow's readiness is forecast at {ctx.readiness.tomorrow_predicted_score}"
-            + (f" ({posture})" if posture else "")
-            + " — a lifestyle guide for how hard tomorrow should be, not a diagnosis."
+            " — a lifestyle guide for how hard tomorrow should be, not a diagnosis."
         )
     from . import user_working_model as uwm
 
@@ -3220,6 +3218,12 @@ def generate_response(
     if people_line:
         for key in ("prose_summary", "message"):
             envelope[key] = people_line
+    budget = _budget_notice(ctx)
+    if budget:
+        for key in ("prose_summary", "message"):
+            current = str(envelope.get(key) or "")
+            if budget not in current:
+                envelope[key] = f"{current} {budget}".strip()
     callback = _companion_callback(ctx)
     if callback:
         msg = str(envelope.get("message") or "")
