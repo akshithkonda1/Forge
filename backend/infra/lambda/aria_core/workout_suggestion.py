@@ -184,8 +184,8 @@ def wedding_plan(days_until: int) -> EventTrainingPlan:
         reduce_volume=True,
         keep_light=days_until <= 7,
         reason=(
-            f"Wedding in {days_until} {_days_word(days_until)} — progressive lighter loads, "
-            "less volume, more recovery, chest/arms/abs so the suit sits right."
+            f"Wedding in {days_until} {_days_word(days_until)} — lighter loads, "
+            "less volume, keep it easy on chest/arms/abs so the suit sits well."
         ),
     )
 
