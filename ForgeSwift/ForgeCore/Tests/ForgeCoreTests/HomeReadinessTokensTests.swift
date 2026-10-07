@@ -26,6 +26,9 @@ final class HomeReadinessTokensTests: XCTestCase {
             let tickHz: Double
             let tickHzCeiling: Double
             let glowHz: Double
+            let tickChromeFloor: Double
+            let armedMajorTickOpacity: Double
+            let inArcMinimumScale: Double
         }
 
         struct Trend: Decodable {
@@ -76,6 +79,9 @@ final class HomeReadinessTokensTests: XCTestCase {
         XCTAssertEqual(file.hud.tickHz, HomeReadinessTokens.tickHz, accuracy: 0.0001)
         XCTAssertEqual(file.hud.tickHzCeiling, HomeReadinessTokens.tickHzCeiling, accuracy: 0.0001)
         XCTAssertEqual(file.hud.glowHz, HomeReadinessTokens.glowHz, accuracy: 0.0001)
+        XCTAssertEqual(file.hud.tickChromeFloor, HomeReadinessTokens.tickChromeFloor, accuracy: 0.0001)
+        XCTAssertEqual(file.hud.armedMajorTickOpacity, HomeReadinessTokens.armedMajorTickOpacity, accuracy: 0.0001)
+        XCTAssertEqual(file.hud.inArcMinimumScale, HomeReadinessTokens.inArcMinimumScale, accuracy: 0.0001)
         XCTAssertEqual(file.trend.plotFloor, HomeReadinessTokens.plotFloor)
         XCTAssertEqual(file.trend.plotCap, HomeReadinessTokens.plotCap)
         XCTAssertEqual(file.trend.trendWindowDays, HomeReadinessTokens.trendWindowDays)
@@ -177,6 +183,14 @@ final class HomeReadinessTokensTests: XCTestCase {
         XCTAssertTrue(HomeReadinessTokens.tickArmed(index: 47, sweep: 1))
         XCTAssertLessThanOrEqual(HomeReadinessTokens.tickHz, HomeReadinessTokens.tickHzCeiling)
         XCTAssertLessThanOrEqual(HomeReadinessTokens.tickHz, AriaNestGeometry.paintHz)
+        let trough = HomeReadinessTokens.paintedTickOpacity(major: true, armed: true, glow: 0.62)
+        let peak = HomeReadinessTokens.paintedTickOpacity(major: true, armed: true, glow: 1)
+        XCTAssertEqual(trough, peak, accuracy: 0.0001)
+        XCTAssertGreaterThanOrEqual(trough, HomeReadinessTokens.tickChromeFloor)
+        XCTAssertGreaterThanOrEqual(trough, 0.70)
+        XCTAssertTrue(HomeReadinessTokens.showsInArcMeta(isAccessibilitySize: false))
+        XCTAssertFalse(HomeReadinessTokens.showsInArcMeta(isAccessibilitySize: true))
+        XCTAssertEqual(HomeReadinessTokens.inArcMinimumScale, 0.7, accuracy: 0.0001)
         XCTAssertEqual(HomeReadinessTokens.tickInterval, 1.0 / HomeReadinessTokens.tickHz, accuracy: 0.0001)
     }
 

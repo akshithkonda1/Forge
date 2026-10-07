@@ -17,6 +17,7 @@ enum HudChrome {
     static let compactStroke = CGFloat(HomeReadinessTokens.compactStroke)
     static let tickHz = HomeReadinessTokens.tickHz
     static let tickInterval = HomeReadinessTokens.tickInterval
+    static let inArcMinimumScale = CGFloat(HomeReadinessTokens.inArcMinimumScale)
 
     /// HUD cyan-steel plate. Brand ember stays the energy accent — this is
     /// the luminous plate the sweep rides on.
@@ -82,7 +83,7 @@ struct HudProgressRing<Center: View>: View {
                     paused: paused
                 )
                 ZStack {
-                    HudTickRing(size: size, energy: energy, sweep: sweep, glow: glow)
+                    HudTickRing(size: size, energy: energy, sweep: sweep)
                     Circle()
                         .stroke(HudChrome.plate.opacity(0.10), style: StrokeStyle(lineWidth: 1))
                         .frame(width: ring + 10, height: ring + 10)
@@ -158,7 +159,6 @@ struct HudTickRing: View {
     var size: CGFloat
     var energy: Color
     var sweep: CGFloat
-    var glow: Double
 
     var body: some View {
         Canvas { context, canvas in
@@ -179,15 +179,18 @@ struct HudTickRing: View {
                     x: center.x + CGFloat(cos(angle)) * outer,
                     y: center.y + CGFloat(sin(angle)) * outer
                 ))
+                let opacity = HomeReadinessTokens.paintedTickOpacity(
+                    major: major, armed: armed, glow: 0
+                )
                 let color: Color
                 if major && armed {
-                    color = energy.opacity(0.52 + 0.38 * glow)
+                    color = energy.opacity(opacity)
                 } else if armed {
-                    color = HudChrome.plate.opacity(0.42)
+                    color = HudChrome.plate.opacity(opacity)
                 } else if major {
-                    color = HudChrome.emberSteel.opacity(0.28)
+                    color = HudChrome.emberSteel.opacity(opacity)
                 } else {
-                    color = HudChrome.plate.opacity(0.16)
+                    color = HudChrome.plate.opacity(opacity)
                 }
                 context.stroke(path, with: .color(color), lineWidth: major ? 1.5 : 0.7)
             }
@@ -273,6 +276,11 @@ private struct HudCornerBrackets: View {
 extension View {
     func hudPlate(energy: Color, compact: Bool = false) -> some View {
         modifier(HudPlate(energy: energy, compact: compact))
+    }
+
+    /// Constrained HUD type — same floor as the in-arc score.
+    func hudInArcText() -> some View {
+        minimumScaleFactor(HudChrome.inArcMinimumScale).lineLimit(1)
     }
 }
 

@@ -20,7 +20,10 @@
     "compactStroke": 4.5,
     "tickHz": 6,
     "tickHzCeiling": 12,
-    "glowHz": 0.35
+    "glowHz": 0.35,
+    "tickChromeFloor": 0.70,
+    "armedMajorTickOpacity": 0.78,
+    "inArcMinimumScale": 0.7
   },
   "trend": {
     "plotFloor": 30,

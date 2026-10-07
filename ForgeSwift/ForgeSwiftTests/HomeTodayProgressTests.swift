@@ -116,6 +116,15 @@ final class HomeTodayProgressTests: XCTestCase {
         XCTAssertGreaterThan(HomeMetrics.hudRadius, 0)
         XCTAssertEqual(HudChrome.plate.forgeHexString, HomeReadinessTokens.plateHex)
         XCTAssertEqual(HudChrome.emberSteel.forgeHexString, HomeReadinessTokens.emberSteelHex)
+        XCTAssertEqual(HudChrome.inArcMinimumScale, 0.7, accuracy: 0.0001)
+        XCTAssertEqual(HudChrome.inArcMinimumScale, CGFloat(HomeReadinessTokens.inArcMinimumScale), accuracy: 0.0001)
+        XCTAssertTrue(HomeReadinessTokens.showsInArcMeta(isAccessibilitySize: false))
+        XCTAssertFalse(HomeReadinessTokens.showsInArcMeta(isAccessibilitySize: true))
+        let trough = HomeReadinessTokens.paintedTickOpacity(major: true, armed: true, glow: 0.62)
+        let crest = HomeReadinessTokens.paintedTickOpacity(major: true, armed: true, glow: 1)
+        XCTAssertEqual(trough, crest, accuracy: 0.0001)
+        XCTAssertGreaterThanOrEqual(trough, HomeReadinessTokens.tickChromeFloor)
+        XCTAssertGreaterThanOrEqual(trough, 0.70)
     }
 
     func testReduceMotionPaintsFinalValueAndPausesClock() {

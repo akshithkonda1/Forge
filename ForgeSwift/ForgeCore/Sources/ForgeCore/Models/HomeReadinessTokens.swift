@@ -26,6 +26,10 @@ public enum HomeReadinessTokens: Sendable {
     public static let tickHzCeiling: Double = 12
     public static let tickInterval: Double = 1.0 / 6.0
     public static let glowHz: Double = 0.35
+    /// Cove chrome floor — armed major ticks never ride the glow breath.
+    public static let tickChromeFloor: Double = 0.70
+    public static let armedMajorTickOpacity: Double = 0.78
+    public static let inArcMinimumScale: Double = 0.7
 
     public static let plotFloor = 30
     public static let plotCap = 100
@@ -118,6 +122,7 @@ public enum HomeReadinessTokens: Sendable {
     }
 
     /// Still pose is full glow. Live pose is a slow breath sampled at `tickHz`.
+    /// Decorative — head / arc shadow only. Tick chrome ignores this.
     public static func headGlow(time: Double, paused: Bool) -> Double {
         if paused { return 1 }
         return 0.62 + 0.38 * (0.5 + 0.5 * sin(time * .pi * 2 * glowHz))
@@ -126,6 +131,21 @@ public enum HomeReadinessTokens: Sendable {
     public static func tickArmed(index: Int, sweep: Double) -> Bool {
         guard tickCount > 0 else { return false }
         return Double(index) / Double(tickCount) <= sweep + 0.0001
+    }
+
+    /// Tick paint is frozen. `glow` is accepted so tests prove breath cannot
+    /// dip armed major chrome below `tickChromeFloor`.
+    public static func paintedTickOpacity(major: Bool, armed: Bool, glow: Double) -> Double {
+        _ = glow
+        if major && armed { return max(tickChromeFloor, armedMajorTickOpacity) }
+        if armed { return 0.42 }
+        if major { return 0.28 }
+        return 0.16
+    }
+
+    /// Accessibility content sizes keep only the score in-arc.
+    public static func showsInArcMeta(isAccessibilitySize: Bool) -> Bool {
+        !isAccessibilitySize
     }
 
     public static func containsBannedPhrase(_ line: String) -> String? {

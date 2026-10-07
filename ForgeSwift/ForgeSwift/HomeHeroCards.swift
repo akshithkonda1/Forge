@@ -171,10 +171,14 @@ enum HomeLifeSentence {
 /// One card: today's progress ring, readiness vibe, the session, the one thing to do.
 struct HomeTodayHero: View {
     @EnvironmentObject var store: AppStore
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     let action: HomePrimaryAction
     @State private var showScore = false
 
     private var recovery: Bool { action.usesRecoveryChrome(store: store) }
+    private var showInArcMeta: Bool {
+        HomeReadinessTokens.showsInArcMeta(isAccessibilitySize: dynamicTypeSize.isAccessibilitySize)
+    }
 
     private var aging: AgingSnapshot {
         AgingBridge.snapshot(store: store)
@@ -209,22 +213,34 @@ struct HomeTodayHero: View {
                                 endPoint: .bottom
                             )
                         )
-                        .minimumScaleFactor(0.7)
-                        .lineLimit(1)
+                        .hudInArcText()
                         .contentTransition(.numericText())
-                    Text(snap.vibeLabel.uppercased())
-                        .font(HomeType.micro)
-                        .foregroundColor(energy)
-                        .tracking(1.6)
-                    Text("\(snap.completed)/\(snap.total)")
-                        .font(HomeType.micro)
-                        .foregroundColor(HudChrome.plate.opacity(0.72))
+                    if showInArcMeta {
+                        Text(snap.vibeLabel.uppercased())
+                            .font(HomeType.micro)
+                            .foregroundColor(energy)
+                            .tracking(1.6)
+                            .hudInArcText()
+                        Text("\(snap.completed)/\(snap.total)")
+                            .font(HomeType.micro)
+                            .foregroundColor(HudChrome.plate.opacity(0.72))
+                            .hudInArcText()
+                    }
                 }
                 .accessibilityHidden(true)
             }
             .frame(maxWidth: .infinity)
             .accessibilityElement(children: .ignore)
             .accessibilityLabel(snap.voiceOverLabel)
+
+            if !showInArcMeta {
+                Text("\(snap.vibeLabel) · \(snap.completed)/\(snap.total)")
+                    .font(HomeType.micro)
+                    .foregroundColor(energy)
+                    .hudInArcText()
+                    .frame(maxWidth: .infinity)
+                    .accessibilityHidden(true)
+            }
 
             Text(snap.vibeLine)
                 .font(HomeType.status)
