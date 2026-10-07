@@ -72,6 +72,17 @@ def spoken_ban_hits(text: str) -> tuple[str, ...]:
             hits.append(token)
     return tuple(hits)
 
+_PEOPLE_TAG_RE = re.compile(r"\bpeople:[^\s,.;]+", re.I)
+_YOUR_PEOPLE_LIST_RE = re.compile(r"(?i)your people:\s*[^.?!]+[.?!]?")
+
+
+def _strip_people_dump(text: str) -> str:
+    """Spoken reply must never dump a people list or people: tags raw."""
+    cleaned = _PEOPLE_TAG_RE.sub("", text)
+    cleaned = _YOUR_PEOPLE_LIST_RE.sub("", cleaned)
+    return re.sub(r"\s{2,}", " ", cleaned).strip()
+
+
 _MEMORY_HEADERS = (
     "Recent patterns:",
     "[MEMORY — long term]",
@@ -256,6 +267,7 @@ def guard_speak(
         notes.extend(_notes_from_memory_block(memory_block))
     topic = _infer_topic(topic, card, stance, raw)
     cleaned = _rewrite_zero_hours(raw)
+    cleaned = _strip_people_dump(cleaned)
     cleaned = _strip_denied(cleaned, _deny_phrases())
     cleaned = _strip_memory(cleaned, notes, original=raw)
     cleaned = _strip_button_sentences(cleaned, card)

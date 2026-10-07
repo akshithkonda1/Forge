@@ -745,6 +745,18 @@ def apply_conversation(
 
     fusion = envelope.get("fusion") if isinstance(envelope.get("fusion"), dict) else {}
     stance = str(fusion.get("stance") or "")
+    from aria_core import hobby_fit as hf
+
+    if hf.is_people_question(message):
+        spoken = polish_iris(
+            hf.people_coach_line(message, None) or "",
+            memory_enabled=memory_enabled,
+            last_spoken=last_spoken,
+            seed=seed,
+        )
+        envelope["message"] = spoken
+        envelope["prose_summary"] = spoken
+        return speak_guard.guard_envelope(envelope, topic="lifestyle")
     if (not memory_enabled) and re.search(r"(?i)\bremember\b", message or ""):
         spoken = polish_iris(
             _pick_fresh(seed, _MEMORY_OFF, used_spoken),

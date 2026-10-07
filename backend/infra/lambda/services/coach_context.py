@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import re
 from typing import Any
 
 from empty_state import empty_profile, empty_readiness
@@ -15,6 +16,17 @@ from seed_data import (
 )
 from services import readiness, scoring
 from storage import dynamodb, keys
+
+# On-device PeopleDirectory tags: people:FirstName:relation (max 8).
+# Phones, emails, and partner/cycle prefixes never qualify — same strip as
+# sanitize_inbound_chat_payload / vault #307.
+_PEOPLE_PREFIX = "people:"
+_PEOPLE_COUNT = "count"
+_PEOPLE_CAP = 8
+_DENIED_PEOPLE_NAME = re.compile(
+    r"(?i)^(?:partner_|support_cycle|partner_name|partner_phase|"
+    r"partner_day|partner_cycle|cycle)"
+)
 
 
 def _strip_keys(item: dict[str, Any]) -> dict[str, Any]:
@@ -368,24 +380,172 @@ def _hobby_inputs(context: dict[str, Any]) -> tuple[list[str], float | None, flo
     return hobbies, social, wake
 
 
-def _known_people(context: dict[str, Any]) -> list[dict[str, str]]:
-    """First name + label only. Contact ids, phones, and emails never qualify."""
+def _admit_person_name(name: str) -> bool:
+    """First name only. Reject phones, emails, URLs, and partner/cycle prefixes."""
+    text = str(name or "").strip()
+    if not text or not (1 <= len(text) <= 24):
+        return False
+    if "@" in text or ":" in text or any(ch.isdigit() for ch in text):
+        return False
+    if "http" in text.lower():
+        return False
+    return _DENIED_PEOPLE_NAME.match(text) is None
+
+
+def _admit_relation(relation: str) -> bool:
+    text = str(relation or "").strip()
+    if not text or not (1 <= len(text) <= 24):
+        return False
+    if "@" in text or any(ch.isdigit() for ch in text) or "http" in text.lower():
+        return False
+    return _DENIED_PEOPLE_NAME.match(text) is None
+
+
+def admit_people_tag(token: str) -> dict[str, str] | None:
+    """Admit ``people:FirstName:relation``. Count rows and PII never qualify."""
+    parts = str(token or "").strip().split(":")
+    if len(parts) < 3 or parts[0] != "people" or parts[1] == _PEOPLE_COUNT:
+        return None
+    name, relation = parts[1].strip(), parts[2].strip()
+    if not _admit_person_name(name) or not _admit_relation(relation):
+        return None
+    return {"firstName": name, "relation": relation}
+
+
+def people_tag_is_dirty(token: str) -> bool:
+    """True for a people: tag that must never be written or spoken raw."""
+    text = str(token or "").strip()
+    if not text.startswith(_PEOPLE_PREFIX):
+        return False
+    parts = text.split(":")
+    if len(parts) >= 2 and parts[1] == _PEOPLE_COUNT:
+        return False
+    return admit_people_tag(text) is None
+
+
+def _people_tokens(context: dict[str, Any]) -> list[str]:
     tokens: list[str] = []
+    lifestyle = context.get("lifestyle") if isinstance(context.get("lifestyle"), dict) else {}
     for blob in (
         context.get("lifestyleTags"),
-        (context.get("lifestyle") or {}).get("tags"),
-        (context.get("lifestyle") or {}).get("recentPatterns"),
+        context.get("livingTags"),
+        context.get("tags"),
+        context.get("lifestyle_tags"),
+        context.get("recentPatterns"),
+        context.get("recent_patterns"),
+        lifestyle.get("tags"),
+        lifestyle.get("recentPatterns"),
+        lifestyle.get("recent_patterns"),
         context.get("people"),
     ):
         if isinstance(blob, list):
             tokens.extend(str(t) for t in blob)
+        elif isinstance(blob, str) and blob.startswith(_PEOPLE_PREFIX):
+            tokens.append(blob)
+    return tokens
+
+
+def _known_people(context: dict[str, Any]) -> list[dict[str, str]]:
+    """First name + label only. Contact ids, phones, and emails never qualify."""
     people: list[dict[str, str]] = []
-    for token in tokens:
-        parts = token.split(":")
-        if len(parts) < 3 or parts[0] != "people" or parts[1] == "count":
+    seen: set[str] = set()
+    for token in _people_tokens(context):
+        admitted = admit_people_tag(token)
+        if admitted is None:
             continue
-        name, relation = parts[1], parts[2]
-        if not name or "@" in name or any(ch.isdigit() for ch in name):
+        key = f"{admitted['firstName'].lower()}:{admitted['relation'].lower()}"
+        if key in seen:
             continue
-        people.append({"firstName": name, "relation": relation})
-    return people[:8]
+        seen.add(key)
+        people.append(admitted)
+        if len(people) >= _PEOPLE_CAP:
+            break
+    return people
+
+
+def people_payload_context(payload: dict[str, Any] | None) -> dict[str, Any]:
+    """Flatten inbound chat / Dummy payload into the blob ``_known_people`` reads."""
+    raw = payload if isinstance(payload, dict) else {}
+    context = raw.get("context") if isinstance(raw.get("context"), dict) else {}
+    lifestyle = {}
+    if isinstance(context.get("lifestyle"), dict):
+        lifestyle.update(context["lifestyle"])
+    if isinstance(raw.get("lifestyle"), dict):
+        lifestyle.update(raw["lifestyle"])
+    return {
+        "lifestyleTags": raw.get("lifestyleTags") or raw.get("lifestyle_tags") or context.get("lifestyle_tags"),
+        "livingTags": raw.get("livingTags") or context.get("livingTags"),
+        "tags": raw.get("tags") or context.get("tags"),
+        "recentPatterns": raw.get("recentPatterns") or raw.get("recent_patterns"),
+        "recent_patterns": raw.get("recent_patterns"),
+        "lifestyle": lifestyle,
+        "people": raw.get("people") or context.get("people"),
+    }
+
+
+def people_auto_file_allowed() -> bool:
+    """Dummy / stub path only. Live Bedrock never auto-files people."""
+    try:
+        from services import provider_capabilities as caps
+    except Exception:
+        return True
+    if caps.DEFAULT_PATH == "live_bedrock":
+        return False
+    return not caps.invoke_now_allowed()
+
+
+def people_life_fact(person: dict[str, str]) -> str:
+    """One durable fact. Never a raw people: tag or a dumped list."""
+    name = str(person.get("firstName") or "").strip()
+    relation = str(person.get("relation") or "friend").replace("_", " ").strip()
+    if not name:
+        return ""
+    return f"{name} is a {relation}"
+
+
+def file_people_tags(
+    user_id: str,
+    payload: dict[str, Any] | None,
+    *,
+    allow_ingest: bool,
+    safety_lock: bool,
+    engine: Any | None = None,
+) -> list[dict[str, str]]:
+    """Write named people into UserContext when Remember me is on.
+
+    SAFETY_LOCK_BANDS and Remember-me off write nothing (off ≠ delete).
+    Vault view/add/edit/delete stays on CoachContextEngine. Dummy/stub only.
+    """
+    if not people_auto_file_allowed() or not allow_ingest or safety_lock:
+        return []
+    uid = str(user_id or "").strip()
+    if not uid:
+        return []
+    people = _known_people(people_payload_context(payload))
+    if not people:
+        return []
+    if engine is None:
+        from services.aria_context import CoachContextEngine
+
+        engine = CoachContextEngine()
+    context = engine.get_or_create_context(uid)
+    patterns = list(context.recent_patterns or [])
+    tags = [f"{_PEOPLE_PREFIX}{p['firstName']}:{p['relation']}" for p in people]
+    changed = False
+    for tag in tags:
+        if tag not in patterns:
+            patterns.append(tag)
+            changed = True
+    if changed:
+        engine.update_context(uid, {"recent_patterns": patterns[:40]})
+    try:
+        from routes.aria import sanitize_user_memory_text
+    except Exception:
+        def sanitize_user_memory_text(text: str) -> str:
+            return str(text or "").strip()
+
+    for person in people:
+        fact = sanitize_user_memory_text(people_life_fact(person))
+        if fact:
+            engine.record_life_fact(uid, fact)
+    return people

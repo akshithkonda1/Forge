@@ -151,6 +151,13 @@ def _filter_lifestyle_tokens(values: Any) -> list[str]:
             continue
         if hf is not None and hf.blocked_memory_token(text):
             continue
+        try:
+            from services import coach_context as _cc
+
+            if _cc.people_tag_is_dirty(text):
+                continue
+        except Exception:
+            pass
         kept.append(text)
     return kept
 
@@ -403,6 +410,15 @@ def handle_post_ai_chat(body: dict[str, Any], *, user_id: str) -> dict:
     tags = _lifestyle_tags(context, living, permissions)
     if permissions.allows("lifestyle") and allow_ingest and not safety_lock:
         contextual_learner.stamp_living_context(context, living)
+        from services import coach_context as _coach_context
+
+        _coach_context.file_people_tags(
+            uid,
+            payload,
+            allow_ingest=True,
+            safety_lock=False,
+            engine=_context,
+        )
 
     # Lifestyle cards: deterministic only. No Bedrock, no Dynamo relationship
     # bump, no weekly briefing, no learner write-back. Opening a tab must not
