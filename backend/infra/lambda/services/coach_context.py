@@ -248,6 +248,16 @@ def _attach_predictions(context: dict[str, Any]) -> dict[str, Any]:
     # Stable field for coach routes. Speech and memory use ``hobbyFit.speak``.
     context["mentality_signal"] = signal
     context["hobbies"] = fit_hobbies
+
+    # Flat picture ariaTags — same vocab as PredictiveCoach.picture() on the
+    # Home surface.  forecast: / working: / tomorrow_budget: only; hobby tags
+    # are deliberately excluded so recentPatterns stays clean for Dummy/chat.
+    picture_tags: list[str] = []
+    picture_tags.extend(fc.aria_tags)
+    picture_tags.extend(working.aria_tags)
+    picture_tags.extend(budgets.aria_tags)
+    context["pictureAriaTags"] = picture_tags
+
     return context
 
 
@@ -310,6 +320,9 @@ def context_to_prompt_block(context: dict[str, Any]) -> str:
             "headline": budgets.get("headline"),
             "coachingLine": budgets.get("coachingLine"),
         }
+    picture_tags = context.get("pictureAriaTags") or []
+    if picture_tags:
+        compact["pictureAriaTags"] = picture_tags
     signal = context.get("mentality_signal")
     if signal:
         try:

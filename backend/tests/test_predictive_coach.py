@@ -406,3 +406,154 @@ class HobbyFitTests(unittest.TestCase):
         self.assertNotIn("hobbies", clean["recentPatterns"])
 
 
+# ──────────────────────────────────────────────────────────────────────
+# Slice 4 — coach path ariaTags match picture vocab (fail-closed)
+# ──────────────────────────────────────────────────────────────────────
+
+_ALLOWED_PICTURE_PREFIXES = ("forecast:", "working:", "tomorrow_budget:")
+_HOBBY_PREFIXES = (
+    "hobby_path:", "hobby_social:", "hobby_window:", "hobby_people:", "hobby:",
+)
+
+
+class CoachPictureVocabTests(unittest.TestCase):
+    """_attach_predictions must emit pictureAriaTags matching the Home
+    picture vocab: forecast: / working: / tomorrow_budget: only."""
+
+    def _run_attach(self, **ctx_overrides):
+        from services import coach_context
+
+        base = {
+            "readiness": {"overall": 72, "hrv": 60, "restingHR": 55, "stressLevel": 30},
+            "recentSleep": [{"totalHours": 8, "score": 80, "date": "2026-10-04"}],
+            "recentWorkouts": [],
+        }
+        base.update(ctx_overrides)
+        return coach_context._attach_predictions(base)
+
+    def test_picture_tags_present_and_non_empty(self):
+        out = self._run_attach()
+        tags = out.get("pictureAriaTags")
+        self.assertIsInstance(tags, list)
+        self.assertTrue(len(tags) >= 3, f"Expected >=3 picture tags, got {tags}")
+
+    def test_picture_tags_only_allowed_prefixes(self):
+        out = self._run_attach()
+        for tag in out["pictureAriaTags"]:
+            self.assertTrue(
+                any(tag.startswith(p) for p in _ALLOWED_PICTURE_PREFIXES),
+                f"Tag {tag!r} has disallowed prefix; only {_ALLOWED_PICTURE_PREFIXES} permitted",
+            )
+
+    def test_no_hobby_tags_in_picture(self):
+        out = self._run_attach(
+            lifestyleTags=["living:hobby:cooking", "living:social:2"],
+            chronotype={"typicalWakeTime": "07:00"},
+        )
+        for tag in out["pictureAriaTags"]:
+            self.assertFalse(
+                any(tag.startswith(h) for h in _HOBBY_PREFIXES),
+                f"Hobby tag {tag!r} must not appear in pictureAriaTags",
+            )
+
+    def test_forecast_tag_format(self):
+        out = self._run_attach()
+        forecast_tags = [t for t in out["pictureAriaTags"] if t.startswith("forecast:tomorrow:")]
+        self.assertTrue(len(forecast_tags) >= 1, "Must have at least one forecast:tomorrow: tag")
+        from aria_core import readiness_forecast as rf
+        parsed = rf.parse_tag(forecast_tags[0])
+        self.assertIsNotNone(parsed, f"forecast tag {forecast_tags[0]!r} must be parseable")
+
+    def test_working_tag_uses_picture_stance_vocab(self):
+        out = self._run_attach()
+        from aria_core import user_working_model as uwm
+        working_tags = [t for t in out["pictureAriaTags"] if t.startswith("working:") and not t.startswith("working:feel:") and not t.startswith("working:confidence:")]
+        self.assertTrue(len(working_tags) >= 1, "Must have at least one working:{tendency}:{stance} tag")
+        for tag in working_tags:
+            parsed = uwm.parse_tag(tag)
+            self.assertIsNotNone(parsed, f"working tag {tag!r} must be parseable by uwm.parse_tag")
+            _, stance = parsed
+            self.assertIn(
+                stance,
+                (uwm.CAP_HEROICS, uwm.HOLD_THE_LINE, uwm.REBUILD_TRUST, uwm.KEEP_RHYTHM),
+                f"Stance {stance!r} is not in picture vocab",
+            )
+
+    def test_budget_tag_matches_context(self):
+        out = self._run_attach()
+        budget_tags = [t for t in out["pictureAriaTags"] if t.startswith("tomorrow_budget:")]
+        self.assertEqual(len(budget_tags), 1, f"Expected exactly 1 budget tag, got {budget_tags}")
+        expected = f"tomorrow_budget:{out['tomorrowBudgets']['constraint']}"
+        self.assertEqual(budget_tags[0], expected)
+
+    def test_overreacher_gets_cap_heroics_in_tags(self):
+        out = self._run_attach(
+            readiness={"overall": 52, "hrv": 40, "restingHR": 72, "stressLevel": 70},
+            recentSleep=[
+                {"totalHours": 5.5, "score": 58, "date": "2026-10-04"},
+                {"totalHours": 6, "score": 62, "date": "2026-10-03"},
+            ],
+            recentWorkouts=[
+                {"date": "2026-10-04", "intensity": "high", "duration": 60},
+                {"date": "2026-10-03", "intensity": "high", "duration": 55},
+                {"date": "2026-10-02", "intensity": "high", "duration": 50},
+            ],
+            recoveryTrend={"delta": -5},
+        )
+        working_tags = [t for t in out["pictureAriaTags"] if t.startswith("working:") and not t.startswith("working:feel:") and not t.startswith("working:confidence:")]
+        self.assertTrue(
+            any("cap_heroics" in t for t in working_tags),
+            f"Overreacher scenario must produce cap_heroics tag, got {working_tags}",
+        )
+
+    def test_prompt_block_includes_picture_tags(self):
+        from services import coach_context
+
+        out = self._run_attach()
+        block = coach_context.context_to_prompt_block(out)
+        self.assertIn("pictureAriaTags", block)
+        self.assertIn("forecast:tomorrow:", block)
+        self.assertIn("working:", block)
+        self.assertIn("tomorrow_budget:", block)
+
+    def test_prompt_block_no_hobby_tags(self):
+        from services import coach_context
+
+        out = self._run_attach(
+            lifestyleTags=["living:hobby:cooking", "living:social:2"],
+            chronotype={"typicalWakeTime": "07:00"},
+        )
+        block = coach_context.context_to_prompt_block(out)
+        for prefix in _HOBBY_PREFIXES:
+            self.assertNotIn(prefix, block, f"Hobby prefix {prefix!r} must not appear in prompt block pictureAriaTags")
+
+
+class NormalizeStanceTests(unittest.TestCase):
+    """user_working_model.normalize_stance maps legacy stances to picture vocab."""
+
+    def test_legacy_protect_maps_to_cap_heroics(self):
+        from aria_core import user_working_model as uwm
+        self.assertEqual(uwm.normalize_stance("protect"), uwm.CAP_HEROICS)
+
+    def test_legacy_proceed_maps_to_keep_rhythm(self):
+        from aria_core import user_working_model as uwm
+        self.assertEqual(uwm.normalize_stance("proceed"), uwm.KEEP_RHYTHM)
+
+    def test_legacy_fuel_maps_to_keep_rhythm(self):
+        from aria_core import user_working_model as uwm
+        self.assertEqual(uwm.normalize_stance("fuel"), uwm.KEEP_RHYTHM)
+
+    def test_legacy_clarify_maps_to_hold_the_line(self):
+        from aria_core import user_working_model as uwm
+        self.assertEqual(uwm.normalize_stance("clarify"), uwm.HOLD_THE_LINE)
+
+    def test_picture_vocab_passes_through(self):
+        from aria_core import user_working_model as uwm
+        for stance in (uwm.CAP_HEROICS, uwm.HOLD_THE_LINE, uwm.REBUILD_TRUST, uwm.KEEP_RHYTHM):
+            self.assertEqual(uwm.normalize_stance(stance), stance)
+
+    def test_unknown_defaults_to_keep_rhythm(self):
+        from aria_core import user_working_model as uwm
+        self.assertEqual(uwm.normalize_stance("banana"), uwm.KEEP_RHYTHM)
+
+
