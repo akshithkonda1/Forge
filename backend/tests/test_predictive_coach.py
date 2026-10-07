@@ -563,3 +563,538 @@ class NormalizeStanceTests(unittest.TestCase):
         self.assertEqual(uwm.normalize_stance("banana"), uwm.KEEP_RHYTHM)
 
 
+# ──────────────────────────────────────────────────────────────────────
+# Spoken leak deny pin — Dummy / generate_response only (no Bedrock)
+# ──────────────────────────────────────────────────────────────────────
+
+def _forecast_ctx(posture: str, score: int = 52) -> ARIAContext:
+    return ARIAContext(
+        readiness=ReadinessContext(
+            recovery_score=float(score),
+            hrv_7day_trend=-2.0,
+            tomorrow_predicted_score=score,
+            tomorrow_posture=posture,
+            tomorrow_confidence="medium",
+        )
+    )
+
+
+def _spoken_fields(resp: dict) -> str:
+    return f"{resp.get('prose_summary', '')} {resp.get('message', '')}"
+
+
+class SpokenEngineTokenDenyPinTests(unittest.TestCase):
+    """Fail-closed Dummy pin: stance tokens, picture tags, and (protect)
+    labels must never appear in spoken message / prose_summary.
+
+    The bare verb "protect" is legitimate Iris speech and must pass.
+    """
+
+    def test_deny_pin_fails_on_stance_tokens(self):
+        from aria_core.speak_guard import spoken_engine_token_hits
+
+        for token in (
+            "cap_heroics",
+            "keep_rhythm",
+            "hold_the_line",
+            "rebuild_trust",
+        ):
+            hits = spoken_engine_token_hits(f"Tomorrow looks like {token} day")
+            self.assertIn(token, hits, token)
+
+    def test_deny_pin_fails_on_picture_and_engine_tags(self):
+        from aria_core.speak_guard import spoken_engine_token_hits
+
+        self.assertIn(
+            "pictureAriaTags",
+            spoken_engine_token_hits("see pictureAriaTags on the card"),
+        )
+        self.assertIn(
+            "forecast:tomorrow:",
+            spoken_engine_token_hits("forecast:tomorrow:52:protect"),
+        )
+        self.assertIn(
+            "tomorrow_budget:",
+            spoken_engine_token_hits("tomorrow_budget:people"),
+        )
+        self.assertIn(
+            "working:",
+            spoken_engine_token_hits("working:overreacher:cap_heroics"),
+        )
+        self.assertIn(
+            "working:",
+            spoken_engine_token_hits("working:feel:mixed"),
+        )
+
+    def test_deny_pin_fails_on_posture_label_not_bare_verb(self):
+        from aria_core.speak_guard import spoken_engine_token_hits
+
+        for posture in ("protect", "rest", "push", "steady"):
+            hits = spoken_engine_token_hits(
+                f"Tomorrow's readiness is forecast at 52 ({posture})"
+            )
+            self.assertIn(f"({posture})", hits, posture)
+
+        self.assertEqual(
+            spoken_engine_token_hits("Sleep first tonight — protect wind-down."),
+            (),
+        )
+        self.assertEqual(
+            spoken_engine_token_hits("protect your 23:00 wind-down tonight"),
+            (),
+        )
+
+    def test_interpret_readiness_drops_raw_posture_paren(self):
+        from aria_core import aria_engine
+        from aria_core.speak_guard import spoken_engine_token_hits
+
+        signal = aria_engine._interpret_readiness(_forecast_ctx("protect"))
+        self.assertIsNotNone(signal)
+        self.assertEqual(spoken_engine_token_hits(signal.interpretation), ())
+        self.assertNotIn("(protect)", signal.interpretation.lower())
+        self.assertIn("cap intensity", signal.interpretation.lower())
+
+    def test_dummy_recommendation_spoken_stays_off_engine_tokens(self):
+        from aria_core import aria_engine
+        from aria_core.speak_guard import spoken_engine_token_hits
+
+        for posture in ("protect", "rest", "push", "steady"):
+            resp = aria_engine.generate_response(
+                "what should I do today?",
+                _forecast_ctx(posture),
+                seed=0,
+            )
+            spoken = _spoken_fields(resp)
+            hits = spoken_engine_token_hits(spoken)
+            self.assertEqual(hits, (), f"posture={posture} spoken={spoken!r}")
+            self.assertNotIn(f"({posture})", spoken.lower())
+
+    def test_dummy_tagged_context_does_not_speak_picture_or_stance(self):
+        from aria_core import aria_engine
+        from aria_core.speak_guard import spoken_engine_token_hits
+
+        ctx = ARIAContext(
+            readiness=ReadinessContext(
+                recovery_score=52,
+                tomorrow_predicted_score=52,
+                tomorrow_posture="protect",
+            ),
+            lifestyle=LifestyleContext(
+                recent_patterns=[
+                    "working:overreacher:cap_heroics",
+                    "forecast:tomorrow:52:protect",
+                    "tomorrow_budget:people",
+                    "hobby_path:restore_quiet",
+                ]
+            ),
+        )
+        resp = aria_engine.generate_response("what should I do today?", ctx, seed=0)
+        spoken = _spoken_fields(resp)
+        self.assertEqual(spoken_engine_token_hits(spoken), (), spoken)
+        self.assertNotIn("hobby_path:", spoken)
+        self.assertIn("cap heroics", spoken.lower())
+
+
+
+class PictureTagsFlowTests(unittest.TestCase):
+    """Verify that PredictiveCoach.picture ariaTags thread into
+    coach_context recentPatterns and aria_engine responses."""
+
+    def test_attach_predictions_injects_picture_tags_into_patterns(self):
+        from services import coach_context
+
+        ctx = {
+            "readiness": {"overall": 72, "hrv": 60, "restingHR": 55, "stressLevel": 30},
+            "recentSleep": [{"totalHours": 8, "score": 80, "date": "2026-10-04"}],
+            "recentWorkouts": [],
+            "lifestyle": {"tags": [], "recentPatterns": []},
+        }
+        out = coach_context._attach_predictions(ctx)
+        patterns = out["lifestyle"]["recentPatterns"]
+        has_forecast = any(p.startswith("forecast:tomorrow:") for p in patterns)
+        has_working = any(p.startswith("working:") for p in patterns)
+        has_budget = any(p.startswith("tomorrow_budget:") for p in patterns)
+        self.assertTrue(has_forecast, f"Missing forecast tag in {patterns}")
+        self.assertTrue(has_working, f"Missing working tag in {patterns}")
+        self.assertTrue(has_budget, f"Missing budget tag in {patterns}")
+        has_hobby = any(
+            p.startswith("hobby_path:") or p.startswith("hobby_social:")
+            or p.startswith("hobby_window:") or p.startswith("hobby_people:")
+            for p in patterns
+        )
+        self.assertFalse(has_hobby, f"Hobby tags must not be in recentPatterns: {patterns}")
+
+    def test_coaching_line_strings_match_iris_copy(self):
+        """Coaching lines must match the Iris-approved copy exactly."""
+        from aria_core import tomorrow_budgets as tb
+
+        self.assertEqual(
+            tb.coaching_line(tb.BOTH),
+            "Tomorrow both budgets are thin. A short walk or nothing \u2014 no hero session, no extra plans.",
+        )
+        self.assertEqual(
+            tb.coaching_line(tb.PEOPLE),
+            "Split day. Your body can take the session. Your people-budget can't take another packed calendar.",
+        )
+        self.assertIn("body-budget", tb.coaching_line(tb.BODY))
+        self.assertNotIn("thin body.", tb.coaching_line(tb.BODY))
+        self.assertIn("no need to burn both", tb.coaching_line(tb.NEITHER))
+        self.assertNotIn("prove", tb.coaching_line(tb.NEITHER))
+
+    def test_budget_tag_is_consistent_between_home_and_chat(self):
+        """The budget tag in recentPatterns must match what Home shows
+        from tomorrowBudgets."""
+        from services import coach_context
+
+        ctx = {
+            "readiness": {"overall": 72, "hrv": 60, "restingHR": 55, "stressLevel": 30},
+            "recentSleep": [{"totalHours": 8, "score": 80, "date": "2026-10-04"}],
+            "recentWorkouts": [],
+            "lifestyleTags": ["living:social:2"],
+            "lifestyle": {"tags": ["living:social:2"], "recentPatterns": []},
+            "chronotype": {"typicalWakeTime": "07:00"},
+        }
+        out = coach_context._attach_predictions(ctx)
+        budget_dict = out["tomorrowBudgets"]
+        expected_tag = f"tomorrow_budget:{budget_dict['constraint']}"
+        patterns = out["lifestyle"]["recentPatterns"]
+        self.assertIn(expected_tag, patterns)
+
+    def test_chat_response_cites_budget_when_tag_present(self):
+        """generate_response must include budget coaching line when
+        tomorrow_budget: tag is in lifestyle.recent_patterns."""
+        from aria_core import aria_engine
+        from aria_core import tomorrow_budgets as tb
+
+        ctx = ARIAContext(
+            readiness=ReadinessContext(
+                recovery_score=70,
+                tomorrow_predicted_score=80,
+                tomorrow_posture="push",
+            ),
+            lifestyle=LifestyleContext(
+                recent_patterns=[
+                    "working:steady:keep_rhythm",
+                    "tomorrow_budget:people",
+                ],
+            ),
+        )
+        resp = aria_engine.generate_response("how should I train tomorrow", ctx, seed=0)
+        blob = f"{resp.get('prose_summary', '')} {resp.get('message', '')}"
+        self.assertIn("people", blob.lower())
+
+    def test_chat_response_omits_budget_when_neither(self):
+        """If budget is 'neither', the coaching line should NOT appear."""
+        from aria_core import aria_engine
+
+        ctx = ARIAContext(
+            readiness=ReadinessContext(recovery_score=70),
+            lifestyle=LifestyleContext(
+                recent_patterns=[
+                    "working:steady:keep_rhythm",
+                    "tomorrow_budget:neither",
+                ],
+            ),
+        )
+        resp = aria_engine.generate_response("how should I train tomorrow", ctx, seed=0)
+        blob = f"{resp.get('prose_summary', '')} {resp.get('message', '')}"
+        self.assertNotIn("Split day", blob)
+
+    def test_overreacher_budget_body_flows_through(self):
+        """An overreacher with cap_heroics should produce a body budget
+        that flows from picture through to the response."""
+        from services import coach_context
+        from aria_core import tomorrow_budgets as tb
+
+        ctx = {
+            "readiness": {"overall": 52, "hrv": 40, "restingHR": 72, "stressLevel": 70},
+            "recentSleep": [
+                {"totalHours": 5.5, "score": 58, "date": "2026-10-04"},
+                {"totalHours": 6, "score": 62, "date": "2026-10-03"},
+            ],
+            "recentWorkouts": [
+                {"date": "2026-10-04", "intensity": "high", "duration": 60},
+                {"date": "2026-10-03", "intensity": "high", "duration": 55},
+                {"date": "2026-10-02", "intensity": "high", "duration": 50},
+            ],
+            "recoveryTrend": {"delta": -5},
+            "lifestyle": {"tags": [], "recentPatterns": []},
+        }
+        out = coach_context._attach_predictions(ctx)
+        patterns = out["lifestyle"]["recentPatterns"]
+        budget_tags = [p for p in patterns if p.startswith("tomorrow_budget:")]
+        self.assertTrue(len(budget_tags) > 0, "No budget tag found")
+        budget_val = budget_tags[0].split(":")[1]
+        self.assertEqual(budget_val, out["tomorrowBudgets"]["constraint"])
+
+
+class NyxFailClosedPinTests(unittest.TestCase):
+    """Nyx eval harness: fail-closed pins that break the build when the
+    engine leaks tokens, cites the wrong budget, or drifts from Iris copy."""
+
+    _ENGINE_TOKENS = (
+        "tomorrow_budget:", "working:", "forecast:", "hobby_path:",
+        "hobby:", "hobby_social:", "hobby_people:", "hobby_window:",
+        "mentality:", "mentality_signal:",
+    )
+    _VAULT_DUMPS = (
+        "drained_social", "partner_cycle", "cycle_day",
+        "meds:", "calendar_title:", "people:",
+    )
+
+    def _spoken(self, resp: dict) -> str:
+        return f"{resp.get('prose_summary') or ''} {resp.get('message') or ''}"
+
+    # ------------------------------------------------------------------
+    # Pin 1 — Home↔chat budget mismatch must fail
+    # ------------------------------------------------------------------
+    def test_home_chat_budget_match_people(self):
+        """Spoken message must cite the same budget that Home's picture
+        computed — PEOPLE scenario."""
+        from services import coach_context
+        from aria_core import aria_engine
+        from aria_core import tomorrow_budgets as tb
+
+        ctx = {
+            "readiness": {"overall": 72, "hrv": 60, "restingHR": 55, "stressLevel": 30},
+            "recentSleep": [{"totalHours": 8, "score": 80, "date": "2026-10-04"}],
+            "recentWorkouts": [],
+            "lifestyleTags": ["living:social:2"],
+            "lifestyle": {"tags": ["living:social:2"], "recentPatterns": []},
+            "chronotype": {"typicalWakeTime": "07:00"},
+        }
+        out = coach_context._attach_predictions(ctx)
+        home_constraint = out["tomorrowBudgets"]["constraint"]
+        home_coaching = tb.coaching_line(home_constraint)
+        patterns = out["lifestyle"]["recentPatterns"]
+        aria_ctx = ARIAContext(
+            readiness=ReadinessContext(
+                recovery_score=72,
+                tomorrow_predicted_score=75,
+                tomorrow_posture="push",
+            ),
+            lifestyle=LifestyleContext(recent_patterns=list(patterns)),
+        )
+        resp = aria_engine.generate_response(
+            "how should I train tomorrow", aria_ctx, seed=0,
+        )
+        spoken = self._spoken(resp)
+        if home_constraint not in (tb.NEITHER,):
+            self.assertIn(
+                home_coaching, spoken,
+                f"Chat cited a different budget than Home: "
+                f"home={home_constraint!r}, spoken={spoken!r}",
+            )
+
+    def test_home_chat_budget_match_body(self):
+        """Overreacher scenario: Home shows BODY budget; chat must agree."""
+        from services import coach_context
+        from aria_core import aria_engine
+        from aria_core import tomorrow_budgets as tb
+
+        ctx = {
+            "readiness": {"overall": 52, "hrv": 40, "restingHR": 72, "stressLevel": 70},
+            "recentSleep": [
+                {"totalHours": 5.5, "score": 58, "date": "2026-10-04"},
+                {"totalHours": 6, "score": 62, "date": "2026-10-03"},
+            ],
+            "recentWorkouts": [
+                {"date": "2026-10-04", "intensity": "high", "duration": 60},
+                {"date": "2026-10-03", "intensity": "high", "duration": 55},
+                {"date": "2026-10-02", "intensity": "high", "duration": 50},
+            ],
+            "recoveryTrend": {"delta": -5},
+            "lifestyle": {"tags": [], "recentPatterns": []},
+        }
+        out = coach_context._attach_predictions(ctx)
+        home_constraint = out["tomorrowBudgets"]["constraint"]
+        home_coaching = tb.coaching_line(home_constraint)
+        patterns = out["lifestyle"]["recentPatterns"]
+        aria_ctx = ARIAContext(
+            readiness=ReadinessContext(
+                recovery_score=52,
+                tomorrow_predicted_score=45,
+                tomorrow_posture="protect",
+            ),
+            lifestyle=LifestyleContext(recent_patterns=list(patterns)),
+        )
+        resp = aria_engine.generate_response(
+            "how should I train tomorrow", aria_ctx, seed=0,
+        )
+        spoken = self._spoken(resp)
+        if home_constraint not in (tb.NEITHER,):
+            self.assertIn(
+                home_coaching, spoken,
+                f"Chat cited a different budget than Home: "
+                f"home={home_constraint!r}, spoken={spoken!r}",
+            )
+
+    # ------------------------------------------------------------------
+    # Pin 2 — engine tokens / vault dumps must never appear in spoken
+    # ------------------------------------------------------------------
+    def test_spoken_never_leaks_engine_tokens(self):
+        """message/prose_summary must not contain raw engine token
+        prefixes like tomorrow_budget:, working:, forecast:, hobby:."""
+        from aria_core import aria_engine
+
+        ctx = ARIAContext(
+            readiness=ReadinessContext(
+                recovery_score=70,
+                tomorrow_predicted_score=80,
+                tomorrow_posture="push",
+            ),
+            lifestyle=LifestyleContext(
+                recent_patterns=[
+                    "working:steady:keep_rhythm",
+                    "tomorrow_budget:people",
+                    "forecast:tomorrow:80:push",
+                    "hobby_path:restore_quiet",
+                    "hobby_people:thin",
+                ],
+                tags=[
+                    "mentality:drained_social",
+                    "people:Sam:partner",
+                    "people:555-1212:friend",
+                ],
+            ),
+        )
+        resp = aria_engine.generate_response(
+            "how should I train tomorrow", ctx, seed=0,
+        )
+        spoken = self._spoken(resp)
+        for token in self._ENGINE_TOKENS:
+            self.assertNotIn(
+                token, spoken,
+                f"Engine token {token!r} leaked into spoken: {spoken!r}",
+            )
+
+    def test_spoken_never_leaks_vault_dumps(self):
+        """message/prose_summary must not contain raw vault terms like
+        drained_social, partner_cycle, meds:, calendar_title:, people:."""
+        from aria_core import aria_engine
+
+        ctx = ARIAContext(
+            readiness=ReadinessContext(recovery_score=70),
+            lifestyle=LifestyleContext(
+                recent_patterns=[
+                    "working:overreacher:cap_heroics",
+                    "tomorrow_budget:body",
+                    "mentality:drained_social",
+                ],
+                tags=[
+                    "people:Sam:partner",
+                    "people:555-1212:friend",
+                    "meds:ibuprofen",
+                    "calendar_title:dentist 9am",
+                    "partner_cycle:day_14",
+                ],
+            ),
+        )
+        resp = aria_engine.generate_response(
+            "what should I do tomorrow", ctx, seed=0,
+        )
+        spoken = self._spoken(resp)
+        for dump in self._VAULT_DUMPS:
+            self.assertNotIn(
+                dump, spoken,
+                f"Vault dump {dump!r} leaked into spoken: {spoken!r}",
+            )
+
+    def test_spoken_no_mentality_enum_tokens(self):
+        """Mentality enum values must never appear verbatim in spoken."""
+        from aria_core import aria_engine
+
+        for mentality in ("drained_social", "restored", "quiet", "open"):
+            tag = f"mentality:{mentality}"
+            ctx = ARIAContext(
+                lifestyle=LifestyleContext(
+                    recent_patterns=[tag, "working:steady:keep_rhythm"],
+                ),
+            )
+            resp = aria_engine.generate_response(
+                "help me pick a hobby", ctx, seed=0,
+            )
+            spoken = self._spoken(resp)
+            self.assertNotIn(
+                f"mentality:{mentality}", spoken,
+                f"Raw mentality tag leaked: {tag!r} in {spoken!r}",
+            )
+
+    # ------------------------------------------------------------------
+    # Pin 3 — Iris coaching_line exact match + _budget_notice skip
+    # ------------------------------------------------------------------
+    def test_iris_coaching_line_both_exact(self):
+        from aria_core import tomorrow_budgets as tb
+        self.assertEqual(
+            tb.coaching_line(tb.BOTH),
+            "Tomorrow both budgets are thin. A short walk or nothing "
+            "\u2014 no hero session, no extra plans.",
+        )
+
+    def test_iris_coaching_line_people_includes_packed_calendar(self):
+        from aria_core import tomorrow_budgets as tb
+        line = tb.coaching_line(tb.PEOPLE)
+        self.assertIn("can't take another packed calendar", line)
+
+    def test_iris_coaching_line_body_exact(self):
+        from aria_core import tomorrow_budgets as tb
+        self.assertEqual(
+            tb.coaching_line(tb.BODY),
+            "Split day. People are fine if you want them. "
+            "Don't stack a hard session on a thin body-budget.",
+        )
+
+    def test_iris_coaching_line_neither_includes_no_need_to_burn(self):
+        from aria_core import tomorrow_budgets as tb
+        line = tb.coaching_line(tb.NEITHER)
+        self.assertIn("no need to burn both", line)
+        self.assertNotIn("prove", line)
+
+    def test_budget_notice_skips_neither(self):
+        """_budget_notice must return None for NEITHER — fail closed."""
+        from aria_core import aria_engine
+
+        ctx = ARIAContext(
+            lifestyle=LifestyleContext(
+                recent_patterns=["tomorrow_budget:neither"],
+            ),
+        )
+        result = aria_engine._budget_notice(ctx)
+        self.assertIsNone(
+            result, "_budget_notice must skip NEITHER, got: {!r}".format(result),
+        )
+
+    def test_budget_notice_returns_line_for_people(self):
+        from aria_core import aria_engine
+        from aria_core import tomorrow_budgets as tb
+
+        ctx = ARIAContext(
+            lifestyle=LifestyleContext(
+                recent_patterns=["tomorrow_budget:people"],
+            ),
+        )
+        result = aria_engine._budget_notice(ctx)
+        self.assertEqual(result, tb.coaching_line(tb.PEOPLE))
+
+    def test_budget_notice_returns_line_for_body(self):
+        from aria_core import aria_engine
+        from aria_core import tomorrow_budgets as tb
+
+        ctx = ARIAContext(
+            lifestyle=LifestyleContext(
+                recent_patterns=["tomorrow_budget:body"],
+            ),
+        )
+        result = aria_engine._budget_notice(ctx)
+        self.assertEqual(result, tb.coaching_line(tb.BODY))
+
+    def test_budget_notice_returns_none_when_no_tag(self):
+        from aria_core import aria_engine
+
+        ctx = ARIAContext(
+            lifestyle=LifestyleContext(
+                recent_patterns=["working:steady:keep_rhythm"],
+            ),
+        )
+        result = aria_engine._budget_notice(ctx)
+        self.assertIsNone(result)

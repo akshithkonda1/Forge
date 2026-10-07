@@ -894,5 +894,17 @@ class SpokenBanSourceTests(unittest.TestCase):
         self.assertEqual(spoken_ban_hits("If last night felt rough"), ())
 
 
+class SpokenEngineTokenDenyTests(unittest.TestCase):
+    def test_pin_catches_labels_and_spares_bare_protect(self):
+        from aria_core.speak_guard import spoken_engine_token_hits
+
+        leaked = "Tomorrow's readiness is forecast at 52 (protect)"
+        self.assertIn("(protect)", spoken_engine_token_hits(leaked))
+        self.assertEqual(
+            spoken_engine_token_hits("protect wind-down before training volume"),
+            (),
+        )
+
+
 if __name__ == "__main__":
     unittest.main()
