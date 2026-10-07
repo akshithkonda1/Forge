@@ -787,8 +787,22 @@ def handle_post_ai_voice_speak(body: dict[str, Any], *, user_id: str) -> dict:
     Speak-only. Does not fuse, remember, observe, or re-run ``guard_speak``.
     Dummy / on-device speech stays the default when the flag is off.
     Success is raw ``audio/mpeg`` via ``ok_bytes`` (APIGW binary), not JSON.
+    Body is ``{message}`` only — Hex ``text`` is not a synonym (Iris).
     """
     _bind_user(body, user_id)
     from services import fish_audio_voice
 
     return ok_bytes(fish_audio_voice.speak(body))
+
+
+def handle_post_ai_voice_fish_tts(body: dict[str, Any], *, user_id: str) -> dict:
+    """POST /ai/voice/fish-tts — Hex alias of the same Fish ``synthesize()``.
+
+    Flag, key, and HTTP client are shared with speak. Envelope differs:
+    Hex body is ``{text}``; success is JSON ``{format, model, audio_base64}``.
+    Iris hold: do not fold this shape into speak.
+    """
+    _bind_user(body, user_id)
+    from services import fish_audio_voice
+
+    return ok(fish_audio_voice.fish_tts(body))

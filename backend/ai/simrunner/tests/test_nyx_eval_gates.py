@@ -168,6 +168,10 @@ class ProviderNoSpendGates(unittest.TestCase):
             "real /ai/voice/speak literal must fail",
         )
         self.assertTrue(
+            nyx.dummy_invoke_call_failures("url = '/ai/voice/fish-tts'\n"),
+            "real /ai/voice/fish-tts literal must fail",
+        )
+        self.assertTrue(
             nyx.dummy_invoke_call_failures("from services import fish_audio_voice\n")
         )
 
@@ -188,6 +192,7 @@ class ProviderNoSpendGates(unittest.TestCase):
             self.assertNotIn("/ai/voice/tool", src)
             self.assertNotIn("fish_audio_voice", src)
             self.assertNotIn("/ai/voice/speak", src)
+            self.assertNotIn("/ai/voice/fish-tts", src)
             self.assertNotIn("api.fish.audio", src)
 
         from backend._paths import ensure_lambda_on_path
@@ -215,7 +220,7 @@ class ProviderNoSpendGates(unittest.TestCase):
         def fish_boom(*_a, **_k):
             raise AssertionError("Dummy must not reach Fish Audio")
 
-        fish_names = ("speak", "synthesize", "require_api_key")
+        fish_names = ("speak", "synthesize", "fish_tts", "require_api_key")
         fish_originals = {name: getattr(fish_audio_voice, name) for name in fish_names}
         try:
             for name in fish_names:
