@@ -4,7 +4,7 @@ import copy
 import re
 from typing import Any
 
-from responses import RouteError, ok
+from responses import RouteError, ok, ok_bytes
 from security import (
     MAX_ARCHETYPE_DESCRIPTION_CHARS,
     MAX_CHAT_MESSAGE_CHARS,
@@ -763,3 +763,16 @@ def handle_post_ai_voice_design(body: dict[str, Any], *, user_id: str) -> dict:
     _bind_user(body, user_id)
     preview_index = int(body.get("preview_index") or 0)
     return ok(elevenlabs_voice.design_aria(preview_index=preview_index))
+
+
+def handle_post_ai_voice_speak(body: dict[str, Any], *, user_id: str) -> dict:
+    """POST /ai/voice/speak — already-guarded ARIA prose → Fish Audio mp3.
+
+    Speak-only. Does not fuse, remember, observe, or re-run ``guard_speak``.
+    Dummy / on-device speech stays the default when the flag is off.
+    Success is raw ``audio/mpeg`` via ``ok_bytes`` (APIGW binary), not JSON.
+    """
+    _bind_user(body, user_id)
+    from services import fish_audio_voice
+
+    return ok_bytes(fish_audio_voice.speak(body))
