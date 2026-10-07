@@ -69,6 +69,7 @@ struct LifestyleView: View {
 
                 ScrollView(showsIndicators: false) {
                     VStack(spacing: 24) {
+                        ReadinessForecastCard(compact: true)
                         segmentContent
                     }
                     .padding(.horizontal, 16)
@@ -158,17 +159,7 @@ struct LifestyleView: View {
     private func consumePendingLifestyleSegment() {
         guard let raw = store.pendingLifestyleSegment?.lowercased() else { return }
         store.pendingLifestyleSegment = nil
-        let mapped: LifestyleSegment? = {
-            switch raw {
-            case "nutrition": return .nutrition
-            case "restaurants", "meals", "food", "places", "map": return .restaurants
-            case "wellbeing", "wellness": return .wellbeing
-            case "ai", "aioptimization", "optimize": return .aiOptimization
-            case "lifetime", "aging", "heart", "cardio", "metabolic", "glucose", "stelo":
-                return .lifetime
-            default: return LifestyleSegment(rawValue: Int(raw) ?? -1)
-            }
-        }()
+        let mapped = LifestyleDeepLink.segment(from: raw)
         if let mapped {
             withAnimation(.spring(response: 0.38, dampingFraction: 0.75)) {
                 selectedSegment = mapped

@@ -27,6 +27,7 @@ struct HomeView: View {
                             .padding(.top, 8)
 
                         HomeTodayHero(action: primaryAction)
+                        ReadinessForecastCard()
 
                         if !store.quietMode {
                             if let habit = ariaContext.context.deepHabits.first {
@@ -76,8 +77,6 @@ struct HomeView: View {
                         HomeDayPreviewStrip()
                         StreakCalendarSection()
                         HomeTrendSection(isExpanded: $showTrend)
-                        // Exclusive: tomorrow's readiness forecast + pro-grade load timeline.
-                        ReadinessForecastCard()
                         LoadTimelineView()
                             .padding(.bottom, HomeMetrics.scrollBottomClearance)
                 }

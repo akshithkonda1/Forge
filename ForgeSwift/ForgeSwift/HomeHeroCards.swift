@@ -168,12 +168,11 @@ enum HomeLifeSentence {
     }
 }
 
-/// One card: how they live, the session it wrote, the one thing to do.
+/// One card: today's progress ring, readiness vibe, the session, the one thing to do.
 struct HomeTodayHero: View {
     @EnvironmentObject var store: AppStore
     let action: HomePrimaryAction
     @State private var showScore = false
-    @ScaledMetric(relativeTo: .largeTitle) private var heroFieldSize: CGFloat = HomeMetrics.heroFieldSize
 
     private var recovery: Bool { action.usesRecoveryChrome(store: store) }
 
@@ -181,23 +180,60 @@ struct HomeTodayHero: View {
         AgingBridge.snapshot(store: store)
     }
 
+    private var progress: TodayProgress.Snapshot {
+        let habits = LifestyleWellbeingStore.loadHabits()
+        let water = HealthKitManager.shared.todayStats?.water ?? 0
+        return TodayProgress.snapshot(.from(store: store, waterGlasses: water, habits: habits))
+    }
+
     var body: some View {
+        let snap = progress
+        let energy = HudChrome.energy(for: snap.vibeScore)
         VStack(alignment: .leading, spacing: HomeMetrics.heroStackGap) {
-            Text("Today")
-                .forgeSectionLabel()
+            HStack {
+                Text(TodayProgress.headerTitle)
+                    .forgeSectionLabel()
+                    .foregroundStyle(HudChrome.plate)
+                Spacer()
+                HudVibeChip(label: snap.vibeLabel, energy: energy)
+            }
 
-            HomeReadinessFieldView(
-                score: store.readiness.overall,
-                size: max(AriaRingFieldGeometry.heroMinimumSize, heroFieldSize)
-            )
+            HudProgressRing(progress: snap.percent, energy: energy) {
+                VStack(spacing: 2) {
+                    Text("\(snap.percent)")
+                        .font(HomeType.heroScore)
+                        .foregroundStyle(
+                            LinearGradient(
+                                colors: [.textPrimary, energy],
+                                startPoint: .top,
+                                endPoint: .bottom
+                            )
+                        )
+                        .minimumScaleFactor(0.7)
+                        .lineLimit(1)
+                        .contentTransition(.numericText())
+                    Text("TODAY")
+                        .font(HomeType.micro)
+                        .foregroundColor(HudChrome.plate)
+                        .tracking(1.6)
+                    Text("\(snap.completed)/\(snap.total)")
+                        .font(HomeType.micro)
+                        .foregroundColor(.textTertiary)
+                }
+                .accessibilityHidden(true)
+            }
             .frame(maxWidth: .infinity)
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel(snap.voiceOverLabel)
 
-            Text(homeStatusLine(store: store))
+            Text(snap.vibeLine)
                 .font(HomeType.status)
                 .foregroundColor(.textSecondary)
                 .multilineTextAlignment(.center)
                 .frame(maxWidth: .infinity)
                 .fixedSize(horizontal: false, vertical: true)
+
+            TodayTrackRow(tracks: snap.tracks)
 
             if store.hasMeaningfulLifeSignal || store.readiness.overall > 0 {
                 HomeVitalsRow(
@@ -252,10 +288,38 @@ struct HomeTodayHero: View {
 
             HomePrimaryCTA(action: action)
         }
-        .padding(HomeMetrics.cardPadding)
-        .forgeGlassCard(accent: recovery ? .steel : .ember)
+        .hudPlate(energy: recovery ? .steel : energy)
         .homeEntrance(delay: 0.06)
         .accessibilityElement(children: .contain)
+    }
+}
+
+private struct TodayTrackRow: View {
+    let tracks: [TodayProgress.Track]
+
+    var body: some View {
+        HStack(spacing: 6) {
+            ForEach(tracks) { track in
+                VStack(spacing: 6) {
+                    ZStack {
+                        Circle()
+                            .fill((track.done ? HudChrome.plate : Color.white).opacity(track.done ? 0.16 : 0.06))
+                            .frame(width: 28, height: 28)
+                        Image(systemName: track.done ? "checkmark" : track.icon)
+                            .font(.system(size: 11, weight: .semibold))
+                            .foregroundStyle(track.done ? HudChrome.plate : Color.textTertiary)
+                    }
+                    Text(track.title)
+                        .font(HomeType.micro)
+                        .foregroundColor(track.done ? .textPrimary : .textTertiary)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.8)
+                }
+                .frame(maxWidth: .infinity)
+                .accessibilityElement(children: .combine)
+                .accessibilityLabel("\(track.title), \(track.detail)")
+            }
+        }
     }
 }
 

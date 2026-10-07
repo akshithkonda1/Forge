@@ -491,6 +491,33 @@ extension AppStore {
     /// Tomorrow-readiness + how-this-person-works. Home, ARIA context, and
     /// the dummy orchestra all call this — the card is not a private copy.
     func predictiveCoachPicture() -> PredictiveCoach.Picture {
+        let key = predictiveCoachCacheKey()
+        if cachedPredictiveCoachKey == key, let cached = cachedPredictiveCoachPicture {
+            return cached
+        }
+        let picture = buildPredictiveCoachPicture()
+        cachedPredictiveCoachPicture = picture
+        cachedPredictiveCoachKey = key
+        return picture
+    }
+
+    private func predictiveCoachCacheKey() -> String {
+        let habitDone = LifestyleWellbeingStore.loadHabits().filter(\.done).count
+        return [
+            "\(readiness.overall)",
+            "\(dailyMetrics.totalSleep)",
+            "\(dailyMetrics.hrv)",
+            "\(dailyMetrics.restingHR)",
+            "\(dailyMetrics.steps)",
+            "\(todayWorkout?.id ?? "-")",
+            didTrainToday ? "1" : "0",
+            "\(workoutHistory.count)",
+            "\(habitDone)",
+            "\(sleepData.count)",
+        ].joined(separator: "|")
+    }
+
+    private func buildPredictiveCoachPicture() -> PredictiveCoach.Picture {
         let sessions = workoutHistory.compactMap { entry -> TrainingLoadModel.Session? in
             guard let date = WorkoutHistoryWindow.parseDate(entry.date) else { return nil }
             return TrainingLoadModel.Session(
