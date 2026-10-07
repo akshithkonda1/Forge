@@ -10,6 +10,8 @@ struct PremiumAtmosphere: View {
     var secondary: Color = Color(hex: "A9D8FF")
     var intensity: Double = 1.0
     var animated: Bool = true
+    /// Splash uses a single slow drift. Auth / onboarding may loop.
+    var loopMotion: Bool = true
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var drift: CGFloat = 0
     @State private var pulse: CGFloat = 0
@@ -112,14 +114,20 @@ struct PremiumAtmosphere: View {
         .animation(.easeInOut(duration: 0.55), value: accent)
         .onAppear {
             guard animated, !reduceMotion else { return }
-            withAnimation(.easeInOut(duration: 7.5).repeatForever(autoreverses: true)) {
-                drift = 1
-            }
-            withAnimation(.easeInOut(duration: 4.2).repeatForever(autoreverses: true)) {
-                pulse = 1
-            }
-            withAnimation(.easeInOut(duration: 5.5).repeatForever(autoreverses: true)) {
-                specklePhase = 1
+            if loopMotion {
+                withAnimation(.easeInOut(duration: 7.5).repeatForever(autoreverses: true)) {
+                    drift = 1
+                }
+                withAnimation(.easeInOut(duration: 4.2).repeatForever(autoreverses: true)) {
+                    pulse = 1
+                }
+                withAnimation(.easeInOut(duration: 5.5).repeatForever(autoreverses: true)) {
+                    specklePhase = 1
+                }
+            } else {
+                withAnimation(.easeInOut(duration: 8.0)) {
+                    drift = 1
+                }
             }
         }
     }
