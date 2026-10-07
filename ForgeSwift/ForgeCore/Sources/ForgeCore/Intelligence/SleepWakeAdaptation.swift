@@ -3,6 +3,44 @@ import Foundation
 /// Adaptive smart-wake lead. Replaces the dead `computeSmartAlarmWindow`
 /// math as the single source of truth: score, debt, chronotype, and a
 /// rolling snooze struggle signal all widen or narrow the 15/30/45 window.
+public enum SleeperDepth: String, Sendable, Codable, CaseIterable {
+    case standard
+    case deep
+    case superDeep
+
+    public var maxWindow: Int {
+        switch self {
+        case .standard: return 45
+        case .deep: return 60
+        case .superDeep: return 90
+        }
+    }
+
+    public var defaultWindow: Int {
+        switch self {
+        case .standard: return 30
+        case .deep: return 45
+        case .superDeep: return 75
+        }
+    }
+
+    public var windowChoices: [Int] {
+        switch self {
+        case .standard: return [15, 30, 45]
+        case .deep: return [30, 45, 60]
+        case .superDeep: return [45, 60, 90]
+        }
+    }
+
+    public var title: String {
+        switch self {
+        case .standard: return "Standard"
+        case .deep: return "Deep"
+        case .superDeep: return "Super-deep"
+        }
+    }
+}
+
 public enum SmartAlarmWindow: Sendable {
     public enum ChronotypeBias: String, Sendable {
         case lion, bear, wolf, dolphin
@@ -13,23 +51,29 @@ public enum SmartAlarmWindow: Sendable {
         recentScore: Int?,
         debtHours: Double,
         bias: ChronotypeBias,
-        struggleAverageSnoozes: Double = 0
+        struggleAverageSnoozes: Double = 0,
+        depth: SleeperDepth = .standard
     ) -> Int {
         var window = base
+        let cap = depth.maxWindow
         if let score = recentScore {
-            if score < 70 { window = min(45, window + 15) }
-            else if score >= 85 { window = max(15, window - 10) }
+            if score < 70 { window = min(cap, window + 15) }
+            else if score >= 85, depth == .standard { window = max(15, window - 10) }
         }
-        if debtHours > 3 { window = min(45, window + 5) }
+        if debtHours > 3 { window = min(cap, window + 5) }
         switch bias {
-        case .dolphin, .wolf: window = min(45, window + 5)
-        case .lion: window = max(15, window - 5)
+        case .dolphin, .wolf: window = min(cap, window + 5)
+        case .lion:
+            if depth == .standard { window = max(15, window - 5) }
         case .bear: break
         }
         if struggleAverageSnoozes >= 1.5 {
-            window = min(45, window + 10)
+            window = min(cap, window + (depth == .superDeep ? 15 : 10))
         }
-        return max(15, min(45, window))
+        if depth == .superDeep {
+            window = max(window, base)
+        }
+        return max(15, min(cap, window))
     }
 }
 

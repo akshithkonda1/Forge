@@ -252,6 +252,29 @@ final class SleepWakeEngineTests: XCTestCase {
         XCTAssertEqual(buffer, expected)
     }
 
+    func testMixerVolumeRampActuallyClimbs() {
+        XCTAssertEqual(SleepVolumeRamp.gain(elapsed: 0, seconds: 0.4), 1)
+        XCTAssertEqual(SleepVolumeRamp.gain(elapsed: 0, seconds: 60), 0)
+        let mid = SleepVolumeRamp.gain(elapsed: 30, seconds: 60)
+        XCTAssertGreaterThan(mid, 0.4)
+        XCTAssertLessThan(mid, 0.7)
+        XCTAssertEqual(SleepVolumeRamp.gain(elapsed: 60, seconds: 60), 1)
+        XCTAssertEqual(SleepVolumeRamp.gain(elapsed: 240, seconds: 240), 1)
+        XCTAssertEqual(VolumeRampCurve.deep.rampSeconds, 120)
+        XCTAssertEqual(VolumeRampCurve.superDeep.rampSeconds, 240)
+        XCTAssertTrue(SleepVolumeRamp.appliesMixerRamp(.gradual))
+        XCTAssertFalse(SleepVolumeRamp.appliesMixerRamp(.instant))
+    }
+
+    func testMixTimerUntilStopAndPlaylists() {
+        XCTAssertEqual(SleepMixTimer.label(0), "Until stop")
+        XCTAssertEqual(SleepMixTimer.label(120), "2h")
+        XCTAssertTrue(SleepMixTimer.options.contains(0))
+        XCTAssertTrue(AlarmSoundOption.allCases.contains(.radarSweep))
+        XCTAssertTrue(AlarmSoundOption.allCases.contains(.crystalRise))
+        XCTAssertNotEqual(AlarmSoundOption.radarSweep.wakeFrequencies.0, AlarmSoundOption.gentleRise.wakeFrequencies.0)
+    }
+
     func testWakeToneRampsFromSilence() {
         var dsp = WakeToneDSP()
         dsp.reset(rampSeconds: 1, sound: .gentleRise)

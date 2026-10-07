@@ -134,10 +134,13 @@ struct SleepWakeScreen: View {
             VStack(spacing: 28) {
                 Spacer()
                 VStack(spacing: 8) {
-                    Text(clock)
-                        .font(.system(size: 72, weight: .semibold, design: .rounded))
-                        .foregroundColor(.white)
-                        .monospacedDigit()
+                    ZStack {
+                        SleepWakeHudRing(progress: progress)
+                        Text(clock)
+                            .font(.system(size: 64, weight: .semibold, design: .rounded))
+                            .foregroundColor(.white)
+                            .monospacedDigit()
+                    }
                     Text(alarm.label)
                         .font(.system(size: 16, weight: .semibold, design: .rounded))
                         .foregroundColor(.white.opacity(0.72))
@@ -255,15 +258,21 @@ struct SleepWakeScreen: View {
         return ZStack {
             LinearGradient(
                 colors: [
-                    Color(red: 0.04, green: 0.05, blue: 0.10),
-                    Color(red: 0.55 + 0.2 * t, green: 0.28 + 0.25 * t, blue: 0.12 + 0.15 * t),
-                    Color(red: 0.98, green: 0.62 + 0.2 * t, blue: 0.28 + 0.25 * t)
+                    Color(red: 0.03, green: 0.05, blue: 0.10),
+                    Color(red: 0.08 + 0.12 * t, green: 0.16 + 0.18 * t, blue: 0.28 + 0.22 * t),
+                    Color(red: 0.98, green: 0.55 + 0.2 * t, blue: 0.22 + 0.18 * t)
                 ],
                 startPoint: .top,
                 endPoint: .bottom
             )
             RadialGradient(
-                colors: [Color(hex: "F59E0B").opacity(0.15 + 0.55 * t), .clear],
+                colors: [Color(hex: SleepHud.plateHex).opacity(0.18 + 0.35 * t), .clear],
+                center: UnitPoint(x: 0.5, y: 0.22),
+                startRadius: 8,
+                endRadius: 220
+            )
+            RadialGradient(
+                colors: [Color.ember.opacity(0.12 + 0.45 * t), .clear],
                 center: UnitPoint(x: 0.5, y: 0.78),
                 startRadius: 10,
                 endRadius: 280
@@ -271,6 +280,49 @@ struct SleepWakeScreen: View {
         }
         .ignoresSafeArea()
         .animation(.easeInOut(duration: 1.0), value: t)
+    }
+}
+
+struct SleepWakeHudRing: View {
+    var progress: Double
+
+    var body: some View {
+        Canvas { context, size in
+            let s = min(size.width, size.height)
+            let center = CGPoint(x: size.width / 2, y: size.height / 2)
+            let outer = s / 2 - 2
+            let plate = Color(hex: SleepHud.plateHex)
+            for i in 0..<SleepHud.tickCount {
+                let major = i.isMultiple(of: 6)
+                let angle = Double(i) / Double(SleepHud.tickCount) * .pi * 2 - .pi / 2
+                let inner = outer - (major ? 10 : 5)
+                var path = Path()
+                path.move(to: CGPoint(
+                    x: center.x + CGFloat(cos(angle)) * inner,
+                    y: center.y + CGFloat(sin(angle)) * inner
+                ))
+                path.addLine(to: CGPoint(
+                    x: center.x + CGFloat(cos(angle)) * outer,
+                    y: center.y + CGFloat(sin(angle)) * outer
+                ))
+                context.stroke(
+                    path,
+                    with: .color(major ? plate.opacity(0.85) : plate.opacity(0.28)),
+                    lineWidth: major ? 1.6 : 0.8
+                )
+            }
+            var arc = Path()
+            arc.addArc(
+                center: center,
+                radius: outer - 16,
+                startAngle: .degrees(-90),
+                endAngle: .degrees(-90 + 360 * min(1, max(0, progress))),
+                clockwise: false
+            )
+            context.stroke(arc, with: .color(Color.ember.opacity(0.9)), lineWidth: 3)
+        }
+        .frame(width: 220, height: 220)
+        .accessibilityHidden(true)
     }
 }
 
@@ -331,7 +383,7 @@ struct WakeUpTab: View {
             sleepScore: appStore.sleepData.first?.score,
             lastNightHours: appStore.sleepData.first?.totalHours,
             smartWindowMinutes: store.next.map {
-                hkService.adaptiveSmartWakeMinutes(base: $0.smartWakeWindow)
+                hkService.adaptiveSmartWakeMinutes(base: $0.smartWakeWindow, depth: store.sleeperDepth)
             }
         )
     }
@@ -339,6 +391,13 @@ struct WakeUpTab: View {
     var body: some View {
         VStack(spacing: 20) {
             NextWakePlanCard(coach: coach)
+
+            SleeperDepthCard(
+                depth: Binding(
+                    get: { store.sleeperDepth },
+                    set: { store.setSleeperDepth($0) }
+                )
+            )
 
             if store.next != nil {
                 SmartWakeCard(
@@ -351,7 +410,7 @@ struct WakeUpTab: View {
                         }
                     ),
                     windowMinutes: Binding(
-                        get: { store.next?.smartWakeWindow ?? 30 },
+                        get: { store.next?.smartWakeWindow ?? store.sleeperDepth.defaultWindow },
                         set: { mins in
                             guard var next = store.next else { return }
                             next.smartWakeWindow = mins
@@ -359,8 +418,9 @@ struct WakeUpTab: View {
                         }
                     ),
                     adaptedMinutes: store.next.map {
-                        hkService.adaptiveSmartWakeMinutes(base: $0.smartWakeWindow)
-                    } ?? 30
+                        hkService.adaptiveSmartWakeMinutes(base: $0.smartWakeWindow, depth: store.sleeperDepth)
+                    } ?? store.sleeperDepth.defaultWindow,
+                    windowChoices: store.sleeperDepth.windowChoices
                 )
             }
 
@@ -441,10 +501,43 @@ struct NextWakePlanCard: View {
     }
 }
 
+struct SleeperDepthCard: View {
+    @Binding var depth: SleeperDepth
+
+    var body: some View {
+        WakeUpSection(icon: "bed.double.fill", title: "How you sleep", color: Color(hex: SleepHud.plateHex)) {
+            VStack(alignment: .leading, spacing: 12) {
+                Text("Deep and super-deep sleepers get a longer Smart Wake lead and a slower volume climb. Lifestyle coaching — iPhone cannot read live stage.")
+                    .font(.system(size: 12))
+                    .foregroundColor(.textTertiary)
+                    .fixedSize(horizontal: false, vertical: true)
+                HStack(spacing: 8) {
+                    ForEach(SleeperDepth.allCases, id: \.self) { option in
+                        Button {
+                            depth = option
+                            UISelectionFeedbackGenerator().selectionChanged()
+                        } label: {
+                            Text(option.title)
+                                .font(.system(size: 13, weight: .semibold))
+                                .foregroundColor(depth == option ? .white : .textPrimary)
+                                .frame(maxWidth: .infinity)
+                                .padding(.vertical, 10)
+                                .background(depth == option ? Color(hex: SleepHud.plateHex) : Color.surfaceElevated)
+                                .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                        }
+                        .buttonStyle(.plain)
+                    }
+                }
+            }
+        }
+    }
+}
+
 struct SmartWakeCard: View {
     @Binding var enabled: Bool
     @Binding var windowMinutes: Int
     var adaptedMinutes: Int
+    var windowChoices: [Int] = [15, 30, 45]
 
     var body: some View {
         VStack(spacing: 0) {
@@ -454,8 +547,7 @@ struct SmartWakeCard: View {
                         VStack(alignment: .leading, spacing: 3) {
                             Text("Earlier nudge, then the hard alarm")
                                 .font(.system(size: 14, weight: .semibold)).foregroundColor(.textPrimary)
-                            Text("iPhone cannot read live sleep stage. Tonight's lead is \(adaptedMinutes) min from last night's score, debt, and snooze history — your pick is the base. The hard alarm still stands.")
-                            Text("When Apple delivers a sample in the window, Forge can nudge earlier if you're in light or core sleep. iPhone cannot stream live stage. Tonight's lead is \(adaptedMinutes) min from last night's score, debt, and snooze history — your pick is the base. The hard alarm still stands.")
+                            Text("When Apple delivers a sample in the window, Forge can nudge earlier if you're in light or core sleep. iPhone cannot stream live stage. Tonight's lead is \(adaptedMinutes) min from last night's score, debt, and how heavy you sleep — your pick is the base. The hard alarm still stands.")
                                 .font(.system(size: 12)).foregroundColor(.textTertiary).lineSpacing(3)
                         }
                     }
@@ -466,7 +558,7 @@ struct SmartWakeCard: View {
                             Text("Lead window")
                                 .font(.system(size: 12, weight: .semibold)).foregroundColor(.textSecondary)
                             HStack(spacing: 10) {
-                                ForEach([15, 30, 45], id: \.self) { mins in
+                                ForEach(windowChoices, id: \.self) { mins in
                                     Button {
                                         windowMinutes = mins
                                         UISelectionFeedbackGenerator().selectionChanged()
@@ -495,7 +587,7 @@ struct SmartWakeCard: View {
                                     RoundedRectangle(cornerRadius: 6).fill(Color.borderColor.opacity(0.3)).frame(height: 8)
                                     RoundedRectangle(cornerRadius: 6)
                                         .fill(LinearGradient(colors: [Color.steel.opacity(0.3), Color.steel], startPoint: .leading, endPoint: .trailing))
-                                        .frame(width: CGFloat(windowMinutes) / 45 * 200, height: 8)
+                                        .frame(width: CGFloat(windowMinutes) / CGFloat(windowChoices.last ?? 45) * 200, height: 8)
                                 }
                                 .frame(width: 200)
                                 VStack(alignment: .trailing, spacing: 2) {

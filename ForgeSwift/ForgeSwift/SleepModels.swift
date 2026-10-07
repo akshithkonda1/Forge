@@ -17,6 +17,9 @@ enum AlarmSoundOption: String, CaseIterable, Codable {
     case sunriseGlow = "Sunrise Glow"
     case rainDrop    = "Rain Drop"
     case softPiano   = "Soft Piano"
+    case radarSweep  = "Radar Sweep"
+    case crystalRise = "Crystal Rise"
+    case analogPulse = "Analog Pulse"
 
     var icon: String {
         switch self {
@@ -28,14 +31,18 @@ enum AlarmSoundOption: String, CaseIterable, Codable {
         case .sunriseGlow: return "sun.max.fill"
         case .rainDrop:    return "cloud.drizzle.fill"
         case .softPiano:   return "music.note"
+        case .radarSweep:  return "dot.radiowaves.left.and.right"
+        case .crystalRise: return "sparkle"
+        case .analogPulse: return "waveform.path.ecg"
         }
     }
 
     var category: String {
         switch self {
-        case .gentleRise, .sunriseGlow:                return "Ambient"
-        case .forestBirds, .oceanWaves, .rainDrop:     return "Nature"
-        case .windChimes, .tibetanBell, .softPiano:    return "Tones"
+        case .gentleRise, .sunriseGlow, .crystalRise:           return "Ambient"
+        case .forestBirds, .oceanWaves, .rainDrop:              return "Nature"
+        case .windChimes, .tibetanBell, .softPiano:             return "Tones"
+        case .radarSweep, .analogPulse:                         return "Wake"
         }
     }
 
@@ -50,6 +57,9 @@ enum AlarmSoundOption: String, CaseIterable, Codable {
         case .tibetanBell: return (220, 330)
         case .rainDrop:    return (280, 640)
         case .softPiano:   return (261.63, 329.63)
+        case .radarSweep:  return (740, 980)
+        case .crystalRise: return (659.25, 987.77)
+        case .analogPulse: return (180, 360)
         }
     }
 }
@@ -715,30 +725,38 @@ enum SleepCircadianBridge {
 }
 
 enum VolumeRampCurve: String, CaseIterable, Codable {
-    case instant  = "Instant"
-    case gentle   = "Gentle"
-    case gradual  = "Gradual"
+    case instant   = "Instant"
+    case gentle    = "Gentle"
+    case gradual   = "Gradual"
+    case deep      = "Deep"
+    case superDeep = "Super-deep"
 
     var rampSeconds: Double {
         switch self {
-        case .instant: return 0.4
-        case .gentle:  return 15
-        case .gradual: return 60
+        case .instant:   return 0.4
+        case .gentle:    return 15
+        case .gradual:   return 60
+        case .deep:      return 120
+        case .superDeep: return 240
         }
     }
 
     var description: String {
         switch self {
-        case .instant: return "Full volume immediately"
-        case .gentle:  return "Ramps up over 15 seconds"
-        case .gradual: return "Slowly increases over 60 seconds"
+        case .instant:   return "Full volume immediately"
+        case .gentle:    return "Ramps up over 15 seconds"
+        case .gradual:   return "Slowly increases over 60 seconds"
+        case .deep:      return "Quiet start, full in 2 minutes"
+        case .superDeep: return "Barely there, then full in 4 minutes"
         }
     }
     var icon: String {
         switch self {
-        case .instant: return "bolt.fill"
-        case .gentle:  return "chart.line.uptrend.xyaxis"
-        case .gradual: return "waveform.path"
+        case .instant:   return "bolt.fill"
+        case .gentle:    return "chart.line.uptrend.xyaxis"
+        case .gradual:   return "waveform.path"
+        case .deep:      return "moon.zzz.fill"
+        case .superDeep: return "bed.double.fill"
         }
     }
 }

@@ -42,6 +42,19 @@ final class SleepWakeAdaptationTests: XCTestCase {
         XCTAssertEqual(hard, 40)
     }
 
+    func testSuperDeepSleepersCanOpenPastFortyFive() {
+        let minutes = SmartAlarmWindow.minutes(
+            base: 75,
+            recentScore: 40,
+            debtHours: 4,
+            bias: .dolphin,
+            struggleAverageSnoozes: 2,
+            depth: .superDeep
+        )
+        XCTAssertGreaterThan(minutes, 45)
+        XCTAssertLessThanOrEqual(minutes, SleeperDepth.superDeep.maxWindow)
+    }
+
     func testClampsToFifteenFortyFive() {
         let wide = SmartAlarmWindow.minutes(
             base: 45,

@@ -9,12 +9,14 @@ final class ForgeAlarmStore: ObservableObject {
     @Published var alarms: [ForgeAlarm]
     @Published var sunriseEnabled = true
     @Published var volumeRamp: VolumeRampCurve = .gradual
+    @Published var sleeperDepth: SleeperDepth = .standard
     @Published var routine: [RoutineItem]
     @Published var delivery: SleepAlarmDelivery = .unknown
 
     private let alarmsKey = "forge.sleep.alarms.v1"
     private let sunriseKey = "forge.sleep.sunrise.enabled.v1"
     private let rampKey = "forge.sleep.volumeRamp.v1"
+    private let depthKey = "forge.sleep.sleeperDepth.v1"
     private let routineKey = "forge.sleep.routine.v1"
     private let defaults = UserDefaults.standard
 
@@ -36,6 +38,10 @@ final class ForgeAlarmStore: ObservableObject {
         if let raw = defaults.string(forKey: rampKey),
            let ramp = VolumeRampCurve(rawValue: raw) {
             volumeRamp = ramp
+        }
+        if let raw = defaults.string(forKey: depthKey),
+           let depth = SleeperDepth(rawValue: raw) {
+            sleeperDepth = depth
         }
         if let data = defaults.data(forKey: routineKey),
            let saved = try? JSONDecoder().decode([RoutineItem].self, from: data) {
@@ -75,6 +81,11 @@ final class ForgeAlarmStore: ObservableObject {
     func setVolumeRamp(_ ramp: VolumeRampCurve) {
         volumeRamp = ramp
         defaults.set(ramp.rawValue, forKey: rampKey)
+    }
+
+    func setSleeperDepth(_ depth: SleeperDepth) {
+        sleeperDepth = depth
+        defaults.set(depth.rawValue, forKey: depthKey)
     }
 
     func setRoutine(_ items: [RoutineItem]) {
@@ -164,7 +175,7 @@ enum SleepAlarmScheduler {
 
         let windows: [UUID: Int] = await MainActor.run {
             Dictionary(uniqueKeysWithValues: alarms.map { alarm in
-                (alarm.id, HealthKitSleepService.shared.adaptiveSmartWakeMinutes(base: alarm.smartWakeWindow))
+                (alarm.id, HealthKitSleepService.shared.adaptiveSmartWakeMinutes(base: alarm.smartWakeWindow, depth: sleeperDepth))
             })
         }
 
@@ -350,7 +361,7 @@ enum SleepAlarmScheduler {
     ) async {
         let alarms = ForgeAlarmStore.shared.alarms
         guard let alarm = SleepWakeEngine.nextAlarm(in: alarms, now: now), alarm.isSmartWake else { return }
-        let window = HealthKitSleepService.shared.adaptiveSmartWakeMinutes(base: alarm.smartWakeWindow)
+        let window = HealthKitSleepService.shared.adaptiveSmartWakeMinutes(base: alarm.smartWakeWindow, depth: sleeperDepth)
         guard let hard = SleepWakeEngine.nextHardFire(alarm: alarm, now: now) else { return }
         let smart = SleepWakeEngine.smartWakeFire(hard: hard, windowMinutes: window)
         let decision = SmartWakeEarlyFire.decide(
@@ -582,7 +593,7 @@ struct NextAlarmHero: View {
                 .font(.system(size: 14))
                 .foregroundColor(.textSecondary)
             if alarm.isSmartWake {
-                let lead = hk.adaptiveSmartWakeMinutes(base: alarm.smartWakeWindow)
+                let lead = hk.adaptiveSmartWakeMinutes(base: alarm.smartWakeWindow, depth: sleeperDepth)
                 Text("Smart wake opens \(lead) min earlier tonight. Hard alarm still fires.")
                     .font(.system(size: 12))
                     .foregroundColor(.textTertiary)
