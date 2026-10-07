@@ -704,8 +704,8 @@ struct SleepBedtimeCoach: Equatable {
         case .overdue:
             return (
                 "You're still up",
-                "The window already opened. Go now — tomorrow's training is already paying for this.",
-                "I am past bedtime. Get me to sleep in the next ten minutes."
+                "The window already opened. A short wind-down still counts — go when you're ready.",
+                "I am past bedtime. Help me land a lighter close tonight."
             )
         }
     }

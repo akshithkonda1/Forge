@@ -24,15 +24,19 @@ function buildGreeting(
       ? "Last night actually rebuilt you."
       : readiness.sleepQuality >= 60
         ? "Last night was decent — we'll keep the load honest."
-        : "Last night was thinner than I'd like. We'll protect you today.";
+        : "Last night was thinner. A lighter win still counts today.";
 
   const session = workoutName
-    ? readiness.overall >= 80
+    ? readiness.overall >= 85
       ? `You're ${readinessLabel}. Ready to hit ${workoutName}?`
-      : readiness.overall >= 60
+      : readiness.overall >= 70
         ? `You're ${readinessLabel}. ${workoutName} still fits if we stay honest.`
-        : `Recovery is the work. Keep ${workoutName} light, or swap for mobility.`
-    : "Today's a good day to rest and recover.";
+        : readiness.overall >= 50
+          ? `You're ${readinessLabel}. Train smart on ${workoutName} — not maximal.`
+          : `A lighter win still makes you someone who trains. Keep ${workoutName} easy.`
+    : readiness.overall >= 50
+      ? "You're someone who trains. Write the session when you're ready."
+      : "A lighter win still makes today count.";
 
   const extra = dataDriven ? ` HRV ${hrv}ms.` : "";
   return `${timeGreeting} ${who}. ${night} ${session}${extra}`;

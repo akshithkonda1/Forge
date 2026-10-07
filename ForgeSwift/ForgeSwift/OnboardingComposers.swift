@@ -29,7 +29,7 @@ struct IntroComposer: View {
                 .tracking(3.4)
                 .foregroundStyle(Color(hex: "F7F4F0").opacity(0.72))
 
-            Text("Your coach — built for the life you already have.")
+            Text("Your lifestyle coach — built for the life you already have.")
                 .font(.system(size: 15, weight: .regular, design: .rounded))
                 .foregroundStyle(Color.textSecondary)
                 .multilineTextAlignment(.center)
