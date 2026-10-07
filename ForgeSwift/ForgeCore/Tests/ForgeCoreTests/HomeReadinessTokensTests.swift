@@ -87,7 +87,7 @@ final class HomeReadinessTokensTests: XCTestCase {
 
         let expected = [
             ("peak", "Peak", 85, "22C55E", "vitality"),
-            ("good", "Good", 70, "FF4D00", "ember"),
+            ("good", "Good", 70, "F5A524", "amber"),
             ("fair", "Fair", 50, "5B8DEF", "steel"),
             ("low", "Low", 0, "EF4444", "alert")
         ]
@@ -113,7 +113,7 @@ final class HomeReadinessTokensTests: XCTestCase {
         XCTAssertEqual(HomeReadinessTokens.label(for: 60), "Fair")
         XCTAssertEqual(HomeReadinessTokens.label(for: 40), "Low")
         XCTAssertEqual(HomeReadinessTokens.hex(for: 90), "22C55E")
-        XCTAssertEqual(HomeReadinessTokens.hex(for: 72), "FF4D00")
+        XCTAssertEqual(HomeReadinessTokens.hex(for: 72), "F5A524")
         XCTAssertEqual(HomeReadinessTokens.hex(for: 60), "5B8DEF")
         XCTAssertEqual(HomeReadinessTokens.hex(for: 40), "EF4444")
     }

@@ -178,7 +178,7 @@ final class HomeTodayProgressTests: XCTestCase {
         XCTAssertEqual(HomeReadiness.label(60), "Fair")
         XCTAssertEqual(HomeReadiness.label(40), "Low")
         XCTAssertEqual(HomeReadiness.color(90).forgeHexString, "22C55E")
-        XCTAssertEqual(HomeReadiness.color(72).forgeHexString, "FF4D00")
+        XCTAssertEqual(HomeReadiness.color(72).forgeHexString, "F5A524")
         XCTAssertEqual(HomeReadiness.color(60).forgeHexString, "5B8DEF")
         XCTAssertEqual(HomeReadiness.color(40).forgeHexString, "EF4444")
     }

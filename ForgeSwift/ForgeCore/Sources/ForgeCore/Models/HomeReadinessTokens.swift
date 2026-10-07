@@ -61,7 +61,7 @@ public enum HomeReadinessTokens: Sendable {
         public var hex: String {
             switch self {
             case .peak: return "22C55E"
-            case .good: return "FF4D00"
+            case .good: return "F5A524"
             case .fair: return "5B8DEF"
             case .low: return "EF4444"
             }

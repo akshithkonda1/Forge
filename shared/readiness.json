@@ -5,7 +5,7 @@
   "notes": "Phone Home Today Progress HUD chrome. Nest brand stays procedural AriaNestGeometry (soft-hex-field) — never mount this file as the logo. Watch / StandBy / web are out of scope. Band names are Peak / Good / Fair / Low — Home vocabulary, not Primed / Ready / Moderate / Recovery and not clinical labels.",
   "bands": [
     { "id": "peak", "label": "Peak", "min": 85, "hex": "22C55E", "token": "vitality" },
-    { "id": "good", "label": "Good", "min": 70, "hex": "FF4D00", "token": "ember" },
+    { "id": "good", "label": "Good", "min": 70, "hex": "F5A524", "token": "amber" },
     { "id": "fair", "label": "Fair", "min": 50, "hex": "5B8DEF", "token": "steel" },
     { "id": "low", "label": "Low", "min": 0, "hex": "EF4444", "token": "alert" }
   ],
