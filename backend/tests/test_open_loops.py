@@ -169,6 +169,8 @@ class OpenLoopRoundTripTests(unittest.TestCase):
         self.assertTrue(loop.get("stm_active"))
         speak = loop.get("speak") or ""
         self.assertIn("Wedding in 21 days", speak)
+        self.assertIn("suit sits well", speak)
+        self.assertNotIn("more recovery", speak.lower())
         self.assertNotRegex(speak, r"(?i)\bvault\b")
         spoken = f"{out.get('message') or ''} {out.get('prose_summary') or ''}"
         self.assertNotRegex(spoken, r"(?i)\b(?:from your notes|in the vault|stored note)\b")

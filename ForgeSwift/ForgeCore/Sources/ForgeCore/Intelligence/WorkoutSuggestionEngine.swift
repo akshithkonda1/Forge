@@ -165,7 +165,7 @@ public enum EventTrainingPolicy: Sendable {
             progressive: true,
             reduceVolume: true,
             keepLight: daysUntil <= 7,
-            reason: "Wedding in \(daysUntil) day\(daysUntil == 1 ? "" : "s") — progressive lighter loads, less volume, more recovery, chest/arms/abs so the suit sits right."
+            reason: "Wedding in \(daysUntil) day\(daysUntil == 1 ? "" : "s") — lighter loads, less volume, keep it easy on chest/arms/abs so the suit sits well."
         )
     }
 
