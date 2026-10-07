@@ -8,7 +8,7 @@ Hard refuses (exit 2) unless:
 - `ARIA_BEDROCK_ENABLED=false`
 - `ARIA_VOICE_ENABLED=false` (harness flag; live voice is not used)
 
-The Dummy process is started with a sitecustomize/import guard. Bedrock client creation or invoke, and any ElevenLabs HTTP, raises and increments a counter. `GET /__loadtest/guards` must report `total: 0`.
+The Dummy process is started with a sitecustomize/import guard. Bedrock client creation or invoke, and any ElevenLabs or Fish Audio HTTP, raises and increments a counter. `GET /__loadtest/guards` must report `total: 0`.
 
 These numbers are a **local Dummy backend ceiling** on a single-process `ThreadingHTTPServer` in this VM. They are **not** Lambda, API Gateway, or production capacity. The TestFlight Dummy build never calls the backend.
 
@@ -69,6 +69,8 @@ k6 archive backend/loadtest/k6/baseline.js -O /tmp/forge-loadtest-baseline.tar
 - `BedrockGateway._get_bedrock_client` / `.converse` increment and raise
 - `urllib.request.urlopen` to `*.elevenlabs.io` increments `elevenlabs_http` and raises
 - `services.elevenlabs_voice` mint/tool/design helpers increment `elevenlabs_api` and raises
+- `urllib.request.urlopen` to `*.fish.audio` increments `fish_audio_http` and raises
+- `services.fish_audio_voice` speak/synthesize helpers increment `fish_audio_api` and raises
 
 This is loadtest-only. Production paths are unchanged.
 

@@ -27,6 +27,11 @@ class GuardTests(unittest.TestCase):
             urllib.request.urlopen("https://api.elevenlabs.io/v1/voices", timeout=1)
         self.assertEqual(guard.snapshot()["elevenlabs_http"], 1)
 
+    def test_fish_audio_urlopen_increments(self):
+        with self.assertRaises(guard.LoadtestGuardError):
+            urllib.request.urlopen("https://api.fish.audio/v1/tts", timeout=1)
+        self.assertEqual(guard.snapshot()["fish_audio_http"], 1)
+
     def test_s3_client_is_not_counted_as_bedrock(self):
         seen = {}
 

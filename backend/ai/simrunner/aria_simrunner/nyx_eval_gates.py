@@ -89,6 +89,7 @@ _INVOKE_CALL_NAMES = frozenset(
         "design_aria",
         "handle_get_ai_voice_bootstrap",
         "handle_post_ai_voice_tool",
+        "handle_post_ai_voice_speak",
     }
 )
 
@@ -102,6 +103,9 @@ _SPEND_NAME_NEEDLES = (
     "elevenlabs_voice",
     "/ai/voice/bootstrap",
     "/ai/voice/tool",
+    "fish_audio_voice",
+    "/ai/voice/speak",
+    "api.fish.audio",
 )
 
 _INGEST_SPEND_CALL_NAMES = frozenset(
@@ -320,15 +324,17 @@ def dummy_invoke_call_failures(source: str) -> list[str]:
     for node in ast.walk(tree):
         if isinstance(node, ast.Import):
             for alias in node.names:
-                if "elevenlabs_voice" in (alias.name or ""):
+                if "elevenlabs_voice" in (alias.name or "") or "fish_audio_voice" in (
+                    alias.name or ""
+                ):
                     fails.append(f"import {alias.name} at line {node.lineno}")
         elif isinstance(node, ast.ImportFrom):
             module = node.module or ""
-            if "elevenlabs_voice" in module:
+            if "elevenlabs_voice" in module or "fish_audio_voice" in module:
                 fails.append(f"from {module} import at line {node.lineno}")
             for alias in node.names:
-                if alias.name == "elevenlabs_voice":
-                    fails.append(f"from {module} import elevenlabs_voice at line {node.lineno}")
+                if alias.name in {"elevenlabs_voice", "fish_audio_voice"}:
+                    fails.append(f"from {module} import {alias.name} at line {node.lineno}")
         elif isinstance(node, ast.Constant) and isinstance(node.value, str):
             if node in docstrings:
                 continue
