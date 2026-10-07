@@ -4,7 +4,7 @@ import copy
 import re
 from typing import Any
 
-from responses import RouteError, ok
+from responses import RouteError, ok, ok_bytes
 from security import (
     MAX_ARCHETYPE_DESCRIPTION_CHARS,
     MAX_CHAT_MESSAGE_CHARS,
@@ -765,22 +765,14 @@ def handle_post_ai_voice_design(body: dict[str, Any], *, user_id: str) -> dict:
     return ok(elevenlabs_voice.design_aria(preview_index=preview_index))
 
 
-def handle_post_ai_voice_fish_tts(body: dict[str, Any], *, user_id: str) -> dict:
-    """POST /ai/voice/fish-tts — Fish Audio speech. The API key never leaves Lambda."""
-    from base64 import b64encode
+def handle_post_ai_voice_speak(body: dict[str, Any], *, user_id: str) -> dict:
+    """POST /ai/voice/speak — already-guarded ARIA prose → Fish Audio mp3.
 
+    Speak-only. Does not fuse, remember, observe, or re-run ``guard_speak``.
+    Dummy / on-device speech stays the default when the flag is off.
+    Success is raw ``audio/mpeg`` via ``ok_bytes`` (APIGW binary), not JSON.
+    """
+    _bind_user(body, user_id)
     from services import fish_audio_voice
 
-    _bind_user(body, user_id)
-    text = sanitize_user_text(str(body.get("text") or ""), max_chars=900)
-    audio = fish_audio_voice.synthesize(text)
-    creds = fish_audio_voice.credentials()
-    payload = {
-        "format": "mp3",
-        "model": fish_audio_voice.sanitize_model(creds.get("FISH_AUDIO_MODEL")),
-        "audio_base64": b64encode(audio).decode("ascii"),
-    }
-    key = (creds.get("FISH_AUDIO_API_KEY") or "").strip()
-    if key and any(key in str(value) for value in payload.values()):
-        raise RouteError(503, "Fish Audio refused to echo the API key.", code="fish_audio_key_leak")
-    return ok(payload)
+    return ok_bytes(fish_audio_voice.speak(body))

@@ -58,9 +58,9 @@ public enum TestReadyLaunchPolicy: Sendable {
     /// and Apple Calendar dies with `0x8BADF00D`.
     public static let simulatorBackgroundIngestDelaySeconds: Double = 2.5
 
-    /// AppStore init and Home `.task` both call `refreshDailyData`. Coalesce
-    /// the second launch pass so Home does not load twice.
-    public static let launchRefreshCoalesceSeconds: Double = 2.0
+    /// Backstop if a second launch caller still asks. AppStore.init owns the
+    /// first refreshDailyData; Home must not start another pass.
+    public static let launchRefreshCoalesceSeconds: Double = 8.0
 
     public static func dayStamp(_ date: Date, calendar: Calendar = .current) -> String {
         let parts = calendar.dateComponents([.year, .month, .day], from: date)

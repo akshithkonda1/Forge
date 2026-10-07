@@ -32,13 +32,19 @@ struct ARIAIdentityMark: View {
 
 /// Procedural B+E nest: soft-hex nest + metal sun, `#FF4D00` accent.
 /// One TimelineView. Soft orbit/wave. Reduce Motion / `forgeMinimalAnimation`
-/// freeze at `AriaNestGeometry.stillPose`. Tick ≤ 12 Hz. No PNG. No fire splash.
+/// freeze at `AriaNestGeometry.stillPose`. Idle ticks 4–6 Hz; Chat/voice
+/// may use the 12 Hz ceiling. No PNG. No fire splash.
 struct AuroraOrbView: View {
     let state: AROrbState
     let amplitude: Float
     var mood: ARIAMood = .focused
     var size: CGFloat = 140
     var followPresence: Bool = false
+
+    /// Idle nest clock. Brand geometry stays `AriaNestGeometry` — only the
+    /// TimelineView interval drops while nobody is talking.
+    static let idleTickHz: Double = 5
+    static let idleTickInterval: Double = 1.0 / 5.0
 
     private let presence = AriaPresence.shared
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
@@ -57,7 +63,9 @@ struct AuroraOrbView: View {
     }
 
     private var tick: Double {
-        frozen ? 1 : AriaNestGeometry.tickInterval
+        if frozen { return 1 }
+        if resolvedState == .idle { return Self.idleTickInterval }
+        return AriaNestGeometry.tickInterval
     }
 
     var body: some View {

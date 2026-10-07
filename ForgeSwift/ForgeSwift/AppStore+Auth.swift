@@ -76,7 +76,10 @@ extension AppStore {
         )
         restoreUserProfileForCurrentUser()
         restoreChatHistory()
-        WatchAriaConfigBridge.sync(firstName: session.displayName.split(separator: " ").first.map(String.init))
+        WatchAriaConfigBridge.sync(
+            firstName: session.displayName.split(separator: " ").first.map(String.init),
+            force: true
+        )
         AriaOperatingMode.refresh()
     }
 

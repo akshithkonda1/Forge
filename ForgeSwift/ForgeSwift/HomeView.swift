@@ -27,6 +27,7 @@ struct HomeView: View {
                             .padding(.top, 8)
 
                         HomeTodayHero(action: primaryAction)
+                        ReadinessForecastCard()
 
                         if !store.quietMode {
                             if let habit = ariaContext.context.deepHabits.first {
@@ -76,8 +77,6 @@ struct HomeView: View {
                         HomeDayPreviewStrip()
                         StreakCalendarSection()
                         HomeTrendSection(isExpanded: $showTrend)
-                        // Exclusive: tomorrow's readiness forecast + pro-grade load timeline.
-                        ReadinessForecastCard()
                         LoadTimelineView()
                             .padding(.bottom, HomeMetrics.scrollBottomClearance)
                 }
@@ -110,7 +109,8 @@ struct HomeView: View {
         }
         .animation(.easeInOut(duration: 0.22), value: showHeaderBlur)
         .task {
-            await store.refreshDailyData()
+            // Launch hydrate is owned by AppStore.init. Home only reads
+            // after that pass — do not start a second refreshDailyData here.
             proactiveInsight = await AriaService.shared.fetchProactiveMessage(store: store)
             MenstrualHealthStore.shared.refresh(from: store)
         }

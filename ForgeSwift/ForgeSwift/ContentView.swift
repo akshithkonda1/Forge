@@ -82,7 +82,8 @@ struct ForgeSplashScreen: View {
             PremiumAtmosphere(
                 accent: ForgePalette.ember,
                 secondary: Color(hex: "A9D8FF"),
-                intensity: 0.55 + 0.45 * glowIntensity
+                intensity: 0.55 + 0.45 * glowIntensity,
+                loopMotion: false
             )
 
             VStack(spacing: 28) {
@@ -90,7 +91,8 @@ struct ForgeSplashScreen: View {
                     PremiumPresenceBloom(
                         size: 220,
                         accent: ForgePalette.ember,
-                        frost: Color(hex: "A9D8FF")
+                        frost: Color(hex: "A9D8FF"),
+                        live: false
                     )
                     AuroraOrbView(
                         state: .idle,
@@ -99,6 +101,7 @@ struct ForgeSplashScreen: View {
                         size: 148,
                         followPresence: false
                     )
+                    .environment(\.forgeMinimalAnimation, true)
                 }
                 .scaleEffect(logoScale)
                 .opacity(logoOpacity)
@@ -465,6 +468,7 @@ struct ARIATabButton: View {
                         size: 44,
                         amplitude: isVoiceMode ? 0.4 : 0.2
                     )
+                    .environment(\.forgeMinimalAnimation, !isActive && !isVoiceMode)
                 }
 
                 Text(isVoiceMode ? "Voice" : "ARIA")

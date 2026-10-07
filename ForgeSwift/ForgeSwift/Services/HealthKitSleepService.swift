@@ -272,12 +272,13 @@ final class HealthKitSleepService: ObservableObject {
         }
     }
 
-    func adaptiveSmartWakeMinutes(base: Int) -> Int {
+    func adaptiveSmartWakeMinutes(base: Int, depth: SleeperDepth = .standard) -> Int {
         computeSmartAlarmWindow(
             baseWindow: base,
             recentScore: cachedSleepData.first?.score,
             debt: computeSleepDebt(from: cachedSleepData),
-            chronotype: userProfile.chronotype
+            chronotype: userProfile.chronotype,
+            depth: depth
         )
     }
 
@@ -356,14 +357,16 @@ final class HealthKitSleepService: ObservableObject {
         recentScore: Int?,
         debt: Double,
         chronotype: Chronotype,
-        struggleAverageSnoozes: Double? = nil
+        struggleAverageSnoozes: Double? = nil,
+        depth: SleeperDepth = .standard
     ) -> Int {
         SmartAlarmWindow.minutes(
             base: baseWindow,
             recentScore: recentScore,
             debtHours: debt,
             bias: smartBias(for: chronotype),
-            struggleAverageSnoozes: struggleAverageSnoozes ?? WakeStruggleStore.averageSnoozes()
+            struggleAverageSnoozes: struggleAverageSnoozes ?? WakeStruggleStore.averageSnoozes(),
+            depth: depth
         )
     }
 

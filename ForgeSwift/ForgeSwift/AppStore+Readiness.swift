@@ -50,8 +50,10 @@ extension AppStore {
             }
         }
 
-        let samples = await BiometricsObserveService.shared.samplesFromStore(self)
-        _ = await BiometricsObserveService.shared.observe(store: self, samples: samples)
+        if ForgeCloudSync.shared.isRemoteEligible {
+            let samples = await BiometricsObserveService.shared.samplesFromStore(self)
+            _ = await BiometricsObserveService.shared.observe(store: self, samples: samples)
+        }
 
         MenstrualHealthStore.shared.enableForFemaleProfileIfNeeded(gender: userProfile.gender)
         if let sex = userProfile.biologicalSex {
@@ -76,6 +78,7 @@ extension AppStore {
         await RemindersManager.shared.ingestIfAuthorized()
 
         lastMetricsRefresh = Date()
+        invalidatePredictiveCoachPicture()
         if todayWorkout == nil || todayWorkout?.exercises.isEmpty == true {
             rebuildTodayPlanFromLife()
         }
@@ -478,6 +481,7 @@ extension AppStore {
         if HealthKitManager.shared.todayWaterMilliliters == 0 {
             HealthKitManager.shared.installTestReadyHydration(milliliters: today.hydrationMl)
         }
+        invalidatePredictiveCoachPicture()
     }
 
     /// Sleep, HRV, or any Health write that means today's number is theirs — not a blank launch.
@@ -491,6 +495,22 @@ extension AppStore {
     /// Tomorrow-readiness + how-this-person-works. Home, ARIA context, and
     /// the dummy orchestra all call this — the card is not a private copy.
     func predictiveCoachPicture() -> PredictiveCoach.Picture {
+        let key = PredictiveCoachPictureKey(store: self)
+        if let cached = cachedPredictiveCoachPicture, cachedPredictiveCoachPictureKey == key {
+            return cached
+        }
+        let picture = buildPredictiveCoachPicture()
+        cachedPredictiveCoachPicture = picture
+        cachedPredictiveCoachPictureKey = key
+        return picture
+    }
+
+    func invalidatePredictiveCoachPicture() {
+        cachedPredictiveCoachPicture = nil
+        cachedPredictiveCoachPictureKey = nil
+    }
+
+    private func buildPredictiveCoachPicture() -> PredictiveCoach.Picture {
         let sessions = workoutHistory.compactMap { entry -> TrainingLoadModel.Session? in
             guard let date = WorkoutHistoryWindow.parseDate(entry.date) else { return nil }
             return TrainingLoadModel.Session(
@@ -614,6 +634,7 @@ extension AppStore {
             readiness: readiness,
             experience: userProfile.experienceLevel
         )
+        invalidatePredictiveCoachPicture()
     }
 
     /// Open a specific weekday (or yesterday) from the walking week.
@@ -770,6 +791,7 @@ extension AppStore {
                 )
             }
         }
+        invalidatePredictiveCoachPicture()
     }
 
     func applyCoachWorkoutPlan(_ plan: CloudCoachWorkoutPlan) {
@@ -849,6 +871,7 @@ extension AppStore {
 
         // Recalculate readiness based on new metrics
         recalculateReadiness()
+        invalidatePredictiveCoachPicture()
         AriaLiveGroundingHub.shared.publish(from: self)
     }
 
@@ -953,6 +976,7 @@ extension AppStore {
         }
         sleepData = merged.values.sorted { $0.date > $1.date }
         HealthKitSleepService.shared.rememberSleepSignals(from: sleepData)
+        invalidatePredictiveCoachPicture()
         Task { await SleepAlarmScheduler.sync(ForgeAlarmStore.shared.alarms) }
         if let latest = sleepData.first {
             dailyMetrics.totalSleep = Int(latest.totalHours * 60)
@@ -970,7 +994,82 @@ extension AppStore {
         
         // Recalculate readiness
         recalculateReadiness()
+        invalidatePredictiveCoachPicture()
     }
     
     // MARK: - Personal Records
+}
+
+/// Cheap fingerprint so Home cards can share one PredictiveCoach.picture.
+struct PredictiveCoachPictureKey: Equatable {
+    var overall: Int
+    var sleepMinutes: Int
+    var hrv: Int
+    var restingHR: Int
+    var steps: Int
+    var stress: Int
+    var workoutCount: Int
+    var lastWorkout: String
+    var todayPlan: String
+    var didTrainToday: Bool
+    var sleepSig: String
+    var habitStreak: Int
+    var habitDone: Int
+    var habitTotal: Int
+    var luteal: Bool?
+    var socialEnergy: Int
+    var hobbies: [String]
+    var peopleCount: Int
+    var weeklyMood: Int
+
+    var signature: String {
+        [
+            "\(overall)",
+            "\(sleepMinutes)",
+            "\(hrv)",
+            "\(restingHR)",
+            "\(steps)",
+            todayPlan,
+            didTrainToday ? "1" : "0",
+            "\(workoutCount)",
+            "\(habitDone)",
+            sleepSig,
+        ].joined(separator: "|")
+    }
+
+    @MainActor
+    init(store: AppStore) {
+        overall = store.readiness.overall
+        sleepMinutes = store.dailyMetrics.totalSleep
+        hrv = store.dailyMetrics.hrv
+        restingHR = store.dailyMetrics.restingHR
+        steps = store.dailyMetrics.steps
+        stress = store.readiness.stressLevel
+        workoutCount = store.workoutHistory.count
+        lastWorkout = store.workoutHistory.first.map {
+            "\($0.date)|\($0.duration)|\($0.intensity.rawValue)"
+        } ?? ""
+        todayPlan = store.todayWorkout.map {
+            "\($0.id)|\($0.duration)|\($0.intensity.rawValue)"
+        } ?? ""
+        didTrainToday = store.didTrainToday
+        sleepSig = store.sleepData.prefix(14).map {
+            "\($0.date):\($0.score):\($0.totalHours)"
+        }.joined(separator: ",")
+        let habits = LifestyleWellbeingStore.loadHabits()
+        habitStreak = LifestyleWellbeingStore.habitStreak()
+        habitDone = habits.filter(\.done).count
+        habitTotal = habits.count
+        let cycle = MenstrualHealthStore.shared
+        if cycle.settings.enabled, cycle.settings.shareWithAria {
+            luteal = cycle.snapshot.phase == .luteal
+        } else {
+            luteal = nil
+        }
+        let persona = QualityOfLifeLivingStore.loadPersonaForCoaching()
+        socialEnergy = Int((persona.socialEnergy0to10 ?? -1) * 10)
+        hobbies = (persona.hobbies ?? []).map(\.rawValue)
+        peopleCount = PeopleDirectoryStore.load().coachingPeople.count
+        weeklyMood = Int((AriaKnowledgeLedgerStore.load().latestWeeklyMood() ?? -1) * 10)
+    }
 }

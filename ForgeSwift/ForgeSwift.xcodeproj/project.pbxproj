@@ -58,6 +58,7 @@
 		1VOICE0132F9FF867004091AA /* AriaVoiceSession.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1VOICE0122F9FF867004091AA /* AriaVoiceSession.swift */; };
 		1XCAT0022F9FF867004091AA /* ExerciseCatalogExpansion.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1XCAT0012F9FF867004091AA /* ExerciseCatalogExpansion.swift */; };
 		1SLEEP013F9FF867004091AA /* SleepSoundEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1SLEEP012F9FF867004091AA /* SleepSoundEngine.swift */; };
+		4E3E1207DF7CFE0846C850D7 /* SleepVolumeRamp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6B8BBF7AA839A43AF78525FB /* SleepVolumeRamp.swift */; };
 		1SLEEP015F9FF867004091AA /* SleepWakeReliability.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1SLEEP014F9FF867004091AA /* SleepWakeReliability.swift */; };
 		1E4DF70B2F9FAEEC004091AA /* MusicControllerFactory.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1E4DF70A2F9FAEEC004091AA /* MusicControllerFactory.swift */; };
 		1E4DF7162F9FF867004091AA /* HealthKitManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1E4DF7152F9FF867004091AA /* HealthKitManager.swift */; };
@@ -369,6 +370,9 @@
 		1TEST04800000000000000A /* SleepSurfacePresenceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1TEST04700000000000000A /* SleepSurfacePresenceTests.swift */; };
 		1TEST04A00000000000000A /* WorkoutHistoryWindowTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1TEST04900000000000000A /* WorkoutHistoryWindowTests.swift */; };
 		1TEST04C00000000000000A /* TrainingHabitsTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1TEST04B00000000000000A /* TrainingHabitsTests.swift */; };
+		1HOME06200000000000000A /* TodayProgress.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1HOME06100000000000000A /* TodayProgress.swift */; };
+		1HOME06400000000000000A /* HudChrome.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1HOME06300000000000000A /* HudChrome.swift */; };
+		1TEST05200000000000000A /* HomeTodayProgressTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1TEST05100000000000000A /* HomeTodayProgressTests.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -508,6 +512,7 @@
 		1VOICE0122F9FF867004091AA /* AriaVoiceSession.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AriaVoiceSession.swift; sourceTree = "<group>"; };
 		1XCAT0012F9FF867004091AA /* ExerciseCatalogExpansion.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ExerciseCatalogExpansion.swift; sourceTree = "<group>"; };
 		1SLEEP012F9FF867004091AA /* SleepSoundEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SleepSoundEngine.swift; sourceTree = "<group>"; };
+		6B8BBF7AA839A43AF78525FB /* SleepVolumeRamp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SleepVolumeRamp.swift; sourceTree = "<group>"; };
 		1SLEEP014F9FF867004091AA /* SleepWakeReliability.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SleepWakeReliability.swift; sourceTree = "<group>"; };
 		1E4DF70A2F9FAEEC004091AA /* MusicControllerFactory.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = MusicControllerFactory.swift; sourceTree = SOURCE_ROOT; };
 		1E4DF70C2F9FEC33004091AA /* ForgeSwift.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = ForgeSwift.entitlements; sourceTree = "<group>"; };
@@ -572,6 +577,9 @@
 		1TEST04100000000000000A /* TrainSleepUsableTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TrainSleepUsableTests.swift; sourceTree = "<group>"; };
 		1TEST04900000000000000A /* WorkoutHistoryWindowTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkoutHistoryWindowTests.swift; sourceTree = "<group>"; };
 		1TEST04B00000000000000A /* TrainingHabitsTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TrainingHabitsTests.swift; sourceTree = "<group>"; };
+		1HOME06100000000000000A /* TodayProgress.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TodayProgress.swift; sourceTree = "<group>"; };
+		1HOME06300000000000000A /* HudChrome.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HudChrome.swift; sourceTree = "<group>"; };
+		1TEST05100000000000000A /* HomeTodayProgressTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HomeTodayProgressTests.swift; sourceTree = "<group>"; };
 		1TEST04700000000000000A /* SleepSurfacePresenceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SleepSurfacePresenceTests.swift; sourceTree = "<group>"; };
 		AA00020000000000000000B2 /* PartnerCycleSharing.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PartnerCycleSharing.swift; sourceTree = "<group>"; };
 		1ARIA0072F9FF867004091AA /* AriaContextStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AriaContextStore.swift; sourceTree = "<group>"; };
@@ -1074,6 +1082,8 @@
 				0A7C69703A221B9AF36E0CC1 /* ReadinessForecastCard.swift */,
 				666BD8AA30A9A97B0D676632 /* HomeOverlays.swift */,
 				A9A27D1156644101FD07B5D6 /* HomeCopy.swift */,
+				1HOME06100000000000000A /* TodayProgress.swift */,
+				1HOME06300000000000000A /* HudChrome.swift */,
 				AA00020000000000000000A1 /* HomeAuroraBackground.swift */,
 				AA0002000000000000000008 /* ChatView.swift */,
 				C0EECC86FCDA945D9F0AAD58 /* ChatModels.swift */,
@@ -1107,6 +1117,7 @@
 				4621301CC9D9971E70777C7C /* SleepAlarmTab.swift */,
 				A623D0F06FD3C50C8C9C2DF0 /* SleepSoundsTab.swift */,
 				1SLEEP012F9FF867004091AA /* SleepSoundEngine.swift */,
+				6B8BBF7AA839A43AF78525FB /* SleepVolumeRamp.swift */,
 				1SLEEP014F9FF867004091AA /* SleepWakeReliability.swift */,
 				C453AB65225E570720899AB3 /* SleepWakeUpTab.swift */,
 				5505055FD73CA7ABA5E30C5A /* SleepInsightCards.swift */,
@@ -1386,6 +1397,7 @@
 				1TEST04700000000000000A /* SleepSurfacePresenceTests.swift */,
 				1TEST04900000000000000A /* WorkoutHistoryWindowTests.swift */,
 				1TEST04B00000000000000A /* TrainingHabitsTests.swift */,
+				1TEST05100000000000000A /* HomeTodayProgressTests.swift */,
 				1MED03000000000000000A /* MedicationPharmacyTests.swift */,
 			);
 			path = ForgeSwiftTests;
@@ -1851,6 +1863,8 @@
 				917943B402BD923F0744751D /* ReadinessForecastCard.swift in Sources */,
 				C5AAE2E6F4609C4595542DE9 /* HomeOverlays.swift in Sources */,
 				3CA296A1780DDB7EE484486E /* HomeCopy.swift in Sources */,
+				1HOME06200000000000000A /* TodayProgress.swift in Sources */,
+				1HOME06400000000000000A /* HudChrome.swift in Sources */,
 				AA00010000000000000000A1 /* HomeAuroraBackground.swift in Sources */,
 				AA0001000000000000000008 /* ChatView.swift in Sources */,
 				60A29EB8CFF073B8FE95D0A3 /* ChatModels.swift in Sources */,
@@ -1888,6 +1902,7 @@
 				D73A7502C11F243B8CA79DB3 /* SleepAlarmTab.swift in Sources */,
 				EEC7867EE378171FAB034AD7 /* SleepSoundsTab.swift in Sources */,
 				1SLEEP013F9FF867004091AA /* SleepSoundEngine.swift in Sources */,
+				4E3E1207DF7CFE0846C850D7 /* SleepVolumeRamp.swift in Sources */,
 				1SLEEP015F9FF867004091AA /* SleepWakeReliability.swift in Sources */,
 				CDA91213B4AFC8A533C4E2D4 /* SleepWakeUpTab.swift in Sources */,
 				CEAD2F52487C32101B080DB7 /* SleepInsightCards.swift in Sources */,
@@ -2034,6 +2049,7 @@
 				1TEST04800000000000000A /* SleepSurfacePresenceTests.swift in Sources */,
 				1TEST04A00000000000000A /* WorkoutHistoryWindowTests.swift in Sources */,
 				1TEST04C00000000000000A /* TrainingHabitsTests.swift in Sources */,
+				1TEST05200000000000000A /* HomeTodayProgressTests.swift in Sources */,
 				1MED04000000000000000A /* MedicationPharmacyTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;

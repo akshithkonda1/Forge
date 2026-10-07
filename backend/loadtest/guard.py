@@ -1,11 +1,12 @@
-"""Loadtest-only Bedrock / ElevenLabs tripwire.
+"""Loadtest-only Bedrock / ElevenLabs / Fish Audio tripwire.
 
 Loaded by ``run_server.py`` or ``sitecustomize`` when the Dummy backend is
 started in loadtest mode. Production Lambda code is not imported from here
 and is not patched unless this module is on the process path.
 
-Any Bedrock client construction or invoke, and any ElevenLabs HTTP, raises
-and increments a counter. The report must show both counters at 0.
+Any Bedrock client construction or invoke, and any ElevenLabs or Fish Audio
+HTTP, raises and increments a counter. The report must show those counters
+at 0.
 """
 
 from __future__ import annotations
@@ -32,6 +33,8 @@ _COUNTS = {
     "bedrock_invoke": 0,
     "elevenlabs_http": 0,
     "elevenlabs_api": 0,
+    "fish_audio_http": 0,
+    "fish_audio_api": 0,
 }
 
 _BEDROCK_SERVICES = frozenset(
@@ -43,6 +46,7 @@ _BEDROCK_SERVICES = frozenset(
     }
 )
 _ELEVEN_HOSTS = ("elevenlabs.io", "elevenlabs.com")
+_FISH_HOSTS = ("fish.audio",)
 
 
 class LoadtestGuardError(RuntimeError):
@@ -71,15 +75,26 @@ def _bump(key: str) -> None:
     persist()
 
 
-def _is_eleven_url(target: Any) -> bool:
+def _host_of(target: Any) -> str:
     if target is None:
-        return False
+        return ""
     raw = target if isinstance(target, str) else getattr(target, "full_url", "") or str(target)
     try:
-        host = (urlparse(raw).hostname or "").lower()
+        return (urlparse(raw).hostname or "").lower()
     except ValueError:
-        host = str(raw).lower()
-    return any(host == h or host.endswith("." + h) for h in _ELEVEN_HOSTS)
+        return str(raw).lower()
+
+
+def _host_matches(host: str, names: tuple[str, ...]) -> bool:
+    return any(host == name or host.endswith("." + name) for name in names)
+
+
+def _is_eleven_url(target: Any) -> bool:
+    return _host_matches(_host_of(target), _ELEVEN_HOSTS)
+
+
+def _is_fish_url(target: Any) -> bool:
+    return _host_matches(_host_of(target), _FISH_HOSTS)
 
 
 def _is_bedrock_service(name: Any) -> bool:
@@ -146,6 +161,25 @@ def _wrap_elevenlabs(mod: Any) -> None:
     mod._forge_loadtest_guarded = True
 
 
+def _wrap_fish_audio(mod: Any) -> None:
+    if getattr(mod, "_forge_loadtest_guarded", False):
+        return
+
+    def boom(*_a: Any, **_k: Any) -> Any:
+        _bump("fish_audio_api")
+        raise LoadtestGuardError("loadtest guard: Fish Audio API is forbidden")
+
+    for name in (
+        "speak",
+        "synthesize",
+        "require_api_key",
+        "_stdlib_http",
+    ):
+        if hasattr(mod, name):
+            setattr(mod, name, boom)
+    mod._forge_loadtest_guarded = True
+
+
 def _wrap_urllib() -> None:
     original_urlopen = urllib.request.urlopen
 
@@ -154,6 +188,11 @@ def _wrap_urllib() -> None:
             _bump("elevenlabs_http")
             raise LoadtestGuardError(
                 f"loadtest guard: HTTP to ElevenLabs is forbidden ({url!r})"
+            )
+        if _is_fish_url(url):
+            _bump("fish_audio_http")
+            raise LoadtestGuardError(
+                f"loadtest guard: HTTP to Fish Audio is forbidden ({url!r})"
             )
         return original_urlopen(url, *args, **kwargs)
 
@@ -175,6 +214,14 @@ def _import(name, globals=None, locals=None, fromlist=(), level=0):  # noqa: ANN
             target = module.elevenlabs_voice
         if getattr(target, "__name__", "") == "services.elevenlabs_voice":
             _wrap_elevenlabs(target)
+    if name == "services.fish_audio_voice" or (
+        name == "services" and fromlist and "fish_audio_voice" in fromlist
+    ):
+        target = module
+        if name == "services" and hasattr(module, "fish_audio_voice"):
+            target = module.fish_audio_voice
+        if getattr(target, "__name__", "") == "services.fish_audio_voice":
+            _wrap_fish_audio(target)
     if name == "ai_router" and hasattr(module, "BedrockGateway"):
         _wrap_gateway_class(module.BedrockGateway)
     return module
@@ -223,6 +270,9 @@ def install() -> None:
     eleven = sys.modules.get("services.elevenlabs_voice")
     if eleven is not None:
         _wrap_elevenlabs(eleven)
+    fish = sys.modules.get("services.fish_audio_voice")
+    if fish is not None:
+        _wrap_fish_audio(fish)
     ai_router = sys.modules.get("ai_router")
     if ai_router is not None and hasattr(ai_router, "BedrockGateway"):
         _wrap_gateway_class(ai_router.BedrockGateway)
