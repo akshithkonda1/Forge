@@ -433,6 +433,29 @@ class PictureTagsFlowTests(unittest.TestCase):
         self.assertTrue(has_forecast, f"Missing forecast tag in {patterns}")
         self.assertTrue(has_working, f"Missing working tag in {patterns}")
         self.assertTrue(has_budget, f"Missing budget tag in {patterns}")
+        has_hobby = any(
+            p.startswith("hobby_path:") or p.startswith("hobby_social:")
+            or p.startswith("hobby_window:") or p.startswith("hobby_people:")
+            for p in patterns
+        )
+        self.assertFalse(has_hobby, f"Hobby tags must not be in recentPatterns: {patterns}")
+
+    def test_coaching_line_strings_match_iris_copy(self):
+        """Coaching lines must match the Iris-approved copy exactly."""
+        from aria_core import tomorrow_budgets as tb
+
+        self.assertEqual(
+            tb.coaching_line(tb.BOTH),
+            "Tomorrow both budgets are thin. A short walk or nothing \u2014 no hero session, no extra plans.",
+        )
+        self.assertEqual(
+            tb.coaching_line(tb.PEOPLE),
+            "Split day. Your body can take the session. Your people-budget can't take another packed calendar.",
+        )
+        self.assertIn("body-budget", tb.coaching_line(tb.BODY))
+        self.assertNotIn("thin body.", tb.coaching_line(tb.BODY))
+        self.assertIn("no need to burn both", tb.coaching_line(tb.NEITHER))
+        self.assertNotIn("prove", tb.coaching_line(tb.NEITHER))
 
     def test_budget_tag_is_consistent_between_home_and_chat(self):
         """The budget tag in recentPatterns must match what Home shows

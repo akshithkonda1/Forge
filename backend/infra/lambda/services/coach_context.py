@@ -255,7 +255,6 @@ def _attach_predictions(context: dict[str, Any]) -> dict[str, Any]:
     picture_tags.extend(fc.aria_tags)
     picture_tags.extend(working.aria_tags)
     picture_tags.extend(budgets.aria_tags)
-    picture_tags.extend(hobby.aria_tags)
     lifestyle = context.get("lifestyle")
     if isinstance(lifestyle, dict):
         existing = list(lifestyle.get("recentPatterns") or lifestyle.get("recent_patterns") or [])
