@@ -68,6 +68,22 @@ public struct HomeWidgetSnapshot: Codable, Equatable, Sendable {
         HydrationEngine.glasses(fromMilliliters: hydrationMl)
     }
 
+    /// Widget reloads key off content, not `updatedAt`.
+    public func hasSameWidgetContent(as other: HomeWidgetSnapshot) -> Bool {
+        readiness == other.readiness
+            && readinessLabel == other.readinessLabel
+            && sleepHours == other.sleepHours
+            && sleepScore == other.sleepScore
+            && sleepWindowTitle == other.sleepWindowTitle
+            && hydrationMl == other.hydrationMl
+            && hydrationTargetMl == other.hydrationTargetMl
+            && cyclePhase == other.cyclePhase
+            && cycleDay == other.cycleDay
+            && qol == other.qol
+            && topRecommendation == other.topRecommendation
+            && workoutName == other.workoutName
+    }
+
     public static let preview = HomeWidgetSnapshot(
         readiness: 84,
         readinessLabel: "Ready",
@@ -92,7 +108,7 @@ public struct HomeWidgetSnapshot: Codable, Equatable, Sendable {
 /// `LifestyleWidgetBridge` (app target) writes it; `LifestyleProvider` (widget
 /// extension) decodes it back — same struct on both ends of the App Group, so
 /// keep any field change source-compatible.
-public struct LifestyleWidgetSnapshot: Codable {
+public struct LifestyleWidgetSnapshot: Codable, Equatable {
     public var qol: Int
     public var topTitle: String?
     public var topCategory: String?
@@ -103,6 +119,10 @@ public struct LifestyleWidgetSnapshot: Codable {
         self.topTitle = topTitle
         self.topCategory = topCategory
         self.updatedAt = updatedAt
+    }
+
+    public func hasSameWidgetContent(as other: LifestyleWidgetSnapshot) -> Bool {
+        qol == other.qol && topTitle == other.topTitle && topCategory == other.topCategory
     }
 
     public static let preview = LifestyleWidgetSnapshot(
@@ -116,6 +136,18 @@ public struct LifestyleWidgetSnapshot: Codable {
 public enum HomeWidgetSnapshotStore {
     public static let appGroupID = WatchSnapshotStore.appGroupID
     public static let key = "forge.home.widget.snapshot.v1"
+    public static let reloadDebounceSeconds: TimeInterval = 3
+    /// Home / Lock Screen kinds that read this snapshot. Prefer these over
+    /// `reloadAllTimelines` so Lifestyle and Watch faces are not woken.
+    public static let homeWidgetKinds = [
+        "ReadinessWidget",
+        "SleepWidget",
+        "HydrationWidget",
+        "TodayWidget",
+        AriaNestGeometry.StandBy.widgetKind,
+    ]
+
+    private static var pendingReload: DispatchWorkItem?
 
     public static func load() -> HomeWidgetSnapshot? {
         guard let defaults = UserDefaults(suiteName: appGroupID),
@@ -124,13 +156,29 @@ public enum HomeWidgetSnapshotStore {
     }
 
     public static func save(_ snapshot: HomeWidgetSnapshot, reloadWidgets: Bool = true) {
+        if let existing = load(), existing.hasSameWidgetContent(as: snapshot) {
+            return
+        }
         guard let defaults = UserDefaults(suiteName: appGroupID),
               let data = try? JSONEncoder().encode(snapshot) else { return }
         defaults.set(data, forKey: key)
         #if canImport(WidgetKit)
         if reloadWidgets {
-            WidgetCenter.shared.reloadAllTimelines()
+            scheduleHomeKindReload()
         }
+        #endif
+    }
+
+    public static func scheduleHomeKindReload() {
+        #if canImport(WidgetKit)
+        pendingReload?.cancel()
+        let work = DispatchWorkItem {
+            for kind in homeWidgetKinds {
+                WidgetCenter.shared.reloadTimelines(ofKind: kind)
+            }
+        }
+        pendingReload = work
+        DispatchQueue.main.asyncAfter(deadline: .now() + reloadDebounceSeconds, execute: work)
         #endif
     }
 
@@ -308,7 +356,7 @@ public enum StandByMetricsStore {
         defaults.set(data, forKey: key)
         #if canImport(WidgetKit)
         if reloadWidgets {
-            WidgetCenter.shared.reloadAllTimelines()
+            WidgetCenter.shared.reloadTimelines(ofKind: AriaNestGeometry.StandBy.widgetKind)
         }
         #endif
     }

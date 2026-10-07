@@ -73,7 +73,9 @@ struct ReadinessRingView: View {
     @State private var progress: CGFloat = 0
     @State private var glowPulse = false
     @State private var outerPulse = false
+    @State private var isOnscreen = true
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.scenePhase) private var scenePhase
 
     private var color: Color { HomeReadiness.color(score) }
 
@@ -145,13 +147,20 @@ struct ReadinessRingView: View {
         }
         .frame(width: size, height: size)
         .onAppear {
-            let anim = reduceMotion
-                ? Animation.easeOut(duration: 0.15)
-                : FDS.Spring.sweep.delay(0.2)
-            withAnimation(anim) { progress = CGFloat(score) / 100 }
-            if !reduceMotion {
-                withAnimation(.easeInOut(duration: 2.3).repeatForever(autoreverses: true)) { glowPulse = true }
-                withAnimation(.easeInOut(duration: 3.1).repeatForever(autoreverses: true)) { outerPulse = true }
+            isOnscreen = true
+            playEntrance()
+        }
+        .onDisappear {
+            isOnscreen = false
+            glowPulse = false
+            outerPulse = false
+        }
+        .onChange(of: scenePhase) { _, phase in
+            if phase != .active {
+                glowPulse = false
+                outerPulse = false
+            } else if isOnscreen {
+                playEntrance()
             }
         }
         .onChange(of: score) { _, new in
@@ -159,6 +168,18 @@ struct ReadinessRingView: View {
                 progress = CGFloat(new) / 100
             }
         }
+    }
+
+    private func playEntrance() {
+        let anim = reduceMotion
+            ? Animation.easeOut(duration: 0.15)
+            : FDS.Spring.sweep.delay(0.2)
+        withAnimation(anim) { progress = CGFloat(score) / 100 }
+        guard !reduceMotion, scenePhase == .active, isOnscreen else { return }
+        glowPulse = false
+        outerPulse = false
+        withAnimation(.easeInOut(duration: 2.3)) { glowPulse = true }
+        withAnimation(.easeInOut(duration: 3.1)) { outerPulse = true }
     }
 }
 
@@ -168,8 +189,11 @@ struct ReadinessRingView: View {
 /// (the Home readiness data language). Do not borrow `AriaNestGeometry`
 /// ticks or poses — Nest is the brand mark.
 enum HomeRingField {
-    static let tickHz: Double = 12
-    static let tickInterval: Double = 1.0 / 12.0
+    /// Idle paint while Home is visible and the scene is active.
+    /// Ceiling stays `AriaRingFieldGeometry` / nest 12 Hz — this field just
+    /// does not spend that budget when the user is not looking.
+    static let tickHz: Double = 5
+    static let tickInterval: Double = 1.0 / 5.0
 }
 
 /// Kinetic 5-ellipse ring-field from `AriaRingFieldGeometry`.
@@ -183,20 +207,23 @@ struct HomeReadinessFieldView: View {
     @ScaledMetric(relativeTo: .largeTitle) private var scaledHeroField: CGFloat = HomeMetrics.heroFieldSize
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.forgeMinimalAnimation) private var minimalAnimation
+    @Environment(\.scenePhase) private var scenePhase
+    @State private var isOnscreen = true
 
     static func isFrozen(reduceMotion: Bool, minimal: Bool) -> Bool {
         HomeTrendMath.isFrozen(reduceMotion: reduceMotion, minimal: minimal)
     }
 
     private var frozen: Bool { Self.isFrozen(reduceMotion: reduceMotion, minimal: minimalAnimation) }
+    private var paused: Bool { frozen || scenePhase != .active || !isOnscreen }
     private var clamped: Int { min(max(score, 0), 100) }
     private var resolvedSize: CGFloat {
         max(AriaRingFieldGeometry.heroMinimumSize, size ?? scaledHeroField)
     }
 
     var body: some View {
-        TimelineView(.animation(minimumInterval: HomeRingField.tickInterval, paused: frozen)) { timeline in
-            let time = frozen
+        TimelineView(.animation(minimumInterval: HomeRingField.tickInterval, paused: paused)) { timeline in
+            let time = paused
                 ? AriaRingFieldGeometry.stillPose
                 : timeline.date.timeIntervalSinceReferenceDate
             ZStack {
@@ -206,7 +233,7 @@ struct HomeReadinessFieldView: View {
                         canvasSize: canvasSize,
                         time: time,
                         score: clamped,
-                        reduceMotion: frozen
+                        reduceMotion: paused
                     )
                 }
                 VStack(spacing: 2) {
@@ -234,6 +261,9 @@ struct HomeReadinessFieldView: View {
             }
         }
         .frame(width: resolvedSize, height: resolvedSize)
+        .onAppear { isOnscreen = true }
+        .onDisappear { isOnscreen = false }
+        .onScrollVisibilityChange { isOnscreen = $0 }
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(HomeReadiness.voiceOverLabel(clamped))
     }

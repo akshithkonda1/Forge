@@ -24,6 +24,23 @@ final class HomeWidgetSnapshotTests: XCTestCase {
         XCTAssertEqual(loaded?.cyclePhase, "follicular")
     }
 
+    func testSaveSkipsWhenContentIsEqual() {
+        var first = HomeWidgetSnapshot.preview
+        first.updatedAt = Date(timeIntervalSince1970: 1)
+        HomeWidgetSnapshotStore.save(first, reloadWidgets: false)
+        var second = first
+        second.updatedAt = Date(timeIntervalSince1970: 99)
+        HomeWidgetSnapshotStore.save(second, reloadWidgets: false)
+        let loaded = HomeWidgetSnapshotStore.load()
+        XCTAssertEqual(loaded?.updatedAt, Date(timeIntervalSince1970: 1))
+        XCTAssertTrue(first.hasSameWidgetContent(as: second))
+        XCTAssertGreaterThanOrEqual(HomeWidgetSnapshotStore.reloadDebounceSeconds, 2)
+        XCTAssertLessThanOrEqual(HomeWidgetSnapshotStore.reloadDebounceSeconds, 5)
+        XCTAssertFalse(HomeWidgetSnapshotStore.homeWidgetKinds.contains(where: { $0.isEmpty }))
+        XCTAssertTrue(HomeWidgetSnapshotStore.homeWidgetKinds.contains("ReadinessWidget"))
+        XCTAssertFalse(HomeWidgetSnapshotStore.homeWidgetKinds.contains("LifestyleWidget"))
+    }
+
     func testHydrationFractionClamps() {
         var snap = HomeWidgetSnapshot(hydrationMl: 3_000, hydrationTargetMl: 2_000)
         XCTAssertEqual(snap.hydrationFraction, 1, accuracy: 0.001)

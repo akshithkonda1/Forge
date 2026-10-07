@@ -283,6 +283,8 @@ final class AppStore: ObservableObject {
             return
         }
         Task { @MainActor in
+            // Sole launch owner for refreshDailyData. Home must not start a
+            // second pass — the coalesce window is a backstop, not a second owner.
             // Let the first frame (and splash dismiss) land before HealthKit
             // work. Test-Ready pack rewrites wait until after Home is loaded.
             // Simulator never writes EventKit.
@@ -331,15 +333,16 @@ final class AppStore: ObservableObject {
     /// Serializes overlapping refreshDailyData() so the empty-profile launch
     /// fetch and the post-interview prep fetch cannot clobber each other.
     var refreshDailyDataTail: Task<Void, Never>?
-    /// Home + Lifestyle both ask for tomorrow's picture in the same frame.
-    /// Cache by a cheap signature so idle renders don't rebuild the coach.
-    var cachedPredictiveCoachPicture: PredictiveCoach.Picture?
-    var cachedPredictiveCoachKey: String?
     /// 30-day HealthKit history, cloud dashboard, and deferred Test-Ready
     /// HealthKit pack write. Home does not wait on this.
     var backgroundLifeHydrateTask: Task<Void, Never>?
     /// Pack applied in memory; written to HealthKit after Home is interactive.
     var pendingTestReadyHealthPack: FakeHealthPack?
+    /// Home + Lifestyle share one PredictiveCoach.picture. Phase A fingerprint
+    /// (readiness / sleep / habits) plus #419's steps / plan signature.
+    var cachedPredictiveCoachPicture: PredictiveCoach.Picture?
+    var cachedPredictiveCoachPictureKey: PredictiveCoachPictureKey?
+    var cachedPredictiveCoachKey: String? { cachedPredictiveCoachPictureKey?.signature }
 
     static let onboardedDefaultsKey = "forge.onboarding.completed"
     static let profileDefaultsKey = "forge.user.profile.v1"

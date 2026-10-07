@@ -278,4 +278,58 @@ final class AriaSigilTests: XCTestCase {
         XCTAssertLessThan(Double(compactOrb), (compactInner.ry / 2) * Double(AriaSigilGeometry.compactRecommend))
         XCTAssertGreaterThan(compactOrb, 0)
     }
+
+    func testPhoneIdleNestTicksSlowerThanPaintCeiling() {
+        XCTAssertGreaterThanOrEqual(AuroraOrbView.idleTickHz, 4)
+        XCTAssertLessThanOrEqual(AuroraOrbView.idleTickHz, 6)
+        XCTAssertEqual(AuroraOrbView.idleTickInterval, 1.0 / AuroraOrbView.idleTickHz, accuracy: 0.0001)
+        XCTAssertLessThan(AuroraOrbView.idleTickHz, AriaNestGeometry.tickHz)
+        XCTAssertEqual(AriaNestGeometry.tickHz, 12, accuracy: 0.0001)
+    }
+
+    func testWatchCompanionSyncStaysQuietWhenPhoneShouldNotTalk() {
+        let now = Date()
+        XCTAssertFalse(
+            WatchCompanionSyncPolicy.shouldPush(
+                force: true,
+                lastSync: nil,
+                now: now,
+                mayTalkToWatch: false
+            )
+        )
+        XCTAssertTrue(
+            WatchCompanionSyncPolicy.shouldPush(
+                force: false,
+                lastSync: nil,
+                now: now,
+                mayTalkToWatch: true
+            )
+        )
+        XCTAssertFalse(
+            WatchCompanionSyncPolicy.shouldPush(
+                force: false,
+                lastSync: now,
+                now: now.addingTimeInterval(2),
+                mayTalkToWatch: true
+            )
+        )
+        XCTAssertTrue(
+            WatchCompanionSyncPolicy.shouldPush(
+                force: true,
+                lastSync: now,
+                now: now.addingTimeInterval(2),
+                mayTalkToWatch: true
+            )
+        )
+        XCTAssertTrue(
+            WatchCompanionSyncPolicy.shouldPush(
+                force: false,
+                lastSync: now,
+                now: now.addingTimeInterval(WatchCompanionSyncPolicy.coalesceSeconds),
+                mayTalkToWatch: true
+            )
+        )
+        XCTAssertGreaterThanOrEqual(WatchCompanionSyncPolicy.coalesceSeconds, 5)
+        XCTAssertLessThanOrEqual(WatchCompanionSyncPolicy.coalesceSeconds, 10)
+    }
 }
