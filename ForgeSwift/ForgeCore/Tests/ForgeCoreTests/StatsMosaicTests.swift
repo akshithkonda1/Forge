@@ -17,7 +17,7 @@ final class StatsMosaicTests: XCTestCase {
     func testHealthAndManualSourcesFillTheDayPicture() {
         let snap = StatsMosaic.snapshot(
             StatsMosaic.Input(
-                sleepHours: 7.5,
+                sleepHours: 8,
                 sleepManual: false,
                 workoutsThisWeek: 3,
                 workoutGoal: 3,
@@ -34,7 +34,7 @@ final class StatsMosaicTests: XCTestCase {
         XCTAssertEqual(snap.tiles.first { $0.track == .sleep }?.source, .health)
         XCTAssertEqual(snap.tiles.first { $0.track == .water }?.source, .manual)
         XCTAssertEqual(snap.tiles.first { $0.track == .move }?.source, .health)
-        XCTAssertTrue(snap.mosaicLine.contains("Sleep 7.5h"))
+        XCTAssertTrue(snap.mosaicLine.contains("Sleep 8.0h"))
         XCTAssertTrue(snap.mosaicLine.contains("Train 3/3"))
         for tile in snap.tiles {
             XCTAssertFalse(StatsMosaic.containsBannedMedical(tile.ariaPrompt))
