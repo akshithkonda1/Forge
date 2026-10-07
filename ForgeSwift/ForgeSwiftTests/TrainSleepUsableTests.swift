@@ -198,9 +198,9 @@ final class TrainSleepUsableTests: XCTestCase {
         XCTAssertEqual(HomeTrendSeries.expandHint, "Shows more detail")
         XCTAssertGreaterThanOrEqual(HomeMetrics.heroFieldSize, 90)
         XCTAssertGreaterThanOrEqual(HomeMetrics.heroFieldSize, AriaRingFieldGeometry.heroMinimumSize)
-        XCTAssertEqual(HomeRingField.tickHz, 12, accuracy: 0.0001)
-        XCTAssertLessThanOrEqual(HomeRingField.tickHz, 12)
-        XCTAssertEqual(HomeRingField.tickInterval, 1.0 / 12.0, accuracy: 0.0001)
+        XCTAssertGreaterThanOrEqual(HomeRingField.tickHz, 4)
+        XCTAssertLessThanOrEqual(HomeRingField.tickHz, 6)
+        XCTAssertEqual(HomeRingField.tickInterval, 1.0 / HomeRingField.tickHz, accuracy: 0.0001)
     }
 
     func testHomeTrendSeriesDropsUnparseableDatesWithoutCountingThem() {
@@ -565,5 +565,20 @@ final class TrainSleepUsableTests: XCTestCase {
                 )
             ]
         )
+    }
+
+    func testPredictiveCoachPictureCachesUntilInputsChange() {
+        let store = AppStore()
+        store.readiness.overall = 72
+        store.dailyMetrics.totalSleep = 420
+        store.dailyMetrics.hrv = 55
+        let firstKey = PredictiveCoachPictureKey(store: store)
+        _ = store.predictiveCoachPicture()
+        XCTAssertEqual(store.cachedPredictiveCoachPictureKey, firstKey)
+        _ = store.predictiveCoachPicture()
+        XCTAssertEqual(store.cachedPredictiveCoachPictureKey, firstKey)
+        store.readiness.overall = 41
+        _ = store.predictiveCoachPicture()
+        XCTAssertNotEqual(store.cachedPredictiveCoachPictureKey, firstKey)
     }
 }

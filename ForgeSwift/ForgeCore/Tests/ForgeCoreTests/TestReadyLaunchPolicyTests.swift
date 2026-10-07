@@ -30,7 +30,11 @@ final class TestReadyLaunchPolicyTests: XCTestCase {
         )
         XCTAssertGreaterThanOrEqual(
             TestReadyLaunchPolicy.launchRefreshCoalesceSeconds,
-            1.0
+            5.0
+        )
+        XCTAssertLessThanOrEqual(
+            TestReadyLaunchPolicy.launchRefreshCoalesceSeconds,
+            10.0
         )
         XCTAssertEqual(TestReadyLaunchPolicy.seedDefaultsKey, "forge.testReady.sessionSeed.v2")
         XCTAssertEqual(TestReadyLaunchPolicy.healthKitInstalledSeedKey, "forge.testReady.healthKit.installedSeed.v1")

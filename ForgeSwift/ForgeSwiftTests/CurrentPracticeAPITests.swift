@@ -223,7 +223,11 @@ final class CurrentPracticeAPITests: XCTestCase {
         )
         XCTAssertGreaterThanOrEqual(
             TestReadyLaunchPolicy.launchRefreshCoalesceSeconds,
-            1.0
+            5.0
+        )
+        XCTAssertLessThanOrEqual(
+            TestReadyLaunchPolicy.launchRefreshCoalesceSeconds,
+            10.0
         )
         XCTAssertEqual(FakeCalendarPack.horizonDays, 365)
         XCTAssertFalse(CalendarManager.writesToPersonalCalendars)
