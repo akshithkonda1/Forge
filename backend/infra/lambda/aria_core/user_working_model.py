@@ -243,3 +243,24 @@ def picture(forecast, working: Snapshot) -> dict[str, Any]:
         "forecast": forecast.to_dict() if hasattr(forecast, "to_dict") else {},
         "working": working.to_dict(),
     }
+
+
+_LEGACY_STANCE_MAP: dict[str, str] = {
+    "protect": CAP_HEROICS,
+    "proceed": KEEP_RHYTHM,
+    "fuel": KEEP_RHYTHM,
+    "clarify": HOLD_THE_LINE,
+}
+
+
+def normalize_stance(raw: str) -> str:
+    """Map legacy contextual-learner stances to picture vocab.
+
+    The Home picture surface and coach path both use the working-model
+    family (cap_heroics / hold_the_line / rebuild_trust / keep_rhythm).
+    Older subsystems still emit protect / proceed / fuel / clarify.
+    This function collapses the two into one so tags are never mixed.
+    """
+    if raw in (CAP_HEROICS, HOLD_THE_LINE, REBUILD_TRUST, KEEP_RHYTHM):
+        return raw
+    return _LEGACY_STANCE_MAP.get(raw, KEEP_RHYTHM)
