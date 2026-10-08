@@ -705,7 +705,7 @@ struct SleepBedtimeCoach: Equatable {
             return (
                 "You're still up",
                 "The window already opened. A short wind-down still counts — go when you're ready.",
-                "I am past bedtime. Help me land a lighter close tonight."
+                "I am past bedtime. Help me get to sleep with a lighter close tonight."
             )
         }
     }
