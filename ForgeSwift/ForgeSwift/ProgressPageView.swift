@@ -109,17 +109,9 @@ struct MonthlySummaryView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
-            // Top gradient accent bar with shimmer
-            ZStack {
-                LinearGradient(colors: [.ember, .emberLight, .ember], startPoint: .leading, endPoint: .trailing)
-                    .frame(height: 3)
-
-                LinearGradient(colors: [.clear, .white.opacity(0.3), .clear], startPoint: .leading, endPoint: .trailing)
-                    .frame(height: 3)
-                    .offset(x: appeared ? 400 : -400)
-                    .animation(.linear(duration: 2).repeatForever(autoreverses: false), value: appeared)
-            }
-            .clipShape(RoundedRectangle(cornerRadius: 1.5))
+            LinearGradient(colors: [.ember, .emberLight, .ember], startPoint: .leading, endPoint: .trailing)
+                .frame(height: 3)
+                .clipShape(RoundedRectangle(cornerRadius: 1.5))
 
             VStack(alignment: .leading, spacing: 18) {
                 HStack {

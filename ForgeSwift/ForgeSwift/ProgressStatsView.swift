@@ -120,9 +120,13 @@ struct StatsMosaicCard: View {
                 VStack(alignment: .leading, spacing: 4) {
                     Text("TODAY’S MOSAIC")
                         .font(.system(size: 11, weight: .black))
-                        .foregroundColor(Color(hex: "7EC8FF"))
+                        .foregroundColor(HudChrome.plate)
                         .tracking(1.6)
-                    Text("\(snap.dayPercent)% · \(snap.doneCount)/5 tracks")
+                    Text(
+                        snap.closing
+                            ? "\(snap.dayPercent)% · one track left"
+                            : "\(snap.dayPercent)% · \(snap.doneCount)/5 tracks"
+                    )
                         .font(.system(size: 20, weight: .semibold, design: .rounded))
                         .foregroundColor(.textPrimary)
                 }
@@ -142,21 +146,25 @@ struct StatsMosaicCard: View {
                             HStack {
                                 Text(tile.track.title.uppercased())
                                     .font(.system(size: 10, weight: .bold))
-                                    .foregroundColor(Color(hex: "7EC8FF"))
+                                    .foregroundColor(HudChrome.plate)
                                     .tracking(1.1)
                                 Spacer()
                                 Circle()
-                                    .fill(tile.source == .empty ? Color.white.opacity(0.12) : Color.ember)
+                                    .fill(
+                                        tile.almostThere
+                                            ? HudChrome.plate
+                                            : (tile.source == .empty ? HudChrome.miss.opacity(0.35) : Color.ember)
+                                    )
                                     .frame(width: 6, height: 6)
                             }
                             Text(tile.headline)
                                 .font(.system(size: 22, weight: .bold, design: .rounded))
                                 .foregroundColor(.textPrimary)
-                            Text(tile.detail)
+                            Text(tile.almostThere ? "Almost there · \(tile.detail)" : tile.detail)
                                 .font(.system(size: 11, weight: .medium))
-                                .foregroundColor(.textTertiary)
+                                .foregroundColor(tile.almostThere ? HudChrome.plate : .textTertiary)
                             ProgressView(value: tile.progress)
-                                .tint(Color(hex: "7EC8FF"))
+                                .tint(tile.almostThere ? HudChrome.plate : (tile.source == .empty ? HudChrome.miss : HudChrome.plate))
                         }
                         .padding(12)
                         .frame(maxWidth: .infinity, alignment: .leading)
@@ -164,7 +172,11 @@ struct StatsMosaicCard: View {
                         .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
                         .overlay(
                             RoundedRectangle(cornerRadius: 14)
-                                .stroke(Color(hex: "7EC8FF").opacity(tile.source == .empty ? 0.12 : 0.38), lineWidth: 1)
+                                .stroke(
+                                    (tile.almostThere ? HudChrome.plate : HudChrome.miss)
+                                        .opacity(tile.source == .empty ? 0.16 : (tile.almostThere ? 0.50 : 0.32)),
+                                    lineWidth: 1
+                                )
                         )
                     }
                     .buttonStyle(.plain)
@@ -185,7 +197,7 @@ struct StatsMosaicCard: View {
                     .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
                     .overlay(
                         RoundedRectangle(cornerRadius: 12)
-                            .stroke(Color(hex: "7EC8FF").opacity(0.28), lineWidth: 1)
+                            .stroke(HudChrome.plate.opacity(0.28), lineWidth: 1)
                     )
             }
             .buttonStyle(.plain)
@@ -196,7 +208,7 @@ struct StatsMosaicCard: View {
         .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
         .overlay(
             RoundedRectangle(cornerRadius: 18)
-                .stroke(Color(hex: "7EC8FF").opacity(0.22), lineWidth: 1)
+                .stroke(HudChrome.plate.opacity(0.22), lineWidth: 1)
         )
         .sheet(isPresented: $showManual) {
             StatsManualEntrySheet()
@@ -413,7 +425,7 @@ struct StreaksAndMilestonesView: View {
         let current = store.currentStreak
         let best = longestStreak
         if current == 0 {
-            return "No session logged today. That’s fine — train when it fits."
+            return "No session logged today. That’s fine — the stretch stays open."
         }
         if current >= best {
             return "Longest stretch so far. A fact, not a record to defend."
@@ -527,6 +539,7 @@ struct MilestoneCard: View {
     let progress: Double
     let color: Color
     @State private var animatedProgress: CGFloat = 0
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
@@ -563,8 +576,12 @@ struct MilestoneCard: View {
         .padding(12)
         .forgeGlassCard(cornerRadius: 12, accent: Color(hex: "3B82F6"))
         .onAppear {
-            withAnimation(.easeOut(duration: 1.0).delay(0.3)) {
+            if reduceMotion {
                 animatedProgress = CGFloat(progress)
+            } else {
+                withAnimation(.easeOut(duration: 1.0).delay(0.3)) {
+                    animatedProgress = CGFloat(progress)
+                }
             }
         }
     }

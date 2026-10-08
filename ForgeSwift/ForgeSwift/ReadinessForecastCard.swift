@@ -125,8 +125,8 @@ struct ReadinessForecastCard: View {
         switch posture {
         case .push: return "Green light"
         case .steady: return "Steady as planned"
-        case .protect: return "Protect tomorrow"
-        case .rest: return "Rest is the work"
+        case .protect: return "Keep tomorrow light"
+        case .rest: return "A lighter win tomorrow"
         }
     }
 
@@ -134,8 +134,8 @@ struct ReadinessForecastCard: View {
         switch posture {
         case .push: return .success
         case .steady: return HudChrome.plate
-        case .protect: return .warning
-        case .rest: return .danger
+        case .protect: return Color(hex: HomeReadinessTokens.Band.good.hex)
+        case .rest: return HudChrome.miss
         }
     }
 
@@ -143,11 +143,11 @@ struct ReadinessForecastCard: View {
         HStack(spacing: 12) {
             ZStack {
                 Circle()
-                    .fill((driver.impact < 0 ? Color.danger : Color.success).opacity(0.14))
+                    .fill((driver.impact < 0 ? HudChrome.miss : Color.success).opacity(0.14))
                     .frame(width: 32, height: 32)
                 Image(systemName: driver.icon)
                     .font(.system(size: 13, weight: .semibold))
-                    .foregroundStyle(driver.impact < 0 ? Color.danger : Color.success)
+                    .foregroundStyle(driver.impact < 0 ? HudChrome.miss : Color.success)
             }
             VStack(alignment: .leading, spacing: 2) {
                 Text(driver.title)
@@ -160,7 +160,7 @@ struct ReadinessForecastCard: View {
             Spacer()
             Text(driver.impact > 0 ? "+\(driver.impact)" : "\(driver.impact)")
                 .font(.system(size: 13, weight: .bold))
-                .foregroundStyle(driver.impact < 0 ? Color.danger : Color.success)
+                .foregroundStyle(driver.impact < 0 ? HudChrome.miss : Color.success)
                 .monospacedDigit()
         }
     }

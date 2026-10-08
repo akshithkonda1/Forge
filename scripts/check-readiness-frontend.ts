@@ -21,6 +21,19 @@ type ReadinessFile = {
     armedMajorTickOpacity: number;
     inArcMinimumScale: number;
   };
+  motivation: {
+    almostTherePercent: number;
+    closingRemaining: number;
+    almostThereFloor: number;
+    eventGlowOnly: boolean;
+    liveGlowDefault: boolean;
+    brackets: boolean;
+    scanlines: boolean;
+    missHex: string;
+    glowRadius: number;
+    tickMajorWidth: number;
+    tickMinorWidth: number;
+  };
   trend: {
     trendWindowDays: number;
     trendWindowAnchor: string;
@@ -96,6 +109,20 @@ assert(hud.tickHzCeiling <= 12, "tickHzCeiling ≤ 12");
 assert(hud.tickChromeFloor >= 0.7, "tickChromeFloor ≥ 0.70");
 assert(hud.armedMajorTickOpacity >= hud.tickChromeFloor, "armed major ticks stay at/above chrome floor");
 assert(hud.inArcMinimumScale === 0.7, "in-arc Dynamic Type scale floor is 0.7");
+
+const motivation = file.motivation;
+assert(motivation.almostTherePercent === 80, "almostTherePercent is 80");
+assert(motivation.closingRemaining === 1, "closingRemaining is 1");
+assert(motivation.almostThereFloor === 0.7, "almostThereFloor is 0.7");
+assert(motivation.eventGlowOnly === true, "glow is event-driven");
+assert(motivation.liveGlowDefault === false, "no idle glow loop");
+assert(motivation.brackets === false, "no HUD costume brackets");
+assert(motivation.scanlines === false, "no scanlines");
+assert(stripHash(motivation.missHex) === stripHash(hud.emberSteelHex), "miss states use steel, not Low red");
+assert(stripHash(motivation.missHex) !== "EF4444", "miss hex is not alert red");
+assert(motivation.glowRadius <= 6, "glow stays restrained");
+assert(motivation.tickMajorWidth <= 1.5, "major ticks stay thin");
+assert(motivation.tickMinorWidth <= 0.7, "minor ticks stay hairline");
 
 const trend = file.trend;
 assert(trend.trendWindowDays === 7, "trendWindowDays is 7");

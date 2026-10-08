@@ -145,6 +145,8 @@ final class TrainSleepUsableTests: XCTestCase {
             HomeCoachCopy.easyDayGuidance,
             HomeCoachCopy.easyDayLow,
             HomeCoachCopy.pulledBack(score: 62),
+            HomeCoachCopy.nextNow,
+            HomeCoachCopy.lighterWin,
             HomeReadiness.label(40),
             HomeReadiness.voiceOverLabel(72),
         ]

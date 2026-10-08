@@ -80,6 +80,7 @@ public enum StatsMosaic: Sendable {
         public var detail: String
         public var source: Source
         public var ariaPrompt: String
+        public var almostThere: Bool
         public var id: String { track.rawValue }
     }
 
@@ -88,6 +89,8 @@ public enum StatsMosaic: Sendable {
         public var dayPercent: Int
         public var mosaicLine: String
         public var doneCount: Int
+        public var almostThereCount: Int
+        public var closing: Bool { doneCount == Track.allCases.count - HomeReadinessTokens.closingRemaining }
     }
 
     public static let bannedMedicalTokens = ["diagnos", "treat", "prescribe", "cure", "medical advice"]
@@ -98,8 +101,15 @@ public enum StatsMosaic: Sendable {
         let mean = filled.isEmpty ? 0 : filled.map(\.progress).reduce(0, +) / Double(filled.count)
         let percent = Int((mean * 100).rounded())
         let done = tiles.filter { $0.progress >= 1 }.count
-        let mosaic = mosaicLine(tiles: tiles, percent: percent, done: done)
-        return Snapshot(tiles: tiles, dayPercent: percent, mosaicLine: mosaic, doneCount: done)
+        let almost = tiles.filter(\.almostThere).count
+        let mosaic = mosaicLine(tiles: tiles, percent: percent, done: done, almost: almost)
+        return Snapshot(
+            tiles: tiles,
+            dayPercent: percent,
+            mosaicLine: mosaic,
+            doneCount: done,
+            almostThereCount: almost
+        )
     }
 
     public static func containsBannedMedical(_ text: String) -> Bool {
@@ -118,13 +128,15 @@ public enum StatsMosaic: Sendable {
             let source: Source = hours == nil ? .empty : (input.sleepManual ? .manual : .health)
             let headline = hours.map { String(format: "%.1fh", $0) } ?? "—"
             let detail = source == .empty ? "Not in yet" : (input.sleepManual ? "You logged this" : "From Apple Health")
+            let fill = hours == nil ? 0 : progress
             return Tile(
                 track: .sleep,
-                progress: hours == nil ? 0 : progress,
+                progress: fill,
                 headline: headline,
                 detail: detail,
                 source: source,
-                ariaPrompt: "How did I sleep, and what should tonight look like? Lifestyle only."
+                ariaPrompt: "How did I sleep, and what should tonight look like? Lifestyle only.",
+                almostThere: HomeReadinessTokens.tileAlmostThere(fill)
             )
         case .train:
             let done = max(0, input.workoutsThisWeek)
@@ -135,9 +147,10 @@ public enum StatsMosaic: Sendable {
                 track: .train,
                 progress: progress,
                 headline: "\(done)/\(goal)",
-                detail: done == 0 ? "No session this week" : "Sessions this week",
+                detail: done == 0 ? "No session this week — the week is still open." : "Sessions this week",
                 source: source,
-                ariaPrompt: "What should I train with the body I have today?"
+                ariaPrompt: "What should I train with the body I have today?",
+                almostThere: HomeReadinessTokens.tileAlmostThere(progress)
             )
         case .water:
             let glasses = input.waterGlasses
@@ -145,13 +158,15 @@ public enum StatsMosaic: Sendable {
             let progress = clamp((glasses ?? 0) / goal)
             let source: Source = glasses == nil ? .empty : (input.waterManual ? .manual : .health)
             let headline = glasses.map { String(format: "%.0f", $0) } ?? "—"
+            let fill = glasses == nil ? 0 : progress
             return Tile(
                 track: .water,
-                progress: glasses == nil ? 0 : progress,
+                progress: fill,
                 headline: headline,
                 detail: source == .empty ? "Not in yet" : "of \(Int(goal)) glasses",
                 source: source,
-                ariaPrompt: "How is my water today, and when should I drink next?"
+                ariaPrompt: "How is my water today, and when should I drink next?",
+                almostThere: HomeReadinessTokens.tileAlmostThere(fill)
             )
         case .move:
             let steps = input.steps
@@ -159,13 +174,15 @@ public enum StatsMosaic: Sendable {
             let progress = clamp(Double(steps ?? 0) / Double(goal))
             let source: Source = steps == nil ? .empty : (input.stepsManual ? .manual : .health)
             let headline = steps.map { compact($0) } ?? "—"
+            let fill = steps == nil ? 0 : progress
             return Tile(
                 track: .move,
-                progress: steps == nil ? 0 : progress,
+                progress: fill,
                 headline: headline,
                 detail: source == .empty ? "Not in yet" : "of \(compact(goal)) steps",
                 source: source,
-                ariaPrompt: "How did I move today, and what’s one walk that still fits?"
+                ariaPrompt: "How did I move today, and what’s one walk that still fits?",
+                almostThere: HomeReadinessTokens.tileAlmostThere(fill)
             )
         case .habits:
             let done = max(0, input.habitsDone)
@@ -176,15 +193,22 @@ public enum StatsMosaic: Sendable {
                 track: .habits,
                 progress: progress,
                 headline: "\(done)/\(goal)",
-                detail: done == 0 ? "Nothing marked" : "Marked today",
+                detail: done == 0 ? "Nothing marked — still open." : "Marked today",
                 source: source,
-                ariaPrompt: "Which habit still fits today — nights, move, or staying close?"
+                ariaPrompt: "Which habit still fits today — nights, move, or staying close?",
+                almostThere: HomeReadinessTokens.tileAlmostThere(progress)
             )
         }
     }
 
-    private static func mosaicLine(tiles: [Tile], percent: Int, done: Int) -> String {
+    private static func mosaicLine(tiles: [Tile], percent: Int, done: Int, almost: Int) -> String {
         let bits = tiles.map { "\($0.track.title) \($0.headline)" }.joined(separator: ", ")
+        if done == Track.allCases.count {
+            return "Today’s mosaic — ring closed. \(bits). Lifestyle coaching only — not a clinical score."
+        }
+        if almost > 0 || done == Track.allCases.count - HomeReadinessTokens.closingRemaining {
+            return "Today’s mosaic — \(percent)% of the day picture, \(done) of 5 tracks filled, \(almost) almost there. \(bits). Lifestyle coaching only — not a clinical score."
+        }
         return "Today’s mosaic — \(percent)% of the day picture, \(done) of 5 tracks filled. \(bits). Lifestyle coaching only — not a clinical score."
     }
 

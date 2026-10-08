@@ -25,7 +25,7 @@ enum HomeMetrics {
     /// floor at `AriaRingFieldGeometry.heroMinimumSize` (90) so all five
     /// ellipses still paint — compact 3-ring is Watch-only.
     static let heroFieldSize: CGFloat = 132
-    /// HUD plate radius — Today / Tomorrow share this so they hand-in-hand.
+    /// Solid plate radius — Today / Tomorrow share this so they hand-in-hand.
     static let hudRadius: CGFloat = FDS.Radius.xl
     /// Stack gap inside the Today hero (ring → vibe → tracks → CTA).
     static let heroStackGap: CGFloat = FDS.Spacing.lg

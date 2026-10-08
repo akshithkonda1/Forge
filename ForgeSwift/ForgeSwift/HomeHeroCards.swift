@@ -174,6 +174,8 @@ struct HomeTodayHero: View {
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     let action: HomePrimaryAction
     @State private var showScore = false
+    @State private var lastCompleted = -1
+    @State private var eventGlow = false
 
     private var recovery: Bool { action.usesRecoveryChrome(store: store) }
     private var showInArcMeta: Bool {
@@ -202,7 +204,12 @@ struct HomeTodayHero: View {
                 HudVibeChip(label: snap.vibeLabel, energy: energy)
             }
 
-            HudProgressRing(progress: snap.percent, energy: energy) {
+            HudProgressRing(
+                progress: snap.percent,
+                energy: energy,
+                almostThere: snap.almostThere,
+                eventGlow: eventGlow
+            ) {
                 VStack(spacing: 2) {
                     Text("\(snap.percent)")
                         .font(HomeType.heroScore)
@@ -249,7 +256,7 @@ struct HomeTodayHero: View {
                 .frame(maxWidth: .infinity)
                 .fixedSize(horizontal: false, vertical: true)
 
-            TodayTrackRow(tracks: snap.tracks)
+            TodayTrackRow(tracks: snap.tracks, closingTrackID: snap.closingTrackID)
 
             if store.hasMeaningfulLifeSignal || store.readiness.overall > 0 {
                 HomeVitalsRow(
@@ -307,33 +314,73 @@ struct HomeTodayHero: View {
         .hudPlate(energy: recovery ? .steel : energy)
         .homeEntrance(delay: 0.06)
         .accessibilityElement(children: .contain)
+        .onAppear {
+            lastCompleted = snap.completed
+        }
+        .onChange(of: snap.completed) { _, new in
+            guard lastCompleted >= 0, new > lastCompleted else {
+                lastCompleted = new
+                return
+            }
+            lastCompleted = new
+            if new >= snap.total {
+                FDS.notificationHaptic(.success)
+            } else {
+                FDS.haptic(.medium)
+            }
+            eventGlow = true
+            DispatchQueue.main.asyncAfter(deadline: .now() + 1.4) {
+                eventGlow = false
+            }
+        }
     }
 }
 
 private struct TodayTrackRow: View {
     let tracks: [TodayProgress.Track]
+    var closingTrackID: String? = nil
 
     var body: some View {
         HStack(spacing: 6) {
             ForEach(tracks) { track in
+                let closing = track.id == closingTrackID
                 VStack(spacing: 6) {
                     ZStack {
                         Circle()
-                            .fill((track.done ? HudChrome.plate : Color.white).opacity(track.done ? 0.16 : 0.06))
+                            .fill(
+                                track.done
+                                    ? HudChrome.plate.opacity(0.16)
+                                    : (closing ? HudChrome.plate.opacity(0.12) : HudChrome.miss.opacity(0.10))
+                            )
                             .frame(width: 28, height: 28)
+                        if closing {
+                            Circle()
+                                .stroke(HudChrome.plate.opacity(0.55), lineWidth: 1)
+                                .frame(width: 28, height: 28)
+                        }
                         Image(systemName: track.done ? "checkmark" : track.icon)
                             .font(.system(size: 11, weight: .semibold))
-                            .foregroundStyle(track.done ? HudChrome.plate : Color.textTertiary)
+                            .foregroundStyle(
+                                track.done
+                                    ? HudChrome.plate
+                                    : (closing ? HudChrome.plate : HudChrome.miss)
+                            )
                     }
                     Text(track.title)
                         .font(HomeType.micro)
-                        .foregroundColor(track.done ? .textPrimary : .textTertiary)
+                        .foregroundColor(
+                            track.done || closing ? .textPrimary : .textTertiary
+                        )
                         .lineLimit(1)
                         .minimumScaleFactor(0.8)
                 }
                 .frame(maxWidth: .infinity)
                 .accessibilityElement(children: .combine)
-                .accessibilityLabel("\(track.title), \(track.detail)")
+                .accessibilityLabel(
+                    closing
+                        ? "\(track.title), \(track.detail). One left — close the ring."
+                        : "\(track.title), \(track.detail)"
+                )
             }
         }
     }
@@ -414,6 +461,12 @@ private struct HomePrimaryCTA: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
+            Text(HomeCoachCopy.nextNowEyebrow(isLighter: action.usesRecoveryChrome(store: store)))
+                .font(HomeType.micro)
+                .foregroundColor(.textTertiary)
+                .tracking(1.2)
+                .accessibilityAddTraits(.isHeader)
+
             Button {
                 FDS.haptic(.medium)
                 perform()
