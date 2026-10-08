@@ -3,7 +3,7 @@ import ForgeCore
 
 /// First-meet copy. Lockstep with `src/lib/aria-intro.ts`.
 enum AriaMeetCopy: Sendable {
-    static let eyebrow = "Adaptive Recovery Interactive Assistant"
+    static let eyebrow = "Your lifestyle coach"
     static let title = "This is ARIA"
     static let lead = "I was designed for Forge — I power how you train, recover, and live the day."
     static let pairingForbidden = "FORGE × ARIA"

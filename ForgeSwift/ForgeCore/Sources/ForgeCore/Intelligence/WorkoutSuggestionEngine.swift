@@ -38,33 +38,33 @@ public enum WorkoutSuggestionEngine {
         }
 
         switch ReadinessBand(score: readiness) {
-        case .recovery:
+        case .low:
             return WorkoutSuggestion(
                 type: .mobility,
                 targetZone: 1,
-                reason: "Recovery-day readiness - gentle mobility keeps you moving while your body finishes rebuilding. Easy today is what makes hard possible later this week.",
-                trigger: "recovery-band"
+                reason: "You're running a bit low — easy mobility still makes you someone who showed up. Save the hard work for a greener day.",
+                trigger: "low-band"
             )
-        case .moderate:
+        case .fair:
             return WorkoutSuggestion(
                 type: .cardio,
                 targetZone: 2,
-                reason: "Readiness is middling, so Zone 2 pays the most today - real fitness, low recovery cost. Save the intensity for a greener day.",
-                trigger: "moderate-band"
+                reason: "Fair day — Zone 2 still counts as training. Keep it honest and leave a little in the tank.",
+                trigger: "fair-band"
             )
-        case .ready:
+        case .good:
             return WorkoutSuggestion(
                 type: .strength,
                 targetZone: 3,
-                reason: "Solid recovery - a proper strength session will land well today. Steady effort, quality reps.",
-                trigger: "ready-band"
+                reason: "You're at Good — a proper strength session will land. Steady effort, quality reps.",
+                trigger: "good-band"
             )
-        case .primed:
+        case .peak:
             return WorkoutSuggestion(
                 type: .hiit,
                 targetZone: 4,
-                reason: "You're primed - today can absorb real intensity if you want it. Reach for it, or bank the readiness; both are winning.",
-                trigger: "primed-band"
+                reason: "You're at Peak — today can absorb real intensity if you want it. Reach for it, or keep it easy; both are winning.",
+                trigger: "peak-band"
             )
         }
     }

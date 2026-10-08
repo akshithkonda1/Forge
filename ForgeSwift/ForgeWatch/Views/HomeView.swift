@@ -27,7 +27,7 @@ struct HomeView: View {
                 readinessHeader
 
                 Text(aria.greeting)
-                    .font(.system(size: 12.5))
+                    .font(ForgeType.Compact.body)
                     .foregroundStyle(ForgePalette.textSecondary)
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .fixedSize(horizontal: false, vertical: true)
@@ -35,7 +35,7 @@ struct HomeView: View {
 
                 if !aria.dayBrief.isEmpty {
                     Text(aria.dayBrief)
-                        .font(.system(size: 11, weight: .medium))
+                        .font(ForgeType.Compact.caption)
                         .foregroundStyle(ForgePalette.textTertiary)
                         .frame(maxWidth: .infinity, alignment: .leading)
                         .fixedSize(horizontal: false, vertical: true)

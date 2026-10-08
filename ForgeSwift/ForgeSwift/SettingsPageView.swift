@@ -70,7 +70,7 @@ struct SettingsPageView: View {
 
                 sectionHeader("All pages")
                 Text("The rooms. Open one when you need to log or override — ARIA already reads them.")
-                    .font(.system(size: 12))
+                    .font(ForgeType.body)
                     .foregroundColor(.textTertiary)
                     .padding(.bottom, 10)
                 ForgeExploreDestinationsGrid()

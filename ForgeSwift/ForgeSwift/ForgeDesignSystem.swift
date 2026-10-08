@@ -1,67 +1,80 @@
 import SwiftUI
+import ForgeCore
 
 // MARK: - Forge Design System (FDS)
+//
+// App-side alias of `ForgeDS` / `shared/design-tokens.json`. Home is the look.
 
 enum FDS {
     
     // MARK: - Spacing
     
     enum Spacing {
-        static let xs:  CGFloat = 4
-        static let sm:  CGFloat = 8
-        static let md:  CGFloat = 12
-        static let lg:  CGFloat = 16
-        static let xl:  CGFloat = 24
-        static let xxl: CGFloat = 32
+        static let xs:  CGFloat = ForgeDS.Spacing.xs
+        static let sm:  CGFloat = ForgeDS.Spacing.sm
+        static let md:  CGFloat = ForgeDS.Spacing.md
+        static let lg:  CGFloat = ForgeDS.Spacing.lg
+        static let xl:  CGFloat = ForgeDS.Spacing.xl
+        static let xxl: CGFloat = ForgeDS.Spacing.xxl
     }
     
     // MARK: - Radius
     
     enum Radius {
-        static let xs:   CGFloat = 6
-        static let sm:   CGFloat = 10
-        static let md:   CGFloat = 14
-        static let lg:   CGFloat = 18
-        static let xl:   CGFloat = 22
-        static let xxl:  CGFloat = 28
-        static let pill: CGFloat = 999
+        static let xs:   CGFloat = ForgeDS.Radius.xs
+        static let sm:   CGFloat = ForgeDS.Radius.sm
+        static let md:   CGFloat = ForgeDS.Radius.md
+        static let lg:   CGFloat = ForgeDS.Radius.lg
+        static let xl:   CGFloat = ForgeDS.Radius.xl
+        static let xxl:  CGFloat = ForgeDS.Radius.xxl
+        static let pill: CGFloat = ForgeDS.Radius.pill
     }
 
     // MARK: - Type
 
     enum TypeScale {
-        /// Apple Health–scale page titles. Glanceable at arm’s length.
+        static let display = ForgeType.display
+        static let title = ForgeType.title
+        static let headline = ForgeType.headline
+        static let body = ForgeType.body
+        static let caption = ForgeType.caption
+        static let metric = ForgeType.metric
+        static let pageTitle = ForgeType.pageTitle
+        static let heroScore = ForgeType.heroScore
+        static let micro = ForgeType.micro
+
+        /// Legacy size helpers — prefer the named roles.
         static func pageTitle(_ size: CGFloat = 34) -> Font {
-            .system(size: size, weight: .semibold, design: .rounded)
+            ForgeType.title(size)
         }
         static func display(_ size: CGFloat = 32) -> Font {
-            .system(size: size, weight: .semibold, design: .rounded)
+            ForgeType.title(size)
         }
         static func title(_ size: CGFloat = 22) -> Font {
-            .system(size: size, weight: .semibold, design: .rounded)
+            ForgeType.title(size)
         }
         static func body(_ size: CGFloat = 15) -> Font {
-            .system(size: size, weight: .regular, design: .default)
+            ForgeType.body(size)
         }
         static func label(_ size: CGFloat = 12) -> Font {
-            .system(size: size, weight: .semibold, design: .rounded)
+            ForgeType.caption(size)
         }
         static func micro(_ size: CGFloat = 10) -> Font {
-            .system(size: size, weight: .semibold, design: .rounded)
+            ForgeType.caption(size)
         }
 
-        /// Dynamic Type–aware tokens. Prefer these on new Home work so
-        /// larger text sizes stay Oura-grade instead of clipping.
+        /// Dynamic Type–aware tokens. Same named scale as `ForgeType`.
         enum Dynamic {
-            static let pageTitle = Font.system(.title, design: .rounded).weight(.semibold)
-            static let display = Font.system(.title2, design: .rounded).weight(.semibold)
-            static let title = Font.system(.title3, design: .rounded).weight(.semibold)
-            static let headline = Font.system(.headline, design: .rounded).weight(.semibold)
-            static let body = Font.subheadline
-            static let label = Font.system(.caption, design: .rounded).weight(.semibold)
-            static let micro = Font.system(.caption2, design: .rounded).weight(.semibold)
-            static let metric = Font.system(.title3, design: .rounded).weight(.bold).monospacedDigit()
-            static let heroScore = Font.system(.largeTitle, design: .rounded).weight(.bold).monospacedDigit()
+            static let pageTitle = ForgeType.pageTitle
+            static let display = ForgeType.display
+            static let title = ForgeType.title
+            static let headline = ForgeType.headline
+            static let body = ForgeType.body
+            static let label = ForgeType.caption
+            static let micro = ForgeType.micro
+            static let metric = ForgeType.metric
+            static let heroScore = ForgeType.heroScore
+            static let caption = ForgeType.caption
         }
     }
     
@@ -152,6 +165,18 @@ enum FDS {
     
     static func notificationHaptic(_ type: UINotificationFeedbackGenerator.FeedbackType) {
         UINotificationFeedbackGenerator().notificationOccurred(type)
+    }
+
+    /// One haptic table: select, press, primary CTA, success, error, destructive.
+    static func haptic(_ event: ForgeDesignTokens.Haptic) {
+        switch event {
+        case .select: selectionHaptic()
+        case .press: haptic(.light)
+        case .primaryCTA: haptic(.medium)
+        case .success: notificationHaptic(.success)
+        case .error: notificationHaptic(.error)
+        case .destructive: notificationHaptic(.warning)
+        }
     }
     
     // MARK: - Accessibility Adaptive Animation

@@ -1,4 +1,5 @@
 import SwiftUI
+import ForgeCore
 
 struct SleepView: View {
     @EnvironmentObject var store: AppStore
@@ -168,7 +169,7 @@ struct SleepHeaderView: View {
                 VStack(alignment: .leading, spacing: 4) {
                     HStack(spacing: 8) {
                         Text("Sleep")
-                            .font(FDS.TypeScale.pageTitle())
+                            .font(ForgeType.pageTitle)
                             .foregroundColor(.textPrimary)
                         SleepStatusDot(kind: presence.liveDot)
                     }

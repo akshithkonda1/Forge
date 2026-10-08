@@ -71,16 +71,16 @@ export function AiGreeting() {
       <div className="relative flex items-start gap-3.5">
         <AriaMark size={40} speaking={false} label="ARIA" className="mt-0.5" />
         <div className="min-w-0 flex-1">
-          <p className="mb-1.5 text-[11px] font-medium uppercase tracking-[0.2em] text-text-tertiary">
+          <p className="type-caption mb-1.5 uppercase tracking-[0.2em] text-text-tertiary">
             ARIA
           </p>
-          <p className="text-[15px] leading-relaxed text-text-primary">{greeting}</p>
+          <p className="type-body text-text-primary">{greeting}</p>
           <button
             type="button"
             onClick={() => setActiveTab("chat")}
             className={cn(
-              "mt-4 inline-flex items-center gap-1.5 rounded-full border border-white/12 bg-white/[0.06] px-3.5 py-2",
-              "text-xs font-medium text-[#F7F4F0] transition hover:bg-white/[0.1]"
+              "min-tap mt-4 inline-flex items-center gap-1.5 rounded-full border border-white/12 bg-white/[0.06] px-3.5",
+              "type-caption text-[#F7F4F0] transition hover:bg-white/[0.1]"
             )}
           >
             <MessageCircle size={14} />

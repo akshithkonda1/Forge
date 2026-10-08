@@ -1,4 +1,5 @@
 import SwiftUI
+import ForgeCore
 
 /// First interview beat — living ARIA mark with soft presence, not fire.
 struct IntroComposer: View {
@@ -25,12 +26,12 @@ struct IntroComposer: View {
             .accessibilityLabel("ARIA")
 
             Text("ARIA")
-                .font(.system(size: 12, weight: .medium, design: .rounded))
-                .tracking(3.4)
+                .font(ForgeType.micro)
+                .tracking(ForgeType.eyebrowTracking)
                 .foregroundStyle(Color(hex: "F7F4F0").opacity(0.72))
 
             Text("Your lifestyle coach — built for the life you already have.")
-                .font(.system(size: 15, weight: .regular, design: .rounded))
+                .font(ForgeType.body)
                 .foregroundStyle(Color.textSecondary)
                 .multilineTextAlignment(.center)
                 .padding(.horizontal, 8)

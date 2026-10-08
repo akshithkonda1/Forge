@@ -47,10 +47,8 @@ func displaySessionName(_ name: String) -> String {
 /// Home's own readiness palette and vocabulary.
 ///
 /// Cuts, hex, and Peak / Good / Fair / Low labels come from
-/// `shared/readiness.json` via `HomeReadinessTokens`. Deliberately not
-/// `readinessColor(for:)` from Theme+Readiness.swift ("Primed / Ready /
-/// Moderate / Recovery") and not ForgeCore `ReadinessBand`. Unifying those
-/// is a later design pass — Home keeps its words.
+/// `shared/readiness.json` via `HomeReadinessTokens`. `readinessColor(for:)`
+/// and ForgeCore `ReadinessBand` now use the same words.
 enum HomeReadiness {
     static func color(_ score: Int) -> Color {
         Color(hex: HomeReadinessTokens.hex(for: score))
@@ -84,7 +82,7 @@ enum HomeCoachCopy {
         isLighter ? lighterWin : nextNow
     }
 
-    static let bannedPhrases = ["recovery-first", "recovery week"]
+    static let bannedPhrases = ["recovery-first", "recovery week", "Adaptive Recovery"]
 }
 
 /// Lifestyle deep-links Home and ARIA already send. Kept here so tests can

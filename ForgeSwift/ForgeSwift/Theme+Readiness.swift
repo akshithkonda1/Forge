@@ -1,41 +1,28 @@
 import SwiftUI
+import ForgeCore
 
-// MARK: - Shared readiness helpers (used across Home, Chat, Workout)
+// MARK: - Shared readiness helpers (Home is source of truth)
 
 func readinessColor(for score: Int) -> Color {
-    switch score {
-    case 85...: return .success
-    case 70..<85: return .steel
-    case 55..<70: return .warning
-    default: return .danger
-    }
+    HomeReadiness.color(score)
 }
 
 func readinessLabel(for score: Int) -> String {
-    switch score {
-    case 85...: return "Primed"
-    case 70..<85: return "Ready"
-    case 55..<70: return "Moderate"
-    default: return "Recovery"
-    }
+    HomeReadiness.label(score)
 }
 
-// MARK: - Typography scale
+// MARK: - Typography scale (aliases the named ForgeType roles)
 
 enum ForgeTypography {
-    static func title(_ size: CGFloat = 28) -> Font {
-        .system(size: size, weight: .bold, design: .rounded)
-    }
+    static let display = ForgeType.display
+    static let title = ForgeType.title
+    static let headline = ForgeType.headline
+    static let body = ForgeType.body
+    static let caption = ForgeType.caption
+    static let metric = ForgeType.metric
 
-    static func body(_ size: CGFloat = 15.5) -> Font {
-        .system(size: size, weight: .regular)
-    }
-
-    static func caption(_ size: CGFloat = 12) -> Font {
-        .system(size: size, weight: .medium)
-    }
-
-    static func metric(_ size: CGFloat = 32) -> Font {
-        .system(size: size, weight: .bold, design: .rounded)
-    }
+    static func title(_ size: CGFloat = 28) -> Font { ForgeType.title(size) }
+    static func body(_ size: CGFloat = 15) -> Font { ForgeType.body(size) }
+    static func caption(_ size: CGFloat = 12) -> Font { ForgeType.caption(size) }
+    static func metric(_ size: CGFloat = 32) -> Font { ForgeType.metric(size) }
 }

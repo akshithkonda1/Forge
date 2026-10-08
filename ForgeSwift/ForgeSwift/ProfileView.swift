@@ -56,12 +56,7 @@ struct ProfileHeroHeader: View {
     }
 
     private var readinessWord: String {
-        switch store.readiness.overall {
-        case 85...:   return "Primed"
-        case 70..<85: return "Ready"
-        case 55..<70: return "Steady"
-        default:      return "Recover"
-        }
+        HomeReadiness.label(store.readiness.overall)
     }
 
     private var trend: AppStore.ReadinessTrend { store.readinessTrend }
@@ -147,7 +142,7 @@ struct ProfileHeroHeader: View {
 
             VStack(spacing: FDS.Spacing.sm) {
                 Text(displayName)
-                    .font(FDS.TypeScale.pageTitle(28))
+                    .font(ForgeType.pageTitle)
                     .foregroundColor(.textPrimary)
                     .lineLimit(1)
                     .minimumScaleFactor(0.7)

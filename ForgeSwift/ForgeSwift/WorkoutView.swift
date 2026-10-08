@@ -812,7 +812,7 @@ struct WorkoutEmptyState: View {
             .scaleEffect(appeared ? 1 : 0.8).opacity(appeared ? 1 : 0)
             VStack(spacing: 10) {
                 Text("No session on the board")
-                    .font(FDS.TypeScale.pageTitle(28))
+                    .font(ForgeType.pageTitle)
                     .foregroundColor(.textPrimary)
                 Text("ARIA writes a session from sleep, readiness, and the week you actually have — preview it here, then start when you’re ready.")
                     .font(.system(size: 15, weight: .medium, design: .rounded)).foregroundColor(.textSecondary)
