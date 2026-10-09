@@ -30,6 +30,8 @@ extension Color {
     static let steel      = Color(hex: "5B8DEF")
     static let steelLight = Color(hex: "7BA6F7")
     static let steelDark  = Color(hex: "3D6FD4")
+    /// Miss / rest chrome — steel, never alert red. Lockstep with `missHex`.
+    static let miss       = Color(hex: "7BA6F7")
 
     // Violet accent (ARIA / intelligence)
     static let aurora = Color(hex: "A78BFA")

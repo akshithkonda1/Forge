@@ -77,7 +77,7 @@ enum CrossZoneConsistency {
             }
             if sleep >= 85, snap.readiness < 55 {
                 out.append(
-                    "cross_zone:tension:sleep_good_readiness_low — good night did not erase accumulated load; still recover-first."
+                    "cross_zone:tension:sleep_good_readiness_low — good night did not erase accumulated load; keep today easy."
                 )
             }
         }

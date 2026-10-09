@@ -598,7 +598,7 @@ export default function SettingsPage() {
 
       <Sheet open={sheet === "about"} onClose={() => setSheet(null)} title="About Forge">
         <p className="text-sm leading-relaxed text-text-secondary">
-          Forge brings your health picture together. ARIA is your coach — recovery-first,
+          Forge brings your health picture together. ARIA is your lifestyle coach
           for the life you already have.
         </p>
       </Sheet>

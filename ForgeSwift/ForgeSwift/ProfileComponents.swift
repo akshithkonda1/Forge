@@ -27,31 +27,18 @@ struct ForgeEmptyState: View {
     var icon: String
     var title: String
     var message: String
+    var cta: String? = nil
+    var action: (() -> Void)? = nil
 
     var body: some View {
-        VStack(spacing: 14) {
-            ZStack {
-                Circle()
-                    .fill(Color.ember.opacity(0.12))
-                    .frame(width: 56, height: 56)
-                Image(systemName: icon)
-                    .font(.system(size: 24, weight: .semibold))
-                    .foregroundColor(.ember)
-            }
-            VStack(spacing: 6) {
-                Text(title)
-                    .font(.system(size: 16, weight: .semibold, design: .rounded))
-                    .foregroundColor(.textPrimary)
-                Text(message)
-                    .font(.system(size: 13, weight: .medium, design: .rounded))
-                    .foregroundColor(.textSecondary)
-                    .multilineTextAlignment(.center)
-            }
-        }
-        .frame(maxWidth: .infinity)
-        .padding(.vertical, 32)
-        .padding(.horizontal, 16)
-        .forgeGlassCard(cornerRadius: FDS.Radius.lg, accent: .ember)
+        ForgeEmptyStateCard(
+            icon: icon,
+            title: title,
+            message: message,
+            accent: .ember,
+            cta: cta,
+            action: action
+        )
     }
 }
 
@@ -95,17 +82,17 @@ struct SettingsRow<Trailing: View>: View {
                         .fill((iconColor ?? Color.ember).opacity(0.14))
                         .frame(width: 32, height: 32)
                     Image(systemName: icon)
-                        .font(.system(size: 14, weight: .semibold))
+                        .font(.system(size: ForgeUX.icon, weight: .semibold))
                         .foregroundColor(iconColor ?? .ember)
                 }
             }
             Text(label)
-                .font(.system(size: 14, weight: .medium, design: .rounded))
+                .font(ForgeType.headline)
                 .foregroundColor(.textPrimary)
             Spacer()
             if let t = trailingText {
                 Text(t)
-                    .font(.system(size: 13))
+                    .font(ForgeType.caption)
                     .foregroundColor(.textSecondary)
                     .lineLimit(1)
                     .truncationMode(.tail)
@@ -119,7 +106,7 @@ struct SettingsRow<Trailing: View>: View {
             }
         }
         .padding(.horizontal, 16)
-        .padding(.vertical, 12)
+        .frame(minHeight: ForgeUX.minTap)
     }
 }
 

@@ -86,7 +86,7 @@ public struct HomeWidgetSnapshot: Codable, Equatable, Sendable {
 
     public static let preview = HomeWidgetSnapshot(
         readiness: 84,
-        readinessLabel: "Ready",
+        readinessLabel: "Good",
         sleepHours: 7.4,
         sleepScore: 88,
         sleepWindowTitle: "Morning peak",

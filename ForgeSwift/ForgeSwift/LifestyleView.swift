@@ -261,7 +261,7 @@ struct LifestyleHeaderView: View {
         HStack(alignment: .center) {
             VStack(alignment: .leading, spacing: 5) {
                 Text("Lifestyle")
-                    .font(FDS.TypeScale.pageTitle())
+                    .font(ForgeType.pageTitle)
                     .foregroundColor(.textPrimary)
                 Text("How you eat, move, and live")
                     .font(.system(size: 15, weight: .medium, design: .rounded))

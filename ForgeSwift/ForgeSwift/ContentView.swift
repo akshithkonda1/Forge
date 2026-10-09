@@ -110,14 +110,14 @@ struct ForgeSplashScreen: View {
                     HStack(spacing: 10) {
                         ForgeBrandMark(size: 22)
                         Text("FORGE")
-                            .font(.system(size: 28, weight: .semibold, design: .rounded))
+                            .font(ForgeType.display)
                             .tracking(6)
                             .foregroundColor(Color(hex: "F7F4F0"))
                     }
 
                     Text("Forged.")
-                        .font(.system(size: 12, weight: .medium, design: .rounded))
-                        .tracking(3.2)
+                        .font(ForgeType.micro)
+                        .tracking(ForgeType.eyebrowTracking)
                         .foregroundColor(.textTertiary)
                 }
                 .opacity(logoOpacity)

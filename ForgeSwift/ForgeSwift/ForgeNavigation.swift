@@ -1,4 +1,5 @@
 import SwiftUI
+import ForgeCore
 
 // MARK: - Primary destinations
 //
@@ -161,14 +162,14 @@ struct ForgePageHeader: View {
     }
 
     var body: some View {
-        HStack(alignment: .firstTextBaseline, spacing: 12) {
+        HStack(alignment: .firstTextBaseline, spacing: FDS.Spacing.md) {
             VStack(alignment: .leading, spacing: 6) {
                 Text(title)
-                    .font(FDS.TypeScale.pageTitle())
+                    .font(ForgeType.pageTitle)
                     .foregroundColor(.textPrimary)
                 if let subtitle, !subtitle.isEmpty {
                     Text(subtitle)
-                        .font(.system(size: 15, weight: .medium, design: .rounded))
+                        .font(ForgeType.body)
                         .foregroundColor(.textSecondary)
                 }
             }
@@ -193,9 +194,9 @@ struct ForgeIconButton: View {
             action()
         } label: {
             Image(systemName: systemImage)
-                .font(.system(size: 15, weight: .semibold))
+                .font(.system(size: ForgeUX.icon, weight: .semibold))
                 .foregroundStyle(accent)
-                .frame(width: 40, height: 40)
+                .frame(width: ForgeUX.minTap, height: ForgeUX.minTap)
                 .background(accent.opacity(0.14))
                 .clipShape(Circle())
                 .overlay(Circle().stroke(accent.opacity(0.28), lineWidth: 1))
@@ -215,23 +216,23 @@ struct ForgePrimaryButton: View {
 
     var body: some View {
         Button {
-            FDS.haptic(.medium)
+            FDS.haptic(.primaryCTA)
             action()
         } label: {
             HStack(spacing: 10) {
                 if let icon {
                     Image(systemName: icon)
-                        .font(.system(size: 16, weight: .bold))
+                        .font(.system(size: ForgeUX.icon, weight: .semibold))
                 }
                 Text(title)
-                    .font(.system(size: 17, weight: .bold, design: .rounded))
+                    .font(ForgeType.headline)
                 Spacer(minLength: 0)
                 Image(systemName: "arrow.right")
-                    .font(.system(size: 14, weight: .bold))
+                    .font(.system(size: 14, weight: .semibold))
             }
             .foregroundColor(.white)
             .padding(.horizontal, 22)
-            .padding(.vertical, 17)
+            .frame(minHeight: ForgeUX.minTap + 8)
             .background {
                 ZStack {
                     LinearGradient(
@@ -242,10 +243,10 @@ struct ForgePrimaryButton: View {
                     LinearGradient.premiumChrome
                 }
             }
-            .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+            .clipShape(RoundedRectangle(cornerRadius: FDS.Radius.lg, style: .continuous))
             .overlay(
-                RoundedRectangle(cornerRadius: 16, style: .continuous)
-                    .stroke(Color.white.opacity(0.16), lineWidth: 1)
+                RoundedRectangle(cornerRadius: FDS.Radius.lg, style: .continuous)
+                    .stroke(Color.white.opacity(0.16), lineWidth: ForgeUX.hairline)
             )
             .shadow(color: accent.opacity(0.40), radius: 16, y: 8)
         }
@@ -286,21 +287,21 @@ struct ForgeEmptyStateCard: View {
                     .shadow(color: accent.opacity(0.35), radius: 8)
             }
             Text(title)
-                .font(.system(size: 20, weight: .bold, design: .rounded))
+                .font(ForgeType.title)
                 .foregroundColor(.textPrimary)
                 .multilineTextAlignment(.center)
             Text(message)
-                .font(.system(size: 14, weight: .regular, design: .rounded))
+                .font(ForgeType.body)
                 .foregroundColor(.textSecondary)
                 .multilineTextAlignment(.center)
                 .fixedSize(horizontal: false, vertical: true)
             if let cta, let action {
                 Button(action: action) {
                     Text(cta)
-                        .font(.system(size: 15, weight: .bold, design: .rounded))
+                        .font(ForgeType.headline)
                         .foregroundColor(.white)
                         .padding(.horizontal, 22)
-                        .padding(.vertical, 14)
+                        .frame(minHeight: ForgeUX.minTap)
                         .background(
                             LinearGradient(
                                 colors: [accent, accent.opacity(0.75)],

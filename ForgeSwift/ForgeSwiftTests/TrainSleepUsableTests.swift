@@ -19,7 +19,7 @@ final class TrainSleepUsableTests: XCTestCase {
         XCTAssertTrue(scaled.autoScaled)
         XCTAssertLessThan(scaled.exercises[0].sets, 4)
         XCTAssertLessThan(scaled.exercises[0].weight ?? 135, 135)
-        XCTAssertEqual(scaled.scaleHeadline, "Recovery day protocol")
+        XCTAssertEqual(scaled.scaleHeadline, "A lighter win")
     }
 
     func testAutoScaleLeavesOnPlanUnmodified() {

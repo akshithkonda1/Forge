@@ -9,12 +9,7 @@ struct ChatHeaderView: View {
     @State private var appeared     = false
 
     private var scoreColor: Color {
-        switch store.readiness.overall {
-        case 85...:  return Color(hex: "22C55E")
-        case 70..<85: return Color.ember
-        case 50..<70: return Color.steel
-        default:      return Color(hex: "EF4444")
-        }
+        HomeReadiness.color(store.readiness.overall)
     }
 
     var body: some View {
@@ -28,9 +23,9 @@ struct ChatHeaderView: View {
             VStack(alignment: .leading, spacing: 3) {
                 HStack(spacing: 6) {
                     Text("ARIA")
-                        .font(.system(size: 20, weight: .semibold, design: .rounded))
+                        .font(ForgeType.title)
                         .foregroundColor(.textPrimary)
-                        .tracking(0.8)
+                        .tracking(ForgeType.tracking(.title))
                     if store.lastCoachWorkers.count > 1 {
                         Text("· " + store.lastCoachWorkers.map(\.kind.label).joined(separator: " + "))
                             .font(.system(size: 13, weight: .medium))

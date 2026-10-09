@@ -33,7 +33,7 @@ struct DataPermissionsView: View {
             ScrollView(showsIndicators: false) {
                 VStack(alignment: .leading, spacing: 16) {
                     Text("ARIA only reasons over the data you allow. Turn a domain off and it's redacted before ARIA ever sees it — never used, never inferred.")
-                        .font(.system(size: 13))
+                        .font(ForgeType.body)
                         .foregroundColor(.textSecondary)
                         .padding(.top, 4)
 
@@ -43,17 +43,17 @@ struct DataPermissionsView: View {
                             Toggle(isOn: allowBinding(for: domain)) {
                                 HStack(spacing: 12) {
                                     Image(systemName: labels[domain]?.1 ?? "circle.fill")
-                                        .font(.system(size: 15))
+                                        .font(.system(size: ForgeUX.icon, weight: .semibold))
                                         .foregroundColor(.ember)
                                         .frame(width: 24)
                                     Text(labels[domain]?.0 ?? domain.capitalized)
-                                        .font(.system(size: 15))
+                                        .font(ForgeType.headline)
                                         .foregroundColor(.textPrimary)
                                 }
                             }
                             .tint(.ember)
                             .padding(.horizontal, 16)
-                            .padding(.vertical, 12)
+                            .frame(minHeight: ForgeUX.minTap)
                         }
                     }
                     .forgeGlassCard(cornerRadius: 16, accent: .ember)

@@ -162,11 +162,12 @@ struct StatPillCard: View {
     var body: some View {
         VStack(spacing: 6) {
             Text(value)
-                .font(.system(size: 22, weight: .black, design: .rounded))
+                .font(ForgeType.metric)
                 .foregroundColor(.textPrimary)
+                .monospacedDigit()
                 .contentTransition(.numericText())
             Text(label)
-                .font(.system(size: 11, weight: .medium))
+                .font(ForgeType.caption)
                 .foregroundColor(.textSecondary)
                 .fixedSize()
         }
