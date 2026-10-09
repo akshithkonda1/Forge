@@ -117,7 +117,7 @@ enum FDS {
         )
         
         static let emberDeep = LinearGradient(
-            colors: [Color(hex: "FF6B2B"), Color(hex: "FF4D00"), Color(hex: "C43A00")],
+            colors: [Color(hex: "FF6B2B"), Color.ember, Color.emberDark],
             startPoint: .topLeading,
             endPoint: .bottomTrailing
         )

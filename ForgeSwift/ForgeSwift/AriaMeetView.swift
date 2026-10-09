@@ -35,7 +35,7 @@ struct AriaMeetView: View {
 
             VStack(spacing: 0) {
                 ScrollView(showsIndicators: false) {
-                    VStack(spacing: 18) {
+                    VStack(spacing: FDS.Spacing.lg) {
                         ZStack {
                             PremiumPresenceBloom(
                                 size: 190,
@@ -50,10 +50,10 @@ struct AriaMeetView: View {
                                 followPresence: true
                             )
                         }
-                        .padding(.top, 28)
+                        .padding(.top, FDS.Spacing.xl)
 
                         Text(AriaMeetCopy.eyebrow.uppercased())
-                            .font(.system(size: 11, weight: .medium, design: .rounded))
+                            .font(FDS.TypeScale.Dynamic.micro)
                             .tracking(2.2)
                             .foregroundColor(.textTertiary)
                             .multilineTextAlignment(.center)
@@ -65,51 +65,51 @@ struct AriaMeetView: View {
                             .premiumEntrance(index: 1, appeared: appeared)
 
                         Text(AriaMeetCopy.lead)
-                            .font(.system(size: 15, weight: .regular, design: .rounded))
+                            .font(FDS.TypeScale.Dynamic.body)
                             .foregroundColor(.textSecondary)
                             .multilineTextAlignment(.center)
-                            .padding(.horizontal, 8)
+                            .padding(.horizontal, FDS.Spacing.sm)
                             .premiumEntrance(index: 2, appeared: appeared)
 
-                        VStack(spacing: 10) {
+                        VStack(spacing: FDS.Spacing.md) {
                             ForEach(Array(AriaMeetCopy.capabilities.enumerated()), id: \.element.title) { index, item in
-                                HStack(alignment: .top, spacing: 12) {
+                                HStack(alignment: .top, spacing: FDS.Spacing.md) {
                                     ZStack {
                                         Circle()
                                             .fill(Color.white.opacity(0.06))
                                             .frame(width: 36, height: 36)
                                         Image(systemName: item.icon)
                                             .font(.system(size: 14, weight: .medium))
-                                            .foregroundColor(Color(hex: "F7F4F0").opacity(0.85))
+                                            .foregroundColor(Color.paper.opacity(0.85))
                                     }
-                                    VStack(alignment: .leading, spacing: 4) {
+                                    VStack(alignment: .leading, spacing: FDS.Spacing.xs) {
                                         Text(item.title)
-                                            .font(.system(size: 15, weight: .semibold, design: .rounded))
+                                            .font(FDS.TypeScale.Dynamic.body.weight(.semibold))
                                             .foregroundColor(.textPrimary)
                                         Text(item.body)
-                                            .font(.system(size: 14, weight: .regular, design: .rounded))
+                                            .font(FDS.TypeScale.Dynamic.body)
                                             .foregroundColor(.textSecondary)
                                             .fixedSize(horizontal: false, vertical: true)
                                     }
                                 }
                                 .frame(maxWidth: .infinity, alignment: .leading)
-                                .padding(14)
+                                .padding(FDS.Spacing.lg)
                                 .background(Color.white.opacity(0.04))
-                                .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+                                .clipShape(RoundedRectangle(cornerRadius: FDS.Radius.lg, style: .continuous))
                                 .overlay(
-                                    RoundedRectangle(cornerRadius: 16, style: .continuous)
+                                    RoundedRectangle(cornerRadius: FDS.Radius.lg, style: .continuous)
                                         .stroke(Color.white.opacity(0.08), lineWidth: 1)
                                 )
                                 .premiumEntrance(index: 3 + index, appeared: appeared)
                             }
                         }
-                        .padding(.top, 8)
+                        .padding(.top, FDS.Spacing.sm)
                     }
-                    .padding(.horizontal, 22)
-                    .padding(.bottom, 16)
+                    .padding(.horizontal, FDS.Spacing.xl)
+                    .padding(.bottom, FDS.Spacing.lg)
                 }
 
-                VStack(spacing: 10) {
+                VStack(spacing: FDS.Spacing.md) {
                     PremiumPrimaryButton(
                         title: AriaMeetCopy.talkCta,
                         icon: "waveform",
@@ -118,17 +118,17 @@ struct AriaMeetView: View {
 
                     Button(action: onSkip) {
                         Text(AriaMeetCopy.skipCta)
-                            .font(.system(size: 14, weight: .medium, design: .rounded))
+                            .font(FDS.TypeScale.Dynamic.body)
                             .foregroundColor(.textTertiary)
                             .frame(maxWidth: .infinity)
-                            .padding(.vertical, 10)
+                            .padding(.vertical, FDS.Spacing.md)
                     }
                     .buttonStyle(.plain)
                     .accessibilityLabel("Skip")
                     .accessibilityHint("Skip the first meeting and look around Forge.")
                 }
-                .padding(.horizontal, 22)
-                .padding(.bottom, 20)
+                .padding(.horizontal, FDS.Spacing.xl)
+                .padding(.bottom, FDS.Spacing.lg)
             }
             .opacity(appeared ? 1 : 0)
         }

@@ -38,7 +38,7 @@ export function ProfileTab() {
                 "relative flex-1 rounded-md py-2 text-sm font-medium transition-colors",
                 "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ember/50",
                 subTab === tab.id
-                  ? "text-white"
+                  ? "text-text-primary"
                   : "text-text-tertiary hover:text-text-secondary"
               )}
             >

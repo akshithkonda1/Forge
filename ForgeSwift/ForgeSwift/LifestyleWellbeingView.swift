@@ -9,7 +9,7 @@ struct WellbeingView: View {
     @ObservedObject var vm: LifestyleViewModel
 
     var body: some View {
-        VStack(spacing: 20) {
+        VStack(spacing: FDS.Spacing.lg) {
             YourPeopleCard()
             HobbyPathCard()
             HabitLoopListCard(vm: vm)
@@ -28,20 +28,20 @@ struct MindfulTrendCard: View {
     private var total: Int { Int(trend.reduce(0) { $0 + $1.minutes }) }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
+        VStack(alignment: .leading, spacing: FDS.Spacing.md) {
             HStack(alignment: .firstTextBaseline) {
                 Text("This week")
-                    .font(.system(size: 15, weight: .semibold, design: .rounded)).foregroundStyle(Color.textPrimary)
+                    .font(FDS.TypeScale.Dynamic.body.weight(.semibold)).foregroundStyle(Color.textPrimary)
                 Spacer()
                 Text("\(total) min")
-                    .font(.system(size: 11, weight: .medium)).foregroundStyle(Color.textTertiary).monospacedDigit()
+                    .font(FDS.TypeScale.Dynamic.micro).foregroundStyle(Color.textTertiary).monospacedDigit()
             }
 
             if trend.isEmpty || trend.allSatisfy({ $0.minutes == 0 }) {
                 Text("No sessions yet — 5 minutes still counts.")
                     .font(.system(size: 12)).foregroundStyle(Color.textSecondary)
                     .frame(maxWidth: .infinity, alignment: .leading)
-                    .padding(.vertical, 6)
+                    .padding(.vertical, FDS.Spacing.sm)
             } else {
                 Chart(trend) { day in
                     BarMark(
@@ -65,8 +65,8 @@ struct MindfulTrendCard: View {
                 .frame(height: 96)
             }
         }
-        .padding(18)
-        .forgeGlassCard(cornerRadius: 16, accent: .success)
+        .padding(FDS.Spacing.lg)
+        .forgeGlassCard(cornerRadius: FDS.Radius.lg, accent: .success)
     }
 }
 
@@ -76,18 +76,18 @@ struct QOLTrendCard: View {
     private var recent: [QOLDay] { Array(history.suffix(30)) }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 14) {
+        VStack(alignment: .leading, spacing: FDS.Spacing.lg) {
             HStack {
-                HStack(spacing: 8) {
+                HStack(spacing: FDS.Spacing.sm) {
                     Image(systemName: "chart.line.uptrend.xyaxis")
                         .font(.system(size: 16)).foregroundStyle(Color.ember)
                     Text("Quality of Life Trend")
-                        .font(.system(size: 18, weight: .bold)).foregroundStyle(Color.textPrimary)
+                        .font(FDS.TypeScale.Dynamic.headline).foregroundStyle(Color.textPrimary)
                 }
                 Spacer()
                 if let last = recent.last {
                     Text("\(last.score)/100")
-                        .font(.system(size: 12, weight: .semibold)).foregroundStyle(Color.ember)
+                        .font(FDS.TypeScale.Dynamic.caption).foregroundStyle(Color.ember)
                 }
             }
 
@@ -95,7 +95,7 @@ struct QOLTrendCard: View {
                 Text("Your QOL trend appears after a couple of days of tracking.")
                     .font(.system(size: 13)).foregroundStyle(Color.textSecondary)
                     .frame(maxWidth: .infinity, alignment: .leading)
-                    .padding(.vertical, 8)
+                    .padding(.vertical, FDS.Spacing.sm)
             } else {
                 Chart(recent) { day in
                     AreaMark(
@@ -132,8 +132,8 @@ struct QOLTrendCard: View {
                 .frame(height: 140)
             }
         }
-        .padding(20)
-        .forgeGlassCard(cornerRadius: 20, accent: .success)
+        .padding(FDS.Spacing.lg)
+        .forgeGlassCard(cornerRadius: FDS.Radius.xl, accent: .success)
     }
 }
 
@@ -143,15 +143,15 @@ struct DailyHabitsCard: View {
     var completed: Int { habits.filter(\.done).count }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 16) {
+        VStack(alignment: .leading, spacing: FDS.Spacing.lg) {
             HStack {
                 Text("Daily Habits")
-                    .font(.system(size: 18, weight: .bold)).foregroundStyle(Color.textPrimary)
+                    .font(FDS.TypeScale.Dynamic.headline).foregroundStyle(Color.textPrimary)
                 Spacer()
                 Text("\(completed)/\(habits.count)")
-                    .font(.system(size: 13, weight: .bold)).foregroundStyle(Color.ember)
-                    .padding(.horizontal, 10).padding(.vertical, 5)
-                    .background(Color.ember.opacity(0.12)).clipShape(RoundedRectangle(cornerRadius: 8))
+                    .font(FDS.TypeScale.Dynamic.caption).foregroundStyle(Color.ember)
+                    .padding(.horizontal, FDS.Spacing.md).padding(.vertical, FDS.Spacing.xs)
+                    .background(Color.ember.opacity(0.12)).clipShape(RoundedRectangle(cornerRadius: FDS.Radius.sm))
             }
 
             // Progress bar
@@ -164,7 +164,7 @@ struct DailyHabitsCard: View {
                 }
             }
             .frame(height: 6)
-            .padding(.bottom, 4)
+            .padding(.bottom, FDS.Spacing.xs)
 
             VStack(spacing: 2) {
                 ForEach($habits) { $habit in
@@ -179,19 +179,19 @@ struct DailyHabitsCard: View {
             }
 
             // Streak
-            HStack(spacing: 8) {
+            HStack(spacing: FDS.Spacing.sm) {
                 Image(systemName: "flame.fill").foregroundStyle(Color.ember)
-                Text("\(LifestyleWellbeingStore.habitStreak())-day streak").font(.system(size: 15, weight: .bold)).foregroundStyle(Color.textPrimary)
+                Text("\(LifestyleWellbeingStore.habitStreak())-day streak").font(FDS.TypeScale.Dynamic.body.weight(.semibold)).foregroundStyle(Color.textPrimary)
                 Spacer()
                 Text("Keep it up 🔥").font(.system(size: 13)).foregroundStyle(Color.textSecondary)
             }
-            .padding(14)
+            .padding(FDS.Spacing.lg)
             .background(Color.ember.opacity(0.08))
-            .clipShape(RoundedRectangle(cornerRadius: 12))
-            .overlay { RoundedRectangle(cornerRadius: 12).stroke(Color.ember.opacity(0.2), lineWidth: 1) }
+            .clipShape(RoundedRectangle(cornerRadius: FDS.Radius.md))
+            .overlay { RoundedRectangle(cornerRadius: FDS.Radius.md).stroke(Color.ember.opacity(0.2), lineWidth: 1) }
         }
-        .padding(20)
-        .forgeGlassCard(cornerRadius: 20, accent: .success)
+        .padding(FDS.Spacing.lg)
+        .forgeGlassCard(cornerRadius: FDS.Radius.xl, accent: .success)
     }
 }
 
@@ -202,7 +202,7 @@ struct HabitRow: View {
 
     var body: some View {
         Button(action: onToggle) {
-            HStack(spacing: 12) {
+            HStack(spacing: FDS.Spacing.md) {
                 ZStack {
                     Circle()
                         .stroke(isDone ? Color.ember : Color.borderColor, lineWidth: 1.5)
@@ -213,12 +213,12 @@ struct HabitRow: View {
                     }
                 }
                 Text(name)
-                    .font(.system(size: 14, weight: .medium))
+                    .font(FDS.TypeScale.Dynamic.body)
                     .foregroundStyle(isDone ? Color.textTertiary : Color.textPrimary)
                     .strikethrough(isDone, color: .textTertiary)
                 Spacer()
             }
-            .padding(.vertical, 10)
+            .padding(.vertical, FDS.Spacing.md)
         }
         .buttonStyle(.plain)
     }
@@ -258,7 +258,7 @@ private enum MindfulPractice: String, CaseIterable, Identifiable {
     var tint: Color {
         switch self {
         case .breathe: return Color(hex: "67E8F9")
-        case .body: return Color(hex: "A78BFA")
+        case .body: return Color.aurora
         case .focus: return Color.ember
         case .rest: return Color.aurora
         }
@@ -277,15 +277,15 @@ struct MindfulnessCard: View {
     private let lengths = [3, 5, 10, 15]
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 16) {
+        VStack(alignment: .leading, spacing: FDS.Spacing.lg) {
             // Header — editorial, not slop
             HStack(alignment: .firstTextBaseline) {
                 Text("Mindfulness")
-                    .font(.system(size: 17, weight: .semibold, design: .rounded))
+                    .font(FDS.TypeScale.Dynamic.headline)
                     .foregroundStyle(Color.textPrimary)
                 Spacer()
                 Text("\(max(vm.mindfulMinutesToday, 0)) min · \(max(vm.mindfulMinutesWeek, 0)) this week")
-                    .font(.system(size: 11, weight: .medium))
+                    .font(FDS.TypeScale.Dynamic.micro)
                     .foregroundStyle(Color.textTertiary)
                     .monospacedDigit()
             }
@@ -297,7 +297,7 @@ struct MindfulnessCard: View {
                         practice = item
                         FDS.selectionHaptic()
                     } label: {
-                        VStack(spacing: 4) {
+                        VStack(spacing: FDS.Spacing.xs) {
                             Text(item.title)
                                 .font(.system(size: 12, weight: practice == item ? .semibold : .medium))
                                 .foregroundStyle(practice == item ? Color.textPrimary : Color.textTertiary)
@@ -305,26 +305,25 @@ struct MindfulnessCard: View {
                             Rectangle()
                                 .fill(practice == item ? Color.textPrimary : Color.clear)
                                 .frame(height: 1.5)
-                                .padding(.horizontal, 8)
+                                .padding(.horizontal, FDS.Spacing.sm)
                         }
                         .frame(maxWidth: .infinity)
-                        .padding(.vertical, 10)
+                        .padding(.vertical, FDS.Spacing.md)
                     }
                     .buttonStyle(.plain)
                     .disabled(isRunning)
                 }
             }
-            .background(Color.surfaceElevated)
-            .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+            .forgeInsetTile(radius: FDS.Radius.md)
 
             Text(practice.line)
-                .font(.system(size: 12.5, weight: .regular))
+                .font(FDS.TypeScale.Dynamic.caption)
                 .foregroundStyle(Color.textSecondary)
                 .lineSpacing(2)
                 .fixedSize(horizontal: false, vertical: true)
 
             if !isRunning {
-                HStack(spacing: 6) {
+                HStack(spacing: FDS.Spacing.sm) {
                     ForEach(lengths, id: \.self) { n in
                         Button {
                             minutes = n
@@ -333,7 +332,7 @@ struct MindfulnessCard: View {
                                 .font(.system(size: 12, weight: minutes == n ? .semibold : .medium))
                                 .foregroundStyle(minutes == n ? Color.textPrimary : Color.textTertiary)
                                 .frame(maxWidth: .infinity)
-                                .padding(.vertical, 7)
+                                .padding(.vertical, FDS.Spacing.sm)
                                 .background(minutes == n ? Color.surfaceElevated : Color.clear)
                                 .overlay { RoundedRectangle(cornerRadius: 999).stroke(minutes == n ? Color.borderColor : Color.clear, lineWidth: 1) }
                                 .clipShape(Capsule())
@@ -364,22 +363,22 @@ struct MindfulnessCard: View {
                             .foregroundStyle(Color.textPrimary)
                             .monospacedDigit()
                         Text(inhale ? "in" : "out")
-                            .font(.system(size: 11, weight: .medium))
+                            .font(FDS.TypeScale.Dynamic.micro)
                             .foregroundStyle(Color.textTertiary)
                             .textCase(.uppercase).tracking(0.8)
                     } else {
                         Text("\(minutes):00")
-                            .font(.system(size: 24, weight: .light, design: .rounded))
+                            .font(FDS.TypeScale.Dynamic.title)
                             .foregroundStyle(Color.textPrimary)
                             .monospacedDigit()
                         Text(practice.title.lowercased())
-                            .font(.system(size: 10, weight: .medium))
+                            .font(FDS.TypeScale.Dynamic.micro)
                             .foregroundStyle(Color.textTertiary)
                     }
                 }
             }
             .frame(maxWidth: .infinity)
-            .padding(.vertical, 4)
+            .padding(.vertical, FDS.Spacing.xs)
 
             Button {
                 if isRunning {
@@ -389,18 +388,18 @@ struct MindfulnessCard: View {
                 }
             } label: {
                 Text(isRunning ? "End" : "Begin \(practice.title.lowercased())")
-                    .font(.system(size: 14, weight: .semibold))
+                    .font(FDS.TypeScale.Dynamic.body.weight(.semibold))
                     .foregroundStyle(isRunning ? Color.textPrimary : .white)
                     .frame(maxWidth: .infinity)
-                    .padding(.vertical, 13)
+                    .padding(.vertical, FDS.Spacing.md)
                     .background(isRunning ? Color.surfaceElevated : Color.textPrimary)
-                    .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
-                    .overlay { RoundedRectangle(cornerRadius: 12).stroke(Color.borderColor.opacity(isRunning ? 0.12 : 0), lineWidth: 1) }
+                    .clipShape(RoundedRectangle(cornerRadius: FDS.Radius.md, style: .continuous))
+                    .overlay { RoundedRectangle(cornerRadius: FDS.Radius.md).stroke(Color.borderColor.opacity(isRunning ? 0.12 : 0), lineWidth: 1) }
             }
             .buttonStyle(.plain)
         }
-        .padding(18)
-        .forgeGlassCard(cornerRadius: 18, accent: .success)
+        .padding(FDS.Spacing.lg)
+        .forgeGlassCard(cornerRadius: FDS.Radius.lg, accent: .success)
         .onDisappear { timer?.invalidate() }
     }
 
@@ -458,14 +457,14 @@ struct StressManagementCard: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
+        VStack(alignment: .leading, spacing: FDS.Spacing.md) {
             HStack(alignment: .firstTextBaseline) {
-                Text("Stress").font(.system(size: 15, weight: .semibold, design: .rounded)).foregroundStyle(Color.textPrimary)
+                Text("Stress").font(FDS.TypeScale.Dynamic.body.weight(.semibold)).foregroundStyle(Color.textPrimary)
                 Spacer()
-                Text(["low","balanced","high"][selectedLevel]).font(.system(size: 11, weight: .medium)).foregroundStyle(Color.textTertiary)
+                Text(["low","balanced","high"][selectedLevel]).font(FDS.TypeScale.Dynamic.micro).foregroundStyle(Color.textTertiary)
             }
 
-            HStack(spacing: 6) {
+            HStack(spacing: FDS.Spacing.sm) {
                 ForEach(Array(levels.enumerated()), id: \.offset) { i, level in
                     Button {
                         withAnimation(.spring(duration: 0.3, bounce: 0.3)) { selectedLevel = i }
@@ -474,7 +473,7 @@ struct StressManagementCard: View {
                         Text(level.label)
                             .font(.system(size: 12, weight: selectedLevel == i ? .semibold : .medium))
                             .foregroundStyle(selectedLevel == i ? Color.textPrimary : Color.textTertiary)
-                            .frame(maxWidth: .infinity).padding(.vertical, 9)
+                            .frame(maxWidth: .infinity).padding(.vertical, FDS.Spacing.sm)
                             .background(selectedLevel == i ? Color.surfaceElevated : Color.clear)
                             .overlay { RoundedRectangle(cornerRadius: 999).stroke(selectedLevel == i ? Color.borderColor : Color.clear, lineWidth: 1) }
                             .clipShape(Capsule())
@@ -484,13 +483,13 @@ struct StressManagementCard: View {
             }
 
             Text(stressTip)
-                .font(.system(size: 12, weight: .regular))
+                .font(FDS.TypeScale.Dynamic.caption)
                 .foregroundStyle(Color.textSecondary)
                 .lineSpacing(2)
                 .fixedSize(horizontal: false, vertical: true)
         }
-        .padding(18)
-        .forgeGlassCard(cornerRadius: 16, accent: .success)
+        .padding(FDS.Spacing.lg)
+        .forgeGlassCard(cornerRadius: FDS.Radius.lg, accent: .success)
         .onAppear {
             if let stats, stats.hrv > 0 {
                 selectedLevel = stats.hrv < 35 ? 2 : stats.hrv < 50 ? 1 : 0
@@ -519,26 +518,26 @@ struct SleepOptimizationCard: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            Text("Sleep Optimization").font(.system(size: 18, weight: .bold)).foregroundStyle(Color.textPrimary)
+        VStack(alignment: .leading, spacing: FDS.Spacing.lg) {
+            Text("Sleep Optimization").font(FDS.TypeScale.Dynamic.headline).foregroundStyle(Color.textPrimary)
 
-            VStack(spacing: 10) {
+            VStack(spacing: FDS.Spacing.md) {
                 ForEach(tips, id: \.tip) { tip in
-                    HStack(spacing: 12) {
+                    HStack(spacing: FDS.Spacing.md) {
                         ZStack {
                             Circle().fill(tip.color.opacity(0.12)).frame(width: 36, height: 36)
                             Image(systemName: tip.icon).font(.system(size: 15)).foregroundStyle(tip.color)
                         }
-                        Text(tip.tip).font(.system(size: 13, weight: .medium)).foregroundStyle(Color.textSecondary)
+                        Text(tip.tip).font(FDS.TypeScale.Dynamic.caption).foregroundStyle(Color.textSecondary)
                         Spacer()
                     }
-                    .padding(12)
-                    .background(Color.surfaceElevated).clipShape(RoundedRectangle(cornerRadius: 12))
+                    .padding(FDS.Spacing.md)
+                    .background(Color.surfaceElevated).clipShape(RoundedRectangle(cornerRadius: FDS.Radius.md))
                 }
             }
         }
-        .padding(20)
-        .forgeGlassCard(cornerRadius: 20, accent: .success)
+        .padding(FDS.Spacing.lg)
+        .forgeGlassCard(cornerRadius: FDS.Radius.xl, accent: .success)
     }
 }
 
@@ -581,7 +580,7 @@ struct AIInsightsModal: View {
                     title: "Sleep Debt Alert",
                     insight: "Last night: \(String(format: "%.1f", stats.sleepHours))h. Extending sleep toward 8h improves HRV and training readiness.",
                     action: "Set bedtime",
-                    color: Color(hex: "A855F7")
+                    color: Color.aurora
                 ))
             }
             if stats.hrv < 45 {
@@ -608,12 +607,12 @@ struct AIInsightsModal: View {
                     VStack(spacing: 0) {
                         // Drag handle
                         Capsule().fill(Color.textTertiary.opacity(0.5))
-                            .frame(width: 36, height: 4).padding(.top, 14).padding(.bottom, 20)
+                            .frame(width: 36, height: 4).padding(.top, FDS.Spacing.lg).padding(.bottom, FDS.Spacing.lg)
 
                         HStack {
-                            HStack(spacing: 10) {
+                            HStack(spacing: FDS.Spacing.md) {
                                 ARIAIdentityMark(state: .idle, mood: .energized, size: 28, amplitude: 0.24)
-                                Text("AI Life Insights").font(.system(size: 24, weight: .bold)).foregroundStyle(Color.textPrimary)
+                                Text("AI Life Insights").font(FDS.TypeScale.Dynamic.title).foregroundStyle(Color.textPrimary)
                             }
                             Spacer()
                             Button { dismiss() } label: {
@@ -621,10 +620,10 @@ struct AIInsightsModal: View {
                                     .font(.system(size: 28)).foregroundStyle(Color.textTertiary.opacity(0.7))
                             }
                         }
-                        .padding(.horizontal, 20).padding(.bottom, 20)
+                        .padding(.horizontal, FDS.Spacing.lg).padding(.bottom, FDS.Spacing.lg)
 
                         ScrollView(showsIndicators: false) {
-                            LazyVStack(spacing: 14) {
+                            LazyVStack(spacing: FDS.Spacing.lg) {
                                 if let summary {
                                     ariaBanner(summary)
                                 }
@@ -632,7 +631,7 @@ struct AIInsightsModal: View {
                                     AIInsightCard(insight: insight)
                                 }
                             }
-                            .padding(.horizontal, 20).padding(.bottom, 40)
+                            .padding(.horizontal, FDS.Spacing.lg).padding(.bottom, 40)
                         }
                     }
                     .frame(maxHeight: geo.size.height * 0.78)
@@ -645,11 +644,11 @@ struct AIInsightsModal: View {
 
     @ViewBuilder
     private func ariaBanner(_ text: String) -> some View {
-        VStack(alignment: .leading, spacing: 8) {
-            HStack(spacing: 8) {
+        VStack(alignment: .leading, spacing: FDS.Spacing.sm) {
+            HStack(spacing: FDS.Spacing.sm) {
                 ARIAIdentityMark(state: isLive ? .speaking : .idle, mood: .energized, size: 18, amplitude: isLive ? 0.45 : 0.2)
                 Text(isLive ? "ARIA · LIVE" : "ARIA")
-                    .font(.system(size: 11, weight: .bold)).tracking(0.5).foregroundStyle(Color.ember)
+                    .font(FDS.TypeScale.Dynamic.micro).tracking(0.5).foregroundStyle(Color.ember)
                 Spacer()
             }
             Text(text)
@@ -658,14 +657,14 @@ struct AIInsightsModal: View {
                 .lineSpacing(4)
                 .fixedSize(horizontal: false, vertical: true)
         }
-        .padding(16)
+        .padding(FDS.Spacing.lg)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(
             LinearGradient(colors: [Color.ember.opacity(0.12), Color.ember.opacity(0.04)],
                            startPoint: .topLeading, endPoint: .bottomTrailing)
         )
-        .clipShape(RoundedRectangle(cornerRadius: 16))
-        .overlay { RoundedRectangle(cornerRadius: 16).stroke(Color.ember.opacity(0.25), lineWidth: 1) }
+        .clipShape(RoundedRectangle(cornerRadius: FDS.Radius.lg))
+        .overlay { RoundedRectangle(cornerRadius: FDS.Radius.lg).stroke(Color.ember.opacity(0.25), lineWidth: 1) }
     }
 
     private func dismiss() {
@@ -678,11 +677,11 @@ struct AIInsightCard: View {
     @State private var expanded = false
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
+        VStack(alignment: .leading, spacing: FDS.Spacing.md) {
             HStack {
                 Circle().fill(insight.color).frame(width: 8, height: 8)
                     .shadow(color: insight.color.opacity(0.6), radius: 4)
-                Text(insight.title).font(.system(size: 16, weight: .bold)).foregroundStyle(Color.textPrimary)
+                Text(insight.title).font(FDS.TypeScale.Dynamic.headline).foregroundStyle(Color.textPrimary)
                 Spacer()
             }
             Text(insight.insight)
@@ -692,17 +691,17 @@ struct AIInsightCard: View {
             Button {
                 withAnimation(.spring(duration: 0.3, bounce: 0.28)) { expanded.toggle() }
             } label: {
-                HStack(spacing: 6) {
+                HStack(spacing: FDS.Spacing.sm) {
                     Image(systemName: "arrow.right.circle.fill").font(.system(size: 13))
-                    Text(insight.action).font(.system(size: 13, weight: .semibold))
+                    Text(insight.action).font(FDS.TypeScale.Dynamic.caption)
                 }
                 .foregroundStyle(insight.color)
             }
         }
-        .padding(16)
+        .padding(FDS.Spacing.lg)
         .background(Color.surfaceElevated)
-        .clipShape(RoundedRectangle(cornerRadius: 16))
-        .overlay { RoundedRectangle(cornerRadius: 16).stroke(insight.color.opacity(0.2), lineWidth: 1) }
+        .clipShape(RoundedRectangle(cornerRadius: FDS.Radius.lg))
+        .overlay { RoundedRectangle(cornerRadius: FDS.Radius.lg).stroke(insight.color.opacity(0.2), lineWidth: 1) }
         .contentShape(Rectangle())
         .onTapGesture {
             withAnimation(.spring(duration: 0.3, bounce: 0.28)) { expanded.toggle() }
@@ -721,20 +720,20 @@ struct HobbyPathCard: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
+        VStack(alignment: .leading, spacing: FDS.Spacing.md) {
             HStack {
                 Text("HOBBY PATH")
-                    .font(.system(size: 10, weight: .black))
+                    .font(FDS.TypeScale.Dynamic.micro)
                     .foregroundColor(.textTertiary)
                     .tracking(2)
                 Spacer()
                 Text(hobby.path.rawValue.replacingOccurrences(of: "_", with: " "))
-                    .font(.system(size: 11, weight: .semibold))
+                    .font(FDS.TypeScale.Dynamic.micro)
                     .foregroundStyle(Color.ember)
                     .textCase(.uppercase)
             }
             Text(hobby.headline)
-                .font(.system(size: 16, weight: .semibold, design: .rounded))
+                .font(FDS.TypeScale.Dynamic.headline)
                 .foregroundColor(.textPrimary)
             Text(hobby.coachingLine)
                 .font(.system(size: 13))
@@ -745,14 +744,14 @@ struct HobbyPathCard: View {
                 .foregroundColor(.textTertiary)
                 .lineSpacing(3)
             ForEach(hobby.suggestions.prefix(3)) { item in
-                HStack(alignment: .top, spacing: 10) {
+                HStack(alignment: .top, spacing: FDS.Spacing.md) {
                     Image(systemName: "circle.fill")
                         .font(.system(size: 5))
                         .foregroundStyle(Color.ember)
-                        .padding(.top, 6)
+                        .padding(.top, FDS.Spacing.sm)
                     VStack(alignment: .leading, spacing: 2) {
                         Text(item.hobby.title)
-                            .font(.system(size: 13, weight: .semibold))
+                            .font(FDS.TypeScale.Dynamic.caption)
                             .foregroundColor(.textPrimary)
                         Text(item.firstStep)
                             .font(.system(size: 12))
@@ -768,21 +767,21 @@ struct HobbyPathCard: View {
                     Image(systemName: "message.fill")
                         .font(.system(size: 12, weight: .semibold))
                     Text("Ask ARIA to pick a hobby")
-                        .font(.system(size: 13, weight: .semibold))
+                        .font(FDS.TypeScale.Dynamic.caption)
                     Spacer()
                     Image(systemName: "arrow.up.right")
                         .font(.system(size: 11, weight: .semibold))
                 }
                 .foregroundStyle(Color.ember)
-                .padding(.vertical, 10)
-                .padding(.horizontal, 12)
+                .padding(.vertical, FDS.Spacing.md)
+                .padding(.horizontal, FDS.Spacing.md)
                 .background(Color.ember.opacity(0.12))
-                .clipShape(RoundedRectangle(cornerRadius: 12))
+                .clipShape(RoundedRectangle(cornerRadius: FDS.Radius.md))
             }
             .buttonStyle(.plain)
         }
-        .padding(18)
-        .forgeGlassCard(cornerRadius: 16, accent: .ember)
+        .padding(FDS.Spacing.lg)
+        .forgeGlassCard(cornerRadius: FDS.Radius.lg, accent: .ember)
         .accessibilityElement(children: .combine)
         .accessibilityLabel("\(hobby.headline). \(hobby.coachingLine) \(hobby.windowLine)")
     }
@@ -794,14 +793,14 @@ struct YourPeopleCard: View {
     @State private var showSheet = false
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
+        VStack(alignment: .leading, spacing: FDS.Spacing.md) {
             Text("YOUR PEOPLE")
-                .font(.system(size: 10, weight: .black))
+                .font(FDS.TypeScale.Dynamic.micro)
                 .foregroundColor(.textTertiary)
                 .tracking(2)
             if directory.coachingPeople.isEmpty {
                 Text("ARIA doesn't know who matters yet.")
-                    .font(.system(size: 16, weight: .semibold, design: .rounded))
+                    .font(FDS.TypeScale.Dynamic.headline)
                     .foregroundColor(.textPrimary)
                 Text("Pick a few first names — partner, roommate, training buddy. Not your whole address book. Phone numbers stay in Contacts.")
                     .font(.system(size: 13))
@@ -809,7 +808,7 @@ struct YourPeopleCard: View {
             } else {
                 ForEach(directory.coachingPeople) { person in
                     Text("\(person.firstName) · \(person.relation.title)")
-                        .font(.system(size: 14, weight: .semibold))
+                        .font(FDS.TypeScale.Dynamic.body.weight(.semibold))
                         .foregroundColor(.textPrimary)
                 }
             }
@@ -818,13 +817,13 @@ struct YourPeopleCard: View {
                 showSheet = true
             } label: {
                 Text(directory.coachingPeople.isEmpty ? "Add your people" : "Edit your people")
-                    .font(.system(size: 13, weight: .semibold))
+                    .font(FDS.TypeScale.Dynamic.caption)
                     .foregroundStyle(Color.ember)
             }
             .buttonStyle(.plain)
         }
-        .padding(18)
-        .forgeGlassCard(cornerRadius: 16, accent: .ember)
+        .padding(FDS.Spacing.lg)
+        .forgeGlassCard(cornerRadius: FDS.Radius.lg, accent: .ember)
         .sheet(isPresented: $showSheet, onDismiss: reload) {
             YourPeopleSheet()
                 .environmentObject(store)
@@ -847,12 +846,12 @@ struct PeopleSettingsSection: View {
         VStack(alignment: .leading, spacing: 0) {
             Text("Your people")
                 .forgeSectionLabel()
-                .padding(.top, 28)
-                .padding(.bottom, 10)
+                .padding(.top, FDS.Spacing.xl)
+                .padding(.bottom, FDS.Spacing.md)
             Text(honesty)
                 .font(.system(size: 12))
                 .foregroundColor(.textTertiary)
-                .padding(.bottom, 10)
+                .padding(.bottom, FDS.Spacing.md)
             SectionCard {
                 SettingsRow(
                     icon: "person.2.fill",
@@ -873,7 +872,7 @@ struct PeopleSettingsSection: View {
                     directory = PeopleDirectoryStore.load()
                     store.objectWillChange.send()
                 } label: {
-                    SettingsRow(icon: "trash", iconColor: Color(hex: "EF4444"), label: "Forget your people", trailingText: "On this iPhone")
+                    SettingsRow(icon: "trash", iconColor: Color.alert, label: "Forget your people", trailingText: "On this iPhone")
                 }
                 .buttonStyle(.plain)
                 Divider().background(Color.borderColor)
@@ -930,7 +929,7 @@ struct YourPeopleSheet: View {
     var body: some View {
         NavigationStack {
             ScrollView {
-                VStack(alignment: .leading, spacing: 16) {
+                VStack(alignment: .leading, spacing: FDS.Spacing.lg) {
                     Text("First names and a label only. Phone numbers, emails, and the rest of your address book stay in Contacts. This is lifestyle coaching — not a read on your social life.")
                         .font(.system(size: 13))
                         .foregroundColor(.textSecondary)
@@ -959,7 +958,7 @@ struct YourPeopleSheet: View {
                     }
                     if !suggestions.isEmpty {
                         Text("From Contacts — tap to confirm")
-                            .font(.system(size: 12, weight: .semibold))
+                            .font(FDS.TypeScale.Dynamic.caption)
                             .foregroundColor(.textTertiary)
                         ForEach(suggestions, id: \.id) { row in
                             Button {
@@ -981,7 +980,7 @@ struct YourPeopleSheet: View {
                         }
                     }
                 }
-                .padding(16)
+                .padding(FDS.Spacing.lg)
             }
             .navigationTitle("Your people")
             .toolbar {

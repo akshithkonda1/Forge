@@ -28,7 +28,7 @@ struct SupporterDigestView: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 18) {
+        VStack(alignment: .leading, spacing: FDS.Spacing.lg) {
             if isPreview { previewBanner }
             if digest.periodFinished { finishedBanner }
             if !isPreview && digest.isStale { staleBanner }
@@ -44,7 +44,7 @@ struct SupporterDigestView: View {
             }
 
             Text(PartnerSupportBrief.disclaimer)
-                .font(FDS.TypeScale.body(11))
+                .font(FDS.TypeScale.Dynamic.caption)
                 .foregroundColor(.textTertiary)
         }
     }
@@ -53,13 +53,13 @@ struct SupporterDigestView: View {
 
     private var previewBanner: some View {
         Label("This is exactly what they see. Nothing more.", systemImage: "eye.fill")
-            .font(FDS.TypeScale.label(13))
-            .foregroundStyle(Color(hex: "22C55E"))
-            .padding(.horizontal, 12)
-            .padding(.vertical, 10)
+            .font(FDS.TypeScale.Dynamic.caption)
+            .foregroundStyle(Color.vitality)
+            .padding(.horizontal, FDS.Spacing.md)
+            .padding(.vertical, FDS.Spacing.md)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .background(Color(hex: "22C55E").opacity(0.12))
-            .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+            .background(Color.vitality.opacity(0.12))
+            .clipShape(RoundedRectangle(cornerRadius: FDS.Radius.md, style: .continuous))
     }
 
     /// Shown when the owner's device has not published in a while.
@@ -75,30 +75,30 @@ struct SupporterDigestView: View {
                 ?? "This may be out of date.",
             systemImage: "exclamationmark.arrow.triangle.2.circlepath"
         )
-        .font(FDS.TypeScale.body(12))
-        .foregroundStyle(Color(hex: "FBBF24"))
-        .padding(.horizontal, 12)
-        .padding(.vertical, 10)
+        .font(FDS.TypeScale.Dynamic.caption)
+        .foregroundStyle(Color.warning)
+        .padding(.horizontal, FDS.Spacing.md)
+        .padding(.vertical, FDS.Spacing.md)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Color(hex: "FBBF24").opacity(0.12))
-        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+        .background(Color.warning.opacity(0.12))
+        .clipShape(RoundedRectangle(cornerRadius: FDS.Radius.md, style: .continuous))
         .fixedSize(horizontal: false, vertical: true)
     }
 
     private var finishedBanner: some View {
         Label("Period finished — both of you can see this.", systemImage: "checkmark.circle.fill")
-            .font(FDS.TypeScale.label(13))
-            .foregroundStyle(Color(hex: "22C55E"))
-            .padding(.horizontal, 12)
-            .padding(.vertical, 10)
+            .font(FDS.TypeScale.Dynamic.caption)
+            .foregroundStyle(Color.vitality)
+            .padding(.horizontal, FDS.Spacing.md)
+            .padding(.vertical, FDS.Spacing.md)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .background(Color(hex: "22C55E").opacity(0.12))
-            .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+            .background(Color.vitality.opacity(0.12))
+            .clipShape(RoundedRectangle(cornerRadius: FDS.Radius.md, style: .continuous))
     }
 
     private var glance: some View {
-        VStack(alignment: .leading, spacing: 14) {
-            HStack(alignment: .center, spacing: 14) {
+        VStack(alignment: .leading, spacing: FDS.Spacing.lg) {
+            HStack(alignment: .center, spacing: FDS.Spacing.lg) {
                 ZStack {
                     Circle()
                         .fill(accent.opacity(0.18))
@@ -107,22 +107,22 @@ struct SupporterDigestView: View {
                         .font(.system(size: 24, weight: .semibold))
                         .foregroundStyle(accent)
                 }
-                VStack(alignment: .leading, spacing: 4) {
+                VStack(alignment: .leading, spacing: FDS.Spacing.xs) {
                     Text(personName.isEmpty ? "SUPPORT" : personName.uppercased())
-                        .font(FDS.TypeScale.micro(10))
+                        .font(FDS.TypeScale.Dynamic.micro)
                         .tracking(1.3)
                         .foregroundStyle(accent)
                     Text(digest.phase.label)
-                        .font(FDS.TypeScale.title(20))
+                        .font(FDS.TypeScale.Dynamic.title)
                         .foregroundColor(.textPrimary)
                         .fixedSize(horizontal: false, vertical: true)
                     if let day = digest.periodDay {
                         Text("Day \(day)")
-                            .font(FDS.TypeScale.body(13))
+                            .font(FDS.TypeScale.Dynamic.caption)
                             .foregroundColor(.textSecondary)
                     } else if digest.phase != .notBleeding {
                         Text(digest.energy.label)
-                            .font(FDS.TypeScale.body(13))
+                            .font(FDS.TypeScale.Dynamic.caption)
                             .foregroundColor(.textSecondary)
                     }
                 }
@@ -133,16 +133,16 @@ struct SupporterDigestView: View {
             // It travels while cramping/flow/notes stay vaulted. Prefer it when present.
             if let card = digest.supportCardLine, !card.isEmpty {
                 Label(card, systemImage: "heart.text.square.fill")
-                    .font(FDS.TypeScale.body(15))
+                    .font(FDS.TypeScale.Dynamic.body)
                     .foregroundColor(.textPrimary)
                     .fixedSize(horizontal: false, vertical: true)
                 Text(guidance.headline)
-                    .font(FDS.TypeScale.body(13))
+                    .font(FDS.TypeScale.Dynamic.caption)
                     .foregroundColor(.textSecondary)
                     .fixedSize(horizontal: false, vertical: true)
             } else {
                 Text(guidance.headline)
-                    .font(FDS.TypeScale.body(15))
+                    .font(FDS.TypeScale.Dynamic.body)
                     .foregroundColor(.textPrimary)
                     .fixedSize(horizontal: false, vertical: true)
             }
@@ -151,31 +151,31 @@ struct SupporterDigestView: View {
             // a supporter counting down is the failure mode this avoids.
             if let days = digest.daysUntilNextPeriodApprox {
                 Label(approximateNextPeriod(days), systemImage: "calendar")
-                    .font(FDS.TypeScale.body(13))
+                    .font(FDS.TypeScale.Dynamic.caption)
                     .foregroundColor(.textSecondary)
             }
 
             // Says out loud that this is a snapshot from their device, not a
             // live feed. Nobody should think they are watching in real time.
             Text(asOfLine)
-                .font(FDS.TypeScale.body(11))
+                .font(FDS.TypeScale.Dynamic.caption)
                 .foregroundColor(.textTertiary)
         }
-        .padding(20)
+        .padding(FDS.Spacing.lg)
         .forgeGlassCard(accent: accent)
     }
 
     private var howToShowUp: some View {
-        VStack(alignment: .leading, spacing: 16) {
+        VStack(alignment: .leading, spacing: FDS.Spacing.lg) {
             Text(PartnerSupportLens.Section.howToShowUp.title.uppercased())
                 .forgeSectionLabel()
             bulletList(guidance.doThis, tint: accent, icon: "checkmark.circle.fill")
             if !guidance.notThis.isEmpty {
                 Divider().overlay(Color.white.opacity(0.08))
-                bulletList(guidance.notThis, tint: Color(hex: "F87171"), icon: "xmark.circle.fill")
+                bulletList(guidance.notThis, tint: Color.danger, icon: "xmark.circle.fill")
             }
         }
-        .padding(20)
+        .padding(FDS.Spacing.lg)
         .forgeGlassCard(accent: accent)
     }
 
@@ -186,15 +186,15 @@ struct SupporterDigestView: View {
         // independent guards, because a parent seeing this is the failure that
         // must not happen once.
         if lens.intimacy == .full, !guidance.intimacy.isEmpty {
-            VStack(alignment: .leading, spacing: 14) {
+            VStack(alignment: .leading, spacing: FDS.Spacing.lg) {
                 Text(PartnerSupportLens.Section.intimacyAndComfort.title.uppercased())
                     .forgeSectionLabel()
                 bulletList(guidance.intimacy, tint: Color(hex: "F472B6"), icon: "heart.fill")
                 Text("Nothing here tells you when they're fertile. That stays with them.")
-                    .font(FDS.TypeScale.body(11))
+                    .font(FDS.TypeScale.Dynamic.caption)
                     .foregroundColor(.textTertiary)
             }
-            .padding(20)
+            .padding(FDS.Spacing.lg)
             .forgeGlassCard(accent: Color(hex: "F472B6"))
         }
     }
@@ -202,12 +202,12 @@ struct SupporterDigestView: View {
     @ViewBuilder
     private var parentPlaybook: some View {
         if !guidance.parentNotes.isEmpty {
-            VStack(alignment: .leading, spacing: 14) {
+            VStack(alignment: .leading, spacing: FDS.Spacing.lg) {
                 Text(PartnerSupportLens.Section.parentPlaybook.title.uppercased())
                     .forgeSectionLabel()
                 bulletList(guidance.parentNotes, tint: Color(hex: "60A5FA"), icon: "hand.raised.fill")
             }
-            .padding(20)
+            .padding(FDS.Spacing.lg)
             .forgeGlassCard(accent: Color(hex: "60A5FA"))
         }
     }
@@ -217,33 +217,33 @@ struct SupporterDigestView: View {
     /// the person they support to fill in the gaps, and the owner previewing
     /// this to decide whether to share at all.
     private var withheld: some View {
-        VStack(alignment: .leading, spacing: 12) {
+        VStack(alignment: .leading, spacing: FDS.Spacing.md) {
             Label(PartnerSupportLens.Section.whatYouCannotSee.title.uppercased(),
                   systemImage: "eye.slash.fill")
                 .forgeSectionLabel()
             Text(lens.withheldExplanation)
-                .font(FDS.TypeScale.body(13))
+                .font(FDS.TypeScale.Dynamic.caption)
                 .foregroundColor(.textSecondary)
                 .fixedSize(horizontal: false, vertical: true)
         }
-        .padding(20)
+        .padding(FDS.Spacing.lg)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(Color.surfaceElevated.opacity(0.5))
-        .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+        .clipShape(RoundedRectangle(cornerRadius: FDS.Radius.lg, style: .continuous))
     }
 
     // ------------------------------------------------------------
 
     private func bulletList(_ items: [String], tint: Color, icon: String) -> some View {
-        VStack(alignment: .leading, spacing: 10) {
+        VStack(alignment: .leading, spacing: FDS.Spacing.md) {
             ForEach(items, id: \.self) { item in
-                HStack(alignment: .top, spacing: 10) {
+                HStack(alignment: .top, spacing: FDS.Spacing.md) {
                     Image(systemName: icon)
                         .font(.system(size: 13))
                         .foregroundStyle(tint)
                         .padding(.top, 1)
                     Text(item)
-                        .font(FDS.TypeScale.body(14))
+                        .font(FDS.TypeScale.Dynamic.body)
                         .foregroundColor(.textPrimary)
                         .fixedSize(horizontal: false, vertical: true)
                 }
@@ -255,8 +255,8 @@ struct SupporterDigestView: View {
     private var accent: Color {
         switch digest.phase {
         case .bleeding:     return Color(hex: "F43F5E")
-        case .rebuilding:   return Color(hex: "22C55E")
-        case .winding:      return Color(hex: "A78BFA")
+        case .rebuilding:   return Color.vitality
+        case .winding:      return Color.aurora
         case .notBleeding:  return Color(hex: "94A3B8")
         case .unknown:      return Color(hex: "94A3B8")
         }

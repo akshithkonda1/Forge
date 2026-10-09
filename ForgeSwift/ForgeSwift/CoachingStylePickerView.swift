@@ -16,30 +16,30 @@ struct CoachingStylePickerView: View {
     var body: some View {
         NavigationStack {
             ScrollView {
-                VStack(spacing: 16) {
+                VStack(spacing: FDS.Spacing.lg) {
                     Text("Choose how ARIA talks to you during training and recovery.")
                         .font(.system(size: 14))
                         .foregroundColor(.textSecondary)
                         .multilineTextAlignment(.center)
                         .padding(.horizontal)
-                        .padding(.top, 8)
+                        .padding(.top, FDS.Spacing.sm)
 
-                    VStack(spacing: 12) {
+                    VStack(spacing: FDS.Spacing.md) {
                         ForEach(CoachingStyle.allCases, id: \.self) { style in
                             Button(action: {
                                 withAnimation(.spring(response: 0.4, dampingFraction: 0.8)) {
                                     selectedStyle = style
                                 }
                             }) {
-                                HStack(spacing: 12) {
+                                HStack(spacing: FDS.Spacing.md) {
                                     Image(systemName: style.icon)
                                         .font(.system(size: 18))
                                         .foregroundColor(style.color)
                                         .frame(width: 28)
 
-                                    VStack(alignment: .leading, spacing: 4) {
+                                    VStack(alignment: .leading, spacing: FDS.Spacing.xs) {
                                         Text(style.label)
-                                            .font(.system(size: 16, weight: .semibold))
+                                            .font(FDS.TypeScale.Dynamic.headline)
                                             .foregroundColor(.textPrimary)
                                         Text(style.description)
                                             .font(.system(size: 13))
@@ -50,20 +50,20 @@ struct CoachingStylePickerView: View {
 
                                     ZStack {
                                         Circle()
-                                            .stroke(selectedStyle == style ? Color(hex: "F7F4F0") : Color.borderColor, lineWidth: 2)
+                                            .stroke(selectedStyle == style ? Color.paper : Color.borderColor, lineWidth: 2)
                                             .frame(width: 24, height: 24)
                                         if selectedStyle == style {
                                             Circle()
-                                                .fill(Color(hex: "F7F4F0"))
+                                                .fill(Color.paper)
                                                 .frame(width: 14, height: 14)
                                         }
                                     }
                                 }
-                                .padding(16)
+                                .padding(FDS.Spacing.lg)
                                 .background(Color.white.opacity(selectedStyle == style ? 0.06 : 0.04))
-                                .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+                                .clipShape(RoundedRectangle(cornerRadius: FDS.Radius.md, style: .continuous))
                                 .overlay(
-                                    RoundedRectangle(cornerRadius: 14, style: .continuous)
+                                    RoundedRectangle(cornerRadius: FDS.Radius.md, style: .continuous)
                                         .stroke(Color.white.opacity(selectedStyle == style ? 0.18 : 0.08), lineWidth: 1)
                                 )
                             }
@@ -74,7 +74,7 @@ struct CoachingStylePickerView: View {
 
                     PremiumPrimaryButton(title: "Save", icon: nil, action: save)
                         .padding(.horizontal)
-                        .padding(.top, 12)
+                        .padding(.top, FDS.Spacing.md)
                 }
                 .padding(.bottom, 32)
             }

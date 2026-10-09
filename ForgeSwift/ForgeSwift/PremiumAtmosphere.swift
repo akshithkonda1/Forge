@@ -33,7 +33,7 @@ struct PremiumAtmosphere: View {
             // Soft top pearl / frost bloom
             RadialGradient(
                 colors: [
-                    Color(hex: "F7F4F0").opacity(0.08 * intensity),
+                    Color.paper.opacity(0.08 * intensity),
                     secondary.opacity(0.055 * intensity),
                     .clear
                 ],
@@ -187,7 +187,7 @@ struct PremiumPresenceBloom: View {
                         colors: [
                             frost.opacity(0.0),
                             frost.opacity(0.45),
-                            Color(hex: "F7F4F0").opacity(0.35),
+                            Color.paper.opacity(0.35),
                             frost.opacity(0.0)
                         ],
                         center: .center,
@@ -206,7 +206,7 @@ struct PremiumPresenceBloom: View {
                 .fill(
                     RadialGradient(
                         colors: [
-                            Color(hex: "F7F4F0").opacity(0.16),
+                            Color.paper.opacity(0.16),
                             .clear
                         ],
                         center: .center,
@@ -244,7 +244,7 @@ struct ForgeBrandMark: View {
             .fill(
                 LinearGradient(
                     colors: [
-                        Color(hex: "F7F4F0").opacity(0.95),
+                        Color.paper.opacity(0.95),
                         Color.ember.opacity(0.92),
                         Color.emberDark
                     ],
@@ -294,12 +294,12 @@ struct PremiumPrimaryButton: View {
 
     var body: some View {
         Button(action: action) {
-            HStack(spacing: 10) {
+            HStack(spacing: FDS.Spacing.md) {
                 if busy {
                     ProgressView().tint(Color(hex: "0A0A0A"))
                 }
                 Text(title)
-                    .font(.system(size: 17, weight: .semibold, design: .rounded))
+                    .font(FDS.TypeScale.Dynamic.headline)
                 Spacer(minLength: 0)
                 if let icon, !busy {
                     Image(systemName: icon)
@@ -308,17 +308,17 @@ struct PremiumPrimaryButton: View {
                 }
             }
             .foregroundColor(enabled ? Color(hex: "0A0A0A") : Color.white.opacity(0.35))
-            .padding(.horizontal, 22)
-            .padding(.vertical, 18)
+            .padding(.horizontal, FDS.Spacing.xl)
+            .padding(.vertical, FDS.Spacing.lg)
             .background {
                 ZStack {
                     if enabled {
-                        Color(hex: "F7F4F0")
+                        Color.paper
                         // Soft pearl → warm edge
                         LinearGradient(
                             colors: [
                                 Color.white.opacity(0.55),
-                                Color(hex: "F7F4F0").opacity(0),
+                                Color.paper.opacity(0),
                                 Color.ember.opacity(0.08)
                             ],
                             startPoint: .topLeading,
@@ -358,7 +358,7 @@ struct PremiumPrimaryButton: View {
                     )
             )
             .shadow(
-                color: enabled ? Color(hex: "F7F4F0").opacity(0.18) : .clear,
+                color: enabled ? Color.paper.opacity(0.18) : .clear,
                 radius: 18,
                 y: 8
             )
@@ -408,14 +408,14 @@ struct PremiumProgressDots: View {
     @State private var pulse: CGFloat = 0
 
     var body: some View {
-        HStack(spacing: 6) {
+        HStack(spacing: FDS.Spacing.sm) {
             ForEach(0..<count, id: \.self) { i in
                 Capsule()
-                    .fill(i == current ? Color(hex: "F7F4F0") : Color.white.opacity(0.16))
+                    .fill(i == current ? Color.paper : Color.white.opacity(0.16))
                     .frame(width: i == current ? 22 : 6, height: 4)
                     .shadow(
                         color: i == current
-                            ? Color(hex: "F7F4F0").opacity(0.28 + Double(pulse) * 0.22)
+                            ? Color.paper.opacity(0.28 + Double(pulse) * 0.22)
                             : .clear,
                         radius: i == current ? 6 + pulse * 4 : 0,
                         y: 0

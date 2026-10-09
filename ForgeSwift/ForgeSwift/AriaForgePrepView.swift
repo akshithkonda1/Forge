@@ -22,11 +22,11 @@ struct AriaForgePrepView: View {
                     AriaSpokenMuteButton()
                 }
                 .padding(.horizontal, FDS.Spacing.xl)
-                .padding(.top, 8)
+                .padding(.top, FDS.Spacing.sm)
 
                 Spacer()
 
-                VStack(spacing: 28) {
+                VStack(spacing: FDS.Spacing.xl) {
                     AuroraOrbView(
                         state: stage == .ready ? .idle : .processing,
                         amplitude: reduceMotion ? 0.18 : 0.42,
@@ -36,9 +36,9 @@ struct AriaForgePrepView: View {
                     )
                     .accessibilityHidden(true)
 
-                    VStack(spacing: 10) {
+                    VStack(spacing: FDS.Spacing.md) {
                         Text(stage.eyebrow.uppercased())
-                            .font(FDS.TypeScale.micro(11))
+                            .font(FDS.TypeScale.Dynamic.micro)
                             .tracking(1.6)
                             .foregroundColor(.textTertiary)
 
@@ -49,27 +49,27 @@ struct AriaForgePrepView: View {
                             .animation(reduceMotion ? nil : FDS.Spring.standard, value: stage)
 
                         Text(stage.detail(healthConnected: coordinator.prepHealthConnected))
-                            .font(FDS.TypeScale.body(15))
+                            .font(FDS.TypeScale.Dynamic.body)
                             .foregroundColor(.textSecondary)
                             .multilineTextAlignment(.center)
-                            .padding(.horizontal, 28)
+                            .padding(.horizontal, FDS.Spacing.xl)
                             .animation(reduceMotion ? nil : FDS.Spring.standard, value: stage)
                     }
                 }
 
                 Spacer()
 
-                VStack(spacing: 14) {
+                VStack(spacing: FDS.Spacing.lg) {
                     prepFill(progress: progress)
                         .padding(.horizontal, 48)
 
                     Text(stage.footer(progress: progress))
-                        .font(FDS.TypeScale.label(12))
+                        .font(FDS.TypeScale.Dynamic.caption)
                         .foregroundColor(.textTertiary)
 
                     if spokenMuted {
                         Text("Voice is muted")
-                            .font(FDS.TypeScale.micro(10))
+                            .font(FDS.TypeScale.Dynamic.micro)
                             .foregroundColor(.textTertiary)
                     }
                 }
@@ -88,7 +88,7 @@ struct AriaForgePrepView: View {
                 Capsule()
                     .fill(Color.white.opacity(0.08))
                 Capsule()
-                    .fill(Color(hex: "F7F4F0"))
+                    .fill(Color.paper)
                     .frame(width: max(6, geo.size.width * progress))
             }
         }

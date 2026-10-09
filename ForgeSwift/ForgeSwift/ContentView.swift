@@ -86,7 +86,7 @@ struct ForgeSplashScreen: View {
                 loopMotion: false
             )
 
-            VStack(spacing: 28) {
+            VStack(spacing: FDS.Spacing.xl) {
                 ZStack {
                     PremiumPresenceBloom(
                         size: 220,
@@ -106,13 +106,13 @@ struct ForgeSplashScreen: View {
                 .scaleEffect(logoScale)
                 .opacity(logoOpacity)
 
-                VStack(spacing: 10) {
-                    HStack(spacing: 10) {
+                VStack(spacing: FDS.Spacing.md) {
+                    HStack(spacing: FDS.Spacing.md) {
                         ForgeBrandMark(size: 22)
                         Text("FORGE")
                             .font(ForgeType.display)
                             .tracking(6)
-                            .foregroundColor(Color(hex: "F7F4F0"))
+                            .foregroundColor(Color.paper)
                     }
 
                     Text("Forged.")
@@ -343,8 +343,8 @@ struct ForgeBottomNav: View {
                 }
             }
         }
-        .padding(.top, 8)
-        .padding(.bottom, 4)
+        .padding(.top, FDS.Spacing.sm)
+        .padding(.bottom, FDS.Spacing.xs)
         .padding(.horizontal, 2)
         .background {
             ZStack(alignment: .top) {
@@ -472,7 +472,7 @@ struct ARIATabButton: View {
                 }
 
                 Text(isVoiceMode ? "Voice" : "ARIA")
-                    .font(.system(size: 10, weight: .semibold, design: .rounded))
+                    .font(FDS.TypeScale.Dynamic.micro)
                     .tracking(0.3)
                     .foregroundStyle(isActive ? Color.ember : Color.white.opacity(0.5))
             }

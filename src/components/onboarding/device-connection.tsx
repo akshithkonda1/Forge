@@ -180,15 +180,15 @@ export default function DeviceConnection({ onNext }: DeviceConnectionProps) {
                   <motion.div
                     initial={{ scale: 0 }}
                     animate={{ scale: 1 }}
-                    className="absolute right-2.5 top-2.5 flex h-5 w-5 items-center justify-center rounded-full bg-[#F7F4F0]"
+                    className="absolute right-2.5 top-2.5 flex h-5 w-5 items-center justify-center rounded-full bg-paper"
                   >
-                    <Check size={12} strokeWidth={3} className="text-[#0A0A0A]" />
+                    <Check size={12} strokeWidth={3} className="text-background" />
                   </motion.div>
                 )}
                 <div
                   className={cn(
                     "transition-colors duration-200",
-                    isConnected ? "text-[#F7F4F0]" : "text-text-tertiary"
+                    isConnected ? "text-text-primary" : "text-text-tertiary"
                   )}
                 >
                   {device.icon}
@@ -196,7 +196,7 @@ export default function DeviceConnection({ onNext }: DeviceConnectionProps) {
                 <span
                   className={cn(
                     "text-sm font-medium transition-colors duration-200",
-                    isConnected ? "text-[#F7F4F0]" : "text-text-secondary"
+                    isConnected ? "text-text-primary" : "text-text-secondary"
                   )}
                 >
                   {device.name}

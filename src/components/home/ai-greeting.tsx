@@ -80,7 +80,7 @@ export function AiGreeting() {
             onClick={() => setActiveTab("chat")}
             className={cn(
               "min-tap mt-4 inline-flex items-center gap-1.5 rounded-full border border-white/12 bg-white/[0.06] px-3.5",
-              "type-caption text-[#F7F4F0] transition hover:bg-white/[0.1]"
+              "type-caption text-text-primary transition hover:bg-white/[0.1]"
             )}
           >
             <MessageCircle size={14} />

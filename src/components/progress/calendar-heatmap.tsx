@@ -43,7 +43,7 @@ function legendItem(label: string, color: string) {
         className="h-3 w-3 rounded-sm"
         style={{ backgroundColor: color }}
       />
-      <span className="text-[10px] text-[#71717A]">{label}</span>
+      <span className="type-micro text-text-tertiary">{label}</span>
     </div>
   );
 }
@@ -102,16 +102,16 @@ export function CalendarHeatmap() {
   }, [workoutHistory]);
 
   return (
-    <div className="rounded-2xl border border-[#2A2A2A] bg-[#141414] p-5">
+    <div className="rounded-2xl bg-surface p-5">
       {/* Month label */}
-      <p className="text-sm font-semibold text-white mb-4">February 2026</p>
+      <p className="text-sm font-semibold text-text-primary mb-4">February 2026</p>
 
       {/* Day-of-week header */}
       <div className="grid grid-cols-7 gap-1.5 mb-1.5">
         {DAY_LABELS.map((label, i) => (
           <div
             key={`${label}-${i}`}
-            className="flex items-center justify-center text-[10px] font-medium text-[#71717A] h-5"
+            className="flex items-center justify-center type-micro font-medium text-text-tertiary h-5"
           >
             {label}
           </div>
@@ -141,7 +141,7 @@ export function CalendarHeatmap() {
                   <span
                     className={cn(
                       "text-[9px] font-medium",
-                      cell.level > 0 ? "text-white/80" : "text-[#71717A]/60"
+                      cell.level > 0 ? "text-text-primary/80" : "text-text-tertiary/60"
                     )}
                   >
                     {cell.day}

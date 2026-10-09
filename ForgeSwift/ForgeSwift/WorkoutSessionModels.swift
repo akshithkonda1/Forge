@@ -11,7 +11,7 @@ struct WorkoutHRZone: Equatable {
         WorkoutHRZone(label: "Rest",   color: .steel,               range: 0...99,    index: 0),
         WorkoutHRZone(label: "Zone 1", color: Color(hex: "38BDF8"),  range: 100...114, index: 1),
         WorkoutHRZone(label: "Zone 2", color: .success,              range: 115...133, index: 2),
-        WorkoutHRZone(label: "Zone 3", color: Color(hex: "F59E0B"),  range: 134...152, index: 3),
+        WorkoutHRZone(label: "Zone 3", color: Color.amber,  range: 134...152, index: 3),
         WorkoutHRZone(label: "Zone 4", color: .ember,                range: 153...171, index: 4),
         WorkoutHRZone(label: "Zone 5", color: .danger,               range: 172...220, index: 5),
     ]

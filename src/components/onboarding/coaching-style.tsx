@@ -124,14 +124,14 @@ export default function CoachingStyleScreen({ onComplete }: CoachingStyleProps) 
                   className={cn(
                     "flex h-12 w-12 shrink-0 items-center justify-center rounded-lg transition-all duration-200",
                     isSelected
-                      ? "bg-white/10 text-[#F7F4F0]"
+                      ? "bg-white/10 text-text-primary"
                       : "bg-surface-elevated text-text-tertiary"
                   )}
                 >
                   {style.icon}
                 </div>
                 <div className="flex flex-col">
-                  <span className="text-base font-semibold text-text-primary">{style.label}</span>
+                  <span className="type-headline text-text-primary">{style.label}</span>
                   <span className="mt-1 text-sm leading-relaxed text-text-tertiary">
                     {style.description}
                   </span>
@@ -139,10 +139,10 @@ export default function CoachingStyleScreen({ onComplete }: CoachingStyleProps) 
                 <div
                   className={cn(
                     "ml-auto mt-1 flex h-5 w-5 shrink-0 items-center justify-center rounded-full border-2 transition-all duration-200",
-                    isSelected ? "border-[#F7F4F0] bg-[#F7F4F0]" : "border-border"
+                    isSelected ? "border-paper bg-paper" : "border-border"
                   )}
                 >
-                  {isSelected && <div className="h-2 w-2 rounded-full bg-[#0A0A0A]" />}
+                  {isSelected && <div className="h-2 w-2 rounded-full bg-background" />}
                 </div>
               </button>
             );

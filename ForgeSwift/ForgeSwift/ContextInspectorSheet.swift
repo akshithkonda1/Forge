@@ -11,9 +11,9 @@ struct ContextInspectorSheet: View {
     var body: some View {
         NavigationStack {
             ScrollView {
-                VStack(alignment: .leading, spacing: 20) {
+                VStack(alignment: .leading, spacing: FDS.Spacing.lg) {
                     Text("What ARIA sees")
-                        .font(.system(size: 22, weight: .bold, design: .rounded))
+                        .font(FDS.TypeScale.Dynamic.metric)
                         .foregroundColor(.textPrimary)
                     Text("Long-press friendly — what was used, what was off, and which habit ARIA is on.")
                         .font(.system(size: 13))
@@ -48,15 +48,15 @@ struct ContextInspectorSheet: View {
                     // Deep habit ARIA is on
                     InspectorSection(title: "Habit ARIA is breaking", icon: "infinity", color: .ember) {
                         if let habit = aria.context.deepHabits.first {
-                            VStack(alignment: .leading, spacing: 8) {
-                                Text(habit.title).font(.system(size: 14, weight: .bold)).foregroundColor(.textPrimary)
+                            VStack(alignment: .leading, spacing: FDS.Spacing.sm) {
+                                Text(habit.title).font(FDS.TypeScale.Dynamic.body.weight(.semibold)).foregroundColor(.textPrimary)
                                 Text("Cue: \(habit.cue)").font(.system(size: 12)).foregroundColor(.textSecondary)
                                 Text("Routine: \(habit.routine)").font(.system(size: 12)).foregroundColor(.textSecondary)
                                 Text("Cost: \(habit.cost)").font(.system(size: 12)).foregroundColor(.danger)
-                                Text(habit.evidence).font(.system(size: 11, weight: .medium)).foregroundColor(.steel)
-                                Text("Breaker: \(habit.breaker)").font(.system(size: 12, weight: .semibold)).foregroundColor(.ember)
+                                Text(habit.evidence).font(FDS.TypeScale.Dynamic.micro).foregroundColor(.steel)
+                                Text("Breaker: \(habit.breaker)").font(FDS.TypeScale.Dynamic.caption).foregroundColor(.ember)
                             }
-                            .padding(12).background(Color.ember.opacity(0.06)).cornerRadius(10)
+                            .padding(FDS.Spacing.md).background(Color.ember.opacity(0.06)).cornerRadius(FDS.Radius.sm)
                         } else {
                             Text("No strong loop detected — signals look balanced.")
                                 .font(.system(size: 13)).foregroundColor(.textTertiary)
@@ -73,7 +73,7 @@ struct ContextInspectorSheet: View {
                         }
                     }
                 }
-                .padding(20)
+                .padding(FDS.Spacing.lg)
             }
             .background(Color.background)
             .navigationBarTitleDisplayMode(.inline)
@@ -92,23 +92,23 @@ private struct InspectorSection<Content: View>: View {
         self.title = title; self.icon = icon; self.color = color; self.content = content()
     }
     var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            HStack(spacing: 6) {
+        VStack(alignment: .leading, spacing: FDS.Spacing.md) {
+            HStack(spacing: FDS.Spacing.sm) {
                 Image(systemName: icon).font(.system(size: 12, weight: .semibold)).foregroundColor(color)
-                Text(title).font(.system(size: 12, weight: .black)).foregroundColor(color).tracking(0.6)
+                Text(title).font(FDS.TypeScale.Dynamic.caption).foregroundColor(color).tracking(0.6)
             }
             content
         }
-        .padding(14)
-        .forgeGlassCard(cornerRadius: 14, accent: color)
+        .padding(FDS.Spacing.lg)
+        .forgeGlassCard(cornerRadius: FDS.Radius.md, accent: color)
     }
 }
 
 private struct InspectorRow: View {
     let text: String; let color: Color
     var body: some View {
-        HStack(alignment: .top, spacing: 8) {
-            Circle().fill(color).frame(width: 6, height: 6).padding(.top, 6)
+        HStack(alignment: .top, spacing: FDS.Spacing.sm) {
+            Circle().fill(color).frame(width: 6, height: 6).padding(.top, FDS.Spacing.sm)
             Text(text).font(.system(size: 12)).foregroundColor(.textSecondary).fixedSize(horizontal: false, vertical: true)
         }
     }

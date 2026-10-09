@@ -57,35 +57,35 @@ struct TrainingScheduleEditorView: View {
     var body: some View {
         NavigationStack {
             ScrollView {
-                VStack(alignment: .leading, spacing: 16) {
+                VStack(alignment: .leading, spacing: FDS.Spacing.lg) {
                     Text("The week walks day by day. Rotate lets ARIA assign the library; pick days to lock Tuesday legs, Wednesday chest and abs, or whatever you want. You can still replay yesterday from Train.")
                         .font(.system(size: 14))
                         .foregroundColor(.textSecondary)
 
-                    HStack(spacing: 8) {
+                    HStack(spacing: FDS.Spacing.sm) {
                         ForEach(SchedulePlanningMode.allCases) { option in
                             Button {
                                 mode = option
                             } label: {
                                 Text(option.label)
-                                    .font(.system(size: 13, weight: .semibold))
+                                    .font(FDS.TypeScale.Dynamic.caption)
                                     .foregroundColor(mode == option ? .white : .textSecondary)
                                     .frame(maxWidth: .infinity)
-                                    .padding(.vertical, 10)
+                                    .padding(.vertical, FDS.Spacing.md)
                                     .background(mode == option ? Color.ember : Color.surfaceElevated)
-                                    .cornerRadius(10)
+                                    .cornerRadius(FDS.Radius.sm)
                             }
                             .buttonStyle(.plain)
                         }
                     }
 
                     ForEach($split) { $slot in
-                        VStack(alignment: .leading, spacing: 8) {
+                        VStack(alignment: .leading, spacing: FDS.Spacing.sm) {
                             Text(WeeklySplit.dayNames[slot.weekday])
-                                .font(.system(size: 14, weight: .semibold))
+                                .font(FDS.TypeScale.Dynamic.body.weight(.semibold))
                                 .foregroundColor(.textPrimary)
                             ScrollView(.horizontal, showsIndicators: false) {
-                                HStack(spacing: 6) {
+                                HStack(spacing: FDS.Spacing.sm) {
                                     ForEach(WeeklySplit.focusChoices, id: \.label) { choice in
                                         let on = slot.primary == choice.id && slot.extra == choice.extra
                                         Button {
@@ -96,10 +96,10 @@ struct TrainingScheduleEditorView: View {
                                             mode = .fixed
                                         } label: {
                                             Text(choice.label)
-                                                .font(.system(size: 12, weight: .semibold))
+                                                .font(FDS.TypeScale.Dynamic.caption)
                                                 .foregroundColor(on ? .white : .textSecondary)
-                                                .padding(.horizontal, 10)
-                                                .padding(.vertical, 7)
+                                                .padding(.horizontal, FDS.Spacing.md)
+                                                .padding(.vertical, FDS.Spacing.sm)
                                                 .background(on ? Color.ember : Color.surface)
                                                 .clipShape(Capsule())
                                         }
@@ -113,12 +113,11 @@ struct TrainingScheduleEditorView: View {
                                     .foregroundColor(.textSecondary)
                             }
                         }
-                        .padding(12)
-                        .background(Color.surfaceElevated)
-                        .cornerRadius(12)
+                        .padding(FDS.Spacing.md)
+                        .forgeInsetTile(radius: FDS.Radius.md)
                     }
                 }
-                .padding(16)
+                .padding(FDS.Spacing.lg)
             }
             .background(Color.background.ignoresSafeArea())
             .navigationTitle("Training Schedule")
@@ -167,14 +166,14 @@ struct TrainingThemePickerView: View {
                     Button {
                         selection = theme
                     } label: {
-                        HStack(alignment: .top, spacing: 12) {
+                        HStack(alignment: .top, spacing: FDS.Spacing.md) {
                             Image(systemName: theme.icon)
                                 .font(.system(size: 18))
                                 .foregroundColor(Color(hex: theme.accentHex))
                                 .frame(width: 28)
-                            VStack(alignment: .leading, spacing: 4) {
+                            VStack(alignment: .leading, spacing: FDS.Spacing.xs) {
                                 Text(theme.label)
-                                    .font(.system(size: 16, weight: .semibold))
+                                    .font(FDS.TypeScale.Dynamic.headline)
                                     .foregroundColor(.textPrimary)
                                 Text(theme.tagline)
                                     .font(.system(size: 12))
@@ -187,7 +186,7 @@ struct TrainingThemePickerView: View {
                                     .foregroundColor(Color(hex: theme.accentHex))
                             }
                         }
-                        .padding(.vertical, 4)
+                        .padding(.vertical, FDS.Spacing.xs)
                     }
                     .buttonStyle(.plain)
                 }
@@ -222,7 +221,7 @@ struct EquipmentPickerView: View {
                     Button {
                         selection = equipment
                     } label: {
-                        HStack(spacing: 12) {
+                        HStack(spacing: FDS.Spacing.md) {
                             Image(systemName: equipment.icon).foregroundColor(.ember)
                             Text(equipment.rawValue).foregroundColor(.textPrimary)
                             Spacer()
