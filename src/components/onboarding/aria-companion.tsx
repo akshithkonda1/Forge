@@ -40,7 +40,7 @@ export default function AriaCompanion({
         <AriaOrb mood={whisper.mood} size={compact ? 44 : 52} speaking />
         <div className="min-w-0 flex-1">
           <div className="mb-1 flex items-start gap-2">
-            <span className="text-[10px] font-medium uppercase tracking-[0.18em] text-text-tertiary">
+            <span className="type-micro font-medium uppercase tracking-[0.18em] text-text-tertiary">
               ARIA
             </span>
             <span className="text-text-muted">·</span>

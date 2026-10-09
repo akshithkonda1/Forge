@@ -87,7 +87,7 @@ export function SleepScoreRing() {
         {/* Center content */}
         <div className="absolute inset-0 flex flex-col items-center justify-center">
           <motion.span
-            className="text-4xl font-bold text-white"
+            className="text-4xl font-bold text-text-primary"
             initial={{ opacity: 0, scale: 0.5 }}
             animate={{ opacity: 1, scale: 1 }}
             transition={{
@@ -117,7 +117,7 @@ export function SleepScoreRing() {
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.5, duration: 0.4 }}
       >
-        <span className="text-sm font-semibold text-white">{totalFormatted}</span>
+        <span className="text-sm font-semibold text-text-primary">{totalFormatted}</span>
         <span className="text-xs text-text-tertiary">Last night</span>
       </motion.div>
     </div>

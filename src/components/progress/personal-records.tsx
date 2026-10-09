@@ -49,8 +49,8 @@ export function PersonalRecordsBoard() {
     <div>
       {/* Header */}
       <div className="flex items-center gap-2 mb-3">
-        <Trophy className="h-5 w-5 text-[#FF4D00]" />
-        <h2 className="text-lg font-semibold text-white">Personal Records</h2>
+        <Trophy className="h-5 w-5 text-ember" />
+        <h2 className="type-headline text-text-primary">Personal Records</h2>
       </div>
 
       {/* PR cards */}
@@ -64,24 +64,24 @@ export function PersonalRecordsBoard() {
           <motion.div
             key={pr.exercise}
             variants={cardVariants}
-            className="flex items-center justify-between rounded-xl border border-[#2A2A2A] bg-[#141414] px-4 py-3.5"
+            className="flex items-center justify-between rounded-xl bg-surface px-4 py-3.5"
           >
             {/* Left: exercise name & date */}
             <div className="flex flex-col gap-0.5">
-              <span className="text-sm font-semibold text-white">
+              <span className="text-sm font-semibold text-text-primary">
                 {pr.exercise}
               </span>
-              <span className="text-[11px] text-[#71717A]">
+              <span className="text-xs text-text-tertiary">
                 {formatPRDate(pr.date)}
               </span>
             </div>
 
             {/* Right: value */}
             <div className="flex items-baseline gap-1">
-              <span className="text-xl font-bold text-[#FF4D00]">
+              <span className="type-metric text-ember">
                 {formatPRValue(pr.value, pr.unit)}
               </span>
-              <span className="text-xs font-medium text-[#A1A1AA]">
+              <span className="text-xs font-medium text-text-secondary">
                 {pr.unit}
               </span>
             </div>

@@ -25,7 +25,7 @@ export function WorkoutCard({ name, duration, exercises, onStart }: WorkoutCardP
   return (
     <motion.div
       className={cn(
-        "overflow-hidden rounded-xl border border-border bg-surface",
+        "overflow-hidden rounded-2xl bg-surface",
         "border-l-[3px] border-l-ember"
       )}
       initial={{ opacity: 0, scale: 0.95 }}
@@ -83,7 +83,7 @@ export function WorkoutCard({ name, duration, exercises, onStart }: WorkoutCardP
                     className="flex items-center justify-between"
                   >
                     <div className="flex items-center gap-2.5">
-                      <span className="flex h-5 w-5 items-center justify-center rounded-full bg-ember/10 text-[10px] font-medium text-ember">
+                      <span className="flex h-5 w-5 items-center justify-center rounded-full bg-ember/10 type-micro font-medium text-ember">
                         {index + 1}
                       </span>
                       <span className="text-xs text-text-primary">
@@ -106,7 +106,7 @@ export function WorkoutCard({ name, duration, exercises, onStart }: WorkoutCardP
         <motion.button
           type="button"
           onClick={onStart}
-          className="flex w-full items-center justify-center gap-2 rounded-xl bg-ember py-2.5 text-sm font-semibold text-white shadow-[0_0_20px_rgba(255,77,0,0.25)]"
+          className="flex w-full items-center justify-center gap-2 rounded-xl bg-ember py-2.5 text-sm font-semibold text-text-primary shadow-[0_0_20px_rgba(255,77,0,0.25)]"
           whileTap={{ scale: 0.97 }}
           whileHover={{ scale: 1.01 }}
           transition={{ type: "spring", stiffness: 400, damping: 17 }}

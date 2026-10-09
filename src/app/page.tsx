@@ -76,11 +76,11 @@ function BootSplash({
             <AriaMark size={148} speaking={live} label="ARIA" className="relative z-10" />
           </PremiumFloat>
         )}
-        <div className="premium-enter mt-5 flex items-center gap-2.5 text-[28px] font-semibold tracking-[0.22em] text-[#F7F4F0]">
+        <div className="premium-enter mt-5 flex items-center gap-2.5 text-[28px] font-semibold tracking-[0.22em] text-text-primary">
           <ForgeBrandMark size={22} />
           FORGE
         </div>
-        <p className="premium-kicker-glow mt-3 text-[12px] font-medium uppercase tracking-[0.32em] text-text-tertiary">
+        <p className="premium-kicker-glow mt-3 text-xs font-medium uppercase tracking-[0.32em] text-text-tertiary">
           {compact ? "Loading…" : "Forged."}
         </p>
       </div>
@@ -224,7 +224,7 @@ export default function Page() {
     <div className="app-shell relative mx-auto flex h-[100dvh] w-full max-w-lg flex-col bg-background">
       <a
         href="#main"
-        className="sr-only focus:not-sr-only focus:absolute focus:left-4 focus:top-4 focus:z-[100] focus:rounded-lg focus:bg-ember focus:px-3 focus:py-2 focus:text-sm focus:text-white"
+        className="sr-only focus:not-sr-only focus:absolute focus:left-4 focus:top-4 focus:z-[100] focus:rounded-lg focus:bg-ember focus:px-3 focus:py-2 focus:text-sm focus:text-text-primary"
       >
         Skip to content
       </a>

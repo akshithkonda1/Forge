@@ -53,14 +53,14 @@ export function MetricPill({
   return (
     <div
       className={cn(
-        "inline-flex items-center gap-2 rounded-full bg-[#141414] border border-[#2A2A2A] px-3 py-1.5",
+        "inline-flex items-center gap-2 rounded-full bg-surface border border-border px-3 py-1.5",
         className
       )}
     >
-      <span className="flex-shrink-0 text-[#A1A1AA]">{icon}</span>
-      <span className="text-xs font-medium text-white">{value}</span>
+      <span className="flex-shrink-0 text-text-secondary">{icon}</span>
+      <span className="text-xs font-medium text-text-primary">{value}</span>
       {trend && trend !== "neutral" && <TrendArrow trend={trend} />}
-      <span className="text-xs text-[#A1A1AA]">{label}</span>
+      <span className="text-xs text-text-secondary">{label}</span>
     </div>
   );
 }
