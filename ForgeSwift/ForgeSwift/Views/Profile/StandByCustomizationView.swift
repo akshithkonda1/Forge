@@ -43,14 +43,14 @@ struct StandByCustomizationView: View {
                         metrics: metrics,
                         nightMode: previewNightMode
                     )
-                    .padding(20)
+                    .padding(FDS.Spacing.lg)
                     .frame(width: 172, height: 172)
                     .background(Color(forgeHex: AriaNestGeometry.StandBy.nightstandBackgroundHex))
                     .clipShape(RoundedRectangle(cornerRadius: FDS.Radius.xxl, style: .continuous))
                     Spacer()
                 }
                 .listRowBackground(Color.clear)
-                .padding(.vertical, 8)
+                .padding(.vertical, FDS.Spacing.sm)
 
                 Toggle("Preview night mode", isOn: $previewNightMode)
                     .font(.system(size: 14))

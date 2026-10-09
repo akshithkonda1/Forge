@@ -28,8 +28,8 @@ struct AuthWelcomeView: View {
 
             VStack(spacing: 0) {
                 header
-                    .padding(.horizontal, 24)
-                    .padding(.top, 16)
+                    .padding(.horizontal, FDS.Spacing.xl)
+                    .padding(.top, FDS.Spacing.lg)
                     .premiumEntrance(index: 0, appeared: appeared)
 
                 TabView(selection: $page) {
@@ -45,12 +45,12 @@ struct AuthWelcomeView: View {
                     scheduleAutoAdvance()
                 }
 
-                VStack(spacing: 18) {
+                VStack(spacing: FDS.Spacing.lg) {
                     progress
                     ctaBlock
                 }
-                .padding(.horizontal, 24)
-                .padding(.bottom, 28)
+                .padding(.horizontal, FDS.Spacing.xl)
+                .padding(.bottom, FDS.Spacing.xl)
                 .safeAreaPadding(.bottom, 8)
                 .premiumEntrance(index: 2, appeared: appeared)
             }
@@ -84,8 +84,8 @@ struct AuthWelcomeView: View {
     }
 
     private var header: some View {
-        HStack(spacing: 10) {
-            HStack(spacing: 9) {
+        HStack(spacing: FDS.Spacing.md) {
+            HStack(spacing: FDS.Spacing.sm) {
                 ForgeBrandMark(size: 18)
                 Text("Forge")
                     .font(FDS.TypeScale.Dynamic.body.weight(.semibold))
@@ -101,8 +101,8 @@ struct AuthWelcomeView: View {
                 Text("Sign in")
                     .font(FDS.TypeScale.Dynamic.body)
                     .foregroundColor(.textPrimary.opacity(0.92))
-                    .padding(.horizontal, 14)
-                    .padding(.vertical, 8)
+                    .padding(.horizontal, FDS.Spacing.lg)
+                    .padding(.vertical, FDS.Spacing.sm)
                     .background(Color.white.opacity(0.06))
                     .clipShape(Capsule())
                     .overlay(Capsule().stroke(Color.white.opacity(0.12), lineWidth: 1))
@@ -112,7 +112,7 @@ struct AuthWelcomeView: View {
     }
 
     private var progress: some View {
-        VStack(spacing: 12) {
+        VStack(spacing: FDS.Spacing.md) {
             PremiumProgressDots(count: pages.count, current: page)
             Text("\(page + 1) of \(pages.count)")
                 .font(FDS.TypeScale.Dynamic.micro)
@@ -125,7 +125,7 @@ struct AuthWelcomeView: View {
     }
 
     private var ctaBlock: some View {
-        VStack(spacing: 14) {
+        VStack(spacing: FDS.Spacing.lg) {
             PremiumPrimaryButton(title: "Get started") {
                 FDS.haptic(.medium)
                 showSignUp = true
@@ -142,7 +142,7 @@ struct AuthWelcomeView: View {
                         .font(FDS.TypeScale.Dynamic.body)
                         .foregroundColor(.textSecondary)
                         .frame(maxWidth: .infinity)
-                        .padding(.vertical, 8)
+                        .padding(.vertical, FDS.Spacing.sm)
                 }
                 .buttonStyle(.plain)
             }
@@ -229,7 +229,7 @@ private struct AuthHookPageView: View {
     let floatPhase: CGFloat
 
     var body: some View {
-        VStack(spacing: 28) {
+        VStack(spacing: FDS.Spacing.xl) {
             Spacer(minLength: 8)
 
             visual
@@ -240,7 +240,7 @@ private struct AuthHookPageView: View {
                     if !active { AriaPresence.shared.stopSpeaking() }
                 }
 
-            VStack(spacing: 14) {
+            VStack(spacing: FDS.Spacing.lg) {
                 Text(page.kicker)
                     .font(FDS.TypeScale.Dynamic.caption)
                     .tracking(2.4)
@@ -261,7 +261,7 @@ private struct AuthHookPageView: View {
                     .foregroundColor(.textSecondary)
                     .multilineTextAlignment(.center)
                     .lineSpacing(5)
-                    .padding(.horizontal, 4)
+                    .padding(.horizontal, FDS.Spacing.xs)
                     .fixedSize(horizontal: false, vertical: true)
                     .premiumEntrance(index: 2, appeared: isActive)
 
@@ -279,7 +279,7 @@ private struct AuthHookPageView: View {
                 .padding(.top, 2)
                 .premiumEntrance(index: 3, appeared: isActive)
             }
-            .padding(.horizontal, 28)
+            .padding(.horizontal, FDS.Spacing.xl)
 
             Spacer(minLength: 4)
         }
@@ -295,7 +295,7 @@ private struct AuthHookPageView: View {
                 FDS.haptic(.soft)
                 AriaPresence.shared.speak(AriaOnboardingGuide.welcomeSpokenLine, interrupt: true)
             } label: {
-                VStack(spacing: 12) {
+                VStack(spacing: FDS.Spacing.md) {
                     ZStack {
                         PremiumPresenceBloom(size: 210, accent: page.accent, frost: page.frost)
                         AuroraOrbView(

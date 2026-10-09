@@ -267,13 +267,13 @@ struct SleepSourceStrip: View {
     var body: some View {
         if !presence.sourceLabels.isEmpty {
             ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: 6) {
+                HStack(spacing: FDS.Spacing.sm) {
                     ForEach(presence.sourceLabels, id: \.self) { label in
                         Text(label)
                             .font(FDS.TypeScale.Dynamic.micro)
                             .foregroundColor(.textSecondary)
-                            .padding(.horizontal, 10)
-                            .padding(.vertical, 5)
+                            .padding(.horizontal, FDS.Spacing.md)
+                            .padding(.vertical, FDS.Spacing.xs)
                             .background(Color.white.opacity(0.06))
                             .clipShape(Capsule())
                             .overlay(

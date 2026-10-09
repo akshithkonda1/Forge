@@ -51,7 +51,7 @@ struct ReadinessForecastCard: View {
                     }
                     .accessibilityHidden(true)
                 }
-                VStack(alignment: .leading, spacing: 6) {
+                VStack(alignment: .leading, spacing: FDS.Spacing.sm) {
                     Text(postureTitle(forecast.posture))
                         .font(HomeType.status)
                         .foregroundColor(.textPrimary)
@@ -73,7 +73,7 @@ struct ReadinessForecastCard: View {
 
             if !forecast.drivers.isEmpty {
                 Divider().background(Color.white.opacity(0.08))
-                VStack(spacing: 10) {
+                VStack(spacing: FDS.Spacing.md) {
                     ForEach(forecast.drivers.prefix(compact ? 2 : 3)) { driver in
                         driverRow(driver)
                     }
@@ -94,8 +94,8 @@ struct ReadinessForecastCard: View {
                         .font(.system(size: 11, weight: .semibold))
                 }
                 .foregroundStyle(HudChrome.plate)
-                .padding(.vertical, 10)
-                .padding(.horizontal, 14)
+                .padding(.vertical, FDS.Spacing.md)
+                .padding(.horizontal, FDS.Spacing.lg)
                 .background(HudChrome.plate.opacity(0.12))
                 .clipShape(RoundedRectangle(cornerRadius: FDS.Radius.md))
             }
@@ -115,8 +115,8 @@ struct ReadinessForecastCard: View {
         return Text(label.uppercased())
             .font(FDS.TypeScale.Dynamic.caption)
             .foregroundStyle(color)
-            .padding(.horizontal, 8)
-            .padding(.vertical, 4)
+            .padding(.horizontal, FDS.Spacing.sm)
+            .padding(.vertical, FDS.Spacing.xs)
             .background(color.opacity(0.12))
             .clipShape(Capsule())
     }
@@ -140,7 +140,7 @@ struct ReadinessForecastCard: View {
     }
 
     private func driverRow(_ driver: ReadinessForecastEngine.Driver) -> some View {
-        HStack(spacing: 12) {
+        HStack(spacing: FDS.Spacing.md) {
             ZStack {
                 Circle()
                     .fill((driver.impact < 0 ? HudChrome.miss : Color.success).opacity(0.14))

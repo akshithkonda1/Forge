@@ -42,13 +42,13 @@ struct AddSupportedPersonSheet: View {
     var body: some View {
         NavigationStack {
             ScrollView {
-                VStack(alignment: .leading, spacing: 18) {
+                VStack(alignment: .leading, spacing: FDS.Spacing.lg) {
                     Text("Partner, relative, or parent — including a parent of a minor. Each person is their own. They need an iPhone; invites are iMessage only.")
                         .font(FDS.TypeScale.Dynamic.body)
                         .foregroundColor(.textSecondary)
                         .fixedSize(horizontal: false, vertical: true)
 
-                    VStack(alignment: .leading, spacing: 8) {
+                    VStack(alignment: .leading, spacing: FDS.Spacing.sm) {
                         Text("WHO")
                             .forgeSectionLabel()
                         ForEach(CycleSupportRole.selectableRoles) { option in
@@ -57,7 +57,7 @@ struct AddSupportedPersonSheet: View {
                                 label = option.suggestedLabels.first ?? label
                                 FDS.selectionHaptic()
                             } label: {
-                                HStack(spacing: 12) {
+                                HStack(spacing: FDS.Spacing.md) {
                                     Image(systemName: option.icon)
                                         .frame(width: 22)
                                     Text(option.label)
@@ -69,8 +69,8 @@ struct AddSupportedPersonSheet: View {
                                     }
                                 }
                                 .foregroundColor(role == option ? .textPrimary : .textSecondary)
-                                .padding(.horizontal, 14)
-                                .padding(.vertical, 12)
+                                .padding(.horizontal, FDS.Spacing.lg)
+                                .padding(.vertical, FDS.Spacing.md)
                                 .background(
                                     RoundedRectangle(cornerRadius: FDS.Radius.md, style: .continuous)
                                         .fill(role == option ? Color.indigo.opacity(0.12) : Color.surfaceElevated)
@@ -82,15 +82,13 @@ struct AddSupportedPersonSheet: View {
 
                     TextField(role == .child ? "Name (optional)" : "Name (optional)", text: $name)
                         .textFieldStyle(.plain)
-                        .padding(12)
-                        .background(Color.surfaceElevated)
-                        .clipShape(RoundedRectangle(cornerRadius: FDS.Radius.md, style: .continuous))
+                        .padding(FDS.Spacing.md)
+                        .forgeInsetTile(radius: FDS.Radius.md)
 
                     TextField(role == .child ? "Label (daughter / child…)" : "Label (partner / wife…)", text: $label)
                         .textFieldStyle(.plain)
-                        .padding(12)
-                        .background(Color.surfaceElevated)
-                        .clipShape(RoundedRectangle(cornerRadius: FDS.Radius.md, style: .continuous))
+                        .padding(FDS.Spacing.md)
+                        .forgeInsetTile(radius: FDS.Radius.md)
 
                     Toggle(isOn: $consent) {
                         Text(role == .child
@@ -119,13 +117,13 @@ struct AddSupportedPersonSheet: View {
                             .font(FDS.TypeScale.Dynamic.caption)
                             .foregroundColor(.white)
                             .frame(maxWidth: .infinity)
-                            .padding(.vertical, 15)
+                            .padding(.vertical, FDS.Spacing.lg)
                             .background(Color.indigo)
                             .clipShape(RoundedRectangle(cornerRadius: FDS.Radius.md, style: .continuous))
                     }
                     .buttonStyle(.plain)
                 }
-                .padding(20)
+                .padding(FDS.Spacing.lg)
             }
             .background(Color.background.ignoresSafeArea())
             .navigationTitle("Add someone")
@@ -146,7 +144,7 @@ struct CycleAccuracyExplainerSheet: View {
     var body: some View {
         NavigationStack {
             ScrollView(showsIndicators: false) {
-                VStack(alignment: .leading, spacing: 18) {
+                VStack(alignment: .leading, spacing: FDS.Spacing.lg) {
                     Text("Science behind your estimates")
                         .font(FDS.TypeScale.Dynamic.title)
                         .foregroundColor(.textPrimary)
@@ -156,7 +154,7 @@ struct CycleAccuracyExplainerSheet: View {
                         .foregroundColor(.textSecondary)
 
                     if let mae = report.maeDays {
-                        VStack(alignment: .leading, spacing: 6) {
+                        VStack(alignment: .leading, spacing: FDS.Spacing.sm) {
                             Text("YOUR PERSONAL SCORE")
                                 .font(FDS.TypeScale.Dynamic.micro)
                                 .tracking(1.4)
@@ -168,7 +166,7 @@ struct CycleAccuracyExplainerSheet: View {
                                 .font(.system(size: 13))
                                 .foregroundColor(.textSecondary)
                         }
-                        .padding(16)
+                        .padding(FDS.Spacing.lg)
                         .frame(maxWidth: .infinity, alignment: .leading)
                         .background(Color.vitality.opacity(0.12))
                         .clipShape(RoundedRectangle(cornerRadius: FDS.Radius.md, style: .continuous))
@@ -185,7 +183,7 @@ struct CycleAccuracyExplainerSheet: View {
                     Text("Sexual health (lifestyle)")
                         .font(FDS.TypeScale.Dynamic.headline)
                         .foregroundColor(.textPrimary)
-                        .padding(.top, 8)
+                        .padding(.top, FDS.Spacing.sm)
                     Text("ARIA may discuss contraception options and sexual-health materials as lifestyle education when relevant. Forge cycle tracking itself is not a contraceptive method and is not a substitute for clinician-guided birth control.")
                         .font(.system(size: 13))
                         .foregroundColor(.textSecondary)
@@ -193,13 +191,13 @@ struct CycleAccuracyExplainerSheet: View {
                     Text(CyclePrivacy.shortPromise)
                         .font(FDS.TypeScale.Dynamic.caption)
                         .foregroundColor(Color.vitality)
-                        .padding(.top, 4)
+                        .padding(.top, FDS.Spacing.xs)
 
                     Text(MenstrualCycleEngine.disclaimer)
                         .font(FDS.TypeScale.Dynamic.caption)
                         .foregroundColor(.textMuted)
                 }
-                .padding(20)
+                .padding(FDS.Spacing.lg)
             }
             .background(Color.background.ignoresSafeArea())
             .toolbar {
@@ -213,14 +211,14 @@ struct CycleAccuracyExplainerSheet: View {
     }
 
     private func explainerRow(_ n: String, _ title: String, _ body: String) -> some View {
-        HStack(alignment: .top, spacing: 12) {
+        HStack(alignment: .top, spacing: FDS.Spacing.md) {
             Text(n)
                 .font(FDS.TypeScale.Dynamic.body.weight(.semibold))
                 .foregroundColor(.ember)
                 .frame(width: 28, height: 28)
                 .background(Color.ember.opacity(0.15))
                 .clipShape(Circle())
-            VStack(alignment: .leading, spacing: 4) {
+            VStack(alignment: .leading, spacing: FDS.Spacing.xs) {
                 Text(title)
                     .font(FDS.TypeScale.Dynamic.body.weight(.semibold))
                     .foregroundColor(.textPrimary)
@@ -238,7 +236,7 @@ struct SexualHealthEntryCard: View {
     @State private var showDifficultyGuide = false
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
+        VStack(alignment: .leading, spacing: FDS.Spacing.md) {
             Text("SEXUAL HEALTH & INTIMACY")
                 .font(FDS.TypeScale.Dynamic.caption)
                 .foregroundColor(.textTertiary)
@@ -248,7 +246,7 @@ struct SexualHealthEntryCard: View {
                 .font(FDS.TypeScale.Dynamic.caption)
                 .foregroundColor(.textTertiary)
 
-            VStack(spacing: 8) {
+            VStack(spacing: FDS.Spacing.sm) {
                 ForEach(IntimacyFlow.allCases) { flow in
                     entryButton(flow)
                 }
@@ -259,7 +257,7 @@ struct SexualHealthEntryCard: View {
                 .foregroundColor(.textTertiary)
                 .padding(.top, 2)
         }
-        .padding(16)
+        .padding(FDS.Spacing.lg)
         .forgeGlassCard(accent: Color(hex: "EC4899"))
         .sheet(isPresented: $showDifficultyGuide) {
             DifficultyConceivingGuideView {
@@ -277,7 +275,7 @@ struct SexualHealthEntryCard: View {
                 startFlow(flow)
             }
         } label: {
-            HStack(spacing: 12) {
+            HStack(spacing: FDS.Spacing.md) {
                 Image(systemName: flow.icon)
                     .font(.system(size: 15))
                     .foregroundColor(.ember)
@@ -295,10 +293,9 @@ struct SexualHealthEntryCard: View {
                     .font(.system(size: 11, weight: .semibold))
                     .foregroundColor(.textTertiary)
             }
-            .padding(.horizontal, 12)
-            .padding(.vertical, 10)
-            .background(Color.surfaceElevated)
-            .clipShape(RoundedRectangle(cornerRadius: FDS.Radius.sm, style: .continuous))
+            .padding(.horizontal, FDS.Spacing.md)
+            .padding(.vertical, FDS.Spacing.md)
+            .forgeInsetTile(radius: FDS.Radius.sm)
         }
         .buttonStyle(.plain)
         .accessibilityHint(flow.opensChat ? "Opens ARIA" : "Opens a guide")
@@ -321,7 +318,7 @@ struct CycleNotificationSettingsCard: View {
     @ObservedObject var cycleStore: MenstrualHealthStore
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
+        VStack(alignment: .leading, spacing: FDS.Spacing.md) {
             Text("NOTIFICATIONS")
                 .font(FDS.TypeScale.Dynamic.caption)
                 .foregroundColor(.textSecondary)
@@ -340,7 +337,7 @@ struct CycleNotificationSettingsCard: View {
 
                 if cycleStore.settings.bbtReminderEnabled {
                     Divider().padding(.leading, 40)
-                    HStack(spacing: 10) {
+                    HStack(spacing: FDS.Spacing.md) {
                         Image(systemName: "clock")
                             .font(.subheadline)
                             .foregroundColor(.ember)
@@ -360,8 +357,8 @@ struct CycleNotificationSettingsCard: View {
                         .pickerStyle(.menu)
                         .tint(.ember)
                     }
-                    .padding(.horizontal, 12)
-                    .padding(.vertical, 10)
+                    .padding(.horizontal, FDS.Spacing.md)
+                    .padding(.vertical, FDS.Spacing.md)
                 }
 
                 Divider().padding(.leading, 40)
@@ -386,14 +383,13 @@ struct CycleNotificationSettingsCard: View {
                     )
                 )
             }
-            .background(Color.surfaceElevated)
-            .clipShape(RoundedRectangle(cornerRadius: FDS.Radius.md, style: .continuous))
+            .forgeInsetTile(radius: FDS.Radius.md)
         }
     }
 
     @ViewBuilder
     private func notifRow(icon: String, title: String, subtitle: String, isOn: Binding<Bool>) -> some View {
-        HStack(spacing: 10) {
+        HStack(spacing: FDS.Spacing.md) {
             Image(systemName: icon)
                 .font(.subheadline)
                 .foregroundColor(.ember)
@@ -411,7 +407,7 @@ struct CycleNotificationSettingsCard: View {
                 .tint(.ember)
                 .labelsHidden()
         }
-        .padding(.horizontal, 12)
-        .padding(.vertical, 10)
+        .padding(.horizontal, FDS.Spacing.md)
+        .padding(.vertical, FDS.Spacing.md)
     }
 }

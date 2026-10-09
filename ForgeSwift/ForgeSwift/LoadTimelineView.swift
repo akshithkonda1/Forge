@@ -20,7 +20,7 @@ struct LoadTimelineView: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 14) {
+        VStack(alignment: .leading, spacing: FDS.Spacing.lg) {
             HStack {
                 Text("TRAINING LOAD")
                     .forgeSectionLabel()
@@ -38,7 +38,7 @@ struct LoadTimelineView: View {
             strainChart
 
             if let verdict = picture.acwrVerdict, let acwr = picture.acwr {
-                HStack(spacing: 12) {
+                HStack(spacing: FDS.Spacing.md) {
                     ZStack {
                         Circle()
                             .fill(acwrColor(ratio: acwr).opacity(0.14))
@@ -57,20 +57,20 @@ struct LoadTimelineView: View {
                             .lineLimit(2)
                     }
                 }
-                .padding(12)
+                .padding(FDS.Spacing.md)
                 .background(Color.white.opacity(0.04))
                 .clipShape(RoundedRectangle(cornerRadius: FDS.Radius.md))
             } else {
                 Text("Log 8+ sessions and the load ratio appears — it compares this week against your 4-week average, the way pro teams manage injury risk.")
                     .font(HomeType.body)
                     .foregroundColor(.textTertiary)
-                    .padding(12)
+                    .padding(FDS.Spacing.md)
                     .background(Color.white.opacity(0.04))
                     .clipShape(RoundedRectangle(cornerRadius: FDS.Radius.md))
             }
 
             if picture.heavyStreak >= 2 {
-                HStack(spacing: 8) {
+                HStack(spacing: FDS.Spacing.sm) {
                     Image(systemName: "exclamationmark.triangle.fill")
                         .foregroundStyle(Color.warning)
                         .font(.system(size: 13))
@@ -90,9 +90,9 @@ struct LoadTimelineView: View {
 
     private var strainChart: some View {
         let maxStrain = max(10, picture.days.map(\.strain).max() ?? 10)
-        return HStack(alignment: .bottom, spacing: 6) {
+        return HStack(alignment: .bottom, spacing: FDS.Spacing.sm) {
             ForEach(picture.days) { day in
-                VStack(spacing: 4) {
+                VStack(spacing: FDS.Spacing.xs) {
                     ZStack(alignment: .bottom) {
                         RoundedRectangle(cornerRadius: FDS.Radius.xs)
                             .fill(Color.white.opacity(0.06))
@@ -123,8 +123,8 @@ struct LoadTimelineView: View {
         return Text(label)
             .font(FDS.TypeScale.Dynamic.caption)
             .foregroundStyle(color)
-            .padding(.horizontal, 8)
-            .padding(.vertical, 4)
+            .padding(.horizontal, FDS.Spacing.sm)
+            .padding(.vertical, FDS.Spacing.xs)
             .background(color.opacity(0.12))
             .clipShape(Capsule())
     }

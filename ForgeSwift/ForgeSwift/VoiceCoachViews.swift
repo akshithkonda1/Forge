@@ -9,7 +9,7 @@ struct VoiceCoachBar: View {
     var body: some View {
         VStack(spacing: 0) {
             // Message area
-            HStack(spacing: 12) {
+            HStack(spacing: FDS.Spacing.md) {
                 // Forge avatar with live state indicator
                 ForgeAvatarView(
                     isSpeaking: presence.isSpeaking,
@@ -18,7 +18,7 @@ struct VoiceCoachBar: View {
                 )
                 
                 // Text content
-                VStack(alignment: .leading, spacing: 4) {
+                VStack(alignment: .leading, spacing: FDS.Spacing.xs) {
                     if coach.isListening && !coach.transcribedText.isEmpty {
                         // Show live transcription
                         Text(coach.transcribedText)
@@ -56,9 +56,8 @@ struct VoiceCoachBar: View {
                 AriaTrainMuteButton(coach: coach)
                 MicButton(coach: coach)
             }
-            .padding(16)
-            .background(Color.surfaceElevated)
-            .cornerRadius(14)
+            .padding(FDS.Spacing.lg)
+            .forgeInsetTile(radius: FDS.Radius.md)
             .overlay(
                 RoundedRectangle(cornerRadius: FDS.Radius.md)
                     .stroke(
@@ -209,7 +208,7 @@ struct ThinkingDotsView: View {
     var body: some View {
         TimelineView(.periodic(from: .now, by: 0.4)) { context in
             let phase = Int(context.date.timeIntervalSinceReferenceDate / 0.4) % 3
-            HStack(spacing: 4) {
+            HStack(spacing: FDS.Spacing.xs) {
                 ForEach(0..<3, id: \.self) { i in
                     Circle()
                         .fill(Color.ember)
@@ -235,8 +234,7 @@ struct AriaSpokenMuteButton: View {
                 .font(.system(size: 14, weight: .semibold))
                 .foregroundStyle(muted ? Color.danger : Color.textSecondary)
                 .frame(width: 36, height: 36)
-                .background(Color.surfaceElevated)
-                .clipShape(RoundedRectangle(cornerRadius: FDS.Radius.sm, style: .continuous))
+                .forgeInsetTile(radius: FDS.Radius.sm)
                 .overlay(
                     RoundedRectangle(cornerRadius: FDS.Radius.sm)
                         .stroke(muted ? Color.danger.opacity(0.4) : Color.borderColor.opacity(0.45), lineWidth: 1)

@@ -10,17 +10,17 @@ struct ExerciseDemonstrationView: View {
     var onLaunchCamera: (() -> Void)? = nil
 
     var body: some View {
-        VStack(spacing: 8) {
-            HStack(spacing: 6) {
+        VStack(spacing: FDS.Spacing.sm) {
+            HStack(spacing: FDS.Spacing.sm) {
                 ForEach(ExerciseDemoTab.allCases, id: \.self) { tab in
                     Button { withAnimation(.spring(response: 0.32, dampingFraction: 0.75)) { selectedTab = tab } } label: {
-                        HStack(spacing: 5) {
+                        HStack(spacing: FDS.Spacing.xs) {
                             Image(systemName: tab == .video ? "play.circle.fill" : "camera.fill").font(.system(size: 12))
                             Text(tab == .video ? "Technique" : "ARIA Form Check").font(FDS.TypeScale.Dynamic.caption)
                         }
                         .foregroundColor(selectedTab == tab ? .white : .textSecondary)
-                        .padding(.horizontal, 12).padding(.vertical, 8)
-                        .background(selectedTab == tab ? Color.ember : Color.surfaceElevated).cornerRadius(10)
+                        .padding(.horizontal, FDS.Spacing.md).padding(.vertical, FDS.Spacing.sm)
+                        .background(selectedTab == tab ? Color.ember : Color.surfaceElevated).cornerRadius(FDS.Radius.sm)
                         .animation(.spring(response: 0.3, dampingFraction: 0.72), value: selectedTab)
                     }
                     .buttonStyle(.plain)
@@ -36,7 +36,7 @@ struct ExerciseDemonstrationView: View {
             .id(selectedTab)
             .transition(.asymmetric(insertion: .move(edge: .trailing).combined(with: .opacity), removal: .move(edge: .leading).combined(with: .opacity)))
             .frame(height: 190)
-            .background(Color.background.opacity(0.5)).cornerRadius(14)
+            .background(Color.background.opacity(0.5)).cornerRadius(FDS.Radius.md)
             .overlay(RoundedRectangle(cornerRadius: FDS.Radius.md).stroke(Color.borderColor.opacity(0.4), lineWidth: 1))
             .animation(.spring(response: 0.38, dampingFraction: 0.78), value: selectedTab)
         }
@@ -49,25 +49,25 @@ struct ExerciseTechniqueView: View {
     var body: some View {
         ZStack {
             LinearGradient(colors: [Color.ember.opacity(0.09), Color.ember.opacity(0.03)], startPoint: .topLeading, endPoint: .bottomTrailing)
-            VStack(spacing: 10) {
+            VStack(spacing: FDS.Spacing.md) {
                 Image(systemName: definition?.icon ?? "figure.strengthtraining.traditional").font(.system(size: 36)).foregroundColor(.ember.opacity(0.55))
                 if let def = definition {
-                    VStack(spacing: 6) {
+                    VStack(spacing: FDS.Spacing.sm) {
                         ForEach(def.cues.prefix(3), id: \.self) { cue in
-                            HStack(alignment: .top, spacing: 6) {
+                            HStack(alignment: .top, spacing: FDS.Spacing.sm) {
                                 Image(systemName: "checkmark.circle.fill").font(.system(size: 11)).foregroundColor(def.accent)
                                 Text(cue).font(.system(size: 12)).foregroundColor(.textSecondary).multilineTextAlignment(.leading)
                                 Spacer(minLength: 0)
                             }
                         }
                     }
-                    .padding(.horizontal, 20)
+                    .padding(.horizontal, FDS.Spacing.lg)
                 } else {
                     Text(exercise.name).font(FDS.TypeScale.Dynamic.caption).foregroundColor(.textSecondary)
                     Text("Focus on controlled tempo and full range.").font(.system(size: 12)).foregroundColor(.textTertiary)
                 }
             }
-            .padding(.vertical, 14)
+            .padding(.vertical, FDS.Spacing.lg)
         }
     }
 }
@@ -79,19 +79,19 @@ struct ExerciseFormCheckView: View {
     var body: some View {
         ZStack {
             LinearGradient(colors: [Color.success.opacity(0.08), Color.success.opacity(0.03)], startPoint: .topLeading, endPoint: .bottomTrailing)
-            VStack(spacing: 10) {
+            VStack(spacing: FDS.Spacing.md) {
                 Image(systemName: "camera.viewfinder").font(.system(size: 38)).foregroundColor(.success.opacity(0.5))
                 Text("ARIA Live Form Check").font(FDS.TypeScale.Dynamic.body.weight(.semibold)).foregroundColor(.textPrimary)
-                Text("Show ARIA your set — get real-time cues via the Claude vision API.").font(.system(size: 11)).foregroundColor(.textTertiary).multilineTextAlignment(.center).padding(.horizontal, 24)
+                Text("Show ARIA your set — get real-time cues via the Claude vision API.").font(.system(size: 11)).foregroundColor(.textTertiary).multilineTextAlignment(.center).padding(.horizontal, FDS.Spacing.xl)
                 Button {
                     if let onLaunch { onLaunch() } else { showCamera = true }
                 } label: {
-                    HStack(spacing: 6) {
+                    HStack(spacing: FDS.Spacing.sm) {
                         Image(systemName: "camera.fill").font(.system(size: 13))
                         Text("Open Camera Coach").font(FDS.TypeScale.Dynamic.caption)
                     }
-                    .foregroundColor(.white).padding(.horizontal, 16).padding(.vertical, 8)
-                    .background(Color.success).cornerRadius(20).shadow(color: Color.success.opacity(0.35), radius: 8, y: 3)
+                    .foregroundColor(.white).padding(.horizontal, FDS.Spacing.lg).padding(.vertical, FDS.Spacing.sm)
+                    .background(Color.success).cornerRadius(FDS.Radius.xl).shadow(color: Color.success.opacity(0.35), radius: 8, y: 3)
                 }
             }
         }
@@ -131,9 +131,9 @@ struct FormCheckCameraView: View {
                 VStack(spacing: 0) {
                     topBar
                     Spacer()
-                    if aria.isAnalyzing { analyzingPill.padding(.bottom, 12) }
-                    if let fb = feedback { feedbackCard(fb).padding(.horizontal, 16).padding(.bottom, 12) }
-                    controlBar.padding(.bottom, 28)
+                    if aria.isAnalyzing { analyzingPill.padding(.bottom, FDS.Spacing.md) }
+                    if let fb = feedback { feedbackCard(fb).padding(.horizontal, FDS.Spacing.lg).padding(.bottom, FDS.Spacing.md) }
+                    controlBar.padding(.bottom, FDS.Spacing.xl)
                 }
             }
             .navigationBarHidden(true)
@@ -160,7 +160,7 @@ struct FormCheckCameraView: View {
     }
 
     private func statePlaceholder(icon: String, title: String, subtitle: String) -> some View {
-        VStack(spacing: 14) {
+        VStack(spacing: FDS.Spacing.lg) {
             Image(systemName: icon).font(.system(size: 44)).foregroundColor(.white.opacity(0.5))
             Text(title).font(FDS.TypeScale.Dynamic.headline).foregroundColor(.white)
             Text(subtitle).font(.system(size: 13)).foregroundColor(.white.opacity(0.5)).multilineTextAlignment(.center).padding(.horizontal, 40)
@@ -169,13 +169,13 @@ struct FormCheckCameraView: View {
     }
 
     private var topBar: some View {
-        HStack(spacing: 12) {
+        HStack(spacing: FDS.Spacing.md) {
             Button { dismiss() } label: {
                 Image(systemName: "xmark").font(.system(size: 15, weight: .bold)).foregroundColor(.white).frame(width: 38, height: 38).background(.ultraThinMaterial).clipShape(Circle())
             }
             VStack(alignment: .leading, spacing: 2) {
                 Text(exercise.name).font(FDS.TypeScale.Dynamic.headline).foregroundColor(.white)
-                HStack(spacing: 5) {
+                HStack(spacing: FDS.Spacing.xs) {
                     Circle().fill(aria.isLiveCoachingAvailable ? Color.success : Color.warning).frame(width: 6, height: 6)
                     Text(aria.isLiveCoachingAvailable ? "ARIA vision live" : "On-device preview").font(FDS.TypeScale.Dynamic.micro).foregroundColor(.white.opacity(0.7))
                 }
@@ -187,21 +187,21 @@ struct FormCheckCameraView: View {
                 }
             }
         }
-        .padding(.horizontal, 16).padding(.top, 16)
+        .padding(.horizontal, FDS.Spacing.lg).padding(.top, FDS.Spacing.lg)
         .background(LinearGradient(colors: [.black.opacity(0.5), .clear], startPoint: .top, endPoint: .bottom))
     }
 
     private var analyzingPill: some View {
-        HStack(spacing: 8) {
+        HStack(spacing: FDS.Spacing.sm) {
             ProgressView().tint(.white)
             Text("ARIA is reading your form…").font(FDS.TypeScale.Dynamic.caption).foregroundColor(.white)
         }
-        .padding(.horizontal, 16).padding(.vertical, 10).background(.ultraThinMaterial).clipShape(Capsule())
+        .padding(.horizontal, FDS.Spacing.lg).padding(.vertical, FDS.Spacing.md).background(.ultraThinMaterial).clipShape(Capsule())
     }
 
     private func feedbackCard(_ fb: FormFeedback) -> some View {
-        VStack(alignment: .leading, spacing: 12) {
-            HStack(spacing: 12) {
+        VStack(alignment: .leading, spacing: FDS.Spacing.md) {
+            HStack(spacing: FDS.Spacing.md) {
                 ZStack {
                     Circle().stroke(Color.white.opacity(0.12), lineWidth: 5).frame(width: 54, height: 54)
                     Circle().trim(from: 0, to: CGFloat(fb.score) / 100)
@@ -209,19 +209,19 @@ struct FormCheckCameraView: View {
                     Text("\(fb.score)").font(FDS.TypeScale.Dynamic.metric).foregroundColor(.white)
                 }
                 VStack(alignment: .leading, spacing: 3) {
-                    HStack(spacing: 6) {
+                    HStack(spacing: FDS.Spacing.sm) {
                         Image(systemName: fb.status.icon).font(.system(size: 12)).foregroundColor(fb.status.color)
                         Text(fb.status.label).font(FDS.TypeScale.Dynamic.body.weight(.semibold)).foregroundColor(fb.status.color)
-                        if !fb.isLive { Text("DEMO").font(FDS.TypeScale.Dynamic.micro).foregroundColor(.white.opacity(0.5)).padding(.horizontal, 4).padding(.vertical, 1).background(Color.white.opacity(0.12)).cornerRadius(3) }
+                        if !fb.isLive { Text("DEMO").font(FDS.TypeScale.Dynamic.micro).foregroundColor(.white.opacity(0.5)).padding(.horizontal, FDS.Spacing.xs).padding(.vertical, 1).background(Color.white.opacity(0.12)).cornerRadius(3) }
                     }
                     Text(fb.summary).font(.system(size: 12)).foregroundColor(.white.opacity(0.8)).lineSpacing(2).fixedSize(horizontal: false, vertical: true)
                 }
                 Spacer(minLength: 0)
             }
             if !fb.cues.isEmpty {
-                VStack(alignment: .leading, spacing: 6) {
+                VStack(alignment: .leading, spacing: FDS.Spacing.sm) {
                     ForEach(fb.cues, id: \.self) { cue in
-                        HStack(alignment: .top, spacing: 8) {
+                        HStack(alignment: .top, spacing: FDS.Spacing.sm) {
                             Image(systemName: "arrow.right.circle.fill").font(.system(size: 12)).foregroundColor(.ember)
                             Text(cue).font(FDS.TypeScale.Dynamic.caption).foregroundColor(.white).lineSpacing(2)
                             Spacer(minLength: 0)
@@ -230,15 +230,15 @@ struct FormCheckCameraView: View {
                 }
             }
         }
-        .padding(16).background(.ultraThinMaterial).cornerRadius(20)
+        .padding(FDS.Spacing.lg).background(.ultraThinMaterial).cornerRadius(FDS.Radius.xl)
         .overlay(RoundedRectangle(cornerRadius: FDS.Radius.xl).stroke(fb.status.color.opacity(0.4), lineWidth: 1))
     }
 
     private var controlBar: some View {
-        HStack(spacing: 20) {
+        HStack(spacing: FDS.Spacing.lg) {
             // Auto-coach toggle
             Button { toggleAuto() } label: {
-                VStack(spacing: 4) {
+                VStack(spacing: FDS.Spacing.xs) {
                     Image(systemName: autoCoach ? "bolt.fill" : "bolt.slash.fill").font(.system(size: 18)).foregroundColor(autoCoach ? .ember : .white.opacity(0.6))
                     Text("Auto").font(FDS.TypeScale.Dynamic.micro).foregroundColor(.white.opacity(0.6))
                 }
@@ -255,7 +255,7 @@ struct FormCheckCameraView: View {
             .disabled(aria.isAnalyzing || (camera.status != .running && camera.status != .unavailable))
             // Done
             Button { dismiss() } label: {
-                VStack(spacing: 4) {
+                VStack(spacing: FDS.Spacing.xs) {
                     Image(systemName: "checkmark").font(.system(size: 18, weight: .bold)).foregroundColor(.success)
                     Text("Done").font(FDS.TypeScale.Dynamic.micro).foregroundColor(.white.opacity(0.6))
                 }

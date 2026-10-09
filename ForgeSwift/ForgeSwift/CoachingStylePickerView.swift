@@ -16,28 +16,28 @@ struct CoachingStylePickerView: View {
     var body: some View {
         NavigationStack {
             ScrollView {
-                VStack(spacing: 16) {
+                VStack(spacing: FDS.Spacing.lg) {
                     Text("Choose how ARIA talks to you during training and recovery.")
                         .font(.system(size: 14))
                         .foregroundColor(.textSecondary)
                         .multilineTextAlignment(.center)
                         .padding(.horizontal)
-                        .padding(.top, 8)
+                        .padding(.top, FDS.Spacing.sm)
 
-                    VStack(spacing: 12) {
+                    VStack(spacing: FDS.Spacing.md) {
                         ForEach(CoachingStyle.allCases, id: \.self) { style in
                             Button(action: {
                                 withAnimation(.spring(response: 0.4, dampingFraction: 0.8)) {
                                     selectedStyle = style
                                 }
                             }) {
-                                HStack(spacing: 12) {
+                                HStack(spacing: FDS.Spacing.md) {
                                     Image(systemName: style.icon)
                                         .font(.system(size: 18))
                                         .foregroundColor(style.color)
                                         .frame(width: 28)
 
-                                    VStack(alignment: .leading, spacing: 4) {
+                                    VStack(alignment: .leading, spacing: FDS.Spacing.xs) {
                                         Text(style.label)
                                             .font(FDS.TypeScale.Dynamic.headline)
                                             .foregroundColor(.textPrimary)
@@ -59,7 +59,7 @@ struct CoachingStylePickerView: View {
                                         }
                                     }
                                 }
-                                .padding(16)
+                                .padding(FDS.Spacing.lg)
                                 .background(Color.white.opacity(selectedStyle == style ? 0.06 : 0.04))
                                 .clipShape(RoundedRectangle(cornerRadius: FDS.Radius.md, style: .continuous))
                                 .overlay(
@@ -74,7 +74,7 @@ struct CoachingStylePickerView: View {
 
                     PremiumPrimaryButton(title: "Save", icon: nil, action: save)
                         .padding(.horizontal)
-                        .padding(.top, 12)
+                        .padding(.top, FDS.Spacing.md)
                 }
                 .padding(.bottom, 32)
             }

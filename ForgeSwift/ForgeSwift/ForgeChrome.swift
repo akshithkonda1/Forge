@@ -33,7 +33,7 @@ struct ForgeSectionHeader: View {
     var energy: Color = .textTertiary
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 4) {
+        VStack(alignment: .leading, spacing: FDS.Spacing.xs) {
             Text(title)
                 .font(ForgeType.caption)
                 .foregroundStyle(energy)
@@ -61,7 +61,7 @@ struct ForgeSecondaryButton: View {
             FDS.haptic(.press)
             action()
         } label: {
-            HStack(spacing: 8) {
+            HStack(spacing: FDS.Spacing.sm) {
                 if let icon {
                     Image(systemName: icon)
                         .font(.system(size: ForgeUX.icon, weight: .semibold))
@@ -94,8 +94,8 @@ struct ForgeChip: View {
         Text(label)
             .font(ForgeType.caption)
             .foregroundStyle(selected ? energy : Color.textSecondary)
-            .padding(.horizontal, 10)
-            .padding(.vertical, 6)
+            .padding(.horizontal, FDS.Spacing.md)
+            .padding(.vertical, FDS.Spacing.sm)
             .frame(minHeight: 28)
             .background((selected ? energy : Color.white).opacity(selected ? 0.14 : 0.06))
             .clipShape(Capsule())
@@ -110,13 +110,13 @@ struct ForgeStatTile: View {
     var energy: Color = .steel
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 6) {
+        VStack(alignment: .leading, spacing: FDS.Spacing.sm) {
             Text(label)
                 .font(ForgeType.micro)
                 .foregroundStyle(Color.textTertiary)
                 .tracking(ForgeType.eyebrowTracking)
                 .textCase(.uppercase)
-            HStack(alignment: .firstTextBaseline, spacing: 4) {
+            HStack(alignment: .firstTextBaseline, spacing: FDS.Spacing.xs) {
                 Text(value)
                     .font(ForgeType.metric)
                     .foregroundStyle(Color.textPrimary)
@@ -227,7 +227,7 @@ struct ForgePermissionPrompt: View {
                     .font(.system(size: 22, weight: .semibold))
                     .foregroundStyle(accent)
                     .frame(width: 36, height: 36)
-                VStack(alignment: .leading, spacing: 4) {
+                VStack(alignment: .leading, spacing: FDS.Spacing.xs) {
                     Text(title)
                         .font(ForgeType.title)
                         .foregroundStyle(Color.textPrimary)
@@ -285,5 +285,30 @@ struct ForgeErrorState: View {
         }
         .padding(FDS.Spacing.xl)
         .hudPlate(energy: HudChrome.emberSteel)
+    }
+}
+
+// MARK: - Inset tile
+//
+// Nested plate for stats, rows, and fields that sit *inside* a card
+// (`forgeGlassCard` / `hudPlate`). One fill, one hairline edge, token radius.
+
+private struct ForgeInsetTile: ViewModifier {
+    var radius: CGFloat
+
+    func body(content: Content) -> some View {
+        content
+            .background(Color.surfaceElevated)
+            .clipShape(RoundedRectangle(cornerRadius: radius, style: .continuous))
+            .overlay(
+                RoundedRectangle(cornerRadius: radius, style: .continuous)
+                    .strokeBorder(Color.borderHairline, lineWidth: ForgeUX.hairline)
+            )
+    }
+}
+
+extension View {
+    func forgeInsetTile(radius: CGFloat = FDS.Radius.md) -> some View {
+        modifier(ForgeInsetTile(radius: radius))
     }
 }

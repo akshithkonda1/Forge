@@ -31,7 +31,7 @@ struct WorkoutSummaryView: View {
             ScrollView(showsIndicators: false) {
                 VStack(spacing: 0) {
                     // Hero score
-                    VStack(spacing: 24) {
+                    VStack(spacing: FDS.Spacing.xl) {
                         ZStack {
                             Circle().stroke(scoreColor.opacity(appeared ? 0.12 : 0), lineWidth: 1).frame(width: 220, height: 220).animation(.easeInOut(duration: 1.0).delay(0.4), value: appeared)
                             Circle().stroke(Color.white.opacity(0.06), style: StrokeStyle(lineWidth: 8, lineCap: .round)).frame(width: 180, height: 180)
@@ -39,7 +39,7 @@ struct WorkoutSummaryView: View {
                                 .stroke(LinearGradient(colors: [scoreColor.opacity(0.7), scoreColor, scoreColor.opacity(0.9)], startPoint: .topLeading, endPoint: .bottomTrailing), style: StrokeStyle(lineWidth: 8, lineCap: .round))
                                 .frame(width: 180, height: 180).rotationEffect(.degrees(-90)).shadow(color: scoreColor.opacity(0.5), radius: 12)
                                 .animation(.spring(response: 1.4, dampingFraction: 0.75).delay(0.5), value: scoreAppeared)
-                            VStack(spacing: 4) {
+                            VStack(spacing: FDS.Spacing.xs) {
                                 Image(systemName: "checkmark").font(.system(size: 22, weight: .black)).foregroundColor(scoreColor)
                                     .scaleEffect(appeared ? 1 : 0.4).opacity(appeared ? 1 : 0).animation(.spring(response: 0.5, dampingFraction: 0.65).delay(0.3), value: appeared)
                                 Text("\(workoutScore)").font(.system(size: 52, weight: .black, design: .rounded)).foregroundColor(.white)
@@ -49,30 +49,30 @@ struct WorkoutSummaryView: View {
                             }
                         }
                         .frame(width: 220, height: 220)
-                        VStack(spacing: 8) {
+                        VStack(spacing: FDS.Spacing.sm) {
                             Text("Workout Complete").font(.system(size: 26, weight: .bold)).foregroundColor(.white)
-                            HStack(spacing: 16) {
-                                HStack(spacing: 5) {
+                            HStack(spacing: FDS.Spacing.lg) {
+                                HStack(spacing: FDS.Spacing.xs) {
                                     Image(systemName: "clock.fill").font(.system(size: 12)).foregroundColor(.white.opacity(0.5))
                                     Text(formatDuration(data.duration)).font(FDS.TypeScale.Dynamic.body.weight(.semibold)).foregroundColor(.white.opacity(0.7))
                                 }
                                 if !data.personalRecords.isEmpty {
-                                    HStack(spacing: 5) {
+                                    HStack(spacing: FDS.Spacing.xs) {
                                         Image(systemName: "crown.fill").font(.system(size: 12)).foregroundColor(.warning)
                                         Text("\(data.personalRecords.count) PR\(data.personalRecords.count == 1 ? "" : "s")").font(FDS.TypeScale.Dynamic.body.weight(.semibold)).foregroundColor(.warning)
                                     }
-                                    .padding(.horizontal, 10).padding(.vertical, 5).background(Color.warning.opacity(0.15)).cornerRadius(100)
+                                    .padding(.horizontal, FDS.Spacing.md).padding(.vertical, FDS.Spacing.xs).background(Color.warning.opacity(0.15)).cornerRadius(100)
                                     .overlay(Capsule().stroke(Color.warning.opacity(0.3), lineWidth: 1))
                                 }
                             }
                         }
                         .opacity(appeared ? 1 : 0).offset(y: appeared ? 0 : 14).animation(.spring(response: 0.6, dampingFraction: 0.8).delay(0.3), value: appeared)
                     }
-                    .padding(.top, 64).padding(.bottom, 28)
+                    .padding(.top, 64).padding(.bottom, FDS.Spacing.xl)
 
                     // ARIA dashboard CTA
                     Button { UIImpactFeedbackGenerator(style: .medium).impactOccurred(); showDashboard = true } label: {
-                        HStack(spacing: 12) {
+                        HStack(spacing: FDS.Spacing.md) {
                             ZStack {
                                 Circle().fill(Color.ember.opacity(0.18)).frame(width: 38, height: 38)
                                 Image(systemName: "brain.head.profile").font(.system(size: 17)).foregroundColor(.ember)
@@ -84,16 +84,16 @@ struct WorkoutSummaryView: View {
                             Spacer()
                             Image(systemName: "chevron.right").font(.system(size: 13, weight: .bold)).foregroundColor(.white.opacity(0.4))
                         }
-                        .padding(16).background(Color.white.opacity(0.05)).cornerRadius(18)
+                        .padding(FDS.Spacing.lg).background(Color.white.opacity(0.05)).cornerRadius(FDS.Radius.lg)
                         .overlay(RoundedRectangle(cornerRadius: FDS.Radius.lg).stroke(Color.ember.opacity(0.25), lineWidth: 1))
                     }
                     .buttonStyle(.plain)
-                    .padding(.horizontal, 16).padding(.bottom, 20)
+                    .padding(.horizontal, FDS.Spacing.lg).padding(.bottom, FDS.Spacing.lg)
                     .opacity(appeared ? 1 : 0).animation(.spring(response: 0.6, dampingFraction: 0.8).delay(0.4), value: appeared)
 
                     if !data.hrHistory.isEmpty {
                         HRSparklineCard(hrHistory: data.hrHistory, peakHR: data.peakHR, avgHR: data.avgHR)
-                            .padding(.horizontal, 16).padding(.bottom, 20)
+                            .padding(.horizontal, FDS.Spacing.lg).padding(.bottom, FDS.Spacing.lg)
                             .opacity(appeared ? 1 : 0).offset(y: appeared ? 0 : 16).animation(.spring(response: 0.6, dampingFraction: 0.8).delay(0.45), value: appeared)
                     }
 
@@ -110,55 +110,55 @@ struct WorkoutSummaryView: View {
                             ("dumbbell.fill", "\(data.exercisesCompleted)", "Exercises", Color.ember),
                         ], id: \.0) { icon, value, label, color in darkStatCard(icon, value, label, color) }
                     }
-                    .padding(.horizontal, 16).padding(.bottom, 20)
+                    .padding(.horizontal, FDS.Spacing.lg).padding(.bottom, FDS.Spacing.lg)
                     .opacity(appeared ? 1 : 0).offset(y: appeared ? 0 : 20).animation(.spring(response: 0.6, dampingFraction: 0.8).delay(0.5), value: appeared)
 
                     ZoneBreakdownCard(hrHistory: data.hrHistory)
-                        .padding(.horizontal, 16).padding(.bottom, 20)
+                        .padding(.horizontal, FDS.Spacing.lg).padding(.bottom, FDS.Spacing.lg)
                         .opacity(appeared ? 1 : 0).offset(y: appeared ? 0 : 16).animation(.spring(response: 0.6, dampingFraction: 0.8).delay(0.55), value: appeared)
 
                     if !data.personalRecords.isEmpty {
-                        VStack(alignment: .leading, spacing: 14) {
-                            HStack(spacing: 8) {
+                        VStack(alignment: .leading, spacing: FDS.Spacing.lg) {
+                            HStack(spacing: FDS.Spacing.sm) {
                                 Image(systemName: "crown.fill").font(.system(size: 14)).foregroundColor(.warning)
                                 Text("PERSONAL RECORDS").font(FDS.TypeScale.Dynamic.micro).foregroundColor(.white.opacity(0.4)).tracking(2.5)
                             }
                             ForEach(data.personalRecords, id: \.self) { pr in
-                                HStack(spacing: 12) {
+                                HStack(spacing: FDS.Spacing.md) {
                                     ZStack { Circle().fill(Color.warning.opacity(0.15)).frame(width: 38, height: 38); Image(systemName: "crown.fill").font(.system(size: 15)).foregroundColor(.warning) }
                                     Text(pr).font(FDS.TypeScale.Dynamic.body.weight(.semibold)).foregroundColor(.white)
                                     Spacer()
                                     Text("NEW PR").font(FDS.TypeScale.Dynamic.micro).foregroundColor(.warning).tracking(1)
-                                        .padding(.horizontal, 8).padding(.vertical, 5).background(Color.warning.opacity(0.15)).cornerRadius(100).overlay(Capsule().stroke(Color.warning.opacity(0.3), lineWidth: 1))
+                                        .padding(.horizontal, FDS.Spacing.sm).padding(.vertical, FDS.Spacing.xs).background(Color.warning.opacity(0.15)).cornerRadius(100).overlay(Capsule().stroke(Color.warning.opacity(0.3), lineWidth: 1))
                                 }
-                                .padding(16).background(Color.white.opacity(0.05)).cornerRadius(16).overlay(RoundedRectangle(cornerRadius: FDS.Radius.lg).stroke(Color.warning.opacity(0.2), lineWidth: 1))
+                                .padding(FDS.Spacing.lg).background(Color.white.opacity(0.05)).cornerRadius(FDS.Radius.lg).overlay(RoundedRectangle(cornerRadius: FDS.Radius.lg).stroke(Color.warning.opacity(0.2), lineWidth: 1))
                             }
                         }
-                        .padding(20).background(Color.white.opacity(0.04)).cornerRadius(22).overlay(RoundedRectangle(cornerRadius: FDS.Radius.xl).stroke(Color.white.opacity(0.07), lineWidth: 1))
-                        .padding(.horizontal, 16).padding(.bottom, 20)
+                        .padding(FDS.Spacing.lg).background(Color.white.opacity(0.04)).cornerRadius(FDS.Radius.xl).overlay(RoundedRectangle(cornerRadius: FDS.Radius.xl).stroke(Color.white.opacity(0.07), lineWidth: 1))
+                        .padding(.horizontal, FDS.Spacing.lg).padding(.bottom, FDS.Spacing.lg)
                         .opacity(appeared ? 1 : 0).offset(y: appeared ? 0 : 16).animation(.spring(response: 0.6, dampingFraction: 0.8).delay(0.6), value: appeared)
                     }
 
-                    VStack(spacing: 12) {
+                    VStack(spacing: FDS.Spacing.md) {
                         Button { showDashboard = true } label: {
-                            HStack(spacing: 10) {
+                            HStack(spacing: FDS.Spacing.md) {
                                 Image(systemName: "paperplane.fill").font(.system(size: 16))
                                 Text("Send to ARIA").font(FDS.TypeScale.Dynamic.headline)
                             }
                             .foregroundColor(.white).frame(maxWidth: .infinity).frame(height: 58)
                             .background(LinearGradient(colors: [Color.ember, Color.ember.opacity(0.82)], startPoint: .leading, endPoint: .trailing))
-                            .cornerRadius(18).shadow(color: Color.ember.opacity(0.5), radius: 18, y: 6)
+                            .cornerRadius(FDS.Radius.lg).shadow(color: Color.ember.opacity(0.5), radius: 18, y: 6)
                         }
                         Button(action: onDismiss) {
-                            HStack(spacing: 8) {
+                            HStack(spacing: FDS.Spacing.sm) {
                                 Image(systemName: "house.fill").font(.system(size: 15))
                                 Text("Back to Dashboard").font(FDS.TypeScale.Dynamic.headline)
                             }
                             .foregroundColor(.white.opacity(0.6)).frame(maxWidth: .infinity).frame(height: 50)
-                            .background(Color.white.opacity(0.07)).cornerRadius(16).overlay(RoundedRectangle(cornerRadius: FDS.Radius.lg).stroke(Color.white.opacity(0.1), lineWidth: 1))
+                            .background(Color.white.opacity(0.07)).cornerRadius(FDS.Radius.lg).overlay(RoundedRectangle(cornerRadius: FDS.Radius.lg).stroke(Color.white.opacity(0.1), lineWidth: 1))
                         }
                     }
-                    .padding(.horizontal, 16).padding(.bottom, 60)
+                    .padding(.horizontal, FDS.Spacing.lg).padding(.bottom, 60)
                     .opacity(appeared ? 1 : 0).offset(y: appeared ? 0 : 20).animation(.spring(response: 0.6, dampingFraction: 0.8).delay(0.7), value: appeared)
                 }
             }
@@ -171,12 +171,12 @@ struct WorkoutSummaryView: View {
     }
 
     private func darkStatCard(_ icon: String, _ value: String, _ label: String, _ color: Color) -> some View {
-        VStack(spacing: 10) {
+        VStack(spacing: FDS.Spacing.md) {
             ZStack { Circle().fill(color.opacity(0.15)).frame(width: 40, height: 40); Image(systemName: icon).font(.system(size: 16)).foregroundColor(color) }
             Text(value).font(FDS.TypeScale.Dynamic.metric).foregroundColor(.white)
             Text(label).font(FDS.TypeScale.Dynamic.micro).foregroundColor(.white.opacity(0.4)).multilineTextAlignment(.center)
         }
-        .frame(maxWidth: .infinity).padding(.vertical, 18).background(Color.white.opacity(0.05)).cornerRadius(16).overlay(RoundedRectangle(cornerRadius: FDS.Radius.lg).stroke(Color.white.opacity(0.07), lineWidth: 1))
+        .frame(maxWidth: .infinity).padding(.vertical, FDS.Spacing.lg).background(Color.white.opacity(0.05)).cornerRadius(FDS.Radius.lg).overlay(RoundedRectangle(cornerRadius: FDS.Radius.lg).stroke(Color.white.opacity(0.07), lineWidth: 1))
     }
     private func rpeColor(_ rpe: Double) -> Color { rpe <= 4 ? .success : rpe <= 7 ? Color.amber : .danger }
     private func formatDuration(_ s: Int) -> String { let m = s / 60; let sec = s % 60; return m > 0 ? "\(m)m \(sec)s" : "\(sec)s" }
@@ -200,16 +200,16 @@ private struct ZoneBreakdownCard: View {
     var body: some View {
         let bars = zoneBars
         let maxCount = max(1, bars.map { $0.count }.max() ?? 1)
-        VStack(alignment: .leading, spacing: 16) {
-            HStack(spacing: 8) {
+        VStack(alignment: .leading, spacing: FDS.Spacing.lg) {
+            HStack(spacing: FDS.Spacing.sm) {
                 Image(systemName: "waveform.path.ecg").font(.system(size: 13)).foregroundColor(.danger)
                 Text("HEART RATE ZONES").font(FDS.TypeScale.Dynamic.micro).foregroundColor(.white.opacity(0.4)).tracking(2.5)
                 Spacer()
                 Text("\(hrHistory.count) samples").font(.system(size: 11)).foregroundColor(.white.opacity(0.3))
             }
-            HStack(alignment: .bottom, spacing: 10) {
+            HStack(alignment: .bottom, spacing: FDS.Spacing.md) {
                 ForEach(Array(bars.enumerated()), id: \.element.zone) { idx, bar in
-                    VStack(spacing: 8) {
+                    VStack(spacing: FDS.Spacing.sm) {
                         let fraction = barsAppeared ? CGFloat(bar.count) / CGFloat(maxCount) : 0
                         ZStack(alignment: .bottom) {
                             RoundedRectangle(cornerRadius: FDS.Radius.xs).fill(Color.white.opacity(0.06)).frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -224,7 +224,7 @@ private struct ZoneBreakdownCard: View {
                 }
             }
         }
-        .padding(20).background(Color.white.opacity(0.04)).cornerRadius(22).overlay(RoundedRectangle(cornerRadius: FDS.Radius.xl).stroke(Color.white.opacity(0.07), lineWidth: 1))
+        .padding(FDS.Spacing.lg).background(Color.white.opacity(0.04)).cornerRadius(FDS.Radius.xl).overlay(RoundedRectangle(cornerRadius: FDS.Radius.xl).stroke(Color.white.opacity(0.07), lineWidth: 1))
         .onAppear { DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) { barsAppeared = true } }
     }
     private func formatZoneTime(_ count: Int) -> String { let secs = count * 2; return secs < 60 ? "\(secs)s" : "\(secs / 60)m" }
@@ -241,14 +241,14 @@ private struct HRSparklineCard: View {
         return stride(from: 0, to: hrHistory.count, by: step).map { hrHistory[$0] }
     }
     var body: some View {
-        VStack(alignment: .leading, spacing: 16) {
+        VStack(alignment: .leading, spacing: FDS.Spacing.lg) {
             HStack {
-                HStack(spacing: 6) {
+                HStack(spacing: FDS.Spacing.sm) {
                     Image(systemName: "heart.fill").font(.system(size: 13)).foregroundColor(.danger)
                     Text("HEART RATE").font(FDS.TypeScale.Dynamic.micro).foregroundColor(.white.opacity(0.4)).tracking(2.5)
                 }
                 Spacer()
-                HStack(spacing: 18) {
+                HStack(spacing: FDS.Spacing.lg) {
                     VStack(spacing: 1) { Text("\(peakHR)").font(.system(size: 16, weight: .black, design: .monospaced)).foregroundColor(.danger); Text("peak").font(FDS.TypeScale.Dynamic.micro).foregroundColor(.white.opacity(0.35)) }
                     VStack(spacing: 1) { Text("\(avgHR)").font(.system(size: 16, weight: .black, design: .monospaced)).foregroundColor(.white); Text("avg").font(FDS.TypeScale.Dynamic.micro).foregroundColor(.white.opacity(0.35)) }
                 }
@@ -278,7 +278,7 @@ private struct HRSparklineCard: View {
             }
             .frame(height: 88)
         }
-        .padding(20).background(Color.white.opacity(0.04)).cornerRadius(22).overlay(RoundedRectangle(cornerRadius: FDS.Radius.xl).stroke(Color.white.opacity(0.07), lineWidth: 1))
+        .padding(FDS.Spacing.lg).background(Color.white.opacity(0.04)).cornerRadius(FDS.Radius.xl).overlay(RoundedRectangle(cornerRadius: FDS.Radius.xl).stroke(Color.white.opacity(0.07), lineWidth: 1))
         .onAppear { DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) { lineAppeared = true } }
     }
 }

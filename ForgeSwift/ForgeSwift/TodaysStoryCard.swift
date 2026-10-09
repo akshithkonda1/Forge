@@ -16,8 +16,8 @@ struct TodaysStoryCard: View {
     }
 
     private func content(for story: DailyStoryPayload) -> some View {
-        VStack(alignment: .leading, spacing: 14) {
-            HStack(spacing: 8) {
+        VStack(alignment: .leading, spacing: FDS.Spacing.lg) {
+            HStack(spacing: FDS.Spacing.sm) {
                 Image(systemName: "book.pages.fill")
                     .font(.system(size: 13, weight: .semibold))
                     .foregroundStyle(Color.aurora)
@@ -35,7 +35,7 @@ struct TodaysStoryCard: View {
                 .fixedSize(horizontal: false, vertical: true)
 
             if !story.insights.isEmpty {
-                VStack(alignment: .leading, spacing: 8) {
+                VStack(alignment: .leading, spacing: FDS.Spacing.sm) {
                     ForEach(Array(story.insights.enumerated()), id: \.offset) { _, insight in
                         insightRow(insight)
                     }
@@ -57,7 +57,7 @@ struct TodaysStoryCard: View {
             FDS.haptic(.light)
             HomeInsightFlow.open(insight.text, store: store)
         } label: {
-            HStack(alignment: .top, spacing: 10) {
+            HStack(alignment: .top, spacing: FDS.Spacing.md) {
                 Image(systemName: domainIcon(insight.domain))
                     .font(.system(size: 12, weight: .semibold))
                     .foregroundColor(Color.aurora)

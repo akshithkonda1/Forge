@@ -33,7 +33,7 @@ struct ClinicalDataNonPHIView: View {
     var body: some View {
         NavigationStack {
             ScrollView(showsIndicators: false) {
-                LazyVStack(alignment: .leading, spacing: 22) {
+                LazyVStack(alignment: .leading, spacing: FDS.Spacing.xl) {
                     Text("Two steps. Allow Apple Health — the same full catalog Forge asks at first connect — so allergies, meds, conditions, shots, labs, procedures, and vitals already on this iPhone land in Forge. Then search every federal-list product by brand or generic, or photograph the bottle. ARIA never prescribes and never names a dose.")
                         .font(.system(size: 14))
                         .foregroundColor(.textSecondary)
@@ -48,7 +48,7 @@ struct ClinicalDataNonPHIView: View {
                             .foregroundColor(.warning)
                     }
                 }
-                .padding(20)
+                .padding(FDS.Spacing.lg)
                 .padding(.bottom, 40)
             }
             .background(Color.background.ignoresSafeArea())
@@ -85,7 +85,7 @@ struct ClinicalDataNonPHIView: View {
     }
 
     private var bottleScanBar: some View {
-        HStack(spacing: 10) {
+        HStack(spacing: FDS.Spacing.md) {
             Button {
                 showCamera = true
             } label: {
@@ -93,7 +93,7 @@ struct ClinicalDataNonPHIView: View {
                     .font(.system(size: 14, weight: .semibold))
                     .foregroundColor(.white)
                     .frame(maxWidth: .infinity)
-                    .padding(.vertical, 12)
+                    .padding(.vertical, FDS.Spacing.md)
                     .background(Color.ember)
                     .clipShape(RoundedRectangle(cornerRadius: FDS.Radius.md, style: .continuous))
             }
@@ -106,8 +106,7 @@ struct ClinicalDataNonPHIView: View {
                     .font(.system(size: 16, weight: .semibold))
                     .foregroundColor(.ember)
                     .frame(width: 48, height: 44)
-                    .background(Color.surfaceElevated)
-                    .clipShape(RoundedRectangle(cornerRadius: FDS.Radius.md, style: .continuous))
+                    .forgeInsetTile(radius: FDS.Radius.md)
             }
             .disabled(scanningBottle || catalogLoading)
             .accessibilityLabel("Choose a bottle photo")
@@ -115,7 +114,7 @@ struct ClinicalDataNonPHIView: View {
     }
 
     private var healthStep: some View {
-        VStack(alignment: .leading, spacing: 12) {
+        VStack(alignment: .leading, spacing: FDS.Spacing.md) {
             stepHeader(number: "1", title: "Apple Health", subtitle: "Every structured record Forge can read. Not notes. Not insurance.")
 
             if !health.canRequestStructuredRecords {
@@ -131,7 +130,7 @@ struct ClinicalDataNonPHIView: View {
                         .font(FDS.TypeScale.Dynamic.headline)
                         .foregroundColor(.white)
                         .frame(maxWidth: .infinity)
-                        .padding(.vertical, 14)
+                        .padding(.vertical, FDS.Spacing.lg)
                         .background(Color.ember)
                         .clipShape(RoundedRectangle(cornerRadius: FDS.Radius.md, style: .continuous))
                 }
@@ -141,7 +140,7 @@ struct ClinicalDataNonPHIView: View {
             } else if healthLoading && summary == nil {
                 ProgressView()
                     .frame(maxWidth: .infinity)
-                    .padding(.vertical, 16)
+                    .padding(.vertical, FDS.Spacing.lg)
             } else if let summary, summary.hasData {
                 ForEach(StructuredHealthKind.allCases) { kind in
                     kindSection(kind, items: summary.items(for: kind))
@@ -161,7 +160,7 @@ struct ClinicalDataNonPHIView: View {
     }
 
     private var pharmacyStep: some View {
-        VStack(alignment: .leading, spacing: 12) {
+        VStack(alignment: .leading, spacing: FDS.Spacing.md) {
             stepHeader(
                 number: "2",
                 title: "Pharmacy",
@@ -175,7 +174,7 @@ struct ClinicalDataNonPHIView: View {
                 .foregroundColor(.textSecondary)
                 .fixedSize(horizontal: false, vertical: true)
 
-            HStack(spacing: 10) {
+            HStack(spacing: FDS.Spacing.md) {
                 Image(systemName: "magnifyingglass")
                     .foregroundColor(.textTertiary)
                 TextField("Brand, generic, disease, or archetype", text: $query)
@@ -186,9 +185,8 @@ struct ClinicalDataNonPHIView: View {
                         scheduleSearch()
                     }
             }
-            .padding(12)
-            .background(Color.surfaceElevated)
-            .clipShape(RoundedRectangle(cornerRadius: FDS.Radius.md, style: .continuous))
+            .padding(FDS.Spacing.md)
+            .forgeInsetTile(radius: FDS.Radius.md)
 
             bottleScanBar
 
@@ -207,7 +205,7 @@ struct ClinicalDataNonPHIView: View {
             sortBar
 
             if !saved.isEmpty {
-                VStack(alignment: .leading, spacing: 6) {
+                VStack(alignment: .leading, spacing: FDS.Spacing.sm) {
                     Text("On your list")
                         .font(FDS.TypeScale.Dynamic.caption)
                         .foregroundColor(.textTertiary)
@@ -222,7 +220,7 @@ struct ClinicalDataNonPHIView: View {
             if catalogLoading {
                 ProgressView()
                     .frame(maxWidth: .infinity)
-                    .padding(.vertical, 20)
+                    .padding(.vertical, FDS.Spacing.lg)
             } else if page.total == 0, !query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
                 Text("No match for “\(query)”. Try the brand (Xcopri), the generic (cenobamate), or photograph the bottle.")
                     .font(.system(size: 13))
@@ -234,7 +232,7 @@ struct ClinicalDataNonPHIView: View {
                     .foregroundColor(.textTertiary)
 
                 ForEach(page.groups) { group in
-                    VStack(alignment: .leading, spacing: 8) {
+                    VStack(alignment: .leading, spacing: FDS.Spacing.sm) {
                         Text(group.title)
                             .font(FDS.TypeScale.Dynamic.caption)
                             .foregroundColor(.ember)
@@ -245,7 +243,7 @@ struct ClinicalDataNonPHIView: View {
                 }
 
                 if page.items.count < page.total {
-                    VStack(spacing: 10) {
+                    VStack(spacing: FDS.Spacing.md) {
                         Button("Show more (\(page.items.count.formatted()) of \(page.total.formatted()))") {
                             visibleLimit += 40
                             applySearch()
@@ -269,7 +267,7 @@ struct ClinicalDataNonPHIView: View {
 
     private var sortBar: some View {
         ScrollView(.horizontal, showsIndicators: false) {
-            HStack(spacing: 8) {
+            HStack(spacing: FDS.Spacing.sm) {
                 ForEach(PharmacySort.allCases) { option in
                     Button {
                         sort = option
@@ -278,8 +276,8 @@ struct ClinicalDataNonPHIView: View {
                         Text(option.label)
                             .font(FDS.TypeScale.Dynamic.caption)
                             .foregroundColor(sort == option ? .white : .textSecondary)
-                            .padding(.horizontal, 10)
-                            .padding(.vertical, 6)
+                            .padding(.horizontal, FDS.Spacing.md)
+                            .padding(.vertical, FDS.Spacing.sm)
                             .background(sort == option ? Color.ember : Color.surfaceElevated)
                             .clipShape(Capsule())
                     }
@@ -297,15 +295,15 @@ struct ClinicalDataNonPHIView: View {
 
     private func filterChip(_ title: String, clear: @escaping () -> Void) -> some View {
         Button(action: clear) {
-            HStack(spacing: 4) {
+            HStack(spacing: FDS.Spacing.xs) {
                 Text(title)
                 Image(systemName: "xmark")
                     .font(.system(size: 9, weight: .bold))
             }
             .font(.system(size: 12, weight: .semibold))
             .foregroundColor(.white)
-            .padding(.horizontal, 10)
-            .padding(.vertical, 6)
+            .padding(.horizontal, FDS.Spacing.md)
+            .padding(.vertical, FDS.Spacing.sm)
             .background(Color.ember.opacity(0.8))
             .clipShape(Capsule())
         }
@@ -327,7 +325,7 @@ struct ClinicalDataNonPHIView: View {
             saved = MedicationPharmacy.savedNames()
             AriaContextStore.shared.applyMedicationLayer()
         } label: {
-            HStack(alignment: .top, spacing: 12) {
+            HStack(alignment: .top, spacing: FDS.Spacing.md) {
                 Image(systemName: isSaved ? "pills.fill" : "pills")
                     .foregroundColor(.ember)
                     .padding(.top, 2)
@@ -345,7 +343,7 @@ struct ClinicalDataNonPHIView: View {
                 }
                 Spacer()
             }
-            .padding(12)
+            .padding(FDS.Spacing.md)
             .forgeGlassCard(cornerRadius: FDS.Radius.md, accent: .ember)
         }
         .buttonStyle(.plain)
@@ -363,8 +361,8 @@ struct ClinicalDataNonPHIView: View {
     }
 
     private func stepHeader(number: String, title: String, subtitle: String) -> some View {
-        VStack(alignment: .leading, spacing: 4) {
-            HStack(spacing: 8) {
+        VStack(alignment: .leading, spacing: FDS.Spacing.xs) {
+            HStack(spacing: FDS.Spacing.sm) {
                 Text(number)
                     .font(FDS.TypeScale.Dynamic.caption)
                     .foregroundColor(.white)
@@ -382,8 +380,8 @@ struct ClinicalDataNonPHIView: View {
     }
 
     private func kindSection(_ kind: StructuredHealthKind, items: [StructuredHealthItem]) -> some View {
-        VStack(alignment: .leading, spacing: 10) {
-            HStack(spacing: 8) {
+        VStack(alignment: .leading, spacing: FDS.Spacing.md) {
+            HStack(spacing: FDS.Spacing.sm) {
                 Image(systemName: kind.symbol)
                     .font(.system(size: 13, weight: .semibold))
                     .foregroundColor(.ember)
@@ -400,7 +398,7 @@ struct ClinicalDataNonPHIView: View {
                 Text("None on file")
                     .font(.system(size: 13))
                     .foregroundColor(.textTertiary)
-                    .padding(.vertical, 4)
+                    .padding(.vertical, FDS.Spacing.xs)
             } else {
                 VStack(spacing: 0) {
                     ForEach(items) { item in
@@ -413,12 +411,12 @@ struct ClinicalDataNonPHIView: View {
                                 .foregroundColor(.textTertiary)
                         }
                         .frame(maxWidth: .infinity, alignment: .leading)
-                        .padding(.vertical, 10)
+                        .padding(.vertical, FDS.Spacing.md)
                     }
                 }
             }
         }
-        .padding(14)
+        .padding(FDS.Spacing.lg)
         .forgeGlassCard(cornerRadius: FDS.Radius.lg, accent: .ember)
     }
 

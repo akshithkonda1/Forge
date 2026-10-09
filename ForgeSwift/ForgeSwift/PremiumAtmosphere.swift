@@ -294,7 +294,7 @@ struct PremiumPrimaryButton: View {
 
     var body: some View {
         Button(action: action) {
-            HStack(spacing: 10) {
+            HStack(spacing: FDS.Spacing.md) {
                 if busy {
                     ProgressView().tint(Color(hex: "0A0A0A"))
                 }
@@ -308,8 +308,8 @@ struct PremiumPrimaryButton: View {
                 }
             }
             .foregroundColor(enabled ? Color(hex: "0A0A0A") : Color.white.opacity(0.35))
-            .padding(.horizontal, 22)
-            .padding(.vertical, 18)
+            .padding(.horizontal, FDS.Spacing.xl)
+            .padding(.vertical, FDS.Spacing.lg)
             .background {
                 ZStack {
                     if enabled {
@@ -408,7 +408,7 @@ struct PremiumProgressDots: View {
     @State private var pulse: CGFloat = 0
 
     var body: some View {
-        HStack(spacing: 6) {
+        HStack(spacing: FDS.Spacing.sm) {
             ForEach(0..<count, id: \.self) { i in
                 Capsule()
                     .fill(i == current ? Color.paper : Color.white.opacity(0.16))

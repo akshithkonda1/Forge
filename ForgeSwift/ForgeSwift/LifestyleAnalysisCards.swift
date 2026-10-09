@@ -20,10 +20,10 @@ struct AILifeAnalysisCard: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             // Header
-            HStack(spacing: 14) {
+            HStack(spacing: FDS.Spacing.lg) {
                 ARIAIdentityMark(state: .idle, mood: .energized, size: 46, amplitude: 0.2)
                 VStack(alignment: .leading, spacing: 3) {
-                    HStack(spacing: 6) {
+                    HStack(spacing: FDS.Spacing.sm) {
                         Text("ARIA Life Analysis")
                             .font(FDS.TypeScale.Dynamic.headline)
                             .foregroundColor(.textPrimary)
@@ -35,10 +35,10 @@ struct AILifeAnalysisCard: View {
                 }
                 Spacer()
             }
-            .padding(.bottom, 20)
+            .padding(.bottom, FDS.Spacing.lg)
 
             // Insight rows with left accent bar
-            VStack(spacing: 12) {
+            VStack(spacing: FDS.Spacing.md) {
                 ForEach(Array(rows.enumerated()), id: \.offset) { i, row in
                     AnalysisInsightRow(
                         icon: row.icon, label: row.label,
@@ -49,7 +49,7 @@ struct AILifeAnalysisCard: View {
                     .animation(.spring(response: 0.5, dampingFraction: 0.76).delay(0.1 + Double(i) * 0.07), value: appeared)
                 }
             }
-            .padding(.bottom, 20)
+            .padding(.bottom, FDS.Spacing.lg)
 
             // Full analysis CTA
             Button {
@@ -64,19 +64,19 @@ struct AILifeAnalysisCard: View {
                         .rotationEffect(.degrees(expanded ? 180 : 0))
                 }
                 .foregroundColor(.ember)
-                .padding(.vertical, 12)
-                .padding(.horizontal, 16)
+                .padding(.vertical, FDS.Spacing.md)
+                .padding(.horizontal, FDS.Spacing.lg)
                 .background(Color.ember.opacity(0.1))
-                .cornerRadius(12)
+                .cornerRadius(FDS.Radius.md)
             }
 
             if expanded {
                 fullAnalysisSection
-                    .padding(.top, 14)
+                    .padding(.top, FDS.Spacing.lg)
                     .transition(.opacity.combined(with: .move(edge: .top)))
             }
         }
-        .padding(22)
+        .padding(FDS.Spacing.xl)
         .forgeGlassCard(cornerRadius: FDS.Radius.xl, accent: .ember)
         .onAppear { appeared = true }
     }
@@ -86,15 +86,15 @@ struct AILifeAnalysisCard: View {
             .font(FDS.TypeScale.Dynamic.micro)
             .tracking(0.5)
             .foregroundColor(.ember)
-            .padding(.horizontal, 6).padding(.vertical, 2)
+            .padding(.horizontal, FDS.Spacing.sm).padding(.vertical, 2)
             .background(Color.ember.opacity(0.12))
-            .cornerRadius(5)
+            .cornerRadius(FDS.Radius.xs)
     }
 
     @ViewBuilder
     private var fullAnalysisSection: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            HStack(spacing: 8) {
+        VStack(alignment: .leading, spacing: FDS.Spacing.md) {
+            HStack(spacing: FDS.Spacing.sm) {
                 ARIAIdentityMark(state: .idle, mood: .energized, size: 18, amplitude: 0.22)
                 Text(isLive ? "ARIA's analysis" : "Summary")
                     .font(FDS.TypeScale.Dynamic.caption)
@@ -114,10 +114,9 @@ struct AILifeAnalysisCard: View {
                     .fixedSize(horizontal: false, vertical: true)
             }
         }
-        .padding(14)
+        .padding(FDS.Spacing.lg)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Color.surfaceElevated)
-        .cornerRadius(14)
+        .forgeInsetTile(radius: FDS.Radius.md)
     }
 }
 
@@ -129,13 +128,13 @@ struct AnalysisInsightRow: View {
     let status: InsightStatus
 
     var body: some View {
-        HStack(spacing: 14) {
+        HStack(spacing: FDS.Spacing.lg) {
             // Colored left accent + icon
             HStack(spacing: 0) {
                 RoundedRectangle(cornerRadius: 2)
                     .fill(status.color)
                     .frame(width: 3, height: 40)
-                    .padding(.trailing, 10)
+                    .padding(.trailing, FDS.Spacing.md)
 
                 ZStack {
                     Circle().fill(status.color.opacity(0.12)).frame(width: 38, height: 38)
@@ -149,7 +148,7 @@ struct AnalysisInsightRow: View {
                 Text(label)
                     .font(FDS.TypeScale.Dynamic.body.weight(.semibold))
                     .foregroundColor(.textPrimary)
-                HStack(spacing: 5) {
+                HStack(spacing: FDS.Spacing.xs) {
                     Text(current)
                         .font(FDS.TypeScale.Dynamic.caption)
                         .foregroundColor(.textSecondary)
@@ -170,10 +169,9 @@ struct AnalysisInsightRow: View {
                 .frame(width: 10, height: 10)
                 .shadow(color: status.color.opacity(0.6), radius: 5)
         }
-        .padding(.horizontal, 12)
-        .padding(.vertical, 10)
-        .background(Color.surfaceElevated)
-        .cornerRadius(14)
+        .padding(.horizontal, FDS.Spacing.md)
+        .padding(.vertical, FDS.Spacing.md)
+        .forgeInsetTile(radius: FDS.Radius.md)
     }
 }
 
@@ -190,8 +188,8 @@ struct AIRecommendationsCard: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            HStack(spacing: 10) {
+        VStack(alignment: .leading, spacing: FDS.Spacing.lg) {
+            HStack(spacing: FDS.Spacing.md) {
                 Image(systemName: "lightbulb.fill")
                     .font(.system(size: 18))
                     .foregroundColor(.ember)
@@ -202,38 +200,38 @@ struct AIRecommendationsCard: View {
                 Text("\(recommendations.count) active")
                     .font(FDS.TypeScale.Dynamic.micro)
                     .foregroundColor(.ember)
-                    .padding(.horizontal, 8).padding(.vertical, 4)
+                    .padding(.horizontal, FDS.Spacing.sm).padding(.vertical, FDS.Spacing.xs)
                     .background(Color.ember.opacity(0.12))
-                    .cornerRadius(8)
+                    .cornerRadius(FDS.Radius.sm)
             }
 
             Button {
                 store.openChat(with: ariaPrompt)
                 UIImpactFeedbackGenerator(style: .light).impactOccurred()
             } label: {
-                HStack(spacing: 8) {
+                HStack(spacing: FDS.Spacing.sm) {
                     ARIAIdentityMark(state: .idle, mood: .energized, size: 16, amplitude: 0.22)
                     Text("Ask ARIA to optimize")
                         .font(FDS.TypeScale.Dynamic.caption)
                 }
                 .foregroundColor(.ember)
                 .frame(maxWidth: .infinity)
-                .padding(.vertical, 10)
+                .padding(.vertical, FDS.Spacing.md)
                 .background(Color.ember.opacity(0.1))
-                .cornerRadius(10)
+                .cornerRadius(FDS.Radius.sm)
             }
             .buttonStyle(.plain)
 
             if recommendations.isEmpty {
-                VStack(spacing: 12) {
+                VStack(spacing: FDS.Spacing.md) {
                     Image(systemName: "checkmark.circle.fill")
                         .font(.system(size: 44)).foregroundColor(.success.opacity(0.6))
                     Text("You're doing great! No new recommendations.")
                         .font(.system(size: 14)).foregroundColor(.textSecondary)
                 }
-                .frame(maxWidth: .infinity).padding(.vertical, 24)
+                .frame(maxWidth: .infinity).padding(.vertical, FDS.Spacing.xl)
             } else {
-                VStack(spacing: 12) {
+                VStack(spacing: FDS.Spacing.md) {
                     ForEach(Array(recommendations.enumerated()), id: \.element.id) { i, rec in
                         RecommendationCard(recommendation: rec)
                             .opacity(appeared ? 1 : 0)
@@ -243,7 +241,7 @@ struct AIRecommendationsCard: View {
                 }
             }
         }
-        .padding(22)
+        .padding(FDS.Spacing.xl)
         .forgeGlassCard(cornerRadius: FDS.Radius.xl, accent: .ember)
         .onAppear { appeared = true }
     }
@@ -267,9 +265,9 @@ struct RecommendationCard: View {
                     withAnimation(.spring(response: 0.35, dampingFraction: 0.72)) { expanded.toggle() }
                     UIImpactFeedbackGenerator(style: .light).impactOccurred()
                 } label: {
-                    VStack(alignment: .leading, spacing: 8) {
+                    VStack(alignment: .leading, spacing: FDS.Spacing.sm) {
                         HStack {
-                            HStack(spacing: 6) {
+                            HStack(spacing: FDS.Spacing.sm) {
                                 Image(systemName: recommendation.category.icon)
                                     .font(.system(size: 11))
                                     .foregroundColor(recommendation.impact.color)
@@ -279,7 +277,7 @@ struct RecommendationCard: View {
                                     .tracking(1.5)
                             }
                             Spacer()
-                            HStack(spacing: 4) {
+                            HStack(spacing: FDS.Spacing.xs) {
                                 Text(recommendation.impact.rawValue)
                                     .font(FDS.TypeScale.Dynamic.micro)
                                     .foregroundColor(recommendation.impact.color)
@@ -302,13 +300,13 @@ struct RecommendationCard: View {
                                 .transition(.opacity.combined(with: .scale(scale: 0.96, anchor: .top)))
                         }
                     }
-                    .padding(14)
+                    .padding(FDS.Spacing.lg)
                 }
                 .buttonStyle(.plain)
             }
         }
         .background(recommendation.impact.color.opacity(0.05))
-        .cornerRadius(14)
+        .cornerRadius(FDS.Radius.md)
         .overlay(
             RoundedRectangle(cornerRadius: FDS.Radius.md)
                 .stroke(recommendation.impact.color.opacity(0.18), lineWidth: 1)
@@ -345,12 +343,12 @@ struct OptimizationGoalsCard: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 16) {
+        VStack(alignment: .leading, spacing: FDS.Spacing.lg) {
             Text("Optimization Goals")
                 .font(FDS.TypeScale.Dynamic.headline)
                 .foregroundColor(.textPrimary)
 
-            VStack(spacing: 12) {
+            VStack(spacing: FDS.Spacing.md) {
                 ForEach(Array(goals.enumerated()), id: \.offset) { i, goal in
                     GoalProgressItem(
                         title: goal.title, progress: goal.progress,
@@ -360,7 +358,7 @@ struct OptimizationGoalsCard: View {
                 }
             }
         }
-        .padding(22)
+        .padding(FDS.Spacing.xl)
         .forgeGlassCard(cornerRadius: FDS.Radius.xl, accent: .ember)
         .onAppear { appeared = true }
     }
@@ -376,7 +374,7 @@ struct GoalProgressItem: View {
     let index: Int
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
+        VStack(alignment: .leading, spacing: FDS.Spacing.md) {
             HStack {
                 Text(title)
                     .font(FDS.TypeScale.Dynamic.body.weight(.semibold))
@@ -386,7 +384,7 @@ struct GoalProgressItem: View {
                     .font(FDS.TypeScale.Dynamic.caption)
                     .foregroundColor(color)
             }
-            HStack(spacing: 6) {
+            HStack(spacing: FDS.Spacing.sm) {
                 Text(current)
                     .font(FDS.TypeScale.Dynamic.caption)
                     .foregroundColor(.textSecondary)
@@ -412,9 +410,8 @@ struct GoalProgressItem: View {
             }
             .frame(height: 6)
         }
-        .padding(14)
-        .background(Color.surfaceElevated)
-        .cornerRadius(14)
+        .padding(FDS.Spacing.lg)
+        .forgeInsetTile(radius: FDS.Radius.md)
         .overlay(RoundedRectangle(cornerRadius: FDS.Radius.md).stroke(color.opacity(0.15), lineWidth: 1))
     }
 }

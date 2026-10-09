@@ -151,7 +151,7 @@ struct HomeCookingView: View {
                 .foregroundColor(.ember)
                 .padding(.horizontal, 12).padding(.vertical, 7)
                 .background(Color.ember.opacity(0.12))
-                .cornerRadius(20)
+                .cornerRadius(FDS.Radius.xl)
             }
             Button {
                 withAnimation { showFilters.toggle() }
@@ -165,7 +165,7 @@ struct HomeCookingView: View {
                 .foregroundColor(activeFilterCount > 0 ? .white : .textSecondary)
                 .padding(.horizontal, 12).padding(.vertical, 7)
                 .background(activeFilterCount > 0 ? Color.ember : Color.surfaceElevated)
-                .cornerRadius(20)
+                .cornerRadius(FDS.Radius.xl)
             }
             .buttonStyle(.plain)
         }
@@ -269,7 +269,7 @@ struct HomeCookingView: View {
             .foregroundColor(selected ? .white : .textSecondary)
             .padding(.horizontal, 12).padding(.vertical, 8)
             .background(selected ? Color.ember : Color.surfaceElevated)
-            .cornerRadius(20)
+            .cornerRadius(FDS.Radius.xl)
         }
         .buttonStyle(.plain)
         .accessibilityAddTraits(selected ? [.isSelected, .isButton] : .isButton)
@@ -348,7 +348,7 @@ private struct MealRowCard: View {
         }
         .padding(.horizontal, 8).padding(.vertical, 4)
         .background(color.opacity(0.12))
-        .cornerRadius(8)
+        .cornerRadius(FDS.Radius.sm)
     }
 
     private func tagPill(_ text: String, _ color: Color) -> some View {
@@ -357,7 +357,7 @@ private struct MealRowCard: View {
             .foregroundColor(color)
             .padding(.horizontal, 8).padding(.vertical, 4)
             .background(color.opacity(0.12))
-            .cornerRadius(8)
+            .cornerRadius(FDS.Radius.sm)
     }
 }
 
@@ -529,7 +529,7 @@ private struct MealDetailSheet: View {
             .frame(maxWidth: .infinity)
             .frame(height: 52)
             .background(logged ? Color.success : Color.ember)
-            .cornerRadius(14)
+            .cornerRadius(FDS.Radius.md)
         }
         .buttonStyle(.plain)
         .disabled(logged)

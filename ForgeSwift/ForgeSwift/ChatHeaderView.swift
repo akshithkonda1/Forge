@@ -13,7 +13,7 @@ struct ChatHeaderView: View {
     }
 
     var body: some View {
-            HStack(spacing: 12) {
+            HStack(spacing: FDS.Spacing.md) {
             ARIAIdentityMark(state: .idle, mood: mood, size: 44, amplitude: 0.2)
             .onLongPressGesture(minimumDuration: 0.45) {
                 choreographedHaptic(.reactionAdded)
@@ -21,7 +21,7 @@ struct ChatHeaderView: View {
             }
 
             VStack(alignment: .leading, spacing: 3) {
-                HStack(spacing: 6) {
+                HStack(spacing: FDS.Spacing.sm) {
                     Text("ARIA")
                         .font(ForgeType.title)
                         .foregroundColor(.textPrimary)
@@ -42,7 +42,7 @@ struct ChatHeaderView: View {
                     }
                 }
 
-                HStack(spacing: 5) {
+                HStack(spacing: FDS.Spacing.xs) {
                     if ariaService.isTestReady || AriaOperatingMode.current.isDummy {
                         Image(systemName: "checkmark.seal")
                             .font(.system(size: 8, weight: .bold))
@@ -85,8 +85,8 @@ struct ChatHeaderView: View {
                     Text(AriaFirstBond.skipLabel)
                         .font(FDS.TypeScale.Dynamic.caption)
                         .foregroundColor(.textTertiary)
-                        .padding(.horizontal, 12)
-                        .padding(.vertical, 6)
+                        .padding(.horizontal, FDS.Spacing.md)
+                        .padding(.vertical, FDS.Spacing.sm)
                         .background(Color.white.opacity(0.05))
                         .clipShape(Capsule())
                         .overlay(
@@ -126,8 +126,8 @@ struct ChatHeaderView: View {
                 .shadow(color: scoreColor.opacity(0.42), radius: 8)
             }
         }
-        .padding(.horizontal, 18)
-        .padding(.vertical, 12)
+        .padding(.horizontal, FDS.Spacing.lg)
+        .padding(.vertical, FDS.Spacing.md)
         .background {
             ZStack {
                 Rectangle().fill(.ultraThinMaterial)

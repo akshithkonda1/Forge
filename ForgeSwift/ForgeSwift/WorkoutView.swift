@@ -88,34 +88,34 @@ struct WorkoutIdleView: View {
                     Spacer()
                     AriaTrainMuteButton()
                 }
-                .padding(.horizontal, 20)
-                .padding(.top, 12)
+                .padding(.horizontal, FDS.Spacing.lg)
+                .padding(.top, FDS.Spacing.md)
             if let workout = store.todayWorkout {
                 ScrollView(showsIndicators: false) {
-                    VStack(spacing: 18) {
+                    VStack(spacing: FDS.Spacing.lg) {
                         idleHeader(workout: workout)
-                            .padding(.horizontal, 20)
-                            .padding(.top, 8)
+                            .padding(.horizontal, FDS.Spacing.lg)
+                            .padding(.top, FDS.Spacing.sm)
 
                         if scaling.isModified {
                             AdaptiveScalingCard(scaling: scaling, applied: workout.autoScaled)
-                                .padding(.horizontal, 16)
+                                .padding(.horizontal, FDS.Spacing.lg)
                         }
 
-                        exerciseList(workout: workout).padding(.horizontal, 16)
+                        exerciseList(workout: workout).padding(.horizontal, FDS.Spacing.lg)
 
                         ariaLine()
-                            .padding(.horizontal, 16)
-                            .padding(.bottom, 12)
+                            .padding(.horizontal, FDS.Spacing.lg)
+                            .padding(.bottom, FDS.Spacing.md)
                     }
                 }
 
-                VStack(spacing: 10) {
+                VStack(spacing: FDS.Spacing.md) {
                     startButton(workout: workout)
                     compactToolbar
                 }
-                .padding(.horizontal, 16)
-                .padding(.top, 8)
+                .padding(.horizontal, FDS.Spacing.lg)
+                .padding(.top, FDS.Spacing.sm)
                 .padding(.bottom, 96)
                 .background(Color.background.opacity(0.92))
             } else {
@@ -156,7 +156,7 @@ struct WorkoutIdleView: View {
     }
 
     private var compactToolbar: some View {
-        HStack(spacing: 8) {
+        HStack(spacing: FDS.Spacing.sm) {
             toolbarChip(icon: "calendar", title: "Week") { showWeekPicker = true }
             toolbarChip(icon: "arrow.uturn.backward", title: "Yesterday") {
                 store.adoptSplitSession(replayPrior: true)
@@ -171,20 +171,20 @@ struct WorkoutIdleView: View {
             UIImpactFeedbackGenerator(style: .light).impactOccurred()
             action()
         } label: {
-            HStack(spacing: 6) {
+            HStack(spacing: FDS.Spacing.sm) {
                 Image(systemName: icon).font(.system(size: 12, weight: .semibold))
                 Text(title).font(FDS.TypeScale.Dynamic.caption)
             }
             .foregroundColor(.textSecondary)
             .frame(maxWidth: .infinity)
-            .padding(.vertical, 10)
+            .padding(.vertical, FDS.Spacing.md)
             .forgeGlassCard(cornerRadius: FDS.Radius.md, accent: .ember)
         }
         .buttonStyle(.plain)
     }
 
     private func idleHeader(workout: WorkoutPlan) -> some View {
-        VStack(alignment: .leading, spacing: 14) {
+        VStack(alignment: .leading, spacing: FDS.Spacing.lg) {
             HStack(alignment: .center) {
                 Text(dayCall.title)
                     .font(FDS.TypeScale.Dynamic.caption)
@@ -208,7 +208,7 @@ struct WorkoutIdleView: View {
                 .foregroundColor(.textSecondary)
                 .fixedSize(horizontal: false, vertical: true)
 
-            HStack(spacing: 8) {
+            HStack(spacing: FDS.Spacing.sm) {
                 WorkoutStatPill(icon: "clock.fill", value: "\(workout.duration)", label: "min")
                 WorkoutStatPill(icon: "list.bullet", value: "\(workout.exercises.count)", label: "moves")
                 WorkoutStatPill(icon: "flame.fill", value: workout.intensity.label, label: "", color: workout.intensity.color)
@@ -247,7 +247,7 @@ struct WorkoutIdleView: View {
                 facts: facts
             )
         }()
-        return HStack(alignment: .top, spacing: 10) {
+        return HStack(alignment: .top, spacing: FDS.Spacing.md) {
             ARIAIdentityMark(state: .idle, mood: .focused, size: 22, amplitude: 0.25)
             Text(line)
                 .font(.system(size: 14))
@@ -255,7 +255,7 @@ struct WorkoutIdleView: View {
                 .lineSpacing(3)
             Spacer(minLength: 0)
         }
-        .padding(14)
+        .padding(FDS.Spacing.lg)
         .background(Color.surface)
         .clipShape(RoundedRectangle(cornerRadius: FDS.Radius.lg, style: .continuous))
         .task { store.shareWorkoutInsightsIfNeeded([line]) }
@@ -268,7 +268,7 @@ struct WorkoutIdleView: View {
                 Spacer()
                 Text("\(workout.exercises.count) total").font(FDS.TypeScale.Dynamic.caption).foregroundColor(.textMuted)
             }
-            .padding(.horizontal, 20).padding(.bottom, 18)
+            .padding(.horizontal, FDS.Spacing.lg).padding(.bottom, FDS.Spacing.lg)
             ForEach(Array(workout.exercises.enumerated()), id: \.element.id) { idx, ex in
                 WorkoutExerciseRow(exercise: ex, index: idx, isExpanded: selectedExerciseIndex == idx, onTap: {
                     UIImpactFeedbackGenerator(style: .light).impactOccurred()
@@ -283,7 +283,7 @@ struct WorkoutIdleView: View {
                 }
             }
         }
-        .padding(.vertical, 20)
+        .padding(.vertical, FDS.Spacing.lg)
         .forgeGlassCard(accent: .ember)
     }
 
@@ -296,14 +296,14 @@ struct WorkoutIdleView: View {
                 UINotificationFeedbackGenerator().notificationOccurred(.success)
             }
         } label: {
-            HStack(spacing: 12) {
+            HStack(spacing: FDS.Spacing.md) {
                 Image(systemName: "play.fill").font(.system(size: 20, weight: .black))
                 Text(dayCall.cta).font(FDS.TypeScale.Dynamic.metric)
                 Spacer()
                 Image(systemName: "arrow.right").font(.system(size: 18, weight: .bold))
             }
             .foregroundColor(.white)
-            .padding(.horizontal, 28).padding(.vertical, 22)
+            .padding(.horizontal, FDS.Spacing.xl).padding(.vertical, FDS.Spacing.xl)
             .background {
                 ZStack {
                     FDS.Gradient.ember
@@ -351,8 +351,8 @@ private struct AdaptiveScalingCard: View {
     let applied: Bool
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 14) {
-            HStack(spacing: 8) {
+        VStack(alignment: .leading, spacing: FDS.Spacing.lg) {
+            HStack(spacing: FDS.Spacing.sm) {
                 ZStack {
                     Circle().fill(scaling.tone.opacity(0.15)).frame(width: 30, height: 30)
                     Image(systemName: "wand.and.stars").font(.system(size: 13)).foregroundColor(scaling.tone)
@@ -372,19 +372,19 @@ private struct AdaptiveScalingCard: View {
             Text(scaling.detail).font(.system(size: 13)).foregroundColor(.textSecondary).lineSpacing(4)
 
             if scaling.isModified {
-                HStack(spacing: 8) {
+                HStack(spacing: FDS.Spacing.sm) {
                     Image(systemName: "checkmark.circle.fill").font(.system(size: 14, weight: .bold))
                     Text(applied ? "ARIA already scaled this session. Add a set in Train if you feel it." : "ARIA scaled this from readiness — it's already on the board.")
                         .font(FDS.TypeScale.Dynamic.body.weight(.semibold))
                     Spacer()
                 }
                 .foregroundColor(scaling.tone)
-                .padding(.horizontal, 16).padding(.vertical, 12)
+                .padding(.horizontal, FDS.Spacing.lg).padding(.vertical, FDS.Spacing.md)
                 .background(scaling.tone.opacity(0.12))
-                .cornerRadius(13)
+                .cornerRadius(FDS.Radius.md)
             }
         }
-        .padding(18)
+        .padding(FDS.Spacing.lg)
         .forgeGlassCard(cornerRadius: FDS.Radius.xl, accent: scaling.tone)
     }
 }
@@ -455,7 +455,7 @@ private struct ReadinessIntensityArc: View {
     }
 
     var body: some View {
-        HStack(spacing: 16) {
+        HStack(spacing: FDS.Spacing.lg) {
             ZStack {
                 Circle().stroke(Color.borderColor.opacity(0.3), style: StrokeStyle(lineWidth: 4, lineCap: .round)).frame(width: 56, height: 56)
                 Circle().trim(from: 0, to: appeared ? readinessFraction : 0)
@@ -468,17 +468,17 @@ private struct ReadinessIntensityArc: View {
                     .animation(.spring(response: 0.9, dampingFraction: 0.75).delay(0.22), value: appeared)
                 Text("\(readiness)").font(FDS.TypeScale.Dynamic.caption).foregroundColor(.textPrimary)
             }
-            VStack(alignment: .leading, spacing: 4) {
-                HStack(spacing: 6) {
+            VStack(alignment: .leading, spacing: FDS.Spacing.xs) {
+                HStack(spacing: FDS.Spacing.sm) {
                     Circle().fill(matchColor).frame(width: 6, height: 6).shadow(color: matchColor.opacity(0.5), radius: 3)
                     Text(matchLabel).font(FDS.TypeScale.Dynamic.caption).foregroundColor(.textPrimary)
                 }
-                HStack(spacing: 10) {
-                    HStack(spacing: 4) {
+                HStack(spacing: FDS.Spacing.md) {
+                    HStack(spacing: FDS.Spacing.xs) {
                         Circle().fill(Color.success.opacity(0.7)).frame(width: 6, height: 6)
                         Text("Readiness \(readiness)%").font(.system(size: 11)).foregroundColor(.textTertiary)
                     }
-                    HStack(spacing: 4) {
+                    HStack(spacing: FDS.Spacing.xs) {
                         Circle().fill(Color.ember.opacity(0.8)).frame(width: 6, height: 6)
                         Text(intensity.label).font(.system(size: 11)).foregroundColor(.textTertiary)
                     }
@@ -486,7 +486,7 @@ private struct ReadinessIntensityArc: View {
             }
             Spacer()
         }
-        .padding(16)
+        .padding(FDS.Spacing.lg)
         .forgeGlassCard(cornerRadius: FDS.Radius.lg, accent: matchColor)
         .onAppear { appeared = true }
     }
@@ -496,7 +496,7 @@ struct AgeCompareChip: View {
     let snapshot: AgingSnapshot
 
     var body: some View {
-        HStack(spacing: 10) {
+        HStack(spacing: FDS.Spacing.md) {
             Image(systemName: "clock.arrow.2.circlepath")
                 .font(.system(size: 13, weight: .semibold))
                 .foregroundColor(tone)
@@ -523,8 +523,8 @@ struct AgeCompareChip: View {
                     .foregroundColor(.textTertiary)
             }
         }
-        .padding(.horizontal, 14)
-        .padding(.vertical, 12)
+        .padding(.horizontal, FDS.Spacing.lg)
+        .padding(.vertical, FDS.Spacing.md)
         .background(tone.opacity(0.08))
         .clipShape(RoundedRectangle(cornerRadius: FDS.Radius.md, style: .continuous))
         .overlay(
@@ -551,13 +551,13 @@ struct WorkoutStatPill: View {
     let icon: String; let value: String; let label: String
     var color: Color = .textSecondary
     var body: some View {
-        HStack(spacing: 4) {
+        HStack(spacing: FDS.Spacing.xs) {
             Image(systemName: icon).font(.system(size: 11)).foregroundColor(color)
             Text(value).font(FDS.TypeScale.Dynamic.caption).foregroundColor(.textPrimary)
             Text(label).font(FDS.TypeScale.Dynamic.micro).foregroundColor(.textSecondary).lineLimit(1)
 
         }
-        .padding(.horizontal, 12).padding(.vertical, 9)
+        .padding(.horizontal, FDS.Spacing.md).padding(.vertical, FDS.Spacing.sm)
         .background(Color.white.opacity(0.05))
         .clipShape(Capsule())
         .overlay(Capsule().stroke(Color.white.opacity(0.10), lineWidth: 1))
@@ -573,7 +573,7 @@ struct WorkoutExerciseRow: View {
     var body: some View {
         Button(action: onTap) {
             VStack(spacing: 0) {
-                HStack(spacing: 14) {
+                HStack(spacing: FDS.Spacing.lg) {
                     ZStack {
                         Circle()
                             .fill(LinearGradient(colors: [(def?.accent ?? .ember).opacity(0.18), (def?.accent ?? .ember).opacity(0.07)],
@@ -581,10 +581,10 @@ struct WorkoutExerciseRow: View {
                             .frame(width: 42, height: 42)
                         Text("\(index + 1)").font(FDS.TypeScale.Dynamic.headline).foregroundColor(def?.accent ?? .ember)
                     }
-                    VStack(alignment: .leading, spacing: 4) {
+                    VStack(alignment: .leading, spacing: FDS.Spacing.xs) {
                         Text(exercise.name)
                             .font(FDS.TypeScale.Dynamic.body.weight(.semibold)).foregroundColor(.textPrimary).lineLimit(isExpanded ? nil : 1)
-                        HStack(spacing: 8) {
+                        HStack(spacing: FDS.Spacing.sm) {
                             Label("\(exercise.sets) × \(exercise.reps)", systemImage: "repeat")
                                 .font(.system(size: 12)).foregroundColor(.textSecondary)
                             if let w = exercise.weight {
@@ -603,18 +603,18 @@ struct WorkoutExerciseRow: View {
                         .rotationEffect(.degrees(isExpanded ? 180 : 0))
                         .animation(.spring(response: 0.35, dampingFraction: 0.75), value: isExpanded)
                 }
-                .padding(.horizontal, 20).padding(.vertical, 16)
+                .padding(.horizontal, FDS.Spacing.lg).padding(.vertical, FDS.Spacing.lg)
                 if isExpanded {
-                    VStack(alignment: .leading, spacing: 10) {
-                        Divider().background(Color.borderColor.opacity(0.5)).padding(.horizontal, 20)
+                    VStack(alignment: .leading, spacing: FDS.Spacing.md) {
+                        Divider().background(Color.borderColor.opacity(0.5)).padding(.horizontal, FDS.Spacing.lg)
                         if let def {
                             // Muscle map + mechanics chips
-                            HStack(spacing: 6) {
+                            HStack(spacing: FDS.Spacing.sm) {
                                 metaChip(def.pattern.label, "arrow.triangle.branch", def.accent)
                                 metaChip(def.equipment.label, def.equipment.icon, .steel)
                                 metaChip(def.isCompound ? "Compound" : "Isolation", "square.stack.3d.up.fill", .textTertiary)
                             }
-                            .padding(.horizontal, 20)
+                            .padding(.horizontal, FDS.Spacing.lg)
                             if let cue = def.cues.first {
                                 cueRow(icon: "checkmark.circle.fill", color: def.accent, text: cue)
                             }
@@ -625,16 +625,16 @@ struct WorkoutExerciseRow: View {
                         if let notes = exercise.notes {
                             cueRow(icon: "info.circle.fill", color: .steel, text: notes)
                         }
-                        HStack(spacing: 6) {
+                        HStack(spacing: FDS.Spacing.sm) {
                             Image(systemName: "clock.fill").font(.system(size: 12)).foregroundColor(.textMuted)
                             Text("\(exercise.restSeconds)s rest between sets").font(.system(size: 12)).foregroundColor(.textTertiary)
                         }
-                        .padding(.horizontal, 20)
+                        .padding(.horizontal, FDS.Spacing.lg)
                         Button {
                             FDS.haptic(.medium)
                             store.showHowToPerform(exercise.name)
                         } label: {
-                            HStack(spacing: 8) {
+                            HStack(spacing: FDS.Spacing.sm) {
                                 ARIAIdentityMark(state: .idle, mood: .energized, size: 22, amplitude: 0.3)
                                 Text("Show me how")
                                     .font(FDS.TypeScale.Dynamic.body.weight(.semibold))
@@ -642,14 +642,14 @@ struct WorkoutExerciseRow: View {
                                 Image(systemName: "books.vertical.fill").font(.system(size: 13, weight: .semibold))
                             }
                             .foregroundColor(.white)
-                            .padding(.horizontal, 14)
-                            .padding(.vertical, 12)
+                            .padding(.horizontal, FDS.Spacing.lg)
+                            .padding(.vertical, FDS.Spacing.md)
                             .background(Color.ember)
                             .clipShape(RoundedRectangle(cornerRadius: FDS.Radius.md, style: .continuous))
                         }
                         .buttonStyle(.plain)
-                        .padding(.horizontal, 20)
-                        .padding(.bottom, 14)
+                        .padding(.horizontal, FDS.Spacing.lg)
+                        .padding(.bottom, FDS.Spacing.lg)
                     }
                     .transition(.opacity.combined(with: .scale(scale: 0.97, anchor: .top)))
                 }
@@ -660,19 +660,19 @@ struct WorkoutExerciseRow: View {
     }
 
     private func cueRow(icon: String, color: Color, text: String) -> some View {
-        HStack(alignment: .top, spacing: 8) {
+        HStack(alignment: .top, spacing: FDS.Spacing.sm) {
             Image(systemName: icon).font(.system(size: 13)).foregroundColor(color)
             Text(text).font(.system(size: 13)).foregroundColor(.textSecondary).lineSpacing(4)
             Spacer(minLength: 0)
         }
-        .padding(.horizontal, 20)
+        .padding(.horizontal, FDS.Spacing.lg)
     }
     private func metaChip(_ text: String, _ icon: String, _ color: Color) -> some View {
-        HStack(spacing: 4) {
+        HStack(spacing: FDS.Spacing.xs) {
             Image(systemName: icon).font(.system(size: 9))
             Text(text).font(FDS.TypeScale.Dynamic.micro)
         }
-        .foregroundColor(color).padding(.horizontal, 8).padding(.vertical, 5)
+        .foregroundColor(color).padding(.horizontal, FDS.Spacing.sm).padding(.vertical, FDS.Spacing.xs)
         .background(color.opacity(0.1)).cornerRadius(7)
     }
 }
@@ -716,14 +716,14 @@ struct WorkoutInsightsView: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 14) {
-            HStack(spacing: 7) {
+        VStack(alignment: .leading, spacing: FDS.Spacing.lg) {
+            HStack(spacing: FDS.Spacing.sm) {
                 Image(systemName: "brain.head.profile").font(.system(size: 14)).foregroundColor(.ember)
                 Text("ARIA INSIGHTS").font(FDS.TypeScale.Dynamic.micro).foregroundColor(.textTertiary).tracking(2.5)
             }
-            VStack(spacing: 10) {
+            VStack(spacing: FDS.Spacing.md) {
                 ForEach(Array(insights.enumerated()), id: \.offset) { idx, insight in
-                    HStack(alignment: .top, spacing: 12) {
+                    HStack(alignment: .top, spacing: FDS.Spacing.md) {
                         ZStack {
                             Circle().fill(insight.color.opacity(0.12)).frame(width: 32, height: 32)
                             Image(systemName: insight.icon).font(.system(size: 13)).foregroundColor(insight.color)
@@ -731,13 +731,13 @@ struct WorkoutInsightsView: View {
                         Text(insight.text).font(.system(size: 13)).foregroundColor(.textSecondary).lineSpacing(4)
                         Spacer()
                     }
-                    .padding(12).background(Color.surfaceElevated).cornerRadius(13)
+                    .padding(FDS.Spacing.md).forgeInsetTile(radius: FDS.Radius.md)
                     .opacity(appeared ? 1 : 0).offset(x: appeared ? 0 : -14)
                     .animation(.spring(response: 0.5, dampingFraction: 0.8).delay(Double(idx) * 0.1), value: appeared)
                 }
             }
         }
-        .padding(20)
+        .padding(FDS.Spacing.lg)
         .forgeGlassCard(cornerRadius: FDS.Radius.xl, accent: .ember)
         .onAppear { appeared = true }
         .task { store.shareWorkoutInsightsIfNeeded(insights.map(\.text)) }
@@ -800,7 +800,7 @@ struct WorkoutEmptyState: View {
     }
 
     var body: some View {
-        VStack(spacing: 24) {
+        VStack(spacing: FDS.Spacing.xl) {
             Spacer()
             ZStack {
                 Circle()
@@ -810,7 +810,7 @@ struct WorkoutEmptyState: View {
                 AuroraOrbView(state: .idle, amplitude: 0.30, mood: .energized, size: 112, followPresence: true)
             }
             .scaleEffect(appeared ? 1 : 0.8).opacity(appeared ? 1 : 0)
-            VStack(spacing: 10) {
+            VStack(spacing: FDS.Spacing.md) {
                 Text("No session on the board")
                     .font(ForgeType.pageTitle)
                     .foregroundColor(.textPrimary)
@@ -822,20 +822,20 @@ struct WorkoutEmptyState: View {
             if aging.showsOnTrain {
                 AgeCompareChip(snapshot: aging)
                     .id(agingStamp)
-                    .padding(.horizontal, 28)
+                    .padding(.horizontal, FDS.Spacing.xl)
                     .opacity(appeared ? 1 : 0)
             }
-            VStack(spacing: 12) {
+            VStack(spacing: FDS.Spacing.md) {
                 ForgePrimaryButton(title: "Write today’s session", icon: "sparkles") {
                     store.rebuildTodayPlanFromLife()
                 }
-                .padding(.horizontal, 28)
+                .padding(.horizontal, FDS.Spacing.xl)
                 Button { showLibrary = true } label: {
-                    HStack(spacing: 8) {
+                    HStack(spacing: FDS.Spacing.sm) {
                         Image(systemName: "books.vertical.fill").font(.system(size: 14))
                         Text("Browse the library").font(FDS.TypeScale.Dynamic.body.weight(.semibold))
                     }
-                    .foregroundColor(.steel).padding(.horizontal, 24).padding(.vertical, 13)
+                    .foregroundColor(.steel).padding(.horizontal, FDS.Spacing.xl).padding(.vertical, FDS.Spacing.md)
                     .background(Color.steel.opacity(0.12))
                     .clipShape(RoundedRectangle(cornerRadius: FDS.Radius.lg, style: .continuous))
                     .overlay(RoundedRectangle(cornerRadius: FDS.Radius.lg, style: .continuous).stroke(Color.steel.opacity(0.3), lineWidth: 1))

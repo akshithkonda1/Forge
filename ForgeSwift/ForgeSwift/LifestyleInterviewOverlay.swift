@@ -24,7 +24,7 @@ struct LifestyleInterviewOverlay: View {
     var body: some View {
         ZStack {
             Color.black.opacity(0.55).ignoresSafeArea()
-            VStack(alignment: .leading, spacing: 18) {
+            VStack(alignment: .leading, spacing: FDS.Spacing.lg) {
                 Text("ARIA")
                     .font(FDS.TypeScale.Dynamic.caption)
                     .foregroundColor(.ember)
@@ -39,15 +39,15 @@ struct LifestyleInterviewOverlay: View {
                     Button(step >= lastStep ? "That's me" : "Continue") { advance() }
                         .font(.system(size: 15, weight: .semibold))
                         .foregroundColor(.white)
-                        .padding(.horizontal, 18)
-                        .padding(.vertical, 10)
+                        .padding(.horizontal, FDS.Spacing.lg)
+                        .padding(.vertical, FDS.Spacing.md)
                         .background(Color.ember)
                         .clipShape(Capsule())
                 }
             }
-            .padding(22)
+            .padding(FDS.Spacing.xl)
             .forgeGlassCard(cornerRadius: FDS.Radius.xl, accent: .ember)
-            .padding(20)
+            .padding(FDS.Spacing.lg)
         }
     }
 
@@ -65,7 +65,7 @@ struct LifestyleInterviewOverlay: View {
                 body: "I am not chasing a generic 8 hours and 10k steps. I am asking: are you happy, unstressed, mentally here, and still healthy in the life you actually live? 100 is possible. It is not the point. Life and I use the same number."
             )
         case 2:
-            VStack(alignment: .leading, spacing: 12) {
+            VStack(alignment: .leading, spacing: FDS.Spacing.md) {
                 Text("Who are you, on a normal week?")
                     .font(FDS.TypeScale.Dynamic.metric)
                     .foregroundColor(.textPrimary)
@@ -74,7 +74,7 @@ struct LifestyleInterviewOverlay: View {
                 choice("A mix", selected: archetype == .balanced) { archetype = .balanced }
             }
         case 3:
-            VStack(alignment: .leading, spacing: 12) {
+            VStack(alignment: .leading, spacing: FDS.Spacing.md) {
                 Text("How do you like to move?")
                     .font(FDS.TypeScale.Dynamic.metric)
                     .foregroundColor(.textPrimary)
@@ -86,7 +86,7 @@ struct LifestyleInterviewOverlay: View {
                 }
             }
         case 4:
-            VStack(alignment: .leading, spacing: 12) {
+            VStack(alignment: .leading, spacing: FDS.Spacing.md) {
                 Text("What fills a free day?")
                     .font(FDS.TypeScale.Dynamic.metric)
                     .foregroundColor(.textPrimary)
@@ -121,7 +121,7 @@ struct LifestyleInterviewOverlay: View {
                 label: String(format: "%.0f / 10", workStrain)
             )
         default:
-            VStack(alignment: .leading, spacing: 12) {
+            VStack(alignment: .leading, spacing: FDS.Spacing.md) {
                 Text("Food, for you, is mostly…")
                     .font(FDS.TypeScale.Dynamic.metric)
                     .foregroundColor(.textPrimary)
@@ -131,7 +131,7 @@ struct LifestyleInterviewOverlay: View {
                 Text("And a normal day of eating is…")
                     .font(FDS.TypeScale.Dynamic.headline)
                     .foregroundColor(.textPrimary)
-                    .padding(.top, 8)
+                    .padding(.top, FDS.Spacing.sm)
                 ForEach(LivingEatingRhythm.allCases, id: \.self) { item in
                     choice(item.title, selected: eatingRhythm == item) { eatingRhythm = item }
                 }
@@ -140,7 +140,7 @@ struct LifestyleInterviewOverlay: View {
     }
 
     private func copy(title: String, body: String) -> some View {
-        VStack(alignment: .leading, spacing: 10) {
+        VStack(alignment: .leading, spacing: FDS.Spacing.md) {
             Text(title)
                 .font(FDS.TypeScale.Dynamic.metric)
                 .foregroundColor(.textPrimary)
@@ -161,7 +161,7 @@ struct LifestyleInterviewOverlay: View {
                     Image(systemName: "checkmark.circle.fill").foregroundColor(.ember)
                 }
             }
-            .padding(12)
+            .padding(FDS.Spacing.md)
             .background(selected ? Color.ember.opacity(0.12) : Color.surfaceElevated)
             .clipShape(RoundedRectangle(cornerRadius: FDS.Radius.md, style: .continuous))
         }
@@ -169,7 +169,7 @@ struct LifestyleInterviewOverlay: View {
     }
 
     private func sliderBlock(title: String, value: Binding<Double>, range: ClosedRange<Double>, label: String) -> some View {
-        VStack(alignment: .leading, spacing: 10) {
+        VStack(alignment: .leading, spacing: FDS.Spacing.md) {
             Text(title)
                 .font(FDS.TypeScale.Dynamic.metric)
                 .foregroundColor(.textPrimary)

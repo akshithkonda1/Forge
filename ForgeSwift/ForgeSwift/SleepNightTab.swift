@@ -14,7 +14,7 @@ struct SleepDayTab: View {
 
     var body: some View {
         ScrollView(showsIndicators: false) {
-            VStack(alignment: .leading, spacing: 28) {
+            VStack(alignment: .leading, spacing: FDS.Spacing.xl) {
                 if isInitialLoading {
                     ForgeSkeletonBlock(height: 88, cornerRadius: FDS.Radius.lg)
                     ForgeSkeletonBlock(height: 160, cornerRadius: FDS.Radius.lg)
@@ -53,8 +53,8 @@ struct SleepDayTab: View {
                     SleepLifestyleCaption()
                 }
             }
-            .padding(.horizontal, 20)
-            .padding(.top, 12)
+            .padding(.horizontal, FDS.Spacing.lg)
+            .padding(.top, FDS.Spacing.md)
             .padding(.bottom, 120)
         }
         .task {
@@ -74,7 +74,7 @@ struct SleepNightTab: View {
 
     var body: some View {
         ScrollView(showsIndicators: false) {
-            VStack(alignment: .leading, spacing: 24) {
+            VStack(alignment: .leading, spacing: FDS.Spacing.xl) {
                 SleepSourceStrip(presence: store.sleepSurface)
                 SleepTonightHero(coach: coach)
                 SleepInBedCard()
@@ -84,7 +84,7 @@ struct SleepNightTab: View {
                 Button {
                     store.openChat(with: coach.ariaPrompt, voice: false)
                 } label: {
-                    HStack(spacing: 12) {
+                    HStack(spacing: FDS.Spacing.md) {
                         ARIAIdentityMark(state: .idle, mood: .energized, size: 22, amplitude: 0.24)
                         VStack(alignment: .leading, spacing: 2) {
                             Text("Ask ARIA to get you to bed")
@@ -101,7 +101,7 @@ struct SleepNightTab: View {
                             .font(.system(size: 12, weight: .semibold))
                             .foregroundColor(.ember)
                     }
-                    .padding(16)
+                    .padding(FDS.Spacing.lg)
                     .forgeGlassCard(cornerRadius: FDS.Radius.lg, accent: .ember)
                 }
                 .buttonStyle(.plain)
@@ -110,8 +110,8 @@ struct SleepNightTab: View {
                 SleepLastNightDetail()
                 ChronotypeBadge(onTap: { showPersonalization = true })
             }
-            .padding(.horizontal, 20)
-            .padding(.top, 12)
+            .padding(.horizontal, FDS.Spacing.lg)
+            .padding(.top, FDS.Spacing.md)
             .padding(.bottom, 120)
         }
         .sheet(isPresented: $showSounds) {
@@ -133,7 +133,7 @@ struct SleepInBedFact: View {
     let window: InBedWindow
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 6) {
+        VStack(alignment: .leading, spacing: FDS.Spacing.sm) {
             Text("Last in-bed window")
                 .font(FDS.TypeScale.Dynamic.caption)
                 .foregroundColor(.textTertiary)
@@ -144,7 +144,7 @@ struct SleepInBedFact: View {
                 .font(.system(size: 12))
                 .foregroundColor(.textTertiary)
         }
-        .padding(16)
+        .padding(FDS.Spacing.lg)
         .frame(maxWidth: .infinity, alignment: .leading)
         .forgeGlassCard(cornerRadius: FDS.Radius.lg, accent: .aurora)
     }
@@ -159,7 +159,7 @@ struct SleepInBedCard: View {
     @State private var writeFailed = false
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
+        VStack(alignment: .leading, spacing: FDS.Spacing.md) {
             Text("IN BED")
                 .font(FDS.TypeScale.Dynamic.micro)
                 .tracking(1.2)
@@ -168,7 +168,7 @@ struct SleepInBedCard: View {
             if let start = hkService.inBedStartedAt {
                 TimelineView(.periodic(from: .now, by: 30)) { context in
                     let hours = context.date.timeIntervalSince(start) / 3600
-                    VStack(alignment: .leading, spacing: 8) {
+                    VStack(alignment: .leading, spacing: FDS.Spacing.sm) {
                         Text("In bed since \(start.formatted(date: .omitted, time: .shortened))")
                             .font(FDS.TypeScale.Dynamic.headline)
                             .foregroundColor(.textPrimary)
@@ -177,7 +177,7 @@ struct SleepInBedCard: View {
                             .foregroundColor(.textSecondary)
                     }
                 }
-                HStack(spacing: 10) {
+                HStack(spacing: FDS.Spacing.md) {
                     Button {
                         Task {
                             writeFailed = false
@@ -192,7 +192,7 @@ struct SleepInBedCard: View {
                             .font(FDS.TypeScale.Dynamic.body.weight(.semibold))
                             .foregroundColor(.white)
                             .frame(maxWidth: .infinity)
-                            .padding(.vertical, 12)
+                            .padding(.vertical, FDS.Spacing.md)
                             .background(Color.aurora)
                             .clipShape(RoundedRectangle(cornerRadius: FDS.Radius.md, style: .continuous))
                     }
@@ -204,9 +204,8 @@ struct SleepInBedCard: View {
                             .font(FDS.TypeScale.Dynamic.body.weight(.semibold))
                             .foregroundColor(.textSecondary)
                             .frame(maxWidth: .infinity)
-                            .padding(.vertical, 12)
-                            .background(Color.surfaceElevated)
-                            .clipShape(RoundedRectangle(cornerRadius: FDS.Radius.md, style: .continuous))
+                            .padding(.vertical, FDS.Spacing.md)
+                            .forgeInsetTile(radius: FDS.Radius.md)
                     }
                     .buttonStyle(.plain)
                 }
@@ -214,7 +213,7 @@ struct SleepInBedCard: View {
                 Text("Log the window you were actually in bed. Apple Health still owns stages.")
                     .font(.system(size: 13))
                     .foregroundColor(.textSecondary)
-                HStack(spacing: 10) {
+                HStack(spacing: FDS.Spacing.md) {
                     Button {
                         hkService.beginInBed()
                         writeFailed = false
@@ -223,7 +222,7 @@ struct SleepInBedCard: View {
                             .font(FDS.TypeScale.Dynamic.body.weight(.semibold))
                             .foregroundColor(.white)
                             .frame(maxWidth: .infinity)
-                            .padding(.vertical, 12)
+                            .padding(.vertical, FDS.Spacing.md)
                             .background(Color.aurora)
                             .clipShape(RoundedRectangle(cornerRadius: FDS.Radius.md, style: .continuous))
                     }
@@ -237,7 +236,7 @@ struct SleepInBedCard: View {
                             .font(FDS.TypeScale.Dynamic.body.weight(.semibold))
                             .foregroundColor(.aurora)
                             .frame(maxWidth: .infinity)
-                            .padding(.vertical, 12)
+                            .padding(.vertical, FDS.Spacing.md)
                             .background(Color.aurora.opacity(0.12))
                             .clipShape(RoundedRectangle(cornerRadius: FDS.Radius.md, style: .continuous))
                     }
@@ -254,7 +253,7 @@ struct SleepInBedCard: View {
                     .foregroundColor(.danger)
             }
         }
-        .padding(16)
+        .padding(FDS.Spacing.lg)
         .frame(maxWidth: .infinity, alignment: .leading)
         .forgeGlassCard(cornerRadius: FDS.Radius.lg, accent: .aurora)
         .sheet(isPresented: $showLogSheet) {
@@ -295,7 +294,7 @@ struct SleepTonightHero: View {
     var body: some View {
         TimelineView(.periodic(from: .now, by: 30)) { context in
             let live = coach.advancing(now: context.date)
-            VStack(alignment: .leading, spacing: 14) {
+            VStack(alignment: .leading, spacing: FDS.Spacing.lg) {
                 Text("TONIGHT")
                     .font(FDS.TypeScale.Dynamic.micro)
                     .tracking(1.2)
@@ -304,7 +303,7 @@ struct SleepTonightHero: View {
                     .font(.system(size: 28, weight: .semibold, design: .rounded))
                     .foregroundColor(.textPrimary)
                     .fixedSize(horizontal: false, vertical: true)
-                HStack(alignment: .firstTextBaseline, spacing: 8) {
+                HStack(alignment: .firstTextBaseline, spacing: FDS.Spacing.sm) {
                     Text(live.bedtimeLabel)
                         .font(FDS.TypeScale.Dynamic.title)
                         .foregroundColor(.aurora)
@@ -365,7 +364,7 @@ struct SleepEveningStoryCard: View {
             )
         )
         let plan = SleepStoryEngine.tonightPlan(plan: windDown, night: lastNight)
-        VStack(alignment: .leading, spacing: 12) {
+        VStack(alignment: .leading, spacing: FDS.Spacing.md) {
             Text("EVENING NARRATIVE")
                 .font(FDS.TypeScale.Dynamic.micro)
                 .tracking(1.2)
@@ -382,7 +381,7 @@ struct SleepEveningStoryCard: View {
                 .font(FDS.TypeScale.Dynamic.caption)
                 .foregroundColor(.aurora)
         }
-        .padding(16)
+        .padding(FDS.Spacing.lg)
         .frame(maxWidth: .infinity, alignment: .leading)
         .forgeGlassCard(cornerRadius: FDS.Radius.lg, accent: .aurora)
         .accessibilityElement(children: .combine)
@@ -407,7 +406,7 @@ struct SleepWindDownRitual: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
+        VStack(alignment: .leading, spacing: FDS.Spacing.md) {
             Text("GET TO BED")
                 .font(FDS.TypeScale.Dynamic.micro)
                 .tracking(1.2)
@@ -472,7 +471,7 @@ struct SleepWindDownRitual: View {
     }
 
     private func ritualRow(step: String, title: String, detail: String) -> some View {
-        HStack(alignment: .top, spacing: 12) {
+        HStack(alignment: .top, spacing: FDS.Spacing.md) {
             Text(step)
                 .font(FDS.TypeScale.Dynamic.caption)
                 .foregroundStyle(Color.aurora)
@@ -489,7 +488,7 @@ struct SleepWindDownRitual: View {
                     .fixedSize(horizontal: false, vertical: true)
             }
         }
-        .padding(14)
+        .padding(FDS.Spacing.lg)
         .frame(maxWidth: .infinity, alignment: .leading)
         .forgeGlassCard(cornerRadius: FDS.Radius.lg, accent: .aurora)
     }
@@ -500,7 +499,7 @@ struct SleepTonightSoundDock: View {
     private let player = SleepWindDownPlayer.shared
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
+        VStack(alignment: .leading, spacing: FDS.Spacing.md) {
             HStack {
                 Text("WIND-DOWN SOUND")
                     .font(FDS.TypeScale.Dynamic.micro)
@@ -513,7 +512,7 @@ struct SleepTonightSoundDock: View {
             }
 
             if player.isPlaying {
-                HStack(spacing: 12) {
+                HStack(spacing: FDS.Spacing.md) {
                     Image(systemName: player.kind.icon)
                         .foregroundStyle(player.kind.color)
                     VStack(alignment: .leading, spacing: 2) {
@@ -532,32 +531,32 @@ struct SleepTonightSoundDock: View {
                         Text("Stop")
                             .font(FDS.TypeScale.Dynamic.caption)
                             .foregroundColor(.white)
-                            .padding(.horizontal, 14)
-                            .padding(.vertical, 8)
+                            .padding(.horizontal, FDS.Spacing.lg)
+                            .padding(.vertical, FDS.Spacing.sm)
                             .background(Color.danger.opacity(0.85))
                             .clipShape(Capsule())
                     }
                     .buttonStyle(.plain)
                 }
-                .padding(16)
+                .padding(FDS.Spacing.lg)
                 .background(Color.aurora.opacity(0.10))
                 .clipShape(RoundedRectangle(cornerRadius: FDS.Radius.lg, style: .continuous))
             } else {
                 ScrollView(.horizontal, showsIndicators: false) {
-                    HStack(spacing: 8) {
+                    HStack(spacing: FDS.Spacing.sm) {
                         ForEach(SleepSoundKind.tonightPicks) { kind in
                             Button {
                                 FDS.haptic(.medium)
                                 player.start(kind: kind, minutes: 30)
                             } label: {
-                                HStack(spacing: 8) {
+                                HStack(spacing: FDS.Spacing.sm) {
                                     Image(systemName: kind.icon)
                                     Text(kind.displayName)
                                         .font(FDS.TypeScale.Dynamic.caption)
                                 }
                                 .foregroundColor(.white)
-                                .padding(.horizontal, 12)
-                                .padding(.vertical, 10)
+                                .padding(.horizontal, FDS.Spacing.md)
+                                .padding(.vertical, FDS.Spacing.md)
                                 .background(kind.color.opacity(0.85))
                                 .clipShape(Capsule())
                             }
@@ -584,7 +583,7 @@ struct SleepLastNightStrip: View {
 
     var body: some View {
         if let night {
-            VStack(alignment: .leading, spacing: 14) {
+            VStack(alignment: .leading, spacing: FDS.Spacing.lg) {
                 HStack {
                     Text("Last night")
                         .font(FDS.TypeScale.Dynamic.caption)
@@ -594,7 +593,7 @@ struct SleepLastNightStrip: View {
                         .font(FDS.TypeScale.Dynamic.caption)
                         .foregroundColor(.aurora)
                 }
-                HStack(alignment: .firstTextBaseline, spacing: 10) {
+                HStack(alignment: .firstTextBaseline, spacing: FDS.Spacing.md) {
                     Text(EnergySchedule.durationLabel(night.totalHours))
                         .font(.system(size: 34, weight: .semibold))
                         .foregroundColor(.textPrimary)
@@ -631,7 +630,7 @@ struct SleepLastNightDetail: View {
 
     var body: some View {
         if let night {
-            VStack(alignment: .leading, spacing: 16) {
+            VStack(alignment: .leading, spacing: FDS.Spacing.lg) {
                 Text("Last night")
                     .font(FDS.TypeScale.Dynamic.caption)
                     .foregroundColor(.textTertiary)
@@ -660,10 +659,10 @@ struct SleepLastNightDetail: View {
                     nightStat("Light", "\(night.lightMinutes)m", Color(hex: "64748B"))
                     nightStat("Awake", "\(night.awakeMinutes)m", Color.danger.opacity(0.8))
                 }
-                .padding(.top, 4)
+                .padding(.top, FDS.Spacing.xs)
             }
         } else {
-            VStack(alignment: .leading, spacing: 8) {
+            VStack(alignment: .leading, spacing: FDS.Spacing.sm) {
                 Text("No night on file")
                     .font(FDS.TypeScale.Dynamic.title)
                     .foregroundColor(.textPrimary)
@@ -676,7 +675,7 @@ struct SleepLastNightDetail: View {
     }
 
     private func nightStat(_ label: String, _ value: String, _ tint: Color) -> some View {
-        VStack(alignment: .leading, spacing: 4) {
+        VStack(alignment: .leading, spacing: FDS.Spacing.xs) {
             Circle().fill(tint).frame(width: 6, height: 6)
             Text(value)
                 .font(FDS.TypeScale.Dynamic.headline)
@@ -726,7 +725,7 @@ struct SleepHypnogram: View {
                             )
                     }
                 }
-                .padding(6)
+                .padding(FDS.Spacing.sm)
             }
         }
         .frame(height: height)
@@ -738,7 +737,7 @@ struct SleepStageLegend: View {
     let night: SleepData
 
     var body: some View {
-        HStack(spacing: 12) {
+        HStack(spacing: FDS.Spacing.md) {
             legend("Deep", night.deepMinutes, Color.steel)
             legend("REM", night.remMinutes, Color.aurora)
             legend("Light", night.lightMinutes, Color(hex: "64748B"))
@@ -747,7 +746,7 @@ struct SleepStageLegend: View {
     }
 
     private func legend(_ name: String, _ minutes: Int, _ color: Color) -> some View {
-        HStack(spacing: 5) {
+        HStack(spacing: FDS.Spacing.xs) {
             Circle().fill(color).frame(width: 6, height: 6)
             Text("\(name) \(minutes)m")
                 .font(FDS.TypeScale.Dynamic.micro)
@@ -769,13 +768,13 @@ struct SleepWeekRhythm: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
+        VStack(alignment: .leading, spacing: FDS.Spacing.md) {
             Text("This week")
                 .font(FDS.TypeScale.Dynamic.caption)
                 .foregroundColor(.textTertiary)
-            HStack(alignment: .bottom, spacing: 8) {
+            HStack(alignment: .bottom, spacing: FDS.Spacing.sm) {
                 ForEach(nights) { night in
-                    VStack(spacing: 6) {
+                    VStack(spacing: FDS.Spacing.sm) {
                         Capsule()
                             .fill(night.totalHours >= need - 0.4 ? Color.ember.opacity(0.88) : Color.aurora.opacity(0.28))
                             .frame(height: max(10, CGFloat(night.totalHours / 10) * 78))

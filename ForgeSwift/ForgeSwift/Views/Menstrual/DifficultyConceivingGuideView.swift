@@ -10,8 +10,8 @@ struct DifficultyConceivingGuideView: View {
     var body: some View {
         NavigationStack {
             ScrollView {
-                VStack(alignment: .leading, spacing: 18) {
-                    VStack(alignment: .leading, spacing: 8) {
+                VStack(alignment: .leading, spacing: FDS.Spacing.lg) {
+                    VStack(alignment: .leading, spacing: FDS.Spacing.sm) {
                         Text("If conceiving is taking longer")
                             .font(FDS.TypeScale.Dynamic.title)
                             .foregroundColor(.textPrimary)
@@ -21,10 +21,10 @@ struct DifficultyConceivingGuideView: View {
                             .fixedSize(horizontal: false, vertical: true)
                     }
 
-                    VStack(alignment: .leading, spacing: 10) {
+                    VStack(alignment: .leading, spacing: FDS.Spacing.md) {
                         Text("THINGS YOU CAN DO").forgeSectionLabel()
                         ForEach(Array(DifficultyConceivingGuide.steps.enumerated()), id: \.offset) { index, step in
-                            HStack(alignment: .top, spacing: 10) {
+                            HStack(alignment: .top, spacing: FDS.Spacing.md) {
                                 Text("\(index + 1)")
                                     .font(FDS.TypeScale.Dynamic.caption)
                                     .foregroundStyle(Color.ember)
@@ -38,13 +38,13 @@ struct DifficultyConceivingGuideView: View {
                             }
                         }
                     }
-                    .padding(16)
+                    .padding(FDS.Spacing.lg)
                     .forgeGlassCard(accent: Color(hex: "EC4899"))
 
-                    VStack(alignment: .leading, spacing: 10) {
+                    VStack(alignment: .leading, spacing: FDS.Spacing.md) {
                         Text("SPECIALISTS TO KNOW").forgeSectionLabel()
                         ForEach(DifficultyConceivingGuide.specialists) { person in
-                            VStack(alignment: .leading, spacing: 4) {
+                            VStack(alignment: .leading, spacing: FDS.Spacing.xs) {
                                 Text(person.title)
                                     .font(FDS.TypeScale.Dynamic.caption)
                                     .foregroundColor(.textPrimary)
@@ -53,10 +53,9 @@ struct DifficultyConceivingGuideView: View {
                                     .foregroundColor(.textSecondary)
                                     .fixedSize(horizontal: false, vertical: true)
                             }
-                            .padding(14)
+                            .padding(FDS.Spacing.lg)
                             .frame(maxWidth: .infinity, alignment: .leading)
-                            .background(Color.surfaceElevated)
-                            .clipShape(RoundedRectangle(cornerRadius: FDS.Radius.md, style: .continuous))
+                            .forgeInsetTile(radius: FDS.Radius.md)
                         }
                     }
 
@@ -69,7 +68,7 @@ struct DifficultyConceivingGuideView: View {
                             .font(FDS.TypeScale.Dynamic.caption)
                             .foregroundColor(.white)
                             .frame(maxWidth: .infinity)
-                            .padding(.vertical, 14)
+                            .padding(.vertical, FDS.Spacing.lg)
                             .background(Color.ember)
                             .clipShape(RoundedRectangle(cornerRadius: FDS.Radius.md, style: .continuous))
                     }
@@ -80,7 +79,7 @@ struct DifficultyConceivingGuideView: View {
                         .foregroundColor(.textTertiary)
                         .fixedSize(horizontal: false, vertical: true)
                 }
-                .padding(20)
+                .padding(FDS.Spacing.lg)
             }
             .background(Color.background.ignoresSafeArea())
             .navigationTitle("Taking longer")

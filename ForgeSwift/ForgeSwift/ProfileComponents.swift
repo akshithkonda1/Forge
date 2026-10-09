@@ -75,7 +75,7 @@ struct SettingsRow<Trailing: View>: View {
     }
 
     var body: some View {
-        HStack(spacing: 12) {
+        HStack(spacing: FDS.Spacing.md) {
             if let icon = icon {
                 ZStack {
                     RoundedRectangle(cornerRadius: FDS.Radius.sm, style: .continuous)
@@ -105,7 +105,7 @@ struct SettingsRow<Trailing: View>: View {
                     .foregroundColor(.textMuted)
             }
         }
-        .padding(.horizontal, 16)
+        .padding(.horizontal, FDS.Spacing.lg)
         .frame(minHeight: ForgeUX.minTap)
     }
 }
@@ -163,7 +163,7 @@ struct TimeRangePicker: View {
     @Namespace private var pickerAnimation
 
     var body: some View {
-        HStack(spacing: 6) {
+        HStack(spacing: FDS.Spacing.sm) {
             ForEach(ProgressPageView.TimeRange.allCases, id: \.self) { range in
                 Button(action: {
                     withAnimation(.spring(response: 0.35, dampingFraction: 0.8)) {
@@ -184,14 +184,14 @@ struct TimeRangePicker: View {
                             .foregroundColor(selection == range ? .white : .textSecondary)
                     }
                     .frame(maxWidth: .infinity)
-                    .padding(.horizontal, 16)
-                    .padding(.vertical, 8)
+                    .padding(.horizontal, FDS.Spacing.lg)
+                    .padding(.vertical, FDS.Spacing.sm)
                     .contentShape(Capsule())
                 }
                 .buttonStyle(.plain)
             }
         }
-        .padding(4)
+        .padding(FDS.Spacing.xs)
         .forgeInnerWell(cornerRadius: 100)
     }
 }

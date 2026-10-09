@@ -17,7 +17,7 @@ struct MessageListView: View {
                 if store.chatMessages.isEmpty {
                     ChatEmptyStateView(mood: ariaMood, onQuickActionTap: onQuickAction, onVoiceTap: onVoiceTap)
                 } else {
-                    LazyVStack(spacing: 16) {
+                    LazyVStack(spacing: FDS.Spacing.lg) {
                         Color.clear.frame(height: 8)
 
                         // Date separator
@@ -44,7 +44,7 @@ struct MessageListView: View {
 
                         Color.clear.frame(height: 16).id("bottom")
                     }
-                    .padding(.horizontal, 14)
+                    .padding(.horizontal, FDS.Spacing.lg)
                 }
             }
             .onChange(of: store.chatMessages.count) { _, _ in scrollToBottom(proxy) }
@@ -68,7 +68,7 @@ struct DateSeparatorView: View {
         return f.string(from: Date())
     }
     var body: some View {
-        HStack(spacing: 10) {
+        HStack(spacing: FDS.Spacing.md) {
             Rectangle().fill(Color.white.opacity(0.06)).frame(height: 0.5)
             Text(label)
                 .font(FDS.TypeScale.Dynamic.micro)
@@ -77,7 +77,7 @@ struct DateSeparatorView: View {
                 .fixedSize()
             Rectangle().fill(Color.white.opacity(0.06)).frame(height: 0.5)
         }
-        .padding(.horizontal, 8)
+        .padding(.horizontal, FDS.Spacing.sm)
     }
 }
 
@@ -107,8 +107,8 @@ struct MessageBubbleView: View {
     ]
 
     var body: some View {
-        VStack(alignment: isTrainer ? .leading : .trailing, spacing: 5) {
-            HStack(alignment: .bottom, spacing: 8) {
+        VStack(alignment: isTrainer ? .leading : .trailing, spacing: FDS.Spacing.xs) {
+            HStack(alignment: .bottom, spacing: FDS.Spacing.sm) {
                 if !isTrainer { Spacer(minLength: 52) }
 
                 if isTrainer {
@@ -122,10 +122,10 @@ struct MessageBubbleView: View {
                 }
 
                 // Bubble + swipe
-                VStack(alignment: isTrainer ? .leading : .trailing, spacing: 6) {
+                VStack(alignment: isTrainer ? .leading : .trailing, spacing: FDS.Spacing.sm) {
                     // Memory reference pill — shown when ARIA recalled a past insight
                     if isTrainer, let memory = message.memoryReference {
-                        HStack(spacing: 5) {
+                        HStack(spacing: FDS.Spacing.xs) {
                             Image(systemName: "clock.arrow.circlepath")
                                 .font(.system(size: 9, weight: .semibold))
                                 .foregroundColor(.steel.opacity(0.8))
@@ -134,7 +134,7 @@ struct MessageBubbleView: View {
                                 .foregroundColor(.textTertiary)
                                 .lineLimit(2)
                         }
-                        .padding(.horizontal, 10).padding(.vertical, 5)
+                        .padding(.horizontal, FDS.Spacing.md).padding(.vertical, FDS.Spacing.xs)
                         .background(Color.steel.opacity(0.08))
                         .cornerRadius(FDS.Radius.pill)
                         .overlay(Capsule().stroke(Color.steel.opacity(0.18), lineWidth: 0.5))
@@ -158,7 +158,7 @@ struct MessageBubbleView: View {
                                 .font(FDS.TypeScale.Dynamic.body)
                                 .foregroundColor(isTrainer ? .textPrimary : .white)
                                 .lineSpacing(4.5)
-                                .padding(.horizontal, 16).padding(.vertical, 13)
+                                .padding(.horizontal, FDS.Spacing.lg).padding(.vertical, FDS.Spacing.md)
                                 .background(Group {
                                     if isTrainer {
                                         Color.surfaceElevated
@@ -181,7 +181,7 @@ struct MessageBubbleView: View {
                                         Image(systemName: "sparkle")
                                             .font(.system(size: 9, weight: .bold))
                                             .foregroundColor(.steel.opacity(0.8))
-                                            .padding(6)
+                                            .padding(FDS.Spacing.sm)
                                     }
                                 }
                                 .overlay(alignment: .top) {
@@ -226,14 +226,14 @@ struct MessageBubbleView: View {
 
                     // Rich card
                     if let card = message.richCard {
-                        RichCardView(card: card).padding(.top, 4)
+                        RichCardView(card: card).padding(.top, FDS.Spacing.xs)
                     }
 
                     if isTrainer, let tools = message.toolCallsMade, !tools.isEmpty {
                         Text("ARIA used your data · " + tools.joined(separator: " · "))
                             .font(FDS.TypeScale.Dynamic.micro)
                             .foregroundColor(.textMuted)
-                            .padding(.horizontal, 4)
+                            .padding(.horizontal, FDS.Spacing.xs)
                             .padding(.top, 2)
                     }
 
@@ -246,7 +246,7 @@ struct MessageBubbleView: View {
 
                     // Timestamp
                     if showTimestamp {
-                        HStack(spacing: 4) {
+                        HStack(spacing: FDS.Spacing.xs) {
                             Text(formatTime(message.timestamp))
                                 .font(FDS.TypeScale.Dynamic.micro)
                                 .foregroundColor(.textMuted)
@@ -256,21 +256,20 @@ struct MessageBubbleView: View {
                                     .foregroundColor(Color.vitality.opacity(0.75))
                             }
                         }
-                        .padding(.horizontal, 4)
+                        .padding(.horizontal, FDS.Spacing.xs)
                         .transition(.scale(scale: 0.88).combined(with: .opacity))
                     }
 
                     // Reaction chips (shown on trainer messages after selection)
                     if let r = selectedReact {
-                        HStack(spacing: 4) {
+                        HStack(spacing: FDS.Spacing.xs) {
                             Text(r).font(.system(size: 14))
                             Text("You reacted")
                                 .font(FDS.TypeScale.Dynamic.micro)
                                 .foregroundColor(.textMuted)
                         }
-                        .padding(.horizontal, 10).padding(.vertical, 5)
-                        .background(Color.surfaceElevated)
-                        .cornerRadius(FDS.Radius.pill)
+                        .padding(.horizontal, FDS.Spacing.md).padding(.vertical, FDS.Spacing.xs)
+                        .forgeInsetTile(radius: FDS.Radius.pill)
                         .overlay(Capsule().stroke(Color.borderColor, lineWidth: 0.5))
                         .transition(.scale(scale: 0.8).combined(with: .opacity))
                     }
@@ -281,7 +280,7 @@ struct MessageBubbleView: View {
 
             // Reaction bar (swipe up on any message or long-press)
             if showReactions {
-                HStack(spacing: 6) {
+                HStack(spacing: FDS.Spacing.sm) {
                     if !isTrainer { Spacer() }
                     ForEach(reactions, id: \.emoji) { r in
                         Button {
@@ -296,7 +295,7 @@ struct MessageBubbleView: View {
                         } label: {
                             Text(r.emoji)
                                 .font(.system(size: 20))
-                                .padding(8)
+                                .padding(FDS.Spacing.sm)
                                 .background(selectedReact == r.emoji ? mood.accentColor.opacity(0.2) : Color.surfaceElevated)
                                 .cornerRadius(FDS.Radius.xs)
                                 .overlay(RoundedRectangle(cornerRadius: FDS.Radius.xs)
@@ -308,7 +307,7 @@ struct MessageBubbleView: View {
                     }
                     if isTrainer { Spacer() }
                 }
-                .padding(8)
+                .padding(FDS.Spacing.sm)
                 .background(Color.surface)
                 .cornerRadius(FDS.Radius.sm)
                 .shadow(color: .black.opacity(0.1), radius: 10, y: 4)
@@ -350,7 +349,7 @@ struct ReplyPreviewBar: View {
     var isTrainer: Bool { message.role == .trainer }
 
     var body: some View {
-        HStack(spacing: 12) {
+        HStack(spacing: FDS.Spacing.md) {
             Rectangle()
                 .fill(Color.ember)
                 .frame(width: 3)
@@ -374,7 +373,7 @@ struct ReplyPreviewBar: View {
                     .foregroundColor(.textMuted)
             }
         }
-        .padding(.horizontal, 16).padding(.vertical, 10)
+        .padding(.horizontal, FDS.Spacing.lg).padding(.vertical, FDS.Spacing.md)
         .background(Color.surfaceElevated)
         .overlay(Rectangle().fill(Color.borderColor.opacity(0.4)).frame(height: 0.5), alignment: .top)
     }
@@ -397,13 +396,13 @@ struct TypingIndicatorView: View {
     ]}
 
     var body: some View {
-        HStack(alignment: .bottom, spacing: 8) {
+        HStack(alignment: .bottom, spacing: FDS.Spacing.sm) {
             ARIAIdentityMark(state: .processing, mood: mood, size: 28, amplitude: 0.4)
                 .offset(y: -3)
 
-            VStack(alignment: .leading, spacing: 8) {
+            VStack(alignment: .leading, spacing: FDS.Spacing.sm) {
                 if showLabel {
-                    HStack(spacing: 6) {
+                    HStack(spacing: FDS.Spacing.sm) {
                         Image(systemName: stateIcon)
                             .font(.system(size: 11, weight: .medium))
                             .foregroundColor(stateColor)
@@ -411,13 +410,13 @@ struct TypingIndicatorView: View {
                             .font(FDS.TypeScale.Dynamic.caption)
                             .foregroundColor(.textSecondary)
                     }
-                    .padding(.horizontal, 12).padding(.vertical, 6)
+                    .padding(.horizontal, FDS.Spacing.md).padding(.vertical, FDS.Spacing.sm)
                     .background(Capsule().fill(stateColor.opacity(0.08)))
                     .overlay(Capsule().stroke(stateColor.opacity(0.22), lineWidth: 0.5))
                     .transition(.scale(scale: 0.88, anchor: .leading).combined(with: .opacity))
                 }
 
-                HStack(spacing: 7) {
+                HStack(spacing: FDS.Spacing.sm) {
                     ForEach(0..<3, id: \.self) { i in
                         Circle()
                             .fill(stateColor)
@@ -431,7 +430,7 @@ struct TypingIndicatorView: View {
                             )
                     }
                 }
-                .padding(.horizontal, 18).padding(.vertical, 14)
+                .padding(.horizontal, FDS.Spacing.lg).padding(.vertical, FDS.Spacing.lg)
                 .background(Color.surfaceElevated)
                 .clipShape(ChatBubbleShape(isTrainer: true))
                 .overlay(ChatBubbleShape(isTrainer: true).stroke(Color.white.opacity(0.10), lineWidth: 1))
@@ -480,8 +479,8 @@ struct ReplyShapeChip: View {
             FDS.haptic(.light)
             withAnimation(.easeInOut(duration: 0.18)) { expanded.toggle() }
         } label: {
-            VStack(alignment: .leading, spacing: 4) {
-                HStack(spacing: 5) {
+            VStack(alignment: .leading, spacing: FDS.Spacing.xs) {
+                HStack(spacing: FDS.Spacing.xs) {
                     Image(systemName: "point.3.connected.trianglepath.dotted")
                         .font(.system(size: 9, weight: .semibold))
                         .foregroundColor(.steel.opacity(0.85))
@@ -503,7 +502,7 @@ struct ReplyShapeChip: View {
                         .fixedSize(horizontal: false, vertical: true)
                 }
             }
-            .padding(.horizontal, 10).padding(.vertical, 6)
+            .padding(.horizontal, FDS.Spacing.md).padding(.vertical, FDS.Spacing.sm)
             .background(Color.steel.opacity(0.08))
             .clipShape(RoundedRectangle(cornerRadius: FDS.Radius.md, style: .continuous))
             .overlay(

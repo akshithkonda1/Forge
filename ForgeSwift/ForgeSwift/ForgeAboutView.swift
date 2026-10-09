@@ -24,8 +24,8 @@ struct ForgeAboutView: View {
     var body: some View {
         NavigationStack {
             ScrollView(showsIndicators: false) {
-                VStack(alignment: .leading, spacing: 18) {
-                    VStack(alignment: .leading, spacing: 6) {
+                VStack(alignment: .leading, spacing: FDS.Spacing.lg) {
+                    VStack(alignment: .leading, spacing: FDS.Spacing.sm) {
                         Text("Forge")
                             .font(.system(size: 30, weight: .bold))
                             .foregroundColor(.textPrimary)
@@ -42,7 +42,7 @@ struct ForgeAboutView: View {
                     aboutRow("heart.text.square.fill", "Apple Health", "Read and write is scoped to what you approve in the Health app, and can be revoked there at any time.")
                     aboutRow("sparkles", "ARIA", "Adaptive lifestyle coach. Compound interest: enough small changes and life is slightly different. Over time you see it and appreciate it. Not a new personality. Not clinical care.")
 
-                    VStack(alignment: .leading, spacing: 4) {
+                    VStack(alignment: .leading, spacing: FDS.Spacing.xs) {
                         Text("SUPPORT")
                             .font(FDS.TypeScale.Dynamic.micro)
                             .tracking(1.2)
@@ -52,9 +52,9 @@ struct ForgeAboutView: View {
                             .foregroundColor(.ember)
                             .textSelection(.enabled)
                     }
-                    .padding(.top, 4)
+                    .padding(.top, FDS.Spacing.xs)
                 }
-                .padding(20)
+                .padding(FDS.Spacing.lg)
             }
             .background(Color.background.ignoresSafeArea())
             .navigationTitle("About")
@@ -69,7 +69,7 @@ struct ForgeAboutView: View {
     }
 
     private func aboutRow(_ icon: String, _ title: String, _ body: String) -> some View {
-        HStack(alignment: .top, spacing: 12) {
+        HStack(alignment: .top, spacing: FDS.Spacing.md) {
             Image(systemName: icon)
                 .font(.system(size: 15))
                 .foregroundColor(.ember)
@@ -93,13 +93,13 @@ struct ForgeTermsAndConditionsView: View {
     var body: some View {
         NavigationStack {
             ScrollView(showsIndicators: false) {
-                VStack(alignment: .leading, spacing: 18) {
+                VStack(alignment: .leading, spacing: FDS.Spacing.lg) {
                     Text("Forge is built around local-first health and lifestyle data. You and only you have access to your personal data. Forge never sees, sells, rents, or shares your data in any way whatsoever.")
                         .font(FDS.TypeScale.Dynamic.headline)
                         .foregroundColor(.textPrimary)
                         .lineSpacing(3)
 
-                    VStack(alignment: .leading, spacing: 12) {
+                    VStack(alignment: .leading, spacing: FDS.Spacing.md) {
                         legalPoint("Your Apple Health, cycle, sexual health, workout, sleep, nutrition, and lifestyle data stays under your control.")
                         legalPoint("Forge uses Apple Health permissions only for features you enable and only through Apple's permission system.")
                         legalPoint("If you allow it, Forge may read allergies, medications, conditions, immunizations, lab results, and procedures from Apple Health. Clinical notes and insurance coverage are never requested.")
@@ -107,7 +107,7 @@ struct ForgeTermsAndConditionsView: View {
                         legalPoint("You can revoke Health permissions at any time in the iOS Settings app or Apple Health.")
                     }
                 }
-                .padding(20)
+                .padding(FDS.Spacing.lg)
             }
             .background(Color.background.ignoresSafeArea())
             .navigationTitle("Terms & Conditions")
@@ -121,7 +121,7 @@ struct ForgeTermsAndConditionsView: View {
     }
 
     private func legalPoint(_ text: String) -> some View {
-        HStack(alignment: .top, spacing: 10) {
+        HStack(alignment: .top, spacing: FDS.Spacing.md) {
             Image(systemName: "checkmark.seal.fill")
                 .font(.system(size: 15))
                 .foregroundColor(.success)

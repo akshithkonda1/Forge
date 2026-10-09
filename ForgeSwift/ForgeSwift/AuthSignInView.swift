@@ -23,8 +23,8 @@ struct AuthSignInView: View {
                 )
 
                 ScrollView(showsIndicators: false) {
-                    VStack(alignment: .leading, spacing: 28) {
-                        VStack(alignment: .leading, spacing: 10) {
+                    VStack(alignment: .leading, spacing: FDS.Spacing.xl) {
+                        VStack(alignment: .leading, spacing: FDS.Spacing.md) {
                             Text("Welcome back")
                                 .font(FDS.TypeScale.Dynamic.caption)
                                 .tracking(2.2)
@@ -39,10 +39,10 @@ struct AuthSignInView: View {
                                 .foregroundColor(.textSecondary)
                                 .lineSpacing(3)
                         }
-                        .padding(.top, 8)
+                        .padding(.top, FDS.Spacing.sm)
                         .premiumEntrance(index: 0, appeared: appeared)
 
-                        VStack(spacing: 14) {
+                        VStack(spacing: FDS.Spacing.lg) {
                             field(title: "Email", text: $email, contentType: .emailAddress, secure: false)
                             field(title: "Password", text: $password, contentType: .password, secure: true)
                         }
@@ -76,7 +76,7 @@ struct AuthSignInView: View {
                                     .font(FDS.TypeScale.Dynamic.body)
                                     .foregroundColor(.steel)
                                     .frame(maxWidth: .infinity)
-                                    .padding(.vertical, 14)
+                                    .padding(.vertical, FDS.Spacing.lg)
                                     .background(Color.steel.opacity(0.10))
                                     .clipShape(Capsule())
                             }
@@ -95,9 +95,9 @@ struct AuthSignInView: View {
                         Text("New here? Close and tap Get started on the welcome screen.")
                             .font(FDS.TypeScale.Dynamic.caption)
                             .foregroundColor(.textTertiary)
-                            .padding(.bottom, 28)
+                            .padding(.bottom, FDS.Spacing.xl)
                     }
-                    .padding(.horizontal, 24)
+                    .padding(.horizontal, FDS.Spacing.xl)
                 }
             }
             .toolbar {
@@ -122,7 +122,7 @@ struct AuthSignInView: View {
         contentType: UITextContentType,
         secure: Bool
     ) -> some View {
-        VStack(alignment: .leading, spacing: 8) {
+        VStack(alignment: .leading, spacing: FDS.Spacing.sm) {
             Text(title)
                 .font(FDS.TypeScale.Dynamic.caption)
                 .tracking(0.8)
@@ -141,7 +141,7 @@ struct AuthSignInView: View {
             }
             .font(.system(size: 16, weight: .regular))
             .foregroundColor(.textPrimary)
-            .padding(16)
+            .padding(FDS.Spacing.lg)
             .background(Color.white.opacity(0.05))
             .clipShape(RoundedRectangle(cornerRadius: FDS.Radius.lg, style: .continuous))
             .overlay(

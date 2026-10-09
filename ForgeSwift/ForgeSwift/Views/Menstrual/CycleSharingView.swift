@@ -37,7 +37,7 @@ struct CycleSharingView: View {
     var body: some View {
         NavigationStack {
             ScrollView {
-                VStack(alignment: .leading, spacing: 20) {
+                VStack(alignment: .leading, spacing: FDS.Spacing.lg) {
                     if let invite = sharing.currentInvite {
                         activeCard(invite)
                     } else {
@@ -54,7 +54,7 @@ struct CycleSharingView: View {
                             .foregroundStyle(Color.danger)
                     }
                 }
-                .padding(20)
+                .padding(FDS.Spacing.lg)
             }
             .background(Color.background.ignoresSafeArea())
             .navigationTitle("Invite to support me")
@@ -98,7 +98,7 @@ struct CycleSharingView: View {
     // ------------------------------------------------------------
 
     private var intro: some View {
-        VStack(alignment: .leading, spacing: 12) {
+        VStack(alignment: .leading, spacing: FDS.Spacing.md) {
             Image(systemName: "person.2.badge.key.fill")
                 .font(.system(size: 32))
                 .foregroundStyle(Color.ember)
@@ -113,13 +113,13 @@ struct CycleSharingView: View {
                 .font(FDS.TypeScale.Dynamic.caption)
                 .foregroundStyle(Color.vitality)
         }
-        .padding(20)
+        .padding(FDS.Spacing.lg)
         .frame(maxWidth: .infinity, alignment: .leading)
         .forgeGlassCard(accent: .ember)
     }
 
     private var rolePicker: some View {
-        VStack(alignment: .leading, spacing: 10) {
+        VStack(alignment: .leading, spacing: FDS.Spacing.md) {
             Text("WHO ARE THEY TO YOU")
                 .forgeSectionLabel()
             // The role decides whether intimate-health material appears at all,
@@ -129,7 +129,7 @@ struct CycleSharingView: View {
                 Button {
                     role = option
                 } label: {
-                    HStack(spacing: 12) {
+                    HStack(spacing: FDS.Spacing.md) {
                         Image(systemName: option.icon)
                             .frame(width: 22)
                         Text(option.label)
@@ -141,8 +141,8 @@ struct CycleSharingView: View {
                         }
                     }
                     .foregroundColor(role == option ? .textPrimary : .textSecondary)
-                    .padding(.horizontal, 14)
-                    .padding(.vertical, 12)
+                    .padding(.horizontal, FDS.Spacing.lg)
+                    .padding(.vertical, FDS.Spacing.md)
                     .background(
                         RoundedRectangle(cornerRadius: FDS.Radius.md, style: .continuous)
                             .fill(role == option ? Color.ember.opacity(0.12) : Color.surfaceElevated)
@@ -159,26 +159,26 @@ struct CycleSharingView: View {
     }
 
     private var tierPicker: some View {
-        VStack(alignment: .leading, spacing: 10) {
+        VStack(alignment: .leading, spacing: FDS.Spacing.md) {
             Text("HOW MUCH THEY SEE")
                 .forgeSectionLabel()
             ForEach(PartnerShareTier.allCases) { option in
                 Button {
                     cycleStore.updateSettings { $0.partnerShareTier = option }
                 } label: {
-                    HStack(alignment: .top, spacing: 12) {
+                    HStack(alignment: .top, spacing: FDS.Spacing.md) {
                         Image(systemName: option == .supportCoach ? "heart.text.square.fill" : (option == .onPeriod ? "drop.fill" : "calendar"))
                             .frame(width: 22)
                             .padding(.top, 2)
                         VStack(alignment: .leading, spacing: 3) {
-                            HStack(spacing: 8) {
+                            HStack(spacing: FDS.Spacing.sm) {
                                 Text(option.label)
                                     .font(FDS.TypeScale.Dynamic.body)
                                 if option.isRecommended {
                                     Text("Recommended")
                                         .font(FDS.TypeScale.Dynamic.micro)
                                         .foregroundStyle(Color.ember)
-                                        .padding(.horizontal, 7)
+                                        .padding(.horizontal, FDS.Spacing.sm)
                                         .padding(.vertical, 2)
                                         .background(Color.ember.opacity(0.15))
                                         .clipShape(Capsule())
@@ -196,8 +196,8 @@ struct CycleSharingView: View {
                         }
                     }
                     .foregroundColor(cycleStore.settings.partnerShareTier == option ? .textPrimary : .textSecondary)
-                    .padding(.horizontal, 14)
-                    .padding(.vertical, 12)
+                    .padding(.horizontal, FDS.Spacing.lg)
+                    .padding(.vertical, FDS.Spacing.md)
                     .background(
                         RoundedRectangle(cornerRadius: FDS.Radius.md, style: .continuous)
                             .fill(cycleStore.settings.partnerShareTier == option ? Color.ember.opacity(0.12) : Color.surfaceElevated)
@@ -209,14 +209,13 @@ struct CycleSharingView: View {
     }
 
     private var nameField: some View {
-        VStack(alignment: .leading, spacing: 8) {
+        VStack(alignment: .leading, spacing: FDS.Spacing.sm) {
             Text("HOW THEY'LL SEE YOUR NAME")
                 .forgeSectionLabel()
             TextField("First name", text: $displayName)
                 .textFieldStyle(.plain)
-                .padding(14)
-                .background(Color.surfaceElevated)
-                .clipShape(RoundedRectangle(cornerRadius: FDS.Radius.md, style: .continuous))
+                .padding(FDS.Spacing.lg)
+                .forgeInsetTile(radius: FDS.Radius.md)
                 .foregroundColor(.textPrimary)
             // A first name is enough, and an iMessage bubble is read on lock
             // screens by people who were not the intended audience.
@@ -241,7 +240,7 @@ struct CycleSharingView: View {
             .font(FDS.TypeScale.Dynamic.caption)
             .foregroundColor(.white)
             .frame(maxWidth: .infinity)
-            .padding(.vertical, 15)
+            .padding(.vertical, FDS.Spacing.lg)
             .background(resolvedName.isEmpty ? Color.gray.opacity(0.4) : Color.ember)
             .clipShape(RoundedRectangle(cornerRadius: FDS.Radius.md, style: .continuous))
         }
@@ -254,7 +253,7 @@ struct CycleSharingView: View {
     // ------------------------------------------------------------
 
     private func activeCard(_ invite: PartnerCycleInvite) -> some View {
-        VStack(alignment: .leading, spacing: 14) {
+        VStack(alignment: .leading, spacing: FDS.Spacing.lg) {
             // Headline reflects whether anyone has actually accepted, not merely
             // that an invite exists locally. "Sharing is on" while nobody has
             // taken it up is the kind of reassurance that is worse than silence.
@@ -283,12 +282,12 @@ struct CycleSharingView: View {
             // The extension only holds an invite for 30 minutes. iMessage on
             // iPhone is the only valid send path — ShareLink/SMS is withheld
             // because a CloudKit URL in a green bubble is redeemable access.
-            VStack(alignment: .leading, spacing: 8) {
+            VStack(alignment: .leading, spacing: FDS.Spacing.sm) {
                 Label("Ready for iMessage", systemImage: "message.fill")
                     .font(FDS.TypeScale.Dynamic.caption)
                     .foregroundColor(.white)
                     .frame(maxWidth: .infinity)
-                    .padding(.vertical, 14)
+                    .padding(.vertical, FDS.Spacing.lg)
                     .background(Color.ember)
                     .clipShape(RoundedRectangle(cornerRadius: FDS.Radius.md, style: .continuous))
                 Text("Open Messages, tap the app drawer, choose Forge, and send. SMS is not valid access.")
@@ -303,7 +302,7 @@ struct CycleSharingView: View {
                     .font(FDS.TypeScale.Dynamic.caption)
                     .foregroundStyle(Color.danger)
                     .frame(maxWidth: .infinity)
-                    .padding(.vertical, 13)
+                    .padding(.vertical, FDS.Spacing.md)
                     .background(Color.danger.opacity(0.12))
                     .clipShape(RoundedRectangle(cornerRadius: FDS.Radius.md, style: .continuous))
             }
@@ -319,7 +318,7 @@ struct CycleSharingView: View {
                 Text("They stop receiving updates immediately, and the copy on their device has nothing left to refresh from.")
             }
         }
-        .padding(20)
+        .padding(FDS.Spacing.lg)
         .frame(maxWidth: .infinity, alignment: .leading)
         .forgeGlassCard(accent: acceptedCount > 0 ? Color.vitality : Color.warning)
     }
@@ -332,11 +331,11 @@ struct CycleSharingView: View {
     private var participantList: some View {
         let others = sharing.activeShares.filter { !$0.isOwner }
         if !others.isEmpty {
-            VStack(alignment: .leading, spacing: 8) {
+            VStack(alignment: .leading, spacing: FDS.Spacing.sm) {
                 Text("WHO CAN SEE IT")
                     .forgeSectionLabel()
                 ForEach(others) { person in
-                    HStack(spacing: 10) {
+                    HStack(spacing: FDS.Spacing.md) {
                         Image(systemName: person.status == .accepted
                               ? "person.fill.checkmark" : "person.fill.questionmark")
                             .font(.system(size: 13))
@@ -374,7 +373,7 @@ struct CycleSharingView: View {
                     .padding(.vertical, 2)
                 }
             }
-            .padding(14)
+            .padding(FDS.Spacing.lg)
             .frame(maxWidth: .infinity, alignment: .leading)
             .background(
                 RoundedRectangle(cornerRadius: FDS.Radius.md, style: .continuous)
@@ -390,7 +389,7 @@ struct CycleSharingView: View {
     /// a few days of privacy either takes it, or takes nothing and shares a week
     /// they did not want to.
     private var pauseControl: some View {
-        VStack(alignment: .leading, spacing: 8) {
+        VStack(alignment: .leading, spacing: FDS.Spacing.sm) {
             Toggle(isOn: Binding(
                 get: { sharing.isPaused },
                 set: { paused in Task { await sharing.setPaused(paused) } }
@@ -411,7 +410,7 @@ struct CycleSharingView: View {
                 .foregroundColor(.textTertiary)
                 .fixedSize(horizontal: false, vertical: true)
         }
-        .padding(14)
+        .padding(FDS.Spacing.lg)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(
             RoundedRectangle(cornerRadius: FDS.Radius.md, style: .continuous)
@@ -431,7 +430,7 @@ struct CycleSharingView: View {
         Button {
             showPreview = true
         } label: {
-            HStack(spacing: 12) {
+            HStack(spacing: FDS.Spacing.md) {
                 Image(systemName: "eye.fill")
                     .foregroundStyle(Color.ember)
                 VStack(alignment: .leading, spacing: 2) {
@@ -446,9 +445,8 @@ struct CycleSharingView: View {
                 Image(systemName: "chevron.right")
                     .foregroundColor(.textTertiary)
             }
-            .padding(16)
-            .background(Color.surfaceElevated)
-            .clipShape(RoundedRectangle(cornerRadius: FDS.Radius.lg, style: .continuous))
+            .padding(FDS.Spacing.lg)
+            .forgeInsetTile(radius: FDS.Radius.lg)
         }
         .buttonStyle(.plain)
     }
@@ -462,7 +460,7 @@ struct CycleSharingView: View {
                     personName: resolvedName,
                     isPreview: true
                 )
-                .padding(20)
+                .padding(FDS.Spacing.lg)
             }
             .background(Color.background.ignoresSafeArea())
             .navigationTitle("Their view")

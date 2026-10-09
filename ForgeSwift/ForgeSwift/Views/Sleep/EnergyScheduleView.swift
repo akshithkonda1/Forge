@@ -249,7 +249,7 @@ struct EnergyScheduleCard: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 16) {
+        VStack(alignment: .leading, spacing: FDS.Spacing.lg) {
             header
             if let schedule = schedule {
                 debtBlock(schedule)
@@ -263,7 +263,7 @@ struct EnergyScheduleCard: View {
                 learningState
             }
         }
-        .padding(18)
+        .padding(FDS.Spacing.lg)
         .forgeGlassCard(cornerRadius: FDS.Radius.xl, accent: .aurora)
         .animation(reduceMotion ? nil : .snappy(duration: 0.32), value: schedule?.debtHours)
         .sensoryFeedback(.selection, trigger: scrubWindow)
@@ -295,7 +295,7 @@ struct EnergyScheduleCard: View {
     // ------------------------------------------------------------
 
     private var header: some View {
-        HStack(spacing: 8) {
+        HStack(spacing: FDS.Spacing.sm) {
             Image(systemName: "waveform.path.ecg")
                 .font(.system(size: 13, weight: .semibold))
                 .foregroundColor(.aurora)
@@ -335,8 +335,8 @@ struct EnergyScheduleCard: View {
     }
 
     private func debtBlock(_ schedule: EnergySchedule) -> some View {
-        VStack(alignment: .leading, spacing: 10) {
-            HStack(spacing: 10) {
+        VStack(alignment: .leading, spacing: FDS.Spacing.md) {
+            HStack(spacing: FDS.Spacing.md) {
                 ZStack {
                     Circle().fill(debtTint(schedule.debtLevel).opacity(0.14)).frame(width: 36, height: 36)
                     Image(systemName: debtIcon(schedule.debtLevel))
@@ -358,7 +358,7 @@ struct EnergyScheduleCard: View {
                 Spacer(minLength: 0)
             }
             // Actionable next step — the one thing to do tonight, not a number to stare at.
-            HStack(spacing: 7) {
+            HStack(spacing: FDS.Spacing.sm) {
                 Image(systemName: "arrow.forward.circle.fill")
                     .font(.system(size: 11, weight: .semibold))
                     .foregroundColor(debtTint(schedule.debtLevel))
@@ -367,8 +367,8 @@ struct EnergyScheduleCard: View {
                     .foregroundColor(.textSecondary)
                     .fixedSize(horizontal: false, vertical: true)
             }
-            .padding(.horizontal, 10)
-            .padding(.vertical, 8)
+            .padding(.horizontal, FDS.Spacing.md)
+            .padding(.vertical, FDS.Spacing.sm)
             .background(debtTint(schedule.debtLevel).opacity(0.07))
             .clipShape(RoundedRectangle(cornerRadius: FDS.Radius.sm, style: .continuous))
         }
@@ -381,7 +381,7 @@ struct EnergyScheduleCard: View {
     // ------------------------------------------------------------
 
     private func chart(_ schedule: EnergySchedule) -> some View {
-        VStack(spacing: 8) {
+        VStack(spacing: FDS.Spacing.sm) {
             GeometryReader { geo in
                 ZStack(alignment: .topLeading) {
                     // Subtle horizontal grid — 3 lines so the curve has a reference without a y-axis to read.
@@ -423,7 +423,7 @@ struct EnergyScheduleCard: View {
             .accessibilityLabel(chartDescription(schedule))
 
             axis(schedule)
-            HStack(spacing: 4) {
+            HStack(spacing: FDS.Spacing.xs) {
                 Image(systemName: "hand.draw.fill").font(.system(size: 9)).foregroundColor(.textTertiary.opacity(0.7))
                 Text("Drag the curve — or tap a time — to see that moment")
                     .font(FDS.TypeScale.Dynamic.micro)
@@ -575,14 +575,14 @@ struct EnergyScheduleCard: View {
     private func focusBlock(_ schedule: EnergySchedule) -> some View {
         let point = focus(schedule)
         let scrubbing = scrubOffset != nil
-        return VStack(alignment: .leading, spacing: 10) {
-            HStack(spacing: 9) {
+        return VStack(alignment: .leading, spacing: FDS.Spacing.md) {
+            HStack(spacing: FDS.Spacing.sm) {
                 Image(systemName: point.window.symbolName)
                     .font(.system(size: 15, weight: .semibold))
                     .foregroundColor(point.window.tint)
                     .frame(width: 22)
                 VStack(alignment: .leading, spacing: 3) {
-                    HStack(spacing: 6) {
+                    HStack(spacing: FDS.Spacing.sm) {
                         Text(point.window.title)
                             .font(FDS.TypeScale.Dynamic.body.weight(.semibold))
                             .foregroundColor(.textPrimary)
@@ -593,7 +593,7 @@ struct EnergyScheduleCard: View {
                             Text(clockLabel(point.hour))
                                 .font(FDS.TypeScale.Dynamic.micro)
                                 .foregroundColor(point.window.tint)
-                                .padding(.horizontal, 6)
+                                .padding(.horizontal, FDS.Spacing.sm)
                                 .padding(.vertical, 2)
                                 .background(point.window.tint.opacity(0.14))
                                 .clipShape(Capsule())
@@ -609,7 +609,7 @@ struct EnergyScheduleCard: View {
             }
 
             if !scrubbing, let upcoming = schedule.upcoming {
-                HStack(spacing: 9) {
+                HStack(spacing: FDS.Spacing.sm) {
                     Image(systemName: "arrow.turn.down.right")
                         .font(.system(size: 12, weight: .semibold))
                         .foregroundColor(.textTertiary)
@@ -625,10 +625,9 @@ struct EnergyScheduleCard: View {
                 .transition(.opacity)
             }
         }
-        .padding(13)
+        .padding(FDS.Spacing.md)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Color.surfaceElevated)
-        .cornerRadius(14)
+        .forgeInsetTile(radius: FDS.Radius.md)
         .animation(.snappy(duration: 0.22), value: point.window)
         .animation(.snappy(duration: 0.22), value: scrubbing)
         .accessibilityElement(children: .combine)
@@ -655,8 +654,8 @@ struct EnergyScheduleCard: View {
     }
 
     private func eveningStat(icon: String, tint: Color, label: String, value: String) -> some View {
-        VStack(spacing: 4) {
-            HStack(spacing: 5) {
+        VStack(spacing: FDS.Spacing.xs) {
+            HStack(spacing: FDS.Spacing.xs) {
                 Image(systemName: icon)
                     .font(.system(size: 11, weight: .semibold))
                     .foregroundColor(tint)
@@ -678,7 +677,7 @@ struct EnergyScheduleCard: View {
     // ------------------------------------------------------------
 
     private func hedge(_ schedule: EnergySchedule) -> some View {
-        HStack(alignment: .top, spacing: 10) {
+        HStack(alignment: .top, spacing: FDS.Spacing.md) {
             ZStack {
                 Circle().fill(Color.warning.opacity(0.14)).frame(width: 28, height: 28)
                 Image(systemName: "exclamationmark.triangle.fill")
@@ -696,7 +695,7 @@ struct EnergyScheduleCard: View {
             }
             Spacer(minLength: 0)
         }
-        .padding(12)
+        .padding(FDS.Spacing.md)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(Color.warning.opacity(0.08))
         .clipShape(RoundedRectangle(cornerRadius: FDS.Radius.md, style: .continuous))
@@ -707,8 +706,8 @@ struct EnergyScheduleCard: View {
     /// Inventing a schedule from three nights would be worse than waiting: the
     /// failure mode is telling someone their slump is at 4am.
     private var learningState: some View {
-        VStack(alignment: .leading, spacing: 14) {
-            HStack(spacing: 12) {
+        VStack(alignment: .leading, spacing: FDS.Spacing.lg) {
+            HStack(spacing: FDS.Spacing.md) {
                 ZStack {
                     Circle().fill(Color.aurora.opacity(0.12)).frame(width: 40, height: 40)
                     Image(systemName: "waveform.path.ecg")
@@ -722,7 +721,7 @@ struct EnergyScheduleCard: View {
                     Text("About \(EnergySchedule.minimumNights) nights")
                         .font(FDS.TypeScale.Dynamic.micro)
                         .foregroundColor(.aurora)
-                        .padding(.horizontal, 7).padding(.vertical, 3)
+                        .padding(.horizontal, FDS.Spacing.sm).padding(.vertical, 3)
                         .background(Color.aurora.opacity(0.10))
                         .clipShape(Capsule())
                 }
@@ -732,15 +731,14 @@ struct EnergyScheduleCard: View {
                 .font(.system(size: 12))
                 .foregroundColor(.textSecondary)
                 .fixedSize(horizontal: false, vertical: true)
-            HStack(spacing: 8) {
+            HStack(spacing: FDS.Spacing.sm) {
                 Image(systemName: "bed.double.fill").font(.system(size: 10)).foregroundColor(.steel)
                 Text("Tip: Tonight → I'm in bed builds the fastest signal")
                     .font(FDS.TypeScale.Dynamic.micro)
                     .foregroundColor(.textTertiary)
             }
-            .padding(.horizontal, 10).padding(.vertical, 8)
-            .background(Color.surfaceElevated)
-            .clipShape(RoundedRectangle(cornerRadius: FDS.Radius.sm, style: .continuous))
+            .padding(.horizontal, FDS.Spacing.md).padding(.vertical, FDS.Spacing.sm)
+            .forgeInsetTile(radius: FDS.Radius.sm)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .accessibilityElement(children: .combine)

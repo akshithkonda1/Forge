@@ -35,7 +35,7 @@ struct AriaMeetView: View {
 
             VStack(spacing: 0) {
                 ScrollView(showsIndicators: false) {
-                    VStack(spacing: 18) {
+                    VStack(spacing: FDS.Spacing.lg) {
                         ZStack {
                             PremiumPresenceBloom(
                                 size: 190,
@@ -50,7 +50,7 @@ struct AriaMeetView: View {
                                 followPresence: true
                             )
                         }
-                        .padding(.top, 28)
+                        .padding(.top, FDS.Spacing.xl)
 
                         Text(AriaMeetCopy.eyebrow.uppercased())
                             .font(FDS.TypeScale.Dynamic.micro)
@@ -68,12 +68,12 @@ struct AriaMeetView: View {
                             .font(FDS.TypeScale.Dynamic.body)
                             .foregroundColor(.textSecondary)
                             .multilineTextAlignment(.center)
-                            .padding(.horizontal, 8)
+                            .padding(.horizontal, FDS.Spacing.sm)
                             .premiumEntrance(index: 2, appeared: appeared)
 
-                        VStack(spacing: 10) {
+                        VStack(spacing: FDS.Spacing.md) {
                             ForEach(Array(AriaMeetCopy.capabilities.enumerated()), id: \.element.title) { index, item in
-                                HStack(alignment: .top, spacing: 12) {
+                                HStack(alignment: .top, spacing: FDS.Spacing.md) {
                                     ZStack {
                                         Circle()
                                             .fill(Color.white.opacity(0.06))
@@ -82,7 +82,7 @@ struct AriaMeetView: View {
                                             .font(.system(size: 14, weight: .medium))
                                             .foregroundColor(Color.paper.opacity(0.85))
                                     }
-                                    VStack(alignment: .leading, spacing: 4) {
+                                    VStack(alignment: .leading, spacing: FDS.Spacing.xs) {
                                         Text(item.title)
                                             .font(FDS.TypeScale.Dynamic.body.weight(.semibold))
                                             .foregroundColor(.textPrimary)
@@ -93,7 +93,7 @@ struct AriaMeetView: View {
                                     }
                                 }
                                 .frame(maxWidth: .infinity, alignment: .leading)
-                                .padding(14)
+                                .padding(FDS.Spacing.lg)
                                 .background(Color.white.opacity(0.04))
                                 .clipShape(RoundedRectangle(cornerRadius: FDS.Radius.lg, style: .continuous))
                                 .overlay(
@@ -103,13 +103,13 @@ struct AriaMeetView: View {
                                 .premiumEntrance(index: 3 + index, appeared: appeared)
                             }
                         }
-                        .padding(.top, 8)
+                        .padding(.top, FDS.Spacing.sm)
                     }
-                    .padding(.horizontal, 22)
-                    .padding(.bottom, 16)
+                    .padding(.horizontal, FDS.Spacing.xl)
+                    .padding(.bottom, FDS.Spacing.lg)
                 }
 
-                VStack(spacing: 10) {
+                VStack(spacing: FDS.Spacing.md) {
                     PremiumPrimaryButton(
                         title: AriaMeetCopy.talkCta,
                         icon: "waveform",
@@ -121,14 +121,14 @@ struct AriaMeetView: View {
                             .font(FDS.TypeScale.Dynamic.body)
                             .foregroundColor(.textTertiary)
                             .frame(maxWidth: .infinity)
-                            .padding(.vertical, 10)
+                            .padding(.vertical, FDS.Spacing.md)
                     }
                     .buttonStyle(.plain)
                     .accessibilityLabel("Skip")
                     .accessibilityHint("Skip the first meeting and look around Forge.")
                 }
-                .padding(.horizontal, 22)
-                .padding(.bottom, 20)
+                .padding(.horizontal, FDS.Spacing.xl)
+                .padding(.bottom, FDS.Spacing.lg)
             }
             .opacity(appeared ? 1 : 0)
         }

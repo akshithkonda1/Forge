@@ -16,14 +16,14 @@ struct FertileScoreCard: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 14) {
+        VStack(alignment: .leading, spacing: FDS.Spacing.lg) {
             HStack(alignment: .firstTextBaseline) {
-                VStack(alignment: .leading, spacing: 4) {
+                VStack(alignment: .leading, spacing: FDS.Spacing.xs) {
                     Text("FERTILE SCORE")
                         .font(FDS.TypeScale.Dynamic.caption)
                         .tracking(1.2)
                         .foregroundStyle(.secondary)
-                    HStack(alignment: .firstTextBaseline, spacing: 4) {
+                    HStack(alignment: .firstTextBaseline, spacing: FDS.Spacing.xs) {
                         Text("\(score)")
                             .font(.system(size: 44, weight: .bold, design: .rounded))
                             .foregroundStyle(band.color)
@@ -33,7 +33,7 @@ struct FertileScoreCard: View {
                     }
                 }
                 Spacer()
-                VStack(alignment: .trailing, spacing: 6) {
+                VStack(alignment: .trailing, spacing: FDS.Spacing.sm) {
                     Text(band.label)
                         .font(FDS.TypeScale.Dynamic.caption)
                         .foregroundStyle(band.color)
@@ -90,16 +90,16 @@ struct CycleGoalSelectorCard: View {
     var onPeriodStyle: (CyclePeriodTrainingStyle) -> Void = { _ in }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
+        VStack(alignment: .leading, spacing: FDS.Spacing.md) {
             Text("Your cycle goal")
                 .font(FDS.TypeScale.Dynamic.caption)
                 .foregroundStyle(.secondary)
-            HStack(spacing: 8) {
+            HStack(spacing: FDS.Spacing.sm) {
                 ForEach(CycleGoal.allCases) { g in
                     Button {
                         onUpdate(g)
                     } label: {
-                        VStack(spacing: 4) {
+                        VStack(spacing: FDS.Spacing.xs) {
                             Image(systemName: g.icon)
                                 .font(.title3)
                             Text(g.label)
@@ -107,7 +107,7 @@ struct CycleGoalSelectorCard: View {
                                 .multilineTextAlignment(.center)
                         }
                         .frame(maxWidth: .infinity)
-                        .padding(.vertical, 12)
+                        .padding(.vertical, FDS.Spacing.md)
                         .background(goal == g ? Color.ember.opacity(0.15) : Color.surfaceElevated)
                         .foregroundStyle(goal == g ? Color.ember : .secondary)
                         .clipShape(RoundedRectangle(cornerRadius: FDS.Radius.sm))
@@ -122,12 +122,12 @@ struct CycleGoalSelectorCard: View {
             Text("What ARIA should design training around")
                 .font(FDS.TypeScale.Dynamic.caption)
                 .foregroundStyle(.secondary)
-            HStack(spacing: 8) {
+            HStack(spacing: FDS.Spacing.sm) {
                 ForEach(Array(CycleLifestyleGoal.allCases.filter { $0 != .none }) + [.none], id: \.self) { g in
                     Button {
                         onLifestyle(g)
                     } label: {
-                        VStack(spacing: 4) {
+                        VStack(spacing: FDS.Spacing.xs) {
                             Image(systemName: g.icon)
                                 .font(.caption)
                             Text(g == .none ? "Ask me" : g.label)
@@ -136,7 +136,7 @@ struct CycleGoalSelectorCard: View {
                                 .lineLimit(2)
                         }
                         .frame(maxWidth: .infinity)
-                        .padding(.vertical, 10)
+                        .padding(.vertical, FDS.Spacing.md)
                         .background(lifestyleGoal == g ? Color.ember.opacity(0.15) : Color.surfaceElevated)
                         .foregroundStyle(lifestyleGoal == g ? Color.ember : .secondary)
                         .clipShape(RoundedRectangle(cornerRadius: FDS.Radius.sm))
@@ -148,7 +148,7 @@ struct CycleGoalSelectorCard: View {
                 Text("While you’re on your period")
                     .font(FDS.TypeScale.Dynamic.caption)
                     .foregroundStyle(.secondary)
-                HStack(spacing: 8) {
+                HStack(spacing: FDS.Spacing.sm) {
                     ForEach(CyclePeriodTrainingStyle.allCases) { style in
                         Button {
                             onPeriodStyle(style)
@@ -158,7 +158,7 @@ struct CycleGoalSelectorCard: View {
                                 .multilineTextAlignment(.center)
                                 .lineLimit(2)
                                 .frame(maxWidth: .infinity)
-                                .padding(.vertical, 10)
+                                .padding(.vertical, FDS.Spacing.md)
                                 .background(periodTrainingStyle == style ? Color.ember.opacity(0.15) : Color.surfaceElevated)
                                 .foregroundStyle(periodTrainingStyle == style ? Color.ember : .secondary)
                                 .clipShape(RoundedRectangle(cornerRadius: FDS.Radius.sm))
@@ -189,7 +189,7 @@ struct TWWSectionCard: View {
     let onAskARIA: () -> Void
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
+        VStack(alignment: .leading, spacing: FDS.Spacing.md) {
             HStack {
                 Image(systemName: "hourglass")
                     .foregroundStyle(Color.ember)
@@ -219,8 +219,8 @@ struct CycleConditionSelectorCard: View {
     @Binding var condition: CycleCondition
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            VStack(alignment: .leading, spacing: 4) {
+        VStack(alignment: .leading, spacing: FDS.Spacing.md) {
+            VStack(alignment: .leading, spacing: FDS.Spacing.xs) {
                 Text("HEALTH CONDITION")
                     .font(FDS.TypeScale.Dynamic.caption)
                     .foregroundColor(.textSecondary)
@@ -233,7 +233,7 @@ struct CycleConditionSelectorCard: View {
                     Button {
                         condition = c
                     } label: {
-                        VStack(spacing: 4) {
+                        VStack(spacing: FDS.Spacing.xs) {
                             Image(systemName: c.icon)
                                 .font(.title3)
                             Text(c.label)
@@ -242,7 +242,7 @@ struct CycleConditionSelectorCard: View {
                                 .lineLimit(2)
                         }
                         .frame(maxWidth: .infinity)
-                        .padding(.vertical, 10)
+                        .padding(.vertical, FDS.Spacing.md)
                         .background(condition == c ? Color.ember.opacity(0.15) : Color.surfaceElevated)
                         .foregroundStyle(condition == c ? Color.ember : Color.textSecondary)
                         .clipShape(RoundedRectangle(cornerRadius: FDS.Radius.sm))

@@ -20,14 +20,14 @@ struct SleepSoundsTab: View {
     var body: some View {
         @Bindable var player = player
         ScrollView(showsIndicators: false) {
-            VStack(spacing: 20) {
+            VStack(spacing: FDS.Spacing.lg) {
                 if player.isPlaying {
                     nowPlaying(player)
                 }
 
                 EditorSection(title: "TIMER") {
                     ScrollView(.horizontal, showsIndicators: false) {
-                        HStack(spacing: 8) {
+                        HStack(spacing: FDS.Spacing.sm) {
                             ForEach(timerOptions, id: \.self) { mins in
                                 Button {
                                     sleepTimer = mins
@@ -35,9 +35,9 @@ struct SleepSoundsTab: View {
                                     Text(SleepMixTimer.label(mins))
                                         .font(FDS.TypeScale.Dynamic.caption)
                                         .foregroundColor(sleepTimer == mins ? .white : .textTertiary)
-                                        .padding(.horizontal, 14).padding(.vertical, 8)
+                                        .padding(.horizontal, FDS.Spacing.lg).padding(.vertical, FDS.Spacing.sm)
                                         .background(sleepTimer == mins ? Color(hex: SleepHud.plateHex) : Color.surface)
-                                        .cornerRadius(20)
+                                        .cornerRadius(FDS.Radius.xl)
                                 }
                                 .buttonStyle(.plain)
                             }
@@ -53,7 +53,7 @@ struct SleepSoundsTab: View {
 
                 if !playlists.isEmpty {
                     EditorSection(title: "FORGE PLAYLISTS") {
-                        VStack(spacing: 8) {
+                        VStack(spacing: FDS.Spacing.sm) {
                             ForEach(playlists) { list in
                                 Button {
                                     let kinds = list.kinds.compactMap(SleepSoundKind.init(rawValue:))
@@ -70,7 +70,7 @@ struct SleepSoundsTab: View {
                                             .font(.system(size: 12))
                                             .foregroundColor(.textTertiary)
                                     }
-                                    .padding(.vertical, 4)
+                                    .padding(.vertical, FDS.Spacing.xs)
                                 }
                                 .buttonStyle(.plain)
                             }
@@ -101,16 +101,16 @@ struct SleepSoundsTab: View {
 
                 EditorSection(title: "CATEGORIES") {
                     ScrollView(.horizontal, showsIndicators: false) {
-                        HStack(spacing: 8) {
+                        HStack(spacing: FDS.Spacing.sm) {
                             Button {
                                 withAnimation(.spring(response: 0.3, dampingFraction: 0.75)) { selectedCategory = nil }
                             } label: {
                                 Text("All")
                                     .font(FDS.TypeScale.Dynamic.caption)
                                     .foregroundColor(selectedCategory == nil ? .white : .textTertiary)
-                                    .padding(.horizontal, 14).padding(.vertical, 8)
+                                    .padding(.horizontal, FDS.Spacing.lg).padding(.vertical, FDS.Spacing.sm)
                                     .background(selectedCategory == nil ? Color.indigo : Color.surface)
-                                    .cornerRadius(20)
+                                    .cornerRadius(FDS.Radius.xl)
                             }
                             .buttonStyle(.plain)
 
@@ -123,9 +123,9 @@ struct SleepSoundsTab: View {
                                     Text(cat.rawValue)
                                         .font(FDS.TypeScale.Dynamic.caption)
                                         .foregroundColor(selectedCategory == cat ? .white : .textTertiary)
-                                        .padding(.horizontal, 14).padding(.vertical, 8)
+                                        .padding(.horizontal, FDS.Spacing.lg).padding(.vertical, FDS.Spacing.sm)
                                         .background(selectedCategory == cat ? Color.indigo : Color.surface)
-                                        .cornerRadius(20)
+                                        .cornerRadius(FDS.Radius.xl)
                                 }
                                 .buttonStyle(.plain)
                             }
@@ -133,9 +133,9 @@ struct SleepSoundsTab: View {
                     }
                 }
 
-                LazyVStack(alignment: .leading, spacing: 18) {
+                LazyVStack(alignment: .leading, spacing: FDS.Spacing.lg) {
                     ForEach(libraryGroups, id: \.category) { group in
-                        VStack(alignment: .leading, spacing: 10) {
+                        VStack(alignment: .leading, spacing: FDS.Spacing.md) {
                             Text(group.category.rawValue.uppercased())
                                 .font(FDS.TypeScale.Dynamic.micro)
                                 .tracking(1.1)
@@ -159,7 +159,7 @@ struct SleepSoundsTab: View {
                     }
                 }
             }
-            .padding(.horizontal, 16)
+            .padding(.horizontal, FDS.Spacing.lg)
             .padding(.bottom, 100)
         }
         .sensoryFeedback(.selection, trigger: sleepTimer)
@@ -169,8 +169,8 @@ struct SleepSoundsTab: View {
     @ViewBuilder
     private func nowPlaying(_ player: SleepWindDownPlayer) -> some View {
         @Bindable var player = player
-        VStack(alignment: .leading, spacing: 12) {
-            HStack(spacing: 14) {
+        VStack(alignment: .leading, spacing: FDS.Spacing.md) {
+            HStack(spacing: FDS.Spacing.lg) {
                 ZStack {
                     Circle().fill(player.kind.color.opacity(0.2)).frame(width: 44, height: 44)
                     Image(systemName: player.kind.icon).font(.system(size: 16)).foregroundColor(player.kind.color)
@@ -179,7 +179,7 @@ struct SleepSoundsTab: View {
                     Text(player.kind.displayName)
                         .font(FDS.TypeScale.Dynamic.body.weight(.semibold))
                         .foregroundColor(.textPrimary)
-                    HStack(spacing: 8) {
+                    HStack(spacing: FDS.Spacing.sm) {
                         SoundWaveformBadge()
                         Text(player.remainingLabel)
                             .font(.system(size: 12))
@@ -194,14 +194,14 @@ struct SleepSoundsTab: View {
                     Text("Stop")
                         .font(FDS.TypeScale.Dynamic.caption)
                         .foregroundColor(.white)
-                        .padding(.horizontal, 14)
-                        .padding(.vertical, 8)
+                        .padding(.horizontal, FDS.Spacing.lg)
+                        .padding(.vertical, FDS.Spacing.sm)
                         .background(Color.danger.opacity(0.85))
                         .clipShape(Capsule())
                 }
                 .buttonStyle(.plain)
             }
-            HStack(spacing: 10) {
+            HStack(spacing: FDS.Spacing.md) {
                 Image(systemName: "speaker.fill")
                     .font(.system(size: 11))
                     .foregroundColor(.textMuted)
@@ -213,7 +213,7 @@ struct SleepSoundsTab: View {
                     .foregroundColor(.textMuted)
             }
         }
-        .padding(.horizontal, 16).padding(.vertical, 14)
+        .padding(.horizontal, FDS.Spacing.lg).padding(.vertical, FDS.Spacing.lg)
         .forgeGlassCard(cornerRadius: FDS.Radius.lg, accent: Color.indigo)
         .accessibilityElement(children: .combine)
         .accessibilityLabel("Now playing \(player.kind.displayName), \(player.remainingLabel)")
@@ -227,13 +227,13 @@ struct SleepAppleMusicCard: View {
 
     var body: some View {
         EditorSection(title: "APPLE MUSIC") {
-            VStack(alignment: .leading, spacing: 10) {
+            VStack(alignment: .leading, spacing: FDS.Spacing.md) {
                 Text("Forge can ride whatever is already in Apple Music. Timed stop pauses it with the generated beds. Forge playlists are local mixes — creating a catalog playlist needs your Apple Music key on device, never in the repo.")
                     .font(.system(size: 12))
                     .foregroundColor(.textTertiary)
                     .fixedSize(horizontal: false, vertical: true)
                 if music.isAuthorized {
-                    HStack(spacing: 12) {
+                    HStack(spacing: FDS.Spacing.md) {
                         VStack(alignment: .leading, spacing: 2) {
                             Text(music.nowPlaying?.title ?? "Nothing playing")
                                 .font(FDS.TypeScale.Dynamic.body.weight(.semibold))
@@ -259,8 +259,8 @@ struct SleepAppleMusicCard: View {
                     }
                     .font(.system(size: 14, weight: .semibold))
                     .foregroundColor(.white)
-                    .padding(.horizontal, 14)
-                    .padding(.vertical, 8)
+                    .padding(.horizontal, FDS.Spacing.lg)
+                    .padding(.vertical, FDS.Spacing.sm)
                     .background(Color(hex: "FA2D48"))
                     .clipShape(Capsule())
                 }
@@ -277,7 +277,7 @@ struct SoundLibraryRow: View {
 
     var body: some View {
         Button(action: onTap) {
-            HStack(alignment: .top, spacing: 14) {
+            HStack(alignment: .top, spacing: FDS.Spacing.lg) {
                 ZStack {
                     RoundedRectangle(cornerRadius: FDS.Radius.md, style: .continuous)
                         .fill(sound.color.opacity(isActive ? 0.28 : 0.12))
@@ -286,7 +286,7 @@ struct SoundLibraryRow: View {
                         .font(.system(size: 18, weight: .semibold))
                         .foregroundColor(sound.color)
                 }
-                VStack(alignment: .leading, spacing: 4) {
+                VStack(alignment: .leading, spacing: FDS.Spacing.xs) {
                     HStack {
                         Text(sound.name)
                             .font(FDS.TypeScale.Dynamic.headline)
@@ -304,7 +304,7 @@ struct SoundLibraryRow: View {
                         .multilineTextAlignment(.leading)
                 }
             }
-            .padding(14)
+            .padding(FDS.Spacing.lg)
             .background(isActive ? sound.color.opacity(0.10) : Color.surface)
             .clipShape(RoundedRectangle(cornerRadius: FDS.Radius.lg, style: .continuous))
             .overlay(

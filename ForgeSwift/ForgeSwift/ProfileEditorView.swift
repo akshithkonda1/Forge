@@ -107,7 +107,7 @@ struct ProfileEditorView: View {
     var body: some View {
         NavigationStack {
             ScrollView {
-                VStack(spacing: 24) {
+                VStack(spacing: FDS.Spacing.xl) {
                     avatarEditor
                     identityFields
                     bodyFields
@@ -181,7 +181,7 @@ struct ProfileEditorView: View {
     // MARK: Sections
 
     private var avatarEditor: some View {
-        VStack(spacing: 12) {
+        VStack(spacing: FDS.Spacing.md) {
             ZStack(alignment: .bottomTrailing) {
                 Group {
                     if let pendingPhoto {
@@ -219,14 +219,14 @@ struct ProfileEditorView: View {
             }
             .accessibilityHidden(true)
 
-            HStack(spacing: 10) {
+            HStack(spacing: FDS.Spacing.md) {
                 // The picker is its own control rather than a dialog action, because
                 // PhotosPicker must be present in the hierarchy to present its sheet.
                 PhotosPicker(selection: $photoItem, matching: .images, photoLibrary: .shared()) {
                     Label(hasPhoto ? "Change photo" : "Add photo", systemImage: "photo.on.rectangle")
                         .font(.system(size: 13, weight: .semibold))
                         .foregroundColor(.ember)
-                        .padding(.horizontal, 14).padding(.vertical, 9)
+                        .padding(.horizontal, FDS.Spacing.lg).padding(.vertical, FDS.Spacing.sm)
                         .background(Color.ember.opacity(0.12))
                         .cornerRadius(100)
                 }
@@ -238,7 +238,7 @@ struct ProfileEditorView: View {
                         Label("Camera", systemImage: "camera")
                             .font(.system(size: 13, weight: .semibold))
                             .foregroundColor(.textSecondary)
-                            .padding(.horizontal, 14).padding(.vertical, 9)
+                            .padding(.horizontal, FDS.Spacing.lg).padding(.vertical, FDS.Spacing.sm)
                             .background(Color.surfaceElevated)
                             .cornerRadius(100)
                     }
@@ -255,7 +255,7 @@ struct ProfileEditorView: View {
                         Image(systemName: "trash")
                             .font(.system(size: 13, weight: .semibold))
                             .foregroundColor(.danger)
-                            .padding(9)
+                            .padding(FDS.Spacing.sm)
                             .background(Color.danger.opacity(0.12))
                             .cornerRadius(100)
                     }
@@ -270,11 +270,11 @@ struct ProfileEditorView: View {
                     .foregroundColor(.textTertiary)
             }
         }
-        .padding(.top, 12)
+        .padding(.top, FDS.Spacing.md)
     }
 
     private var identityFields: some View {
-        VStack(spacing: 16) {
+        VStack(spacing: FDS.Spacing.lg) {
             ProfileFieldRow(label: "Name", placeholder: "Your name", text: $name)
 
             ProfilePickerRow(label: "Gender") {
@@ -306,15 +306,15 @@ struct ProfileEditorView: View {
     }
 
     private var bodyFields: some View {
-        VStack(spacing: 16) {
+        VStack(spacing: FDS.Spacing.lg) {
             ProfileFieldRow(label: "Age", placeholder: "Age", text: $age, keyboardType: .numberPad)
             ProfileFieldRow(label: "Weight (lbs)", placeholder: "Weight", text: $weight, keyboardType: .decimalPad)
 
-            VStack(alignment: .leading, spacing: 8) {
+            VStack(alignment: .leading, spacing: FDS.Spacing.sm) {
                 Text("Height")
                     .font(FDS.TypeScale.Dynamic.caption)
                     .foregroundColor(.textSecondary)
-                HStack(spacing: 10) {
+                HStack(spacing: FDS.Spacing.md) {
                     heightField(placeholder: "5", text: $heightFeet, unit: "ft")
                     heightField(placeholder: "10", text: $heightInches, unit: "in")
                 }
@@ -323,7 +323,7 @@ struct ProfileEditorView: View {
     }
 
     private func heightField(placeholder: String, text: Binding<String>, unit: String) -> some View {
-        HStack(spacing: 6) {
+        HStack(spacing: FDS.Spacing.sm) {
             TextField(placeholder, text: text)
                 .font(.system(size: 15))
                 .keyboardType(.numberPad)
@@ -331,7 +331,7 @@ struct ProfileEditorView: View {
                 .font(.system(size: 13))
                 .foregroundColor(.textTertiary)
         }
-        .padding(14)
+        .padding(FDS.Spacing.lg)
         .forgeGlassCard(cornerRadius: FDS.Radius.sm, accent: .steel)
         .accessibilityLabel("Height in \(unit == "ft" ? "feet" : "inches")")
     }
@@ -356,10 +356,10 @@ struct ProfileEditorView: View {
                 .frame(maxWidth: .infinity)
                 .frame(height: 52)
                 .background(Color.ember)
-                .cornerRadius(14)
+                .cornerRadius(FDS.Radius.md)
         }
         .buttonStyle(.plain)
-        .padding(.top, 12)
+        .padding(.top, FDS.Spacing.md)
     }
 }
 
@@ -375,7 +375,7 @@ struct ProfilePickerRow<Content: View>: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
+        VStack(alignment: .leading, spacing: FDS.Spacing.sm) {
             HStack {
                 Text(label)
                     .font(FDS.TypeScale.Dynamic.caption)
@@ -383,8 +383,8 @@ struct ProfilePickerRow<Content: View>: View {
                 Spacer()
                 content
             }
-            .padding(.horizontal, 14)
-            .padding(.vertical, 8)
+            .padding(.horizontal, FDS.Spacing.lg)
+            .padding(.vertical, FDS.Spacing.sm)
             .forgeGlassCard(cornerRadius: FDS.Radius.sm, accent: .steel)
 
             if let footnote {
@@ -442,14 +442,14 @@ struct ProfileFieldRow: View {
     var keyboardType: UIKeyboardType = .default
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
+        VStack(alignment: .leading, spacing: FDS.Spacing.sm) {
             Text(label)
                 .font(FDS.TypeScale.Dynamic.caption)
                 .foregroundColor(.textSecondary)
 
             TextField(placeholder, text: $text)
                 .font(.system(size: 15))
-                .padding(14)
+                .padding(FDS.Spacing.lg)
                 .forgeGlassCard(cornerRadius: FDS.Radius.sm, accent: .steel)
                 .keyboardType(keyboardType)
         }

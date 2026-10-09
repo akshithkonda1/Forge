@@ -86,7 +86,7 @@ struct ForgeSplashScreen: View {
                 loopMotion: false
             )
 
-            VStack(spacing: 28) {
+            VStack(spacing: FDS.Spacing.xl) {
                 ZStack {
                     PremiumPresenceBloom(
                         size: 220,
@@ -106,8 +106,8 @@ struct ForgeSplashScreen: View {
                 .scaleEffect(logoScale)
                 .opacity(logoOpacity)
 
-                VStack(spacing: 10) {
-                    HStack(spacing: 10) {
+                VStack(spacing: FDS.Spacing.md) {
+                    HStack(spacing: FDS.Spacing.md) {
                         ForgeBrandMark(size: 22)
                         Text("FORGE")
                             .font(ForgeType.display)
@@ -343,8 +343,8 @@ struct ForgeBottomNav: View {
                 }
             }
         }
-        .padding(.top, 8)
-        .padding(.bottom, 4)
+        .padding(.top, FDS.Spacing.sm)
+        .padding(.bottom, FDS.Spacing.xs)
         .padding(.horizontal, 2)
         .background {
             ZStack(alignment: .top) {

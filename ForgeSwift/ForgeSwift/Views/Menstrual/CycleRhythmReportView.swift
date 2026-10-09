@@ -24,8 +24,8 @@ struct CycleRhythmReportView: View {
     var body: some View {
         NavigationStack {
             ScrollView {
-                VStack(alignment: .leading, spacing: 18) {
-                    VStack(alignment: .leading, spacing: 8) {
+                VStack(alignment: .leading, spacing: FDS.Spacing.lg) {
+                    VStack(alignment: .leading, spacing: FDS.Spacing.sm) {
                         Text("Rhythm report")
                             .font(FDS.TypeScale.Dynamic.title)
                             .foregroundColor(.textPrimary)
@@ -65,7 +65,7 @@ struct CycleRhythmReportView: View {
                             .font(FDS.TypeScale.Dynamic.body)
                             .foregroundColor(.textSecondary)
                     } else {
-                        VStack(alignment: .leading, spacing: 10) {
+                        VStack(alignment: .leading, spacing: FDS.Spacing.md) {
                             Text("MONTHS IN THIS PACK").forgeSectionLabel()
                             ForEach(months) { month in
                                 monthRow(month)
@@ -77,10 +77,9 @@ struct CycleRhythmReportView: View {
                         .font(.system(.footnote, design: .monospaced))
                         .foregroundColor(.textSecondary)
                         .textSelection(.enabled)
-                        .padding(14)
+                        .padding(FDS.Spacing.lg)
                         .frame(maxWidth: .infinity, alignment: .leading)
-                        .background(Color.surfaceElevated)
-                        .clipShape(RoundedRectangle(cornerRadius: FDS.Radius.md, style: .continuous))
+                        .forgeInsetTile(radius: FDS.Radius.md)
 
                     if let pdfURL {
                         ShareLink(item: pdfURL) {
@@ -88,7 +87,7 @@ struct CycleRhythmReportView: View {
                                 .font(FDS.TypeScale.Dynamic.caption)
                                 .foregroundColor(.white)
                                 .frame(maxWidth: .infinity)
-                                .padding(.vertical, 14)
+                                .padding(.vertical, FDS.Spacing.lg)
                                 .background(Color.ember)
                                 .clipShape(RoundedRectangle(cornerRadius: FDS.Radius.md, style: .continuous))
                         }
@@ -104,7 +103,7 @@ struct CycleRhythmReportView: View {
                         )
                         .font(FDS.TypeScale.Dynamic.caption)
                         .frame(maxWidth: .infinity)
-                        .padding(.vertical, 12)
+                        .padding(.vertical, FDS.Spacing.md)
                     }
                     .buttonStyle(.bordered)
                     .tint(.vitality)
@@ -128,7 +127,7 @@ struct CycleRhythmReportView: View {
                             .fixedSize(horizontal: false, vertical: true)
                     }
                 }
-                .padding(20)
+                .padding(FDS.Spacing.lg)
             }
             .background(Color.background.ignoresSafeArea())
             .navigationTitle("Apple Cycle report")
@@ -183,7 +182,7 @@ struct CycleRhythmReportView: View {
 
     private var overviewChips: some View {
         let snap = cycleStore.snapshot
-        return HStack(spacing: 8) {
+        return HStack(spacing: FDS.Spacing.sm) {
             chip("\(Int(snap.cycleLengthMedian.rounded()))d cycle", Color.ember)
             chip("\(Int(snap.periodLengthMedian.rounded()))d bleed", Color.alert)
             if let mae = cycleStore.accuracyReport.maeDays {
@@ -209,17 +208,16 @@ struct CycleRhythmReportView: View {
                 .font(.system(size: 11))
                 .foregroundStyle(Color.vitality)
         }
-        .padding(14)
-        .background(Color.surfaceElevated)
-        .clipShape(RoundedRectangle(cornerRadius: FDS.Radius.md, style: .continuous))
+        .padding(FDS.Spacing.lg)
+        .forgeInsetTile(radius: FDS.Radius.md)
     }
 
     private func chip(_ text: String, _ color: Color) -> some View {
         Text(text)
             .font(FDS.TypeScale.Dynamic.micro)
             .foregroundStyle(color)
-            .padding(.horizontal, 10)
-            .padding(.vertical, 5)
+            .padding(.horizontal, FDS.Spacing.md)
+            .padding(.vertical, FDS.Spacing.xs)
             .background(color.opacity(0.12))
             .clipShape(Capsule())
     }
@@ -230,7 +228,7 @@ struct CycleTrainingPrescriptionCard: View {
     var onAskARIA: () -> Void
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
+        VStack(alignment: .leading, spacing: FDS.Spacing.md) {
             Text("TODAY'S TRAINING").forgeSectionLabel()
             Text(prescription.headline)
                 .font(FDS.TypeScale.Dynamic.title)
@@ -259,7 +257,7 @@ struct CycleTrainingPrescriptionCard: View {
                 .font(FDS.TypeScale.Dynamic.caption)
                 .foregroundColor(.textTertiary)
         }
-        .padding(18)
+        .padding(FDS.Spacing.lg)
         .forgeGlassCard(accent: .ember)
     }
 }

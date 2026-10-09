@@ -8,7 +8,7 @@ struct EditorSection<Content: View>: View {
     @ViewBuilder let content: () -> Content
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
+        VStack(alignment: .leading, spacing: FDS.Spacing.md) {
             Text(title)
                 .font(FDS.TypeScale.Dynamic.micro)
                 .foregroundColor(.textTertiary)

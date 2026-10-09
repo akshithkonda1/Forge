@@ -16,28 +16,28 @@ struct AriaSpecialistActivityView: View {
     @State private var pulse = false
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
+        VStack(alignment: .leading, spacing: FDS.Spacing.md) {
             Text(workers.count > 1 ? "Consulting your specialists" : "Thinking")
                 .font(FDS.TypeScale.Dynamic.caption)
                 .foregroundColor(.aurora)
             FlowLayout(spacing: 8) {
                 ForEach(workers) { worker in
-                    HStack(spacing: 6) {
+                    HStack(spacing: FDS.Spacing.sm) {
                         Image(systemName: worker.kind.icon)
                             .font(.system(size: 11, weight: .semibold))
                         Text(worker.label)
                             .font(FDS.TypeScale.Dynamic.caption)
                     }
                     .foregroundColor(worker.kind.accent)
-                    .padding(.horizontal, 10)
-                    .padding(.vertical, 6)
+                    .padding(.horizontal, FDS.Spacing.md)
+                    .padding(.vertical, FDS.Spacing.sm)
                     .background(worker.kind.accent.opacity(pulse ? 0.22 : 0.1))
                     .clipShape(Capsule())
                     .overlay(Capsule().stroke(worker.kind.accent.opacity(0.3), lineWidth: 1))
                 }
             }
         }
-        .padding(14)
+        .padding(FDS.Spacing.lg)
         .frame(maxWidth: .infinity, alignment: .leading)
         .forgeGlassCard(cornerRadius: FDS.Radius.lg, accent: .aurora)
         .onAppear {
@@ -57,7 +57,7 @@ private struct CoachAgentChipRow: View {
 
     var body: some View {
         ScrollView(.horizontal, showsIndicators: false) {
-            HStack(spacing: 8) {
+            HStack(spacing: FDS.Spacing.sm) {
                 pinChip(nil, title: "Auto", icon: "sparkles")
                 // The five modes ARIA tracks, plus Cycle -- reachable here
                 // too, still consent-gated, just not one of the five
@@ -69,8 +69,8 @@ private struct CoachAgentChipRow: View {
                     }
                 }
             }
-            .padding(.horizontal, 18)
-            .padding(.top, 8)
+            .padding(.horizontal, FDS.Spacing.lg)
+            .padding(.top, FDS.Spacing.sm)
         }
         .accessibilityLabel("Personal coaches")
     }
@@ -82,15 +82,15 @@ private struct CoachAgentChipRow: View {
             store.pinnedCoachAgent = agent
             if let agent { store.lastRoutedCoachAgent = agent }
         } label: {
-            HStack(spacing: 5) {
+            HStack(spacing: FDS.Spacing.xs) {
                 Image(systemName: icon)
                     .font(.system(size: 11, weight: .semibold))
                 Text(title)
                     .font(FDS.TypeScale.Dynamic.caption)
             }
             .foregroundColor(selected ? .textPrimary : .textTertiary)
-            .padding(.horizontal, 11)
-            .padding(.vertical, 6)
+            .padding(.horizontal, FDS.Spacing.md)
+            .padding(.vertical, FDS.Spacing.sm)
             .background(selected ? Color.ember.opacity(0.16) : Color.white.opacity(0.04))
             .clipShape(Capsule())
             .overlay(Capsule().stroke(Color.white.opacity(selected ? 0.22 : 0.08), lineWidth: 1))
@@ -128,7 +128,7 @@ struct ChatInputAreaView: View {
 
             if !store.lastSuggestedActions.isEmpty {
                 ScrollView(.horizontal, showsIndicators: false) {
-                    HStack(spacing: 9) {
+                    HStack(spacing: FDS.Spacing.sm) {
                         ForEach(store.lastSuggestedActions, id: \.self) { label in
                             let yesLike = label.lowercased().hasPrefix("yes")
                             let noLike = label.lowercased().hasPrefix("no")
@@ -143,7 +143,7 @@ struct ChatInputAreaView: View {
                             }
                         }
                     }
-                    .padding(.horizontal, 18).padding(.vertical, 11)
+                    .padding(.horizontal, FDS.Spacing.lg).padding(.vertical, FDS.Spacing.md)
                 }
             } else if showQuickActions && !isInputFocused {
                 let chips = smartQuickActions(
@@ -152,7 +152,7 @@ struct ChatInputAreaView: View {
                     messageCount: store.chatMessages.count
                 )
                 ScrollView(.horizontal, showsIndicators: false) {
-                    HStack(spacing: 9) {
+                    HStack(spacing: FDS.Spacing.sm) {
                         ForEach(Array(chips.enumerated()), id: \.offset) { i, chip in
                             SmartChip(label: chip.label, icon: chip.icon, color: chip.color, disabled: isTyping) {
                                 onSend(chip.label)
@@ -161,13 +161,13 @@ struct ChatInputAreaView: View {
                             }
                         }
                     }
-                    .padding(.horizontal, 18).padding(.vertical, 11)
+                    .padding(.horizontal, FDS.Spacing.lg).padding(.vertical, FDS.Spacing.md)
                 }
                 .transition(.move(edge: .bottom).combined(with: .opacity))
             }
 
             // Input row
-            HStack(spacing: 11) {
+            HStack(spacing: FDS.Spacing.md) {
                 // Mic
                 Button(action: onMicTap) {
                     ZStack {
@@ -221,7 +221,7 @@ struct ChatInputAreaView: View {
                         .tint(mood.accentColor)
                         .focused($isInputFocused)
                         .disabled(isTyping)
-                        .padding(.leading, 18).padding(.trailing, 60).padding(.vertical, 14)
+                        .padding(.leading, FDS.Spacing.lg).padding(.trailing, 60).padding(.vertical, FDS.Spacing.lg)
                         .lineLimit(1...5)
                         .onSubmit { onSend(inputText) }
                         .onChange(of: inputText) { _, text in
@@ -259,14 +259,14 @@ struct ChatInputAreaView: View {
                         .animation(FDS.Spring.snap, value: canSend)
                     }
                     .disabled(!canSend)
-                    .padding(.trailing, 7)
+                    .padding(.trailing, FDS.Spacing.sm)
                     .buttonStyle(ScaleButtonStyle())
                 }
                 .animation(.easeInOut(duration: 0.18), value: isInputFocused)
             }
-            .padding(.horizontal, 16)
-            .padding(.top, 10)
-            .padding(.bottom, 24)
+            .padding(.horizontal, FDS.Spacing.lg)
+            .padding(.top, FDS.Spacing.md)
+            .padding(.bottom, FDS.Spacing.xl)
         }
         .background {
             ZStack(alignment: .top) {
@@ -289,7 +289,7 @@ struct SmartChip: View {
 
     var body: some View {
         Button(action: onTap) {
-            HStack(spacing: 6) {
+            HStack(spacing: FDS.Spacing.sm) {
                 Image(systemName: icon)
                     .font(.system(size: 11, weight: .semibold))
                     .foregroundColor(color)
@@ -297,8 +297,8 @@ struct SmartChip: View {
                     .font(FDS.TypeScale.Dynamic.caption)
                     .foregroundColor(.textSecondary)
             }
-            .padding(.horizontal, 14)
-            .padding(.vertical, 9)
+            .padding(.horizontal, FDS.Spacing.lg)
+            .padding(.vertical, FDS.Spacing.sm)
             .background(color.opacity(0.10))
             .clipShape(Capsule())
             .overlay(Capsule().stroke(color.opacity(0.28), lineWidth: 1))

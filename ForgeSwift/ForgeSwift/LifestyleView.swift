@@ -21,9 +21,9 @@ struct LifestyleView: View {
 
             VStack(spacing: 0) {
                 LifestyleHeaderView(showInsights: $showInsights, metrics: vm.metrics)
-                    .padding(.horizontal, 20)
+                    .padding(.horizontal, FDS.Spacing.lg)
                     .padding(.top, 60)
-                    .padding(.bottom, 16)
+                    .padding(.bottom, FDS.Spacing.lg)
 
                 if !store.healthKitLive {
                     Button {
@@ -34,7 +34,7 @@ struct LifestyleView: View {
                             FDS.notificationHaptic(store.healthKitLive ? .success : .warning)
                         }
                     } label: {
-                        HStack(spacing: 10) {
+                        HStack(spacing: FDS.Spacing.md) {
                             Image(systemName: "heart.text.square.fill")
                                 .foregroundStyle(Color.warning)
                             VStack(alignment: .leading, spacing: 2) {
@@ -55,24 +55,24 @@ struct LifestyleView: View {
                                     .foregroundStyle(Color.ember)
                             }
                         }
-                        .padding(14)
+                        .padding(FDS.Spacing.lg)
                         .forgeGlassCard(cornerRadius: FDS.Radius.md, accent: .warning)
                     }
                     .buttonStyle(.plain)
-                    .padding(.horizontal, 20)
-                    .padding(.bottom, 12)
+                    .padding(.horizontal, FDS.Spacing.lg)
+                    .padding(.bottom, FDS.Spacing.md)
                 }
 
                 SegmentedPillControl(selected: $selectedSegment, namespace: segmentNS)
-                    .padding(.horizontal, 20)
-                    .padding(.bottom, 20)
+                    .padding(.horizontal, FDS.Spacing.lg)
+                    .padding(.bottom, FDS.Spacing.lg)
 
                 ScrollView(showsIndicators: false) {
-                    VStack(spacing: 24) {
+                    VStack(spacing: FDS.Spacing.xl) {
                         ReadinessForecastCard(compact: true)
                         segmentContent
                     }
-                    .padding(.horizontal, 16)
+                    .padding(.horizontal, FDS.Spacing.lg)
                     .padding(.bottom, 110)
                 }
                 .refreshable {
@@ -259,7 +259,7 @@ struct LifestyleHeaderView: View {
 
     var body: some View {
         HStack(alignment: .center) {
-            VStack(alignment: .leading, spacing: 5) {
+            VStack(alignment: .leading, spacing: FDS.Spacing.xs) {
                 Text("Lifestyle")
                     .font(ForgeType.pageTitle)
                     .foregroundColor(.textPrimary)
@@ -271,7 +271,7 @@ struct LifestyleHeaderView: View {
             Spacer()
 
             // QOL score chip + AI button
-            HStack(spacing: 12) {
+            HStack(spacing: FDS.Spacing.md) {
                 ZStack {
                     Circle()
                         .stroke(Color.white.opacity(0.08), lineWidth: 3)
@@ -321,21 +321,21 @@ struct SegmentedPillControl: View {
 
     var body: some View {
         ScrollView(.horizontal, showsIndicators: false) {
-            HStack(spacing: 6) {
+            HStack(spacing: FDS.Spacing.sm) {
                 ForEach(LifestyleSegment.allCases, id: \.self) { seg in
                     Button {
                         withAnimation(.spring(response: 0.38, dampingFraction: 0.75)) { selected = seg }
                         UISelectionFeedbackGenerator().selectionChanged()
                     } label: {
-                        HStack(spacing: 6) {
+                        HStack(spacing: FDS.Spacing.sm) {
                             Image(systemName: seg.icon)
                                 .font(.system(size: 12, weight: .semibold))
                             Text(seg.title)
                                 .font(FDS.TypeScale.Dynamic.caption)
                         }
                         .foregroundColor(selected == seg ? .white : .textTertiary)
-                        .padding(.horizontal, 16)
-                        .padding(.vertical, 10)
+                        .padding(.horizontal, FDS.Spacing.lg)
+                        .padding(.vertical, FDS.Spacing.md)
                         .background {
                             if selected == seg {
                                 Capsule()
@@ -352,7 +352,7 @@ struct SegmentedPillControl: View {
                     .buttonStyle(.plain)
                 }
             }
-            .padding(.horizontal, 20)
+            .padding(.horizontal, FDS.Spacing.lg)
             .padding(.vertical, 2)
         }
     }

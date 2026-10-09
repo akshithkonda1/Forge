@@ -19,7 +19,7 @@ struct ProgressPageView: View {
 
     var body: some View {
         ScrollView(showsIndicators: false) {
-            VStack(alignment: .leading, spacing: 24) {
+            VStack(alignment: .leading, spacing: FDS.Spacing.xl) {
                 ForgePageHeader(
                     title: "Progress",
                     subtitle: "History, PRs, streaks — your training story",
@@ -67,7 +67,7 @@ struct ProgressPageView: View {
                     StreaksAndMilestonesView()
                 }
             }
-            .padding(.horizontal, 16)
+            .padding(.horizontal, FDS.Spacing.lg)
             .padding(.bottom, 32)
         }
         .forgeScreenBackground(accent: Color.steel)
@@ -113,7 +113,7 @@ struct MonthlySummaryView: View {
                 .frame(height: 3)
                 .clipShape(RoundedRectangle(cornerRadius: 1.5))
 
-            VStack(alignment: .leading, spacing: 18) {
+            VStack(alignment: .leading, spacing: FDS.Spacing.lg) {
                 HStack {
                     Text("THIS MONTH")
                         .font(FDS.TypeScale.Dynamic.micro)
@@ -123,7 +123,7 @@ struct MonthlySummaryView: View {
                     Spacer()
 
                     // Month indicator
-                    HStack(spacing: 4) {
+                    HStack(spacing: FDS.Spacing.xs) {
                         Image(systemName: "calendar")
                             .font(.system(size: 10))
                         Text(monthLabel)
@@ -132,7 +132,7 @@ struct MonthlySummaryView: View {
                     .foregroundColor(.textTertiary)
                 }
 
-                HStack(spacing: 10) {
+                HStack(spacing: FDS.Spacing.md) {
                     StatPillCard(value: workoutsCompleted, label: "Workouts", appeared: appeared, delay: 0.1)
                     StatPillCard(value: newPRs, label: "New PRs", appeared: appeared, delay: 0.15)
                     StatPillCard(value: recoveryDelta, label: "Recovery", appeared: appeared, delay: 0.2)
@@ -146,7 +146,7 @@ struct MonthlySummaryView: View {
                     .offset(y: appeared ? 0 : 8)
                     .animation(.easeOut(duration: 0.5).delay(0.3), value: appeared)
             }
-            .padding(20)
+            .padding(FDS.Spacing.lg)
         }
         .forgeGlassCard(cornerRadius: FDS.Radius.lg, accent: .ember)
         .onAppear { appeared = true }
@@ -160,7 +160,7 @@ struct StatPillCard: View {
     var delay: Double = 0
 
     var body: some View {
-        VStack(spacing: 6) {
+        VStack(spacing: FDS.Spacing.sm) {
             Text(value)
                 .font(ForgeType.metric)
                 .foregroundColor(.textPrimary)
@@ -172,7 +172,7 @@ struct StatPillCard: View {
                 .fixedSize()
         }
         .frame(maxWidth: .infinity)
-        .padding(.vertical, 14)
+        .padding(.vertical, FDS.Spacing.lg)
         .background(
             ZStack {
                 Color.surfaceElevated
@@ -183,7 +183,7 @@ struct StatPillCard: View {
                 )
             }
         )
-        .cornerRadius(12)
+        .cornerRadius(FDS.Radius.md)
         .overlay(RoundedRectangle(cornerRadius: FDS.Radius.md).stroke(Color.borderColor.opacity(0.5), lineWidth: 1))
         .scaleEffect(appeared ? 1 : 0.9)
         .opacity(appeared ? 1 : 0)
@@ -256,7 +256,7 @@ struct CalendarHeatmapView: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
+        VStack(alignment: .leading, spacing: FDS.Spacing.md) {
             Text(monthTitle)
                 .font(FDS.TypeScale.Dynamic.body.weight(.semibold))
                 .foregroundColor(.textPrimary)
@@ -294,16 +294,16 @@ struct CalendarHeatmapView: View {
             }
 
             // Legend
-            HStack(spacing: 12) {
+            HStack(spacing: FDS.Spacing.md) {
                 ForEach([("None", Color.surfaceElevated), ("Light", Color.ember.opacity(0.3)), ("Moderate", Color.ember.opacity(0.6)), ("Intense", Color.ember)], id: \.0) { label, color in
-                    HStack(spacing: 5) {
+                    HStack(spacing: FDS.Spacing.xs) {
                         RoundedRectangle(cornerRadius: 3).fill(color).frame(width: 12, height: 12)
                         Text(label).font(.system(size: 10)).foregroundColor(.textTertiary)
                     }
                 }
             }
         }
-        .padding(20)
+        .padding(FDS.Spacing.lg)
         .forgeGlassCard(cornerRadius: FDS.Radius.lg, accent: Color.steel)
     }
 }
@@ -320,8 +320,8 @@ struct PersonalRecordsBoardView: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            HStack(spacing: 8) {
+        VStack(alignment: .leading, spacing: FDS.Spacing.md) {
+            HStack(spacing: FDS.Spacing.sm) {
                 Image(systemName: "trophy.fill").font(.system(size: 18)).foregroundColor(.ember)
                 Text("Personal Records").font(FDS.TypeScale.Dynamic.headline).foregroundColor(.textPrimary)
                 Spacer()
@@ -341,7 +341,7 @@ struct PersonalRecordsBoardView: View {
                     message: "Finish a few workouts and your personal bests will show up here."
                 )
             } else {
-                VStack(spacing: 10) {
+                VStack(spacing: FDS.Spacing.md) {
                     ForEach(Array(visibleRecords.enumerated()), id: \.element.id) { idx, pr in
                         HStack {
                             VStack(alignment: .leading, spacing: 3) {
@@ -362,8 +362,8 @@ struct PersonalRecordsBoardView: View {
                                     .foregroundColor(.textSecondary)
                             }
                         }
-                        .padding(.horizontal, 16)
-                        .padding(.vertical, 14)
+                        .padding(.horizontal, FDS.Spacing.lg)
+                        .padding(.vertical, FDS.Spacing.lg)
                         .forgeGlassCard(cornerRadius: FDS.Radius.md, accent: .ember)
                         .opacity(appear ? 1 : 0)
                         .offset(x: appear ? 0 : -12)
@@ -402,13 +402,13 @@ struct BehavioralInsightView: View {
         Button {
             store.openChat(with: "Review my last 30 days. One win, one risk, one recommendation.", voice: false)
         } label: {
-            HStack(alignment: .top, spacing: 12) {
+            HStack(alignment: .top, spacing: FDS.Spacing.md) {
                 Image(systemName: "chart.line.uptrend.xyaxis")
                     .font(.system(size: 18))
                     .foregroundColor(.ember)
                     .frame(width: 36, height: 36)
 
-                VStack(alignment: .leading, spacing: 6) {
+                VStack(alignment: .leading, spacing: FDS.Spacing.sm) {
                     Text(insightTitle)
                         .font(FDS.TypeScale.Dynamic.caption)
                         .foregroundColor(.textPrimary)
@@ -420,7 +420,7 @@ struct BehavioralInsightView: View {
                 }
                 Spacer(minLength: 0)
             }
-            .padding(16)
+            .padding(FDS.Spacing.lg)
             .forgeGlassCard(cornerRadius: FDS.Radius.lg, accent: Color.steel)
         }
         .buttonStyle(.plain)

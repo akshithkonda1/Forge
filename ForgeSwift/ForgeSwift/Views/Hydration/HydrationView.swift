@@ -24,7 +24,7 @@ struct HydrationView: View {
 
     var body: some View {
         ScrollView(showsIndicators: false) {
-            VStack(spacing: 18) {
+            VStack(spacing: FDS.Spacing.lg) {
                 hero
                 syncBanner
                 presets
@@ -39,7 +39,7 @@ struct HydrationView: View {
                 timeline
                 week
             }
-            .padding(.horizontal, 16)
+            .padding(.horizontal, FDS.Spacing.lg)
             .padding(.bottom, 40)
         }
         .forgeScreenBackground(accent: Color.steel)
@@ -150,7 +150,7 @@ struct HydrationView: View {
     // ------------------------------------------------------------
 
     private var hero: some View {
-        VStack(spacing: 16) {
+        VStack(spacing: FDS.Spacing.lg) {
             ZStack {
                 Circle()
                     .stroke(Color.borderColor.opacity(0.35), lineWidth: 14)
@@ -165,13 +165,13 @@ struct HydrationView: View {
                     )
                     .rotationEffect(.degrees(-90))
                     .animation(FDS.Spring.sweep, value: progress)
-                VStack(spacing: 4) {
+                VStack(spacing: FDS.Spacing.xs) {
                     Text(formatMl(consumedMl))
                         .font(.system(size: 34, weight: .bold, design: .rounded))
                         .foregroundColor(.textPrimary)
                         .monospacedDigit()
                     Button { showGoalEditor = true } label: {
-                        HStack(spacing: 4) {
+                        HStack(spacing: FDS.Spacing.xs) {
                             Text("of \(formatMl(targetMl))")
                             Image(systemName: "pencil")
                                 .font(.system(size: 11, weight: .semibold))
@@ -184,9 +184,9 @@ struct HydrationView: View {
                 }
             }
             .frame(width: 196, height: 196)
-            .padding(.top, 8)
+            .padding(.top, FDS.Spacing.sm)
 
-            HStack(spacing: 16) {
+            HStack(spacing: FDS.Spacing.lg) {
                 stat(title: statusTitle, value: "\(Int((progress * 100).rounded()))%", tint: statusColor)
                 stat(title: "Left", value: formatMl(remainingMl), tint: Color.steel)
                 stat(title: "Glasses",
@@ -194,7 +194,7 @@ struct HydrationView: View {
                      tint: .aurora)
             }
         }
-        .padding(18)
+        .padding(FDS.Spacing.lg)
         .frame(maxWidth: .infinity)
         .forgeGlassCard(cornerRadius: FDS.Radius.xl, accent: Color.steel)
         .accessibilityElement(children: .combine)
@@ -221,7 +221,7 @@ struct HydrationView: View {
     // ------------------------------------------------------------
 
     private var syncBanner: some View {
-        HStack(spacing: 8) {
+        HStack(spacing: FDS.Spacing.sm) {
             Image(systemName: health.isAuthorized ? "heart.circle.fill" : "heart.slash")
                 .foregroundColor(health.isAuthorized ? .vitality : .warning)
             VStack(alignment: .leading, spacing: 2) {
@@ -237,7 +237,7 @@ struct HydrationView: View {
             }
             Spacer(minLength: 0)
         }
-        .padding(12)
+        .padding(FDS.Spacing.md)
         .forgeGlassCard(cornerRadius: FDS.Radius.md, accent: health.isAuthorized ? .vitality : .warning)
     }
 
@@ -246,16 +246,16 @@ struct HydrationView: View {
     // ------------------------------------------------------------
 
     private var presets: some View {
-        VStack(alignment: .leading, spacing: 10) {
+        VStack(alignment: .leading, spacing: FDS.Spacing.md) {
             Text("Log a drink")
                 .font(FDS.TypeScale.Dynamic.body.weight(.semibold))
                 .foregroundColor(.textPrimary)
-            HStack(spacing: 8) {
+            HStack(spacing: FDS.Spacing.sm) {
                 ForEach(HydrationEngine.presets) { preset in
                     Button {
                         Task { await log(preset.milliliters) }
                     } label: {
-                        VStack(spacing: 6) {
+                        VStack(spacing: FDS.Spacing.sm) {
                             Image(systemName: preset.symbolName)
                                 .font(.system(size: 16, weight: .semibold))
                             Text(preset.title)
@@ -266,9 +266,9 @@ struct HydrationView: View {
                         }
                         .foregroundColor(Color.steel)
                         .frame(maxWidth: .infinity)
-                        .padding(.vertical, 12)
+                        .padding(.vertical, FDS.Spacing.md)
                         .background(Color.steel.opacity(0.10))
-                        .cornerRadius(14)
+                        .cornerRadius(FDS.Radius.md)
                     }
                     .buttonStyle(.plain)
                     .disabled(writing)
@@ -284,27 +284,26 @@ struct HydrationView: View {
             }
             .buttonStyle(.plain)
         }
-        .padding(16)
+        .padding(FDS.Spacing.lg)
         .forgeGlassCard(cornerRadius: FDS.Radius.xl, accent: Color.steel)
     }
 
     private var customField: some View {
-        HStack(spacing: 10) {
+        HStack(spacing: FDS.Spacing.md) {
             TextField("ml", text: $customMilliliters)
                 .keyboardType(.numberPad)
-                .padding(12)
-                .background(Color.surfaceElevated)
-                .cornerRadius(12)
+                .padding(FDS.Spacing.md)
+                .forgeInsetTile(radius: FDS.Radius.md)
             Button("Add") {
                 guard let ml = Double(customMilliliters), ml > 0, ml <= 2_000 else { return }
                 Task { await log(ml); customMilliliters = ""; showCustom = false }
             }
             .font(.system(size: 14, weight: .semibold))
             .foregroundColor(.white)
-            .padding(.horizontal, 16)
-            .padding(.vertical, 12)
+            .padding(.horizontal, FDS.Spacing.lg)
+            .padding(.vertical, FDS.Spacing.md)
             .background(Color.steel)
-            .cornerRadius(12)
+            .cornerRadius(FDS.Radius.md)
             .disabled(writing)
         }
     }
@@ -314,11 +313,11 @@ struct HydrationView: View {
     // ------------------------------------------------------------
 
     private var guidanceCard: some View {
-        HStack(alignment: .top, spacing: 10) {
+        HStack(alignment: .top, spacing: FDS.Spacing.md) {
             Image(systemName: "drop.triangle.fill")
                 .foregroundColor(statusColor)
                 .font(.system(size: 16, weight: .semibold))
-            VStack(alignment: .leading, spacing: 4) {
+            VStack(alignment: .leading, spacing: FDS.Spacing.xs) {
                 Text(HydrationEngine.guidance(
                     status: status,
                     remaining: remainingMl,
@@ -341,12 +340,12 @@ struct HydrationView: View {
             }
             Spacer(minLength: 0)
         }
-        .padding(14)
+        .padding(FDS.Spacing.lg)
         .forgeGlassCard(cornerRadius: FDS.Radius.lg, accent: statusColor)
     }
 
     private var timeline: some View {
-        VStack(alignment: .leading, spacing: 12) {
+        VStack(alignment: .leading, spacing: FDS.Spacing.md) {
             HStack {
                 Text("Today")
                     .font(FDS.TypeScale.Dynamic.body.weight(.semibold))
@@ -364,7 +363,7 @@ struct HydrationView: View {
                     .fixedSize(horizontal: false, vertical: true)
             } else {
                 ForEach(health.todayWaterLogs) { log in
-                    HStack(spacing: 10) {
+                    HStack(spacing: FDS.Spacing.md) {
                         Image(systemName: log.isForge ? "drop.fill" : "heart.fill")
                             .font(.system(size: 13, weight: .semibold))
                             .foregroundColor(log.isForge ? Color.steel : .vitality)
@@ -393,23 +392,23 @@ struct HydrationView: View {
                             .accessibilityLabel("Delete this Forge log from Apple Health")
                         }
                     }
-                    .padding(.vertical, 4)
+                    .padding(.vertical, FDS.Spacing.xs)
                 }
             }
         }
-        .padding(16)
+        .padding(FDS.Spacing.lg)
         .forgeGlassCard(cornerRadius: FDS.Radius.xl, accent: Color.steel)
     }
 
     private var week: some View {
-        VStack(alignment: .leading, spacing: 12) {
+        VStack(alignment: .leading, spacing: FDS.Spacing.md) {
             Text("Last 7 days")
                 .font(FDS.TypeScale.Dynamic.body.weight(.semibold))
                 .foregroundColor(.textPrimary)
 
-            HStack(alignment: .bottom, spacing: 8) {
+            HStack(alignment: .bottom, spacing: FDS.Spacing.sm) {
                 ForEach(health.weeklyWaterMilliliters) { day in
-                    VStack(spacing: 6) {
+                    VStack(spacing: FDS.Spacing.sm) {
                         Capsule()
                             .fill(day.milliliters >= targetMl * 0.9 ? Color.steel : Color.steel.opacity(0.35))
                             .frame(height: barHeight(day.milliliters))
@@ -423,7 +422,7 @@ struct HydrationView: View {
             }
             .frame(height: 120, alignment: .bottom)
         }
-        .padding(16)
+        .padding(FDS.Spacing.lg)
         .forgeGlassCard(cornerRadius: FDS.Radius.xl, accent: Color.steel)
     }
 
@@ -503,8 +502,8 @@ private struct HydrationGoalEditor: View {
 
     var body: some View {
         NavigationStack {
-            VStack(spacing: 24) {
-                VStack(spacing: 6) {
+            VStack(spacing: FDS.Spacing.xl) {
+                VStack(spacing: FDS.Spacing.sm) {
                     Text(format(draft))
                         .font(.system(size: 40, weight: .bold, design: .rounded))
                         .foregroundColor(.textPrimary)
@@ -513,9 +512,9 @@ private struct HydrationGoalEditor: View {
                         .font(FDS.TypeScale.Dynamic.caption)
                         .foregroundColor(.textSecondary)
                 }
-                .padding(.top, 12)
+                .padding(.top, FDS.Spacing.md)
 
-                VStack(spacing: 10) {
+                VStack(spacing: FDS.Spacing.md) {
                     Slider(
                         value: $draft,
                         in: HydrationEngine.minimumTargetMilliliters...HydrationEngine.maximumTargetMilliliters,
@@ -531,7 +530,7 @@ private struct HydrationGoalEditor: View {
                     .foregroundColor(.textTertiary)
                 }
 
-                HStack(spacing: 10) {
+                HStack(spacing: FDS.Spacing.md) {
                     stepButton("− 250") { draft = max(HydrationEngine.minimumTargetMilliliters, draft - 250) }
                     stepButton("+ 250") { draft = min(HydrationEngine.maximumTargetMilliliters, draft + 250) }
                 }
@@ -539,7 +538,7 @@ private struct HydrationGoalEditor: View {
                 Button {
                     draft = suggestedMl
                 } label: {
-                    VStack(alignment: .leading, spacing: 4) {
+                    VStack(alignment: .leading, spacing: FDS.Spacing.xs) {
                         Text("Suggested for you")
                             .font(FDS.TypeScale.Dynamic.body.weight(.semibold))
                             .foregroundColor(.textPrimary)
@@ -549,9 +548,8 @@ private struct HydrationGoalEditor: View {
                             .fixedSize(horizontal: false, vertical: true)
                     }
                     .frame(maxWidth: .infinity, alignment: .leading)
-                    .padding(14)
-                    .background(Color.surfaceElevated)
-                    .cornerRadius(14)
+                    .padding(FDS.Spacing.lg)
+                    .forgeInsetTile(radius: FDS.Radius.md)
                 }
                 .buttonStyle(.plain)
 
@@ -566,7 +564,7 @@ private struct HydrationGoalEditor: View {
 
                 Spacer()
             }
-            .padding(.horizontal, 20)
+            .padding(.horizontal, FDS.Spacing.lg)
             .background(Color.background.ignoresSafeArea())
             .navigationTitle("Daily goal")
             .navigationBarTitleDisplayMode(.inline)
@@ -594,9 +592,9 @@ private struct HydrationGoalEditor: View {
                 .font(FDS.TypeScale.Dynamic.body.weight(.semibold))
                 .foregroundColor(Color.steel)
                 .frame(maxWidth: .infinity)
-                .padding(.vertical, 12)
+                .padding(.vertical, FDS.Spacing.md)
                 .background(Color.steel.opacity(0.12))
-                .cornerRadius(12)
+                .cornerRadius(FDS.Radius.md)
         }
         .buttonStyle(.plain)
     }

@@ -34,7 +34,7 @@ struct ExerciseLibraryView: View {
                         .foregroundStyle(Color.textTertiary)
                     } else {
                         ScrollView(showsIndicators: false) {
-                            LazyVStack(alignment: .leading, spacing: 18, pinnedViews: [.sectionHeaders]) {
+                            LazyVStack(alignment: .leading, spacing: FDS.Spacing.lg, pinnedViews: [.sectionHeaders]) {
                                 HStack {
                                     Text("\(resultCount) moves ready · \(sections.count) groups")
                                         .forgeSectionLabel()
@@ -58,13 +58,13 @@ struct ExerciseLibraryView: View {
                                         .foregroundColor(.ember)
                                     }
                                 }
-                                .padding(.horizontal, 4)
+                                .padding(.horizontal, FDS.Spacing.xs)
 
                                 ForEach(sections) { section in
                                     librarySection(section)
                                 }
                             }
-                            .padding(.horizontal, 16)
+                            .padding(.horizontal, FDS.Spacing.lg)
                             .padding(.bottom, 40)
                         }
                     }
@@ -87,12 +87,12 @@ struct ExerciseLibraryView: View {
 
     private func librarySection(_ section: ExerciseLibrary.Section) -> some View {
         let open = !collapsed.contains(section.id)
-        return VStack(alignment: .leading, spacing: 8) {
+        return VStack(alignment: .leading, spacing: FDS.Spacing.sm) {
             Button {
                 FDS.selectionHaptic()
                 if open { collapsed.insert(section.id) } else { collapsed.remove(section.id) }
             } label: {
-                HStack(spacing: 10) {
+                HStack(spacing: FDS.Spacing.md) {
                     Circle().fill(section.accent).frame(width: 8, height: 8)
                     Text(section.title)
                         .font(FDS.TypeScale.Dynamic.body.weight(.semibold))
@@ -101,7 +101,7 @@ struct ExerciseLibraryView: View {
                     Text("\(section.items.count)")
                         .font(FDS.TypeScale.Dynamic.micro)
                         .foregroundColor(.textMuted)
-                        .padding(.horizontal, 8)
+                        .padding(.horizontal, FDS.Spacing.sm)
                         .padding(.vertical, 3)
                         .background(Color.white.opacity(0.06))
                         .clipShape(Capsule())
@@ -120,8 +120,8 @@ struct ExerciseLibraryView: View {
                 Text(blurb)
                     .font(.system(size: 13, design: .rounded))
                     .foregroundColor(.textTertiary)
-                    .padding(.leading, 18)
-                    .padding(.bottom, 4)
+                    .padding(.leading, FDS.Spacing.lg)
+                    .padding(.bottom, FDS.Spacing.xs)
             }
 
             if open {
@@ -133,7 +133,7 @@ struct ExerciseLibraryView: View {
     }
 
     private var welcomeStrip: some View {
-        VStack(alignment: .leading, spacing: 4) {
+        VStack(alignment: .leading, spacing: FDS.Spacing.xs) {
             Text(ExerciseLibrary.welcomeSubtitle)
                 .font(FDS.TypeScale.Dynamic.body)
                 .foregroundColor(.textSecondary)
@@ -144,13 +144,13 @@ struct ExerciseLibraryView: View {
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(.horizontal, 16)
-        .padding(.bottom, 10)
+        .padding(.horizontal, FDS.Spacing.lg)
+        .padding(.bottom, FDS.Spacing.md)
     }
 
     private var organizeRow: some View {
         ScrollView(.horizontal, showsIndicators: false) {
-            HStack(spacing: 8) {
+            HStack(spacing: FDS.Spacing.sm) {
                 Text("GROUP BY")
                     .forgeSectionLabel()
                 ForEach(ExerciseLibrary.OrganizeBy.allCases) { mode in
@@ -161,22 +161,22 @@ struct ExerciseLibraryView: View {
                         Text(mode.label)
                             .font(FDS.TypeScale.Dynamic.caption)
                             .foregroundColor(organize == mode ? .white : .textSecondary)
-                            .padding(.horizontal, 12)
-                            .padding(.vertical, 7)
+                            .padding(.horizontal, FDS.Spacing.md)
+                            .padding(.vertical, FDS.Spacing.sm)
                             .background(organize == mode ? Color.ember : Color.surface)
                             .clipShape(Capsule())
                     }
                     .buttonStyle(.plain)
                 }
             }
-            .padding(.horizontal, 16)
-            .padding(.bottom, 8)
+            .padding(.horizontal, FDS.Spacing.lg)
+            .padding(.bottom, FDS.Spacing.sm)
         }
     }
 
     private var filterRow: some View {
         ScrollView(.horizontal, showsIndicators: false) {
-            HStack(spacing: 8) {
+            HStack(spacing: FDS.Spacing.sm) {
                 Menu {
                     Button("All muscles") { muscle = nil }
                     ForEach(TargetMuscle.allCases) { m in Button(m.label) { muscle = m } }
@@ -195,39 +195,39 @@ struct ExerciseLibraryView: View {
                         equipment = nil
                         pattern = nil
                     } label: {
-                        HStack(spacing: 4) { Image(systemName: "xmark"); Text("Clear") }
+                        HStack(spacing: FDS.Spacing.xs) { Image(systemName: "xmark"); Text("Clear") }
                             .font(.system(size: 12, weight: .semibold, design: .rounded))
                             .foregroundColor(.danger)
-                            .padding(.horizontal, 12)
-                            .padding(.vertical, 8)
+                            .padding(.horizontal, FDS.Spacing.md)
+                            .padding(.vertical, FDS.Spacing.sm)
                             .background(Color.danger.opacity(0.1))
                             .clipShape(Capsule())
                     }
                 }
             }
-            .padding(.horizontal, 16)
-            .padding(.bottom, 10)
+            .padding(.horizontal, FDS.Spacing.lg)
+            .padding(.bottom, FDS.Spacing.md)
         }
     }
 
     private func filterChip(_ text: String, active: Bool, color: Color) -> some View {
-        HStack(spacing: 5) {
+        HStack(spacing: FDS.Spacing.xs) {
             Text(text).font(FDS.TypeScale.Dynamic.caption)
             Image(systemName: "chevron.down").font(.system(size: 9, weight: .bold))
         }
         .foregroundColor(active ? .white : .textSecondary)
-        .padding(.horizontal, 14).padding(.vertical, 9)
+        .padding(.horizontal, FDS.Spacing.lg).padding(.vertical, FDS.Spacing.sm)
         .background(active ? color : Color.surface).cornerRadius(100)
         .overlay(Capsule().stroke(active ? color : Color.borderColor.opacity(0.5), lineWidth: 1))
     }
 
     private func libraryCard(_ def: ExerciseDefinition) -> some View {
-        HStack(spacing: 10) {
+        HStack(spacing: FDS.Spacing.md) {
             Button {
                 FDS.haptic(.light)
                 selected = def
             } label: {
-                HStack(spacing: 14) {
+                HStack(spacing: FDS.Spacing.lg) {
                     ZStack {
                         RoundedRectangle(cornerRadius: FDS.Radius.md)
                             .fill(LinearGradient(colors: [def.accent.opacity(0.2), def.accent.opacity(0.08)], startPoint: .topLeading, endPoint: .bottomTrailing))
@@ -252,21 +252,21 @@ struct ExerciseLibraryView: View {
                 selected = def
                 AriaTrainVoice.speakHowTo(def)
             } label: {
-                VStack(spacing: 4) {
+                VStack(spacing: FDS.Spacing.xs) {
                     ARIAIdentityMark(state: .speaking, mood: .energized, size: 22, amplitude: 0.4)
                     Text("How")
                         .font(FDS.TypeScale.Dynamic.micro)
                 }
                 .foregroundColor(.ember)
                 .frame(width: 48)
-                .padding(.vertical, 8)
+                .padding(.vertical, FDS.Spacing.sm)
                 .background(Color.ember.opacity(0.12))
                 .clipShape(RoundedRectangle(cornerRadius: FDS.Radius.md, style: .continuous))
             }
             .buttonStyle(.plain)
             .accessibilityLabel("ARIA, show me how to do \(def.name)")
         }
-        .padding(12)
+        .padding(FDS.Spacing.md)
         .background(Color.white.opacity(0.045))
         .clipShape(RoundedRectangle(cornerRadius: FDS.Radius.lg, style: .continuous))
         .overlay(
@@ -287,16 +287,16 @@ struct ExerciseDetailSheet: View {
             ZStack {
                 Color.background.ignoresSafeArea()
                 ScrollView(showsIndicators: false) {
-                    VStack(alignment: .leading, spacing: 20) {
+                    VStack(alignment: .leading, spacing: FDS.Spacing.lg) {
                         // Hero
-                        HStack(spacing: 14) {
+                        HStack(spacing: FDS.Spacing.lg) {
                             ZStack {
                                 RoundedRectangle(cornerRadius: FDS.Radius.lg)
                                     .fill(LinearGradient(colors: [def.accent.opacity(0.25), def.accent.opacity(0.08)], startPoint: .topLeading, endPoint: .bottomTrailing))
                                     .frame(width: 64, height: 64)
                                 Image(systemName: def.icon).font(.system(size: 26, weight: .bold)).foregroundColor(def.accent)
                             }
-                            VStack(alignment: .leading, spacing: 4) {
+                            VStack(alignment: .leading, spacing: FDS.Spacing.xs) {
                                 Text(def.pattern.label.uppercased()).font(FDS.TypeScale.Dynamic.micro).tracking(1.5).foregroundColor(def.accent)
                                 Text(def.name).font(FDS.TypeScale.Dynamic.title).foregroundColor(.textPrimary)
                                 Text(def.muscleSummary).font(.system(size: 12)).foregroundColor(.textTertiary)
@@ -316,37 +316,37 @@ struct ExerciseDetailSheet: View {
                         if !def.cues.isEmpty { sectionCard("EXECUTION", icon: "checkmark.seal.fill", color: def.accent, lines: def.cues) }
                         if !def.faults.isEmpty { sectionCard("COMMON FAULTS", icon: "exclamationmark.triangle.fill", color: .warning, lines: def.faults) }
                         if !def.note.isEmpty {
-                            HStack(alignment: .top, spacing: 10) {
+                            HStack(alignment: .top, spacing: FDS.Spacing.md) {
                                 Image(systemName: "brain.head.profile").font(.system(size: 14)).foregroundColor(.ember)
                                 Text(def.note).font(.system(size: 13, design: .serif).italic()).foregroundColor(.textSecondary).lineSpacing(4)
                             }
-                            .padding(16).frame(maxWidth: .infinity, alignment: .leading)
-                            .background(Color.ember.opacity(0.06)).cornerRadius(16)
+                            .padding(FDS.Spacing.lg).frame(maxWidth: .infinity, alignment: .leading)
+                            .background(Color.ember.opacity(0.06)).cornerRadius(FDS.Radius.lg)
                         }
                         if !def.substitutes.isEmpty {
-                            VStack(alignment: .leading, spacing: 8) {
+                            VStack(alignment: .leading, spacing: FDS.Spacing.sm) {
                                 Text("ARIA SWAPS").font(FDS.TypeScale.Dynamic.micro).tracking(2).foregroundColor(.textTertiary)
                                 ForEach(def.substitutes, id: \.self) { s in
-                                    HStack(spacing: 8) {
+                                    HStack(spacing: FDS.Spacing.sm) {
                                         Image(systemName: "arrow.triangle.swap").font(.system(size: 12)).foregroundColor(.steel)
                                         Text(s).font(.system(size: 13)).foregroundColor(.textSecondary)
                                     }
                                 }
                             }
-                            .padding(16).frame(maxWidth: .infinity, alignment: .leading)
+                            .padding(FDS.Spacing.lg).frame(maxWidth: .infinity, alignment: .leading)
                             .forgeGlassCard(cornerRadius: FDS.Radius.lg, accent: .ember)
                         }
                         Button {
                             FDS.haptic(.medium)
                             AriaTrainVoice.speakHowTo(def)
                         } label: {
-                            HStack(spacing: 10) {
+                            HStack(spacing: FDS.Spacing.md) {
                                 ARIAIdentityMark(state: .speaking, mood: .energized, size: 28, amplitude: 0.5)
                                 Text("ARIA, show me how")
                                     .font(FDS.TypeScale.Dynamic.headline)
                             }
                             .foregroundColor(.white).frame(maxWidth: .infinity).frame(height: 54)
-                            .background(Color.ember.opacity(0.85)).cornerRadius(16)
+                            .background(Color.ember.opacity(0.85)).cornerRadius(FDS.Radius.lg)
                         }
                         Button {
                             FDS.haptic(.light)
@@ -363,17 +363,17 @@ struct ExerciseDetailSheet: View {
                         Button {
                             addToPlan()
                         } label: {
-                            HStack(spacing: 10) {
+                            HStack(spacing: FDS.Spacing.md) {
                                 Image(systemName: added ? "checkmark.circle.fill" : "plus.circle.fill").font(.system(size: 18, weight: .bold))
                                 Text(added ? "Added to today" : store.todayWorkout == nil ? "Start a plan with this" : "Add to today's workout").font(FDS.TypeScale.Dynamic.headline)
                             }
                             .foregroundColor(.white).frame(maxWidth: .infinity).frame(height: 54)
-                            .background(added ? Color.success : def.accent).cornerRadius(16)
+                            .background(added ? Color.success : def.accent).cornerRadius(FDS.Radius.lg)
                             .shadow(color: (added ? Color.success : def.accent).opacity(0.4), radius: 14, y: 6)
                         }
                         .disabled(added)
                     }
-                    .padding(20).padding(.bottom, 40)
+                    .padding(FDS.Spacing.lg).padding(.bottom, 40)
                 }
             }
             .navigationBarTitleDisplayMode(.inline)
@@ -403,17 +403,17 @@ struct ExerciseDetailSheet: View {
     }
 
     private func sectionCard(_ title: String, icon: String, color: Color, lines: [String]) -> some View {
-        VStack(alignment: .leading, spacing: 10) {
+        VStack(alignment: .leading, spacing: FDS.Spacing.md) {
             Text(title).font(FDS.TypeScale.Dynamic.micro).tracking(2).foregroundColor(.textTertiary)
             ForEach(lines, id: \.self) { line in
-                HStack(alignment: .top, spacing: 10) {
+                HStack(alignment: .top, spacing: FDS.Spacing.md) {
                     Image(systemName: icon).font(.system(size: 13)).foregroundColor(color)
                     Text(line).font(.system(size: 13)).foregroundColor(.textSecondary).lineSpacing(4)
                     Spacer(minLength: 0)
                 }
             }
         }
-        .padding(16).frame(maxWidth: .infinity, alignment: .leading)
+        .padding(FDS.Spacing.lg).frame(maxWidth: .infinity, alignment: .leading)
         .forgeGlassCard(cornerRadius: FDS.Radius.lg, accent: .ember)
     }
 }
@@ -425,12 +425,12 @@ struct FlowChips: View {
         let cols = [GridItem(.adaptive(minimum: 110), spacing: 8)]
         LazyVGrid(columns: cols, alignment: .leading, spacing: 8) {
             ForEach(Array(items.enumerated()), id: \.offset) { _, item in
-                HStack(spacing: 5) {
+                HStack(spacing: FDS.Spacing.xs) {
                     Image(systemName: item.1).font(.system(size: 10))
                     Text(item.0).font(FDS.TypeScale.Dynamic.caption)
                 }
-                .foregroundColor(item.2).padding(.horizontal, 10).padding(.vertical, 8)
-                .background(item.2.opacity(0.1)).cornerRadius(9)
+                .foregroundColor(item.2).padding(.horizontal, FDS.Spacing.md).padding(.vertical, FDS.Spacing.sm)
+                .background(item.2.opacity(0.1)).cornerRadius(FDS.Radius.sm)
             }
         }
     }

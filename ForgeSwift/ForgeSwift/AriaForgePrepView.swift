@@ -22,11 +22,11 @@ struct AriaForgePrepView: View {
                     AriaSpokenMuteButton()
                 }
                 .padding(.horizontal, FDS.Spacing.xl)
-                .padding(.top, 8)
+                .padding(.top, FDS.Spacing.sm)
 
                 Spacer()
 
-                VStack(spacing: 28) {
+                VStack(spacing: FDS.Spacing.xl) {
                     AuroraOrbView(
                         state: stage == .ready ? .idle : .processing,
                         amplitude: reduceMotion ? 0.18 : 0.42,
@@ -36,7 +36,7 @@ struct AriaForgePrepView: View {
                     )
                     .accessibilityHidden(true)
 
-                    VStack(spacing: 10) {
+                    VStack(spacing: FDS.Spacing.md) {
                         Text(stage.eyebrow.uppercased())
                             .font(FDS.TypeScale.Dynamic.micro)
                             .tracking(1.6)
@@ -52,14 +52,14 @@ struct AriaForgePrepView: View {
                             .font(FDS.TypeScale.Dynamic.body)
                             .foregroundColor(.textSecondary)
                             .multilineTextAlignment(.center)
-                            .padding(.horizontal, 28)
+                            .padding(.horizontal, FDS.Spacing.xl)
                             .animation(reduceMotion ? nil : FDS.Spring.standard, value: stage)
                     }
                 }
 
                 Spacer()
 
-                VStack(spacing: 14) {
+                VStack(spacing: FDS.Spacing.lg) {
                     prepFill(progress: progress)
                         .padding(.horizontal, 48)
 

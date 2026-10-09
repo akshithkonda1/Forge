@@ -156,14 +156,14 @@ struct ProfileHeroHeader: View {
     }
 
     private func identityChip(text: String, icon: String, color: Color) -> some View {
-        HStack(spacing: 5) {
+        HStack(spacing: FDS.Spacing.xs) {
             Image(systemName: icon).font(.system(size: 10, weight: .semibold))
             Text(text).font(FDS.TypeScale.Dynamic.caption)
                 .lineLimit(1)
         }
         .foregroundColor(color)
-        .padding(.horizontal, 12)
-        .padding(.vertical, 6)
+        .padding(.horizontal, FDS.Spacing.md)
+        .padding(.vertical, FDS.Spacing.sm)
         .background(Capsule().fill(color.opacity(0.12)))
         .overlay(Capsule().stroke(color.opacity(0.25), lineWidth: 1))
     }
@@ -189,7 +189,7 @@ struct ProfileHeroHeader: View {
     }
 
     private func heroStat(value: String, label: String, icon: String, tint: Color) -> some View {
-        VStack(spacing: 6) {
+        VStack(spacing: FDS.Spacing.sm) {
             Image(systemName: icon).font(.system(size: 13, weight: .semibold)).foregroundColor(tint)
             Text(value)
                 .font(FDS.TypeScale.Dynamic.metric)
@@ -203,7 +203,7 @@ struct ProfileHeroHeader: View {
                 .minimumScaleFactor(0.7)
         }
         .frame(maxWidth: .infinity)
-        .padding(.horizontal, 4)
+        .padding(.horizontal, FDS.Spacing.xs)
         .accessibilityElement(children: .combine)
         .accessibilityLabel("\(value) \(label)")
     }
@@ -240,7 +240,7 @@ struct ProfileHeroHeader: View {
                 store.pendingLifestyleSegment = "lifetime"
                 store.activeTab = .lifestyle
             } label: {
-                VStack(alignment: .leading, spacing: 8) {
+                VStack(alignment: .leading, spacing: FDS.Spacing.sm) {
                     Text("LIFETIME")
                         .font(FDS.TypeScale.Dynamic.micro)
                         .tracking(1.4)
@@ -296,13 +296,13 @@ struct ProfileHeroHeader: View {
 
             Spacer()
 
-            HStack(spacing: 4) {
+            HStack(spacing: FDS.Spacing.xs) {
                 Image(systemName: trendSymbol).font(.system(size: 10, weight: .bold))
                 Text(trendLabel).font(FDS.TypeScale.Dynamic.micro).lineLimit(1)
             }
             .foregroundColor(trendColor)
-            .padding(.horizontal, 10)
-            .padding(.vertical, 6)
+            .padding(.horizontal, FDS.Spacing.md)
+            .padding(.vertical, FDS.Spacing.sm)
             .background(Capsule().fill(trendColor.opacity(0.12)))
         }
         .padding(FDS.Spacing.lg)
@@ -328,7 +328,7 @@ struct ProfileHeroHeader: View {
     }
 
     private func actionLabel(icon: String, text: String, filled: Bool) -> some View {
-        HStack(spacing: 7) {
+        HStack(spacing: FDS.Spacing.sm) {
             Image(systemName: icon).font(.system(size: 14, weight: .semibold))
             Text(text).font(FDS.TypeScale.Dynamic.body.weight(.semibold))
         }

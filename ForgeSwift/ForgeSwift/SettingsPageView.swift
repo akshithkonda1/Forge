@@ -65,14 +65,14 @@ struct SettingsPageView: View {
                     onEdit: { showProfileEditor = true },
                     onShare: { showShareSheet = true }
                 )
-                .padding(.top, 8)
+                .padding(.top, FDS.Spacing.sm)
                 .padding(.bottom, FDS.Spacing.sm)
 
                 sectionHeader("All pages")
                 Text("The rooms. Open one when you need to log or override — ARIA already reads them.")
                     .font(ForgeType.body)
                     .foregroundColor(.textTertiary)
-                    .padding(.bottom, 10)
+                    .padding(.bottom, FDS.Spacing.md)
                 ForgeExploreDestinationsGrid()
                     .padding(.bottom, FDS.Spacing.md)
 
@@ -109,7 +109,7 @@ struct SettingsPageView: View {
                     .buttonStyle(.plain)
 
                     Divider().background(Color.borderColor)
-                    VStack(alignment: .leading, spacing: 8) {
+                    VStack(alignment: .leading, spacing: FDS.Spacing.sm) {
                         Text("Personal coaches")
                             .font(FDS.TypeScale.Dynamic.body)
                             .foregroundColor(.textPrimary)
@@ -124,9 +124,9 @@ struct SettingsPageView: View {
                                 .foregroundColor(Color(hex: "A9D8FF"))
                         }
                         .buttonStyle(.plain)
-                        .padding(.top, 4)
+                        .padding(.top, FDS.Spacing.xs)
                         #if DEBUG
-                        VStack(alignment: .leading, spacing: 8) {
+                        VStack(alignment: .leading, spacing: FDS.Spacing.sm) {
                             Text("ARIA coach mode")
                                 .font(FDS.TypeScale.Dynamic.caption)
                                 .foregroundColor(.textTertiary)
@@ -148,7 +148,7 @@ struct SettingsPageView: View {
                                                 .foregroundColor(Color.paper)
                                         }
                                     }
-                                    .padding(.vertical, 8)
+                                    .padding(.vertical, FDS.Spacing.sm)
                                 }
                                 .buttonStyle(.plain)
                             }
@@ -158,7 +158,7 @@ struct SettingsPageView: View {
                             .font(.system(size: 12, weight: .medium))
                             .foregroundColor(.textTertiary)
                         }
-                        .padding(.top, 10)
+                        .padding(.top, FDS.Spacing.md)
                         #endif
                         FlowLayout(spacing: 8) {
                             coachPinChip(nil, title: "Auto")
@@ -176,8 +176,8 @@ struct SettingsPageView: View {
                             }
                         }
                     }
-                    .padding(.horizontal, 16)
-                    .padding(.vertical, 12)
+                    .padding(.horizontal, FDS.Spacing.lg)
+                    .padding(.vertical, FDS.Spacing.md)
 
                     Divider().background(Color.borderColor)
                     VStack(alignment: .leading, spacing: 0) {
@@ -185,9 +185,9 @@ struct SettingsPageView: View {
                             .font(.system(size: 12))
                             .foregroundColor(.textTertiary)
                             .lineSpacing(2)
-                            .padding(.horizontal, 16).padding(.vertical, 10)
+                            .padding(.horizontal, FDS.Spacing.lg).padding(.vertical, FDS.Spacing.md)
                         Divider().background(Color.borderColor)
-                        VStack(alignment: .leading, spacing: 10) {
+                        VStack(alignment: .leading, spacing: FDS.Spacing.md) {
                             Text("Training Goals")
                                 .font(FDS.TypeScale.Dynamic.body)
                                 .foregroundColor(.textPrimary)
@@ -196,13 +196,13 @@ struct SettingsPageView: View {
                                     Text(goal.label)
                                         .font(FDS.TypeScale.Dynamic.caption)
                                         .foregroundColor(.ember)
-                                        .padding(.horizontal, 12).padding(.vertical, 5)
+                                        .padding(.horizontal, FDS.Spacing.md).padding(.vertical, FDS.Spacing.xs)
                                         .background(Color.ember.opacity(0.12))
                                         .cornerRadius(100)
                                 }
                             }
                         }
-                        .padding(.horizontal, 16).padding(.vertical, 12)
+                        .padding(.horizontal, FDS.Spacing.lg).padding(.vertical, FDS.Spacing.md)
                     }
                 }
 
@@ -211,7 +211,7 @@ struct SettingsPageView: View {
                 SectionCard {
                     Color.clear.frame(width: 0, height: 0).hidden().id(catalogRevision)
                     if store.userProfile.connectedDevices.isEmpty {
-                        HStack(spacing: 10) {
+                        HStack(spacing: FDS.Spacing.md) {
                             Image(systemName: "link.badge.plus")
                                 .font(.system(size: 16))
                                 .foregroundColor(.textTertiary)
@@ -219,7 +219,7 @@ struct SettingsPageView: View {
                                 .font(.system(size: 14))
                                 .foregroundColor(.textSecondary)
                         }
-                        .padding(.horizontal, 16).padding(.vertical, 12)
+                        .padding(.horizontal, FDS.Spacing.lg).padding(.vertical, FDS.Spacing.md)
                     } else {
                         ForEach(Array(HealthDeviceCatalog.migrateStoredIDs(store.userProfile.connectedDevices).enumerated()), id: \.element) { idx, raw in
                             if idx > 0 { Divider().background(Color.borderColor) }
@@ -234,7 +234,7 @@ struct SettingsPageView: View {
                                     if let device {
                                         DeviceProductImage(device: device, size: 28, cornerRadius: FDS.Radius.xs)
                                     }
-                                    HStack(spacing: 5) {
+                                    HStack(spacing: FDS.Spacing.xs) {
                                         Circle().fill(Color.success).frame(width: 8, height: 8)
                                         Text(device?.writesToAppleHealth == true ? "Health" : "iOS")
                                             .font(.system(size: 12))
@@ -247,7 +247,7 @@ struct SettingsPageView: View {
                     }
                     Divider().background(Color.borderColor)
                     Button { showDevicesSheet = true } label: {
-                        HStack(spacing: 10) {
+                        HStack(spacing: FDS.Spacing.md) {
                             ZStack {
                                 Circle().stroke(Color.borderLight, style: StrokeStyle(lineWidth: 1, dash: [4])).frame(width: 32, height: 32)
                                 Image(systemName: "plus").font(.system(size: 13)).foregroundColor(.textTertiary)
@@ -256,7 +256,7 @@ struct SettingsPageView: View {
                                 .font(FDS.TypeScale.Dynamic.body)
                                 .foregroundColor(.ember)
                         }
-                        .padding(.horizontal, 16).padding(.vertical, 12)
+                        .padding(.horizontal, FDS.Spacing.lg).padding(.vertical, FDS.Spacing.md)
                         .frame(maxWidth: .infinity, alignment: .leading)
                     }
                 }
@@ -345,8 +345,8 @@ struct SettingsPageView: View {
                         .font(FDS.TypeScale.Dynamic.caption)
                         .foregroundColor(.warning)
                         .fixedSize(horizontal: false, vertical: true)
-                        .padding(.top, 8)
-                        .padding(.bottom, 4)
+                        .padding(.top, FDS.Spacing.sm)
+                        .padding(.bottom, FDS.Spacing.xs)
                         .accessibilityLabel(ingestError)
                 }
 
@@ -369,12 +369,12 @@ struct SettingsPageView: View {
                                     .foregroundColor(Color.danger)
                             }
                             .buttonStyle(.plain)
-                            .padding(.horizontal, 16)
-                            .padding(.bottom, 8)
+                            .padding(.horizontal, FDS.Spacing.lg)
+                            .padding(.bottom, FDS.Spacing.sm)
                         }
                     }
                     Divider().background(Color.borderColor)
-                    VStack(alignment: .leading, spacing: 8) {
+                    VStack(alignment: .leading, spacing: FDS.Spacing.sm) {
                         SettingsRow(
                             icon: "eye.slash.fill",
                             iconColor: .steel,
@@ -394,8 +394,8 @@ struct SettingsPageView: View {
                             .font(.caption)
                             .foregroundColor(.textTertiary)
                     }
-                    .padding(.horizontal, 16)
-                    .padding(.bottom, 10)
+                    .padding(.horizontal, FDS.Spacing.lg)
+                    .padding(.bottom, FDS.Spacing.md)
                     Divider().background(Color.borderColor)
                     SettingsRow(icon: "faceid", iconColor: .ember, label: "Lock Cycle Health") {
                         ForgeToggle(isOn: Binding(
@@ -498,8 +498,8 @@ struct SettingsPageView: View {
                     Text("Meals ↔ glucose plus Apple Watch estimates. Turn it off to hide Metabolic everywhere.")
                         .font(.caption)
                         .foregroundColor(.textTertiary)
-                        .padding(.horizontal, 16)
-                        .padding(.bottom, 10)
+                        .padding(.horizontal, FDS.Spacing.lg)
+                        .padding(.bottom, FDS.Spacing.md)
                 }
 
                 // Focus / quiet
@@ -528,7 +528,7 @@ struct SettingsPageView: View {
                     .buttonStyle(.plain)
                     Divider().background(Color.borderColor)
                     Button { showWorkoutsEditor = true } label: {
-                        VStack(alignment: .leading, spacing: 10) {
+                        VStack(alignment: .leading, spacing: FDS.Spacing.md) {
                             HStack {
                                 Text("Preferred Types").font(FDS.TypeScale.Dynamic.body).foregroundColor(.textPrimary)
                                 Spacer()
@@ -546,14 +546,14 @@ struct SettingsPageView: View {
                                         Text(type.label)
                                             .font(FDS.TypeScale.Dynamic.caption)
                                             .foregroundColor(.textSecondary)
-                                            .padding(.horizontal, 12).padding(.vertical, 5)
+                                            .padding(.horizontal, FDS.Spacing.md).padding(.vertical, FDS.Spacing.xs)
                                             .background(Color.surfaceElevated)
                                             .cornerRadius(100)
                                     }
                                 }
                             }
                         }
-                        .padding(.horizontal, 16).padding(.vertical, 12)
+                        .padding(.horizontal, FDS.Spacing.lg).padding(.vertical, FDS.Spacing.md)
                     }
                     .buttonStyle(.plain)
                     Divider().background(Color.borderColor)
@@ -737,7 +737,7 @@ struct SettingsPageView: View {
                 Button {
                     confirmSignOut = true
                 } label: {
-                    HStack(spacing: 8) {
+                    HStack(spacing: FDS.Spacing.sm) {
                         Image(systemName: "rectangle.portrait.and.arrow.right").font(.system(size: 16))
                         Text("Log Out").font(FDS.TypeScale.Dynamic.body.weight(.semibold))
                     }
@@ -746,10 +746,10 @@ struct SettingsPageView: View {
                     .frame(height: 52)
                     .forgeGlassCard(cornerRadius: FDS.Radius.md, accent: .danger)
                 }
-                .padding(.top, 24)
+                .padding(.top, FDS.Spacing.xl)
                 .padding(.bottom, 32)
             }
-            .padding(.horizontal, 16)
+            .padding(.horizontal, FDS.Spacing.lg)
         }
         .sheet(isPresented: $showProfileEditor) {
             ProfileEditorView()
@@ -788,7 +788,7 @@ struct SettingsPageView: View {
                     Text("Forge keeps Apple Health data on this device — including Oura, Garmin, Watch, and any other wearable that writes to Apple Health. ARIA reads that ledger here and gives an opinion. Claude and Grok never receive the sample warehouse. Forge account storage is the user record, not your chart.")
                         .font(.system(size: 15))
                         .foregroundColor(.textSecondary)
-                        .padding(20)
+                        .padding(FDS.Spacing.lg)
                 }
                 .background(Color.background)
                 .navigationTitle("Privacy")
@@ -877,7 +877,7 @@ struct SettingsPageView: View {
             Text(title)
                 .font(FDS.TypeScale.Dynamic.caption)
                 .foregroundColor(selected ? .ember : .textPrimary)
-                .padding(.horizontal, 12).padding(.vertical, 5)
+                .padding(.horizontal, FDS.Spacing.md).padding(.vertical, FDS.Spacing.xs)
                 .background(selected ? Color.ember.opacity(0.18) : Color.ember.opacity(0.12))
                 .cornerRadius(100)
         }
@@ -968,7 +968,7 @@ struct SettingsPageView: View {
     func sectionHeader(_ title: String) -> some View {
         Text(title)
             .forgeSectionLabel()
-            .padding(.top, 28)
-            .padding(.bottom, 10)
+            .padding(.top, FDS.Spacing.xl)
+            .padding(.bottom, FDS.Spacing.md)
     }
 }

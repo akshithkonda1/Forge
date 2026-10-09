@@ -46,7 +46,7 @@ struct WorkoutHistoryListView: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
+        VStack(alignment: .leading, spacing: FDS.Spacing.md) {
             HStack {
                 Text("Recent Workouts")
                     .font(FDS.TypeScale.Dynamic.headline)
@@ -62,9 +62,9 @@ struct WorkoutHistoryListView: View {
 
             // Search and filter
             if showFilters {
-                VStack(spacing: 12) {
+                VStack(spacing: FDS.Spacing.md) {
                     // Search bar
-                    HStack(spacing: 10) {
+                    HStack(spacing: FDS.Spacing.md) {
                         Image(systemName: "magnifyingglass")
                             .font(.system(size: 14))
                             .foregroundColor(.textTertiary)
@@ -78,13 +78,12 @@ struct WorkoutHistoryListView: View {
                             }
                         }
                     }
-                    .padding(12)
-                    .background(Color.surfaceElevated)
-                    .cornerRadius(10)
+                    .padding(FDS.Spacing.md)
+                    .forgeInsetTile(radius: FDS.Radius.sm)
 
                     // Type filters
                     ScrollView(.horizontal, showsIndicators: false) {
-                        HStack(spacing: 8) {
+                        HStack(spacing: FDS.Spacing.sm) {
                             FilterChip(title: "All", isSelected: selectedFilterType == nil) {
                                 selectedFilterType = nil
                             }
@@ -99,7 +98,7 @@ struct WorkoutHistoryListView: View {
                 .transition(.opacity.combined(with: .move(edge: .top)))
             }
 
-            VStack(spacing: 10) {
+            VStack(spacing: FDS.Spacing.md) {
                 ForEach(visibleWorkouts) { workout in
                     // Only the header row toggles expansion — the expanded section holds
                     // its own ShareLink, and nesting buttons would fire both on tap.
@@ -109,14 +108,14 @@ struct WorkoutHistoryListView: View {
                                 selectedWorkout = selectedWorkout?.id == workout.id ? nil : workout
                             }
                         }) {
-                            HStack(spacing: 12) {
+                            HStack(spacing: FDS.Spacing.md) {
                                 // Intensity dot
                                 Circle()
                                     .fill(workout.intensity.color)
                                     .frame(width: 10, height: 10)
 
-                                VStack(alignment: .leading, spacing: 4) {
-                                    HStack(spacing: 8) {
+                                VStack(alignment: .leading, spacing: FDS.Spacing.xs) {
+                                    HStack(spacing: FDS.Spacing.sm) {
                                         Text(workout.name)
                                             .font(FDS.TypeScale.Dynamic.body.weight(.semibold))
                                             .foregroundColor(.textPrimary)
@@ -124,11 +123,11 @@ struct WorkoutHistoryListView: View {
                                         Text(workout.type.label)
                                             .font(FDS.TypeScale.Dynamic.micro)
                                             .foregroundColor(workout.type.color)
-                                            .padding(.horizontal, 8).padding(.vertical, 3)
+                                            .padding(.horizontal, FDS.Spacing.sm).padding(.vertical, 3)
                                             .background(workout.type.color.opacity(0.12))
                                             .cornerRadius(100)
                                     }
-                                    HStack(spacing: 10) {
+                                    HStack(spacing: FDS.Spacing.md) {
                                         Text(ForgeDates.displayWeekdayDate(workout.date))
                                             .font(.system(size: 11)).foregroundColor(.textTertiary)
                                         Text("\(workout.duration) min")
@@ -144,7 +143,7 @@ struct WorkoutHistoryListView: View {
                                     .font(.system(size: 20))
                                     .foregroundColor(selectedWorkout?.id == workout.id ? .ember : .textTertiary)
                             }
-                            .padding(.horizontal, 16).padding(.vertical, 14)
+                            .padding(.horizontal, FDS.Spacing.lg).padding(.vertical, FDS.Spacing.lg)
                             .contentShape(Rectangle())
                         }
                         .buttonStyle(.plain)
@@ -154,8 +153,8 @@ struct WorkoutHistoryListView: View {
                             VStack(spacing: 0) {
                                 Divider().background(Color.borderColor)
 
-                                VStack(alignment: .leading, spacing: 12) {
-                                    HStack(spacing: 20) {
+                                VStack(alignment: .leading, spacing: FDS.Spacing.md) {
+                                    HStack(spacing: FDS.Spacing.lg) {
                                         StatBadge(label: "Duration", value: "\(workout.duration)", unit: "min")
                                         StatBadge(
                                             label: "Volume",
@@ -166,7 +165,7 @@ struct WorkoutHistoryListView: View {
                                     }
 
                                     ShareLink(item: shareText(for: workout)) {
-                                        HStack(spacing: 6) {
+                                        HStack(spacing: FDS.Spacing.sm) {
                                             Image(systemName: "square.and.arrow.up")
                                                 .font(.system(size: 12))
                                             Text("Share Workout")
@@ -174,14 +173,14 @@ struct WorkoutHistoryListView: View {
                                         }
                                         .foregroundColor(.ember)
                                         .frame(maxWidth: .infinity)
-                                        .padding(.vertical, 10)
+                                        .padding(.vertical, FDS.Spacing.md)
                                         .background(Color.ember.opacity(0.1))
-                                        .cornerRadius(8)
+                                        .cornerRadius(FDS.Radius.sm)
                                     }
                                     .buttonStyle(.plain)
                                 }
-                                .padding(.horizontal, 16)
-                                .padding(.vertical, 12)
+                                .padding(.horizontal, FDS.Spacing.lg)
+                                .padding(.vertical, FDS.Spacing.md)
                             }
                             .transition(.opacity.combined(with: .move(edge: .top)))
                         }
@@ -199,7 +198,7 @@ struct WorkoutHistoryListView: View {
                         .font(FDS.TypeScale.Dynamic.caption)
                         .foregroundColor(.ember)
                         .frame(maxWidth: .infinity)
-                        .padding(.vertical, 12)
+                        .padding(.vertical, FDS.Spacing.md)
                         .forgeGlassCard(cornerRadius: FDS.Radius.md, accent: .ember)
                 }
                 .buttonStyle(.plain)
@@ -213,7 +212,7 @@ struct WorkoutHistoryListView: View {
                         message: "Your completed workouts will appear here."
                     )
                 } else {
-                    VStack(spacing: 12) {
+                    VStack(spacing: FDS.Spacing.md) {
                         Image(systemName: "magnifyingglass")
                             .font(.system(size: 40))
                             .foregroundColor(.textTertiary)
@@ -239,8 +238,8 @@ struct FilterChip: View {
             Text(title)
                 .font(FDS.TypeScale.Dynamic.caption)
                 .foregroundColor(isSelected ? .white : .textSecondary)
-                .padding(.horizontal, 14)
-                .padding(.vertical, 7)
+                .padding(.horizontal, FDS.Spacing.lg)
+                .padding(.vertical, FDS.Spacing.sm)
                 .background(isSelected ? Color.ember : Color.surfaceElevated)
                 .cornerRadius(100)
         }
@@ -254,7 +253,7 @@ struct StatBadge: View {
     let unit: String
 
     var body: some View {
-        VStack(spacing: 4) {
+        VStack(spacing: FDS.Spacing.xs) {
             Text(label)
                 .font(.system(size: 10))
                 .foregroundColor(.textTertiary)
@@ -270,8 +269,7 @@ struct StatBadge: View {
             }
         }
         .frame(maxWidth: .infinity)
-        .padding(.vertical, 8)
-        .background(Color.surfaceElevated)
-        .cornerRadius(8)
+        .padding(.vertical, FDS.Spacing.sm)
+        .forgeInsetTile(radius: FDS.Radius.sm)
     }
 }

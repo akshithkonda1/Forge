@@ -22,17 +22,17 @@ struct WorkoutRichCardView: View {
             FDS.Gradient.emberDeep.frame(height: 3)
                 .cornerRadius(3, corners: [UIRectCorner.topLeft, UIRectCorner.topRight])
 
-            HStack(spacing: 14) {
+            HStack(spacing: FDS.Spacing.lg) {
                 ZStack {
                     RoundedRectangle(cornerRadius: FDS.Radius.sm)
                         .fill(Color.ember.opacity(0.12)).frame(width: 46, height: 46)
                     Image(systemName: "dumbbell.fill")
                         .font(.system(size: 19)).foregroundStyle(FDS.Gradient.ember)
                 }
-                VStack(alignment: .leading, spacing: 4) {
+                VStack(alignment: .leading, spacing: FDS.Spacing.xs) {
                     Text(card.workoutName ?? "Workout Plan")
                         .font(FDS.TypeScale.Dynamic.headline).foregroundColor(.textPrimary)
-                    HStack(spacing: 12) {
+                    HStack(spacing: FDS.Spacing.md) {
                         Label("\(card.workoutDuration ?? 0) min", systemImage: "clock.fill")
                         Label("\(card.workoutExercises?.count ?? 0) exercises", systemImage: "list.bullet")
                     }
@@ -47,13 +47,13 @@ struct WorkoutRichCardView: View {
                         .font(.system(size: 22)).foregroundStyle(FDS.Gradient.ember)
                 }
             }
-            .padding(16)
+            .padding(FDS.Spacing.lg)
 
             if expanded, let exercises = card.workoutExercises {
                 Divider().background(Color.borderColor.opacity(0.3))
                 VStack(spacing: 0) {
                     ForEach(Array(exercises.enumerated()), id: \.offset) { i, ex in
-                        HStack(spacing: 12) {
+                        HStack(spacing: FDS.Spacing.md) {
                             ZStack {
                                 Circle().fill(Color.ember.opacity(0.1)).frame(width: 28, height: 28)
                                 Text("\(i+1)").font(FDS.TypeScale.Dynamic.caption).foregroundColor(.ember)
@@ -62,17 +62,17 @@ struct WorkoutRichCardView: View {
                             Spacer()
                             Text("\(ex.sets) × \(ex.reps)")
                                 .font(FDS.TypeScale.Dynamic.caption).foregroundColor(.textSecondary)
-                                .padding(.horizontal, 10).padding(.vertical, 4)
+                                .padding(.horizontal, FDS.Spacing.md).padding(.vertical, FDS.Spacing.xs)
                                 .background(Color.surface).cornerRadius(FDS.Radius.xs)
                         }
-                        .padding(.horizontal, 16).padding(.vertical, 10)
+                        .padding(.horizontal, FDS.Spacing.lg).padding(.vertical, FDS.Spacing.md)
                         .forgeEntrance(index: i, appeared: expanded)
                         if i < exercises.count - 1 {
                             Divider().background(Color.borderColor.opacity(0.22)).padding(.leading, 56)
                         }
                     }
                 }
-                .padding(.vertical, 6)
+                .padding(.vertical, FDS.Spacing.sm)
                 .transition(.opacity.combined(with: .scale(scale: 0.97, anchor: .top)))
             }
 
@@ -86,11 +86,11 @@ struct WorkoutRichCardView: View {
                     store.openChat(with: HomeInsightFlow.todayPlanPrompt, voice: false)
                 }
             } label: {
-                HStack(spacing: 8) {
+                HStack(spacing: FDS.Spacing.sm) {
                     Image(systemName: "play.fill").font(.system(size: 13, weight: .bold))
                     Text("Start This Workout").font(FDS.TypeScale.Dynamic.body.weight(.semibold))
                 }
-                .foregroundColor(.white).frame(maxWidth: .infinity).padding(.vertical, 14)
+                .foregroundColor(.white).frame(maxWidth: .infinity).padding(.vertical, FDS.Spacing.lg)
                 .background(FDS.Gradient.emberDeep).cornerRadius(FDS.Radius.sm)
                 .overlay(alignment: .top) {
                     RoundedRectangle(cornerRadius: FDS.Radius.sm)
@@ -102,7 +102,7 @@ struct WorkoutRichCardView: View {
             }
             .simultaneousGesture(DragGesture(minimumDistance: 0)
                 .onChanged { _ in startPressed = true }.onEnded { _ in startPressed = false })
-            .padding(14)
+            .padding(FDS.Spacing.lg)
         }
         .forgeGlassCard(cornerRadius: FDS.Radius.md, accent: .ember)
         .shadow(color: .black.opacity(0.06), radius: 5, y: 2)
@@ -125,7 +125,7 @@ struct DataChartRichCardView: View {
             LinearGradient(colors: [barColor.opacity(0.75), barColor.opacity(0.35)], startPoint: .leading, endPoint: .trailing)
                 .frame(height: 3).cornerRadius(3, corners: [UIRectCorner.topLeft, UIRectCorner.topRight])
 
-            HStack(spacing: 10) {
+            HStack(spacing: FDS.Spacing.md) {
                 ZStack {
                     RoundedRectangle(cornerRadius: FDS.Radius.xs).fill(barColor.opacity(0.14)).frame(width: 38, height: 38)
                     Image(systemName: "chart.line.uptrend.xyaxis").font(.system(size: 16)).foregroundColor(barColor)
@@ -139,10 +139,10 @@ struct DataChartRichCardView: View {
                         .transition(.opacity)
                 }
             }
-            .padding(14)
+            .padding(FDS.Spacing.lg)
 
-            VStack(alignment: .leading, spacing: 12) {
-                HStack(alignment: .bottom, spacing: 5) {
+            VStack(alignment: .leading, spacing: FDS.Spacing.md) {
+                HStack(alignment: .bottom, spacing: FDS.Spacing.xs) {
                     ForEach(Array(values.enumerated()), id: \.offset) { i, val in
                         let norm = maxVal > minVal ? (val - minVal) / (maxVal - minVal) : 1
                         RoundedRectangle(cornerRadius: FDS.Radius.xs)
@@ -164,15 +164,15 @@ struct DataChartRichCardView: View {
                 }
                 .frame(height: 52)
                 if let insight = card.chartInsight {
-                    HStack(spacing: 8) {
+                    HStack(spacing: FDS.Spacing.sm) {
                         Image(systemName: "lightbulb.fill").font(.system(size: 12)).foregroundColor(barColor.opacity(0.75))
                         Text(insight).font(FDS.TypeScale.Dynamic.caption).foregroundColor(.textSecondary).lineSpacing(3)
                     }
                 }
             }
-            .padding(14)
+            .padding(FDS.Spacing.lg)
             .background(RoundedRectangle(cornerRadius: FDS.Radius.sm).fill(barColor.opacity(0.04)))
-            .padding(12)
+            .padding(FDS.Spacing.md)
         }
         .forgeGlassCard(cornerRadius: FDS.Radius.md, accent: barColor)
         .onAppear { withAnimation(FDS.Spring.hero.delay(0.1)) { appeared = true } }

@@ -28,7 +28,7 @@ struct SupporterDigestView: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 18) {
+        VStack(alignment: .leading, spacing: FDS.Spacing.lg) {
             if isPreview { previewBanner }
             if digest.periodFinished { finishedBanner }
             if !isPreview && digest.isStale { staleBanner }
@@ -55,8 +55,8 @@ struct SupporterDigestView: View {
         Label("This is exactly what they see. Nothing more.", systemImage: "eye.fill")
             .font(FDS.TypeScale.Dynamic.caption)
             .foregroundStyle(Color.vitality)
-            .padding(.horizontal, 12)
-            .padding(.vertical, 10)
+            .padding(.horizontal, FDS.Spacing.md)
+            .padding(.vertical, FDS.Spacing.md)
             .frame(maxWidth: .infinity, alignment: .leading)
             .background(Color.vitality.opacity(0.12))
             .clipShape(RoundedRectangle(cornerRadius: FDS.Radius.md, style: .continuous))
@@ -77,8 +77,8 @@ struct SupporterDigestView: View {
         )
         .font(FDS.TypeScale.Dynamic.caption)
         .foregroundStyle(Color.warning)
-        .padding(.horizontal, 12)
-        .padding(.vertical, 10)
+        .padding(.horizontal, FDS.Spacing.md)
+        .padding(.vertical, FDS.Spacing.md)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(Color.warning.opacity(0.12))
         .clipShape(RoundedRectangle(cornerRadius: FDS.Radius.md, style: .continuous))
@@ -89,16 +89,16 @@ struct SupporterDigestView: View {
         Label("Period finished — both of you can see this.", systemImage: "checkmark.circle.fill")
             .font(FDS.TypeScale.Dynamic.caption)
             .foregroundStyle(Color.vitality)
-            .padding(.horizontal, 12)
-            .padding(.vertical, 10)
+            .padding(.horizontal, FDS.Spacing.md)
+            .padding(.vertical, FDS.Spacing.md)
             .frame(maxWidth: .infinity, alignment: .leading)
             .background(Color.vitality.opacity(0.12))
             .clipShape(RoundedRectangle(cornerRadius: FDS.Radius.md, style: .continuous))
     }
 
     private var glance: some View {
-        VStack(alignment: .leading, spacing: 14) {
-            HStack(alignment: .center, spacing: 14) {
+        VStack(alignment: .leading, spacing: FDS.Spacing.lg) {
+            HStack(alignment: .center, spacing: FDS.Spacing.lg) {
                 ZStack {
                     Circle()
                         .fill(accent.opacity(0.18))
@@ -107,7 +107,7 @@ struct SupporterDigestView: View {
                         .font(.system(size: 24, weight: .semibold))
                         .foregroundStyle(accent)
                 }
-                VStack(alignment: .leading, spacing: 4) {
+                VStack(alignment: .leading, spacing: FDS.Spacing.xs) {
                     Text(personName.isEmpty ? "SUPPORT" : personName.uppercased())
                         .font(FDS.TypeScale.Dynamic.micro)
                         .tracking(1.3)
@@ -161,12 +161,12 @@ struct SupporterDigestView: View {
                 .font(FDS.TypeScale.Dynamic.caption)
                 .foregroundColor(.textTertiary)
         }
-        .padding(20)
+        .padding(FDS.Spacing.lg)
         .forgeGlassCard(accent: accent)
     }
 
     private var howToShowUp: some View {
-        VStack(alignment: .leading, spacing: 16) {
+        VStack(alignment: .leading, spacing: FDS.Spacing.lg) {
             Text(PartnerSupportLens.Section.howToShowUp.title.uppercased())
                 .forgeSectionLabel()
             bulletList(guidance.doThis, tint: accent, icon: "checkmark.circle.fill")
@@ -175,7 +175,7 @@ struct SupporterDigestView: View {
                 bulletList(guidance.notThis, tint: Color.danger, icon: "xmark.circle.fill")
             }
         }
-        .padding(20)
+        .padding(FDS.Spacing.lg)
         .forgeGlassCard(accent: accent)
     }
 
@@ -186,7 +186,7 @@ struct SupporterDigestView: View {
         // independent guards, because a parent seeing this is the failure that
         // must not happen once.
         if lens.intimacy == .full, !guidance.intimacy.isEmpty {
-            VStack(alignment: .leading, spacing: 14) {
+            VStack(alignment: .leading, spacing: FDS.Spacing.lg) {
                 Text(PartnerSupportLens.Section.intimacyAndComfort.title.uppercased())
                     .forgeSectionLabel()
                 bulletList(guidance.intimacy, tint: Color(hex: "F472B6"), icon: "heart.fill")
@@ -194,7 +194,7 @@ struct SupporterDigestView: View {
                     .font(FDS.TypeScale.Dynamic.caption)
                     .foregroundColor(.textTertiary)
             }
-            .padding(20)
+            .padding(FDS.Spacing.lg)
             .forgeGlassCard(accent: Color(hex: "F472B6"))
         }
     }
@@ -202,12 +202,12 @@ struct SupporterDigestView: View {
     @ViewBuilder
     private var parentPlaybook: some View {
         if !guidance.parentNotes.isEmpty {
-            VStack(alignment: .leading, spacing: 14) {
+            VStack(alignment: .leading, spacing: FDS.Spacing.lg) {
                 Text(PartnerSupportLens.Section.parentPlaybook.title.uppercased())
                     .forgeSectionLabel()
                 bulletList(guidance.parentNotes, tint: Color(hex: "60A5FA"), icon: "hand.raised.fill")
             }
-            .padding(20)
+            .padding(FDS.Spacing.lg)
             .forgeGlassCard(accent: Color(hex: "60A5FA"))
         }
     }
@@ -217,7 +217,7 @@ struct SupporterDigestView: View {
     /// the person they support to fill in the gaps, and the owner previewing
     /// this to decide whether to share at all.
     private var withheld: some View {
-        VStack(alignment: .leading, spacing: 12) {
+        VStack(alignment: .leading, spacing: FDS.Spacing.md) {
             Label(PartnerSupportLens.Section.whatYouCannotSee.title.uppercased(),
                   systemImage: "eye.slash.fill")
                 .forgeSectionLabel()
@@ -226,7 +226,7 @@ struct SupporterDigestView: View {
                 .foregroundColor(.textSecondary)
                 .fixedSize(horizontal: false, vertical: true)
         }
-        .padding(20)
+        .padding(FDS.Spacing.lg)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(Color.surfaceElevated.opacity(0.5))
         .clipShape(RoundedRectangle(cornerRadius: FDS.Radius.lg, style: .continuous))
@@ -235,9 +235,9 @@ struct SupporterDigestView: View {
     // ------------------------------------------------------------
 
     private func bulletList(_ items: [String], tint: Color, icon: String) -> some View {
-        VStack(alignment: .leading, spacing: 10) {
+        VStack(alignment: .leading, spacing: FDS.Spacing.md) {
             ForEach(items, id: \.self) { item in
-                HStack(alignment: .top, spacing: 10) {
+                HStack(alignment: .top, spacing: FDS.Spacing.md) {
                     Image(systemName: icon)
                         .font(.system(size: 13))
                         .foregroundStyle(tint)
