@@ -56,7 +56,7 @@ struct DataPermissionsView: View {
                             .frame(minHeight: ForgeUX.minTap)
                         }
                     }
-                    .forgeGlassCard(cornerRadius: 16, accent: .ember)
+                    .forgeGlassCard(cornerRadius: FDS.Radius.lg, accent: .ember)
 
                     syncSection
                 }
@@ -82,7 +82,7 @@ struct DataPermissionsView: View {
                     if isSyncing { ProgressView().tint(.white) }
                     Image(systemName: "arrow.triangle.2.circlepath")
                     Text(isSyncing ? "Syncing body model…" : "Sync body model")
-                        .font(.system(size: 15, weight: .semibold))
+                        .font(FDS.TypeScale.Dynamic.body.weight(.semibold))
                 }
                 .foregroundColor(.white)
                 .frame(maxWidth: .infinity)
@@ -105,7 +105,7 @@ struct DataPermissionsView: View {
     private func snapshotCard(_ snap: BodySnapshot) -> some View {
         VStack(alignment: .leading, spacing: 10) {
             Text("Body Model")
-                .font(.system(size: 14, weight: .semibold))
+                .font(FDS.TypeScale.Dynamic.body.weight(.semibold))
                 .foregroundColor(.textPrimary)
             Text("\(snap.observationCount) signals · \(Int(snap.confidence * 100))% confidence")
                 .font(.system(size: 12))
@@ -119,7 +119,7 @@ struct DataPermissionsView: View {
                             .foregroundColor(.textSecondary)
                         Spacer()
                         Text("\(value, specifier: "%.0f") · \(estimate.state)")
-                            .font(.system(size: 13, weight: .medium))
+                            .font(FDS.TypeScale.Dynamic.caption)
                             .foregroundColor(.textPrimary)
                     }
                 }
@@ -133,7 +133,7 @@ struct DataPermissionsView: View {
         }
         .padding(16)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .forgeGlassCard(cornerRadius: 16, accent: .steel)
+        .forgeGlassCard(cornerRadius: FDS.Radius.lg, accent: .steel)
     }
 
     private func allowBinding(for domain: String) -> Binding<Bool> {

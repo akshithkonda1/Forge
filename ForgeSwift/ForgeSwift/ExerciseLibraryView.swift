@@ -95,11 +95,11 @@ struct ExerciseLibraryView: View {
                 HStack(spacing: 10) {
                     Circle().fill(section.accent).frame(width: 8, height: 8)
                     Text(section.title)
-                        .font(.system(size: 15, weight: .bold, design: .rounded))
+                        .font(FDS.TypeScale.Dynamic.body.weight(.semibold))
                         .foregroundColor(.textPrimary)
                         .accessibilityAddTraits(.isHeader)
                     Text("\(section.items.count)")
-                        .font(.system(size: 11, weight: .semibold, design: .rounded))
+                        .font(FDS.TypeScale.Dynamic.micro)
                         .foregroundColor(.textMuted)
                         .padding(.horizontal, 8)
                         .padding(.vertical, 3)
@@ -135,7 +135,7 @@ struct ExerciseLibraryView: View {
     private var welcomeStrip: some View {
         VStack(alignment: .leading, spacing: 4) {
             Text(ExerciseLibrary.welcomeSubtitle)
-                .font(.system(size: 15, weight: .medium, design: .rounded))
+                .font(FDS.TypeScale.Dynamic.body)
                 .foregroundColor(.textSecondary)
             if organize == .style {
                 Text("Calisthenics and sports sit up front. Ask ARIA to log a match.")
@@ -159,7 +159,7 @@ struct ExerciseLibraryView: View {
                         organize = mode
                     } label: {
                         Text(mode.label)
-                            .font(.system(size: 13, weight: .semibold, design: .rounded))
+                            .font(FDS.TypeScale.Dynamic.caption)
                             .foregroundColor(organize == mode ? .white : .textSecondary)
                             .padding(.horizontal, 12)
                             .padding(.vertical, 7)
@@ -188,7 +188,7 @@ struct ExerciseLibraryView: View {
                 Menu {
                     Button("All patterns") { pattern = nil }
                     ForEach(MovementPattern.allCases) { p in Button(p.label) { pattern = p } }
-                } label: { filterChip(pattern?.label ?? "Pattern", active: pattern != nil, color: Color(hex: "A855F7")) }
+                } label: { filterChip(pattern?.label ?? "Pattern", active: pattern != nil, color: Color.aurora) }
                 if muscle != nil || equipment != nil || pattern != nil {
                     Button {
                         muscle = nil
@@ -212,7 +212,7 @@ struct ExerciseLibraryView: View {
 
     private func filterChip(_ text: String, active: Bool, color: Color) -> some View {
         HStack(spacing: 5) {
-            Text(text).font(.system(size: 13, weight: .semibold))
+            Text(text).font(FDS.TypeScale.Dynamic.caption)
             Image(systemName: "chevron.down").font(.system(size: 9, weight: .bold))
         }
         .foregroundColor(active ? .white : .textSecondary)
@@ -229,19 +229,19 @@ struct ExerciseLibraryView: View {
             } label: {
                 HStack(spacing: 14) {
                     ZStack {
-                        RoundedRectangle(cornerRadius: 12)
+                        RoundedRectangle(cornerRadius: FDS.Radius.md)
                             .fill(LinearGradient(colors: [def.accent.opacity(0.2), def.accent.opacity(0.08)], startPoint: .topLeading, endPoint: .bottomTrailing))
                             .frame(width: 46, height: 46)
                         Image(systemName: def.icon).font(.system(size: 18, weight: .semibold)).foregroundColor(def.accent)
                     }
                     VStack(alignment: .leading, spacing: 3) {
-                        Text(def.name).font(.system(size: 15, weight: .semibold)).foregroundColor(.textPrimary).lineLimit(1)
+                        Text(def.name).font(FDS.TypeScale.Dynamic.body.weight(.semibold)).foregroundColor(.textPrimary).lineLimit(1)
                         Text(def.muscleSummary).font(.system(size: 12)).foregroundColor(.textTertiary).lineLimit(1)
                     }
                     Spacer(minLength: 0)
                     VStack(alignment: .trailing, spacing: 3) {
                         Text(def.repRangeLabel).font(.system(size: 13, weight: .bold, design: .monospaced)).foregroundColor(.textSecondary)
-                        Text(def.equipment.label).font(.system(size: 10, weight: .semibold)).foregroundColor(.textMuted)
+                        Text(def.equipment.label).font(FDS.TypeScale.Dynamic.micro).foregroundColor(.textMuted)
                     }
                 }
             }
@@ -255,13 +255,13 @@ struct ExerciseLibraryView: View {
                 VStack(spacing: 4) {
                     ARIAIdentityMark(state: .speaking, mood: .energized, size: 22, amplitude: 0.4)
                     Text("How")
-                        .font(.system(size: 10, weight: .bold, design: .rounded))
+                        .font(FDS.TypeScale.Dynamic.micro)
                 }
                 .foregroundColor(.ember)
                 .frame(width: 48)
                 .padding(.vertical, 8)
                 .background(Color.ember.opacity(0.12))
-                .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                .clipShape(RoundedRectangle(cornerRadius: FDS.Radius.md, style: .continuous))
             }
             .buttonStyle(.plain)
             .accessibilityLabel("ARIA, show me how to do \(def.name)")
@@ -291,14 +291,14 @@ struct ExerciseDetailSheet: View {
                         // Hero
                         HStack(spacing: 14) {
                             ZStack {
-                                RoundedRectangle(cornerRadius: 16)
+                                RoundedRectangle(cornerRadius: FDS.Radius.lg)
                                     .fill(LinearGradient(colors: [def.accent.opacity(0.25), def.accent.opacity(0.08)], startPoint: .topLeading, endPoint: .bottomTrailing))
                                     .frame(width: 64, height: 64)
                                 Image(systemName: def.icon).font(.system(size: 26, weight: .bold)).foregroundColor(def.accent)
                             }
                             VStack(alignment: .leading, spacing: 4) {
-                                Text(def.pattern.label.uppercased()).font(.system(size: 10, weight: .black)).tracking(1.5).foregroundColor(def.accent)
-                                Text(def.name).font(.system(size: 22, weight: .bold)).foregroundColor(.textPrimary)
+                                Text(def.pattern.label.uppercased()).font(FDS.TypeScale.Dynamic.micro).tracking(1.5).foregroundColor(def.accent)
+                                Text(def.name).font(FDS.TypeScale.Dynamic.title).foregroundColor(.textPrimary)
                                 Text(def.muscleSummary).font(.system(size: 12)).foregroundColor(.textTertiary)
                             }
                             Spacer()
@@ -309,7 +309,7 @@ struct ExerciseDetailSheet: View {
                             ("\(def.restSeconds)s rest", "clock.fill", .textTertiary),
                             ("Tempo \(def.tempo)", "metronome.fill", .ember),
                             ("RPE \(def.rpeTarget)", "bolt.fill", .warning),
-                            (def.level.label, "chart.bar.fill", Color(hex: "A855F7")),
+                            (def.level.label, "chart.bar.fill", Color.aurora),
                             (def.equipment.label, def.equipment.icon, .success),
                         ])
                         // Cues
@@ -325,7 +325,7 @@ struct ExerciseDetailSheet: View {
                         }
                         if !def.substitutes.isEmpty {
                             VStack(alignment: .leading, spacing: 8) {
-                                Text("ARIA SWAPS").font(.system(size: 10, weight: .black)).tracking(2).foregroundColor(.textTertiary)
+                                Text("ARIA SWAPS").font(FDS.TypeScale.Dynamic.micro).tracking(2).foregroundColor(.textTertiary)
                                 ForEach(def.substitutes, id: \.self) { s in
                                     HStack(spacing: 8) {
                                         Image(systemName: "arrow.triangle.swap").font(.system(size: 12)).foregroundColor(.steel)
@@ -334,7 +334,7 @@ struct ExerciseDetailSheet: View {
                                 }
                             }
                             .padding(16).frame(maxWidth: .infinity, alignment: .leading)
-                            .forgeGlassCard(cornerRadius: 16, accent: .ember)
+                            .forgeGlassCard(cornerRadius: FDS.Radius.lg, accent: .ember)
                         }
                         Button {
                             FDS.haptic(.medium)
@@ -343,7 +343,7 @@ struct ExerciseDetailSheet: View {
                             HStack(spacing: 10) {
                                 ARIAIdentityMark(state: .speaking, mood: .energized, size: 28, amplitude: 0.5)
                                 Text("ARIA, show me how")
-                                    .font(.system(size: 16, weight: .bold))
+                                    .font(FDS.TypeScale.Dynamic.headline)
                             }
                             .foregroundColor(.white).frame(maxWidth: .infinity).frame(height: 54)
                             .background(Color.ember.opacity(0.85)).cornerRadius(16)
@@ -354,7 +354,7 @@ struct ExerciseDetailSheet: View {
                             store.showHowToPerform(def.name, speakLocally: false, openChat: true)
                         } label: {
                             Text("Ask ARIA in chat")
-                                .font(.system(size: 14, weight: .semibold))
+                                .font(FDS.TypeScale.Dynamic.body.weight(.semibold))
                                 .foregroundColor(.ember)
                                 .frame(maxWidth: .infinity)
                         }
@@ -365,7 +365,7 @@ struct ExerciseDetailSheet: View {
                         } label: {
                             HStack(spacing: 10) {
                                 Image(systemName: added ? "checkmark.circle.fill" : "plus.circle.fill").font(.system(size: 18, weight: .bold))
-                                Text(added ? "Added to today" : store.todayWorkout == nil ? "Start a plan with this" : "Add to today's workout").font(.system(size: 16, weight: .bold))
+                                Text(added ? "Added to today" : store.todayWorkout == nil ? "Start a plan with this" : "Add to today's workout").font(FDS.TypeScale.Dynamic.headline)
                             }
                             .foregroundColor(.white).frame(maxWidth: .infinity).frame(height: 54)
                             .background(added ? Color.success : def.accent).cornerRadius(16)
@@ -404,7 +404,7 @@ struct ExerciseDetailSheet: View {
 
     private func sectionCard(_ title: String, icon: String, color: Color, lines: [String]) -> some View {
         VStack(alignment: .leading, spacing: 10) {
-            Text(title).font(.system(size: 10, weight: .black)).tracking(2).foregroundColor(.textTertiary)
+            Text(title).font(FDS.TypeScale.Dynamic.micro).tracking(2).foregroundColor(.textTertiary)
             ForEach(lines, id: \.self) { line in
                 HStack(alignment: .top, spacing: 10) {
                     Image(systemName: icon).font(.system(size: 13)).foregroundColor(color)
@@ -414,7 +414,7 @@ struct ExerciseDetailSheet: View {
             }
         }
         .padding(16).frame(maxWidth: .infinity, alignment: .leading)
-        .forgeGlassCard(cornerRadius: 16, accent: .ember)
+        .forgeGlassCard(cornerRadius: FDS.Radius.lg, accent: .ember)
     }
 }
 
@@ -427,7 +427,7 @@ struct FlowChips: View {
             ForEach(Array(items.enumerated()), id: \.offset) { _, item in
                 HStack(spacing: 5) {
                     Image(systemName: item.1).font(.system(size: 10))
-                    Text(item.0).font(.system(size: 12, weight: .semibold))
+                    Text(item.0).font(FDS.TypeScale.Dynamic.caption)
                 }
                 .foregroundColor(item.2).padding(.horizontal, 10).padding(.vertical, 8)
                 .background(item.2.opacity(0.1)).cornerRadius(9)

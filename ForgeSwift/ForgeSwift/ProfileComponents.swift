@@ -78,7 +78,7 @@ struct SettingsRow<Trailing: View>: View {
         HStack(spacing: 12) {
             if let icon = icon {
                 ZStack {
-                    RoundedRectangle(cornerRadius: 8, style: .continuous)
+                    RoundedRectangle(cornerRadius: FDS.Radius.sm, style: .continuous)
                         .fill((iconColor ?? Color.ember).opacity(0.14))
                         .frame(width: 32, height: 32)
                     Image(systemName: icon)

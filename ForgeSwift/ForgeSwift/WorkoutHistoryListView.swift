@@ -49,7 +49,7 @@ struct WorkoutHistoryListView: View {
         VStack(alignment: .leading, spacing: 12) {
             HStack {
                 Text("Recent Workouts")
-                    .font(.system(size: 18, weight: .semibold))
+                    .font(FDS.TypeScale.Dynamic.headline)
                     .foregroundColor(.textPrimary)
                 Spacer()
                 Button(action: { withAnimation(.spring()) { showFilters.toggle() } }) {
@@ -118,11 +118,11 @@ struct WorkoutHistoryListView: View {
                                 VStack(alignment: .leading, spacing: 4) {
                                     HStack(spacing: 8) {
                                         Text(workout.name)
-                                            .font(.system(size: 14, weight: .semibold))
+                                            .font(FDS.TypeScale.Dynamic.body.weight(.semibold))
                                             .foregroundColor(.textPrimary)
                                             .lineLimit(1)
                                         Text(workout.type.label)
-                                            .font(.system(size: 10, weight: .medium))
+                                            .font(FDS.TypeScale.Dynamic.micro)
                                             .foregroundColor(workout.type.color)
                                             .padding(.horizontal, 8).padding(.vertical, 3)
                                             .background(workout.type.color.opacity(0.12))
@@ -170,7 +170,7 @@ struct WorkoutHistoryListView: View {
                                             Image(systemName: "square.and.arrow.up")
                                                 .font(.system(size: 12))
                                             Text("Share Workout")
-                                                .font(.system(size: 13, weight: .medium))
+                                                .font(FDS.TypeScale.Dynamic.caption)
                                         }
                                         .foregroundColor(.ember)
                                         .frame(maxWidth: .infinity)
@@ -187,7 +187,7 @@ struct WorkoutHistoryListView: View {
                         }
                     }
                     .forgeGlassCard(
-                        cornerRadius: 14,
+                        cornerRadius: FDS.Radius.md,
                         accent: selectedWorkout?.id == workout.id ? .ember : nil
                     )
                 }
@@ -196,11 +196,11 @@ struct WorkoutHistoryListView: View {
             if !isFiltering && filteredWorkouts.count > Self.collapsedCount {
                 Button(action: { withAnimation(.spring()) { showAllWorkouts.toggle() } }) {
                     Text(showAllWorkouts ? "Show Less" : "View All (\(filteredWorkouts.count))")
-                        .font(.system(size: 13, weight: .medium))
+                        .font(FDS.TypeScale.Dynamic.caption)
                         .foregroundColor(.ember)
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 12)
-                        .forgeGlassCard(cornerRadius: 12, accent: .ember)
+                        .forgeGlassCard(cornerRadius: FDS.Radius.md, accent: .ember)
                 }
                 .buttonStyle(.plain)
             }
@@ -237,7 +237,7 @@ struct FilterChip: View {
     var body: some View {
         Button(action: action) {
             Text(title)
-                .font(.system(size: 12, weight: .medium))
+                .font(FDS.TypeScale.Dynamic.caption)
                 .foregroundColor(isSelected ? .white : .textSecondary)
                 .padding(.horizontal, 14)
                 .padding(.vertical, 7)
@@ -260,7 +260,7 @@ struct StatBadge: View {
                 .foregroundColor(.textTertiary)
             HStack(alignment: .firstTextBaseline, spacing: 2) {
                 Text(value)
-                    .font(.system(size: 16, weight: .bold))
+                    .font(FDS.TypeScale.Dynamic.headline)
                     .foregroundColor(.textPrimary)
                 if !unit.isEmpty {
                     Text(unit)

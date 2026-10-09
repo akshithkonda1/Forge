@@ -43,7 +43,7 @@ struct ContextInspectorView: View {
     private var relationshipCard: some View {
         VStack(alignment: .leading, spacing: 8) {
             Text("Relationship")
-                .font(.system(size: 13, weight: .semibold))
+                .font(FDS.TypeScale.Dynamic.caption)
                 .foregroundColor(.textSecondary)
             HStack {
                 Text("Level \(contextStore.context.relationshipLevel)/10")
@@ -51,14 +51,14 @@ struct ContextInspectorView: View {
                     .foregroundColor(.steel)
                 Spacer()
                 Text(contextStore.context.relationshipLabel)
-                    .font(.system(size: 12, weight: .semibold))
+                    .font(FDS.TypeScale.Dynamic.caption)
                     .foregroundColor(.textTertiary)
             }
             ProgressView(value: Double(contextStore.context.relationshipLevel), total: 10)
                 .tint(.steel)
         }
         .padding(16)
-        .forgeGlassCard(cornerRadius: 16, accent: .steel)
+        .forgeGlassCard(cornerRadius: FDS.Radius.lg, accent: .steel)
     }
 
     private func tagSection(title: String, items: [String], icon: String) -> some View {
@@ -74,7 +74,7 @@ struct ContextInspectorView: View {
                 FlowLayout(spacing: 8) {
                     ForEach(items, id: \.self) { item in
                         Text(item)
-                            .font(.system(size: 12, weight: .medium))
+                            .font(FDS.TypeScale.Dynamic.caption)
                             .foregroundColor(.textSecondary)
                             .padding(.horizontal, 10)
                             .padding(.vertical, 6)
@@ -85,7 +85,7 @@ struct ContextInspectorView: View {
             }
         }
         .padding(16)
-        .forgeGlassCard(cornerRadius: 16, accent: .steel)
+        .forgeGlassCard(cornerRadius: FDS.Radius.lg, accent: .steel)
     }
 
     private var insightsSection: some View {
@@ -107,7 +107,7 @@ struct ContextInspectorView: View {
             }
         }
         .padding(16)
-        .forgeGlassCard(cornerRadius: 16, accent: .steel)
+        .forgeGlassCard(cornerRadius: FDS.Radius.lg, accent: .steel)
     }
 
     private var metricsSection: some View {
@@ -122,7 +122,7 @@ struct ContextInspectorView: View {
                         .foregroundColor(.textTertiary)
                     Spacer()
                     Text(String(format: "%.0f", value))
-                        .font(.system(size: 12, weight: .semibold, design: .rounded))
+                        .font(FDS.TypeScale.Dynamic.caption)
                         .foregroundColor(.textPrimary)
                 }
             }
@@ -132,6 +132,6 @@ struct ContextInspectorView: View {
                 .padding(.top, 4)
         }
         .padding(16)
-        .forgeGlassCard(cornerRadius: 16, accent: .steel)
+        .forgeGlassCard(cornerRadius: FDS.Radius.lg, accent: .steel)
     }
 }

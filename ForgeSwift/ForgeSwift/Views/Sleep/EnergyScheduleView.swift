@@ -264,7 +264,7 @@ struct EnergyScheduleCard: View {
             }
         }
         .padding(18)
-        .forgeGlassCard(cornerRadius: 20, accent: .aurora)
+        .forgeGlassCard(cornerRadius: FDS.Radius.xl, accent: .aurora)
         .animation(reduceMotion ? nil : .snappy(duration: 0.32), value: schedule?.debtHours)
         .sensoryFeedback(.selection, trigger: scrubWindow)
         .onAppear {
@@ -300,7 +300,7 @@ struct EnergyScheduleCard: View {
                 .font(.system(size: 13, weight: .semibold))
                 .foregroundColor(.aurora)
             Text("Today's energy")
-                .font(.system(size: 14, weight: .semibold))
+                .font(FDS.TypeScale.Dynamic.body.weight(.semibold))
                 .foregroundColor(.textPrimary)
             Spacer()
         }
@@ -345,13 +345,13 @@ struct EnergyScheduleCard: View {
                 }
                 VStack(alignment: .leading, spacing: 2) {
                     Text(schedule.debtHeadline)
-                        .font(.system(size: 22, weight: .bold, design: .rounded))
+                        .font(FDS.TypeScale.Dynamic.metric)
                         .foregroundColor(debtTint(schedule.debtLevel))
                         .contentTransition(.numericText())
                         .minimumScaleFactor(0.7)
                         .lineLimit(1)
                     Text(schedule.debtDetail)
-                        .font(.system(size: 11, weight: .medium))
+                        .font(FDS.TypeScale.Dynamic.micro)
                         .foregroundColor(.textTertiary)
                         .lineLimit(1)
                 }
@@ -363,14 +363,14 @@ struct EnergyScheduleCard: View {
                     .font(.system(size: 11, weight: .semibold))
                     .foregroundColor(debtTint(schedule.debtLevel))
                 Text(debtAction(schedule.debtLevel))
-                    .font(.system(size: 12, weight: .medium))
+                    .font(FDS.TypeScale.Dynamic.caption)
                     .foregroundColor(.textSecondary)
                     .fixedSize(horizontal: false, vertical: true)
             }
             .padding(.horizontal, 10)
             .padding(.vertical, 8)
             .background(debtTint(schedule.debtLevel).opacity(0.07))
-            .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+            .clipShape(RoundedRectangle(cornerRadius: FDS.Radius.sm, style: .continuous))
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .accessibilityElement(children: .combine)
@@ -426,7 +426,7 @@ struct EnergyScheduleCard: View {
             HStack(spacing: 4) {
                 Image(systemName: "hand.draw.fill").font(.system(size: 9)).foregroundColor(.textTertiary.opacity(0.7))
                 Text("Drag the curve — or tap a time — to see that moment")
-                    .font(.system(size: 10, weight: .medium))
+                    .font(FDS.TypeScale.Dynamic.micro)
                     .foregroundColor(.textTertiary.opacity(0.9))
                 Spacer(minLength: 0)
             }
@@ -549,7 +549,7 @@ struct EnergyScheduleCard: View {
         HStack(spacing: 0) {
             ForEach(Array(stride(from: 0.0, to: 24.0, by: 6.0)), id: \.self) { offset in
                 Text(clockLabel(schedule.phase.wakeHour + offset))
-                    .font(.system(size: 10, weight: .medium))
+                    .font(FDS.TypeScale.Dynamic.micro)
                     .foregroundColor(.textTertiary)
                     .frame(maxWidth: .infinity, alignment: offset == 0 ? .leading : .center)
             }
@@ -584,14 +584,14 @@ struct EnergyScheduleCard: View {
                 VStack(alignment: .leading, spacing: 3) {
                     HStack(spacing: 6) {
                         Text(point.window.title)
-                            .font(.system(size: 14, weight: .semibold))
+                            .font(FDS.TypeScale.Dynamic.body.weight(.semibold))
                             .foregroundColor(.textPrimary)
                         // Only stamped while scrubbing. At rest the block is
                         // about now, and labelling that with a clock time would
                         // invite reading it as a scheduled event.
                         if scrubbing {
                             Text(clockLabel(point.hour))
-                                .font(.system(size: 11, weight: .semibold, design: .rounded))
+                                .font(FDS.TypeScale.Dynamic.micro)
                                 .foregroundColor(point.window.tint)
                                 .padding(.horizontal, 6)
                                 .padding(.vertical, 2)
@@ -615,10 +615,10 @@ struct EnergyScheduleCard: View {
                         .foregroundColor(.textTertiary)
                         .frame(width: 22)
                     Text("Next: \(upcoming.window.title)")
-                        .font(.system(size: 12, weight: .medium))
+                        .font(FDS.TypeScale.Dynamic.caption)
                         .foregroundColor(.textSecondary)
                     Text(relativeLabel(upcoming.startsInHours))
-                        .font(.system(size: 12, weight: .semibold))
+                        .font(FDS.TypeScale.Dynamic.caption)
                         .foregroundColor(upcoming.window.tint)
                     Spacer(minLength: 0)
                 }
@@ -661,7 +661,7 @@ struct EnergyScheduleCard: View {
                     .font(.system(size: 11, weight: .semibold))
                     .foregroundColor(tint)
                 Text(value)
-                    .font(.system(size: 15, weight: .semibold, design: .rounded))
+                    .font(FDS.TypeScale.Dynamic.body.weight(.semibold))
                     .foregroundColor(.textPrimary)
             }
             Text(label)
@@ -687,7 +687,7 @@ struct EnergyScheduleCard: View {
             }
             VStack(alignment: .leading, spacing: 3) {
                 Text("Rough read — bedtimes moved around")
-                    .font(.system(size: 12, weight: .semibold))
+                    .font(FDS.TypeScale.Dynamic.caption)
                     .foregroundColor(.textPrimary)
                 Text(schedule.unreliableNote)
                     .font(.system(size: 11))
@@ -699,8 +699,8 @@ struct EnergyScheduleCard: View {
         .padding(12)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(Color.warning.opacity(0.08))
-        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
-        .overlay(RoundedRectangle(cornerRadius: 12).stroke(Color.warning.opacity(0.18), lineWidth: 1))
+        .clipShape(RoundedRectangle(cornerRadius: FDS.Radius.md, style: .continuous))
+        .overlay(RoundedRectangle(cornerRadius: FDS.Radius.md).stroke(Color.warning.opacity(0.18), lineWidth: 1))
     }
 
     /// Shown until there are enough nights with real bedtimes to place a phase.
@@ -717,10 +717,10 @@ struct EnergyScheduleCard: View {
                 }
                 VStack(alignment: .leading, spacing: 3) {
                     Text("Still learning your rhythm")
-                        .font(.system(size: 15, weight: .semibold))
+                        .font(FDS.TypeScale.Dynamic.body.weight(.semibold))
                         .foregroundColor(.textPrimary)
                     Text("About \(EnergySchedule.minimumNights) nights")
-                        .font(.system(size: 11, weight: .semibold, design: .rounded))
+                        .font(FDS.TypeScale.Dynamic.micro)
                         .foregroundColor(.aurora)
                         .padding(.horizontal, 7).padding(.vertical, 3)
                         .background(Color.aurora.opacity(0.10))
@@ -735,12 +735,12 @@ struct EnergyScheduleCard: View {
             HStack(spacing: 8) {
                 Image(systemName: "bed.double.fill").font(.system(size: 10)).foregroundColor(.steel)
                 Text("Tip: Tonight → I'm in bed builds the fastest signal")
-                    .font(.system(size: 11, weight: .medium))
+                    .font(FDS.TypeScale.Dynamic.micro)
                     .foregroundColor(.textTertiary)
             }
             .padding(.horizontal, 10).padding(.vertical, 8)
             .background(Color.surfaceElevated)
-            .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+            .clipShape(RoundedRectangle(cornerRadius: FDS.Radius.sm, style: .continuous))
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .accessibilityElement(children: .combine)

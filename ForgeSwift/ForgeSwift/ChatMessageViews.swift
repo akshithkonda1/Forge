@@ -71,7 +71,7 @@ struct DateSeparatorView: View {
         HStack(spacing: 10) {
             Rectangle().fill(Color.white.opacity(0.06)).frame(height: 0.5)
             Text(label)
-                .font(.system(size: 11, weight: .semibold, design: .rounded))
+                .font(FDS.TypeScale.Dynamic.micro)
                 .foregroundColor(.textMuted)
                 .tracking(0.5)
                 .fixedSize()
@@ -130,7 +130,7 @@ struct MessageBubbleView: View {
                                 .font(.system(size: 9, weight: .semibold))
                                 .foregroundColor(.steel.opacity(0.8))
                             Text(memory)
-                                .font(.system(size: 11, weight: .medium))
+                                .font(FDS.TypeScale.Dynamic.micro)
                                 .foregroundColor(.textTertiary)
                                 .lineLimit(2)
                         }
@@ -155,7 +155,7 @@ struct MessageBubbleView: View {
                             UISelectionFeedbackGenerator().selectionChanged()
                         } label: {
                             Text(bodyText)
-                                .font(.system(size: 15.5, weight: .regular, design: .rounded))
+                                .font(FDS.TypeScale.Dynamic.body)
                                 .foregroundColor(isTrainer ? .textPrimary : .white)
                                 .lineSpacing(4.5)
                                 .padding(.horizontal, 16).padding(.vertical, 13)
@@ -231,7 +231,7 @@ struct MessageBubbleView: View {
 
                     if isTrainer, let tools = message.toolCallsMade, !tools.isEmpty {
                         Text("ARIA used your data · " + tools.joined(separator: " · "))
-                            .font(.system(size: 10, weight: .medium))
+                            .font(FDS.TypeScale.Dynamic.micro)
                             .foregroundColor(.textMuted)
                             .padding(.horizontal, 4)
                             .padding(.top, 2)
@@ -248,12 +248,12 @@ struct MessageBubbleView: View {
                     if showTimestamp {
                         HStack(spacing: 4) {
                             Text(formatTime(message.timestamp))
-                                .font(.system(size: 11, weight: .medium))
+                                .font(FDS.TypeScale.Dynamic.micro)
                                 .foregroundColor(.textMuted)
                             if !isTrainer {
                                 Image(systemName: "checkmark.circle.fill")
                                     .font(.system(size: 10))
-                                    .foregroundColor(Color(hex: "22C55E").opacity(0.75))
+                                    .foregroundColor(Color.vitality.opacity(0.75))
                             }
                         }
                         .padding(.horizontal, 4)
@@ -265,7 +265,7 @@ struct MessageBubbleView: View {
                         HStack(spacing: 4) {
                             Text(r).font(.system(size: 14))
                             Text("You reacted")
-                                .font(.system(size: 10, weight: .medium))
+                                .font(FDS.TypeScale.Dynamic.micro)
                                 .foregroundColor(.textMuted)
                         }
                         .padding(.horizontal, 10).padding(.vertical, 5)
@@ -358,7 +358,7 @@ struct ReplyPreviewBar: View {
 
             VStack(alignment: .leading, spacing: 2) {
                 Text(isTrainer ? "Replying to ARIA" : "Replying to yourself")
-                    .font(.system(size: 11, weight: .bold))
+                    .font(FDS.TypeScale.Dynamic.micro)
                     .foregroundColor(.ember)
                 Text(message.content)
                     .font(.system(size: 12))
@@ -393,7 +393,7 @@ struct TypingIndicatorView: View {
         ("Reading you…",     "sparkles",            mood.accentColor,         1.1),
         ("Holding the night…","moon.fill",          Color(hex: "7B61FF"),     1.0),
         ("Finding the thread…","waveform",          Color.ember,              0.9),
-        ("Almost.",          "sparkles",            Color(hex: "A855F7"),     0.7),
+        ("Almost.",          "sparkles",            Color.aurora,     0.7),
     ]}
 
     var body: some View {
@@ -408,7 +408,7 @@ struct TypingIndicatorView: View {
                             .font(.system(size: 11, weight: .medium))
                             .foregroundColor(stateColor)
                         Text(stateLabel)
-                            .font(.system(size: 12, weight: .medium))
+                            .font(FDS.TypeScale.Dynamic.caption)
                             .foregroundColor(.textSecondary)
                     }
                     .padding(.horizontal, 12).padding(.vertical, 6)
@@ -486,7 +486,7 @@ struct ReplyShapeChip: View {
                         .font(.system(size: 9, weight: .semibold))
                         .foregroundColor(.steel.opacity(0.85))
                     Text(headline)
-                        .font(.system(size: 11, weight: .medium))
+                        .font(FDS.TypeScale.Dynamic.micro)
                         .foregroundColor(.textTertiary)
                         .lineLimit(expanded ? 3 : 1)
                     if detail != nil {
@@ -505,9 +505,9 @@ struct ReplyShapeChip: View {
             }
             .padding(.horizontal, 10).padding(.vertical, 6)
             .background(Color.steel.opacity(0.08))
-            .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+            .clipShape(RoundedRectangle(cornerRadius: FDS.Radius.md, style: .continuous))
             .overlay(
-                RoundedRectangle(cornerRadius: 12, style: .continuous)
+                RoundedRectangle(cornerRadius: FDS.Radius.md, style: .continuous)
                     .stroke(Color.steel.opacity(0.18), lineWidth: 0.5)
             )
         }

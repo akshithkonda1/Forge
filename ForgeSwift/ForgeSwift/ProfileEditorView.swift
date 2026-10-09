@@ -312,7 +312,7 @@ struct ProfileEditorView: View {
 
             VStack(alignment: .leading, spacing: 8) {
                 Text("Height")
-                    .font(.system(size: 13, weight: .medium))
+                    .font(FDS.TypeScale.Dynamic.caption)
                     .foregroundColor(.textSecondary)
                 HStack(spacing: 10) {
                     heightField(placeholder: "5", text: $heightFeet, unit: "ft")
@@ -332,7 +332,7 @@ struct ProfileEditorView: View {
                 .foregroundColor(.textTertiary)
         }
         .padding(14)
-        .forgeGlassCard(cornerRadius: 10, accent: .steel)
+        .forgeGlassCard(cornerRadius: FDS.Radius.sm, accent: .steel)
         .accessibilityLabel("Height in \(unit == "ft" ? "feet" : "inches")")
     }
 
@@ -351,7 +351,7 @@ struct ProfileEditorView: View {
     private var saveButton: some View {
         Button(action: save) {
             Text("Save Changes")
-                .font(.system(size: 16, weight: .semibold))
+                .font(FDS.TypeScale.Dynamic.headline)
                 .foregroundColor(.white)
                 .frame(maxWidth: .infinity)
                 .frame(height: 52)
@@ -378,14 +378,14 @@ struct ProfilePickerRow<Content: View>: View {
         VStack(alignment: .leading, spacing: 8) {
             HStack {
                 Text(label)
-                    .font(.system(size: 13, weight: .medium))
+                    .font(FDS.TypeScale.Dynamic.caption)
                     .foregroundColor(.textSecondary)
                 Spacer()
                 content
             }
             .padding(.horizontal, 14)
             .padding(.vertical, 8)
-            .forgeGlassCard(cornerRadius: 10, accent: .steel)
+            .forgeGlassCard(cornerRadius: FDS.Radius.sm, accent: .steel)
 
             if let footnote {
                 Text(footnote)
@@ -444,13 +444,13 @@ struct ProfileFieldRow: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             Text(label)
-                .font(.system(size: 13, weight: .medium))
+                .font(FDS.TypeScale.Dynamic.caption)
                 .foregroundColor(.textSecondary)
 
             TextField(placeholder, text: $text)
                 .font(.system(size: 15))
                 .padding(14)
-                .forgeGlassCard(cornerRadius: 10, accent: .steel)
+                .forgeGlassCard(cornerRadius: FDS.Radius.sm, accent: .steel)
                 .keyboardType(keyboardType)
         }
     }

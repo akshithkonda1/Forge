@@ -53,7 +53,7 @@ struct AriaMeetView: View {
                         .padding(.top, 28)
 
                         Text(AriaMeetCopy.eyebrow.uppercased())
-                            .font(.system(size: 11, weight: .medium, design: .rounded))
+                            .font(FDS.TypeScale.Dynamic.micro)
                             .tracking(2.2)
                             .foregroundColor(.textTertiary)
                             .multilineTextAlignment(.center)
@@ -65,7 +65,7 @@ struct AriaMeetView: View {
                             .premiumEntrance(index: 1, appeared: appeared)
 
                         Text(AriaMeetCopy.lead)
-                            .font(.system(size: 15, weight: .regular, design: .rounded))
+                            .font(FDS.TypeScale.Dynamic.body)
                             .foregroundColor(.textSecondary)
                             .multilineTextAlignment(.center)
                             .padding(.horizontal, 8)
@@ -80,14 +80,14 @@ struct AriaMeetView: View {
                                             .frame(width: 36, height: 36)
                                         Image(systemName: item.icon)
                                             .font(.system(size: 14, weight: .medium))
-                                            .foregroundColor(Color(hex: "F7F4F0").opacity(0.85))
+                                            .foregroundColor(Color.paper.opacity(0.85))
                                     }
                                     VStack(alignment: .leading, spacing: 4) {
                                         Text(item.title)
-                                            .font(.system(size: 15, weight: .semibold, design: .rounded))
+                                            .font(FDS.TypeScale.Dynamic.body.weight(.semibold))
                                             .foregroundColor(.textPrimary)
                                         Text(item.body)
-                                            .font(.system(size: 14, weight: .regular, design: .rounded))
+                                            .font(FDS.TypeScale.Dynamic.body)
                                             .foregroundColor(.textSecondary)
                                             .fixedSize(horizontal: false, vertical: true)
                                     }
@@ -95,9 +95,9 @@ struct AriaMeetView: View {
                                 .frame(maxWidth: .infinity, alignment: .leading)
                                 .padding(14)
                                 .background(Color.white.opacity(0.04))
-                                .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+                                .clipShape(RoundedRectangle(cornerRadius: FDS.Radius.lg, style: .continuous))
                                 .overlay(
-                                    RoundedRectangle(cornerRadius: 16, style: .continuous)
+                                    RoundedRectangle(cornerRadius: FDS.Radius.lg, style: .continuous)
                                         .stroke(Color.white.opacity(0.08), lineWidth: 1)
                                 )
                                 .premiumEntrance(index: 3 + index, appeared: appeared)
@@ -118,7 +118,7 @@ struct AriaMeetView: View {
 
                     Button(action: onSkip) {
                         Text(AriaMeetCopy.skipCta)
-                            .font(.system(size: 14, weight: .medium, design: .rounded))
+                            .font(FDS.TypeScale.Dynamic.body)
                             .foregroundColor(.textTertiary)
                             .frame(maxWidth: .infinity)
                             .padding(.vertical, 10)

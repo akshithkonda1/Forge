@@ -13,11 +13,11 @@ struct AIWorkoutSuggestionsCard: View {
                     .font(.system(size: 18, weight: .semibold))
                     .foregroundColor(.ember)
                 Text("Train suggestions")
-                    .font(.system(size: 18, weight: .bold))
+                    .font(FDS.TypeScale.Dynamic.headline)
                     .foregroundColor(.textPrimary)
                 Spacer()
                 Text("\(workouts.count) ready")
-                    .font(.system(size: 11, weight: .semibold))
+                    .font(FDS.TypeScale.Dynamic.micro)
                     .foregroundColor(.ember)
                     .padding(.horizontal, 8).padding(.vertical, 4)
                     .background(Color.ember.opacity(0.12))
@@ -37,7 +37,7 @@ struct AIWorkoutSuggestionsCard: View {
             }
         }
         .padding(22)
-        .forgeGlassCard(cornerRadius: 22, accent: .ember)
+        .forgeGlassCard(cornerRadius: FDS.Radius.xl, accent: .ember)
         .onAppear { appeared = true }
         .sheet(item: $selectedWorkout) { workout in
             WorkoutDetailSheet(workout: workout)
@@ -53,7 +53,7 @@ struct AIWorkoutCard: View {
         VStack(alignment: .leading, spacing: 12) {
             HStack(spacing: 12) {
                 ZStack {
-                    RoundedRectangle(cornerRadius: 10)
+                    RoundedRectangle(cornerRadius: FDS.Radius.sm)
                         .fill(Color.ember.opacity(0.12))
                         .frame(width: 50, height: 50)
                     Image(systemName: "dumbbell.fill")
@@ -63,7 +63,7 @@ struct AIWorkoutCard: View {
                 
                 VStack(alignment: .leading, spacing: 4) {
                     Text(suggestion.title)
-                        .font(.system(size: 16, weight: .bold))
+                        .font(FDS.TypeScale.Dynamic.headline)
                         .foregroundColor(.textPrimary)
                     HStack(spacing: 8) {
                         Label("\(suggestion.workout.duration) min", systemImage: "clock.fill")
@@ -87,7 +87,7 @@ struct AIWorkoutCard: View {
                     .font(.system(size: 11))
                     .foregroundColor(.ember)
                 Text(suggestion.reason)
-                    .font(.system(size: 13, weight: .medium))
+                    .font(FDS.TypeScale.Dynamic.caption)
                     .foregroundColor(.textSecondary)
                     .lineLimit(2)
             }
@@ -96,7 +96,7 @@ struct AIWorkoutCard: View {
         .background(Color.surfaceElevated)
         .cornerRadius(16)
         .overlay(
-            RoundedRectangle(cornerRadius: 16)
+            RoundedRectangle(cornerRadius: FDS.Radius.lg)
                 .stroke(Color.ember.opacity(0.2), lineWidth: 1)
         )
     }
@@ -128,7 +128,7 @@ struct WorkoutDetailSheet: View {
                     // Exercise list
                     VStack(alignment: .leading, spacing: 16) {
                         Text("Exercises")
-                            .font(.system(size: 20, weight: .bold))
+                            .font(FDS.TypeScale.Dynamic.title)
                             .foregroundColor(.textPrimary)
                             .padding(.horizontal, 20)
                         
@@ -147,7 +147,7 @@ struct WorkoutDetailSheet: View {
                             Image(systemName: "play.fill")
                                 .font(.system(size: 16, weight: .bold))
                             Text("Start session")
-                                .font(.system(size: 17, weight: .bold))
+                                .font(FDS.TypeScale.Dynamic.headline)
                         }
                         .foregroundColor(.white)
                         .frame(maxWidth: .infinity)
@@ -184,7 +184,7 @@ struct StatPill: View {
             Image(systemName: icon)
                 .font(.system(size: 12))
             Text(value)
-                .font(.system(size: 13, weight: .semibold))
+                .font(FDS.TypeScale.Dynamic.caption)
         }
         .foregroundColor(color)
         .padding(.horizontal, 12)
@@ -203,13 +203,13 @@ struct ExerciseRow: View {
             ZStack {
                 Circle().fill(Color.ember.opacity(0.12)).frame(width: 40, height: 40)
                 Text("\(index)")
-                    .font(.system(size: 16, weight: .bold))
+                    .font(FDS.TypeScale.Dynamic.headline)
                     .foregroundColor(.ember)
             }
             
             VStack(alignment: .leading, spacing: 4) {
                 Text(exercise.name)
-                    .font(.system(size: 15, weight: .semibold))
+                    .font(FDS.TypeScale.Dynamic.body.weight(.semibold))
                     .foregroundColor(.textPrimary)
                 HStack(spacing: 8) {
                     Text("\(exercise.sets) sets")
@@ -225,7 +225,7 @@ struct ExerciseRow: View {
             Spacer()
             
             Text(exercise.muscleGroup.rawValue.capitalized)
-                .font(.system(size: 11, weight: .semibold))
+                .font(FDS.TypeScale.Dynamic.micro)
                 .foregroundColor(.textTertiary)
                 .padding(.horizontal, 8)
                 .padding(.vertical, 4)
@@ -233,6 +233,6 @@ struct ExerciseRow: View {
                 .cornerRadius(6)
         }
         .padding(14)
-        .forgeGlassCard(cornerRadius: 14, accent: .ember)
+        .forgeGlassCard(cornerRadius: FDS.Radius.md, accent: .ember)
     }
 }

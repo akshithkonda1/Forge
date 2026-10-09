@@ -142,7 +142,7 @@ struct SleepWakeScreen: View {
                             .monospacedDigit()
                     }
                     Text(alarm.label)
-                        .font(.system(size: 16, weight: .semibold, design: .rounded))
+                        .font(FDS.TypeScale.Dynamic.headline)
                         .foregroundColor(.white.opacity(0.72))
                     if player.stage != .primary {
                         Text(player.stage == .insistent
@@ -153,7 +153,7 @@ struct SleepWakeScreen: View {
                     }
                     if player.fault.isFailClosed {
                         Text(player.fault.coachLine)
-                            .font(.system(size: 13, weight: .medium))
+                            .font(FDS.TypeScale.Dynamic.caption)
                             .foregroundColor(.white.opacity(0.88))
                             .multilineTextAlignment(.center)
                             .padding(.horizontal, 24)
@@ -161,7 +161,7 @@ struct SleepWakeScreen: View {
                     }
                     if !WakeScreenPreferences.greeting.isEmpty {
                         Text(WakeScreenPreferences.greeting)
-                            .font(.system(size: 15, weight: .medium, design: .rounded))
+                            .font(FDS.TypeScale.Dynamic.body)
                             .foregroundColor(.white.opacity(0.82))
                     }
                     if WakeScreenPreferences.showSleepScore {
@@ -177,7 +177,7 @@ struct SleepWakeScreen: View {
                     }
                     if WakeScreenPreferences.showWorkout, let name = store.todayWorkout?.name {
                         Text(name)
-                            .font(.system(size: 13, weight: .semibold))
+                            .font(FDS.TypeScale.Dynamic.caption)
                             .foregroundColor(.white.opacity(0.7))
                     }
                 }
@@ -192,17 +192,17 @@ struct SleepWakeScreen: View {
                                 Image(systemName: doneRoutine.contains(item.id) ? "checkmark.circle.fill" : item.icon)
                                     .foregroundColor(doneRoutine.contains(item.id) ? .white : .white.opacity(0.7))
                                 Text(item.name)
-                                    .font(.system(size: 14, weight: .semibold))
+                                    .font(FDS.TypeScale.Dynamic.body.weight(.semibold))
                                     .foregroundColor(.white)
                                 Spacer()
                                 Text("\(item.duration) min")
-                                    .font(.system(size: 12, weight: .medium))
+                                    .font(FDS.TypeScale.Dynamic.caption)
                                     .foregroundColor(.white.opacity(0.55))
                             }
                             .padding(.horizontal, 16)
                             .padding(.vertical, 12)
                             .background(Color.white.opacity(doneRoutine.contains(item.id) ? 0.22 : 0.10))
-                            .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+                            .clipShape(RoundedRectangle(cornerRadius: FDS.Radius.md, style: .continuous))
                         }
                         .buttonStyle(.plain)
                     }
@@ -216,14 +216,14 @@ struct SleepWakeScreen: View {
                         wake.snooze()
                     } label: {
                         Text("Snooze \(alarm.snoozeMinutes) min · \(wake.remainingSnoozes) left")
-                            .font(.system(size: 14, weight: .semibold))
+                            .font(FDS.TypeScale.Dynamic.body.weight(.semibold))
                             .foregroundColor(.white.opacity(0.7))
                     }
                     .buttonStyle(.plain)
                     .accessibilityLabel("Snooze. \(wake.remainingSnoozes) remaining.")
                 } else {
                     Text("No snoozes left. Get up.")
-                        .font(.system(size: 13, weight: .medium))
+                        .font(FDS.TypeScale.Dynamic.caption)
                         .foregroundColor(.white.opacity(0.55))
                 }
 
@@ -338,7 +338,7 @@ struct HoldToWakeButton: View {
                 .fill(Color.white.opacity(0.32))
                 .frame(width: 280 * progress)
             Text(progress > 0.05 ? "Keep holding" : "Hold — I'm up")
-                .font(.system(size: 17, weight: .bold, design: .rounded))
+                .font(FDS.TypeScale.Dynamic.headline)
                 .foregroundColor(.white)
                 .frame(maxWidth: .infinity)
         }
@@ -465,10 +465,10 @@ struct NextWakePlanCard: View {
     @EnvironmentObject private var store: AppStore
 
     var body: some View {
-        WakeUpSection(icon: "sun.horizon.fill", title: "This wake", color: Color(hex: "F59E0B")) {
+        WakeUpSection(icon: "sun.horizon.fill", title: "This wake", color: Color.amber) {
             VStack(alignment: .leading, spacing: 10) {
                 Text(coach.headline)
-                    .font(.system(size: 20, weight: .bold, design: .rounded))
+                    .font(FDS.TypeScale.Dynamic.metric)
                     .foregroundColor(.textPrimary)
                 Text(coach.cue)
                     .font(.system(size: 13))
@@ -476,7 +476,7 @@ struct NextWakePlanCard: View {
                     .fixedSize(horizontal: false, vertical: true)
                 if let smart = coach.smartFire, let hard = coach.hardFire {
                     Text("Smart \(smart.formatted(date: .omitted, time: .shortened))  ·  Hard \(hard.formatted(date: .omitted, time: .shortened))")
-                        .font(.system(size: 12, weight: .medium))
+                        .font(FDS.TypeScale.Dynamic.caption)
                         .foregroundColor(.textTertiary)
                 }
                 Button {
@@ -493,7 +493,7 @@ struct NextWakePlanCard: View {
                     .foregroundColor(.ember)
                     .padding(12)
                     .background(Color.ember.opacity(0.08))
-                    .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                    .clipShape(RoundedRectangle(cornerRadius: FDS.Radius.md, style: .continuous))
                 }
                 .buttonStyle(.plain)
             }
@@ -518,12 +518,12 @@ struct SleeperDepthCard: View {
                             UISelectionFeedbackGenerator().selectionChanged()
                         } label: {
                             Text(option.title)
-                                .font(.system(size: 13, weight: .semibold))
+                                .font(FDS.TypeScale.Dynamic.caption)
                                 .foregroundColor(depth == option ? .white : .textPrimary)
                                 .frame(maxWidth: .infinity)
                                 .padding(.vertical, 10)
                                 .background(depth == option ? Color(hex: SleepHud.plateHex) : Color.surfaceElevated)
-                                .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                                .clipShape(RoundedRectangle(cornerRadius: FDS.Radius.md, style: .continuous))
                         }
                         .buttonStyle(.plain)
                     }
@@ -546,7 +546,7 @@ struct SmartWakeCard: View {
                     Toggle(isOn: $enabled) {
                         VStack(alignment: .leading, spacing: 3) {
                             Text("Earlier nudge, then the hard alarm")
-                                .font(.system(size: 14, weight: .semibold)).foregroundColor(.textPrimary)
+                                .font(FDS.TypeScale.Dynamic.body.weight(.semibold)).foregroundColor(.textPrimary)
                             Text("When Apple delivers a sample in the window, Forge can nudge earlier if you're in light or core sleep. iPhone cannot stream live stage. Tonight's lead is \(adaptedMinutes) min from last night's score, debt, and how heavy you sleep — your pick is the base. The hard alarm still stands.")
                                 .font(.system(size: 12)).foregroundColor(.textTertiary).lineSpacing(3)
                         }
@@ -556,7 +556,7 @@ struct SmartWakeCard: View {
                     if enabled {
                         VStack(alignment: .leading, spacing: 10) {
                             Text("Lead window")
-                                .font(.system(size: 12, weight: .semibold)).foregroundColor(.textSecondary)
+                                .font(FDS.TypeScale.Dynamic.caption).foregroundColor(.textSecondary)
                             HStack(spacing: 10) {
                                 ForEach(windowChoices, id: \.self) { mins in
                                     Button {
@@ -565,10 +565,10 @@ struct SmartWakeCard: View {
                                     } label: {
                                         VStack(spacing: 4) {
                                             Text("\(mins)")
-                                                .font(.system(size: 20, weight: .bold, design: .rounded))
+                                                .font(FDS.TypeScale.Dynamic.metric)
                                                 .foregroundColor(windowMinutes == mins ? .white : .textPrimary)
                                             Text("min")
-                                                .font(.system(size: 11, weight: .medium))
+                                                .font(FDS.TypeScale.Dynamic.micro)
                                                 .foregroundColor(windowMinutes == mins ? .white.opacity(0.7) : .textTertiary)
                                         }
                                         .frame(maxWidth: .infinity).padding(.vertical, 12)
@@ -584,15 +584,15 @@ struct SmartWakeCard: View {
                             HStack(spacing: 0) {
                                 Spacer()
                                 ZStack(alignment: .leading) {
-                                    RoundedRectangle(cornerRadius: 6).fill(Color.borderColor.opacity(0.3)).frame(height: 8)
-                                    RoundedRectangle(cornerRadius: 6)
+                                    RoundedRectangle(cornerRadius: FDS.Radius.xs).fill(Color.borderColor.opacity(0.3)).frame(height: 8)
+                                    RoundedRectangle(cornerRadius: FDS.Radius.xs)
                                         .fill(LinearGradient(colors: [Color.steel.opacity(0.3), Color.steel], startPoint: .leading, endPoint: .trailing))
                                         .frame(width: CGFloat(windowMinutes) / CGFloat(windowChoices.last ?? 45) * 200, height: 8)
                                 }
                                 .frame(width: 200)
                                 VStack(alignment: .trailing, spacing: 2) {
                                     Image(systemName: "alarm.fill").font(.system(size: 12)).foregroundColor(.ember)
-                                    Text("Alarm").font(.system(size: 9, weight: .medium)).foregroundColor(.textMuted)
+                                    Text("Alarm").font(FDS.TypeScale.Dynamic.micro).foregroundColor(.textMuted)
                                 }
                                 .padding(.leading, 6)
                             }
@@ -627,7 +627,7 @@ struct VolumeRampCard: View {
                                     .foregroundColor(curve == option ? .ember : .textTertiary)
                             }
                             VStack(alignment: .leading, spacing: 3) {
-                                Text(option.rawValue).font(.system(size: 14, weight: .semibold)).foregroundColor(.textPrimary)
+                                Text(option.rawValue).font(FDS.TypeScale.Dynamic.body.weight(.semibold)).foregroundColor(.textPrimary)
                                 Text(option.description).font(.system(size: 12)).foregroundColor(.textTertiary)
                             }
                             Spacer()
@@ -639,7 +639,7 @@ struct VolumeRampCard: View {
                         .padding(.horizontal, 14).padding(.vertical, 12)
                         .background(curve == option ? Color.ember.opacity(0.07) : Color.surfaceElevated)
                         .cornerRadius(14)
-                        .overlay(RoundedRectangle(cornerRadius: 14).stroke(curve == option ? Color.ember.opacity(0.4) : Color.borderColor.opacity(0.3), lineWidth: 1))
+                        .overlay(RoundedRectangle(cornerRadius: FDS.Radius.md).stroke(curve == option ? Color.ember.opacity(0.4) : Color.borderColor.opacity(0.3), lineWidth: 1))
                     }
                     .buttonStyle(.plain)
                 }
@@ -670,7 +670,7 @@ struct VolumeRampPreview: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
             Text("Volume preview")
-                .font(.system(size: 11, weight: .medium)).foregroundColor(.textMuted)
+                .font(FDS.TypeScale.Dynamic.micro).foregroundColor(.textMuted)
             GeometryReader { geo in
                 HStack(alignment: .bottom, spacing: 0) {
                     ForEach(0..<80, id: \.self) { i in
@@ -701,13 +701,13 @@ struct MorningRoutineCard: View {
             VStack(spacing: 12) {
                 HStack {
                     Text("Total: \(totalMinutes) min")
-                        .font(.system(size: 12, weight: .semibold)).foregroundColor(.textSecondary)
+                        .font(FDS.TypeScale.Dynamic.caption).foregroundColor(.textSecondary)
                     Spacer()
                     Button {
                         withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) { editMode.toggle() }
                     } label: {
                         Text(editMode ? "Done" : "Edit")
-                            .font(.system(size: 13, weight: .semibold)).foregroundColor(.success)
+                            .font(FDS.TypeScale.Dynamic.caption).foregroundColor(.success)
                     }
                 }
 
@@ -730,7 +730,7 @@ struct MorningRoutineCard: View {
                                 }
                                 VStack(alignment: .leading, spacing: 2) {
                                     Text(item.name)
-                                        .font(.system(size: 14, weight: .medium))
+                                        .font(FDS.TypeScale.Dynamic.body)
                                         .foregroundColor(item.isEnabled ? .textPrimary : .textTertiary)
                                     Text("\(item.duration) min")
                                         .font(.system(size: 11))
@@ -775,18 +775,18 @@ struct WakeGreetingCard: View {
     }
 
     var body: some View {
-        WakeUpSection(icon: "hand.wave.fill", title: "Wake Screen", color: Color(hex: "F59E0B")) {
+        WakeUpSection(icon: "hand.wave.fill", title: "Wake Screen", color: Color.amber) {
             VStack(spacing: 14) {
                 // Preview
                 ZStack {
-                    RoundedRectangle(cornerRadius: 16)
+                    RoundedRectangle(cornerRadius: FDS.Radius.lg)
                         .fill(LinearGradient(colors: [Color(hex: "0F172A"), Color(hex: "1E293B")], startPoint: .top, endPoint: .bottom))
                     VStack(spacing: 12) {
                         Text("6:45 AM")
                             .font(.system(size: 36, weight: .black, design: .rounded))
                             .foregroundColor(.white)
                         Text(greeting)
-                            .font(.system(size: 13, weight: .medium))
+                            .font(FDS.TypeScale.Dynamic.caption)
                             .foregroundColor(.white.opacity(0.8))
                             .multilineTextAlignment(.center)
                         HStack(spacing: 16) {
@@ -794,7 +794,7 @@ struct WakeGreetingCard: View {
                                 let score = store.sleepData.first.map { "Sleep \($0.score)" } ?? "Sleep"
                                 Label(score, systemImage: "moon.stars.fill").foregroundColor(.steel)
                             }
-                            if showWeather   { Label("Local weather", systemImage: "sun.max.fill").foregroundColor(Color(hex: "F59E0B")) }
+                            if showWeather   { Label("Local weather", systemImage: "sun.max.fill").foregroundColor(Color.amber) }
                             if showWorkout   {
                                 Label(store.todayWorkout?.name ?? "Rest day", systemImage: "dumbbell.fill").foregroundColor(.ember)
                             }
@@ -807,14 +807,14 @@ struct WakeGreetingCard: View {
 
                 // Greeting field
                 TextField("Wake greeting…", text: $greeting)
-                    .font(.system(size: 14)).foregroundColor(.textPrimary).tint(Color(hex: "F59E0B"))
+                    .font(.system(size: 14)).foregroundColor(.textPrimary).tint(Color.amber)
                     .padding(.horizontal, 14).padding(.vertical, 11)
                     .background(Color.surfaceElevated).cornerRadius(12)
 
                 // Toggles
                 VStack(spacing: 2) {
                     WakeToggle(label: "Show sleep score", value: $showSleepScore, color: .steel)
-                    WakeToggle(label: "Show weather",     value: $showWeather,    color: Color(hex: "F59E0B"))
+                    WakeToggle(label: "Show weather",     value: $showWeather,    color: Color.amber)
                     WakeToggle(label: "Show today's workout", value: $showWorkout, color: .ember)
                 }
             }
@@ -835,7 +835,7 @@ struct WakeToggle: View {
     let color: Color
     var body: some View {
         Toggle(isOn: $value) {
-            Text(label).font(.system(size: 14, weight: .medium)).foregroundColor(.textPrimary)
+            Text(label).font(FDS.TypeScale.Dynamic.body).foregroundColor(.textPrimary)
         }
         .tint(color)
         .padding(.horizontal, 14).padding(.vertical, 12)
@@ -856,12 +856,12 @@ struct WakeUpSection<Content: View>: View {
                     Circle().fill(color.opacity(0.15)).frame(width: 36, height: 36)
                     Image(systemName: icon).font(.system(size: 15, weight: .semibold)).foregroundColor(color)
                 }
-                Text(title).font(.system(size: 16, weight: .bold)).foregroundColor(.textPrimary)
+                Text(title).font(FDS.TypeScale.Dynamic.headline).foregroundColor(.textPrimary)
             }
             content()
         }
         .padding(20)
-        .forgeGlassCard(cornerRadius: 20, accent: .aurora)
+        .forgeGlassCard(cornerRadius: FDS.Radius.xl, accent: .aurora)
     }
 }
 
@@ -877,7 +877,7 @@ struct ChronotypeBadge: View {
                     .foregroundColor(.steel)
                 VStack(alignment: .leading, spacing: 2) {
                     Text("\(hkService.userProfile.chronotype.displayName) Chronotype")
-                        .font(.system(size: 13, weight: .semibold))
+                        .font(FDS.TypeScale.Dynamic.caption)
                         .foregroundColor(.textPrimary)
                     Text(hkService.userProfile.chronotype.tagline)
                         .font(.system(size: 11))
@@ -910,37 +910,37 @@ struct AdaptiveSunriseCard: View {
     }
 
     var body: some View {
-        WakeUpSection(icon: "sunrise.fill", title: "Adaptive Sunrise", color: Color(hex: "F59E0B")) {
+        WakeUpSection(icon: "sunrise.fill", title: "Adaptive Sunrise", color: Color.amber) {
             VStack(spacing: 16) {
                 Toggle(isOn: $enabled) {
                     VStack(alignment: .leading, spacing: 3) {
                         Text("Gradual light increase")
-                            .font(.system(size: 14, weight: .semibold)).foregroundColor(.textPrimary)
+                            .font(FDS.TypeScale.Dynamic.body.weight(.semibold)).foregroundColor(.textPrimary)
                         Text(config.rationale)
                             .font(.system(size: 12)).foregroundColor(.textTertiary)
                     }
                 }
-                .tint(Color(hex: "F59E0B"))
+                .tint(Color.amber)
 
                 if enabled {
                     VStack(spacing: 14) {
                         HStack {
-                            Text("Duration").font(.system(size: 13, weight: .semibold)).foregroundColor(.textSecondary)
+                            Text("Duration").font(FDS.TypeScale.Dynamic.caption).foregroundColor(.textSecondary)
                             Spacer()
                             HStack(spacing: 4) {
                                 Text("\(duration) min")
-                                    .font(.system(size: 14, weight: .bold)).foregroundColor(.textPrimary)
+                                    .font(FDS.TypeScale.Dynamic.body.weight(.semibold)).foregroundColor(.textPrimary)
                                 Stepper("", value: $duration, in: 5...60, step: 5)
-                                    .labelsHidden().tint(Color(hex: "F59E0B"))
+                                    .labelsHidden().tint(Color.amber)
                             }
                         }
 
                         VStack(alignment: .leading, spacing: 10) {
                             HStack {
-                                Text("Color Temperature").font(.system(size: 13, weight: .semibold)).foregroundColor(.textSecondary)
+                                Text("Color Temperature").font(FDS.TypeScale.Dynamic.caption).foregroundColor(.textSecondary)
                                 Spacer()
                                 Text(colorTemp < 0.3 ? "2700K Warm" : colorTemp < 0.7 ? "3500K Neutral" : "5000K Cool")
-                                    .font(.system(size: 12, weight: .semibold)).foregroundColor(displayColor)
+                                    .font(FDS.TypeScale.Dynamic.caption).foregroundColor(displayColor)
                             }
                             ZStack(alignment: .bottom) {
                                 LinearGradient(
@@ -969,7 +969,7 @@ struct AdaptiveSunriseCard: View {
                         }
                         .frame(height: 16)
                     }
-                    .padding(12).background(Color(hex: "F59E0B").opacity(0.06)).cornerRadius(12)
+                    .padding(12).background(Color.amber.opacity(0.06)).cornerRadius(12)
                     .transition(.opacity.combined(with: .scale(scale: 0.97, anchor: .top)))
                 }
             }

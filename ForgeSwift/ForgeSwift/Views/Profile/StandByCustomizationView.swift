@@ -46,7 +46,7 @@ struct StandByCustomizationView: View {
                     .padding(20)
                     .frame(width: 172, height: 172)
                     .background(Color(forgeHex: AriaNestGeometry.StandBy.nightstandBackgroundHex))
-                    .clipShape(RoundedRectangle(cornerRadius: 28, style: .continuous))
+                    .clipShape(RoundedRectangle(cornerRadius: FDS.Radius.xxl, style: .continuous))
                     Spacer()
                 }
                 .listRowBackground(Color.clear)

@@ -25,7 +25,7 @@ struct AILifeAnalysisCard: View {
                 VStack(alignment: .leading, spacing: 3) {
                     HStack(spacing: 6) {
                         Text("ARIA Life Analysis")
-                            .font(.system(size: 18, weight: .bold))
+                            .font(FDS.TypeScale.Dynamic.headline)
                             .foregroundColor(.textPrimary)
                         if analysis != nil { liveBadge }
                     }
@@ -57,7 +57,7 @@ struct AILifeAnalysisCard: View {
             } label: {
                 HStack {
                     Image(systemName: "arrow.right.circle.fill").font(.system(size: 14))
-                    Text(expanded ? "Hide Full Analysis" : "View Full Analysis").font(.system(size: 14, weight: .semibold))
+                    Text(expanded ? "Hide Full Analysis" : "View Full Analysis").font(FDS.TypeScale.Dynamic.body.weight(.semibold))
                     Spacer()
                     Image(systemName: "chevron.down")
                         .font(.system(size: 12, weight: .semibold))
@@ -77,13 +77,13 @@ struct AILifeAnalysisCard: View {
             }
         }
         .padding(22)
-        .forgeGlassCard(cornerRadius: 22, accent: .ember)
+        .forgeGlassCard(cornerRadius: FDS.Radius.xl, accent: .ember)
         .onAppear { appeared = true }
     }
 
     private var liveBadge: some View {
         Text(isLive ? "LIVE" : "ARIA")
-            .font(.system(size: 8, weight: .black))
+            .font(FDS.TypeScale.Dynamic.micro)
             .tracking(0.5)
             .foregroundColor(.ember)
             .padding(.horizontal, 6).padding(.vertical, 2)
@@ -97,7 +97,7 @@ struct AILifeAnalysisCard: View {
             HStack(spacing: 8) {
                 ARIAIdentityMark(state: .idle, mood: .energized, size: 18, amplitude: 0.22)
                 Text(isLive ? "ARIA's analysis" : "Summary")
-                    .font(.system(size: 13, weight: .semibold))
+                    .font(FDS.TypeScale.Dynamic.caption)
                     .foregroundColor(.textPrimary)
             }
             if let analysis {
@@ -147,17 +147,17 @@ struct AnalysisInsightRow: View {
 
             VStack(alignment: .leading, spacing: 3) {
                 Text(label)
-                    .font(.system(size: 14, weight: .semibold))
+                    .font(FDS.TypeScale.Dynamic.body.weight(.semibold))
                     .foregroundColor(.textPrimary)
                 HStack(spacing: 5) {
                     Text(current)
-                        .font(.system(size: 12, weight: .medium))
+                        .font(FDS.TypeScale.Dynamic.caption)
                         .foregroundColor(.textSecondary)
                     Image(systemName: "arrow.right")
                         .font(.system(size: 9))
                         .foregroundColor(.textMuted)
                     Text(optimal)
-                        .font(.system(size: 12, weight: .medium))
+                        .font(FDS.TypeScale.Dynamic.caption)
                         .foregroundColor(.textTertiary)
                 }
             }
@@ -196,11 +196,11 @@ struct AIRecommendationsCard: View {
                     .font(.system(size: 18))
                     .foregroundColor(.ember)
                 Text("ARIA Recommendations")
-                    .font(.system(size: 18, weight: .bold))
+                    .font(FDS.TypeScale.Dynamic.headline)
                     .foregroundColor(.textPrimary)
                 Spacer()
                 Text("\(recommendations.count) active")
-                    .font(.system(size: 11, weight: .semibold))
+                    .font(FDS.TypeScale.Dynamic.micro)
                     .foregroundColor(.ember)
                     .padding(.horizontal, 8).padding(.vertical, 4)
                     .background(Color.ember.opacity(0.12))
@@ -214,7 +214,7 @@ struct AIRecommendationsCard: View {
                 HStack(spacing: 8) {
                     ARIAIdentityMark(state: .idle, mood: .energized, size: 16, amplitude: 0.22)
                     Text("Ask ARIA to optimize")
-                        .font(.system(size: 13, weight: .semibold))
+                        .font(FDS.TypeScale.Dynamic.caption)
                 }
                 .foregroundColor(.ember)
                 .frame(maxWidth: .infinity)
@@ -244,7 +244,7 @@ struct AIRecommendationsCard: View {
             }
         }
         .padding(22)
-        .forgeGlassCard(cornerRadius: 22, accent: .ember)
+        .forgeGlassCard(cornerRadius: FDS.Radius.xl, accent: .ember)
         .onAppear { appeared = true }
     }
 }
@@ -274,14 +274,14 @@ struct RecommendationCard: View {
                                     .font(.system(size: 11))
                                     .foregroundColor(recommendation.impact.color)
                                 Text(recommendation.category.rawValue.uppercased())
-                                    .font(.system(size: 10, weight: .bold))
+                                    .font(FDS.TypeScale.Dynamic.micro)
                                     .foregroundColor(recommendation.impact.color)
                                     .tracking(1.5)
                             }
                             Spacer()
                             HStack(spacing: 4) {
                                 Text(recommendation.impact.rawValue)
-                                    .font(.system(size: 10, weight: .bold))
+                                    .font(FDS.TypeScale.Dynamic.micro)
                                     .foregroundColor(recommendation.impact.color)
                                 Image(systemName: expanded ? "chevron.up" : "chevron.down")
                                     .font(.system(size: 10, weight: .semibold))
@@ -290,7 +290,7 @@ struct RecommendationCard: View {
                         }
 
                         Text(recommendation.title)
-                            .font(.system(size: 14, weight: .semibold))
+                            .font(FDS.TypeScale.Dynamic.body.weight(.semibold))
                             .foregroundColor(.textPrimary)
                             .frame(maxWidth: .infinity, alignment: .leading)
 
@@ -310,7 +310,7 @@ struct RecommendationCard: View {
         .background(recommendation.impact.color.opacity(0.05))
         .cornerRadius(14)
         .overlay(
-            RoundedRectangle(cornerRadius: 14)
+            RoundedRectangle(cornerRadius: FDS.Radius.md)
                 .stroke(recommendation.impact.color.opacity(0.18), lineWidth: 1)
         )
     }
@@ -334,7 +334,7 @@ struct OptimizationGoalsCard: View {
         }()
         return [
             ("Sleep → 8h", min(m.sleepAverage / 8.0, 1.0),
-             String(format: "%.1fh avg", m.sleepAverage), "8h", Color(hex: "A855F7")),
+             String(format: "%.1fh avg", m.sleepAverage), "8h", Color.aurora),
             ("Lower stress", stressProgress,
              m.stressLevel.rawValue, "Low", .warning),
             ("Daily protein 180g", min(Double(protein) / 180.0, 1.0),
@@ -347,7 +347,7 @@ struct OptimizationGoalsCard: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
             Text("Optimization Goals")
-                .font(.system(size: 18, weight: .bold))
+                .font(FDS.TypeScale.Dynamic.headline)
                 .foregroundColor(.textPrimary)
 
             VStack(spacing: 12) {
@@ -361,7 +361,7 @@ struct OptimizationGoalsCard: View {
             }
         }
         .padding(22)
-        .forgeGlassCard(cornerRadius: 22, accent: .ember)
+        .forgeGlassCard(cornerRadius: FDS.Radius.xl, accent: .ember)
         .onAppear { appeared = true }
     }
 }
@@ -379,29 +379,29 @@ struct GoalProgressItem: View {
         VStack(alignment: .leading, spacing: 10) {
             HStack {
                 Text(title)
-                    .font(.system(size: 14, weight: .semibold))
+                    .font(FDS.TypeScale.Dynamic.body.weight(.semibold))
                     .foregroundColor(.textPrimary)
                 Spacer()
                 Text("\(Int(progress * 100))%")
-                    .font(.system(size: 13, weight: .bold))
+                    .font(FDS.TypeScale.Dynamic.caption)
                     .foregroundColor(color)
             }
             HStack(spacing: 6) {
                 Text(current)
-                    .font(.system(size: 12, weight: .medium))
+                    .font(FDS.TypeScale.Dynamic.caption)
                     .foregroundColor(.textSecondary)
                 Image(systemName: "arrow.right")
                     .font(.system(size: 10)).foregroundColor(.textMuted)
                 Text(target)
-                    .font(.system(size: 12, weight: .semibold))
+                    .font(FDS.TypeScale.Dynamic.caption)
                     .foregroundColor(color)
             }
             // Responsive animated progress bar (fixed hardcoded-points bug)
             GeometryReader { geo in
                 ZStack(alignment: .leading) {
-                    RoundedRectangle(cornerRadius: 4)
+                    RoundedRectangle(cornerRadius: FDS.Radius.xs)
                         .fill(Color.borderColor.opacity(0.3))
-                    RoundedRectangle(cornerRadius: 4)
+                    RoundedRectangle(cornerRadius: FDS.Radius.xs)
                         .fill(LinearGradient(
                             colors: [color, color.opacity(0.7)],
                             startPoint: .leading, endPoint: .trailing
@@ -415,6 +415,6 @@ struct GoalProgressItem: View {
         .padding(14)
         .background(Color.surfaceElevated)
         .cornerRadius(14)
-        .overlay(RoundedRectangle(cornerRadius: 14).stroke(color.opacity(0.15), lineWidth: 1))
+        .overlay(RoundedRectangle(cornerRadius: FDS.Radius.md).stroke(color.opacity(0.15), lineWidth: 1))
     }
 }

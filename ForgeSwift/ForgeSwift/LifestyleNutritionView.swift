@@ -46,7 +46,7 @@ struct MacroRingsCard: View {
         return [
             Macro(label: "Carbs", current: Int(stats?.carbs ?? 0), target: 280, color: .steel, unit: "g", radius: 92),
             Macro(label: "Protein", current: Int(stats?.protein ?? 0), target: 180, color: .ember, unit: "g", radius: 68),
-            Macro(label: "Fats", current: Int(stats?.fat ?? 0), target: 70, color: Color(hex: "FFB84D"), unit: "g", radius: 44),
+            Macro(label: "Fats", current: Int(stats?.fat ?? 0), target: 70, color: Color.amber, unit: "g", radius: 44),
         ]
     }
 
@@ -57,12 +57,12 @@ struct MacroRingsCard: View {
         VStack(spacing: 0) {
             HStack {
                 Text("TODAY'S MACROS")
-                    .font(.system(size: 10, weight: .black))
+                    .font(FDS.TypeScale.Dynamic.micro)
                     .foregroundColor(.textTertiary)
                     .tracking(2.5)
                 Spacer()
                 Text("\(targetCal - totalCal) cal left")
-                    .font(.system(size: 12, weight: .semibold))
+                    .font(FDS.TypeScale.Dynamic.caption)
                     .foregroundColor(.ember)
             }
             .padding(.bottom, 28)
@@ -101,7 +101,7 @@ struct MacroRingsCard: View {
                         .font(.system(size: 28, weight: .black, design: .rounded))
                         .foregroundColor(.textPrimary)
                     Text("of \(targetCal) kcal")
-                        .font(.system(size: 11, weight: .medium))
+                        .font(FDS.TypeScale.Dynamic.micro)
                         .foregroundColor(.textTertiary)
                 }
             }
@@ -116,7 +116,7 @@ struct MacroRingsCard: View {
                         Circle().fill(macro.color).frame(width: 8, height: 8)
                             .shadow(color: macro.color.opacity(0.5), radius: 3)
                         Text(macro.label)
-                            .font(.system(size: 13, weight: .medium))
+                            .font(FDS.TypeScale.Dynamic.caption)
                             .foregroundColor(.textSecondary)
                             .frame(width: 52, alignment: .leading)
                         GeometryReader { geo in
@@ -129,7 +129,7 @@ struct MacroRingsCard: View {
                         }
                         .frame(height: 6)
                         Text("\(macro.current)\(macro.unit)")
-                            .font(.system(size: 13, weight: .bold))
+                            .font(FDS.TypeScale.Dynamic.caption)
                             .foregroundColor(.textPrimary)
                             .frame(width: 44, alignment: .trailing)
                     }
@@ -137,7 +137,7 @@ struct MacroRingsCard: View {
             }
         }
         .padding(24)
-        .forgeGlassCard(cornerRadius: 24, accent: .amber)
+        .forgeGlassCard(cornerRadius: FDS.Radius.xxl, accent: .amber)
         .onAppear { appeared = true }
     }
 }
@@ -167,9 +167,9 @@ struct AINutritionCoachCard: View {
             generated.append(("drop.fill", .steel, "Hydration is on track", "\(Int(stats.water)) glasses today, including anything Apple Health already had."))
         }
         if stats.sleepHours < 7 {
-            generated.append(("moon.stars.fill", Color(hex: "A855F7"), "Sleep is limiting recovery", "Last night: \(String(format: "%.1f", stats.sleepHours))h. Better sleep improves nutrient partitioning."))
+            generated.append(("moon.stars.fill", Color.aurora, "Sleep is limiting recovery", "Last night: \(String(format: "%.1f", stats.sleepHours))h. Better sleep improves nutrient partitioning."))
         } else {
-            generated.append(("moon.stars.fill", Color(hex: "A855F7"), "Recovery window is strong", "Sleep and activity are aligned — great day to push training intensity."))
+            generated.append(("moon.stars.fill", Color.aurora, "Recovery window is strong", "Sleep and activity are aligned — great day to push training intensity."))
         }
         return generated
     }
@@ -184,7 +184,7 @@ struct AINutritionCoachCard: View {
             }
         }
         .padding(20)
-        .forgeGlassCard(cornerRadius: 20, accent: .ember)
+        .forgeGlassCard(cornerRadius: FDS.Radius.xl, accent: .ember)
         .onAppear {
             withAnimation(.easeInOut(duration: 0.55).repeatForever(autoreverses: true)) {
                 sparkleScale = 1.25
@@ -203,11 +203,11 @@ struct AINutritionCoachCard: View {
             }
             VStack(alignment: .leading, spacing: 2) {
                 HStack(spacing: 6) {
-                    Text("AI Nutrition Coach").font(.system(size: 16, weight: .bold)).foregroundColor(.textPrimary)
+                    Text("AI Nutrition Coach").font(FDS.TypeScale.Dynamic.headline).foregroundColor(.textPrimary)
                     if liveInsight != nil { coachBadge }
                 }
                 Text(coachSubtitle)
-                    .font(.system(size: 11, weight: .medium)).foregroundColor(.textTertiary)
+                    .font(FDS.TypeScale.Dynamic.micro).foregroundColor(.textTertiary)
             }
             Spacer()
             Button {
@@ -233,7 +233,7 @@ struct AINutritionCoachCard: View {
 
     private var coachBadge: some View {
         Text(vm.aiInsightsLive ? "LIVE" : "ARIA")
-            .font(.system(size: 8, weight: .black))
+            .font(FDS.TypeScale.Dynamic.micro)
             .tracking(0.5)
             .foregroundColor(.ember)
             .padding(.horizontal, 6).padding(.vertical, 2)
@@ -264,7 +264,7 @@ struct AINutritionCoachCard: View {
             .frame(width: 28)
             VStack(alignment: .leading, spacing: 5) {
                 Text(liveInsight != nil ? "ARIA's take" : tip.headline)
-                    .font(.system(size: 14, weight: .semibold))
+                    .font(FDS.TypeScale.Dynamic.body.weight(.semibold))
                     .foregroundColor(.textPrimary)
                 Text(liveInsight ?? tip.body)
                     .font(.system(size: 13))
@@ -282,10 +282,10 @@ struct AINutritionCoachCard: View {
             ForEach(macroSnapshots, id: \.label) { snapshot in
                 VStack(spacing: 3) {
                     Text(snapshot.label)
-                        .font(.system(size: 10, weight: .bold))
+                        .font(FDS.TypeScale.Dynamic.micro)
                         .foregroundColor(.textTertiary)
                     Text("\(snapshot.percent)%")
-                        .font(.system(size: 13, weight: .bold))
+                        .font(FDS.TypeScale.Dynamic.caption)
                         .foregroundColor(snapshot.color)
                 }
                 .frame(maxWidth: .infinity)
@@ -305,8 +305,8 @@ struct AINutritionCoachCard: View {
         return [
             ("Protein", min(Int((stats?.protein ?? 0) / 180 * 100), 100), Color.ember),
             ("Carbs", min(Int((stats?.carbs ?? 0) / 280 * 100), 100), Color.steel),
-            ("Fats", min(Int((stats?.fat ?? 0) / 70 * 100), 100), Color(hex: "FFB84D")),
-            ("Cal", min(Int(Double(stats?.totalCalories ?? 0) / 2600 * 100), 100), Color(hex: "A855F7")),
+            ("Fats", min(Int((stats?.fat ?? 0) / 70 * 100), 100), Color.amber),
+            ("Cal", min(Int(Double(stats?.totalCalories ?? 0) / 2600 * 100), 100), Color.aurora),
         ]
     }
 }
@@ -353,7 +353,7 @@ struct AIMealSuggestionsCard: View {
             HStack {
                 HStack(spacing: 8) {
                     Image(systemName: "fork.knife.circle.fill").font(.system(size: 20)).foregroundColor(.steel)
-                    Text("AI Meal Suggestions").font(.system(size: 18, weight: .bold)).foregroundColor(.textPrimary)
+                    Text("AI Meal Suggestions").font(FDS.TypeScale.Dynamic.headline).foregroundColor(.textPrimary)
                 }
                 Spacer()
                 Button {
@@ -361,7 +361,7 @@ struct AIMealSuggestionsCard: View {
                 } label: {
                     HStack(spacing: 4) {
                         Image(systemName: "sparkles").font(.system(size: 10))
-                        Text("Regenerate").font(.system(size: 12, weight: .semibold))
+                        Text("Regenerate").font(FDS.TypeScale.Dynamic.caption)
                     }
                     .foregroundColor(.steel)
                     .padding(.horizontal, 10).padding(.vertical, 6)
@@ -371,7 +371,7 @@ struct AIMealSuggestionsCard: View {
             }
 
             Text("Based on \(max(0, 2600 - (vm.healthStats?.totalCalories ?? 0))) cal · \(max(0, Int(180 - (vm.healthStats?.protein ?? 0))))g protein remaining")
-                .font(.system(size: 12, weight: .medium))
+                .font(FDS.TypeScale.Dynamic.caption)
                 .foregroundColor(.textTertiary)
 
             if let note = vm.aiMealNote {
@@ -397,7 +397,7 @@ struct AIMealSuggestionsCard: View {
             }
         }
         .padding(20)
-        .forgeGlassCard(cornerRadius: 20, accent: .amber)
+        .forgeGlassCard(cornerRadius: FDS.Radius.xl, accent: .amber)
         .task { await vm.refreshMealNote(store: store) }
     }
 }
@@ -413,12 +413,12 @@ struct AIMealRow: View {
             } label: {
                 HStack(spacing: 12) {
                     VStack(alignment: .leading, spacing: 3) {
-                        Text(suggestion.name).font(.system(size: 14, weight: .semibold)).foregroundColor(.textPrimary)
+                        Text(suggestion.name).font(FDS.TypeScale.Dynamic.body.weight(.semibold)).foregroundColor(.textPrimary)
                         Text(suggestion.reason).font(.system(size: 11)).foregroundColor(.textTertiary).lineLimit(1)
                     }
                     Spacer()
                     Text("\(suggestion.cal) cal")
-                        .font(.system(size: 13, weight: .bold)).foregroundColor(.ember)
+                        .font(FDS.TypeScale.Dynamic.caption).foregroundColor(.ember)
                     Image(systemName: expanded ? "chevron.up" : "chevron.down")
                         .font(.system(size: 11, weight: .semibold)).foregroundColor(.textMuted)
                 }
@@ -430,7 +430,7 @@ struct AIMealRow: View {
                 HStack(spacing: 0) {
                     InlineMacroChip(label: "P", value: "\(suggestion.protein)g", color: .ember)
                     InlineMacroChip(label: "C", value: "\(suggestion.carbs)g",   color: .steel)
-                    InlineMacroChip(label: "F", value: "\(suggestion.fat)g",     color: Color(hex: "FFB84D"))
+                    InlineMacroChip(label: "F", value: "\(suggestion.fat)g",     color: Color.amber)
                 }
                 .padding(.horizontal, 13).padding(.bottom, 12)
                 .transition(.opacity.combined(with: .move(edge: .top)))
@@ -445,8 +445,8 @@ struct InlineMacroChip: View {
     let label: String; let value: String; let color: Color
     var body: some View {
         VStack(spacing: 3) {
-            Text(label).font(.system(size: 10, weight: .bold)).foregroundColor(.textTertiary)
-            Text(value).font(.system(size: 13, weight: .bold)).foregroundColor(color)
+            Text(label).font(FDS.TypeScale.Dynamic.micro).foregroundColor(.textTertiary)
+            Text(value).font(FDS.TypeScale.Dynamic.caption).foregroundColor(color)
         }
         .frame(maxWidth: .infinity).padding(.vertical, 8)
         .background(color.opacity(0.09)).cornerRadius(8)
@@ -472,10 +472,10 @@ struct MealLogCard: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
             HStack {
-                Text("Meal Log").font(.system(size: 18, weight: .bold)).foregroundColor(.textPrimary)
+                Text("Meal Log").font(FDS.TypeScale.Dynamic.headline).foregroundColor(.textPrimary)
                 Spacer()
                 Text("\(vm.loggedMeals.count) logged")
-                    .font(.system(size: 12, weight: .semibold))
+                    .font(FDS.TypeScale.Dynamic.caption)
                     .foregroundColor(.textTertiary)
                 Button { showScanner = true } label: {
                     HStack(spacing: 5) {
@@ -484,7 +484,7 @@ struct MealLogCard: View {
                         } else {
                             Image(systemName: "barcode.viewfinder").font(.system(size: 13, weight: .semibold))
                         }
-                        Text("Scan").font(.system(size: 12, weight: .semibold))
+                        Text("Scan").font(FDS.TypeScale.Dynamic.caption)
                     }
                     .foregroundColor(.ember)
                     .padding(.horizontal, 10).padding(.vertical, 6)
@@ -512,13 +512,13 @@ struct MealLogCard: View {
                                     .font(.system(size: 15)).foregroundColor(.ember)
                             }
                             VStack(alignment: .leading, spacing: 2) {
-                                Text(meal.name).font(.system(size: 14, weight: .semibold)).foregroundColor(.textPrimary).lineLimit(1)
+                                Text(meal.name).font(FDS.TypeScale.Dynamic.body.weight(.semibold)).foregroundColor(.textPrimary).lineLimit(1)
                                 Text(meal.date, format: .dateTime.hour().minute())
                                     .font(.system(size: 12)).foregroundColor(.textTertiary)
                             }
                             Spacer()
                             Text("\(Int(meal.calories)) cal")
-                                .font(.system(size: 13, weight: .medium)).foregroundColor(.textSecondary)
+                                .font(FDS.TypeScale.Dynamic.caption).foregroundColor(.textSecondary)
                             Image(systemName: "checkmark.circle.fill")
                                 .font(.system(size: 18)).foregroundColor(.success)
                         }
@@ -529,7 +529,7 @@ struct MealLogCard: View {
             }
         }
         .padding(20)
-        .forgeGlassCard(cornerRadius: 20, accent: .amber)
+        .forgeGlassCard(cornerRadius: FDS.Radius.xl, accent: .amber)
         .sheet(isPresented: $showScanner) {
             BarcodeScannerView(
                 onScan: { code in
@@ -575,12 +575,12 @@ struct WaterIntakeCard: View {
                 HStack {
                     HStack(spacing: 8) {
                         Image(systemName: "drop.fill")
-                            .font(.system(size: 16)).foregroundColor(Color(hex: "4A9EFF"))
-                        Text("Hydration").font(.system(size: 18, weight: .bold)).foregroundColor(.textPrimary)
+                            .font(.system(size: 16)).foregroundColor(Color.steel)
+                        Text("Hydration").font(FDS.TypeScale.Dynamic.headline).foregroundColor(.textPrimary)
                     }
                     Spacer()
                     Text("\(consumed)/\(target)")
-                        .font(.system(size: 14, weight: .bold)).foregroundColor(Color(hex: "4A9EFF"))
+                        .font(FDS.TypeScale.Dynamic.body.weight(.semibold)).foregroundColor(Color.steel)
                     Image(systemName: "chevron.right")
                         .font(.system(size: 12, weight: .semibold))
                         .foregroundColor(.textTertiary)
@@ -592,7 +592,7 @@ struct WaterIntakeCard: View {
             HStack(spacing: 8) {
                 ForEach(0..<target, id: \.self) { i in
                     Image(systemName: i < consumed ? "drop.fill" : "drop")
-                        .foregroundColor(i < consumed ? Color(hex: "4A9EFF") : Color.borderColor)
+                        .foregroundColor(i < consumed ? Color.steel : Color.borderColor)
                         .font(.system(size: 22))
                         .scaleEffect(i < consumed ? 1 : 0.85)
                         .animation(.spring(response: 0.3, dampingFraction: 0.6).delay(Double(i) * 0.03), value: consumed)
@@ -605,24 +605,24 @@ struct WaterIntakeCard: View {
             } label: {
                 HStack(spacing: 6) {
                     Image(systemName: "plus.circle.fill").font(.system(size: 15))
-                    Text("Log a glass").font(.system(size: 14, weight: .semibold))
+                    Text("Log a glass").font(FDS.TypeScale.Dynamic.body.weight(.semibold))
                     Spacer()
                     Text("Writes to Apple Health")
-                        .font(.system(size: 10, weight: .medium))
-                        .foregroundColor(Color(hex: "4A9EFF").opacity(0.7))
+                        .font(FDS.TypeScale.Dynamic.micro)
+                        .foregroundColor(Color.steel.opacity(0.7))
                         .padding(.horizontal, 6).padding(.vertical, 3)
-                        .background(Color(hex: "4A9EFF").opacity(0.1))
+                        .background(Color.steel.opacity(0.1))
                         .cornerRadius(4)
                 }
-                .foregroundColor(Color(hex: "4A9EFF"))
+                .foregroundColor(Color.steel)
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, 12)
-                .background(Color(hex: "4A9EFF").opacity(0.1))
+                .background(Color.steel.opacity(0.1))
                 .cornerRadius(12)
             }
         }
         .padding(20)
-        .forgeGlassCard(cornerRadius: 20, accent: .amber)
+        .forgeGlassCard(cornerRadius: FDS.Radius.xl, accent: .amber)
     }
 }
 
@@ -643,13 +643,13 @@ struct MicronutrientsCard: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
             Text("Key Micronutrients")
-                .font(.system(size: 18, weight: .bold)).foregroundColor(.textPrimary)
+                .font(FDS.TypeScale.Dynamic.headline).foregroundColor(.textPrimary)
 
             VStack(spacing: 14) {
                 ForEach(Array(micros.enumerated()), id: \.offset) { i, m in
                     VStack(alignment: .leading, spacing: 7) {
                         HStack {
-                            Text(m.label).font(.system(size: 13, weight: .medium)).foregroundColor(.textSecondary)
+                            Text(m.label).font(FDS.TypeScale.Dynamic.caption).foregroundColor(.textSecondary)
                             Spacer()
                             Text(m.current < 10
                                  ? String(format: "%.1f / %.1f %@", m.current, m.target, m.unit)
@@ -671,7 +671,7 @@ struct MicronutrientsCard: View {
             }
         }
         .padding(20)
-        .forgeGlassCard(cornerRadius: 20, accent: .amber)
+        .forgeGlassCard(cornerRadius: FDS.Radius.xl, accent: .amber)
         .onAppear { appeared = true }
     }
 }

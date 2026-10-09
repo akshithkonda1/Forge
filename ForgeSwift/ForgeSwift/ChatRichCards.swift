@@ -31,7 +31,7 @@ struct WorkoutRichCardView: View {
                 }
                 VStack(alignment: .leading, spacing: 4) {
                     Text(card.workoutName ?? "Workout Plan")
-                        .font(.system(size: 16, weight: .semibold)).foregroundColor(.textPrimary)
+                        .font(FDS.TypeScale.Dynamic.headline).foregroundColor(.textPrimary)
                     HStack(spacing: 12) {
                         Label("\(card.workoutDuration ?? 0) min", systemImage: "clock.fill")
                         Label("\(card.workoutExercises?.count ?? 0) exercises", systemImage: "list.bullet")
@@ -56,12 +56,12 @@ struct WorkoutRichCardView: View {
                         HStack(spacing: 12) {
                             ZStack {
                                 Circle().fill(Color.ember.opacity(0.1)).frame(width: 28, height: 28)
-                                Text("\(i+1)").font(.system(size: 12, weight: .bold)).foregroundColor(.ember)
+                                Text("\(i+1)").font(FDS.TypeScale.Dynamic.caption).foregroundColor(.ember)
                             }
-                            Text(ex.name).font(.system(size: 14, weight: .medium)).foregroundColor(.textPrimary)
+                            Text(ex.name).font(FDS.TypeScale.Dynamic.body).foregroundColor(.textPrimary)
                             Spacer()
                             Text("\(ex.sets) × \(ex.reps)")
-                                .font(.system(size: 13, weight: .semibold)).foregroundColor(.textSecondary)
+                                .font(FDS.TypeScale.Dynamic.caption).foregroundColor(.textSecondary)
                                 .padding(.horizontal, 10).padding(.vertical, 4)
                                 .background(Color.surface).cornerRadius(FDS.Radius.xs)
                         }
@@ -88,7 +88,7 @@ struct WorkoutRichCardView: View {
             } label: {
                 HStack(spacing: 8) {
                     Image(systemName: "play.fill").font(.system(size: 13, weight: .bold))
-                    Text("Start This Workout").font(.system(size: 15, weight: .semibold))
+                    Text("Start This Workout").font(FDS.TypeScale.Dynamic.body.weight(.semibold))
                 }
                 .foregroundColor(.white).frame(maxWidth: .infinity).padding(.vertical, 14)
                 .background(FDS.Gradient.emberDeep).cornerRadius(FDS.Radius.sm)
@@ -131,7 +131,7 @@ struct DataChartRichCardView: View {
                     Image(systemName: "chart.line.uptrend.xyaxis").font(.system(size: 16)).foregroundColor(barColor)
                 }
                 Text(card.chartTitle ?? "Trend")
-                    .font(.system(size: 15, weight: .semibold)).foregroundColor(.textPrimary)
+                    .font(FDS.TypeScale.Dynamic.body.weight(.semibold)).foregroundColor(.textPrimary)
                 Spacer()
                 if let idx = hoverIdx, idx < values.count {
                     Text(String(format: "%.0f", values[idx]))
@@ -145,7 +145,7 @@ struct DataChartRichCardView: View {
                 HStack(alignment: .bottom, spacing: 5) {
                     ForEach(Array(values.enumerated()), id: \.offset) { i, val in
                         let norm = maxVal > minVal ? (val - minVal) / (maxVal - minVal) : 1
-                        RoundedRectangle(cornerRadius: 4)
+                        RoundedRectangle(cornerRadius: FDS.Radius.xs)
                             .fill(LinearGradient(
                                 colors: [barColor.opacity(hoverIdx == i ? 0.95 : 0.55 + 0.45 * norm),
                                          barColor.opacity(hoverIdx == i ? 0.65 : 0.28 + 0.37 * norm)],
@@ -166,7 +166,7 @@ struct DataChartRichCardView: View {
                 if let insight = card.chartInsight {
                     HStack(spacing: 8) {
                         Image(systemName: "lightbulb.fill").font(.system(size: 12)).foregroundColor(barColor.opacity(0.75))
-                        Text(insight).font(.system(size: 13, weight: .medium)).foregroundColor(.textSecondary).lineSpacing(3)
+                        Text(insight).font(FDS.TypeScale.Dynamic.caption).foregroundColor(.textSecondary).lineSpacing(3)
                     }
                 }
             }
@@ -182,9 +182,9 @@ struct DataChartRichCardView: View {
 // MARK: - readinessColor helper
 private func readinessColor(_ score: Int) -> Color {
     switch score {
-    case 85...:   return Color(hex: "22C55E")
+    case 85...:   return Color.vitality
     case 70..<85: return Color.ember
     case 50..<70: return Color.steel
-    default:      return Color(hex: "EF4444")
+    default:      return Color.alert
     }
 }

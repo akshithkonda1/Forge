@@ -13,7 +13,7 @@ struct ContextInspectorSheet: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: 20) {
                     Text("What ARIA sees")
-                        .font(.system(size: 22, weight: .bold, design: .rounded))
+                        .font(FDS.TypeScale.Dynamic.metric)
                         .foregroundColor(.textPrimary)
                     Text("Long-press friendly — what was used, what was off, and which habit ARIA is on.")
                         .font(.system(size: 13))
@@ -49,12 +49,12 @@ struct ContextInspectorSheet: View {
                     InspectorSection(title: "Habit ARIA is breaking", icon: "infinity", color: .ember) {
                         if let habit = aria.context.deepHabits.first {
                             VStack(alignment: .leading, spacing: 8) {
-                                Text(habit.title).font(.system(size: 14, weight: .bold)).foregroundColor(.textPrimary)
+                                Text(habit.title).font(FDS.TypeScale.Dynamic.body.weight(.semibold)).foregroundColor(.textPrimary)
                                 Text("Cue: \(habit.cue)").font(.system(size: 12)).foregroundColor(.textSecondary)
                                 Text("Routine: \(habit.routine)").font(.system(size: 12)).foregroundColor(.textSecondary)
                                 Text("Cost: \(habit.cost)").font(.system(size: 12)).foregroundColor(.danger)
-                                Text(habit.evidence).font(.system(size: 11, weight: .medium)).foregroundColor(.steel)
-                                Text("Breaker: \(habit.breaker)").font(.system(size: 12, weight: .semibold)).foregroundColor(.ember)
+                                Text(habit.evidence).font(FDS.TypeScale.Dynamic.micro).foregroundColor(.steel)
+                                Text("Breaker: \(habit.breaker)").font(FDS.TypeScale.Dynamic.caption).foregroundColor(.ember)
                             }
                             .padding(12).background(Color.ember.opacity(0.06)).cornerRadius(10)
                         } else {
@@ -95,12 +95,12 @@ private struct InspectorSection<Content: View>: View {
         VStack(alignment: .leading, spacing: 10) {
             HStack(spacing: 6) {
                 Image(systemName: icon).font(.system(size: 12, weight: .semibold)).foregroundColor(color)
-                Text(title).font(.system(size: 12, weight: .black)).foregroundColor(color).tracking(0.6)
+                Text(title).font(FDS.TypeScale.Dynamic.caption).foregroundColor(color).tracking(0.6)
             }
             content
         }
         .padding(14)
-        .forgeGlassCard(cornerRadius: 14, accent: color)
+        .forgeGlassCard(cornerRadius: FDS.Radius.md, accent: color)
     }
 }
 

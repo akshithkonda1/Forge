@@ -15,11 +15,11 @@ struct ProactiveCardView: View {
                 VStack(alignment: .leading, spacing: 6) {
                     HStack(spacing: 6) {
                         Text("ARIA")
-                            .font(.system(size: 12, weight: .black))
+                            .font(FDS.TypeScale.Dynamic.caption)
                             .foregroundColor(.steel)
                             .tracking(0.8)
                         Text("Lv.\(relationshipLevel)")
-                            .font(.system(size: 10, weight: .bold))
+                            .font(FDS.TypeScale.Dynamic.micro)
                             .foregroundColor(.textTertiary)
                             .padding(.horizontal, 6)
                             .padding(.vertical, 2)
@@ -27,12 +27,12 @@ struct ProactiveCardView: View {
                             .cornerRadius(6)
                     }
                     Text(insight)
-                        .font(.system(size: 14, weight: .medium))
+                        .font(FDS.TypeScale.Dynamic.body)
                         .foregroundColor(.textPrimary)
                         .multilineTextAlignment(.leading)
                         .lineSpacing(3)
                     Text("Tap to open chat")
-                        .font(.system(size: 11, weight: .semibold))
+                        .font(FDS.TypeScale.Dynamic.micro)
                         .foregroundColor(.steel)
                 }
                 Spacer(minLength: 0)

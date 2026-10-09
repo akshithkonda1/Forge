@@ -13,10 +13,10 @@ struct DifficultyConceivingGuideView: View {
                 VStack(alignment: .leading, spacing: 18) {
                     VStack(alignment: .leading, spacing: 8) {
                         Text("If conceiving is taking longer")
-                            .font(FDS.TypeScale.title(22))
+                            .font(FDS.TypeScale.Dynamic.title)
                             .foregroundColor(.textPrimary)
                         Text("Literacy, not a diagnosis. Forge is not a fertility clinic and cannot run labs. You leave with a list you can take to a human.")
-                            .font(FDS.TypeScale.body(14))
+                            .font(FDS.TypeScale.Dynamic.body)
                             .foregroundColor(.textSecondary)
                             .fixedSize(horizontal: false, vertical: true)
                     }
@@ -26,13 +26,13 @@ struct DifficultyConceivingGuideView: View {
                         ForEach(Array(DifficultyConceivingGuide.steps.enumerated()), id: \.offset) { index, step in
                             HStack(alignment: .top, spacing: 10) {
                                 Text("\(index + 1)")
-                                    .font(FDS.TypeScale.label(12))
+                                    .font(FDS.TypeScale.Dynamic.caption)
                                     .foregroundStyle(Color.ember)
                                     .frame(width: 22, height: 22)
                                     .background(Color.ember.opacity(0.15))
                                     .clipShape(Circle())
                                 Text(step)
-                                    .font(FDS.TypeScale.body(14))
+                                    .font(FDS.TypeScale.Dynamic.body)
                                     .foregroundColor(.textSecondary)
                                     .fixedSize(horizontal: false, vertical: true)
                             }
@@ -46,17 +46,17 @@ struct DifficultyConceivingGuideView: View {
                         ForEach(DifficultyConceivingGuide.specialists) { person in
                             VStack(alignment: .leading, spacing: 4) {
                                 Text(person.title)
-                                    .font(FDS.TypeScale.label(15))
+                                    .font(FDS.TypeScale.Dynamic.caption)
                                     .foregroundColor(.textPrimary)
                                 Text(person.when)
-                                    .font(FDS.TypeScale.body(13))
+                                    .font(FDS.TypeScale.Dynamic.caption)
                                     .foregroundColor(.textSecondary)
                                     .fixedSize(horizontal: false, vertical: true)
                             }
                             .padding(14)
                             .frame(maxWidth: .infinity, alignment: .leading)
                             .background(Color.surfaceElevated)
-                            .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                            .clipShape(RoundedRectangle(cornerRadius: FDS.Radius.md, style: .continuous))
                         }
                     }
 
@@ -66,17 +66,17 @@ struct DifficultyConceivingGuideView: View {
                         } icon: {
                             ARIAIdentityMark(state: .idle, mood: .energized, size: 16, amplitude: 0.22)
                         }
-                            .font(FDS.TypeScale.label(15))
+                            .font(FDS.TypeScale.Dynamic.caption)
                             .foregroundColor(.white)
                             .frame(maxWidth: .infinity)
                             .padding(.vertical, 14)
                             .background(Color.ember)
-                            .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+                            .clipShape(RoundedRectangle(cornerRadius: FDS.Radius.md, style: .continuous))
                     }
                     .buttonStyle(.plain)
 
                     Text(SexualHealthCurriculum.medicalDisclaimer)
-                        .font(FDS.TypeScale.body(11))
+                        .font(FDS.TypeScale.Dynamic.caption)
                         .foregroundColor(.textTertiary)
                         .fixedSize(horizontal: false, vertical: true)
                 }

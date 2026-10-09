@@ -318,7 +318,7 @@ struct LifeContextKnowledgeView: View {
                     store.rememberPending()
                 } label: {
                     Text("Remember")
-                        .font(.system(size: 15, weight: .semibold))
+                        .font(FDS.TypeScale.Dynamic.body.weight(.semibold))
                         .foregroundColor(.white)
                         .frame(maxWidth: .infinity)
                         .frame(height: 44)
@@ -330,7 +330,7 @@ struct LifeContextKnowledgeView: View {
                     store.discardPending()
                 } label: {
                     Text("Discard")
-                        .font(.system(size: 15, weight: .semibold))
+                        .font(FDS.TypeScale.Dynamic.body.weight(.semibold))
                         .foregroundColor(.textPrimary)
                         .frame(maxWidth: .infinity)
                         .frame(height: 44)
@@ -385,7 +385,7 @@ struct LifeContextKnowledgeView: View {
                 }
             } label: {
                 Text(store.isProcessing ? "Reading…" : "Load synthetic conversation")
-                    .font(.system(size: 14, weight: .semibold))
+                    .font(FDS.TypeScale.Dynamic.body.weight(.semibold))
                     .foregroundColor(store.settings.messagesEnabled ? Color.ember : Color.textMuted)
             }
             .disabled(!store.settings.messagesEnabled || store.isProcessing)
@@ -404,14 +404,14 @@ struct LifeContextKnowledgeView: View {
     ) -> some View {
         VStack(alignment: .leading, spacing: 10) {
             Text(title)
-                .font(.system(size: 13, weight: .semibold))
+                .font(FDS.TypeScale.Dynamic.caption)
                 .foregroundColor(.textSecondary)
                 .accessibilityAddTraits(.isHeader)
             content()
         }
         .padding(16)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .forgeGlassCard(cornerRadius: 16, accent: accent)
+        .forgeGlassCard(cornerRadius: FDS.Radius.lg, accent: accent)
     }
 
     private func factRow(_ fact: LifeContextFact, deletable: Bool) -> some View {
@@ -423,7 +423,7 @@ struct LifeContextKnowledgeView: View {
                 .accessibilityHidden(true)
             VStack(alignment: .leading, spacing: 3) {
                 Text(fact.summary)
-                    .font(.system(size: 14, weight: .medium))
+                    .font(FDS.TypeScale.Dynamic.body)
                     .foregroundColor(.textPrimary)
                     .fixedSize(horizontal: false, vertical: true)
                 Text(Self.detail(for: fact))

@@ -95,7 +95,7 @@ struct ClinicalDataNonPHIView: View {
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 12)
                     .background(Color.ember)
-                    .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                    .clipShape(RoundedRectangle(cornerRadius: FDS.Radius.md, style: .continuous))
             }
             .buttonStyle(.plain)
             .disabled(scanningBottle || catalogLoading)
@@ -107,7 +107,7 @@ struct ClinicalDataNonPHIView: View {
                     .foregroundColor(.ember)
                     .frame(width: 48, height: 44)
                     .background(Color.surfaceElevated)
-                    .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                    .clipShape(RoundedRectangle(cornerRadius: FDS.Radius.md, style: .continuous))
             }
             .disabled(scanningBottle || catalogLoading)
             .accessibilityLabel("Choose a bottle photo")
@@ -128,12 +128,12 @@ struct ClinicalDataNonPHIView: View {
                     Task { await connect() }
                 } label: {
                     Text(healthLoading ? "Asking Health…" : "Allow Apple Health records")
-                        .font(.system(size: 16, weight: .semibold))
+                        .font(FDS.TypeScale.Dynamic.headline)
                         .foregroundColor(.white)
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 14)
                         .background(Color.ember)
-                        .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+                        .clipShape(RoundedRectangle(cornerRadius: FDS.Radius.md, style: .continuous))
                 }
                 .buttonStyle(.plain)
                 .disabled(healthLoading)
@@ -188,13 +188,13 @@ struct ClinicalDataNonPHIView: View {
             }
             .padding(12)
             .background(Color.surfaceElevated)
-            .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+            .clipShape(RoundedRectangle(cornerRadius: FDS.Radius.md, style: .continuous))
 
             bottleScanBar
 
             if let bottleScan {
                 Text(bottleScan.headline)
-                    .font(.system(size: 13, weight: .medium))
+                    .font(FDS.TypeScale.Dynamic.caption)
                     .foregroundColor(.textSecondary)
                     .fixedSize(horizontal: false, vertical: true)
                 if bottleScan.admitted == nil {
@@ -209,11 +209,11 @@ struct ClinicalDataNonPHIView: View {
             if !saved.isEmpty {
                 VStack(alignment: .leading, spacing: 6) {
                     Text("On your list")
-                        .font(.system(size: 12, weight: .semibold))
+                        .font(FDS.TypeScale.Dynamic.caption)
                         .foregroundColor(.textTertiary)
                     ForEach(saved, id: \.self) { name in
                         Text(name)
-                            .font(.system(size: 14, weight: .medium))
+                            .font(FDS.TypeScale.Dynamic.body)
                             .foregroundColor(.textPrimary)
                     }
                 }
@@ -230,13 +230,13 @@ struct ClinicalDataNonPHIView: View {
                     .fixedSize(horizontal: false, vertical: true)
             } else {
                 Text(resultSummary)
-                    .font(.system(size: 12, weight: .medium))
+                    .font(FDS.TypeScale.Dynamic.caption)
                     .foregroundColor(.textTertiary)
 
                 ForEach(page.groups) { group in
                     VStack(alignment: .leading, spacing: 8) {
                         Text(group.title)
-                            .font(.system(size: 13, weight: .semibold))
+                            .font(FDS.TypeScale.Dynamic.caption)
                             .foregroundColor(.ember)
                         ForEach(group.items, id: \.id) { med in
                             pharmacyRow(med)
@@ -276,7 +276,7 @@ struct ClinicalDataNonPHIView: View {
                         applySearch()
                     } label: {
                         Text(option.label)
-                            .font(.system(size: 12, weight: .semibold))
+                            .font(FDS.TypeScale.Dynamic.caption)
                             .foregroundColor(sort == option ? .white : .textSecondary)
                             .padding(.horizontal, 10)
                             .padding(.vertical, 6)
@@ -333,11 +333,11 @@ struct ClinicalDataNonPHIView: View {
                     .padding(.top, 2)
                 VStack(alignment: .leading, spacing: 3) {
                     Text(med.brandOrGeneric)
-                        .font(.system(size: 15, weight: .semibold))
+                        .font(FDS.TypeScale.Dynamic.body.weight(.semibold))
                         .foregroundColor(.textPrimary)
                         .multilineTextAlignment(.leading)
                     Text(med.bothNames)
-                        .font(.system(size: 12, weight: .medium))
+                        .font(FDS.TypeScale.Dynamic.caption)
                         .foregroundColor(.textSecondary)
                     Text([med.strength, med.form, med.archetype, med.disease].filter { !$0.isEmpty }.joined(separator: " · "))
                         .font(.system(size: 12))
@@ -346,7 +346,7 @@ struct ClinicalDataNonPHIView: View {
                 Spacer()
             }
             .padding(12)
-            .forgeGlassCard(cornerRadius: 14, accent: .ember)
+            .forgeGlassCard(cornerRadius: FDS.Radius.md, accent: .ember)
         }
         .buttonStyle(.plain)
         .accessibilityLabel("\(med.bothNames). \(med.archetype). \(med.disease). \(isSaved ? "On your list" : "Add to your list")")
@@ -366,13 +366,13 @@ struct ClinicalDataNonPHIView: View {
         VStack(alignment: .leading, spacing: 4) {
             HStack(spacing: 8) {
                 Text(number)
-                    .font(.system(size: 12, weight: .bold, design: .rounded))
+                    .font(FDS.TypeScale.Dynamic.caption)
                     .foregroundColor(.white)
                     .frame(width: 22, height: 22)
                     .background(Color.ember)
                     .clipShape(Circle())
                 Text(title)
-                    .font(.system(size: 17, weight: .bold))
+                    .font(FDS.TypeScale.Dynamic.headline)
                     .foregroundColor(.textPrimary)
             }
             Text(subtitle)
@@ -388,11 +388,11 @@ struct ClinicalDataNonPHIView: View {
                     .font(.system(size: 13, weight: .semibold))
                     .foregroundColor(.ember)
                 Text(kind.title)
-                    .font(.system(size: 15, weight: .semibold))
+                    .font(FDS.TypeScale.Dynamic.body.weight(.semibold))
                     .foregroundColor(.textPrimary)
                 Spacer()
                 Text("\(items.count)")
-                    .font(.system(size: 13, weight: .medium))
+                    .font(FDS.TypeScale.Dynamic.caption)
                     .foregroundColor(.textTertiary)
             }
 
@@ -406,7 +406,7 @@ struct ClinicalDataNonPHIView: View {
                     ForEach(items) { item in
                         VStack(alignment: .leading, spacing: 3) {
                             Text(item.name)
-                                .font(.system(size: 15, weight: .medium))
+                                .font(FDS.TypeScale.Dynamic.body)
                                 .foregroundColor(.textPrimary)
                             Text("\(item.source)  ·  \(item.date.formatted(date: .abbreviated, time: .omitted))")
                                 .font(.system(size: 12))
@@ -419,7 +419,7 @@ struct ClinicalDataNonPHIView: View {
             }
         }
         .padding(14)
-        .forgeGlassCard(cornerRadius: 16, accent: .ember)
+        .forgeGlassCard(cornerRadius: FDS.Radius.lg, accent: .ember)
     }
 
     private func bootCatalog() async {

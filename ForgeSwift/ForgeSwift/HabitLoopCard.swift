@@ -18,11 +18,11 @@ struct HabitLoopCard: View {
                     .background(Color.ember.opacity(0.12))
                     .clipShape(Circle())
                 Text(habit.title)
-                    .font(.system(size: 16, weight: .bold))
+                    .font(FDS.TypeScale.Dynamic.headline)
                     .foregroundColor(.textPrimary)
                 Spacer()
                 Text("\(Int(habit.confidence * 100))%")
-                    .font(.system(size: 11, weight: .bold))
+                    .font(FDS.TypeScale.Dynamic.micro)
                     .foregroundColor(.textTertiary)
                     .padding(.horizontal, 8).padding(.vertical, 4)
                     .background(Color.surfaceElevated)
@@ -52,13 +52,13 @@ struct HabitLoopCard: View {
             // Breaker
             VStack(alignment: .leading, spacing: 10) {
                 Text(habit.breaker)
-                    .font(.system(size: 13, weight: .medium))
+                    .font(FDS.TypeScale.Dynamic.caption)
                     .foregroundColor(.textPrimary)
                     .fixedSize(horizontal: false, vertical: true)
                 HStack(spacing: 10) {
                     Button(action: onTry) {
                         Text(habit.breakerAction)
-                            .font(.system(size: 13, weight: .bold))
+                            .font(FDS.TypeScale.Dynamic.caption)
                             .foregroundColor(.white)
                             .frame(maxWidth: .infinity)
                             .padding(.vertical, 10)
@@ -67,7 +67,7 @@ struct HabitLoopCard: View {
                     }
                     Button(action: onSnooze) {
                         Text("Not now")
-                            .font(.system(size: 13, weight: .semibold))
+                            .font(FDS.TypeScale.Dynamic.caption)
                             .foregroundColor(.textTertiary)
                             .frame(maxWidth: .infinity)
                             .padding(.vertical, 10)
@@ -79,10 +79,10 @@ struct HabitLoopCard: View {
             .padding(12)
             .background(Color.ember.opacity(0.06))
             .cornerRadius(12)
-            .overlay(RoundedRectangle(cornerRadius: 12).stroke(Color.ember.opacity(0.15), lineWidth: 1))
+            .overlay(RoundedRectangle(cornerRadius: FDS.Radius.md).stroke(Color.ember.opacity(0.15), lineWidth: 1))
         }
         .padding(16)
-        .forgeGlassCard(cornerRadius: 18, accent: .ember)
+        .forgeGlassCard(cornerRadius: FDS.Radius.lg, accent: .ember)
     }
 }
 
@@ -93,7 +93,7 @@ private struct LoopRow: View {
     var body: some View {
         HStack(alignment: .top, spacing: 8) {
             Text(label)
-                .font(.system(size: 11, weight: .bold))
+                .font(FDS.TypeScale.Dynamic.micro)
                 .foregroundColor(.textTertiary)
                 .frame(width: 56, alignment: .leading)
             Text(text)
@@ -113,12 +113,12 @@ struct HabitLoopListCard: View {
         VStack(alignment: .leading, spacing: 16) {
             HStack {
                 Text("Today's Loop")
-                    .font(.system(size: 18, weight: .bold))
+                    .font(FDS.TypeScale.Dynamic.headline)
                     .foregroundColor(.textPrimary)
                 Spacer()
                 if !vm.deepHabits.isEmpty {
                     Text("\(vm.deepHabits.count) live")
-                        .font(.system(size: 11, weight: .semibold))
+                        .font(FDS.TypeScale.Dynamic.micro)
                         .foregroundColor(.ember)
                         .padding(.horizontal, 8).padding(.vertical, 4)
                         .background(Color.ember.opacity(0.12))
@@ -130,7 +130,7 @@ struct HabitLoopListCard: View {
             if let pending = pendingFeedback {
                 VStack(alignment: .leading, spacing: 10) {
                     Text("Did it work?")
-                        .font(.system(size: 13, weight: .bold)).foregroundColor(.ember)
+                        .font(FDS.TypeScale.Dynamic.caption).foregroundColor(.ember)
                     Text("You tried \(pending.breaker) yesterday.")
                         .font(.system(size: 13)).foregroundColor(.textSecondary)
                     HStack(spacing: 10) {
@@ -143,7 +143,7 @@ struct HabitLoopListCard: View {
                             pendingFeedback = nil
                             FeedbackGenerator.light()
                         } label: {
-                            Text("Yeah ✓").font(.system(size: 13, weight: .bold)).foregroundColor(.white)
+                            Text("Yeah ✓").font(FDS.TypeScale.Dynamic.caption).foregroundColor(.white)
                                 .frame(maxWidth: .infinity).padding(.vertical, 9).background(Color.success).cornerRadius(9)
                         }
                         Button {
@@ -155,13 +155,13 @@ struct HabitLoopListCard: View {
                             pendingFeedback = nil
                             FeedbackGenerator.light()
                         } label: {
-                            Text("Nah — too big").font(.system(size: 13, weight: .semibold)).foregroundColor(.textPrimary)
+                            Text("Nah — too big").font(FDS.TypeScale.Dynamic.caption).foregroundColor(.textPrimary)
                                 .frame(maxWidth: .infinity).padding(.vertical, 9).background(Color.surfaceElevated).cornerRadius(9)
                         }
                     }
                 }
                 .padding(12).background(Color.success.opacity(0.06)).cornerRadius(12)
-                .overlay(RoundedRectangle(cornerRadius: 12).stroke(Color.success.opacity(0.15), lineWidth: 1))
+                .overlay(RoundedRectangle(cornerRadius: FDS.Radius.md).stroke(Color.success.opacity(0.15), lineWidth: 1))
             }
 
             if vm.deepHabits.isEmpty {
@@ -183,7 +183,7 @@ struct HabitLoopListCard: View {
             }
         }
         .padding(20)
-        .forgeGlassCard(cornerRadius: 20, accent: .ember)
+        .forgeGlassCard(cornerRadius: FDS.Radius.xl, accent: .ember)
         .onAppear {
             Task { await vm.syncIfNeeded() }
             pendingFeedback = HabitFeedbackStore.pendingFeedback()

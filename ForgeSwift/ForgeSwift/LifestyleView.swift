@@ -39,7 +39,7 @@ struct LifestyleView: View {
                                 .foregroundStyle(Color.warning)
                             VStack(alignment: .leading, spacing: 2) {
                                 Text("Apple Health offline")
-                                    .font(.system(size: 13, weight: .bold))
+                                    .font(FDS.TypeScale.Dynamic.caption)
                                     .foregroundColor(.textPrimary)
                                 Text(store.isHealthKitPulling
                                     ? "Pulling…"
@@ -56,7 +56,7 @@ struct LifestyleView: View {
                             }
                         }
                         .padding(14)
-                        .forgeGlassCard(cornerRadius: 14, accent: .warning)
+                        .forgeGlassCard(cornerRadius: FDS.Radius.md, accent: .warning)
                     }
                     .buttonStyle(.plain)
                     .padding(.horizontal, 20)
@@ -192,9 +192,9 @@ struct LifestyleView: View {
     @ViewBuilder
     private var segmentContent: some View {
         if store.dataLoadState == .loading && !store.hasMeaningfulLifeSignal {
-            ForgeSkeletonBlock(height: 88, cornerRadius: 16)
-            ForgeSkeletonBlock(height: 180, cornerRadius: 16)
-            ForgeSkeletonBlock(height: 140, cornerRadius: 16)
+            ForgeSkeletonBlock(height: 88, cornerRadius: FDS.Radius.lg)
+            ForgeSkeletonBlock(height: 180, cornerRadius: FDS.Radius.lg)
+            ForgeSkeletonBlock(height: 140, cornerRadius: FDS.Radius.lg)
         } else if !store.healthKitLive && !store.hasMeaningfulLifeSignal {
             ForgeEmptyStateCard(
                 icon: "heart.text.square.fill",
@@ -225,8 +225,8 @@ struct LifestyleBackground: View {
         case .aiOptimization: return .ember
         case .homeCooking:    return Color(hex: "7C5CFF")
         case .restaurants:    return .steel
-        case .nutrition:      return Color(hex: "FFB84D")
-        case .lifetime:       return Color(hex: "A855F7")
+        case .nutrition:      return Color.amber
+        case .lifetime:       return Color.aurora
         case .wellbeing:      return .success
         }
     }
@@ -264,7 +264,7 @@ struct LifestyleHeaderView: View {
                     .font(ForgeType.pageTitle)
                     .foregroundColor(.textPrimary)
                 Text("How you eat, move, and live")
-                    .font(.system(size: 15, weight: .medium, design: .rounded))
+                    .font(FDS.TypeScale.Dynamic.body)
                     .foregroundColor(.textSecondary)
             }
 
@@ -284,7 +284,7 @@ struct LifestyleHeaderView: View {
                         .animation(FDS.Spring.sweep, value: metrics.qualityOfLifeScore)
                     VStack(spacing: 0) {
                         Text("\(metrics.qualityOfLifeScore)")
-                            .font(.system(size: 13, weight: .black, design: .rounded))
+                            .font(FDS.TypeScale.Dynamic.caption)
                             .monospacedDigit()
                             .foregroundColor(.textPrimary)
                     }
@@ -293,7 +293,7 @@ struct LifestyleHeaderView: View {
 
                 ForgeIconButton(
                     systemImage: "drop.fill",
-                    accent: Color(hex: "4A9EFF"),
+                    accent: Color.steel,
                     accessibilityLabel: "Open hydration"
                 ) {
                     store.openHydration()
@@ -331,7 +331,7 @@ struct SegmentedPillControl: View {
                             Image(systemName: seg.icon)
                                 .font(.system(size: 12, weight: .semibold))
                             Text(seg.title)
-                                .font(.system(size: 13, weight: .semibold, design: .rounded))
+                                .font(FDS.TypeScale.Dynamic.caption)
                         }
                         .foregroundColor(selected == seg ? .white : .textTertiary)
                         .padding(.horizontal, 16)

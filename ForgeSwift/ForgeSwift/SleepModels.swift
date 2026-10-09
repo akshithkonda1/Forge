@@ -397,10 +397,10 @@ enum SleepSoundKind: String, CaseIterable, Identifiable, Hashable, Sendable {
         case .rain: return .steel
         case .ocean: return Color(hex: "0EA5E9")
         case .forest: return .success
-        case .thunder: return Color(hex: "6366F1")
+        case .thunder: return Color.indigo
         case .fan: return .textSecondary
         case .fireplace: return .ember
-        case .tibetan: return Color(hex: "A78BFA")
+        case .tibetan: return Color.aurora
         case .chimes: return Color(hex: "38BDF8")
         case .binaural: return Color(hex: "818CF8")
         case .hz432: return .success

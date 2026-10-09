@@ -173,12 +173,12 @@ struct WorkoutIdleView: View {
         } label: {
             HStack(spacing: 6) {
                 Image(systemName: icon).font(.system(size: 12, weight: .semibold))
-                Text(title).font(.system(size: 12, weight: .semibold))
+                Text(title).font(FDS.TypeScale.Dynamic.caption)
             }
             .foregroundColor(.textSecondary)
             .frame(maxWidth: .infinity)
             .padding(.vertical, 10)
-            .forgeGlassCard(cornerRadius: 12, accent: .ember)
+            .forgeGlassCard(cornerRadius: FDS.Radius.md, accent: .ember)
         }
         .buttonStyle(.plain)
     }
@@ -187,13 +187,13 @@ struct WorkoutIdleView: View {
         VStack(alignment: .leading, spacing: 14) {
             HStack(alignment: .center) {
                 Text(dayCall.title)
-                    .font(.system(size: 13, weight: .black, design: .rounded))
+                    .font(FDS.TypeScale.Dynamic.caption)
                     .tracking(1.2)
                     .foregroundColor(dayCall == .train ? .ember : dayCall == .rest ? .steel : .warning)
                 Spacer()
                 ARIAIdentityMark(state: .idle, mood: .energized, size: 28, amplitude: 0.2)
                 Text("Readiness \(store.readiness.overall)")
-                    .font(.system(size: 12, weight: .semibold, design: .rounded))
+                    .font(FDS.TypeScale.Dynamic.caption)
                     .monospacedDigit()
                     .foregroundColor(.textTertiary)
             }
@@ -257,7 +257,7 @@ struct WorkoutIdleView: View {
         }
         .padding(14)
         .background(Color.surface)
-        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+        .clipShape(RoundedRectangle(cornerRadius: FDS.Radius.lg, style: .continuous))
         .task { store.shareWorkoutInsightsIfNeeded([line]) }
     }
 
@@ -266,7 +266,7 @@ struct WorkoutIdleView: View {
             HStack {
                 Text("EXERCISES").forgeSectionLabel()
                 Spacer()
-                Text("\(workout.exercises.count) total").font(.system(size: 12, weight: .medium, design: .rounded)).foregroundColor(.textMuted)
+                Text("\(workout.exercises.count) total").font(FDS.TypeScale.Dynamic.caption).foregroundColor(.textMuted)
             }
             .padding(.horizontal, 20).padding(.bottom, 18)
             ForEach(Array(workout.exercises.enumerated()), id: \.element.id) { idx, ex in
@@ -298,7 +298,7 @@ struct WorkoutIdleView: View {
         } label: {
             HStack(spacing: 12) {
                 Image(systemName: "play.fill").font(.system(size: 20, weight: .black))
-                Text(dayCall.cta).font(.system(size: 20, weight: .bold, design: .rounded))
+                Text(dayCall.cta).font(FDS.TypeScale.Dynamic.metric)
                 Spacer()
                 Image(systemName: "arrow.right").font(.system(size: 18, weight: .bold))
             }
@@ -358,14 +358,14 @@ private struct AdaptiveScalingCard: View {
                     Image(systemName: "wand.and.stars").font(.system(size: 13)).foregroundColor(scaling.tone)
                 }
                 VStack(alignment: .leading, spacing: 1) {
-                    Text("ARIA AUTO-SCALE").font(.system(size: 10, weight: .black)).tracking(2).foregroundColor(.textTertiary)
-                    Text(scaling.headline).font(.system(size: 15, weight: .bold)).foregroundColor(.textPrimary)
+                    Text("ARIA AUTO-SCALE").font(FDS.TypeScale.Dynamic.micro).tracking(2).foregroundColor(.textTertiary)
+                    Text(scaling.headline).font(FDS.TypeScale.Dynamic.body.weight(.semibold)).foregroundColor(.textPrimary)
                 }
                 Spacer()
                 if scaling.isModified {
                     VStack(spacing: 1) {
-                        Text("\(Int(scaling.volumeMultiplier * 100))%").font(.system(size: 13, weight: .black, design: .rounded)).foregroundColor(scaling.tone)
-                        Text("volume").font(.system(size: 8, weight: .semibold)).foregroundColor(.textMuted)
+                        Text("\(Int(scaling.volumeMultiplier * 100))%").font(FDS.TypeScale.Dynamic.caption).foregroundColor(scaling.tone)
+                        Text("volume").font(FDS.TypeScale.Dynamic.micro).foregroundColor(.textMuted)
                     }
                 }
             }
@@ -375,7 +375,7 @@ private struct AdaptiveScalingCard: View {
                 HStack(spacing: 8) {
                     Image(systemName: "checkmark.circle.fill").font(.system(size: 14, weight: .bold))
                     Text(applied ? "ARIA already scaled this session. Add a set in Train if you feel it." : "ARIA scaled this from readiness — it's already on the board.")
-                        .font(.system(size: 14, weight: .bold))
+                        .font(FDS.TypeScale.Dynamic.body.weight(.semibold))
                     Spacer()
                 }
                 .foregroundColor(scaling.tone)
@@ -385,7 +385,7 @@ private struct AdaptiveScalingCard: View {
             }
         }
         .padding(18)
-        .forgeGlassCard(cornerRadius: 20, accent: scaling.tone)
+        .forgeGlassCard(cornerRadius: FDS.Radius.xl, accent: scaling.tone)
     }
 }
 
@@ -447,7 +447,7 @@ private struct ReadinessIntensityArc: View {
     }
     private var matchColor: Color {
         let diff = abs(readinessFraction - intensityFraction)
-        return diff < 0.15 ? .success : diff < 0.35 ? Color(hex: "F59E0B") : .danger
+        return diff < 0.15 ? .success : diff < 0.35 ? Color.amber : .danger
     }
     private var matchLabel: String {
         let diff = abs(readinessFraction - intensityFraction)
@@ -466,12 +466,12 @@ private struct ReadinessIntensityArc: View {
                     .stroke(Color.ember.opacity(0.8), style: StrokeStyle(lineWidth: 2.5, lineCap: .round))
                     .frame(width: 44, height: 44).rotationEffect(.degrees(-90))
                     .animation(.spring(response: 0.9, dampingFraction: 0.75).delay(0.22), value: appeared)
-                Text("\(readiness)").font(.system(size: 13, weight: .black, design: .rounded)).foregroundColor(.textPrimary)
+                Text("\(readiness)").font(FDS.TypeScale.Dynamic.caption).foregroundColor(.textPrimary)
             }
             VStack(alignment: .leading, spacing: 4) {
                 HStack(spacing: 6) {
                     Circle().fill(matchColor).frame(width: 6, height: 6).shadow(color: matchColor.opacity(0.5), radius: 3)
-                    Text(matchLabel).font(.system(size: 13, weight: .semibold)).foregroundColor(.textPrimary)
+                    Text(matchLabel).font(FDS.TypeScale.Dynamic.caption).foregroundColor(.textPrimary)
                 }
                 HStack(spacing: 10) {
                     HStack(spacing: 4) {
@@ -487,7 +487,7 @@ private struct ReadinessIntensityArc: View {
             Spacer()
         }
         .padding(16)
-        .forgeGlassCard(cornerRadius: 18, accent: matchColor)
+        .forgeGlassCard(cornerRadius: FDS.Radius.lg, accent: matchColor)
         .onAppear { appeared = true }
     }
 }
@@ -502,33 +502,33 @@ struct AgeCompareChip: View {
                 .foregroundColor(tone)
             VStack(alignment: .leading, spacing: 2) {
                 Text("Heart")
-                    .font(.system(size: 11, weight: .bold))
+                    .font(FDS.TypeScale.Dynamic.micro)
                     .foregroundColor(.textTertiary)
                 Text(snapshot.oneBreathLine.isEmpty ? snapshot.comparisonLine : snapshot.oneBreathLine)
-                    .font(.system(size: 14, weight: .semibold, design: .rounded))
+                    .font(FDS.TypeScale.Dynamic.body.weight(.semibold))
                     .foregroundColor(.textPrimary)
                 if AgingNorms.webConfirmed {
                     Text("Public cardio norms")
-                        .font(.system(size: 10, weight: .medium))
+                        .font(FDS.TypeScale.Dynamic.micro)
                         .foregroundColor(.textTertiary)
                 }
             }
             Spacer()
             if let chrono = snapshot.chronologicalAge, let bio = snapshot.biologicalAge, snapshot.confidence > 0.25 {
                 Text("\(Int(bio.rounded()))")
-                    .font(.system(size: 18, weight: .black, design: .rounded))
+                    .font(FDS.TypeScale.Dynamic.metric)
                     .foregroundColor(tone)
                 Text("/ \(Int(chrono.rounded()))")
-                    .font(.system(size: 13, weight: .semibold))
+                    .font(FDS.TypeScale.Dynamic.caption)
                     .foregroundColor(.textTertiary)
             }
         }
         .padding(.horizontal, 14)
         .padding(.vertical, 12)
         .background(tone.opacity(0.08))
-        .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+        .clipShape(RoundedRectangle(cornerRadius: FDS.Radius.md, style: .continuous))
         .overlay(
-            RoundedRectangle(cornerRadius: 14, style: .continuous)
+            RoundedRectangle(cornerRadius: FDS.Radius.md, style: .continuous)
                 .stroke(tone.opacity(0.22), lineWidth: 1)
         )
         .accessibilityLabel(
@@ -553,8 +553,8 @@ struct WorkoutStatPill: View {
     var body: some View {
         HStack(spacing: 4) {
             Image(systemName: icon).font(.system(size: 11)).foregroundColor(color)
-            Text(value).font(.system(size: 13, weight: .bold, design: .rounded)).foregroundColor(.textPrimary)
-            Text(label).font(.system(size: 11, weight: .medium, design: .rounded)).foregroundColor(.textSecondary).lineLimit(1)
+            Text(value).font(FDS.TypeScale.Dynamic.caption).foregroundColor(.textPrimary)
+            Text(label).font(FDS.TypeScale.Dynamic.micro).foregroundColor(.textSecondary).lineLimit(1)
 
         }
         .padding(.horizontal, 12).padding(.vertical, 9)
@@ -579,11 +579,11 @@ struct WorkoutExerciseRow: View {
                             .fill(LinearGradient(colors: [(def?.accent ?? .ember).opacity(0.18), (def?.accent ?? .ember).opacity(0.07)],
                                                  startPoint: .topLeading, endPoint: .bottomTrailing))
                             .frame(width: 42, height: 42)
-                        Text("\(index + 1)").font(.system(size: 16, weight: .bold)).foregroundColor(def?.accent ?? .ember)
+                        Text("\(index + 1)").font(FDS.TypeScale.Dynamic.headline).foregroundColor(def?.accent ?? .ember)
                     }
                     VStack(alignment: .leading, spacing: 4) {
                         Text(exercise.name)
-                            .font(.system(size: 15, weight: .semibold)).foregroundColor(.textPrimary).lineLimit(isExpanded ? nil : 1)
+                            .font(FDS.TypeScale.Dynamic.body.weight(.semibold)).foregroundColor(.textPrimary).lineLimit(isExpanded ? nil : 1)
                         HStack(spacing: 8) {
                             Label("\(exercise.sets) × \(exercise.reps)", systemImage: "repeat")
                                 .font(.system(size: 12)).foregroundColor(.textSecondary)
@@ -593,7 +593,7 @@ struct WorkoutExerciseRow: View {
                             }
                             if let def {
                                 Circle().fill(Color.textMuted).frame(width: 3, height: 3)
-                                Text(def.primary.first?.label ?? "").font(.system(size: 12, weight: .semibold)).foregroundColor(def.accent)
+                                Text(def.primary.first?.label ?? "").font(FDS.TypeScale.Dynamic.caption).foregroundColor(def.accent)
                             }
                         }
                     }
@@ -637,7 +637,7 @@ struct WorkoutExerciseRow: View {
                             HStack(spacing: 8) {
                                 ARIAIdentityMark(state: .idle, mood: .energized, size: 22, amplitude: 0.3)
                                 Text("Show me how")
-                                    .font(.system(size: 14, weight: .bold, design: .rounded))
+                                    .font(FDS.TypeScale.Dynamic.body.weight(.semibold))
                                 Spacer()
                                 Image(systemName: "books.vertical.fill").font(.system(size: 13, weight: .semibold))
                             }
@@ -645,7 +645,7 @@ struct WorkoutExerciseRow: View {
                             .padding(.horizontal, 14)
                             .padding(.vertical, 12)
                             .background(Color.ember)
-                            .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                            .clipShape(RoundedRectangle(cornerRadius: FDS.Radius.md, style: .continuous))
                         }
                         .buttonStyle(.plain)
                         .padding(.horizontal, 20)
@@ -670,7 +670,7 @@ struct WorkoutExerciseRow: View {
     private func metaChip(_ text: String, _ icon: String, _ color: Color) -> some View {
         HStack(spacing: 4) {
             Image(systemName: icon).font(.system(size: 9))
-            Text(text).font(.system(size: 11, weight: .semibold))
+            Text(text).font(FDS.TypeScale.Dynamic.micro)
         }
         .foregroundColor(color).padding(.horizontal, 8).padding(.vertical, 5)
         .background(color.opacity(0.1)).cornerRadius(7)
@@ -698,7 +698,7 @@ struct WorkoutInsightsView: View {
         if store.readiness.overall >= 80 { r.append(("bolt.fill", "Readiness \(store.readiness.overall)% — primed. Add a set if the first compound moves well.", .ember)) }
         else if store.readiness.overall < 65 { r.append(("bed.double.fill", "Recovery \(store.readiness.overall)% — ARIA already scaled the board. You can still add a set if you feel it.", .steel)) }
         // Balance read across the plan
-        if let lean = planRegionLean() { r.append(("scale.3d", lean, Color(hex: "A855F7"))) }
+        if let lean = planRegionLean() { r.append(("scale.3d", lean, Color.aurora)) }
         if workout.intensity == .high || workout.intensity == .max {
             r.append(("exclamationmark.triangle.fill", "High intensity — run the mobility warm-up before loading.", .warning))
         }
@@ -719,7 +719,7 @@ struct WorkoutInsightsView: View {
         VStack(alignment: .leading, spacing: 14) {
             HStack(spacing: 7) {
                 Image(systemName: "brain.head.profile").font(.system(size: 14)).foregroundColor(.ember)
-                Text("ARIA INSIGHTS").font(.system(size: 10, weight: .black)).foregroundColor(.textTertiary).tracking(2.5)
+                Text("ARIA INSIGHTS").font(FDS.TypeScale.Dynamic.micro).foregroundColor(.textTertiary).tracking(2.5)
             }
             VStack(spacing: 10) {
                 ForEach(Array(insights.enumerated()), id: \.offset) { idx, insight in
@@ -738,7 +738,7 @@ struct WorkoutInsightsView: View {
             }
         }
         .padding(20)
-        .forgeGlassCard(cornerRadius: 22, accent: .ember)
+        .forgeGlassCard(cornerRadius: FDS.Radius.xl, accent: .ember)
         .onAppear { appeared = true }
         .task { store.shareWorkoutInsightsIfNeeded(insights.map(\.text)) }
     }
@@ -759,7 +759,7 @@ struct WeekSessionPicker: View {
                         HStack {
                             VStack(alignment: .leading, spacing: 3) {
                                 Text(WeeklySplit.dayNames[slot.weekday])
-                                    .font(.system(size: 16, weight: .semibold))
+                                    .font(FDS.TypeScale.Dynamic.headline)
                                     .foregroundColor(.textPrimary)
                                 Text(slot.isRest ? "Rest · easy core if you want it" : "\(slot.title) · \(slot.exerciseCount) exercises")
                                     .font(.system(size: 13))
@@ -768,7 +768,7 @@ struct WeekSessionPicker: View {
                             Spacer()
                             if slot.weekday == WeeklySplit.sun0(from: Date()) {
                                 Text("Today")
-                                    .font(.system(size: 11, weight: .semibold))
+                                    .font(FDS.TypeScale.Dynamic.micro)
                                     .foregroundColor(.ember)
                             }
                         }
@@ -815,7 +815,7 @@ struct WorkoutEmptyState: View {
                     .font(ForgeType.pageTitle)
                     .foregroundColor(.textPrimary)
                 Text("ARIA writes a session from sleep, readiness, and the week you actually have — preview it here, then start when you’re ready.")
-                    .font(.system(size: 15, weight: .medium, design: .rounded)).foregroundColor(.textSecondary)
+                    .font(FDS.TypeScale.Dynamic.body).foregroundColor(.textSecondary)
                     .multilineTextAlignment(.center).lineSpacing(5).padding(.horizontal, 44)
             }
             .opacity(appeared ? 1 : 0).offset(y: appeared ? 0 : 18)
@@ -833,12 +833,12 @@ struct WorkoutEmptyState: View {
                 Button { showLibrary = true } label: {
                     HStack(spacing: 8) {
                         Image(systemName: "books.vertical.fill").font(.system(size: 14))
-                        Text("Browse the library").font(.system(size: 15, weight: .semibold, design: .rounded))
+                        Text("Browse the library").font(FDS.TypeScale.Dynamic.body.weight(.semibold))
                     }
                     .foregroundColor(.steel).padding(.horizontal, 24).padding(.vertical, 13)
                     .background(Color.steel.opacity(0.12))
-                    .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
-                    .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous).stroke(Color.steel.opacity(0.3), lineWidth: 1))
+                    .clipShape(RoundedRectangle(cornerRadius: FDS.Radius.lg, style: .continuous))
+                    .overlay(RoundedRectangle(cornerRadius: FDS.Radius.lg, style: .continuous).stroke(Color.steel.opacity(0.3), lineWidth: 1))
                 }
                 .buttonStyle(.plain)
             }

@@ -36,7 +36,7 @@ struct HomeWidgetBoard: View {
                         }
                     } label: {
                         Label("Add", systemImage: "plus")
-                            .font(FDS.TypeScale.label(12))
+                            .font(FDS.TypeScale.Dynamic.caption)
                             .foregroundStyle(Color.ember)
                     }
                     .accessibilityLabel("Add a widget to Home")
@@ -44,7 +44,7 @@ struct HomeWidgetBoard: View {
                 Button(editing ? "Done" : "Edit") {
                     withAnimation(FDS.Spring.standard) { editing.toggle() }
                 }
-                .font(FDS.TypeScale.label(12))
+                .font(FDS.TypeScale.Dynamic.caption)
                 .foregroundStyle(Color.textSecondary)
             }
 
@@ -67,7 +67,7 @@ struct HomeWidgetBoard: View {
     private var empty: some View {
         VStack(alignment: .leading, spacing: 6) {
             Text("No widgets on this page")
-                .font(.system(size: 14, weight: .semibold))
+                .font(FDS.TypeScale.Dynamic.body.weight(.semibold))
                 .foregroundColor(.textPrimary)
             Text("Add Hydration, Sleep, Cycle, Workout or Lifestyle. The same cards can live on your iPhone Home Screen.")
                 .font(.system(size: 12))
@@ -94,7 +94,7 @@ private struct HomePinnedWidgetCard: View {
                         .font(.system(size: 13, weight: .semibold))
                         .foregroundStyle(accent)
                     Text(kind.title.uppercased())
-                        .font(.system(size: 10, weight: .bold))
+                        .font(FDS.TypeScale.Dynamic.micro)
                         .tracking(0.5)
                         .foregroundColor(.textTertiary)
                     Spacer(minLength: 0)
@@ -120,14 +120,14 @@ private struct HomePinnedWidgetCard: View {
         switch kind {
         case .hydration:
             Text(formatMl(snapshot.hydrationMl))
-                .font(.system(size: 22, weight: .bold, design: .rounded))
+                .font(FDS.TypeScale.Dynamic.metric)
                 .foregroundColor(.textPrimary)
             Text("\(Int((snapshot.hydrationFraction * 100).rounded()))% of need")
                 .font(.system(size: 11))
                 .foregroundColor(.textSecondary)
         case .sleep:
             Text(String(format: "%.1f h", snapshot.sleepHours))
-                .font(.system(size: 22, weight: .bold, design: .rounded))
+                .font(FDS.TypeScale.Dynamic.metric)
                 .foregroundColor(.textPrimary)
             Text(snapshot.sleepWindowTitle ?? "Last night")
                 .font(.system(size: 11))
@@ -135,7 +135,7 @@ private struct HomePinnedWidgetCard: View {
                 .lineLimit(1)
         case .cycle:
             Text(snapshot.cyclePhase?.capitalized ?? "—")
-                .font(.system(size: 18, weight: .bold, design: .rounded))
+                .font(FDS.TypeScale.Dynamic.metric)
                 .foregroundColor(.textPrimary)
             if let day = snapshot.cycleDay {
                 Text("Day \(day)")
@@ -144,7 +144,7 @@ private struct HomePinnedWidgetCard: View {
             }
         case .workout:
             Text(snapshot.workoutName ?? "No session yet")
-                .font(.system(size: 15, weight: .semibold))
+                .font(FDS.TypeScale.Dynamic.body.weight(.semibold))
                 .foregroundColor(.textPrimary)
                 .lineLimit(2)
             Text(snapshot.workoutName == nil ? "Ask ARIA to build one" : "Ready when you are")
@@ -152,7 +152,7 @@ private struct HomePinnedWidgetCard: View {
                 .foregroundColor(.textSecondary)
         case .lifestyle:
             Text("\(snapshot.qol)")
-                .font(.system(size: 22, weight: .bold, design: .rounded))
+                .font(FDS.TypeScale.Dynamic.metric)
                 .foregroundColor(.textPrimary)
             Text(snapshot.topRecommendation ?? "QOL")
                 .font(.system(size: 11))
@@ -163,7 +163,7 @@ private struct HomePinnedWidgetCard: View {
 
     private var accent: Color {
         switch kind {
-        case .hydration: return Color(hex: "4A9EFF")
+        case .hydration: return Color.steel
         case .sleep:     return .aurora
         case .cycle:     return Color(hex: "EC4899")
         case .workout:   return .ember

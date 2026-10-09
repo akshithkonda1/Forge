@@ -30,7 +30,7 @@ struct LoadTimelineView: View {
                     acwrPill(ratio: acwr)
                 } else {
                     Text("BUILDING BASELINE")
-                        .font(FDS.TypeScale.label(10))
+                        .font(FDS.TypeScale.Dynamic.caption)
                         .foregroundStyle(Color.textTertiary)
                 }
             }
@@ -49,24 +49,24 @@ struct LoadTimelineView: View {
                     }
                     VStack(alignment: .leading, spacing: 2) {
                         Text(String(format: "Load ratio %.2f", acwr))
-                            .font(FDS.TypeScale.label(13))
+                            .font(FDS.TypeScale.Dynamic.caption)
                             .foregroundColor(.textPrimary)
                         Text(verdict)
-                            .font(FDS.TypeScale.label(11))
+                            .font(FDS.TypeScale.Dynamic.caption)
                             .foregroundColor(.textTertiary)
                             .lineLimit(2)
                     }
                 }
                 .padding(12)
                 .background(Color.white.opacity(0.04))
-                .clipShape(RoundedRectangle(cornerRadius: 12))
+                .clipShape(RoundedRectangle(cornerRadius: FDS.Radius.md))
             } else {
                 Text("Log 8+ sessions and the load ratio appears — it compares this week against your 4-week average, the way pro teams manage injury risk.")
                     .font(HomeType.body)
                     .foregroundColor(.textTertiary)
                     .padding(12)
                     .background(Color.white.opacity(0.04))
-                    .clipShape(RoundedRectangle(cornerRadius: 12))
+                    .clipShape(RoundedRectangle(cornerRadius: FDS.Radius.md))
             }
 
             if picture.heavyStreak >= 2 {
@@ -75,7 +75,7 @@ struct LoadTimelineView: View {
                         .foregroundStyle(Color.warning)
                         .font(.system(size: 13))
                     Text("\(picture.heavyStreak) heavy days in a row — the forecast expects fatigue to compound.")
-                        .font(FDS.TypeScale.label(12))
+                        .font(FDS.TypeScale.Dynamic.caption)
                         .foregroundColor(.textSecondary)
                 }
             }
@@ -94,16 +94,16 @@ struct LoadTimelineView: View {
             ForEach(picture.days) { day in
                 VStack(spacing: 4) {
                     ZStack(alignment: .bottom) {
-                        RoundedRectangle(cornerRadius: 4)
+                        RoundedRectangle(cornerRadius: FDS.Radius.xs)
                             .fill(Color.white.opacity(0.06))
                             .frame(height: 64)
-                        RoundedRectangle(cornerRadius: 4)
+                        RoundedRectangle(cornerRadius: FDS.Radius.xs)
                             .fill(barColor(for: day.zone).gradient)
                             .frame(height: max(day.strain > 0 ? 6 : 0, 64 * CGFloat(day.strain / maxStrain)))
                     }
                     .frame(height: 64)
                     Text(dayLabel(for: day.date))
-                        .font(FDS.TypeScale.label(8))
+                        .font(FDS.TypeScale.Dynamic.caption)
                         .foregroundColor(isToday(day.date) ? .ember : .textTertiary)
                 }
                 .frame(maxWidth: .infinity)
@@ -121,7 +121,7 @@ struct LoadTimelineView: View {
         default: ("DANGER ZONE", Color.danger)
         }
         return Text(label)
-            .font(FDS.TypeScale.label(10))
+            .font(FDS.TypeScale.Dynamic.caption)
             .foregroundStyle(color)
             .padding(.horizontal, 8)
             .padding(.vertical, 4)

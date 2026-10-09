@@ -31,7 +31,7 @@ struct HydrationView: View {
                 if showCustom { customField }
                 if let lastError {
                     Text(lastError)
-                        .font(.system(size: 12, weight: .medium))
+                        .font(FDS.TypeScale.Dynamic.caption)
                         .foregroundColor(.alert)
                         .frame(maxWidth: .infinity, alignment: .leading)
                 }
@@ -42,7 +42,7 @@ struct HydrationView: View {
             .padding(.horizontal, 16)
             .padding(.bottom, 40)
         }
-        .forgeScreenBackground(accent: Color(hex: "4A9EFF"))
+        .forgeScreenBackground(accent: Color.steel)
         .navigationTitle("Hydration")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
@@ -130,7 +130,7 @@ struct HydrationView: View {
     private var statusColor: Color {
         switch status {
         case .behind: return .amber
-        case .onTrack: return Color(hex: "4A9EFF")
+        case .onTrack: return Color.steel
         case .met: return .vitality
         case .over: return .steel
         }
@@ -158,7 +158,7 @@ struct HydrationView: View {
                     .trim(from: 0, to: progress)
                     .stroke(
                         AngularGradient(
-                            colors: [Color(hex: "4A9EFF"), Color(hex: "00D4FF"), Color(hex: "4A9EFF")],
+                            colors: [Color.steel, Color(hex: "00D4FF"), Color.steel],
                             center: .center
                         ),
                         style: StrokeStyle(lineWidth: 14, lineCap: .round)
@@ -188,7 +188,7 @@ struct HydrationView: View {
 
             HStack(spacing: 16) {
                 stat(title: statusTitle, value: "\(Int((progress * 100).rounded()))%", tint: statusColor)
-                stat(title: "Left", value: formatMl(remainingMl), tint: Color(hex: "4A9EFF"))
+                stat(title: "Left", value: formatMl(remainingMl), tint: Color.steel)
                 stat(title: "Glasses",
                      value: String(format: "%.1f", HydrationEngine.glasses(fromMilliliters: consumedMl)),
                      tint: .aurora)
@@ -196,7 +196,7 @@ struct HydrationView: View {
         }
         .padding(18)
         .frame(maxWidth: .infinity)
-        .forgeGlassCard(cornerRadius: 20, accent: Color(hex: "4A9EFF"))
+        .forgeGlassCard(cornerRadius: FDS.Radius.xl, accent: Color.steel)
         .accessibilityElement(children: .combine)
         .accessibilityLabel("Hydration \(formatMl(consumedMl)) of \(formatMl(targetMl)), \(statusTitle)")
     }
@@ -204,7 +204,7 @@ struct HydrationView: View {
     private func stat(title: String, value: String, tint: Color) -> some View {
         VStack(spacing: 3) {
             Text(value)
-                .font(.system(size: 15, weight: .semibold, design: .rounded))
+                .font(FDS.TypeScale.Dynamic.body.weight(.semibold))
                 .foregroundColor(tint)
                 .lineLimit(1)
                 .minimumScaleFactor(0.8)
@@ -226,7 +226,7 @@ struct HydrationView: View {
                 .foregroundColor(health.isAuthorized ? .vitality : .warning)
             VStack(alignment: .leading, spacing: 2) {
                 Text(health.isAuthorized ? "Apple Health, both ways" : "Apple Health not connected")
-                    .font(.system(size: 13, weight: .semibold))
+                    .font(FDS.TypeScale.Dynamic.caption)
                     .foregroundColor(.textPrimary)
                 Text(health.isAuthorized
                      ? "Logs you add here land in Health. Drinks from Watch and other apps land here."
@@ -238,7 +238,7 @@ struct HydrationView: View {
             Spacer(minLength: 0)
         }
         .padding(12)
-        .forgeGlassCard(cornerRadius: 14, accent: health.isAuthorized ? .vitality : .warning)
+        .forgeGlassCard(cornerRadius: FDS.Radius.md, accent: health.isAuthorized ? .vitality : .warning)
     }
 
     // ------------------------------------------------------------
@@ -248,7 +248,7 @@ struct HydrationView: View {
     private var presets: some View {
         VStack(alignment: .leading, spacing: 10) {
             Text("Log a drink")
-                .font(.system(size: 14, weight: .semibold))
+                .font(FDS.TypeScale.Dynamic.body.weight(.semibold))
                 .foregroundColor(.textPrimary)
             HStack(spacing: 8) {
                 ForEach(HydrationEngine.presets) { preset in
@@ -259,15 +259,15 @@ struct HydrationView: View {
                             Image(systemName: preset.symbolName)
                                 .font(.system(size: 16, weight: .semibold))
                             Text(preset.title)
-                                .font(.system(size: 11, weight: .semibold))
+                                .font(FDS.TypeScale.Dynamic.micro)
                             Text("\(Int(preset.milliliters)) ml")
                                 .font(.system(size: 10))
                                 .foregroundColor(.textTertiary)
                         }
-                        .foregroundColor(Color(hex: "4A9EFF"))
+                        .foregroundColor(Color.steel)
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 12)
-                        .background(Color(hex: "4A9EFF").opacity(0.10))
+                        .background(Color.steel.opacity(0.10))
                         .cornerRadius(14)
                     }
                     .buttonStyle(.plain)
@@ -279,13 +279,13 @@ struct HydrationView: View {
                 withAnimation(.spring(response: 0.35, dampingFraction: 0.8)) { showCustom.toggle() }
             } label: {
                 Text(showCustom ? "Hide custom amount" : "Custom amount")
-                    .font(.system(size: 12, weight: .semibold))
+                    .font(FDS.TypeScale.Dynamic.caption)
                     .foregroundColor(.textSecondary)
             }
             .buttonStyle(.plain)
         }
         .padding(16)
-        .forgeGlassCard(cornerRadius: 20, accent: Color(hex: "4A9EFF"))
+        .forgeGlassCard(cornerRadius: FDS.Radius.xl, accent: Color.steel)
     }
 
     private var customField: some View {
@@ -303,7 +303,7 @@ struct HydrationView: View {
             .foregroundColor(.white)
             .padding(.horizontal, 16)
             .padding(.vertical, 12)
-            .background(Color(hex: "4A9EFF"))
+            .background(Color.steel)
             .cornerRadius(12)
             .disabled(writing)
         }
@@ -335,21 +335,21 @@ struct HydrationView: View {
                         .foregroundColor(.textTertiary)
                 } else if hasCustomGoal {
                     Text("Your goal. Change it any time — the estimate is only a suggestion.")
-                        .font(.system(size: 11, weight: .medium))
+                        .font(FDS.TypeScale.Dynamic.micro)
                         .foregroundColor(.textTertiary)
                 }
             }
             Spacer(minLength: 0)
         }
         .padding(14)
-        .forgeGlassCard(cornerRadius: 16, accent: statusColor)
+        .forgeGlassCard(cornerRadius: FDS.Radius.lg, accent: statusColor)
     }
 
     private var timeline: some View {
         VStack(alignment: .leading, spacing: 12) {
             HStack {
                 Text("Today")
-                    .font(.system(size: 14, weight: .semibold))
+                    .font(FDS.TypeScale.Dynamic.body.weight(.semibold))
                     .foregroundColor(.textPrimary)
                 Spacer()
                 Text("\(health.todayWaterLogs.count) drink\(health.todayWaterLogs.count == 1 ? "" : "s")")
@@ -367,11 +367,11 @@ struct HydrationView: View {
                     HStack(spacing: 10) {
                         Image(systemName: log.isForge ? "drop.fill" : "heart.fill")
                             .font(.system(size: 13, weight: .semibold))
-                            .foregroundColor(log.isForge ? Color(hex: "4A9EFF") : .vitality)
+                            .foregroundColor(log.isForge ? Color.steel : .vitality)
                             .frame(width: 22)
                         VStack(alignment: .leading, spacing: 2) {
                             Text(formatMl(log.milliliters))
-                                .font(.system(size: 14, weight: .semibold))
+                                .font(FDS.TypeScale.Dynamic.body.weight(.semibold))
                                 .foregroundColor(.textPrimary)
                             Text(log.sourceName)
                                 .font(.system(size: 11))
@@ -379,7 +379,7 @@ struct HydrationView: View {
                         }
                         Spacer()
                         Text(log.date.formatted(date: .omitted, time: .shortened))
-                            .font(.system(size: 12, weight: .medium))
+                            .font(FDS.TypeScale.Dynamic.caption)
                             .foregroundColor(.textSecondary)
                         if log.isForge {
                             Button {
@@ -398,23 +398,23 @@ struct HydrationView: View {
             }
         }
         .padding(16)
-        .forgeGlassCard(cornerRadius: 20, accent: Color(hex: "4A9EFF"))
+        .forgeGlassCard(cornerRadius: FDS.Radius.xl, accent: Color.steel)
     }
 
     private var week: some View {
         VStack(alignment: .leading, spacing: 12) {
             Text("Last 7 days")
-                .font(.system(size: 14, weight: .semibold))
+                .font(FDS.TypeScale.Dynamic.body.weight(.semibold))
                 .foregroundColor(.textPrimary)
 
             HStack(alignment: .bottom, spacing: 8) {
                 ForEach(health.weeklyWaterMilliliters) { day in
                     VStack(spacing: 6) {
                         Capsule()
-                            .fill(day.milliliters >= targetMl * 0.9 ? Color(hex: "4A9EFF") : Color(hex: "4A9EFF").opacity(0.35))
+                            .fill(day.milliliters >= targetMl * 0.9 ? Color.steel : Color.steel.opacity(0.35))
                             .frame(height: barHeight(day.milliliters))
                         Text(dayLabel(day.date))
-                            .font(.system(size: 10, weight: .medium))
+                            .font(FDS.TypeScale.Dynamic.micro)
                             .foregroundColor(.textTertiary)
                     }
                     .frame(maxWidth: .infinity)
@@ -424,7 +424,7 @@ struct HydrationView: View {
             .frame(height: 120, alignment: .bottom)
         }
         .padding(16)
-        .forgeGlassCard(cornerRadius: 20, accent: Color(hex: "4A9EFF"))
+        .forgeGlassCard(cornerRadius: FDS.Radius.xl, accent: Color.steel)
     }
 
     // ------------------------------------------------------------
@@ -510,7 +510,7 @@ private struct HydrationGoalEditor: View {
                         .foregroundColor(.textPrimary)
                         .monospacedDigit()
                     Text("\(Int(HydrationEngine.glasses(fromMilliliters: draft).rounded())) glasses · \(Int(HydrationEngine.fluidOunces(fromMilliliters: draft).rounded())) fl oz")
-                        .font(.system(size: 13, weight: .medium))
+                        .font(FDS.TypeScale.Dynamic.caption)
                         .foregroundColor(.textSecondary)
                 }
                 .padding(.top, 12)
@@ -521,7 +521,7 @@ private struct HydrationGoalEditor: View {
                         in: HydrationEngine.minimumTargetMilliliters...HydrationEngine.maximumTargetMilliliters,
                         step: 50
                     )
-                    .tint(Color(hex: "4A9EFF"))
+                    .tint(Color.steel)
                     HStack {
                         Text("1.5 L")
                         Spacer()
@@ -541,7 +541,7 @@ private struct HydrationGoalEditor: View {
                 } label: {
                     VStack(alignment: .leading, spacing: 4) {
                         Text("Suggested for you")
-                            .font(.system(size: 14, weight: .semibold))
+                            .font(FDS.TypeScale.Dynamic.body.weight(.semibold))
                             .foregroundColor(.textPrimary)
                         Text("\(format(suggestedMl)) from weight, today’s work, and cycle. You can still change it.")
                             .font(.system(size: 12))
@@ -591,11 +591,11 @@ private struct HydrationGoalEditor: View {
     private func stepButton(_ title: String, action: @escaping () -> Void) -> some View {
         Button(action: action) {
             Text(title)
-                .font(.system(size: 14, weight: .semibold))
-                .foregroundColor(Color(hex: "4A9EFF"))
+                .font(FDS.TypeScale.Dynamic.body.weight(.semibold))
+                .foregroundColor(Color.steel)
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, 12)
-                .background(Color(hex: "4A9EFF").opacity(0.12))
+                .background(Color.steel.opacity(0.12))
                 .cornerRadius(12)
         }
         .buttonStyle(.plain)

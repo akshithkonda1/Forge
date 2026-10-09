@@ -270,7 +270,7 @@ struct SleepSourceStrip: View {
                 HStack(spacing: 6) {
                     ForEach(presence.sourceLabels, id: \.self) { label in
                         Text(label)
-                            .font(.system(size: 11, weight: .semibold, design: .rounded))
+                            .font(FDS.TypeScale.Dynamic.micro)
                             .foregroundColor(.textSecondary)
                             .padding(.horizontal, 10)
                             .padding(.vertical, 5)
@@ -293,7 +293,7 @@ struct SleepLifestyleCaption: View {
 
     var body: some View {
         Text(text)
-            .font(.system(size: 11, weight: .medium, design: .rounded))
+            .font(FDS.TypeScale.Dynamic.micro)
             .foregroundColor(.textTertiary)
             .fixedSize(horizontal: false, vertical: true)
             .accessibilityLabel(text)

@@ -46,8 +46,8 @@ struct ARIADashboardView: View {
                 ARIAIdentityMark(state: .idle, mood: .energized, size: 50, amplitude: 0.24)
                     .shadow(color: .ember.opacity(0.5), radius: 12, y: 4)
                 VStack(alignment: .leading, spacing: 2) {
-                    Text(isPreWorkout ? "ARIA · PRE-FLIGHT" : "ARIA · DEBRIEF").font(.system(size: 10, weight: .black)).tracking(2).foregroundColor(.ember)
-                    Text(snapshot.title).font(.system(size: 20, weight: .bold)).foregroundColor(.white)
+                    Text(isPreWorkout ? "ARIA · PRE-FLIGHT" : "ARIA · DEBRIEF").font(FDS.TypeScale.Dynamic.micro).tracking(2).foregroundColor(.ember)
+                    Text(snapshot.title).font(FDS.TypeScale.Dynamic.title).foregroundColor(.white)
                 }
                 Spacer()
             }
@@ -59,13 +59,13 @@ struct ARIADashboardView: View {
             }
         }
         .padding(18).background(Color.white.opacity(0.04)).cornerRadius(20)
-        .overlay(RoundedRectangle(cornerRadius: 20).stroke(Color.white.opacity(0.07), lineWidth: 1))
+        .overlay(RoundedRectangle(cornerRadius: FDS.Radius.xl).stroke(Color.white.opacity(0.07), lineWidth: 1))
     }
 
     private func metric(_ value: String, _ label: String, _ color: Color) -> some View {
         VStack(spacing: 3) {
-            Text(value).font(.system(size: 20, weight: .black, design: .rounded)).foregroundColor(.white)
-            Text(label).font(.system(size: 10, weight: .semibold)).foregroundColor(color)
+            Text(value).font(FDS.TypeScale.Dynamic.metric).foregroundColor(.white)
+            Text(label).font(FDS.TypeScale.Dynamic.micro).foregroundColor(color)
         }
         .frame(maxWidth: .infinity).padding(.vertical, 12)
         .background(Color.white.opacity(0.04)).cornerRadius(12)
@@ -76,7 +76,7 @@ struct ARIADashboardView: View {
             VStack(spacing: 10) {
                 ForEach(snapshot.regionShare.filter { $0.1 > 0.001 }, id: \.0) { region, share in
                     HStack(spacing: 10) {
-                        Text(region.rawValue.capitalized).font(.system(size: 12, weight: .semibold)).foregroundColor(.white.opacity(0.8)).frame(width: 90, alignment: .leading)
+                        Text(region.rawValue.capitalized).font(FDS.TypeScale.Dynamic.caption).foregroundColor(.white.opacity(0.8)).frame(width: 90, alignment: .leading)
                         GeometryReader { geo in
                             ZStack(alignment: .leading) {
                                 Capsule().fill(Color.white.opacity(0.06)).frame(height: 8)
@@ -119,14 +119,14 @@ struct ARIADashboardView: View {
                     let z = WorkoutHRZone.all[idx + 1]
                     VStack(spacing: 6) {
                         ZStack(alignment: .bottom) {
-                            RoundedRectangle(cornerRadius: 5).fill(Color.white.opacity(0.06)).frame(height: 70)
-                            RoundedRectangle(cornerRadius: 5).fill(LinearGradient(colors: [z.color, z.color.opacity(0.6)], startPoint: .top, endPoint: .bottom))
+                            RoundedRectangle(cornerRadius: FDS.Radius.xs).fill(Color.white.opacity(0.06)).frame(height: 70)
+                            RoundedRectangle(cornerRadius: FDS.Radius.xs).fill(LinearGradient(colors: [z.color, z.color.opacity(0.6)], startPoint: .top, endPoint: .bottom))
                                 .frame(height: max(4, 70 * CGFloat(appeared ? Double(secs) / Double(maxV) : 0)))
                                 .animation(.spring(response: 0.8, dampingFraction: 0.78).delay(Double(idx) * 0.06), value: appeared)
                         }
                         .frame(height: 70)
-                        Text(secs >= 60 ? "\(secs/60)m" : "\(secs)s").font(.system(size: 9, weight: .bold)).foregroundColor(secs > 0 ? z.color : .white.opacity(0.25))
-                        Text("Z\(idx+1)").font(.system(size: 9, weight: .black)).foregroundColor(.white.opacity(0.35))
+                        Text(secs >= 60 ? "\(secs/60)m" : "\(secs)s").font(FDS.TypeScale.Dynamic.micro).foregroundColor(secs > 0 ? z.color : .white.opacity(0.25))
+                        Text("Z\(idx+1)").font(FDS.TypeScale.Dynamic.micro).foregroundColor(.white.opacity(0.35))
                     }
                     .frame(maxWidth: .infinity)
                 }
@@ -186,13 +186,13 @@ struct ARIADashboardView: View {
             }
             .padding(16).frame(maxWidth: .infinity, alignment: .leading)
             .background(Color.ember.opacity(0.07)).cornerRadius(16)
-            .overlay(RoundedRectangle(cornerRadius: 16).stroke(Color.ember.opacity(0.2), lineWidth: 1))
+            .overlay(RoundedRectangle(cornerRadius: FDS.Radius.lg).stroke(Color.ember.opacity(0.2), lineWidth: 1))
 
             Button { Task { await sendToARIA() } } label: {
                 HStack(spacing: 10) {
                     if loadingBrief { ProgressView().tint(.white) }
                     else { Image(systemName: sent ? "checkmark.circle.fill" : "paperplane.fill").font(.system(size: 17, weight: .bold)) }
-                    Text(sent ? "Sent to ARIA — open chat" : loadingBrief ? "ARIA is reviewing…" : "Send this data to ARIA").font(.system(size: 16, weight: .bold))
+                    Text(sent ? "Sent to ARIA — open chat" : loadingBrief ? "ARIA is reviewing…" : "Send this data to ARIA").font(FDS.TypeScale.Dynamic.headline)
                 }
                 .foregroundColor(.white).frame(maxWidth: .infinity).frame(height: 56)
                 .background(LinearGradient(colors: sent ? [.success, .success.opacity(0.8)] : [.ember, Color(hex: "FF5A00")], startPoint: .leading, endPoint: .trailing))
@@ -245,12 +245,12 @@ struct ARIADashboardView: View {
         VStack(alignment: .leading, spacing: 14) {
             HStack(spacing: 7) {
                 Image(systemName: icon).font(.system(size: 13)).foregroundColor(.ember)
-                Text(title).font(.system(size: 10, weight: .black)).tracking(2).foregroundColor(.white.opacity(0.45))
+                Text(title).font(FDS.TypeScale.Dynamic.micro).tracking(2).foregroundColor(.white.opacity(0.45))
             }
             content()
         }
         .padding(18).frame(maxWidth: .infinity, alignment: .leading)
         .background(Color.white.opacity(0.04)).cornerRadius(20)
-        .overlay(RoundedRectangle(cornerRadius: 20).stroke(Color.white.opacity(0.07), lineWidth: 1))
+        .overlay(RoundedRectangle(cornerRadius: FDS.Radius.xl).stroke(Color.white.opacity(0.07), lineWidth: 1))
     }
 }

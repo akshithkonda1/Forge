@@ -89,7 +89,7 @@ struct ChatView: View {
                                 .foregroundColor(.ember)
                             VStack(alignment: .leading, spacing: 2) {
                                 Text("Weekly evaluation is due")
-                                    .font(.system(size: 13, weight: .semibold))
+                                    .font(FDS.TypeScale.Dynamic.caption)
                                     .foregroundColor(.textPrimary)
                                 Text("Five questions. ARIA files the answers as standing context.")
                                     .font(.system(size: 11))

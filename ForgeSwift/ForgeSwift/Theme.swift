@@ -52,6 +52,8 @@ extension Color {
     static let alert = Color(hex: "EF4444")
 
     // Text
+    /// Warm white — brand wordmark, primary-on-dark button fill.
+    static let paper = Color(hex: "F7F4F0")
     static let textPrimary   = Color(hex: "FAFAFA")
     static let textSecondary = Color(hex: "A1A1AA")
     static let textTertiary  = Color(hex: "71717A")

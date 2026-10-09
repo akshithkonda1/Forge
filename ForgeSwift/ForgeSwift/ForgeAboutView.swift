@@ -44,11 +44,11 @@ struct ForgeAboutView: View {
 
                     VStack(alignment: .leading, spacing: 4) {
                         Text("SUPPORT")
-                            .font(.system(size: 11, weight: .semibold))
+                            .font(FDS.TypeScale.Dynamic.micro)
                             .tracking(1.2)
                             .foregroundColor(.textTertiary)
                         Text(ForgeAppInfo.supportEmail)
-                            .font(.system(size: 14, weight: .medium))
+                            .font(FDS.TypeScale.Dynamic.body)
                             .foregroundColor(.ember)
                             .textSelection(.enabled)
                     }
@@ -76,7 +76,7 @@ struct ForgeAboutView: View {
                 .frame(width: 24)
             VStack(alignment: .leading, spacing: 3) {
                 Text(title)
-                    .font(.system(size: 14, weight: .semibold))
+                    .font(FDS.TypeScale.Dynamic.body.weight(.semibold))
                     .foregroundColor(.textPrimary)
                 Text(body)
                     .font(.system(size: 12))
@@ -95,7 +95,7 @@ struct ForgeTermsAndConditionsView: View {
             ScrollView(showsIndicators: false) {
                 VStack(alignment: .leading, spacing: 18) {
                     Text("Forge is built around local-first health and lifestyle data. You and only you have access to your personal data. Forge never sees, sells, rents, or shares your data in any way whatsoever.")
-                        .font(.system(size: 16, weight: .semibold))
+                        .font(FDS.TypeScale.Dynamic.headline)
                         .foregroundColor(.textPrimary)
                         .lineSpacing(3)
 

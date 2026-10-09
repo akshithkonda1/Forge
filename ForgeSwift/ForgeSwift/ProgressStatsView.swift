@@ -119,7 +119,7 @@ struct StatsMosaicCard: View {
             HStack(alignment: .firstTextBaseline) {
                 VStack(alignment: .leading, spacing: 4) {
                     Text("TODAY’S MOSAIC")
-                        .font(.system(size: 11, weight: .black))
+                        .font(FDS.TypeScale.Dynamic.micro)
                         .foregroundColor(HudChrome.plate)
                         .tracking(1.6)
                     Text(
@@ -145,7 +145,7 @@ struct StatsMosaicCard: View {
                         VStack(alignment: .leading, spacing: 6) {
                             HStack {
                                 Text(tile.track.title.uppercased())
-                                    .font(.system(size: 10, weight: .bold))
+                                    .font(FDS.TypeScale.Dynamic.micro)
                                     .foregroundColor(HudChrome.plate)
                                     .tracking(1.1)
                                 Spacer()
@@ -158,10 +158,10 @@ struct StatsMosaicCard: View {
                                     .frame(width: 6, height: 6)
                             }
                             Text(tile.headline)
-                                .font(.system(size: 22, weight: .bold, design: .rounded))
+                                .font(FDS.TypeScale.Dynamic.metric)
                                 .foregroundColor(.textPrimary)
                             Text(tile.almostThere ? "Almost there · \(tile.detail)" : tile.detail)
-                                .font(.system(size: 11, weight: .medium))
+                                .font(FDS.TypeScale.Dynamic.micro)
                                 .foregroundColor(tile.almostThere ? HudChrome.plate : .textTertiary)
                             ProgressView(value: tile.progress)
                                 .tint(tile.almostThere ? HudChrome.plate : (tile.source == .empty ? HudChrome.miss : HudChrome.plate))
@@ -169,9 +169,9 @@ struct StatsMosaicCard: View {
                         .padding(12)
                         .frame(maxWidth: .infinity, alignment: .leading)
                         .background(Color.surfaceElevated.opacity(0.8))
-                        .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+                        .clipShape(RoundedRectangle(cornerRadius: FDS.Radius.md, style: .continuous))
                         .overlay(
-                            RoundedRectangle(cornerRadius: 14)
+                            RoundedRectangle(cornerRadius: FDS.Radius.md)
                                 .stroke(
                                     (tile.almostThere ? HudChrome.plate : HudChrome.miss)
                                         .opacity(tile.source == .empty ? 0.16 : (tile.almostThere ? 0.50 : 0.32)),
@@ -189,14 +189,14 @@ struct StatsMosaicCard: View {
                 store.openChat(with: snap.mosaicLine, voice: false)
             } label: {
                 Text("Ask ARIA about this picture")
-                    .font(.system(size: 14, weight: .semibold))
+                    .font(FDS.TypeScale.Dynamic.body.weight(.semibold))
                     .foregroundColor(.textPrimary)
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 12)
                     .background(Color.ember.opacity(0.16))
-                    .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                    .clipShape(RoundedRectangle(cornerRadius: FDS.Radius.md, style: .continuous))
                     .overlay(
-                        RoundedRectangle(cornerRadius: 12)
+                        RoundedRectangle(cornerRadius: FDS.Radius.md)
                             .stroke(HudChrome.plate.opacity(0.28), lineWidth: 1)
                     )
             }
@@ -205,9 +205,9 @@ struct StatsMosaicCard: View {
         }
         .padding(16)
         .background(Color.surface.opacity(0.92))
-        .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+        .clipShape(RoundedRectangle(cornerRadius: FDS.Radius.lg, style: .continuous))
         .overlay(
-            RoundedRectangle(cornerRadius: 18)
+            RoundedRectangle(cornerRadius: FDS.Radius.lg)
                 .stroke(HudChrome.plate.opacity(0.22), lineWidth: 1)
         )
         .sheet(isPresented: $showManual) {
@@ -317,7 +317,7 @@ struct QuickStatsOverviewView: View {
                     .font(.system(size: 12))
                     .foregroundColor(.ember)
                 Text("OVERVIEW")
-                    .font(.system(size: 10, weight: .black))
+                    .font(FDS.TypeScale.Dynamic.micro)
                     .foregroundColor(.textTertiary)
                     .tracking(2)
                 Spacer()
@@ -357,7 +357,7 @@ struct QuickStatCard: View {
                         Image(systemName: trendUp ? "arrow.up.right" : "arrow.down.right")
                             .font(.system(size: 9, weight: .bold))
                         Text(trend)
-                            .font(.system(size: 10, weight: .bold))
+                            .font(FDS.TypeScale.Dynamic.micro)
                     }
                     .foregroundColor(trendUp ? .success : .ember)
                     .padding(.horizontal, 7).padding(.vertical, 4)
@@ -368,11 +368,11 @@ struct QuickStatCard: View {
 
             VStack(alignment: .leading, spacing: 2) {
                 Text(value)
-                    .font(.system(size: 20, weight: .black, design: .rounded))
+                    .font(FDS.TypeScale.Dynamic.metric)
                     .foregroundColor(.textPrimary)
 
                 Text(label)
-                    .font(.system(size: 11, weight: .medium))
+                    .font(FDS.TypeScale.Dynamic.micro)
                     .foregroundColor(.textTertiary)
             }
         }
@@ -389,7 +389,7 @@ struct QuickStatCard: View {
             }
         )
         .cornerRadius(14)
-        .overlay(RoundedRectangle(cornerRadius: 14).stroke(Color.borderColor.opacity(0.5), lineWidth: 1))
+        .overlay(RoundedRectangle(cornerRadius: FDS.Radius.md).stroke(Color.borderColor.opacity(0.5), lineWidth: 1))
         .scaleEffect(appeared ? 1 : 0.9)
         .opacity(appeared ? 1 : 0)
         .animation(.spring(response: 0.5, dampingFraction: 0.7).delay(delay), value: appeared)
@@ -456,7 +456,7 @@ struct StreaksAndMilestonesView: View {
                     .font(.system(size: 18))
                     .foregroundColor(.ember)
                 Text("Your training")
-                    .font(.system(size: 18, weight: .semibold))
+                    .font(FDS.TypeScale.Dynamic.headline)
                     .foregroundColor(.textPrimary)
             }
 
@@ -469,7 +469,7 @@ struct StreaksAndMilestonesView: View {
                             .frame(width: 50, height: 50)
                         VStack(spacing: 0) {
                             Text("\(store.currentStreak)")
-                                .font(.system(size: 18, weight: .bold))
+                                .font(FDS.TypeScale.Dynamic.headline)
                                 .foregroundColor(.white)
                             Text(store.currentStreak == 1 ? "day" : "days")
                                 .font(.system(size: 8))
@@ -479,7 +479,7 @@ struct StreaksAndMilestonesView: View {
 
                     VStack(alignment: .leading, spacing: 4) {
                         Text("Days in a row")
-                            .font(.system(size: 14, weight: .semibold))
+                            .font(FDS.TypeScale.Dynamic.body.weight(.semibold))
                             .foregroundColor(.textPrimary)
                         Text(streakMessage)
                             .font(.system(size: 12))
@@ -489,7 +489,7 @@ struct StreaksAndMilestonesView: View {
                     Spacer()
                 }
                 .padding(14)
-                .forgeGlassCard(cornerRadius: 12, accent: .warning)
+                .forgeGlassCard(cornerRadius: FDS.Radius.md, accent: .warning)
                 .accessibilityElement(children: .combine)
                 .accessibilityLabel("Days trained in a row: \(store.currentStreak). \(streakMessage)")
 
@@ -549,12 +549,12 @@ struct MilestoneCard: View {
                     .foregroundColor(color)
                 Spacer()
                 Text("\(Int(progress * 100))%")
-                    .font(.system(size: 11, weight: .semibold))
+                    .font(FDS.TypeScale.Dynamic.micro)
                     .foregroundColor(color)
             }
 
             Text(title)
-                .font(.system(size: 13, weight: .semibold))
+                .font(FDS.TypeScale.Dynamic.caption)
                 .foregroundColor(.textPrimary)
 
             Text(subtitle)
@@ -574,7 +574,7 @@ struct MilestoneCard: View {
             .frame(height: 5)
         }
         .padding(12)
-        .forgeGlassCard(cornerRadius: 12, accent: Color(hex: "3B82F6"))
+        .forgeGlassCard(cornerRadius: FDS.Radius.md, accent: Color.steel)
         .onAppear {
             if reduceMotion {
                 animatedProgress = CGFloat(progress)
@@ -616,7 +616,7 @@ struct ShareProgressView: View {
                         .foregroundColor(.ember)
 
                     Text("Share Your Progress")
-                        .font(.system(size: 20, weight: .bold))
+                        .font(FDS.TypeScale.Dynamic.title)
                         .foregroundColor(.textPrimary)
 
                     Text("Show off your achievements and inspire others!")
@@ -633,7 +633,7 @@ struct ShareProgressView: View {
                     .lineSpacing(5)
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .padding(16)
-                    .forgeGlassCard(cornerRadius: 14, accent: Color(hex: "3B82F6"))
+                    .forgeGlassCard(cornerRadius: FDS.Radius.md, accent: Color.steel)
                     .padding(.horizontal)
 
                 VStack(spacing: 12) {
@@ -698,7 +698,7 @@ struct ShareOptionRow: View {
 
             VStack(alignment: .leading, spacing: 3) {
                 Text(title)
-                    .font(.system(size: 15, weight: .semibold))
+                    .font(FDS.TypeScale.Dynamic.body.weight(.semibold))
                     .foregroundColor(.textPrimary)
                 Text(subtitle)
                     .font(.system(size: 12))
@@ -712,6 +712,6 @@ struct ShareOptionRow: View {
                 .foregroundColor(.textTertiary)
         }
         .padding(16)
-        .forgeGlassCard(cornerRadius: 14, accent: Color(hex: "3B82F6"))
+        .forgeGlassCard(cornerRadius: FDS.Radius.md, accent: Color.steel)
     }
 }

@@ -20,19 +20,19 @@ struct HabitProactiveCard: View {
                 VStack(alignment: .leading, spacing: 6) {
                     HStack(spacing: 6) {
                         Text("HABIT")
-                            .font(.system(size: 11, weight: .black))
+                            .font(FDS.TypeScale.Dynamic.micro)
                             .foregroundColor(.ember).tracking(0.8)
                         Text(habit.title)
-                            .font(.system(size: 11, weight: .semibold))
+                            .font(FDS.TypeScale.Dynamic.micro)
                             .foregroundColor(.textTertiary)
                     }
                     Text(habit.breaker)
-                        .font(.system(size: 14, weight: .medium))
+                        .font(FDS.TypeScale.Dynamic.body)
                         .foregroundColor(.textPrimary)
                         .multilineTextAlignment(.leading)
                         .lineSpacing(2)
                     Text("Try → \(habit.breakerAction) · tap to talk")
-                        .font(.system(size: 11, weight: .semibold))
+                        .font(FDS.TypeScale.Dynamic.micro)
                         .foregroundColor(.ember)
                 }
                 Spacer(minLength: 0)

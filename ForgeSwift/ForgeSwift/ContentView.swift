@@ -112,7 +112,7 @@ struct ForgeSplashScreen: View {
                         Text("FORGE")
                             .font(ForgeType.display)
                             .tracking(6)
-                            .foregroundColor(Color(hex: "F7F4F0"))
+                            .foregroundColor(Color.paper)
                     }
 
                     Text("Forged.")
@@ -472,7 +472,7 @@ struct ARIATabButton: View {
                 }
 
                 Text(isVoiceMode ? "Voice" : "ARIA")
-                    .font(.system(size: 10, weight: .semibold, design: .rounded))
+                    .font(FDS.TypeScale.Dynamic.micro)
                     .tracking(0.3)
                     .foregroundStyle(isActive ? Color.ember : Color.white.opacity(0.5))
             }

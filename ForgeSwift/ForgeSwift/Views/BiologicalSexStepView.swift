@@ -13,14 +13,14 @@ struct BiologicalSexStepView: View {
                     let selected = coordinator.profile.biologicalSex == sex
                     Button { coordinator.selectBiologicalSex(sex) } label: {
                         Text(sex.label)
-                            .font(.system(size: 14, weight: .semibold, design: .rounded))
+                            .font(FDS.TypeScale.Dynamic.body.weight(.semibold))
                             .foregroundColor(selected ? .white : .textPrimary)
                             .frame(maxWidth: .infinity)
                             .padding(.vertical, 14)
                             .background(selected ? Color.ember.opacity(0.85) : Color.background.opacity(0.55))
-                            .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+                            .clipShape(RoundedRectangle(cornerRadius: FDS.Radius.md, style: .continuous))
                             .overlay(
-                                RoundedRectangle(cornerRadius: 14, style: .continuous)
+                                RoundedRectangle(cornerRadius: FDS.Radius.md, style: .continuous)
                                     .stroke(selected ? Color.ember.opacity(0.9) : Color.white.opacity(0.06), lineWidth: 1)
                             )
                     }
@@ -31,27 +31,27 @@ struct BiologicalSexStepView: View {
             if coordinator.profile.biologicalSex == .male && coordinator.showingEducationalCyclePrompt {
                 VStack(alignment: .leading, spacing: 8) {
                     Text("Cycle Health education? Useful if you support a partner, daughter, or family.")
-                        .font(.system(size: 12, weight: .medium))
+                        .font(FDS.TypeScale.Dynamic.caption)
                         .foregroundColor(.textTertiary)
                     HStack(spacing: 8) {
                         Button { coordinator.selectEducationalCycleMode(true) } label: {
                             Text("Yes, enable it")
-                                .font(.system(size: 13, weight: .semibold))
+                                .font(FDS.TypeScale.Dynamic.caption)
                                 .foregroundColor(.white)
                                 .frame(maxWidth: .infinity)
                                 .padding(.vertical, 12)
                                 .background(Color.ember.opacity(0.8))
-                                .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                                .clipShape(RoundedRectangle(cornerRadius: FDS.Radius.md, style: .continuous))
                         }
                         .buttonStyle(.plain)
                         Button { coordinator.selectEducationalCycleMode(false) } label: {
                             Text("No thanks")
-                                .font(.system(size: 13, weight: .medium))
+                                .font(FDS.TypeScale.Dynamic.caption)
                                 .foregroundColor(.textSecondary)
                                 .frame(maxWidth: .infinity)
                                 .padding(.vertical, 12)
                                 .background(Color.background.opacity(0.55))
-                                .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                                .clipShape(RoundedRectangle(cornerRadius: FDS.Radius.md, style: .continuous))
                         }
                         .buttonStyle(.plain)
                     }

@@ -343,17 +343,17 @@ struct AriaNeuralVoiceSheet: View {
         NavigationStack {
             VStack(alignment: .leading, spacing: 18) {
                 Text(AriaNeuralVoicePromptPolicy.body)
-                    .font(FDS.TypeScale.body(16))
+                    .font(FDS.TypeScale.Dynamic.headline)
                     .foregroundColor(.textSecondary)
                     .fixedSize(horizontal: false, vertical: true)
 
                 Text(AriaNeuralVoicePromptPolicy.settingsPath)
-                    .font(FDS.TypeScale.body(14))
+                    .font(FDS.TypeScale.Dynamic.body)
                     .foregroundColor(.textPrimary)
                     .fixedSize(horizontal: false, vertical: true)
                     .padding(14)
                     .frame(maxWidth: .infinity, alignment: .leading)
-                    .background(Color.surfaceElevated, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+                    .background(Color.surfaceElevated, in: RoundedRectangle(cornerRadius: FDS.Radius.md, style: .continuous))
 
                 Spacer()
 
@@ -362,11 +362,11 @@ struct AriaNeuralVoiceSheet: View {
                     gate.dismiss()
                 } label: {
                     Text(AriaNeuralVoicePromptPolicy.actionTitle)
-                        .font(FDS.TypeScale.label(16))
+                        .font(FDS.TypeScale.Dynamic.caption)
                         .foregroundColor(.white)
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 14)
-                        .background(Color.ember, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+                        .background(Color.ember, in: RoundedRectangle(cornerRadius: FDS.Radius.md, style: .continuous))
                 }
                 .buttonStyle(.plain)
             }

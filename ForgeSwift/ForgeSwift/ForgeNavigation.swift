@@ -66,12 +66,12 @@ enum ForgePrimaryDestination: String, CaseIterable, Identifiable {
         case .home: return .ember
         case .workout: return Color(hex: "F97316")
         case .chat: return Color(hex: "38BDF8")
-        case .lifestyle: return Color(hex: "22C55E")
-        case .sleep: return Color(hex: "A855F7")
-        case .progress: return Color(hex: "3B82F6")
+        case .lifestyle: return Color.vitality
+        case .sleep: return Color.aurora
+        case .progress: return Color.steel
         case .profile: return .steel
         case .cycleHealth: return Color(hex: "EC4899")
-        case .hydration: return Color(hex: "4A9EFF")
+        case .hydration: return Color.steel
         }
     }
 
@@ -341,7 +341,7 @@ struct ForgeExploreDestinationsGrid: View {
                 } label: {
                     HStack(spacing: 12) {
                         ZStack {
-                            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                            RoundedRectangle(cornerRadius: FDS.Radius.md, style: .continuous)
                                 .fill(dest.accent.opacity(0.16))
                                 .frame(width: 40, height: 40)
                             Image(systemName: dest.systemImage)
@@ -350,18 +350,18 @@ struct ForgeExploreDestinationsGrid: View {
                         }
                         VStack(alignment: .leading, spacing: 2) {
                             Text(dest.title)
-                                .font(.system(size: 14, weight: .semibold, design: .rounded))
+                                .font(FDS.TypeScale.Dynamic.body.weight(.semibold))
                                 .foregroundColor(.textPrimary)
                                 .lineLimit(1)
                             Text(dest.subtitle)
-                                .font(.system(size: 11, weight: .medium, design: .rounded))
+                                .font(FDS.TypeScale.Dynamic.micro)
                                 .foregroundColor(.textTertiary)
                                 .lineLimit(2)
                         }
                         Spacer(minLength: 0)
                     }
                     .padding(12)
-                    .forgeGlassCard(cornerRadius: 14, accent: dest.accent)
+                    .forgeGlassCard(cornerRadius: FDS.Radius.md, accent: dest.accent)
                 }
                 .buttonStyle(.plain)
                 .accessibilityLabel("Open \(dest.title)")

@@ -22,7 +22,7 @@ struct VoiceCoachBar: View {
                     if coach.isListening && !coach.transcribedText.isEmpty {
                         // Show live transcription
                         Text(coach.transcribedText)
-                            .font(.system(size: 13, weight: .medium))
+                            .font(FDS.TypeScale.Dynamic.caption)
                             .foregroundColor(.white.opacity(0.9))
                             .lineSpacing(2)
                             .frame(maxWidth: .infinity, alignment: .leading)
@@ -60,7 +60,7 @@ struct VoiceCoachBar: View {
             .background(Color.surfaceElevated)
             .cornerRadius(14)
             .overlay(
-                RoundedRectangle(cornerRadius: 14)
+                RoundedRectangle(cornerRadius: FDS.Radius.md)
                     .stroke(
                         coach.isListening ? Color.ember.opacity(0.6) : Color.borderColor,
                         lineWidth: coach.isListening ? 1.5 : 1
@@ -236,9 +236,9 @@ struct AriaSpokenMuteButton: View {
                 .foregroundStyle(muted ? Color.danger : Color.textSecondary)
                 .frame(width: 36, height: 36)
                 .background(Color.surfaceElevated)
-                .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+                .clipShape(RoundedRectangle(cornerRadius: FDS.Radius.sm, style: .continuous))
                 .overlay(
-                    RoundedRectangle(cornerRadius: 10)
+                    RoundedRectangle(cornerRadius: FDS.Radius.sm)
                         .stroke(muted ? Color.danger.opacity(0.4) : Color.borderColor.opacity(0.45), lineWidth: 1)
                 )
         }

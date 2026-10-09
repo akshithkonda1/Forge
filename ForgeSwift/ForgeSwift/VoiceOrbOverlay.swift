@@ -66,7 +66,7 @@ struct VoiceOrbOverlay: View {
                 // State labels
                 VStack(spacing: 6) {
                     Text(speech.voiceState.label)
-                        .font(.system(size: 19, weight: .semibold))
+                        .font(FDS.TypeScale.Dynamic.headline)
                         .foregroundStyle(LinearGradient(
                             colors: [accent, .white.opacity(0.85)],
                             startPoint: .leading, endPoint: .trailing
@@ -80,7 +80,7 @@ struct VoiceOrbOverlay: View {
                         .animation(FDS.Spring.standard, value: speech.voiceState.label)
 
                     Text(speech.voiceState.sublabel)
-                        .font(.system(size: 13, weight: .medium))
+                        .font(FDS.TypeScale.Dynamic.caption)
                         .foregroundColor(.white.opacity(0.5))
                 }
                 .opacity(contentOpacity)
@@ -89,7 +89,7 @@ struct VoiceOrbOverlay: View {
                 // Live transcript
                 if !speech.recognizedText.isEmpty {
                     Text("\"\(speech.recognizedText)\"")
-                        .font(.system(size: 15, weight: .medium))
+                        .font(FDS.TypeScale.Dynamic.body)
                         .foregroundColor(.white.opacity(0.82))
                         .multilineTextAlignment(.center)
                         .lineLimit(3)
@@ -106,7 +106,7 @@ struct VoiceOrbOverlay: View {
                     Button(action: onCancel) {
                         HStack(spacing: 7) {
                             Image(systemName: "xmark").font(.system(size: 14, weight: .semibold))
-                            Text("Cancel").font(.system(size: 15, weight: .semibold))
+                            Text("Cancel").font(FDS.TypeScale.Dynamic.body.weight(.semibold))
                         }
                         .foregroundColor(.white.opacity(0.82))
                         .padding(.horizontal, 22).padding(.vertical, 13)
@@ -120,7 +120,7 @@ struct VoiceOrbOverlay: View {
                         Button { speech.stopListening(submit: true) } label: {
                             HStack(spacing: 7) {
                                 Image(systemName: "arrow.up").font(.system(size: 14, weight: .bold))
-                                Text("Send").font(.system(size: 15, weight: .semibold))
+                                Text("Send").font(FDS.TypeScale.Dynamic.body.weight(.semibold))
                             }
                             .foregroundColor(.white)
                             .padding(.horizontal, 24).padding(.vertical, 13)

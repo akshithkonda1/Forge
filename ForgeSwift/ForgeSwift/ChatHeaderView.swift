@@ -28,16 +28,16 @@ struct ChatHeaderView: View {
                         .tracking(ForgeType.tracking(.title))
                     if store.lastCoachWorkers.count > 1 {
                         Text("· " + store.lastCoachWorkers.map(\.kind.label).joined(separator: " + "))
-                            .font(.system(size: 13, weight: .medium))
+                            .font(FDS.TypeScale.Dynamic.caption)
                             .foregroundColor(store.lastRoutedCoachAgent.accent)
                             .lineLimit(1)
                     } else if store.lastRoutedCoachAgent != .aria {
                         Text("· \(store.lastRoutedCoachAgent.label)")
-                            .font(.system(size: 13, weight: .medium))
+                            .font(FDS.TypeScale.Dynamic.caption)
                             .foregroundColor(store.lastRoutedCoachAgent.accent)
                     } else {
                         Text("your coaches")
-                            .font(.system(size: 11, weight: .medium))
+                            .font(FDS.TypeScale.Dynamic.micro)
                             .foregroundColor(.textTertiary)
                     }
                 }
@@ -48,14 +48,14 @@ struct ChatHeaderView: View {
                             .font(.system(size: 8, weight: .bold))
                             .foregroundColor(Color(hex: "A9D8FF"))
                         Text("Dummy · tune without AI")
-                            .font(.system(size: 11, weight: .medium))
+                            .font(FDS.TypeScale.Dynamic.micro)
                             .foregroundColor(Color(hex: "A9D8FF").opacity(0.92))
                     } else if let remoteError = ariaService.lastRemoteError {
                         Image(systemName: "exclamationmark.triangle.fill")
                             .font(.system(size: 8, weight: .bold))
                             .foregroundColor(Color.danger)
                         Text(remoteError)
-                            .font(.system(size: 11, weight: .medium))
+                            .font(FDS.TypeScale.Dynamic.micro)
                             .foregroundColor(Color.danger.opacity(0.9))
                             .lineLimit(1)
                     } else if ariaService.isLocalFallback {
@@ -63,12 +63,12 @@ struct ChatHeaderView: View {
                             .font(.system(size: 8, weight: .bold))
                             .foregroundColor(Color.ember)
                         Text("On this phone")
-                            .font(.system(size: 11, weight: .medium))
+                            .font(FDS.TypeScale.Dynamic.micro)
                             .foregroundColor(Color.ember.opacity(0.8))
                     } else {
                         Circle().fill(ForgePalette.amber).frame(width: 5, height: 5)
                         Text(headerStatusLine)
-                            .font(.system(size: 11, weight: .medium))
+                            .font(FDS.TypeScale.Dynamic.micro)
                             .foregroundColor(.textSecondary)
                     }
                 }
@@ -83,7 +83,7 @@ struct ChatHeaderView: View {
                     store.skipAriaFirstBond()
                 } label: {
                     Text(AriaFirstBond.skipLabel)
-                        .font(.system(size: 13, weight: .semibold, design: .rounded))
+                        .font(FDS.TypeScale.Dynamic.caption)
                         .foregroundColor(.textTertiary)
                         .padding(.horizontal, 12)
                         .padding(.vertical, 6)
@@ -119,7 +119,7 @@ struct ChatHeaderView: View {
                         .stroke(Color.white.opacity(0.06), lineWidth: 1)
                         .frame(width: 38, height: 38)
                     Text("\(store.readiness.overall)")
-                        .font(.system(size: 14, weight: .black, design: .rounded))
+                        .font(FDS.TypeScale.Dynamic.body.weight(.semibold))
                         .monospacedDigit()
                         .foregroundColor(.textPrimary)
                 }

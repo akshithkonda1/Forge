@@ -32,7 +32,7 @@ struct SleepPersonalizationSheet: View {
                                             .cornerRadius(12)
                                         VStack(alignment: .leading, spacing: 3) {
                                             Text(type.displayName)
-                                                .font(.system(size: 15, weight: .semibold))
+                                                .font(FDS.TypeScale.Dynamic.body.weight(.semibold))
                                                 .foregroundColor(.textPrimary)
                                             Text(type.tagline)
                                                 .font(.system(size: 12))
@@ -45,7 +45,7 @@ struct SleepPersonalizationSheet: View {
                                     }
                                     .padding(14)
                                     .forgeGlassCard(
-                                        cornerRadius: 14,
+                                        cornerRadius: FDS.Radius.md,
                                         accent: draft.chronotype == type ? .steel : nil
                                     )
                                 }
@@ -55,7 +55,7 @@ struct SleepPersonalizationSheet: View {
 
                         VStack(alignment: .leading, spacing: 8) {
                             Text("Coaching personality")
-                                .font(.system(size: 13, weight: .semibold))
+                                .font(FDS.TypeScale.Dynamic.caption)
                                 .foregroundColor(.textSecondary)
                             TextField("e.g. direct, encouraging, data-focused", text: $draft.personality)
                                 .padding(12)
@@ -65,7 +65,7 @@ struct SleepPersonalizationSheet: View {
 
                         VStack(alignment: .leading, spacing: 8) {
                             Text("Lifestyle notes")
-                                .font(.system(size: 13, weight: .semibold))
+                                .font(FDS.TypeScale.Dynamic.caption)
                                 .foregroundColor(.textSecondary)
                             TextEditor(text: $draft.notes)
                                 .frame(minHeight: 90)

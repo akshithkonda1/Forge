@@ -45,7 +45,7 @@ struct LifestyleLifetimeView: View {
         switch aging.state {
         case .younger: return .success
         case .older: return .warning
-        case .matched, .unknown: return Color(hex: "A855F7")
+        case .matched, .unknown: return Color.aurora
         }
     }
 }
@@ -58,17 +58,17 @@ struct LifetimeOneBreathCard: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
             Text("LIFETIME")
-                .font(.system(size: 10, weight: .black))
+                .font(FDS.TypeScale.Dynamic.micro)
                 .foregroundColor(.textTertiary)
                 .tracking(2.5)
             Text(line)
-                .font(.system(size: 22, weight: .semibold, design: .rounded))
+                .font(FDS.TypeScale.Dynamic.title)
                 .foregroundColor(.textPrimary)
                 .fixedSize(horizontal: false, vertical: true)
                 .accessibilityAddTraits(.isHeader)
             if !detail.isEmpty, detail != line {
                 Text(detail)
-                    .font(.system(size: 14, weight: .medium))
+                    .font(FDS.TypeScale.Dynamic.body)
                     .foregroundColor(.textSecondary)
             }
             Text("Lifestyle comparison — not a medical biological age.")
@@ -77,7 +77,7 @@ struct LifetimeOneBreathCard: View {
         }
         .padding(22)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .forgeGlassCard(cornerRadius: 22, accent: tone)
+        .forgeGlassCard(cornerRadius: FDS.Radius.xl, accent: tone)
         .accessibilityElement(children: .combine)
         .accessibilityLabel(line)
     }
@@ -90,14 +90,14 @@ struct MetabolicStoryCard: View {
         VStack(alignment: .leading, spacing: 16) {
             HStack(spacing: 12) {
                 ZStack {
-                    Circle().fill(Color(hex: "FFB84D").opacity(0.15)).frame(width: 46, height: 46)
+                    Circle().fill(Color.amber.opacity(0.15)).frame(width: 46, height: 46)
                     Image(systemName: "waveform.path.ecg.rectangle")
                         .font(.system(size: 20, weight: .semibold))
-                        .foregroundColor(Color(hex: "FFB84D"))
+                        .foregroundColor(Color.amber)
                 }
                 VStack(alignment: .leading, spacing: 3) {
                     Text("Metabolic health")
-                        .font(.system(size: 18, weight: .bold))
+                        .font(FDS.TypeScale.Dynamic.headline)
                         .foregroundColor(.textPrimary)
                     Text("Meals, macros, and how glucose landed")
                         .font(.system(size: 12))
@@ -108,7 +108,7 @@ struct MetabolicStoryCard: View {
 
             if !snapshot.storyLine.isEmpty {
                 Text(snapshot.storyLine)
-                    .font(.system(size: 20, weight: .semibold, design: .rounded))
+                    .font(FDS.TypeScale.Dynamic.title)
                     .foregroundColor(.textPrimary)
                     .fixedSize(horizontal: false, vertical: true)
                     .accessibilityAddTraits(.isHeader)
@@ -123,7 +123,7 @@ struct MetabolicStoryCard: View {
             if let estimate = snapshot.watchEstimate, estimate.hasSignals {
                 VStack(alignment: .leading, spacing: 6) {
                     Text("ESTIMATED FROM APPLE WATCH")
-                        .font(.system(size: 10, weight: .black))
+                        .font(FDS.TypeScale.Dynamic.micro)
                         .foregroundColor(.textTertiary)
                         .tracking(1.6)
                     ForEach(estimate.displayLines, id: \.self) { line in
@@ -142,7 +142,7 @@ struct MetabolicStoryCard: View {
             FourBulletList(bullets: snapshot.bullets)
         }
         .padding(22)
-        .forgeGlassCard(cornerRadius: 22, accent: Color(hex: "FFB84D"))
+        .forgeGlassCard(cornerRadius: FDS.Radius.xl, accent: Color.amber)
         .accessibilityElement(children: .combine)
         .accessibilityLabel(snapshot.storyLine.isEmpty ? "Metabolic health" : snapshot.storyLine)
     }
@@ -150,11 +150,11 @@ struct MetabolicStoryCard: View {
     private func macroChip(_ label: String, _ value: String) -> some View {
         VStack(alignment: .leading, spacing: 4) {
             Text(label.uppercased())
-                .font(.system(size: 10, weight: .black))
+                .font(FDS.TypeScale.Dynamic.micro)
                 .tracking(1.1)
                 .foregroundColor(.textTertiary)
             Text(value)
-                .font(.system(size: 18, weight: .bold, design: .rounded))
+                .font(FDS.TypeScale.Dynamic.metric)
                 .foregroundColor(.textPrimary)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -167,14 +167,14 @@ struct MealGlucoseStoryCard: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
             Text("MEAL ↔ GLUCOSE")
-                .font(.system(size: 10, weight: .black))
+                .font(FDS.TypeScale.Dynamic.micro)
                 .foregroundColor(.textTertiary)
                 .tracking(2.5)
 
             ForEach(Array(pairs.enumerated()), id: \.offset) { _, pair in
                 VStack(alignment: .leading, spacing: 4) {
                     Text(pair.line)
-                        .font(.system(size: 14, weight: .semibold))
+                        .font(FDS.TypeScale.Dynamic.body.weight(.semibold))
                         .foregroundColor(.textPrimary)
                         .fixedSize(horizontal: false, vertical: true)
                     if let peak = pair.peakMgdl {
@@ -190,7 +190,7 @@ struct MealGlucoseStoryCard: View {
             }
         }
         .padding(22)
-        .forgeGlassCard(cornerRadius: 22, accent: Color(hex: "FFB84D"))
+        .forgeGlassCard(cornerRadius: FDS.Radius.xl, accent: Color.amber)
     }
 
     private func peakCaption(peak: Double, delta: Double?) -> String {
@@ -209,9 +209,9 @@ struct MetabolicAccessoryCard: View {
         VStack(alignment: .leading, spacing: 12) {
             HStack(spacing: 8) {
                 Image(systemName: "cross.vial.fill")
-                    .foregroundColor(Color(hex: "FFB84D"))
+                    .foregroundColor(Color.amber)
                 Text("Sensor sold separately")
-                    .font(.system(size: 16, weight: .bold))
+                    .font(FDS.TypeScale.Dynamic.headline)
                     .foregroundColor(.textPrimary)
             }
             Text(snapshot.accessoryLine)
@@ -221,7 +221,7 @@ struct MetabolicAccessoryCard: View {
 
             Button(action: onOpenDevices) {
                 Text("Open devices")
-                    .font(.system(size: 14, weight: .semibold))
+                    .font(FDS.TypeScale.Dynamic.body.weight(.semibold))
                     .foregroundColor(.ember)
             }
             .buttonStyle(.plain)
@@ -229,6 +229,6 @@ struct MetabolicAccessoryCard: View {
         }
         .padding(20)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .forgeGlassCard(cornerRadius: 20, accent: Color(hex: "FFB84D"))
+        .forgeGlassCard(cornerRadius: FDS.Radius.xl, accent: Color.amber)
     }
 }

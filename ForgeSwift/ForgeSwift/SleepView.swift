@@ -174,11 +174,11 @@ struct SleepHeaderView: View {
                         SleepStatusDot(kind: presence.liveDot)
                     }
                     Text(presence.statusCaption)
-                        .font(.system(size: 12, weight: .medium, design: .rounded))
+                        .font(FDS.TypeScale.Dynamic.caption)
                         .foregroundColor(.textTertiary)
                         .lineLimit(1)
                     Text(subtitle)
-                        .font(.system(size: 15, weight: .medium, design: .rounded))
+                        .font(FDS.TypeScale.Dynamic.body)
                         .foregroundColor(.textSecondary)
                         .lineLimit(2)
                         .animation(reduceMotion ? nil : .easeInOut(duration: 0.2), value: subtitle)
@@ -195,7 +195,7 @@ struct SleepHeaderView: View {
                         HStack(spacing: 6) {
                             ARIAIdentityMark(state: .idle, mood: .energized, size: 14, amplitude: 0.22)
                             Text("Ask ARIA")
-                                .font(.system(size: 13, weight: .semibold, design: .rounded))
+                                .font(FDS.TypeScale.Dynamic.caption)
                         }
                         .foregroundColor(.white)
                         .padding(.horizontal, 14)

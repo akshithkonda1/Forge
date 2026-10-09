@@ -100,12 +100,12 @@ struct AriaMemoryControlsView: View {
                 .padding(.horizontal, 16)
                 .padding(.bottom, 12)
             Text(model.controls.memoryStatusLine)
-                .font(.system(size: 12, weight: .semibold))
+                .font(FDS.TypeScale.Dynamic.caption)
                 .foregroundColor(.textTertiary)
                 .padding(.horizontal, 16)
                 .padding(.bottom, 12)
         }
-        .forgeGlassCard(cornerRadius: 16, accent: .ember)
+        .forgeGlassCard(cornerRadius: FDS.Radius.lg, accent: .ember)
     }
 
     private var personaCard: some View {
@@ -120,7 +120,7 @@ struct AriaMemoryControlsView: View {
                 .accessibilityValue(AriaMemoryAccess.rememberMeValue(isOn: model.controls.prefs.personaEnabled))
             }
             Text(model.controls.persona.archetype.title)
-                .font(.system(size: 18, weight: .bold, design: .rounded))
+                .font(FDS.TypeScale.Dynamic.metric)
                 .foregroundColor(.textPrimary)
                 .padding(.horizontal, 16)
             if let hours = model.controls.persona.sleepNeedPreferenceHours {
@@ -162,7 +162,7 @@ struct AriaMemoryControlsView: View {
                         confirmForgetPersona = true
                     } label: {
                         Text(AriaMemoryAccess.forgetPersonaLabel)
-                            .font(.system(size: 14, weight: .semibold))
+                            .font(FDS.TypeScale.Dynamic.body.weight(.semibold))
                             .foregroundColor(.danger)
                     }
                     .buttonStyle(.plain)
@@ -177,13 +177,13 @@ struct AriaMemoryControlsView: View {
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(Color.surface)
-        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+        .clipShape(RoundedRectangle(cornerRadius: FDS.Radius.lg, style: .continuous))
     }
 
     private var toneCard: some View {
         VStack(alignment: .leading, spacing: 10) {
             Text(AriaMemoryAccess.howITalkHeader)
-                .font(.system(size: 15, weight: .bold))
+                .font(FDS.TypeScale.Dynamic.body.weight(.semibold))
                 .foregroundColor(.textPrimary)
                 .accessibilityAddTraits(.isHeader)
             Text("Friend first. Not a clinician.")
@@ -200,7 +200,7 @@ struct AriaMemoryControlsView: View {
                             .accessibilityHidden(true)
                         VStack(alignment: .leading, spacing: 2) {
                             Text(tone.title)
-                                .font(.system(size: 14, weight: .semibold))
+                                .font(FDS.TypeScale.Dynamic.body.weight(.semibold))
                                 .foregroundColor(.textPrimary)
                             Text(tone.line)
                                 .font(.system(size: 12))
@@ -218,13 +218,13 @@ struct AriaMemoryControlsView: View {
             }
         }
         .padding(16)
-        .forgeGlassCard(cornerRadius: 16, accent: .steel)
+        .forgeGlassCard(cornerRadius: FDS.Radius.lg, accent: .steel)
     }
 
     private var checkInCard: some View {
         VStack(alignment: .leading, spacing: 10) {
             Text(AriaMemoryAccess.checkInsHeader)
-                .font(.system(size: 15, weight: .bold))
+                .font(FDS.TypeScale.Dynamic.body.weight(.semibold))
                 .foregroundColor(.textPrimary)
                 .accessibilityAddTraits(.isHeader)
             Text("How often I ask how life is going. On this phone.")
@@ -241,7 +241,7 @@ struct AriaMemoryControlsView: View {
                             .accessibilityHidden(true)
                         VStack(alignment: .leading, spacing: 2) {
                             Text(cadence.title)
-                                .font(.system(size: 14, weight: .semibold))
+                                .font(FDS.TypeScale.Dynamic.body.weight(.semibold))
                                 .foregroundColor(.textPrimary)
                             Text(cadence.detail)
                                 .font(.system(size: 12))
@@ -259,7 +259,7 @@ struct AriaMemoryControlsView: View {
             }
         }
         .padding(16)
-        .forgeGlassCard(cornerRadius: 16, accent: .steel)
+        .forgeGlassCard(cornerRadius: FDS.Radius.lg, accent: .steel)
     }
 
     private func folderCard(_ folder: AriaKnowledgeCategory) -> some View {
@@ -271,7 +271,7 @@ struct AriaMemoryControlsView: View {
                     .foregroundColor(.ember)
                 VStack(alignment: .leading, spacing: 2) {
                     Text(folder.title)
-                        .font(.system(size: 15, weight: .bold))
+                        .font(FDS.TypeScale.Dynamic.body.weight(.semibold))
                         .foregroundColor(.textPrimary)
                         .accessibilityAddTraits(.isHeader)
                     Text(folder.blurb)
@@ -280,7 +280,7 @@ struct AriaMemoryControlsView: View {
                 }
                 Spacer()
                 Text("\(items.count)")
-                    .font(.system(size: 12, weight: .semibold))
+                    .font(FDS.TypeScale.Dynamic.caption)
                     .foregroundColor(.textTertiary)
                     .accessibilityLabel("\(items.count) notes")
             }
@@ -339,7 +339,7 @@ struct AriaMemoryControlsView: View {
                 showEditor = true
             } label: {
                 Text("Add a note")
-                    .font(.system(size: 14, weight: .semibold))
+                    .font(FDS.TypeScale.Dynamic.body.weight(.semibold))
                     .foregroundColor(.ember)
             }
             .buttonStyle(.plain)
@@ -348,7 +348,7 @@ struct AriaMemoryControlsView: View {
             .accessibilityAddTraits(.isButton)
         }
         .padding(16)
-        .forgeGlassCard(cornerRadius: 16, accent: .steel)
+        .forgeGlassCard(cornerRadius: FDS.Radius.lg, accent: .steel)
     }
 
     private var editorSheet: some View {
@@ -370,7 +370,7 @@ struct AriaMemoryControlsView: View {
                     .lineLimit(3...8)
                     .padding(12)
                     .background(Color.surfaceElevated)
-                    .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                    .clipShape(RoundedRectangle(cornerRadius: FDS.Radius.md, style: .continuous))
                     .accessibilityLabel(AriaMemoryAccess.noteFieldLabel)
                 if let addError = model.addError {
                     Text(addError)

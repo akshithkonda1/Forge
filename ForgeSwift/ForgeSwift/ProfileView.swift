@@ -158,7 +158,7 @@ struct ProfileHeroHeader: View {
     private func identityChip(text: String, icon: String, color: Color) -> some View {
         HStack(spacing: 5) {
             Image(systemName: icon).font(.system(size: 10, weight: .semibold))
-            Text(text).font(.system(size: 12, weight: .semibold))
+            Text(text).font(FDS.TypeScale.Dynamic.caption)
                 .lineLimit(1)
         }
         .foregroundColor(color)
@@ -192,12 +192,12 @@ struct ProfileHeroHeader: View {
         VStack(spacing: 6) {
             Image(systemName: icon).font(.system(size: 13, weight: .semibold)).foregroundColor(tint)
             Text(value)
-                .font(.system(size: 20, weight: .bold, design: .rounded))
+                .font(FDS.TypeScale.Dynamic.metric)
                 .foregroundColor(.textPrimary)
                 .lineLimit(1)
                 .minimumScaleFactor(0.6)
             Text(label)
-                .font(.system(size: 10, weight: .medium))
+                .font(FDS.TypeScale.Dynamic.micro)
                 .foregroundColor(.textTertiary)
                 .lineLimit(1)
                 .minimumScaleFactor(0.7)
@@ -242,25 +242,25 @@ struct ProfileHeroHeader: View {
             } label: {
                 VStack(alignment: .leading, spacing: 8) {
                     Text("LIFETIME")
-                        .font(.system(size: 10, weight: .black))
+                        .font(FDS.TypeScale.Dynamic.micro)
                         .tracking(1.4)
                         .foregroundColor(.textTertiary)
                     if !heart.isEmpty {
                         Text(heart)
-                            .font(.system(size: 15, weight: .semibold, design: .rounded))
+                            .font(FDS.TypeScale.Dynamic.body.weight(.semibold))
                             .foregroundColor(.textPrimary)
                             .fixedSize(horizontal: false, vertical: true)
                     }
                     if !metabolic.isEmpty {
                         Text(metabolic)
-                            .font(.system(size: 13, weight: .medium))
+                            .font(FDS.TypeScale.Dynamic.caption)
                             .foregroundColor(.textSecondary)
                             .fixedSize(horizontal: false, vertical: true)
                     }
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .padding(FDS.Spacing.lg)
-                .forgeGlassCard(accent: Color(hex: "A855F7"))
+                .forgeGlassCard(accent: Color.aurora)
             }
             .buttonStyle(.plain)
             .accessibilityLabel([heart, metabolic].filter { !$0.isEmpty }.joined(separator: ". "))
@@ -281,16 +281,16 @@ struct ProfileHeroHeader: View {
                     .frame(width: 46, height: 46)
                     .animation(FDS.Spring.sweep, value: store.readiness.overall)
                 Text("\(store.readiness.overall)")
-                    .font(.system(size: 15, weight: .bold, design: .rounded))
+                    .font(FDS.TypeScale.Dynamic.body.weight(.semibold))
                     .foregroundColor(.textPrimary)
             }
 
             VStack(alignment: .leading, spacing: 2) {
                 Text("Readiness today")
-                    .font(.system(size: 12, weight: .medium))
+                    .font(FDS.TypeScale.Dynamic.caption)
                     .foregroundColor(.textTertiary)
                 Text(readinessWord)
-                    .font(.system(size: 17, weight: .semibold))
+                    .font(FDS.TypeScale.Dynamic.headline)
                     .foregroundColor(.textPrimary)
             }
 
@@ -298,7 +298,7 @@ struct ProfileHeroHeader: View {
 
             HStack(spacing: 4) {
                 Image(systemName: trendSymbol).font(.system(size: 10, weight: .bold))
-                Text(trendLabel).font(.system(size: 11, weight: .semibold)).lineLimit(1)
+                Text(trendLabel).font(FDS.TypeScale.Dynamic.micro).lineLimit(1)
             }
             .foregroundColor(trendColor)
             .padding(.horizontal, 10)
@@ -330,7 +330,7 @@ struct ProfileHeroHeader: View {
     private func actionLabel(icon: String, text: String, filled: Bool) -> some View {
         HStack(spacing: 7) {
             Image(systemName: icon).font(.system(size: 14, weight: .semibold))
-            Text(text).font(.system(size: 14, weight: .semibold))
+            Text(text).font(FDS.TypeScale.Dynamic.body.weight(.semibold))
         }
         .foregroundColor(filled ? .white : .ember)
         .frame(maxWidth: .infinity)

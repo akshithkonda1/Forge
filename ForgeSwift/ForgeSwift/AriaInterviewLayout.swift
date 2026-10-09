@@ -115,14 +115,14 @@ struct AriaInterviewLayout: View {
 
                 VStack(alignment: .leading, spacing: 3) {
                     Text(presenceCaption.uppercased())
-                        .font(.system(size: 11, weight: .semibold, design: .rounded))
+                        .font(FDS.TypeScale.Dynamic.micro)
                         .tracking(1.4)
                         .foregroundColor(coordinator.ariaMood.accentColor)
                     Text(coordinator.step.progressLabel)
-                        .font(.system(size: 20, weight: .semibold, design: .rounded))
+                        .font(FDS.TypeScale.Dynamic.title)
                         .foregroundColor(.textPrimary)
                     Text(spokenMuted ? "Voice is muted" : "Tap ARIA to hear her again")
-                        .font(.system(size: 11, weight: .medium))
+                        .font(FDS.TypeScale.Dynamic.micro)
                         .foregroundColor(.textTertiary)
                 }
 
@@ -131,7 +131,7 @@ struct AriaInterviewLayout: View {
                 AriaSpokenMuteButton()
 
                 Text("\(coordinator.progressStepIndex) / \(coordinator.progressStepCount)")
-                    .font(.system(size: 12, weight: .medium, design: .rounded))
+                    .font(FDS.TypeScale.Dynamic.caption)
                     .foregroundColor(.textTertiary)
                     .monospacedDigit()
             }
@@ -143,7 +143,7 @@ struct AriaInterviewLayout: View {
                 ZStack(alignment: .leading) {
                     Capsule().fill(Color.white.opacity(0.08)).frame(height: 4)
                     Capsule()
-                        .fill(Color(hex: "F7F4F0"))
+                        .fill(Color.paper)
                         .frame(width: max(10, geo.size.width * coordinator.progress), height: 4)
                         .animation(FDS.Spring.standard, value: coordinator.progress)
                 }
@@ -269,7 +269,7 @@ struct AriaInterviewLayout: View {
         if !replies.isEmpty {
             VStack(alignment: .leading, spacing: 8) {
                 Text("Reply")
-                    .font(.system(size: 10, weight: .bold, design: .rounded))
+                    .font(FDS.TypeScale.Dynamic.micro)
                     .tracking(1.2)
                     .foregroundColor(.textMuted)
                     .padding(.horizontal, FDS.Spacing.xl)
@@ -280,7 +280,7 @@ struct AriaInterviewLayout: View {
                                 applyReply(reply)
                             } label: {
                                 Text(reply.label)
-                                    .font(.system(size: 14, weight: .medium, design: .rounded))
+                                    .font(FDS.TypeScale.Dynamic.body)
                                     .foregroundColor(.textPrimary)
                                     .padding(.horizontal, 14)
                                     .padding(.vertical, 9)
@@ -305,7 +305,7 @@ struct AriaInterviewLayout: View {
         HStack(spacing: 12) {
             VStack(alignment: .leading, spacing: 3) {
                 Text(dictation.isListening ? "ARIA is listening" : "Talk to ARIA")
-                    .font(.system(size: 13, weight: .semibold, design: .rounded))
+                    .font(FDS.TypeScale.Dynamic.caption)
                     .foregroundColor(dictation.isListening ? .ember : .textPrimary)
                 Text(dictation.isListening
                      ? (dictation.recognizedText.isEmpty ? "Go ahead — I’m with you." : dictation.recognizedText)

@@ -18,7 +18,7 @@ struct AriaSpecialistActivityView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
             Text(workers.count > 1 ? "Consulting your specialists" : "Thinking")
-                .font(.system(size: 12, weight: .semibold, design: .rounded))
+                .font(FDS.TypeScale.Dynamic.caption)
                 .foregroundColor(.aurora)
             FlowLayout(spacing: 8) {
                 ForEach(workers) { worker in
@@ -26,7 +26,7 @@ struct AriaSpecialistActivityView: View {
                         Image(systemName: worker.kind.icon)
                             .font(.system(size: 11, weight: .semibold))
                         Text(worker.label)
-                            .font(.system(size: 12, weight: .semibold))
+                            .font(FDS.TypeScale.Dynamic.caption)
                     }
                     .foregroundColor(worker.kind.accent)
                     .padding(.horizontal, 10)
@@ -86,7 +86,7 @@ private struct CoachAgentChipRow: View {
                 Image(systemName: icon)
                     .font(.system(size: 11, weight: .semibold))
                 Text(title)
-                    .font(.system(size: 12, weight: .semibold, design: .rounded))
+                    .font(FDS.TypeScale.Dynamic.caption)
             }
             .foregroundColor(selected ? .textPrimary : .textTertiary)
             .padding(.horizontal, 11)
@@ -135,7 +135,7 @@ struct ChatInputAreaView: View {
                             SmartChip(
                                 label: label,
                                 icon: yesLike ? "checkmark" : (noLike ? "xmark" : "arrow.up.right"),
-                                color: yesLike ? Color(hex: "22C55E") : (noLike ? Color(hex: "F43F5E") : mood.accentColor),
+                                color: yesLike ? Color.vitality : (noLike ? Color(hex: "F43F5E") : mood.accentColor),
                                 disabled: isTyping
                             ) {
                                 onSend(label)
@@ -190,10 +190,10 @@ struct ChatInputAreaView: View {
 
                 // Text field
                 ZStack(alignment: .trailing) {
-                    RoundedRectangle(cornerRadius: 24, style: .continuous)
+                    RoundedRectangle(cornerRadius: FDS.Radius.xxl, style: .continuous)
                         .fill(Color.surfaceElevated)
                         .overlay(
-                            RoundedRectangle(cornerRadius: 24, style: .continuous)
+                            RoundedRectangle(cornerRadius: FDS.Radius.xxl, style: .continuous)
                                 .stroke(
                                     isInputFocused
                                         ? LinearGradient(
@@ -294,7 +294,7 @@ struct SmartChip: View {
                     .font(.system(size: 11, weight: .semibold))
                     .foregroundColor(color)
                 Text(label)
-                    .font(.system(size: 12, weight: .semibold, design: .rounded))
+                    .font(FDS.TypeScale.Dynamic.caption)
                     .foregroundColor(.textSecondary)
             }
             .padding(.horizontal, 14)

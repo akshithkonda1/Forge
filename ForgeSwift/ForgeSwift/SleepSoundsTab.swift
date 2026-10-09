@@ -33,7 +33,7 @@ struct SleepSoundsTab: View {
                                     sleepTimer = mins
                                 } label: {
                                     Text(SleepMixTimer.label(mins))
-                                        .font(.system(size: 13, weight: .semibold))
+                                        .font(FDS.TypeScale.Dynamic.caption)
                                         .foregroundColor(sleepTimer == mins ? .white : .textTertiary)
                                         .padding(.horizontal, 14).padding(.vertical, 8)
                                         .background(sleepTimer == mins ? Color(hex: SleepHud.plateHex) : Color.surface)
@@ -63,7 +63,7 @@ struct SleepSoundsTab: View {
                                         Image(systemName: "music.note.list")
                                             .foregroundColor(Color(hex: SleepHud.plateHex))
                                         Text(list.name)
-                                            .font(.system(size: 14, weight: .semibold))
+                                            .font(FDS.TypeScale.Dynamic.body.weight(.semibold))
                                             .foregroundColor(.textPrimary)
                                         Spacer()
                                         Text(SleepMixTimer.label(list.minutes))
@@ -106,10 +106,10 @@ struct SleepSoundsTab: View {
                                 withAnimation(.spring(response: 0.3, dampingFraction: 0.75)) { selectedCategory = nil }
                             } label: {
                                 Text("All")
-                                    .font(.system(size: 13, weight: .semibold))
+                                    .font(FDS.TypeScale.Dynamic.caption)
                                     .foregroundColor(selectedCategory == nil ? .white : .textTertiary)
                                     .padding(.horizontal, 14).padding(.vertical, 8)
-                                    .background(selectedCategory == nil ? Color(hex: "6366F1") : Color.surface)
+                                    .background(selectedCategory == nil ? Color.indigo : Color.surface)
                                     .cornerRadius(20)
                             }
                             .buttonStyle(.plain)
@@ -121,10 +121,10 @@ struct SleepSoundsTab: View {
                                     }
                                 } label: {
                                     Text(cat.rawValue)
-                                        .font(.system(size: 13, weight: .semibold))
+                                        .font(FDS.TypeScale.Dynamic.caption)
                                         .foregroundColor(selectedCategory == cat ? .white : .textTertiary)
                                         .padding(.horizontal, 14).padding(.vertical, 8)
-                                        .background(selectedCategory == cat ? Color(hex: "6366F1") : Color.surface)
+                                        .background(selectedCategory == cat ? Color.indigo : Color.surface)
                                         .cornerRadius(20)
                                 }
                                 .buttonStyle(.plain)
@@ -137,7 +137,7 @@ struct SleepSoundsTab: View {
                     ForEach(libraryGroups, id: \.category) { group in
                         VStack(alignment: .leading, spacing: 10) {
                             Text(group.category.rawValue.uppercased())
-                                .font(.system(size: 11, weight: .bold))
+                                .font(FDS.TypeScale.Dynamic.micro)
                                 .tracking(1.1)
                                 .foregroundColor(.textMuted)
                                 .accessibilityAddTraits(.isHeader)
@@ -177,7 +177,7 @@ struct SleepSoundsTab: View {
                 }
                 VStack(alignment: .leading, spacing: 2) {
                     Text(player.kind.displayName)
-                        .font(.system(size: 15, weight: .semibold))
+                        .font(FDS.TypeScale.Dynamic.body.weight(.semibold))
                         .foregroundColor(.textPrimary)
                     HStack(spacing: 8) {
                         SoundWaveformBadge()
@@ -192,7 +192,7 @@ struct SleepSoundsTab: View {
                     player.stop()
                 } label: {
                     Text("Stop")
-                        .font(.system(size: 13, weight: .semibold))
+                        .font(FDS.TypeScale.Dynamic.caption)
                         .foregroundColor(.white)
                         .padding(.horizontal, 14)
                         .padding(.vertical, 8)
@@ -214,7 +214,7 @@ struct SleepSoundsTab: View {
             }
         }
         .padding(.horizontal, 16).padding(.vertical, 14)
-        .forgeGlassCard(cornerRadius: 18, accent: Color(hex: "6366F1"))
+        .forgeGlassCard(cornerRadius: FDS.Radius.lg, accent: Color.indigo)
         .accessibilityElement(children: .combine)
         .accessibilityLabel("Now playing \(player.kind.displayName), \(player.remainingLabel)")
     }
@@ -236,7 +236,7 @@ struct SleepAppleMusicCard: View {
                     HStack(spacing: 12) {
                         VStack(alignment: .leading, spacing: 2) {
                             Text(music.nowPlaying?.title ?? "Nothing playing")
-                                .font(.system(size: 14, weight: .semibold))
+                                .font(FDS.TypeScale.Dynamic.body.weight(.semibold))
                                 .foregroundColor(.textPrimary)
                             Text(music.nowPlaying?.artist ?? "Play from Apple Music, then link the timer")
                                 .font(.system(size: 12))
@@ -279,7 +279,7 @@ struct SoundLibraryRow: View {
         Button(action: onTap) {
             HStack(alignment: .top, spacing: 14) {
                 ZStack {
-                    RoundedRectangle(cornerRadius: 14, style: .continuous)
+                    RoundedRectangle(cornerRadius: FDS.Radius.md, style: .continuous)
                         .fill(sound.color.opacity(isActive ? 0.28 : 0.12))
                         .frame(width: 52, height: 52)
                     Image(systemName: isActive ? "pause.fill" : sound.icon)
@@ -289,11 +289,11 @@ struct SoundLibraryRow: View {
                 VStack(alignment: .leading, spacing: 4) {
                     HStack {
                         Text(sound.name)
-                            .font(.system(size: 16, weight: .semibold, design: .rounded))
+                            .font(FDS.TypeScale.Dynamic.headline)
                             .foregroundColor(.textPrimary)
                         Spacer()
                         Text(sound.category.rawValue.uppercased())
-                            .font(.system(size: 10, weight: .bold))
+                            .font(FDS.TypeScale.Dynamic.micro)
                             .tracking(0.8)
                             .foregroundColor(.textMuted)
                     }
@@ -306,9 +306,9 @@ struct SoundLibraryRow: View {
             }
             .padding(14)
             .background(isActive ? sound.color.opacity(0.10) : Color.surface)
-            .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+            .clipShape(RoundedRectangle(cornerRadius: FDS.Radius.lg, style: .continuous))
             .overlay(
-                RoundedRectangle(cornerRadius: 18, style: .continuous)
+                RoundedRectangle(cornerRadius: FDS.Radius.lg, style: .continuous)
                     .stroke(isActive ? sound.color.opacity(0.45) : Color.borderColor.opacity(0.4), lineWidth: 1)
             )
         }
@@ -333,7 +333,7 @@ struct SoundWaveformBadge: View {
                 ForEach(0..<6, id: \.self) { i in
                     let h = reduceMotion ? 8.0 : 4 + 8 * abs(sin(t * 3 + Double(i) * 0.7))
                     RoundedRectangle(cornerRadius: 1)
-                        .fill(Color(hex: "6366F1").opacity(0.7))
+                        .fill(Color.indigo.opacity(0.7))
                         .frame(width: 2, height: CGFloat(h))
                 }
             }

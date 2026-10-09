@@ -78,7 +78,7 @@ struct ChatEmptyStateView: View {
                     .minimumScaleFactor(0.85)
 
                 Text(subtext)
-                    .font(.system(size: 15, weight: .regular, design: .rounded))
+                    .font(FDS.TypeScale.Dynamic.body)
                     .foregroundColor(.textSecondary)
                     .multilineTextAlignment(.center)
                     .lineSpacing(4)
@@ -95,7 +95,7 @@ struct ChatEmptyStateView: View {
                         Image(systemName: "waveform")
                             .font(.system(size: 13, weight: .semibold))
                         Text("I'm listening")
-                            .font(.system(size: 14, weight: .semibold, design: .rounded))
+                            .font(FDS.TypeScale.Dynamic.body.weight(.semibold))
                     }
                     .foregroundColor(.white)
                     .padding(.horizontal, 20)
@@ -133,7 +133,7 @@ struct ChatEmptyStateView: View {
                         .forgeSectionLabel()
                     Spacer()
                     Text(mood.displayName.lowercased())
-                        .font(.system(size: 11, weight: .semibold, design: .rounded))
+                        .font(FDS.TypeScale.Dynamic.micro)
                         .foregroundColor(mood.accentColor.opacity(0.85))
                 }
                 .padding(.horizontal, 4)
@@ -166,7 +166,7 @@ struct ChatEmptyStateView: View {
                                     .foregroundColor(mood.accentColor)
                             }
                             Text(prompt.0)
-                                .font(.system(size: 15, weight: .medium, design: .rounded))
+                                .font(FDS.TypeScale.Dynamic.body)
                                 .foregroundColor(.textPrimary)
                             Spacer()
                             Image(systemName: "arrow.right")

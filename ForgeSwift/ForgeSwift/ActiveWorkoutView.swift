@@ -200,12 +200,12 @@ struct ActiveWorkoutView: View {
                 .shadow(color: currentZone.color.opacity(0.8), radius: 6)
                 .animation(.easeInOut(duration: 0.8), value: currentZone.label)
             VStack(alignment: .leading, spacing: 2) {
-                Text(store.todayWorkout?.name ?? "").font(.system(size: 14, weight: .bold)).foregroundColor(.textPrimary)
+                Text(store.todayWorkout?.name ?? "").font(FDS.TypeScale.Dynamic.body.weight(.semibold)).foregroundColor(.textPrimary)
                     .lineLimit(1).truncationMode(.tail)
                 HStack(spacing: 5) {
                     Text(store.todayWorkout?.type.label ?? "").font(.system(size: 11)).foregroundColor(.textTertiary)
                     Circle().fill(Color.textTertiary.opacity(0.5)).frame(width: 2.5, height: 2.5)
-                    Text(store.todayWorkout?.intensity.label ?? "").font(.system(size: 11, weight: .semibold)).foregroundColor(currentZone.color)
+                    Text(store.todayWorkout?.intensity.label ?? "").font(FDS.TypeScale.Dynamic.micro).foregroundColor(currentZone.color)
                         .animation(.easeInOut(duration: 0.8), value: currentZone.label)
                 }
                 .lineLimit(1)
@@ -246,7 +246,7 @@ struct ActiveWorkoutView: View {
     private var endButton: some View {
         Button(action: handleEnd) {
             Text(showEndConfirm ? "Confirm?" : "End")
-                .font(.system(size: 13, weight: .bold)).foregroundColor(showEndConfirm ? .white : .danger)
+                .font(FDS.TypeScale.Dynamic.caption).foregroundColor(showEndConfirm ? .white : .danger)
                 .lineLimit(1).fixedSize()
                 .padding(.horizontal, 12).padding(.vertical, 7)
                 .background(showEndConfirm ? Color.danger : Color.danger.opacity(0.12)).cornerRadius(9)
@@ -295,7 +295,7 @@ struct ActiveWorkoutView: View {
                             Circle().fill(Color.ember).frame(width: 8, height: 8).shadow(color: Color.ember.opacity(0.5 + p * 0.4), radius: 3 + p * 3)
                         }
                     }
-                    Text(name).font(.system(size: 12, weight: .bold)).foregroundColor(.ember).lineLimit(1)
+                    Text(name).font(FDS.TypeScale.Dynamic.caption).foregroundColor(.ember).lineLimit(1)
                 }
                 .padding(.horizontal, 12).padding(.vertical, 7).background(Color.ember.opacity(0.1)).cornerRadius(100)
                 .overlay(Capsule().stroke(Color.ember.opacity(0.35), lineWidth: 1)).shadow(color: Color.ember.opacity(0.2), radius: 6)
@@ -307,7 +307,7 @@ struct ActiveWorkoutView: View {
             } else {
                 ZStack {
                     Circle().fill(Color.surfaceElevated).frame(width: 28, height: 28).overlay(Circle().stroke(Color.borderColor.opacity(0.6), lineWidth: 1))
-                    Text("\(idx+1)").font(.system(size: 10, weight: .semibold)).foregroundColor(.textMuted)
+                    Text("\(idx+1)").font(FDS.TypeScale.Dynamic.micro).foregroundColor(.textMuted)
                 }
             }
         }
@@ -361,9 +361,9 @@ struct ActiveWorkoutView: View {
                 .fixedSize()
             }
             Text(simulatedHR > 0 ? "\(simulatedHR)" : "—").font(.system(size: 16, weight: .black, design: .monospaced)).foregroundColor(.textPrimary).contentTransition(.numericText())
-            Text(heartRateIsLive ? "live" : "bpm").font(.system(size: 11, weight: .semibold)).foregroundColor(currentZone.color.opacity(0.8))
+            Text(heartRateIsLive ? "live" : "bpm").font(FDS.TypeScale.Dynamic.micro).foregroundColor(currentZone.color.opacity(0.8))
             Rectangle().fill(currentZone.color.opacity(0.28)).frame(width: 1, height: 13).padding(.horizontal, 2)
-            Text(currentZone.label).font(.system(size: 12, weight: .black)).foregroundColor(currentZone.color)
+            Text(currentZone.label).font(FDS.TypeScale.Dynamic.caption).foregroundColor(currentZone.color)
         }
         .lineLimit(1).fixedSize()
         .padding(.horizontal, 14).padding(.vertical, 10)
@@ -381,7 +381,7 @@ struct ActiveWorkoutView: View {
         HStack(spacing: 5) {
             Image(systemName: icon).font(.system(size: 14)).foregroundColor(iconColor)
             Text(value).font(.system(size: 16, weight: .black, design: .monospaced)).foregroundColor(.textPrimary).contentTransition(.numericText())
-            Text(unit).font(.system(size: 11, weight: .semibold)).foregroundColor(accent.opacity(0.8))
+            Text(unit).font(FDS.TypeScale.Dynamic.micro).foregroundColor(accent.opacity(0.8))
         }
         .lineLimit(1).fixedSize()
         .padding(.horizontal, 14).padding(.vertical, 10)
@@ -432,7 +432,7 @@ struct ActiveWorkoutView: View {
                 // Set strip
                 HStack {
                     HStack(spacing: 8) {
-                        Text("Set \(store.currentSet) of \(exercise.sets)").font(.system(size: 13, weight: .bold)).foregroundColor(.ember)
+                        Text("Set \(store.currentSet) of \(exercise.sets)").font(FDS.TypeScale.Dynamic.caption).foregroundColor(.ember)
                         HStack(spacing: 4) {
                             ForEach(0..<exercise.sets, id: \.self) { i in
                                 Circle()
@@ -459,7 +459,7 @@ struct ActiveWorkoutView: View {
                         HStack(spacing: 8) {
                             ARIAIdentityMark(state: .idle, mood: .energized, size: 22, amplitude: 0.3)
                             Text("Show me how")
-                                .font(.system(size: 13, weight: .bold, design: .rounded))
+                                .font(FDS.TypeScale.Dynamic.caption)
                             Image(systemName: "books.vertical")
                                 .font(.system(size: 12, weight: .semibold))
                         }
@@ -473,10 +473,10 @@ struct ActiveWorkoutView: View {
                     if let def = currentDef {
                         HStack(spacing: 6) {
                             ForEach(def.primary.prefix(3)) { m in
-                                Text(m.label).font(.system(size: 10, weight: .bold)).foregroundColor(m.accent)
+                                Text(m.label).font(FDS.TypeScale.Dynamic.micro).foregroundColor(m.accent)
                                     .padding(.horizontal, 8).padding(.vertical, 4).background(m.accent.opacity(0.12)).cornerRadius(7)
                             }
-                            Text("Tempo \(def.tempo)").font(.system(size: 10, weight: .semibold)).foregroundColor(.textMuted)
+                            Text("Tempo \(def.tempo)").font(FDS.TypeScale.Dynamic.micro).foregroundColor(.textMuted)
                                 .padding(.horizontal, 8).padding(.vertical, 4).background(Color.surfaceElevated).cornerRadius(7)
                         }
                     }
@@ -505,7 +505,7 @@ struct ActiveWorkoutView: View {
                                     .accessibilityLabel("Decrease weight by 5 pounds")
                                     VStack(spacing: 1) {
                                         Text("\(currentWeight)").font(.system(size: 58, weight: .black, design: .rounded)).foregroundColor(.textPrimary).contentTransition(.numericText())
-                                        Text("LBS").font(.system(size: 9, weight: .black)).foregroundColor(currentZone.color.opacity(0.8)).tracking(3).animation(.easeInOut(duration: 0.8), value: currentZone.label)
+                                        Text("LBS").font(FDS.TypeScale.Dynamic.micro).foregroundColor(currentZone.color.opacity(0.8)).tracking(3).animation(.easeInOut(duration: 0.8), value: currentZone.label)
                                     }
                                     .accessibilityElement(children: .ignore)
                                     .accessibilityLabel("Working weight")
@@ -526,7 +526,7 @@ struct ActiveWorkoutView: View {
                         }
                         VStack(spacing: 1) {
                             Text(exercise.reps).font(.system(size: 58, weight: .black, design: .rounded)).foregroundColor(.textPrimary)
-                            Text("REPS").font(.system(size: 9, weight: .black)).foregroundColor(currentZone.color.opacity(0.8)).tracking(3).animation(.easeInOut(duration: 0.8), value: currentZone.label)
+                            Text("REPS").font(FDS.TypeScale.Dynamic.micro).foregroundColor(currentZone.color.opacity(0.8)).tracking(3).animation(.easeInOut(duration: 0.8), value: currentZone.label)
                         }
                         .frame(maxWidth: .infinity)
                     }
@@ -545,7 +545,7 @@ struct ActiveWorkoutView: View {
                 let prevSets = setLog.filter { $0.exerciseName == exercise.name }
                 if !prevSets.isEmpty {
                     VStack(alignment: .leading, spacing: 8) {
-                        Text("PREVIOUS SETS").font(.system(size: 9, weight: .black)).foregroundColor(.textMuted).tracking(2)
+                        Text("PREVIOUS SETS").font(FDS.TypeScale.Dynamic.micro).foregroundColor(.textMuted).tracking(2)
                         ScrollView(.horizontal, showsIndicators: false) {
                             HStack(spacing: 6) {
                                 ForEach(prevSets) { entry in
@@ -553,11 +553,11 @@ struct ActiveWorkoutView: View {
                                         if entry.isPersonalRecord { Image(systemName: "crown.fill").font(.system(size: 9)).foregroundColor(.warning) }
                                         Text("\(entry.repsPerformed)").font(.system(size: 14, weight: .bold, design: .monospaced)).foregroundColor(entry.isPersonalRecord ? .warning : .textPrimary)
                                         if entry.weightUsed > 0 { Text("\(entry.weightUsed)lb").font(.system(size: 10)).foregroundColor(.textTertiary) }
-                                        Text("RPE \(entry.rpe)").font(.system(size: 9, weight: .bold)).foregroundColor(rpeColor(entry.rpe))
+                                        Text("RPE \(entry.rpe)").font(FDS.TypeScale.Dynamic.micro).foregroundColor(rpeColor(entry.rpe))
                                     }
                                     .padding(.horizontal, 10).padding(.vertical, 8)
                                     .background(entry.isPersonalRecord ? Color.warning.opacity(0.1) : Color.surfaceElevated).cornerRadius(10)
-                                    .overlay(RoundedRectangle(cornerRadius: 10).stroke(entry.isPersonalRecord ? Color.warning.opacity(0.4) : Color.borderColor.opacity(0.4), lineWidth: 1))
+                                    .overlay(RoundedRectangle(cornerRadius: FDS.Radius.sm).stroke(entry.isPersonalRecord ? Color.warning.opacity(0.4) : Color.borderColor.opacity(0.4), lineWidth: 1))
                                 }
                             }
                         }
@@ -577,7 +577,7 @@ struct ActiveWorkoutView: View {
                 .padding(.horizontal, 24).padding(.vertical, 12)
             }
             .background(Color.surface).cornerRadius(24)
-            .overlay(RoundedRectangle(cornerRadius: 24).stroke(Color.borderColor.opacity(0.4), lineWidth: 1))
+            .overlay(RoundedRectangle(cornerRadius: FDS.Radius.xxl).stroke(Color.borderColor.opacity(0.4), lineWidth: 1))
             .shadow(color: .black.opacity(0.06), radius: 18, y: 8)
 
             actionButtons(exercise: exercise)
@@ -601,7 +601,7 @@ struct ActiveWorkoutView: View {
             } label: {
                 HStack(spacing: 10) {
                     Image(systemName: isFinish ? "checkmark.circle.fill" : "pencil.and.list.clipboard").font(.system(size: 19, weight: .black))
-                    Text(isFinish ? "Log & Finish 🎉" : isLastSet ? "Log Set · Next Exercise →" : "Log Set →").font(.system(size: 17, weight: .black))
+                    Text(isFinish ? "Log & Finish 🎉" : isLastSet ? "Log Set · Next Exercise →" : "Log Set →").font(FDS.TypeScale.Dynamic.headline)
                     Spacer()
                 }
                 .foregroundColor(.white).padding(.horizontal, 24).padding(.vertical, 20).frame(maxWidth: .infinity)
@@ -615,14 +615,14 @@ struct ActiveWorkoutView: View {
             } label: {
                 HStack(spacing: 8) {
                     Image(systemName: "plus.circle.fill").font(.system(size: 15, weight: .bold))
-                    Text("I feel another set").font(.system(size: 15, weight: .bold, design: .rounded))
+                    Text("I feel another set").font(FDS.TypeScale.Dynamic.body.weight(.semibold))
                     Spacer()
-                    Text("\(exercise.sets) sets").font(.system(size: 12, weight: .semibold)).foregroundColor(.white.opacity(0.8))
+                    Text("\(exercise.sets) sets").font(FDS.TypeScale.Dynamic.caption).foregroundColor(.white.opacity(0.8))
                 }
                 .foregroundColor(.white)
                 .padding(.horizontal, 20).padding(.vertical, 14)
                 .background(Color.steel.opacity(0.85))
-                .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+                .clipShape(RoundedRectangle(cornerRadius: FDS.Radius.lg, style: .continuous))
             }
             .accessibilityLabel("Add a set because you feel it")
             .accessibilityHint("Adds one working set to this movement without undoing ARIA's scale")
@@ -634,22 +634,22 @@ struct ActiveWorkoutView: View {
                 } label: {
                     HStack(spacing: 5) {
                         Image(systemName: "exclamationmark.triangle.fill").font(.system(size: 12))
-                        Text(painLog.isEmpty ? "Pain" : "Pain (\(painLog.count))").font(.system(size: 14, weight: .semibold))
+                        Text(painLog.isEmpty ? "Pain" : "Pain (\(painLog.count))").font(FDS.TypeScale.Dynamic.body.weight(.semibold))
                     }
                     .foregroundColor(.warning).frame(maxWidth: .infinity).frame(height: 46)
                     .background(Color.warning.opacity(painLog.isEmpty ? 0.1 : 0.2)).cornerRadius(14)
-                    .overlay(RoundedRectangle(cornerRadius: 14).stroke(Color.warning.opacity(0.3), lineWidth: 1))
+                    .overlay(RoundedRectangle(cornerRadius: FDS.Radius.md).stroke(Color.warning.opacity(0.3), lineWidth: 1))
                 }
                 Button {
                     UIImpactFeedbackGenerator(style: .medium).impactOccurred(); showFormCoach = true
                 } label: {
                     HStack(spacing: 5) {
                         Image(systemName: "camera.viewfinder").font(.system(size: 13))
-                        Text("Form").font(.system(size: 14, weight: .semibold))
+                        Text("Form").font(FDS.TypeScale.Dynamic.body.weight(.semibold))
                     }
                     .foregroundColor(.success).frame(maxWidth: .infinity).frame(height: 46)
                     .background(Color.success.opacity(0.12)).cornerRadius(14)
-                    .overlay(RoundedRectangle(cornerRadius: 14).stroke(Color.success.opacity(0.3), lineWidth: 1))
+                    .overlay(RoundedRectangle(cornerRadius: FDS.Radius.md).stroke(Color.success.opacity(0.3), lineWidth: 1))
                 }
             }
         }
@@ -659,11 +659,11 @@ struct ActiveWorkoutView: View {
         Button(action: action) {
             HStack(spacing: 5) {
                 Image(systemName: icon).font(.system(size: 12))
-                Text(label).font(.system(size: 14, weight: .semibold))
+                Text(label).font(FDS.TypeScale.Dynamic.body.weight(.semibold))
             }
             .foregroundColor(color).frame(maxWidth: .infinity).frame(height: 46)
             .background(Color.surfaceElevated).cornerRadius(14)
-            .overlay(RoundedRectangle(cornerRadius: 14).stroke(Color.borderColor.opacity(0.5), lineWidth: 1))
+            .overlay(RoundedRectangle(cornerRadius: FDS.Radius.md).stroke(Color.borderColor.opacity(0.5), lineWidth: 1))
         }
     }
 
@@ -746,7 +746,7 @@ struct ActiveWorkoutView: View {
 
     // MARK: Logic
 
-    private func rpeColor(_ rpe: Int) -> Color { rpe <= 4 ? .success : rpe <= 7 ? Color(hex: "F59E0B") : .danger }
+    private func rpeColor(_ rpe: Int) -> Color { rpe <= 4 ? .success : rpe <= 7 ? Color.amber : .danger }
     private func setupCurrentWeight() { currentWeight = currentExercise?.weight ?? 0 }
 
     private func confirmSet(exercise: Exercise) {

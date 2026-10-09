@@ -28,7 +28,7 @@ struct IntroComposer: View {
             Text("ARIA")
                 .font(ForgeType.micro)
                 .tracking(ForgeType.eyebrowTracking)
-                .foregroundStyle(Color(hex: "F7F4F0").opacity(0.72))
+                .foregroundStyle(Color.paper.opacity(0.72))
 
             Text("Your lifestyle coach — built for the life you already have.")
                 .font(ForgeType.body)
@@ -54,7 +54,7 @@ struct NameComposer: View {
         VStack(alignment: .leading, spacing: 18) {
             VStack(alignment: .leading, spacing: 8) {
                 Text("Preferred name")
-                    .font(.system(size: 13, weight: .semibold, design: .rounded))
+                    .font(FDS.TypeScale.Dynamic.caption)
                     .foregroundStyle(Color.textSecondary)
                 HStack(spacing: 10) {
                     TextField("Maya", text: $coordinator.profile.name)
@@ -69,9 +69,9 @@ struct NameComposer: View {
                 .padding(.horizontal, 16)
                 .padding(.vertical, 12)
                 .background(Color.surfaceElevated)
-                .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+                .clipShape(RoundedRectangle(cornerRadius: FDS.Radius.lg, style: .continuous))
                 .overlay {
-                    RoundedRectangle(cornerRadius: 18, style: .continuous)
+                    RoundedRectangle(cornerRadius: FDS.Radius.lg, style: .continuous)
                         .stroke(
                             focusedField == .preferred || dictation.isListening
                                 ? Color.ember.opacity(0.55)
@@ -80,17 +80,17 @@ struct NameComposer: View {
                         )
                 }
                 Text("What I’ll call you. First name is enough.")
-                    .font(.system(size: 12, weight: .medium))
+                    .font(FDS.TypeScale.Dynamic.caption)
                     .foregroundStyle(Color.textTertiary)
             }
 
             VStack(alignment: .leading, spacing: 8) {
                 HStack(spacing: 6) {
                     Text("Last name")
-                        .font(.system(size: 13, weight: .semibold, design: .rounded))
+                        .font(FDS.TypeScale.Dynamic.caption)
                         .foregroundStyle(Color.textSecondary)
                     Text("optional")
-                        .font(.system(size: 12, weight: .medium, design: .rounded))
+                        .font(FDS.TypeScale.Dynamic.caption)
                         .foregroundStyle(Color.textMuted)
                 }
 
@@ -104,9 +104,9 @@ struct NameComposer: View {
                     .padding(.horizontal, 16)
                     .padding(.vertical, 14)
                     .background(Color.surfaceElevated)
-                    .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+                    .clipShape(RoundedRectangle(cornerRadius: FDS.Radius.lg, style: .continuous))
                     .overlay {
-                        RoundedRectangle(cornerRadius: 16, style: .continuous)
+                        RoundedRectangle(cornerRadius: FDS.Radius.lg, style: .continuous)
                             .stroke(
                                 focusedField == .last ? Color.ember.opacity(0.4) : Color.white.opacity(0.07),
                                 lineWidth: 1
@@ -114,7 +114,7 @@ struct NameComposer: View {
                     }
                     .onSubmit { submit() }
                 Text("Stays on your profile. ARIA won’t say it unless you ask.")
-                    .font(.system(size: 12, weight: .medium))
+                    .font(FDS.TypeScale.Dynamic.caption)
                     .foregroundStyle(Color.textTertiary)
             }
 
@@ -124,14 +124,14 @@ struct NameComposer: View {
                         .font(.system(size: 12, weight: .semibold))
                         .foregroundStyle(Color.ember)
                     Text("ARIA will call you \(coordinator.profile.firstName) — every day.")
-                        .font(.system(size: 14, weight: .semibold, design: .rounded))
+                        .font(FDS.TypeScale.Dynamic.body.weight(.semibold))
                         .foregroundStyle(Color.textPrimary)
                 }
                 .padding(.horizontal, 14)
                 .padding(.vertical, 10)
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .background(Color.ember.opacity(0.10))
-                .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+                .clipShape(RoundedRectangle(cornerRadius: FDS.Radius.md, style: .continuous))
                 .transition(.opacity.combined(with: .move(edge: .bottom)))
             }
 
@@ -193,13 +193,13 @@ struct DetailsComposer: View {
         VStack(alignment: .leading, spacing: 14) {
             if !coordinator.profile.detailsSummaryLine.isEmpty {
                 Text(coordinator.profile.detailsSummaryLine)
-                    .font(.system(size: 13, weight: .semibold, design: .rounded))
+                    .font(FDS.TypeScale.Dynamic.caption)
                     .foregroundStyle(Color.textPrimary)
                     .padding(.horizontal, 14)
                     .padding(.vertical, 10)
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .background(Color.white.opacity(0.05))
-                    .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+                    .clipShape(RoundedRectangle(cornerRadius: FDS.Radius.md, style: .continuous))
             }
 
             birthdayBlock
@@ -226,7 +226,7 @@ struct DetailsComposer: View {
                 sourced: coordinator.profile.healthSourcedFields.contains(.birthday)
             )
             Text("Heart-rate zones, recovery norms, and 13+ safety.")
-                .font(.system(size: 12, weight: .medium))
+                .font(FDS.TypeScale.Dynamic.caption)
                 .foregroundStyle(Color.textTertiary)
 
             if coordinator.profile.birthday == nil, !showBirthdayPicker {
@@ -237,7 +237,7 @@ struct DetailsComposer: View {
                 } label: {
                     HStack {
                         Text("Select date")
-                            .font(.system(size: 16, weight: .semibold, design: .rounded))
+                            .font(FDS.TypeScale.Dynamic.headline)
                             .foregroundStyle(Color.textPrimary)
                         Spacer()
                         Image(systemName: "calendar")
@@ -246,7 +246,7 @@ struct DetailsComposer: View {
                     }
                     .padding(16)
                     .background(Color.surfaceElevated)
-                    .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+                    .clipShape(RoundedRectangle(cornerRadius: FDS.Radius.lg, style: .continuous))
                 }
                 .buttonStyle(.plain)
             } else {
@@ -256,7 +256,7 @@ struct DetailsComposer: View {
                         .foregroundStyle(coordinator.isUnderage ? Color.danger : Color.textPrimary)
                         .contentTransition(.numericText())
                     Text(coordinator.isUnderage ? "" : "years old")
-                        .font(.system(size: 15, weight: .medium))
+                        .font(FDS.TypeScale.Dynamic.body)
                         .foregroundStyle(Color.textSecondary)
                     Spacer()
                 }
@@ -274,9 +274,9 @@ struct DetailsComposer: View {
         }
         .padding(16)
         .background(Color.surfaceElevated.opacity(0.7))
-        .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
+        .clipShape(RoundedRectangle(cornerRadius: FDS.Radius.xl, style: .continuous))
         .overlay {
-            RoundedRectangle(cornerRadius: 20, style: .continuous)
+            RoundedRectangle(cornerRadius: FDS.Radius.xl, style: .continuous)
                 .stroke(Color.white.opacity(0.06), lineWidth: 1)
         }
     }
@@ -288,7 +288,7 @@ struct DetailsComposer: View {
                 sourced: coordinator.profile.healthSourcedFields.contains(.sex)
             )
             Text("Calories, heart-rate zones, Cycle Health. Not gender — that’s in Profile.")
-                .font(.system(size: 12, weight: .medium))
+                .font(FDS.TypeScale.Dynamic.caption)
                 .foregroundStyle(Color.textTertiary)
                 .fixedSize(horizontal: false, vertical: true)
 
@@ -296,9 +296,9 @@ struct DetailsComposer: View {
         }
         .padding(16)
         .background(Color.surfaceElevated.opacity(0.7))
-        .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
+        .clipShape(RoundedRectangle(cornerRadius: FDS.Radius.xl, style: .continuous))
         .overlay {
-            RoundedRectangle(cornerRadius: 20, style: .continuous)
+            RoundedRectangle(cornerRadius: FDS.Radius.xl, style: .continuous)
                 .stroke(Color.white.opacity(0.06), lineWidth: 1)
         }
     }
@@ -320,7 +320,7 @@ struct DetailsComposer: View {
                 .frame(maxWidth: 168)
             }
             Text("Optional. Used for calorie and load math.")
-                .font(.system(size: 12, weight: .medium))
+                .font(FDS.TypeScale.Dynamic.caption)
                 .foregroundStyle(Color.textTertiary)
 
             if coordinator.profile.usesMetricUnits {
@@ -350,9 +350,9 @@ struct DetailsComposer: View {
         }
         .padding(16)
         .background(Color.surfaceElevated.opacity(0.7))
-        .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
+        .clipShape(RoundedRectangle(cornerRadius: FDS.Radius.xl, style: .continuous))
         .overlay {
-            RoundedRectangle(cornerRadius: 20, style: .continuous)
+            RoundedRectangle(cornerRadius: FDS.Radius.xl, style: .continuous)
                 .stroke(Color.white.opacity(0.06), lineWidth: 1)
         }
     }
@@ -360,14 +360,14 @@ struct DetailsComposer: View {
     private func fieldHeader(_ title: String, sourced: Bool) -> some View {
         HStack(spacing: 8) {
             Text(title)
-                .font(.system(size: 13, weight: .semibold, design: .rounded))
+                .font(FDS.TypeScale.Dynamic.caption)
                 .foregroundStyle(Color.textSecondary)
             if sourced {
                 HStack(spacing: 4) {
                     Image(systemName: "heart.fill")
                         .font(.system(size: 8, weight: .bold))
                     Text("Apple Health")
-                        .font(.system(size: 10, weight: .semibold))
+                        .font(FDS.TypeScale.Dynamic.micro)
                 }
                 .foregroundStyle(Color.vitality)
                 .padding(.horizontal, 8)
@@ -387,12 +387,12 @@ struct DetailsComposer: View {
                 .padding(.vertical, 12)
                 .onChange(of: text.wrappedValue) { _, _ in onChange() }
             Text(unit)
-                .font(.system(size: 13, weight: .medium))
+                .font(FDS.TypeScale.Dynamic.caption)
                 .foregroundStyle(Color.textMuted)
         }
         .padding(.horizontal, 10)
         .background(Color.background.opacity(0.55))
-        .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+        .clipShape(RoundedRectangle(cornerRadius: FDS.Radius.md, style: .continuous))
     }
 
     private func metricField(placeholder: String, text: Binding<String>, unit: String, onEdit: @escaping (String) -> Void) -> some View {
@@ -407,13 +407,13 @@ struct DetailsComposer: View {
                     onEdit(value)
                 }
             Text(unit)
-                .font(.system(size: 13, weight: .medium))
+                .font(FDS.TypeScale.Dynamic.caption)
                 .foregroundStyle(Color.textMuted)
         }
         .padding(.horizontal, 10)
         .frame(maxWidth: .infinity)
         .background(Color.background.opacity(0.55))
-        .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+        .clipShape(RoundedRectangle(cornerRadius: FDS.Radius.md, style: .continuous))
     }
 
     private func applyWeightText(_ value: String) {
@@ -535,10 +535,10 @@ struct HealthComposer: View {
         VStack(alignment: .leading, spacing: 16) {
             VStack(alignment: .leading, spacing: 8) {
                 Text(AriaInterviewVoice.healthWrapper)
-                    .font(.system(size: 18, weight: .semibold, design: .rounded))
+                    .font(FDS.TypeScale.Dynamic.headline)
                     .foregroundStyle(Color.textPrimary)
                 Text(AriaInterviewVoice.healthBody)
-                    .font(.system(size: 14, weight: .medium))
+                    .font(FDS.TypeScale.Dynamic.body)
                     .foregroundStyle(Color.textSecondary)
                     .fixedSize(horizontal: false, vertical: true)
             }
@@ -577,7 +577,7 @@ struct HealthComposer: View {
 
             if let hint = coordinator.lastHealthSharingHint, !hint.isEmpty {
                 Text(hint)
-                    .font(.system(size: 12, weight: .medium))
+                    .font(FDS.TypeScale.Dynamic.caption)
                     .foregroundStyle(Color.warning)
                     .fixedSize(horizontal: false, vertical: true)
                     .accessibilityLabel(hint)
@@ -587,12 +587,12 @@ struct HealthComposer: View {
                 .font(.system(size: 15, weight: .semibold))
                 .foregroundStyle(Color.textPrimary)
                 .frame(maxWidth: .infinity).frame(height: 44)
-                .forgeGlassCard(cornerRadius: 14, accent: .ember)
+                .forgeGlassCard(cornerRadius: FDS.Radius.md, accent: .ember)
 
             if let line = coordinator.emptyBackfillLine {
                 HStack(alignment: .top, spacing: 10) {
                     Text(line)
-                        .font(.system(size: 12, weight: .medium))
+                        .font(FDS.TypeScale.Dynamic.caption)
                         .foregroundStyle(Color.textTertiary)
                         .fixedSize(horizontal: false, vertical: true)
                     Button("Open Health Sharing") { coordinator.openHealthSharingManually() }
@@ -622,7 +622,7 @@ private struct ConnectionRow: View {
     var body: some View {
         HStack(spacing: 14) {
             ZStack {
-                RoundedRectangle(cornerRadius: 12).fill(color.opacity(0.12)).frame(width: 48, height: 48)
+                RoundedRectangle(cornerRadius: FDS.Radius.md).fill(color.opacity(0.12)).frame(width: 48, height: 48)
                 if isPulling {
                     ProgressView().tint(color)
                 } else {
@@ -631,25 +631,25 @@ private struct ConnectionRow: View {
                 }
             }
             VStack(alignment: .leading, spacing: 3) {
-                Text(title).font(.system(size: 15, weight: .semibold, design: .rounded)).foregroundStyle(Color.textPrimary)
+                Text(title).font(FDS.TypeScale.Dynamic.body.weight(.semibold)).foregroundStyle(Color.textPrimary)
                 Text(isLive || isPulling ? statusText : "\(statusText) · \(subtitle)")
-                    .font(.system(size: 12, weight: .medium))
+                    .font(FDS.TypeScale.Dynamic.caption)
                     .foregroundStyle(isLive ? Color.success : Color.textTertiary)
                     .lineLimit(2)
             }
             Spacer()
             if !isLive {
                 Button(action: action) {
-                    Text(state == .denied ? "Reconnect" : "Connect").font(.system(size: 13, weight: .bold)).foregroundStyle(.white)
-                        .padding(.horizontal, 14).padding(.vertical, 8).background(color).clipShape(RoundedRectangle(cornerRadius: 9))
+                    Text(state == .denied ? "Reconnect" : "Connect").font(FDS.TypeScale.Dynamic.caption).foregroundStyle(.white)
+                        .padding(.horizontal, 14).padding(.vertical, 8).background(color).clipShape(RoundedRectangle(cornerRadius: FDS.Radius.sm))
                 }.disabled(isPulling)
             } else {
                 Image(systemName: "checkmark.circle.fill").foregroundStyle(Color.success)
             }
         }
-        .padding(14).background(Color.surfaceElevated.opacity(0.7)).clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+        .padding(14).background(Color.surfaceElevated.opacity(0.7)).clipShape(RoundedRectangle(cornerRadius: FDS.Radius.lg, style: .continuous))
         .overlay {
-            RoundedRectangle(cornerRadius: 16)
+            RoundedRectangle(cornerRadius: FDS.Radius.lg)
                 .stroke(Color(hex: "7EC8FF").opacity(isLive ? 0.42 : 0.14), lineWidth: 1)
         }
     }
@@ -667,7 +667,7 @@ struct MultiChipComposer: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
             Text(title)
-                .font(.system(size: 13, weight: .semibold, design: .rounded))
+                .font(FDS.TypeScale.Dynamic.caption)
                 .foregroundStyle(Color.textSecondary)
 
             OnboardingFlowLayout(spacing: 8) {
@@ -675,7 +675,7 @@ struct MultiChipComposer: View {
                     let selected = isSelected(item.id)
                     Button { onToggle(item.id) } label: {
                         Text(item.label)
-                            .font(.system(size: 14, weight: .semibold, design: .rounded))
+                            .font(FDS.TypeScale.Dynamic.body.weight(.semibold))
                             .foregroundStyle(selected ? .white : Color.textSecondary)
                             .padding(.horizontal, 14)
                             .padding(.vertical, 10)
@@ -705,11 +705,11 @@ struct OptionCardsComposer: View {
                     HStack(spacing: 12) {
                         VStack(alignment: .leading, spacing: 3) {
                             Text(opt.title)
-                                .font(.system(size: 16, weight: .semibold, design: .rounded))
+                                .font(FDS.TypeScale.Dynamic.headline)
                                 .foregroundStyle(Color.textPrimary)
                             if !opt.subtitle.isEmpty {
                                 Text(opt.subtitle)
-                                    .font(.system(size: 13, weight: .medium))
+                                    .font(FDS.TypeScale.Dynamic.caption)
                                     .foregroundStyle(Color.textTertiary)
                                     .fixedSize(horizontal: false, vertical: true)
                             }
@@ -721,9 +721,9 @@ struct OptionCardsComposer: View {
                     }
                     .padding(16)
                     .background(Color.surfaceElevated.opacity(0.8))
-                    .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+                    .clipShape(RoundedRectangle(cornerRadius: FDS.Radius.lg, style: .continuous))
                     .overlay {
-                        RoundedRectangle(cornerRadius: 16, style: .continuous)
+                        RoundedRectangle(cornerRadius: FDS.Radius.lg, style: .continuous)
                             .stroke(Color.white.opacity(0.06), lineWidth: 1)
                     }
                 }
@@ -740,11 +740,11 @@ struct ConditionsComposer: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             Text("Conditions to respect")
-                .font(.system(size: 13, weight: .semibold, design: .rounded))
+                .font(FDS.TypeScale.Dynamic.caption)
                 .foregroundStyle(Color.textSecondary)
 
             Text("Optional. Lifestyle coach only — not medical care.")
-                .font(.system(size: 12, weight: .medium))
+                .font(FDS.TypeScale.Dynamic.caption)
                 .foregroundStyle(Color.textTertiary)
 
             OnboardingFlowLayout(spacing: 8) {
@@ -797,10 +797,10 @@ struct HabitsComposer: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
             Text(AriaInterviewVoice.habitsWrapper)
-                .font(.system(size: 18, weight: .semibold, design: .rounded))
+                .font(FDS.TypeScale.Dynamic.headline)
                 .foregroundStyle(Color.textPrimary)
             Text("Pick up to three. I just want to take care of you better.")
-                .font(.system(size: 13, weight: .medium))
+                .font(FDS.TypeScale.Dynamic.caption)
                 .foregroundStyle(Color.textSecondary)
 
             VStack(spacing: 8) {
@@ -810,10 +810,10 @@ struct HabitsComposer: View {
                         HStack(spacing: 12) {
                             VStack(alignment: .leading, spacing: 3) {
                                 Text(chip.label)
-                                    .font(.system(size: 16, weight: .semibold, design: .rounded))
+                                    .font(FDS.TypeScale.Dynamic.headline)
                                     .foregroundStyle(Color.textPrimary)
                                 Text(chip.detail)
-                                    .font(.system(size: 13, weight: .medium))
+                                    .font(FDS.TypeScale.Dynamic.caption)
                                     .foregroundStyle(Color.textTertiary)
                             }
                             Spacer()
@@ -822,9 +822,9 @@ struct HabitsComposer: View {
                         }
                         .padding(16)
                         .background(selected ? Color.ember.opacity(0.16) : Color.surfaceElevated.opacity(0.8))
-                        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+                        .clipShape(RoundedRectangle(cornerRadius: FDS.Radius.lg, style: .continuous))
                         .overlay {
-                            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                            RoundedRectangle(cornerRadius: FDS.Radius.lg, style: .continuous)
                                 .stroke(selected ? Color.ember.opacity(0.55) : Color.white.opacity(0.06), lineWidth: 1)
                         }
                     }
@@ -857,7 +857,7 @@ struct CoachingComposer: View {
                             .foregroundStyle(style.color)
                             .frame(width: 36, height: 36)
                             .background(style.color.opacity(0.14))
-                            .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+                            .clipShape(RoundedRectangle(cornerRadius: FDS.Radius.sm, style: .continuous))
                         VStack(alignment: .leading, spacing: 2) {
                             Text(style.friendToneTitle)
                                 .font(.subheadline.weight(.bold))
@@ -871,9 +871,9 @@ struct CoachingComposer: View {
                     }
                     .padding(16)
                     .background(Color.surfaceElevated.opacity(0.8))
-                    .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+                    .clipShape(RoundedRectangle(cornerRadius: FDS.Radius.lg, style: .continuous))
                     .overlay {
-                        RoundedRectangle(cornerRadius: 16, style: .continuous)
+                        RoundedRectangle(cornerRadius: FDS.Radius.lg, style: .continuous)
                             .stroke(style.color.opacity(0.28), lineWidth: 1)
                     }
                 }
@@ -908,14 +908,14 @@ struct ReadyComposer: View {
 
             if !coordinator.profile.firstName.isEmpty {
                 Text("You’re set, \(coordinator.profile.firstName). I’m here.")
-                    .font(.system(size: 18, weight: .semibold, design: .rounded))
+                    .font(FDS.TypeScale.Dynamic.headline)
                     .foregroundStyle(Color.textPrimary)
                     .frame(maxWidth: .infinity)
                     .multilineTextAlignment(.center)
             }
             if coordinator.profile.guidanceOnlyMode {
                 Text("ARIA will coach with guidance only for the conditions you shared.")
-                    .font(.system(size: 13, weight: .medium))
+                    .font(FDS.TypeScale.Dynamic.caption)
                     .foregroundStyle(Color.textTertiary)
                     .multilineTextAlignment(.center)
             }
@@ -928,24 +928,24 @@ struct ReadyComposer: View {
             } label: {
                 HStack(alignment: .top, spacing: 10) {
                     ZStack {
-                        RoundedRectangle(cornerRadius: 6).stroke(coordinator.hasAgreedToTerms ? Color.ember : Color.borderColor, lineWidth: 1.5)
+                        RoundedRectangle(cornerRadius: FDS.Radius.xs).stroke(coordinator.hasAgreedToTerms ? Color.ember : Color.borderColor, lineWidth: 1.5)
                             .frame(width: 22, height: 22)
                             .background(coordinator.hasAgreedToTerms ? Color.ember : Color.clear)
-                            .clipShape(RoundedRectangle(cornerRadius: 6))
+                            .clipShape(RoundedRectangle(cornerRadius: FDS.Radius.xs))
                         if coordinator.hasAgreedToTerms {
                             Image(systemName: "checkmark").font(.system(size: 12, weight: .bold)).foregroundStyle(.white)
                         }
                     }
                     Text("By agreeing to our Terms of Use, you acknowledge that Forge is an assistive coaching tool, not medical care. You are responsible for your own health. Any actions taken or injuries sustained are not the liability of Forge. Forge is designed to assist and advise, not to compel. By checking this box you waive all liability towards Forge.")
-                        .font(.system(size: 11, weight: .medium))
+                        .font(FDS.TypeScale.Dynamic.micro)
                         .foregroundStyle(Color.textTertiary)
                         .fixedSize(horizontal: false, vertical: true)
                         .multilineTextAlignment(.leading)
                 }
                 .padding(12)
                 .background(Color.surfaceElevated.opacity(0.6))
-                .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
-                .overlay { RoundedRectangle(cornerRadius: 12).stroke(coordinator.hasAgreedToTerms ? Color.ember.opacity(0.4) : Color.white.opacity(0.06), lineWidth: 1) }
+                .clipShape(RoundedRectangle(cornerRadius: FDS.Radius.md, style: .continuous))
+                .overlay { RoundedRectangle(cornerRadius: FDS.Radius.md).stroke(coordinator.hasAgreedToTerms ? Color.ember.opacity(0.4) : Color.white.opacity(0.06), lineWidth: 1) }
             }
             .buttonStyle(.plain)
 
@@ -992,7 +992,7 @@ struct MessageBubble: View {
             case .aria:
                 HStack(alignment: .top, spacing: 0) {
                     Text(message.text)
-                        .font(.system(size: 16, weight: .regular, design: .rounded))
+                        .font(FDS.TypeScale.Dynamic.headline)
                         .foregroundStyle(Color.textPrimary)
                         .lineSpacing(4)
                         .padding(.horizontal, 16)
@@ -1012,11 +1012,11 @@ struct MessageBubble: View {
                 HStack {
                     Spacer(minLength: 48)
                     Text(message.text)
-                        .font(.system(size: 15, weight: .medium, design: .rounded))
+                        .font(FDS.TypeScale.Dynamic.body)
                         .foregroundStyle(Color(hex: "0A0A0A"))
                         .padding(.horizontal, 16)
                         .padding(.vertical, 12)
-                        .background(Color(hex: "F7F4F0"))
+                        .background(Color.paper)
                         .clipShape(RoundedRectangle(cornerRadius: FDS.Radius.lg, style: .continuous))
                 }
             case .system:
@@ -1053,7 +1053,7 @@ struct ScheduleComposer: View {
 
             if coordinator.profile.schedulePlanningMode == .fixed {
                 Text("Tap a day to change the library and how many moves.")
-                    .font(.system(size: 12, weight: .medium))
+                    .font(FDS.TypeScale.Dynamic.caption)
                     .foregroundStyle(Color.textTertiary)
                 VStack(spacing: 8) {
                     ForEach(WeeklySplit.normalized(coordinator.profile.weeklySplit)) { slot in
@@ -1062,18 +1062,18 @@ struct ScheduleComposer: View {
                 }
             } else {
                 Text(WeeklySplit.summary(mode: .rotate, split: coordinator.profile.weeklySplit))
-                    .font(.system(size: 13, weight: .medium))
+                    .font(FDS.TypeScale.Dynamic.caption)
                     .foregroundStyle(Color.textSecondary)
                     .fixedSize(horizontal: false, vertical: true)
             }
 
             Button(action: { coordinator.confirmSchedule() }) {
                 Text("That’s the week")
-                    .font(.system(size: 16, weight: .semibold, design: .rounded))
+                    .font(FDS.TypeScale.Dynamic.headline)
                     .foregroundStyle(Color(hex: "0A0A0A"))
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 14)
-                    .background(Color(hex: "F7F4F0"))
+                    .background(Color.paper)
                     .clipShape(Capsule())
             }
             .buttonStyle(.plain)
@@ -1087,7 +1087,7 @@ struct ScheduleComposer: View {
         } label: {
             VStack(alignment: .leading, spacing: 4) {
                 Text(mode.label)
-                    .font(.system(size: 14, weight: .semibold))
+                    .font(FDS.TypeScale.Dynamic.body.weight(.semibold))
                     .foregroundStyle(on ? .white : Color.textPrimary)
                 Text(mode == .rotate ? "ARIA walks it" : "You assign days")
                     .font(.system(size: 11))
@@ -1097,7 +1097,7 @@ struct ScheduleComposer: View {
             .padding(.vertical, 10)
             .frame(maxWidth: .infinity, alignment: .leading)
             .background(on ? Color.ember : Color.surfaceElevated)
-            .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+            .clipShape(RoundedRectangle(cornerRadius: FDS.Radius.md, style: .continuous))
         }
         .buttonStyle(.plain)
     }
@@ -1106,7 +1106,7 @@ struct ScheduleComposer: View {
         VStack(alignment: .leading, spacing: 6) {
             HStack {
                 Text(WeeklySplit.dayLabels[slot.weekday])
-                    .font(.system(size: 13, weight: .bold, design: .rounded))
+                    .font(FDS.TypeScale.Dynamic.caption)
                     .foregroundStyle(Color.textPrimary)
                     .frame(width: 36, alignment: .leading)
                 ScrollView(.horizontal, showsIndicators: false) {
@@ -1122,7 +1122,7 @@ struct ScheduleComposer: View {
                                 ))
                             } label: {
                                 Text(choice.label)
-                                    .font(.system(size: 11, weight: .semibold))
+                                    .font(FDS.TypeScale.Dynamic.micro)
                                     .foregroundStyle(selected ? .white : Color.textSecondary)
                                     .padding(.horizontal, 8)
                                     .padding(.vertical, 6)
@@ -1137,7 +1137,7 @@ struct ScheduleComposer: View {
             if !slot.isRest {
                 HStack(spacing: 10) {
                     Text("\(slot.exerciseCount) exercises")
-                        .font(.system(size: 12, weight: .medium))
+                        .font(FDS.TypeScale.Dynamic.caption)
                         .foregroundStyle(Color.textTertiary)
                     Spacer()
                     Button {
@@ -1165,7 +1165,7 @@ struct ScheduleComposer: View {
         }
         .padding(10)
         .background(Color.surfaceElevated)
-        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+        .clipShape(RoundedRectangle(cornerRadius: FDS.Radius.md, style: .continuous))
     }
 }
 

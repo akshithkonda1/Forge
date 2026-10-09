@@ -39,7 +39,7 @@ struct CoachingStylePickerView: View {
 
                                     VStack(alignment: .leading, spacing: 4) {
                                         Text(style.label)
-                                            .font(.system(size: 16, weight: .semibold))
+                                            .font(FDS.TypeScale.Dynamic.headline)
                                             .foregroundColor(.textPrimary)
                                         Text(style.description)
                                             .font(.system(size: 13))
@@ -50,20 +50,20 @@ struct CoachingStylePickerView: View {
 
                                     ZStack {
                                         Circle()
-                                            .stroke(selectedStyle == style ? Color(hex: "F7F4F0") : Color.borderColor, lineWidth: 2)
+                                            .stroke(selectedStyle == style ? Color.paper : Color.borderColor, lineWidth: 2)
                                             .frame(width: 24, height: 24)
                                         if selectedStyle == style {
                                             Circle()
-                                                .fill(Color(hex: "F7F4F0"))
+                                                .fill(Color.paper)
                                                 .frame(width: 14, height: 14)
                                         }
                                     }
                                 }
                                 .padding(16)
                                 .background(Color.white.opacity(selectedStyle == style ? 0.06 : 0.04))
-                                .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+                                .clipShape(RoundedRectangle(cornerRadius: FDS.Radius.md, style: .continuous))
                                 .overlay(
-                                    RoundedRectangle(cornerRadius: 14, style: .continuous)
+                                    RoundedRectangle(cornerRadius: FDS.Radius.md, style: .continuous)
                                         .stroke(Color.white.opacity(selectedStyle == style ? 0.18 : 0.08), lineWidth: 1)
                                 )
                             }

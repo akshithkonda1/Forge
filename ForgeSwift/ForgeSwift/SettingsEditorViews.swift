@@ -68,7 +68,7 @@ struct TrainingScheduleEditorView: View {
                                 mode = option
                             } label: {
                                 Text(option.label)
-                                    .font(.system(size: 13, weight: .semibold))
+                                    .font(FDS.TypeScale.Dynamic.caption)
                                     .foregroundColor(mode == option ? .white : .textSecondary)
                                     .frame(maxWidth: .infinity)
                                     .padding(.vertical, 10)
@@ -82,7 +82,7 @@ struct TrainingScheduleEditorView: View {
                     ForEach($split) { $slot in
                         VStack(alignment: .leading, spacing: 8) {
                             Text(WeeklySplit.dayNames[slot.weekday])
-                                .font(.system(size: 14, weight: .semibold))
+                                .font(FDS.TypeScale.Dynamic.body.weight(.semibold))
                                 .foregroundColor(.textPrimary)
                             ScrollView(.horizontal, showsIndicators: false) {
                                 HStack(spacing: 6) {
@@ -96,7 +96,7 @@ struct TrainingScheduleEditorView: View {
                                             mode = .fixed
                                         } label: {
                                             Text(choice.label)
-                                                .font(.system(size: 12, weight: .semibold))
+                                                .font(FDS.TypeScale.Dynamic.caption)
                                                 .foregroundColor(on ? .white : .textSecondary)
                                                 .padding(.horizontal, 10)
                                                 .padding(.vertical, 7)
@@ -174,7 +174,7 @@ struct TrainingThemePickerView: View {
                                 .frame(width: 28)
                             VStack(alignment: .leading, spacing: 4) {
                                 Text(theme.label)
-                                    .font(.system(size: 16, weight: .semibold))
+                                    .font(FDS.TypeScale.Dynamic.headline)
                                     .foregroundColor(.textPrimary)
                                 Text(theme.tagline)
                                     .font(.system(size: 12))

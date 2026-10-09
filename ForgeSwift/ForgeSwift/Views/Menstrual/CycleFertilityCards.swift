@@ -20,7 +20,7 @@ struct FertileScoreCard: View {
             HStack(alignment: .firstTextBaseline) {
                 VStack(alignment: .leading, spacing: 4) {
                     Text("FERTILE SCORE")
-                        .font(FDS.TypeScale.label(11))
+                        .font(FDS.TypeScale.Dynamic.caption)
                         .tracking(1.2)
                         .foregroundStyle(.secondary)
                     HStack(alignment: .firstTextBaseline, spacing: 4) {
@@ -28,17 +28,17 @@ struct FertileScoreCard: View {
                             .font(.system(size: 44, weight: .bold, design: .rounded))
                             .foregroundStyle(band.color)
                         Text("/ 100")
-                            .font(.system(size: 16, weight: .semibold, design: .rounded))
+                            .font(FDS.TypeScale.Dynamic.headline)
                             .foregroundStyle(.secondary)
                     }
                 }
                 Spacer()
                 VStack(alignment: .trailing, spacing: 6) {
                     Text(band.label)
-                        .font(FDS.TypeScale.label(12))
+                        .font(FDS.TypeScale.Dynamic.caption)
                         .foregroundStyle(band.color)
                     Text(phase.label)
-                        .font(FDS.TypeScale.body(12))
+                        .font(FDS.TypeScale.Dynamic.caption)
                         .foregroundStyle(.secondary)
                 }
             }
@@ -60,7 +60,7 @@ struct FertileScoreCard: View {
             .frame(height: 8)
 
             Text("Multi-signal confidence from ovulation method, cycle history, and phase proximity. Lifestyle timing only — not contraception.")
-                .font(FDS.TypeScale.body(12))
+                .font(FDS.TypeScale.Dynamic.caption)
                 .foregroundStyle(.secondary)
 
             Button(action: onAskARIA) {
@@ -69,7 +69,7 @@ struct FertileScoreCard: View {
                 } icon: {
                     ARIAIdentityMark(state: .idle, mood: .energized, size: 14, amplitude: 0.22)
                 }
-                    .font(FDS.TypeScale.label(13))
+                    .font(FDS.TypeScale.Dynamic.caption)
             }
             .buttonStyle(.bordered)
             .tint(band.color)
@@ -92,7 +92,7 @@ struct CycleGoalSelectorCard: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             Text("Your cycle goal")
-                .font(FDS.TypeScale.body(12))
+                .font(FDS.TypeScale.Dynamic.caption)
                 .foregroundStyle(.secondary)
             HStack(spacing: 8) {
                 ForEach(CycleGoal.allCases) { g in
@@ -103,7 +103,7 @@ struct CycleGoalSelectorCard: View {
                             Image(systemName: g.icon)
                                 .font(.title3)
                             Text(g.label)
-                                .font(FDS.TypeScale.body(11))
+                                .font(FDS.TypeScale.Dynamic.caption)
                                 .multilineTextAlignment(.center)
                         }
                         .frame(maxWidth: .infinity)
@@ -120,7 +120,7 @@ struct CycleGoalSelectorCard: View {
                 }
             }
             Text("What ARIA should design training around")
-                .font(FDS.TypeScale.body(12))
+                .font(FDS.TypeScale.Dynamic.caption)
                 .foregroundStyle(.secondary)
             HStack(spacing: 8) {
                 ForEach(Array(CycleLifestyleGoal.allCases.filter { $0 != .none }) + [.none], id: \.self) { g in
@@ -131,7 +131,7 @@ struct CycleGoalSelectorCard: View {
                             Image(systemName: g.icon)
                                 .font(.caption)
                             Text(g == .none ? "Ask me" : g.label)
-                                .font(FDS.TypeScale.micro(10))
+                                .font(FDS.TypeScale.Dynamic.micro)
                                 .multilineTextAlignment(.center)
                                 .lineLimit(2)
                         }
@@ -146,7 +146,7 @@ struct CycleGoalSelectorCard: View {
             }
             if lifestyleGoal != .none {
                 Text("While you’re on your period")
-                    .font(FDS.TypeScale.body(12))
+                    .font(FDS.TypeScale.Dynamic.caption)
                     .foregroundStyle(.secondary)
                 HStack(spacing: 8) {
                     ForEach(CyclePeriodTrainingStyle.allCases) { style in
@@ -154,7 +154,7 @@ struct CycleGoalSelectorCard: View {
                             onPeriodStyle(style)
                         } label: {
                             Text(style.label)
-                                .font(FDS.TypeScale.micro(10))
+                                .font(FDS.TypeScale.Dynamic.micro)
                                 .multilineTextAlignment(.center)
                                 .lineLimit(2)
                                 .frame(maxWidth: .infinity)
@@ -167,13 +167,13 @@ struct CycleGoalSelectorCard: View {
                     }
                 }
                 Text(periodTrainingStyle.runningCopy)
-                    .font(FDS.TypeScale.body(11))
+                    .font(FDS.TypeScale.Dynamic.caption)
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
             }
             if goal == .intimacy {
                 Text("Healthy sex, safe sex, positions, period sex, partner tips — on this iPhone. Forge is not a contraceptive.")
-                    .font(FDS.TypeScale.body(11))
+                    .font(FDS.TypeScale.Dynamic.caption)
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
                     .padding(.top, 2)
@@ -194,13 +194,13 @@ struct TWWSectionCard: View {
                 Image(systemName: "hourglass")
                     .foregroundStyle(Color.ember)
                 Text("Two-Week Wait")
-                    .font(FDS.TypeScale.body(15))
+                    .font(FDS.TypeScale.Dynamic.body)
                     .fontWeight(.semibold)
             }
             Text("Day \(daysElapsed) of your two-week wait")
-                .font(FDS.TypeScale.body(14))
+                .font(FDS.TypeScale.Dynamic.body)
             Text("\(max(0, 14 - daysElapsed)) days until you can test")
-                .font(FDS.TypeScale.body(12))
+                .font(FDS.TypeScale.Dynamic.caption)
                 .foregroundStyle(.secondary)
             ProgressView(value: Double(min(daysElapsed, 14)), total: 14.0)
                 .tint(Color.ember)
@@ -222,10 +222,10 @@ struct CycleConditionSelectorCard: View {
         VStack(alignment: .leading, spacing: 12) {
             VStack(alignment: .leading, spacing: 4) {
                 Text("HEALTH CONDITION")
-                    .font(FDS.TypeScale.label(12))
+                    .font(FDS.TypeScale.Dynamic.caption)
                     .foregroundColor(.textSecondary)
                 Text("Personalises cycle predictions and ARIA coaching")
-                    .font(FDS.TypeScale.body(11))
+                    .font(FDS.TypeScale.Dynamic.caption)
                     .foregroundColor(.textTertiary)
             }
             LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible()), GridItem(.flexible())], spacing: 8) {
