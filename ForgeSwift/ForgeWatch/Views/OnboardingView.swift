@@ -33,11 +33,11 @@ struct OnboardingView: View {
                     .font(ForgeType.title(17))
                     .foregroundStyle(ForgePalette.textPrimary)
                 Text("Readiness at a glance, workouts with honest coaching, and short resets that fit between the things you already do.")
-                    .font(.system(size: 12))
+                    .font(ForgeType.Compact.body)
                     .foregroundStyle(ForgePalette.textSecondary)
                     .multilineTextAlignment(.center)
                 Text("Scroll for more")
-                    .font(.system(size: 10))
+                    .font(ForgeType.Compact.micro)
                     .foregroundStyle(ForgePalette.textTertiary)
             }
             .padding(.horizontal, 4)
@@ -57,7 +57,7 @@ struct OnboardingView: View {
                     .foregroundStyle(ForgePalette.textPrimary)
                     .multilineTextAlignment(.center)
                 Text("No streaks to break, no guilt, no all-or-nothing. Forge reads your signals and suggests the smallest thing that genuinely helps.")
-                    .font(.system(size: 12))
+                    .font(ForgeType.Compact.body)
                     .foregroundStyle(ForgePalette.textSecondary)
                     .multilineTextAlignment(.center)
             }
@@ -76,7 +76,7 @@ struct OnboardingView: View {
                     .font(ForgeType.title(15))
                     .foregroundStyle(ForgePalette.textPrimary)
                 Text("Forge reads sleep, heart, and activity from Health to compute readiness on this watch. Nothing leaves the device unless you connect deeper coaching.")
-                    .font(.system(size: 11.5))
+                    .font(ForgeType.Compact.body)
                     .foregroundStyle(ForgePalette.textSecondary)
                     .multilineTextAlignment(.center)
 
@@ -125,11 +125,11 @@ struct OnboardingView: View {
                     .accessibilityLabel("Connect Health and begin")
                     .accessibilityHint("Shows the Health permission sheet, then opens Forge.")
 
-                    Button("Not now — look around first") {
+                    Button("Skip") {
                         contextEngine.completeOnboarding()
                     }
                     .buttonStyle(.plain)
-                    .font(.system(size: 11))
+                    .font(ForgeType.Compact.caption)
                     .foregroundStyle(ForgePalette.textTertiary)
                     .accessibilityHint("Skips permissions. Forge will show honest empty states until Health is connected.")
                 }

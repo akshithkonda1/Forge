@@ -30,6 +30,8 @@ extension Color {
     static let steel      = Color(hex: "5B8DEF")
     static let steelLight = Color(hex: "7BA6F7")
     static let steelDark  = Color(hex: "3D6FD4")
+    /// Miss / rest chrome — steel, never alert red. Lockstep with `missHex`.
+    static let miss       = Color(hex: "7BA6F7")
 
     // Violet accent (ARIA / intelligence)
     static let aurora = Color(hex: "A78BFA")
@@ -50,6 +52,8 @@ extension Color {
     static let alert = Color(hex: "EF4444")
 
     // Text
+    /// Warm white — brand wordmark, primary-on-dark button fill.
+    static let paper = Color(hex: "F7F4F0")
     static let textPrimary   = Color(hex: "FAFAFA")
     static let textSecondary = Color(hex: "A1A1AA")
     static let textTertiary  = Color(hex: "71717A")

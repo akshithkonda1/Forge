@@ -31,36 +31,36 @@ struct DataPermissionsView: View {
     var body: some View {
         NavigationStack {
             ScrollView(showsIndicators: false) {
-                VStack(alignment: .leading, spacing: 16) {
+                VStack(alignment: .leading, spacing: FDS.Spacing.lg) {
                     Text("ARIA only reasons over the data you allow. Turn a domain off and it's redacted before ARIA ever sees it — never used, never inferred.")
-                        .font(.system(size: 13))
+                        .font(ForgeType.body)
                         .foregroundColor(.textSecondary)
-                        .padding(.top, 4)
+                        .padding(.top, FDS.Spacing.xs)
 
                     VStack(spacing: 0) {
                         ForEach(Array(DataPermissionsStore.domains.enumerated()), id: \.element) { index, domain in
                             if index > 0 { Divider().background(Color.borderColor) }
                             Toggle(isOn: allowBinding(for: domain)) {
-                                HStack(spacing: 12) {
+                                HStack(spacing: FDS.Spacing.md) {
                                     Image(systemName: labels[domain]?.1 ?? "circle.fill")
-                                        .font(.system(size: 15))
+                                        .font(.system(size: ForgeUX.icon, weight: .semibold))
                                         .foregroundColor(.ember)
                                         .frame(width: 24)
                                     Text(labels[domain]?.0 ?? domain.capitalized)
-                                        .font(.system(size: 15))
+                                        .font(ForgeType.headline)
                                         .foregroundColor(.textPrimary)
                                 }
                             }
                             .tint(.ember)
-                            .padding(.horizontal, 16)
-                            .padding(.vertical, 12)
+                            .padding(.horizontal, FDS.Spacing.lg)
+                            .frame(minHeight: ForgeUX.minTap)
                         }
                     }
-                    .forgeGlassCard(cornerRadius: 16, accent: .ember)
+                    .forgeGlassCard(cornerRadius: FDS.Radius.lg, accent: .ember)
 
                     syncSection
                 }
-                .padding(16)
+                .padding(FDS.Spacing.lg)
             }
             .forgeScreenBackground(accent: .ember)
             .navigationTitle("Data Permissions")
@@ -74,21 +74,21 @@ struct DataPermissionsView: View {
     }
 
     private var syncSection: some View {
-        VStack(alignment: .leading, spacing: 12) {
+        VStack(alignment: .leading, spacing: FDS.Spacing.md) {
             Button {
                 Task { await sync() }
             } label: {
-                HStack(spacing: 8) {
+                HStack(spacing: FDS.Spacing.sm) {
                     if isSyncing { ProgressView().tint(.white) }
                     Image(systemName: "arrow.triangle.2.circlepath")
                     Text(isSyncing ? "Syncing body model…" : "Sync body model")
-                        .font(.system(size: 15, weight: .semibold))
+                        .font(FDS.TypeScale.Dynamic.body.weight(.semibold))
                 }
                 .foregroundColor(.white)
                 .frame(maxWidth: .infinity)
                 .frame(height: 50)
                 .background(LinearGradient.emberGradient)
-                .cornerRadius(14)
+                .cornerRadius(FDS.Radius.md)
             }
             .disabled(isSyncing)
 
@@ -103,9 +103,9 @@ struct DataPermissionsView: View {
     }
 
     private func snapshotCard(_ snap: BodySnapshot) -> some View {
-        VStack(alignment: .leading, spacing: 10) {
+        VStack(alignment: .leading, spacing: FDS.Spacing.md) {
             Text("Body Model")
-                .font(.system(size: 14, weight: .semibold))
+                .font(FDS.TypeScale.Dynamic.body.weight(.semibold))
                 .foregroundColor(.textPrimary)
             Text("\(snap.observationCount) signals · \(Int(snap.confidence * 100))% confidence")
                 .font(.system(size: 12))
@@ -119,7 +119,7 @@ struct DataPermissionsView: View {
                             .foregroundColor(.textSecondary)
                         Spacer()
                         Text("\(value, specifier: "%.0f") · \(estimate.state)")
-                            .font(.system(size: 13, weight: .medium))
+                            .font(FDS.TypeScale.Dynamic.caption)
                             .foregroundColor(.textPrimary)
                     }
                 }
@@ -131,9 +131,9 @@ struct DataPermissionsView: View {
                     .foregroundColor(.textTertiary)
             }
         }
-        .padding(16)
+        .padding(FDS.Spacing.lg)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .forgeGlassCard(cornerRadius: 16, accent: .steel)
+        .forgeGlassCard(cornerRadius: FDS.Radius.lg, accent: .steel)
     }
 
     private func allowBinding(for domain: String) -> Binding<Bool> {

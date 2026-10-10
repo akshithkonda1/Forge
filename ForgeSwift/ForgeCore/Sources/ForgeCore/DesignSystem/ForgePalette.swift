@@ -2,14 +2,12 @@ import SwiftUI
 
 // MARK: - Forge Palette (shared iOS + watchOS)
 //
-// Ported from ForgeSwift/ColorExtensions.swift. The initializer is named
-// `forgeHex` (not `hex`) so linking ForgeCore into the iOS app never
-// collides with the app's existing `Color(hex:)` extension.
+// Lockstep with `shared/design-tokens.json` / Home Theme.
+// The initializer is `forgeHex` so linking ForgeCore into the iOS app
+// never collides with the app's `Color(hex:)`.
 //
-// Ember is energy and high-alert — never guilt.
-// Steel, violet, jade, indigo carry focus, wind-down, and recovery.
-// Teal is intake / listening. ARIA does not get a second rainbow;
-// her states are roles on these same tokens.
+// Ember is energy — never guilt. Miss / rest states use steelLight
+// (`miss`), not alert red. ARIA states are roles on these same tokens.
 
 public extension Color {
     init(forgeHex hex: String) {
@@ -32,39 +30,41 @@ public extension Color {
 }
 
 public enum ForgePalette {
-    // Backgrounds — pure black favors OLED and always-on dimming.
-    public static let background      = Color(forgeHex: "0A0A0A")
-    public static let surface         = Color(forgeHex: "141414")
-    public static let surfaceElevated = Color(forgeHex: "1A1A1A")
+    public static let background      = Color(forgeHex: ForgeDesignTokens.ColorHex.background)
+    public static let surface         = Color(forgeHex: ForgeDesignTokens.ColorHex.surface)
+    public static let surfaceElevated = Color(forgeHex: ForgeDesignTokens.ColorHex.surfaceElevated)
+    public static let surfaceHover    = Color(forgeHex: ForgeDesignTokens.ColorHex.surfaceHover)
+    public static let cardBackground  = Color(forgeHex: ForgeDesignTokens.ColorHex.cardBackground)
 
-    // Ember (primary / energy). High-alert accent only — used sparingly on watch.
-    public static let ember      = Color(forgeHex: "FF4D00")
-    public static let emberLight = Color(forgeHex: "FF6B2B")
+    public static let ember      = Color(forgeHex: ForgeDesignTokens.ColorHex.ember)
+    public static let emberLight = Color(forgeHex: ForgeDesignTokens.ColorHex.emberLight)
     public static let emberCore  = Color(forgeHex: "FFE28A")
+    public static let emberDark  = Color(forgeHex: ForgeDesignTokens.ColorHex.emberDark)
 
-    // Steel (secondary / focus)
-    public static let steel      = Color(forgeHex: "3B82F6")
-    public static let steelLight = Color(forgeHex: "60A5FA")
+    public static let steel      = Color(forgeHex: ForgeDesignTokens.ColorHex.steel)
+    public static let steelLight = Color(forgeHex: ForgeDesignTokens.ColorHex.steelLight)
+    public static let steelDark  = Color(forgeHex: ForgeDesignTokens.ColorHex.steelDark)
+    public static let miss       = Color(forgeHex: ForgeDesignTokens.ColorHex.miss)
+    public static let plate      = Color(forgeHex: ForgeDesignTokens.ColorHex.plate)
 
-    // Calm & restorative range (mindfulness, sleep, recovery)
-    public static let violet = Color(forgeHex: "A855F7")
-    public static let indigo = Color(forgeHex: "6366F1")
-    public static let jade   = Color(forgeHex: "34D399")
+    public static let aurora = Color(forgeHex: ForgeDesignTokens.ColorHex.aurora)
+    public static let violet = Color(forgeHex: ForgeDesignTokens.ColorHex.aurora)
+    public static let indigo = Color(forgeHex: ForgeDesignTokens.ColorHex.indigo)
+    public static let jade   = Color(forgeHex: ForgeDesignTokens.ColorHex.success)
     public static let teal   = Color(forgeHex: "2DD4BF")
-    public static let amber  = Color(forgeHex: "F59E0B")
+    public static let amber  = Color(forgeHex: ForgeDesignTokens.ColorHex.amber)
+    public static let vitality = Color(forgeHex: ForgeDesignTokens.ColorHex.vitality)
+    public static let alert  = Color(forgeHex: ForgeDesignTokens.ColorHex.alert)
 
-    // Text
-    public static let textPrimary   = Color.white
-    public static let textSecondary = Color(forgeHex: "A1A1AA")
-    public static let textTertiary  = Color(forgeHex: "71717A")
+    public static let textPrimary   = Color(forgeHex: ForgeDesignTokens.ColorHex.textPrimary)
+    public static let textSecondary = Color(forgeHex: ForgeDesignTokens.ColorHex.textSecondary)
+    public static let textTertiary  = Color(forgeHex: ForgeDesignTokens.ColorHex.textTertiary)
+    public static let textMuted     = Color(forgeHex: ForgeDesignTokens.ColorHex.textMuted)
 
-    // Status
-    public static let success = Color(forgeHex: "22C55E")
-    public static let warning = Color(forgeHex: "EAB308")
-    public static let danger  = Color(forgeHex: "EF4444")
+    public static let success = Color(forgeHex: ForgeDesignTokens.ColorHex.success)
+    public static let warning = Color(forgeHex: ForgeDesignTokens.ColorHex.warning)
+    public static let danger  = Color(forgeHex: ForgeDesignTokens.ColorHex.danger)
 
-    // MARK: Presence roles (generic — not ARIA-specific)
-    // Weight shifts. Identity does not. Pair with AriaNestGeometry breath.
     public static let ariaIdle       = ember
     public static let ariaListening  = teal
     public static let ariaProcessing = steel

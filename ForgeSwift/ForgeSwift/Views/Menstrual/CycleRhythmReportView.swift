@@ -24,13 +24,13 @@ struct CycleRhythmReportView: View {
     var body: some View {
         NavigationStack {
             ScrollView {
-                VStack(alignment: .leading, spacing: 18) {
-                    VStack(alignment: .leading, spacing: 8) {
+                VStack(alignment: .leading, spacing: FDS.Spacing.lg) {
+                    VStack(alignment: .leading, spacing: FDS.Spacing.sm) {
                         Text("Rhythm report")
-                            .font(FDS.TypeScale.title(22))
+                            .font(FDS.TypeScale.Dynamic.title)
                             .foregroundColor(.textPrimary)
                         Text("Forge reads what it already wrote to Apple Cycle Tracking, then fills this template on your iPhone. Share the PDF via Mail, Files, or MyChart. A temporary private link is optional and expires in a day — nothing is stored in a Forge database.")
-                            .font(FDS.TypeScale.body(14))
+                            .font(FDS.TypeScale.Dynamic.body)
                             .foregroundColor(.textSecondary)
                             .fixedSize(horizontal: false, vertical: true)
                     }
@@ -54,7 +54,7 @@ struct CycleRhythmReportView: View {
                     } label: {
                         Label(isRefreshing ? "Reading Apple Cycle…" : "Refresh from Apple Cycle",
                               systemImage: "arrow.triangle.2.circlepath")
-                            .font(FDS.TypeScale.label(14))
+                            .font(FDS.TypeScale.Dynamic.caption)
                     }
                     .buttonStyle(.bordered)
                     .tint(.vitality)
@@ -62,10 +62,10 @@ struct CycleRhythmReportView: View {
 
                     if months.isEmpty {
                         Text("Keep logging. Each day writes to Apple Health. After a few cycles this becomes a 3, 6, or 12-month evidence pack.")
-                            .font(FDS.TypeScale.body(14))
+                            .font(FDS.TypeScale.Dynamic.body)
                             .foregroundColor(.textSecondary)
                     } else {
-                        VStack(alignment: .leading, spacing: 10) {
+                        VStack(alignment: .leading, spacing: FDS.Spacing.md) {
                             Text("MONTHS IN THIS PACK").forgeSectionLabel()
                             ForEach(months) { month in
                                 monthRow(month)
@@ -77,20 +77,19 @@ struct CycleRhythmReportView: View {
                         .font(.system(.footnote, design: .monospaced))
                         .foregroundColor(.textSecondary)
                         .textSelection(.enabled)
-                        .padding(14)
+                        .padding(FDS.Spacing.lg)
                         .frame(maxWidth: .infinity, alignment: .leading)
-                        .background(Color.surfaceElevated)
-                        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                        .forgeInsetTile(radius: FDS.Radius.md)
 
                     if let pdfURL {
                         ShareLink(item: pdfURL) {
                             Label("Share PDF with my clinician", systemImage: "square.and.arrow.up")
-                                .font(FDS.TypeScale.label(15))
+                                .font(FDS.TypeScale.Dynamic.caption)
                                 .foregroundColor(.white)
                                 .frame(maxWidth: .infinity)
-                                .padding(.vertical, 14)
+                                .padding(.vertical, FDS.Spacing.lg)
                                 .background(Color.ember)
-                                .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+                                .clipShape(RoundedRectangle(cornerRadius: FDS.Radius.md, style: .continuous))
                         }
                         .accessibilityHint("Opens the system share sheet with a PDF. You choose Mail, Files, MyChart, or AirDrop.")
                     }
@@ -102,9 +101,9 @@ struct CycleRhythmReportView: View {
                             linkBusy ? "Minting a 24-hour link…" : "Temporary private link (24h)",
                             systemImage: "link"
                         )
-                        .font(FDS.TypeScale.label(14))
+                        .font(FDS.TypeScale.Dynamic.caption)
                         .frame(maxWidth: .infinity)
-                        .padding(.vertical, 12)
+                        .padding(.vertical, FDS.Spacing.md)
                     }
                     .buttonStyle(.bordered)
                     .tint(.vitality)
@@ -113,22 +112,22 @@ struct CycleRhythmReportView: View {
                     if let linkURL {
                         ShareLink(item: linkURL) {
                             Text("Share expiring link")
-                                .font(FDS.TypeScale.label(14))
+                                .font(FDS.TypeScale.Dynamic.caption)
                         }
                         if let linkExpires {
                             Text("Expires \(linkExpires). Not stored on Forge servers.")
-                                .font(FDS.TypeScale.body(11))
+                                .font(FDS.TypeScale.Dynamic.caption)
                                 .foregroundColor(.textTertiary)
                         }
                     }
                     if let linkError {
                         Text(linkError)
-                            .font(FDS.TypeScale.body(12))
+                            .font(FDS.TypeScale.Dynamic.caption)
                             .foregroundColor(.ember)
                             .fixedSize(horizontal: false, vertical: true)
                     }
                 }
-                .padding(20)
+                .padding(FDS.Spacing.lg)
             }
             .background(Color.background.ignoresSafeArea())
             .navigationTitle("Apple Cycle report")
@@ -183,11 +182,11 @@ struct CycleRhythmReportView: View {
 
     private var overviewChips: some View {
         let snap = cycleStore.snapshot
-        return HStack(spacing: 8) {
+        return HStack(spacing: FDS.Spacing.sm) {
             chip("\(Int(snap.cycleLengthMedian.rounded()))d cycle", Color.ember)
-            chip("\(Int(snap.periodLengthMedian.rounded()))d bleed", Color(hex: "EF4444"))
+            chip("\(Int(snap.periodLengthMedian.rounded()))d bleed", Color.alert)
             if let mae = cycleStore.accuracyReport.maeDays {
-                chip(String(format: "MAE %.1fd", mae), Color(hex: "22C55E"))
+                chip(String(format: "MAE %.1fd", mae), Color.vitality)
             }
             chip("Apple Cycle", Color.vitality)
             Spacer(minLength: 0)
@@ -198,10 +197,10 @@ struct CycleRhythmReportView: View {
         HStack {
             VStack(alignment: .leading, spacing: 3) {
                 Text(month.monthKey)
-                    .font(FDS.TypeScale.label(15))
+                    .font(FDS.TypeScale.Dynamic.caption)
                     .foregroundColor(.textPrimary)
                 Text("\(month.daysLogged) days logged · \(month.bleedingDays) bleeding · \(month.cycleStarts) starts")
-                    .font(FDS.TypeScale.body(12))
+                    .font(FDS.TypeScale.Dynamic.caption)
                     .foregroundColor(.textTertiary)
             }
             Spacer()
@@ -209,17 +208,16 @@ struct CycleRhythmReportView: View {
                 .font(.system(size: 11))
                 .foregroundStyle(Color.vitality)
         }
-        .padding(14)
-        .background(Color.surfaceElevated)
-        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+        .padding(FDS.Spacing.lg)
+        .forgeInsetTile(radius: FDS.Radius.md)
     }
 
     private func chip(_ text: String, _ color: Color) -> some View {
         Text(text)
-            .font(FDS.TypeScale.micro(10))
+            .font(FDS.TypeScale.Dynamic.micro)
             .foregroundStyle(color)
-            .padding(.horizontal, 10)
-            .padding(.vertical, 5)
+            .padding(.horizontal, FDS.Spacing.md)
+            .padding(.vertical, FDS.Spacing.xs)
             .background(color.opacity(0.12))
             .clipShape(Capsule())
     }
@@ -230,20 +228,20 @@ struct CycleTrainingPrescriptionCard: View {
     var onAskARIA: () -> Void
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
+        VStack(alignment: .leading, spacing: FDS.Spacing.md) {
             Text("TODAY'S TRAINING").forgeSectionLabel()
             Text(prescription.headline)
-                .font(FDS.TypeScale.title(17))
+                .font(FDS.TypeScale.Dynamic.title)
                 .foregroundColor(.textPrimary)
             Text(prescription.volumeLine)
-                .font(FDS.TypeScale.body(14))
+                .font(FDS.TypeScale.Dynamic.body)
                 .foregroundColor(.textSecondary)
                 .fixedSize(horizontal: false, vertical: true)
             Text(prescription.intensityLine)
-                .font(FDS.TypeScale.body(13))
+                .font(FDS.TypeScale.Dynamic.caption)
                 .foregroundColor(.textSecondary)
             Text(prescription.returnLine)
-                .font(FDS.TypeScale.body(13))
+                .font(FDS.TypeScale.Dynamic.caption)
                 .foregroundColor(.textTertiary)
             Button(action: onAskARIA) {
                 Label {
@@ -251,15 +249,15 @@ struct CycleTrainingPrescriptionCard: View {
                 } icon: {
                     ARIAIdentityMark(state: .idle, mood: .energized, size: 14, amplitude: 0.22)
                 }
-                    .font(FDS.TypeScale.label(13))
+                    .font(FDS.TypeScale.Dynamic.caption)
             }
             .buttonStyle(.bordered)
             .tint(.ember)
             Text(prescription.disclaimer)
-                .font(FDS.TypeScale.body(11))
+                .font(FDS.TypeScale.Dynamic.caption)
                 .foregroundColor(.textTertiary)
         }
-        .padding(18)
+        .padding(FDS.Spacing.lg)
         .forgeGlassCard(accent: .ember)
     }
 }

@@ -189,6 +189,8 @@ const liveB = emberLobe(1, 1.1, false, false);
 assert(liveA.x !== liveB.x || liveA.y !== liveB.y || liveA.r !== liveB.r, "idle lobes move when alive");
 
 assert(ARIA_CINEMATIC_LINES.length === 1, "welcome is one beat");
+assert(ARIA_INTRO.eyebrow === "Your lifestyle coach", "ARIA is a lifestyle coach, never expanded");
+assert(!/Adaptive Recovery/i.test(ARIA_INTRO.eyebrow), "never expand ARIA as Adaptive Recovery");
 assert(ARIA_INTRO.title === "This is ARIA", "first-meet title is This is ARIA");
 assert(!ARIA_INTRO.lead.includes(ARIA_INTRO.pairingForbidden), "intro does not pair Forge × ARIA");
 assert(ARIA_INTRO.lead.includes("designed for Forge"), "ARIA was designed for Forge");

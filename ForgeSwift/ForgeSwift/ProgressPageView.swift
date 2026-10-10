@@ -19,11 +19,11 @@ struct ProgressPageView: View {
 
     var body: some View {
         ScrollView(showsIndicators: false) {
-            VStack(alignment: .leading, spacing: 24) {
+            VStack(alignment: .leading, spacing: FDS.Spacing.xl) {
                 ForgePageHeader(
                     title: "Progress",
                     subtitle: "History, PRs, streaks — your training story",
-                    accent: Color(hex: "3B82F6")
+                    accent: Color.steel
                 ) {
                     Button(action: { store.openChat(with: "Walk me through my progress, PRs, and what to train next.", voice: false) }) {
                         ARIAIdentityMark(state: .idle, mood: .energized, size: 40, amplitude: 0.24)
@@ -32,7 +32,7 @@ struct ProgressPageView: View {
                     .accessibilityLabel("Ask ARIA about progress")
                     ForgeIconButton(
                         systemImage: "square.and.arrow.up",
-                        accent: Color(hex: "3B82F6"),
+                        accent: Color.steel,
                         accessibilityLabel: "Share progress"
                     ) {
                         showShareSheet = true
@@ -43,10 +43,10 @@ struct ProgressPageView: View {
                 StatsMosaicCard()
 
                 if isInitialLoading {
-                    ForgeSkeletonBlock(height: 88, cornerRadius: 16)
-                    ForgeSkeletonBlock(height: 160, cornerRadius: 16)
-                    ForgeSkeletonBlock(height: 220, cornerRadius: 16)
-                    ForgeSkeletonBlock(height: 160, cornerRadius: 16)
+                    ForgeSkeletonBlock(height: 88, cornerRadius: FDS.Radius.lg)
+                    ForgeSkeletonBlock(height: 160, cornerRadius: FDS.Radius.lg)
+                    ForgeSkeletonBlock(height: 220, cornerRadius: FDS.Radius.lg)
+                    ForgeSkeletonBlock(height: 160, cornerRadius: FDS.Radius.lg)
                 } else if store.workoutHistory.isEmpty && store.progressSummary == nil && store.personalRecords.isEmpty {
                     ForgeEmptyStateCard(
                         icon: "chart.line.uptrend.xyaxis",
@@ -67,10 +67,10 @@ struct ProgressPageView: View {
                     StreaksAndMilestonesView()
                 }
             }
-            .padding(.horizontal, 16)
+            .padding(.horizontal, FDS.Spacing.lg)
             .padding(.bottom, 32)
         }
-        .forgeScreenBackground(accent: Color(hex: "3B82F6"))
+        .forgeScreenBackground(accent: Color.steel)
         .refreshable {
             await store.loadDashboardFromAPI()
         }
@@ -109,38 +109,30 @@ struct MonthlySummaryView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
-            // Top gradient accent bar with shimmer
-            ZStack {
-                LinearGradient(colors: [.ember, .emberLight, .ember], startPoint: .leading, endPoint: .trailing)
-                    .frame(height: 3)
+            LinearGradient(colors: [.ember, .emberLight, .ember], startPoint: .leading, endPoint: .trailing)
+                .frame(height: 3)
+                .clipShape(RoundedRectangle(cornerRadius: 1.5))
 
-                LinearGradient(colors: [.clear, .white.opacity(0.3), .clear], startPoint: .leading, endPoint: .trailing)
-                    .frame(height: 3)
-                    .offset(x: appeared ? 400 : -400)
-                    .animation(.linear(duration: 2).repeatForever(autoreverses: false), value: appeared)
-            }
-            .clipShape(RoundedRectangle(cornerRadius: 1.5))
-
-            VStack(alignment: .leading, spacing: 18) {
+            VStack(alignment: .leading, spacing: FDS.Spacing.lg) {
                 HStack {
                     Text("THIS MONTH")
-                        .font(.system(size: 11, weight: .black))
+                        .font(FDS.TypeScale.Dynamic.micro)
                         .foregroundColor(.ember)
                         .tracking(2)
 
                     Spacer()
 
                     // Month indicator
-                    HStack(spacing: 4) {
+                    HStack(spacing: FDS.Spacing.xs) {
                         Image(systemName: "calendar")
                             .font(.system(size: 10))
                         Text(monthLabel)
-                            .font(.system(size: 11, weight: .medium))
+                            .font(FDS.TypeScale.Dynamic.micro)
                     }
                     .foregroundColor(.textTertiary)
                 }
 
-                HStack(spacing: 10) {
+                HStack(spacing: FDS.Spacing.md) {
                     StatPillCard(value: workoutsCompleted, label: "Workouts", appeared: appeared, delay: 0.1)
                     StatPillCard(value: newPRs, label: "New PRs", appeared: appeared, delay: 0.15)
                     StatPillCard(value: recoveryDelta, label: "Recovery", appeared: appeared, delay: 0.2)
@@ -154,9 +146,9 @@ struct MonthlySummaryView: View {
                     .offset(y: appeared ? 0 : 8)
                     .animation(.easeOut(duration: 0.5).delay(0.3), value: appeared)
             }
-            .padding(20)
+            .padding(FDS.Spacing.lg)
         }
-        .forgeGlassCard(cornerRadius: 18, accent: .ember)
+        .forgeGlassCard(cornerRadius: FDS.Radius.lg, accent: .ember)
         .onAppear { appeared = true }
     }
 }
@@ -168,18 +160,19 @@ struct StatPillCard: View {
     var delay: Double = 0
 
     var body: some View {
-        VStack(spacing: 6) {
+        VStack(spacing: FDS.Spacing.sm) {
             Text(value)
-                .font(.system(size: 22, weight: .black, design: .rounded))
+                .font(ForgeType.metric)
                 .foregroundColor(.textPrimary)
+                .monospacedDigit()
                 .contentTransition(.numericText())
             Text(label)
-                .font(.system(size: 11, weight: .medium))
+                .font(ForgeType.caption)
                 .foregroundColor(.textSecondary)
                 .fixedSize()
         }
         .frame(maxWidth: .infinity)
-        .padding(.vertical, 14)
+        .padding(.vertical, FDS.Spacing.lg)
         .background(
             ZStack {
                 Color.surfaceElevated
@@ -190,8 +183,8 @@ struct StatPillCard: View {
                 )
             }
         )
-        .cornerRadius(12)
-        .overlay(RoundedRectangle(cornerRadius: 12).stroke(Color.borderColor.opacity(0.5), lineWidth: 1))
+        .cornerRadius(FDS.Radius.md)
+        .overlay(RoundedRectangle(cornerRadius: FDS.Radius.md).stroke(Color.borderColor.opacity(0.5), lineWidth: 1))
         .scaleEffect(appeared ? 1 : 0.9)
         .opacity(appeared ? 1 : 0)
         .animation(.spring(response: 0.5, dampingFraction: 0.7).delay(delay), value: appeared)
@@ -263,9 +256,9 @@ struct CalendarHeatmapView: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
+        VStack(alignment: .leading, spacing: FDS.Spacing.md) {
             Text(monthTitle)
-                .font(.system(size: 14, weight: .semibold))
+                .font(FDS.TypeScale.Dynamic.body.weight(.semibold))
                 .foregroundColor(.textPrimary)
 
             // Day labels
@@ -273,7 +266,7 @@ struct CalendarHeatmapView: View {
             LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 6), count: 7), spacing: 6) {
                 ForEach(Array(dayLabels.enumerated()), id: \.offset) { _, label in
                     Text(label)
-                        .font(.system(size: 10, weight: .medium))
+                        .font(FDS.TypeScale.Dynamic.micro)
                         .foregroundColor(.textTertiary)
                         .frame(maxWidth: .infinity)
                         .frame(height: 20)
@@ -285,12 +278,12 @@ struct CalendarHeatmapView: View {
                 LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 6), count: 7), spacing: 6) {
                     ForEach(week) { cell in
                         if let day = cell.day {
-                            RoundedRectangle(cornerRadius: 5)
+                            RoundedRectangle(cornerRadius: FDS.Radius.xs)
                                 .fill(heatColor(cell.level))
                                 .aspectRatio(1, contentMode: .fit)
                                 .overlay(
                                     Text("\(day)")
-                                        .font(.system(size: 9, weight: .medium))
+                                        .font(FDS.TypeScale.Dynamic.micro)
                                         .foregroundColor(cell.level > 0 ? .white.opacity(0.85) : Color.textTertiary.opacity(0.6))
                                 )
                         } else {
@@ -301,17 +294,17 @@ struct CalendarHeatmapView: View {
             }
 
             // Legend
-            HStack(spacing: 12) {
+            HStack(spacing: FDS.Spacing.md) {
                 ForEach([("None", Color.surfaceElevated), ("Light", Color.ember.opacity(0.3)), ("Moderate", Color.ember.opacity(0.6)), ("Intense", Color.ember)], id: \.0) { label, color in
-                    HStack(spacing: 5) {
+                    HStack(spacing: FDS.Spacing.xs) {
                         RoundedRectangle(cornerRadius: 3).fill(color).frame(width: 12, height: 12)
                         Text(label).font(.system(size: 10)).foregroundColor(.textTertiary)
                     }
                 }
             }
         }
-        .padding(20)
-        .forgeGlassCard(cornerRadius: 16, accent: Color(hex: "3B82F6"))
+        .padding(FDS.Spacing.lg)
+        .forgeGlassCard(cornerRadius: FDS.Radius.lg, accent: Color.steel)
     }
 }
 
@@ -327,15 +320,15 @@ struct PersonalRecordsBoardView: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            HStack(spacing: 8) {
+        VStack(alignment: .leading, spacing: FDS.Spacing.md) {
+            HStack(spacing: FDS.Spacing.sm) {
                 Image(systemName: "trophy.fill").font(.system(size: 18)).foregroundColor(.ember)
-                Text("Personal Records").font(.system(size: 18, weight: .semibold)).foregroundColor(.textPrimary)
+                Text("Personal Records").font(FDS.TypeScale.Dynamic.headline).foregroundColor(.textPrimary)
                 Spacer()
                 if store.personalRecords.count > Self.collapsedCount {
                     Button(action: { withAnimation(.spring()) { showAllPRs.toggle() } }) {
                         Text(showAllPRs ? "Show Less" : "View All (\(store.personalRecords.count))")
-                            .font(.system(size: 12, weight: .medium))
+                            .font(FDS.TypeScale.Dynamic.caption)
                             .foregroundColor(.ember)
                     }
                 }
@@ -348,12 +341,12 @@ struct PersonalRecordsBoardView: View {
                     message: "Finish a few workouts and your personal bests will show up here."
                 )
             } else {
-                VStack(spacing: 10) {
+                VStack(spacing: FDS.Spacing.md) {
                     ForEach(Array(visibleRecords.enumerated()), id: \.element.id) { idx, pr in
                         HStack {
                             VStack(alignment: .leading, spacing: 3) {
                                 Text(pr.exercise)
-                                    .font(.system(size: 14, weight: .semibold))
+                                    .font(FDS.TypeScale.Dynamic.body.weight(.semibold))
                                     .foregroundColor(.textPrimary)
                                 Text(ForgeDates.displayDate(pr.date))
                                     .font(.system(size: 11))
@@ -362,16 +355,16 @@ struct PersonalRecordsBoardView: View {
                             Spacer()
                             HStack(alignment: .firstTextBaseline, spacing: 3) {
                                 Text(pr.formattedValue)
-                                    .font(.system(size: 22, weight: .bold))
+                                    .font(FDS.TypeScale.Dynamic.title)
                                     .foregroundColor(.ember)
                                 Text(pr.unit)
-                                    .font(.system(size: 12, weight: .medium))
+                                    .font(FDS.TypeScale.Dynamic.caption)
                                     .foregroundColor(.textSecondary)
                             }
                         }
-                        .padding(.horizontal, 16)
-                        .padding(.vertical, 14)
-                        .forgeGlassCard(cornerRadius: 14, accent: .ember)
+                        .padding(.horizontal, FDS.Spacing.lg)
+                        .padding(.vertical, FDS.Spacing.lg)
+                        .forgeGlassCard(cornerRadius: FDS.Radius.md, accent: .ember)
                         .opacity(appear ? 1 : 0)
                         .offset(x: appear ? 0 : -12)
                         .animation(.easeOut(duration: 0.35).delay(Double(idx) * 0.07), value: appear)
@@ -409,15 +402,15 @@ struct BehavioralInsightView: View {
         Button {
             store.openChat(with: "Review my last 30 days. One win, one risk, one recommendation.", voice: false)
         } label: {
-            HStack(alignment: .top, spacing: 12) {
+            HStack(alignment: .top, spacing: FDS.Spacing.md) {
                 Image(systemName: "chart.line.uptrend.xyaxis")
                     .font(.system(size: 18))
                     .foregroundColor(.ember)
                     .frame(width: 36, height: 36)
 
-                VStack(alignment: .leading, spacing: 6) {
+                VStack(alignment: .leading, spacing: FDS.Spacing.sm) {
                     Text(insightTitle)
-                        .font(.system(size: 13, weight: .semibold))
+                        .font(FDS.TypeScale.Dynamic.caption)
                         .foregroundColor(.textPrimary)
                     Text(insightBody)
                         .font(.system(size: 13))
@@ -427,8 +420,8 @@ struct BehavioralInsightView: View {
                 }
                 Spacer(minLength: 0)
             }
-            .padding(16)
-            .forgeGlassCard(cornerRadius: 16, accent: Color(hex: "3B82F6"))
+            .padding(FDS.Spacing.lg)
+            .forgeGlassCard(cornerRadius: FDS.Radius.lg, accent: Color.steel)
         }
         .buttonStyle(.plain)
         .task { store.shareProgressInsightIfNeeded() }

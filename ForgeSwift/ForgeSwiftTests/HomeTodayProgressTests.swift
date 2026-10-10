@@ -2,8 +2,9 @@ import XCTest
 import ForgeCore
 @testable import ForgeSwift
 
-/// Locks Today's Progress math, HUD clamp, Lifestyle/At Home placement,
-/// and coach copy so Home cannot slide back into a stub.
+/// Locks Today's Progress math, solid chrome clamp, Lifestyle/At Home
+/// placement, motivation psychology, and coach copy so Home cannot slide
+/// back into a stub or a HUD costume.
 @MainActor
 final class HomeTodayProgressTests: XCTestCase {
 
@@ -166,6 +167,10 @@ final class HomeTodayProgressTests: XCTestCase {
             TodayProgress.vibeLine(score: 72, empty: false, hasLife: true),
             TodayProgress.vibeLine(score: 60, empty: true, hasLife: true),
             TodayProgress.vibeLine(score: 40, empty: true, hasLife: false),
+            TodayProgress.closingLine(score: 40),
+            TodayProgress.closedLine,
+            HomeCoachCopy.nextNow,
+            HomeCoachCopy.lighterWin,
             HomeReadiness.label(90),
             HomeReadiness.label(72),
             HomeReadiness.label(60),
@@ -238,5 +243,82 @@ final class HomeTodayProgressTests: XCTestCase {
         XCTAssertGreaterThanOrEqual(HudChrome.compactRingSize, 80)
         XCTAssertEqual(HudChrome.ringSize, CGFloat(HomeReadinessTokens.ringSize))
         XCTAssertEqual(HudChrome.stroke, CGFloat(HomeReadinessTokens.stroke), accuracy: 0.0001)
+    }
+
+    func testAlmostThereMakesClosingMomentumVisible() {
+        let snap = TodayProgress.snapshot(TodayProgress.Input(
+            readiness: 74,
+            sleepHours: 7.2,
+            didTrain: true,
+            isWorkoutActive: false,
+            hasSession: true,
+            waterGlasses: 2.0,
+            steps: 4_200,
+            habitDone: 0,
+            habitTotal: 6,
+            hasLifeSignal: true
+        ))
+        XCTAssertEqual(snap.completed, 4)
+        XCTAssertEqual(snap.percent, 80)
+        XCTAssertTrue(snap.almostThere)
+        XCTAssertEqual(snap.closingTrackID, "habits")
+        XCTAssertEqual(snap.nextOpenTrack?.id, "habits")
+        XCTAssertEqual(snap.vibeLine, TodayProgress.closingLine(score: 74))
+        XCTAssertTrue(snap.voiceOverLabel.contains("One left: Habits"))
+        XCTAssertFalse(HomeReadinessTokens.brackets)
+        XCTAssertEqual(HudChrome.miss.forgeHexString, HomeReadinessTokens.missHex)
+    }
+
+    func testClosedDayUsesIdentityRewardCopy() {
+        let snap = TodayProgress.snapshot(TodayProgress.Input(
+            readiness: 88,
+            sleepHours: 7.4,
+            didTrain: true,
+            isWorkoutActive: false,
+            hasSession: true,
+            waterGlasses: 2.0,
+            steps: 8_400,
+            habitDone: 2,
+            habitTotal: 6,
+            hasLifeSignal: true
+        ))
+        XCTAssertTrue(snap.closed)
+        XCTAssertEqual(snap.vibeLine, TodayProgress.closedLine)
+        XCTAssertTrue(snap.vibeLine.localizedCaseInsensitiveContains("who you are"))
+    }
+
+    func testMissAndLowCopyStayForwardLooking() {
+        XCTAssertEqual(
+            TodayProgress.vibeLine(score: 40, empty: true, hasLife: true),
+            "A lighter win still counts. The day is open."
+        )
+        XCTAssertEqual(HomeCoachCopy.nextNow, "Do this now")
+        XCTAssertEqual(HomeCoachCopy.lighterWin, "A lighter win")
+        XCTAssertEqual(HomeCoachCopy.nextNowEyebrow(isLighter: true), HomeCoachCopy.lighterWin)
+        XCTAssertEqual(HomeCoachCopy.nextNowEyebrow(isLighter: false), HomeCoachCopy.nextNow)
+        XCTAssertTrue(HomeCoachCopy.easyDayLow.localizedCaseInsensitiveContains("lighter win"))
+        XCTAssertFalse(HomeCoachCopy.easyDayLow.localizedCaseInsensitiveContains("fail"))
+        XCTAssertFalse(TodayProgress.closedLine.localizedCaseInsensitiveContains("recovery week"))
+        for line in [
+            TodayProgress.closingLine(score: 40),
+            TodayProgress.vibeLine(score: 40, empty: false, hasLife: true, remaining: 2, percent: 60),
+            HomeCoachCopy.pulledBack(score: 62),
+        ] {
+            XCTAssertFalse(line.localizedCaseInsensitiveContains("guilt"))
+            XCTAssertFalse(line.localizedCaseInsensitiveContains("missed"))
+            for banned in TodayProgress.bannedPhrases {
+                XCTAssertFalse(line.lowercased().contains(banned), "\(line) contained \(banned)")
+            }
+        }
+    }
+
+    func testEventGlowStaysOffUntilAClose() {
+        XCTAssertFalse(
+            HomeReadinessTokens.shouldRunClock(
+                reduceMotion: false, sceneActive: true, onscreen: true, eventGlow: false
+            )
+        )
+        XCTAssertTrue(HomeReadinessTokens.eventGlowOnly)
+        XCTAssertEqual(HudChrome.glowRadius, CGFloat(HomeReadinessTokens.glowRadius), accuracy: 0.0001)
     }
 }

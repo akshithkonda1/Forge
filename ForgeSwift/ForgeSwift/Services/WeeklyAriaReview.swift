@@ -166,36 +166,36 @@ struct WeeklyAriaReviewSheet: View {
     var body: some View {
         NavigationStack {
             ScrollView {
-                VStack(alignment: .leading, spacing: 18) {
+                VStack(alignment: .leading, spacing: FDS.Spacing.lg) {
                     Text("Once a week ARIA sits down and actually asks — not a score, a conversation. Answers stay in your context on this device and, when the backend is up, on your account.")
                         .font(.system(size: 14))
                         .foregroundStyle(Color.textSecondary)
 
                     // Last habit breaker + outcome — closes the loop you asked for
                     if let habit = lastHabit {
-                        VStack(alignment: .leading, spacing: 8) {
-                            HStack(spacing: 6) {
+                        VStack(alignment: .leading, spacing: FDS.Spacing.sm) {
+                            HStack(spacing: FDS.Spacing.sm) {
                                 Image(systemName: habit.category.icon).font(.system(size: 11, weight: .semibold)).foregroundStyle(Color.ember)
-                                Text("Last habit: \(habit.title)").font(.system(size: 12, weight: .bold)).foregroundStyle(Color.ember)
+                                Text("Last habit: \(habit.title)").font(FDS.TypeScale.Dynamic.caption).foregroundStyle(Color.ember)
                             }
                             Text(habit.breaker).font(.system(size: 13)).foregroundStyle(Color.textPrimary)
                             Text(habit.evidence).font(.system(size: 11)).foregroundStyle(Color.textTertiary)
                             if let pending = pendingHabit, pending.habitId == habit.id {
                                 Text("You tried this — did it work? Answer in Wellbeing → Today's Loop.")
-                                    .font(.system(size: 11, weight: .semibold)).foregroundStyle(Color.success)
+                                    .font(FDS.TypeScale.Dynamic.micro).foregroundStyle(Color.success)
                             } else if let tried = HabitFeedbackStore.tried().first(where: { $0.habitId == habit.id && $0.feedback != nil }) {
                                 Text(tried.feedback == "yeah" ? "You said it worked ✓" : "You said it was too big — next breaker will be smaller")
-                                    .font(.system(size: 11, weight: .semibold)).foregroundStyle(tried.feedback == "yeah" ? Color.success : Color.warning)
+                                    .font(FDS.TypeScale.Dynamic.micro).foregroundStyle(tried.feedback == "yeah" ? Color.success : Color.warning)
                             }
                         }
-                        .padding(12).background(Color.ember.opacity(0.06)).clipShape(RoundedRectangle(cornerRadius: 12))
-                        .overlay { RoundedRectangle(cornerRadius: 12).stroke(Color.ember.opacity(0.15), lineWidth: 1) }
+                        .padding(FDS.Spacing.md).background(Color.ember.opacity(0.06)).clipShape(RoundedRectangle(cornerRadius: FDS.Radius.md))
+                        .overlay { RoundedRectangle(cornerRadius: FDS.Radius.md).stroke(Color.ember.opacity(0.15), lineWidth: 1) }
                     }
 
                     ForEach(review.questions, id: \.id) { question in
-                        VStack(alignment: .leading, spacing: 6) {
+                        VStack(alignment: .leading, spacing: FDS.Spacing.sm) {
                             Text(question.prompt)
-                                .font(.system(size: 15, weight: .semibold))
+                                .font(FDS.TypeScale.Dynamic.body.weight(.semibold))
                                 .foregroundStyle(Color.textPrimary)
                             Text(question.hint)
                                 .font(.system(size: 12))
@@ -205,9 +205,9 @@ struct WeeklyAriaReviewSheet: View {
                                 set: { review.answers[question.id] = $0 }
                             ), axis: .vertical)
                             .lineLimit(2...5)
-                            .padding(12)
+                            .padding(FDS.Spacing.md)
                             .background(Color.surfaceElevated)
-                            .clipShape(RoundedRectangle(cornerRadius: 12))
+                            .clipShape(RoundedRectangle(cornerRadius: FDS.Radius.md))
                         }
                     }
 
@@ -217,17 +217,17 @@ struct WeeklyAriaReviewSheet: View {
                         HStack {
                             if review.isSubmitting { ProgressView().tint(.white) }
                             Text(review.isSubmitting ? "Saving…" : "Save and talk with ARIA")
-                                .font(.system(size: 16, weight: .semibold))
+                                .font(FDS.TypeScale.Dynamic.headline)
                         }
                         .foregroundStyle(.white)
                         .frame(maxWidth: .infinity)
-                        .padding(.vertical, 14)
+                        .padding(.vertical, FDS.Spacing.lg)
                         .background(Color.ember)
-                        .clipShape(RoundedRectangle(cornerRadius: 14))
+                        .clipShape(RoundedRectangle(cornerRadius: FDS.Radius.md))
                     }
                     .disabled(review.isSubmitting)
                 }
-                .padding(20)
+                .padding(FDS.Spacing.lg)
             }
             .background(Color.background)
             .navigationTitle("Weekly evaluation")

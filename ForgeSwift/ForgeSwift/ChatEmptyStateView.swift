@@ -61,11 +61,11 @@ struct ChatEmptyStateView: View {
             .scaleEffect(appeared ? 1 : 0.72)
             .opacity(appeared ? 1 : 0)
             .animation(FDS.Spring.fluid.delay(0.06), value: appeared)
-            .padding(.bottom, 28)
+            .padding(.bottom, FDS.Spacing.xl)
 
-            VStack(spacing: 10) {
+            VStack(spacing: FDS.Spacing.md) {
                 Text(greeting)
-                    .font(FDS.TypeScale.pageTitle(28))
+                    .font(ForgeType.pageTitle)
                     .foregroundStyle(
                         LinearGradient(
                             colors: [.white, .white.opacity(0.7)],
@@ -78,7 +78,7 @@ struct ChatEmptyStateView: View {
                     .minimumScaleFactor(0.85)
 
                 Text(subtext)
-                    .font(.system(size: 15, weight: .regular, design: .rounded))
+                    .font(FDS.TypeScale.Dynamic.body)
                     .foregroundColor(.textSecondary)
                     .multilineTextAlignment(.center)
                     .lineSpacing(4)
@@ -87,19 +87,19 @@ struct ChatEmptyStateView: View {
             .offset(y: appeared ? 0 : 14)
             .animation(FDS.Spring.fluid.delay(0.18), value: appeared)
             .padding(.horizontal, FDS.Spacing.lg)
-            .padding(.bottom, 16)
+            .padding(.bottom, FDS.Spacing.lg)
 
             if let onVoiceTap {
                 Button(action: onVoiceTap) {
-                    HStack(spacing: 8) {
+                    HStack(spacing: FDS.Spacing.sm) {
                         Image(systemName: "waveform")
                             .font(.system(size: 13, weight: .semibold))
                         Text("I'm listening")
-                            .font(.system(size: 14, weight: .semibold, design: .rounded))
+                            .font(FDS.TypeScale.Dynamic.body.weight(.semibold))
                     }
                     .foregroundColor(.white)
-                    .padding(.horizontal, 20)
-                    .padding(.vertical, 12)
+                    .padding(.horizontal, FDS.Spacing.lg)
+                    .padding(.vertical, FDS.Spacing.md)
                     .background(
                         Capsule()
                             .fill(Color.white.opacity(0.06))
@@ -121,22 +121,22 @@ struct ChatEmptyStateView: View {
                 .opacity(appeared ? 1 : 0)
                 .offset(y: appeared ? 0 : 10)
                 .animation(FDS.Spring.hero.delay(0.22), value: appeared)
-                .padding(.bottom, 24)
+                .padding(.bottom, FDS.Spacing.xl)
             } else {
                 Color.clear.frame(height: 16)
             }
 
             // Smart suggested prompts
-            VStack(alignment: .leading, spacing: 10) {
+            VStack(alignment: .leading, spacing: FDS.Spacing.md) {
                 HStack {
                     Text("OR BEGIN HERE")
                         .forgeSectionLabel()
                     Spacer()
                     Text(mood.displayName.lowercased())
-                        .font(.system(size: 11, weight: .semibold, design: .rounded))
+                        .font(FDS.TypeScale.Dynamic.micro)
                         .foregroundColor(mood.accentColor.opacity(0.85))
                 }
-                .padding(.horizontal, 4)
+                .padding(.horizontal, FDS.Spacing.xs)
 
                 let prompts: [(String, String)] = [
                     ("Who are you?", "sparkles"),
@@ -147,7 +147,7 @@ struct ChatEmptyStateView: View {
 
                 ForEach(Array(prompts.enumerated()), id: \.offset) { i, prompt in
                     Button { onQuickActionTap(prompt.0) } label: {
-                        HStack(spacing: 14) {
+                        HStack(spacing: FDS.Spacing.lg) {
                             ZStack {
                                 Circle()
                                     .fill(
@@ -166,15 +166,15 @@ struct ChatEmptyStateView: View {
                                     .foregroundColor(mood.accentColor)
                             }
                             Text(prompt.0)
-                                .font(.system(size: 15, weight: .medium, design: .rounded))
+                                .font(FDS.TypeScale.Dynamic.body)
                                 .foregroundColor(.textPrimary)
                             Spacer()
                             Image(systemName: "arrow.right")
                                 .font(.system(size: 11, weight: .semibold))
                                 .foregroundColor(.textMuted)
                         }
-                        .padding(.horizontal, 16)
-                        .padding(.vertical, 14)
+                        .padding(.horizontal, FDS.Spacing.lg)
+                        .padding(.vertical, FDS.Spacing.lg)
                         .forgeInnerWell(cornerRadius: FDS.Radius.lg)
                     }
                     .buttonStyle(ScaleButtonStyle())

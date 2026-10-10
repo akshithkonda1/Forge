@@ -1,42 +1,79 @@
 @import "tailwindcss";
 
 @theme {
-  --color-background: #0A0A0A;
-  --color-surface: #141414;
-  --color-surface-elevated: #1A1A1A;
-  --color-surface-hover: #222222;
-  --color-border: #2A2A2A;
-  --color-border-light: #333333;
+  --color-background: #08080C;
+  --color-surface: #101014;
+  --color-surface-elevated: #17171C;
+  --color-surface-hover: #1C1C22;
+  --color-border: #2A2A32;
+  --color-border-light: #3A3A44;
+  --color-miss: #7BA6F7;
+  --color-plate: #7EC8FF;
+  --color-vitality: #22C55E;
+  --color-alert: #EF4444;
 
   --color-ember: #FF4D00;
-  --color-ember-light: #FF6B2B;
-  --color-ember-dark: #CC3D00;
+  --color-ember-light: #FF7A3D;
+  --color-ember-dark: #C43A00;
   --color-ember-glow: rgba(255, 77, 0, 0.15);
 
-  --color-steel: #3B82F6;
-  --color-steel-light: #60A5FA;
-  --color-steel-dark: #2563EB;
-  --color-steel-glow: rgba(59, 130, 246, 0.15);
+  --color-steel: #5B8DEF;
+  --color-steel-light: #7BA6F7;
+  --color-steel-dark: #3D6FD4;
+  --color-steel-glow: rgba(91, 141, 239, 0.15);
 
-  --color-text-primary: #FFFFFF;
+  --color-text-primary: #FAFAFA;
   --color-text-secondary: #A1A1AA;
   --color-text-tertiary: #71717A;
   --color-text-muted: #52525B;
 
-  --color-success: #22C55E;
-  --color-warning: #EAB308;
-  --color-danger: #EF4444;
+  --color-paper: #F7F4F0;
+  --color-aurora: #A78BFA;
+  --color-indigo: #6366F1;
+  --color-amber: #FFB84D;
+
+  --color-success: #34D399;
+  --color-warning: #FBBF24;
+  --color-danger: #F87171;
 
   --font-display: var(--font-forge-sans), "Plus Jakarta Sans", system-ui, sans-serif;
   --font-body: var(--font-forge-sans), "Plus Jakarta Sans", system-ui, sans-serif;
   --font-mono: var(--font-forge-mono), "JetBrains Mono", ui-monospace, monospace;
 
+  --text-display: 1.375rem;
+  --text-title: 1.25rem;
+  --text-headline: 1.0625rem;
+  --text-body: 0.9375rem;
+  --text-caption: 0.75rem;
+  --text-metric: 1.25rem;
+  --tracking-display: -0.025em;
+  --tracking-title: -0.02em;
+  --tracking-headline: -0.015em;
+  --tracking-body: 0;
+  --tracking-caption: 0.01em;
+  --tracking-metric: -0.025em;
+  --leading-display: 1.15;
+  --leading-title: 1.2;
+  --leading-headline: 1.25;
+  --leading-body: 1.35;
+  --leading-caption: 1.3;
+  --leading-metric: 1.1;
+
   --radius-sm: 0.375rem;
-  --radius-md: 0.5rem;
-  --radius-lg: 0.75rem;
-  --radius-xl: 1rem;
-  --radius-2xl: 1.5rem;
+  --radius-md: 0.875rem;
+  --radius-lg: 1.125rem;
+  --radius-xl: 1.375rem;
+  --radius-2xl: 1.75rem;
   --radius-full: 9999px;
+
+  --space-xs: 0.25rem;
+  --space-sm: 0.5rem;
+  --space-md: 0.75rem;
+  --space-lg: 1rem;
+  --space-xl: 1.5rem;
+  --space-xxl: 2rem;
+
+  --tap-min: 2.75rem;
 }
 
 @layer base {
@@ -114,7 +151,115 @@
   }
 
   .glow-steel {
-    box-shadow: 0 0 20px rgba(59, 130, 246, 0.3), 0 0 60px rgba(59, 130, 246, 0.1);
+    box-shadow: 0 0 20px rgba(91, 141, 239, 0.3), 0 0 60px rgba(91, 141, 239, 0.1);
+  }
+
+  .type-display {
+    font-family: var(--font-display);
+    font-size: var(--text-display);
+    font-weight: 600;
+    letter-spacing: var(--tracking-display);
+    line-height: var(--leading-display);
+  }
+
+  .type-title {
+    font-family: var(--font-display);
+    font-size: var(--text-title);
+    font-weight: 600;
+    letter-spacing: var(--tracking-title);
+    line-height: var(--leading-title);
+  }
+
+  .type-headline {
+    font-family: var(--font-display);
+    font-size: var(--text-headline);
+    font-weight: 600;
+    letter-spacing: var(--tracking-headline);
+    line-height: var(--leading-headline);
+  }
+
+  .type-body {
+    font-family: var(--font-body);
+    font-size: var(--text-body);
+    font-weight: 400;
+    letter-spacing: var(--tracking-body);
+    line-height: var(--leading-body);
+  }
+
+  .type-caption {
+    font-family: var(--font-display);
+    font-size: var(--text-caption);
+    font-weight: 600;
+    letter-spacing: var(--tracking-caption);
+    line-height: var(--leading-caption);
+  }
+
+  .type-page-title {
+    font-family: var(--font-display);
+    font-size: 1.5rem;
+    font-weight: 600;
+    letter-spacing: -0.03em;
+    line-height: 1.15;
+  }
+
+  /* Small uppercase label that opens a card or section. */
+  .type-eyebrow {
+    font-family: var(--font-display);
+    font-size: 0.6875rem;
+    font-weight: 600;
+    letter-spacing: 0.12em;
+    line-height: 1.3;
+    text-transform: uppercase;
+    color: var(--color-text-tertiary);
+  }
+
+  .type-micro {
+    font-family: var(--font-display);
+    font-size: 0.625rem;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+    line-height: 1.3;
+  }
+
+  .type-hero {
+    font-family: var(--font-mono);
+    font-size: 2.25rem;
+    font-weight: 700;
+    letter-spacing: -0.03em;
+    line-height: 1.05;
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* Surfaces: one card recipe, one nested recipe. */
+  .surface-card {
+    background-color: var(--color-surface);
+    border-radius: var(--radius-2xl);
+    padding: 1.25rem;
+  }
+
+  .surface-inset {
+    background-color: var(--color-surface-elevated);
+    border-radius: var(--radius-xl);
+  }
+
+  .surface-outlined {
+    background-color: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-2xl);
+  }
+
+  .type-metric {
+    font-family: var(--font-mono);
+    font-size: var(--text-metric);
+    font-weight: 700;
+    letter-spacing: var(--tracking-metric);
+    line-height: var(--leading-metric);
+    font-variant-numeric: tabular-nums;
+  }
+
+  .min-tap {
+    min-height: var(--tap-min);
+    min-width: var(--tap-min);
   }
 
   .glass {

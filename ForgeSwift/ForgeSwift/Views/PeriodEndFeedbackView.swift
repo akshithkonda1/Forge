@@ -26,12 +26,12 @@ struct PeriodEndFeedbackView: View {
     @State private var notes = ""
     @State private var submittedSummary: String?
 
-    private let accent = Color(hex: "EF4444")
+    private let accent = Color.alert
 
     var body: some View {
         NavigationStack {
             ScrollView {
-                VStack(alignment: .leading, spacing: 20) {
+                VStack(alignment: .leading, spacing: FDS.Spacing.lg) {
                     header
                     privacyBanner
 
@@ -67,19 +67,19 @@ struct PeriodEndFeedbackView: View {
                         title: "What helped",
                         subtitle: "Tap anything that made this period easier",
                         selection: $whatHelped,
-                        tint: Color(hex: "22C55E")
+                        tint: Color.vitality
                     )
                     topicSection(
                         title: "What didn’t help",
                         subtitle: "We’ll dial these back next time",
                         selection: $whatDidntHelp,
-                        tint: Color(hex: "F59E0B")
+                        tint: Color.amber
                     )
                     topicSection(
                         title: "Want more of",
                         subtitle: "Coaching to lean into next cycle",
                         selection: $wantMore,
-                        tint: Color(hex: "A855F7")
+                        tint: Color.aurora
                     )
                     topicSection(
                         title: "Want less of",
@@ -90,20 +90,20 @@ struct PeriodEndFeedbackView: View {
                     notesSection
                     if let submittedSummary {
                         Text(submittedSummary)
-                            .font(FDS.TypeScale.body(14))
-                            .foregroundStyle(Color(hex: "22C55E"))
-                            .padding(14)
+                            .font(FDS.TypeScale.Dynamic.body)
+                            .foregroundStyle(Color.vitality)
+                            .padding(FDS.Spacing.lg)
                             .frame(maxWidth: .infinity, alignment: .leading)
-                            .background(Color(hex: "22C55E").opacity(0.12))
-                            .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+                            .background(Color.vitality.opacity(0.12))
+                            .clipShape(RoundedRectangle(cornerRadius: FDS.Radius.md, style: .continuous))
                     }
                     submitButton
                     Text("Lifestyle coaching only — not medical advice. Answers stay on-device to help ARIA support you. Never sold or used for ads.")
-                        .font(FDS.TypeScale.micro(11))
+                        .font(FDS.TypeScale.Dynamic.micro)
                         .foregroundColor(.textSecondary)
-                        .padding(.bottom, 24)
+                        .padding(.bottom, FDS.Spacing.xl)
                 }
-                .padding(20)
+                .padding(FDS.Spacing.lg)
             }
             .background(Color.background.ignoresSafeArea())
             .navigationTitle("Period finished")
@@ -123,37 +123,37 @@ struct PeriodEndFeedbackView: View {
     }
 
     private var header: some View {
-        VStack(alignment: .leading, spacing: 8) {
+        VStack(alignment: .leading, spacing: FDS.Spacing.sm) {
             Text("How was your period?")
-                .font(FDS.TypeScale.title(22))
+                .font(FDS.TypeScale.Dynamic.title)
                 .foregroundColor(.textPrimary)
             Text("\(episode.dayCount) day\(episode.dayCount == 1 ? "" : "s") · ended \(shortDate(episode.endDayKey)). A few optional questions help ARIA learn what actually works for you.")
-                .font(FDS.TypeScale.body(14))
+                .font(FDS.TypeScale.Dynamic.body)
                 .foregroundColor(.textSecondary)
         }
     }
 
     private var privacyBanner: some View {
-        HStack(alignment: .top, spacing: 10) {
+        HStack(alignment: .top, spacing: FDS.Spacing.md) {
             Image(systemName: "lock.shield.fill")
                 .font(.system(size: 14))
-                .foregroundStyle(Color(hex: "22C55E"))
+                .foregroundStyle(Color.vitality)
             Text(CyclePrivacy.shortPromise)
-                .font(FDS.TypeScale.body(12))
+                .font(FDS.TypeScale.Dynamic.caption)
                 .foregroundColor(.textSecondary)
                 .fixedSize(horizontal: false, vertical: true)
         }
-        .padding(12)
+        .padding(FDS.Spacing.md)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Color(hex: "22C55E").opacity(0.1))
-        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+        .background(Color.vitality.opacity(0.1))
+        .clipShape(RoundedRectangle(cornerRadius: FDS.Radius.md, style: .continuous))
     }
 
     private var severitySection: some View {
-        VStack(alignment: .leading, spacing: 10) {
+        VStack(alignment: .leading, spacing: FDS.Spacing.md) {
             Text("HOW WAS IT OVERALL?")
                 .forgeSectionLabel()
-            HStack(spacing: 8) {
+            HStack(spacing: FDS.Spacing.sm) {
                 ForEach(PeriodSeverity.allCases) { level in
                     chip(
                         title: level.label,
@@ -170,30 +170,30 @@ struct PeriodEndFeedbackView: View {
     }
 
     private var painSection: some View {
-        VStack(alignment: .leading, spacing: 10) {
+        VStack(alignment: .leading, spacing: FDS.Spacing.md) {
             HStack {
                 Text("PEAK PAIN")
                     .forgeSectionLabel()
                 Spacer()
                 Text("\(Int(peakPain))")
-                    .font(FDS.TypeScale.label(16))
+                    .font(FDS.TypeScale.Dynamic.caption)
                     .foregroundColor(.textPrimary)
             }
             Slider(value: $peakPain, in: 0...10, step: 1)
                 .tint(accent)
             Text("0 = none · 10 = worst — optional, just helps recovery coaching")
-                .font(FDS.TypeScale.micro(11))
+                .font(FDS.TypeScale.Dynamic.micro)
                 .foregroundColor(.textSecondary)
         }
-        .padding(16)
+        .padding(FDS.Spacing.lg)
         .forgeGlassCard(accent: accent)
     }
 
     private var energySection: some View {
-        VStack(alignment: .leading, spacing: 10) {
+        VStack(alignment: .leading, spacing: FDS.Spacing.md) {
             Text("ENERGY DURING THIS PERIOD")
                 .forgeSectionLabel()
-            HStack(spacing: 8) {
+            HStack(spacing: FDS.Spacing.sm) {
                 ForEach(PeriodEnergyLevel.allCases) { level in
                     chip(
                         title: level.label,
@@ -210,19 +210,19 @@ struct PeriodEndFeedbackView: View {
     }
 
     private var sleepSection: some View {
-        VStack(alignment: .leading, spacing: 10) {
+        VStack(alignment: .leading, spacing: FDS.Spacing.md) {
             Text("SLEEP WHILE BLEEDING")
                 .forgeSectionLabel()
             Text("Did this period mess with your sleep?")
-                .font(FDS.TypeScale.body(12))
+                .font(FDS.TypeScale.Dynamic.caption)
                 .foregroundColor(.textSecondary)
-            HStack(spacing: 8) {
+            HStack(spacing: FDS.Spacing.sm) {
                 ForEach(PeriodSleepQuality.allCases) { level in
                     chip(
                         title: level.label,
                         icon: level.icon,
                         selected: sleepQuality == level,
-                        tint: Color(hex: "6366F1")
+                        tint: Color.indigo
                     ) {
                         sleepQuality = level
                         FDS.selectionHaptic()
@@ -233,19 +233,19 @@ struct PeriodEndFeedbackView: View {
     }
 
     private var moodSection: some View {
-        VStack(alignment: .leading, spacing: 10) {
+        VStack(alignment: .leading, spacing: FDS.Spacing.md) {
             Text("MOOD OVERALL")
                 .forgeSectionLabel()
             Text("Rough average for this bleed — not a diagnosis")
-                .font(FDS.TypeScale.body(12))
+                .font(FDS.TypeScale.Dynamic.caption)
                 .foregroundColor(.textSecondary)
-            HStack(spacing: 8) {
+            HStack(spacing: FDS.Spacing.sm) {
                 ForEach(PeriodMoodOverall.allCases) { level in
                     chip(
                         title: level.label,
                         icon: level.icon,
                         selected: moodOverall == level,
-                        tint: Color(hex: "A855F7")
+                        tint: Color.aurora
                     ) {
                         moodOverall = level
                         FDS.selectionHaptic()
@@ -256,19 +256,19 @@ struct PeriodEndFeedbackView: View {
     }
 
     private var lifeImpactSection: some View {
-        VStack(alignment: .leading, spacing: 10) {
+        VStack(alignment: .leading, spacing: FDS.Spacing.md) {
             Text("TRAINING & DAILY LIFE")
                 .forgeSectionLabel()
             Text("How much did this period limit what you could do?")
-                .font(FDS.TypeScale.body(12))
+                .font(FDS.TypeScale.Dynamic.caption)
                 .foregroundColor(.textSecondary)
-            HStack(spacing: 8) {
+            HStack(spacing: FDS.Spacing.sm) {
                 ForEach(PeriodLifeImpact.allCases) { level in
                     chip(
                         title: level.label,
                         icon: nil,
                         selected: lifeImpact == level,
-                        tint: Color(hex: "F59E0B")
+                        tint: Color.amber
                     ) {
                         lifeImpact = level
                         FDS.selectionHaptic()
@@ -279,19 +279,19 @@ struct PeriodEndFeedbackView: View {
     }
 
     private var stressSection: some View {
-        VStack(alignment: .leading, spacing: 10) {
+        VStack(alignment: .leading, spacing: FDS.Spacing.md) {
             Text("STRESS THIS CYCLE")
                 .forgeSectionLabel()
             Text("Optional context — stress often changes how periods feel")
-                .font(FDS.TypeScale.body(12))
+                .font(FDS.TypeScale.Dynamic.caption)
                 .foregroundColor(.textSecondary)
-            HStack(spacing: 8) {
+            HStack(spacing: FDS.Spacing.sm) {
                 ForEach(PeriodStressLevel.allCases) { level in
                     chip(
                         title: level.label,
                         icon: nil,
                         selected: stressLevel == level,
-                        tint: Color(hex: "F87171")
+                        tint: Color.danger
                     ) {
                         stressLevel = level
                         FDS.selectionHaptic()
@@ -302,19 +302,19 @@ struct PeriodEndFeedbackView: View {
     }
 
     private var helpfulnessSection: some View {
-        VStack(alignment: .leading, spacing: 10) {
+        VStack(alignment: .leading, spacing: FDS.Spacing.md) {
             Text("WAS COACHING USEFUL?")
                 .forgeSectionLabel()
             Text("Be honest — this is how we keep learning what works for you.")
-                .font(FDS.TypeScale.body(12))
+                .font(FDS.TypeScale.Dynamic.caption)
                 .foregroundColor(.textSecondary)
-            HStack(spacing: 8) {
+            HStack(spacing: FDS.Spacing.sm) {
                 ForEach(CoachingHelpfulness.allCases) { level in
                     chip(
                         title: level.label,
                         icon: nil,
                         selected: helpfulness == level,
-                        tint: Color(hex: "A855F7")
+                        tint: Color.aurora
                     ) {
                         helpfulness = level
                         FDS.selectionHaptic()
@@ -333,13 +333,13 @@ struct PeriodEndFeedbackView: View {
         tint: Color,
         onSelect: @escaping (T) -> Void
     ) -> some View {
-        VStack(alignment: .leading, spacing: 10) {
+        VStack(alignment: .leading, spacing: FDS.Spacing.md) {
             Text(title.uppercased())
                 .forgeSectionLabel()
             Text(subtitle)
-                .font(FDS.TypeScale.body(12))
+                .font(FDS.TypeScale.Dynamic.caption)
                 .foregroundColor(.textSecondary)
-            HStack(spacing: 8) {
+            HStack(spacing: FDS.Spacing.sm) {
                 ForEach(options) { option in
                     chip(
                         title: label(option),
@@ -361,11 +361,11 @@ struct PeriodEndFeedbackView: View {
         selection: Binding<Set<PeriodCoachingTopic>>,
         tint: Color
     ) -> some View {
-        VStack(alignment: .leading, spacing: 10) {
+        VStack(alignment: .leading, spacing: FDS.Spacing.md) {
             Text(title.uppercased())
                 .forgeSectionLabel()
             Text(subtitle)
-                .font(FDS.TypeScale.body(12))
+                .font(FDS.TypeScale.Dynamic.caption)
                 .foregroundColor(.textSecondary)
             let cols = [GridItem(.adaptive(minimum: 108), spacing: 8)]
             LazyVGrid(columns: cols, spacing: 8) {
@@ -376,16 +376,16 @@ struct PeriodEndFeedbackView: View {
                         else { selection.wrappedValue.insert(topic) }
                         FDS.selectionHaptic()
                     } label: {
-                        HStack(spacing: 5) {
+                        HStack(spacing: FDS.Spacing.xs) {
                             Image(systemName: topic.icon)
                                 .font(.system(size: 10))
                             Text(topic.label)
-                                .font(FDS.TypeScale.micro(11))
+                                .font(FDS.TypeScale.Dynamic.micro)
                                 .lineLimit(1)
                         }
                         .foregroundColor(on ? .white : .textSecondary)
-                        .padding(.horizontal, 10)
-                        .padding(.vertical, 8)
+                        .padding(.horizontal, FDS.Spacing.md)
+                        .padding(.vertical, FDS.Spacing.sm)
                         .frame(maxWidth: .infinity)
                         .background(on ? tint.opacity(0.9) : Color.surfaceElevated)
                         .clipShape(Capsule())
@@ -397,18 +397,17 @@ struct PeriodEndFeedbackView: View {
     }
 
     private var notesSection: some View {
-        VStack(alignment: .leading, spacing: 8) {
+        VStack(alignment: .leading, spacing: FDS.Spacing.sm) {
             Text("ANYTHING ELSE?")
                 .forgeSectionLabel()
             Text("Optional — patterns, what you’d want next time, or nothing at all.")
-                .font(FDS.TypeScale.body(12))
+                .font(FDS.TypeScale.Dynamic.caption)
                 .foregroundColor(.textSecondary)
             TextField("Optional notes for next time…", text: $notes, axis: .vertical)
                 .lineLimit(3...5)
                 .textFieldStyle(.plain)
-                .padding(12)
-                .background(Color.surfaceElevated)
-                .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                .padding(FDS.Spacing.md)
+                .forgeInsetTile(radius: FDS.Radius.md)
                 .foregroundColor(.textPrimary)
         }
     }
@@ -445,18 +444,18 @@ struct PeriodEndFeedbackView: View {
             }
         } label: {
             Text("Save & teach ARIA")
-                .font(FDS.TypeScale.label(16))
+                .font(FDS.TypeScale.Dynamic.caption)
                 .foregroundColor(.white)
                 .frame(maxWidth: .infinity)
-                .padding(.vertical, 16)
+                .padding(.vertical, FDS.Spacing.lg)
                 .background(
                     LinearGradient(
-                        colors: [Color(hex: "F87171"), Color(hex: "EF4444")],
+                        colors: [Color.danger, Color.alert],
                         startPoint: .leading,
                         endPoint: .trailing
                     )
                 )
-                .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+                .clipShape(RoundedRectangle(cornerRadius: FDS.Radius.lg, style: .continuous))
         }
         .buttonStyle(.plain)
         .disabled(submittedSummary != nil)
@@ -464,21 +463,21 @@ struct PeriodEndFeedbackView: View {
 
     private func chip(title: String, icon: String?, selected: Bool, tint: Color, action: @escaping () -> Void) -> some View {
         Button(action: action) {
-            HStack(spacing: 6) {
+            HStack(spacing: FDS.Spacing.sm) {
                 if let icon {
                     Image(systemName: icon)
                         .font(.system(size: 11, weight: .bold))
                 }
                 Text(title)
-                    .font(FDS.TypeScale.label(12))
+                    .font(FDS.TypeScale.Dynamic.caption)
                     .lineLimit(1)
                     .minimumScaleFactor(0.8)
             }
             .foregroundColor(selected ? .white : .textPrimary)
             .frame(maxWidth: .infinity)
-            .padding(.vertical, 12)
+            .padding(.vertical, FDS.Spacing.md)
             .background(selected ? tint.opacity(0.9) : Color.surfaceElevated)
-            .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+            .clipShape(RoundedRectangle(cornerRadius: FDS.Radius.md, style: .continuous))
         }
         .buttonStyle(.plain)
     }

@@ -116,7 +116,7 @@ struct HomeARIABriefingCard: View {
             HStack(spacing: 10) {
                 ARIAIdentityMark(state: .idle, mood: .energized, size: 22, amplitude: 0.24)
                 Text("Talk to ARIA about today")
-                    .font(.system(size: 14, weight: .semibold, design: .rounded))
+                    .font(FDS.TypeScale.Dynamic.body.weight(.semibold))
                     .foregroundColor(.textPrimary)
                 Spacer()
                 Image(systemName: "arrow.up.right")
@@ -151,11 +151,11 @@ struct HomeARIABriefingCard: View {
                 VStack(alignment: .leading, spacing: 3) {
                     HStack(spacing: 6) {
                         Text("ARIA")
-                            .font(.system(size: 12, weight: .bold, design: .rounded))
+                            .font(FDS.TypeScale.Dynamic.caption)
                             .foregroundColor(.ember)
                             .tracking(1.4)
                         Text("Briefing")
-                            .font(.system(size: 11, weight: .semibold, design: .rounded))
+                            .font(FDS.TypeScale.Dynamic.micro)
                             .foregroundColor(.textMuted)
                     }
                     Text(briefingKicker)
@@ -195,7 +195,7 @@ struct HomeARIABriefingCard: View {
                         .fill(Color.ember)
                         .frame(width: 3)
                     Text(displayedText.isEmpty && !isTyping ? fullBriefing : displayedText)
-                        .font(.system(size: 15, weight: .regular, design: .rounded))
+                        .font(FDS.TypeScale.Dynamic.body)
                         .foregroundColor(.textPrimary)
                         .lineSpacing(4)
                         .multilineTextAlignment(.leading)
@@ -252,7 +252,7 @@ struct HomeARIABriefingCard: View {
         } label: {
             HStack(spacing: 5) {
                 Image(systemName: icon).font(.system(size: 11, weight: .semibold))
-                Text(label).font(.system(size: 12, weight: .semibold, design: .rounded))
+                Text(label).font(FDS.TypeScale.Dynamic.caption)
             }
             .foregroundColor(emphasized ? .ember : .textSecondary)
             .frame(maxWidth: .infinity)

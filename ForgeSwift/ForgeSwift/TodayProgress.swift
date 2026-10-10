@@ -3,9 +3,10 @@ import ForgeCore
 
 /// Today's Progress — how the day is filling in, not a medical score.
 ///
-/// Outer HUD ring + score are Home chrome (`HudProgressRing`). Nest stays
+/// Outer ring + score are Home chrome (`HudProgressRing`). Nest stays
 /// the brand mark (`AriaNestGeometry`). This snapshot is the day itself:
 /// sleep, train, water, movement, habits. Readiness is vibe tint + label.
+/// Motivation: almost-there is visible, misses stay forward-looking.
 enum TodayProgress {
     struct Track: Identifiable, Equatable {
         let id: String
@@ -26,10 +27,22 @@ enum TodayProgress {
 
         var empty: Bool { completed == 0 }
         var remaining: Int { max(0, total - completed) }
+        var almostThere: Bool {
+            HomeReadinessTokens.isAlmostThere(percent: percent, remaining: remaining)
+        }
+        var closed: Bool { HomeReadinessTokens.isClosed(percent) }
+        var closingTrackID: String? {
+            guard remaining == HomeReadinessTokens.closingRemaining else { return nil }
+            return tracks.first(where: { !$0.done })?.id
+        }
+        var nextOpenTrack: Track? { tracks.first(where: { !$0.done }) }
 
         var voiceOverLabel: String {
             if empty {
                 return "Today's progress 0 out of 100. Nothing logged yet. Readiness vibe \(vibeScore) out of 100, \(vibeLabel). \(vibeLine)"
+            }
+            if almostThere, let next = nextOpenTrack {
+                return "Today's progress \(percent) out of 100. \(completed) of \(total) tracks done. One left: \(next.title). Readiness vibe \(vibeScore) out of 100, \(vibeLabel). \(vibeLine)"
             }
             return "Today's progress \(percent) out of 100. \(completed) of \(total) tracks done. Readiness vibe \(vibeScore) out of 100, \(vibeLabel). \(vibeLine)"
         }
@@ -51,6 +64,7 @@ enum TodayProgress {
     static let trackCount = 5
     static let headerTitle = "TODAY'S PROGRESS"
     static let emptyLine = "Nothing logged yet — that's fine."
+    static let closedLine = "Ring closed. That's who you are."
     static let bannedPhrases = HomeReadinessTokens.bannedSurfacePhrases
 
     static func snapshot(_ input: Input) -> Snapshot {
@@ -67,6 +81,7 @@ enum TodayProgress {
         let completed = tracks.filter(\.done).count
         let percent = Int((Double(completed) / Double(tracks.count) * 100).rounded())
         let vibe = min(max(input.readiness, 0), 100)
+        let remaining = max(0, tracks.count - completed)
         return Snapshot(
             percent: percent,
             completed: completed,
@@ -74,19 +89,45 @@ enum TodayProgress {
             tracks: tracks,
             vibeScore: vibe,
             vibeLabel: HomeReadiness.label(vibe),
-            vibeLine: vibeLine(score: vibe, empty: completed == 0, hasLife: input.hasLifeSignal)
+            vibeLine: vibeLine(
+                score: vibe,
+                empty: completed == 0,
+                hasLife: input.hasLifeSignal,
+                remaining: remaining,
+                percent: percent
+            )
         )
     }
 
-    static func vibeLine(score: Int, empty: Bool, hasLife: Bool) -> String {
+    static func closingLine(score: Int) -> String {
+        switch score {
+        case 85...: return "One track left. Close the ring."
+        case 70..<85: return "One track left. Finish what's open."
+        default: return "One lighter track left. Closing still counts."
+        }
+    }
+
+    static func vibeLine(
+        score: Int,
+        empty: Bool,
+        hasLife: Bool,
+        remaining: Int = 5,
+        percent: Int = 0
+    ) -> String {
         if empty && !hasLife {
             return emptyLine
+        }
+        if HomeReadinessTokens.isClosed(percent) && !empty {
+            return closedLine
+        }
+        if HomeReadinessTokens.isAlmostThere(percent: percent, remaining: remaining) && !empty {
+            return closingLine(score: score)
         }
         switch score {
         case 85...:
             return empty
-                ? "You look ready — log the day when you want."
-                : "Peak vibe. Keep the day moving, don't overfill it."
+                ? "You look ready — you're someone who trains."
+                : "Peak vibe. Keep the day honest."
         case 70..<85:
             return empty
                 ? "Solid vibe. A real session still fits."
@@ -97,8 +138,8 @@ enum TodayProgress {
                 : "Fair vibe. Protect the easy pieces."
         default:
             return empty
-                ? "Low vibe. Easy day is still a day."
-                : "Low vibe. Showing up easy still counts."
+                ? "A lighter win still counts. The day is open."
+                : "A lighter win still makes you someone who showed up."
         }
     }
 

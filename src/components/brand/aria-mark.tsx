@@ -96,7 +96,7 @@ function paintNest(
 }
 
 /**
- * Adaptive Recovery Interactive Assistant.
+ * ARIA — lifestyle coach. Never expand the name.
  * Living brand mark: B+E soft-hex nest + metal sun from `shared/aria-mark.json`.
  * One live nest per screen; compact / Reduce Motion freeze pose + sun.
  */

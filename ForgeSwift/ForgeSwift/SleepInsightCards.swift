@@ -14,14 +14,14 @@ struct SleepStreakCard: View {
 
     var body: some View {
         if streak > 0 {
-            HStack(spacing: 14) {
+            HStack(spacing: FDS.Spacing.lg) {
                 ZStack {
                     Circle().fill(Color.ember.opacity(0.16)).frame(width: 40, height: 40)
                     Image(systemName: "moon.fill").font(.system(size: 16, weight: .semibold)).foregroundColor(.ember)
                 }
                 VStack(alignment: .leading, spacing: 2) {
                     Text("\(streak) night\(streak == 1 ? "" : "s") of good sleep in a row")
-                        .font(.system(size: 14, weight: .semibold))
+                        .font(FDS.TypeScale.Dynamic.body.weight(.semibold))
                         .foregroundColor(.textPrimary)
                     Text("A quiet fact, not a score to protect.")
                         .font(.system(size: 12))
@@ -29,8 +29,8 @@ struct SleepStreakCard: View {
                 }
                 Spacer(minLength: 0)
             }
-            .padding(14)
-            .forgeGlassCard(cornerRadius: 16, accent: .ember)
+            .padding(FDS.Spacing.lg)
+            .forgeGlassCard(cornerRadius: FDS.Radius.lg, accent: .ember)
             .opacity(appeared || reduceMotion ? 1 : 0)
             .accessibilityElement(children: .combine)
             .onAppear {
@@ -57,16 +57,16 @@ struct AISleepPredictionCard: View {
 
     var body: some View {
         if let schedule {
-            VStack(alignment: .leading, spacing: 14) {
-                HStack(spacing: 10) {
+            VStack(alignment: .leading, spacing: FDS.Spacing.lg) {
+                HStack(spacing: FDS.Spacing.md) {
                     ZStack {
                         Circle().fill(Color.steel.opacity(0.15)).frame(width: 34, height: 34)
                         Image(systemName: "sparkles").font(.system(size: 14)).foregroundColor(.steel)
                     }
-                    Text("Tonight's Bedtime").font(.system(size: 14, weight: .semibold)).foregroundColor(.textPrimary)
+                    Text("Tonight's Bedtime").font(FDS.TypeScale.Dynamic.body.weight(.semibold)).foregroundColor(.textPrimary)
                     Spacer()
                 }
-                HStack(alignment: .firstTextBaseline, spacing: 6) {
+                HStack(alignment: .firstTextBaseline, spacing: FDS.Spacing.sm) {
                     Text(EnergySchedule.clockLabel(schedule.phase.onsetHour))
                         .font(.system(size: 26, weight: .bold, design: .rounded)).foregroundColor(.steel)
                     Text("· dim lights by \(EnergySchedule.clockLabel(schedule.melatoninHour))")
@@ -87,8 +87,8 @@ struct AISleepPredictionCard: View {
                         .font(.system(size: 12)).foregroundColor(.textMuted).lineLimit(2)
                 }
             }
-            .padding(18)
-            .forgeGlassCard(cornerRadius: 20, accent: .steel)
+            .padding(FDS.Spacing.lg)
+            .forgeGlassCard(cornerRadius: FDS.Radius.xl, accent: .steel)
             .opacity(appear || reduceMotion ? 1 : 0)
             .offset(y: appear || reduceMotion ? 0 : 10)
             .onAppear {
@@ -121,60 +121,60 @@ struct AISleepEnvironmentView: View {
     @State private var pickedPreview: UIImage?
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 14) {
-            HStack(spacing: 8) {
+        VStack(alignment: .leading, spacing: FDS.Spacing.lg) {
+            HStack(spacing: FDS.Spacing.sm) {
                 Image(systemName: "camera.fill").font(.system(size: 14)).foregroundColor(.steel)
-                Text("Sleep Environment").font(.system(size: 14, weight: .semibold)).foregroundColor(.textPrimary)
+                Text("Sleep Environment").font(FDS.TypeScale.Dynamic.body.weight(.semibold)).foregroundColor(.textPrimary)
             }
 
             if let preview = pickedPreview {
                 Image(uiImage: preview)
                     .resizable().scaledToFill()
                     .frame(height: 120).frame(maxWidth: .infinity)
-                    .clipShape(RoundedRectangle(cornerRadius: 14))
+                    .clipShape(RoundedRectangle(cornerRadius: FDS.Radius.md))
             }
 
             if hkService.isAnalyzingEnvironment {
-                HStack(spacing: 8) {
+                HStack(spacing: FDS.Spacing.sm) {
                     ProgressView().controlSize(.small)
                     Text("Looking at the room…").font(.system(size: 12)).foregroundColor(.textSecondary)
                 }
             } else if let error = hkService.environmentCheckError {
-                HStack(alignment: .top, spacing: 8) {
+                HStack(alignment: .top, spacing: FDS.Spacing.sm) {
                     Image(systemName: "exclamationmark.triangle.fill").font(.system(size: 11)).foregroundColor(.warning)
                     Text(error).font(.system(size: 12)).foregroundColor(.textSecondary).fixedSize(horizontal: false, vertical: true)
                 }
-                .padding(10)
+                .padding(FDS.Spacing.md)
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .background(Color.warning.opacity(0.08))
-                .cornerRadius(10)
+                .cornerRadius(FDS.Radius.sm)
             } else if let assessment = hkService.environmentAssessment {
-                HStack(alignment: .top, spacing: 8) {
+                HStack(alignment: .top, spacing: FDS.Spacing.sm) {
                     Image(systemName: "sparkles").font(.system(size: 11)).foregroundColor(.steel)
                     Text(assessment).font(.system(size: 12)).foregroundColor(.textSecondary).fixedSize(horizontal: false, vertical: true)
                 }
-                .padding(10)
+                .padding(FDS.Spacing.md)
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .background(Color.steel.opacity(0.08))
-                .cornerRadius(10)
+                .cornerRadius(FDS.Radius.sm)
             } else {
                 Text(SleepLifestyleCopy.environmentHint)
                     .font(.system(size: 12)).foregroundColor(.textMuted).lineLimit(3)
             }
 
             PhotosPicker(selection: $pickerItem, matching: .images) {
-                HStack(spacing: 6) {
+                HStack(spacing: FDS.Spacing.sm) {
                     Image(systemName: "camera.fill").font(.system(size: 12))
-                    Text(pickedPreview == nil ? "Show ARIA the room" : "Try another photo").font(.system(size: 12, weight: .semibold))
+                    Text(pickedPreview == nil ? "Show ARIA the room" : "Try another photo").font(FDS.TypeScale.Dynamic.caption)
                 }
                 .foregroundColor(.steel)
-                .padding(.horizontal, 12).padding(.vertical, 8)
+                .padding(.horizontal, FDS.Spacing.md).padding(.vertical, FDS.Spacing.sm)
                 .background(Color.steel.opacity(0.12))
-                .cornerRadius(10)
+                .cornerRadius(FDS.Radius.sm)
             }
         }
-        .padding(18)
-        .forgeGlassCard(cornerRadius: 20, accent: .aurora)
+        .padding(FDS.Spacing.lg)
+        .forgeGlassCard(cornerRadius: FDS.Radius.xl, accent: .aurora)
         .onChange(of: pickerItem) { _, item in
             Task {
                 guard let item, let data = try? await item.loadTransferable(type: Data.self),
@@ -198,20 +198,20 @@ struct AIPersonalizedGoalsView: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 14) {
-            HStack(spacing: 8) {
+        VStack(alignment: .leading, spacing: FDS.Spacing.lg) {
+            HStack(spacing: FDS.Spacing.sm) {
                 Image(systemName: "target").font(.system(size: 14)).foregroundColor(.ember)
-                Text("Sleep Goals").font(.system(size: 14, weight: .semibold)).foregroundColor(.textPrimary)
+                Text("Sleep Goals").font(FDS.TypeScale.Dynamic.body.weight(.semibold)).foregroundColor(.textPrimary)
             }
-            VStack(spacing: 10) {
+            VStack(spacing: FDS.Spacing.md) {
                 ForEach(Array(goals.enumerated()), id: \.element.id) { i, g in
-                    VStack(alignment: .leading, spacing: 8) {
+                    VStack(alignment: .leading, spacing: FDS.Spacing.sm) {
                         HStack {
                             Image(systemName: g.icon).font(.system(size: 12)).foregroundColor(.steel)
-                            Text(g.title).font(.system(size: 13, weight: .medium)).foregroundColor(.textPrimary)
+                            Text(g.title).font(FDS.TypeScale.Dynamic.caption).foregroundColor(.textPrimary)
                             Spacer()
                             Text(String(format: "%.1f / %.1f %@", g.current, g.target, g.unit))
-                                .font(.system(size: 13, weight: .semibold)).foregroundColor(.textSecondary)
+                                .font(FDS.TypeScale.Dynamic.caption).foregroundColor(.textSecondary)
                         }
                         GeometryReader { geo in
                             ZStack(alignment: .leading) {
@@ -224,24 +224,24 @@ struct AIPersonalizedGoalsView: View {
                         }
                         .frame(height: 6)
                     }
-                    .padding(12).background(Color.surfaceElevated).cornerRadius(12)
+                    .padding(FDS.Spacing.md).forgeInsetTile(radius: FDS.Radius.md)
                     .opacity(appeared || reduceMotion ? 1 : 0)
                     .animation(reduceMotion ? nil : .easeOut(duration: 0.3).delay(Double(i) * 0.1), value: appeared)
                 }
             }
             if let note = hkService.aiGoalsNote {
-                HStack(alignment: .top, spacing: 8) {
+                HStack(alignment: .top, spacing: FDS.Spacing.sm) {
                     Image(systemName: "sparkles").font(.system(size: 11)).foregroundColor(.ember)
                     Text(note).font(.system(size: 12)).foregroundColor(.textSecondary).fixedSize(horizontal: false, vertical: true)
                 }
-                .padding(10)
+                .padding(FDS.Spacing.md)
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .background(Color.ember.opacity(0.08))
-                .cornerRadius(10)
+                .cornerRadius(FDS.Radius.sm)
             }
         }
-        .padding(18)
-        .forgeGlassCard(cornerRadius: 20, accent: .aurora)
+        .padding(FDS.Spacing.lg)
+        .forgeGlassCard(cornerRadius: FDS.Radius.xl, accent: .aurora)
         .onAppear {
             if reduceMotion {
                 appeared = true
@@ -264,48 +264,48 @@ struct AISmartRecommendationsView: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Text("Smart Recommendations").font(.system(size: 14, weight: .semibold)).foregroundColor(.textPrimary)
-            VStack(spacing: 10) {
+        VStack(alignment: .leading, spacing: FDS.Spacing.md) {
+            Text("Smart Recommendations").font(FDS.TypeScale.Dynamic.body.weight(.semibold)).foregroundColor(.textPrimary)
+            VStack(spacing: FDS.Spacing.md) {
                 ForEach(Array(recs.enumerated()), id: \.element.id) { i, rec in
-                    HStack(alignment: .top, spacing: 12) {
+                    HStack(alignment: .top, spacing: FDS.Spacing.md) {
                         ZStack {
                             Circle().fill(Color.steel.opacity(0.12)).frame(width: 38, height: 38)
                             Image(systemName: rec.icon).font(.system(size: 14)).foregroundColor(.steel)
                         }
-                        VStack(alignment: .leading, spacing: 4) {
+                        VStack(alignment: .leading, spacing: FDS.Spacing.xs) {
                             HStack {
-                                Text(rec.title).font(.system(size: 13, weight: .semibold)).foregroundColor(.textPrimary)
+                                Text(rec.title).font(FDS.TypeScale.Dynamic.caption).foregroundColor(.textPrimary)
                                 Spacer()
                                 Text(rec.priority)
-                                    .font(.system(size: 10, weight: .bold))
+                                    .font(FDS.TypeScale.Dynamic.micro)
                                     .foregroundColor(rec.priority == "High" ? .ember : .warning)
-                                    .padding(.horizontal, 8).padding(.vertical, 4)
+                                    .padding(.horizontal, FDS.Spacing.sm).padding(.vertical, FDS.Spacing.xs)
                                     .background((rec.priority == "High" ? Color.ember : Color.warning).opacity(0.12))
-                                    .cornerRadius(6)
+                                    .cornerRadius(FDS.Radius.xs)
                             }
                             Text(rec.description).font(.system(size: 12)).foregroundColor(.textSecondary).lineLimit(2)
                         }
                     }
-                    .padding(12).background(Color.surfaceElevated).cornerRadius(12)
+                    .padding(FDS.Spacing.md).forgeInsetTile(radius: FDS.Radius.md)
                     .opacity(appeared || reduceMotion ? 1 : 0)
                     .offset(x: appeared || reduceMotion ? 0 : -10)
                     .animation(reduceMotion ? nil : .easeOut(duration: 0.3).delay(Double(i) * 0.08), value: appeared)
                 }
             }
             if let note = hkService.aiRecommendationsNote {
-                HStack(alignment: .top, spacing: 8) {
+                HStack(alignment: .top, spacing: FDS.Spacing.sm) {
                     Image(systemName: "sparkles").font(.system(size: 11)).foregroundColor(.steel)
                     Text(note).font(.system(size: 12)).foregroundColor(.textSecondary).fixedSize(horizontal: false, vertical: true)
                 }
-                .padding(10)
+                .padding(FDS.Spacing.md)
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .background(Color.steel.opacity(0.08))
-                .cornerRadius(10)
+                .cornerRadius(FDS.Radius.sm)
             }
         }
-        .padding(18)
-        .forgeGlassCard(cornerRadius: 20, accent: .aurora)
+        .padding(FDS.Spacing.lg)
+        .forgeGlassCard(cornerRadius: FDS.Radius.xl, accent: .aurora)
         .onAppear {
             if reduceMotion {
                 appeared = true

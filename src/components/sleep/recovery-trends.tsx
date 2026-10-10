@@ -73,8 +73,8 @@ export function RecoveryTrends() {
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.5 }}
       >
-        <h3 className="mb-3 text-sm font-semibold text-white">Recovery Trend</h3>
-        <div className="rounded-xl border border-border bg-surface p-3">
+        <h3 className="type-headline mb-3 text-text-primary">Recovery Trend</h3>
+        <div className="rounded-2xl bg-surface p-5">
           <ResponsiveContainer width="100%" height={160}>
             <AreaChart data={recoveryChartData} margin={{ top: 5, right: 5, left: -20, bottom: 0 }}>
               <defs>
@@ -118,8 +118,8 @@ export function RecoveryTrends() {
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.5, delay: 0.15 }}
       >
-        <h3 className="mb-3 text-sm font-semibold text-white">HRV & Resting HR</h3>
-        <div className="rounded-xl border border-border bg-surface p-3">
+        <h3 className="type-headline mb-3 text-text-primary">HRV & Resting HR</h3>
+        <div className="rounded-2xl bg-surface p-5">
           <ResponsiveContainer width="100%" height={160}>
             <LineChart data={hrvChartData} margin={{ top: 5, right: 5, left: -20, bottom: 0 }}>
               <CartesianGrid stroke="none" />
@@ -160,11 +160,11 @@ export function RecoveryTrends() {
           <div className="mt-2 flex items-center justify-center gap-5">
             <div className="flex items-center gap-1.5">
               <div className="h-2 w-2 rounded-full bg-steel" />
-              <span className="text-[10px] text-text-secondary">HRV (ms)</span>
+              <span className="type-micro text-text-secondary">HRV (ms)</span>
             </div>
             <div className="flex items-center gap-1.5">
               <div className="h-2 w-2 rounded-full bg-ember" />
-              <span className="text-[10px] text-text-secondary">Resting HR (bpm)</span>
+              <span className="type-micro text-text-secondary">Resting HR (bpm)</span>
             </div>
           </div>
         </div>

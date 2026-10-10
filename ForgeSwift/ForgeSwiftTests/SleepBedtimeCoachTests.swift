@@ -67,6 +67,9 @@ final class SleepBedtimeCoachTests: XCTestCase {
         )
         XCTAssertEqual(late.phase, .overdue)
         XCTAssertTrue(late.ariaPrompt.localizedCaseInsensitiveContains("sleep"))
+        XCTAssertTrue(late.cue.localizedCaseInsensitiveContains("still counts"))
+        XCTAssertFalse(late.cue.localizedCaseInsensitiveContains("paying for"))
+        XCTAssertFalse(late.cue.localizedCaseInsensitiveContains("should have"))
     }
 
     func testPredictorOnsetsBeatTheFallbackHour() {

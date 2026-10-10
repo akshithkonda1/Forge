@@ -93,24 +93,24 @@ enum AdaptiveEngine {
         switch r {
         case 85...:
             return PlanScaling(volumeMultiplier: 1.10, intensityMultiplier: 1.03,
-                               headline: "Primed — green light",
-                               detail: "Recovery is excellent. ARIA added a top-set and nudged loads up ~3%. Chase a rep PR on your first compound.",
+                               headline: "Peak — green light",
+                               detail: "You're at Peak. ARIA added a top-set and nudged loads up ~3%. Chase a rep PR on your first compound if you want it.",
                                tone: .success)
         case 70..<85:
             return PlanScaling(volumeMultiplier: 1.0, intensityMultiplier: 1.0,
                                headline: "On plan",
                                detail: "Readiness is solid. Run the session as written and let RPE guide your top sets.",
                                tone: .steel)
-        case 55..<70:
+        case 50..<70:
             return PlanScaling(volumeMultiplier: 0.85, intensityMultiplier: 0.93,
-                               headline: "Trim the volume",
-                               detail: "Recovery is moderate. ARIA cut ~15% of volume and held loads ~7% lighter to protect tomorrow.",
+                               headline: "Train smart",
+                               detail: "You're at Fair. ARIA cut ~15% of volume and held loads ~7% lighter so today still counts.",
                                tone: .warning)
         default:
             return PlanScaling(volumeMultiplier: 0.65, intensityMultiplier: 0.85,
-                               headline: "Recovery day protocol",
-                               detail: "Readiness is low. ARIA pulled volume and intensity back hard — move well, leave 3+ reps in reserve, prioritize sleep.",
-                               tone: .danger)
+                               headline: "A lighter win",
+                               detail: "You're at Low. ARIA pulled volume back — move well, leave 3+ reps in reserve, and keep the day open.",
+                               tone: .steel)
         }
     }
 
