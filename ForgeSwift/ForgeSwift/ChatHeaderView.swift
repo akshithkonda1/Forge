@@ -125,6 +125,8 @@ struct ChatHeaderView: View {
                 }
                 .shadow(color: scoreColor.opacity(0.42), radius: 8)
             }
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel(HomeReadiness.voiceOverLabel(store.readiness.overall))
         }
         .padding(.horizontal, FDS.Spacing.lg)
         .padding(.vertical, FDS.Spacing.md)
