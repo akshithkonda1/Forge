@@ -121,7 +121,7 @@ public struct BodyModelHRVBaselines: Codable, Equatable, Sendable {
     public var rmssd: OnlineStat
     public var sdnnSamplingDensityVersion: Int
     public var rmssdSamplingDensityVersion: Int
-    /// Timestamp of the newest sample folded into each statistic. HealthKit
+    /// Timestamp of the sample folded in last for each statistic. HealthKit
     /// hands back the same latest reading on every foreground refresh;
     /// without this, one reading is counted dozens of times, the mean drifts
     /// toward whatever was last seen, and the spread collapses.
@@ -179,18 +179,19 @@ public struct BodyModelHRVBaselines: Codable, Equatable, Sendable {
         }
     }
 
-    /// Folds one reading in. A reading at or before the newest one already
-    /// counted is skipped — the same sample re-read, not a new night.
+    /// Folds one reading in. The reading counted last, read again (same
+    /// timestamp), is skipped — that is a refresh, not a new sample. Older
+    /// readings arriving late (backfill, a delayed Watch sync) still count.
     public mutating func ingest(_ observation: HRVObservation) {
         migrateIfNeeded(to: observation.samplingDensity, for: observation.statistic)
         guard observation.milliseconds > 0, observation.milliseconds.isFinite else { return }
         switch observation.statistic {
         case .sdnn:
-            if let last = sdnnLastSampleAt, observation.timestamp <= last { return }
+            if sdnnLastSampleAt == observation.timestamp { return }
             sdnn.update(observation.milliseconds)
             sdnnLastSampleAt = observation.timestamp
         case .rmssd:
-            if let last = rmssdLastSampleAt, observation.timestamp <= last { return }
+            if rmssdLastSampleAt == observation.timestamp { return }
             rmssd.update(observation.milliseconds)
             rmssdLastSampleAt = observation.timestamp
         }

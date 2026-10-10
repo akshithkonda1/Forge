@@ -227,12 +227,13 @@ final class BodyModelHRVTests: XCTestCase {
         XCTAssertEqual(baselines.sdnn.mean, 50, accuracy: 1e-12)
     }
 
-    func testOlderReadingIsNotFoldedInAfterANewerOne() {
+    func testLateArrivingOlderReadingStillCounts() {
+        // Backfill and delayed Watch syncs deliver real readings out of order.
         var baselines = BodyModelHRVBaselines()
         baselines.ingest(sample(.rmssd, ms: 30, at: 100))
         baselines.ingest(sample(.rmssd, ms: 90, at: 50))
-        XCTAssertEqual(baselines.rmssd.n, 1)
-        XCTAssertEqual(baselines.rmssd.last, 30)
+        XCTAssertEqual(baselines.rmssd.n, 2)
+        XCTAssertEqual(baselines.rmssd.mean, 60, accuracy: 1e-12)
     }
 
     func testDedupeIsPerStatistic() {
