@@ -40,7 +40,7 @@ struct LifestylePlacesView: View {
     @State private var showOpenSettings = false
 
     var body: some View {
-        VStack(spacing: 16) {
+        VStack(spacing: FDS.Spacing.lg) {
             searchBar
             foodFilters
             mapCard
@@ -95,7 +95,7 @@ struct LifestylePlacesView: View {
                     UserAnnotation()
                     ForEach(location.nearby) { place in
                         Marker(place.name, systemImage: "fork.knife", coordinate: place.coordinate)
-                            .tint(Color(hex: "FF4D00"))
+                            .tint(Color.ember)
                             .tag(place)
                     }
                 }
@@ -110,7 +110,7 @@ struct LifestylePlacesView: View {
             }
 
             if location.currentLocation != nil {
-                VStack(spacing: 8) {
+                VStack(spacing: FDS.Spacing.sm) {
                     mapButton(icon: "location.fill") {
                         Task { await recenter() }
                     }
@@ -118,13 +118,13 @@ struct LifestylePlacesView: View {
                         location.openCurrentLocationInMaps()
                     }
                 }
-                .padding(10)
+                .padding(FDS.Spacing.md)
             }
         }
         .frame(height: 280)
-        .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
+        .clipShape(RoundedRectangle(cornerRadius: FDS.Radius.xl, style: .continuous))
         .overlay(
-            RoundedRectangle(cornerRadius: 20, style: .continuous)
+            RoundedRectangle(cornerRadius: FDS.Radius.xl, style: .continuous)
                 .stroke(Color.borderColor.opacity(0.4), lineWidth: 1)
         )
     }
@@ -136,19 +136,19 @@ struct LifestylePlacesView: View {
                 startPoint: .topLeading,
                 endPoint: .bottomTrailing
             )
-            VStack(spacing: 10) {
+            VStack(spacing: FDS.Spacing.md) {
                 Image(systemName: location.isAuthorized ? "location.viewfinder" : "location.slash")
                     .font(.system(size: 26, weight: .semibold))
                     .foregroundStyle(location.isAuthorized ? Color.ember : Color.warning)
                     .symbolRenderingMode(.hierarchical)
                 Text(location.isAuthorized ? "Finding you" : "Turn on Location")
-                    .font(.system(size: 17, weight: .semibold, design: .rounded))
+                    .font(FDS.TypeScale.Dynamic.headline)
                     .foregroundColor(.textPrimary)
                 Text(statusDetail)
-                    .font(.system(size: 13, weight: .medium))
+                    .font(FDS.TypeScale.Dynamic.caption)
                     .foregroundColor(.textSecondary)
                     .multilineTextAlignment(.center)
-                    .padding(.horizontal, 28)
+                    .padding(.horizontal, FDS.Spacing.xl)
             }
         }
     }
@@ -166,12 +166,12 @@ struct LifestylePlacesView: View {
     }
 
     private var statusRow: some View {
-        HStack(spacing: 10) {
+        HStack(spacing: FDS.Spacing.md) {
             Image(systemName: location.isAuthorized ? "location.fill" : "location.slash")
                 .foregroundColor(location.isAuthorized ? .vitality : .warning)
             VStack(alignment: .leading, spacing: 2) {
                 Text(statusTitle)
-                    .font(.system(size: 13, weight: .semibold))
+                    .font(FDS.TypeScale.Dynamic.caption)
                     .foregroundColor(.textPrimary)
                 Text(statusDetail)
                     .font(.system(size: 11))
@@ -189,8 +189,8 @@ struct LifestylePlacesView: View {
                 .foregroundColor(.ember)
             }
         }
-        .padding(12)
-        .forgeGlassCard(cornerRadius: 14, accent: .steel)
+        .padding(FDS.Spacing.md)
+        .forgeGlassCard(cornerRadius: FDS.Radius.md, accent: .steel)
     }
 
     private var statusTitle: String {
@@ -232,10 +232,10 @@ struct LifestylePlacesView: View {
     }
 
     private var nearbyList: some View {
-        VStack(alignment: .leading, spacing: 10) {
+        VStack(alignment: .leading, spacing: FDS.Spacing.md) {
             HStack {
                 Text("Nearby")
-                    .font(.system(size: 16, weight: .bold))
+                    .font(FDS.TypeScale.Dynamic.headline)
                     .foregroundColor(.textPrimary)
                 Spacer()
                 Button {
@@ -248,7 +248,7 @@ struct LifestylePlacesView: View {
             }
 
             if let error = displayableNearbyError {
-                VStack(alignment: .leading, spacing: 8) {
+                VStack(alignment: .leading, spacing: FDS.Spacing.sm) {
                     Text(error)
                         .font(.system(size: 13))
                         .foregroundColor(.warning)
@@ -265,13 +265,13 @@ struct LifestylePlacesView: View {
             } else {
                 ForEach(location.nearby.prefix(8)) { place in
                     Button { selectedPlace = place } label: {
-                        HStack(spacing: 12) {
+                        HStack(spacing: FDS.Spacing.md) {
                             Image(systemName: "mappin.circle.fill")
                                 .font(.system(size: 22))
                                 .foregroundColor(.ember)
                             VStack(alignment: .leading, spacing: 2) {
                                 Text(place.name)
-                                    .font(.system(size: 14, weight: .semibold))
+                                    .font(FDS.TypeScale.Dynamic.body.weight(.semibold))
                                     .foregroundColor(.textPrimary)
                                     .lineLimit(1)
                                 Text(placeLine(place))
@@ -281,11 +281,11 @@ struct LifestylePlacesView: View {
                             }
                             Spacer()
                             Text(place.distanceLabel)
-                                .font(.system(size: 12, weight: .semibold))
+                                .font(FDS.TypeScale.Dynamic.caption)
                                 .foregroundColor(.textSecondary)
                         }
-                        .padding(12)
-                        .forgeGlassCard(cornerRadius: 14, accent: .steel)
+                        .padding(FDS.Spacing.md)
+                        .forgeGlassCard(cornerRadius: FDS.Radius.md, accent: .steel)
                     }
                     .buttonStyle(.plain)
                 }
@@ -299,14 +299,13 @@ struct LifestylePlacesView: View {
         } label: {
             HStack {
                 Text(showCatalog ? "Hide saved menus" : "Browse saved restaurant menus")
-                    .font(.system(size: 13, weight: .semibold))
+                    .font(FDS.TypeScale.Dynamic.caption)
                 Spacer()
                 Image(systemName: showCatalog ? "chevron.up" : "chevron.down")
             }
             .foregroundColor(.textSecondary)
-            .padding(14)
-            .background(Color.surfaceElevated)
-            .cornerRadius(12)
+            .padding(FDS.Spacing.lg)
+            .forgeInsetTile(radius: FDS.Radius.md)
         }
         .buttonStyle(.plain)
     }
@@ -362,7 +361,7 @@ struct LifestylePlacesView: View {
     }
 
     private var searchBar: some View {
-        HStack(spacing: 10) {
+        HStack(spacing: FDS.Spacing.md) {
             Image(systemName: "magnifyingglass").foregroundColor(.textTertiary)
             TextField("Search restaurants or menus…", text: $searchText)
                 .textInputAutocapitalization(.never)
@@ -375,23 +374,23 @@ struct LifestylePlacesView: View {
                 }
             }
         }
-        .padding(12)
-        .forgeGlassCard(cornerRadius: 12, accent: .steel)
+        .padding(FDS.Spacing.md)
+        .forgeGlassCard(cornerRadius: FDS.Radius.md, accent: .steel)
     }
 
     private var foodFilters: some View {
         ScrollView(.horizontal, showsIndicators: false) {
-            HStack(spacing: 8) {
+            HStack(spacing: FDS.Spacing.sm) {
                 ForEach(FoodSearchKind.allCases) { kind in
                     Button {
                         foodKind = kind
                         Task { await runSearch() }
                     } label: {
                         Text(kind.title)
-                            .font(.system(size: 13, weight: .medium))
+                            .font(FDS.TypeScale.Dynamic.caption)
                             .foregroundColor(foodKind == kind ? .background : .textSecondary)
-                            .padding(.horizontal, 12)
-                            .padding(.vertical, 7)
+                            .padding(.horizontal, FDS.Spacing.md)
+                            .padding(.vertical, FDS.Spacing.sm)
                             .background(foodKind == kind ? Color.textPrimary : Color.surface)
                             .clipShape(Capsule())
                     }
@@ -441,14 +440,14 @@ private struct NearbyPlaceSheet: View {
     var body: some View {
         NavigationStack {
             ScrollView {
-                VStack(alignment: .leading, spacing: 16) {
-                    VStack(alignment: .leading, spacing: 6) {
+                VStack(alignment: .leading, spacing: FDS.Spacing.lg) {
+                    VStack(alignment: .leading, spacing: FDS.Spacing.sm) {
                         Text(place.name)
-                            .font(.system(size: 24, weight: .semibold))
+                            .font(FDS.TypeScale.Dynamic.title)
                             .foregroundColor(.textPrimary)
                         if let category = place.categoryLabel {
                             Text(category)
-                                .font(.system(size: 13, weight: .medium))
+                                .font(FDS.TypeScale.Dynamic.caption)
                                 .foregroundColor(.ember)
                         }
                         if let address = place.address, !address.isEmpty {
@@ -461,7 +460,7 @@ private struct NearbyPlaceSheet: View {
                             .foregroundColor(.textTertiary)
                     }
 
-                    HStack(spacing: 10) {
+                    HStack(spacing: FDS.Spacing.md) {
                         Button {
                             location.openInMaps(place)
                         } label: {
@@ -485,14 +484,14 @@ private struct NearbyPlaceSheet: View {
                     if let site = place.url {
                         Link(destination: site) {
                             Text("Website / menu")
-                                .font(.system(size: 14, weight: .semibold))
+                                .font(FDS.TypeScale.Dynamic.body.weight(.semibold))
                                 .foregroundColor(.ember)
                         }
                     }
 
                     if let menu = catalogMenu, !menu.isEmpty {
                         Text("Menu")
-                            .font(.system(size: 16, weight: .semibold))
+                            .font(FDS.TypeScale.Dynamic.headline)
                             .foregroundColor(.textPrimary)
                         Text("From Forge’s kitchen file for this chain. Tap a dish to log it.")
                             .font(.system(size: 12))
@@ -506,7 +505,7 @@ private struct NearbyPlaceSheet: View {
                                 HStack {
                                     VStack(alignment: .leading, spacing: 3) {
                                         Text(item.name)
-                                            .font(.system(size: 14, weight: .semibold))
+                                            .font(FDS.TypeScale.Dynamic.body.weight(.semibold))
                                             .foregroundColor(.textPrimary)
                                         Text("\(item.calories) cal · \(item.protein)g protein")
                                             .font(.system(size: 12))
@@ -515,15 +514,14 @@ private struct NearbyPlaceSheet: View {
                                     Spacer()
                                     Image(systemName: "plus.circle.fill").foregroundColor(.ember)
                                 }
-                                .padding(14)
-                                .background(Color.surfaceElevated)
-                                .cornerRadius(12)
+                                .padding(FDS.Spacing.lg)
+                                .forgeInsetTile(radius: FDS.Radius.md)
                             }
                             .buttonStyle(.plain)
                         }
                     } else {
                         Text("Menu")
-                            .font(.system(size: 16, weight: .semibold))
+                            .font(FDS.TypeScale.Dynamic.headline)
                             .foregroundColor(.textPrimary)
                         Text("Apple Maps found this kitchen. Open it in Maps for hours and any published menu, or use the website if they have one.")
                             .font(.system(size: 13))
@@ -531,7 +529,7 @@ private struct NearbyPlaceSheet: View {
                             .fixedSize(horizontal: false, vertical: true)
                     }
                 }
-                .padding(20)
+                .padding(FDS.Spacing.lg)
             }
             .background(Color.background)
             .navigationBarTitleDisplayMode(.inline)
@@ -551,8 +549,8 @@ private struct NearbyPlaceSheet: View {
         .font(.system(size: 13, weight: .semibold))
         .foregroundColor(.white)
         .frame(maxWidth: .infinity)
-        .padding(.vertical, 12)
+        .padding(.vertical, FDS.Spacing.md)
         .background(Color.ember)
-        .cornerRadius(12)
+        .cornerRadius(FDS.Radius.md)
     }
 }

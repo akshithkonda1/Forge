@@ -9,9 +9,9 @@ struct LiveHealthDashboard: View {
     @State private var appeared = false
     
     var body: some View {
-        VStack(alignment: .leading, spacing: 20) {
+        VStack(alignment: .leading, spacing: FDS.Spacing.lg) {
             // Header with live indicator
-            HStack(spacing: 12) {
+            HStack(spacing: FDS.Spacing.md) {
                 ZStack {
                     Circle().fill(Color.success.opacity(0.15)).frame(width: 46, height: 46)
                     Image(systemName: "heart.text.square.fill")
@@ -20,13 +20,13 @@ struct LiveHealthDashboard: View {
                 }
                 
                 VStack(alignment: .leading, spacing: 3) {
-                    HStack(spacing: 8) {
+                    HStack(spacing: FDS.Spacing.sm) {
                         Text("Live Health Data")
-                            .font(.system(size: 18, weight: .bold))
+                            .font(FDS.TypeScale.Dynamic.headline)
                             .foregroundColor(.textPrimary)
                         
                         // Pulsing live indicator
-                        HStack(spacing: 4) {
+                        HStack(spacing: FDS.Spacing.xs) {
                             Circle()
                                 .fill(Color.success)
                                 .frame(width: 6, height: 6)
@@ -38,7 +38,7 @@ struct LiveHealthDashboard: View {
                                         .animation(.easeOut(duration: 1.2).repeatForever(autoreverses: false), value: appeared)
                                 )
                             Text("LIVE")
-                                .font(.system(size: 10, weight: .black))
+                                .font(FDS.TypeScale.Dynamic.micro)
                                 .foregroundColor(.success)
                                 .tracking(1)
                         }
@@ -49,7 +49,7 @@ struct LiveHealthDashboard: View {
                 }
                 Spacer()
             }
-            .padding(.bottom, 4)
+            .padding(.bottom, FDS.Spacing.xs)
             
             // Today's Key Metrics
             LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 12) {
@@ -79,7 +79,7 @@ struct LiveHealthDashboard: View {
                     value: String(format: "%.1fh", stats.sleepHours),
                     target: "8h",
                     progress: stats.sleepHours / 8.0,
-                    color: Color(hex: "A855F7"),
+                    color: Color.aurora,
                     appeared: appeared
                 )
                 
@@ -113,7 +113,7 @@ struct LiveHealthDashboard: View {
                         value: "\(Int(stats.exerciseMinutes))m",
                         target: "30m",
                         progress: stats.exerciseMinutes / 30.0,
-                        color: Color(hex: "FFB84D"),
+                        color: Color.amber,
                         appeared: appeared
                     )
                 }
@@ -124,8 +124,8 @@ struct LiveHealthDashboard: View {
                 WeeklyTrendChart(trends: trends)
             }
         }
-        .padding(22)
-        .forgeGlassCard(cornerRadius: 22, accent: .success)
+        .padding(FDS.Spacing.xl)
+        .forgeGlassCard(cornerRadius: FDS.Radius.xl, accent: .success)
         .onAppear { appeared = true }
     }
 }
@@ -141,7 +141,7 @@ private enum TrendMetric: String, CaseIterable, Identifiable {
         switch self {
         case .steps:          return .steel
         case .activeCalories: return .ember
-        case .sleep:          return Color(hex: "A855F7")
+        case .sleep:          return Color.aurora
         case .hrv:            return .success
         }
     }
@@ -180,15 +180,15 @@ struct WeeklyTrendChart: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
+        VStack(alignment: .leading, spacing: FDS.Spacing.md) {
             HStack {
                 Text("7-Day Trends")
-                    .font(.system(size: 14, weight: .semibold))
+                    .font(FDS.TypeScale.Dynamic.body.weight(.semibold))
                     .foregroundColor(.textPrimary)
                 Spacer()
                 if let t = selectedTrend {
                     Text("\(t.date.formatted(.dateTime.weekday(.abbreviated))) · \(metric.format(metric.value(t)))")
-                        .font(.system(size: 11, weight: .bold))
+                        .font(FDS.TypeScale.Dynamic.micro)
                         .foregroundColor(metric.color)
                         .transition(.opacity)
                 }
@@ -205,7 +205,7 @@ struct WeeklyTrendChart: View {
                     y: .value(metric.rawValue, metric.value(t))
                 )
                 .foregroundStyle(metric.color.gradient)
-                .cornerRadius(5)
+                .cornerRadius(FDS.Radius.xs)
                 .opacity(selectedTrend == nil || selectedTrend?.id == t.id ? 1 : 0.35)
             }
             .chartXSelection(value: $selectedDate)
@@ -224,7 +224,7 @@ struct WeeklyTrendChart: View {
             .frame(height: 150)
             .animation(.easeInOut(duration: 0.25), value: metric)
         }
-        .padding(.top, 8)
+        .padding(.top, FDS.Spacing.sm)
     }
 }
 
@@ -238,23 +238,23 @@ struct HealthMetricTile: View {
     let appeared: Bool
     
     var body: some View {
-        VStack(spacing: 10) {
-            HStack(spacing: 8) {
+        VStack(spacing: FDS.Spacing.md) {
+            HStack(spacing: FDS.Spacing.sm) {
                 Image(systemName: icon)
                     .font(.system(size: 16))
                     .foregroundColor(color)
                 Text(label)
-                    .font(.system(size: 11, weight: .semibold))
+                    .font(FDS.TypeScale.Dynamic.micro)
                     .foregroundColor(.textSecondary)
                 Spacer()
             }
             
-            HStack(alignment: .firstTextBaseline, spacing: 4) {
+            HStack(alignment: .firstTextBaseline, spacing: FDS.Spacing.xs) {
                 Text(value)
-                    .font(.system(size: 24, weight: .black, design: .rounded))
+                    .font(FDS.TypeScale.Dynamic.metric)
                     .foregroundColor(.textPrimary)
                 Text("/ \(target)")
-                    .font(.system(size: 11, weight: .medium))
+                    .font(FDS.TypeScale.Dynamic.micro)
                     .foregroundColor(.textTertiary)
                 Spacer()
             }
@@ -271,9 +271,8 @@ struct HealthMetricTile: View {
             }
             .frame(height: 4)
         }
-        .padding(14)
-        .background(Color.surfaceElevated)
-        .cornerRadius(14)
+        .padding(FDS.Spacing.lg)
+        .forgeInsetTile(radius: FDS.Radius.md)
     }
 }
 
@@ -311,7 +310,7 @@ struct RecoveryMetricsCard: View {
     var body: some View {
         VStack(spacing: 0) {
             // Header
-            HStack(spacing: 14) {
+            HStack(spacing: FDS.Spacing.lg) {
                 ZStack {
                     Circle().fill(recoveryStatus.color.opacity(0.15)).frame(width: 46, height: 46)
                     Image(systemName: "bolt.heart.fill")
@@ -320,10 +319,10 @@ struct RecoveryMetricsCard: View {
                 }
                 VStack(alignment: .leading, spacing: 3) {
                     Text("Recovery Status")
-                        .font(.system(size: 18, weight: .bold))
+                        .font(FDS.TypeScale.Dynamic.headline)
                         .foregroundColor(.textPrimary)
                     Text(recoveryStatus.label)
-                        .font(.system(size: 13, weight: .semibold))
+                        .font(FDS.TypeScale.Dynamic.caption)
                         .foregroundColor(recoveryStatus.color)
                 }
                 Spacer()
@@ -342,14 +341,14 @@ struct RecoveryMetricsCard: View {
                         .animation(.spring(response: 1.2, dampingFraction: 0.7).delay(0.2), value: appeared)
                     
                     Text("\(recoveryScore)")
-                        .font(.system(size: 20, weight: .black))
+                        .font(FDS.TypeScale.Dynamic.title)
                         .foregroundColor(.textPrimary)
                 }
             }
-            .padding(.bottom, 20)
+            .padding(.bottom, FDS.Spacing.lg)
             
             // Recovery metrics grid
-            VStack(spacing: 12) {
+            VStack(spacing: FDS.Spacing.md) {
                 RecoveryMetricRow(
                     icon: "waveform.path.ecg",
                     label: "Heart Rate Variability",
@@ -375,17 +374,17 @@ struct RecoveryMetricsCard: View {
                 )
             }
             
-            Divider().background(Color.borderColor.opacity(0.4)).padding(.vertical, 16)
+            Divider().background(Color.borderColor.opacity(0.4)).padding(.vertical, FDS.Spacing.lg)
             
             // Training readiness
-            HStack(spacing: 12) {
+            HStack(spacing: FDS.Spacing.md) {
                 Image(systemName: recoveryScore > 70 ? "checkmark.circle.fill" : "exclamationmark.triangle.fill")
                     .font(.system(size: 18))
                     .foregroundColor(recoveryScore > 70 ? .success : .warning)
                 
                 VStack(alignment: .leading, spacing: 3) {
                     Text(recoveryScore > 70 ? "Ready to Train" : "Consider Active Recovery")
-                        .font(.system(size: 14, weight: .bold))
+                        .font(FDS.TypeScale.Dynamic.body.weight(.semibold))
                         .foregroundColor(.textPrimary)
                     Text(recoveryScore > 70 
                          ? "Your body is primed for a hard session"
@@ -395,16 +394,16 @@ struct RecoveryMetricsCard: View {
                         .lineSpacing(3)
                 }
             }
-            .padding(14)
+            .padding(FDS.Spacing.lg)
             .background(recoveryStatus.color.opacity(0.08))
-            .cornerRadius(12)
+            .cornerRadius(FDS.Radius.md)
             .overlay(
-                RoundedRectangle(cornerRadius: 12)
+                RoundedRectangle(cornerRadius: FDS.Radius.md)
                     .stroke(recoveryStatus.color.opacity(0.2), lineWidth: 1)
             )
         }
-        .padding(22)
-        .forgeGlassCard(cornerRadius: 22, accent: .vitality)
+        .padding(FDS.Spacing.xl)
+        .forgeGlassCard(cornerRadius: FDS.Radius.xl, accent: .vitality)
         .onAppear { appeared = true }
     }
 }
@@ -417,7 +416,7 @@ struct RecoveryMetricRow: View {
     let color: Color
     
     var body: some View {
-        HStack(spacing: 14) {
+        HStack(spacing: FDS.Spacing.lg) {
             ZStack {
                 Circle().fill(color.opacity(0.12)).frame(width: 38, height: 38)
                 Image(systemName: icon)
@@ -427,26 +426,25 @@ struct RecoveryMetricRow: View {
             
             VStack(alignment: .leading, spacing: 2) {
                 Text(label)
-                    .font(.system(size: 13, weight: .medium))
+                    .font(FDS.TypeScale.Dynamic.caption)
                     .foregroundColor(.textSecondary)
                 Text(value)
-                    .font(.system(size: 15, weight: .bold))
+                    .font(FDS.TypeScale.Dynamic.body.weight(.semibold))
                     .foregroundColor(.textPrimary)
             }
             
             Spacer()
             
             Text(status)
-                .font(.system(size: 12, weight: .semibold))
+                .font(FDS.TypeScale.Dynamic.caption)
                 .foregroundColor(color)
-                .padding(.horizontal, 10).padding(.vertical, 5)
+                .padding(.horizontal, FDS.Spacing.md).padding(.vertical, FDS.Spacing.xs)
                 .background(color.opacity(0.12))
-                .cornerRadius(8)
+                .cornerRadius(FDS.Radius.sm)
         }
-        .padding(.horizontal, 12)
-        .padding(.vertical, 10)
-        .background(Color.surfaceElevated)
-        .cornerRadius(12)
+        .padding(.horizontal, FDS.Spacing.md)
+        .padding(.vertical, FDS.Spacing.md)
+        .forgeInsetTile(radius: FDS.Radius.md)
     }
 }
 
@@ -460,8 +458,8 @@ struct MultiArcQOLCard: View {
 
     private var pillarArcs: [(label: String, value: Int, color: Color, radius: CGFloat)] {
         let colors: [Color] = [
-            Color(hex: "A855F7"), .success, Color(hex: "FFB84D"),
-            Color(hex: "4A9EFF"), .ember, .steel, Color(hex: "F472B6"),
+            Color.aurora, .success, Color.amber,
+            Color.steel, .ember, .steel, Color(hex: "F472B6"),
         ]
         let radii: [CGFloat] = [102, 88, 74, 60, 46, 32, 18]
         let snap = snapshot
@@ -490,15 +488,15 @@ struct MultiArcQOLCard: View {
         VStack(spacing: 0) {
             HStack {
                 Text("QUALITY OF LIFE")
-                    .font(.system(size: 10, weight: .black))
+                    .font(FDS.TypeScale.Dynamic.micro)
                     .foregroundColor(.textTertiary)
                     .tracking(2.5)
                 Spacer()
                 Text(band.label)
-                    .font(.system(size: 11, weight: .semibold))
+                    .font(FDS.TypeScale.Dynamic.micro)
                     .foregroundColor(band.color)
             }
-            .padding(.bottom, 28)
+            .padding(.bottom, FDS.Spacing.xl)
 
             ZStack {
                 ForEach(Array(arcs.enumerated()), id: \.offset) { _, arc in
@@ -529,14 +527,14 @@ struct MultiArcQOLCard: View {
                         .font(.system(size: 34, weight: .black, design: .rounded))
                         .foregroundColor(.textPrimary)
                     Text("QOL")
-                        .font(.system(size: 10, weight: .bold))
+                        .font(FDS.TypeScale.Dynamic.micro)
                         .foregroundColor(.textTertiary)
                         .tracking(1)
                 }
             }
             .frame(height: 230)
             .frame(maxWidth: .infinity)
-            .padding(.bottom, 20)
+            .padding(.bottom, FDS.Spacing.lg)
 
             LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 10) {
                 ForEach(Array(arcs.enumerated()), id: \.offset) { _, arc in
@@ -545,7 +543,7 @@ struct MultiArcQOLCard: View {
             }
 
             if let snap = snapshot {
-                VStack(alignment: .leading, spacing: 6) {
+                VStack(alignment: .leading, spacing: FDS.Spacing.sm) {
                     if !snap.drivers.isEmpty {
                         Text(band == .thriving
                              ? "Holding you up: \(snap.drivers.joined(separator: " · "))"
@@ -555,22 +553,22 @@ struct MultiArcQOLCard: View {
                     }
                     if !snap.missingPillars.isEmpty {
                         Text("Still unmeasured: \(snap.missingPillars.prefix(3).joined(separator: ", "))")
-                            .font(.system(size: 11, weight: .regular))
+                            .font(FDS.TypeScale.Dynamic.micro)
                             .foregroundColor(.textMuted)
                     }
                     if !snap.coaching.isEmpty {
                         Text(snap.coaching)
-                            .font(.system(size: 12, weight: .regular))
+                            .font(FDS.TypeScale.Dynamic.caption)
                             .foregroundColor(.textSecondary)
                             .fixedSize(horizontal: false, vertical: true)
                     }
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
-                .padding(.top, 14)
+                .padding(.top, FDS.Spacing.lg)
             }
         }
-        .padding(24)
-        .forgeGlassCard(cornerRadius: 24, accent: .success)
+        .padding(FDS.Spacing.xl)
+        .forgeGlassCard(cornerRadius: FDS.Radius.xxl, accent: .success)
         .onAppear { appeared = true }
     }
 }
@@ -581,21 +579,20 @@ struct ArcLegendItem: View {
     let color: Color
 
     var body: some View {
-        HStack(spacing: 10) {
+        HStack(spacing: FDS.Spacing.md) {
             Circle().fill(color).frame(width: 8, height: 8)
                 .shadow(color: color.opacity(0.5), radius: 3)
             Text(label)
-                .font(.system(size: 12, weight: .medium))
+                .font(FDS.TypeScale.Dynamic.caption)
                 .foregroundColor(.textSecondary)
             Spacer()
             Text("\(value)")
-                .font(.system(size: 13, weight: .bold))
+                .font(FDS.TypeScale.Dynamic.caption)
                 .foregroundColor(.textPrimary)
         }
-        .padding(.horizontal, 12)
-        .padding(.vertical, 10)
-        .background(Color.surfaceElevated)
-        .cornerRadius(12)
+        .padding(.horizontal, FDS.Spacing.md)
+        .padding(.vertical, FDS.Spacing.md)
+        .forgeInsetTile(radius: FDS.Radius.md)
     }
 }
 
@@ -670,8 +667,8 @@ struct BiologicalAgeCard: View {
     let snapshot: AgingSnapshot
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            HStack(spacing: 12) {
+        VStack(alignment: .leading, spacing: FDS.Spacing.lg) {
+            HStack(spacing: FDS.Spacing.md) {
                 ZStack {
                     Circle().fill(tone.opacity(0.15)).frame(width: 46, height: 46)
                     Image(systemName: "clock.arrow.2.circlepath")
@@ -680,7 +677,7 @@ struct BiologicalAgeCard: View {
                 }
                 VStack(alignment: .leading, spacing: 3) {
                     Text("Heart")
-                        .font(.system(size: 18, weight: .bold))
+                        .font(FDS.TypeScale.Dynamic.headline)
                         .foregroundColor(.textPrimary)
                     Text("One sentence from the signals Forge already has")
                         .font(.system(size: 12))
@@ -690,7 +687,7 @@ struct BiologicalAgeCard: View {
             }
 
             if snapshot.showsOnTrain {
-                HStack(alignment: .firstTextBaseline, spacing: 18) {
+                HStack(alignment: .firstTextBaseline, spacing: FDS.Spacing.lg) {
                     ageColumn(title: "Calendar", value: snapshot.chronologicalAge)
                     Image(systemName: "arrow.left.arrow.right")
                         .font(.system(size: 14, weight: .bold))
@@ -718,7 +715,7 @@ struct BiologicalAgeCard: View {
 
                 if !snapshot.oneBreathLine.isEmpty {
                     Text(snapshot.oneBreathLine)
-                        .font(.system(size: 20, weight: .semibold, design: .rounded))
+                        .font(FDS.TypeScale.Dynamic.title)
                         .foregroundColor(.textPrimary)
                         .fixedSize(horizontal: false, vertical: true)
                         .accessibilityAddTraits(.isHeader)
@@ -726,7 +723,7 @@ struct BiologicalAgeCard: View {
 
                 if !snapshot.comparisonLine.isEmpty {
                     Text(snapshot.comparisonLine)
-                        .font(.system(size: 15, weight: .semibold, design: .rounded))
+                        .font(FDS.TypeScale.Dynamic.body.weight(.semibold))
                         .foregroundColor(.textPrimary)
                 }
 
@@ -741,23 +738,23 @@ struct BiologicalAgeCard: View {
 
                 if AgingNorms.webConfirmed {
                     Text("Cardio norms confirmed from a public fitness page.")
-                        .font(.system(size: 11, weight: .medium))
+                        .font(FDS.TypeScale.Dynamic.micro)
                         .foregroundColor(.textTertiary)
                 }
 
                 if !snapshot.components.isEmpty {
-                    VStack(spacing: 8) {
+                    VStack(spacing: FDS.Spacing.sm) {
                         ForEach(Array(snapshot.components.prefix(4).enumerated()), id: \.offset) { _, component in
                             HStack {
                                 Text(component.name)
-                                    .font(.system(size: 13, weight: .medium))
+                                    .font(FDS.TypeScale.Dynamic.caption)
                                     .foregroundColor(.textSecondary)
                                 Text(component.source)
-                                    .font(.system(size: 11, weight: .semibold))
+                                    .font(FDS.TypeScale.Dynamic.micro)
                                     .foregroundColor(.textTertiary)
                                 Spacer()
                                 Text("\(Int(component.years.rounded()))")
-                                    .font(.system(size: 13, weight: .bold, design: .rounded))
+                                    .font(FDS.TypeScale.Dynamic.caption)
                                     .foregroundColor(.textPrimary)
                             }
                         }
@@ -774,11 +771,11 @@ struct BiologicalAgeCard: View {
                     .lineSpacing(4)
             }
         }
-        .padding(22)
+        .padding(FDS.Spacing.xl)
         .background(Color.surface)
-        .cornerRadius(22)
+        .cornerRadius(FDS.Radius.xl)
         .overlay(
-            RoundedRectangle(cornerRadius: 22)
+            RoundedRectangle(cornerRadius: FDS.Radius.xl)
                 .stroke(tone.opacity(0.25), lineWidth: 1)
         )
         .shadow(color: .black.opacity(0.06), radius: 16, y: 6)
@@ -796,7 +793,7 @@ struct BiologicalAgeCard: View {
         switch snapshot.state {
         case .younger: return .success
         case .older: return .warning
-        case .matched, .unknown: return Color(hex: "A855F7")
+        case .matched, .unknown: return Color.aurora
         }
     }
 
@@ -808,7 +805,7 @@ struct BiologicalAgeCard: View {
     private func ageColumn(title: String, value: Double?, emphasis: Bool = false) -> some View {
         VStack(alignment: .leading, spacing: 2) {
             Text(title.uppercased())
-                .font(.system(size: 10, weight: .black))
+                .font(FDS.TypeScale.Dynamic.micro)
                 .tracking(1.2)
                 .foregroundColor(.textTertiary)
             Text(value.map { "\(Int($0.rounded()))" } ?? "—")
@@ -822,15 +819,15 @@ struct FourBulletList: View {
     let bullets: [String]
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 6) {
+        VStack(alignment: .leading, spacing: FDS.Spacing.sm) {
             ForEach(bullets, id: \.self) { bullet in
-                HStack(alignment: .firstTextBaseline, spacing: 8) {
+                HStack(alignment: .firstTextBaseline, spacing: FDS.Spacing.sm) {
                     Circle()
                         .fill(Color.textTertiary)
                         .frame(width: 4, height: 4)
-                        .padding(.top, 5)
+                        .padding(.top, FDS.Spacing.xs)
                     Text(bullet)
-                        .font(.system(size: 13, weight: .medium))
+                        .font(FDS.TypeScale.Dynamic.caption)
                         .foregroundColor(.textSecondary)
                 }
             }
@@ -849,8 +846,8 @@ struct MetabolicTranslationCard: View {
     var onDevices: () -> Void = {}
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 14) {
-            HStack(spacing: 12) {
+        VStack(alignment: .leading, spacing: FDS.Spacing.lg) {
+            HStack(spacing: FDS.Spacing.md) {
                 ZStack {
                     Circle().fill(Color.amber.opacity(0.15)).frame(width: 46, height: 46)
                     Image(systemName: TranslationCatalog.metabolic.symbolName)
@@ -859,10 +856,10 @@ struct MetabolicTranslationCard: View {
                 }
                 VStack(alignment: .leading, spacing: 3) {
                     Text(TranslationCatalog.metabolic.title)
-                        .font(.system(size: 18, weight: .bold))
+                        .font(FDS.TypeScale.Dynamic.headline)
                         .foregroundColor(.textPrimary)
                     Text(glucoseLine)
-                        .font(.system(size: 13, weight: .medium))
+                        .font(FDS.TypeScale.Dynamic.caption)
                         .foregroundColor(.textSecondary)
                 }
                 Spacer()
@@ -871,9 +868,9 @@ struct MetabolicTranslationCard: View {
             FourBulletList(bullets: TranslationCatalog.metabolic.bullets)
 
             if !watchLines.isEmpty {
-                VStack(alignment: .leading, spacing: 6) {
+                VStack(alignment: .leading, spacing: FDS.Spacing.sm) {
                     Text("ESTIMATED FROM APPLE WATCH")
-                        .font(.system(size: 10, weight: .black))
+                        .font(FDS.TypeScale.Dynamic.micro)
                         .foregroundColor(.textTertiary)
                         .tracking(1.6)
                     ForEach(watchLines, id: \.self) { line in
@@ -898,20 +895,20 @@ struct MetabolicTranslationCard: View {
 
             if mealsLogged > 0 {
                 Text(mealsLogged == 1 ? "1 meal logged today." : "\(mealsLogged) meals logged today.")
-                    .font(.system(size: 12, weight: .medium))
+                    .font(FDS.TypeScale.Dynamic.caption)
                     .foregroundColor(.textSecondary)
             }
 
             Button(action: onDevices) {
                 Text(glucoseMgDl == nil ? "Connect a CGM in Devices" : "Devices")
-                    .font(.system(size: 13, weight: .semibold))
+                    .font(FDS.TypeScale.Dynamic.caption)
                     .foregroundColor(.ember)
             }
             .buttonStyle(.plain)
             .accessibilityHint("Opens the device library")
         }
-        .padding(22)
-        .forgeGlassCard(cornerRadius: 22, accent: .amber)
+        .padding(FDS.Spacing.xl)
+        .forgeGlassCard(cornerRadius: FDS.Radius.xl, accent: .amber)
         .accessibilityElement(children: .combine)
         .accessibilityLabel(glucoseLine)
     }

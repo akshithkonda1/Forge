@@ -72,8 +72,8 @@ struct AriaInterviewLayout: View {
     }
 
     private var header: some View {
-        VStack(spacing: 14) {
-            HStack(spacing: 14) {
+        VStack(spacing: FDS.Spacing.lg) {
+            HStack(spacing: FDS.Spacing.lg) {
                 if coordinator.canGoBack {
                     Button {
                         dictation.cancel()
@@ -115,14 +115,14 @@ struct AriaInterviewLayout: View {
 
                 VStack(alignment: .leading, spacing: 3) {
                     Text(presenceCaption.uppercased())
-                        .font(.system(size: 11, weight: .semibold, design: .rounded))
+                        .font(FDS.TypeScale.Dynamic.micro)
                         .tracking(1.4)
                         .foregroundColor(coordinator.ariaMood.accentColor)
                     Text(coordinator.step.progressLabel)
-                        .font(.system(size: 20, weight: .semibold, design: .rounded))
+                        .font(FDS.TypeScale.Dynamic.title)
                         .foregroundColor(.textPrimary)
                     Text(spokenMuted ? "Voice is muted" : "Tap ARIA to hear her again")
-                        .font(.system(size: 11, weight: .medium))
+                        .font(FDS.TypeScale.Dynamic.micro)
                         .foregroundColor(.textTertiary)
                 }
 
@@ -131,7 +131,7 @@ struct AriaInterviewLayout: View {
                 AriaSpokenMuteButton()
 
                 Text("\(coordinator.progressStepIndex) / \(coordinator.progressStepCount)")
-                    .font(.system(size: 12, weight: .medium, design: .rounded))
+                    .font(FDS.TypeScale.Dynamic.caption)
                     .foregroundColor(.textTertiary)
                     .monospacedDigit()
             }
@@ -143,7 +143,7 @@ struct AriaInterviewLayout: View {
                 ZStack(alignment: .leading) {
                     Capsule().fill(Color.white.opacity(0.08)).frame(height: 4)
                     Capsule()
-                        .fill(Color(hex: "F7F4F0"))
+                        .fill(Color.paper)
                         .frame(width: max(10, geo.size.width * coordinator.progress), height: 4)
                         .animation(FDS.Spring.standard, value: coordinator.progress)
                 }
@@ -151,8 +151,8 @@ struct AriaInterviewLayout: View {
             .frame(height: 4)
         }
         .padding(.horizontal, FDS.Spacing.xl)
-        .padding(.top, 8)
-        .padding(.bottom, 10)
+        .padding(.top, FDS.Spacing.sm)
+        .padding(.bottom, FDS.Spacing.md)
         .overlay(alignment: .bottom) {
             Rectangle()
                 .fill(Color.white.opacity(0.08))
@@ -163,7 +163,7 @@ struct AriaInterviewLayout: View {
     private var transcript: some View {
         ScrollViewReader { proxy in
             ScrollView(showsIndicators: false) {
-                LazyVStack(alignment: .leading, spacing: 12) {
+                LazyVStack(alignment: .leading, spacing: FDS.Spacing.md) {
                     ForEach(coordinator.messages) { msg in
                         MessageBubble(message: msg) {
                             if msg.role == .aria {
@@ -179,7 +179,7 @@ struct AriaInterviewLayout: View {
                     Color.clear.frame(height: 8).id("bottom")
                 }
                 .padding(.horizontal, FDS.Spacing.xl)
-                .padding(.vertical, 8)
+                .padding(.vertical, FDS.Spacing.sm)
             }
             .onChange(of: coordinator.messages.count) { _, _ in
                 withAnimation(FDS.Spring.snap) {
@@ -202,8 +202,8 @@ struct AriaInterviewLayout: View {
             Capsule()
                 .fill(Color.white.opacity(0.14))
                 .frame(width: 36, height: 4)
-                .padding(.top, 10)
-                .padding(.bottom, 8)
+                .padding(.top, FDS.Spacing.md)
+                .padding(.bottom, FDS.Spacing.sm)
 
             if case .error(let msg) = dictation.voiceState {
                 Text(msg)
@@ -211,7 +211,7 @@ struct AriaInterviewLayout: View {
                     .foregroundColor(.warning)
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .padding(.horizontal, FDS.Spacing.xl)
-                    .padding(.bottom, 8)
+                    .padding(.bottom, FDS.Spacing.sm)
             }
 
             suggestedRepliesBar
@@ -267,23 +267,23 @@ struct AriaInterviewLayout: View {
             reminders: coordinator.remindersState
         )
         if !replies.isEmpty {
-            VStack(alignment: .leading, spacing: 8) {
+            VStack(alignment: .leading, spacing: FDS.Spacing.sm) {
                 Text("Reply")
-                    .font(.system(size: 10, weight: .bold, design: .rounded))
+                    .font(FDS.TypeScale.Dynamic.micro)
                     .tracking(1.2)
                     .foregroundColor(.textMuted)
                     .padding(.horizontal, FDS.Spacing.xl)
                 ScrollView(.horizontal, showsIndicators: false) {
-                    HStack(spacing: 8) {
+                    HStack(spacing: FDS.Spacing.sm) {
                         ForEach(replies) { reply in
                             Button {
                                 applyReply(reply)
                             } label: {
                                 Text(reply.label)
-                                    .font(.system(size: 14, weight: .medium, design: .rounded))
+                                    .font(FDS.TypeScale.Dynamic.body)
                                     .foregroundColor(.textPrimary)
-                                    .padding(.horizontal, 14)
-                                    .padding(.vertical, 9)
+                                    .padding(.horizontal, FDS.Spacing.lg)
+                                    .padding(.vertical, FDS.Spacing.sm)
                                     .background(Color.white.opacity(0.06))
                                     .clipShape(Capsule())
                                     .overlay(
@@ -297,15 +297,15 @@ struct AriaInterviewLayout: View {
                     .padding(.horizontal, FDS.Spacing.xl)
                 }
             }
-            .padding(.bottom, 8)
+            .padding(.bottom, FDS.Spacing.sm)
         }
     }
 
     private var voiceDock: some View {
-        HStack(spacing: 12) {
+        HStack(spacing: FDS.Spacing.md) {
             VStack(alignment: .leading, spacing: 3) {
                 Text(dictation.isListening ? "ARIA is listening" : "Talk to ARIA")
-                    .font(.system(size: 13, weight: .semibold, design: .rounded))
+                    .font(FDS.TypeScale.Dynamic.caption)
                     .foregroundColor(dictation.isListening ? .ember : .textPrimary)
                 Text(dictation.isListening
                      ? (dictation.recognizedText.isEmpty ? "Go ahead — I’m with you." : dictation.recognizedText)
@@ -322,8 +322,8 @@ struct AriaInterviewLayout: View {
             }
         }
         .padding(.horizontal, FDS.Spacing.xl)
-        .padding(.top, 10)
-        .padding(.bottom, 18)
+        .padding(.top, FDS.Spacing.md)
+        .padding(.bottom, FDS.Spacing.lg)
         .overlay(alignment: .top) {
             Rectangle().fill(Color.white.opacity(0.08)).frame(height: 0.5)
         }
@@ -420,8 +420,8 @@ struct AriaInterviewLayout: View {
                 ReadyComposer(coordinator: coordinator, onFinish: onFinish)
             }
         }
-        .padding(.horizontal, 22)
-        .padding(.bottom, 12)
+        .padding(.horizontal, FDS.Spacing.xl)
+        .padding(.bottom, FDS.Spacing.md)
         .id(coordinator.step)
         .transition(.asymmetric(
             insertion: .move(edge: .bottom).combined(with: .opacity),

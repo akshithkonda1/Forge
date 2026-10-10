@@ -39,12 +39,12 @@ export function TodayPlanCard({ workout, onStart, onChangePlan }: TodayPlanCardP
       transition={{ duration: 0.5, delay: 0.2, ease: "easeOut" }}
     >
       {/* Header label */}
-      <p className="text-xs font-medium text-text-tertiary uppercase tracking-wider mb-3">
+      <p className="type-eyebrow mb-3">
         Today&apos;s Plan
       </p>
 
       {/* Workout name */}
-      <h2 className="text-2xl font-bold text-text-primary mb-3">
+      <h2 className="type-title text-text-primary mb-3">
         {workout.name}
       </h2>
 
@@ -76,7 +76,7 @@ export function TodayPlanCard({ workout, onStart, onChangePlan }: TodayPlanCardP
             transition={{ delay: 0.4 + index * 0.1, duration: 0.3 }}
           >
             <div className="flex items-center gap-3">
-              <span className="flex h-6 w-6 items-center justify-center rounded-md bg-surface-elevated text-[10px] font-bold text-text-tertiary">
+              <span className="flex h-6 w-6 items-center justify-center rounded-md bg-surface-elevated type-micro font-bold text-text-tertiary">
                 {index + 1}
               </span>
               <span className="text-sm text-text-primary">{exercise.name}</span>
@@ -98,7 +98,7 @@ export function TodayPlanCard({ workout, onStart, onChangePlan }: TodayPlanCardP
         onClick={onStart}
         className={cn(
           "w-full rounded-xl bg-ember py-3.5 px-6",
-          "text-base font-semibold text-white",
+          "type-headline text-text-primary",
           "glow-ember",
           "flex items-center justify-center gap-2"
         )}

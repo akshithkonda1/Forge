@@ -44,14 +44,14 @@ struct ReadinessForecastCard: View {
                             .minimumScaleFactor(0.7)
                             .lineLimit(1)
                         Text("TOMORROW")
-                            .font(FDS.TypeScale.label(8))
+                            .font(FDS.TypeScale.Dynamic.caption)
                             .foregroundColor(HudChrome.plate)
                             .tracking(0.8)
                             .hudInArcText()
                     }
                     .accessibilityHidden(true)
                 }
-                VStack(alignment: .leading, spacing: 6) {
+                VStack(alignment: .leading, spacing: FDS.Spacing.sm) {
                     Text(postureTitle(forecast.posture))
                         .font(HomeType.status)
                         .foregroundColor(.textPrimary)
@@ -60,7 +60,7 @@ struct ReadinessForecastCard: View {
                         .foregroundColor(.textTertiary)
                         .lineLimit(compact ? 2 : 3)
                     Text(budgets.headline)
-                        .font(FDS.TypeScale.label(12))
+                        .font(FDS.TypeScale.Dynamic.caption)
                         .foregroundStyle(energy)
                     if !compact {
                         Text(budgets.coachingLine)
@@ -73,7 +73,7 @@ struct ReadinessForecastCard: View {
 
             if !forecast.drivers.isEmpty {
                 Divider().background(Color.white.opacity(0.08))
-                VStack(spacing: 10) {
+                VStack(spacing: FDS.Spacing.md) {
                     ForEach(forecast.drivers.prefix(compact ? 2 : 3)) { driver in
                         driverRow(driver)
                     }
@@ -88,16 +88,16 @@ struct ReadinessForecastCard: View {
                     Image(systemName: "message.fill")
                         .font(.system(size: 13, weight: .semibold))
                     Text("Ask ARIA about tomorrow")
-                        .font(FDS.TypeScale.label(13))
+                        .font(FDS.TypeScale.Dynamic.caption)
                     Spacer()
                     Image(systemName: "arrow.up.right")
                         .font(.system(size: 11, weight: .semibold))
                 }
                 .foregroundStyle(HudChrome.plate)
-                .padding(.vertical, 10)
-                .padding(.horizontal, 14)
+                .padding(.vertical, FDS.Spacing.md)
+                .padding(.horizontal, FDS.Spacing.lg)
                 .background(HudChrome.plate.opacity(0.12))
-                .clipShape(RoundedRectangle(cornerRadius: 12))
+                .clipShape(RoundedRectangle(cornerRadius: FDS.Radius.md))
             }
             .buttonStyle(.plain)
         }
@@ -113,10 +113,10 @@ struct ReadinessForecastCard: View {
         case .low: ("Early signal", Color.textTertiary)
         }
         return Text(label.uppercased())
-            .font(FDS.TypeScale.label(10))
+            .font(FDS.TypeScale.Dynamic.caption)
             .foregroundStyle(color)
-            .padding(.horizontal, 8)
-            .padding(.vertical, 4)
+            .padding(.horizontal, FDS.Spacing.sm)
+            .padding(.vertical, FDS.Spacing.xs)
             .background(color.opacity(0.12))
             .clipShape(Capsule())
     }
@@ -140,7 +140,7 @@ struct ReadinessForecastCard: View {
     }
 
     private func driverRow(_ driver: ReadinessForecastEngine.Driver) -> some View {
-        HStack(spacing: 12) {
+        HStack(spacing: FDS.Spacing.md) {
             ZStack {
                 Circle()
                     .fill((driver.impact < 0 ? HudChrome.miss : Color.success).opacity(0.14))
@@ -151,15 +151,15 @@ struct ReadinessForecastCard: View {
             }
             VStack(alignment: .leading, spacing: 2) {
                 Text(driver.title)
-                    .font(FDS.TypeScale.label(13))
+                    .font(FDS.TypeScale.Dynamic.caption)
                     .foregroundColor(.textPrimary)
                 Text(driver.detail)
-                    .font(FDS.TypeScale.label(11))
+                    .font(FDS.TypeScale.Dynamic.caption)
                     .foregroundColor(.textTertiary)
             }
             Spacer()
             Text(driver.impact > 0 ? "+\(driver.impact)" : "\(driver.impact)")
-                .font(.system(size: 13, weight: .bold))
+                .font(FDS.TypeScale.Dynamic.caption)
                 .foregroundStyle(driver.impact < 0 ? HudChrome.miss : Color.success)
                 .monospacedDigit()
         }

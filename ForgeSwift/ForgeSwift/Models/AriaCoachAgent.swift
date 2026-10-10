@@ -72,10 +72,10 @@ enum AriaCoachAgent: String, Codable, CaseIterable, Identifiable {
         switch self {
         case .aria:      return .ember
         case .workout:   return Color(hex: "FF5A00")
-        case .recovery:  return Color(hex: "A855F7")
-        case .sleep:     return Color(hex: "6366F1")
+        case .recovery:  return Color.aurora
+        case .sleep:     return Color.indigo
         case .lifestyle: return Color(hex: "38BDF8")
-        case .progress:  return Color(hex: "F59E0B")
+        case .progress:  return Color.amber
         case .cycle:     return Color(hex: "F43F5E")
         }
     }

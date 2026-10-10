@@ -58,7 +58,7 @@ export function QuickStats() {
 
   return (
     <div>
-      <p className="text-xs font-medium text-text-tertiary uppercase tracking-wider mb-3">
+      <p className="type-eyebrow mb-3">
         Today&apos;s Metrics
       </p>
       <motion.div

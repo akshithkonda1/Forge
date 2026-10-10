@@ -96,7 +96,7 @@ export function ReadinessRing({
       {showLabel && (
         <div className="absolute inset-0 flex flex-col items-center justify-center">
           <motion.span
-            className="text-5xl font-bold text-white"
+            className="text-5xl font-bold text-text-primary"
             initial={reduceMotion ? false : { opacity: 0, scale: 0.5 }}
             animate={{ opacity: 1, scale: 1 }}
             transition={
