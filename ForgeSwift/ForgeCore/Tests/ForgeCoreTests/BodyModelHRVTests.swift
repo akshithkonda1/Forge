@@ -99,11 +99,11 @@ final class BodyModelHRVTests: XCTestCase {
 
     func testIngestingRMSSDDoesNotMoveTheSDNNBaseline() {
         var baselines = BodyModelHRVBaselines()
-        baselines.ingest(sample(.sdnn, ms: 55))
-        baselines.ingest(sample(.sdnn, ms: 57))
+        baselines.ingest(sample(.sdnn, ms: 55, at: 0))
+        baselines.ingest(sample(.sdnn, ms: 57, at: 1))
         let sdnnBefore = baselines.sdnn
-        baselines.ingest(sample(.rmssd, ms: 32))
-        baselines.ingest(sample(.rmssd, ms: 30))
+        baselines.ingest(sample(.rmssd, ms: 32, at: 0))
+        baselines.ingest(sample(.rmssd, ms: 30, at: 1))
 
         XCTAssertEqual(baselines.sdnn.n, 2)
         XCTAssertEqual(baselines.sdnn.mean, sdnnBefore.mean, accuracy: 1e-12)
@@ -116,8 +116,8 @@ final class BodyModelHRVTests: XCTestCase {
 
     func testIngestingSDNNDoesNotMoveTheRMSSDBaseline() {
         var baselines = BodyModelHRVBaselines()
-        baselines.ingest(sample(.rmssd, ms: 28))
-        baselines.ingest(sample(.rmssd, ms: 26))
+        baselines.ingest(sample(.rmssd, ms: 28, at: 0))
+        baselines.ingest(sample(.rmssd, ms: 26, at: 1))
         let rmssdBefore = baselines.rmssd
         baselines.ingest(sample(.sdnn, ms: 70))
 
@@ -214,6 +214,52 @@ final class BodyModelHRVTests: XCTestCase {
 
         BodyModelHRVBaselineStore.reset(defaults: defaults)
         XCTAssertEqual(BodyModelHRVBaselineStore.load(defaults: defaults).sdnn.n, 0)
+    }
+
+    func testSameReadingReReadOnEveryRefreshCountsOnce() {
+        // HealthKit returns the same latest sample on every foreground
+        // refresh. Counting it each time collapsed the spread and dragged the
+        // mean toward whatever was read most.
+        var baselines = BodyModelHRVBaselines()
+        for _ in 0..<20 { baselines.ingest(sample(.sdnn, ms: 40, at: 0)) }
+        baselines.ingest(sample(.sdnn, ms: 60, at: 3_600))
+        XCTAssertEqual(baselines.sdnn.n, 2)
+        XCTAssertEqual(baselines.sdnn.mean, 50, accuracy: 1e-12)
+    }
+
+    func testLateArrivingOlderReadingStillCounts() {
+        // Backfill and delayed Watch syncs deliver real readings out of order.
+        var baselines = BodyModelHRVBaselines()
+        baselines.ingest(sample(.rmssd, ms: 30, at: 100))
+        baselines.ingest(sample(.rmssd, ms: 90, at: 50))
+        XCTAssertEqual(baselines.rmssd.n, 2)
+        XCTAssertEqual(baselines.rmssd.mean, 60, accuracy: 1e-12)
+    }
+
+    func testDedupeIsPerStatistic() {
+        var baselines = BodyModelHRVBaselines()
+        baselines.ingest(sample(.sdnn, ms: 50, at: 10))
+        baselines.ingest(sample(.rmssd, ms: 30, at: 10))
+        XCTAssertEqual(baselines.sdnn.n, 1)
+        XCTAssertEqual(baselines.rmssd.n, 1)
+    }
+
+    func testDensityResetAcceptsReadingsAgain() {
+        var baselines = BodyModelHRVBaselines()
+        baselines.ingest(sample(.rmssd, ms: 30, at: 100))
+        let denser = HRVSamplingDensity(version: 3, expectedSamplesPerDay: 288)
+        baselines.ingest(sample(.rmssd, ms: 24, density: denser, at: 100))
+        XCTAssertEqual(baselines.rmssd.n, 1)
+        XCTAssertEqual(baselines.rmssd.last, 24)
+    }
+
+    func testLastSampleTimestampSurvivesRoundTrip() throws {
+        var baselines = BodyModelHRVBaselines()
+        baselines.ingest(sample(.sdnn, ms: 48, at: 500))
+        let data = try JSONEncoder().encode(baselines)
+        var decoded = try JSONDecoder().decode(BodyModelHRVBaselines.self, from: data)
+        decoded.ingest(sample(.sdnn, ms: 48, at: 500))
+        XCTAssertEqual(decoded.sdnn.n, 1, "a re-read after relaunch is still the same reading")
     }
 
     func testDefaultDensitiesAreNotInterchangeable() {

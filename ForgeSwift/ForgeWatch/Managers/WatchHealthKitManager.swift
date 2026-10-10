@@ -121,12 +121,9 @@ final class WatchHealthKitManager {
     func refreshAll() async {
         guard isAuthorized else { return }
 
-        async let sleep = ForgeHealthQueries.lastNightSleep(store: store)
+        async let health = ForgeHealthQueries.readinessContext(store: store)
         async let hrvLatest = ForgeHealthQueries.latestHRV(store: store)
-        async let hrvBase = ForgeHealthQueries.hrvBaseline(store: store)
         async let hrvDelta = ForgeHealthQueries.hrvTrend(store: store)
-        async let rhr = ForgeHealthQueries.latestRestingHR(store: store)
-        async let rhrBase = ForgeHealthQueries.restingHRBaseline(store: store)
         async let mindful = ForgeHealthQueries.mindfulMinutes(store: store, since: Calendar.current.startOfDay(for: Date()))
         async let workout = ForgeHealthQueries.lastWorkout(store: store)
         async let nights = ForgeHealthQueries.recentSleepNights(store: store)
@@ -134,7 +131,8 @@ final class WatchHealthKitManager {
         async let bodyTemp = ForgeHealthQueries.latestBodyTemperatureFahrenheit(store: store)
         async let wristTemp = ForgeHealthQueries.latestSleepingWristTemperatureDeviationCelsius(store: store)
 
-        sleepSummary = await sleep
+        let readinessHealth = await health
+        sleepSummary = readinessHealth.night
         recentNights = await nights
         recentHeartRate = await recentHR
         if let bodyTemp = await bodyTemp {
@@ -154,10 +152,9 @@ final class WatchHealthKitManager {
             recentSleepMinutes: recentNights.map(\.totalMinutes)
         )
         let latest = await hrvLatest
-        hrvRecentMs = latest?.value
+        hrvRecentMs = readinessHealth.hrvMs ?? latest?.value
         hrvTrendMs = await hrvDelta
-        let hrvBaseValue = await hrvBase
-        hrvBaselineMs = hrvBaseValue
+        hrvBaselineMs = readinessHealth.hrvBaseline?.mean
         mindfulMinutesToday = await mindful
         await ForgeHealthQueries.ingestHRVTruthLayer(store: store)
 
@@ -169,21 +166,11 @@ final class WatchHealthKitManager {
             lastWorkoutType = nil
         }
 
-        let rhrValue = await rhr
-        let rhrBaseValue = await rhrBase
-        restingHeartRate = rhrValue
-        restingHeartRateBaseline = rhrBaseValue
+        restingHeartRate = readinessHealth.restingHR
+        restingHeartRateBaseline = readinessHealth.restingHRBaseline?.mean
 
-        let inputs = ReadinessInputs(
-            hrvMs: latest?.value,
-            hrvBaselineMs: hrvBaseValue,
-            restingHR: rhrValue,
-            restingHRBaseline: rhrBaseValue,
-            sleepMinutes: sleepSummary?.totalMinutes,
-            deepSleepMinutes: sleepSummary?.deepMinutes,
-            remSleepMinutes: sleepSummary?.remMinutes
-        )
-        readiness = ReadinessCalculator.score(from: inputs)
+        // Same reader and same formula as the iPhone's Home number.
+        readiness = ReadinessCalculator.score(from: readinessHealth.inputs())
         lastRefreshed = Date()
         publishSnapshot()
         startBackgroundObservers()
@@ -207,7 +194,8 @@ final class WatchHealthKitManager {
                 restingHR: Int(restingHeartRate ?? 0),
                 restingHRBaseline: restingHeartRateBaseline.map { Int($0.rounded()) },
                 todayStrain: todayStrain,
-                stressLevel: 30
+                // The wrist has no stress report; unknown is not "moderate".
+                stressLevel: nil
             )
         )
     }

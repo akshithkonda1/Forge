@@ -35,6 +35,7 @@ extension AppStore {
 
         if authorized {
             await hk.refreshHydration()
+            readinessHealthContext = await ForgeHealthQueries.readinessContext(store: hk.healthStore)
             if let snapshot = await hk.fetchRecentSnapshot(), snapshot.hasData {
                 updateMetrics(
                     steps: snapshot.steps,
@@ -530,6 +531,9 @@ extension AppStore {
             ).strain
         }()
         let hrvBaseline: Int? = {
+            if let personal = readinessHealthContext.hrvBaseline?.mean, personal > 0 {
+                return Int(personal.rounded())
+            }
             guard let base = AriaContextStore.shared.lastObservedContext?.readiness.hrv30DayBaseline,
                   base > 0 else { return nil }
             return Int(base)
@@ -545,10 +549,13 @@ extension AppStore {
             hrvMs: dailyMetrics.hrv,
             hrvBaselineMs: hrvBaseline,
             restingHR: dailyMetrics.restingHR,
+            restingHRBaseline: readinessHealthContext.restingHRBaseline.map { Int($0.mean.rounded()) },
             todayStrain: todayStrain,
             plannedStrain: plannedStrain,
             acwr: loadPicture.acwr,
-            stressLevel: readiness.stressLevel,
+            // `readiness.stressLevel` is 100 − recovery — already inside
+            // today's readiness. The forecast's stress is a self-report only.
+            stressLevel: nil,
             isLutealPhase: luteal
         )
 
@@ -722,7 +729,12 @@ extension AppStore {
     }
 
     func applyDashboard(_ dashboard: CloudDashboardToday) {
-        if let readinessPayload = dashboard.readiness, readinessPayload.isUsable, let overall = readinessPayload.overall {
+        // Same rule as daily metrics below: with Health live, the on-device
+        // number (overnight HRV, staged sleep, personal baselines) is the more
+        // complete read, so the server's copy only fills in when there is none.
+        let localReadiness = healthKitLive && readiness.overall > 0
+        if !localReadiness,
+           let readinessPayload = dashboard.readiness, readinessPayload.isUsable, let overall = readinessPayload.overall {
             readiness.overall = overall
             if let value = readinessPayload.sleepQuality { readiness.sleepQuality = value }
             if let value = readinessPayload.recoveryScore { readiness.recoveryScore = value }
@@ -875,83 +887,60 @@ extension AppStore {
         AriaLiveGroundingHub.shared.publish(from: self)
     }
 
-    /// Recalculate readiness score based on current metrics
+    /// Recalculate readiness with the shared ForgeCore formula — the same
+    /// calculator and the same Health reader the Watch uses. HRV and resting
+    /// HR are read against this person's own normal, not population brackets
+    /// (a 25 ms person is not "poorly recovered" every day of their life),
+    /// and a missing reading lowers confidence instead of scoring as a bad one.
     private func recalculateReadiness() {
-        // Simplified readiness calculation
-        // In production, this would use more sophisticated algorithms
-        
-        let sleepScore = calculateSleepScore()
-        let hrvScore = calculateHRVScore()
-        let restingHRScore = calculateRestingHRScore()
-        
-        readiness.overall = (sleepScore + hrvScore + restingHRScore) / 3
-        readiness.sleepQuality = sleepScore
-        readiness.recoveryScore = (hrvScore + restingHRScore) / 2
+        var context = readinessHealthContext
+        // A context read before today describes a night that is over. Keep
+        // its baselines (they move slowly) and let today's metrics stand in.
+        if let readAt = context.readAt, !Calendar.current.isDateInToday(readAt) {
+            context.night = nil
+            context.hrvMs = nil
+            context.restingHR = nil
+        }
+        // The overnight HRV read for the context beats the daytime average
+        // `DailyMetrics` carries; today's metrics fill whatever it lacks.
+        if (context.hrvMs ?? 0) <= 0, dailyMetrics.hrv > 0 {
+            context.hrvMs = Double(dailyMetrics.hrv)
+        }
+        if (context.restingHR ?? 0) <= 0, dailyMetrics.restingHR > 0 {
+            context.restingHR = Double(dailyMetrics.restingHR)
+        }
+        var inputs = context.inputs(yesterdayStrain: yesterdayStrain0to1())
+        if inputs.sleepMinutes == nil, dailyMetrics.totalSleep > 0 {
+            inputs.sleepMinutes = Double(dailyMetrics.totalSleep)
+            if dailyMetrics.deepSleep > 0 { inputs.deepSleepMinutes = Double(dailyMetrics.deepSleep) }
+        }
+
+        let score = ReadinessCalculator.score(from: inputs)
+        // Nothing measurable: keep whatever was there rather than painting a
+        // red 0 on Home for a morning that simply has not synced yet.
+        guard score.confidence > 0 else { return }
+        readiness.overall = score.overall
+        readiness.sleepQuality = score.sleepQuality
+        readiness.recoveryScore = score.recovery
+        readiness.stressLevel = max(0, 100 - score.recovery)
+        readiness.energyBank = score.overall
     }
 
-    private func calculateSleepScore() -> Int {
-        let totalHours = Double(dailyMetrics.totalSleep) / 60
-        let deepMinutes = dailyMetrics.deepSleep
-        
-        var score = 0
-        
-        // Total sleep score (0-50 points)
-        if totalHours >= 7.5 {
-            score += 50
-        } else if totalHours >= 7 {
-            score += 40
-        } else if totalHours >= 6 {
-            score += 25
-        } else {
-            score += 10
+    /// Yesterday's training strain on the calculator's 0–1 scale (21 = 1).
+    private func yesterdayStrain0to1() -> Double? {
+        guard !workoutHistory.isEmpty else { return nil }
+        let sessions = workoutHistory.compactMap { entry -> TrainingLoadModel.Session? in
+            guard let date = WorkoutHistoryWindow.parseDate(entry.date) else { return nil }
+            return TrainingLoadModel.Session(
+                date: date,
+                durationMinutes: entry.duration,
+                intensityLevel: Self.strainIntensityLevel(entry.intensity)
+            )
         }
-        
-        // Deep sleep score (0-50 points)
-        if deepMinutes >= 90 {
-            score += 50
-        } else if deepMinutes >= 70 {
-            score += 40
-        } else if deepMinutes >= 50 {
-            score += 25
-        } else {
-            score += 10
-        }
-        
-        return min(score, 100)
-    }
-
-    private func calculateHRVScore() -> Int {
-        // HRV scoring (typical range: 20-100ms)
-        let hrv = dailyMetrics.hrv
-        
-        if hrv >= 60 {
-            return 90
-        } else if hrv >= 50 {
-            return 80
-        } else if hrv >= 40 {
-            return 65
-        } else if hrv >= 30 {
-            return 50
-        } else {
-            return 30
-        }
-    }
-
-    private func calculateRestingHRScore() -> Int {
-        // Resting HR scoring (lower is better for athletes)
-        let hr = dailyMetrics.restingHR
-        
-        if hr <= 55 {
-            return 95
-        } else if hr <= 60 {
-            return 85
-        } else if hr <= 65 {
-            return 75
-        } else if hr <= 70 {
-            return 60
-        } else {
-            return 40
-        }
+        guard !sessions.isEmpty else { return nil }
+        let days = TrainingLoadModel.picture(sessions: sessions).days
+        guard days.count >= 2 else { return nil }
+        return min(1, max(0, days[days.count - 2].strain / 21.0))
     }
     
     // MARK: - Profile Management

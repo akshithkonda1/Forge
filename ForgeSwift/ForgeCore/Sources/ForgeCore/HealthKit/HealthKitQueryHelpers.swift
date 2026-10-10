@@ -127,6 +127,72 @@ public enum ForgeHealthQueries {
         return samples.map { $0.quantity.doubleValue(for: unit) }.mean
     }
 
+    /// Everything readiness needs from Health, read the same way on iPhone
+    /// and Watch: last night's staged sleep; HRV as the mean of SDNN readings
+    /// inside that sleep window (daytime readings swing with posture,
+    /// caffeine, and stairs — the latest one is only the fallback); resting
+    /// HR; and personal baselines over `baselineDays` that leave today out,
+    /// one value per day so a day with twelve readings does not outvote a day
+    /// with two.
+    public static func readinessContext(
+        store: HKHealthStore,
+        baselineDays: Int = 60
+    ) async -> ReadinessHealthContext {
+        async let nightTask = lastNightSleep(store: store)
+        async let hrvTask = timedSamples(
+            store: store,
+            type: HealthKitHRVQuantity.sdnnType,
+            unit: .secondUnit(with: .milli),
+            days: baselineDays
+        )
+        async let rhrTask = timedSamples(
+            store: store,
+            type: HKQuantityType(.restingHeartRate),
+            unit: HKUnit.count().unitDivided(by: .minute()),
+            days: baselineDays
+        )
+        async let rhrLatestTask = latestRestingHR(store: store)
+
+        let night = await nightTask
+        let hrvSamples = await hrvTask
+        let rhrSamples = await rhrTask
+        let rhrLatest = await rhrLatestTask
+        let now = Date()
+
+        var hrv: Double?
+        if let start = night?.start, let end = night?.end, end > start {
+            hrv = PersonalBaseline.windowMean(
+                samples: hrvSamples,
+                in: DateInterval(start: start, end: end),
+                logScaled: true
+            )
+        }
+        if hrv == nil {
+            hrv = hrvSamples
+                .filter { now.timeIntervalSince($0.date) <= 24 * 3600 }
+                .max { $0.date < $1.date }?
+                .value
+        }
+
+        return ReadinessHealthContext(
+            night: night,
+            hrvMs: hrv,
+            hrvBaseline: PersonalBaseline.daily(
+                samples: hrvSamples,
+                logScaled: true,
+                excluding: now,
+                preferNight: true
+            ),
+            restingHR: rhrLatest,
+            restingHRBaseline: PersonalBaseline.daily(
+                samples: rhrSamples,
+                logScaled: false,
+                excluding: now
+            ),
+            readAt: now
+        )
+    }
+
     /// Last night's sleep (18:00 yesterday → now) with per-stage segments
     /// for the timeline visual. Aggregation lives in SleepNight (pure).
     public static func lastNightSleep(store: HKHealthStore) async -> SleepNight? {
@@ -390,6 +456,24 @@ public enum ForgeHealthQueries {
         guard samples.count >= 5 else { return nil }
         let unit = HKUnit.secondUnit(with: .milli)
         return samples.map { $0.quantity.doubleValue(for: unit) }.mean
+    }
+
+    private static func timedSamples(
+        store: HKHealthStore,
+        type: HKQuantityType,
+        unit: HKUnit,
+        days: Int
+    ) async -> [PersonalBaseline.Sample] {
+        let samples = await quantitySamples(
+            store: store,
+            type: type,
+            start: Calendar.current.date(byAdding: .day, value: -days, to: Date()) ?? Date(),
+            limit: HKObjectQueryNoLimit,
+            ascending: true
+        )
+        return samples.map {
+            PersonalBaseline.Sample(date: $0.startDate, value: $0.quantity.doubleValue(for: unit))
+        }
     }
 
     private static func quantitySamples(
