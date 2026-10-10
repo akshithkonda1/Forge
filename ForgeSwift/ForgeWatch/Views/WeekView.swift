@@ -34,11 +34,9 @@ struct WeekView: View {
         // Sleep quality per night is the readiness input the watch actually
         // keeps a week of; overall readiness is only computed for today.
         health.recentNights.prefix(7).compactMap { night in
-            let inputs = ReadinessInputs(
-                sleepMinutes: night.totalMinutes,
-                deepSleepMinutes: night.deepMinutes,
-                remSleepMinutes: night.remMinutes
-            )
+            // Shared mapping: an unstaged night reads as "stages unknown",
+            // not as zero deep and zero REM.
+            let inputs = ReadinessHealthContext(night: night).inputs()
             let score = ReadinessCalculator.score(from: inputs)
             return score.confidence > 0 ? score.sleepQuality : nil
         }

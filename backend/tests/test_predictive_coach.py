@@ -42,12 +42,94 @@ class ReadinessForecastTests(unittest.TestCase):
         self.assertEqual(forecast.posture, rf.STEADY)
         self.assertEqual(forecast.confidence, "medium")
 
-    def test_heavy_load_and_sleep_debt_drags(self):
-        forecast = rf.forecast(_base_forecast(sleep_minutes=360, today_strain=18))
+    def test_heavy_load_after_a_short_night_drags(self):
+        # A 6h night already shows up as today's 58 — it is not charged twice.
+        forecast = rf.forecast(_base_forecast(
+            current_readiness=58, sleep_minutes=360, today_strain=18,
+        ))
         self.assertLess(forecast.predicted_score, 60)
         self.assertIn(forecast.posture, (rf.PROTECT, rf.REST))
-        self.assertTrue(any(d.title == "Sleep debt" for d in forecast.drivers))
         self.assertTrue(any(d.title == "Heavy load today" for d in forecast.drivers))
+        self.assertFalse(any(d.title == "Sleep debt" for d in forecast.drivers))
+
+    def test_last_night_is_not_double_counted(self):
+        # Same readiness today, different last night: tomorrow does not move,
+        # because today's score already holds last night.
+        rested = rf.forecast(_base_forecast(current_readiness=60, sleep_minutes=480))
+        short = rf.forecast(_base_forecast(current_readiness=60, sleep_minutes=330))
+        self.assertEqual(rested.predicted_score, short.predicted_score)
+
+    def test_low_day_bounces_partway_back(self):
+        forecast = rf.forecast(_base_forecast(
+            current_readiness=45, sleep_minutes=300, today_strain=5,
+        ))
+        # 75 + 0.5 * (45 - 75) = 60: halfway home, not all the way.
+        self.assertEqual(forecast.predicted_score, 60)
+        bounce = next(d for d in forecast.drivers if d.title == "Bounce-back")
+        self.assertEqual(bounce.impact, 15)
+        self.assertIn("short sleep", bounce.detail)
+
+    def test_high_day_eases_back(self):
+        forecast = rf.forecast(_base_forecast(current_readiness=95, today_strain=5))
+        self.assertEqual(forecast.predicted_score, 85)
+        self.assertTrue(any(d.title == "Easing to your usual" for d in forecast.drivers))
+
+    def test_personal_baseline_is_the_anchor(self):
+        forecast = rf.forecast(_base_forecast(
+            current_readiness=70, readiness_baseline=82, today_strain=5,
+        ))
+        self.assertEqual(forecast.predicted_score, 76)
+
+    def test_unknown_sleep_is_not_zero_sleep(self):
+        # Clients send 0 minutes when the night never synced. That used to
+        # read as an 8h debt (-20) and a "Take the rest day" on no evidence.
+        unknown = rf.forecast(_base_forecast(sleep_minutes=0))
+        known = rf.forecast(_base_forecast())
+        self.assertEqual(unknown.predicted_score, known.predicted_score)
+        self.assertNotEqual(unknown.posture, rf.REST)
+
+    def test_unknown_readiness_starts_from_usual_with_low_confidence(self):
+        forecast = rf.forecast(_base_forecast(current_readiness=0))
+        self.assertEqual(forecast.predicted_score, rf.DEFAULT_READINESS_BASELINE)
+        self.assertEqual(forecast.confidence, "low")
+        self.assertNotEqual(forecast.posture, rf.REST)
+
+    def test_new_user_with_nothing_is_not_told_to_rest(self):
+        forecast = rf.forecast(rf.ForecastInput(current_readiness=0, sleep_minutes=0))
+        self.assertEqual(forecast.posture, rf.STEADY)
+        self.assertEqual(forecast.confidence, "low")
+
+    def test_unreported_stress_is_unknown_not_moderate(self):
+        said = rf.forecast(_base_forecast(stress_level=80))
+        unsaid = rf.forecast(_base_forecast(stress_level=None))
+        self.assertTrue(any(d.title == "High stress" for d in said.drivers))
+        self.assertFalse(any("stress" in d.title.lower() for d in unsaid.drivers))
+        self.assertEqual(unsaid.confidence, "low")  # 4 of 7 signals
+
+    def test_full_signal_is_high_confidence(self):
+        forecast = rf.forecast(_base_forecast(acwr=1.0, readiness_baseline=78))
+        self.assertEqual(forecast.confidence, "high")
+
+    def test_drivers_sorted_by_impact(self):
+        forecast = rf.forecast(_base_forecast(
+            current_readiness=50, today_strain=18, stress_level=80, acwr=1.7,
+        ))
+        impacts = [abs(d.impact) for d in forecast.drivers]
+        self.assertEqual(impacts, sorted(impacts, reverse=True))
+
+    def test_swift_parity_vectors(self):
+        # Same vectors as ReadinessForecastTests.testParityVectors in Swift.
+        cases = [
+            (_base_forecast(), 75, rf.STEADY, "medium"),
+            (_base_forecast(current_readiness=45, sleep_minutes=300, today_strain=5), 60, rf.PROTECT, "medium"),
+            (_base_forecast(current_readiness=58, sleep_minutes=360, today_strain=18), 55, rf.PROTECT, "medium"),
+            (_base_forecast(current_readiness=0, sleep_minutes=0), 75, rf.STEADY, "low"),
+            (_base_forecast(current_readiness=90, today_strain=2, stress_level=20, acwr=0.7,
+                            readiness_baseline=80), 97, rf.PUSH, "high"),
+        ]
+        for inp, score, posture, confidence in cases:
+            fc = rf.forecast(inp)
+            self.assertEqual((fc.predicted_score, fc.posture, fc.confidence), (score, posture, confidence), inp)
 
     def test_chat_prompt_is_what_clients_send(self):
         forecast = rf.forecast(_base_forecast(

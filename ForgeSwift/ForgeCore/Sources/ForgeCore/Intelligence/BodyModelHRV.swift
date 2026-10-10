@@ -121,10 +121,17 @@ public struct BodyModelHRVBaselines: Codable, Equatable, Sendable {
     public var rmssd: OnlineStat
     public var sdnnSamplingDensityVersion: Int
     public var rmssdSamplingDensityVersion: Int
+    /// Timestamp of the newest sample folded into each statistic. HealthKit
+    /// hands back the same latest reading on every foreground refresh;
+    /// without this, one reading is counted dozens of times, the mean drifts
+    /// toward whatever was last seen, and the spread collapses.
+    public var sdnnLastSampleAt: Date?
+    public var rmssdLastSampleAt: Date?
 
     enum CodingKeys: String, CodingKey {
         case schemaVersion, sdnn, rmssd
         case sdnnSamplingDensityVersion, rmssdSamplingDensityVersion
+        case sdnnLastSampleAt, rmssdLastSampleAt
     }
 
     public init(
@@ -132,13 +139,17 @@ public struct BodyModelHRVBaselines: Codable, Equatable, Sendable {
         sdnn: OnlineStat = OnlineStat(),
         rmssd: OnlineStat = OnlineStat(),
         sdnnSamplingDensityVersion: Int = 0,
-        rmssdSamplingDensityVersion: Int = 0
+        rmssdSamplingDensityVersion: Int = 0,
+        sdnnLastSampleAt: Date? = nil,
+        rmssdLastSampleAt: Date? = nil
     ) {
         self.schemaVersion = schemaVersion
         self.sdnn = sdnn
         self.rmssd = rmssd
         self.sdnnSamplingDensityVersion = sdnnSamplingDensityVersion
         self.rmssdSamplingDensityVersion = rmssdSamplingDensityVersion
+        self.sdnnLastSampleAt = sdnnLastSampleAt
+        self.rmssdLastSampleAt = rmssdLastSampleAt
         migrateDecodedIfNeeded()
     }
 
@@ -149,6 +160,8 @@ public struct BodyModelHRVBaselines: Codable, Equatable, Sendable {
         rmssd = try c.decodeIfPresent(OnlineStat.self, forKey: .rmssd) ?? OnlineStat()
         sdnnSamplingDensityVersion = try c.decodeIfPresent(Int.self, forKey: .sdnnSamplingDensityVersion) ?? 0
         rmssdSamplingDensityVersion = try c.decodeIfPresent(Int.self, forKey: .rmssdSamplingDensityVersion) ?? 0
+        sdnnLastSampleAt = try c.decodeIfPresent(Date.self, forKey: .sdnnLastSampleAt)
+        rmssdLastSampleAt = try c.decodeIfPresent(Date.self, forKey: .rmssdLastSampleAt)
         migrateDecodedIfNeeded()
     }
 
@@ -166,13 +179,20 @@ public struct BodyModelHRVBaselines: Codable, Equatable, Sendable {
         }
     }
 
+    /// Folds one reading in. A reading at or before the newest one already
+    /// counted is skipped — the same sample re-read, not a new night.
     public mutating func ingest(_ observation: HRVObservation) {
         migrateIfNeeded(to: observation.samplingDensity, for: observation.statistic)
+        guard observation.milliseconds > 0, observation.milliseconds.isFinite else { return }
         switch observation.statistic {
         case .sdnn:
+            if let last = sdnnLastSampleAt, observation.timestamp <= last { return }
             sdnn.update(observation.milliseconds)
+            sdnnLastSampleAt = observation.timestamp
         case .rmssd:
+            if let last = rmssdLastSampleAt, observation.timestamp <= last { return }
             rmssd.update(observation.milliseconds)
+            rmssdLastSampleAt = observation.timestamp
         }
     }
 
@@ -185,11 +205,13 @@ public struct BodyModelHRVBaselines: Codable, Equatable, Sendable {
             if sdnnSamplingDensityVersion != density.version {
                 sdnn = OnlineStat(alpha: sdnn.alpha)
                 sdnnSamplingDensityVersion = density.version
+                sdnnLastSampleAt = nil
             }
         case .rmssd:
             if rmssdSamplingDensityVersion != density.version {
                 rmssd = OnlineStat(alpha: rmssd.alpha)
                 rmssdSamplingDensityVersion = density.version
+                rmssdLastSampleAt = nil
             }
         }
     }
