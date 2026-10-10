@@ -509,7 +509,8 @@ struct SleepData: Identifiable {
               let yesterday = calendar.date(byAdding: .day, value: -1, to: calendar.startOfDay(for: now))
         else { return nil }
         let stamps = [night.wake, night.onset, ForgeDates.parse(night.date)].compactMap { $0 }
-        return stamps.contains { calendar.startOfDay(for: $0) >= yesterday } ? night : nil
+        let isRecent = stamps.contains(where: { calendar.startOfDay(for: $0) >= yesterday })
+        return isRecent ? night : nil
     }
 }
 

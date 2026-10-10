@@ -130,7 +130,7 @@ enum HomeLifeSentence {
     static func chips(store: AppStore) -> [Chip] {
         var chips: [Chip] = []
 
-        let hours = store.sleepData.first?.totalHours
+        let hours = SleepData.lastNight(in: store.sleepData)?.totalHours
             ?? (store.dailyMetrics.totalSleep > 0 ? Double(store.dailyMetrics.totalSleep) / 60.0 : nil)
         if let hours {
             chips.append(.init(id: "sleep", icon: "moon.fill", label: String(format: "%.1fh sleep", hours)))

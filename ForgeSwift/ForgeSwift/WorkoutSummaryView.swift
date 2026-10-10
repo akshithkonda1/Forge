@@ -98,17 +98,7 @@ struct WorkoutSummaryView: View {
                     }
 
                     LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible()), GridItem(.flexible())], spacing: 12) {
-                        ForEach([
-                            ("scalemass.fill", "\(data.totalVolume.formattedVolume)", "Volume", Color.steel),
-                            ("flame.fill", "\(data.caloriesBurned)", "Kcal", Color.ember),
-                            ("repeat", "\(data.totalSets)", "Sets", Color.success),
-                            ("hand.raised.fill", "\(data.totalReps)", "Reps", Color.amber),
-                            ("heart.fill", "\(data.peakHR)", "Peak HR", Color.danger),
-                            ("waveform.path.ecg", "\(data.avgHR)", "Avg HR", Color.steel),
-                            ("lungs.fill", "\(data.minO2)%", "Min O₂", data.minO2 < 94 ? Color.danger : Color(hex: "38BDF8")),
-                            ("bolt.fill", String(format: "%.1f", data.avgRPE), "Avg RPE", rpeColor(data.avgRPE)),
-                            ("dumbbell.fill", "\(data.exercisesCompleted)", "Exercises", Color.ember),
-                        ], id: \.0) { icon, value, label, color in darkStatCard(icon, value, label, color) }
+                        ForEach(statTiles, id: \.0) { icon, value, label, color in darkStatCard(icon, value, label, color) }
                     }
                     .padding(.horizontal, FDS.Spacing.lg).padding(.bottom, FDS.Spacing.lg)
                     .opacity(appeared ? 1 : 0).offset(y: appeared ? 0 : 20).animation(.spring(response: 0.6, dampingFraction: 0.8).delay(0.5), value: appeared)
@@ -178,6 +168,27 @@ struct WorkoutSummaryView: View {
         }
         .frame(maxWidth: .infinity).padding(.vertical, FDS.Spacing.lg).background(Color.white.opacity(0.05)).cornerRadius(FDS.Radius.lg).overlay(RoundedRectangle(cornerRadius: FDS.Radius.lg).stroke(Color.white.opacity(0.07), lineWidth: 1))
     }
+    /// Heart-rate and O₂ tiles only when the session recorded them; a 0 or
+    /// this morning's resting HR is not a workout number.
+    private var statTiles: [(String, String, String, Color)] {
+        var tiles: [(String, String, String, Color)] = [
+            ("scalemass.fill", "\(data.totalVolume.formattedVolume)", "Volume", Color.steel),
+            ("flame.fill", "\(data.caloriesBurned)", "Kcal", Color.ember),
+            ("repeat", "\(data.totalSets)", "Sets", Color.success),
+            ("hand.raised.fill", "\(data.totalReps)", "Reps", Color.amber),
+        ]
+        if !data.hrHistory.isEmpty {
+            tiles.append(("heart.fill", "\(data.peakHR)", "Peak HR", Color.danger))
+            tiles.append(("waveform.path.ecg", "\(data.avgHR)", "Avg HR", Color.steel))
+        }
+        if data.minO2 > 0 {
+            tiles.append(("lungs.fill", "\(data.minO2)%", "Min O₂", data.minO2 < 94 ? Color.danger : Color(hex: "38BDF8")))
+        }
+        tiles.append(("bolt.fill", String(format: "%.1f", data.avgRPE), "Avg RPE", rpeColor(data.avgRPE)))
+        tiles.append(("dumbbell.fill", "\(data.exercisesCompleted)", "Exercises", Color.ember))
+        return tiles
+    }
+
     private func rpeColor(_ rpe: Double) -> Color { rpe <= 4 ? .success : rpe <= 7 ? Color.amber : .danger }
     private func formatDuration(_ s: Int) -> String { let m = s / 60; let sec = s % 60; return m > 0 ? "\(m)m \(sec)s" : "\(sec)s" }
 }

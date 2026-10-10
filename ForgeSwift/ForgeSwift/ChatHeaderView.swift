@@ -9,7 +9,7 @@ struct ChatHeaderView: View {
     @State private var appeared     = false
 
     private var scoreColor: Color {
-        HomeReadiness.color(store.readiness.overall)
+        store.readiness.hasScore ? HomeReadiness.color(store.readiness.overall) : HudChrome.miss
     }
 
     var body: some View {
@@ -118,7 +118,7 @@ struct ChatHeaderView: View {
                     Circle()
                         .stroke(Color.white.opacity(0.06), lineWidth: 1)
                         .frame(width: 38, height: 38)
-                    Text("\(store.readiness.overall)")
+                    Text(store.readiness.hasScore ? "\(store.readiness.overall)" : "—")
                         .font(FDS.TypeScale.Dynamic.body.weight(.semibold))
                         .monospacedDigit()
                         .foregroundColor(.textPrimary)
@@ -126,7 +126,9 @@ struct ChatHeaderView: View {
                 .shadow(color: scoreColor.opacity(0.42), radius: 8)
             }
             .accessibilityElement(children: .ignore)
-            .accessibilityLabel(HomeReadiness.voiceOverLabel(store.readiness.overall))
+            .accessibilityLabel(store.readiness.hasScore
+                ? HomeReadiness.voiceOverLabel(store.readiness.overall)
+                : "Readiness not measured yet")
         }
         .padding(.horizontal, FDS.Spacing.lg)
         .padding(.vertical, FDS.Spacing.md)
@@ -161,10 +163,12 @@ struct ChatHeaderView: View {
     private var headerStatusLine: String {
         let first = store.userProfile.name.components(separatedBy: " ").first ?? ""
         let score = store.readiness.overall
+        // Below Fair (50) is Low. Unmeasured is not low.
+        let low = store.readiness.hasScore && score < HomeReadinessTokens.Band.fair.minScore
         if first.isEmpty {
-            return score < 55 ? "Easy day — I’m here" : "Ready when you are"
+            return low ? "Easy day — I’m here" : "Ready when you are"
         }
-        if score < 55 { return "\(first), let’s keep it easy" }
+        if low { return "\(first), let’s keep it easy" }
         if score >= 85 { return "You look ready, \(first)" }
         return "Here for you, \(first)"
     }

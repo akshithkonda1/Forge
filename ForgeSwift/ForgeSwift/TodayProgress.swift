@@ -217,7 +217,7 @@ enum TodayProgress {
 @MainActor
 extension TodayProgress.Input {
     static func from(store: AppStore, waterGlasses: Double, habits: [DailyHabit]) -> TodayProgress.Input {
-        let hours = store.sleepData.first?.totalHours
+        let hours = SleepData.lastNight(in: store.sleepData)?.totalHours
             ?? (store.dailyMetrics.totalSleep > 0 ? Double(store.dailyMetrics.totalSleep) / 60.0 : nil)
         return TodayProgress.Input(
             readiness: store.readiness.overall,
