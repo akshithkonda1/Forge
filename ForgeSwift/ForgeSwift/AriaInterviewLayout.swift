@@ -85,6 +85,8 @@ struct AriaInterviewLayout: View {
                             .frame(width: 36, height: 36)
                             .background(Circle().fill(Color.white.opacity(0.06)))
                             .overlay(Circle().stroke(Color.white.opacity(0.10), lineWidth: 1))
+                            .frame(minWidth: 44, minHeight: 44)
+                            .contentShape(Rectangle())
                     }
                     .buttonStyle(.plain)
                     .accessibilityLabel("Back")
@@ -214,14 +216,20 @@ struct AriaInterviewLayout: View {
                     .padding(.bottom, FDS.Spacing.sm)
             }
 
-            suggestedRepliesBar
+            if !coordinator.isReviewingBirthday {
+                suggestedRepliesBar
+            }
 
             ScrollView(showsIndicators: false) {
-                composerBody
+                if coordinator.isReviewingBirthday {
+                    birthdayReviewBody
+                } else {
+                    composerBody
+                }
             }
             .frame(minHeight: min(180, maxHeight), maxHeight: maxHeight, alignment: .top)
 
-            if AriaInterviewVoice.shouldShowVoiceDock(for: beat) {
+            if !coordinator.isReviewingBirthday, AriaInterviewVoice.shouldShowVoiceDock(for: beat) {
                 voiceDock
             }
         }
@@ -338,6 +346,15 @@ struct AriaInterviewLayout: View {
             return
         }
         coordinator.applySuggestedReply(reply)
+    }
+
+    /// After the age block: the birthday field from DetailsComposer, whatever
+    /// beat is behind it. `.details` itself normalizes onto Health below.
+    private var birthdayReviewBody: some View {
+        DetailsComposer(coordinator: coordinator)
+            .padding(.horizontal, FDS.Spacing.xl)
+            .padding(.bottom, FDS.Spacing.md)
+            .transition(.opacity)
     }
 
     @ViewBuilder
