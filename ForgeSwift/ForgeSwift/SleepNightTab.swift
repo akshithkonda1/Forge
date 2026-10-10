@@ -327,7 +327,7 @@ struct SleepEveningStoryCard: View {
     let coach: SleepBedtimeCoach
 
     private var lastNight: SleepNight? {
-        guard let night = store.sleepData.first else { return nil }
+        guard let night = SleepData.lastNight(in: store.sleepData) else { return nil }
         let start = night.onset ?? Date().addingTimeInterval(-night.totalHours * 3600)
         var cursor = start
         var segments: [SleepStageSegment] = []
@@ -579,7 +579,7 @@ struct SleepLastNightStrip: View {
     @EnvironmentObject var store: AppStore
     @EnvironmentObject var hkService: HealthKitSleepService
 
-    private var night: SleepData? { store.sleepData.first }
+    private var night: SleepData? { SleepData.lastNight(in: store.sleepData) }
 
     var body: some View {
         if let night {
@@ -589,9 +589,11 @@ struct SleepLastNightStrip: View {
                         .font(FDS.TypeScale.Dynamic.caption)
                         .foregroundColor(.textTertiary)
                     Spacer()
-                    Text("\(night.efficiencyPercent)% efficient")
-                        .font(FDS.TypeScale.Dynamic.caption)
-                        .foregroundColor(.aurora)
+                    if night.hasStages {
+                        Text("\(night.efficiencyPercent)% efficient")
+                            .font(FDS.TypeScale.Dynamic.caption)
+                            .foregroundColor(.aurora)
+                    }
                 }
                 HStack(alignment: .firstTextBaseline, spacing: FDS.Spacing.md) {
                     Text(EnergySchedule.durationLabel(night.totalHours))
@@ -607,8 +609,14 @@ struct SleepLastNightStrip: View {
                         .foregroundColor(.textTertiary)
                         .monospacedDigit()
                 }
-                SleepHypnogram(night: night, height: 54)
-                SleepStageLegend(night: night)
+                if night.hasStages {
+                    SleepHypnogram(night: night, height: 54)
+                    SleepStageLegend(night: night)
+                } else {
+                    Text("Sleep stages not recorded")
+                        .font(.system(size: 12))
+                        .foregroundColor(.textSecondary)
+                }
                 if let flag = hkService.lastDepthResult?.headline {
                     Text(flag)
                         .font(.system(size: 12))
@@ -616,7 +624,7 @@ struct SleepLastNightStrip: View {
                 }
             }
         } else {
-            Text(store.sleepSurface.lastNightEmptyMessage)
+            Text(store.sleepSurface.lastNightEmptyOrStaleMessage)
                 .font(.system(size: 13))
                 .foregroundColor(.textSecondary)
         }
@@ -626,7 +634,7 @@ struct SleepLastNightStrip: View {
 struct SleepLastNightDetail: View {
     @EnvironmentObject var store: AppStore
 
-    private var night: SleepData? { store.sleepData.first }
+    private var night: SleepData? { SleepData.lastNight(in: store.sleepData) }
 
     var body: some View {
         if let night {
@@ -649,24 +657,30 @@ struct SleepLastNightDetail: View {
                             .foregroundColor(.textTertiary)
                     }
                 }
-                Text("\(night.clock(night.onset))  →  \(night.clock(night.wake))   ·   \(night.efficiencyPercent)% of time in bed was sleep")
-                    .font(.system(size: 13))
-                    .foregroundColor(.textSecondary)
-                SleepHypnogram(night: night, height: 92)
-                HStack(spacing: 0) {
-                    nightStat("Deep", "\(night.deepMinutes)m", Color.steel)
-                    nightStat("REM", "\(night.remMinutes)m", Color.aurora)
-                    nightStat("Light", "\(night.lightMinutes)m", Color(hex: "64748B"))
-                    nightStat("Awake", "\(night.awakeMinutes)m", Color.danger.opacity(0.8))
+                if night.hasStages {
+                    Text("\(night.clock(night.onset))  →  \(night.clock(night.wake))   ·   \(night.efficiencyPercent)% of time in bed was sleep")
+                        .font(.system(size: 13))
+                        .foregroundColor(.textSecondary)
+                    SleepHypnogram(night: night, height: 92)
+                    HStack(spacing: 0) {
+                        nightStat("Deep", "\(night.deepMinutes)m", Color.steel)
+                        nightStat("REM", "\(night.remMinutes)m", Color.aurora)
+                        nightStat("Light", "\(night.lightMinutes)m", Color(hex: "64748B"))
+                        nightStat("Awake", "\(night.awakeMinutes)m", Color.danger.opacity(0.8))
+                    }
+                    .padding(.top, FDS.Spacing.xs)
+                } else {
+                    Text("\(night.clock(night.onset))  →  \(night.clock(night.wake))   ·   Sleep stages not recorded")
+                        .font(.system(size: 13))
+                        .foregroundColor(.textSecondary)
                 }
-                .padding(.top, FDS.Spacing.xs)
             }
         } else {
             VStack(alignment: .leading, spacing: FDS.Spacing.sm) {
                 Text("No night on file")
                     .font(FDS.TypeScale.Dynamic.title)
                     .foregroundColor(.textPrimary)
-                Text(store.sleepSurface.lastNightEmptyMessage)
+                Text(store.sleepSurface.lastNightEmptyOrStaleMessage)
                     .font(.system(size: 14))
                     .foregroundColor(.textSecondary)
                 SleepLifestyleCaption()
@@ -686,6 +700,16 @@ struct SleepLastNightDetail: View {
                 .foregroundColor(.textTertiary)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
+    }
+}
+
+private extension SleepSurfacePresence {
+    /// `lastNightEmptyMessage` is blank while the feed is live, but the newest
+    /// night on file can still be older than yesterday — say so instead of nothing.
+    var lastNightEmptyOrStaleMessage: String {
+        lastNightEmptyMessage.isEmpty
+            ? "No night recorded since yesterday. Last night will land here once it syncs."
+            : lastNightEmptyMessage
     }
 }
 

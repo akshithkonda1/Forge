@@ -501,6 +501,8 @@ struct ActiveWorkoutView: View {
                                             Circle().fill(Color.surfaceElevated).frame(width: 36, height: 36).overlay(Circle().stroke(Color.borderColor.opacity(0.5), lineWidth: 1))
                                             Image(systemName: "minus").font(.system(size: 14, weight: .bold)).foregroundColor(.textMuted)
                                         }
+                                        .frame(minWidth: 44, minHeight: 44)
+                                        .contentShape(Rectangle())
                                     }
                                     .accessibilityLabel("Decrease weight by 5 pounds")
                                     VStack(spacing: 1) {
@@ -517,6 +519,8 @@ struct ActiveWorkoutView: View {
                                             Circle().fill(Color.ember.opacity(0.12)).frame(width: 36, height: 36).overlay(Circle().stroke(Color.ember.opacity(0.3), lineWidth: 1))
                                             Image(systemName: "plus").font(.system(size: 14, weight: .bold)).foregroundColor(.ember)
                                         }
+                                        .frame(minWidth: 44, minHeight: 44)
+                                        .contentShape(Rectangle())
                                     }
                                     .accessibilityLabel("Increase weight by 5 pounds")
                                 }
@@ -839,7 +843,10 @@ struct ActiveWorkoutView: View {
     private func endWorkout() {
         cancelTasks()
         HealthKitManager.shared.stopLiveHeartRateUpdates()
-        let avgHR  = hrHistory.isEmpty ? simulatedHR : hrHistory.reduce(0, +) / hrHistory.count
+        // No live samples → no heart-rate numbers. `simulatedHR` is seeded from
+        // morning resting HR and `peakHR` starts at a placeholder; neither is workout data.
+        let avgHR  = hrHistory.isEmpty ? 0 : hrHistory.reduce(0, +) / hrHistory.count
+        let sessionPeakHR = hrHistory.max() ?? 0
         let rpes   = setLog.map { Double($0.rpe) }
         let avgRPE = rpes.isEmpty ? 0 : rpes.reduce(0, +) / Double(rpes.count)
         let prs    = Array(Set(setLog.filter { $0.isPersonalRecord }.map { $0.exerciseName }))
@@ -848,7 +855,7 @@ struct ActiveWorkoutView: View {
         for (m, v) in muscleVolume { mvStr[m.rawValue] = v }
         let data = WorkoutSummaryData(
             duration: elapsedSecs, totalVolume: totalVolume, totalSets: setLog.count,
-            totalReps: setLog.reduce(0) { $0 + $1.repsPerformed }, peakHR: peakHR, avgHR: avgHR,
+            totalReps: setLog.reduce(0) { $0 + $1.repsPerformed }, peakHR: sessionPeakHR, avgHR: avgHR,
             peakO2: 0, minO2: 0, caloriesBurned: Int(estimatedCals), personalRecords: prs,
             exercisesCompleted: min(store.currentExerciseIndex + 1, exercises.count), avgRPE: avgRPE, hrHistory: hrHistory,
             muscleVolume: mvStr, autoRegLog: autoRegLog, painFlags: painFlags,
