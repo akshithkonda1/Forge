@@ -37,14 +37,20 @@ enum TodayProgress {
         }
         var nextOpenTrack: Track? { tracks.first(where: { !$0.done }) }
 
+        private var vibeSpoken: String {
+            vibeScore > 0
+                ? "Readiness vibe \(vibeScore) out of 100, \(vibeLabel)."
+                : "Readiness not measured yet."
+        }
+
         var voiceOverLabel: String {
             if empty {
-                return "Today's progress 0 out of 100. Nothing logged yet. Readiness vibe \(vibeScore) out of 100, \(vibeLabel). \(vibeLine)"
+                return "Today's progress 0 out of 100. Nothing logged yet. \(vibeSpoken) \(vibeLine)"
             }
             if almostThere, let next = nextOpenTrack {
-                return "Today's progress \(percent) out of 100. \(completed) of \(total) tracks done. One left: \(next.title). Readiness vibe \(vibeScore) out of 100, \(vibeLabel). \(vibeLine)"
+                return "Today's progress \(percent) out of 100. \(completed) of \(total) tracks done. One left: \(next.title). \(vibeSpoken) \(vibeLine)"
             }
-            return "Today's progress \(percent) out of 100. \(completed) of \(total) tracks done. Readiness vibe \(vibeScore) out of 100, \(vibeLabel). \(vibeLine)"
+            return "Today's progress \(percent) out of 100. \(completed) of \(total) tracks done. \(vibeSpoken) \(vibeLine)"
         }
     }
 
@@ -88,7 +94,7 @@ enum TodayProgress {
             total: tracks.count,
             tracks: tracks,
             vibeScore: vibe,
-            vibeLabel: HomeReadiness.label(vibe),
+            vibeLabel: vibe > 0 ? HomeReadiness.label(vibe) : noScoreLabel,
             vibeLine: vibeLine(
                 score: vibe,
                 empty: completed == 0,
@@ -98,6 +104,9 @@ enum TodayProgress {
             )
         )
     }
+
+    /// Chip label when readiness was not measured — steel, never Low red.
+    static let noScoreLabel = "No score"
 
     static func closingLine(score: Int) -> String {
         switch score {
@@ -123,6 +132,11 @@ enum TodayProgress {
         if HomeReadinessTokens.isAlmostThere(percent: percent, remaining: remaining) && !empty {
             return closingLine(score: score)
         }
+        if score <= 0 {
+            return empty
+                ? "No readiness read yet. The day is still open."
+                : "No readiness read yet. Keep stacking the day."
+        }
         switch score {
         case 85...:
             return empty
@@ -132,7 +146,7 @@ enum TodayProgress {
             return empty
                 ? "Solid vibe. A real session still fits."
                 : "Good vibe. Finish what's open, skip the extras."
-        case 55..<70:
+        case 50..<70:
             return empty
                 ? "Fair vibe. Keep today light and honest."
                 : "Fair vibe. Protect the easy pieces."

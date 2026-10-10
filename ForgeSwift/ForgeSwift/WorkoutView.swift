@@ -192,7 +192,7 @@ struct WorkoutIdleView: View {
                     .foregroundColor(dayCall == .train ? .ember : dayCall == .rest ? .steel : .warning)
                 Spacer()
                 ARIAIdentityMark(state: .idle, mood: .energized, size: 28, amplitude: 0.2)
-                Text("Readiness \(store.readiness.overall)")
+                Text(store.readiness.hasScore ? "Readiness \(store.readiness.overall)" : "Readiness —")
                     .font(FDS.TypeScale.Dynamic.caption)
                     .monospacedDigit()
                     .foregroundColor(.textTertiary)
@@ -695,8 +695,12 @@ struct WorkoutInsightsView: View {
         if let headline = workout.scaleHeadline {
             r.append(("wand.and.stars", headline, workout.autoScaled ? .warning : .steel))
         }
-        if store.readiness.overall >= 80 { r.append(("bolt.fill", "Readiness \(store.readiness.overall)% — primed. Add a set if the first compound moves well.", .ember)) }
-        else if store.readiness.overall < 65 { r.append(("bed.double.fill", "Recovery \(store.readiness.overall)% — ARIA already scaled the board. You can still add a set if you feel it.", .steel)) }
+        // Same cuts AriaPlanEngine scales the board on (80 / 65). Unmeasured
+        // readiness gets no note: "0" is not a low read.
+        if store.readiness.hasScore {
+            if store.readiness.overall >= 80 { r.append(("bolt.fill", "Readiness \(store.readiness.overall) — primed. Add a set if the first compound moves well.", .ember)) }
+            else if store.readiness.overall < 65 { r.append(("bed.double.fill", "Readiness \(store.readiness.overall) — ARIA already scaled the board. You can still add a set if you feel it.", .steel)) }
+        }
         // Balance read across the plan
         if let lean = planRegionLean() { r.append(("scale.3d", lean, Color.aurora)) }
         if workout.intensity == .high || workout.intensity == .max {

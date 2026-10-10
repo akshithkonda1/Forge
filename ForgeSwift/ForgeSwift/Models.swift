@@ -329,6 +329,10 @@ struct ReadinessData {
     var recoveryScore: Int
     var stressLevel: Int
     var energyBank: Int
+
+    /// The calculator never lands on 0 from real data, and `emptyReadiness`
+    /// is all zeros: 0 means "not measured", which is not "Low".
+    var hasScore: Bool { overall > 0 }
 }
 
 struct DailyMetrics {

@@ -68,6 +68,23 @@ public struct HomeWidgetSnapshot: Codable, Equatable, Sendable {
         HydrationEngine.glasses(fromMilliliters: hydrationMl)
     }
 
+    /// 0 is what the app publishes when readiness was not measured.
+    public var hasReadiness: Bool { readiness > 0 }
+
+    /// What a widget may show at `now`. A snapshot written on an earlier day
+    /// keeps its slow fields (cycle, target, plan) but not that day's
+    /// readiness, sleep or water: yesterday's 84 is not "today's readiness".
+    public func asOf(_ now: Date, calendar: Calendar = .current) -> HomeWidgetSnapshot {
+        guard !calendar.isDate(updatedAt, inSameDayAs: now) else { return self }
+        var today = self
+        today.readiness = 0
+        today.readinessLabel = "—"
+        today.sleepHours = 0
+        today.sleepScore = nil
+        today.hydrationMl = 0
+        return today
+    }
+
     /// Widget reloads key off content, not `updatedAt`.
     public func hasSameWidgetContent(as other: HomeWidgetSnapshot) -> Bool {
         readiness == other.readiness
@@ -156,7 +173,10 @@ public enum HomeWidgetSnapshotStore {
     }
 
     public static func save(_ snapshot: HomeWidgetSnapshot, reloadWidgets: Bool = true) {
-        if let existing = load(), existing.hasSameWidgetContent(as: snapshot) {
+        // Same content on the same day: skip the write and the reload. A new
+        // day still writes, so `updatedAt` says the numbers are today's.
+        if let existing = load(), existing.hasSameWidgetContent(as: snapshot),
+           Calendar.current.isDate(existing.updatedAt, inSameDayAs: snapshot.updatedAt) {
             return
         }
         guard let defaults = UserDefaults(suiteName: appGroupID),
@@ -183,9 +203,11 @@ public enum HomeWidgetSnapshotStore {
     }
 
     public static func update(reloadWidgets: Bool = true, _ mutate: (inout HomeWidgetSnapshot) -> Void) {
-        var snapshot = load() ?? HomeWidgetSnapshot()
+        let now = Date()
+        // Carrying yesterday's water forward would add today's glass to it.
+        var snapshot = (load() ?? HomeWidgetSnapshot()).asOf(now)
         mutate(&snapshot)
-        snapshot.updatedAt = Date()
+        snapshot.updatedAt = now
         save(snapshot, reloadWidgets: reloadWidgets)
     }
 }

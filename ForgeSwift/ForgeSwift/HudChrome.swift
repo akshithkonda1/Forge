@@ -26,8 +26,9 @@ enum HudChrome {
     static let plate = Color(hex: HomeReadinessTokens.plateHex)
     static let emberSteel = Color(hex: HomeReadinessTokens.emberSteelHex)
 
+    /// Unmeasured (0) is steel: a missing read is not the Low alert red.
     static func energy(for score: Int) -> Color {
-        HomeReadiness.color(score)
+        score > 0 ? HomeReadiness.color(score) : miss
     }
 
     static func sweep(from percent: Int) -> CGFloat {
