@@ -28,7 +28,7 @@ from dataclasses import dataclass
 _ROUTER_SLOT_FALLBACKS = {
     1: ("anthropic.claude-sonnet-4-6", "Claude Sonnet 4.6"),
     2: ("anthropic.claude-opus-4-7", "Claude Opus 4.7"),
-    3: ("global.xai.grok-4.6", "Grok"),
+    3: ("global.xai.grok-4.7", "Grok"),
 }
 _ROUTER3_ID_FALLBACK, _ROUTER3_NAME_FALLBACK = _ROUTER_SLOT_FALLBACKS[3]
 

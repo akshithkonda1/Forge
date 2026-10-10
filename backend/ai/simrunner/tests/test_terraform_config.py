@@ -202,7 +202,7 @@ class SafeDegradationTests(unittest.TestCase):
         self.assertFalse(config.variables_tf_found)
         self.assertEqual(config.aria_bedrock_enabled.source, "not_found")
         self.assertEqual(config.aria_bedrock_enabled.value, False)
-        self.assertEqual(config.ai_router_model_3_id_effective, "global.xai.grok-4.6")
+        self.assertEqual(config.ai_router_model_3_id_effective, "global.xai.grok-4.7")
 
     def test_unbalanced_braces_degrades_safely_instead_of_raising(self):
         broken = 'variable "aria_bedrock_enabled" {\n  default = false\n'  # missing closing brace
@@ -218,14 +218,14 @@ class SafeDegradationTests(unittest.TestCase):
             config = tfc.load(infra_dir=d)
         self.assertFalse(config.main_tf_fallback_pattern_matched)
         # Still a safe, documented fallback -- never a crash or a blank value.
-        self.assertEqual(config.ai_router_model_3_id_effective, "global.xai.grok-4.6")
+        self.assertEqual(config.ai_router_model_3_id_effective, "global.xai.grok-4.7")
 
     def test_missing_main_tf_also_degrades_safely(self):
         with tempfile.TemporaryDirectory() as d:
             _write(d, "variables.tf", _VARIABLES_TF)
             config = tfc.load(infra_dir=d)  # no main.tf written at all
         self.assertFalse(config.main_tf_fallback_pattern_matched)
-        self.assertEqual(config.ai_router_model_3_id_effective, "global.xai.grok-4.6")
+        self.assertEqual(config.ai_router_model_3_id_effective, "global.xai.grok-4.7")
 
 
 class SlotOneAndTwoTests(unittest.TestCase):
@@ -238,7 +238,7 @@ class SlotOneAndTwoTests(unittest.TestCase):
         self.assertEqual(config.ai_router_model_1_name_effective, "Claude Sonnet 4.6")
         self.assertEqual(config.ai_router_model_2_id_effective, "anthropic.claude-opus-4-7")
         self.assertEqual(config.ai_router_model_2_name_effective, "Claude Opus 4.7")
-        self.assertEqual(config.ai_router_model_3_id_effective, "global.xai.grok-4.6")
+        self.assertEqual(config.ai_router_model_3_id_effective, "global.xai.grok-4.7")
         self.assertFalse(config.bedrock_live_for_chat)
 
     def test_missing_slot_1_variables_still_use_hardcoded_fallbacks(self):

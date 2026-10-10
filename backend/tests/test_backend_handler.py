@@ -652,7 +652,7 @@ class AuthAndAISecurityTests(unittest.TestCase):
         self.assertIn("router", payload)
         self.assertFalse(payload["router"]["bedrockEnabled"])
         slot3 = next(m for m in payload["router"]["models"] if m["slot"] == 3)
-        self.assertEqual(slot3["modelId"], "global.xai.grok-4.6")
+        self.assertEqual(slot3["modelId"], "global.xai.grok-4.7")
 
     def test_health_bedrock_flag_does_not_invoke_bedrock(self):
         os.environ["ARIA_BEDROCK_ENABLED"] = "true"

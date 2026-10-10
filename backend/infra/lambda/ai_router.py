@@ -820,7 +820,7 @@ def default_models() -> list[ModelConfig]:
         ModelConfig(
             slot=3,
             name=os.getenv("AI_ROUTER_MODEL_3_NAME", "Grok"),
-            model_id=os.getenv("AI_ROUTER_MODEL_3_ID", "global.xai.grok-4.6"),
+            model_id=os.getenv("AI_ROUTER_MODEL_3_ID", "global.xai.grok-4.7"),
             responsibility="Differently-trained second opinion (xAI Grok) that pressure-tests edge cases and fills remaining gaps.",
         ),
     ]

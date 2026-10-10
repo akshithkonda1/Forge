@@ -98,7 +98,7 @@ When the flag is on, the roster is:
 
 - starts with Claude Sonnet 4.6,
 - escalates to Claude Opus 4.7 if no answer arrives within the configured SLA window,
-- escalates again to Grok 4.6 (`global.xai.grok-4.6`) if needed,
+- escalates again to Grok 4.7 (`global.xai.grok-4.7`) if needed,
 - activates more models immediately as `packageSizeBytes` grows toward the 10 GB cap.
 
 **Grok 4.6 is on Amazon Bedrock** (official
@@ -175,7 +175,7 @@ Defaults:
 
 - Default start model / Slot 1: `anthropic.claude-sonnet-4-6`
 - Slot 2: `anthropic.claude-opus-4-7`
-- Slot 3 fallback: `global.xai.grok-4.6`
+- Slot 3 fallback: `global.xai.grok-4.7`
 
 The three slots are configurable with `AI_ROUTER_MODEL_{1,2,3}_ID` / `_NAME`
 and default to the ids above. Those env vars are inert while Bedrock is
