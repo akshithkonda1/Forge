@@ -294,9 +294,9 @@ variable "ai_router_model_2_name" {
 variable "ai_router_model_3_id" {
   description = <<-EOT
     Bedrock model id for the AI router's third slot. Empty keeps the Lambda
-    fallback global.xai.grok-4.6 — the Grok 4.6 Global CRIS id on
-    bedrock-runtime (official model card; US Geo is us.xai.grok-4.6; mantle
-    in-Region id is xai.grok-4.6). Inert while aria_bedrock_enabled is false.
+    fallback global.xai.grok-4.7 — the Grok 4.7 Global CRIS id on
+    bedrock-runtime (US Geo is us.xai.grok-4.7; the same model Scout uses).
+    Inert while aria_bedrock_enabled is false.
     Do not set Grok 4.3 here (mantle In-Region only). A name that disagrees
     with the id is worse than no name.
   EOT

@@ -59,19 +59,19 @@ tags = {
 # Router slots. Leave unset to keep ai_router.default_models() fallbacks:
 #   1 anthropic.claude-sonnet-4-6  / Claude Sonnet 4.6
 #   2 anthropic.claude-opus-4-7    / Claude Opus 4.7
-#   3 global.xai.grok-4.6          / Grok
+#   3 global.xai.grok-4.7          / Grok
 # After greenlight, a Claude 5 swap is env/tfvars only (IAM already allows
 # anthropic.*). Runtime in us-east-1 wants CRIS ids, not bare foundation ids:
 #   us.anthropic.claude-sonnet-5 / us.anthropic.claude-opus-5
 #   (or global.anthropic.claude-sonnet-5 / global.anthropic.claude-opus-5)
-# US-only Grok residency would be us.xai.grok-4.6. Do not put Grok 4.3 here.
+# US-only Grok residency would be us.xai.grok-4.7. Do not put Grok 4.3 here.
 # Set id and name together; a name that disagrees with the id is worse than
 # no name.
 # ai_router_model_1_id   = "anthropic.claude-sonnet-4-6"
 # ai_router_model_1_name = "Claude Sonnet 4.6"
 # ai_router_model_2_id   = "anthropic.claude-opus-4-7"
 # ai_router_model_2_name = "Claude Opus 4.7"
-# ai_router_model_3_id   = "global.xai.grok-4.6"
+# ai_router_model_3_id   = "global.xai.grok-4.7"
 # ai_router_model_3_name = "Grok"
 #
 # Spend guard is on by default ($25/mo). First two AWS Budgets are free.

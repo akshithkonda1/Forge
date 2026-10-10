@@ -96,7 +96,7 @@ class AIRouterTests(unittest.TestCase):
             responses={
                 "anthropic.claude-sonnet-4-6": {"delay": 0.25, "answer": "late sonnet answer"},
                 "anthropic.claude-opus-4-7": {"delay": 0.01, "answer": "opus fallback answer"},
-                "global.xai.grok-4.6": {"delay": 0.01, "answer": "grok answer"},
+                "global.xai.grok-4.7": {"delay": 0.01, "answer": "grok answer"},
             },
             consensus_answer="consensus from sonnet and opus",
         )
@@ -129,7 +129,7 @@ class AIRouterTests(unittest.TestCase):
             responses={
                 "anthropic.claude-sonnet-4-6": {"delay": 0.1, "answer": "sonnet answer"},
                 "anthropic.claude-opus-4-7": {"delay": 0.05, "answer": "opus answer"},
-                "global.xai.grok-4.6": {"delay": 0.08, "answer": "grok answer"},
+                "global.xai.grok-4.7": {"delay": 0.08, "answer": "grok answer"},
             },
             consensus_answer="consensus from all three models",
         )
@@ -192,7 +192,7 @@ class AIRouterTests(unittest.TestCase):
             responses={
                 "anthropic.claude-sonnet-4-6": {"delay": 0.01, "answer": "answer"},
                 "anthropic.claude-opus-4-7": {"delay": 0.01, "answer": "backup"},
-                "global.xai.grok-4.6": {"delay": 0.01, "answer": "backup 2"},
+                "global.xai.grok-4.7": {"delay": 0.01, "answer": "backup 2"},
             },
             previews={
                 "private/user/metrics.txt": "resting HR 52, HRV 71, sleep efficiency 92%",
@@ -229,7 +229,7 @@ class AIRouterTests(unittest.TestCase):
             responses={
                 "anthropic.claude-sonnet-4-6": {"delay": 0.04, "answer": "sonnet answer"},
                 "anthropic.claude-opus-4-7": {"delay": 0.01, "answer": "opus answer"},
-                "global.xai.grok-4.6": {"delay": 0.01, "answer": "grok answer"},
+                "global.xai.grok-4.7": {"delay": 0.01, "answer": "grok answer"},
             },
             consensus_answer="",
         )
@@ -257,7 +257,7 @@ class AIRouterTests(unittest.TestCase):
             responses={
                 "anthropic.claude-sonnet-4-6": {"delay": 0.35, "answer": "sonnet answer"},
                 "anthropic.claude-opus-4-7": {"delay": 0.01, "answer": "opus answer"},
-                "global.xai.grok-4.6": {"delay": 0.01, "answer": "grok answer"},
+                "global.xai.grok-4.7": {"delay": 0.01, "answer": "grok answer"},
             },
             consensus_answer="should not be used",
         )
@@ -287,7 +287,7 @@ class AIRouterTests(unittest.TestCase):
             responses={
                 "anthropic.claude-sonnet-4-6": {"delay": 0.01, "answer": "answer"},
                 "anthropic.claude-opus-4-7": {"delay": 0.01, "answer": "backup"},
-                "global.xai.grok-4.6": {"delay": 0.01, "answer": "backup 2"},
+                "global.xai.grok-4.7": {"delay": 0.01, "answer": "backup 2"},
             },
             preview_errors={
                 "private/user/metrics.txt": "missing key",
@@ -317,7 +317,7 @@ class AIRouterTests(unittest.TestCase):
             responses={
                 "anthropic.claude-sonnet-4-6": {"delay": 0.04, "answer": "sonnet answer"},
                 "anthropic.claude-opus-4-7": {"delay": 0.02, "answer": "opus answer"},
-                "global.xai.grok-4.6": {"delay": 0.03, "answer": "grok answer"},
+                "global.xai.grok-4.7": {"delay": 0.03, "answer": "grok answer"},
             },
             consensus_answer="consensus from inferred size",
             head_sizes={
@@ -355,7 +355,7 @@ class AIRouterTests(unittest.TestCase):
             responses={
                 "anthropic.claude-sonnet-4-6": {"delay": 0.01, "answer": "answer"},
                 "anthropic.claude-opus-4-7": {"delay": 0.01, "answer": "backup"},
-                "global.xai.grok-4.6": {"delay": 0.01, "answer": "backup 2"},
+                "global.xai.grok-4.7": {"delay": 0.01, "answer": "backup 2"},
             },
             head_errors={
                 "private/user/export.csv": "access denied",
@@ -602,7 +602,7 @@ class DefaultModelsEnvTests(unittest.TestCase):
         self.assertEqual(models[0].name, "Claude Sonnet 4.6")
         self.assertEqual(models[1].model_id, "anthropic.claude-opus-4-7")
         self.assertEqual(models[1].name, "Claude Opus 4.7")
-        self.assertEqual(models[2].model_id, "global.xai.grok-4.6")
+        self.assertEqual(models[2].model_id, "global.xai.grok-4.7")
         self.assertEqual(models[2].name, "Grok")
 
     def test_slot_env_overrides_id_and_name(self):

@@ -108,6 +108,7 @@ _CATALOG: list[tuple] = [
     # xAI — Grok is the id ai_router.py actually calls for the third router slot
     # (AI_ROUTER_MODEL_3_ID). ARIA's standing ensemble is the Claude family plus
     # Grok; there is no third vendor.
+    ("global.xai.grok-4.7", "xai", "grok", "frontier", "text", 256000),
     ("global.xai.grok-4.6", "xai", "grok", "frontier", "text", 256000),
     # Stability (image)
     ("stability.stable-image-ultra-v1:0", "stability", "stable-image", "image", "image", None),
