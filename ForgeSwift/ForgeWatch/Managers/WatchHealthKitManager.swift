@@ -43,6 +43,12 @@ final class WatchHealthKitManager {
 
     private(set) var readiness: ReadinessScore?
     private(set) var sleepSummary: SleepNight?
+
+    /// Last night's sleep quality. With no night recorded the calculator's
+    /// sleep figure falls back to the HRV/resting-HR score, which is not sleep.
+    var sleepQuality: Int? {
+        sleepSummary == nil ? nil : readiness?.sleepQuality
+    }
     private(set) var recentNights: [SleepNight] = []
     private(set) var hrvRecentMs: Double?
     private(set) var hrvTrendMs: Double?
@@ -170,7 +176,10 @@ final class WatchHealthKitManager {
         restingHeartRateBaseline = readinessHealth.restingHRBaseline?.mean
 
         // Same reader and same formula as the iPhone's Home number.
-        readiness = ReadinessCalculator.score(from: readinessHealth.inputs())
+        // Nothing measurable (Health skipped, denied, or not synced yet) is
+        // no score, not a red 0 on the complication.
+        let score = ReadinessCalculator.score(from: readinessHealth.inputs())
+        readiness = score.confidence > 0 ? score : nil
         lastRefreshed = Date()
         publishSnapshot()
         startBackgroundObservers()
@@ -202,14 +211,15 @@ final class WatchHealthKitManager {
 
     private func publishSnapshot() {
         // Recommendation fields are owned by ARIAWatchService; only touch ours.
-        let forecast = tomorrowForecast()
+        // No reading today means no basis for tomorrow either.
+        let forecast = readiness == nil ? nil : tomorrowForecast()
         WatchSnapshotStore.update { snapshot in
             snapshot.readinessOverall = readiness?.overall
             snapshot.readinessBand = readiness.map { $0.band }
             snapshot.readinessConfidence = readiness?.confidence
-            snapshot.tomorrowPredictedScore = forecast.predictedScore
-            snapshot.tomorrowPosture = forecast.posture.rawValue
-            snapshot.sleepQualityScore = readiness?.sleepQuality
+            snapshot.tomorrowPredictedScore = forecast?.predictedScore
+            snapshot.tomorrowPosture = forecast?.posture.rawValue
+            snapshot.sleepQualityScore = sleepQuality
             snapshot.sleepMinutes = sleepSummary?.totalMinutes
             snapshot.mindfulMinutesToday = mindfulMinutesToday
             snapshot.tonightWindDown = windDownPlan?.windDownStart
@@ -337,15 +347,15 @@ final class WatchHealthKitManager {
         var context = WatchARIAContext()
         context.readinessOverall = readiness?.overall
         context.readinessConfidence = readiness?.confidence
-        let forecast = tomorrowForecast()
-        context.tomorrowPredictedScore = forecast.predictedScore
-        context.tomorrowPosture = forecast.posture.rawValue
+        let forecast = readiness == nil ? nil : tomorrowForecast()
+        context.tomorrowPredictedScore = forecast?.predictedScore
+        context.tomorrowPosture = forecast?.posture.rawValue
         context.hrvRecentMs = hrvRecentMs
         context.hrvTrendMs = hrvTrendMs
         context.sleepMinutes = sleepSummary?.totalMinutes
         context.deepSleepMinutes = sleepSummary?.deepMinutes
         context.remSleepMinutes = sleepSummary?.remMinutes
-        context.sleepQualityScore = readiness?.sleepQuality
+        context.sleepQualityScore = sleepQuality
         context.lifestyleMode = mode
         context.minutesInCurrentMode = minutesInMode
         context.lifestyleProfile = profile

@@ -967,11 +967,20 @@ extension AppStore {
         HealthKitSleepService.shared.rememberSleepSignals(from: sleepData)
         invalidatePredictiveCoachPicture()
         Task { await SleepAlarmScheduler.sync(ForgeAlarmStore.shared.alarms) }
-        if let latest = sleepData.first {
+        // Only last night counts toward today. After a night without the
+        // watch the newest entry can be days old, and that is not today's sleep.
+        if let latest = sleepData.first, Self.isLastNight(latest) {
             dailyMetrics.totalSleep = Int(latest.totalHours * 60)
             dailyMetrics.deepSleep = latest.deepMinutes
             recalculateReadiness()
         }
+    }
+
+    /// Keyed by bedtime (yesterday) or by wake day (today): either is last night.
+    static func isLastNight(_ sleep: SleepData, now: Date = Date(), calendar: Calendar = .current) -> Bool {
+        guard let night = HomeTrendSeries.nightKey(for: sleep, calendar: calendar),
+              let yesterday = HomeTrendSeries.lastNight(now: now, calendar: calendar) else { return false }
+        return night >= yesterday && night <= calendar.startOfDay(for: now)
     }
 
     func addSleepData(_ sleep: SleepData) {
