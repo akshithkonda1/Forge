@@ -24,6 +24,9 @@ final class OnboardingCoordinator {
     var skipPrepHold = false
     var prepWorkOverride: (() async -> Void)?
     var showAgeBlocked = false
+    /// After the age block, the composer shows the birthday field. `.details`
+    /// normalizes onto Health, so the step alone can never reach it.
+    var isReviewingBirthday = false
     var showingEducationalCyclePrompt = false
     private var hasStarted = false
 
@@ -89,6 +92,7 @@ final class OnboardingCoordinator {
         FDS.haptic(.light)
         step = AriaInterviewStep(prev)
         freeText = ""
+        saveDraft()
         ariaOrbState = .listening
         Task {
             let line = AriaInterviewVoice.prompt(
@@ -135,6 +139,13 @@ final class OnboardingCoordinator {
         hasStarted = true
         seedFromSignUpDraft()
         refreshNestPermissionStates()
+        draftOwnerId = store.persistenceUserId()
+        if let resumed = restoreDraft() {
+            step = resumed
+            if isUnderage { showAgeBlocked = true }
+            Task { await advanceTo(resumed) }
+            return
+        }
         step = AriaInterviewStep(OnboardingGraph.normalized(step.graph))
         Task { await runIntro() }
     }
@@ -144,6 +155,7 @@ final class OnboardingCoordinator {
     func resumePrep(in store: AppStore) {
         guard !isPrepping else { return }
         hasStarted = true
+        clearDraft()
         isCompleting = true
         isPrepping = true
         interruptInterviewVoice()
@@ -180,6 +192,7 @@ final class OnboardingCoordinator {
     private func advanceTo(_ next: AriaInterviewStep) async {
         step = next
         freeText = ""
+        saveDraft()
         let line = AriaInterviewVoice.prompt(
             next,
             profile: profile,
@@ -973,6 +986,7 @@ final class OnboardingCoordinator {
 
         store.userProfile = profile.toCoreProfile()
         store.markOnboardingInterviewComplete()
+        clearDraft()
         // Seed the Train suggestion box from this conversation: the weekly
         // split becomes day-one predictions, "rotate for me" hands ARIA the
         // week, and named sports become the sports shelf.
@@ -1088,8 +1102,29 @@ final class OnboardingCoordinator {
         isPrepping = false
     }
 
+    /// "Review birthday" — closes the block and swaps the composer to the
+    /// birthday field so the Health-prefilled date can be corrected.
     func resetAfterAgeBlock() {
+        interruptInterviewVoice()
+        isReviewingBirthday = true
         withAnimation(FDS.Spring.hero) { showAgeBlocked = false }
+    }
+
+    /// Confirm from the birthday review. Still under 13 re-shows the block;
+    /// 13+ returns to the current beat (`isUnderage` is derived, so it clears).
+    func confirmBirthdayReview() {
+        guard isReviewingBirthday else { return }
+        if isUnderage {
+            FDS.notificationHaptic(.warning)
+            withAnimation(FDS.Spring.hero) { showAgeBlocked = true }
+            return
+        }
+        guard profile.hasBirthday else { return }
+        profile.healthSourcedFields.remove(.birthday)
+        FDS.haptic(.light)
+        isReviewingBirthday = false
+        syncPartialContext()
+        saveDraft()
     }
 
     func devSkipToEnd(in store: AppStore) {
@@ -1289,6 +1324,50 @@ final class OnboardingCoordinator {
         if messages.count > cap {
             messages.removeFirst(messages.count - cap)
         }
+    }
+
+    // MARK: - Draft (resume after the app is killed mid-interview)
+
+    /// Versioned: a profile shape change bumps this, and the old draft is
+    /// simply never read. Keychain (this device only), like the finished
+    /// profile — birthday, body and conditions never land in UserDefaults.
+    private static let draftKey = "forge.onboarding.draft.v1"
+    private let draftStore: SecureStore = KeychainStore()
+    /// Set in `startIfNeeded`. Nil (tests, previews) never restores or saves.
+    private var draftOwnerId: String?
+
+    /// Step + answers only. Health / Calendar / Contacts / Reminders
+    /// permission state is re-read from the system, never stored here.
+    private struct Draft: Codable {
+        var ownerId: String
+        var step: Int
+        var profile: OnboardingProfile
+    }
+
+    private func saveDraft() {
+        guard let owner = draftOwnerId, !isCompleting else { return }
+        let draft = Draft(ownerId: owner, step: step.rawValue, profile: profile)
+        try? draftStore.setValue(draft, forKey: Self.draftKey)
+    }
+
+    /// Restores a draft for the same account. Undecodable, another account's,
+    /// or pre-Name drafts are deleted and the interview starts fresh.
+    private func restoreDraft() -> AriaInterviewStep? {
+        guard let owner = draftOwnerId else { return nil }
+        guard let draft = try? draftStore.value(Draft.self, forKey: Self.draftKey),
+              draft.ownerId == owner,
+              let saved = AriaInterviewStep(rawValue: draft.step),
+              saved != .intro
+        else {
+            clearDraft()
+            return nil
+        }
+        profile = draft.profile
+        return AriaInterviewStep(OnboardingGraph.normalized(saved.graph))
+    }
+
+    private func clearDraft() {
+        try? draftStore.remove(Self.draftKey)
     }
 
     private func syncPartialContext() {
