@@ -599,7 +599,7 @@ class LiveBedrockTests(unittest.TestCase):
         self.assertEqual(resp["confidence"], 0.71)
         self.assertEqual(resp["confidence_reason"], "full sleep + HRV-trend data, signals coherent")
         # recommendation routes to the primary model; reported as the concrete Bedrock id.
-        self.assertEqual(resp["model"], "anthropic.claude-opus-4-8")
+        self.assertEqual(resp["model"], "global.anthropic.claude-opus-5-5")
         # the model received the canonical ARIA system prompt + ground-truth block.
         # It must also carry the security law: this assertion previously required
         # the system prompt to be *exactly* ARIA_SYSTEM_PROMPT, which is how the
@@ -855,7 +855,7 @@ class LiveBedrockDegradeTests(unittest.TestCase):
             "should I train?", full_context(), voice_mode=True, converse=lambda *a: payload)
         self.assertIsNone(resp["card"])
         self.assertEqual(resp["message"], resp["prose_summary"])
-        self.assertEqual(resp["model"], "anthropic.claude-sonnet-4-6")
+        self.assertEqual(resp["model"], "global.anthropic.claude-sonnet-5-5")
 
     def test_live_respects_permissions_in_the_prompt_and_envelope(self):
         captured = {}

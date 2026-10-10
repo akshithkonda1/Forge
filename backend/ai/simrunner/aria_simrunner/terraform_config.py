@@ -26,8 +26,8 @@ import re
 from dataclasses import dataclass
 
 _ROUTER_SLOT_FALLBACKS = {
-    1: ("anthropic.claude-sonnet-4-6", "Claude Sonnet 4.6"),
-    2: ("anthropic.claude-opus-4-7", "Claude Opus 4.7"),
+    1: ("global.anthropic.claude-sonnet-5-5", "Claude Sonnet 5.5"),
+    2: ("global.anthropic.claude-opus-5-5", "Claude Opus 5.5"),
     3: ("global.xai.grok-4.6", "Grok"),
 }
 _ROUTER3_ID_FALLBACK, _ROUTER3_NAME_FALLBACK = _ROUTER_SLOT_FALLBACKS[3]
@@ -351,7 +351,7 @@ def render_text(config: AriaTerraformConfig) -> str:
         "  -> NOT used by /ai/chat -- powers /ai/router and /coach/* only "
         "(a separate 3-slot consensus system SimRunner does not model)",
         "- /ai/chat's actual models are hardcoded in Python, not Terraform-"
-        "configurable: anthropic.claude-opus-4-8 / anthropic.claude-sonnet-4-6 "
+        "configurable: global.anthropic.claude-opus-5-5 / global.anthropic.claude-sonnet-5-5 "
         "(SimRunner's query_router.ROUTING_MODELS already mirrors these)",
     ]
     if not config.variables_tf_found:

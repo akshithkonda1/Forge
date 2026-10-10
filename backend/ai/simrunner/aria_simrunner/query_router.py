@@ -34,14 +34,14 @@ MODEL_ROUTING: dict[str, str] = {
 
 # Concrete Bedrock model backing each routing class (overridable per engine).
 ROUTING_MODELS: dict[str, str] = {
-    "opus": "anthropic.claude-opus-4-8",
-    "sonnet": "anthropic.claude-sonnet-4-6",
+    "opus": "global.anthropic.claude-opus-5-5",
+    "sonnet": "global.anthropic.claude-sonnet-5-5",
 }
 
 
 def resolve_model_id(model_class: str, overrides: dict[str, str] | None = None) -> str:
     """Concrete Bedrock model id for a routing class (e.g. 'opus' ->
-    'anthropic.claude-opus-4-8'). Unknown classes pass through unchanged."""
+    'global.anthropic.claude-opus-5-5'). Unknown classes pass through unchanged."""
     table = {**ROUTING_MODELS, **(overrides or {})}
     return table.get(model_class, model_class)
 
