@@ -6,6 +6,7 @@ import ForgeCore
 /// loses their place. The orb still gets a hero entrance and live amplitude —
 /// premium, but no longer the whole screen.
 struct VoiceOrbOverlay: View {
+    @EnvironmentObject private var store: AppStore
     @ObservedObject var speech:  SpeechManager
     let mood:         ARIAMood
     @Binding var isShowing:      Bool
@@ -60,6 +61,10 @@ struct VoiceOrbOverlay: View {
                     )
                         .scaleEffect(orbRevealed ? 1.0 : 0.7)
                         .opacity(orbRevealed ? 1 : 0)
+                        .contentShape(Circle())
+                        .onTapGesture { handleOrbTap() }
+                        .accessibilityAddTraits(.isButton)
+                        .accessibilityHint(speech.voiceState.sublabel)
                 }
                 .frame(height: 176)
 
@@ -82,6 +87,26 @@ struct VoiceOrbOverlay: View {
                     Text(speech.voiceState.sublabel)
                         .font(FDS.TypeScale.Dynamic.caption)
                         .foregroundColor(.white.opacity(0.5))
+
+                    if speech.authorizationDenied {
+                        Button {
+                            if let url = URL(string: UIApplication.openSettingsURLString) {
+                                UIApplication.shared.open(url)
+                            }
+                        } label: {
+                            HStack(spacing: FDS.Spacing.sm) {
+                                Image(systemName: "gear").font(.system(size: 14, weight: .semibold))
+                                Text("Open Settings").font(FDS.TypeScale.Dynamic.body.weight(.semibold))
+                            }
+                            .foregroundColor(.white)
+                            .padding(.horizontal, FDS.Spacing.xl).padding(.vertical, FDS.Spacing.md)
+                            .background(Capsule().fill(Color.white.opacity(0.14)))
+                            .overlay(Capsule().stroke(Color.white.opacity(0.2), lineWidth: 1))
+                        }
+                        .buttonStyle(ScaleButtonStyle())
+                        .padding(.top, FDS.Spacing.sm)
+                        .accessibilityLabel("Open Settings to allow microphone and speech access")
+                    }
                 }
                 .opacity(contentOpacity)
                 .padding(.top, FDS.Spacing.xs)
@@ -173,6 +198,28 @@ struct VoiceOrbOverlay: View {
                 orbRevealed = true
                 contentOpacity = 1
             }
+        }
+    }
+
+    /// The orb copy promises "Tap to speak" / "Tap to interrupt" / "Try
+    /// again" — this is that tap.
+    private func handleOrbTap() {
+        switch speech.voiceState {
+        case .idle, .error:
+            // Start the way ChatView's mic entry does. A live session that
+            // failed or closed is still marked active, and `start` would only
+            // resume it — end it first so the retry really reconnects.
+            speech.conversationalMood = mood
+            let session = AriaVoiceSession.shared
+            if session.activeTransport?.requiresNetwork == true {
+                session.stop()
+            }
+            session.start(store: store, speech: speech)
+        case .speaking:
+            AriaPresence.shared.stopSpeaking()
+            AriaVoiceSession.shared.markListening()
+        case .listening, .processing:
+            break
         }
     }
 

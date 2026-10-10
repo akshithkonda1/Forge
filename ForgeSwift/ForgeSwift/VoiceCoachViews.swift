@@ -239,6 +239,8 @@ struct AriaSpokenMuteButton: View {
                     RoundedRectangle(cornerRadius: FDS.Radius.sm)
                         .stroke(muted ? Color.danger.opacity(0.4) : Color.borderColor.opacity(0.45), lineWidth: 1)
                 )
+                .frame(minWidth: 44, minHeight: 44)
+                .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
         .accessibilityLabel(muted ? "Unmute ARIA voice" : "Mute ARIA voice")
