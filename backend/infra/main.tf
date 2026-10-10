@@ -150,8 +150,8 @@ data "aws_iam_policy_document" "backend_lambda" {
     # Default is false — this statement is unused on the Dummy-offline and
     # live-API-no-Bedrock paths (no token spend while the flag stays off).
     #
-    # Anthropic wildcards cover current code defaults (Sonnet 4.6 / Opus 4.7 /
-    # Opus 4.8) and a later Sonnet 5 / Opus 5 swap without rewriting IAM.
+    # Anthropic wildcards cover the code defaults (Sonnet 5.5 / Opus 5.5 via
+    # global.* inference profiles) and any later swap without rewriting IAM.
     # xAI wildcards cover Grok 4.6 CRIS (us.xai.* / global.xai.*) on
     # bedrock-runtime. Grok 4.3 is mantle In-Region only; this runtime client
     # does not use it. project/default is on the Grok 4.6 card for runtime
@@ -554,12 +554,12 @@ resource "aws_lambda_function" "backend" {
       # Router slots. Passing "" would override ai_router.py's default with an
       # empty model id, so an unset variable falls back to the code default.
       # Inert while ARIA_BEDROCK_ENABLED is false. Slot 1/2 ids match
-      # ai_router.default_models(); slot 3 is Grok 4.6 Global CRIS.
-      # Later Claude 5 swaps are tfvars/env only — IAM already allows anthropic.*.
-      AI_ROUTER_MODEL_1_ID   = var.ai_router_model_1_id != "" ? var.ai_router_model_1_id : "anthropic.claude-sonnet-4-6"
-      AI_ROUTER_MODEL_1_NAME = var.ai_router_model_1_name != "" ? var.ai_router_model_1_name : "Claude Sonnet 4.6"
-      AI_ROUTER_MODEL_2_ID   = var.ai_router_model_2_id != "" ? var.ai_router_model_2_id : "anthropic.claude-opus-4-7"
-      AI_ROUTER_MODEL_2_NAME = var.ai_router_model_2_name != "" ? var.ai_router_model_2_name : "Claude Opus 4.7"
+      # ai_router.default_models() (Claude Sonnet 5.5 / Opus 5.5 Global CRIS);
+      # slot 3 is Grok 4.6 Global CRIS. IAM already allows anthropic.* profiles.
+      AI_ROUTER_MODEL_1_ID   = var.ai_router_model_1_id != "" ? var.ai_router_model_1_id : "global.anthropic.claude-sonnet-5-5"
+      AI_ROUTER_MODEL_1_NAME = var.ai_router_model_1_name != "" ? var.ai_router_model_1_name : "Claude Sonnet 5.5"
+      AI_ROUTER_MODEL_2_ID   = var.ai_router_model_2_id != "" ? var.ai_router_model_2_id : "global.anthropic.claude-opus-5-5"
+      AI_ROUTER_MODEL_2_NAME = var.ai_router_model_2_name != "" ? var.ai_router_model_2_name : "Claude Opus 5.5"
       AI_ROUTER_MODEL_3_ID   = var.ai_router_model_3_id != "" ? var.ai_router_model_3_id : "global.xai.grok-4.6"
       AI_ROUTER_MODEL_3_NAME = var.ai_router_model_3_name != "" ? var.ai_router_model_3_name : "Grok"
       UPLOADS_BUCKET_NAME    = aws_s3_bucket.uploads.bucket

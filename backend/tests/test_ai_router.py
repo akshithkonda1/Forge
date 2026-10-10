@@ -94,8 +94,8 @@ class AIRouterTests(unittest.TestCase):
     def test_router_escalates_to_second_model_after_primary_timeout(self):
         gateway = FakeGateway(
             responses={
-                "anthropic.claude-sonnet-4-6": {"delay": 0.25, "answer": "late sonnet answer"},
-                "anthropic.claude-opus-4-7": {"delay": 0.01, "answer": "opus fallback answer"},
+                "global.anthropic.claude-sonnet-5-5": {"delay": 0.25, "answer": "late sonnet answer"},
+                "global.anthropic.claude-opus-5-5": {"delay": 0.01, "answer": "opus fallback answer"},
                 "global.xai.grok-4.6": {"delay": 0.01, "answer": "grok answer"},
             },
             consensus_answer="consensus from sonnet and opus",
@@ -127,8 +127,8 @@ class AIRouterTests(unittest.TestCase):
     def test_large_package_starts_three_models_immediately(self):
         gateway = FakeGateway(
             responses={
-                "anthropic.claude-sonnet-4-6": {"delay": 0.1, "answer": "sonnet answer"},
-                "anthropic.claude-opus-4-7": {"delay": 0.05, "answer": "opus answer"},
+                "global.anthropic.claude-sonnet-5-5": {"delay": 0.1, "answer": "sonnet answer"},
+                "global.anthropic.claude-opus-5-5": {"delay": 0.05, "answer": "opus answer"},
                 "global.xai.grok-4.6": {"delay": 0.08, "answer": "grok answer"},
             },
             consensus_answer="consensus from all three models",
@@ -190,8 +190,8 @@ class AIRouterTests(unittest.TestCase):
     def test_router_uses_s3_preview_when_inline_preview_is_missing(self):
         gateway = FakeGateway(
             responses={
-                "anthropic.claude-sonnet-4-6": {"delay": 0.01, "answer": "answer"},
-                "anthropic.claude-opus-4-7": {"delay": 0.01, "answer": "backup"},
+                "global.anthropic.claude-sonnet-5-5": {"delay": 0.01, "answer": "answer"},
+                "global.anthropic.claude-opus-5-5": {"delay": 0.01, "answer": "backup"},
                 "global.xai.grok-4.6": {"delay": 0.01, "answer": "backup 2"},
             },
             previews={
@@ -227,8 +227,8 @@ class AIRouterTests(unittest.TestCase):
     def test_router_falls_back_to_fastest_successful_answer_if_consensus_fails(self):
         gateway = FakeGateway(
             responses={
-                "anthropic.claude-sonnet-4-6": {"delay": 0.04, "answer": "sonnet answer"},
-                "anthropic.claude-opus-4-7": {"delay": 0.01, "answer": "opus answer"},
+                "global.anthropic.claude-sonnet-5-5": {"delay": 0.04, "answer": "sonnet answer"},
+                "global.anthropic.claude-opus-5-5": {"delay": 0.01, "answer": "opus answer"},
                 "global.xai.grok-4.6": {"delay": 0.01, "answer": "grok answer"},
             },
             consensus_answer="",
@@ -255,8 +255,8 @@ class AIRouterTests(unittest.TestCase):
     def test_router_skips_consensus_when_remaining_budget_is_too_small(self):
         gateway = FakeGateway(
             responses={
-                "anthropic.claude-sonnet-4-6": {"delay": 0.35, "answer": "sonnet answer"},
-                "anthropic.claude-opus-4-7": {"delay": 0.01, "answer": "opus answer"},
+                "global.anthropic.claude-sonnet-5-5": {"delay": 0.35, "answer": "sonnet answer"},
+                "global.anthropic.claude-opus-5-5": {"delay": 0.01, "answer": "opus answer"},
                 "global.xai.grok-4.6": {"delay": 0.01, "answer": "grok answer"},
             },
             consensus_answer="should not be used",
@@ -285,8 +285,8 @@ class AIRouterTests(unittest.TestCase):
     def test_router_degrades_gracefully_when_s3_preview_load_fails(self):
         gateway = FakeGateway(
             responses={
-                "anthropic.claude-sonnet-4-6": {"delay": 0.01, "answer": "answer"},
-                "anthropic.claude-opus-4-7": {"delay": 0.01, "answer": "backup"},
+                "global.anthropic.claude-sonnet-5-5": {"delay": 0.01, "answer": "answer"},
+                "global.anthropic.claude-opus-5-5": {"delay": 0.01, "answer": "backup"},
                 "global.xai.grok-4.6": {"delay": 0.01, "answer": "backup 2"},
             },
             preview_errors={
@@ -315,8 +315,8 @@ class AIRouterTests(unittest.TestCase):
     def test_router_uses_head_object_size_to_scale_initial_fanout(self):
         gateway = FakeGateway(
             responses={
-                "anthropic.claude-sonnet-4-6": {"delay": 0.04, "answer": "sonnet answer"},
-                "anthropic.claude-opus-4-7": {"delay": 0.02, "answer": "opus answer"},
+                "global.anthropic.claude-sonnet-5-5": {"delay": 0.04, "answer": "sonnet answer"},
+                "global.anthropic.claude-opus-5-5": {"delay": 0.02, "answer": "opus answer"},
                 "global.xai.grok-4.6": {"delay": 0.03, "answer": "grok answer"},
             },
             consensus_answer="consensus from inferred size",
@@ -353,8 +353,8 @@ class AIRouterTests(unittest.TestCase):
     def test_router_warns_when_s3_object_size_inference_fails(self):
         gateway = FakeGateway(
             responses={
-                "anthropic.claude-sonnet-4-6": {"delay": 0.01, "answer": "answer"},
-                "anthropic.claude-opus-4-7": {"delay": 0.01, "answer": "backup"},
+                "global.anthropic.claude-sonnet-5-5": {"delay": 0.01, "answer": "answer"},
+                "global.anthropic.claude-opus-5-5": {"delay": 0.01, "answer": "backup"},
                 "global.xai.grok-4.6": {"delay": 0.01, "answer": "backup 2"},
             },
             head_errors={
@@ -435,11 +435,11 @@ class AnswerAgreementTests(unittest.TestCase):
     def test_route_surfaces_high_agreement_on_a_2_model_consensus(self):
         gateway = FakeGateway(
             responses={
-                "anthropic.claude-sonnet-4-6": {
+                "global.anthropic.claude-sonnet-5-5": {
                     "delay": 0.01,
                     "answer": "Readiness is 72 today. Train at moderate intensity and protect sleep.",
                 },
-                "anthropic.claude-opus-4-7": {
+                "global.anthropic.claude-opus-5-5": {
                     "delay": 0.01,
                     "answer": "Readiness sits at 72 right now. Keep training moderate and protect sleep tonight.",
                 },
@@ -464,11 +464,11 @@ class AnswerAgreementTests(unittest.TestCase):
     def test_route_flags_low_agreement_between_sharply_different_answers(self):
         gateway = FakeGateway(
             responses={
-                "anthropic.claude-sonnet-4-6": {
+                "global.anthropic.claude-sonnet-5-5": {
                     "delay": 0.01,
                     "answer": "Readiness is 72 today. Train at moderate intensity and protect sleep.",
                 },
-                "anthropic.claude-opus-4-7": {
+                "global.anthropic.claude-opus-5-5": {
                     "delay": 0.01,
                     "answer": "I would need your destination and travel dates to plan that itinerary.",
                 },
@@ -492,7 +492,7 @@ class AnswerAgreementTests(unittest.TestCase):
 
     def test_single_model_route_reports_agreement_as_not_applicable(self):
         gateway = FakeGateway(
-            responses={"anthropic.claude-sonnet-4-6": {"delay": 0.01, "answer": "Readiness is 72."}},
+            responses={"global.anthropic.claude-sonnet-5-5": {"delay": 0.01, "answer": "Readiness is 72."}},
         )
         router = AIRouter(gateway=gateway)
         request = RouteRequest.from_payload(
@@ -598,10 +598,10 @@ class DefaultModelsEnvTests(unittest.TestCase):
 
     def test_code_defaults_match_terraform_fallbacks(self):
         models = default_models()
-        self.assertEqual(models[0].model_id, "anthropic.claude-sonnet-4-6")
-        self.assertEqual(models[0].name, "Claude Sonnet 4.6")
-        self.assertEqual(models[1].model_id, "anthropic.claude-opus-4-7")
-        self.assertEqual(models[1].name, "Claude Opus 4.7")
+        self.assertEqual(models[0].model_id, "global.anthropic.claude-sonnet-5-5")
+        self.assertEqual(models[0].name, "Claude Sonnet 5.5")
+        self.assertEqual(models[1].model_id, "global.anthropic.claude-opus-5-5")
+        self.assertEqual(models[1].name, "Claude Opus 5.5")
         self.assertEqual(models[2].model_id, "global.xai.grok-4.6")
         self.assertEqual(models[2].name, "Grok")
 

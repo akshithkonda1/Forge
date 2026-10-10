@@ -234,10 +234,10 @@ class SlotOneAndTwoTests(unittest.TestCase):
         config = tfc.load(infra_dir=repo_infra)
         self.assertTrue(config.variables_tf_found)
         self.assertTrue(config.main_tf_fallback_pattern_matched)
-        self.assertEqual(config.ai_router_model_1_id_effective, "anthropic.claude-sonnet-4-6")
-        self.assertEqual(config.ai_router_model_1_name_effective, "Claude Sonnet 4.6")
-        self.assertEqual(config.ai_router_model_2_id_effective, "anthropic.claude-opus-4-7")
-        self.assertEqual(config.ai_router_model_2_name_effective, "Claude Opus 4.7")
+        self.assertEqual(config.ai_router_model_1_id_effective, "global.anthropic.claude-sonnet-5-5")
+        self.assertEqual(config.ai_router_model_1_name_effective, "Claude Sonnet 5.5")
+        self.assertEqual(config.ai_router_model_2_id_effective, "global.anthropic.claude-opus-5-5")
+        self.assertEqual(config.ai_router_model_2_name_effective, "Claude Opus 5.5")
         self.assertEqual(config.ai_router_model_3_id_effective, "global.xai.grok-4.6")
         self.assertFalse(config.bedrock_live_for_chat)
 
@@ -246,8 +246,8 @@ class SlotOneAndTwoTests(unittest.TestCase):
             _write(d, "variables.tf", _VARIABLES_TF)
             _write(d, "main.tf", _MAIN_TF)
             config = tfc.load(infra_dir=d)
-        self.assertEqual(config.ai_router_model_1_id_effective, "anthropic.claude-sonnet-4-6")
-        self.assertEqual(config.ai_router_model_2_id_effective, "anthropic.claude-opus-4-7")
+        self.assertEqual(config.ai_router_model_1_id_effective, "global.anthropic.claude-sonnet-5-5")
+        self.assertEqual(config.ai_router_model_2_id_effective, "global.anthropic.claude-opus-5-5")
         self.assertEqual(config.ai_router_model_1_id.source, "not_found")
 
 
