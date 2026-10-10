@@ -713,6 +713,54 @@
     {
       "text": "how was my sleep last night?",
       "band": "coach"
+    },
+    {
+      "text": "my chest is crushing and my left arm is numb",
+      "band": "emergency",
+      "phase": "escalate",
+      "topic": "cardiac",
+      "subject": "self",
+      "voice": "on",
+      "prose": "Call 911 now. Stop what you're doing and sit or lie down somewhere safe. Don't drive yourself, and unlock the door so help can get in."
+    },
+    {
+      "text": "my chest is crushing",
+      "band": "emergency",
+      "phase": "escalate",
+      "topic": "cardiac",
+      "subject": "self",
+      "voice": "on",
+      "prose": "Call 911 now. Stop what you're doing and sit or lie down somewhere safe. Don't drive yourself, and unlock the door so help can get in."
+    },
+    {
+      "text": "there's a squeezing in my chest and I feel clammy",
+      "band": "emergency",
+      "phase": "escalate",
+      "topic": "cardiac",
+      "subject": "self",
+      "voice": "on",
+      "prose": "Call 911 now. Stop what you're doing and sit or lie down somewhere safe. Don't drive yourself, and unlock the door so help can get in."
+    },
+    {
+      "text": "chest feels heavy and my jaw aches",
+      "band": "emergency",
+      "phase": "escalate",
+      "topic": "cardiac",
+      "subject": "self",
+      "voice": "on",
+      "prose": "Call 911 now. Stop what you're doing and sit or lie down somewhere safe. Don't drive yourself, and unlock the door so help can get in."
+    },
+    {
+      "text": "heavy chest day",
+      "band": "coach"
+    },
+    {
+      "text": "squeezing my chest muscles at the top of the fly",
+      "band": "coach"
+    },
+    {
+      "text": "crushing chest day",
+      "band": "coach"
     }
   ],
   "answers": [
