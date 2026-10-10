@@ -31,6 +31,7 @@ let package = Package(
             sources: [
                 "DesignSystem/AriaNestGeometry.swift",
                 "DesignSystem/AriaRingFieldGeometry.swift",
+                "DesignSystem/ForgeDesignTokens.swift",
                 "DesignSystem/ForgeDS.swift",
                 "DesignSystem/ForgePalette.swift",
                 "DesignSystem/StandByNestFaceView.swift",
@@ -154,6 +155,7 @@ let package = Package(
                 "HomeWidgetSleepDisplayTests.swift",
                 "HomeReduceMotionTests.swift",
                 "HomeReadinessTokensTests.swift",
+                "ForgeDesignTokensTests.swift",
                 "HydrationEngineTests.swift",
                 "MindfulnessSuggestionEngineTests.swift",
                 "PartnerInvitePayloadTests.swift",

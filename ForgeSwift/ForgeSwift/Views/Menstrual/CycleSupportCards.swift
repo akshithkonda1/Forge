@@ -42,13 +42,13 @@ struct AddSupportedPersonSheet: View {
     var body: some View {
         NavigationStack {
             ScrollView {
-                VStack(alignment: .leading, spacing: 18) {
+                VStack(alignment: .leading, spacing: FDS.Spacing.lg) {
                     Text("Partner, relative, or parent — including a parent of a minor. Each person is their own. They need an iPhone; invites are iMessage only.")
-                        .font(FDS.TypeScale.body(14))
+                        .font(FDS.TypeScale.Dynamic.body)
                         .foregroundColor(.textSecondary)
                         .fixedSize(horizontal: false, vertical: true)
 
-                    VStack(alignment: .leading, spacing: 8) {
+                    VStack(alignment: .leading, spacing: FDS.Spacing.sm) {
                         Text("WHO")
                             .forgeSectionLabel()
                         ForEach(CycleSupportRole.selectableRoles) { option in
@@ -57,23 +57,23 @@ struct AddSupportedPersonSheet: View {
                                 label = option.suggestedLabels.first ?? label
                                 FDS.selectionHaptic()
                             } label: {
-                                HStack(spacing: 12) {
+                                HStack(spacing: FDS.Spacing.md) {
                                     Image(systemName: option.icon)
                                         .frame(width: 22)
                                     Text(option.label)
-                                        .font(FDS.TypeScale.body(15))
+                                        .font(FDS.TypeScale.Dynamic.body)
                                     Spacer()
                                     if role == option {
                                         Image(systemName: "checkmark.circle.fill")
-                                            .foregroundStyle(Color(hex: "6366F1"))
+                                            .foregroundStyle(Color.indigo)
                                     }
                                 }
                                 .foregroundColor(role == option ? .textPrimary : .textSecondary)
-                                .padding(.horizontal, 14)
-                                .padding(.vertical, 12)
+                                .padding(.horizontal, FDS.Spacing.lg)
+                                .padding(.vertical, FDS.Spacing.md)
                                 .background(
-                                    RoundedRectangle(cornerRadius: 12, style: .continuous)
-                                        .fill(role == option ? Color(hex: "6366F1").opacity(0.12) : Color.surfaceElevated)
+                                    RoundedRectangle(cornerRadius: FDS.Radius.md, style: .continuous)
+                                        .fill(role == option ? Color.indigo.opacity(0.12) : Color.surfaceElevated)
                                 )
                             }
                             .buttonStyle(.plain)
@@ -82,15 +82,13 @@ struct AddSupportedPersonSheet: View {
 
                     TextField(role == .child ? "Name (optional)" : "Name (optional)", text: $name)
                         .textFieldStyle(.plain)
-                        .padding(12)
-                        .background(Color.surfaceElevated)
-                        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                        .padding(FDS.Spacing.md)
+                        .forgeInsetTile(radius: FDS.Radius.md)
 
                     TextField(role == .child ? "Label (daughter / child…)" : "Label (partner / wife…)", text: $label)
                         .textFieldStyle(.plain)
-                        .padding(12)
-                        .background(Color.surfaceElevated)
-                        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                        .padding(FDS.Spacing.md)
+                        .forgeInsetTile(radius: FDS.Radius.md)
 
                     Toggle(isOn: $consent) {
                         Text(role == .child
@@ -98,10 +96,10 @@ struct AddSupportedPersonSheet: View {
                              : "I have their okay to keep notes")
                             .foregroundColor(.textPrimary)
                     }
-                    .tint(Color(hex: "6366F1"))
+                    .tint(Color.indigo)
 
                     Text(CyclePrivacy.partnerExtra)
-                        .font(FDS.TypeScale.body(11))
+                        .font(FDS.TypeScale.Dynamic.caption)
                         .foregroundColor(.textTertiary)
 
                     Button {
@@ -116,16 +114,16 @@ struct AddSupportedPersonSheet: View {
                         dismiss()
                     } label: {
                         Text("Add \(role.shortLabel.lowercased())")
-                            .font(FDS.TypeScale.label(15))
+                            .font(FDS.TypeScale.Dynamic.caption)
                             .foregroundColor(.white)
                             .frame(maxWidth: .infinity)
-                            .padding(.vertical, 15)
-                            .background(Color(hex: "6366F1"))
-                            .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+                            .padding(.vertical, FDS.Spacing.lg)
+                            .background(Color.indigo)
+                            .clipShape(RoundedRectangle(cornerRadius: FDS.Radius.md, style: .continuous))
                     }
                     .buttonStyle(.plain)
                 }
-                .padding(20)
+                .padding(FDS.Spacing.lg)
             }
             .background(Color.background.ignoresSafeArea())
             .navigationTitle("Add someone")
@@ -146,9 +144,9 @@ struct CycleAccuracyExplainerSheet: View {
     var body: some View {
         NavigationStack {
             ScrollView(showsIndicators: false) {
-                VStack(alignment: .leading, spacing: 18) {
+                VStack(alignment: .leading, spacing: FDS.Spacing.lg) {
                     Text("Science behind your estimates")
-                        .font(.system(size: 24, weight: .bold))
+                        .font(FDS.TypeScale.Dynamic.title)
                         .foregroundColor(.textPrimary)
 
                     Text("Evidence-informed lifestyle methods. Personal timing error — not a global accuracy stamp. Forge is a coach, not a clinic.")
@@ -156,22 +154,22 @@ struct CycleAccuracyExplainerSheet: View {
                         .foregroundColor(.textSecondary)
 
                     if let mae = report.maeDays {
-                        VStack(alignment: .leading, spacing: 6) {
+                        VStack(alignment: .leading, spacing: FDS.Spacing.sm) {
                             Text("YOUR PERSONAL SCORE")
-                                .font(.system(size: 11, weight: .bold))
+                                .font(FDS.TypeScale.Dynamic.micro)
                                 .tracking(1.4)
                                 .foregroundColor(.textTertiary)
                             Text(String(format: "Avg ±%.1f days over last %d starts", mae, report.sampleCount))
-                                .font(.system(size: 18, weight: .bold))
+                                .font(FDS.TypeScale.Dynamic.headline)
                                 .foregroundColor(.textPrimary)
                             Text(report.gradeDetail)
                                 .font(.system(size: 13))
                                 .foregroundColor(.textSecondary)
                         }
-                        .padding(16)
+                        .padding(FDS.Spacing.lg)
                         .frame(maxWidth: .infinity, alignment: .leading)
-                        .background(Color(hex: "22C55E").opacity(0.12))
-                        .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+                        .background(Color.vitality.opacity(0.12))
+                        .clipShape(RoundedRectangle(cornerRadius: FDS.Radius.md, style: .continuous))
                     }
 
                     explainerRow("1", "Period episodes", "Group bleeding days into starts (light+ preferred). Reduces false short cycles from lone spotting.")
@@ -183,23 +181,23 @@ struct CycleAccuracyExplainerSheet: View {
                     explainerRow("7", "ARIA understands & evaluates", "ARIA critiques data quality (sparse, noisy, conflicts) then teaches next steps — numbers stay engine-owned.")
 
                     Text("Sexual health (lifestyle)")
-                        .font(.system(size: 16, weight: .bold))
+                        .font(FDS.TypeScale.Dynamic.headline)
                         .foregroundColor(.textPrimary)
-                        .padding(.top, 8)
+                        .padding(.top, FDS.Spacing.sm)
                     Text("ARIA may discuss contraception options and sexual-health materials as lifestyle education when relevant. Forge cycle tracking itself is not a contraceptive method and is not a substitute for clinician-guided birth control.")
                         .font(.system(size: 13))
                         .foregroundColor(.textSecondary)
 
                     Text(CyclePrivacy.shortPromise)
-                        .font(.system(size: 12, weight: .medium))
-                        .foregroundColor(Color(hex: "22C55E"))
-                        .padding(.top, 4)
+                        .font(FDS.TypeScale.Dynamic.caption)
+                        .foregroundColor(Color.vitality)
+                        .padding(.top, FDS.Spacing.xs)
 
                     Text(MenstrualCycleEngine.disclaimer)
-                        .font(.system(size: 12, weight: .medium))
+                        .font(FDS.TypeScale.Dynamic.caption)
                         .foregroundColor(.textMuted)
                 }
-                .padding(20)
+                .padding(FDS.Spacing.lg)
             }
             .background(Color.background.ignoresSafeArea())
             .toolbar {
@@ -213,16 +211,16 @@ struct CycleAccuracyExplainerSheet: View {
     }
 
     private func explainerRow(_ n: String, _ title: String, _ body: String) -> some View {
-        HStack(alignment: .top, spacing: 12) {
+        HStack(alignment: .top, spacing: FDS.Spacing.md) {
             Text(n)
-                .font(.system(size: 14, weight: .black, design: .rounded))
+                .font(FDS.TypeScale.Dynamic.body.weight(.semibold))
                 .foregroundColor(.ember)
                 .frame(width: 28, height: 28)
                 .background(Color.ember.opacity(0.15))
                 .clipShape(Circle())
-            VStack(alignment: .leading, spacing: 4) {
+            VStack(alignment: .leading, spacing: FDS.Spacing.xs) {
                 Text(title)
-                    .font(.system(size: 15, weight: .bold))
+                    .font(FDS.TypeScale.Dynamic.body.weight(.semibold))
                     .foregroundColor(.textPrimary)
                 Text(body)
                     .font(.system(size: 13))
@@ -238,28 +236,28 @@ struct SexualHealthEntryCard: View {
     @State private var showDifficultyGuide = false
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
+        VStack(alignment: .leading, spacing: FDS.Spacing.md) {
             Text("SEXUAL HEALTH & INTIMACY")
-                .font(FDS.TypeScale.label(11))
+                .font(FDS.TypeScale.Dynamic.caption)
                 .foregroundColor(.textTertiary)
                 .tracking(0.8)
 
             Text("Healthy sex, safe sex, positions, period sex, and how a partner can actually help — on this iPhone. Forge is not a contraceptive.")
-                .font(FDS.TypeScale.body(11))
+                .font(FDS.TypeScale.Dynamic.caption)
                 .foregroundColor(.textTertiary)
 
-            VStack(spacing: 8) {
+            VStack(spacing: FDS.Spacing.sm) {
                 ForEach(IntimacyFlow.allCases) { flow in
                     entryButton(flow)
                 }
             }
 
             Text(SexualHealthCurriculum.medicalDisclaimer)
-                .font(FDS.TypeScale.micro(10))
+                .font(FDS.TypeScale.Dynamic.micro)
                 .foregroundColor(.textTertiary)
                 .padding(.top, 2)
         }
-        .padding(16)
+        .padding(FDS.Spacing.lg)
         .forgeGlassCard(accent: Color(hex: "EC4899"))
         .sheet(isPresented: $showDifficultyGuide) {
             DifficultyConceivingGuideView {
@@ -277,17 +275,17 @@ struct SexualHealthEntryCard: View {
                 startFlow(flow)
             }
         } label: {
-            HStack(spacing: 12) {
+            HStack(spacing: FDS.Spacing.md) {
                 Image(systemName: flow.icon)
                     .font(.system(size: 15))
                     .foregroundColor(.ember)
                     .frame(width: 28)
                 VStack(alignment: .leading, spacing: 2) {
                     Text(flow.label)
-                        .font(FDS.TypeScale.label(14))
+                        .font(FDS.TypeScale.Dynamic.caption)
                         .foregroundColor(.textPrimary)
                     Text(flow.subtitle)
-                        .font(FDS.TypeScale.body(11))
+                        .font(FDS.TypeScale.Dynamic.caption)
                         .foregroundColor(.textTertiary)
                 }
                 Spacer()
@@ -295,10 +293,9 @@ struct SexualHealthEntryCard: View {
                     .font(.system(size: 11, weight: .semibold))
                     .foregroundColor(.textTertiary)
             }
-            .padding(.horizontal, 12)
-            .padding(.vertical, 10)
-            .background(Color.surfaceElevated)
-            .clipShape(RoundedRectangle(cornerRadius: FDS.Radius.sm, style: .continuous))
+            .padding(.horizontal, FDS.Spacing.md)
+            .padding(.vertical, FDS.Spacing.md)
+            .forgeInsetTile(radius: FDS.Radius.sm)
         }
         .buttonStyle(.plain)
         .accessibilityHint(flow.opensChat ? "Opens ARIA" : "Opens a guide")
@@ -321,9 +318,9 @@ struct CycleNotificationSettingsCard: View {
     @ObservedObject var cycleStore: MenstrualHealthStore
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
+        VStack(alignment: .leading, spacing: FDS.Spacing.md) {
             Text("NOTIFICATIONS")
-                .font(FDS.TypeScale.label(12))
+                .font(FDS.TypeScale.Dynamic.caption)
                 .foregroundColor(.textSecondary)
                 .tracking(0.8)
 
@@ -340,13 +337,13 @@ struct CycleNotificationSettingsCard: View {
 
                 if cycleStore.settings.bbtReminderEnabled {
                     Divider().padding(.leading, 40)
-                    HStack(spacing: 10) {
+                    HStack(spacing: FDS.Spacing.md) {
                         Image(systemName: "clock")
                             .font(.subheadline)
                             .foregroundColor(.ember)
                             .frame(width: 28)
                         Text("Reminder time")
-                            .font(FDS.TypeScale.body(14))
+                            .font(FDS.TypeScale.Dynamic.body)
                             .foregroundColor(.textPrimary)
                         Spacer()
                         Picker("Hour", selection: Binding(
@@ -360,8 +357,8 @@ struct CycleNotificationSettingsCard: View {
                         .pickerStyle(.menu)
                         .tint(.ember)
                     }
-                    .padding(.horizontal, 12)
-                    .padding(.vertical, 10)
+                    .padding(.horizontal, FDS.Spacing.md)
+                    .padding(.vertical, FDS.Spacing.md)
                 }
 
                 Divider().padding(.leading, 40)
@@ -386,24 +383,23 @@ struct CycleNotificationSettingsCard: View {
                     )
                 )
             }
-            .background(Color.surfaceElevated)
-            .clipShape(RoundedRectangle(cornerRadius: FDS.Radius.md, style: .continuous))
+            .forgeInsetTile(radius: FDS.Radius.md)
         }
     }
 
     @ViewBuilder
     private func notifRow(icon: String, title: String, subtitle: String, isOn: Binding<Bool>) -> some View {
-        HStack(spacing: 10) {
+        HStack(spacing: FDS.Spacing.md) {
             Image(systemName: icon)
                 .font(.subheadline)
                 .foregroundColor(.ember)
                 .frame(width: 28)
             VStack(alignment: .leading, spacing: 2) {
                 Text(title)
-                    .font(FDS.TypeScale.body(14))
+                    .font(FDS.TypeScale.Dynamic.body)
                     .foregroundColor(.textPrimary)
                 Text(subtitle)
-                    .font(FDS.TypeScale.body(11))
+                    .font(FDS.TypeScale.Dynamic.caption)
                     .foregroundColor(.textTertiary)
             }
             Spacer()
@@ -411,7 +407,7 @@ struct CycleNotificationSettingsCard: View {
                 .tint(.ember)
                 .labelsHidden()
         }
-        .padding(.horizontal, 12)
-        .padding(.vertical, 10)
+        .padding(.horizontal, FDS.Spacing.md)
+        .padding(.vertical, FDS.Spacing.md)
     }
 }

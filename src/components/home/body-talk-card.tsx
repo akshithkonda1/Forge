@@ -8,10 +8,10 @@ export function BodyTalkCard() {
       className="rounded-2xl bg-surface p-5"
       aria-labelledby="body-talk-heading"
     >
-      <p className="text-xs font-medium uppercase tracking-wider text-text-tertiary">
+      <p className="type-eyebrow">
         What Forge reads
       </p>
-      <h2 id="body-talk-heading" className="mt-1 text-lg font-semibold text-text-primary">
+      <h2 id="body-talk-heading" className="mt-1 type-headline text-text-primary">
         {TRANSLATION_TAGLINE}
       </h2>
       <p className="mt-2 text-sm leading-relaxed text-text-secondary">
@@ -26,7 +26,7 @@ export function BodyTalkCard() {
             className="rounded-xl bg-surface-elevated px-3 py-3"
             data-pillar={pillar.id}
           >
-            <h3 className="text-sm font-semibold text-text-primary">{pillar.title}</h3>
+            <h3 className="type-caption text-text-primary">{pillar.title}</h3>
             <ul className="mt-2 space-y-1">
               {pillar.bullets.map((bullet) => (
                 <li key={bullet} className="text-xs leading-snug text-text-secondary">

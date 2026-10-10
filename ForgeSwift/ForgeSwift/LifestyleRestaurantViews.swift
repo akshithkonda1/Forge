@@ -96,32 +96,32 @@ struct ScannedFoodConfirmSheet: View {
     var onDismiss: () -> Void
 
     var body: some View {
-        VStack(spacing: 18) {
-            Capsule().fill(Color.borderColor).frame(width: 40, height: 5).padding(.top, 10)
+        VStack(spacing: FDS.Spacing.lg) {
+            Capsule().fill(Color.borderColor).frame(width: 40, height: 5).padding(.top, FDS.Spacing.md)
 
             if food.found {
                 Image(systemName: "checkmark.seal.fill").font(.system(size: 40)).foregroundColor(.success)
                 Text(food.name)
-                    .font(.system(size: 18, weight: .bold)).foregroundColor(.textPrimary)
-                    .multilineTextAlignment(.center).padding(.horizontal, 20)
+                    .font(FDS.TypeScale.Dynamic.headline).foregroundColor(.textPrimary)
+                    .multilineTextAlignment(.center).padding(.horizontal, FDS.Spacing.lg)
 
-                HStack(spacing: 10) {
+                HStack(spacing: FDS.Spacing.md) {
                     macroPill("Cal", "\(Int(food.calories))", .ember)
                     macroPill("Protein", "\(Int(food.protein))g", .steel)
-                    macroPill("Carbs", "\(Int(food.carbs))g", Color(hex: "A855F7"))
-                    macroPill("Fat", "\(Int(food.fat))g", Color(hex: "FFB84D"))
+                    macroPill("Carbs", "\(Int(food.carbs))g", Color.aurora)
+                    macroPill("Fat", "\(Int(food.fat))g", Color.amber)
                 }
-                .padding(.horizontal, 20)
+                .padding(.horizontal, FDS.Spacing.lg)
 
                 Button(action: onLog) {
-                    Text("Log Meal").font(.system(size: 16, weight: .bold)).foregroundColor(.white)
-                        .frame(maxWidth: .infinity).padding(.vertical, 14)
-                        .background(Color.ember).cornerRadius(14)
+                    Text("Log Meal").font(FDS.TypeScale.Dynamic.headline).foregroundColor(.white)
+                        .frame(maxWidth: .infinity).padding(.vertical, FDS.Spacing.lg)
+                        .background(Color.ember).cornerRadius(FDS.Radius.md)
                 }
-                .padding(.horizontal, 20)
+                .padding(.horizontal, FDS.Spacing.lg)
             } else {
                 Image(systemName: "barcode.viewfinder").font(.system(size: 40)).foregroundColor(.textTertiary)
-                Text("No nutrition data found").font(.system(size: 17, weight: .semibold)).foregroundColor(.textPrimary)
+                Text("No nutrition data found").font(FDS.TypeScale.Dynamic.headline).foregroundColor(.textPrimary)
                 Text("We couldn't match that barcode. Try another product or log it manually.")
                     .font(.system(size: 13)).foregroundColor(.textSecondary)
                     .multilineTextAlignment(.center).padding(.horizontal, 30)
@@ -129,7 +129,7 @@ struct ScannedFoodConfirmSheet: View {
 
             Button("Close", action: onDismiss)
                 .font(.system(size: 14, weight: .semibold)).foregroundColor(.textTertiary)
-                .padding(.bottom, 16)
+                .padding(.bottom, FDS.Spacing.lg)
 
             Spacer(minLength: 0)
         }
@@ -139,13 +139,13 @@ struct ScannedFoodConfirmSheet: View {
 
     private func macroPill(_ label: String, _ value: String, _ color: Color) -> some View {
         VStack(spacing: 3) {
-            Text(value).font(.system(size: 15, weight: .bold)).foregroundColor(color)
-            Text(label).font(.system(size: 10, weight: .semibold)).foregroundColor(.textTertiary)
+            Text(value).font(FDS.TypeScale.Dynamic.body.weight(.semibold)).foregroundColor(color)
+            Text(label).font(FDS.TypeScale.Dynamic.micro).foregroundColor(.textTertiary)
         }
         .frame(maxWidth: .infinity)
-        .padding(.vertical, 10)
+        .padding(.vertical, FDS.Spacing.md)
         .background(color.opacity(0.08))
-        .cornerRadius(10)
+        .cornerRadius(FDS.Radius.sm)
     }
 }
 
@@ -167,9 +167,9 @@ struct NutritionDatabaseView: View {
     }
 
     var body: some View {
-        VStack(spacing: 16) {
+        VStack(spacing: FDS.Spacing.lg) {
             // Search
-            HStack(spacing: 10) {
+            HStack(spacing: FDS.Spacing.md) {
                 Image(systemName: "magnifyingglass").foregroundColor(.textTertiary)
                 TextField("Search restaurants or items…", text: $searchText)
                     .foregroundColor(.textPrimary)
@@ -181,25 +181,25 @@ struct NutritionDatabaseView: View {
                     }
                 }
             }
-            .padding(13)
-            .forgeGlassCard(cornerRadius: 14, accent: .amber)
+            .padding(FDS.Spacing.md)
+            .forgeGlassCard(cornerRadius: FDS.Radius.md, accent: .amber)
 
             // Category pills
             ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: 8) {
+                HStack(spacing: FDS.Spacing.sm) {
                     ForEach(RestaurantCategory.allCases, id: \.self) { cat in
                         Button {
                             withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) { selectedCategory = cat }
                         } label: {
                             Text(cat.rawValue)
-                                .font(.system(size: 13, weight: .semibold))
+                                .font(FDS.TypeScale.Dynamic.caption)
                                 .foregroundColor(selectedCategory == cat ? .white : .textTertiary)
-                                .padding(.horizontal, 16).padding(.vertical, 9)
+                                .padding(.horizontal, FDS.Spacing.lg).padding(.vertical, FDS.Spacing.sm)
                                 .background(
                                     selectedCategory == cat
                                         ? Color.ember : Color.surface.opacity(0.7)
                                 )
-                                .cornerRadius(20)
+                                .cornerRadius(FDS.Radius.xl)
                         }
                     }
                 }
@@ -244,31 +244,31 @@ struct RestaurantCard: View {
     }
 
     var body: some View {
-        VStack(spacing: 12) {
+        VStack(spacing: FDS.Spacing.md) {
             Text(restaurant.logo)
                 .font(.system(size: 44))
                 .shadow(color: .black.opacity(0.1), radius: 8, y: 4)
 
             Text(restaurant.name)
-                .font(.system(size: 14, weight: .bold))
+                .font(FDS.TypeScale.Dynamic.body.weight(.semibold))
                 .foregroundColor(.textPrimary)
                 .multilineTextAlignment(.center)
                 .lineLimit(2)
 
-            HStack(spacing: 6) {
+            HStack(spacing: FDS.Spacing.sm) {
                 Text("\(restaurant.items.count) items")
-                    .font(.system(size: 11, weight: .medium))
+                    .font(FDS.TypeScale.Dynamic.micro)
                     .foregroundColor(.textTertiary)
                 Circle().fill(Color.borderColor).frame(width: 3, height: 3)
                 // Protein efficiency rating
                 Text(NutritionRating(proteinEfficiency: avgProteinEfficiency).label)
-                    .font(.system(size: 11, weight: .semibold))
+                    .font(FDS.TypeScale.Dynamic.micro)
                     .foregroundColor(efficiencyColor)
             }
         }
         .frame(maxWidth: .infinity)
-        .padding(.vertical, 20)
-        .forgeGlassCard(cornerRadius: 18, accent: .amber)
+        .padding(.vertical, FDS.Spacing.lg)
+        .forgeGlassCard(cornerRadius: FDS.Radius.lg, accent: .amber)
     }
 }
 
@@ -300,19 +300,19 @@ struct RestaurantMenuSheet: View {
 
                 VStack(spacing: 0) {
                     // Hero header
-                    HStack(spacing: 16) {
+                    HStack(spacing: FDS.Spacing.lg) {
                         Text(restaurant.logo).font(.system(size: 48))
-                        VStack(alignment: .leading, spacing: 5) {
+                        VStack(alignment: .leading, spacing: FDS.Spacing.xs) {
                             Text(restaurant.name)
-                                .font(.system(size: 24, weight: .bold))
+                                .font(FDS.TypeScale.Dynamic.title)
                                 .foregroundColor(.textPrimary)
                             Text("\(restaurant.items.count) menu items")
-                                .font(.system(size: 13, weight: .medium))
+                                .font(FDS.TypeScale.Dynamic.caption)
                                 .foregroundColor(.textSecondary)
                         }
                         Spacer()
                     }
-                    .padding(20)
+                    .padding(FDS.Spacing.lg)
                     .background(Color.surface)
                     .overlay(Rectangle().fill(Color.borderColor.opacity(0.4)).frame(height: 1), alignment: .bottom)
 
@@ -320,10 +320,10 @@ struct RestaurantMenuSheet: View {
                         ForEach(MenuSort.allCases, id: \.self) { Text($0.rawValue).tag($0) }
                     }
                     .pickerStyle(.segmented)
-                    .padding(.horizontal, 20).padding(.vertical, 14)
+                    .padding(.horizontal, FDS.Spacing.lg).padding(.vertical, FDS.Spacing.lg)
 
                     ScrollView(showsIndicators: false) {
-                        LazyVStack(spacing: 12) {
+                        LazyVStack(spacing: FDS.Spacing.md) {
                             ForEach(sorted) { item in
                                 MenuItemCard(item: item, isLogged: loggedItemID == item.id) {
                                     Task {
@@ -340,7 +340,7 @@ struct RestaurantMenuSheet: View {
                                 }
                             }
                         }
-                        .padding(.horizontal, 20).padding(.bottom, 40)
+                        .padding(.horizontal, FDS.Spacing.lg).padding(.bottom, 40)
                     }
                 }
             }
@@ -360,54 +360,54 @@ struct MenuItemCard: View {
     @State private var appeared = false
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
+        VStack(alignment: .leading, spacing: FDS.Spacing.md) {
             HStack(alignment: .top) {
-                VStack(alignment: .leading, spacing: 4) {
+                VStack(alignment: .leading, spacing: FDS.Spacing.xs) {
                     Text(item.name)
-                        .font(.system(size: 15, weight: .semibold)).foregroundColor(.textPrimary)
+                        .font(FDS.TypeScale.Dynamic.body.weight(.semibold)).foregroundColor(.textPrimary)
                     Text(item.serving)
-                        .font(.system(size: 11, weight: .medium)).foregroundColor(.textTertiary)
+                        .font(FDS.TypeScale.Dynamic.micro).foregroundColor(.textTertiary)
                 }
                 Spacer()
-                VStack(alignment: .trailing, spacing: 4) {
+                VStack(alignment: .trailing, spacing: FDS.Spacing.xs) {
                     if item.isHealthy {
                         Image(systemName: "leaf.fill")
                             .font(.system(size: 13)).foregroundColor(.success)
                     }
                     Text(item.nutritionalRating.label)
-                        .font(.system(size: 10, weight: .bold))
+                        .font(FDS.TypeScale.Dynamic.micro)
                         .foregroundColor(item.nutritionalRating.color)
                 }
             }
 
             Divider().background(Color.borderColor.opacity(0.4))
 
-            HStack(spacing: 10) {
+            HStack(spacing: FDS.Spacing.md) {
                 MacroChip(label: "Cal",  value: "\(item.calories)",  color: .ember)
                 MacroChip(label: "Prot", value: "\(item.protein)g",  color: .steel)
-                MacroChip(label: "Carb", value: "\(item.carbs)g",    color: Color(hex: "FFB84D"))
-                MacroChip(label: "Fat",  value: "\(item.fat)g",      color: Color(hex: "A855F7"))
+                MacroChip(label: "Carb", value: "\(item.carbs)g",    color: Color.amber)
+                MacroChip(label: "Fat",  value: "\(item.fat)g",      color: Color.aurora)
             }
 
             if let onLog {
                 Button(action: onLog) {
-                    HStack(spacing: 6) {
+                    HStack(spacing: FDS.Spacing.sm) {
                         Image(systemName: isLogged ? "checkmark.circle.fill" : "plus.circle.fill")
                         Text(isLogged ? "Logged to Apple Health" : "Log Meal")
-                            .font(.system(size: 13, weight: .semibold))
+                            .font(FDS.TypeScale.Dynamic.caption)
                     }
                     .foregroundColor(isLogged ? .success : .ember)
                     .frame(maxWidth: .infinity)
-                    .padding(.vertical, 10)
+                    .padding(.vertical, FDS.Spacing.md)
                     .background((isLogged ? Color.success : Color.ember).opacity(0.12))
-                    .cornerRadius(10)
+                    .cornerRadius(FDS.Radius.sm)
                 }
                 .buttonStyle(.plain)
                 .disabled(isLogged)
             }
         }
-        .padding(16)
-        .forgeGlassCard(cornerRadius: 14, accent: .amber)
+        .padding(FDS.Spacing.lg)
+        .forgeGlassCard(cornerRadius: FDS.Radius.md, accent: .amber)
         .opacity(appeared ? 1 : 0)
         .offset(y: appeared ? 0 : 8)
         .onAppear {
@@ -419,14 +419,14 @@ struct MenuItemCard: View {
 struct MacroChip: View {
     let label: String; let value: String; let color: Color
     var body: some View {
-        VStack(spacing: 4) {
-            Text(label).font(.system(size: 9, weight: .bold)).foregroundColor(.textTertiary)
-            Text(value).font(.system(size: 13, weight: .bold)).foregroundColor(color)
+        VStack(spacing: FDS.Spacing.xs) {
+            Text(label).font(FDS.TypeScale.Dynamic.micro).foregroundColor(.textTertiary)
+            Text(value).font(FDS.TypeScale.Dynamic.caption).foregroundColor(color)
         }
         .frame(maxWidth: .infinity)
-        .padding(.vertical, 8)
+        .padding(.vertical, FDS.Spacing.sm)
         .background(color.opacity(0.1))
-        .cornerRadius(9)
+        .cornerRadius(FDS.Radius.sm)
     }
 }
 
@@ -456,43 +456,43 @@ struct AIBestPicksSection: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            HStack(spacing: 8) {
+        VStack(alignment: .leading, spacing: FDS.Spacing.md) {
+            HStack(spacing: FDS.Spacing.sm) {
                 Image(systemName: "sparkles").font(.system(size: 14, weight: .semibold)).foregroundColor(.ember)
-                Text("AI Best Picks for Today").font(.system(size: 15, weight: .bold)).foregroundColor(.textPrimary)
+                Text("AI Best Picks for Today").font(FDS.TypeScale.Dynamic.body.weight(.semibold)).foregroundColor(.textPrimary)
                 Spacer()
                 Text("\(max(0, Int(180 - (vm.healthStats?.protein ?? 0))))g protein left")
-                    .font(.system(size: 11, weight: .medium))
+                    .font(FDS.TypeScale.Dynamic.micro)
                     .foregroundColor(.textTertiary)
             }
 
             // Live ARIA coaching note over the protein-ranked picks (fallback: none).
             if let note = vm.aiBestPicksNote {
-                HStack(alignment: .top, spacing: 8) {
+                HStack(alignment: .top, spacing: FDS.Spacing.sm) {
                     ARIAIdentityMark(state: .idle, mood: .energized, size: 14, amplitude: 0.22)
                     Text(note)
                         .font(.system(size: 12))
                         .foregroundColor(.textSecondary)
                         .fixedSize(horizontal: false, vertical: true)
                 }
-                .padding(10)
+                .padding(FDS.Spacing.md)
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .background(Color.ember.opacity(0.06))
-                .cornerRadius(10)
+                .cornerRadius(FDS.Radius.sm)
             }
 
             ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: 12) {
+                HStack(spacing: FDS.Spacing.md) {
                     ForEach(picks) { pick in
                         AIPickCard(pick: pick)
                     }
                 }
             }
         }
-        .padding(16)
+        .padding(FDS.Spacing.lg)
         .background(LinearGradient(colors: [Color.ember.opacity(0.07), Color.surface], startPoint: .topLeading, endPoint: .bottomTrailing))
-        .cornerRadius(18)
-        .overlay(RoundedRectangle(cornerRadius: 18).stroke(Color.ember.opacity(0.18), lineWidth: 1))
+        .cornerRadius(FDS.Radius.lg)
+        .overlay(RoundedRectangle(cornerRadius: FDS.Radius.lg).stroke(Color.ember.opacity(0.18), lineWidth: 1))
         .task { await vm.refreshBestPicksNote(store: store) }
     }
 }
@@ -501,22 +501,22 @@ struct AIPickCard: View {
     let pick: AIRestaurantPick
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            HStack(spacing: 8) {
+        VStack(alignment: .leading, spacing: FDS.Spacing.md) {
+            HStack(spacing: FDS.Spacing.sm) {
                 Text(pick.emoji).font(.system(size: 24))
                 VStack(alignment: .leading, spacing: 1) {
-                    Text(pick.restaurant).font(.system(size: 10, weight: .bold)).foregroundColor(.textTertiary)
-                    Text(pick.item).font(.system(size: 13, weight: .semibold)).foregroundColor(.textPrimary).lineLimit(2)
+                    Text(pick.restaurant).font(FDS.TypeScale.Dynamic.micro).foregroundColor(.textTertiary)
+                    Text(pick.item).font(FDS.TypeScale.Dynamic.caption).foregroundColor(.textPrimary).lineLimit(2)
                 }
             }
-            HStack(spacing: 8) {
+            HStack(spacing: FDS.Spacing.sm) {
                 Label("\(pick.cal) cal", systemImage: "flame.fill").font(.system(size: 11, weight: .semibold)).foregroundColor(.ember)
                 Label("\(pick.protein)g P", systemImage: "bolt.fill").font(.system(size: 11, weight: .semibold)).foregroundColor(.steel)
             }
-            Text(pick.reason).font(.system(size: 10, weight: .medium)).foregroundColor(.textTertiary).lineLimit(2)
+            Text(pick.reason).font(FDS.TypeScale.Dynamic.micro).foregroundColor(.textTertiary).lineLimit(2)
         }
         .frame(width: 180)
-        .padding(14)
-        .forgeGlassCard(cornerRadius: 14, accent: .ember)
+        .padding(FDS.Spacing.lg)
+        .forgeGlassCard(cornerRadius: FDS.Radius.md, accent: .ember)
     }
 }

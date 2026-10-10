@@ -20,7 +20,7 @@ struct ARIADashboardView: View {
                 RadialGradient(colors: [Color.ember.opacity(appeared ? 0.10 : 0), .clear], center: .top, startRadius: 0, endRadius: 360)
                     .ignoresSafeArea().animation(.easeInOut(duration: 1.2), value: appeared)
                 ScrollView(showsIndicators: false) {
-                    VStack(spacing: 18) {
+                    VStack(spacing: FDS.Spacing.lg) {
                         header
                         muscleBalanceCard
                         muscleEmphasisCard
@@ -29,7 +29,7 @@ struct ARIADashboardView: View {
                         recommendationsCard
                         sendCard
                     }
-                    .padding(.horizontal, 16).padding(.top, 12).padding(.bottom, 50)
+                    .padding(.horizontal, FDS.Spacing.lg).padding(.top, FDS.Spacing.md).padding(.bottom, 50)
                 }
             }
             .navigationTitle(isPreWorkout ? "Session Brief" : "Performance Dashboard")
@@ -41,13 +41,13 @@ struct ARIADashboardView: View {
     }
 
     private var header: some View {
-        VStack(spacing: 12) {
-            HStack(spacing: 14) {
+        VStack(spacing: FDS.Spacing.md) {
+            HStack(spacing: FDS.Spacing.lg) {
                 ARIAIdentityMark(state: .idle, mood: .energized, size: 50, amplitude: 0.24)
                     .shadow(color: .ember.opacity(0.5), radius: 12, y: 4)
                 VStack(alignment: .leading, spacing: 2) {
-                    Text(isPreWorkout ? "ARIA · PRE-FLIGHT" : "ARIA · DEBRIEF").font(.system(size: 10, weight: .black)).tracking(2).foregroundColor(.ember)
-                    Text(snapshot.title).font(.system(size: 20, weight: .bold)).foregroundColor(.white)
+                    Text(isPreWorkout ? "ARIA · PRE-FLIGHT" : "ARIA · DEBRIEF").font(FDS.TypeScale.Dynamic.micro).tracking(2).foregroundColor(.ember)
+                    Text(snapshot.title).font(FDS.TypeScale.Dynamic.title).foregroundColor(.white)
                 }
                 Spacer()
             }
@@ -58,25 +58,25 @@ struct ARIADashboardView: View {
                 else { metric(snapshot.avgRPE > 0 ? String(format: "%.1f", snapshot.avgRPE) : "—", "Avg RPE", .warning) }
             }
         }
-        .padding(18).background(Color.white.opacity(0.04)).cornerRadius(20)
-        .overlay(RoundedRectangle(cornerRadius: 20).stroke(Color.white.opacity(0.07), lineWidth: 1))
+        .padding(FDS.Spacing.lg).background(Color.white.opacity(0.04)).cornerRadius(FDS.Radius.xl)
+        .overlay(RoundedRectangle(cornerRadius: FDS.Radius.xl).stroke(Color.white.opacity(0.07), lineWidth: 1))
     }
 
     private func metric(_ value: String, _ label: String, _ color: Color) -> some View {
         VStack(spacing: 3) {
-            Text(value).font(.system(size: 20, weight: .black, design: .rounded)).foregroundColor(.white)
-            Text(label).font(.system(size: 10, weight: .semibold)).foregroundColor(color)
+            Text(value).font(FDS.TypeScale.Dynamic.metric).foregroundColor(.white)
+            Text(label).font(FDS.TypeScale.Dynamic.micro).foregroundColor(color)
         }
-        .frame(maxWidth: .infinity).padding(.vertical, 12)
-        .background(Color.white.opacity(0.04)).cornerRadius(12)
+        .frame(maxWidth: .infinity).padding(.vertical, FDS.Spacing.md)
+        .background(Color.white.opacity(0.04)).cornerRadius(FDS.Radius.md)
     }
 
     private var muscleBalanceCard: some View {
         dashCard("MOVEMENT BALANCE", icon: "scale.3d") {
-            VStack(spacing: 10) {
+            VStack(spacing: FDS.Spacing.md) {
                 ForEach(snapshot.regionShare.filter { $0.1 > 0.001 }, id: \.0) { region, share in
-                    HStack(spacing: 10) {
-                        Text(region.rawValue.capitalized).font(.system(size: 12, weight: .semibold)).foregroundColor(.white.opacity(0.8)).frame(width: 90, alignment: .leading)
+                    HStack(spacing: FDS.Spacing.md) {
+                        Text(region.rawValue.capitalized).font(FDS.TypeScale.Dynamic.caption).foregroundColor(.white.opacity(0.8)).frame(width: 90, alignment: .leading)
                         GeometryReader { geo in
                             ZStack(alignment: .leading) {
                                 Capsule().fill(Color.white.opacity(0.06)).frame(height: 8)
@@ -95,9 +95,9 @@ struct ARIADashboardView: View {
 
     private var muscleEmphasisCard: some View {
         dashCard("MUSCLE EMPHASIS", icon: "figure.arms.open") {
-            VStack(spacing: 8) {
+            VStack(spacing: FDS.Spacing.sm) {
                 ForEach(snapshot.topMuscles, id: \.0) { m, share in
-                    HStack(spacing: 10) {
+                    HStack(spacing: FDS.Spacing.md) {
                         Circle().fill(m.accent).frame(width: 8, height: 8)
                         Text(m.label).font(.system(size: 13)).foregroundColor(.white.opacity(0.85))
                         Spacer()
@@ -114,19 +114,19 @@ struct ARIADashboardView: View {
     private var zoneCard: some View {
         dashCard("HEART-RATE ZONES", icon: "waveform.path.ecg") {
             let maxV = max(1, snapshot.zoneSeconds.max() ?? 1)
-            HStack(alignment: .bottom, spacing: 10) {
+            HStack(alignment: .bottom, spacing: FDS.Spacing.md) {
                 ForEach(Array(snapshot.zoneSeconds.enumerated()), id: \.offset) { idx, secs in
                     let z = WorkoutHRZone.all[idx + 1]
-                    VStack(spacing: 6) {
+                    VStack(spacing: FDS.Spacing.sm) {
                         ZStack(alignment: .bottom) {
-                            RoundedRectangle(cornerRadius: 5).fill(Color.white.opacity(0.06)).frame(height: 70)
-                            RoundedRectangle(cornerRadius: 5).fill(LinearGradient(colors: [z.color, z.color.opacity(0.6)], startPoint: .top, endPoint: .bottom))
+                            RoundedRectangle(cornerRadius: FDS.Radius.xs).fill(Color.white.opacity(0.06)).frame(height: 70)
+                            RoundedRectangle(cornerRadius: FDS.Radius.xs).fill(LinearGradient(colors: [z.color, z.color.opacity(0.6)], startPoint: .top, endPoint: .bottom))
                                 .frame(height: max(4, 70 * CGFloat(appeared ? Double(secs) / Double(maxV) : 0)))
                                 .animation(.spring(response: 0.8, dampingFraction: 0.78).delay(Double(idx) * 0.06), value: appeared)
                         }
                         .frame(height: 70)
-                        Text(secs >= 60 ? "\(secs/60)m" : "\(secs)s").font(.system(size: 9, weight: .bold)).foregroundColor(secs > 0 ? z.color : .white.opacity(0.25))
-                        Text("Z\(idx+1)").font(.system(size: 9, weight: .black)).foregroundColor(.white.opacity(0.35))
+                        Text(secs >= 60 ? "\(secs/60)m" : "\(secs)s").font(FDS.TypeScale.Dynamic.micro).foregroundColor(secs > 0 ? z.color : .white.opacity(0.25))
+                        Text("Z\(idx+1)").font(FDS.TypeScale.Dynamic.micro).foregroundColor(.white.opacity(0.35))
                     }
                     .frame(maxWidth: .infinity)
                 }
@@ -136,9 +136,9 @@ struct ARIADashboardView: View {
 
     private var autoRegCard: some View {
         dashCard("AUTO-REGULATION LOG", icon: "wand.and.stars") {
-            VStack(alignment: .leading, spacing: 10) {
+            VStack(alignment: .leading, spacing: FDS.Spacing.md) {
                 ForEach(Array(snapshot.autoRegLog.enumerated()), id: \.offset) { _, line in
-                    HStack(alignment: .top, spacing: 8) {
+                    HStack(alignment: .top, spacing: FDS.Spacing.sm) {
                         Image(systemName: "arrow.triangle.branch").font(.system(size: 11)).foregroundColor(.ember)
                         Text(line).font(.system(size: 12)).foregroundColor(.white.opacity(0.8)).lineSpacing(3)
                         Spacer(minLength: 0)
@@ -150,9 +150,9 @@ struct ARIADashboardView: View {
 
     private var recommendationsCard: some View {
         dashCard("HOW TO IMPROVE", icon: "lightbulb.fill") {
-            VStack(alignment: .leading, spacing: 10) {
+            VStack(alignment: .leading, spacing: FDS.Spacing.md) {
                 ForEach(Array(recommendations.enumerated()), id: \.offset) { _, rec in
-                    HStack(alignment: .top, spacing: 8) {
+                    HStack(alignment: .top, spacing: FDS.Spacing.sm) {
                         Image(systemName: "checkmark.circle.fill").font(.system(size: 12)).foregroundColor(.success)
                         Text(rec).font(.system(size: 13)).foregroundColor(.white.opacity(0.85)).lineSpacing(3)
                         Spacer(minLength: 0)
@@ -177,26 +177,26 @@ struct ARIADashboardView: View {
     }
 
     private var sendCard: some View {
-        VStack(spacing: 12) {
-            HStack(alignment: .top, spacing: 10) {
+        VStack(spacing: FDS.Spacing.md) {
+            HStack(alignment: .top, spacing: FDS.Spacing.md) {
                 Image(systemName: "text.bubble.fill").font(.system(size: 14)).foregroundColor(.ember)
                 Text(briefing.isEmpty ? snapshot.localBriefing : briefing)
                     .font(.system(size: 13)).foregroundColor(.white.opacity(0.85)).lineSpacing(4)
                 Spacer(minLength: 0)
             }
-            .padding(16).frame(maxWidth: .infinity, alignment: .leading)
-            .background(Color.ember.opacity(0.07)).cornerRadius(16)
-            .overlay(RoundedRectangle(cornerRadius: 16).stroke(Color.ember.opacity(0.2), lineWidth: 1))
+            .padding(FDS.Spacing.lg).frame(maxWidth: .infinity, alignment: .leading)
+            .background(Color.ember.opacity(0.07)).cornerRadius(FDS.Radius.lg)
+            .overlay(RoundedRectangle(cornerRadius: FDS.Radius.lg).stroke(Color.ember.opacity(0.2), lineWidth: 1))
 
             Button { Task { await sendToARIA() } } label: {
-                HStack(spacing: 10) {
+                HStack(spacing: FDS.Spacing.md) {
                     if loadingBrief { ProgressView().tint(.white) }
                     else { Image(systemName: sent ? "checkmark.circle.fill" : "paperplane.fill").font(.system(size: 17, weight: .bold)) }
-                    Text(sent ? "Sent to ARIA — open chat" : loadingBrief ? "ARIA is reviewing…" : "Send this data to ARIA").font(.system(size: 16, weight: .bold))
+                    Text(sent ? "Sent to ARIA — open chat" : loadingBrief ? "ARIA is reviewing…" : "Send this data to ARIA").font(FDS.TypeScale.Dynamic.headline)
                 }
                 .foregroundColor(.white).frame(maxWidth: .infinity).frame(height: 56)
                 .background(LinearGradient(colors: sent ? [.success, .success.opacity(0.8)] : [.ember, Color(hex: "FF5A00")], startPoint: .leading, endPoint: .trailing))
-                .cornerRadius(16).shadow(color: (sent ? Color.success : Color.ember).opacity(0.5), radius: 16, y: 6)
+                .cornerRadius(FDS.Radius.lg).shadow(color: (sent ? Color.success : Color.ember).opacity(0.5), radius: 16, y: 6)
             }
             .disabled(loadingBrief)
             if !aria.isLiveCoachingAvailable {
@@ -242,15 +242,15 @@ struct ARIADashboardView: View {
 
     @ViewBuilder
     private func dashCard<Content: View>(_ title: String, icon: String, @ViewBuilder content: () -> Content) -> some View {
-        VStack(alignment: .leading, spacing: 14) {
-            HStack(spacing: 7) {
+        VStack(alignment: .leading, spacing: FDS.Spacing.lg) {
+            HStack(spacing: FDS.Spacing.sm) {
                 Image(systemName: icon).font(.system(size: 13)).foregroundColor(.ember)
-                Text(title).font(.system(size: 10, weight: .black)).tracking(2).foregroundColor(.white.opacity(0.45))
+                Text(title).font(FDS.TypeScale.Dynamic.micro).tracking(2).foregroundColor(.white.opacity(0.45))
             }
             content()
         }
-        .padding(18).frame(maxWidth: .infinity, alignment: .leading)
-        .background(Color.white.opacity(0.04)).cornerRadius(20)
-        .overlay(RoundedRectangle(cornerRadius: 20).stroke(Color.white.opacity(0.07), lineWidth: 1))
+        .padding(FDS.Spacing.lg).frame(maxWidth: .infinity, alignment: .leading)
+        .background(Color.white.opacity(0.04)).cornerRadius(FDS.Radius.xl)
+        .overlay(RoundedRectangle(cornerRadius: FDS.Radius.xl).stroke(Color.white.opacity(0.07), lineWidth: 1))
     }
 }

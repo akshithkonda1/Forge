@@ -23,8 +23,8 @@ export function SleepTimeline() {
   const latest = sleepData[0];
   if (!latest) {
     return (
-      <div className="rounded-xl border border-border bg-surface p-4">
-        <h3 className="mb-3 text-sm font-semibold text-white">Sleep Stages</h3>
+      <div className="rounded-2xl bg-surface p-5">
+        <h3 className="type-headline mb-3 text-text-primary">Sleep Stages</h3>
         <p className="text-sm text-text-secondary">No sleep yet</p>
       </div>
     );
@@ -48,8 +48,8 @@ export function SleepTimeline() {
   }
 
   return (
-    <div className="rounded-xl border border-border bg-surface p-4">
-      <h3 className="mb-3 text-sm font-semibold text-white">Sleep Stages</h3>
+    <div className="rounded-2xl bg-surface p-5">
+      <h3 className="type-headline mb-3 text-text-primary">Sleep Stages</h3>
 
       {/* Timeline bar */}
       <div className="relative flex h-8 w-full overflow-hidden rounded-lg">
@@ -116,7 +116,7 @@ export function SleepTimeline() {
             <span className="text-xs text-text-secondary">
               {stage.label}
             </span>
-            <span className="text-xs font-medium text-white">
+            <span className="text-xs font-medium text-text-primary">
               {formatMinutes(stage.minutes)}
             </span>
           </div>

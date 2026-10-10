@@ -6,23 +6,23 @@ import { motion, type HTMLMotionProps } from "framer-motion";
 import { cn } from "@/lib/utils";
 
 const buttonVariants = cva(
-  "inline-flex items-center justify-center whitespace-nowrap rounded-lg font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FF4D00]/50 disabled:pointer-events-none disabled:opacity-50",
+  "inline-flex items-center justify-center whitespace-nowrap rounded-xl font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ember/60 disabled:pointer-events-none disabled:opacity-50",
   {
     variants: {
       variant: {
         default:
-          "bg-[#FF4D00] text-white hover:bg-[#FF4D00]/90 shadow-[0_0_20px_rgba(255,77,0,0.3)]",
+          "bg-ember text-text-primary hover:bg-ember/90 glow-ember",
         secondary:
-          "bg-[#141414] text-[#A1A1AA] hover:bg-[#1A1A1A] hover:text-white border border-[#2A2A2A]",
+          "bg-surface text-text-secondary hover:bg-surface-elevated hover:text-text-primary border border-border",
         ghost:
-          "bg-transparent text-[#A1A1AA] hover:bg-[#141414] hover:text-white",
+          "bg-transparent text-text-secondary hover:bg-surface hover:text-text-primary",
         outline:
-          "border border-[#2A2A2A] bg-transparent text-[#A1A1AA] hover:border-[#FF4D00] hover:text-white",
+          "border border-border bg-transparent text-text-secondary hover:border-ember hover:text-text-primary",
       },
       size: {
-        sm: "h-8 px-3 text-xs gap-1.5",
-        default: "h-10 px-5 text-sm gap-2",
-        lg: "h-12 px-8 text-base gap-2.5",
+        sm: "h-9 px-3 text-xs gap-1.5",
+        default: "h-11 px-5 text-sm gap-2",
+        lg: "h-12 px-6 text-base gap-2.5",
       },
     },
     defaultVariants: {

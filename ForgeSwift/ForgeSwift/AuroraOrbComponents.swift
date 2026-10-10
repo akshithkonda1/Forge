@@ -365,7 +365,7 @@ enum AriaSigilEmberLegacy: Sendable {
 #Preview("ARIA compact") {
     ZStack {
         Color(hex: "000000").ignoresSafeArea()
-        HStack(spacing: 24) {
+        HStack(spacing: FDS.Spacing.xl) {
             AuroraOrbView(state: .idle, amplitude: 0.2, size: 22, followPresence: false)
             AuroraOrbView(state: .idle, amplitude: 0.2, size: 44, followPresence: false)
             AuroraOrbView(state: .listening, amplitude: 0.5, size: 58, followPresence: false)

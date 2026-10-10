@@ -424,14 +424,14 @@ struct WakeReliabilityBanner: View {
     let delivery: SleepAlarmDelivery
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            HStack(alignment: .top, spacing: 8) {
+        VStack(alignment: .leading, spacing: FDS.Spacing.md) {
+            HStack(alignment: .top, spacing: FDS.Spacing.sm) {
                 Image(systemName: delivery.isFailClosed ? "exclamationmark.triangle.fill" : "bell.badge.fill")
                     .font(.system(size: 13, weight: .semibold))
                     .foregroundColor(.warning)
-                VStack(alignment: .leading, spacing: 4) {
+                VStack(alignment: .leading, spacing: FDS.Spacing.xs) {
                     Text(delivery.headline)
-                        .font(.system(size: 14, weight: .semibold))
+                        .font(FDS.TypeScale.Dynamic.body.weight(.semibold))
                         .foregroundColor(.textPrimary)
                     Text(delivery.cue)
                         .font(.system(size: 12))
@@ -444,18 +444,18 @@ struct WakeReliabilityBanner: View {
                 UIApplication.shared.open(url)
             } label: {
                 Text("Open Settings")
-                    .font(.system(size: 13, weight: .semibold))
+                    .font(FDS.TypeScale.Dynamic.caption)
                     .foregroundColor(.ember)
             }
             .buttonStyle(.plain)
             .accessibilityLabel("Open Settings so this wake can fire")
         }
-        .padding(14)
+        .padding(FDS.Spacing.lg)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(Color.warning.opacity(0.08))
-        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+        .clipShape(RoundedRectangle(cornerRadius: FDS.Radius.lg, style: .continuous))
         .overlay(
-            RoundedRectangle(cornerRadius: 16, style: .continuous)
+            RoundedRectangle(cornerRadius: FDS.Radius.lg, style: .continuous)
                 .stroke(Color.warning.opacity(0.28), lineWidth: 1)
         )
         .accessibilityElement(children: .combine)
@@ -469,7 +469,7 @@ struct AlarmTab: View {
 
     var body: some View {
         ScrollView(showsIndicators: false) {
-            VStack(spacing: 28) {
+            VStack(spacing: FDS.Spacing.xl) {
                 if store.delivery.needsAttention {
                     WakeReliabilityBanner(delivery: store.delivery)
                 }
@@ -481,18 +481,18 @@ struct AlarmTab: View {
                         .font(.system(size: 14))
                         .foregroundColor(.textSecondary)
                         .frame(maxWidth: .infinity, alignment: .leading)
-                        .padding(.top, 8)
+                        .padding(.top, FDS.Spacing.sm)
                 }
 
                 Button {
                     SleepWakeStore.shared.ring(store.next ?? ForgeAlarm())
                 } label: {
-                    HStack(spacing: 12) {
+                    HStack(spacing: FDS.Spacing.md) {
                         Image(systemName: "sun.max.fill")
-                            .foregroundStyle(Color(hex: "F59E0B"))
+                            .foregroundStyle(Color.amber)
                         VStack(alignment: .leading, spacing: 2) {
                             Text("Test wake now")
-                                .font(.system(size: 15, weight: .semibold, design: .rounded))
+                                .font(FDS.TypeScale.Dynamic.body.weight(.semibold))
                                 .foregroundColor(.textPrimary)
                             Text("Sunrise, rising tone, backup if you sleep through. The real thing.")
                                 .font(.system(size: 12))
@@ -500,16 +500,16 @@ struct AlarmTab: View {
                         }
                         Spacer()
                     }
-                    .padding(16)
-                    .forgeGlassCard(cornerRadius: 18, accent: Color(hex: "F59E0B"))
+                    .padding(FDS.Spacing.lg)
+                    .forgeGlassCard(cornerRadius: FDS.Radius.lg, accent: Color.amber)
                 }
                 .buttonStyle(.plain)
                 .accessibilityLabel("Test the wake-up screen now")
 
-                VStack(spacing: 12) {
+                VStack(spacing: FDS.Spacing.md) {
                     HStack {
                         Text("Alarms")
-                            .font(.system(size: 13, weight: .medium))
+                            .font(FDS.TypeScale.Dynamic.caption)
                             .foregroundColor(.textTertiary)
                         Spacer()
                         Button {
@@ -517,7 +517,7 @@ struct AlarmTab: View {
                             showEditor = true
                         } label: {
                             Text("New")
-                                .font(.system(size: 13, weight: .semibold))
+                                .font(FDS.TypeScale.Dynamic.caption)
                                 .foregroundColor(.ember)
                         }
                     }
@@ -536,7 +536,7 @@ struct AlarmTab: View {
 
                 WakeUpTab()
             }
-            .padding(.horizontal, 20)
+            .padding(.horizontal, FDS.Spacing.lg)
             .padding(.bottom, 120)
         }
         .onAppear {
@@ -577,17 +577,17 @@ struct NextAlarmHero: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
+        VStack(alignment: .leading, spacing: FDS.Spacing.sm) {
             Text("Next")
-                .font(.system(size: 13, weight: .medium))
+                .font(FDS.TypeScale.Dynamic.caption)
                 .foregroundColor(.textTertiary)
-            HStack(alignment: .firstTextBaseline, spacing: 6) {
+            HStack(alignment: .firstTextBaseline, spacing: FDS.Spacing.sm) {
                 Text(timeString)
                     .font(.system(size: 56, weight: .semibold))
                     .foregroundColor(.textPrimary)
                     .monospacedDigit()
                 Text(ampm)
-                    .font(.system(size: 18, weight: .semibold))
+                    .font(FDS.TypeScale.Dynamic.headline)
                     .foregroundColor(.textSecondary)
             }
             Text("\(untilString)  ·  \(daysString)")
@@ -602,7 +602,7 @@ struct NextAlarmHero: View {
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(.top, 8)
+        .padding(.top, FDS.Spacing.sm)
     }
 }
 
@@ -621,27 +621,27 @@ struct AlarmRow: View {
     }
 
     var body: some View {
-        HStack(spacing: 16) {
+        HStack(spacing: FDS.Spacing.lg) {
             Button(action: onEdit) {
-                HStack(spacing: 16) {
-                    VStack(alignment: .leading, spacing: 4) {
+                HStack(spacing: FDS.Spacing.lg) {
+                    VStack(alignment: .leading, spacing: FDS.Spacing.xs) {
                         Text(timeStr)
                             .font(.system(size: 26, weight: .semibold))
                             .foregroundColor(alarm.isEnabled ? .textPrimary : .textTertiary)
                             .monospacedDigit()
-                        HStack(spacing: 8) {
+                        HStack(spacing: FDS.Spacing.sm) {
                             Text(alarm.label)
-                                .font(.system(size: 13, weight: .medium))
+                                .font(FDS.TypeScale.Dynamic.caption)
                                 .foregroundColor(alarm.isEnabled ? .textSecondary : .textMuted)
                             Circle().fill(Color.borderColor).frame(width: 3, height: 3)
                             Text(daysStr)
-                                .font(.system(size: 12, weight: .medium))
+                                .font(FDS.TypeScale.Dynamic.caption)
                                 .foregroundColor(.textMuted)
                             if alarm.isSmartWake {
                                 Text("Smart")
-                                    .font(.system(size: 9, weight: .bold))
+                                    .font(FDS.TypeScale.Dynamic.micro)
                                     .foregroundColor(.steel)
-                                    .padding(.horizontal, 5)
+                                    .padding(.horizontal, FDS.Spacing.xs)
                                     .padding(.vertical, 2)
                                     .background(Color.steel.opacity(0.12))
                                     .clipShape(Capsule())
@@ -661,7 +661,7 @@ struct AlarmRow: View {
             .labelsHidden()
             .accessibilityLabel("\(alarm.label) alarm, \(timeStr), \(daysStr)")
         }
-        .padding(.vertical, 12)
+        .padding(.vertical, FDS.Spacing.md)
         .opacity(alarm.isEnabled ? 1 : 0.45)
         .animation(.easeInOut(duration: 0.2), value: alarm.isEnabled)
     }
@@ -689,15 +689,15 @@ struct AlarmEditorSheet: View {
                 Color.background.ignoresSafeArea()
 
                 ScrollView(showsIndicators: false) {
-                    VStack(spacing: 24) {
+                    VStack(spacing: FDS.Spacing.xl) {
                         // Giant time picker
-                        VStack(spacing: 4) {
+                        VStack(spacing: FDS.Spacing.xs) {
                             Text("ALARM TIME")
-                                .font(.system(size: 10, weight: .black))
+                                .font(FDS.TypeScale.Dynamic.micro)
                                 .foregroundColor(.textTertiary)
                                 .tracking(2.5)
                                 .frame(maxWidth: .infinity, alignment: .leading)
-                                .padding(.horizontal, 4)
+                                .padding(.horizontal, FDS.Spacing.xs)
 
                             DatePicker("", selection: $alarm.time, displayedComponents: .hourAndMinute)
                                 .datePickerStyle(.wheel)
@@ -705,13 +705,13 @@ struct AlarmEditorSheet: View {
                                 .frame(maxWidth: .infinity)
                                 .tint(.ember)
                         }
-                        .padding(16)
+                        .padding(FDS.Spacing.lg)
                         .background(Color.surface)
-                        .cornerRadius(20)
+                        .cornerRadius(FDS.Radius.xl)
 
                         // Day selector
                         EditorSection(title: "REPEAT") {
-                            HStack(spacing: 8) {
+                            HStack(spacing: FDS.Spacing.sm) {
                                 ForEach(Weekday.allCases) { day in
                                     let active = alarm.days.contains(day.rawValue)
                                     Button {
@@ -720,7 +720,7 @@ struct AlarmEditorSheet: View {
                                         else { alarm.days.append(day.rawValue) }
                                     } label: {
                                         Text(day.short)
-                                            .font(.system(size: 13, weight: .bold))
+                                            .font(FDS.TypeScale.Dynamic.caption)
                                             .foregroundColor(active ? .white : .textTertiary)
                                             .frame(width: 38, height: 38)
                                             .background(active ? Color.ember : Color.surfaceElevated)
@@ -739,25 +739,24 @@ struct AlarmEditorSheet: View {
                                 .font(.system(size: 15))
                                 .foregroundColor(.textPrimary)
                                 .tint(.ember)
-                                .padding(.horizontal, 14).padding(.vertical, 12)
-                                .background(Color.surfaceElevated)
-                                .cornerRadius(12)
+                                .padding(.horizontal, FDS.Spacing.lg).padding(.vertical, FDS.Spacing.md)
+                                .forgeInsetTile(radius: FDS.Radius.md)
                         }
 
                         // Sound
                         EditorSection(title: "WAKE SOUND") {
-                            VStack(spacing: 12) {
+                            VStack(spacing: FDS.Spacing.md) {
                                 // Category filter
                                 ScrollView(.horizontal, showsIndicators: false) {
-                                    HStack(spacing: 8) {
+                                    HStack(spacing: FDS.Spacing.sm) {
                                         ForEach(["All", "Ambient", "Nature", "Tones"], id: \.self) { cat in
                                             Button { selectedSoundCategory = cat } label: {
                                                 Text(cat)
-                                                    .font(.system(size: 12, weight: .semibold))
+                                                    .font(FDS.TypeScale.Dynamic.caption)
                                                     .foregroundColor(selectedSoundCategory == cat ? .white : .textTertiary)
-                                                    .padding(.horizontal, 12).padding(.vertical, 6)
+                                                    .padding(.horizontal, FDS.Spacing.md).padding(.vertical, FDS.Spacing.sm)
                                                     .background(selectedSoundCategory == cat ? Color.ember : Color.surfaceElevated)
-                                                    .cornerRadius(20)
+                                                    .cornerRadius(FDS.Radius.xl)
                                             }
                                             .buttonStyle(.plain)
                                         }
@@ -770,13 +769,13 @@ struct AlarmEditorSheet: View {
                                             alarm.sound = sound
                                             UISelectionFeedbackGenerator().selectionChanged()
                                         } label: {
-                                            HStack(spacing: 10) {
+                                            HStack(spacing: FDS.Spacing.md) {
                                                 Image(systemName: sound.icon)
                                                     .font(.system(size: 16))
                                                     .foregroundColor(alarm.sound == sound ? .ember : .textTertiary)
                                                     .frame(width: 24)
                                                 Text(sound.rawValue)
-                                                    .font(.system(size: 13, weight: .medium))
+                                                    .font(FDS.TypeScale.Dynamic.caption)
                                                     .foregroundColor(alarm.sound == sound ? .textPrimary : .textSecondary)
                                                     .lineLimit(1)
                                                 Spacer()
@@ -786,10 +785,10 @@ struct AlarmEditorSheet: View {
                                                         .foregroundColor(.ember)
                                                 }
                                             }
-                                            .padding(.horizontal, 12).padding(.vertical, 10)
+                                            .padding(.horizontal, FDS.Spacing.md).padding(.vertical, FDS.Spacing.md)
                                             .background(alarm.sound == sound ? Color.ember.opacity(0.1) : Color.surfaceElevated)
-                                            .cornerRadius(12)
-                                            .overlay(RoundedRectangle(cornerRadius: 12).stroke(alarm.sound == sound ? Color.ember.opacity(0.4) : Color.borderColor.opacity(0.3), lineWidth: 1))
+                                            .cornerRadius(FDS.Radius.md)
+                                            .overlay(RoundedRectangle(cornerRadius: FDS.Radius.md).stroke(alarm.sound == sound ? Color.ember.opacity(0.4) : Color.borderColor.opacity(0.3), lineWidth: 1))
                                         }
                                         .buttonStyle(.plain)
                                     }
@@ -802,7 +801,7 @@ struct AlarmEditorSheet: View {
                             HStack {
                                 VStack(alignment: .leading, spacing: 3) {
                                     Text("Snooze Duration")
-                                        .font(.system(size: 14, weight: .medium))
+                                        .font(FDS.TypeScale.Dynamic.body)
                                         .foregroundColor(.textPrimary)
                                     Text("\(alarm.snoozeMinutes) minutes")
                                         .font(.system(size: 12))
@@ -813,9 +812,8 @@ struct AlarmEditorSheet: View {
                                     .labelsHidden()
                                     .tint(.ember)
                             }
-                            .padding(.horizontal, 14).padding(.vertical, 12)
-                            .background(Color.surfaceElevated)
-                            .cornerRadius(12)
+                            .padding(.horizontal, FDS.Spacing.lg).padding(.vertical, FDS.Spacing.md)
+                            .forgeInsetTile(radius: FDS.Radius.md)
                         }
 
                         // Gradual volume
@@ -823,7 +821,7 @@ struct AlarmEditorSheet: View {
                             Toggle(isOn: $alarm.gradualVolume) {
                                 VStack(alignment: .leading, spacing: 3) {
                                     Text("Gradual Volume")
-                                        .font(.system(size: 14, weight: .medium))
+                                        .font(FDS.TypeScale.Dynamic.body)
                                         .foregroundColor(.textPrimary)
                                     Text("Starts quiet, then a backup tone if you're still down.")
                                         .font(.system(size: 12))
@@ -831,18 +829,17 @@ struct AlarmEditorSheet: View {
                                 }
                             }
                             .tint(.ember)
-                            .padding(.horizontal, 14).padding(.vertical, 12)
-                            .background(Color.surfaceElevated)
-                            .cornerRadius(12)
+                            .padding(.horizontal, FDS.Spacing.lg).padding(.vertical, FDS.Spacing.md)
+                            .forgeInsetTile(radius: FDS.Radius.md)
                         }
 
                         // Smart wake
                         EditorSection(title: "SMART WAKE") {
-                            VStack(spacing: 12) {
+                            VStack(spacing: FDS.Spacing.md) {
                                 Toggle(isOn: $alarm.isSmartWake) {
                                     VStack(alignment: .leading, spacing: 3) {
                                         Text("Smart Wake")
-                                            .font(.system(size: 14, weight: .medium))
+                                            .font(FDS.TypeScale.Dynamic.body)
                                             .foregroundColor(.textPrimary)
                                         Text("Earlier nudge if you might already be light. Hard alarm still fires.")
                                             .font(.system(size: 12))
@@ -850,42 +847,41 @@ struct AlarmEditorSheet: View {
                                     }
                                 }
                                 .tint(.steel)
-                                .padding(.horizontal, 14).padding(.vertical, 12)
-                                .background(Color.surfaceElevated)
-                                .cornerRadius(12)
+                                .padding(.horizontal, FDS.Spacing.lg).padding(.vertical, FDS.Spacing.md)
+                                .forgeInsetTile(radius: FDS.Radius.md)
 
                                 if alarm.isSmartWake {
-                                    VStack(alignment: .leading, spacing: 10) {
+                                    VStack(alignment: .leading, spacing: FDS.Spacing.md) {
                                         Text("Base window: \(alarm.smartWakeWindow) min. Tonight adapts from score, debt, and snooze history.")
-                                            .font(.system(size: 12, weight: .medium))
+                                            .font(FDS.TypeScale.Dynamic.caption)
                                             .foregroundColor(.textSecondary)
-                                        HStack(spacing: 8) {
+                                        HStack(spacing: FDS.Spacing.sm) {
                                             ForEach([15, 30, 45], id: \.self) { mins in
                                                 Button {
                                                     alarm.smartWakeWindow = mins
                                                     UISelectionFeedbackGenerator().selectionChanged()
                                                 } label: {
                                                     Text("\(mins) min")
-                                                        .font(.system(size: 13, weight: .semibold))
+                                                        .font(FDS.TypeScale.Dynamic.caption)
                                                         .foregroundColor(alarm.smartWakeWindow == mins ? .white : .textTertiary)
                                                         .frame(maxWidth: .infinity)
-                                                        .padding(.vertical, 10)
+                                                        .padding(.vertical, FDS.Spacing.md)
                                                         .background(alarm.smartWakeWindow == mins ? Color.steel : Color.surfaceElevated)
-                                                        .cornerRadius(10)
+                                                        .cornerRadius(FDS.Radius.sm)
                                                 }
                                                 .buttonStyle(.plain)
                                             }
                                         }
                                     }
-                                    .padding(.horizontal, 14).padding(.vertical, 12)
+                                    .padding(.horizontal, FDS.Spacing.lg).padding(.vertical, FDS.Spacing.md)
                                     .background(Color.steel.opacity(0.07))
-                                    .cornerRadius(12)
+                                    .cornerRadius(FDS.Radius.md)
                                     .transition(.opacity.combined(with: .scale(scale: 0.97, anchor: .top)))
                                 }
                             }
                         }
                     }
-                    .padding(16)
+                    .padding(FDS.Spacing.lg)
                     .padding(.bottom, 40)
                 }
             }

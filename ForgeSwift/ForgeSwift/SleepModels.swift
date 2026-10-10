@@ -397,10 +397,10 @@ enum SleepSoundKind: String, CaseIterable, Identifiable, Hashable, Sendable {
         case .rain: return .steel
         case .ocean: return Color(hex: "0EA5E9")
         case .forest: return .success
-        case .thunder: return Color(hex: "6366F1")
+        case .thunder: return Color.indigo
         case .fan: return .textSecondary
         case .fireplace: return .ember
-        case .tibetan: return Color(hex: "A78BFA")
+        case .tibetan: return Color.aurora
         case .chimes: return Color(hex: "38BDF8")
         case .binaural: return Color(hex: "818CF8")
         case .hz432: return .success
@@ -704,8 +704,8 @@ struct SleepBedtimeCoach: Equatable {
         case .overdue:
             return (
                 "You're still up",
-                "The window already opened. Go now — tomorrow's training is already paying for this.",
-                "I am past bedtime. Get me to sleep in the next ten minutes."
+                "The window already opened. A short wind-down still counts — go when you're ready.",
+                "I am past bedtime. Help me land a lighter close and get to sleep tonight."
             )
         }
     }

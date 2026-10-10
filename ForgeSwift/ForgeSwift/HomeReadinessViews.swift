@@ -406,7 +406,7 @@ struct StreakCalendarSection: View {
                         .tracking(2)
                 }
                 Spacer()
-                Text("Days you trained")
+                Text("Days you trained. Open days stay open.")
                     .font(HomeType.micro)
                     .foregroundColor(.textMuted)
             }
@@ -430,7 +430,12 @@ struct StreakCalendarSection: View {
                                 Circle().stroke(Color.ember.opacity(0.6), lineWidth: 1.5).frame(width: 34, height: 34)
                                 Circle().fill(Color.ember).frame(width: 6, height: 6)
                             } else {
-                                Circle().fill(Color.white.opacity(0.08)).frame(width: 8, height: 8)
+                                Circle()
+                                    .stroke(HudChrome.miss.opacity(0.32), lineWidth: 1)
+                                    .frame(width: 34, height: 34)
+                                Circle()
+                                    .fill(HudChrome.miss.opacity(0.22))
+                                    .frame(width: 6, height: 6)
                             }
                         }
                         .scaleEffect(cellsAppeared || reduceMotion ? 1 : 0.7)
@@ -456,7 +461,7 @@ struct StreakCalendarSection: View {
         }
         .homeEntrance(delay: 0.32)
         .accessibilityElement(children: .combine)
-        .accessibilityLabel("This week. Checkmarks on days you trained.")
+        .accessibilityLabel("This week. Checkmarks on days you trained. Open days stay open.")
     }
 }
 

@@ -28,8 +28,8 @@ struct AuthWelcomeView: View {
 
             VStack(spacing: 0) {
                 header
-                    .padding(.horizontal, 24)
-                    .padding(.top, 16)
+                    .padding(.horizontal, FDS.Spacing.xl)
+                    .padding(.top, FDS.Spacing.lg)
                     .premiumEntrance(index: 0, appeared: appeared)
 
                 TabView(selection: $page) {
@@ -45,12 +45,12 @@ struct AuthWelcomeView: View {
                     scheduleAutoAdvance()
                 }
 
-                VStack(spacing: 18) {
+                VStack(spacing: FDS.Spacing.lg) {
                     progress
                     ctaBlock
                 }
-                .padding(.horizontal, 24)
-                .padding(.bottom, 28)
+                .padding(.horizontal, FDS.Spacing.xl)
+                .padding(.bottom, FDS.Spacing.xl)
                 .safeAreaPadding(.bottom, 8)
                 .premiumEntrance(index: 2, appeared: appeared)
             }
@@ -84,11 +84,11 @@ struct AuthWelcomeView: View {
     }
 
     private var header: some View {
-        HStack(spacing: 10) {
-            HStack(spacing: 9) {
+        HStack(spacing: FDS.Spacing.md) {
+            HStack(spacing: FDS.Spacing.sm) {
                 ForgeBrandMark(size: 18)
                 Text("Forge")
-                    .font(.system(size: 15, weight: .semibold, design: .rounded))
+                    .font(FDS.TypeScale.Dynamic.body.weight(.semibold))
                     .tracking(0.6)
                     .foregroundColor(.textPrimary)
             }
@@ -99,10 +99,10 @@ struct AuthWelcomeView: View {
                 showSignIn = true
             } label: {
                 Text("Sign in")
-                    .font(.system(size: 14, weight: .medium, design: .rounded))
+                    .font(FDS.TypeScale.Dynamic.body)
                     .foregroundColor(.textPrimary.opacity(0.92))
-                    .padding(.horizontal, 14)
-                    .padding(.vertical, 8)
+                    .padding(.horizontal, FDS.Spacing.lg)
+                    .padding(.vertical, FDS.Spacing.sm)
                     .background(Color.white.opacity(0.06))
                     .clipShape(Capsule())
                     .overlay(Capsule().stroke(Color.white.opacity(0.12), lineWidth: 1))
@@ -112,10 +112,10 @@ struct AuthWelcomeView: View {
     }
 
     private var progress: some View {
-        VStack(spacing: 12) {
+        VStack(spacing: FDS.Spacing.md) {
             PremiumProgressDots(count: pages.count, current: page)
             Text("\(page + 1) of \(pages.count)")
-                .font(.system(size: 11, weight: .medium, design: .rounded))
+                .font(FDS.TypeScale.Dynamic.micro)
                 .tracking(1.4)
                 .foregroundColor(.textTertiary)
                 .textCase(.uppercase)
@@ -125,7 +125,7 @@ struct AuthWelcomeView: View {
     }
 
     private var ctaBlock: some View {
-        VStack(spacing: 14) {
+        VStack(spacing: FDS.Spacing.lg) {
             PremiumPrimaryButton(title: "Get started") {
                 FDS.haptic(.medium)
                 showSignUp = true
@@ -139,16 +139,16 @@ struct AuthWelcomeView: View {
                     }
                 } label: {
                     Text("See how it works")
-                        .font(.system(size: 14, weight: .medium))
+                        .font(FDS.TypeScale.Dynamic.body)
                         .foregroundColor(.textSecondary)
                         .frame(maxWidth: .infinity)
-                        .padding(.vertical, 8)
+                        .padding(.vertical, FDS.Spacing.sm)
                 }
                 .buttonStyle(.plain)
             }
 
             Text("Lifestyle fitness coaching · Live your best life")
-                .font(.system(size: 11, weight: .regular))
+                .font(FDS.TypeScale.Dynamic.micro)
                 .foregroundColor(.textMuted)
                 .multilineTextAlignment(.center)
         }
@@ -206,7 +206,7 @@ private struct AuthHookPage: Identifiable {
             title: "Workouts, lifestyle, and cycle rhythm.",
             body: "Sleep, nutrition, free time, and how you show up for people you love — one private control center that respects the life you already have.",
             icon: "leaf.fill",
-            accent: Color(hex: "34D399"),
+            accent: Color.success,
             frost: Color(hex: "A9D8FF"),
             reward: "Private by design"
         ),
@@ -216,7 +216,7 @@ private struct AuthHookPage: Identifiable {
             title: "Forge starts with one choice.",
             body: "Name your goal and how you want to train. Connect Health if you want. Walk out with a first plan and a coach that already knows you.",
             icon: "sparkles",
-            accent: Color(hex: "F7F4F0"),
+            accent: Color.paper,
             frost: Color(hex: "FF6B2B"),
             reward: "Meet ARIA →"
         ),
@@ -229,7 +229,7 @@ private struct AuthHookPageView: View {
     let floatPhase: CGFloat
 
     var body: some View {
-        VStack(spacing: 28) {
+        VStack(spacing: FDS.Spacing.xl) {
             Spacer(minLength: 8)
 
             visual
@@ -240,9 +240,9 @@ private struct AuthHookPageView: View {
                     if !active { AriaPresence.shared.stopSpeaking() }
                 }
 
-            VStack(spacing: 14) {
+            VStack(spacing: FDS.Spacing.lg) {
                 Text(page.kicker)
-                    .font(.system(size: 12, weight: .medium, design: .rounded))
+                    .font(FDS.TypeScale.Dynamic.caption)
                     .tracking(2.4)
                     .foregroundColor(.textTertiary)
                     .textCase(.uppercase)
@@ -257,29 +257,29 @@ private struct AuthHookPageView: View {
                     .premiumEntrance(index: 1, appeared: isActive)
 
                 Text(page.body)
-                    .font(.system(size: 15, weight: .regular))
+                    .font(FDS.TypeScale.Dynamic.body)
                     .foregroundColor(.textSecondary)
                     .multilineTextAlignment(.center)
                     .lineSpacing(5)
-                    .padding(.horizontal, 4)
+                    .padding(.horizontal, FDS.Spacing.xs)
                     .fixedSize(horizontal: false, vertical: true)
                     .premiumEntrance(index: 2, appeared: isActive)
 
                 Group {
                     if page.id == "forge" {
                         Text(page.reward)
-                            .font(.system(size: 13, weight: .medium, design: .rounded))
+                            .font(FDS.TypeScale.Dynamic.caption)
                             .foregroundColor(Color.ember.opacity(0.9))
                     } else {
                         Text(page.reward)
-                            .font(.system(size: 12, weight: .medium))
+                            .font(FDS.TypeScale.Dynamic.caption)
                             .foregroundColor(.textTertiary)
                     }
                 }
                 .padding(.top, 2)
                 .premiumEntrance(index: 3, appeared: isActive)
             }
-            .padding(.horizontal, 28)
+            .padding(.horizontal, FDS.Spacing.xl)
 
             Spacer(minLength: 4)
         }
@@ -295,7 +295,7 @@ private struct AuthHookPageView: View {
                 FDS.haptic(.soft)
                 AriaPresence.shared.speak(AriaOnboardingGuide.welcomeSpokenLine, interrupt: true)
             } label: {
-                VStack(spacing: 12) {
+                VStack(spacing: FDS.Spacing.md) {
                     ZStack {
                         PremiumPresenceBloom(size: 210, accent: page.accent, frost: page.frost)
                         AuroraOrbView(
@@ -307,9 +307,9 @@ private struct AuthHookPageView: View {
                         )
                     }
                     Text("ARIA")
-                        .font(.system(size: 11, weight: .medium, design: .rounded))
+                        .font(FDS.TypeScale.Dynamic.micro)
                         .tracking(3.2)
-                        .foregroundColor(Color(hex: "F7F4F0").opacity(0.72))
+                        .foregroundColor(Color.paper.opacity(0.72))
                 }
             }
             .buttonStyle(.plain)
@@ -328,7 +328,7 @@ private struct AuthHookPageView: View {
                     .font(.system(size: 34, weight: .medium))
                     .foregroundStyle(
                         LinearGradient(
-                            colors: [Color(hex: "F7F4F0"), page.accent.opacity(0.9)],
+                            colors: [Color.paper, page.accent.opacity(0.9)],
                             startPoint: .topLeading,
                             endPoint: .bottomTrailing
                         )

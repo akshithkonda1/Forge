@@ -71,14 +71,14 @@ struct ConnectedDevicesLibraryView: View {
     var body: some View {
         NavigationStack {
             ScrollView {
-                VStack(alignment: .leading, spacing: 20) {
+                VStack(alignment: .leading, spacing: FDS.Spacing.lg) {
                     searchBar
                     filterRow
                     sortRow
 
                     if !connected.isEmpty {
                         Text("On this iPhone")
-                            .font(.system(size: 13, weight: .medium))
+                            .font(FDS.TypeScale.Dynamic.caption)
                             .foregroundColor(.textTertiary)
                         ForEach(connected) { device in
                             NavigationLink {
@@ -94,7 +94,7 @@ struct ConnectedDevicesLibraryView: View {
                     }
 
                     Text(query.isEmpty ? "Companies" : "Results")
-                        .font(.system(size: 13, weight: .medium))
+                        .font(FDS.TypeScale.Dynamic.caption)
                         .foregroundColor(.textTertiary)
                     Text(liveCatalog.lastUpdated == nil
                          ? "Newest first. New products land from the live shelf and from Apple Health on this iPhone."
@@ -115,8 +115,8 @@ struct ConnectedDevicesLibraryView: View {
                         .buttonStyle(.plain)
                     }
                 }
-                .padding(20)
-                .padding(.bottom, 24)
+                .padding(FDS.Spacing.lg)
+                .padding(.bottom, FDS.Spacing.xl)
             }
             .background(Color.background)
             .navigationTitle("Devices")
@@ -135,7 +135,7 @@ struct ConnectedDevicesLibraryView: View {
     }
 
     private var searchBar: some View {
-        HStack(spacing: 10) {
+        HStack(spacing: FDS.Spacing.md) {
             Image(systemName: "magnifyingglass").foregroundColor(.textTertiary)
             TextField("Apple, Garmin, LARQ…", text: $query)
                 .textInputAutocapitalization(.never)
@@ -146,13 +146,13 @@ struct ConnectedDevicesLibraryView: View {
                 }
             }
         }
-        .padding(12)
-        .forgeGlassCard(cornerRadius: 12, accent: .steel)
+        .padding(FDS.Spacing.md)
+        .forgeGlassCard(cornerRadius: FDS.Radius.md, accent: .steel)
     }
 
     private var filterRow: some View {
         ScrollView(.horizontal, showsIndicators: false) {
-            HStack(spacing: 8) {
+            HStack(spacing: FDS.Spacing.sm) {
                 filterChip("All", selected: typeFilter == nil) { typeFilter = nil }
                 ForEach(HealthDeviceCategory.allCases) { category in
                     filterChip(category.title, selected: typeFilter == category) {
@@ -164,7 +164,7 @@ struct ConnectedDevicesLibraryView: View {
     }
 
     private var sortRow: some View {
-        HStack(spacing: 8) {
+        HStack(spacing: FDS.Spacing.sm) {
             Text("Sort")
                 .font(.system(size: 12))
                 .foregroundColor(.textTertiary)
@@ -175,8 +175,8 @@ struct ConnectedDevicesLibraryView: View {
                     Text(option.title)
                         .font(.system(size: 12, weight: sort == option ? .semibold : .medium))
                         .foregroundColor(sort == option ? .textPrimary : .textTertiary)
-                        .padding(.horizontal, 10)
-                        .padding(.vertical, 6)
+                        .padding(.horizontal, FDS.Spacing.md)
+                        .padding(.vertical, FDS.Spacing.sm)
                         .background(sort == option ? Color.white.opacity(0.08) : Color.clear)
                         .clipShape(Capsule())
                 }
@@ -189,10 +189,10 @@ struct ConnectedDevicesLibraryView: View {
     private func filterChip(_ title: String, selected: Bool, action: @escaping () -> Void) -> some View {
         Button(action: action) {
             Text(title)
-                .font(.system(size: 13, weight: .medium))
+                .font(FDS.TypeScale.Dynamic.caption)
                 .foregroundColor(selected ? .background : .textSecondary)
-                .padding(.horizontal, 12)
-                .padding(.vertical, 7)
+                .padding(.horizontal, FDS.Spacing.md)
+                .padding(.vertical, FDS.Spacing.sm)
                 .background(selected ? Color.textPrimary : Color.surface)
                 .clipShape(Capsule())
         }
@@ -201,11 +201,11 @@ struct ConnectedDevicesLibraryView: View {
 
     private func companyRow(_ brand: HealthDeviceBrand) -> some View {
         let selected = selectedCount(brand)
-        return HStack(spacing: 12) {
+        return HStack(spacing: FDS.Spacing.md) {
             DeviceArtworkStack(devices: brand.previewDevices, size: 48)
             VStack(alignment: .leading, spacing: 3) {
                 Text(brand.name)
-                    .font(.system(size: 16, weight: .semibold))
+                    .font(FDS.TypeScale.Dynamic.headline)
                     .foregroundColor(.textPrimary)
                 Text(companySubtitle(brand, selected: selected))
                     .font(.system(size: 12))
@@ -216,7 +216,7 @@ struct ConnectedDevicesLibraryView: View {
                 .font(.system(size: 12, weight: .semibold))
                 .foregroundColor(.textMuted)
         }
-        .padding(.vertical, 10)
+        .padding(.vertical, FDS.Spacing.md)
     }
 
     private func companySubtitle(_ brand: HealthDeviceBrand, selected: Int) -> String {
@@ -227,11 +227,11 @@ struct ConnectedDevicesLibraryView: View {
     }
 
     private func productSummary(_ device: HealthDevice) -> some View {
-        HStack(spacing: 12) {
-            DeviceProductImage(device: device, size: 44, cornerRadius: 10)
+        HStack(spacing: FDS.Spacing.md) {
+            DeviceProductImage(device: device, size: 44, cornerRadius: FDS.Radius.sm)
             VStack(alignment: .leading, spacing: 2) {
                 Text(device.name)
-                    .font(.system(size: 15, weight: .semibold))
+                    .font(FDS.TypeScale.Dynamic.body.weight(.semibold))
                     .foregroundColor(.textPrimary)
                 Text(device.maker)
                     .font(.system(size: 12))
@@ -242,7 +242,7 @@ struct ConnectedDevicesLibraryView: View {
                 .font(.system(size: 12, weight: .bold))
                 .foregroundColor(.vitality)
         }
-        .padding(.vertical, 6)
+        .padding(.vertical, FDS.Spacing.sm)
     }
 
     private func migrateIfNeeded() {
@@ -293,25 +293,25 @@ private struct CompanyProductsView: View {
 
     var body: some View {
         ScrollView {
-            VStack(alignment: .leading, spacing: 8) {
+            VStack(alignment: .leading, spacing: FDS.Spacing.sm) {
                 Text("Select every \(maker) product you own. You can pick more than one.")
                     .font(.system(size: 14))
                     .foregroundColor(.textSecondary)
-                    .padding(.bottom, 8)
+                    .padding(.bottom, FDS.Spacing.sm)
 
                 ForEach(groupedProducts, id: \.title) { group in
                     if groupedProducts.count > 1 {
                         Text(group.title)
-                            .font(.system(size: 12, weight: .medium))
+                            .font(FDS.TypeScale.Dynamic.caption)
                             .foregroundColor(.textTertiary)
-                            .padding(.top, 10)
+                            .padding(.top, FDS.Spacing.md)
                     }
                     ForEach(group.products) { device in
                         productRow(device, selected: connectedIDs.contains(device.id))
                     }
                 }
             }
-            .padding(20)
+            .padding(FDS.Spacing.lg)
         }
         .background(Color.background)
         .navigationTitle(maker)
@@ -331,7 +331,7 @@ private struct CompanyProductsView: View {
     }
 
     private func productRow(_ device: HealthDevice, selected: Bool) -> some View {
-        HStack(alignment: .top, spacing: 12) {
+        HStack(alignment: .top, spacing: FDS.Spacing.md) {
             Button {
                 Task { await setConnected(device, !selected) }
             } label: {
@@ -343,41 +343,41 @@ private struct CompanyProductsView: View {
             .accessibilityLabel(selected ? "Deselect \(device.name)" : "Select \(device.name)")
 
             Button { detail = device } label: {
-                HStack(alignment: .top, spacing: 12) {
-                    DeviceProductImage(device: device, size: 64, cornerRadius: 12)
-                    VStack(alignment: .leading, spacing: 4) {
+                HStack(alignment: .top, spacing: FDS.Spacing.md) {
+                    DeviceProductImage(device: device, size: 64, cornerRadius: FDS.Radius.md)
+                    VStack(alignment: .leading, spacing: FDS.Spacing.xs) {
                         Text(device.name)
-                            .font(.system(size: 16, weight: .semibold))
+                            .font(FDS.TypeScale.Dynamic.headline)
                             .foregroundColor(.textPrimary)
                         Text(device.summary)
                             .font(.system(size: 12))
                             .foregroundColor(.textSecondary)
                             .lineLimit(2)
-                        HStack(spacing: 8) {
+                        HStack(spacing: FDS.Spacing.sm) {
                             Text(String(device.releasedYear))
-                                .font(.system(size: 11, weight: .medium))
+                                .font(FDS.TypeScale.Dynamic.micro)
                                 .foregroundColor(.textTertiary)
                             if device.soldSeparatelyNote != nil {
                                 Text("Sold separately")
-                                    .font(.system(size: 11, weight: .medium))
+                                    .font(FDS.TypeScale.Dynamic.micro)
                                     .foregroundColor(.ember)
                             }
                             if device.id.hasPrefix("discovered-") {
                                 Text("On this iPhone")
-                                    .font(.system(size: 11, weight: .medium))
+                                    .font(FDS.TypeScale.Dynamic.micro)
                                     .foregroundColor(.ember)
                             } else if HealthDeviceCatalog.isListed(device) == false {
                                 Text("Past 5 cycles")
-                                    .font(.system(size: 11, weight: .medium))
+                                    .font(FDS.TypeScale.Dynamic.micro)
                                     .foregroundColor(.textMuted)
                             } else if device.writesToAppleHealth {
                                 Text("Apple Health")
-                                    .font(.system(size: 11, weight: .medium))
+                                    .font(FDS.TypeScale.Dynamic.micro)
                                     .foregroundColor(.textTertiary)
                             }
                             if isSeenInHealth(device) {
                                 Text("Seen in Health")
-                                    .font(.system(size: 11, weight: .medium))
+                                    .font(FDS.TypeScale.Dynamic.micro)
                                     .foregroundColor(.ember)
                             }
                         }
@@ -387,7 +387,7 @@ private struct CompanyProductsView: View {
             }
             .buttonStyle(.plain)
         }
-        .padding(.vertical, 12)
+        .padding(.vertical, FDS.Spacing.md)
         .opacity(busyID == device.id ? 0.55 : 1)
     }
 
@@ -432,12 +432,12 @@ private struct DeviceDetailSheet: View {
     var body: some View {
         NavigationStack {
             ScrollView {
-                VStack(alignment: .leading, spacing: 16) {
-                    HStack(alignment: .center, spacing: 14) {
-                        DeviceProductImage(device: device, size: 84, cornerRadius: 16)
-                        VStack(alignment: .leading, spacing: 4) {
+                VStack(alignment: .leading, spacing: FDS.Spacing.lg) {
+                    HStack(alignment: .center, spacing: FDS.Spacing.lg) {
+                        DeviceProductImage(device: device, size: 84, cornerRadius: FDS.Radius.lg)
+                        VStack(alignment: .leading, spacing: FDS.Spacing.xs) {
                             Text(device.name)
-                                .font(.system(size: 22, weight: .semibold))
+                                .font(FDS.TypeScale.Dynamic.title)
                                 .foregroundColor(.textPrimary)
                             Text(device.maker + " · " + device.category.title)
                                 .font(.system(size: 14))
@@ -452,28 +452,28 @@ private struct DeviceDetailSheet: View {
 
                     if let note = device.soldSeparatelyNote {
                         Text(note)
-                            .font(.system(size: 13, weight: .medium))
+                            .font(FDS.TypeScale.Dynamic.caption)
                             .foregroundColor(.textSecondary)
                             .fixedSize(horizontal: false, vertical: true)
-                            .padding(12)
+                            .padding(FDS.Spacing.md)
                             .frame(maxWidth: .infinity, alignment: .leading)
                             .background(Color.ember.opacity(0.10))
-                            .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                            .clipShape(RoundedRectangle(cornerRadius: FDS.Radius.md, style: .continuous))
                             .accessibilityLabel(note)
                     }
 
-                    VStack(alignment: .leading, spacing: 8) {
+                    VStack(alignment: .leading, spacing: FDS.Spacing.sm) {
                         Text("What it tracks")
-                            .font(.system(size: 14, weight: .semibold))
+                            .font(FDS.TypeScale.Dynamic.body.weight(.semibold))
                             .foregroundColor(.textPrimary)
                         Text(device.metrics.joined(separator: " · "))
                             .font(.system(size: 13))
                             .foregroundColor(.textSecondary)
                     }
 
-                    VStack(alignment: .leading, spacing: 6) {
+                    VStack(alignment: .leading, spacing: FDS.Spacing.sm) {
                         Text("How to connect")
-                            .font(.system(size: 14, weight: .semibold))
+                            .font(FDS.TypeScale.Dynamic.body.weight(.semibold))
                             .foregroundColor(.textPrimary)
                         Text(device.setupHint)
                             .font(.system(size: 13))
@@ -490,12 +490,11 @@ private struct DeviceDetailSheet: View {
                     if device.appStoreURL != nil {
                         Button(action: onOpenStore) {
                             Text("Open iOS app")
-                                .font(.system(size: 15, weight: .semibold))
+                                .font(FDS.TypeScale.Dynamic.body.weight(.semibold))
                                 .foregroundColor(.textPrimary)
                                 .frame(maxWidth: .infinity)
-                                .padding(.vertical, 14)
-                                .background(Color.surfaceElevated)
-                                .cornerRadius(12)
+                                .padding(.vertical, FDS.Spacing.lg)
+                                .forgeInsetTile(radius: FDS.Radius.md)
                         }
                         .disabled(isBusy)
                     }
@@ -503,27 +502,26 @@ private struct DeviceDetailSheet: View {
                     if isConnected {
                         Button(action: onDisconnect) {
                             Text("Remove from Forge")
-                                .font(.system(size: 15, weight: .semibold))
+                                .font(FDS.TypeScale.Dynamic.body.weight(.semibold))
                                 .foregroundColor(.danger)
                                 .frame(maxWidth: .infinity)
-                                .padding(.vertical, 14)
-                                .background(Color.surfaceElevated)
-                                .cornerRadius(12)
+                                .padding(.vertical, FDS.Spacing.lg)
+                                .forgeInsetTile(radius: FDS.Radius.md)
                         }
                     } else {
                         Button(action: onConnect) {
                             Text(isBusy ? "Adding…" : "Add this product")
-                                .font(.system(size: 15, weight: .semibold))
+                                .font(FDS.TypeScale.Dynamic.body.weight(.semibold))
                                 .foregroundColor(.white)
                                 .frame(maxWidth: .infinity)
-                                .padding(.vertical, 14)
+                                .padding(.vertical, FDS.Spacing.lg)
                                 .background(Color.ember)
-                                .cornerRadius(12)
+                                .cornerRadius(FDS.Radius.md)
                         }
                         .disabled(isBusy)
                     }
                 }
-                .padding(20)
+                .padding(FDS.Spacing.lg)
             }
             .background(Color.background)
             .navigationBarTitleDisplayMode(.inline)

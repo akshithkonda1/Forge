@@ -83,7 +83,7 @@ struct HomeCycleModule: View {
                         .forgeSectionLabel()
                     Spacer()
                     Text("Open")
-                        .font(FDS.TypeScale.label(12))
+                        .font(FDS.TypeScale.Dynamic.caption)
                         .foregroundStyle(accent)
                 }
 
@@ -104,11 +104,11 @@ struct HomeCycleModule: View {
 
                     VStack(alignment: .leading, spacing: 4) {
                         Text(title)
-                            .font(FDS.TypeScale.title(17))
+                            .font(FDS.TypeScale.Dynamic.title)
                             .foregroundColor(.textPrimary)
                             .lineLimit(1)
                         Text(subtitle)
-                            .font(FDS.TypeScale.body(12))
+                            .font(FDS.TypeScale.Dynamic.caption)
                             .foregroundColor(.textTertiary)
                             .lineLimit(2)
                     }
@@ -154,7 +154,7 @@ struct HomeCycleModule: View {
                         .font(.system(size: 10, weight: .semibold))
                         .foregroundStyle(Color.vitality)
                     Text(CyclePrivacy.shortPromise)
-                        .font(FDS.TypeScale.body(11))
+                        .font(FDS.TypeScale.Dynamic.caption)
                         .foregroundColor(.textTertiary)
                         .lineLimit(2)
                 }
@@ -185,7 +185,7 @@ struct HomeCycleModule: View {
 
     private func miniChip(_ text: String, _ color: Color) -> some View {
         Text(text)
-            .font(FDS.TypeScale.micro(10))
+            .font(FDS.TypeScale.Dynamic.micro)
             .foregroundStyle(color)
             .padding(.horizontal, 10)
             .padding(.vertical, 5)
@@ -243,7 +243,7 @@ struct HomeSupportPulseCard: View {
                     Text(cycleStore.consentedPeople.count > 1 ? "SUPPORTING \(cycleStore.consentedPeople.count)" : "SUPPORTING")
                         .forgeSectionLabel()
                     Text("\(pulsePerson?.displayName ?? cycleStore.partnerSettings.displayName) · \(pulseSnapshot.phase.shortLabel)")
-                        .font(.system(size: 15, weight: .bold))
+                        .font(FDS.TypeScale.Dynamic.body.weight(.semibold))
                         .foregroundColor(.textPrimary)
                     Text(pulseBriefLine)
                         .font(.system(size: 12))
