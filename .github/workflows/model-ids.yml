@@ -1,0 +1,115 @@
+# Weekly: ask Amazon Bedrock which Claude / Grok models exist and, when an
+# ARIA model slot has a newer model in its family, open (or refresh) one draft
+# PR that bumps the default id everywhere — Lambda code, Terraform fallbacks,
+# SimRunner mirrors, and the tests that pin them. See
+# scripts/update_model_ids.py. Nothing changes in any environment until that
+# PR is merged and applied.
+#
+# Setup (once):
+#   - AWS credentials, the same secrets terraform.yml uses: AWS_ROLE_ARN
+#     (OIDC, preferred) or AWS_ACCESS_KEY_ID + AWS_SECRET_ACCESS_KEY. The role
+#     needs only bedrock:ListFoundationModels and bedrock:ListInferenceProfiles.
+#     Without credentials the job skips with a notice.
+#   - Settings → Actions → General → "Allow GitHub Actions to create and
+#     approve pull requests".
+#   - Optional MODEL_IDS_TOKEN (fine-grained PAT: contents + pull requests on
+#     this repo). A PR opened with the default GITHUB_TOKEN does not trigger
+#     the other CI workflows; one opened with this token does.
+
+name: Model IDs
+
+on:
+  schedule:
+    - cron: "17 9 * * 1" # Mondays 09:17 UTC
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: model-ids
+  cancel-in-progress: false
+
+env:
+  AWS_REGION: us-east-1
+  BRANCH: automation/model-ids
+
+jobs:
+  update:
+    name: model-ids
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+      id-token: write
+    steps:
+      - name: Check AWS credentials are configured
+        id: creds
+        run: |
+          if [ -n "${{ secrets.AWS_ROLE_ARN }}" ] || { [ -n "${{ secrets.AWS_ACCESS_KEY_ID }}" ] && [ -n "${{ secrets.AWS_SECRET_ACCESS_KEY }}" ]; }; then
+            echo "configured=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "configured=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::No AWS credentials (AWS_ROLE_ARN or access keys). Skipping the Bedrock model lookup."
+          fi
+
+      # Actions must be pinned to a full-length commit SHA (repo policy).
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        if: steps.creds.outputs.configured == 'true'
+
+      - name: Configure AWS credentials
+        if: steps.creds.outputs.configured == 'true'
+        uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd # v6.3.0
+        with:
+          aws-region: ${{ env.AWS_REGION }}
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-session-token: ${{ secrets.AWS_SESSION_TOKEN }}
+
+      - name: Look for newer models
+        id: bump
+        if: steps.creds.outputs.configured == 'true'
+        run: |
+          python3 -m pip install --user boto3
+          python3 scripts/update_model_ids.py --region "$AWS_REGION" --summary "$RUNNER_TEMP/model-ids.md"
+          if git diff --quiet; then
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      # The bump PR should never arrive red: prove the rewritten defaults and
+      # the tests that pin them still agree before opening it.
+      - name: Test the bump
+        if: steps.bump.outputs.changed == 'true'
+        run: |
+          python3 -m pip install --user -r backend/requirements-dev.txt
+          python3 -m unittest discover -s backend/tests -p "test_*.py"
+          python3 -m unittest discover -s backend/ai/simrunner/tests -p "test_*.py"
+
+      - name: Open or refresh the draft PR
+        if: steps.bump.outputs.changed == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.MODEL_IDS_TOKEN || github.token }}
+        run: |
+          {
+            echo "Weekly Bedrock model check found newer models for ARIA's slots."
+            echo
+            cat "$RUNNER_TEMP/model-ids.md"
+            echo
+            echo "Before merging: confirm Bedrock model access for the new ids in this account, then smoke-test /ai/chat with ARIA_BEDROCK_ENABLED on."
+          } > "$RUNNER_TEMP/body.md"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git checkout -B "$BRANCH"
+          git commit -am "chore(models): bump ARIA Bedrock model ids to newest available"
+          git push --force origin "$BRANCH"
+          existing="$(gh pr list --head "$BRANCH" --state open --json number --jq '.[0].number')"
+          if [ -n "$existing" ]; then
+            gh pr edit "$existing" --body-file "$RUNNER_TEMP/body.md"
+          else
+            gh pr create --draft --base main --head "$BRANCH" \
+              --title "chore(models): newest Bedrock model ids for ARIA" \
+              --body-file "$RUNNER_TEMP/body.md"
+          fi
