@@ -23,6 +23,7 @@ on:
       - "shared/**"
       - "scripts/check-aria-frontend.ts"
       - "scripts/check-readiness-frontend.ts"
+      - "scripts/check-design-tokens-frontend.ts"
       - ".github/workflows/frontend-ci.yml"
   pull_request:
 
@@ -60,6 +61,7 @@ jobs:
               - "shared/**"
               - "scripts/check-aria-frontend.ts"
               - "scripts/check-readiness-frontend.ts"
+              - "scripts/check-design-tokens-frontend.ts"
               - ".github/workflows/frontend-ci.yml"
 
   build:
@@ -98,6 +100,10 @@ jobs:
       - name: Readiness frontend contract
         if: needs.changes.outputs.relevant == 'true'
         run: node --experimental-strip-types scripts/check-readiness-frontend.ts
+
+      - name: Design-token frontend contract
+        if: needs.changes.outputs.relevant == 'true'
+        run: node --experimental-strip-types scripts/check-design-tokens-frontend.ts
 
       - name: Lint
         if: needs.changes.outputs.relevant == 'true'

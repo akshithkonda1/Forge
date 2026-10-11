@@ -1,6 +1,7 @@
 "use client";
 
 import { Play, Calendar } from "lucide-react";
+import { PageHeader } from "@/components/ui/card";
 import { useAppStore } from "@/stores/useAppStore";
 import { ActiveWorkoutView } from "./active-workout-view";
 import {
@@ -21,22 +22,17 @@ export function WorkoutPage() {
   }
 
   return (
-    <div className="relative flex min-h-full flex-col items-center bg-background px-6 py-10">
+    <div className="relative flex min-h-full flex-col bg-background px-4 pb-8 pt-12">
       <PremiumAtmosphere accent="#FF6B2B" secondary="#A9D8FF" intensity={0.45} />
-      <div className="relative z-10 flex w-full max-w-sm flex-col">
+      <div className="relative z-10 flex w-full flex-col">
         {todayWorkout ? (
           <>
             <PremiumEntrance index={0}>
-              <p className="mb-2 text-[11px] font-medium uppercase tracking-[0.2em] text-text-tertiary">
-                Today
-              </p>
-              <h2 className="mb-2 text-2xl font-semibold tracking-tight text-text-primary">
-                {todayWorkout.name}
-              </h2>
-              <p className="mb-5 text-sm text-text-secondary">
-                {todayWorkout.exercises.length} moves · {todayWorkout.duration} min ·{" "}
-                {todayWorkout.intensity}
-              </p>
+              <PageHeader
+                className="mb-5"
+                title={todayWorkout.name}
+                subtitle={`${todayWorkout.exercises.length} moves · ${todayWorkout.duration} min · ${todayWorkout.intensity}`}
+              />
             </PremiumEntrance>
 
             <PremiumEntrance index={1} className="mb-5">
@@ -50,7 +46,7 @@ export function WorkoutPage() {
             </PremiumEntrance>
 
             <PremiumEntrance index={2}>
-              <div className="w-full rounded-2xl border border-white/[0.08] bg-white/[0.035] p-4">
+              <div className="w-full rounded-2xl bg-surface p-5">
                 {todayWorkout.exercises.map((exercise, index) => (
                   <div
                     key={exercise.id}
@@ -71,12 +67,12 @@ export function WorkoutPage() {
             </PremiumEntrance>
           </>
         ) : (
-          <div className="flex w-full max-w-sm flex-col items-center">
+          <div className="flex w-full flex-col items-center pt-8">
             <PremiumEntrance index={0}>
-              <div className="mb-6 flex h-20 w-20 items-center justify-center rounded-2xl border border-white/10 bg-white/[0.04]">
+              <div className="mb-6 flex h-20 w-20 items-center justify-center rounded-2xl bg-surface">
                 <Calendar className="h-10 w-10 text-text-tertiary" />
               </div>
-              <h2 className="mb-2 text-center text-xl font-semibold text-text-primary">
+              <h2 className="type-title mb-2 text-center text-text-primary">
                 No workout planned
               </h2>
               <p className="mb-8 text-center text-sm leading-relaxed text-text-secondary">

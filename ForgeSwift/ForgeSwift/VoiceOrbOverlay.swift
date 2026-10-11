@@ -33,8 +33,8 @@ struct VoiceOrbOverlay: View {
                 Capsule()
                     .fill(Color.white.opacity(0.22))
                     .frame(width: 38, height: 4)
-                    .padding(.top, 10)
-                    .padding(.bottom, 18)
+                    .padding(.top, FDS.Spacing.md)
+                    .padding(.bottom, FDS.Spacing.lg)
 
                 ZStack {
                     if !reduceMotion {
@@ -64,9 +64,9 @@ struct VoiceOrbOverlay: View {
                 .frame(height: 176)
 
                 // State labels
-                VStack(spacing: 6) {
+                VStack(spacing: FDS.Spacing.sm) {
                     Text(speech.voiceState.label)
-                        .font(.system(size: 19, weight: .semibold))
+                        .font(FDS.TypeScale.Dynamic.headline)
                         .foregroundStyle(LinearGradient(
                             colors: [accent, .white.opacity(0.85)],
                             startPoint: .leading, endPoint: .trailing
@@ -80,36 +80,36 @@ struct VoiceOrbOverlay: View {
                         .animation(FDS.Spring.standard, value: speech.voiceState.label)
 
                     Text(speech.voiceState.sublabel)
-                        .font(.system(size: 13, weight: .medium))
+                        .font(FDS.TypeScale.Dynamic.caption)
                         .foregroundColor(.white.opacity(0.5))
                 }
                 .opacity(contentOpacity)
-                .padding(.top, 4)
+                .padding(.top, FDS.Spacing.xs)
 
                 // Live transcript
                 if !speech.recognizedText.isEmpty {
                     Text("\"\(speech.recognizedText)\"")
-                        .font(.system(size: 15, weight: .medium))
+                        .font(FDS.TypeScale.Dynamic.body)
                         .foregroundColor(.white.opacity(0.82))
                         .multilineTextAlignment(.center)
                         .lineLimit(3)
-                        .padding(.horizontal, 28)
-                        .padding(.top, 16)
+                        .padding(.horizontal, FDS.Spacing.xl)
+                        .padding(.top, FDS.Spacing.lg)
                         .transition(.opacity.combined(with: .offset(y: 6)))
                         .animation(FDS.Spring.standard, value: speech.recognizedText)
                 }
 
                 // Actions — cancel always reachable, send-now when there's text.
-                HStack(spacing: 12) {
+                HStack(spacing: FDS.Spacing.md) {
                     AriaSpokenMuteButton()
 
                     Button(action: onCancel) {
-                        HStack(spacing: 7) {
+                        HStack(spacing: FDS.Spacing.sm) {
                             Image(systemName: "xmark").font(.system(size: 14, weight: .semibold))
-                            Text("Cancel").font(.system(size: 15, weight: .semibold))
+                            Text("Cancel").font(FDS.TypeScale.Dynamic.body.weight(.semibold))
                         }
                         .foregroundColor(.white.opacity(0.82))
-                        .padding(.horizontal, 22).padding(.vertical, 13)
+                        .padding(.horizontal, FDS.Spacing.xl).padding(.vertical, FDS.Spacing.md)
                         .background(Capsule().fill(Color.white.opacity(0.10)))
                         .overlay(Capsule().stroke(Color.white.opacity(0.14), lineWidth: 1))
                     }
@@ -118,12 +118,12 @@ struct VoiceOrbOverlay: View {
 
                     if !speech.recognizedText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
                         Button { speech.stopListening(submit: true) } label: {
-                            HStack(spacing: 7) {
+                            HStack(spacing: FDS.Spacing.sm) {
                                 Image(systemName: "arrow.up").font(.system(size: 14, weight: .bold))
-                                Text("Send").font(.system(size: 15, weight: .semibold))
+                                Text("Send").font(FDS.TypeScale.Dynamic.body.weight(.semibold))
                             }
                             .foregroundColor(.white)
-                            .padding(.horizontal, 24).padding(.vertical, 13)
+                            .padding(.horizontal, FDS.Spacing.xl).padding(.vertical, FDS.Spacing.md)
                             .background(Capsule().fill(
                                 LinearGradient(colors: [accent, accent.opacity(0.7)],
                                                startPoint: .leading, endPoint: .trailing)
@@ -136,8 +136,8 @@ struct VoiceOrbOverlay: View {
                     }
                 }
                 .opacity(contentOpacity)
-                .padding(.top, 22)
-                .padding(.bottom, 26)
+                .padding(.top, FDS.Spacing.xl)
+                .padding(.bottom, FDS.Spacing.xl)
                 .animation(FDS.Spring.snap, value: speech.recognizedText.isEmpty)
             }
             .frame(maxWidth: .infinity)

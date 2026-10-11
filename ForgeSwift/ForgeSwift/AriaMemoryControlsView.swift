@@ -13,7 +13,7 @@ struct AriaMemoryControlsView: View {
 
     var body: some View {
         ScrollView {
-            VStack(alignment: .leading, spacing: 16) {
+            VStack(alignment: .leading, spacing: FDS.Spacing.lg) {
                 Text(AriaFactPrivacy.privacyLine)
                     .font(.system(size: 14))
                     .foregroundColor(.textSecondary)
@@ -28,7 +28,7 @@ struct AriaMemoryControlsView: View {
                     folderCard(folder)
                 }
             }
-            .padding(20)
+            .padding(FDS.Spacing.lg)
         }
         .background(Color.background.ignoresSafeArea())
         .navigationTitle("ARIA memory & voice")
@@ -82,7 +82,7 @@ struct AriaMemoryControlsView: View {
     }
 
     private var memoryCard: some View {
-        VStack(alignment: .leading, spacing: 10) {
+        VStack(alignment: .leading, spacing: FDS.Spacing.md) {
             SettingsRow(icon: "brain.head.profile", iconColor: .ember, label: AriaMemoryAccess.rememberMeLabel) {
                 ForgeToggle(isOn: Binding(
                     get: { model.memoryOn },
@@ -97,19 +97,19 @@ struct AriaMemoryControlsView: View {
                  : "Memory is off. Notes stay here until you delete them. ARIA isn't using them.")
                 .font(.system(size: 13))
                 .foregroundColor(.textSecondary)
-                .padding(.horizontal, 16)
-                .padding(.bottom, 12)
+                .padding(.horizontal, FDS.Spacing.lg)
+                .padding(.bottom, FDS.Spacing.md)
             Text(model.controls.memoryStatusLine)
-                .font(.system(size: 12, weight: .semibold))
+                .font(FDS.TypeScale.Dynamic.caption)
                 .foregroundColor(.textTertiary)
-                .padding(.horizontal, 16)
-                .padding(.bottom, 12)
+                .padding(.horizontal, FDS.Spacing.lg)
+                .padding(.bottom, FDS.Spacing.md)
         }
-        .forgeGlassCard(cornerRadius: 16, accent: .ember)
+        .forgeGlassCard(cornerRadius: FDS.Radius.lg, accent: .ember)
     }
 
     private var personaCard: some View {
-        VStack(alignment: .leading, spacing: 10) {
+        VStack(alignment: .leading, spacing: FDS.Spacing.md) {
             SettingsRow(icon: "person.fill", iconColor: .ember, label: AriaMemoryAccess.personaLabel) {
                 ForgeToggle(isOn: Binding(
                     get: { model.controls.prefs.personaEnabled },
@@ -120,26 +120,26 @@ struct AriaMemoryControlsView: View {
                 .accessibilityValue(AriaMemoryAccess.rememberMeValue(isOn: model.controls.prefs.personaEnabled))
             }
             Text(model.controls.persona.archetype.title)
-                .font(.system(size: 18, weight: .bold, design: .rounded))
+                .font(FDS.TypeScale.Dynamic.metric)
                 .foregroundColor(.textPrimary)
-                .padding(.horizontal, 16)
+                .padding(.horizontal, FDS.Spacing.lg)
             if let hours = model.controls.persona.sleepNeedPreferenceHours {
                 Text(String(format: "Sleep want: %.1f h", hours))
                     .font(.system(size: 13))
                     .foregroundColor(.textSecondary)
-                    .padding(.horizontal, 16)
+                    .padding(.horizontal, FDS.Spacing.lg)
             }
             if let move = model.controls.persona.movementPreference {
                 Text("Typical movement: \(move.title)")
                     .font(.system(size: 13))
                     .foregroundColor(.textSecondary)
-                    .padding(.horizontal, 16)
+                    .padding(.horizontal, FDS.Spacing.lg)
             }
             Text("Closed chips only. Not a family tree, not a diagnosis.")
                 .font(.system(size: 12))
                 .foregroundColor(.textTertiary)
-                .padding(.horizontal, 16)
-            HStack(spacing: 16) {
+                .padding(.horizontal, FDS.Spacing.lg)
+            HStack(spacing: FDS.Spacing.lg) {
                 Button {
                     QualityOfLifeLivingStore.clearInterviewCompleted()
                     showLifestyleInterview = true
@@ -162,7 +162,7 @@ struct AriaMemoryControlsView: View {
                         confirmForgetPersona = true
                     } label: {
                         Text(AriaMemoryAccess.forgetPersonaLabel)
-                            .font(.system(size: 14, weight: .semibold))
+                            .font(FDS.TypeScale.Dynamic.body.weight(.semibold))
                             .foregroundColor(.danger)
                     }
                     .buttonStyle(.plain)
@@ -171,19 +171,19 @@ struct AriaMemoryControlsView: View {
                     .accessibilityAddTraits(.isButton)
                 }
             }
-            .padding(.horizontal, 16)
-            .padding(.bottom, 12)
+            .padding(.horizontal, FDS.Spacing.lg)
+            .padding(.bottom, FDS.Spacing.md)
             .padding(.top, 2)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(Color.surface)
-        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+        .clipShape(RoundedRectangle(cornerRadius: FDS.Radius.lg, style: .continuous))
     }
 
     private var toneCard: some View {
-        VStack(alignment: .leading, spacing: 10) {
+        VStack(alignment: .leading, spacing: FDS.Spacing.md) {
             Text(AriaMemoryAccess.howITalkHeader)
-                .font(.system(size: 15, weight: .bold))
+                .font(FDS.TypeScale.Dynamic.body.weight(.semibold))
                 .foregroundColor(.textPrimary)
                 .accessibilityAddTraits(.isHeader)
             Text("Friend first. Not a clinician.")
@@ -194,13 +194,13 @@ struct AriaMemoryControlsView: View {
                 Button {
                     model.setTone(tone)
                 } label: {
-                    HStack(alignment: .top, spacing: 10) {
+                    HStack(alignment: .top, spacing: FDS.Spacing.md) {
                         Image(systemName: selected ? "checkmark.circle.fill" : "circle")
                             .foregroundColor(selected ? .ember : .textTertiary)
                             .accessibilityHidden(true)
                         VStack(alignment: .leading, spacing: 2) {
                             Text(tone.title)
-                                .font(.system(size: 14, weight: .semibold))
+                                .font(FDS.TypeScale.Dynamic.body.weight(.semibold))
                                 .foregroundColor(.textPrimary)
                             Text(tone.line)
                                 .font(.system(size: 12))
@@ -209,7 +209,7 @@ struct AriaMemoryControlsView: View {
                         }
                         Spacer()
                     }
-                    .padding(.vertical, 6)
+                    .padding(.vertical, FDS.Spacing.sm)
                 }
                 .buttonStyle(.plain)
                 .accessibilityLabel(AriaMemoryAccess.toneLabel(tone, selected: selected))
@@ -217,14 +217,14 @@ struct AriaMemoryControlsView: View {
                 .accessibilityAddTraits(selected ? [.isButton, .isSelected] : .isButton)
             }
         }
-        .padding(16)
-        .forgeGlassCard(cornerRadius: 16, accent: .steel)
+        .padding(FDS.Spacing.lg)
+        .forgeGlassCard(cornerRadius: FDS.Radius.lg, accent: .steel)
     }
 
     private var checkInCard: some View {
-        VStack(alignment: .leading, spacing: 10) {
+        VStack(alignment: .leading, spacing: FDS.Spacing.md) {
             Text(AriaMemoryAccess.checkInsHeader)
-                .font(.system(size: 15, weight: .bold))
+                .font(FDS.TypeScale.Dynamic.body.weight(.semibold))
                 .foregroundColor(.textPrimary)
                 .accessibilityAddTraits(.isHeader)
             Text("How often I ask how life is going. On this phone.")
@@ -235,13 +235,13 @@ struct AriaMemoryControlsView: View {
                 Button {
                     model.setCheckInCadence(cadence)
                 } label: {
-                    HStack(alignment: .top, spacing: 10) {
+                    HStack(alignment: .top, spacing: FDS.Spacing.md) {
                         Image(systemName: selected ? "checkmark.circle.fill" : "circle")
                             .foregroundColor(selected ? .ember : .textTertiary)
                             .accessibilityHidden(true)
                         VStack(alignment: .leading, spacing: 2) {
                             Text(cadence.title)
-                                .font(.system(size: 14, weight: .semibold))
+                                .font(FDS.TypeScale.Dynamic.body.weight(.semibold))
                                 .foregroundColor(.textPrimary)
                             Text(cadence.detail)
                                 .font(.system(size: 12))
@@ -250,7 +250,7 @@ struct AriaMemoryControlsView: View {
                         }
                         Spacer()
                     }
-                    .padding(.vertical, 6)
+                    .padding(.vertical, FDS.Spacing.sm)
                 }
                 .buttonStyle(.plain)
                 .accessibilityLabel(AriaMemoryAccess.checkInLabel(cadence, selected: selected))
@@ -258,20 +258,20 @@ struct AriaMemoryControlsView: View {
                 .accessibilityAddTraits(selected ? [.isButton, .isSelected] : .isButton)
             }
         }
-        .padding(16)
-        .forgeGlassCard(cornerRadius: 16, accent: .steel)
+        .padding(FDS.Spacing.lg)
+        .forgeGlassCard(cornerRadius: FDS.Radius.lg, accent: .steel)
     }
 
     private func folderCard(_ folder: AriaKnowledgeCategory) -> some View {
         let items = model.facts(in: folder)
-        return VStack(alignment: .leading, spacing: 10) {
-            HStack(spacing: 8) {
+        return VStack(alignment: .leading, spacing: FDS.Spacing.md) {
+            HStack(spacing: FDS.Spacing.sm) {
                 Image(systemName: folder.systemImage)
                     .font(.system(size: 13, weight: .semibold))
                     .foregroundColor(.ember)
                 VStack(alignment: .leading, spacing: 2) {
                     Text(folder.title)
-                        .font(.system(size: 15, weight: .bold))
+                        .font(FDS.TypeScale.Dynamic.body.weight(.semibold))
                         .foregroundColor(.textPrimary)
                         .accessibilityAddTraits(.isHeader)
                     Text(folder.blurb)
@@ -280,7 +280,7 @@ struct AriaMemoryControlsView: View {
                 }
                 Spacer()
                 Text("\(items.count)")
-                    .font(.system(size: 12, weight: .semibold))
+                    .font(FDS.TypeScale.Dynamic.caption)
                     .foregroundColor(.textTertiary)
                     .accessibilityLabel("\(items.count) notes")
             }
@@ -299,7 +299,7 @@ struct AriaMemoryControlsView: View {
                     .foregroundColor(.textTertiary)
             } else {
                 ForEach(items.prefix(20)) { fact in
-                    VStack(alignment: .leading, spacing: 6) {
+                    VStack(alignment: .leading, spacing: FDS.Spacing.sm) {
                         Text(fact.summary)
                             .font(.system(size: 13))
                             .foregroundColor(.textPrimary)
@@ -331,7 +331,7 @@ struct AriaMemoryControlsView: View {
                             .accessibilityAddTraits(.isButton)
                         }
                     }
-                    .padding(.vertical, 6)
+                    .padding(.vertical, FDS.Spacing.sm)
                 }
             }
             Button {
@@ -339,21 +339,21 @@ struct AriaMemoryControlsView: View {
                 showEditor = true
             } label: {
                 Text("Add a note")
-                    .font(.system(size: 14, weight: .semibold))
+                    .font(FDS.TypeScale.Dynamic.body.weight(.semibold))
                     .foregroundColor(.ember)
             }
             .buttonStyle(.plain)
-            .padding(.top, 4)
+            .padding(.top, FDS.Spacing.xs)
             .accessibilityLabel(AriaMemoryAccess.addNoteLabel(folder: folder))
             .accessibilityAddTraits(.isButton)
         }
-        .padding(16)
-        .forgeGlassCard(cornerRadius: 16, accent: .steel)
+        .padding(FDS.Spacing.lg)
+        .forgeGlassCard(cornerRadius: FDS.Radius.lg, accent: .steel)
     }
 
     private var editorSheet: some View {
         NavigationStack {
-            VStack(alignment: .leading, spacing: 16) {
+            VStack(alignment: .leading, spacing: FDS.Spacing.lg) {
                 Text("Kinds and days-until only. No calendar titles, people on the invite, or places.")
                     .font(.system(size: 13))
                     .foregroundColor(.textSecondary)
@@ -368,9 +368,8 @@ struct AriaMemoryControlsView: View {
                 }
                 TextField("A short note", text: $model.draftSummary, axis: .vertical)
                     .lineLimit(3...8)
-                    .padding(12)
-                    .background(Color.surfaceElevated)
-                    .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                    .padding(FDS.Spacing.md)
+                    .forgeInsetTile(radius: FDS.Radius.md)
                     .accessibilityLabel(AriaMemoryAccess.noteFieldLabel)
                 if let addError = model.addError {
                     Text(addError)
@@ -379,7 +378,7 @@ struct AriaMemoryControlsView: View {
                 }
                 Spacer()
             }
-            .padding(20)
+            .padding(FDS.Spacing.lg)
             .background(Color.background.ignoresSafeArea())
             .navigationTitle(model.editingID == nil ? "Add a note" : "Edit note")
             .navigationBarTitleDisplayMode(.inline)

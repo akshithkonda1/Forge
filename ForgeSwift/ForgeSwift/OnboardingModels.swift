@@ -139,9 +139,9 @@ enum OnboardingCoachingStyle: String, CaseIterable, Identifiable {
         switch self {
         case .driven:     return .ember
         case .balanced:   return .steel
-        case .supportive: return Color(hex: "22C55E")
-        case .scientist:  return Color(hex: "A855F7")
-        case .elite:      return Color(hex: "F59E0B")
+        case .supportive: return Color.vitality
+        case .scientist:  return Color.aurora
+        case .elite:      return Color.amber
         }
     }
     var coreStyle: CoachingStyle {

@@ -9,16 +9,11 @@ struct ChatHeaderView: View {
     @State private var appeared     = false
 
     private var scoreColor: Color {
-        switch store.readiness.overall {
-        case 85...:  return Color(hex: "22C55E")
-        case 70..<85: return Color.ember
-        case 50..<70: return Color.steel
-        default:      return Color(hex: "EF4444")
-        }
+        HomeReadiness.color(store.readiness.overall)
     }
 
     var body: some View {
-            HStack(spacing: 12) {
+            HStack(spacing: FDS.Spacing.md) {
             ARIAIdentityMark(state: .idle, mood: mood, size: 44, amplitude: 0.2)
             .onLongPressGesture(minimumDuration: 0.45) {
                 choreographedHaptic(.reactionAdded)
@@ -26,41 +21,41 @@ struct ChatHeaderView: View {
             }
 
             VStack(alignment: .leading, spacing: 3) {
-                HStack(spacing: 6) {
+                HStack(spacing: FDS.Spacing.sm) {
                     Text("ARIA")
-                        .font(.system(size: 20, weight: .semibold, design: .rounded))
+                        .font(ForgeType.title)
                         .foregroundColor(.textPrimary)
-                        .tracking(0.8)
+                        .tracking(ForgeType.tracking(.title))
                     if store.lastCoachWorkers.count > 1 {
                         Text("· " + store.lastCoachWorkers.map(\.kind.label).joined(separator: " + "))
-                            .font(.system(size: 13, weight: .medium))
+                            .font(FDS.TypeScale.Dynamic.caption)
                             .foregroundColor(store.lastRoutedCoachAgent.accent)
                             .lineLimit(1)
                     } else if store.lastRoutedCoachAgent != .aria {
                         Text("· \(store.lastRoutedCoachAgent.label)")
-                            .font(.system(size: 13, weight: .medium))
+                            .font(FDS.TypeScale.Dynamic.caption)
                             .foregroundColor(store.lastRoutedCoachAgent.accent)
                     } else {
                         Text("your coaches")
-                            .font(.system(size: 11, weight: .medium))
+                            .font(FDS.TypeScale.Dynamic.micro)
                             .foregroundColor(.textTertiary)
                     }
                 }
 
-                HStack(spacing: 5) {
+                HStack(spacing: FDS.Spacing.xs) {
                     if ariaService.isTestReady || AriaOperatingMode.current.isDummy {
                         Image(systemName: "checkmark.seal")
                             .font(.system(size: 8, weight: .bold))
                             .foregroundColor(Color(hex: "A9D8FF"))
                         Text("Dummy · tune without AI")
-                            .font(.system(size: 11, weight: .medium))
+                            .font(FDS.TypeScale.Dynamic.micro)
                             .foregroundColor(Color(hex: "A9D8FF").opacity(0.92))
                     } else if let remoteError = ariaService.lastRemoteError {
                         Image(systemName: "exclamationmark.triangle.fill")
                             .font(.system(size: 8, weight: .bold))
                             .foregroundColor(Color.danger)
                         Text(remoteError)
-                            .font(.system(size: 11, weight: .medium))
+                            .font(FDS.TypeScale.Dynamic.micro)
                             .foregroundColor(Color.danger.opacity(0.9))
                             .lineLimit(1)
                     } else if ariaService.isLocalFallback {
@@ -68,12 +63,12 @@ struct ChatHeaderView: View {
                             .font(.system(size: 8, weight: .bold))
                             .foregroundColor(Color.ember)
                         Text("On this phone")
-                            .font(.system(size: 11, weight: .medium))
+                            .font(FDS.TypeScale.Dynamic.micro)
                             .foregroundColor(Color.ember.opacity(0.8))
                     } else {
                         Circle().fill(ForgePalette.amber).frame(width: 5, height: 5)
                         Text(headerStatusLine)
-                            .font(.system(size: 11, weight: .medium))
+                            .font(FDS.TypeScale.Dynamic.micro)
                             .foregroundColor(.textSecondary)
                     }
                 }
@@ -88,10 +83,10 @@ struct ChatHeaderView: View {
                     store.skipAriaFirstBond()
                 } label: {
                     Text(AriaFirstBond.skipLabel)
-                        .font(.system(size: 13, weight: .semibold, design: .rounded))
+                        .font(FDS.TypeScale.Dynamic.caption)
                         .foregroundColor(.textTertiary)
-                        .padding(.horizontal, 12)
-                        .padding(.vertical, 6)
+                        .padding(.horizontal, FDS.Spacing.md)
+                        .padding(.vertical, FDS.Spacing.sm)
                         .background(Color.white.opacity(0.05))
                         .clipShape(Capsule())
                         .overlay(
@@ -124,15 +119,15 @@ struct ChatHeaderView: View {
                         .stroke(Color.white.opacity(0.06), lineWidth: 1)
                         .frame(width: 38, height: 38)
                     Text("\(store.readiness.overall)")
-                        .font(.system(size: 14, weight: .black, design: .rounded))
+                        .font(FDS.TypeScale.Dynamic.body.weight(.semibold))
                         .monospacedDigit()
                         .foregroundColor(.textPrimary)
                 }
                 .shadow(color: scoreColor.opacity(0.42), radius: 8)
             }
         }
-        .padding(.horizontal, 18)
-        .padding(.vertical, 12)
+        .padding(.horizontal, FDS.Spacing.lg)
+        .padding(.vertical, FDS.Spacing.md)
         .background {
             ZStack {
                 Rectangle().fill(.ultraThinMaterial)

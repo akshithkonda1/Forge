@@ -40,7 +40,7 @@ private struct AgeBlockedView: View {
     @State private var appeared = false
 
     var body: some View {
-        VStack(spacing: 28) {
+        VStack(spacing: FDS.Spacing.xl) {
             Spacer()
             Image(systemName: "lock.shield.fill")
                 .font(.system(size: 48))
@@ -78,16 +78,16 @@ private struct DevSkipButton: View {
                         Button("Skip wait →") { coordinator.skipPrepHoldForDebug() }
                             .font(.caption.weight(.black))
                             .foregroundColor(.white)
-                            .padding(.horizontal, 14)
-                            .padding(.vertical, 8)
+                            .padding(.horizontal, FDS.Spacing.lg)
+                            .padding(.vertical, FDS.Spacing.sm)
                             .background(Color.ember)
                             .clipShape(Capsule())
                     } else {
                         Button("Skip All →") { coordinator.devSkipToEnd(in: store) }
                             .font(.caption.weight(.black))
                             .foregroundColor(.white)
-                            .padding(.horizontal, 14)
-                            .padding(.vertical, 8)
+                            .padding(.horizontal, FDS.Spacing.lg)
+                            .padding(.vertical, FDS.Spacing.sm)
                             .background(Color.ember)
                             .clipShape(Capsule())
                     }
@@ -95,14 +95,14 @@ private struct DevSkipButton: View {
                     Button("DEV") { withAnimation(FDS.Spring.snap) { expanded = true } }
                         .font(.system(size: 9, weight: .black))
                         .foregroundColor(.black)
-                        .padding(.horizontal, 8)
-                        .padding(.vertical, 5)
+                        .padding(.horizontal, FDS.Spacing.sm)
+                        .padding(.vertical, FDS.Spacing.xs)
                         .background(Color.warning)
                         .clipShape(Capsule())
                 }
             }
             .padding(.horizontal, FDS.Spacing.xl)
-            .padding(.top, 8)
+            .padding(.top, FDS.Spacing.sm)
             Spacer()
         }
     }
