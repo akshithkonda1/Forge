@@ -34,8 +34,8 @@ function BreakdownCard({ item, index }: { item: BreakdownItem; index: number }) 
     >
       <BreakdownDot color={color} />
       <div className="flex flex-1 items-center justify-between min-w-0">
-        <span className="text-xs text-text-secondary">{item.label}</span>
-        <span className="text-sm font-semibold text-text-primary">
+        <span className="type-caption text-text-secondary">{item.label}</span>
+        <span className="type-metric text-text-primary">
           {item.inverted ? `${100 - item.value}%` : `${item.value}%`}
         </span>
       </div>
@@ -61,7 +61,7 @@ export function ReadinessSection() {
       transition={{ duration: 0.5, delay: 0.1, ease: "easeOut" }}
     >
       {/* Section label */}
-      <p className="text-xs font-medium text-text-tertiary uppercase tracking-wider mb-5">
+      <p className="type-eyebrow mb-5">
         Readiness Score
       </p>
 

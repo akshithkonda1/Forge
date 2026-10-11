@@ -25,9 +25,9 @@ export function ExerciseNav({ exercises, currentIndex }: ExerciseNavProps) {
                 "relative flex items-center justify-center rounded-full transition-colors",
                 "min-w-[36px] min-h-[36px]",
                 isCurrent &&
-                  "bg-[#FF4D00] shadow-[0_0_12px_rgba(255,77,0,0.4)]",
-                isCompleted && "bg-[#FF4D00]/20",
-                isUpcoming && "bg-[#1A1A1A] border border-[#2A2A2A]"
+                  "bg-ember shadow-[0_0_12px_rgba(255,77,0,0.4)]",
+                isCompleted && "bg-ember/20",
+                isUpcoming && "bg-surface-elevated border border-border"
               )}
               initial={false}
               animate={
@@ -42,13 +42,13 @@ export function ExerciseNav({ exercises, currentIndex }: ExerciseNavProps) {
               }
             >
               {isCompleted ? (
-                <Check className="h-4 w-4 text-[#FF4D00]" />
+                <Check className="h-4 w-4 text-ember" />
               ) : (
                 <span
                   className={cn(
                     "text-xs font-bold",
-                    isCurrent && "text-white",
-                    isUpcoming && "text-[#71717A]"
+                    isCurrent && "text-text-primary",
+                    isUpcoming && "text-text-tertiary"
                   )}
                 >
                   {index + 1}
@@ -61,7 +61,7 @@ export function ExerciseNav({ exercises, currentIndex }: ExerciseNavProps) {
               <div
                 className={cn(
                   "h-[2px] w-4 rounded-full",
-                  index < currentIndex ? "bg-[#FF4D00]/40" : "bg-[#2A2A2A]"
+                  index < currentIndex ? "bg-ember/40" : "bg-border"
                 )}
               />
             )}

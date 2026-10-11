@@ -155,8 +155,8 @@ export function PremiumPrimaryButton({
         // No active:scale — transform on the press target breaks Chromium click synthesis.
         "premium-cta group relative flex w-full items-center justify-between overflow-hidden rounded-full px-6 py-[17px] text-[17px] font-semibold transition-[background-color,box-shadow,filter] duration-150 active:brightness-[0.92] active:shadow-none",
         disabled
-          ? "bg-surface-elevated text-white/35"
-          : "bg-[#F7F4F0] text-[#0A0A0A] shadow-[0_10px_30px_rgba(247,244,240,0.14)]",
+          ? "bg-surface-elevated text-text-primary/35"
+          : "bg-paper text-background shadow-[0_10px_30px_rgba(247,244,240,0.14)]",
         className
       )}
     >
@@ -186,7 +186,7 @@ export function PremiumProgressDots({
           className={cn(
             "h-1 rounded-full transition-all duration-300",
             i === current
-              ? "premium-dot-active w-5 bg-[#F7F4F0]"
+              ? "premium-dot-active w-5 bg-paper"
               : "w-1.5 bg-white/16"
           )}
         />

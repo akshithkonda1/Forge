@@ -27,7 +27,7 @@ struct MusicControlBar: View {
     }
 
     private func playingView(track: NowPlayingTrack) -> some View {
-        HStack(spacing: 14) {
+        HStack(spacing: FDS.Spacing.lg) {
             ZStack {
                 AsyncImage(url: track.artworkURL) { phase in
                     switch phase {
@@ -47,11 +47,11 @@ struct MusicControlBar: View {
                     }
                 }
                 .frame(width: 44, height: 44)
-                .clipShape(RoundedRectangle(cornerRadius: 10))
+                .clipShape(RoundedRectangle(cornerRadius: FDS.Radius.sm))
                 .shadow(color: track.artworkURL != nil ? .black.opacity(0.25) : accent.opacity(0.4), radius: 8, y: 3)
 
                 if track.isPlaying {
-                    RoundedRectangle(cornerRadius: 10)
+                    RoundedRectangle(cornerRadius: FDS.Radius.sm)
                         .fill(Color.black.opacity(0.35))
                         .frame(width: 44, height: 44)
                     HStack(spacing: 2) {
@@ -66,20 +66,20 @@ struct MusicControlBar: View {
                 }
             }
             VStack(alignment: .leading, spacing: 3) {
-                Text(track.title).font(.system(size: 14, weight: .semibold)).foregroundColor(.textPrimary).lineLimit(1)
-                HStack(spacing: 6) {
+                Text(track.title).font(FDS.TypeScale.Dynamic.body.weight(.semibold)).foregroundColor(.textPrimary).lineLimit(1)
+                HStack(spacing: FDS.Spacing.sm) {
                     Text(controller.service.rawValue)
-                        .font(.system(size: 9, weight: .black)).foregroundColor(accent)
-                        .padding(.horizontal, 5).padding(.vertical, 2).background(accent.opacity(0.12)).cornerRadius(4)
+                        .font(FDS.TypeScale.Dynamic.micro).foregroundColor(accent)
+                        .padding(.horizontal, FDS.Spacing.xs).padding(.vertical, 2).background(accent.opacity(0.12)).cornerRadius(FDS.Radius.xs)
                     Text(track.artist).font(.system(size: 12)).foregroundColor(.textTertiary).lineLimit(1)
                     if let bpm = track.bpm {
                         Circle().fill(Color.borderColor).frame(width: 3, height: 3)
-                        Text("\(bpm) BPM").font(.system(size: 11, weight: .bold)).foregroundColor(.steel)
+                        Text("\(bpm) BPM").font(FDS.TypeScale.Dynamic.micro).foregroundColor(.steel)
                     }
                 }
             }
             Spacer()
-            HStack(spacing: 4) {
+            HStack(spacing: FDS.Spacing.xs) {
                 Button(action: controller.skipBack) {
                     Image(systemName: "backward.fill").font(.system(size: 15)).foregroundColor(.textSecondary).frame(width: 36, height: 36)
                 }
@@ -94,7 +94,7 @@ struct MusicControlBar: View {
                 }
             }
         }
-        .padding(.horizontal, 14).padding(.vertical, compact ? 9 : 14)
+        .padding(.horizontal, FDS.Spacing.lg).padding(.vertical, compact ? 9 : 14)
         .forgeGlassCard(cornerRadius: compact ? 16 : 20, accent: accent)
     }
 
@@ -104,29 +104,29 @@ struct MusicControlBar: View {
             // Mid-workout, a full card that says "nothing is playing" is the most
             // expensive way to convey nothing. One tappable line does the same job.
             Button(action: controller.togglePlayPause) {
-                HStack(spacing: 8) {
+                HStack(spacing: FDS.Spacing.sm) {
                     Image(systemName: "play.circle.fill").font(.system(size: 15)).foregroundColor(accent.opacity(0.75))
-                    Text("Play \(controller.service.rawValue)").font(.system(size: 12, weight: .semibold)).foregroundColor(.textTertiary)
+                    Text("Play \(controller.service.rawValue)").font(FDS.TypeScale.Dynamic.caption).foregroundColor(.textTertiary)
                         .lineLimit(1)
                     Spacer(minLength: 0)
                 }
-                .padding(.horizontal, 12).padding(.vertical, 7)
-                .background(Color.surface.opacity(0.6)).cornerRadius(12)
-                .overlay(RoundedRectangle(cornerRadius: 12).stroke(Color.borderColor.opacity(0.3), lineWidth: 1))
+                .padding(.horizontal, FDS.Spacing.md).padding(.vertical, FDS.Spacing.sm)
+                .background(Color.surface.opacity(0.6)).cornerRadius(FDS.Radius.md)
+                .overlay(RoundedRectangle(cornerRadius: FDS.Radius.md).stroke(Color.borderColor.opacity(0.3), lineWidth: 1))
             }
             .buttonStyle(.plain)
             .accessibilityLabel("Play \(controller.service.rawValue)")
         } else {
-            HStack(spacing: 10) {
+            HStack(spacing: FDS.Spacing.md) {
                 Image(systemName: "music.note.list").font(.system(size: 18)).foregroundColor(.textMuted)
                 VStack(alignment: .leading, spacing: 2) {
                     Text("Nothing playing").font(.system(size: 14)).foregroundColor(.textMuted)
-                    Text(controller.service.rawValue).font(.system(size: 11, weight: .semibold)).foregroundColor(accent.opacity(0.7))
+                    Text(controller.service.rawValue).font(FDS.TypeScale.Dynamic.micro).foregroundColor(accent.opacity(0.7))
                 }
                 Spacer()
             }
-            .padding(.horizontal, 14).padding(.vertical, 12)
-            .forgeGlassCard(cornerRadius: 16, accent: accent)
+            .padding(.horizontal, FDS.Spacing.lg).padding(.vertical, FDS.Spacing.md)
+            .forgeGlassCard(cornerRadius: FDS.Radius.lg, accent: accent)
         }
     }
 
@@ -134,20 +134,20 @@ struct MusicControlBar: View {
         Button {
             Task { await controller.requestAccess() }
         } label: {
-            HStack(spacing: 10) {
+            HStack(spacing: FDS.Spacing.md) {
                 ZStack {
                     Circle().fill(accent.opacity(0.12)).frame(width: 34, height: 34)
                     Image(systemName: controller.service.iconName).font(.system(size: 14)).foregroundColor(accent)
                 }
                 VStack(alignment: .leading, spacing: 1) {
-                    Text("Connect \(controller.service.rawValue)").font(.system(size: 14, weight: .semibold)).foregroundColor(.textPrimary)
+                    Text("Connect \(controller.service.rawValue)").font(FDS.TypeScale.Dynamic.body.weight(.semibold)).foregroundColor(.textPrimary)
                     Text("Tap to authorize").font(.system(size: 11)).foregroundColor(.textTertiary)
                 }
                 Spacer()
                 Image(systemName: "chevron.right").font(.system(size: 12)).foregroundColor(.textMuted)
             }
-            .padding(.horizontal, 14).padding(.vertical, 12)
-            .forgeGlassCard(cornerRadius: 16, accent: accent)
+            .padding(.horizontal, FDS.Spacing.lg).padding(.vertical, FDS.Spacing.md)
+            .forgeGlassCard(cornerRadius: FDS.Radius.lg, accent: accent)
         }
         .buttonStyle(.plain)
     }

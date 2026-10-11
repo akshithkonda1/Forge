@@ -11,28 +11,28 @@ struct SleepPersonalizationSheet: View {
             ZStack {
                 Color.background.ignoresSafeArea()
                 ScrollView(showsIndicators: false) {
-                    VStack(alignment: .leading, spacing: 20) {
+                    VStack(alignment: .leading, spacing: FDS.Spacing.lg) {
                         Text("Your chronotype shapes scoring, goals, sunrise, and smart wake.")
                             .font(.system(size: 14))
                             .foregroundColor(.textSecondary)
                             .lineSpacing(4)
 
-                        VStack(spacing: 10) {
+                        VStack(spacing: FDS.Spacing.md) {
                             ForEach(Chronotype.allCases) { type in
                                 Button {
                                     draft.chronotype = type
                                     UISelectionFeedbackGenerator().selectionChanged()
                                 } label: {
-                                    HStack(spacing: 12) {
+                                    HStack(spacing: FDS.Spacing.md) {
                                         Image(systemName: type.icon)
                                             .font(.system(size: 18))
                                             .foregroundColor(draft.chronotype == type ? .white : .steel)
                                             .frame(width: 40, height: 40)
                                             .background(draft.chronotype == type ? Color.steel : Color.surfaceElevated)
-                                            .cornerRadius(12)
+                                            .cornerRadius(FDS.Radius.md)
                                         VStack(alignment: .leading, spacing: 3) {
                                             Text(type.displayName)
-                                                .font(.system(size: 15, weight: .semibold))
+                                                .font(FDS.TypeScale.Dynamic.body.weight(.semibold))
                                                 .foregroundColor(.textPrimary)
                                             Text(type.tagline)
                                                 .font(.system(size: 12))
@@ -43,9 +43,9 @@ struct SleepPersonalizationSheet: View {
                                             Image(systemName: "checkmark.circle.fill").foregroundColor(.steel)
                                         }
                                     }
-                                    .padding(14)
+                                    .padding(FDS.Spacing.lg)
                                     .forgeGlassCard(
-                                        cornerRadius: 14,
+                                        cornerRadius: FDS.Radius.md,
                                         accent: draft.chronotype == type ? .steel : nil
                                     )
                                 }
@@ -53,29 +53,27 @@ struct SleepPersonalizationSheet: View {
                             }
                         }
 
-                        VStack(alignment: .leading, spacing: 8) {
+                        VStack(alignment: .leading, spacing: FDS.Spacing.sm) {
                             Text("Coaching personality")
-                                .font(.system(size: 13, weight: .semibold))
+                                .font(FDS.TypeScale.Dynamic.caption)
                                 .foregroundColor(.textSecondary)
                             TextField("e.g. direct, encouraging, data-focused", text: $draft.personality)
-                                .padding(12)
-                                .background(Color.surfaceElevated)
-                                .cornerRadius(12)
+                                .padding(FDS.Spacing.md)
+                                .forgeInsetTile(radius: FDS.Radius.md)
                         }
 
-                        VStack(alignment: .leading, spacing: 8) {
+                        VStack(alignment: .leading, spacing: FDS.Spacing.sm) {
                             Text("Lifestyle notes")
-                                .font(.system(size: 13, weight: .semibold))
+                                .font(FDS.TypeScale.Dynamic.caption)
                                 .foregroundColor(.textSecondary)
                             TextEditor(text: $draft.notes)
                                 .frame(minHeight: 90)
-                                .padding(8)
-                                .background(Color.surfaceElevated)
-                                .cornerRadius(12)
+                                .padding(FDS.Spacing.sm)
+                                .forgeInsetTile(radius: FDS.Radius.md)
                                 .scrollContentBackground(.hidden)
                         }
                     }
-                    .padding(16)
+                    .padding(FDS.Spacing.lg)
                 }
             }
             .navigationTitle("Sleep Profile")

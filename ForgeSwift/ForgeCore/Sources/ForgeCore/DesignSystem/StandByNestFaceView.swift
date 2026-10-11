@@ -132,7 +132,7 @@ public struct StandByNestFaceView: View {
     private static let timeFormat = Date.FormatStyle(date: .omitted, time: .shortened)
 }
 
-/// Luminous HUD ticks — same Iron Man 2 energy as the Wake Screen, no 12 Hz.
+/// Luminous ticks — same solid Forge chrome as Home, no 12 Hz.
 struct StandByHudTicks: View {
     var progress: Double
     var color: Color

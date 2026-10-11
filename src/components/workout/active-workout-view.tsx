@@ -218,16 +218,16 @@ export function ActiveWorkoutView() {
       {/* Header Bar */}
       <div className="flex items-center justify-between px-5 pt-4 pb-2">
         <div className="flex flex-col">
-          <span className="text-sm font-medium text-[#A1A1AA]">
+          <span className="text-sm font-medium text-text-secondary">
             {todayWorkout.name}
           </span>
-          <span className="text-xs text-[#71717A]">
+          <span className="text-xs text-text-tertiary">
             {todayWorkout.type.charAt(0).toUpperCase() + todayWorkout.type.slice(1)} &middot; {todayWorkout.intensity}
           </span>
         </div>
         <div className="flex items-center gap-4">
-          <div className="flex items-center gap-1.5 text-white">
-            <Clock className="h-4 w-4 text-[#A1A1AA]" />
+          <div className="flex items-center gap-1.5 text-text-primary">
+            <Clock className="h-4 w-4 text-text-secondary" />
             <span className="text-sm font-mono font-medium tabular-nums">
               {formatTime(elapsedTime)}
             </span>
@@ -237,7 +237,7 @@ export function ActiveWorkoutView() {
             className={cn(
               "min-h-[44px] min-w-[44px] px-4 rounded-lg text-sm font-semibold transition-colors",
               showEndConfirm
-                ? "bg-red-600 text-white"
+                ? "bg-red-600 text-text-primary"
                 : "bg-transparent text-red-500 hover:bg-red-500/10"
             )}
           >
@@ -258,30 +258,30 @@ export function ActiveWorkoutView() {
       <div className="flex items-center gap-3 px-5 py-3 overflow-x-auto scrollbar-hide">
         {/* Heart Rate */}
         <motion.div
-          className="flex items-center gap-1.5 rounded-full bg-[#141414] border border-[#2A2A2A] px-3 py-2 min-w-fit"
+          className="flex items-center gap-1.5 rounded-full bg-surface border border-border px-3 py-2 min-w-fit"
           animate={{ scale: [1, 1.03, 1] }}
           transition={{ duration: 1, repeat: Infinity, ease: "easeInOut" }}
         >
           <Heart className="h-4 w-4 text-red-500 fill-red-500" />
-          <span className="text-sm font-bold text-white tabular-nums">
+          <span className="text-sm font-bold text-text-primary tabular-nums">
             {simulatedHR}
           </span>
-          <span className="text-xs text-[#71717A]">bpm</span>
+          <span className="text-xs text-text-tertiary">bpm</span>
         </motion.div>
 
         {/* Calories */}
-        <div className="flex items-center gap-1.5 rounded-full bg-[#141414] border border-[#2A2A2A] px-3 py-2 min-w-fit">
-          <Flame className="h-4 w-4 text-[#FF4D00]" />
-          <span className="text-sm font-bold text-white tabular-nums">
+        <div className="flex items-center gap-1.5 rounded-full bg-surface border border-border px-3 py-2 min-w-fit">
+          <Flame className="h-4 w-4 text-ember" />
+          <span className="text-sm font-bold text-text-primary tabular-nums">
             {Math.round(estimatedCalories)}
           </span>
-          <span className="text-xs text-[#71717A]">cal</span>
+          <span className="text-xs text-text-tertiary">cal</span>
         </div>
 
         {/* Elapsed Time */}
-        <div className="flex items-center gap-1.5 rounded-full bg-[#141414] border border-[#2A2A2A] px-3 py-2 min-w-fit">
-          <Clock className="h-4 w-4 text-[#3B82F6]" />
-          <span className="text-sm font-bold text-white tabular-nums">
+        <div className="flex items-center gap-1.5 rounded-full bg-surface border border-border px-3 py-2 min-w-fit">
+          <Clock className="h-4 w-4 text-steel" />
+          <span className="text-sm font-bold text-text-primary tabular-nums">
             {formatTime(elapsedTime)}
           </span>
         </div>
@@ -318,7 +318,7 @@ export function ActiveWorkoutView() {
               transition={{ duration: 0.3 }}
               className="flex flex-col items-center justify-center py-6"
             >
-              <span className="text-sm font-medium text-[#A1A1AA] mb-4 uppercase tracking-wider">
+              <span className="text-sm font-medium text-text-secondary mb-4 uppercase tracking-wider">
                 Rest
               </span>
 
@@ -355,12 +355,12 @@ export function ActiveWorkoutView() {
                     }}
                   />
                 </svg>
-                <span className="text-4xl font-bold text-white tabular-nums">
+                <span className="text-4xl font-bold text-text-primary tabular-nums">
                   {restTimeLeft}
                 </span>
               </div>
 
-              <span className="text-sm text-[#71717A] mb-6">
+              <span className="text-sm text-text-tertiary mb-6">
                 Next: {isLastSet
                   ? (isLastExercise
                     ? "Workout Complete"
@@ -388,19 +388,19 @@ export function ActiveWorkoutView() {
               transition={{ duration: 0.3 }}
               className="mt-2"
             >
-              <div className="rounded-2xl bg-[#141414] border border-[#2A2A2A] p-6">
+              <div className="rounded-2xl bg-surface p-6">
                 {/* Set indicator */}
                 <div className="flex items-center justify-between mb-2">
-                  <span className="text-sm font-medium text-[#FF4D00]">
+                  <span className="text-sm font-medium text-ember">
                     Set {activeWorkout.currentSet} of {currentExercise.sets}
                   </span>
-                  <span className="text-xs text-[#71717A]">
+                  <span className="text-xs text-text-tertiary">
                     Exercise {activeWorkout.currentExerciseIndex + 1}/{exercises.length}
                   </span>
                 </div>
 
                 {/* Exercise name */}
-                <h2 className="text-2xl font-bold text-white mb-3 leading-tight">
+                <h2 className="type-title text-text-primary mb-3">
                   {currentExercise.name}
                 </h2>
 
@@ -408,30 +408,30 @@ export function ActiveWorkoutView() {
                 <div className="flex items-baseline gap-2 mb-2">
                   {currentExercise.weight && (
                     <>
-                      <span className="text-3xl font-bold text-white tabular-nums">
+                      <span className="text-3xl font-bold text-text-primary tabular-nums">
                         {currentExercise.weight}
                       </span>
-                      <span className="text-lg text-[#A1A1AA]">lbs</span>
-                      <span className="text-2xl text-[#71717A] mx-1">&times;</span>
+                      <span className="text-lg text-text-secondary">lbs</span>
+                      <span className="text-2xl text-text-tertiary mx-1">&times;</span>
                     </>
                   )}
-                  <span className="text-3xl font-bold text-white tabular-nums">
+                  <span className="text-3xl font-bold text-text-primary tabular-nums">
                     {currentExercise.reps}
                   </span>
-                  <span className="text-lg text-[#A1A1AA]">reps</span>
+                  <span className="text-lg text-text-secondary">reps</span>
                 </div>
 
                 {/* Rest info */}
                 <div className="flex items-center gap-1.5 mb-3">
-                  <Clock className="h-3.5 w-3.5 text-[#71717A]" />
-                  <span className="text-xs text-[#71717A]">
+                  <Clock className="h-3.5 w-3.5 text-text-tertiary" />
+                  <span className="text-xs text-text-tertiary">
                     {currentExercise.restSeconds}s rest between sets
                   </span>
                 </div>
 
                 {/* Notes */}
                 {currentExercise.notes && (
-                  <p className="text-sm italic text-[#A1A1AA] mt-3 pt-3 border-t border-[#2A2A2A]">
+                  <p className="text-sm italic text-text-secondary mt-3 pt-3 border-t border-border">
                     &ldquo;{currentExercise.notes}&rdquo;
                   </p>
                 )}
@@ -444,7 +444,7 @@ export function ActiveWorkoutView() {
                   variant="default"
                   size="lg"
                   onClick={handleCompleteSet}
-                  className="w-full min-h-[56px] text-lg font-bold rounded-xl"
+                  className="w-full min-h-[56px] type-headline rounded-xl"
                 >
                   {isLastSet && isLastExercise
                     ? "Finish Workout"
@@ -458,12 +458,12 @@ export function ActiveWorkoutView() {
                 <div className="flex items-center gap-3">
                   <button
                     onClick={handleSkipExercise}
-                    className="flex-1 min-h-[44px] rounded-lg text-sm font-medium text-[#A1A1AA] hover:text-white hover:bg-[#1A1A1A] transition-colors"
+                    className="flex-1 min-h-[44px] rounded-lg text-sm font-medium text-text-secondary hover:text-text-primary hover:bg-surface-elevated transition-colors"
                   >
                     Skip Exercise
                   </button>
                   <button
-                    className="min-h-[44px] min-w-[44px] flex items-center justify-center gap-2 rounded-lg text-sm text-[#71717A] hover:text-[#EF4444] hover:bg-[#1A1A1A] transition-colors px-3"
+                    className="min-h-[44px] min-w-[44px] flex items-center justify-center gap-2 rounded-lg text-sm text-text-tertiary hover:text-alert hover:bg-surface-elevated transition-colors px-3"
                     onClick={() => {
                       // Pain/discomfort logging placeholder
                     }}
@@ -480,13 +480,13 @@ export function ActiveWorkoutView() {
 
       {/* AI Coach Bar - Fixed at bottom */}
       <div className="px-5 pb-5 pt-2">
-        <div className="rounded-xl border border-border bg-surface-elevated p-4">
+        <div className="rounded-xl bg-surface-elevated p-4">
           <div className="flex items-start gap-3">
             <div className="mt-0.5 flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full bg-ember/10">
               <Bot className="h-4 w-4 text-ember" />
             </div>
             <div className="flex min-h-[40px] flex-1 flex-col justify-center">
-              <p className="mb-1 text-[10px] font-black uppercase tracking-[0.16em] text-ember">
+              <p className="mb-1 type-micro font-black uppercase tracking-[0.16em] text-ember">
                 ARIA
               </p>
               <AnimatePresence mode="wait">
@@ -496,7 +496,7 @@ export function ActiveWorkoutView() {
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0, y: -8 }}
                   transition={{ duration: 0.4 }}
-                  className="text-sm text-[#A1A1AA] leading-relaxed"
+                  className="text-sm text-text-secondary leading-relaxed"
                 >
                   {COACHING_MESSAGES[coachMessageIndex]}
                 </motion.p>

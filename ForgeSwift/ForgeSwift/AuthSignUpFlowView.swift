@@ -110,9 +110,9 @@ struct AuthSignUpFlowView: View {
             VStack(spacing: 0) {
                 topBar
                 progressBar
-                    .padding(.horizontal, 24)
-                    .padding(.top, 8)
-                    .padding(.bottom, 18)
+                    .padding(.horizontal, FDS.Spacing.xl)
+                    .padding(.top, FDS.Spacing.sm)
+                    .padding(.bottom, FDS.Spacing.lg)
 
                 Group {
                     switch step {
@@ -172,28 +172,28 @@ struct AuthSignUpFlowView: View {
 
             VStack(spacing: 2) {
                 Text("Welcome")
-                    .font(.system(size: 10, weight: .medium))
+                    .font(FDS.TypeScale.Dynamic.micro)
                     .tracking(2)
                     .foregroundColor(.textTertiary)
                     .textCase(.uppercase)
                 Text(step.title)
-                    .font(.system(size: 13, weight: .semibold))
+                    .font(FDS.TypeScale.Dynamic.caption)
                     .foregroundColor(.textPrimary)
             }
 
             Spacer()
 
             Text("\(step.rawValue + 1) of \(SignUpStep.allCases.count)")
-                .font(.system(size: 11, weight: .semibold))
+                .font(FDS.TypeScale.Dynamic.micro)
                 .foregroundColor(.textTertiary)
-                .padding(.horizontal, 10)
-                .padding(.vertical, 8)
+                .padding(.horizontal, FDS.Spacing.md)
+                .padding(.vertical, FDS.Spacing.sm)
                 .background(Color.white.opacity(0.06))
                 .clipShape(Capsule())
                 .frame(minWidth: 40)
         }
-        .padding(.horizontal, 16)
-        .padding(.top, 12)
+        .padding(.horizontal, FDS.Spacing.lg)
+        .padding(.top, FDS.Spacing.md)
     }
 
     private var progressBar: some View {
@@ -201,7 +201,7 @@ struct AuthSignUpFlowView: View {
             ZStack(alignment: .leading) {
                 Capsule().fill(Color.white.opacity(0.08))
                 Capsule()
-                    .fill(Color(hex: "F7F4F0"))
+                    .fill(Color.paper)
                     .frame(width: max(12, geo.size.width * step.progress))
                     .animation(FDS.Spring.standard, value: step)
             }
@@ -213,16 +213,16 @@ struct AuthSignUpFlowView: View {
 
     private var identityStep: some View {
         ScrollView(showsIndicators: false) {
-            VStack(alignment: .leading, spacing: 22) {
+            VStack(alignment: .leading, spacing: FDS.Spacing.xl) {
                 heroCopy(
                     kicker: "Who are you?",
                     title: "What should ARIA\ncall you?",
                     body: "Preferred name is what you'll hear in coaching. Last name is optional and stays on your profile."
                 )
 
-                VStack(alignment: .leading, spacing: 10) {
+                VStack(alignment: .leading, spacing: FDS.Spacing.md) {
                     Text("PREFERRED NAME")
-                        .font(.system(size: 11, weight: .bold))
+                        .font(FDS.TypeScale.Dynamic.micro)
                         .tracking(1.4)
                         .foregroundColor(.textTertiary)
 
@@ -233,14 +233,13 @@ struct AuthSignUpFlowView: View {
                         .autocorrectionDisabled()
                         .font(.system(size: 28, weight: .bold, design: .rounded))
                         .foregroundColor(.textPrimary)
-                        .padding(18)
-                        .background(Color.surfaceElevated)
-                        .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+                        .padding(FDS.Spacing.lg)
+                        .forgeInsetTile(radius: FDS.Radius.lg)
                         .overlay(
-                            RoundedRectangle(cornerRadius: 18, style: .continuous)
+                            RoundedRectangle(cornerRadius: FDS.Radius.lg, style: .continuous)
                                 .stroke(
                                     firstName.trimmingCharacters(in: .whitespaces).count >= 2
-                                        ? Color(hex: "F7F4F0").opacity(0.35)
+                                        ? Color.paper.opacity(0.35)
                                         : Color.white.opacity(0.08),
                                     lineWidth: 1.5
                                 )
@@ -252,10 +251,10 @@ struct AuthSignUpFlowView: View {
                         }
 
                     Text("LAST NAME (OPTIONAL)")
-                        .font(.system(size: 11, weight: .bold))
+                        .font(FDS.TypeScale.Dynamic.micro)
                         .tracking(1.4)
                         .foregroundColor(.textTertiary)
-                        .padding(.top, 8)
+                        .padding(.top, FDS.Spacing.sm)
 
                     TextField("Optional", text: $lastName)
                         .textContentType(.familyName)
@@ -263,20 +262,19 @@ struct AuthSignUpFlowView: View {
                         .autocorrectionDisabled()
                         .font(.system(size: 20, weight: .semibold, design: .rounded))
                         .foregroundColor(.textPrimary)
-                        .padding(16)
-                        .background(Color.surfaceElevated)
-                        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+                        .padding(FDS.Spacing.lg)
+                        .forgeInsetTile(radius: FDS.Radius.lg)
                         .overlay(
-                            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                            RoundedRectangle(cornerRadius: FDS.Radius.lg, style: .continuous)
                                 .stroke(Color.white.opacity(0.08), lineWidth: 1)
                         )
 
                     if firstName.trimmingCharacters(in: .whitespaces).count >= 2 {
-                        HStack(spacing: 8) {
+                        HStack(spacing: FDS.Spacing.sm) {
                             Image(systemName: "checkmark.circle.fill")
-                                .foregroundStyle(Color(hex: "22C55E"))
+                                .foregroundStyle(Color.vitality)
                             Text("ARIA will call you \(trimmedName).")
-                                .font(.system(size: 13, weight: .semibold))
+                                .font(FDS.TypeScale.Dynamic.caption)
                                 .foregroundColor(.textSecondary)
                         }
                         .transition(.opacity.combined(with: .move(edge: .bottom)))
@@ -285,9 +283,9 @@ struct AuthSignUpFlowView: View {
 
                 // Quiet trust cues — no vanity Day-0 stats strip
                 Text("About 90 seconds · Private by design")
-                    .font(.system(size: 12, weight: .medium))
+                    .font(FDS.TypeScale.Dynamic.caption)
                     .foregroundColor(.textTertiary)
-                    .padding(.top, 4)
+                    .padding(.top, FDS.Spacing.xs)
 
                 Spacer(minLength: 24)
 
@@ -300,7 +298,7 @@ struct AuthSignUpFlowView: View {
                     withAnimation(FDS.Spring.page) { step = .spark }
                 }
             }
-            .padding(.horizontal, 22)
+            .padding(.horizontal, FDS.Spacing.xl)
             .padding(.bottom, 40)
         }
     }
@@ -309,20 +307,20 @@ struct AuthSignUpFlowView: View {
 
     private var sparkStep: some View {
         ScrollView(showsIndicators: false) {
-            VStack(alignment: .leading, spacing: 20) {
+            VStack(alignment: .leading, spacing: FDS.Spacing.lg) {
                 heroCopy(
                     kicker: "Nice to meet you, \(trimmedName).",
                     title: "\(trimmedName), what should\nwe start with?",
                     body: "Pick one focus. You can change it later — this just helps today’s session fit you."
                 )
 
-                VStack(spacing: 10) {
+                VStack(spacing: FDS.Spacing.md) {
                     ForEach(SignUpSpark.allCases) { option in
                         Button {
                             FDS.selectionHaptic()
                             withAnimation(FDS.Spring.snap) { spark = option }
                         } label: {
-                            HStack(spacing: 14) {
+                            HStack(spacing: FDS.Spacing.lg) {
                                 ZStack {
                                     Circle()
                                         .fill(Color(hex: option.accentHex).opacity(0.18))
@@ -333,10 +331,10 @@ struct AuthSignUpFlowView: View {
                                 }
                                 VStack(alignment: .leading, spacing: 3) {
                                     Text(option.label)
-                                        .font(.system(size: 16, weight: .bold))
+                                        .font(FDS.TypeScale.Dynamic.headline)
                                         .foregroundColor(.textPrimary)
                                     Text(option.detail)
-                                        .font(.system(size: 12, weight: .medium))
+                                        .font(FDS.TypeScale.Dynamic.caption)
                                         .foregroundColor(.textTertiary)
                                 }
                                 Spacer()
@@ -348,15 +346,15 @@ struct AuthSignUpFlowView: View {
                                             : Color.white.opacity(0.2)
                                     )
                             }
-                            .padding(14)
+                            .padding(FDS.Spacing.lg)
                             .background(
                                 spark == option
                                     ? Color(hex: option.accentHex).opacity(0.12)
                                     : Color.surfaceElevated
                             )
-                            .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+                            .clipShape(RoundedRectangle(cornerRadius: FDS.Radius.lg, style: .continuous))
                             .overlay(
-                                RoundedRectangle(cornerRadius: 16, style: .continuous)
+                                RoundedRectangle(cornerRadius: FDS.Radius.lg, style: .continuous)
                                     .stroke(
                                         spark == option
                                             ? Color(hex: option.accentHex).opacity(0.55)
@@ -378,7 +376,7 @@ struct AuthSignUpFlowView: View {
                     withAnimation(FDS.Spring.page) { step = .account }
                 }
             }
-            .padding(.horizontal, 22)
+            .padding(.horizontal, FDS.Spacing.xl)
             .padding(.bottom, 40)
         }
     }
@@ -387,14 +385,14 @@ struct AuthSignUpFlowView: View {
 
     private var accountStep: some View {
         ScrollView(showsIndicators: false) {
-            VStack(alignment: .leading, spacing: 18) {
+            VStack(alignment: .leading, spacing: FDS.Spacing.lg) {
                 heroCopy(
                     kicker: "YOUR ACCOUNT",
                     title: "Save this so I remember you,\n\(trimmedName).",
                     body: "One tap. Then a few questions — Apple Health optional — and a first session that fits."
                 )
 
-                HStack(spacing: 12) {
+                HStack(spacing: FDS.Spacing.md) {
                     Image(systemName: spark.icon)
                         .foregroundStyle(Color(hex: spark.accentHex))
                         .frame(width: 36, height: 36)
@@ -402,24 +400,24 @@ struct AuthSignUpFlowView: View {
                         .clipShape(Circle())
                     VStack(alignment: .leading, spacing: 2) {
                         Text("Starting with")
-                            .font(.system(size: 11, weight: .bold))
+                            .font(FDS.TypeScale.Dynamic.micro)
                             .foregroundColor(.textTertiary)
                         Text(spark.label)
-                            .font(.system(size: 15, weight: .bold))
+                            .font(FDS.TypeScale.Dynamic.body.weight(.semibold))
                             .foregroundColor(.textPrimary)
                     }
                     Spacer()
                 }
-                .padding(14)
-                .forgeGlassCard(cornerRadius: 16, accent: Color(hex: spark.accentHex))
+                .padding(FDS.Spacing.lg)
+                .forgeGlassCard(cornerRadius: FDS.Radius.lg, accent: Color(hex: spark.accentHex))
 
                 if awaitingCode {
                     verifyCodeBlock
                 } else if !showEmailForm {
-                    VStack(spacing: 10) {
+                    VStack(spacing: FDS.Spacing.md) {
                         if let errorMessage {
                             Text(errorMessage)
-                                .font(.system(size: 13, weight: .medium))
+                                .font(FDS.TypeScale.Dynamic.caption)
                                 .foregroundColor(.danger)
                                 .frame(maxWidth: .infinity, alignment: .leading)
                         }
@@ -434,19 +432,19 @@ struct AuthSignUpFlowView: View {
                         }
 
                         Text("Apple and Google sign-up will appear here when connected for this build.")
-                            .font(.system(size: 12, weight: .regular))
+                            .font(FDS.TypeScale.Dynamic.caption)
                             .foregroundColor(.textTertiary)
                             .multilineTextAlignment(.center)
                             .frame(maxWidth: .infinity)
                     }
                 } else {
-                    VStack(spacing: 12) {
+                    VStack(spacing: FDS.Spacing.md) {
                         authField("Email", text: $email, contentType: .emailAddress, secure: false)
                         authField("Password (12+ · upper, lower, number, symbol)", text: $password, contentType: .newPassword, secure: true)
 
                         if let errorMessage {
                             Text(errorMessage)
-                                .font(.system(size: 13, weight: .medium))
+                                .font(FDS.TypeScale.Dynamic.caption)
                                 .foregroundColor(.danger)
                         }
 
@@ -462,7 +460,7 @@ struct AuthSignUpFlowView: View {
                             withAnimation { showEmailForm = false }
                         } label: {
                             Text("Back")
-                                .font(.system(size: 13, weight: .semibold))
+                                .font(FDS.TypeScale.Dynamic.caption)
                                 .foregroundColor(.textTertiary)
                         }
                         .buttonStyle(.plain)
@@ -475,12 +473,12 @@ struct AuthSignUpFlowView: View {
                         continueAsTester()
                     } label: {
                         Text("Continue as tester")
-                            .font(.system(size: 15, weight: .semibold))
+                            .font(FDS.TypeScale.Dynamic.body.weight(.semibold))
                             .foregroundColor(.steel)
                             .frame(maxWidth: .infinity)
-                            .padding(.vertical, 14)
+                            .padding(.vertical, FDS.Spacing.lg)
                             .background(Color.steel.opacity(0.12))
-                            .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+                            .clipShape(RoundedRectangle(cornerRadius: FDS.Radius.md, style: .continuous))
                     }
                     .buttonStyle(.plain)
                     .disabled(isBusy)
@@ -488,13 +486,13 @@ struct AuthSignUpFlowView: View {
                 }
 
                 Text("By continuing you get lifestyle and fitness coaching, not medical care. ARIA is not a doctor. For emergencies, call 911.")
-                    .font(.system(size: 11, weight: .regular))
+                    .font(FDS.TypeScale.Dynamic.micro)
                     .foregroundColor(.textMuted)
                     .multilineTextAlignment(.center)
                     .frame(maxWidth: .infinity)
-                    .padding(.top, 4)
+                    .padding(.top, FDS.Spacing.xs)
             }
-            .padding(.horizontal, 22)
+            .padding(.horizontal, FDS.Spacing.xl)
             .padding(.bottom, 40)
         }
     }
@@ -510,14 +508,14 @@ struct AuthSignUpFlowView: View {
     }
 
     private var verifyCodeBlock: some View {
-        VStack(alignment: .leading, spacing: 12) {
+        VStack(alignment: .leading, spacing: FDS.Spacing.md) {
             Text("We emailed a confirmation code to \(codeDestination.isEmpty ? email : codeDestination).")
-                .font(.system(size: 14, weight: .medium))
+                .font(FDS.TypeScale.Dynamic.body)
                 .foregroundColor(.textSecondary)
             authField("Confirmation code", text: $confirmCode, contentType: .oneTimeCode, secure: false)
             if let errorMessage {
                 Text(errorMessage)
-                    .font(.system(size: 13, weight: .medium))
+                    .font(FDS.TypeScale.Dynamic.caption)
                     .foregroundColor(.danger)
             }
             primaryButton(
@@ -532,7 +530,7 @@ struct AuthSignUpFlowView: View {
                 confirmCode = ""
             } label: {
                 Text("Use a different email")
-                    .font(.system(size: 13, weight: .semibold))
+                    .font(FDS.TypeScale.Dynamic.caption)
                     .foregroundColor(.textTertiary)
             }
             .buttonStyle(.plain)
@@ -540,9 +538,9 @@ struct AuthSignUpFlowView: View {
     }
 
     private func heroCopy(kicker: String, title: String, body: String) -> some View {
-        VStack(alignment: .leading, spacing: 10) {
+        VStack(alignment: .leading, spacing: FDS.Spacing.md) {
             Text(kicker)
-                .font(.system(size: 12, weight: .medium))
+                .font(FDS.TypeScale.Dynamic.caption)
                 .tracking(2)
                 .foregroundColor(.textTertiary)
             Text(title)
@@ -550,12 +548,12 @@ struct AuthSignUpFlowView: View {
                 .foregroundColor(.textPrimary)
                 .lineSpacing(3)
             Text(body)
-                .font(.system(size: 15, weight: .regular))
+                .font(FDS.TypeScale.Dynamic.body)
                 .foregroundColor(.textSecondary)
                 .lineSpacing(4)
                 .fixedSize(horizontal: false, vertical: true)
         }
-        .padding(.top, 8)
+        .padding(.top, FDS.Spacing.sm)
     }
 
     private func primaryButton(
@@ -572,7 +570,7 @@ struct AuthSignUpFlowView: View {
         ) {
             action()
         }
-        .padding(.top, 8)
+        .padding(.top, FDS.Spacing.sm)
     }
 
     private func authField(
@@ -581,9 +579,9 @@ struct AuthSignUpFlowView: View {
         contentType: UITextContentType,
         secure: Bool
     ) -> some View {
-        VStack(alignment: .leading, spacing: 6) {
+        VStack(alignment: .leading, spacing: FDS.Spacing.sm) {
             Text(title.uppercased())
-                .font(.system(size: 11, weight: .bold))
+                .font(FDS.TypeScale.Dynamic.micro)
                 .tracking(1.2)
                 .foregroundColor(.textTertiary)
             Group {
@@ -600,9 +598,8 @@ struct AuthSignUpFlowView: View {
             }
             .font(.system(size: 16, weight: .medium))
             .foregroundColor(.textPrimary)
-            .padding(15)
-            .background(Color.surfaceElevated)
-            .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+            .padding(FDS.Spacing.lg)
+            .forgeInsetTile(radius: FDS.Radius.md)
         }
     }
 
@@ -727,7 +724,7 @@ private struct SignUpCelebrationOverlay: View {
     var body: some View {
         ZStack {
             Color.black.opacity(0.55).ignoresSafeArea()
-            VStack(spacing: 16) {
+            VStack(spacing: FDS.Spacing.lg) {
                 ZStack {
                     PremiumPresenceBloom(size: 140, accent: .ember, frost: Color(hex: "A9D8FF"), live: false)
                     AuroraOrbView(
@@ -739,7 +736,7 @@ private struct SignUpCelebrationOverlay: View {
                     )
                 }
                 Text("Welcome")
-                    .font(.system(size: 12, weight: .medium))
+                    .font(FDS.TypeScale.Dynamic.caption)
                     .tracking(2.2)
                     .foregroundColor(.textTertiary)
                     .textCase(.uppercase)
@@ -749,10 +746,10 @@ private struct SignUpCelebrationOverlay: View {
                     .multilineTextAlignment(.center)
                     .lineSpacing(2)
                 Text("ARIA will ask a few questions so today’s session fits you.")
-                    .font(.system(size: 14, weight: .regular))
+                    .font(FDS.TypeScale.Dynamic.body)
                     .foregroundColor(.textSecondary)
                     .multilineTextAlignment(.center)
-                    .padding(.horizontal, 16)
+                    .padding(.horizontal, FDS.Spacing.lg)
             }
             .scaleEffect(scale)
             .opacity(opacity)

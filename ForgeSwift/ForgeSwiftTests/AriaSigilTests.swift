@@ -108,6 +108,8 @@ final class AriaSigilTests: XCTestCase {
     }
 
     func testMeetCopyIsARIANotAForgePairing() {
+        XCTAssertEqual(AriaMeetCopy.eyebrow, "Your lifestyle coach")
+        XCTAssertFalse(AriaMeetCopy.eyebrow.localizedCaseInsensitiveContains("Adaptive Recovery"))
         XCTAssertEqual(AriaMeetCopy.title, "This is ARIA")
         XCTAssertTrue(AriaMeetCopy.lead.contains("designed for Forge"))
         XCTAssertFalse(AriaMeetCopy.lead.contains(AriaMeetCopy.pairingForbidden))

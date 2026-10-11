@@ -60,7 +60,7 @@ extension WatchSnapshot {
     static var gallerySample: WatchSnapshot {
         var snapshot = WatchSnapshot()
         snapshot.readinessOverall = 82
-        snapshot.readinessBand = .ready
+        snapshot.readinessBand = .good
         snapshot.readinessConfidence = 0.9
         snapshot.tomorrowPredictedScore = 71
         snapshot.tomorrowPosture = ReadinessForecastEngine.Posture.steady.rawValue

@@ -1,10 +1,13 @@
 import Foundation
 
-/// Phone Home readiness + Today Progress HUD tokens.
+/// Phone Home readiness + Today Progress chrome tokens.
 ///
-/// Lockstep with `shared/readiness.json`. Home vocabulary is Peak / Good /
-/// Fair / Low — do not invent clinical band names, and do not replace Nest
-/// (`AriaNestGeometry`) with this chrome. Watch / web palettes stay elsewhere.
+/// Lockstep with `shared/readiness.json`. Same palette, type, and ring
+/// language — evolved toward solid geometry and motivation psychology.
+/// Not a HUD costume. Home vocabulary is Peak / Good / Fair / Low — do
+/// not invent clinical band names, and do not replace Nest
+/// (`AriaNestGeometry`) with this chrome. Watch palettes stay elsewhere;
+/// web may read the same file.
 public enum HomeReadinessTokens: Sendable {
     public static let kind = "home-progress-hud"
     public static let surface = "phone-home"
@@ -20,8 +23,8 @@ public enum HomeReadinessTokens: Sendable {
     public static let stroke: Double = 5.5
     public static let compactStroke: Double = 4.5
 
-    /// Lean HUD glow sample. Ceiling is nest `paintHz` (12) — this chrome
-    /// spends 6 Hz and pauses when Reduce Motion, backgrounded, or offscreen.
+    /// Event-glow sample only. Ceiling is nest `paintHz` (12) — this chrome
+    /// may spend 6 Hz for a close/log pulse, then pauses. Never an idle loop.
     public static let tickHz: Double = 6
     public static let tickHzCeiling: Double = 12
     public static let tickInterval: Double = 1.0 / 6.0
@@ -30,6 +33,21 @@ public enum HomeReadinessTokens: Sendable {
     public static let tickChromeFloor: Double = 0.70
     public static let armedMajorTickOpacity: Double = 0.78
     public static let inArcMinimumScale: Double = 0.7
+
+    /// Goal-gradient: 4/5 tracks (80%) is "almost there" — closing momentum.
+    public static let almostTherePercent = 80
+    public static let closingRemaining = 1
+    public static let almostThereFloor: Double = 0.70
+    /// Glow is a reward pulse, not a 6 Hz costume breath.
+    public static let eventGlowOnly = true
+    public static let liveGlowDefault = false
+    public static let brackets = false
+    public static let scanlines = false
+    /// Miss / open states stay steel — never the Low alert red.
+    public static let missHex = "7BA6F7"
+    public static let glowRadius: Double = 5
+    public static let tickMajorWidth: Double = 1.25
+    public static let tickMinorWidth: Double = 0.55
 
     public static let plotFloor = 30
     public static let plotCap = 100
@@ -100,6 +118,37 @@ public enum HomeReadinessTokens: Sendable {
 
     public static func sweep(from percent: Int) -> Double {
         Double(min(max(percent, 0), 100)) / 100.0
+    }
+
+    /// Closing-the-ring: one track left, or the day is already at 80%+.
+    public static func isAlmostThere(percent: Int, remaining: Int) -> Bool {
+        let clamped = min(max(percent, 0), 100)
+        return remaining == closingRemaining || (clamped >= almostTherePercent && clamped < 100)
+    }
+
+    public static func isClosed(_ percent: Int) -> Bool {
+        percent >= 100
+    }
+
+    /// Per-track goal gradient (mosaic tiles, habits, water).
+    public static func tileAlmostThere(_ progress: Double) -> Bool {
+        progress >= almostThereFloor && progress < 1
+    }
+
+    /// Live clock only for an event pulse. Idle chrome stays still.
+    public static func shouldRunClock(
+        reduceMotion: Bool,
+        sceneActive: Bool,
+        onscreen: Bool,
+        eventGlow: Bool
+    ) -> Bool {
+        let animate = eventGlowOnly ? eventGlow : (liveGlowDefault || eventGlow)
+        return !isClockPaused(
+            reduceMotion: reduceMotion,
+            sceneActive: sceneActive,
+            onscreen: onscreen,
+            animate: animate
+        )
     }
 
     /// Reduce Motion paints the finished ring. Live paint may still be filling.
