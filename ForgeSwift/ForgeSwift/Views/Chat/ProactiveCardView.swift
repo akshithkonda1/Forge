@@ -9,30 +9,29 @@ struct ProactiveCardView: View {
 
     var body: some View {
         Button(action: onTap) {
-            HStack(alignment: .top, spacing: 14) {
+            HStack(alignment: .top, spacing: FDS.Spacing.lg) {
                 ARIAIdentityMark(state: .idle, mood: .focused, size: 44, amplitude: 0.22)
 
-                VStack(alignment: .leading, spacing: 6) {
-                    HStack(spacing: 6) {
+                VStack(alignment: .leading, spacing: FDS.Spacing.sm) {
+                    HStack(spacing: FDS.Spacing.sm) {
                         Text("ARIA")
-                            .font(.system(size: 12, weight: .black))
+                            .font(FDS.TypeScale.Dynamic.caption)
                             .foregroundColor(.steel)
                             .tracking(0.8)
                         Text("Lv.\(relationshipLevel)")
-                            .font(.system(size: 10, weight: .bold))
+                            .font(FDS.TypeScale.Dynamic.micro)
                             .foregroundColor(.textTertiary)
-                            .padding(.horizontal, 6)
+                            .padding(.horizontal, FDS.Spacing.sm)
                             .padding(.vertical, 2)
-                            .background(Color.surfaceElevated)
-                            .cornerRadius(6)
+                            .forgeInsetTile(radius: FDS.Radius.xs)
                     }
                     Text(insight)
-                        .font(.system(size: 14, weight: .medium))
+                        .font(FDS.TypeScale.Dynamic.body)
                         .foregroundColor(.textPrimary)
                         .multilineTextAlignment(.leading)
                         .lineSpacing(3)
                     Text("Tap to open chat")
-                        .font(.system(size: 11, weight: .semibold))
+                        .font(FDS.TypeScale.Dynamic.micro)
                         .foregroundColor(.steel)
                 }
                 Spacer(minLength: 0)
@@ -40,8 +39,8 @@ struct ProactiveCardView: View {
                     .font(.system(size: 12, weight: .semibold))
                     .foregroundColor(.textMuted)
             }
-            .padding(18)
-            // Was a hand-rolled gradient + plain (non-continuous) .cornerRadius(18)
+            .padding(FDS.Spacing.lg)
+            // Was a hand-rolled gradient + plain (non-continuous) .cornerRadius(FDS.Radius.lg)
             // + stroke, with no shadow — the only Home card with zero depth and a
             // different corner curve from everything around it.
             .forgeGlassCard(accent: .steel)

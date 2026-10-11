@@ -20,8 +20,8 @@ enum WidgetChrome {
     static func eyebrow(_ text: String, color: Color) -> some View {
         HStack(spacing: 5) {
             Text(text.uppercased())
-                .font(.system(size: 10, weight: .bold))
-                .tracking(0.6)
+                .font(ForgeType.Compact.caption)
+                .tracking(ForgeType.eyebrowTracking)
                 .foregroundStyle(color)
             Spacer(minLength: 0)
         }
@@ -29,7 +29,7 @@ enum WidgetChrome {
 
     static func empty(_ message: String) -> some View {
         Text(message)
-            .font(.caption)
+            .font(ForgeType.Compact.body)
             .foregroundStyle(ForgePalette.textSecondary)
     }
 }

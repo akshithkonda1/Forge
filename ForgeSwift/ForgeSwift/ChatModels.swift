@@ -28,8 +28,8 @@ enum ARIAMood: Equatable {
         switch self {
         case .energized: return Color.ember
         case .focused:   return Color(hex: "4A90D9")
-        case .calm:      return Color(hex: "A855F7")
-        case .pushed:    return Color(hex: "22C55E")
+        case .calm:      return Color.aurora
+        case .pushed:    return Color.vitality
         }
     }
 
@@ -67,7 +67,7 @@ func smartQuickActions(mood: ARIAMood, readiness: Int, messageCount: Int) -> [(l
     if hour < 10 {
         actions.append(("Morning brief", "sunrise.fill", mood.accentColor))
     } else if hour >= 20 {
-        actions.append(("Wind down plan", "moon.zzz.fill", Color(hex: "A855F7")))
+        actions.append(("Wind down plan", "moon.zzz.fill", Color.aurora))
     } else {
         actions.append(("What now?", "sparkles", mood.accentColor))
     }
@@ -76,19 +76,19 @@ func smartQuickActions(mood: ARIAMood, readiness: Int, messageCount: Int) -> [(l
     if readiness >= 85 {
         actions.append(("I'm fired up 🔥", "bolt.fill", Color.ember))
     } else if readiness < 55 {
-        actions.append(("Easy day options", "leaf.fill", Color(hex: "22C55E")))
+        actions.append(("Easy day options", "leaf.fill", Color.vitality))
     } else {
         actions.append(("Today's workout", "dumbbell.fill", Color.ember))
     }
 
     // Always useful
     actions.append(("How'd I sleep?", "moon.fill", Color(hex: "4A90D9")))
-    actions.append(("Am I progressing?", "chart.line.uptrend.xyaxis", Color(hex: "22C55E")))
+    actions.append(("Am I progressing?", "chart.line.uptrend.xyaxis", Color.vitality))
 
     if messageCount == 0 {
-        actions.append(("Something hurts", "heart.text.square.fill", Color(hex: "EF4444")))
+        actions.append(("Something hurts", "heart.text.square.fill", Color.alert))
     } else {
-        actions.append(("Change my plan", "arrow.triangle.2.circlepath", Color(hex: "F59E0B")))
+        actions.append(("Change my plan", "arrow.triangle.2.circlepath", Color.amber))
     }
 
     actions.append(("Motivate me", "flame.fill", Color.ember))

@@ -68,13 +68,13 @@ export function Sheet({ open, onClose, title, children, footer }: SheetProps) {
           >
             <div className="mx-auto mt-2 h-1 w-10 rounded-full bg-border sm:hidden" />
             <div className="flex items-center justify-between gap-3 px-5 pb-3 pt-4">
-              <h2 id="sheet-title" className="text-lg font-semibold text-text-primary">
+              <h2 id="sheet-title" className="type-headline text-text-primary">
                 {title}
               </h2>
               <button
                 type="button"
                 onClick={onClose}
-                className="flex h-9 w-9 items-center justify-center rounded-full bg-surface-elevated text-text-secondary transition-colors hover:text-text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ember/50"
+                className="flex min-tap items-center justify-center rounded-full bg-surface-elevated text-text-secondary transition-colors hover:text-text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ember/50"
                 aria-label="Close sheet"
               >
                 <X size={16} />
