@@ -1,4 +1,5 @@
 import SwiftUI
+import ForgeCore
 
 struct SleepView: View {
     @EnvironmentObject var store: AppStore
@@ -163,27 +164,27 @@ struct SleepHeaderView: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 16) {
+        VStack(alignment: .leading, spacing: FDS.Spacing.lg) {
             HStack(alignment: .center) {
-                VStack(alignment: .leading, spacing: 4) {
-                    HStack(spacing: 8) {
+                VStack(alignment: .leading, spacing: FDS.Spacing.xs) {
+                    HStack(spacing: FDS.Spacing.sm) {
                         Text("Sleep")
-                            .font(FDS.TypeScale.pageTitle())
+                            .font(ForgeType.pageTitle)
                             .foregroundColor(.textPrimary)
                         SleepStatusDot(kind: presence.liveDot)
                     }
                     Text(presence.statusCaption)
-                        .font(.system(size: 12, weight: .medium, design: .rounded))
+                        .font(FDS.TypeScale.Dynamic.caption)
                         .foregroundColor(.textTertiary)
                         .lineLimit(1)
                     Text(subtitle)
-                        .font(.system(size: 15, weight: .medium, design: .rounded))
+                        .font(FDS.TypeScale.Dynamic.body)
                         .foregroundColor(.textSecondary)
                         .lineLimit(2)
                         .animation(reduceMotion ? nil : .easeInOut(duration: 0.2), value: subtitle)
                 }
                 Spacer()
-                HStack(spacing: 8) {
+                HStack(spacing: FDS.Spacing.sm) {
                     ForgeIconButton(
                         systemImage: "slider.horizontal.3",
                         accent: .aurora,
@@ -191,14 +192,14 @@ struct SleepHeaderView: View {
                         action: onPersonalize
                     )
                     Button(action: onAskAria) {
-                        HStack(spacing: 6) {
+                        HStack(spacing: FDS.Spacing.sm) {
                             ARIAIdentityMark(state: .idle, mood: .energized, size: 14, amplitude: 0.22)
                             Text("Ask ARIA")
-                                .font(.system(size: 13, weight: .semibold, design: .rounded))
+                                .font(FDS.TypeScale.Dynamic.caption)
                         }
                         .foregroundColor(.white)
-                        .padding(.horizontal, 14)
-                        .padding(.vertical, 9)
+                        .padding(.horizontal, FDS.Spacing.lg)
+                        .padding(.vertical, FDS.Spacing.sm)
                         .background(FDS.Gradient.ember)
                         .clipShape(Capsule())
                         .shadow(color: Color.ember.opacity(0.28), radius: 8, y: 3)
@@ -207,21 +208,21 @@ struct SleepHeaderView: View {
                 }
             }
 
-            HStack(spacing: 6) {
+            HStack(spacing: FDS.Spacing.sm) {
                 ForEach(SleepTab.allCases, id: \.self) { tab in
                     Button {
                         onTabSelect(tab)
                         UISelectionFeedbackGenerator().selectionChanged()
                     } label: {
-                        HStack(spacing: 6) {
+                        HStack(spacing: FDS.Spacing.sm) {
                             Image(systemName: tabIcon[tab] ?? "circle")
                                 .font(.system(size: 11, weight: .semibold))
                             Text(tab.title)
                                 .font(.system(size: 13, weight: selectedTab == tab ? .bold : .medium, design: .rounded))
                         }
                         .foregroundColor(selectedTab == tab ? .white : .textTertiary)
-                        .padding(.horizontal, 14)
-                        .padding(.vertical, 9)
+                        .padding(.horizontal, FDS.Spacing.lg)
+                        .padding(.vertical, FDS.Spacing.sm)
                         .background(
                             selectedTab == tab
                                 ? AnyShapeStyle(FDS.Gradient.ember)
@@ -241,8 +242,8 @@ struct SleepHeaderView: View {
                 Spacer(minLength: 0)
             }
         }
-        .padding(.horizontal, 20)
+        .padding(.horizontal, FDS.Spacing.lg)
         .padding(.top, 56)
-        .padding(.bottom, 12)
+        .padding(.bottom, FDS.Spacing.md)
     }
 }

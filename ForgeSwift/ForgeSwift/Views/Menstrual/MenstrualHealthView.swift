@@ -200,22 +200,22 @@ struct MenstrualHealthView: View {
                    cycleStore.settings.cycleLockEnabled || cycleStore.settings.discretionMode == .stealth {
                     ZStack {
                         Color.background.opacity(0.96).ignoresSafeArea()
-                        VStack(spacing: 16) {
+                        VStack(spacing: FDS.Spacing.lg) {
                             Image(systemName: "lock.shield.fill")
                                 .font(.system(size: 36))
                                 .foregroundStyle(Color.vitality)
                             Text("Cycle Health is locked")
-                                .font(FDS.TypeScale.title(20))
+                                .font(FDS.TypeScale.Dynamic.title)
                                 .foregroundColor(.textPrimary)
                             Text("Face ID or your device passcode. Discretion Mode is on.")
-                                .font(FDS.TypeScale.body(14))
+                                .font(FDS.TypeScale.Dynamic.body)
                                 .foregroundColor(.textSecondary)
                                 .multilineTextAlignment(.center)
                             Button("Unlock") { unlockCycleIfNeeded() }
                                 .buttonStyle(.borderedProminent)
                                 .tint(.ember)
                         }
-                        .padding(28)
+                        .padding(FDS.Spacing.xl)
                     }
                     .accessibilityElement(children: .contain)
                 }
@@ -225,13 +225,13 @@ struct MenstrualHealthView: View {
     private var rootStack: some View {
         ZStack(alignment: .bottom) {
             ScrollView(showsIndicators: false) {
-                VStack(alignment: .leading, spacing: 20) {
+                VStack(alignment: .leading, spacing: FDS.Spacing.lg) {
                     heroHeader
                     panePicker
                     paneBody
                 }
-                .padding(.horizontal, 16)
-                .padding(.top, 8)
+                .padding(.horizontal, FDS.Spacing.lg)
+                .padding(.top, FDS.Spacing.sm)
                 .padding(.bottom, 48)
             }
             .background { cycleAmbientBackground }
@@ -349,32 +349,32 @@ struct MenstrualHealthView: View {
     /// this card is the only holistic line that leaves it, and workout listing
     /// never shows period phases.
     private var supportCardComposer: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            HStack(spacing: 8) {
+        VStack(alignment: .leading, spacing: FDS.Spacing.md) {
+            HStack(spacing: FDS.Spacing.sm) {
                 Image(systemName: "heart.text.square.fill")
                     .foregroundStyle(Color.ember)
-                Text("Support card for partner").font(FDS.TypeScale.label(13)).foregroundColor(.textPrimary)
+                Text("Support card for partner").font(FDS.TypeScale.Dynamic.caption).foregroundColor(.textPrimary)
                 Spacer()
-                Text("\(supportCardDraft.count)/280").font(FDS.TypeScale.micro(11)).foregroundColor(.textTertiary)
+                Text("\(supportCardDraft.count)/280").font(FDS.TypeScale.Dynamic.micro).foregroundColor(.textTertiary)
             }
-            Text("What helps you, in your words. Shared on Support coach + Timing. Never auto-filled from cramps/pain/notes.").font(FDS.TypeScale.body(11)).foregroundColor(.textTertiary).fixedSize(horizontal: false, vertical: true)
+            Text("What helps you, in your words. Shared on Support coach + Timing. Never auto-filled from cramps/pain/notes.").font(FDS.TypeScale.Dynamic.caption).foregroundColor(.textTertiary).fixedSize(horizontal: false, vertical: true)
             TextField("e.g. tea + quiet tonight, heat pad helps, space first 2 days…", text: $supportCardDraft, axis: .vertical)
-                .textFieldStyle(.plain).lineLimit(3...4).padding(12).background(Color.surfaceElevated).clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                .textFieldStyle(.plain).lineLimit(3...4).padding(FDS.Spacing.md).forgeInsetTile(radius: FDS.Radius.md)
                 .onChange(of: supportCardDraft) { _, v in if v.count > 280 { supportCardDraft = String(v.prefix(280)) } }
                 .onAppear { supportCardDraft = cycleStore.settings.supportCardLine ?? "" }
                 .onChange(of: cycleStore.settings.supportCardLine) { _, v in supportCardDraft = v ?? "" }
             let trimmedPreview = supportCardDraft.trimmingCharacters(in: .whitespacesAndNewlines)
             if let preview = (trimmedPreview.isEmpty ? nil : trimmedPreview) ?? cycleStore.settings.supportCardLine {
-                HStack(spacing: 8) { Image(systemName: "eye.fill").foregroundStyle(Color(hex: "6366F1")); Text("Partner will see: \"\(preview)\"").font(FDS.TypeScale.body(12)).foregroundColor(.textSecondary).fixedSize(horizontal: false, vertical: true); Spacer(minLength: 0) }.padding(.horizontal, 2)
+                HStack(spacing: FDS.Spacing.sm) { Image(systemName: "eye.fill").foregroundStyle(Color.indigo); Text("Partner will see: \"\(preview)\"").font(FDS.TypeScale.Dynamic.caption).foregroundColor(.textSecondary).fixedSize(horizontal: false, vertical: true); Spacer(minLength: 0) }.padding(.horizontal, 2)
             }
-            HStack(spacing: 10) {
-                Button { cycleStore.updateSupportCard(supportCardDraft); FDS.notificationHaptic(.success) } label: { Text("Save card").font(FDS.TypeScale.label(14)).foregroundColor(.white).padding(.horizontal, 16).padding(.vertical, 10).background(Color.ember).clipShape(Capsule()) }.buttonStyle(.plain).disabled(supportCardDraft.trimmingCharacters(in: .whitespacesAndNewlines) == (cycleStore.settings.supportCardLine ?? ""))
+            HStack(spacing: FDS.Spacing.md) {
+                Button { cycleStore.updateSupportCard(supportCardDraft); FDS.notificationHaptic(.success) } label: { Text("Save card").font(FDS.TypeScale.Dynamic.caption).foregroundColor(.white).padding(.horizontal, FDS.Spacing.lg).padding(.vertical, FDS.Spacing.md).background(Color.ember).clipShape(Capsule()) }.buttonStyle(.plain).disabled(supportCardDraft.trimmingCharacters(in: .whitespacesAndNewlines) == (cycleStore.settings.supportCardLine ?? ""))
                 if cycleStore.settings.supportCardLine != nil {
-                    Button { supportCardDraft = ""; cycleStore.updateSupportCard(nil); FDS.haptic(.light) } label: { Text("Clear").font(FDS.TypeScale.label(14)).foregroundColor(.ember) }.buttonStyle(.plain)
+                    Button { supportCardDraft = ""; cycleStore.updateSupportCard(nil); FDS.haptic(.light) } label: { Text("Clear").font(FDS.TypeScale.Dynamic.caption).foregroundColor(.ember) }.buttonStyle(.plain)
                 }
                 Spacer()
             }
-        }.padding(18).forgeGlassCard(accent: Color.ember)
+        }.padding(FDS.Spacing.lg).forgeGlassCard(accent: Color.ember)
     }
 
     /// Extra care ping for supporters — stays on My cycle because it is about
@@ -386,23 +386,23 @@ struct MenstrualHealthView: View {
                 s.needExtraCareDayKey = active ? nil : CycleDayKey.key()
             }
         } label: {
-            HStack(spacing: 14) {
+            HStack(spacing: FDS.Spacing.lg) {
                 Image(systemName: active ? "heart.circle.fill" : "heart.circle")
                     .font(.system(size: 20))
                     .foregroundStyle(Color.ember)
                     .frame(width: 30)
                 VStack(alignment: .leading, spacing: 3) {
                     Text(active ? "Extra care is on" : "Need extra care today")
-                        .font(FDS.TypeScale.label(15))
+                        .font(FDS.TypeScale.Dynamic.caption)
                         .foregroundColor(.textPrimary)
                     Text("Supporters see a thoughtfulness ping — not why. Expires in 48 hours.")
-                        .font(FDS.TypeScale.body(12))
+                        .font(FDS.TypeScale.Dynamic.caption)
                         .foregroundColor(.textSecondary)
                         .fixedSize(horizontal: false, vertical: true)
                 }
                 Spacer(minLength: 0)
             }
-            .padding(18)
+            .padding(FDS.Spacing.lg)
             .frame(maxWidth: .infinity, alignment: .leading)
             .forgeGlassCard(accent: .ember)
         }
@@ -422,17 +422,17 @@ struct MenstrualHealthView: View {
         Button {
             showSharing = true
         } label: {
-            HStack(spacing: 14) {
+            HStack(spacing: FDS.Spacing.lg) {
                 Image(systemName: "person.2.badge.key.fill")
                     .font(.system(size: 20))
                     .foregroundStyle(Color.ember)
                     .frame(width: 30)
                 VStack(alignment: .leading, spacing: 3) {
                     Text("Invite someone to support me")
-                        .font(FDS.TypeScale.label(15))
+                        .font(FDS.TypeScale.Dynamic.caption)
                         .foregroundColor(.textPrimary)
                     Text("They see how to help. They never see your log.")
-                        .font(FDS.TypeScale.body(12))
+                        .font(FDS.TypeScale.Dynamic.caption)
                         .foregroundColor(.textSecondary)
                         .fixedSize(horizontal: false, vertical: true)
                 }
@@ -440,7 +440,7 @@ struct MenstrualHealthView: View {
                 Image(systemName: "chevron.right")
                     .foregroundColor(.textTertiary)
             }
-            .padding(18)
+            .padding(FDS.Spacing.lg)
             .frame(maxWidth: .infinity, alignment: .leading)
             .forgeGlassCard(accent: .ember)
         }
@@ -468,16 +468,16 @@ struct MenstrualHealthView: View {
 
     private func toastBanner(_ message: String) -> some View {
         Text(message)
-            .font(FDS.TypeScale.label(13))
+            .font(FDS.TypeScale.Dynamic.caption)
             .foregroundColor(.white)
             .multilineTextAlignment(.center)
-            .padding(.horizontal, 16)
-            .padding(.vertical, 12)
+            .padding(.horizontal, FDS.Spacing.lg)
+            .padding(.vertical, FDS.Spacing.md)
             .background(Color.ember.opacity(0.92))
             .clipShape(Capsule())
             .shadow(color: Color.ember.opacity(0.4), radius: 12, y: 4)
-            .padding(.horizontal, 24)
-            .padding(.bottom, 28)
+            .padding(.horizontal, FDS.Spacing.xl)
+            .padding(.bottom, FDS.Spacing.xl)
             .transition(.move(edge: .bottom).combined(with: .opacity))
             .accessibilityAddTraits(.isStaticText)
     }
@@ -485,7 +485,7 @@ struct MenstrualHealthView: View {
     @ToolbarContentBuilder
     private var cycleToolbar: some ToolbarContent {
         ToolbarItem(placement: .topBarTrailing) {
-            HStack(spacing: 12) {
+            HStack(spacing: FDS.Spacing.md) {
                 if pane == .me, cycleStore.settings.enabled {
                     Button {
                         showAccuracyExplainer = true
@@ -562,15 +562,15 @@ struct MenstrualHealthView: View {
     private var cycleStageCard: some View {
         let snap = cycleStore.snapshot
         let stage = snap.stage
-        return VStack(alignment: .leading, spacing: 14) {
+        return VStack(alignment: .leading, spacing: FDS.Spacing.lg) {
             HStack {
                 Text("WHERE YOU ARE").forgeSectionLabel()
                 Spacer()
                 Text(stage.label)
-                    .font(FDS.TypeScale.micro(11))
+                    .font(FDS.TypeScale.Dynamic.micro)
                     .foregroundStyle(stageColor(stage))
-                    .padding(.horizontal, 10)
-                    .padding(.vertical, 4)
+                    .padding(.horizontal, FDS.Spacing.md)
+                    .padding(.vertical, FDS.Spacing.xs)
                     .background(stageColor(stage).opacity(0.14))
                     .clipShape(Capsule())
             }
@@ -579,7 +579,7 @@ struct MenstrualHealthView: View {
 
             if !snap.stageNarrative.isEmpty {
                 Text(snap.stageNarrative)
-                    .font(FDS.TypeScale.body(13))
+                    .font(FDS.TypeScale.Dynamic.caption)
                     .foregroundColor(.textSecondary)
                     .fixedSize(horizontal: false, vertical: true)
             }
@@ -594,21 +594,21 @@ struct MenstrualHealthView: View {
                 periodStartButton
             }
         }
-        .padding(18)
+        .padding(FDS.Spacing.lg)
         .forgeGlassCard(accent: stageColor(stage))
         .accessibilityElement(children: .contain)
     }
 
     @ViewBuilder
     private func stageFactsSection(snap: MenstrualCycleSnapshot) -> some View {
-        VStack(spacing: 8) {
+        VStack(spacing: FDS.Spacing.sm) {
             if let end = snap.currentPeriodEndDayKey, let count = snap.currentPeriodDayCount {
                 let daysLabel = count == 1 ? "1 day" : "\(count) days"
                 stageFact(
                     icon: snap.periodEndConfirmed ? "checkmark.circle.fill" : "drop.circle",
                     label: snap.periodEndConfirmed ? "Period finished" : "Last bleed logged",
                     value: "\(shortDate(end)) · \(daysLabel)",
-                    color: Color(hex: "EF4444")
+                    color: Color.alert
                 )
             }
             if let startDay = snap.fertileStartDayInCycle,
@@ -620,7 +620,7 @@ struct MenstrualHealthView: View {
                     icon: "waveform.path.ecg",
                     label: "Fertile window",
                     value: "\(shortDate(fs)) – \(shortDate(fe))",
-                    color: Color(hex: "F59E0B")
+                    color: Color.amber
                 )
             }
             if let next = snap.nextPeriod {
@@ -628,7 +628,7 @@ struct MenstrualHealthView: View {
                     icon: "calendar",
                     label: "Next period",
                     value: nextPeriodValue(next: next, daysUntil: snap.daysUntilNextPeriod),
-                    color: Color(hex: "6366F1")
+                    color: Color.indigo
                 )
             }
         }
@@ -655,18 +655,18 @@ struct MenstrualHealthView: View {
             }
         } label: {
             Label("My period finished", systemImage: "checkmark.circle.fill")
-                .font(FDS.TypeScale.label(14))
+                .font(FDS.TypeScale.Dynamic.caption)
                 .foregroundColor(.white)
                 .frame(maxWidth: .infinity)
-                .padding(.vertical, 14)
+                .padding(.vertical, FDS.Spacing.lg)
                 .background(
                     LinearGradient(
-                        colors: [Color(hex: "A78BFA"), Color(hex: "6366F1")],
+                        colors: [Color.aurora, Color.indigo],
                         startPoint: .leading,
                         endPoint: .trailing
                     )
                 )
-                .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+                .clipShape(RoundedRectangle(cornerRadius: FDS.Radius.md, style: .continuous))
         }
         .buttonStyle(.plain)
     }
@@ -681,35 +681,35 @@ struct MenstrualHealthView: View {
             showToast(msg)
         } label: {
             Label("My period started", systemImage: "flag.fill")
-                .font(FDS.TypeScale.label(14))
+                .font(FDS.TypeScale.Dynamic.caption)
                 .foregroundColor(.white)
                 .frame(maxWidth: .infinity)
-                .padding(.vertical, 14)
+                .padding(.vertical, FDS.Spacing.lg)
                 .background(
                     LinearGradient(
-                        colors: [Color(hex: "F87171"), Color(hex: "EF4444")],
+                        colors: [Color.danger, Color.alert],
                         startPoint: .leading,
                         endPoint: .trailing
                     )
                 )
-                .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+                .clipShape(RoundedRectangle(cornerRadius: FDS.Radius.md, style: .continuous))
         }
         .buttonStyle(.plain)
     }
 
     private var coldStartCard: some View {
-        VStack(alignment: .leading, spacing: 14) {
+        VStack(alignment: .leading, spacing: FDS.Spacing.lg) {
             Text("ANCHOR THIS CYCLE")
                 .forgeSectionLabel()
             Text("When did your last period start?")
-                .font(FDS.TypeScale.title(20))
+                .font(FDS.TypeScale.Dynamic.title)
                 .foregroundColor(.textPrimary)
             Text("One start date unlocks phase, next period, and training bias. Everything else can wait.")
-                .font(FDS.TypeScale.body(13))
+                .font(FDS.TypeScale.Dynamic.caption)
                 .foregroundColor(.textSecondary)
                 .fixedSize(horizontal: false, vertical: true)
 
-            HStack(spacing: 8) {
+            HStack(spacing: FDS.Spacing.sm) {
                 coldStartChip("Today", daysAgo: 0)
                 coldStartChip("3 days ago", daysAgo: 3)
                 coldStartChip("1 week ago", daysAgo: 7)
@@ -722,30 +722,30 @@ struct MenstrualHealthView: View {
                 displayedComponents: .date
             )
             .datePickerStyle(.compact)
-            .tint(Color(hex: "EF4444"))
+            .tint(Color.alert)
             .foregroundColor(.textPrimary)
 
             Button {
                 logColdStart(on: CycleDayKey.key(for: coldStartDate))
             } label: {
                 Text("Log this start")
-                    .font(FDS.TypeScale.label(15))
+                    .font(FDS.TypeScale.Dynamic.caption)
                     .foregroundColor(.white)
                     .frame(maxWidth: .infinity)
-                    .padding(.vertical, 14)
+                    .padding(.vertical, FDS.Spacing.lg)
                     .background(
                         LinearGradient(
-                            colors: [Color(hex: "F87171"), Color(hex: "EF4444")],
+                            colors: [Color.danger, Color.alert],
                             startPoint: .leading,
                             endPoint: .trailing
                         )
                     )
-                    .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+                    .clipShape(RoundedRectangle(cornerRadius: FDS.Radius.md, style: .continuous))
             }
             .buttonStyle(.plain)
         }
-        .padding(18)
-        .forgeGlassCard(accent: Color(hex: "EF4444"))
+        .padding(FDS.Spacing.lg)
+        .forgeGlassCard(accent: Color.alert)
     }
 
     private func coldStartChip(_ title: String, daysAgo: Int) -> some View {
@@ -756,12 +756,11 @@ struct MenstrualHealthView: View {
             }
         } label: {
             Text(title)
-                .font(FDS.TypeScale.label(12))
+                .font(FDS.TypeScale.Dynamic.caption)
                 .foregroundColor(.textPrimary)
                 .frame(maxWidth: .infinity)
-                .padding(.vertical, 10)
-                .background(Color.surfaceElevated)
-                .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                .padding(.vertical, FDS.Spacing.md)
+                .forgeInsetTile(radius: FDS.Radius.md)
         }
         .buttonStyle(.plain)
     }
@@ -775,11 +774,11 @@ struct MenstrualHealthView: View {
 
     private func stageColor(_ stage: CycleStage) -> Color {
         switch stage {
-        case .period:        return Color(hex: "EF4444")
-        case .postPeriod:    return Color(hex: "22C55E")
-        case .fertile:       return Color(hex: "F59E0B")
-        case .ovulation:     return Color(hex: "A855F7")
-        case .premenstrual:  return Color(hex: "6366F1")
+        case .period:        return Color.alert
+        case .postPeriod:    return Color.vitality
+        case .fertile:       return Color.amber
+        case .ovulation:     return Color.aurora
+        case .premenstrual:  return Color.indigo
         case .unknown:       return .steel
         }
     }
@@ -798,11 +797,11 @@ struct MenstrualHealthView: View {
     private func stageTrack(current: CycleStage) -> some View {
         let ordered: [CycleStage] = [.period, .postPeriod, .fertile, .ovulation, .premenstrual]
         let currentIndex = ordered.firstIndex(of: current)
-        return HStack(spacing: 6) {
+        return HStack(spacing: FDS.Spacing.sm) {
             ForEach(Array(ordered.enumerated()), id: \.element) { index, stage in
                 let isCurrent = stage == current
                 let isPast = currentIndex.map { index < $0 } ?? false
-                VStack(spacing: 6) {
+                VStack(spacing: FDS.Spacing.sm) {
                     Image(systemName: stageIcon(stage))
                         .font(.system(size: isCurrent ? 14 : 11, weight: .semibold))
                         .foregroundStyle(
@@ -824,23 +823,22 @@ struct MenstrualHealthView: View {
     }
 
     private func stageFact(icon: String, label: String, value: String, color: Color) -> some View {
-        HStack(spacing: 10) {
+        HStack(spacing: FDS.Spacing.md) {
             Image(systemName: icon)
                 .font(.system(size: 13))
                 .foregroundStyle(color)
                 .frame(width: 20)
             Text(label)
-                .font(FDS.TypeScale.body(12))
+                .font(FDS.TypeScale.Dynamic.caption)
                 .foregroundColor(.textTertiary)
             Spacer()
             Text(value)
-                .font(FDS.TypeScale.label(13))
+                .font(FDS.TypeScale.Dynamic.caption)
                 .foregroundColor(.textPrimary)
         }
-        .padding(.horizontal, 12)
-        .padding(.vertical, 10)
-        .background(Color.surfaceElevated)
-        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+        .padding(.horizontal, FDS.Spacing.md)
+        .padding(.vertical, FDS.Spacing.md)
+        .forgeInsetTile(radius: FDS.Radius.md)
         .accessibilityElement(children: .combine)
         .accessibilityLabel("\(label): \(value)")
     }
@@ -848,8 +846,8 @@ struct MenstrualHealthView: View {
     /// Condition context, shown right under the phase orbit so the user can see *why*
     /// their windows behave differently — and take it straight to ARIA.
     private func conditionCard(_ condition: CycleCondition) -> some View {
-        VStack(alignment: .leading, spacing: 10) {
-            HStack(spacing: 8) {
+        VStack(alignment: .leading, spacing: FDS.Spacing.md) {
+            HStack(spacing: FDS.Spacing.sm) {
                 Image(systemName: condition.icon)
                     .foregroundStyle(Color(hex: "38BDF8"))
                 Text(condition.label.uppercased())
@@ -857,7 +855,7 @@ struct MenstrualHealthView: View {
                     .foregroundStyle(Color(hex: "38BDF8"))
             }
             Text(condition.trackingImplication)
-                .font(FDS.TypeScale.body(13))
+                .font(FDS.TypeScale.Dynamic.caption)
                 .foregroundColor(.textSecondary)
                 .fixedSize(horizontal: false, vertical: true)
             Button {
@@ -873,12 +871,12 @@ struct MenstrualHealthView: View {
                 } icon: {
                     ARIAIdentityMark(state: .idle, mood: .energized, size: 14, amplitude: 0.22)
                 }
-                    .font(FDS.TypeScale.label(13))
+                    .font(FDS.TypeScale.Dynamic.caption)
                     .foregroundStyle(Color.ember)
             }
             .buttonStyle(.plain)
         }
-        .padding(16)
+        .padding(FDS.Spacing.lg)
         .frame(maxWidth: .infinity, alignment: .leading)
         .forgeGlassCard(accent: Color(hex: "38BDF8"))
         .accessibilityElement(children: .contain)
@@ -909,7 +907,7 @@ struct MenstrualHealthView: View {
     // MARK: Header
 
     private var heroHeader: some View {
-        VStack(alignment: .leading, spacing: 8) {
+        VStack(alignment: .leading, spacing: FDS.Spacing.sm) {
             Text(pane == .me ? "CYCLE INTELLIGENCE" : "FAMILY SUPPORT")
                 .forgeSectionLabel()
                 .foregroundStyle(accent.opacity(0.9))
@@ -927,7 +925,7 @@ struct MenstrualHealthView: View {
                     ? "Periods, fertile windows, and recovery — personal math from your signals. Lifestyle guidance only."
                     : "Partners, spouses, daughters — log what they share so ARIA can coach you with care."
             )
-            .font(FDS.TypeScale.body(14))
+            .font(FDS.TypeScale.Dynamic.body)
             .foregroundColor(.textSecondary)
             .fixedSize(horizontal: false, vertical: true)
         }
@@ -936,21 +934,21 @@ struct MenstrualHealthView: View {
     }
 
     private var panePicker: some View {
-        HStack(spacing: 6) {
+        HStack(spacing: FDS.Spacing.sm) {
             ForEach(Pane.allCases) { p in
                 Button {
                     withAnimation(FDS.Spring.snap) { pane = p }
                     FDS.selectionHaptic()
                 } label: {
-                    HStack(spacing: 7) {
+                    HStack(spacing: FDS.Spacing.sm) {
                         Image(systemName: p.icon)
                             .font(.system(size: 13, weight: .semibold))
                         Text(p.label)
-                            .font(FDS.TypeScale.label(13))
+                            .font(FDS.TypeScale.Dynamic.caption)
                     }
                     .foregroundColor(pane == p ? .white : .textSecondary)
                     .frame(maxWidth: .infinity)
-                    .padding(.vertical, 12)
+                    .padding(.vertical, FDS.Spacing.md)
                     .background {
                         if pane == p {
                             Capsule().fill(
@@ -967,7 +965,7 @@ struct MenstrualHealthView: View {
                 .buttonStyle(.plain)
             }
         }
-        .padding(4)
+        .padding(FDS.Spacing.xs)
         .background(Color.surfaceElevated.opacity(0.9))
         .clipShape(Capsule())
         .overlay(Capsule().strokeBorder(Color.white.opacity(0.08), lineWidth: 1))
@@ -981,22 +979,22 @@ struct MenstrualHealthView: View {
     }
 
     private var enableCard: some View {
-        VStack(alignment: .leading, spacing: 16) {
+        VStack(alignment: .leading, spacing: FDS.Spacing.lg) {
             ZStack {
                 Circle()
-                    .fill(Color(hex: "22C55E").opacity(0.15))
+                    .fill(Color.vitality.opacity(0.15))
                     .frame(width: 72, height: 72)
                 Image(systemName: isCyclePhysiologyProfile ? "drop.fill" : "person.crop.circle.badge.checkmark")
                     .font(.system(size: 28))
                     .foregroundStyle(Color(hex: isCyclePhysiologyProfile ? "EF4444" : "22C55E"))
             }
             Text(isCyclePhysiologyProfile ? "Track with precision" : "This is my cycle")
-                .font(FDS.TypeScale.title(20))
+                .font(FDS.TypeScale.Dynamic.title)
                 .foregroundColor(.textPrimary)
             Text(isCyclePhysiologyProfile
                  ? "Log flow, symptoms, and optional BBT. ARIA personalizes cycle length, ovulation estimates, and training bias — never medical diagnosis."
                  : "Cycle tracking is built for the person whose cycle it is — typically female physiology. You can turn it on anytime if that's you. If you are here to help someone else, stay on Support.")
-                .font(FDS.TypeScale.body(14))
+                .font(FDS.TypeScale.Dynamic.body)
                 .foregroundColor(.textSecondary)
             featureRow("drop.circle.fill", "Period episodes & predictions")
             featureRow("waveform.path.ecg", "Multi-signal confidence + feedback MAE")
@@ -1008,10 +1006,10 @@ struct MenstrualHealthView: View {
 
             Toggle(isOn: $privacyAccepted) {
                 Text("I understand cycle data is for my coaching only — never sold")
-                    .font(FDS.TypeScale.body(13))
+                    .font(FDS.TypeScale.Dynamic.caption)
                     .foregroundColor(.textSecondary)
             }
-            .tint(Color(hex: "22C55E"))
+            .tint(Color.vitality)
 
             Button {
                 guard privacyAccepted else { return }
@@ -1028,27 +1026,27 @@ struct MenstrualHealthView: View {
                 Task { await cycleStore.syncFromHealthKit() }
             } label: {
                 Text(isCyclePhysiologyProfile ? "Enable my cycle" : "Turn on my cycle")
-                    .font(FDS.TypeScale.label(16))
+                    .font(FDS.TypeScale.Dynamic.caption)
                     .foregroundColor(.white)
                     .frame(maxWidth: .infinity)
-                    .padding(.vertical, 16)
+                    .padding(.vertical, FDS.Spacing.lg)
                     .background(
                         LinearGradient(
                             colors: privacyAccepted
-                                ? [Color(hex: "F87171"), Color(hex: "EF4444"), Color(hex: "DC2626")]
+                                ? [Color.danger, Color.alert, Color(hex: "DC2626")]
                                 : [Color.surfaceElevated, Color.surfaceElevated],
                             startPoint: .topLeading,
                             endPoint: .bottomTrailing
                         )
                     )
-                    .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
-                    .shadow(color: Color(hex: "EF4444").opacity(privacyAccepted ? 0.4 : 0), radius: 16, y: 6)
+                    .clipShape(RoundedRectangle(cornerRadius: FDS.Radius.lg, style: .continuous))
+                    .shadow(color: Color.alert.opacity(privacyAccepted ? 0.4 : 0), radius: 16, y: 6)
             }
             .buttonStyle(.plain)
             .disabled(!privacyAccepted)
         }
-        .padding(22)
-        .forgeGlassCard(accent: Color(hex: "EF4444"))
+        .padding(FDS.Spacing.xl)
+        .forgeGlassCard(accent: Color.alert)
     }
 
     // MARK: Accuracy
@@ -1057,29 +1055,29 @@ struct MenstrualHealthView: View {
         let report = cycleStore.accuracyReport
         let eval = cycleStore.lastEvaluation
         let gradeColor = Color(hex: eval.qualityGrade.accentHex)
-        return VStack(alignment: .leading, spacing: 12) {
+        return VStack(alignment: .leading, spacing: FDS.Spacing.md) {
             HStack {
                 Text("PREDICTION ACCURACY")
                     .forgeSectionLabel()
                 Spacer()
                 Text(eval.qualityGrade.label)
-                    .font(FDS.TypeScale.micro(11))
+                    .font(FDS.TypeScale.Dynamic.micro)
                     .foregroundStyle(gradeColor)
-                    .padding(.horizontal, 10)
-                    .padding(.vertical, 4)
+                    .padding(.horizontal, FDS.Spacing.md)
+                    .padding(.vertical, FDS.Spacing.xs)
                     .background(gradeColor.opacity(0.12))
                     .clipShape(Capsule())
             }
-            HStack(spacing: 10) {
+            HStack(spacing: FDS.Spacing.md) {
                 accuracyPill(
                     title: "MAE",
                     value: report.maeDays.map { String(format: "%.1fd" , $0) } ?? "—",
-                    color: Color(hex: "22C55E")
+                    color: Color.vitality
                 )
                 accuracyPill(
                     title: "±1 DAY",
                     value: report.withinOneDayRate.map { "\(Int($0 * 100))%" } ?? "—",
-                    color: Color(hex: "A855F7")
+                    color: Color.aurora
                 )
                 accuracyPill(
                     title: "±2 DAY",
@@ -1087,7 +1085,7 @@ struct MenstrualHealthView: View {
                     color: .steel
                 )
             }
-            HStack(spacing: 10) {
+            HStack(spacing: FDS.Spacing.md) {
                 accuracyPill(
                     title: "SAMPLES",
                     value: "\(report.sampleCount)",
@@ -1101,63 +1099,63 @@ struct MenstrualHealthView: View {
                 accuracyPill(
                     title: "OVU CONF",
                     value: "\(Int(cycleStore.snapshot.ovulationConfidence * 100))%",
-                    color: Color(hex: "A855F7")
+                    color: Color.aurora
                 )
             }
             Text(report.gradeDetail)
-                .font(FDS.TypeScale.body(12))
+                .font(FDS.TypeScale.Dynamic.caption)
                 .foregroundColor(.textSecondary)
             Text(eval.userFacingSummary)
-                .font(FDS.TypeScale.body(12))
+                .font(FDS.TypeScale.Dynamic.caption)
                 .foregroundColor(.textTertiary)
             if abs(report.calibrationOffsetDays) >= 0.2 {
                 Text("Bias auto-correct: \(report.calibrationOffsetDays >= 0 ? "+" : "")\(String(format: "%.1f", report.calibrationOffsetDays)) days · \(cycleStore.snapshot.predictionMethodSummary)")
-                    .font(FDS.TypeScale.micro(11))
+                    .font(FDS.TypeScale.Dynamic.micro)
                     .foregroundColor(.textTertiary)
             }
 
             // Forecast trail
             if !cycleStore.forecastArchive.filter({ !$0.isOpen }).isEmpty {
-                VStack(alignment: .leading, spacing: 6) {
+                VStack(alignment: .leading, spacing: FDS.Spacing.sm) {
                     Text("FORECAST TRAIL")
-                        .font(FDS.TypeScale.micro(10))
+                        .font(FDS.TypeScale.Dynamic.micro)
                         .tracking(1.2)
                         .foregroundColor(.textTertiary)
                     ForEach(cycleStore.forecastArchive.filter { !$0.isOpen }.suffix(4).reversed()) { rec in
                         HStack {
                             Text(shortDate(rec.predictedMedianDayKey))
-                                .font(FDS.TypeScale.micro(11))
+                                .font(FDS.TypeScale.Dynamic.micro)
                                 .foregroundColor(.textSecondary)
                             Image(systemName: "arrow.right")
                                 .font(.system(size: 9))
                                 .foregroundColor(.textMuted)
                             Text((rec.scoredActualStartDayKey).map(shortDate) ?? "—")
-                                .font(FDS.TypeScale.micro(11))
+                                .font(FDS.TypeScale.Dynamic.micro)
                                 .foregroundColor(.textPrimary)
                             Spacer()
                             if let e = rec.scoredErrorDays {
                                 Text(e >= 0 ? "+\(e)d" : "\(e)d")
-                                    .font(.system(size: 11, weight: .bold))
-                                    .foregroundStyle(abs(e) <= 1 ? Color(hex: "22C55E") : Color.warning)
+                                    .font(FDS.TypeScale.Dynamic.micro)
+                                    .foregroundStyle(abs(e) <= 1 ? Color.vitality : Color.warning)
                             }
                         }
                     }
                 }
-                .padding(.top, 4)
+                .padding(.top, FDS.Spacing.xs)
             }
 
             Text("Personal timing error — multi-signal + confirms. Not a fake global % badge. Not itself birth control.")
-                .font(FDS.TypeScale.body(11))
+                .font(FDS.TypeScale.Dynamic.caption)
                 .foregroundColor(.textMuted)
 
-            HStack(spacing: 14) {
+            HStack(spacing: FDS.Spacing.lg) {
                 Button {
                     showAccuracyExplainer = true
                     FDS.haptic(.light)
                 } label: {
                     Text("Science & methods")
-                        .font(FDS.TypeScale.label(13))
-                        .foregroundStyle(Color(hex: "22C55E"))
+                        .font(FDS.TypeScale.Dynamic.caption)
+                        .foregroundStyle(Color.vitality)
                 }
                 .buttonStyle(.plain)
 
@@ -1167,27 +1165,27 @@ struct MenstrualHealthView: View {
                         store.openChat(with: prompt, voice: false)
                     } label: {
                         Text("Ask ARIA")
-                            .font(FDS.TypeScale.label(13))
+                            .font(FDS.TypeScale.Dynamic.caption)
                             .foregroundStyle(Color.ember)
                     }
                     .buttonStyle(.plain)
                 }
             }
         }
-        .padding(18)
-        .forgeGlassCard(accent: Color(hex: "22C55E"))
+        .padding(FDS.Spacing.lg)
+        .forgeGlassCard(accent: Color.vitality)
     }
 
     private var ariaAnalystCard: some View {
         let brief = cycleStore.lastAriaBrief
-        return VStack(alignment: .leading, spacing: 12) {
+        return VStack(alignment: .leading, spacing: FDS.Spacing.md) {
             HStack {
                 Text("ARIA · UNDERSTAND · EVALUATE · TEACH")
                     .forgeSectionLabel()
                 Spacer()
                 if let g = brief?.evaluationGrade {
                     Text(g.label)
-                        .font(FDS.TypeScale.micro(10))
+                        .font(FDS.TypeScale.Dynamic.micro)
                         .foregroundStyle(Color(hex: g.accentHex))
                 }
             }
@@ -1199,38 +1197,38 @@ struct MenstrualHealthView: View {
                     analystBlock("Sexual health (lifestyle)", sexual)
                 }
                 Text(brief.disclaimer)
-                    .font(FDS.TypeScale.body(11))
+                    .font(FDS.TypeScale.Dynamic.caption)
                     .foregroundColor(.textMuted)
                 Text(brief.privacyLine)
-                    .font(FDS.TypeScale.body(11))
+                    .font(FDS.TypeScale.Dynamic.caption)
                     .foregroundColor(.textMuted)
             } else {
                 Text("Log or confirm a start — ARIA will understand your data, evaluate quality, then teach next steps.")
-                    .font(FDS.TypeScale.body(13))
+                    .font(FDS.TypeScale.Dynamic.caption)
                     .foregroundColor(.textSecondary)
             }
 
             if let msg = cycleStore.lastTeachingMessage {
                 Text(msg)
-                    .font(FDS.TypeScale.body(12))
+                    .font(FDS.TypeScale.Dynamic.caption)
                     .foregroundColor(.textSecondary)
-                    .padding(12)
+                    .padding(FDS.Spacing.md)
                     .background(Color.ember.opacity(0.08))
-                    .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                    .clipShape(RoundedRectangle(cornerRadius: FDS.Radius.md, style: .continuous))
             }
         }
-        .padding(18)
+        .padding(FDS.Spacing.lg)
         .forgeGlassCard(accent: .ember)
     }
 
     private func analystBlock(_ title: String, _ body: String) -> some View {
-        VStack(alignment: .leading, spacing: 4) {
+        VStack(alignment: .leading, spacing: FDS.Spacing.xs) {
             Text(title.uppercased())
-                .font(FDS.TypeScale.micro(10))
+                .font(FDS.TypeScale.Dynamic.micro)
                 .tracking(1.1)
                 .foregroundColor(.textTertiary)
             Text(body)
-                .font(FDS.TypeScale.body(13))
+                .font(FDS.TypeScale.Dynamic.caption)
                 .foregroundColor(.textPrimary)
                 .fixedSize(horizontal: false, vertical: true)
         }
@@ -1244,61 +1242,61 @@ struct MenstrualHealthView: View {
                 return d >= max(1, fs - 2) && d <= fe + 1
             } ?? false)
 
-        return VStack(alignment: .leading, spacing: 10) {
-            HStack(spacing: 8) {
+        return VStack(alignment: .leading, spacing: FDS.Spacing.md) {
+            HStack(spacing: FDS.Spacing.sm) {
                 Image(systemName: "scope")
-                    .foregroundStyle(Color(hex: "A855F7"))
+                    .foregroundStyle(Color.aurora)
                 Text("HIGH-ACCURACY MODE")
                     .forgeSectionLabel()
-                    .foregroundStyle(Color(hex: "A855F7"))
+                    .foregroundStyle(Color.aurora)
             }
             if nearFertile {
                 Text("Fertile window nearby — log BBT, OPK if you have it, and confirm period start the same day it begins.")
-                    .font(FDS.TypeScale.body(13))
+                    .font(FDS.TypeScale.Dynamic.caption)
                     .foregroundColor(.textSecondary)
             } else {
                 Text("On: we nudge BBT/OPK around fertile days and same-day period confirms for sharper personal MAE. Lifestyle only — not birth control.")
-                    .font(FDS.TypeScale.body(13))
+                    .font(FDS.TypeScale.Dynamic.caption)
                     .foregroundColor(.textSecondary)
             }
         }
-        .padding(16)
-        .forgeGlassCard(accent: Color(hex: "A855F7"))
+        .padding(FDS.Spacing.lg)
+        .forgeGlassCard(accent: Color.aurora)
     }
 
     private var predictionFeedbackCard: some View {
-        VStack(alignment: .leading, spacing: 12) {
+        VStack(alignment: .leading, spacing: FDS.Spacing.md) {
             Text("FORECAST OFFSET")
                 .forgeSectionLabel()
             Text("If the window was early or late, tell the model once. Start and finish live in Where you are.")
-                .font(FDS.TypeScale.body(12))
+                .font(FDS.TypeScale.Dynamic.caption)
                 .foregroundColor(.textSecondary)
 
             if cycleStore.coachingPreferences.sampleCount > 0,
                let summary = cycleStore.coachingPreferences.lastLearnedSummary {
                 Text(summary)
-                    .font(FDS.TypeScale.body(12))
-                    .foregroundStyle(Color(hex: "A855F7"))
-                    .padding(10)
+                    .font(FDS.TypeScale.Dynamic.caption)
+                    .foregroundStyle(Color.aurora)
+                    .padding(FDS.Spacing.md)
                     .frame(maxWidth: .infinity, alignment: .leading)
-                    .background(Color(hex: "A855F7").opacity(0.12))
-                    .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+                    .background(Color.aurora.opacity(0.12))
+                    .clipShape(RoundedRectangle(cornerRadius: FDS.Radius.sm, style: .continuous))
             }
 
             HStack {
                 Text("Offset days")
-                    .font(FDS.TypeScale.label(12))
+                    .font(FDS.TypeScale.Dynamic.caption)
                     .foregroundColor(.textSecondary)
                 Spacer()
                 Stepper(value: $feedbackOffset, in: 1...7) {
                     Text("\(feedbackOffset)")
-                        .font(FDS.TypeScale.label(14))
+                        .font(FDS.TypeScale.Dynamic.caption)
                         .foregroundColor(.textPrimary)
                         .frame(minWidth: 24)
                 }
             }
 
-            HStack(spacing: 8) {
+            HStack(spacing: FDS.Spacing.sm) {
                 feedbackChip("Early by \(feedbackOffset)", icon: "arrow.left") {
                     let msg = cycleStore.confirmPeriodOffsetFromPrediction(
                         daysFromPredicted: -feedbackOffset,
@@ -1322,32 +1320,31 @@ struct MenstrualHealthView: View {
                 showToast(msg)
             } label: {
                 Label("Still no period", systemImage: "clock.badge.questionmark")
-                    .font(FDS.TypeScale.label(13))
+                    .font(FDS.TypeScale.Dynamic.caption)
                     .foregroundStyle(Color.warning)
                     .frame(maxWidth: .infinity)
-                    .padding(.vertical, 12)
+                    .padding(.vertical, FDS.Spacing.md)
                     .background(Color.warning.opacity(0.12))
-                    .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                    .clipShape(RoundedRectangle(cornerRadius: FDS.Radius.md, style: .continuous))
             }
             .buttonStyle(.plain)
         }
-        .padding(18)
-        .forgeGlassCard(accent: Color(hex: "EF4444"))
+        .padding(FDS.Spacing.lg)
+        .forgeGlassCard(accent: Color.alert)
     }
 
     private func feedbackChip(_ title: String, icon: String, action: @escaping () -> Void) -> some View {
         Button(action: action) {
-            HStack(spacing: 6) {
+            HStack(spacing: FDS.Spacing.sm) {
                 Image(systemName: icon)
                     .font(.system(size: 11, weight: .bold))
                 Text(title)
-                    .font(FDS.TypeScale.label(12))
+                    .font(FDS.TypeScale.Dynamic.caption)
             }
             .foregroundColor(.textPrimary)
             .frame(maxWidth: .infinity)
-            .padding(.vertical, 12)
-            .background(Color.surfaceElevated)
-            .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+            .padding(.vertical, FDS.Spacing.md)
+            .forgeInsetTile(radius: FDS.Radius.md)
         }
         .buttonStyle(.plain)
     }
@@ -1387,29 +1384,29 @@ struct MenstrualHealthView: View {
     }
 
     private func accuracyPill(title: String, value: String, color: Color) -> some View {
-        VStack(spacing: 4) {
+        VStack(spacing: FDS.Spacing.xs) {
             Text(title)
-                .font(FDS.TypeScale.micro(9))
+                .font(FDS.TypeScale.Dynamic.micro)
                 .tracking(1.1)
                 .foregroundColor(.textTertiary)
             Text(value)
-                .font(FDS.TypeScale.label(15))
+                .font(FDS.TypeScale.Dynamic.caption)
                 .foregroundColor(.textPrimary)
         }
         .frame(maxWidth: .infinity)
-        .padding(.vertical, 12)
+        .padding(.vertical, FDS.Spacing.md)
         .background(color.opacity(0.1))
-        .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+        .clipShape(RoundedRectangle(cornerRadius: FDS.Radius.md, style: .continuous))
     }
 
     private func featureRow(_ icon: String, _ text: String) -> some View {
-        HStack(spacing: 10) {
+        HStack(spacing: FDS.Spacing.md) {
             Image(systemName: icon)
                 .font(.system(size: 14))
-                .foregroundStyle(Color(hex: "EF4444"))
+                .foregroundStyle(Color.alert)
                 .frame(width: 22)
             Text(text)
-                .font(FDS.TypeScale.body(14))
+                .font(FDS.TypeScale.Dynamic.body)
                 .foregroundColor(.textSecondary)
         }
     }
@@ -1419,7 +1416,7 @@ struct MenstrualHealthView: View {
     private var phaseOrbitCard: some View {
         let snap = cycleStore.snapshot
         let phaseColor = Color(hex: snap.phase.accentHex)
-        return VStack(spacing: 18) {
+        return VStack(spacing: FDS.Spacing.lg) {
             ZStack {
                 // Outer glow
                 Circle()
@@ -1454,7 +1451,7 @@ struct MenstrualHealthView: View {
                     .frame(width: 160, height: 160)
                     .rotationEffect(.degrees(-90))
 
-                VStack(spacing: 4) {
+                VStack(spacing: FDS.Spacing.xs) {
                     Image(systemName: snap.phase.icon)
                         .font(.system(size: 22, weight: .semibold))
                         .foregroundStyle(phaseColor)
@@ -1468,15 +1465,15 @@ struct MenstrualHealthView: View {
                             .foregroundColor(.textTertiary)
                     }
                     Text(snap.phase.label.uppercased())
-                        .font(FDS.TypeScale.micro(11))
+                        .font(FDS.TypeScale.Dynamic.micro)
                         .tracking(1.4)
                         .foregroundStyle(phaseColor)
                 }
             }
             .frame(maxWidth: .infinity)
-            .padding(.top, 8)
+            .padding(.top, FDS.Spacing.sm)
 
-            HStack(spacing: 10) {
+            HStack(spacing: FDS.Spacing.md) {
                 metricPill(
                     title: "CONFIDENCE",
                     value: "\(Int(snap.confidence * 100))%",
@@ -1490,27 +1487,27 @@ struct MenstrualHealthView: View {
                 metricPill(
                     title: "PERIOD",
                     value: "~\(Int(snap.periodLengthMedian.rounded()))d",
-                    color: Color(hex: "F87171")
+                    color: Color.danger
                 )
             }
 
             if snap.isCurrentlyBleeding {
                 Label("Bleeding logged today", systemImage: "drop.fill")
-                    .font(FDS.TypeScale.label(13))
-                    .foregroundStyle(Color(hex: "F87171"))
-                    .padding(.horizontal, 14)
-                    .padding(.vertical, 8)
-                    .background(Color(hex: "EF4444").opacity(0.12))
+                    .font(FDS.TypeScale.Dynamic.caption)
+                    .foregroundStyle(Color.danger)
+                    .padding(.horizontal, FDS.Spacing.lg)
+                    .padding(.vertical, FDS.Spacing.sm)
+                    .background(Color.alert.opacity(0.12))
                     .clipShape(Capsule())
             }
 
             Text(snap.trainingNote)
-                .font(FDS.TypeScale.body(14))
+                .font(FDS.TypeScale.Dynamic.body)
                 .foregroundColor(.textSecondary)
                 .multilineTextAlignment(.center)
-                .padding(.horizontal, 8)
+                .padding(.horizontal, FDS.Spacing.sm)
         }
-        .padding(22)
+        .padding(FDS.Spacing.xl)
         .forgeGlassCard(accent: phaseColor)
     }
 
@@ -1521,21 +1518,21 @@ struct MenstrualHealthView: View {
     }
 
     private func metricPill(title: String, value: String, color: Color) -> some View {
-        VStack(spacing: 4) {
+        VStack(spacing: FDS.Spacing.xs) {
             Text(title)
-                .font(FDS.TypeScale.micro(9))
+                .font(FDS.TypeScale.Dynamic.micro)
                 .tracking(1.2)
                 .foregroundColor(.textTertiary)
             Text(value)
-                .font(FDS.TypeScale.label(15))
+                .font(FDS.TypeScale.Dynamic.caption)
                 .foregroundColor(.textPrimary)
         }
         .frame(maxWidth: .infinity)
-        .padding(.vertical, 12)
+        .padding(.vertical, FDS.Spacing.md)
         .background(color.opacity(0.1))
-        .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+        .clipShape(RoundedRectangle(cornerRadius: FDS.Radius.md, style: .continuous))
         .overlay(
-            RoundedRectangle(cornerRadius: 14, style: .continuous)
+            RoundedRectangle(cornerRadius: FDS.Radius.md, style: .continuous)
                 .strokeBorder(color.opacity(0.2), lineWidth: 1)
         )
     }
@@ -1543,24 +1540,24 @@ struct MenstrualHealthView: View {
     // MARK: Day strip
 
     private var dayStrip: some View {
-        VStack(alignment: .leading, spacing: 12) {
+        VStack(alignment: .leading, spacing: FDS.Spacing.md) {
             HStack {
                 Text("LAST 14 DAYS")
                     .forgeSectionLabel()
                 Spacer()
                 Text(cycleStore.snapshot.dataQuality.capitalized)
-                    .font(FDS.TypeScale.micro(10))
+                    .font(FDS.TypeScale.Dynamic.micro)
                     .foregroundColor(.textTertiary)
             }
             ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: 8) {
+                HStack(spacing: FDS.Spacing.sm) {
                     ForEach(recentDayKeys(), id: \.self) { key in
                         dayCell(key)
                     }
                 }
             }
         }
-        .padding(18)
+        .padding(FDS.Spacing.lg)
         .forgeGlassCard(accent: accent.opacity(0.6))
     }
 
@@ -1582,9 +1579,9 @@ struct MenstrualHealthView: View {
         return Button {
             openDayEditor(key: key)
         } label: {
-            VStack(spacing: 6) {
+            VStack(spacing: FDS.Spacing.sm) {
                 Text(dayNum)
-                    .font(FDS.TypeScale.micro(10))
+                    .font(FDS.TypeScale.Dynamic.micro)
                     .foregroundColor(isToday ? accent : .textTertiary)
                 Circle()
                     .fill(flowDotColor(flow))
@@ -1624,8 +1621,8 @@ struct MenstrualHealthView: View {
     private func flowDotColor(_ flow: MenstrualFlowLevel) -> Color {
         switch flow {
         case .heavy: return Color(hex: "DC2626")
-        case .medium: return Color(hex: "EF4444")
-        case .light: return Color(hex: "F87171")
+        case .medium: return Color.alert
+        case .light: return Color.danger
         case .spotting: return Color(hex: "FCA5A5")
         default: return Color.white.opacity(0.1)
         }
@@ -1635,71 +1632,71 @@ struct MenstrualHealthView: View {
 
     private var predictionGrid: some View {
         let snap = cycleStore.snapshot
-        return VStack(alignment: .leading, spacing: 12) {
+        return VStack(alignment: .leading, spacing: FDS.Spacing.md) {
             Text("AHEAD").forgeSectionLabel()
-            HStack(spacing: 10) {
+            HStack(spacing: FDS.Spacing.md) {
                 predictionTile(
                     icon: "calendar",
                     title: "Next period",
                     value: snap.nextPeriod.map { shortDate($0.medianDayKey) } ?? "—",
                     sub: snap.nextPeriod.map { "\(shortDate($0.earliestDayKey))–\(shortDate($0.latestDayKey))" } ?? "Log starts to predict",
-                    color: Color(hex: "EF4444")
+                    color: Color.alert
                 )
                 predictionTile(
                     icon: "sparkles",
                     title: "Ovulation est.",
                     value: snap.ovulationDayInCycle.map { "Day \($0)" } ?? "—",
                     sub: snap.ovulationMethod?.replacingOccurrences(of: "_", with: " ") ?? "Learning",
-                    color: Color(hex: "A855F7")
+                    color: Color.aurora
                 )
             }
             if let fs = snap.fertileStartDayInCycle, let fe = snap.fertileEndDayInCycle {
-                HStack(spacing: 10) {
+                HStack(spacing: FDS.Spacing.md) {
                     Image(systemName: "waveform.path.ecg")
-                        .foregroundStyle(Color(hex: "F59E0B"))
+                        .foregroundStyle(Color.amber)
                     Text("Fertile window · days \(fs)–\(fe)")
-                        .font(FDS.TypeScale.label(13))
+                        .font(FDS.TypeScale.Dynamic.caption)
                         .foregroundColor(.textPrimary)
                     Spacer()
                     if snap.irregularityFlag {
                         Text("Variable")
-                            .font(FDS.TypeScale.micro(10))
+                            .font(FDS.TypeScale.Dynamic.micro)
                             .foregroundStyle(Color.warning)
                     }
                 }
-                .padding(14)
-                .background(Color(hex: "F59E0B").opacity(0.1))
-                .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+                .padding(FDS.Spacing.lg)
+                .background(Color.amber.opacity(0.1))
+                .clipShape(RoundedRectangle(cornerRadius: FDS.Radius.md, style: .continuous))
             }
         }
     }
 
     private func predictionTile(icon: String, title: String, value: String, sub: String, color: Color) -> some View {
-        VStack(alignment: .leading, spacing: 10) {
+        VStack(alignment: .leading, spacing: FDS.Spacing.md) {
             Image(systemName: icon)
                 .font(.system(size: 16, weight: .semibold))
                 .foregroundStyle(color)
             Text(title.uppercased())
-                .font(FDS.TypeScale.micro(9))
+                .font(FDS.TypeScale.Dynamic.micro)
                 .tracking(1.1)
                 .foregroundColor(.textTertiary)
             Text(value)
-                .font(FDS.TypeScale.title(18))
+                .font(FDS.TypeScale.Dynamic.title)
                 .foregroundColor(.textPrimary)
             Text(sub)
-                .font(FDS.TypeScale.body(11))
+                .font(FDS.TypeScale.Dynamic.caption)
                 .foregroundColor(.textTertiary)
                 .lineLimit(2)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(16)
+        .padding(FDS.Spacing.lg)
         .forgeGlassCard(cornerRadius: FDS.Radius.lg, accent: color)
     }
 
     // MARK: Quick log
 
     private var quickLogCard: some View {
-        VStack(alignment: .leading, spacing: 16) {
+        VStack(alignment: .leading, spacing: FDS.Spacing.lg) {
             Button {
                 withAnimation(FDS.Spring.snap) { logExpanded.toggle() }
             } label: {
@@ -1716,19 +1713,19 @@ struct MenstrualHealthView: View {
 
             if logExpanded {
                 Text("Flow")
-                    .font(FDS.TypeScale.label(12))
+                    .font(FDS.TypeScale.Dynamic.caption)
                     .foregroundColor(.textSecondary)
-                flowSelector(selection: $selectedFlow, accent: Color(hex: "EF4444"))
+                flowSelector(selection: $selectedFlow, accent: Color.alert)
 
                 Text("Symptoms")
-                    .font(FDS.TypeScale.label(12))
+                    .font(FDS.TypeScale.Dynamic.caption)
                     .foregroundColor(.textSecondary)
-                    .padding(.top, 4)
+                    .padding(.top, FDS.Spacing.xs)
                 symptomGrid
 
-                HStack(spacing: 10) {
+                HStack(spacing: FDS.Spacing.md) {
                     Text("BBT")
-                        .font(FDS.TypeScale.label(12))
+                        .font(FDS.TypeScale.Dynamic.caption)
                         .foregroundColor(.textSecondary)
                     // The field was hard-coded to °C, so anyone using a Fahrenheit
                     // thermometer either skipped BBT or typed "97.8" and had it silently
@@ -1744,36 +1741,35 @@ struct MenstrualHealthView: View {
                     TextField(bbtUnit.placeholder, text: $bbtText)
                         .keyboardType(.decimalPad)
                         .multilineTextAlignment(.trailing)
-                        .font(FDS.TypeScale.label(15))
+                        .font(FDS.TypeScale.Dynamic.caption)
                         .foregroundColor(.textPrimary)
                         .frame(width: 78)
-                        .padding(.horizontal, 10)
-                        .padding(.vertical, 8)
-                        .background(Color.surfaceElevated)
-                        .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+                        .padding(.horizontal, FDS.Spacing.md)
+                        .padding(.vertical, FDS.Spacing.sm)
+                        .forgeInsetTile(radius: FDS.Radius.sm)
                         .accessibilityLabel("Basal body temperature in \(bbtUnit.accessibilityName)")
                 }
 
                 Button { saveToday() } label: {
                     Text("Save log")
-                        .font(FDS.TypeScale.label(15))
+                        .font(FDS.TypeScale.Dynamic.caption)
                         .foregroundColor(.white)
                         .frame(maxWidth: .infinity)
-                        .padding(.vertical, 14)
+                        .padding(.vertical, FDS.Spacing.lg)
                         .background(
                             LinearGradient(
-                                colors: [Color(hex: "F87171"), Color(hex: "EF4444")],
+                                colors: [Color.danger, Color.alert],
                                 startPoint: .leading,
                                 endPoint: .trailing
                             )
                         )
-                        .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+                        .clipShape(RoundedRectangle(cornerRadius: FDS.Radius.md, style: .continuous))
                 }
                 .buttonStyle(.plain)
             }
         }
-        .padding(18)
-        .forgeGlassCard(accent: Color(hex: "EF4444"))
+        .padding(FDS.Spacing.lg)
+        .forgeGlassCard(accent: Color.alert)
     }
 
     private var symptomGrid: some View {
@@ -1785,16 +1781,16 @@ struct MenstrualHealthView: View {
                     if on { selectedSymptoms.remove(symptom) } else { selectedSymptoms.insert(symptom) }
                     FDS.selectionHaptic()
                 } label: {
-                    HStack(spacing: 5) {
+                    HStack(spacing: FDS.Spacing.xs) {
                         Image(systemName: symptom.icon)
                             .font(.system(size: 10))
                         Text(symptom.label)
-                            .font(FDS.TypeScale.micro(11))
+                            .font(FDS.TypeScale.Dynamic.micro)
                             .lineLimit(1)
                     }
                     .foregroundColor(on ? .white : .textSecondary)
-                    .padding(.horizontal, 10)
-                    .padding(.vertical, 8)
+                    .padding(.horizontal, FDS.Spacing.md)
+                    .padding(.vertical, FDS.Spacing.sm)
                     .frame(maxWidth: .infinity)
                     .background(on ? accent.opacity(0.85) : Color.surfaceElevated)
                     .clipShape(Capsule())
@@ -1806,17 +1802,17 @@ struct MenstrualHealthView: View {
 
     private func flowSelector(selection: Binding<MenstrualFlowLevel>, accent: Color) -> some View {
         ScrollView(.horizontal, showsIndicators: false) {
-            HStack(spacing: 8) {
+            HStack(spacing: FDS.Spacing.sm) {
                 ForEach([MenstrualFlowLevel.none, .spotting, .light, .medium, .heavy], id: \.self) { level in
                     Button {
                         selection.wrappedValue = level
                         FDS.selectionHaptic()
                     } label: {
                         Text(level.label)
-                            .font(FDS.TypeScale.label(13))
+                            .font(FDS.TypeScale.Dynamic.caption)
                             .foregroundColor(selection.wrappedValue == level ? .white : .textSecondary)
-                            .padding(.horizontal, 14)
-                            .padding(.vertical, 10)
+                            .padding(.horizontal, FDS.Spacing.lg)
+                            .padding(.vertical, FDS.Spacing.md)
                             .background(selection.wrappedValue == level ? accent : Color.surfaceElevated)
                             .clipShape(Capsule())
                     }
@@ -1831,7 +1827,7 @@ struct MenstrualHealthView: View {
     private var historyCard: some View {
         // Card used to be hidden entirely when `logs` was empty, which also hid the only
         // control that expands it — so a user with no logs could never see the empty state.
-        VStack(alignment: .leading, spacing: 12) {
+        VStack(alignment: .leading, spacing: FDS.Spacing.md) {
             Button {
                 withAnimation(FDS.Spring.snap) { historyExpanded.toggle() }
             } label: {
@@ -1840,7 +1836,7 @@ struct MenstrualHealthView: View {
                         .forgeSectionLabel()
                     Spacer()
                     Text("\(cycleStore.logs.count)")
-                        .font(FDS.TypeScale.micro(11))
+                        .font(FDS.TypeScale.Dynamic.micro)
                         .foregroundColor(.textTertiary)
                     Image(systemName: historyExpanded ? "chevron.up" : "chevron.down")
                         .font(.system(size: 11, weight: .semibold))
@@ -1855,34 +1851,34 @@ struct MenstrualHealthView: View {
             if historyExpanded {
                 if cycleStore.logs.isEmpty {
                     Text("Nothing logged yet. Save a day above and it will show up here.")
-                        .font(FDS.TypeScale.body(13))
+                        .font(FDS.TypeScale.Dynamic.caption)
                         .foregroundColor(.textTertiary)
-                        .padding(.vertical, 6)
+                        .padding(.vertical, FDS.Spacing.sm)
                 } else {
                     ForEach(cycleStore.logs.suffix(12).reversed()) { log in
                         Button {
                             openDayEditor(key: log.dayKey)
                         } label: {
-                            HStack(spacing: 12) {
+                            HStack(spacing: FDS.Spacing.md) {
                                 Circle()
                                     .fill(flowDotColor(log.flow))
                                     .frame(width: 10, height: 10)
                                 VStack(alignment: .leading, spacing: 2) {
                                     Text(shortDate(log.dayKey))
-                                        .font(FDS.TypeScale.label(13))
+                                        .font(FDS.TypeScale.Dynamic.caption)
                                         .foregroundColor(.textPrimary)
                                     Text(log.flow.label + (log.symptoms.isEmpty ? "" : " · \(log.symptoms.count) symptoms"))
-                                        .font(FDS.TypeScale.body(11))
+                                        .font(FDS.TypeScale.Dynamic.caption)
                                         .foregroundColor(.textTertiary)
                                 }
                                 Spacer()
                                 if let bbt = log.bbtCelsius {
                                     Text(String(format: "%.2f%@", bbtUnit.fromCelsius(bbt), bbtUnit.symbol))
-                                        .font(FDS.TypeScale.micro(11))
+                                        .font(FDS.TypeScale.Dynamic.micro)
                                         .foregroundColor(.steel)
                                 }
                             }
-                            .padding(.vertical, 4)
+                            .padding(.vertical, FDS.Spacing.xs)
                             .contentShape(Rectangle())
                         }
                         .buttonStyle(.plain)
@@ -1891,34 +1887,34 @@ struct MenstrualHealthView: View {
                 }
             }
         }
-        .padding(18)
+        .padding(FDS.Spacing.lg)
         .forgeGlassCard(accent: .steel)
     }
 
     // MARK: Insights + ARIA
 
     private var insightsCard: some View {
-        VStack(alignment: .leading, spacing: 12) {
+        VStack(alignment: .leading, spacing: FDS.Spacing.md) {
             Text("INSIGHTS").forgeSectionLabel()
             ForEach(cycleStore.snapshot.insights.prefix(5), id: \.self) { line in
-                HStack(alignment: .top, spacing: 10) {
+                HStack(alignment: .top, spacing: FDS.Spacing.md) {
                     Circle()
                         .fill(accent)
                         .frame(width: 6, height: 6)
-                        .padding(.top, 6)
+                        .padding(.top, FDS.Spacing.sm)
                     Text(line)
-                        .font(FDS.TypeScale.body(13))
+                        .font(FDS.TypeScale.Dynamic.caption)
                         .foregroundColor(.textSecondary)
                         .fixedSize(horizontal: false, vertical: true)
                 }
             }
             Text(cycleStore.snapshot.readinessNote)
-                .font(FDS.TypeScale.label(13))
+                .font(FDS.TypeScale.Dynamic.caption)
                 .foregroundColor(.textPrimary)
-                .padding(.top, 4)
+                .padding(.top, FDS.Spacing.xs)
         }
-        .padding(18)
-        .forgeGlassCard(accent: Color(hex: "6366F1"))
+        .padding(FDS.Spacing.lg)
+        .forgeGlassCard(accent: Color.indigo)
     }
 
     private var ariaCoachCard: some View {
@@ -1933,7 +1929,7 @@ struct MenstrualHealthView: View {
             }()
             store.openChat(with: prompt, voice: false)
         } label: {
-            HStack(spacing: 14) {
+            HStack(spacing: FDS.Spacing.lg) {
                 ZStack {
                     Circle()
                         .fill(LinearGradient.premiumSurface)
@@ -1942,10 +1938,10 @@ struct MenstrualHealthView: View {
                 }
                 VStack(alignment: .leading, spacing: 3) {
                     Text("Ask ARIA about today")
-                        .font(FDS.TypeScale.label(15))
+                        .font(FDS.TypeScale.Dynamic.caption)
                         .foregroundColor(.textPrimary)
                     Text("Phase-aware training & recovery")
-                        .font(FDS.TypeScale.body(12))
+                        .font(FDS.TypeScale.Dynamic.caption)
                         .foregroundColor(.textTertiary)
                 }
                 Spacer()
@@ -1953,7 +1949,7 @@ struct MenstrualHealthView: View {
                     .font(.system(size: 13, weight: .semibold))
                     .foregroundColor(.ember)
             }
-            .padding(18)
+            .padding(FDS.Spacing.lg)
             .forgeGlassCard(accent: .ember)
         }
         .buttonStyle(.plain)
@@ -1967,7 +1963,7 @@ struct MenstrualHealthView: View {
     }
 
     private var settingsCard: some View {
-        VStack(alignment: .leading, spacing: 14) {
+        VStack(alignment: .leading, spacing: FDS.Spacing.lg) {
             Text("PRIVACY & CONTROL").forgeSectionLabel()
 
             privacyShieldBanner
@@ -1989,7 +1985,7 @@ struct MenstrualHealthView: View {
                     Text("ARIA reads cycle on this iPhone")
                         .foregroundColor(.textPrimary)
                     Text("ARIA may mention your cycle in chat on this iPhone. Samples never leave the device. Claude/Grok do not get your chart.")
-                        .font(FDS.TypeScale.body(11))
+                        .font(FDS.TypeScale.Dynamic.caption)
                         .foregroundColor(.textTertiary)
                 }
             }
@@ -2012,11 +2008,11 @@ struct MenstrualHealthView: View {
                     Text("High-accuracy mode")
                         .foregroundColor(.textPrimary)
                     Text("On or off — always. When on, BBT/OPK cues and learned period-end prefs tighten today's training cap.")
-                        .font(FDS.TypeScale.body(11))
+                        .font(FDS.TypeScale.Dynamic.caption)
                         .foregroundColor(.textTertiary)
                 }
             }
-            .tint(Color(hex: "A855F7"))
+            .tint(Color.aurora)
 
             Picker("Discretion", selection: Binding(
                 get: { cycleStore.settings.discretionMode },
@@ -2028,7 +2024,7 @@ struct MenstrualHealthView: View {
             }
             .pickerStyle(.segmented)
             Text(cycleStore.settings.discretionMode.detail)
-                .font(FDS.TypeScale.body(11))
+                .font(FDS.TypeScale.Dynamic.caption)
                 .foregroundColor(.textTertiary)
 
             Button {
@@ -2037,13 +2033,13 @@ struct MenstrualHealthView: View {
                 HStack {
                     Image(systemName: "lock.rectangle.stack.fill")
                     Text("Apple Cycle report")
-                        .font(FDS.TypeScale.label(14))
+                        .font(FDS.TypeScale.Dynamic.caption)
                     Spacer()
                     Image(systemName: "chevron.right")
                         .foregroundColor(.textTertiary)
                 }
                 .foregroundColor(.textPrimary)
-                .padding(.vertical, 8)
+                .padding(.vertical, FDS.Spacing.sm)
             }
             .buttonStyle(.plain)
 
@@ -2062,16 +2058,16 @@ struct MenstrualHealthView: View {
                 HStack {
                     Image(systemName: "trash.fill")
                     Text("Wipe my cycle logs")
-                        .font(FDS.TypeScale.label(14))
+                        .font(FDS.TypeScale.Dynamic.caption)
                     Spacer()
                 }
                 .foregroundColor(.danger)
-                .padding(.vertical, 8)
+                .padding(.vertical, FDS.Spacing.sm)
             }
             .buttonStyle(.plain)
         }
-        .padding(18)
-        .forgeGlassCard(accent: Color(hex: "22C55E"))
+        .padding(FDS.Spacing.lg)
+        .forgeGlassCard(accent: Color.vitality)
     }
 
     private var dayEditorSheet: some View {
@@ -2225,61 +2221,61 @@ struct MenstrualHealthView: View {
     }
 
     private var privacyShieldBanner: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            HStack(spacing: 10) {
+        VStack(alignment: .leading, spacing: FDS.Spacing.md) {
+            HStack(spacing: FDS.Spacing.md) {
                 Image(systemName: "lock.shield.fill")
                     .font(.system(size: 22))
-                    .foregroundStyle(Color(hex: "22C55E"))
+                    .foregroundStyle(Color.vitality)
                 VStack(alignment: .leading, spacing: 2) {
                     Text(CyclePrivacy.title)
-                        .font(FDS.TypeScale.label(15))
+                        .font(FDS.TypeScale.Dynamic.caption)
                         .foregroundColor(.textPrimary)
                     Text(CyclePrivacy.shortPromise)
-                        .font(FDS.TypeScale.body(12))
+                        .font(FDS.TypeScale.Dynamic.caption)
                         .foregroundColor(.textSecondary)
                 }
             }
             ForEach(CyclePrivacy.bullets, id: \.text) { item in
-                HStack(alignment: .top, spacing: 10) {
+                HStack(alignment: .top, spacing: FDS.Spacing.md) {
                     Image(systemName: item.icon)
                         .font(.system(size: 12, weight: .semibold))
-                        .foregroundStyle(Color(hex: "22C55E"))
+                        .foregroundStyle(Color.vitality)
                         .frame(width: 18)
                     Text(item.text)
-                        .font(FDS.TypeScale.body(12))
+                        .font(FDS.TypeScale.Dynamic.caption)
                         .foregroundColor(.textSecondary)
                         .fixedSize(horizontal: false, vertical: true)
                 }
             }
         }
-        .padding(14)
-        .background(Color(hex: "22C55E").opacity(0.08))
-        .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+        .padding(FDS.Spacing.lg)
+        .background(Color.vitality.opacity(0.08))
+        .clipShape(RoundedRectangle(cornerRadius: FDS.Radius.md, style: .continuous))
         .overlay(
-            RoundedRectangle(cornerRadius: 14, style: .continuous)
-                .strokeBorder(Color(hex: "22C55E").opacity(0.22), lineWidth: 1)
+            RoundedRectangle(cornerRadius: FDS.Radius.md, style: .continuous)
+                .strokeBorder(Color.vitality.opacity(0.22), lineWidth: 1)
         )
         .accessibilityElement(children: .combine)
         .accessibilityLabel(CyclePrivacy.title + ". " + CyclePrivacy.shortPromise)
     }
 
     private var disclaimerFooter: some View {
-        VStack(alignment: .leading, spacing: 8) {
+        VStack(alignment: .leading, spacing: FDS.Spacing.sm) {
             Text(CyclePrivacy.policy)
-                .font(FDS.TypeScale.body(11))
+                .font(FDS.TypeScale.Dynamic.caption)
                 .foregroundColor(.textTertiary)
             Text(MenstrualCycleEngine.disclaimer)
-                .font(FDS.TypeScale.body(11))
+                .font(FDS.TypeScale.Dynamic.caption)
                 .foregroundColor(.textTertiary)
         }
-        .padding(.horizontal, 4)
-        .padding(.bottom, 8)
+        .padding(.horizontal, FDS.Spacing.xs)
+        .padding(.bottom, FDS.Spacing.sm)
     }
 
     // MARK: Partner / support
 
     private var partnerContent: some View {
-        VStack(alignment: .leading, spacing: 18) {
+        VStack(alignment: .leading, spacing: FDS.Spacing.lg) {
             // A digest someone shared with this user comes first, above anything
             // logged locally. It is the only part of this pane that is actually
             // *from them* rather than the user's own notes about them, so it
@@ -2308,7 +2304,7 @@ struct MenstrualHealthView: View {
                 partnerLogger
                 partnerSettingsCard
                 Text(PartnerSupportBrief.disclaimer)
-                    .font(FDS.TypeScale.body(11))
+                    .font(FDS.TypeScale.Dynamic.caption)
                     .foregroundColor(.textTertiary)
             }
         }
@@ -2321,19 +2317,19 @@ struct MenstrualHealthView: View {
             pane = .me
             FDS.selectionHaptic()
         } label: {
-            HStack(spacing: 14) {
+            HStack(spacing: FDS.Spacing.lg) {
                 Image(systemName: "checkmark.seal.fill")
                     .font(.system(size: 20))
-                    .foregroundStyle(Color(hex: "22C55E"))
+                    .foregroundStyle(Color.vitality)
                     .frame(width: 30)
                 VStack(alignment: .leading, spacing: 3) {
                     Text("This is my cycle — turn on tracking")
-                        .font(FDS.TypeScale.label(15))
+                        .font(FDS.TypeScale.Dynamic.caption)
                         .foregroundColor(.textPrimary)
                     Text(isCyclePhysiologyProfile
                          ? "Open My cycle to enable your log."
                          : "Cycle tracking is for the person whose cycle it is. You can opt in anytime. Support stays here for helping someone else.")
-                        .font(FDS.TypeScale.body(12))
+                        .font(FDS.TypeScale.Dynamic.caption)
                         .foregroundColor(.textSecondary)
                         .fixedSize(horizontal: false, vertical: true)
                 }
@@ -2341,9 +2337,9 @@ struct MenstrualHealthView: View {
                 Image(systemName: "chevron.right")
                     .foregroundColor(.textTertiary)
             }
-            .padding(18)
+            .padding(FDS.Spacing.lg)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .forgeGlassCard(accent: Color(hex: "22C55E"))
+            .forgeGlassCard(accent: Color.vitality)
         }
         .buttonStyle(.plain)
     }
@@ -2352,27 +2348,27 @@ struct MenstrualHealthView: View {
     @ViewBuilder
     private var peopleStrip: some View {
         if !cycleStore.supportedPeople.isEmpty {
-            VStack(alignment: .leading, spacing: 10) {
+            VStack(alignment: .leading, spacing: FDS.Spacing.md) {
                 Text("PEOPLE YOU SUPPORT")
                     .forgeSectionLabel()
                 ScrollView(.horizontal, showsIndicators: false) {
-                    HStack(spacing: 8) {
+                    HStack(spacing: FDS.Spacing.sm) {
                         ForEach(cycleStore.supportedPeople) { person in
                             Button {
                                 cycleStore.selectPerson(person.id)
                                 FDS.selectionHaptic()
                             } label: {
-                                HStack(spacing: 6) {
+                                HStack(spacing: FDS.Spacing.sm) {
                                     Image(systemName: person.role.icon)
                                     Text(person.displayName)
-                                        .font(FDS.TypeScale.label(13))
+                                        .font(FDS.TypeScale.Dynamic.caption)
                                 }
                                 .foregroundColor(cycleStore.selectedPersonId == person.id ? .white : .textSecondary)
-                                .padding(.horizontal, 14)
-                                .padding(.vertical, 10)
+                                .padding(.horizontal, FDS.Spacing.lg)
+                                .padding(.vertical, FDS.Spacing.md)
                                 .background(
                                     cycleStore.selectedPersonId == person.id
-                                        ? Color(hex: "6366F1")
+                                        ? Color.indigo
                                         : Color.surfaceElevated
                                 )
                                 .clipShape(Capsule())
@@ -2383,14 +2379,14 @@ struct MenstrualHealthView: View {
                             showAddPerson = true
                             FDS.haptic(.light)
                         } label: {
-                            HStack(spacing: 6) {
+                            HStack(spacing: FDS.Spacing.sm) {
                                 Image(systemName: "plus")
                                 Text("Add")
-                                    .font(FDS.TypeScale.label(13))
+                                    .font(FDS.TypeScale.Dynamic.caption)
                             }
                             .foregroundColor(.textSecondary)
-                            .padding(.horizontal, 14)
-                            .padding(.vertical, 10)
+                            .padding(.horizontal, FDS.Spacing.lg)
+                            .padding(.vertical, FDS.Spacing.md)
                             .background(Color.surfaceElevated)
                             .clipShape(Capsule())
                         }
@@ -2413,7 +2409,7 @@ struct MenstrualHealthView: View {
         // sharer — a partner and a daughter, say — and each gets its own lens,
         // because the role decides whether intimate material appears at all.
         ForEach(sharing.receivedDigests) { received in
-            VStack(alignment: .leading, spacing: 10) {
+            VStack(alignment: .leading, spacing: FDS.Spacing.md) {
                 SupporterDigestView(
                     digest: received.digest,
                     // The role comes from the share, not from local settings.
@@ -2434,8 +2430,8 @@ struct MenstrualHealthView: View {
                         }
                     } label: {
                         Label("Mark \(received.ownerName)'s period finished", systemImage: "checkmark.circle.fill")
-                            .font(FDS.TypeScale.label(13))
-                            .foregroundStyle(Color(hex: "22C55E"))
+                            .font(FDS.TypeScale.Dynamic.caption)
+                            .foregroundStyle(Color.vitality)
                     }
                     .buttonStyle(.plain)
                 }
@@ -2444,23 +2440,23 @@ struct MenstrualHealthView: View {
     }
 
     private var partnerEnableCard: some View {
-        VStack(alignment: .leading, spacing: 16) {
+        VStack(alignment: .leading, spacing: FDS.Spacing.lg) {
             Image(systemName: "heart.circle.fill")
                 .font(.system(size: 36))
                 .foregroundStyle(
-                    LinearGradient(colors: [Color(hex: "818CF8"), Color(hex: "6366F1")], startPoint: .topLeading, endPoint: .bottomTrailing)
+                    LinearGradient(colors: [Color(hex: "818CF8"), Color.indigo], startPoint: .topLeading, endPoint: .bottomTrailing)
                 )
             Text(cycleStore.supportedPeople.isEmpty
                  ? "Support someone you love"
                  : "Turn support back on")
-                .font(FDS.TypeScale.title(20))
+                .font(FDS.TypeScale.Dynamic.title)
                 .foregroundColor(.textPrimary)
             Text("Partners, daughters, family, friends — each person is their own. Log what they share; ARIA coaches you in that role, not through one romantic lens.")
-                .font(FDS.TypeScale.body(14))
+                .font(FDS.TypeScale.Dynamic.body)
                 .foregroundColor(.textSecondary)
             Text(CyclePrivacy.shortPromise)
-                .font(FDS.TypeScale.body(12))
-                .foregroundStyle(Color(hex: "22C55E"))
+                .font(FDS.TypeScale.Dynamic.caption)
+                .foregroundStyle(Color.vitality)
             rolePicker
             Button {
                 if cycleStore.supportedPeople.isEmpty || cycleStore.selectedPerson == nil {
@@ -2482,46 +2478,46 @@ struct MenstrualHealthView: View {
                 FDS.haptic(.medium)
             } label: {
                 Text("Continue")
-                    .font(FDS.TypeScale.label(16))
+                    .font(FDS.TypeScale.Dynamic.caption)
                     .foregroundColor(.white)
                     .frame(maxWidth: .infinity)
-                    .padding(.vertical, 16)
+                    .padding(.vertical, FDS.Spacing.lg)
                     .background(
                         LinearGradient(
-                            colors: [Color(hex: "818CF8"), Color(hex: "6366F1")],
+                            colors: [Color(hex: "818CF8"), Color.indigo],
                             startPoint: .leading,
                             endPoint: .trailing
                         )
                     )
-                    .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+                    .clipShape(RoundedRectangle(cornerRadius: FDS.Radius.lg, style: .continuous))
             }
             .buttonStyle(.plain)
         }
-        .padding(22)
-        .forgeGlassCard(accent: Color(hex: "6366F1"))
+        .padding(FDS.Spacing.xl)
+        .forgeGlassCard(accent: Color.indigo)
     }
 
     private var rolePicker: some View {
-        VStack(alignment: .leading, spacing: 8) {
+        VStack(alignment: .leading, spacing: FDS.Spacing.sm) {
             Text("WHO")
                 .forgeSectionLabel()
             ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: 8) {
+                HStack(spacing: FDS.Spacing.sm) {
                     ForEach(CycleSupportRole.selectableRoles) { role in
                         Button {
                             supportRole = role
                             partnerRelDraft = role.suggestedLabels.first ?? partnerRelDraft
                             FDS.selectionHaptic()
                         } label: {
-                            HStack(spacing: 6) {
+                            HStack(spacing: FDS.Spacing.sm) {
                                 Image(systemName: role.icon)
                                 Text(role.shortLabel)
-                                    .font(FDS.TypeScale.label(13))
+                                    .font(FDS.TypeScale.Dynamic.caption)
                             }
                             .foregroundColor(supportRole == role ? .white : .textSecondary)
-                            .padding(.horizontal, 14)
-                            .padding(.vertical, 10)
-                            .background(supportRole == role ? Color(hex: "6366F1") : Color.surfaceElevated)
+                            .padding(.horizontal, FDS.Spacing.lg)
+                            .padding(.vertical, FDS.Spacing.md)
+                            .background(supportRole == role ? Color.indigo : Color.surfaceElevated)
                             .clipShape(Capsule())
                         }
                         .buttonStyle(.plain)
@@ -2532,31 +2528,29 @@ struct MenstrualHealthView: View {
     }
 
     private var partnerConsentCard: some View {
-        VStack(alignment: .leading, spacing: 14) {
+        VStack(alignment: .leading, spacing: FDS.Spacing.lg) {
             Text(supportRole == .child ? "Care first" : "Consent first")
-                .font(FDS.TypeScale.title(18))
+                .font(FDS.TypeScale.Dynamic.title)
                 .foregroundColor(.textPrimary)
             Text(
                 supportRole == .child
                     ? "Only track what fits your caregiver role — preferably with her knowledge. Period starts are enough."
                     : "Only log what they’re comfortable sharing. Starts alone unlock strong support coaching."
             )
-            .font(FDS.TypeScale.body(14))
+            .font(FDS.TypeScale.Dynamic.body)
             .foregroundColor(.textSecondary)
             rolePicker
             TextField(supportRole == .child ? "Name (optional)" : "Name (optional)", text: $partnerNameDraft)
                 .textFieldStyle(.plain)
-                .padding(12)
-                .background(Color.surfaceElevated)
-                .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                .padding(FDS.Spacing.md)
+                .forgeInsetTile(radius: FDS.Radius.md)
             TextField(
                 supportRole == .child ? "Label (daughter / child…)" : "Label (partner / wife…)",
                 text: $partnerRelDraft
             )
             .textFieldStyle(.plain)
-            .padding(12)
-            .background(Color.surfaceElevated)
-            .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+            .padding(FDS.Spacing.md)
+            .forgeInsetTile(radius: FDS.Radius.md)
 
             Button {
                 cycleStore.updatePartnerSettings {
@@ -2571,16 +2565,16 @@ struct MenstrualHealthView: View {
                 FDS.notificationHaptic(.success)
             } label: {
                 Text(supportRole == .child ? "I’m supporting as a parent" : "I have their okay")
-                    .font(FDS.TypeScale.label(15))
+                    .font(FDS.TypeScale.Dynamic.caption)
                     .foregroundColor(.white)
                     .frame(maxWidth: .infinity)
-                    .padding(.vertical, 15)
+                    .padding(.vertical, FDS.Spacing.lg)
                     .background(Color.ember)
-                    .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+                    .clipShape(RoundedRectangle(cornerRadius: FDS.Radius.md, style: .continuous))
             }
             .buttonStyle(.plain)
         }
-        .padding(20)
+        .padding(FDS.Spacing.lg)
         .forgeGlassCard(accent: .warning)
     }
 
@@ -2588,8 +2582,8 @@ struct MenstrualHealthView: View {
         let snap = cycleStore.partnerSnapshot
         let phaseColor = Color(hex: snap.phase.accentHex)
         let name = cycleStore.partnerSettings.displayName
-        return VStack(alignment: .leading, spacing: 14) {
-            HStack(alignment: .center, spacing: 14) {
+        return VStack(alignment: .leading, spacing: FDS.Spacing.lg) {
+            HStack(alignment: .center, spacing: FDS.Spacing.lg) {
                 ZStack {
                     Circle()
                         .stroke(phaseColor.opacity(0.25), lineWidth: 8)
@@ -2602,18 +2596,18 @@ struct MenstrualHealthView: View {
                     Image(systemName: snap.phase.icon)
                         .foregroundStyle(phaseColor)
                 }
-                VStack(alignment: .leading, spacing: 4) {
+                VStack(alignment: .leading, spacing: FDS.Spacing.xs) {
                     Text(name.uppercased())
-                        .font(FDS.TypeScale.micro(10))
+                        .font(FDS.TypeScale.Dynamic.micro)
                         .tracking(1.3)
                         .foregroundStyle(phaseColor)
                     Text(snap.stage == .unknown ? snap.phase.label : snap.stage.partnerLabel(name: name))
-                        .font(FDS.TypeScale.title(20))
+                        .font(FDS.TypeScale.Dynamic.title)
                         .foregroundColor(.textPrimary)
                         .fixedSize(horizontal: false, vertical: true)
                     if let day = snap.dayInCycle {
                         Text("Day \(day) · \(Int(snap.confidence * 100))% confidence")
-                            .font(FDS.TypeScale.body(13))
+                            .font(FDS.TypeScale.Dynamic.caption)
                             .foregroundColor(.textSecondary)
                     }
                 }
@@ -2626,17 +2620,17 @@ struct MenstrualHealthView: View {
                                : "Finished \(since == 1 ? "yesterday" : "\(since) days ago") — back to everyday support",
                     systemImage: "arrow.uturn.forward.circle.fill"
                 )
-                .font(FDS.TypeScale.label(13))
-                .foregroundStyle(Color(hex: "22C55E"))
-                .padding(.horizontal, 12)
-                .padding(.vertical, 8)
+                .font(FDS.TypeScale.Dynamic.caption)
+                .foregroundStyle(Color.vitality)
+                .padding(.horizontal, FDS.Spacing.md)
+                .padding(.vertical, FDS.Spacing.sm)
                 .frame(maxWidth: .infinity, alignment: .leading)
-                .background(Color(hex: "22C55E").opacity(0.12))
-                .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                .background(Color.vitality.opacity(0.12))
+                .clipShape(RoundedRectangle(cornerRadius: FDS.Radius.md, style: .continuous))
             }
             if let next = snap.nextPeriod {
                 Text("Next period window · \(shortDate(next.earliestDayKey)) – \(shortDate(next.latestDayKey))")
-                    .font(FDS.TypeScale.body(13))
+                    .font(FDS.TypeScale.Dynamic.caption)
                     .foregroundColor(.textSecondary)
             }
             Button {
@@ -2647,84 +2641,84 @@ struct MenstrualHealthView: View {
                 store.openChat(with: prompt, voice: false)
             } label: {
                 Label("Ask ARIA how to show up", systemImage: "message.fill")
-                    .font(FDS.TypeScale.label(14))
+                    .font(FDS.TypeScale.Dynamic.caption)
                     .foregroundColor(.white)
                     .frame(maxWidth: .infinity)
-                    .padding(.vertical, 14)
+                    .padding(.vertical, FDS.Spacing.lg)
                     .background(phaseColor)
-                    .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+                    .clipShape(RoundedRectangle(cornerRadius: FDS.Radius.md, style: .continuous))
             }
             .buttonStyle(.plain)
         }
-        .padding(20)
+        .padding(FDS.Spacing.lg)
         .forgeGlassCard(accent: phaseColor)
     }
 
     private func partnerSupportCard(_ brief: PartnerSupportBrief) -> some View {
-        VStack(alignment: .leading, spacing: 12) {
+        VStack(alignment: .leading, spacing: FDS.Spacing.md) {
             Text(brief.role == .child ? "PARENT PLAYBOOK" : "HOW YOU SHOW UP")
                 .forgeSectionLabel()
             Text(brief.headline)
-                .font(FDS.TypeScale.label(15))
+                .font(FDS.TypeScale.Dynamic.caption)
                 .foregroundColor(.textPrimary)
             ForEach(brief.supportMoves.prefix(4), id: \.self) { line in
-                HStack(alignment: .top, spacing: 8) {
+                HStack(alignment: .top, spacing: FDS.Spacing.sm) {
                     Image(systemName: "checkmark.circle.fill")
                         .font(.system(size: 12))
-                        .foregroundStyle(Color(hex: "22C55E"))
+                        .foregroundStyle(Color.vitality)
                     Text(line)
-                        .font(FDS.TypeScale.body(13))
+                        .font(FDS.TypeScale.Dynamic.caption)
                         .foregroundColor(.textSecondary)
                 }
             }
             Text("Ease off")
-                .font(FDS.TypeScale.label(13))
+                .font(FDS.TypeScale.Dynamic.caption)
                 .foregroundColor(.textPrimary)
-                .padding(.top, 4)
+                .padding(.top, FDS.Spacing.xs)
             ForEach(brief.avoidMoves.prefix(3), id: \.self) { line in
                 Text("• \(line)")
-                    .font(FDS.TypeScale.body(13))
+                    .font(FDS.TypeScale.Dynamic.caption)
                     .foregroundColor(.textSecondary)
             }
             Text(brief.communicationTip)
-                .font(FDS.TypeScale.label(13))
+                .font(FDS.TypeScale.Dynamic.caption)
                 .foregroundStyle(Color.ember)
-                .padding(.top, 6)
+                .padding(.top, FDS.Spacing.sm)
         }
-        .padding(18)
-        .forgeGlassCard(accent: Color(hex: "22C55E"))
+        .padding(FDS.Spacing.lg)
+        .forgeGlassCard(accent: Color.vitality)
     }
 
     private var partnerLogger: some View {
-        VStack(alignment: .leading, spacing: 12) {
+        VStack(alignment: .leading, spacing: FDS.Spacing.md) {
             Text("LOG FOR \(cycleStore.partnerSettings.displayName.uppercased())")
                 .forgeSectionLabel()
             Text("Confirming their start keeps support predictions sharp — history is retained.")
-                .font(FDS.TypeScale.body(12))
+                .font(FDS.TypeScale.Dynamic.caption)
                 .foregroundColor(.textSecondary)
-            flowSelector(selection: $partnerFlow, accent: Color(hex: "6366F1"))
+            flowSelector(selection: $partnerFlow, accent: Color.indigo)
 
             Button {
                 cycleStore.logPartnerPeriodStart(flow: partnerFlow == .none ? .medium : partnerFlow)
                 showToast(cycleStore.lastModelUpdateMessage ?? "Logged · support model refreshed")
             } label: {
                 Label("Their period started", systemImage: "flag.fill")
-                    .font(FDS.TypeScale.label(15))
+                    .font(FDS.TypeScale.Dynamic.caption)
                     .foregroundColor(.white)
                     .frame(maxWidth: .infinity)
-                    .padding(.vertical, 14)
+                    .padding(.vertical, FDS.Spacing.lg)
                     .background(
                         LinearGradient(
-                            colors: [Color(hex: "818CF8"), Color(hex: "6366F1")],
+                            colors: [Color(hex: "818CF8"), Color.indigo],
                             startPoint: .leading,
                             endPoint: .trailing
                         )
                     )
-                    .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+                    .clipShape(RoundedRectangle(cornerRadius: FDS.Radius.md, style: .continuous))
             }
             .buttonStyle(.plain)
 
-            HStack(spacing: 10) {
+            HStack(spacing: FDS.Spacing.md) {
                 // Without this, support coaching had no way to leave period mode — it sat
                 // there until the median bleed length elapsed, regardless of reality.
                 Button {
@@ -2733,12 +2727,12 @@ struct MenstrualHealthView: View {
                     showToast(msg)
                 } label: {
                     Label("Their period finished", systemImage: "checkmark.circle.fill")
-                        .font(FDS.TypeScale.label(14))
-                        .foregroundStyle(Color(hex: "22C55E"))
+                        .font(FDS.TypeScale.Dynamic.caption)
+                        .foregroundStyle(Color.vitality)
                         .frame(maxWidth: .infinity)
-                        .padding(.vertical, 14)
-                        .background(Color(hex: "22C55E").opacity(0.14))
-                        .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+                        .padding(.vertical, FDS.Spacing.lg)
+                        .background(Color.vitality.opacity(0.14))
+                        .clipShape(RoundedRectangle(cornerRadius: FDS.Radius.md, style: .continuous))
                 }
                 .buttonStyle(.plain)
                 .disabled(cycleStore.partnerSnapshot.stage != .period)
@@ -2750,34 +2744,31 @@ struct MenstrualHealthView: View {
                     showToast("Saved today for \(cycleStore.partnerSettings.displayName)")
                 } label: {
                     Text("Save today")
-                        .font(FDS.TypeScale.label(14))
+                        .font(FDS.TypeScale.Dynamic.caption)
                         .foregroundColor(.textPrimary)
                         .frame(maxWidth: .infinity)
-                        .padding(.vertical, 14)
-                        .background(Color.surfaceElevated)
-                        .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+                        .padding(.vertical, FDS.Spacing.lg)
+                        .forgeInsetTile(radius: FDS.Radius.md)
                 }
                 .buttonStyle(.plain)
             }
         }
-        .padding(18)
-        .forgeGlassCard(accent: Color(hex: "6366F1"))
+        .padding(FDS.Spacing.lg)
+        .forgeGlassCard(accent: Color.indigo)
     }
 
     private var partnerSettingsCard: some View {
-        VStack(alignment: .leading, spacing: 12) {
+        VStack(alignment: .leading, spacing: FDS.Spacing.md) {
             Text("SETTINGS").forgeSectionLabel()
             rolePicker
             TextField("Name", text: $partnerNameDraft)
                 .textFieldStyle(.plain)
-                .padding(12)
-                .background(Color.surfaceElevated)
-                .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                .padding(FDS.Spacing.md)
+                .forgeInsetTile(radius: FDS.Radius.md)
             TextField("Relationship label", text: $partnerRelDraft)
                 .textFieldStyle(.plain)
-                .padding(12)
-                .background(Color.surfaceElevated)
-                .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                .padding(FDS.Spacing.md)
+                .forgeInsetTile(radius: FDS.Radius.md)
             Button("Save") {
                 cycleStore.updatePartnerSettings {
                     $0.partnerName = partnerNameDraft
@@ -2788,7 +2779,7 @@ struct MenstrualHealthView: View {
                 }
                 FDS.haptic(.light)
             }
-            .font(FDS.TypeScale.label(14))
+            .font(FDS.TypeScale.Dynamic.caption)
             .foregroundColor(.ember)
             Toggle(isOn: Binding(
                 get: { cycleStore.partnerSettings.shareWithAria },
@@ -2797,7 +2788,7 @@ struct MenstrualHealthView: View {
                 VStack(alignment: .leading, spacing: 2) {
                     Text("ARIA reads this on this iPhone").foregroundColor(.textPrimary)
                     Text("Never uploaded to Forge. Claude/Grok do not get their chart.")
-                        .font(FDS.TypeScale.body(11))
+                        .font(FDS.TypeScale.Dynamic.caption)
                         .foregroundColor(.textTertiary)
                 }
             }
@@ -2818,13 +2809,13 @@ struct MenstrualHealthView: View {
                 confirmRemovePerson = true
             } label: {
                 Label("Remove \(cycleStore.partnerSettings.displayName)", systemImage: "person.crop.circle.badge.minus")
-                    .font(FDS.TypeScale.label(13))
-                    .foregroundStyle(Color(hex: "F87171"))
+                    .font(FDS.TypeScale.Dynamic.caption)
+                    .foregroundStyle(Color.danger)
             }
             .buttonStyle(.plain)
-            .padding(.top, 4)
+            .padding(.top, FDS.Spacing.xs)
         }
-        .padding(18)
+        .padding(FDS.Spacing.lg)
         .forgeGlassCard(accent: .steel)
     }
 

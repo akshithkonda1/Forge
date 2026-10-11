@@ -1,6 +1,6 @@
 /** First-meet ARIA copy. Lockstep with `AriaMeetCopy` on iOS. */
 export const ARIA_INTRO = {
-  eyebrow: "Adaptive Recovery Interactive Assistant",
+  eyebrow: "Your lifestyle coach",
   title: "This is ARIA",
   lead: "I was designed for Forge — I power how you train, recover, and live the day.",
   pairingForbidden: "FORGE × ARIA",

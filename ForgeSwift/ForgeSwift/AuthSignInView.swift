@@ -23,10 +23,10 @@ struct AuthSignInView: View {
                 )
 
                 ScrollView(showsIndicators: false) {
-                    VStack(alignment: .leading, spacing: 28) {
-                        VStack(alignment: .leading, spacing: 10) {
+                    VStack(alignment: .leading, spacing: FDS.Spacing.xl) {
+                        VStack(alignment: .leading, spacing: FDS.Spacing.md) {
                             Text("Welcome back")
-                                .font(.system(size: 12, weight: .medium, design: .rounded))
+                                .font(FDS.TypeScale.Dynamic.caption)
                                 .tracking(2.2)
                                 .foregroundColor(.textTertiary)
                                 .textCase(.uppercase)
@@ -35,14 +35,14 @@ struct AuthSignInView: View {
                                 .foregroundColor(.textPrimary)
                                 .lineSpacing(2)
                             Text("Pick up with your coach where you left off.")
-                                .font(.system(size: 15, weight: .regular))
+                                .font(FDS.TypeScale.Dynamic.body)
                                 .foregroundColor(.textSecondary)
                                 .lineSpacing(3)
                         }
-                        .padding(.top, 8)
+                        .padding(.top, FDS.Spacing.sm)
                         .premiumEntrance(index: 0, appeared: appeared)
 
-                        VStack(spacing: 14) {
+                        VStack(spacing: FDS.Spacing.lg) {
                             field(title: "Email", text: $email, contentType: .emailAddress, secure: false)
                             field(title: "Password", text: $password, contentType: .password, secure: true)
                         }
@@ -50,7 +50,7 @@ struct AuthSignInView: View {
 
                         if let errorMessage {
                             Text(errorMessage)
-                                .font(.system(size: 13, weight: .medium))
+                                .font(FDS.TypeScale.Dynamic.caption)
                                 .foregroundColor(.danger)
                         }
 
@@ -64,7 +64,7 @@ struct AuthSignInView: View {
                         .premiumEntrance(index: 2, appeared: appeared)
 
                         Text("Apple and Google sign-in will appear here when connected for this build.")
-                            .font(.system(size: 12, weight: .regular))
+                            .font(FDS.TypeScale.Dynamic.caption)
                             .foregroundColor(.textTertiary)
 
                         // Keep until Cognito is paired — remove when real auth ships.
@@ -73,10 +73,10 @@ struct AuthSignInView: View {
                                 continueAsTester()
                             } label: {
                                 Text("Continue as tester")
-                                    .font(.system(size: 15, weight: .medium))
+                                    .font(FDS.TypeScale.Dynamic.body)
                                     .foregroundColor(.steel)
                                     .frame(maxWidth: .infinity)
-                                    .padding(.vertical, 14)
+                                    .padding(.vertical, FDS.Spacing.lg)
                                     .background(Color.steel.opacity(0.10))
                                     .clipShape(Capsule())
                             }
@@ -88,16 +88,16 @@ struct AuthSignInView: View {
                         if !ForgeAuthClient.shared.config.cognitoConfigured,
                            ForgeAuthClient.shared.canUseDevOverride {
                             Text("Cognito isn’t paired yet — use Continue as tester for device work.")
-                                .font(.system(size: 12, weight: .regular))
+                                .font(FDS.TypeScale.Dynamic.caption)
                                 .foregroundColor(.textTertiary)
                         }
 
                         Text("New here? Close and tap Get started on the welcome screen.")
-                            .font(.system(size: 12, weight: .regular))
+                            .font(FDS.TypeScale.Dynamic.caption)
                             .foregroundColor(.textTertiary)
-                            .padding(.bottom, 28)
+                            .padding(.bottom, FDS.Spacing.xl)
                     }
-                    .padding(.horizontal, 24)
+                    .padding(.horizontal, FDS.Spacing.xl)
                 }
             }
             .toolbar {
@@ -122,9 +122,9 @@ struct AuthSignInView: View {
         contentType: UITextContentType,
         secure: Bool
     ) -> some View {
-        VStack(alignment: .leading, spacing: 8) {
+        VStack(alignment: .leading, spacing: FDS.Spacing.sm) {
             Text(title)
-                .font(.system(size: 12, weight: .medium))
+                .font(FDS.TypeScale.Dynamic.caption)
                 .tracking(0.8)
                 .foregroundColor(.textTertiary)
             Group {
@@ -141,11 +141,11 @@ struct AuthSignInView: View {
             }
             .font(.system(size: 16, weight: .regular))
             .foregroundColor(.textPrimary)
-            .padding(16)
+            .padding(FDS.Spacing.lg)
             .background(Color.white.opacity(0.05))
-            .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+            .clipShape(RoundedRectangle(cornerRadius: FDS.Radius.lg, style: .continuous))
             .overlay(
-                RoundedRectangle(cornerRadius: 16, style: .continuous)
+                RoundedRectangle(cornerRadius: FDS.Radius.lg, style: .continuous)
                     .stroke(Color.white.opacity(0.08), lineWidth: 1)
             )
         }

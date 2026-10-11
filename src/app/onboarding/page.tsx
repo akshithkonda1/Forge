@@ -60,7 +60,7 @@ export default function OnboardingPage() {
         <PremiumAtmosphere accent="#FF6B2B" secondary="#A9D8FF" intensity={0.55} />
         <div className="relative z-10 flex flex-col items-center gap-3">
           <ForgeBrandMark size={22} />
-          <p className="text-[12px] font-medium uppercase tracking-[0.28em] text-text-tertiary">
+          <p className="text-xs font-medium uppercase tracking-[0.28em] text-text-tertiary">
             Loading…
           </p>
         </div>
@@ -98,9 +98,9 @@ export default function OnboardingPage() {
                 className={cn(
                   "h-1.5 rounded-full transition-all duration-200",
                   step === onboardingStep
-                    ? "premium-dot-active w-8 bg-[#F7F4F0]"
+                    ? "premium-dot-active w-8 bg-paper"
                     : step < onboardingStep
-                      ? "w-3 bg-[#F7F4F0]/40"
+                      ? "w-3 bg-paper/40"
                       : "w-3 bg-border"
                 )}
               />

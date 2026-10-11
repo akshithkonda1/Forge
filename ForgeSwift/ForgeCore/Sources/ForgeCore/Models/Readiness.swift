@@ -13,47 +13,71 @@ import SwiftUI
 //    instead of pretending precision.
 
 public enum ReadinessBand: String, Codable, CaseIterable, Sendable {
-    case primed
-    case ready
-    case moderate
-    case recovery
+    case peak
+    case good
+    case fair
+    case low
 
     public init(score: Int) {
-        switch score {
-        case 85...:    self = .primed
-        case 70..<85:  self = .ready
-        case 55..<70:  self = .moderate
-        default:       self = .recovery
+        switch HomeReadinessTokens.band(for: score) {
+        case .peak: self = .peak
+        case .good: self = .good
+        case .fair: self = .fair
+        case .low: self = .low
+        }
+    }
+
+    /// Accepts Home ids and the retired Primed / Ready / Moderate / Recovery
+    /// raw values so persisted watch snapshots keep decoding.
+    public init(from decoder: Decoder) throws {
+        let raw = try decoder.singleValueContainer().decode(String.self)
+        switch raw {
+        case "peak", "primed": self = .peak
+        case "good", "ready": self = .good
+        case "fair", "moderate": self = .fair
+        case "low", "recovery": self = .low
+        default:
+            throw DecodingError.dataCorrupted(
+                .init(codingPath: decoder.codingPath, debugDescription: "Unknown readiness band \(raw)")
+            )
         }
     }
 
     public var label: String {
         switch self {
-        case .primed:   return "Primed"
-        case .ready:    return "Ready"
-        case .moderate: return "Moderate"
-        case .recovery: return "Recovery"
+        case .peak: return HomeReadinessTokens.Band.peak.label
+        case .good: return HomeReadinessTokens.Band.good.label
+        case .fair: return HomeReadinessTokens.Band.fair.label
+        case .low: return HomeReadinessTokens.Band.low.label
         }
     }
 
-    /// Calm-first color mapping. Recovery is violet — a rest signal,
-    /// not a red alarm. Nothing about a low score should read as failure.
+    /// Home band hex. Low is the alert color on the ring; miss / rest
+    /// chrome still uses steel (`HomeReadinessTokens.missHex`).
     public var color: Color {
+        Color(forgeHex: HomeReadinessTokens.hex(for: minScore))
+    }
+
+    public var hex: String {
+        HomeReadinessTokens.hex(for: minScore)
+    }
+
+    public var minScore: Int {
         switch self {
-        case .primed:   return ForgePalette.success
-        case .ready:    return ForgePalette.steel
-        case .moderate: return ForgePalette.amber
-        case .recovery: return ForgePalette.violet
+        case .peak: return HomeReadinessTokens.Band.peak.minScore
+        case .good: return HomeReadinessTokens.Band.good.minScore
+        case .fair: return HomeReadinessTokens.Band.fair.minScore
+        case .low: return HomeReadinessTokens.Band.low.minScore
         }
     }
 
-    /// One supportive phrase per band, used by greetings and complications.
+    /// Identity-first, forward-looking. Never clinical, never guilt.
     public var supportiveDescriptor: String {
         switch self {
-        case .primed:   return "Your body is primed — a great day to reach."
-        case .ready:    return "Solid foundation today. Steady effort will feel good."
-        case .moderate: return "A lighter-touch day. Small wins still count fully."
-        case .recovery: return "Your body is asking for ease today — honoring that is progress."
+        case .peak: return "You're at Peak. A full session fits if you want it."
+        case .good: return "You're at Good. A solid session still makes you someone who trains."
+        case .fair: return "You're at Fair. Train smart — a lighter win still counts."
+        case .low: return "You're at Low. A lighter win still makes today count."
         }
     }
 }

@@ -2,7 +2,7 @@
   "kind": "home-progress-hud",
   "surface": "phone-home",
   "mixLock": "chrome-not-nest",
-  "notes": "Phone Home Today Progress HUD chrome. Nest brand stays procedural AriaNestGeometry (soft-hex-field) — never mount this file as the logo. Watch / StandBy / web are out of scope. Band names are Peak / Good / Fair / Low — Home vocabulary, not Primed / Ready / Moderate / Recovery and not clinical labels.",
+  "notes": "Phone Home Today Progress chrome. Same palette, type, and ring language — evolved toward solid geometry, restrained glow, and motivation psychology. Not a HUD costume (no brackets, scanlines, or fake telemetry). Nest brand stays procedural AriaNestGeometry (soft-hex-field) — never mount this file as the logo. Watch / StandBy stay on their own surfaces. Web may read these tokens. Band names are Peak / Good / Fair / Low — Home vocabulary, not Primed / Ready / Moderate / Recovery and not clinical labels.",
   "bands": [
     { "id": "peak", "label": "Peak", "min": 85, "hex": "22C55E", "token": "vitality" },
     { "id": "good", "label": "Good", "min": 70, "hex": "F5A524", "token": "amber" },
@@ -24,6 +24,19 @@
     "tickChromeFloor": 0.70,
     "armedMajorTickOpacity": 0.78,
     "inArcMinimumScale": 0.7
+  },
+  "motivation": {
+    "almostTherePercent": 80,
+    "closingRemaining": 1,
+    "almostThereFloor": 0.7,
+    "eventGlowOnly": true,
+    "liveGlowDefault": false,
+    "brackets": false,
+    "scanlines": false,
+    "missHex": "7BA6F7",
+    "glowRadius": 5,
+    "tickMajorWidth": 1.25,
+    "tickMinorWidth": 0.55
   },
   "trend": {
     "plotFloor": 30,

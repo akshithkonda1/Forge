@@ -27,31 +27,18 @@ struct ForgeEmptyState: View {
     var icon: String
     var title: String
     var message: String
+    var cta: String? = nil
+    var action: (() -> Void)? = nil
 
     var body: some View {
-        VStack(spacing: 14) {
-            ZStack {
-                Circle()
-                    .fill(Color.ember.opacity(0.12))
-                    .frame(width: 56, height: 56)
-                Image(systemName: icon)
-                    .font(.system(size: 24, weight: .semibold))
-                    .foregroundColor(.ember)
-            }
-            VStack(spacing: 6) {
-                Text(title)
-                    .font(.system(size: 16, weight: .semibold, design: .rounded))
-                    .foregroundColor(.textPrimary)
-                Text(message)
-                    .font(.system(size: 13, weight: .medium, design: .rounded))
-                    .foregroundColor(.textSecondary)
-                    .multilineTextAlignment(.center)
-            }
-        }
-        .frame(maxWidth: .infinity)
-        .padding(.vertical, 32)
-        .padding(.horizontal, 16)
-        .forgeGlassCard(cornerRadius: FDS.Radius.lg, accent: .ember)
+        ForgeEmptyStateCard(
+            icon: icon,
+            title: title,
+            message: message,
+            accent: .ember,
+            cta: cta,
+            action: action
+        )
     }
 }
 
@@ -88,24 +75,24 @@ struct SettingsRow<Trailing: View>: View {
     }
 
     var body: some View {
-        HStack(spacing: 12) {
+        HStack(spacing: FDS.Spacing.md) {
             if let icon = icon {
                 ZStack {
-                    RoundedRectangle(cornerRadius: 8, style: .continuous)
+                    RoundedRectangle(cornerRadius: FDS.Radius.sm, style: .continuous)
                         .fill((iconColor ?? Color.ember).opacity(0.14))
                         .frame(width: 32, height: 32)
                     Image(systemName: icon)
-                        .font(.system(size: 14, weight: .semibold))
+                        .font(.system(size: ForgeUX.icon, weight: .semibold))
                         .foregroundColor(iconColor ?? .ember)
                 }
             }
             Text(label)
-                .font(.system(size: 14, weight: .medium, design: .rounded))
+                .font(ForgeType.headline)
                 .foregroundColor(.textPrimary)
             Spacer()
             if let t = trailingText {
                 Text(t)
-                    .font(.system(size: 13))
+                    .font(ForgeType.caption)
                     .foregroundColor(.textSecondary)
                     .lineLimit(1)
                     .truncationMode(.tail)
@@ -118,8 +105,8 @@ struct SettingsRow<Trailing: View>: View {
                     .foregroundColor(.textMuted)
             }
         }
-        .padding(.horizontal, 16)
-        .padding(.vertical, 12)
+        .padding(.horizontal, FDS.Spacing.lg)
+        .frame(minHeight: ForgeUX.minTap)
     }
 }
 
@@ -176,7 +163,7 @@ struct TimeRangePicker: View {
     @Namespace private var pickerAnimation
 
     var body: some View {
-        HStack(spacing: 6) {
+        HStack(spacing: FDS.Spacing.sm) {
             ForEach(ProgressPageView.TimeRange.allCases, id: \.self) { range in
                 Button(action: {
                     withAnimation(.spring(response: 0.35, dampingFraction: 0.8)) {
@@ -197,14 +184,14 @@ struct TimeRangePicker: View {
                             .foregroundColor(selection == range ? .white : .textSecondary)
                     }
                     .frame(maxWidth: .infinity)
-                    .padding(.horizontal, 16)
-                    .padding(.vertical, 8)
+                    .padding(.horizontal, FDS.Spacing.lg)
+                    .padding(.vertical, FDS.Spacing.sm)
                     .contentShape(Capsule())
                 }
                 .buttonStyle(.plain)
             }
         }
-        .padding(4)
+        .padding(FDS.Spacing.xs)
         .forgeInnerWell(cornerRadius: 100)
     }
 }

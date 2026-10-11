@@ -89,11 +89,11 @@ struct HomeCookingView: View {
                             withAnimation { visibleCount += Self.pageSize }
                         } label: {
                             Text("Show \(min(Self.pageSize, results.count - visibleCount)) more · \(results.count - visibleCount) left")
-                                .font(.system(size: 13, weight: .semibold))
+                                .font(FDS.TypeScale.Dynamic.caption)
                                 .foregroundColor(.ember)
                                 .frame(maxWidth: .infinity)
                                 .padding(.vertical, 14)
-                                .forgeGlassCard(cornerRadius: 12, accent: Color(hex: "7C5CFF"))
+                                .forgeGlassCard(cornerRadius: FDS.Radius.md, accent: Color(hex: "7C5CFF"))
                         }
                         .buttonStyle(.plain)
                     }
@@ -128,13 +128,13 @@ struct HomeCookingView: View {
             }
         }
         .padding(13)
-        .forgeGlassCard(cornerRadius: 14, accent: Color(hex: "7C5CFF"))
+        .forgeGlassCard(cornerRadius: FDS.Radius.md, accent: Color(hex: "7C5CFF"))
     }
 
     private func headerRow(total: Int) -> some View {
         HStack(spacing: 10) {
             Text("\(total) meal\(total == 1 ? "" : "s")")
-                .font(.system(size: 13, weight: .semibold))
+                .font(FDS.TypeScale.Dynamic.caption)
                 .foregroundColor(.textSecondary)
             Spacer()
             Menu {
@@ -146,12 +146,12 @@ struct HomeCookingView: View {
             } label: {
                 HStack(spacing: 5) {
                     Image(systemName: "arrow.up.arrow.down").font(.system(size: 11, weight: .semibold))
-                    Text(sort.label).font(.system(size: 12, weight: .semibold))
+                    Text(sort.label).font(FDS.TypeScale.Dynamic.caption)
                 }
                 .foregroundColor(.ember)
                 .padding(.horizontal, 12).padding(.vertical, 7)
                 .background(Color.ember.opacity(0.12))
-                .cornerRadius(20)
+                .cornerRadius(FDS.Radius.xl)
             }
             Button {
                 withAnimation { showFilters.toggle() }
@@ -160,12 +160,12 @@ struct HomeCookingView: View {
                     Image(systemName: "line.3.horizontal.decrease.circle\(activeFilterCount > 0 ? ".fill" : "")")
                         .font(.system(size: 12, weight: .semibold))
                     Text(activeFilterCount > 0 ? "Filters (\(activeFilterCount))" : "Filters")
-                        .font(.system(size: 12, weight: .semibold))
+                        .font(FDS.TypeScale.Dynamic.caption)
                 }
                 .foregroundColor(activeFilterCount > 0 ? .white : .textSecondary)
                 .padding(.horizontal, 12).padding(.vertical, 7)
                 .background(activeFilterCount > 0 ? Color.ember : Color.surfaceElevated)
-                .cornerRadius(20)
+                .cornerRadius(FDS.Radius.xl)
             }
             .buttonStyle(.plain)
         }
@@ -202,12 +202,12 @@ struct HomeCookingView: View {
             VStack(alignment: .leading, spacing: 6) {
                 HStack {
                     Text("MAX TIME")
-                        .font(.system(size: 11, weight: .semibold))
+                        .font(FDS.TypeScale.Dynamic.micro)
                         .foregroundColor(.textTertiary)
                         .tracking(1)
                     Spacer()
                     Text(maxMinutes >= 240 ? "Any" : "\(Int(maxMinutes)) min")
-                        .font(.system(size: 12, weight: .semibold))
+                        .font(FDS.TypeScale.Dynamic.caption)
                         .foregroundColor(.ember)
                 }
                 Slider(value: $maxMinutes, in: 15...240, step: 5) { _ in
@@ -227,14 +227,14 @@ struct HomeCookingView: View {
                     visibleCount = Self.pageSize
                 } label: {
                     Text("Clear filters")
-                        .font(.system(size: 13, weight: .semibold))
+                        .font(FDS.TypeScale.Dynamic.caption)
                         .foregroundColor(.danger)
                 }
                 .buttonStyle(.plain)
             }
         }
         .padding(16)
-        .forgeGlassCard(cornerRadius: 16, accent: Color(hex: "7C5CFF"))
+        .forgeGlassCard(cornerRadius: FDS.Radius.lg, accent: Color(hex: "7C5CFF"))
     }
 
     private func filterSection<Content: View>(
@@ -243,7 +243,7 @@ struct HomeCookingView: View {
     ) -> some View {
         VStack(alignment: .leading, spacing: 8) {
             Text(title.uppercased())
-                .font(.system(size: 11, weight: .semibold))
+                .font(FDS.TypeScale.Dynamic.micro)
                 .foregroundColor(.textTertiary)
                 .tracking(1)
             ScrollView(.horizontal, showsIndicators: false) {
@@ -264,12 +264,12 @@ struct HomeCookingView: View {
                 if let icon {
                     Image(systemName: icon).font(.system(size: 10, weight: .semibold))
                 }
-                Text(title).font(.system(size: 12, weight: .semibold)).lineLimit(1)
+                Text(title).font(FDS.TypeScale.Dynamic.caption).lineLimit(1)
             }
             .foregroundColor(selected ? .white : .textSecondary)
             .padding(.horizontal, 12).padding(.vertical, 8)
             .background(selected ? Color.ember : Color.surfaceElevated)
-            .cornerRadius(20)
+            .cornerRadius(FDS.Radius.xl)
         }
         .buttonStyle(.plain)
         .accessibilityAddTraits(selected ? [.isSelected, .isButton] : .isButton)
@@ -281,7 +281,7 @@ struct HomeCookingView: View {
                 .font(.system(size: 40))
                 .foregroundColor(.textTertiary)
             Text("Nothing matches those filters")
-                .font(.system(size: 15, weight: .semibold))
+                .font(FDS.TypeScale.Dynamic.body.weight(.semibold))
                 .foregroundColor(.textSecondary)
             Text("Try widening the time limit or clearing a diet filter.")
                 .font(.system(size: 13))
@@ -304,7 +304,7 @@ private struct MealRowCard: View {
                 Text(meal.cuisine.emoji).font(.system(size: 24))
                 VStack(alignment: .leading, spacing: 3) {
                     Text(meal.name)
-                        .font(.system(size: 14, weight: .semibold))
+                        .font(FDS.TypeScale.Dynamic.body.weight(.semibold))
                         .foregroundColor(.textPrimary)
                         .multilineTextAlignment(.leading)
                         .fixedSize(horizontal: false, vertical: true)
@@ -315,7 +315,7 @@ private struct MealRowCard: View {
                 Spacer(minLength: 0)
                 VStack(alignment: .trailing, spacing: 2) {
                     Text("\(meal.calories)")
-                        .font(.system(size: 18, weight: .bold, design: .rounded))
+                        .font(FDS.TypeScale.Dynamic.metric)
                         .foregroundColor(.textPrimary)
                     Text("kcal").font(.system(size: 10)).foregroundColor(.textTertiary)
                 }
@@ -336,28 +336,28 @@ private struct MealRowCard: View {
             }
         }
         .padding(14)
-        .forgeGlassCard(cornerRadius: 14, accent: Color(hex: "7C5CFF"))
+        .forgeGlassCard(cornerRadius: FDS.Radius.md, accent: Color(hex: "7C5CFF"))
         .accessibilityElement(children: .combine)
         .accessibilityLabel("\(meal.name). \(meal.calories) calories, \(meal.protein) grams protein, \(meal.minutes) minutes.")
     }
 
     private func macroChip(_ letter: String, _ grams: Int, _ color: Color) -> some View {
         HStack(spacing: 3) {
-            Text(letter).font(.system(size: 10, weight: .bold)).foregroundColor(color)
-            Text("\(grams)g").font(.system(size: 11, weight: .medium)).foregroundColor(.textSecondary)
+            Text(letter).font(FDS.TypeScale.Dynamic.micro).foregroundColor(color)
+            Text("\(grams)g").font(FDS.TypeScale.Dynamic.micro).foregroundColor(.textSecondary)
         }
         .padding(.horizontal, 8).padding(.vertical, 4)
         .background(color.opacity(0.12))
-        .cornerRadius(8)
+        .cornerRadius(FDS.Radius.sm)
     }
 
     private func tagPill(_ text: String, _ color: Color) -> some View {
         Text(text)
-            .font(.system(size: 10, weight: .semibold))
+            .font(FDS.TypeScale.Dynamic.micro)
             .foregroundColor(color)
             .padding(.horizontal, 8).padding(.vertical, 4)
             .background(color.opacity(0.12))
-            .cornerRadius(8)
+            .cornerRadius(FDS.Radius.sm)
     }
 }
 
@@ -393,7 +393,7 @@ private struct MealDetailSheet: View {
                             ForEach(Array(meal.steps.enumerated()), id: \.offset) { index, step in
                                 HStack(alignment: .top, spacing: 10) {
                                     Text("\(index + 1)")
-                                        .font(.system(size: 12, weight: .bold, design: .rounded))
+                                        .font(FDS.TypeScale.Dynamic.caption)
                                         .foregroundColor(.ember)
                                         .frame(width: 24, height: 24)
                                         .background(Color.ember.opacity(0.14))
@@ -412,7 +412,7 @@ private struct MealDetailSheet: View {
                                 ForEach(Array(meal.tags).sorted(by: { $0.label < $1.label })) { tag in
                                     HStack(spacing: 4) {
                                         Image(systemName: tag.icon).font(.system(size: 9, weight: .semibold))
-                                        Text(tag.label).font(.system(size: 11, weight: .medium))
+                                        Text(tag.label).font(FDS.TypeScale.Dynamic.micro)
                                     }
                                     .foregroundColor(.success)
                                     .padding(.horizontal, 10).padding(.vertical, 5)
@@ -445,7 +445,7 @@ private struct MealDetailSheet: View {
         VStack(alignment: .leading, spacing: 8) {
             Text(meal.cuisine.emoji).font(.system(size: 40))
             Text(meal.name)
-                .font(.system(size: 22, weight: .bold))
+                .font(FDS.TypeScale.Dynamic.title)
                 .foregroundColor(.textPrimary)
                 .fixedSize(horizontal: false, vertical: true)
             HStack(spacing: 12) {
@@ -459,7 +459,7 @@ private struct MealDetailSheet: View {
     private func metaItem(_ icon: String, _ text: String) -> some View {
         HStack(spacing: 4) {
             Image(systemName: icon).font(.system(size: 10))
-            Text(text).font(.system(size: 12, weight: .medium))
+            Text(text).font(FDS.TypeScale.Dynamic.caption)
         }
         .foregroundColor(.textTertiary)
     }
@@ -476,7 +476,7 @@ private struct MealDetailSheet: View {
     private func macroTile(_ label: String, _ value: String, _ color: Color) -> some View {
         VStack(spacing: 4) {
             Text(value)
-                .font(.system(size: 17, weight: .bold, design: .rounded))
+                .font(FDS.TypeScale.Dynamic.headline)
                 .foregroundColor(color)
                 .lineLimit(1)
                 .minimumScaleFactor(0.6)
@@ -484,7 +484,7 @@ private struct MealDetailSheet: View {
         }
         .frame(maxWidth: .infinity)
         .padding(.vertical, 12)
-        .forgeGlassCard(cornerRadius: 12, accent: Color(hex: "7C5CFF"))
+        .forgeGlassCard(cornerRadius: FDS.Radius.md, accent: Color(hex: "7C5CFF"))
     }
 
     private func section<Content: View>(
@@ -496,7 +496,7 @@ private struct MealDetailSheet: View {
             HStack(spacing: 6) {
                 Image(systemName: icon).font(.system(size: 12)).foregroundColor(.ember)
                 Text(title.uppercased())
-                    .font(.system(size: 11, weight: .semibold))
+                    .font(FDS.TypeScale.Dynamic.micro)
                     .foregroundColor(.textTertiary)
                     .tracking(1)
             }
@@ -523,13 +523,13 @@ private struct MealDetailSheet: View {
             HStack(spacing: 8) {
                 Image(systemName: logged ? "checkmark.circle.fill" : "plus.circle.fill")
                 Text(logged ? "Logged to today" : "Log this meal")
-                    .font(.system(size: 15, weight: .semibold))
+                    .font(FDS.TypeScale.Dynamic.body.weight(.semibold))
             }
             .foregroundColor(.white)
             .frame(maxWidth: .infinity)
             .frame(height: 52)
             .background(logged ? Color.success : Color.ember)
-            .cornerRadius(14)
+            .cornerRadius(FDS.Radius.md)
         }
         .buttonStyle(.plain)
         .disabled(logged)

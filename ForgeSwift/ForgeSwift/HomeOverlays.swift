@@ -42,7 +42,7 @@ struct CelebrationOverlay: View {
                         .font(.system(size: 28, weight: .black))
                         .foregroundStyle(.white)
                     Text("You're in the window. Use it well.")
-                        .font(.system(size: 15, weight: .medium))
+                        .font(FDS.TypeScale.Dynamic.body)
                         .foregroundStyle(.white.opacity(0.8))
                 }
                 .scaleEffect(bannerScale)

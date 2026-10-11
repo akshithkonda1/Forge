@@ -33,13 +33,13 @@ function BreakdownCard({
 }: BreakdownCardProps) {
   return (
     <motion.div
-      className="flex flex-col gap-2 rounded-xl border border-border bg-surface p-3"
+      className="flex flex-col gap-2 rounded-2xl bg-surface p-5"
       initial={{ opacity: 0, y: 12 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ delay: 0.1 * index, duration: 0.4, ease: "easeOut" }}
     >
       <span className="text-xs font-medium text-text-secondary">{label}</span>
-      <span className="text-lg font-bold text-white">{value}</span>
+      <span className="type-headline text-text-primary">{value}</span>
 
       {progress !== undefined && (
         <div className="h-1.5 w-full overflow-hidden rounded-full bg-border">
@@ -54,7 +54,7 @@ function BreakdownCard({
       )}
 
       {subtitle && (
-        <span className="text-[10px] text-text-tertiary">{subtitle}</span>
+        <span className="type-micro text-text-tertiary">{subtitle}</span>
       )}
     </motion.div>
   );
@@ -66,7 +66,7 @@ export function SleepBreakdown() {
   if (!latest) {
     return (
       <div>
-        <h3 className="mb-3 text-sm font-semibold text-white">Breakdown</h3>
+        <h3 className="type-headline mb-3 text-text-primary">Breakdown</h3>
         <p className="text-sm text-text-secondary">No sleep yet</p>
       </div>
     );
@@ -118,7 +118,7 @@ export function SleepBreakdown() {
 
   return (
     <div>
-      <h3 className="mb-3 text-sm font-semibold text-white">Breakdown</h3>
+      <h3 className="type-headline mb-3 text-text-primary">Breakdown</h3>
       <div className="grid grid-cols-2 gap-3">
         {cards.map((card) => (
           <BreakdownCard key={card.label} {...card} />

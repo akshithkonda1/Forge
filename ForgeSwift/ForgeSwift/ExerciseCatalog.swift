@@ -64,7 +64,7 @@ enum TargetMuscle: String, CaseIterable, Identifiable, Hashable {
         switch region {
         case .push: return .ember
         case .pull: return Color(hex: "38BDF8")
-        case .legs: return Color(hex: "A855F7")
+        case .legs: return Color.aurora
         case .core: return .success
         case .conditioning: return .warning
         }
@@ -693,7 +693,7 @@ enum ExerciseLibrary {
             case .weights: return .steel
             case .conditioning: return .warning
             case .mobility: return .success
-            case .tools: return Color(hex: "A855F7")
+            case .tools: return Color.aurora
             }
         }
 
@@ -1033,7 +1033,7 @@ extension TargetMuscle.Region {
         switch self {
         case .push: return .ember
         case .pull: return Color(hex: "38BDF8")
-        case .legs: return Color(hex: "A855F7")
+        case .legs: return Color.aurora
         case .core: return .success
         case .conditioning: return .warning
         }

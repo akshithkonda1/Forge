@@ -22,7 +22,7 @@ final class ReadinessCalculatorTests: XCTestCase {
         XCTAssertTrue((0...100).contains(score.overall))
     }
 
-    func testGoodNightAndRecoveredHRVLandsInReadyOrPrimed() {
+    func testGoodNightAndRecoveredHRVLandsInGoodOrPeak() {
         let inputs = ReadinessInputs(
             hrvMs: 62, hrvBaselineMs: 50,          // HRV well above baseline
             restingHR: 50, restingHRBaseline: 54,  // RHR below baseline
@@ -31,8 +31,8 @@ final class ReadinessCalculatorTests: XCTestCase {
             yesterdayStrain: 0.2
         )
         let score = ReadinessCalculator.score(from: inputs)
-        XCTAssertGreaterThanOrEqual(score.overall, 70, "recovered inputs should score Ready+")
-        XCTAssertTrue(score.band == .ready || score.band == .primed)
+        XCTAssertGreaterThanOrEqual(score.overall, 70, "recovered inputs should score Good+")
+        XCTAssertTrue(score.band == .good || score.band == .peak)
     }
 
     func testShortSleepAndSuppressedHRVLandsLow() {
@@ -73,13 +73,31 @@ final class ReadinessCalculatorTests: XCTestCase {
         XCTAssertTrue((0...100).contains(extreme.recovery))
     }
 
-    func testBandBoundariesMatchiOSTheme() {
-        // Mirrors readinessLabel(for:) in ForgeSwift/Theme+Readiness.swift.
-        XCTAssertEqual(ReadinessBand(score: 85), .primed)
-        XCTAssertEqual(ReadinessBand(score: 84), .ready)
-        XCTAssertEqual(ReadinessBand(score: 70), .ready)
-        XCTAssertEqual(ReadinessBand(score: 69), .moderate)
-        XCTAssertEqual(ReadinessBand(score: 55), .moderate)
-        XCTAssertEqual(ReadinessBand(score: 54), .recovery)
+    func testBandBoundariesMatchHomeTokens() {
+        XCTAssertEqual(ReadinessBand(score: 85), .peak)
+        XCTAssertEqual(ReadinessBand(score: 84), .good)
+        XCTAssertEqual(ReadinessBand(score: 70), .good)
+        XCTAssertEqual(ReadinessBand(score: 69), .fair)
+        XCTAssertEqual(ReadinessBand(score: 50), .fair)
+        XCTAssertEqual(ReadinessBand(score: 49), .low)
+        XCTAssertEqual(ReadinessBand(score: 85).label, "Peak")
+        XCTAssertEqual(ReadinessBand(score: 72).label, "Good")
+        XCTAssertEqual(ReadinessBand(score: 60).label, "Fair")
+        XCTAssertEqual(ReadinessBand(score: 40).label, "Low")
+        XCTAssertEqual(ReadinessBand(score: 40).hex, HomeReadinessTokens.Band.low.hex)
+        XCTAssertEqual(ReadinessBand(score: 40).hex, "EF4444")
+        XCTAssertNotEqual(HomeReadinessTokens.missHex, HomeReadinessTokens.Band.low.hex)
+        for label in ReadinessBand.allCases.map(\.label) {
+            XCTAssertFalse(HomeReadinessTokens.foreignBandLabels.contains(label), label)
+        }
+    }
+
+    func testBandDecodesRetiredWatchWords() throws {
+        let decoder = JSONDecoder()
+        XCTAssertEqual(try decoder.decode(ReadinessBand.self, from: Data("\"primed\"".utf8)), .peak)
+        XCTAssertEqual(try decoder.decode(ReadinessBand.self, from: Data("\"ready\"".utf8)), .good)
+        XCTAssertEqual(try decoder.decode(ReadinessBand.self, from: Data("\"moderate\"".utf8)), .fair)
+        XCTAssertEqual(try decoder.decode(ReadinessBand.self, from: Data("\"recovery\"".utf8)), .low)
+        XCTAssertEqual(try decoder.decode(ReadinessBand.self, from: Data("\"peak\"".utf8)), .peak)
     }
 }

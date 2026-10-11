@@ -47,10 +47,8 @@ func displaySessionName(_ name: String) -> String {
 /// Home's own readiness palette and vocabulary.
 ///
 /// Cuts, hex, and Peak / Good / Fair / Low labels come from
-/// `shared/readiness.json` via `HomeReadinessTokens`. Deliberately not
-/// `readinessColor(for:)` from Theme+Readiness.swift ("Primed / Ready /
-/// Moderate / Recovery") and not ForgeCore `ReadinessBand`. Unifying those
-/// is a later design pass — Home keeps its words.
+/// `shared/readiness.json` via `HomeReadinessTokens`. `readinessColor(for:)`
+/// and ForgeCore `ReadinessBand` now use the same words.
 enum HomeReadiness {
     static func color(_ score: Int) -> Color {
         Color(hex: HomeReadinessTokens.hex(for: score))
@@ -68,16 +66,23 @@ enum HomeReadiness {
 
 /// Friend-coach strings for the Home primary action. Never "recovery week"
 /// or "recovery-first" — those are banned product copy.
+/// Identity + competence: you're someone who trains. Energy-aware when low.
 enum HomeCoachCopy {
     static let easySessionTitle = "Easy session"
     static let easyDayGuidance = "Easy day — keep the structure, skip the intensity."
-    static let easyDayLow = "You're running a bit low. Keep today light."
+    static let easyDayLow = "You're running a bit low. A lighter win still counts."
+    static let nextNow = "Do this now"
+    static let lighterWin = "A lighter win"
 
     static func pulledBack(score: Int) -> String {
-        "You're at \(score)%. This session is already pulled back."
+        "You're at \(score)%. This session is already pulled back — still a real session."
     }
 
-    static let bannedPhrases = ["recovery-first", "recovery week"]
+    static func nextNowEyebrow(isLighter: Bool) -> String {
+        isLighter ? lighterWin : nextNow
+    }
+
+    static let bannedPhrases = ["recovery-first", "recovery week", "Adaptive Recovery"]
 }
 
 /// Lifestyle deep-links Home and ARIA already send. Kept here so tests can
@@ -106,6 +111,6 @@ func homeStatusLine(store: AppStore) -> String {
     case 85...: return "You’re at \(score). You look ready."
     case 70..<85: return "You’re at \(score). A solid session fits."
     case 55..<70: return "You’re at \(score). Train smart, not maximal."
-    default: return "You’re at \(score). Easy session today."
+    default: return "You’re at \(score). A lighter win still makes you someone who showed up."
     }
 }

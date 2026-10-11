@@ -132,9 +132,9 @@ export default function ProfileSetup({ onNext, onBack }: ProfileSetupProps) {
               className={cn(
                 "h-1 rounded-full transition-all duration-300",
                 i === section
-                  ? "premium-dot-active w-8 bg-[#F7F4F0]"
+                  ? "premium-dot-active w-8 bg-paper"
                   : i < section
-                    ? "w-4 bg-[#F7F4F0]/40"
+                    ? "w-4 bg-paper/40"
                     : "w-4 bg-border"
               )}
             />
@@ -201,7 +201,7 @@ export default function ProfileSetup({ onNext, onBack }: ProfileSetupProps) {
                         "rounded-full border px-5 py-2.5 text-sm font-medium",
                         "transition-colors duration-150",
                         selected
-                          ? "border-white/25 bg-white/[0.08] text-[#F7F4F0]"
+                          ? "border-white/25 bg-white/[0.08] text-text-primary"
                           : "border-border bg-surface text-text-secondary hover:border-border-light hover:text-text-primary"
                       )}
                     >
@@ -239,8 +239,8 @@ export default function ProfileSetup({ onNext, onBack }: ProfileSetupProps) {
                     >
                       <span
                         className={cn(
-                          "text-base font-semibold",
-                          selected ? "text-[#F7F4F0]" : "text-text-primary"
+                          "type-headline",
+                          selected ? "text-text-primary" : "text-text-primary"
                         )}
                       >
                         {level.label}
@@ -275,7 +275,7 @@ export default function ProfileSetup({ onNext, onBack }: ProfileSetupProps) {
                         "rounded-full border px-5 py-2.5 text-sm font-medium",
                         "transition-colors duration-150",
                         selected
-                          ? "border-white/25 bg-white/[0.08] text-[#F7F4F0]"
+                          ? "border-white/25 bg-white/[0.08] text-text-primary"
                           : "border-border bg-surface text-text-secondary hover:border-border-light hover:text-text-primary"
                       )}
                     >
@@ -317,11 +317,11 @@ export default function ProfileSetup({ onNext, onBack }: ProfileSetupProps) {
             }}
             disabled={!canProceedFromState()}
             className={cn(
-              "relative flex flex-1 min-h-[64px] items-center justify-between rounded-full px-6 py-5 text-[17px] font-semibold",
+              "relative flex flex-1 min-h-[64px] items-center justify-between rounded-full px-6 py-5 type-headline font-semibold",
               "transition-[filter,box-shadow,background-color] duration-150 touch-manipulation select-none",
               canProceedFromState()
-                ? "bg-[#F7F4F0] text-[#0A0A0A] shadow-[0_10px_30px_rgba(247,244,240,0.14)] active:brightness-[0.92] active:shadow-none"
-                : "bg-surface-elevated text-white/35"
+                ? "bg-paper text-background shadow-[0_10px_30px_rgba(247,244,240,0.14)] active:brightness-[0.92] active:shadow-none"
+                : "bg-surface-elevated text-text-primary/35"
             )}
           >
             <span className="pointer-events-none absolute inset-x-0 -top-10 bottom-0" aria-hidden />

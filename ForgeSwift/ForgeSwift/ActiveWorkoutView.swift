@@ -99,12 +99,12 @@ struct ActiveWorkoutView: View {
                     exerciseNavStrip
                     liveMetricsBar
                     MusicControlBar(controller: music, compact: true)
-                        .padding(.horizontal, 16).padding(.vertical, 6)
+                        .padding(.horizontal, FDS.Spacing.lg).padding(.vertical, FDS.Spacing.sm)
                     mainContent(exercise: exercise)
                     voiceCoachBar
                 }
             } else {
-                VStack(spacing: 16) {
+                VStack(spacing: FDS.Spacing.lg) {
                     ForgeEmptyStateCard(
                         icon: "figure.strengthtraining.traditional",
                         title: "Today’s session",
@@ -114,7 +114,7 @@ struct ActiveWorkoutView: View {
                     )
                     voiceCoachBar
                 }
-                .padding(24)
+                .padding(FDS.Spacing.xl)
             }
 
             // Overlays — highest zIndex first
@@ -194,18 +194,18 @@ struct ActiveWorkoutView: View {
     // MARK: Cockpit Header
 
     private var cockpitHeader: some View {
-        HStack(spacing: 12) {
+        HStack(spacing: FDS.Spacing.md) {
             RoundedRectangle(cornerRadius: 2)
                 .fill(currentZone.color).frame(width: 3, height: 36)
                 .shadow(color: currentZone.color.opacity(0.8), radius: 6)
                 .animation(.easeInOut(duration: 0.8), value: currentZone.label)
             VStack(alignment: .leading, spacing: 2) {
-                Text(store.todayWorkout?.name ?? "").font(.system(size: 14, weight: .bold)).foregroundColor(.textPrimary)
+                Text(store.todayWorkout?.name ?? "").font(FDS.TypeScale.Dynamic.body.weight(.semibold)).foregroundColor(.textPrimary)
                     .lineLimit(1).truncationMode(.tail)
-                HStack(spacing: 5) {
+                HStack(spacing: FDS.Spacing.xs) {
                     Text(store.todayWorkout?.type.label ?? "").font(.system(size: 11)).foregroundColor(.textTertiary)
                     Circle().fill(Color.textTertiary.opacity(0.5)).frame(width: 2.5, height: 2.5)
-                    Text(store.todayWorkout?.intensity.label ?? "").font(.system(size: 11, weight: .semibold)).foregroundColor(currentZone.color)
+                    Text(store.todayWorkout?.intensity.label ?? "").font(FDS.TypeScale.Dynamic.micro).foregroundColor(currentZone.color)
                         .animation(.easeInOut(duration: 0.8), value: currentZone.label)
                 }
                 .lineLimit(1)
@@ -215,26 +215,26 @@ struct ActiveWorkoutView: View {
             // crushing the clock and End button into wrapped columns of letters.
             .frame(maxWidth: .infinity, alignment: .leading)
             .accessibilityElement(children: .combine)
-            HStack(spacing: 8) {
+            HStack(spacing: FDS.Spacing.sm) {
                 AriaTrainMuteButton(coach: voiceCoach)
                 elapsedChip
                 endButton
             }
             .layoutPriority(1)
         }
-        .padding(.horizontal, 20).padding(.top, 14).padding(.bottom, 8)
+        .padding(.horizontal, FDS.Spacing.lg).padding(.top, FDS.Spacing.lg).padding(.bottom, FDS.Spacing.sm)
     }
 
     private var elapsedChip: some View {
         TimelineView(.animation(minimumInterval: 0.5)) { tl in
             let flash = Int(tl.date.timeIntervalSinceReferenceDate * 2) % 2 == 0
-            HStack(spacing: 4) {
+            HStack(spacing: FDS.Spacing.xs) {
                 Image(systemName: "clock.fill").font(.system(size: 10)).foregroundColor(.textMuted)
                 Text(formatTime(elapsedSecs, flashColon: flash))
                     .font(.system(size: 13, weight: .bold, design: .monospaced)).foregroundColor(.textPrimary)
                     .lineLimit(1).contentTransition(.numericText())
             }
-            .padding(.horizontal, 10).padding(.vertical, 6).background(Color.surface).cornerRadius(100)
+            .padding(.horizontal, FDS.Spacing.md).padding(.vertical, FDS.Spacing.sm).background(Color.surface).cornerRadius(100)
             .overlay(Capsule().stroke(Color.borderColor.opacity(0.4), lineWidth: 1))
         }
         .fixedSize()
@@ -246,10 +246,10 @@ struct ActiveWorkoutView: View {
     private var endButton: some View {
         Button(action: handleEnd) {
             Text(showEndConfirm ? "Confirm?" : "End")
-                .font(.system(size: 13, weight: .bold)).foregroundColor(showEndConfirm ? .white : .danger)
+                .font(FDS.TypeScale.Dynamic.caption).foregroundColor(showEndConfirm ? .white : .danger)
                 .lineLimit(1).fixedSize()
-                .padding(.horizontal, 12).padding(.vertical, 7)
-                .background(showEndConfirm ? Color.danger : Color.danger.opacity(0.12)).cornerRadius(9)
+                .padding(.horizontal, FDS.Spacing.md).padding(.vertical, FDS.Spacing.sm)
+                .background(showEndConfirm ? Color.danger : Color.danger.opacity(0.12)).cornerRadius(FDS.Radius.sm)
                 .animation(.spring(response: 0.3, dampingFraction: 0.72), value: showEndConfirm)
         }
         .accessibilityLabel(showEndConfirm ? "Confirm end session" : "End session")
@@ -261,9 +261,9 @@ struct ActiveWorkoutView: View {
     private var exerciseNavStrip: some View {
         ScrollViewReader { proxy in
             ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: 4) {
+                HStack(spacing: FDS.Spacing.xs) {
                     ForEach(Array(exercises.enumerated()), id: \.offset) { idx, ex in
-                        HStack(spacing: 4) {
+                        HStack(spacing: FDS.Spacing.xs) {
                             navDot(idx: idx, name: ex.name).id(idx)
                             if idx < exercises.count - 1 {
                                 Rectangle().fill(idx < store.currentExerciseIndex ? Color.ember.opacity(0.6) : Color.borderColor.opacity(0.25)).frame(width: 12, height: 1.5)
@@ -271,7 +271,7 @@ struct ActiveWorkoutView: View {
                         }
                     }
                 }
-                .padding(.horizontal, 20).padding(.vertical, 8)
+                .padding(.horizontal, FDS.Spacing.lg).padding(.vertical, FDS.Spacing.sm)
             }
             .scrollEdgeFade()
             .onChange(of: store.currentExerciseIndex) { _, newIdx in
@@ -286,7 +286,7 @@ struct ActiveWorkoutView: View {
         let isPast    = idx <  store.currentExerciseIndex
         Group {
             if isCurrent {
-                HStack(spacing: 7) {
+                HStack(spacing: FDS.Spacing.sm) {
                     if reduceMotion {
                         Circle().fill(Color.ember).frame(width: 8, height: 8).shadow(color: Color.ember.opacity(0.7), radius: 4)
                     } else {
@@ -295,9 +295,9 @@ struct ActiveWorkoutView: View {
                             Circle().fill(Color.ember).frame(width: 8, height: 8).shadow(color: Color.ember.opacity(0.5 + p * 0.4), radius: 3 + p * 3)
                         }
                     }
-                    Text(name).font(.system(size: 12, weight: .bold)).foregroundColor(.ember).lineLimit(1)
+                    Text(name).font(FDS.TypeScale.Dynamic.caption).foregroundColor(.ember).lineLimit(1)
                 }
-                .padding(.horizontal, 12).padding(.vertical, 7).background(Color.ember.opacity(0.1)).cornerRadius(100)
+                .padding(.horizontal, FDS.Spacing.md).padding(.vertical, FDS.Spacing.sm).background(Color.ember.opacity(0.1)).cornerRadius(100)
                 .overlay(Capsule().stroke(Color.ember.opacity(0.35), lineWidth: 1)).shadow(color: Color.ember.opacity(0.2), radius: 6)
             } else if isPast {
                 ZStack {
@@ -307,7 +307,7 @@ struct ActiveWorkoutView: View {
             } else {
                 ZStack {
                     Circle().fill(Color.surfaceElevated).frame(width: 28, height: 28).overlay(Circle().stroke(Color.borderColor.opacity(0.6), lineWidth: 1))
-                    Text("\(idx+1)").font(.system(size: 10, weight: .semibold)).foregroundColor(.textMuted)
+                    Text("\(idx+1)").font(FDS.TypeScale.Dynamic.micro).foregroundColor(.textMuted)
                 }
             }
         }
@@ -322,7 +322,7 @@ struct ActiveWorkoutView: View {
 
     private var liveMetricsBar: some View {
         ScrollView(.horizontal, showsIndicators: false) {
-            HStack(spacing: 8) {
+            HStack(spacing: FDS.Spacing.sm) {
                 heartRateChip
                 primaryMetricChip(icon: "lungs.fill", iconColor: Color(hex: "38BDF8"), value: "—", unit: "O₂", accent: Color(hex: "38BDF8"), glowing: false)
                     .accessibilityLabel("Blood oxygen")
@@ -339,16 +339,16 @@ struct ActiveWorkoutView: View {
                         .accessibilityValue("\(bpm) beats per minute")
                 }
             }
-            .padding(.horizontal, 20)
+            .padding(.horizontal, FDS.Spacing.lg)
         }
         .scrollEdgeFade()
-        .padding(.vertical, 6)
+        .padding(.vertical, FDS.Spacing.sm)
     }
 
     /// Zone is derived from heart rate, so it reads as one fact, not two chips.
     /// Merging them also buys back the width that pushed the row off-screen.
     private var heartRateChip: some View {
-        HStack(spacing: 6) {
+        HStack(spacing: FDS.Spacing.sm) {
             if reduceMotion {
                 Image(systemName: "heart.fill").font(.system(size: 14)).foregroundColor(currentZone.color)
             } else {
@@ -361,12 +361,12 @@ struct ActiveWorkoutView: View {
                 .fixedSize()
             }
             Text(simulatedHR > 0 ? "\(simulatedHR)" : "—").font(.system(size: 16, weight: .black, design: .monospaced)).foregroundColor(.textPrimary).contentTransition(.numericText())
-            Text(heartRateIsLive ? "live" : "bpm").font(.system(size: 11, weight: .semibold)).foregroundColor(currentZone.color.opacity(0.8))
+            Text(heartRateIsLive ? "live" : "bpm").font(FDS.TypeScale.Dynamic.micro).foregroundColor(currentZone.color.opacity(0.8))
             Rectangle().fill(currentZone.color.opacity(0.28)).frame(width: 1, height: 13).padding(.horizontal, 2)
-            Text(currentZone.label).font(.system(size: 12, weight: .black)).foregroundColor(currentZone.color)
+            Text(currentZone.label).font(FDS.TypeScale.Dynamic.caption).foregroundColor(currentZone.color)
         }
         .lineLimit(1).fixedSize()
-        .padding(.horizontal, 14).padding(.vertical, 10)
+        .padding(.horizontal, FDS.Spacing.lg).padding(.vertical, FDS.Spacing.md)
         .background(ZStack { Color.surface; currentZone.color.opacity(0.08) }).cornerRadius(100)
         .overlay(Capsule().stroke(currentZone.color.opacity(simulatedHR > 140 ? 0.5 : 0.25), lineWidth: simulatedHR > 140 ? 1.5 : 1))
         .shadow(color: simulatedHR > 140 ? currentZone.color.opacity(0.3) : .clear, radius: 8)
@@ -378,13 +378,13 @@ struct ActiveWorkoutView: View {
 
     @ViewBuilder
     private func primaryMetricChip(icon: String, iconColor: Color, value: String, unit: String, accent: Color, glowing: Bool) -> some View {
-        HStack(spacing: 5) {
+        HStack(spacing: FDS.Spacing.xs) {
             Image(systemName: icon).font(.system(size: 14)).foregroundColor(iconColor)
             Text(value).font(.system(size: 16, weight: .black, design: .monospaced)).foregroundColor(.textPrimary).contentTransition(.numericText())
-            Text(unit).font(.system(size: 11, weight: .semibold)).foregroundColor(accent.opacity(0.8))
+            Text(unit).font(FDS.TypeScale.Dynamic.micro).foregroundColor(accent.opacity(0.8))
         }
         .lineLimit(1).fixedSize()
-        .padding(.horizontal, 14).padding(.vertical, 10)
+        .padding(.horizontal, FDS.Spacing.lg).padding(.vertical, FDS.Spacing.md)
         .background(ZStack { Color.surface; accent.opacity(0.06) }).cornerRadius(100)
         .overlay(Capsule().stroke(accent.opacity(glowing ? 0.5 : 0.2), lineWidth: glowing ? 1.5 : 1))
         .shadow(color: glowing ? accent.opacity(0.3) : .clear, radius: 8)
@@ -393,13 +393,13 @@ struct ActiveWorkoutView: View {
 
     @ViewBuilder
     private func liveChip(icon: String, iconColor: Color, value: String, unit: String, accent: Color) -> some View {
-        HStack(spacing: 4) {
+        HStack(spacing: FDS.Spacing.xs) {
             Image(systemName: icon).font(.system(size: 12)).foregroundColor(iconColor)
             Text(value).font(.system(size: 13, weight: .bold, design: .monospaced)).foregroundColor(.textPrimary).contentTransition(.numericText())
             Text(unit).font(.system(size: 11)).foregroundColor(.textTertiary)
         }
         .lineLimit(1).fixedSize()
-        .padding(.horizontal, 11).padding(.vertical, 8).background(Color.surface).cornerRadius(100)
+        .padding(.horizontal, FDS.Spacing.md).padding(.vertical, FDS.Spacing.sm).background(Color.surface).cornerRadius(100)
         .overlay(Capsule().stroke(accent.opacity(0.2), lineWidth: 1))
         .accessibilityElement(children: .ignore)
     }
@@ -427,13 +427,13 @@ struct ActiveWorkoutView: View {
 
     @ViewBuilder
     private func exerciseCard(exercise: Exercise) -> some View {
-        VStack(spacing: 14) {
+        VStack(spacing: FDS.Spacing.lg) {
             VStack(alignment: .leading, spacing: 0) {
                 // Set strip
                 HStack {
-                    HStack(spacing: 8) {
-                        Text("Set \(store.currentSet) of \(exercise.sets)").font(.system(size: 13, weight: .bold)).foregroundColor(.ember)
-                        HStack(spacing: 4) {
+                    HStack(spacing: FDS.Spacing.sm) {
+                        Text("Set \(store.currentSet) of \(exercise.sets)").font(FDS.TypeScale.Dynamic.caption).foregroundColor(.ember)
+                        HStack(spacing: FDS.Spacing.xs) {
                             ForEach(0..<exercise.sets, id: \.self) { i in
                                 Circle()
                                     .fill(i < store.currentSet - 1 ? Color.success : i == store.currentSet - 1 ? Color.ember : Color.borderColor)
@@ -446,44 +446,44 @@ struct ActiveWorkoutView: View {
                     Spacer()
                     Text("\(store.currentExerciseIndex + 1)/\(exercises.count)").font(.system(size: 12)).foregroundColor(.textMuted)
                 }
-                .padding(.horizontal, 24).padding(.top, 22).padding(.bottom, 16)
+                .padding(.horizontal, FDS.Spacing.xl).padding(.top, FDS.Spacing.xl).padding(.bottom, FDS.Spacing.lg)
 
                 Divider().background(Color.borderColor.opacity(0.4))
 
-                VStack(alignment: .leading, spacing: 14) {
+                VStack(alignment: .leading, spacing: FDS.Spacing.lg) {
                     Text(exercise.name).font(.system(size: 26, weight: .bold)).foregroundColor(.textPrimary)
                     Button {
                         FDS.haptic(.medium)
                         store.showHowToPerform(exercise.name)
                     } label: {
-                        HStack(spacing: 8) {
+                        HStack(spacing: FDS.Spacing.sm) {
                             ARIAIdentityMark(state: .idle, mood: .energized, size: 22, amplitude: 0.3)
                             Text("Show me how")
-                                .font(.system(size: 13, weight: .bold, design: .rounded))
+                                .font(FDS.TypeScale.Dynamic.caption)
                             Image(systemName: "books.vertical")
                                 .font(.system(size: 12, weight: .semibold))
                         }
                         .foregroundColor(.ember)
-                        .padding(.horizontal, 12)
-                        .padding(.vertical, 8)
+                        .padding(.horizontal, FDS.Spacing.md)
+                        .padding(.vertical, FDS.Spacing.sm)
                         .background(Color.ember.opacity(0.12))
                         .clipShape(Capsule())
                     }
                     .buttonStyle(.plain)
                     if let def = currentDef {
-                        HStack(spacing: 6) {
+                        HStack(spacing: FDS.Spacing.sm) {
                             ForEach(def.primary.prefix(3)) { m in
-                                Text(m.label).font(.system(size: 10, weight: .bold)).foregroundColor(m.accent)
-                                    .padding(.horizontal, 8).padding(.vertical, 4).background(m.accent.opacity(0.12)).cornerRadius(7)
+                                Text(m.label).font(FDS.TypeScale.Dynamic.micro).foregroundColor(m.accent)
+                                    .padding(.horizontal, FDS.Spacing.sm).padding(.vertical, FDS.Spacing.xs).background(m.accent.opacity(0.12)).cornerRadius(7)
                             }
-                            Text("Tempo \(def.tempo)").font(.system(size: 10, weight: .semibold)).foregroundColor(.textMuted)
-                                .padding(.horizontal, 8).padding(.vertical, 4).background(Color.surfaceElevated).cornerRadius(7)
+                            Text("Tempo \(def.tempo)").font(FDS.TypeScale.Dynamic.micro).foregroundColor(.textMuted)
+                                .padding(.horizontal, FDS.Spacing.sm).padding(.vertical, FDS.Spacing.xs).background(Color.surfaceElevated).cornerRadius(7)
                         }
                     }
                     ExerciseDemonstrationView(exercise: exercise, definition: currentDef, selectedTab: $selectedDemoTab,
                                               onLaunchCamera: { showFormCoach = true })
                 }
-                .padding(.horizontal, 24).padding(.top, 18).padding(.bottom, 18)
+                .padding(.horizontal, FDS.Spacing.xl).padding(.top, FDS.Spacing.lg).padding(.bottom, FDS.Spacing.lg)
 
                 Divider().background(Color.borderColor.opacity(0.4))
 
@@ -492,8 +492,8 @@ struct ActiveWorkoutView: View {
                     currentZone.color.opacity(0.04).animation(.easeInOut(duration: 0.8), value: currentZone.label)
                     HStack(spacing: 0) {
                         if exercise.weight != nil {
-                            VStack(spacing: 4) {
-                                HStack(spacing: 10) {
+                            VStack(spacing: FDS.Spacing.xs) {
+                                HStack(spacing: FDS.Spacing.md) {
                                     Button {
                                         currentWeight = max(0, currentWeight - 5); UIImpactFeedbackGenerator(style: .light).impactOccurred()
                                     } label: {
@@ -505,7 +505,7 @@ struct ActiveWorkoutView: View {
                                     .accessibilityLabel("Decrease weight by 5 pounds")
                                     VStack(spacing: 1) {
                                         Text("\(currentWeight)").font(.system(size: 58, weight: .black, design: .rounded)).foregroundColor(.textPrimary).contentTransition(.numericText())
-                                        Text("LBS").font(.system(size: 9, weight: .black)).foregroundColor(currentZone.color.opacity(0.8)).tracking(3).animation(.easeInOut(duration: 0.8), value: currentZone.label)
+                                        Text("LBS").font(FDS.TypeScale.Dynamic.micro).foregroundColor(currentZone.color.opacity(0.8)).tracking(3).animation(.easeInOut(duration: 0.8), value: currentZone.label)
                                     }
                                     .accessibilityElement(children: .ignore)
                                     .accessibilityLabel("Working weight")
@@ -526,47 +526,47 @@ struct ActiveWorkoutView: View {
                         }
                         VStack(spacing: 1) {
                             Text(exercise.reps).font(.system(size: 58, weight: .black, design: .rounded)).foregroundColor(.textPrimary)
-                            Text("REPS").font(.system(size: 9, weight: .black)).foregroundColor(currentZone.color.opacity(0.8)).tracking(3).animation(.easeInOut(duration: 0.8), value: currentZone.label)
+                            Text("REPS").font(FDS.TypeScale.Dynamic.micro).foregroundColor(currentZone.color.opacity(0.8)).tracking(3).animation(.easeInOut(duration: 0.8), value: currentZone.label)
                         }
                         .frame(maxWidth: .infinity)
                     }
-                    .padding(.horizontal, 20).padding(.vertical, 26)
+                    .padding(.horizontal, FDS.Spacing.lg).padding(.vertical, FDS.Spacing.xl)
                 }
 
                 Divider().background(Color.borderColor.opacity(0.4))
 
                 // Live auto-regulation read
                 AutoRegStrip(recommendation: recommendation)
-                    .padding(.horizontal, 20).padding(.vertical, 14)
+                    .padding(.horizontal, FDS.Spacing.lg).padding(.vertical, FDS.Spacing.lg)
 
                 Divider().background(Color.borderColor.opacity(0.4))
 
                 // Previous sets
                 let prevSets = setLog.filter { $0.exerciseName == exercise.name }
                 if !prevSets.isEmpty {
-                    VStack(alignment: .leading, spacing: 8) {
-                        Text("PREVIOUS SETS").font(.system(size: 9, weight: .black)).foregroundColor(.textMuted).tracking(2)
+                    VStack(alignment: .leading, spacing: FDS.Spacing.sm) {
+                        Text("PREVIOUS SETS").font(FDS.TypeScale.Dynamic.micro).foregroundColor(.textMuted).tracking(2)
                         ScrollView(.horizontal, showsIndicators: false) {
-                            HStack(spacing: 6) {
+                            HStack(spacing: FDS.Spacing.sm) {
                                 ForEach(prevSets) { entry in
                                     VStack(spacing: 3) {
                                         if entry.isPersonalRecord { Image(systemName: "crown.fill").font(.system(size: 9)).foregroundColor(.warning) }
                                         Text("\(entry.repsPerformed)").font(.system(size: 14, weight: .bold, design: .monospaced)).foregroundColor(entry.isPersonalRecord ? .warning : .textPrimary)
                                         if entry.weightUsed > 0 { Text("\(entry.weightUsed)lb").font(.system(size: 10)).foregroundColor(.textTertiary) }
-                                        Text("RPE \(entry.rpe)").font(.system(size: 9, weight: .bold)).foregroundColor(rpeColor(entry.rpe))
+                                        Text("RPE \(entry.rpe)").font(FDS.TypeScale.Dynamic.micro).foregroundColor(rpeColor(entry.rpe))
                                     }
-                                    .padding(.horizontal, 10).padding(.vertical, 8)
-                                    .background(entry.isPersonalRecord ? Color.warning.opacity(0.1) : Color.surfaceElevated).cornerRadius(10)
-                                    .overlay(RoundedRectangle(cornerRadius: 10).stroke(entry.isPersonalRecord ? Color.warning.opacity(0.4) : Color.borderColor.opacity(0.4), lineWidth: 1))
+                                    .padding(.horizontal, FDS.Spacing.md).padding(.vertical, FDS.Spacing.sm)
+                                    .background(entry.isPersonalRecord ? Color.warning.opacity(0.1) : Color.surfaceElevated).cornerRadius(FDS.Radius.sm)
+                                    .overlay(RoundedRectangle(cornerRadius: FDS.Radius.sm).stroke(entry.isPersonalRecord ? Color.warning.opacity(0.4) : Color.borderColor.opacity(0.4), lineWidth: 1))
                                 }
                             }
                         }
                     }
-                    .padding(.horizontal, 24).padding(.vertical, 14)
+                    .padding(.horizontal, FDS.Spacing.xl).padding(.vertical, FDS.Spacing.lg)
                     Divider().background(Color.borderColor.opacity(0.4))
                 }
 
-                HStack(spacing: 5) {
+                HStack(spacing: FDS.Spacing.xs) {
                     Image(systemName: "clock.fill").font(.system(size: 11)).foregroundColor(.textMuted)
                     Text("\(recommendation.restSeconds)s rest").font(.system(size: 12)).foregroundColor(.textTertiary)
                     if let notes = exercise.notes {
@@ -574,15 +574,15 @@ struct ActiveWorkoutView: View {
                         Text(notes).font(.system(size: 12, design: .serif).italic()).foregroundColor(.textTertiary).lineLimit(1)
                     }
                 }
-                .padding(.horizontal, 24).padding(.vertical, 12)
+                .padding(.horizontal, FDS.Spacing.xl).padding(.vertical, FDS.Spacing.md)
             }
-            .background(Color.surface).cornerRadius(24)
-            .overlay(RoundedRectangle(cornerRadius: 24).stroke(Color.borderColor.opacity(0.4), lineWidth: 1))
+            .background(Color.surface).cornerRadius(FDS.Radius.xxl)
+            .overlay(RoundedRectangle(cornerRadius: FDS.Radius.xxl).stroke(Color.borderColor.opacity(0.4), lineWidth: 1))
             .shadow(color: .black.opacity(0.06), radius: 18, y: 8)
 
             actionButtons(exercise: exercise)
         }
-        .padding(.horizontal, 16).padding(.top, 8).padding(.bottom, 16)
+        .padding(.horizontal, FDS.Spacing.lg).padding(.top, FDS.Spacing.sm).padding(.bottom, FDS.Spacing.lg)
     }
 
     // MARK: Action Buttons
@@ -592,64 +592,64 @@ struct ActiveWorkoutView: View {
         let isLastSet = store.currentSet >= exercise.sets
         let isLastEx  = store.currentExerciseIndex >= exercises.count - 1
         let isFinish  = isLastSet && isLastEx
-        VStack(spacing: 10) {
+        VStack(spacing: FDS.Spacing.md) {
             Button {
                 UIImpactFeedbackGenerator(style: .medium).impactOccurred()
                 loggedReps = recommendation.repTarget > 0 ? recommendation.repTarget : (Int(exercise.reps) ?? exercise.reps.repMidpoint)
                 loggedRPE  = recommendation.rpeTarget
                 withAnimation(.spring(response: 0.42, dampingFraction: 0.82)) { showSetLogger = true }
             } label: {
-                HStack(spacing: 10) {
+                HStack(spacing: FDS.Spacing.md) {
                     Image(systemName: isFinish ? "checkmark.circle.fill" : "pencil.and.list.clipboard").font(.system(size: 19, weight: .black))
-                    Text(isFinish ? "Log & Finish 🎉" : isLastSet ? "Log Set · Next Exercise →" : "Log Set →").font(.system(size: 17, weight: .black))
+                    Text(isFinish ? "Log & Finish 🎉" : isLastSet ? "Log Set · Next Exercise →" : "Log Set →").font(FDS.TypeScale.Dynamic.headline)
                     Spacer()
                 }
-                .foregroundColor(.white).padding(.horizontal, 24).padding(.vertical, 20).frame(maxWidth: .infinity)
+                .foregroundColor(.white).padding(.horizontal, FDS.Spacing.xl).padding(.vertical, FDS.Spacing.lg).frame(maxWidth: .infinity)
                 .background(LinearGradient(colors: isFinish ? [Color.success, Color.success.opacity(0.8)] : [Color.ember, Color.ember.opacity(0.82)], startPoint: .leading, endPoint: .trailing))
-                .cornerRadius(20).shadow(color: (isFinish ? Color.success : Color.ember).opacity(0.5), radius: 20, y: 8)
+                .cornerRadius(FDS.Radius.xl).shadow(color: (isFinish ? Color.success : Color.ember).opacity(0.5), radius: 20, y: 8)
                 .animation(.spring(response: 0.35, dampingFraction: 0.72), value: isFinish)
             }
             Button {
                 UIImpactFeedbackGenerator(style: .medium).impactOccurred()
                 store.addFeltSet(exerciseId: exercise.id)
             } label: {
-                HStack(spacing: 8) {
+                HStack(spacing: FDS.Spacing.sm) {
                     Image(systemName: "plus.circle.fill").font(.system(size: 15, weight: .bold))
-                    Text("I feel another set").font(.system(size: 15, weight: .bold, design: .rounded))
+                    Text("I feel another set").font(FDS.TypeScale.Dynamic.body.weight(.semibold))
                     Spacer()
-                    Text("\(exercise.sets) sets").font(.system(size: 12, weight: .semibold)).foregroundColor(.white.opacity(0.8))
+                    Text("\(exercise.sets) sets").font(FDS.TypeScale.Dynamic.caption).foregroundColor(.white.opacity(0.8))
                 }
                 .foregroundColor(.white)
-                .padding(.horizontal, 20).padding(.vertical, 14)
+                .padding(.horizontal, FDS.Spacing.lg).padding(.vertical, FDS.Spacing.lg)
                 .background(Color.steel.opacity(0.85))
-                .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+                .clipShape(RoundedRectangle(cornerRadius: FDS.Radius.lg, style: .continuous))
             }
             .accessibilityLabel("Add a set because you feel it")
             .accessibilityHint("Adds one working set to this movement without undoing ARIA's scale")
-            HStack(spacing: 10) {
+            HStack(spacing: FDS.Spacing.md) {
                 actionMini(icon: "forward.fill", label: "Skip", color: .textSecondary) { skipExercise() }
                 Button {
                     UIImpactFeedbackGenerator(style: .medium).impactOccurred()
                     withAnimation(.spring(response: 0.42, dampingFraction: 0.82)) { showPainLogger = true }
                 } label: {
-                    HStack(spacing: 5) {
+                    HStack(spacing: FDS.Spacing.xs) {
                         Image(systemName: "exclamationmark.triangle.fill").font(.system(size: 12))
-                        Text(painLog.isEmpty ? "Pain" : "Pain (\(painLog.count))").font(.system(size: 14, weight: .semibold))
+                        Text(painLog.isEmpty ? "Pain" : "Pain (\(painLog.count))").font(FDS.TypeScale.Dynamic.body.weight(.semibold))
                     }
                     .foregroundColor(.warning).frame(maxWidth: .infinity).frame(height: 46)
-                    .background(Color.warning.opacity(painLog.isEmpty ? 0.1 : 0.2)).cornerRadius(14)
-                    .overlay(RoundedRectangle(cornerRadius: 14).stroke(Color.warning.opacity(0.3), lineWidth: 1))
+                    .background(Color.warning.opacity(painLog.isEmpty ? 0.1 : 0.2)).cornerRadius(FDS.Radius.md)
+                    .overlay(RoundedRectangle(cornerRadius: FDS.Radius.md).stroke(Color.warning.opacity(0.3), lineWidth: 1))
                 }
                 Button {
                     UIImpactFeedbackGenerator(style: .medium).impactOccurred(); showFormCoach = true
                 } label: {
-                    HStack(spacing: 5) {
+                    HStack(spacing: FDS.Spacing.xs) {
                         Image(systemName: "camera.viewfinder").font(.system(size: 13))
-                        Text("Form").font(.system(size: 14, weight: .semibold))
+                        Text("Form").font(FDS.TypeScale.Dynamic.body.weight(.semibold))
                     }
                     .foregroundColor(.success).frame(maxWidth: .infinity).frame(height: 46)
-                    .background(Color.success.opacity(0.12)).cornerRadius(14)
-                    .overlay(RoundedRectangle(cornerRadius: 14).stroke(Color.success.opacity(0.3), lineWidth: 1))
+                    .background(Color.success.opacity(0.12)).cornerRadius(FDS.Radius.md)
+                    .overlay(RoundedRectangle(cornerRadius: FDS.Radius.md).stroke(Color.success.opacity(0.3), lineWidth: 1))
                 }
             }
         }
@@ -657,13 +657,13 @@ struct ActiveWorkoutView: View {
 
     private func actionMini(icon: String, label: String, color: Color, action: @escaping () -> Void) -> some View {
         Button(action: action) {
-            HStack(spacing: 5) {
+            HStack(spacing: FDS.Spacing.xs) {
                 Image(systemName: icon).font(.system(size: 12))
-                Text(label).font(.system(size: 14, weight: .semibold))
+                Text(label).font(FDS.TypeScale.Dynamic.body.weight(.semibold))
             }
             .foregroundColor(color).frame(maxWidth: .infinity).frame(height: 46)
-            .background(Color.surfaceElevated).cornerRadius(14)
-            .overlay(RoundedRectangle(cornerRadius: 14).stroke(Color.borderColor.opacity(0.5), lineWidth: 1))
+            .forgeInsetTile(radius: FDS.Radius.md)
+            .overlay(RoundedRectangle(cornerRadius: FDS.Radius.md).stroke(Color.borderColor.opacity(0.5), lineWidth: 1))
         }
     }
 
@@ -733,7 +733,7 @@ struct ActiveWorkoutView: View {
 
     private var voiceCoachBar: some View {
         VoiceCoachBar(coach: voiceCoach)
-            .padding(.horizontal, 16).padding(.bottom, 20).padding(.top, 6)
+            .padding(.horizontal, FDS.Spacing.lg).padding(.bottom, FDS.Spacing.lg).padding(.top, FDS.Spacing.sm)
             .onChange(of: store.currentExerciseIndex) { _, _ in
                 syncVoiceCoach()
                 publishLiveActivity()
@@ -746,7 +746,7 @@ struct ActiveWorkoutView: View {
 
     // MARK: Logic
 
-    private func rpeColor(_ rpe: Int) -> Color { rpe <= 4 ? .success : rpe <= 7 ? Color(hex: "F59E0B") : .danger }
+    private func rpeColor(_ rpe: Int) -> Color { rpe <= 4 ? .success : rpe <= 7 ? Color.amber : .danger }
     private func setupCurrentWeight() { currentWeight = currentExercise?.weight ?? 0 }
 
     private func confirmSet(exercise: Exercise) {

@@ -10,7 +10,7 @@ extension View {
 
     /// Full premium glass card: fill + hairline + depth.
     /// Default radius is 20 — dense like a fitness OS card, not a modal.
-    func forgeGlassCard(cornerRadius: CGFloat = 20, accent: Color? = nil) -> some View {
+    func forgeGlassCard(cornerRadius: CGFloat = FDS.Radius.xl, accent: Color? = nil) -> some View {
         modifier(ForgeGlassCard(cornerRadius: cornerRadius, accent: accent))
     }
 

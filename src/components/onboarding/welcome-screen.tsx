@@ -96,7 +96,7 @@ export default function WelcomeScreen({ onNext }: WelcomeScreenProps) {
           <header className="flex items-center gap-3">
             <div className="flex items-center gap-2.5">
               <ForgeBrandMark size={18} />
-              <span className="text-[15px] font-semibold tracking-wide text-text-primary">Forge</span>
+              <span className="text-[0.9375rem] font-semibold tracking-wide text-text-primary">Forge</span>
             </div>
             <div className="flex-1" />
             <button
@@ -117,7 +117,7 @@ export default function WelcomeScreen({ onNext }: WelcomeScreenProps) {
                 <AriaMark size={140} speaking={hook.id === "aria"} label="ARIA" className="relative z-10" />
               ) : (
                 <div className="relative z-10 flex h-28 w-28 items-center justify-center rounded-full border border-white/10 bg-white/[0.04] shadow-[0_0_40px_rgba(247,244,240,0.06)]">
-                  <span className="text-2xl text-[#F7F4F0]/85" aria-hidden>
+                  <span className="text-2xl text-text-primary/85" aria-hidden>
                     {hook.icon}
                   </span>
                 </div>
@@ -126,7 +126,7 @@ export default function WelcomeScreen({ onNext }: WelcomeScreenProps) {
           </PremiumEntrance>
 
           <PremiumEntrance key={`kicker-${hook.id}`} index={1}>
-            <p className="premium-kicker-glow text-[12px] font-medium uppercase tracking-[0.24em] text-text-tertiary">
+            <p className="premium-kicker-glow text-xs font-medium uppercase tracking-[0.24em] text-text-tertiary">
               {hook.kicker}
             </p>
           </PremiumEntrance>
@@ -139,7 +139,7 @@ export default function WelcomeScreen({ onNext }: WelcomeScreenProps) {
             </h1>
           </PremiumEntrance>
           <PremiumEntrance key={`body-${hook.id}`} index={3}>
-            <p className="mt-4 max-w-sm text-[15px] font-normal leading-relaxed text-text-secondary">
+            <p className="mt-4 max-w-sm text-[0.9375rem] font-normal leading-relaxed text-text-secondary">
               {hook.body}
             </p>
           </PremiumEntrance>
@@ -168,7 +168,7 @@ export default function WelcomeScreen({ onNext }: WelcomeScreenProps) {
                 }}
               />
             </div>
-            <p className="text-[11px] font-medium uppercase tracking-[0.14em] text-text-tertiary">
+            <p className="text-xs font-medium uppercase tracking-[0.14em] text-text-tertiary">
               {page + 1} of {HOOKS.length}
             </p>
           </div>
@@ -185,7 +185,7 @@ export default function WelcomeScreen({ onNext }: WelcomeScreenProps) {
               advance();
             }}
             className={cn(
-              "relative z-40 flex w-full min-h-[64px] items-center justify-between rounded-full bg-[#F7F4F0] px-6 py-5 text-[17px] font-semibold text-[#0A0A0A]",
+              "relative z-40 flex w-full min-h-[64px] items-center justify-between rounded-full bg-paper px-6 py-5 type-headline font-semibold text-background",
               "shadow-[0_10px_30px_rgba(247,244,240,0.14)] transition-[filter,box-shadow] duration-150",
               "active:brightness-[0.92] active:shadow-none",
               "touch-manipulation select-none"
@@ -212,7 +212,7 @@ export default function WelcomeScreen({ onNext }: WelcomeScreenProps) {
             </button>
           )}
 
-          <p className="mt-2 text-center text-[11px] text-text-muted">
+          <p className="mt-2 text-center text-xs text-text-muted">
             Lifestyle fitness coaching · Live your best life
           </p>
         </div>
@@ -254,11 +254,11 @@ function SignInSheet({
   return (
     <div className="premium-scrim-in fixed inset-0 z-50 flex items-end justify-center bg-black/55 sm:items-center">
       <button type="button" className="absolute inset-0" aria-label="Close sign in" onClick={onClose} />
-      <div className="premium-sheet-rise relative z-10 w-full max-w-md rounded-t-3xl border border-white/10 bg-[#0A0A0A] px-6 pb-10 pt-5 shadow-2xl sm:rounded-3xl">
+      <div className="premium-sheet-rise relative z-10 w-full max-w-md rounded-t-3xl border border-white/10 bg-background px-6 pb-10 pt-5 shadow-2xl sm:rounded-3xl">
         <div className="mx-auto mb-5 h-1 w-10 rounded-full bg-white/15 sm:hidden" />
         <div className="mb-6 flex items-start justify-between gap-4">
           <div>
-            <p className="premium-kicker-glow text-[12px] font-medium uppercase tracking-[0.2em] text-text-tertiary">
+            <p className="premium-kicker-glow text-xs font-medium uppercase tracking-[0.2em] text-text-tertiary">
               Welcome back
             </p>
             <h2 className="mt-2 text-[28px] font-semibold tracking-tight text-text-primary">
@@ -319,11 +319,11 @@ function SignInSheet({
           <button
             type="button"
             onClick={onContinueAsTester}
-            className="w-full rounded-full border border-steel/25 bg-steel/10 px-6 py-3.5 text-[15px] font-medium text-steel transition hover:bg-steel/15"
+            className="w-full rounded-full border border-steel/25 bg-steel/10 px-6 py-3.5 text-[0.9375rem] font-medium text-steel transition hover:bg-steel/15"
           >
             Continue as tester
           </button>
-          <p className="text-center text-[11px] text-text-muted">
+          <p className="text-center text-xs text-text-muted">
             Cognito isn’t paired yet — tester login stays for device work.
           </p>
 

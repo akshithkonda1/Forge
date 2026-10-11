@@ -44,16 +44,16 @@ export function BottomNav({ activeTab, onTabChange }: BottomNavProps) {
                   className={cn(
                     "flex h-12 w-12 items-center justify-center rounded-full transition-shadow duration-200",
                     isActive
-                      ? "bg-[#F7F4F0] text-[#0A0A0A] shadow-[0_8px_24px_rgba(247,244,240,0.18)]"
-                      : "bg-white/[0.1] text-[#F7F4F0] ring-1 ring-white/15"
+                      ? "bg-paper text-background shadow-[0_8px_24px_rgba(247,244,240,0.18)]"
+                      : "bg-white/[0.1] text-text-primary ring-1 ring-white/15"
                   )}
                 >
                   <Icon size={22} />
                 </div>
                 <span
                   className={cn(
-                    "mt-1.5 text-[10px] font-medium",
-                    isActive ? "text-[#F7F4F0]" : "text-text-tertiary"
+                    "mt-1.5 type-micro font-medium",
+                    isActive ? "text-text-primary" : "text-text-tertiary"
                   )}
                 >
                   {tab.label}
@@ -78,20 +78,20 @@ export function BottomNav({ activeTab, onTabChange }: BottomNavProps) {
                   size={22}
                   className={cn(
                     "transition-colors",
-                    isActive ? "text-[#F7F4F0]" : "text-text-tertiary"
+                    isActive ? "text-text-primary" : "text-text-tertiary"
                   )}
                 />
               )}
               <span
                 className={cn(
-                  "text-[10px] font-medium transition-colors",
-                  isActive ? "text-[#F7F4F0]" : "text-text-tertiary"
+                  "type-micro font-medium transition-colors",
+                  isActive ? "text-text-primary" : "text-text-tertiary"
                 )}
               >
                 {tab.label}
               </span>
               {isActive && (
-                <span className="absolute -top-px h-0.5 w-7 rounded-full bg-[#F7F4F0]/80" />
+                <span className="absolute -top-px h-0.5 w-7 rounded-full bg-paper/80" />
               )}
             </button>
           );

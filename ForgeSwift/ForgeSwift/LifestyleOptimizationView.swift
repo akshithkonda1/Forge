@@ -9,7 +9,7 @@ struct AIOptimizationContent: View {
     @ObservedObject var locationLogger: LocationMealLogger
 
     var body: some View {
-        LazyVStack(spacing: 20) {
+        LazyVStack(spacing: FDS.Spacing.lg) {
             LocationQuickLogCard(locationLogger: locationLogger, vm: vm)
             TodaysFocusCard(vm: vm)
 
@@ -40,13 +40,13 @@ struct LocationQuickLogCard: View {
     @ObservedObject var vm: LifestyleViewModel
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            HStack(spacing: 12) {
+        VStack(alignment: .leading, spacing: FDS.Spacing.lg) {
+            HStack(spacing: FDS.Spacing.md) {
                 Image(systemName: "location.fill")
                     .font(.system(size: 18))
                     .foregroundColor(.ember)
                 Text("Quick Location Log")
-                    .font(.system(size: 18, weight: .bold))
+                    .font(FDS.TypeScale.Dynamic.headline)
                     .foregroundColor(.textPrimary)
             }
 
@@ -70,9 +70,9 @@ struct LocationQuickLogCard: View {
                 .font(.system(size: 15, weight: .bold))
                 .foregroundColor(.white)
                 .frame(maxWidth: .infinity)
-                .padding(.vertical, 14)
+                .padding(.vertical, FDS.Spacing.lg)
                 .background(LinearGradient.emberGradient)
-                .cornerRadius(14)
+                .cornerRadius(FDS.Radius.md)
             }
             .disabled(locationLogger.isDetectingLocation)
 
@@ -82,8 +82,8 @@ struct LocationQuickLogCard: View {
                     .foregroundColor(.danger)
             }
         }
-        .padding(20)
-        .forgeGlassCard(cornerRadius: 20, accent: .ember)
+        .padding(FDS.Spacing.lg)
+        .forgeGlassCard(cornerRadius: FDS.Radius.xl, accent: .ember)
     }
 }
 
@@ -96,7 +96,7 @@ struct LocationMealConfirmationSheet: View {
     var body: some View {
         NavigationStack {
             ScrollView(showsIndicators: false) {
-                VStack(alignment: .leading, spacing: 14) {
+                VStack(alignment: .leading, spacing: FDS.Spacing.lg) {
                     Text("Select what you ate. Macros write to Apple Health.")
                         .font(.system(size: 13))
                         .foregroundColor(.textSecondary)
@@ -106,7 +106,7 @@ struct LocationMealConfirmationSheet: View {
                             HStack {
                                 VStack(alignment: .leading, spacing: 3) {
                                     Text(item.name)
-                                        .font(.system(size: 14, weight: .semibold))
+                                        .font(FDS.TypeScale.Dynamic.body.weight(.semibold))
                                         .foregroundColor(.textPrimary)
                                     Text("\(item.calories) cal · \(item.protein)g protein")
                                         .font(.system(size: 12))
@@ -116,14 +116,13 @@ struct LocationMealConfirmationSheet: View {
                                 Image(systemName: "plus.circle.fill")
                                     .foregroundColor(.ember)
                             }
-                            .padding(14)
-                            .background(Color.surfaceElevated)
-                            .cornerRadius(12)
+                            .padding(FDS.Spacing.lg)
+                            .forgeInsetTile(radius: FDS.Radius.md)
                         }
                         .buttonStyle(.plain)
                     }
                 }
-                .padding(20)
+                .padding(FDS.Spacing.lg)
             }
             .background(Color.background)
             .navigationTitle(venue)
@@ -152,12 +151,12 @@ struct TodaysFocusCard: View {
         }
         
         if stats.sleepHours < 6.5 {
-            return ("Sleep Priority", "moon.zzz.fill", "High", "Aim for 8+ hours tonight", Color(hex: "A855F7"), [Color(hex: "A855F7"), Color(hex: "C77DFF")])
+            return ("Sleep Priority", "moon.zzz.fill", "High", "Aim for 8+ hours tonight", Color.aurora, [Color.aurora, Color(hex: "C77DFF")])
         }
         
         if stats.protein < 120 {
             let remaining = Int(180 - stats.protein)
-            return ("Protein Deficit", "fork.knife.circle.fill", "High", "Add \(remaining)g protein today", .ember, [.ember, Color(hex: "FFB84D")])
+            return ("Protein Deficit", "fork.knife.circle.fill", "High", "Add \(remaining)g protein today", .ember, [.ember, Color.amber])
         }
         
         if stats.steps < 5000 {
@@ -165,7 +164,7 @@ struct TodaysFocusCard: View {
         }
         
         if stats.water < 6 {
-            return ("Hydration Check", "drop.circle.fill", "Medium", "Drink more water", Color(hex: "4A9EFF"), [Color(hex: "4A9EFF"), Color(hex: "00D4FF")])
+            return ("Hydration Check", "drop.circle.fill", "Medium", "Drink more water", Color.steel, [Color.steel, Color(hex: "00D4FF")])
         }
         
         return ("Peak Performance", "bolt.circle.fill", "Ready", "Crush your workout", .success, [.success, Color(hex: "00FF88")])
@@ -207,29 +206,29 @@ struct TodaysFocusCard: View {
                     }
                 }
                 
-                VStack(alignment: .leading, spacing: 16) {
+                VStack(alignment: .leading, spacing: FDS.Spacing.lg) {
                     // Priority badge
-                    HStack(spacing: 6) {
+                    HStack(spacing: FDS.Spacing.sm) {
                         Circle()
                             .fill(.white.opacity(0.9))
                             .frame(width: 6, height: 6)
                             .shadow(color: .white.opacity(0.6), radius: 4)
                         Text(focusArea.priority.uppercased())
-                            .font(.system(size: 10, weight: .black))
+                            .font(FDS.TypeScale.Dynamic.micro)
                             .foregroundColor(.white)
                             .tracking(1.5)
                     }
-                    .padding(.horizontal, 12)
-                    .padding(.vertical, 6)
+                    .padding(.horizontal, FDS.Spacing.md)
+                    .padding(.vertical, FDS.Spacing.sm)
                     .background(.white.opacity(0.2))
-                    .cornerRadius(20)
+                    .cornerRadius(FDS.Radius.xl)
                     .overlay(
                         Capsule()
                             .stroke(.white.opacity(0.3), lineWidth: 1)
                     )
                     
                     // Main content
-                    HStack(spacing: 16) {
+                    HStack(spacing: FDS.Spacing.lg) {
                         ZStack {
                             Circle()
                                 .fill(.white.opacity(0.2))
@@ -247,50 +246,50 @@ struct TodaysFocusCard: View {
                         .scaleEffect(appeared ? 1 : 0.7)
                         .animation(.spring(response: 0.6, dampingFraction: 0.65).delay(0.1), value: appeared)
                         
-                        VStack(alignment: .leading, spacing: 6) {
+                        VStack(alignment: .leading, spacing: FDS.Spacing.sm) {
                             Text("TODAY'S FOCUS")
-                                .font(.system(size: 11, weight: .black))
+                                .font(FDS.TypeScale.Dynamic.micro)
                                 .foregroundColor(.white.opacity(0.8))
                                 .tracking(2)
                             
                             Text(focusArea.title)
-                                .font(.system(size: 24, weight: .black))
+                                .font(FDS.TypeScale.Dynamic.title)
                                 .foregroundColor(.white)
                                 .shadow(color: .black.opacity(0.2), radius: 4)
                             
                             Text(focusArea.action)
-                                .font(.system(size: 14, weight: .semibold))
+                                .font(FDS.TypeScale.Dynamic.body.weight(.semibold))
                                 .foregroundColor(.white.opacity(0.9))
                         }
                     }
                 }
-                .padding(24)
+                .padding(FDS.Spacing.xl)
             }
             .frame(height: 180)
-            .clipShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
+            .clipShape(RoundedRectangle(cornerRadius: FDS.Radius.xxl, style: .continuous))
             
             // Quick action button
             Button {
                 // Navigate to relevant section
                 UIImpactFeedbackGenerator(style: .medium).impactOccurred()
             } label: {
-                HStack(spacing: 10) {
+                HStack(spacing: FDS.Spacing.md) {
                     Image(systemName: "arrow.right.circle.fill")
                         .font(.system(size: 18, weight: .bold))
                     Text("Take Action")
-                        .font(.system(size: 16, weight: .bold))
+                        .font(FDS.TypeScale.Dynamic.headline)
                     Spacer()
                     Image(systemName: "chevron.right")
                         .font(.system(size: 14, weight: .semibold))
                 }
                 .foregroundColor(focusArea.color)
-                .padding(18)
+                .padding(FDS.Spacing.lg)
                 .background(focusArea.color.opacity(0.1))
-                .cornerRadius(16)
+                .cornerRadius(FDS.Radius.lg)
             }
-            .padding(16)
+            .padding(FDS.Spacing.lg)
         }
-        .forgeGlassCard(cornerRadius: 24, accent: focusArea.color)
+        .forgeGlassCard(cornerRadius: FDS.Radius.xxl, accent: focusArea.color)
         .onAppear { appeared = true }
     }
 }

@@ -56,12 +56,7 @@ struct ProfileHeroHeader: View {
     }
 
     private var readinessWord: String {
-        switch store.readiness.overall {
-        case 85...:   return "Primed"
-        case 70..<85: return "Ready"
-        case 55..<70: return "Steady"
-        default:      return "Recover"
-        }
+        HomeReadiness.label(store.readiness.overall)
     }
 
     private var trend: AppStore.ReadinessTrend { store.readinessTrend }
@@ -147,7 +142,7 @@ struct ProfileHeroHeader: View {
 
             VStack(spacing: FDS.Spacing.sm) {
                 Text(displayName)
-                    .font(FDS.TypeScale.pageTitle(28))
+                    .font(ForgeType.pageTitle)
                     .foregroundColor(.textPrimary)
                     .lineLimit(1)
                     .minimumScaleFactor(0.7)
@@ -161,14 +156,14 @@ struct ProfileHeroHeader: View {
     }
 
     private func identityChip(text: String, icon: String, color: Color) -> some View {
-        HStack(spacing: 5) {
+        HStack(spacing: FDS.Spacing.xs) {
             Image(systemName: icon).font(.system(size: 10, weight: .semibold))
-            Text(text).font(.system(size: 12, weight: .semibold))
+            Text(text).font(FDS.TypeScale.Dynamic.caption)
                 .lineLimit(1)
         }
         .foregroundColor(color)
-        .padding(.horizontal, 12)
-        .padding(.vertical, 6)
+        .padding(.horizontal, FDS.Spacing.md)
+        .padding(.vertical, FDS.Spacing.sm)
         .background(Capsule().fill(color.opacity(0.12)))
         .overlay(Capsule().stroke(color.opacity(0.25), lineWidth: 1))
     }
@@ -194,21 +189,21 @@ struct ProfileHeroHeader: View {
     }
 
     private func heroStat(value: String, label: String, icon: String, tint: Color) -> some View {
-        VStack(spacing: 6) {
+        VStack(spacing: FDS.Spacing.sm) {
             Image(systemName: icon).font(.system(size: 13, weight: .semibold)).foregroundColor(tint)
             Text(value)
-                .font(.system(size: 20, weight: .bold, design: .rounded))
+                .font(FDS.TypeScale.Dynamic.metric)
                 .foregroundColor(.textPrimary)
                 .lineLimit(1)
                 .minimumScaleFactor(0.6)
             Text(label)
-                .font(.system(size: 10, weight: .medium))
+                .font(FDS.TypeScale.Dynamic.micro)
                 .foregroundColor(.textTertiary)
                 .lineLimit(1)
                 .minimumScaleFactor(0.7)
         }
         .frame(maxWidth: .infinity)
-        .padding(.horizontal, 4)
+        .padding(.horizontal, FDS.Spacing.xs)
         .accessibilityElement(children: .combine)
         .accessibilityLabel("\(value) \(label)")
     }
@@ -245,27 +240,27 @@ struct ProfileHeroHeader: View {
                 store.pendingLifestyleSegment = "lifetime"
                 store.activeTab = .lifestyle
             } label: {
-                VStack(alignment: .leading, spacing: 8) {
+                VStack(alignment: .leading, spacing: FDS.Spacing.sm) {
                     Text("LIFETIME")
-                        .font(.system(size: 10, weight: .black))
+                        .font(FDS.TypeScale.Dynamic.micro)
                         .tracking(1.4)
                         .foregroundColor(.textTertiary)
                     if !heart.isEmpty {
                         Text(heart)
-                            .font(.system(size: 15, weight: .semibold, design: .rounded))
+                            .font(FDS.TypeScale.Dynamic.body.weight(.semibold))
                             .foregroundColor(.textPrimary)
                             .fixedSize(horizontal: false, vertical: true)
                     }
                     if !metabolic.isEmpty {
                         Text(metabolic)
-                            .font(.system(size: 13, weight: .medium))
+                            .font(FDS.TypeScale.Dynamic.caption)
                             .foregroundColor(.textSecondary)
                             .fixedSize(horizontal: false, vertical: true)
                     }
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .padding(FDS.Spacing.lg)
-                .forgeGlassCard(accent: Color(hex: "A855F7"))
+                .forgeGlassCard(accent: Color.aurora)
             }
             .buttonStyle(.plain)
             .accessibilityLabel([heart, metabolic].filter { !$0.isEmpty }.joined(separator: ". "))
@@ -286,28 +281,28 @@ struct ProfileHeroHeader: View {
                     .frame(width: 46, height: 46)
                     .animation(FDS.Spring.sweep, value: store.readiness.overall)
                 Text("\(store.readiness.overall)")
-                    .font(.system(size: 15, weight: .bold, design: .rounded))
+                    .font(FDS.TypeScale.Dynamic.body.weight(.semibold))
                     .foregroundColor(.textPrimary)
             }
 
             VStack(alignment: .leading, spacing: 2) {
                 Text("Readiness today")
-                    .font(.system(size: 12, weight: .medium))
+                    .font(FDS.TypeScale.Dynamic.caption)
                     .foregroundColor(.textTertiary)
                 Text(readinessWord)
-                    .font(.system(size: 17, weight: .semibold))
+                    .font(FDS.TypeScale.Dynamic.headline)
                     .foregroundColor(.textPrimary)
             }
 
             Spacer()
 
-            HStack(spacing: 4) {
+            HStack(spacing: FDS.Spacing.xs) {
                 Image(systemName: trendSymbol).font(.system(size: 10, weight: .bold))
-                Text(trendLabel).font(.system(size: 11, weight: .semibold)).lineLimit(1)
+                Text(trendLabel).font(FDS.TypeScale.Dynamic.micro).lineLimit(1)
             }
             .foregroundColor(trendColor)
-            .padding(.horizontal, 10)
-            .padding(.vertical, 6)
+            .padding(.horizontal, FDS.Spacing.md)
+            .padding(.vertical, FDS.Spacing.sm)
             .background(Capsule().fill(trendColor.opacity(0.12)))
         }
         .padding(FDS.Spacing.lg)
@@ -333,9 +328,9 @@ struct ProfileHeroHeader: View {
     }
 
     private func actionLabel(icon: String, text: String, filled: Bool) -> some View {
-        HStack(spacing: 7) {
+        HStack(spacing: FDS.Spacing.sm) {
             Image(systemName: icon).font(.system(size: 14, weight: .semibold))
-            Text(text).font(.system(size: 14, weight: .semibold))
+            Text(text).font(FDS.TypeScale.Dynamic.body.weight(.semibold))
         }
         .foregroundColor(filled ? .white : .ember)
         .frame(maxWidth: .infinity)
