@@ -384,14 +384,52 @@ class PermissionEnforcementTests(unittest.TestCase):
         self.assertEqual(set(resp["restricted_domains"]), {"body", "nutrition"})
 
     def test_asking_about_a_restricted_domain_is_declined_clearly(self):
-        ctx = full_context(body=aria_engine.BodyContext(weight_trend_kg=-1.2))
+        # Pin the clock: every response also carries
+        # sharedIntelligence.circadian.hourOfDay as a decimal hour. The old
+        # check (`assertNotIn("1.2", json.dumps(resp))` against
+        # weight_trend_kg=-1.2) collided with that field at minutes 12-17 of
+        # hours 01, 11, and 21 UTC — 18 minutes/day of false leak failures.
+        ctx = full_context(
+            timestamp="2026-10-12T12:00:00+00:00",
+            body=aria_engine.BodyContext(weight_trend_kg=-7.913),
+        )
         resp = aria_engine.generate_response(
             "how's my weight trend?", ctx,
             permissions=aria_engine.DataPermissions.from_payload({"body": False}),
         )
         self.assertEqual(resp["response_type"], "clarification")
         self.assertIn("off", resp["prose_summary"].lower())
-        self.assertNotIn("1.2", json.dumps(resp))
+        self.assertNotIn("7.913", json.dumps(resp))
+        user_facing = [resp.get("prose_summary") or "", resp.get("message") or ""]
+        card = resp.get("card")
+        if isinstance(card, dict):
+            user_facing.extend(str(v) for v in card.values())
+        user_facing.extend(str(a) for a in (resp.get("suggested_actions") or []))
+        for text in user_facing:
+            self.assertNotIn("7.913", text)
+
+    def test_restricted_body_leak_check_survives_hour_of_day_collisions(self):
+        # Proves the leak check stays green exactly where `assertNotIn("1.2",
+        # json.dumps(resp))` used to fail: hourOfDay really does render as
+        # 1.2 / 11.25 / 21.28-ish, while the hidden body value stays absent.
+        cases = (
+            ("2026-10-12T01:12:00+00:00", "1.2"),
+            ("2026-10-12T11:15:00+00:00", "11.25"),
+            ("2026-10-12T21:17:00+00:00", "21.28"),
+        )
+        for stamp, hod_fragment in cases:
+            with self.subTest(timestamp=stamp):
+                ctx = full_context(
+                    timestamp=stamp,
+                    body=aria_engine.BodyContext(weight_trend_kg=-7.913),
+                )
+                resp = aria_engine.generate_response(
+                    "how's my weight trend?", ctx,
+                    permissions=aria_engine.DataPermissions.from_payload({"body": False}),
+                )
+                self.assertNotIn("7.913", json.dumps(resp))
+                hod = json.dumps(resp["sharedIntelligence"]["circadian"]["hourOfDay"])
+                self.assertIn(hod_fragment, hod)
 
     def test_no_permissions_means_nothing_restricted(self):
         resp = aria_engine.generate_response("how did I sleep?", full_context())
