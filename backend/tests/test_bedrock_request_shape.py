@@ -137,7 +137,7 @@ class DefaultModelTests(unittest.TestCase):
         models = ai_router.default_models()
         self.assertEqual(models[0].model_id, "global.anthropic.claude-sonnet-5-5")
         self.assertEqual(models[1].model_id, "global.anthropic.claude-opus-5-5")
-        self.assertEqual(models[2].model_id, "global.xai.grok-4.6")
+        self.assertEqual(models[2].model_id, "global.xai.grok-4.7")
         self.assertEqual(aria_engine.LIVE_MODEL_IDS[aria_engine.MODEL_PRIMARY], "global.anthropic.claude-opus-5-5")
         self.assertEqual(aria_engine.LIVE_MODEL_IDS[aria_engine.MODEL_FAST], "global.anthropic.claude-sonnet-5-5")
         for model in models[:2]:
