@@ -166,8 +166,8 @@ struct SleepWakeScreen: View {
                     }
                     if WakeScreenPreferences.showSleepScore {
                         Text(SleepWakeCoach.morningPrompt(
-                            sleepScore: store.sleepData.first?.score,
-                            lastNightHours: store.sleepData.first?.totalHours
+                            sleepScore: SleepData.lastNight(in: store.sleepData)?.score,
+                            lastNightHours: SleepData.lastNight(in: store.sleepData)?.totalHours
                         ))
                         .font(.system(size: 14, weight: .medium))
                         .foregroundColor(.white.opacity(0.78))
@@ -229,8 +229,8 @@ struct SleepWakeScreen: View {
 
                 Button {
                     let prompt = SleepWakeCoach.morningPrompt(
-                        sleepScore: store.sleepData.first?.score,
-                        lastNightHours: store.sleepData.first?.totalHours
+                        sleepScore: SleepData.lastNight(in: store.sleepData)?.score,
+                        lastNightHours: SleepData.lastNight(in: store.sleepData)?.totalHours
                     )
                     wake.dismiss()
                     store.openChat(with: prompt, voice: false)
@@ -380,8 +380,8 @@ struct WakeUpTab: View {
     private var coach: SleepWakeCoach {
         SleepWakeCoach.make(
             alarms: store.alarms,
-            sleepScore: appStore.sleepData.first?.score,
-            lastNightHours: appStore.sleepData.first?.totalHours,
+            sleepScore: SleepData.lastNight(in: appStore.sleepData)?.score,
+            lastNightHours: SleepData.lastNight(in: appStore.sleepData)?.totalHours,
             smartWindowMinutes: store.next.map {
                 hkService.adaptiveSmartWakeMinutes(base: $0.smartWakeWindow, depth: store.sleeperDepth)
             }
@@ -791,7 +791,7 @@ struct WakeGreetingCard: View {
                             .multilineTextAlignment(.center)
                         HStack(spacing: FDS.Spacing.lg) {
                             if showSleepScore {
-                                let score = store.sleepData.first.map { "Sleep \($0.score)" } ?? "Sleep"
+                                let score = SleepData.lastNight(in: store.sleepData).map { "Sleep \($0.score)" } ?? "Sleep"
                                 Label(score, systemImage: "moon.stars.fill").foregroundColor(.steel)
                             }
                             if showWeather   { Label("Local weather", systemImage: "sun.max.fill").foregroundColor(Color.amber) }

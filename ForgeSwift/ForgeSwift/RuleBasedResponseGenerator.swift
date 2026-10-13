@@ -638,7 +638,7 @@ final class RuleBasedResponseGenerator: TrainerResponseGenerator {
                 ?? "I'll get you up at \(target). A few more nights of sleep and I'll ratchet bedtime toward it."
             return TrainerResponse(content: content, confidence: 0.9)
         }
-        let lastSleep = context.sleepData.first
+        let lastSleep = SleepData.lastNight(in: context.sleepData)
         let deepMin = lastSleep?.deepMinutes ?? context.dailyMetrics.deepSleep
         let totalHrs = lastSleep?.totalHours ?? Double(context.dailyMetrics.totalSleep) / 60
         let scores = context.sleepData.prefix(7).map { Double($0.score) }.reversed().map { $0 }

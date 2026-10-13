@@ -978,7 +978,7 @@ extension AppStore {
         HealthKitSleepService.shared.rememberSleepSignals(from: sleepData)
         invalidatePredictiveCoachPicture()
         Task { await SleepAlarmScheduler.sync(ForgeAlarmStore.shared.alarms) }
-        if let latest = sleepData.first {
+        if let latest = SleepData.lastNight(in: sleepData) {
             dailyMetrics.totalSleep = Int(latest.totalHours * 60)
             dailyMetrics.deepSleep = latest.deepMinutes
             recalculateReadiness()

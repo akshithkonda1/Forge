@@ -25,7 +25,7 @@ enum AriaDummyPerception {
     ) -> AriaSituationInput {
         let sleepHours: Double? = {
             if let hours = grounding.sleepHours, hours > 0 { return hours }
-            if let night = store.sleepData.first, night.totalHours > 0 { return night.totalHours }
+            if let night = SleepData.lastNight(in: store.sleepData, now: now), night.totalHours > 0 { return night.totalHours }
             if store.dailyMetrics.totalSleep > 0 {
                 return Double(store.dailyMetrics.totalSleep) / 60.0
             }

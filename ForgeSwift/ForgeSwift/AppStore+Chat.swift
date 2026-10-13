@@ -250,8 +250,9 @@ extension AppStore {
             }
         }
 
-        let lastNight = sleepData.first
-        let shortRun = sleepData.prefix(4).prefix { $0.totalHours < 6.5 }.count
+        let lastNight = SleepData.lastNight(in: sleepData)
+        // A run of short nights only counts when it reaches last night.
+        let shortRun = lastNight == nil ? 0 : sleepData.prefix(4).prefix { $0.totalHours < 6.5 }.count
         let today = ISO8601DateFormatter()
         today.formatOptions = [.withFullDate]
         let todayKey = String(today.string(from: Date()).prefix(10))
