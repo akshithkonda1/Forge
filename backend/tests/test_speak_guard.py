@@ -451,7 +451,10 @@ class BlockingPatternSpeakTests(unittest.TestCase):
             self.assertNotRegex(blob, self._STUCK_UNIT)
             self.assertNotRegex(blob, self._BANNED)
             self.assertFalse(speak_guard.spoken_has_button(blob, resp.get("card")))
-            if line == aria_engine.SPOKEN_SHORT_SLEEP:
+            if line in (
+                aria_engine.SPOKEN_SHORT_SLEEP,
+                aria_engine.SPOKEN_SHORT_SLEEP_AND_HOT,
+            ):
                 in_line = len(re.findall(r"(?i)\bsleep\b", line))
                 self.assertLessEqual(
                     len(re.findall(r"(?i)\bsleep\b", blob)), in_line, blob
@@ -529,14 +532,19 @@ class BlockingPatternSpeakTests(unittest.TestCase):
         resp = aria_engine.generate_response(
             "should I train hard today?", both, voice_mode=True
         )
-        # Protect's spoken line wins when overreaching and sleep-protect both fire.
+        # Overreaching and sleep-protect both fire: one combined line names both
+        # risks (sleep leads), then the same protect step.
         self.assertEqual(resp["message"], resp["prose_summary"])
         self.assertEqual(
             resp["prose_summary"],
-            f"{aria_engine.SPOKEN_SHORT_SLEEP} {aria_engine.SPOKEN_PROTECT_STEP}",
+            f"{aria_engine.SPOKEN_SHORT_SLEEP_AND_HOT} {aria_engine.SPOKEN_PROTECT_STEP}",
         )
-        self._assert_clean_spoken(resp, aria_engine.SPOKEN_SHORT_SLEEP)
+        self._assert_clean_spoken(resp, aria_engine.SPOKEN_SHORT_SLEEP_AND_HOT)
+        self.assertNotIn(aria_engine.SPOKEN_SHORT_SLEEP, resp["prose_summary"])
         self.assertNotIn(aria_engine.SPOKEN_OVERTRAIN, resp["prose_summary"])
+        both_low = resp["prose_summary"].lower()
+        self.assertIn("short on sleep", both_low)
+        self.assertIn("training has climbed fast", both_low)
         notice = (resp.get("evidence") or {}).get("notice") or ""
         self.assertTrue(
             re.search(r"(?i)overtrain|workload is running hot", notice), notice
@@ -570,7 +578,7 @@ class BlockingPatternSpeakTests(unittest.TestCase):
         sleep_text = aria_engine.generate_response(
             "should I train hard today?", both, voice_mode=False
         )
-        self._assert_clean_spoken(sleep_text, aria_engine.SPOKEN_SHORT_SLEEP)
+        self._assert_clean_spoken(sleep_text, aria_engine.SPOKEN_SHORT_SLEEP_AND_HOT)
         self._assert_clean_spoken(hot_text, aria_engine.SPOKEN_OVERTRAIN)
         sleep_card = sleep_text.get("card") or {}
         hot_card = hot_text.get("card") or {}
@@ -606,7 +614,7 @@ class BlockingPatternSpeakTests(unittest.TestCase):
             self.assertNotRegex(item, self._STUCK_UNIT, insights)
             if risk:
                 self.assertNotIn(risk, item)
-        clean = aria_engine.SPOKEN_SHORT_SLEEP.rstrip(".")
+        clean = aria_engine.SPOKEN_SHORT_SLEEP_AND_HOT.rstrip(".")
         self.assertTrue(
             not insights
             or all(item.strip().rstrip(".") == clean for item in insights),
@@ -752,10 +760,13 @@ class BlockingPatternSpeakTests(unittest.TestCase):
         heavy_line = (
             f"{aria_engine.SPOKEN_OVERTRAIN} {aria_engine.SPOKEN_PROTECT_STEP}"
         )
+        both_line = (
+            f"{aria_engine.SPOKEN_SHORT_SLEEP_AND_HOT} {aria_engine.SPOKEN_PROTECT_STEP}"
+        )
         cases = (
             (short, "should I train hard today?", short_line, aria_engine.SPOKEN_SHORT_SLEEP),
             (heavy, "should I train hard today?", heavy_line, aria_engine.SPOKEN_OVERTRAIN),
-            (both, "should I train hard today?", short_line, aria_engine.SPOKEN_SHORT_SLEEP),
+            (both, "should I train hard today?", both_line, aria_engine.SPOKEN_SHORT_SLEEP_AND_HOT),
         )
         for ctx, q, exact, safety in cases:
             for voice in (True, False):
@@ -787,6 +798,49 @@ class BlockingPatternSpeakTests(unittest.TestCase):
         self.assertEqual(summary["message"], summary["prose_summary"])
         self.assertEqual(summary["prose_summary"], heavy_line)
         self._assert_clean_spoken(summary, aria_engine.SPOKEN_OVERTRAIN)
+
+    def test_short_sleep_and_hot_load_speaks_both_risks(self):
+        from backend.ai.aria_chat import conversation
+
+        line = aria_engine.SPOKEN_SHORT_SLEEP_AND_HOT
+        # Mirror stays word for word, and the Iris speech bar leaves it alone.
+        self.assertEqual(conversation.SPOKEN_SHORT_SLEEP_AND_HOT, line)
+        self.assertEqual(conversation.SPOKEN_SHORT_SLEEP, aria_engine.SPOKEN_SHORT_SLEEP)
+        self.assertEqual(conversation.SPOKEN_PROTECT_STEP, aria_engine.SPOKEN_PROTECT_STEP)
+        self.assertEqual(conversation.polish_iris(line), line)
+        self.assertEqual(speak_guard.spoken_ban_hits(line), ())
+        self.assertNotRegex(line, self._BANNED)
+        # Safe to repeat across turns, like the short-sleep line itself.
+        self.assertEqual(conversation._repeat_ngrams(line), set())
+        both = ARIAContext(
+            sleep=SleepContext(
+                duration_minutes=360, nights_available=10, sleep_debt_7d_hours=6.5
+            ),
+            readiness=ReadinessContext(
+                hrv_7day_trend=-14, recovery_score=42, hrv_days_available=7
+            ),
+            training=TrainingContext(
+                weekly_load_score=88,
+                acwr=1.62,
+                is_overtrained=True,
+                hours_since_last_workout=10,
+            ),
+            progress=ProgressContext(
+                workouts_completed_30d=18,
+                new_personal_records=2,
+                training_load_trend="rising",
+            ),
+        )
+        exact = f"{line} {aria_engine.SPOKEN_PROTECT_STEP}"
+        for question in ("should I train hard today?", "Am I making progress?"):
+            for voice in (True, False):
+                with self.subTest(question=question, voice=voice):
+                    resp = aria_engine.generate_response(
+                        question, both, voice_mode=voice
+                    )
+                    self.assertEqual(resp["prose_summary"], exact)
+                    self.assertEqual(resp["message"], exact)
+                    self._assert_clean_spoken(resp, line)
 
     def test_sleep_question_never_uses_training_template(self):
         heavy = ARIAContext(

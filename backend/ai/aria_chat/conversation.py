@@ -80,12 +80,20 @@ _BUTTON_READ = re.compile(
 _DASH_CAP = re.compile(r"([—–-])(\s+)(?!I\b|I'm\b|I'll\b|I've\b)([A-Z])")
 
 # PR 380 `cursor/spoken-safety-tip-fix-f013` speech bank, copied word for word.
-# `SPOKEN_SHORT_SLEEP` / `SPOKEN_PROTECT_STEP`: backend/infra/lambda/aria_core/aria_engine.py:2202–2203
-# Dummy closer `_SAFETY_CLOSER`: backend/ai/simrunner/aria_simrunner/dummy_orchestrator.py:873
+# `SPOKEN_SHORT_SLEEP` / `SPOKEN_SHORT_SLEEP_AND_HOT` / `SPOKEN_PROTECT_STEP`:
+# backend/infra/lambda/aria_core/aria_engine.py:2363, 2366–2369, 2373
+# Dummy closer `_SAFETY_CLOSER`: backend/ai/simrunner/aria_simrunner/dummy_orchestrator.py:874
 SPOKEN_SHORT_SLEEP = "You've been running short on sleep this week, so sleep comes first."
+SPOKEN_SHORT_SLEEP_AND_HOT = (
+    "You've been running short on sleep and your training has climbed fast, "
+    "so sleep comes first and we rest up for a few days."
+)
 SPOKEN_PROTECT_STEP = "Keep today easy and call it a win."
 SAFETY_CLOSER = "Future you says thanks."
 APPROVED_SHORT_SLEEP = f"{SPOKEN_SHORT_SLEEP} {SPOKEN_PROTECT_STEP} {SAFETY_CLOSER}"
+APPROVED_SHORT_SLEEP_AND_HOT = (
+    f"{SPOKEN_SHORT_SLEEP_AND_HOT} {SPOKEN_PROTECT_STEP} {SAFETY_CLOSER}"
+)
 
 RECOVERY_IN_SPEECH = re.compile(r"(?i)\brecovery\b")
 # Spoken-reply gate only. Narrow list — do not match bare "I won't" / "I don't".
@@ -196,6 +204,9 @@ _COACH_SPARK = (
     "You look like someone who found the good mug. Keep it gentle and stop before you prove anything.",
 )
 _SAFETY = (APPROVED_SHORT_SLEEP,)
+# Engine-only combined line (sleep-protect + overreaching). Kept out of
+# `_SAFETY` so a short-sleep-only repeat never swaps to a load claim.
+_SAFETY_BOTH = (APPROVED_SHORT_SLEEP_AND_HOT,)
 _NUMBER_ASK = (
     "From here you look {direction}.",
 )
@@ -233,6 +244,7 @@ SPEECH_BANKS = (
     _COACH_STEADY,
     _COACH_SPARK,
     _SAFETY,
+    _SAFETY_BOTH,
     _NUMBER_ASK,
     _HABIT,
     _MEMORY_OFF,
@@ -280,6 +292,7 @@ def _emergency_allow_ngrams() -> set[str]:
 
 _SAFE_REPEAT_NGRAMS = (
     word_ngrams(SPOKEN_SHORT_SLEEP, 3)
+    | word_ngrams(SPOKEN_SHORT_SLEEP_AND_HOT, 3)
     | word_ngrams(SPOKEN_PROTECT_STEP, 3)
     | word_ngrams(SAFETY_CLOSER, 3)
     | _emergency_allow_ngrams()
