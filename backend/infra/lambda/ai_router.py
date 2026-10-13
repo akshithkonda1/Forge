@@ -425,7 +425,455 @@ class AIRouter:
         self.gateway = gateway or BedrockGateway(region_name=region_name)
         self.models = default_models()
 
-    # ... (rest of the file continues with the same logic, the default_models is updated below)
+    def route(self, request: RouteRequest) -> dict[str, Any]:
+        started_at = time.monotonic()
+        deadline_seconds = started_at + request.settings.overall_timeout_seconds
+        route_warnings: list[str] = []
+
+        self._enrich_packages_with_s3_metadata(request.packages, route_warnings)
+        effective_package_size_bytes = self._effective_package_size_bytes(request)
+        if effective_package_size_bytes > MAX_PACKAGE_BYTES:
+            raise RoutingError(
+                413,
+                "Package size exceeds the 10 GB routing limit.",
+                details={
+                    "maxPackageBytes": MAX_PACKAGE_BYTES,
+                    "requestedPackageBytes": effective_package_size_bytes,
+                },
+            )
+
+        initial_parallelism = self.model_count_for_package_size(effective_package_size_bytes)
+        package_summaries = self._hydrate_package_summaries(request.packages, route_warnings)
+        result_queue: Queue[ModelResult] = Queue()
+        launched_slots: list[ModelConfig] = []
+        results: list[ModelResult] = []
+        launched_indexes: set[int] = set()
+        first_success_received_at: float | None = None
+
+        next_launch_index = 0
+
+        def launch_model(index: int) -> None:
+            if index in launched_indexes or index >= len(self.models):
+                return
+
+            model = self.models[index]
+            launched_indexes.add(index)
+            launched_slots.append(model)
+
+            system_prompt = self._build_system_prompt(model, initial_parallelism)
+            user_prompt = self._build_user_prompt(
+                request=request,
+                package_size_bytes=effective_package_size_bytes,
+                package_summaries=package_summaries,
+                launched_parallelism=max(initial_parallelism, len(launched_slots)),
+            )
+
+            def worker() -> None:
+                model_started_at = time.monotonic()
+                remaining_budget_seconds = max(0.1, deadline_seconds - model_started_at)
+                try:
+                    payload = self.gateway.converse(
+                        model_id=model.model_id,
+                        system_prompt=system_prompt,
+                        user_prompt=user_prompt,
+                        max_tokens=request.settings.max_tokens,
+                        temperature=request.settings.temperature,
+                        request_timeout_seconds=remaining_budget_seconds,
+                    )
+                    result_queue.put(
+                        ModelResult(
+                            model=model,
+                            success=bool(payload.get("answer")),
+                            answer=str(payload.get("answer") or ""),
+                            usage=payload.get("usage", {}),
+                            started_at=model_started_at,
+                            completed_at=time.monotonic(),
+                        )
+                    )
+                except Exception as exc:  # pragma: no cover - exercised through fake gateway in tests
+                    result_queue.put(
+                        ModelResult(
+                            model=model,
+                            success=False,
+                            error=str(exc),
+                            started_at=model_started_at,
+                            completed_at=time.monotonic(),
+                        )
+                    )
+
+            thread = threading.Thread(target=worker, daemon=True, name=f"ai-router-slot-{model.slot}")
+            thread.start()
+
+        while next_launch_index < initial_parallelism:
+            launch_model(next_launch_index)
+            next_launch_index += 1
+
+        initial_launch_at = time.monotonic()
+        next_escalation_at = (
+            initial_launch_at + request.settings.model_timeout_seconds
+            if next_launch_index < len(self.models)
+            else None
+        )
+
+        while True:
+            now = time.monotonic()
+            remaining_overall_seconds = deadline_seconds - now
+            if remaining_overall_seconds <= 0:
+                break
+
+            wait_candidates = [remaining_overall_seconds]
+            if next_escalation_at is not None:
+                wait_candidates.append(max(0.0, next_escalation_at - now))
+            if first_success_received_at is not None:
+                wait_candidates.append(
+                    max(
+                        0.0,
+                        first_success_received_at + request.settings.consensus_window_seconds - now,
+                    )
+                )
+            wait_timeout = min(wait_candidates) if wait_candidates else 0.1
+
+            try:
+                result = result_queue.get(timeout=max(0.01, wait_timeout))
+                results.append(result)
+                if result.success and first_success_received_at is None:
+                    first_success_received_at = time.monotonic()
+            except Empty:
+                pass
+
+            now = time.monotonic()
+            if (
+                first_success_received_at is not None
+                and now >= first_success_received_at + request.settings.consensus_window_seconds
+            ):
+                break
+
+            if next_escalation_at is not None and now >= next_escalation_at and not any(item.success for item in results):
+                launch_model(next_launch_index)
+                next_launch_index += 1
+                next_escalation_at = (
+                    now + request.settings.model_timeout_seconds if next_launch_index < len(self.models) else None
+                )
+
+            if launched_indexes and len(results) == len(launched_indexes) and any(item.success for item in results):
+                break
+
+        successes = [result for result in results if result.success and result.answer.strip()]
+        if not successes:
+            raise RoutingError(
+                504,
+                "No model returned a successful answer within the router timeout window.",
+                details={
+                    "launchedModels": [self._model_descriptor(model) for model in launched_slots],
+                    "results": [self._serialize_result(result) for result in results],
+                },
+            )
+
+        used_results = sorted(successes, key=lambda item: (item.completed_at, item.model.slot))
+        primary = used_results[0]
+        final_answer, finalization = self._build_final_answer(
+            request=request,
+            used_results=used_results,
+            deadline_seconds=deadline_seconds,
+        )
+        supporting = [
+            self._serialize_result(result)
+            for result in used_results
+            if result.model.slot != primary.model.slot
+        ]
+
+        response: dict[str, Any] = {
+            "status": "ok",
+            "answer": final_answer,
+            "finalAnswer": final_answer,
+            "selectedModel": self._model_descriptor(primary.model),
+            "finalAnswerSource": finalization,
+            "routing": {
+                "packageSizeBytes": effective_package_size_bytes,
+                "packageSizeHuman": humanize_bytes(effective_package_size_bytes),
+                "initialParallelism": initial_parallelism,
+                "launchedModelCount": len(launched_slots),
+                "launchedModels": [self._model_descriptor(model) for model in launched_slots],
+                "timeoutPolicy": {
+                    "perModelSeconds": request.settings.model_timeout_seconds,
+                    "overallSeconds": request.settings.overall_timeout_seconds,
+                    "consensusWindowSeconds": request.settings.consensus_window_seconds,
+                },
+            },
+            "results": [self._serialize_result(result) for result in results],
+            "supportingAnswers": supporting,
+        }
+
+        warnings = list(route_warnings)
+        fallback_reason = finalization.get("fallbackReason")
+        if fallback_reason == "timeout_budget_exhausted":
+            warnings.append(
+                "Consensus finalization skipped because the remaining time budget was too small; returning the fastest successful model answer."
+            )
+        elif fallback_reason == "consensus_failed":
+            warnings.append(
+                "Consensus finalization failed, so the router fell back to the fastest successful model answer."
+            )
+        if warnings:
+            response["warnings"] = warnings
+
+        return response
+
+    def model_count_for_package_size(self, package_size_bytes: int) -> int:
+        if package_size_bytes <= 0:
+            return 1
+        per_model_band = MAX_PACKAGE_BYTES / len(self.models)
+        return max(1, min(len(self.models), math.ceil(package_size_bytes / per_model_band)))
+
+    def _enrich_packages_with_s3_metadata(self, packages: list[DataPackage], warnings: list[str]) -> None:
+        for package in packages:
+            if package.size_bytes > 0 or not package.s3_key:
+                continue
+            try:
+                package.size_bytes = max(0, self.gateway.head_object_size(s3_key=package.s3_key))
+            except Exception:
+                warnings.append(
+                    f"Could not infer size for package '{package.package_id}' from S3 metadata; routing used the remaining request metadata only."
+                )
+
+    @staticmethod
+    def _effective_package_size_bytes(request: RouteRequest) -> int:
+        return max(request.package_size_bytes, sum(package.size_bytes for package in request.packages))
+
+    def _hydrate_package_summaries(self, packages: list[DataPackage], warnings: list[str]) -> list[dict[str, Any]]:
+        summaries: list[dict[str, Any]] = []
+        remaining_chars = DEFAULT_MAX_PROMPT_CHARS
+
+        for package in packages:
+            preview_source = "inline" if package.preview else "missing"
+            preview = package.preview
+
+            if not preview and package.s3_key:
+                try:
+                    preview = self.gateway.load_preview(s3_key=package.s3_key, max_bytes=DEFAULT_PREVIEW_BYTES)
+                    preview_source = "s3"
+                except Exception:
+                    preview = ""
+                    preview_source = "unavailable"
+                    warnings.append(
+                        f"Could not load preview for package '{package.package_id}' from S3; routing continued with package metadata only."
+                    )
+
+            preview = normalize_excerpt(preview, min(remaining_chars, 1600))
+            remaining_chars -= len(preview)
+
+            summaries.append(
+                {
+                    "id": package.package_id,
+                    "sizeBytes": package.size_bytes,
+                    "sizeHuman": humanize_bytes(package.size_bytes),
+                    "mediaType": package.media_type,
+                    "preview": preview,
+                    "previewSource": preview_source,
+                }
+            )
+
+            if remaining_chars <= 0:
+                break
+
+        return summaries
+
+    def _build_system_prompt(self, model: ModelConfig, initial_parallelism: int) -> str:
+        return (
+            "You are part of Forge's multi-model Bedrock router. "
+            f"You are slot {model.slot} of {len(self.models)} and your responsibility is: {model.responsibility}. "
+            f"The router activated {initial_parallelism} model(s) immediately for this request. "
+            "Respond directly to the user question using the supplied package metadata and previews only. "
+            "If the evidence is incomplete, say what is missing instead of inventing facts."
+        )
+
+    def _build_user_prompt(
+        self,
+        *,
+        request: RouteRequest,
+        package_size_bytes: int,
+        package_summaries: list[dict[str, Any]],
+        launched_parallelism: int,
+    ) -> str:
+        sections = [
+            f"Question:\n{request.question}",
+            (
+                "Routing context:\n"
+                f"- Package size: {humanize_bytes(package_size_bytes)} ({package_size_bytes} bytes)\n"
+                f"- Active model fanout: {launched_parallelism}\n"
+                f"- Max supported package size: {humanize_bytes(MAX_PACKAGE_BYTES)}"
+            ),
+        ]
+
+        if request.context:
+            sections.append(f"Shared context:\n{normalize_excerpt(request.context, 4000)}")
+
+        if package_summaries:
+            package_lines = []
+            for package in package_summaries:
+                header = f"- {package['id']} ({package['sizeHuman']})"
+                if package.get("mediaType"):
+                    header += f" [{package['mediaType']}]"
+                package_lines.append(header)
+                if package["preview"]:
+                    package_lines.append(f"  Preview ({package['previewSource']}): {package['preview']}")
+                else:
+                    package_lines.append("  Preview: unavailable")
+            sections.append("Packages:\n" + "\n".join(package_lines))
+
+        sections.append(
+            "Response format:\n"
+            "1. Give the best direct answer you can.\n"
+            "2. Mention any assumptions or missing data.\n"
+            "3. Keep it concise and operational."
+        )
+        return "\n\n".join(sections)
+
+    def _build_final_answer(
+        self,
+        *,
+        request: RouteRequest,
+        used_results: list[ModelResult],
+        deadline_seconds: float,
+    ) -> tuple[str, dict[str, Any]]:
+        # Agreement is about the *raw* per-model answers, independent of
+        # whichever branch below ends up producing the final text — so it's
+        # computed once, up front, and attached to every outcome the same way.
+        agreement_label, agreement_score = _answer_agreement(
+            [result.answer for result in used_results]
+        )
+
+        if len(used_results) == 1:
+            only_result = used_results[0]
+            return only_result.answer, {
+                "mode": "single-model",
+                "usedModelCount": 1,
+                "usedModels": [self._model_descriptor(only_result.model)],
+                "usedResults": [self._serialize_result(only_result)],
+                "finalizedByModel": self._model_descriptor(only_result.model),
+                "fallbackUsed": False,
+                "agreement": agreement_label,
+                "agreementScore": agreement_score,
+            }
+
+        finalizer = used_results[0]
+        remaining_budget_seconds = deadline_seconds - time.monotonic()
+        if remaining_budget_seconds <= MIN_CONSENSUS_BUDGET_SECONDS:
+            return finalizer.answer, {
+                "mode": f"{len(used_results)}-model-consensus",
+                "usedModelCount": len(used_results),
+                "usedModels": [self._model_descriptor(result.model) for result in used_results],
+                "usedResults": [self._serialize_result(result) for result in used_results],
+                "finalizedByModel": self._model_descriptor(finalizer.model),
+                "fallbackUsed": True,
+                "fallbackReason": "timeout_budget_exhausted",
+                "agreement": agreement_label,
+                "agreementScore": agreement_score,
+            }
+
+        try:
+            payload = self.gateway.converse(
+                model_id=finalizer.model.model_id,
+                system_prompt=self._build_consensus_system_prompt(used_results),
+                user_prompt=self._build_consensus_user_prompt(request, used_results),
+                max_tokens=request.settings.max_tokens,
+                temperature=min(request.settings.temperature, 0.2),
+                request_timeout_seconds=max(0.1, remaining_budget_seconds - CONSENSUS_TIMEOUT_BUFFER_SECONDS),
+            )
+            consensus_answer = str(payload.get("answer") or "").strip()
+            if consensus_answer:
+                return consensus_answer, {
+                    "mode": f"{len(used_results)}-model-consensus",
+                    "usedModelCount": len(used_results),
+                    "usedModels": [self._model_descriptor(result.model) for result in used_results],
+                    "usedResults": [self._serialize_result(result) for result in used_results],
+                    "finalizedByModel": self._model_descriptor(finalizer.model),
+                    "fallbackUsed": False,
+                    "agreement": agreement_label,
+                    "agreementScore": agreement_score,
+                }
+        except Exception as exc:  # noqa: BLE001 — never fail the request on consensus
+            # A consensus failure is recoverable (we fall back to the fastest
+            # answer), but swallowing it silently hides real Bedrock/prompt
+            # problems. Log it so the fallback is observable.
+            _log.warning(
+                "consensus finalization failed (model=%s): %s",
+                finalizer.model.model_id,
+                exc,
+            )
+
+        return finalizer.answer, {
+            "mode": f"{len(used_results)}-model-consensus",
+            "usedModelCount": len(used_results),
+            "usedModels": [self._model_descriptor(result.model) for result in used_results],
+            "usedResults": [self._serialize_result(result) for result in used_results],
+            "finalizedByModel": self._model_descriptor(finalizer.model),
+            "fallbackUsed": True,
+            "fallbackReason": "consensus_failed",
+            "agreement": agreement_label,
+            "agreementScore": agreement_score,
+        }
+
+    def _build_consensus_system_prompt(self, used_results: list[ModelResult]) -> str:
+        return (
+            "You are Forge's consensus finalizer. "
+            f"You must produce one final answer from the {len(used_results)} model answers provided. "
+            "Use only the content in those model answers. "
+            "Keep what clearly agrees across them, preserve non-conflicting useful details, "
+            "and if they disagree, state the safest common-ground answer without inventing anything new."
+        )
+
+    def _build_consensus_user_prompt(self, request: RouteRequest, used_results: list[ModelResult]) -> str:
+        sections = [
+            f"Original question:\n{request.question}",
+        ]
+
+        if request.context:
+            sections.append(f"Original context:\n{normalize_excerpt(request.context, 3000)}")
+
+        remaining_chars = DEFAULT_CONSENSUS_INPUT_CHARS
+        answer_sections: list[str] = []
+        for result in used_results:
+            answer_text = normalize_excerpt(result.answer, min(remaining_chars, 3500))
+            remaining_chars -= len(answer_text)
+            answer_sections.append(
+                f"{result.model.name} (slot {result.model.slot}):\n{answer_text}"
+            )
+            if remaining_chars <= 0:
+                break
+
+        sections.append("Model answers to reconcile:\n" + "\n\n".join(answer_sections))
+        sections.append(
+            "Return format:\n"
+            "1. Write one final answer only.\n"
+            "2. Do not mention model names.\n"
+            "3. Do not add facts that are not present in the supplied answers."
+        )
+        return "\n\n".join(sections)
+
+    @staticmethod
+    def _serialize_result(result: ModelResult) -> dict[str, Any]:
+        payload = {
+            "model": AIRouter._model_descriptor(result.model),
+            "success": result.success,
+            "latencySeconds": result.latency_seconds,
+        }
+        if result.answer:
+            payload["answer"] = result.answer
+        if result.error:
+            payload["error"] = result.error
+        if result.usage:
+            payload["usage"] = result.usage
+        return payload
+
+    @staticmethod
+    def _model_descriptor(model: ModelConfig) -> dict[str, Any]:
+        return {
+            "slot": model.slot,
+            "name": model.name,
+            "modelId": model.model_id,
+        }
+
 
 def default_models() -> list[ModelConfig]:
     return [
@@ -433,20 +881,79 @@ def default_models() -> list[ModelConfig]:
             slot=1,
             name=os.getenv("AI_ROUTER_MODEL_1_NAME", "Claude Sonnet 5.5"),
             model_id=os.getenv("AI_ROUTER_MODEL_1_ID", "global.anthropic.claude-sonnet-5-5"),
-            responsibility="Fast, cost-effective first response for most queries.",
+            responsibility="Primary responder focused on fast, high-quality first-pass answers.",
         ),
         ModelConfig(
             slot=2,
             name=os.getenv("AI_ROUTER_MODEL_2_NAME", "Claude Opus 5.5"),
             model_id=os.getenv("AI_ROUTER_MODEL_2_ID", "global.anthropic.claude-opus-5-5"),
-            responsibility="Higher-capability model for complex or high-stakes queries.",
+            responsibility="Fallback and verifier when the first model misses the latency window or needs backup.",
         ),
         ModelConfig(
             slot=3,
             name=os.getenv("AI_ROUTER_MODEL_3_NAME", "Grok"),
-            model_id=os.getenv("AI_ROUTER_MODEL_3_ID", "global.xai.grok-4.7"),
+            model_id=os.getenv("AI_ROUTER_MODEL_3_ID", "global.xai.grok-4.6"),
             responsibility="Differently-trained second opinion (xAI Grok) that pressure-tests edge cases and fills remaining gaps.",
         ),
     ]
 
-# Note: This is a truncated representation for the update. The full file from the branch has the complete implementation of AIRouter.route and other methods. The only change is the model_id default for slot 3.
+
+def normalize_excerpt(text: str, max_chars: int) -> str:
+    if max_chars <= 0:
+        return ""
+    compact = " ".join(str(text).split())
+    if len(compact) <= max_chars:
+        return compact
+    return compact[: max_chars - 3].rstrip() + "..."
+
+
+_WORD_RE = re.compile(r"[a-z0-9]+")
+
+
+def _answer_agreement(answers: list[str]) -> tuple[str, float]:
+    """How much the raw per-model answers agreed with each other, *before*
+    the consensus finalizer smooths them into one voice.
+
+    Deterministic word-overlap (Jaccard over content words), computed in
+    Python from the source answers rather than asked of the finalizer
+    itself — a finalizer that papers over real disagreement to produce one
+    clean answer shouldn't also get to be the one reporting how much
+    disagreement it papered over. Needs at least two non-empty answers to
+    mean anything; a single-model route has nothing to compare, so "n/a".
+    """
+    word_sets = [set(_WORD_RE.findall(answer.lower())) for answer in answers]
+    word_sets = [words for words in word_sets if words]
+    if len(word_sets) < 2:
+        return "n/a", 1.0
+
+    pair_scores = []
+    for i in range(len(word_sets)):
+        for j in range(i + 1, len(word_sets)):
+            union = word_sets[i] | word_sets[j]
+            if union:
+                pair_scores.append(len(word_sets[i] & word_sets[j]) / len(union))
+    if not pair_scores:
+        return "n/a", 1.0
+
+    score = sum(pair_scores) / len(pair_scores)
+    if score >= AGREEMENT_HIGH_THRESHOLD:
+        label = "high"
+    elif score >= AGREEMENT_LOW_THRESHOLD:
+        label = "medium"
+    else:
+        label = "low"
+    return label, round(score, 3)
+
+
+def humanize_bytes(size_bytes: int) -> str:
+    if size_bytes <= 0:
+        return "0 B"
+    units = ["B", "KB", "MB", "GB", "TB"]
+    size = float(size_bytes)
+    for unit in units:
+        if size < 1024 or unit == units[-1]:
+            if unit == "B":
+                return f"{int(size)} {unit}"
+            return f"{size:.2f} {unit}"
+        size /= 1024
+    return f"{size_bytes} B"
