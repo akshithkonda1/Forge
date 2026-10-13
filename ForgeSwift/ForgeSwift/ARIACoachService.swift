@@ -25,9 +25,10 @@ struct ARIALiveContext {
     var setLabel: String
     var weight: Int
     var reps: String
-    var heartRate: Int
+    /// Measured vitals only. nil = no live sample yet — never a resting or default stand-in.
+    var heartRate: Int?
     var hrZone: Int
-    var spO2: Int
+    var spO2: Int?
     var elapsed: String
     var cues: [String]
 }
@@ -124,17 +125,20 @@ final class ARIACoachService: ObservableObject {
     }
 
     private static func payload(for context: ARIALiveContext) -> [String: Any] {
-        [
+        var payload: [String: Any] = [
             "exerciseName": context.exerciseName,
             "setLabel": context.setLabel,
             "weight": context.weight,
             "reps": context.reps,
-            "heartRate": context.heartRate,
             "hrZone": context.hrZone,
-            "spO2": context.spO2,
             "elapsed": context.elapsed,
             "cues": Array(context.cues.prefix(3)),
         ]
+        // Unmeasured vitals are left out rather than sent as a made-up number;
+        // the form-check route already tolerates a missing key.
+        if let heartRate = context.heartRate { payload["heartRate"] = heartRate }
+        if let spO2 = context.spO2 { payload["spO2"] = spO2 }
+        return payload
     }
 
     // ── Parsing + offline fallback ────────────────────────────────────────────
@@ -157,7 +161,8 @@ final class ARIACoachService: ObservableObject {
 
     static func heuristicFeedback(for context: ARIALiveContext) -> FormFeedback {
         // No key / no frame → deterministic on-device read so the feature still works.
-        let stressed = context.hrZone >= 4 || context.spO2 < 95
+        // Unknown O₂ is "no reading", not a reason to flag.
+        let stressed = context.hrZone >= 4 || (context.spO2.map { $0 < 95 } ?? false)
         return FormFeedback(
             score: stressed ? 78 : 88,
             status: stressed ? .adjust : .good,

@@ -32,6 +32,29 @@ final class TrainSleepUsableTests: XCTestCase {
         XCTAssertEqual(scaled.scaleHeadline, "On plan")
     }
 
+    func testSetRecommendationTreatsMissingVitalsAsNoReading() {
+        let ready = ReadinessData(overall: 75, sleepQuality: 75, recoveryScore: 75, stressLevel: 40, energyBank: 70)
+        func recommend(hr: Int?, zone: Int, spO2: Int?) -> SetRecommendation {
+            AdaptiveEngine.recommend(
+                definition: nil, targetReps: 8, targetRPE: 8, baseRest: 90, currentWeight: 100,
+                lastRPE: nil, lastReps: nil, readiness: ready, experience: .intermediate,
+                currentHR: hr, hrZone: zone, spO2: spO2, painSeverity: nil, painLocation: nil)
+        }
+        let unknown = recommend(hr: nil, zone: 0, spO2: nil)
+        XCTAssertEqual(unknown.primaryAction, .hold)
+        XCTAssertFalse(unknown.rationale.contains("O₂"), unknown.rationale)
+        XCTAssertEqual(recommend(hr: nil, zone: 5, spO2: nil).primaryAction, .hold)
+        XCTAssertEqual(recommend(hr: 130, zone: 2, spO2: 92).primaryAction, .extendRest(45))
+        XCTAssertEqual(recommend(hr: 180, zone: 5, spO2: nil).primaryAction, .extendRest(30))
+
+        func context(spO2: Int?) -> ARIALiveContext {
+            ARIALiveContext(exerciseName: "Back Squat", setLabel: "Set 1 of 3", weight: 135, reps: "5",
+                            heartRate: nil, hrZone: 0, spO2: spO2, elapsed: "00:30", cues: [])
+        }
+        XCTAssertEqual(ARIACoachService.heuristicFeedback(for: context(spO2: nil)).status, .good)
+        XCTAssertEqual(ARIACoachService.heuristicFeedback(for: context(spO2: 92)).status, .adjust)
+    }
+
     func testAddFeltSetDoesNotUndoScale() {
         let store = AppStore()
         store.todayWorkout = samplePlan(sets: 3, weight: 100, duration: 30)
