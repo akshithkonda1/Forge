@@ -4,50 +4,53 @@ import ForgeCore
 
 struct WorkoutView: View {
     @EnvironmentObject var store: AppStore
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var summaryData: WorkoutSummaryData? = nil
     @State private var showSummary = false
+
+    private var swapAnimation: Animation? { reduceMotion ? nil : FDS.Spring.page }
+
+    private func swapTransition(insertion: CGFloat, removal: CGFloat) -> AnyTransition {
+        if reduceMotion { return .opacity }
+        return .asymmetric(
+            insertion: .scale(scale: insertion).combined(with: .opacity),
+            removal: .scale(scale: removal).combined(with: .opacity)
+        )
+    }
 
     var body: some View {
         ZStack {
             if showSummary, let summary = summaryData {
                 WorkoutSummaryView(data: summary, onDismiss: {
-                    withAnimation(.spring(response: 0.55, dampingFraction: 0.85)) {
+                    withAnimation(swapAnimation) {
                         showSummary = false; summaryData = nil
                     }
                 })
-                .transition(.asymmetric(
-                    insertion: .scale(scale: 0.94).combined(with: .opacity),
-                    removal:   .scale(scale: 1.04).combined(with: .opacity)
-                ))
+                .transition(swapTransition(insertion: 0.94, removal: 1.04))
                 .zIndex(10)
             } else if store.isWorkoutActive {
                 ActiveWorkoutView { data in
                     summaryData = data
-                    withAnimation(.spring(response: 0.55, dampingFraction: 0.85)) { showSummary = true }
+                    withAnimation(swapAnimation) { showSummary = true }
                 }
-                .transition(.asymmetric(
-                    insertion: .scale(scale: 0.96).combined(with: .opacity),
-                    removal:   .scale(scale: 1.04).combined(with: .opacity)
-                ))
+                .transition(swapTransition(insertion: 0.96, removal: 1.04))
                 .zIndex(5)
             } else {
                 WorkoutIdleView()
-                    .transition(.asymmetric(
-                        insertion: .scale(scale: 0.96).combined(with: .opacity),
-                        removal:   .scale(scale: 0.96).combined(with: .opacity)
-                    ))
+                    .transition(swapTransition(insertion: 0.96, removal: 0.96))
                     .zIndex(1)
             }
         }
-        .animation(.spring(response: 0.55, dampingFraction: 0.85), value: store.isWorkoutActive)
-        .animation(.spring(response: 0.55, dampingFraction: 0.85), value: showSummary)
+        .animation(swapAnimation, value: store.isWorkoutActive)
+        .animation(swapAnimation, value: showSummary)
     }
 }
 
 struct WorkoutIdleView: View {
     @EnvironmentObject var store: AppStore
     @StateObject private var music = MusicControllerFactory.make(for: .appleMusic)
-    @State private var appeared = false
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.dynamicTypeSize) private var typeSize
     @State private var selectedExerciseIndex: Int? = nil
     @State private var showLibrary = false
     @State private var showDashboard = false
@@ -77,52 +80,22 @@ struct WorkoutIdleView: View {
         )
     }
 
+    /// Ember for a training day, steel for rest, recover and easy.
+    private var dayTone: Color {
+        dayCall == .train ? Color.ember : Color.steel
+    }
+
     var body: some View {
-        ZStack {
-            WorkoutBackground(accentColor: .ember).ignoresSafeArea()
-            VStack(spacing: 0) {
-                HStack {
-                    Text("TODAY")
-                        .forgeSectionLabel()
-                        .foregroundColor(.textTertiary)
-                    Spacer()
-                    AriaTrainMuteButton()
-                }
-                .padding(.horizontal, FDS.Spacing.lg)
-                .padding(.top, FDS.Spacing.md)
+        VStack(spacing: 0) {
+            todayRow
             if let workout = store.todayWorkout {
-                ScrollView(showsIndicators: false) {
-                    VStack(spacing: FDS.Spacing.lg) {
-                        idleHeader(workout: workout)
-                            .padding(.horizontal, FDS.Spacing.lg)
-                            .padding(.top, FDS.Spacing.sm)
-
-                        if scaling.isModified {
-                            AdaptiveScalingCard(scaling: scaling, applied: workout.autoScaled)
-                                .padding(.horizontal, FDS.Spacing.lg)
-                        }
-
-                        exerciseList(workout: workout).padding(.horizontal, FDS.Spacing.lg)
-
-                        ariaLine()
-                            .padding(.horizontal, FDS.Spacing.lg)
-                            .padding(.bottom, FDS.Spacing.md)
-                    }
-                }
-
-                VStack(spacing: FDS.Spacing.md) {
-                    startButton(workout: workout)
-                    compactToolbar
-                }
-                .padding(.horizontal, FDS.Spacing.lg)
-                .padding(.top, FDS.Spacing.sm)
-                .padding(.bottom, 96)
-                .background(Color.background.opacity(0.92))
+                scrollContent(workout: workout)
+                dock(workout: workout)
             } else {
                 WorkoutEmptyState()
             }
-            }
         }
+        .forgeScreenBackground(accent: .ember)
         .sheet(isPresented: $showLibrary) { ExerciseLibraryView() }
         .sheet(isPresented: $showWeekPicker) {
             WeekSessionPicker { weekday in
@@ -140,7 +113,6 @@ struct WorkoutIdleView: View {
             }
         }
         .onAppear {
-            withAnimation(.spring(response: 0.72, dampingFraction: 0.8).delay(0.08)) { appeared = true }
             if let current = store.todayWorkout, !current.autoScaled, scaling.isModified {
                 store.todayWorkout = AdaptiveEngine.apply(
                     to: current,
@@ -155,73 +127,157 @@ struct WorkoutIdleView: View {
         }
     }
 
-    private var compactToolbar: some View {
-        HStack(spacing: FDS.Spacing.sm) {
-            toolbarChip(icon: "calendar", title: "Week") { showWeekPicker = true }
-            toolbarChip(icon: "arrow.uturn.backward", title: "Yesterday") {
+    // MARK: - Pinned TODAY row
+
+    private var todayRow: some View {
+        HStack {
+            Text("TODAY")
+                .forgeSectionLabel()
+                .accessibilityAddTraits(.isHeader)
+            Spacer()
+            AriaTrainMuteButton()
+        }
+        .padding(.horizontal, ForgeLayout.screenInset)
+        .padding(.top, ForgeLayout.screenTop)
+    }
+
+    // MARK: - Scroll content
+
+    private func scrollContent(workout: WorkoutPlan) -> some View {
+        ScrollView(showsIndicators: false) {
+            VStack(alignment: .leading, spacing: ForgeLayout.sectionGap) {
+                idleHero(workout: workout)
+
+                if scaling.isModified {
+                    AdaptiveScalingCard(scaling: scaling, applied: workout.autoScaled)
+                }
+
+                exerciseList(workout: workout)
+
+                if typeSize.isAccessibilitySize {
+                    compactToolbar(columns: 2)
+                }
+            }
+            .forgeScreenInsets(top: FDS.Spacing.sm, bottom: ForgeLayout.rowGap)
+        }
+    }
+
+    // MARK: - Dock (the Train exception: Start lives here)
+
+    private func dock(workout: WorkoutPlan) -> some View {
+        VStack(spacing: ForgeLayout.tileGap) {
+            startButton(workout: workout)
+            if !typeSize.isAccessibilitySize {
+                compactToolbar(columns: 4)
+            }
+        }
+        .padding(.horizontal, ForgeLayout.screenInset)
+        .padding(.top, FDS.Spacing.sm)
+        .padding(.bottom, FDS.Spacing.sm)
+        .forgeBarChrome(edge: .bottom)
+    }
+
+    private func compactToolbar(columns: Int) -> some View {
+        ForgeEqualColumnsLayout(columns: columns, spacing: ForgeLayout.tileGap) {
+            toolbarCell(icon: "calendar", title: "Week", label: "Pick a session from this week") {
+                showWeekPicker = true
+            }
+            toolbarCell(icon: "arrow.uturn.backward", title: "Yesterday", label: "Repeat yesterday's session") {
                 store.adoptSplitSession(replayPrior: true)
             }
-            toolbarChip(icon: "books.vertical.fill", title: "Library") { showLibrary = true }
-            toolbarChip(icon: "sparkles", title: "Brief") { showDashboard = true }
+            toolbarCell(icon: "books.vertical.fill", title: "Library", label: "Open the exercise library") {
+                showLibrary = true
+            }
+            toolbarCell(icon: "sparkles", title: "Brief", label: "Open the ARIA session brief") {
+                showDashboard = true
+            }
         }
     }
 
-    private func toolbarChip(icon: String, title: String, action: @escaping () -> Void) -> some View {
+    private func toolbarCell(icon: String, title: String, label: String, action: @escaping () -> Void) -> some View {
         Button {
-            UIImpactFeedbackGenerator(style: .light).impactOccurred()
+            FDS.haptic(.press)
             action()
         } label: {
-            HStack(spacing: FDS.Spacing.sm) {
-                Image(systemName: icon).font(.system(size: 12, weight: .semibold))
-                Text(title).font(FDS.TypeScale.Dynamic.caption)
+            VStack(spacing: ForgeLayout.pairGap) {
+                Image(systemName: icon)
+                    .font(.system(size: 16, weight: .semibold))
+                    .accessibilityHidden(true)
+                Text(title)
+                    .font(HomeType.micro)
+                    .forgeSingleLine(minScale: 0.8)
             }
-            .foregroundColor(.textSecondary)
-            .frame(maxWidth: .infinity)
-            .padding(.vertical, FDS.Spacing.md)
-            .forgeGlassCard(cornerRadius: FDS.Radius.md, accent: .ember)
+            .foregroundStyle(Color.textSecondary)
+            .frame(maxWidth: .infinity, minHeight: ForgeUX.minTap, maxHeight: .infinity)
+            .forgeWell(padding: FDS.Spacing.sm)
         }
-        .buttonStyle(.plain)
+        .buttonStyle(ForgePressStyle())
+        .accessibilityLabel(label)
     }
 
-    private func idleHeader(workout: WorkoutPlan) -> some View {
-        VStack(alignment: .leading, spacing: FDS.Spacing.lg) {
-            HStack(alignment: .center) {
-                Text(dayCall.title)
-                    .font(FDS.TypeScale.Dynamic.caption)
-                    .tracking(1.2)
-                    .foregroundColor(dayCall == .train ? .ember : dayCall == .rest ? .steel : .warning)
-                Spacer()
-                ARIAIdentityMark(state: .idle, mood: .energized, size: 28, amplitude: 0.2)
-                Text("Readiness \(store.readiness.overall)")
-                    .font(FDS.TypeScale.Dynamic.caption)
-                    .monospacedDigit()
-                    .foregroundColor(.textTertiary)
+    private func startButton(workout: WorkoutPlan) -> some View {
+        ForgePrimaryButton(
+            title: dayCall.cta,
+            icon: "play.fill",
+            accent: dayTone
+        ) {
+            if music.nowPlaying?.isPlaying == false { music.togglePlayPause() }
+            withAnimation(reduceMotion ? nil : FDS.Spring.standard) { store.startWorkout() }
+        }
+    }
+
+    // MARK: - Hero
+
+    private func idleHero(workout: WorkoutPlan) -> some View {
+        VStack(alignment: .leading, spacing: ForgeLayout.heroGap) {
+            heroEyebrowRow
+
+            VStack(alignment: .leading, spacing: ForgeLayout.pairGap) {
+                Text(workout.name)
+                    .font(ForgeType.pageTitle)
+                    .foregroundStyle(Color.textPrimary)
+                    .forgeWrapping()
+                Text(headerWhy(workout))
+                    .font(HomeType.body)
+                    .foregroundStyle(Color.textSecondary)
+                    .forgeWrapping()
             }
 
-            Text(workout.name)
-                .font(.system(size: 28, weight: .bold, design: .rounded))
-                .foregroundColor(.textPrimary)
-                .fixedSize(horizontal: false, vertical: true)
+            ariaLine()
 
-            Text(headerWhy(workout))
-                .font(.system(size: 15))
-                .foregroundColor(.textSecondary)
-                .fixedSize(horizontal: false, vertical: true)
-
-            HStack(spacing: FDS.Spacing.sm) {
-                WorkoutStatPill(icon: "clock.fill", value: "\(workout.duration)", label: "min")
-                WorkoutStatPill(icon: "list.bullet", value: "\(workout.exercises.count)", label: "moves")
-                WorkoutStatPill(icon: "flame.fill", value: workout.intensity.label, label: "", color: workout.intensity.color)
-            }
+            factStrip(workout: workout)
 
             if aging.showsOnTrain {
                 AgeCompareChip(snapshot: aging)
                     .id(agingStamp)
             }
         }
-        .opacity(appeared ? 1 : 0)
-        .offset(y: appeared ? 0 : 12)
-        .animation(.spring(response: 0.6, dampingFraction: 0.8).delay(0.08), value: appeared)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .hudPlate(energy: HomeReadiness.color(store.readiness.overall))
+        .accessibilityElement(children: .contain)
+    }
+
+    private var heroEyebrowRow: some View {
+        let score = store.readiness.overall
+        return ForgeAdaptiveStack(spacing: FDS.Spacing.sm, alignment: .firstTextBaseline) {
+            Text(dayCall.title)
+                .forgeSectionLabel(tint: dayTone)
+                .forgeSingleLine(minScale: ForgeLayout.labelMinScale)
+                .frame(maxWidth: .infinity, alignment: .leading)
+            HudVibeChip(label: "\(score) · \(HomeReadiness.label(score))", energy: HomeReadiness.color(score))
+                .lineLimit(1)
+                .layoutPriority(1)
+                .accessibilityElement(children: .ignore)
+                .accessibilityLabel(HomeReadiness.voiceOverLabel(score))
+        }
+    }
+
+    private func factStrip(workout: WorkoutPlan) -> some View {
+        ForgeStatGrid(columns: 3) {
+            ForgeStatTile(label: "Duration", value: "\(workout.duration)", unit: "min", energy: .ember, icon: "clock.fill")
+            ForgeStatTile(label: "Moves", value: "\(workout.exercises.count)", energy: .ember, icon: "list.bullet")
+            ForgeStatTile(label: "Intensity", value: workout.intensity.label, energy: workout.intensity.color, icon: "flame.fill")
+        }
     }
 
     private func headerWhy(_ workout: WorkoutPlan) -> String {
@@ -247,78 +303,37 @@ struct WorkoutIdleView: View {
                 facts: facts
             )
         }()
-        return HStack(alignment: .top, spacing: FDS.Spacing.md) {
-            ARIAIdentityMark(state: .idle, mood: .focused, size: 22, amplitude: 0.25)
-            Text(line)
-                .font(.system(size: 14))
-                .foregroundColor(.textSecondary)
-                .lineSpacing(3)
-            Spacer(minLength: 0)
+        return Text(line)
+            .font(HomeType.body)
+            .foregroundStyle(Color.textTertiary)
+            .forgeWrapping()
+            .task { store.shareWorkoutInsightsIfNeeded([line]) }
+    }
+
+    // MARK: - Exercise list
+
+    private func toggleExercise(_ idx: Int) {
+        FDS.haptic(.press)
+        withAnimation(reduceMotion ? nil : FDS.Spring.standard) {
+            selectedExerciseIndex = selectedExerciseIndex == idx ? nil : idx
         }
-        .padding(FDS.Spacing.lg)
-        .background(Color.surface)
-        .clipShape(RoundedRectangle(cornerRadius: FDS.Radius.lg, style: .continuous))
-        .task { store.shareWorkoutInsightsIfNeeded([line]) }
     }
 
     private func exerciseList(workout: WorkoutPlan) -> some View {
-        VStack(spacing: 0) {
-            HStack {
-                Text("EXERCISES").forgeSectionLabel()
-                Spacer()
-                Text("\(workout.exercises.count) total").font(FDS.TypeScale.Dynamic.caption).foregroundColor(.textMuted)
-            }
-            .padding(.horizontal, FDS.Spacing.lg).padding(.bottom, FDS.Spacing.lg)
-            ForEach(Array(workout.exercises.enumerated()), id: \.element.id) { idx, ex in
-                WorkoutExerciseRow(exercise: ex, index: idx, isExpanded: selectedExerciseIndex == idx, onTap: {
-                    UIImpactFeedbackGenerator(style: .light).impactOccurred()
-                    withAnimation(.spring(response: 0.38, dampingFraction: 0.78)) {
-                        selectedExerciseIndex = selectedExerciseIndex == idx ? nil : idx
-                    }
-                })
-                .opacity(appeared ? 1 : 0).offset(x: appeared ? 0 : -22)
-                .animation(.spring(response: 0.5, dampingFraction: 0.8).delay(0.32 + Double(idx) * 0.055), value: appeared)
-                if idx < workout.exercises.count - 1 {
-                    Divider().background(Color.borderColor.opacity(0.5)).padding(.leading, 72)
+        VStack(alignment: .leading, spacing: ForgeLayout.blockGap) {
+            ForgeCardHeader("Exercises", meta: "\(workout.exercises.count) total", metaColor: .textTertiary)
+            VStack(alignment: .leading, spacing: ForgeLayout.rowGap) {
+                ForEach(Array(workout.exercises.enumerated()), id: \.element.id) { idx, ex in
+                    WorkoutExerciseRow(
+                        exercise: ex,
+                        index: idx,
+                        isExpanded: selectedExerciseIndex == idx,
+                        onTap: { toggleExercise(idx) }
+                    )
                 }
             }
         }
-        .padding(.vertical, FDS.Spacing.lg)
-        .forgeGlassCard(accent: .ember)
-    }
-
-    private func startButton(workout: WorkoutPlan) -> some View {
-        Button {
-            UIImpactFeedbackGenerator(style: .heavy).impactOccurred()
-            if music.nowPlaying?.isPlaying == false { music.togglePlayPause() }
-            withAnimation(.spring(response: 0.5, dampingFraction: 0.8)) { store.startWorkout() }
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
-                UINotificationFeedbackGenerator().notificationOccurred(.success)
-            }
-        } label: {
-            HStack(spacing: FDS.Spacing.md) {
-                Image(systemName: "play.fill").font(.system(size: 20, weight: .black))
-                Text(dayCall.cta).font(FDS.TypeScale.Dynamic.metric)
-                Spacer()
-                Image(systemName: "arrow.right").font(.system(size: 18, weight: .bold))
-            }
-            .foregroundColor(.white)
-            .padding(.horizontal, FDS.Spacing.xl).padding(.vertical, FDS.Spacing.xl)
-            .background {
-                ZStack {
-                    FDS.Gradient.ember
-                    LinearGradient.premiumChrome
-                }
-            }
-            .clipShape(RoundedRectangle(cornerRadius: FDS.Radius.xl, style: .continuous))
-            .overlay(
-                RoundedRectangle(cornerRadius: FDS.Radius.xl, style: .continuous)
-                    .stroke(Color.white.opacity(0.18), lineWidth: 1)
-            )
-            .shadow(color: Color.ember.opacity(0.4), radius: 20, y: 8)
-        }
-        .opacity(appeared ? 1 : 0).scaleEffect(appeared ? 1 : 0.92)
-        .animation(.spring(response: 0.6, dampingFraction: 0.8).delay(0.52), value: appeared)
+        .forgeContentCard(tint: .ember)
     }
 
     /// Build a pre-workout snapshot purely from the plan (estimated muscle distribution).
@@ -350,45 +365,46 @@ private struct AdaptiveScalingCard: View {
     let scaling: PlanScaling
     let applied: Bool
 
-    var body: some View {
-        VStack(alignment: .leading, spacing: FDS.Spacing.lg) {
-            HStack(spacing: FDS.Spacing.sm) {
-                ZStack {
-                    Circle().fill(scaling.tone.opacity(0.15)).frame(width: 30, height: 30)
-                    Image(systemName: "wand.and.stars").font(.system(size: 13)).foregroundColor(scaling.tone)
-                }
-                VStack(alignment: .leading, spacing: 1) {
-                    Text("ARIA AUTO-SCALE").font(FDS.TypeScale.Dynamic.micro).tracking(2).foregroundColor(.textTertiary)
-                    Text(scaling.headline).font(FDS.TypeScale.Dynamic.body.weight(.semibold)).foregroundColor(.textPrimary)
-                }
-                Spacer()
-                if scaling.isModified {
-                    VStack(spacing: 1) {
-                        Text("\(Int(scaling.volumeMultiplier * 100))%").font(FDS.TypeScale.Dynamic.caption).foregroundColor(scaling.tone)
-                        Text("volume").font(FDS.TypeScale.Dynamic.micro).foregroundColor(.textMuted)
-                    }
-                }
-            }
-            Text(scaling.detail).font(.system(size: 13)).foregroundColor(.textSecondary).lineSpacing(4)
+    private var volumeLabel: String { "Volume \(Int(scaling.volumeMultiplier * 100))%" }
 
-            if scaling.isModified {
-                HStack(spacing: FDS.Spacing.sm) {
-                    Image(systemName: "checkmark.circle.fill").font(.system(size: 14, weight: .bold))
-                    Text(applied ? "ARIA already scaled this session. Add a set in Train if you feel it." : "ARIA scaled this from readiness — it's already on the board.")
-                        .font(FDS.TypeScale.Dynamic.body.weight(.semibold))
-                    Spacer()
-                }
-                .foregroundColor(scaling.tone)
-                .padding(.horizontal, FDS.Spacing.lg).padding(.vertical, FDS.Spacing.md)
-                .background(scaling.tone.opacity(0.12))
-                .cornerRadius(FDS.Radius.md)
+    private var appliedLine: String {
+        applied
+            ? "ARIA already scaled this session. Add a set in Train if you feel it."
+            : "ARIA scaled this from readiness — it's already on the board."
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: ForgeLayout.blockGap) {
+            ForgeCardHeader(title: "ARIA auto-scale", tint: .textTertiary) {
+                ForgeChip(label: volumeLabel, energy: .steel, selected: true)
+            }
+            VStack(alignment: .leading, spacing: ForgeLayout.pairGap) {
+                Text(scaling.headline)
+                    .font(HomeType.status)
+                    .foregroundStyle(Color.textPrimary)
+                    .forgeWrapping()
+                Text(scaling.detail)
+                    .font(HomeType.body)
+                    .foregroundStyle(Color.textSecondary)
+                    .forgeWrapping()
+            }
+            HStack(alignment: .top, spacing: ForgeLayout.rowGap) {
+                Image(systemName: "checkmark.circle.fill")
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundStyle(Color.steel)
+                    .accessibilityHidden(true)
+                Text(appliedLine)
+                    .font(HomeType.body)
+                    .foregroundStyle(Color.textSecondary)
+                    .forgeWrapping()
             }
         }
-        .padding(FDS.Spacing.lg)
-        .forgeGlassCard(cornerRadius: FDS.Radius.xl, accent: scaling.tone)
+        .forgeContentCard(tint: .steel)
     }
 }
 
+/// Static ambient wash. Active workout tints it by heart-rate zone; the
+/// color change fades unless Reduce Motion is on. No idle animation.
 struct WorkoutBackground: View {
     let accentColor: Color
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
@@ -396,34 +412,26 @@ struct WorkoutBackground: View {
     var body: some View {
         ZStack {
             Color.background
-            Group {
-                if reduceMotion {
-                    mesh(at: 0)
-                } else {
-                    TimelineView(.animation(minimumInterval: 1/30)) { tl in
-                        mesh(at: tl.date.timeIntervalSinceReferenceDate)
-                    }
-                }
-            }
-            .allowsHitTesting(false)
+            mesh
+                .allowsHitTesting(false)
         }
-        .animation(.easeInOut(duration: 1.6), value: accentColor)
+        .animation(reduceMotion ? nil : .easeInOut(duration: 1.6), value: accentColor)
     }
 
-    private func mesh(at t: TimeInterval) -> some View {
+    private var mesh: some View {
         Canvas { ctx, size in
-            let x1 = size.width  * (0.15 + 0.12 * sin(t * 0.17))
-            let y1 = size.height * (0.12 + 0.10 * cos(t * 0.13))
+            let x1 = size.width  * 0.15
+            let y1 = size.height * 0.12
             let r1 = size.width  * 0.55
             var p1 = Path(); p1.addEllipse(in: CGRect(x: x1-r1/2, y: y1-r1/2, width: r1, height: r1))
             ctx.fill(p1, with: .color(accentColor.opacity(0.045)))
-            let x2 = size.width  * (0.82 + 0.10 * cos(t * 0.11))
-            let y2 = size.height * (0.75 + 0.12 * sin(t * 0.14))
+            let x2 = size.width  * 0.82
+            let y2 = size.height * 0.75
             let r2 = size.width  * 0.48
             var p2 = Path(); p2.addEllipse(in: CGRect(x: x2-r2/2, y: y2-r2/2, width: r2, height: r2))
-            ctx.fill(p2, with: .color(Color(hex: "38BDF8").opacity(0.028)))
-            let x3 = size.width  * (0.5 + 0.18 * sin(t * 0.09 + 1.0))
-            let y3 = size.height * (0.45 + 0.14 * cos(t * 0.12 + 0.5))
+            ctx.fill(p2, with: .color(Color.steel.opacity(0.028)))
+            let x3 = size.width  * 0.5
+            let y3 = size.height * 0.45
             let r3 = size.width  * 0.38
             var p3 = Path(); p3.addEllipse(in: CGRect(x: x3-r3/2, y: y3-r3/2, width: r3, height: r3))
             ctx.fill(p3, with: .color(accentColor.opacity(0.025)))
@@ -431,106 +439,28 @@ struct WorkoutBackground: View {
     }
 }
 
-private struct ReadinessIntensityArc: View {
-    let readiness: Int
-    let intensity: WorkoutIntensity
-    @State private var appeared = false
-
-    private var readinessFraction: CGFloat { CGFloat(readiness) / 100 }
-    private var intensityFraction: CGFloat {
-        switch intensity {
-        case .low: return 0.25
-        case .moderate: return 0.50
-        case .high: return 0.75
-        case .max: return 1.0
-        }
-    }
-    private var matchColor: Color {
-        let diff = abs(readinessFraction - intensityFraction)
-        return diff < 0.15 ? .success : diff < 0.35 ? Color.amber : .danger
-    }
-    private var matchLabel: String {
-        let diff = abs(readinessFraction - intensityFraction)
-        return diff < 0.15 ? "Well matched" : diff < 0.35 ? "Manageable" : "Intensity mismatch"
-    }
-
-    var body: some View {
-        HStack(spacing: FDS.Spacing.lg) {
-            ZStack {
-                Circle().stroke(Color.borderColor.opacity(0.3), style: StrokeStyle(lineWidth: 4, lineCap: .round)).frame(width: 56, height: 56)
-                Circle().trim(from: 0, to: appeared ? readinessFraction : 0)
-                    .stroke(Color.success.opacity(0.7), style: StrokeStyle(lineWidth: 4, lineCap: .round))
-                    .frame(width: 56, height: 56).rotationEffect(.degrees(-90))
-                    .animation(.spring(response: 0.9, dampingFraction: 0.75).delay(0.1), value: appeared)
-                Circle().trim(from: 0, to: appeared ? intensityFraction : 0)
-                    .stroke(Color.ember.opacity(0.8), style: StrokeStyle(lineWidth: 2.5, lineCap: .round))
-                    .frame(width: 44, height: 44).rotationEffect(.degrees(-90))
-                    .animation(.spring(response: 0.9, dampingFraction: 0.75).delay(0.22), value: appeared)
-                Text("\(readiness)").font(FDS.TypeScale.Dynamic.caption).foregroundColor(.textPrimary)
-            }
-            VStack(alignment: .leading, spacing: FDS.Spacing.xs) {
-                HStack(spacing: FDS.Spacing.sm) {
-                    Circle().fill(matchColor).frame(width: 6, height: 6).shadow(color: matchColor.opacity(0.5), radius: 3)
-                    Text(matchLabel).font(FDS.TypeScale.Dynamic.caption).foregroundColor(.textPrimary)
-                }
-                HStack(spacing: FDS.Spacing.md) {
-                    HStack(spacing: FDS.Spacing.xs) {
-                        Circle().fill(Color.success.opacity(0.7)).frame(width: 6, height: 6)
-                        Text("Readiness \(readiness)%").font(.system(size: 11)).foregroundColor(.textTertiary)
-                    }
-                    HStack(spacing: FDS.Spacing.xs) {
-                        Circle().fill(Color.ember.opacity(0.8)).frame(width: 6, height: 6)
-                        Text(intensity.label).font(.system(size: 11)).foregroundColor(.textTertiary)
-                    }
-                }
-            }
-            Spacer()
-        }
-        .padding(FDS.Spacing.lg)
-        .forgeGlassCard(cornerRadius: FDS.Radius.lg, accent: matchColor)
-        .onAppear { appeared = true }
-    }
-}
-
 struct AgeCompareChip: View {
     let snapshot: AgingSnapshot
 
+    private var line: String {
+        snapshot.oneBreathLine.isEmpty ? snapshot.comparisonLine : snapshot.oneBreathLine
+    }
+
     var body: some View {
-        HStack(spacing: FDS.Spacing.md) {
-            Image(systemName: "clock.arrow.2.circlepath")
-                .font(.system(size: 13, weight: .semibold))
-                .foregroundColor(tone)
-            VStack(alignment: .leading, spacing: 2) {
-                Text("Heart")
-                    .font(FDS.TypeScale.Dynamic.micro)
-                    .foregroundColor(.textTertiary)
-                Text(snapshot.oneBreathLine.isEmpty ? snapshot.comparisonLine : snapshot.oneBreathLine)
-                    .font(FDS.TypeScale.Dynamic.body.weight(.semibold))
-                    .foregroundColor(.textPrimary)
-                if AgingNorms.webConfirmed {
-                    Text("Public cardio norms")
-                        .font(FDS.TypeScale.Dynamic.micro)
-                        .foregroundColor(.textTertiary)
-                }
-            }
-            Spacer()
-            if let chrono = snapshot.chronologicalAge, let bio = snapshot.biologicalAge, snapshot.confidence > 0.25 {
-                Text("\(Int(bio.rounded()))")
-                    .font(FDS.TypeScale.Dynamic.metric)
-                    .foregroundColor(tone)
-                Text("/ \(Int(chrono.rounded()))")
-                    .font(FDS.TypeScale.Dynamic.caption)
-                    .foregroundColor(.textTertiary)
-            }
+        ForgeAdaptiveStack(spacing: ForgeLayout.rowGap, alignment: .center) {
+            sentenceBlock
+                .frame(maxWidth: .infinity, alignment: .leading)
+            ageNumbers
         }
-        .padding(.horizontal, FDS.Spacing.lg)
-        .padding(.vertical, FDS.Spacing.md)
-        .background(tone.opacity(0.08))
-        .clipShape(RoundedRectangle(cornerRadius: FDS.Radius.md, style: .continuous))
+        .padding(.horizontal, ForgeLayout.compactCardPadding)
+        .padding(.vertical, ForgeLayout.tilePadding)
+        .background(tone.opacity(0.12))
+        .clipShape(RoundedRectangle(cornerRadius: ForgeLayout.innerRadius, style: .continuous))
         .overlay(
-            RoundedRectangle(cornerRadius: FDS.Radius.md, style: .continuous)
-                .stroke(tone.opacity(0.22), lineWidth: 1)
+            RoundedRectangle(cornerRadius: ForgeLayout.innerRadius, style: .continuous)
+                .stroke(tone.opacity(0.28), lineWidth: ForgeUX.hairline)
         )
+        .accessibilityElement(children: .combine)
         .accessibilityLabel(
             snapshot.oneBreathLine.isEmpty
                 ? "Training age compared with calendar age. \(snapshot.comparisonLine)"
@@ -538,29 +468,53 @@ struct AgeCompareChip: View {
         )
     }
 
-    private var tone: Color {
-        switch snapshot.state {
-        case .younger: return .success
-        case .older: return .warning
-        case .matched, .unknown: return .steel
+    private var sentenceBlock: some View {
+        HStack(alignment: .top, spacing: ForgeLayout.rowGap) {
+            Image(systemName: "clock.arrow.2.circlepath")
+                .font(.system(size: 13, weight: .semibold))
+                .foregroundStyle(tone)
+                .accessibilityHidden(true)
+            VStack(alignment: .leading, spacing: ForgeLayout.labelValueGap) {
+                Text("Heart")
+                    .font(HomeType.micro)
+                    .foregroundStyle(Color.textTertiary)
+                Text(line)
+                    .font(HomeType.body)
+                    .foregroundStyle(Color.textPrimary)
+                    .forgeWrapping()
+                if AgingNorms.webConfirmed {
+                    Text("Public cardio norms")
+                        .font(HomeType.micro)
+                        .foregroundStyle(Color.textTertiary)
+                }
+            }
         }
     }
-}
 
-struct WorkoutStatPill: View {
-    let icon: String; let value: String; let label: String
-    var color: Color = .textSecondary
-    var body: some View {
-        HStack(spacing: FDS.Spacing.xs) {
-            Image(systemName: icon).font(.system(size: 11)).foregroundColor(color)
-            Text(value).font(FDS.TypeScale.Dynamic.caption).foregroundColor(.textPrimary)
-            Text(label).font(FDS.TypeScale.Dynamic.micro).foregroundColor(.textSecondary).lineLimit(1)
-
+    @ViewBuilder
+    private var ageNumbers: some View {
+        if let chrono = snapshot.chronologicalAge, let bio = snapshot.biologicalAge, snapshot.confidence > 0.25 {
+            HStack(alignment: .firstTextBaseline, spacing: ForgeLayout.pairGap) {
+                Text("\(Int(bio.rounded()))")
+                    .font(HomeType.metric)
+                    .foregroundStyle(tone)
+                    .forgeSingleLine()
+                    .layoutPriority(1)
+                Text("/ \(Int(chrono.rounded()))")
+                    .font(HomeType.micro)
+                    .foregroundStyle(Color.textTertiary)
+                    .forgeSingleLine()
+                    .layoutPriority(1)
+            }
         }
-        .padding(.horizontal, FDS.Spacing.md).padding(.vertical, FDS.Spacing.sm)
-        .background(Color.white.opacity(0.05))
-        .clipShape(Capsule())
-        .overlay(Capsule().stroke(Color.white.opacity(0.10), lineWidth: 1))
+    }
+
+    private var tone: Color {
+        switch snapshot.state {
+        case .younger: return Color.vitality
+        case .older: return Color.amber
+        case .matched, .unknown: return Color.steel
+        }
     }
 }
 
@@ -568,179 +522,142 @@ struct WorkoutExerciseRow: View {
     let exercise: Exercise; let index: Int
     let isExpanded: Bool; let onTap: () -> Void
     @EnvironmentObject var store: AppStore
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.dynamicTypeSize) private var typeSize
+    @ScaledMetric(relativeTo: .body) private var wellSize: CGFloat = 36
+
     private var def: ExerciseDefinition? { ExerciseLibrary.definition(for: exercise) }
+    private var accent: Color { def?.accent ?? Color.ember }
+
+    private var metaLine: String {
+        var parts: [String] = ["\(exercise.sets) × \(exercise.reps)"]
+        if let w = exercise.weight { parts.append("\(w) lb") }
+        if let muscle = def?.primary.first?.label, !muscle.isEmpty { parts.append(muscle) }
+        return parts.joined(separator: " · ")
+    }
+
+    private var expandTransition: AnyTransition {
+        reduceMotion ? .opacity : .opacity.combined(with: .scale(scale: 0.97, anchor: .top))
+    }
 
     var body: some View {
-        Button(action: onTap) {
-            VStack(spacing: 0) {
-                HStack(spacing: FDS.Spacing.lg) {
-                    ZStack {
-                        Circle()
-                            .fill(LinearGradient(colors: [(def?.accent ?? .ember).opacity(0.18), (def?.accent ?? .ember).opacity(0.07)],
-                                                 startPoint: .topLeading, endPoint: .bottomTrailing))
-                            .frame(width: 42, height: 42)
-                        Text("\(index + 1)").font(FDS.TypeScale.Dynamic.headline).foregroundColor(def?.accent ?? .ember)
-                    }
-                    VStack(alignment: .leading, spacing: FDS.Spacing.xs) {
-                        Text(exercise.name)
-                            .font(FDS.TypeScale.Dynamic.body.weight(.semibold)).foregroundColor(.textPrimary).lineLimit(isExpanded ? nil : 1)
-                        HStack(spacing: FDS.Spacing.sm) {
-                            Label("\(exercise.sets) × \(exercise.reps)", systemImage: "repeat")
-                                .font(.system(size: 12)).foregroundColor(.textSecondary)
-                            if let w = exercise.weight {
-                                Circle().fill(Color.textMuted).frame(width: 3, height: 3)
-                                Text("\(w) lbs").font(.system(size: 12)).foregroundColor(.textSecondary)
-                            }
-                            if let def {
-                                Circle().fill(Color.textMuted).frame(width: 3, height: 3)
-                                Text(def.primary.first?.label ?? "").font(FDS.TypeScale.Dynamic.caption).foregroundColor(def.accent)
-                            }
-                        }
-                    }
-                    Spacer()
-                    Image(systemName: "chevron.down")
-                        .font(.system(size: 12, weight: .semibold)).foregroundColor(.textMuted)
-                        .rotationEffect(.degrees(isExpanded ? 180 : 0))
-                        .animation(.spring(response: 0.35, dampingFraction: 0.75), value: isExpanded)
-                }
-                .padding(.horizontal, FDS.Spacing.lg).padding(.vertical, FDS.Spacing.lg)
-                if isExpanded {
-                    VStack(alignment: .leading, spacing: FDS.Spacing.md) {
-                        Divider().background(Color.borderColor.opacity(0.5)).padding(.horizontal, FDS.Spacing.lg)
-                        if let def {
-                            // Muscle map + mechanics chips
-                            HStack(spacing: FDS.Spacing.sm) {
-                                metaChip(def.pattern.label, "arrow.triangle.branch", def.accent)
-                                metaChip(def.equipment.label, def.equipment.icon, .steel)
-                                metaChip(def.isCompound ? "Compound" : "Isolation", "square.stack.3d.up.fill", .textTertiary)
-                            }
-                            .padding(.horizontal, FDS.Spacing.lg)
-                            if let cue = def.cues.first {
-                                cueRow(icon: "checkmark.circle.fill", color: def.accent, text: cue)
-                            }
-                            if let fault = def.faults.first {
-                                cueRow(icon: "exclamationmark.triangle.fill", color: .warning, text: "Avoid: \(fault)")
-                            }
-                        }
-                        if let notes = exercise.notes {
-                            cueRow(icon: "info.circle.fill", color: .steel, text: notes)
-                        }
-                        HStack(spacing: FDS.Spacing.sm) {
-                            Image(systemName: "clock.fill").font(.system(size: 12)).foregroundColor(.textMuted)
-                            Text("\(exercise.restSeconds)s rest between sets").font(.system(size: 12)).foregroundColor(.textTertiary)
-                        }
-                        .padding(.horizontal, FDS.Spacing.lg)
-                        Button {
-                            FDS.haptic(.medium)
-                            store.showHowToPerform(exercise.name)
-                        } label: {
-                            HStack(spacing: FDS.Spacing.sm) {
-                                ARIAIdentityMark(state: .idle, mood: .energized, size: 22, amplitude: 0.3)
-                                Text("Show me how")
-                                    .font(FDS.TypeScale.Dynamic.body.weight(.semibold))
-                                Spacer()
-                                Image(systemName: "books.vertical.fill").font(.system(size: 13, weight: .semibold))
-                            }
-                            .foregroundColor(.white)
-                            .padding(.horizontal, FDS.Spacing.lg)
-                            .padding(.vertical, FDS.Spacing.md)
-                            .background(Color.ember)
-                            .clipShape(RoundedRectangle(cornerRadius: FDS.Radius.md, style: .continuous))
-                        }
-                        .buttonStyle(.plain)
-                        .padding(.horizontal, FDS.Spacing.lg)
-                        .padding(.bottom, FDS.Spacing.lg)
-                    }
-                    .transition(.opacity.combined(with: .scale(scale: 0.97, anchor: .top)))
-                }
+        VStack(alignment: .leading, spacing: ForgeLayout.rowGap) {
+            Button(action: onTap) {
+                header
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel("\(index + 1), \(exercise.name), \(metaLine)")
+            .accessibilityValue(isExpanded ? "Expanded" : "Collapsed")
+            .accessibilityHint(isExpanded ? "Hides details" : "Shows form cues and equipment")
+
+            if isExpanded {
+                expandedContent
+                    .transition(expandTransition)
             }
         }
-        .buttonStyle(.plain)
-        .animation(.spring(response: 0.38, dampingFraction: 0.78), value: isExpanded)
+        .animation(reduceMotion ? nil : FDS.Spring.standard, value: isExpanded)
+    }
+
+    // MARK: Header (the only part that toggles)
+
+    private var header: some View {
+        HStack(spacing: ForgeLayout.rowGap) {
+            indexWell
+            VStack(alignment: .leading, spacing: ForgeLayout.labelValueGap) {
+                Text(exercise.name)
+                    .font(HomeType.status)
+                    .foregroundStyle(Color.textPrimary)
+                    .multilineTextAlignment(.leading)
+                    .lineLimit(isExpanded ? nil : 2)
+                Text(metaLine)
+                    .font(HomeType.body)
+                    .foregroundStyle(Color.textTertiary)
+                    .monospacedDigit()
+                    .lineLimit(typeSize.isAccessibilitySize ? 2 : 1)
+            }
+            .layoutPriority(1)
+            Spacer(minLength: FDS.Spacing.xs)
+            Image(systemName: "chevron.down")
+                .font(.system(size: 11, weight: .semibold))
+                .foregroundStyle(Color.textMuted)
+                .rotationEffect(.degrees(isExpanded ? 180 : 0))
+                .accessibilityHidden(true)
+        }
+        .padding(.vertical, ForgeLayout.rowVerticalPadding)
+        .frame(maxWidth: .infinity, minHeight: ForgeUX.minTap, alignment: .leading)
+        .contentShape(Rectangle())
+    }
+
+    private var indexWell: some View {
+        let size = ForgeLayout.scaledCap(wellSize, base: 36)
+        return ZStack {
+            Circle().fill(accent.opacity(0.16))
+            Text("\(index + 1)")
+                .font(HomeType.label)
+                .foregroundStyle(accent)
+                .monospacedDigit()
+                .hudInArcText()
+        }
+        .frame(width: size, height: size)
+        .accessibilityHidden(true)
+    }
+
+    // MARK: Expanded content (a sibling of the toggle, never inside it)
+
+    private var expandedContent: some View {
+        VStack(alignment: .leading, spacing: ForgeLayout.rowGap) {
+            if let def {
+                mechanics(def)
+            }
+            if let notes = exercise.notes {
+                cueRow(icon: "info.circle.fill", color: Color.steel, text: notes)
+            }
+            restLine
+            ForgeSecondaryButton(title: "Show me how", icon: "play.circle", accent: .ember) {
+                store.showHowToPerform(exercise.name)
+            }
+        }
+    }
+
+    @ViewBuilder
+    private func mechanics(_ def: ExerciseDefinition) -> some View {
+        ForgeFlowLayout {
+            ForgeChip(label: def.pattern.label, icon: "arrow.triangle.branch")
+            ForgeChip(label: def.equipment.label, icon: def.equipment.icon)
+            ForgeChip(label: def.isCompound ? "Compound" : "Isolation", icon: "square.stack.3d.up.fill")
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        if let cue = def.cues.first {
+            cueRow(icon: "checkmark.circle.fill", color: def.accent, text: cue)
+        }
+        if let fault = def.faults.first {
+            cueRow(icon: "exclamationmark.triangle.fill", color: Color.amber, text: "Avoid: \(fault)")
+        }
+    }
+
+    private var restLine: some View {
+        HStack(spacing: FDS.Spacing.sm) {
+            Image(systemName: "clock.fill")
+                .font(.system(size: 12))
+                .foregroundStyle(Color.textTertiary)
+                .accessibilityHidden(true)
+            Text("\(exercise.restSeconds)s rest between sets")
+                .font(HomeType.micro)
+                .foregroundStyle(Color.textTertiary)
+        }
     }
 
     private func cueRow(icon: String, color: Color, text: String) -> some View {
         HStack(alignment: .top, spacing: FDS.Spacing.sm) {
-            Image(systemName: icon).font(.system(size: 13)).foregroundColor(color)
-            Text(text).font(.system(size: 13)).foregroundColor(.textSecondary).lineSpacing(4)
-            Spacer(minLength: 0)
+            Image(systemName: icon)
+                .font(.system(size: 13))
+                .foregroundStyle(color)
+                .accessibilityHidden(true)
+            Text(text)
+                .font(HomeType.body)
+                .foregroundStyle(Color.textSecondary)
+                .forgeWrapping()
         }
-        .padding(.horizontal, FDS.Spacing.lg)
-    }
-    private func metaChip(_ text: String, _ icon: String, _ color: Color) -> some View {
-        HStack(spacing: FDS.Spacing.xs) {
-            Image(systemName: icon).font(.system(size: 9))
-            Text(text).font(FDS.TypeScale.Dynamic.micro)
-        }
-        .foregroundColor(color).padding(.horizontal, FDS.Spacing.sm).padding(.vertical, FDS.Spacing.xs)
-        .background(color.opacity(0.1)).cornerRadius(7)
-    }
-}
-
-struct WorkoutInsightsView: View {
-    let workout: WorkoutPlan
-    @EnvironmentObject var store: AppStore
-    @State private var appeared = false
-
-    private var insights: [(icon: String, text: String, color: Color)] {
-        var r: [(String, String, Color)] = []
-        let facts = AriaSpeechFacts()
-        let voice = AriaVoiceEngine.speak(
-            intent: .trainingPlan,
-            context: store.makeTrainerContext(),
-            input: "What's on my board?",
-            facts: facts
-        )
-        r.append(("brain.head.profile", voice, .ember))
-        if let headline = workout.scaleHeadline {
-            r.append(("wand.and.stars", headline, workout.autoScaled ? .warning : .steel))
-        }
-        if store.readiness.overall >= 80 { r.append(("bolt.fill", "Readiness \(store.readiness.overall)% — primed. Add a set if the first compound moves well.", .ember)) }
-        else if store.readiness.overall < 65 { r.append(("bed.double.fill", "Recovery \(store.readiness.overall)% — ARIA already scaled the board. You can still add a set if you feel it.", .steel)) }
-        // Balance read across the plan
-        if let lean = planRegionLean() { r.append(("scale.3d", lean, Color.aurora)) }
-        if workout.intensity == .high || workout.intensity == .max {
-            r.append(("exclamationmark.triangle.fill", "High intensity — run the mobility warm-up before loading.", .warning))
-        }
-        r.append(("flame.fill", "≈\(workout.estimatedCalories) kcal projected at this output.", .success))
-        return r
-    }
-
-    private func planRegionLean() -> String? {
-        var counts: [TargetMuscle.Region: Int] = [:]
-        for ex in workout.exercises {
-            if let def = ExerciseLibrary.definition(for: ex) { counts[def.region, default: 0] += ex.sets }
-        }
-        guard let top = counts.max(by: { $0.value < $1.value }) else { return nil }
-        return "Session emphasis: \(top.key.rawValue) (\(top.value) working sets)."
-    }
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: FDS.Spacing.lg) {
-            HStack(spacing: FDS.Spacing.sm) {
-                Image(systemName: "brain.head.profile").font(.system(size: 14)).foregroundColor(.ember)
-                Text("ARIA INSIGHTS").font(FDS.TypeScale.Dynamic.micro).foregroundColor(.textTertiary).tracking(2.5)
-            }
-            VStack(spacing: FDS.Spacing.md) {
-                ForEach(Array(insights.enumerated()), id: \.offset) { idx, insight in
-                    HStack(alignment: .top, spacing: FDS.Spacing.md) {
-                        ZStack {
-                            Circle().fill(insight.color.opacity(0.12)).frame(width: 32, height: 32)
-                            Image(systemName: insight.icon).font(.system(size: 13)).foregroundColor(insight.color)
-                        }
-                        Text(insight.text).font(.system(size: 13)).foregroundColor(.textSecondary).lineSpacing(4)
-                        Spacer()
-                    }
-                    .padding(FDS.Spacing.md).forgeInsetTile(radius: FDS.Radius.md)
-                    .opacity(appeared ? 1 : 0).offset(x: appeared ? 0 : -14)
-                    .animation(.spring(response: 0.5, dampingFraction: 0.8).delay(Double(idx) * 0.1), value: appeared)
-                }
-            }
-        }
-        .padding(FDS.Spacing.lg)
-        .forgeGlassCard(cornerRadius: FDS.Radius.xl, accent: .ember)
-        .onAppear { appeared = true }
-        .task { store.shareWorkoutInsightsIfNeeded(insights.map(\.text)) }
     }
 }
 
@@ -753,40 +670,44 @@ struct WeekSessionPicker: View {
         NavigationStack {
             List {
                 ForEach(WeeklySplit.normalized(store.userProfile.weeklySplit)) { slot in
-                    Button {
-                        onPick(slot.weekday)
-                    } label: {
-                        HStack {
-                            VStack(alignment: .leading, spacing: 3) {
-                                Text(WeeklySplit.dayNames[slot.weekday])
-                                    .font(FDS.TypeScale.Dynamic.headline)
-                                    .foregroundColor(.textPrimary)
-                                Text(slot.isRest ? "Rest · easy core if you want it" : "\(slot.title) · \(slot.exerciseCount) exercises")
-                                    .font(.system(size: 13))
-                                    .foregroundColor(.textSecondary)
-                            }
-                            Spacer()
-                            if slot.weekday == WeeklySplit.sun0(from: Date()) {
-                                Text("Today")
-                                    .font(FDS.TypeScale.Dynamic.micro)
-                                    .foregroundColor(.ember)
-                            }
-                        }
-                    }
+                    weekRow(slot)
+                        .listRowBackground(Color.white.opacity(0.045))
                 }
             }
+            .scrollContentBackground(.hidden)
+            .forgeScreenBackground(accent: .ember)
             .navigationTitle("This week")
             .toolbar {
-                ToolbarItem(placement: .cancellationAction) { Button("Close") { dismiss() } }
+                ToolbarItem(placement: .topBarTrailing) { Button("Close") { dismiss() } }
             }
         }
+        .preferredColorScheme(.dark)
         .presentationDetents([.medium, .large])
+        .presentationDragIndicator(.visible)
+    }
+
+    private func weekRow(_ slot: WeeklySplitSlot) -> some View {
+        let isToday = slot.weekday == WeeklySplit.sun0(from: Date())
+        let subtitle = slot.isRest ? "Rest · easy core if you want it" : "\(slot.title) · \(slot.exerciseCount) exercises"
+        return Button {
+            FDS.haptic(.select)
+            onPick(slot.weekday)
+        } label: {
+            ForgeListRow(
+                icon: slot.isRest ? "moon.zzz.fill" : "dumbbell.fill",
+                iconColor: slot.isRest ? Color.steel : Color.ember,
+                title: WeeklySplit.dayNames[slot.weekday],
+                subtitle: subtitle,
+                trailing: isToday ? "Today" : nil,
+                showChevron: true
+            )
+        }
+        .buttonStyle(.plain)
     }
 }
 
 struct WorkoutEmptyState: View {
     @EnvironmentObject var store: AppStore
-    @State private var appeared = false
     @State private var showLibrary = false
     @State private var agingStamp = 0
 
@@ -800,59 +721,53 @@ struct WorkoutEmptyState: View {
     }
 
     var body: some View {
-        VStack(spacing: FDS.Spacing.xl) {
-            Spacer()
-            ZStack {
-                Circle()
-                    .fill(RadialGradient(colors: [Color.ember.opacity(0.22), .clear], center: .center, startRadius: 8, endRadius: 80))
-                    .frame(width: 160, height: 160)
-                    .blur(radius: 12)
-                AuroraOrbView(state: .idle, amplitude: 0.30, mood: .energized, size: 112, followPresence: true)
+        GeometryReader { proxy in
+            ScrollView {
+                content
+                    .frame(maxWidth: .infinity, minHeight: proxy.size.height)
             }
-            .scaleEffect(appeared ? 1 : 0.8).opacity(appeared ? 1 : 0)
-            VStack(spacing: FDS.Spacing.md) {
-                Text("No session on the board")
-                    .font(ForgeType.pageTitle)
-                    .foregroundColor(.textPrimary)
-                Text("ARIA writes a session from sleep, readiness, and the week you actually have — preview it here, then start when you’re ready.")
-                    .font(FDS.TypeScale.Dynamic.body).foregroundColor(.textSecondary)
-                    .multilineTextAlignment(.center).lineSpacing(5).padding(.horizontal, 44)
-            }
-            .opacity(appeared ? 1 : 0).offset(y: appeared ? 0 : 18)
-            if aging.showsOnTrain {
-                AgeCompareChip(snapshot: aging)
-                    .id(agingStamp)
-                    .padding(.horizontal, FDS.Spacing.xl)
-                    .opacity(appeared ? 1 : 0)
-            }
-            VStack(spacing: FDS.Spacing.md) {
-                ForgePrimaryButton(title: "Write today’s session", icon: "sparkles") {
-                    store.rebuildTodayPlanFromLife()
-                }
-                .padding(.horizontal, FDS.Spacing.xl)
-                Button { showLibrary = true } label: {
-                    HStack(spacing: FDS.Spacing.sm) {
-                        Image(systemName: "books.vertical.fill").font(.system(size: 14))
-                        Text("Browse the library").font(FDS.TypeScale.Dynamic.body.weight(.semibold))
-                    }
-                    .foregroundColor(.steel).padding(.horizontal, FDS.Spacing.xl).padding(.vertical, FDS.Spacing.md)
-                    .background(Color.steel.opacity(0.12))
-                    .clipShape(RoundedRectangle(cornerRadius: FDS.Radius.lg, style: .continuous))
-                    .overlay(RoundedRectangle(cornerRadius: FDS.Radius.lg, style: .continuous).stroke(Color.steel.opacity(0.3), lineWidth: 1))
-                }
-                .buttonStyle(.plain)
-            }
-            .opacity(appeared ? 1 : 0).scaleEffect(appeared ? 1 : 0.92)
-            Spacer(); Spacer()
+            .scrollBounceBehavior(.basedOnSize)
         }
-        .frame(maxWidth: .infinity)
         .sheet(isPresented: $showLibrary) { ExerciseLibraryView() }
         .onAppear {
-            withAnimation(.spring(response: 0.7, dampingFraction: 0.8).delay(0.18)) { appeared = true }
             Task {
                 await AriaAgingNorms.refresh()
                 agingStamp += 1
             }
         }
+    }
+
+    private var content: some View {
+        VStack(spacing: ForgeLayout.sectionGap) {
+            ForgeIconWell(systemImage: "dumbbell.fill", tint: .ember, diameter: 72)
+            VStack(spacing: FDS.Spacing.md) {
+                Text("No session on the board")
+                    .font(ForgeType.pageTitle)
+                    .foregroundStyle(Color.textPrimary)
+                    .multilineTextAlignment(.center)
+                    .forgeWrapping()
+                    .accessibilityAddTraits(.isHeader)
+                Text("ARIA writes a session from sleep, readiness, and the week you actually have — preview it here, then start when you’re ready.")
+                    .font(HomeType.body)
+                    .foregroundStyle(Color.textSecondary)
+                    .multilineTextAlignment(.center)
+                    .forgeWrapping()
+                    .padding(.horizontal, FDS.Spacing.xl)
+            }
+            if aging.showsOnTrain {
+                AgeCompareChip(snapshot: aging)
+                    .id(agingStamp)
+            }
+            VStack(spacing: ForgeLayout.tileGap) {
+                ForgePrimaryButton(title: "Write today’s session", icon: "sparkles") {
+                    store.rebuildTodayPlanFromLife()
+                }
+                ForgeSecondaryButton(title: "Browse the library", icon: "books.vertical.fill", accent: .steel) {
+                    showLibrary = true
+                }
+            }
+        }
+        .padding(.horizontal, ForgeLayout.screenInset)
+        .padding(.vertical, ForgeLayout.sectionGap)
     }
 }
