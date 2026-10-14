@@ -20,6 +20,8 @@ public struct HomeWidgetSnapshot: Codable, Equatable, Sendable {
     public var sleepHours: Double
     public var sleepScore: Int?
     public var sleepWindowTitle: String?
+    /// Tonight's predicted wind-down start. Live Activity / debt widgets can follow.
+    public var tonightWindDown: Date?
     public var hydrationMl: Double
     public var hydrationTargetMl: Double
     public var cyclePhase: String?
@@ -35,6 +37,7 @@ public struct HomeWidgetSnapshot: Codable, Equatable, Sendable {
         sleepHours: Double = 0,
         sleepScore: Int? = nil,
         sleepWindowTitle: String? = nil,
+        tonightWindDown: Date? = nil,
         hydrationMl: Double = 0,
         hydrationTargetMl: Double = HydrationEngine.targetMilliliters(weightKilograms: nil),
         cyclePhase: String? = nil,
@@ -49,6 +52,7 @@ public struct HomeWidgetSnapshot: Codable, Equatable, Sendable {
         self.sleepHours = sleepHours
         self.sleepScore = sleepScore
         self.sleepWindowTitle = sleepWindowTitle
+        self.tonightWindDown = tonightWindDown
         self.hydrationMl = hydrationMl
         self.hydrationTargetMl = hydrationTargetMl
         self.cyclePhase = cyclePhase
@@ -92,6 +96,7 @@ public struct HomeWidgetSnapshot: Codable, Equatable, Sendable {
             && sleepHours == other.sleepHours
             && sleepScore == other.sleepScore
             && sleepWindowTitle == other.sleepWindowTitle
+            && tonightWindDown == other.tonightWindDown
             && hydrationMl == other.hydrationMl
             && hydrationTargetMl == other.hydrationTargetMl
             && cyclePhase == other.cyclePhase

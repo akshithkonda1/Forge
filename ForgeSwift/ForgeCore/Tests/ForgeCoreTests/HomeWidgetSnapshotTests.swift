@@ -12,6 +12,8 @@ final class HomeWidgetSnapshotTests: XCTestCase {
             .removeObject(forKey: HomeWidgetBoardStore.key)
         UserDefaults(suiteName: HomeWidgetSnapshotStore.appGroupID)?
             .removeObject(forKey: StandByMetricsStore.key)
+        UserDefaults(suiteName: WatchSnapshotStore.appGroupID)?
+            .removeObject(forKey: WatchSnapshotStore.key)
         super.tearDown()
     }
 
@@ -22,6 +24,32 @@ final class HomeWidgetSnapshotTests: XCTestCase {
         XCTAssertEqual(loaded?.readiness, 84)
         XCTAssertEqual(loaded?.hydrationMl, 1_420)
         XCTAssertEqual(loaded?.cyclePhase, "follicular")
+        XCTAssertNil(loaded?.tonightWindDown)
+    }
+
+    func testTonightWindDownRoundTrips() {
+        var snap = HomeWidgetSnapshot.preview
+        snap.tonightWindDown = Date(timeIntervalSince1970: 1_800_000_000)
+        HomeWidgetSnapshotStore.save(snap, reloadWidgets: false)
+        XCTAssertEqual(
+            HomeWidgetSnapshotStore.load()?.tonightWindDown,
+            Date(timeIntervalSince1970: 1_800_000_000)
+        )
+    }
+
+    func testWatchSnapshotSaveSkipsWhenContentIsEqual() {
+        var first = WatchSnapshot()
+        first.sleepMinutes = 420
+        first.tonightWindDown = Date(timeIntervalSince1970: 50)
+        first.updatedAt = Date(timeIntervalSince1970: 1)
+        WatchSnapshotStore.save(first, reloadWidgets: false)
+        var second = first
+        second.updatedAt = Date(timeIntervalSince1970: 99)
+        WatchSnapshotStore.save(second, reloadWidgets: false)
+        XCTAssertEqual(WatchSnapshotStore.load()?.updatedAt, Date(timeIntervalSince1970: 1))
+        XCTAssertTrue(first.hasSameWidgetContent(as: second))
+        XCTAssertTrue(WatchSnapshotStore.watchWidgetKinds.contains("SleepQualityComplication"))
+        XCTAssertFalse(WatchSnapshotStore.watchWidgetKinds.contains(where: { $0.isEmpty }))
     }
 
     func testSaveSkipsWhenContentIsEqual() {

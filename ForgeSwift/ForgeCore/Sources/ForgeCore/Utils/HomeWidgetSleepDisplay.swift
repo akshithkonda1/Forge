@@ -24,6 +24,7 @@ public enum HomeWidgetSleepDisplay: Sendable {
     /// accessoryRectangular, accessoryInline, system small/medium/large,
     /// and Today. Plain language — no Health, denied, or clinical wording.
     public static let emptyCopy = "No sleep yet"
+    public static let estimateLabel = "est."
 
     /// accessoryCircular is too small for the phrase. Moon icon + em dash.
     public static let circularEmptyCopy = "—"

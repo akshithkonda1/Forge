@@ -55,12 +55,47 @@ public struct WatchSnapshot: Codable, Sendable, Equatable {
     public init(updatedAt: Date = Date()) {
         self.updatedAt = updatedAt
     }
+
+    /// Widget reloads key off content, not `updatedAt`.
+    public func hasSameWidgetContent(as other: WatchSnapshot) -> Bool {
+        readinessOverall == other.readinessOverall
+            && readinessBand == other.readinessBand
+            && readinessConfidence == other.readinessConfidence
+            && tomorrowPredictedScore == other.tomorrowPredictedScore
+            && tomorrowPosture == other.tomorrowPosture
+            && sleepQualityScore == other.sleepQualityScore
+            && sleepMinutes == other.sleepMinutes
+            && recommendedPractice == other.recommendedPractice
+            && recommendedDuration == other.recommendedDuration
+            && recommendationReason == other.recommendationReason
+            && dayBrief == other.dayBrief
+            && mindfulMinutesToday == other.mindfulMinutesToday
+            && activeWorkout == other.activeWorkout
+            && tonightWindDown == other.tonightWindDown
+            && hydrationMilliliters == other.hydrationMilliliters
+            && hydrationTargetMilliliters == other.hydrationTargetMilliliters
+            && cyclePhase == other.cyclePhase
+            && cycleDayInCycle == other.cycleDayInCycle
+            && cycleNextPeriodDaysAway == other.cycleNextPeriodDaysAway
+            && cycleDiscretion == other.cycleDiscretion
+            && cycleLockSafeLine == other.cycleLockSafeLine
+            && bodyTemperatureF == other.bodyTemperatureF
+            && wristTemperatureDeviationC == other.wristTemperatureDeviationC
+    }
 }
 
 public enum WatchSnapshotStore {
     /// Matches the group already used by ForgeWidget on iOS.
     public static let appGroupID = "group.com.forge.ForgeSwift"
-    private static let key = "forge.watch.snapshot.v1"
+    public static let key = "forge.watch.snapshot.v1"
+    public static let watchWidgetKinds = [
+        "ReadinessComplication",
+        "MindfulnessResetComplication",
+        "SleepQualityComplication",
+        "ActiveWorkoutComplication",
+        "SupportComplication",
+        "HydrationComplication",
+    ]
 
     public static func load() -> WatchSnapshot? {
         guard
@@ -73,6 +108,9 @@ public enum WatchSnapshotStore {
     /// Persists the snapshot and nudges WidgetKit so complications refresh
     /// promptly. `reloadWidgets` exists so unit tests can skip WidgetKit.
     public static func save(_ snapshot: WatchSnapshot, reloadWidgets: Bool = true) {
+        if let existing = load(), existing.hasSameWidgetContent(as: snapshot) {
+            return
+        }
         guard
             let defaults = UserDefaults(suiteName: appGroupID),
             let data = try? JSONEncoder().encode(snapshot)
@@ -80,7 +118,9 @@ public enum WatchSnapshotStore {
         defaults.set(data, forKey: key)
         #if canImport(WidgetKit)
         if reloadWidgets {
-            WidgetCenter.shared.reloadAllTimelines()
+            for kind in watchWidgetKinds {
+                WidgetCenter.shared.reloadTimelines(ofKind: kind)
+            }
         }
         #endif
     }

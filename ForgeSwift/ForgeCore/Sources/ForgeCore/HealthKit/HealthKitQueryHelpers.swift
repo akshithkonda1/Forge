@@ -195,6 +195,7 @@ public enum ForgeHealthQueries {
 
     /// Last night's sleep (18:00 yesterday → now) with per-stage segments
     /// for the timeline visual. Aggregation lives in SleepNight (pure).
+    /// Reuses the in-memory anchored cache — regroups only when samples change.
     public static func lastNightSleep(store: HKHealthStore) async -> SleepNight? {
         let calendar = Calendar.current
         let now = Date()
@@ -203,18 +204,39 @@ public enum ForgeHealthQueries {
             of: calendar.date(byAdding: .day, value: -1, to: now) ?? now
         ) else { return nil }
 
-        let segments = await sleepSegments(store: store, from: yesterdayEvening, to: now)
+        _ = await refreshSleepCache(store: store)
+        let cache = SleepHKCache.shared
+        cache.lock.lock()
+        let cached = cache.lastNight
+        let segments = cache.segments(from: yesterdayEvening, to: now)
+        cache.lock.unlock()
+        if let cached, let start = cached.start, start >= yesterdayEvening {
+            return cached.totalMinutes > 0 ? cached : nil
+        }
         guard !segments.isEmpty else { return nil }
         let night = SleepNight(segments: segments)
         return night.totalMinutes > 0 ? night : nil
     }
 
     /// Recent nights (for the wind-down predictor: onsets + durations).
+    /// Anchored + cached: a second call with no new HealthKit samples does not regroup.
     public static func recentSleepNights(store: HKHealthStore, days: Int = 7) async -> [SleepNight] {
         let start = Calendar.current.date(byAdding: .day, value: -days, to: Date()) ?? Date()
-        let segments = await sleepSegments(store: store, from: start, to: Date())
-        return SleepNight.groupIntoNights(segments: segments)
-            .filter { $0.totalMinutes > 0 }
+        let fingerprint = await refreshSleepCache(store: store)
+        if let cached = SleepQueryCache.shared.nightsIfUnchanged(fingerprint) {
+            return cached.filter { night in
+                guard let end = night.end else { return false }
+                return end >= start
+            }
+        }
+        let cache = SleepHKCache.shared
+        cache.lock.lock()
+        let nights = cache.lastNights.filter { night in
+            guard let end = night.end else { return false }
+            return end >= start
+        }
+        cache.lock.unlock()
+        return nights
     }
 
     /// Most recently ended staged sample. Observer queries do not include the
@@ -224,34 +246,110 @@ public enum ForgeHealthQueries {
         minutesBack: Double = 45
     ) async -> SleepStageSegment? {
         let start = Date().addingTimeInterval(-minutesBack * 60)
-        let segments = await sleepSegments(store: store, from: start, to: Date())
+        _ = await refreshSleepCache(store: store)
+        let cache = SleepHKCache.shared
+        cache.lock.lock()
+        let segments = cache.segments(from: start, to: Date())
+        cache.lock.unlock()
         return segments.max(by: { $0.end < $1.end })
     }
 
-    private static func sleepSegments(store: HKHealthStore, from start: Date, to end: Date) async -> [SleepStageSegment] {
+    /// One-shot anchored sleep query. Anchor lives in memory for the process so
+    /// a cold start still pays one full window; later tab opens only apply deltas
+    /// and skip regrouping when the fingerprint is unchanged.
+    @discardableResult
+    public static func refreshSleepCache(store: HKHealthStore) async -> SleepQueryFingerprint {
+        let start = Calendar.current.date(byAdding: .day, value: -16, to: Date()) ?? Date()
+        let end = Date()
+        let cache = SleepHKCache.shared
+        cache.lock.lock()
+        let anchor = cache.anchor
+        cache.lock.unlock()
+
+        let (added, deleted, newAnchor) = await anchoredSleepSamples(
+            store: store, from: start, to: end, anchor: anchor
+        )
+
+        cache.lock.lock()
+        if let newAnchor { cache.anchor = newAnchor }
+        for id in deleted { cache.samples.removeValue(forKey: id) }
+        for sample in added {
+            if let mapped = mapSleepSample(sample) {
+                cache.samples[sample.uuid] = mapped
+            }
+        }
+        let ids = cache.samples.keys.map(\.uuidString).sorted()
+        let latest = cache.samples.values.map(\.end).max()?.timeIntervalSince1970 ?? 0
+        let fingerprint = SleepQueryFingerprint.samples(
+            count: cache.samples.count,
+            latestEndEpoch: latest,
+            ids: ids
+        )
+        let unchanged = fingerprint == cache.fingerprint && !cache.lastNights.isEmpty
+        if !unchanged {
+            let segments = cache.segments(from: start, to: end)
+            let nights = SleepNight.groupIntoNights(segments: segments)
+                .filter { $0.totalMinutes > 0 }
+            cache.lastNights = nights
+            cache.lastNight = nights.max(by: { ($0.end ?? .distantPast) < ($1.end ?? .distantPast) })
+            cache.fingerprint = fingerprint
+        }
+        let nights = cache.lastNights
+        let lastNight = cache.lastNight
+        cache.lock.unlock()
+
+        if !unchanged {
+            SleepQueryCache.shared.store(
+                fingerprint: fingerprint,
+                nights: nights,
+                lastNight: lastNight
+            )
+        }
+        return fingerprint
+    }
+
+    private static func anchoredSleepSamples(
+        store: HKHealthStore,
+        from start: Date,
+        to end: Date,
+        anchor: HKQueryAnchor?
+    ) async -> (added: [HKCategorySample], deleted: [UUID], newAnchor: HKQueryAnchor?) {
         let type = HKCategoryType(.sleepAnalysis)
         let predicate = HKQuery.predicateForSamples(withStart: start, end: end)
-        let samples: [HKCategorySample] = await withCheckedContinuation { continuation in
-            let query = HKSampleQuery(
-                sampleType: type, predicate: predicate,
-                limit: HKObjectQueryNoLimit,
-                sortDescriptors: [NSSortDescriptor(key: HKSampleSortIdentifierStartDate, ascending: true)]
-            ) { _, samples, _ in
-                continuation.resume(returning: (samples as? [HKCategorySample]) ?? [])
+        return await withCheckedContinuation { continuation in
+            let query = HKAnchoredObjectQuery(
+                type: type,
+                predicate: predicate,
+                anchor: anchor,
+                limit: HKObjectQueryNoLimit
+            ) { _, added, deleted, newAnchor, _ in
+                let samples = (added as? [HKCategorySample]) ?? []
+                let removed = (deleted ?? []).map(\.uuid)
+                continuation.resume(returning: (samples, removed, newAnchor))
             }
             store.execute(query)
         }
-        return samples.compactMap { sample in
-            let stage: SleepStage?
-            switch HKCategoryValueSleepAnalysis(rawValue: sample.value) {
-            case .asleepDeep:                     stage = .deep
-            case .asleepREM:                      stage = .rem
-            case .asleepCore, .asleepUnspecified: stage = .core
-            case .awake:                          stage = .awake
-            default:                              stage = nil // inBed etc. — not stages
-            }
-            return stage.map { SleepStageSegment(start: sample.startDate, end: sample.endDate, stage: $0) }
+    }
+
+    private static func mapSleepSample(_ sample: HKCategorySample) -> SleepStageSegment? {
+        let stage: SleepStage?
+        switch HKCategoryValueSleepAnalysis(rawValue: sample.value) {
+        case .asleepDeep:                     stage = .deep
+        case .asleepREM:                      stage = .rem
+        case .asleepCore, .asleepUnspecified: stage = .core
+        case .awake:                          stage = .awake
+        default:                              stage = nil
         }
+        return stage.map { SleepStageSegment(start: sample.startDate, end: sample.endDate, stage: $0) }
+    }
+
+    private static func sleepSegments(store: HKHealthStore, from start: Date, to end: Date) async -> [SleepStageSegment] {
+        _ = await refreshSleepCache(store: store)
+        let cache = SleepHKCache.shared
+        cache.lock.lock()
+        let segments = cache.segments(from: start, to: end)
+        cache.lock.unlock()
+        return segments
     }
 
     public static func mindfulMinutes(store: HKHealthStore, since start: Date) async -> Double {
@@ -500,6 +598,24 @@ public enum ForgeHealthQueries {
 private extension Array where Element == Double {
     var mean: Double {
         isEmpty ? 0 : reduce(0, +) / Double(count)
+    }
+}
+
+/// Process-lifetime anchored sleep samples. Do not persist the HKQueryAnchor
+/// without the samples — a cold start with a saved anchor would drop history.
+private final class SleepHKCache: @unchecked Sendable {
+    static let shared = SleepHKCache()
+    let lock = NSLock()
+    var anchor: HKQueryAnchor?
+    var samples: [UUID: SleepStageSegment] = [:]
+    var fingerprint: SleepQueryFingerprint?
+    var lastNights: [SleepNight] = []
+    var lastNight: SleepNight?
+
+    func segments(from start: Date, to end: Date) -> [SleepStageSegment] {
+        samples.values
+            .filter { $0.end >= start && $0.start <= end }
+            .sorted { $0.start < $1.start }
     }
 }
 #endif

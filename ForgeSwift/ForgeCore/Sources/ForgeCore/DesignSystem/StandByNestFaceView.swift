@@ -54,9 +54,18 @@ public struct StandByNestFaceView: View {
     }
 
     private var sleepText: String {
-        let hours = String(format: "%.1fh", snapshot.sleepHours)
-        guard let score = snapshot.sleepScore else { return hours }
-        return "\(hours) · \(score)"
+        guard HomeWidgetSleepDisplay.hasSleepToShow(snapshot) else {
+            return HomeWidgetSleepDisplay.emptyCopy
+        }
+        let hours = HomeWidgetSleepDisplay.hoursText(snapshot, style: .compact)
+        guard HomeWidgetSleepDisplay.hasHoursToShow(snapshot.sleepHours),
+              let score = snapshot.sleepScore else {
+            if let score = snapshot.sleepScore {
+                return "Score \(score) \(HomeWidgetSleepDisplay.estimateLabel)"
+            }
+            return hours
+        }
+        return "\(hours) · \(score) \(HomeWidgetSleepDisplay.estimateLabel)"
     }
 
     private func text(for metric: StandByMetricKind) -> String {
@@ -98,7 +107,7 @@ public struct StandByNestFaceView: View {
 
             Spacer(minLength: 0)
 
-            Text(date, format: Self.timeFormat)
+            Text(date, style: .time)
                 .font(.system(size: 13, weight: .medium, design: .rounded))
                 .monospacedDigit()
                 .foregroundStyle(clockColor.opacity(nightMode ? 0.85 : 0.6))
