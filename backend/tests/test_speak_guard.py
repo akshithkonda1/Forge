@@ -841,6 +841,53 @@ class BlockingPatternSpeakTests(unittest.TestCase):
                     self.assertEqual(resp["prose_summary"], exact)
                     self.assertEqual(resp["message"], exact)
                     self._assert_clean_spoken(resp, line)
+        # Dummy chat overlay keeps both risks on its safety turn.
+        for question in ("should I train hard today?", "I only slept a few hours, hard session?"):
+            with self.subTest(overlay=question):
+                env = aria_engine.generate_response(question, both, voice_mode=True)
+                out = conversation.apply_conversation(env, question, both, seed=1)
+                self.assertTrue(
+                    out["prose_summary"].startswith(line), out["prose_summary"]
+                )
+        # ACWR past the overreach line counts even when the flag says no.
+        hot_by_acwr = ARIAContext(
+            sleep=both.sleep,
+            readiness=both.readiness,
+            training=TrainingContext(
+                weekly_load_score=88,
+                acwr=1.62,
+                is_overtrained=False,
+                hours_since_last_workout=10,
+            ),
+            progress=both.progress,
+        )
+        resp = aria_engine.generate_response(
+            "should I train hard today?", hot_by_acwr, voice_mode=True
+        )
+        self.assertEqual(resp["prose_summary"], exact)
+        # Short sleep alone keeps the short-sleep line, here and in the overlay.
+        short_only = ARIAContext(
+            sleep=both.sleep,
+            readiness=both.readiness,
+            training=TrainingContext(
+                weekly_load_score=40,
+                acwr=1.0,
+                is_overtrained=False,
+                hours_since_last_workout=30,
+            ),
+            progress=both.progress,
+        )
+        q = "should I train hard today?"
+        env = aria_engine.generate_response(q, short_only, voice_mode=True)
+        self.assertEqual(
+            env["prose_summary"],
+            f"{aria_engine.SPOKEN_SHORT_SLEEP} {aria_engine.SPOKEN_PROTECT_STEP}",
+        )
+        out = conversation.apply_conversation(env, q, short_only, seed=1)
+        self.assertTrue(
+            out["prose_summary"].startswith(aria_engine.SPOKEN_SHORT_SLEEP),
+            out["prose_summary"],
+        )
 
     def test_sleep_question_never_uses_training_template(self):
         heavy = ARIAContext(

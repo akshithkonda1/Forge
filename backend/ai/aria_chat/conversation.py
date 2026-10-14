@@ -204,8 +204,8 @@ _COACH_SPARK = (
     "You look like someone who found the good mug. Keep it gentle and stop before you prove anything.",
 )
 _SAFETY = (APPROVED_SHORT_SLEEP,)
-# Engine-only combined line (sleep-protect + overreaching). Kept out of
-# `_SAFETY` so a short-sleep-only repeat never swaps to a load claim.
+# Combined line (sleep-protect + overreaching), used only when the engine spoke
+# it. Kept out of `_SAFETY` so a short-sleep-only repeat never swaps to a load claim.
 _SAFETY_BOTH = (APPROVED_SHORT_SLEEP_AND_HOT,)
 _NUMBER_ASK = (
     "From here you look {direction}.",
@@ -652,8 +652,13 @@ def compose_coaching(
     last_spoken: str = "",
     stance: str = "",
     prior_spoken: list[str] | None = None,
+    sleep_and_hot: bool = False,
 ) -> str:
-    """Direction in words, never a number or a diagnosis."""
+    """Direction in words, never a number or a diagnosis.
+
+    ``sleep_and_hot``: the engine spoke the combined sleep + load line, so a
+    safety turn keeps naming both risks instead of short sleep alone.
+    """
     used = list(prior_spoken or [])
     if data_is_thin(ctx):
         spoken = _pick_fresh(seed, _THIN, used)
@@ -668,11 +673,11 @@ def compose_coaching(
         spoken = _pick(seed, _NUMBER_ASK).format(direction=_direction(ctx))
     elif _safety_turn(message, ctx):
         return polish_iris(
-            APPROVED_SHORT_SLEEP,
+            APPROVED_SHORT_SLEEP_AND_HOT if sleep_and_hot else APPROVED_SHORT_SLEEP,
             memory_enabled=memory_enabled,
             last_spoken=last_spoken,
             seed=seed,
-            alternatives=_SAFETY,
+            alternatives=_SAFETY_BOTH if sleep_and_hot else _SAFETY,
         )
     else:
         recovery, load, sleep_min = _ctx_scores(ctx)
@@ -800,6 +805,9 @@ def apply_conversation(
             prior_spoken=used_spoken,
         )
     else:
+        engine_spoken = " ".join(
+            str(envelope.get("message") or envelope.get("prose_summary") or "").split()
+        ).lower()
         spoken = compose_coaching(
             message,
             ctx,
@@ -808,6 +816,7 @@ def apply_conversation(
             last_spoken=last_spoken,
             stance=stance,
             prior_spoken=used_spoken,
+            sleep_and_hot=SPOKEN_SHORT_SLEEP_AND_HOT.lower() in engine_spoken,
         )
     if down:
         spoken = _warm_after_down(

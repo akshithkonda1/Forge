@@ -2409,10 +2409,12 @@ def spoken_safety_line(pattern: Any, load: Any = None, message: str = "") -> str
     if pattern is None or not getattr(pattern, "blocks_intensity", False):
         return ""
     key = str(getattr(pattern, "key", "") or "")
-    overtrained = key == "overreaching" or bool(getattr(load, "is_overtrained", False))
     if key in {"sleep_debt", "under_recovery"} or _sleep_protect_active(load):
-        return SPOKEN_SHORT_SLEEP_AND_HOT if overtrained else SPOKEN_SHORT_SLEEP
-    if overtrained:
+        # Same overreach test as the card cue (flag, pattern, or ACWR >= 1.5).
+        if _is_overtrained_load(pattern, load):
+            return SPOKEN_SHORT_SLEEP_AND_HOT
+        return SPOKEN_SHORT_SLEEP
+    if key == "overreaching" or bool(getattr(load, "is_overtrained", False)):
         if _is_sleep_question(message):
             # Sleep protect is off on this branch, so "running short on sleep"
             # would be a false claim. Stay on sleep; the card carries the load.
