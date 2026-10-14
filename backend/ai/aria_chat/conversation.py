@@ -80,12 +80,20 @@ _BUTTON_READ = re.compile(
 _DASH_CAP = re.compile(r"([—–-])(\s+)(?!I\b|I'm\b|I'll\b|I've\b)([A-Z])")
 
 # PR 380 `cursor/spoken-safety-tip-fix-f013` speech bank, copied word for word.
-# `SPOKEN_SHORT_SLEEP` / `SPOKEN_PROTECT_STEP`: backend/infra/lambda/aria_core/aria_engine.py:2202–2203
-# Dummy closer `_SAFETY_CLOSER`: backend/ai/simrunner/aria_simrunner/dummy_orchestrator.py:873
+# `SPOKEN_SHORT_SLEEP` / `SPOKEN_SHORT_SLEEP_AND_HOT` / `SPOKEN_PROTECT_STEP`:
+# backend/infra/lambda/aria_core/aria_engine.py:2363, 2366–2369, 2373
+# Dummy closer `_SAFETY_CLOSER`: backend/ai/simrunner/aria_simrunner/dummy_orchestrator.py:874
 SPOKEN_SHORT_SLEEP = "You've been running short on sleep this week, so sleep comes first."
+SPOKEN_SHORT_SLEEP_AND_HOT = (
+    "You've been running short on sleep and your training has climbed fast, "
+    "so sleep comes first and we rest up for a few days."
+)
 SPOKEN_PROTECT_STEP = "Keep today easy and call it a win."
 SAFETY_CLOSER = "Future you says thanks."
 APPROVED_SHORT_SLEEP = f"{SPOKEN_SHORT_SLEEP} {SPOKEN_PROTECT_STEP} {SAFETY_CLOSER}"
+APPROVED_SHORT_SLEEP_AND_HOT = (
+    f"{SPOKEN_SHORT_SLEEP_AND_HOT} {SPOKEN_PROTECT_STEP} {SAFETY_CLOSER}"
+)
 
 RECOVERY_IN_SPEECH = re.compile(r"(?i)\brecovery\b")
 # Spoken-reply gate only. Narrow list — do not match bare "I won't" / "I don't".
@@ -196,6 +204,9 @@ _COACH_SPARK = (
     "You look like someone who found the good mug. Keep it gentle and stop before you prove anything.",
 )
 _SAFETY = (APPROVED_SHORT_SLEEP,)
+# Combined line (sleep-protect + overreaching), used only when the engine spoke
+# it. Kept out of `_SAFETY` so a short-sleep-only repeat never swaps to a load claim.
+_SAFETY_BOTH = (APPROVED_SHORT_SLEEP_AND_HOT,)
 _NUMBER_ASK = (
     "From here you look {direction}.",
 )
@@ -233,6 +244,7 @@ SPEECH_BANKS = (
     _COACH_STEADY,
     _COACH_SPARK,
     _SAFETY,
+    _SAFETY_BOTH,
     _NUMBER_ASK,
     _HABIT,
     _MEMORY_OFF,
@@ -280,6 +292,7 @@ def _emergency_allow_ngrams() -> set[str]:
 
 _SAFE_REPEAT_NGRAMS = (
     word_ngrams(SPOKEN_SHORT_SLEEP, 3)
+    | word_ngrams(SPOKEN_SHORT_SLEEP_AND_HOT, 3)
     | word_ngrams(SPOKEN_PROTECT_STEP, 3)
     | word_ngrams(SAFETY_CLOSER, 3)
     | _emergency_allow_ngrams()
@@ -639,8 +652,13 @@ def compose_coaching(
     last_spoken: str = "",
     stance: str = "",
     prior_spoken: list[str] | None = None,
+    sleep_and_hot: bool = False,
 ) -> str:
-    """Direction in words, never a number or a diagnosis."""
+    """Direction in words, never a number or a diagnosis.
+
+    ``sleep_and_hot``: the engine spoke the combined sleep + load line, so a
+    safety turn keeps naming both risks instead of short sleep alone.
+    """
     used = list(prior_spoken or [])
     if data_is_thin(ctx):
         spoken = _pick_fresh(seed, _THIN, used)
@@ -655,11 +673,11 @@ def compose_coaching(
         spoken = _pick(seed, _NUMBER_ASK).format(direction=_direction(ctx))
     elif _safety_turn(message, ctx):
         return polish_iris(
-            APPROVED_SHORT_SLEEP,
+            APPROVED_SHORT_SLEEP_AND_HOT if sleep_and_hot else APPROVED_SHORT_SLEEP,
             memory_enabled=memory_enabled,
             last_spoken=last_spoken,
             seed=seed,
-            alternatives=_SAFETY,
+            alternatives=_SAFETY_BOTH if sleep_and_hot else _SAFETY,
         )
     else:
         recovery, load, sleep_min = _ctx_scores(ctx)
@@ -787,6 +805,9 @@ def apply_conversation(
             prior_spoken=used_spoken,
         )
     else:
+        engine_spoken = " ".join(
+            str(envelope.get("message") or envelope.get("prose_summary") or "").split()
+        ).lower()
         spoken = compose_coaching(
             message,
             ctx,
@@ -795,6 +816,7 @@ def apply_conversation(
             last_spoken=last_spoken,
             stance=stance,
             prior_spoken=used_spoken,
+            sleep_and_hot=SPOKEN_SHORT_SLEEP_AND_HOT.lower() in engine_spoken,
         )
     if down:
         spoken = _warm_after_down(

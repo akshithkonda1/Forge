@@ -438,7 +438,11 @@ class SleepAskUnderLoadTests(unittest.TestCase):
             ),
         )
         resp = aria_engine.generate_response("How was my night?", short)
-        self.assertIn(aria_engine.SPOKEN_SHORT_SLEEP, resp["message"])
+        # Sleep really is short and the load is hot too: the combined line
+        # still leads with sleep and names the load, never the training template.
+        self.assertIn(aria_engine.SPOKEN_SHORT_SLEEP_AND_HOT, resp["message"])
+        self.assertIn("running short on sleep", resp["message"])
+        self.assertNotIn(aria_engine.SPOKEN_OVERTRAIN, resp["message"])
 
     def test_training_questions_keep_the_training_line(self):
         for question in ("how was last night's run?", "should I train hard today?"):

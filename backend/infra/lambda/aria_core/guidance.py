@@ -164,10 +164,19 @@ _CHEST_MARKERS = (
     "chest is tight", "chest hurt", "chest hurts", "pain in my chest",
     "pain in the chest", "pressure in my chest", "pressure in the chest",
     "tightness in my chest", "my chest hurts", "my chest hurt",
+    # How people actually describe angina: weight, not "pain".
+    "chest feels heavy", "chest is heavy", "heaviness in my chest",
+    "chest heaviness", "burning in my chest",
 )
+# Word order varies ("my chest is crushing", not only "crushing chest pain"),
+# and squeezing / crushing alone is enough — no companion symptom needed.
 _SEVERE_CHEST = (
     "crushing chest pressure", "crushing chest pain",
     "crushing pressure in my chest", "crushing pain in my chest",
+    "chest is crushing", "chest feels crushed", "chest feels like it's being crushed",
+    "crushing feeling in my chest", "elephant on my chest",
+    "chest is squeezing", "squeezing in my chest",
+    "chest feels like it's being squeezed",
 )
 _CHEST_COMPANIONS = (
     "arm is numb", "arm numb", "numb arm", "numbness in my arm",

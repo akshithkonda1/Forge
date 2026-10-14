@@ -874,6 +874,7 @@ _SPEAK_FALLBACK = (
 _SAFETY_CLOSER = "Future you says thanks."
 _SAFETY_PREFIXES = (
     "you've been running short on sleep this week",
+    "you've been running short on sleep and your training has climbed fast",
     "your training has climbed fast lately",
 )
 
