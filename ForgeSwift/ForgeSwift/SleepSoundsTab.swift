@@ -37,7 +37,7 @@ struct SleepSoundsTab: View {
                                         .font(FDS.TypeScale.Dynamic.caption)
                                         .foregroundColor(sleepTimer == mins ? .white : .textTertiary)
                                         .padding(.horizontal, FDS.Spacing.lg).padding(.vertical, FDS.Spacing.sm)
-                                        .background(sleepTimer == mins ? SleepHud.plate : Color.surface)
+                                        .background(sleepTimer == mins ? Color(hex: SleepHud.plateHex) : Color.surface)
                                         .cornerRadius(FDS.Radius.xl)
                                 }
                                 .buttonStyle(.plain)
@@ -62,7 +62,7 @@ struct SleepSoundsTab: View {
                                 } label: {
                                     HStack {
                                         Image(systemName: "music.note.list")
-                                            .foregroundColor(SleepHud.plate)
+                                            .foregroundColor(Color(hex: SleepHud.plateHex))
                                         Text(list.name)
                                             .font(FDS.TypeScale.Dynamic.body.weight(.semibold))
                                             .foregroundColor(.textPrimary)
@@ -96,7 +96,7 @@ struct SleepSoundsTab: View {
                             FDS.haptic(.light)
                         }
                         .font(ForgeType.caption)
-                        .foregroundColor(SleepHud.plate)
+                        .foregroundColor(Color(hex: SleepHud.plateHex))
                     }
                 }
 
@@ -248,10 +248,10 @@ struct SleepAppleMusicCard: View {
                             player.linksAppleMusic = true
                         }
                         .font(ForgeType.caption)
-                        .foregroundColor(SleepHud.plate)
+                        .foregroundColor(Color(hex: SleepHud.plateHex))
                     }
                     Toggle("Stop Apple Music with the timer", isOn: $player.linksAppleMusic)
-                        .tint(SleepHud.plate)
+                        .tint(Color(hex: SleepHud.plateHex))
                         .font(ForgeType.body)
                 } else {
                     Button("Connect Apple Music") {
@@ -261,7 +261,7 @@ struct SleepAppleMusicCard: View {
                     .foregroundColor(.white)
                     .padding(.horizontal, FDS.Spacing.lg)
                     .padding(.vertical, FDS.Spacing.sm)
-                    .background(SleepHud.appleMusic)
+                    .background(Color(hex: "FA2D48"))
                     .clipShape(Capsule())
                 }
             }

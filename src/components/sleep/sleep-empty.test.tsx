@@ -46,6 +46,6 @@ describe("sleep empty night", () => {
     expect(screen.getAllByText("No sleep yet").length).toBe(1);
     expect(screen.queryByText("Sleep Stages")).toBeNull();
     expect(screen.queryByText("Breakdown")).toBeNull();
-    expect(screen.queryByText("Sleep trend")).toBeNull();
+    expect(screen.queryByText("Recovery Trend")).toBeNull();
   });
 });

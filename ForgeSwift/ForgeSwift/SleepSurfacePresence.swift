@@ -19,11 +19,11 @@ enum SleepResearchHook: String, CaseIterable, Equatable, Sendable {
     var waitsForBrief: String {
         switch self {
         case .timeline:
-            return "Stage-map craft vs Rise / Pillow — see docs/sleep-competitive-review.md."
+            return "Stage-map craft vs Rise / Pillow — waits for the brief."
         case .debt:
-            return "14-day short stretch vs Rise energy, misses in missHex — see the review."
+            return "14-day short stretch vs Rise energy — waits for the brief."
         case .windDown:
-            return "Two sleep nudges a day and a quiet week — see the Rise brief."
+            return "Tonight wind-down density vs Rise / Pillow ritual craft — waits for the brief."
         }
     }
 }

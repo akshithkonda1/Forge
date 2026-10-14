@@ -6,31 +6,6 @@ struct AppNotificationSettings: Codable, Equatable {
     var recoveryAlerts: Bool = true
     var weeklySummary: Bool = true
     var lifestyleReminders: Bool = true
-    /// Skips the two sleep nudges (caffeine cutoff + wind-down) for a quieter week.
-    var sleepQuietWeek: Bool = false
-
-    init(
-        workoutReminders: Bool = true,
-        recoveryAlerts: Bool = true,
-        weeklySummary: Bool = true,
-        lifestyleReminders: Bool = true,
-        sleepQuietWeek: Bool = false
-    ) {
-        self.workoutReminders = workoutReminders
-        self.recoveryAlerts = recoveryAlerts
-        self.weeklySummary = weeklySummary
-        self.lifestyleReminders = lifestyleReminders
-        self.sleepQuietWeek = sleepQuietWeek
-    }
-
-    init(from decoder: Decoder) throws {
-        let c = try decoder.container(keyedBy: CodingKeys.self)
-        workoutReminders = try c.decodeIfPresent(Bool.self, forKey: .workoutReminders) ?? true
-        recoveryAlerts = try c.decodeIfPresent(Bool.self, forKey: .recoveryAlerts) ?? true
-        weeklySummary = try c.decodeIfPresent(Bool.self, forKey: .weeklySummary) ?? true
-        lifestyleReminders = try c.decodeIfPresent(Bool.self, forKey: .lifestyleReminders) ?? true
-        sleepQuietWeek = try c.decodeIfPresent(Bool.self, forKey: .sleepQuietWeek) ?? false
-    }
 }
 
 struct BriefNotificationSettings: Codable, Equatable {
