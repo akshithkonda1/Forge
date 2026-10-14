@@ -663,7 +663,7 @@ struct SleepLastNightDetail: View {
                     HStack(spacing: 0) {
                         nightStat("Deep", "\(night.deepMinutes)m", Color.steel)
                         nightStat("REM", "\(night.remMinutes)m", Color.aurora)
-                        nightStat("Light", "\(night.lightMinutes)m", Color(hex: "64748B"))
+                        nightStat("Light", "\(night.lightMinutes)m", SleepHud.lightStage)
                         nightStat("Awake", "\(night.awakeMinutes)m", HudChrome.miss)
                     }
                     .padding(.top, FDS.Spacing.xs)
@@ -721,7 +721,7 @@ struct SleepHypnogram: View {
         [
             ("awake", HudChrome.miss, night.awakeMinutes, 0.08),
             ("rem", Color.aurora, night.remMinutes, 0.30),
-            ("light", Color(hex: "64748B"), night.lightMinutes, 0.54),
+            ("light", SleepHud.lightStage, night.lightMinutes, 0.54),
             ("deep", Color.steel, night.deepMinutes, 0.78),
         ]
     }
@@ -765,7 +765,7 @@ struct SleepStageLegend: View {
         HStack(spacing: FDS.Spacing.md) {
             legend("Deep", night.deepMinutes, Color.steel)
             legend("REM", night.remMinutes, Color.aurora)
-            legend("Light", night.lightMinutes, Color(hex: "64748B"))
+            legend("Light", night.lightMinutes, SleepHud.lightStage)
             legend("Awake", night.awakeMinutes, HudChrome.miss)
         }
     }

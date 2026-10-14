@@ -123,7 +123,7 @@ struct SleepBackground: View {
         ZStack {
             Color.background
             RadialGradient(
-                colors: [Color(hex: "1A1440").opacity(0.62), .clear],
+                colors: [SleepHud.bgDeep.opacity(0.62), .clear],
                 center: UnitPoint(x: 0.5, y: 0.0),
                 startRadius: 10,
                 endRadius: 480
@@ -136,7 +136,7 @@ struct SleepBackground: View {
             )
             .blur(radius: reduceMotion ? 0 : 18)
             RadialGradient(
-                colors: [Color(hex: "A9D8FF").opacity(0.05), .clear],
+                colors: [SleepHud.bgMist.opacity(0.05), .clear],
                 center: UnitPoint(x: 0.14, y: 0.32),
                 startRadius: 8,
                 endRadius: 240

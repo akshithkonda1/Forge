@@ -267,7 +267,7 @@ struct SleepWakeScreen: View {
                 endPoint: .bottom
             )
             RadialGradient(
-                colors: [Color(hex: SleepHud.plateHex).opacity(0.18 + 0.35 * t), .clear],
+                colors: [SleepHud.plate.opacity(0.18 + 0.35 * t), .clear],
                 center: UnitPoint(x: 0.5, y: 0.22),
                 startRadius: 8,
                 endRadius: 220
@@ -292,7 +292,7 @@ struct SleepWakeHudRing: View {
             let s = min(size.width, size.height)
             let center = CGPoint(x: size.width / 2, y: size.height / 2)
             let outer = s / 2 - 2
-            let plate = Color(hex: SleepHud.plateHex)
+            let plate = SleepHud.plate
             for i in 0..<SleepHud.tickCount {
                 let major = i.isMultiple(of: 6)
                 let angle = Double(i) / Double(SleepHud.tickCount) * .pi * 2 - .pi / 2
@@ -506,7 +506,7 @@ struct SleeperDepthCard: View {
     @Binding var depth: SleeperDepth
 
     var body: some View {
-        WakeUpSection(icon: "bed.double.fill", title: "How you sleep", color: Color(hex: SleepHud.plateHex)) {
+        WakeUpSection(icon: "bed.double.fill", title: "How you sleep", color: SleepHud.plate) {
             VStack(alignment: .leading, spacing: FDS.Spacing.md) {
                 Text("Deep and super-deep sleepers get a longer Smart Wake lead and a slower volume climb. Lifestyle coaching — iPhone cannot read live stage.")
                     .font(.system(size: 12))
@@ -523,7 +523,7 @@ struct SleeperDepthCard: View {
                                 .foregroundColor(depth == option ? .white : .textPrimary)
                                 .frame(maxWidth: .infinity)
                                 .padding(.vertical, FDS.Spacing.md)
-                                .background(depth == option ? Color(hex: SleepHud.plateHex) : Color.surfaceElevated)
+                                .background(depth == option ? SleepHud.plate : Color.surfaceElevated)
                                 .clipShape(RoundedRectangle(cornerRadius: FDS.Radius.md, style: .continuous))
                         }
                         .buttonStyle(.plain)
@@ -781,7 +781,7 @@ struct WakeGreetingCard: View {
                 // Preview
                 ZStack {
                     RoundedRectangle(cornerRadius: FDS.Radius.lg)
-                        .fill(LinearGradient(colors: [Color(hex: "0F172A"), Color(hex: "1E293B")], startPoint: .top, endPoint: .bottom))
+                        .fill(LinearGradient(colors: [SleepHud.wakeNavy, SleepHud.wakeSlate], startPoint: .top, endPoint: .bottom))
                     VStack(spacing: FDS.Spacing.md) {
                         Text("6:45 AM")
                             .font(.system(size: 36, weight: .black, design: .rounded))
@@ -945,7 +945,7 @@ struct AdaptiveSunriseCard: View {
                             }
                             ZStack(alignment: .bottom) {
                                 LinearGradient(
-                                    colors: [Color(hex: "FF8C42"), Color(hex: "FFD166"), Color(hex: "FEFAE0"), Color(hex: "C8E6FF")],
+                                    colors: SleepHud.sunriseRamp,
                                     startPoint: .leading, endPoint: .trailing
                                 )
                                 .frame(height: 24).cornerRadius(FDS.Radius.md)
