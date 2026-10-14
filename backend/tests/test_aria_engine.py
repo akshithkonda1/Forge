@@ -384,14 +384,16 @@ class PermissionEnforcementTests(unittest.TestCase):
         self.assertEqual(set(resp["restricted_domains"]), {"body", "nutrition"})
 
     def test_asking_about_a_restricted_domain_is_declined_clearly(self):
-        ctx = full_context(body=aria_engine.BodyContext(weight_trend_kg=-1.2))
+        # Sentinel must not collide with clock-derived numbers in the reply
+        # (circadian.hourOfDay is a decimal hour, e.g. 1.2 at 01:12 UTC).
+        ctx = full_context(body=aria_engine.BodyContext(weight_trend_kg=-31.7))
         resp = aria_engine.generate_response(
             "how's my weight trend?", ctx,
             permissions=aria_engine.DataPermissions.from_payload({"body": False}),
         )
         self.assertEqual(resp["response_type"], "clarification")
         self.assertIn("off", resp["prose_summary"].lower())
-        self.assertNotIn("1.2", json.dumps(resp))
+        self.assertNotIn("31.7", json.dumps(resp))
 
     def test_no_permissions_means_nothing_restricted(self):
         resp = aria_engine.generate_response("how did I sleep?", full_context())
