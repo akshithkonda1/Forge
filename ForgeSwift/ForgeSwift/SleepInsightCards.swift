@@ -3,6 +3,135 @@ import PhotosUI
 import UIKit
 import ForgeCore
 
+struct SleepMorningSummaryCard: View {
+    @EnvironmentObject var store: AppStore
+    @EnvironmentObject var hkService: HealthKitSleepService
+
+    private var summary: SleepMorningSummary {
+        let last = SleepData.lastNight(in: store.sleepData)
+        let durations = Array(store.sleepData.map(\.totalHours).reversed())
+        let estimated = CircadianRhythm.sleepNeedHours(fromAsleepHours: durations)
+        let stretch = CircadianRhythm.sleepDebtHours(asleepHours: durations, need: estimated)
+        let need = SleepNeedParts.make(
+            estimatedBaseline: estimated,
+            overrideBaseline: SleepNeedBaselineStore.load() ?? hkService.userProfile.sleepNeedBaselineHours,
+            debtHours: stretch
+        )
+        let coach = SleepBedtimeCoach.make(
+            from: store.sleepData,
+            lowEnergyDay: store.readiness.overall < 60
+        )
+        return SleepMorningSummary.make(
+            lastNightHours: last?.totalHours,
+            lastNightAwakeMinutes: Double(last?.awakeMinutes ?? 0),
+            scoredNightCount: store.sleepData.count,
+            bedtimeLabel: last == nil ? nil : coach.bedtimeLabel,
+            need: need
+        )
+    }
+
+    var body: some View {
+        let card = summary
+        VStack(alignment: .leading, spacing: FDS.Spacing.md) {
+            ForgeSectionHeader(
+                title: "This morning",
+                subtitle: card.calibration.caption
+            )
+            HStack(alignment: .firstTextBaseline, spacing: FDS.Spacing.sm) {
+                Text(card.hoursLabel)
+                    .font(ForgeType.heroScore)
+                    .foregroundColor(.textPrimary)
+                    .monospacedDigit()
+                Text("asleep")
+                    .font(ForgeType.body)
+                    .foregroundColor(.textSecondary)
+                Spacer()
+                if let score = card.visibleScore {
+                    Text("\(score)")
+                        .font(ForgeType.metric)
+                        .foregroundColor(.steel)
+                        .monospacedDigit()
+                        .accessibilityLabel("Sleep score \(score) of 100")
+                }
+            }
+            Text(card.contextLine)
+                .font(ForgeType.body)
+                .foregroundColor(.textPrimary)
+                .fixedSize(horizontal: false, vertical: true)
+            Text(card.nextStep)
+                .font(ForgeType.headline)
+                .foregroundColor(.ember)
+                .fixedSize(horizontal: false, vertical: true)
+            if card.calibration.isReady, let parts = card.published?.parts {
+                HStack(spacing: FDS.Spacing.sm) {
+                    ForEach(parts, id: \.name) { part in
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("\(part.weight)%")
+                                .font(ForgeType.micro)
+                                .foregroundColor(.textTertiary)
+                            Text("\(part.value)")
+                                .font(ForgeType.caption)
+                                .foregroundColor(.textPrimary)
+                                .monospacedDigit()
+                        }
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .accessibilityLabel("\(part.name), weight \(part.weight) percent, \(part.value)")
+                    }
+                }
+            }
+            Text(card.need.whyLines.joined(separator: " · "))
+                .font(ForgeType.caption)
+                .foregroundColor(.textTertiary)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .padding(FDS.Spacing.lg)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .forgeGlassCard(cornerRadius: FDS.Radius.xl, accent: .ember)
+        .accessibilityElement(children: .combine)
+    }
+}
+
+struct SleepFeelingCheckIn: View {
+    @EnvironmentObject var store: AppStore
+    @State private var picked: SleepFeeling?
+
+    private var dateKey: String? { SleepData.lastNight(in: store.sleepData)?.date }
+
+    var body: some View {
+        if let dateKey {
+            VStack(alignment: .leading, spacing: FDS.Spacing.md) {
+                Text("How did you feel?")
+                    .font(ForgeType.caption)
+                    .foregroundColor(.textTertiary)
+                HStack(spacing: FDS.Spacing.sm) {
+                    ForEach(SleepFeeling.allCases, id: \.self) { feeling in
+                        Button {
+                            FDS.haptic(.press)
+                            SleepFeelingStore.save(feeling, on: dateKey)
+                            picked = feeling
+                        } label: {
+                            Text(feeling.label)
+                                .font(ForgeType.caption)
+                                .foregroundColor(picked == feeling ? .white : .textSecondary)
+                                .frame(maxWidth: .infinity)
+                                .frame(minHeight: ForgeDS.minTap)
+                                .background((picked == feeling ? Color.steel : Color.white).opacity(picked == feeling ? 0.9 : 0.06))
+                                .clipShape(Capsule())
+                        }
+                        .buttonStyle(.plain)
+                        .accessibilityLabel(feeling.label)
+                        .accessibilityAddTraits(picked == feeling ? .isSelected : [])
+                    }
+                }
+            }
+            .padding(FDS.Spacing.lg)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .forgeGlassCard(cornerRadius: FDS.Radius.lg, accent: .steel)
+            .onAppear { picked = SleepFeelingStore.feeling(on: dateKey) }
+        }
+    }
+}
+
 /// A quiet fact, not a score to protect — same framing `HomeWinCard` uses for
 /// the workout streak. No badge, no glow, no tap that leads nowhere.
 struct SleepStreakCard: View {

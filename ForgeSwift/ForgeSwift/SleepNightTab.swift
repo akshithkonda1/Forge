@@ -44,12 +44,14 @@ struct SleepDayTab: View {
                     }
                 } else {
                     SleepSourceStrip(presence: presence)
+                    SleepMorningSummaryCard()
+                    SleepFeelingCheckIn()
+                    SleepDebtMeterCard()
                     EnergyScheduleCard()
                     SleepLastNightStrip()
                     AISleepPredictionCard()
                     AISmartRecommendationsView()
                     SleepStreakCard()
-                    SleepWeekRhythm()
                     SleepLifestyleCaption()
                 }
             }
@@ -647,12 +649,21 @@ struct SleepLastNightDetail: View {
                         .monospacedDigit()
                     Spacer()
                     VStack(alignment: .trailing, spacing: 2) {
-                        Text("\(night.score)")
-                            .font(ForgeType.display)
-                            .foregroundColor(.textPrimary)
-                        Text("score")
-                            .font(ForgeType.micro)
-                            .foregroundColor(.textTertiary)
+                        if store.sleepData.count >= SleepCalibrationState.readyNights {
+                            Text("\(night.score)")
+                                .font(ForgeType.display)
+                                .foregroundColor(.textPrimary)
+                            Text("score")
+                                .font(ForgeType.micro)
+                                .foregroundColor(.textTertiary)
+                        } else {
+                            Text(SleepCalibrationState.from(scoredNights: store.sleepData.count).caption)
+                                .font(ForgeType.caption)
+                                .foregroundColor(.steel)
+                            Text("no score yet")
+                                .font(ForgeType.micro)
+                                .foregroundColor(.textTertiary)
+                        }
                     }
                 }
                 if night.hasStages {
@@ -781,47 +792,50 @@ struct SleepStageLegend: View {
     }
 }
 
-struct SleepWeekRhythm: View {
+struct SleepDebtMeterCard: View {
     @EnvironmentObject var store: AppStore
+    @EnvironmentObject var hkService: HealthKitSleepService
 
-    private var nights: [SleepData] {
-        Array(store.sleepData.prefix(7).reversed())
-    }
-
-    private var need: Double {
-        EnergySchedule.make(from: store.sleepData)?.needHours ?? 8
+    private var meter: SleepDebtMeter.Result {
+        let need = hkService.estimatedSleepNeed(from: store.sleepData)
+        let byDate = Dictionary(uniqueKeysWithValues: store.sleepData.map { ($0.date, $0.totalHours) })
+        let hours = Array(store.sleepData.map(\.totalHours).reversed())
+        return SleepDebtMeter.make(
+            nightsByDate: byDate,
+            needHours: need,
+            asleepHoursOldestFirst: hours
+        )
     }
 
     var body: some View {
         VStack(alignment: .leading, spacing: FDS.Spacing.md) {
-            Text("This week")
-                .font(ForgeType.caption)
-                .foregroundColor(.textTertiary)
+            ForgeSectionHeader(title: "14-day stretch", subtitle: meter.headline)
             HStack(alignment: .bottom, spacing: FDS.Spacing.sm) {
-                ForEach(nights) { night in
+                ForEach(meter.days) { day in
                     VStack(spacing: FDS.Spacing.sm) {
                         Capsule()
-                            .fill(night.totalHours >= need - 0.4 ? Color.ember.opacity(0.88) : Color.aurora.opacity(0.28))
-                            .frame(height: max(10, CGFloat(night.totalHours / 10) * 78))
-                        Text(weekday(night.date))
+                            .fill(day.missed ? HudChrome.miss.opacity(0.72) : Color.ember.opacity(0.88))
+                            .frame(height: max(10, CGFloat(day.fill) * 78))
+                        Text(day.weekday)
                             .font(ForgeType.micro)
                             .foregroundColor(.textTertiary)
                     }
                     .frame(maxWidth: .infinity)
-                    .accessibilityLabel("\(weekday(night.date)), \(EnergySchedule.durationLabel(night.totalHours))")
+                    .accessibilityLabel(day.hours.map {
+                        "\(day.weekday), \(SleepDebtMeter.hoursLabel($0))\(day.missed ? ", short of your need" : "")"
+                    } ?? "\(day.weekday), no night on file")
                 }
             }
             .frame(height: 102, alignment: .bottom)
+            Text(meter.detail)
+                .font(ForgeType.caption)
+                .foregroundColor(.textSecondary)
+                .fixedSize(horizontal: false, vertical: true)
         }
-    }
-
-    private func weekday(_ value: String) -> String {
-        let parse = DateFormatter()
-        parse.dateFormat = "yyyy-MM-dd"
-        guard let date = parse.date(from: value) else { return "" }
-        let out = DateFormatter()
-        out.setLocalizedDateFormatFromTemplate("EEEEE")
-        return out.string(from: date)
+        .padding(FDS.Spacing.lg)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .forgeGlassCard(cornerRadius: FDS.Radius.lg, accent: HudChrome.miss)
+        .accessibilityElement(children: .combine)
     }
 }
 

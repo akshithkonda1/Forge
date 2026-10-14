@@ -55,6 +55,34 @@ struct SleepPersonalizationSheet: View {
                         }
 
                         VStack(alignment: .leading, spacing: FDS.Spacing.sm) {
+                            Text("Your sleep need baseline")
+                                .font(ForgeType.caption)
+                                .foregroundColor(.textSecondary)
+                            Text("Tonight's need is baseline + load + short stretch − naps, kept between 7 and 9 hours. You can override the baseline.")
+                                .font(ForgeType.body)
+                                .foregroundColor(.textTertiary)
+                            Stepper(
+                                value: Binding(
+                                    get: { draft.sleepNeedBaselineHours ?? 8.0 },
+                                    set: { draft.sleepNeedBaselineHours = $0 }
+                                ),
+                                in: SleepNeedParts.clampMin...SleepNeedParts.clampMax,
+                                step: 0.25
+                            ) {
+                                Text(String(format: "%.2f hours", draft.sleepNeedBaselineHours ?? 8.0))
+                                    .font(ForgeType.headline)
+                                    .foregroundColor(.textPrimary)
+                            }
+                            .frame(minHeight: ForgeDS.minTap)
+                            Button("Use estimated baseline") {
+                                draft.sleepNeedBaselineHours = nil
+                            }
+                            .font(ForgeType.caption)
+                            .foregroundColor(.steel)
+                            .frame(minHeight: ForgeDS.minTap, alignment: .leading)
+                        }
+
+                        VStack(alignment: .leading, spacing: FDS.Spacing.sm) {
                             Text("Coaching personality")
                                 .font(FDS.TypeScale.Dynamic.caption)
                                 .foregroundColor(.textSecondary)
@@ -87,6 +115,7 @@ struct SleepPersonalizationSheet: View {
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Save") {
                         hkService.updateProfile(draft)
+                        SleepNeedBaselineStore.save(draft.sleepNeedBaselineHours)
                         if !store.sleepData.isEmpty {
                             Task {
                                 let rescored = await hkService.fetchRecentSleepData(days: 14)
