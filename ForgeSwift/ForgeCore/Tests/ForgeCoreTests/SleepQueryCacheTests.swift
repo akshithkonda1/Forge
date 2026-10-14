@@ -21,4 +21,10 @@ final class SleepQueryCacheTests: XCTestCase {
         XCTAssertEqual(cache.nightsIfUnchanged(b)?.count, 1)
         XCTAssertNil(cache.nightsIfUnchanged(c))
     }
+
+#if canImport(HealthKit)
+    func testSharedSleepCacheLookbackIsSixteenDays() {
+        XCTAssertEqual(ForgeHealthQueries.sleepCacheLookbackDays, 16)
+    }
+#endif
 }
