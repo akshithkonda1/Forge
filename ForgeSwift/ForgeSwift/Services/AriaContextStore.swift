@@ -75,8 +75,11 @@ final class AriaContextStore: ObservableObject {
         if store.readiness.overall < 55, !patterns.contains("low_readiness_streak") {
             patterns.append("low_readiness_streak")
         }
-        if let lastSleep, lastSleep.score >= 85, !patterns.contains("strong_sleep_recovery") {
-            patterns.append("strong_sleep_recovery")
+        // Recomputed every build: a strong night that has gone stale must stop reaching ARIA.
+        if let lastSleep, lastSleep.score >= 85 {
+            if !patterns.contains("strong_sleep_recovery") { patterns.append("strong_sleep_recovery") }
+        } else {
+            patterns.removeAll { $0 == "strong_sleep_recovery" }
         }
         if CrossZoneConsistency.blocksHighIntensity(zone), !patterns.contains("recovery_day_signal") {
             patterns.append("recovery_day_signal")

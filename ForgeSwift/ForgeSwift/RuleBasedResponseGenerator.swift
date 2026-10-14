@@ -639,12 +639,21 @@ final class RuleBasedResponseGenerator: TrainerResponseGenerator {
             return TrainerResponse(content: content, confidence: 0.9)
         }
         let lastSleep = SleepData.lastNight(in: context.sleepData)
-        let deepMin = lastSleep?.deepMinutes ?? context.dailyMetrics.deepSleep
-        let totalHrs = lastSleep?.totalHours ?? Double(context.dailyMetrics.totalSleep) / 60
+        // No night measured → nil hours and the .unknown band ("no sleep in yet"),
+        // never a 0h / 0 min deep night read as poor recovery.
+        let measuredHrs = lastSleep?.totalHours ?? Double(context.dailyMetrics.totalSleep) / 60
+        let totalHrs: Double? = measuredHrs > 0 ? measuredHrs : nil
+        // Duration-only nights have no stages, so 0 deep minutes means unmeasured.
+        let staged = lastSleep?.hasStages ?? (context.dailyMetrics.deepSleep > 0)
+        let deepMin: Int? = totalHrs != nil && staged
+            ? (lastSleep?.deepMinutes ?? context.dailyMetrics.deepSleep)
+            : nil
         let scores = context.sleepData.prefix(7).map { Double($0.score) }.reversed().map { $0 }
         let avg = context.averageWeeklySleepScore
 
         let band: AriaSpeechFacts.SleepSpeechBand = {
+            guard let totalHrs else { return .unknown }
+            guard let deepMin else { return totalHrs < 6 ? .weak : .ok }
             if deepMin >= 90 && totalHrs >= 7 { return .strong }
             if deepMin < 60 { return .weak }
             return .ok

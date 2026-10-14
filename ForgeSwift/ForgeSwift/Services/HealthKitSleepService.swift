@@ -381,8 +381,9 @@ final class HealthKitSleepService: ObservableObject {
 
     // MARK: - Adaptive Goals
 
+    /// Progress is last night against the goal; a days-old night is not today's progress.
     func computeAdaptiveGoals(from sleepData: [SleepData]) -> [AdaptiveSleepGoal] {
-        guard let latest = sleepData.first else { return [] }
+        guard let latest = SleepData.lastNight(in: sleepData) else { return [] }
         let chronotype = userProfile.chronotype
         return [
             AdaptiveSleepGoal(
@@ -415,9 +416,11 @@ final class HealthKitSleepService: ObservableObject {
     // MARK: - Streak
 
     /// Consecutive most-recent nights scoring 75+. `sleepData` arrives
-    /// newest-first, so this is a straight prefix count, not a scan.
+    /// newest-first, so this is a straight prefix count, not a scan. A run
+    /// that doesn't reach last night isn't current, so it counts as 0.
     func computeGoodSleepStreak(from sleepData: [SleepData]) -> Int {
-        sleepData.prefix(while: { $0.score >= 75 }).count
+        guard SleepData.lastNight(in: sleepData) != nil else { return 0 }
+        return sleepData.prefix(while: { $0.score >= 75 }).count
     }
 
     // MARK: - Recommendations

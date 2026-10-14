@@ -1,6 +1,15 @@
 import SwiftUI
 import ForgeCore
 
+/// True when last night's sleep was actually recorded. Without it,
+/// `readiness.sleepQuality` is a fallback (HRV / resting HR, or the local
+/// calculator's floor), not a sleep measurement, so no surface should show
+/// or speak it as one.
+@MainActor
+func lastNightSleepMeasured(store: AppStore) -> Bool {
+    SleepData.lastNight(in: store.sleepData) != nil || store.dailyMetrics.totalSleep > 0
+}
+
 @MainActor
 func readinessWhyCopy(store: AppStore) -> String {
     var bits: [String] = []
@@ -10,7 +19,7 @@ func readinessWhyCopy(store: AppStore) -> String {
     }
     // With no night measured, sleepQuality falls back to the HRV / resting-HR
     // score, so a sleep sentence would describe sleep nobody recorded.
-    let sleepMeasured = SleepData.lastNight(in: store.sleepData) != nil || store.dailyMetrics.totalSleep > 0
+    let sleepMeasured = lastNightSleepMeasured(store: store)
     if sleepMeasured, r.sleepQuality < 55 {
         bits.append("Sleep quality is dragging the score")
     } else if sleepMeasured, r.sleepQuality >= 80 {
