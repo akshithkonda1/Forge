@@ -425,7 +425,7 @@ class CoachRouteTests(unittest.TestCase):
         payload = body(response)
         self.assertEqual(payload["reasoning_source"], "bedrock")
         self.assertIn("Live read", payload["message"])
-        self.assertEqual(payload["model"], "anthropic.claude-opus-4-8")
+        self.assertEqual(payload["model"], "global.anthropic.claude-opus-5-5")
 
     def test_aria_chat_falls_back_when_bedrock_disabled(self):
         uid = "aria-default-user"
@@ -652,7 +652,7 @@ class AuthAndAISecurityTests(unittest.TestCase):
         self.assertIn("router", payload)
         self.assertFalse(payload["router"]["bedrockEnabled"])
         slot3 = next(m for m in payload["router"]["models"] if m["slot"] == 3)
-        self.assertEqual(slot3["modelId"], "global.xai.grok-4.6")
+        self.assertEqual(slot3["modelId"], "global.xai.grok-4.7")
 
     def test_health_bedrock_flag_does_not_invoke_bedrock(self):
         os.environ["ARIA_BEDROCK_ENABLED"] = "true"

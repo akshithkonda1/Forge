@@ -86,9 +86,15 @@ public enum ReadinessBand: String, Codable, CaseIterable, Sendable {
 /// the calculator degrades gracefully and reports its confidence.
 public struct ReadinessInputs: Sendable, Equatable {
     public var hrvMs: Double?
+    /// Personal HRV center, ms (geometric mean when it comes from
+    /// `PersonalBaseline`).
     public var hrvBaselineMs: Double?
+    /// SD of ln(HRV) across days. Nil → `ReadinessCalculator.defaultHRVSdLn`.
+    public var hrvBaselineSdLn: Double?
     public var restingHR: Double?
     public var restingHRBaseline: Double?
+    /// SD of resting HR across days, bpm. Nil → `defaultRestingHRSd`.
+    public var restingHRBaselineSd: Double?
     public var sleepMinutes: Double?
     public var sleepNeedMinutes: Double
     public var deepSleepMinutes: Double?
@@ -99,8 +105,10 @@ public struct ReadinessInputs: Sendable, Equatable {
     public init(
         hrvMs: Double? = nil,
         hrvBaselineMs: Double? = nil,
+        hrvBaselineSdLn: Double? = nil,
         restingHR: Double? = nil,
         restingHRBaseline: Double? = nil,
+        restingHRBaselineSd: Double? = nil,
         sleepMinutes: Double? = nil,
         sleepNeedMinutes: Double = 8 * 60,
         deepSleepMinutes: Double? = nil,
@@ -109,8 +117,10 @@ public struct ReadinessInputs: Sendable, Equatable {
     ) {
         self.hrvMs = hrvMs
         self.hrvBaselineMs = hrvBaselineMs
+        self.hrvBaselineSdLn = hrvBaselineSdLn
         self.restingHR = restingHR
         self.restingHRBaseline = restingHRBaseline
+        self.restingHRBaselineSd = restingHRBaselineSd
         self.sleepMinutes = sleepMinutes
         self.sleepNeedMinutes = sleepNeedMinutes
         self.deepSleepMinutes = deepSleepMinutes
@@ -136,10 +146,92 @@ public struct ReadinessScore: Codable, Sendable, Equatable {
     }
 }
 
+/// Readiness inputs as read from Health on this device. The one place the
+/// iPhone and the Watch turn raw samples into `ReadinessInputs`, so the two
+/// cannot show different numbers for the same morning.
+public struct ReadinessHealthContext: Sendable, Equatable {
+    /// Last night's staged sleep.
+    public var night: SleepNight?
+    /// HRV (SDNN, ms) across last night's sleep window — the stable overnight
+    /// reading — or the latest reading when the night has none.
+    public var hrvMs: Double?
+    /// Personal HRV normal (ln space), today left out.
+    public var hrvBaseline: PersonalBaseline?
+    public var restingHR: Double?
+    /// Personal resting-HR normal (bpm), today left out.
+    public var restingHRBaseline: PersonalBaseline?
+    /// When Health was read. A context from before today describes a night
+    /// that is already over.
+    public var readAt: Date?
+
+    public init(
+        night: SleepNight? = nil,
+        hrvMs: Double? = nil,
+        hrvBaseline: PersonalBaseline? = nil,
+        restingHR: Double? = nil,
+        restingHRBaseline: PersonalBaseline? = nil,
+        readAt: Date? = nil
+    ) {
+        self.night = night
+        self.hrvMs = hrvMs
+        self.hrvBaseline = hrvBaseline
+        self.restingHR = restingHR
+        self.restingHRBaseline = restingHRBaseline
+        self.readAt = readAt
+    }
+
+    public var hasAnySignal: Bool {
+        (night?.totalMinutes ?? 0) > 0 || (hrvMs ?? 0) > 0 || (restingHR ?? 0) > 0
+    }
+
+    public func inputs(
+        yesterdayStrain: Double? = nil,
+        sleepNeedMinutes: Double = 8 * 60
+    ) -> ReadinessInputs {
+        let asleep = (night?.totalMinutes ?? 0) > 0 ? night?.totalMinutes : nil
+        // Unstaged sleep (older watches, phone-only, third-party apps) arrives
+        // as zero deep and zero REM. That is "stages unknown", not "no deep
+        // sleep" — scoring it as zero would dock every such night.
+        let staged = (night?.deepMinutes ?? 0) > 0 || (night?.remMinutes ?? 0) > 0
+        return ReadinessInputs(
+            hrvMs: (hrvMs ?? 0) > 0 ? hrvMs : nil,
+            hrvBaselineMs: hrvBaseline?.mean,
+            hrvBaselineSdLn: hrvBaseline?.spread,
+            restingHR: (restingHR ?? 0) > 0 ? restingHR : nil,
+            restingHRBaseline: restingHRBaseline?.mean,
+            restingHRBaselineSd: restingHRBaseline?.spread,
+            sleepMinutes: asleep,
+            sleepNeedMinutes: sleepNeedMinutes,
+            deepSleepMinutes: staged ? night?.deepMinutes : nil,
+            remSleepMinutes: staged ? night?.remMinutes : nil,
+            yesterdayStrain: yesterdayStrain
+        )
+    }
+}
+
 public enum ReadinessCalculator {
 
-    /// Weighted blend: sleep 45%, HRV-vs-baseline 30%, resting-HR-vs-baseline
-    /// 15%, prior-day strain 10%. Missing components redistribute their
+    // Typical day-to-day spread used until a personal one is known. ln(HRV)
+    // between-day SD on wrist SDNN/RMSSD sits around 0.2-0.3; resting HR
+    // around 2-4 bpm. Floors stop a suspiciously tight history from turning a
+    // 1 ms wobble into a five-sigma event; ceilings stop a noisy one from
+    // flattening every day. Same constants as readiness_calculator.py.
+    public static let defaultHRVSdLn = 0.25
+    public static let hrvSdLnFloor = 0.08
+    public static let hrvSdLnCeiling = 0.6
+    public static let defaultRestingHRSd = 3.0
+    public static let restingHRSdFloor = 1.5
+    public static let restingHRSdCeiling = 8.0
+
+    /// At your own normal (z = 0) HRV scores 75 and resting HR 80; each SD of
+    /// HRV moves 20 points, each SD of resting HR 12.
+    public static let hrvCenter = 75.0
+    public static let hrvPointsPerSd = 20.0
+    public static let restingHRCenter = 80.0
+    public static let restingHRPointsPerSd = 12.0
+
+    /// Weighted blend: sleep 45%, HRV-vs-your-normal 30%, resting-HR-vs-your-
+    /// normal 15%, prior-day strain 10%. Missing components redistribute their
     /// weight and lower confidence instead of dragging the score down —
     /// absence of data is not evidence of poor recovery.
     public static func score(from inputs: ReadinessInputs) -> ReadinessScore {
@@ -148,22 +240,24 @@ public enum ReadinessCalculator {
         let sleepComponent = sleepScore(inputs)
         if let sleep = sleepComponent { weighted.append((sleep, 0.45)) }
 
-        if let hrv = inputs.hrvMs, let base = inputs.hrvBaselineMs, base > 0 {
-            // ±30% around baseline maps to 0...100, centered at 75.
-            let ratio = hrv / base
-            let value = clamp(75 + (ratio - 1.0) / 0.30 * 25, 0, 100)
-            weighted.append((value, 0.30))
+        if let hrv = hrvComponent(
+            hrvMs: inputs.hrvMs,
+            baselineMs: inputs.hrvBaselineMs,
+            baselineSdLn: inputs.hrvBaselineSdLn
+        ) {
+            weighted.append((hrv, 0.30))
         }
 
-        if let rhr = inputs.restingHR, let base = inputs.restingHRBaseline, base > 0 {
-            // Elevated resting HR vs baseline is a recovery cost signal.
-            let delta = (rhr - base) / base
-            let value = clamp(80 - delta / 0.15 * 30, 0, 100)
-            weighted.append((value, 0.15))
+        if let rhr = restingHRComponent(
+            restingHR: inputs.restingHR,
+            baseline: inputs.restingHRBaseline,
+            baselineSd: inputs.restingHRBaselineSd
+        ) {
+            weighted.append((rhr, 0.15))
         }
 
         if let strain = inputs.yesterdayStrain {
-            let value = clamp(90 - strain * 45, 0, 100)
+            let value = clamp(90 - clamp(strain, 0, 1) * 45, 0, 100)
             weighted.append((value, 0.10))
         }
 
@@ -187,9 +281,32 @@ public enum ReadinessCalculator {
         )
     }
 
+    /// HRV vs your own normal: 75 at baseline, ±20 per SD of ln(HRV). HRV is
+    /// log-normal, so half and double your normal are equally unusual.
+    public static func hrvComponent(hrvMs: Double?, baselineMs: Double?, baselineSdLn: Double? = nil) -> Double? {
+        guard let hrv = hrvMs, let base = baselineMs, hrv > 0, base > 0 else { return nil }
+        let sd = baselineSdLn.flatMap { $0 > 0 ? $0 : nil } ?? defaultHRVSdLn
+        let baseline = PersonalBaseline(mean: base, spread: sd, days: 0, logScaled: true)
+        guard let z = baseline.zScore(hrv, floor: hrvSdLnFloor, ceiling: hrvSdLnCeiling) else { return nil }
+        return clamp(hrvCenter + hrvPointsPerSd * z, 0, 100)
+    }
+
+    /// Resting HR vs your own normal: 80 at baseline, ∓12 per SD (bpm).
+    public static func restingHRComponent(restingHR: Double?, baseline: Double?, baselineSd: Double? = nil) -> Double? {
+        guard let rhr = restingHR, let base = baseline, rhr > 0, base > 0 else { return nil }
+        let sd = baselineSd.flatMap { $0 > 0 ? $0 : nil } ?? defaultRestingHRSd
+        let personal = PersonalBaseline(mean: base, spread: sd, days: 0, logScaled: false)
+        guard let z = personal.zScore(rhr, floor: restingHRSdFloor, ceiling: restingHRSdCeiling) else { return nil }
+        return clamp(restingHRCenter - restingHRPointsPerSd * z, 0, 100)
+    }
+
     private static func sleepScore(_ inputs: ReadinessInputs) -> Double? {
         guard let sleep = inputs.sleepMinutes, sleep > 0 else { return nil }
-        let durationScore = clamp(sleep / inputs.sleepNeedMinutes, 0, 1.1) * 80
+        let need = inputs.sleepNeedMinutes > 0 ? inputs.sleepNeedMinutes : 8 * 60
+        // Sleeping past your need earns no extra credit — long sleep is at
+        // best neutral, and a sudden 10-hour night is as often illness as
+        // recovery.
+        let durationScore = clamp(sleep / need, 0, 1.0) * 80
         var architectureBonus = 10.0 // neutral midpoint when stages are unknown
         if let deep = inputs.deepSleepMinutes {
             // ~13-23% deep is typical; 60+ min earns the full bonus.

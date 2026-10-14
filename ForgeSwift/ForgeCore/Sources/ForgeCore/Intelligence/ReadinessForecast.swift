@@ -18,12 +18,31 @@ public enum ReadinessForecastEngine {
 
     // MARK: - Input
 
+    /// Share of today's distance from your usual that is still there
+    /// tomorrow morning. Day-to-day autocorrelation of recovery markers
+    /// (ln HRV, resting HR) in free-living adults sits around 0.4–0.6; 0.5 is
+    /// the middle of that range. Same constant as readiness_forecast.py.
+    public static let carryOver = 0.5
+
+    /// Stand-in for "your usual" until a personal readiness baseline is
+    /// supplied: a person at their own HRV/resting-HR norm after a typical
+    /// night lands here.
+    public static let defaultReadinessBaseline = 75
+
     /// Everything the forecast needs. Missing baselines degrade confidence,
     /// never correctness — the engine says what it doesn't know.
+    ///
+    /// Today's readiness already contains last night's sleep, HRV, and resting
+    /// HR, so the forecast never re-applies them: it lets part of today's
+    /// distance from your usual carry into tomorrow (`carryOver`) and adds only
+    /// what happens between now and tomorrow morning — load, the acute:chronic
+    /// ratio, self-reported stress, and cycle phase. The sleep / HRV / resting
+    /// HR fields only name *why* today is off.
     public struct Input: Sendable {
-        /// Today's readiness, 0–100.
+        /// Today's readiness, 0–100. 0 or less means not measured yet.
         public var currentReadiness: Int
-        /// Last night's sleep, minutes.
+        /// Last night's sleep, minutes. 0 or less means unknown — never
+        /// "slept zero minutes".
         public var sleepMinutes: Int
         /// Personal sleep need, minutes. Defaults to 8h when unknown.
         public var sleepNeedMinutes: Int
@@ -42,11 +61,15 @@ public enum ReadinessForecastEngine {
         /// Acute:chronic workload ratio from `TrainingLoadModel`, 7d:28d.
         /// Nil when history is too short.
         public var acwr: Double?
-        /// Self-reported stress, 0–100.
-        public var stressLevel: Int
+        /// Self-reported stress, 0–100. Nil when the person has not said —
+        /// the derived Home "stress" (100 − recovery) is already in today's
+        /// readiness and must not be passed here.
+        public var stressLevel: Int?
         /// Whether the person is in luteal phase (recovery is slower).
         /// Nil when cycle tracking is off.
         public var isLutealPhase: Bool?
+        /// Personal typical readiness (e.g. a 14-day mean). Nil → default.
+        public var readinessBaseline: Int?
 
         public init(
             currentReadiness: Int,
@@ -59,8 +82,9 @@ public enum ReadinessForecastEngine {
             todayStrain: Double,
             plannedStrain: Double = 0,
             acwr: Double? = nil,
-            stressLevel: Int,
-            isLutealPhase: Bool? = nil
+            stressLevel: Int?,
+            isLutealPhase: Bool? = nil,
+            readinessBaseline: Int? = nil
         ) {
             self.currentReadiness = currentReadiness
             self.sleepMinutes = sleepMinutes
@@ -74,6 +98,7 @@ public enum ReadinessForecastEngine {
             self.acwr = acwr
             self.stressLevel = stressLevel
             self.isLutealPhase = isLutealPhase
+            self.readinessBaseline = readinessBaseline
         }
     }
 
@@ -179,80 +204,40 @@ public enum ReadinessForecastEngine {
     // MARK: - Model
 
     public static func forecast(_ input: Input) -> Forecast {
-        var score = Double(input.currentReadiness)
+        let baseline = (input.readinessBaseline ?? 0) > 0
+            ? (input.readinessBaseline ?? defaultReadinessBaseline)
+            : defaultReadinessBaseline
+        let knowsToday = input.currentReadiness > 0
+        let current = knowsToday ? input.currentReadiness : baseline
+        var score = Double(current)
         var drivers: [Driver] = []
-        var knownSignals = 0
-        var totalSignals = 0
 
-        // --- Sleep debt ---
-        // Each hour under need costs ~8 points; each hour over repays ~4
-        // (oversleep repays less than the debt cost — sleep isn't a bank).
-        totalSignals += 1
-        let sleepDebtHours = Double(input.sleepNeedMinutes - input.sleepMinutes) / 60.0
-        if sleepDebtHours > 0.25 {
-            let impact = -Int(min(20, sleepDebtHours * 8))
-            score += Double(impact)
-            drivers.append(Driver(
-                title: "Sleep debt",
-                detail: String(format: "%.1fh under your need tonight", sleepDebtHours),
-                impact: impact,
-                icon: "moon.zzz.fill"
-            ))
-            knownSignals += 1
-        } else if sleepDebtHours < -0.5 {
-            let impact = min(6, Int(-sleepDebtHours * 4))
-            score += Double(impact)
-            drivers.append(Driver(
-                title: "Sleep surplus",
-                detail: "Extra sleep banked tonight",
-                impact: impact,
-                icon: "moon.stars.fill"
-            ))
-            knownSignals += 1
-        } else {
-            knownSignals += 1
-        }
-
-        // --- HRV vs baseline ---
-        totalSignals += 1
-        if let baseline = input.hrvBaselineMs, baseline > 0, input.hrvMs > 0 {
-            let deviation = Double(input.hrvMs - baseline) / Double(baseline)
-            // ±30% deviation maps to ±15 points against the forecast, capped.
-            // Below baseline drags the score down; above lifts it.
-            let impact = Int(max(-15, min(12, deviation * 50)))
+        // --- Carry-over: part of today's distance from your usual persists ---
+        if knowsToday {
+            let impact = Int((-(1 - carryOver) * Double(current - baseline)).rounded())
             if abs(impact) >= 2 {
                 score += Double(impact)
-                drivers.append(Driver(
-                    title: impact < 0 ? "HRV suppressed" : "HRV elevated",
-                    detail: String(format: "%d%% vs your baseline", Int(deviation * 100)),
-                    impact: impact,
-                    icon: "waveform.path.ecg"
-                ))
-            }
-            knownSignals += 1
-        }
-
-        // --- Resting HR vs baseline ---
-        totalSignals += 1
-        if let baseline = input.restingHRBaseline, baseline > 0, input.restingHR > 0 {
-            let delta = input.restingHR - baseline
-            if delta >= 4 {
-                let impact = -min(10, (delta - 3) * 2)
-                score += Double(impact)
-                drivers.append(Driver(
-                    title: "Resting HR elevated",
-                    detail: "+\(delta) bpm vs baseline — recovery incomplete",
-                    impact: impact,
-                    icon: "heart.fill"
-                ))
-                knownSignals += 1
-            } else {
-                knownSignals += 1
+                if impact > 0 {
+                    let detail = dipCause(input).map { "Today's dip from \($0) eases about halfway by morning" }
+                        ?? "Today's dip eases about halfway by morning"
+                    drivers.append(Driver(
+                        title: "Bounce-back",
+                        detail: detail,
+                        impact: impact,
+                        icon: "arrow.uturn.up.circle.fill"
+                    ))
+                } else {
+                    drivers.append(Driver(
+                        title: "Easing to your usual",
+                        detail: "Today's high eases about halfway back toward your norm",
+                        impact: impact,
+                        icon: "arrow.down.right.circle"
+                    ))
+                }
             }
         }
 
-        // --- Today's + planned strain ---
-        totalSignals += 1
+        // --- Today's + planned strain (not yet in today's score) ---
         let combinedStrain = input.todayStrain + input.plannedStrain
         if combinedStrain >= 16 {
             let impact = -12
@@ -272,7 +257,9 @@ public enum ReadinessForecastEngine {
                 impact: impact,
                 icon: "flame"
             ))
-        } else if combinedStrain < 4 {
+        } else if combinedStrain < 4 && knowsToday {
+            // With no reading of today at all, an empty log is not evidence
+            // of a rest day — it is evidence of nothing.
             let impact = 5
             score += Double(impact)
             drivers.append(Driver(
@@ -282,10 +269,8 @@ public enum ReadinessForecastEngine {
                 icon: "leaf.fill"
             ))
         }
-        knownSignals += 1
 
         // --- Acute:chronic workload ratio ---
-        totalSignals += 1
         if let acwr = input.acwr {
             if acwr > 1.5 {
                 let impact = -10
@@ -306,31 +291,30 @@ public enum ReadinessForecastEngine {
                     icon: "arrow.down.circle.fill"
                 ))
             }
-            knownSignals += 1
         }
 
-        // --- Stress ---
-        totalSignals += 1
-        if input.stressLevel >= 70 {
-            let impact = -6
-            score += Double(impact)
-            drivers.append(Driver(
-                title: "High stress",
-                detail: "Mental load taxes recovery too",
-                impact: impact,
-                icon: "brain.head.profile"
-            ))
-        } else if input.stressLevel <= 25 {
-            let impact = 3
-            score += Double(impact)
-            drivers.append(Driver(
-                title: "Low stress",
-                detail: "Recovery environment is clean",
-                impact: impact,
-                icon: "checkmark.circle.fill"
-            ))
+        // --- Self-reported stress (only when the person said) ---
+        if let stress = input.stressLevel {
+            if stress >= 70 {
+                let impact = -6
+                score += Double(impact)
+                drivers.append(Driver(
+                    title: "High stress",
+                    detail: "Mental load taxes recovery too",
+                    impact: impact,
+                    icon: "brain.head.profile"
+                ))
+            } else if stress <= 25 {
+                let impact = 3
+                score += Double(impact)
+                drivers.append(Driver(
+                    title: "Low stress",
+                    detail: "Recovery environment is clean",
+                    impact: impact,
+                    icon: "checkmark.circle.fill"
+                ))
+            }
         }
-        knownSignals += 1
 
         // --- Luteal phase (recovery is measurably slower) ---
         if input.isLutealPhase == true {
@@ -346,27 +330,48 @@ public enum ReadinessForecastEngine {
 
         // --- Clamp and posture ---
         let predicted = Int(max(5, min(98, score.rounded())))
-        let posture: Posture
+        var posture: Posture
         switch predicted {
         case 80...: posture = .push
         case 65..<80: posture = .steady
         case 50..<65: posture = .protect
         default: posture = .rest
         }
+        if !knowsToday {
+            // Green light and rest day are both confident calls; without
+            // today's reading the forecast can lean, not commit.
+            if posture == .push { posture = .steady }
+            if posture == .rest { posture = .protect }
+        }
 
-        let coverage = Double(knownSignals) / Double(max(1, totalSignals))
+        // What the forecast actually knows. Load is always "known" (no
+        // session is a real 0), so it does not count toward coverage.
+        let signals: [Bool] = [
+            knowsToday,
+            (input.readinessBaseline ?? 0) > 0,
+            input.sleepMinutes > 0,
+            input.hrvMs > 0 && (input.hrvBaselineMs ?? 0) > 0,
+            input.restingHR > 0 && (input.restingHRBaseline ?? 0) > 0,
+            input.acwr != nil,
+            input.stressLevel != nil,
+        ]
+        let coverage = Double(signals.filter { $0 }.count) / Double(signals.count)
         let confidence: Confidence
-        switch coverage {
-        case 0.85...: confidence = .high
-        case 0.6..<0.85: confidence = .medium
-        default: confidence = .low
+        if !knowsToday {
+            confidence = .low
+        } else {
+            switch coverage {
+            case 0.85...: confidence = .high
+            case 0.6..<0.85: confidence = .medium
+            default: confidence = .low
+            }
         }
 
         let recommendation = makeRecommendation(
             posture: posture,
             drivers: drivers,
             predicted: predicted,
-            current: input.currentReadiness
+            current: current
         )
 
         // Strongest movers first — the UI shows the top 3.
@@ -379,6 +384,25 @@ public enum ReadinessForecastEngine {
             recommendation: recommendation,
             posture: posture
         )
+    }
+
+    /// Names the signal most behind a low day, for the bounce-back detail.
+    /// Explanation only — today's score already carries these signals.
+    static func dipCause(_ input: Input) -> String? {
+        var candidates: [(weight: Double, name: String)] = []
+        if input.sleepMinutes > 0 {
+            let debtHours = Double(input.sleepNeedMinutes - input.sleepMinutes) / 60.0
+            if debtHours >= 0.75 { candidates.append((debtHours / 2.0, "short sleep")) }
+        }
+        if input.hrvMs > 0, let base = input.hrvBaselineMs, base > 0 {
+            let deviation = Double(input.hrvMs - base) / Double(base)
+            if deviation <= -0.10 { candidates.append((-deviation / 0.30, "low HRV")) }
+        }
+        if input.restingHR > 0, let base = input.restingHRBaseline, base > 0 {
+            let delta = input.restingHR - base
+            if delta >= 3 { candidates.append((Double(delta) / 8.0, "raised resting HR")) }
+        }
+        return candidates.max { $0.weight < $1.weight }?.name
     }
 
     private static func makeRecommendation(
