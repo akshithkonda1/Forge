@@ -29,8 +29,8 @@ export function SleepPage() {
         <PremiumEntrance index={0}>
           <PageHeader
             className="mb-5"
-            title="Sleep & Recovery"
-            subtitle="Last night’s rebuild — and how to use it today."
+            title="Sleep"
+            subtitle="Last night, and one small step for tonight."
           />
         </PremiumEntrance>
 
