@@ -646,6 +646,10 @@ struct SettingsPageView: View {
                     SettingsRow(icon: "drop.fill", iconColor: Color(hex: "38BDF8"), label: "Lifestyle Reminders") {
                         ForgeToggle(isOn: notificationBinding(\.lifestyleReminders))
                     }
+                    Divider().background(Color.borderColor)
+                    SettingsRow(icon: "moon.zzz.fill", iconColor: .steel, label: "Quiet week") {
+                        ForgeToggle(isOn: notificationBinding(\.sleepQuietWeek))
+                    }
                 }
 
                 sectionHeader("Clinical Data (Non PHI)")
