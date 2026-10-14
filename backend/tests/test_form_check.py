@@ -94,6 +94,16 @@ class FormCheckVisionTests(unittest.TestCase):
         self.assertFalse(payload["available"])
         self.assertEqual(payload["reason"], "vision_routing_unavailable")
 
+    def test_unmeasured_vitals_may_be_omitted(self):
+        # The client leaves heartRate/spO2 out until a real sample exists rather
+        # than sending a resting or default stand-in. That must not be a 400.
+        unmeasured = {k: v for k, v in CONTEXT.items() if k not in ("heartRate", "spO2")}
+        resp = handler(
+            event("POST", "/workouts/form-check", {"context": unmeasured}, user_id="u1"), None
+        )
+        self.assertEqual(resp["statusCode"], 200)
+        self.assertEqual(body_of(resp)["reason"], "vision_routing_unavailable")
+
     def test_a_missing_exercise_name_is_a_400(self):
         resp = handler(
             event("POST", "/workouts/form-check", {"context": {"setLabel": "Set 1"}}, user_id="u1"),

@@ -371,7 +371,10 @@ struct ReplyPreviewBar: View {
                 Image(systemName: "xmark.circle.fill")
                     .font(.system(size: 18))
                     .foregroundColor(.textMuted)
+                    .frame(minWidth: 44, minHeight: 44)
+                    .contentShape(Rectangle())
             }
+            .accessibilityLabel("Cancel reply")
         }
         .padding(.horizontal, FDS.Spacing.lg).padding(.vertical, FDS.Spacing.md)
         .background(Color.surfaceElevated)

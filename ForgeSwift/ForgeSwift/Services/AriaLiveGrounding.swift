@@ -57,7 +57,7 @@ struct AriaLiveGroundingSnapshot: Equatable, Sendable {
 
     @MainActor
     static func from(store: AppStore) -> AriaLiveGroundingSnapshot {
-        let night = store.sleepData.first
+        let night = SleepData.lastNight(in: store.sleepData)
         let sleepHours: Double? = {
             if let night, night.totalHours > 0 { return night.totalHours }
             if store.dailyMetrics.totalSleep > 0 {

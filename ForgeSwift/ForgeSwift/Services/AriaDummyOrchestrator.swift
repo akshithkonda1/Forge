@@ -1142,7 +1142,7 @@ enum AriaDummyOrchestrator {
         swarm: AriaSwarmPicture?,
         grounding: AriaLiveGroundingSnapshot
     ) -> AriaPersonalRead {
-        let night = store.sleepData.first
+        let night = SleepData.lastNight(in: store.sleepData)
         let nightHours = grounding.sleepHours
             ?? night?.totalHours
             ?? (store.dailyMetrics.totalSleep > 0 ? Double(store.dailyMetrics.totalSleep) / 60.0 : nil)
@@ -1176,7 +1176,7 @@ enum AriaDummyOrchestrator {
             facts.sleepHours = hours
             facts.deepMinutes = grounding.deepMinutes
             facts.sleepAvg = Int(hours.rounded())
-        } else if let night = store.sleepData.first, night.totalHours > 0 {
+        } else if let night = SleepData.lastNight(in: store.sleepData), night.totalHours > 0 {
             facts.sleepHours = night.totalHours
             facts.deepMinutes = night.deepMinutes
             facts.sleepAvg = Int(store.dailyMetrics.totalSleep > 0

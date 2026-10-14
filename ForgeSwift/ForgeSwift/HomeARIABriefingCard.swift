@@ -332,9 +332,11 @@ enum HomeARIABriefingBuilder {
         // --- Recovery signals. A deficit outranks a confirmation: being told
         //     something is wrong is more actionable than being told it is fine.
         //     Spoken as a read, not a HUD — the number lives in Sleep if they want it.
-        if store.readiness.sleepQuality < 60 {
+        //     With no night measured, sleepQuality is a fallback, not a read of sleep.
+        let sleepMeasured = lastNightSleepMeasured(store: store)
+        if sleepMeasured, store.readiness.sleepQuality < 60 {
             beats.append(.init(text: "Last night didn't fully pay you back — I'd keep today kind.", priority: .urgent))
-        } else if store.readiness.sleepQuality >= 80, life.story == nil {
+        } else if sleepMeasured, store.readiness.sleepQuality >= 80, life.story == nil {
             beats.append(.init(text: "Deep sleep looked solid.", priority: .confirming))
         }
         if store.dailyMetrics.hrv > 0, life.story == nil {

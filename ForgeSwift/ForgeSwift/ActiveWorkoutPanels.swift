@@ -293,6 +293,7 @@ struct SetLoggerPanel: View {
                 actions
             }
         }
+        .accessibilityLabel(icon == "minus" ? "Fewer reps" : "More reps")
     }
 }
 

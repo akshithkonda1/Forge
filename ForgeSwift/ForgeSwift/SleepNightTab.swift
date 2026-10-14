@@ -333,7 +333,7 @@ struct SleepEveningStoryCard: View {
     let coach: SleepBedtimeCoach
 
     private var lastNight: SleepNight? {
-        guard let night = store.sleepData.first else { return nil }
+        guard let night = SleepData.lastNight(in: store.sleepData) else { return nil }
         let start = night.onset ?? Date().addingTimeInterval(-night.totalHours * 3600)
         var cursor = start
         var segments: [SleepStageSegment] = []
@@ -616,19 +616,30 @@ struct SleepLastNightStrip: View {
     @EnvironmentObject var store: AppStore
     @EnvironmentObject var hkService: HealthKitSleepService
 
-    private var night: SleepData? { store.sleepData.first }
+    private var night: SleepData? { SleepData.lastNight(in: store.sleepData) }
 
     var body: some View {
         VStack(alignment: .leading, spacing: ForgeLayout.blockGap) {
             if let night {
-                ForgeCardHeader(
-                    "Last night",
-                    meta: "\(night.efficiencyPercent)% efficient",
-                    metaColor: .steel
-                )
+                if night.hasStages {
+                    ForgeCardHeader(
+                        "Last night",
+                        meta: "\(night.efficiencyPercent)% efficient",
+                        metaColor: .steel
+                    )
+                } else {
+                    ForgeCardHeader("Last night")
+                }
                 headline(for: night)
-                SleepHypnogram(night: night, height: 54)
-                SleepStageLegend(night: night)
+                if night.hasStages {
+                    SleepHypnogram(night: night, height: 54)
+                    SleepStageLegend(night: night)
+                } else {
+                    Text("Sleep stages not recorded")
+                        .font(HomeType.body)
+                        .foregroundStyle(Color.textSecondary)
+                        .forgeWrapping()
+                }
                 if let flag = hkService.lastDepthResult?.headline {
                     Text(flag)
                         .font(HomeType.body)
@@ -639,7 +650,7 @@ struct SleepLastNightStrip: View {
                 ForgeCardHeader("Last night")
                 ForgeEmptyNote(
                     title: "No night on file",
-                    message: store.sleepSurface.lastNightEmptyMessage,
+                    message: store.sleepSurface.lastNightEmptyOrStaleMessage,
                     systemImage: "moon.zzz.fill",
                     tint: .steel
                 )
@@ -673,7 +684,7 @@ struct SleepLastNightStrip: View {
 struct SleepLastNightDetail: View {
     @EnvironmentObject var store: AppStore
 
-    private var night: SleepData? { store.sleepData.first }
+    private var night: SleepData? { SleepData.lastNight(in: store.sleepData) }
 
     var body: some View {
         VStack(alignment: .leading, spacing: ForgeLayout.blockGap) {
@@ -709,12 +720,19 @@ struct SleepLastNightDetail: View {
                 }
                 .accessibilityElement(children: .combine)
             }
-            Text("\(night.clock(night.onset))  →  \(night.clock(night.wake))   ·   \(night.efficiencyPercent)% of time in bed was sleep")
-                .font(HomeType.body)
-                .foregroundStyle(Color.textSecondary)
-                .forgeWrapping()
-            SleepHypnogram(night: night, height: 92)
-            stageStats(for: night)
+            if night.hasStages {
+                Text("\(night.clock(night.onset))  →  \(night.clock(night.wake))   ·   \(night.efficiencyPercent)% of time in bed was sleep")
+                    .font(HomeType.body)
+                    .foregroundStyle(Color.textSecondary)
+                    .forgeWrapping()
+                SleepHypnogram(night: night, height: 92)
+                stageStats(for: night)
+            } else {
+                Text("\(night.clock(night.onset))  →  \(night.clock(night.wake))   ·   Sleep stages not recorded")
+                    .font(HomeType.body)
+                    .foregroundStyle(Color.textSecondary)
+                    .forgeWrapping()
+            }
         }
     }
 
@@ -731,12 +749,22 @@ struct SleepLastNightDetail: View {
         VStack(alignment: .leading, spacing: ForgeLayout.blockGap) {
             ForgeEmptyNote(
                 title: "No night on file",
-                message: store.sleepSurface.lastNightEmptyMessage,
+                message: store.sleepSurface.lastNightEmptyOrStaleMessage,
                 systemImage: "moon.zzz.fill",
                 tint: .steel
             )
             SleepLifestyleCaption()
         }
+    }
+}
+
+private extension SleepSurfacePresence {
+    /// `lastNightEmptyMessage` is blank while the feed is live, but the newest
+    /// night on file can still be older than yesterday — say so instead of nothing.
+    var lastNightEmptyOrStaleMessage: String {
+        lastNightEmptyMessage.isEmpty
+            ? "No night recorded since yesterday. Last night will land here once it syncs."
+            : lastNightEmptyMessage
     }
 }
 

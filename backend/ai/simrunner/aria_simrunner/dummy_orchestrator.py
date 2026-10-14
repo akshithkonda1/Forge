@@ -874,6 +874,7 @@ _SPEAK_FALLBACK = (
 _SAFETY_CLOSER = "Future you says thanks."
 _SAFETY_PREFIXES = (
     "you've been running short on sleep this week",
+    "you've been running short on sleep and your training has climbed fast",
     "your training has climbed fast lately",
 )
 
@@ -1844,14 +1845,14 @@ def _picture_tags_from_sim(ctx) -> list[str]:
     hrv = getattr(today, "hrv", None)
     rhr = getattr(today, "resting_hr", None)
     strain = getattr(today, "today_strain", None) or 0
-    stress = getattr(today, "stress_level", None) or 30
+    stress = getattr(today, "stress_level", None)
     fc = rf.forecast(rf.ForecastInput(
         current_readiness=int(readiness),
         sleep_minutes=sleep_min,
         hrv_ms=int(hrv) if isinstance(hrv, (int, float)) else 0,
         resting_hr=int(rhr) if isinstance(rhr, (int, float)) else 0,
         today_strain=float(strain),
-        stress_level=int(stress),
+        stress_level=int(stress) if isinstance(stress, (int, float)) else None,
     ))
     acwr = getattr(today, "acwr", None)
     high_strain = 0

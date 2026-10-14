@@ -253,7 +253,7 @@ struct WorkoutIdleView: View {
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
-        .hudPlate(energy: HomeReadiness.color(store.readiness.overall))
+        .hudPlate(energy: store.readiness.hasScore ? HomeReadiness.color(store.readiness.overall) : HudChrome.miss)
         .accessibilityElement(children: .contain)
     }
 
@@ -264,11 +264,15 @@ struct WorkoutIdleView: View {
                 .forgeSectionLabel(tint: dayTone)
                 .forgeSingleLine(minScale: ForgeLayout.labelMinScale)
                 .frame(maxWidth: .infinity, alignment: .leading)
-            HudVibeChip(label: "\(score) · \(HomeReadiness.label(score))", energy: HomeReadiness.color(score))
+            // Unmeasured readiness reads "—", never a 0 score.
+            HudVibeChip(
+                label: store.readiness.hasScore ? "\(score) · \(HomeReadiness.label(score))" : "Readiness —",
+                energy: store.readiness.hasScore ? HomeReadiness.color(score) : HudChrome.miss
+            )
                 .lineLimit(1)
                 .layoutPriority(1)
                 .accessibilityElement(children: .ignore)
-                .accessibilityLabel(HomeReadiness.voiceOverLabel(score))
+                .accessibilityLabel(store.readiness.hasScore ? HomeReadiness.voiceOverLabel(score) : "Readiness not measured yet")
         }
     }
 

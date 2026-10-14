@@ -56,7 +56,7 @@ final class AriaContextStore: ObservableObject {
 
     func buildARIAContext(from store: AppStore, query: String? = nil) -> ARIAContextPayload {
         let iso = ISO8601DateFormatter()
-        let lastSleep = store.sleepData.first
+        let lastSleep = SleepData.lastNight(in: store.sleepData)
         let nights = store.sleepData.count
 
         // Cross-zone consistency: keep sleep / readiness / training / cycle tight
@@ -75,8 +75,11 @@ final class AriaContextStore: ObservableObject {
         if store.readiness.overall < 55, !patterns.contains("low_readiness_streak") {
             patterns.append("low_readiness_streak")
         }
-        if let lastSleep, lastSleep.score >= 85, !patterns.contains("strong_sleep_recovery") {
-            patterns.append("strong_sleep_recovery")
+        // Recomputed every build: a strong night that has gone stale must stop reaching ARIA.
+        if let lastSleep, lastSleep.score >= 85 {
+            if !patterns.contains("strong_sleep_recovery") { patterns.append("strong_sleep_recovery") }
+        } else {
+            patterns.removeAll { $0 == "strong_sleep_recovery" }
         }
         if CrossZoneConsistency.blocksHighIntensity(zone), !patterns.contains("recovery_day_signal") {
             patterns.append("recovery_day_signal")
@@ -331,14 +334,17 @@ final class AriaContextStore: ObservableObject {
 
     func buildRichContext(from store: AppStore) -> AriaRichContext {
         let domain = buildARIAContext(from: store)
-        let metrics: [String: Double] = [
+        var metrics: [String: Double] = [
             "readiness": Double(store.readiness.overall),
             "hrv": Double(store.dailyMetrics.hrv),
             "resting_hr": Double(store.dailyMetrics.restingHR),
-            "sleep_score": Double(store.sleepData.first?.score ?? 0),
             "deep_sleep_min": Double(store.dailyMetrics.deepSleep),
             "recovery_score": Double(store.readiness.recoveryScore),
         ]
+        // Omitted, not 0, when last night was not measured.
+        if let night = SleepData.lastNight(in: store.sleepData) {
+            metrics["sleep_score"] = Double(night.score)
+        }
         return AriaRichContext(
             userId: context.userId,
             lifestyleTags: domain.lifestyle.tags,
@@ -761,8 +767,11 @@ final class AriaContextStore: ObservableObject {
             "qol:\(metrics.qualityOfLifeScore)",
             "stress:\(metrics.stressLevel.rawValue.lowercased())",
             "nutrition_score:\(metrics.nutritionScore)",
-            "sleep_quality:\(metrics.sleepQuality)",
         ]
+        // 0 is the "no sleep pillar" fallback, not a measured score.
+        if metrics.sleepQuality > 0 {
+            tags.append("sleep_quality:\(metrics.sleepQuality)")
+        }
         if let snap = QualityOfLifeLivingStore.load() {
             tags.append("qol:band:\(snap.qualityBand.rawValue)")
             if snap.confidence > 0 {

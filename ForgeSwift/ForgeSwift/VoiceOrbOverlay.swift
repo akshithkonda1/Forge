@@ -6,6 +6,7 @@ import ForgeCore
 /// never loses their place. The orb animates only while ARIA listens or
 /// speaks, and sits still under Reduce Motion.
 struct VoiceOrbOverlay: View {
+    @EnvironmentObject private var store: AppStore
     @ObservedObject var speech:  SpeechManager
     let mood:         ARIAMood
     @Binding var isShowing:      Bool
@@ -76,7 +77,11 @@ struct VoiceOrbOverlay: View {
         )
         .environment(\.forgeMinimalAnimation, reduceMotion || !orbIsLive)
         .frame(height: orbSize + FDS.Spacing.lg)
-        .accessibilityHidden(true)
+        .contentShape(Circle())
+        .onTapGesture { handleOrbTap() }
+        .accessibilityAddTraits(.isButton)
+        .accessibilityLabel(speech.voiceState.label)
+        .accessibilityHint(speech.voiceState.sublabel)
     }
 
     private var stateLabels: some View {
@@ -95,8 +100,18 @@ struct VoiceOrbOverlay: View {
                 .foregroundStyle(Color.textSecondary)
                 .multilineTextAlignment(.center)
                 .forgeWrapping()
+
+            if speech.authorizationDenied {
+                ForgeSecondaryButton(title: "Open Settings", icon: "gearshape", accent: .textSecondary) {
+                    if let url = URL(string: UIApplication.openSettingsURLString) {
+                        UIApplication.shared.open(url)
+                    }
+                }
+                .padding(.top, ForgeLayout.tileGap)
+                .accessibilityLabel("Open Settings to allow microphone and speech access")
+            }
         }
-        .accessibilityElement(children: .combine)
+        .accessibilityElement(children: .contain)
     }
 
     @ViewBuilder
@@ -171,6 +186,28 @@ struct VoiceOrbOverlay: View {
             if case .idle = state, !speech.recognizedText.isEmpty {
                 onRecognized(speech.recognizedText)
             }
+        }
+    }
+
+    /// The orb copy promises "Tap to speak" / "Tap to interrupt" / "Try
+    /// again" — this is that tap.
+    private func handleOrbTap() {
+        switch speech.voiceState {
+        case .idle, .error:
+            // Start the way ChatView's mic entry does. A live session that
+            // failed or closed is still marked active, and `start` would only
+            // resume it — end it first so the retry really reconnects.
+            speech.conversationalMood = mood
+            let session = AriaVoiceSession.shared
+            if session.activeTransport?.requiresNetwork == true {
+                session.stop()
+            }
+            session.start(store: store, speech: speech)
+        case .speaking:
+            AriaPresence.shared.stopSpeaking()
+            AriaVoiceSession.shared.markListening()
+        case .listening, .processing:
+            break
         }
     }
 

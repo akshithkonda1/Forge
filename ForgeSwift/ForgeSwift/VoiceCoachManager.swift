@@ -331,7 +331,7 @@ extension WorkoutContext {
         parts.append("Set \(currentSet) of \(sets)")
         if !weight.isEmpty || !reps.isEmpty { parts.append("\(weight) × \(reps)") }
         if !elapsedTime.isEmpty { parts.append("Elapsed \(elapsedTime)") }
-        if heartRate > 0 { parts.append("HR \(heartRate) bpm (Zone \(hrZone))") }
+        if let heartRate, let hrZone { parts.append("HR \(heartRate) bpm (Zone \(hrZone))") }
         if restSeconds > 0 { parts.append("Rest \(restSeconds)s") }
         if !notes.isEmpty { parts.append("Notes: \(notes)") }
         return parts.joined(separator: " · ")
@@ -346,8 +346,9 @@ struct WorkoutContext {
     var reps: String
     var weight: String
     var elapsedTime: String
-    var heartRate: Int
-    var hrZone: Int
+    /// Live sample only; nil until one arrives.
+    var heartRate: Int?
+    var hrZone: Int?
     var calories: Int
     var restSeconds: Int
     var notes: String
@@ -360,8 +361,8 @@ struct WorkoutContext {
         reps: "",
         weight: "",
         elapsedTime: "00:00",
-        heartRate: 0,
-        hrZone: 1,
+        heartRate: nil,
+        hrZone: nil,
         calories: 0,
         restSeconds: 90,
         notes: ""

@@ -202,7 +202,7 @@ struct ChatView: View {
         .onAppear {
             ariaMood = ARIAMood.derive(
                 readiness: store.readiness.overall,
-                sleepScore: store.sleepData.first?.score
+                sleepScore: SleepData.lastNight(in: store.sleepData)?.score
             )
             speech.conversationalMood = ariaMood
             ariaContext.updateProfile(
@@ -235,7 +235,7 @@ struct ChatView: View {
             withAnimation(FDS.Spring.standard) {
                 ariaMood = ARIAMood.derive(
                     readiness: val,
-                    sleepScore: store.sleepData.first?.score
+                    sleepScore: SleepData.lastNight(in: store.sleepData)?.score
                 )
             }
         }

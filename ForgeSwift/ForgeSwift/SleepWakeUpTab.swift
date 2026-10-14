@@ -131,8 +131,8 @@ struct SleepWakeScreen: View {
 
     private var morningPrompt: String {
         SleepWakeCoach.morningPrompt(
-            sleepScore: store.sleepData.first?.score,
-            lastNightHours: store.sleepData.first?.totalHours
+            sleepScore: SleepData.lastNight(in: store.sleepData)?.score,
+            lastNightHours: SleepData.lastNight(in: store.sleepData)?.totalHours
         )
     }
 
@@ -471,8 +471,8 @@ struct WakeUpTab: View {
     private var coach: SleepWakeCoach {
         SleepWakeCoach.make(
             alarms: store.alarms,
-            sleepScore: appStore.sleepData.first?.score,
-            lastNightHours: appStore.sleepData.first?.totalHours,
+            sleepScore: SleepData.lastNight(in: appStore.sleepData)?.score,
+            lastNightHours: SleepData.lastNight(in: appStore.sleepData)?.totalHours,
             smartWindowMinutes: store.next.map {
                 hkService.adaptiveSmartWakeMinutes(base: $0.smartWakeWindow, depth: store.sleeperDepth)
             }
@@ -1052,7 +1052,7 @@ struct WakeGreetingCard: View {
     }
 
     private var sleepScoreText: String {
-        store.sleepData.first.map { "Sleep \($0.score)" } ?? "Sleep"
+        SleepData.lastNight(in: store.sleepData).map { "Sleep \($0.score)" } ?? "Sleep"
     }
 }
 

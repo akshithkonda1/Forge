@@ -260,6 +260,7 @@ final class AriaPresence: NSObject, AVSpeechSynthesizerDelegate {
                     guard generation == fishGeneration else { return }
                     guard let speech = AriaFishAudioVoice.decodeBackendSpeech(payload) else {
                         isSpeaking = false
+                        AriaVoiceSession.shared.mouthDidFinish()
                         return
                     }
                     data = speech.audio
@@ -268,6 +269,7 @@ final class AriaPresence: NSObject, AVSpeechSynthesizerDelegate {
                     guard generation == fishGeneration else { return }
                     guard let http = response as? HTTPURLResponse, http.statusCode == 200, !payload.isEmpty else {
                         isSpeaking = false
+                        AriaVoiceSession.shared.mouthDidFinish()
                         return
                     }
                     data = payload
@@ -287,6 +289,9 @@ final class AriaPresence: NSObject, AVSpeechSynthesizerDelegate {
             } catch {
                 guard generation == fishGeneration else { return }
                 isSpeaking = false
+                // Failed line: hand the turn back so the orb leaves
+                // "ARIA speaking" and the mic reopens.
+                AriaVoiceSession.shared.mouthDidFinish()
             }
         }
     }

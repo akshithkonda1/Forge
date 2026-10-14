@@ -29,7 +29,7 @@ enum AriaFirstHealthBriefing {
 
     @MainActor
     static func snapshot(from store: AppStore) -> Snapshot {
-        let night = store.sleepData.first
+        let night = SleepData.lastNight(in: store.sleepData)
         let sleepHours = night?.totalHours
             ?? (store.dailyMetrics.totalSleep > 0 ? Double(store.dailyMetrics.totalSleep) / 60 : nil)
         return Snapshot(

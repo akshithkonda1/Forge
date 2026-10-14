@@ -18,6 +18,10 @@ final class SpeechManager: ObservableObject {
     private let speechRecognizer = SFSpeechRecognizer(locale: Locale(identifier: "en-US"))
     private var silenceTimer: Timer?
     private var levelTimer: Timer?
+    /// Closes the mic when nothing at all is heard. `silenceTimer` only arms
+    /// on a partial result, so without this a quiet room held it open.
+    private var noSpeechTimer: Timer?
+    static let noSpeechTimeout: TimeInterval = 8
     /// Audio-thread gate so amplitude does not hop to MainActor every quantum.
     nonisolated private let amplitudePublishLock = OSAllocatedUnfairLock(initialState: TimeInterval(0))
     nonisolated static let amplitudePublishInterval: TimeInterval = 0.12
@@ -205,6 +209,7 @@ final class SpeechManager: ObservableObject {
             try audioEngine.start()
             voiceState = .listening
             startLevelPulseFallback()
+            startNoSpeechTimer()
         } catch {
             voiceState = .error("Microphone error")
             hardStop(clearText: true)
@@ -297,6 +302,17 @@ final class SpeechManager: ObservableObject {
         }
     }
 
+    private func startNoSpeechTimer() {
+        noSpeechTimer?.invalidate()
+        noSpeechTimer = Timer.scheduledTimer(withTimeInterval: Self.noSpeechTimeout, repeats: false) { [weak self] _ in
+            Task { @MainActor in
+                guard let self, self.voiceState == .listening else { return }
+                guard self.recognizedText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
+                self.stopListening(submit: false)
+            }
+        }
+    }
+
     /// Gentle pulse when audio level taps are quiet
     private func startLevelPulseFallback() {
         levelTimer?.invalidate()
@@ -315,6 +331,8 @@ final class SpeechManager: ObservableObject {
         silenceTimer = nil
         levelTimer?.invalidate()
         levelTimer = nil
+        noSpeechTimer?.invalidate()
+        noSpeechTimer = nil
 
         if audioEngine.isRunning {
             audioEngine.stop()
