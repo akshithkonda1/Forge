@@ -337,7 +337,7 @@ final class HealthKitSleepService: ObservableObject {
         )
     }
 
-    /// Hours of sleep owed over the trailing fortnight.
+    /// Hours of short-stretch sleep over the trailing fortnight.
     ///
     /// Two things changed here relative to the obvious version, both because the
     /// obvious version reads better than it behaves:
@@ -557,8 +557,8 @@ final class HealthKitSleepService: ObservableObject {
             recs.insert(SleepRecommendation(
                 id: "debt-stretch",
                 icon: "bed.double.fill",
-                title: "Catch up on sleep",
-                description: "Add about 25 min tonight — a short stretch over the fortnight, not something you owe",
+                title: "Add about 25 min tonight",
+                description: "A short stretch over the fortnight.",
                 priority: "High"
             ), at: 0)
         }

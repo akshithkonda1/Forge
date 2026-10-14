@@ -302,7 +302,7 @@ public enum SleepDebtMeter: Sendable {
             detail = String(format: "Against a %.1fh need over the last fortnight. Nothing extra to add tonight.", needHours)
         } else {
             headline = String(format: "%.1fh short stretch", stretch)
-            detail = "About \(pay.minutes) extra minutes for \(pay.nights) night\(pay.nights == 1 ? "" : "s") — a short stretch, not something you owe."
+            detail = "About \(pay.minutes) extra minutes for \(pay.nights) night\(pay.nights == 1 ? "" : "s") — a short stretch."
         }
 
         return Result(
