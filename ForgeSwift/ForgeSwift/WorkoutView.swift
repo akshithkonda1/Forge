@@ -695,11 +695,11 @@ struct WorkoutInsightsView: View {
         if let headline = workout.scaleHeadline {
             r.append(("wand.and.stars", headline, workout.autoScaled ? .warning : .steel))
         }
-        // Same cuts AriaPlanEngine scales the board on (80 / 65). Unmeasured
+        // Same cuts AriaPlanEngine scales the board on (Peak / Solid floors). Unmeasured
         // readiness gets no note: "0" is not a low read.
         if store.readiness.hasScore {
-            if store.readiness.overall >= 80 { r.append(("bolt.fill", "Readiness \(store.readiness.overall) — primed. Add a set if the first compound moves well.", .ember)) }
-            else if store.readiness.overall < 65 { r.append(("bed.double.fill", "Readiness \(store.readiness.overall) — ARIA already scaled the board. You can still add a set if you feel it.", .steel)) }
+            if store.readiness.overall >= AriaPlanEngine.peakFloor { r.append(("bolt.fill", "Readiness \(store.readiness.overall) — primed. Add a set if the first compound moves well.", .ember)) }
+            else if store.readiness.overall < AriaPlanEngine.solidFloor { r.append(("bed.double.fill", "Readiness \(store.readiness.overall) — ARIA already scaled the board. You can still add a set if you feel it.", .steel)) }
         }
         // Balance read across the plan
         if let lean = planRegionLean() { r.append(("scale.3d", lean, Color.aurora)) }

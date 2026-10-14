@@ -170,10 +170,18 @@ enum AriaPlanEngine {
         case peak, solid, moderate, recover
     }
 
+    /// Plan bands. Peak is reserved for a perfect read; most good days plan
+    /// as Solid. Mirrored by WorkoutView's board notes, AppStore's
+    /// recommendedIntensity, AriaVoiceEngine's why-line and the backend's
+    /// scoring.workout_recommendation; change them together.
+    static let peakFloor = 100
+    static let solidFloor = 85
+    static let moderateFloor = 70
+
     private static func readinessBand(_ score: Int) -> ReadinessBand {
-        if score >= 80 { return .peak }
-        if score >= 65 { return .solid }
-        if score >= 50 { return .moderate }
+        if score >= peakFloor { return .peak }
+        if score >= solidFloor { return .solid }
+        if score >= moderateFloor { return .moderate }
         return .recover
     }
 
