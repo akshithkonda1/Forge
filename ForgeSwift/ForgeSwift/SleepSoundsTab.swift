@@ -1,4 +1,5 @@
 import SwiftUI
+import ForgeCore
 
 struct SleepSoundsTab: View {
     private let player = SleepWindDownPlayer.shared
