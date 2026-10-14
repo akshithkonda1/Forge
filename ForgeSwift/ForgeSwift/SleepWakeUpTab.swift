@@ -114,29 +114,30 @@ struct SleepWakeScreen: View {
     @ObservedObject private var wake = SleepWakeStore.shared
     @ObservedObject private var alarms = ForgeAlarmStore.shared
     @State private var doneRoutine: Set<UUID> = []
-    @State private var tick = Date()
     private let player = SleepWakePlayer.shared
 
     private var alarm: ForgeAlarm { wake.current ?? ForgeAlarm() }
 
-    private var progress: Double {
-        min(1, Date().timeIntervalSince(wake.startedAt) / 24)
-    }
-
-    private var clock: String {
-        tick.formatted(date: .omitted, time: .shortened)
+    private func progress(at date: Date) -> Double {
+        min(1, date.timeIntervalSince(wake.startedAt) / 24)
     }
 
     var body: some View {
         @Bindable var player = player
+        TimelineView(.periodic(
+            from: .now,
+            by: Date().timeIntervalSince(wake.startedAt) < 24 ? 1 : 60
+        )) { context in
+        let tick = context.date
+        let progress = progress(at: tick)
         ZStack {
-            sunrise
+            sunrise(progress: progress)
             VStack(spacing: FDS.Spacing.xl) {
                 Spacer()
                 VStack(spacing: FDS.Spacing.sm) {
                     ZStack {
                         SleepWakeHudRing(progress: progress)
-                        Text(clock)
+                        Text(tick.formatted(date: .omitted, time: .shortened))
                             .font(.system(size: 64, weight: .semibold, design: .rounded))
                             .foregroundColor(.white)
                             .monospacedDigit()
@@ -148,7 +149,7 @@ struct SleepWakeScreen: View {
                         Text(player.stage == .insistent
                              ? "Backup tone + pulse. Hold I'm up."
                              : "Backup tone. Still time to get up.")
-                            .font(.system(size: 13, weight: .semibold, design: .rounded))
+                            .font(ForgeType.caption)
                             .foregroundColor(.white.opacity(0.82))
                     }
                     if player.fault.isFailClosed {
@@ -169,7 +170,7 @@ struct SleepWakeScreen: View {
                             sleepScore: SleepData.lastNight(in: store.sleepData)?.score,
                             lastNightHours: SleepData.lastNight(in: store.sleepData)?.totalHours
                         ))
-                        .font(.system(size: 14, weight: .medium))
+                        .font(ForgeType.body)
                         .foregroundColor(.white.opacity(0.78))
                         .multilineTextAlignment(.center)
                         .padding(.horizontal, FDS.Spacing.xl)
@@ -239,7 +240,7 @@ struct SleepWakeScreen: View {
                         ARIAIdentityMark(state: .idle, mood: .energized, size: 16, amplitude: 0.22)
                         Text("Ask ARIA to start the morning")
                     }
-                    .font(.system(size: 14, weight: .semibold, design: .rounded))
+                    .font(ForgeType.body.weight(.semibold))
                     .foregroundColor(.white.opacity(0.88))
                 }
                 .buttonStyle(.plain)
@@ -247,13 +248,13 @@ struct SleepWakeScreen: View {
             }
         }
         .interactiveDismissDisabled()
-        .onReceive(Timer.publish(every: 1, on: .main, in: .common).autoconnect()) { tick = $0 }
         .onAppear {
             SleepWakePlayer.shared.ensurePlaying(for: alarm)
         }
+        }
     }
 
-    private var sunrise: some View {
+    private func sunrise(progress: Double) -> some View {
         let t = alarms.sunriseEnabled ? progress : 0.12
         return ZStack {
             LinearGradient(
@@ -266,7 +267,7 @@ struct SleepWakeScreen: View {
                 endPoint: .bottom
             )
             RadialGradient(
-                colors: [Color(hex: SleepHud.plateHex).opacity(0.18 + 0.35 * t), .clear],
+                colors: [SleepHud.plate.opacity(0.18 + 0.35 * t), .clear],
                 center: UnitPoint(x: 0.5, y: 0.22),
                 startRadius: 8,
                 endRadius: 220
@@ -291,7 +292,7 @@ struct SleepWakeHudRing: View {
             let s = min(size.width, size.height)
             let center = CGPoint(x: size.width / 2, y: size.height / 2)
             let outer = s / 2 - 2
-            let plate = Color(hex: SleepHud.plateHex)
+            let plate = SleepHud.plate
             for i in 0..<SleepHud.tickCount {
                 let major = i.isMultiple(of: 6)
                 let angle = Double(i) / Double(SleepHud.tickCount) * .pi * 2 - .pi / 2
@@ -471,7 +472,7 @@ struct NextWakePlanCard: View {
                     .font(FDS.TypeScale.Dynamic.metric)
                     .foregroundColor(.textPrimary)
                 Text(coach.cue)
-                    .font(.system(size: 13))
+                    .font(ForgeType.body)
                     .foregroundColor(.textSecondary)
                     .fixedSize(horizontal: false, vertical: true)
                 if let smart = coach.smartFire, let hard = coach.hardFire {
@@ -489,7 +490,7 @@ struct NextWakePlanCard: View {
                         Image(systemName: "arrow.up.right")
                             .font(.system(size: 12, weight: .semibold))
                     }
-                    .font(.system(size: 14, weight: .semibold, design: .rounded))
+                    .font(ForgeType.body.weight(.semibold))
                     .foregroundColor(.ember)
                     .padding(FDS.Spacing.md)
                     .background(Color.ember.opacity(0.08))
@@ -505,7 +506,7 @@ struct SleeperDepthCard: View {
     @Binding var depth: SleeperDepth
 
     var body: some View {
-        WakeUpSection(icon: "bed.double.fill", title: "How you sleep", color: Color(hex: SleepHud.plateHex)) {
+        WakeUpSection(icon: "bed.double.fill", title: "How you sleep", color: SleepHud.plate) {
             VStack(alignment: .leading, spacing: FDS.Spacing.md) {
                 Text("Deep and super-deep sleepers get a longer Smart Wake lead and a slower volume climb. Lifestyle coaching — iPhone cannot read live stage.")
                     .font(.system(size: 12))
@@ -522,7 +523,7 @@ struct SleeperDepthCard: View {
                                 .foregroundColor(depth == option ? .white : .textPrimary)
                                 .frame(maxWidth: .infinity)
                                 .padding(.vertical, FDS.Spacing.md)
-                                .background(depth == option ? Color(hex: SleepHud.plateHex) : Color.surfaceElevated)
+                                .background(depth == option ? SleepHud.plate : Color.surfaceElevated)
                                 .clipShape(RoundedRectangle(cornerRadius: FDS.Radius.md, style: .continuous))
                         }
                         .buttonStyle(.plain)
@@ -780,7 +781,7 @@ struct WakeGreetingCard: View {
                 // Preview
                 ZStack {
                     RoundedRectangle(cornerRadius: FDS.Radius.lg)
-                        .fill(LinearGradient(colors: [Color(hex: "0F172A"), Color(hex: "1E293B")], startPoint: .top, endPoint: .bottom))
+                        .fill(LinearGradient(colors: [SleepHud.wakeNavy, SleepHud.wakeSlate], startPoint: .top, endPoint: .bottom))
                     VStack(spacing: FDS.Spacing.md) {
                         Text("6:45 AM")
                             .font(.system(size: 36, weight: .black, design: .rounded))
@@ -944,7 +945,7 @@ struct AdaptiveSunriseCard: View {
                             }
                             ZStack(alignment: .bottom) {
                                 LinearGradient(
-                                    colors: [Color(hex: "FF8C42"), Color(hex: "FFD166"), Color(hex: "FEFAE0"), Color(hex: "C8E6FF")],
+                                    colors: SleepHud.sunriseRamp,
                                     startPoint: .leading, endPoint: .trailing
                                 )
                                 .frame(height: 24).cornerRadius(FDS.Radius.md)

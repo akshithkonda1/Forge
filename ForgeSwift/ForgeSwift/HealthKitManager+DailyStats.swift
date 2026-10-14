@@ -596,22 +596,81 @@ extension HealthKitManager {
     }
 
     func fetchRecentSleepSessions(days: Int) async -> [SleepNightSample] {
+        let calendar = Calendar.current
+        let lookback = max(days, 30)
+        let windowStart = calendar.date(byAdding: .day, value: -lookback, to: Date()) ?? Date()
         let sleepType = HKCategoryType(.sleepAnalysis)
-        let start = Calendar.current.date(byAdding: .day, value: -days, to: Date()) ?? Date()
-        let predicate = HKQuery.predicateForSamples(withStart: start, end: Date(), options: .strictStartDate)
+        let predicate = HKQuery.predicateForSamples(
+            withStart: windowStart,
+            end: Date(),
+            options: .strictStartDate
+        )
 
-        return await withCheckedContinuation { continuation in
-            let query = HKSampleQuery(
-                sampleType: sleepType,
-                predicate: predicate,
-                limit: HKObjectQueryNoLimit,
-                sortDescriptors: [NSSortDescriptor(key: HKSampleSortIdentifierEndDate, ascending: false)]
-            ) { _, samples, _ in
-                let categorySamples = samples as? [HKCategorySample] ?? []
-                continuation.resume(returning: Self.makeSleepNightSamples(from: categorySamples))
+        let (added, deleted, newAnchor): ([HKCategorySample], [UUID], HKQueryAnchor?) =
+            await withCheckedContinuation { continuation in
+                let query = HKAnchoredObjectQuery(
+                    type: sleepType,
+                    predicate: predicate,
+                    anchor: sleepQueryAnchor,
+                    limit: HKObjectQueryNoLimit
+                ) { _, added, deleted, newAnchor, _ in
+                    continuation.resume(returning: (
+                        (added as? [HKCategorySample]) ?? [],
+                        (deleted ?? []).map(\.uuid),
+                        newAnchor
+                    ))
+                }
+                healthStore.execute(query)
             }
-            healthStore.execute(query)
+
+        if let newAnchor {
+            sleepQueryAnchor = newAnchor
         }
+
+        var changedKeys = Set<String>()
+        for id in deleted {
+            if let sample = sleepSamplesByUUID.removeValue(forKey: id) {
+                changedKeys.insert(Self.sleepNightDateKey(for: sample, calendar: calendar))
+            }
+        }
+        for sample in added {
+            sleepSamplesByUUID[sample.uuid] = sample
+            changedKeys.insert(Self.sleepNightDateKey(for: sample, calendar: calendar))
+        }
+        for (id, sample) in sleepSamplesByUUID where sample.endDate < windowStart {
+            changedKeys.insert(Self.sleepNightDateKey(for: sample, calendar: calendar))
+            sleepSamplesByUUID.removeValue(forKey: id)
+        }
+
+        if !changedKeys.isEmpty {
+            for key in changedKeys {
+                let samples = sleepSamplesByUUID.values.filter {
+                    Self.sleepNightDateKey(for: $0, calendar: calendar) == key
+                }
+                if let night = Self.makeSleepNightSamples(from: Array(samples), calendar: calendar).first {
+                    sleepNightsByDate[key] = night
+                } else {
+                    sleepNightsByDate.removeValue(forKey: key)
+                }
+            }
+        }
+
+        let cutoff = calendar.date(byAdding: .day, value: -days, to: Date()) ?? Date()
+        let cutoffKey = HomeTrendSeries.isoDateString(
+            HomeTrendSeries.nightKey(fromBedtime: cutoff, calendar: calendar),
+            calendar: calendar
+        )
+        return sleepNightsByDate.values
+            .filter { $0.date >= cutoffKey }
+            .sorted { $0.date > $1.date }
+    }
+
+    static func sleepNightDateKey(
+        for sample: HKCategorySample,
+        calendar: Calendar = .current
+    ) -> String {
+        let night = HomeTrendSeries.nightKey(fromBedtime: sample.startDate, calendar: calendar)
+        return HomeTrendSeries.isoDateString(night, calendar: calendar)
     }
 
     /// Groups raw sleep-analysis samples into one entry per night. Pulled out of

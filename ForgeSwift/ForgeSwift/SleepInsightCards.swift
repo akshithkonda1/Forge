@@ -1,6 +1,136 @@
 import SwiftUI
 import PhotosUI
 import UIKit
+import ForgeCore
+
+struct SleepMorningSummaryCard: View {
+    @EnvironmentObject var store: AppStore
+    @EnvironmentObject var hkService: HealthKitSleepService
+
+    private var summary: SleepMorningSummary {
+        let last = SleepData.lastNight(in: store.sleepData)
+        let durations = Array(store.sleepData.map(\.totalHours).reversed())
+        let estimated = CircadianRhythm.sleepNeedHours(fromAsleepHours: durations)
+        let stretch = CircadianRhythm.sleepDebtHours(asleepHours: durations, need: estimated)
+        let need = SleepNeedParts.make(
+            estimatedBaseline: estimated,
+            overrideBaseline: SleepNeedBaselineStore.load() ?? hkService.userProfile.sleepNeedBaselineHours,
+            debtHours: stretch
+        )
+        let coach = SleepBedtimeCoach.make(
+            from: store.sleepData,
+            lowEnergyDay: store.readiness.overall < 60
+        )
+        return SleepMorningSummary.make(
+            lastNightHours: last?.totalHours,
+            lastNightAwakeMinutes: Double(last?.awakeMinutes ?? 0),
+            scoredNightCount: store.sleepData.count,
+            bedtimeLabel: last == nil ? nil : coach.bedtimeLabel,
+            need: need
+        )
+    }
+
+    var body: some View {
+        let card = summary
+        VStack(alignment: .leading, spacing: FDS.Spacing.md) {
+            ForgeSectionHeader(
+                title: "This morning",
+                subtitle: card.calibration.caption
+            )
+            HStack(alignment: .firstTextBaseline, spacing: FDS.Spacing.sm) {
+                Text(card.hoursLabel)
+                    .font(ForgeType.heroScore)
+                    .foregroundColor(.textPrimary)
+                    .monospacedDigit()
+                Text("asleep")
+                    .font(ForgeType.body)
+                    .foregroundColor(.textSecondary)
+                Spacer()
+                if let score = card.visibleScore {
+                    Text("\(score)")
+                        .font(ForgeType.metric)
+                        .foregroundColor(.steel)
+                        .monospacedDigit()
+                        .accessibilityLabel("Sleep score \(score) of 100")
+                }
+            }
+            Text(card.contextLine)
+                .font(ForgeType.body)
+                .foregroundColor(.textPrimary)
+                .fixedSize(horizontal: false, vertical: true)
+            Text(card.nextStep)
+                .font(ForgeType.headline)
+                .foregroundColor(.ember)
+                .fixedSize(horizontal: false, vertical: true)
+            if card.calibration.isReady, let parts = card.published?.parts {
+                HStack(spacing: FDS.Spacing.sm) {
+                    ForEach(parts, id: \.name) { part in
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("\(part.weight)%")
+                                .font(ForgeType.micro)
+                                .foregroundColor(.textTertiary)
+                            Text("\(part.value)")
+                                .font(ForgeType.caption)
+                                .foregroundColor(.textPrimary)
+                                .monospacedDigit()
+                        }
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .accessibilityLabel("\(part.name), weight \(part.weight) percent, \(part.value)")
+                    }
+                }
+            }
+            Text(card.need.whyLines.joined(separator: " · "))
+                .font(ForgeType.caption)
+                .foregroundColor(.textTertiary)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .padding(FDS.Spacing.lg)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .forgeGlassCard(cornerRadius: FDS.Radius.xl, accent: .ember)
+        .accessibilityElement(children: .combine)
+    }
+}
+
+struct SleepFeelingCheckIn: View {
+    @EnvironmentObject var store: AppStore
+    @State private var picked: SleepFeeling?
+
+    private var dateKey: String? { SleepData.lastNight(in: store.sleepData)?.date }
+
+    var body: some View {
+        if let dateKey {
+            VStack(alignment: .leading, spacing: FDS.Spacing.md) {
+                Text("How did you feel?")
+                    .font(ForgeType.caption)
+                    .foregroundColor(.textTertiary)
+                HStack(spacing: FDS.Spacing.sm) {
+                    ForEach(SleepFeeling.allCases, id: \.self) { feeling in
+                        Button {
+                            FDS.haptic(.press)
+                            SleepFeelingStore.save(feeling, on: dateKey)
+                            picked = feeling
+                        } label: {
+                            Text(feeling.label)
+                                .font(ForgeType.caption)
+                                .foregroundColor(picked == feeling ? .white : .textSecondary)
+                                .frame(maxWidth: .infinity)
+                                .frame(minHeight: ForgeDS.minTap)
+                                .background((picked == feeling ? Color.steel : Color.white).opacity(picked == feeling ? 0.9 : 0.06))
+                                .clipShape(Capsule())
+                        }
+                        .buttonStyle(.plain)
+                        .accessibilityLabel(feeling.label)
+                        .accessibilityAddTraits(picked == feeling ? .isSelected : [])
+                    }
+                }
+            }
+            .padding(FDS.Spacing.lg)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .forgeGlassCard(cornerRadius: FDS.Radius.lg, accent: .steel)
+            .onAppear { picked = SleepFeelingStore.feeling(on: dateKey) }
+        }
+    }
+}
 
 /// A quiet fact, not a score to protect — same framing `HomeWinCard` uses for
 /// the workout streak. No badge, no glow, no tap that leads nowhere.
@@ -24,7 +154,7 @@ struct SleepStreakCard: View {
                         .font(FDS.TypeScale.Dynamic.body.weight(.semibold))
                         .foregroundColor(.textPrimary)
                     Text("A quiet fact, not a score to protect.")
-                        .font(.system(size: 12))
+                        .font(ForgeType.caption)
                         .foregroundColor(.textTertiary)
                 }
                 Spacer(minLength: 0)
@@ -68,23 +198,23 @@ struct AISleepPredictionCard: View {
                 }
                 HStack(alignment: .firstTextBaseline, spacing: FDS.Spacing.sm) {
                     Text(EnergySchedule.clockLabel(schedule.phase.onsetHour))
-                        .font(.system(size: 26, weight: .bold, design: .rounded)).foregroundColor(.steel)
+                        .font(ForgeType.display).foregroundColor(.steel)
                     Text("· dim lights by \(EnergySchedule.clockLabel(schedule.melatoninHour))")
-                        .font(.system(size: 13)).foregroundColor(.textTertiary)
+                        .font(ForgeType.body).foregroundColor(.textTertiary)
                 }
                 if let note = store.remoteSleepInsight {
                     Text(note)
-                        .font(.system(size: 12))
+                        .font(ForgeType.caption)
                         .foregroundColor(.textSecondary)
                         .fixedSize(horizontal: false, vertical: true)
                 } else if let note = hkService.aiBedtimeNote {
                     Text(note)
-                        .font(.system(size: 12))
+                        .font(ForgeType.caption)
                         .foregroundColor(.textSecondary)
                         .fixedSize(horizontal: false, vertical: true)
                 } else {
                     Text(schedule.debtHeadline)
-                        .font(.system(size: 12)).foregroundColor(.textMuted).lineLimit(2)
+                        .font(ForgeType.caption).foregroundColor(.textMuted).lineLimit(2)
                 }
             }
             .padding(FDS.Spacing.lg)
@@ -137,12 +267,12 @@ struct AISleepEnvironmentView: View {
             if hkService.isAnalyzingEnvironment {
                 HStack(spacing: FDS.Spacing.sm) {
                     ProgressView().controlSize(.small)
-                    Text("Looking at the room…").font(.system(size: 12)).foregroundColor(.textSecondary)
+                    Text("Looking at the room…").font(ForgeType.caption).foregroundColor(.textSecondary)
                 }
             } else if let error = hkService.environmentCheckError {
                 HStack(alignment: .top, spacing: FDS.Spacing.sm) {
                     Image(systemName: "exclamationmark.triangle.fill").font(.system(size: 11)).foregroundColor(.warning)
-                    Text(error).font(.system(size: 12)).foregroundColor(.textSecondary).fixedSize(horizontal: false, vertical: true)
+                    Text(error).font(ForgeType.caption).foregroundColor(.textSecondary).fixedSize(horizontal: false, vertical: true)
                 }
                 .padding(FDS.Spacing.md)
                 .frame(maxWidth: .infinity, alignment: .leading)
@@ -151,7 +281,7 @@ struct AISleepEnvironmentView: View {
             } else if let assessment = hkService.environmentAssessment {
                 HStack(alignment: .top, spacing: FDS.Spacing.sm) {
                     Image(systemName: "sparkles").font(.system(size: 11)).foregroundColor(.steel)
-                    Text(assessment).font(.system(size: 12)).foregroundColor(.textSecondary).fixedSize(horizontal: false, vertical: true)
+                    Text(assessment).font(ForgeType.caption).foregroundColor(.textSecondary).fixedSize(horizontal: false, vertical: true)
                 }
                 .padding(FDS.Spacing.md)
                 .frame(maxWidth: .infinity, alignment: .leading)
@@ -159,7 +289,7 @@ struct AISleepEnvironmentView: View {
                 .cornerRadius(FDS.Radius.sm)
             } else {
                 Text(SleepLifestyleCopy.environmentHint)
-                    .font(.system(size: 12)).foregroundColor(.textMuted).lineLimit(3)
+                    .font(ForgeType.caption).foregroundColor(.textMuted).lineLimit(3)
             }
 
             PhotosPicker(selection: $pickerItem, matching: .images) {
@@ -232,7 +362,7 @@ struct AIPersonalizedGoalsView: View {
             if let note = hkService.aiGoalsNote {
                 HStack(alignment: .top, spacing: FDS.Spacing.sm) {
                     Image(systemName: "sparkles").font(.system(size: 11)).foregroundColor(.ember)
-                    Text(note).font(.system(size: 12)).foregroundColor(.textSecondary).fixedSize(horizontal: false, vertical: true)
+                    Text(note).font(ForgeType.caption).foregroundColor(.textSecondary).fixedSize(horizontal: false, vertical: true)
                 }
                 .padding(FDS.Spacing.md)
                 .frame(maxWidth: .infinity, alignment: .leading)
@@ -284,7 +414,7 @@ struct AISmartRecommendationsView: View {
                                     .background((rec.priority == "High" ? Color.ember : Color.warning).opacity(0.12))
                                     .cornerRadius(FDS.Radius.xs)
                             }
-                            Text(rec.description).font(.system(size: 12)).foregroundColor(.textSecondary).lineLimit(2)
+                            Text(rec.description).font(ForgeType.caption).foregroundColor(.textSecondary).lineLimit(2)
                         }
                     }
                     .padding(FDS.Spacing.md).forgeInsetTile(radius: FDS.Radius.md)
@@ -296,7 +426,7 @@ struct AISmartRecommendationsView: View {
             if let note = hkService.aiRecommendationsNote {
                 HStack(alignment: .top, spacing: FDS.Spacing.sm) {
                     Image(systemName: "sparkles").font(.system(size: 11)).foregroundColor(.steel)
-                    Text(note).font(.system(size: 12)).foregroundColor(.textSecondary).fixedSize(horizontal: false, vertical: true)
+                    Text(note).font(ForgeType.caption).foregroundColor(.textSecondary).fixedSize(horizontal: false, vertical: true)
                 }
                 .padding(FDS.Spacing.md)
                 .frame(maxWidth: .infinity, alignment: .leading)

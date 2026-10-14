@@ -310,6 +310,12 @@ class HealthKitManager: ObservableObject {
     @Published var todayWaterLogs: [WaterLog] = []
     @Published var weeklyWaterMilliliters: [DailyWaterTotal] = []
     @Published var todayWaterMilliliters: Double = 0
+
+    /// In-memory anchored sleep samples. A days:1 fetch must not rebuild 14–30
+    /// nights from scratch; only nights whose samples changed are regrouped.
+    private var sleepQueryAnchor: HKQueryAnchor?
+    private var sleepSamplesByUUID: [UUID: HKCategorySample] = [:]
+    private var sleepNightsByDate: [String: SleepNightSample] = [:]
     /// Remembered Test-Ready water so a later empty HealthKit refresh does
     /// not wipe the ForgeCore pack on a simulator.
     var testReadyHydrationMilliliters: Double?

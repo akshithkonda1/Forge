@@ -591,18 +591,20 @@ struct NextAlarmHero: View {
                     .foregroundColor(.textSecondary)
             }
             Text("\(untilString)  ·  \(daysString)")
-                .font(.system(size: 14))
+                .font(ForgeType.body)
                 .foregroundColor(.textSecondary)
             if alarm.isSmartWake {
                 let lead = hk.adaptiveSmartWakeMinutes(base: alarm.smartWakeWindow, depth: store.sleeperDepth)
                 Text("Smart wake opens \(lead) min earlier tonight. Hard alarm still fires.")
-                    .font(.system(size: 12))
+                    .font(ForgeType.caption)
                     .foregroundColor(.textTertiary)
                     .padding(.top, 2)
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(.top, FDS.Spacing.sm)
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("Next alarm \(alarm.label), \(timeString) \(ampm), \(daysString). \(untilString)")
     }
 }
 
@@ -626,7 +628,7 @@ struct AlarmRow: View {
                 HStack(spacing: FDS.Spacing.lg) {
                     VStack(alignment: .leading, spacing: FDS.Spacing.xs) {
                         Text(timeStr)
-                            .font(.system(size: 26, weight: .semibold))
+                            .font(ForgeType.display)
                             .foregroundColor(alarm.isEnabled ? .textPrimary : .textTertiary)
                             .monospacedDigit()
                         HStack(spacing: FDS.Spacing.sm) {
@@ -652,14 +654,14 @@ struct AlarmRow: View {
                 }
             }
             .buttonStyle(.plain)
-            .accessibilityLabel("Edit \(alarm.label) alarm, \(timeStr), \(daysStr)")
+            .accessibilityLabel("Edit \(alarm.label) alarm, \(timeStr), \(daysStr). \(alarm.isSmartWake ? "Smart wake on." : "") \(alarm.isEnabled ? "Enabled." : "Off.")")
             Toggle("", isOn: Binding(get: { alarm.isEnabled }, set: { on in
                 UIImpactFeedbackGenerator(style: .light).impactOccurred()
                 onToggle(on)
             }))
             .tint(.ember)
             .labelsHidden()
-            .accessibilityLabel("\(alarm.label) alarm, \(timeStr), \(daysStr)")
+            .accessibilityLabel("\(alarm.label) alarm, \(timeStr), \(daysStr). \(alarm.isEnabled ? "On" : "Off")")
         }
         .padding(.vertical, FDS.Spacing.md)
         .opacity(alarm.isEnabled ? 1 : 0.45)

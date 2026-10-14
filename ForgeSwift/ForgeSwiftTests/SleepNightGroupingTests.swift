@@ -109,4 +109,14 @@ final class SleepNightGroupingTests: XCTestCase {
             "2026-09-25"
         )
     }
+
+    func testSleepNightDateKeyMatchesGroupedNightDate() {
+        let start = calendar.date(from: DateComponents(year: 2026, month: 9, day: 10, hour: 23))!
+        let end = calendar.date(byAdding: .hour, value: 7, to: start)!
+        let s = sample(.asleepCore, start: start, end: end)
+        XCTAssertEqual(
+            HealthKitManager.sleepNightDateKey(for: s, calendar: calendar),
+            HealthKitManager.makeSleepNightSamples(from: [s], calendar: calendar).first?.date
+        )
+    }
 }

@@ -18,7 +18,7 @@ struct SleepView: View {
     private var lastNight: SleepData? { SleepData.lastNight(in: store.sleepData) }
 
     private var tonightCoach: SleepBedtimeCoach {
-        SleepBedtimeCoach.make(from: store.sleepData)
+        SleepBedtimeCoach.make(from: store.sleepData, lowEnergyDay: store.readiness.overall < 60)
     }
 
     private var wakeCoach: SleepWakeCoach {
@@ -123,7 +123,7 @@ struct SleepBackground: View {
         ZStack {
             Color.background
             RadialGradient(
-                colors: [Color(hex: "1A1440").opacity(0.62), .clear],
+                colors: [SleepHud.bgDeep.opacity(0.62), .clear],
                 center: UnitPoint(x: 0.5, y: 0.0),
                 startRadius: 10,
                 endRadius: 480
@@ -136,7 +136,7 @@ struct SleepBackground: View {
             )
             .blur(radius: reduceMotion ? 0 : 18)
             RadialGradient(
-                colors: [Color(hex: "A9D8FF").opacity(0.05), .clear],
+                colors: [SleepHud.bgMist.opacity(0.05), .clear],
                 center: UnitPoint(x: 0.14, y: 0.32),
                 startRadius: 8,
                 endRadius: 240
@@ -219,9 +219,9 @@ struct SleepHeaderView: View {
                     } label: {
                         HStack(spacing: FDS.Spacing.sm) {
                             Image(systemName: tabIcon[tab] ?? "circle")
-                                .font(.system(size: 11, weight: .semibold))
+                                .font(ForgeType.micro)
                             Text(tab.title)
-                                .font(.system(size: 13, weight: selectedTab == tab ? .bold : .medium, design: .rounded))
+                                .font(selectedTab == tab ? ForgeType.headline : ForgeType.body)
                         }
                         .foregroundColor(selectedTab == tab ? .white : .textTertiary)
                         .padding(.horizontal, FDS.Spacing.lg)

@@ -85,7 +85,11 @@ enum ForgeNotificationScheduler {
                 body: "Plan a protein-forward dinner to close your macro gap.",
                 destination: "forge://lifestyle/nutrition"
             )
-            await schedulePhoneWindDown(bedtimeHour: SleepWindDownNotice.inferredBedtimeHour())
+            await scheduleSleepNudges(
+                bedtimeHour: SleepWindDownNotice.inferredBedtimeHour(),
+                quietWeek: settings.sleepQuietWeek,
+                lowEnergyDay: false
+            )
         }
 
         if briefEnabled {
@@ -133,17 +137,40 @@ enum ForgeNotificationScheduler {
     /// One phone wind-down. Replaces both the old 21:00 lifestyle id and
     /// LifestyleServices `sleep-wind-down`. Watch `WindDownScheduler` stays.
     static func schedulePhoneWindDown(bedtimeHour: Double?) async {
-        center.removePendingNotificationRequests(
-            withIdentifiers: [ID.lifestyleSleep, SleepWindDownNotice.phoneIdentifier] + SleepWindDownNotice.retiredPhoneIdentifiers
-        )
-        let clock = SleepWindDownNotice.fireHourMinute(bedtimeHour: bedtimeHour)
+        await scheduleSleepNudges(bedtimeHour: bedtimeHour, quietWeek: false, lowEnergyDay: false)
+    }
+
+    /// At most two sleep nudges a day: caffeine cutoff, then wind-down.
+    static func scheduleSleepNudges(
+        bedtimeHour: Double?,
+        quietWeek: Bool,
+        lowEnergyDay: Bool
+    ) async {
+        let ids = [ID.lifestyleSleep, SleepWindDownNotice.phoneIdentifier, SleepWindDownNotice.caffeineIdentifier]
+            + SleepWindDownNotice.retiredPhoneIdentifiers
+        center.removePendingNotificationRequests(withIdentifiers: ids)
+        SleepNudgePolicy.setQuietWeek(quietWeek)
+        guard !quietWeek else { return }
+
+        let wind = SleepWindDownNotice.fireHourMinute(bedtimeHour: bedtimeHour)
         await scheduleDaily(
             id: SleepWindDownNotice.phoneIdentifier,
-            hour: clock.hour,
-            minute: clock.minute,
+            hour: wind.hour,
+            minute: wind.minute,
             title: "Wind Down",
-            body: "Tonight's window is opening. A quieter last hour helps the night land — no streak to protect.",
-            destination: "forge://sleep/night"
+            body: SleepWindDownNotice.phoneBody(lowReadinessDay: lowEnergyDay),
+            destination: "forge://sleep/night",
+            interruptionLevel: .passive
+        )
+        let caffeine = SleepWindDownNotice.caffeineHourMinute(bedtimeHour: bedtimeHour)
+        await scheduleDaily(
+            id: SleepWindDownNotice.caffeineIdentifier,
+            hour: caffeine.hour,
+            minute: caffeine.minute,
+            title: "Last caffeine",
+            body: SleepWindDownNotice.caffeineBody(),
+            destination: "forge://sleep/night",
+            interruptionLevel: .passive
         )
     }
 
@@ -260,7 +287,8 @@ enum ForgeNotificationScheduler {
         minute: Int,
         title: String,
         body: String,
-        destination: String? = nil
+        destination: String? = nil,
+        interruptionLevel: UNNotificationInterruptionLevel = .active
     ) async {
         var components = DateComponents()
         components.hour = hour
@@ -269,6 +297,7 @@ enum ForgeNotificationScheduler {
         content.title = title
         content.body = body
         content.sound = .default
+        content.interruptionLevel = interruptionLevel
         if let destination {
             content.userInfo = ["destination": destination]
         }

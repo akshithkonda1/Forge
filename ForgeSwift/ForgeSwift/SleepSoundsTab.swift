@@ -36,7 +36,7 @@ struct SleepSoundsTab: View {
                                         .font(FDS.TypeScale.Dynamic.caption)
                                         .foregroundColor(sleepTimer == mins ? .white : .textTertiary)
                                         .padding(.horizontal, FDS.Spacing.lg).padding(.vertical, FDS.Spacing.sm)
-                                        .background(sleepTimer == mins ? Color(hex: SleepHud.plateHex) : Color.surface)
+                                        .background(sleepTimer == mins ? SleepHud.plate : Color.surface)
                                         .cornerRadius(FDS.Radius.xl)
                                 }
                                 .buttonStyle(.plain)
@@ -44,7 +44,7 @@ struct SleepSoundsTab: View {
                         }
                     }
                     Text("Tap a second sound while one is playing to mix up to three. Timer stops generated beds and linked Apple Music.")
-                        .font(.system(size: 12))
+                        .font(ForgeType.caption)
                         .foregroundColor(.textTertiary)
                         .fixedSize(horizontal: false, vertical: true)
                 }
@@ -61,13 +61,13 @@ struct SleepSoundsTab: View {
                                 } label: {
                                     HStack {
                                         Image(systemName: "music.note.list")
-                                            .foregroundColor(Color(hex: SleepHud.plateHex))
+                                            .foregroundColor(SleepHud.plate)
                                         Text(list.name)
                                             .font(FDS.TypeScale.Dynamic.body.weight(.semibold))
                                             .foregroundColor(.textPrimary)
                                         Spacer()
                                         Text(SleepMixTimer.label(list.minutes))
-                                            .font(.system(size: 12))
+                                            .font(ForgeType.caption)
                                             .foregroundColor(.textTertiary)
                                     }
                                     .padding(.vertical, FDS.Spacing.xs)
@@ -81,7 +81,7 @@ struct SleepSoundsTab: View {
                 EditorSection(title: "LIBRARY") {
                     HStack {
                         Text("Generated on this phone. Mix up to three, or save the mix as a Forge playlist.")
-                            .font(.system(size: 13))
+                            .font(ForgeType.body)
                             .foregroundColor(.textSecondary)
                             .fixedSize(horizontal: false, vertical: true)
                         Spacer()
@@ -94,8 +94,8 @@ struct SleepSoundsTab: View {
                             playlists = SleepForgePlaylistStore.load()
                             FDS.haptic(.light)
                         }
-                        .font(.system(size: 13, weight: .semibold))
-                        .foregroundColor(Color(hex: SleepHud.plateHex))
+                        .font(ForgeType.caption)
+                        .foregroundColor(SleepHud.plate)
                     }
                 }
 
@@ -173,18 +173,17 @@ struct SleepSoundsTab: View {
             HStack(spacing: FDS.Spacing.lg) {
                 ZStack {
                     Circle().fill(player.kind.color.opacity(0.2)).frame(width: 44, height: 44)
-                    Image(systemName: player.kind.icon).font(.system(size: 16)).foregroundColor(player.kind.color)
+                    Image(systemName: player.kind.icon).font(ForgeType.headline).foregroundColor(player.kind.color)
                 }
                 VStack(alignment: .leading, spacing: 2) {
                     Text(player.kind.displayName)
                         .font(FDS.TypeScale.Dynamic.body.weight(.semibold))
                         .foregroundColor(.textPrimary)
                     HStack(spacing: FDS.Spacing.sm) {
-                        SoundWaveformBadge()
-                        Text(player.remainingLabel)
-                            .font(.system(size: 12))
+                        SoundWaveformBadge(playing: player.isPlaying)
+                        SleepCountdownLabel(player: player)
+                            .font(ForgeType.caption)
                             .foregroundColor(.textTertiary)
-                            .monospacedDigit()
                     }
                 }
                 Spacer()
@@ -203,13 +202,13 @@ struct SleepSoundsTab: View {
             }
             HStack(spacing: FDS.Spacing.md) {
                 Image(systemName: "speaker.fill")
-                    .font(.system(size: 11))
+                    .font(ForgeType.micro)
                     .foregroundColor(.textMuted)
                 Slider(value: $player.volume, in: 0...1)
                     .tint(player.kind.color)
                     .accessibilityLabel("Volume")
                 Image(systemName: "speaker.wave.3.fill")
-                    .font(.system(size: 11))
+                    .font(ForgeType.micro)
                     .foregroundColor(.textMuted)
             }
         }
@@ -229,7 +228,7 @@ struct SleepAppleMusicCard: View {
         EditorSection(title: "APPLE MUSIC") {
             VStack(alignment: .leading, spacing: FDS.Spacing.md) {
                 Text("Forge can ride whatever is already in Apple Music. Timed stop pauses it with the generated beds. Forge playlists are local mixes — creating a catalog playlist needs your Apple Music key on device, never in the repo.")
-                    .font(.system(size: 12))
+                    .font(ForgeType.caption)
                     .foregroundColor(.textTertiary)
                     .fixedSize(horizontal: false, vertical: true)
                 if music.isAuthorized {
@@ -239,7 +238,7 @@ struct SleepAppleMusicCard: View {
                                 .font(FDS.TypeScale.Dynamic.body.weight(.semibold))
                                 .foregroundColor(.textPrimary)
                             Text(music.nowPlaying?.artist ?? "Play from Apple Music, then link the timer")
-                                .font(.system(size: 12))
+                                .font(ForgeType.caption)
                                 .foregroundColor(.textTertiary)
                         }
                         Spacer()
@@ -247,21 +246,21 @@ struct SleepAppleMusicCard: View {
                             music.togglePlayPause()
                             player.linksAppleMusic = true
                         }
-                        .font(.system(size: 13, weight: .semibold))
-                        .foregroundColor(Color(hex: SleepHud.plateHex))
+                        .font(ForgeType.caption)
+                        .foregroundColor(SleepHud.plate)
                     }
                     Toggle("Stop Apple Music with the timer", isOn: $player.linksAppleMusic)
-                        .tint(Color(hex: SleepHud.plateHex))
-                        .font(.system(size: 13, weight: .medium))
+                        .tint(SleepHud.plate)
+                        .font(ForgeType.body)
                 } else {
                     Button("Connect Apple Music") {
                         Task { await music.requestAccess() }
                     }
-                    .font(.system(size: 14, weight: .semibold))
+                    .font(ForgeType.body.weight(.semibold))
                     .foregroundColor(.white)
                     .padding(.horizontal, FDS.Spacing.lg)
                     .padding(.vertical, FDS.Spacing.sm)
-                    .background(Color(hex: "FA2D48"))
+                    .background(SleepHud.appleMusic)
                     .clipShape(Capsule())
                 }
             }
@@ -283,7 +282,7 @@ struct SoundLibraryRow: View {
                         .fill(sound.color.opacity(isActive ? 0.28 : 0.12))
                         .frame(width: 52, height: 52)
                     Image(systemName: isActive ? "pause.fill" : sound.icon)
-                        .font(.system(size: 18, weight: .semibold))
+                        .font(ForgeType.title)
                         .foregroundColor(sound.color)
                 }
                 VStack(alignment: .leading, spacing: FDS.Spacing.xs) {
@@ -298,7 +297,7 @@ struct SoundLibraryRow: View {
                             .foregroundColor(.textMuted)
                     }
                     Text(sound.blurb)
-                        .font(.system(size: 13))
+                        .font(ForgeType.body)
                         .foregroundColor(.textSecondary)
                         .fixedSize(horizontal: false, vertical: true)
                         .multilineTextAlignment(.leading)
@@ -319,14 +318,30 @@ struct SoundLibraryRow: View {
     }
 }
 
+struct SleepCountdownLabel: View {
+    let player: SleepWindDownPlayer
+
+    var body: some View {
+        Group {
+            if let range = player.countdownRange {
+                Text(timerInterval: range, countsDown: true)
+            } else {
+                Text(player.remainingLabel)
+            }
+        }
+        .monospacedDigit()
+    }
+}
+
 struct SoundWaveformBadge: View {
+    var playing: Bool = true
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.scenePhase) private var scenePhase
 
     var body: some View {
         TimelineView(.animation(
-            minimumInterval: 1.0 / 20.0,
-            paused: reduceMotion || scenePhase != .active
+            minimumInterval: 1.0 / 12.0,
+            paused: reduceMotion || scenePhase != .active || !playing
         )) { tl in
             let t = reduceMotion ? 0 : tl.date.timeIntervalSinceReferenceDate
             HStack(spacing: 2) {

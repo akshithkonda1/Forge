@@ -57,6 +57,9 @@ final class SleepBedtimeCoachTests: XCTestCase {
         )
         XCTAssertEqual(lights.phase, .lightsOut)
         XCTAssertEqual(lights.countdownLabel, "now")
+        XCTAssertFalse(lights.cue.localizedCaseInsensitiveContains("stop negotiating"))
+        XCTAssertTrue(lights.cue.localizedCaseInsensitiveContains("still counts"))
+        XCTAssertNil(SleepCoachCopy.containsBannedPhrase(lights.cue))
 
         let late = SleepBedtimeCoach.make(
             onsets: [],
@@ -70,6 +73,17 @@ final class SleepBedtimeCoachTests: XCTestCase {
         XCTAssertTrue(late.cue.localizedCaseInsensitiveContains("still counts"))
         XCTAssertFalse(late.cue.localizedCaseInsensitiveContains("paying for"))
         XCTAssertFalse(late.cue.localizedCaseInsensitiveContains("should have"))
+        XCTAssertNil(SleepCoachCopy.containsBannedPhrase(late.cue))
+        let gentle = SleepBedtimeCoach.make(
+            onsets: [],
+            sleepMinutes: [],
+            fallbackOnsetHour: 22.5,
+            now: date(2026, 9, 3, 16, 0),
+            calendar: calendar,
+            lowEnergyDay: true
+        )
+        XCTAssertTrue(gentle.cue.localizedCaseInsensitiveContains("lighter"))
+        XCTAssertNil(SleepCoachCopy.containsBannedPhrase(gentle.cue))
     }
 
     func testPredictorOnsetsBeatTheFallbackHour() {

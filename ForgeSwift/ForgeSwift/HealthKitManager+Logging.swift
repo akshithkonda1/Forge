@@ -497,16 +497,24 @@ extension HealthKitManager {
         guard isAuthorized else { return nil }
         let sleepType = HKCategoryType(.sleepAnalysis)
         let start = Calendar.current.date(byAdding: .day, value: -2, to: Date()) ?? Date()
-        let predicate = HKQuery.predicateForSamples(withStart: start, end: Date(), options: .strictStartDate)
+        let datePredicate = HKQuery.predicateForSamples(
+            withStart: start,
+            end: Date(),
+            options: .strictStartDate
+        )
+        let inBedPredicate = HKQuery.predicateForCategorySamples(
+            with: .equalTo,
+            value: HKCategoryValueSleepAnalysis.inBed.rawValue
+        )
+        let predicate = NSCompoundPredicate(andPredicateWithSubpredicates: [datePredicate, inBedPredicate])
         return await withCheckedContinuation { continuation in
             let query = HKSampleQuery(
                 sampleType: sleepType,
                 predicate: predicate,
-                limit: HKObjectQueryNoLimit,
+                limit: 8,
                 sortDescriptors: [NSSortDescriptor(key: HKSampleSortIdentifierEndDate, ascending: false)]
             ) { _, samples, _ in
-                let match = (samples as? [HKCategorySample])?
-                    .first { $0.value == HKCategoryValueSleepAnalysis.inBed.rawValue }
+                let match = (samples as? [HKCategorySample])?.first
                 guard let match else {
                     continuation.resume(returning: nil)
                     return

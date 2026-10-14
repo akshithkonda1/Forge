@@ -30,10 +30,10 @@ struct SleepDayTab: View {
                         action: {
                             Task {
                                 if store.healthKitLive {
-                                    await hkService.refreshFromAppleHealth(into: store)
+                                    await hkService.refreshFromAppleHealth(into: store, force: true)
                                 } else {
                                     await store.reconnectHealthKit()
-                                    await hkService.refreshFromAppleHealth(into: store)
+                                    await hkService.refreshFromAppleHealth(into: store, force: true)
                                 }
                             }
                         }
@@ -44,21 +44,20 @@ struct SleepDayTab: View {
                     }
                 } else {
                     SleepSourceStrip(presence: presence)
+                    SleepMorningSummaryCard()
+                    SleepFeelingCheckIn()
+                    SleepDebtMeterCard()
                     EnergyScheduleCard()
                     SleepLastNightStrip()
                     AISleepPredictionCard()
                     AISmartRecommendationsView()
                     SleepStreakCard()
-                    SleepWeekRhythm()
                     SleepLifestyleCaption()
                 }
             }
             .padding(.horizontal, FDS.Spacing.lg)
             .padding(.top, FDS.Spacing.md)
             .padding(.bottom, 120)
-        }
-        .task {
-            await hkService.refreshFromAppleHealth(into: store)
         }
     }
 }
@@ -69,7 +68,7 @@ struct SleepNightTab: View {
     @State private var showSounds = false
 
     private var coach: SleepBedtimeCoach {
-        SleepBedtimeCoach.make(from: store.sleepData)
+        SleepBedtimeCoach.make(from: store.sleepData, lowEnergyDay: store.readiness.overall < 60)
     }
 
     var body: some View {
@@ -93,12 +92,12 @@ struct SleepNightTab: View {
                             Text(coach.phase == .dayplan
                                  ? "A short landing plan for tonight"
                                  : "No score. Just the next step.")
-                                .font(.system(size: 12))
+                                .font(ForgeType.caption)
                                 .foregroundColor(.textTertiary)
                         }
                         Spacer()
                         Image(systemName: "arrow.up.right")
-                            .font(.system(size: 12, weight: .semibold))
+                            .font(ForgeType.caption)
                             .foregroundColor(.ember)
                     }
                     .padding(FDS.Spacing.lg)
@@ -141,7 +140,7 @@ struct SleepInBedFact: View {
                 .font(FDS.TypeScale.Dynamic.body.weight(.semibold))
                 .foregroundColor(.textPrimary)
             Text("In-bed is not a sleep score. Stages land when Apple Watch or iPhone records the night.")
-                .font(.system(size: 12))
+                .font(ForgeType.caption)
                 .foregroundColor(.textTertiary)
         }
         .padding(FDS.Spacing.lg)
@@ -153,6 +152,7 @@ struct SleepInBedFact: View {
 struct SleepInBedCard: View {
     @EnvironmentObject var store: AppStore
     @EnvironmentObject var hkService: HealthKitSleepService
+    @Environment(\.scenePhase) private var scenePhase
     @State private var showLogSheet = false
     @State private var logStart = Calendar.current.date(byAdding: .hour, value: -8, to: Date()) ?? Date()
     @State private var logEnd = Date()
@@ -166,14 +166,14 @@ struct SleepInBedCard: View {
                 .foregroundColor(.textTertiary)
 
             if let start = hkService.inBedStartedAt {
-                TimelineView(.periodic(from: .now, by: 30)) { context in
+                TimelineView(.animation(minimumInterval: 30, paused: scenePhase != .active)) { context in
                     let hours = context.date.timeIntervalSince(start) / 3600
                     VStack(alignment: .leading, spacing: FDS.Spacing.sm) {
                         Text("In bed since \(start.formatted(date: .omitted, time: .shortened))")
                             .font(FDS.TypeScale.Dynamic.headline)
                             .foregroundColor(.textPrimary)
                         Text("\(EnergySchedule.durationLabel(hours)) so far. Tap I'm up to write this window to Apple Health.")
-                            .font(.system(size: 13))
+                            .font(ForgeType.body)
                             .foregroundColor(.textSecondary)
                     }
                 }
@@ -211,7 +211,7 @@ struct SleepInBedCard: View {
                 }
             } else {
                 Text("Log the window you were actually in bed. Apple Health still owns stages.")
-                    .font(.system(size: 13))
+                    .font(ForgeType.body)
                     .foregroundColor(.textSecondary)
                 HStack(spacing: FDS.Spacing.md) {
                     Button {
@@ -249,8 +249,8 @@ struct SleepInBedCard: View {
 
             if writeFailed {
                 Text("Connect Apple Health to save this window. The clock stays until it writes.")
-                    .font(.system(size: 12))
-                    .foregroundColor(.danger)
+                    .font(ForgeType.caption)
+                    .foregroundColor(.textSecondary)
             }
         }
         .padding(FDS.Spacing.lg)
@@ -290,9 +290,10 @@ struct SleepInBedCard: View {
 
 struct SleepTonightHero: View {
     let coach: SleepBedtimeCoach
+    @Environment(\.scenePhase) private var scenePhase
 
     var body: some View {
-        TimelineView(.periodic(from: .now, by: 30)) { context in
+        TimelineView(.animation(minimumInterval: 30, paused: scenePhase != .active)) { context in
             let live = coach.advancing(now: context.date)
             VStack(alignment: .leading, spacing: FDS.Spacing.lg) {
                 Text("TONIGHT")
@@ -300,7 +301,7 @@ struct SleepTonightHero: View {
                     .tracking(1.2)
                     .foregroundColor(.textTertiary)
                 Text(live.headline)
-                    .font(.system(size: 28, weight: .semibold, design: .rounded))
+                    .font(ForgeType.display)
                     .foregroundColor(.textPrimary)
                     .fixedSize(horizontal: false, vertical: true)
                 HStack(alignment: .firstTextBaseline, spacing: FDS.Spacing.sm) {
@@ -313,7 +314,7 @@ struct SleepTonightHero: View {
                         .foregroundColor(.textSecondary)
                 }
                 Text(live.cue)
-                    .font(.system(size: 14))
+                    .font(ForgeType.body)
                     .foregroundColor(.textSecondary)
                     .fixedSize(horizontal: false, vertical: true)
             }
@@ -374,7 +375,7 @@ struct SleepEveningStoryCard: View {
                 .foregroundColor(.textPrimary)
                 .fixedSize(horizontal: false, vertical: true)
             Text(plan)
-                .font(.system(size: 14))
+                .font(ForgeType.body)
                 .foregroundColor(.textSecondary)
                 .fixedSize(horizontal: false, vertical: true)
             Text("Wind-down \(coach.countdownLabel == "now" ? "is now" : "in \(coach.countdownLabel)") · lights out \(coach.bedtimeLabel)")
@@ -453,7 +454,7 @@ struct SleepWindDownRitual: View {
                     detail: parked
                         ? "Wind-down sound is on. Charge it outside the bed."
                         : (coach.phase == .overdue || coach.phase == .lightsOut
-                           ? "Charge it outside the bed. The next scroll is not worth tomorrow."
+                           ? "Charge it outside the bed. A short wind-down still counts."
                            : "Set it down when the sound starts. Bed is the next room, not the next tab.")
                 )
             }
@@ -483,7 +484,7 @@ struct SleepWindDownRitual: View {
                     .font(FDS.TypeScale.Dynamic.body.weight(.semibold))
                     .foregroundStyle(Color.textPrimary)
                 Text(detail)
-                    .font(.system(size: 13))
+                    .font(ForgeType.body)
                     .foregroundStyle(Color.textSecondary)
                     .fixedSize(horizontal: false, vertical: true)
             }
@@ -507,7 +508,7 @@ struct SleepTonightSoundDock: View {
                     .foregroundColor(.textTertiary)
                 Spacer()
                 Button("Library", action: onMore)
-                    .font(.system(size: 13, weight: .semibold))
+                    .font(ForgeType.caption)
                     .foregroundColor(.aurora)
             }
 
@@ -519,10 +520,9 @@ struct SleepTonightSoundDock: View {
                         Text(player.kind.displayName)
                             .font(FDS.TypeScale.Dynamic.body.weight(.semibold))
                             .foregroundColor(.textPrimary)
-                        Text(player.remainingLabel)
-                            .font(.system(size: 12))
+                        SleepCountdownLabel(player: player)
+                            .font(ForgeType.caption)
                             .foregroundColor(.textTertiary)
-                            .monospacedDigit()
                     }
                     Spacer()
                     Button {
@@ -568,7 +568,7 @@ struct SleepTonightSoundDock: View {
                 }
 
                 Text("Generated on this phone. Open Library for rain, ocean, fireplace, and more.")
-                    .font(.system(size: 12))
+                    .font(ForgeType.caption)
                     .foregroundColor(.textTertiary)
             }
         }
@@ -597,11 +597,11 @@ struct SleepLastNightStrip: View {
                 }
                 HStack(alignment: .firstTextBaseline, spacing: FDS.Spacing.md) {
                     Text(EnergySchedule.durationLabel(night.totalHours))
-                        .font(.system(size: 34, weight: .semibold))
+                        .font(ForgeType.heroScore)
                         .foregroundColor(.textPrimary)
                         .monospacedDigit()
                     Text("asleep")
-                        .font(.system(size: 15))
+                        .font(ForgeType.body)
                         .foregroundColor(.textSecondary)
                     Spacer()
                     Text("\(night.clock(night.onset)) → \(night.clock(night.wake))")
@@ -614,18 +614,18 @@ struct SleepLastNightStrip: View {
                     SleepStageLegend(night: night)
                 } else {
                     Text("Sleep stages not recorded")
-                        .font(.system(size: 12))
+                        .font(ForgeType.caption)
                         .foregroundColor(.textSecondary)
                 }
                 if let flag = hkService.lastDepthResult?.headline {
                     Text(flag)
-                        .font(.system(size: 12))
+                        .font(ForgeType.caption)
                         .foregroundColor(.textSecondary)
                 }
             }
         } else {
             Text(store.sleepSurface.lastNightEmptyOrStaleMessage)
-                .font(.system(size: 13))
+                .font(ForgeType.body)
                 .foregroundColor(.textSecondary)
         }
     }
@@ -644,34 +644,43 @@ struct SleepLastNightDetail: View {
                     .foregroundColor(.textTertiary)
                 HStack(alignment: .firstTextBaseline) {
                     Text(EnergySchedule.durationLabel(night.totalHours))
-                        .font(.system(size: 48, weight: .semibold))
+                        .font(ForgeType.heroScore)
                         .foregroundColor(.textPrimary)
                         .monospacedDigit()
                     Spacer()
                     VStack(alignment: .trailing, spacing: 2) {
-                        Text("\(night.score)")
-                            .font(.system(size: 28, weight: .semibold, design: .rounded))
-                            .foregroundColor(.textPrimary)
-                        Text("score")
-                            .font(FDS.TypeScale.Dynamic.micro)
-                            .foregroundColor(.textTertiary)
+                        if store.sleepData.count >= SleepCalibrationState.readyNights {
+                            Text("\(night.score)")
+                                .font(ForgeType.display)
+                                .foregroundColor(.textPrimary)
+                            Text("score")
+                                .font(ForgeType.micro)
+                                .foregroundColor(.textTertiary)
+                        } else {
+                            Text(SleepCalibrationState.from(scoredNights: store.sleepData.count).caption)
+                                .font(ForgeType.caption)
+                                .foregroundColor(.steel)
+                            Text("no score yet")
+                                .font(ForgeType.micro)
+                                .foregroundColor(.textTertiary)
+                        }
                     }
                 }
                 if night.hasStages {
                     Text("\(night.clock(night.onset))  →  \(night.clock(night.wake))   ·   \(night.efficiencyPercent)% of time in bed was sleep")
-                        .font(.system(size: 13))
+                        .font(ForgeType.body)
                         .foregroundColor(.textSecondary)
                     SleepHypnogram(night: night, height: 92)
                     HStack(spacing: 0) {
                         nightStat("Deep", "\(night.deepMinutes)m", Color.steel)
                         nightStat("REM", "\(night.remMinutes)m", Color.aurora)
-                        nightStat("Light", "\(night.lightMinutes)m", Color(hex: "64748B"))
-                        nightStat("Awake", "\(night.awakeMinutes)m", Color.danger.opacity(0.8))
+                        nightStat("Light", "\(night.lightMinutes)m", SleepHud.lightStage)
+                        nightStat("Awake", "\(night.awakeMinutes)m", HudChrome.miss)
                     }
                     .padding(.top, FDS.Spacing.xs)
                 } else {
                     Text("\(night.clock(night.onset))  →  \(night.clock(night.wake))   ·   Sleep stages not recorded")
-                        .font(.system(size: 13))
+                        .font(ForgeType.body)
                         .foregroundColor(.textSecondary)
                 }
             }
@@ -681,7 +690,7 @@ struct SleepLastNightDetail: View {
                     .font(FDS.TypeScale.Dynamic.title)
                     .foregroundColor(.textPrimary)
                 Text(store.sleepSurface.lastNightEmptyOrStaleMessage)
-                    .font(.system(size: 14))
+                    .font(ForgeType.body)
                     .foregroundColor(.textSecondary)
                 SleepLifestyleCaption()
             }
@@ -696,7 +705,7 @@ struct SleepLastNightDetail: View {
                 .foregroundColor(.textPrimary)
                 .monospacedDigit()
             Text(label)
-                .font(.system(size: 11))
+                .font(ForgeType.micro)
                 .foregroundColor(.textTertiary)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -721,9 +730,9 @@ struct SleepHypnogram: View {
 
     private var bands: [(id: String, color: Color, minutes: Int, y: CGFloat)] {
         [
-            ("awake", Color.danger.opacity(0.75), night.awakeMinutes, 0.08),
+            ("awake", HudChrome.miss, night.awakeMinutes, 0.08),
             ("rem", Color.aurora, night.remMinutes, 0.30),
-            ("light", Color(hex: "64748B"), night.lightMinutes, 0.54),
+            ("light", SleepHud.lightStage, night.lightMinutes, 0.54),
             ("deep", Color.steel, night.deepMinutes, 0.78),
         ]
     }
@@ -753,7 +762,10 @@ struct SleepHypnogram: View {
             }
         }
         .frame(height: height)
-        .accessibilityLabel("Sleep stages. Deep \(night.deepMinutes) minutes, REM \(night.remMinutes), light \(night.lightMinutes), awake \(night.awakeMinutes).")
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(
+            "Sleep stages. Deep \(night.deepMinutes) minutes, REM \(night.remMinutes), light \(night.lightMinutes), awake \(night.awakeMinutes)."
+        )
     }
 }
 
@@ -764,8 +776,8 @@ struct SleepStageLegend: View {
         HStack(spacing: FDS.Spacing.md) {
             legend("Deep", night.deepMinutes, Color.steel)
             legend("REM", night.remMinutes, Color.aurora)
-            legend("Light", night.lightMinutes, Color(hex: "64748B"))
-            legend("Awake", night.awakeMinutes, Color.danger.opacity(0.75))
+            legend("Light", night.lightMinutes, SleepHud.lightStage)
+            legend("Awake", night.awakeMinutes, HudChrome.miss)
         }
     }
 
@@ -780,47 +792,50 @@ struct SleepStageLegend: View {
     }
 }
 
-struct SleepWeekRhythm: View {
+struct SleepDebtMeterCard: View {
     @EnvironmentObject var store: AppStore
+    @EnvironmentObject var hkService: HealthKitSleepService
 
-    private var nights: [SleepData] {
-        Array(store.sleepData.prefix(7).reversed())
-    }
-
-    private var need: Double {
-        EnergySchedule.make(from: store.sleepData)?.needHours ?? 8
+    private var meter: SleepDebtMeter.Result {
+        let need = hkService.estimatedSleepNeed(from: store.sleepData)
+        let byDate = Dictionary(uniqueKeysWithValues: store.sleepData.map { ($0.date, $0.totalHours) })
+        let hours = Array(store.sleepData.map(\.totalHours).reversed())
+        return SleepDebtMeter.make(
+            nightsByDate: byDate,
+            needHours: need,
+            asleepHoursOldestFirst: hours
+        )
     }
 
     var body: some View {
         VStack(alignment: .leading, spacing: FDS.Spacing.md) {
-            Text("This week")
-                .font(FDS.TypeScale.Dynamic.caption)
-                .foregroundColor(.textTertiary)
+            ForgeSectionHeader(title: "14-day stretch", subtitle: meter.headline)
             HStack(alignment: .bottom, spacing: FDS.Spacing.sm) {
-                ForEach(nights) { night in
+                ForEach(meter.days) { day in
                     VStack(spacing: FDS.Spacing.sm) {
                         Capsule()
-                            .fill(night.totalHours >= need - 0.4 ? Color.ember.opacity(0.88) : Color.aurora.opacity(0.28))
-                            .frame(height: max(10, CGFloat(night.totalHours / 10) * 78))
-                        Text(weekday(night.date))
-                            .font(FDS.TypeScale.Dynamic.micro)
+                            .fill(day.missed ? HudChrome.miss.opacity(0.72) : Color.ember.opacity(0.88))
+                            .frame(height: max(10, CGFloat(day.fill) * 78))
+                        Text(day.weekday)
+                            .font(ForgeType.micro)
                             .foregroundColor(.textTertiary)
                     }
                     .frame(maxWidth: .infinity)
-                    .accessibilityLabel("\(weekday(night.date)), \(EnergySchedule.durationLabel(night.totalHours))")
+                    .accessibilityLabel(day.hours.map {
+                        "\(day.weekday), \(SleepDebtMeter.hoursLabel($0))\(day.missed ? ", short of your need" : "")"
+                    } ?? "\(day.weekday), no night on file")
                 }
             }
             .frame(height: 102, alignment: .bottom)
+            Text(meter.detail)
+                .font(ForgeType.caption)
+                .foregroundColor(.textSecondary)
+                .fixedSize(horizontal: false, vertical: true)
         }
-    }
-
-    private func weekday(_ value: String) -> String {
-        let parse = DateFormatter()
-        parse.dateFormat = "yyyy-MM-dd"
-        guard let date = parse.date(from: value) else { return "" }
-        let out = DateFormatter()
-        out.setLocalizedDateFormatFromTemplate("EEEEE")
-        return out.string(from: date)
+        .padding(FDS.Spacing.lg)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .forgeGlassCard(cornerRadius: FDS.Radius.lg, accent: HudChrome.miss)
+        .accessibilityElement(children: .combine)
     }
 }
 

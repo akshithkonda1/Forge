@@ -618,6 +618,8 @@ struct UserSleepProfile: Codable, Equatable {
     var notes: String = ""
     var bedtimeGoalHour: Double?
     var wakeGoalHour: Double?
+    /// User-overridable sleep-need baseline, clamped 7–9 h. Nil means estimate.
+    var sleepNeedBaselineHours: Double?
 }
 
 struct AdaptiveSunriseConfig: Equatable {
