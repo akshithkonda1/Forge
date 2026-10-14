@@ -50,6 +50,9 @@ def _display(model_id: str) -> str:
 # (model_id, provider, family, model_class, modality, context_window)
 _CATALOG: list[tuple] = [
     # Anthropic — current 4.x use the Forge-canonical naming; 3.x use dated ids.
+    # Production /ai/chat + router defaults: Claude 5.5 via global CRIS profiles.
+    ("global.anthropic.claude-opus-5-5", "anthropic", "claude", "frontier", "text", 1000000),
+    ("global.anthropic.claude-sonnet-5-5", "anthropic", "claude", "frontier", "text", 1000000),
     ("anthropic.claude-opus-4-8", "anthropic", "claude", "frontier", "text", 200000),
     ("anthropic.claude-sonnet-4-6", "anthropic", "claude", "frontier", "text", 200000),
     ("anthropic.claude-haiku-4-5", "anthropic", "claude", "fast", "text", 200000),
@@ -108,6 +111,7 @@ _CATALOG: list[tuple] = [
     # xAI — Grok is the id ai_router.py actually calls for the third router slot
     # (AI_ROUTER_MODEL_3_ID). ARIA's standing ensemble is the Claude family plus
     # Grok; there is no third vendor.
+    ("global.xai.grok-4.7", "xai", "grok", "frontier", "text", 256000),
     ("global.xai.grok-4.6", "xai", "grok", "frontier", "text", 256000),
     # Stability (image)
     ("stability.stable-image-ultra-v1:0", "stability", "stable-image", "image", "image", None),
