@@ -83,6 +83,12 @@ final class FoundationModelsResponseGenerator: TrainerResponseGenerator {
             input: input,
             themeOverride: theme
         )
+        // With no night measured, sleepQuality is an HRV / resting-HR fallback and
+        // deep sleep is 0; don't hand the model sleep numbers nobody recorded.
+        let sleepMeasured = SleepData.lastNight(in: context.sleepData) != nil || context.dailyMetrics.totalSleep > 0
+        let sleepLines = sleepMeasured
+            ? "- Sleep Quality: \(context.readiness.sleepQuality)/100\n- Deep Sleep: \(context.dailyMetrics.deepSleep) min"
+            : "- Sleep: not recorded for last night"
         let prompt = """
         \(voice.promptDirective)
 
@@ -99,8 +105,7 @@ final class FoundationModelsResponseGenerator: TrainerResponseGenerator {
         - \(lifestyleQoLPromptLine())
         - HRV: \(context.dailyMetrics.hrv)ms
         - Resting HR: \(context.dailyMetrics.restingHR) bpm
-        - Sleep Quality: \(context.readiness.sleepQuality)/100
-        - Deep Sleep: \(context.dailyMetrics.deepSleep) min
+        \(sleepLines)
         - Recovery Score: \(context.readiness.recoveryScore)/100
         
         Time: \(context.isEarlyMorning ? "Early morning (before 7am)" : context.isLateNight ? "Late night (after 10pm)" : "Daytime")

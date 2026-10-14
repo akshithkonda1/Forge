@@ -102,7 +102,7 @@ struct HomeAgendaCard: View {
 
         let sleepHours = store.dailyMetrics.totalSleep > 0
             ? Double(store.dailyMetrics.totalSleep) / 60.0
-            : store.sleepData.first?.totalHours
+            : SleepData.lastNight(in: store.sleepData)?.totalHours
         if let h = sleepHours, h > 0 {
             rows.append((
                 "moon.zzz.fill",
@@ -371,7 +371,7 @@ struct HomeDayPreviewStrip: View {
     private var sleepValue: String {
         let total = store.dailyMetrics.totalSleep
         if total <= 0 {
-            if let last = store.sleepData.first {
+            if let last = SleepData.lastNight(in: store.sleepData) {
                 return String(format: "%.1fh", last.totalHours)
             }
             return "—"

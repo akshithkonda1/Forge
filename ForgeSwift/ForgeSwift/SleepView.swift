@@ -14,6 +14,9 @@ struct SleepView: View {
 
     private var presence: SleepSurfacePresence { store.sleepSurface }
 
+    /// Nil when the newest stored night is older than yesterday.
+    private var lastNight: SleepData? { SleepData.lastNight(in: store.sleepData) }
+
     private var tonightCoach: SleepBedtimeCoach {
         SleepBedtimeCoach.make(from: store.sleepData)
     }
@@ -21,8 +24,8 @@ struct SleepView: View {
     private var wakeCoach: SleepWakeCoach {
         SleepWakeCoach.make(
             alarms: alarmStore.alarms,
-            sleepScore: store.sleepData.first?.score,
-            lastNightHours: store.sleepData.first?.totalHours,
+            sleepScore: lastNight?.score,
+            lastNightHours: lastNight?.totalHours,
             smartWindowMinutes: alarmStore.next.map {
                 hkService.adaptiveSmartWakeMinutes(base: $0.smartWakeWindow, depth: alarmStore.sleeperDepth)
             }
@@ -103,7 +106,7 @@ struct SleepView: View {
         .task {
             await hkService.refreshFromAppleHealth(into: store)
             let debt = hkService.computeSleepDebt(from: store.sleepData)
-            let recentScore = store.sleepData.first?.score
+            let recentScore = lastNight?.score
             _ = hkService.computeAdaptiveSunrise(
                 debt: debt,
                 recentScore: recentScore,

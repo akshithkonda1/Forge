@@ -226,6 +226,8 @@ struct HomeHeaderView: View {
                     .background(Color.white.opacity(0.06))
                     .clipShape(Circle())
                     .overlay(Circle().stroke(Color.white.opacity(0.10), lineWidth: 1))
+                    .frame(minWidth: 44, minHeight: 44)
+                    .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
             .accessibilityLabel(store.quietMode ? "Quiet mode on" : "Quiet mode off")
@@ -264,6 +266,13 @@ private struct HomeDataStatusPill: View {
     @State private var reconnecting = false
 
     var body: some View {
+        // Re-render each minute so "Xm ago" keeps counting without a refresh.
+        TimelineView(.periodic(from: .now, by: 60)) { context in
+            pill(now: context.date)
+        }
+    }
+
+    private func pill(now: Date) -> some View {
         Button {
             guard !isLive else { return }
             reconnecting = true
@@ -282,7 +291,7 @@ private struct HomeDataStatusPill: View {
                         .frame(width: 6, height: 6)
                         .shadow(color: isLive ? Color.vitality.opacity(0.7) : .clear, radius: 3)
                 }
-                Text(statusText)
+                Text(statusText(now: now))
                     .font(HomeType.micro)
                     .foregroundColor(isLive ? Color.vitality : .warning)
             }
@@ -294,11 +303,11 @@ private struct HomeDataStatusPill: View {
         }
         .buttonStyle(.plain)
         .disabled(isLive || reconnecting)
-        .accessibilityLabel(statusText)
+        .accessibilityLabel(statusText(now: now))
         .accessibilityHint(isLive ? "" : "Double tap to reconnect Apple Health")
     }
 
-    private var statusText: String {
+    private func statusText(now: Date) -> String {
         if store.isHealthKitPulling { return "Pulling…" }
         if reconnecting { return "Reconnecting…" }
         if let error = store.lastCloudSyncError, !isLive {
@@ -309,9 +318,12 @@ private struct HomeDataStatusPill: View {
         }
         if isLive {
             if let updatedAt {
-                let mins = max(0, Int(Date().timeIntervalSince(updatedAt) / 60))
+                let mins = max(0, Int(now.timeIntervalSince(updatedAt) / 60))
                 if mins < 1 { return "Apple Health live · just now" }
                 if mins < 60 { return "Apple Health live · \(mins)m ago" }
+                // Past an hour, say how old it is; "live" alone hid an 8h-old read.
+                if mins < 24 * 60 { return "Apple Health · \(mins / 60)h ago" }
+                return "Apple Health · over a day old, pull to refresh"
             }
             return "Apple Health live"
         }
@@ -351,9 +363,11 @@ private struct HomeScrollMiniHeader: View {
                     .foregroundColor(.white)
                     .padding(.horizontal, 14)
                     .padding(.vertical, 7)
-                    .background(store.readiness.overall < 55 ? AnyShapeStyle(FDS.Gradient.steel) : AnyShapeStyle(FDS.Gradient.ember))
+                    .background(store.readiness.hasScore && store.readiness.overall < HomeReadinessTokens.Band.fair.minScore ? AnyShapeStyle(FDS.Gradient.steel) : AnyShapeStyle(FDS.Gradient.ember))
                     .clipShape(Capsule())
                     .overlay(Capsule().stroke(Color.white.opacity(0.16), lineWidth: 1))
+                    .frame(minHeight: 44)
+                    .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
             .accessibilityLabel(store.isWorkoutActive ? "Continue session" : "Train")

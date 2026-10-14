@@ -84,9 +84,9 @@ extension AppStore {
         HomeWidgetSnapshotStore.save(
             HomeWidgetSnapshot(
                 readiness: readiness.overall,
-                readinessLabel: ReadinessBand(score: readiness.overall).label,
-                sleepHours: sleepData.first?.totalHours ?? Double(dailyMetrics.totalSleep) / 60,
-                sleepScore: sleepData.first?.score,
+                readinessLabel: readiness.hasScore ? ReadinessBand(score: readiness.overall).label : "—",
+                sleepHours: SleepData.lastNight(in: sleepData)?.totalHours ?? Double(dailyMetrics.totalSleep) / 60,
+                sleepScore: SleepData.lastNight(in: sleepData)?.score,
                 sleepWindowTitle: windowTitle,
                 hydrationMl: waterMl,
                 hydrationTargetMl: waterTarget,

@@ -375,29 +375,34 @@ extension HealthKitManager {
 
     // MARK: - Train + Sleep session I/O
 
-    func latestHeartRateBPM() async -> Int? {
+    /// Newest heart rate taken at or after `start`, or nil. Callers pass the
+    /// session start so an old (often resting) sample is never read as live.
+    func latestHeartRateBPM(since start: Date) async -> Int? {
         let bpm = await fetchMostRecentQuantity(
             .heartRate,
-            unit: HKUnit.count().unitDivided(by: .minute())
+            unit: HKUnit.count().unitDivided(by: .minute()),
+            predicate: HKQuery.predicateForSamples(withStart: start, end: nil)
         )
         guard let bpm, bpm > 30, bpm < 230 else { return nil }
         return Int(bpm.rounded())
     }
 
-    func startLiveHeartRateUpdates(_ onBPM: @escaping @Sendable (Int) -> Void) {
+    /// Streams heart-rate samples that end at or after `start`. Without the
+    /// bound, the anchored query's first batch is the whole history.
+    func startLiveHeartRateUpdates(since start: Date, _ onBPM: @escaping @Sendable (Int) -> Void) {
         stopLiveHeartRateUpdates()
         let type = HKQuantityType(.heartRate)
         let unit = HKUnit.count().unitDivided(by: .minute())
         let query = HKAnchoredObjectQuery(
             type: type,
-            predicate: nil,
+            predicate: HKQuery.predicateForSamples(withStart: start, end: nil),
             anchor: nil,
             limit: HKObjectQueryNoLimit
         ) { _, samples, _, _, _ in
-            Self.emitHeartRate(samples, unit: unit, onBPM: onBPM)
+            Self.emitHeartRate(samples, since: start, unit: unit, onBPM: onBPM)
         }
         query.updateHandler = { _, samples, _, _, _ in
-            Self.emitHeartRate(samples, unit: unit, onBPM: onBPM)
+            Self.emitHeartRate(samples, since: start, unit: unit, onBPM: onBPM)
         }
         healthStore.execute(query)
         liveHeartRateQuery = query
@@ -412,13 +417,22 @@ extension HealthKitManager {
 
     private nonisolated static func emitHeartRate(
         _ samples: [HKSample]?,
+        since start: Date,
         unit: HKUnit,
         onBPM: @escaping @Sendable (Int) -> Void
     ) {
-        guard let sample = samples?.last as? HKQuantitySample else { return }
-        let bpm = Int(sample.quantity.doubleValue(for: unit).rounded())
-        guard bpm > 30, bpm < 230 else { return }
+        guard let bpm = liveHeartRateBPM(from: samples ?? [], since: start, unit: unit) else { return }
         Task { @MainActor in onBPM(bpm) }
+    }
+
+    /// Newest plausible bpm among `samples` that ended at or after `start`, or nil.
+    /// Anything older is history, not a live workout reading.
+    nonisolated static func liveHeartRateBPM(from samples: [HKSample], since start: Date, unit: HKUnit) -> Int? {
+        let recent = samples.compactMap { $0 as? HKQuantitySample }.filter { $0.endDate >= start }
+        guard let sample = recent.max(by: { $0.endDate < $1.endDate }) else { return nil }
+        let bpm = Int(sample.quantity.doubleValue(for: unit).rounded())
+        guard bpm > 30, bpm < 230 else { return nil }
+        return bpm
     }
 
     func saveTrainWorkout(

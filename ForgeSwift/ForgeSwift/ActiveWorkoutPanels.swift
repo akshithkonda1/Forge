@@ -187,6 +187,7 @@ struct SetLoggerPanel: View {
                 Image(systemName: icon).font(.system(size: 18, weight: .semibold)).foregroundColor(tint)
             }
         }
+        .accessibilityLabel(icon == "minus" ? "Fewer reps" : "More reps")
     }
 }
 

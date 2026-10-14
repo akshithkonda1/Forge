@@ -8,7 +8,7 @@ extension AriaSwarmSnapshot {
     /// Local testing / Dummy snapshot from the on-device ledger.
     @MainActor
     static func from(store: AppStore) -> AriaSwarmSnapshot {
-        let night = store.sleepData.first
+        let night = SleepData.lastNight(in: store.sleepData)
         let sleepHours = night?.totalHours ?? (
             store.dailyMetrics.totalSleep > 0 ? Double(store.dailyMetrics.totalSleep) / 60.0 : nil
         )

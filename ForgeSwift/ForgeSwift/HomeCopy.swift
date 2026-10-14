@@ -1,13 +1,28 @@
 import SwiftUI
 import ForgeCore
 
+/// True when last night's sleep was actually recorded. Without it,
+/// `readiness.sleepQuality` is a fallback (HRV / resting HR, or the local
+/// calculator's floor), not a sleep measurement, so no surface should show
+/// or speak it as one.
+@MainActor
+func lastNightSleepMeasured(store: AppStore) -> Bool {
+    SleepData.lastNight(in: store.sleepData) != nil || store.dailyMetrics.totalSleep > 0
+}
+
 @MainActor
 func readinessWhyCopy(store: AppStore) -> String {
     var bits: [String] = []
     let r = store.readiness
-    if r.sleepQuality < 55 {
+    guard r.hasScore else {
+        return "Nothing measured yet. Readiness needs last night's sleep, HRV or resting heart rate from Apple Health."
+    }
+    // With no night measured, sleepQuality falls back to the HRV / resting-HR
+    // score, so a sleep sentence would describe sleep nobody recorded.
+    let sleepMeasured = lastNightSleepMeasured(store: store)
+    if sleepMeasured, r.sleepQuality < 55 {
         bits.append("Sleep quality is dragging the score")
-    } else if r.sleepQuality >= 80 {
+    } else if sleepMeasured, r.sleepQuality >= 80 {
         bits.append("Sleep looks supportive")
     }
     if r.recoveryScore < 55 {
@@ -26,7 +41,9 @@ func readinessWhyCopy(store: AppStore) -> String {
         bits.append("cycle phase suggests a recovery bias")
     }
     if bits.isEmpty {
-        return "Sleep, recovery, stress, and energy are in balance. This isn’t one sensor — it’s how today looks together."
+        return sleepMeasured
+            ? "Sleep, recovery, stress, and energy are in balance. This isn’t one sensor — it’s how today looks together."
+            : "Recovery, stress, and energy are in balance. No sleep recorded for last night."
     }
     let joined = bits.joined(separator: "; ")
     return joined.prefix(1).uppercased() + joined.dropFirst() + "."
@@ -107,10 +124,13 @@ enum LifestyleDeepLink {
 @MainActor
 func homeStatusLine(store: AppStore) -> String {
     let score = store.readiness.overall
+    guard store.readiness.hasScore else {
+        return "No readiness score yet. It needs last night's sleep or a heart reading."
+    }
     switch score {
     case 85...: return "You’re at \(score). You look ready."
     case 70..<85: return "You’re at \(score). A solid session fits."
-    case 55..<70: return "You’re at \(score). Train smart, not maximal."
+    case 50..<70: return "You’re at \(score). Train smart, not maximal."
     default: return "You’re at \(score). A lighter win still makes you someone who showed up."
     }
 }

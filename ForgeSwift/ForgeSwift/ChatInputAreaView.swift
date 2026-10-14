@@ -184,6 +184,7 @@ struct ChatInputAreaView: View {
                     }
                     .shadow(color: mood.accentColor.opacity(0.28), radius: 9, y: 3)
                 }
+                .accessibilityLabel("Talk to ARIA")
                 .disabled(isTyping)
                 .opacity(isTyping ? 0.42 : 1)
                 .animation(FDS.Spring.snap, value: isTyping)
@@ -258,6 +259,7 @@ struct ChatInputAreaView: View {
                         }
                         .animation(FDS.Spring.snap, value: canSend)
                     }
+                    .accessibilityLabel("Send")
                     .disabled(!canSend)
                     .padding(.trailing, FDS.Spacing.sm)
                     .buttonStyle(ScaleButtonStyle())

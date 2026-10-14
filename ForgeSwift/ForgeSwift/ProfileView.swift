@@ -56,7 +56,7 @@ struct ProfileHeroHeader: View {
     }
 
     private var readinessWord: String {
-        HomeReadiness.label(store.readiness.overall)
+        store.readiness.hasScore ? HomeReadiness.label(store.readiness.overall) : "Not measured yet"
     }
 
     private var trend: AppStore.ReadinessTrend { store.readinessTrend }
@@ -280,7 +280,7 @@ struct ProfileHeroHeader: View {
                     .rotationEffect(.degrees(-90))
                     .frame(width: 46, height: 46)
                     .animation(FDS.Spring.sweep, value: store.readiness.overall)
-                Text("\(store.readiness.overall)")
+                Text(store.readiness.hasScore ? "\(store.readiness.overall)" : "—")
                     .font(FDS.TypeScale.Dynamic.body.weight(.semibold))
                     .foregroundColor(.textPrimary)
             }
@@ -308,7 +308,9 @@ struct ProfileHeroHeader: View {
         .padding(FDS.Spacing.lg)
         .forgeGlassCard(accent: .ember)
         .accessibilityElement(children: .combine)
-        .accessibilityLabel("Readiness today \(store.readiness.overall) out of 100, \(readinessWord), \(trendLabel)")
+        .accessibilityLabel(store.readiness.hasScore
+            ? "Readiness today \(store.readiness.overall) out of 100, \(readinessWord), \(trendLabel)"
+            : "Readiness today not measured yet")
     }
 
     // MARK: Quick actions

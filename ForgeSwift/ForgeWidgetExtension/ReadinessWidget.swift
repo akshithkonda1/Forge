@@ -8,6 +8,10 @@ struct ReadinessWidgetView: View {
 
     private var score: Int { entry.snapshot.readiness }
     private var band: ReadinessBand { ReadinessBand(score: score) }
+    private var hasScore: Bool { entry.snapshot.hasReadiness }
+    private var scoreText: String { hasScore ? "\(score)" : "—" }
+    /// Not measured is steel, not the Low red.
+    private var tint: Color { hasScore ? band.color : ForgePalette.steel }
 
     var body: some View {
         switch family {
@@ -15,29 +19,31 @@ struct ReadinessWidgetView: View {
             Gauge(value: Double(score), in: 0...100) {
                 Image(systemName: "bolt.heart.fill")
             } currentValueLabel: {
-                Text("\(score)")
+                Text(scoreText)
                     .font(.system(.caption, design: .rounded).weight(.bold))
             }
             .gaugeStyle(.accessoryCircularCapacity)
         case .accessoryRectangular, .accessoryInline:
             HStack(spacing: 6) {
                 Image(systemName: "bolt.heart.fill")
-                Text("\(score) · \(band.label)")
+                Text(hasScore ? "\(score) · \(band.label)" : "Readiness —")
                     .font(.caption.weight(.semibold))
             }
         default:
             VStack(alignment: .leading, spacing: 8) {
-                WidgetChrome.eyebrow("Readiness", color: band.color)
+                WidgetChrome.eyebrow("Readiness", color: tint)
                 HStack(alignment: .firstTextBaseline, spacing: 4) {
-                    Text("\(score)")
+                    Text(scoreText)
                         .font(.system(size: 42, weight: .bold, design: .rounded))
                         .foregroundStyle(ForgePalette.textPrimary)
                         .contentTransition(.numericText())
-                    Text(band.label)
-                        .font(.caption.weight(.semibold))
-                        .foregroundStyle(band.color)
+                    if hasScore {
+                        Text(band.label)
+                            .font(.caption.weight(.semibold))
+                            .foregroundStyle(band.color)
+                    }
                 }
-                Text(band.supportiveDescriptor)
+                Text(hasScore ? band.supportiveDescriptor : "Open Forge after you wake to see today's score.")
                     .font(.caption2)
                     .foregroundStyle(ForgePalette.textSecondary)
                     .lineLimit(2)
@@ -55,7 +61,9 @@ struct ReadinessWidget: Widget {
         StaticConfiguration(kind: kind, provider: HomeWidgetProvider()) { entry in
             ReadinessWidgetView(entry: entry)
                 .containerBackground(for: .widget) {
-                    WidgetChrome.background(accent: ReadinessBand(score: entry.snapshot.readiness).color)
+                    WidgetChrome.background(accent: entry.snapshot.hasReadiness
+                        ? ReadinessBand(score: entry.snapshot.readiness).color
+                        : ForgePalette.steel)
                 }
                 .widgetURL(ForgeWidgetLink.readiness)
         }

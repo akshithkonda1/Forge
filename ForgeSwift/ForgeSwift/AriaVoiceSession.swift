@@ -100,9 +100,9 @@ final class AriaVoiceSession {
         liveSocket?.close()
         liveSocket = nil
         AriaPresence.shared.stopSpeaking()
-        if isActive {
-            applyPhase(.listening)
-        }
+        // Cutting the mouth fires no didFinish, so hand the turn back here:
+        // phase, orb copy and (on-device) the mic all return to listening.
+        markListening()
     }
 
     func unmute() {
@@ -120,9 +120,11 @@ final class AriaVoiceSession {
     /// Live ConvAI is already the mouth — do not also enqueue Apple TTS.
     func speakChatReply(_ reply: AriaResponse) {
         guard isActive else { return }
-        guard AriaSpokenMute.allowsSpeech else { return }
+        // Muted or nothing to say: no mouth callback is coming, so leave
+        // "Thinking…" now and take the next turn.
+        guard AriaSpokenMute.allowsSpeech else { markListening(); return }
         let line = AriaVoiceMouth.spokenLine(from: reply)
-        guard !line.isEmpty else { return }
+        guard !line.isEmpty else { markListening(); return }
         applyPhase(.speaking)
         speech?.voiceState = .speaking
         AriaPresence.shared.speak(line)
@@ -237,10 +239,13 @@ final class AriaVoiceSession {
             guard generation == startGeneration else { return }
             // Live failure is silence — never Zoe, never a dummy upgrade.
             lastError = "Voice session unavailable."
+            // Retire this attempt so the socket's late `.closed` cannot
+            // overwrite the error with idle before the user sees it.
+            startGeneration += 1
             liveSocket?.close()
             liveSocket = nil
             applyPhase(.idle)
-            speech?.voiceState = .idle
+            speech?.voiceState = .error("Voice session unavailable.")
         }
     }
 

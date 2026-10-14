@@ -3,13 +3,14 @@ import ForgeCore
 
 struct BreakdownCardView: View {
     let label: String
-    let value: Int
+    /// nil when the pillar was not measured; shows "—" instead of a fallback score.
+    let value: Int?
     let inverted: Bool
     let index: Int
     @State private var appeared = false
 
-    private var display: Int { inverted ? 100 - value : value }
-    private var dot: Color { HomeReadiness.color(display) }
+    private var display: Int? { value.map { inverted ? 100 - $0 : $0 } }
+    private var dot: Color { display.map { HomeReadiness.color($0) } ?? .textTertiary }
 
     var body: some View {
         HStack(spacing: 10) {
@@ -18,7 +19,7 @@ struct BreakdownCardView: View {
                 Text(label)
                     .font(HomeType.micro)
                     .foregroundColor(.textTertiary)
-                Text("\(display)")
+                Text(display.map { "\($0)" } ?? "—")
                     .font(HomeType.metric)
                     .foregroundColor(.textPrimary)
             }

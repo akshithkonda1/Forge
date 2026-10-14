@@ -45,13 +45,21 @@ struct HomeWidgetProvider: TimelineProvider {
     }
 
     func getSnapshot(in context: Context, completion: @escaping (HomeWidgetEntry) -> Void) {
-        completion(HomeWidgetEntry(date: Date(), snapshot: HomeWidgetSnapshotStore.load() ?? .preview))
+        let now = Date()
+        completion(HomeWidgetEntry(date: now, snapshot: HomeWidgetSnapshotStore.load()?.asOf(now) ?? .preview))
     }
 
     func getTimeline(in context: Context, completion: @escaping (Timeline<HomeWidgetEntry>) -> Void) {
+        let now = Date()
         let snap = HomeWidgetSnapshotStore.load() ?? HomeWidgetSnapshot()
-        let next = Calendar.current.date(byAdding: .minute, value: 30, to: Date()) ?? Date().addingTimeInterval(1800)
-        completion(Timeline(entries: [HomeWidgetEntry(date: Date(), snapshot: snap)], policy: .after(next)))
+        let next = Calendar.current.date(byAdding: .minute, value: 30, to: now) ?? now.addingTimeInterval(1800)
+        var entries = [HomeWidgetEntry(date: now, snapshot: snap.asOf(now))]
+        // Roll over at midnight even if the 30-minute refresh is late.
+        if let midnight = Calendar.current.date(byAdding: .day, value: 1, to: Calendar.current.startOfDay(for: now)),
+           midnight < next {
+            entries.append(HomeWidgetEntry(date: midnight, snapshot: snap.asOf(midnight)))
+        }
+        completion(Timeline(entries: entries, policy: .after(next)))
     }
 }
 

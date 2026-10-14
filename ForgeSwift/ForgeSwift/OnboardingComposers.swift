@@ -201,14 +201,28 @@ struct DetailsComposer: View {
             }
 
             birthdayBlock
-            sexBlock
-            bodyBlock
+            // After the age block only the birthday is in question; sex and
+            // body selection are gated on the `.details` step and would no-op.
+            if !coordinator.isReviewingBirthday {
+                sexBlock
+                bodyBlock
+            }
 
             PrimaryCTA(
-                title: coordinator.isUnderage ? "Must be 13 or older" : "Confirm details",
+                title: coordinator.isUnderage
+                    ? "Must be 13 or older"
+                    : (coordinator.isReviewingBirthday ? "Confirm birthday" : "Confirm details"),
                 icon: "arrow.right",
-                enabled: coordinator.profile.hasConfirmedDetails && !coordinator.isUnderage,
-                action: coordinator.confirmDetails
+                enabled: coordinator.isReviewingBirthday
+                    ? coordinator.profile.hasBirthday && !coordinator.isUnderage
+                    : coordinator.profile.hasConfirmedDetails && !coordinator.isUnderage,
+                action: {
+                    if coordinator.isReviewingBirthday {
+                        coordinator.confirmBirthdayReview()
+                    } else {
+                        coordinator.confirmDetails()
+                    }
+                }
             )
         }
         .onAppear { hydrateBodyFields() }
@@ -945,6 +959,8 @@ struct ReadyComposer: View {
                 .overlay { RoundedRectangle(cornerRadius: FDS.Radius.md).stroke(coordinator.hasAgreedToTerms ? Color.ember.opacity(0.4) : Color.white.opacity(0.06), lineWidth: 1) }
             }
             .buttonStyle(.plain)
+            .accessibilityAddTraits(.isToggle)
+            .accessibilityValue(coordinator.hasAgreedToTerms ? "Checked" : "Unchecked")
 
             PrimaryCTA(
                 title: coordinator.isPrepping
