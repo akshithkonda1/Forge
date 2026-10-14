@@ -43,6 +43,12 @@ final class WatchHealthKitManager {
 
     private(set) var readiness: ReadinessScore?
     private(set) var sleepSummary: SleepNight?
+
+    /// Last night's sleep quality. With no night recorded the calculator's
+    /// sleep figure falls back to the HRV/resting-HR score, which is not sleep.
+    var sleepQuality: Int? {
+        sleepSummary == nil ? nil : readiness?.sleepQuality
+    }
     private(set) var recentNights: [SleepNight] = []
     private(set) var hrvRecentMs: Double?
     private(set) var hrvTrendMs: Double?
@@ -121,12 +127,9 @@ final class WatchHealthKitManager {
     func refreshAll() async {
         guard isAuthorized else { return }
 
-        async let sleep = ForgeHealthQueries.lastNightSleep(store: store)
+        async let health = ForgeHealthQueries.readinessContext(store: store)
         async let hrvLatest = ForgeHealthQueries.latestHRV(store: store)
-        async let hrvBase = ForgeHealthQueries.hrvBaseline(store: store)
         async let hrvDelta = ForgeHealthQueries.hrvTrend(store: store)
-        async let rhr = ForgeHealthQueries.latestRestingHR(store: store)
-        async let rhrBase = ForgeHealthQueries.restingHRBaseline(store: store)
         async let mindful = ForgeHealthQueries.mindfulMinutes(store: store, since: Calendar.current.startOfDay(for: Date()))
         async let workout = ForgeHealthQueries.lastWorkout(store: store)
         async let nights = ForgeHealthQueries.recentSleepNights(store: store)
@@ -134,7 +137,8 @@ final class WatchHealthKitManager {
         async let bodyTemp = ForgeHealthQueries.latestBodyTemperatureFahrenheit(store: store)
         async let wristTemp = ForgeHealthQueries.latestSleepingWristTemperatureDeviationCelsius(store: store)
 
-        sleepSummary = await sleep
+        let readinessHealth = await health
+        sleepSummary = readinessHealth.night
         recentNights = await nights
         recentHeartRate = await recentHR
         if let bodyTemp = await bodyTemp {
@@ -154,10 +158,9 @@ final class WatchHealthKitManager {
             recentSleepMinutes: recentNights.map(\.totalMinutes)
         )
         let latest = await hrvLatest
-        hrvRecentMs = latest?.value
+        hrvRecentMs = readinessHealth.hrvMs ?? latest?.value
         hrvTrendMs = await hrvDelta
-        let hrvBaseValue = await hrvBase
-        hrvBaselineMs = hrvBaseValue
+        hrvBaselineMs = readinessHealth.hrvBaseline?.mean
         mindfulMinutesToday = await mindful
         await ForgeHealthQueries.ingestHRVTruthLayer(store: store)
 
@@ -169,21 +172,14 @@ final class WatchHealthKitManager {
             lastWorkoutType = nil
         }
 
-        let rhrValue = await rhr
-        let rhrBaseValue = await rhrBase
-        restingHeartRate = rhrValue
-        restingHeartRateBaseline = rhrBaseValue
+        restingHeartRate = readinessHealth.restingHR
+        restingHeartRateBaseline = readinessHealth.restingHRBaseline?.mean
 
-        let inputs = ReadinessInputs(
-            hrvMs: latest?.value,
-            hrvBaselineMs: hrvBaseValue,
-            restingHR: rhrValue,
-            restingHRBaseline: rhrBaseValue,
-            sleepMinutes: sleepSummary?.totalMinutes,
-            deepSleepMinutes: sleepSummary?.deepMinutes,
-            remSleepMinutes: sleepSummary?.remMinutes
-        )
-        readiness = ReadinessCalculator.score(from: inputs)
+        // Same reader and same formula as the iPhone's Home number.
+        // Nothing measurable (Health skipped, denied, or not synced yet) is
+        // no score, not a red 0 on the complication.
+        let score = ReadinessCalculator.score(from: readinessHealth.inputs())
+        readiness = score.confidence > 0 ? score : nil
         lastRefreshed = Date()
         publishSnapshot()
         startBackgroundObservers()
@@ -207,21 +203,23 @@ final class WatchHealthKitManager {
                 restingHR: Int(restingHeartRate ?? 0),
                 restingHRBaseline: restingHeartRateBaseline.map { Int($0.rounded()) },
                 todayStrain: todayStrain,
-                stressLevel: 30
+                // The wrist has no stress report; unknown is not "moderate".
+                stressLevel: nil
             )
         )
     }
 
     private func publishSnapshot() {
         // Recommendation fields are owned by ARIAWatchService; only touch ours.
-        let forecast = tomorrowForecast()
+        // No reading today means no basis for tomorrow either.
+        let forecast = readiness == nil ? nil : tomorrowForecast()
         WatchSnapshotStore.update { snapshot in
             snapshot.readinessOverall = readiness?.overall
             snapshot.readinessBand = readiness.map { $0.band }
             snapshot.readinessConfidence = readiness?.confidence
-            snapshot.tomorrowPredictedScore = forecast.predictedScore
-            snapshot.tomorrowPosture = forecast.posture.rawValue
-            snapshot.sleepQualityScore = readiness?.sleepQuality
+            snapshot.tomorrowPredictedScore = forecast?.predictedScore
+            snapshot.tomorrowPosture = forecast?.posture.rawValue
+            snapshot.sleepQualityScore = sleepQuality
             snapshot.sleepMinutes = sleepSummary?.totalMinutes
             snapshot.mindfulMinutesToday = mindfulMinutesToday
             snapshot.tonightWindDown = windDownPlan?.windDownStart
@@ -349,15 +347,15 @@ final class WatchHealthKitManager {
         var context = WatchARIAContext()
         context.readinessOverall = readiness?.overall
         context.readinessConfidence = readiness?.confidence
-        let forecast = tomorrowForecast()
-        context.tomorrowPredictedScore = forecast.predictedScore
-        context.tomorrowPosture = forecast.posture.rawValue
+        let forecast = readiness == nil ? nil : tomorrowForecast()
+        context.tomorrowPredictedScore = forecast?.predictedScore
+        context.tomorrowPosture = forecast?.posture.rawValue
         context.hrvRecentMs = hrvRecentMs
         context.hrvTrendMs = hrvTrendMs
         context.sleepMinutes = sleepSummary?.totalMinutes
         context.deepSleepMinutes = sleepSummary?.deepMinutes
         context.remSleepMinutes = sleepSummary?.remMinutes
-        context.sleepQualityScore = readiness?.sleepQuality
+        context.sleepQualityScore = sleepQuality
         context.lifestyleMode = mode
         context.minutesInCurrentMode = minutesInMode
         context.lifestyleProfile = profile

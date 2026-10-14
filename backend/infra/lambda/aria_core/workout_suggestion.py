@@ -10,13 +10,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 from .quality_of_life import band_for_score as qol_band
-from .readiness_calculator import band_for_score
+from .readiness_calculator import FAIR, GOOD, LOW, band_for_score
 from .watch_context import WatchContext
-
-RECOVERY = "recovery"
-MODERATE = "moderate"
-READY = "ready"
-PRIMED = "primed"
 
 
 @dataclass(frozen=True)
@@ -49,41 +44,40 @@ def suggest(context: WatchContext) -> WorkoutSuggestion:
         )
 
     band = band_for_score(context.readiness_overall)
-    if band == RECOVERY:
+    if band == LOW:
         return WorkoutSuggestion(
             type="mobility",
             target_zone=1,
             reason=(
-                "Recovery-day readiness - gentle mobility keeps you moving while your body finishes "
-                "rebuilding. Easy today is what makes hard possible later this week."
+                "You're running a bit low — easy mobility still makes you someone who showed up. "
+                "Save the hard work for a greener day."
             ),
-            trigger="recovery-band",
+            trigger="low-band",
         )
-    if band == MODERATE:
+    if band == FAIR:
         return WorkoutSuggestion(
             type="cardio",
             target_zone=2,
             reason=(
-                "Readiness is middling, so Zone 2 pays the most today - real fitness, low recovery cost. "
-                "Save the intensity for a greener day."
+                "Fair day — Zone 2 still counts as training. Keep it honest and leave a little in the tank."
             ),
-            trigger="moderate-band",
+            trigger="fair-band",
         )
-    if band == READY:
+    if band == GOOD:
         return WorkoutSuggestion(
             type="strength",
             target_zone=3,
-            reason="Solid recovery - a proper strength session will land well today. Steady effort, quality reps.",
-            trigger="ready-band",
+            reason="You're at Good — a proper strength session will land. Steady effort, quality reps.",
+            trigger="good-band",
         )
     return WorkoutSuggestion(
         type="hiit",
         target_zone=4,
         reason=(
-            "You're primed - today can absorb real intensity if you want it. Reach for it, or bank "
-            "the readiness; both are winning."
+            "You're at Peak — today can absorb real intensity if you want it. Reach for it, or keep it "
+            "easy; both are winning."
         ),
-        trigger="primed-band",
+        trigger="peak-band",
     )
 
 
