@@ -153,4 +153,4 @@ final class SleepMorningSummaryTests: XCTestCase {
         XCTAssertEqual(SleepFeelingStore.feeling(on: "2026-10-14", defaults: defaults), .groggy)
         XCTAssertEqual(SleepFeeling.allCases.count, 3)
     }
-
+}
