@@ -18,9 +18,13 @@ struct StandByCustomizationView: View {
         StandByMetricKind.allCases.filter { !metrics.contains($0) }
     }
 
+    private var rowFill: Color { Color.white.opacity(0.06) }
+
     var body: some View {
         NavigationStack {
             content
+                .scrollContentBackground(.hidden)
+                .forgeScreenBackground(accent: .ember)
                 .navigationTitle("StandBy")
                 .navigationBarTitleDisplayMode(.inline)
                 .toolbar {
@@ -34,68 +38,134 @@ struct StandByCustomizationView: View {
 
     private var content: some View {
         List {
-            Section {
-                HStack {
-                    Spacer()
-                    StandByNestFaceView(
-                        snapshot: snapshot,
-                        date: .now,
-                        metrics: metrics,
-                        nightMode: previewNightMode
-                    )
-                    .padding(FDS.Spacing.lg)
-                    .frame(width: 172, height: 172)
-                    .background(Color(forgeHex: AriaNestGeometry.StandBy.nightstandBackgroundHex))
-                    .clipShape(RoundedRectangle(cornerRadius: FDS.Radius.xxl, style: .continuous))
-                    Spacer()
-                }
-                .listRowBackground(Color.clear)
-                .padding(.vertical, FDS.Spacing.sm)
-
-                Toggle("Preview night mode", isOn: $previewNightMode)
-                    .font(.system(size: 14))
-            } header: {
-                Text("Preview")
-            } footer: {
-                Text("This is the same face WidgetKit renders on your nightstand. Add the widget to StandBy from the widget gallery once, and it stays in sync with what you pick here.")
-            }
-
-            Section {
-                if metrics.isEmpty {
-                    Text("Just Readiness and the clock.")
-                        .font(.system(size: 14))
-                        .foregroundColor(.textSecondary)
-                } else {
-                    ForEach(metrics) { metric in
-                        Label(metric.title, systemImage: metric.systemImage)
-                    }
-                    .onMove { indices, newOffset in
-                        metrics.move(fromOffsets: indices, toOffset: newOffset)
-                        StandByMetricsStore.save(metrics)
-                    }
-                    .onDelete { indices in
-                        metrics.remove(atOffsets: indices)
-                        StandByMetricsStore.save(metrics)
-                    }
-                }
-            } header: {
-                Text("On StandBy")
-            } footer: {
-                Text("Readiness always shows — it's the hero number. Drag to reorder, swipe to remove.")
-            }
-
+            previewSection
+            onStandBySection
             if !available.isEmpty {
-                Section("Available") {
-                    ForEach(available) { metric in
-                        Button {
-                            metrics.append(metric)
-                            StandByMetricsStore.save(metrics)
-                        } label: {
-                            Label(metric.title, systemImage: metric.systemImage)
-                        }
-                    }
-                }
+                availableSection
             }
         }
+    }
+
+    // MARK: Sections
+
+    private var previewSection: some View {
+        Section {
+            HStack {
+                Spacer()
+                StandByNestFaceView(
+                    snapshot: snapshot,
+                    date: .now,
+                    metrics: metrics,
+                    nightMode: previewNightMode
+                )
+                .padding(FDS.Spacing.lg)
+                .frame(width: 172, height: 172)
+                .background(Color(forgeHex: AriaNestGeometry.StandBy.nightstandBackgroundHex))
+                .clipShape(RoundedRectangle(cornerRadius: FDS.Radius.xxl, style: .continuous))
+                Spacer()
+            }
+            .listRowBackground(Color.clear)
+            .padding(.vertical, ForgeLayout.rowGap)
+
+            Toggle(isOn: $previewNightMode) {
+                Text("Preview night mode")
+                    .font(HomeType.status)
+                    .foregroundStyle(Color.textPrimary)
+            }
+            .tint(Color.ember)
+            .frame(minHeight: ForgeUX.minTap)
+            .listRowBackground(rowFill)
+        } header: {
+            sectionTitle("Preview")
+        } footer: {
+            sectionNote("This is the same face WidgetKit renders on your nightstand. Add the widget to StandBy from the widget gallery once, and it stays in sync with what you pick here.")
+        }
+    }
+
+    private var onStandBySection: some View {
+        Section {
+            if metrics.isEmpty {
+                ForgeEmptyNote(
+                    title: "Just Readiness and the clock.",
+                    systemImage: "clock"
+                )
+                .padding(.vertical, ForgeLayout.rowVerticalPadding)
+                .listRowBackground(rowFill)
+            } else {
+                ForEach(metrics) { metric in
+                    ForgeListRow(
+                        icon: metric.systemImage,
+                        iconColor: .ember,
+                        title: metric.title
+                    )
+                    .padding(.vertical, ForgeLayout.rowVerticalPadding)
+                    .listRowBackground(rowFill)
+                }
+                .onMove { indices, newOffset in
+                    metrics.move(fromOffsets: indices, toOffset: newOffset)
+                    StandByMetricsStore.save(metrics)
+                }
+                .onDelete { indices in
+                    metrics.remove(atOffsets: indices)
+                    StandByMetricsStore.save(metrics)
+                }
+            }
+        } header: {
+            sectionTitle("On StandBy")
+        } footer: {
+            sectionNote("Readiness always shows — it's the hero number. Drag to reorder, swipe to remove.")
+        }
+    }
+
+    private var availableSection: some View {
+        Section {
+            ForEach(available) { metric in
+                Button {
+                    FDS.haptic(.press)
+                    metrics.append(metric)
+                    StandByMetricsStore.save(metrics)
+                } label: {
+                    availableLabel(metric)
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel(metric.title)
+                .accessibilityHint("Adds it to StandBy")
+                .listRowBackground(rowFill)
+            }
+        } header: {
+            sectionTitle("Available")
+        }
+    }
+
+    private func availableLabel(_ metric: StandByMetricKind) -> some View {
+        HStack(spacing: ForgeLayout.rowGap) {
+            ForgeIconWell(systemImage: metric.systemImage, tint: .ember)
+            Text(metric.title)
+                .font(HomeType.status)
+                .foregroundStyle(Color.textPrimary)
+                .lineLimit(2)
+                .layoutPriority(1)
+            Spacer(minLength: FDS.Spacing.xs)
+            Image(systemName: "plus.circle.fill")
+                .foregroundStyle(Color.ember)
+                .accessibilityHidden(true)
+        }
+        .padding(.vertical, ForgeLayout.rowVerticalPadding)
+        .frame(minHeight: ForgeUX.minTap)
+        .contentShape(Rectangle())
+    }
+
+    private func sectionTitle(_ title: String) -> some View {
+        Text(title)
+            .forgeSectionLabel(tint: Color.textTertiary)
+    }
+
+    private func sectionNote(_ text: String) -> some View {
+        Text(text)
+            .font(HomeType.body)
+            .foregroundStyle(Color.textSecondary)
+            .textCase(nil)
+            .forgeWrapping()
+            .padding(.top, ForgeLayout.pairGap)
     }
 }
