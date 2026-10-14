@@ -89,7 +89,7 @@ export function AriaCompanionControls({
                 <Icon
                   size={18}
                   className={
-                    selected ? "mt-0.5 text-[#F7F4F0]" : "mt-0.5 text-text-tertiary"
+                    selected ? "mt-0.5 text-text-primary" : "mt-0.5 text-text-tertiary"
                   }
                 />
                 <span>

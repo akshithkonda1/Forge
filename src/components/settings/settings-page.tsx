@@ -19,6 +19,7 @@ import { cn } from "@/lib/utils";
 import { useAppStore } from "@/stores/useAppStore";
 import { useToast } from "@/stores/useToast";
 import { Sheet } from "@/components/ui/sheet";
+import { PageHeader } from "@/components/ui/card";
 import { AriaCompanionControls } from "@/components/settings/aria-companion-controls";
 import type { FitnessGoal, WorkoutType } from "@/types";
 
@@ -76,7 +77,7 @@ function SectionHeader({ children }: { children: React.ReactNode }) {
   return (
     <motion.h3
       variants={itemVariants}
-      className="mb-2 mt-8 text-xs font-semibold uppercase tracking-wider text-text-tertiary"
+      className="type-eyebrow mb-3 mt-6"
     >
       {children}
     </motion.h3>
@@ -87,7 +88,7 @@ function SectionCard({ children }: { children: React.ReactNode }) {
   return (
     <motion.div
       variants={itemVariants}
-      className="divide-y divide-border overflow-hidden rounded-xl bg-surface"
+      className="divide-y divide-border overflow-hidden rounded-2xl bg-surface"
     >
       {children}
     </motion.div>
@@ -112,7 +113,7 @@ function SettingsRow({
   onClick?: () => void;
 }) {
   const className = cn(
-    "flex w-full items-center justify-between px-4 py-3 text-left",
+    "flex min-h-[var(--tap-min)] w-full items-center justify-between px-4 py-3 text-left",
     onClick && "active:bg-surface-hover transition-colors"
   );
   const inner = (
@@ -255,17 +256,14 @@ export default function SettingsPage() {
       animate="visible"
     >
       {/* Page Title */}
-      <motion.h1
-        variants={itemVariants}
-        className="mb-6 text-2xl font-bold text-text-primary"
-      >
-        Settings
-      </motion.h1>
+      <motion.div variants={itemVariants} className="mb-5">
+        <PageHeader title="Settings" subtitle="Your profile, ARIA and preferences." />
+      </motion.div>
 
       {/* ===== 1. Profile Section ===== */}
       <motion.div
         variants={itemVariants}
-        className="flex flex-col items-center rounded-xl bg-surface px-4 py-6"
+        className="flex flex-col items-center rounded-2xl bg-surface px-4 py-6"
       >
         {/* Avatar */}
         <div
@@ -274,12 +272,12 @@ export default function SettingsPage() {
             background: "linear-gradient(135deg, #FF4D00, #FF6B2B)",
           }}
         >
-          <span className="text-2xl font-bold text-white">{initials}</span>
+          <span className="type-page-title text-text-primary">{initials}</span>
         </div>
 
         {/* Name + Edit */}
         <div className="mt-4 flex items-center gap-2">
-          <h2 className="text-xl font-bold text-text-primary">
+          <h2 className="type-title text-text-primary">
             {userProfile.name}
           </h2>
           <button
@@ -496,7 +494,7 @@ export default function SettingsPage() {
         footer={
           <button
             type="button"
-            className="w-full rounded-xl bg-ember py-3 text-sm font-semibold text-white"
+            className="w-full rounded-xl bg-ember py-3 text-sm font-semibold text-text-primary"
             onClick={() => {
               const next = draftName.trim();
               if (!next) return;
@@ -565,7 +563,7 @@ export default function SettingsPage() {
                 }}
                 className={cn(
                   "rounded-lg py-3 text-xs font-semibold",
-                  on ? "bg-ember text-white" : "bg-surface-elevated text-text-tertiary"
+                  on ? "bg-ember text-text-primary" : "bg-surface-elevated text-text-tertiary"
                 )}
               >
                 {day}
@@ -618,7 +616,7 @@ export default function SettingsPage() {
             </button>
             <button
               type="button"
-              className="flex-1 rounded-xl bg-danger/90 py-3 text-sm font-semibold text-white"
+              className="flex-1 rounded-xl bg-danger/90 py-3 text-sm font-semibold text-text-primary"
               onClick={() => {
                 resetSession();
                 setSheet(null);

@@ -50,6 +50,64 @@ def bedrock_enabled() -> bool:
     return os.getenv("ARIA_BEDROCK_ENABLED", "").strip().lower() in _BEDROCK_TRUE_FLAGS
 
 
+# --- Per-model request shape ---------------------------------------------------
+#
+# Newer Claude models reject sampling parameters: Opus 4.7 / 4.8 and every 5.x
+# model return a 400 for a non-default `temperature`. Sending one meant every
+# live call to those models failed and quietly fell back to the deterministic
+# envelope. The 5.x models also think on every turn (adaptive thinking cannot
+# be switched off on Opus 5.5); `effort` is the control, and thinking tokens
+# count toward `maxTokens`, so the cap needs headroom above the reply budget.
+_CLAUDE_NO_SAMPLING = re.compile(r"claude-(?:opus-4-[78]|opus-5|sonnet-5|haiku-5|fable|mythos)")
+_CLAUDE_ADAPTIVE_DEFAULT = re.compile(r"claude-(?:opus-5|sonnet-5|haiku-5|fable|mythos)")
+_EFFORT_LEVELS = {"low", "medium", "high", "xhigh", "max"}
+# Chat replies are short and latency-bound (5 s per-model budget); low effort
+# keeps thinking brief. Override per environment with ARIA_BEDROCK_EFFORT.
+DEFAULT_BEDROCK_EFFORT = "low"
+THINKING_TOKEN_HEADROOM = 2048
+
+
+def _model_family(model_id: str) -> str:
+    """`global.anthropic.claude-opus-5-5` -> `claude-opus-5-5`."""
+    return str(model_id or "").strip().lower().rsplit(".", 1)[-1] if "anthropic" in str(model_id or "").lower() else ""
+
+
+def accepts_sampling_params(model_id: str) -> bool:
+    """False for Claude models that 400 on `temperature` / `top_p`."""
+    family = _model_family(model_id)
+    return not (family and _CLAUDE_NO_SAMPLING.search(family))
+
+
+def thinks_by_default(model_id: str) -> bool:
+    """True for Claude models that run adaptive thinking on every turn."""
+    family = _model_family(model_id)
+    return bool(family and _CLAUDE_ADAPTIVE_DEFAULT.search(family))
+
+
+def bedrock_effort() -> str:
+    raw = os.getenv("ARIA_BEDROCK_EFFORT", "").strip().lower()
+    return raw if raw in _EFFORT_LEVELS else DEFAULT_BEDROCK_EFFORT
+
+
+def converse_request_shape(model_id: str, *, max_tokens: int, temperature: float) -> tuple[dict[str, Any], dict[str, Any] | None]:
+    """(inferenceConfig, additionalModelRequestFields) for one Converse call."""
+    inference: dict[str, Any] = {"maxTokens": int(max_tokens)}
+    additional: dict[str, Any] | None = None
+    if accepts_sampling_params(model_id):
+        inference["temperature"] = temperature
+    if thinks_by_default(model_id):
+        inference["maxTokens"] = int(max_tokens) + THINKING_TOKEN_HEADROOM
+        additional = {"output_config": {"effort": bedrock_effort()}}
+    return inference, additional
+
+
+def _is_validation_error(exc: Exception) -> bool:
+    response = getattr(exc, "response", None)
+    if not isinstance(response, dict):
+        return False
+    return str((response.get("Error") or {}).get("Code") or "") == "ValidationException"
+
+
 class RoutingError(Exception):
     def __init__(self, status_code: int, message: str, *, details: dict[str, Any] | None = None) -> None:
         super().__init__(message)
@@ -242,24 +300,38 @@ class BedrockGateway:
         if image_bytes is not None:
             content.append({"image": {"format": image_format, "source": {"bytes": image_bytes}}})
         content.append({"text": user_prompt})
-        response = client.converse(
-            modelId=model_id,
-            system=[{"text": system_prompt}],
-            messages=[
+        inference, additional = converse_request_shape(model_id, max_tokens=max_tokens, temperature=temperature)
+        request: dict[str, Any] = {
+            "modelId": model_id,
+            "system": [{"text": system_prompt}],
+            "messages": [
                 {
                     "role": "user",
                     "content": content,
                 }
             ],
-            inferenceConfig={
-                "maxTokens": max_tokens,
-                "temperature": temperature,
-            },
-        )
+            "inferenceConfig": inference,
+        }
+        if additional:
+            request["additionalModelRequestFields"] = additional
+        try:
+            response = client.converse(**request)
+        except Exception as exc:
+            # A deployment that does not pass `output_config` through yet should
+            # still get an answer at the model's default effort, not a fallback.
+            if not additional or not _is_validation_error(exc):
+                raise
+            _log.warning("bedrock rejected additionalModelRequestFields for %s; retrying without", model_id)
+            request.pop("additionalModelRequestFields", None)
+            response = client.converse(**request)
+        answer = self._extract_text(response)
+        stop_reason = response.get("stopReason")
+        if not answer and stop_reason == "max_tokens":
+            _log.warning("bedrock %s hit maxTokens before any reply text", model_id)
         return {
-            "answer": self._extract_text(response),
+            "answer": answer,
             "usage": response.get("usage", {}),
-            "stopReason": response.get("stopReason"),
+            "stopReason": stop_reason,
         }
 
     def load_preview(self, *, s3_key: str, max_bytes: int) -> str:
@@ -807,14 +879,14 @@ def default_models() -> list[ModelConfig]:
     return [
         ModelConfig(
             slot=1,
-            name=os.getenv("AI_ROUTER_MODEL_1_NAME", "Claude Sonnet 4.6"),
-            model_id=os.getenv("AI_ROUTER_MODEL_1_ID", "anthropic.claude-sonnet-4-6"),
+            name=os.getenv("AI_ROUTER_MODEL_1_NAME", "Claude Sonnet 5.5"),
+            model_id=os.getenv("AI_ROUTER_MODEL_1_ID", "global.anthropic.claude-sonnet-5-5"),
             responsibility="Primary responder focused on fast, high-quality first-pass answers.",
         ),
         ModelConfig(
             slot=2,
-            name=os.getenv("AI_ROUTER_MODEL_2_NAME", "Claude Opus 4.7"),
-            model_id=os.getenv("AI_ROUTER_MODEL_2_ID", "anthropic.claude-opus-4-7"),
+            name=os.getenv("AI_ROUTER_MODEL_2_NAME", "Claude Opus 5.5"),
+            model_id=os.getenv("AI_ROUTER_MODEL_2_ID", "global.anthropic.claude-opus-5-5"),
             responsibility="Fallback and verifier when the first model misses the latency window or needs backup.",
         ),
         ModelConfig(

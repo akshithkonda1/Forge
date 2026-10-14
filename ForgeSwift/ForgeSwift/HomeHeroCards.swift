@@ -13,7 +13,7 @@ private struct HomeHeroReadinessCard: View {
                     Text("READINESS")
                         .forgeSectionLabel()
                     Text(homeStatusLine(store: store))
-                        .font(.system(size: 13, weight: .semibold))
+                        .font(FDS.TypeScale.Dynamic.caption)
                         .foregroundColor(HomeReadiness.color(store.readiness.overall))
                 }
                 Spacer()
@@ -23,7 +23,7 @@ private struct HomeHeroReadinessCard: View {
                 } label: {
                     HStack(spacing: 4) {
                         Text(showDetails ? "Less" : "Details")
-                            .font(.system(size: 12, weight: .medium))
+                            .font(FDS.TypeScale.Dynamic.caption)
                         Image(systemName: "chevron.down")
                             .font(.system(size: 11, weight: .semibold))
                             .rotationEffect(.degrees(showDetails ? 180 : 0))
@@ -43,7 +43,7 @@ private struct HomeHeroReadinessCard: View {
                 }
 
             Text("\(store.readiness.overall) · \(homeStatusLine(store: store))")
-                .font(.system(size: 15, weight: .semibold))
+                .font(FDS.TypeScale.Dynamic.body.weight(.semibold))
                 .foregroundColor(.textSecondary)
                 .multilineTextAlignment(.center)
                 .padding(.bottom, showDetails ? 16 : 0)
@@ -62,7 +62,7 @@ private struct HomeHeroReadinessCard: View {
                         .forgeSectionLabel()
                         .padding(.top, 4)
                     Text(readinessWhyCopy(store: store))
-                        .font(.system(size: 13, weight: .medium))
+                        .font(FDS.TypeScale.Dynamic.caption)
                         .foregroundColor(.textSecondary)
                         .fixedSize(horizontal: false, vertical: true)
 
@@ -89,7 +89,7 @@ private struct HomeHeroReadinessCard: View {
                         HStack(spacing: 6) {
                             ARIAIdentityMark(state: .idle, mood: .energized, size: 14, amplitude: 0.22)
                             Text("Explain my readiness")
-                                .font(.system(size: 13, weight: .semibold))
+                                .font(FDS.TypeScale.Dynamic.caption)
                         }
                         .foregroundColor(.ember)
                         .frame(maxWidth: .infinity)

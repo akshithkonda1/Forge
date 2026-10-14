@@ -61,7 +61,7 @@ export function ReadinessSection() {
       transition={{ duration: 0.5, delay: 0.1, ease: "easeOut" }}
     >
       {/* Section label */}
-      <p className="type-caption mb-5 uppercase tracking-wider text-text-tertiary">
+      <p className="type-eyebrow mb-5">
         Readiness Score
       </p>
 

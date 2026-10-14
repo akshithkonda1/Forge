@@ -76,7 +76,7 @@ struct SleepSummaryView: View {
             Text(health.sleepSummary?.durationLabel ?? "—")
                 .font(ForgeType.metric(28))
                 .foregroundStyle(ForgePalette.textPrimary)
-            if let quality = health.readiness?.sleepQuality, quality > 0 {
+            if let quality = health.sleepQuality, quality > 0 {
                 Text("quality \(quality)")
                     .font(.system(size: 12, weight: .medium))
                     .foregroundStyle(ForgePalette.indigo)
@@ -92,7 +92,7 @@ struct SleepSummaryView: View {
             return "No sleep data yet for last night."
         }
         var text = "Slept \(night.durationLabel)"
-        if let quality = health.readiness?.sleepQuality, quality > 0 {
+        if let quality = health.sleepQuality, quality > 0 {
             text += ", quality \(quality) out of 100"
         }
         return text

@@ -26,7 +26,7 @@ variable "aria_bedrock_enabled" {
 }
 
 variable "ai_router_model_3_id" {
-  description = "Bedrock model id for the AI router's third slot — the one agentic turns call in when a mode fans out to its own specialists and subagents. Empty keeps ai_router.py's own default (global.xai.grok-4.6)."
+  description = "Bedrock model id for the AI router's third slot — the one agentic turns call in when a mode fans out to its own specialists and subagents. Empty keeps ai_router.py's own default (global.xai.grok-4.7)."
   type        = string
   default     = ""
 }
@@ -43,7 +43,7 @@ resource "aws_lambda_function" "backend" {
   environment {
     variables = {
       ARIA_BEDROCK_ENABLED   = var.aria_bedrock_enabled ? "true" : "false"
-      AI_ROUTER_MODEL_3_ID   = var.ai_router_model_3_id != "" ? var.ai_router_model_3_id : "global.xai.grok-4.6"
+      AI_ROUTER_MODEL_3_ID   = var.ai_router_model_3_id != "" ? var.ai_router_model_3_id : "global.xai.grok-4.7"
       AI_ROUTER_MODEL_3_NAME = var.ai_router_model_3_name != "" ? var.ai_router_model_3_name : "Grok"
     }
   }
@@ -52,7 +52,7 @@ resource "aws_lambda_function" "backend" {
 
 _MAIN_TF_RESHAPED = '''\
 locals {
-  router3_id = coalesce(var.ai_router_model_3_id, "global.xai.grok-4.6")
+  router3_id = coalesce(var.ai_router_model_3_id, "global.xai.grok-4.7")
 }
 '''
 
@@ -70,7 +70,7 @@ tags = {
   Owner = "Forge"
 }
 
-# ai_router_model_3_id   = "global.xai.grok-4.6"
+# ai_router_model_3_id   = "global.xai.grok-4.7"
 # ai_router_model_3_name = "Grok"
 '''
 
@@ -99,7 +99,7 @@ class DefaultsOnlyTests(unittest.TestCase):
             _write(d, "variables.tf", _VARIABLES_TF)
             _write(d, "main.tf", _MAIN_TF)
             config = tfc.load(infra_dir=d)
-        self.assertEqual(config.ai_router_model_3_id_effective, "global.xai.grok-4.6")
+        self.assertEqual(config.ai_router_model_3_id_effective, "global.xai.grok-4.7")
         self.assertEqual(config.ai_router_model_3_name_effective, "Grok")
         self.assertTrue(config.main_tf_fallback_pattern_matched)
 
@@ -151,14 +151,14 @@ class TfvarsOverrideTests(unittest.TestCase):
         self.assertTrue(config.bedrock_live_for_chat)
 
     def test_quoted_string_with_dots_unquotes_correctly(self):
-        tfvars = 'ai_router_model_3_id   = "global.xai.grok-4.6"\nai_router_model_3_name = "Grok"\n'
+        tfvars = 'ai_router_model_3_id   = "global.xai.grok-4.7"\nai_router_model_3_name = "Grok"\n'
         with tempfile.TemporaryDirectory() as d:
             _write(d, "variables.tf", _VARIABLES_TF)
             _write(d, "terraform.tfvars", tfvars)
             config = tfc.load(infra_dir=d)
-        self.assertEqual(config.ai_router_model_3_id.value, "global.xai.grok-4.6")
+        self.assertEqual(config.ai_router_model_3_id.value, "global.xai.grok-4.7")
         self.assertEqual(config.ai_router_model_3_name.value, "Grok")
-        self.assertEqual(config.ai_router_model_3_id_effective, "global.xai.grok-4.6")
+        self.assertEqual(config.ai_router_model_3_id_effective, "global.xai.grok-4.7")
 
 
 class EnvVarPrecedenceTests(unittest.TestCase):
@@ -234,10 +234,10 @@ class SlotOneAndTwoTests(unittest.TestCase):
         config = tfc.load(infra_dir=repo_infra)
         self.assertTrue(config.variables_tf_found)
         self.assertTrue(config.main_tf_fallback_pattern_matched)
-        self.assertEqual(config.ai_router_model_1_id_effective, "anthropic.claude-sonnet-4-6")
-        self.assertEqual(config.ai_router_model_1_name_effective, "Claude Sonnet 4.6")
-        self.assertEqual(config.ai_router_model_2_id_effective, "anthropic.claude-opus-4-7")
-        self.assertEqual(config.ai_router_model_2_name_effective, "Claude Opus 4.7")
+        self.assertEqual(config.ai_router_model_1_id_effective, "global.anthropic.claude-sonnet-5-5")
+        self.assertEqual(config.ai_router_model_1_name_effective, "Claude Sonnet 5.5")
+        self.assertEqual(config.ai_router_model_2_id_effective, "global.anthropic.claude-opus-5-5")
+        self.assertEqual(config.ai_router_model_2_name_effective, "Claude Opus 5.5")
         self.assertEqual(config.ai_router_model_3_id_effective, "global.xai.grok-4.7")
         self.assertFalse(config.bedrock_live_for_chat)
 
@@ -246,8 +246,8 @@ class SlotOneAndTwoTests(unittest.TestCase):
             _write(d, "variables.tf", _VARIABLES_TF)
             _write(d, "main.tf", _MAIN_TF)
             config = tfc.load(infra_dir=d)
-        self.assertEqual(config.ai_router_model_1_id_effective, "anthropic.claude-sonnet-4-6")
-        self.assertEqual(config.ai_router_model_2_id_effective, "anthropic.claude-opus-4-7")
+        self.assertEqual(config.ai_router_model_1_id_effective, "global.anthropic.claude-sonnet-5-5")
+        self.assertEqual(config.ai_router_model_2_id_effective, "global.anthropic.claude-opus-5-5")
         self.assertEqual(config.ai_router_model_1_id.source, "not_found")
 
 
@@ -262,7 +262,7 @@ class ToDictTests(unittest.TestCase):
         reloaded = json.loads(json.dumps(payload))
         self.assertEqual(reloaded["aria_bedrock_enabled"]["value"], False)
         self.assertEqual(reloaded["bedrock_live_for_chat"], False)
-        self.assertEqual(reloaded["ai_router_model_3_id_effective"], "global.xai.grok-4.6")
+        self.assertEqual(reloaded["ai_router_model_3_id_effective"], "global.xai.grok-4.7")
 
 
 class RenderTextTests(unittest.TestCase):

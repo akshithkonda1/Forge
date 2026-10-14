@@ -13,10 +13,14 @@ import Foundation
 ///    duration × intensity. Comparable across days, sports, and people
 ///    because it's anchored to *your* history, not a population table.
 ///
-/// 2. **Acute:chronic workload ratio (ACWR)** — this week's load divided by
-///    the 4-week average. Sports science's best-validated injury-risk
-///    signal (the "sweet spot" is 0.8–1.3; above 1.5 is the danger zone).
-///    Pro teams live by it. No consumer app shows it.
+/// 2. **Acute:chronic workload ratio (ACWR)** — recent load against what
+///    you are used to (the "sweet spot" is 0.8–1.3; above 1.5 is the danger
+///    zone). Computed with exponentially weighted moving averages (7-day
+///    acute, 28-day chronic; Williams et al. 2017), not rolling sums: a
+///    rolling average weights a session from 27 days ago the same as
+///    yesterday's and then drops it abruptly when it leaves the window, and
+///    the coupled 7:28 ratio puts this week inside its own denominator.
+///    EWMA lets each session's effect fade, which is how fatigue behaves.
 ///
 /// Pure value types, no I/O — the app maps its `WorkoutHistory` into
 /// `Session` and reads back `LoadPicture`.
@@ -80,9 +84,10 @@ public enum TrainingLoadModel {
         public var days: [DayLoad]
         /// Mean daily strain over the last 7 days.
         public var acuteLoad: Double
-        /// Mean daily strain over the last 28 days.
+        /// Mean daily strain over the last 28 days (0 when there is no
+        /// history in that window).
         public var chronicLoad: Double
-        /// Acute ÷ chronic. Nil when 28-day history is too short.
+        /// EWMA acute ÷ EWMA chronic. Nil when history is too short.
         public var acwr: Double?
         /// Plain-language read on the ratio.
         public var acwrVerdict: String?
@@ -130,23 +135,34 @@ public enum TrainingLoadModel {
         let last7 = days.suffix(7)
         let acute = last7.reduce(0) { $0 + $1.strain } / 7.0
 
-        // Chronic needs 28 days of sessions; we only chart 14, so compute
-        // the 28-day mean directly from the session list.
-        let cutoff28 = calendar.date(byAdding: .day, value: -28, to: referenceDate) ?? referenceDate
-        let recent28 = sessions.filter { $0.date >= cutoff28 }
+        // Daily strain for the last 56 days (two chronic windows), so the
+        // 28-day EWMA has history to settle on. Days before the first logged
+        // session are not "rest" — they are before the person started
+        // logging — so the series starts at the first session.
+        let today = calendar.startOfDay(for: referenceDate)
+        var dailyStrain: [Double] = []
+        var started = false
+        var sessionsLast28 = 0
+        var chronicSum = 0.0
+        for offset in (0..<56).reversed() {
+            guard let date = calendar.date(byAdding: .day, value: -offset, to: today) else { continue }
+            let strain = strainByDay[dayFormatter.string(from: date)] ?? 0
+            if offset < 28 {
+                chronicSum += strain
+                sessionsLast28 += countByDay[dayFormatter.string(from: date)] ?? 0
+            }
+            if strain > 0 { started = true }
+            if started { dailyStrain.append(strain) }
+        }
+        let chronic = sessionsLast28 > 0 ? chronicSum / 28.0 : 0
+
         var acwr: Double?
         var verdict: String?
-        if recent28.count >= 8 {
-            var daily28: [String: Double] = [:]
-            for s in recent28 {
-                daily28[dayFormatter.string(from: s.date), default: 0] += s.strain
-            }
-            let chronic = daily28.values.reduce(0, +) / 28.0
-            if chronic > 0.5 {
-                let ratio = acute / chronic
-                acwr = ratio
-                verdict = verdictForACWR(ratio)
-            }
+        // Same evidence bar as before: at least 8 sessions in 28 days and a
+        // chronic base that is more than noise.
+        if sessionsLast28 >= 8, let ratio = ewmaACWR(dailyStrain) {
+            acwr = ratio
+            verdict = verdictForACWR(ratio)
         }
 
         // Heavy streak ending today.
@@ -158,11 +174,30 @@ public enum TrainingLoadModel {
         return LoadPicture(
             days: days,
             acuteLoad: acute,
-            chronicLoad: recent28.isEmpty ? 0 : (acwr.map { acute / $0 } ?? 0),
+            chronicLoad: chronic,
             acwr: acwr,
             acwrVerdict: verdict,
             heavyStreak: streak
         )
+    }
+
+    /// EWMA smoothing for a window of N days: λ = 2 / (N + 1).
+    public static let acuteLambda = 2.0 / (7.0 + 1.0)
+    public static let chronicLambda = 2.0 / (28.0 + 1.0)
+
+    /// Acute ÷ chronic exponentially weighted load over a daily series
+    /// (oldest → newest). Both averages start at the first day's value.
+    /// Nil when the chronic average is too small to divide by (≤ 0.5).
+    public static func ewmaACWR(_ dailyStrain: [Double]) -> Double? {
+        guard let first = dailyStrain.first else { return nil }
+        var acute = first
+        var chronic = first
+        for value in dailyStrain.dropFirst() {
+            acute = acuteLambda * value + (1 - acuteLambda) * acute
+            chronic = chronicLambda * value + (1 - chronicLambda) * chronic
+        }
+        guard chronic > 0.5 else { return nil }
+        return acute / chronic
     }
 
     private static func verdictForACWR(_ ratio: Double) -> String {

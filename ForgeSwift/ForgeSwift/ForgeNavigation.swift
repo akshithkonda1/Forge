@@ -66,12 +66,12 @@ enum ForgePrimaryDestination: String, CaseIterable, Identifiable {
         case .home: return .ember
         case .workout: return Color(hex: "F97316")
         case .chat: return Color(hex: "38BDF8")
-        case .lifestyle: return Color(hex: "22C55E")
-        case .sleep: return Color(hex: "A855F7")
-        case .progress: return Color(hex: "3B82F6")
+        case .lifestyle: return Color.vitality
+        case .sleep: return Color.aurora
+        case .progress: return Color.steel
         case .profile: return .steel
         case .cycleHealth: return Color(hex: "EC4899")
-        case .hydration: return Color(hex: "4A9EFF")
+        case .hydration: return Color.steel
         }
     }
 
@@ -163,7 +163,7 @@ struct ForgePageHeader: View {
 
     var body: some View {
         HStack(alignment: .firstTextBaseline, spacing: FDS.Spacing.md) {
-            VStack(alignment: .leading, spacing: 6) {
+            VStack(alignment: .leading, spacing: FDS.Spacing.sm) {
                 Text(title)
                     .font(ForgeType.pageTitle)
                     .foregroundColor(.textPrimary)
@@ -176,7 +176,7 @@ struct ForgePageHeader: View {
             Spacer(minLength: 8)
             trailing
         }
-        .padding(.top, 8)
+        .padding(.top, FDS.Spacing.sm)
         .accessibilityElement(children: .combine)
     }
 }
@@ -219,7 +219,7 @@ struct ForgePrimaryButton: View {
             FDS.haptic(.primaryCTA)
             action()
         } label: {
-            HStack(spacing: 10) {
+            HStack(spacing: FDS.Spacing.md) {
                 if let icon {
                     Image(systemName: icon)
                         .font(.system(size: ForgeUX.icon, weight: .semibold))
@@ -231,7 +231,7 @@ struct ForgePrimaryButton: View {
                     .font(.system(size: 14, weight: .semibold))
             }
             .foregroundColor(.white)
-            .padding(.horizontal, 22)
+            .padding(.horizontal, FDS.Spacing.xl)
             .frame(minHeight: ForgeUX.minTap + 8)
             .background {
                 ZStack {
@@ -265,7 +265,7 @@ struct ForgeEmptyStateCard: View {
     var action: (() -> Void)? = nil
 
     var body: some View {
-        VStack(spacing: 16) {
+        VStack(spacing: FDS.Spacing.lg) {
             ZStack {
                 Circle()
                     .fill(
@@ -300,7 +300,7 @@ struct ForgeEmptyStateCard: View {
                     Text(cta)
                         .font(ForgeType.headline)
                         .foregroundColor(.white)
-                        .padding(.horizontal, 22)
+                        .padding(.horizontal, FDS.Spacing.xl)
                         .frame(minHeight: ForgeUX.minTap)
                         .background(
                             LinearGradient(
@@ -317,7 +317,7 @@ struct ForgeEmptyStateCard: View {
             }
         }
         .frame(maxWidth: .infinity)
-        .padding(28)
+        .padding(FDS.Spacing.xl)
         .forgeGlassCard(accent: accent)
     }
 }
@@ -339,9 +339,9 @@ struct ForgeExploreDestinationsGrid: View {
                     UIImpactFeedbackGenerator(style: .light).impactOccurred()
                     store.openDestination(dest)
                 } label: {
-                    HStack(spacing: 12) {
+                    HStack(spacing: FDS.Spacing.md) {
                         ZStack {
-                            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                            RoundedRectangle(cornerRadius: FDS.Radius.md, style: .continuous)
                                 .fill(dest.accent.opacity(0.16))
                                 .frame(width: 40, height: 40)
                             Image(systemName: dest.systemImage)
@@ -350,18 +350,18 @@ struct ForgeExploreDestinationsGrid: View {
                         }
                         VStack(alignment: .leading, spacing: 2) {
                             Text(dest.title)
-                                .font(.system(size: 14, weight: .semibold, design: .rounded))
+                                .font(FDS.TypeScale.Dynamic.body.weight(.semibold))
                                 .foregroundColor(.textPrimary)
                                 .lineLimit(1)
                             Text(dest.subtitle)
-                                .font(.system(size: 11, weight: .medium, design: .rounded))
+                                .font(FDS.TypeScale.Dynamic.micro)
                                 .foregroundColor(.textTertiary)
                                 .lineLimit(2)
                         }
                         Spacer(minLength: 0)
                     }
-                    .padding(12)
-                    .forgeGlassCard(cornerRadius: 14, accent: dest.accent)
+                    .padding(FDS.Spacing.md)
+                    .forgeGlassCard(cornerRadius: FDS.Radius.md, accent: dest.accent)
                 }
                 .buttonStyle(.plain)
                 .accessibilityLabel("Open \(dest.title)")

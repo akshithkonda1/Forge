@@ -3489,11 +3489,13 @@ def build_user_prompt(message: str, ctx: ARIAContext, restricted: list[str] | No
 # fails because Bedrock is unreachable. Bedrock is opt-in via ``ARIA_BEDROCK_ENABLED``
 # so the default/offline path (and CI) stay hermetic.
 
-# Concrete Bedrock model id backing each routing class. The ``anthropic.`` prefix
-# is required by the Bedrock Converse API (mirrors ai_router / query_router).
+# Concrete Bedrock model id backing each routing class (mirrors ai_router /
+# query_router). Claude 5.x on bedrock-runtime is served through cross-region
+# inference profiles (``global.`` / ``us.``), not an in-Region id. Override per
+# environment with ARIA_LIVE_MODEL_PRIMARY_ID / ARIA_LIVE_MODEL_FAST_ID.
 LIVE_MODEL_IDS = {
-    MODEL_PRIMARY: "anthropic.claude-opus-4-8",
-    MODEL_FAST: "anthropic.claude-sonnet-4-6",
+    MODEL_PRIMARY: os.getenv("ARIA_LIVE_MODEL_PRIMARY_ID", "").strip() or "global.anthropic.claude-opus-5-5",
+    MODEL_FAST: os.getenv("ARIA_LIVE_MODEL_FAST_ID", "").strip() or "global.anthropic.claude-sonnet-5-5",
 }
 LIVE_MAX_TOKENS = 700
 LIVE_TEMPERATURE = 0.3

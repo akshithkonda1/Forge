@@ -118,8 +118,8 @@ function MessageBubble({
           className={cn(
             "px-4 py-3 text-sm leading-relaxed",
             isTrainer
-              ? "rounded-2xl rounded-bl-sm bg-surface-elevated text-white"
-              : "rounded-2xl rounded-br-sm bg-ember text-white"
+              ? "rounded-2xl rounded-bl-sm bg-surface-elevated text-text-primary"
+              : "rounded-2xl rounded-br-sm bg-ember text-text-primary"
           )}
         >
           <p className="whitespace-pre-wrap">{message.content}</p>
@@ -133,7 +133,7 @@ function MessageBubble({
         )}
 
         {/* Timestamp */}
-        <span className="px-1 text-[10px] text-text-tertiary">
+        <span className="px-1 type-micro text-text-tertiary">
           {formatChatTime(message.timestamp)}
         </span>
       </div>
@@ -365,7 +365,7 @@ export function ChatPage() {
             </div>
 
             <div>
-              <h1 className="text-base font-semibold text-text-primary">ARIA</h1>
+              <h1 className="type-headline text-text-primary">ARIA</h1>
               <div className="flex items-center gap-1.5">
                 <span className="h-1.5 w-1.5 rounded-full bg-ember" />
                 <span className="text-xs text-text-tertiary">
@@ -497,7 +497,7 @@ export function ChatPage() {
               className={cn(
                 "absolute right-1.5 top-1/2 -translate-y-1/2 flex h-8 w-8 items-center justify-center rounded-xl transition-colors",
                 inputValue.trim() && !isTyping
-                  ? "bg-ember text-white shadow-[0_0_12px_rgba(255,77,0,0.3)]"
+                  ? "bg-ember text-text-primary shadow-[0_0_12px_rgba(255,77,0,0.3)]"
                   : "bg-transparent text-text-muted"
               )}
               whileTap={inputValue.trim() && !isTyping ? { scale: 0.9 } : {}}

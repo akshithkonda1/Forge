@@ -11,7 +11,7 @@ export function AiSleepInsight() {
   return (
     <motion.div
       className={cn(
-        "rounded-xl border border-border bg-surface",
+        "rounded-2xl bg-surface",
         "border-l-2 border-l-ember",
         "p-4"
       )}

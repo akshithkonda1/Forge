@@ -258,11 +258,11 @@ variable "aria_bedrock_enabled" {
 
 variable "ai_router_model_1_id" {
   description = <<-EOT
-    Bedrock model id for router slot 1. Empty keeps anthropic.claude-sonnet-4-6
-    (ai_router.default_models()). Inert while aria_bedrock_enabled is false.
-    A later Sonnet 5 swap is us.anthropic.claude-sonnet-5 or
-    global.anthropic.claude-sonnet-5 on bedrock-runtime from us-east-1
-    (In-Region runtime is not supported — official Sonnet 5 card).
+    Bedrock model id for router slot 1. Empty keeps
+    global.anthropic.claude-sonnet-5-5 (ai_router.default_models()). Inert
+    while aria_bedrock_enabled is false. US-only residency is
+    us.anthropic.claude-sonnet-5-5; In-Region runtime is not supported for
+    Claude 5.x on bedrock-runtime.
   EOT
   type        = string
   default     = ""
@@ -276,10 +276,10 @@ variable "ai_router_model_1_name" {
 
 variable "ai_router_model_2_id" {
   description = <<-EOT
-    Bedrock model id for router slot 2. Empty keeps anthropic.claude-opus-4-7
-    (ai_router.default_models()). Inert while aria_bedrock_enabled is false.
-    A later Opus 5 swap is us.anthropic.claude-opus-5 or
-    global.anthropic.claude-opus-5 on bedrock-runtime from us-east-1.
+    Bedrock model id for router slot 2. Empty keeps
+    global.anthropic.claude-opus-5-5 (ai_router.default_models()). Inert
+    while aria_bedrock_enabled is false. US-only residency is
+    us.anthropic.claude-opus-5-5.
   EOT
   type        = string
   default     = ""

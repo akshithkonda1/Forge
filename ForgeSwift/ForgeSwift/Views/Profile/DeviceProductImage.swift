@@ -73,7 +73,7 @@ struct DeviceArtworkStack: View {
         let shown = Array(devices.prefix(3))
         ZStack(alignment: .leading) {
             ForEach(Array(shown.enumerated()), id: \.offset) { index, device in
-                DeviceProductImage(device: device, size: size, cornerRadius: 10)
+                DeviceProductImage(device: device, size: size, cornerRadius: FDS.Radius.sm)
                     .offset(x: CGFloat(index) * (size * 0.42))
                     .zIndex(Double(shown.count - index))
             }

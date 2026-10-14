@@ -125,7 +125,7 @@ struct HomeAgendaCard: View {
             "drop.fill",
             "Hydration",
             "Log water and keep the pace",
-            Color(hex: "4A9EFF"),
+            Color.steel,
             { store.openHydration() }
         ))
 
@@ -224,11 +224,11 @@ struct HomeLifestylePreviewCard: View {
                     Spacer()
                     if let snap = QualityOfLifeLivingStore.load() {
                         Text("QoL \(snap.overall) · \(snap.qualityBand.label)")
-                            .font(FDS.TypeScale.label(12))
+                            .font(FDS.TypeScale.Dynamic.caption)
                             .foregroundStyle(snap.qualityBand.color)
                     } else {
                         Text("Open")
-                            .font(FDS.TypeScale.label(12))
+                            .font(FDS.TypeScale.Dynamic.caption)
                             .foregroundStyle(Color.vitality)
                     }
                 }
@@ -259,7 +259,7 @@ struct HomeLifestylePreviewCard: View {
                             return glasses > 0 ? String(format: "%.1f", glasses) : "—"
                         }(),
                         label: "Water",
-                        color: Color(hex: "4A9EFF")
+                        color: Color.steel
                     )
                 }
 
@@ -268,7 +268,7 @@ struct HomeLifestylePreviewCard: View {
                         .font(.system(size: 12, weight: .semibold))
                         .foregroundStyle(Color.amber)
                     Text(hobbyPreview)
-                        .font(FDS.TypeScale.body(12))
+                        .font(FDS.TypeScale.Dynamic.caption)
                         .foregroundColor(.textTertiary)
                         .lineLimit(2)
                     Spacer(minLength: 0)
@@ -297,12 +297,12 @@ struct HomeLifestylePreviewCard: View {
                 .font(.system(size: 14, weight: .semibold))
                 .foregroundStyle(color)
             Text(value)
-                .font(.system(size: 16, weight: .bold))
+                .font(FDS.TypeScale.Dynamic.headline)
                 .foregroundColor(.textPrimary)
                 .lineLimit(1)
                 .minimumScaleFactor(0.8)
             Text(label)
-                .font(.system(size: 11, weight: .medium))
+                .font(FDS.TypeScale.Dynamic.micro)
                 .foregroundColor(.textTertiary)
         }
         .frame(maxWidth: .infinity, alignment: .leading)

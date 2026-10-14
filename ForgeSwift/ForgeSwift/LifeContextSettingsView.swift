@@ -32,14 +32,14 @@ struct LifeContextSettingsSection: View {
         VStack(alignment: .leading, spacing: 0) {
             Text("Life Context")
                 .forgeSectionLabel()
-                .padding(.top, 28)
-                .padding(.bottom, 10)
+                .padding(.top, FDS.Spacing.xl)
+                .padding(.bottom, FDS.Spacing.md)
                 .accessibilityAddTraits(.isHeader)
             Text("Optional, and on this iPhone. ARIA reads counts and short facts — never a reminder title, a message, or a calendar title. Mail and GitHub stay off this phone.")
                 .font(.system(size: 12))
                 .foregroundColor(.textTertiary)
                 .fixedSize(horizontal: false, vertical: true)
-                .padding(.bottom, 10)
+                .padding(.bottom, FDS.Spacing.md)
 
             SectionCard {
                 remindersRow
@@ -201,8 +201,8 @@ struct LifeContextSettingsSection: View {
             .foregroundColor(color)
             .fixedSize(horizontal: false, vertical: true)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .padding(.horizontal, 16)
-            .padding(.bottom, 12)
+            .padding(.horizontal, FDS.Spacing.lg)
+            .padding(.bottom, FDS.Spacing.md)
     }
 }
 
@@ -220,7 +220,7 @@ struct LifeContextKnowledgeView: View {
 
     var body: some View {
         ScrollView {
-            VStack(alignment: .leading, spacing: 16) {
+            VStack(alignment: .leading, spacing: FDS.Spacing.lg) {
                 Text("Forge keeps short facts it wrote itself — never your messages. ARIA reads them on this iPhone only.")
                     .font(.system(size: 14))
                     .foregroundColor(.textSecondary)
@@ -265,7 +265,7 @@ struct LifeContextKnowledgeView: View {
                         .accessibilityLabel("Error: \(error)")
                 }
             }
-            .padding(20)
+            .padding(FDS.Spacing.lg)
         }
         .background(Color.background.ignoresSafeArea())
         .navigationTitle("What Forge knows")
@@ -313,29 +313,28 @@ struct LifeContextKnowledgeView: View {
                 .font(.system(size: 12))
                 .foregroundColor(.textTertiary)
                 .fixedSize(horizontal: false, vertical: true)
-            HStack(spacing: 12) {
+            HStack(spacing: FDS.Spacing.md) {
                 Button {
                     store.rememberPending()
                 } label: {
                     Text("Remember")
-                        .font(.system(size: 15, weight: .semibold))
+                        .font(FDS.TypeScale.Dynamic.body.weight(.semibold))
                         .foregroundColor(.white)
                         .frame(maxWidth: .infinity)
                         .frame(height: 44)
                         .background(Color.ember)
-                        .cornerRadius(12)
+                        .cornerRadius(FDS.Radius.md)
                 }
                 .accessibilityLabel("Remember these facts")
                 Button {
                     store.discardPending()
                 } label: {
                     Text("Discard")
-                        .font(.system(size: 15, weight: .semibold))
+                        .font(FDS.TypeScale.Dynamic.body.weight(.semibold))
                         .foregroundColor(.textPrimary)
                         .frame(maxWidth: .infinity)
                         .frame(height: 44)
-                        .background(Color.surfaceElevated)
-                        .cornerRadius(12)
+                        .forgeInsetTile(radius: FDS.Radius.md)
                 }
                 .accessibilityLabel("Discard these facts")
             }
@@ -385,7 +384,7 @@ struct LifeContextKnowledgeView: View {
                 }
             } label: {
                 Text(store.isProcessing ? "Reading…" : "Load synthetic conversation")
-                    .font(.system(size: 14, weight: .semibold))
+                    .font(FDS.TypeScale.Dynamic.body.weight(.semibold))
                     .foregroundColor(store.settings.messagesEnabled ? Color.ember : Color.textMuted)
             }
             .disabled(!store.settings.messagesEnabled || store.isProcessing)
@@ -402,20 +401,20 @@ struct LifeContextKnowledgeView: View {
         accent: Color,
         @ViewBuilder content: () -> Content
     ) -> some View {
-        VStack(alignment: .leading, spacing: 10) {
+        VStack(alignment: .leading, spacing: FDS.Spacing.md) {
             Text(title)
-                .font(.system(size: 13, weight: .semibold))
+                .font(FDS.TypeScale.Dynamic.caption)
                 .foregroundColor(.textSecondary)
                 .accessibilityAddTraits(.isHeader)
             content()
         }
-        .padding(16)
+        .padding(FDS.Spacing.lg)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .forgeGlassCard(cornerRadius: 16, accent: accent)
+        .forgeGlassCard(cornerRadius: FDS.Radius.lg, accent: accent)
     }
 
     private func factRow(_ fact: LifeContextFact, deletable: Bool) -> some View {
-        HStack(alignment: .top, spacing: 12) {
+        HStack(alignment: .top, spacing: FDS.Spacing.md) {
             Image(systemName: Self.icon(for: fact.kind))
                 .font(.system(size: 14, weight: .semibold))
                 .foregroundColor(.ember)
@@ -423,7 +422,7 @@ struct LifeContextKnowledgeView: View {
                 .accessibilityHidden(true)
             VStack(alignment: .leading, spacing: 3) {
                 Text(fact.summary)
-                    .font(.system(size: 14, weight: .medium))
+                    .font(FDS.TypeScale.Dynamic.body)
                     .foregroundColor(.textPrimary)
                     .fixedSize(horizontal: false, vertical: true)
                 Text(Self.detail(for: fact))

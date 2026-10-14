@@ -229,6 +229,12 @@ final class AppStore: ObservableObject {
     
     // Streak tracking — consecutive calendar days with a completed session.
     @Published var currentStreak: Int = 0
+
+    /// What Health said about last night and this person's normal — overnight
+    /// HRV, resting HR, staged sleep, 60-day personal baselines. Read with the
+    /// same `ForgeHealthQueries.readinessContext` the Watch uses, so Home and
+    /// the wrist compute one number with one formula.
+    var readinessHealthContext = ReadinessHealthContext()
     
     // AI Configuration
     @Published var aiModelAvailable: Bool = false
