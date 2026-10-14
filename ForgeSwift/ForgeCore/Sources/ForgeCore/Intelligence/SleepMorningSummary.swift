@@ -11,7 +11,7 @@ public enum SleepCoachCopy {
     public static let disclaimer = "Lifestyle coaching from your nights. \(medicalLine)"
     public static let stillLearning = "ARIA is still learning your rhythm — a few more nights and tonight's bedtime gets personal."
     public static let dimRoomCue = "Lights and screens down. A bright kitchen keeps the day going."
-    public static let environmentHint = "Show ARIA the room — light and clutter are lifestyle cues."
+    public static let environmentHint = "A photo of the room helps ARIA notice light and clutter."
 
     public static let bannedPhrases = [
         "recovery week", "Adaptive Recovery", "insomnia", "disorder", "diagnosis",

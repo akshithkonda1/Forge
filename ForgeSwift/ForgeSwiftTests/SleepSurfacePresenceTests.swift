@@ -132,6 +132,9 @@ final class SleepSurfacePresenceTests: XCTestCase {
         XCTAssertFalse(SleepLifestyleCopy.disclaimer.localizedCaseInsensitiveContains("not a doctor"))
         XCTAssertNil(SleepCoachCopy.containsBannedPhrase(SleepLifestyleCopy.disclaimer))
         XCTAssertNil(SleepCoachCopy.containsBannedPhrase(SleepLifestyleCopy.stillLearning))
+        XCTAssertEqual(SleepLifestyleCopy.environmentHint, SleepCoachCopy.environmentHint)
+        XCTAssertFalse(SleepLifestyleCopy.environmentHint.localizedCaseInsensitiveContains("medical assessment"))
+        XCTAssertFalse(SleepLifestyleCopy.environmentHint.localizedCaseInsensitiveContains("clutter are lifestyle"))
     }
 
     func testResearchHooksWaitForTheBrief() {

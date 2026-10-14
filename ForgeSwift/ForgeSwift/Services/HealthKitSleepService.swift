@@ -126,7 +126,9 @@ final class HealthKitSleepService: ObservableObject {
         }
         refreshTask = task
         await task.value
-        refreshTask = nil
+        if refreshTask == task {
+            refreshTask = nil
+        }
     }
 
     private func runRefresh(into store: AppStore, days: Int, force: Bool) async {

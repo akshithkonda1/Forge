@@ -46,7 +46,7 @@ final class HomeWidgetSnapshotTests: XCTestCase {
         var second = first
         second.updatedAt = Date(timeIntervalSince1970: 99)
         WatchSnapshotStore.save(second, reloadWidgets: false)
-        XCTAssertEqual(WatchSnapshotStore.load()?.updatedAt, Date(timeIntervalSince1970: 1))
+        XCTAssertEqual(WatchSnapshotStore.load()?.updatedAt, Date(timeIntervalSince1970: 99))
         XCTAssertTrue(first.hasSameWidgetContent(as: second))
         XCTAssertTrue(WatchSnapshotStore.watchWidgetKinds.contains("SleepQualityComplication"))
         XCTAssertFalse(WatchSnapshotStore.watchWidgetKinds.contains(where: { $0.isEmpty }))

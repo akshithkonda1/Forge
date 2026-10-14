@@ -296,7 +296,9 @@ enum ForgeNotificationScheduler {
         let content = UNMutableNotificationContent()
         content.title = title
         content.body = body
-        content.sound = .default
+        if interruptionLevel != .passive {
+            content.sound = .default
+        }
         content.interruptionLevel = interruptionLevel
         if let destination {
             content.userInfo = ["destination": destination]

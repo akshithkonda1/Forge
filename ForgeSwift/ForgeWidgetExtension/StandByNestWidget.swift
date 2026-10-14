@@ -26,10 +26,14 @@ struct StandByNestProvider: TimelineProvider {
     func getTimeline(in context: Context, completion: @escaping (Timeline<HomeWidgetEntry>) -> Void) {
         let snap = HomeWidgetSnapshotStore.load() ?? HomeWidgetSnapshot()
         let now = Date()
-        // `Text(date, style: .time)` on the face keeps the clock accurate.
-        // Snapshot writes already reload this kind, so one entry every 30 min is enough.
-        let entry = HomeWidgetEntry(date: now, snapshot: snap)
-        completion(Timeline(entries: [entry], policy: .after(now.addingTimeInterval(30 * 60))))
+        let calendar = Calendar.current
+        // Per-minute entries so the face clock (`Text(date, format:)`) advances.
+        // Snapshot writes already reload this kind; ~60 minutes then `.atEnd`.
+        let entries = (0..<60).compactMap { offset -> HomeWidgetEntry? in
+            calendar.date(byAdding: .minute, value: offset, to: now)
+                .map { HomeWidgetEntry(date: $0, snapshot: snap) }
+        }
+        completion(Timeline(entries: entries, policy: .atEnd))
     }
 }
 

@@ -252,9 +252,15 @@ struct SleepStatusDot: View {
             .frame(width: 6, height: 6)
             .shadow(color: color.opacity(kind == .off ? 0 : 0.55), radius: 4)
             .opacity(kind == .pulling && !reduceMotion && pulse ? 0.55 : 1)
-            .onAppear {
-                guard kind == .pulling, !reduceMotion else { return }
+            .task(id: kind) {
+                guard kind == .pulling, !reduceMotion else {
+                    pulse = false
+                    return
+                }
+                pulse = false
                 withAnimation(.easeOut(duration: 0.35)) { pulse = true }
+                try? await Task.sleep(nanoseconds: 400_000_000)
+                withAnimation(.easeIn(duration: 0.25)) { pulse = false }
             }
             .accessibilityLabel(accessibilityName)
     }

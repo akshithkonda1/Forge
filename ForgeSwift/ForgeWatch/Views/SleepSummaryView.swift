@@ -75,9 +75,11 @@ struct SleepSummaryView: View {
         HStack(alignment: .firstTextBaseline, spacing: ForgeDS.Spacing.sm) {
             Text(health.sleepSummary?.durationLabel ?? HomeWidgetSleepDisplay.emptyCopy)
                 .font(ForgeType.metric(28))
+                .minimumScaleFactor(0.7)
+                .lineLimit(1)
                 .foregroundStyle(ForgePalette.textPrimary)
             if let quality = health.sleepQuality, quality > 0 {
-                Text("quality \(quality) · est.")
+                Text("quality \(quality) · \(HomeWidgetSleepDisplay.estimateLabel)")
                     .font(ForgeType.Compact.caption)
                     .foregroundStyle(ForgePalette.indigo)
             }

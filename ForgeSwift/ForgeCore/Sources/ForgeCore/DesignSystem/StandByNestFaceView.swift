@@ -107,7 +107,7 @@ public struct StandByNestFaceView: View {
 
             Spacer(minLength: 0)
 
-            Text(date, style: .time)
+            Text(date, format: Self.timeFormat)
                 .font(.system(size: 13, weight: .medium, design: .rounded))
                 .monospacedDigit()
                 .foregroundStyle(clockColor.opacity(nightMode ? 0.85 : 0.6))

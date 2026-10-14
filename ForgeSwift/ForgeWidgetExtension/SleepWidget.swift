@@ -44,7 +44,7 @@ struct SleepWidgetView: View {
                     WidgetChrome.empty(HomeWidgetSleepDisplay.emptyCopy)
                 }
                 if let score = snap.sleepScore {
-                    Text("Score \(score) · est.")
+                    Text("Score \(score) · \(HomeWidgetSleepDisplay.estimateLabel)")
                         .font(ForgeType.Compact.caption)
                         .foregroundStyle(ForgePalette.violet)
                 }

@@ -105,19 +105,19 @@ public enum WatchSnapshotStore {
         return try? JSONDecoder().decode(WatchSnapshot.self, from: data)
     }
 
-    /// Persists the snapshot and nudges WidgetKit so complications refresh
-    /// promptly. `reloadWidgets` exists so unit tests can skip WidgetKit.
+    /// Persists the snapshot (including a fresher `updatedAt`) and nudges
+    /// WidgetKit so complications refresh promptly. Equal content still writes
+    /// so CycleGlanceCard is not stuck on a stale timestamp; WidgetKit reload
+    /// is what we skip. `reloadWidgets` exists so unit tests can skip WidgetKit.
     public static func save(_ snapshot: WatchSnapshot, reloadWidgets: Bool = true) {
-        if let existing = load(), existing.hasSameWidgetContent(as: snapshot) {
-            return
-        }
+        let sameContent = load().map { $0.hasSameWidgetContent(as: snapshot) } ?? false
         guard
             let defaults = UserDefaults(suiteName: appGroupID),
             let data = try? JSONEncoder().encode(snapshot)
         else { return }
         defaults.set(data, forKey: key)
         #if canImport(WidgetKit)
-        if reloadWidgets {
+        if reloadWidgets, !sameContent {
             for kind in watchWidgetKinds {
                 WidgetCenter.shared.reloadTimelines(ofKind: kind)
             }

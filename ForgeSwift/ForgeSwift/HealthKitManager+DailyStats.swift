@@ -596,73 +596,35 @@ extension HealthKitManager {
     }
 
     func fetchRecentSleepSessions(days: Int) async -> [SleepNightSample] {
-        let calendar = Calendar.current
-        let lookback = max(days, 30)
-        let windowStart = calendar.date(byAdding: .day, value: -lookback, to: Date()) ?? Date()
-        let sleepType = HKCategoryType(.sleepAnalysis)
-        let predicate = HKQuery.predicateForSamples(
-            withStart: windowStart,
-            end: Date(),
-            options: .strictStartDate
-        )
-
-        let (added, deleted, newAnchor): ([HKCategorySample], [UUID], HKQueryAnchor?) =
-            await withCheckedContinuation { continuation in
-                let query = HKAnchoredObjectQuery(
-                    type: sleepType,
-                    predicate: predicate,
-                    anchor: sleepQueryAnchor,
-                    limit: HKObjectQueryNoLimit
-                ) { _, added, deleted, newAnchor, _ in
-                    continuation.resume(returning: (
-                        (added as? [HKCategorySample]) ?? [],
-                        (deleted ?? []).map(\.uuid),
-                        newAnchor
-                    ))
-                }
-                healthStore.execute(query)
-            }
-
-        if let newAnchor {
-            sleepQueryAnchor = newAnchor
-        }
-
-        var changedKeys = Set<String>()
-        for id in deleted {
-            if let sample = sleepSamplesByUUID.removeValue(forKey: id) {
-                changedKeys.insert(Self.sleepNightDateKey(for: sample, calendar: calendar))
-            }
-        }
-        for sample in added {
-            sleepSamplesByUUID[sample.uuid] = sample
-            changedKeys.insert(Self.sleepNightDateKey(for: sample, calendar: calendar))
-        }
-        for (id, sample) in sleepSamplesByUUID where sample.endDate < windowStart {
-            changedKeys.insert(Self.sleepNightDateKey(for: sample, calendar: calendar))
-            sleepSamplesByUUID.removeValue(forKey: id)
-        }
-
-        if !changedKeys.isEmpty {
-            for key in changedKeys {
-                let samples = sleepSamplesByUUID.values.filter {
-                    Self.sleepNightDateKey(for: $0, calendar: calendar) == key
-                }
-                if let night = Self.makeSleepNightSamples(from: Array(samples), calendar: calendar).first {
-                    sleepNightsByDate[key] = night
-                } else {
-                    sleepNightsByDate.removeValue(forKey: key)
-                }
-            }
-        }
-
-        let cutoff = calendar.date(byAdding: .day, value: -days, to: Date()) ?? Date()
-        let cutoffKey = HomeTrendSeries.isoDateString(
-            HomeTrendSeries.nightKey(fromBedtime: cutoff, calendar: calendar),
-            calendar: calendar
-        )
-        return sleepNightsByDate.values
-            .filter { $0.date >= cutoffKey }
+        let nights = await ForgeHealthQueries.recentSleepNights(store: healthStore, days: days)
+        return nights.compactMap { Self.sleepNightSample(from: $0) }
             .sorted { $0.date > $1.date }
+    }
+
+    /// Maps the shared ForgeCore night (16-day anchored cache, no
+    /// `.strictStartDate`) onto the iOS session shape. Onset/wake ignore awake
+    /// so lying in bed does not drag the circadian bounds.
+    static func sleepNightSample(
+        from night: SleepNight,
+        calendar: Calendar = .current
+    ) -> SleepNightSample? {
+        guard night.totalMinutes > 0 else { return nil }
+        let asleep = night.segments.filter { $0.stage != .awake }
+        let bedtime = asleep.map(\.start).min() ?? night.start
+        guard let bedtime else { return nil }
+        return SleepNightSample(
+            date: HomeTrendSeries.isoDateString(
+                HomeTrendSeries.nightKey(fromBedtime: bedtime, calendar: calendar),
+                calendar: calendar
+            ),
+            totalHours: night.totalMinutes / 60,
+            deepMinutes: Int(night.deepMinutes.rounded()),
+            remMinutes: Int(night.remMinutes.rounded()),
+            lightMinutes: Int(night.coreMinutes.rounded()),
+            awakeMinutes: Int(night.awakeMinutes.rounded()),
+            onset: asleep.map(\.start).min(),
+            wake: asleep.map(\.end).max()
+        )
     }
 
     static func sleepNightDateKey(

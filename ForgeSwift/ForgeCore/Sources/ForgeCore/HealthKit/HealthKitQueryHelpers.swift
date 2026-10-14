@@ -254,12 +254,17 @@ public enum ForgeHealthQueries {
         return segments.max(by: { $0.end < $1.end })
     }
 
+    /// Shared iOS + Watch lookback. One anchored cache — not a 30-day iPhone
+    /// window plus a 16-day Watch window. The predicate is not `.strictStartDate`,
+    /// so a night that started just before the boundary still lands.
+    public static let sleepCacheLookbackDays = 16
+
     /// One-shot anchored sleep query. Anchor lives in memory for the process so
     /// a cold start still pays one full window; later tab opens only apply deltas
     /// and skip regrouping when the fingerprint is unchanged.
     @discardableResult
     public static func refreshSleepCache(store: HKHealthStore) async -> SleepQueryFingerprint {
-        let start = Calendar.current.date(byAdding: .day, value: -16, to: Date()) ?? Date()
+        let start = Calendar.current.date(byAdding: .day, value: -sleepCacheLookbackDays, to: Date()) ?? Date()
         let end = Date()
         let cache = SleepHKCache.shared
         cache.lock.lock()
@@ -322,7 +327,10 @@ public enum ForgeHealthQueries {
                 predicate: predicate,
                 anchor: anchor,
                 limit: HKObjectQueryNoLimit
-            ) { _, added, deleted, newAnchor, _ in
+            ) { _, added, deleted, newAnchor, error in
+                if let error {
+                    print("ForgeHealthQueries sleep query failed: \(error.localizedDescription)")
+                }
                 let samples = (added as? [HKCategorySample]) ?? []
                 let removed = (deleted ?? []).map(\.uuid)
                 continuation.resume(returning: (samples, removed, newAnchor))

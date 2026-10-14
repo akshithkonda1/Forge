@@ -37,7 +37,6 @@ enum WindDownScheduler {
         let content = UNMutableNotificationContent()
         content.title = "Wind-down window"
         content.body = "Tonight's window is opening. A few slow breaths now tilts the night your way — no pressure, just a good moment."
-        content.sound = .default
         content.interruptionLevel = .passive
         content.userInfo = ["destination": "forgewatch://mindfulness"]
 

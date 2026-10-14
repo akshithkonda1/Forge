@@ -635,7 +635,7 @@ struct SettingsPageView: View {
                     }
                     .buttonStyle(.plain)
                     Divider().background(Color.borderColor)
-                    SettingsRow(icon: "bell.fill", iconColor: .success, label: "Recovery Alerts") {
+                    SettingsRow(icon: "bell.fill", iconColor: .success, label: "Sleep alerts") {
                         ForgeToggle(isOn: notificationBinding(\.recoveryAlerts))
                     }
                     Divider().background(Color.borderColor)
