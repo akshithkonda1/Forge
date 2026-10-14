@@ -4,8 +4,8 @@ import ForgeCore
 // MARK: - BreathingOrb
 //
 // The heart of a mindfulness session. One TimelineView + one Canvas at
-// 30fps (comfortably smooth for breath-speed motion at a fraction of the
-// battery of 60fps; ProMotion isn't the bottleneck — breath is).
+// 12Hz (breath-speed motion; Reduce Motion / staticRendering pause the
+// timeline entirely so the wrist is not drawing idle frames).
 //
 // The orb's scale follows the breathing pattern exactly: it grows on
 // inhale, holds, and releases on exhale, easing with a sine curve so
@@ -33,7 +33,10 @@ struct BreathingOrb: View {
     private var staticRendering: Bool { reduceMotion || minimalAnimation }
 
     var body: some View {
-        TimelineView(.animation(minimumInterval: 1.0 / 30.0, paused: isPaused || luminanceReduced)) { timeline in
+        TimelineView(.animation(
+            minimumInterval: 1.0 / 12.0,
+            paused: isPaused || luminanceReduced || staticRendering
+        )) { timeline in
             let t = elapsed(timeline.date)
             let (phase, progress) = pattern.phase(at: t)
 

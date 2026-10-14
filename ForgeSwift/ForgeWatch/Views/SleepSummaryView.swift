@@ -73,12 +73,12 @@ struct SleepSummaryView: View {
 
     private var header: some View {
         HStack(alignment: .firstTextBaseline, spacing: ForgeDS.Spacing.sm) {
-            Text(health.sleepSummary?.durationLabel ?? "—")
+            Text(health.sleepSummary?.durationLabel ?? HomeWidgetSleepDisplay.emptyCopy)
                 .font(ForgeType.metric(28))
                 .foregroundStyle(ForgePalette.textPrimary)
             if let quality = health.sleepQuality, quality > 0 {
-                Text("quality \(quality)")
-                    .font(.system(size: 12, weight: .medium))
+                Text("quality \(quality) · est.")
+                    .font(ForgeType.Compact.caption)
                     .foregroundStyle(ForgePalette.indigo)
             }
             Spacer(minLength: 0)
@@ -89,7 +89,7 @@ struct SleepSummaryView: View {
 
     private var headerAccessibility: String {
         guard let night = health.sleepSummary else {
-            return "No sleep data yet for last night."
+            return HomeWidgetSleepDisplay.emptyCopy
         }
         var text = "Slept \(night.durationLabel)"
         if let quality = health.sleepQuality, quality > 0 {
@@ -104,7 +104,7 @@ struct SleepSummaryView: View {
                 HStack(spacing: 3) {
                     Circle().fill(stage.color).frame(width: 5, height: 5)
                     Text(stage.displayName)
-                        .font(.system(size: 9))
+                        .font(ForgeType.Compact.micro)
                         .foregroundStyle(ForgePalette.textTertiary)
                 }
             }
@@ -129,7 +129,7 @@ struct SleepSummaryView: View {
     private var factorChips: some View {
         VStack(alignment: .leading, spacing: ForgeDS.Spacing.sm) {
             Text("Anything shape last night? (just context, never judged)")
-                .font(.system(size: 11))
+                .font(ForgeType.Compact.caption)
                 .foregroundStyle(ForgePalette.textTertiary)
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: ForgeDS.Spacing.sm) {
@@ -139,7 +139,7 @@ struct SleepSummaryView: View {
                             contextEngine.toggleSleepFactor(factor)
                         } label: {
                             Label(factor.label, systemImage: factor.symbolName)
-                                .font(.system(size: 11, weight: .medium))
+                                .font(ForgeType.Compact.caption)
                                 .lineLimit(1)
                                 .padding(.horizontal, ForgeDS.Spacing.sm)
                                 .padding(.vertical, 5)

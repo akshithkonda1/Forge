@@ -26,16 +26,10 @@ struct StandByNestProvider: TimelineProvider {
     func getTimeline(in context: Context, completion: @escaping (Timeline<HomeWidgetEntry>) -> Void) {
         let snap = HomeWidgetSnapshotStore.load() ?? HomeWidgetSnapshot()
         let now = Date()
-        let calendar = Calendar.current
-        // Data only changes when the app writes a new snapshot, which already
-        // forces an immediate reload via `WidgetCenter.shared.reloadAllTimelines()`.
-        // These per-minute entries exist so the clock stays accurate in
-        // between — StandBy is a nightstand clock first, a data face second.
-        let entries = (0..<20).compactMap { offset -> HomeWidgetEntry? in
-            calendar.date(byAdding: .minute, value: offset, to: now)
-                .map { HomeWidgetEntry(date: $0, snapshot: snap) }
-        }
-        completion(Timeline(entries: entries, policy: .atEnd))
+        // `Text(date, style: .time)` on the face keeps the clock accurate.
+        // Snapshot writes already reload this kind, so one entry every 30 min is enough.
+        let entry = HomeWidgetEntry(date: now, snapshot: snap)
+        completion(Timeline(entries: [entry], policy: .after(now.addingTimeInterval(30 * 60))))
     }
 }
 
