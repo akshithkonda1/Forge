@@ -150,7 +150,7 @@ enum AdaptiveEngine {
         targetReps: Int, targetRPE: Int, baseRest: Int, currentWeight: Int,
         lastRPE: Int?, lastReps: Int?,
         readiness: ReadinessData, experience: ExperienceLevel,
-        currentHR: Int?, hrZone: Int, spO2: Int?,
+        currentHR: Int?, hrZone: Int?, spO2: Int?,
         painSeverity: Int?, painLocation: String?
     ) -> SetRecommendation {
         var rec = SetRecommendation(weightDelta: 0, repTarget: targetReps, restSeconds: baseRest,
@@ -178,7 +178,7 @@ enum AdaptiveEngine {
             rec.rationale = "O₂ dipped to \(spO2)%. Breathe it back above 95% before the next set."
             return rec
         }
-        if let currentHR, hrZone >= 5 {
+        if let currentHR, let hrZone, hrZone >= 5 {
             rec.primaryAction = .extendRest(30)
             rec.restSeconds = baseRest + 30
             rec.rationale = "HR is in Zone 5 (\(currentHR) bpm). +30s rest so strength output stays high."

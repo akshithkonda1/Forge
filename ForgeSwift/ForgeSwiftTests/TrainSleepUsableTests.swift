@@ -1,4 +1,5 @@
 import XCTest
+import HealthKit
 import ForgeCore
 @testable import ForgeSwift
 
@@ -34,13 +35,13 @@ final class TrainSleepUsableTests: XCTestCase {
 
     func testSetRecommendationTreatsMissingVitalsAsNoReading() {
         let ready = ReadinessData(overall: 75, sleepQuality: 75, recoveryScore: 75, stressLevel: 40, energyBank: 70)
-        func recommend(hr: Int?, zone: Int, spO2: Int?) -> SetRecommendation {
+        func recommend(hr: Int?, zone: Int?, spO2: Int?) -> SetRecommendation {
             AdaptiveEngine.recommend(
                 definition: nil, targetReps: 8, targetRPE: 8, baseRest: 90, currentWeight: 100,
                 lastRPE: nil, lastReps: nil, readiness: ready, experience: .intermediate,
                 currentHR: hr, hrZone: zone, spO2: spO2, painSeverity: nil, painLocation: nil)
         }
-        let unknown = recommend(hr: nil, zone: 0, spO2: nil)
+        let unknown = recommend(hr: nil, zone: nil, spO2: nil)
         XCTAssertEqual(unknown.primaryAction, .hold)
         XCTAssertFalse(unknown.rationale.contains("O₂"), unknown.rationale)
         XCTAssertEqual(recommend(hr: nil, zone: 5, spO2: nil).primaryAction, .hold)
@@ -49,10 +50,41 @@ final class TrainSleepUsableTests: XCTestCase {
 
         func context(spO2: Int?) -> ARIALiveContext {
             ARIALiveContext(exerciseName: "Back Squat", setLabel: "Set 1 of 3", weight: 135, reps: "5",
-                            heartRate: nil, hrZone: 0, spO2: spO2, elapsed: "00:30", cues: [])
+                            heartRate: nil, hrZone: nil, spO2: spO2, elapsed: "00:30", cues: [])
         }
         XCTAssertEqual(ARIACoachService.heuristicFeedback(for: context(spO2: nil)).status, .good)
         XCTAssertEqual(ARIACoachService.heuristicFeedback(for: context(spO2: 92)).status, .adjust)
+    }
+
+    func testFormCheckPayloadOmitsUnmeasuredVitals() {
+        var ctx = ARIALiveContext(exerciseName: "Back Squat", setLabel: "Set 1 of 3", weight: 135, reps: "5",
+                                  heartRate: nil, hrZone: nil, spO2: nil, elapsed: "00:30", cues: [])
+        let unmeasured = ARIACoachService.payload(for: ctx)
+        XCTAssertNil(unmeasured["heartRate"])
+        XCTAssertNil(unmeasured["hrZone"])
+        XCTAssertNil(unmeasured["spO2"])
+
+        ctx.heartRate = 142
+        ctx.hrZone = 3
+        ctx.spO2 = 97
+        let measured = ARIACoachService.payload(for: ctx)
+        XCTAssertEqual(measured["heartRate"] as? Int, 142)
+        XCTAssertEqual(measured["hrZone"] as? Int, 3)
+        XCTAssertEqual(measured["spO2"] as? Int, 97)
+    }
+
+    func testHeartRateFromBeforeTheSessionIsNotLive() {
+        let unit = HKUnit.count().unitDivided(by: .minute())
+        let sessionStart = Date(timeIntervalSince1970: 1_800_000_000)
+        func sample(_ bpm: Double, at date: Date) -> HKQuantitySample {
+            HKQuantitySample(type: HKQuantityType(.heartRate),
+                             quantity: HKQuantity(unit: unit, doubleValue: bpm), start: date, end: date)
+        }
+        let morningResting = sample(58, at: sessionStart.addingTimeInterval(-11 * 3600))
+        XCTAssertNil(HealthKitManager.liveHeartRateBPM(from: [morningResting], since: sessionStart, unit: unit))
+
+        let duringSet = sample(131, at: sessionStart.addingTimeInterval(90))
+        XCTAssertEqual(HealthKitManager.liveHeartRateBPM(from: [duringSet, morningResting], since: sessionStart, unit: unit), 131)
     }
 
     func testAddFeltSetDoesNotUndoScale() {

@@ -69,6 +69,8 @@ struct ActiveWorkoutView: View {
     private var exercises:       [Exercise] { store.todayWorkout?.exercises ?? [] }
     private var currentExercise: Exercise?  { exercises.indices.contains(store.currentExerciseIndex) ? exercises[store.currentExerciseIndex] : nil }
     private var currentZone: WorkoutHRZone { WorkoutHRZone.zone(for: simulatedHR) }
+    /// Zone for the engines — nil without a live sample, never "Rest" from a 0 bpm placeholder.
+    private var liveZone: Int? { heartRateIsLive ? currentZone.index : nil }
     private var currentDef: ExerciseDefinition? { currentExercise.flatMap { ExerciseLibrary.definition(for: $0) } }
     /// No real-time SpO₂ source exists during a workout (HealthKit only gives a
     /// daily average), so the coach gets nil — "no reading" — never a stand-in value.
@@ -86,7 +88,7 @@ struct ActiveWorkoutView: View {
             baseRest: ex?.restSeconds ?? 90, currentWeight: currentWeight,
             lastRPE: prev.last?.rpe, lastReps: prev.last?.repsPerformed,
             readiness: store.readiness, experience: store.userProfile.experienceLevel,
-            currentHR: liveHeartRate, hrZone: currentZone.index, spO2: liveSpO2,
+            currentHR: liveHeartRate, hrZone: liveZone, spO2: liveSpO2,
             painSeverity: pain, painLocation: painLoc)
     }
 
@@ -184,7 +186,7 @@ struct ActiveWorkoutView: View {
             exerciseName: exercise.name,
             setLabel: "Set \(store.currentSet) of \(exercise.sets)",
             weight: currentWeight, reps: exercise.reps,
-            heartRate: liveHeartRate, hrZone: currentZone.index, spO2: liveSpO2,
+            heartRate: liveHeartRate, hrZone: liveZone, spO2: liveSpO2,
             elapsed: formatTime(elapsedSecs, flashColon: true),
             cues: currentDef?.cues ?? [])
     }
@@ -700,8 +702,8 @@ struct ActiveWorkoutView: View {
             reps: currentExercise?.reps ?? "",
             weight: currentWeight > 0 ? "\(currentWeight)" : "",
             elapsedTime: formatTime(elapsedSecs, flashColon: false),
-            heartRate: simulatedHR,
-            hrZone: currentZone.index,
+            heartRate: liveHeartRate,
+            hrZone: liveZone,
             calories: Int(estimatedCals),
             restSeconds: currentExercise?.restSeconds ?? 90,
             notes: currentDef?.cues.first ?? liveCoachCues.first ?? ""
@@ -724,7 +726,7 @@ struct ActiveWorkoutView: View {
             startedAt: sessionStartedAt,
             elapsedSeconds: TimeInterval(elapsedSecs),
             heartRate: liveHeartRate.map { Double($0) },
-            zoneNumber: heartRateIsLive ? currentZone.index : nil,
+            zoneNumber: liveZone,
             activeCalories: estimatedCals,
             currentExerciseName: currentExercise?.name,
             currentExerciseIndex: store.currentExerciseIndex,
@@ -923,11 +925,14 @@ struct ActiveWorkoutView: View {
     }
 
     private func startHealthHeartRate() {
+        // Only samples from this session count as live — an older one is
+        // usually a resting reading and would be coached on as workout HR.
+        let liveSince = sessionStartedAt.addingTimeInterval(-60)
         Task {
-            if let bpm = await HealthKitManager.shared.latestHeartRateBPM() {
+            if let bpm = await HealthKitManager.shared.latestHeartRateBPM(since: liveSince) {
                 applyLiveHeartRate(bpm, warn: false)
             }
-            HealthKitManager.shared.startLiveHeartRateUpdates { bpm in
+            HealthKitManager.shared.startLiveHeartRateUpdates(since: liveSince) { bpm in
                 Task { @MainActor in
                     applyLiveHeartRate(bpm, warn: true)
                 }
