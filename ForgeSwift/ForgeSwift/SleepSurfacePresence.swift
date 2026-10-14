@@ -23,7 +23,7 @@ enum SleepResearchHook: String, CaseIterable, Equatable, Sendable {
         case .debt:
             return "14-day short stretch vs Rise energy, misses in missHex — see the review."
         case .windDown:
-            return "Two sleep nudges a day, quiet week, no shame — see the review."
+            return "Two sleep nudges a day and a quiet week — see the Rise brief."
         }
     }
 }
