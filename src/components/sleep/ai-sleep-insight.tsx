@@ -27,8 +27,8 @@ export function AiSleepInsight() {
 
       {/* Insight text */}
       <p className="text-sm leading-relaxed text-text-secondary">
-        Your deep sleep has dropped 18% this week. This correlates with your increased
-        evening screen time. Try the wind-down routine I suggested.
+        Short night or later than usual? Keep today easy and get to bed a bit
+        earlier. No scores, no guilt — just one small step tonight.
       </p>
 
       {/* Chat link */}
