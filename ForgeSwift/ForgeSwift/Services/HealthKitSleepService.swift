@@ -52,11 +52,11 @@ final class HealthKitSleepService: ObservableObject {
     private var refreshTask: Task<Void, Never>?
     private var lastRefreshAt: Date?
 
-    static let sleepCacheMinimumDays = 14
-    static let refreshCooldownSeconds: TimeInterval = 60
+    nonisolated static let sleepCacheMinimumDays = 14
+    nonisolated static let refreshCooldownSeconds: TimeInterval = 60
 
     /// A days:1 readiness probe must not replace the 14-day Smart Wake / debt cache.
-    static func shouldWriteSleepCache(days: Int) -> Bool {
+    nonisolated static func shouldWriteSleepCache(days: Int) -> Bool {
         days >= sleepCacheMinimumDays
     }
 
