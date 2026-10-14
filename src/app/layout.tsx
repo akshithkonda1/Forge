@@ -45,7 +45,7 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en" className={`dark ${sans.variable} ${mono.variable}`}>
-      <body className="min-h-[100dvh] bg-[#050505] font-sans antialiased">
+      <body className="min-h-[100dvh] bg-background font-sans antialiased">
         <MotionConfigProvider>
           {children}
           <ToastHost />

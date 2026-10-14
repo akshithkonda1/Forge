@@ -84,12 +84,12 @@ struct ChatView: View {
                     Button {
                         weeklyReview.showSheet = true
                     } label: {
-                        HStack(spacing: 10) {
+                        HStack(spacing: FDS.Spacing.md) {
                             Image(systemName: "calendar.badge.clock")
                                 .foregroundColor(.ember)
                             VStack(alignment: .leading, spacing: 2) {
                                 Text("Weekly evaluation is due")
-                                    .font(.system(size: 13, weight: .semibold))
+                                    .font(FDS.TypeScale.Dynamic.caption)
                                     .foregroundColor(.textPrimary)
                                 Text("Five questions. ARIA files the answers as standing context.")
                                     .font(.system(size: 11))
@@ -100,7 +100,7 @@ struct ChatView: View {
                                 .font(.system(size: 12, weight: .semibold))
                                 .foregroundColor(.textTertiary)
                         }
-                        .padding(14)
+                        .padding(FDS.Spacing.lg)
                         .background(Color.ember.opacity(0.10))
                         .clipShape(RoundedRectangle(cornerRadius: FDS.Radius.md, style: .continuous))
                         .overlay(
@@ -109,8 +109,8 @@ struct ChatView: View {
                         )
                     }
                     .buttonStyle(.plain)
-                    .padding(.horizontal, 16)
-                    .padding(.bottom, 8)
+                    .padding(.horizontal, FDS.Spacing.lg)
+                    .padding(.bottom, FDS.Spacing.sm)
                 }
 
                 if let insight = proactiveInsight, ariaContext.shouldBeProactive() {
@@ -119,8 +119,8 @@ struct ChatView: View {
                         relationshipLevel: ariaContext.context.relationshipLevel,
                         onTap: { sendMessage("Tell me more about: \(insight)") }
                     )
-                    .padding(.horizontal, 16)
-                    .padding(.bottom, 8)
+                    .padding(.horizontal, FDS.Spacing.lg)
+                    .padding(.bottom, FDS.Spacing.sm)
                 }
 
                 // ── Messages ─────────────────────────────────────
@@ -153,8 +153,8 @@ struct ChatView: View {
                 // ── Input ────────────────────────────────────────
                 if isTyping, !store.lastCoachWorkers.isEmpty {
                     AriaSpecialistActivityView(workers: store.lastCoachWorkers)
-                        .padding(.horizontal, 16)
-                        .padding(.bottom, 8)
+                        .padding(.horizontal, FDS.Spacing.lg)
+                        .padding(.bottom, FDS.Spacing.sm)
                         .transition(.move(edge: .bottom).combined(with: .opacity))
                 }
 

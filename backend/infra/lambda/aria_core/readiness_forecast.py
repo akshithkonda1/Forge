@@ -3,6 +3,14 @@ ReadinessForecastEngine (ReadinessForecast.swift).
 
 Numbers and copy stay lockstep with Swift so iOS, Watch, and the ARIA
 engine steer from the same prediction. Lifestyle coach language only.
+
+Model: today's readiness already contains last night's sleep, HRV, and
+resting HR, so the forecast never re-applies them. It starts from today and
+lets part of today's distance from your usual carry into tomorrow
+(``CARRY_OVER``), then adds only what happens between now and tomorrow
+morning: today's and planned training load, the acute:chronic load ratio,
+self-reported stress, and cycle phase. Unknown inputs (0 sleep minutes,
+0 readiness, no stress report) are missing — never zero sleep or a 0 score.
 """
 
 from __future__ import annotations
@@ -27,6 +35,16 @@ GLANCE_TITLE = {
     PROTECT: "Protect",
     REST: "Rest",
 }
+
+
+# Share of today's distance from your usual that is still there tomorrow
+# morning. Day-to-day autocorrelation of recovery markers (ln HRV, resting HR)
+# in free-living adults sits around 0.4-0.6; 0.5 is the middle of that range.
+CARRY_OVER = 0.5
+
+# Stand-in for "your usual" until a personal readiness baseline is supplied:
+# a person at their own HRV/resting-HR norm after a typical night lands here.
+DEFAULT_READINESS_BASELINE = 75
 
 
 def keep_light(posture: str) -> bool:
@@ -95,7 +113,9 @@ class Forecast:
 
 @dataclass
 class ForecastInput:
+    # Today's readiness, 0-100. 0 or less means not measured yet.
     current_readiness: int
+    # Last night's sleep, minutes. 0 or less means unknown (not zero sleep).
     sleep_minutes: int
     sleep_need_minutes: int = 480
     hrv_ms: int = 0
@@ -105,8 +125,11 @@ class ForecastInput:
     today_strain: float = 0
     planned_strain: float = 0
     acwr: float | None = None
-    stress_level: int = 30
+    # Self-reported stress, 0-100. None when the person has not said.
+    stress_level: int | None = None
     is_luteal_phase: bool | None = None
+    # Personal typical readiness (e.g. a 14-day mean). None → default.
+    readiness_baseline: int | None = None
 
 
 def _posture(predicted: int) -> str:
@@ -141,63 +164,63 @@ def _recommendation(posture: str, drivers: list[Driver], predicted: int, current
     )
 
 
-def forecast(inp: ForecastInput) -> Forecast:
-    score = float(inp.current_readiness)
-    drivers: list[Driver] = []
-    known = 0
-    total = 0
+def _dip_cause(inp: ForecastInput) -> str | None:
+    """Name the signal most behind a low day, for the bounce-back detail.
 
-    total += 1
-    sleep_debt_hours = (inp.sleep_need_minutes - inp.sleep_minutes) / 60.0
-    if sleep_debt_hours > 0.25:
-        impact = -int(min(20, sleep_debt_hours * 8))
-        score += impact
-        drivers.append(Driver(
-            "Sleep debt",
-            f"{sleep_debt_hours:.1f}h under your need tonight",
-            impact,
-            "moon.zzz.fill",
-        ))
-        known += 1
-    elif sleep_debt_hours < -0.5:
-        impact = min(6, int(-sleep_debt_hours * 4))
-        score += impact
-        drivers.append(Driver("Sleep surplus", "Extra sleep banked tonight", impact, "moon.stars.fill"))
-        known += 1
-    else:
-        known += 1
-
-    total += 1
-    if inp.hrv_baseline_ms and inp.hrv_baseline_ms > 0 and inp.hrv_ms > 0:
+    Explanation only — today's score already carries these signals, so they
+    never add points of their own here.
+    """
+    candidates: list[tuple[float, str]] = []
+    if inp.sleep_minutes > 0:
+        debt_hours = (inp.sleep_need_minutes - inp.sleep_minutes) / 60.0
+        if debt_hours >= 0.75:
+            candidates.append((debt_hours / 2.0, "short sleep"))
+    if inp.hrv_ms > 0 and inp.hrv_baseline_ms and inp.hrv_baseline_ms > 0:
         deviation = (inp.hrv_ms - inp.hrv_baseline_ms) / float(inp.hrv_baseline_ms)
-        impact = int(max(-15, min(12, deviation * 50)))
+        if deviation <= -0.10:
+            candidates.append((-deviation / 0.30, "low HRV"))
+    if inp.resting_hr > 0 and inp.resting_hr_baseline and inp.resting_hr_baseline > 0:
+        delta = inp.resting_hr - inp.resting_hr_baseline
+        if delta >= 3:
+            candidates.append((delta / 8.0, "raised resting HR"))
+    if not candidates:
+        return None
+    return max(candidates, key=lambda c: c[0])[1]
+
+
+def forecast(inp: ForecastInput) -> Forecast:
+    baseline = (
+        inp.readiness_baseline
+        if inp.readiness_baseline is not None and inp.readiness_baseline > 0
+        else DEFAULT_READINESS_BASELINE
+    )
+    knows_today = inp.current_readiness > 0
+    current = inp.current_readiness if knows_today else baseline
+    score = float(current)
+    drivers: list[Driver] = []
+
+    # --- Carry-over: part of today's distance from your usual persists ---
+    if knows_today:
+        impact = _swift_round(-(1.0 - CARRY_OVER) * (current - baseline))
         if abs(impact) >= 2:
             score += impact
-            drivers.append(Driver(
-                "HRV suppressed" if impact < 0 else "HRV elevated",
-                f"{int(deviation * 100)}% vs your baseline",
-                impact,
-                "waveform.path.ecg",
-            ))
-        known += 1
+            if impact > 0:
+                cause = _dip_cause(inp)
+                detail = (
+                    f"Today's dip from {cause} eases about halfway by morning"
+                    if cause
+                    else "Today's dip eases about halfway by morning"
+                )
+                drivers.append(Driver("Bounce-back", detail, impact, "arrow.uturn.up.circle.fill"))
+            else:
+                drivers.append(Driver(
+                    "Easing to your usual",
+                    "Today's high eases about halfway back toward your norm",
+                    impact,
+                    "arrow.down.right.circle",
+                ))
 
-    total += 1
-    if inp.resting_hr_baseline and inp.resting_hr_baseline > 0 and inp.resting_hr > 0:
-        delta = inp.resting_hr - inp.resting_hr_baseline
-        if delta >= 4:
-            impact = -min(10, (delta - 3) * 2)
-            score += impact
-            drivers.append(Driver(
-                "Resting HR elevated",
-                f"+{delta} bpm vs baseline — recovery incomplete",
-                impact,
-                "heart.fill",
-            ))
-            known += 1
-        else:
-            known += 1
-
-    total += 1
+    # --- Today's + planned strain (not yet in today's score) ---
     combined = inp.today_strain + inp.planned_strain
     if combined >= 16:
         score -= 12
@@ -215,7 +238,9 @@ def forecast(inp: ForecastInput) -> Forecast:
             -6,
             "flame",
         ))
-    elif combined < 4:
+    elif combined < 4 and knows_today:
+        # With no reading of today at all, an empty log is not evidence of
+        # a rest day — it is evidence of nothing.
         score += 5
         drivers.append(Driver(
             "Recovery day",
@@ -223,9 +248,8 @@ def forecast(inp: ForecastInput) -> Forecast:
             5,
             "leaf.fill",
         ))
-    known += 1
 
-    total += 1
+    # --- Acute:chronic workload ratio ---
     if inp.acwr is not None:
         if inp.acwr > 1.5:
             score -= 10
@@ -243,16 +267,15 @@ def forecast(inp: ForecastInput) -> Forecast:
                 4,
                 "arrow.down.circle.fill",
             ))
-        known += 1
 
-    total += 1
-    if inp.stress_level >= 70:
-        score -= 6
-        drivers.append(Driver("High stress", "Mental load taxes recovery too", -6, "brain.head.profile"))
-    elif inp.stress_level <= 25:
-        score += 3
-        drivers.append(Driver("Low stress", "Recovery environment is clean", 3, "checkmark.circle.fill"))
-    known += 1
+    # --- Self-reported stress (only when the person said) ---
+    if inp.stress_level is not None:
+        if inp.stress_level >= 70:
+            score -= 6
+            drivers.append(Driver("High stress", "Mental load taxes recovery too", -6, "brain.head.profile"))
+        elif inp.stress_level <= 25:
+            score += 3
+            drivers.append(Driver("Low stress", "Recovery environment is clean", 3, "checkmark.circle.fill"))
 
     if inp.is_luteal_phase is True:
         score -= 4
@@ -265,8 +288,29 @@ def forecast(inp: ForecastInput) -> Forecast:
 
     predicted = max(5, min(98, _swift_round(score)))
     posture = _posture(predicted)
-    coverage = known / max(1, total)
-    if coverage >= 0.85:
+    if not knows_today:
+        # Green light and rest day are both confident calls; without today's
+        # reading the forecast can lean, not commit.
+        if posture == PUSH:
+            posture = STEADY
+        elif posture == REST:
+            posture = PROTECT
+
+    # What the forecast actually knows. Load is always "known" (no session is
+    # a real 0), so it does not count toward coverage.
+    signals = [
+        knows_today,
+        inp.readiness_baseline is not None and inp.readiness_baseline > 0,
+        inp.sleep_minutes > 0,
+        bool(inp.hrv_ms > 0 and inp.hrv_baseline_ms and inp.hrv_baseline_ms > 0),
+        bool(inp.resting_hr > 0 and inp.resting_hr_baseline and inp.resting_hr_baseline > 0),
+        inp.acwr is not None,
+        inp.stress_level is not None,
+    ]
+    coverage = sum(1 for known in signals if known) / len(signals)
+    if not knows_today:
+        confidence = "low"
+    elif coverage >= 0.85:
         confidence = "high"
     elif coverage >= 0.6:
         confidence = "medium"
@@ -277,7 +321,7 @@ def forecast(inp: ForecastInput) -> Forecast:
         predicted_score=predicted,
         confidence=confidence,
         drivers=drivers,
-        recommendation=_recommendation(posture, drivers, predicted, inp.current_readiness),
+        recommendation=_recommendation(posture, drivers, predicted, current),
         posture=posture,
     )
 

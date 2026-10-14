@@ -115,11 +115,11 @@ struct StatsMosaicCard: View {
 
     var body: some View {
         let snap = mosaic
-        VStack(alignment: .leading, spacing: 14) {
+        VStack(alignment: .leading, spacing: FDS.Spacing.lg) {
             HStack(alignment: .firstTextBaseline) {
-                VStack(alignment: .leading, spacing: 4) {
+                VStack(alignment: .leading, spacing: FDS.Spacing.xs) {
                     Text("TODAY’S MOSAIC")
-                        .font(.system(size: 11, weight: .black))
+                        .font(FDS.TypeScale.Dynamic.micro)
                         .foregroundColor(HudChrome.plate)
                         .tracking(1.6)
                     Text(
@@ -142,10 +142,10 @@ struct StatsMosaicCard: View {
                     Button {
                         store.openChat(with: tile.ariaPrompt, voice: false)
                     } label: {
-                        VStack(alignment: .leading, spacing: 6) {
+                        VStack(alignment: .leading, spacing: FDS.Spacing.sm) {
                             HStack {
                                 Text(tile.track.title.uppercased())
-                                    .font(.system(size: 10, weight: .bold))
+                                    .font(FDS.TypeScale.Dynamic.micro)
                                     .foregroundColor(HudChrome.plate)
                                     .tracking(1.1)
                                 Spacer()
@@ -158,20 +158,20 @@ struct StatsMosaicCard: View {
                                     .frame(width: 6, height: 6)
                             }
                             Text(tile.headline)
-                                .font(.system(size: 22, weight: .bold, design: .rounded))
+                                .font(FDS.TypeScale.Dynamic.metric)
                                 .foregroundColor(.textPrimary)
                             Text(tile.almostThere ? "Almost there · \(tile.detail)" : tile.detail)
-                                .font(.system(size: 11, weight: .medium))
+                                .font(FDS.TypeScale.Dynamic.micro)
                                 .foregroundColor(tile.almostThere ? HudChrome.plate : .textTertiary)
                             ProgressView(value: tile.progress)
                                 .tint(tile.almostThere ? HudChrome.plate : (tile.source == .empty ? HudChrome.miss : HudChrome.plate))
                         }
-                        .padding(12)
+                        .padding(FDS.Spacing.md)
                         .frame(maxWidth: .infinity, alignment: .leading)
                         .background(Color.surfaceElevated.opacity(0.8))
-                        .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+                        .clipShape(RoundedRectangle(cornerRadius: FDS.Radius.md, style: .continuous))
                         .overlay(
-                            RoundedRectangle(cornerRadius: 14)
+                            RoundedRectangle(cornerRadius: FDS.Radius.md)
                                 .stroke(
                                     (tile.almostThere ? HudChrome.plate : HudChrome.miss)
                                         .opacity(tile.source == .empty ? 0.16 : (tile.almostThere ? 0.50 : 0.32)),
@@ -189,25 +189,25 @@ struct StatsMosaicCard: View {
                 store.openChat(with: snap.mosaicLine, voice: false)
             } label: {
                 Text("Ask ARIA about this picture")
-                    .font(.system(size: 14, weight: .semibold))
+                    .font(FDS.TypeScale.Dynamic.body.weight(.semibold))
                     .foregroundColor(.textPrimary)
                     .frame(maxWidth: .infinity)
-                    .padding(.vertical, 12)
+                    .padding(.vertical, FDS.Spacing.md)
                     .background(Color.ember.opacity(0.16))
-                    .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                    .clipShape(RoundedRectangle(cornerRadius: FDS.Radius.md, style: .continuous))
                     .overlay(
-                        RoundedRectangle(cornerRadius: 12)
+                        RoundedRectangle(cornerRadius: FDS.Radius.md)
                             .stroke(HudChrome.plate.opacity(0.28), lineWidth: 1)
                     )
             }
             .buttonStyle(.plain)
             .accessibilityLabel("Ask ARIA about today’s mosaic")
         }
-        .padding(16)
+        .padding(FDS.Spacing.lg)
         .background(Color.surface.opacity(0.92))
-        .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+        .clipShape(RoundedRectangle(cornerRadius: FDS.Radius.lg, style: .continuous))
         .overlay(
-            RoundedRectangle(cornerRadius: 18)
+            RoundedRectangle(cornerRadius: FDS.Radius.lg)
                 .stroke(HudChrome.plate.opacity(0.22), lineWidth: 1)
         )
         .sheet(isPresented: $showManual) {
@@ -312,19 +312,19 @@ struct QuickStatsOverviewView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            HStack(spacing: 8) {
+            HStack(spacing: FDS.Spacing.sm) {
                 Image(systemName: "chart.bar.fill")
                     .font(.system(size: 12))
                     .foregroundColor(.ember)
                 Text("OVERVIEW")
-                    .font(.system(size: 10, weight: .black))
+                    .font(FDS.TypeScale.Dynamic.micro)
                     .foregroundColor(.textTertiary)
                     .tracking(2)
                 Spacer()
             }
-            .padding(.bottom, 14)
+            .padding(.bottom, FDS.Spacing.lg)
 
-            HStack(spacing: 12) {
+            HStack(spacing: FDS.Spacing.md) {
                 QuickStatCard(icon: "figure.strengthtraining.traditional", value: workoutCountText, label: "Workouts", trend: nil, trendUp: true, appeared: appear, delay: 0.1)
                 QuickStatCard(icon: "flame.fill", value: caloriesText, label: "Calories", trend: nil, trendUp: true, appeared: appear, delay: 0.15)
                 QuickStatCard(icon: "timer", value: avgDurationText, label: "Avg Min", trend: nil, trendUp: true, appeared: appear, delay: 0.2)
@@ -346,7 +346,7 @@ struct QuickStatCard: View {
     var delay: Double = 0
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
+        VStack(alignment: .leading, spacing: FDS.Spacing.md) {
             HStack {
                 Image(systemName: icon)
                     .font(.system(size: 16))
@@ -357,27 +357,27 @@ struct QuickStatCard: View {
                         Image(systemName: trendUp ? "arrow.up.right" : "arrow.down.right")
                             .font(.system(size: 9, weight: .bold))
                         Text(trend)
-                            .font(.system(size: 10, weight: .bold))
+                            .font(FDS.TypeScale.Dynamic.micro)
                     }
                     .foregroundColor(trendUp ? .success : .ember)
-                    .padding(.horizontal, 7).padding(.vertical, 4)
+                    .padding(.horizontal, FDS.Spacing.sm).padding(.vertical, FDS.Spacing.xs)
                     .background((trendUp ? Color.success : Color.ember).opacity(0.12))
-                    .cornerRadius(6)
+                    .cornerRadius(FDS.Radius.xs)
                 }
             }
 
             VStack(alignment: .leading, spacing: 2) {
                 Text(value)
-                    .font(.system(size: 20, weight: .black, design: .rounded))
+                    .font(FDS.TypeScale.Dynamic.metric)
                     .foregroundColor(.textPrimary)
 
                 Text(label)
-                    .font(.system(size: 11, weight: .medium))
+                    .font(FDS.TypeScale.Dynamic.micro)
                     .foregroundColor(.textTertiary)
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(14)
+        .padding(FDS.Spacing.lg)
         .background(
             ZStack {
                 Color.surface
@@ -388,8 +388,8 @@ struct QuickStatCard: View {
                 )
             }
         )
-        .cornerRadius(14)
-        .overlay(RoundedRectangle(cornerRadius: 14).stroke(Color.borderColor.opacity(0.5), lineWidth: 1))
+        .cornerRadius(FDS.Radius.md)
+        .overlay(RoundedRectangle(cornerRadius: FDS.Radius.md).stroke(Color.borderColor.opacity(0.5), lineWidth: 1))
         .scaleEffect(appeared ? 1 : 0.9)
         .opacity(appeared ? 1 : 0)
         .animation(.spring(response: 0.5, dampingFraction: 0.7).delay(delay), value: appeared)
@@ -450,26 +450,26 @@ struct StreaksAndMilestonesView: View {
         let prTarget = nextTarget(above: prCount, ladder: [3, 5, 10, 25, 50])
         let streakTarget = nextTarget(above: longestStreak, ladder: [7, 14, 30, 60, 90])
 
-        VStack(alignment: .leading, spacing: 12) {
-            HStack(spacing: 8) {
+        VStack(alignment: .leading, spacing: FDS.Spacing.md) {
+            HStack(spacing: FDS.Spacing.sm) {
                 Image(systemName: "checkmark.circle.fill")
                     .font(.system(size: 18))
                     .foregroundColor(.ember)
                 Text("Your training")
-                    .font(.system(size: 18, weight: .semibold))
+                    .font(FDS.TypeScale.Dynamic.headline)
                     .foregroundColor(.textPrimary)
             }
 
-            VStack(spacing: 12) {
+            VStack(spacing: FDS.Spacing.md) {
                 // Current streak
-                HStack(spacing: 12) {
+                HStack(spacing: FDS.Spacing.md) {
                     ZStack {
                         Circle()
                             .fill(LinearGradient(colors: [.warning, .ember], startPoint: .topLeading, endPoint: .bottomTrailing))
                             .frame(width: 50, height: 50)
                         VStack(spacing: 0) {
                             Text("\(store.currentStreak)")
-                                .font(.system(size: 18, weight: .bold))
+                                .font(FDS.TypeScale.Dynamic.headline)
                                 .foregroundColor(.white)
                             Text(store.currentStreak == 1 ? "day" : "days")
                                 .font(.system(size: 8))
@@ -477,9 +477,9 @@ struct StreaksAndMilestonesView: View {
                         }
                     }
 
-                    VStack(alignment: .leading, spacing: 4) {
+                    VStack(alignment: .leading, spacing: FDS.Spacing.xs) {
                         Text("Days in a row")
-                            .font(.system(size: 14, weight: .semibold))
+                            .font(FDS.TypeScale.Dynamic.body.weight(.semibold))
                             .foregroundColor(.textPrimary)
                         Text(streakMessage)
                             .font(.system(size: 12))
@@ -488,8 +488,8 @@ struct StreaksAndMilestonesView: View {
                     }
                     Spacer()
                 }
-                .padding(14)
-                .forgeGlassCard(cornerRadius: 12, accent: .warning)
+                .padding(FDS.Spacing.lg)
+                .forgeGlassCard(cornerRadius: FDS.Radius.md, accent: .warning)
                 .accessibilityElement(children: .combine)
                 .accessibilityLabel("Days trained in a row: \(store.currentStreak). \(streakMessage)")
 
@@ -542,19 +542,19 @@ struct MilestoneCard: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
+        VStack(alignment: .leading, spacing: FDS.Spacing.md) {
             HStack {
                 Image(systemName: icon)
                     .font(.system(size: 14))
                     .foregroundColor(color)
                 Spacer()
                 Text("\(Int(progress * 100))%")
-                    .font(.system(size: 11, weight: .semibold))
+                    .font(FDS.TypeScale.Dynamic.micro)
                     .foregroundColor(color)
             }
 
             Text(title)
-                .font(.system(size: 13, weight: .semibold))
+                .font(FDS.TypeScale.Dynamic.caption)
                 .foregroundColor(.textPrimary)
 
             Text(subtitle)
@@ -573,8 +573,8 @@ struct MilestoneCard: View {
             }
             .frame(height: 5)
         }
-        .padding(12)
-        .forgeGlassCard(cornerRadius: 12, accent: Color(hex: "3B82F6"))
+        .padding(FDS.Spacing.md)
+        .forgeGlassCard(cornerRadius: FDS.Radius.md, accent: Color.steel)
         .onAppear {
             if reduceMotion {
                 animatedProgress = CGFloat(progress)
@@ -609,14 +609,14 @@ struct ShareProgressView: View {
 
     var body: some View {
         NavigationStack {
-            VStack(spacing: 24) {
-                VStack(spacing: 12) {
+            VStack(spacing: FDS.Spacing.xl) {
+                VStack(spacing: FDS.Spacing.md) {
                     Image(systemName: "square.and.arrow.up.circle.fill")
                         .font(.system(size: 60))
                         .foregroundColor(.ember)
 
                     Text("Share Your Progress")
-                        .font(.system(size: 20, weight: .bold))
+                        .font(FDS.TypeScale.Dynamic.title)
                         .foregroundColor(.textPrimary)
 
                     Text("Show off your achievements and inspire others!")
@@ -632,11 +632,11 @@ struct ShareProgressView: View {
                     .foregroundColor(.textSecondary)
                     .lineSpacing(5)
                     .frame(maxWidth: .infinity, alignment: .leading)
-                    .padding(16)
-                    .forgeGlassCard(cornerRadius: 14, accent: Color(hex: "3B82F6"))
+                    .padding(FDS.Spacing.lg)
+                    .forgeGlassCard(cornerRadius: FDS.Radius.md, accent: Color.steel)
                     .padding(.horizontal)
 
-                VStack(spacing: 12) {
+                VStack(spacing: FDS.Spacing.md) {
                     ShareLink(item: summaryText) {
                         ShareOptionRow(icon: "square.and.arrow.up", title: "Share", subtitle: "Send your stats anywhere")
                     }
@@ -686,7 +686,7 @@ struct ShareOptionRow: View {
     let subtitle: String
 
     var body: some View {
-        HStack(spacing: 14) {
+        HStack(spacing: FDS.Spacing.lg) {
             ZStack {
                 Circle()
                     .fill(Color.ember.opacity(0.15))
@@ -698,7 +698,7 @@ struct ShareOptionRow: View {
 
             VStack(alignment: .leading, spacing: 3) {
                 Text(title)
-                    .font(.system(size: 15, weight: .semibold))
+                    .font(FDS.TypeScale.Dynamic.body.weight(.semibold))
                     .foregroundColor(.textPrimary)
                 Text(subtitle)
                     .font(.system(size: 12))
@@ -711,7 +711,7 @@ struct ShareOptionRow: View {
                 .font(.system(size: 14))
                 .foregroundColor(.textTertiary)
         }
-        .padding(16)
-        .forgeGlassCard(cornerRadius: 14, accent: Color(hex: "3B82F6"))
+        .padding(FDS.Spacing.lg)
+        .forgeGlassCard(cornerRadius: FDS.Radius.md, accent: Color.steel)
     }
 }

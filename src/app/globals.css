@@ -27,6 +27,11 @@
   --color-text-tertiary: #71717A;
   --color-text-muted: #52525B;
 
+  --color-paper: #F7F4F0;
+  --color-aurora: #A78BFA;
+  --color-indigo: #6366F1;
+  --color-amber: #FFB84D;
+
   --color-success: #34D399;
   --color-warning: #FBBF24;
   --color-danger: #F87171;
@@ -187,6 +192,60 @@
     font-weight: 600;
     letter-spacing: var(--tracking-caption);
     line-height: var(--leading-caption);
+  }
+
+  .type-page-title {
+    font-family: var(--font-display);
+    font-size: 1.5rem;
+    font-weight: 600;
+    letter-spacing: -0.03em;
+    line-height: 1.15;
+  }
+
+  /* Small uppercase label that opens a card or section. */
+  .type-eyebrow {
+    font-family: var(--font-display);
+    font-size: 0.6875rem;
+    font-weight: 600;
+    letter-spacing: 0.12em;
+    line-height: 1.3;
+    text-transform: uppercase;
+    color: var(--color-text-tertiary);
+  }
+
+  .type-micro {
+    font-family: var(--font-display);
+    font-size: 0.625rem;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+    line-height: 1.3;
+  }
+
+  .type-hero {
+    font-family: var(--font-mono);
+    font-size: 2.25rem;
+    font-weight: 700;
+    letter-spacing: -0.03em;
+    line-height: 1.05;
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* Surfaces: one card recipe, one nested recipe. */
+  .surface-card {
+    background-color: var(--color-surface);
+    border-radius: var(--radius-2xl);
+    padding: 1.25rem;
+  }
+
+  .surface-inset {
+    background-color: var(--color-surface-elevated);
+    border-radius: var(--radius-xl);
+  }
+
+  .surface-outlined {
+    background-color: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-2xl);
   }
 
   .type-metric {

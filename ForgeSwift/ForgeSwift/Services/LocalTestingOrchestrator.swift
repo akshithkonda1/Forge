@@ -44,7 +44,7 @@ enum AriaLocalDomain: String, CaseIterable {
 /// decision production would make.
 ///
 /// Note the tertiary name here is Grok — the backend's third router slot
-/// (`AI_ROUTER_MODEL_3_*`, default `global.xai.grok-4.6`). Agentic Swarm
+/// (`AI_ROUTER_MODEL_3_*`, default `global.xai.grok-4.7`). Agentic Swarm
 /// turns report this slot even though local testing never calls it.
 enum AriaModelTier: String {
     case primary

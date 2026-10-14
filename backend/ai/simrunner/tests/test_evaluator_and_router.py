@@ -184,7 +184,7 @@ class EngineDetectionTests(unittest.TestCase):
 
     def test_active_models_defaults(self):
         self.assertEqual(ARIAEngine().active_models(),
-                         {"opus": "anthropic.claude-opus-4-8", "sonnet": "anthropic.claude-sonnet-4-6"})
+                         {"opus": "global.anthropic.claude-opus-5-5", "sonnet": "global.anthropic.claude-sonnet-5-5"})
 
 
 class DeterminismCheckerTests(unittest.TestCase):
