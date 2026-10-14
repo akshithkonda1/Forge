@@ -1,4 +1,5 @@
 import Foundation
+import SwiftUI
 
 /// Mixer-level volume ramp. The DSP envelope is a backup; this is the gain
 /// the wake session actually applies to `mainMixerNode` so Instant / Gentle /
