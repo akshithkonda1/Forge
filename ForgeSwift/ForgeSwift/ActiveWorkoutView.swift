@@ -12,15 +12,13 @@ struct ActiveWorkoutView: View {
 
     // Bio metrics
     @State private var elapsedSecs:    Int    = 0
+    /// Last live sample, 0 until one arrives. Drives display only — engines get `liveHeartRate`.
     @State private var simulatedHR:    Int    = 0
     @State private var liveHeartRate:  Int?   = nil
     @State private var heartRateIsLive = false
     @State private var peakHR:         Int    = 72
     @State private var hrHistory:      [Int]  = []
     @State private var estimatedCals:  Double = 0
-    /// Recommendation engine treats unknown O₂ as normal. The chip never
-    /// displays this — we do not invent a saturation walk.
-    @State private var simulatedSpO2:  Int    = 98
 
     // Rest
     @State private var isResting:      Bool   = false
@@ -71,7 +69,12 @@ struct ActiveWorkoutView: View {
     private var exercises:       [Exercise] { store.todayWorkout?.exercises ?? [] }
     private var currentExercise: Exercise?  { exercises.indices.contains(store.currentExerciseIndex) ? exercises[store.currentExerciseIndex] : nil }
     private var currentZone: WorkoutHRZone { WorkoutHRZone.zone(for: simulatedHR) }
+    /// Zone for the engines — nil without a live sample, never "Rest" from a 0 bpm placeholder.
+    private var liveZone: Int? { heartRateIsLive ? currentZone.index : nil }
     private var currentDef: ExerciseDefinition? { currentExercise.flatMap { ExerciseLibrary.definition(for: $0) } }
+    /// No real-time SpO₂ source exists during a workout (HealthKit only gives a
+    /// daily average), so the coach gets nil — "no reading" — never a stand-in value.
+    private var liveSpO2: Int? { nil }
 
     /// Live auto-regulation read for the current exercise.
     private var recommendation: SetRecommendation {
@@ -85,7 +88,7 @@ struct ActiveWorkoutView: View {
             baseRest: ex?.restSeconds ?? 90, currentWeight: currentWeight,
             lastRPE: prev.last?.rpe, lastReps: prev.last?.repsPerformed,
             readiness: store.readiness, experience: store.userProfile.experienceLevel,
-            currentHR: simulatedHR, hrZone: currentZone.index, spO2: simulatedSpO2,
+            currentHR: liveHeartRate, hrZone: liveZone, spO2: liveSpO2,
             painSeverity: pain, painLocation: painLoc)
     }
 
@@ -162,9 +165,6 @@ struct ActiveWorkoutView: View {
             sessionStartedAt = Date()
             startTasks()
             setupCurrentWeight()
-            if store.dailyMetrics.restingHR > 0 {
-                simulatedHR = store.dailyMetrics.restingHR
-            }
             startHealthHeartRate()
             syncVoiceCoach()
             voiceCoach.setVoiceEnabled(AriaTrainVoice.isEnabled)
@@ -186,7 +186,7 @@ struct ActiveWorkoutView: View {
             exerciseName: exercise.name,
             setLabel: "Set \(store.currentSet) of \(exercise.sets)",
             weight: currentWeight, reps: exercise.reps,
-            heartRate: simulatedHR, hrZone: currentZone.index, spO2: simulatedSpO2,
+            heartRate: liveHeartRate, hrZone: liveZone, spO2: liveSpO2,
             elapsed: formatTime(elapsedSecs, flashColon: true),
             cues: currentDef?.cues ?? [])
     }
@@ -362,8 +362,11 @@ struct ActiveWorkoutView: View {
             }
             Text(simulatedHR > 0 ? "\(simulatedHR)" : "—").font(.system(size: 16, weight: .black, design: .monospaced)).foregroundColor(.textPrimary).contentTransition(.numericText())
             Text(heartRateIsLive ? "live" : "bpm").font(FDS.TypeScale.Dynamic.micro).foregroundColor(currentZone.color.opacity(0.8))
-            Rectangle().fill(currentZone.color.opacity(0.28)).frame(width: 1, height: 13).padding(.horizontal, 2)
-            Text(currentZone.label).font(FDS.TypeScale.Dynamic.caption).foregroundColor(currentZone.color)
+            // No sample → no zone. "Rest" would be a claim about a heart rate we never read.
+            if heartRateIsLive {
+                Rectangle().fill(currentZone.color.opacity(0.28)).frame(width: 1, height: 13).padding(.horizontal, 2)
+                Text(currentZone.label).font(FDS.TypeScale.Dynamic.caption).foregroundColor(currentZone.color)
+            }
         }
         .lineLimit(1).fixedSize()
         .padding(.horizontal, FDS.Spacing.lg).padding(.vertical, FDS.Spacing.md)
@@ -699,8 +702,8 @@ struct ActiveWorkoutView: View {
             reps: currentExercise?.reps ?? "",
             weight: currentWeight > 0 ? "\(currentWeight)" : "",
             elapsedTime: formatTime(elapsedSecs, flashColon: false),
-            heartRate: simulatedHR,
-            hrZone: currentZone.index,
+            heartRate: liveHeartRate,
+            hrZone: liveZone,
             calories: Int(estimatedCals),
             restSeconds: currentExercise?.restSeconds ?? 90,
             notes: currentDef?.cues.first ?? liveCoachCues.first ?? ""
@@ -722,8 +725,8 @@ struct ActiveWorkoutView: View {
             phase: isResting ? .resting : .active,
             startedAt: sessionStartedAt,
             elapsedSeconds: TimeInterval(elapsedSecs),
-            heartRate: Double(simulatedHR),
-            zoneNumber: currentZone.index,
+            heartRate: liveHeartRate.map { Double($0) },
+            zoneNumber: liveZone,
             activeCalories: estimatedCals,
             currentExerciseName: currentExercise?.name,
             currentExerciseIndex: store.currentExerciseIndex,
@@ -843,8 +846,8 @@ struct ActiveWorkoutView: View {
     private func endWorkout() {
         cancelTasks()
         HealthKitManager.shared.stopLiveHeartRateUpdates()
-        // No live samples → no heart-rate numbers. `simulatedHR` is seeded from
-        // morning resting HR and `peakHR` starts at a placeholder; neither is workout data.
+        // No live samples → no heart-rate numbers. `peakHR` starts at a placeholder;
+        // it is not workout data.
         let avgHR  = hrHistory.isEmpty ? 0 : hrHistory.reduce(0, +) / hrHistory.count
         let sessionPeakHR = hrHistory.max() ?? 0
         let rpes   = setLog.map { Double($0.rpe) }
@@ -922,11 +925,14 @@ struct ActiveWorkoutView: View {
     }
 
     private func startHealthHeartRate() {
+        // Only samples from this session count as live — an older one is
+        // usually a resting reading and would be coached on as workout HR.
+        let liveSince = sessionStartedAt.addingTimeInterval(-60)
         Task {
-            if let bpm = await HealthKitManager.shared.latestHeartRateBPM() {
+            if let bpm = await HealthKitManager.shared.latestHeartRateBPM(since: liveSince) {
                 applyLiveHeartRate(bpm, warn: false)
             }
-            HealthKitManager.shared.startLiveHeartRateUpdates { bpm in
+            HealthKitManager.shared.startLiveHeartRateUpdates(since: liveSince) { bpm in
                 Task { @MainActor in
                     applyLiveHeartRate(bpm, warn: true)
                 }

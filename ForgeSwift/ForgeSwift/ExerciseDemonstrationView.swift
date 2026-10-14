@@ -118,7 +118,7 @@ struct FormCheckCameraView: View {
             exerciseName: exercise.name,
             setLabel: "Working set",
             weight: exercise.weight ?? 0, reps: exercise.reps,
-            heartRate: 0, hrZone: 0, spO2: 98, elapsed: "—",
+            heartRate: nil, hrZone: nil, spO2: nil, elapsed: "—",
             cues: definition?.cues ?? [])
     }
 

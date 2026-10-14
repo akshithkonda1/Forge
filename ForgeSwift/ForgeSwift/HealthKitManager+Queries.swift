@@ -79,14 +79,18 @@ extension HealthKitManager {
         }
     }
 
-    func fetchMostRecentQuantity(_ identifier: HKQuantityTypeIdentifier, unit: HKUnit) async -> Double? {
+    func fetchMostRecentQuantity(
+        _ identifier: HKQuantityTypeIdentifier,
+        unit: HKUnit,
+        predicate: NSPredicate? = nil
+    ) async -> Double? {
         let type = HKQuantityType(identifier)
         let sortDescriptor = NSSortDescriptor(key: HKSampleSortIdentifierEndDate, ascending: false)
         
         return await withCheckedContinuation { continuation in
             let query = HKSampleQuery(
                 sampleType: type,
-                predicate: nil,
+                predicate: predicate,
                 limit: 1,
                 sortDescriptors: [sortDescriptor]
             ) { _, samples, _ in
