@@ -196,7 +196,6 @@ def _attach_predictions(context: dict[str, Any]) -> dict[str, Any]:
     readiness_item = context.get("readiness") or {}
     hrv = readiness_item.get("hrv") or last_sleep.get("hrv")
     rhr = readiness_item.get("restingHR") or last_sleep.get("restingHR")
-    stress = readiness_item.get("stressLevel")
     fc = rf.forecast(rf.ForecastInput(
         current_readiness=overall or 0,
         sleep_minutes=sleep_minutes,
@@ -204,7 +203,9 @@ def _attach_predictions(context: dict[str, Any]) -> dict[str, Any]:
         resting_hr=int(rhr) if isinstance(rhr, (int, float)) and not isinstance(rhr, bool) else 0,
         today_strain=today_strain,
         planned_strain=planned,
-        stress_level=int(stress) if isinstance(stress, (int, float)) and not isinstance(stress, bool) else 30,
+        # No stress report is unknown, not "moderate": the derived dashboard
+        # stressLevel is 100 - recovery, which today's readiness already holds.
+        stress_level=None,
     ))
 
     scores: list[int] = []

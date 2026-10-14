@@ -1,10 +1,29 @@
 from __future__ import annotations
 
+from datetime import date, datetime, timezone
 from typing import Any
 
 
-def training_load_trend(workouts: list[dict[str, Any]]) -> dict[str, Any]:
-    """Compute current vs prior 7-day training load (sum of duration * intensity weight)."""
+def _workout_day(workout: dict[str, Any]) -> date | None:
+    raw = str(workout.get("date") or workout.get("startedAt") or "")[:10]
+    try:
+        return date.fromisoformat(raw)
+    except ValueError:
+        return None
+
+
+def training_load_trend(
+    workouts: list[dict[str, Any]],
+    *,
+    today: date | None = None,
+) -> dict[str, Any]:
+    """Current vs prior 7-day training load (sum of duration * intensity weight).
+
+    Windows are calendar days ending ``today`` (default: UTC today): days 0-6
+    and 7-13 back. Two sessions on one day are one day's load, and a quiet
+    week counts as a quiet week. Logs without any parseable date fall back to
+    "latest 7 sessions vs the 7 before" — the only reading they support.
+    """
     if not workouts:
         return {"current": 0, "previous": 0, "delta": 0, "trend": "flat"}
 
@@ -18,8 +37,24 @@ def training_load_trend(workouts: list[dict[str, Any]]) -> dict[str, Any]:
             total += duration * weight
         return round(total)
 
-    current = load_for(workouts[:7])
-    previous = load_for(workouts[7:14])
+    dated = [(w, _workout_day(w)) for w in workouts]
+    if any(day is not None for _, day in dated):
+        anchor = today or datetime.now(timezone.utc).date()
+        current_window: list[dict[str, Any]] = []
+        previous_window: list[dict[str, Any]] = []
+        for workout, day in dated:
+            if day is None:
+                continue
+            age = (anchor - day).days
+            if 0 <= age <= 6:
+                current_window.append(workout)
+            elif 7 <= age <= 13:
+                previous_window.append(workout)
+        current = load_for(current_window)
+        previous = load_for(previous_window)
+    else:
+        current = load_for(workouts[:7])
+        previous = load_for(workouts[7:14])
     delta = current - previous
 
     if previous == 0:
