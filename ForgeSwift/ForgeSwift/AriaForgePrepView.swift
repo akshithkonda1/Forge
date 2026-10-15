@@ -1,11 +1,15 @@
 import SwiftUI
+import ForgeCore
 
 /// Full-screen console boot after the interview. Ember orb, editorial copy,
 /// a quiet fill — never a "Loading 47%" HUD, and never spoken ARIA.
 struct AriaForgePrepView: View {
     var coordinator: OnboardingCoordinator
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.dynamicTypeSize) private var typeSize
     @AppStorage(AriaSpokenMute.mutedKey) private var spokenMuted = true
+
+    private var orbSize: CGFloat { typeSize.isAccessibilitySize ? 96 : 132 }
 
     var body: some View {
         let stage = coordinator.prepStage
@@ -17,83 +21,101 @@ struct AriaForgePrepView: View {
                 .ignoresSafeArea()
 
             VStack(spacing: 0) {
-                HStack {
-                    Spacer()
-                    AriaSpokenMuteButton()
-                }
-                .padding(.horizontal, FDS.Spacing.xl)
-                .padding(.top, FDS.Spacing.sm)
+                topBar
 
-                Spacer()
-
-                VStack(spacing: FDS.Spacing.xl) {
-                    AuroraOrbView(
-                        state: stage == .ready ? .idle : .processing,
-                        amplitude: reduceMotion ? 0.18 : 0.42,
-                        mood: .focused,
-                        size: 132,
-                        followPresence: false
-                    )
-                    .accessibilityHidden(true)
-
-                    VStack(spacing: FDS.Spacing.md) {
-                        Text(stage.eyebrow.uppercased())
-                            .font(FDS.TypeScale.Dynamic.micro)
-                            .tracking(1.6)
-                            .foregroundColor(.textTertiary)
-
-                        Text(stage.headline)
-                            .font(FDS.TypeScale.display(28))
-                            .foregroundColor(.textPrimary)
-                            .multilineTextAlignment(.center)
-                            .animation(reduceMotion ? nil : FDS.Spring.standard, value: stage)
-
-                        Text(stage.detail(healthConnected: coordinator.prepHealthConnected))
-                            .font(FDS.TypeScale.Dynamic.body)
-                            .foregroundColor(.textSecondary)
-                            .multilineTextAlignment(.center)
-                            .padding(.horizontal, FDS.Spacing.xl)
-                            .animation(reduceMotion ? nil : FDS.Spring.standard, value: stage)
+                GeometryReader { geo in
+                    ScrollView(showsIndicators: false) {
+                        content(stage: stage, progress: progress)
+                            .frame(maxWidth: .infinity, minHeight: geo.size.height)
                     }
+                    .scrollBounceBehavior(.basedOnSize)
                 }
-
-                Spacer()
-
-                VStack(spacing: FDS.Spacing.lg) {
-                    prepFill(progress: progress)
-                        .padding(.horizontal, 48)
-
-                    Text(stage.footer(progress: progress))
-                        .font(FDS.TypeScale.Dynamic.caption)
-                        .foregroundColor(.textTertiary)
-
-                    if spokenMuted {
-                        Text("Voice is muted")
-                            .font(FDS.TypeScale.Dynamic.micro)
-                            .foregroundColor(.textTertiary)
-                    }
-                }
-                .padding(.bottom, 48)
             }
         }
+    }
+
+    // The mute control sits outside the combined status group so VoiceOver
+    // can still reach and toggle it.
+    private var topBar: some View {
+        HStack {
+            Spacer()
+            AriaSpokenMuteButton()
+        }
+        .padding(.horizontal, ForgeLayout.screenInset)
+        .padding(.top, FDS.Spacing.sm)
+    }
+
+    private func content(stage: AriaForgePrep.Stage, progress: Double) -> some View {
+        VStack(spacing: 0) {
+            Spacer(minLength: ForgeLayout.sectionGap)
+
+            VStack(spacing: FDS.Spacing.xl) {
+                AuroraOrbView(
+                    state: stage == .ready ? .idle : .processing,
+                    amplitude: reduceMotion ? 0.18 : 0.42,
+                    mood: .focused,
+                    size: orbSize,
+                    followPresence: false
+                )
+                .accessibilityHidden(true)
+
+                statusCopy(stage: stage)
+            }
+
+            Spacer(minLength: ForgeLayout.sectionGap)
+
+            progressBlock(stage: stage, progress: progress)
+        }
+        .padding(.horizontal, ForgeLayout.screenInset)
+        .padding(.bottom, FDS.Spacing.xl)
+    }
+
+    private func statusCopy(stage: AriaForgePrep.Stage) -> some View {
+        VStack(spacing: ForgeLayout.pairGap) {
+            Text(stage.eyebrow)
+                .forgeSectionLabel()
+                .multilineTextAlignment(.center)
+
+            Text(stage.headline)
+                .font(ForgeType.pageTitle)
+                .foregroundStyle(Color.textPrimary)
+                .multilineTextAlignment(.center)
+                .forgeWrapping()
+                .animation(reduceMotion ? nil : FDS.Spring.standard, value: stage)
+
+            Text(stage.detail(healthConnected: coordinator.prepHealthConnected))
+                .font(HomeType.body)
+                .foregroundStyle(Color.textSecondary)
+                .multilineTextAlignment(.center)
+                .forgeWrapping()
+                .padding(.top, ForgeLayout.pairGap)
+                .padding(.horizontal, FDS.Spacing.sm)
+                .animation(reduceMotion ? nil : FDS.Spring.standard, value: stage)
+        }
+        .frame(maxWidth: .infinity)
         .accessibilityElement(children: .combine)
         .accessibilityLabel("Prepping Forge")
         .accessibilityValue(stage.headline)
         .accessibilityAddTraits(.updatesFrequently)
     }
 
-    private func prepFill(progress: Double) -> some View {
-        GeometryReader { geo in
-            ZStack(alignment: .leading) {
-                Capsule()
-                    .fill(Color.white.opacity(0.08))
-                Capsule()
-                    .fill(Color.paper)
-                    .frame(width: max(6, geo.size.width * progress))
+    private func progressBlock(stage: AriaForgePrep.Stage, progress: Double) -> some View {
+        VStack(spacing: ForgeLayout.rowGap) {
+            ForgeProgressBar(fraction: progress, tint: Color.paper, height: 4)
+                .padding(.horizontal, FDS.Spacing.xl)
+                .accessibilityHidden(true)
+
+            Text(stage.footer(progress: progress))
+                .font(HomeType.body)
+                .foregroundStyle(Color.textTertiary)
+                .multilineTextAlignment(.center)
+                .forgeWrapping()
+
+            if spokenMuted {
+                Text("Voice is muted")
+                    .font(HomeType.micro)
+                    .foregroundStyle(Color.textTertiary)
             }
         }
-        .frame(height: 4)
-        .animation(reduceMotion ? nil : .easeInOut(duration: 0.35), value: progress)
-        .accessibilityHidden(true)
     }
 }

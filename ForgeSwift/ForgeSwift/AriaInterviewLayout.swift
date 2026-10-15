@@ -1,4 +1,5 @@
 import SwiftUI
+import UIKit
 import ForgeCore
 
 struct AriaInterviewLayout: View {
@@ -7,24 +8,50 @@ struct AriaInterviewLayout: View {
     @StateObject private var dictation = SpeechManager()
     private let presence = AriaPresence.shared
     @Environment(\.scenePhase) private var scenePhase
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @AppStorage(AriaSpokenMute.mutedKey) private var spokenMuted = true
+    // Presentation-only layout state.
+    @State private var headerHeight: CGFloat = 0
+    @State private var keyboardVisible = false
+    @State private var showsEarlier = false
+
+    /// Orb in the presence row. 56 pt is the still pose, inside a 44 pt tap area.
+    private static let orbSize: CGFloat = 56
+    /// Below this usable height the transcript collapses to ARIA's latest line.
+    private static let compactHeight: CGFloat = 700
 
     private var beat: AriaInterviewStep {
         AriaInterviewStep(OnboardingGraph.normalized(coordinator.step.graph))
     }
 
+    private func motion(_ animation: Animation) -> Animation? {
+        reduceMotion ? nil : animation
+    }
+
     var body: some View {
-        // Header stays fixed in the safe area. Tall composers (e.g. 8 training
-        // themes) scroll inside a capped region so they never crush the
-        // transcript or push content under the status bar / Dynamic Island.
+        // Header stays fixed in the safe area. The composer sheet is capped as
+        // a whole (grabber-less, replies, scroll, voice dock) so it never
+        // crushes the transcript or pushes content under the Dynamic Island.
+        // While the keyboard is up, or on a short screen, the transcript
+        // collapses to ARIA's latest line.
         GeometryReader { geo in
-            let composerCap = max(248, geo.size.height * 0.52)
+            let collapsed = keyboardVisible || geo.size.height < Self.compactHeight
+            let transcriptMin: CGFloat = collapsed ? 64 : 96
+            let sheetFloor: CGFloat = keyboardVisible ? 120 : 200
+            let sheetMax = max(sheetFloor, geo.size.height - headerHeight - transcriptMin)
             VStack(spacing: 0) {
                 header
-                transcript
-                    .frame(minHeight: 88, maxHeight: .infinity)
-                composer(maxHeight: composerCap)
+                transcript(collapsed: collapsed)
+                    .frame(minHeight: transcriptMin, maxHeight: .infinity)
+                composer(maxHeight: sheetMax)
             }
+            .animation(motion(FDS.Spring.standard), value: collapsed)
+        }
+        .onReceive(NotificationCenter.default.publisher(for: UIResponder.keyboardWillShowNotification)) { _ in
+            keyboardVisible = true
+        }
+        .onReceive(NotificationCenter.default.publisher(for: UIResponder.keyboardWillHideNotification)) { _ in
+            keyboardVisible = false
         }
         .onChange(of: dictation.recognizedText) { _, text in
             guard dictation.isListening || dictation.voiceState == .processing else { return }
@@ -71,88 +98,17 @@ struct AriaInterviewLayout: View {
         )
     }
 
+    // MARK: - Header
+
+    /// Two rows. Row 1 is back, progress and mute at 44 pt each. Row 2 is the
+    /// orb with ARIA's status and the step title, so text never competes with
+    /// controls for width.
     private var header: some View {
-        VStack(spacing: FDS.Spacing.lg) {
-            HStack(spacing: FDS.Spacing.lg) {
-                if coordinator.canGoBack {
-                    Button {
-                        dictation.cancel()
-                        coordinator.goBack()
-                    } label: {
-                        Image(systemName: "chevron.left")
-                            .font(.system(size: 16, weight: .semibold))
-                            .foregroundColor(.textSecondary)
-                            .frame(width: 36, height: 36)
-                            .background(Circle().fill(Color.white.opacity(0.06)))
-                            .overlay(Circle().stroke(Color.white.opacity(0.10), lineWidth: 1))
-                            .frame(minWidth: 44, minHeight: 44)
-                            .contentShape(Rectangle())
-                    }
-                    .buttonStyle(.plain)
-                    .accessibilityLabel("Back")
-                }
-
-                Button {
-                    coordinator.replayLastAriaLine()
-                } label: {
-                    ZStack {
-                        AuroraOrbView(
-                            state: dictation.isListening ? .listening : coordinator.ariaOrbState,
-                            amplitude: dictation.isListening
-                                ? max(Float(0.55), dictation.amplitude)
-                                : (presence.isSpeaking ? 0.82 : 0.46),
-                            mood: coordinator.ariaMood,
-                            size: coordinator.step == .intro ? 88 : 72,
-                            followPresence: true
-                        )
-                    }
-                    .frame(
-                        width: coordinator.step == .intro ? 92 : 76,
-                        height: coordinator.step == .intro ? 92 : 76
-                    )
-                }
-                .buttonStyle(.plain)
-                .accessibilityLabel("Replay ARIA")
-                .accessibilityHint("Plays her last line")
-
-                VStack(alignment: .leading, spacing: 3) {
-                    Text(presenceCaption.uppercased())
-                        .font(FDS.TypeScale.Dynamic.micro)
-                        .tracking(1.4)
-                        .foregroundColor(coordinator.ariaMood.accentColor)
-                    Text(coordinator.step.progressLabel)
-                        .font(FDS.TypeScale.Dynamic.title)
-                        .foregroundColor(.textPrimary)
-                    Text(spokenMuted ? "Voice is muted" : "Tap ARIA to hear her again")
-                        .font(FDS.TypeScale.Dynamic.micro)
-                        .foregroundColor(.textTertiary)
-                }
-
-                Spacer(minLength: 8)
-
-                AriaSpokenMuteButton()
-
-                Text("\(coordinator.progressStepIndex) / \(coordinator.progressStepCount)")
-                    .font(FDS.TypeScale.Dynamic.caption)
-                    .foregroundColor(.textTertiary)
-                    .monospacedDigit()
-            }
-            .animation(FDS.Spring.snap, value: dictation.isListening)
-            .animation(FDS.Spring.snap, value: presence.isSpeaking)
-            .animation(FDS.Spring.page, value: coordinator.step)
-
-            GeometryReader { geo in
-                ZStack(alignment: .leading) {
-                    Capsule().fill(Color.white.opacity(0.08)).frame(height: 4)
-                    Capsule()
-                        .fill(Color.paper)
-                        .frame(width: max(10, geo.size.width * coordinator.progress), height: 4)
-                        .animation(FDS.Spring.standard, value: coordinator.progress)
-                }
-            }
-            .frame(height: 4)
+        VStack(spacing: FDS.Spacing.sm) {
+            controlsRow
+            presenceRow
         }
-        .padding(.horizontal, FDS.Spacing.xl)
+        .padding(.horizontal, ForgeLayout.screenInset)
         .padding(.top, FDS.Spacing.sm)
         .padding(.bottom, FDS.Spacing.md)
         .overlay(alignment: .bottom) {
@@ -160,19 +116,117 @@ struct AriaInterviewLayout: View {
                 .fill(Color.white.opacity(0.08))
                 .frame(height: 0.5)
         }
+        .onGeometryChange(for: CGFloat.self) { proxy in
+            proxy.size.height
+        } action: { height in
+            headerHeight = height
+        }
     }
 
-    private var transcript: some View {
-        ScrollViewReader { proxy in
+    private var controlsRow: some View {
+        HStack(spacing: ForgeLayout.rowGap) {
+            if coordinator.canGoBack {
+                ForgeIconButton(
+                    systemImage: "chevron.left",
+                    accessibilityLabel: "Back",
+                    tinted: false
+                ) {
+                    dictation.cancel()
+                    coordinator.goBack()
+                }
+            } else {
+                Color.clear
+                    .frame(width: ForgeUX.minTap, height: ForgeUX.minTap)
+                    .accessibilityHidden(true)
+            }
+
+            progressBar
+
+            AriaSpokenMuteButton()
+        }
+        .animation(motion(FDS.Spring.page), value: coordinator.step)
+    }
+
+    private var progressBar: some View {
+        ForgeProgressBar(fraction: coordinator.progress, tint: Color.paper, height: 4)
+            .frame(maxWidth: .infinity)
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel("Progress")
+            .accessibilityValue("Step \(coordinator.progressStepIndex) of \(coordinator.progressStepCount)")
+    }
+
+    private var presenceRow: some View {
+        HStack(spacing: ForgeLayout.rowGap) {
+            orbButton
+
+            VStack(alignment: .leading, spacing: ForgeLayout.labelValueGap) {
+                Text(presenceCaption)
+                    .forgeSectionLabel(tint: coordinator.ariaMood.accentColor)
+                    .forgeSingleLine(minScale: ForgeLayout.labelMinScale)
+                Text(coordinator.step.progressLabel)
+                    .font(ForgeType.title)
+                    .foregroundStyle(Color.textPrimary)
+                    .lineLimit(2)
+                    .multilineTextAlignment(.leading)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+        }
+        .animation(motion(FDS.Spring.snap), value: dictation.isListening)
+        .animation(motion(FDS.Spring.snap), value: presence.isSpeaking)
+        .animation(motion(FDS.Spring.page), value: coordinator.step)
+    }
+
+    private var orbButton: some View {
+        Button {
+            coordinator.replayLastAriaLine()
+        } label: {
+            AuroraOrbView(
+                state: dictation.isListening ? .listening : coordinator.ariaOrbState,
+                amplitude: dictation.isListening
+                    ? max(Float(0.55), dictation.amplitude)
+                    : (presence.isSpeaking ? 0.82 : 0.46),
+                mood: coordinator.ariaMood,
+                size: Self.orbSize,
+                followPresence: true
+            )
+            .frame(width: Self.orbSize, height: Self.orbSize)
+            .frame(minWidth: ForgeUX.minTap, minHeight: ForgeUX.minTap)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel("Replay ARIA")
+        .accessibilityHint("Plays her last line")
+        .accessibilityValue(spokenMuted ? "Voice is muted" : "")
+    }
+
+    // MARK: - Transcript
+
+    private func transcript(collapsed: Bool) -> some View {
+        let lastAria = coordinator.messages.last(where: { $0.role == .aria })
+        let hasEarlier = coordinator.messages.contains { $0.id != lastAria?.id }
+        let showsLastOnly = collapsed && (keyboardVisible || !showsEarlier)
+        return ScrollViewReader { proxy in
             ScrollView(showsIndicators: false) {
-                LazyVStack(alignment: .leading, spacing: FDS.Spacing.md) {
-                    ForEach(coordinator.messages) { msg in
-                        MessageBubble(message: msg) {
-                            if msg.role == .aria {
-                                AriaPresence.shared.speak(msg.text, interrupt: true)
+                LazyVStack(alignment: .leading, spacing: ForgeLayout.rowGap) {
+                    if collapsed && hasEarlier && !keyboardVisible {
+                        ForgeTextLink(
+                            title: "Earlier",
+                            accent: Color.textTertiary,
+                            expanded: showsEarlier
+                        ) {
+                            withAnimation(motion(FDS.Spring.standard)) {
+                                showsEarlier.toggle()
                             }
                         }
-                        .id(msg.id)
+                    }
+                    if showsLastOnly {
+                        if let lastAria {
+                            bubble(lastAria)
+                        }
+                    } else {
+                        ForEach(coordinator.messages) { msg in
+                            bubble(msg)
+                        }
                     }
                     if coordinator.isTyping {
                         TypingIndicator()
@@ -180,17 +234,17 @@ struct AriaInterviewLayout: View {
                     }
                     Color.clear.frame(height: 8).id("bottom")
                 }
-                .padding(.horizontal, FDS.Spacing.xl)
+                .padding(.horizontal, ForgeLayout.screenInset)
                 .padding(.vertical, FDS.Spacing.sm)
             }
             .onChange(of: coordinator.messages.count) { _, _ in
-                withAnimation(FDS.Spring.snap) {
+                withAnimation(motion(FDS.Spring.snap)) {
                     proxy.scrollTo("bottom", anchor: .bottom)
                 }
             }
             .onChange(of: coordinator.isTyping) { _, typing in
                 if typing {
-                    withAnimation(FDS.Spring.snap) {
+                    withAnimation(motion(FDS.Spring.snap)) {
                         proxy.scrollTo("typing", anchor: .bottom)
                     }
                 }
@@ -198,25 +252,22 @@ struct AriaInterviewLayout: View {
         }
     }
 
-    @ViewBuilder
+    private func bubble(_ msg: AriaOnboardingMessage) -> some View {
+        MessageBubble(message: msg) {
+            if msg.role == .aria {
+                AriaPresence.shared.speak(msg.text, interrupt: true)
+            }
+        }
+        .id(msg.id)
+    }
+
+    // MARK: - Composer sheet
+
     private func composer(maxHeight: CGFloat) -> some View {
         VStack(spacing: 0) {
-            Capsule()
-                .fill(Color.white.opacity(0.14))
-                .frame(width: 36, height: 4)
-                .padding(.top, FDS.Spacing.md)
-                .padding(.bottom, FDS.Spacing.sm)
+            errorLine
 
-            if case .error(let msg) = dictation.voiceState {
-                Text(msg)
-                    .font(.caption.weight(.semibold))
-                    .foregroundColor(.warning)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .padding(.horizontal, FDS.Spacing.xl)
-                    .padding(.bottom, FDS.Spacing.sm)
-            }
-
-            if !coordinator.isReviewingBirthday {
+            if showsSuggestedReplies {
                 suggestedRepliesBar
             }
 
@@ -227,30 +278,28 @@ struct AriaInterviewLayout: View {
                     composerBody
                 }
             }
-            .frame(minHeight: min(180, maxHeight), maxHeight: maxHeight, alignment: .top)
 
-            if !coordinator.isReviewingBirthday, AriaInterviewVoice.shouldShowVoiceDock(for: beat) {
+            if showsVoiceDock {
                 voiceDock
             }
         }
-        .background {
-            UnevenRoundedRectangle(
-                topLeadingRadius: 28,
-                bottomLeadingRadius: 0,
-                bottomTrailingRadius: 0,
-                topTrailingRadius: 28,
-                style: .continuous
-            )
+        .frame(maxHeight: maxHeight)
+        .background { sheetBackground }
+        .animation(motion(FDS.Spring.page), value: coordinator.step)
+    }
+
+    private var sheetBackground: some View {
+        let shape = UnevenRoundedRectangle(
+            topLeadingRadius: FDS.Radius.xxl,
+            bottomLeadingRadius: 0,
+            bottomTrailingRadius: 0,
+            topTrailingRadius: FDS.Radius.xxl,
+            style: .continuous
+        )
+        return shape
             .fill(Color.surface.opacity(0.96))
             .overlay {
-                UnevenRoundedRectangle(
-                    topLeadingRadius: 28,
-                    bottomLeadingRadius: 0,
-                    bottomTrailingRadius: 0,
-                    topTrailingRadius: 28,
-                    style: .continuous
-                )
-                .stroke(
+                shape.stroke(
                     LinearGradient(
                         colors: [Color.white.opacity(0.14), Color.white.opacity(0.04)],
                         startPoint: .top,
@@ -260,8 +309,44 @@ struct AriaInterviewLayout: View {
                 )
             }
             .shadow(color: .black.opacity(0.45), radius: 28, y: -12)
+            .ignoresSafeArea(.container, edges: .bottom)
+    }
+
+    @ViewBuilder
+    private var errorLine: some View {
+        if case .error(let msg) = dictation.voiceState {
+            Text(msg)
+                .font(HomeType.body)
+                .foregroundStyle(Color.warning)
+                .forgeWrapping()
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.horizontal, ForgeLayout.screenInset)
+                .padding(.top, FDS.Spacing.md)
         }
-        .animation(FDS.Spring.page, value: coordinator.step)
+    }
+
+    // MARK: - Suggested replies
+
+    /// Every beat except schedule and conditions already puts the same answers
+    /// in the composer itself (cards, rows, a Continue button), so the reply
+    /// chips only appear where there are no direct controls.
+    private var repliesAreRedundant: Bool {
+        switch beat {
+        case .name, .health, .goals, .experience, .workouts, .sleep, .freeTime, .coaching:
+            return true
+        case .intro, .details, .schedule, .conditions, .ready:
+            return false
+        }
+    }
+
+    private var showsSuggestedReplies: Bool {
+        !coordinator.isReviewingBirthday && !keyboardVisible && !repliesAreRedundant
+    }
+
+    private var showsVoiceDock: Bool {
+        !coordinator.isReviewingBirthday
+            && AriaInterviewVoice.shouldShowVoiceDock(for: beat)
+            && (!keyboardVisible || dictation.isListening)
     }
 
     @ViewBuilder
@@ -275,67 +360,66 @@ struct AriaInterviewLayout: View {
             reminders: coordinator.remindersState
         )
         if !replies.isEmpty {
-            VStack(alignment: .leading, spacing: FDS.Spacing.sm) {
+            VStack(alignment: .leading, spacing: ForgeLayout.pairGap) {
                 Text("Reply")
-                    .font(FDS.TypeScale.Dynamic.micro)
-                    .tracking(1.2)
-                    .foregroundColor(.textMuted)
-                    .padding(.horizontal, FDS.Spacing.xl)
-                ScrollView(.horizontal, showsIndicators: false) {
-                    HStack(spacing: FDS.Spacing.sm) {
-                        ForEach(replies) { reply in
-                            Button {
-                                applyReply(reply)
-                            } label: {
-                                Text(reply.label)
-                                    .font(FDS.TypeScale.Dynamic.body)
-                                    .foregroundColor(.textPrimary)
-                                    .padding(.horizontal, FDS.Spacing.lg)
-                                    .padding(.vertical, FDS.Spacing.sm)
-                                    .background(Color.white.opacity(0.06))
-                                    .clipShape(Capsule())
-                                    .overlay(
-                                        Capsule().stroke(Color.white.opacity(0.12), lineWidth: 1)
-                                    )
-                            }
-                            .buttonStyle(.plain)
-                            .accessibilityLabel(reply.label)
+                    .forgeSectionLabel()
+                ForgeFlowLayout(lineSpacing: ForgeLayout.interactiveChipLineGap) {
+                    ForEach(replies) { reply in
+                        ForgeChipButton(label: reply.label) {
+                            applyReply(reply)
                         }
                     }
-                    .padding(.horizontal, FDS.Spacing.xl)
                 }
             }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.horizontal, ForgeLayout.screenInset)
+            .padding(.top, FDS.Spacing.md)
             .padding(.bottom, FDS.Spacing.sm)
         }
     }
 
+    // MARK: - Voice dock
+
     private var voiceDock: some View {
-        HStack(spacing: FDS.Spacing.md) {
-            VStack(alignment: .leading, spacing: 3) {
+        HStack(spacing: ForgeLayout.rowGap) {
+            VStack(alignment: .leading, spacing: ForgeLayout.labelValueGap) {
                 Text(dictation.isListening ? "ARIA is listening" : "Talk to ARIA")
-                    .font(FDS.TypeScale.Dynamic.caption)
-                    .foregroundColor(dictation.isListening ? .ember : .textPrimary)
-                Text(dictation.isListening
-                     ? (dictation.recognizedText.isEmpty ? "Go ahead — I’m with you." : dictation.recognizedText)
-                     : AriaInterviewVoice.voiceHint(for: beat))
-                    .font(.system(size: 12, weight: .medium))
-                    .foregroundColor(.textTertiary)
-                    .lineLimit(2)
+                    .font(HomeType.status)
+                    .foregroundStyle(dictation.isListening ? Color.ember : Color.textPrimary)
+                voiceDockDetail
             }
-            Spacer(minLength: 8)
+            .frame(maxWidth: .infinity, alignment: .leading)
+
             DictationMicButton(dictation: dictation) {
                 let spoken = dictation.recognizedText.trimmingCharacters(in: .whitespacesAndNewlines)
                 guard !spoken.isEmpty else { return }
                 coordinator.handleSpokenReply(spoken)
             }
         }
-        .padding(.horizontal, FDS.Spacing.xl)
+        .padding(.horizontal, ForgeLayout.screenInset)
         .padding(.top, FDS.Spacing.md)
-        .padding(.bottom, FDS.Spacing.lg)
+        .padding(.bottom, FDS.Spacing.md)
         .overlay(alignment: .top) {
             Rectangle().fill(Color.white.opacity(0.08)).frame(height: 0.5)
         }
         .accessibilityElement(children: .contain)
+    }
+
+    /// Live dictation keeps its newest words (the head truncates); hints wrap.
+    @ViewBuilder
+    private var voiceDockDetail: some View {
+        if dictation.isListening {
+            Text(dictation.recognizedText.isEmpty ? "Go ahead — I’m with you." : dictation.recognizedText)
+                .font(HomeType.body)
+                .foregroundStyle(Color.textTertiary)
+                .lineLimit(3)
+                .truncationMode(.head)
+        } else {
+            Text(AriaInterviewVoice.voiceHint(for: beat))
+                .font(HomeType.body)
+                .foregroundStyle(Color.textTertiary)
+                .forgeWrapping()
+        }
     }
 
     private func applyReply(_ reply: AriaInterviewVoice.Reply) {
@@ -352,9 +436,19 @@ struct AriaInterviewLayout: View {
     /// beat is behind it. `.details` itself normalizes onto Health below.
     private var birthdayReviewBody: some View {
         DetailsComposer(coordinator: coordinator)
-            .padding(.horizontal, FDS.Spacing.xl)
+            .padding(.horizontal, ForgeLayout.screenInset)
+            .padding(.top, FDS.Spacing.lg)
             .padding(.bottom, FDS.Spacing.md)
             .transition(.opacity)
+    }
+
+    private var composerTransition: AnyTransition {
+        reduceMotion
+            ? AnyTransition.opacity
+            : AnyTransition.asymmetric(
+                insertion: AnyTransition.move(edge: .bottom).combined(with: .opacity),
+                removal: AnyTransition.opacity
+            )
     }
 
     @ViewBuilder
@@ -437,12 +531,10 @@ struct AriaInterviewLayout: View {
                 ReadyComposer(coordinator: coordinator, onFinish: onFinish)
             }
         }
-        .padding(.horizontal, FDS.Spacing.xl)
+        .padding(.horizontal, ForgeLayout.screenInset)
+        .padding(.top, FDS.Spacing.lg)
         .padding(.bottom, FDS.Spacing.md)
         .id(coordinator.step)
-        .transition(.asymmetric(
-            insertion: .move(edge: .bottom).combined(with: .opacity),
-            removal: .opacity
-        ))
+        .transition(composerTransition)
     }
 }

@@ -64,11 +64,11 @@ enum ForgePrimaryDestination: String, CaseIterable, Identifiable {
     var accent: Color {
         switch self {
         case .home: return .ember
-        case .workout: return Color(hex: "F97316")
-        case .chat: return Color(hex: "38BDF8")
+        case .workout: return .ember
+        case .chat: return .aurora
         case .lifestyle: return Color.vitality
-        case .sleep: return Color.aurora
-        case .progress: return Color.steel
+        case .sleep: return .steel
+        case .progress: return .aurora
         case .profile: return .steel
         case .cycleHealth: return Color(hex: "EC4899")
         case .hydration: return Color.steel
@@ -334,47 +334,48 @@ struct ForgeEmptyStateCard: View {
 
 struct ForgeExploreDestinationsGrid: View {
     @EnvironmentObject var store: AppStore
+    @Environment(\.dynamicTypeSize) private var typeSize
 
-    private let columns = [
-        GridItem(.flexible(), spacing: 10),
-        GridItem(.flexible(), spacing: 10),
-    ]
+    /// Two columns, one at accessibility sizes. Equal-height rows.
+    private var columnCount: Int { typeSize.isAccessibilitySize ? 1 : 2 }
 
     var body: some View {
-        LazyVGrid(columns: columns, spacing: 10) {
+        ForgeEqualColumnsLayout(columns: columnCount, spacing: ForgeLayout.tileGap) {
             ForEach(ForgePrimaryDestination.allCases) { dest in
-                Button {
-                    UIImpactFeedbackGenerator(style: .light).impactOccurred()
-                    store.openDestination(dest)
-                } label: {
-                    HStack(spacing: FDS.Spacing.md) {
-                        ZStack {
-                            RoundedRectangle(cornerRadius: FDS.Radius.md, style: .continuous)
-                                .fill(dest.accent.opacity(0.16))
-                                .frame(width: 40, height: 40)
-                            Image(systemName: dest.systemImage)
-                                .font(.system(size: 16, weight: .semibold))
-                                .foregroundStyle(dest.accent)
-                        }
-                        VStack(alignment: .leading, spacing: 2) {
-                            Text(dest.title)
-                                .font(FDS.TypeScale.Dynamic.body.weight(.semibold))
-                                .foregroundColor(.textPrimary)
-                                .lineLimit(1)
-                            Text(dest.subtitle)
-                                .font(FDS.TypeScale.Dynamic.micro)
-                                .foregroundColor(.textTertiary)
-                                .lineLimit(2)
-                        }
-                        Spacer(minLength: 0)
-                    }
-                    .padding(FDS.Spacing.md)
-                    .forgeGlassCard(cornerRadius: FDS.Radius.md, accent: dest.accent)
-                }
-                .buttonStyle(.plain)
-                .accessibilityLabel("Open \(dest.title)")
-                .accessibilityHint(dest.subtitle)
+                tile(for: dest)
             }
         }
+    }
+
+    private func tile(for dest: ForgePrimaryDestination) -> some View {
+        Button {
+            FDS.haptic(.press)
+            store.openDestination(dest)
+        } label: {
+            tileLabel(for: dest)
+        }
+        .buttonStyle(ForgePressStyle())
+        .accessibilityLabel("Open \(dest.title)")
+        .accessibilityHint(dest.subtitle)
+    }
+
+    private func tileLabel(for dest: ForgePrimaryDestination) -> some View {
+        VStack(alignment: .leading, spacing: FDS.Spacing.sm) {
+            ForgeIconWell(systemImage: dest.systemImage, tint: dest.accent)
+            VStack(alignment: .leading, spacing: ForgeLayout.pairGap) {
+                Text(dest.title)
+                    .font(HomeType.status)
+                    .foregroundColor(.textPrimary)
+                    .forgeSingleLine(minScale: ForgeLayout.labelMinScale)
+                Text(dest.subtitle)
+                    .font(HomeType.body)
+                    .foregroundColor(.textTertiary)
+                    .multilineTextAlignment(.leading)
+                    .forgeWrapping()
+            }
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+        .forgeContentCard(tint: dest.accent, padding: ForgeLayout.tilePadding)
+        .contentShape(Rectangle())
     }
 }
