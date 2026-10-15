@@ -75,18 +75,18 @@ struct EnergySchedule {
     }
 
     var debtHeadline: String {
-        debtLevel == .clear ? "Square on sleep" : String(format: "%.1f hours of sleep debt", debtHours)
+        debtLevel == .clear ? "Square on sleep" : String(format: "%.1fh short stretch", debtHours)
     }
 
     var debtDetail: String {
         let need = String(format: "%.1f", needHours)
         switch debtLevel {
         case .clear:
-            return "Against a \(need)h need, over \(nightsUsed) nights. Nothing to pay back."
+            return "Against a \(need)h need, over \(nightsUsed) nights. Nothing extra to add tonight."
         case .mild:
-            return "Against a \(need)h need, over \(nightsUsed) nights. An extra half hour a night clears it inside a week."
+            return "Against a \(need)h need, over \(nightsUsed) nights. About 25 extra minutes a night is enough."
         case .heavy:
-            return "Against a \(need)h need, over \(nightsUsed) nights. More than one long lie-in will pay this down."
+            return "Against a \(need)h need, over \(nightsUsed) nights. A short stretch — keep the extra minutes small."
         }
     }
 
@@ -238,6 +238,10 @@ struct EnergyScheduleCard: View {
     /// Only used to fire one haptic per window crossed, rather than per pixel.
     @State private var scrubWindow: CircadianRhythm.Window?
 
+    /// Plot height scales a little with Dynamic Type, capped so the chart
+    /// never swallows the screen at accessibility sizes.
+    @ScaledMetric(relativeTo: .caption) private var plotHeightSize: CGFloat = 132
+
     private let tick = Timer.publish(every: 60, on: .main, in: .common).autoconnect()
 
     /// Cheap identity for the night history — enough to notice a new night, a
@@ -249,10 +253,11 @@ struct EnergyScheduleCard: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: FDS.Spacing.lg) {
+        VStack(alignment: .leading, spacing: ForgeLayout.blockGap) {
             header
             if let schedule = schedule {
                 debtBlock(schedule)
+                Divider().background(Color.white.opacity(0.08))
                 chart(schedule)
                 if !schedule.isReliable {
                     hedge(schedule)
@@ -263,8 +268,7 @@ struct EnergyScheduleCard: View {
                 learningState
             }
         }
-        .padding(FDS.Spacing.lg)
-        .forgeGlassCard(cornerRadius: FDS.Radius.xl, accent: .aurora)
+        .forgeContentCard(tint: .steel)
         .animation(reduceMotion ? nil : .snappy(duration: 0.32), value: schedule?.debtHours)
         .sensoryFeedback(.selection, trigger: scrubWindow)
         .onAppear {
@@ -295,15 +299,7 @@ struct EnergyScheduleCard: View {
     // ------------------------------------------------------------
 
     private var header: some View {
-        HStack(spacing: FDS.Spacing.sm) {
-            Image(systemName: "waveform.path.ecg")
-                .font(.system(size: 13, weight: .semibold))
-                .foregroundColor(.aurora)
-            Text("Today's energy")
-                .font(FDS.TypeScale.Dynamic.body.weight(.semibold))
-                .foregroundColor(.textPrimary)
-            Spacer()
-        }
+        ForgeCardHeader("Today's energy", tint: .steel)
     }
 
     // ------------------------------------------------------------
@@ -314,7 +310,7 @@ struct EnergyScheduleCard: View {
         switch level {
         case .clear: return .vitality
         case .mild:  return .amber
-        case .heavy: return .alert
+        case .heavy: return HudChrome.miss
         }
     }
 
@@ -335,42 +331,43 @@ struct EnergyScheduleCard: View {
     }
 
     private func debtBlock(_ schedule: EnergySchedule) -> some View {
-        VStack(alignment: .leading, spacing: FDS.Spacing.md) {
-            HStack(spacing: FDS.Spacing.md) {
-                ZStack {
-                    Circle().fill(debtTint(schedule.debtLevel).opacity(0.14)).frame(width: 36, height: 36)
-                    Image(systemName: debtIcon(schedule.debtLevel))
-                        .font(.system(size: 16, weight: .semibold))
-                        .foregroundColor(debtTint(schedule.debtLevel))
-                }
-                VStack(alignment: .leading, spacing: 2) {
+        let tint = debtTint(schedule.debtLevel)
+        return VStack(alignment: .leading, spacing: ForgeLayout.rowGap) {
+            HStack(alignment: .top, spacing: ForgeLayout.rowGap) {
+                ForgeIconWell(systemImage: debtIcon(schedule.debtLevel), tint: tint)
+                VStack(alignment: .leading, spacing: ForgeLayout.pairGap) {
                     Text(schedule.debtHeadline)
-                        .font(FDS.TypeScale.Dynamic.metric)
-                        .foregroundColor(debtTint(schedule.debtLevel))
+                        .font(HomeType.metric)
+                        .foregroundStyle(tint)
                         .contentTransition(.numericText())
-                        .minimumScaleFactor(0.7)
-                        .lineLimit(1)
+                        .lineLimit(2)
+                        .minimumScaleFactor(ForgeLayout.valueMinScale)
+                        .layoutPriority(1)
                     Text(schedule.debtDetail)
-                        .font(FDS.TypeScale.Dynamic.micro)
-                        .foregroundColor(.textTertiary)
-                        .lineLimit(1)
+                        .font(HomeType.body)
+                        .foregroundStyle(Color.textSecondary)
+                        .forgeWrapping()
                 }
                 Spacer(minLength: 0)
             }
             // Actionable next step — the one thing to do tonight, not a number to stare at.
-            HStack(spacing: FDS.Spacing.sm) {
+            HStack(alignment: .top, spacing: ForgeLayout.rowGap) {
                 Image(systemName: "arrow.forward.circle.fill")
-                    .font(.system(size: 11, weight: .semibold))
-                    .foregroundColor(debtTint(schedule.debtLevel))
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundStyle(tint)
+                    .accessibilityHidden(true)
                 Text(debtAction(schedule.debtLevel))
-                    .font(FDS.TypeScale.Dynamic.caption)
-                    .foregroundColor(.textSecondary)
-                    .fixedSize(horizontal: false, vertical: true)
+                    .font(HomeType.body)
+                    .foregroundStyle(Color.textSecondary)
+                    .forgeWrapping()
+                Spacer(minLength: 0)
             }
-            .padding(.horizontal, FDS.Spacing.md)
-            .padding(.vertical, FDS.Spacing.sm)
-            .background(debtTint(schedule.debtLevel).opacity(0.07))
-            .clipShape(RoundedRectangle(cornerRadius: FDS.Radius.sm, style: .continuous))
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .forgeWell()
+            .background(
+                RoundedRectangle(cornerRadius: ForgeLayout.innerRadius, style: .continuous)
+                    .fill(tint.opacity(0.08))
+            )
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .accessibilityElement(children: .combine)
@@ -381,13 +378,13 @@ struct EnergyScheduleCard: View {
     // ------------------------------------------------------------
 
     private func chart(_ schedule: EnergySchedule) -> some View {
-        VStack(spacing: FDS.Spacing.sm) {
+        VStack(alignment: .leading, spacing: ForgeLayout.tileGap) {
             GeometryReader { geo in
                 ZStack(alignment: .topLeading) {
                     // Subtle horizontal grid — 3 lines so the curve has a reference without a y-axis to read.
                     VStack(spacing: 0) {
                         ForEach(0..<3, id: \.self) { i in
-                            Rectangle().fill(Color.borderColor.opacity(i == 1 ? 0.18 : 0.09))
+                            Rectangle().fill(Color.white.opacity(0.12))
                                 .frame(height: 1)
                             if i < 2 { Spacer() }
                         }
@@ -396,7 +393,7 @@ struct EnergyScheduleCard: View {
                     areaPath(schedule, size: geo.size)
                         .fill(
                             LinearGradient(
-                                colors: [Color.aurora.opacity(0.34), Color.aurora.opacity(0.02)],
+                                colors: [Color.steel.opacity(0.30), Color.steel.opacity(0.02)],
                                 startPoint: .top,
                                 endPoint: .bottom
                             )
@@ -406,7 +403,7 @@ struct EnergyScheduleCard: View {
                         .trim(from: 0, to: drawProgress)
                         .stroke(
                             LinearGradient(
-                                colors: [.amber, .aurora, .steel],
+                                colors: [Color.steelLight, Color.steel, Color.aurora],
                                 startPoint: .top,
                                 endPoint: .bottom
                             ),
@@ -418,19 +415,22 @@ struct EnergyScheduleCard: View {
                 .contentShape(Rectangle())
                 .gesture(scrubGesture(schedule, width: geo.size.width))
             }
-            .frame(height: 132)
+            .frame(height: ForgeLayout.scaledCap(plotHeightSize, base: 132))
             .accessibilityElement(children: .ignore)
             .accessibilityLabel(chartDescription(schedule))
 
             axis(schedule)
-            HStack(spacing: FDS.Spacing.xs) {
-                Image(systemName: "hand.draw.fill").font(.system(size: 9)).foregroundColor(.textTertiary.opacity(0.7))
+            HStack(alignment: .top, spacing: ForgeLayout.chipGap) {
+                Image(systemName: "hand.draw.fill")
+                    .font(.system(size: 10))
+                    .foregroundStyle(Color.textTertiary)
+                    .accessibilityHidden(true)
                 Text("Drag the curve — or tap a time — to see that moment")
-                    .font(FDS.TypeScale.Dynamic.micro)
-                    .foregroundColor(.textTertiary.opacity(0.9))
+                    .font(HomeType.micro)
+                    .foregroundStyle(Color.textTertiary)
+                    .forgeWrapping()
                 Spacer(minLength: 0)
             }
-            .padding(.top, 2)
         }
     }
 
@@ -478,8 +478,12 @@ struct EnergyScheduleCard: View {
             }
             .onEnded { _ in
                 scrubWindow = nil
-                withAnimation(.spring(response: 0.4, dampingFraction: 0.85)) {
+                if reduceMotion {
                     scrubOffset = nil
+                } else {
+                    withAnimation(.spring(response: 0.4, dampingFraction: 0.85)) {
+                        scrubOffset = nil
+                    }
                 }
             }
     }
@@ -516,7 +520,7 @@ struct EnergyScheduleCard: View {
     private func sleepShade(_ schedule: EnergySchedule, size: CGSize) -> some View {
         let start = x(schedule.awakeSpan, size.width)
         return Rectangle()
-            .fill(Color.indigo.opacity(0.12))
+            .fill(Color.steel.opacity(0.10))
             .frame(width: max(0, size.width - start), height: size.height)
             .offset(x: start)
     }
@@ -540,7 +544,7 @@ struct EnergyScheduleCard: View {
                 .offset(x: position - (scrubbing ? 5.5 : 4),
                         y: markerY - (scrubbing ? 5.5 : 4))
         }
-        .animation(.spring(response: 0.25, dampingFraction: 0.9), value: scrubbing)
+        .animation(reduceMotion ? nil : .spring(response: 0.25, dampingFraction: 0.9), value: scrubbing)
     }
 
     /// Four ticks across the waking day, labelled in clock time. The axis starts
@@ -549,8 +553,10 @@ struct EnergyScheduleCard: View {
         HStack(spacing: 0) {
             ForEach(Array(stride(from: 0.0, to: 24.0, by: 6.0)), id: \.self) { offset in
                 Text(clockLabel(schedule.phase.wakeHour + offset))
-                    .font(FDS.TypeScale.Dynamic.micro)
-                    .foregroundColor(.textTertiary)
+                    .font(HomeType.micro)
+                    .foregroundStyle(Color.textTertiary)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.8)
                     .frame(maxWidth: .infinity, alignment: offset == 0 ? .leading : .center)
             }
         }
@@ -575,62 +581,74 @@ struct EnergyScheduleCard: View {
     private func focusBlock(_ schedule: EnergySchedule) -> some View {
         let point = focus(schedule)
         let scrubbing = scrubOffset != nil
-        return VStack(alignment: .leading, spacing: FDS.Spacing.md) {
-            HStack(spacing: FDS.Spacing.sm) {
+        return VStack(alignment: .leading, spacing: ForgeLayout.rowGap) {
+            HStack(alignment: .top, spacing: ForgeLayout.rowGap) {
                 Image(systemName: point.window.symbolName)
                     .font(.system(size: 15, weight: .semibold))
-                    .foregroundColor(point.window.tint)
+                    .foregroundStyle(point.window.tint)
                     .frame(width: 22)
-                VStack(alignment: .leading, spacing: 3) {
-                    HStack(spacing: FDS.Spacing.sm) {
-                        Text(point.window.title)
-                            .font(FDS.TypeScale.Dynamic.body.weight(.semibold))
-                            .foregroundColor(.textPrimary)
-                        // Only stamped while scrubbing. At rest the block is
-                        // about now, and labelling that with a clock time would
-                        // invite reading it as a scheduled event.
-                        if scrubbing {
-                            Text(clockLabel(point.hour))
-                                .font(FDS.TypeScale.Dynamic.micro)
-                                .foregroundColor(point.window.tint)
-                                .padding(.horizontal, FDS.Spacing.sm)
-                                .padding(.vertical, 2)
-                                .background(point.window.tint.opacity(0.14))
-                                .clipShape(Capsule())
-                                .transition(.scale.combined(with: .opacity))
-                        }
-                    }
+                    .accessibilityHidden(true)
+                VStack(alignment: .leading, spacing: ForgeLayout.pairGap) {
+                    focusTitleRow(point.window, hour: point.hour, scrubbing: scrubbing)
                     Text(point.window.guidance)
-                        .font(.system(size: 12))
-                        .foregroundColor(.textSecondary)
-                        .fixedSize(horizontal: false, vertical: true)
+                        .font(HomeType.body)
+                        .foregroundStyle(Color.textSecondary)
+                        .forgeWrapping()
                 }
                 Spacer(minLength: 0)
             }
 
             if !scrubbing, let upcoming = schedule.upcoming {
-                HStack(spacing: FDS.Spacing.sm) {
+                HStack(alignment: .top, spacing: ForgeLayout.rowGap) {
                     Image(systemName: "arrow.turn.down.right")
                         .font(.system(size: 12, weight: .semibold))
-                        .foregroundColor(.textTertiary)
+                        .foregroundStyle(Color.textTertiary)
                         .frame(width: 22)
-                    Text("Next: \(upcoming.window.title)")
-                        .font(FDS.TypeScale.Dynamic.caption)
-                        .foregroundColor(.textSecondary)
-                    Text(relativeLabel(upcoming.startsInHours))
-                        .font(FDS.TypeScale.Dynamic.caption)
-                        .foregroundColor(upcoming.window.tint)
+                        .accessibilityHidden(true)
+                    nextLine(upcoming.window, startsInHours: upcoming.startsInHours)
                     Spacer(minLength: 0)
                 }
                 .transition(.opacity)
             }
         }
-        .padding(FDS.Spacing.md)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .forgeInsetTile(radius: FDS.Radius.md)
-        .animation(.snappy(duration: 0.22), value: point.window)
-        .animation(.snappy(duration: 0.22), value: scrubbing)
+        .forgeWell()
+        .animation(reduceMotion ? nil : .snappy(duration: 0.22), value: point.window)
+        .animation(reduceMotion ? nil : .snappy(duration: 0.22), value: scrubbing)
         .accessibilityElement(children: .combine)
+    }
+
+    private func focusTitleRow(_ window: CircadianRhythm.Window, hour: Double, scrubbing: Bool) -> some View {
+        ForgeAdaptiveStack(spacing: ForgeLayout.chipGap, alignment: .firstTextBaseline) {
+            Text(window.title)
+                .font(HomeType.status)
+                .foregroundStyle(Color.textPrimary)
+                .forgeWrapping()
+            // Only stamped while scrubbing. At rest the block is
+            // about now, and labelling that with a clock time would
+            // invite reading it as a scheduled event.
+            if scrubbing {
+                Text(clockLabel(hour))
+                    .font(HomeType.micro)
+                    .foregroundStyle(window.tint)
+                    .lineLimit(1)
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 5)
+                    .background(window.tint.opacity(0.12))
+                    .clipShape(Capsule())
+                    .overlay(Capsule().stroke(window.tint.opacity(0.28), lineWidth: 0.8))
+                    .transition(.scale.combined(with: .opacity))
+            }
+        }
+    }
+
+    /// One Text so the label and the relative time wrap as a unit.
+    private func nextLine(_ window: CircadianRhythm.Window, startsInHours: Double) -> some View {
+        let relative = Text(relativeLabel(startsInHours)).foregroundStyle(window.tint)
+        return Text("Next: \(window.title) \(relative)")
+            .font(HomeType.body)
+            .foregroundStyle(Color.textSecondary)
+            .forgeWrapping()
     }
 
     // ------------------------------------------------------------
@@ -638,38 +656,16 @@ struct EnergyScheduleCard: View {
     // ------------------------------------------------------------
 
     private func eveningBlock(_ schedule: EnergySchedule) -> some View {
-        HStack(spacing: 0) {
-            eveningStat(icon: "moon.stars.fill",
-                        tint: .aurora,
-                        label: "Dim the lights",
-                        value: clockLabel(schedule.melatoninHour))
-            Rectangle()
-                .fill(Color.borderColor.opacity(0.5))
-                .frame(width: 1, height: 30)
-            eveningStat(icon: "bed.double.fill",
-                        tint: .indigo,
-                        label: "Body expects bed",
-                        value: clockLabel(schedule.phase.onsetHour))
+        ForgeStatGrid(columns: 2) {
+            ForgeStatTile(label: "Dim the lights",
+                          value: clockLabel(schedule.melatoninHour),
+                          energy: .steel,
+                          icon: "moon.stars.fill")
+            ForgeStatTile(label: "Body expects bed",
+                          value: clockLabel(schedule.phase.onsetHour),
+                          energy: .steel,
+                          icon: "bed.double.fill")
         }
-    }
-
-    private func eveningStat(icon: String, tint: Color, label: String, value: String) -> some View {
-        VStack(spacing: FDS.Spacing.xs) {
-            HStack(spacing: FDS.Spacing.xs) {
-                Image(systemName: icon)
-                    .font(.system(size: 11, weight: .semibold))
-                    .foregroundColor(tint)
-                Text(value)
-                    .font(FDS.TypeScale.Dynamic.body.weight(.semibold))
-                    .foregroundColor(.textPrimary)
-            }
-            Text(label)
-                .font(.system(size: 11))
-                .foregroundColor(.textTertiary)
-        }
-        .frame(maxWidth: .infinity)
-        .accessibilityElement(children: .combine)
-        .accessibilityLabel("\(label), \(value)")
     }
 
     // ------------------------------------------------------------
@@ -677,68 +673,53 @@ struct EnergyScheduleCard: View {
     // ------------------------------------------------------------
 
     private func hedge(_ schedule: EnergySchedule) -> some View {
-        HStack(alignment: .top, spacing: FDS.Spacing.md) {
-            ZStack {
-                Circle().fill(Color.warning.opacity(0.14)).frame(width: 28, height: 28)
-                Image(systemName: "exclamationmark.triangle.fill")
-                    .font(.system(size: 11, weight: .semibold))
-                    .foregroundColor(.warning)
-            }
-            VStack(alignment: .leading, spacing: 3) {
+        HStack(alignment: .top, spacing: ForgeLayout.rowGap) {
+            ForgeIconWell(systemImage: "exclamationmark.triangle.fill", tint: .amber)
+            VStack(alignment: .leading, spacing: ForgeLayout.pairGap) {
                 Text("Rough read — bedtimes moved around")
-                    .font(FDS.TypeScale.Dynamic.caption)
-                    .foregroundColor(.textPrimary)
+                    .font(HomeType.status)
+                    .foregroundStyle(Color.textPrimary)
+                    .lineLimit(2)
                 Text(schedule.unreliableNote)
-                    .font(.system(size: 11))
-                    .foregroundColor(.textSecondary)
-                    .fixedSize(horizontal: false, vertical: true)
+                    .font(HomeType.body)
+                    .foregroundStyle(Color.textSecondary)
+                    .forgeWrapping()
             }
             Spacer(minLength: 0)
         }
-        .padding(FDS.Spacing.md)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Color.warning.opacity(0.08))
-        .clipShape(RoundedRectangle(cornerRadius: FDS.Radius.md, style: .continuous))
-        .overlay(RoundedRectangle(cornerRadius: FDS.Radius.md).stroke(Color.warning.opacity(0.18), lineWidth: 1))
+        .forgeWell()
+        .background(
+            RoundedRectangle(cornerRadius: ForgeLayout.innerRadius, style: .continuous)
+                .fill(Color.amber.opacity(0.08))
+        )
     }
 
     /// Shown until there are enough nights with real bedtimes to place a phase.
     /// Inventing a schedule from three nights would be worse than waiting: the
     /// failure mode is telling someone their slump is at 4am.
     private var learningState: some View {
-        VStack(alignment: .leading, spacing: FDS.Spacing.lg) {
-            HStack(spacing: FDS.Spacing.md) {
-                ZStack {
-                    Circle().fill(Color.aurora.opacity(0.12)).frame(width: 40, height: 40)
-                    Image(systemName: "waveform.path.ecg")
-                        .font(.system(size: 18, weight: .medium))
-                        .foregroundColor(.aurora)
-                }
-                VStack(alignment: .leading, spacing: 3) {
-                    Text("Still learning your rhythm")
-                        .font(FDS.TypeScale.Dynamic.body.weight(.semibold))
-                        .foregroundColor(.textPrimary)
-                    Text("About \(EnergySchedule.minimumNights) nights")
-                        .font(FDS.TypeScale.Dynamic.micro)
-                        .foregroundColor(.aurora)
-                        .padding(.horizontal, FDS.Spacing.sm).padding(.vertical, 3)
-                        .background(Color.aurora.opacity(0.10))
-                        .clipShape(Capsule())
-                }
+        VStack(alignment: .leading, spacing: ForgeLayout.blockGap) {
+            ForgeEmptyNote(
+                title: "Still learning your rhythm",
+                message: "Once there are about five nights with bedtimes recorded, this becomes your short stretch and an hour-by-hour read on the day ahead. Log in-bed windows on Tonight, or connect Apple Health.",
+                systemImage: "waveform.path.ecg",
+                tint: .steel
+            )
+            ForgeChip(label: "About \(EnergySchedule.minimumNights) nights", energy: .steel)
+            HStack(alignment: .top, spacing: ForgeLayout.rowGap) {
+                Image(systemName: "bed.double.fill")
+                    .font(.system(size: 12))
+                    .foregroundStyle(Color.steel)
+                    .accessibilityHidden(true)
+                Text("Tip: Tonight → I'm in bed builds the fastest signal")
+                    .font(HomeType.body)
+                    .foregroundStyle(Color.textTertiary)
+                    .forgeWrapping()
                 Spacer(minLength: 0)
             }
-            Text("Once there are about five nights with bedtimes recorded, this becomes your sleep debt and an hour-by-hour read on the day ahead. Log in-bed windows on Tonight, or connect Apple Health.")
-                .font(.system(size: 12))
-                .foregroundColor(.textSecondary)
-                .fixedSize(horizontal: false, vertical: true)
-            HStack(spacing: FDS.Spacing.sm) {
-                Image(systemName: "bed.double.fill").font(.system(size: 10)).foregroundColor(.steel)
-                Text("Tip: Tonight → I'm in bed builds the fastest signal")
-                    .font(FDS.TypeScale.Dynamic.micro)
-                    .foregroundColor(.textTertiary)
-            }
-            .padding(.horizontal, FDS.Spacing.md).padding(.vertical, FDS.Spacing.sm)
-            .forgeInsetTile(radius: FDS.Radius.sm)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .forgeWell()
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .accessibilityElement(children: .combine)

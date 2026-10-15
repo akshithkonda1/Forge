@@ -50,7 +50,7 @@ private struct HomeHeroReadinessCard: View {
 
             if showDetails {
                 LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 10) {
-                    BreakdownCardView(label: "Sleep", value: store.readiness.sleepQuality, inverted: false, index: 0)
+                    BreakdownCardView(label: "Sleep", value: lastNightSleepMeasured(store: store) ? store.readiness.sleepQuality : nil, inverted: false, index: 0)
                     BreakdownCardView(label: "Recovery", value: store.readiness.recoveryScore, inverted: false, index: 1)
                     BreakdownCardView(label: "Stress", value: store.readiness.stressLevel, inverted: true, index: 2)
                     BreakdownCardView(label: "Energy", value: store.readiness.energyBank, inverted: false, index: 3)
@@ -69,7 +69,9 @@ private struct HomeHeroReadinessCard: View {
                     ReadinessInsightRow(
                         icon: "moon.stars.fill",
                         title: "Deep Sleep",
-                        value: "\(store.dailyMetrics.deepSleep / 60)h \(store.dailyMetrics.deepSleep % 60)m",
+                        value: lastNightSleepMeasured(store: store)
+                            ? "\(store.dailyMetrics.deepSleep / 60)h \(store.dailyMetrics.deepSleep % 60)m"
+                            : "—",
                         color: .steel
                     )
                     ReadinessInsightRow(
@@ -81,8 +83,12 @@ private struct HomeHeroReadinessCard: View {
 
                     Button {
                         FDS.haptic(.light)
+                        // Don't ask ARIA to explain a sleep number nobody measured.
+                        let sleep = lastNightSleepMeasured(store: store)
+                            ? "Sleep \(store.readiness.sleepQuality), recovery"
+                            : "No sleep recorded last night. Recovery"
                         store.openChat(
-                            with: "Explain my readiness score of \(store.readiness.overall). Sleep \(store.readiness.sleepQuality), recovery \(store.readiness.recoveryScore), stress \(store.readiness.stressLevel), energy \(store.readiness.energyBank).",
+                            with: "Explain my readiness score of \(store.readiness.overall). \(sleep) \(store.readiness.recoveryScore), stress \(store.readiness.stressLevel), energy \(store.readiness.energyBank).",
                             voice: false
                         )
                     } label: {
@@ -130,7 +136,7 @@ enum HomeLifeSentence {
     static func chips(store: AppStore) -> [Chip] {
         var chips: [Chip] = []
 
-        let hours = store.sleepData.first?.totalHours
+        let hours = SleepData.lastNight(in: store.sleepData)?.totalHours
             ?? (store.dailyMetrics.totalSleep > 0 ? Double(store.dailyMetrics.totalSleep) / 60.0 : nil)
         if let hours {
             chips.append(.init(id: "sleep", icon: "moon.fill", label: String(format: "%.1fh sleep", hours)))
@@ -392,7 +398,7 @@ private struct HomeReadinessDetailStrip: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
             HStack(spacing: 8) {
-                readinessFact("Sleep", store.readiness.sleepQuality)
+                readinessFact("Sleep", lastNightSleepMeasured(store: store) ? store.readiness.sleepQuality : nil)
                 readinessFact("Recovery", store.readiness.recoveryScore)
                 readinessFact("HRV", store.dailyMetrics.hrv, unit: "ms")
             }
@@ -410,13 +416,14 @@ private struct HomeReadinessDetailStrip: View {
         )
     }
 
-    private func readinessFact(_ label: String, _ value: Int, unit: String = "") -> some View {
+    /// A nil value (nothing measured) shows "—" rather than a fallback number.
+    private func readinessFact(_ label: String, _ value: Int?, unit: String = "") -> some View {
         VStack(alignment: .leading, spacing: 2) {
             Text(label.uppercased())
                 .font(HomeType.micro)
                 .foregroundColor(.textTertiary)
                 .tracking(0.6)
-            Text(unit.isEmpty ? "\(value)" : "\(value)\(unit)")
+            Text(value.map { unit.isEmpty ? "\($0)" : "\($0)\(unit)" } ?? "—")
                 .font(HomeType.metric)
                 .foregroundColor(.textPrimary)
                 .minimumScaleFactor(0.75)
@@ -424,7 +431,7 @@ private struct HomeReadinessDetailStrip: View {
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .accessibilityElement(children: .combine)
-        .accessibilityLabel(unit.isEmpty ? "\(label) \(value)" : "\(label) \(value) \(unit)")
+        .accessibilityLabel(value.map { unit.isEmpty ? "\(label) \($0)" : "\(label) \($0) \(unit)" } ?? "\(label) not recorded")
     }
 }
 

@@ -2361,6 +2361,12 @@ SPOKEN_OVERTRAIN = (
     "Your training has climbed fast lately, so let's ease off and rest up for a few days."
 )
 SPOKEN_SHORT_SLEEP = "You've been running short on sleep this week, so sleep comes first."
+# Sleep-protect AND overreaching both fire: one line names both risks so the
+# load is spoken too, not left only in evidence.notice.
+SPOKEN_SHORT_SLEEP_AND_HOT = (
+    "You've been running short on sleep and your training has climbed fast, "
+    "so sleep comes first and we rest up for a few days."
+)
 # A sleep question under a hot training load when sleep itself is NOT short.
 # Stays on the asked topic without claiming a shortfall the data doesn't show.
 SPOKEN_SLEEP_GUARD = "Sleep is the thing to guard tonight."
@@ -2394,15 +2400,19 @@ def _sleep_protect_active(load: Any) -> bool:
 
 
 def spoken_safety_line(pattern: Any, load: Any = None, message: str = "") -> str:
-    """Clean direction line when ``blocks_intensity``. Protect's line wins.
+    """Clean direction line when ``blocks_intensity``. Protect's line leads.
 
-    The question's topic wins over a competing load pattern: a sleep ask
-    never speaks the training-load line.
+    When sleep-protect and overreaching both fire, the combined line names
+    both. The question's topic wins over a competing load pattern only when
+    sleep is not short: a sleep ask then never speaks the training-load line.
     """
     if pattern is None or not getattr(pattern, "blocks_intensity", False):
         return ""
     key = str(getattr(pattern, "key", "") or "")
     if key in {"sleep_debt", "under_recovery"} or _sleep_protect_active(load):
+        # Same overreach test as the card cue (flag, pattern, or ACWR >= 1.5).
+        if _is_overtrained_load(pattern, load):
+            return SPOKEN_SHORT_SLEEP_AND_HOT
         return SPOKEN_SHORT_SLEEP
     if key == "overreaching" or bool(getattr(load, "is_overtrained", False)):
         if _is_sleep_question(message):
@@ -3304,6 +3314,8 @@ def _topic_from_message(message: str) -> str:
 
 def _blocking_safety_in(text: str) -> str:
     blob = _norm_spoken(text)
+    if _norm_spoken(SPOKEN_SHORT_SLEEP_AND_HOT) in blob:
+        return SPOKEN_SHORT_SLEEP_AND_HOT
     if _norm_spoken(SPOKEN_SHORT_SLEEP) in blob:
         return SPOKEN_SHORT_SLEEP
     if _norm_spoken(SPOKEN_SLEEP_GUARD) in blob:
@@ -3489,11 +3501,13 @@ def build_user_prompt(message: str, ctx: ARIAContext, restricted: list[str] | No
 # fails because Bedrock is unreachable. Bedrock is opt-in via ``ARIA_BEDROCK_ENABLED``
 # so the default/offline path (and CI) stay hermetic.
 
-# Concrete Bedrock model id backing each routing class. The ``anthropic.`` prefix
-# is required by the Bedrock Converse API (mirrors ai_router / query_router).
+# Concrete Bedrock model id backing each routing class (mirrors ai_router /
+# query_router). Claude 5.x on bedrock-runtime is served through cross-region
+# inference profiles (``global.`` / ``us.``), not an in-Region id. Override per
+# environment with ARIA_LIVE_MODEL_PRIMARY_ID / ARIA_LIVE_MODEL_FAST_ID.
 LIVE_MODEL_IDS = {
-    MODEL_PRIMARY: "anthropic.claude-opus-4-8",
-    MODEL_FAST: "anthropic.claude-sonnet-4-6",
+    MODEL_PRIMARY: os.getenv("ARIA_LIVE_MODEL_PRIMARY_ID", "").strip() or "global.anthropic.claude-opus-5-5",
+    MODEL_FAST: os.getenv("ARIA_LIVE_MODEL_FAST_ID", "").strip() or "global.anthropic.claude-sonnet-5-5",
 }
 LIVE_MAX_TOKENS = 700
 LIVE_TEMPERATURE = 0.3

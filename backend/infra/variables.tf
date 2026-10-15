@@ -258,11 +258,11 @@ variable "aria_bedrock_enabled" {
 
 variable "ai_router_model_1_id" {
   description = <<-EOT
-    Bedrock model id for router slot 1. Empty keeps anthropic.claude-sonnet-4-6
-    (ai_router.default_models()). Inert while aria_bedrock_enabled is false.
-    A later Sonnet 5 swap is us.anthropic.claude-sonnet-5 or
-    global.anthropic.claude-sonnet-5 on bedrock-runtime from us-east-1
-    (In-Region runtime is not supported — official Sonnet 5 card).
+    Bedrock model id for router slot 1. Empty keeps
+    global.anthropic.claude-sonnet-5-5 (ai_router.default_models()). Inert
+    while aria_bedrock_enabled is false. US-only residency is
+    us.anthropic.claude-sonnet-5-5; In-Region runtime is not supported for
+    Claude 5.x on bedrock-runtime.
   EOT
   type        = string
   default     = ""
@@ -276,10 +276,10 @@ variable "ai_router_model_1_name" {
 
 variable "ai_router_model_2_id" {
   description = <<-EOT
-    Bedrock model id for router slot 2. Empty keeps anthropic.claude-opus-4-7
-    (ai_router.default_models()). Inert while aria_bedrock_enabled is false.
-    A later Opus 5 swap is us.anthropic.claude-opus-5 or
-    global.anthropic.claude-opus-5 on bedrock-runtime from us-east-1.
+    Bedrock model id for router slot 2. Empty keeps
+    global.anthropic.claude-opus-5-5 (ai_router.default_models()). Inert
+    while aria_bedrock_enabled is false. US-only residency is
+    us.anthropic.claude-opus-5-5.
   EOT
   type        = string
   default     = ""
@@ -294,9 +294,9 @@ variable "ai_router_model_2_name" {
 variable "ai_router_model_3_id" {
   description = <<-EOT
     Bedrock model id for the AI router's third slot. Empty keeps the Lambda
-    fallback global.xai.grok-4.6 — the Grok 4.6 Global CRIS id on
-    bedrock-runtime (official model card; US Geo is us.xai.grok-4.6; mantle
-    in-Region id is xai.grok-4.6). Inert while aria_bedrock_enabled is false.
+    fallback global.xai.grok-4.7 — the Grok 4.7 Global CRIS id on
+    bedrock-runtime (US Geo is us.xai.grok-4.7; the same model Scout uses).
+    Inert while aria_bedrock_enabled is false.
     Do not set Grok 4.3 here (mantle In-Region only). A name that disagrees
     with the id is worse than no name.
   EOT

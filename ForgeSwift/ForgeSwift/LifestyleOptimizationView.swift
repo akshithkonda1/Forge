@@ -7,21 +7,51 @@ struct AIOptimizationContent: View {
     @EnvironmentObject var store: AppStore
     @ObservedObject var vm: LifestyleViewModel
     @ObservedObject var locationLogger: LocationMealLogger
+    @State private var showsMoreInsights = false
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    private var expandTransition: AnyTransition {
+        reduceMotion
+            ? AnyTransition.opacity
+            : AnyTransition.opacity.combined(with: .scale(scale: 0.97, anchor: .top))
+    }
 
     var body: some View {
-        LazyVStack(spacing: FDS.Spacing.lg) {
-            LocationQuickLogCard(locationLogger: locationLogger, vm: vm)
+        LazyVStack(spacing: ForgeLayout.sectionGap) {
             TodaysFocusCard(vm: vm)
+            ReadinessForecastCard(compact: true)
+            LocationQuickLogCard(locationLogger: locationLogger, vm: vm)
 
             if let stats = vm.healthStats {
                 LiveHealthDashboard(stats: stats, trends: vm.weeklyTrends)
             }
-            BiologicalAgeCard(snapshot: vm.agingSnapshot)
 
             if !vm.aiWorkouts.isEmpty {
                 AIWorkoutSuggestionsCard(workouts: vm.aiWorkouts)
             }
-            
+
+            moreInsightsLink
+
+            if showsMoreInsights {
+                moreInsights
+            }
+        }
+    }
+
+    private var moreInsightsLink: some View {
+        ForgeTextLink(title: "More insights", accent: .vitality, expanded: showsMoreInsights) {
+            if reduceMotion {
+                showsMoreInsights.toggle()
+            } else {
+                withAnimation(FDS.Spring.standard) { showsMoreInsights.toggle() }
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    /// Deeper analysis waits behind the disclosure; every card stays reachable.
+    private var moreInsights: some View {
+        VStack(spacing: ForgeLayout.sectionGap) {
             MultiArcQOLCard(metrics: vm.metrics)
             QOLTrendCard(history: vm.qolHistory)
             AILifeAnalysisCard(metrics: vm.metrics, analysis: vm.aiLifeAnalysis, isLive: vm.aiInsightsLive)
@@ -32,6 +62,7 @@ struct AIOptimizationContent: View {
                 RecoveryMetricsCard(stats: stats)
             }
         }
+        .transition(expandTransition)
     }
 }
 
@@ -40,50 +71,35 @@ struct LocationQuickLogCard: View {
     @ObservedObject var vm: LifestyleViewModel
 
     var body: some View {
-        VStack(alignment: .leading, spacing: FDS.Spacing.lg) {
-            HStack(spacing: FDS.Spacing.md) {
-                Image(systemName: "location.fill")
-                    .font(.system(size: 18))
-                    .foregroundColor(.ember)
-                Text("Quick Location Log")
-                    .font(FDS.TypeScale.Dynamic.headline)
-                    .foregroundColor(.textPrimary)
+        VStack(alignment: .leading, spacing: ForgeLayout.blockGap) {
+            ForgeCardHeader(title: "Quick Location Log") {
+                if locationLogger.isDetectingLocation {
+                    ProgressView().controlSize(.mini)
+                }
             }
 
             Text("Detect nearby restaurants and log meals in one tap. Location stays on this iPhone.")
-                .font(.system(size: 14))
-                .foregroundColor(.textSecondary)
-                .lineSpacing(4)
+                .font(HomeType.body)
+                .foregroundStyle(Color.textSecondary)
+                .forgeWrapping()
 
-            Button {
+            ForgeSecondaryButton(
+                title: locationLogger.isDetectingLocation ? "Detecting location..." : "Detect Current Location & Log Meal",
+                icon: "location.circle.fill",
+                accent: .ember
+            ) {
                 Task { await locationLogger.detectCurrentLocationAndLog() }
-            } label: {
-                HStack {
-                    if locationLogger.isDetectingLocation {
-                        ProgressView().tint(.white)
-                        Text("Detecting location...")
-                    } else {
-                        Image(systemName: "location.circle.fill")
-                        Text("Detect Current Location & Log Meal")
-                    }
-                }
-                .font(.system(size: 15, weight: .bold))
-                .foregroundColor(.white)
-                .frame(maxWidth: .infinity)
-                .padding(.vertical, FDS.Spacing.lg)
-                .background(LinearGradient.emberGradient)
-                .cornerRadius(FDS.Radius.md)
             }
             .disabled(locationLogger.isDetectingLocation)
 
             if let error = locationLogger.errorMessage {
                 Text(error)
-                    .font(.system(size: 13))
-                    .foregroundColor(.danger)
+                    .font(HomeType.body)
+                    .foregroundStyle(Color.danger)
+                    .forgeWrapping()
             }
         }
-        .padding(FDS.Spacing.lg)
-        .forgeGlassCard(cornerRadius: FDS.Radius.xl, accent: .ember)
+        .forgeContentCard(tint: .amber)
     }
 }
 
@@ -96,50 +112,70 @@ struct LocationMealConfirmationSheet: View {
     var body: some View {
         NavigationStack {
             ScrollView(showsIndicators: false) {
-                VStack(alignment: .leading, spacing: FDS.Spacing.lg) {
+                VStack(alignment: .leading, spacing: ForgeLayout.rowGap) {
                     Text("Select what you ate. Macros write to Apple Health.")
-                        .font(.system(size: 13))
-                        .foregroundColor(.textSecondary)
+                        .font(HomeType.body)
+                        .foregroundStyle(Color.textSecondary)
+                        .forgeWrapping()
+
+                    if items.isEmpty {
+                        ForgeEmptyNote(
+                            title: "No menu items found",
+                            message: "Try Places to browse and log a meal.",
+                            systemImage: "fork.knife",
+                            tint: .amber
+                        )
+                        .forgeWell()
+                    }
 
                     ForEach(items) { item in
-                        Button { onLog(item) } label: {
-                            HStack {
-                                VStack(alignment: .leading, spacing: 3) {
-                                    Text(item.name)
-                                        .font(FDS.TypeScale.Dynamic.body.weight(.semibold))
-                                        .foregroundColor(.textPrimary)
-                                    Text("\(item.calories) cal · \(item.protein)g protein")
-                                        .font(.system(size: 12))
-                                        .foregroundColor(.textTertiary)
-                                }
-                                Spacer()
-                                Image(systemName: "plus.circle.fill")
-                                    .foregroundColor(.ember)
-                            }
-                            .padding(FDS.Spacing.lg)
-                            .forgeInsetTile(radius: FDS.Radius.md)
-                        }
-                        .buttonStyle(.plain)
+                        itemRow(item)
                     }
                 }
-                .padding(FDS.Spacing.lg)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .forgeScreenInsets(top: FDS.Spacing.lg)
             }
-            .background(Color.background)
+            .forgeScreenBackground(accent: .amber)
             .navigationTitle(venue)
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
+                ToolbarItem(placement: .topBarTrailing) {
                     Button("Close", action: onDismiss)
                 }
             }
         }
     }
+
+    private func itemRow(_ item: MenuItem) -> some View {
+        Button {
+            FDS.haptic(.press)
+            onLog(item)
+        } label: {
+            HStack(spacing: ForgeLayout.rowGap) {
+                ForgeListRow(
+                    icon: "fork.knife",
+                    iconColor: .amber,
+                    title: item.name,
+                    subtitle: "\(item.calories) cal · \(item.protein)g protein"
+                )
+                Image(systemName: "plus.circle.fill")
+                    .font(.system(size: 20, weight: .semibold))
+                    .foregroundStyle(Color.ember)
+                    .accessibilityHidden(true)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .forgeWell()
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel("\(item.name), \(item.calories) cal, \(item.protein)g protein")
+        .accessibilityHint("Logs this meal")
+    }
 }
 
 struct TodaysFocusCard: View {
     @ObservedObject var vm: LifestyleViewModel
-    @State private var appeared = false
-    
+
     private var focusArea: (title: String, icon: String, priority: String, action: String, color: Color, gradient: [Color]) {
         guard let stats = vm.healthStats else {
             return ("Start Your Day", "sun.max.fill", "Morning Routine", "Log your first meal", .ember, [.ember, .ember.opacity(0.7)])
@@ -170,126 +206,45 @@ struct TodaysFocusCard: View {
         return ("Peak Performance", "bolt.circle.fill", "Ready", "Crush your workout", .success, [.success, Color(hex: "00FF88")])
     }
     
+    /// One token energy per focus. Alert red and the success green are not
+    /// status colors here: recovery reads as steel, "ready" as vitality.
+    private func focusEnergy(for color: Color) -> Color {
+        if color == Color.danger { return HudChrome.miss }
+        if color == Color.success { return Color.vitality }
+        return color
+    }
+
     var body: some View {
-        VStack(spacing: 0) {
-            // Animated gradient header
-            ZStack(alignment: .topLeading) {
-                // Background gradient
-                LinearGradient(
-                    colors: focusArea.gradient + [(focusArea.gradient.first ?? .ember).opacity(0.3)],
-                    startPoint: .topLeading,
-                    endPoint: .bottomTrailing
-                )
-                .overlay(
-                    LinearGradient(
-                        colors: [.white.opacity(0.15), .clear],
-                        startPoint: .topLeading,
-                        endPoint: .bottomTrailing
-                    )
-                )
-                
-                // Animated particles
-                TimelineView(.animation(minimumInterval: 2)) { timeline in
-                    Canvas { context, size in
-                        let now = timeline.date.timeIntervalSinceReferenceDate
-                        for i in 0..<8 {
-                            let x = (CGFloat(i) / 8.0) * size.width + CGFloat(sin(now * 0.5 + Double(i))) * 30
-                            let y = (CGFloat(i % 3) / 3.0) * size.height + CGFloat(cos(now * 0.3 + Double(i))) * 20
-                            let opacity = 0.1 + abs(sin(now + Double(i))) * 0.2
-                            
-                            context.opacity = opacity
-                            context.fill(
-                                Circle().path(in: CGRect(x: x, y: y, width: 4, height: 4)),
-                                with: .color(.white)
-                            )
-                        }
-                    }
-                }
-                
-                VStack(alignment: .leading, spacing: FDS.Spacing.lg) {
-                    // Priority badge
-                    HStack(spacing: FDS.Spacing.sm) {
-                        Circle()
-                            .fill(.white.opacity(0.9))
-                            .frame(width: 6, height: 6)
-                            .shadow(color: .white.opacity(0.6), radius: 4)
-                        Text(focusArea.priority.uppercased())
-                            .font(FDS.TypeScale.Dynamic.micro)
-                            .foregroundColor(.white)
-                            .tracking(1.5)
-                    }
-                    .padding(.horizontal, FDS.Spacing.md)
-                    .padding(.vertical, FDS.Spacing.sm)
-                    .background(.white.opacity(0.2))
-                    .cornerRadius(FDS.Radius.xl)
-                    .overlay(
-                        Capsule()
-                            .stroke(.white.opacity(0.3), lineWidth: 1)
-                    )
-                    
-                    // Main content
-                    HStack(spacing: FDS.Spacing.lg) {
-                        ZStack {
-                            Circle()
-                                .fill(.white.opacity(0.2))
-                                .frame(width: 70, height: 70)
-                            Circle()
-                                .fill(.white.opacity(0.1))
-                                .frame(width: 70, height: 70)
-                                .blur(radius: 8)
-                            
-                            Image(systemName: focusArea.icon)
-                                .font(.system(size: 32, weight: .semibold))
-                                .foregroundColor(.white)
-                                .shadow(color: .black.opacity(0.2), radius: 4)
-                        }
-                        .scaleEffect(appeared ? 1 : 0.7)
-                        .animation(.spring(response: 0.6, dampingFraction: 0.65).delay(0.1), value: appeared)
-                        
-                        VStack(alignment: .leading, spacing: FDS.Spacing.sm) {
-                            Text("TODAY'S FOCUS")
-                                .font(FDS.TypeScale.Dynamic.micro)
-                                .foregroundColor(.white.opacity(0.8))
-                                .tracking(2)
-                            
-                            Text(focusArea.title)
-                                .font(FDS.TypeScale.Dynamic.title)
-                                .foregroundColor(.white)
-                                .shadow(color: .black.opacity(0.2), radius: 4)
-                            
-                            Text(focusArea.action)
-                                .font(FDS.TypeScale.Dynamic.body.weight(.semibold))
-                                .foregroundColor(.white.opacity(0.9))
-                        }
-                    }
-                }
-                .padding(FDS.Spacing.xl)
+        let area = focusArea
+        let energy = focusEnergy(for: area.color)
+        VStack(alignment: .leading, spacing: ForgeLayout.heroGap) {
+            ForgeCardHeader(title: "Today's Focus", tint: .textTertiary) {
+                HudVibeChip(label: area.priority, energy: energy)
+                    .forgeSingleLine(minScale: ForgeLayout.labelMinScale)
             }
-            .frame(height: 180)
-            .clipShape(RoundedRectangle(cornerRadius: FDS.Radius.xxl, style: .continuous))
-            
-            // Quick action button
-            Button {
-                // Navigate to relevant section
-                UIImpactFeedbackGenerator(style: .medium).impactOccurred()
-            } label: {
-                HStack(spacing: FDS.Spacing.md) {
-                    Image(systemName: "arrow.right.circle.fill")
-                        .font(.system(size: 18, weight: .bold))
-                    Text("Take Action")
-                        .font(FDS.TypeScale.Dynamic.headline)
-                    Spacer()
-                    Image(systemName: "chevron.right")
-                        .font(.system(size: 14, weight: .semibold))
+
+            ForgeAdaptiveStack(spacing: FDS.Spacing.md) {
+                ForgeIconWell(systemImage: area.icon, tint: energy, diameter: 44)
+
+                VStack(alignment: .leading, spacing: ForgeLayout.pairGap) {
+                    Text(area.title)
+                        .font(HomeType.sessionTitle)
+                        .foregroundStyle(Color.textPrimary)
+                        .lineLimit(2)
+                        .minimumScaleFactor(ForgeLayout.labelMinScale)
+                    Text(area.action)
+                        .font(HomeType.body)
+                        .foregroundStyle(Color.textSecondary)
+                        .forgeWrapping()
                 }
-                .foregroundColor(focusArea.color)
-                .padding(FDS.Spacing.lg)
-                .background(focusArea.color.opacity(0.1))
-                .cornerRadius(FDS.Radius.lg)
             }
-            .padding(FDS.Spacing.lg)
+
+            // No destination is wired for the focus yet, so this stays a text
+            // link (not a primary). `ForgeTextLink` already fires the press haptic.
+            ForgeTextLink(title: "Take Action", accent: energy) { }
         }
-        .forgeGlassCard(cornerRadius: FDS.Radius.xxl, accent: focusArea.color)
-        .onAppear { appeared = true }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .hudPlate(energy: energy)
+        .accessibilityElement(children: .contain)
     }
 }

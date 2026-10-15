@@ -596,22 +596,43 @@ extension HealthKitManager {
     }
 
     func fetchRecentSleepSessions(days: Int) async -> [SleepNightSample] {
-        let sleepType = HKCategoryType(.sleepAnalysis)
-        let start = Calendar.current.date(byAdding: .day, value: -days, to: Date()) ?? Date()
-        let predicate = HKQuery.predicateForSamples(withStart: start, end: Date(), options: .strictStartDate)
+        let nights = await ForgeHealthQueries.recentSleepNights(store: healthStore, days: days)
+        return nights.compactMap { Self.sleepNightSample(from: $0) }
+            .sorted { $0.date > $1.date }
+    }
 
-        return await withCheckedContinuation { continuation in
-            let query = HKSampleQuery(
-                sampleType: sleepType,
-                predicate: predicate,
-                limit: HKObjectQueryNoLimit,
-                sortDescriptors: [NSSortDescriptor(key: HKSampleSortIdentifierEndDate, ascending: false)]
-            ) { _, samples, _ in
-                let categorySamples = samples as? [HKCategorySample] ?? []
-                continuation.resume(returning: Self.makeSleepNightSamples(from: categorySamples))
-            }
-            healthStore.execute(query)
-        }
+    /// Maps the shared ForgeCore night (16-day anchored cache, no
+    /// `.strictStartDate`) onto the iOS session shape. Onset/wake ignore awake
+    /// so lying in bed does not drag the circadian bounds.
+    static func sleepNightSample(
+        from night: SleepNight,
+        calendar: Calendar = .current
+    ) -> SleepNightSample? {
+        guard night.totalMinutes > 0 else { return nil }
+        let asleep = night.segments.filter { $0.stage != .awake }
+        let bedtime = asleep.map(\.start).min() ?? night.start
+        guard let bedtime else { return nil }
+        return SleepNightSample(
+            date: HomeTrendSeries.isoDateString(
+                HomeTrendSeries.nightKey(fromBedtime: bedtime, calendar: calendar),
+                calendar: calendar
+            ),
+            totalHours: night.totalMinutes / 60,
+            deepMinutes: Int(night.deepMinutes.rounded()),
+            remMinutes: Int(night.remMinutes.rounded()),
+            lightMinutes: Int(night.coreMinutes.rounded()),
+            awakeMinutes: Int(night.awakeMinutes.rounded()),
+            onset: asleep.map(\.start).min(),
+            wake: asleep.map(\.end).max()
+        )
+    }
+
+    static func sleepNightDateKey(
+        for sample: HKCategorySample,
+        calendar: Calendar = .current
+    ) -> String {
+        let night = HomeTrendSeries.nightKey(fromBedtime: sample.startDate, calendar: calendar)
+        return HomeTrendSeries.isoDateString(night, calendar: calendar)
     }
 
     /// Groups raw sleep-analysis samples into one entry per night. Pulled out of

@@ -34,7 +34,7 @@ struct SleepWidgetView: View {
                 if HomeWidgetSleepDisplay.hasHoursToShow(snap.sleepHours) {
                     HStack(alignment: .firstTextBaseline, spacing: 4) {
                         Text(HomeWidgetSleepDisplay.hoursText(snap, style: .number))
-                            .font(.system(size: 36, weight: .bold, design: .rounded))
+                            .font(ForgeType.Compact.metric)
                             .foregroundStyle(ForgePalette.textPrimary)
                         Text("hours")
                             .font(.caption.weight(.semibold))
@@ -44,8 +44,8 @@ struct SleepWidgetView: View {
                     WidgetChrome.empty(HomeWidgetSleepDisplay.emptyCopy)
                 }
                 if let score = snap.sleepScore {
-                    Text("Score \(score)")
-                        .font(.caption)
+                    Text("Score \(score) · \(HomeWidgetSleepDisplay.estimateLabel)")
+                        .font(ForgeType.Compact.caption)
                         .foregroundStyle(ForgePalette.violet)
                 }
                 if HomeWidgetSleepDisplay.hasHoursToShow(snap.sleepHours),

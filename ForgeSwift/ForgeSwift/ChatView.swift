@@ -1,47 +1,31 @@
 import SwiftUI
 import ForgeCore
 
-extension View {
-    func cornerRadius(_ radius: CGFloat, corners: UIRectCorner) -> some View {
-        clipShape(RoundedCorner(radius: radius, corners: corners))
-    }
-}
-
-struct RoundedCorner: Shape {
-    var radius: CGFloat; var corners: UIRectCorner
-    func path(in rect: CGRect) -> Path {
-        Path(UIBezierPath(roundedRect: rect, byRoundingCorners: corners,
-                          cornerRadii: CGSize(width: radius, height: radius)).cgPath)
-    }
-}
-
+/// Legacy press style, kept for call sites outside the chat transcript.
+/// Delegates to the shared `ForgePressStyle` (0.98, snap, Reduce Motion aware).
 struct ScaleButtonStyle: ButtonStyle {
     func makeBody(configuration: Configuration) -> some View {
-        configuration.label
-            .scaleEffect(configuration.isPressed ? 0.96 : 1.0)
-            .animation(FDS.Spring.fluid, value: configuration.isPressed)
+        ForgePressStyle().makeBody(configuration: configuration)
     }
 }
 
+/// Chat bubble silhouette: continuous corners, with the run's last bubble
+/// carrying a tighter "tail" corner on the speaker's side.
 struct ChatBubbleShape: Shape {
     let isTrainer: Bool
+    var hasTail: Bool = true
+
     func path(in rect: CGRect) -> Path {
-        let r: CGFloat = 18; let tail: CGFloat = 6
-        var p = Path()
-        if isTrainer {
-            p.addRoundedRect(in: CGRect(x: 0, y: 0, width: rect.width, height: rect.height - tail),
-                             cornerSize: CGSize(width: r, height: r))
-            p.move(to: CGPoint(x: 0, y: rect.height - tail))
-            p.addLine(to: CGPoint(x: 0, y: rect.height))
-            p.addLine(to: CGPoint(x: r, y: rect.height - tail))
-        } else {
-            p.addRoundedRect(in: CGRect(x: 0, y: 0, width: rect.width, height: rect.height - tail),
-                             cornerSize: CGSize(width: r, height: r))
-            p.move(to: CGPoint(x: rect.width, y: rect.height - tail))
-            p.addLine(to: CGPoint(x: rect.width, y: rect.height))
-            p.addLine(to: CGPoint(x: rect.width - r, y: rect.height - tail))
-        }
-        return p
+        let radius: CGFloat = 20
+        let tailRadius: CGFloat = hasTail ? 6 : radius
+        let shape = UnevenRoundedRectangle(
+            topLeadingRadius: radius,
+            bottomLeadingRadius: isTrainer ? tailRadius : radius,
+            bottomTrailingRadius: isTrainer ? radius : tailRadius,
+            topTrailingRadius: radius,
+            style: .continuous
+        )
+        return shape.path(in: rect)
     }
 }
 
@@ -67,6 +51,17 @@ struct ChatView: View {
     @FocusState private var isInputFocused: Bool
     @Environment(\.scenePhase) private var scenePhase
 
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    /// Animation that collapses to nil under Reduce Motion.
+    private func motion(_ animation: Animation) -> Animation? {
+        reduceMotion ? nil : animation
+    }
+
+    private var hasTopCards: Bool {
+        weeklyReview.isDue || (proactiveInsight != nil && ariaContext.shouldBeProactive())
+    }
+
     var body: some View {
         ZStack {
             // ── Background ──────────────────────────────────────
@@ -80,50 +75,7 @@ struct ChatView: View {
                     onAvatarLongPress: { showContextInspector = true }
                 )
 
-                if weeklyReview.isDue {
-                    Button {
-                        weeklyReview.showSheet = true
-                    } label: {
-                        HStack(spacing: FDS.Spacing.md) {
-                            Image(systemName: "calendar.badge.clock")
-                                .foregroundColor(.ember)
-                            VStack(alignment: .leading, spacing: 2) {
-                                Text("Weekly evaluation is due")
-                                    .font(FDS.TypeScale.Dynamic.caption)
-                                    .foregroundColor(.textPrimary)
-                                Text("Five questions. ARIA files the answers as standing context.")
-                                    .font(.system(size: 11))
-                                    .foregroundColor(.textSecondary)
-                            }
-                            Spacer()
-                            Image(systemName: "chevron.right")
-                                .font(.system(size: 12, weight: .semibold))
-                                .foregroundColor(.textTertiary)
-                        }
-                        .padding(FDS.Spacing.lg)
-                        .background(Color.ember.opacity(0.10))
-                        .clipShape(RoundedRectangle(cornerRadius: FDS.Radius.md, style: .continuous))
-                        .overlay(
-                            RoundedRectangle(cornerRadius: FDS.Radius.md, style: .continuous)
-                                .stroke(Color.ember.opacity(0.22), lineWidth: 1)
-                        )
-                    }
-                    .buttonStyle(.plain)
-                    .padding(.horizontal, FDS.Spacing.lg)
-                    .padding(.bottom, FDS.Spacing.sm)
-                }
-
-                if let insight = proactiveInsight, ariaContext.shouldBeProactive() {
-                    ProactiveCardView(
-                        insight: insight,
-                        relationshipLevel: ariaContext.context.relationshipLevel,
-                        onTap: { sendMessage("Tell me more about: \(insight)") }
-                    )
-                    .padding(.horizontal, FDS.Spacing.lg)
-                    .padding(.bottom, FDS.Spacing.sm)
-                }
-
-                // ── Messages ─────────────────────────────────────
+                // ── Messages (banners scroll with the transcript) ─
                 MessageListView(
                     isTyping:         $isTyping,
                     showQuickActions: $showQuickActions,
@@ -140,24 +92,18 @@ struct ChatView: View {
                             )
                         }
                     },
-                    onReactionBurst:  { _ in }
+                    onReactionBurst:  { _ in },
+                    topContent:       AnyView(transcriptTopCards)
                 )
 
-                // Reply preview bar
+                // Reply preview
                 if let target = swipeReplyTarget {
                     ReplyPreviewBar(message: target) {
-                        withAnimation(FDS.Spring.snap) { swipeReplyTarget = nil }
+                        withAnimation(motion(FDS.Spring.snap)) { swipeReplyTarget = nil }
                     }
                 }
 
                 // ── Input ────────────────────────────────────────
-                if isTyping, !store.lastCoachWorkers.isEmpty {
-                    AriaSpecialistActivityView(workers: store.lastCoachWorkers)
-                        .padding(.horizontal, FDS.Spacing.lg)
-                        .padding(.bottom, FDS.Spacing.sm)
-                        .transition(.move(edge: .bottom).combined(with: .opacity))
-                }
-
                 ChatInputAreaView(
                     inputText:        $inputText,
                     isTyping:         $isTyping,
@@ -183,7 +129,7 @@ struct ChatView: View {
                     onCancel: {
                         speech.cancel()
                         AriaVoiceSession.shared.stop()
-                        withAnimation(FDS.Spring.hero) { showVoiceOrb = false }
+                        withAnimation(motion(FDS.Spring.hero)) { showVoiceOrb = false }
                     }
                 )
                 .zIndex(100)
@@ -191,8 +137,8 @@ struct ChatView: View {
             }
 
         }
-        .animation(FDS.Spring.hero, value: showVoiceOrb)
-        .animation(FDS.Spring.standard, value: swipeReplyTarget?.id)
+        .animation(motion(FDS.Spring.hero), value: showVoiceOrb)
+        .animation(motion(FDS.Spring.standard), value: swipeReplyTarget?.id)
         .sheet(isPresented: $showContextInspector) {
             ContextInspectorView(
                 contextStore: ariaContext,
@@ -202,7 +148,7 @@ struct ChatView: View {
         .onAppear {
             ariaMood = ARIAMood.derive(
                 readiness: store.readiness.overall,
-                sleepScore: store.sleepData.first?.score
+                sleepScore: SleepData.lastNight(in: store.sleepData)?.score
             )
             speech.conversationalMood = ariaMood
             ariaContext.updateProfile(
@@ -232,10 +178,10 @@ struct ChatView: View {
             tryConsumeHandoff()
         }
         .onChange(of: store.readiness.overall) { _, val in
-            withAnimation(FDS.Spring.standard) {
+            withAnimation(motion(FDS.Spring.standard)) {
                 ariaMood = ARIAMood.derive(
                     readiness: val,
-                    sleepScore: store.sleepData.first?.score
+                    sleepScore: SleepData.lastNight(in: store.sleepData)?.score
                 )
             }
         }
@@ -261,6 +207,61 @@ struct ChatView: View {
                 Task { await store.refreshDailyData() }
             }
         }
+    }
+
+    // ── Transcript top cards ──────────────────────────────────────
+
+    @ViewBuilder
+    private var transcriptTopCards: some View {
+        if hasTopCards {
+            VStack(spacing: ForgeLayout.rowGap) {
+                if weeklyReview.isDue {
+                    weeklyReviewBanner
+                }
+                if let insight = proactiveInsight, ariaContext.shouldBeProactive() {
+                    ProactiveCardView(
+                        insight: insight,
+                        relationshipLevel: ariaContext.context.relationshipLevel,
+                        onTap: { sendMessage("Tell me more about: \(insight)") }
+                    )
+                }
+            }
+            .padding(.horizontal, ForgeLayout.screenInset)
+            .padding(.top, ForgeLayout.screenTop)
+            .padding(.bottom, ForgeLayout.blockGap)
+        }
+    }
+
+    private var weeklyReviewBanner: some View {
+        Button {
+            FDS.haptic(.press)
+            weeklyReview.showSheet = true
+        } label: {
+            HStack(spacing: ForgeLayout.rowGap) {
+                ForgeIconWell(systemImage: "calendar.badge.clock", tint: .ember)
+                VStack(alignment: .leading, spacing: ForgeLayout.pairGap) {
+                    Text("Weekly evaluation is due")
+                        .font(HomeType.status)
+                        .foregroundStyle(Color.textPrimary)
+                        .lineLimit(2)
+                    Text("Five questions. ARIA files the answers as standing context.")
+                        .font(HomeType.body)
+                        .foregroundStyle(Color.textSecondary)
+                        .forgeWrapping()
+                }
+                .layoutPriority(1)
+                Spacer(minLength: FDS.Spacing.xs)
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 11, weight: .semibold))
+                    .foregroundStyle(Color.textMuted)
+                    .accessibilityHidden(true)
+            }
+            .frame(minHeight: ForgeUX.minTap)
+            .forgeContentCard(tint: .ember, padding: ForgeLayout.compactCardPadding)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(ForgePressStyle())
+        .accessibilityHint("Opens the weekly evaluation")
     }
 
     /// Home / tab → chat bridge (prompt + optional one-shot voice orb).
@@ -306,7 +307,7 @@ struct ChatView: View {
     private func startVoiceCapture() {
         choreographedHaptic(.voiceStart, mood: ariaMood)
         speech.conversationalMood = ariaMood
-        withAnimation(FDS.Spring.hero) { showVoiceOrb = true }
+        withAnimation(motion(FDS.Spring.hero)) { showVoiceOrb = true }
         AriaVoiceSession.shared.start(store: store, speech: speech)
     }
 
@@ -323,7 +324,7 @@ struct ChatView: View {
             choreographedHaptic(.messageSent, mood: ariaMood)
             AriaSafetyDialer.dial(number)
             speech.cancel()
-            withAnimation(FDS.Spring.hero) { showVoiceOrb = false }
+            withAnimation(motion(FDS.Spring.hero)) { showVoiceOrb = false }
             store.safetyEscalationAchieved()
             return
         }
@@ -331,7 +332,7 @@ struct ChatView: View {
         choreographedHaptic(.messageSent, mood: ariaMood)
 
         if trimmed.lowercased().contains("not feeling") {
-            withAnimation(FDS.Spring.standard) { ariaMood = .pushed }
+            withAnimation(motion(FDS.Spring.standard)) { ariaMood = .pushed }
         }
 
         inputText = ""
@@ -358,7 +359,7 @@ struct ChatView: View {
             let safety = store.ariaSafetySession
             if let safety, safety.wantsVoice {
                 store.ariaVoiceMode = true
-                withAnimation(FDS.Spring.hero) { showVoiceOrb = true }
+                withAnimation(motion(FDS.Spring.hero)) { showVoiceOrb = true }
                 AriaVoiceSession.shared.start(store: store, speech: speech, captureMic: false, onDevice: true)
                 if safety.isTriage {
                     AriaVoiceSession.shared.listenAfterSpeaking()
@@ -373,7 +374,7 @@ struct ChatView: View {
                     // Responsible resolution: say it, then voice turns off.
                     // The check-in bubble is already posted under the reply.
                     store.ariaVoiceMode = false
-                    withAnimation(FDS.Spring.hero) { showVoiceOrb = false }
+                    withAnimation(motion(FDS.Spring.hero)) { showVoiceOrb = false }
                     AriaVoiceSession.shared.speakAndEnd(spoken)
                 } else {
                     AriaVoiceSession.shared.speakChatReply(spoken)
@@ -383,6 +384,8 @@ struct ChatView: View {
     }
 }
 
+/// Static atmosphere: the screen background plus three soft washes. Nothing
+/// animates while idle; the wash only cross-fades when the mood changes.
 struct ChatBackground: View {
     let mood: ARIAMood
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
@@ -391,13 +394,13 @@ struct ChatBackground: View {
         ZStack {
             Color.background
             RadialGradient(
-                colors: [mood.accentColor.opacity(0.08), Color(hex: "1A0A24").opacity(0.5), .clear],
+                colors: [mood.accentColor.opacity(0.10), Color.aurora.opacity(0.04), .clear],
                 center: UnitPoint(x: 0.18, y: 0.02),
                 startRadius: 10,
                 endRadius: 420
             )
             RadialGradient(
-                colors: [Color(hex: "7B61FF").opacity(0.05), .clear],
+                colors: [Color.aurora.opacity(0.05), .clear],
                 center: UnitPoint(x: 0.88, y: 0.12),
                 startRadius: 8,
                 endRadius: 300
@@ -408,32 +411,7 @@ struct ChatBackground: View {
                 startRadius: 8,
                 endRadius: 320
             )
-            if !reduceMotion {
-                TimelineView(.animation(minimumInterval: 1.0 / 12.0)) { timeline in
-                    Canvas { context, size in
-                        let time = timeline.date.timeIntervalSinceReferenceDate
-                        let colors = [
-                            Color.ember.opacity(0.022),
-                            Color(hex: "7B61FF").opacity(0.018),
-                            Color(hex: "1B3A4B").opacity(0.03),
-                            mood.accentColor.opacity(0.016),
-                            Color(hex: "FFC14A").opacity(0.01)
-                        ]
-                        for i in 0..<5 {
-                            let x = size.width * (0.15 + CGFloat(i) * 0.18)
-                                + CGFloat(sin(time * 0.11 + Double(i) * 1.4)) * 56
-                            let y = size.height * 0.42
-                                + CGFloat(cos(time * 0.09 + Double(i) * 0.8)) * 70
-                            let w = size.width / 1.7 + CGFloat(sin(time * 0.08 + Double(i))) * 28
-                            let rect = CGRect(x: x - w / 2, y: y - w * 0.4, width: w, height: w * 0.72)
-                            context.fill(Path(ellipseIn: rect), with: .color(colors[i]))
-                        }
-                    }
-                }
-                .blur(radius: 90)
-                .opacity(0.34)
-            }
         }
-        .animation(.easeInOut(duration: 2.2), value: mood)
+        .animation(reduceMotion ? nil : Animation.easeInOut(duration: 1.2), value: mood)
     }
 }

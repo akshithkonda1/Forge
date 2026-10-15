@@ -16,11 +16,15 @@ struct TodayWidgetView: View {
         }
     }
 
+    private var readinessTint: Color {
+        snap.hasReadiness ? ReadinessBand(score: snap.readiness).color : ForgePalette.steel
+    }
+
     private var medium: some View {
         VStack(alignment: .leading, spacing: 10) {
             WidgetChrome.eyebrow("Today", color: ForgePalette.ember)
             HStack(spacing: 14) {
-                metric("Readiness", value: "\(snap.readiness)", tint: ReadinessBand(score: snap.readiness).color)
+                metric("Readiness", value: snap.hasReadiness ? "\(snap.readiness)" : "—", tint: readinessTint)
                 metric("Sleep", value: HomeWidgetSleepDisplay.hoursText(snap, style: .compact), tint: ForgePalette.violet)
                 metric("Water", value: "\(Int((snap.hydrationFraction * 100).rounded()))%", tint: Color(forgeHex: "4A9EFF"))
             }
@@ -40,12 +44,12 @@ struct TodayWidgetView: View {
             WidgetChrome.eyebrow("Today", color: ForgePalette.ember)
             HStack(alignment: .top, spacing: 16) {
                 VStack(alignment: .leading, spacing: 2) {
-                    Text("\(snap.readiness)")
+                    Text(snap.hasReadiness ? "\(snap.readiness)" : "—")
                         .font(.system(size: 48, weight: .bold, design: .rounded))
                         .foregroundStyle(ForgePalette.textPrimary)
                     Text(snap.readinessLabel)
                         .font(.caption.weight(.semibold))
-                        .foregroundStyle(ReadinessBand(score: snap.readiness).color)
+                        .foregroundStyle(readinessTint)
                 }
                 Spacer(minLength: 0)
                 VStack(alignment: .trailing, spacing: 8) {

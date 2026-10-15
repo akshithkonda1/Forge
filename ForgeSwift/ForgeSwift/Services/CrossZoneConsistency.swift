@@ -137,11 +137,12 @@ enum CrossZoneConsistency {
             case .max: return 10
             }
         }
+        let lastNight = SleepData.lastNight(in: store.sleepData)
         return Snapshot(
             readiness: store.readiness.overall,
             recoveryScore: store.readiness.recoveryScore,
-            sleepScore: store.sleepData.first?.score,
-            sleepHours: store.sleepData.first?.totalHours,
+            sleepScore: lastNight?.score,
+            sleepHours: lastNight?.totalHours,
             hoursSinceLastWorkout: hoursSince,
             lastWorkoutIntensity: intensity,
             isCurrentlyBleeding: isCurrentlyBleeding,

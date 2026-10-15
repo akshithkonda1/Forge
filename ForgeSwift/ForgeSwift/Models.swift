@@ -329,6 +329,10 @@ struct ReadinessData {
     var recoveryScore: Int
     var stressLevel: Int
     var energyBank: Int
+
+    /// The calculator never lands on 0 from real data, and `emptyReadiness`
+    /// is all zeros: 0 means "not measured", which is not "Low".
+    var hasScore: Bool { overall > 0 }
 }
 
 struct DailyMetrics {
@@ -492,6 +496,22 @@ struct SleepData: Identifiable {
         guard let date else { return "—" }
         return date.formatted(date: .omitted, time: .shortened)
     }
+
+    /// True when any sleep stage (deep, REM, light) was recorded. Duration-only
+    /// nights have none, so efficiency, stage minutes and a hypnogram would be invented.
+    var hasStages: Bool { deepMinutes + remMinutes + lightMinutes > 0 }
+
+    /// The newest night in `nights` (newest first, as `AppStore.sleepData` is kept)
+    /// only when it belongs to today or yesterday in the local calendar. An older
+    /// night is not "last night" and callers should show their empty state instead.
+    static func lastNight(in nights: [SleepData], now: Date = Date(), calendar: Calendar = .current) -> SleepData? {
+        guard let night = nights.first,
+              let yesterday = calendar.date(byAdding: .day, value: -1, to: calendar.startOfDay(for: now))
+        else { return nil }
+        let stamps = [night.wake, night.onset, ForgeDates.parse(night.date)].compactMap { $0 }
+        let isRecent = stamps.contains(where: { calendar.startOfDay(for: $0) >= yesterday })
+        return isRecent ? night : nil
+    }
 }
 
 // MARK: - Sleep Intelligence
@@ -598,6 +618,8 @@ struct UserSleepProfile: Codable, Equatable {
     var notes: String = ""
     var bedtimeGoalHour: Double?
     var wakeGoalHour: Double?
+    /// User-overridable sleep-need baseline, clamped 7–9 h. Nil means estimate.
+    var sleepNeedBaselineHours: Double?
 }
 
 struct AdaptiveSunriseConfig: Equatable {

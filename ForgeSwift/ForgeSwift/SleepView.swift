@@ -14,15 +14,18 @@ struct SleepView: View {
 
     private var presence: SleepSurfacePresence { store.sleepSurface }
 
+    /// Nil when the newest stored night is older than yesterday.
+    private var lastNight: SleepData? { SleepData.lastNight(in: store.sleepData) }
+
     private var tonightCoach: SleepBedtimeCoach {
-        SleepBedtimeCoach.make(from: store.sleepData)
+        SleepBedtimeCoach.make(from: store.sleepData, lowEnergyDay: store.readiness.overall < 60)
     }
 
     private var wakeCoach: SleepWakeCoach {
         SleepWakeCoach.make(
             alarms: alarmStore.alarms,
-            sleepScore: store.sleepData.first?.score,
-            lastNightHours: store.sleepData.first?.totalHours,
+            sleepScore: lastNight?.score,
+            lastNightHours: lastNight?.totalHours,
             smartWindowMinutes: alarmStore.next.map {
                 hkService.adaptiveSmartWakeMinutes(base: $0.smartWakeWindow, depth: alarmStore.sleeperDepth)
             }
@@ -103,7 +106,7 @@ struct SleepView: View {
         .task {
             await hkService.refreshFromAppleHealth(into: store)
             let debt = hkService.computeSleepDebt(from: store.sleepData)
-            let recentScore = store.sleepData.first?.score
+            let recentScore = lastNight?.score
             _ = hkService.computeAdaptiveSunrise(
                 debt: debt,
                 recentScore: recentScore,
@@ -114,37 +117,21 @@ struct SleepView: View {
 }
 
 struct SleepBackground: View {
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
-
     var body: some View {
         ZStack {
             Color.background
             RadialGradient(
-                colors: [Color(hex: "1A1440").opacity(0.62), .clear],
+                colors: [Color.aurora.opacity(0.14), .clear],
                 center: UnitPoint(x: 0.5, y: 0.0),
                 startRadius: 10,
                 endRadius: 480
             )
             RadialGradient(
-                colors: [Color.aurora.opacity(0.12), .clear],
-                center: UnitPoint(x: 0.82, y: 0.16),
-                startRadius: 8,
-                endRadius: 280
-            )
-            .blur(radius: reduceMotion ? 0 : 18)
-            RadialGradient(
-                colors: [Color(hex: "A9D8FF").opacity(0.05), .clear],
+                colors: [Color.steel.opacity(0.10), .clear],
                 center: UnitPoint(x: 0.14, y: 0.32),
                 startRadius: 8,
-                endRadius: 240
+                endRadius: 260
             )
-            LinearGradient(
-                colors: [.clear, Color.white.opacity(0.028), .clear],
-                startPoint: .topLeading,
-                endPoint: .bottomTrailing
-            )
-            .blendMode(.plusLighter)
-            .opacity(reduceMotion ? 0.35 : 0.55)
         }
     }
 }
@@ -158,92 +145,93 @@ struct SleepHeaderView: View {
     let onTabSelect: (SleepTab) -> Void
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
-    private var tabIcon: [SleepTab: String] {
-        [.day: "chart.line.uptrend.xyaxis", .night: "moon.stars.fill", .alarms: "alarm.fill"]
+    private static let tabIcon: [SleepTab: String] = [
+        .day: "chart.line.uptrend.xyaxis",
+        .night: "moon.stars.fill",
+        .alarms: "alarm.fill"
+    ]
+
+    private var tabOptions: [ForgeSegmentOption<SleepTab>] {
+        SleepTab.allCases.map { tab in
+            ForgeSegmentOption(value: tab, title: tab.title, icon: Self.tabIcon[tab])
+        }
+    }
+
+    private var tabSelection: Binding<SleepTab> {
+        Binding(
+            get: { selectedTab },
+            set: { onTabSelect($0) }
+        )
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: FDS.Spacing.lg) {
-            HStack(alignment: .center) {
-                VStack(alignment: .leading, spacing: FDS.Spacing.xs) {
-                    HStack(spacing: FDS.Spacing.sm) {
-                        Text("Sleep")
-                            .font(ForgeType.pageTitle)
-                            .foregroundColor(.textPrimary)
-                        SleepStatusDot(kind: presence.liveDot)
-                    }
-                    Text(presence.statusCaption)
-                        .font(FDS.TypeScale.Dynamic.caption)
-                        .foregroundColor(.textTertiary)
-                        .lineLimit(1)
-                    Text(subtitle)
-                        .font(FDS.TypeScale.Dynamic.body)
-                        .foregroundColor(.textSecondary)
-                        .lineLimit(2)
-                        .animation(reduceMotion ? nil : .easeInOut(duration: 0.2), value: subtitle)
-                }
-                Spacer()
-                HStack(spacing: FDS.Spacing.sm) {
-                    ForgeIconButton(
-                        systemImage: "slider.horizontal.3",
-                        accent: .aurora,
-                        accessibilityLabel: "Sleep preferences",
-                        action: onPersonalize
-                    )
-                    Button(action: onAskAria) {
-                        HStack(spacing: FDS.Spacing.sm) {
-                            ARIAIdentityMark(state: .idle, mood: .energized, size: 14, amplitude: 0.22)
-                            Text("Ask ARIA")
-                                .font(FDS.TypeScale.Dynamic.caption)
-                        }
-                        .foregroundColor(.white)
-                        .padding(.horizontal, FDS.Spacing.lg)
-                        .padding(.vertical, FDS.Spacing.sm)
-                        .background(FDS.Gradient.ember)
-                        .clipShape(Capsule())
-                        .shadow(color: Color.ember.opacity(0.28), radius: 8, y: 3)
-                    }
-                    .accessibilityLabel("Ask ARIA about sleep")
-                }
-            }
-
-            HStack(spacing: FDS.Spacing.sm) {
-                ForEach(SleepTab.allCases, id: \.self) { tab in
-                    Button {
-                        onTabSelect(tab)
-                        UISelectionFeedbackGenerator().selectionChanged()
-                    } label: {
-                        HStack(spacing: FDS.Spacing.sm) {
-                            Image(systemName: tabIcon[tab] ?? "circle")
-                                .font(.system(size: 11, weight: .semibold))
-                            Text(tab.title)
-                                .font(.system(size: 13, weight: selectedTab == tab ? .bold : .medium, design: .rounded))
-                        }
-                        .foregroundColor(selectedTab == tab ? .white : .textTertiary)
-                        .padding(.horizontal, FDS.Spacing.lg)
-                        .padding(.vertical, FDS.Spacing.sm)
-                        .background(
-                            selectedTab == tab
-                                ? AnyShapeStyle(FDS.Gradient.ember)
-                                : AnyShapeStyle(Color.white.opacity(0.06))
-                        )
-                        .clipShape(Capsule())
-                        .overlay(
-                            Capsule().stroke(
-                                selectedTab == tab ? Color.white.opacity(0.0) : Color.white.opacity(0.10),
-                                lineWidth: 1
-                            )
-                        )
-                        .shadow(color: selectedTab == tab ? Color.ember.opacity(0.22) : .clear, radius: 6, y: 2)
-                    }
-                    .buttonStyle(.plain)
-                }
-                Spacer(minLength: 0)
-            }
+        VStack(alignment: .leading, spacing: FDS.Spacing.md) {
+            titleRow
+            captionBlock
+            ForgeSegmentedControl(
+                tabOptions,
+                selection: tabSelection,
+                accent: .steel,
+                bleed: 0,
+                animatesSelection: false
+            )
         }
-        .padding(.horizontal, FDS.Spacing.lg)
-        .padding(.top, 56)
+        .padding(.horizontal, ForgeLayout.screenInset)
+        .padding(.top, ForgeLayout.screenTop)
         .padding(.bottom, FDS.Spacing.md)
+    }
+
+    private var titleRow: some View {
+        HStack(alignment: .center, spacing: FDS.Spacing.md) {
+            HStack(spacing: FDS.Spacing.sm) {
+                Text("Sleep")
+                    .font(ForgeType.pageTitle)
+                    .foregroundColor(.textPrimary)
+                    .forgeSingleLine(minScale: ForgeLayout.labelMinScale)
+                    .accessibilityAddTraits(.isHeader)
+                SleepStatusDot(kind: presence.liveDot)
+            }
+            Spacer(minLength: FDS.Spacing.sm)
+            askAriaButton
+            ForgeIconButton(
+                systemImage: "slider.horizontal.3",
+                accessibilityLabel: "Sleep preferences",
+                tinted: false,
+                action: onPersonalize
+            )
+        }
+    }
+
+    private var askAriaButton: some View {
+        Button {
+            FDS.haptic(.press)
+            onAskAria()
+        } label: {
+            ARIAIdentityMark(state: .idle, mood: .energized, size: 28, amplitude: 0.22)
+                .frame(width: ForgeUX.minTap, height: ForgeUX.minTap)
+                .background(Circle().fill(Color.white.opacity(0.06)))
+                .overlay(Circle().stroke(Color.white.opacity(0.10), lineWidth: ForgeUX.stroke))
+                .contentShape(Circle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel("Ask ARIA about sleep")
+    }
+
+    private var captionBlock: some View {
+        VStack(alignment: .leading, spacing: ForgeLayout.pairGap) {
+            if !dynamicTypeSize.isAccessibilitySize {
+                Text(presence.statusCaption)
+                    .font(FDS.TypeScale.Dynamic.caption)
+                    .foregroundColor(.textTertiary)
+                    .forgeSingleLine(minScale: ForgeLayout.labelMinScale)
+            }
+            Text(subtitle)
+                .font(HomeType.body)
+                .foregroundColor(.textSecondary)
+                .lineLimit(2)
+                .animation(reduceMotion ? nil : .easeInOut(duration: 0.2), value: subtitle)
+        }
     }
 }

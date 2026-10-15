@@ -1,45 +1,171 @@
 import SwiftUI
 import PhotosUI
 import UIKit
+import ForgeCore
+
+/// An ARIA sentence inside a card: a small sparkle plus the note in body
+/// type, in Home's inner well. Sentences wrap, they never truncate.
+private struct SleepAriaNote: View {
+    let text: String
+    var tint: Color = .aurora
+
+    var body: some View {
+        HStack(alignment: .top, spacing: FDS.Spacing.sm) {
+            Image(systemName: "sparkles")
+                .font(.system(size: 12, weight: .semibold))
+                .foregroundStyle(tint)
+                .accessibilityHidden(true)
+            Text(text)
+                .font(HomeType.body)
+                .foregroundStyle(Color.textSecondary)
+                .forgeWrapping()
+            Spacer(minLength: 0)
+        }
+        .forgeWell()
+        .accessibilityElement(children: .combine)
+    }
+}
+
+struct SleepMorningSummaryCard: View {
+    @EnvironmentObject var store: AppStore
+    @EnvironmentObject var hkService: HealthKitSleepService
+
+    private var summary: SleepMorningSummary {
+        let last = SleepData.lastNight(in: store.sleepData)
+        let durations = Array(store.sleepData.map(\.totalHours).reversed())
+        let estimated = CircadianRhythm.sleepNeedHours(fromAsleepHours: durations)
+        let stretch = CircadianRhythm.sleepDebtHours(asleepHours: durations, need: estimated)
+        let need = SleepNeedParts.make(
+            estimatedBaseline: estimated,
+            overrideBaseline: SleepNeedBaselineStore.load() ?? hkService.userProfile.sleepNeedBaselineHours,
+            debtHours: stretch
+        )
+        let coach = SleepBedtimeCoach.make(
+            from: store.sleepData,
+            lowEnergyDay: store.readiness.overall < 60
+        )
+        return SleepMorningSummary.make(
+            lastNightHours: last?.totalHours,
+            lastNightAwakeMinutes: Double(last?.awakeMinutes ?? 0),
+            scoredNightCount: store.sleepData.count,
+            bedtimeLabel: last == nil ? nil : coach.bedtimeLabel,
+            need: need
+        )
+    }
+
+    var body: some View {
+        let card = summary
+        VStack(alignment: .leading, spacing: ForgeLayout.blockGap) {
+            ForgeCardHeader("This morning", meta: card.calibration.caption, metaColor: .steel)
+            ForgeAdaptiveStack(spacing: ForgeLayout.rowGap, alignment: .firstTextBaseline) {
+                Text(card.hoursLabel)
+                    .font(HomeType.metric)
+                    .foregroundStyle(Color.textPrimary)
+                    .monospacedDigit()
+                    .forgeSingleLine()
+                    .layoutPriority(1)
+                Text("asleep")
+                    .font(HomeType.body)
+                    .foregroundStyle(Color.textSecondary)
+                Spacer(minLength: 0)
+                if let score = card.visibleScore {
+                    Text("\(score)")
+                        .font(HomeType.metric)
+                        .foregroundStyle(Color.steel)
+                        .monospacedDigit()
+                        .forgeSingleLine()
+                        .accessibilityLabel("Sleep score \(score) of 100")
+                }
+            }
+            Text(card.contextLine)
+                .font(HomeType.body)
+                .foregroundStyle(Color.textPrimary)
+                .forgeWrapping()
+            Text(card.nextStep)
+                .font(HomeType.status)
+                .foregroundStyle(Color.ember)
+                .forgeWrapping()
+            if card.calibration.isReady, let parts = card.published?.parts {
+                ForgeAdaptiveStack(spacing: ForgeLayout.tileGap) {
+                    ForEach(parts, id: \.name) { part in
+                        VStack(alignment: .leading, spacing: ForgeLayout.labelValueGap) {
+                            Text("\(part.weight)%")
+                                .font(HomeType.micro)
+                                .foregroundStyle(Color.textTertiary)
+                            Text("\(part.value)")
+                                .font(HomeType.body)
+                                .foregroundStyle(Color.textPrimary)
+                                .monospacedDigit()
+                        }
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .accessibilityLabel("\(part.name), weight \(part.weight) percent, \(part.value)")
+                    }
+                }
+            }
+            Text(card.need.whyLines.joined(separator: " · "))
+                .font(HomeType.body)
+                .foregroundStyle(Color.textTertiary)
+                .forgeWrapping()
+        }
+        .forgeContentCard(tint: .ember)
+        .accessibilityElement(children: .combine)
+    }
+}
+
+struct SleepFeelingCheckIn: View {
+    @EnvironmentObject var store: AppStore
+    @State private var picked: SleepFeeling?
+
+    private var dateKey: String? { SleepData.lastNight(in: store.sleepData)?.date }
+
+    var body: some View {
+        if let dateKey {
+            VStack(alignment: .leading, spacing: ForgeLayout.blockGap) {
+                ForgeCardHeader("How did you feel?")
+                ForgeAdaptiveStack(spacing: ForgeLayout.tileGap) {
+                    ForEach(SleepFeeling.allCases, id: \.self) { feeling in
+                        Button {
+                            FDS.haptic(.press)
+                            SleepFeelingStore.save(feeling, on: dateKey)
+                            picked = feeling
+                        } label: {
+                            Text(feeling.label)
+                                .font(HomeType.body)
+                                .foregroundStyle(picked == feeling ? Color.white : Color.textSecondary)
+                                .frame(maxWidth: .infinity)
+                                .frame(minHeight: ForgeUX.minTap)
+                                .background((picked == feeling ? Color.steel : Color.white).opacity(picked == feeling ? 0.9 : 0.06))
+                                .clipShape(Capsule())
+                        }
+                        .buttonStyle(.plain)
+                        .accessibilityLabel(feeling.label)
+                        .accessibilityAddTraits(picked == feeling ? .isSelected : [])
+                    }
+                }
+            }
+            .forgeContentCard(tint: .steel)
+            .onAppear { picked = SleepFeelingStore.feeling(on: dateKey) }
+        }
+    }
+}
 
 /// A quiet fact, not a score to protect — same framing `HomeWinCard` uses for
 /// the workout streak. No badge, no glow, no tap that leads nowhere.
 struct SleepStreakCard: View {
     @EnvironmentObject var store: AppStore
     @EnvironmentObject var hkService: HealthKitSleepService
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
-    @State private var appeared = false
 
     private var streak: Int { hkService.computeGoodSleepStreak(from: store.sleepData) }
 
     var body: some View {
         if streak > 0 {
-            HStack(spacing: FDS.Spacing.lg) {
-                ZStack {
-                    Circle().fill(Color.ember.opacity(0.16)).frame(width: 40, height: 40)
-                    Image(systemName: "moon.fill").font(.system(size: 16, weight: .semibold)).foregroundColor(.ember)
-                }
-                VStack(alignment: .leading, spacing: 2) {
-                    Text("\(streak) night\(streak == 1 ? "" : "s") of good sleep in a row")
-                        .font(FDS.TypeScale.Dynamic.body.weight(.semibold))
-                        .foregroundColor(.textPrimary)
-                    Text("A quiet fact, not a score to protect.")
-                        .font(.system(size: 12))
-                        .foregroundColor(.textTertiary)
-                }
-                Spacer(minLength: 0)
-            }
-            .padding(FDS.Spacing.lg)
-            .forgeGlassCard(cornerRadius: FDS.Radius.lg, accent: .ember)
-            .opacity(appeared || reduceMotion ? 1 : 0)
-            .accessibilityElement(children: .combine)
-            .onAppear {
-                if reduceMotion {
-                    appeared = true
-                } else {
-                    withAnimation(.easeOut(duration: 0.4)) { appeared = true }
-                }
-            }
+            ForgeListRow(
+                icon: "moon.fill",
+                iconColor: .steel,
+                title: "\(streak) night\(streak == 1 ? "" : "s") of good sleep in a row",
+                subtitle: "A quiet fact, not a score to protect."
+            )
+            .forgeContentCard(tint: .steel)
         }
     }
 }
@@ -50,54 +176,17 @@ struct SleepStreakCard: View {
 struct AISleepPredictionCard: View {
     @EnvironmentObject var store: AppStore
     @EnvironmentObject var hkService: HealthKitSleepService
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
-    @State private var appear = false
 
     private var schedule: EnergySchedule? { EnergySchedule.make(from: store.sleepData) }
 
     var body: some View {
         if let schedule {
-            VStack(alignment: .leading, spacing: FDS.Spacing.lg) {
-                HStack(spacing: FDS.Spacing.md) {
-                    ZStack {
-                        Circle().fill(Color.steel.opacity(0.15)).frame(width: 34, height: 34)
-                        Image(systemName: "sparkles").font(.system(size: 14)).foregroundColor(.steel)
-                    }
-                    Text("Tonight's Bedtime").font(FDS.TypeScale.Dynamic.body.weight(.semibold)).foregroundColor(.textPrimary)
-                    Spacer()
-                }
-                HStack(alignment: .firstTextBaseline, spacing: FDS.Spacing.sm) {
-                    Text(EnergySchedule.clockLabel(schedule.phase.onsetHour))
-                        .font(.system(size: 26, weight: .bold, design: .rounded)).foregroundColor(.steel)
-                    Text("· dim lights by \(EnergySchedule.clockLabel(schedule.melatoninHour))")
-                        .font(.system(size: 13)).foregroundColor(.textTertiary)
-                }
-                if let note = store.remoteSleepInsight {
-                    Text(note)
-                        .font(.system(size: 12))
-                        .foregroundColor(.textSecondary)
-                        .fixedSize(horizontal: false, vertical: true)
-                } else if let note = hkService.aiBedtimeNote {
-                    Text(note)
-                        .font(.system(size: 12))
-                        .foregroundColor(.textSecondary)
-                        .fixedSize(horizontal: false, vertical: true)
-                } else {
-                    Text(schedule.debtHeadline)
-                        .font(.system(size: 12)).foregroundColor(.textMuted).lineLimit(2)
-                }
+            VStack(alignment: .leading, spacing: ForgeLayout.blockGap) {
+                ForgeCardHeader("Tonight's Bedtime", tint: .steel)
+                bedtimeLead(schedule)
+                noteText(schedule)
             }
-            .padding(FDS.Spacing.lg)
-            .forgeGlassCard(cornerRadius: FDS.Radius.xl, accent: .steel)
-            .opacity(appear || reduceMotion ? 1 : 0)
-            .offset(y: appear || reduceMotion ? 0 : 10)
-            .onAppear {
-                if reduceMotion {
-                    appear = true
-                } else {
-                    withAnimation(.easeOut(duration: 0.4).delay(0.1)) { appear = true }
-                }
-            }
+            .forgeContentCard(tint: .steel)
             .task {
                 await hkService.refreshBedtimeNote(store: store, schedule: schedule)
                 if store.remoteSleepInsight == nil {
@@ -105,6 +194,40 @@ struct AISleepPredictionCard: View {
                 }
             }
         }
+    }
+
+    private func bedtimeLead(_ schedule: EnergySchedule) -> some View {
+        VStack(alignment: .leading, spacing: ForgeLayout.pairGap) {
+            Text(EnergySchedule.clockLabel(schedule.phase.onsetHour))
+                .font(HomeType.metric)
+                .foregroundStyle(Color.steel)
+                .monospacedDigit()
+                .forgeSingleLine()
+                .contentTransition(.numericText())
+            Text("Dim lights by \(EnergySchedule.clockLabel(schedule.melatoninHour))")
+                .font(HomeType.body)
+                .foregroundStyle(Color.textSecondary)
+                .forgeWrapping()
+        }
+        .accessibilityElement(children: .combine)
+    }
+
+    @ViewBuilder
+    private func noteText(_ schedule: EnergySchedule) -> some View {
+        if let note = store.remoteSleepInsight {
+            noteSentence(note, color: .textSecondary)
+        } else if let note = hkService.aiBedtimeNote {
+            noteSentence(note, color: .textSecondary)
+        } else {
+            noteSentence(schedule.debtHeadline, color: .textTertiary)
+        }
+    }
+
+    private func noteSentence(_ text: String, color: Color) -> some View {
+        Text(text)
+            .font(HomeType.body)
+            .foregroundStyle(color)
+            .forgeWrapping()
     }
 }
 
@@ -121,60 +244,28 @@ struct AISleepEnvironmentView: View {
     @State private var pickedPreview: UIImage?
 
     var body: some View {
-        VStack(alignment: .leading, spacing: FDS.Spacing.lg) {
-            HStack(spacing: FDS.Spacing.sm) {
-                Image(systemName: "camera.fill").font(.system(size: 14)).foregroundColor(.steel)
-                Text("Sleep Environment").font(FDS.TypeScale.Dynamic.body.weight(.semibold)).foregroundColor(.textPrimary)
+        VStack(alignment: .leading, spacing: ForgeLayout.blockGap) {
+            ForgeCardHeader(title: "Sleep Environment", tint: .steel) {
+                if hkService.isAnalyzingEnvironment {
+                    ProgressView().controlSize(.mini)
+                }
             }
 
             if let preview = pickedPreview {
                 Image(uiImage: preview)
                     .resizable().scaledToFill()
                     .frame(height: 120).frame(maxWidth: .infinity)
-                    .clipShape(RoundedRectangle(cornerRadius: FDS.Radius.md))
+                    .clipShape(RoundedRectangle(cornerRadius: ForgeLayout.innerRadius, style: .continuous))
+                    .accessibilityLabel("Photo of your room")
             }
 
-            if hkService.isAnalyzingEnvironment {
-                HStack(spacing: FDS.Spacing.sm) {
-                    ProgressView().controlSize(.small)
-                    Text("Looking at the room…").font(.system(size: 12)).foregroundColor(.textSecondary)
-                }
-            } else if let error = hkService.environmentCheckError {
-                HStack(alignment: .top, spacing: FDS.Spacing.sm) {
-                    Image(systemName: "exclamationmark.triangle.fill").font(.system(size: 11)).foregroundColor(.warning)
-                    Text(error).font(.system(size: 12)).foregroundColor(.textSecondary).fixedSize(horizontal: false, vertical: true)
-                }
-                .padding(FDS.Spacing.md)
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .background(Color.warning.opacity(0.08))
-                .cornerRadius(FDS.Radius.sm)
-            } else if let assessment = hkService.environmentAssessment {
-                HStack(alignment: .top, spacing: FDS.Spacing.sm) {
-                    Image(systemName: "sparkles").font(.system(size: 11)).foregroundColor(.steel)
-                    Text(assessment).font(.system(size: 12)).foregroundColor(.textSecondary).fixedSize(horizontal: false, vertical: true)
-                }
-                .padding(FDS.Spacing.md)
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .background(Color.steel.opacity(0.08))
-                .cornerRadius(FDS.Radius.sm)
-            } else {
-                Text(SleepLifestyleCopy.environmentHint)
-                    .font(.system(size: 12)).foregroundColor(.textMuted).lineLimit(3)
-            }
+            statusBody
 
             PhotosPicker(selection: $pickerItem, matching: .images) {
-                HStack(spacing: FDS.Spacing.sm) {
-                    Image(systemName: "camera.fill").font(.system(size: 12))
-                    Text(pickedPreview == nil ? "Show ARIA the room" : "Try another photo").font(FDS.TypeScale.Dynamic.caption)
-                }
-                .foregroundColor(.steel)
-                .padding(.horizontal, FDS.Spacing.md).padding(.vertical, FDS.Spacing.sm)
-                .background(Color.steel.opacity(0.12))
-                .cornerRadius(FDS.Radius.sm)
+                pickerLabel
             }
         }
-        .padding(FDS.Spacing.lg)
-        .forgeGlassCard(cornerRadius: FDS.Radius.xl, accent: .aurora)
+        .forgeContentCard(tint: .steel)
         .onChange(of: pickerItem) { _, item in
             Task {
                 guard let item, let data = try? await item.loadTransferable(type: Data.self),
@@ -185,137 +276,142 @@ struct AISleepEnvironmentView: View {
             }
         }
     }
+
+    @ViewBuilder
+    private var statusBody: some View {
+        if hkService.isAnalyzingEnvironment {
+            ForgeSkeletonWell(message: "Looking at the room…", minHeight: 56)
+        } else if let error = hkService.environmentCheckError {
+            HStack(alignment: .top, spacing: FDS.Spacing.sm) {
+                Image(systemName: "exclamationmark.triangle.fill")
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundStyle(Color.warning)
+                    .accessibilityHidden(true)
+                Text(error)
+                    .font(HomeType.body)
+                    .foregroundStyle(Color.textSecondary)
+                    .forgeWrapping()
+                Spacer(minLength: 0)
+            }
+            .forgeWell()
+            .accessibilityElement(children: .combine)
+        } else if let assessment = hkService.environmentAssessment {
+            SleepAriaNote(text: assessment, tint: .steel)
+        } else {
+            Text(SleepLifestyleCopy.environmentHint)
+                .font(HomeType.body)
+                .foregroundStyle(Color.textTertiary)
+                .forgeWrapping()
+        }
+    }
+
+    private var pickerLabel: some View {
+        HStack(spacing: FDS.Spacing.sm) {
+            Image(systemName: "camera.fill")
+                .font(.system(size: ForgeUX.icon, weight: .semibold))
+                .accessibilityHidden(true)
+            Text(pickedPreview == nil ? "Show ARIA the room" : "Try another photo")
+                .font(HomeType.label)
+                .forgeSingleLine(minScale: ForgeLayout.labelMinScale)
+        }
+        .foregroundStyle(Color.steel)
+        .frame(maxWidth: .infinity)
+        .frame(minHeight: ForgeUX.minTap)
+        .padding(.horizontal, FDS.Spacing.lg)
+        .background(Color.steel.opacity(0.12))
+        .clipShape(RoundedRectangle(cornerRadius: FDS.Radius.md, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: FDS.Radius.md, style: .continuous)
+                .stroke(Color.steel.opacity(0.28), lineWidth: ForgeUX.hairline)
+        )
+    }
 }
 
 struct AIPersonalizedGoalsView: View {
     @EnvironmentObject var store: AppStore
     @EnvironmentObject var hkService: HealthKitSleepService
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
-    @State private var appeared = false
 
     var goals: [AdaptiveSleepGoal] {
         hkService.computeAdaptiveGoals(from: store.sleepData)
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: FDS.Spacing.lg) {
-            HStack(spacing: FDS.Spacing.sm) {
-                Image(systemName: "target").font(.system(size: 14)).foregroundColor(.ember)
-                Text("Sleep Goals").font(FDS.TypeScale.Dynamic.body.weight(.semibold)).foregroundColor(.textPrimary)
-            }
-            VStack(spacing: FDS.Spacing.md) {
-                ForEach(Array(goals.enumerated()), id: \.element.id) { i, g in
-                    VStack(alignment: .leading, spacing: FDS.Spacing.sm) {
-                        HStack {
-                            Image(systemName: g.icon).font(.system(size: 12)).foregroundColor(.steel)
-                            Text(g.title).font(FDS.TypeScale.Dynamic.caption).foregroundColor(.textPrimary)
-                            Spacer()
-                            Text(String(format: "%.1f / %.1f %@", g.current, g.target, g.unit))
-                                .font(FDS.TypeScale.Dynamic.caption).foregroundColor(.textSecondary)
-                        }
-                        GeometryReader { geo in
-                            ZStack(alignment: .leading) {
-                                Capsule().fill(Color.borderColor.opacity(0.4)).frame(height: 6)
-                                Capsule()
-                                    .fill(g.current >= g.target ? Color.success : Color.steel)
-                                    .frame(width: (appeared || reduceMotion) ? geo.size.width * CGFloat(min(g.current / max(0.01, g.target), 1.0)) : 0, height: 6)
-                                    .animation(reduceMotion ? nil : .spring(response: 1.0, dampingFraction: 0.7).delay(0.3 + Double(i) * 0.1), value: appeared)
-                            }
-                        }
-                        .frame(height: 6)
-                    }
-                    .padding(FDS.Spacing.md).forgeInsetTile(radius: FDS.Radius.md)
-                    .opacity(appeared || reduceMotion ? 1 : 0)
-                    .animation(reduceMotion ? nil : .easeOut(duration: 0.3).delay(Double(i) * 0.1), value: appeared)
+        VStack(alignment: .leading, spacing: ForgeLayout.blockGap) {
+            ForgeCardHeader("Sleep Goals", tint: .steel)
+            VStack(alignment: .leading, spacing: ForgeLayout.rowGap) {
+                ForEach(goals) { g in
+                    goalRow(g)
                 }
             }
             if let note = hkService.aiGoalsNote {
-                HStack(alignment: .top, spacing: FDS.Spacing.sm) {
-                    Image(systemName: "sparkles").font(.system(size: 11)).foregroundColor(.ember)
-                    Text(note).font(.system(size: 12)).foregroundColor(.textSecondary).fixedSize(horizontal: false, vertical: true)
-                }
-                .padding(FDS.Spacing.md)
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .background(Color.ember.opacity(0.08))
-                .cornerRadius(FDS.Radius.sm)
+                SleepAriaNote(text: note)
             }
         }
-        .padding(FDS.Spacing.lg)
-        .forgeGlassCard(cornerRadius: FDS.Radius.xl, accent: .aurora)
-        .onAppear {
-            if reduceMotion {
-                appeared = true
-            } else {
-                withAnimation(.easeOut(duration: 0.5)) { appeared = true }
-            }
-        }
+        .forgeContentCard(tint: .steel)
         .task { await hkService.refreshGoalsNote(store: store, goals: goals) }
+    }
+
+    private func goalRow(_ g: AdaptiveSleepGoal) -> some View {
+        let met = g.current >= g.target
+        let fraction = g.current / max(0.01, g.target)
+        return VStack(alignment: .leading, spacing: ForgeLayout.pairGap) {
+            ForgeMetricRow(
+                label: g.title,
+                value: String(format: "%.1f / %.1f", g.current, g.target),
+                unit: g.unit,
+                tint: met ? Color.vitality : Color.steel
+            )
+            ForgeProgressBar(fraction: fraction, tint: met ? Color.vitality : Color.steel)
+        }
+        .accessibilityElement(children: .combine)
     }
 }
 
 struct AISmartRecommendationsView: View {
     @EnvironmentObject var store: AppStore
     @EnvironmentObject var hkService: HealthKitSleepService
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
-    @State private var appeared = false
 
     var recs: [SleepRecommendation] {
         hkService.chronotypeRecommendations(debt: hkService.computeSleepDebt(from: store.sleepData))
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: FDS.Spacing.md) {
-            Text("Smart Recommendations").font(FDS.TypeScale.Dynamic.body.weight(.semibold)).foregroundColor(.textPrimary)
-            VStack(spacing: FDS.Spacing.md) {
-                ForEach(Array(recs.enumerated()), id: \.element.id) { i, rec in
-                    HStack(alignment: .top, spacing: FDS.Spacing.md) {
-                        ZStack {
-                            Circle().fill(Color.steel.opacity(0.12)).frame(width: 38, height: 38)
-                            Image(systemName: rec.icon).font(.system(size: 14)).foregroundColor(.steel)
-                        }
-                        VStack(alignment: .leading, spacing: FDS.Spacing.xs) {
-                            HStack {
-                                Text(rec.title).font(FDS.TypeScale.Dynamic.caption).foregroundColor(.textPrimary)
-                                Spacer()
-                                Text(rec.priority)
-                                    .font(FDS.TypeScale.Dynamic.micro)
-                                    .foregroundColor(rec.priority == "High" ? .ember : .warning)
-                                    .padding(.horizontal, FDS.Spacing.sm).padding(.vertical, FDS.Spacing.xs)
-                                    .background((rec.priority == "High" ? Color.ember : Color.warning).opacity(0.12))
-                                    .cornerRadius(FDS.Radius.xs)
-                            }
-                            Text(rec.description).font(.system(size: 12)).foregroundColor(.textSecondary).lineLimit(2)
-                        }
-                    }
-                    .padding(FDS.Spacing.md).forgeInsetTile(radius: FDS.Radius.md)
-                    .opacity(appeared || reduceMotion ? 1 : 0)
-                    .offset(x: appeared || reduceMotion ? 0 : -10)
-                    .animation(reduceMotion ? nil : .easeOut(duration: 0.3).delay(Double(i) * 0.08), value: appeared)
+        VStack(alignment: .leading, spacing: ForgeLayout.blockGap) {
+            ForgeCardHeader("Smart Recommendations", tint: .steel)
+            VStack(alignment: .leading, spacing: ForgeLayout.rowGap) {
+                ForEach(recs) { rec in
+                    recommendationRow(rec)
                 }
             }
             if let note = hkService.aiRecommendationsNote {
-                HStack(alignment: .top, spacing: FDS.Spacing.sm) {
-                    Image(systemName: "sparkles").font(.system(size: 11)).foregroundColor(.steel)
-                    Text(note).font(.system(size: 12)).foregroundColor(.textSecondary).fixedSize(horizontal: false, vertical: true)
-                }
-                .padding(FDS.Spacing.md)
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .background(Color.steel.opacity(0.08))
-                .cornerRadius(FDS.Radius.sm)
+                SleepAriaNote(text: note, tint: .steel)
             }
         }
-        .padding(FDS.Spacing.lg)
-        .forgeGlassCard(cornerRadius: FDS.Radius.xl, accent: .aurora)
-        .onAppear {
-            if reduceMotion {
-                appeared = true
-            } else {
-                withAnimation(.easeOut(duration: 0.5)) { appeared = true }
-            }
-        }
+        .forgeContentCard(tint: .steel)
         .task {
             let debt = hkService.computeSleepDebt(from: store.sleepData)
             await hkService.refreshRecommendationsNote(store: store, debt: debt)
         }
+    }
+
+    private func recommendationRow(_ rec: SleepRecommendation) -> some View {
+        let priorityColor: Color = rec.priority == "High" ? Color.steel : Color.amber
+        return HStack(alignment: .top, spacing: ForgeLayout.rowGap) {
+            ForgeIconWell(systemImage: rec.icon, tint: .steel)
+            VStack(alignment: .leading, spacing: ForgeLayout.pairGap) {
+                Text(rec.title)
+                    .font(HomeType.status)
+                    .foregroundStyle(Color.textPrimary)
+                    .lineLimit(2)
+                Text(rec.description)
+                    .font(HomeType.body)
+                    .foregroundStyle(Color.textSecondary)
+                    .forgeWrapping()
+                ForgeChip(label: rec.priority, energy: priorityColor, selected: true)
+                    .accessibilityLabel("\(rec.priority) priority")
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+        }
+        .accessibilityElement(children: .combine)
     }
 }

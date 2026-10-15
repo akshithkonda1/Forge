@@ -107,6 +107,11 @@ enum AriaSafetyLexicon {
         "tightness in my chest",
         "my chest hurts",
         "my chest hurt",
+        "chest feels heavy",
+        "chest is heavy",
+        "heaviness in my chest",
+        "chest heaviness",
+        "burning in my chest",
     ]
 
     static let severeChest: [String] = [
@@ -114,6 +119,14 @@ enum AriaSafetyLexicon {
         "crushing chest pain",
         "crushing pressure in my chest",
         "crushing pain in my chest",
+        "chest is crushing",
+        "chest feels crushed",
+        "chest feels like it's being crushed",
+        "crushing feeling in my chest",
+        "elephant on my chest",
+        "chest is squeezing",
+        "squeezing in my chest",
+        "chest feels like it's being squeezed",
     ]
 
     static let chestCompanions: [String] = [

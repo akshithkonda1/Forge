@@ -14,35 +14,38 @@ import SwiftUI
 struct AriaSpecialistActivityView: View {
     let workers: [AriaCoachWorker]
     @State private var pulse = false
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
-        VStack(alignment: .leading, spacing: FDS.Spacing.md) {
+        VStack(alignment: .leading, spacing: ForgeLayout.blockGap) {
             Text(workers.count > 1 ? "Consulting your specialists" : "Thinking")
-                .font(FDS.TypeScale.Dynamic.caption)
+                .font(HomeType.label)
                 .foregroundColor(.aurora)
-            FlowLayout(spacing: 8) {
+                .forgeSingleLine(minScale: ForgeLayout.labelMinScale)
+            ForgeFlowLayout(spacing: ForgeLayout.chipGap, lineSpacing: ForgeLayout.chipGap) {
                 ForEach(workers) { worker in
-                    HStack(spacing: FDS.Spacing.sm) {
-                        Image(systemName: worker.kind.icon)
-                            .font(.system(size: 11, weight: .semibold))
-                        Text(worker.label)
-                            .font(FDS.TypeScale.Dynamic.caption)
-                    }
-                    .foregroundColor(worker.kind.accent)
-                    .padding(.horizontal, FDS.Spacing.md)
-                    .padding(.vertical, FDS.Spacing.sm)
-                    .background(worker.kind.accent.opacity(pulse ? 0.22 : 0.1))
-                    .clipShape(Capsule())
-                    .overlay(Capsule().stroke(worker.kind.accent.opacity(0.3), lineWidth: 1))
+                    ForgeChip(
+                        label: worker.label,
+                        icon: worker.kind.icon,
+                        energy: worker.kind.accent,
+                        selected: true
+                    )
+                    .opacity(pulse ? 1 : 0.72)
                 }
             }
         }
-        .padding(FDS.Spacing.lg)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .forgeGlassCard(cornerRadius: FDS.Radius.lg, accent: .aurora)
+        .forgeContentCard(tint: .aurora, padding: ForgeLayout.compactCardPadding)
+        .accessibilityElement(children: .contain)
         .onAppear {
-            withAnimation(.easeInOut(duration: 0.9).repeatForever(autoreverses: true)) {
+            // Event state: this card only exists while ARIA is working, and
+            // it stays still under Reduce Motion.
+            if reduceMotion {
                 pulse = true
+            } else {
+                withAnimation(.easeInOut(duration: 0.9).repeatForever(autoreverses: true)) {
+                    pulse = true
+                }
             }
         }
     }
@@ -57,7 +60,7 @@ private struct CoachAgentChipRow: View {
 
     var body: some View {
         ScrollView(.horizontal, showsIndicators: false) {
-            HStack(spacing: FDS.Spacing.sm) {
+            HStack(spacing: ForgeLayout.chipGap) {
                 pinChip(nil, title: "Auto", icon: "sparkles")
                 // The five modes ARIA tracks, plus Cycle -- reachable here
                 // too, still consent-gated, just not one of the five
@@ -69,36 +72,25 @@ private struct CoachAgentChipRow: View {
                     }
                 }
             }
-            .padding(.horizontal, FDS.Spacing.lg)
-            .padding(.top, FDS.Spacing.sm)
+            .padding(.horizontal, ForgeLayout.screenInset)
+            // Room for the chips' 44 pt tap outset.
+            .padding(.vertical, FDS.Spacing.sm)
         }
         .accessibilityLabel("Personal coaches")
     }
 
     private func pinChip(_ agent: AriaCoachAgent?, title: String, icon: String) -> some View {
         let selected = store.pinnedCoachAgent == agent
-        return Button {
-            UISelectionFeedbackGenerator().selectionChanged()
+        let energy: Color = agent?.accent ?? Color.ember
+        return ForgeChipButton(
+            label: title,
+            icon: icon,
+            energy: energy,
+            selected: selected
+        ) {
             store.pinnedCoachAgent = agent
             if let agent { store.lastRoutedCoachAgent = agent }
-        } label: {
-            HStack(spacing: FDS.Spacing.xs) {
-                Image(systemName: icon)
-                    .font(.system(size: 11, weight: .semibold))
-                Text(title)
-                    .font(FDS.TypeScale.Dynamic.caption)
-            }
-            .foregroundColor(selected ? .textPrimary : .textTertiary)
-            .padding(.horizontal, FDS.Spacing.md)
-            .padding(.vertical, FDS.Spacing.sm)
-            .background(selected ? Color.ember.opacity(0.16) : Color.white.opacity(0.04))
-            .clipShape(Capsule())
-            .overlay(Capsule().stroke(Color.white.opacity(selected ? 0.22 : 0.08), lineWidth: 1))
-            .shadow(color: selected ? Color.ember.opacity(0.22) : .clear, radius: 6, y: 2)
         }
-        .buttonStyle(.plain)
-        .accessibilityLabel(title)
-        .accessibilityAddTraits(selected ? .isSelected : [])
     }
 }
 
@@ -113,170 +105,174 @@ struct ChatInputAreaView: View {
     let onSend:       (String) -> Void
     let onMicTap:     () -> Void
     @State private var charCount: Int = 0
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     private var canSend: Bool {
         !inputText.trimmingCharacters(in: .whitespaces).isEmpty && !isTyping
     }
 
+    /// The quick-action rail rises in; under Reduce Motion it only fades.
+    private var railTransition: AnyTransition {
+        reduceMotion ? AnyTransition.opacity : AnyTransition.move(edge: .bottom).combined(with: .opacity)
+    }
+
     var body: some View {
         VStack(spacing: 0) {
-            Rectangle().fill(Color.white.opacity(0.10)).frame(height: 0.5)
-
             if !store.isInAriaFirstBond {
                 CoachAgentChipRow()
             }
 
-            if !store.lastSuggestedActions.isEmpty {
-                ScrollView(.horizontal, showsIndicators: false) {
-                    HStack(spacing: FDS.Spacing.sm) {
-                        ForEach(store.lastSuggestedActions, id: \.self) { label in
-                            let yesLike = label.lowercased().hasPrefix("yes")
-                            let noLike = label.lowercased().hasPrefix("no")
-                            SmartChip(
-                                label: label,
-                                icon: yesLike ? "checkmark" : (noLike ? "xmark" : "arrow.up.right"),
-                                color: yesLike ? Color.vitality : (noLike ? Color(hex: "F43F5E") : mood.accentColor),
-                                disabled: isTyping
-                            ) {
-                                onSend(label)
-                                choreographedHaptic(.quickChipTap)
-                            }
-                        }
+            suggestionRail
+
+            inputRow
+        }
+        .forgeBarChrome(edge: .bottom)
+    }
+
+    // MARK: Suggestion rail
+
+    @ViewBuilder
+    private var suggestionRail: some View {
+        if !store.lastSuggestedActions.isEmpty {
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: ForgeLayout.chipGap) {
+                    ForEach(store.lastSuggestedActions, id: \.self) { label in
+                        suggestedChip(label)
                     }
-                    .padding(.horizontal, FDS.Spacing.lg).padding(.vertical, FDS.Spacing.md)
                 }
-            } else if showQuickActions && !isInputFocused {
-                let chips = smartQuickActions(
-                    mood:         mood,
-                    readiness:    store.readiness.overall,
-                    messageCount: store.chatMessages.count
-                )
-                ScrollView(.horizontal, showsIndicators: false) {
-                    HStack(spacing: FDS.Spacing.sm) {
-                        ForEach(Array(chips.enumerated()), id: \.offset) { i, chip in
-                            SmartChip(label: chip.label, icon: chip.icon, color: chip.color, disabled: isTyping) {
-                                onSend(chip.label)
-                                choreographedHaptic(.quickChipTap)
-                                withAnimation(.easeOut(duration: 0.22)) { showQuickActions = false }
-                            }
-                        }
-                    }
-                    .padding(.horizontal, FDS.Spacing.lg).padding(.vertical, FDS.Spacing.md)
-                }
-                .transition(.move(edge: .bottom).combined(with: .opacity))
+                .padding(.horizontal, ForgeLayout.screenInset)
+                .padding(.vertical, FDS.Spacing.sm)
             }
+        } else if showQuickActions && !isInputFocused && !store.chatMessages.isEmpty {
+            // The empty state shows its own prompts, so the rail waits for a
+            // first message instead of repeating them.
+            quickActionRail
+        }
+    }
 
-            // Input row
-            HStack(spacing: FDS.Spacing.md) {
-                // Mic
-                Button(action: onMicTap) {
-                    ZStack {
-                        Circle()
-                            .fill(LinearGradient(
-                                colors: [mood.accentColor.opacity(0.18), mood.accentColor.opacity(0.07)],
-                                startPoint: .topLeading, endPoint: .bottomTrailing
-                            ))
-                            .frame(width: 48, height: 48)
-                            .overlay(Circle().stroke(mood.accentColor.opacity(0.22), lineWidth: 0.5))
-                        Image(systemName: "mic.fill")
-                            .font(.system(size: 19))
-                            .foregroundColor(mood.accentColor)
+    private func suggestedChip(_ label: String) -> some View {
+        let lower = label.lowercased()
+        let yesLike = lower.hasPrefix("yes")
+        let noLike = lower.hasPrefix("no")
+        let icon = yesLike ? "checkmark" : (noLike ? "xmark" : "arrow.up.right")
+        let tint: Color = yesLike ? Color.vitality : (noLike ? Color.steel : Color.ember)
+        return SmartChip(label: label, icon: icon, color: tint, disabled: isTyping) {
+            onSend(label)
+            choreographedHaptic(.quickChipTap)
+        }
+    }
+
+    private var quickActionRail: some View {
+        let chips = smartQuickActions(
+            mood:         mood,
+            readiness:    store.readiness.overall,
+            messageCount: store.chatMessages.count
+        )
+        return ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: ForgeLayout.chipGap) {
+                ForEach(Array(chips.enumerated()), id: \.offset) { _, chip in
+                    SmartChip(label: chip.label, icon: chip.icon, color: Color.ember, disabled: isTyping) {
+                        onSend(chip.label)
+                        choreographedHaptic(.quickChipTap)
+                        withAnimation(reduceMotion ? nil : Animation.easeOut(duration: 0.22)) { showQuickActions = false }
                     }
-                    .shadow(color: mood.accentColor.opacity(0.28), radius: 9, y: 3)
                 }
-                .disabled(isTyping)
-                .opacity(isTyping ? 0.42 : 1)
-                .animation(FDS.Spring.snap, value: isTyping)
+            }
+            .padding(.horizontal, ForgeLayout.screenInset)
+            .padding(.vertical, FDS.Spacing.sm)
+        }
+        .transition(railTransition)
+    }
 
-                // Text field
-                ZStack(alignment: .trailing) {
+    // MARK: Input row
+
+    private var inputRow: some View {
+        HStack(alignment: .bottom, spacing: FDS.Spacing.sm) {
+            micButton
+            textFieldBlock
+        }
+        .padding(.horizontal, ForgeLayout.screenInset)
+        .padding(.top, FDS.Spacing.sm)
+        .padding(.bottom, FDS.Spacing.sm)
+    }
+
+    private var micButton: some View {
+        Button(action: onMicTap) {
+            ZStack {
+                Circle()
+                    .fill(Color.ember.opacity(0.14))
+                    .overlay(Circle().stroke(Color.ember.opacity(0.32), lineWidth: ForgeUX.hairline))
+                Image(systemName: "mic.fill")
+                    .font(.system(size: 19))
+                    .foregroundColor(.ember)
+            }
+            .frame(width: 48, height: 48)
+            .contentShape(Circle())
+        }
+        .buttonStyle(ForgePressStyle())
+        .accessibilityLabel("Talk to ARIA")
+        .disabled(isTyping)
+        .opacity(isTyping ? 0.42 : 1)
+        .animation(reduceMotion ? nil : FDS.Spring.snap, value: isTyping)
+    }
+
+    private var fieldBorder: Color {
+        isInputFocused ? Color.ember.opacity(0.55) : Color.white.opacity(0.12)
+    }
+
+    private var textFieldBlock: some View {
+        ZStack(alignment: .bottomTrailing) {
+            RoundedRectangle(cornerRadius: FDS.Radius.xxl, style: .continuous)
+                .fill(Color.surfaceElevated)
+                .overlay(
                     RoundedRectangle(cornerRadius: FDS.Radius.xxl, style: .continuous)
-                        .fill(Color.surfaceElevated)
-                        .overlay(
-                            RoundedRectangle(cornerRadius: FDS.Radius.xxl, style: .continuous)
-                                .stroke(
-                                    isInputFocused
-                                        ? LinearGradient(
-                                            colors: [mood.accentColor.opacity(0.65), mood.accentColor.opacity(0.22)],
-                                            startPoint: .topLeading,
-                                            endPoint: .bottomTrailing
-                                          )
-                                        : LinearGradient(
-                                            colors: [Color.white.opacity(0.14), Color.white.opacity(0.04)],
-                                            startPoint: .topLeading,
-                                            endPoint: .bottomTrailing
-                                          ),
-                                    lineWidth: 1
-                                )
-                        )
-                        .shadow(
-                            color: isInputFocused ? mood.accentColor.opacity(0.18) : .black.opacity(0.12),
-                            radius: isInputFocused ? 12 : 6,
-                            y: isInputFocused ? 4 : 2
-                        )
+                        .stroke(fieldBorder, lineWidth: 1)
+                )
 
-                    TextField("Ask ARIA anything…", text: $inputText, axis: .vertical)
-                        .font(.system(size: 15, weight: .regular, design: .rounded))
-                        .foregroundColor(.textPrimary)
-                        .tint(mood.accentColor)
-                        .focused($isInputFocused)
-                        .disabled(isTyping)
-                        .padding(.leading, FDS.Spacing.lg).padding(.trailing, 60).padding(.vertical, FDS.Spacing.lg)
-                        .lineLimit(1...5)
-                        .onSubmit { onSend(inputText) }
-                        .onChange(of: inputText) { _, text in
-                            charCount = text.count
-                            // Subtle typing haptic every 10 chars
-                            if charCount % 10 == 0 && charCount > 0 {
-                                choreographedHaptic(.typing)
-                            }
-                        }
-
-                    // Send button
-                    Button { onSend(inputText) } label: {
-                        ZStack {
-                            Circle()
-                                .fill(canSend
-                                    ? AnyShapeStyle(FDS.Gradient.emberDeep)
-                                    : AnyShapeStyle(Color.white.opacity(0.06)))
-                                .frame(width: 40, height: 40)
-                                .overlay(alignment: .top) {
-                                    if canSend {
-                                        Circle()
-                                            .fill(LinearGradient(
-                                                colors: [Color.white.opacity(0.18), .clear],
-                                                startPoint: .top, endPoint: .center
-                                            ))
-                                            .frame(width: 40, height: 20).clipped()
-                                    }
-                                }
-                                .shadow(color: canSend ? Color.ember.opacity(0.55) : .clear, radius: 12, y: 4)
-
-                            Image(systemName: "arrow.up")
-                                .font(.system(size: 16, weight: .bold))
-                                .foregroundColor(canSend ? .white : .textMuted)
-                        }
-                        .animation(FDS.Spring.snap, value: canSend)
+            TextField("Ask ARIA anything…", text: $inputText, axis: .vertical)
+                .font(HomeType.body)
+                .foregroundColor(.textPrimary)
+                .tint(Color.ember)
+                .focused($isInputFocused)
+                .disabled(isTyping)
+                .padding(.leading, FDS.Spacing.lg)
+                .padding(.trailing, 56)
+                .padding(.vertical, 14)
+                .lineLimit(1...5)
+                .onSubmit { onSend(inputText) }
+                .onChange(of: inputText) { _, text in
+                    charCount = text.count
+                    // Subtle typing haptic every 10 chars
+                    if charCount % 10 == 0 && charCount > 0 {
+                        choreographedHaptic(.typing)
                     }
-                    .disabled(!canSend)
-                    .padding(.trailing, FDS.Spacing.sm)
-                    .buttonStyle(ScaleButtonStyle())
                 }
-                .animation(.easeInOut(duration: 0.18), value: isInputFocused)
-            }
-            .padding(.horizontal, FDS.Spacing.lg)
-            .padding(.top, FDS.Spacing.md)
-            .padding(.bottom, FDS.Spacing.xl)
+
+            sendButton
         }
-        .background {
-            ZStack(alignment: .top) {
-                Rectangle().fill(.ultraThinMaterial)
-                Rectangle().fill(Color.background.opacity(0.42))
-                Rectangle()
-                    .fill(Color.white.opacity(0.10))
-                    .frame(height: 0.5)
+        .animation(reduceMotion ? nil : Animation.easeInOut(duration: 0.18), value: isInputFocused)
+    }
+
+    private var sendButton: some View {
+        Button { onSend(inputText) } label: {
+            ZStack {
+                Circle()
+                    .fill(canSend
+                        ? AnyShapeStyle(FDS.Gradient.emberDeep)
+                        : AnyShapeStyle(Color.white.opacity(0.06)))
+                Image(systemName: "arrow.up")
+                    .font(.system(size: 16, weight: .bold))
+                    .foregroundColor(canSend ? .white : .textMuted)
             }
+            .frame(width: 40, height: 40)
+            .frame(width: ForgeUX.minTap, height: ForgeUX.minTap)
+            .contentShape(Circle())
+            .animation(reduceMotion ? nil : FDS.Spring.snap, value: canSend)
         }
+        .buttonStyle(ForgePressStyle())
+        .accessibilityLabel("Send")
+        .disabled(!canSend)
+        .padding(2)
     }
 }
 
@@ -289,22 +285,12 @@ struct SmartChip: View {
 
     var body: some View {
         Button(action: onTap) {
-            HStack(spacing: FDS.Spacing.sm) {
-                Image(systemName: icon)
-                    .font(.system(size: 11, weight: .semibold))
-                    .foregroundColor(color)
-                Text(label)
-                    .font(FDS.TypeScale.Dynamic.caption)
-                    .foregroundColor(.textSecondary)
-            }
-            .padding(.horizontal, FDS.Spacing.lg)
-            .padding(.vertical, FDS.Spacing.sm)
-            .background(color.opacity(0.10))
-            .clipShape(Capsule())
-            .overlay(Capsule().stroke(color.opacity(0.28), lineWidth: 1))
+            ForgeChip(label: label, icon: icon, energy: color, selected: true)
+                .forgeTapOutset(vertical: ForgeLayout.chipTapOutset)
         }
         .disabled(disabled)
         .opacity(disabled ? 0.42 : 1)
-        .buttonStyle(ScaleButtonStyle())
+        .buttonStyle(ForgePressStyle())
+        .accessibilityLabel(label)
     }
 }

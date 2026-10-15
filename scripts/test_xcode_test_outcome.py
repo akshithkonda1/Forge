@@ -87,6 +87,25 @@ class ClassifyTests(unittest.TestCase):
     def test_test_runner_crashed_is_fail_closed(self):
         self.assertEqual(mod.classify("test runner crashed\n"), "failed")
 
+    def test_runner_hang_without_assert_is_incomplete(self):
+        log = (
+            "Test Case '-[ForgeSwiftTests.AriaSigilTests "
+            "testPearlCoreAndWatchHueRhythm]' passed (0.000 seconds).\n"
+            "Testing failed:\n"
+            "\ttestPearlCoreAndWatchHueRhythm() encountered an error "
+            "(The test runner hung before establishing connection.)\n"
+            "** TEST EXECUTE FAILED **\n"
+        )
+        self.assertEqual(mod.classify(log), "incomplete")
+
+    def test_runner_hang_with_xctassert_stays_failed(self):
+        log = (
+            "XCTAssertEqual failed: (\"4\") is not equal to (\"5\")\n"
+            "The test runner hung before establishing connection.\n"
+            "** TEST EXECUTE FAILED **\n"
+        )
+        self.assertEqual(mod.classify(log), "failed")
+
     def test_passed_seconds_is_not_a_failure(self):
         log = (
             "Test Case '-[ForgeSwiftTests.AriaVoiceSessionTests "

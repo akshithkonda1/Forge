@@ -40,6 +40,7 @@ final class SleepSurfacePresenceTests: XCTestCase {
         XCTAssertFalse(presence.lastNightEmptyMessage.localizedCaseInsensitiveContains("connect apple health and"))
         XCTAssertEqual(presence.sourceIDs, ["apple-health"])
         XCTAssertEqual(presence.sourceLabels, ["Apple Health"])
+        XCTAssertTrue(presence.statusCaption.localizedCaseInsensitiveContains("still learning"))
     }
 
     func testLiveShowsEveryIngestSourceWithoutCollapsingToOneWearable() {
@@ -127,7 +128,13 @@ final class SleepSurfacePresenceTests: XCTestCase {
             )
         }
         XCTAssertTrue(SleepLifestyleCopy.disclaimer.localizedCaseInsensitiveContains("lifestyle"))
-        XCTAssertTrue(SleepLifestyleCopy.disclaimer.localizedCaseInsensitiveContains("not medical"))
+        XCTAssertTrue(SleepLifestyleCopy.disclaimer.contains(SleepCoachCopy.medicalLine))
+        XCTAssertFalse(SleepLifestyleCopy.disclaimer.localizedCaseInsensitiveContains("not a doctor"))
+        XCTAssertNil(SleepCoachCopy.containsBannedPhrase(SleepLifestyleCopy.disclaimer))
+        XCTAssertNil(SleepCoachCopy.containsBannedPhrase(SleepLifestyleCopy.stillLearning))
+        XCTAssertEqual(SleepLifestyleCopy.environmentHint, SleepCoachCopy.environmentHint)
+        XCTAssertFalse(SleepLifestyleCopy.environmentHint.localizedCaseInsensitiveContains("medical assessment"))
+        XCTAssertFalse(SleepLifestyleCopy.environmentHint.localizedCaseInsensitiveContains("clutter are lifestyle"))
     }
 
     func testResearchHooksWaitForTheBrief() {
@@ -155,5 +162,13 @@ final class SleepSurfacePresenceTests: XCTestCase {
         XCTAssertEqual(presence.sourceIDs.first, "apple-health")
         XCTAssertTrue(presence.sourceIDs.contains("whoop"))
         XCTAssertTrue(presence.sourceIDs.contains("oura"))
+    }
+
+    func testFourteenDaySleepCacheGuard() {
+        XCTAssertFalse(HealthKitSleepService.shouldWriteSleepCache(days: 1))
+        XCTAssertFalse(HealthKitSleepService.shouldWriteSleepCache(days: 13))
+        XCTAssertTrue(HealthKitSleepService.shouldWriteSleepCache(days: 14))
+        XCTAssertTrue(HealthKitSleepService.shouldWriteSleepCache(days: 30))
+        XCTAssertEqual(HealthKitSleepService.refreshCooldownSeconds, 60)
     }
 }

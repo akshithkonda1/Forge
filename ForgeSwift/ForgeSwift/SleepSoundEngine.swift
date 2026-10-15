@@ -14,7 +14,8 @@ final class SleepWindDownPlayer {
     static let shared = SleepWindDownPlayer()
 
     private(set) var isPlaying = false
-    private(set) var remainingSeconds = 0
+    private(set) var endsAt: Date?
+    private(set) var openEnded = false
     private(set) var kind: SleepSoundKind = SleepSoundKind.stored ?? .brown
     private(set) var mix: [SleepSoundKind] = SleepSoundKind.stored.map { [$0] } ?? [.brown]
     var linksAppleMusic = false
@@ -22,15 +23,31 @@ final class SleepWindDownPlayer {
         didSet { applyOutputVolume() }
     }
 
+    var remainingSeconds: Int {
+        if openEnded { return -1 }
+        if let pausedRemaining { return max(0, Int(pausedRemaining.rounded())) }
+        guard let endsAt else { return 0 }
+        return max(0, Int(endsAt.timeIntervalSinceNow.rounded()))
+    }
+
     var remainingLabel: String {
-        if remainingSeconds < 0 { return "Until stop" }
-        let m = remainingSeconds / 60
-        let s = remainingSeconds % 60
-        return String(format: "%d:%02d left", m, s)
+        if openEnded { return "Until stop" }
+        let s = remainingSeconds
+        return String(format: "%d:%02d left", s / 60, s % 60)
+    }
+
+    /// Wall-clock range for `Text(timerInterval:)`. Nil while paused or open-ended
+    /// so the UI does not tick every second through Observation.
+    var countdownRange: ClosedRange<Date>? {
+        guard isPlaying, !openEnded, pausedRemaining == nil, let endsAt, endsAt > Date() else {
+            return nil
+        }
+        return Date()...endsAt
     }
 
     @ObservationIgnored private var engine: AVAudioEngine?
     @ObservationIgnored private var countdown: Task<Void, Never>?
+    @ObservationIgnored private var pausedRemaining: TimeInterval?
     #if compiler(>=6.4)
     @ObservationIgnored private var sessionObservers: [NotificationCenter.ObservationToken] = []
     #else
@@ -144,7 +161,13 @@ final class SleepWindDownPlayer {
                 return
             }
             self.engine = engine
-            self.remainingSeconds = holdMinutes <= 0 ? -1 : max(1, holdMinutes) * 60
+            self.openEnded = holdMinutes <= 0
+            self.pausedRemaining = nil
+            if self.openEnded {
+                self.endsAt = nil
+            } else {
+                self.endsAt = Date().addingTimeInterval(TimeInterval(max(1, holdMinutes) * 60))
+            }
             self.isPlaying = true
             self.wasInterrupted = false
             self.startCountdown()
@@ -156,10 +179,12 @@ final class SleepWindDownPlayer {
         countdown?.cancel()
         countdown = nil
         wasInterrupted = false
+        pausedRemaining = nil
         engine?.stop()
         engine = nil
         isPlaying = false
-        remainingSeconds = 0
+        openEnded = false
+        endsAt = nil
         renderer.reset(kinds: mix)
         if linksAppleMusic {
             MPMusicPlayerController.systemMusicPlayer.pause()
@@ -175,27 +200,31 @@ final class SleepWindDownPlayer {
 
     private func startCountdown() {
         countdown?.cancel()
+        countdown = nil
+        guard isPlaying, !openEnded, let endsAt else { return }
+        let remaining = endsAt.timeIntervalSinceNow
+        guard remaining > 0 else {
+            stop()
+            return
+        }
         countdown = Task { @MainActor [weak self] in
-            while !Task.isCancelled {
-                do {
-                    try await Task.sleep(for: .seconds(1))
-                } catch {
-                    return
-                }
-                guard let self, self.isPlaying else { return }
-                if remainingSeconds < 0 { continue }
-                remainingSeconds -= 1
-                if remainingSeconds <= 0 {
-                    stop()
-                    return
-                }
+            do {
+                try await Task.sleep(for: .seconds(remaining))
+            } catch {
+                return
             }
+            guard let self, !Task.isCancelled, self.isPlaying else { return }
+            self.stop()
         }
     }
 
     private func pauseForInterruption() {
         guard isPlaying else { return }
         wasInterrupted = true
+        if let endsAt {
+            pausedRemaining = max(0, endsAt.timeIntervalSinceNow)
+        }
+        self.endsAt = nil
         countdown?.cancel()
         countdown = nil
         engine?.pause()
@@ -210,6 +239,10 @@ final class SleepWindDownPlayer {
             do {
                 try await ForgePlaybackSession.sleepMix.activate()
                 try self.engine?.start()
+                if let leftover = self.pausedRemaining, leftover > 0 {
+                    self.endsAt = Date().addingTimeInterval(leftover)
+                }
+                self.pausedRemaining = nil
                 self.startCountdown()
             } catch {
                 self.stop()

@@ -194,11 +194,12 @@ enum FDS {
 // ForgePress - adds press animation effect
 struct ForgePressModifier: ViewModifier {
     @State private var pressed = false
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     
     func body(content: Content) -> some View {
         content
-            .scaleEffect(pressed ? 0.96 : 1.0)
-            .animation(FDS.Spring.snap, value: pressed)
+            .scaleEffect(pressed && !reduceMotion ? 0.98 : 1.0)
+            .animation(reduceMotion ? nil : FDS.Spring.snap, value: pressed)
             .simultaneousGesture(
                 DragGesture(minimumDistance: 0)
                     .onChanged { _ in pressed = true }
@@ -217,13 +218,14 @@ extension View {
 struct ForgeEntranceModifier: ViewModifier {
     let index: Int
     let appeared: Bool
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     
     func body(content: Content) -> some View {
         content
-            .opacity(appeared ? 1 : 0)
-            .offset(y: appeared ? 0 : 12)
+            .opacity(appeared || reduceMotion ? 1 : 0)
+            .offset(y: appeared || reduceMotion ? 0 : HomeMetrics.entranceRise)
             .animation(
-                FDS.Spring.hero.delay(Double(index) * 0.06),
+                reduceMotion ? nil : FDS.Spring.hero.delay(Double(index) * 0.06),
                 value: appeared
             )
     }

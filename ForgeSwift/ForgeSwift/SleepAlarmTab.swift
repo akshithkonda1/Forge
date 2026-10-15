@@ -420,45 +420,65 @@ enum SleepAlarmScheduler {
     }
 }
 
+private enum AlarmDayText {
+    /// "Mon · Tue · Wed" for the screen.
+    static func visible(_ days: [Int]) -> String {
+        if days.isEmpty || Set(days).count >= 7 { return "Every day" }
+        var names: [String] = []
+        for day in days.sorted() {
+            if let weekday = Weekday(rawValue: day) {
+                names.append(String(weekday.full.prefix(3)))
+            }
+        }
+        return names.joined(separator: " · ")
+    }
+
+    /// Full weekday names for VoiceOver, so "T" is never ambiguous.
+    static func spoken(_ days: [Int]) -> String {
+        if days.isEmpty || Set(days).count >= 7 { return "Every day" }
+        var names: [String] = []
+        for day in days.sorted() {
+            if let weekday = Weekday(rawValue: day) {
+                names.append(weekday.full)
+            }
+        }
+        return names.joined(separator: ", ")
+    }
+}
+
 struct WakeReliabilityBanner: View {
     let delivery: SleepAlarmDelivery
 
+    private var iconName: String {
+        delivery.isFailClosed ? "exclamationmark.triangle.fill" : "bell.badge.fill"
+    }
+
     var body: some View {
-        VStack(alignment: .leading, spacing: FDS.Spacing.md) {
-            HStack(alignment: .top, spacing: FDS.Spacing.sm) {
-                Image(systemName: delivery.isFailClosed ? "exclamationmark.triangle.fill" : "bell.badge.fill")
-                    .font(.system(size: 13, weight: .semibold))
-                    .foregroundColor(.warning)
-                VStack(alignment: .leading, spacing: FDS.Spacing.xs) {
+        VStack(alignment: .leading, spacing: ForgeLayout.blockGap) {
+            HStack(alignment: .top, spacing: ForgeLayout.rowGap) {
+                Image(systemName: iconName)
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundStyle(Color.warning)
+                    .accessibilityHidden(true)
+                VStack(alignment: .leading, spacing: ForgeLayout.pairGap) {
                     Text(delivery.headline)
-                        .font(FDS.TypeScale.Dynamic.body.weight(.semibold))
-                        .foregroundColor(.textPrimary)
+                        .font(HomeType.status)
+                        .foregroundStyle(Color.textPrimary)
+                        .forgeWrapping()
                     Text(delivery.cue)
-                        .font(.system(size: 12))
-                        .foregroundColor(.textSecondary)
-                        .fixedSize(horizontal: false, vertical: true)
+                        .font(HomeType.body)
+                        .foregroundStyle(Color.textSecondary)
+                        .forgeWrapping()
                 }
             }
-            Button {
+            ForgeSecondaryButton(title: "Open Settings", icon: "gearshape.fill", accent: .warning) {
                 guard let url = URL(string: UIApplication.openSettingsURLString) else { return }
                 UIApplication.shared.open(url)
-            } label: {
-                Text("Open Settings")
-                    .font(FDS.TypeScale.Dynamic.caption)
-                    .foregroundColor(.ember)
             }
-            .buttonStyle(.plain)
-            .accessibilityLabel("Open Settings so this wake can fire")
+            .accessibilityHint("Opens Settings so this wake can fire")
         }
-        .padding(FDS.Spacing.lg)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Color.warning.opacity(0.08))
-        .clipShape(RoundedRectangle(cornerRadius: FDS.Radius.lg, style: .continuous))
-        .overlay(
-            RoundedRectangle(cornerRadius: FDS.Radius.lg, style: .continuous)
-                .stroke(Color.warning.opacity(0.28), lineWidth: 1)
-        )
-        .accessibilityElement(children: .combine)
+        .forgeContentCard(tint: .warning)
+        .accessibilityElement(children: .contain)
     }
 }
 
@@ -467,77 +487,35 @@ struct AlarmTab: View {
     @State private var showEditor = false
     @State private var editingAlarm: ForgeAlarm? = nil
 
+    private func startNewAlarm() {
+        editingAlarm = ForgeAlarm()
+        showEditor = true
+    }
+
+    private func startEditing(_ alarm: ForgeAlarm) {
+        editingAlarm = alarm
+        showEditor = true
+    }
+
     var body: some View {
         ScrollView(showsIndicators: false) {
-            VStack(spacing: FDS.Spacing.xl) {
+            VStack(alignment: .leading, spacing: ForgeLayout.sectionGap) {
                 if store.delivery.needsAttention {
                     WakeReliabilityBanner(delivery: store.delivery)
                 }
 
-                if let next = store.next {
-                    NextAlarmHero(alarm: next)
-                } else {
-                    Text("No wake set. Add one — it will actually fire.")
-                        .font(.system(size: 14))
-                        .foregroundColor(.textSecondary)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .padding(.top, FDS.Spacing.sm)
-                }
+                nextBlock
 
-                Button {
-                    SleepWakeStore.shared.ring(store.next ?? ForgeAlarm())
-                } label: {
-                    HStack(spacing: FDS.Spacing.md) {
-                        Image(systemName: "sun.max.fill")
-                            .foregroundStyle(Color.amber)
-                        VStack(alignment: .leading, spacing: 2) {
-                            Text("Test wake now")
-                                .font(FDS.TypeScale.Dynamic.body.weight(.semibold))
-                                .foregroundColor(.textPrimary)
-                            Text("Sunrise, rising tone, backup if you sleep through. The real thing.")
-                                .font(.system(size: 12))
-                                .foregroundColor(.textTertiary)
-                        }
-                        Spacer()
-                    }
-                    .padding(FDS.Spacing.lg)
-                    .forgeGlassCard(cornerRadius: FDS.Radius.lg, accent: Color.amber)
-                }
-                .buttonStyle(.plain)
-                .accessibilityLabel("Test the wake-up screen now")
+                testWakeCard
 
-                VStack(spacing: FDS.Spacing.md) {
-                    HStack {
-                        Text("Alarms")
-                            .font(FDS.TypeScale.Dynamic.caption)
-                            .foregroundColor(.textTertiary)
-                        Spacer()
-                        Button {
-                            editingAlarm = ForgeAlarm()
-                            showEditor = true
-                        } label: {
-                            Text("New")
-                                .font(FDS.TypeScale.Dynamic.caption)
-                                .foregroundColor(.ember)
-                        }
-                    }
-
-                    ForEach(store.alarms) { alarm in
-                        AlarmRow(
-                            alarm: alarm,
-                            onToggle: { store.setEnabled(id: alarm.id, enabled: $0) },
-                            onEdit: {
-                                editingAlarm = alarm
-                                showEditor = true
-                            }
-                        )
-                    }
+                if !store.alarms.isEmpty {
+                    alarmsCard
                 }
 
                 WakeUpTab()
             }
-            .padding(.horizontal, FDS.Spacing.lg)
-            .padding(.bottom, 120)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .forgeScreenInsets(top: ForgeLayout.screenTop)
         }
         .onAppear {
             Task { await SleepAlarmScheduler.sync(store.alarms) }
@@ -550,6 +528,72 @@ struct AlarmTab: View {
             }
         }
     }
+
+    @ViewBuilder
+    private var nextBlock: some View {
+        if let next = store.next {
+            NextAlarmHero(alarm: next)
+        } else {
+            ForgeEmptyStateCard(
+                icon: "alarm.fill",
+                title: "No wake set",
+                message: "Add one — it will actually fire.",
+                accent: .steel,
+                cta: "Add a wake",
+                action: { startNewAlarm() }
+            )
+        }
+    }
+
+    private var testWakeCard: some View {
+        Button {
+            FDS.haptic(.press)
+            SleepWakeStore.shared.ring(store.next ?? ForgeAlarm())
+        } label: {
+            HStack(spacing: ForgeLayout.rowGap) {
+                ForgeIconWell(systemImage: "sun.max.fill", tint: .steel)
+                VStack(alignment: .leading, spacing: ForgeLayout.pairGap) {
+                    Text("Test wake now")
+                        .font(HomeType.status)
+                        .foregroundStyle(Color.textPrimary)
+                        .forgeWrapping()
+                    Text("Sunrise, rising tone, backup if you sleep through. The real thing.")
+                        .font(HomeType.body)
+                        .foregroundStyle(Color.textTertiary)
+                        .forgeWrapping()
+                }
+                .layoutPriority(1)
+                Spacer(minLength: 0)
+            }
+            .frame(minHeight: ForgeUX.minTap)
+            .forgeContentCard(tint: .steel)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel("Test the wake-up screen now")
+        .accessibilityHint("Rings the full wake screen with sound right away")
+    }
+
+    private var alarmsCard: some View {
+        VStack(alignment: .leading, spacing: ForgeLayout.blockGap) {
+            ForgeCardHeader(title: "Alarms") {
+                ForgeTextLink(title: "New", accent: .steel) {
+                    startNewAlarm()
+                }
+                .accessibilityHint("Adds an alarm")
+            }
+            VStack(alignment: .leading, spacing: ForgeLayout.rowGap) {
+                ForEach(store.alarms) { alarm in
+                    AlarmRow(
+                        alarm: alarm,
+                        onToggle: { store.setEnabled(id: alarm.id, enabled: $0) },
+                        onEdit: { startEditing(alarm) }
+                    )
+                }
+            }
+        }
+        .forgeContentCard(tint: .steel)
+    }
 }
 
 struct NextAlarmHero: View {
@@ -558,118 +602,124 @@ struct NextAlarmHero: View {
     @ObservedObject private var store = ForgeAlarmStore.shared
 
     private var timeString: String {
-        let f = DateFormatter(); f.dateFormat = "h:mm"
-        return f.string(from: alarm.time)
+        alarm.time.formatted(date: .omitted, time: .shortened)
     }
-    private var ampm: String {
-        let f = DateFormatter(); f.dateFormat = "a"
-        return f.string(from: alarm.time)
-    }
+
     private var daysString: String {
-        if alarm.days.isEmpty { return "Every day" }
-        let names = alarm.days.sorted().compactMap { Weekday(rawValue: $0)?.short }
-        return names.joined(separator: " · ")
+        AlarmDayText.visible(alarm.days)
     }
 
     private var untilString: String {
         guard let fire = SleepWakeEngine.nextHardFire(alarm: alarm) else { return alarm.label }
-        return "\(alarm.label)  ·  \(SleepWakeEngine.countdownLabel(until: fire))"
+        return "\(alarm.label) · \(SleepWakeEngine.countdownLabel(until: fire))"
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: FDS.Spacing.sm) {
-            Text("Next")
-                .font(FDS.TypeScale.Dynamic.caption)
-                .foregroundColor(.textTertiary)
-            HStack(alignment: .firstTextBaseline, spacing: FDS.Spacing.sm) {
+        VStack(alignment: .leading, spacing: ForgeLayout.blockGap) {
+            ForgeCardHeader("Next", tint: .steel)
+            VStack(alignment: .leading, spacing: ForgeLayout.pairGap) {
                 Text(timeString)
-                    .font(.system(size: 56, weight: .semibold))
-                    .foregroundColor(.textPrimary)
+                    .font(HomeType.metric)
+                    .foregroundStyle(Color.textPrimary)
                     .monospacedDigit()
-                Text(ampm)
-                    .font(FDS.TypeScale.Dynamic.headline)
-                    .foregroundColor(.textSecondary)
+                    .forgeSingleLine()
+                    .contentTransition(.numericText())
+                Text("\(untilString) · \(daysString)")
+                    .font(HomeType.body)
+                    .foregroundStyle(Color.textSecondary)
+                    .forgeWrapping()
             }
-            Text("\(untilString)  ·  \(daysString)")
-                .font(.system(size: 14))
-                .foregroundColor(.textSecondary)
             if alarm.isSmartWake {
                 let lead = hk.adaptiveSmartWakeMinutes(base: alarm.smartWakeWindow, depth: store.sleeperDepth)
                 Text("Smart wake opens \(lead) min earlier tonight. Hard alarm still fires.")
-                    .font(.system(size: 12))
-                    .foregroundColor(.textTertiary)
-                    .padding(.top, 2)
+                    .font(HomeType.body)
+                    .foregroundStyle(Color.textTertiary)
+                    .forgeWrapping()
             }
         }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(.top, FDS.Spacing.sm)
+        .forgeContentCard(tint: .steel)
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("Next alarm \(alarm.label), \(timeString), \(daysString). \(untilString)")
     }
 }
 
 struct AlarmRow: View {
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
     let alarm: ForgeAlarm
     let onToggle: (Bool) -> Void
     let onEdit: () -> Void
 
     private var timeStr: String {
-        let f = DateFormatter(); f.dateFormat = "h:mm a"
-        return f.string(from: alarm.time)
+        alarm.time.formatted(date: .omitted, time: .shortened)
     }
+
     private var daysStr: String {
-        if alarm.days.isEmpty { return "Every day" }
-        return alarm.days.sorted().compactMap { Weekday(rawValue: $0)?.short }.joined(separator: " · ")
+        AlarmDayText.visible(alarm.days)
+    }
+
+    private var daysSpoken: String {
+        AlarmDayText.spoken(alarm.days)
+    }
+
+    private var timeColor: Color {
+        alarm.isEnabled ? Color.textPrimary : Color.textTertiary
+    }
+
+    private var detailColor: Color {
+        alarm.isEnabled ? Color.textSecondary : Color.textTertiary
+    }
+
+    private var enabledBinding: Binding<Bool> {
+        Binding(
+            get: { alarm.isEnabled },
+            set: { on in
+                FDS.haptic(.select)
+                onToggle(on)
+            }
+        )
     }
 
     var body: some View {
-        HStack(spacing: FDS.Spacing.lg) {
+        HStack(spacing: ForgeLayout.rowGap) {
             Button(action: onEdit) {
-                HStack(spacing: FDS.Spacing.lg) {
-                    VStack(alignment: .leading, spacing: FDS.Spacing.xs) {
+                VStack(alignment: .leading, spacing: ForgeLayout.labelValueGap) {
+                    ForgeFlowLayout(spacing: ForgeLayout.rowGap, lineSpacing: ForgeLayout.pairGap) {
                         Text(timeStr)
-                            .font(.system(size: 26, weight: .semibold))
-                            .foregroundColor(alarm.isEnabled ? .textPrimary : .textTertiary)
+                            .font(HomeType.metric)
+                            .foregroundStyle(timeColor)
                             .monospacedDigit()
-                        HStack(spacing: FDS.Spacing.sm) {
-                            Text(alarm.label)
-                                .font(FDS.TypeScale.Dynamic.caption)
-                                .foregroundColor(alarm.isEnabled ? .textSecondary : .textMuted)
-                            Circle().fill(Color.borderColor).frame(width: 3, height: 3)
-                            Text(daysStr)
-                                .font(FDS.TypeScale.Dynamic.caption)
-                                .foregroundColor(.textMuted)
-                            if alarm.isSmartWake {
-                                Text("Smart")
-                                    .font(FDS.TypeScale.Dynamic.micro)
-                                    .foregroundColor(.steel)
-                                    .padding(.horizontal, FDS.Spacing.xs)
-                                    .padding(.vertical, 2)
-                                    .background(Color.steel.opacity(0.12))
-                                    .clipShape(Capsule())
-                            }
+                            .forgeSingleLine()
+                        if alarm.isSmartWake {
+                            HudVibeChip(label: "Smart", energy: .steel)
                         }
                     }
-                    Spacer()
+                    Text("\(alarm.label) · \(daysStr)")
+                        .font(HomeType.body)
+                        .foregroundStyle(detailColor)
+                        .forgeWrapping()
                 }
+                .frame(maxWidth: .infinity, minHeight: ForgeUX.minTap, alignment: .leading)
+                .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
-            .accessibilityLabel("Edit \(alarm.label) alarm, \(timeStr), \(daysStr)")
-            Toggle("", isOn: Binding(get: { alarm.isEnabled }, set: { on in
-                UIImpactFeedbackGenerator(style: .light).impactOccurred()
-                onToggle(on)
-            }))
-            .tint(.ember)
-            .labelsHidden()
-            .accessibilityLabel("\(alarm.label) alarm, \(timeStr), \(daysStr)")
+            .accessibilityLabel("Edit \(alarm.label) alarm, \(timeStr), \(daysSpoken). \(alarm.isSmartWake ? "Smart wake on." : "") \(alarm.isEnabled ? "Enabled." : "Off.")")
+            .accessibilityHint("Opens the alarm editor")
+            Toggle("", isOn: enabledBinding)
+                .tint(.steel)
+                .labelsHidden()
+                .accessibilityLabel("\(alarm.label) alarm, \(timeStr), \(daysSpoken). \(alarm.isEnabled ? "On" : "Off")")
         }
-        .padding(.vertical, FDS.Spacing.md)
-        .opacity(alarm.isEnabled ? 1 : 0.45)
-        .animation(.easeInOut(duration: 0.2), value: alarm.isEnabled)
+        .opacity(alarm.isEnabled ? 1 : 0.6)
+        .animation(reduceMotion ? nil : .easeInOut(duration: 0.2), value: alarm.isEnabled)
     }
 }
 
 struct AlarmEditorSheet: View {
     @State private var alarm: ForgeAlarm
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+    @ScaledMetric(relativeTo: .caption) private var dayCircleSize: CGFloat = 36
     let onSave: (ForgeAlarm) -> Void
     @State private var selectedSoundCategory = "All"
 
@@ -683,224 +733,282 @@ struct AlarmEditorSheet: View {
         return AlarmSoundOption.allCases.filter { $0.category == selectedSoundCategory }
     }
 
+    private var soundCategoryChoices: [ForgeSegmentOption<String>] {
+        ["All", "Ambient", "Nature", "Tones"].map { ForgeSegmentOption(value: $0, title: $0) }
+    }
+
+    private var smartWindowChoices: [ForgeSegmentOption<Int>] {
+        var values = ForgeAlarmStore.shared.sleeperDepth.windowChoices
+        if !values.contains(alarm.smartWakeWindow) {
+            values.append(alarm.smartWakeWindow)
+            values.sort()
+        }
+        return values.map { ForgeSegmentOption(value: $0, title: "\($0) min") }
+    }
+
     var body: some View {
         NavigationStack {
             ZStack {
                 Color.background.ignoresSafeArea()
 
                 ScrollView(showsIndicators: false) {
-                    VStack(spacing: FDS.Spacing.xl) {
-                        // Giant time picker
-                        VStack(spacing: FDS.Spacing.xs) {
-                            Text("ALARM TIME")
-                                .font(FDS.TypeScale.Dynamic.micro)
-                                .foregroundColor(.textTertiary)
-                                .tracking(2.5)
-                                .frame(maxWidth: .infinity, alignment: .leading)
-                                .padding(.horizontal, FDS.Spacing.xs)
-
-                            DatePicker("", selection: $alarm.time, displayedComponents: .hourAndMinute)
-                                .datePickerStyle(.wheel)
-                                .labelsHidden()
-                                .frame(maxWidth: .infinity)
-                                .tint(.ember)
-                        }
-                        .padding(FDS.Spacing.lg)
-                        .background(Color.surface)
-                        .cornerRadius(FDS.Radius.xl)
-
-                        // Day selector
-                        EditorSection(title: "REPEAT") {
-                            HStack(spacing: FDS.Spacing.sm) {
-                                ForEach(Weekday.allCases) { day in
-                                    let active = alarm.days.contains(day.rawValue)
-                                    Button {
-                                        UISelectionFeedbackGenerator().selectionChanged()
-                                        if active { alarm.days.removeAll { $0 == day.rawValue } }
-                                        else { alarm.days.append(day.rawValue) }
-                                    } label: {
-                                        Text(day.short)
-                                            .font(FDS.TypeScale.Dynamic.caption)
-                                            .foregroundColor(active ? .white : .textTertiary)
-                                            .frame(width: 38, height: 38)
-                                            .background(active ? Color.ember : Color.surfaceElevated)
-                                            .clipShape(Circle())
-                                            .overlay(Circle().stroke(active ? Color.ember.opacity(0.4) : Color.borderColor.opacity(0.4), lineWidth: 1))
-                                    }
-                                    .buttonStyle(.plain)
-                                    .frame(maxWidth: .infinity)
-                                }
-                            }
-                        }
-
-                        // Label
-                        EditorSection(title: "LABEL") {
-                            TextField("Alarm label…", text: $alarm.label)
-                                .font(.system(size: 15))
-                                .foregroundColor(.textPrimary)
-                                .tint(.ember)
-                                .padding(.horizontal, FDS.Spacing.lg).padding(.vertical, FDS.Spacing.md)
-                                .forgeInsetTile(radius: FDS.Radius.md)
-                        }
-
-                        // Sound
-                        EditorSection(title: "WAKE SOUND") {
-                            VStack(spacing: FDS.Spacing.md) {
-                                // Category filter
-                                ScrollView(.horizontal, showsIndicators: false) {
-                                    HStack(spacing: FDS.Spacing.sm) {
-                                        ForEach(["All", "Ambient", "Nature", "Tones"], id: \.self) { cat in
-                                            Button { selectedSoundCategory = cat } label: {
-                                                Text(cat)
-                                                    .font(FDS.TypeScale.Dynamic.caption)
-                                                    .foregroundColor(selectedSoundCategory == cat ? .white : .textTertiary)
-                                                    .padding(.horizontal, FDS.Spacing.md).padding(.vertical, FDS.Spacing.sm)
-                                                    .background(selectedSoundCategory == cat ? Color.ember : Color.surfaceElevated)
-                                                    .cornerRadius(FDS.Radius.xl)
-                                            }
-                                            .buttonStyle(.plain)
-                                        }
-                                    }
-                                }
-
-                                LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 10) {
-                                    ForEach(filteredSounds, id: \.self) { sound in
-                                        Button {
-                                            alarm.sound = sound
-                                            UISelectionFeedbackGenerator().selectionChanged()
-                                        } label: {
-                                            HStack(spacing: FDS.Spacing.md) {
-                                                Image(systemName: sound.icon)
-                                                    .font(.system(size: 16))
-                                                    .foregroundColor(alarm.sound == sound ? .ember : .textTertiary)
-                                                    .frame(width: 24)
-                                                Text(sound.rawValue)
-                                                    .font(FDS.TypeScale.Dynamic.caption)
-                                                    .foregroundColor(alarm.sound == sound ? .textPrimary : .textSecondary)
-                                                    .lineLimit(1)
-                                                Spacer()
-                                                if alarm.sound == sound {
-                                                    Image(systemName: "checkmark")
-                                                        .font(.system(size: 11, weight: .bold))
-                                                        .foregroundColor(.ember)
-                                                }
-                                            }
-                                            .padding(.horizontal, FDS.Spacing.md).padding(.vertical, FDS.Spacing.md)
-                                            .background(alarm.sound == sound ? Color.ember.opacity(0.1) : Color.surfaceElevated)
-                                            .cornerRadius(FDS.Radius.md)
-                                            .overlay(RoundedRectangle(cornerRadius: FDS.Radius.md).stroke(alarm.sound == sound ? Color.ember.opacity(0.4) : Color.borderColor.opacity(0.3), lineWidth: 1))
-                                        }
-                                        .buttonStyle(.plain)
-                                    }
-                                }
-                            }
-                        }
-
-                        // Snooze
-                        EditorSection(title: "SNOOZE") {
-                            HStack {
-                                VStack(alignment: .leading, spacing: 3) {
-                                    Text("Snooze Duration")
-                                        .font(FDS.TypeScale.Dynamic.body)
-                                        .foregroundColor(.textPrimary)
-                                    Text("\(alarm.snoozeMinutes) minutes")
-                                        .font(.system(size: 12))
-                                        .foregroundColor(.textTertiary)
-                                }
-                                Spacer()
-                                Stepper("", value: $alarm.snoozeMinutes, in: 1...30, step: 1)
-                                    .labelsHidden()
-                                    .tint(.ember)
-                            }
-                            .padding(.horizontal, FDS.Spacing.lg).padding(.vertical, FDS.Spacing.md)
-                            .forgeInsetTile(radius: FDS.Radius.md)
-                        }
-
-                        // Gradual volume
-                        EditorSection(title: "VOLUME") {
-                            Toggle(isOn: $alarm.gradualVolume) {
-                                VStack(alignment: .leading, spacing: 3) {
-                                    Text("Gradual Volume")
-                                        .font(FDS.TypeScale.Dynamic.body)
-                                        .foregroundColor(.textPrimary)
-                                    Text("Starts quiet, then a backup tone if you're still down.")
-                                        .font(.system(size: 12))
-                                        .foregroundColor(.textTertiary)
-                                }
-                            }
-                            .tint(.ember)
-                            .padding(.horizontal, FDS.Spacing.lg).padding(.vertical, FDS.Spacing.md)
-                            .forgeInsetTile(radius: FDS.Radius.md)
-                        }
-
-                        // Smart wake
-                        EditorSection(title: "SMART WAKE") {
-                            VStack(spacing: FDS.Spacing.md) {
-                                Toggle(isOn: $alarm.isSmartWake) {
-                                    VStack(alignment: .leading, spacing: 3) {
-                                        Text("Smart Wake")
-                                            .font(FDS.TypeScale.Dynamic.body)
-                                            .foregroundColor(.textPrimary)
-                                        Text("Earlier nudge if you might already be light. Hard alarm still fires.")
-                                            .font(.system(size: 12))
-                                            .foregroundColor(.textTertiary)
-                                    }
-                                }
-                                .tint(.steel)
-                                .padding(.horizontal, FDS.Spacing.lg).padding(.vertical, FDS.Spacing.md)
-                                .forgeInsetTile(radius: FDS.Radius.md)
-
-                                if alarm.isSmartWake {
-                                    VStack(alignment: .leading, spacing: FDS.Spacing.md) {
-                                        Text("Base window: \(alarm.smartWakeWindow) min. Tonight adapts from score, debt, and snooze history.")
-                                            .font(FDS.TypeScale.Dynamic.caption)
-                                            .foregroundColor(.textSecondary)
-                                        HStack(spacing: FDS.Spacing.sm) {
-                                            ForEach([15, 30, 45], id: \.self) { mins in
-                                                Button {
-                                                    alarm.smartWakeWindow = mins
-                                                    UISelectionFeedbackGenerator().selectionChanged()
-                                                } label: {
-                                                    Text("\(mins) min")
-                                                        .font(FDS.TypeScale.Dynamic.caption)
-                                                        .foregroundColor(alarm.smartWakeWindow == mins ? .white : .textTertiary)
-                                                        .frame(maxWidth: .infinity)
-                                                        .padding(.vertical, FDS.Spacing.md)
-                                                        .background(alarm.smartWakeWindow == mins ? Color.steel : Color.surfaceElevated)
-                                                        .cornerRadius(FDS.Radius.sm)
-                                                }
-                                                .buttonStyle(.plain)
-                                            }
-                                        }
-                                    }
-                                    .padding(.horizontal, FDS.Spacing.lg).padding(.vertical, FDS.Spacing.md)
-                                    .background(Color.steel.opacity(0.07))
-                                    .cornerRadius(FDS.Radius.md)
-                                    .transition(.opacity.combined(with: .scale(scale: 0.97, anchor: .top)))
-                                }
-                            }
-                        }
+                    VStack(alignment: .leading, spacing: ForgeLayout.sectionGap) {
+                        timeCard
+                        repeatSection
+                        labelCard
+                        soundCard
+                        snoozeCard
+                        volumeCard
+                        smartWakeCard
                     }
-                    .padding(FDS.Spacing.lg)
-                    .padding(.bottom, 40)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .forgeScreenInsets(top: FDS.Spacing.lg)
                 }
             }
             .navigationTitle("Edit Alarm")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("Cancel") { dismiss() }.foregroundColor(.textSecondary)
+                    Button("Cancel") { dismiss() }
+                        .foregroundStyle(Color.textSecondary)
                 }
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Save") {
                         onSave(alarm)
-                        UINotificationFeedbackGenerator().notificationOccurred(.success)
+                        FDS.haptic(.success)
                         dismiss()
                     }
-                    .font(.system(size: 15, weight: .semibold))
-                    .foregroundColor(.ember)
+                    .fontWeight(.semibold)
+                    .foregroundStyle(Color.steel)
                 }
             }
+        }
+        .presentationDragIndicator(.visible)
+    }
+
+    // MARK: Sections
+
+    private var timeCard: some View {
+        VStack(alignment: .leading, spacing: ForgeLayout.blockGap) {
+            ForgeCardHeader("ALARM TIME")
+            DatePicker("Alarm time", selection: $alarm.time, displayedComponents: .hourAndMinute)
+                .datePickerStyle(.wheel)
+                .labelsHidden()
+                .frame(maxWidth: .infinity)
+                .tint(.steel)
+        }
+        .forgeContentCard()
+    }
+
+    /// Seven cells need the sheet inset, not a card inset, to stay 44 pt wide.
+    private var repeatSection: some View {
+        VStack(alignment: .leading, spacing: ForgeLayout.rowGap) {
+            ForgeCardHeader("REPEAT")
+            if dynamicTypeSize.isAccessibilitySize {
+                dayChips
+            } else {
+                dayCircles
+            }
+        }
+    }
+
+    private var dayCircles: some View {
+        ForgeEqualColumnsLayout(columns: 7, spacing: ForgeLayout.pairGap) {
+            ForEach(Weekday.allCases) { day in
+                dayCircleButton(day)
+            }
+        }
+    }
+
+    private var dayChips: some View {
+        ForgeFlowLayout(spacing: ForgeLayout.chipGap, lineSpacing: ForgeLayout.interactiveChipLineGap) {
+            ForEach(Weekday.allCases) { day in
+                ForgeChipButton(
+                    label: day.full,
+                    energy: .steel,
+                    selected: alarm.days.contains(day.rawValue)
+                ) {
+                    toggleDay(day)
+                }
+            }
+        }
+    }
+
+    private func toggleDay(_ day: Weekday) {
+        if alarm.days.contains(day.rawValue) {
+            alarm.days.removeAll { $0 == day.rawValue }
+        } else {
+            alarm.days.append(day.rawValue)
+        }
+    }
+
+    private func dayCircleButton(_ day: Weekday) -> some View {
+        let active = alarm.days.contains(day.rawValue)
+        let diameter = min(ForgeLayout.scaledCap(dayCircleSize, base: 36, maxGrowth: 1.15), 40)
+        let fill: Color = active ? Color.steel : Color.surfaceElevated
+        let edge: Color = active ? Color.steel.opacity(0.4) : Color.white.opacity(0.12)
+        let ink: Color = active ? Color.white : Color.textSecondary
+        return Button {
+            FDS.haptic(.select)
+            toggleDay(day)
+        } label: {
+            Text(day.short)
+                .font(HomeType.label)
+                .foregroundStyle(ink)
+                .hudInArcText()
+                .frame(width: diameter, height: diameter)
+                .background(Circle().fill(fill))
+                .overlay(Circle().stroke(edge, lineWidth: ForgeUX.hairline))
+                .frame(maxWidth: .infinity, minHeight: ForgeUX.minTap)
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(day.full)
+        .accessibilityAddTraits(active ? .isSelected : [])
+    }
+
+    private var labelCard: some View {
+        VStack(alignment: .leading, spacing: ForgeLayout.blockGap) {
+            ForgeCardHeader("LABEL")
+            TextField("Alarm label…", text: $alarm.label)
+                .font(HomeType.body)
+                .foregroundStyle(Color.textPrimary)
+                .tint(.steel)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .forgeWell()
+        }
+        .forgeContentCard()
+    }
+
+    private var soundCard: some View {
+        VStack(alignment: .leading, spacing: ForgeLayout.blockGap) {
+            ForgeCardHeader("WAKE SOUND")
+            ForgeSegmentedControl(
+                soundCategoryChoices,
+                selection: $selectedSoundCategory,
+                accent: .steel,
+                bleed: ForgeLayout.cardPadding
+            )
+            VStack(alignment: .leading, spacing: ForgeLayout.rowGap) {
+                ForEach(filteredSounds, id: \.self) { sound in
+                    soundRow(sound)
+                }
+            }
+        }
+        .forgeContentCard()
+    }
+
+    private func soundRow(_ sound: AlarmSoundOption) -> some View {
+        let selected = alarm.sound == sound
+        let tint: Color = selected ? Color.steel : Color.textTertiary
+        let ink: Color = selected ? Color.textPrimary : Color.textSecondary
+        return Button {
+            FDS.haptic(.select)
+            alarm.sound = sound
+        } label: {
+            HStack(spacing: ForgeLayout.rowGap) {
+                ForgeIconWell(systemImage: sound.icon, tint: tint)
+                Text(sound.rawValue)
+                    .font(HomeType.status)
+                    .foregroundStyle(ink)
+                    .lineLimit(2)
+                Spacer(minLength: ForgeLayout.pairGap)
+                if selected {
+                    Image(systemName: "checkmark")
+                        .font(.system(size: 12, weight: .bold))
+                        .foregroundStyle(Color.steel)
+                        .accessibilityHidden(true)
+                }
+            }
+            .frame(maxWidth: .infinity, minHeight: ForgeUX.minTap, alignment: .leading)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(sound.rawValue)
+        .accessibilityAddTraits(selected ? .isSelected : [])
+    }
+
+    private var snoozeCard: some View {
+        VStack(alignment: .leading, spacing: ForgeLayout.blockGap) {
+            ForgeCardHeader("SNOOZE")
+            ForgeAdaptiveStack(spacing: ForgeLayout.rowGap) {
+                VStack(alignment: .leading, spacing: ForgeLayout.pairGap) {
+                    Text("Snooze Duration")
+                        .font(HomeType.status)
+                        .foregroundStyle(Color.textPrimary)
+                        .forgeWrapping()
+                    Text("\(alarm.snoozeMinutes) minutes")
+                        .font(HomeType.body)
+                        .foregroundStyle(Color.textTertiary)
+                        .monospacedDigit()
+                        .forgeWrapping()
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                Stepper("Snooze Duration", value: $alarm.snoozeMinutes, in: 1...30, step: 1)
+                    .labelsHidden()
+                    .accessibilityValue("\(alarm.snoozeMinutes) minutes")
+            }
+        }
+        .forgeContentCard()
+    }
+
+    private var volumeCard: some View {
+        VStack(alignment: .leading, spacing: ForgeLayout.blockGap) {
+            ForgeCardHeader("VOLUME")
+            Toggle(isOn: $alarm.gradualVolume) {
+                toggleLabel(
+                    "Gradual Volume",
+                    "Starts quiet, then a backup tone if you're still down."
+                )
+            }
+            .tint(.steel)
+        }
+        .forgeContentCard()
+    }
+
+    private var smartWakeCard: some View {
+        VStack(alignment: .leading, spacing: ForgeLayout.blockGap) {
+            ForgeCardHeader("SMART WAKE")
+            Toggle(isOn: $alarm.isSmartWake) {
+                toggleLabel(
+                    "Smart Wake",
+                    "Earlier nudge if you might already be light. Hard alarm still fires."
+                )
+            }
+            .tint(.steel)
+            if alarm.isSmartWake {
+                smartWindowBlock
+                    .transition(.opacity.combined(with: .scale(scale: 0.97, anchor: .top)))
+            }
+        }
+        .forgeContentCard()
+    }
+
+    private var smartWindowBlock: some View {
+        VStack(alignment: .leading, spacing: ForgeLayout.rowGap) {
+            Text("Base window: \(alarm.smartWakeWindow) min. Tonight adapts from score, debt, and snooze history.")
+                .font(HomeType.body)
+                .foregroundStyle(Color.textSecondary)
+                .forgeWrapping()
+            ForgeSegmentedControl(
+                smartWindowChoices,
+                selection: $alarm.smartWakeWindow,
+                accent: .steel,
+                bleed: ForgeLayout.cardPadding
+            )
+        }
+    }
+
+    private func toggleLabel(_ title: String, _ footnote: String) -> some View {
+        VStack(alignment: .leading, spacing: ForgeLayout.pairGap) {
+            Text(title)
+                .font(HomeType.status)
+                .foregroundStyle(Color.textPrimary)
+                .forgeWrapping()
+            Text(footnote)
+                .font(HomeType.body)
+                .foregroundStyle(Color.textTertiary)
+                .forgeWrapping()
         }
     }
 }

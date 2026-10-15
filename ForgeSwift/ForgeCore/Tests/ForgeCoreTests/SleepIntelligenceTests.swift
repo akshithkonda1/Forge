@@ -161,7 +161,8 @@ final class SleepStoryEngineTests: XCTestCase {
     func testShortNightIsKindAndLinksReadiness() {
         let readiness = ReadinessScore(overall: 52, sleepQuality: 40, recovery: 60, confidence: 0.8)
         let story = SleepStoryEngine.story(night: night(totalHours: 4.5), readiness: readiness)
-        XCTAssertTrue(story.contains("52"), "story should link to today's readiness")
+        XCTAssertFalse(story.contains("52"), "spoken sleep copy must not include a readiness number")
+        XCTAssertTrue(story.localizedCaseInsensitiveContains("lighter-touch"), story)
         for banned in ["bad night", "failed", "only", "should have"] {
             XCTAssertFalse(story.lowercased().contains(banned), "guilt language: \(story)")
         }

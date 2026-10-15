@@ -46,7 +46,7 @@ struct SectionCard<Content: View>: View {
     @ViewBuilder let content: () -> Content
     var body: some View {
         VStack(spacing: 0) { content() }
-            .forgeGlassCard(cornerRadius: FDS.Radius.lg)
+            .forgeGlassCard()
     }
 }
 
@@ -57,6 +57,8 @@ struct SettingsRow<Trailing: View>: View {
     private let trailingText: String?
     private let showChevron: Bool
     private let trailing: Trailing
+
+    @Environment(\.dynamicTypeSize) private var typeSize
 
     init(
         icon: String? = nil,
@@ -74,39 +76,79 @@ struct SettingsRow<Trailing: View>: View {
         self.trailing = trailing()
     }
 
+    private var stacksLabelAndValue: Bool { typeSize.isAccessibilitySize }
+
     var body: some View {
-        HStack(spacing: FDS.Spacing.md) {
-            if let icon = icon {
-                ZStack {
-                    RoundedRectangle(cornerRadius: FDS.Radius.sm, style: .continuous)
-                        .fill((iconColor ?? Color.ember).opacity(0.14))
-                        .frame(width: 32, height: 32)
-                    Image(systemName: icon)
-                        .font(.system(size: ForgeUX.icon, weight: .semibold))
-                        .foregroundColor(iconColor ?? .ember)
-                }
-            }
-            Text(label)
-                .font(ForgeType.headline)
-                .foregroundColor(.textPrimary)
-            Spacer()
-            if let t = trailingText {
-                Text(t)
-                    .font(ForgeType.caption)
-                    .foregroundColor(.textSecondary)
-                    .lineLimit(1)
-                    .truncationMode(.tail)
-                    .frame(maxWidth: 160, alignment: .trailing)
-            }
+        HStack(spacing: ForgeLayout.rowGap) {
+            iconWell
+            labelAndValue
             trailing
-            if showChevron {
-                Image(systemName: "chevron.right")
-                    .font(.system(size: 13, weight: .medium))
-                    .foregroundColor(.textMuted)
-            }
+            chevron
         }
         .padding(.horizontal, FDS.Spacing.lg)
+        .padding(.vertical, 10)
         .frame(minHeight: ForgeUX.minTap)
+    }
+
+    @ViewBuilder
+    private var iconWell: some View {
+        if let icon = icon {
+            let tint = iconColor ?? Color.ember
+            ZStack {
+                RoundedRectangle(cornerRadius: FDS.Radius.sm, style: .continuous)
+                    .fill(tint.opacity(0.14))
+                    .frame(width: 32, height: 32)
+                Image(systemName: icon)
+                    .font(.system(size: ForgeUX.icon, weight: .semibold))
+                    .foregroundStyle(tint)
+            }
+            .accessibilityHidden(true)
+        }
+    }
+
+    private var labelText: some View {
+        Text(label)
+            .font(HomeType.status)
+            .foregroundStyle(Color.textPrimary)
+            .lineLimit(2)
+            .fixedSize(horizontal: false, vertical: true)
+    }
+
+    private func trailingValue(_ text: String) -> some View {
+        Text(text)
+            .font(ForgeType.caption)
+            .foregroundStyle(Color.textSecondary)
+            .lineLimit(stacksLabelAndValue ? 2 : 1)
+            .truncationMode(.tail)
+            .layoutPriority(-1)
+            .frame(maxWidth: .infinity, alignment: stacksLabelAndValue ? .leading : .trailing)
+    }
+
+    /// Label with its trailing value. At accessibility sizes the value drops
+    /// under the label instead of squeezing it.
+    private var labelAndValue: some View {
+        let layout = stacksLabelAndValue
+            ? AnyLayout(VStackLayout(alignment: .leading, spacing: ForgeLayout.pairGap))
+            : AnyLayout(HStackLayout(spacing: FDS.Spacing.md))
+        return layout {
+            labelText
+            if let text = trailingText {
+                trailingValue(text)
+            } else if !stacksLabelAndValue {
+                Spacer(minLength: 0)
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    @ViewBuilder
+    private var chevron: some View {
+        if showChevron {
+            Image(systemName: "chevron.right")
+                .font(.system(size: 11, weight: .semibold))
+                .foregroundStyle(Color.textMuted)
+                .accessibilityHidden(true)
+        }
     }
 }
 
@@ -130,68 +172,62 @@ extension SettingsRow where Trailing == EmptyView {
 
 struct ForgeToggle: View {
     @Binding var isOn: Bool
+    /// Names the switch for VoiceOver when the surrounding row does not.
+    var label: String? = nil
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
-    var body: some View {
-        Button(action: {
-            if AriaMemoryAccess.shouldAnimate(reduceMotion: reduceMotion) {
-                withAnimation(.spring(response: 0.35, dampingFraction: 0.75)) { isOn.toggle() }
-            } else {
-                isOn.toggle()
-            }
-        }) {
-            ZStack(alignment: isOn ? .trailing : .leading) {
-                Capsule()
-                    .fill(isOn ? Color.ember : Color.borderLight)
-                    .frame(width: 48, height: 28)
-                    .shadow(color: isOn ? Color.ember.opacity(0.45) : .clear, radius: 8, y: 2)
-                Circle()
-                    .fill(Color.white)
-                    .frame(width: 22, height: 22)
-                    .shadow(color: .black.opacity(0.2), radius: 2)
-                    .padding(3)
-            }
+    private func toggle() {
+        FDS.haptic(.select)
+        if AriaMemoryAccess.shouldAnimate(reduceMotion: reduceMotion) {
+            withAnimation(FDS.Spring.snap) { isOn.toggle() }
+        } else {
+            isOn.toggle()
         }
-        .buttonStyle(.plain)
-        .accessibilityAddTraits(.isToggle)
-        .accessibilityValue(isOn ? "On" : "Off")
+    }
+
+    private var track: some View {
+        ZStack(alignment: isOn ? .trailing : .leading) {
+            Capsule()
+                .fill(isOn ? Color.ember : Color.borderLight)
+                .frame(width: 48, height: 28)
+            Circle()
+                .fill(Color.white)
+                .frame(width: 22, height: 22)
+                .shadow(color: .black.opacity(0.2), radius: 2)
+                .padding(3)
+        }
+        .forgeTapOutset(vertical: 8, horizontal: 0)
+    }
+
+    private var button: some View {
+        Button(action: toggle) { track }
+            .buttonStyle(.plain)
+            .accessibilityAddTraits(.isToggle)
+            .accessibilityValue(isOn ? "On" : "Off")
+    }
+
+    @ViewBuilder
+    var body: some View {
+        if let label {
+            button.accessibilityLabel(label)
+        } else {
+            button
+        }
     }
 }
 
+/// Range switch for Progress. A shared segmented control: 44 pt segments,
+/// tinted selection, no glow.
 struct TimeRangePicker: View {
     @Binding var selection: ProgressPageView.TimeRange
-    @Namespace private var pickerAnimation
+
+    private var options: [ForgeSegmentOption<ProgressPageView.TimeRange>] {
+        ProgressPageView.TimeRange.allCases.map {
+            ForgeSegmentOption(value: $0, title: $0.rawValue)
+        }
+    }
 
     var body: some View {
-        HStack(spacing: FDS.Spacing.sm) {
-            ForEach(ProgressPageView.TimeRange.allCases, id: \.self) { range in
-                Button(action: {
-                    withAnimation(.spring(response: 0.35, dampingFraction: 0.8)) {
-                        selection = range
-                    }
-                    UISelectionFeedbackGenerator().selectionChanged()
-                }) {
-                    ZStack {
-                        if selection == range {
-                            Capsule()
-                                .fill(Color.ember)
-                                .matchedGeometryEffect(id: "picker", in: pickerAnimation)
-                                .shadow(color: Color.ember.opacity(0.3), radius: 8, y: 2)
-                        }
-
-                        Text(range.rawValue)
-                            .font(.system(size: 13, weight: selection == range ? .semibold : .medium))
-                            .foregroundColor(selection == range ? .white : .textSecondary)
-                    }
-                    .frame(maxWidth: .infinity)
-                    .padding(.horizontal, FDS.Spacing.lg)
-                    .padding(.vertical, FDS.Spacing.sm)
-                    .contentShape(Capsule())
-                }
-                .buttonStyle(.plain)
-            }
-        }
-        .padding(FDS.Spacing.xs)
-        .forgeInnerWell(cornerRadius: 100)
+        ForgeSegmentedControl(options, selection: $selection, accent: .ember, bleed: 0)
     }
 }

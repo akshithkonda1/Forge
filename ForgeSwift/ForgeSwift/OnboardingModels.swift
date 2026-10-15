@@ -1,6 +1,6 @@
 import SwiftUI
 
-enum OnboardingFitnessGoal: String, CaseIterable, Identifiable {
+enum OnboardingFitnessGoal: String, Codable, CaseIterable, Identifiable {
     case loseWeight, buildMuscle, improveEndurance, increaseFlexibility,
          betterSleep, reducStress, athleticPerformance, generalHealth
     var id: String { rawValue }
@@ -39,7 +39,7 @@ enum OnboardingFitnessGoal: String, CaseIterable, Identifiable {
     }
 }
 
-enum OnboardingWorkoutType: String, CaseIterable, Identifiable {
+enum OnboardingWorkoutType: String, Codable, CaseIterable, Identifiable {
     case weightlifting, calisthenics, hiit, crossfit
     case running, cycling, swimming, hiking
     case basketball, soccer, tennis, volleyball, pickleball, golf
@@ -105,7 +105,7 @@ enum OnboardingWorkoutType: String, CaseIterable, Identifiable {
     }
 }
 
-enum OnboardingCoachingStyle: String, CaseIterable, Identifiable {
+enum OnboardingCoachingStyle: String, Codable, CaseIterable, Identifiable {
     case driven, balanced, supportive, scientist, elite
     var id: String { rawValue }
     var label: String {
@@ -186,7 +186,9 @@ enum OnboardingCoachingStyle: String, CaseIterable, Identifiable {
     }
 }
 
-struct OnboardingProfile {
+/// Codable so `OnboardingCoordinator` can keep an in-progress draft (Keychain,
+/// this device only) and resume after the app is killed mid-interview.
+struct OnboardingProfile: Codable {
     /// Preferred name — what ARIA uses in coaching (Claude/Grok-style "what should we call you").
     var name: String = ""
     /// Optional family name for the profile card. Never spoken unless they ask.
@@ -285,6 +287,15 @@ struct OnboardingProfile {
         return c
     }
 }
+
+// String raw values give these Codable for free; declared here so the
+// draft can encode `OnboardingProfile` without touching the interview models.
+extension OnboardingHealthSourcedField: Codable {}
+extension SleepRhythmBand: Codable {}
+extension FriendHabitChip: Codable {}
+extension LifestyleInterest: Codable {}
+extension LifeContextOption: Codable {}
+extension ReportedCondition: Codable {}
 
 extension AppStore {
     /// Shared draft filled during immersive sign-up (name + first quest).

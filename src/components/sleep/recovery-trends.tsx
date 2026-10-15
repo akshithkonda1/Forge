@@ -4,8 +4,6 @@ import { useMemo } from "react";
 import {
   AreaChart,
   Area,
-  LineChart,
-  Line,
   XAxis,
   YAxis,
   ResponsiveContainer,
@@ -42,10 +40,6 @@ function CustomTooltip({ active, payload, label }: CustomTooltipProps) {
   );
 }
 
-// Mock HRV data around 45-58 range for 7 days
-const MOCK_HRV_VALUES = [44, 46, 52, 48, 41, 55, 50, 48, 45, 55, 42, 58, 50, 52];
-const MOCK_RHR_VALUES = [62, 60, 58, 61, 64, 57, 59, 60, 62, 57, 63, 56, 59, 58];
-
 export function RecoveryTrends() {
   const sleepData = useAppStore((s) => s.sleepData);
 
@@ -57,23 +51,15 @@ export function RecoveryTrends() {
     }));
   }, [sleepData]);
 
-  const hrvChartData = useMemo(() => {
-    return sleepData.slice(0, 7).reverse().map((d, i) => ({
-      day: getDayAbbr(d.date),
-      hrv: MOCK_HRV_VALUES[i] ?? 50,
-      rhr: MOCK_RHR_VALUES[i] ?? 60,
-    }));
-  }, [sleepData]);
-
   return (
     <div className="flex flex-col gap-5">
-      {/* Recovery Trend Chart */}
+      {/* Sleep score trend */}
       <motion.div
         initial={{ opacity: 0, y: 12 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.5 }}
       >
-        <h3 className="type-headline mb-3 text-text-primary">Recovery Trend</h3>
+        <h3 className="type-headline mb-3 text-text-primary">Sleep trend</h3>
         <div className="rounded-2xl bg-surface p-5">
           <ResponsiveContainer width="100%" height={160}>
             <AreaChart data={recoveryChartData} margin={{ top: 5, right: 5, left: -20, bottom: 0 }}>
@@ -112,63 +98,10 @@ export function RecoveryTrends() {
         </div>
       </motion.div>
 
-      {/* HRV Trend Chart */}
-      <motion.div
-        initial={{ opacity: 0, y: 12 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.5, delay: 0.15 }}
-      >
-        <h3 className="type-headline mb-3 text-text-primary">HRV & Resting HR</h3>
-        <div className="rounded-2xl bg-surface p-5">
-          <ResponsiveContainer width="100%" height={160}>
-            <LineChart data={hrvChartData} margin={{ top: 5, right: 5, left: -20, bottom: 0 }}>
-              <CartesianGrid stroke="none" />
-              <XAxis
-                dataKey="day"
-                axisLine={false}
-                tickLine={false}
-                tick={{ fill: "#71717A", fontSize: 11 }}
-              />
-              <YAxis
-                axisLine={false}
-                tickLine={false}
-                tick={{ fill: "#71717A", fontSize: 11 }}
-              />
-              <Tooltip content={<CustomTooltip />} />
-              <Line
-                type="monotone"
-                dataKey="hrv"
-                name="HRV"
-                stroke="#3B82F6"
-                strokeWidth={2}
-                dot={{ fill: "#3B82F6", strokeWidth: 0, r: 3 }}
-                activeDot={{ fill: "#60A5FA", strokeWidth: 0, r: 5 }}
-              />
-              <Line
-                type="monotone"
-                dataKey="rhr"
-                name="Resting HR"
-                stroke="#FF4D00"
-                strokeWidth={2}
-                dot={{ fill: "#FF4D00", strokeWidth: 0, r: 3 }}
-                activeDot={{ fill: "#FF6B2B", strokeWidth: 0, r: 5 }}
-              />
-            </LineChart>
-          </ResponsiveContainer>
-
-          {/* Legend */}
-          <div className="mt-2 flex items-center justify-center gap-5">
-            <div className="flex items-center gap-1.5">
-              <div className="h-2 w-2 rounded-full bg-steel" />
-              <span className="type-micro text-text-secondary">HRV (ms)</span>
-            </div>
-            <div className="flex items-center gap-1.5">
-              <div className="h-2 w-2 rounded-full bg-ember" />
-              <span className="type-micro text-text-secondary">Resting HR (bpm)</span>
-            </div>
-          </div>
-        </div>
-      </motion.div>
+      <p className="text-sm text-text-secondary">
+        Heart-rate context stays on your Watch and in ARIA&apos;s notes — this companion
+        chart is last night&apos;s sleep score only.
+      </p>
     </div>
   );
 }

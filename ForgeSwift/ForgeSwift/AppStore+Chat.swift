@@ -250,8 +250,24 @@ extension AppStore {
             }
         }
 
-        let lastNight = sleepData.first
-        let shortRun = sleepData.prefix(4).prefix { $0.totalHours < 6.5 }.count
+        let lastNight = SleepData.lastNight(in: sleepData)
+        // A run of short nights only counts when it reaches last night, and it
+        // ends at the first missing calendar day between adjacent nights.
+        var shortRun = 0
+        if lastNight != nil {
+            let calendar = Calendar.current
+            var previousDay: Date?
+            for night in sleepData.prefix(4) {
+                guard night.totalHours < 6.5 else { break }
+                let day = ForgeDates.parse(night.date).map { calendar.startOfDay(for: $0) }
+                if let previousDay, let day,
+                   calendar.dateComponents([.day], from: day, to: previousDay).day != 1 {
+                    break
+                }
+                shortRun += 1
+                previousDay = day
+            }
+        }
         let today = ISO8601DateFormatter()
         today.formatOptions = [.withFullDate]
         let todayKey = String(today.string(from: Date()).prefix(10))

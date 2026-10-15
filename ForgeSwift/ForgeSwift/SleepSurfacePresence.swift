@@ -19,11 +19,11 @@ enum SleepResearchHook: String, CaseIterable, Equatable, Sendable {
     var waitsForBrief: String {
         switch self {
         case .timeline:
-            return "Stage-map craft vs RISE / Pillow (hypnogram density, not a clone)."
+            return "Stage-map craft vs Rise / Pillow — waits for the brief."
         case .debt:
-            return "Debt vs energy framing once the brief lands."
+            return "14-day short stretch vs Rise energy — waits for the brief."
         case .windDown:
-            return "Tonight wind-down density vs peer sound/ritual craft — waits for the brief."
+            return "Tonight wind-down density vs Rise / Pillow ritual craft — waits for the brief."
         }
     }
 }
@@ -164,7 +164,7 @@ struct SleepSurfacePresence: Equatable, Sendable {
         case .notConnected:
             return (
                 "Connect Apple Health to unlock sleep",
-                "Forge reads last night's stages from Apple Health. Watch, ring, or any wearable that writes the night can land here. Once a night lands, ARIA can explain recovery and bedtime.",
+                "Forge reads last night's stages from Apple Health. Watch, ring, or any wearable that writes the night can land here. Once a night lands, ARIA can explain last night and tonight's bedtime.",
                 "Reconnect Apple Health"
             )
         }
@@ -188,7 +188,7 @@ struct SleepSurfacePresence: Equatable, Sendable {
         case .notConnected:
             return "Apple Health is off"
         case .connectedEmpty:
-            return labels.isEmpty ? "Connected · waiting on a night" : labels.joined(separator: " · ") + " · waiting on a night"
+            return labels.isEmpty ? "Connected · still learning your rhythm" : labels.joined(separator: " · ") + " · still learning"
         case .live:
             return labels.isEmpty ? "Last night is on this phone" : labels.joined(separator: " · ")
         }
@@ -205,9 +205,10 @@ struct SleepSurfacePresence: Equatable, Sendable {
 }
 
 enum SleepLifestyleCopy {
-    static let disclaimer = "Lifestyle coaching from your nights — not medical advice."
-    static let dimRoomCue = "Lights and screens down. A bright kitchen keeps the day going."
-    static let environmentHint = "Show ARIA the room — light and clutter are lifestyle cues, not a medical assessment."
+    static let disclaimer = SleepCoachCopy.disclaimer
+    static let dimRoomCue = SleepCoachCopy.dimRoomCue
+    static let environmentHint = SleepCoachCopy.environmentHint
+    static let stillLearning = SleepCoachCopy.stillLearning
 }
 
 extension AppStore {
@@ -250,12 +251,16 @@ struct SleepStatusDot: View {
             .fill(color)
             .frame(width: 6, height: 6)
             .shadow(color: color.opacity(kind == .off ? 0 : 0.55), radius: 4)
-            .opacity(kind == .pulling && !reduceMotion && pulse ? 0.4 : 1)
-            .onAppear {
-                guard kind == .pulling, !reduceMotion else { return }
-                withAnimation(.easeInOut(duration: 0.9).repeatForever(autoreverses: true)) {
-                    pulse = true
+            .opacity(kind == .pulling && !reduceMotion && pulse ? 0.55 : 1)
+            .task(id: kind) {
+                guard kind == .pulling, !reduceMotion else {
+                    pulse = false
+                    return
                 }
+                pulse = false
+                withAnimation(.easeOut(duration: 0.35)) { pulse = true }
+                try? await Task.sleep(nanoseconds: 400_000_000)
+                withAnimation(.easeIn(duration: 0.25)) { pulse = false }
             }
             .accessibilityLabel(accessibilityName)
     }

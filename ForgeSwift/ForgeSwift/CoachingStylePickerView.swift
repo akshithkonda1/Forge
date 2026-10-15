@@ -3,6 +3,7 @@ import ForgeCore
 
 struct CoachingStylePickerView: View {
     @Environment(\.dismiss) var dismiss
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @EnvironmentObject var store: AppStore
     @State private var selectedStyle: CoachingStyle = .balanced
 
@@ -13,72 +14,43 @@ struct CoachingStylePickerView: View {
         dismiss()
     }
 
+    private func select(_ style: CoachingStyle) {
+        FDS.haptic(.select)
+        withAnimation(reduceMotion ? nil : FDS.Spring.snap) {
+            selectedStyle = style
+        }
+    }
+
+    /// Forge-palette tint for each tone. The model's own colors (cyan, green,
+    /// purple, orange) are not part of the domain tokens.
+    private func tint(for style: CoachingStyle) -> Color {
+        switch style {
+        case .pushHard:   return Color.ember
+        case .balanced:   return Color.steel
+        case .patient:    return Color.vitality
+        case .dataDriven: return Color.aurora
+        case .ultraElite: return Color.amber
+        }
+    }
+
     var body: some View {
         NavigationStack {
             ScrollView {
-                VStack(spacing: FDS.Spacing.lg) {
+                VStack(alignment: .leading, spacing: ForgeLayout.sectionGap) {
                     Text("Choose how ARIA talks to you during training and recovery.")
-                        .font(.system(size: 14))
-                        .foregroundColor(.textSecondary)
-                        .multilineTextAlignment(.center)
-                        .padding(.horizontal)
-                        .padding(.top, FDS.Spacing.sm)
+                        .font(HomeType.body)
+                        .foregroundStyle(Color.textSecondary)
+                        .forgeWrapping()
+                        .frame(maxWidth: .infinity, alignment: .leading)
 
-                    VStack(spacing: FDS.Spacing.md) {
-                        ForEach(CoachingStyle.allCases, id: \.self) { style in
-                            Button(action: {
-                                withAnimation(.spring(response: 0.4, dampingFraction: 0.8)) {
-                                    selectedStyle = style
-                                }
-                            }) {
-                                HStack(spacing: FDS.Spacing.md) {
-                                    Image(systemName: style.icon)
-                                        .font(.system(size: 18))
-                                        .foregroundColor(style.color)
-                                        .frame(width: 28)
-
-                                    VStack(alignment: .leading, spacing: FDS.Spacing.xs) {
-                                        Text(style.label)
-                                            .font(FDS.TypeScale.Dynamic.headline)
-                                            .foregroundColor(.textPrimary)
-                                        Text(style.description)
-                                            .font(.system(size: 13))
-                                            .foregroundColor(.textSecondary)
-                                            .lineLimit(3)
-                                    }
-                                    Spacer()
-
-                                    ZStack {
-                                        Circle()
-                                            .stroke(selectedStyle == style ? Color.paper : Color.borderColor, lineWidth: 2)
-                                            .frame(width: 24, height: 24)
-                                        if selectedStyle == style {
-                                            Circle()
-                                                .fill(Color.paper)
-                                                .frame(width: 14, height: 14)
-                                        }
-                                    }
-                                }
-                                .padding(FDS.Spacing.lg)
-                                .background(Color.white.opacity(selectedStyle == style ? 0.06 : 0.04))
-                                .clipShape(RoundedRectangle(cornerRadius: FDS.Radius.md, style: .continuous))
-                                .overlay(
-                                    RoundedRectangle(cornerRadius: FDS.Radius.md, style: .continuous)
-                                        .stroke(Color.white.opacity(selectedStyle == style ? 0.18 : 0.08), lineWidth: 1)
-                                )
-                            }
-                            .buttonStyle(.plain)
-                        }
-                    }
-                    .padding(.horizontal)
-
-                    PremiumPrimaryButton(title: "Save", icon: nil, action: save)
-                        .padding(.horizontal)
-                        .padding(.top, FDS.Spacing.md)
+                    stylesCard
                 }
-                .padding(.bottom, 32)
+                .forgeScreenInsets(top: FDS.Spacing.lg)
             }
-            .background(Color.background.ignoresSafeArea())
+            .forgeScreenBackground(accent: .ember)
+            .safeAreaInset(edge: .bottom, spacing: 0) {
+                saveDock
+            }
             .navigationTitle("Coaching Style")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -89,5 +61,57 @@ struct CoachingStylePickerView: View {
             }
             .onAppear { selectedStyle = store.userProfile.coachingStyle }
         }
+    }
+
+    private var stylesCard: some View {
+        VStack(alignment: .leading, spacing: ForgeLayout.rowGap) {
+            ForEach(CoachingStyle.allCases, id: \.self) { style in
+                styleRow(style)
+            }
+        }
+        .forgeContentCard()
+    }
+
+    private var saveDock: some View {
+        ForgePrimaryButton(title: "Save", action: save)
+            .padding(.horizontal, ForgeLayout.screenInset)
+            .padding(.top, FDS.Spacing.sm)
+            .padding(.bottom, FDS.Spacing.sm)
+            .forgeBarChrome(edge: .bottom)
+    }
+
+    private func styleRow(_ style: CoachingStyle) -> some View {
+        let selected = selectedStyle == style
+        return Button {
+            select(style)
+        } label: {
+            HStack(alignment: .top, spacing: ForgeLayout.rowGap) {
+                ForgeIconWell(systemImage: style.icon, tint: tint(for: style))
+
+                VStack(alignment: .leading, spacing: ForgeLayout.pairGap) {
+                    Text(style.label)
+                        .font(HomeType.status)
+                        .foregroundStyle(Color.textPrimary)
+                        .forgeWrapping()
+                    Text(style.description)
+                        .font(HomeType.body)
+                        .foregroundStyle(Color.textTertiary)
+                        .forgeWrapping()
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .layoutPriority(1)
+
+                Image(systemName: selected ? "checkmark.circle.fill" : "circle")
+                    .font(.system(size: ForgeUX.icon, weight: .semibold))
+                    .foregroundStyle(selected ? tint(for: style) : Color.textMuted)
+                    .frame(minHeight: ForgeLayout.iconWell)
+                    .accessibilityHidden(true)
+            }
+            .frame(maxWidth: .infinity, minHeight: ForgeUX.minTap, alignment: .topLeading)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityElement(children: .combine)
+        .accessibilityAddTraits(selected ? .isSelected : [])
     }
 }

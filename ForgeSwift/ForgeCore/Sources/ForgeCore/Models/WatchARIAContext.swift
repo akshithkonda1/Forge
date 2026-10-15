@@ -46,6 +46,8 @@ public struct WatchARIAContext: Codable, Sendable, Equatable {
 
     // One-tap sleep factors the user logged for last night / today.
     public var sleepFactors: [SleepFactor]?
+    /// Tonight's predicted wind-down start, when the predictor has enough nights.
+    public var tonightWindDown: Date?
 
     /// Oral / logged body temperature in °F when HealthKit has a recent sample.
     public var bodyTemperatureF: Double?

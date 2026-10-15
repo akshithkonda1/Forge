@@ -171,7 +171,7 @@ final class AriaDummyOrchestratorTests: XCTestCase {
         store.dailyMetrics.hrv = 48
         store.sleepData = [
             SleepData(
-                date: "2026-09-20",
+                date: ForgeDates.yyyyMMdd(from: Date()),
                 totalHours: 6.5,
                 deepMinutes: 70,
                 remMinutes: 80,
@@ -336,7 +336,7 @@ final class AriaDummyOrchestratorTests: XCTestCase {
         let store = makeStore()
         store.sleepData = [
             SleepData(
-                date: "2026-09-07",
+                date: ForgeDates.yyyyMMdd(from: Date()),
                 totalHours: 5.0,
                 deepMinutes: 40,
                 remMinutes: 50,
@@ -928,12 +928,8 @@ final class AriaDummyOrchestratorTests: XCTestCase {
 
         var calendar = Calendar(identifier: .gregorian)
         calendar.timeZone = TimeZone(secondsFromGMT: 0)!
-        var parts = DateComponents()
-        parts.year = 2026
-        parts.month = 8
-        parts.day = 25
-        parts.hour = 15
-        let now = try XCTUnwrap(calendar.date(from: parts))
+        // Generated today: a pack pinned to a past date has no "last night".
+        let now = Date()
         let pack = FakeHealthPack.generate(now: now, calendar: calendar, seed: 41, persona: "stressed")
         let today = try XCTUnwrap(pack.today)
 
@@ -1152,12 +1148,8 @@ final class AriaDummyOrchestratorTests: XCTestCase {
     private func makeStressedPackStore() throws -> AppStore {
         var calendar = Calendar(identifier: .gregorian)
         calendar.timeZone = TimeZone(secondsFromGMT: 0)!
-        var parts = DateComponents()
-        parts.year = 2026
-        parts.month = 8
-        parts.day = 25
-        parts.hour = 15
-        let now = try XCTUnwrap(calendar.date(from: parts))
+        // Generated today: a pack pinned to a past date has no "last night".
+        let now = Date()
         let pack = FakeHealthPack.generate(now: now, calendar: calendar, seed: 41, persona: "stressed")
         let store = makeStore()
         store.apply(pack)
