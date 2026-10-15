@@ -1,5 +1,6 @@
 import SwiftUI
 import UIKit
+import ForgeCore
 
 @MainActor
 struct ARIADashboardView: View {
