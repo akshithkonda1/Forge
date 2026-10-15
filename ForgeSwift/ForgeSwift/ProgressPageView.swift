@@ -17,19 +17,23 @@ struct ProgressPageView: View {
         store.dataLoadState == .loading && store.workoutHistory.isEmpty && store.progressSummary == nil
     }
 
+    private var hasNoProgressData: Bool {
+        store.workoutHistory.isEmpty && store.progressSummary == nil && store.personalRecords.isEmpty
+    }
+
+    private var hasFailedWithoutData: Bool {
+        store.dataLoadState == .failed && hasNoProgressData
+    }
+
     var body: some View {
         ScrollView(showsIndicators: false) {
-            VStack(alignment: .leading, spacing: FDS.Spacing.xl) {
+            ForgeScreenStack {
                 ForgePageHeader(
                     title: "Progress",
                     subtitle: "History, PRs, streaks — your training story",
                     accent: Color.steel
                 ) {
-                    Button(action: { store.openChat(with: "Walk me through my progress, PRs, and what to train next.", voice: false) }) {
-                        ARIAIdentityMark(state: .idle, mood: .energized, size: 40, amplitude: 0.24)
-                    }
-                    .buttonStyle(.plain)
-                    .accessibilityLabel("Ask ARIA about progress")
+                    askAriaButton
                     ForgeIconButton(
                         systemImage: "square.and.arrow.up",
                         accent: Color.steel,
@@ -38,37 +42,11 @@ struct ProgressPageView: View {
                         showShareSheet = true
                     }
                 }
-                .padding(.top, 48)
 
                 StatsMosaicCard()
 
-                if isInitialLoading {
-                    ForgeSkeletonBlock(height: 88, cornerRadius: FDS.Radius.lg)
-                    ForgeSkeletonBlock(height: 160, cornerRadius: FDS.Radius.lg)
-                    ForgeSkeletonBlock(height: 220, cornerRadius: FDS.Radius.lg)
-                    ForgeSkeletonBlock(height: 160, cornerRadius: FDS.Radius.lg)
-                } else if store.workoutHistory.isEmpty && store.progressSummary == nil && store.personalRecords.isEmpty {
-                    ForgeEmptyStateCard(
-                        icon: "chart.line.uptrend.xyaxis",
-                        title: "No sessions yet",
-                        message: "Complete a workout and your history, PRs, and streaks will show up here.",
-                        accent: .ember,
-                        cta: "Ask ARIA to write a session",
-                        action: { store.openChat(with: HomeInsightFlow.todayPlanPrompt, voice: false) }
-                    )
-                } else {
-                    TimeRangePicker(selection: $selectedTimeRange)
-                    QuickStatsOverviewView(timeRange: selectedTimeRange)
-                    MonthlySummaryView()
-                    CalendarHeatmapView()
-                    PersonalRecordsBoardView()
-                    WorkoutHistoryListView()
-                    BehavioralInsightView()
-                    StreaksAndMilestonesView()
-                }
+                pageContent
             }
-            .padding(.horizontal, FDS.Spacing.lg)
-            .padding(.bottom, 32)
         }
         .forgeScreenBackground(accent: Color.steel)
         .refreshable {
@@ -78,11 +56,72 @@ struct ProgressPageView: View {
             ShareProgressView()
         }
     }
+
+    /// The ARIA mark is 28 pt (the still pose) inside a 44 pt tap area.
+    private var askAriaButton: some View {
+        Button {
+            FDS.haptic(.press)
+            store.openChat(with: "Walk me through my progress, PRs, and what to train next.", voice: false)
+        } label: {
+            ARIAIdentityMark(state: .idle, mood: .energized, size: 28, amplitude: 0.24)
+                .frame(width: ForgeUX.minTap, height: ForgeUX.minTap)
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel("Ask ARIA about progress")
+    }
+
+    @ViewBuilder
+    private var pageContent: some View {
+        if isInitialLoading {
+            loadingContent
+        } else if hasFailedWithoutData {
+            ForgeErrorState(
+                title: "Couldn’t load your progress",
+                message: "Pull down to refresh, or try again now."
+            ) {
+                Task { await store.loadDashboardFromAPI() }
+            }
+        } else if hasNoProgressData {
+            ForgeEmptyStateCard(
+                icon: "chart.line.uptrend.xyaxis",
+                title: "No sessions yet",
+                message: "Complete a workout and your history, PRs, and streaks will show up here.",
+                accent: .ember,
+                cta: "Ask ARIA to write a session",
+                action: { store.openChat(with: HomeInsightFlow.todayPlanPrompt, voice: false) }
+            )
+        } else {
+            loadedContent
+        }
+    }
+
+    private var loadingContent: some View {
+        VStack(spacing: ForgeLayout.sectionGap) {
+            ForgeSkeletonBlock(height: 88, cornerRadius: FDS.Radius.xl)
+            ForgeSkeletonBlock(height: 160, cornerRadius: FDS.Radius.xl)
+            ForgeSkeletonBlock(height: 220, cornerRadius: FDS.Radius.xl)
+            ForgeSkeletonBlock(height: 160, cornerRadius: FDS.Radius.xl)
+        }
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("Loading your progress")
+    }
+
+    @ViewBuilder
+    private var loadedContent: some View {
+        MonthlySummaryView()
+        TimeRangePicker(selection: $selectedTimeRange)
+        QuickStatsOverviewView(timeRange: selectedTimeRange)
+        CalendarHeatmapView()
+        PersonalRecordsBoardView()
+        WorkoutHistoryListView()
+        StreaksAndMilestonesView()
+        BehavioralInsightView()
+    }
 }
 
 struct MonthlySummaryView: View {
     @EnvironmentObject var store: AppStore
-    @State private var appeared = false
 
     private var monthLabel: String {
         Date().formatted(.dateTime.month(.wide))
@@ -108,51 +147,27 @@ struct MonthlySummaryView: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            LinearGradient(colors: [.ember, .emberLight, .ember], startPoint: .leading, endPoint: .trailing)
-                .frame(height: 3)
-                .clipShape(RoundedRectangle(cornerRadius: 1.5))
+        VStack(alignment: .leading, spacing: ForgeLayout.blockGap) {
+            ForgeCardHeader("This month", meta: monthLabel, tint: .ember)
 
-            VStack(alignment: .leading, spacing: FDS.Spacing.lg) {
-                HStack {
-                    Text("THIS MONTH")
-                        .font(FDS.TypeScale.Dynamic.micro)
-                        .foregroundColor(.ember)
-                        .tracking(2)
-
-                    Spacer()
-
-                    // Month indicator
-                    HStack(spacing: FDS.Spacing.xs) {
-                        Image(systemName: "calendar")
-                            .font(.system(size: 10))
-                        Text(monthLabel)
-                            .font(FDS.TypeScale.Dynamic.micro)
-                    }
-                    .foregroundColor(.textTertiary)
-                }
-
-                HStack(spacing: FDS.Spacing.md) {
-                    StatPillCard(value: workoutsCompleted, label: "Workouts", appeared: appeared, delay: 0.1)
-                    StatPillCard(value: newPRs, label: "New PRs", appeared: appeared, delay: 0.15)
-                    StatPillCard(value: recoveryDelta, label: "Recovery", appeared: appeared, delay: 0.2)
-                }
-
-                Text(summaryText)
-                    .font(.system(size: 14))
-                    .foregroundColor(.textSecondary)
-                    .lineSpacing(5)
-                    .opacity(appeared ? 1 : 0)
-                    .offset(y: appeared ? 0 : 8)
-                    .animation(.easeOut(duration: 0.5).delay(0.3), value: appeared)
+            ForgeStatGrid(columns: 3) {
+                StatPillCard(value: workoutsCompleted, label: "Workouts")
+                StatPillCard(value: newPRs, label: "New PRs")
+                StatPillCard(value: recoveryDelta, label: "Recovery")
             }
-            .padding(FDS.Spacing.lg)
+
+            Text(summaryText)
+                .font(HomeType.body)
+                .foregroundStyle(Color.textSecondary)
+                .forgeWrapping()
         }
-        .forgeGlassCard(cornerRadius: FDS.Radius.lg, accent: .ember)
-        .onAppear { appeared = true }
+        .forgeContentCard(tint: .ember)
     }
 }
 
+/// A stat cell in the Home well. Callers lay the cells out in `ForgeStatGrid`.
+/// `appeared` and `delay` are kept for source compatibility; the entrance
+/// cascade they drove was retired.
 struct StatPillCard: View {
     let value: String
     let label: String
@@ -160,49 +175,51 @@ struct StatPillCard: View {
     var delay: Double = 0
 
     var body: some View {
-        VStack(spacing: FDS.Spacing.sm) {
+        VStack(alignment: .leading, spacing: ForgeLayout.labelValueGap) {
             Text(value)
-                .font(ForgeType.metric)
-                .foregroundColor(.textPrimary)
+                .font(FDS.TypeScale.Dynamic.headline)
                 .monospacedDigit()
+                .foregroundStyle(Color.textPrimary)
+                .forgeSingleLine()
                 .contentTransition(.numericText())
             Text(label)
-                .font(ForgeType.caption)
-                .foregroundColor(.textSecondary)
-                .fixedSize()
+                .font(HomeType.micro)
+                .foregroundStyle(Color.textTertiary)
+                .lineLimit(2)
         }
-        .frame(maxWidth: .infinity)
-        .padding(.vertical, FDS.Spacing.lg)
-        .background(
-            ZStack {
-                Color.surfaceElevated
-                LinearGradient(
-                    colors: [Color.ember.opacity(0.03), .clear],
-                    startPoint: .top,
-                    endPoint: .bottom
-                )
-            }
-        )
-        .cornerRadius(FDS.Radius.md)
-        .overlay(RoundedRectangle(cornerRadius: FDS.Radius.md).stroke(Color.borderColor.opacity(0.5), lineWidth: 1))
-        .scaleEffect(appeared ? 1 : 0.9)
-        .opacity(appeared ? 1 : 0)
-        .animation(.spring(response: 0.5, dampingFraction: 0.7).delay(delay), value: appeared)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+        .forgeWell()
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("\(label) \(value)")
     }
 }
 
 struct CalendarHeatmapView: View {
     @EnvironmentObject var store: AppStore
+    @Environment(\.dynamicTypeSize) private var typeSize
 
-    // Build date->intensity map from workout history
+    private static let gridGap: CGFloat = 6
+    private static let dayLabels = ["M", "T", "W", "T", "F", "S", "S"]
+
+    // Build date->intensity map from workout history. In-app finishes store a
+    // full ISO-8601 instant, so keys are normalised to the calendar day and a
+    // multi-session day keeps its highest intensity.
     var dateMap: [String: Int] {
         var m: [String: Int] = [:]
         for w in store.workoutHistory {
+            let level: Int
             switch w.intensity {
-            case .max, .high:     m[w.date] = 3
-            case .moderate:       m[w.date] = 2
-            case .low:            m[w.date] = 1
+            case .max, .high:     level = 3
+            case .moderate:       level = 2
+            case .low:            level = 1
             }
+            let key: String
+            if let parsed = WorkoutHistoryWindow.parseDate(w.date) {
+                key = ForgeDates.yyyyMMdd(from: parsed)
+            } else {
+                key = w.date
+            }
+            m[key] = max(m[key] ?? 0, level)
         }
         return m
     }
@@ -230,6 +247,7 @@ struct CalendarHeatmapView: View {
             return []
         }
 
+        let levels = dateMap
         var cells: [DayCell] = []
         let startOffset = ForgeDates.mondayBasedStartOffset(for: firstOfMonth, calendar: calendar)
         for index in 0..<startOffset {
@@ -238,7 +256,7 @@ struct CalendarHeatmapView: View {
         for day in dayRange {
             guard let date = calendar.date(byAdding: .day, value: day - 1, to: firstOfMonth) else { continue }
             let dateStr = ForgeDates.yyyyMMdd(from: date)
-            cells.append(DayCell(id: dateStr, day: day, date: dateStr, level: dateMap[dateStr] ?? 0))
+            cells.append(DayCell(id: dateStr, day: day, date: dateStr, level: levels[dateStr] ?? 0))
         }
         while cells.count % 7 != 0 {
             cells.append(DayCell(id: "trail-\(cells.count)", day: nil, date: "", level: 0))
@@ -251,66 +269,114 @@ struct CalendarHeatmapView: View {
         case 1: return Color.ember.opacity(0.3)
         case 2: return Color.ember.opacity(0.6)
         case 3: return Color.ember
-        default: return Color.surfaceElevated
+        default: return Color.white.opacity(0.05)
+        }
+    }
+
+    private var gridColumns: [GridItem] {
+        Array(repeating: GridItem(.flexible(), spacing: Self.gridGap), count: 7)
+    }
+
+    private static func sessionName(for level: Int) -> String {
+        switch level {
+        case 1: return "Light session"
+        case 2: return "Moderate session"
+        case 3: return "Intense session"
+        default: return "No session"
+        }
+    }
+
+    private static func legendName(for level: Int) -> String {
+        switch level {
+        case 1: return "Light"
+        case 2: return "Moderate"
+        case 3: return "Intense"
+        default: return "None"
         }
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: FDS.Spacing.md) {
-            Text(monthTitle)
-                .font(FDS.TypeScale.Dynamic.body.weight(.semibold))
-                .foregroundColor(.textPrimary)
+        VStack(alignment: .leading, spacing: ForgeLayout.blockGap) {
+            ForgeCardHeader("Consistency", meta: monthTitle, tint: .ember)
 
-            // Day labels
-            let dayLabels = ["M","T","W","T","F","S","S"]
-            LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 6), count: 7), spacing: 6) {
-                ForEach(Array(dayLabels.enumerated()), id: \.offset) { _, label in
-                    Text(label)
-                        .font(FDS.TypeScale.Dynamic.micro)
-                        .foregroundColor(.textTertiary)
-                        .frame(maxWidth: .infinity)
-                        .frame(height: 20)
+            LazyVGrid(columns: gridColumns, spacing: Self.gridGap) {
+                ForEach(0..<7, id: \.self) { index in
+                    Text(Self.dayLabels[index])
+                        .font(HomeType.micro)
+                        .foregroundStyle(Color.textTertiary)
+                        .frame(maxWidth: .infinity, minHeight: 20)
+                        .accessibilityHidden(true)
+                }
+                ForEach(weeks.flatMap { $0 }) { cell in
+                    dayCellView(cell)
                 }
             }
 
-            // Calendar cells
-            ForEach(Array(weeks.enumerated()), id: \.offset) { _, week in
-                LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 6), count: 7), spacing: 6) {
-                    ForEach(week) { cell in
-                        if let day = cell.day {
-                            RoundedRectangle(cornerRadius: FDS.Radius.xs)
-                                .fill(heatColor(cell.level))
-                                .aspectRatio(1, contentMode: .fit)
-                                .overlay(
-                                    Text("\(day)")
-                                        .font(FDS.TypeScale.Dynamic.micro)
-                                        .foregroundColor(cell.level > 0 ? .white.opacity(0.85) : Color.textTertiary.opacity(0.6))
-                                )
-                        } else {
-                            Color.clear.aspectRatio(1, contentMode: .fit)
-                        }
-                    }
-                }
-            }
+            legend
+        }
+        .forgeContentCard(tint: .ember)
+    }
 
-            // Legend
-            HStack(spacing: FDS.Spacing.md) {
-                ForEach([("None", Color.surfaceElevated), ("Light", Color.ember.opacity(0.3)), ("Moderate", Color.ember.opacity(0.6)), ("Intense", Color.ember)], id: \.0) { label, color in
-                    HStack(spacing: FDS.Spacing.xs) {
-                        RoundedRectangle(cornerRadius: 3).fill(color).frame(width: 12, height: 12)
-                        Text(label).font(.system(size: 10)).foregroundColor(.textTertiary)
+    @ViewBuilder
+    private func dayCellView(_ cell: DayCell) -> some View {
+        if let day = cell.day {
+            let today = ForgeDates.yyyyMMdd(from: Date())
+            let isToday = cell.date == today
+            let isFuture = cell.date > today
+            let spoken = ForgeDates.displayDate(cell.date)
+            let status = isFuture ? "Upcoming" : Self.sessionName(for: cell.level)
+            RoundedRectangle(cornerRadius: FDS.Radius.xs, style: .continuous)
+                .fill(heatColor(cell.level))
+                .aspectRatio(1, contentMode: .fit)
+                .overlay { dayNumber(day, level: cell.level) }
+                .overlay {
+                    if isToday {
+                        RoundedRectangle(cornerRadius: FDS.Radius.xs, style: .continuous)
+                            .stroke(Color.ember, lineWidth: 1.5)
                     }
                 }
+                .opacity(isFuture ? 0.4 : 1)
+                .accessibilityElement(children: .ignore)
+                .accessibilityLabel("\(spoken), \(status)\(isToday ? ", today" : "")")
+        } else {
+            Color.clear
+                .aspectRatio(1, contentMode: .fit)
+                .accessibilityHidden(true)
+        }
+    }
+
+    @ViewBuilder
+    private func dayNumber(_ day: Int, level: Int) -> some View {
+        if !typeSize.isAccessibilitySize {
+            Text("\(day)")
+                .font(HomeType.micro)
+                .foregroundStyle(level > 0 ? Color.white.opacity(0.9) : Color.textTertiary)
+                .lineLimit(1)
+                .minimumScaleFactor(0.6)
+        }
+    }
+
+    private var legend: some View {
+        ForgeFlowLayout(spacing: ForgeLayout.rowGap, lineSpacing: ForgeLayout.chipGap) {
+            ForEach(0..<4, id: \.self) { level in
+                HStack(spacing: FDS.Spacing.xs) {
+                    RoundedRectangle(cornerRadius: 3, style: .continuous)
+                        .fill(heatColor(level))
+                        .frame(width: 12, height: 12)
+                        .accessibilityHidden(true)
+                    Text(Self.legendName(for: level))
+                        .font(HomeType.micro)
+                        .foregroundStyle(Color.textTertiary)
+                }
+                .accessibilityElement(children: .combine)
             }
         }
-        .padding(FDS.Spacing.lg)
-        .forgeGlassCard(cornerRadius: FDS.Radius.lg, accent: Color.steel)
     }
 }
 
 struct PersonalRecordsBoardView: View {
     @EnvironmentObject var store: AppStore
-    @State private var appear = false
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var showAllPRs = false
 
     private static let collapsedCount = 3
@@ -319,62 +385,84 @@ struct PersonalRecordsBoardView: View {
         showAllPRs ? store.personalRecords : Array(store.personalRecords.prefix(Self.collapsedCount))
     }
 
+    private func toggleShowAll() {
+        if reduceMotion {
+            showAllPRs.toggle()
+        } else {
+            withAnimation(FDS.Spring.standard) { showAllPRs.toggle() }
+        }
+    }
+
     var body: some View {
-        VStack(alignment: .leading, spacing: FDS.Spacing.md) {
-            HStack(spacing: FDS.Spacing.sm) {
-                Image(systemName: "trophy.fill").font(.system(size: 18)).foregroundColor(.ember)
-                Text("Personal Records").font(FDS.TypeScale.Dynamic.headline).foregroundColor(.textPrimary)
-                Spacer()
-                if store.personalRecords.count > Self.collapsedCount {
-                    Button(action: { withAnimation(.spring()) { showAllPRs.toggle() } }) {
-                        Text(showAllPRs ? "Show Less" : "View All (\(store.personalRecords.count))")
-                            .font(FDS.TypeScale.Dynamic.caption)
-                            .foregroundColor(.ember)
-                    }
-                }
-            }
+        VStack(alignment: .leading, spacing: ForgeLayout.blockGap) {
+            header
 
             if store.personalRecords.isEmpty {
-                ForgeEmptyState(
-                    icon: "trophy",
+                ForgeEmptyNote(
                     title: "No records yet",
-                    message: "Finish a few workouts and your personal bests will show up here."
+                    message: "Finish a few workouts and your personal bests will show up here.",
+                    systemImage: "trophy",
+                    tint: .amber
                 )
             } else {
-                VStack(spacing: FDS.Spacing.md) {
-                    ForEach(Array(visibleRecords.enumerated()), id: \.element.id) { idx, pr in
-                        HStack {
-                            VStack(alignment: .leading, spacing: 3) {
-                                Text(pr.exercise)
-                                    .font(FDS.TypeScale.Dynamic.body.weight(.semibold))
-                                    .foregroundColor(.textPrimary)
-                                Text(ForgeDates.displayDate(pr.date))
-                                    .font(.system(size: 11))
-                                    .foregroundColor(.textTertiary)
-                            }
-                            Spacer()
-                            HStack(alignment: .firstTextBaseline, spacing: 3) {
-                                Text(pr.formattedValue)
-                                    .font(FDS.TypeScale.Dynamic.title)
-                                    .foregroundColor(.ember)
-                                Text(pr.unit)
-                                    .font(FDS.TypeScale.Dynamic.caption)
-                                    .foregroundColor(.textSecondary)
-                            }
-                        }
-                        .padding(.horizontal, FDS.Spacing.lg)
-                        .padding(.vertical, FDS.Spacing.lg)
-                        .forgeGlassCard(cornerRadius: FDS.Radius.md, accent: .ember)
-                        .opacity(appear ? 1 : 0)
-                        .offset(x: appear ? 0 : -12)
-                        .animation(.easeOut(duration: 0.35).delay(Double(idx) * 0.07), value: appear)
-                        .accessibilityElement(children: .combine)
-                        .accessibilityLabel("\(pr.exercise), \(pr.formattedValue) \(pr.unit), set \(ForgeDates.displayDate(pr.date))")
+                VStack(alignment: .leading, spacing: ForgeLayout.rowGap) {
+                    ForEach(visibleRecords) { pr in
+                        recordRow(pr)
+                    }
+                }
+
+                if store.personalRecords.count > Self.collapsedCount {
+                    ForgeTextLink(
+                        title: showAllPRs ? "Show Less" : "View All (\(store.personalRecords.count))",
+                        accent: .amber,
+                        expanded: showAllPRs
+                    ) {
+                        toggleShowAll()
                     }
                 }
             }
         }
-        .onAppear { withAnimation { appear = true } }
+        .forgeContentCard(accent: .amber)
+    }
+
+    @ViewBuilder
+    private var header: some View {
+        if store.personalRecords.isEmpty {
+            ForgeCardHeader("Personal Records", tint: .amber)
+        } else {
+            ForgeCardHeader("Personal Records", meta: "\(store.personalRecords.count) total", tint: .amber)
+        }
+    }
+
+    private func recordRow(_ pr: PersonalRecord) -> some View {
+        ForgeAdaptiveStack(spacing: FDS.Spacing.sm, alignment: .firstTextBaseline) {
+            VStack(alignment: .leading, spacing: ForgeLayout.labelValueGap) {
+                Text(pr.exercise)
+                    .font(HomeType.status)
+                    .foregroundStyle(Color.textPrimary)
+                    .lineLimit(2)
+                Text(ForgeDates.displayDate(pr.date))
+                    .font(HomeType.micro)
+                    .foregroundStyle(Color.textTertiary)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+
+            HStack(alignment: .firstTextBaseline, spacing: 3) {
+                Text(pr.formattedValue)
+                    .font(HomeType.metric)
+                    .foregroundStyle(Color.textPrimary)
+                    .forgeSingleLine()
+                    .contentTransition(.numericText())
+                Text(pr.unit)
+                    .font(HomeType.label)
+                    .foregroundStyle(Color.amber)
+                    .lineLimit(1)
+            }
+            .layoutPriority(1)
+        }
+        .padding(.vertical, ForgeLayout.rowVerticalPadding)
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("\(pr.exercise), \(pr.formattedValue) \(pr.unit), set \(ForgeDates.displayDate(pr.date))")
     }
 }
 
@@ -400,30 +488,37 @@ struct BehavioralInsightView: View {
 
     var body: some View {
         Button {
+            FDS.haptic(.press)
             store.openChat(with: "Review my last 30 days. One win, one risk, one recommendation.", voice: false)
         } label: {
-            HStack(alignment: .top, spacing: FDS.Spacing.md) {
-                Image(systemName: "chart.line.uptrend.xyaxis")
-                    .font(.system(size: 18))
-                    .foregroundColor(.ember)
-                    .frame(width: 36, height: 36)
+            HStack(alignment: .top, spacing: ForgeLayout.rowGap) {
+                ForgeIconWell(systemImage: "chart.line.uptrend.xyaxis", tint: .aurora)
 
-                VStack(alignment: .leading, spacing: FDS.Spacing.sm) {
+                VStack(alignment: .leading, spacing: ForgeLayout.pairGap) {
                     Text(insightTitle)
-                        .font(FDS.TypeScale.Dynamic.caption)
-                        .foregroundColor(.textPrimary)
+                        .font(HomeType.status)
+                        .foregroundStyle(Color.textPrimary)
+                        .lineLimit(2)
                     Text(insightBody)
-                        .font(.system(size: 13))
-                        .foregroundColor(.textSecondary)
-                        .lineSpacing(3)
+                        .font(HomeType.body)
+                        .foregroundStyle(Color.textSecondary)
                         .multilineTextAlignment(.leading)
+                        .forgeWrapping()
                 }
-                Spacer(minLength: 0)
+                .frame(maxWidth: .infinity, alignment: .leading)
+
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 11, weight: .semibold))
+                    .foregroundStyle(Color.textMuted)
+                    .frame(height: ForgeLayout.iconWell)
+                    .accessibilityHidden(true)
             }
-            .padding(FDS.Spacing.lg)
-            .forgeGlassCard(cornerRadius: FDS.Radius.lg, accent: Color.steel)
+            .forgeContentCard(tint: .aurora)
+            .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
+        .accessibilityLabel("\(insightTitle). \(insightBody)")
+        .accessibilityHint("Opens ARIA")
         .task { store.shareProgressInsightIfNeeded() }
     }
 }
