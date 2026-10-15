@@ -40,6 +40,7 @@ struct StatsMosaicCard: View {
     @EnvironmentObject var store: AppStore
     @ObservedObject private var health = HealthKitManager.shared
     @State private var showManual = false
+    @Environment(\.dynamicTypeSize) private var typeSize
 
     private var mosaic: StatsMosaic.Snapshot {
         let manual = StatsManualLog.load()
@@ -113,107 +114,129 @@ struct StatsMosaicCard: View {
         }.count
     }
 
+
     var body: some View {
         let snap = mosaic
-        VStack(alignment: .leading, spacing: FDS.Spacing.lg) {
-            HStack(alignment: .firstTextBaseline) {
-                VStack(alignment: .leading, spacing: FDS.Spacing.xs) {
-                    Text("TODAY’S MOSAIC")
-                        .font(FDS.TypeScale.Dynamic.micro)
-                        .foregroundColor(HudChrome.plate)
-                        .tracking(1.6)
-                    Text(
-                        snap.closing
-                            ? "\(snap.dayPercent)% · one track left"
-                            : "\(snap.dayPercent)% · \(snap.doneCount)/5 tracks"
-                    )
-                        .font(.system(size: 20, weight: .semibold, design: .rounded))
-                        .foregroundColor(.textPrimary)
-                }
-                Spacer()
-                Button("Log") { showManual = true }
-                    .font(.system(size: 13, weight: .semibold))
-                    .foregroundColor(.ember)
-                    .accessibilityLabel("Log today’s stats manually")
-            }
-
-            LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 10) {
-                ForEach(snap.tiles) { tile in
-                    Button {
-                        store.openChat(with: tile.ariaPrompt, voice: false)
-                    } label: {
-                        VStack(alignment: .leading, spacing: FDS.Spacing.sm) {
-                            HStack {
-                                Text(tile.track.title.uppercased())
-                                    .font(FDS.TypeScale.Dynamic.micro)
-                                    .foregroundColor(HudChrome.plate)
-                                    .tracking(1.1)
-                                Spacer()
-                                Circle()
-                                    .fill(
-                                        tile.almostThere
-                                            ? HudChrome.plate
-                                            : (tile.source == .empty ? HudChrome.miss.opacity(0.35) : Color.ember)
-                                    )
-                                    .frame(width: 6, height: 6)
-                            }
-                            Text(tile.headline)
-                                .font(FDS.TypeScale.Dynamic.metric)
-                                .foregroundColor(.textPrimary)
-                            Text(tile.almostThere ? "Almost there · \(tile.detail)" : tile.detail)
-                                .font(FDS.TypeScale.Dynamic.micro)
-                                .foregroundColor(tile.almostThere ? HudChrome.plate : .textTertiary)
-                            ProgressView(value: tile.progress)
-                                .tint(tile.almostThere ? HudChrome.plate : (tile.source == .empty ? HudChrome.miss : HudChrome.plate))
-                        }
-                        .padding(FDS.Spacing.md)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .background(Color.surfaceElevated.opacity(0.8))
-                        .clipShape(RoundedRectangle(cornerRadius: FDS.Radius.md, style: .continuous))
-                        .overlay(
-                            RoundedRectangle(cornerRadius: FDS.Radius.md)
-                                .stroke(
-                                    (tile.almostThere ? HudChrome.plate : HudChrome.miss)
-                                        .opacity(tile.source == .empty ? 0.16 : (tile.almostThere ? 0.50 : 0.32)),
-                                    lineWidth: 1
-                                )
-                        )
-                    }
-                    .buttonStyle(.plain)
-                    .accessibilityLabel("\(tile.track.title), \(tile.headline), \(tile.detail)")
-                    .accessibilityHint("Ask ARIA about this track")
-                }
-            }
-
-            Button {
+        VStack(alignment: .leading, spacing: ForgeLayout.heroGap) {
+            mosaicHeader(snap)
+            mosaicTiles(snap.tiles)
+            ForgeSecondaryButton(title: "Ask ARIA about this picture", accent: .aurora) {
                 store.openChat(with: snap.mosaicLine, voice: false)
-            } label: {
-                Text("Ask ARIA about this picture")
-                    .font(FDS.TypeScale.Dynamic.body.weight(.semibold))
-                    .foregroundColor(.textPrimary)
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, FDS.Spacing.md)
-                    .background(Color.ember.opacity(0.16))
-                    .clipShape(RoundedRectangle(cornerRadius: FDS.Radius.md, style: .continuous))
-                    .overlay(
-                        RoundedRectangle(cornerRadius: FDS.Radius.md)
-                            .stroke(HudChrome.plate.opacity(0.28), lineWidth: 1)
-                    )
             }
-            .buttonStyle(.plain)
             .accessibilityLabel("Ask ARIA about today’s mosaic")
         }
-        .padding(FDS.Spacing.lg)
-        .background(Color.surface.opacity(0.92))
-        .clipShape(RoundedRectangle(cornerRadius: FDS.Radius.lg, style: .continuous))
-        .overlay(
-            RoundedRectangle(cornerRadius: FDS.Radius.lg)
-                .stroke(HudChrome.plate.opacity(0.22), lineWidth: 1)
-        )
+        .hudPlate(energy: HudChrome.plate)
+        .accessibilityElement(children: .contain)
         .sheet(isPresented: $showManual) {
             StatsManualEntrySheet()
                 .environmentObject(store)
         }
+    }
+
+    private func mosaicHeader(_ snap: StatsMosaic.Snapshot) -> some View {
+        let headline = snap.closing
+            ? "\(snap.dayPercent)% · one track left"
+            : "\(snap.dayPercent)% · \(snap.doneCount)/5 tracks"
+        return ForgeAdaptiveStack(spacing: FDS.Spacing.sm, alignment: .firstTextBaseline) {
+            VStack(alignment: .leading, spacing: ForgeLayout.pairGap) {
+                Text("TODAY’S MOSAIC")
+                    .forgeSectionLabel(tint: HudChrome.plate)
+                    .accessibilityAddTraits(.isHeader)
+                Text(headline)
+                    .font(HomeType.sessionTitle)
+                    .foregroundStyle(Color.textPrimary)
+                    .lineLimit(2)
+                    .contentTransition(.numericText())
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            ForgeTextLink(title: "Log", accent: .ember) {
+                showManual = true
+            }
+            .accessibilityLabel("Log today’s stats manually")
+        }
+    }
+
+    @ViewBuilder
+    private func mosaicTiles(_ tiles: [StatsMosaic.Tile]) -> some View {
+        if typeSize.isAccessibilitySize {
+            VStack(spacing: ForgeLayout.tileGap) {
+                ForEach(tiles) { tile in
+                    mosaicTile(tile)
+                }
+            }
+        } else {
+            Grid(horizontalSpacing: ForgeLayout.tileGap, verticalSpacing: ForgeLayout.tileGap) {
+                ForEach(Array(stride(from: 0, to: tiles.count, by: 2)), id: \.self) { start in
+                    GridRow {
+                        mosaicTile(tiles[start])
+                            .gridCellColumns(start + 1 < tiles.count ? 1 : 2)
+                        if start + 1 < tiles.count {
+                            mosaicTile(tiles[start + 1])
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    private func tileDotColor(_ tile: StatsMosaic.Tile) -> Color {
+        if tile.almostThere { return HudChrome.plate }
+        return tile.source == .empty ? HudChrome.miss.opacity(0.35) : Color.ember
+    }
+
+    private func tileBarTint(_ tile: StatsMosaic.Tile) -> Color {
+        if !tile.almostThere && tile.source == .empty { return HudChrome.miss }
+        return HudChrome.plate
+    }
+
+    /// Normal tiles keep the well's own white edge; only almost-there and
+    /// empty tiles add a colored one.
+    private func tileEdge(_ tile: StatsMosaic.Tile) -> Color {
+        if tile.almostThere { return HudChrome.plate.opacity(0.50) }
+        if tile.source == .empty { return HudChrome.miss.opacity(0.16) }
+        return Color.clear
+    }
+
+    private func mosaicTile(_ tile: StatsMosaic.Tile) -> some View {
+        Button {
+            FDS.haptic(.press)
+            store.openChat(with: tile.ariaPrompt, voice: false)
+        } label: {
+            VStack(alignment: .leading, spacing: ForgeLayout.pairGap) {
+                HStack(alignment: .firstTextBaseline, spacing: FDS.Spacing.xs) {
+                    Text(tile.track.title)
+                        .font(HomeType.micro)
+                        .foregroundStyle(Color.textTertiary)
+                        .lineLimit(1)
+                    Spacer(minLength: 0)
+                    Circle()
+                        .fill(tileDotColor(tile))
+                        .frame(width: 6, height: 6)
+                        .accessibilityHidden(true)
+                }
+                Text(tile.headline)
+                    .font(HomeType.metric)
+                    .foregroundStyle(Color.textPrimary)
+                    .forgeSingleLine()
+                    .contentTransition(.numericText())
+                Text(tile.almostThere ? "Almost there · \(tile.detail)" : tile.detail)
+                    .font(HomeType.micro)
+                    .foregroundStyle(tile.almostThere ? HudChrome.plate : Color.textTertiary)
+                    .lineLimit(2)
+                Spacer(minLength: FDS.Spacing.xs)
+                ForgeProgressBar(fraction: tile.progress, tint: tileBarTint(tile), height: 5)
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+            .forgeWell()
+            .overlay(
+                RoundedRectangle(cornerRadius: ForgeLayout.innerRadius, style: .continuous)
+                    .stroke(tileEdge(tile), lineWidth: ForgeUX.stroke)
+            )
+        }
+        .buttonStyle(ForgePressStyle())
+        .accessibilityLabel("\(tile.track.title), \(tile.headline), \(tile.detail)")
+        .accessibilityValue("\(Int((tile.progress * 100).rounded())) percent")
+        .accessibilityHint("Ask ARIA about this track")
     }
 }
 
@@ -226,8 +249,9 @@ struct StatsManualEntrySheet: View {
             Form {
                 Section {
                     Text("Apple Health is the ingest path. Log here only when the day is missing — lifestyle numbers, not a clinical chart.")
-                        .font(.system(size: 13))
-                        .foregroundColor(.textSecondary)
+                        .font(HomeType.body)
+                        .foregroundStyle(Color.textSecondary)
+                        .forgeWrapping()
                 }
                 Section("Sleep (hours)") {
                     TextField("7.5", value: $entry.sleepHours, format: .number)
@@ -250,6 +274,8 @@ struct StatsManualEntrySheet: View {
                     }
                 }
             }
+            .scrollContentBackground(.hidden)
+            .background(Color.background.ignoresSafeArea())
             .navigationTitle("Log today")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -261,19 +287,22 @@ struct StatsManualEntrySheet: View {
                         var next = entry
                         next.dayKey = StatsManualLog.dayKey()
                         StatsManualLog.save(next)
+                        FDS.haptic(.success)
                         dismiss()
                     }
                 }
             }
         }
+        .presentationDetents([.medium, .large])
+        .presentationDragIndicator(.visible)
         .preferredColorScheme(.dark)
     }
 }
 
 struct QuickStatsOverviewView: View {
     @EnvironmentObject var store: AppStore
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     let timeRange: ProgressPageView.TimeRange
-    @State private var appear = false
 
     private var filteredWorkouts: [WorkoutHistory] {
         let days: Int
@@ -311,31 +340,23 @@ struct QuickStatsOverviewView: View {
     }
 
     var body: some View {
-        VStack(spacing: 0) {
-            HStack(spacing: FDS.Spacing.sm) {
-                Image(systemName: "chart.bar.fill")
-                    .font(.system(size: 12))
-                    .foregroundColor(.ember)
-                Text("OVERVIEW")
-                    .font(FDS.TypeScale.Dynamic.micro)
-                    .foregroundColor(.textTertiary)
-                    .tracking(2)
-                Spacer()
-            }
-            .padding(.bottom, FDS.Spacing.lg)
+        VStack(alignment: .leading, spacing: ForgeLayout.blockGap) {
+            ForgeCardHeader("Overview", meta: timeRange.rawValue, tint: .ember)
 
-            HStack(spacing: FDS.Spacing.md) {
-                QuickStatCard(icon: "figure.strengthtraining.traditional", value: workoutCountText, label: "Workouts", trend: nil, trendUp: true, appeared: appear, delay: 0.1)
-                QuickStatCard(icon: "flame.fill", value: caloriesText, label: "Calories", trend: nil, trendUp: true, appeared: appear, delay: 0.15)
-                QuickStatCard(icon: "timer", value: avgDurationText, label: "Avg Min", trend: nil, trendUp: true, appeared: appear, delay: 0.2)
+            ForgeStatGrid(columns: 3) {
+                QuickStatCard(icon: "figure.strengthtraining.traditional", value: workoutCountText, label: "Workouts", trend: nil, trendUp: true)
+                QuickStatCard(icon: "flame.fill", value: caloriesText, label: "Calories", trend: nil, trendUp: true)
+                QuickStatCard(icon: "timer", value: avgDurationText, label: "Avg Min", trend: nil, trendUp: true)
             }
         }
-        .onAppear {
-            withAnimation { appear = true }
-        }
+        .forgeContentCard(tint: .ember)
+        .animation(reduceMotion ? nil : FDS.Spring.standard, value: timeRange)
     }
 }
 
+/// A stat cell in the Home well. Callers place the cells in one card via
+/// `ForgeStatGrid`. `appeared` and `delay` are kept for source compatibility;
+/// the entrance cascade they drove was retired.
 struct QuickStatCard: View {
     let icon: String
     let value: String
@@ -345,60 +366,65 @@ struct QuickStatCard: View {
     var appeared: Bool = false
     var delay: Double = 0
 
+    private var trendTint: Color {
+        trendUp ? Color.vitality : HudChrome.miss
+    }
+
     var body: some View {
-        VStack(alignment: .leading, spacing: FDS.Spacing.md) {
-            HStack {
+        VStack(alignment: .leading, spacing: FDS.Spacing.sm) {
+            HStack(alignment: .top, spacing: FDS.Spacing.xs) {
                 Image(systemName: icon)
-                    .font(.system(size: 16))
-                    .foregroundColor(.ember)
-                Spacer()
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundStyle(Color.ember)
+                    .accessibilityHidden(true)
+                Spacer(minLength: 0)
                 if let trend, !trend.isEmpty {
-                    HStack(spacing: 3) {
-                        Image(systemName: trendUp ? "arrow.up.right" : "arrow.down.right")
-                            .font(.system(size: 9, weight: .bold))
-                        Text(trend)
-                            .font(FDS.TypeScale.Dynamic.micro)
-                    }
-                    .foregroundColor(trendUp ? .success : .ember)
-                    .padding(.horizontal, FDS.Spacing.sm).padding(.vertical, FDS.Spacing.xs)
-                    .background((trendUp ? Color.success : Color.ember).opacity(0.12))
-                    .cornerRadius(FDS.Radius.xs)
+                    trendChip(trend)
                 }
             }
 
-            VStack(alignment: .leading, spacing: 2) {
+            VStack(alignment: .leading, spacing: ForgeLayout.labelValueGap) {
                 Text(value)
-                    .font(FDS.TypeScale.Dynamic.metric)
-                    .foregroundColor(.textPrimary)
-
+                    .font(HomeType.metric)
+                    .foregroundStyle(Color.textPrimary)
+                    .forgeSingleLine()
+                    .contentTransition(.numericText())
                 Text(label)
-                    .font(FDS.TypeScale.Dynamic.micro)
-                    .foregroundColor(.textTertiary)
+                    .font(HomeType.micro)
+                    .foregroundStyle(Color.textTertiary)
+                    .lineLimit(2)
             }
         }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(FDS.Spacing.lg)
-        .background(
-            ZStack {
-                Color.surface
-                LinearGradient(
-                    colors: [Color.ember.opacity(0.02), .clear],
-                    startPoint: .topLeading,
-                    endPoint: .bottomTrailing
-                )
-            }
-        )
-        .cornerRadius(FDS.Radius.md)
-        .overlay(RoundedRectangle(cornerRadius: FDS.Radius.md).stroke(Color.borderColor.opacity(0.5), lineWidth: 1))
-        .scaleEffect(appeared ? 1 : 0.9)
-        .opacity(appeared ? 1 : 0)
-        .animation(.spring(response: 0.5, dampingFraction: 0.7).delay(delay), value: appeared)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+        .forgeWell()
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel(spokenLabel)
+    }
+
+    private var spokenLabel: String {
+        guard let trend, !trend.isEmpty else { return "\(label) \(value)" }
+        return "\(label) \(value), \(trend)"
+    }
+
+    private func trendChip(_ trend: String) -> some View {
+        HStack(spacing: 3) {
+            Image(systemName: trendUp ? "arrow.up.right" : "arrow.down.right")
+                .font(.system(size: 9, weight: .bold))
+                .accessibilityHidden(true)
+            Text(trend)
+                .font(HomeType.micro)
+                .lineLimit(1)
+        }
+        .foregroundStyle(trendTint)
+        .padding(.horizontal, FDS.Spacing.sm)
+        .padding(.vertical, FDS.Spacing.xs)
+        .background(Capsule().fill(trendTint.opacity(0.12)))
+        .overlay(Capsule().stroke(trendTint.opacity(0.28), lineWidth: ForgeUX.hairline))
     }
 }
 
 struct StreaksAndMilestonesView: View {
     @EnvironmentObject var store: AppStore
-    @State private var appear = false
 
     // Longest run of consecutive workout days in the loaded history.
     private var longestStreak: Int {
@@ -442,6 +468,58 @@ struct StreaksAndMilestonesView: View {
     }
 
     var body: some View {
+        VStack(alignment: .leading, spacing: ForgeLayout.blockGap) {
+            ForgeCardHeader("Your training", tint: .ember)
+
+            streakRow
+
+            Divider().background(Color.white.opacity(0.08))
+
+            milestoneRows
+        }
+        .forgeContentCard(tint: .ember)
+    }
+
+    private var streakCount: some View {
+        HStack(alignment: .firstTextBaseline, spacing: 3) {
+            Text("\(store.currentStreak)")
+                .font(HomeType.metric)
+                .foregroundStyle(Color.textPrimary)
+                .forgeSingleLine()
+                .contentTransition(.numericText())
+            Text(store.currentStreak == 1 ? "day" : "days")
+                .font(HomeType.micro)
+                .foregroundStyle(Color.textTertiary)
+                .lineLimit(1)
+        }
+        .layoutPriority(1)
+    }
+
+    private var streakRow: some View {
+        ForgeAdaptiveStack(spacing: ForgeLayout.rowGap, alignment: .top) {
+            HStack(alignment: .top, spacing: ForgeLayout.rowGap) {
+                ForgeIconWell(systemImage: "flame.fill", tint: .ember)
+                VStack(alignment: .leading, spacing: ForgeLayout.pairGap) {
+                    Text("Days in a row")
+                        .font(HomeType.status)
+                        .foregroundStyle(Color.textPrimary)
+                        .lineLimit(2)
+                    Text(streakMessage)
+                        .font(HomeType.body)
+                        .foregroundStyle(Color.textSecondary)
+                        .forgeWrapping()
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+            }
+            streakCount
+        }
+        .padding(.vertical, ForgeLayout.rowVerticalPadding)
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("Days trained in a row: \(store.currentStreak). \(streakMessage)")
+    }
+
+    // Milestones — next goal scales with actual progress
+    private var milestoneRows: some View {
         let workoutCount = store.workoutHistory.count
         let workoutTarget = nextTarget(above: workoutCount, ladder: [10, 25, 50, 100, 250, 500])
         let totalVolume = store.workoutHistory.reduce(0) { $0 + $1.volume }
@@ -450,137 +528,84 @@ struct StreaksAndMilestonesView: View {
         let prTarget = nextTarget(above: prCount, ladder: [3, 5, 10, 25, 50])
         let streakTarget = nextTarget(above: longestStreak, ladder: [7, 14, 30, 60, 90])
 
-        VStack(alignment: .leading, spacing: FDS.Spacing.md) {
-            HStack(spacing: FDS.Spacing.sm) {
-                Image(systemName: "checkmark.circle.fill")
-                    .font(.system(size: 18))
-                    .foregroundColor(.ember)
-                Text("Your training")
-                    .font(FDS.TypeScale.Dynamic.headline)
-                    .foregroundColor(.textPrimary)
-            }
-
-            VStack(spacing: FDS.Spacing.md) {
-                // Current streak
-                HStack(spacing: FDS.Spacing.md) {
-                    ZStack {
-                        Circle()
-                            .fill(LinearGradient(colors: [.warning, .ember], startPoint: .topLeading, endPoint: .bottomTrailing))
-                            .frame(width: 50, height: 50)
-                        VStack(spacing: 0) {
-                            Text("\(store.currentStreak)")
-                                .font(FDS.TypeScale.Dynamic.headline)
-                                .foregroundColor(.white)
-                            Text(store.currentStreak == 1 ? "day" : "days")
-                                .font(.system(size: 8))
-                                .foregroundColor(.white.opacity(0.9))
-                        }
-                    }
-
-                    VStack(alignment: .leading, spacing: FDS.Spacing.xs) {
-                        Text("Days in a row")
-                            .font(FDS.TypeScale.Dynamic.body.weight(.semibold))
-                            .foregroundColor(.textPrimary)
-                        Text(streakMessage)
-                            .font(.system(size: 12))
-                            .foregroundColor(.textSecondary)
-                            .lineLimit(2)
-                    }
-                    Spacer()
-                }
-                .padding(FDS.Spacing.lg)
-                .forgeGlassCard(cornerRadius: FDS.Radius.md, accent: .warning)
-                .accessibilityElement(children: .combine)
-                .accessibilityLabel("Days trained in a row: \(store.currentStreak). \(streakMessage)")
-
-                // Milestones grid — next goal scales with actual progress
-                LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 12) {
-                    MilestoneCard(
-                        icon: "trophy.fill",
-                        title: "\(workoutTarget) Workouts",
-                        subtitle: "\(workoutCount)/\(workoutTarget)",
-                        progress: min(1, Double(workoutCount) / Double(workoutTarget)),
-                        color: .ember
-                    )
-                    MilestoneCard(
-                        icon: "scalemass.fill",
-                        title: "\(compact(volumeTarget)) lbs Lifted",
-                        subtitle: "\(compact(totalVolume))/\(compact(volumeTarget))",
-                        progress: min(1, Double(totalVolume) / Double(volumeTarget)),
-                        color: .warning
-                    )
-                    MilestoneCard(
-                        icon: "figure.strengthtraining.traditional",
-                        title: "\(prTarget) Personal Records",
-                        subtitle: "\(prCount)/\(prTarget)",
-                        progress: min(1, Double(prCount) / Double(prTarget)),
-                        color: .steel
-                    )
-                    MilestoneCard(
-                        icon: "chart.line.uptrend.xyaxis",
-                        title: "\(streakTarget) days in a row",
-                        subtitle: "Best: \(longestStreak)",
-                        progress: min(1, Double(longestStreak) / Double(streakTarget)),
-                        color: .success
-                    )
-                }
-            }
+        return VStack(alignment: .leading, spacing: ForgeLayout.rowGap) {
+            MilestoneCard(
+                icon: "trophy.fill",
+                title: "\(workoutTarget) Workouts",
+                subtitle: "\(workoutCount)/\(workoutTarget)",
+                progress: min(1, Double(workoutCount) / Double(workoutTarget)),
+                color: .ember
+            )
+            MilestoneCard(
+                icon: "scalemass.fill",
+                title: "\(compact(volumeTarget)) lbs Lifted",
+                subtitle: "\(compact(totalVolume))/\(compact(volumeTarget))",
+                progress: min(1, Double(totalVolume) / Double(volumeTarget)),
+                color: .ember
+            )
+            MilestoneCard(
+                icon: "figure.strengthtraining.traditional",
+                title: "\(prTarget) Personal Records",
+                subtitle: "\(prCount)/\(prTarget)",
+                progress: min(1, Double(prCount) / Double(prTarget)),
+                color: .amber
+            )
+            MilestoneCard(
+                icon: "chart.line.uptrend.xyaxis",
+                title: "\(streakTarget) days in a row",
+                subtitle: "Best: \(longestStreak)",
+                progress: min(1, Double(longestStreak) / Double(streakTarget)),
+                color: .ember
+            )
         }
-        .opacity(appear ? 1 : 0)
-        .offset(y: appear ? 0 : 15)
-        .onAppear { withAnimation(.easeOut(duration: 0.5).delay(0.2)) { appear = true } }
     }
 }
 
+/// One milestone as a compact row: label, count, progress bar. It sits inside
+/// the shared "Your training" card, so it carries no chrome of its own.
 struct MilestoneCard: View {
     let icon: String
     let title: String
     let subtitle: String
     let progress: Double
     let color: Color
-    @State private var animatedProgress: CGFloat = 0
+    @State private var animatedProgress: Double = 0
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
-        VStack(alignment: .leading, spacing: FDS.Spacing.md) {
-            HStack {
-                Image(systemName: icon)
-                    .font(.system(size: 14))
-                    .foregroundColor(color)
-                Spacer()
-                Text("\(Int(progress * 100))%")
-                    .font(FDS.TypeScale.Dynamic.micro)
-                    .foregroundColor(color)
-            }
-
-            Text(title)
-                .font(FDS.TypeScale.Dynamic.caption)
-                .foregroundColor(.textPrimary)
-
-            Text(subtitle)
-                .font(.system(size: 11))
-                .foregroundColor(.textSecondary)
-
-            GeometryReader { geo in
-                ZStack(alignment: .leading) {
-                    Capsule()
-                        .fill(Color.borderColor)
-                        .frame(height: 5)
-                    Capsule()
-                        .fill(color)
-                        .frame(width: geo.size.width * animatedProgress, height: 5)
+        VStack(alignment: .leading, spacing: ForgeLayout.pairGap) {
+            ForgeAdaptiveStack(spacing: FDS.Spacing.sm, alignment: .firstTextBaseline) {
+                HStack(alignment: .firstTextBaseline, spacing: FDS.Spacing.sm) {
+                    Image(systemName: icon)
+                        .font(.system(size: 14, weight: .semibold))
+                        .foregroundStyle(color)
+                        .accessibilityHidden(true)
+                    Text(title)
+                        .font(HomeType.status)
+                        .foregroundStyle(Color.textPrimary)
+                        .lineLimit(2)
                 }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                Text(subtitle)
+                    .font(HomeType.label)
+                    .foregroundStyle(Color.textSecondary)
+                    .monospacedDigit()
+                    .forgeSingleLine()
+                    .layoutPriority(1)
             }
-            .frame(height: 5)
+            ForgeProgressBar(fraction: animatedProgress, tint: color, height: 5)
+                .padding(.vertical, FDS.Spacing.xs)
         }
-        .padding(FDS.Spacing.md)
-        .forgeGlassCard(cornerRadius: FDS.Radius.md, accent: Color.steel)
+        .padding(.vertical, ForgeLayout.rowVerticalPadding)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("\(title), \(subtitle)")
+        .accessibilityValue("\(Int((min(1, max(0, progress)) * 100).rounded())) percent")
         .onAppear {
             if reduceMotion {
-                animatedProgress = CGFloat(progress)
+                animatedProgress = progress
             } else {
-                withAnimation(.easeOut(duration: 1.0).delay(0.3)) {
-                    animatedProgress = CGFloat(progress)
+                withAnimation(FDS.Spring.sweep.delay(0.12)) {
+                    animatedProgress = progress
                 }
             }
         }
@@ -589,6 +614,7 @@ struct MilestoneCard: View {
 
 struct ShareProgressView: View {
     @Environment(\.dismiss) var dismiss
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @EnvironmentObject var store: AppStore
     @State private var copied = false
 
@@ -609,64 +635,21 @@ struct ShareProgressView: View {
 
     var body: some View {
         NavigationStack {
-            VStack(spacing: FDS.Spacing.xl) {
-                VStack(spacing: FDS.Spacing.md) {
-                    Image(systemName: "square.and.arrow.up.circle.fill")
-                        .font(.system(size: 60))
-                        .foregroundColor(.ember)
+            ScrollView(showsIndicators: false) {
+                VStack(alignment: .leading, spacing: ForgeLayout.sectionGap) {
+                    shareIntro
 
-                    Text("Share Your Progress")
-                        .font(FDS.TypeScale.Dynamic.title)
-                        .foregroundColor(.textPrimary)
+                    // Preview of what gets shared
+                    Text(summaryText)
+                        .font(HomeType.body)
+                        .foregroundStyle(Color.textSecondary)
+                        .forgeWrapping()
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .forgeContentCard(tint: .ember)
 
-                    Text("Show off your achievements and inspire others!")
-                        .font(.system(size: 14))
-                        .foregroundColor(.textSecondary)
-                        .multilineTextAlignment(.center)
+                    shareOptions
                 }
-                .padding(.top, 40)
-
-                // Preview of what gets shared
-                Text(summaryText)
-                    .font(.system(size: 14))
-                    .foregroundColor(.textSecondary)
-                    .lineSpacing(5)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .padding(FDS.Spacing.lg)
-                    .forgeGlassCard(cornerRadius: FDS.Radius.md, accent: Color.steel)
-                    .padding(.horizontal)
-
-                VStack(spacing: FDS.Spacing.md) {
-                    ShareLink(item: summaryText) {
-                        ShareOptionRow(icon: "square.and.arrow.up", title: "Share", subtitle: "Send your stats anywhere")
-                    }
-                    .buttonStyle(.plain)
-
-                    Button {
-                        UIPasteboard.general.string = summaryText
-                        withAnimation { copied = true }
-                        UINotificationFeedbackGenerator().notificationOccurred(.success)
-                    } label: {
-                        ShareOptionRow(
-                            icon: copied ? "checkmark" : "doc.on.doc",
-                            title: copied ? "Copied!" : "Copy to Clipboard",
-                            subtitle: "Paste your stats anywhere"
-                        )
-                    }
-                    .buttonStyle(.plain)
-
-                    ShareLink(item: store.exportUserDataJSON()) {
-                        ShareOptionRow(
-                            icon: "doc.text.fill",
-                            title: "Export JSON",
-                            subtitle: "Workouts, PRs, and today's metrics"
-                        )
-                    }
-                    .buttonStyle(.plain)
-                }
-                .padding(.horizontal)
-
-                Spacer()
+                .forgeScreenInsets(top: ForgeLayout.groupBreak)
             }
             .background(Color.background.ignoresSafeArea())
             .navigationBarTitleDisplayMode(.inline)
@@ -677,41 +660,82 @@ struct ShareProgressView: View {
                 }
             }
         }
+        .presentationDragIndicator(.visible)
+    }
+
+    private var shareIntro: some View {
+        VStack(spacing: ForgeLayout.blockGap) {
+            ForgeIconWell(systemImage: "square.and.arrow.up", tint: .ember, diameter: 56)
+
+            VStack(spacing: ForgeLayout.pairGap) {
+                Text("Share Your Progress")
+                    .font(ForgeType.title)
+                    .foregroundStyle(Color.textPrimary)
+                    .multilineTextAlignment(.center)
+                    .forgeWrapping()
+                    .accessibilityAddTraits(.isHeader)
+
+                Text("Show off your achievements and inspire others!")
+                    .font(HomeType.body)
+                    .foregroundStyle(Color.textSecondary)
+                    .multilineTextAlignment(.center)
+                    .forgeWrapping()
+            }
+        }
+        .frame(maxWidth: .infinity)
+    }
+
+    private var shareOptions: some View {
+        VStack(alignment: .leading, spacing: ForgeLayout.rowGap) {
+            ShareLink(item: summaryText) {
+                ShareOptionRow(icon: "square.and.arrow.up", title: "Share", subtitle: "Send your stats anywhere")
+            }
+            .buttonStyle(.plain)
+
+            Button {
+                UIPasteboard.general.string = summaryText
+                if reduceMotion {
+                    copied = true
+                } else {
+                    withAnimation(FDS.Spring.standard) { copied = true }
+                }
+                FDS.haptic(.success)
+            } label: {
+                ShareOptionRow(
+                    icon: copied ? "checkmark" : "doc.on.doc",
+                    title: copied ? "Copied!" : "Copy to Clipboard",
+                    subtitle: "Paste your stats anywhere"
+                )
+            }
+            .buttonStyle(.plain)
+
+            ShareLink(item: store.exportUserDataJSON()) {
+                ShareOptionRow(
+                    icon: "doc.text.fill",
+                    title: "Export JSON",
+                    subtitle: "Workouts, PRs, and today's metrics"
+                )
+            }
+            .buttonStyle(.plain)
+        }
+        .forgeContentCard()
     }
 }
 
+/// Agenda-row anatomy for the share options. The rows live together in one
+/// card, so a row carries no chrome of its own.
 struct ShareOptionRow: View {
     let icon: String
     let title: String
     let subtitle: String
 
     var body: some View {
-        HStack(spacing: FDS.Spacing.lg) {
-            ZStack {
-                Circle()
-                    .fill(Color.ember.opacity(0.15))
-                    .frame(width: 44, height: 44)
-                Image(systemName: icon)
-                    .font(.system(size: 18))
-                    .foregroundColor(.ember)
-            }
-
-            VStack(alignment: .leading, spacing: 3) {
-                Text(title)
-                    .font(FDS.TypeScale.Dynamic.body.weight(.semibold))
-                    .foregroundColor(.textPrimary)
-                Text(subtitle)
-                    .font(.system(size: 12))
-                    .foregroundColor(.textSecondary)
-            }
-
-            Spacer()
-
-            Image(systemName: "chevron.right")
-                .font(.system(size: 14))
-                .foregroundColor(.textTertiary)
-        }
-        .padding(FDS.Spacing.lg)
-        .forgeGlassCard(cornerRadius: FDS.Radius.md, accent: Color.steel)
+        ForgeListRow(
+            icon: icon,
+            iconColor: .ember,
+            title: title,
+            subtitle: subtitle,
+            showChevron: true
+        )
     }
 }

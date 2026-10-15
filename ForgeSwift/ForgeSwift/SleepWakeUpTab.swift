@@ -115,6 +115,8 @@ struct SleepWakeScreen: View {
     @ObservedObject private var alarms = ForgeAlarmStore.shared
     @State private var doneRoutine: Set<UUID> = []
     @State private var tick = Date()
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @ScaledMetric(relativeTo: .largeTitle) private var clockSize: CGFloat = 48
     private let player = SleepWakePlayer.shared
 
     private var alarm: ForgeAlarm { wake.current ?? ForgeAlarm() }
@@ -127,123 +129,25 @@ struct SleepWakeScreen: View {
         tick.formatted(date: .omitted, time: .shortened)
     }
 
+    private var morningPrompt: String {
+        SleepWakeCoach.morningPrompt(
+            sleepScore: SleepData.lastNight(in: store.sleepData)?.score,
+            lastNightHours: SleepData.lastNight(in: store.sleepData)?.totalHours
+        )
+    }
+
     var body: some View {
-        @Bindable var player = player
         ZStack {
             sunrise
-            VStack(spacing: FDS.Spacing.xl) {
-                Spacer()
-                VStack(spacing: FDS.Spacing.sm) {
-                    ZStack {
-                        SleepWakeHudRing(progress: progress)
-                        Text(clock)
-                            .font(.system(size: 64, weight: .semibold, design: .rounded))
-                            .foregroundColor(.white)
-                            .monospacedDigit()
+            VStack(spacing: 0) {
+                GeometryReader { geo in
+                    ScrollView(showsIndicators: false) {
+                        upperContent
+                            .frame(maxWidth: .infinity, minHeight: geo.size.height)
                     }
-                    Text(alarm.label)
-                        .font(FDS.TypeScale.Dynamic.headline)
-                        .foregroundColor(.white.opacity(0.72))
-                    if player.stage != .primary {
-                        Text(player.stage == .insistent
-                             ? "Backup tone + pulse. Hold I'm up."
-                             : "Backup tone. Still time to get up.")
-                            .font(.system(size: 13, weight: .semibold, design: .rounded))
-                            .foregroundColor(.white.opacity(0.82))
-                    }
-                    if player.fault.isFailClosed {
-                        Text(player.fault.coachLine)
-                            .font(FDS.TypeScale.Dynamic.caption)
-                            .foregroundColor(.white.opacity(0.88))
-                            .multilineTextAlignment(.center)
-                            .padding(.horizontal, FDS.Spacing.xl)
-                            .padding(.top, FDS.Spacing.xs)
-                    }
-                    if !WakeScreenPreferences.greeting.isEmpty {
-                        Text(WakeScreenPreferences.greeting)
-                            .font(FDS.TypeScale.Dynamic.body)
-                            .foregroundColor(.white.opacity(0.82))
-                    }
-                    if WakeScreenPreferences.showSleepScore {
-                        Text(SleepWakeCoach.morningPrompt(
-                            sleepScore: SleepData.lastNight(in: store.sleepData)?.score,
-                            lastNightHours: SleepData.lastNight(in: store.sleepData)?.totalHours
-                        ))
-                        .font(.system(size: 14, weight: .medium))
-                        .foregroundColor(.white.opacity(0.78))
-                        .multilineTextAlignment(.center)
-                        .padding(.horizontal, FDS.Spacing.xl)
-                        .padding(.top, FDS.Spacing.sm)
-                    }
-                    if WakeScreenPreferences.showWorkout, let name = store.todayWorkout?.name {
-                        Text(name)
-                            .font(FDS.TypeScale.Dynamic.caption)
-                            .foregroundColor(.white.opacity(0.7))
-                    }
+                    .scrollBounceBehavior(.basedOnSize)
                 }
-
-                VStack(alignment: .leading, spacing: FDS.Spacing.sm) {
-                    ForEach(alarms.routine.filter(\.isEnabled).prefix(3)) { item in
-                        Button {
-                            if doneRoutine.contains(item.id) { doneRoutine.remove(item.id) }
-                            else { doneRoutine.insert(item.id) }
-                        } label: {
-                            HStack(spacing: FDS.Spacing.md) {
-                                Image(systemName: doneRoutine.contains(item.id) ? "checkmark.circle.fill" : item.icon)
-                                    .foregroundColor(doneRoutine.contains(item.id) ? .white : .white.opacity(0.7))
-                                Text(item.name)
-                                    .font(FDS.TypeScale.Dynamic.body.weight(.semibold))
-                                    .foregroundColor(.white)
-                                Spacer()
-                                Text("\(item.duration) min")
-                                    .font(FDS.TypeScale.Dynamic.caption)
-                                    .foregroundColor(.white.opacity(0.55))
-                            }
-                            .padding(.horizontal, FDS.Spacing.lg)
-                            .padding(.vertical, FDS.Spacing.md)
-                            .background(Color.white.opacity(doneRoutine.contains(item.id) ? 0.22 : 0.10))
-                            .clipShape(RoundedRectangle(cornerRadius: FDS.Radius.md, style: .continuous))
-                        }
-                        .buttonStyle(.plain)
-                    }
-                }
-                .padding(.horizontal, FDS.Spacing.xl)
-
-                HoldToWakeButton { wake.dismiss() }
-
-                if wake.remainingSnoozes > 0 {
-                    Button {
-                        wake.snooze()
-                    } label: {
-                        Text("Snooze \(alarm.snoozeMinutes) min · \(wake.remainingSnoozes) left")
-                            .font(FDS.TypeScale.Dynamic.body.weight(.semibold))
-                            .foregroundColor(.white.opacity(0.7))
-                    }
-                    .buttonStyle(.plain)
-                    .accessibilityLabel("Snooze. \(wake.remainingSnoozes) remaining.")
-                } else {
-                    Text("No snoozes left. Get up.")
-                        .font(FDS.TypeScale.Dynamic.caption)
-                        .foregroundColor(.white.opacity(0.55))
-                }
-
-                Button {
-                    let prompt = SleepWakeCoach.morningPrompt(
-                        sleepScore: SleepData.lastNight(in: store.sleepData)?.score,
-                        lastNightHours: SleepData.lastNight(in: store.sleepData)?.totalHours
-                    )
-                    wake.dismiss()
-                    store.openChat(with: prompt, voice: false)
-                } label: {
-                    HStack(spacing: FDS.Spacing.sm) {
-                        ARIAIdentityMark(state: .idle, mood: .energized, size: 16, amplitude: 0.22)
-                        Text("Ask ARIA to start the morning")
-                    }
-                    .font(.system(size: 14, weight: .semibold, design: .rounded))
-                    .foregroundColor(.white.opacity(0.88))
-                }
-                .buttonStyle(.plain)
-                .padding(.bottom, 36)
+                controls
             }
         }
         .interactiveDismissDisabled()
@@ -251,6 +155,184 @@ struct SleepWakeScreen: View {
         .onAppear {
             SleepWakePlayer.shared.ensurePlaying(for: alarm)
         }
+    }
+
+    // MARK: Upper content (scrolls when space runs out)
+
+    private var upperContent: some View {
+        VStack(spacing: FDS.Spacing.xl) {
+            VStack(spacing: FDS.Spacing.sm) {
+                clockRing
+                Text(alarm.label)
+                    .font(FDS.TypeScale.Dynamic.headline)
+                    .foregroundColor(.white.opacity(0.82))
+                    .multilineTextAlignment(.center)
+                statusLines
+            }
+            routineRows
+        }
+        .padding(.horizontal, FDS.Spacing.xl)
+        .padding(.vertical, FDS.Spacing.lg)
+    }
+
+    private var clockRing: some View {
+        ZStack {
+            SleepWakeHudRing(progress: progress)
+            Text(clock)
+                .font(.system(
+                    size: ForgeLayout.scaledCap(clockSize, base: 48, maxGrowth: 1.3),
+                    weight: .semibold,
+                    design: .rounded
+                ))
+                .foregroundColor(.white)
+                .monospacedDigit()
+                .hudInArcText()
+                .contentTransition(.numericText())
+                .padding(.horizontal, FDS.Spacing.xl)
+        }
+    }
+
+    @ViewBuilder
+    private var statusLines: some View {
+        if player.stage != .primary {
+            Text(player.stage == .insistent
+                 ? "Backup tone + pulse. Hold I'm up."
+                 : "Backup tone. Still time to get up.")
+                .font(HomeType.body)
+                .foregroundColor(.white.opacity(0.88))
+                .multilineTextAlignment(.center)
+                .forgeWrapping()
+        }
+        if player.fault.isFailClosed {
+            Text(player.fault.coachLine)
+                .font(HomeType.body)
+                .foregroundColor(.white.opacity(0.9))
+                .multilineTextAlignment(.center)
+                .forgeWrapping()
+                .padding(.top, FDS.Spacing.xs)
+        }
+        if !WakeScreenPreferences.greeting.isEmpty {
+            Text(WakeScreenPreferences.greeting)
+                .font(HomeType.body)
+                .foregroundColor(.white.opacity(0.88))
+                .multilineTextAlignment(.center)
+                .forgeWrapping()
+        }
+        if WakeScreenPreferences.showSleepScore {
+            Text(morningPrompt)
+                .font(HomeType.body)
+                .foregroundColor(.white.opacity(0.84))
+                .multilineTextAlignment(.center)
+                .forgeWrapping()
+                .padding(.top, FDS.Spacing.sm)
+        }
+        if WakeScreenPreferences.showWorkout, let name = store.todayWorkout?.name {
+            Text(name)
+                .font(HomeType.label)
+                .foregroundColor(.white.opacity(0.8))
+                .multilineTextAlignment(.center)
+                .forgeWrapping()
+        }
+    }
+
+    private var routineRows: some View {
+        VStack(alignment: .leading, spacing: FDS.Spacing.sm) {
+            ForEach(alarms.routine.filter(\.isEnabled).prefix(3)) { item in
+                routineRow(item)
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    private func routineRow(_ item: RoutineItem) -> some View {
+        let done = doneRoutine.contains(item.id)
+        return Button {
+            FDS.haptic(.select)
+            if done { doneRoutine.remove(item.id) }
+            else { doneRoutine.insert(item.id) }
+        } label: {
+            HStack(spacing: FDS.Spacing.md) {
+                Image(systemName: done ? "checkmark.circle.fill" : item.icon)
+                    .foregroundColor(done ? .white : .white.opacity(0.78))
+                    .accessibilityHidden(true)
+                Text(item.name)
+                    .font(HomeType.status)
+                    .foregroundColor(.white)
+                    .lineLimit(2)
+                    .layoutPriority(1)
+                Spacer(minLength: FDS.Spacing.xs)
+                Text("\(item.duration) min")
+                    .font(HomeType.label)
+                    .monospacedDigit()
+                    .foregroundColor(.white.opacity(0.78))
+                    .lineLimit(1)
+            }
+            .padding(.horizontal, FDS.Spacing.lg)
+            .padding(.vertical, FDS.Spacing.md)
+            .frame(minHeight: ForgeUX.minTap)
+            .background(Color.white.opacity(done ? 0.22 : 0.10))
+            .clipShape(RoundedRectangle(cornerRadius: FDS.Radius.md, style: .continuous))
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel("\(item.name), \(item.duration) minutes")
+        .accessibilityAddTraits(done ? .isSelected : [])
+    }
+
+    // MARK: Controls (always visible)
+
+    private var controls: some View {
+        VStack(spacing: FDS.Spacing.md) {
+            HoldToWakeButton { wake.dismiss() }
+            snoozeControl
+            askAriaButton
+        }
+        .padding(.horizontal, FDS.Spacing.xl)
+        .padding(.top, FDS.Spacing.sm)
+        .padding(.bottom, FDS.Spacing.lg)
+    }
+
+    @ViewBuilder
+    private var snoozeControl: some View {
+        if wake.remainingSnoozes > 0 {
+            Button {
+                wake.snooze()
+            } label: {
+                Text("Snooze \(alarm.snoozeMinutes) min · \(wake.remainingSnoozes) left")
+                    .font(HomeType.status)
+                    .foregroundColor(.white.opacity(0.9))
+                    .multilineTextAlignment(.center)
+                    .frame(maxWidth: .infinity, minHeight: 56)
+                    .background(Capsule().fill(Color.white.opacity(0.10)))
+                    .contentShape(Capsule())
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel("Snooze. \(wake.remainingSnoozes) remaining.")
+        } else {
+            Text("No snoozes left. Get up.")
+                .font(HomeType.body)
+                .foregroundColor(.white.opacity(0.8))
+                .multilineTextAlignment(.center)
+                .forgeWrapping()
+        }
+    }
+
+    private var askAriaButton: some View {
+        Button {
+            let prompt = morningPrompt
+            wake.dismiss()
+            store.openChat(with: prompt, voice: false)
+        } label: {
+            HStack(spacing: FDS.Spacing.sm) {
+                ARIAIdentityMark(state: .idle, mood: .energized, size: 16, amplitude: 0.22)
+                Text("Ask ARIA to start the morning")
+                    .font(HomeType.label)
+                    .multilineTextAlignment(.leading)
+            }
+            .foregroundColor(.white.opacity(0.9))
+            .frame(minHeight: ForgeUX.minTap)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
     }
 
     private var sunrise: some View {
@@ -266,7 +348,7 @@ struct SleepWakeScreen: View {
                 endPoint: .bottom
             )
             RadialGradient(
-                colors: [Color(hex: SleepHud.plateHex).opacity(0.18 + 0.35 * t), .clear],
+                colors: [HudChrome.plate.opacity(0.18 + 0.35 * t), .clear],
                 center: UnitPoint(x: 0.5, y: 0.22),
                 startRadius: 8,
                 endRadius: 220
@@ -279,19 +361,21 @@ struct SleepWakeScreen: View {
             )
         }
         .ignoresSafeArea()
-        .animation(.easeInOut(duration: 1.0), value: t)
+        .animation(reduceMotion ? nil : Animation.easeInOut(duration: 1.0), value: t)
     }
 }
 
 struct SleepWakeHudRing: View {
     var progress: Double
+    @ScaledMetric(relativeTo: .largeTitle) private var ringSize: CGFloat = 220
 
     var body: some View {
+        let side = ForgeLayout.scaledCap(ringSize, base: 220, maxGrowth: 1.15)
         Canvas { context, size in
             let s = min(size.width, size.height)
             let center = CGPoint(x: size.width / 2, y: size.height / 2)
             let outer = s / 2 - 2
-            let plate = Color(hex: SleepHud.plateHex)
+            let plate = HudChrome.plate
             for i in 0..<SleepHud.tickCount {
                 let major = i.isMultiple(of: 6)
                 let angle = Double(i) / Double(SleepHud.tickCount) * .pi * 2 - .pi / 2
@@ -321,7 +405,7 @@ struct SleepWakeHudRing: View {
             )
             context.stroke(arc, with: .color(Color.ember.opacity(0.9)), lineWidth: 3)
         }
-        .frame(width: 220, height: 220)
+        .frame(width: side, height: side)
         .accessibilityHidden(true)
     }
 }
@@ -332,24 +416,31 @@ struct HoldToWakeButton: View {
     @State private var holdTask: Task<Void, Never>?
 
     var body: some View {
-        ZStack(alignment: .leading) {
-            Capsule().fill(Color.white.opacity(0.14))
-            Capsule()
-                .fill(Color.white.opacity(0.32))
-                .frame(width: 280 * progress)
-            Text(progress > 0.05 ? "Keep holding" : "Hold — I'm up")
-                .font(FDS.TypeScale.Dynamic.headline)
-                .foregroundColor(.white)
-                .frame(maxWidth: .infinity)
-        }
-        .frame(width: 280, height: 58)
-        .contentShape(Capsule())
-        .gesture(
-            DragGesture(minimumDistance: 0)
-                .onChanged { _ in beginHold() }
-                .onEnded { _ in cancelHold() }
-        )
-        .accessibilityLabel("Hold to dismiss. I'm up.")
+        Text(progress > 0.05 ? "Keep holding" : "Hold — I'm up")
+            .font(FDS.TypeScale.Dynamic.headline)
+            .foregroundColor(.white)
+            .multilineTextAlignment(.center)
+            .padding(.horizontal, FDS.Spacing.lg)
+            .padding(.vertical, FDS.Spacing.md)
+            .frame(maxWidth: .infinity, minHeight: 58)
+            .background(Capsule().fill(Color.white.opacity(0.14)))
+            .overlay(alignment: .leading) {
+                GeometryReader { geo in
+                    Capsule()
+                        .fill(Color.white.opacity(0.32))
+                        .frame(width: geo.size.width * progress)
+                }
+            }
+            .clipShape(Capsule())
+            .contentShape(Capsule())
+            .gesture(
+                DragGesture(minimumDistance: 0)
+                    .onChanged { _ in beginHold() }
+                    .onEnded { _ in cancelHold() }
+            )
+            .accessibilityLabel("Hold to dismiss. I'm up.")
+            .accessibilityAddTraits(.isButton)
+            .accessibilityAction { action() }
     }
 
     private func beginHold() {
@@ -358,7 +449,7 @@ struct HoldToWakeButton: View {
         holdTask = Task {
             try? await Task.sleep(nanoseconds: 1_200_000_000)
             guard !Task.isCancelled else { return }
-            UINotificationFeedbackGenerator().notificationOccurred(.success)
+            FDS.haptic(.success)
             action()
         }
     }
@@ -389,7 +480,7 @@ struct WakeUpTab: View {
     }
 
     var body: some View {
-        VStack(spacing: FDS.Spacing.lg) {
+        VStack(spacing: ForgeLayout.sectionGap) {
             NextWakePlanCard(coach: coach)
 
             SleeperDepthCard(
@@ -460,74 +551,108 @@ struct WakeUpTab: View {
     }
 }
 
+/// The Wake tab's hero: the next alarm time, the cue and the one Ask ARIA entry point.
 struct NextWakePlanCard: View {
     let coach: SleepWakeCoach
     @EnvironmentObject private var store: AppStore
 
+    private var smartHardLine: String? {
+        guard let smart = coach.smartFire, let hard = coach.hardFire else { return nil }
+        let smartText = smart.formatted(date: .omitted, time: .shortened)
+        let hardText = hard.formatted(date: .omitted, time: .shortened)
+        return "Smart \(smartText)  ·  Hard \(hardText)"
+    }
+
     var body: some View {
-        WakeUpSection(icon: "sun.horizon.fill", title: "This wake", color: Color.amber) {
-            VStack(alignment: .leading, spacing: FDS.Spacing.md) {
+        VStack(alignment: .leading, spacing: ForgeLayout.heroGap) {
+            ForgeCardHeader(title: "This wake", tint: .steel) {
+                if coach.smartFire != nil {
+                    HudVibeChip(label: "Smart wake", energy: .steel)
+                }
+            }
+            leadBlock
+            Text(coach.cue)
+                .font(HomeType.body)
+                .foregroundStyle(Color.textSecondary)
+                .forgeWrapping()
+            if let line = smartHardLine {
+                Text(line)
+                    .font(HomeType.label)
+                    .foregroundStyle(Color.textTertiary)
+                    .forgeWrapping()
+            }
+            askAriaButton
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .hudPlate(energy: .steel)
+        .accessibilityElement(children: .contain)
+    }
+
+    private var leadBlock: some View {
+        VStack(alignment: .leading, spacing: ForgeLayout.pairGap) {
+            if let hard = coach.hardFire {
+                Text(hard.formatted(date: .omitted, time: .shortened))
+                    .font(HomeType.heroScore)
+                    .foregroundStyle(Color.textPrimary)
+                    .forgeSingleLine()
+                    .contentTransition(.numericText())
                 Text(coach.headline)
-                    .font(FDS.TypeScale.Dynamic.metric)
-                    .foregroundColor(.textPrimary)
-                Text(coach.cue)
-                    .font(.system(size: 13))
-                    .foregroundColor(.textSecondary)
-                    .fixedSize(horizontal: false, vertical: true)
-                if let smart = coach.smartFire, let hard = coach.hardFire {
-                    Text("Smart \(smart.formatted(date: .omitted, time: .shortened))  ·  Hard \(hard.formatted(date: .omitted, time: .shortened))")
-                        .font(FDS.TypeScale.Dynamic.caption)
-                        .foregroundColor(.textTertiary)
-                }
-                Button {
-                    store.openChat(with: coach.ariaPrompt, voice: false)
-                } label: {
-                    HStack(spacing: FDS.Spacing.sm) {
-                        ARIAIdentityMark(state: .idle, mood: .energized, size: 16, amplitude: 0.22)
-                        Text("Ask ARIA about this morning")
-                        Spacer()
-                        Image(systemName: "arrow.up.right")
-                            .font(.system(size: 12, weight: .semibold))
-                    }
-                    .font(.system(size: 14, weight: .semibold, design: .rounded))
-                    .foregroundColor(.ember)
-                    .padding(FDS.Spacing.md)
-                    .background(Color.ember.opacity(0.08))
-                    .clipShape(RoundedRectangle(cornerRadius: FDS.Radius.md, style: .continuous))
-                }
-                .buttonStyle(.plain)
+                    .font(HomeType.status)
+                    .foregroundStyle(Color.textSecondary)
+                    .forgeWrapping()
+            } else {
+                Text(coach.headline)
+                    .font(HomeType.sessionTitle)
+                    .foregroundStyle(Color.textPrimary)
+                    .forgeWrapping()
             }
         }
+    }
+
+    private var askAriaButton: some View {
+        Button {
+            FDS.haptic(.press)
+            store.openChat(with: coach.ariaPrompt, voice: false)
+        } label: {
+            HStack(spacing: FDS.Spacing.sm) {
+                ARIAIdentityMark(state: .idle, mood: .energized, size: 16, amplitude: 0.22)
+                Text("Ask ARIA about this morning")
+                    .font(HomeType.label)
+                    .foregroundStyle(Color.textPrimary)
+                    .multilineTextAlignment(.leading)
+                Spacer(minLength: FDS.Spacing.xs)
+                Image(systemName: "arrow.up.right")
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundStyle(Color.textTertiary)
+                    .accessibilityHidden(true)
+            }
+            .frame(maxWidth: .infinity, minHeight: ForgeUX.minTap - 2 * ForgeLayout.tilePadding, alignment: .leading)
+            .forgeWell()
+        }
+        .buttonStyle(ForgePressStyle())
     }
 }
 
 struct SleeperDepthCard: View {
     @Binding var depth: SleeperDepth
 
+    private var depthOptions: [ForgeSegmentOption<SleeperDepth>] {
+        SleeperDepth.allCases.map { ForgeSegmentOption(value: $0, title: $0.title) }
+    }
+
     var body: some View {
-        WakeUpSection(icon: "bed.double.fill", title: "How you sleep", color: Color(hex: SleepHud.plateHex)) {
-            VStack(alignment: .leading, spacing: FDS.Spacing.md) {
+        WakeUpSection(icon: "bed.double.fill", title: "How you sleep", color: .steel) {
+            VStack(alignment: .leading, spacing: ForgeLayout.blockGap) {
                 Text("Deep and super-deep sleepers get a longer Smart Wake lead and a slower volume climb. Lifestyle coaching — iPhone cannot read live stage.")
-                    .font(.system(size: 12))
-                    .foregroundColor(.textTertiary)
-                    .fixedSize(horizontal: false, vertical: true)
-                HStack(spacing: FDS.Spacing.sm) {
-                    ForEach(SleeperDepth.allCases, id: \.self) { option in
-                        Button {
-                            depth = option
-                            UISelectionFeedbackGenerator().selectionChanged()
-                        } label: {
-                            Text(option.title)
-                                .font(FDS.TypeScale.Dynamic.caption)
-                                .foregroundColor(depth == option ? .white : .textPrimary)
-                                .frame(maxWidth: .infinity)
-                                .padding(.vertical, FDS.Spacing.md)
-                                .background(depth == option ? Color(hex: SleepHud.plateHex) : Color.surfaceElevated)
-                                .clipShape(RoundedRectangle(cornerRadius: FDS.Radius.md, style: .continuous))
-                        }
-                        .buttonStyle(.plain)
-                    }
-                }
+                    .font(HomeType.body)
+                    .foregroundStyle(Color.textSecondary)
+                    .forgeWrapping()
+                ForgeSegmentedControl(
+                    depthOptions,
+                    selection: $depth,
+                    accent: .steel,
+                    bleed: ForgeLayout.cardPadding
+                )
             }
         }
     }
@@ -539,71 +664,102 @@ struct SmartWakeCard: View {
     var adaptedMinutes: Int
     var windowChoices: [Int] = [15, 30, 45]
 
+    @State private var showDetail = false
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    private var leadOptions: [ForgeSegmentOption<Int>] {
+        windowChoices.map { ForgeSegmentOption(value: $0, title: "\($0) min") }
+    }
+
+    private var detailText: String {
+        "iPhone cannot stream live stage. Tonight's lead is \(adaptedMinutes) min from last night's score, debt, and how heavy you sleep — your pick is the base. The hard alarm still stands."
+    }
+
     var body: some View {
-        VStack(spacing: 0) {
-            WakeUpSection(icon: "waveform.path.ecg", title: "Smart Wake", color: .steel) {
-                VStack(spacing: FDS.Spacing.lg) {
-                    Toggle(isOn: $enabled) {
-                        VStack(alignment: .leading, spacing: 3) {
-                            Text("Earlier nudge, then the hard alarm")
-                                .font(FDS.TypeScale.Dynamic.body.weight(.semibold)).foregroundColor(.textPrimary)
-                            Text("When Apple delivers a sample in the window, Forge can nudge earlier if you're in light or core sleep. iPhone cannot stream live stage. Tonight's lead is \(adaptedMinutes) min from last night's score, debt, and how heavy you sleep — your pick is the base. The hard alarm still stands.")
-                                .font(.system(size: 12)).foregroundColor(.textTertiary).lineSpacing(3)
-                        }
-                    }
-                    .tint(.steel)
+        WakeUpSection(icon: "waveform.path.ecg", title: "Smart Wake", color: .steel) {
+            VStack(alignment: .leading, spacing: ForgeLayout.blockGap) {
+                Toggle(isOn: $enabled) {
+                    Text("Earlier nudge, then the hard alarm")
+                        .font(HomeType.status)
+                        .foregroundStyle(Color.textPrimary)
+                }
+                .tint(.steel)
+                .frame(minHeight: ForgeUX.minTap)
 
-                    if enabled {
-                        VStack(alignment: .leading, spacing: FDS.Spacing.md) {
-                            Text("Lead window")
-                                .font(FDS.TypeScale.Dynamic.caption).foregroundColor(.textSecondary)
-                            HStack(spacing: FDS.Spacing.md) {
-                                ForEach(windowChoices, id: \.self) { mins in
-                                    Button {
-                                        windowMinutes = mins
-                                        UISelectionFeedbackGenerator().selectionChanged()
-                                    } label: {
-                                        VStack(spacing: FDS.Spacing.xs) {
-                                            Text("\(mins)")
-                                                .font(FDS.TypeScale.Dynamic.metric)
-                                                .foregroundColor(windowMinutes == mins ? .white : .textPrimary)
-                                            Text("min")
-                                                .font(FDS.TypeScale.Dynamic.micro)
-                                                .foregroundColor(windowMinutes == mins ? .white.opacity(0.7) : .textTertiary)
-                                        }
-                                        .frame(maxWidth: .infinity).padding(.vertical, FDS.Spacing.md)
-                                        .background(windowMinutes == mins ? Color.steel : Color.surfaceElevated)
-                                        .cornerRadius(FDS.Radius.md)
-                                        .shadow(color: windowMinutes == mins ? Color.steel.opacity(0.35) : .clear, radius: 8, y: 4)
-                                    }
-                                    .buttonStyle(.plain)
-                                }
-                            }
+                explanation
 
-                            // Visual representation
-                            HStack(spacing: 0) {
-                                Spacer()
-                                ZStack(alignment: .leading) {
-                                    RoundedRectangle(cornerRadius: FDS.Radius.xs).fill(Color.borderColor.opacity(0.3)).frame(height: 8)
-                                    RoundedRectangle(cornerRadius: FDS.Radius.xs)
-                                        .fill(LinearGradient(colors: [Color.steel.opacity(0.3), Color.steel], startPoint: .leading, endPoint: .trailing))
-                                        .frame(width: CGFloat(windowMinutes) / CGFloat(windowChoices.last ?? 45) * 200, height: 8)
-                                }
-                                .frame(width: 200)
-                                VStack(alignment: .trailing, spacing: 2) {
-                                    Image(systemName: "alarm.fill").font(.system(size: 12)).foregroundColor(.ember)
-                                    Text("Alarm").font(FDS.TypeScale.Dynamic.micro).foregroundColor(.textMuted)
-                                }
-                                .padding(.leading, FDS.Spacing.sm)
-                            }
-                            .padding(.top, FDS.Spacing.xs)
-                        }
-                        .padding(FDS.Spacing.md).background(Color.steel.opacity(0.06)).cornerRadius(FDS.Radius.md)
+                if enabled {
+                    leadWindow
                         .transition(.opacity.combined(with: .scale(scale: 0.97, anchor: .top)))
-                    }
                 }
             }
         }
+    }
+
+    private var explanation: some View {
+        VStack(alignment: .leading, spacing: ForgeLayout.pairGap) {
+            Text("When Apple delivers a sample in the window, Forge can nudge earlier if you're in light or core sleep.")
+                .font(HomeType.body)
+                .foregroundStyle(Color.textSecondary)
+                .forgeWrapping()
+            if showDetail {
+                Text(detailText)
+                    .font(HomeType.body)
+                    .foregroundStyle(Color.textSecondary)
+                    .forgeWrapping()
+                    .transition(.opacity)
+            }
+            ForgeTextLink(title: "How Smart Wake works", accent: .steel, expanded: showDetail) {
+                withAnimation(reduceMotion ? nil : FDS.Spring.standard) { showDetail.toggle() }
+            }
+        }
+    }
+
+    private var leadWindow: some View {
+        VStack(alignment: .leading, spacing: ForgeLayout.blockGap) {
+            Text("Lead window")
+                .font(HomeType.label)
+                .foregroundStyle(Color.textSecondary)
+            ForgeSegmentedControl(
+                leadOptions,
+                selection: $windowMinutes,
+                accent: .steel,
+                bleed: ForgeLayout.cardPadding + ForgeLayout.tilePadding
+            )
+            leadTimeline
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .forgeWell()
+    }
+
+    private var leadTimeline: some View {
+        let maxWindow = CGFloat(max(1, windowChoices.last ?? 45))
+        let fraction = min(1, CGFloat(windowMinutes) / maxWindow)
+        return HStack(spacing: FDS.Spacing.sm) {
+            GeometryReader { geo in
+                ZStack(alignment: .leading) {
+                    Capsule().fill(Color.white.opacity(0.08))
+                    Capsule()
+                        .fill(LinearGradient(
+                            colors: [Color.steel.opacity(0.3), Color.steel],
+                            startPoint: .leading,
+                            endPoint: .trailing
+                        ))
+                        .frame(width: geo.size.width * fraction)
+                }
+            }
+            .frame(height: 8)
+            VStack(spacing: ForgeLayout.labelValueGap) {
+                Image(systemName: "alarm.fill")
+                    .font(.system(size: 12))
+                    .foregroundStyle(Color.steel)
+                Text("Alarm")
+                    .font(HomeType.micro)
+                    .foregroundStyle(Color.textTertiary)
+            }
+        }
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("Smart Wake starts \(windowMinutes) minutes before the alarm")
     }
 }
 
@@ -611,54 +767,73 @@ struct VolumeRampCard: View {
     @Binding var curve: VolumeRampCurve
 
     var body: some View {
-        WakeUpSection(icon: "speaker.wave.3.fill", title: "Volume Ramp", color: .ember) {
-            VStack(spacing: FDS.Spacing.md) {
-                ForEach(VolumeRampCurve.allCases, id: \.self) { option in
-                    Button {
-                        curve = option
-                        UISelectionFeedbackGenerator().selectionChanged()
-                    } label: {
-                        HStack(spacing: FDS.Spacing.lg) {
-                            ZStack {
-                                Circle().fill(curve == option ? Color.ember.opacity(0.15) : Color.surfaceElevated)
-                                    .frame(width: 38, height: 38)
-                                Image(systemName: option.icon)
-                                    .font(.system(size: 15))
-                                    .foregroundColor(curve == option ? .ember : .textTertiary)
-                            }
-                            VStack(alignment: .leading, spacing: 3) {
-                                Text(option.rawValue).font(FDS.TypeScale.Dynamic.body.weight(.semibold)).foregroundColor(.textPrimary)
-                                Text(option.description).font(.system(size: 12)).foregroundColor(.textTertiary)
-                            }
-                            Spacer()
-                            if curve == option {
-                                Image(systemName: "checkmark.circle.fill")
-                                    .font(.system(size: 18)).foregroundColor(.ember)
-                            }
-                        }
-                        .padding(.horizontal, FDS.Spacing.lg).padding(.vertical, FDS.Spacing.md)
-                        .background(curve == option ? Color.ember.opacity(0.07) : Color.surfaceElevated)
-                        .cornerRadius(FDS.Radius.md)
-                        .overlay(RoundedRectangle(cornerRadius: FDS.Radius.md).stroke(curve == option ? Color.ember.opacity(0.4) : Color.borderColor.opacity(0.3), lineWidth: 1))
+        WakeUpSection(icon: "speaker.wave.3.fill", title: "Volume Ramp", color: .steel) {
+            VStack(alignment: .leading, spacing: ForgeLayout.blockGap) {
+                VStack(spacing: ForgeLayout.tileGap) {
+                    ForEach(VolumeRampCurve.allCases, id: \.self) { option in
+                        rampRow(option)
                     }
-                    .buttonStyle(.plain)
                 }
 
                 Text(WakeStruggleStore.isRepeatStruggler()
                      ? "Mornings have been sticky, so this wake starts loud and a backup tone takes over sooner."
                      : "Volume climbs, then a backup tone if you're still down.")
-                    .font(.system(size: 12))
-                    .foregroundColor(.textTertiary)
-                    .fixedSize(horizontal: false, vertical: true)
+                    .font(HomeType.body)
+                    .foregroundStyle(Color.textSecondary)
+                    .forgeWrapping()
 
                 VolumeRampPreview(curve: curve)
             }
         }
     }
+
+    private func rampRow(_ option: VolumeRampCurve) -> some View {
+        let selected = curve == option
+        return Button {
+            curve = option
+            FDS.haptic(.select)
+        } label: {
+            HStack(spacing: ForgeLayout.rowGap) {
+                ForgeIconWell(
+                    systemImage: option.icon,
+                    tint: selected ? Color.steel : Color.textTertiary
+                )
+                VStack(alignment: .leading, spacing: ForgeLayout.pairGap) {
+                    Text(option.rawValue)
+                        .font(HomeType.status)
+                        .foregroundStyle(Color.textPrimary)
+                        .lineLimit(2)
+                    Text(option.description)
+                        .font(HomeType.body)
+                        .foregroundStyle(Color.textTertiary)
+                        .lineLimit(2)
+                }
+                .layoutPriority(1)
+                Spacer(minLength: FDS.Spacing.xs)
+                if selected {
+                    Image(systemName: "checkmark.circle.fill")
+                        .font(.system(size: 18))
+                        .foregroundStyle(Color.steel)
+                        .accessibilityHidden(true)
+                }
+            }
+            .forgeWell()
+            .overlay(selectionStroke(selected))
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel("\(option.rawValue), \(option.description)")
+        .accessibilityAddTraits(selected ? .isSelected : [])
+    }
+
+    private func selectionStroke(_ selected: Bool) -> some View {
+        RoundedRectangle(cornerRadius: ForgeLayout.innerRadius, style: .continuous)
+            .strokeBorder(selected ? Color.steel.opacity(0.4) : Color.clear, lineWidth: 1)
+    }
 }
 
 struct VolumeRampPreview: View {
     let curve: VolumeRampCurve
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     private func height(for x: CGFloat) -> CGFloat {
         CGFloat(SleepVolumeRamp.gain(
@@ -670,94 +845,120 @@ struct VolumeRampPreview: View {
     var body: some View {
         VStack(alignment: .leading, spacing: FDS.Spacing.sm) {
             Text("Volume preview")
-                .font(FDS.TypeScale.Dynamic.micro).foregroundColor(.textMuted)
+                .font(HomeType.micro)
+                .foregroundStyle(Color.textTertiary)
             GeometryReader { geo in
                 HStack(alignment: .bottom, spacing: 0) {
                     ForEach(0..<80, id: \.self) { i in
                         let x = CGFloat(i) / 79
                         let h = height(for: x)
                         Rectangle()
-                            .fill(Color.ember.opacity(0.3 + h * 0.5))
+                            .fill(Color.steel.opacity(0.3 + h * 0.5))
                             .frame(width: geo.size.width / 80, height: geo.size.height * h)
                     }
                 }
-                .animation(.easeInOut(duration: 0.4), value: curve)
+                .animation(reduceMotion ? nil : Animation.easeInOut(duration: 0.4), value: curve)
             }
             .frame(height: 44)
-            .cornerRadius(FDS.Radius.xs)
+            .clipShape(RoundedRectangle(cornerRadius: FDS.Radius.xs, style: .continuous))
         }
-        .padding(FDS.Spacing.md).forgeInsetTile(radius: FDS.Radius.md)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .forgeWell()
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("Volume preview, \(curve.rawValue). \(curve.description)")
     }
 }
 
 struct MorningRoutineCard: View {
     @Binding var items: [RoutineItem]
     @State private var editMode = false
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var totalMinutes: Int { items.filter { $0.isEnabled }.reduce(0) { $0 + $1.duration } }
 
+    private var motion: Animation? { reduceMotion ? nil : FDS.Spring.standard }
+
     var body: some View {
-        WakeUpSection(icon: "checklist", title: "Morning Routine", color: .success) {
-            VStack(spacing: FDS.Spacing.md) {
-                HStack {
-                    Text("Total: \(totalMinutes) min")
-                        .font(FDS.TypeScale.Dynamic.caption).foregroundColor(.textSecondary)
-                    Spacer()
-                    Button {
-                        withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) { editMode.toggle() }
-                    } label: {
-                        Text(editMode ? "Done" : "Edit")
-                            .font(FDS.TypeScale.Dynamic.caption).foregroundColor(.success)
+        WakeUpSection(icon: "checklist", title: "Morning Routine", color: .steel) {
+            VStack(alignment: .leading, spacing: ForgeLayout.blockGap) {
+                summaryRow
+
+                VStack(spacing: ForgeLayout.rowGap) {
+                    ForEach($items) { $item in
+                        routineRow($item)
                     }
+                    .onMove { from, to in items.move(fromOffsets: from, toOffset: to) }
                 }
-
-                ForEach($items) { $item in
-                    HStack(spacing: FDS.Spacing.md) {
-                        // Drag handle (visible in edit mode)
-                        if editMode {
-                            Image(systemName: "line.3.horizontal")
-                                .font(.system(size: 14)).foregroundColor(.textMuted)
-                        }
-
-                        Toggle(isOn: $item.isEnabled) {
-                            HStack(spacing: FDS.Spacing.md) {
-                                ZStack {
-                                    Circle().fill(item.isEnabled ? Color.success.opacity(0.15) : Color.surfaceElevated)
-                                        .frame(width: 36, height: 36)
-                                    Image(systemName: item.icon)
-                                        .font(.system(size: 14))
-                                        .foregroundColor(item.isEnabled ? .success : .textMuted)
-                                }
-                                VStack(alignment: .leading, spacing: 2) {
-                                    Text(item.name)
-                                        .font(FDS.TypeScale.Dynamic.body)
-                                        .foregroundColor(item.isEnabled ? .textPrimary : .textTertiary)
-                                    Text("\(item.duration) min")
-                                        .font(.system(size: 11))
-                                        .foregroundColor(.textMuted)
-                                }
-                            }
-                        }
-                        .tint(.success)
-
-                        if editMode {
-                            Stepper("", value: $item.duration, in: 1...60, step: 1).labelsHidden()
-                                .tint(.success)
-                        }
-                    }
-                    .padding(.horizontal, FDS.Spacing.md).padding(.vertical, FDS.Spacing.md)
-                    .forgeInsetTile(radius: FDS.Radius.md)
-                    .animation(.spring(response: 0.3, dampingFraction: 0.72), value: item.isEnabled)
-                }
-                .onMove { from, to in items.move(fromOffsets: from, toOffset: to) }
-                .animation(.spring(response: 0.4, dampingFraction: 0.75), value: items.map { $0.id })
+                .animation(motion, value: items.map { $0.id })
             }
         }
+    }
+
+    private var summaryRow: some View {
+        HStack(spacing: FDS.Spacing.md) {
+            Text("Total: \(totalMinutes) min")
+                .font(HomeType.body)
+                .foregroundStyle(Color.textSecondary)
+                .monospacedDigit()
+                .contentTransition(.numericText())
+            Spacer(minLength: FDS.Spacing.sm)
+            Button {
+                FDS.haptic(.press)
+                withAnimation(motion) { editMode.toggle() }
+            } label: {
+                Text(editMode ? "Done" : "Edit")
+                    .font(HomeType.label)
+                    .foregroundStyle(Color.steel)
+                    .frame(minWidth: ForgeUX.minTap, minHeight: ForgeUX.minTap)
+                    .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+        }
+    }
+
+    private func routineRow(_ item: Binding<RoutineItem>) -> some View {
+        let enabled = item.wrappedValue.isEnabled
+        return VStack(alignment: .leading, spacing: ForgeLayout.tileGap) {
+            Toggle(isOn: item.isEnabled) {
+                HStack(spacing: ForgeLayout.rowGap) {
+                    ForgeIconWell(
+                        systemImage: item.wrappedValue.icon,
+                        tint: enabled ? Color.steel : Color.textMuted
+                    )
+                    VStack(alignment: .leading, spacing: ForgeLayout.pairGap) {
+                        Text(item.wrappedValue.name)
+                            .font(HomeType.status)
+                            .foregroundStyle(enabled ? Color.textPrimary : Color.textTertiary)
+                            .lineLimit(2)
+                        Text("\(item.wrappedValue.duration) min")
+                            .font(HomeType.micro)
+                            .foregroundStyle(Color.textTertiary)
+                            .monospacedDigit()
+                    }
+                }
+            }
+            .tint(.steel)
+
+            if editMode {
+                Stepper(value: item.duration, in: 1...60, step: 1) {
+                    Text("Duration")
+                        .font(HomeType.body)
+                        .foregroundStyle(Color.textSecondary)
+                }
+                .tint(.steel)
+                .accessibilityLabel("\(item.wrappedValue.name) duration")
+                .accessibilityValue("\(item.wrappedValue.duration) minutes")
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .forgeWell()
+        .animation(motion, value: enabled)
     }
 }
 
 struct WakeGreetingCard: View {
     @EnvironmentObject private var store: AppStore
+    @ObservedObject private var alarms = ForgeAlarmStore.shared
 
     @State private var greeting = WakeScreenPreferences.greeting
     @State private var showWeather = WakeScreenPreferences.showWeather
@@ -774,49 +975,31 @@ struct WakeGreetingCard: View {
         firstName.isEmpty ? "Good morning 🌅" : "Good morning, \(firstName) 🌅"
     }
 
+    private var previewTime: String {
+        let time = alarms.next?.time ?? ForgeAlarm().time
+        return time.formatted(date: .omitted, time: .shortened)
+    }
+
     var body: some View {
-        WakeUpSection(icon: "hand.wave.fill", title: "Wake Screen", color: Color.amber) {
-            VStack(spacing: FDS.Spacing.lg) {
-                // Preview
-                ZStack {
-                    RoundedRectangle(cornerRadius: FDS.Radius.lg)
-                        .fill(LinearGradient(colors: [Color(hex: "0F172A"), Color(hex: "1E293B")], startPoint: .top, endPoint: .bottom))
-                    VStack(spacing: FDS.Spacing.md) {
-                        Text("6:45 AM")
-                            .font(.system(size: 36, weight: .black, design: .rounded))
-                            .foregroundColor(.white)
-                        Text(greeting)
-                            .font(FDS.TypeScale.Dynamic.caption)
-                            .foregroundColor(.white.opacity(0.8))
-                            .multilineTextAlignment(.center)
-                        HStack(spacing: FDS.Spacing.lg) {
-                            if showSleepScore {
-                                let score = SleepData.lastNight(in: store.sleepData).map { "Sleep \($0.score)" } ?? "Sleep"
-                                Label(score, systemImage: "moon.stars.fill").foregroundColor(.steel)
-                            }
-                            if showWeather   { Label("Local weather", systemImage: "sun.max.fill").foregroundColor(Color.amber) }
-                            if showWorkout   {
-                                Label(store.todayWorkout?.name ?? "Rest day", systemImage: "dumbbell.fill").foregroundColor(.ember)
-                            }
-                        }
-                        .font(.system(size: 11, weight: .semibold))
-                    }
-                    .padding(FDS.Spacing.lg)
-                }
-                .frame(height: 140)
+        WakeUpSection(icon: "hand.wave.fill", title: "Wake Screen", color: .steel) {
+            VStack(alignment: .leading, spacing: ForgeLayout.blockGap) {
+                preview
 
-                // Greeting field
                 TextField("Wake greeting…", text: $greeting)
-                    .font(.system(size: 14)).foregroundColor(.textPrimary).tint(Color.amber)
-                    .padding(.horizontal, FDS.Spacing.lg).padding(.vertical, FDS.Spacing.md)
-                    .forgeInsetTile(radius: FDS.Radius.md)
+                    .font(HomeType.body)
+                    .foregroundStyle(Color.textPrimary)
+                    .tint(Color.steel)
+                    .accessibilityLabel("Wake greeting")
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .forgeWell()
 
-                // Toggles
-                VStack(spacing: 2) {
+                VStack(spacing: 0) {
                     WakeToggle(label: "Show sleep score", value: $showSleepScore, color: .steel)
-                    WakeToggle(label: "Show weather",     value: $showWeather,    color: Color.amber)
-                    WakeToggle(label: "Show today's workout", value: $showWorkout, color: .ember)
+                    WakeToggle(label: "Show weather", value: $showWeather, color: .steel)
+                    WakeToggle(label: "Show today's workout", value: $showWorkout, color: .steel)
                 }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .forgeWell()
             }
         }
         .onAppear {
@@ -827,6 +1010,50 @@ struct WakeGreetingCard: View {
         .onChange(of: showWorkout) { _, value in WakeScreenPreferences.showWorkout = value }
         .onChange(of: showSleepScore) { _, value in WakeScreenPreferences.showSleepScore = value }
     }
+
+    private var preview: some View {
+        VStack(spacing: FDS.Spacing.md) {
+            Text(previewTime)
+                .font(HomeType.heroScore)
+                .foregroundStyle(Color.white)
+                .forgeSingleLine()
+            Text(greeting)
+                .font(HomeType.body)
+                .foregroundStyle(Color.white.opacity(0.85))
+                .multilineTextAlignment(.center)
+                .forgeWrapping()
+            ForgeFlowLayout(spacing: FDS.Spacing.sm, lineSpacing: ForgeLayout.chipGap, alignment: .center) {
+                if showSleepScore {
+                    Label(sleepScoreText, systemImage: "moon.stars.fill")
+                        .foregroundStyle(Color.steel)
+                }
+                if showWeather {
+                    Label("Local weather", systemImage: "sun.max.fill")
+                        .foregroundStyle(Color.amber)
+                }
+                if showWorkout {
+                    Label(store.todayWorkout?.name ?? "Rest day", systemImage: "dumbbell.fill")
+                        .foregroundStyle(Color.ember)
+                }
+            }
+            .font(HomeType.micro)
+        }
+        .padding(FDS.Spacing.lg)
+        .frame(maxWidth: .infinity, minHeight: 140)
+        .background(
+            RoundedRectangle(cornerRadius: FDS.Radius.lg, style: .continuous)
+                .fill(Color.surfaceElevated)
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: FDS.Radius.lg, style: .continuous)
+                .strokeBorder(Color.white.opacity(0.08), lineWidth: ForgeUX.hairline)
+        )
+        .accessibilityElement(children: .combine)
+    }
+
+    private var sleepScoreText: String {
+        SleepData.lastNight(in: store.sleepData).map { "Sleep \($0.score)" } ?? "Sleep"
+    }
 }
 
 struct WakeToggle: View {
@@ -835,11 +1062,12 @@ struct WakeToggle: View {
     let color: Color
     var body: some View {
         Toggle(isOn: $value) {
-            Text(label).font(FDS.TypeScale.Dynamic.body).foregroundColor(.textPrimary)
+            Text(label)
+                .font(HomeType.status)
+                .foregroundStyle(Color.textPrimary)
         }
         .tint(color)
-        .padding(.horizontal, FDS.Spacing.lg).padding(.vertical, FDS.Spacing.md)
-        .forgeInsetTile(radius: FDS.Radius.md)
+        .frame(minHeight: ForgeUX.minTap)
     }
 }
 
@@ -850,18 +1078,11 @@ struct WakeUpSection<Content: View>: View {
     @ViewBuilder let content: () -> Content
 
     var body: some View {
-        VStack(alignment: .leading, spacing: FDS.Spacing.lg) {
-            HStack(spacing: FDS.Spacing.md) {
-                ZStack {
-                    Circle().fill(color.opacity(0.15)).frame(width: 36, height: 36)
-                    Image(systemName: icon).font(.system(size: 15, weight: .semibold)).foregroundColor(color)
-                }
-                Text(title).font(FDS.TypeScale.Dynamic.headline).foregroundColor(.textPrimary)
-            }
+        VStack(alignment: .leading, spacing: ForgeLayout.blockGap) {
+            ForgeCardHeader(title)
             content()
         }
-        .padding(FDS.Spacing.lg)
-        .forgeGlassCard(cornerRadius: FDS.Radius.xl, accent: .aurora)
+        .forgeContentCard(tint: .steel)
     }
 }
 
@@ -871,25 +1092,31 @@ struct ChronotypeBadge: View {
 
     var body: some View {
         Button(action: onTap) {
-            HStack(spacing: FDS.Spacing.md) {
+            HStack(spacing: ForgeLayout.rowGap) {
                 Image(systemName: hkService.userProfile.chronotype.icon)
                     .font(.system(size: 14, weight: .semibold))
-                    .foregroundColor(.steel)
-                VStack(alignment: .leading, spacing: 2) {
+                    .foregroundStyle(Color.steel)
+                    .accessibilityHidden(true)
+                VStack(alignment: .leading, spacing: ForgeLayout.pairGap) {
                     Text("\(hkService.userProfile.chronotype.displayName) Chronotype")
-                        .font(FDS.TypeScale.Dynamic.caption)
-                        .foregroundColor(.textPrimary)
+                        .font(HomeType.status)
+                        .foregroundStyle(Color.textPrimary)
+                        .lineLimit(2)
                     Text(hkService.userProfile.chronotype.tagline)
-                        .font(.system(size: 11))
-                        .foregroundColor(.textTertiary)
-                        .lineLimit(1)
+                        .font(HomeType.body)
+                        .foregroundStyle(Color.textTertiary)
+                        .forgeWrapping()
                 }
-                Spacer()
+                .layoutPriority(1)
+                Spacer(minLength: FDS.Spacing.xs)
                 Image(systemName: "slider.horizontal.3")
                     .font(.system(size: 12, weight: .semibold))
-                    .foregroundColor(.textTertiary)
+                    .foregroundStyle(Color.textTertiary)
+                    .accessibilityHidden(true)
             }
-            .padding(.vertical, FDS.Spacing.md)
+            .padding(.vertical, ForgeLayout.rowVerticalPadding)
+            .frame(minHeight: ForgeUX.minTap)
+            .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
     }
@@ -909,70 +1136,112 @@ struct AdaptiveSunriseCard: View {
         ).opacity(0.9)
     }
 
+    private var temperatureLabel: String {
+        colorTemp < 0.3 ? "2700K Warm" : colorTemp < 0.7 ? "3500K Neutral" : "5000K Cool"
+    }
+
+    private var temperatureGradient: LinearGradient {
+        LinearGradient(
+            colors: [
+                Color(red: 1.0, green: 0.549, blue: 0.259),
+                Color(red: 1.0, green: 0.82, blue: 0.4),
+                Color(red: 0.996, green: 0.98, blue: 0.878),
+                Color(red: 0.784, green: 0.902, blue: 1.0)
+            ],
+            startPoint: .leading,
+            endPoint: .trailing
+        )
+    }
+
     var body: some View {
-        WakeUpSection(icon: "sunrise.fill", title: "Adaptive Sunrise", color: Color.amber) {
-            VStack(spacing: FDS.Spacing.lg) {
+        WakeUpSection(icon: "sunrise.fill", title: "Adaptive Sunrise", color: .steel) {
+            VStack(alignment: .leading, spacing: ForgeLayout.blockGap) {
                 Toggle(isOn: $enabled) {
-                    VStack(alignment: .leading, spacing: 3) {
-                        Text("Gradual light increase")
-                            .font(FDS.TypeScale.Dynamic.body.weight(.semibold)).foregroundColor(.textPrimary)
-                        Text(config.rationale)
-                            .font(.system(size: 12)).foregroundColor(.textTertiary)
-                    }
+                    Text("Gradual light increase")
+                        .font(HomeType.status)
+                        .foregroundStyle(Color.textPrimary)
                 }
-                .tint(Color.amber)
+                .tint(.steel)
+                .frame(minHeight: ForgeUX.minTap)
+
+                Text(config.rationale)
+                    .font(HomeType.body)
+                    .foregroundStyle(Color.textSecondary)
+                    .forgeWrapping()
 
                 if enabled {
-                    VStack(spacing: FDS.Spacing.lg) {
-                        HStack {
-                            Text("Duration").font(FDS.TypeScale.Dynamic.caption).foregroundColor(.textSecondary)
-                            Spacer()
-                            HStack(spacing: FDS.Spacing.xs) {
-                                Text("\(duration) min")
-                                    .font(FDS.TypeScale.Dynamic.body.weight(.semibold)).foregroundColor(.textPrimary)
-                                Stepper("", value: $duration, in: 5...60, step: 5)
-                                    .labelsHidden().tint(Color.amber)
-                            }
-                        }
-
-                        VStack(alignment: .leading, spacing: FDS.Spacing.md) {
-                            HStack {
-                                Text("Color Temperature").font(FDS.TypeScale.Dynamic.caption).foregroundColor(.textSecondary)
-                                Spacer()
-                                Text(colorTemp < 0.3 ? "2700K Warm" : colorTemp < 0.7 ? "3500K Neutral" : "5000K Cool")
-                                    .font(FDS.TypeScale.Dynamic.caption).foregroundColor(displayColor)
-                            }
-                            ZStack(alignment: .bottom) {
-                                LinearGradient(
-                                    colors: [Color(hex: "FF8C42"), Color(hex: "FFD166"), Color(hex: "FEFAE0"), Color(hex: "C8E6FF")],
-                                    startPoint: .leading, endPoint: .trailing
-                                )
-                                .frame(height: 24).cornerRadius(FDS.Radius.md)
-                                Slider(value: $colorTemp)
-                                    .tint(.clear)
-                                    .padding(.horizontal, 2)
-                            }
-                        }
-
-                        HStack(spacing: FDS.Spacing.sm) {
-                            ForEach(Array(stride(from: 0.1, through: 1.0, by: 0.18)), id: \.self) { t in
-                                Circle()
-                                    .fill(Color(
-                                        red: 1.0,
-                                        green: 0.4 + t * 0.55,
-                                        blue: 0.1 + t * 0.85
-                                    ))
-                                    .frame(width: 8, height: 8)
-                                    .frame(maxWidth: .infinity)
-                                    .opacity(0.3 + t * Double(config.intensity))
-                            }
-                        }
-                        .frame(height: 16)
-                    }
-                    .padding(FDS.Spacing.md).background(Color.amber.opacity(0.06)).cornerRadius(FDS.Radius.md)
-                    .transition(.opacity.combined(with: .scale(scale: 0.97, anchor: .top)))
+                    sunriseControls
+                        .transition(.opacity.combined(with: .scale(scale: 0.97, anchor: .top)))
                 }
             }
         }
+    }
+
+    private var sunriseControls: some View {
+        VStack(alignment: .leading, spacing: ForgeLayout.blockGap) {
+            Stepper(value: $duration, in: 5...60, step: 5) {
+                HStack(spacing: FDS.Spacing.sm) {
+                    Text("Duration")
+                        .font(HomeType.body)
+                        .foregroundStyle(Color.textSecondary)
+                    Spacer(minLength: FDS.Spacing.xs)
+                    Text("\(duration) min")
+                        .font(HomeType.status)
+                        .foregroundStyle(Color.textPrimary)
+                        .monospacedDigit()
+                        .contentTransition(.numericText())
+                }
+            }
+            .tint(.steel)
+            .accessibilityLabel("Duration")
+            .accessibilityValue("\(duration) minutes")
+
+            temperatureBlock
+            intensityDots
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .forgeWell()
+    }
+
+    private var temperatureBlock: some View {
+        VStack(alignment: .leading, spacing: ForgeLayout.rowGap) {
+            ForgeAdaptiveStack(spacing: ForgeLayout.pairGap, alignment: .firstTextBaseline) {
+                Text("Color Temperature")
+                    .font(HomeType.body)
+                    .foregroundStyle(Color.textSecondary)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                Text(temperatureLabel)
+                    .font(HomeType.label)
+                    .foregroundStyle(displayColor)
+            }
+            ZStack(alignment: .bottom) {
+                temperatureGradient
+                    .frame(height: 24)
+                    .clipShape(RoundedRectangle(cornerRadius: FDS.Radius.md, style: .continuous))
+                Slider(value: $colorTemp)
+                    .tint(.clear)
+                    .padding(.horizontal, 2)
+                    .accessibilityLabel("Color temperature")
+                    .accessibilityValue(temperatureLabel)
+            }
+        }
+    }
+
+    private var intensityDots: some View {
+        HStack(spacing: FDS.Spacing.sm) {
+            ForEach(Array(stride(from: 0.1, through: 1.0, by: 0.18)), id: \.self) { t in
+                Circle()
+                    .fill(Color(
+                        red: 1.0,
+                        green: 0.4 + t * 0.55,
+                        blue: 0.1 + t * 0.85
+                    ))
+                    .frame(width: 8, height: 8)
+                    .frame(maxWidth: .infinity)
+                    .opacity(0.3 + t * Double(config.intensity))
+            }
+        }
+        .frame(height: 16)
+        .accessibilityHidden(true)
     }
 }
