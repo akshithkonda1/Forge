@@ -6,109 +6,157 @@ import ForgeCore
 struct AuthSignInView: View {
     @EnvironmentObject var store: AppStore
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     @State private var email = ""
     @State private var password = ""
     @State private var isBusy = false
     @State private var errorMessage: String?
     @State private var appeared = false
+    @FocusState private var focusedField: SignInFocus?
+
+    private enum SignInFocus: Hashable {
+        case email
+        case password
+    }
 
     var body: some View {
         NavigationStack {
             ZStack {
                 PremiumAtmosphere(
                     accent: Color.ember.opacity(0.7),
-                    secondary: Color(hex: "A9D8FF"),
+                    secondary: HudChrome.plate,
                     intensity: 0.75
                 )
 
                 ScrollView(showsIndicators: false) {
-                    VStack(alignment: .leading, spacing: FDS.Spacing.xl) {
-                        VStack(alignment: .leading, spacing: FDS.Spacing.md) {
-                            Text("Welcome back")
-                                .font(FDS.TypeScale.Dynamic.caption)
-                                .tracking(2.2)
-                                .foregroundColor(.textTertiary)
-                                .textCase(.uppercase)
-                            Text("ARIA is still\nhere.")
-                                .font(.system(size: 32, weight: .semibold, design: .rounded))
-                                .foregroundColor(.textPrimary)
-                                .lineSpacing(2)
-                            Text("Pick up with your coach where you left off.")
-                                .font(FDS.TypeScale.Dynamic.body)
-                                .foregroundColor(.textSecondary)
-                                .lineSpacing(3)
-                        }
-                        .padding(.top, FDS.Spacing.sm)
-                        .premiumEntrance(index: 0, appeared: appeared)
+                    VStack(alignment: .leading, spacing: ForgeLayout.groupBreak) {
+                        heroCopy
+                            .premiumEntrance(index: 0, appeared: appeared)
 
-                        VStack(spacing: FDS.Spacing.lg) {
-                            field(title: "Email", text: $email, contentType: .emailAddress, secure: false)
-                            field(title: "Password", text: $password, contentType: .password, secure: true)
-                        }
-                        .premiumEntrance(index: 1, appeared: appeared)
+                        formBlock
+                            .premiumEntrance(index: 1, appeared: appeared)
 
-                        if let errorMessage {
-                            Text(errorMessage)
-                                .font(FDS.TypeScale.Dynamic.caption)
-                                .foregroundColor(.danger)
-                        }
+                        primaryGroup
+                            .premiumEntrance(index: 2, appeared: appeared)
 
-                        PremiumPrimaryButton(
-                            title: isBusy ? "Signing in…" : "Sign in",
-                            enabled: canSubmit,
-                            busy: isBusy
-                        ) {
-                            submitEmail()
-                        }
-                        .premiumEntrance(index: 2, appeared: appeared)
+                        testerButton
 
-                        Text("Apple and Google sign-in will appear here when connected for this build.")
-                            .font(FDS.TypeScale.Dynamic.caption)
-                            .foregroundColor(.textTertiary)
-
-                        // Keep until Cognito is paired — remove when real auth ships.
-                        if ForgeAuthClient.shared.canUseDevOverride {
-                            Button {
-                                continueAsTester()
-                            } label: {
-                                Text("Continue as tester")
-                                    .font(FDS.TypeScale.Dynamic.body)
-                                    .foregroundColor(.steel)
-                                    .frame(maxWidth: .infinity)
-                                    .padding(.vertical, FDS.Spacing.lg)
-                                    .background(Color.steel.opacity(0.10))
-                                    .clipShape(Capsule())
-                            }
-                            .buttonStyle(.plain)
-                            .disabled(isBusy)
-                            .accessibilityHint("Debug tester login until Cognito is paired. Never ships in Release.")
-                        }
-
-                        if !ForgeAuthClient.shared.config.cognitoConfigured,
-                           ForgeAuthClient.shared.canUseDevOverride {
-                            Text("Cognito isn’t paired yet — use Continue as tester for device work.")
-                                .font(FDS.TypeScale.Dynamic.caption)
-                                .foregroundColor(.textTertiary)
-                        }
-
-                        Text("New here? Close and tap Get started on the welcome screen.")
-                            .font(FDS.TypeScale.Dynamic.caption)
-                            .foregroundColor(.textTertiary)
-                            .padding(.bottom, FDS.Spacing.xl)
+                        noteGroup
                     }
-                    .padding(.horizontal, FDS.Spacing.xl)
+                    .padding(.horizontal, ForgeLayout.screenInset)
+                    .padding(.top, ForgeLayout.screenTop)
+                    .padding(.bottom, ForgeLayout.scrollBottomClearance)
                 }
             }
             .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
+                ToolbarItem(placement: .topBarTrailing) {
                     Button("Close") { dismiss() }
                         .foregroundStyle(Color.textSecondary)
                 }
             }
         }
         .onAppear {
-            withAnimation(FDS.Spring.hero) { appeared = true }
+            withAnimation(reduceMotion ? nil : FDS.Spring.hero) { appeared = true }
+        }
+        .onChange(of: errorMessage) { _, message in
+            if let message {
+                AccessibilityNotification.Announcement(message).post()
+            }
+        }
+    }
+
+    // MARK: Blocks
+
+    private var heroCopy: some View {
+        VStack(alignment: .leading, spacing: ForgeLayout.rowGap) {
+            VStack(alignment: .leading, spacing: ForgeLayout.pairGap) {
+                Text("Welcome back")
+                    .forgeSectionLabel()
+                Text("ARIA is still here.")
+                    .font(FDS.TypeScale.Dynamic.pageTitle)
+                    .foregroundColor(.textPrimary)
+                    .minimumScaleFactor(0.85)
+                    .accessibilityAddTraits(.isHeader)
+            }
+            Text("Pick up with your coach where you left off.")
+                .font(HomeType.body)
+                .foregroundColor(.textSecondary)
+                .forgeWrapping()
+        }
+    }
+
+    private var formBlock: some View {
+        VStack(alignment: .leading, spacing: ForgeLayout.blockGap) {
+            VStack(alignment: .leading, spacing: ForgeLayout.rowGap) {
+                field(
+                    title: "Email",
+                    text: $email,
+                    contentType: .emailAddress,
+                    secure: false,
+                    focus: .email
+                )
+                field(
+                    title: "Password",
+                    text: $password,
+                    contentType: .password,
+                    secure: true,
+                    focus: .password
+                )
+            }
+
+            if let errorMessage {
+                Text(errorMessage)
+                    .font(HomeType.body)
+                    .foregroundColor(.danger)
+                    .forgeWrapping()
+            }
+        }
+    }
+
+    private var primaryGroup: some View {
+        VStack(alignment: .leading, spacing: ForgeLayout.rowGap) {
+            PremiumPrimaryButton(
+                title: isBusy ? "Signing in…" : "Sign in",
+                enabled: canSubmit,
+                busy: isBusy
+            ) {
+                submitEmail()
+            }
+
+            Text("Apple and Google sign-in will appear here when connected for this build.")
+                .font(.footnote)
+                .foregroundColor(.textTertiary)
+                .forgeWrapping()
+        }
+    }
+
+    @ViewBuilder
+    private var testerButton: some View {
+        // Keep until Cognito is paired — remove when real auth ships.
+        if ForgeAuthClient.shared.canUseDevOverride {
+            ForgeSecondaryButton(title: "Continue as tester", accent: .steel) {
+                continueAsTester()
+            }
+            .disabled(isBusy)
+            .accessibilityHint("Debug tester login until Cognito is paired. Never ships in Release.")
+        }
+    }
+
+    private var noteGroup: some View {
+        VStack(alignment: .leading, spacing: ForgeLayout.rowGap) {
+            if !ForgeAuthClient.shared.config.cognitoConfigured,
+               ForgeAuthClient.shared.canUseDevOverride {
+                Text("Cognito isn’t paired yet — use Continue as tester for device work.")
+                    .font(.footnote)
+                    .foregroundColor(.textTertiary)
+                    .forgeWrapping()
+            }
+
+            Text("New here? Close and tap Get started on the welcome screen.")
+                .font(.footnote)
+                .foregroundColor(.textTertiary)
+                .forgeWrapping()
         }
     }
 
@@ -120,35 +168,58 @@ struct AuthSignInView: View {
         title: String,
         text: Binding<String>,
         contentType: UITextContentType,
-        secure: Bool
+        secure: Bool,
+        focus: SignInFocus
     ) -> some View {
         VStack(alignment: .leading, spacing: FDS.Spacing.sm) {
             Text(title)
-                .font(FDS.TypeScale.Dynamic.caption)
-                .tracking(0.8)
-                .foregroundColor(.textTertiary)
-            Group {
-                if secure {
-                    SecureField(title, text: text)
-                        .textContentType(contentType)
-                } else {
-                    TextField(title, text: text)
-                        .textContentType(contentType)
-                        .textInputAutocapitalization(.never)
-                        .keyboardType(.emailAddress)
-                        .autocorrectionDisabled()
-                }
-            }
-            .font(.system(size: 16, weight: .regular))
-            .foregroundColor(.textPrimary)
-            .padding(FDS.Spacing.lg)
-            .background(Color.white.opacity(0.05))
-            .clipShape(RoundedRectangle(cornerRadius: FDS.Radius.lg, style: .continuous))
-            .overlay(
-                RoundedRectangle(cornerRadius: FDS.Radius.lg, style: .continuous)
-                    .stroke(Color.white.opacity(0.08), lineWidth: 1)
-            )
+                .forgeSectionLabel()
+            fieldInput(title: title, text: text, contentType: contentType, secure: secure, focus: focus)
         }
+    }
+
+    @ViewBuilder
+    private func fieldInput(
+        title: String,
+        text: Binding<String>,
+        contentType: UITextContentType,
+        secure: Bool,
+        focus: SignInFocus
+    ) -> some View {
+        let isFocused = focusedField == focus
+        Group {
+            if secure {
+                SecureField(title, text: text)
+                    .textContentType(contentType)
+                    .focused($focusedField, equals: focus)
+                    .submitLabel(.go)
+            } else {
+                TextField(title, text: text)
+                    .textContentType(contentType)
+                    .textInputAutocapitalization(.never)
+                    .keyboardType(.emailAddress)
+                    .autocorrectionDisabled()
+                    .focused($focusedField, equals: focus)
+                    .submitLabel(.next)
+            }
+        }
+        .onSubmit {
+            if focus == .email {
+                focusedField = .password
+            } else {
+                submitEmail()
+            }
+        }
+        .font(.body)
+        .foregroundColor(.textPrimary)
+        .padding(.horizontal, ForgeLayout.compactCardPadding)
+        .padding(.vertical, ForgeLayout.tilePadding)
+        .frame(minHeight: 48)
+        .forgeInsetTile(radius: FDS.Radius.md)
+        .overlay(
+            RoundedRectangle(cornerRadius: FDS.Radius.md, style: .continuous)
+                .strokeBorder(isFocused ? Color.ember.opacity(0.32) : Color.clear, lineWidth: 1)
+        )
     }
 
     private func continueAsTester() {
