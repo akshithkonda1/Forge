@@ -2,13 +2,25 @@ import SwiftUI
 import UIKit
 import ForgeCore
 
+/// One macro-to-color mapping for every food surface (rings, tiles, chips,
+/// pick cards, menu items). Carbs and water are deliberately distinct.
+enum FoodMacroPalette {
+    static let calories = Color.amber
+    static let protein = Color.ember
+    static let carbs = Color.indigo
+    static let fat = Color.aurora
+    static let fiber = Color.vitality
+    static let water = Color.steel
+}
+
 struct DailyNutritionView: View {
     @ObservedObject var vm: LifestyleViewModel
     @EnvironmentObject var store: AppStore
     @State private var showDevices = false
 
     var body: some View {
-        VStack(spacing: FDS.Spacing.lg) {
+        VStack(spacing: ForgeLayout.sectionGap) {
+            MacroRingsCard(vm: vm)
             AINutritionCoachCard(vm: vm)
             if store.metabolicHealthEnabled {
                 MetabolicTranslationCard(
@@ -19,7 +31,6 @@ struct DailyNutritionView: View {
                     onDevices: { showDevices = true }
                 )
             }
-            MacroRingsCard(vm: vm)
             MealLogCard(vm: vm)
             AIMealSuggestionsCard(vm: vm)
             WaterIntakeCard(vm: vm)
@@ -32,122 +43,164 @@ struct DailyNutritionView: View {
     }
 }
 
+// MARK: - Hero: macro rings
+
 struct MacroRingsCard: View {
     @ObservedObject var vm: LifestyleViewModel
     @State private var appeared = false
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
     private struct Macro {
         let label: String; let current: Int; let target: Int
         let color: Color; let unit: String; let radius: CGFloat
     }
 
+    private static let ringStroke: CGFloat = 12
+    private static let ringFrameHeight: CGFloat = 196
+
     private var macros: [Macro] {
         let stats = vm.healthStats
         return [
-            Macro(label: "Carbs", current: Int(stats?.carbs ?? 0), target: 280, color: .steel, unit: "g", radius: 92),
-            Macro(label: "Protein", current: Int(stats?.protein ?? 0), target: 180, color: .ember, unit: "g", radius: 68),
-            Macro(label: "Fats", current: Int(stats?.fat ?? 0), target: 70, color: Color.amber, unit: "g", radius: 44),
+            Macro(label: "Carbs", current: Int(stats?.carbs ?? 0), target: 280, color: FoodMacroPalette.carbs, unit: "g", radius: 92),
+            Macro(label: "Protein", current: Int(stats?.protein ?? 0), target: 180, color: FoodMacroPalette.protein, unit: "g", radius: 68),
+            Macro(label: "Fats", current: Int(stats?.fat ?? 0), target: 70, color: FoodMacroPalette.fat, unit: "g", radius: 44),
         ]
     }
 
     private var totalCal: Int { vm.healthStats?.totalCalories ?? 0 }
     private var targetCal: Int { 2600 }
+    private var isOverTarget: Bool { totalCal > targetCal }
+    private var isAccessibilityLayout: Bool { dynamicTypeSize.isAccessibilitySize }
+
+    private var calorieMetaText: String {
+        isOverTarget ? "\(totalCal - targetCal) over" : "\(targetCal - totalCal) cal left"
+    }
+
+    private var calorieMetaColor: Color {
+        isOverTarget ? HudChrome.miss : Color.ember
+    }
 
     var body: some View {
-        VStack(spacing: 0) {
-            HStack {
-                Text("TODAY'S MACROS")
-                    .font(FDS.TypeScale.Dynamic.micro)
-                    .foregroundColor(.textTertiary)
-                    .tracking(2.5)
-                Spacer()
-                Text("\(targetCal - totalCal) cal left")
-                    .font(FDS.TypeScale.Dynamic.caption)
-                    .foregroundColor(.ember)
+        VStack(alignment: .leading, spacing: ForgeLayout.heroGap) {
+            ForgeCardHeader("TODAY'S MACROS", meta: calorieMetaText, metaColor: calorieMetaColor)
+            ringStack
+            if isAccessibilityLayout {
+                accessibleTotal
             }
-            .padding(.bottom, FDS.Spacing.xl)
-
-            // Three concentric macro rings
-            ZStack {
-                ForEach(Array(macros.enumerated()), id: \.offset) { i, macro in
-                    let progress = appeared ? CGFloat(macro.current) / CGFloat(macro.target) : 0
-
-                    // Track
-                    Circle()
-                        .stroke(Color.borderColor.opacity(0.3), style: StrokeStyle(lineWidth: 12, lineCap: .round))
-                        .frame(width: macro.radius * 2, height: macro.radius * 2)
-
-                    // Glow
-                    Circle()
-                        .trim(from: 0, to: min(progress, 1))
-                        .stroke(macro.color.opacity(0.3), style: StrokeStyle(lineWidth: 16, lineCap: .round))
-                        .frame(width: macro.radius * 2, height: macro.radius * 2)
-                        .rotationEffect(.degrees(-90))
-                        .blur(radius: 7)
-
-                    // Main
-                    Circle()
-                        .trim(from: 0, to: min(progress, 1))
-                        .stroke(macro.color, style: StrokeStyle(lineWidth: 12, lineCap: .round))
-                        .frame(width: macro.radius * 2, height: macro.radius * 2)
-                        .rotationEffect(.degrees(-90))
-                        .shadow(color: macro.color.opacity(0.45), radius: 8)
-                        .animation(.spring(response: 1.3, dampingFraction: 0.68).delay(0.25 + Double(i) * 0.15), value: appeared)
-                }
-
-                // Center: calorie total
-                VStack(spacing: 2) {
-                    Text("\(totalCal)")
-                        .font(.system(size: 28, weight: .black, design: .rounded))
-                        .foregroundColor(.textPrimary)
-                    Text("of \(targetCal) kcal")
-                        .font(FDS.TypeScale.Dynamic.micro)
-                        .foregroundColor(.textTertiary)
-                }
-            }
-            .frame(height: 210)
-            .frame(maxWidth: .infinity)
-            .padding(.bottom, FDS.Spacing.xl)
-
-            // Macro legend — responsive bars using GeometryReader (fixed hardcoded bug)
-            VStack(spacing: FDS.Spacing.lg) {
-                ForEach(Array(macros.enumerated()), id: \.offset) { _, macro in
-                    HStack(spacing: FDS.Spacing.md) {
-                        Circle().fill(macro.color).frame(width: 8, height: 8)
-                            .shadow(color: macro.color.opacity(0.5), radius: 3)
-                        Text(macro.label)
-                            .font(FDS.TypeScale.Dynamic.caption)
-                            .foregroundColor(.textSecondary)
-                            .frame(width: 52, alignment: .leading)
-                        GeometryReader { geo in
-                            ZStack(alignment: .leading) {
-                                Capsule().fill(Color.borderColor.opacity(0.3))
-                                Capsule().fill(macro.color.opacity(0.8))
-                                    .frame(width: appeared ? geo.size.width * CGFloat(macro.current) / CGFloat(macro.target) : 0)
-                                    .animation(.spring(response: 1.1, dampingFraction: 0.7).delay(0.5), value: appeared)
-                            }
-                        }
-                        .frame(height: 6)
-                        Text("\(macro.current)\(macro.unit)")
-                            .font(FDS.TypeScale.Dynamic.caption)
-                            .foregroundColor(.textPrimary)
-                            .frame(width: 44, alignment: .trailing)
-                    }
-                }
-            }
+            legend
         }
-        .padding(FDS.Spacing.xl)
-        .forgeGlassCard(cornerRadius: FDS.Radius.xxl, accent: .amber)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .hudPlate(energy: .amber)
+        .accessibilityElement(children: .contain)
         .onAppear { appeared = true }
     }
+
+    // MARK: Rings
+
+    private var ringStack: some View {
+        ZStack {
+            ForEach(Array(macros.enumerated()), id: \.offset) { i, macro in
+                macroRing(macro, index: i)
+            }
+            if !isAccessibilityLayout {
+                ringCenter
+            }
+        }
+        .frame(height: Self.ringFrameHeight)
+        .frame(maxWidth: .infinity)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("Calories, \(totalCal) of \(targetCal) kcal")
+    }
+
+    private func macroRing(_ macro: Macro, index: Int) -> some View {
+        let fraction = min(1, Double(macro.current) / Double(max(1, macro.target)))
+        let shown = appeared || reduceMotion
+        let diameter = macro.radius * 2
+        return ZStack {
+            Circle()
+                .stroke(Color.white.opacity(0.08), style: StrokeStyle(lineWidth: Self.ringStroke, lineCap: .round))
+            Circle()
+                .trim(from: 0, to: shown ? CGFloat(fraction) : 0)
+                .stroke(macro.color, style: StrokeStyle(lineWidth: Self.ringStroke, lineCap: .round))
+                .rotationEffect(.degrees(-90))
+                .animation(reduceMotion ? nil : FDS.Spring.sweepDelay(index), value: appeared)
+        }
+        .frame(width: diameter, height: diameter)
+    }
+
+    private var ringCenter: some View {
+        VStack(spacing: ForgeLayout.labelValueGap) {
+            Text("\(totalCal)")
+                .font(HomeType.heroScore)
+                .foregroundStyle(Color.textPrimary)
+                .hudInArcText()
+                .contentTransition(.numericText())
+            Text("of \(targetCal) kcal")
+                .font(HomeType.micro)
+                .foregroundStyle(Color.textTertiary)
+                .hudInArcText()
+        }
+        .frame(maxWidth: 68)
+    }
+
+    /// At accessibility sizes the number and its meta move below the ring,
+    /// where they can use the full card width.
+    private var accessibleTotal: some View {
+        VStack(spacing: ForgeLayout.pairGap) {
+            Text("\(totalCal)")
+                .font(HomeType.heroScore)
+                .foregroundStyle(Color.textPrimary)
+                .forgeSingleLine()
+                .contentTransition(.numericText())
+            Text("of \(targetCal) kcal")
+                .font(HomeType.body)
+                .foregroundStyle(Color.textTertiary)
+                .forgeWrapping()
+        }
+        .frame(maxWidth: .infinity)
+        .accessibilityHidden(true)
+    }
+
+    // MARK: Legend
+
+    private var legend: some View {
+        VStack(spacing: ForgeLayout.rowGap) {
+            ForEach(Array(macros.enumerated()), id: \.offset) { _, macro in
+                legendRow(macro)
+            }
+        }
+    }
+
+    private func legendRow(_ macro: Macro) -> some View {
+        let fraction = Double(macro.current) / Double(max(1, macro.target))
+        let overBy = macro.current - macro.target
+        return VStack(alignment: .leading, spacing: ForgeLayout.labelValueGap) {
+            ForgeMetricRow(
+                label: macro.label,
+                value: "\(macro.current) / \(macro.target)",
+                unit: macro.unit,
+                tint: macro.color
+            )
+            ForgeProgressBar(fraction: fraction, tint: macro.color)
+            if overBy > 0 {
+                Text("\(overBy)\(macro.unit) over")
+                    .font(HomeType.micro)
+                    .foregroundStyle(HudChrome.miss)
+                    .monospacedDigit()
+            }
+        }
+        .accessibilityElement(children: .combine)
+    }
 }
+
+// MARK: - ARIA coach
 
 struct AINutritionCoachCard: View {
     @ObservedObject var vm: LifestyleViewModel
     @EnvironmentObject var store: AppStore
     @State private var tipIndex = 0
-    @State private var sparkleScale: Double = 1.0
-    @State private var appeared = false
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     // Live ARIA insight overrides the local heuristic tip when present.
     private var liveInsight: String? { vm.aiNutritionInsight }
@@ -177,52 +230,61 @@ struct AINutritionCoachCard: View {
     var tip: (icon: String, color: Color, headline: String, body: String) { tips[tipIndex % max(tips.count, 1)] }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: FDS.Spacing.lg) {
+        VStack(alignment: .leading, spacing: ForgeLayout.blockGap) {
             coachHeader
-            if appeared {
-                coachInsightSection
-            }
+            tipDetailRow
+            macroSnapshotChips
         }
-        .padding(FDS.Spacing.lg)
-        .forgeGlassCard(cornerRadius: FDS.Radius.xl, accent: .ember)
-        .onAppear {
-            withAnimation(.easeInOut(duration: 0.55).repeatForever(autoreverses: true)) {
-                sparkleScale = 1.25
-            }
-            withAnimation(.easeOut(duration: 0.4)) { appeared = true }
-        }
+        .forgeContentCard(tint: .amber)
         .task { await vm.refreshNutritionCoachNote(store: store) }
     }
 
     private var coachHeader: some View {
-        HStack(spacing: FDS.Spacing.md) {
-            ZStack {
-                Circle().fill(Color.ember.opacity(0.15)).frame(width: 40, height: 40)
-                ARIAIdentityMark(state: .idle, mood: .energized, size: 22, amplitude: 0.24)
-                    .scaleEffect(coachHeaderIconScale)
+        HStack(spacing: ForgeLayout.rowGap) {
+            coachMark
+            VStack(alignment: .leading, spacing: ForgeLayout.pairGap) {
+                Text("AI Nutrition Coach")
+                    .font(HomeType.status)
+                    .foregroundStyle(Color.textPrimary)
+                    .forgeSingleLine(minScale: ForgeLayout.labelMinScale)
+                coachSubtitleLine
             }
-            VStack(alignment: .leading, spacing: 2) {
-                HStack(spacing: FDS.Spacing.sm) {
-                    Text("AI Nutrition Coach").font(FDS.TypeScale.Dynamic.headline).foregroundColor(.textPrimary)
-                    if liveInsight != nil { coachBadge }
-                }
-                Text(coachSubtitle)
-                    .font(FDS.TypeScale.Dynamic.micro).foregroundColor(.textTertiary)
-            }
-            Spacer()
-            Button {
-                withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) { tipIndex += 1 }
-            } label: {
-                Image(systemName: "arrow.clockwise")
-                    .font(.system(size: 13, weight: .semibold))
-                    .foregroundColor(.textTertiary)
-                    .frame(width: 32, height: 32)
-                    .background(Color.surfaceElevated)
-                    .clipShape(Circle())
-            }
-            .opacity(liveInsight == nil ? 1 : 0.4)
-            .disabled(liveInsight != nil)
+            .layoutPriority(1)
+            Spacer(minLength: 0)
+            refreshButton
         }
+    }
+
+    private var coachMark: some View {
+        ZStack {
+            Circle().fill(Color.amber.opacity(0.16))
+            ARIAIdentityMark(state: .idle, mood: .energized, size: 20, amplitude: 0.24)
+        }
+        .frame(width: ForgeLayout.iconWell, height: ForgeLayout.iconWell)
+        .accessibilityHidden(true)
+    }
+
+    private var coachSubtitleLine: some View {
+        ForgeAdaptiveStack(spacing: ForgeLayout.chipGap, alignment: .firstTextBaseline) {
+            Text(coachSubtitle)
+                .font(HomeType.micro)
+                .foregroundStyle(Color.textTertiary)
+            if liveInsight != nil {
+                HudVibeChip(label: vm.aiInsightsLive ? "LIVE" : "ARIA", energy: Color.amber)
+            }
+        }
+    }
+
+    private var refreshButton: some View {
+        ForgeIconButton(systemImage: "arrow.clockwise", accessibilityLabel: "Refresh", tinted: false) {
+            advanceTip()
+        }
+        .opacity(liveInsight == nil ? 1 : 0.4)
+        .disabled(liveInsight != nil)
+    }
+
+    private func advanceTip() {
+        withAnimation(reduceMotion ? nil : FDS.Spring.standard) { tipIndex += 1 }
     }
 
     private var coachSubtitle: String {
@@ -231,90 +293,57 @@ struct AINutritionCoachCard: View {
         return "Insight ready"
     }
 
-    private var coachBadge: some View {
-        Text(vm.aiInsightsLive ? "LIVE" : "ARIA")
-            .font(FDS.TypeScale.Dynamic.micro)
-            .tracking(0.5)
-            .foregroundColor(.ember)
-            .padding(.horizontal, FDS.Spacing.sm).padding(.vertical, 2)
-            .background(Color.ember.opacity(0.12))
-            .cornerRadius(FDS.Radius.xs)
-    }
-
-    private var coachHeaderIconScale: CGFloat { vm.aiInsightsLoading ? sparkleScale : 1.0 }
-
-    @ViewBuilder
-    private var coachInsightSection: some View {
-        Divider().background(Color.borderColor)
-        tipDetailRow
-        macroSnapshotChips
-    }
-
     private var tipDetailRow: some View {
-        HStack(alignment: .top, spacing: FDS.Spacing.lg) {
-            Group {
-                if liveInsight != nil {
-                    ARIAIdentityMark(state: .idle, mood: .energized, size: 24, amplitude: 0.24)
-                } else {
-                    Image(systemName: tip.icon)
-                        .font(.system(size: 22))
-                        .foregroundColor(tip.color)
-                }
-            }
-            .frame(width: 28)
-            VStack(alignment: .leading, spacing: FDS.Spacing.xs) {
+        HStack(alignment: .top, spacing: ForgeLayout.rowGap) {
+            ForgeIconWell(systemImage: liveInsight != nil ? "sparkles" : tip.icon, tint: .amber)
+            VStack(alignment: .leading, spacing: ForgeLayout.pairGap) {
                 Text(liveInsight != nil ? "ARIA's take" : tip.headline)
-                    .font(FDS.TypeScale.Dynamic.body.weight(.semibold))
-                    .foregroundColor(.textPrimary)
+                    .font(HomeType.status)
+                    .foregroundStyle(Color.textPrimary)
+                    .forgeWrapping()
                 Text(liveInsight ?? tip.body)
-                    .font(.system(size: 13))
-                    .foregroundColor(.textSecondary)
-                    .lineSpacing(4)
-                    .fixedSize(horizontal: false, vertical: true)
+                    .font(HomeType.body)
+                    .foregroundStyle(Color.textSecondary)
+                    .forgeWrapping()
             }
+            Spacer(minLength: 0)
         }
-        .transition(.opacity.combined(with: .move(edge: .bottom)))
+        .transition(.opacity)
         .id(liveInsight ?? "tip-\(tipIndex)")
     }
 
     private var macroSnapshotChips: some View {
-        HStack(spacing: 0) {
+        ForgeStatGrid(columns: 3) {
             ForEach(macroSnapshots, id: \.label) { snapshot in
-                VStack(spacing: 3) {
-                    Text(snapshot.label)
-                        .font(FDS.TypeScale.Dynamic.micro)
-                        .foregroundColor(.textTertiary)
-                    Text("\(snapshot.percent)%")
-                        .font(FDS.TypeScale.Dynamic.caption)
-                        .foregroundColor(snapshot.color)
-                }
-                .frame(maxWidth: .infinity)
-                .padding(.vertical, FDS.Spacing.md)
-                .background(snapshot.color.opacity(0.08))
-                if snapshot.label != "Cal" {
-                    Divider().frame(height: 28).background(Color.borderColor)
-                }
+                ForgeStatTile(
+                    label: snapshot.label,
+                    value: "\(snapshot.percent)",
+                    unit: "%",
+                    energy: snapshot.color
+                )
             }
         }
-        .cornerRadius(FDS.Radius.md)
-        .transition(.opacity)
     }
 
     private var macroSnapshots: [(label: String, percent: Int, color: Color)] {
         let stats = vm.healthStats
         return [
-            ("Protein", min(Int((stats?.protein ?? 0) / 180 * 100), 100), Color.ember),
-            ("Carbs", min(Int((stats?.carbs ?? 0) / 280 * 100), 100), Color.steel),
-            ("Fats", min(Int((stats?.fat ?? 0) / 70 * 100), 100), Color.amber),
-            ("Cal", min(Int(Double(stats?.totalCalories ?? 0) / 2600 * 100), 100), Color.aurora),
+            ("Protein", min(Int((stats?.protein ?? 0) / 180 * 100), 100), FoodMacroPalette.protein),
+            ("Carbs", min(Int((stats?.carbs ?? 0) / 280 * 100), 100), FoodMacroPalette.carbs),
+            ("Fats", min(Int((stats?.fat ?? 0) / 70 * 100), 100), FoodMacroPalette.fat),
+            ("Cal", min(Int(Double(stats?.totalCalories ?? 0) / 2600 * 100), 100), FoodMacroPalette.calories),
         ]
     }
 }
+
+// MARK: - Meal suggestions
 
 struct AIMealSuggestionsCard: View {
     @ObservedObject var vm: LifestyleViewModel
     @EnvironmentObject var store: AppStore
     @State private var setIndex = 0
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
     private var suggestions: [AIMealSuggestion] {
         let stats = vm.healthStats
@@ -348,109 +377,156 @@ struct AIMealSuggestionsCard: View {
         return Array(pool[start..<min(start + 3, pool.count)])
     }
 
-    var body: some View {
-        VStack(alignment: .leading, spacing: FDS.Spacing.lg) {
-            HStack {
-                HStack(spacing: FDS.Spacing.sm) {
-                    Image(systemName: "fork.knife.circle.fill").font(.system(size: 20)).foregroundColor(.steel)
-                    Text("AI Meal Suggestions").font(FDS.TypeScale.Dynamic.headline).foregroundColor(.textPrimary)
-                }
-                Spacer()
-                Button {
-                    withAnimation(.spring(response: 0.4, dampingFraction: 0.7)) { setIndex += 1 }
-                } label: {
-                    HStack(spacing: FDS.Spacing.xs) {
-                        Image(systemName: "sparkles").font(.system(size: 10))
-                        Text("Regenerate").font(FDS.TypeScale.Dynamic.caption)
-                    }
-                    .foregroundColor(.steel)
-                    .padding(.horizontal, FDS.Spacing.md).padding(.vertical, FDS.Spacing.sm)
-                    .background(Color.steel.opacity(0.12))
-                    .cornerRadius(FDS.Radius.sm)
-                }
-            }
+    private var basisLine: String {
+        let calLeft = max(0, 2600 - (vm.healthStats?.totalCalories ?? 0))
+        let proteinLeft = max(0, Int(180 - (vm.healthStats?.protein ?? 0)))
+        return "Based on \(calLeft) cal · \(proteinLeft)g protein remaining"
+    }
 
-            Text("Based on \(max(0, 2600 - (vm.healthStats?.totalCalories ?? 0))) cal · \(max(0, Int(180 - (vm.healthStats?.protein ?? 0))))g protein remaining")
-                .font(FDS.TypeScale.Dynamic.caption)
-                .foregroundColor(.textTertiary)
+    var body: some View {
+        VStack(alignment: .leading, spacing: ForgeLayout.blockGap) {
+            VStack(alignment: .leading, spacing: ForgeLayout.pairGap) {
+                header
+                Text(basisLine)
+                    .font(HomeType.body)
+                    .foregroundStyle(Color.textTertiary)
+                    .forgeWrapping()
+            }
 
             if let note = vm.aiMealNote {
-                HStack(alignment: .top, spacing: FDS.Spacing.sm) {
-                    Image(systemName: "sparkles").font(.system(size: 11)).foregroundColor(.steel)
-                    Text(note)
-                        .font(.system(size: 12))
-                        .foregroundColor(.textSecondary)
-                        .fixedSize(horizontal: false, vertical: true)
-                }
-                .padding(FDS.Spacing.md)
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .background(Color.steel.opacity(0.08))
-                .cornerRadius(FDS.Radius.sm)
+                ariaNote(note)
             }
 
-            VStack(spacing: FDS.Spacing.md) {
+            VStack(spacing: ForgeLayout.rowGap) {
                 ForEach(suggestions) { suggestion in
                     AIMealRow(suggestion: suggestion)
-                        .transition(.opacity.combined(with: .move(edge: .trailing)))
+                        .transition(.opacity)
                         .id("\(setIndex)-\(suggestion.id)")
                 }
             }
         }
-        .padding(FDS.Spacing.lg)
-        .forgeGlassCard(cornerRadius: FDS.Radius.xl, accent: .amber)
+        .forgeContentCard(tint: .amber)
         .task { await vm.refreshMealNote(store: store) }
+    }
+
+    @ViewBuilder
+    private var header: some View {
+        if dynamicTypeSize.isAccessibilitySize {
+            VStack(alignment: .leading, spacing: ForgeLayout.pairGap) {
+                ForgeCardHeader("AI Meal Suggestions")
+                regenerateLink
+            }
+        } else {
+            ForgeCardHeader(title: "AI Meal Suggestions") { regenerateLink }
+        }
+    }
+
+    private var regenerateLink: some View {
+        ForgeTextLink(title: "Regenerate", accent: .amber) {
+            withAnimation(reduceMotion ? nil : FDS.Spring.standard) { setIndex += 1 }
+        }
+    }
+
+    private func ariaNote(_ note: String) -> some View {
+        HStack(alignment: .top, spacing: FDS.Spacing.sm) {
+            Image(systemName: "sparkles")
+                .font(.system(size: 12, weight: .semibold))
+                .foregroundStyle(Color.amber)
+                .accessibilityHidden(true)
+            Text(note)
+                .font(HomeType.body)
+                .foregroundStyle(Color.textSecondary)
+                .forgeWrapping()
+            Spacer(minLength: 0)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .forgeWell()
     }
 }
 
 struct AIMealRow: View {
     let suggestion: AIMealSuggestion
     @State private var expanded = false
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            Button {
-                withAnimation(.spring(response: 0.3, dampingFraction: 0.78)) { expanded.toggle() }
-            } label: {
-                HStack(spacing: FDS.Spacing.md) {
-                    VStack(alignment: .leading, spacing: 3) {
-                        Text(suggestion.name).font(FDS.TypeScale.Dynamic.body.weight(.semibold)).foregroundColor(.textPrimary)
-                        Text(suggestion.reason).font(.system(size: 11)).foregroundColor(.textTertiary).lineLimit(1)
-                    }
-                    Spacer()
-                    Text("\(suggestion.cal) cal")
-                        .font(FDS.TypeScale.Dynamic.caption).foregroundColor(.ember)
-                    Image(systemName: expanded ? "chevron.up" : "chevron.down")
-                        .font(.system(size: 11, weight: .semibold)).foregroundColor(.textMuted)
-                }
-                .padding(FDS.Spacing.md)
+        VStack(alignment: .leading, spacing: ForgeLayout.blockGap) {
+            Button(action: toggle) {
+                rowLabel
             }
             .buttonStyle(.plain)
+            .accessibilityValue(expanded ? "Expanded" : "Collapsed")
+            .accessibilityHint("Shows protein, carbs and fat")
 
             if expanded {
-                HStack(spacing: 0) {
-                    InlineMacroChip(label: "P", value: "\(suggestion.protein)g", color: .ember)
-                    InlineMacroChip(label: "C", value: "\(suggestion.carbs)g",   color: .steel)
-                    InlineMacroChip(label: "F", value: "\(suggestion.fat)g",     color: Color.amber)
-                }
-                .padding(.horizontal, FDS.Spacing.md).padding(.bottom, FDS.Spacing.md)
-                .transition(.opacity.combined(with: .move(edge: .top)))
+                macroChips
+                    .transition(.opacity.combined(with: .scale(scale: 0.97, anchor: .top)))
             }
         }
-        .forgeInsetTile(radius: FDS.Radius.md)
+        .forgeWell()
+    }
+
+    private var rowLabel: some View {
+        HStack(spacing: ForgeLayout.rowGap) {
+            VStack(alignment: .leading, spacing: ForgeLayout.pairGap) {
+                Text(suggestion.name)
+                    .font(HomeType.status)
+                    .foregroundStyle(Color.textPrimary)
+                    .lineLimit(2)
+                Text(suggestion.reason)
+                    .font(HomeType.body)
+                    .foregroundStyle(Color.textTertiary)
+                    .lineLimit(2)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .layoutPriority(1)
+            Text("\(suggestion.cal) cal")
+                .font(HomeType.label)
+                .monospacedDigit()
+                .foregroundStyle(Color.textSecondary)
+                .lineLimit(1)
+            Image(systemName: expanded ? "chevron.up" : "chevron.down")
+                .font(.system(size: 11, weight: .semibold))
+                .foregroundStyle(Color.textMuted)
+                .accessibilityHidden(true)
+        }
+        .frame(minHeight: ForgeUX.minTap)
+        .contentShape(Rectangle())
+    }
+
+    private var macroChips: some View {
+        ForgeFlowLayout(spacing: ForgeLayout.chipGap, lineSpacing: ForgeLayout.chipGap) {
+            InlineMacroChip(label: "P", value: "\(suggestion.protein)g", color: FoodMacroPalette.protein)
+            InlineMacroChip(label: "C", value: "\(suggestion.carbs)g", color: FoodMacroPalette.carbs)
+            InlineMacroChip(label: "F", value: "\(suggestion.fat)g", color: FoodMacroPalette.fat)
+        }
+    }
+
+    private func toggle() {
+        FDS.haptic(.press)
+        withAnimation(reduceMotion ? nil : FDS.Spring.standard) { expanded.toggle() }
     }
 }
 
 struct InlineMacroChip: View {
     let label: String; let value: String; let color: Color
-    var body: some View {
-        VStack(spacing: 3) {
-            Text(label).font(FDS.TypeScale.Dynamic.micro).foregroundColor(.textTertiary)
-            Text(value).font(FDS.TypeScale.Dynamic.caption).foregroundColor(color)
+
+    private var fullName: String {
+        switch label {
+        case "P": return "Protein"
+        case "C": return "Carbs"
+        case "F": return "Fat"
+        default: return label
         }
-        .frame(maxWidth: .infinity).padding(.vertical, FDS.Spacing.sm)
-        .background(color.opacity(0.09)).cornerRadius(FDS.Radius.sm)
+    }
+
+    var body: some View {
+        ForgeChip(label: "\(label) \(value)", energy: color, selected: true)
+            .accessibilityLabel("\(fullName) \(value)")
     }
 }
+
+// MARK: - Meal log (the one halo card)
 
 struct MealLogCard: View {
     @ObservedObject var vm: LifestyleViewModel
@@ -468,66 +544,26 @@ struct MealLogCard: View {
         }
     }
 
-    var body: some View {
-        VStack(alignment: .leading, spacing: FDS.Spacing.lg) {
-            HStack {
-                Text("Meal Log").font(FDS.TypeScale.Dynamic.headline).foregroundColor(.textPrimary)
-                Spacer()
-                Text("\(vm.loggedMeals.count) logged")
-                    .font(FDS.TypeScale.Dynamic.caption)
-                    .foregroundColor(.textTertiary)
-                Button { showScanner = true } label: {
-                    HStack(spacing: FDS.Spacing.xs) {
-                        if isLookingUp {
-                            ProgressView().scaleEffect(0.7)
-                        } else {
-                            Image(systemName: "barcode.viewfinder").font(.system(size: 13, weight: .semibold))
-                        }
-                        Text("Scan").font(FDS.TypeScale.Dynamic.caption)
-                    }
-                    .foregroundColor(.ember)
-                    .padding(.horizontal, FDS.Spacing.md).padding(.vertical, FDS.Spacing.sm)
-                    .background(Color.ember.opacity(0.1))
-                    .cornerRadius(FDS.Radius.sm)
-                }
-                .disabled(isLookingUp)
-            }
+    private var sortedMeals: [MealLog] {
+        vm.loggedMeals.sorted(by: { $0.date > $1.date })
+    }
 
+    var body: some View {
+        VStack(alignment: .leading, spacing: ForgeLayout.blockGap) {
+            header
+            scanButton
             if vm.loggedMeals.isEmpty {
-                Text("No meals logged yet today. Use Quick Location Log or Restaurants to add your first meal.")
-                    .font(.system(size: 13))
-                    .foregroundColor(.textSecondary)
-                    .padding(FDS.Spacing.lg)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .forgeInsetTile(radius: FDS.Radius.md)
+                ForgeEmptyNote(
+                    title: "No meals logged yet today.",
+                    message: "Use Quick Location Log or Restaurants to add your first meal.",
+                    systemImage: "fork.knife",
+                    tint: .amber
+                )
             } else {
-                VStack(spacing: FDS.Spacing.md) {
-                    ForEach(vm.loggedMeals.sorted(by: { $0.date > $1.date })) { meal in
-                        HStack(spacing: FDS.Spacing.lg) {
-                            ZStack {
-                                Circle().fill(Color.surface).frame(width: 38, height: 38)
-                                Image(systemName: mealIcon(for: meal.date))
-                                    .font(.system(size: 15)).foregroundColor(.ember)
-                            }
-                            VStack(alignment: .leading, spacing: 2) {
-                                Text(meal.name).font(FDS.TypeScale.Dynamic.body.weight(.semibold)).foregroundColor(.textPrimary).lineLimit(1)
-                                Text(meal.date, format: .dateTime.hour().minute())
-                                    .font(.system(size: 12)).foregroundColor(.textTertiary)
-                            }
-                            Spacer()
-                            Text("\(Int(meal.calories)) cal")
-                                .font(FDS.TypeScale.Dynamic.caption).foregroundColor(.textSecondary)
-                            Image(systemName: "checkmark.circle.fill")
-                                .font(.system(size: 18)).foregroundColor(.success)
-                        }
-                        .padding(.horizontal, FDS.Spacing.lg).padding(.vertical, FDS.Spacing.md)
-                        .forgeInsetTile(radius: FDS.Radius.md)
-                    }
-                }
+                mealRows
             }
         }
-        .padding(FDS.Spacing.lg)
-        .forgeGlassCard(cornerRadius: FDS.Radius.xl, accent: .amber)
+        .forgeContentCard(accent: .amber)
         .sheet(isPresented: $showScanner) {
             BarcodeScannerView(
                 onScan: { code in
@@ -553,11 +589,49 @@ struct MealLogCard: View {
             }
         }
     }
+
+    private var header: some View {
+        ForgeCardHeader(title: "Meal Log") {
+            HStack(spacing: ForgeLayout.chipGap) {
+                if isLookingUp {
+                    ProgressView()
+                        .controlSize(.mini)
+                        .accessibilityLabel("Looking up barcode")
+                }
+                ForgeCardMeta(text: "\(vm.loggedMeals.count) logged", color: .textTertiary)
+            }
+        }
+    }
+
+    private var scanButton: some View {
+        ForgeSecondaryButton(title: "Scan", icon: "barcode.viewfinder", accent: .amber) {
+            showScanner = true
+        }
+        .disabled(isLookingUp)
+        .opacity(isLookingUp ? 0.5 : 1)
+    }
+
+    private var mealRows: some View {
+        VStack(spacing: ForgeLayout.rowGap) {
+            ForEach(sortedMeals) { meal in
+                ForgeListRow(
+                    icon: mealIcon(for: meal.date),
+                    iconColor: .amber,
+                    title: meal.name,
+                    subtitle: meal.date.formatted(.dateTime.hour().minute()),
+                    trailing: "\(Int(meal.calories)) cal"
+                )
+            }
+        }
+    }
 }
+
+// MARK: - Hydration
 
 struct WaterIntakeCard: View {
     @ObservedObject var vm: LifestyleViewModel
     @EnvironmentObject var store: AppStore
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     private var target: Int {
         max(4, LifestyleTargets.resolve(
@@ -568,108 +642,143 @@ struct WaterIntakeCard: View {
     private var consumed: Int { Int((vm.healthStats?.water ?? 0).rounded()) }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: FDS.Spacing.lg) {
-            Button { store.openHydration() } label: {
-                HStack {
-                    HStack(spacing: FDS.Spacing.sm) {
-                        Image(systemName: "drop.fill")
-                            .font(.system(size: 16)).foregroundColor(Color.steel)
-                        Text("Hydration").font(FDS.TypeScale.Dynamic.headline).foregroundColor(.textPrimary)
-                    }
-                    Spacer()
-                    Text("\(consumed)/\(target)")
-                        .font(FDS.TypeScale.Dynamic.body.weight(.semibold)).foregroundColor(Color.steel)
-                    Image(systemName: "chevron.right")
-                        .font(.system(size: 12, weight: .semibold))
-                        .foregroundColor(.textTertiary)
-                }
-            }
-            .buttonStyle(.plain)
-            .accessibilityHint("Opens hydration, synced with Apple Health")
+        VStack(alignment: .leading, spacing: ForgeLayout.blockGap) {
+            hydrationHeader
+            dropGrid
+            addWaterBlock
+        }
+        .forgeContentCard(tint: .steel)
+    }
 
+    private var hydrationHeader: some View {
+        Button {
+            FDS.haptic(.press)
+            store.openHydration()
+        } label: {
             HStack(spacing: FDS.Spacing.sm) {
+                Text("Hydration")
+                    .forgeSectionLabel(tint: .textTertiary)
+                    .forgeSingleLine(minScale: ForgeLayout.labelMinScale)
+                Spacer(minLength: FDS.Spacing.sm)
+                Text("\(consumed)/\(target)")
+                    .font(HomeType.label)
+                    .monospacedDigit()
+                    .foregroundStyle(FoodMacroPalette.water)
+                    .lineLimit(1)
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 11, weight: .semibold))
+                    .foregroundStyle(Color.textMuted)
+                    .accessibilityHidden(true)
+            }
+            .forgeTapOutset(vertical: 14)
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel("Hydration, \(consumed) of \(target) glasses")
+        .accessibilityHint("Opens hydration, synced with Apple Health")
+    }
+
+    private var dropGrid: some View {
+        VStack(alignment: .leading, spacing: ForgeLayout.pairGap) {
+            LazyVGrid(
+                columns: [GridItem(.adaptive(minimum: 24, maximum: 40), spacing: 8)],
+                alignment: .leading,
+                spacing: 8
+            ) {
                 ForEach(0..<target, id: \.self) { i in
-                    Image(systemName: i < consumed ? "drop.fill" : "drop")
-                        .foregroundColor(i < consumed ? Color.steel : Color.borderColor)
-                        .font(.system(size: 22))
-                        .scaleEffect(i < consumed ? 1 : 0.85)
-                        .animation(.spring(response: 0.3, dampingFraction: 0.6).delay(Double(i) * 0.03), value: consumed)
+                    dropGlyph(i)
                 }
             }
-
-            Button {
-                UIImpactFeedbackGenerator(style: .light).impactOccurred()
-                Task { await vm.logWater(glasses: 1) }
-            } label: {
-                HStack(spacing: FDS.Spacing.sm) {
-                    Image(systemName: "plus.circle.fill").font(.system(size: 15))
-                    Text("Log a glass").font(FDS.TypeScale.Dynamic.body.weight(.semibold))
-                    Spacer()
-                    Text("Writes to Apple Health")
-                        .font(FDS.TypeScale.Dynamic.micro)
-                        .foregroundColor(Color.steel.opacity(0.7))
-                        .padding(.horizontal, FDS.Spacing.sm).padding(.vertical, 3)
-                        .background(Color.steel.opacity(0.1))
-                        .cornerRadius(FDS.Radius.xs)
-                }
-                .foregroundColor(Color.steel)
-                .frame(maxWidth: .infinity)
-                .padding(.vertical, FDS.Spacing.md)
-                .background(Color.steel.opacity(0.1))
-                .cornerRadius(FDS.Radius.md)
+            if consumed > target {
+                Text("+\(consumed - target) over")
+                    .font(HomeType.micro)
+                    .foregroundStyle(HudChrome.miss)
+                    .monospacedDigit()
             }
         }
-        .padding(FDS.Spacing.lg)
-        .forgeGlassCard(cornerRadius: FDS.Radius.xl, accent: .amber)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("Water, \(consumed) of \(target) glasses")
+    }
+
+    private func dropGlyph(_ index: Int) -> some View {
+        let filled = index < consumed
+        return Image(systemName: filled ? "drop.fill" : "drop")
+            .font(.system(size: 22))
+            .foregroundStyle(filled ? FoodMacroPalette.water : Color.white.opacity(0.22))
+            .scaleEffect(filled ? 1 : 0.85)
+            .animation(reduceMotion ? nil : FDS.Spring.snap, value: consumed)
+    }
+
+    private var addWaterBlock: some View {
+        VStack(alignment: .leading, spacing: ForgeLayout.pairGap) {
+            ForgeSecondaryButton(title: "Log a glass", icon: "plus", accent: .steel) {
+                Task { await vm.logWater(glasses: 1) }
+            }
+            Text("Writes to Apple Health")
+                .font(HomeType.micro)
+                .foregroundStyle(Color.textTertiary)
+                .forgeWrapping()
+        }
     }
 }
 
+// MARK: - Micronutrients
+
 struct MicronutrientsCard: View {
     @ObservedObject var vm: LifestyleViewModel
-    @State private var appeared = false
 
-    private var micros: [(label: String, current: Double, target: Double, unit: String, color: Color)] {
+    private typealias Micro = (label: String, current: Double, target: Double, unit: String, color: Color, limit: Bool)
+
+    private var micros: [Micro] {
         let stats = vm.healthStats
         return [
-            ("Fiber", stats?.fiber ?? 0, 30, "g", .success),
-            ("Sugar", stats?.sugar ?? 0, 50, "g", .warning),
-            ("Sodium", stats?.sodium ?? 0, 2300, "mg", .steel),
-            ("Caffeine", stats?.caffeine ?? 0, 400, "mg", .ember),
+            ("Fiber", stats?.fiber ?? 0, 30, "g", FoodMacroPalette.fiber, false),
+            ("Sugar", stats?.sugar ?? 0, 50, "g", Color.amber, true),
+            ("Sodium", stats?.sodium ?? 0, 2300, "mg", Color.steel, true),
+            ("Caffeine", stats?.caffeine ?? 0, 400, "mg", Color.ember, true),
         ]
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: FDS.Spacing.lg) {
-            Text("Key Micronutrients")
-                .font(FDS.TypeScale.Dynamic.headline).foregroundColor(.textPrimary)
+        VStack(alignment: .leading, spacing: ForgeLayout.blockGap) {
+            ForgeCardHeader("Key Micronutrients")
 
-            VStack(spacing: FDS.Spacing.lg) {
-                ForEach(Array(micros.enumerated()), id: \.offset) { i, m in
-                    VStack(alignment: .leading, spacing: FDS.Spacing.sm) {
-                        HStack {
-                            Text(m.label).font(FDS.TypeScale.Dynamic.caption).foregroundColor(.textSecondary)
-                            Spacer()
-                            Text(m.current < 10
-                                 ? String(format: "%.1f / %.1f %@", m.current, m.target, m.unit)
-                                 : "\(Int(m.current)) / \(Int(m.target)) \(m.unit)")
-                                .font(.system(size: 13, weight: .semibold)).foregroundColor(.textPrimary)
-                        }
-                        GeometryReader { geo in
-                            ZStack(alignment: .leading) {
-                                Capsule().fill(Color.borderColor.opacity(0.3))
-                                Capsule().fill(m.color)
-                                    .frame(width: appeared ? geo.size.width * CGFloat(min(m.current / m.target, 1)) : 0)
-                                    // Fixed: now animated
-                                    .animation(.spring(response: 1.0, dampingFraction: 0.7).delay(0.3 + Double(i) * 0.1), value: appeared)
-                            }
-                        }
-                        .frame(height: 6)
-                    }
+            VStack(spacing: ForgeLayout.rowGap) {
+                ForEach(Array(micros.enumerated()), id: \.offset) { _, m in
+                    microRow(m)
                 }
             }
         }
-        .padding(FDS.Spacing.lg)
-        .forgeGlassCard(cornerRadius: FDS.Radius.xl, accent: .amber)
-        .onAppear { appeared = true }
+        .forgeContentCard(tint: .amber)
+    }
+
+    private func valueText(_ m: Micro) -> String {
+        let target = Int(m.target)
+        if m.current < 10 {
+            return String(format: "%.1f", m.current) + " / \(target) \(m.unit)"
+        }
+        return "\(Int(m.current)) / \(target) \(m.unit)"
+    }
+
+    private func microRow(_ m: Micro) -> some View {
+        let isOver = m.limit && m.current > m.target
+        let barColor: Color = isOver ? HudChrome.miss : m.color
+        let valueColor: Color = isOver ? HudChrome.miss : Color.textPrimary
+        let fraction = m.target > 0 ? m.current / m.target : 0
+        return VStack(alignment: .leading, spacing: ForgeLayout.pairGap) {
+            HStack(spacing: FDS.Spacing.sm) {
+                Text(m.label)
+                    .font(HomeType.label)
+                    .foregroundStyle(Color.textSecondary)
+                    .lineLimit(1)
+                Spacer(minLength: FDS.Spacing.sm)
+                Text(valueText(m))
+                    .font(HomeType.label)
+                    .monospacedDigit()
+                    .foregroundStyle(valueColor)
+                    .forgeSingleLine(minScale: 0.8)
+            }
+            ForgeProgressBar(fraction: fraction, tint: barColor)
+        }
+        .accessibilityElement(children: .combine)
     }
 }
