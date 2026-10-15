@@ -607,7 +607,7 @@ struct SleepTonightSoundDock: View {
 private enum SleepStagePalette {
     static let deep = Color.steel
     static let rem = Color.aurora
-    static let light = Color(hex: "64748B")
+    static let light = SleepHud.lightStage
     static let awake = HudChrome.miss
 }
 

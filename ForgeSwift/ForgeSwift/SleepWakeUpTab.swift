@@ -1143,12 +1143,7 @@ struct AdaptiveSunriseCard: View {
 
     private var temperatureGradient: LinearGradient {
         LinearGradient(
-            colors: [
-                Color(red: 1.0, green: 0.549, blue: 0.259),
-                Color(red: 1.0, green: 0.82, blue: 0.4),
-                Color(red: 0.996, green: 0.98, blue: 0.878),
-                Color(red: 0.784, green: 0.902, blue: 1.0)
-            ],
+            colors: SleepHud.sunriseRamp,
             startPoint: .leading,
             endPoint: .trailing
         )
