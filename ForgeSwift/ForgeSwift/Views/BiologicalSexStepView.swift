@@ -1,64 +1,96 @@
 import SwiftUI
+import ForgeCore
 
 /// Onboarding step that captures biological sex to auto-configure cycle health features.
 /// Female/intersex → cycle tracking auto-enabled.
 /// Male → optional educational cycle mode prompt shown inline.
 struct BiologicalSexStepView: View {
     @Bindable var coordinator: OnboardingCoordinator
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    private var showsEducationalPrompt: Bool {
+        coordinator.profile.biologicalSex == .male && coordinator.showingEducationalCyclePrompt
+    }
 
     var body: some View {
-        VStack(spacing: FDS.Spacing.md) {
-            LazyVGrid(columns: [GridItem(.flexible(), spacing: 8), GridItem(.flexible(), spacing: 8)], spacing: 8) {
+        VStack(alignment: .leading, spacing: ForgeLayout.blockGap) {
+            VStack(spacing: ForgeLayout.tileGap) {
                 ForEach(BiologicalSex.allCases) { sex in
-                    let selected = coordinator.profile.biologicalSex == sex
-                    Button { coordinator.selectBiologicalSex(sex) } label: {
-                        Text(sex.label)
-                            .font(FDS.TypeScale.Dynamic.body.weight(.semibold))
-                            .foregroundColor(selected ? .white : .textPrimary)
-                            .frame(maxWidth: .infinity)
-                            .padding(.vertical, FDS.Spacing.lg)
-                            .background(selected ? Color.ember.opacity(0.85) : Color.background.opacity(0.55))
-                            .clipShape(RoundedRectangle(cornerRadius: FDS.Radius.md, style: .continuous))
-                            .overlay(
-                                RoundedRectangle(cornerRadius: FDS.Radius.md, style: .continuous)
-                                    .stroke(selected ? Color.ember.opacity(0.9) : Color.white.opacity(0.06), lineWidth: 1)
-                            )
-                    }
-                    .buttonStyle(.plain)
+                    optionRow(for: sex)
                 }
             }
 
-            if coordinator.profile.biologicalSex == .male && coordinator.showingEducationalCyclePrompt {
-                VStack(alignment: .leading, spacing: FDS.Spacing.sm) {
-                    Text("Cycle Health education? Useful if you support a partner, daughter, or family.")
-                        .font(FDS.TypeScale.Dynamic.caption)
-                        .foregroundColor(.textTertiary)
-                    HStack(spacing: FDS.Spacing.sm) {
-                        Button { coordinator.selectEducationalCycleMode(true) } label: {
-                            Text("Yes, enable it")
-                                .font(FDS.TypeScale.Dynamic.caption)
-                                .foregroundColor(.white)
-                                .frame(maxWidth: .infinity)
-                                .padding(.vertical, FDS.Spacing.md)
-                                .background(Color.ember.opacity(0.8))
-                                .clipShape(RoundedRectangle(cornerRadius: FDS.Radius.md, style: .continuous))
-                        }
-                        .buttonStyle(.plain)
-                        Button { coordinator.selectEducationalCycleMode(false) } label: {
-                            Text("No thanks")
-                                .font(FDS.TypeScale.Dynamic.caption)
-                                .foregroundColor(.textSecondary)
-                                .frame(maxWidth: .infinity)
-                                .padding(.vertical, FDS.Spacing.md)
-                                .background(Color.background.opacity(0.55))
-                                .clipShape(RoundedRectangle(cornerRadius: FDS.Radius.md, style: .continuous))
-                        }
-                        .buttonStyle(.plain)
-                    }
-                }
-                .transition(.opacity.combined(with: .move(edge: .bottom)))
+            if showsEducationalPrompt {
+                educationalPrompt
+                    .transition(.opacity.combined(with: .scale(scale: 0.97, anchor: .top)))
             }
         }
-        .animation(FDS.Spring.page, value: coordinator.showingEducationalCyclePrompt)
+        .animation(reduceMotion ? nil : FDS.Spring.page, value: coordinator.showingEducationalCyclePrompt)
+    }
+
+    // MARK: - Option row
+
+    private func optionRow(for sex: BiologicalSex) -> some View {
+        let selected = coordinator.profile.biologicalSex == sex
+        return Button {
+            FDS.haptic(.select)
+            coordinator.selectBiologicalSex(sex)
+        } label: {
+            HStack(spacing: ForgeLayout.rowGap) {
+                Text(sex.label)
+                    .font(HomeType.status)
+                    .foregroundStyle(Color.textPrimary)
+                    .lineLimit(2)
+                    .multilineTextAlignment(.leading)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .layoutPriority(1)
+
+                Image(systemName: selected ? "checkmark.circle.fill" : "circle")
+                    .font(.system(size: ForgeUX.icon, weight: .semibold))
+                    .foregroundStyle(selected ? Color.ember : Color.textMuted)
+                    .accessibilityHidden(true)
+            }
+            .padding(.horizontal, ForgeLayout.tilePadding)
+            .padding(.vertical, ForgeLayout.rowVerticalPadding)
+            .frame(maxWidth: .infinity, minHeight: ForgeUX.minTap)
+            .background(rowFill(selected: selected))
+            .clipShape(RoundedRectangle(cornerRadius: ForgeLayout.innerRadius, style: .continuous))
+            .overlay(
+                RoundedRectangle(cornerRadius: ForgeLayout.innerRadius, style: .continuous)
+                    .stroke(rowStroke(selected: selected), lineWidth: ForgeUX.stroke)
+            )
+            .contentShape(RoundedRectangle(cornerRadius: ForgeLayout.innerRadius, style: .continuous))
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(sex.label)
+        .accessibilityAddTraits(selected ? .isSelected : [])
+    }
+
+    private func rowFill(selected: Bool) -> Color {
+        selected ? Color.ember.opacity(0.14) : Color.white.opacity(0.045)
+    }
+
+    private func rowStroke(selected: Bool) -> Color {
+        selected ? Color.ember.opacity(0.32) : Color.white.opacity(0.08)
+    }
+
+    // MARK: - Educational cycle prompt
+
+    private var educationalPrompt: some View {
+        VStack(alignment: .leading, spacing: ForgeLayout.rowGap) {
+            Text("Cycle Health education? Useful if you support a partner, daughter, or family.")
+                .font(HomeType.body)
+                .foregroundStyle(Color.textTertiary)
+                .forgeWrapping()
+
+            ForgeAdaptiveStack(spacing: ForgeLayout.tileGap) {
+                ForgeSecondaryButton(title: "Yes, enable it", accent: .ember) {
+                    coordinator.selectEducationalCycleMode(true)
+                }
+                ForgeSecondaryButton(title: "No thanks", accent: .textSecondary) {
+                    coordinator.selectEducationalCycleMode(false)
+                }
+            }
+        }
     }
 }

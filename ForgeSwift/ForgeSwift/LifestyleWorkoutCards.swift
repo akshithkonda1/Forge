@@ -3,101 +3,77 @@ import SwiftUI
 struct AIWorkoutSuggestionsCard: View {
     let workouts: [AIWorkoutSuggestion]
     @EnvironmentObject var store: AppStore
-    @State private var appeared = false
     @State private var selectedWorkout: CustomWorkoutPlan?
-    
+
     var body: some View {
-        VStack(alignment: .leading, spacing: FDS.Spacing.lg) {
-            HStack(spacing: FDS.Spacing.md) {
-                Image(systemName: "figure.strengthtraining.traditional")
-                    .font(.system(size: 18, weight: .semibold))
-                    .foregroundColor(.ember)
-                Text("Train suggestions")
-                    .font(FDS.TypeScale.Dynamic.headline)
-                    .foregroundColor(.textPrimary)
-                Spacer()
-                Text("\(workouts.count) ready")
-                    .font(FDS.TypeScale.Dynamic.micro)
-                    .foregroundColor(.ember)
-                    .padding(.horizontal, FDS.Spacing.sm).padding(.vertical, FDS.Spacing.xs)
-                    .background(Color.ember.opacity(0.12))
-                    .cornerRadius(FDS.Radius.sm)
-            }
-            
-            VStack(spacing: FDS.Spacing.md) {
-                ForEach(Array(workouts.enumerated()), id: \.element.id) { i, suggestion in
-                    AIWorkoutCard(suggestion: suggestion)
-                        .opacity(appeared ? 1 : 0)
-                        .offset(y: appeared ? 0 : 20)
-                        .animation(.spring(response: 0.5, dampingFraction: 0.76).delay(Double(i) * 0.1), value: appeared)
-                        .onTapGesture {
-                            selectedWorkout = suggestion.workout
-                        }
+        VStack(alignment: .leading, spacing: ForgeLayout.blockGap) {
+            ForgeCardHeader("Train suggestions", meta: "\(workouts.count) ready")
+
+            VStack(spacing: ForgeLayout.rowGap) {
+                ForEach(workouts, id: \.id) { suggestion in
+                    suggestionRow(suggestion)
                 }
             }
         }
-        .padding(FDS.Spacing.xl)
-        .forgeGlassCard(cornerRadius: FDS.Radius.xl, accent: .ember)
-        .onAppear { appeared = true }
+        .forgeContentCard(tint: .ember)
         .sheet(item: $selectedWorkout) { workout in
             WorkoutDetailSheet(workout: workout)
                 .environmentObject(store)
         }
     }
+
+    private func suggestionRow(_ suggestion: AIWorkoutSuggestion) -> some View {
+        Button {
+            FDS.haptic(.press)
+            selectedWorkout = suggestion.workout
+        } label: {
+            AIWorkoutCard(suggestion: suggestion)
+        }
+        .buttonStyle(.plain)
+        .accessibilityHint("Opens workout details")
+    }
 }
 
+/// One suggestion row: the Home agenda-row anatomy (36 pt well, status title,
+/// meta, chevron). The reason sentence wraps instead of truncating.
 struct AIWorkoutCard: View {
     let suggestion: AIWorkoutSuggestion
-    
+
+    private var meta: String {
+        "\(suggestion.workout.duration) min · \(suggestion.workout.exercises.count) exercises"
+    }
+
     var body: some View {
-        VStack(alignment: .leading, spacing: FDS.Spacing.md) {
-            HStack(spacing: FDS.Spacing.md) {
-                ZStack {
-                    RoundedRectangle(cornerRadius: FDS.Radius.sm)
-                        .fill(Color.ember.opacity(0.12))
-                        .frame(width: 50, height: 50)
-                    Image(systemName: "dumbbell.fill")
-                        .font(.system(size: 22))
-                        .foregroundStyle(LinearGradient.emberGradient)
-                }
-                
-                VStack(alignment: .leading, spacing: FDS.Spacing.xs) {
-                    Text(suggestion.title)
-                        .font(FDS.TypeScale.Dynamic.headline)
-                        .foregroundColor(.textPrimary)
-                    HStack(spacing: FDS.Spacing.sm) {
-                        Label("\(suggestion.workout.duration) min", systemImage: "clock.fill")
-                        Label("\(suggestion.workout.exercises.count) exercises", systemImage: "list.bullet")
-                    }
-                    .font(.system(size: 11, weight: .medium))
-                    .foregroundColor(.textSecondary)
-                }
-                
-                Spacer()
-                
-                Image(systemName: "arrow.right.circle.fill")
-                    .font(.system(size: 24))
-                    .foregroundColor(.ember)
-            }
-            
-            Divider().background(Color.borderColor.opacity(0.4))
-            
-            HStack(spacing: FDS.Spacing.sm) {
-                Image(systemName: "sparkles")
-                    .font(.system(size: 11))
-                    .foregroundColor(.ember)
-                Text(suggestion.reason)
-                    .font(FDS.TypeScale.Dynamic.caption)
-                    .foregroundColor(.textSecondary)
+        HStack(spacing: ForgeLayout.rowGap) {
+            ForgeIconWell(systemImage: "dumbbell.fill", tint: .ember)
+
+            VStack(alignment: .leading, spacing: ForgeLayout.pairGap) {
+                Text(suggestion.title)
+                    .font(HomeType.status)
+                    .foregroundStyle(Color.textPrimary)
                     .lineLimit(2)
+                Text(meta)
+                    .font(HomeType.micro)
+                    .foregroundStyle(Color.textTertiary)
+                    .forgeSingleLine(minScale: ForgeLayout.labelMinScale)
+                Text(suggestion.reason)
+                    .font(HomeType.body)
+                    .foregroundStyle(Color.textSecondary)
+                    .forgeWrapping()
             }
+            .layoutPriority(1)
+
+            Spacer(minLength: FDS.Spacing.xs)
+
+            Image(systemName: "chevron.right")
+                .font(.system(size: 11, weight: .semibold))
+                .foregroundStyle(Color.textMuted)
+                .accessibilityHidden(true)
         }
-        .padding(FDS.Spacing.lg)
-        .forgeInsetTile(radius: FDS.Radius.lg)
-        .overlay(
-            RoundedRectangle(cornerRadius: FDS.Radius.lg)
-                .stroke(Color.ember.opacity(0.2), lineWidth: 1)
-        )
+        .padding(.vertical, ForgeLayout.rowVerticalPadding)
+        .frame(minHeight: ForgeUX.minTap)
+        .contentShape(Rectangle())
+        .accessibilityElement(children: .combine)
     }
 }
 
@@ -105,65 +81,23 @@ struct WorkoutDetailSheet: View {
     let workout: CustomWorkoutPlan
     @EnvironmentObject var store: AppStore
     @Environment(\.dismiss) private var dismiss
-    
+
     var body: some View {
         NavigationStack {
             ScrollView(showsIndicators: false) {
-                VStack(alignment: .leading, spacing: FDS.Spacing.xl) {
-                    // Header stats
-                    VStack(alignment: .leading, spacing: FDS.Spacing.md) {
-                        Text(workout.name)
-                            .font(.system(size: 28, weight: .bold))
-                            .foregroundColor(.textPrimary)
-                        
-                        HStack(spacing: FDS.Spacing.lg) {
-                            StatPill(icon: "clock.fill", value: "\(workout.duration) min", color: .steel)
-                            StatPill(icon: "flame.fill", value: "~\(workout.caloriesBurn) cal", color: .ember)
-                            StatPill(icon: "list.bullet", value: "\(workout.exercises.count) exercises", color: .success)
-                        }
-                    }
-                    .padding(.horizontal, FDS.Spacing.lg)
-                    
-                    // Exercise list
-                    VStack(alignment: .leading, spacing: FDS.Spacing.lg) {
-                        Text("Exercises")
-                            .font(FDS.TypeScale.Dynamic.title)
-                            .foregroundColor(.textPrimary)
-                            .padding(.horizontal, FDS.Spacing.lg)
-                        
-                        ForEach(Array(workout.exercises.enumerated()), id: \.element.id) { i, exercise in
-                            ExerciseRow(index: i + 1, exercise: exercise)
-                                .padding(.horizontal, FDS.Spacing.lg)
-                        }
-                    }
-                    
-                    Button {
-                        store.adoptCustomWorkoutPlan(workout)
-                        store.startExistingWorkout()
-                        dismiss()
-                    } label: {
-                        HStack(spacing: FDS.Spacing.md) {
-                            Image(systemName: "play.fill")
-                                .font(.system(size: 16, weight: .bold))
-                            Text("Start session")
-                                .font(FDS.TypeScale.Dynamic.headline)
-                        }
-                        .foregroundColor(.white)
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, FDS.Spacing.lg)
-                        .background(LinearGradient.emberGradient)
-                        .cornerRadius(FDS.Radius.lg)
-                        .shadow(color: Color.ember.opacity(0.4), radius: 12, y: 6)
-                    }
-                    .padding(.horizontal, FDS.Spacing.lg)
-                    .padding(.top, FDS.Spacing.sm)
+                VStack(alignment: .leading, spacing: ForgeLayout.sectionGap) {
+                    ForgePageHeader(title: workout.name, accent: .ember)
+                    factStrip
+                    exerciseCard
                 }
-                .padding(.vertical, FDS.Spacing.xl)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .forgeScreenInsets()
             }
-            .background(Color.background)
+            .forgeScreenBackground(accent: .ember)
+            .safeAreaInset(edge: .bottom) { startBar }
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
-                ToolbarItem(placement: .navigationBarTrailing) {
+                ToolbarItem(placement: .topBarTrailing) {
                     Button("Done") { dismiss() }
                         .foregroundColor(.ember)
                         .fontWeight(.semibold)
@@ -171,66 +105,112 @@ struct WorkoutDetailSheet: View {
             }
         }
     }
+
+    private var factStrip: some View {
+        ForgeStatGrid(columns: 3) {
+            ForgeStatTile(label: "Duration", value: "\(workout.duration)", unit: "min", energy: .ember, icon: "clock.fill")
+            ForgeStatTile(label: "Calories", value: "~\(workout.caloriesBurn)", unit: "cal", energy: .ember, icon: "flame.fill")
+            ForgeStatTile(label: "Exercises", value: "\(workout.exercises.count)", energy: .ember, icon: "list.bullet")
+        }
+    }
+
+    private var exerciseCard: some View {
+        VStack(alignment: .leading, spacing: ForgeLayout.blockGap) {
+            ForgeCardHeader("Exercises")
+
+            VStack(alignment: .leading, spacing: ForgeLayout.rowGap) {
+                ForEach(Array(workout.exercises.enumerated()), id: \.element.id) { i, exercise in
+                    ExerciseRow(index: i + 1, exercise: exercise)
+                }
+            }
+        }
+        .forgeContentCard(tint: .ember)
+    }
+
+    /// The sheet's one primary action, pinned above the home indicator.
+    private var startBar: some View {
+        ForgePrimaryButton(title: "Start session", icon: "play.fill", accent: .ember) {
+            store.adoptCustomWorkoutPlan(workout)
+            store.startExistingWorkout()
+            dismiss()
+        }
+        .padding(.horizontal, ForgeLayout.screenInset)
+        .padding(.vertical, FDS.Spacing.sm)
+        .frame(maxWidth: .infinity)
+        .forgeBarChrome(edge: .bottom)
+    }
 }
 
 struct StatPill: View {
     let icon: String
     let value: String
     let color: Color
-    
+
     var body: some View {
-        HStack(spacing: FDS.Spacing.sm) {
+        HStack(spacing: 6) {
             Image(systemName: icon)
-                .font(.system(size: 12))
+                .font(.system(size: 12, weight: .semibold))
+                .foregroundStyle(color)
+                .accessibilityHidden(true)
             Text(value)
-                .font(FDS.TypeScale.Dynamic.caption)
+                .font(HomeType.label)
+                .foregroundStyle(Color.textPrimary)
+                .forgeSingleLine(minScale: ForgeLayout.labelMinScale)
         }
-        .foregroundColor(color)
-        .padding(.horizontal, FDS.Spacing.md)
-        .padding(.vertical, FDS.Spacing.sm)
-        .background(color.opacity(0.12))
-        .cornerRadius(FDS.Radius.sm)
+        .padding(.horizontal, 10)
+        .padding(.vertical, 7)
+        .background(Color.white.opacity(0.08))
+        .clipShape(Capsule())
+        .overlay(Capsule().stroke(Color.white.opacity(0.12), lineWidth: ForgeUX.hairline))
+        .accessibilityElement(children: .combine)
     }
 }
 
+/// A plain exercise row. The caller supplies the card, so the row carries
+/// no chrome of its own.
 struct ExerciseRow: View {
     let index: Int
     let exercise: WorkoutExercise
-    
+
+    @ScaledMetric(relativeTo: .subheadline) private var indexSize: CGFloat = 36
+
+    private var meta: String {
+        "\(exercise.sets) sets · \(exercise.reps) reps · \(exercise.restSeconds)s rest"
+    }
+
     var body: some View {
-        HStack(spacing: FDS.Spacing.lg) {
+        let diameter = ForgeLayout.scaledCap(indexSize, base: 36)
+        HStack(spacing: ForgeLayout.rowGap) {
             ZStack {
-                Circle().fill(Color.ember.opacity(0.12)).frame(width: 40, height: 40)
+                Circle().fill(Color.ember.opacity(0.16))
                 Text("\(index)")
-                    .font(FDS.TypeScale.Dynamic.headline)
-                    .foregroundColor(.ember)
+                    .font(HomeType.label)
+                    .monospacedDigit()
+                    .foregroundStyle(Color.ember)
+                    .hudInArcText()
             }
-            
-            VStack(alignment: .leading, spacing: FDS.Spacing.xs) {
+            .frame(width: diameter, height: diameter)
+            .accessibilityHidden(true)
+
+            VStack(alignment: .leading, spacing: ForgeLayout.pairGap) {
                 Text(exercise.name)
-                    .font(FDS.TypeScale.Dynamic.body.weight(.semibold))
-                    .foregroundColor(.textPrimary)
-                HStack(spacing: FDS.Spacing.sm) {
-                    Text("\(exercise.sets) sets")
-                    Text("·")
-                    Text("\(exercise.reps) reps")
-                    Text("·")
-                    Text("\(exercise.restSeconds)s rest")
-                }
-                .font(.system(size: 12, weight: .medium))
-                .foregroundColor(.textSecondary)
+                    .font(HomeType.status)
+                    .foregroundStyle(Color.textPrimary)
+                    .lineLimit(2)
+                Text(meta)
+                    .font(HomeType.body)
+                    .foregroundStyle(Color.textTertiary)
+                    .lineLimit(2)
+                    .minimumScaleFactor(ForgeLayout.labelMinScale)
+                ForgeChip(label: exercise.muscleGroup.rawValue.capitalized)
             }
-            
-            Spacer()
-            
-            Text(exercise.muscleGroup.rawValue.capitalized)
-                .font(FDS.TypeScale.Dynamic.micro)
-                .foregroundColor(.textTertiary)
-                .padding(.horizontal, FDS.Spacing.sm)
-                .padding(.vertical, FDS.Spacing.xs)
-                .forgeInsetTile(radius: FDS.Radius.xs)
+            .layoutPriority(1)
+
+            Spacer(minLength: 0)
         }
-        .padding(FDS.Spacing.lg)
-        .forgeGlassCard(cornerRadius: FDS.Radius.md, accent: .ember)
+        .padding(.vertical, ForgeLayout.rowVerticalPadding)
+        .frame(minHeight: ForgeUX.minTap)
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("\(index). \(exercise.name), \(meta), \(exercise.muscleGroup.rawValue.capitalized)")
     }
 }

@@ -8,11 +8,8 @@ struct EditorSection<Content: View>: View {
     @ViewBuilder let content: () -> Content
 
     var body: some View {
-        VStack(alignment: .leading, spacing: FDS.Spacing.md) {
-            Text(title)
-                .font(FDS.TypeScale.Dynamic.micro)
-                .foregroundColor(.textTertiary)
-                .tracking(2.5)
+        VStack(alignment: .leading, spacing: ForgeLayout.rowGap) {
+            ForgeCardHeader(title)
             content()
         }
     }

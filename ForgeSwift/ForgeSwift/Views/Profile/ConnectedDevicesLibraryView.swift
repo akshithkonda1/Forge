@@ -70,55 +70,16 @@ struct ConnectedDevicesLibraryView: View {
 
     var body: some View {
         NavigationStack {
-            ScrollView {
-                VStack(alignment: .leading, spacing: FDS.Spacing.lg) {
-                    searchBar
-                    filterRow
-                    sortRow
-
+            ScrollView(showsIndicators: false) {
+                ForgeScreenStack(top: ForgeLayout.screenTop) {
+                    controls
                     if !connected.isEmpty {
-                        Text("On this iPhone")
-                            .font(FDS.TypeScale.Dynamic.caption)
-                            .foregroundColor(.textTertiary)
-                        ForEach(connected) { device in
-                            NavigationLink {
-                                CompanyProductsView(
-                                    maker: device.maker,
-                                    healthSources: $healthSources
-                                )
-                            } label: {
-                                productSummary(device)
-                            }
-                            .buttonStyle(.plain)
-                        }
+                        connectedCard
                     }
-
-                    Text(query.isEmpty ? "Companies" : "Results")
-                        .font(FDS.TypeScale.Dynamic.caption)
-                        .foregroundColor(.textTertiary)
-                    Text(liveCatalog.lastUpdated == nil
-                         ? "Newest first. New products land from the live shelf and from Apple Health on this iPhone."
-                         : "Newest first. Live shelf is current. Older incompatible models fall off after five cycles.")
-                        .font(.system(size: 13))
-                        .foregroundColor(.textSecondary)
-                        .id(liveCatalog.revision)
-
-                    ForEach(brands) { brand in
-                        NavigationLink {
-                            CompanyProductsView(
-                                maker: brand.name,
-                                healthSources: $healthSources
-                            )
-                        } label: {
-                            companyRow(brand)
-                        }
-                        .buttonStyle(.plain)
-                    }
+                    companiesCard
                 }
-                .padding(FDS.Spacing.lg)
-                .padding(.bottom, FDS.Spacing.xl)
             }
-            .background(Color.background)
+            .forgeScreenBackground(accent: .steel)
             .navigationTitle("Devices")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -134,89 +95,176 @@ struct ConnectedDevicesLibraryView: View {
         }
     }
 
+    // MARK: Controls
+
+    private var controls: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            searchBar
+            filterRow
+            sortRow
+        }
+    }
+
     private var searchBar: some View {
-        HStack(spacing: FDS.Spacing.md) {
-            Image(systemName: "magnifyingglass").foregroundColor(.textTertiary)
+        HStack(spacing: ForgeLayout.rowGap) {
+            Image(systemName: "magnifyingglass")
+                .foregroundStyle(Color.textTertiary)
+                .accessibilityHidden(true)
             TextField("Apple, Garmin, LARQ…", text: $query)
+                .font(HomeType.body)
+                .foregroundStyle(Color.textPrimary)
                 .textInputAutocapitalization(.never)
                 .autocorrectionDisabled()
             if !query.isEmpty {
-                Button { query = "" } label: {
-                    Image(systemName: "xmark.circle.fill").foregroundColor(.textMuted)
+                Button {
+                    FDS.haptic(.press)
+                    query = ""
+                } label: {
+                    Image(systemName: "xmark.circle.fill")
+                        .foregroundStyle(Color.textTertiary)
+                        .frame(minWidth: ForgeUX.minTap, minHeight: ForgeUX.minTap)
+                        .contentShape(Rectangle())
                 }
+                .buttonStyle(.plain)
+                .accessibilityLabel("Clear search")
             }
         }
-        .padding(FDS.Spacing.md)
-        .forgeGlassCard(cornerRadius: FDS.Radius.md, accent: .steel)
+        .padding(.leading, ForgeLayout.tilePadding)
+        .padding(.trailing, query.isEmpty ? ForgeLayout.tilePadding : 0)
+        .frame(minHeight: ForgeUX.minTap)
+        .forgeInsetTile(radius: FDS.Radius.md)
     }
 
     private var filterRow: some View {
         ScrollView(.horizontal, showsIndicators: false) {
-            HStack(spacing: FDS.Spacing.sm) {
-                filterChip("All", selected: typeFilter == nil) { typeFilter = nil }
+            HStack(spacing: ForgeLayout.chipGap) {
+                ForgeChipButton(label: "All", energy: .steel, selected: typeFilter == nil) {
+                    typeFilter = nil
+                }
                 ForEach(HealthDeviceCategory.allCases) { category in
-                    filterChip(category.title, selected: typeFilter == category) {
+                    ForgeChipButton(label: category.title, energy: .steel, selected: typeFilter == category) {
                         typeFilter = category
                     }
                 }
             }
+            .padding(.horizontal, ForgeLayout.screenInset)
+            .padding(.vertical, FDS.Spacing.sm)
         }
+        .padding(.horizontal, -ForgeLayout.screenInset)
     }
 
     private var sortRow: some View {
-        HStack(spacing: FDS.Spacing.sm) {
-            Text("Sort")
-                .font(.system(size: 12))
-                .foregroundColor(.textTertiary)
-            ForEach(DeviceLibrarySort.allCases) { option in
-                Button {
-                    sort = option
-                } label: {
-                    Text(option.title)
-                        .font(.system(size: 12, weight: sort == option ? .semibold : .medium))
-                        .foregroundColor(sort == option ? .textPrimary : .textTertiary)
-                        .padding(.horizontal, FDS.Spacing.md)
-                        .padding(.vertical, FDS.Spacing.sm)
-                        .background(sort == option ? Color.white.opacity(0.08) : Color.clear)
-                        .clipShape(Capsule())
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: ForgeLayout.chipGap) {
+                Text("Sort")
+                    .font(HomeType.micro)
+                    .foregroundStyle(Color.textTertiary)
+                    .padding(.trailing, ForgeLayout.pairGap)
+                ForEach(DeviceLibrarySort.allCases) { option in
+                    ForgeChipButton(label: option.title, energy: .steel, selected: sort == option) {
+                        sort = option
+                    }
                 }
-                .buttonStyle(.plain)
             }
-            Spacer()
+            .padding(.horizontal, ForgeLayout.screenInset)
+            .padding(.vertical, FDS.Spacing.sm)
         }
+        .padding(.horizontal, -ForgeLayout.screenInset)
     }
 
-    private func filterChip(_ title: String, selected: Bool, action: @escaping () -> Void) -> some View {
-        Button(action: action) {
-            Text(title)
-                .font(FDS.TypeScale.Dynamic.caption)
-                .foregroundColor(selected ? .background : .textSecondary)
-                .padding(.horizontal, FDS.Spacing.md)
-                .padding(.vertical, FDS.Spacing.sm)
-                .background(selected ? Color.textPrimary : Color.surface)
-                .clipShape(Capsule())
+    // MARK: Cards
+
+    private var connectedCard: some View {
+        VStack(alignment: .leading, spacing: ForgeLayout.blockGap) {
+            ForgeCardHeader("On this iPhone", meta: "\(connected.count)")
+            VStack(alignment: .leading, spacing: ForgeLayout.rowGap) {
+                ForEach(connected) { device in
+                    NavigationLink {
+                        CompanyProductsView(
+                            maker: device.maker,
+                            healthSources: $healthSources
+                        )
+                    } label: {
+                        productSummary(device)
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityHint("Shows \(device.maker) products")
+                }
+            }
         }
-        .buttonStyle(.plain)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .forgeContentCard()
     }
+
+    private var catalogNote: String {
+        let lead = sort == .newest ? "Newest first. " : ""
+        if liveCatalog.lastUpdated == nil {
+            return lead + "New products land from the live shelf and from Apple Health on this iPhone."
+        }
+        return lead + "Live shelf is current. Older incompatible models fall off after five cycles."
+    }
+
+    private var companiesCard: some View {
+        VStack(alignment: .leading, spacing: ForgeLayout.blockGap) {
+            ForgeCardHeader(query.isEmpty ? "Companies" : "Results", meta: "\(brands.count)")
+            Text(catalogNote)
+                .font(HomeType.body)
+                .foregroundStyle(Color.textSecondary)
+                .forgeWrapping()
+                .id(liveCatalog.revision)
+            if brands.isEmpty {
+                ForgeEmptyNote(
+                    title: "No matches",
+                    message: "Try a different name or clear the filter.",
+                    systemImage: "magnifyingglass"
+                )
+            } else {
+                VStack(alignment: .leading, spacing: ForgeLayout.rowGap) {
+                    ForEach(brands) { brand in
+                        NavigationLink {
+                            CompanyProductsView(
+                                maker: brand.name,
+                                healthSources: $healthSources
+                            )
+                        } label: {
+                            companyRow(brand)
+                        }
+                        .buttonStyle(.plain)
+                        .accessibilityHint("Shows \(brand.name) products")
+                    }
+                }
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .forgeContentCard()
+    }
+
+    // MARK: Rows
 
     private func companyRow(_ brand: HealthDeviceBrand) -> some View {
         let selected = selectedCount(brand)
-        return HStack(spacing: FDS.Spacing.md) {
+        return HStack(spacing: ForgeLayout.rowGap) {
             DeviceArtworkStack(devices: brand.previewDevices, size: 48)
-            VStack(alignment: .leading, spacing: 3) {
+            VStack(alignment: .leading, spacing: ForgeLayout.pairGap) {
                 Text(brand.name)
-                    .font(FDS.TypeScale.Dynamic.headline)
-                    .foregroundColor(.textPrimary)
+                    .font(HomeType.status)
+                    .foregroundStyle(Color.textPrimary)
+                    .lineLimit(2)
                 Text(companySubtitle(brand, selected: selected))
-                    .font(.system(size: 12))
-                    .foregroundColor(.textSecondary)
+                    .font(HomeType.body)
+                    .foregroundStyle(Color.textTertiary)
+                    .lineLimit(2)
             }
-            Spacer(minLength: 0)
+            .layoutPriority(1)
+            Spacer(minLength: FDS.Spacing.xs)
             Image(systemName: "chevron.right")
-                .font(.system(size: 12, weight: .semibold))
-                .foregroundColor(.textMuted)
+                .font(.system(size: 11, weight: .semibold))
+                .foregroundStyle(Color.textMuted)
+                .accessibilityHidden(true)
         }
-        .padding(.vertical, FDS.Spacing.md)
+        .padding(.vertical, ForgeLayout.rowVerticalPadding)
+        .frame(minHeight: ForgeUX.minTap)
+        .contentShape(Rectangle())
     }
 
     private func companySubtitle(_ brand: HealthDeviceBrand, selected: Int) -> String {
@@ -227,22 +275,28 @@ struct ConnectedDevicesLibraryView: View {
     }
 
     private func productSummary(_ device: HealthDevice) -> some View {
-        HStack(spacing: FDS.Spacing.md) {
+        HStack(spacing: ForgeLayout.rowGap) {
             DeviceProductImage(device: device, size: 44, cornerRadius: FDS.Radius.sm)
-            VStack(alignment: .leading, spacing: 2) {
+            VStack(alignment: .leading, spacing: ForgeLayout.pairGap) {
                 Text(device.name)
-                    .font(FDS.TypeScale.Dynamic.body.weight(.semibold))
-                    .foregroundColor(.textPrimary)
+                    .font(HomeType.status)
+                    .foregroundStyle(Color.textPrimary)
+                    .lineLimit(2)
                 Text(device.maker)
-                    .font(.system(size: 12))
-                    .foregroundColor(.textSecondary)
+                    .font(HomeType.body)
+                    .foregroundStyle(Color.textTertiary)
+                    .lineLimit(2)
             }
-            Spacer()
+            .layoutPriority(1)
+            Spacer(minLength: FDS.Spacing.xs)
             Image(systemName: "checkmark")
                 .font(.system(size: 12, weight: .bold))
-                .foregroundColor(.vitality)
+                .foregroundStyle(Color.vitality)
+                .accessibilityLabel("Selected")
         }
-        .padding(.vertical, FDS.Spacing.sm)
+        .padding(.vertical, ForgeLayout.rowVerticalPadding)
+        .frame(minHeight: ForgeUX.minTap)
+        .contentShape(Rectangle())
     }
 
     private func migrateIfNeeded() {
@@ -292,28 +346,29 @@ private struct CompanyProductsView: View {
     }
 
     var body: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: FDS.Spacing.sm) {
+        ScrollView(showsIndicators: false) {
+            ForgeScreenStack(top: ForgeLayout.screenTop) {
                 Text("Select every \(maker) product you own. You can pick more than one.")
-                    .font(.system(size: 14))
-                    .foregroundColor(.textSecondary)
-                    .padding(.bottom, FDS.Spacing.sm)
+                    .font(HomeType.body)
+                    .foregroundStyle(Color.textSecondary)
+                    .forgeWrapping()
 
-                ForEach(groupedProducts, id: \.title) { group in
-                    if groupedProducts.count > 1 {
-                        Text(group.title)
-                            .font(FDS.TypeScale.Dynamic.caption)
-                            .foregroundColor(.textTertiary)
-                            .padding(.top, FDS.Spacing.md)
-                    }
-                    ForEach(group.products) { device in
-                        productRow(device, selected: connectedIDs.contains(device.id))
+                if groupedProducts.isEmpty {
+                    ForgeEmptyNote(
+                        title: "Nothing listed yet",
+                        message: "New \(maker) products show up here as the live shelf updates.",
+                        systemImage: "sensor.tag.radiowaves.forward"
+                    )
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .forgeContentCard()
+                } else {
+                    ForEach(groupedProducts, id: \.title) { group in
+                        groupCard(group)
                     }
                 }
             }
-            .padding(FDS.Spacing.lg)
         }
-        .background(Color.background)
+        .forgeScreenBackground(accent: .steel)
         .navigationTitle(maker)
         .navigationBarTitleDisplayMode(.inline)
         .sheet(item: $detail) { device in
@@ -327,68 +382,113 @@ private struct CompanyProductsView: View {
                 onOpenStore: { openStore(device) }
             )
             .presentationDetents([.medium, .large])
+            .presentationDragIndicator(.visible)
         }
     }
 
+    private func groupCard(_ group: (title: String, products: [HealthDevice])) -> some View {
+        VStack(alignment: .leading, spacing: ForgeLayout.blockGap) {
+            if groupedProducts.count > 1 {
+                ForgeCardHeader(group.title, meta: "\(group.products.count)")
+            }
+            VStack(alignment: .leading, spacing: ForgeLayout.rowGap) {
+                ForEach(group.products) { device in
+                    productRow(device, selected: connectedIDs.contains(device.id))
+                }
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .forgeContentCard()
+    }
+
     private func productRow(_ device: HealthDevice, selected: Bool) -> some View {
-        HStack(alignment: .top, spacing: FDS.Spacing.md) {
+        let busy = busyID == device.id
+        return HStack(alignment: .top, spacing: ForgeLayout.rowGap) {
             Button {
+                FDS.haptic(.select)
                 Task { await setConnected(device, !selected) }
             } label: {
-                Image(systemName: selected ? "checkmark.circle.fill" : "circle")
-                    .font(.system(size: 22, weight: .semibold))
-                    .foregroundColor(selected ? .ember : .textTertiary)
+                selectionGlyph(selected: selected, busy: busy)
+                    .frame(minWidth: ForgeUX.minTap, minHeight: ForgeUX.minTap)
+                    .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
+            .disabled(busy)
             .accessibilityLabel(selected ? "Deselect \(device.name)" : "Select \(device.name)")
 
-            Button { detail = device } label: {
-                HStack(alignment: .top, spacing: FDS.Spacing.md) {
-                    DeviceProductImage(device: device, size: 64, cornerRadius: FDS.Radius.md)
-                    VStack(alignment: .leading, spacing: FDS.Spacing.xs) {
-                        Text(device.name)
-                            .font(FDS.TypeScale.Dynamic.headline)
-                            .foregroundColor(.textPrimary)
-                        Text(device.summary)
-                            .font(.system(size: 12))
-                            .foregroundColor(.textSecondary)
-                            .lineLimit(2)
-                        HStack(spacing: FDS.Spacing.sm) {
-                            Text(String(device.releasedYear))
-                                .font(FDS.TypeScale.Dynamic.micro)
-                                .foregroundColor(.textTertiary)
-                            if device.soldSeparatelyNote != nil {
-                                Text("Sold separately")
-                                    .font(FDS.TypeScale.Dynamic.micro)
-                                    .foregroundColor(.ember)
-                            }
-                            if device.id.hasPrefix("discovered-") {
-                                Text("On this iPhone")
-                                    .font(FDS.TypeScale.Dynamic.micro)
-                                    .foregroundColor(.ember)
-                            } else if HealthDeviceCatalog.isListed(device) == false {
-                                Text("Past 5 cycles")
-                                    .font(FDS.TypeScale.Dynamic.micro)
-                                    .foregroundColor(.textMuted)
-                            } else if device.writesToAppleHealth {
-                                Text("Apple Health")
-                                    .font(FDS.TypeScale.Dynamic.micro)
-                                    .foregroundColor(.textTertiary)
-                            }
-                            if isSeenInHealth(device) {
-                                Text("Seen in Health")
-                                    .font(FDS.TypeScale.Dynamic.micro)
-                                    .foregroundColor(.ember)
-                            }
+            Button {
+                FDS.haptic(.press)
+                detail = device
+            } label: {
+                productDetailLabel(device)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .accessibilityHint("Shows details")
+        }
+        .opacity(busy ? 0.55 : 1)
+    }
+
+    @ViewBuilder
+    private func selectionGlyph(selected: Bool, busy: Bool) -> some View {
+        if busy {
+            ProgressView().controlSize(.small)
+        } else {
+            Image(systemName: selected ? "checkmark.circle.fill" : "circle")
+                .font(.system(size: 22, weight: .semibold))
+                .foregroundStyle(selected ? Color.ember : Color.textTertiary)
+        }
+    }
+
+    private func productDetailLabel(_ device: HealthDevice) -> some View {
+        HStack(alignment: .top, spacing: ForgeLayout.rowGap) {
+            DeviceProductImage(device: device, size: 64, cornerRadius: FDS.Radius.md)
+            VStack(alignment: .leading, spacing: ForgeLayout.pairGap) {
+                Text(device.name)
+                    .font(HomeType.status)
+                    .foregroundStyle(Color.textPrimary)
+                    .lineLimit(2)
+                Text(device.summary)
+                    .font(HomeType.body)
+                    .foregroundStyle(Color.textTertiary)
+                    .lineLimit(2)
+                Text(metaLine(device))
+                    .font(HomeType.micro)
+                    .foregroundStyle(Color.textTertiary)
+                    .forgeWrapping()
+                let tags = tagLabels(device)
+                if !tags.isEmpty {
+                    ForgeFlowLayout(spacing: ForgeLayout.chipGap, lineSpacing: ForgeLayout.chipGap) {
+                        ForEach(tags, id: \.self) { tag in
+                            HudVibeChip(label: tag, energy: .ember)
                         }
                     }
                 }
-                .frame(maxWidth: .infinity, alignment: .leading)
             }
-            .buttonStyle(.plain)
         }
-        .padding(.vertical, FDS.Spacing.md)
-        .opacity(busyID == device.id ? 0.55 : 1)
+    }
+
+    /// Year plus where the product reports from, as one line.
+    private func metaLine(_ device: HealthDevice) -> String {
+        var parts: [String] = [String(device.releasedYear)]
+        if !device.id.hasPrefix("discovered-") {
+            if HealthDeviceCatalog.isListed(device) == false {
+                parts.append("Past 5 cycles")
+            } else if device.writesToAppleHealth {
+                parts.append("Apple Health")
+            }
+        }
+        return parts.joined(separator: " · ")
+    }
+
+    /// The two highest-priority status labels, shown as tinted chips.
+    private func tagLabels(_ device: HealthDevice) -> [String] {
+        var tags: [String] = []
+        if isSeenInHealth(device) { tags.append("Seen in Health") }
+        if device.id.hasPrefix("discovered-") { tags.append("On this iPhone") }
+        if device.soldSeparatelyNote != nil { tags.append("Sold separately") }
+        return Array(tags.prefix(2))
     }
 
     private func setConnected(_ device: HealthDevice, _ on: Bool) async {
@@ -421,6 +521,8 @@ private struct CompanyProductsView: View {
 }
 
 private struct DeviceDetailSheet: View {
+    @Environment(\.dismiss) private var dismiss
+
     let device: HealthDevice
     let isConnected: Bool
     let seenInHealth: Bool
@@ -431,100 +533,114 @@ private struct DeviceDetailSheet: View {
 
     var body: some View {
         NavigationStack {
-            ScrollView {
-                VStack(alignment: .leading, spacing: FDS.Spacing.lg) {
-                    HStack(alignment: .center, spacing: FDS.Spacing.lg) {
-                        DeviceProductImage(device: device, size: 84, cornerRadius: FDS.Radius.lg)
-                        VStack(alignment: .leading, spacing: FDS.Spacing.xs) {
-                            Text(device.name)
-                                .font(FDS.TypeScale.Dynamic.title)
-                                .foregroundColor(.textPrimary)
-                            Text(device.maker + " · " + device.category.title)
-                                .font(.system(size: 14))
-                                .foregroundColor(.textSecondary)
-                        }
-                    }
-
+            ScrollView(showsIndicators: false) {
+                ForgeScreenStack(top: ForgeLayout.screenTop) {
+                    header
                     Text(device.summary)
-                        .font(.system(size: 14))
-                        .foregroundColor(.textSecondary)
-                        .fixedSize(horizontal: false, vertical: true)
-
+                        .font(HomeType.body)
+                        .foregroundStyle(Color.textSecondary)
+                        .forgeWrapping()
                     if let note = device.soldSeparatelyNote {
                         Text(note)
-                            .font(FDS.TypeScale.Dynamic.caption)
-                            .foregroundColor(.textSecondary)
-                            .fixedSize(horizontal: false, vertical: true)
-                            .padding(FDS.Spacing.md)
+                            .font(HomeType.body)
+                            .foregroundStyle(Color.textSecondary)
+                            .forgeWrapping()
                             .frame(maxWidth: .infinity, alignment: .leading)
-                            .background(Color.ember.opacity(0.10))
-                            .clipShape(RoundedRectangle(cornerRadius: FDS.Radius.md, style: .continuous))
+                            .forgeWell()
                             .accessibilityLabel(note)
                     }
-
-                    VStack(alignment: .leading, spacing: FDS.Spacing.sm) {
-                        Text("What it tracks")
-                            .font(FDS.TypeScale.Dynamic.body.weight(.semibold))
-                            .foregroundColor(.textPrimary)
-                        Text(device.metrics.joined(separator: " · "))
-                            .font(.system(size: 13))
-                            .foregroundColor(.textSecondary)
-                    }
-
-                    VStack(alignment: .leading, spacing: FDS.Spacing.sm) {
-                        Text("How to connect")
-                            .font(FDS.TypeScale.Dynamic.body.weight(.semibold))
-                            .foregroundColor(.textPrimary)
-                        Text(device.setupHint)
-                            .font(.system(size: 13))
-                            .foregroundColor(.textSecondary)
-                            .fixedSize(horizontal: false, vertical: true)
-                    }
-
-                    if seenInHealth {
-                        Text("Apple Health has already seen this source on this iPhone.")
-                            .font(.system(size: 12))
-                            .foregroundColor(.ember)
-                    }
-
-                    if device.appStoreURL != nil {
-                        Button(action: onOpenStore) {
-                            Text("Open iOS app")
-                                .font(FDS.TypeScale.Dynamic.body.weight(.semibold))
-                                .foregroundColor(.textPrimary)
-                                .frame(maxWidth: .infinity)
-                                .padding(.vertical, FDS.Spacing.lg)
-                                .forgeInsetTile(radius: FDS.Radius.md)
-                        }
-                        .disabled(isBusy)
-                    }
-
-                    if isConnected {
-                        Button(action: onDisconnect) {
-                            Text("Remove from Forge")
-                                .font(FDS.TypeScale.Dynamic.body.weight(.semibold))
-                                .foregroundColor(.danger)
-                                .frame(maxWidth: .infinity)
-                                .padding(.vertical, FDS.Spacing.lg)
-                                .forgeInsetTile(radius: FDS.Radius.md)
-                        }
-                    } else {
-                        Button(action: onConnect) {
-                            Text(isBusy ? "Adding…" : "Add this product")
-                                .font(FDS.TypeScale.Dynamic.body.weight(.semibold))
-                                .foregroundColor(.white)
-                                .frame(maxWidth: .infinity)
-                                .padding(.vertical, FDS.Spacing.lg)
-                                .background(Color.ember)
-                                .cornerRadius(FDS.Radius.md)
-                        }
-                        .disabled(isBusy)
-                    }
+                    trackingCard
+                    connectCard
+                    actions
                 }
-                .padding(FDS.Spacing.lg)
             }
-            .background(Color.background)
+            .forgeScreenBackground(accent: .steel)
+            .navigationTitle(device.name)
             .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Done") { dismiss() }
+                }
+            }
+        }
+    }
+
+    private var header: some View {
+        ForgeAdaptiveStack(spacing: ForgeLayout.rowGap) {
+            DeviceProductImage(device: device, size: 84, cornerRadius: FDS.Radius.lg)
+            VStack(alignment: .leading, spacing: ForgeLayout.pairGap) {
+                Text(device.name)
+                    .font(ForgeType.title)
+                    .foregroundStyle(Color.textPrimary)
+                    .forgeWrapping()
+                    .accessibilityAddTraits(.isHeader)
+                Text(device.maker + " · " + device.category.title)
+                    .font(HomeType.body)
+                    .foregroundStyle(Color.textSecondary)
+                    .forgeWrapping()
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    private var trackingCard: some View {
+        VStack(alignment: .leading, spacing: ForgeLayout.blockGap) {
+            ForgeCardHeader("What it tracks")
+            ForgeFlowLayout(spacing: ForgeLayout.chipGap, lineSpacing: ForgeLayout.chipGap) {
+                ForEach(device.metrics, id: \.self) { metric in
+                    ForgeChip(label: metric)
+                }
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .forgeContentCard()
+    }
+
+    private var connectCard: some View {
+        VStack(alignment: .leading, spacing: ForgeLayout.blockGap) {
+            ForgeCardHeader("How to connect")
+            Text(device.setupHint)
+                .font(HomeType.body)
+                .foregroundStyle(Color.textSecondary)
+                .forgeWrapping()
+            if seenInHealth {
+                Text("Apple Health has already seen this source on this iPhone.")
+                    .font(HomeType.body)
+                    .foregroundStyle(Color.ember)
+                    .forgeWrapping()
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .forgeContentCard()
+    }
+
+    private var actions: some View {
+        VStack(spacing: ForgeLayout.tileGap) {
+            if !isConnected {
+                ForgePrimaryButton(
+                    title: isBusy ? "Adding…" : "Add this product",
+                    icon: isBusy ? "arrow.triangle.2.circlepath" : "plus",
+                    action: onConnect
+                )
+                .disabled(isBusy)
+            }
+            if device.appStoreURL != nil {
+                ForgeSecondaryButton(
+                    title: "Open iOS app",
+                    icon: "arrow.up.forward.app",
+                    accent: .steel,
+                    action: onOpenStore
+                )
+                .disabled(isBusy)
+            }
+            if isConnected {
+                ForgeSecondaryButton(
+                    title: "Remove from Forge",
+                    icon: "minus.circle",
+                    accent: .danger,
+                    action: onDisconnect
+                )
+            }
         }
     }
 }

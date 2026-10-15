@@ -50,11 +50,14 @@ struct BarcodeScannerView: UIViewControllerRepresentable {
             cancel.setTitleColor(.white, for: .normal)
             cancel.titleLabel?.font = .systemFont(ofSize: 17, weight: .semibold)
             cancel.translatesAutoresizingMaskIntoConstraints = false
+            cancel.accessibilityLabel = "Cancel"
             cancel.addTarget(self, action: #selector(cancelTapped), for: .touchUpInside)
             view.addSubview(cancel)
             NSLayoutConstraint.activate([
                 cancel.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor, constant: 16),
                 cancel.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -20),
+                cancel.heightAnchor.constraint(greaterThanOrEqualToConstant: 44),
+                cancel.widthAnchor.constraint(greaterThanOrEqualToConstant: 44),
             ])
         }
 
@@ -83,7 +86,7 @@ struct BarcodeScannerView: UIViewControllerRepresentable {
                   let object = metadataObjects.first as? AVMetadataMachineReadableCodeObject,
                   let code = object.stringValue else { return }
             didScan = true
-            UINotificationFeedbackGenerator().notificationOccurred(.success)
+            FDS.haptic(.success)
             onScan?(code)
         }
     }
@@ -96,58 +99,54 @@ struct ScannedFoodConfirmSheet: View {
     var onDismiss: () -> Void
 
     var body: some View {
-        VStack(spacing: FDS.Spacing.lg) {
-            Capsule().fill(Color.borderColor).frame(width: 40, height: 5).padding(.top, FDS.Spacing.md)
-
-            if food.found {
-                Image(systemName: "checkmark.seal.fill").font(.system(size: 40)).foregroundColor(.success)
-                Text(food.name)
-                    .font(FDS.TypeScale.Dynamic.headline).foregroundColor(.textPrimary)
-                    .multilineTextAlignment(.center).padding(.horizontal, FDS.Spacing.lg)
-
-                HStack(spacing: FDS.Spacing.md) {
-                    macroPill("Cal", "\(Int(food.calories))", .ember)
-                    macroPill("Protein", "\(Int(food.protein))g", .steel)
-                    macroPill("Carbs", "\(Int(food.carbs))g", Color.aurora)
-                    macroPill("Fat", "\(Int(food.fat))g", Color.amber)
+        ScrollView {
+            VStack(alignment: .leading, spacing: ForgeLayout.sectionGap) {
+                ForgeSheetHeader(
+                    title: food.found ? food.name : "No nutrition data found",
+                    closeLabel: "Close",
+                    onClose: onDismiss
+                )
+                if food.found {
+                    foundContent
+                } else {
+                    notFoundContent
                 }
-                .padding(.horizontal, FDS.Spacing.lg)
-
-                Button(action: onLog) {
-                    Text("Log Meal").font(FDS.TypeScale.Dynamic.headline).foregroundColor(.white)
-                        .frame(maxWidth: .infinity).padding(.vertical, FDS.Spacing.lg)
-                        .background(Color.ember).cornerRadius(FDS.Radius.md)
-                }
-                .padding(.horizontal, FDS.Spacing.lg)
-            } else {
-                Image(systemName: "barcode.viewfinder").font(.system(size: 40)).foregroundColor(.textTertiary)
-                Text("No nutrition data found").font(FDS.TypeScale.Dynamic.headline).foregroundColor(.textPrimary)
-                Text("We couldn't match that barcode. Try another product or log it manually.")
-                    .font(.system(size: 13)).foregroundColor(.textSecondary)
-                    .multilineTextAlignment(.center).padding(.horizontal, 30)
             }
-
-            Button("Close", action: onDismiss)
-                .font(.system(size: 14, weight: .semibold)).foregroundColor(.textTertiary)
-                .padding(.bottom, FDS.Spacing.lg)
-
-            Spacer(minLength: 0)
+            .forgeScreenInsets(top: FDS.Spacing.lg)
         }
-        .frame(maxWidth: .infinity)
         .presentationDetents([.medium])
+        .presentationDragIndicator(.visible)
     }
 
-    private func macroPill(_ label: String, _ value: String, _ color: Color) -> some View {
-        VStack(spacing: 3) {
-            Text(value).font(FDS.TypeScale.Dynamic.body.weight(.semibold)).foregroundColor(color)
-            Text(label).font(FDS.TypeScale.Dynamic.micro).foregroundColor(.textTertiary)
+    private var foundContent: some View {
+        VStack(alignment: .leading, spacing: ForgeLayout.sectionGap) {
+            ForgeStatGrid(columns: 4) {
+                ForgeStatTile(label: "Cal", value: "\(Int(food.calories))", energy: FoodMacroPalette.calories)
+                ForgeStatTile(label: "Protein", value: "\(Int(food.protein))", unit: "g", energy: FoodMacroPalette.protein)
+                ForgeStatTile(label: "Carbs", value: "\(Int(food.carbs))", unit: "g", energy: FoodMacroPalette.carbs)
+                ForgeStatTile(label: "Fat", value: "\(Int(food.fat))", unit: "g", energy: FoodMacroPalette.fat)
+            }
+            .forgeContentCard(tint: .amber)
+
+            ForgePrimaryButton(title: "Log Meal", action: onLog)
+        }
+    }
+
+    private var notFoundContent: some View {
+        VStack(spacing: ForgeLayout.blockGap) {
+            ForgeIconWell(systemImage: "barcode.viewfinder", tint: .textTertiary, diameter: 56)
+            Text("We couldn't match that barcode. Try another product or log it manually.")
+                .font(HomeType.body)
+                .foregroundStyle(Color.textSecondary)
+                .multilineTextAlignment(.center)
+                .padding(.horizontal, FDS.Spacing.xl)
+                .forgeWrapping()
         }
         .frame(maxWidth: .infinity)
-        .padding(.vertical, FDS.Spacing.md)
-        .background(color.opacity(0.08))
-        .cornerRadius(FDS.Radius.sm)
     }
 }
+
+// MARK: - Restaurant browser
 
 struct NutritionDatabaseView: View {
     @ObservedObject var vm: LifestyleViewModel
@@ -155,7 +154,7 @@ struct NutritionDatabaseView: View {
     @State private var selectedCategory: RestaurantCategory = .all
     @State private var searchText = ""
     @State private var selectedRestaurant: Restaurant?
-    @State private var appeared = false
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
     var filtered: [Restaurant] {
         let base = selectedCategory == .all ? popularRestaurants : popularRestaurants.filter { $0.category == selectedCategory }
@@ -166,64 +165,70 @@ struct NutritionDatabaseView: View {
         }
     }
 
-    var body: some View {
-        VStack(spacing: FDS.Spacing.lg) {
-            // Search
-            HStack(spacing: FDS.Spacing.md) {
-                Image(systemName: "magnifyingglass").foregroundColor(.textTertiary)
-                TextField("Search restaurants or items…", text: $searchText)
-                    .foregroundColor(.textPrimary)
-                    .autocapitalization(.none)
-                    .disableAutocorrection(true)
-                if !searchText.isEmpty {
-                    Button { searchText = "" } label: {
-                        Image(systemName: "xmark.circle.fill").foregroundColor(.textMuted)
-                    }
-                }
-            }
-            .padding(FDS.Spacing.md)
-            .forgeGlassCard(cornerRadius: FDS.Radius.md, accent: .amber)
+    private var categoryOptions: [ForgeSegmentOption<RestaurantCategory>] {
+        RestaurantCategory.allCases.map { ForgeSegmentOption(value: $0, title: $0.rawValue) }
+    }
 
-            // Category pills
-            ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: FDS.Spacing.sm) {
-                    ForEach(RestaurantCategory.allCases, id: \.self) { cat in
-                        Button {
-                            withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) { selectedCategory = cat }
-                        } label: {
-                            Text(cat.rawValue)
-                                .font(FDS.TypeScale.Dynamic.caption)
-                                .foregroundColor(selectedCategory == cat ? .white : .textTertiary)
-                                .padding(.horizontal, FDS.Spacing.lg).padding(.vertical, FDS.Spacing.sm)
-                                .background(
-                                    selectedCategory == cat
-                                        ? Color.ember : Color.surface.opacity(0.7)
-                                )
-                                .cornerRadius(FDS.Radius.xl)
-                        }
-                    }
-                }
-            }
+    private var gridColumns: [GridItem] {
+        if dynamicTypeSize.isAccessibilitySize {
+            return [GridItem(.flexible())]
+        }
+        return [
+            GridItem(.flexible(), spacing: 12),
+            GridItem(.flexible(), spacing: 12),
+        ]
+    }
+
+    var body: some View {
+        VStack(spacing: ForgeLayout.sectionGap) {
+            searchField
+
+            ForgeSegmentedControl(categoryOptions, selection: $selectedCategory, accent: .amber)
 
             AIBestPicksSection(vm: vm)
 
-            // Restaurant grid
-            LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 14) {
-                ForEach(Array(filtered.enumerated()), id: \.element.id) { i, restaurant in
+            LazyVGrid(columns: gridColumns, spacing: 12) {
+                ForEach(filtered) { restaurant in
                     Button { selectedRestaurant = restaurant } label: {
                         RestaurantCard(restaurant: restaurant)
                     }
-                    .buttonStyle(.plain)
-                    .opacity(appeared ? 1 : 0)
-                    .scaleEffect(appeared ? 1 : 0.9)
-                    .animation(.spring(response: 0.5, dampingFraction: 0.75).delay(0.05 + Double(i) * 0.04), value: appeared)
+                    .buttonStyle(ForgePressStyle())
+                    .accessibilityHint("Opens the menu")
                 }
             }
         }
         .sheet(item: $selectedRestaurant) { r in
             RestaurantMenuSheet(restaurant: r, vm: vm)
         }
-        .onAppear { appeared = true }
+    }
+
+    private var searchField: some View {
+        HStack(spacing: FDS.Spacing.md) {
+            Image(systemName: "magnifyingglass")
+                .foregroundStyle(Color.textTertiary)
+                .accessibilityHidden(true)
+            TextField("Search restaurants or items…", text: $searchText)
+                .font(HomeType.body)
+                .foregroundStyle(Color.textPrimary)
+                .textInputAutocapitalization(.never)
+                .autocorrectionDisabled()
+            if !searchText.isEmpty {
+                Button {
+                    FDS.haptic(.press)
+                    searchText = ""
+                } label: {
+                    Image(systemName: "xmark.circle.fill")
+                        .foregroundStyle(Color.textMuted)
+                        .frame(width: ForgeUX.minTap, height: ForgeUX.minTap)
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("Clear search")
+            }
+        }
+        .padding(.horizontal, FDS.Spacing.md)
+        .frame(minHeight: ForgeUX.minTap)
+        .forgeInsetTile(radius: ForgeLayout.innerRadius)
     }
 }
 
@@ -237,40 +242,43 @@ struct RestaurantCard: View {
 
     private var efficiencyColor: Color {
         switch avgProteinEfficiency {
-        case 100...: return .success
-        case 60..<100: return .warning
-        default: return .danger
+        case 100...: return Color.vitality
+        case 60..<100: return Color.amber
+        default: return HudChrome.miss
         }
+    }
+
+    private var ratingLabel: String {
+        NutritionRating(proteinEfficiency: avgProteinEfficiency).label
     }
 
     var body: some View {
-        VStack(spacing: FDS.Spacing.md) {
+        VStack(alignment: .leading, spacing: ForgeLayout.rowGap) {
             Text(restaurant.logo)
                 .font(.system(size: 44))
-                .shadow(color: .black.opacity(0.1), radius: 8, y: 4)
+                .accessibilityHidden(true)
 
             Text(restaurant.name)
-                .font(FDS.TypeScale.Dynamic.body.weight(.semibold))
-                .foregroundColor(.textPrimary)
-                .multilineTextAlignment(.center)
+                .font(HomeType.status)
+                .foregroundStyle(Color.textPrimary)
+                .multilineTextAlignment(.leading)
                 .lineLimit(2)
 
-            HStack(spacing: FDS.Spacing.sm) {
+            ForgeAdaptiveStack(spacing: ForgeLayout.chipGap, alignment: .firstTextBaseline) {
                 Text("\(restaurant.items.count) items")
-                    .font(FDS.TypeScale.Dynamic.micro)
-                    .foregroundColor(.textTertiary)
-                Circle().fill(Color.borderColor).frame(width: 3, height: 3)
-                // Protein efficiency rating
-                Text(NutritionRating(proteinEfficiency: avgProteinEfficiency).label)
-                    .font(FDS.TypeScale.Dynamic.micro)
-                    .foregroundColor(efficiencyColor)
+                    .foregroundStyle(Color.textTertiary)
+                Text(ratingLabel)
+                    .foregroundStyle(efficiencyColor)
             }
+            .font(HomeType.micro)
         }
-        .frame(maxWidth: .infinity)
-        .padding(.vertical, FDS.Spacing.lg)
-        .forgeGlassCard(cornerRadius: FDS.Radius.lg, accent: .amber)
+        .frame(maxWidth: .infinity, minHeight: 116, maxHeight: .infinity, alignment: .topLeading)
+        .forgeContentCard(padding: ForgeLayout.compactCardPadding)
+        .accessibilityElement(children: .combine)
     }
 }
+
+// MARK: - Menu sheet
 
 struct RestaurantMenuSheet: View {
     let restaurant: Restaurant
@@ -292,61 +300,68 @@ struct RestaurantMenuSheet: View {
         }
     }
 
+    private var sortOptions: [ForgeSegmentOption<MenuSort>] {
+        MenuSort.allCases.map { ForgeSegmentOption(value: $0, title: $0.rawValue) }
+    }
+
     var body: some View {
         // Fixed: NavigationView → NavigationStack
         NavigationStack {
             ZStack {
                 Color.background.ignoresSafeArea()
 
-                VStack(spacing: 0) {
-                    // Hero header
-                    HStack(spacing: FDS.Spacing.lg) {
-                        Text(restaurant.logo).font(.system(size: 48))
-                        VStack(alignment: .leading, spacing: FDS.Spacing.xs) {
-                            Text(restaurant.name)
-                                .font(FDS.TypeScale.Dynamic.title)
-                                .foregroundColor(.textPrimary)
-                            Text("\(restaurant.items.count) menu items")
-                                .font(FDS.TypeScale.Dynamic.caption)
-                                .foregroundColor(.textSecondary)
-                        }
-                        Spacer()
+                ScrollView(showsIndicators: false) {
+                    VStack(alignment: .leading, spacing: ForgeLayout.sectionGap) {
+                        sheetHero
+                        ForgeSegmentedControl(sortOptions, selection: $sortBy, accent: .amber)
+                        menuList
                     }
-                    .padding(FDS.Spacing.lg)
-                    .background(Color.surface)
-                    .overlay(Rectangle().fill(Color.borderColor.opacity(0.4)).frame(height: 1), alignment: .bottom)
-
-                    Picker("Sort", selection: $sortBy) {
-                        ForEach(MenuSort.allCases, id: \.self) { Text($0.rawValue).tag($0) }
-                    }
-                    .pickerStyle(.segmented)
-                    .padding(.horizontal, FDS.Spacing.lg).padding(.vertical, FDS.Spacing.lg)
-
-                    ScrollView(showsIndicators: false) {
-                        LazyVStack(spacing: FDS.Spacing.md) {
-                            ForEach(sorted) { item in
-                                MenuItemCard(item: item, isLogged: loggedItemID == item.id) {
-                                    Task {
-                                        await vm.logMeal(
-                                            name: "\(restaurant.name) - \(item.name)",
-                                            calories: Double(item.calories),
-                                            protein: Double(item.protein),
-                                            carbs: Double(item.carbs),
-                                            fat: Double(item.fat)
-                                        )
-                                        loggedItemID = item.id
-                                        UIImpactFeedbackGenerator(style: .medium).impactOccurred()
-                                    }
-                                }
-                            }
-                        }
-                        .padding(.horizontal, FDS.Spacing.lg).padding(.bottom, 40)
-                    }
+                    .forgeScreenInsets(top: FDS.Spacing.lg)
                 }
             }
             .toolbar {
                 ToolbarItem(placement: .navigationBarTrailing) {
-                    Button("Done") { dismiss() }.foregroundColor(.ember).fontWeight(.semibold)
+                    Button("Done") { dismiss() }.foregroundStyle(Color.ember).fontWeight(.semibold)
+                }
+            }
+        }
+        .presentationDragIndicator(.visible)
+    }
+
+    private var sheetHero: some View {
+        ForgeAdaptiveStack(spacing: ForgeLayout.rowGap) {
+            Text(restaurant.logo)
+                .font(.system(size: 48))
+                .accessibilityHidden(true)
+            VStack(alignment: .leading, spacing: ForgeLayout.pairGap) {
+                Text(restaurant.name)
+                    .font(ForgeType.title)
+                    .foregroundStyle(Color.textPrimary)
+                    .forgeWrapping()
+                    .accessibilityAddTraits(.isHeader)
+                Text("\(restaurant.items.count) menu items")
+                    .font(HomeType.body)
+                    .foregroundStyle(Color.textSecondary)
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    private var menuList: some View {
+        LazyVStack(spacing: ForgeLayout.sectionGap) {
+            ForEach(sorted) { item in
+                MenuItemCard(item: item, isLogged: loggedItemID == item.id) {
+                    Task {
+                        await vm.logMeal(
+                            name: "\(restaurant.name) - \(item.name)",
+                            calories: Double(item.calories),
+                            protein: Double(item.protein),
+                            carbs: Double(item.carbs),
+                            fat: Double(item.fat)
+                        )
+                        loggedItemID = item.id
+                        FDS.haptic(.success)
+                    }
                 }
             }
         }
@@ -357,82 +372,107 @@ struct MenuItemCard: View {
     let item: MenuItem
     var isLogged: Bool = false
     var onLog: (() -> Void)? = nil
-    @State private var appeared = false
+
+    private var ratingColor: Color {
+        switch item.nutritionalRating {
+        case .excellent: return Color.vitality
+        case .good: return Color.steel
+        case .fair: return Color.amber
+        case .poor: return HudChrome.miss
+        }
+    }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: FDS.Spacing.md) {
-            HStack(alignment: .top) {
-                VStack(alignment: .leading, spacing: FDS.Spacing.xs) {
-                    Text(item.name)
-                        .font(FDS.TypeScale.Dynamic.body.weight(.semibold)).foregroundColor(.textPrimary)
-                    Text(item.serving)
-                        .font(FDS.TypeScale.Dynamic.micro).foregroundColor(.textTertiary)
-                }
-                Spacer()
-                VStack(alignment: .trailing, spacing: FDS.Spacing.xs) {
-                    if item.isHealthy {
-                        Image(systemName: "leaf.fill")
-                            .font(.system(size: 13)).foregroundColor(.success)
-                    }
-                    Text(item.nutritionalRating.label)
-                        .font(FDS.TypeScale.Dynamic.micro)
-                        .foregroundColor(item.nutritionalRating.color)
-                }
-            }
+        VStack(alignment: .leading, spacing: ForgeLayout.blockGap) {
+            header
 
-            Divider().background(Color.borderColor.opacity(0.4))
-
-            HStack(spacing: FDS.Spacing.md) {
-                MacroChip(label: "Cal",  value: "\(item.calories)",  color: .ember)
-                MacroChip(label: "Prot", value: "\(item.protein)g",  color: .steel)
-                MacroChip(label: "Carb", value: "\(item.carbs)g",    color: Color.amber)
-                MacroChip(label: "Fat",  value: "\(item.fat)g",      color: Color.aurora)
+            ForgeStatGrid(columns: 4, minCellWidth: 64) {
+                MacroChip(label: "Cal", value: "\(item.calories)", color: FoodMacroPalette.calories)
+                MacroChip(label: "Protein", value: "\(item.protein)g", color: FoodMacroPalette.protein)
+                MacroChip(label: "Carbs", value: "\(item.carbs)g", color: FoodMacroPalette.carbs)
+                MacroChip(label: "Fat", value: "\(item.fat)g", color: FoodMacroPalette.fat)
             }
 
             if let onLog {
-                Button(action: onLog) {
-                    HStack(spacing: FDS.Spacing.sm) {
-                        Image(systemName: isLogged ? "checkmark.circle.fill" : "plus.circle.fill")
-                        Text(isLogged ? "Logged to Apple Health" : "Log Meal")
-                            .font(FDS.TypeScale.Dynamic.caption)
-                    }
-                    .foregroundColor(isLogged ? .success : .ember)
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, FDS.Spacing.md)
-                    .background((isLogged ? Color.success : Color.ember).opacity(0.12))
-                    .cornerRadius(FDS.Radius.sm)
-                }
-                .buttonStyle(.plain)
-                .disabled(isLogged)
+                footer(onLog)
             }
         }
-        .padding(FDS.Spacing.lg)
-        .forgeGlassCard(cornerRadius: FDS.Radius.md, accent: .amber)
-        .opacity(appeared ? 1 : 0)
-        .offset(y: appeared ? 0 : 8)
-        .onAppear {
-            withAnimation(.spring(response: 0.45, dampingFraction: 0.75).delay(0.05)) { appeared = true }
+        .forgeContentCard(tint: .amber)
+    }
+
+    private var header: some View {
+        ForgeAdaptiveStack(spacing: ForgeLayout.rowGap, alignment: .top) {
+            VStack(alignment: .leading, spacing: ForgeLayout.pairGap) {
+                Text(item.name)
+                    .font(HomeType.status)
+                    .foregroundStyle(Color.textPrimary)
+                    .lineLimit(2)
+                Text(item.serving)
+                    .font(HomeType.micro)
+                    .foregroundStyle(Color.textTertiary)
+                    .lineLimit(2)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .layoutPriority(1)
+
+            HStack(spacing: ForgeLayout.chipGap) {
+                if item.isHealthy {
+                    Image(systemName: "leaf.fill")
+                        .font(.system(size: 12, weight: .semibold))
+                        .foregroundStyle(Color.vitality)
+                        .accessibilityLabel("Healthy choice")
+                }
+                HudVibeChip(label: item.nutritionalRating.label, energy: ratingColor)
+            }
+        }
+    }
+
+    @ViewBuilder
+    private func footer(_ onLog: @escaping () -> Void) -> some View {
+        if isLogged {
+            HStack(spacing: FDS.Spacing.sm) {
+                Image(systemName: "checkmark.circle.fill")
+                    .font(.system(size: ForgeUX.icon, weight: .semibold))
+                    .accessibilityHidden(true)
+                Text("Logged to Apple Health")
+                    .font(HomeType.label)
+                    .forgeSingleLine(minScale: ForgeLayout.labelMinScale)
+            }
+            .foregroundStyle(Color.vitality)
+            .frame(maxWidth: .infinity, minHeight: ForgeUX.minTap)
+            .background(Color.vitality.opacity(0.12))
+            .clipShape(RoundedRectangle(cornerRadius: FDS.Radius.md, style: .continuous))
+            .overlay(
+                RoundedRectangle(cornerRadius: FDS.Radius.md, style: .continuous)
+                    .stroke(Color.vitality.opacity(0.28), lineWidth: ForgeUX.hairline)
+            )
+            .accessibilityElement(children: .combine)
+        } else {
+            ForgeSecondaryButton(title: "Log Meal", icon: "plus", accent: .ember, action: onLog)
         }
     }
 }
 
 struct MacroChip: View {
     let label: String; let value: String; let color: Color
+
+    private var unit: String? { value.hasSuffix("g") ? "g" : nil }
+    private var number: String { value.hasSuffix("g") ? String(value.dropLast()) : value }
+
     var body: some View {
-        VStack(spacing: FDS.Spacing.xs) {
-            Text(label).font(FDS.TypeScale.Dynamic.micro).foregroundColor(.textTertiary)
-            Text(value).font(FDS.TypeScale.Dynamic.caption).foregroundColor(color)
-        }
-        .frame(maxWidth: .infinity)
-        .padding(.vertical, FDS.Spacing.sm)
-        .background(color.opacity(0.1))
-        .cornerRadius(FDS.Radius.sm)
+        ForgeStatTile(label: label, value: number, unit: unit, energy: color)
     }
 }
+
+// MARK: - Best picks
 
 struct AIBestPicksSection: View {
     @ObservedObject var vm: LifestyleViewModel
     @EnvironmentObject var store: AppStore
+
+    private var proteinLeft: Int {
+        max(0, Int(180 - (vm.healthStats?.protein ?? 0)))
+    }
 
     private var picks: [AIRestaurantPick] {
         let proteinGap = max(0, Int(180 - (vm.healthStats?.protein ?? 0)))
@@ -456,67 +496,91 @@ struct AIBestPicksSection: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: FDS.Spacing.md) {
-            HStack(spacing: FDS.Spacing.sm) {
-                Image(systemName: "sparkles").font(.system(size: 14, weight: .semibold)).foregroundColor(.ember)
-                Text("AI Best Picks for Today").font(FDS.TypeScale.Dynamic.body.weight(.semibold)).foregroundColor(.textPrimary)
-                Spacer()
-                Text("\(max(0, Int(180 - (vm.healthStats?.protein ?? 0))))g protein left")
-                    .font(FDS.TypeScale.Dynamic.micro)
-                    .foregroundColor(.textTertiary)
+        VStack(alignment: .leading, spacing: ForgeLayout.blockGap) {
+            VStack(alignment: .leading, spacing: ForgeLayout.pairGap) {
+                ForgeCardHeader("AI Best Picks for Today")
+                Text("\(proteinLeft)g protein left")
+                    .font(HomeType.body)
+                    .foregroundStyle(Color.textTertiary)
+                    .forgeWrapping()
             }
 
             // Live ARIA coaching note over the protein-ranked picks (fallback: none).
             if let note = vm.aiBestPicksNote {
-                HStack(alignment: .top, spacing: FDS.Spacing.sm) {
-                    ARIAIdentityMark(state: .idle, mood: .energized, size: 14, amplitude: 0.22)
-                    Text(note)
-                        .font(.system(size: 12))
-                        .foregroundColor(.textSecondary)
-                        .fixedSize(horizontal: false, vertical: true)
-                }
-                .padding(FDS.Spacing.md)
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .background(Color.ember.opacity(0.06))
-                .cornerRadius(FDS.Radius.sm)
+                ariaNote(note)
             }
 
-            ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: FDS.Spacing.md) {
-                    ForEach(picks) { pick in
-                        AIPickCard(pick: pick)
-                    }
+            picksRail
+        }
+        .forgeContentCard(tint: .amber)
+        .task { await vm.refreshBestPicksNote(store: store) }
+    }
+
+    private func ariaNote(_ note: String) -> some View {
+        HStack(alignment: .top, spacing: FDS.Spacing.sm) {
+            ARIAIdentityMark(state: .idle, mood: .energized, size: 14, amplitude: 0.22)
+                .accessibilityHidden(true)
+            Text(note)
+                .font(HomeType.body)
+                .foregroundStyle(Color.textSecondary)
+                .forgeWrapping()
+            Spacer(minLength: 0)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .forgeWell()
+    }
+
+    private var picksRail: some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(alignment: .top, spacing: ForgeLayout.rowGap) {
+                ForEach(picks) { pick in
+                    AIPickCard(pick: pick)
                 }
             }
+            .padding(.horizontal, ForgeLayout.cardPadding)
+            .padding(.vertical, FDS.Spacing.sm)
         }
-        .padding(FDS.Spacing.lg)
-        .background(LinearGradient(colors: [Color.ember.opacity(0.07), Color.surface], startPoint: .topLeading, endPoint: .bottomTrailing))
-        .cornerRadius(FDS.Radius.lg)
-        .overlay(RoundedRectangle(cornerRadius: FDS.Radius.lg).stroke(Color.ember.opacity(0.18), lineWidth: 1))
-        .task { await vm.refreshBestPicksNote(store: store) }
+        .padding(.horizontal, -ForgeLayout.cardPadding)
     }
 }
 
 struct AIPickCard: View {
     let pick: AIRestaurantPick
+    @ScaledMetric(relativeTo: .caption) private var cardWidthSize: CGFloat = 180
 
     var body: some View {
-        VStack(alignment: .leading, spacing: FDS.Spacing.md) {
+        VStack(alignment: .leading, spacing: ForgeLayout.rowGap) {
             HStack(spacing: FDS.Spacing.sm) {
-                Text(pick.emoji).font(.system(size: 24))
-                VStack(alignment: .leading, spacing: 1) {
-                    Text(pick.restaurant).font(FDS.TypeScale.Dynamic.micro).foregroundColor(.textTertiary)
-                    Text(pick.item).font(FDS.TypeScale.Dynamic.caption).foregroundColor(.textPrimary).lineLimit(2)
+                Text(pick.emoji)
+                    .font(.system(size: 24))
+                    .accessibilityHidden(true)
+                VStack(alignment: .leading, spacing: ForgeLayout.labelValueGap) {
+                    Text(pick.restaurant)
+                        .font(HomeType.micro)
+                        .foregroundStyle(Color.textTertiary)
+                        .lineLimit(1)
+                    Text(pick.item)
+                        .font(HomeType.status)
+                        .foregroundStyle(Color.textPrimary)
+                        .lineLimit(2)
                 }
             }
-            HStack(spacing: FDS.Spacing.sm) {
-                Label("\(pick.cal) cal", systemImage: "flame.fill").font(.system(size: 11, weight: .semibold)).foregroundColor(.ember)
-                Label("\(pick.protein)g P", systemImage: "bolt.fill").font(.system(size: 11, weight: .semibold)).foregroundColor(.steel)
+            VStack(alignment: .leading, spacing: ForgeLayout.pairGap) {
+                Label("\(pick.cal) cal", systemImage: "flame.fill")
+                    .font(HomeType.micro)
+                    .foregroundStyle(FoodMacroPalette.calories)
+                Label("\(pick.protein)g P", systemImage: "bolt.fill")
+                    .font(HomeType.micro)
+                    .foregroundStyle(FoodMacroPalette.protein)
             }
-            Text(pick.reason).font(FDS.TypeScale.Dynamic.micro).foregroundColor(.textTertiary).lineLimit(2)
+            Text(pick.reason)
+                .font(HomeType.body)
+                .foregroundStyle(Color.textTertiary)
+                .lineLimit(2)
         }
-        .frame(width: 180)
-        .padding(FDS.Spacing.lg)
-        .forgeGlassCard(cornerRadius: FDS.Radius.md, accent: .ember)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+        .forgeWell()
+        .frame(width: ForgeLayout.scaledCap(cardWidthSize, base: 180), alignment: .topLeading)
+        .accessibilityElement(children: .combine)
     }
 }

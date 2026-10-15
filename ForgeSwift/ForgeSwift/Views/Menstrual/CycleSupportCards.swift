@@ -42,90 +42,21 @@ struct AddSupportedPersonSheet: View {
     var body: some View {
         NavigationStack {
             ScrollView {
-                VStack(alignment: .leading, spacing: FDS.Spacing.lg) {
+                VStack(alignment: .leading, spacing: ForgeLayout.sectionGap) {
                     Text("Partner, relative, or parent — including a parent of a minor. Each person is their own. They need an iPhone; invites are iMessage only.")
-                        .font(FDS.TypeScale.Dynamic.body)
-                        .foregroundColor(.textSecondary)
-                        .fixedSize(horizontal: false, vertical: true)
+                        .font(HomeType.body)
+                        .foregroundStyle(Color.textSecondary)
+                        .forgeWrapping()
 
-                    VStack(alignment: .leading, spacing: FDS.Spacing.sm) {
-                        Text("WHO")
-                            .forgeSectionLabel()
-                        ForEach(CycleSupportRole.selectableRoles) { option in
-                            Button {
-                                role = option
-                                label = option.suggestedLabels.first ?? label
-                                FDS.selectionHaptic()
-                            } label: {
-                                HStack(spacing: FDS.Spacing.md) {
-                                    Image(systemName: option.icon)
-                                        .frame(width: 22)
-                                    Text(option.label)
-                                        .font(FDS.TypeScale.Dynamic.body)
-                                    Spacer()
-                                    if role == option {
-                                        Image(systemName: "checkmark.circle.fill")
-                                            .foregroundStyle(Color.indigo)
-                                    }
-                                }
-                                .foregroundColor(role == option ? .textPrimary : .textSecondary)
-                                .padding(.horizontal, FDS.Spacing.lg)
-                                .padding(.vertical, FDS.Spacing.md)
-                                .background(
-                                    RoundedRectangle(cornerRadius: FDS.Radius.md, style: .continuous)
-                                        .fill(role == option ? Color.indigo.opacity(0.12) : Color.surfaceElevated)
-                                )
-                            }
-                            .buttonStyle(.plain)
-                        }
-                    }
-
-                    TextField(role == .child ? "Name (optional)" : "Name (optional)", text: $name)
-                        .textFieldStyle(.plain)
-                        .padding(FDS.Spacing.md)
-                        .forgeInsetTile(radius: FDS.Radius.md)
-
-                    TextField(role == .child ? "Label (daughter / child…)" : "Label (partner / wife…)", text: $label)
-                        .textFieldStyle(.plain)
-                        .padding(FDS.Spacing.md)
-                        .forgeInsetTile(radius: FDS.Radius.md)
-
-                    Toggle(isOn: $consent) {
-                        Text(role == .child
-                             ? "I'm supporting as a parent / caregiver"
-                             : "I have their okay to keep notes")
-                            .foregroundColor(.textPrimary)
-                    }
-                    .tint(Color.indigo)
-
-                    Text(CyclePrivacy.partnerExtra)
-                        .font(FDS.TypeScale.Dynamic.caption)
-                        .foregroundColor(.textTertiary)
-
-                    Button {
-                        let person = cycleStore.addSupportedPerson(
-                            name: name,
-                            role: role,
-                            relationshipLabel: label.isEmpty ? role.suggestedLabels.first : label,
-                            consentAcknowledged: consent
-                        )
-                        FDS.notificationHaptic(.success)
-                        onAdded(person)
-                        dismiss()
-                    } label: {
-                        Text("Add \(role.shortLabel.lowercased())")
-                            .font(FDS.TypeScale.Dynamic.caption)
-                            .foregroundColor(.white)
-                            .frame(maxWidth: .infinity)
-                            .padding(.vertical, FDS.Spacing.lg)
-                            .background(Color.indigo)
-                            .clipShape(RoundedRectangle(cornerRadius: FDS.Radius.md, style: .continuous))
-                    }
-                    .buttonStyle(.plain)
+                    whoCard
+                    fieldsBlock
+                    consentCard
+                    addButton
                 }
-                .padding(FDS.Spacing.lg)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .forgeScreenInsets(top: FDS.Spacing.lg)
             }
-            .background(Color.background.ignoresSafeArea())
+            .forgeScreenBackground(accent: .indigo)
             .navigationTitle("Add someone")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -135,69 +66,162 @@ struct AddSupportedPersonSheet: View {
             }
         }
     }
+
+    // MARK: - Who
+
+    private var whoCard: some View {
+        VStack(alignment: .leading, spacing: ForgeLayout.blockGap) {
+            ForgeCardHeader("WHO", tint: .indigo)
+            VStack(spacing: ForgeLayout.tileGap) {
+                ForEach(CycleSupportRole.selectableRoles) { option in
+                    roleRow(option)
+                }
+            }
+        }
+        .forgeContentCard(tint: .indigo)
+    }
+
+    private func roleRow(_ option: CycleSupportRole) -> some View {
+        let isSelected = role == option
+        let fill = isSelected ? Color.indigo.opacity(0.12) : Color.white.opacity(0.045)
+        let edge = isSelected ? Color.indigo.opacity(0.32) : Color.white.opacity(0.08)
+        return Button {
+            role = option
+            label = option.suggestedLabels.first ?? label
+            FDS.haptic(.select)
+        } label: {
+            HStack(spacing: ForgeLayout.rowGap) {
+                ForgeIconWell(systemImage: option.icon, tint: .indigo)
+                VStack(alignment: .leading, spacing: ForgeLayout.pairGap) {
+                    Text(option.label)
+                        .font(HomeType.status)
+                        .foregroundStyle(Color.textPrimary)
+                        .lineLimit(2)
+                    Text(option.pickerDetail)
+                        .font(HomeType.body)
+                        .foregroundStyle(Color.textTertiary)
+                        .forgeWrapping()
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .layoutPriority(1)
+                if isSelected {
+                    Image(systemName: "checkmark.circle.fill")
+                        .foregroundStyle(Color.indigo)
+                        .accessibilityHidden(true)
+                }
+            }
+            .padding(ForgeLayout.tilePadding)
+            .frame(maxWidth: .infinity, minHeight: ForgeUX.minTap, alignment: .leading)
+            .background(
+                RoundedRectangle(cornerRadius: ForgeLayout.innerRadius, style: .continuous)
+                    .fill(fill)
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: ForgeLayout.innerRadius, style: .continuous)
+                    .stroke(edge, lineWidth: ForgeUX.stroke)
+            )
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(option.label)
+        .accessibilityHint(option.pickerDetail)
+        .accessibilityAddTraits(isSelected ? .isSelected : [])
+    }
+
+    // MARK: - Fields
+
+    private var fieldsBlock: some View {
+        VStack(alignment: .leading, spacing: ForgeLayout.rowGap) {
+            labeledField(
+                title: "Name",
+                placeholder: "Name (optional)",
+                text: $name
+            )
+            labeledField(
+                title: "Label",
+                placeholder: role == .child ? "Label (daughter / child…)" : "Label (partner / wife…)",
+                text: $label
+            )
+        }
+    }
+
+    private func labeledField(title: String, placeholder: String, text: Binding<String>) -> some View {
+        VStack(alignment: .leading, spacing: ForgeLayout.pairGap) {
+            Text(title)
+                .font(HomeType.micro)
+                .foregroundStyle(Color.textSecondary)
+            TextField(placeholder, text: text)
+                .font(HomeType.body)
+                .foregroundStyle(Color.textPrimary)
+                .textFieldStyle(.plain)
+                .padding(.horizontal, ForgeLayout.tilePadding)
+                .frame(minHeight: ForgeUX.minTap)
+                .forgeInsetTile(radius: FDS.Radius.md)
+                .accessibilityLabel(title)
+        }
+    }
+
+    // MARK: - Consent and CTA
+
+    private var consentCard: some View {
+        VStack(alignment: .leading, spacing: ForgeLayout.blockGap) {
+            Toggle(isOn: $consent) {
+                Text(role == .child
+                     ? "I'm supporting as a parent / caregiver"
+                     : "I have their okay to keep notes")
+                    .font(HomeType.status)
+                    .foregroundStyle(Color.textPrimary)
+                    .forgeWrapping()
+            }
+            .tint(Color.indigo)
+            .frame(minHeight: ForgeUX.minTap)
+
+            Text(CyclePrivacy.partnerExtra)
+                .font(HomeType.body)
+                .foregroundStyle(Color.textSecondary)
+                .forgeWrapping()
+        }
+        .forgeContentCard(tint: .indigo)
+    }
+
+    private var addButton: some View {
+        ForgePrimaryButton(
+            title: "Add \(role.shortLabel.lowercased())",
+            icon: "person.badge.plus",
+            accent: .ember
+        ) {
+            let person = cycleStore.addSupportedPerson(
+                name: name,
+                role: role,
+                relationshipLabel: label.isEmpty ? role.suggestedLabels.first : label,
+                consentAcknowledged: consent
+            )
+            FDS.notificationHaptic(.success)
+            onAdded(person)
+            dismiss()
+        }
+    }
 }
 
 struct CycleAccuracyExplainerSheet: View {
     let report: CycleAccuracyReport
     @Environment(\.dismiss) private var dismiss
+    @ScaledMetric(relativeTo: .subheadline) private var badgeSize: CGFloat = 28
 
     var body: some View {
         NavigationStack {
             ScrollView(showsIndicators: false) {
-                VStack(alignment: .leading, spacing: FDS.Spacing.lg) {
-                    Text("Science behind your estimates")
-                        .font(FDS.TypeScale.Dynamic.title)
-                        .foregroundColor(.textPrimary)
-
-                    Text("Evidence-informed lifestyle methods. Personal timing error — not a global accuracy stamp. Forge is a coach, not a clinic.")
-                        .font(.system(size: 14))
-                        .foregroundColor(.textSecondary)
-
+                VStack(alignment: .leading, spacing: ForgeLayout.sectionGap) {
+                    intro
                     if let mae = report.maeDays {
-                        VStack(alignment: .leading, spacing: FDS.Spacing.sm) {
-                            Text("YOUR PERSONAL SCORE")
-                                .font(FDS.TypeScale.Dynamic.micro)
-                                .tracking(1.4)
-                                .foregroundColor(.textTertiary)
-                            Text(String(format: "Avg ±%.1f days over last %d starts", mae, report.sampleCount))
-                                .font(FDS.TypeScale.Dynamic.headline)
-                                .foregroundColor(.textPrimary)
-                            Text(report.gradeDetail)
-                                .font(.system(size: 13))
-                                .foregroundColor(.textSecondary)
-                        }
-                        .padding(FDS.Spacing.lg)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .background(Color.vitality.opacity(0.12))
-                        .clipShape(RoundedRectangle(cornerRadius: FDS.Radius.md, style: .continuous))
+                        scoreCard(mae: mae)
                     }
-
-                    explainerRow("1", "Period episodes", "Group bleeding days into starts (light+ preferred). Reduces false short cycles from lone spotting.")
-                    explainerRow("2", "Recency-weighted median + MAD", "Recent cycles count more; robust stats resist outlier months.")
-                    explainerRow("3", "Ensemble forecast", "Blend recency median, last cycle, robust median, and ovu+luteal when high-signal.")
-                    explainerRow("4", "Ovulation stack", "LH → BBT 3-over-6 → peak mucus → calendar. Stronger markers raise ovulation confidence.")
-                    explainerRow("5", "Learned luteal", "When LH/BBT and a later start exist, personalize luteal length (clamped 10–16d).")
-                    explainerRow("6", "Feedback calibration", "Predicted vs actual start → bias correction (adaptive EMA). Your body isn’t “wrong” — the estimate improves.")
-                    explainerRow("7", "ARIA understands & evaluates", "ARIA critiques data quality (sparse, noisy, conflicts) then teaches next steps — numbers stay engine-owned.")
-
-                    Text("Sexual health (lifestyle)")
-                        .font(FDS.TypeScale.Dynamic.headline)
-                        .foregroundColor(.textPrimary)
-                        .padding(.top, FDS.Spacing.sm)
-                    Text("ARIA may discuss contraception options and sexual-health materials as lifestyle education when relevant. Forge cycle tracking itself is not a contraceptive method and is not a substitute for clinician-guided birth control.")
-                        .font(.system(size: 13))
-                        .foregroundColor(.textSecondary)
-
-                    Text(CyclePrivacy.shortPromise)
-                        .font(FDS.TypeScale.Dynamic.caption)
-                        .foregroundColor(Color.vitality)
-                        .padding(.top, FDS.Spacing.xs)
-
-                    Text(MenstrualCycleEngine.disclaimer)
-                        .font(FDS.TypeScale.Dynamic.caption)
-                        .foregroundColor(.textMuted)
+                    methodCard
+                    sexualHealthCard
+                    footer
                 }
-                .padding(FDS.Spacing.lg)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .forgeScreenInsets(top: FDS.Spacing.lg)
             }
             .background(Color.background.ignoresSafeArea())
             .toolbar {
@@ -210,23 +234,101 @@ struct CycleAccuracyExplainerSheet: View {
         }
     }
 
-    private func explainerRow(_ n: String, _ title: String, _ body: String) -> some View {
-        HStack(alignment: .top, spacing: FDS.Spacing.md) {
-            Text(n)
-                .font(FDS.TypeScale.Dynamic.body.weight(.semibold))
-                .foregroundColor(.ember)
-                .frame(width: 28, height: 28)
-                .background(Color.ember.opacity(0.15))
-                .clipShape(Circle())
-            VStack(alignment: .leading, spacing: FDS.Spacing.xs) {
-                Text(title)
-                    .font(FDS.TypeScale.Dynamic.body.weight(.semibold))
-                    .foregroundColor(.textPrimary)
-                Text(body)
-                    .font(.system(size: 13))
-                    .foregroundColor(.textSecondary)
+    // MARK: - Blocks
+
+    private var intro: some View {
+        VStack(alignment: .leading, spacing: ForgeLayout.pairGap) {
+            Text("Science behind your estimates")
+                .font(HomeType.sessionTitle)
+                .foregroundStyle(Color.textPrimary)
+                .forgeWrapping()
+                .accessibilityAddTraits(.isHeader)
+            Text("Evidence-informed lifestyle methods. Personal timing error — not a global accuracy stamp. Forge is a coach, not a clinic.")
+                .font(HomeType.body)
+                .foregroundStyle(Color.textSecondary)
+                .forgeWrapping()
+        }
+    }
+
+    private func scoreCard(mae: Double) -> some View {
+        VStack(alignment: .leading, spacing: ForgeLayout.blockGap) {
+            ForgeCardHeader("YOUR PERSONAL SCORE", tint: .vitality)
+            VStack(alignment: .leading, spacing: ForgeLayout.pairGap) {
+                Text(String(format: "Avg ±%.1f days over last %d starts", mae, report.sampleCount))
+                    .font(HomeType.cta)
+                    .foregroundStyle(Color.textPrimary)
+                    .forgeWrapping()
+                Text(report.gradeDetail)
+                    .font(HomeType.body)
+                    .foregroundStyle(Color.textSecondary)
+                    .forgeWrapping()
             }
         }
+        .forgeContentCard(tint: .vitality)
+    }
+
+    private var methodCard: some View {
+        VStack(alignment: .leading, spacing: ForgeLayout.rowGap) {
+            explainerRow("1", "Period episodes", "Group bleeding days into starts (light+ preferred). Reduces false short cycles from lone spotting.")
+            explainerRow("2", "Recency-weighted median + MAD", "Recent cycles count more; robust stats resist outlier months.")
+            explainerRow("3", "Ensemble forecast", "Blend recency median, last cycle, robust median, and ovu+luteal when high-signal.")
+            explainerRow("4", "Ovulation stack", "LH → BBT 3-over-6 → peak mucus → calendar. Stronger markers raise ovulation confidence.")
+            explainerRow("5", "Learned luteal", "When LH/BBT and a later start exist, personalize luteal length (clamped 10–16d).")
+            explainerRow("6", "Feedback calibration", "Predicted vs actual start → bias correction (adaptive EMA). Your body isn’t “wrong” — the estimate improves.")
+            explainerRow("7", "ARIA understands & evaluates", "ARIA critiques data quality (sparse, noisy, conflicts) then teaches next steps — numbers stay engine-owned.")
+        }
+        .forgeContentCard()
+    }
+
+    private var sexualHealthCard: some View {
+        VStack(alignment: .leading, spacing: ForgeLayout.blockGap) {
+            ForgeCardHeader("Sexual health (lifestyle)")
+            Text("ARIA may discuss contraception options and sexual-health materials as lifestyle education when relevant. Forge cycle tracking itself is not a contraceptive method and is not a substitute for clinician-guided birth control.")
+                .font(HomeType.body)
+                .foregroundStyle(Color.textSecondary)
+                .forgeWrapping()
+        }
+        .forgeContentCard()
+    }
+
+    private var footer: some View {
+        VStack(alignment: .leading, spacing: ForgeLayout.rowGap) {
+            Text(CyclePrivacy.shortPromise)
+                .font(HomeType.body)
+                .foregroundStyle(Color.vitality)
+                .forgeWrapping()
+            Text(MenstrualCycleEngine.disclaimer)
+                .font(HomeType.micro)
+                .foregroundStyle(Color.textSecondary)
+                .forgeWrapping()
+        }
+    }
+
+    private func explainerRow(_ n: String, _ title: String, _ body: String) -> some View {
+        let diameter = ForgeLayout.scaledCap(badgeSize, base: 28)
+        return HStack(alignment: .top, spacing: ForgeLayout.rowGap) {
+            Text(n)
+                .font(HomeType.label)
+                .monospacedDigit()
+                .foregroundStyle(Color.ember)
+                .hudInArcText()
+                .frame(width: diameter, height: diameter)
+                .background(Circle().fill(Color.ember.opacity(0.16)))
+                .accessibilityHidden(true)
+            VStack(alignment: .leading, spacing: ForgeLayout.pairGap) {
+                Text(title)
+                    .font(HomeType.status)
+                    .foregroundStyle(Color.textPrimary)
+                    .forgeWrapping()
+                Text(body)
+                    .font(HomeType.body)
+                    .foregroundStyle(Color.textSecondary)
+                    .forgeWrapping()
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+        }
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("Step \(n). \(title). \(body)")
     }
 }
 
@@ -236,29 +338,26 @@ struct SexualHealthEntryCard: View {
     @State private var showDifficultyGuide = false
 
     var body: some View {
-        VStack(alignment: .leading, spacing: FDS.Spacing.md) {
-            Text("SEXUAL HEALTH & INTIMACY")
-                .font(FDS.TypeScale.Dynamic.caption)
-                .foregroundColor(.textTertiary)
-                .tracking(0.8)
+        VStack(alignment: .leading, spacing: ForgeLayout.blockGap) {
+            ForgeCardHeader("SEXUAL HEALTH & INTIMACY", tint: .indigo)
 
             Text("Healthy sex, safe sex, positions, period sex, and how a partner can actually help — on this iPhone. Forge is not a contraceptive.")
-                .font(FDS.TypeScale.Dynamic.caption)
-                .foregroundColor(.textTertiary)
+                .font(HomeType.body)
+                .foregroundStyle(Color.textSecondary)
+                .forgeWrapping()
 
-            VStack(spacing: FDS.Spacing.sm) {
+            VStack(spacing: ForgeLayout.rowGap) {
                 ForEach(IntimacyFlow.allCases) { flow in
                     entryButton(flow)
                 }
             }
 
             Text(SexualHealthCurriculum.medicalDisclaimer)
-                .font(FDS.TypeScale.Dynamic.micro)
-                .foregroundColor(.textTertiary)
-                .padding(.top, 2)
+                .font(HomeType.micro)
+                .foregroundStyle(Color.textSecondary)
+                .forgeWrapping()
         }
-        .padding(FDS.Spacing.lg)
-        .forgeGlassCard(accent: Color(hex: "EC4899"))
+        .forgeContentCard(tint: .indigo)
         .sheet(isPresented: $showDifficultyGuide) {
             DifficultyConceivingGuideView {
                 showDifficultyGuide = false
@@ -269,33 +368,36 @@ struct SexualHealthEntryCard: View {
 
     private func entryButton(_ flow: IntimacyFlow) -> some View {
         Button {
+            FDS.haptic(.press)
             if flow == .difficultyConceiving {
                 showDifficultyGuide = true
             } else {
                 startFlow(flow)
             }
         } label: {
-            HStack(spacing: FDS.Spacing.md) {
-                Image(systemName: flow.icon)
-                    .font(.system(size: 15))
-                    .foregroundColor(.ember)
-                    .frame(width: 28)
-                VStack(alignment: .leading, spacing: 2) {
+            HStack(spacing: ForgeLayout.rowGap) {
+                ForgeIconWell(systemImage: flow.icon, tint: .indigo)
+                VStack(alignment: .leading, spacing: ForgeLayout.pairGap) {
                     Text(flow.label)
-                        .font(FDS.TypeScale.Dynamic.caption)
-                        .foregroundColor(.textPrimary)
+                        .font(HomeType.status)
+                        .foregroundStyle(Color.textPrimary)
+                        .lineLimit(2)
                     Text(flow.subtitle)
-                        .font(FDS.TypeScale.Dynamic.caption)
-                        .foregroundColor(.textTertiary)
+                        .font(HomeType.body)
+                        .foregroundStyle(Color.textTertiary)
+                        .lineLimit(2)
                 }
-                Spacer()
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .layoutPriority(1)
                 Image(systemName: flow == .difficultyConceiving ? "chevron.right" : "arrow.up.right")
                     .font(.system(size: 11, weight: .semibold))
-                    .foregroundColor(.textTertiary)
+                    .foregroundStyle(Color.textMuted)
+                    .accessibilityHidden(true)
             }
-            .padding(.horizontal, FDS.Spacing.md)
-            .padding(.vertical, FDS.Spacing.md)
-            .forgeInsetTile(radius: FDS.Radius.sm)
+            .padding(.vertical, ForgeLayout.rowVerticalPadding)
+            .frame(maxWidth: .infinity, minHeight: ForgeUX.minTap, alignment: .leading)
+            .contentShape(Rectangle())
+            .accessibilityElement(children: .combine)
         }
         .buttonStyle(.plain)
         .accessibilityHint(flow.opensChat ? "Opens ARIA" : "Opens a guide")
@@ -318,13 +420,10 @@ struct CycleNotificationSettingsCard: View {
     @ObservedObject var cycleStore: MenstrualHealthStore
 
     var body: some View {
-        VStack(alignment: .leading, spacing: FDS.Spacing.md) {
-            Text("NOTIFICATIONS")
-                .font(FDS.TypeScale.Dynamic.caption)
-                .foregroundColor(.textSecondary)
-                .tracking(0.8)
+        VStack(alignment: .leading, spacing: ForgeLayout.blockGap) {
+            ForgeCardHeader("NOTIFICATIONS")
 
-            VStack(spacing: 0) {
+            VStack(alignment: .leading, spacing: ForgeLayout.rowGap) {
                 notifRow(
                     icon: "thermometer",
                     title: "Daily BBT reminder",
@@ -336,32 +435,9 @@ struct CycleNotificationSettingsCard: View {
                 )
 
                 if cycleStore.settings.bbtReminderEnabled {
-                    Divider().padding(.leading, 40)
-                    HStack(spacing: FDS.Spacing.md) {
-                        Image(systemName: "clock")
-                            .font(.subheadline)
-                            .foregroundColor(.ember)
-                            .frame(width: 28)
-                        Text("Reminder time")
-                            .font(FDS.TypeScale.Dynamic.body)
-                            .foregroundColor(.textPrimary)
-                        Spacer()
-                        Picker("Hour", selection: Binding(
-                            get: { cycleStore.settings.bbtReminderHour },
-                            set: { val in cycleStore.updateSettings { $0.bbtReminderHour = val } }
-                        )) {
-                            ForEach(4..<10) { h in
-                                Text("\(h):00 AM").tag(h)
-                            }
-                        }
-                        .pickerStyle(.menu)
-                        .tint(.ember)
-                    }
-                    .padding(.horizontal, FDS.Spacing.md)
-                    .padding(.vertical, FDS.Spacing.md)
+                    reminderTimeRow
                 }
 
-                Divider().padding(.leading, 40)
                 notifRow(
                     icon: "calendar.badge.exclamationmark",
                     title: "Fertile window alert",
@@ -372,7 +448,6 @@ struct CycleNotificationSettingsCard: View {
                     )
                 )
 
-                Divider().padding(.leading, 40)
                 notifRow(
                     icon: "bell.badge",
                     title: "Period reminder",
@@ -383,31 +458,57 @@ struct CycleNotificationSettingsCard: View {
                     )
                 )
             }
-            .forgeInsetTile(radius: FDS.Radius.md)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .forgeWell()
         }
     }
 
-    @ViewBuilder
-    private func notifRow(icon: String, title: String, subtitle: String, isOn: Binding<Bool>) -> some View {
-        HStack(spacing: FDS.Spacing.md) {
-            Image(systemName: icon)
-                .font(.subheadline)
-                .foregroundColor(.ember)
-                .frame(width: 28)
-            VStack(alignment: .leading, spacing: 2) {
-                Text(title)
-                    .font(FDS.TypeScale.Dynamic.body)
-                    .foregroundColor(.textPrimary)
-                Text(subtitle)
-                    .font(FDS.TypeScale.Dynamic.caption)
-                    .foregroundColor(.textTertiary)
+    /// Label and menu Picker stack at accessibility sizes, so the title never
+    /// compresses to an ellipsis.
+    private var reminderTimeRow: some View {
+        ForgeAdaptiveStack(spacing: FDS.Spacing.sm, alignment: .center) {
+            HStack(spacing: ForgeLayout.rowGap) {
+                ForgeIconWell(systemImage: "clock", tint: .ember)
+                Text("Reminder time")
+                    .font(HomeType.status)
+                    .foregroundStyle(Color.textPrimary)
+                    .forgeWrapping()
             }
-            Spacer()
-            Toggle("", isOn: isOn)
-                .tint(.ember)
-                .labelsHidden()
+            .frame(maxWidth: .infinity, alignment: .leading)
+            Picker("Hour", selection: Binding(
+                get: { cycleStore.settings.bbtReminderHour },
+                set: { val in cycleStore.updateSettings { $0.bbtReminderHour = val } }
+            )) {
+                ForEach(4..<10) { h in
+                    Text("\(h):00 AM").tag(h)
+                }
+            }
+            .pickerStyle(.menu)
+            .tint(.ember)
+            .frame(minHeight: ForgeUX.minTap)
         }
-        .padding(.horizontal, FDS.Spacing.md)
-        .padding(.vertical, FDS.Spacing.md)
+        .frame(minHeight: ForgeUX.minTap)
+    }
+
+    /// The Toggle's own label carries the title and subtitle, so VoiceOver
+    /// announces a named switch instead of an unnamed one.
+    private func notifRow(icon: String, title: String, subtitle: String, isOn: Binding<Bool>) -> some View {
+        Toggle(isOn: isOn) {
+            HStack(spacing: ForgeLayout.rowGap) {
+                ForgeIconWell(systemImage: icon, tint: .ember)
+                VStack(alignment: .leading, spacing: ForgeLayout.pairGap) {
+                    Text(title)
+                        .font(HomeType.status)
+                        .foregroundStyle(Color.textPrimary)
+                        .forgeWrapping()
+                    Text(subtitle)
+                        .font(HomeType.body)
+                        .foregroundStyle(Color.textTertiary)
+                        .forgeWrapping()
+                }
+            }
+        }
+        .tint(.ember)
+        .frame(minHeight: ForgeUX.minTap)
     }
 }

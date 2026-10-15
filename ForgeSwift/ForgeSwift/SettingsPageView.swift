@@ -34,6 +34,8 @@ struct SettingsPageView: View {
     @State private var backendURLDraft = AriaService.shared.baseURL.absoluteString
     @State private var briefSettings: BriefNotificationSettings
     @ObservedObject private var weeklyReview = WeeklyAriaReviewStore.shared
+    // The Cycle controls read this store directly; observing it keeps them in step with changes.
+    @ObservedObject private var cycleStore = MenstrualHealthStore.shared
 
     let dayLabels = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"]
 
@@ -60,700 +62,35 @@ struct SettingsPageView: View {
     var body: some View {
         ScrollView(showsIndicators: false) {
             VStack(alignment: .leading, spacing: 0) {
-                // World-class identity hero — avatar, signature stats, readiness, actions.
+                // Identity hero: avatar, signature stats, readiness, actions.
                 ProfileHeroHeader(
                     onEdit: { showProfileEditor = true },
                     onShare: { showShareSheet = true }
                 )
-                .padding(.top, FDS.Spacing.sm)
-                .padding(.bottom, FDS.Spacing.sm)
 
-                sectionHeader("All pages")
-                Text("The rooms. Open one when you need to log or override — ARIA already reads them.")
-                    .font(ForgeType.body)
-                    .foregroundColor(.textTertiary)
-                    .padding(.bottom, FDS.Spacing.md)
-                ForgeExploreDestinationsGrid()
-                    .padding(.bottom, FDS.Spacing.md)
-
-                sectionHeader("ARIA")
-                SectionCard {
-                    Button(action: { showWhatIKnow = true }) {
-                        SettingsRow(
-                            icon: "folder.fill",
-                            iconColor: .ember,
-                            label: "ARIA memory & voice",
-                            trailingText: "Notes, persona, tone, check-ins",
-                            showChevron: true
-                        )
-                    }
-                    .buttonStyle(.plain)
-
-                    Divider().background(Color.borderColor)
-                    Button(action: { showCoachingStylePicker = true }) {
-                        SettingsRow(icon: "person.fill", iconColor: .ember, label: "Coaching Style",
-                                    trailingText: store.userProfile.coachingStyle.label, showChevron: true)
-                    }
-                    .buttonStyle(.plain)
-
-                    Divider().background(Color.borderColor)
-                    Button(action: { showTrainingThemePicker = true }) {
-                        SettingsRow(
-                            icon: store.userProfile.trainingTheme.icon,
-                            iconColor: Color(hex: store.userProfile.trainingTheme.accentHex),
-                            label: "Training Theme",
-                            trailingText: store.userProfile.trainingTheme.label,
-                            showChevron: true
-                        )
-                    }
-                    .buttonStyle(.plain)
-
-                    Divider().background(Color.borderColor)
-                    VStack(alignment: .leading, spacing: FDS.Spacing.sm) {
-                        Text("Personal coaches")
-                            .font(FDS.TypeScale.Dynamic.body)
-                            .foregroundColor(.textPrimary)
-                        Text("ARIA spawns as many specialists as the question needs — one live call, the rest in parallel on this phone. Pin one to lead, or leave Auto.")
-                            .font(.system(size: 12))
-                            .foregroundColor(.textTertiary)
-                        Button {
-                            store.replayAriaUseOnboarding()
-                        } label: {
-                            Text("Meet ARIA again")
-                                .font(FDS.TypeScale.Dynamic.caption)
-                                .foregroundColor(Color(hex: "A9D8FF"))
-                        }
-                        .buttonStyle(.plain)
-                        .padding(.top, FDS.Spacing.xs)
-                        #if DEBUG
-                        VStack(alignment: .leading, spacing: FDS.Spacing.sm) {
-                            Text("ARIA coach mode")
-                                .font(FDS.TypeScale.Dynamic.caption)
-                                .foregroundColor(.textTertiary)
-                            Text(AriaOperatingMode.current.badge)
-                                .font(.system(size: 11))
-                                .foregroundColor(.textMuted)
-                            ForEach(AriaOperatingMode.selectableCases) { mode in
-                                Button {
-                                    AriaOperatingMode.setOverride(mode)
-                                } label: {
-                                    HStack {
-                                        Text(mode.settingsLabel)
-                                            .font(FDS.TypeScale.Dynamic.caption)
-                                            .foregroundColor(.textPrimary)
-                                        Spacer()
-                                        if AriaOperatingMode.current == mode {
-                                            Image(systemName: "checkmark")
-                                                .font(.system(size: 12, weight: .semibold))
-                                                .foregroundColor(Color.paper)
-                                        }
-                                    }
-                                    .padding(.vertical, FDS.Spacing.sm)
-                                }
-                                .buttonStyle(.plain)
-                            }
-                            Button("Reset to auto") {
-                                AriaOperatingMode.setOverride(nil)
-                            }
-                            .font(.system(size: 12, weight: .medium))
-                            .foregroundColor(.textTertiary)
-                        }
-                        .padding(.top, FDS.Spacing.md)
-                        #endif
-                        FlowLayout(spacing: 8) {
-                            coachPinChip(nil, title: "Auto")
-                            // Same roster as the chat pin row: the five
-                            // tracked modes plus Cycle, not .allCases (which
-                            // would also offer a redundant direct pin to
-                            // .aria -- "Auto" already covers that).
-                            ForEach(AriaCoachAgent.trackedModes + [.cycle]) { agent in
-                                if AriaCoachAgentRouter.isAvailable(
-                                    agent,
-                                    context: AriaCoachAgentRouter.context(pinned: store.pinnedCoachAgent)
-                                ) {
-                                    coachPinChip(agent, title: agent.label)
-                                }
-                            }
-                        }
-                    }
-                    .padding(.horizontal, FDS.Spacing.lg)
-                    .padding(.vertical, FDS.Spacing.md)
-
-                    Divider().background(Color.borderColor)
-                    VStack(alignment: .leading, spacing: 0) {
-                        Text(store.userProfile.coachingStyle.description)
-                            .font(.system(size: 12))
-                            .foregroundColor(.textTertiary)
-                            .lineSpacing(2)
-                            .padding(.horizontal, FDS.Spacing.lg).padding(.vertical, FDS.Spacing.md)
-                        Divider().background(Color.borderColor)
-                        VStack(alignment: .leading, spacing: FDS.Spacing.md) {
-                            Text("Training Goals")
-                                .font(FDS.TypeScale.Dynamic.body)
-                                .foregroundColor(.textPrimary)
-                            FlowLayout(spacing: 8) {
-                                ForEach(store.userProfile.fitnessGoals) { goal in
-                                    Text(goal.label)
-                                        .font(FDS.TypeScale.Dynamic.caption)
-                                        .foregroundColor(.ember)
-                                        .padding(.horizontal, FDS.Spacing.md).padding(.vertical, FDS.Spacing.xs)
-                                        .background(Color.ember.opacity(0.12))
-                                        .cornerRadius(100)
-                                }
-                            }
-                        }
-                        .padding(.horizontal, FDS.Spacing.lg).padding(.vertical, FDS.Spacing.md)
-                    }
-                }
-
-                // Connected Devices
-                sectionHeader("Connected Devices")
-                SectionCard {
-                    Color.clear.frame(width: 0, height: 0).hidden().id(catalogRevision)
-                    if store.userProfile.connectedDevices.isEmpty {
-                        HStack(spacing: FDS.Spacing.md) {
-                            Image(systemName: "link.badge.plus")
-                                .font(.system(size: 16))
-                                .foregroundColor(.textTertiary)
-                            Text("No devices yet. Browse the library — LARQ, Oura, Garmin, Watch and more.")
-                                .font(.system(size: 14))
-                                .foregroundColor(.textSecondary)
-                        }
-                        .padding(.horizontal, FDS.Spacing.lg).padding(.vertical, FDS.Spacing.md)
-                    } else {
-                        ForEach(Array(HealthDeviceCatalog.migrateStoredIDs(store.userProfile.connectedDevices).enumerated()), id: \.element) { idx, raw in
-                            if idx > 0 { Divider().background(Color.borderColor) }
-                            let device = HealthDeviceCatalog.device(matching: raw)
-                            Button { showDevicesSheet = true } label: {
-                                SettingsRow(
-                                    icon: device?.symbolName ?? "sensor.tag.radiowaves.forward",
-                                    iconColor: .steel,
-                                    label: device?.name ?? raw,
-                                    showChevron: true
-                                ) {
-                                    if let device {
-                                        DeviceProductImage(device: device, size: 28, cornerRadius: FDS.Radius.xs)
-                                    }
-                                    HStack(spacing: FDS.Spacing.xs) {
-                                        Circle().fill(Color.success).frame(width: 8, height: 8)
-                                        Text(device?.writesToAppleHealth == true ? "Health" : "iOS")
-                                            .font(.system(size: 12))
-                                            .foregroundColor(.textSecondary)
-                                    }
-                                }
-                            }
-                            .buttonStyle(.plain)
-                        }
-                    }
-                    Divider().background(Color.borderColor)
-                    Button { showDevicesSheet = true } label: {
-                        HStack(spacing: FDS.Spacing.md) {
-                            ZStack {
-                                Circle().stroke(Color.borderLight, style: StrokeStyle(lineWidth: 1, dash: [4])).frame(width: 32, height: 32)
-                                Image(systemName: "plus").font(.system(size: 13)).foregroundColor(.textTertiary)
-                            }
-                            Text("Browse compatible devices")
-                                .font(FDS.TypeScale.Dynamic.body)
-                                .foregroundColor(.ember)
-                        }
-                        .padding(.horizontal, FDS.Spacing.lg).padding(.vertical, FDS.Spacing.md)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                    }
-                }
-
-                // StandBy
-                sectionHeader("StandBy")
-                SectionCard {
-                    Button { showStandBySheet = true } label: {
-                        SettingsRow(
-                            icon: "rectangle.on.rectangle.badge.gearshape",
-                            iconColor: .steel,
-                            label: "Customize StandBy face",
-                            showChevron: true
-                        ) { EmptyView() }
-                    }
-                    .buttonStyle(.plain)
-                }
-
-                // Account
-                sectionHeader("Account")
-                SectionCard {
-                    SettingsRow(
-                        icon: "person.crop.circle.fill",
-                        iconColor: .ember,
-                        label: store.authEmail.isEmpty ? "Signed in" : store.authEmail,
-                        trailingText: store.authProvider.isEmpty ? "Session" : store.authProvider.capitalized
-                    )
-                    Divider().background(Color.borderColor)
-                    SettingsRow(
-                        icon: "checkmark.shield.fill",
-                        iconColor: .success,
-                        label: "Session",
-                        trailingText: store.isAuthenticated ? "Active" : "None"
-                    )
-                    Divider().background(Color.borderColor)
-                    SettingsRow(
-                        icon: "clock.arrow.circlepath",
-                        iconColor: .steel,
-                        label: "Last sync",
-                        trailingText: {
-                            if let at = store.lastCloudSyncAt ?? store.lastMetricsRefresh {
-                                return at.formatted(date: .omitted, time: .shortened)
-                            }
-                            return "Not yet"
-                        }()
-                    )
-                }
-
-                // Health
-                sectionHeader("Apple Health")
-                SectionCard {
-                    SettingsRow(
-                        icon: "heart.text.square.fill",
-                        iconColor: store.healthKitLive ? .success : .warning,
-                        label: "Apple Health",
-                        trailingText: store.isHealthKitPulling
-                            ? "Pulling…"
-                            : (store.healthKitLive ? "Connected" : "Offline")
-                    )
-                    Divider().background(Color.borderColor)
-                    Button {
-                        Task {
-                            await store.reconnectHealthKit()
-                            FDS.notificationHaptic(store.healthKitLive ? .success : .warning)
-                        }
-                    } label: {
-                        SettingsRow(
-                            icon: "arrow.triangle.2.circlepath",
-                            iconColor: .ember,
-                            label: store.healthKitLive ? "Resync Apple Health" : "Reconnect Apple Health",
-                            trailingText: "Now",
-                            showChevron: true
-                        )
-                    }
-                    .buttonStyle(.plain)
-                    Divider().background(Color.borderColor)
-                    SettingsRow(
-                        icon: "calendar.badge.clock",
-                        iconColor: .steel,
-                        label: "Cycle quiet sync",
-                        trailingText: "Weekly"
-                    )
-                }
-                if let ingestError = store.lastLifeIngestError, !ingestError.isEmpty {
-                    Text(ingestError)
-                        .font(FDS.TypeScale.Dynamic.caption)
-                        .foregroundColor(.warning)
-                        .fixedSize(horizontal: false, vertical: true)
-                        .padding(.top, FDS.Spacing.sm)
-                        .padding(.bottom, FDS.Spacing.xs)
-                        .accessibilityLabel(ingestError)
-                }
-
-                // Cycle privacy (Home opens the full Cycle surface)
-                sectionHeader("Cycle privacy")
-                    SectionCard {
-                    VStack(alignment: .leading, spacing: 0) {
-                        SettingsRow(
-                            icon: "lock.shield.fill",
-                            iconColor: Color.vitality,
-                            label: "Cycle Vault",
-                            trailingText: MenstrualHealthStore.shared.vaultSaveError == nil ? "Sealed" : "Retry"
-                        )
-                        if let err = MenstrualHealthStore.shared.vaultSaveError {
-                            Button {
-                                MenstrualHealthStore.shared.persistVault()
-                            } label: {
-                                Text(err)
-                                    .font(.caption)
-                                    .foregroundColor(Color.danger)
-                            }
-                            .buttonStyle(.plain)
-                            .padding(.horizontal, FDS.Spacing.lg)
-                            .padding(.bottom, FDS.Spacing.sm)
-                        }
-                    }
-                    Divider().background(Color.borderColor)
-                    VStack(alignment: .leading, spacing: FDS.Spacing.sm) {
-                        SettingsRow(
-                            icon: "eye.slash.fill",
-                            iconColor: .steel,
-                            label: "Discretion mode",
-                            trailingText: MenstrualHealthStore.shared.settings.discretionMode.label
-                        )
-                        Picker("Discretion", selection: Binding(
-                            get: { MenstrualHealthStore.shared.settings.discretionMode },
-                            set: { mode in MenstrualHealthStore.shared.updateSettings { $0.discretionMode = mode } }
-                        )) {
-                            ForEach(CycleDiscretionMode.allCases) { mode in
-                                Text(mode.label).tag(mode)
-                            }
-                        }
-                        .pickerStyle(.segmented)
-                        Text(MenstrualHealthStore.shared.settings.discretionMode.detail)
-                            .font(.caption)
-                            .foregroundColor(.textTertiary)
-                    }
-                    .padding(.horizontal, FDS.Spacing.lg)
-                    .padding(.bottom, FDS.Spacing.md)
-                    Divider().background(Color.borderColor)
-                    SettingsRow(icon: "faceid", iconColor: .ember, label: "Lock Cycle Health") {
-                        ForgeToggle(isOn: Binding(
-                            get: { MenstrualHealthStore.shared.settings.cycleLockEnabled
-                                || MenstrualHealthStore.shared.settings.discretionMode == .stealth },
-                            set: { v in MenstrualHealthStore.shared.updateSettings { $0.cycleLockEnabled = v } }
-                        ))
-                    }
-                    Divider().background(Color.borderColor)
-                    SettingsRow(
-                        icon: "chart.line.uptrend.xyaxis",
-                        iconColor: .ember,
-                        label: "Prediction accuracy",
-                        trailingText: {
-                            if let mae = MenstrualHealthStore.shared.accuracyReport.maeDays {
-                                return String(format: "MAE %.1fd", mae)
-                            }
-                            return "Learning"
-                        }()
-                    )
-                    Divider().background(Color.borderColor)
-                    SettingsRow(icon: "scope", iconColor: Color.aurora, label: "High-accuracy mode") {
-                        ForgeToggle(isOn: Binding(
-                            get: { MenstrualHealthStore.shared.settings.highAccuracyMode },
-                            set: { v in MenstrualHealthStore.shared.updateSettings { $0.highAccuracyMode = v } }
-                        ))
-                    }
-                    Group {
-                    Divider().background(Color.borderColor)
-                    SettingsRow(icon: "eye.fill", iconColor: .ember, label: "ARIA reads cycle on this iPhone") {
-                        ForgeToggle(isOn: Binding(
-                            get: { MenstrualHealthStore.shared.settings.shareWithAria },
-                            set: { v in MenstrualHealthStore.shared.updateSettings { $0.shareWithAria = v } }
-                        ))
-                    }
-                    Divider().background(Color.borderColor)
-                    Button {
-                        store.openCycleHealth()
-                    } label: {
-                        SettingsRow(
-                            icon: "house.fill",
-                            iconColor: Color.alert,
-                            label: "Open Cycle Health",
-                            trailingText: "My cycle",
-                            showChevron: true
-                        )
-                    }
-                    .buttonStyle(.plain)
-                    Divider().background(Color.borderColor)
-                    Button {
-                        store.openCycleHealth(pane: "partner")
-                    } label: {
-                        SettingsRow(
-                            icon: "person.2.fill",
-                            iconColor: Color(hex: "EC4899"),
-                            label: "Open Support",
-                            trailingText: "Partner",
-                            showChevron: true
-                        )
-                    }
-                    .buttonStyle(.plain)
-                    }
-                }
-
-                // Data & Privacy
-                sectionHeader("Data & Privacy")
-                SectionCard {
-                    Button { showDataPermissions = true } label: {
-                        SettingsRow(icon: "lock.shield.fill", iconColor: .steel, label: "ARIA Data Permissions",
-                                    trailingText: "Manage", showChevron: true)
-                    }
-                    .buttonStyle(.plain)
-                    Divider().background(Color.borderColor)
-                    ShareLink(item: store.exportUserDataJSON()) {
-                        SettingsRow(
-                            icon: "square.and.arrow.up",
-                            iconColor: .ember,
-                            label: "Export my data",
-                            trailingText: "JSON",
-                            showChevron: true
-                        )
-                    }
-                    .buttonStyle(.plain)
-                }
+                allPagesGroup
+                ariaGroup
+                workoutGroup
+                nutritionGroup
 
                 PeopleSettingsSection()
 
-                // Life Context — Reminders and shared conversations, off by default.
+                // Life Context: Reminders and shared conversations, off by default.
                 LifeContextSettingsSection()
 
-                // Health features
-                sectionHeader("Health Features")
-                SectionCard {
-                    SettingsRow(icon: "fork.knife", iconColor: .amber, label: "Metabolic Health") {
-                        ForgeToggle(isOn: Binding(
-                            get: { store.metabolicHealthEnabled },
-                            set: { store.metabolicHealthEnabled = $0 }
-                        ))
-                    }
-                    Text("Meals ↔ glucose plus Apple Watch estimates. Turn it off to hide Metabolic everywhere.")
-                        .font(.caption)
-                        .foregroundColor(.textTertiary)
-                        .padding(.horizontal, FDS.Spacing.lg)
-                        .padding(.bottom, FDS.Spacing.md)
-                }
-
-                // Focus / quiet
-                sectionHeader("Focus")
-                SectionCard {
-                    SettingsRow(icon: "moon.fill", iconColor: .steel, label: "Quiet mode") {
-                        ForgeToggle(isOn: Binding(
-                            get: { store.quietMode },
-                            set: { store.setQuietMode($0) }
-                        ))
-                    }
-                }
-
-                // Workout Preferences
-                sectionHeader("Workout Preferences")
-                SectionCard {
-                    Button { showGoalsEditor = true } label: {
-                        SettingsRow(
-                            icon: "target",
-                            iconColor: .ember,
-                            label: "Training Goals",
-                            trailingText: "\(store.userProfile.fitnessGoals.count)",
-                            showChevron: true
-                        )
-                    }
-                    .buttonStyle(.plain)
-                    Divider().background(Color.borderColor)
-                    Button { showWorkoutsEditor = true } label: {
-                        VStack(alignment: .leading, spacing: FDS.Spacing.md) {
-                            HStack {
-                                Text("Preferred Types").font(FDS.TypeScale.Dynamic.body).foregroundColor(.textPrimary)
-                                Spacer()
-                                Image(systemName: "chevron.right")
-                                    .font(.system(size: 12, weight: .semibold))
-                                    .foregroundColor(.textMuted)
-                            }
-                            if store.userProfile.preferredWorkouts.isEmpty {
-                                Text("Tap to choose the sessions you actually do.")
-                                    .font(.system(size: 12))
-                                    .foregroundColor(.textTertiary)
-                            } else {
-                                FlowLayout(spacing: 8) {
-                                    ForEach(store.userProfile.preferredWorkouts) { type in
-                                        Text(type.label)
-                                            .font(FDS.TypeScale.Dynamic.caption)
-                                            .foregroundColor(.textSecondary)
-                                            .padding(.horizontal, FDS.Spacing.md).padding(.vertical, FDS.Spacing.xs)
-                                            .background(Color.surfaceElevated)
-                                            .cornerRadius(100)
-                                    }
-                                }
-                            }
-                        }
-                        .padding(.horizontal, FDS.Spacing.lg).padding(.vertical, FDS.Spacing.md)
-                    }
-                    .buttonStyle(.plain)
-                    Divider().background(Color.borderColor)
-                    Button { showScheduleEditor = true } label: {
-                        SettingsRow(icon: "dumbbell.fill", iconColor: .ember, label: "Training Schedule",
-                                    trailingText: scheduleDays.isEmpty ? "Set days" : scheduleDays, showChevron: true)
-                    }
-                    .buttonStyle(.plain)
-                    Divider().background(Color.borderColor)
-                    Button { showEquipmentPicker = true } label: {
-                        SettingsRow(
-                            icon: store.userProfile.trainingEquipment.icon,
-                            iconColor: .steel,
-                            label: "Equipment",
-                            trailingText: store.userProfile.trainingEquipment.rawValue,
-                            showChevron: true
-                        )
-                    }
-                    .buttonStyle(.plain)
-                }
-
-                // Nutrition
-                sectionHeader("Nutrition")
-                SectionCard {
-                    Button { showNutritionTargetsEditor = true } label: {
-                        SettingsRow(
-                            icon: "fork.knife",
-                            iconColor: .ember,
-                            label: "Nutrition Targets",
-                            trailingText: nutritionTargetsAreCustom ? "Custom" : "Recommended",
-                            showChevron: true
-                        )
-                    }
-                    .buttonStyle(.plain)
-                }
-
-                // Notifications
-                sectionHeader("Notifications")
-                SectionCard {
-                    SettingsRow(icon: "bell.fill", iconColor: .ember, label: "Workout Reminders") {
-                        ForgeToggle(isOn: notificationBinding(\.workoutReminders))
-                    }
-                    Divider().background(Color.borderColor)
-                    SettingsRow(icon: "bell.fill", iconColor: .steel, label: "ARIA Proactive Briefs") {
-                        ForgeToggle(isOn: Binding(
-                            get: { store.briefNotificationsEnabled },
-                            set: { store.setBriefNotificationsEnabled($0) }
-                        ))
-                    }
-                    if store.briefNotificationsEnabled {
-                        Divider().background(Color.borderColor)
-                        briefTimeRow(
-                            icon: "sunrise.fill",
-                            iconColor: Color.amber,
-                            label: "Morning brief",
-                            hour: $briefSettings.morningHour,
-                            minute: $briefSettings.morningMinute
-                        )
-                        Divider().background(Color.borderColor)
-                        briefTimeRow(
-                            icon: "sunset.fill",
-                            iconColor: Color.indigo,
-                            label: "Evening brief",
-                            hour: $briefSettings.eveningHour,
-                            minute: $briefSettings.eveningMinute
-                        )
-                    }
-                    Divider().background(Color.borderColor)
-                    Button {
-                        weeklyReview.showSheet = true
-                    } label: {
-                        SettingsRow(
-                            icon: "calendar.badge.clock",
-                            iconColor: .ember,
-                            label: "Weekly ARIA evaluation",
-                            trailingText: weeklyReview.isDue ? "Due" : "Done",
-                            showChevron: true
-                        )
-                    }
-                    .buttonStyle(.plain)
-                    Divider().background(Color.borderColor)
-                    SettingsRow(icon: "bell.fill", iconColor: .success, label: "Sleep alerts") {
-                        ForgeToggle(isOn: notificationBinding(\.recoveryAlerts))
-                    }
-                    Divider().background(Color.borderColor)
-                    SettingsRow(icon: "bell.fill", iconColor: .textSecondary, label: "Weekly Summary") {
-                        ForgeToggle(isOn: notificationBinding(\.weeklySummary))
-                    }
-                    Divider().background(Color.borderColor)
-                    SettingsRow(icon: "drop.fill", iconColor: Color(hex: "38BDF8"), label: "Lifestyle Reminders") {
-                        ForgeToggle(isOn: notificationBinding(\.lifestyleReminders))
-                    }
-                    Divider().background(Color.borderColor)
-                    SettingsRow(icon: "moon.zzz.fill", iconColor: .steel, label: "Quiet week") {
-                        ForgeToggle(isOn: notificationBinding(\.sleepQuietWeek))
-                    }
-                }
-
-                sectionHeader("Clinical Data (Non PHI)")
-                Button { store.openClinicalData() } label: {
-                    SettingsRow(
-                        icon: "pills.fill",
-                        iconColor: .ember,
-                        label: "Medicine & records",
-                        trailingText: clinicalTrailingText,
-                        showChevron: true
-                    )
-                }
-                .buttonStyle(.plain)
-                .forgeGlassCard(cornerRadius: FDS.Radius.md, accent: .ember)
-
-                // More
-                sectionHeader("More")
-                SectionCard {
-                    Button { showDataPermissions = true } label: {
-                        SettingsRow(icon: "lock.shield.fill", iconColor: .textSecondary, label: "Data & Privacy",
-                                    trailingText: "Apple Health + ARIA", showChevron: true)
-                    }
-                    .buttonStyle(.plain)
-                    Divider().background(Color.borderColor)
-                    Button {
-                        if let privacyPolicyURL = ForgeLegalConfig.privacyPolicyURL {
-                            openURL(privacyPolicyURL)
-                        } else {
-                            showLocalPrivacy = true
-                        }
-                    } label: {
-                        SettingsRow(icon: "doc.text.fill", iconColor: .textSecondary, label: "Privacy Policy",
-                                    trailingText: ForgeLegalConfig.privacyPolicyURL == nil ? "Required" : nil,
-                                    showChevron: ForgeLegalConfig.privacyPolicyURL != nil)
-                    }
-                    .buttonStyle(.plain)
-                    Divider().background(Color.borderColor)
-                    Button { showTermsSheet = true } label: {
-                        SettingsRow(icon: "doc.plaintext.fill", iconColor: .textSecondary, label: "Terms & Conditions",
-                                    trailingText: "Local-first", showChevron: true)
-                    }
-                    .buttonStyle(.plain)
-                    Divider().background(Color.borderColor)
-                    Button {
-                        store.openChat(
-                            with: "When can I subscribe to Forge? What does membership include?",
-                            voice: false
-                        )
-                    } label: {
-                        SettingsRow(
-                            icon: "creditcard.fill",
-                            iconColor: .textSecondary,
-                            label: "Subscription",
-                            trailingText: "Ask ARIA",
-                            showChevron: true
-                        )
-                    }
-                    .buttonStyle(.plain)
-                    Divider().background(Color.borderColor)
-                    // Was a flat label showing an address you couldn't tap. Now it opens
-                    // a pre-addressed mail draft with the diagnostics a support reply needs.
-                    Button {
-                        openSupportEmail()
-                    } label: {
-                        SettingsRow(icon: "questionmark.circle.fill", iconColor: .textSecondary,
-                                    label: "Help & Support", trailingText: "Email us", showChevron: true)
-                    }
-                    .buttonStyle(.plain)
-                    Divider().background(Color.borderColor)
-                    Button { showAbout = true } label: {
-                        SettingsRow(icon: "info.circle.fill", iconColor: .textSecondary, label: "About Forge",
-                                    trailingText: ForgeAppInfo.shortVersion, showChevron: true)
-                    }
-                    .buttonStyle(.plain)
-                    Divider().background(Color.borderColor)
-                    Button { showBackendURL = true } label: {
-                        SettingsRow(
-                            icon: "server.rack",
-                            iconColor: .steel,
-                            label: "ARIA backend URL",
-                            trailingText: "Bedrock",
-                            showChevron: true
-                        )
-                    }
-                    .buttonStyle(.plain)
-                }
-
-                // Log Out
-                Button {
-                    confirmSignOut = true
-                } label: {
-                    HStack(spacing: FDS.Spacing.sm) {
-                        Image(systemName: "rectangle.portrait.and.arrow.right").font(.system(size: 16))
-                        Text("Log Out").font(FDS.TypeScale.Dynamic.body.weight(.semibold))
-                    }
-                    .foregroundColor(.danger)
-                    .frame(maxWidth: .infinity)
-                    .frame(height: 52)
-                    .forgeGlassCard(cornerRadius: FDS.Radius.md, accent: .danger)
-                }
-                .padding(.top, FDS.Spacing.xl)
-                .padding(.bottom, 32)
+                devicesGroup
+                appleHealthGroup
+                clinicalGroup
+                cyclePrivacyGroup
+                cycleGroup
+                notificationsGroup
+                dataPrivacyGroup
+                accountGroup
+                moreGroup
+                logOutButton
             }
-            .padding(.horizontal, FDS.Spacing.lg)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .forgeScreenInsets(top: ForgeLayout.screenTop, bottom: ForgeLayout.scrollBottomClearance)
         }
         .sheet(isPresented: $showProfileEditor) {
             ProfileEditorView()
@@ -787,21 +124,7 @@ struct SettingsPageView: View {
             catalogRevision += 1
         }
         .sheet(isPresented: $showLocalPrivacy) {
-            NavigationStack {
-                ScrollView {
-                    Text("Forge keeps Apple Health data on this device — including Oura, Garmin, Watch, and any other wearable that writes to Apple Health. ARIA reads that ledger here and gives an opinion. Claude and Grok never receive the sample warehouse. Forge account storage is the user record, not your chart.")
-                        .font(.system(size: 15))
-                        .foregroundColor(.textSecondary)
-                        .padding(FDS.Spacing.lg)
-                }
-                .background(Color.background)
-                .navigationTitle("Privacy")
-                .toolbar {
-                    ToolbarItem(placement: .confirmationAction) {
-                        Button("Done") { showLocalPrivacy = false }
-                    }
-                }
-            }
+            localPrivacySheet
         }
         .sheet(isPresented: $showTermsSheet) {
             ForgeTermsAndConditionsView()
@@ -830,32 +153,13 @@ struct SettingsPageView: View {
                 .environmentObject(store)
         }
         .sheet(isPresented: $showBackendURL) {
-            NavigationStack {
-                Form {
-                    Section("Backend (Bedrock path)") {
-                        TextField("https://…", text: $backendURLDraft)
-                            .textInputAutocapitalization(.never)
-                            .autocorrectionDisabled()
-                            .keyboardType(.URL)
-                    }
-                    Section {
-                        Button("Save") {
-                            AriaService.shared.setBaseURL(backendURLDraft)
-                            showBackendURL = false
-                        }
-                    }
-                }
-                .navigationTitle("ARIA backend")
-                .toolbar {
-                    ToolbarItem(placement: .cancellationAction) {
-                        Button("Close") { showBackendURL = false }
-                    }
-                }
-            }
-            .preferredColorScheme(.dark)
+            backendURLSheet
         }
         .confirmationDialog("Log out of Forge?", isPresented: $confirmSignOut, titleVisibility: .visible) {
-            Button("Log Out", role: .destructive) { store.signOut() }
+            Button("Log Out", role: .destructive) {
+                FDS.haptic(.destructive)
+                store.signOut()
+            }
             Button("Cancel", role: .cancel) { }
         } message: {
             Text("You'll need to sign in again. Health data stays on this iPhone.")
@@ -872,20 +176,905 @@ struct SettingsPageView: View {
         .onAppear { weeklyReview.refreshDue() }
     }
 
+    // MARK: - Sheets
+
+    private var localPrivacySheet: some View {
+        NavigationStack {
+            ScrollView {
+                Text("Forge keeps Apple Health data on this device — including Oura, Garmin, Watch, and any other wearable that writes to Apple Health. ARIA reads that ledger here and gives an opinion. Claude and Grok never receive the sample warehouse. Forge account storage is the user record, not your chart.")
+                    .font(HomeType.body)
+                    .foregroundStyle(Color.textSecondary)
+                    .forgeWrapping()
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .forgeScreenInsets(top: FDS.Spacing.lg)
+            }
+            .background(Color.background)
+            .navigationTitle("Privacy")
+            .toolbar {
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Done") { showLocalPrivacy = false }
+                }
+            }
+        }
+    }
+
+    private var backendURLSheet: some View {
+        NavigationStack {
+            Form {
+                Section("Backend (Bedrock path)") {
+                    TextField("https://…", text: $backendURLDraft)
+                        .textInputAutocapitalization(.never)
+                        .autocorrectionDisabled()
+                        .keyboardType(.URL)
+                }
+                Section {
+                    Button("Save") {
+                        AriaService.shared.setBaseURL(backendURLDraft)
+                        showBackendURL = false
+                    }
+                }
+            }
+            .scrollContentBackground(.hidden)
+            .background(Color.background)
+            .navigationTitle("ARIA backend")
+            .toolbar {
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Close") { showBackendURL = false }
+                }
+            }
+        }
+        .preferredColorScheme(.dark)
+    }
+
+    // MARK: - Groups
+
+    private var allPagesGroup: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            sectionHeader(
+                "All pages",
+                subtitle: "The rooms. Open one when you need to log or override — ARIA already reads them."
+            )
+            ForgeExploreDestinationsGrid()
+        }
+    }
+
+    private var ariaGroup: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            sectionHeader("ARIA")
+            SectionCard {
+                settingsLink(
+                    icon: "folder.fill",
+                    iconColor: .ember,
+                    label: "ARIA memory & voice",
+                    footnote: "Notes, persona, tone, check-ins"
+                ) { showWhatIKnow = true }
+
+                SettingsHairline()
+                settingsLink(
+                    icon: "person.fill",
+                    iconColor: .ember,
+                    label: "Coaching Style",
+                    trailingText: store.userProfile.coachingStyle.label,
+                    footnote: store.userProfile.coachingStyle.description
+                ) { showCoachingStylePicker = true }
+
+                SettingsHairline()
+                settingsLink(
+                    icon: store.userProfile.trainingTheme.icon,
+                    iconColor: Color(hex: store.userProfile.trainingTheme.accentHex),
+                    label: "Training Theme",
+                    trailingText: store.userProfile.trainingTheme.label
+                ) { showTrainingThemePicker = true }
+
+                SettingsHairline()
+                leadCoachBlock
+
+                SettingsHairline()
+                settingsLink(
+                    icon: "sparkles",
+                    iconColor: .aurora,
+                    label: "Meet ARIA again",
+                    hint: "Replays the ARIA introduction"
+                ) { store.replayAriaUseOnboarding() }
+
+                trainingGoalsBlock
+            }
+        }
+    }
+
+    /// Lead coach: a standard row, its explanation, then the pin chips at the row inset.
+    private var leadCoachBlock: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            SettingsRow(
+                icon: "person.2.fill",
+                iconColor: .ember,
+                label: "Lead coach",
+                trailingText: store.pinnedCoachAgent?.label ?? "Auto"
+            )
+            .accessibilityElement(children: .combine)
+
+            rowFootnote(
+                "ARIA spawns as many specialists as the question needs — one live call, the rest in parallel on this phone. Pin one to lead, or leave Auto."
+            )
+
+            debugCoachModeBlock
+
+            ForgeFlowLayout(spacing: ForgeLayout.chipGap, lineSpacing: ForgeLayout.interactiveChipLineGap) {
+                coachPinChip(nil, title: "Auto")
+                // Same roster as the chat pin row: the five tracked modes plus
+                // Cycle, not .allCases (which would also offer a redundant
+                // direct pin to .aria -- "Auto" already covers that).
+                ForEach(AriaCoachAgent.trackedModes + [.cycle]) { agent in
+                    if AriaCoachAgentRouter.isAvailable(
+                        agent,
+                        context: AriaCoachAgentRouter.context(pinned: store.pinnedCoachAgent)
+                    ) {
+                        coachPinChip(agent, title: agent.label)
+                    }
+                }
+            }
+            .padding(.horizontal, SettingsMetrics.rowInset)
+            .padding(.bottom, ForgeLayout.rowGap)
+            .accessibilityElement(children: .contain)
+        }
+    }
+
+    @ViewBuilder
+    private var debugCoachModeBlock: some View {
+        #if DEBUG
+        VStack(alignment: .leading, spacing: FDS.Spacing.sm) {
+            Text("ARIA coach mode")
+                .font(HomeType.label)
+                .foregroundStyle(Color.textSecondary)
+            Text(AriaOperatingMode.current.badge)
+                .font(HomeType.micro)
+                .foregroundStyle(Color.textSecondary)
+            ForEach(AriaOperatingMode.selectableCases) { mode in
+                Button {
+                    AriaOperatingMode.setOverride(mode)
+                } label: {
+                    HStack {
+                        Text(mode.settingsLabel)
+                            .font(HomeType.body)
+                            .foregroundStyle(Color.textPrimary)
+                        Spacer()
+                        if AriaOperatingMode.current == mode {
+                            Image(systemName: "checkmark")
+                                .font(.system(size: 12, weight: .semibold))
+                                .foregroundStyle(Color.paper)
+                        }
+                    }
+                    .frame(minHeight: ForgeUX.minTap)
+                    .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+            }
+            Button("Reset to auto") {
+                AriaOperatingMode.setOverride(nil)
+            }
+            .font(HomeType.label)
+            .foregroundStyle(Color.textSecondary)
+            .frame(minHeight: ForgeUX.minTap)
+        }
+        .padding(.horizontal, SettingsMetrics.rowInset)
+        .padding(.bottom, FDS.Spacing.md)
+        #endif
+    }
+
+    @ViewBuilder
+    private var trainingGoalsBlock: some View {
+        let goals = store.userProfile.fitnessGoals
+        if !goals.isEmpty {
+            SettingsHairline()
+            VStack(alignment: .leading, spacing: ForgeLayout.rowGap) {
+                Text("Training Goals")
+                    .font(HomeType.status)
+                    .foregroundStyle(Color.textPrimary)
+                ForgeFlowLayout {
+                    ForEach(goals) { goal in
+                        ForgeChip(label: goal.label, energy: .ember, selected: true)
+                    }
+                }
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.horizontal, SettingsMetrics.rowInset)
+            .padding(.vertical, FDS.Spacing.md)
+        }
+    }
+
+    private var workoutGroup: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            sectionHeader("Workout Preferences")
+            SectionCard {
+                settingsLink(
+                    icon: "target",
+                    iconColor: .ember,
+                    label: "Training Goals",
+                    trailingText: "\(store.userProfile.fitnessGoals.count)"
+                ) { showGoalsEditor = true }
+
+                SettingsHairline()
+                preferredTypesRow
+
+                SettingsHairline()
+                settingsLink(
+                    icon: "dumbbell.fill",
+                    iconColor: .ember,
+                    label: "Training Schedule",
+                    trailingText: scheduleDays.isEmpty ? "Set days" : nil,
+                    footnote: scheduleDays.isEmpty ? nil : scheduleDays
+                ) { showScheduleEditor = true }
+
+                SettingsHairline()
+                settingsLink(
+                    icon: store.userProfile.trainingEquipment.icon,
+                    iconColor: .steel,
+                    label: "Equipment",
+                    trailingText: store.userProfile.trainingEquipment.rawValue
+                ) { showEquipmentPicker = true }
+            }
+        }
+    }
+
+    private var preferredTypesRow: some View {
+        let types = store.userProfile.preferredWorkouts
+        return Button { showWorkoutsEditor = true } label: {
+            VStack(alignment: .leading, spacing: 0) {
+                SettingsRow(
+                    icon: "square.grid.2x2.fill",
+                    iconColor: .ember,
+                    label: "Preferred Types",
+                    showChevron: true
+                )
+                if types.isEmpty {
+                    rowFootnote("Tap to choose the sessions you actually do.")
+                } else {
+                    ForgeFlowLayout {
+                        ForEach(types) { type in
+                            ForgeChip(label: type.label)
+                        }
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.leading, SettingsMetrics.labelInset)
+                    .padding(.trailing, SettingsMetrics.rowInset)
+                    .padding(.bottom, FDS.Spacing.md)
+                }
+            }
+        }
+        .buttonStyle(SettingsRowButtonStyle())
+        .accessibilityHint("Opens Preferred Types")
+    }
+
+    private var nutritionGroup: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            sectionHeader("Nutrition")
+            SectionCard {
+                settingsLink(
+                    icon: "fork.knife",
+                    iconColor: .amber,
+                    label: "Nutrition Targets",
+                    trailingText: nutritionTargetsAreCustom ? "Custom" : "Recommended"
+                ) { showNutritionTargetsEditor = true }
+
+                SettingsHairline()
+                toggleRow(
+                    icon: "fork.knife",
+                    iconColor: .amber,
+                    label: "Metabolic Health",
+                    isOn: Binding(
+                        get: { store.metabolicHealthEnabled },
+                        set: { store.metabolicHealthEnabled = $0 }
+                    )
+                )
+                rowFootnote("Meals ↔ glucose plus Apple Watch estimates. Turn it off to hide Metabolic everywhere.")
+            }
+        }
+    }
+
+    private var devicesGroup: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            sectionHeader("Connected Devices")
+            SectionCard {
+                Color.clear.frame(width: 0, height: 0).hidden().id(catalogRevision)
+                connectedDeviceRows
+                SettingsHairline()
+                settingsLink(
+                    icon: "plus",
+                    iconColor: .ember,
+                    label: "Browse compatible devices"
+                ) { showDevicesSheet = true }
+
+                SettingsHairline()
+                settingsLink(
+                    icon: "rectangle.on.rectangle.badge.gearshape",
+                    iconColor: .steel,
+                    label: "Customize StandBy face"
+                ) { showStandBySheet = true }
+            }
+        }
+    }
+
+    @ViewBuilder
+    private var connectedDeviceRows: some View {
+        if store.userProfile.connectedDevices.isEmpty {
+            ForgeEmptyNote(
+                title: "No devices yet.",
+                message: "Browse the library — LARQ, Oura, Garmin, Watch and more.",
+                systemImage: "link.badge.plus",
+                tint: .steel
+            )
+            .padding(.horizontal, SettingsMetrics.rowInset)
+            .padding(.vertical, FDS.Spacing.md)
+        } else {
+            let ids = HealthDeviceCatalog.migrateStoredIDs(store.userProfile.connectedDevices)
+            ForEach(Array(ids.enumerated()), id: \.element) { idx, raw in
+                if idx > 0 { SettingsHairline() }
+                connectedDeviceRow(raw)
+            }
+        }
+    }
+
+    private func connectedDeviceRow(_ raw: String) -> some View {
+        Button { showDevicesSheet = true } label: {
+            SettingsDeviceRow(
+                device: HealthDeviceCatalog.device(matching: raw),
+                fallbackName: raw,
+                live: store.healthKitLive
+            )
+        }
+        .buttonStyle(SettingsRowButtonStyle())
+        .accessibilityHint("Opens your devices")
+    }
+
+    private var appleHealthGroup: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            sectionHeader("Apple Health")
+            SectionCard {
+                SettingsRow(
+                    icon: "heart.text.square.fill",
+                    iconColor: store.healthKitLive ? Color.vitality : Color.warning,
+                    label: "Apple Health",
+                    trailingText: store.isHealthKitPulling
+                        ? "Pulling…"
+                        : (store.healthKitLive ? "Connected" : "Offline")
+                ) {
+                    if store.isHealthKitPulling {
+                        ProgressView().controlSize(.mini)
+                    }
+                }
+                .accessibilityElement(children: .combine)
+
+                SettingsHairline()
+                settingsLink(
+                    icon: "arrow.triangle.2.circlepath",
+                    iconColor: .ember,
+                    label: store.healthKitLive ? "Resync Apple Health" : "Reconnect Apple Health",
+                    trailingText: "Now",
+                    hint: "Pulls your latest Apple Health data"
+                ) {
+                    Task {
+                        await store.reconnectHealthKit()
+                        FDS.notificationHaptic(store.healthKitLive ? .success : .warning)
+                    }
+                }
+
+                SettingsHairline()
+                staticRow(
+                    icon: "calendar.badge.clock",
+                    iconColor: .steel,
+                    label: "Cycle quiet sync",
+                    trailingText: "Weekly"
+                )
+            }
+            ingestErrorBanner
+        }
+    }
+
+    @ViewBuilder
+    private var ingestErrorBanner: some View {
+        if let ingestError = store.lastLifeIngestError, !ingestError.isEmpty {
+            HStack(alignment: .top, spacing: ForgeLayout.rowGap) {
+                Image(systemName: "exclamationmark.triangle.fill")
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundStyle(Color.warning)
+                    .accessibilityHidden(true)
+                Text(ingestError)
+                    .font(HomeType.body)
+                    .foregroundStyle(Color.textSecondary)
+                    .forgeWrapping()
+                    .frame(maxWidth: .infinity, alignment: .leading)
+            }
+            .forgeContentCard(tint: .warning, padding: ForgeLayout.compactCardPadding)
+            .padding(.top, ForgeLayout.rowGap)
+            .accessibilityElement(children: .combine)
+            .accessibilityLabel(ingestError)
+        }
+    }
+
+    private var clinicalGroup: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            sectionHeader("Clinical Data (Non PHI)")
+            SectionCard {
+                settingsLink(
+                    icon: "pills.fill",
+                    iconColor: .steel,
+                    label: "Medicine & records",
+                    trailingText: clinicalTrailingText
+                ) { store.openClinicalData() }
+            }
+        }
+    }
+
+    // Cycle privacy (Home opens the full Cycle surface)
+    private var cyclePrivacyGroup: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            sectionHeader("Cycle privacy")
+            SectionCard {
+                cycleVaultBlock
+                SettingsHairline()
+                discretionBlock
+                SettingsHairline()
+                toggleRow(
+                    icon: "faceid",
+                    iconColor: .ember,
+                    label: "Lock Cycle Health",
+                    isOn: Binding(
+                        get: { cycleStore.settings.cycleLockEnabled
+                            || cycleStore.settings.discretionMode == .stealth },
+                        set: { v in cycleStore.updateSettings { $0.cycleLockEnabled = v } }
+                    )
+                )
+                SettingsHairline()
+                toggleRow(
+                    icon: "eye.fill",
+                    iconColor: .ember,
+                    label: "ARIA reads cycle on this iPhone",
+                    isOn: Binding(
+                        get: { cycleStore.settings.shareWithAria },
+                        set: { v in cycleStore.updateSettings { $0.shareWithAria = v } }
+                    )
+                )
+            }
+        }
+    }
+
+    private var cycleVaultBlock: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            SettingsRow(
+                icon: "lock.shield.fill",
+                iconColor: .vitality,
+                label: "Cycle Vault",
+                trailingText: cycleStore.vaultSaveError == nil ? "Sealed" : "Retry"
+            )
+            .accessibilityElement(children: .combine)
+            if let err = cycleStore.vaultSaveError {
+                Button {
+                    cycleStore.persistVault()
+                } label: {
+                    Text(err)
+                        .font(HomeType.body)
+                        .foregroundStyle(Color.danger)
+                        .forgeWrapping()
+                        .frame(maxWidth: .infinity, minHeight: ForgeUX.minTap, alignment: .leading)
+                        .padding(.leading, SettingsMetrics.labelInset)
+                        .padding(.trailing, SettingsMetrics.rowInset)
+                }
+                .buttonStyle(SettingsRowButtonStyle())
+                .accessibilityHint("Tries saving the vault again")
+            }
+        }
+    }
+
+    private var discretionBinding: Binding<CycleDiscretionMode> {
+        Binding(
+            get: { cycleStore.settings.discretionMode },
+            set: { mode in cycleStore.updateSettings { $0.discretionMode = mode } }
+        )
+    }
+
+    private var discretionOptions: [ForgeSegmentOption<CycleDiscretionMode>] {
+        CycleDiscretionMode.allCases.map { mode in
+            ForgeSegmentOption(value: mode, title: mode.label)
+        }
+    }
+
+    private var discretionBlock: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            SettingsRow(
+                icon: "eye.slash.fill",
+                iconColor: .steel,
+                label: "Discretion mode"
+            )
+            ForgeSegmentedControl(
+                discretionOptions,
+                selection: discretionBinding,
+                accent: .steel,
+                bleed: SettingsMetrics.rowInset
+            )
+            .padding(.horizontal, SettingsMetrics.rowInset)
+            .padding(.top, FDS.Spacing.xs)
+            Text(cycleStore.settings.discretionMode.detail)
+                .font(HomeType.body)
+                .foregroundStyle(Color.textSecondary)
+                .forgeWrapping()
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.horizontal, SettingsMetrics.rowInset)
+                .padding(.top, ForgeLayout.rowGap)
+                .padding(.bottom, FDS.Spacing.md)
+        }
+    }
+
+    private var predictionAccuracyText: String {
+        if let mae = cycleStore.accuracyReport.maeDays {
+            return String(format: "MAE %.1fd", mae)
+        }
+        return "Learning"
+    }
+
+    private var cycleGroup: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            sectionHeader("Cycle")
+            SectionCard {
+                settingsLink(
+                    icon: "house.fill",
+                    iconColor: .aurora,
+                    label: "Open Cycle Health",
+                    trailingText: "My cycle"
+                ) { store.openCycleHealth() }
+
+                SettingsHairline()
+                settingsLink(
+                    icon: "person.2.fill",
+                    iconColor: .indigo,
+                    label: "Open Support",
+                    trailingText: "Partner"
+                ) { store.openCycleHealth(pane: "partner") }
+
+                SettingsHairline()
+                staticRow(
+                    icon: "chart.line.uptrend.xyaxis",
+                    iconColor: .ember,
+                    label: "Prediction accuracy",
+                    trailingText: predictionAccuracyText
+                )
+
+                SettingsHairline()
+                toggleRow(
+                    icon: "scope",
+                    iconColor: .aurora,
+                    label: "High-accuracy mode",
+                    isOn: Binding(
+                        get: { cycleStore.settings.highAccuracyMode },
+                        set: { v in cycleStore.updateSettings { $0.highAccuracyMode = v } }
+                    )
+                )
+            }
+        }
+    }
+
+    private var notificationsGroup: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            sectionHeader("Notifications")
+            SectionCard {
+                toggleRow(
+                    icon: "moon.fill",
+                    iconColor: .steel,
+                    label: "Quiet mode",
+                    isOn: Binding(
+                        get: { store.quietMode },
+                        set: { store.setQuietMode($0) }
+                    )
+                )
+                SettingsHairline()
+                toggleRow(
+                    icon: "figure.run",
+                    iconColor: .ember,
+                    label: "Workout Reminders",
+                    isOn: notificationBinding(\.workoutReminders)
+                )
+                SettingsHairline()
+                toggleRow(
+                    icon: "sparkles",
+                    iconColor: .aurora,
+                    label: "ARIA Proactive Briefs",
+                    isOn: Binding(
+                        get: { store.briefNotificationsEnabled },
+                        set: { store.setBriefNotificationsEnabled($0) }
+                    )
+                )
+                briefTimeRows
+                SettingsHairline()
+                settingsLink(
+                    icon: "calendar.badge.clock",
+                    iconColor: .ember,
+                    label: "Weekly ARIA evaluation",
+                    trailingText: weeklyReview.isDue ? "Due" : "Done"
+                ) { weeklyReview.showSheet = true }
+
+                SettingsHairline()
+                toggleRow(
+                    icon: "heart.fill",
+                    iconColor: .steel,
+                    label: "Sleep alerts",
+                    isOn: notificationBinding(\.recoveryAlerts)
+                )
+                SettingsHairline()
+                toggleRow(
+                    icon: "calendar",
+                    iconColor: .textSecondary,
+                    label: "Weekly Summary",
+                    isOn: notificationBinding(\.weeklySummary)
+                )
+                SettingsHairline()
+                toggleRow(
+                    icon: "drop.fill",
+                    iconColor: .steel,
+                    label: "Lifestyle Reminders",
+                    isOn: notificationBinding(\.lifestyleReminders)
+                )
+                SettingsHairline()
+                toggleRow(
+                    icon: "moon.zzz.fill",
+                    iconColor: .steel,
+                    label: "Quiet week",
+                    isOn: notificationBinding(\.sleepQuietWeek)
+                )
+            }
+        }
+    }
+
+    @ViewBuilder
+    private var briefTimeRows: some View {
+        if store.briefNotificationsEnabled {
+            SettingsHairline()
+            briefTimeRow(
+                icon: "sunrise.fill",
+                iconColor: Color.amber,
+                label: "Morning brief",
+                hour: $briefSettings.morningHour,
+                minute: $briefSettings.morningMinute
+            )
+            SettingsHairline()
+            briefTimeRow(
+                icon: "sunset.fill",
+                iconColor: Color.indigo,
+                label: "Evening brief",
+                hour: $briefSettings.eveningHour,
+                minute: $briefSettings.eveningMinute
+            )
+        }
+    }
+
+    private var dataPrivacyGroup: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            sectionHeader("Data & Privacy")
+            SectionCard {
+                settingsLink(
+                    icon: "lock.shield.fill",
+                    iconColor: .steel,
+                    label: "ARIA Data Permissions",
+                    trailingText: "Manage"
+                ) { showDataPermissions = true }
+
+                SettingsHairline()
+                ShareLink(item: store.exportUserDataJSON()) {
+                    SettingsRow(
+                        icon: "square.and.arrow.up",
+                        iconColor: .ember,
+                        label: "Export my data",
+                        trailingText: "JSON",
+                        showChevron: true
+                    )
+                }
+                .buttonStyle(SettingsRowButtonStyle())
+            }
+        }
+    }
+
+    private var accountGroup: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            sectionHeader("Account")
+            SectionCard {
+                staticRow(
+                    icon: "person.crop.circle.fill",
+                    iconColor: .ember,
+                    label: store.authEmail.isEmpty ? "Signed in" : store.authEmail,
+                    trailingText: store.authProvider.isEmpty ? "Session" : store.authProvider.capitalized
+                )
+                SettingsHairline()
+                staticRow(
+                    icon: "checkmark.shield.fill",
+                    iconColor: .vitality,
+                    label: "Session",
+                    trailingText: store.isAuthenticated ? "Active" : "None"
+                )
+                SettingsHairline()
+                staticRow(
+                    icon: "clock.arrow.circlepath",
+                    iconColor: .steel,
+                    label: "Last sync",
+                    trailingText: lastSyncText
+                )
+            }
+        }
+    }
+
+    private var lastSyncText: String {
+        if let at = store.lastCloudSyncAt ?? store.lastMetricsRefresh {
+            return at.formatted(date: .omitted, time: .shortened)
+        }
+        return "Not yet"
+    }
+
+    private var moreGroup: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            sectionHeader("More")
+            SectionCard {
+                settingsLink(
+                    icon: "lock.shield.fill",
+                    iconColor: .textSecondary,
+                    label: "Data & Privacy",
+                    trailingText: "Apple Health + ARIA"
+                ) { showDataPermissions = true }
+
+                SettingsHairline()
+                settingsLink(
+                    icon: "doc.text.fill",
+                    iconColor: .textSecondary,
+                    label: "Privacy Policy",
+                    trailingText: ForgeLegalConfig.privacyPolicyURL == nil ? "Required" : nil,
+                    showChevron: ForgeLegalConfig.privacyPolicyURL != nil,
+                    hint: "Opens the privacy policy"
+                ) {
+                    if let privacyPolicyURL = ForgeLegalConfig.privacyPolicyURL {
+                        openURL(privacyPolicyURL)
+                    } else {
+                        showLocalPrivacy = true
+                    }
+                }
+
+                SettingsHairline()
+                settingsLink(
+                    icon: "doc.plaintext.fill",
+                    iconColor: .textSecondary,
+                    label: "Terms & Conditions",
+                    trailingText: "Local-first"
+                ) { showTermsSheet = true }
+
+                SettingsHairline()
+                settingsLink(
+                    icon: "creditcard.fill",
+                    iconColor: .textSecondary,
+                    label: "Subscription",
+                    trailingText: "Ask ARIA"
+                ) {
+                    store.openChat(
+                        with: "When can I subscribe to Forge? What does membership include?",
+                        voice: false
+                    )
+                }
+
+                SettingsHairline()
+                // Opens a pre-addressed mail draft with the diagnostics a support reply needs.
+                settingsLink(
+                    icon: "questionmark.circle.fill",
+                    iconColor: .textSecondary,
+                    label: "Help & Support",
+                    trailingText: "Email us",
+                    hint: "Opens a pre-addressed email"
+                ) { openSupportEmail() }
+
+                SettingsHairline()
+                settingsLink(
+                    icon: "info.circle.fill",
+                    iconColor: .textSecondary,
+                    label: "About Forge",
+                    trailingText: ForgeAppInfo.shortVersion
+                ) { showAbout = true }
+
+                SettingsHairline()
+                settingsLink(
+                    icon: "server.rack",
+                    iconColor: .steel,
+                    label: "ARIA backend URL",
+                    trailingText: "Bedrock"
+                ) { showBackendURL = true }
+            }
+        }
+    }
+
+    // Log Out: the last, quietest group. Confirmation dialog fires the destructive haptic.
+    private var logOutButton: some View {
+        ForgeSecondaryButton(
+            title: "Log Out",
+            icon: "rectangle.portrait.and.arrow.right",
+            accent: Color.danger
+        ) {
+            confirmSignOut = true
+        }
+        .accessibilityHint("Asks you to confirm before logging out")
+        .padding(.top, SettingsMetrics.sectionTop)
+    }
+
+    // MARK: - Row builders
+
+    /// A tappable settings row. Press feedback and the haptic come from the
+    /// row button style; a footnote sits under the label, inside the tap target.
+    private func settingsLink(
+        icon: String,
+        iconColor: Color,
+        label: String,
+        trailingText: String? = nil,
+        footnote: String? = nil,
+        showChevron: Bool = true,
+        hint: String? = nil,
+        action: @escaping () -> Void
+    ) -> some View {
+        let resolvedHint: String = hint ?? (showChevron ? "Opens \(label)" : "")
+        return Button(action: action) {
+            VStack(alignment: .leading, spacing: 0) {
+                SettingsRow(
+                    icon: icon,
+                    iconColor: iconColor,
+                    label: label,
+                    trailingText: trailingText,
+                    showChevron: showChevron
+                )
+                if let footnote, !footnote.isEmpty {
+                    rowFootnote(footnote)
+                }
+            }
+        }
+        .buttonStyle(SettingsRowButtonStyle())
+        .accessibilityHint(resolvedHint)
+    }
+
+    /// A non-interactive row read as one VoiceOver stop (label and value).
+    private func staticRow(
+        icon: String,
+        iconColor: Color,
+        label: String,
+        trailingText: String? = nil
+    ) -> some View {
+        SettingsRow(icon: icon, iconColor: iconColor, label: label, trailingText: trailingText)
+            .accessibilityElement(children: .combine)
+    }
+
+    /// A switch row. The switch carries the row's name for VoiceOver.
+    private func toggleRow(
+        icon: String,
+        iconColor: Color,
+        label: String,
+        isOn: Binding<Bool>
+    ) -> some View {
+        SettingsRow(icon: icon, iconColor: iconColor, label: label) {
+            ForgeToggle(isOn: isOn)
+                .accessibilityLabel(label)
+        }
+    }
+
+    /// Sentence under a row, aligned to the label column.
+    private func rowFootnote(_ text: String) -> some View {
+        Text(text)
+            .font(HomeType.body)
+            .foregroundStyle(Color.textSecondary)
+            .forgeWrapping()
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.leading, SettingsMetrics.labelInset)
+            .padding(.trailing, SettingsMetrics.rowInset)
+            .padding(.top, -FDS.Spacing.sm)
+            .padding(.bottom, FDS.Spacing.md)
+    }
+
     private func coachPinChip(_ agent: AriaCoachAgent?, title: String) -> some View {
-        let selected = store.pinnedCoachAgent == agent
-        return Button {
+        ForgeChipButton(
+            label: title,
+            energy: .ember,
+            selected: store.pinnedCoachAgent == agent
+        ) {
             store.pinnedCoachAgent = agent
             if let agent { store.lastRoutedCoachAgent = agent }
-        } label: {
-            Text(title)
-                .font(FDS.TypeScale.Dynamic.caption)
-                .foregroundColor(selected ? .ember : .textPrimary)
-                .padding(.horizontal, FDS.Spacing.md).padding(.vertical, FDS.Spacing.xs)
-                .background(selected ? Color.ember.opacity(0.18) : Color.ember.opacity(0.12))
-                .cornerRadius(100)
         }
-        .buttonStyle(.plain)
     }
 
     /// Opens the user's mail client with a support draft already addressed and stamped
@@ -969,10 +1158,106 @@ struct SettingsPageView: View {
         return parts.date ?? Date()
     }
 
-    func sectionHeader(_ title: String) -> some View {
-        Text(title)
-            .forgeSectionLabel()
-            .padding(.top, FDS.Spacing.xl)
-            .padding(.bottom, FDS.Spacing.md)
+    func sectionHeader(_ title: String, subtitle: String? = nil) -> some View {
+        ForgeSectionHeader(title: title, subtitle: subtitle)
+            .padding(.top, SettingsMetrics.sectionTop)
+            .padding(.bottom, SettingsMetrics.headerBottom)
+    }
+}
+
+// MARK: - Settings layout helpers
+
+/// Named rhythm for the Settings page. The section top and header bottom match
+/// the headers that Your people and Life Context draw for themselves.
+private enum SettingsMetrics {
+    static let sectionTop: CGFloat = FDS.Spacing.xl
+    static let headerBottom: CGFloat = FDS.Spacing.md
+    static let rowInset: CGFloat = FDS.Spacing.lg
+    /// Leading edge of a row label: row inset + 32 pt icon well + 12 pt gap.
+    static let labelInset: CGFloat = 60
+}
+
+/// Inset hairline between rows of a settings card, aligned to the label column.
+private struct SettingsHairline: View {
+    var body: some View {
+        Rectangle()
+            .fill(Color.borderHairline)
+            .frame(height: ForgeUX.hairline)
+            .padding(.leading, SettingsMetrics.labelInset)
+            .accessibilityHidden(true)
+    }
+}
+
+/// Plain row button with a press haptic and a quiet pressed state. It never
+/// animates, so Reduce Motion needs no special case.
+private struct SettingsRowButtonStyle: ButtonStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .contentShape(Rectangle())
+            .opacity(configuration.isPressed ? 0.72 : 1)
+            .onChange(of: configuration.isPressed) { _, pressed in
+                if pressed { FDS.haptic(.press) }
+            }
+    }
+}
+
+/// A connected-device row: the product photo leads (36 pt), the name takes the
+/// width, and a trailing caption names the source. The live dot only appears
+/// while Apple Health is actually live.
+private struct SettingsDeviceRow: View {
+    let device: HealthDevice?
+    let fallbackName: String
+    let live: Bool
+
+    private var title: String { device?.name ?? fallbackName }
+    private var sourceText: String { device?.writesToAppleHealth == true ? "Health" : "iOS" }
+    private var spokenLabel: String {
+        live ? "\(title), \(sourceText), live" : "\(title), \(sourceText)"
+    }
+
+    @ViewBuilder
+    private var leading: some View {
+        if let device {
+            DeviceProductImage(device: device, size: ForgeLayout.iconWell, cornerRadius: FDS.Radius.sm)
+        } else {
+            ForgeIconWell(systemImage: "sensor.tag.radiowaves.forward", tint: .steel)
+        }
+    }
+
+    private var status: some View {
+        HStack(spacing: FDS.Spacing.xs) {
+            if live {
+                Circle()
+                    .fill(Color.vitality)
+                    .frame(width: 8, height: 8)
+                    .accessibilityHidden(true)
+            }
+            Text(sourceText)
+                .font(HomeType.label)
+                .foregroundStyle(Color.textSecondary)
+                .forgeSingleLine(minScale: ForgeLayout.labelMinScale)
+        }
+    }
+
+    var body: some View {
+        HStack(spacing: FDS.Spacing.md) {
+            leading
+            Text(title)
+                .font(HomeType.status)
+                .foregroundStyle(Color.textPrimary)
+                .lineLimit(2)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .layoutPriority(1)
+            status
+            Image(systemName: "chevron.right")
+                .font(.system(size: 11, weight: .semibold))
+                .foregroundStyle(Color.textMuted)
+                .accessibilityHidden(true)
+        }
+        .padding(.horizontal, SettingsMetrics.rowInset)
+        .padding(.vertical, ForgeLayout.rowVerticalPadding)
+        .frame(minHeight: ForgeUX.minTap)
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel(spokenLabel)
     }
 }

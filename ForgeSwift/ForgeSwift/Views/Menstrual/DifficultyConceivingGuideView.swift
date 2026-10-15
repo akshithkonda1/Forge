@@ -6,80 +6,32 @@ import ForgeCore
 struct DifficultyConceivingGuideView: View {
     var onAskARIA: () -> Void
     @Environment(\.dismiss) private var dismiss
+    @ScaledMetric(relativeTo: .subheadline) private var stepBadgeSize: CGFloat = 22
+
+    private var stepBadgeDiameter: CGFloat {
+        ForgeLayout.scaledCap(stepBadgeSize, base: 22)
+    }
 
     var body: some View {
         NavigationStack {
             ScrollView {
-                VStack(alignment: .leading, spacing: FDS.Spacing.lg) {
-                    VStack(alignment: .leading, spacing: FDS.Spacing.sm) {
-                        Text("If conceiving is taking longer")
-                            .font(FDS.TypeScale.Dynamic.title)
-                            .foregroundColor(.textPrimary)
-                        Text("Literacy, not a diagnosis. Forge is not a fertility clinic and cannot run labs. You leave with a list you can take to a human.")
-                            .font(FDS.TypeScale.Dynamic.body)
-                            .foregroundColor(.textSecondary)
-                            .fixedSize(horizontal: false, vertical: true)
-                    }
-
-                    VStack(alignment: .leading, spacing: FDS.Spacing.md) {
-                        Text("THINGS YOU CAN DO").forgeSectionLabel()
-                        ForEach(Array(DifficultyConceivingGuide.steps.enumerated()), id: \.offset) { index, step in
-                            HStack(alignment: .top, spacing: FDS.Spacing.md) {
-                                Text("\(index + 1)")
-                                    .font(FDS.TypeScale.Dynamic.caption)
-                                    .foregroundStyle(Color.ember)
-                                    .frame(width: 22, height: 22)
-                                    .background(Color.ember.opacity(0.15))
-                                    .clipShape(Circle())
-                                Text(step)
-                                    .font(FDS.TypeScale.Dynamic.body)
-                                    .foregroundColor(.textSecondary)
-                                    .fixedSize(horizontal: false, vertical: true)
-                            }
-                        }
-                    }
-                    .padding(FDS.Spacing.lg)
-                    .forgeGlassCard(accent: Color(hex: "EC4899"))
-
-                    VStack(alignment: .leading, spacing: FDS.Spacing.md) {
-                        Text("SPECIALISTS TO KNOW").forgeSectionLabel()
-                        ForEach(DifficultyConceivingGuide.specialists) { person in
-                            VStack(alignment: .leading, spacing: FDS.Spacing.xs) {
-                                Text(person.title)
-                                    .font(FDS.TypeScale.Dynamic.caption)
-                                    .foregroundColor(.textPrimary)
-                                Text(person.when)
-                                    .font(FDS.TypeScale.Dynamic.caption)
-                                    .foregroundColor(.textSecondary)
-                                    .fixedSize(horizontal: false, vertical: true)
-                            }
-                            .padding(FDS.Spacing.lg)
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                            .forgeInsetTile(radius: FDS.Radius.md)
-                        }
-                    }
-
-                    Button(action: onAskARIA) {
-                        Label {
-                            Text("Ask ARIA to walk this with me")
-                        } icon: {
-                            ARIAIdentityMark(state: .idle, mood: .energized, size: 16, amplitude: 0.22)
-                        }
-                            .font(FDS.TypeScale.Dynamic.caption)
-                            .foregroundColor(.white)
-                            .frame(maxWidth: .infinity)
-                            .padding(.vertical, FDS.Spacing.lg)
-                            .background(Color.ember)
-                            .clipShape(RoundedRectangle(cornerRadius: FDS.Radius.md, style: .continuous))
-                    }
-                    .buttonStyle(.plain)
-
+                VStack(alignment: .leading, spacing: ForgeLayout.sectionGap) {
+                    intro
+                    stepsCard
+                    specialistsCard
+                    ForgePrimaryButton(
+                        title: "Ask ARIA to walk this with me",
+                        icon: "sparkles",
+                        accent: .ember,
+                        action: onAskARIA
+                    )
                     Text(SexualHealthCurriculum.medicalDisclaimer)
-                        .font(FDS.TypeScale.Dynamic.caption)
-                        .foregroundColor(.textTertiary)
-                        .fixedSize(horizontal: false, vertical: true)
+                        .font(HomeType.micro)
+                        .foregroundStyle(Color.textTertiary)
+                        .forgeWrapping()
                 }
-                .padding(FDS.Spacing.lg)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .forgeScreenInsets(top: FDS.Spacing.lg)
             }
             .background(Color.background.ignoresSafeArea())
             .navigationTitle("Taking longer")
@@ -91,5 +43,84 @@ struct DifficultyConceivingGuideView: View {
             }
         }
         .preferredColorScheme(.dark)
+    }
+
+    // MARK: - Intro
+
+    private var intro: some View {
+        VStack(alignment: .leading, spacing: ForgeLayout.pairGap) {
+            Text("If conceiving is taking longer")
+                .font(ForgeType.title)
+                .foregroundStyle(Color.textPrimary)
+                .forgeWrapping()
+                .accessibilityAddTraits(.isHeader)
+            Text("Literacy, not a diagnosis. Forge is not a fertility clinic and cannot run labs. You leave with a list you can take to a human.")
+                .font(HomeType.body)
+                .foregroundStyle(Color.textSecondary)
+                .forgeWrapping()
+        }
+    }
+
+    // MARK: - Steps
+
+    private var stepsCard: some View {
+        VStack(alignment: .leading, spacing: ForgeLayout.blockGap) {
+            ForgeCardHeader("THINGS YOU CAN DO")
+            VStack(alignment: .leading, spacing: ForgeLayout.rowGap) {
+                ForEach(Array(DifficultyConceivingGuide.steps.enumerated()), id: \.offset) { index, step in
+                    stepRow(number: index + 1, text: step)
+                }
+            }
+        }
+        .forgeContentCard()
+    }
+
+    private func stepRow(number: Int, text: String) -> some View {
+        HStack(alignment: .top, spacing: ForgeLayout.rowGap) {
+            Text("\(number)")
+                .font(HomeType.label)
+                .monospacedDigit()
+                .foregroundStyle(Color.ember)
+                .hudInArcText()
+                .frame(width: stepBadgeDiameter, height: stepBadgeDiameter)
+                .background(Circle().fill(Color.ember.opacity(0.16)))
+                .accessibilityHidden(true)
+            Text(text)
+                .font(HomeType.body)
+                .foregroundStyle(Color.textSecondary)
+                .forgeWrapping()
+        }
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("Step \(number). \(text)")
+    }
+
+    // MARK: - Specialists
+
+    private var specialistsCard: some View {
+        VStack(alignment: .leading, spacing: ForgeLayout.blockGap) {
+            ForgeCardHeader("SPECIALISTS TO KNOW")
+            VStack(alignment: .leading, spacing: ForgeLayout.tileGap) {
+                ForEach(DifficultyConceivingGuide.specialists) { person in
+                    specialistTile(title: person.title, when: person.when)
+                }
+            }
+        }
+        .forgeContentCard()
+    }
+
+    private func specialistTile(title: String, when: String) -> some View {
+        VStack(alignment: .leading, spacing: ForgeLayout.pairGap) {
+            Text(title)
+                .font(HomeType.status)
+                .foregroundStyle(Color.textPrimary)
+                .forgeWrapping()
+            Text(when)
+                .font(HomeType.body)
+                .foregroundStyle(Color.textSecondary)
+                .forgeWrapping()
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .forgeWell()
+        .accessibilityElement(children: .combine)
     }
 }

@@ -23,112 +23,33 @@ struct AriaMeetView: View {
     var onTalk: () -> Void
     var onSkip: () -> Void
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.dynamicTypeSize) private var typeSize
     @State private var appeared = false
+
+    private var bloomSize: CGFloat { typeSize.isAccessibilitySize ? 140 : 190 }
+    private var orbSize: CGFloat { typeSize.isAccessibilitySize ? 96 : 132 }
 
     var body: some View {
         ZStack {
             PremiumAtmosphere(
                 accent: ForgePalette.ember,
-                secondary: Color(hex: "A9D8FF"),
-                intensity: 0.85
+                intensity: 0.85,
+                animated: false
             )
 
             VStack(spacing: 0) {
                 ScrollView(showsIndicators: false) {
-                    VStack(spacing: FDS.Spacing.lg) {
-                        ZStack {
-                            PremiumPresenceBloom(
-                                size: 190,
-                                accent: ForgePalette.ember,
-                                frost: Color(hex: "A9D8FF")
-                            )
-                            AuroraOrbView(
-                                state: .idle,
-                                amplitude: 0.55,
-                                mood: .focused,
-                                size: 132,
-                                followPresence: true
-                            )
-                        }
-                        .padding(.top, FDS.Spacing.xl)
-
-                        Text(AriaMeetCopy.eyebrow.uppercased())
-                            .font(FDS.TypeScale.Dynamic.micro)
-                            .tracking(2.2)
-                            .foregroundColor(.textTertiary)
-                            .multilineTextAlignment(.center)
-                            .premiumEntrance(index: 0, appeared: appeared)
-
-                        Text(AriaMeetCopy.title)
-                            .font(.system(size: 30, weight: .semibold, design: .rounded))
-                            .foregroundColor(.textPrimary)
-                            .premiumEntrance(index: 1, appeared: appeared)
-
-                        Text(AriaMeetCopy.lead)
-                            .font(FDS.TypeScale.Dynamic.body)
-                            .foregroundColor(.textSecondary)
-                            .multilineTextAlignment(.center)
-                            .padding(.horizontal, FDS.Spacing.sm)
-                            .premiumEntrance(index: 2, appeared: appeared)
-
-                        VStack(spacing: FDS.Spacing.md) {
-                            ForEach(Array(AriaMeetCopy.capabilities.enumerated()), id: \.element.title) { index, item in
-                                HStack(alignment: .top, spacing: FDS.Spacing.md) {
-                                    ZStack {
-                                        Circle()
-                                            .fill(Color.white.opacity(0.06))
-                                            .frame(width: 36, height: 36)
-                                        Image(systemName: item.icon)
-                                            .font(.system(size: 14, weight: .medium))
-                                            .foregroundColor(Color.paper.opacity(0.85))
-                                    }
-                                    VStack(alignment: .leading, spacing: FDS.Spacing.xs) {
-                                        Text(item.title)
-                                            .font(FDS.TypeScale.Dynamic.body.weight(.semibold))
-                                            .foregroundColor(.textPrimary)
-                                        Text(item.body)
-                                            .font(FDS.TypeScale.Dynamic.body)
-                                            .foregroundColor(.textSecondary)
-                                            .fixedSize(horizontal: false, vertical: true)
-                                    }
-                                }
-                                .frame(maxWidth: .infinity, alignment: .leading)
-                                .padding(FDS.Spacing.lg)
-                                .background(Color.white.opacity(0.04))
-                                .clipShape(RoundedRectangle(cornerRadius: FDS.Radius.lg, style: .continuous))
-                                .overlay(
-                                    RoundedRectangle(cornerRadius: FDS.Radius.lg, style: .continuous)
-                                        .stroke(Color.white.opacity(0.08), lineWidth: 1)
-                                )
-                                .premiumEntrance(index: 3 + index, appeared: appeared)
-                            }
-                        }
-                        .padding(.top, FDS.Spacing.sm)
+                    VStack(spacing: ForgeLayout.sectionGap) {
+                        presenceHero
+                        copyBlock
+                        capabilitiesCard
                     }
-                    .padding(.horizontal, FDS.Spacing.xl)
-                    .padding(.bottom, FDS.Spacing.lg)
+                    .padding(.horizontal, ForgeLayout.screenInset)
+                    .padding(.top, FDS.Spacing.lg)
+                    .padding(.bottom, ForgeLayout.sectionGap)
                 }
 
-                VStack(spacing: FDS.Spacing.md) {
-                    PremiumPrimaryButton(
-                        title: AriaMeetCopy.talkCta,
-                        icon: "waveform",
-                        action: onTalk
-                    )
-
-                    Button(action: onSkip) {
-                        Text(AriaMeetCopy.skipCta)
-                            .font(FDS.TypeScale.Dynamic.body)
-                            .foregroundColor(.textTertiary)
-                            .frame(maxWidth: .infinity)
-                            .padding(.vertical, FDS.Spacing.md)
-                    }
-                    .buttonStyle(.plain)
-                    .accessibilityLabel("Skip")
-                    .accessibilityHint("Skip the first meeting and look around Forge.")
-                }
-                .padding(.horizontal, FDS.Spacing.xl)
-                .padding(.bottom, FDS.Spacing.lg)
+                actionDock
             }
             .opacity(appeared ? 1 : 0)
         }
@@ -139,5 +60,118 @@ struct AriaMeetView: View {
                 withAnimation(FDS.Spring.fluid) { appeared = true }
             }
         }
+    }
+
+    private var presenceHero: some View {
+        ZStack {
+            PremiumPresenceBloom(
+                size: bloomSize,
+                accent: ForgePalette.ember,
+                live: false
+            )
+            AuroraOrbView(
+                state: .idle,
+                amplitude: 0.55,
+                mood: .focused,
+                size: orbSize,
+                followPresence: true
+            )
+        }
+    }
+
+    private var copyBlock: some View {
+        VStack(spacing: ForgeLayout.pairGap) {
+            Text(AriaMeetCopy.eyebrow)
+                .forgeSectionLabel()
+                .multilineTextAlignment(.center)
+
+            Text(AriaMeetCopy.title)
+                .font(ForgeType.pageTitle)
+                .foregroundStyle(Color.textPrimary)
+                .multilineTextAlignment(.center)
+                .forgeWrapping()
+                .accessibilityAddTraits(.isHeader)
+
+            Text(AriaMeetCopy.lead)
+                .font(HomeType.body)
+                .foregroundStyle(Color.textSecondary)
+                .multilineTextAlignment(.center)
+                .forgeWrapping()
+                .padding(.top, ForgeLayout.pairGap)
+        }
+        .frame(maxWidth: .infinity)
+    }
+
+    private var capabilitiesCard: some View {
+        VStack(alignment: .leading, spacing: ForgeLayout.rowGap) {
+            ForEach(Array(AriaMeetCopy.capabilities.enumerated()), id: \.element.title) { index, item in
+                AriaMeetCapabilityRow(
+                    title: item.title,
+                    message: item.body,
+                    icon: item.icon,
+                    tint: Self.rowTint(index)
+                )
+            }
+        }
+        .forgeContentCard(tint: .ember)
+    }
+
+    private var actionDock: some View {
+        VStack(spacing: ForgeLayout.pairGap) {
+            ForgePrimaryButton(
+                title: AriaMeetCopy.talkCta,
+                icon: "waveform",
+                action: onTalk
+            )
+
+            Button {
+                FDS.haptic(.press)
+                onSkip()
+            } label: {
+                Text(AriaMeetCopy.skipCta)
+                    .font(HomeType.label)
+                    .foregroundStyle(Color.textSecondary)
+                    .frame(maxWidth: .infinity, minHeight: ForgeUX.minTap)
+                    .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel("Skip")
+            .accessibilityHint("Skip the first meeting and look around Forge.")
+        }
+        .padding(.horizontal, ForgeLayout.screenInset)
+        .padding(.bottom, FDS.Spacing.sm)
+    }
+
+    private static func rowTint(_ index: Int) -> Color {
+        let tints: [Color] = [Color.ember, Color.steel, Color.aurora, Color.amber]
+        return tints[index % tints.count]
+    }
+}
+
+/// One capability: icon well, status title, wrapping body. Display only.
+private struct AriaMeetCapabilityRow: View {
+    let title: String
+    let message: String
+    let icon: String
+    let tint: Color
+
+    var body: some View {
+        HStack(alignment: .top, spacing: ForgeLayout.rowGap) {
+            ForgeIconWell(systemImage: icon, tint: tint)
+            VStack(alignment: .leading, spacing: ForgeLayout.pairGap) {
+                Text(title)
+                    .font(HomeType.status)
+                    .foregroundStyle(Color.textPrimary)
+                    .forgeWrapping()
+                Text(message)
+                    .font(HomeType.body)
+                    .foregroundStyle(Color.textTertiary)
+                    .forgeWrapping()
+            }
+            .layoutPriority(1)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .frame(minHeight: ForgeUX.minTap, alignment: .top)
+        .accessibilityElement(children: .combine)
     }
 }
