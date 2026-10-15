@@ -8,8 +8,15 @@ struct WorkoutHistoryListView: View {
     @State private var showFilters = false
     @State private var showAllWorkouts = false
     @State private var selectedWorkout: WorkoutHistory?
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     private static let collapsedCount = 6
+
+    private struct WeekGroup: Identifiable {
+        let id: String
+        let title: String
+        let workouts: [WorkoutHistory]
+    }
 
     private var isFiltering: Bool {
         selectedFilterType != nil || !searchText.isEmpty
@@ -45,185 +52,314 @@ struct WorkoutHistoryListView: View {
         return parts.joined(separator: "\n")
     }
 
+    // MARK: - Body
+
     var body: some View {
-        VStack(alignment: .leading, spacing: FDS.Spacing.md) {
-            HStack {
-                Text("Recent Workouts")
-                    .font(FDS.TypeScale.Dynamic.headline)
-                    .foregroundColor(.textPrimary)
-                Spacer()
-                Button(action: { withAnimation(.spring()) { showFilters.toggle() } }) {
-                    Image(systemName: showFilters ? "line.3.horizontal.decrease.circle.fill" : "line.3.horizontal.decrease.circle")
-                        .font(.system(size: 20))
-                        .foregroundColor(.ember)
-                }
-                .accessibilityLabel(showFilters ? "Hide workout filters" : "Show workout filters")
-            }
+        VStack(alignment: .leading, spacing: ForgeLayout.blockGap) {
+            headerRow
 
-            // Search and filter
             if showFilters {
-                VStack(spacing: FDS.Spacing.md) {
-                    // Search bar
-                    HStack(spacing: FDS.Spacing.md) {
-                        Image(systemName: "magnifyingglass")
-                            .font(.system(size: 14))
-                            .foregroundColor(.textTertiary)
-                        TextField("Search workouts...", text: $searchText)
-                            .font(.system(size: 14))
-                        if !searchText.isEmpty {
-                            Button(action: { searchText = "" }) {
-                                Image(systemName: "xmark.circle.fill")
-                                    .font(.system(size: 14))
-                                    .foregroundColor(.textTertiary)
-                            }
-                        }
-                    }
-                    .padding(FDS.Spacing.md)
-                    .forgeInsetTile(radius: FDS.Radius.sm)
-
-                    // Type filters
-                    ScrollView(.horizontal, showsIndicators: false) {
-                        HStack(spacing: FDS.Spacing.sm) {
-                            FilterChip(title: "All", isSelected: selectedFilterType == nil) {
-                                selectedFilterType = nil
-                            }
-                            ForEach(Array(WorkoutType.allCases), id: \.self) { (type: WorkoutType) in
-                                FilterChip(title: type.label, isSelected: selectedFilterType == type) {
-                                    selectedFilterType = type
-                                }
-                            }
-                        }
-                    }
-                }
-                .transition(.opacity.combined(with: .move(edge: .top)))
-            }
-
-            VStack(spacing: FDS.Spacing.md) {
-                ForEach(visibleWorkouts) { workout in
-                    // Only the header row toggles expansion — the expanded section holds
-                    // its own ShareLink, and nesting buttons would fire both on tap.
-                    VStack(spacing: 0) {
-                        Button(action: {
-                            withAnimation(.spring(response: 0.4, dampingFraction: 0.8)) {
-                                selectedWorkout = selectedWorkout?.id == workout.id ? nil : workout
-                            }
-                        }) {
-                            HStack(spacing: FDS.Spacing.md) {
-                                // Intensity dot
-                                Circle()
-                                    .fill(workout.intensity.color)
-                                    .frame(width: 10, height: 10)
-
-                                VStack(alignment: .leading, spacing: FDS.Spacing.xs) {
-                                    HStack(spacing: FDS.Spacing.sm) {
-                                        Text(workout.name)
-                                            .font(FDS.TypeScale.Dynamic.body.weight(.semibold))
-                                            .foregroundColor(.textPrimary)
-                                            .lineLimit(1)
-                                        Text(workout.type.label)
-                                            .font(FDS.TypeScale.Dynamic.micro)
-                                            .foregroundColor(workout.type.color)
-                                            .padding(.horizontal, FDS.Spacing.sm).padding(.vertical, 3)
-                                            .background(workout.type.color.opacity(0.12))
-                                            .cornerRadius(100)
-                                    }
-                                    HStack(spacing: FDS.Spacing.md) {
-                                        Text(ForgeDates.displayWeekdayDate(workout.date))
-                                            .font(.system(size: 11)).foregroundColor(.textTertiary)
-                                        Text("\(workout.duration) min")
-                                            .font(.system(size: 11)).foregroundColor(.textSecondary)
-                                        if workout.volume > 0 {
-                                            Text(String(format: "%.1fk lbs", Double(workout.volume) / 1000))
-                                                .font(.system(size: 11)).foregroundColor(.textSecondary)
-                                        }
-                                    }
-                                }
-                                Spacer()
-                                Image(systemName: selectedWorkout?.id == workout.id ? "chevron.up.circle.fill" : "chevron.right.circle")
-                                    .font(.system(size: 20))
-                                    .foregroundColor(selectedWorkout?.id == workout.id ? .ember : .textTertiary)
-                            }
-                            .padding(.horizontal, FDS.Spacing.lg).padding(.vertical, FDS.Spacing.lg)
-                            .contentShape(Rectangle())
-                        }
-                        .buttonStyle(.plain)
-
-                        // Expanded details
-                        if selectedWorkout?.id == workout.id {
-                            VStack(spacing: 0) {
-                                Divider().background(Color.borderColor)
-
-                                VStack(alignment: .leading, spacing: FDS.Spacing.md) {
-                                    HStack(spacing: FDS.Spacing.lg) {
-                                        StatBadge(label: "Duration", value: "\(workout.duration)", unit: "min")
-                                        StatBadge(
-                                            label: "Volume",
-                                            value: workout.volume > 0 ? String(format: "%.1fk", Double(workout.volume) / 1000) : "—",
-                                            unit: workout.volume > 0 ? "lbs" : ""
-                                        )
-                                        StatBadge(label: "Intensity", value: workout.intensity.label, unit: "")
-                                    }
-
-                                    ShareLink(item: shareText(for: workout)) {
-                                        HStack(spacing: FDS.Spacing.sm) {
-                                            Image(systemName: "square.and.arrow.up")
-                                                .font(.system(size: 12))
-                                            Text("Share Workout")
-                                                .font(FDS.TypeScale.Dynamic.caption)
-                                        }
-                                        .foregroundColor(.ember)
-                                        .frame(maxWidth: .infinity)
-                                        .padding(.vertical, FDS.Spacing.md)
-                                        .background(Color.ember.opacity(0.1))
-                                        .cornerRadius(FDS.Radius.sm)
-                                    }
-                                    .buttonStyle(.plain)
-                                }
-                                .padding(.horizontal, FDS.Spacing.lg)
-                                .padding(.vertical, FDS.Spacing.md)
-                            }
-                            .transition(.opacity.combined(with: .move(edge: .top)))
-                        }
-                    }
-                    .forgeGlassCard(
-                        cornerRadius: FDS.Radius.md,
-                        accent: selectedWorkout?.id == workout.id ? .ember : nil
-                    )
-                }
-            }
-
-            if !isFiltering && filteredWorkouts.count > Self.collapsedCount {
-                Button(action: { withAnimation(.spring()) { showAllWorkouts.toggle() } }) {
-                    Text(showAllWorkouts ? "Show Less" : "View All (\(filteredWorkouts.count))")
-                        .font(FDS.TypeScale.Dynamic.caption)
-                        .foregroundColor(.ember)
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, FDS.Spacing.md)
-                        .forgeGlassCard(cornerRadius: FDS.Radius.md, accent: .ember)
-                }
-                .buttonStyle(.plain)
+                filterPanel
+                    .transition(expandTransition)
             }
 
             if filteredWorkouts.isEmpty {
-                if store.workoutHistory.isEmpty {
-                    ForgeEmptyState(
-                        icon: "figure.strengthtraining.traditional",
-                        title: "No workouts yet",
-                        message: "Your completed workouts will appear here."
-                    )
-                } else {
-                    VStack(spacing: FDS.Spacing.md) {
-                        Image(systemName: "magnifyingglass")
-                            .font(.system(size: 40))
-                            .foregroundColor(.textTertiary)
-                        Text("No workouts match your search")
-                            .font(.system(size: 14))
-                            .foregroundColor(.textSecondary)
-                    }
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 40)
+                emptyContent
+            } else {
+                weekList
+            }
+
+            if !isFiltering && filteredWorkouts.count > Self.collapsedCount {
+                ForgeTextLink(
+                    title: showAllWorkouts ? "Show Less" : "View All (\(filteredWorkouts.count))",
+                    accent: .ember,
+                    expanded: showAllWorkouts
+                ) {
+                    withAnimation(motion) { showAllWorkouts.toggle() }
                 }
             }
+        }
+        .forgeContentCard()
+    }
+
+    // MARK: - Motion
+
+    private var motion: Animation? { reduceMotion ? nil : FDS.Spring.standard }
+
+    private var expandTransition: AnyTransition {
+        reduceMotion ? .opacity : .opacity.combined(with: .scale(scale: 0.97, anchor: .top))
+    }
+
+    // MARK: - Header and filters
+
+    private var headerRow: some View {
+        HStack(alignment: .center, spacing: FDS.Spacing.sm) {
+            Text("Recent Workouts")
+                .forgeSectionLabel(tint: .textTertiary)
+                .lineLimit(1)
+                .minimumScaleFactor(ForgeLayout.labelMinScale)
+                .accessibilityAddTraits(.isHeader)
+            if !filteredWorkouts.isEmpty {
+                ForgeCardMeta(text: "\(filteredWorkouts.count)")
+            }
+            Spacer(minLength: FDS.Spacing.sm)
+            ForgeIconButton(
+                systemImage: showFilters ? "line.3.horizontal.decrease.circle.fill" : "line.3.horizontal.decrease.circle",
+                accent: .ember,
+                accessibilityLabel: showFilters ? "Hide workout filters" : "Show workout filters",
+                tinted: showFilters || isFiltering
+            ) {
+                withAnimation(motion) { showFilters.toggle() }
+            }
+        }
+    }
+
+    private var filterPanel: some View {
+        VStack(alignment: .leading, spacing: ForgeLayout.blockGap) {
+            searchField
+            ForgeFlowLayout(lineSpacing: ForgeLayout.interactiveChipLineGap) {
+                FilterChip(title: "All", isSelected: selectedFilterType == nil) {
+                    selectedFilterType = nil
+                }
+                ForEach(Array(WorkoutType.allCases), id: \.self) { (type: WorkoutType) in
+                    FilterChip(title: type.label, isSelected: selectedFilterType == type) {
+                        selectedFilterType = type
+                    }
+                }
+            }
+        }
+    }
+
+    private var searchField: some View {
+        HStack(spacing: ForgeLayout.rowGap) {
+            Image(systemName: "magnifyingglass")
+                .font(.system(size: 14, weight: .semibold))
+                .foregroundStyle(Color.textTertiary)
+                .accessibilityHidden(true)
+            TextField("Search workouts...", text: $searchText)
+                .font(HomeType.body)
+                .foregroundStyle(Color.textPrimary)
+                .submitLabel(.search)
+            if !searchText.isEmpty {
+                Button(action: { searchText = "" }) {
+                    Image(systemName: "xmark.circle.fill")
+                        .font(.system(size: 16))
+                        .foregroundStyle(Color.textTertiary)
+                        .forgeTapOutset(vertical: 14, horizontal: 14)
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("Clear search")
+            }
+        }
+        .forgeWell()
+    }
+
+    // MARK: - Empty states
+
+    @ViewBuilder
+    private var emptyContent: some View {
+        if store.workoutHistory.isEmpty {
+            ForgeEmptyNote(
+                title: "No workouts yet",
+                message: "Your completed workouts will appear here.",
+                systemImage: "figure.strengthtraining.traditional",
+                tint: .ember
+            )
+        } else {
+            VStack(alignment: .leading, spacing: ForgeLayout.pairGap) {
+                ForgeEmptyNote(
+                    title: "No workouts match your search",
+                    systemImage: "magnifyingglass"
+                )
+                ForgeTextLink(title: "Clear filters", accent: .ember) {
+                    searchText = ""
+                    selectedFilterType = nil
+                }
+            }
+        }
+    }
+
+    // MARK: - Week grouping
+
+    private var weekGroups: [WeekGroup] {
+        let calendar = Calendar.current
+        let thisWeekStart = calendar.dateInterval(of: .weekOfYear, for: Date())?.start
+        var order: [String] = []
+        var titles: [String: String] = [:]
+        var buckets: [String: [WorkoutHistory]] = [:]
+        for workout in visibleWorkouts {
+            let bucket = weekBucket(for: workout, calendar: calendar, thisWeekStart: thisWeekStart)
+            if buckets[bucket.key] == nil {
+                order.append(bucket.key)
+                titles[bucket.key] = bucket.title
+            }
+            buckets[bucket.key, default: []].append(workout)
+        }
+        return order.map { key in
+            WeekGroup(id: key, title: titles[key] ?? key, workouts: buckets[key] ?? [])
+        }
+    }
+
+    private func weekBucket(
+        for workout: WorkoutHistory,
+        calendar: Calendar,
+        thisWeekStart: Date?
+    ) -> (key: String, title: String) {
+        guard let date = WorkoutHistoryWindow.parseDate(workout.date),
+              let start = calendar.dateInterval(of: .weekOfYear, for: date)?.start else {
+            return ("earlier", "Earlier")
+        }
+        let key = "\(Int(start.timeIntervalSince1970))"
+        if let thisWeekStart {
+            if calendar.isDate(start, inSameDayAs: thisWeekStart) {
+                return (key, "This week")
+            }
+            if let lastWeekStart = calendar.date(byAdding: .weekOfYear, value: -1, to: thisWeekStart),
+               calendar.isDate(start, inSameDayAs: lastWeekStart) {
+                return (key, "Last week")
+            }
+        }
+        let label = start.formatted(.dateTime.month(.abbreviated).day())
+        return (key, "Week of \(label)")
+    }
+
+    private var weekList: some View {
+        VStack(alignment: .leading, spacing: ForgeLayout.blockGap) {
+            ForEach(weekGroups) { group in
+                VStack(alignment: .leading, spacing: ForgeLayout.rowGap) {
+                    ForgeSectionHeader(title: group.title)
+                    ForEach(group.workouts) { workout in
+                        workoutRow(workout)
+                    }
+                }
+            }
+        }
+    }
+
+    // MARK: - Row
+
+    private func workoutRow(_ workout: WorkoutHistory) -> some View {
+        let isOpen = selectedWorkout?.id == workout.id
+        // Only the header row toggles expansion. The expanded section holds
+        // its own ShareLink, and nesting buttons would fire both on tap.
+        return VStack(alignment: .leading, spacing: ForgeLayout.blockGap) {
+            Button(action: {
+                withAnimation(motion) {
+                    selectedWorkout = isOpen ? nil : workout
+                }
+            }) {
+                rowHeader(workout, isOpen: isOpen)
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel(rowAccessibilityLabel(workout))
+            .accessibilityValue(isOpen ? "Expanded" : "Collapsed")
+            .accessibilityHint(isOpen ? "Hides workout details" : "Shows workout details")
+
+            if isOpen {
+                expandedDetails(workout)
+                    .transition(expandTransition)
+            }
+        }
+    }
+
+    private func rowHeader(_ workout: WorkoutHistory, isOpen: Bool) -> some View {
+        HStack(spacing: ForgeLayout.rowGap) {
+            ForgeIconWell(systemImage: icon(for: workout.type), tint: tint(for: workout.type))
+            VStack(alignment: .leading, spacing: ForgeLayout.labelValueGap) {
+                Text(workout.name)
+                    .font(HomeType.status)
+                    .foregroundStyle(Color.textPrimary)
+                    .lineLimit(2)
+                Text(rowSubtitle(workout))
+                    .font(HomeType.body)
+                    .foregroundStyle(Color.textTertiary)
+                    .lineLimit(2)
+            }
+            .layoutPriority(1)
+            Spacer(minLength: FDS.Spacing.xs)
+            Image(systemName: isOpen ? "chevron.down" : "chevron.right")
+                .font(.system(size: 11, weight: .semibold))
+                .foregroundStyle(Color.textMuted)
+                .accessibilityHidden(true)
+        }
+        .padding(.vertical, ForgeLayout.rowVerticalPadding)
+        .frame(minHeight: ForgeUX.minTap)
+        .contentShape(Rectangle())
+    }
+
+    private func rowSubtitle(_ workout: WorkoutHistory) -> String {
+        var parts = [ForgeDates.displayWeekdayDate(workout.date), "\(workout.duration) min"]
+        if workout.volume > 0 {
+            parts.append(String(format: "%.1fk lbs", Double(workout.volume) / 1000))
+        }
+        return parts.joined(separator: " · ")
+    }
+
+    private func rowAccessibilityLabel(_ workout: WorkoutHistory) -> String {
+        "\(workout.name), \(workout.type.label), \(rowSubtitle(workout)), \(workout.intensity.label) intensity"
+    }
+
+    private func expandedDetails(_ workout: WorkoutHistory) -> some View {
+        VStack(alignment: .leading, spacing: ForgeLayout.blockGap) {
+            ForgeStatGrid(columns: 3) {
+                StatBadge(label: "Duration", value: "\(workout.duration)", unit: "min")
+                StatBadge(
+                    label: "Volume",
+                    value: workout.volume > 0 ? String(format: "%.1fk", Double(workout.volume) / 1000) : "—",
+                    unit: workout.volume > 0 ? "lbs" : ""
+                )
+                StatBadge(label: "Intensity", value: workout.intensity.label, unit: "")
+            }
+
+            ShareLink(item: shareText(for: workout)) {
+                shareLabel
+            }
+            .buttonStyle(.plain)
+        }
+    }
+
+    private var shareLabel: some View {
+        HStack(spacing: FDS.Spacing.sm) {
+            Image(systemName: "square.and.arrow.up")
+                .font(.system(size: ForgeUX.icon, weight: .semibold))
+            Text("Share Workout")
+                .font(HomeType.label)
+                .lineLimit(1)
+                .minimumScaleFactor(ForgeLayout.labelMinScale)
+        }
+        .foregroundStyle(Color.ember)
+        .frame(maxWidth: .infinity)
+        .frame(minHeight: ForgeUX.minTap)
+        .padding(.horizontal, FDS.Spacing.lg)
+        .background(Color.ember.opacity(0.12))
+        .clipShape(RoundedRectangle(cornerRadius: FDS.Radius.md, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: FDS.Radius.md, style: .continuous)
+                .stroke(Color.ember.opacity(0.28), lineWidth: ForgeUX.hairline)
+        )
+    }
+
+    // MARK: - Type presentation
+
+    private func icon(for type: WorkoutType) -> String {
+        switch type {
+        case .strength: return "dumbbell.fill"
+        case .cardio: return "figure.run"
+        case .hiit: return "bolt.heart.fill"
+        case .yoga: return "figure.yoga"
+        case .mobility: return "figure.flexibility"
+        case .sportSpecific: return "sportscourt.fill"
+        }
+    }
+
+    private func tint(for type: WorkoutType) -> Color {
+        switch type {
+        case .strength: return .ember
+        case .cardio: return .steel
+        case .hiit: return .amber
+        case .yoga: return .vitality
+        case .mobility: return .aurora
+        case .sportSpecific: return .textSecondary
         }
     }
 }
@@ -234,16 +370,7 @@ struct FilterChip: View {
     let action: () -> Void
 
     var body: some View {
-        Button(action: action) {
-            Text(title)
-                .font(FDS.TypeScale.Dynamic.caption)
-                .foregroundColor(isSelected ? .white : .textSecondary)
-                .padding(.horizontal, FDS.Spacing.lg)
-                .padding(.vertical, FDS.Spacing.sm)
-                .background(isSelected ? Color.ember : Color.surfaceElevated)
-                .cornerRadius(100)
-        }
-        .buttonStyle(.plain)
+        ForgeChipButton(label: title, energy: .ember, selected: isSelected, action: action)
     }
 }
 
@@ -253,23 +380,11 @@ struct StatBadge: View {
     let unit: String
 
     var body: some View {
-        VStack(spacing: FDS.Spacing.xs) {
-            Text(label)
-                .font(.system(size: 10))
-                .foregroundColor(.textTertiary)
-            HStack(alignment: .firstTextBaseline, spacing: 2) {
-                Text(value)
-                    .font(FDS.TypeScale.Dynamic.headline)
-                    .foregroundColor(.textPrimary)
-                if !unit.isEmpty {
-                    Text(unit)
-                        .font(.system(size: 10))
-                        .foregroundColor(.textSecondary)
-                }
-            }
-        }
-        .frame(maxWidth: .infinity)
-        .padding(.vertical, FDS.Spacing.sm)
-        .forgeInsetTile(radius: FDS.Radius.sm)
+        ForgeStatTile(
+            label: label,
+            value: value,
+            unit: unit.isEmpty ? nil : unit,
+            energy: .ember
+        )
     }
 }

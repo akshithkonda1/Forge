@@ -20,36 +20,40 @@ struct HydrationView: View {
     @State private var lastError: String?
     @State private var writing = false
 
+    @FocusState private var customFocused: Bool
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.dynamicTypeSize) private var typeSize
+    @ScaledMetric(relativeTo: .largeTitle) private var hydrationRingSize: CGFloat = 168
+    @ScaledMetric(relativeTo: .caption) private var weekPlotSize: CGFloat = 96
+
     private let tick = Timer.publish(every: 60, on: .main, in: .common).autoconnect()
 
     var body: some View {
         ScrollView(showsIndicators: false) {
-            VStack(spacing: FDS.Spacing.lg) {
+            VStack(spacing: ForgeLayout.sectionGap) {
                 hero
-                syncBanner
+                if !health.isAuthorized { permissionNotice }
                 presets
-                if showCustom { customField }
-                if let lastError {
-                    Text(lastError)
-                        .font(FDS.TypeScale.Dynamic.caption)
-                        .foregroundColor(.alert)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                }
+                if let lastError { errorBanner(lastError) }
                 guidanceCard
                 timeline
                 week
             }
-            .padding(.horizontal, FDS.Spacing.lg)
-            .padding(.bottom, 40)
+            .forgeScreenInsets(top: ForgeLayout.screenTop)
         }
+        .refreshable { await health.refreshHydration() }
         .forgeScreenBackground(accent: Color.steel)
         .navigationTitle("Hydration")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
                 Button("Goal") { showGoalEditor = true }
-                    .font(.system(size: 15, weight: .semibold))
+                    .font(HomeType.status)
                     .foregroundColor(.ember)
+            }
+            ToolbarItemGroup(placement: .keyboard) {
+                Spacer()
+                Button("Done") { customFocused = false }
             }
         }
         .sheet(isPresented: $showGoalEditor) {
@@ -91,6 +95,7 @@ struct HydrationView: View {
     }
     private var remainingMl: Double { max(0, targetMl - consumedMl) }
     private var progress: Double { targetMl > 0 ? min(1, consumedMl / targetMl) : 0 }
+    private var progressPercent: Int { Int((progress * 100).rounded()) }
 
     private var cycleAdjustment: HydrationEngine.CycleAdjustment {
         guard cycle.settings.enabled else { return .none }
@@ -127,12 +132,13 @@ struct HydrationView: View {
         HydrationEngine.normalizedHour(phase.onsetHour - HydrationEngine.hourOfDay(now))
     }
 
+    /// Behind reads as a miss (steel family), never amber (nutrition) or red.
     private var statusColor: Color {
         switch status {
-        case .behind: return .amber
+        case .behind: return HudChrome.miss
         case .onTrack: return Color.steel
-        case .met: return .vitality
-        case .over: return .steel
+        case .met: return Color.vitality
+        case .over: return Color.steelLight
         }
     }
 
@@ -150,95 +156,135 @@ struct HydrationView: View {
     // ------------------------------------------------------------
 
     private var hero: some View {
-        VStack(spacing: FDS.Spacing.lg) {
-            ZStack {
-                Circle()
-                    .stroke(Color.borderColor.opacity(0.35), lineWidth: 14)
-                Circle()
-                    .trim(from: 0, to: progress)
-                    .stroke(
-                        AngularGradient(
-                            colors: [Color.steel, Color(hex: "00D4FF"), Color.steel],
-                            center: .center
-                        ),
-                        style: StrokeStyle(lineWidth: 14, lineCap: .round)
+        VStack(spacing: ForgeLayout.heroGap) {
+            heroRing
+            heroStatus
+            heroStats
+        }
+        .frame(maxWidth: .infinity)
+        .hudPlate(energy: Color.steel)
+        .accessibilityElement(children: .contain)
+    }
+
+    private var heroRing: some View {
+        HudProgressRing(
+            progress: progressPercent,
+            energy: Color.steel,
+            size: ForgeLayout.scaledCap(hydrationRingSize, base: 168)
+        ) {
+            VStack(spacing: FDS.Spacing.xs) {
+                Text(formatMl(consumedMl))
+                    .font(HomeType.heroScore)
+                    .foregroundStyle(Color.textPrimary)
+                    .hudInArcText()
+                    .contentTransition(.numericText())
+                    .accessibilityLabel(
+                        "Hydration \(formatMl(consumedMl)) of \(formatMl(targetMl)), \(statusTitle)"
                     )
-                    .rotationEffect(.degrees(-90))
-                    .animation(FDS.Spring.sweep, value: progress)
-                VStack(spacing: FDS.Spacing.xs) {
-                    Text(formatMl(consumedMl))
-                        .font(.system(size: 34, weight: .bold, design: .rounded))
-                        .foregroundColor(.textPrimary)
-                        .monospacedDigit()
-                    Button { showGoalEditor = true } label: {
-                        HStack(spacing: FDS.Spacing.xs) {
-                            Text("of \(formatMl(targetMl))")
-                            Image(systemName: "pencil")
-                                .font(.system(size: 11, weight: .semibold))
-                        }
-                        .font(.system(size: 13, weight: .medium))
-                        .foregroundColor(.textSecondary)
-                    }
-                    .buttonStyle(.plain)
-                    .accessibilityLabel("Daily goal \(formatMl(targetMl)). Double tap to change.")
-                }
-            }
-            .frame(width: 196, height: 196)
-            .padding(.top, FDS.Spacing.sm)
-
-            HStack(spacing: FDS.Spacing.lg) {
-                stat(title: statusTitle, value: "\(Int((progress * 100).rounded()))%", tint: statusColor)
-                stat(title: "Left", value: formatMl(remainingMl), tint: Color.steel)
-                stat(title: "Glasses",
-                     value: String(format: "%.1f", HydrationEngine.glasses(fromMilliliters: consumedMl)),
-                     tint: .aurora)
+                goalButton
             }
         }
-        .padding(FDS.Spacing.lg)
-        .frame(maxWidth: .infinity)
-        .forgeGlassCard(cornerRadius: FDS.Radius.xl, accent: Color.steel)
+    }
+
+    private var goalButton: some View {
+        Button { showGoalEditor = true } label: {
+            HStack(spacing: FDS.Spacing.xs) {
+                Text("of \(formatMl(targetMl))")
+                    .hudInArcText()
+                Image(systemName: "pencil")
+                    .font(.system(size: 11, weight: .semibold))
+                    .accessibilityHidden(true)
+            }
+            .font(HomeType.label)
+            .foregroundStyle(Color.textSecondary)
+            .frame(minHeight: ForgeUX.minTap)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel("Daily goal \(formatMl(targetMl)). Double tap to change.")
+    }
+
+    /// Status chip, plus Home's live pill when Health is connected.
+    private var heroStatus: some View {
+        VStack(spacing: ForgeLayout.tileGap) {
+            HudVibeChip(label: statusTitle, energy: statusColor)
+            if health.isAuthorized { syncPill }
+        }
+    }
+
+    private var syncPill: some View {
+        HStack(spacing: 6) {
+            Circle()
+                .fill(Color.vitality)
+                .frame(width: 6, height: 6)
+                .accessibilityHidden(true)
+            Text("Apple Health, both ways")
+                .font(HomeType.micro)
+                .foregroundStyle(Color.textSecondary)
+                .multilineTextAlignment(.center)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .padding(.horizontal, 9)
+        .padding(.vertical, 5)
+        .background(Capsule().fill(Color.white.opacity(0.05)))
+        .overlay(Capsule().stroke(Color.white.opacity(0.08), lineWidth: 1))
         .accessibilityElement(children: .combine)
-        .accessibilityLabel("Hydration \(formatMl(consumedMl)) of \(formatMl(targetMl)), \(statusTitle)")
+        .accessibilityHint(syncDetail)
     }
 
-    private func stat(title: String, value: String, tint: Color) -> some View {
-        VStack(spacing: 3) {
-            Text(value)
-                .font(FDS.TypeScale.Dynamic.body.weight(.semibold))
-                .foregroundColor(tint)
-                .lineLimit(1)
-                .minimumScaleFactor(0.8)
-            Text(title)
-                .font(.system(size: 11))
-                .foregroundColor(.textTertiary)
-                .lineLimit(1)
+    private var syncDetail: String {
+        "Logs you add here land in Health. Drinks from Watch and other apps land here."
+    }
+
+    private var heroStats: some View {
+        ForgeStatGrid(columns: 3) {
+            ForgeStatTile(label: "Progress", value: "\(progressPercent)%", energy: statusColor)
+            ForgeStatTile(label: "Left", value: formatMl(remainingMl), energy: Color.steel)
+            ForgeStatTile(
+                label: "Glasses",
+                value: String(format: "%.1f", HydrationEngine.glasses(fromMilliliters: consumedMl)),
+                energy: Color.steel
+            )
         }
-        .frame(maxWidth: .infinity)
     }
 
     // ------------------------------------------------------------
-    // MARK: Sync
+    // MARK: Notices
     // ------------------------------------------------------------
 
-    private var syncBanner: some View {
-        HStack(spacing: FDS.Spacing.sm) {
-            Image(systemName: health.isAuthorized ? "heart.circle.fill" : "heart.slash")
-                .foregroundColor(health.isAuthorized ? .vitality : .warning)
-            VStack(alignment: .leading, spacing: 2) {
-                Text(health.isAuthorized ? "Apple Health, both ways" : "Apple Health not connected")
-                    .font(FDS.TypeScale.Dynamic.caption)
-                    .foregroundColor(.textPrimary)
-                Text(health.isAuthorized
-                     ? "Logs you add here land in Health. Drinks from Watch and other apps land here."
-                     : "Connect Apple Health to read today's water and write what you log.")
-                    .font(.system(size: 11))
-                    .foregroundColor(.textSecondary)
+    private var permissionNotice: some View {
+        HStack(alignment: .top, spacing: ForgeLayout.rowGap) {
+            ForgeIconWell(systemImage: "heart.slash", tint: .warning)
+            VStack(alignment: .leading, spacing: ForgeLayout.pairGap) {
+                Text("Apple Health not connected")
+                    .font(HomeType.status)
+                    .foregroundStyle(Color.textPrimary)
                     .fixedSize(horizontal: false, vertical: true)
+                Text("Connect Apple Health to read today's water and write what you log.")
+                    .font(HomeType.body)
+                    .foregroundStyle(Color.textSecondary)
+                    .forgeWrapping()
             }
             Spacer(minLength: 0)
         }
-        .padding(FDS.Spacing.md)
-        .forgeGlassCard(cornerRadius: FDS.Radius.md, accent: health.isAuthorized ? .vitality : .warning)
+        .forgeContentCard(tint: .warning, padding: ForgeLayout.compactCardPadding)
+        .accessibilityElement(children: .combine)
+    }
+
+    private func errorBanner(_ message: String) -> some View {
+        HStack(alignment: .top, spacing: ForgeLayout.rowGap) {
+            Image(systemName: "exclamationmark.triangle.fill")
+                .font(.system(size: ForgeUX.icon, weight: .semibold))
+                .foregroundStyle(Color.danger)
+                .accessibilityHidden(true)
+            Text(message)
+                .font(HomeType.body)
+                .foregroundStyle(Color.textPrimary)
+                .forgeWrapping()
+            Spacer(minLength: 0)
+        }
+        .forgeContentCard(tint: .danger, padding: ForgeLayout.compactCardPadding)
+        .accessibilityElement(children: .combine)
     }
 
     // ------------------------------------------------------------
@@ -246,66 +292,81 @@ struct HydrationView: View {
     // ------------------------------------------------------------
 
     private var presets: some View {
-        VStack(alignment: .leading, spacing: FDS.Spacing.md) {
-            Text("Log a drink")
-                .font(FDS.TypeScale.Dynamic.body.weight(.semibold))
-                .foregroundColor(.textPrimary)
-            HStack(spacing: FDS.Spacing.sm) {
+        VStack(alignment: .leading, spacing: ForgeLayout.blockGap) {
+            ForgeCardHeader("Log a drink")
+            ForgeEqualColumnsLayout(
+                columns: typeSize.isAccessibilitySize ? 2 : 4,
+                spacing: ForgeLayout.tileGap,
+                minCellWidth: 64
+            ) {
                 ForEach(HydrationEngine.presets) { preset in
-                    Button {
-                        Task { await log(preset.milliliters) }
-                    } label: {
-                        VStack(spacing: FDS.Spacing.sm) {
-                            Image(systemName: preset.symbolName)
-                                .font(.system(size: 16, weight: .semibold))
-                            Text(preset.title)
-                                .font(FDS.TypeScale.Dynamic.micro)
-                            Text("\(Int(preset.milliliters)) ml")
-                                .font(.system(size: 10))
-                                .foregroundColor(.textTertiary)
-                        }
-                        .foregroundColor(Color.steel)
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, FDS.Spacing.md)
-                        .background(Color.steel.opacity(0.10))
-                        .cornerRadius(FDS.Radius.md)
-                    }
-                    .buttonStyle(.plain)
-                    .disabled(writing)
-                    .accessibilityLabel("Log \(preset.title), \(Int(preset.milliliters)) milliliters")
+                    presetTile(preset)
                 }
             }
-            Button {
-                withAnimation(.spring(response: 0.35, dampingFraction: 0.8)) { showCustom.toggle() }
-            } label: {
-                Text(showCustom ? "Hide custom amount" : "Custom amount")
-                    .font(FDS.TypeScale.Dynamic.caption)
-                    .foregroundColor(.textSecondary)
+            ForgeTextLink(
+                title: showCustom ? "Hide custom amount" : "Custom amount",
+                accent: Color.steel
+            ) {
+                withAnimation(reduceMotion ? nil : FDS.Spring.standard) { showCustom.toggle() }
             }
-            .buttonStyle(.plain)
+            if showCustom {
+                customField
+                    .transition(.opacity)
+            }
         }
-        .padding(FDS.Spacing.lg)
-        .forgeGlassCard(cornerRadius: FDS.Radius.xl, accent: Color.steel)
+        .forgeContentCard(tint: .steel)
+    }
+
+    private func presetTile(_ preset: HydrationEngine.Preset) -> some View {
+        Button {
+            Task { await log(preset.milliliters) }
+        } label: {
+            VStack(spacing: ForgeLayout.pairGap) {
+                Image(systemName: preset.symbolName)
+                    .font(.system(size: 16, weight: .semibold))
+                    .foregroundStyle(Color.steel)
+                    .accessibilityHidden(true)
+                Text(preset.title)
+                    .font(HomeType.label)
+                    .foregroundStyle(Color.textPrimary)
+                    .lineLimit(2)
+                    .multilineTextAlignment(.center)
+                Text("\(Int(preset.milliliters)) ml")
+                    .font(HomeType.micro)
+                    .foregroundStyle(Color.textTertiary)
+                    .lineLimit(1)
+            }
+            .frame(maxWidth: .infinity, minHeight: ForgeUX.minTap, maxHeight: .infinity)
+            .forgeWell()
+        }
+        .buttonStyle(ForgePressStyle())
+        .disabled(writing)
+        .accessibilityLabel("Log \(preset.title), \(Int(preset.milliliters)) milliliters")
     }
 
     private var customField: some View {
-        HStack(spacing: FDS.Spacing.md) {
+        ForgeAdaptiveStack(spacing: ForgeLayout.tileGap) {
             TextField("ml", text: $customMilliliters)
                 .keyboardType(.numberPad)
-                .padding(FDS.Spacing.md)
-                .forgeInsetTile(radius: FDS.Radius.md)
-            Button("Add") {
-                guard let ml = Double(customMilliliters), ml > 0, ml <= 2_000 else { return }
-                Task { await log(ml); customMilliliters = ""; showCustom = false }
+                .focused($customFocused)
+                .accessibilityLabel("Amount in milliliters")
+                .font(HomeType.body)
+                .foregroundStyle(Color.textPrimary)
+                .frame(minHeight: ForgeUX.minTap - ForgeLayout.tilePadding * 2)
+                .forgeWell()
+                .contentShape(Rectangle())
+                .onTapGesture { customFocused = true }
+            ForgeSecondaryButton(title: "Add", accent: Color.steel) {
+                addCustom()
             }
-            .font(.system(size: 14, weight: .semibold))
-            .foregroundColor(.white)
-            .padding(.horizontal, FDS.Spacing.lg)
-            .padding(.vertical, FDS.Spacing.md)
-            .background(Color.steel)
-            .cornerRadius(FDS.Radius.md)
             .disabled(writing)
         }
+    }
+
+    private func addCustom() {
+        guard let ml = Double(customMilliliters), ml > 0, ml <= 2_000 else { return }
+        customFocused = false
+        Task { await log(ml); customMilliliters = ""; showCustom = false }
     }
 
     // ------------------------------------------------------------
@@ -313,117 +374,180 @@ struct HydrationView: View {
     // ------------------------------------------------------------
 
     private var guidanceCard: some View {
-        HStack(alignment: .top, spacing: FDS.Spacing.md) {
-            Image(systemName: "drop.triangle.fill")
-                .foregroundColor(statusColor)
-                .font(.system(size: 16, weight: .semibold))
-            VStack(alignment: .leading, spacing: FDS.Spacing.xs) {
+        HStack(alignment: .top, spacing: ForgeLayout.rowGap) {
+            ForgeIconWell(systemImage: "drop.triangle.fill", tint: statusColor)
+            VStack(alignment: .leading, spacing: ForgeLayout.pairGap) {
                 Text(HydrationEngine.guidance(
                     status: status,
                     remaining: remainingMl,
                     hoursUntilOnset: hoursUntilOnset
                 ))
-                .font(.system(size: 13))
-                .foregroundColor(.textSecondary)
-                .fixedSize(horizontal: false, vertical: true)
-                if !hasCustomGoal, cycleAdjustment != .none {
-                    Text(cycleAdjustment == .menstruation
-                         ? "Suggested need is up \(Int(HydrationEngine.menstruationBonusMilliliters)) ml this phase."
-                         : "Luteal phase adds \(Int(HydrationEngine.lutealBonusMilliliters)) ml to the suggested need.")
-                        .font(.system(size: 11, weight: .medium))
-                        .foregroundColor(.textTertiary)
-                } else if hasCustomGoal {
-                    Text("Your goal. Change it any time — the estimate is only a suggestion.")
-                        .font(FDS.TypeScale.Dynamic.micro)
-                        .foregroundColor(.textTertiary)
-                }
+                .font(HomeType.body)
+                .foregroundStyle(Color.textSecondary)
+                .forgeWrapping()
+                guidanceNote
             }
             Spacer(minLength: 0)
         }
-        .padding(FDS.Spacing.lg)
-        .forgeGlassCard(cornerRadius: FDS.Radius.lg, accent: statusColor)
+        .forgeContentCard(tint: .steel)
+    }
+
+    private var cycleNote: String {
+        cycleAdjustment == .menstruation
+            ? "Suggested need is up \(Int(HydrationEngine.menstruationBonusMilliliters)) ml this phase."
+            : "Luteal phase adds \(Int(HydrationEngine.lutealBonusMilliliters)) ml to the suggested need."
+    }
+
+    @ViewBuilder
+    private var guidanceNote: some View {
+        if !hasCustomGoal, cycleAdjustment != .none {
+            Text(cycleNote)
+                .font(HomeType.body)
+                .foregroundStyle(Color.textTertiary)
+                .forgeWrapping()
+        } else if hasCustomGoal {
+            Text("Your goal. Change it any time — the estimate is only a suggestion.")
+                .font(HomeType.body)
+                .foregroundStyle(Color.textTertiary)
+                .forgeWrapping()
+        }
     }
 
     private var timeline: some View {
-        VStack(alignment: .leading, spacing: FDS.Spacing.md) {
-            HStack {
-                Text("Today")
-                    .font(FDS.TypeScale.Dynamic.body.weight(.semibold))
-                    .foregroundColor(.textPrimary)
-                Spacer()
-                Text("\(health.todayWaterLogs.count) drink\(health.todayWaterLogs.count == 1 ? "" : "s")")
-                    .font(.system(size: 12))
-                    .foregroundColor(.textTertiary)
-            }
+        let count = health.todayWaterLogs.count
+        return VStack(alignment: .leading, spacing: ForgeLayout.blockGap) {
+            ForgeCardHeader("Today", meta: "\(count) drink\(count == 1 ? "" : "s")")
 
             if health.todayWaterLogs.isEmpty {
-                Text("Nothing from Apple Health yet. A glass here, or a drink logged on your Watch, will show up.")
-                    .font(.system(size: 12))
-                    .foregroundColor(.textSecondary)
-                    .fixedSize(horizontal: false, vertical: true)
+                ForgeEmptyNote(
+                    title: "Nothing from Apple Health yet",
+                    message: "A glass here, or a drink logged on your Watch, will show up.",
+                    systemImage: "drop",
+                    tint: Color.steel
+                )
             } else {
-                ForEach(health.todayWaterLogs) { log in
-                    HStack(spacing: FDS.Spacing.md) {
-                        Image(systemName: log.isForge ? "drop.fill" : "heart.fill")
-                            .font(.system(size: 13, weight: .semibold))
-                            .foregroundColor(log.isForge ? Color.steel : .vitality)
-                            .frame(width: 22)
-                        VStack(alignment: .leading, spacing: 2) {
-                            Text(formatMl(log.milliliters))
-                                .font(FDS.TypeScale.Dynamic.body.weight(.semibold))
-                                .foregroundColor(.textPrimary)
-                            Text(log.sourceName)
-                                .font(.system(size: 11))
-                                .foregroundColor(.textTertiary)
-                        }
-                        Spacer()
-                        Text(log.date.formatted(date: .omitted, time: .shortened))
-                            .font(FDS.TypeScale.Dynamic.caption)
-                            .foregroundColor(.textSecondary)
-                        if log.isForge {
-                            Button {
-                                Task { await delete(log) }
-                            } label: {
-                                Image(systemName: "trash")
-                                    .font(.system(size: 12, weight: .semibold))
-                                    .foregroundColor(.textTertiary)
-                            }
-                            .buttonStyle(.plain)
-                            .accessibilityLabel("Delete this Forge log from Apple Health")
-                        }
+                VStack(spacing: ForgeLayout.rowGap) {
+                    ForEach(health.todayWaterLogs) { entry in
+                        logRow(entry)
                     }
-                    .padding(.vertical, FDS.Spacing.xs)
                 }
             }
+
+            if health.isAuthorized {
+                Text(syncDetail)
+                    .font(HomeType.micro)
+                    .foregroundStyle(Color.textTertiary)
+                    .forgeWrapping()
+            }
         }
-        .padding(FDS.Spacing.lg)
-        .forgeGlassCard(cornerRadius: FDS.Radius.xl, accent: Color.steel)
+        .forgeContentCard(tint: .steel)
+    }
+
+    private func logRow(_ entry: WaterLog) -> some View {
+        ForgeAdaptiveStack(spacing: ForgeLayout.rowGap) {
+            HStack(spacing: ForgeLayout.rowGap) {
+                ForgeIconWell(
+                    systemImage: entry.isForge ? "drop.fill" : "heart.fill",
+                    tint: entry.isForge ? Color.steel : Color.vitality
+                )
+                VStack(alignment: .leading, spacing: ForgeLayout.pairGap) {
+                    Text(formatMl(entry.milliliters))
+                        .font(HomeType.status)
+                        .foregroundStyle(Color.textPrimary)
+                        .lineLimit(2)
+                    Text(logSubtitle(entry))
+                        .font(HomeType.body)
+                        .foregroundStyle(Color.textTertiary)
+                        .lineLimit(2)
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+            }
+            .accessibilityElement(children: .combine)
+            if entry.isForge {
+                deleteButton(for: entry)
+            }
+        }
+        .padding(.vertical, ForgeLayout.rowVerticalPadding)
+    }
+
+    private func logSubtitle(_ entry: WaterLog) -> String {
+        "\(entry.sourceName) · \(entry.date.formatted(date: .omitted, time: .shortened))"
+    }
+
+    private func deleteButton(for entry: WaterLog) -> some View {
+        Button {
+            FDS.haptic(.destructive)
+            Task { await delete(entry) }
+        } label: {
+            Image(systemName: "trash")
+                .font(.system(size: 14, weight: .semibold))
+                .foregroundStyle(Color.textTertiary)
+                .frame(width: ForgeUX.minTap, height: ForgeUX.minTap)
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel("Delete this Forge log from Apple Health")
     }
 
     private var week: some View {
-        VStack(alignment: .leading, spacing: FDS.Spacing.md) {
-            Text("Last 7 days")
-                .font(FDS.TypeScale.Dynamic.body.weight(.semibold))
-                .foregroundColor(.textPrimary)
-
-            HStack(alignment: .bottom, spacing: FDS.Spacing.sm) {
-                ForEach(health.weeklyWaterMilliliters) { day in
-                    VStack(spacing: FDS.Spacing.sm) {
-                        Capsule()
-                            .fill(day.milliliters >= targetMl * 0.9 ? Color.steel : Color.steel.opacity(0.35))
-                            .frame(height: barHeight(day.milliliters))
-                        Text(dayLabel(day.date))
-                            .font(FDS.TypeScale.Dynamic.micro)
-                            .foregroundColor(.textTertiary)
-                    }
-                    .frame(maxWidth: .infinity)
-                    .accessibilityLabel("\(dayLabel(day.date)), \(formatMl(day.milliliters))")
-                }
-            }
-            .frame(height: 120, alignment: .bottom)
+        VStack(alignment: .leading, spacing: ForgeLayout.blockGap) {
+            ForgeCardHeader("Last 7 days", meta: "Goal \(formatMl(targetMl))")
+            weekChart
         }
-        .padding(FDS.Spacing.lg)
-        .forgeGlassCard(cornerRadius: FDS.Radius.xl, accent: Color.steel)
+        .forgeContentCard(tint: .steel)
+    }
+
+    private var weekChart: some View {
+        VStack(spacing: FDS.Spacing.sm) {
+            weekBars
+            weekAxis
+        }
+        .accessibilityElement(children: .contain)
+    }
+
+    private var weekBars: some View {
+        HStack(alignment: .bottom, spacing: FDS.Spacing.sm) {
+            ForEach(health.weeklyWaterMilliliters) { day in
+                Capsule()
+                    .fill(weekBarColor(day.milliliters))
+                    .frame(height: barHeight(day.milliliters))
+                    .frame(maxWidth: .infinity)
+                    .accessibilityElement(children: .ignore)
+                    .accessibilityLabel(weekAccessibility(day))
+            }
+        }
+        .frame(height: weekPlotSize, alignment: .bottom)
+        .overlay(alignment: .bottom) {
+            Rectangle()
+                .fill(Color.white.opacity(0.18))
+                .frame(height: 1)
+                .offset(y: -goalLineOffset)
+                .accessibilityHidden(true)
+        }
+    }
+
+    private var weekAxis: some View {
+        HStack(spacing: FDS.Spacing.sm) {
+            ForEach(health.weeklyWaterMilliliters) { day in
+                Text(dayLabel(day.date))
+                    .font(HomeType.micro)
+                    .foregroundStyle(Color.textTertiary)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.8)
+                    .frame(maxWidth: .infinity)
+            }
+        }
+        .accessibilityHidden(true)
+    }
+
+    private func weekBarColor(_ ml: Double) -> Color {
+        ml >= targetMl * 0.9 ? Color.steel : Color.steel.opacity(0.35)
+    }
+
+    private func weekAccessibility(_ day: DailyWaterTotal) -> String {
+        let weekday = day.date.formatted(.dateTime.weekday(.wide))
+        let met = day.milliliters >= targetMl * 0.9 ? "goal met" : "goal not met"
+        return "\(weekday), \(formatMl(day.milliliters)), \(met)"
     }
 
     // ------------------------------------------------------------
@@ -454,7 +578,7 @@ struct HydrationView: View {
             try await health.logWater(milliliters: milliliters)
             store.publishHomeWidgets()
             lastError = nil
-            UIImpactFeedbackGenerator(style: .light).impactOccurred()
+            FDS.haptic(.success)
         } catch {
             lastError = "Could not write to Apple Health. Check Water permissions."
         }
@@ -474,15 +598,20 @@ struct HydrationView: View {
         return "\(Int(ml.rounded())) ml"
     }
 
+    private var weekMaxMl: Double {
+        max(targetMl, health.weeklyWaterMilliliters.map(\.milliliters).max() ?? targetMl, 1)
+    }
+
+    private var goalLineOffset: CGFloat {
+        weekPlotSize * CGFloat(targetMl / weekMaxMl)
+    }
+
     private func barHeight(_ ml: Double) -> CGFloat {
-        let maxMl = max(targetMl, health.weeklyWaterMilliliters.map(\.milliliters).max() ?? targetMl, 1)
-        return max(8, 96 * CGFloat(ml / maxMl))
+        max(8, weekPlotSize * CGFloat(ml / weekMaxMl))
     }
 
     private func dayLabel(_ date: Date) -> String {
-        let f = DateFormatter()
-        f.dateFormat = "EEE"
-        return String(f.string(from: date).prefix(1))
+        String(date.formatted(.dateTime.weekday(.abbreviated)).prefix(1))
     }
 }
 
@@ -502,69 +631,21 @@ private struct HydrationGoalEditor: View {
 
     var body: some View {
         NavigationStack {
-            VStack(spacing: FDS.Spacing.xl) {
-                VStack(spacing: FDS.Spacing.sm) {
-                    Text(format(draft))
-                        .font(.system(size: 40, weight: .bold, design: .rounded))
-                        .foregroundColor(.textPrimary)
-                        .monospacedDigit()
-                    Text("\(Int(HydrationEngine.glasses(fromMilliliters: draft).rounded())) glasses · \(Int(HydrationEngine.fluidOunces(fromMilliliters: draft).rounded())) fl oz")
-                        .font(FDS.TypeScale.Dynamic.caption)
-                        .foregroundColor(.textSecondary)
-                }
-                .padding(.top, FDS.Spacing.md)
-
-                VStack(spacing: FDS.Spacing.md) {
-                    Slider(
-                        value: $draft,
-                        in: HydrationEngine.minimumTargetMilliliters...HydrationEngine.maximumTargetMilliliters,
-                        step: 50
-                    )
-                    .tint(Color.steel)
-                    HStack {
-                        Text("1.5 L")
-                        Spacer()
-                        Text("5 L")
+            ScrollView {
+                VStack(spacing: ForgeLayout.groupBreak) {
+                    numberBlock
+                    sliderBlock
+                    stepRow
+                    suggestionTile
+                    if isCustom {
+                        ForgeTextLink(title: "Use suggested instead", accent: Color.steel) {
+                            onSave(nil)
+                            dismiss()
+                        }
                     }
-                    .font(.system(size: 11, weight: .medium))
-                    .foregroundColor(.textTertiary)
                 }
-
-                HStack(spacing: FDS.Spacing.md) {
-                    stepButton("− 250") { draft = max(HydrationEngine.minimumTargetMilliliters, draft - 250) }
-                    stepButton("+ 250") { draft = min(HydrationEngine.maximumTargetMilliliters, draft + 250) }
-                }
-
-                Button {
-                    draft = suggestedMl
-                } label: {
-                    VStack(alignment: .leading, spacing: FDS.Spacing.xs) {
-                        Text("Suggested for you")
-                            .font(FDS.TypeScale.Dynamic.body.weight(.semibold))
-                            .foregroundColor(.textPrimary)
-                        Text("\(format(suggestedMl)) from weight, today’s work, and cycle. You can still change it.")
-                            .font(.system(size: 12))
-                            .foregroundColor(.textSecondary)
-                            .fixedSize(horizontal: false, vertical: true)
-                    }
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .padding(FDS.Spacing.lg)
-                    .forgeInsetTile(radius: FDS.Radius.md)
-                }
-                .buttonStyle(.plain)
-
-                if isCustom {
-                    Button("Use suggested instead") {
-                        onSave(nil)
-                        dismiss()
-                    }
-                    .font(.system(size: 13, weight: .medium))
-                    .foregroundColor(.textSecondary)
-                }
-
-                Spacer()
+                .forgeScreenInsets(top: FDS.Spacing.lg)
             }
-            .padding(.horizontal, FDS.Spacing.lg)
             .background(Color.background.ignoresSafeArea())
             .navigationTitle("Daily goal")
             .navigationBarTitleDisplayMode(.inline)
@@ -584,19 +665,77 @@ private struct HydrationGoalEditor: View {
             .onAppear { draft = currentMl }
         }
         .presentationDetents([.medium, .large])
+        .presentationDragIndicator(.visible)
     }
 
-    private func stepButton(_ title: String, action: @escaping () -> Void) -> some View {
-        Button(action: action) {
-            Text(title)
-                .font(FDS.TypeScale.Dynamic.body.weight(.semibold))
-                .foregroundColor(Color.steel)
-                .frame(maxWidth: .infinity)
-                .padding(.vertical, FDS.Spacing.md)
-                .background(Color.steel.opacity(0.12))
-                .cornerRadius(FDS.Radius.md)
+    private var numberBlock: some View {
+        VStack(spacing: ForgeLayout.pairGap) {
+            Text(format(draft))
+                .font(HomeType.heroScore)
+                .foregroundStyle(Color.textPrimary)
+                .forgeSingleLine()
+                .contentTransition(.numericText())
+            Text("\(Int(HydrationEngine.glasses(fromMilliliters: draft).rounded())) glasses · \(Int(HydrationEngine.fluidOunces(fromMilliliters: draft).rounded())) fl oz")
+                .font(HomeType.body)
+                .foregroundStyle(Color.textSecondary)
+                .multilineTextAlignment(.center)
+                .forgeWrapping()
         }
-        .buttonStyle(.plain)
+        .frame(maxWidth: .infinity)
+        .accessibilityElement(children: .combine)
+    }
+
+    private var sliderBlock: some View {
+        VStack(spacing: ForgeLayout.rowGap) {
+            Slider(
+                value: $draft,
+                in: HydrationEngine.minimumTargetMilliliters...HydrationEngine.maximumTargetMilliliters,
+                step: 50
+            )
+            .tint(Color.steel)
+            .accessibilityLabel("Daily water goal")
+            .accessibilityValue(format(draft))
+            HStack {
+                Text("1.5 L")
+                Spacer()
+                Text("5 L")
+            }
+            .font(HomeType.micro)
+            .foregroundStyle(Color.textTertiary)
+            .accessibilityHidden(true)
+        }
+    }
+
+    private var stepRow: some View {
+        ForgeAdaptiveStack(spacing: ForgeLayout.tileGap) {
+            ForgeSecondaryButton(title: "− 250", accent: Color.steel) {
+                draft = max(HydrationEngine.minimumTargetMilliliters, draft - 250)
+            }
+            ForgeSecondaryButton(title: "+ 250", accent: Color.steel) {
+                draft = min(HydrationEngine.maximumTargetMilliliters, draft + 250)
+            }
+        }
+    }
+
+    private var suggestionTile: some View {
+        Button {
+            FDS.haptic(.press)
+            draft = suggestedMl
+        } label: {
+            VStack(alignment: .leading, spacing: ForgeLayout.pairGap) {
+                Text("Suggested for you")
+                    .font(HomeType.status)
+                    .foregroundStyle(Color.textPrimary)
+                    .fixedSize(horizontal: false, vertical: true)
+                Text("\(format(suggestedMl)) from weight, today’s work, and cycle. You can still change it.")
+                    .font(HomeType.body)
+                    .foregroundStyle(Color.textSecondary)
+                    .forgeWrapping()
+            }
+            .frame(maxWidth: .infinity, minHeight: ForgeUX.minTap, alignment: .leading)
+            .forgeWell(padding: ForgeLayout.compactCardPadding)
+        }
+        .buttonStyle(ForgePressStyle())
     }
 
     private func format(_ ml: Double) -> String {

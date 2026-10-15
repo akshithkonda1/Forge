@@ -23,12 +23,14 @@ struct SupporterDigestView: View {
     /// True when the owner is previewing their own digest.
     var isPreview: Bool = false
 
+    @ScaledMetric(relativeTo: .title3) private var digestCircleSize: CGFloat = 62
+
     private var guidance: SupporterGuidance.Guidance {
         SupporterGuidance.make(digest: digest, lens: lens)
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: FDS.Spacing.lg) {
+        VStack(alignment: .leading, spacing: ForgeLayout.sectionGap) {
             if isPreview { previewBanner }
             if digest.periodFinished { finishedBanner }
             if !isPreview && digest.isStale { staleBanner }
@@ -44,22 +46,37 @@ struct SupporterDigestView: View {
             }
 
             Text(PartnerSupportBrief.disclaimer)
-                .font(FDS.TypeScale.Dynamic.caption)
-                .foregroundColor(.textTertiary)
+                .font(HomeType.micro)
+                .foregroundStyle(Color.textSecondary)
+                .forgeWrapping()
         }
     }
 
     // ------------------------------------------------------------
 
+    /// One-line status banner: tinted compact card, icon plus a wrapping sentence.
+    private func banner(icon: String, text: String, tint: Color) -> some View {
+        HStack(alignment: .top, spacing: ForgeLayout.rowGap) {
+            Image(systemName: icon)
+                .font(.system(size: 14, weight: .semibold))
+                .foregroundStyle(tint)
+                .accessibilityHidden(true)
+            Text(text)
+                .font(HomeType.body)
+                .foregroundStyle(Color.textPrimary)
+                .forgeWrapping()
+            Spacer(minLength: 0)
+        }
+        .forgeContentCard(tint: tint, padding: ForgeLayout.compactCardPadding)
+        .accessibilityElement(children: .combine)
+    }
+
     private var previewBanner: some View {
-        Label("This is exactly what they see. Nothing more.", systemImage: "eye.fill")
-            .font(FDS.TypeScale.Dynamic.caption)
-            .foregroundStyle(Color.vitality)
-            .padding(.horizontal, FDS.Spacing.md)
-            .padding(.vertical, FDS.Spacing.md)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .background(Color.vitality.opacity(0.12))
-            .clipShape(RoundedRectangle(cornerRadius: FDS.Radius.md, style: .continuous))
+        banner(
+            icon: "eye.fill",
+            text: "This is exactly what they see. Nothing more.",
+            tint: .vitality
+        )
     }
 
     /// Shown when the owner's device has not published in a while.
@@ -70,113 +87,166 @@ struct SupporterDigestView: View {
     /// step just makes someone uneasy.
     private var staleBanner: some View {
         let days = digest.ageInDays
-        return Label(
-            days.map { "No update in \($0) days. Their app may not have run — this could be out of date." }
-                ?? "This may be out of date.",
-            systemImage: "exclamationmark.arrow.triangle.2.circlepath"
+        let text = days.map { "No update in \($0) days. Their app may not have run — this could be out of date." }
+            ?? "This may be out of date."
+        return banner(
+            icon: "exclamationmark.arrow.triangle.2.circlepath",
+            text: text,
+            tint: .warning
         )
-        .font(FDS.TypeScale.Dynamic.caption)
-        .foregroundStyle(Color.warning)
-        .padding(.horizontal, FDS.Spacing.md)
-        .padding(.vertical, FDS.Spacing.md)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Color.warning.opacity(0.12))
-        .clipShape(RoundedRectangle(cornerRadius: FDS.Radius.md, style: .continuous))
-        .fixedSize(horizontal: false, vertical: true)
     }
 
     private var finishedBanner: some View {
-        Label("Period finished — both of you can see this.", systemImage: "checkmark.circle.fill")
-            .font(FDS.TypeScale.Dynamic.caption)
-            .foregroundStyle(Color.vitality)
-            .padding(.horizontal, FDS.Spacing.md)
-            .padding(.vertical, FDS.Spacing.md)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .background(Color.vitality.opacity(0.12))
-            .clipShape(RoundedRectangle(cornerRadius: FDS.Radius.md, style: .continuous))
+        banner(
+            icon: "checkmark.circle.fill",
+            text: "Period finished — both of you can see this.",
+            tint: .vitality
+        )
     }
 
+    // MARK: - Hero: today at a glance
+
+    /// The digest summary is this surface's one hero plate.
     private var glance: some View {
-        VStack(alignment: .leading, spacing: FDS.Spacing.lg) {
-            HStack(alignment: .center, spacing: FDS.Spacing.lg) {
-                ZStack {
-                    Circle()
-                        .fill(accent.opacity(0.18))
-                        .frame(width: 62, height: 62)
-                    Image(systemName: phaseIcon)
-                        .font(.system(size: 24, weight: .semibold))
-                        .foregroundStyle(accent)
-                }
-                VStack(alignment: .leading, spacing: FDS.Spacing.xs) {
-                    Text(personName.isEmpty ? "SUPPORT" : personName.uppercased())
-                        .font(FDS.TypeScale.Dynamic.micro)
-                        .tracking(1.3)
-                        .foregroundStyle(accent)
-                    Text(digest.phase.label)
-                        .font(FDS.TypeScale.Dynamic.title)
-                        .foregroundColor(.textPrimary)
-                        .fixedSize(horizontal: false, vertical: true)
-                    if let day = digest.periodDay {
-                        Text("Day \(day)")
-                            .font(FDS.TypeScale.Dynamic.caption)
-                            .foregroundColor(.textSecondary)
-                    } else if digest.phase != .notBleeding {
-                        Text(digest.energy.label)
-                            .font(FDS.TypeScale.Dynamic.caption)
-                            .foregroundColor(.textSecondary)
-                    }
-                }
-                Spacer(minLength: 0)
-            }
+        VStack(alignment: .leading, spacing: ForgeLayout.heroGap) {
+            glanceHeader
 
             // Support card is whole-person intent — single line, 280 chars, owner-authored.
             // It travels while cramping/flow/notes stay vaulted. Prefer it when present.
             if let card = digest.supportCardLine, !card.isEmpty {
-                Label(card, systemImage: "heart.text.square.fill")
-                    .font(FDS.TypeScale.Dynamic.body)
-                    .foregroundColor(.textPrimary)
-                    .fixedSize(horizontal: false, vertical: true)
+                supportCardQuote(card)
                 Text(guidance.headline)
-                    .font(FDS.TypeScale.Dynamic.caption)
-                    .foregroundColor(.textSecondary)
-                    .fixedSize(horizontal: false, vertical: true)
+                    .font(HomeType.body)
+                    .foregroundStyle(Color.textSecondary)
+                    .forgeWrapping()
             } else {
                 Text(guidance.headline)
-                    .font(FDS.TypeScale.Dynamic.body)
-                    .foregroundColor(.textPrimary)
-                    .fixedSize(horizontal: false, vertical: true)
+                    .font(HomeType.body)
+                    .foregroundStyle(Color.textPrimary)
+                    .forgeWrapping()
             }
 
             // A rough distance, never a date. A date invites counting down, and
             // a supporter counting down is the failure mode this avoids.
             if let days = digest.daysUntilNextPeriodApprox {
-                Label(approximateNextPeriod(days), systemImage: "calendar")
-                    .font(FDS.TypeScale.Dynamic.caption)
-                    .foregroundColor(.textSecondary)
+                nextPeriodRow(approximateNextPeriod(days))
             }
 
             // Says out loud that this is a snapshot from their device, not a
             // live feed. Nobody should think they are watching in real time.
             Text(asOfLine)
-                .font(FDS.TypeScale.Dynamic.caption)
-                .foregroundColor(.textTertiary)
+                .font(HomeType.micro)
+                .foregroundStyle(Color.textTertiary)
+                .forgeWrapping()
         }
-        .padding(FDS.Spacing.lg)
-        .forgeGlassCard(accent: accent)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .hudPlate(energy: .indigo)
+        .accessibilityElement(children: .contain)
     }
 
+    private var glanceHeader: some View {
+        ForgeAdaptiveStack(spacing: ForgeLayout.heroGap, alignment: .center) {
+            phaseBadge
+            VStack(alignment: .leading, spacing: ForgeLayout.pairGap) {
+                Text(personName.isEmpty ? "SUPPORT" : personName.uppercased())
+                    .forgeSectionLabel(tint: accent)
+                    .forgeSingleLine(minScale: ForgeLayout.labelMinScale)
+                Text(digest.phase.label)
+                    .font(HomeType.sessionTitle)
+                    .foregroundStyle(Color.textPrimary)
+                    .forgeWrapping()
+                glanceDetail
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .accessibilityElement(children: .combine)
+        }
+    }
+
+    private var phaseBadge: some View {
+        let diameter = ForgeLayout.scaledCap(digestCircleSize, base: 62)
+        return ZStack {
+            Circle()
+                .fill(accent.opacity(0.18))
+            Image(systemName: phaseIcon)
+                .font(.system(size: diameter * 0.39, weight: .semibold))
+                .foregroundStyle(accent)
+        }
+        .frame(width: diameter, height: diameter)
+        .accessibilityHidden(true)
+    }
+
+    @ViewBuilder
+    private var glanceDetail: some View {
+        if let day = digest.periodDay {
+            Text("Day \(day)")
+                .font(HomeType.metric)
+                .foregroundStyle(Color.textPrimary)
+                .forgeSingleLine()
+                .contentTransition(.numericText())
+        } else if digest.phase != .notBleeding {
+            Text(digest.energy.label)
+                .font(HomeType.body)
+                .foregroundStyle(Color.textSecondary)
+                .forgeWrapping()
+        }
+    }
+
+    private func supportCardQuote(_ card: String) -> some View {
+        HStack(alignment: .top, spacing: ForgeLayout.rowGap) {
+            Image(systemName: "heart.text.square.fill")
+                .font(.system(size: 16, weight: .semibold))
+                .foregroundStyle(Color.indigo)
+                .accessibilityHidden(true)
+            Text(card)
+                .font(HomeType.body)
+                .foregroundStyle(Color.textPrimary)
+                .forgeWrapping()
+            Spacer(minLength: 0)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .forgeWell()
+        .accessibilityElement(children: .combine)
+    }
+
+    private func nextPeriodRow(_ text: String) -> some View {
+        HStack(alignment: .firstTextBaseline, spacing: FDS.Spacing.sm) {
+            Image(systemName: "calendar")
+                .font(HomeType.body)
+                .foregroundStyle(Color.textTertiary)
+                .accessibilityHidden(true)
+            Text(text)
+                .font(HomeType.body)
+                .foregroundStyle(Color.textSecondary)
+                .forgeWrapping()
+            Spacer(minLength: 0)
+        }
+        .accessibilityElement(children: .combine)
+    }
+
+    // MARK: - Guidance cards
+
     private var howToShowUp: some View {
-        VStack(alignment: .leading, spacing: FDS.Spacing.lg) {
-            Text(PartnerSupportLens.Section.howToShowUp.title.uppercased())
-                .forgeSectionLabel()
-            bulletList(guidance.doThis, tint: accent, icon: "checkmark.circle.fill")
-            if !guidance.notThis.isEmpty {
+        VStack(alignment: .leading, spacing: ForgeLayout.rowGap) {
+            ForgeCardHeader(PartnerSupportLens.Section.howToShowUp.title, tint: .indigo)
+            if guidance.doThis.isEmpty && guidance.notThis.isEmpty {
+                ForgeEmptyNote(
+                    title: "Nothing specific right now",
+                    message: "Being around and listening is enough.",
+                    systemImage: "heart.fill",
+                    tint: .indigo
+                )
+            }
+            if !guidance.doThis.isEmpty {
+                iconBulletList(guidance.doThis, tint: .indigo, icon: "checkmark.circle.fill", spokenPrefix: "Do:")
+            }
+            if !guidance.doThis.isEmpty && !guidance.notThis.isEmpty {
                 Divider().overlay(Color.white.opacity(0.08))
-                bulletList(guidance.notThis, tint: Color.danger, icon: "xmark.circle.fill")
+            }
+            if !guidance.notThis.isEmpty {
+                iconBulletList(guidance.notThis, tint: HudChrome.miss, icon: "minus.circle.fill", spokenPrefix: "Avoid:")
             }
         }
-        .padding(FDS.Spacing.lg)
-        .forgeGlassCard(accent: accent)
+        .forgeContentCard(tint: .indigo)
     }
 
     @ViewBuilder
@@ -186,29 +256,26 @@ struct SupporterDigestView: View {
         // independent guards, because a parent seeing this is the failure that
         // must not happen once.
         if lens.intimacy == .full, !guidance.intimacy.isEmpty {
-            VStack(alignment: .leading, spacing: FDS.Spacing.lg) {
-                Text(PartnerSupportLens.Section.intimacyAndComfort.title.uppercased())
-                    .forgeSectionLabel()
-                bulletList(guidance.intimacy, tint: Color(hex: "F472B6"), icon: "heart.fill")
+            VStack(alignment: .leading, spacing: ForgeLayout.rowGap) {
+                ForgeCardHeader(PartnerSupportLens.Section.intimacyAndComfort.title, tint: .aurora)
+                bulletList(guidance.intimacy, tint: .aurora)
                 Text("Nothing here tells you when they're fertile. That stays with them.")
-                    .font(FDS.TypeScale.Dynamic.caption)
-                    .foregroundColor(.textTertiary)
+                    .font(HomeType.body)
+                    .foregroundStyle(Color.textTertiary)
+                    .forgeWrapping()
             }
-            .padding(FDS.Spacing.lg)
-            .forgeGlassCard(accent: Color(hex: "F472B6"))
+            .forgeContentCard(tint: .aurora)
         }
     }
 
     @ViewBuilder
     private var parentPlaybook: some View {
         if !guidance.parentNotes.isEmpty {
-            VStack(alignment: .leading, spacing: FDS.Spacing.lg) {
-                Text(PartnerSupportLens.Section.parentPlaybook.title.uppercased())
-                    .forgeSectionLabel()
-                bulletList(guidance.parentNotes, tint: Color(hex: "60A5FA"), icon: "hand.raised.fill")
+            VStack(alignment: .leading, spacing: ForgeLayout.rowGap) {
+                ForgeCardHeader(PartnerSupportLens.Section.parentPlaybook.title, tint: .steel)
+                bulletList(guidance.parentNotes, tint: .steel)
             }
-            .padding(FDS.Spacing.lg)
-            .forgeGlassCard(accent: Color(hex: "60A5FA"))
+            .forgeContentCard(tint: .steel)
         }
     }
 
@@ -217,48 +284,64 @@ struct SupporterDigestView: View {
     /// the person they support to fill in the gaps, and the owner previewing
     /// this to decide whether to share at all.
     private var withheld: some View {
-        VStack(alignment: .leading, spacing: FDS.Spacing.md) {
-            Label(PartnerSupportLens.Section.whatYouCannotSee.title.uppercased(),
-                  systemImage: "eye.slash.fill")
-                .forgeSectionLabel()
+        VStack(alignment: .leading, spacing: ForgeLayout.blockGap) {
+            ForgeCardHeader(title: PartnerSupportLens.Section.whatYouCannotSee.title) {
+                Image(systemName: "eye.slash.fill")
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundStyle(Color.textTertiary)
+                    .accessibilityHidden(true)
+            }
             Text(lens.withheldExplanation)
-                .font(FDS.TypeScale.Dynamic.caption)
-                .foregroundColor(.textSecondary)
-                .fixedSize(horizontal: false, vertical: true)
+                .font(HomeType.body)
+                .foregroundStyle(Color.textSecondary)
+                .forgeWrapping()
         }
-        .padding(FDS.Spacing.lg)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Color.surfaceElevated.opacity(0.5))
-        .clipShape(RoundedRectangle(cornerRadius: FDS.Radius.lg, style: .continuous))
+        .forgeContentCard()
     }
 
     // ------------------------------------------------------------
 
-    private func bulletList(_ items: [String], tint: Color, icon: String) -> some View {
-        VStack(alignment: .leading, spacing: FDS.Spacing.md) {
+    private func bulletList(_ items: [String], tint: Color) -> some View {
+        VStack(alignment: .leading, spacing: ForgeLayout.tileGap) {
             ForEach(items, id: \.self) { item in
-                HStack(alignment: .top, spacing: FDS.Spacing.md) {
-                    Image(systemName: icon)
-                        .font(.system(size: 13))
-                        .foregroundStyle(tint)
-                        .padding(.top, 1)
-                    Text(item)
-                        .font(FDS.TypeScale.Dynamic.body)
-                        .foregroundColor(.textPrimary)
-                        .fixedSize(horizontal: false, vertical: true)
-                }
+                ForgeBulletRow(text: item, tint: tint)
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
     }
 
+    /// Icon-led list for the do / don't pair, so polarity never rests on colour alone.
+    private func iconBulletList(_ items: [String], tint: Color, icon: String, spokenPrefix: String) -> some View {
+        VStack(alignment: .leading, spacing: ForgeLayout.tileGap) {
+            ForEach(items, id: \.self) { item in
+                HStack(alignment: .firstTextBaseline, spacing: FDS.Spacing.sm) {
+                    Image(systemName: icon)
+                        .font(HomeType.body)
+                        .foregroundStyle(tint)
+                        .accessibilityHidden(true)
+                    Text(item)
+                        .font(HomeType.body)
+                        .foregroundStyle(Color.textSecondary)
+                        .forgeWrapping()
+                    Spacer(minLength: 0)
+                }
+                .accessibilityElement(children: .combine)
+                .accessibilityLabel("\(spokenPrefix) \(item)")
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    /// Phase identity colour. Bleeding uses the menstruation phase red
+    /// (`MenstrualPhase.menstruation.accentHex`, EF4444, the `alert` token's value);
+    /// it identifies the phase and is never a status.
     private var accent: Color {
         switch digest.phase {
-        case .bleeding:     return Color(hex: "F43F5E")
+        case .bleeding:     return Color.alert
         case .rebuilding:   return Color.vitality
         case .winding:      return Color.aurora
-        case .notBleeding:  return Color(hex: "94A3B8")
-        case .unknown:      return Color(hex: "94A3B8")
+        case .notBleeding:  return Color.textSecondary
+        case .unknown:      return Color.textSecondary
         }
     }
 

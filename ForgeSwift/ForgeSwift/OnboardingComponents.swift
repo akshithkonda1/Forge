@@ -1,8 +1,12 @@
 import SwiftUI
 
+/// The onboarding atmosphere: the brand moment, tinted per interview beat.
+/// Static at rest; `PremiumAtmosphere` owns the Color.background layer, so
+/// callers do not stack a second one under it.
 struct ForgeAmbientBackground: View {
+    /// `AriaInterviewStep.rawValue`. `AriaForgePrepView` passes 3, which maps
+    /// to the ember route.
     let step: Int
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         PremiumAtmosphere(
@@ -12,19 +16,31 @@ struct ForgeAmbientBackground: View {
         )
     }
 
+    /// Domain accent per beat: aurora to meet, steel for Health, vitality for
+    /// the habit beats, ember for tone and the first chat.
     private var routeColor: Color {
-        switch step {
-        case 0, 1: return Color.aurora
-        case 2: return Color.steel
-        case 3: return Color.ember
-        case 7, 8: return Color.vitality
-        default: return .ember
+        guard let beat = AriaInterviewStep(rawValue: step) else { return .ember }
+        switch beat {
+        case .intro, .name:
+            return Color.aurora
+        case .health:
+            return Color.steel
+        case .goals, .experience, .workouts, .schedule, .sleep, .freeTime:
+            return Color.vitality
+        case .details, .coaching, .conditions, .ready:
+            return Color.ember
         }
     }
 }
 
+/// Wrapping row layout. Subviews are measured against the container width so
+/// a chip wider than the row wraps its text instead of overflowing.
 struct OnboardingFlowLayout: Layout {
     var spacing: CGFloat = 8
+
+    private func measure(_ subview: LayoutSubview, maxWidth: CGFloat) -> CGSize {
+        subview.sizeThatFits(ProposedViewSize(width: maxWidth, height: nil))
+    }
 
     func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
         let maxWidth = proposal.width ?? 320
@@ -32,7 +48,7 @@ struct OnboardingFlowLayout: Layout {
         var y: CGFloat = 0
         var rowH: CGFloat = 0
         for sub in subviews {
-            let size = sub.sizeThatFits(.unspecified)
+            let size = measure(sub, maxWidth: maxWidth)
             if x + size.width > maxWidth, x > 0 {
                 x = 0
                 y += rowH + spacing
@@ -49,7 +65,7 @@ struct OnboardingFlowLayout: Layout {
         var y = bounds.minY
         var rowH: CGFloat = 0
         for sub in subviews {
-            let size = sub.sizeThatFits(.unspecified)
+            let size = measure(sub, maxWidth: bounds.width)
             if x + size.width > bounds.maxX, x > bounds.minX {
                 x = bounds.minX
                 y += rowH + spacing

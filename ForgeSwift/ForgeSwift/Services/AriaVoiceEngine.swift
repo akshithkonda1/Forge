@@ -857,7 +857,7 @@ enum AriaVoiceEngine {
         context: TrainerContext,
         rng: inout AriaSeededRNG
     ) -> String {
-        if context.readiness.overall >= 80 {
+        if context.readiness.overall >= AriaPlanEngine.peakFloor {
             return rng.pick([
                 "Why hard today: recovery debt is low enough to express force safely.",
                 "Capacity is there — intensity is the scarce resource we spend now.",

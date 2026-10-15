@@ -14,126 +14,155 @@ import ForgeCore
 /// on where this week's load sits against the month.
 struct LoadTimelineView: View {
     @EnvironmentObject var store: AppStore
+    @Environment(\.dynamicTypeSize) private var typeSize
+
+    private static let weekdayFormatter: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.setLocalizedDateFormatFromTemplate("EEEEE")
+        return formatter
+    }()
 
     private var picture: TrainingLoadModel.LoadPicture {
         TrainingLoadModel.picture(sessions: loadSessions(from: store.workoutHistory))
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: FDS.Spacing.lg) {
-            HStack {
-                Text("TRAINING LOAD")
-                    .forgeSectionLabel()
-                    .foregroundStyle(Color.ember)
-                Spacer()
-                if let acwr = picture.acwr {
-                    acwrPill(ratio: acwr)
-                } else {
-                    Text("BUILDING BASELINE")
-                        .font(FDS.TypeScale.Dynamic.caption)
-                        .foregroundStyle(Color.textTertiary)
-                }
-            }
+        content(for: picture)
+    }
 
-            strainChart
+    private func content(for pic: TrainingLoadModel.LoadPicture) -> some View {
+        VStack(alignment: .leading, spacing: ForgeLayout.blockGap) {
+            header(for: pic)
 
-            if let verdict = picture.acwrVerdict, let acwr = picture.acwr {
-                HStack(spacing: FDS.Spacing.md) {
-                    ZStack {
-                        Circle()
-                            .fill(acwrColor(ratio: acwr).opacity(0.14))
-                            .frame(width: 36, height: 36)
-                        Image(systemName: acwrIcon(ratio: acwr))
-                            .font(.system(size: 15, weight: .semibold))
-                            .foregroundStyle(acwrColor(ratio: acwr))
-                    }
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text(String(format: "Load ratio %.2f", acwr))
-                            .font(FDS.TypeScale.Dynamic.caption)
-                            .foregroundColor(.textPrimary)
-                        Text(verdict)
-                            .font(FDS.TypeScale.Dynamic.caption)
-                            .foregroundColor(.textTertiary)
-                            .lineLimit(2)
-                    }
-                }
-                .padding(FDS.Spacing.md)
-                .background(Color.white.opacity(0.04))
-                .clipShape(RoundedRectangle(cornerRadius: FDS.Radius.md))
+            strainChart(for: pic)
+
+            if let verdict = pic.acwrVerdict, let acwr = pic.acwr {
+                verdictRow(acwr: acwr, verdict: verdict)
             } else {
                 Text("Log 8+ sessions and the load ratio appears — it compares this week against your 4-week average, the way pro teams manage injury risk.")
                     .font(HomeType.body)
                     .foregroundColor(.textTertiary)
-                    .padding(FDS.Spacing.md)
-                    .background(Color.white.opacity(0.04))
-                    .clipShape(RoundedRectangle(cornerRadius: FDS.Radius.md))
+                    .forgeWrapping()
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .forgeWell()
             }
 
-            if picture.heavyStreak >= 2 {
-                HStack(spacing: FDS.Spacing.sm) {
+            if pic.heavyStreak >= 2 {
+                HStack(alignment: .top, spacing: FDS.Spacing.sm) {
                     Image(systemName: "exclamationmark.triangle.fill")
-                        .foregroundStyle(Color.warning)
+                        .foregroundStyle(Color.amber)
                         .font(.system(size: 13))
-                    Text("\(picture.heavyStreak) heavy days in a row — the forecast expects fatigue to compound.")
-                        .font(FDS.TypeScale.Dynamic.caption)
+                        .accessibilityHidden(true)
+                    Text("\(pic.heavyStreak) heavy days in a row — the forecast expects fatigue to compound.")
+                        .font(HomeType.body)
                         .foregroundColor(.textSecondary)
+                        .forgeWrapping()
                 }
             }
         }
         .padding(HomeMetrics.cardPadding)
         .forgeGlassCard(accent: .ember)
         .accessibilityElement(children: .combine)
-        .accessibilityLabel("Training load timeline. \(picture.acwrVerdict ?? "Building baseline.")")
+        .accessibilityLabel(accessibilitySummary(for: pic))
+    }
+
+    private func header(for pic: TrainingLoadModel.LoadPicture) -> some View {
+        ForgeCardHeader(title: "Training Load", tint: .ember) {
+            if let acwr = pic.acwr {
+                acwrPill(ratio: acwr)
+            } else {
+                ForgeCardMeta(text: "Building baseline")
+            }
+        }
+    }
+
+    private func verdictRow(acwr: Double, verdict: String) -> some View {
+        HStack(alignment: .top, spacing: ForgeLayout.rowGap) {
+            ForgeIconWell(systemImage: acwrIcon(ratio: acwr), tint: acwrColor(ratio: acwr))
+            VStack(alignment: .leading, spacing: ForgeLayout.labelValueGap) {
+                Text("Load ratio")
+                    .font(HomeType.micro)
+                    .foregroundColor(.textTertiary)
+                Text(String(format: "%.2f×", acwr))
+                    .font(HomeType.metric)
+                    .foregroundColor(.textPrimary)
+                    .forgeSingleLine()
+                    .contentTransition(.numericText())
+                Text(verdict)
+                    .font(HomeType.body)
+                    .foregroundColor(.textTertiary)
+                    .forgeWrapping()
+            }
+            .layoutPriority(1)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .forgeWell()
+    }
+
+    private func accessibilitySummary(for pic: TrainingLoadModel.LoadPicture) -> String {
+        var parts = ["Training load timeline."]
+        if let acwr = pic.acwr {
+            parts.append(String(format: "Load ratio %.2f.", acwr))
+        }
+        parts.append(pic.acwrVerdict ?? "Building baseline.")
+        if pic.heavyStreak >= 2 {
+            parts.append("\(pic.heavyStreak) heavy days in a row.")
+        }
+        return parts.joined(separator: " ")
     }
 
     // MARK: - Chart
 
-    private var strainChart: some View {
-        let maxStrain = max(10, picture.days.map(\.strain).max() ?? 10)
-        return HStack(alignment: .bottom, spacing: FDS.Spacing.sm) {
-            ForEach(picture.days) { day in
+    private func strainChart(for pic: TrainingLoadModel.LoadPicture) -> some View {
+        let maxStrain = max(10, pic.days.map(\.strain).max() ?? 10)
+        let showsLabels = !typeSize.isAccessibilitySize
+        return HStack(alignment: .bottom, spacing: FDS.Spacing.xs) {
+            ForEach(pic.days) { day in
                 VStack(spacing: FDS.Spacing.xs) {
                     ZStack(alignment: .bottom) {
-                        RoundedRectangle(cornerRadius: FDS.Radius.xs)
+                        RoundedRectangle(cornerRadius: FDS.Radius.xs, style: .continuous)
                             .fill(Color.white.opacity(0.06))
                             .frame(height: 64)
-                        RoundedRectangle(cornerRadius: FDS.Radius.xs)
+                        RoundedRectangle(cornerRadius: FDS.Radius.xs, style: .continuous)
                             .fill(barColor(for: day.zone).gradient)
                             .frame(height: max(day.strain > 0 ? 6 : 0, 64 * CGFloat(day.strain / maxStrain)))
                     }
                     .frame(height: 64)
-                    Text(dayLabel(for: day.date))
-                        .font(FDS.TypeScale.Dynamic.caption)
-                        .foregroundColor(isToday(day.date) ? .ember : .textTertiary)
+                    if showsLabels {
+                        Text(dayLabel(for: day.date))
+                            .font(HomeType.micro)
+                            .foregroundColor(isToday(day.date) ? .ember : .textTertiary)
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.6)
+                    }
                 }
                 .frame(maxWidth: .infinity)
             }
         }
+        .accessibilityHidden(true)
     }
 
     // MARK: - Helpers
 
     private func acwrPill(ratio: Double) -> some View {
-        let (label, color): (String, Color) = switch ratio {
-        case ..<0.8: ("DETRAINING", Color.warning)
-        case 0.8..<1.3: ("SWEET SPOT", Color.success)
-        case 1.3...1.5: ("AGGRESSIVE", Color.warning)
-        default: ("DANGER ZONE", Color.danger)
+        HudVibeChip(label: acwrLabel(ratio: ratio), energy: acwrColor(ratio: ratio))
+    }
+
+    private func acwrLabel(ratio: Double) -> String {
+        switch ratio {
+        case ..<0.8: return "DETRAINING"
+        case 0.8..<1.3: return "SWEET SPOT"
+        case 1.3...1.5: return "AGGRESSIVE"
+        default: return "DANGER ZONE"
         }
-        return Text(label)
-            .font(FDS.TypeScale.Dynamic.caption)
-            .foregroundStyle(color)
-            .padding(.horizontal, FDS.Spacing.sm)
-            .padding(.vertical, FDS.Spacing.xs)
-            .background(color.opacity(0.12))
-            .clipShape(Capsule())
     }
 
     private func acwrColor(ratio: Double) -> Color {
         switch ratio {
-        case 0.8..<1.3: return .success
-        case ..<0.8, 1.3...1.5: return .warning
-        default: return .danger
+        case ..<0.8: return .steel
+        case 0.8..<1.3: return .vitality
+        case 1.3...1.5: return .amber
+        default: return HudChrome.miss
         }
     }
 
@@ -148,18 +177,15 @@ struct LoadTimelineView: View {
 
     private func barColor(for zone: TrainingLoadModel.Zone) -> Color {
         switch zone {
-        case .rest: return Color.white.opacity(0.25)
-        case .light: return .success
+        case .rest: return Color.steel.opacity(0.4)
+        case .light: return .amber
         case .moderate: return .ember
-        case .heavy: return .danger
+        case .heavy: return .emberDark
         }
     }
 
     private func dayLabel(for date: Date) -> String {
-        let formatter = DateFormatter()
-        formatter.locale = Locale(identifier: "en_US_POSIX")
-        formatter.dateFormat = "EEEEE"
-        return formatter.string(from: date)
+        Self.weekdayFormatter.string(from: date)
     }
 
     private func isToday(_ date: Date) -> Bool {
