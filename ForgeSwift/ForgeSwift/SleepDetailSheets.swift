@@ -1,5 +1,4 @@
 import SwiftUI
-import ForgeCore
 
 struct SleepPersonalizationSheet: View {
     @Environment(\.dismiss) private var dismiss
@@ -9,74 +8,19 @@ struct SleepPersonalizationSheet: View {
 
     var body: some View {
         NavigationStack {
-            ZStack {
-                Color.background.ignoresSafeArea()
-                ScrollView(showsIndicators: false) {
-                    VStack(alignment: .leading, spacing: FDS.Spacing.lg) {
-                        Text("Your chronotype shapes scoring, goals, sunrise, and smart wake.")
-                            .font(ForgeType.body)
-                            .foregroundColor(.textSecondary)
-                            .lineSpacing(4)
+            ScrollView(showsIndicators: false) {
+                VStack(alignment: .leading, spacing: ForgeLayout.sectionGap) {
+                    Text("Your chronotype shapes scoring, goals, sunrise, and smart wake.")
+                        .font(HomeType.body)
+                        .foregroundStyle(Color.textSecondary)
+                        .forgeWrapping()
 
-                        VStack(spacing: FDS.Spacing.md) {
-                            ForEach(Chronotype.allCases) { type in
-                                Button {
-                                    draft.chronotype = type
-                                    UISelectionFeedbackGenerator().selectionChanged()
-                                } label: {
-                                    HStack(spacing: FDS.Spacing.md) {
-                                        Image(systemName: type.icon)
-                                            .font(.system(size: 18))
-                                            .foregroundColor(draft.chronotype == type ? .white : .steel)
-                                            .frame(width: 40, height: 40)
-                                            .background(draft.chronotype == type ? Color.steel : Color.surfaceElevated)
-                                            .cornerRadius(FDS.Radius.md)
-                                        VStack(alignment: .leading, spacing: 3) {
-                                            Text(type.displayName)
-                                                .font(FDS.TypeScale.Dynamic.body.weight(.semibold))
-                                                .foregroundColor(.textPrimary)
-                                            Text(type.tagline)
-                                                .font(ForgeType.caption)
-                                                .foregroundColor(.textTertiary)
-                                        }
-                                        Spacer()
-                                        if draft.chronotype == type {
-                                            Image(systemName: "checkmark.circle.fill").foregroundColor(.steel)
-                                        }
-                                    }
-                                    .padding(FDS.Spacing.lg)
-                                    .forgeGlassCard(
-                                        cornerRadius: FDS.Radius.md,
-                                        accent: draft.chronotype == type ? .steel : nil
-                                    )
-                                }
-                                .buttonStyle(.plain)
-                            }
-                        }
-
-                        VStack(alignment: .leading, spacing: FDS.Spacing.sm) {
-                            Text("Coaching personality")
-                                .font(FDS.TypeScale.Dynamic.caption)
-                                .foregroundColor(.textSecondary)
-                            TextField("e.g. direct, encouraging, data-focused", text: $draft.personality)
-                                .padding(FDS.Spacing.md)
-                                .forgeInsetTile(radius: FDS.Radius.md)
-                        }
-
-                        VStack(alignment: .leading, spacing: FDS.Spacing.sm) {
-                            Text("Lifestyle notes")
-                                .font(FDS.TypeScale.Dynamic.caption)
-                                .foregroundColor(.textSecondary)
-                            TextEditor(text: $draft.notes)
-                                .frame(minHeight: 90)
-                                .padding(FDS.Spacing.sm)
-                                .forgeInsetTile(radius: FDS.Radius.md)
-                                .scrollContentBackground(.hidden)
-                        }
-                    }
-                    .padding(FDS.Spacing.lg)
+                    chronotypeCard
+                    profileFieldsCard
                 }
+                .forgeScreenInsets(top: FDS.Spacing.lg)
             }
+            .forgeScreenBackground(accent: .steel)
             .navigationTitle("Sleep Profile")
             .navigationBarTitleDisplayMode(.inline)
             .onAppear { draft = hkService.userProfile }
@@ -100,6 +44,95 @@ struct SleepPersonalizationSheet: View {
                 }
             }
         }
+        .presentationDragIndicator(.visible)
+    }
+
+    private var chronotypeCard: some View {
+        VStack(alignment: .leading, spacing: ForgeLayout.blockGap) {
+            ForgeCardHeader("Chronotype", tint: .steel)
+            VStack(spacing: ForgeLayout.tileGap) {
+                ForEach(Chronotype.allCases) { type in
+                    chronotypeRow(type)
+                }
+            }
+        }
+        .forgeContentCard(tint: .steel)
+    }
+
+    private func chronotypeRow(_ type: Chronotype) -> some View {
+        let isSelected = draft.chronotype == type
+        return Button {
+            FDS.haptic(.select)
+            draft.chronotype = type
+        } label: {
+            HStack(spacing: ForgeLayout.rowGap) {
+                ForgeIconWell(systemImage: type.icon, tint: .steel)
+                VStack(alignment: .leading, spacing: ForgeLayout.pairGap) {
+                    Text(type.displayName)
+                        .font(HomeType.status)
+                        .foregroundStyle(Color.textPrimary)
+                        .lineLimit(2)
+                    Text(type.tagline)
+                        .font(HomeType.body)
+                        .foregroundStyle(Color.textTertiary)
+                        .forgeWrapping()
+                }
+                .layoutPriority(1)
+                Spacer(minLength: FDS.Spacing.xs)
+                if isSelected {
+                    Image(systemName: "checkmark.circle.fill")
+                        .foregroundStyle(Color.steel)
+                        .accessibilityHidden(true)
+                }
+            }
+            .padding(.vertical, FDS.Spacing.sm)
+            .padding(.horizontal, FDS.Spacing.md)
+            .frame(maxWidth: .infinity, minHeight: ForgeUX.minTap, alignment: .leading)
+            .background(
+                RoundedRectangle(cornerRadius: ForgeLayout.innerRadius, style: .continuous)
+                    .fill(isSelected ? Color.steel.opacity(0.12) : Color.clear)
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: ForgeLayout.innerRadius, style: .continuous)
+                    .stroke(
+                        isSelected ? Color.steel.opacity(0.28) : Color.white.opacity(0.08),
+                        lineWidth: ForgeUX.hairline
+                    )
+            )
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityElement(children: .combine)
+        .accessibilityAddTraits(isSelected ? .isSelected : [])
+        .accessibilityHint("Sets your chronotype")
+    }
+
+    private var profileFieldsCard: some View {
+        VStack(alignment: .leading, spacing: ForgeLayout.blockGap) {
+            VStack(alignment: .leading, spacing: ForgeLayout.rowGap) {
+                Text("Coaching personality")
+                    .font(HomeType.label)
+                    .foregroundStyle(Color.textSecondary)
+                    .accessibilityAddTraits(.isHeader)
+                TextField("e.g. direct, encouraging, data-focused", text: $draft.personality)
+                    .font(HomeType.body)
+                    .frame(minHeight: ForgeUX.minTap - 2 * ForgeLayout.tilePadding)
+                    .forgeWell()
+            }
+
+            VStack(alignment: .leading, spacing: ForgeLayout.rowGap) {
+                Text("Lifestyle notes")
+                    .font(HomeType.label)
+                    .foregroundStyle(Color.textSecondary)
+                    .accessibilityAddTraits(.isHeader)
+                TextEditor(text: $draft.notes)
+                    .font(HomeType.body)
+                    .scrollContentBackground(.hidden)
+                    .frame(minHeight: 90)
+                    .forgeWell()
+            }
+        }
+        .forgeContentCard()
     }
 }
 

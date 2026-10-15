@@ -39,19 +39,25 @@ struct LifestylePlacesView: View {
     @State private var foodKind: FoodSearchKind = .restaurants
     @State private var showOpenSettings = false
 
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
     var body: some View {
-        VStack(spacing: FDS.Spacing.lg) {
-            searchBar
+        VStack(alignment: .leading, spacing: ForgeLayout.sectionGap) {
+            PlacesSearchField(text: $searchText, prompt: "Search restaurants or menus…") {
+                Task { await runSearch() }
+            }
             foodFilters
             mapCard
-            statusRow
-            nearbyList
-            catalogToggle
+            nearbyCard
+            catalogCard
             if showCatalog {
                 NutritionDatabaseView(vm: vm)
             }
         }
         .task { await bootstrap() }
+        .onChange(of: foodKind) { _, _ in
+            Task { await runSearch() }
+        }
         .onReceive(NotificationCenter.default.publisher(for: UIApplication.didBecomeActiveNotification)) { _ in
             location.refreshAuthorization()
             if location.isAuthorized {
@@ -88,109 +94,117 @@ struct LifestylePlacesView: View {
         }
     }
 
+    // MARK: Map card
+
+    /// One card: the map (or the location prompt) with a status footer under it.
     private var mapCard: some View {
-        ZStack(alignment: .topTrailing) {
+        VStack(spacing: 0) {
             if location.currentLocation != nil {
-                Map(position: $camera, selection: $selectedPlace) {
-                    UserAnnotation()
-                    ForEach(location.nearby) { place in
-                        Marker(place.name, systemImage: "fork.knife", coordinate: place.coordinate)
-                            .tint(Color.ember)
-                            .tag(place)
-                    }
-                }
-                .mapStyle(.standard(elevation: .realistic))
-                .mapControls {
-                    MapUserLocationButton()
-                    MapCompass()
-                    MapPitchToggle()
-                }
+                liveMap
+                mapFooter
             } else {
                 mapPlaceholder
             }
+        }
+        .forgeContentCard(tint: .amber, padding: 0)
+    }
 
-            if location.currentLocation != nil {
-                VStack(spacing: FDS.Spacing.sm) {
-                    mapButton(icon: "location.fill") {
-                        Task { await recenter() }
-                    }
-                    mapButton(icon: "arrow.triangle.turn.up.right.diamond.fill") {
-                        location.openCurrentLocationInMaps()
-                    }
-                }
-                .padding(FDS.Spacing.md)
+    private var liveMap: some View {
+        Map(position: $camera, selection: $selectedPlace) {
+            UserAnnotation()
+            ForEach(location.nearby) { place in
+                Marker(place.name, systemImage: "fork.knife", coordinate: place.coordinate)
+                    .tint(Color.ember)
+                    .tag(place)
             }
+        }
+        .mapStyle(.standard(elevation: .realistic))
+        .mapControls {
+            MapUserLocationButton()
+            MapCompass()
+            MapPitchToggle()
         }
         .frame(height: 280)
-        .clipShape(RoundedRectangle(cornerRadius: FDS.Radius.xl, style: .continuous))
-        .overlay(
-            RoundedRectangle(cornerRadius: FDS.Radius.xl, style: .continuous)
-                .stroke(Color.borderColor.opacity(0.4), lineWidth: 1)
-        )
+        .overlay(alignment: .bottomTrailing) {
+            ForgeIconButton(
+                systemImage: "arrow.triangle.turn.up.right.diamond.fill",
+                accessibilityLabel: "Open in Maps",
+                tinted: false
+            ) {
+                location.openCurrentLocationInMaps()
+            }
+            .background(.ultraThinMaterial, in: Circle())
+            .padding(FDS.Spacing.md)
+        }
     }
 
+    /// Shown until the first fix. It carries the whole status, so the footer is hidden.
     private var mapPlaceholder: some View {
-        ZStack {
-            LinearGradient(
-                colors: [Color.ember.opacity(0.10), Color.surfaceElevated, Color.steel.opacity(0.08)],
-                startPoint: .topLeading,
-                endPoint: .bottomTrailing
+        VStack(spacing: ForgeLayout.blockGap) {
+            ForgeIconWell(
+                systemImage: location.isAuthorized ? "location.viewfinder" : "location.slash",
+                tint: location.isAuthorized ? Color.vitality : Color.warning,
+                diameter: 48
             )
-            VStack(spacing: FDS.Spacing.md) {
-                Image(systemName: location.isAuthorized ? "location.viewfinder" : "location.slash")
-                    .font(.system(size: 26, weight: .semibold))
-                    .foregroundStyle(location.isAuthorized ? Color.ember : Color.warning)
-                    .symbolRenderingMode(.hierarchical)
+            VStack(spacing: ForgeLayout.pairGap) {
                 Text(location.isAuthorized ? "Finding you" : "Turn on Location")
-                    .font(FDS.TypeScale.Dynamic.headline)
-                    .foregroundColor(.textPrimary)
-                Text(statusDetail)
-                    .font(FDS.TypeScale.Dynamic.caption)
-                    .foregroundColor(.textSecondary)
+                    .font(FDS.TypeScale.Dynamic.title)
+                    .foregroundStyle(Color.textPrimary)
                     .multilineTextAlignment(.center)
-                    .padding(.horizontal, FDS.Spacing.xl)
-            }
-        }
-    }
-
-    private func mapButton(icon: String, action: @escaping () -> Void) -> some View {
-        Button(action: action) {
-            Image(systemName: icon)
-                .font(.system(size: 14, weight: .semibold))
-                .foregroundColor(.textPrimary)
-                .frame(width: 36, height: 36)
-                .background(.ultraThinMaterial)
-                .clipShape(Circle())
-        }
-        .buttonStyle(.plain)
-    }
-
-    private var statusRow: some View {
-        HStack(spacing: FDS.Spacing.md) {
-            Image(systemName: location.isAuthorized ? "location.fill" : "location.slash")
-                .foregroundColor(location.isAuthorized ? .vitality : .warning)
-            VStack(alignment: .leading, spacing: 2) {
-                Text(statusTitle)
-                    .font(FDS.TypeScale.Dynamic.caption)
-                    .foregroundColor(.textPrimary)
+                    .forgeWrapping()
+                    .accessibilityAddTraits(.isHeader)
                 Text(statusDetail)
-                    .font(.system(size: 11))
-                    .foregroundColor(.textSecondary)
-                    .lineLimit(2)
+                    .font(HomeType.body)
+                    .foregroundStyle(Color.textSecondary)
+                    .multilineTextAlignment(.center)
+                    .forgeWrapping()
             }
-            Spacer()
-            if location.isSearching {
+            if !location.isAuthorized {
+                permissionButton
+                    .frame(maxWidth: 280)
+            } else if location.isSearching {
                 ProgressView().controlSize(.small)
-            } else if !location.isAuthorized {
-                Button(location.canAsk ? "Allow" : "Turn on") {
-                    Task { await requestLocationPermission() }
-                }
-                .font(.system(size: 13, weight: .semibold))
-                .foregroundColor(.ember)
             }
         }
-        .padding(FDS.Spacing.md)
-        .forgeGlassCard(cornerRadius: FDS.Radius.md, accent: .steel)
+        .padding(ForgeLayout.cardPadding)
+        .frame(maxWidth: .infinity, minHeight: 280)
+    }
+
+    private var mapFooter: some View {
+        VStack(alignment: .leading, spacing: ForgeLayout.blockGap) {
+            HStack(alignment: .firstTextBaseline, spacing: ForgeLayout.rowGap) {
+                Image(systemName: location.isAuthorized ? "location.fill" : "location.slash")
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundStyle(location.isAuthorized ? Color.vitality : Color.warning)
+                    .accessibilityHidden(true)
+                VStack(alignment: .leading, spacing: ForgeLayout.pairGap) {
+                    Text(statusTitle)
+                        .font(HomeType.status)
+                        .foregroundStyle(Color.textPrimary)
+                        .lineLimit(2)
+                    Text(statusDetail)
+                        .font(HomeType.body)
+                        .foregroundStyle(Color.textTertiary)
+                        .forgeWrapping()
+                }
+                .layoutPriority(1)
+                Spacer(minLength: FDS.Spacing.xs)
+                if location.isSearching {
+                    ProgressView().controlSize(.small)
+                }
+            }
+            if !location.isAuthorized {
+                permissionButton
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(ForgeLayout.cardPadding)
+    }
+
+    private var permissionButton: some View {
+        ForgeSecondaryButton(title: location.canAsk ? "Allow" : "Turn on", accent: .amber) {
+            Task { await requestLocationPermission() }
+        }
     }
 
     private var statusTitle: String {
@@ -231,83 +245,111 @@ struct LifestylePlacesView: View {
         return error
     }
 
-    private var nearbyList: some View {
-        VStack(alignment: .leading, spacing: FDS.Spacing.md) {
-            HStack {
-                Text("Nearby")
-                    .font(FDS.TypeScale.Dynamic.headline)
-                    .foregroundColor(.textPrimary)
-                Spacer()
-                Button {
-                    Task { await runSearch() }
-                } label: {
-                    Label("Refresh", systemImage: "arrow.clockwise")
-                        .font(.system(size: 12, weight: .semibold))
-                }
-                .foregroundColor(.ember)
-            }
+    // MARK: Nearby card
 
-            if let error = displayableNearbyError {
-                VStack(alignment: .leading, spacing: FDS.Spacing.sm) {
-                    Text(error)
-                        .font(.system(size: 13))
-                        .foregroundColor(.warning)
-                    Button("Try again") {
-                        Task { await runSearch() }
-                    }
-                    .font(.system(size: 13, weight: .semibold))
-                    .foregroundColor(.ember)
+    private var nearbyPlaces: [NearbyPlace] {
+        Array(location.nearby.prefix(8))
+    }
+
+    private var nearbyCard: some View {
+        VStack(alignment: .leading, spacing: ForgeLayout.blockGap) {
+            nearbyHeader
+            nearbyContent
+        }
+        .forgeContentCard(tint: .amber)
+    }
+
+    private var nearbyHeader: some View {
+        HStack(alignment: .center, spacing: FDS.Spacing.sm) {
+            VStack(alignment: .leading, spacing: ForgeLayout.labelValueGap) {
+                Text("Nearby")
+                    .forgeSectionLabel(tint: .textTertiary)
+                    .accessibilityAddTraits(.isHeader)
+                if !nearbyPlaces.isEmpty {
+                    ForgeCardMeta(text: "\(nearbyPlaces.count) place\(nearbyPlaces.count == 1 ? "" : "s")")
                 }
-            } else if location.nearby.isEmpty {
-                Text("No restaurants found yet. Move a little or tap Refresh.")
-                    .font(.system(size: 13))
-                    .foregroundColor(.textSecondary)
-            } else {
-                ForEach(location.nearby.prefix(8)) { place in
-                    Button { selectedPlace = place } label: {
-                        HStack(spacing: FDS.Spacing.md) {
-                            Image(systemName: "mappin.circle.fill")
-                                .font(.system(size: 22))
-                                .foregroundColor(.ember)
-                            VStack(alignment: .leading, spacing: 2) {
-                                Text(place.name)
-                                    .font(FDS.TypeScale.Dynamic.body.weight(.semibold))
-                                    .foregroundColor(.textPrimary)
-                                    .lineLimit(1)
-                                Text(placeLine(place))
-                                    .font(.system(size: 11))
-                                    .foregroundColor(.textTertiary)
-                                    .lineLimit(1)
-                            }
-                            Spacer()
-                            Text(place.distanceLabel)
-                                .font(FDS.TypeScale.Dynamic.caption)
-                                .foregroundColor(.textSecondary)
-                        }
-                        .padding(FDS.Spacing.md)
-                        .forgeGlassCard(cornerRadius: FDS.Radius.md, accent: .steel)
+            }
+            Spacer(minLength: FDS.Spacing.sm)
+            ForgeIconButton(
+                systemImage: "arrow.clockwise",
+                accent: .amber,
+                accessibilityLabel: "Refresh",
+                tinted: false
+            ) {
+                Task { await runSearch() }
+            }
+        }
+    }
+
+    @ViewBuilder
+    private var nearbyContent: some View {
+        if let error = displayableNearbyError {
+            VStack(alignment: .leading, spacing: ForgeLayout.blockGap) {
+                ForgeEmptyNote(
+                    title: error,
+                    systemImage: "exclamationmark.triangle.fill",
+                    tint: .warning
+                )
+                ForgeSecondaryButton(title: "Try again", accent: .amber) {
+                    Task { await runSearch() }
+                }
+            }
+        } else if location.nearby.isEmpty {
+            ForgeEmptyNote(
+                title: "No restaurants found yet.",
+                message: "Move a little or tap Refresh.",
+                systemImage: "fork.knife",
+                tint: .amber
+            )
+        } else {
+            VStack(alignment: .leading, spacing: ForgeLayout.rowGap) {
+                ForEach(nearbyPlaces) { place in
+                    Button {
+                        FDS.haptic(.press)
+                        selectedPlace = place
+                    } label: {
+                        ForgeListRow(
+                            icon: "fork.knife",
+                            iconColor: .amber,
+                            title: place.name,
+                            subtitle: placeLine(place),
+                            trailing: place.distanceLabel,
+                            showChevron: true
+                        )
                     }
                     .buttonStyle(.plain)
+                    .accessibilityHint("Opens place details")
                 }
             }
         }
     }
 
-    private var catalogToggle: some View {
+    // MARK: Saved menus
+
+    private var catalogCard: some View {
         Button {
-            withAnimation(.spring(response: 0.35, dampingFraction: 0.8)) { showCatalog.toggle() }
+            FDS.haptic(.press)
+            withAnimation(reduceMotion ? nil : FDS.Spring.standard) { showCatalog.toggle() }
         } label: {
-            HStack {
+            HStack(spacing: ForgeLayout.rowGap) {
                 Text(showCatalog ? "Hide saved menus" : "Browse saved restaurant menus")
-                    .font(FDS.TypeScale.Dynamic.caption)
-                Spacer()
+                    .font(HomeType.status)
+                    .foregroundStyle(Color.textPrimary)
+                    .multilineTextAlignment(.leading)
+                    .lineLimit(2)
+                Spacer(minLength: FDS.Spacing.xs)
                 Image(systemName: showCatalog ? "chevron.up" : "chevron.down")
+                    .font(.system(size: 11, weight: .semibold))
+                    .foregroundStyle(Color.textMuted)
+                    .accessibilityHidden(true)
             }
-            .foregroundColor(.textSecondary)
-            .padding(FDS.Spacing.lg)
-            .forgeInsetTile(radius: FDS.Radius.md)
+            .padding(.vertical, ForgeLayout.rowVerticalPadding)
+            .frame(minHeight: ForgeUX.minTap)
+            .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
+        .accessibilityValue(showCatalog ? "Expanded" : "Collapsed")
+        .forgeContentCard()
     }
 
     private func bootstrap() async {
@@ -360,44 +402,14 @@ struct LifestylePlacesView: View {
         UIApplication.shared.open(url)
     }
 
-    private var searchBar: some View {
-        HStack(spacing: FDS.Spacing.md) {
-            Image(systemName: "magnifyingglass").foregroundColor(.textTertiary)
-            TextField("Search restaurants or menus…", text: $searchText)
-                .textInputAutocapitalization(.never)
-                .autocorrectionDisabled()
-                .submitLabel(.search)
-                .onSubmit { Task { await runSearch() } }
-            if !searchText.isEmpty {
-                Button { searchText = "" } label: {
-                    Image(systemName: "xmark.circle.fill").foregroundColor(.textMuted)
-                }
-            }
+    private var foodKindOptions: [ForgeSegmentOption<FoodSearchKind>] {
+        FoodSearchKind.allCases.map { kind in
+            ForgeSegmentOption<FoodSearchKind>(value: kind, title: kind.title)
         }
-        .padding(FDS.Spacing.md)
-        .forgeGlassCard(cornerRadius: FDS.Radius.md, accent: .steel)
     }
 
     private var foodFilters: some View {
-        ScrollView(.horizontal, showsIndicators: false) {
-            HStack(spacing: FDS.Spacing.sm) {
-                ForEach(FoodSearchKind.allCases) { kind in
-                    Button {
-                        foodKind = kind
-                        Task { await runSearch() }
-                    } label: {
-                        Text(kind.title)
-                            .font(FDS.TypeScale.Dynamic.caption)
-                            .foregroundColor(foodKind == kind ? .background : .textSecondary)
-                            .padding(.horizontal, FDS.Spacing.md)
-                            .padding(.vertical, FDS.Spacing.sm)
-                            .background(foodKind == kind ? Color.textPrimary : Color.surface)
-                            .clipShape(Capsule())
-                    }
-                    .buttonStyle(.plain)
-                }
-            }
-        }
+        ForgeSegmentedControl(foodKindOptions, selection: $foodKind, accent: .amber)
     }
 
     private func runSearch() async {
@@ -412,19 +424,50 @@ struct LifestylePlacesView: View {
         }
         return hasMenu ? "Menu available" : (place.address?.isEmpty == false ? place.address! : "Apple Maps place")
     }
+}
 
-    private func recenter() async {
-        if let loc = await location.latestLocation() {
-            withAnimation {
-                camera = .region(MKCoordinateRegion(
-                    center: loc.coordinate,
-                    latitudinalMeters: 1_000,
-                    longitudinalMeters: 1_000
-                ))
+// MARK: - Search field
+
+/// Magnifier, field and clear button on the opaque inset tile used for fields that sit
+/// directly on the screen background. Padding 12, 44 pt tall, 44 pt clear target.
+private struct PlacesSearchField: View {
+    @Binding var text: String
+    var prompt: String
+    var onSubmit: () -> Void
+
+    var body: some View {
+        HStack(spacing: FDS.Spacing.sm) {
+            Image(systemName: "magnifyingglass")
+                .foregroundStyle(Color.textTertiary)
+                .accessibilityHidden(true)
+            TextField(prompt, text: $text)
+                .font(HomeType.body)
+                .foregroundStyle(Color.textPrimary)
+                .textInputAutocapitalization(.never)
+                .autocorrectionDisabled()
+                .submitLabel(.search)
+                .onSubmit { onSubmit() }
+                .padding(.trailing, text.isEmpty ? ForgeLayout.tilePadding : 0)
+            if !text.isEmpty {
+                Button {
+                    text = ""
+                } label: {
+                    Image(systemName: "xmark.circle.fill")
+                        .foregroundStyle(Color.textMuted)
+                        .frame(width: ForgeUX.minTap, height: ForgeUX.minTap)
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("Clear search")
             }
         }
+        .padding(.leading, ForgeLayout.tilePadding)
+        .frame(minHeight: ForgeUX.minTap)
+        .forgeInsetTile(radius: ForgeLayout.innerRadius)
     }
 }
+
+// MARK: - Place sheet
 
 private struct NearbyPlaceSheet: View {
     let place: NearbyPlace
@@ -437,120 +480,172 @@ private struct NearbyPlaceSheet: View {
         locationLogger.catalogMenu(for: place.name)
     }
 
+    private var phoneURL: URL? {
+        guard let phone = place.phoneNumber else { return nil }
+        return URL(string: "tel:\(phone.filter { $0.isNumber || $0 == "+" })")
+    }
+
     var body: some View {
         NavigationStack {
             ScrollView {
-                VStack(alignment: .leading, spacing: FDS.Spacing.lg) {
-                    VStack(alignment: .leading, spacing: FDS.Spacing.sm) {
-                        Text(place.name)
-                            .font(FDS.TypeScale.Dynamic.title)
-                            .foregroundColor(.textPrimary)
-                        if let category = place.categoryLabel {
-                            Text(category)
-                                .font(FDS.TypeScale.Dynamic.caption)
-                                .foregroundColor(.ember)
-                        }
-                        if let address = place.address, !address.isEmpty {
-                            Text(address)
-                                .font(.system(size: 13))
-                                .foregroundColor(.textSecondary)
-                        }
-                        Text(place.distanceLabel + " away")
-                            .font(.system(size: 13))
-                            .foregroundColor(.textTertiary)
+                VStack(alignment: .leading, spacing: ForgeLayout.sectionGap) {
+                    header
+                    actions
+                    if phoneURL != nil || place.url != nil {
+                        contactCard
                     }
-
-                    HStack(spacing: FDS.Spacing.md) {
-                        Button {
-                            location.openInMaps(place)
-                        } label: {
-                            label("Maps", icon: "map.fill")
-                        }
-                        Button {
-                            location.directions(to: place)
-                        } label: {
-                            label("Walk", icon: "arrow.triangle.turn.up.right.diamond.fill")
-                        }
-                    }
-
-                    if let phone = place.phoneNumber, let url = URL(string: "tel:\(phone.filter { $0.isNumber || $0 == "+" })") {
-                        Link(destination: url) {
-                            Text(phone)
-                                .font(.system(size: 14))
-                                .foregroundColor(.textSecondary)
-                        }
-                    }
-
-                    if let site = place.url {
-                        Link(destination: site) {
-                            Text("Website / menu")
-                                .font(FDS.TypeScale.Dynamic.body.weight(.semibold))
-                                .foregroundColor(.ember)
-                        }
-                    }
-
-                    if let menu = catalogMenu, !menu.isEmpty {
-                        Text("Menu")
-                            .font(FDS.TypeScale.Dynamic.headline)
-                            .foregroundColor(.textPrimary)
-                        Text("From Forge’s kitchen file for this chain. Tap a dish to log it.")
-                            .font(.system(size: 12))
-                            .foregroundColor(.textTertiary)
-                        ForEach(menu) { item in
-                            Button {
-                                locationLogger.detectedVenue = place.name
-                                locationLogger.logSelectedMeal(item, to: vm)
-                                dismiss()
-                            } label: {
-                                HStack {
-                                    VStack(alignment: .leading, spacing: 3) {
-                                        Text(item.name)
-                                            .font(FDS.TypeScale.Dynamic.body.weight(.semibold))
-                                            .foregroundColor(.textPrimary)
-                                        Text("\(item.calories) cal · \(item.protein)g protein")
-                                            .font(.system(size: 12))
-                                            .foregroundColor(.textTertiary)
-                                    }
-                                    Spacer()
-                                    Image(systemName: "plus.circle.fill").foregroundColor(.ember)
-                                }
-                                .padding(FDS.Spacing.lg)
-                                .forgeInsetTile(radius: FDS.Radius.md)
-                            }
-                            .buttonStyle(.plain)
-                        }
-                    } else {
-                        Text("Menu")
-                            .font(FDS.TypeScale.Dynamic.headline)
-                            .foregroundColor(.textPrimary)
-                        Text("Apple Maps found this kitchen. Open it in Maps for hours and any published menu, or use the website if they have one.")
-                            .font(.system(size: 13))
-                            .foregroundColor(.textSecondary)
-                            .fixedSize(horizontal: false, vertical: true)
-                    }
+                    menuCard
                 }
-                .padding(FDS.Spacing.lg)
+                .forgeScreenInsets(top: FDS.Spacing.lg)
             }
             .background(Color.background)
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
+                ToolbarItem(placement: .confirmationAction) {
                     Button("Close") { dismiss() }
                 }
             }
         }
+        .presentationDragIndicator(.visible)
+        .preferredColorScheme(.dark)
     }
 
-    private func label(_ title: String, icon: String) -> some View {
-        HStack {
-            Image(systemName: icon)
-            Text(title)
+    // MARK: Header and actions
+
+    private var metaLine: String {
+        var parts: [String] = []
+        if let category = place.categoryLabel, !category.isEmpty {
+            parts.append(category)
         }
-        .font(.system(size: 13, weight: .semibold))
-        .foregroundColor(.white)
-        .frame(maxWidth: .infinity)
-        .padding(.vertical, FDS.Spacing.md)
-        .background(Color.ember)
-        .cornerRadius(FDS.Radius.md)
+        parts.append(place.distanceLabel + " away")
+        return parts.joined(separator: " · ")
+    }
+
+    private var header: some View {
+        VStack(alignment: .leading, spacing: ForgeLayout.pairGap) {
+            Text(place.name)
+                .font(FDS.TypeScale.Dynamic.title)
+                .foregroundStyle(Color.textPrimary)
+                .forgeWrapping()
+                .accessibilityAddTraits(.isHeader)
+            if let address = place.address, !address.isEmpty {
+                Text(address)
+                    .font(HomeType.body)
+                    .foregroundStyle(Color.textSecondary)
+                    .forgeWrapping()
+            }
+            Text(metaLine)
+                .font(HomeType.body)
+                .foregroundStyle(Color.textTertiary)
+                .forgeWrapping()
+        }
+    }
+
+    /// Directions is the sheet's one primary; Maps is the secondary.
+    private var actions: some View {
+        VStack(spacing: ForgeLayout.tileGap) {
+            ForgePrimaryButton(
+                title: "Directions",
+                icon: "arrow.triangle.turn.up.right.diamond.fill"
+            ) {
+                location.directions(to: place)
+            }
+            ForgeSecondaryButton(title: "Open in Maps", icon: "map.fill", accent: .amber) {
+                location.openInMaps(place)
+            }
+        }
+    }
+
+    // MARK: Contact
+
+    private var contactCard: some View {
+        VStack(alignment: .leading, spacing: ForgeLayout.rowGap) {
+            if let phone = place.phoneNumber, let url = phoneURL {
+                Link(destination: url) {
+                    ForgeListRow(
+                        icon: "phone.fill",
+                        iconColor: .amber,
+                        title: phone,
+                        showChevron: true
+                    )
+                }
+            }
+            if let site = place.url {
+                Link(destination: site) {
+                    ForgeListRow(
+                        icon: "safari",
+                        iconColor: .amber,
+                        title: "Website / menu",
+                        showChevron: true
+                    )
+                }
+            }
+        }
+        .forgeContentCard(tint: .amber)
+    }
+
+    // MARK: Menu
+
+    @ViewBuilder
+    private var menuCard: some View {
+        if let menu = catalogMenu, !menu.isEmpty {
+            VStack(alignment: .leading, spacing: ForgeLayout.blockGap) {
+                ForgeCardHeader("Menu", meta: "\(menu.count) items")
+                Text("From Forge’s kitchen file for this chain. Tap a dish to log it.")
+                    .font(HomeType.body)
+                    .foregroundStyle(Color.textTertiary)
+                    .forgeWrapping()
+                VStack(alignment: .leading, spacing: ForgeLayout.rowGap) {
+                    ForEach(menu) { item in
+                        menuRow(item)
+                    }
+                }
+            }
+            .forgeContentCard(tint: .amber)
+        } else {
+            VStack(alignment: .leading, spacing: ForgeLayout.blockGap) {
+                ForgeCardHeader("Menu")
+                Text("Apple Maps found this kitchen. Open it in Maps for hours and any published menu, or use the website if they have one.")
+                    .font(HomeType.body)
+                    .foregroundStyle(Color.textSecondary)
+                    .forgeWrapping()
+            }
+            .forgeContentCard(tint: .amber)
+        }
+    }
+
+    private func menuRow(_ item: MenuItem) -> some View {
+        Button {
+            FDS.haptic(.press)
+            locationLogger.detectedVenue = place.name
+            locationLogger.logSelectedMeal(item, to: vm)
+            dismiss()
+        } label: {
+            HStack(spacing: ForgeLayout.rowGap) {
+                VStack(alignment: .leading, spacing: ForgeLayout.pairGap) {
+                    Text(item.name)
+                        .font(HomeType.status)
+                        .foregroundStyle(Color.textPrimary)
+                        .multilineTextAlignment(.leading)
+                        .lineLimit(2)
+                    Text("\(item.calories) cal · \(item.protein)g protein")
+                        .font(HomeType.body)
+                        .foregroundStyle(Color.textTertiary)
+                        .lineLimit(2)
+                }
+                .layoutPriority(1)
+                Spacer(minLength: FDS.Spacing.xs)
+                Image(systemName: "plus.circle.fill")
+                    .font(.system(size: 20, weight: .semibold))
+                    .foregroundStyle(Color.ember)
+                    .accessibilityHidden(true)
+            }
+            .padding(.vertical, ForgeLayout.rowVerticalPadding)
+            .frame(minHeight: ForgeUX.minTap)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel("\(item.name), \(item.calories) calories, \(item.protein) grams protein")
+        .accessibilityHint("Logs this dish and closes")
     }
 }

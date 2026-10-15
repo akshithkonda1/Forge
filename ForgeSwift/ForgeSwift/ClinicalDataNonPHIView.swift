@@ -27,31 +27,28 @@ struct ClinicalDataNonPHIView: View {
     @State private var photoItem: PhotosPickerItem?
     @State private var scanningBottle = false
     @State private var bottleScan: MedicationBottleScan?
+    @State private var showHow = false
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @ScaledMetric(relativeTo: .caption) private var badgeSize: CGFloat = 22
 
     private var summary: ClinicalRecordsSummary? { health.clinicalSummary }
+
+    /// Health is the one primary action until it is connected; after that the
+    /// bottle scan takes over, so the screen never shows two filled buttons.
+    private var healthNeedsAllow: Bool {
+        health.canRequestStructuredRecords && !health.hasStructuredRecordsAccess
+    }
 
     var body: some View {
         NavigationStack {
             ScrollView(showsIndicators: false) {
-                LazyVStack(alignment: .leading, spacing: FDS.Spacing.xl) {
-                    Text("Two steps. Allow Apple Health — the same full catalog Forge asks at first connect — so allergies, meds, conditions, shots, labs, procedures, and vitals already on this iPhone land in Forge. Then search every federal-list product by brand or generic, or photograph the bottle. ARIA never prescribes and never names a dose.")
-                        .font(.system(size: 14))
-                        .foregroundColor(.textSecondary)
-                        .fixedSize(horizontal: false, vertical: true)
-
+                ForgeScreenStack(top: FDS.Spacing.sm) {
+                    introBlock
                     healthStep
                     pharmacyStep
-
-                    if let error {
-                        Text(error)
-                            .font(.system(size: 13))
-                            .foregroundColor(.warning)
-                    }
                 }
-                .padding(FDS.Spacing.lg)
-                .padding(.bottom, 40)
             }
-            .background(Color.background.ignoresSafeArea())
+            .forgeScreenBackground(accent: .steel)
             .navigationTitle("Medicine")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -84,83 +81,160 @@ struct ClinicalDataNonPHIView: View {
         }
     }
 
-    private var bottleScanBar: some View {
-        HStack(spacing: FDS.Spacing.md) {
-            Button {
-                showCamera = true
-            } label: {
-                Label(scanningBottle ? "Reading label…" : "Photograph the bottle", systemImage: "camera.fill")
-                    .font(.system(size: 14, weight: .semibold))
-                    .foregroundColor(.white)
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, FDS.Spacing.md)
-                    .background(Color.ember)
-                    .clipShape(RoundedRectangle(cornerRadius: FDS.Radius.md, style: .continuous))
-            }
-            .buttonStyle(.plain)
-            .disabled(scanningBottle || catalogLoading)
-            .accessibilityLabel("Photograph the medication bottle to add it instantly")
+    // MARK: Intro
 
-            PhotosPicker(selection: $photoItem, matching: .images) {
-                Image(systemName: "photo.on.rectangle")
-                    .font(.system(size: 16, weight: .semibold))
-                    .foregroundColor(.ember)
-                    .frame(width: 48, height: 44)
-                    .forgeInsetTile(radius: FDS.Radius.md)
+    /// One sentence up front; the rest sits behind "How this works".
+    private var introBlock: some View {
+        VStack(alignment: .leading, spacing: ForgeLayout.blockGap) {
+            ForgeSectionHeader(
+                title: "Two steps",
+                subtitle: "Allow Apple Health — the same full catalog Forge asks at first connect — so allergies, meds, conditions, shots, labs, procedures, and vitals already on this iPhone land in Forge."
+            )
+            if showHow {
+                Text("Then search every federal-list product by brand or generic, or photograph the bottle. ARIA never names a medicine or a dose for you.")
+                    .font(HomeType.body)
+                    .foregroundStyle(Color.textSecondary)
+                    .forgeWrapping()
+                    .transition(.opacity.combined(with: .scale(scale: 0.97, anchor: .top)))
             }
-            .disabled(scanningBottle || catalogLoading)
-            .accessibilityLabel("Choose a bottle photo")
+            ForgeTextLink(title: "How this works", accent: .steel, expanded: showHow) {
+                if reduceMotion {
+                    showHow.toggle()
+                } else {
+                    withAnimation(FDS.Spring.standard) { showHow.toggle() }
+                }
+            }
         }
     }
+
+    // MARK: Step 1 · Apple Health
 
     private var healthStep: some View {
-        VStack(alignment: .leading, spacing: FDS.Spacing.md) {
+        VStack(alignment: .leading, spacing: ForgeLayout.sectionGap) {
             stepHeader(number: "1", title: "Apple Health", subtitle: "Every structured record Forge can read. Not notes. Not insurance.")
-
-            if !health.canRequestStructuredRecords {
-                Text("Health Records need a real iPhone with Health Records turned on. The Simulator cannot open that sheet — asking anyway used to crash the app. The pharmacy below still works.")
-                    .font(.system(size: 13))
-                    .foregroundColor(.textSecondary)
-                    .fixedSize(horizontal: false, vertical: true)
-            } else if !health.hasStructuredRecordsAccess {
-                Button {
-                    Task { await connect() }
-                } label: {
-                    Text(healthLoading ? "Asking Health…" : "Allow Apple Health records")
-                        .font(FDS.TypeScale.Dynamic.headline)
-                        .foregroundColor(.white)
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, FDS.Spacing.lg)
-                        .background(Color.ember)
-                        .clipShape(RoundedRectangle(cornerRadius: FDS.Radius.md, style: .continuous))
-                }
-                .buttonStyle(.plain)
-                .disabled(healthLoading)
-                .accessibilityLabel("Allow Apple Health records")
-            } else if healthLoading && summary == nil {
-                ProgressView()
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, FDS.Spacing.lg)
-            } else if let summary, summary.hasData {
-                ForEach(StructuredHealthKind.allCases) { kind in
-                    kindSection(kind, items: summary.items(for: kind))
-                }
-                Button("Refresh Health lists") {
-                    Task { await refreshHealth() }
-                }
-                .font(.system(size: 13, weight: .semibold))
-                .foregroundColor(.ember)
-                .disabled(healthLoading)
-            } else {
-                Text("Health is connected. No allergies, meds, labs, or other structured records on file yet. Search the pharmacy below.")
-                    .font(.system(size: 13))
-                    .foregroundColor(.textTertiary)
+            healthContent
+            if let error {
+                noticeCard(error, systemImage: "exclamationmark.triangle", tint: .warning)
             }
         }
     }
 
+    @ViewBuilder
+    private var healthContent: some View {
+        if !health.canRequestStructuredRecords {
+            noticeCard(
+                "Health Records need a real iPhone with Health Records turned on. The Simulator cannot open that sheet — asking anyway used to crash the app. The pharmacy below still works.",
+                systemImage: "info.circle",
+                tint: .steel
+            )
+        } else if !health.hasStructuredRecordsAccess {
+            ForgePrimaryButton(
+                title: healthLoading ? "Asking Health…" : "Allow Apple Health records",
+                icon: "heart.text.square"
+            ) {
+                Task { await connect() }
+            }
+            .disabled(healthLoading)
+            .accessibilityLabel("Allow Apple Health records")
+        } else if healthLoading && summary == nil {
+            VStack(alignment: .leading, spacing: ForgeLayout.blockGap) {
+                ForgeCardHeader(title: "Health records", tint: .steel) {
+                    ProgressView().controlSize(.mini)
+                }
+                ForgeSkeletonWell(message: "Asking Health…")
+            }
+            .forgeContentCard(tint: .steel)
+        } else if let summary, summary.hasData {
+            recordsCard(summary)
+        } else {
+            ForgeEmptyNote(
+                title: "Health is connected.",
+                message: "No allergies, meds, labs, or other structured records on file yet. Search the pharmacy below.",
+                systemImage: "heart.text.square",
+                tint: .steel
+            )
+            .forgeContentCard(tint: .steel)
+        }
+    }
+
+    /// Every kind in one card: kinds with records first, each a header row over
+    /// a well of items; kinds with nothing on file close the card as quiet rows.
+    private func recordsCard(_ summary: ClinicalRecordsSummary) -> some View {
+        let kinds = StructuredHealthKind.allCases
+        let filled = kinds.filter { !summary.items(for: $0).isEmpty }
+        let empty = kinds.filter { summary.items(for: $0).isEmpty }
+        let total = filled.reduce(0) { $0 + summary.items(for: $1).count }
+        return VStack(alignment: .leading, spacing: ForgeLayout.blockGap) {
+            ForgeCardHeader(title: "Health records", tint: .steel) {
+                if healthLoading {
+                    ProgressView().controlSize(.mini)
+                } else {
+                    ForgeCardMeta(text: "\(total)")
+                        .accessibilityLabel("\(total) records")
+                }
+            }
+            VStack(alignment: .leading, spacing: ForgeLayout.groupBreak) {
+                ForEach(filled) { kind in
+                    kindBlock(kind, items: summary.items(for: kind))
+                }
+            }
+            if !empty.isEmpty {
+                VStack(alignment: .leading, spacing: 0) {
+                    ForEach(empty) { kind in
+                        ForgeListRow(
+                            icon: kind.symbol,
+                            iconColor: .textTertiary,
+                            title: kind.title,
+                            trailing: "None on file"
+                        )
+                    }
+                }
+            }
+            ForgeTextLink(title: "Refresh Health lists", accent: .steel) {
+                Task { await refreshHealth() }
+            }
+            .disabled(healthLoading)
+        }
+        .forgeContentCard(tint: .steel)
+    }
+
+    private func kindBlock(_ kind: StructuredHealthKind, items: [StructuredHealthItem]) -> some View {
+        VStack(alignment: .leading, spacing: ForgeLayout.rowGap) {
+            HStack(spacing: ForgeLayout.rowGap) {
+                ForgeIconWell(systemImage: kind.symbol, tint: .steel)
+                Text(kind.title)
+                    .font(HomeType.status)
+                    .foregroundStyle(Color.textPrimary)
+                    .lineLimit(2)
+                    .forgeWrapping()
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .accessibilityAddTraits(.isHeader)
+                ForgeCardMeta(text: "\(items.count)")
+                    .accessibilityLabel("\(items.count) records")
+            }
+            VStack(alignment: .leading, spacing: ForgeLayout.rowGap) {
+                ForEach(items) { item in
+                    VStack(alignment: .leading, spacing: ForgeLayout.pairGap) {
+                        Text(item.name)
+                            .font(HomeType.body)
+                            .foregroundStyle(Color.textPrimary)
+                            .forgeWrapping()
+                        Text("\(item.source) · \(item.date.formatted(date: .abbreviated, time: .omitted))")
+                            .font(HomeType.micro)
+                            .foregroundStyle(Color.textTertiary)
+                            .lineLimit(2)
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                }
+            }
+            .forgeWell()
+        }
+    }
+
+    // MARK: Step 2 · Pharmacy
+
     private var pharmacyStep: some View {
-        VStack(alignment: .leading, spacing: FDS.Spacing.md) {
+        VStack(alignment: .leading, spacing: ForgeLayout.sectionGap) {
             stepHeader(
                 number: "2",
                 title: "Pharmacy",
@@ -168,120 +242,193 @@ struct ClinicalDataNonPHIView: View {
                     ? "Loading the federal catalog…"
                     : "\(catalogCount.formatted()) presentations · \(refreshLabel)"
             )
+            searchCard
+            if let bottleScan {
+                bottleScanCard(bottleScan)
+            }
+            if !saved.isEmpty {
+                savedCard
+            }
+            resultsContent
+        }
+    }
 
-            Text("ARIA never prescribes and never names a dose. It reads what you already take, files the likely needs, and mutates lifestyle and training for you — not a general-population template.")
-                .font(.system(size: 13))
-                .foregroundColor(.textSecondary)
-                .fixedSize(horizontal: false, vertical: true)
+    private var searchCard: some View {
+        VStack(alignment: .leading, spacing: ForgeLayout.blockGap) {
+            Text("ARIA never names a medicine or a dose for you. It reads what you already take, files the likely needs, and mutates lifestyle and training for you — not a general-population template.")
+                .font(HomeType.body)
+                .foregroundStyle(Color.textSecondary)
+                .forgeWrapping()
 
-            HStack(spacing: FDS.Spacing.md) {
+            HStack(spacing: ForgeLayout.rowGap) {
                 Image(systemName: "magnifyingglass")
-                    .foregroundColor(.textTertiary)
+                    .foregroundStyle(Color.textTertiary)
+                    .accessibilityHidden(true)
                 TextField("Brand, generic, disease, or archetype", text: $query)
+                    .font(HomeType.body)
                     .textInputAutocapitalization(.never)
                     .autocorrectionDisabled()
-                    .foregroundColor(.textPrimary)
+                    .foregroundStyle(Color.textPrimary)
                     .onChange(of: query) { _, _ in
                         scheduleSearch()
                     }
             }
-            .padding(FDS.Spacing.md)
-            .forgeInsetTile(radius: FDS.Radius.md)
+            .frame(minHeight: ForgeUX.minTap - 2 * ForgeLayout.tilePadding)
+            .forgeWell()
 
             bottleScanBar
+            sortBar
+        }
+        .forgeContentCard()
+    }
 
-            if let bottleScan {
-                Text(bottleScan.headline)
-                    .font(FDS.TypeScale.Dynamic.caption)
-                    .foregroundColor(.textSecondary)
-                    .fixedSize(horizontal: false, vertical: true)
-                if bottleScan.admitted == nil {
-                    ForEach(bottleScan.candidates, id: \.id) { med in
+    private var bottleScanBar: some View {
+        ForgeAdaptiveStack(spacing: ForgeLayout.tileGap) {
+            bottleScanButton
+            PhotosPicker(selection: $photoItem, matching: .images) {
+                Image(systemName: "photo.on.rectangle")
+                    .font(.system(size: ForgeUX.icon, weight: .semibold))
+                    .foregroundStyle(Color.steel)
+                    .frame(minWidth: ForgeUX.minTap + 4, minHeight: ForgeUX.minTap + 8)
+                    .background(
+                        RoundedRectangle(cornerRadius: FDS.Radius.md, style: .continuous)
+                            .fill(Color.steel.opacity(0.12))
+                    )
+                    .overlay(
+                        RoundedRectangle(cornerRadius: FDS.Radius.md, style: .continuous)
+                            .stroke(Color.steel.opacity(0.28), lineWidth: ForgeUX.hairline)
+                    )
+            }
+            .disabled(scanningBottle || catalogLoading)
+            .accessibilityLabel("Choose a bottle photo")
+        }
+    }
+
+    @ViewBuilder
+    private var bottleScanButton: some View {
+        let title = scanningBottle ? "Reading label…" : "Photograph the bottle"
+        if healthNeedsAllow {
+            ForgeSecondaryButton(title: title, icon: "camera.fill", accent: .steel) {
+                showCamera = true
+            }
+            .disabled(scanningBottle || catalogLoading)
+            .accessibilityLabel("Photograph the medication bottle to add it instantly")
+        } else {
+            ForgePrimaryButton(title: title, icon: "camera.fill") {
+                showCamera = true
+            }
+            .disabled(scanningBottle || catalogLoading)
+            .accessibilityLabel("Photograph the medication bottle to add it instantly")
+        }
+    }
+
+    private func bottleScanCard(_ scan: MedicationBottleScan) -> some View {
+        VStack(alignment: .leading, spacing: ForgeLayout.blockGap) {
+            Text(scan.headline)
+                .font(HomeType.body)
+                .foregroundStyle(Color.textSecondary)
+                .forgeWrapping()
+            if scan.admitted == nil, !scan.candidates.isEmpty {
+                VStack(alignment: .leading, spacing: ForgeLayout.rowGap) {
+                    ForEach(scan.candidates, id: \.id) { med in
                         pharmacyRow(med)
                     }
                 }
             }
+        }
+        .forgeContentCard(tint: .steel)
+    }
 
-            sortBar
-
-            if !saved.isEmpty {
-                VStack(alignment: .leading, spacing: FDS.Spacing.sm) {
-                    Text("On your list")
-                        .font(FDS.TypeScale.Dynamic.caption)
-                        .foregroundColor(.textTertiary)
-                    ForEach(saved, id: \.self) { name in
-                        Text(name)
-                            .font(FDS.TypeScale.Dynamic.body)
-                            .foregroundColor(.textPrimary)
-                    }
+    private var savedCard: some View {
+        VStack(alignment: .leading, spacing: ForgeLayout.blockGap) {
+            ForgeCardHeader("On your list", meta: "\(saved.count)", tint: .steel)
+            VStack(alignment: .leading, spacing: ForgeLayout.rowGap) {
+                ForEach(saved, id: \.self) { name in
+                    Text(name)
+                        .font(HomeType.status)
+                        .foregroundStyle(Color.textPrimary)
+                        .forgeWrapping()
+                        .frame(maxWidth: .infinity, minHeight: ForgeUX.minTap - 2 * ForgeLayout.rowVerticalPadding, alignment: .leading)
                 }
             }
+        }
+        .forgeContentCard(tint: .steel)
+    }
 
-            if catalogLoading {
-                ProgressView()
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, FDS.Spacing.lg)
-            } else if page.total == 0, !query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-                Text("No match for “\(query)”. Try the brand (Xcopri), the generic (cenobamate), or photograph the bottle.")
-                    .font(.system(size: 13))
-                    .foregroundColor(.textTertiary)
-                    .fixedSize(horizontal: false, vertical: true)
-            } else {
-                Text(resultSummary)
-                    .font(FDS.TypeScale.Dynamic.caption)
-                    .foregroundColor(.textTertiary)
-
-                ForEach(page.groups) { group in
-                    VStack(alignment: .leading, spacing: FDS.Spacing.sm) {
-                        Text(group.title)
-                            .font(FDS.TypeScale.Dynamic.caption)
-                            .foregroundColor(.ember)
-                        ForEach(group.items, id: \.id) { med in
-                            pharmacyRow(med)
-                        }
-                    }
+    @ViewBuilder
+    private var resultsContent: some View {
+        if catalogLoading {
+            VStack(alignment: .leading, spacing: ForgeLayout.blockGap) {
+                ForgeCardHeader(title: "Results", tint: .steel) {
+                    ProgressView().controlSize(.mini)
                 }
+                ForgeSkeletonWell(message: "Loading the federal catalog…")
+            }
+            .forgeContentCard(tint: .steel)
+        } else if page.total == 0, !query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            ForgeEmptyNote(
+                title: "No match for “\(query)”.",
+                message: "Try the brand (Xcopri), the generic (cenobamate), or photograph the bottle.",
+                systemImage: "magnifyingglass",
+                tint: .steel
+            )
+            .forgeContentCard(tint: .steel)
+        } else {
+            Text(resultSummary)
+                .font(HomeType.body)
+                .foregroundStyle(Color.textSecondary)
+                .forgeWrapping()
 
-                if page.items.count < page.total {
-                    VStack(spacing: FDS.Spacing.md) {
-                        Button("Show more (\(page.items.count.formatted()) of \(page.total.formatted()))") {
-                            visibleLimit += 40
-                            applySearch()
-                        }
-                        .font(.system(size: 14, weight: .semibold))
-                        .foregroundColor(.ember)
-                        Button("Show all") {
-                            visibleLimit = min(page.total, MedicationPharmacy.showAllLimit)
-                            applySearch()
-                        }
-                        .font(.system(size: 14, weight: .semibold))
-                        .foregroundColor(Color(hex: "7EC8FF"))
-                        .accessibilityLabel("Show all medications")
-                        .accessibilityHint("Loads the full current list, up to \(MedicationPharmacy.showAllLimit) rows.")
-                    }
-                    .frame(maxWidth: .infinity)
-                }
+            ForEach(page.groups) { group in
+                groupCard(group)
+            }
+
+            if page.items.count < page.total {
+                showMoreButtons
             }
         }
     }
 
+    private func groupCard(_ group: PharmacyGroup) -> some View {
+        VStack(alignment: .leading, spacing: ForgeLayout.blockGap) {
+            ForgeCardHeader(group.title, meta: "\(group.items.count)", tint: .steel)
+            LazyVStack(alignment: .leading, spacing: ForgeLayout.rowGap) {
+                ForEach(group.items, id: \.id) { med in
+                    pharmacyRow(med)
+                }
+            }
+        }
+        .forgeContentCard(tint: .steel)
+    }
+
+    private var showMoreButtons: some View {
+        VStack(spacing: ForgeLayout.tileGap) {
+            ForgeSecondaryButton(
+                title: "Show more (\(page.items.count.formatted()) of \(page.total.formatted()))",
+                accent: .steel
+            ) {
+                visibleLimit += 40
+                applySearch()
+            }
+            ForgeSecondaryButton(title: "Show all", accent: .steel) {
+                visibleLimit = min(page.total, MedicationPharmacy.showAllLimit)
+                applySearch()
+            }
+            .accessibilityLabel("Show all medications")
+            .accessibilityHint("Loads the full current list, up to \(MedicationPharmacy.showAllLimit) rows.")
+        }
+    }
+
+    /// Sort and filter chips on the §2.3 edge-bleed rail: the rail runs to the
+    /// card edge, the first chip lines up with the card's content.
     private var sortBar: some View {
         ScrollView(.horizontal, showsIndicators: false) {
-            HStack(spacing: FDS.Spacing.sm) {
+            HStack(spacing: ForgeLayout.chipGap) {
                 ForEach(PharmacySort.allCases) { option in
-                    Button {
+                    ForgeChipButton(label: option.label, selected: sort == option) {
                         sort = option
                         applySearch()
-                    } label: {
-                        Text(option.label)
-                            .font(FDS.TypeScale.Dynamic.caption)
-                            .foregroundColor(sort == option ? .white : .textSecondary)
-                            .padding(.horizontal, FDS.Spacing.md)
-                            .padding(.vertical, FDS.Spacing.sm)
-                            .background(sort == option ? Color.ember : Color.surfaceElevated)
-                            .clipShape(Capsule())
                     }
-                    .buttonStyle(.plain)
                 }
                 if let archetypeFilter {
                     filterChip(archetypeFilter) { self.archetypeFilter = nil; applySearch() }
@@ -290,24 +437,15 @@ struct ClinicalDataNonPHIView: View {
                     filterChip(diseaseFilter) { self.diseaseFilter = nil; applySearch() }
                 }
             }
+            .padding(.horizontal, ForgeLayout.cardPadding)
+            .padding(.vertical, FDS.Spacing.sm)
         }
+        .padding(.horizontal, -ForgeLayout.cardPadding)
     }
 
     private func filterChip(_ title: String, clear: @escaping () -> Void) -> some View {
-        Button(action: clear) {
-            HStack(spacing: FDS.Spacing.xs) {
-                Text(title)
-                Image(systemName: "xmark")
-                    .font(.system(size: 9, weight: .bold))
-            }
-            .font(.system(size: 12, weight: .semibold))
-            .foregroundColor(.white)
-            .padding(.horizontal, FDS.Spacing.md)
-            .padding(.vertical, FDS.Spacing.sm)
-            .background(Color.ember.opacity(0.8))
-            .clipShape(Capsule())
-        }
-        .buttonStyle(.plain)
+        ForgeChipButton(label: title, icon: "xmark", energy: .steel, selected: true, action: clear)
+            .accessibilityHint("Clears this filter")
     }
 
     private var resultSummary: String {
@@ -318,36 +456,56 @@ struct ClinicalDataNonPHIView: View {
         return "\(page.total.formatted()) matches for “\(q)” — brand and generic."
     }
 
+    /// Agenda row: well, name over both names over the facts, then a 44 pt
+    /// add or check mark. Tapping the row adds or removes it from the list.
     private func pharmacyRow(_ med: FDAMedication) -> some View {
         let isSaved = saved.contains { $0.caseInsensitiveCompare(med.name) == .orderedSame }
+        let facts = [med.strength, med.form, med.archetype, med.disease]
+            .filter { !$0.isEmpty }
+            .joined(separator: " · ")
         return Button {
+            FDS.haptic(.select)
             MedicationPharmacy.toggleSaved(name: med.name)
             saved = MedicationPharmacy.savedNames()
             AriaContextStore.shared.applyMedicationLayer()
         } label: {
-            HStack(alignment: .top, spacing: FDS.Spacing.md) {
-                Image(systemName: isSaved ? "pills.fill" : "pills")
-                    .foregroundColor(.ember)
-                    .padding(.top, 2)
-                VStack(alignment: .leading, spacing: 3) {
+            HStack(alignment: .center, spacing: ForgeLayout.rowGap) {
+                ForgeIconWell(systemImage: isSaved ? "pills.fill" : "pills", tint: .steel)
+                VStack(alignment: .leading, spacing: ForgeLayout.pairGap) {
                     Text(med.brandOrGeneric)
-                        .font(FDS.TypeScale.Dynamic.body.weight(.semibold))
-                        .foregroundColor(.textPrimary)
+                        .font(HomeType.status)
+                        .foregroundStyle(Color.textPrimary)
                         .multilineTextAlignment(.leading)
-                    Text(med.bothNames)
-                        .font(FDS.TypeScale.Dynamic.caption)
-                        .foregroundColor(.textSecondary)
-                    Text([med.strength, med.form, med.archetype, med.disease].filter { !$0.isEmpty }.joined(separator: " · "))
-                        .font(.system(size: 12))
-                        .foregroundColor(.textTertiary)
+                        .lineLimit(2)
+                    if med.bothNames != med.brandOrGeneric {
+                        Text(med.bothNames)
+                            .font(HomeType.body)
+                            .foregroundStyle(Color.textSecondary)
+                            .multilineTextAlignment(.leading)
+                            .lineLimit(1)
+                    }
+                    if !facts.isEmpty {
+                        Text(facts)
+                            .font(HomeType.micro)
+                            .foregroundStyle(Color.textTertiary)
+                            .multilineTextAlignment(.leading)
+                            .lineLimit(2)
+                    }
                 }
-                Spacer()
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .layoutPriority(1)
+                Image(systemName: isSaved ? "checkmark.circle.fill" : "plus.circle")
+                    .font(.system(size: 20, weight: .semibold))
+                    .foregroundStyle(isSaved ? Color.vitality : Color.steel)
+                    .frame(width: ForgeUX.minTap, height: ForgeUX.minTap)
+                    .accessibilityHidden(true)
             }
-            .padding(FDS.Spacing.md)
-            .forgeGlassCard(cornerRadius: FDS.Radius.md, accent: .ember)
+            .padding(.vertical, ForgeLayout.rowVerticalPadding)
+            .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
         .accessibilityLabel("\(med.bothNames). \(med.archetype). \(med.disease). \(isSaved ? "On your list" : "Add to your list")")
+        .accessibilityAddTraits(isSaved ? .isSelected : [])
         .contextMenu {
             Button("Only \(med.archetype)") {
                 archetypeFilter = med.archetype
@@ -360,64 +518,54 @@ struct ClinicalDataNonPHIView: View {
         }
     }
 
+    // MARK: Pieces
+
+    /// "1  Apple Health" over its one-line subtitle. The badge scales with
+    /// Dynamic Type instead of clipping its digit in a fixed circle.
     private func stepHeader(number: String, title: String, subtitle: String) -> some View {
-        VStack(alignment: .leading, spacing: FDS.Spacing.xs) {
-            HStack(spacing: FDS.Spacing.sm) {
-                Text(number)
-                    .font(FDS.TypeScale.Dynamic.caption)
-                    .foregroundColor(.white)
-                    .frame(width: 22, height: 22)
-                    .background(Color.ember)
-                    .clipShape(Circle())
+        HStack(alignment: .top, spacing: ForgeLayout.rowGap) {
+            Text(number)
+                .font(HomeType.micro)
+                .foregroundStyle(Color.steel)
+                .lineLimit(1)
+                .minimumScaleFactor(0.8)
+                .frame(minWidth: badgeSize, minHeight: badgeSize)
+                .background(Circle().fill(Color.steel.opacity(0.16)))
+                .accessibilityHidden(true)
+            VStack(alignment: .leading, spacing: ForgeLayout.pairGap) {
                 Text(title)
-                    .font(FDS.TypeScale.Dynamic.headline)
-                    .foregroundColor(.textPrimary)
+                    .font(ForgeType.title)
+                    .foregroundStyle(Color.textPrimary)
+                    .forgeWrapping()
+                Text(subtitle)
+                    .font(HomeType.body)
+                    .foregroundStyle(Color.textSecondary)
+                    .forgeWrapping()
             }
-            Text(subtitle)
-                .font(.system(size: 12))
-                .foregroundColor(.textTertiary)
+            .frame(maxWidth: .infinity, alignment: .leading)
         }
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("Step \(number), \(title). \(subtitle)")
+        .accessibilityAddTraits(.isHeader)
     }
 
-    private func kindSection(_ kind: StructuredHealthKind, items: [StructuredHealthItem]) -> some View {
-        VStack(alignment: .leading, spacing: FDS.Spacing.md) {
-            HStack(spacing: FDS.Spacing.sm) {
-                Image(systemName: kind.symbol)
-                    .font(.system(size: 13, weight: .semibold))
-                    .foregroundColor(.ember)
-                Text(kind.title)
-                    .font(FDS.TypeScale.Dynamic.body.weight(.semibold))
-                    .foregroundColor(.textPrimary)
-                Spacer()
-                Text("\(items.count)")
-                    .font(FDS.TypeScale.Dynamic.caption)
-                    .foregroundColor(.textTertiary)
-            }
-
-            if items.isEmpty {
-                Text("None on file")
-                    .font(.system(size: 13))
-                    .foregroundColor(.textTertiary)
-                    .padding(.vertical, FDS.Spacing.xs)
-            } else {
-                VStack(spacing: 0) {
-                    ForEach(items) { item in
-                        VStack(alignment: .leading, spacing: 3) {
-                            Text(item.name)
-                                .font(FDS.TypeScale.Dynamic.body)
-                                .foregroundColor(.textPrimary)
-                            Text("\(item.source)  ·  \(item.date.formatted(date: .abbreviated, time: .omitted))")
-                                .font(.system(size: 12))
-                                .foregroundColor(.textTertiary)
-                        }
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .padding(.vertical, FDS.Spacing.md)
-                    }
-                }
-            }
+    /// A one-line-or-two notice on the card surface: info in steel, a missing
+    /// connection in warning. Never red.
+    private func noticeCard(_ message: String, systemImage: String, tint: Color) -> some View {
+        HStack(alignment: .top, spacing: ForgeLayout.rowGap) {
+            Image(systemName: systemImage)
+                .font(.system(size: ForgeUX.icon, weight: .semibold))
+                .foregroundStyle(tint)
+                .accessibilityHidden(true)
+            Text(message)
+                .font(HomeType.body)
+                .foregroundStyle(Color.textSecondary)
+                .forgeWrapping()
+                .frame(maxWidth: .infinity, alignment: .leading)
         }
-        .padding(FDS.Spacing.lg)
-        .forgeGlassCard(cornerRadius: FDS.Radius.lg, accent: .ember)
+        .frame(minHeight: ForgeUX.minTap)
+        .forgeContentCard(tint: tint, padding: ForgeLayout.compactCardPadding)
+        .accessibilityElement(children: .combine)
     }
 
     private func bootCatalog() async {

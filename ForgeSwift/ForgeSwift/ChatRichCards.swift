@@ -13,178 +13,254 @@ struct RichCardView: View {
 struct WorkoutRichCardView: View {
     let card: RichCardData
     @EnvironmentObject var store: AppStore
-    @State private var expanded     = false
-    @State private var startPressed = false
-    @State private var appeared     = false
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @State private var expanded = false
+    @ScaledMetric(relativeTo: .caption) private var badgeSize: CGFloat = 28
+
+    private var exercises: [RichCardExercise] { card.workoutExercises ?? [] }
+
+    private var durationText: String {
+        guard let minutes = card.workoutDuration, minutes > 0 else { return "—" }
+        return "\(minutes) min"
+    }
 
     var body: some View {
-        VStack(spacing: 0) {
-            FDS.Gradient.emberDeep.frame(height: 3)
-                .cornerRadius(3, corners: [UIRectCorner.topLeft, UIRectCorner.topRight])
+        VStack(alignment: .leading, spacing: ForgeLayout.blockGap) {
+            header
 
-            HStack(spacing: FDS.Spacing.lg) {
-                ZStack {
-                    RoundedRectangle(cornerRadius: FDS.Radius.sm)
-                        .fill(Color.ember.opacity(0.12)).frame(width: 46, height: 46)
-                    Image(systemName: "dumbbell.fill")
-                        .font(.system(size: 19)).foregroundStyle(FDS.Gradient.ember)
-                }
-                VStack(alignment: .leading, spacing: FDS.Spacing.xs) {
-                    Text(card.workoutName ?? "Workout Plan")
-                        .font(FDS.TypeScale.Dynamic.headline).foregroundColor(.textPrimary)
-                    HStack(spacing: FDS.Spacing.md) {
-                        Label("\(card.workoutDuration ?? 0) min", systemImage: "clock.fill")
-                        Label("\(card.workoutExercises?.count ?? 0) exercises", systemImage: "list.bullet")
-                    }
-                    .font(.system(size: 12, weight: .medium)).foregroundColor(.textSecondary)
-                }
-                Spacer()
-                Button {
-                    withAnimation(FDS.Spring.standard) { expanded.toggle() }
-                    UISelectionFeedbackGenerator().selectionChanged()
-                } label: {
-                    Image(systemName: expanded ? "chevron.up.circle.fill" : "chevron.down.circle.fill")
-                        .font(.system(size: 22)).foregroundStyle(FDS.Gradient.ember)
-                }
-            }
-            .padding(FDS.Spacing.lg)
-
-            if expanded, let exercises = card.workoutExercises {
-                Divider().background(Color.borderColor.opacity(0.3))
-                VStack(spacing: 0) {
-                    ForEach(Array(exercises.enumerated()), id: \.offset) { i, ex in
-                        HStack(spacing: FDS.Spacing.md) {
-                            ZStack {
-                                Circle().fill(Color.ember.opacity(0.1)).frame(width: 28, height: 28)
-                                Text("\(i+1)").font(FDS.TypeScale.Dynamic.caption).foregroundColor(.ember)
-                            }
-                            Text(ex.name).font(FDS.TypeScale.Dynamic.body).foregroundColor(.textPrimary)
-                            Spacer()
-                            Text("\(ex.sets) × \(ex.reps)")
-                                .font(FDS.TypeScale.Dynamic.caption).foregroundColor(.textSecondary)
-                                .padding(.horizontal, FDS.Spacing.md).padding(.vertical, FDS.Spacing.xs)
-                                .background(Color.surface).cornerRadius(FDS.Radius.xs)
-                        }
-                        .padding(.horizontal, FDS.Spacing.lg).padding(.vertical, FDS.Spacing.md)
-                        .forgeEntrance(index: i, appeared: expanded)
-                        if i < exercises.count - 1 {
-                            Divider().background(Color.borderColor.opacity(0.22)).padding(.leading, 56)
-                        }
-                    }
-                }
-                .padding(.vertical, FDS.Spacing.sm)
-                .transition(.opacity.combined(with: .scale(scale: 0.97, anchor: .top)))
+            if expanded, !exercises.isEmpty {
+                exerciseList
+                    .transition(.opacity.combined(with: .scale(scale: 0.97, anchor: .top)))
             }
 
-            Divider().background(Color.borderColor.opacity(0.3))
-
-            Button {
-                store.adoptWorkoutFromRichCard(card)
-                if store.todayWorkout != nil {
-                    store.startExistingWorkout()
-                } else {
-                    store.openChat(with: HomeInsightFlow.todayPlanPrompt, voice: false)
+            if !exercises.isEmpty {
+                ForgeTextLink(
+                    title: expanded ? "Hide exercises" : "Show exercises",
+                    accent: .ember,
+                    expanded: expanded
+                ) {
+                    withAnimation(reduceMotion ? nil : FDS.Spring.standard) { expanded.toggle() }
                 }
-            } label: {
-                HStack(spacing: FDS.Spacing.sm) {
-                    Image(systemName: "play.fill").font(.system(size: 13, weight: .bold))
-                    Text("Start This Workout").font(FDS.TypeScale.Dynamic.body.weight(.semibold))
-                }
-                .foregroundColor(.white).frame(maxWidth: .infinity).padding(.vertical, FDS.Spacing.lg)
-                .background(FDS.Gradient.emberDeep).cornerRadius(FDS.Radius.sm)
-                .overlay(alignment: .top) {
-                    RoundedRectangle(cornerRadius: FDS.Radius.sm)
-                        .fill(LinearGradient(colors: [Color.white.opacity(0.1), .clear], startPoint: .top, endPoint: .center))
-                        .frame(height: 20)
-                }
-                .shadow(color: Color.ember.opacity(startPressed ? 0.2 : 0.42), radius: startPressed ? 4 : 12, y: startPressed ? 1 : 5)
-                .scaleEffect(startPressed ? 0.97 : 1).animation(FDS.Spring.snap, value: startPressed)
             }
-            .simultaneousGesture(DragGesture(minimumDistance: 0)
-                .onChanged { _ in startPressed = true }.onEnded { _ in startPressed = false })
-            .padding(FDS.Spacing.lg)
+
+            ForgePrimaryButton(title: "Start this workout", icon: "play.fill") {
+                startWorkout()
+            }
         }
-        .forgeGlassCard(cornerRadius: FDS.Radius.md, accent: .ember)
-        .shadow(color: .black.opacity(0.06), radius: 5, y: 2)
-        .opacity(appeared ? 1 : 0).offset(y: appeared ? 0 : 10)
-        .onAppear { withAnimation(FDS.Spring.hero.delay(0.1)) { appeared = true } }
+        .forgeContentCard(tint: .ember)
+        .accessibilityElement(children: .contain)
+    }
+
+    // MARK: Header
+
+    private var header: some View {
+        VStack(alignment: .leading, spacing: ForgeLayout.rowGap) {
+            HStack(spacing: ForgeLayout.rowGap) {
+                ForgeIconWell(systemImage: "dumbbell.fill", tint: .ember)
+                Text(card.workoutName ?? "Workout Plan")
+                    .font(HomeType.status)
+                    .foregroundStyle(Color.textPrimary)
+                    .lineLimit(2)
+                    .layoutPriority(1)
+                    .accessibilityAddTraits(.isHeader)
+                Spacer(minLength: 0)
+            }
+
+            ForgeFlowLayout {
+                ForgeChip(label: durationText, icon: "clock.fill")
+                if !exercises.isEmpty {
+                    ForgeChip(label: "\(exercises.count) exercises", icon: "list.bullet")
+                }
+            }
+        }
+    }
+
+    // MARK: Exercises
+
+    private var exerciseList: some View {
+        VStack(alignment: .leading, spacing: ForgeLayout.rowGap) {
+            ForEach(Array(exercises.enumerated()), id: \.offset) { i, ex in
+                exerciseRow(index: i, exercise: ex)
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .forgeWell()
+    }
+
+    private func exerciseRow(index: Int, exercise ex: RichCardExercise) -> some View {
+        let badge = ForgeLayout.scaledCap(badgeSize, base: 28)
+        return HStack(spacing: ForgeLayout.rowGap) {
+            Text("\(index + 1)")
+                .font(HomeType.label)
+                .foregroundStyle(Color.ember)
+                .monospacedDigit()
+                .hudInArcText()
+                .frame(width: badge, height: badge)
+                .background(Circle().fill(Color.ember.opacity(0.16)))
+                .accessibilityHidden(true)
+            Text(ex.name)
+                .font(HomeType.status)
+                .foregroundStyle(Color.textPrimary)
+                .lineLimit(2)
+                .forgeWrapping()
+                .layoutPriority(1)
+            Spacer(minLength: FDS.Spacing.xs)
+            Text("\(ex.sets) × \(ex.reps)")
+                .font(HomeType.label)
+                .foregroundStyle(Color.textSecondary)
+                .monospacedDigit()
+                .lineLimit(1)
+                .fixedSize()
+        }
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("Exercise \(index + 1), \(ex.name), \(ex.sets) sets of \(ex.reps)")
+    }
+
+    // MARK: Action
+
+    private func startWorkout() {
+        store.adoptWorkoutFromRichCard(card)
+        if store.todayWorkout != nil {
+            store.startExistingWorkout()
+        } else {
+            store.openChat(with: HomeInsightFlow.todayPlanPrompt, voice: false)
+        }
     }
 }
 
 struct DataChartRichCardView: View {
     let card: RichCardData
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @ScaledMetric(relativeTo: .caption) private var plotHeight: CGFloat = 72
     @State private var appeared = false
-    @State private var hoverIdx: Int? = nil
+    @State private var selectedIdx: Int? = nil
     var values:   [Double] { card.chartValues ?? [] }
     var maxVal:   Double   { values.max() ?? 1 }
     var minVal:   Double   { values.min() ?? 0 }
     var barColor: Color    { card.chartColor ?? .steel }
 
-    var body: some View {
-        VStack(spacing: 0) {
-            LinearGradient(colors: [barColor.opacity(0.75), barColor.opacity(0.35)], startPoint: .leading, endPoint: .trailing)
-                .frame(height: 3).cornerRadius(3, corners: [UIRectCorner.topLeft, UIRectCorner.topRight])
+    private var showsAxisLabels: Bool { values.count <= 12 }
 
-            HStack(spacing: FDS.Spacing.md) {
-                ZStack {
-                    RoundedRectangle(cornerRadius: FDS.Radius.xs).fill(barColor.opacity(0.14)).frame(width: 38, height: 38)
-                    Image(systemName: "chart.line.uptrend.xyaxis").font(.system(size: 16)).foregroundColor(barColor)
-                }
-                Text(card.chartTitle ?? "Trend")
-                    .font(FDS.TypeScale.Dynamic.body.weight(.semibold)).foregroundColor(.textPrimary)
-                Spacer()
-                if let idx = hoverIdx, idx < values.count {
-                    Text(String(format: "%.0f", values[idx]))
-                        .font(.system(size: 13, weight: .bold, design: .monospaced)).foregroundColor(barColor)
-                        .transition(.opacity)
-                }
-            }
-            .padding(FDS.Spacing.lg)
-
-            VStack(alignment: .leading, spacing: FDS.Spacing.md) {
-                HStack(alignment: .bottom, spacing: FDS.Spacing.xs) {
-                    ForEach(Array(values.enumerated()), id: \.offset) { i, val in
-                        let norm = maxVal > minVal ? (val - minVal) / (maxVal - minVal) : 1
-                        RoundedRectangle(cornerRadius: FDS.Radius.xs)
-                            .fill(LinearGradient(
-                                colors: [barColor.opacity(hoverIdx == i ? 0.95 : 0.55 + 0.45 * norm),
-                                         barColor.opacity(hoverIdx == i ? 0.65 : 0.28 + 0.37 * norm)],
-                                startPoint: .top, endPoint: .bottom
-                            ))
-                            .frame(maxWidth: .infinity)
-                            .frame(height: appeared ? max(6, 52 * CGFloat(norm)) : 4)
-                            .scaleEffect(y: hoverIdx == i ? 1.07 : 1.0, anchor: .bottom)
-                            .animation(FDS.Spring.hero.delay(Double(i) * 0.04), value: appeared)
-                            .animation(FDS.Spring.snap, value: hoverIdx)
-                            .onTapGesture {
-                                withAnimation(FDS.Spring.snap) { hoverIdx = hoverIdx == i ? nil : i }
-                                UISelectionFeedbackGenerator().selectionChanged()
-                            }
-                    }
-                }
-                .frame(height: 52)
-                if let insight = card.chartInsight {
-                    HStack(spacing: FDS.Spacing.sm) {
-                        Image(systemName: "lightbulb.fill").font(.system(size: 12)).foregroundColor(barColor.opacity(0.75))
-                        Text(insight).font(FDS.TypeScale.Dynamic.caption).foregroundColor(.textSecondary).lineSpacing(3)
-                    }
-                }
-            }
-            .padding(FDS.Spacing.lg)
-            .background(RoundedRectangle(cornerRadius: FDS.Radius.sm).fill(barColor.opacity(0.04)))
-            .padding(FDS.Spacing.md)
-        }
-        .forgeGlassCard(cornerRadius: FDS.Radius.md, accent: barColor)
-        .onAppear { withAnimation(FDS.Spring.hero.delay(0.1)) { appeared = true } }
+    private var selectedValueText: String? {
+        guard let idx = selectedIdx, idx < values.count else { return nil }
+        return String(format: "%.0f", values[idx])
     }
-}
 
-// MARK: - readinessColor helper
-private func readinessColor(_ score: Int) -> Color {
-    switch score {
-    case 85...:   return Color.vitality
-    case 70..<85: return Color.ember
-    case 50..<70: return Color.steel
-    default:      return Color.alert
+    private var chartSummary: String {
+        let title = card.chartTitle ?? "Trend"
+        guard !values.isEmpty else { return title }
+        let low = String(format: "%.0f", minVal)
+        let high = String(format: "%.0f", maxVal)
+        return "\(title), \(values.count) values from \(low) to \(high)"
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: ForgeLayout.blockGap) {
+            header
+
+            if !values.isEmpty || card.chartInsight != nil {
+                chartWell
+            }
+        }
+        .forgeContentCard(tint: barColor)
+        .onAppear { withAnimation(reduceMotion ? nil : FDS.Spring.hero.delay(0.1)) { appeared = true } }
+    }
+
+    // MARK: Header
+
+    private var header: some View {
+        HStack(spacing: ForgeLayout.rowGap) {
+            ForgeIconWell(systemImage: "chart.line.uptrend.xyaxis", tint: barColor)
+            Text(card.chartTitle ?? "Trend")
+                .font(HomeType.status)
+                .foregroundStyle(Color.textPrimary)
+                .lineLimit(2)
+                .layoutPriority(1)
+                .accessibilityAddTraits(.isHeader)
+            Spacer(minLength: FDS.Spacing.xs)
+            if let selected = selectedValueText {
+                Text(selected)
+                    .font(HomeType.metric)
+                    .foregroundStyle(barColor)
+                    .monospacedDigit()
+                    .forgeSingleLine()
+                    .contentTransition(.numericText())
+                    .transition(.opacity)
+            }
+        }
+    }
+
+    // MARK: Chart
+
+    private var chartWell: some View {
+        VStack(alignment: .leading, spacing: ForgeLayout.rowGap) {
+            if !values.isEmpty {
+                bars
+            }
+            if let insight = card.chartInsight {
+                HStack(alignment: .firstTextBaseline, spacing: FDS.Spacing.sm) {
+                    Image(systemName: "lightbulb.fill")
+                        .font(.system(size: 12))
+                        .foregroundStyle(barColor.opacity(0.75))
+                        .accessibilityHidden(true)
+                    Text(insight)
+                        .font(HomeType.body)
+                        .foregroundStyle(Color.textSecondary)
+                        .forgeWrapping()
+                }
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .forgeWell()
+    }
+
+    private var bars: some View {
+        HStack(alignment: .bottom, spacing: FDS.Spacing.xs) {
+            ForEach(Array(values.enumerated()), id: \.offset) { i, val in
+                barColumn(index: i, value: val)
+            }
+        }
+        .accessibilityElement(children: .contain)
+        .accessibilityLabel(chartSummary)
+    }
+
+    private func barColumn(index i: Int, value: Double) -> some View {
+        let fraction: Double = maxVal > 0 ? max(0, value) / maxVal : 0
+        let isSelected = selectedIdx == i
+        let shown: CGFloat = (appeared || reduceMotion) ? CGFloat(fraction) : 0
+        let barHeight: CGFloat = max(2, plotHeight * shown)
+        let fillOpacity: Double = isSelected ? 0.95 : (selectedIdx == nil ? 0.8 : 0.4)
+        let grow: Animation? = reduceMotion ? nil : FDS.Spring.hero.delay(Double(i) * 0.04)
+        let valueText = String(format: "%.0f", value)
+
+        return Button {
+            withAnimation(reduceMotion ? nil : FDS.Spring.snap) {
+                selectedIdx = selectedIdx == i ? nil : i
+            }
+            FDS.haptic(.select)
+        } label: {
+            VStack(spacing: FDS.Spacing.xs) {
+                ZStack(alignment: .bottom) {
+                    Color.clear.frame(height: plotHeight)
+                    RoundedRectangle(cornerRadius: FDS.Radius.xs, style: .continuous)
+                        .fill(barColor.opacity(fillOpacity))
+                        .frame(height: barHeight)
+                        .animation(grow, value: appeared)
+                }
+                if showsAxisLabels {
+                    Text("\(i + 1)")
+                        .font(HomeType.micro)
+                        .foregroundStyle(Color.textTertiary)
+                        .monospacedDigit()
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.8)
+                }
+            }
+            .frame(maxWidth: .infinity)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel("Point \(i + 1), \(valueText)")
+        .accessibilityAddTraits(isSelected ? .isSelected : [])
     }
 }

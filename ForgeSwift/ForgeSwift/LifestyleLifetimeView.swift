@@ -14,7 +14,7 @@ struct LifestyleLifetimeView: View {
     private var aging: AgingSnapshot { vm.agingSnapshot }
 
     var body: some View {
-        VStack(spacing: FDS.Spacing.lg) {
+        VStack(spacing: ForgeLayout.sectionGap) {
             if !aging.oneBreathLine.isEmpty {
                 LifetimeOneBreathCard(
                     line: aging.oneBreathLine,
@@ -41,10 +41,12 @@ struct LifestyleLifetimeView: View {
         }
     }
 
+    /// Behind and matched states stay calm: steel for "older", never a
+    /// warning color.
     private var agingTone: Color {
         switch aging.state {
-        case .younger: return .success
-        case .older: return .warning
+        case .younger: return .vitality
+        case .older: return HudChrome.miss
         case .matched, .unknown: return Color.aurora
         }
     }
@@ -55,109 +57,147 @@ struct LifetimeOneBreathCard: View {
     let detail: String
     let tone: Color
 
+    private var showsDetail: Bool { !detail.isEmpty && detail != line }
+
+    private var spokenSummary: String {
+        var parts = [line]
+        if showsDetail { parts.append(detail) }
+        parts.append(Self.disclaimer)
+        return parts.joined(separator: ". ")
+    }
+
+    private static let disclaimer = "Lifestyle comparison — not a medical biological age."
+
     var body: some View {
-        VStack(alignment: .leading, spacing: FDS.Spacing.md) {
-            Text("LIFETIME")
-                .font(FDS.TypeScale.Dynamic.micro)
-                .foregroundColor(.textTertiary)
-                .tracking(2.5)
-            Text(line)
-                .font(FDS.TypeScale.Dynamic.title)
-                .foregroundColor(.textPrimary)
-                .fixedSize(horizontal: false, vertical: true)
+        VStack(alignment: .leading, spacing: ForgeLayout.heroGap) {
+            Text("Lifetime")
+                .forgeSectionLabel()
                 .accessibilityAddTraits(.isHeader)
-            if !detail.isEmpty, detail != line {
+            Text(line)
+                .font(HomeType.sessionTitle)
+                .foregroundStyle(Color.textPrimary)
+                .forgeWrapping()
+                .accessibilityAddTraits(.isHeader)
+            if showsDetail {
                 Text(detail)
-                    .font(FDS.TypeScale.Dynamic.body)
-                    .foregroundColor(.textSecondary)
+                    .font(HomeType.body)
+                    .foregroundStyle(Color.textSecondary)
+                    .forgeWrapping()
             }
-            Text("Lifestyle comparison — not a medical biological age.")
-                .font(.system(size: 11))
-                .foregroundColor(.textMuted)
+            Text(Self.disclaimer)
+                .font(HomeType.micro)
+                .foregroundStyle(Color.textTertiary)
+                .forgeWrapping()
         }
-        .padding(FDS.Spacing.xl)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .forgeGlassCard(cornerRadius: FDS.Radius.xl, accent: tone)
+        .hudPlate(energy: tone)
         .accessibilityElement(children: .combine)
-        .accessibilityLabel(line)
+        .accessibilityLabel(spokenSummary)
     }
 }
 
 struct MetabolicStoryCard: View {
     let snapshot: MetabolicHealthSnapshot
 
+    @State private var showEstimate = false
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    private var carbsValue: String {
+        snapshot.carbsGrams > 0 ? "\(Int(snapshot.carbsGrams.rounded()))" : "—"
+    }
+
+    private var glucoseValue: String {
+        snapshot.latestMgdl.map { "\(Int($0.rounded()))" } ?? "—"
+    }
+
+    private var expandTransition: AnyTransition {
+        reduceMotion
+            ? AnyTransition.opacity
+            : AnyTransition.opacity.combined(with: .scale(scale: 0.97, anchor: .top))
+    }
+
     var body: some View {
-        VStack(alignment: .leading, spacing: FDS.Spacing.lg) {
-            HStack(spacing: FDS.Spacing.md) {
-                ZStack {
-                    Circle().fill(Color.amber.opacity(0.15)).frame(width: 46, height: 46)
-                    Image(systemName: "waveform.path.ecg.rectangle")
-                        .font(.system(size: 20, weight: .semibold))
-                        .foregroundColor(Color.amber)
-                }
-                VStack(alignment: .leading, spacing: 3) {
-                    Text("Metabolic health")
-                        .font(FDS.TypeScale.Dynamic.headline)
-                        .foregroundColor(.textPrimary)
-                    Text("Meals, macros, and how glucose landed")
-                        .font(.system(size: 12))
-                        .foregroundColor(.textTertiary)
-                }
-                Spacer()
-            }
+        VStack(alignment: .leading, spacing: ForgeLayout.blockGap) {
+            header
 
             if !snapshot.storyLine.isEmpty {
                 Text(snapshot.storyLine)
-                    .font(FDS.TypeScale.Dynamic.title)
-                    .foregroundColor(.textPrimary)
-                    .fixedSize(horizontal: false, vertical: true)
+                    .font(HomeType.sessionTitle)
+                    .foregroundStyle(Color.textPrimary)
+                    .forgeWrapping()
                     .accessibilityAddTraits(.isHeader)
             }
 
-            HStack(spacing: FDS.Spacing.md) {
-                macroChip("Meals", "\(snapshot.mealCount)")
-                macroChip("Carbs", snapshot.carbsGrams > 0 ? "\(Int(snapshot.carbsGrams.rounded()))g" : "—")
-                macroChip("Glucose", snapshot.latestMgdl.map { "\(Int($0.rounded()))" } ?? "—")
-            }
+            statGrid
 
             if let estimate = snapshot.watchEstimate, estimate.hasSignals {
-                VStack(alignment: .leading, spacing: FDS.Spacing.sm) {
-                    Text("ESTIMATED FROM APPLE WATCH")
-                        .font(FDS.TypeScale.Dynamic.micro)
-                        .foregroundColor(.textTertiary)
-                        .tracking(1.6)
-                    ForEach(estimate.displayLines, id: \.self) { line in
-                        Text("•  \(line)")
-                            .font(.system(size: 13))
-                            .foregroundColor(.textSecondary)
-                            .fixedSize(horizontal: false, vertical: true)
-                    }
-                    Text("Estimates, not measurements — not medical advice.")
-                        .font(.system(size: 11))
-                        .foregroundColor(.textTertiary)
-                        .fixedSize(horizontal: false, vertical: true)
-                }
+                estimateWell(estimate)
             }
 
             FourBulletList(bullets: snapshot.bullets)
         }
-        .padding(FDS.Spacing.xl)
-        .forgeGlassCard(cornerRadius: FDS.Radius.xl, accent: Color.amber)
-        .accessibilityElement(children: .combine)
-        .accessibilityLabel(snapshot.storyLine.isEmpty ? "Metabolic health" : snapshot.storyLine)
+        .forgeContentCard(tint: .amber)
+        .accessibilityElement(children: .contain)
     }
 
-    private func macroChip(_ label: String, _ value: String) -> some View {
-        VStack(alignment: .leading, spacing: FDS.Spacing.xs) {
-            Text(label.uppercased())
-                .font(FDS.TypeScale.Dynamic.micro)
-                .tracking(1.1)
-                .foregroundColor(.textTertiary)
-            Text(value)
-                .font(FDS.TypeScale.Dynamic.metric)
-                .foregroundColor(.textPrimary)
+    private var header: some View {
+        VStack(alignment: .leading, spacing: ForgeLayout.pairGap) {
+            ForgeCardHeader("Metabolic health")
+            Text("Meals, macros, and how glucose landed")
+                .font(HomeType.body)
+                .foregroundStyle(Color.textTertiary)
+                .forgeWrapping()
+        }
+    }
+
+    private var statGrid: some View {
+        ForgeStatGrid(columns: 3) {
+            ForgeStatTile(label: "Meals", value: "\(snapshot.mealCount)", energy: .amber)
+            ForgeStatTile(
+                label: "Carbs",
+                value: carbsValue,
+                unit: snapshot.carbsGrams > 0 ? "g" : nil,
+                energy: .amber
+            )
+            ForgeStatTile(
+                label: "Glucose",
+                value: glucoseValue,
+                unit: snapshot.latestMgdl == nil ? nil : "mg/dL",
+                energy: .amber
+            )
+        }
+    }
+
+    /// Watch estimates stay visibly apart from measurements: a well with a
+    /// disclosure, so the card keeps to four blocks.
+    private func estimateWell(_ estimate: MetabolicWatchEstimate) -> some View {
+        VStack(alignment: .leading, spacing: ForgeLayout.rowGap) {
+            ForgeTextLink(title: "Estimated from Apple Watch", accent: .amber, expanded: showEstimate) {
+                toggleEstimate()
+            }
+            if showEstimate {
+                VStack(alignment: .leading, spacing: ForgeLayout.rowGap) {
+                    ForEach(estimate.displayLines, id: \.self) { line in
+                        ForgeBulletRow(text: line, tint: .amber)
+                    }
+                    Text("Lifestyle estimates from Apple Watch trends, not measurements.")
+                        .font(HomeType.micro)
+                        .foregroundStyle(Color.textTertiary)
+                        .forgeWrapping()
+                }
+                .transition(expandTransition)
+            }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
+        .forgeWell()
+    }
+
+    private func toggleEstimate() {
+        if reduceMotion {
+            showEstimate.toggle()
+        } else {
+            withAnimation(FDS.Spring.standard) { showEstimate.toggle() }
+        }
     }
 }
 
@@ -165,31 +205,37 @@ struct MealGlucoseStoryCard: View {
     let pairs: [MealGlucosePair]
 
     var body: some View {
-        VStack(alignment: .leading, spacing: FDS.Spacing.lg) {
-            Text("MEAL ↔ GLUCOSE")
-                .font(FDS.TypeScale.Dynamic.micro)
-                .foregroundColor(.textTertiary)
-                .tracking(2.5)
+        VStack(alignment: .leading, spacing: ForgeLayout.blockGap) {
+            ForgeCardHeader("Meal ↔ Glucose")
+                .accessibilityElement(children: .combine)
+                .accessibilityLabel("Meals and glucose")
+                .accessibilityAddTraits(.isHeader)
 
-            ForEach(Array(pairs.enumerated()), id: \.offset) { _, pair in
-                VStack(alignment: .leading, spacing: FDS.Spacing.xs) {
-                    Text(pair.line)
-                        .font(FDS.TypeScale.Dynamic.body.weight(.semibold))
-                        .foregroundColor(.textPrimary)
-                        .fixedSize(horizontal: false, vertical: true)
-                    if let peak = pair.peakMgdl {
-                        Text(peakCaption(peak: peak, delta: pair.deltaMgdl))
-                            .font(.system(size: 12))
-                            .foregroundColor(.textTertiary)
-                    }
+            VStack(spacing: ForgeLayout.tileGap) {
+                ForEach(Array(pairs.enumerated()), id: \.offset) { _, pair in
+                    pairWell(pair)
                 }
-                .padding(FDS.Spacing.lg)
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .forgeInsetTile(radius: FDS.Radius.md)
             }
         }
-        .padding(FDS.Spacing.xl)
-        .forgeGlassCard(cornerRadius: FDS.Radius.xl, accent: Color.amber)
+        .forgeContentCard(tint: .aurora)
+    }
+
+    private func pairWell(_ pair: MealGlucosePair) -> some View {
+        VStack(alignment: .leading, spacing: ForgeLayout.pairGap) {
+            Text(pair.line)
+                .font(HomeType.status)
+                .foregroundStyle(Color.textPrimary)
+                .forgeWrapping()
+            if let peak = pair.peakMgdl {
+                Text(peakCaption(peak: peak, delta: pair.deltaMgdl))
+                    .font(HomeType.body)
+                    .foregroundStyle(Color.textTertiary)
+                    .forgeWrapping()
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .forgeWell()
+        .accessibilityElement(children: .combine)
     }
 
     private func peakCaption(peak: Double, delta: Double?) -> String {
@@ -205,29 +251,15 @@ struct MetabolicAccessoryCard: View {
     var onOpenDevices: () -> Void
 
     var body: some View {
-        VStack(alignment: .leading, spacing: FDS.Spacing.md) {
-            HStack(spacing: FDS.Spacing.sm) {
-                Image(systemName: "cross.vial.fill")
-                    .foregroundColor(Color.amber)
-                Text("Sensor sold separately")
-                    .font(FDS.TypeScale.Dynamic.headline)
-                    .foregroundColor(.textPrimary)
-            }
+        VStack(alignment: .leading, spacing: ForgeLayout.blockGap) {
+            ForgeCardHeader("Sensor sold separately")
             Text(snapshot.accessoryLine)
-                .font(.system(size: 14))
-                .foregroundColor(.textSecondary)
-                .fixedSize(horizontal: false, vertical: true)
-
-            Button(action: onOpenDevices) {
-                Text("Open devices")
-                    .font(FDS.TypeScale.Dynamic.body.weight(.semibold))
-                    .foregroundColor(.ember)
-            }
-            .buttonStyle(.plain)
-            .accessibilityLabel("Open devices")
+                .font(HomeType.body)
+                .foregroundStyle(Color.textSecondary)
+                .forgeWrapping()
+            ForgeTextLink(title: "Open devices", accent: .amber, action: onOpenDevices)
         }
-        .padding(FDS.Spacing.lg)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .forgeGlassCard(cornerRadius: FDS.Radius.xl, accent: Color.amber)
+        .forgeContentCard(tint: .amber)
+        .accessibilityElement(children: .contain)
     }
 }

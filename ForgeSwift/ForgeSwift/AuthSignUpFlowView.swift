@@ -77,13 +77,13 @@ struct AuthSignUpFlowView: View {
             }
         }
 
-        var accentHex: String {
+        var accent: Color {
             switch self {
-            case .buildMuscle: return "F7F4F0"
-            case .loseFat: return "A9D8FF"
-            case .energy: return "60A5FA"
-            case .performance: return "C4B5FD"
-            case .recovery: return "34D399"
+            case .buildMuscle: return Color.ember
+            case .loseFat: return Color.amber
+            case .energy: return Color.steel
+            case .performance: return Color.aurora
+            case .recovery: return Color.vitality
             }
         }
 
@@ -101,18 +101,14 @@ struct AuthSignUpFlowView: View {
     var body: some View {
         ZStack {
             PremiumAtmosphere(
-                accent: Color(hex: spark.accentHex),
-                secondary: Color(hex: "A9D8FF"),
+                accent: spark.accent,
+                secondary: HudChrome.plate,
                 intensity: 0.85
             )
-            .animation(.easeInOut(duration: 0.4), value: spark)
+            .animation(reduceMotion ? nil : Animation.easeInOut(duration: 0.4), value: spark)
 
             VStack(spacing: 0) {
                 topBar
-                progressBar
-                    .padding(.horizontal, FDS.Spacing.xl)
-                    .padding(.top, FDS.Spacing.sm)
-                    .padding(.bottom, FDS.Spacing.lg)
 
                 Group {
                     switch step {
@@ -123,11 +119,8 @@ struct AuthSignUpFlowView: View {
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
                 .id(step)
-                .transition(.asymmetric(
-                    insertion: .move(edge: .trailing).combined(with: .opacity),
-                    removal: .move(edge: .leading).combined(with: .opacity)
-                ))
-                .animation(FDS.Spring.page, value: step)
+                .transition(stepTransition)
+                .animation(stepAnimation, value: step)
             }
 
             if celebrate {
@@ -137,63 +130,63 @@ struct AuthSignUpFlowView: View {
             }
         }
         .onAppear {
-            withAnimation(FDS.Spring.hero) { appeared = true }
+            withAnimation(reduceMotion ? nil : FDS.Spring.hero) { appeared = true }
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.45) {
                 nameFieldFocused = true
             }
         }
+        .onChange(of: errorMessage) { _, message in
+            if let message {
+                AccessibilityNotification.Announcement(message).post()
+            }
+        }
+    }
+
+    private var stepAnimation: Animation? {
+        reduceMotion ? nil : FDS.Spring.page
+    }
+
+    private var stepTransition: AnyTransition {
+        if reduceMotion { return .opacity }
+        return .asymmetric(
+            insertion: .move(edge: .trailing).combined(with: .opacity),
+            removal: .move(edge: .leading).combined(with: .opacity)
+        )
     }
 
     // MARK: Chrome
 
+    /// One row: a 44 pt back (or close on the first step) and the progress bar.
     private var topBar: some View {
-        HStack {
-            Button {
-                FDS.haptic(.light)
-                if step == .identity {
-                    dismiss()
-                } else {
-                    withAnimation(FDS.Spring.page) {
-                        step = SignUpStep(rawValue: step.rawValue - 1) ?? .identity
-                        showEmailForm = false
-                    }
-                }
-            } label: {
-                Image(systemName: step == .identity ? "xmark" : "chevron.left")
-                    .font(.system(size: 15, weight: .bold))
-                    .foregroundColor(.textSecondary)
-                    .frame(width: 40, height: 40)
-                    .background(Color.surfaceElevated)
-                    .clipShape(Circle())
-            }
-            .buttonStyle(.plain)
-
-            Spacer()
-
-            VStack(spacing: 2) {
-                Text("Welcome")
-                    .font(FDS.TypeScale.Dynamic.micro)
-                    .tracking(2)
-                    .foregroundColor(.textTertiary)
-                    .textCase(.uppercase)
-                Text(step.title)
-                    .font(FDS.TypeScale.Dynamic.caption)
-                    .foregroundColor(.textPrimary)
-            }
-
-            Spacer()
-
-            Text("\(step.rawValue + 1) of \(SignUpStep.allCases.count)")
-                .font(FDS.TypeScale.Dynamic.micro)
-                .foregroundColor(.textTertiary)
-                .padding(.horizontal, FDS.Spacing.md)
-                .padding(.vertical, FDS.Spacing.sm)
-                .background(Color.white.opacity(0.06))
-                .clipShape(Capsule())
-                .frame(minWidth: 40)
+        HStack(spacing: ForgeLayout.rowGap) {
+            if step != .identity { navButton }
+            progressBar
+            if step == .identity { navButton }
         }
-        .padding(.horizontal, FDS.Spacing.lg)
-        .padding(.top, FDS.Spacing.md)
+        .padding(.horizontal, ForgeLayout.screenInset)
+        .padding(.top, ForgeLayout.screenTop)
+        .padding(.bottom, ForgeLayout.rowGap)
+    }
+
+    private var navButton: some View {
+        ForgeIconButton(
+            systemImage: step == .identity ? "xmark" : "chevron.left",
+            accessibilityLabel: step == .identity ? "Close" : "Back",
+            tinted: false
+        ) {
+            goBack()
+        }
+    }
+
+    private func goBack() {
+        if step == .identity {
+            dismiss()
+        } else {
+            withAnimation(stepAnimation) {
+                step = SignUpStep(rawValue: step.rawValue - 1) ?? .identity
+                showEmailForm = false
+            }
+        }
     }
 
     private var progressBar: some View {
@@ -203,167 +196,143 @@ struct AuthSignUpFlowView: View {
                 Capsule()
                     .fill(Color.paper)
                     .frame(width: max(12, geo.size.width * step.progress))
-                    .animation(FDS.Spring.standard, value: step)
+                    .animation(reduceMotion ? nil : FDS.Spring.standard, value: step)
             }
         }
         .frame(height: 4)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(step.title)
+        .accessibilityValue("\(step.rawValue + 1) of \(SignUpStep.allCases.count)")
     }
 
     // MARK: Step 1 — Identity
 
     private var identityStep: some View {
         ScrollView(showsIndicators: false) {
-            VStack(alignment: .leading, spacing: FDS.Spacing.xl) {
+            VStack(alignment: .leading, spacing: ForgeLayout.groupBreak) {
                 heroCopy(
                     kicker: "Who are you?",
-                    title: "What should ARIA\ncall you?",
+                    title: "What should ARIA call you?",
                     body: "Preferred name is what you'll hear in coaching. Last name is optional and stays on your profile."
                 )
 
-                VStack(alignment: .leading, spacing: FDS.Spacing.md) {
-                    Text("PREFERRED NAME")
-                        .font(FDS.TypeScale.Dynamic.micro)
-                        .tracking(1.4)
+                nameFields
+
+                VStack(alignment: .leading, spacing: ForgeLayout.rowGap) {
+                    // Quiet trust cues — no vanity Day-0 stats strip
+                    Text("About 90 seconds · Private by design")
+                        .font(.footnote)
                         .foregroundColor(.textTertiary)
 
-                    TextField("Maya", text: $firstName)
-                        .focused($nameFieldFocused)
-                        .textContentType(.givenName)
-                        .textInputAutocapitalization(.words)
-                        .autocorrectionDisabled()
-                        .font(.system(size: 28, weight: .bold, design: .rounded))
-                        .foregroundColor(.textPrimary)
-                        .padding(FDS.Spacing.lg)
-                        .forgeInsetTile(radius: FDS.Radius.lg)
-                        .overlay(
-                            RoundedRectangle(cornerRadius: FDS.Radius.lg, style: .continuous)
-                                .stroke(
-                                    firstName.trimmingCharacters(in: .whitespaces).count >= 2
-                                        ? Color.paper.opacity(0.35)
-                                        : Color.white.opacity(0.08),
-                                    lineWidth: 1.5
-                                )
-                        )
-                        .onChange(of: firstName) { _, _ in
-                            if firstName.trimmingCharacters(in: .whitespaces).count == 2 {
-                                FDS.selectionHaptic()
-                            }
-                        }
-
-                    Text("LAST NAME (OPTIONAL)")
-                        .font(FDS.TypeScale.Dynamic.micro)
-                        .tracking(1.4)
-                        .foregroundColor(.textTertiary)
-                        .padding(.top, FDS.Spacing.sm)
-
-                    TextField("Optional", text: $lastName)
-                        .textContentType(.familyName)
-                        .textInputAutocapitalization(.words)
-                        .autocorrectionDisabled()
-                        .font(.system(size: 20, weight: .semibold, design: .rounded))
-                        .foregroundColor(.textPrimary)
-                        .padding(FDS.Spacing.lg)
-                        .forgeInsetTile(radius: FDS.Radius.lg)
-                        .overlay(
-                            RoundedRectangle(cornerRadius: FDS.Radius.lg, style: .continuous)
-                                .stroke(Color.white.opacity(0.08), lineWidth: 1)
-                        )
-
-                    if firstName.trimmingCharacters(in: .whitespaces).count >= 2 {
-                        HStack(spacing: FDS.Spacing.sm) {
-                            Image(systemName: "checkmark.circle.fill")
-                                .foregroundStyle(Color.vitality)
-                            Text("ARIA will call you \(trimmedName).")
-                                .font(FDS.TypeScale.Dynamic.caption)
-                                .foregroundColor(.textSecondary)
-                        }
-                        .transition(.opacity.combined(with: .move(edge: .bottom)))
+                    primaryButton(
+                        title: "Continue",
+                        enabled: trimmedName.count >= 2,
+                        icon: "arrow.right"
+                    ) {
+                        FDS.haptic(.medium)
+                        withAnimation(stepAnimation) { step = .spark }
                     }
                 }
+            }
+            .padding(.horizontal, ForgeLayout.screenInset)
+            .padding(.bottom, ForgeLayout.scrollBottomClearance)
+        }
+    }
 
-                // Quiet trust cues — no vanity Day-0 stats strip
-                Text("About 90 seconds · Private by design")
-                    .font(FDS.TypeScale.Dynamic.caption)
-                    .foregroundColor(.textTertiary)
-                    .padding(.top, FDS.Spacing.xs)
+    private var nameIsValid: Bool {
+        firstName.trimmingCharacters(in: .whitespaces).count >= 2
+    }
 
-                Spacer(minLength: 24)
+    private var firstNameStrokeColor: Color {
+        if nameIsValid { return Color.paper.opacity(0.35) }
+        if nameFieldFocused { return Color.ember.opacity(0.32) }
+        return Color.clear
+    }
 
-                primaryButton(
-                    title: "Continue",
-                    enabled: trimmedName.count >= 2,
-                    icon: "arrow.right"
-                ) {
-                    FDS.haptic(.medium)
-                    withAnimation(FDS.Spring.page) { step = .spark }
+    private var nameFields: some View {
+        VStack(alignment: .leading, spacing: ForgeLayout.rowGap) {
+            VStack(alignment: .leading, spacing: FDS.Spacing.sm) {
+                Text("PREFERRED NAME")
+                    .forgeSectionLabel()
+                firstNameField
+            }
+
+            VStack(alignment: .leading, spacing: FDS.Spacing.sm) {
+                Text("LAST NAME (OPTIONAL)")
+                    .forgeSectionLabel()
+                lastNameField
+            }
+
+            if nameIsValid {
+                nameConfirmation
+            }
+        }
+    }
+
+    private var firstNameField: some View {
+        TextField("Maya", text: $firstName)
+            .focused($nameFieldFocused)
+            .textContentType(.givenName)
+            .textInputAutocapitalization(.words)
+            .autocorrectionDisabled()
+            .font(FDS.TypeScale.Dynamic.pageTitle)
+            .foregroundColor(.textPrimary)
+            .padding(.horizontal, ForgeLayout.compactCardPadding)
+            .padding(.vertical, ForgeLayout.tilePadding)
+            .frame(minHeight: 48)
+            .forgeInsetTile(radius: FDS.Radius.lg)
+            .overlay(
+                RoundedRectangle(cornerRadius: FDS.Radius.lg, style: .continuous)
+                    .strokeBorder(firstNameStrokeColor, lineWidth: 1.5)
+            )
+            .onChange(of: firstName) { _, _ in
+                if firstName.trimmingCharacters(in: .whitespaces).count == 2 {
+                    FDS.selectionHaptic()
                 }
             }
-            .padding(.horizontal, FDS.Spacing.xl)
-            .padding(.bottom, 40)
+    }
+
+    private var lastNameField: some View {
+        TextField("Optional", text: $lastName)
+            .textContentType(.familyName)
+            .textInputAutocapitalization(.words)
+            .autocorrectionDisabled()
+            .font(FDS.TypeScale.Dynamic.title)
+            .foregroundColor(.textPrimary)
+            .padding(.horizontal, ForgeLayout.compactCardPadding)
+            .padding(.vertical, ForgeLayout.tilePadding)
+            .frame(minHeight: 48)
+            .forgeInsetTile(radius: FDS.Radius.lg)
+    }
+
+    private var nameConfirmation: some View {
+        HStack(alignment: .firstTextBaseline, spacing: FDS.Spacing.sm) {
+            Image(systemName: "checkmark.circle.fill")
+                .foregroundStyle(Color.vitality)
+                .accessibilityHidden(true)
+            Text("ARIA will call you \(trimmedName).")
+                .font(HomeType.body)
+                .foregroundColor(.textSecondary)
+                .forgeWrapping()
         }
+        .transition(.opacity)
     }
 
     // MARK: Step 2 — Your goal
 
     private var sparkStep: some View {
         ScrollView(showsIndicators: false) {
-            VStack(alignment: .leading, spacing: FDS.Spacing.lg) {
+            VStack(alignment: .leading, spacing: ForgeLayout.groupBreak) {
                 heroCopy(
                     kicker: "Nice to meet you, \(trimmedName).",
-                    title: "\(trimmedName), what should\nwe start with?",
-                    body: "Pick one focus. You can change it later — this just helps today’s session fit you."
+                    title: "\(trimmedName), what should we start with?",
+                    body: "Pick one focus. You can change it later — this just helps today’s session fit you.",
+                    kickerIsLabel: false
                 )
 
-                VStack(spacing: FDS.Spacing.md) {
+                VStack(spacing: ForgeLayout.rowGap) {
                     ForEach(SignUpSpark.allCases) { option in
-                        Button {
-                            FDS.selectionHaptic()
-                            withAnimation(FDS.Spring.snap) { spark = option }
-                        } label: {
-                            HStack(spacing: FDS.Spacing.lg) {
-                                ZStack {
-                                    Circle()
-                                        .fill(Color(hex: option.accentHex).opacity(0.18))
-                                        .frame(width: 46, height: 46)
-                                    Image(systemName: option.icon)
-                                        .font(.system(size: 18, weight: .semibold))
-                                        .foregroundStyle(Color(hex: option.accentHex))
-                                }
-                                VStack(alignment: .leading, spacing: 3) {
-                                    Text(option.label)
-                                        .font(FDS.TypeScale.Dynamic.headline)
-                                        .foregroundColor(.textPrimary)
-                                    Text(option.detail)
-                                        .font(FDS.TypeScale.Dynamic.caption)
-                                        .foregroundColor(.textTertiary)
-                                }
-                                Spacer()
-                                Image(systemName: spark == option ? "checkmark.circle.fill" : "circle")
-                                    .font(.system(size: 22))
-                                    .foregroundStyle(
-                                        spark == option
-                                            ? Color(hex: option.accentHex)
-                                            : Color.white.opacity(0.2)
-                                    )
-                            }
-                            .padding(FDS.Spacing.lg)
-                            .background(
-                                spark == option
-                                    ? Color(hex: option.accentHex).opacity(0.12)
-                                    : Color.surfaceElevated
-                            )
-                            .clipShape(RoundedRectangle(cornerRadius: FDS.Radius.lg, style: .continuous))
-                            .overlay(
-                                RoundedRectangle(cornerRadius: FDS.Radius.lg, style: .continuous)
-                                    .stroke(
-                                        spark == option
-                                            ? Color(hex: option.accentHex).opacity(0.55)
-                                            : Color.white.opacity(0.06),
-                                        lineWidth: spark == option ? 1.5 : 1
-                                    )
-                            )
-                        }
-                        .buttonStyle(AuthPressButtonStyle())
+                        sparkRow(option)
                     }
                 }
 
@@ -373,128 +342,187 @@ struct AuthSignUpFlowView: View {
                     icon: "arrow.right"
                 ) {
                     FDS.haptic(.medium)
-                    withAnimation(FDS.Spring.page) { step = .account }
+                    withAnimation(stepAnimation) { step = .account }
                 }
             }
-            .padding(.horizontal, FDS.Spacing.xl)
-            .padding(.bottom, 40)
+            .padding(.horizontal, ForgeLayout.screenInset)
+            .padding(.bottom, ForgeLayout.scrollBottomClearance)
         }
+    }
+
+    private func sparkRow(_ option: SignUpSpark) -> some View {
+        let isSelected = spark == option
+        return Button {
+            FDS.selectionHaptic()
+            withAnimation(reduceMotion ? nil : FDS.Spring.snap) { spark = option }
+        } label: {
+            sparkRowLabel(option, isSelected: isSelected)
+        }
+        .buttonStyle(AuthPressButtonStyle())
+        .accessibilityAddTraits(isSelected ? .isSelected : [])
+    }
+
+    private func sparkRowLabel(_ option: SignUpSpark, isSelected: Bool) -> some View {
+        HStack(spacing: ForgeLayout.rowGap) {
+            ForgeIconWell(systemImage: option.icon, tint: option.accent)
+
+            VStack(alignment: .leading, spacing: ForgeLayout.pairGap) {
+                Text(option.label)
+                    .font(HomeType.status)
+                    .foregroundColor(.textPrimary)
+                    .lineLimit(2)
+                Text(option.detail)
+                    .font(HomeType.body)
+                    .foregroundColor(.textTertiary)
+                    .lineLimit(2)
+            }
+
+            Spacer(minLength: 0)
+
+            Image(systemName: isSelected ? "checkmark.circle.fill" : "circle")
+                .font(.system(size: 20))
+                .foregroundStyle(isSelected ? option.accent : Color.white.opacity(0.2))
+                .accessibilityHidden(true)
+        }
+        .padding(.horizontal, ForgeLayout.compactCardPadding)
+        .padding(.vertical, ForgeLayout.tilePadding)
+        .frame(minHeight: ForgeUX.minTap)
+        .background(isSelected ? option.accent.opacity(0.12) : Color.surfaceElevated)
+        .clipShape(RoundedRectangle(cornerRadius: FDS.Radius.lg, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: FDS.Radius.lg, style: .continuous)
+                .strokeBorder(
+                    isSelected ? option.accent.opacity(0.28) : Color.white.opacity(0.06),
+                    lineWidth: isSelected ? 1 : ForgeUX.hairline
+                )
+        )
     }
 
     // MARK: Step 3 — Account
 
     private var accountStep: some View {
         ScrollView(showsIndicators: false) {
-            VStack(alignment: .leading, spacing: FDS.Spacing.lg) {
+            VStack(alignment: .leading, spacing: ForgeLayout.groupBreak) {
                 heroCopy(
                     kicker: "YOUR ACCOUNT",
-                    title: "Save this so I remember you,\n\(trimmedName).",
+                    title: "Save this so I remember you, \(trimmedName).",
                     body: "One tap. Then a few questions — Apple Health optional — and a first session that fits."
                 )
 
-                HStack(spacing: FDS.Spacing.md) {
-                    Image(systemName: spark.icon)
-                        .foregroundStyle(Color(hex: spark.accentHex))
-                        .frame(width: 36, height: 36)
-                        .background(Color(hex: spark.accentHex).opacity(0.15))
-                        .clipShape(Circle())
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text("Starting with")
-                            .font(FDS.TypeScale.Dynamic.micro)
-                            .foregroundColor(.textTertiary)
-                        Text(spark.label)
-                            .font(FDS.TypeScale.Dynamic.body.weight(.semibold))
-                            .foregroundColor(.textPrimary)
-                    }
-                    Spacer()
+                VStack(alignment: .leading, spacing: ForgeLayout.sectionGap) {
+                    sparkSummary
+                    accountActions
+                    testerButton
+                    legalNote
                 }
-                .padding(FDS.Spacing.lg)
-                .forgeGlassCard(cornerRadius: FDS.Radius.lg, accent: Color(hex: spark.accentHex))
-
-                if awaitingCode {
-                    verifyCodeBlock
-                } else if !showEmailForm {
-                    VStack(spacing: FDS.Spacing.md) {
-                        if let errorMessage {
-                            Text(errorMessage)
-                                .font(FDS.TypeScale.Dynamic.caption)
-                                .foregroundColor(.danger)
-                                .frame(maxWidth: .infinity, alignment: .leading)
-                        }
-
-                        primaryButton(
-                            title: "Continue with email",
-                            enabled: true,
-                            icon: "envelope.fill"
-                        ) {
-                            withAnimation(FDS.Spring.snap) { showEmailForm = true }
-                            FDS.haptic(.light)
-                        }
-
-                        Text("Apple and Google sign-up will appear here when connected for this build.")
-                            .font(FDS.TypeScale.Dynamic.caption)
-                            .foregroundColor(.textTertiary)
-                            .multilineTextAlignment(.center)
-                            .frame(maxWidth: .infinity)
-                    }
-                } else {
-                    VStack(spacing: FDS.Spacing.md) {
-                        authField("Email", text: $email, contentType: .emailAddress, secure: false)
-                        authField("Password (12+ · upper, lower, number, symbol)", text: $password, contentType: .newPassword, secure: true)
-
-                        if let errorMessage {
-                            Text(errorMessage)
-                                .font(FDS.TypeScale.Dynamic.caption)
-                                .foregroundColor(.danger)
-                        }
-
-                        primaryButton(
-                            title: isBusy ? "Creating…" : "Create account",
-                            enabled: canSubmitEmail && !isBusy,
-                            icon: "arrow.right"
-                        ) {
-                            submitEmail()
-                        }
-
-                        Button {
-                            withAnimation { showEmailForm = false }
-                        } label: {
-                            Text("Back")
-                                .font(FDS.TypeScale.Dynamic.caption)
-                                .foregroundColor(.textTertiary)
-                        }
-                        .buttonStyle(.plain)
-                    }
-                }
-
-                // Keep until Cognito is paired — remove when real auth ships.
-                if ForgeAuthClient.shared.canUseDevOverride {
-                    Button {
-                        continueAsTester()
-                    } label: {
-                        Text("Continue as tester")
-                            .font(FDS.TypeScale.Dynamic.body.weight(.semibold))
-                            .foregroundColor(.steel)
-                            .frame(maxWidth: .infinity)
-                            .padding(.vertical, FDS.Spacing.lg)
-                            .background(Color.steel.opacity(0.12))
-                            .clipShape(RoundedRectangle(cornerRadius: FDS.Radius.md, style: .continuous))
-                    }
-                    .buttonStyle(.plain)
-                    .disabled(isBusy)
-                    .accessibilityHint("Debug tester login until Cognito is paired. Never ships in Release.")
-                }
-
-                Text("By continuing you get lifestyle and fitness coaching, not medical care. ARIA is not a doctor. For emergencies, call 911.")
-                    .font(FDS.TypeScale.Dynamic.micro)
-                    .foregroundColor(.textMuted)
-                    .multilineTextAlignment(.center)
-                    .frame(maxWidth: .infinity)
-                    .padding(.top, FDS.Spacing.xs)
             }
-            .padding(.horizontal, FDS.Spacing.xl)
-            .padding(.bottom, 40)
+            .padding(.horizontal, ForgeLayout.screenInset)
+            .padding(.bottom, ForgeLayout.scrollBottomClearance)
         }
+    }
+
+    private var sparkSummary: some View {
+        HStack(spacing: ForgeLayout.rowGap) {
+            ForgeIconWell(systemImage: spark.icon, tint: spark.accent)
+            VStack(alignment: .leading, spacing: ForgeLayout.pairGap) {
+                Text("Starting with")
+                    .font(HomeType.micro)
+                    .foregroundColor(.textTertiary)
+                Text(spark.label)
+                    .font(HomeType.status)
+                    .foregroundColor(.textPrimary)
+                    .lineLimit(2)
+            }
+            Spacer(minLength: 0)
+        }
+        .forgeContentCard(tint: spark.accent, padding: ForgeLayout.compactCardPadding)
+        .accessibilityElement(children: .combine)
+    }
+
+    @ViewBuilder
+    private var accountActions: some View {
+        if awaitingCode {
+            verifyCodeBlock
+        } else if !showEmailForm {
+            entryBlock
+        } else {
+            emailFormBlock
+        }
+    }
+
+    private var entryBlock: some View {
+        VStack(alignment: .leading, spacing: ForgeLayout.rowGap) {
+            errorText
+
+            primaryButton(
+                title: "Continue with email",
+                enabled: true,
+                icon: "envelope.fill"
+            ) {
+                withAnimation(reduceMotion ? nil : FDS.Spring.snap) { showEmailForm = true }
+                FDS.haptic(.light)
+            }
+
+            Text("Apple and Google sign-up will appear here when connected for this build.")
+                .font(.footnote)
+                .foregroundColor(.textTertiary)
+                .multilineTextAlignment(.center)
+                .forgeWrapping()
+                .frame(maxWidth: .infinity)
+        }
+    }
+
+    private var emailFormBlock: some View {
+        VStack(alignment: .leading, spacing: ForgeLayout.rowGap) {
+            authField("Email", text: $email, contentType: .emailAddress, secure: false)
+            authField("Password (12+ · upper, lower, number, symbol)", text: $password, contentType: .newPassword, secure: true)
+
+            errorText
+
+            primaryButton(
+                title: isBusy ? "Creating…" : "Create account",
+                enabled: canSubmitEmail && !isBusy,
+                icon: "arrow.right"
+            ) {
+                submitEmail()
+            }
+
+            textAction("Back") {
+                withAnimation(reduceMotion ? nil : FDS.Spring.snap) { showEmailForm = false }
+            }
+        }
+    }
+
+    @ViewBuilder
+    private var errorText: some View {
+        if let errorMessage {
+            Text(errorMessage)
+                .font(HomeType.body)
+                .foregroundColor(.danger)
+                .forgeWrapping()
+                .frame(maxWidth: .infinity, alignment: .leading)
+        }
+    }
+
+    @ViewBuilder
+    private var testerButton: some View {
+        // Keep until Cognito is paired — remove when real auth ships.
+        if ForgeAuthClient.shared.canUseDevOverride {
+            ForgeSecondaryButton(title: "Continue as tester", accent: .steel) {
+                continueAsTester()
+            }
+            .disabled(isBusy)
+            .accessibilityHint("Debug tester login until Cognito is paired. Never ships in Release.")
+        }
+    }
+
+    private var legalNote: some View {
+        Text("By continuing you get lifestyle and fitness coaching, not medical care. ARIA is not a doctor. For emergencies, call 911.")
+            .font(.footnote)
+            .foregroundColor(.textTertiary)
+            .multilineTextAlignment(.center)
+            .forgeWrapping()
+            .frame(maxWidth: .infinity)
     }
 
     // MARK: Shared UI
@@ -508,16 +536,13 @@ struct AuthSignUpFlowView: View {
     }
 
     private var verifyCodeBlock: some View {
-        VStack(alignment: .leading, spacing: FDS.Spacing.md) {
+        VStack(alignment: .leading, spacing: ForgeLayout.rowGap) {
             Text("We emailed a confirmation code to \(codeDestination.isEmpty ? email : codeDestination).")
-                .font(FDS.TypeScale.Dynamic.body)
+                .font(HomeType.body)
                 .foregroundColor(.textSecondary)
+                .forgeWrapping()
             authField("Confirmation code", text: $confirmCode, contentType: .oneTimeCode, secure: false)
-            if let errorMessage {
-                Text(errorMessage)
-                    .font(FDS.TypeScale.Dynamic.caption)
-                    .foregroundColor(.danger)
-            }
+            errorText
             primaryButton(
                 title: isBusy ? "Confirming…" : "Confirm email",
                 enabled: confirmCode.trimmingCharacters(in: .whitespaces).count >= 4 && !isBusy,
@@ -525,35 +550,61 @@ struct AuthSignUpFlowView: View {
             ) {
                 submitConfirmation()
             }
-            Button {
+            textAction("Use a different email") {
                 awaitingCode = false
                 confirmCode = ""
-            } label: {
-                Text("Use a different email")
-                    .font(FDS.TypeScale.Dynamic.caption)
-                    .foregroundColor(.textTertiary)
             }
-            .buttonStyle(.plain)
         }
     }
 
-    private func heroCopy(kicker: String, title: String, body: String) -> some View {
-        VStack(alignment: .leading, spacing: FDS.Spacing.md) {
-            Text(kicker)
-                .font(FDS.TypeScale.Dynamic.caption)
-                .tracking(2)
-                .foregroundColor(.textTertiary)
-            Text(title)
-                .font(.system(size: 30, weight: .semibold, design: .rounded))
-                .foregroundColor(.textPrimary)
-                .lineSpacing(3)
+    /// Eyebrow, title and body. A kicker that is a sentence ("Nice to meet
+    /// you, Maya.") reads as a status line, not an uppercase label.
+    private func heroCopy(
+        kicker: String,
+        title: String,
+        body: String,
+        kickerIsLabel: Bool = true
+    ) -> some View {
+        VStack(alignment: .leading, spacing: ForgeLayout.rowGap) {
+            VStack(alignment: .leading, spacing: ForgeLayout.pairGap) {
+                heroKicker(kicker, isLabel: kickerIsLabel)
+                Text(title)
+                    .font(FDS.TypeScale.Dynamic.pageTitle)
+                    .foregroundColor(.textPrimary)
+                    .minimumScaleFactor(0.85)
+                    .accessibilityAddTraits(.isHeader)
+            }
             Text(body)
-                .font(FDS.TypeScale.Dynamic.body)
+                .font(HomeType.body)
                 .foregroundColor(.textSecondary)
-                .lineSpacing(4)
-                .fixedSize(horizontal: false, vertical: true)
+                .forgeWrapping()
         }
-        .padding(.top, FDS.Spacing.sm)
+    }
+
+    @ViewBuilder
+    private func heroKicker(_ kicker: String, isLabel: Bool) -> some View {
+        if isLabel {
+            Text(kicker)
+                .forgeSectionLabel()
+        } else {
+            Text(kicker)
+                .font(HomeType.status)
+                .foregroundColor(.textSecondary)
+        }
+    }
+
+    private func textAction(_ title: String, action: @escaping () -> Void) -> some View {
+        Button {
+            FDS.haptic(.press)
+            action()
+        } label: {
+            Text(title)
+                .font(HomeType.body)
+                .foregroundColor(.textSecondary)
+                .frame(maxWidth: .infinity, minHeight: ForgeUX.minTap)
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
     }
 
     private func primaryButton(
@@ -570,7 +621,6 @@ struct AuthSignUpFlowView: View {
         ) {
             action()
         }
-        .padding(.top, FDS.Spacing.sm)
     }
 
     private func authField(
@@ -580,27 +630,38 @@ struct AuthSignUpFlowView: View {
         secure: Bool
     ) -> some View {
         VStack(alignment: .leading, spacing: FDS.Spacing.sm) {
-            Text(title.uppercased())
-                .font(FDS.TypeScale.Dynamic.micro)
-                .tracking(1.2)
-                .foregroundColor(.textTertiary)
-            Group {
-                if secure {
-                    SecureField(title, text: text)
-                        .textContentType(contentType)
-                } else {
-                    TextField(title, text: text)
-                        .textContentType(contentType)
-                        .textInputAutocapitalization(.never)
-                        .keyboardType(.emailAddress)
-                        .autocorrectionDisabled()
-                }
-            }
-            .font(.system(size: 16, weight: .medium))
-            .foregroundColor(.textPrimary)
-            .padding(FDS.Spacing.lg)
-            .forgeInsetTile(radius: FDS.Radius.md)
+            Text(title)
+                .forgeSectionLabel()
+                .forgeWrapping()
+            authFieldInput(title, text: text, contentType: contentType, secure: secure)
         }
+    }
+
+    private func authFieldInput(
+        _ title: String,
+        text: Binding<String>,
+        contentType: UITextContentType,
+        secure: Bool
+    ) -> some View {
+        let keyboard: UIKeyboardType = contentType == .oneTimeCode ? .numberPad : .emailAddress
+        return Group {
+            if secure {
+                SecureField(title, text: text)
+                    .textContentType(contentType)
+            } else {
+                TextField(title, text: text)
+                    .textContentType(contentType)
+                    .textInputAutocapitalization(.never)
+                    .keyboardType(keyboard)
+                    .autocorrectionDisabled()
+            }
+        }
+        .font(.body)
+        .foregroundColor(.textPrimary)
+        .padding(.horizontal, ForgeLayout.compactCardPadding)
+        .padding(.vertical, ForgeLayout.tilePadding)
+        .frame(minHeight: 48)
+        .forgeInsetTile(radius: FDS.Radius.md)
     }
 
     // MARK: Actions
@@ -695,7 +756,7 @@ struct AuthSignUpFlowView: View {
     }
 
     private func complete(with session: ForgeAuthSession) {
-        withAnimation(FDS.Spring.hero) { celebrate = true }
+        withAnimation(reduceMotion ? nil : FDS.Spring.hero) { celebrate = true }
         FDS.notificationHaptic(.success)
         DispatchQueue.main.asyncAfter(deadline: .now() + (reduceMotion ? 0.35 : 1.15)) {
             store.applyAuthSession(session, isNewAccount: true)
@@ -718,15 +779,16 @@ struct AuthSignUpFlowView: View {
 
 private struct SignUpCelebrationOverlay: View {
     let name: String
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var scale: CGFloat = 0.6
     @State private var opacity: Double = 0
 
     var body: some View {
         ZStack {
             Color.black.opacity(0.55).ignoresSafeArea()
-            VStack(spacing: FDS.Spacing.lg) {
+            VStack(spacing: ForgeLayout.sectionGap) {
                 ZStack {
-                    PremiumPresenceBloom(size: 140, accent: .ember, frost: Color(hex: "A9D8FF"), live: false)
+                    PremiumPresenceBloom(size: 140, accent: .ember, frost: HudChrome.plate, live: false)
                     AuroraOrbView(
                         state: .idle,
                         amplitude: 0.5,
@@ -735,27 +797,30 @@ private struct SignUpCelebrationOverlay: View {
                         followPresence: false
                     )
                 }
-                Text("Welcome")
-                    .font(FDS.TypeScale.Dynamic.caption)
-                    .tracking(2.2)
-                    .foregroundColor(.textTertiary)
-                    .textCase(.uppercase)
-                Text(name.isEmpty ? "Let’s learn how you live." : "Nice to meet you, \(name).")
-                    .font(.system(size: 26, weight: .semibold, design: .rounded))
-                    .foregroundColor(.white)
-                    .multilineTextAlignment(.center)
-                    .lineSpacing(2)
+                .accessibilityHidden(true)
+
+                VStack(spacing: ForgeLayout.pairGap) {
+                    Text("Welcome")
+                        .forgeSectionLabel()
+                    Text(name.isEmpty ? "Let’s learn how you live." : "Nice to meet you, \(name).")
+                        .font(FDS.TypeScale.Dynamic.pageTitle)
+                        .foregroundColor(.white)
+                        .multilineTextAlignment(.center)
+                        .accessibilityAddTraits(.isHeader)
+                }
+
                 Text("ARIA will ask a few questions so today’s session fits you.")
-                    .font(FDS.TypeScale.Dynamic.body)
+                    .font(HomeType.body)
                     .foregroundColor(.textSecondary)
                     .multilineTextAlignment(.center)
-                    .padding(.horizontal, FDS.Spacing.lg)
+                    .forgeWrapping()
             }
+            .padding(.horizontal, ForgeLayout.screenInset)
             .scaleEffect(scale)
             .opacity(opacity)
         }
         .onAppear {
-            withAnimation(.spring(response: 0.55, dampingFraction: 0.7)) {
+            withAnimation(reduceMotion ? nil : FDS.Spring.hero) {
                 scale = 1
                 opacity = 1
             }
