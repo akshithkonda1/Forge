@@ -16,26 +16,26 @@ struct TodaysStoryCard: View {
     }
 
     private func content(for story: DailyStoryPayload) -> some View {
-        VStack(alignment: .leading, spacing: FDS.Spacing.lg) {
+        VStack(alignment: .leading, spacing: ForgeLayout.blockGap) {
             HStack(spacing: FDS.Spacing.sm) {
                 Image(systemName: "book.pages.fill")
                     .font(.system(size: 13, weight: .semibold))
                     .foregroundStyle(Color.aurora)
+                    .accessibilityHidden(true)
                 Text("TODAY'S STORY")
-                    .font(FDS.TypeScale.Dynamic.caption)
-                    .foregroundColor(Color.aurora)
-                    .tracking(1.2)
+                    .forgeSectionLabel(tint: Color.aurora)
+                    .accessibilityAddTraits(.isHeader)
                 Spacer()
             }
 
             Text(story.narrative)
-                .font(FDS.TypeScale.Dynamic.body)
+                .font(HomeType.body)
                 .foregroundColor(.textPrimary)
                 .lineSpacing(4)
                 .fixedSize(horizontal: false, vertical: true)
 
             if !story.insights.isEmpty {
-                VStack(alignment: .leading, spacing: FDS.Spacing.sm) {
+                VStack(alignment: .leading, spacing: ForgeLayout.pairGap) {
                     ForEach(Array(story.insights.enumerated()), id: \.offset) { _, insight in
                         insightRow(insight)
                     }
@@ -44,8 +44,9 @@ struct TodaysStoryCard: View {
 
             if !story.sources.isEmpty {
                 Text("From " + story.sources.map(sourceLabel).joined(separator: ", "))
-                    .font(FDS.TypeScale.Dynamic.micro)
-                    .foregroundColor(.textMuted)
+                    .font(HomeType.micro)
+                    .foregroundColor(.textTertiary)
+                    .fixedSize(horizontal: false, vertical: true)
             }
         }
         .padding(HomeMetrics.cardPadding)
@@ -54,25 +55,29 @@ struct TodaysStoryCard: View {
 
     private func insightRow(_ insight: DailyStoryInsight) -> some View {
         Button {
-            FDS.haptic(.light)
+            FDS.haptic(.press)
             HomeInsightFlow.open(insight.text, store: store)
         } label: {
-            HStack(alignment: .top, spacing: FDS.Spacing.md) {
-                Image(systemName: domainIcon(insight.domain))
-                    .font(.system(size: 12, weight: .semibold))
-                    .foregroundColor(Color.aurora)
-                    .frame(width: 16, alignment: .center)
-                    .padding(.top, 2)
+            HStack(spacing: ForgeLayout.rowGap) {
+                ForgeIconWell(systemImage: domainIcon(insight.domain), tint: Color.aurora, diameter: 28)
                 Text(insight.text)
-                    .font(FDS.TypeScale.Dynamic.caption)
+                    .font(HomeType.body)
                     .foregroundColor(.textSecondary)
                     .multilineTextAlignment(.leading)
                     .fixedSize(horizontal: false, vertical: true)
                     .frame(maxWidth: .infinity, alignment: .leading)
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 11, weight: .semibold))
+                    .foregroundStyle(Color.textMuted)
+                    .accessibilityHidden(true)
             }
+            .padding(.vertical, ForgeLayout.rowVerticalPadding)
+            .frame(minHeight: ForgeUX.minTap)
+            .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
         .accessibilityLabel(insight.text)
+        .accessibilityHint("Opens the related screen")
     }
 
     private func domainIcon(_ domain: String) -> String {

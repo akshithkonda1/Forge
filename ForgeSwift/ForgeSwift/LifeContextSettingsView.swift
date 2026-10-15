@@ -30,24 +30,21 @@ struct LifeContextSettingsSection: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
-            Text("Life Context")
-                .forgeSectionLabel()
-                .padding(.top, FDS.Spacing.xl)
-                .padding(.bottom, FDS.Spacing.md)
-                .accessibilityAddTraits(.isHeader)
-            Text("Optional, and on this iPhone. ARIA reads counts and short facts — never a reminder title, a message, or a calendar title. Mail and GitHub stay off this phone.")
-                .font(.system(size: 12))
-                .foregroundColor(.textTertiary)
-                .fixedSize(horizontal: false, vertical: true)
-                .padding(.bottom, FDS.Spacing.md)
+            // Same section rhythm as the other Settings groups: 24 above, 12 below.
+            ForgeSectionHeader(
+                title: "Life Context",
+                subtitle: "Optional, and on this iPhone. ARIA reads counts and short facts — never a reminder title, a message, or a calendar title. Mail and GitHub stay off this phone."
+            )
+            .padding(.top, FDS.Spacing.xl)
+            .padding(.bottom, FDS.Spacing.md)
 
             SectionCard {
                 remindersRow
-                Divider().background(Color.borderColor)
+                LifeContextRowDivider()
                 messagesRow
-                Divider().background(Color.borderColor)
+                LifeContextRowDivider()
                 rememberRow
-                Divider().background(Color.borderColor)
+                LifeContextRowDivider()
                 Button { showKnowledge = true } label: {
                     SettingsRow(
                         icon: "eye.fill",
@@ -56,14 +53,16 @@ struct LifeContextSettingsSection: View {
                         trailingText: messages.facts.isEmpty ? "Nothing yet" : "\(messages.facts.count)",
                         showChevron: true
                     )
+                    .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
                 .accessibilityLabel("What Forge knows")
                 .accessibilityValue(messages.facts.isEmpty ? "Nothing yet" : "\(messages.facts.count) facts")
                 .accessibilityHint("Review or delete life-context facts")
-                Divider().background(Color.borderColor)
+                LifeContextRowDivider()
                 Button { confirmForget = true } label: {
                     SettingsRow(icon: "trash.fill", iconColor: .danger, label: "Forget all life-context facts")
+                        .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
                 .accessibilityLabel("Forget all life-context facts")
@@ -131,23 +130,25 @@ struct LifeContextSettingsSection: View {
             statusText("Off. Forge doesn't read Reminders.")
         case .notConnected:
             Button {
+                FDS.haptic(.press)
                 Task {
                     try? await reminders.requestAccess()
                     await reminders.ingestIfAuthorized()
                 }
             } label: {
-                statusText("Connect Reminders", color: .ember)
+                statusAction("Connect Reminders", color: .ember)
             }
             .buttonStyle(.plain)
             .accessibilityLabel("Connect Reminders")
             .accessibilityHint("Asks iOS for access to Reminders")
         case .denied:
             Button {
+                FDS.haptic(.press)
                 if let url = URL(string: UIApplication.openSettingsURLString) {
                     openURL(url)
                 }
             } label: {
-                statusText("Reminders access is off in iOS Settings. Open Settings", color: .textSecondary)
+                statusAction("Reminders access is off in iOS Settings. Open Settings", color: .textSecondary)
             }
             .buttonStyle(.plain)
             .accessibilityLabel("Reminders access is off. Open iOS Settings")
@@ -195,14 +196,51 @@ struct LifeContextSettingsSection: View {
         }
     }
 
-    private func statusText(_ text: String, color: Color = .textTertiary) -> some View {
+    /// Leading edge of a row label: row inset 16 + 32 pt icon well + 12 pt gap.
+    private static let labelInset: CGFloat = 60
+
+    /// Footnote under a toggle row, aligned to the label column.
+    private func statusText(_ text: String, color: Color = .textSecondary) -> some View {
         Text(text)
-            .font(.system(size: 12))
-            .foregroundColor(color)
-            .fixedSize(horizontal: false, vertical: true)
+            .font(HomeType.body)
+            .foregroundStyle(color)
+            .forgeWrapping()
             .frame(maxWidth: .infinity, alignment: .leading)
-            .padding(.horizontal, FDS.Spacing.lg)
-            .padding(.bottom, FDS.Spacing.md)
+            .padding(.leading, Self.labelInset)
+            .padding(.trailing, FDS.Spacing.lg)
+            .padding(.top, -4)
+            .padding(.bottom, ForgeLayout.rowGap)
+    }
+
+    /// A status that is also an action: label column, chevron, 44 pt tall.
+    private func statusAction(_ text: String, color: Color) -> some View {
+        HStack(alignment: .center, spacing: ForgeLayout.rowGap) {
+            Text(text)
+                .font(HomeType.body)
+                .foregroundStyle(color)
+                .forgeWrapping()
+                .frame(maxWidth: .infinity, alignment: .leading)
+            Image(systemName: "chevron.right")
+                .font(.system(size: 11, weight: .semibold))
+                .foregroundStyle(Color.textMuted)
+                .accessibilityHidden(true)
+        }
+        .padding(.leading, Self.labelInset)
+        .padding(.trailing, FDS.Spacing.lg)
+        .frame(minHeight: ForgeUX.minTap)
+        .contentShape(Rectangle())
+    }
+}
+
+/// Inset hairline between the rows of the Life Context card, aligned to the
+/// label column like the rest of Settings.
+private struct LifeContextRowDivider: View {
+    var body: some View {
+        Rectangle()
+            .fill(Color.borderHairline)
+            .frame(height: ForgeUX.hairline)
+            .padding(.leading, 60)
+            .accessibilityHidden(true)
     }
 }
 
@@ -220,54 +258,32 @@ struct LifeContextKnowledgeView: View {
 
     var body: some View {
         ScrollView {
-            VStack(alignment: .leading, spacing: FDS.Spacing.lg) {
+            ForgeScreenStack(top: FDS.Spacing.lg) {
                 Text("Forge keeps short facts it wrote itself — never your messages. ARIA reads them on this iPhone only.")
-                    .font(.system(size: 14))
-                    .foregroundColor(.textSecondary)
-                    .fixedSize(horizontal: false, vertical: true)
+                    .font(HomeType.body)
+                    .foregroundStyle(Color.textSecondary)
+                    .forgeWrapping()
 
                 if !store.pendingReview.isEmpty {
                     pendingCard
                 }
                 briefCard
-                if let workload = reminders.workload, reminders.accessState == .connected {
-                    card(title: "From Reminders", accent: .steel) {
-                        Text(workload.summaryLine)
-                            .font(.system(size: 14))
-                            .foregroundColor(.textPrimary)
-                        Text("Counts only. Titles and notes are never kept.")
-                            .font(.system(size: 12))
-                            .foregroundColor(.textTertiary)
-                    }
-                    .accessibilityElement(children: .combine)
-                }
-                let digest = LifeOpsBoard.digest()
-                if !digest.isQuiet {
-                    card(title: "Life Ops", accent: .ember) {
-                        Text(digest.summaryLine)
-                            .font(.system(size: 14))
-                            .foregroundColor(.textPrimary)
-                        Text("Calendar kinds and reminder counts — never titles, mail, or GitHub. On this iPhone only.")
-                            .font(.system(size: 12))
-                            .foregroundColor(.textTertiary)
-                    }
-                    .accessibilityElement(children: .combine)
-                    .accessibilityLabel("Life Ops: \(digest.summaryLine)")
-                }
+                remindersCard
+                lifeOpsCard
                 factsCard
                 #if FORGE_DUMMY_ORCHESTRA
                 syntheticCard
                 #endif
                 if let error = store.lastError {
                     Text(error)
-                        .font(.system(size: 12))
-                        .foregroundColor(.danger)
+                        .font(HomeType.body)
+                        .foregroundStyle(Color.danger)
+                        .forgeWrapping()
                         .accessibilityLabel("Error: \(error)")
                 }
             }
-            .padding(FDS.Spacing.lg)
         }
-        .background(Color.background.ignoresSafeArea())
+        .forgeScreenBackground(accent: .steel)
         .navigationTitle("What Forge knows")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
@@ -304,37 +320,24 @@ struct LifeContextKnowledgeView: View {
 
     private var pendingCard: some View {
         card(title: "Review: \(store.pendingSourceName ?? "Shared conversation")", accent: .ember) {
-            ForEach(store.pendingReview) { fact in
-                factRow(fact, deletable: false)
+            VStack(alignment: .leading, spacing: ForgeLayout.rowGap) {
+                ForEach(store.pendingReview) { fact in
+                    factRow(fact, deletable: false)
+                }
             }
             Text(store.settings.rememberEnabled
                  ? "Remember keeps these, encrypted. Discard drops them now."
                  : "Remember life context is off, so these last only until Forge closes.")
-                .font(.system(size: 12))
-                .foregroundColor(.textTertiary)
-                .fixedSize(horizontal: false, vertical: true)
-            HStack(spacing: FDS.Spacing.md) {
-                Button {
+                .font(HomeType.body)
+                .foregroundStyle(Color.textSecondary)
+                .forgeWrapping()
+            VStack(spacing: ForgeLayout.tileGap) {
+                ForgePrimaryButton(title: "Remember") {
                     store.rememberPending()
-                } label: {
-                    Text("Remember")
-                        .font(FDS.TypeScale.Dynamic.body.weight(.semibold))
-                        .foregroundColor(.white)
-                        .frame(maxWidth: .infinity)
-                        .frame(height: 44)
-                        .background(Color.ember)
-                        .cornerRadius(FDS.Radius.md)
                 }
                 .accessibilityLabel("Remember these facts")
-                Button {
+                ForgeSecondaryButton(title: "Discard", accent: .steel) {
                     store.discardPending()
-                } label: {
-                    Text("Discard")
-                        .font(FDS.TypeScale.Dynamic.body.weight(.semibold))
-                        .foregroundColor(.textPrimary)
-                        .frame(maxWidth: .infinity)
-                        .frame(height: 44)
-                        .forgeInsetTile(radius: FDS.Radius.md)
                 }
                 .accessibilityLabel("Discard these facts")
             }
@@ -345,47 +348,82 @@ struct LifeContextKnowledgeView: View {
     private var briefCard: some View {
         if let brief = store.contextBrief() {
             card(title: "What ARIA reads", accent: .steel) {
-                Text(brief)
-                    .font(.system(size: 14))
-                    .foregroundColor(.textPrimary)
-                    .fixedSize(horizontal: false, vertical: true)
-                Text("On this iPhone only. Never sent to a remote model.")
-                    .font(.system(size: 12))
-                    .foregroundColor(.textTertiary)
+                leadLine(brief, note: "On this iPhone only. Never sent to a remote model.")
             }
             .accessibilityElement(children: .combine)
         }
     }
 
+    @ViewBuilder
+    private var remindersCard: some View {
+        if let workload = reminders.workload, reminders.accessState == .connected {
+            card(title: "From Reminders", accent: .steel) {
+                leadLine(workload.summaryLine, note: "Counts only. Titles and notes are never kept.")
+            }
+            .accessibilityElement(children: .combine)
+        }
+    }
+
+    @ViewBuilder
+    private var lifeOpsCard: some View {
+        let digest = LifeOpsBoard.digest()
+        if !digest.isQuiet {
+            card(title: "Life Ops", accent: .ember) {
+                leadLine(
+                    digest.summaryLine,
+                    note: "Calendar kinds and reminder counts — never titles, mail, or GitHub. On this iPhone only."
+                )
+            }
+            .accessibilityElement(children: .combine)
+            .accessibilityLabel("Life Ops: \(digest.summaryLine)")
+        }
+    }
+
     private var factsCard: some View {
-        card(title: "From shared conversations", accent: .ember) {
+        card(
+            title: "From shared conversations",
+            accent: .ember,
+            meta: store.facts.isEmpty ? nil : "\(store.facts.count)"
+        ) {
             if store.facts.isEmpty {
-                Text(store.settings.messagesEnabled
-                     ? "Nothing yet. Share a conversation to Forge from the Share Sheet."
-                     : "Messages is off in Life Context, so Forge has nothing here.")
-                    .font(.system(size: 13))
-                    .foregroundColor(.textSecondary)
-                    .fixedSize(horizontal: false, vertical: true)
+                factsEmpty
             } else {
-                ForEach(Array(store.facts.reversed())) { fact in
-                    factRow(fact, deletable: true)
+                VStack(alignment: .leading, spacing: ForgeLayout.rowGap) {
+                    ForEach(Array(store.facts.reversed())) { fact in
+                        factRow(fact, deletable: true)
+                    }
                 }
             }
+        }
+    }
+
+    @ViewBuilder
+    private var factsEmpty: some View {
+        if store.settings.messagesEnabled {
+            ForgeEmptyNote(
+                title: "Nothing yet",
+                message: "Share a conversation to Forge from the Share Sheet.",
+                systemImage: "tray"
+            )
+        } else {
+            ForgeEmptyNote(
+                title: "Messages is off in Life Context, so Forge has nothing here.",
+                systemImage: "tray"
+            )
         }
     }
 
     #if FORGE_DUMMY_ORCHESTRA
     private var syntheticCard: some View {
         card(title: "Debug", accent: .steel) {
-            Button {
+            ForgeSecondaryButton(
+                title: store.isProcessing ? "Reading…" : "Load synthetic conversation",
+                accent: store.settings.messagesEnabled ? .ember : .textMuted
+            ) {
                 Task {
                     guard let key = try? store.hashKey() else { return }
                     await store.ingest(from: SyntheticMessageProvider(hashKey: key))
                 }
-            } label: {
-                Text(store.isProcessing ? "Reading…" : "Load synthetic conversation")
-                    .font(FDS.TypeScale.Dynamic.body.weight(.semibold))
-                    .foregroundColor(store.settings.messagesEnabled ? Color.ember : Color.textMuted)
             }
             .disabled(!store.settings.messagesEnabled || store.isProcessing)
             .accessibilityLabel("Load synthetic conversation")
@@ -396,54 +434,77 @@ struct LifeContextKnowledgeView: View {
 
     // MARK: Pieces
 
+    /// Standard card: eyebrow header (optional count), then the body at the
+    /// block gap. The domain colour washes the card and tints the eyebrow.
     private func card<Content: View>(
         title: String,
         accent: Color,
+        meta: String? = nil,
         @ViewBuilder content: () -> Content
     ) -> some View {
-        VStack(alignment: .leading, spacing: FDS.Spacing.md) {
-            Text(title)
-                .font(FDS.TypeScale.Dynamic.caption)
-                .foregroundColor(.textSecondary)
-                .accessibilityAddTraits(.isHeader)
+        VStack(alignment: .leading, spacing: ForgeLayout.blockGap) {
+            cardHeader(title: title, accent: accent, meta: meta)
             content()
         }
-        .padding(FDS.Spacing.lg)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .forgeGlassCard(cornerRadius: FDS.Radius.lg, accent: accent)
+        .forgeContentCard(tint: accent)
     }
 
+    @ViewBuilder
+    private func cardHeader(title: String, accent: Color, meta: String?) -> some View {
+        if let meta {
+            ForgeCardHeader(title, meta: meta, tint: accent)
+        } else {
+            ForgeCardHeader(title, tint: accent)
+        }
+    }
+
+    /// A lead sentence over a quieter note, 4 pt apart.
+    private func leadLine(_ line: String, note: String) -> some View {
+        VStack(alignment: .leading, spacing: ForgeLayout.pairGap) {
+            Text(line)
+                .font(HomeType.body)
+                .foregroundStyle(Color.textPrimary)
+                .forgeWrapping()
+            Text(note)
+                .font(HomeType.body)
+                .foregroundStyle(Color.textSecondary)
+                .forgeWrapping()
+        }
+    }
+
+    /// Agenda-row anatomy: 36 pt icon well, title over detail, trailing 44 pt
+    /// delete. The row is at least 44 pt tall.
     private func factRow(_ fact: LifeContextFact, deletable: Bool) -> some View {
-        HStack(alignment: .top, spacing: FDS.Spacing.md) {
-            Image(systemName: Self.icon(for: fact.kind))
-                .font(.system(size: 14, weight: .semibold))
-                .foregroundColor(.ember)
-                .frame(width: 24)
-                .accessibilityHidden(true)
-            VStack(alignment: .leading, spacing: 3) {
+        HStack(alignment: .center, spacing: ForgeLayout.rowGap) {
+            ForgeIconWell(systemImage: Self.icon(for: fact.kind), tint: .ember)
+            VStack(alignment: .leading, spacing: ForgeLayout.pairGap) {
                 Text(fact.summary)
-                    .font(FDS.TypeScale.Dynamic.body)
-                    .foregroundColor(.textPrimary)
-                    .fixedSize(horizontal: false, vertical: true)
+                    .font(HomeType.status)
+                    .foregroundStyle(Color.textPrimary)
+                    .forgeWrapping()
                 Text(Self.detail(for: fact))
-                    .font(.system(size: 12))
-                    .foregroundColor(.textTertiary)
+                    .font(HomeType.body)
+                    .foregroundStyle(Color.textTertiary)
+                    .lineLimit(2)
             }
+            .frame(maxWidth: .infinity, alignment: .leading)
             .accessibilityElement(children: .combine)
-            Spacer(minLength: 8)
             if deletable {
                 Button {
+                    FDS.haptic(.press)
                     confirmDelete = fact
                 } label: {
                     Image(systemName: "trash")
                         .font(.system(size: 14))
-                        .foregroundColor(.textSecondary)
-                        .frame(width: 32, height: 32)
+                        .foregroundStyle(Color.textSecondary)
+                        .frame(width: ForgeUX.minTap, height: ForgeUX.minTap)
+                        .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
                 .accessibilityLabel("Delete \(fact.summary)")
             }
         }
+        .padding(.vertical, ForgeLayout.rowVerticalPadding)
     }
 
     private static func icon(for kind: LifeContextFact.Kind) -> String {

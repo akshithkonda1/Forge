@@ -8,6 +8,7 @@ struct PeriodEndFeedbackView: View {
     var onDone: (() -> Void)?
 
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     @State private var severity: PeriodSeverity = .moderate
     @State private var peakPain: Double = 4
@@ -26,86 +27,29 @@ struct PeriodEndFeedbackView: View {
     @State private var notes = ""
     @State private var submittedSummary: String?
 
-    private let accent = Color.alert
+    /// One accent for every selection on this form.
+    private let accent = Color.aurora
 
     var body: some View {
         NavigationStack {
             ScrollView {
-                VStack(alignment: .leading, spacing: FDS.Spacing.lg) {
+                VStack(alignment: .leading, spacing: ForgeLayout.sectionGap) {
                     header
                     privacyBanner
-
-                    severitySection
-                    painSection
-                    energySection
-
-                    comparisonSection(
-                        title: "Compared to usual length",
-                        subtitle: "Just a feel — helps us learn your pattern",
-                        selection: lengthFeel,
-                        options: PeriodLengthFeel.allCases,
-                        label: { $0.label },
-                        tint: Color(hex: "38BDF8")
-                    ) { lengthFeel = $0 }
-
-                    comparisonSection(
-                        title: "Overall flow",
-                        subtitle: "Heavier or lighter than what feels normal for you",
-                        selection: flowFeel,
-                        options: PeriodFlowFeel.allCases,
-                        label: { $0.label },
-                        tint: accent
-                    ) { flowFeel = $0 }
-
-                    sleepSection
-                    moodSection
-                    lifeImpactSection
-                    stressSection
-
-                    helpfulnessSection
-                    topicSection(
-                        title: "What helped",
-                        subtitle: "Tap anything that made this period easier",
-                        selection: $whatHelped,
-                        tint: Color.vitality
-                    )
-                    topicSection(
-                        title: "What didn’t help",
-                        subtitle: "We’ll dial these back next time",
-                        selection: $whatDidntHelp,
-                        tint: Color.amber
-                    )
-                    topicSection(
-                        title: "Want more of",
-                        subtitle: "Coaching to lean into next cycle",
-                        selection: $wantMore,
-                        tint: Color.aurora
-                    )
-                    topicSection(
-                        title: "Want less of",
-                        subtitle: "Optional — things to skip",
-                        selection: $wantLess,
-                        tint: Color(hex: "6B7280")
-                    )
-                    notesSection
-                    if let submittedSummary {
-                        Text(submittedSummary)
-                            .font(FDS.TypeScale.Dynamic.body)
-                            .foregroundStyle(Color.vitality)
-                            .padding(FDS.Spacing.lg)
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                            .background(Color.vitality.opacity(0.12))
-                            .clipShape(RoundedRectangle(cornerRadius: FDS.Radius.md, style: .continuous))
-                    }
-                    submitButton
+                    periodCard
+                    bodyLifeCard
+                    coachingCard
+                    notesCard
                     Text("Lifestyle coaching only — not medical advice. Answers stay on-device to help ARIA support you. Never sold or used for ads.")
-                        .font(FDS.TypeScale.Dynamic.micro)
-                        .foregroundColor(.textSecondary)
-                        .padding(.bottom, FDS.Spacing.xl)
+                        .font(HomeType.micro)
+                        .foregroundStyle(Color.textSecondary)
+                        .forgeWrapping()
                 }
-                .padding(FDS.Spacing.lg)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .forgeScreenInsets(top: FDS.Spacing.lg)
             }
-            .background(Color.background.ignoresSafeArea())
+            .forgeScreenBackground(accent: accent)
+            .safeAreaInset(edge: .bottom) { bottomBar }
             .navigationTitle("Period finished")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -122,370 +66,399 @@ struct PeriodEndFeedbackView: View {
         }
     }
 
+    // MARK: - Header and privacy
+
     private var header: some View {
-        VStack(alignment: .leading, spacing: FDS.Spacing.sm) {
+        VStack(alignment: .leading, spacing: ForgeLayout.pairGap) {
             Text("How was your period?")
-                .font(FDS.TypeScale.Dynamic.title)
-                .foregroundColor(.textPrimary)
+                .font(HomeType.sessionTitle)
+                .foregroundStyle(Color.textPrimary)
+                .forgeWrapping()
+                .accessibilityAddTraits(.isHeader)
             Text("\(episode.dayCount) day\(episode.dayCount == 1 ? "" : "s") · ended \(shortDate(episode.endDayKey)). A few optional questions help ARIA learn what actually works for you.")
-                .font(FDS.TypeScale.Dynamic.body)
-                .foregroundColor(.textSecondary)
+                .font(HomeType.body)
+                .foregroundStyle(Color.textSecondary)
+                .forgeWrapping()
         }
     }
 
     private var privacyBanner: some View {
-        HStack(alignment: .top, spacing: FDS.Spacing.md) {
+        HStack(alignment: .top, spacing: ForgeLayout.rowGap) {
             Image(systemName: "lock.shield.fill")
-                .font(.system(size: 14))
+                .font(.system(size: 14, weight: .semibold))
                 .foregroundStyle(Color.vitality)
+                .accessibilityHidden(true)
             Text(CyclePrivacy.shortPromise)
-                .font(FDS.TypeScale.Dynamic.caption)
-                .foregroundColor(.textSecondary)
-                .fixedSize(horizontal: false, vertical: true)
+                .font(HomeType.body)
+                .foregroundStyle(Color.textSecondary)
+                .forgeWrapping()
+            Spacer(minLength: 0)
         }
-        .padding(FDS.Spacing.md)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Color.vitality.opacity(0.1))
-        .clipShape(RoundedRectangle(cornerRadius: FDS.Radius.md, style: .continuous))
+        .forgeContentCard(tint: .vitality, padding: ForgeLayout.compactCardPadding)
+        .accessibilityElement(children: .combine)
     }
 
-    private var severitySection: some View {
-        VStack(alignment: .leading, spacing: FDS.Spacing.md) {
-            Text("HOW WAS IT OVERALL?")
-                .forgeSectionLabel()
-            HStack(spacing: FDS.Spacing.sm) {
-                ForEach(PeriodSeverity.allCases) { level in
-                    chip(
-                        title: level.label,
-                        icon: level.icon,
-                        selected: severity == level,
-                        tint: accent
-                    ) {
-                        severity = level
-                        FDS.selectionHaptic()
-                    }
-                }
+    // MARK: - Card 1: Your period
+
+    private var periodCard: some View {
+        VStack(alignment: .leading, spacing: ForgeLayout.blockGap) {
+            ForgeCardHeader("Your period", tint: accent)
+            severityQuestion
+            painQuestion
+            energyQuestion
+            lengthQuestion
+            flowQuestion
+        }
+        .forgeContentCard(tint: accent)
+    }
+
+    private var severityQuestion: some View {
+        question(title: "HOW WAS IT OVERALL?") {
+            segmented(
+                PeriodSeverity.allCases.map { ForgeSegmentOption(value: $0, title: $0.label, icon: $0.icon) },
+                selection: $severity
+            )
+        }
+    }
+
+    // MARK: Pain
+
+    private var painValue: Int { Int(peakPain) }
+
+    private var painBand: String {
+        switch painValue {
+        case ...0: return "None"
+        case 1...3: return "Mild"
+        case 4...6: return "Moderate"
+        default: return "Severe"
+        }
+    }
+
+    /// Steel to ember as pain rises; severe softens to the miss steel. Never red.
+    private var painTint: Color {
+        switch painValue {
+        case ...0: return Color.textTertiary
+        case 1...3: return Color.steel
+        case 4...6: return Color.ember
+        default: return HudChrome.miss
+        }
+    }
+
+    private var painQuestion: some View {
+        question(
+            title: "PEAK PAIN",
+            subtitle: "0 = none · 10 = worst — optional, just helps recovery coaching"
+        ) {
+            VStack(alignment: .leading, spacing: ForgeLayout.rowGap) {
+                painReadout
+                Slider(value: $peakPain, in: 0...10, step: 1)
+                    .tint(painTint)
+                    .frame(minHeight: ForgeUX.minTap)
+                    .accessibilityLabel("Peak pain")
+                    .accessibilityValue("\(painValue) of 10, \(painBand)")
             }
         }
     }
 
-    private var painSection: some View {
-        VStack(alignment: .leading, spacing: FDS.Spacing.md) {
-            HStack {
-                Text("PEAK PAIN")
-                    .forgeSectionLabel()
-                Spacer()
-                Text("\(Int(peakPain))")
-                    .font(FDS.TypeScale.Dynamic.caption)
-                    .foregroundColor(.textPrimary)
+    private var painReadout: some View {
+        ForgeAdaptiveStack(spacing: FDS.Spacing.sm, alignment: .firstTextBaseline) {
+            HStack(alignment: .firstTextBaseline, spacing: ForgeLayout.pairGap) {
+                Text("\(painValue)")
+                    .font(HomeType.metric)
+                    .foregroundStyle(painTint)
+                    .forgeSingleLine()
+                    .contentTransition(.numericText())
+                    .animation(reduceMotion ? nil : FDS.Spring.snap, value: painValue)
+                Text("/ 10")
+                    .font(HomeType.micro)
+                    .foregroundStyle(Color.textTertiary)
             }
-            Slider(value: $peakPain, in: 0...10, step: 1)
-                .tint(accent)
-            Text("0 = none · 10 = worst — optional, just helps recovery coaching")
-                .font(FDS.TypeScale.Dynamic.micro)
-                .foregroundColor(.textSecondary)
+            Spacer(minLength: 0)
+            Text(painBand)
+                .font(HomeType.label)
+                .foregroundStyle(painTint)
+                .forgeSingleLine(minScale: ForgeLayout.labelMinScale)
         }
-        .padding(FDS.Spacing.lg)
-        .forgeGlassCard(accent: accent)
+        .accessibilityHidden(true)
     }
 
-    private var energySection: some View {
-        VStack(alignment: .leading, spacing: FDS.Spacing.md) {
-            Text("ENERGY DURING THIS PERIOD")
-                .forgeSectionLabel()
-            HStack(spacing: FDS.Spacing.sm) {
-                ForEach(PeriodEnergyLevel.allCases) { level in
-                    chip(
-                        title: level.label,
-                        icon: nil,
-                        selected: energy == level,
-                        tint: Color(hex: "38BDF8")
-                    ) {
-                        energy = level
-                        FDS.selectionHaptic()
-                    }
-                }
-            }
+    // MARK: Energy, length, flow
+
+    private var energyQuestion: some View {
+        question(title: "ENERGY DURING THIS PERIOD") {
+            segmented(
+                PeriodEnergyLevel.allCases.map { ForgeSegmentOption(value: $0, title: $0.label) },
+                selection: $energy
+            )
         }
     }
 
-    private var sleepSection: some View {
-        VStack(alignment: .leading, spacing: FDS.Spacing.md) {
-            Text("SLEEP WHILE BLEEDING")
-                .forgeSectionLabel()
-            Text("Did this period mess with your sleep?")
-                .font(FDS.TypeScale.Dynamic.caption)
-                .foregroundColor(.textSecondary)
-            HStack(spacing: FDS.Spacing.sm) {
-                ForEach(PeriodSleepQuality.allCases) { level in
-                    chip(
-                        title: level.label,
-                        icon: level.icon,
-                        selected: sleepQuality == level,
-                        tint: Color.indigo
-                    ) {
-                        sleepQuality = level
-                        FDS.selectionHaptic()
-                    }
-                }
-            }
+    private var lengthQuestion: some View {
+        question(
+            title: "Compared to usual length",
+            subtitle: "Just a feel — helps us learn your pattern"
+        ) {
+            segmented(
+                PeriodLengthFeel.allCases.map { ForgeSegmentOption(value: $0, title: $0.label) },
+                selection: $lengthFeel
+            )
         }
     }
 
-    private var moodSection: some View {
-        VStack(alignment: .leading, spacing: FDS.Spacing.md) {
-            Text("MOOD OVERALL")
-                .forgeSectionLabel()
-            Text("Rough average for this bleed — not a diagnosis")
-                .font(FDS.TypeScale.Dynamic.caption)
-                .foregroundColor(.textSecondary)
-            HStack(spacing: FDS.Spacing.sm) {
-                ForEach(PeriodMoodOverall.allCases) { level in
-                    chip(
-                        title: level.label,
-                        icon: level.icon,
-                        selected: moodOverall == level,
-                        tint: Color.aurora
-                    ) {
-                        moodOverall = level
-                        FDS.selectionHaptic()
-                    }
-                }
-            }
+    private var flowQuestion: some View {
+        question(
+            title: "Overall flow",
+            subtitle: "Heavier or lighter than what feels normal for you"
+        ) {
+            segmented(
+                PeriodFlowFeel.allCases.map { ForgeSegmentOption(value: $0, title: $0.label) },
+                selection: $flowFeel
+            )
         }
     }
 
-    private var lifeImpactSection: some View {
-        VStack(alignment: .leading, spacing: FDS.Spacing.md) {
-            Text("TRAINING & DAILY LIFE")
-                .forgeSectionLabel()
-            Text("How much did this period limit what you could do?")
-                .font(FDS.TypeScale.Dynamic.caption)
-                .foregroundColor(.textSecondary)
-            HStack(spacing: FDS.Spacing.sm) {
-                ForEach(PeriodLifeImpact.allCases) { level in
-                    chip(
-                        title: level.label,
-                        icon: nil,
-                        selected: lifeImpact == level,
-                        tint: Color.amber
-                    ) {
-                        lifeImpact = level
-                        FDS.selectionHaptic()
-                    }
-                }
-            }
+    // MARK: - Card 2: Body & life
+
+    private var bodyLifeCard: some View {
+        VStack(alignment: .leading, spacing: ForgeLayout.blockGap) {
+            ForgeCardHeader("Body & life", tint: accent)
+            sleepQuestion
+            moodQuestion
+            lifeImpactQuestion
+            stressQuestion
+        }
+        .forgeContentCard(tint: accent)
+    }
+
+    private var sleepQuestion: some View {
+        question(
+            title: "SLEEP WHILE BLEEDING",
+            subtitle: "Did this period mess with your sleep?"
+        ) {
+            segmented(
+                PeriodSleepQuality.allCases.map { ForgeSegmentOption(value: $0, title: $0.label, icon: $0.icon) },
+                selection: $sleepQuality
+            )
         }
     }
 
-    private var stressSection: some View {
-        VStack(alignment: .leading, spacing: FDS.Spacing.md) {
-            Text("STRESS THIS CYCLE")
-                .forgeSectionLabel()
-            Text("Optional context — stress often changes how periods feel")
-                .font(FDS.TypeScale.Dynamic.caption)
-                .foregroundColor(.textSecondary)
-            HStack(spacing: FDS.Spacing.sm) {
-                ForEach(PeriodStressLevel.allCases) { level in
-                    chip(
-                        title: level.label,
-                        icon: nil,
-                        selected: stressLevel == level,
-                        tint: Color.danger
-                    ) {
-                        stressLevel = level
-                        FDS.selectionHaptic()
-                    }
-                }
-            }
+    private var moodQuestion: some View {
+        question(
+            title: "MOOD OVERALL",
+            subtitle: "Rough average for this bleed — not a diagnosis"
+        ) {
+            segmented(
+                PeriodMoodOverall.allCases.map { ForgeSegmentOption(value: $0, title: $0.label, icon: $0.icon) },
+                selection: $moodOverall
+            )
         }
     }
 
-    private var helpfulnessSection: some View {
-        VStack(alignment: .leading, spacing: FDS.Spacing.md) {
-            Text("WAS COACHING USEFUL?")
-                .forgeSectionLabel()
-            Text("Be honest — this is how we keep learning what works for you.")
-                .font(FDS.TypeScale.Dynamic.caption)
-                .foregroundColor(.textSecondary)
-            HStack(spacing: FDS.Spacing.sm) {
-                ForEach(CoachingHelpfulness.allCases) { level in
-                    chip(
-                        title: level.label,
-                        icon: nil,
-                        selected: helpfulness == level,
-                        tint: Color.aurora
-                    ) {
-                        helpfulness = level
-                        FDS.selectionHaptic()
-                    }
-                }
-            }
+    private var lifeImpactQuestion: some View {
+        question(
+            title: "TRAINING & DAILY LIFE",
+            subtitle: "How much did this period limit what you could do?"
+        ) {
+            segmented(
+                PeriodLifeImpact.allCases.map { ForgeSegmentOption(value: $0, title: $0.label) },
+                selection: $lifeImpact
+            )
         }
     }
 
-    private func comparisonSection<T: Identifiable & Hashable>(
-        title: String,
-        subtitle: String,
-        selection: T,
-        options: [T],
-        label: @escaping (T) -> String,
-        tint: Color,
-        onSelect: @escaping (T) -> Void
-    ) -> some View {
-        VStack(alignment: .leading, spacing: FDS.Spacing.md) {
-            Text(title.uppercased())
-                .forgeSectionLabel()
-            Text(subtitle)
-                .font(FDS.TypeScale.Dynamic.caption)
-                .foregroundColor(.textSecondary)
-            HStack(spacing: FDS.Spacing.sm) {
-                ForEach(options) { option in
-                    chip(
-                        title: label(option),
-                        icon: nil,
-                        selected: selection == option,
-                        tint: tint
-                    ) {
-                        onSelect(option)
-                        FDS.selectionHaptic()
-                    }
-                }
-            }
+    private var stressQuestion: some View {
+        question(
+            title: "STRESS THIS CYCLE",
+            subtitle: "Optional context — stress often changes how periods feel"
+        ) {
+            segmented(
+                PeriodStressLevel.allCases.map { ForgeSegmentOption(value: $0, title: $0.label) },
+                selection: $stressLevel
+            )
         }
     }
 
-    private func topicSection(
+    // MARK: - Card 3: Coaching
+
+    private var coachingCard: some View {
+        VStack(alignment: .leading, spacing: ForgeLayout.blockGap) {
+            ForgeCardHeader("Coaching", tint: accent)
+            helpfulnessQuestion
+            topicQuestion(
+                title: "What helped",
+                subtitle: "Tap anything that made this period easier",
+                selection: $whatHelped,
+                tint: Color.vitality
+            )
+            topicQuestion(
+                title: "What didn’t help",
+                subtitle: "We’ll dial these back next time",
+                selection: $whatDidntHelp,
+                tint: HudChrome.miss
+            )
+            topicQuestion(
+                title: "Want more of",
+                subtitle: "Coaching to lean into next cycle",
+                selection: $wantMore,
+                tint: accent
+            )
+            topicQuestion(
+                title: "Want less of",
+                subtitle: "Optional — things to skip",
+                selection: $wantLess,
+                tint: Color.steel
+            )
+        }
+        .forgeContentCard(tint: accent)
+    }
+
+    private var helpfulnessQuestion: some View {
+        question(
+            title: "WAS COACHING USEFUL?",
+            subtitle: "Be honest — this is how we keep learning what works for you."
+        ) {
+            segmented(
+                CoachingHelpfulness.allCases.map { ForgeSegmentOption(value: $0, title: $0.label) },
+                selection: $helpfulness
+            )
+        }
+    }
+
+    private func topicQuestion(
         title: String,
         subtitle: String,
         selection: Binding<Set<PeriodCoachingTopic>>,
         tint: Color
     ) -> some View {
-        VStack(alignment: .leading, spacing: FDS.Spacing.md) {
-            Text(title.uppercased())
-                .forgeSectionLabel()
-            Text(subtitle)
-                .font(FDS.TypeScale.Dynamic.caption)
-                .foregroundColor(.textSecondary)
-            let cols = [GridItem(.adaptive(minimum: 108), spacing: 8)]
-            LazyVGrid(columns: cols, spacing: 8) {
+        question(title: title, subtitle: subtitle) {
+            ForgeFlowLayout(spacing: ForgeLayout.chipGap, lineSpacing: ForgeLayout.interactiveChipLineGap) {
                 ForEach(PeriodCoachingTopic.allCases) { topic in
-                    let on = selection.wrappedValue.contains(topic)
-                    Button {
-                        if on { selection.wrappedValue.remove(topic) }
-                        else { selection.wrappedValue.insert(topic) }
-                        FDS.selectionHaptic()
-                    } label: {
-                        HStack(spacing: FDS.Spacing.xs) {
-                            Image(systemName: topic.icon)
-                                .font(.system(size: 10))
-                            Text(topic.label)
-                                .font(FDS.TypeScale.Dynamic.micro)
-                                .lineLimit(1)
-                        }
-                        .foregroundColor(on ? .white : .textSecondary)
-                        .padding(.horizontal, FDS.Spacing.md)
-                        .padding(.vertical, FDS.Spacing.sm)
-                        .frame(maxWidth: .infinity)
-                        .background(on ? tint.opacity(0.9) : Color.surfaceElevated)
-                        .clipShape(Capsule())
-                    }
-                    .buttonStyle(.plain)
+                    topicChip(topic, selection: selection, tint: tint)
                 }
             }
         }
     }
 
-    private var notesSection: some View {
-        VStack(alignment: .leading, spacing: FDS.Spacing.sm) {
-            Text("ANYTHING ELSE?")
-                .forgeSectionLabel()
-            Text("Optional — patterns, what you’d want next time, or nothing at all.")
-                .font(FDS.TypeScale.Dynamic.caption)
-                .foregroundColor(.textSecondary)
+    private func topicChip(
+        _ topic: PeriodCoachingTopic,
+        selection: Binding<Set<PeriodCoachingTopic>>,
+        tint: Color
+    ) -> some View {
+        ForgeChipButton(
+            label: topic.label,
+            icon: topic.icon,
+            energy: tint,
+            selected: selection.wrappedValue.contains(topic)
+        ) {
+            selection.wrappedValue.formSymmetricDifference([topic])
+        }
+    }
+
+    // MARK: - Card 4: Notes
+
+    private var notesCard: some View {
+        VStack(alignment: .leading, spacing: ForgeLayout.blockGap) {
+            ForgeSectionHeader(
+                title: "ANYTHING ELSE?",
+                subtitle: "Optional — patterns, what you’d want next time, or nothing at all.",
+                energy: accent
+            )
             TextField("Optional notes for next time…", text: $notes, axis: .vertical)
                 .lineLimit(3...5)
                 .textFieldStyle(.plain)
-                .padding(FDS.Spacing.md)
-                .forgeInsetTile(radius: FDS.Radius.md)
-                .foregroundColor(.textPrimary)
+                .font(HomeType.body)
+                .foregroundStyle(Color.textPrimary)
+                .frame(maxWidth: .infinity, minHeight: ForgeUX.minTap, alignment: .topLeading)
+                .forgeWell()
+                .accessibilityLabel("Notes for next time")
+        }
+        .forgeContentCard(tint: accent)
+    }
+
+    // MARK: - Shared form pieces
+
+    /// A question: eyebrow, optional supporting line, then its control.
+    private func question<Control: View>(
+        title: String,
+        subtitle: String? = nil,
+        @ViewBuilder control: () -> Control
+    ) -> some View {
+        VStack(alignment: .leading, spacing: ForgeLayout.tileGap) {
+            ForgeSectionHeader(title: title, subtitle: subtitle)
+            control()
         }
     }
 
-    private var submitButton: some View {
-        Button {
-            let feedback = PeriodEndFeedback(
-                startDayKey: episode.startDayKey,
-                endDayKey: episode.endDayKey,
-                dayCount: episode.dayCount,
-                severity: severity,
-                peakPain: Int(peakPain),
-                energy: energy,
-                lengthFeel: lengthFeel,
-                flowFeel: flowFeel,
-                sleepQuality: sleepQuality,
-                moodOverall: moodOverall,
-                lifeImpact: lifeImpact,
-                stressLevel: stressLevel,
-                coachingHelpfulness: helpfulness,
-                whatHelped: Array(whatHelped),
-                whatDidntHelp: Array(whatDidntHelp),
-                wantMore: Array(wantMore),
-                wantLess: Array(wantLess),
-                notes: notes.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? nil : notes,
-                recordedAt: Date()
+    /// Single-select row for three labelled steps. Bleeds to the card edge when
+    /// it has to become a rail.
+    private func segmented<Value: Hashable>(
+        _ options: [ForgeSegmentOption<Value>],
+        selection: Binding<Value>
+    ) -> some View {
+        ForgeSegmentedControl(
+            options,
+            selection: selection,
+            accent: accent,
+            bleed: ForgeLayout.cardPadding
+        )
+    }
+
+    // MARK: - Submit
+
+    private var bottomBar: some View {
+        VStack(spacing: ForgeLayout.tileGap) {
+            if let submittedSummary {
+                ForgeToast(title: submittedSummary, energy: .vitality)
+                    .lineLimit(3)
+            }
+            ForgePrimaryButton(
+                title: "Save & teach ARIA",
+                icon: "checkmark",
+                accent: .ember,
+                action: submit
             )
-            let summary = cycleStore.submitPeriodEndFeedback(feedback)
-            submittedSummary = summary
-            FDS.notificationHaptic(.success)
-            DispatchQueue.main.asyncAfter(deadline: .now() + 1.1) {
-                onDone?()
-                dismiss()
-            }
-        } label: {
-            Text("Save & teach ARIA")
-                .font(FDS.TypeScale.Dynamic.caption)
-                .foregroundColor(.white)
-                .frame(maxWidth: .infinity)
-                .padding(.vertical, FDS.Spacing.lg)
-                .background(
-                    LinearGradient(
-                        colors: [Color.danger, Color.alert],
-                        startPoint: .leading,
-                        endPoint: .trailing
-                    )
-                )
-                .clipShape(RoundedRectangle(cornerRadius: FDS.Radius.lg, style: .continuous))
+            .disabled(submittedSummary != nil)
         }
-        .buttonStyle(.plain)
-        .disabled(submittedSummary != nil)
+        .padding(.horizontal, ForgeLayout.screenInset)
+        .padding(.top, FDS.Spacing.sm)
+        .padding(.bottom, FDS.Spacing.sm)
+        .forgeBarChrome(edge: .bottom)
     }
 
-    private func chip(title: String, icon: String?, selected: Bool, tint: Color, action: @escaping () -> Void) -> some View {
-        Button(action: action) {
-            HStack(spacing: FDS.Spacing.sm) {
-                if let icon {
-                    Image(systemName: icon)
-                        .font(.system(size: 11, weight: .bold))
-                }
-                Text(title)
-                    .font(FDS.TypeScale.Dynamic.caption)
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.8)
-            }
-            .foregroundColor(selected ? .white : .textPrimary)
-            .frame(maxWidth: .infinity)
-            .padding(.vertical, FDS.Spacing.md)
-            .background(selected ? tint.opacity(0.9) : Color.surfaceElevated)
-            .clipShape(RoundedRectangle(cornerRadius: FDS.Radius.md, style: .continuous))
+    private func submit() {
+        let feedback = PeriodEndFeedback(
+            startDayKey: episode.startDayKey,
+            endDayKey: episode.endDayKey,
+            dayCount: episode.dayCount,
+            severity: severity,
+            peakPain: Int(peakPain),
+            energy: energy,
+            lengthFeel: lengthFeel,
+            flowFeel: flowFeel,
+            sleepQuality: sleepQuality,
+            moodOverall: moodOverall,
+            lifeImpact: lifeImpact,
+            stressLevel: stressLevel,
+            coachingHelpfulness: helpfulness,
+            whatHelped: Array(whatHelped),
+            whatDidntHelp: Array(whatDidntHelp),
+            wantMore: Array(wantMore),
+            wantLess: Array(wantLess),
+            notes: notes.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? nil : notes,
+            recordedAt: Date()
+        )
+        let summary = cycleStore.submitPeriodEndFeedback(feedback)
+        submittedSummary = summary
+        AccessibilityNotification.Announcement(summary).post()
+        FDS.notificationHaptic(.success)
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.1) {
+            onDone?()
+            dismiss()
         }
-        .buttonStyle(.plain)
     }
 
     private func shortDate(_ key: String) -> String {
         guard let d = CycleDayKey.date(from: key) else { return key }
-        let f = DateFormatter()
-        f.dateFormat = "MMM d"
-        return f.string(from: d)
+        return d.formatted(.dateTime.month(.abbreviated).day())
     }
 }

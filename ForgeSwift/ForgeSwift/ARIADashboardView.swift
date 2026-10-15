@@ -1,5 +1,6 @@
 import SwiftUI
 import UIKit
+import ForgeCore
 
 @MainActor
 struct ARIADashboardView: View {
@@ -7,156 +8,207 @@ struct ARIADashboardView: View {
     var isPreWorkout: Bool = false
     @EnvironmentObject var store: AppStore
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @StateObject private var aria = ARIACoachService()
     @State private var sent = false
     @State private var briefing: String = ""
     @State private var loadingBrief = false
-    @State private var appeared = false
 
     var body: some View {
         NavigationStack {
-            ZStack {
-                Color(hex: "0A0A0A").ignoresSafeArea()
-                RadialGradient(colors: [Color.ember.opacity(appeared ? 0.10 : 0), .clear], center: .top, startRadius: 0, endRadius: 360)
-                    .ignoresSafeArea().animation(.easeInOut(duration: 1.2), value: appeared)
-                ScrollView(showsIndicators: false) {
-                    VStack(spacing: FDS.Spacing.lg) {
-                        header
-                        muscleBalanceCard
-                        muscleEmphasisCard
-                        if !isPreWorkout { zoneCard }
-                        if !snapshot.autoRegLog.isEmpty { autoRegCard }
-                        recommendationsCard
-                        sendCard
-                    }
-                    .padding(.horizontal, FDS.Spacing.lg).padding(.top, FDS.Spacing.md).padding(.bottom, 50)
+            ScrollView(showsIndicators: false) {
+                ForgeScreenStack(top: ForgeLayout.screenTop) {
+                    hero
+                    muscleBalanceCard
+                    muscleEmphasisCard
+                    if !isPreWorkout { zoneCard }
+                    if !snapshot.autoRegLog.isEmpty { autoRegCard }
+                    recommendationsCard
+                    sendCard
                 }
             }
-            .navigationTitle(isPreWorkout ? "Session Brief" : "Performance Dashboard")
+            .forgeScreenBackground(accent: .ember)
             .navigationBarTitleDisplayMode(.inline)
             .toolbarColorScheme(.dark, for: .navigationBar)
-            .toolbar { ToolbarItem(placement: .topBarTrailing) { Button("Done") { dismiss() }.foregroundColor(.ember).fontWeight(.semibold) } }
-            .onAppear { withAnimation(.easeOut(duration: 0.6)) { appeared = true }; briefing = snapshot.localBriefing }
-        }
-    }
-
-    private var header: some View {
-        VStack(spacing: FDS.Spacing.md) {
-            HStack(spacing: FDS.Spacing.lg) {
-                ARIAIdentityMark(state: .idle, mood: .energized, size: 50, amplitude: 0.24)
-                    .shadow(color: .ember.opacity(0.5), radius: 12, y: 4)
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(isPreWorkout ? "ARIA · PRE-FLIGHT" : "ARIA · DEBRIEF").font(FDS.TypeScale.Dynamic.micro).tracking(2).foregroundColor(.ember)
-                    Text(snapshot.title).font(FDS.TypeScale.Dynamic.title).foregroundColor(.white)
+            .toolbar {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button("Done") { dismiss() }
+                        .foregroundColor(.ember)
+                        .fontWeight(.semibold)
                 }
-                Spacer()
             }
-            LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible()), GridItem(.flexible())], spacing: 10) {
-                metric("\(snapshot.totalVolume.formattedVolume)", "Volume", .steel)
-                metric("\(snapshot.totalSets)", "Sets", .ember)
-                if isPreWorkout { metric("\(snapshot.readiness)", "Readiness", .success) }
-                else { metric(snapshot.avgRPE > 0 ? String(format: "%.1f", snapshot.avgRPE) : "—", "Avg RPE", .warning) }
-            }
+            .onAppear { briefing = snapshot.localBriefing }
         }
-        .padding(FDS.Spacing.lg).background(Color.white.opacity(0.04)).cornerRadius(FDS.Radius.xl)
-        .overlay(RoundedRectangle(cornerRadius: FDS.Radius.xl).stroke(Color.white.opacity(0.07), lineWidth: 1))
     }
 
-    private func metric(_ value: String, _ label: String, _ color: Color) -> some View {
-        VStack(spacing: 3) {
-            Text(value).font(FDS.TypeScale.Dynamic.metric).foregroundColor(.white)
-            Text(label).font(FDS.TypeScale.Dynamic.micro).foregroundColor(color)
+    // MARK: Hero
+
+    private var heroEyebrow: String {
+        isPreWorkout ? "ARIA · PRE-FLIGHT" : "ARIA · DEBRIEF"
+    }
+
+    private var hero: some View {
+        VStack(alignment: .leading, spacing: ForgeLayout.heroGap) {
+            HStack(spacing: ForgeLayout.rowGap) {
+                ARIAIdentityMark(state: .idle, mood: .energized, size: 40, amplitude: 0.24)
+                    .environment(\.forgeMinimalAnimation, true)
+                VStack(alignment: .leading, spacing: ForgeLayout.pairGap) {
+                    Text(heroEyebrow)
+                        .forgeSectionLabel(tint: .aurora)
+                    Text(snapshot.title)
+                        .font(ForgeType.title)
+                        .foregroundColor(.textPrimary)
+                        .forgeWrapping()
+                        .accessibilityAddTraits(.isHeader)
+                }
+                Spacer(minLength: 0)
+            }
+            heroStats
         }
-        .frame(maxWidth: .infinity).padding(.vertical, FDS.Spacing.md)
-        .background(Color.white.opacity(0.04)).cornerRadius(FDS.Radius.md)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .hudPlate(energy: .aurora)
+        .accessibilityElement(children: .contain)
+    }
+
+    private var heroStats: some View {
+        ForgeStatGrid(columns: 3) {
+            ForgeStatTile(
+                label: "Volume",
+                value: snapshot.totalVolume.formattedVolume,
+                unit: "lb",
+                energy: .steel
+            )
+            ForgeStatTile(
+                label: "Sets",
+                value: "\(snapshot.totalSets)",
+                energy: .ember
+            )
+            if isPreWorkout {
+                ForgeStatTile(
+                    label: "Readiness",
+                    value: "\(snapshot.readiness)",
+                    energy: HomeReadiness.color(snapshot.readiness)
+                )
+            } else {
+                ForgeStatTile(
+                    label: "Avg RPE",
+                    value: snapshot.avgRPE > 0 ? String(format: "%.1f", snapshot.avgRPE) : "—",
+                    energy: .amber
+                )
+            }
+        }
+    }
+
+    // MARK: Balance + emphasis
+
+    /// Label and percent on one line, the bar full-width beneath, so a long
+    /// label ("Conditioning") never competes with a fixed-width column.
+    private func shareRow(label: String, share: Double, tint: Color) -> some View {
+        let percent = Int((share * 100).rounded())
+        return VStack(alignment: .leading, spacing: ForgeLayout.pairGap) {
+            ForgeAdaptiveStack(spacing: ForgeLayout.pairGap, alignment: .firstTextBaseline) {
+                Text(label)
+                    .font(HomeType.status)
+                    .foregroundColor(.textPrimary)
+                    .lineLimit(2)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                Text("\(percent)%")
+                    .font(HomeType.label)
+                    .monospacedDigit()
+                    .foregroundColor(.textSecondary)
+                    .forgeSingleLine()
+            }
+            ForgeProgressBar(fraction: share, tint: tint, height: 8)
+                .accessibilityHidden(true)
+        }
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(label)
+        .accessibilityValue("\(percent) percent")
     }
 
     private var muscleBalanceCard: some View {
-        dashCard("MOVEMENT BALANCE", icon: "scale.3d") {
-            VStack(spacing: FDS.Spacing.md) {
+        dashCard("MOVEMENT BALANCE", tint: .ember) {
+            VStack(alignment: .leading, spacing: ForgeLayout.rowGap) {
                 ForEach(snapshot.regionShare.filter { $0.1 > 0.001 }, id: \.0) { region, share in
-                    HStack(spacing: FDS.Spacing.md) {
-                        Text(region.rawValue.capitalized).font(FDS.TypeScale.Dynamic.caption).foregroundColor(.white.opacity(0.8)).frame(width: 90, alignment: .leading)
-                        GeometryReader { geo in
-                            ZStack(alignment: .leading) {
-                                Capsule().fill(Color.white.opacity(0.06)).frame(height: 8)
-                                Capsule().fill(LinearGradient(colors: [region.accent, region.accent.opacity(0.6)], startPoint: .leading, endPoint: .trailing))
-                                    .frame(width: max(6, geo.size.width * (appeared ? share : 0)), height: 8)
-                                    .animation(.spring(response: 0.8, dampingFraction: 0.8), value: appeared)
-                            }
-                        }
-                        .frame(height: 8)
-                        Text("\(Int(share * 100))%").font(.system(size: 12, weight: .bold, design: .monospaced)).foregroundColor(region.accent).frame(width: 40, alignment: .trailing)
-                    }
+                    shareRow(label: region.label, share: share, tint: region.accent)
                 }
             }
         }
     }
 
     private var muscleEmphasisCard: some View {
-        dashCard("MUSCLE EMPHASIS", icon: "figure.arms.open") {
-            VStack(spacing: FDS.Spacing.sm) {
+        dashCard("MUSCLE EMPHASIS", tint: .ember) {
+            VStack(alignment: .leading, spacing: ForgeLayout.rowGap) {
                 ForEach(snapshot.topMuscles, id: \.0) { m, share in
-                    HStack(spacing: FDS.Spacing.md) {
-                        Circle().fill(m.accent).frame(width: 8, height: 8)
-                        Text(m.label).font(.system(size: 13)).foregroundColor(.white.opacity(0.85))
-                        Spacer()
-                        Text("\(Int(share * 100))%").font(.system(size: 12, weight: .bold, design: .monospaced)).foregroundColor(m.accent)
-                    }
+                    shareRow(label: m.label, share: share, tint: m.accent)
                 }
                 if snapshot.topMuscles.isEmpty {
-                    Text("Add library movements to see muscle targeting.").font(.system(size: 12)).foregroundColor(.white.opacity(0.4))
+                    ForgeEmptyNote(title: "Add library movements to see muscle targeting.")
                 }
             }
         }
     }
 
+    // MARK: Zones
+
     private var zoneCard: some View {
-        dashCard("HEART-RATE ZONES", icon: "waveform.path.ecg") {
+        dashCard("HEART-RATE ZONES", tint: .steel) {
             let maxV = max(1, snapshot.zoneSeconds.max() ?? 1)
-            HStack(alignment: .bottom, spacing: FDS.Spacing.md) {
+            VStack(alignment: .leading, spacing: ForgeLayout.rowGap) {
                 ForEach(Array(snapshot.zoneSeconds.enumerated()), id: \.offset) { idx, secs in
-                    let z = WorkoutHRZone.all[idx + 1]
-                    VStack(spacing: FDS.Spacing.sm) {
-                        ZStack(alignment: .bottom) {
-                            RoundedRectangle(cornerRadius: FDS.Radius.xs).fill(Color.white.opacity(0.06)).frame(height: 70)
-                            RoundedRectangle(cornerRadius: FDS.Radius.xs).fill(LinearGradient(colors: [z.color, z.color.opacity(0.6)], startPoint: .top, endPoint: .bottom))
-                                .frame(height: max(4, 70 * CGFloat(appeared ? Double(secs) / Double(maxV) : 0)))
-                                .animation(.spring(response: 0.8, dampingFraction: 0.78).delay(Double(idx) * 0.06), value: appeared)
-                        }
-                        .frame(height: 70)
-                        Text(secs >= 60 ? "\(secs/60)m" : "\(secs)s").font(FDS.TypeScale.Dynamic.micro).foregroundColor(secs > 0 ? z.color : .white.opacity(0.25))
-                        Text("Z\(idx+1)").font(FDS.TypeScale.Dynamic.micro).foregroundColor(.white.opacity(0.35))
-                    }
-                    .frame(maxWidth: .infinity)
+                    zoneRow(index: idx, seconds: secs, maxSeconds: maxV)
                 }
             }
         }
+    }
+
+    private func zoneRow(index idx: Int, seconds secs: Int, maxSeconds maxV: Int) -> some View {
+        let zones = WorkoutHRZone.all
+        let z = zones[min(idx + 1, zones.count - 1)]
+        let isMinutes = secs >= 60
+        let value = isMinutes ? "\(secs / 60)" : "\(secs)"
+        let unit = isMinutes ? "min" : "s"
+        let fraction = Double(secs) / Double(maxV)
+        return VStack(alignment: .leading, spacing: ForgeLayout.pairGap) {
+            ForgeMetricRow(label: "Zone \(idx + 1)", value: value, unit: unit, tint: z.color)
+            ForgeProgressBar(fraction: fraction, tint: z.color, height: 4)
+                .accessibilityHidden(true)
+        }
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("Zone \(idx + 1)")
+        .accessibilityValue(isMinutes ? "\(secs / 60) minutes" : "\(secs) seconds")
+    }
+
+    // MARK: Log + recommendations
+
+    /// Agenda-row anatomy for a sentence: icon well, then wrapping body text.
+    private func sentenceRow(icon: String, tint: Color, text: String) -> some View {
+        HStack(alignment: .top, spacing: ForgeLayout.rowGap) {
+            ForgeIconWell(systemImage: icon, tint: tint)
+            Text(text)
+                .font(HomeType.body)
+                .foregroundColor(.textSecondary)
+                .forgeWrapping()
+                .frame(maxWidth: .infinity, alignment: .leading)
+        }
+        .accessibilityElement(children: .combine)
     }
 
     private var autoRegCard: some View {
-        dashCard("AUTO-REGULATION LOG", icon: "wand.and.stars") {
-            VStack(alignment: .leading, spacing: FDS.Spacing.md) {
+        dashCard("AUTO-REGULATION LOG", tint: .ember) {
+            VStack(alignment: .leading, spacing: ForgeLayout.rowGap) {
                 ForEach(Array(snapshot.autoRegLog.enumerated()), id: \.offset) { _, line in
-                    HStack(alignment: .top, spacing: FDS.Spacing.sm) {
-                        Image(systemName: "arrow.triangle.branch").font(.system(size: 11)).foregroundColor(.ember)
-                        Text(line).font(.system(size: 12)).foregroundColor(.white.opacity(0.8)).lineSpacing(3)
-                        Spacer(minLength: 0)
-                    }
+                    sentenceRow(icon: "arrow.triangle.branch", tint: .ember, text: line)
                 }
             }
         }
     }
 
     private var recommendationsCard: some View {
-        dashCard("HOW TO IMPROVE", icon: "lightbulb.fill") {
-            VStack(alignment: .leading, spacing: FDS.Spacing.md) {
+        dashCard("HOW TO IMPROVE", tint: .amber) {
+            VStack(alignment: .leading, spacing: ForgeLayout.rowGap) {
                 ForEach(Array(recommendations.enumerated()), id: \.offset) { _, rec in
-                    HStack(alignment: .top, spacing: FDS.Spacing.sm) {
-                        Image(systemName: "checkmark.circle.fill").font(.system(size: 12)).foregroundColor(.success)
-                        Text(rec).font(.system(size: 13)).foregroundColor(.white.opacity(0.85)).lineSpacing(3)
-                        Spacer(minLength: 0)
-                    }
+                    sentenceRow(icon: "lightbulb.fill", tint: .amber, text: rec)
                 }
             }
         }
@@ -176,29 +228,46 @@ struct ARIADashboardView: View {
         return r
     }
 
-    private var sendCard: some View {
-        VStack(spacing: FDS.Spacing.md) {
-            HStack(alignment: .top, spacing: FDS.Spacing.md) {
-                Image(systemName: "text.bubble.fill").font(.system(size: 14)).foregroundColor(.ember)
-                Text(briefing.isEmpty ? snapshot.localBriefing : briefing)
-                    .font(.system(size: 13)).foregroundColor(.white.opacity(0.85)).lineSpacing(4)
-                Spacer(minLength: 0)
-            }
-            .padding(FDS.Spacing.lg).frame(maxWidth: .infinity, alignment: .leading)
-            .background(Color.ember.opacity(0.07)).cornerRadius(FDS.Radius.lg)
-            .overlay(RoundedRectangle(cornerRadius: FDS.Radius.lg).stroke(Color.ember.opacity(0.2), lineWidth: 1))
+    // MARK: Send
 
-            Button { Task { await sendToARIA() } } label: {
-                HStack(spacing: FDS.Spacing.md) {
-                    if loadingBrief { ProgressView().tint(.white) }
-                    else { Image(systemName: sent ? "checkmark.circle.fill" : "paperplane.fill").font(.system(size: 17, weight: .bold)) }
-                    Text(sent ? "Sent to ARIA — open chat" : loadingBrief ? "ARIA is reviewing…" : "Send this data to ARIA").font(FDS.TypeScale.Dynamic.headline)
-                }
-                .foregroundColor(.white).frame(maxWidth: .infinity).frame(height: 56)
-                .background(LinearGradient(colors: sent ? [.success, .success.opacity(0.8)] : [.ember, Color(hex: "FF5A00")], startPoint: .leading, endPoint: .trailing))
-                .cornerRadius(FDS.Radius.lg).shadow(color: (sent ? Color.success : Color.ember).opacity(0.5), radius: 16, y: 6)
+    private var briefingText: String {
+        briefing.isEmpty ? snapshot.localBriefing : briefing
+    }
+
+    private var primaryTitle: String {
+        if sent { return "Open in chat" }
+        return loadingBrief ? "ARIA is reviewing…" : "Send this data to ARIA"
+    }
+
+    private var primaryIcon: String {
+        if sent { return "checkmark" }
+        return loadingBrief ? "sparkles" : "paperplane.fill"
+    }
+
+    private var sendCard: some View {
+        VStack(alignment: .leading, spacing: ForgeLayout.blockGap) {
+            HStack(alignment: .top, spacing: ForgeLayout.rowGap) {
+                ForgeIconWell(systemImage: "text.bubble.fill", tint: .ember)
+                Text(briefingText)
+                    .font(HomeType.body)
+                    .foregroundColor(.textSecondary)
+                    .lineSpacing(3)
+                    .forgeWrapping()
+                    .frame(maxWidth: .infinity, alignment: .leading)
+            }
+            .forgeContentCard(tint: .ember)
+
+            ForgePrimaryButton(
+                title: primaryTitle,
+                icon: primaryIcon,
+                accent: .ember,
+                subtitle: sent ? "Sent to ARIA" : nil
+            ) {
+                Task { await sendToARIA() }
             }
             .disabled(loadingBrief)
+            .opacity(loadingBrief ? 0.6 : 1)
+
             if !aria.isLiveCoachingAvailable {
                 // Was: "add ANTHROPIC_API_KEY to enable ARIA's live Claude debrief."
                 // Telling a user to put an API key in the app was the visible end
@@ -206,13 +275,14 @@ struct ARIADashboardView: View {
                 // reasoning is on is now a server-side fact, and not something
                 // anyone should be able to change from the device.
                 Text("ARIA's live debrief isn't available right now. Using the on-device analysis instead.")
-                    .font(.system(size: 11)).foregroundColor(.white.opacity(0.35)).multilineTextAlignment(.center)
+                    .font(HomeType.body)
+                    .foregroundColor(.textTertiary)
+                    .forgeWrapping()
             }
         }
     }
 
     private func sendToARIA() async {
-        UIImpactFeedbackGenerator(style: .medium).impactOccurred()
         if !sent {
             loadingBrief = true
             // Prefer a live Claude debrief; fall back to the on-device briefing.
@@ -232,25 +302,24 @@ struct ARIADashboardView: View {
                                       timestamp: Date(), richCard: muscles.isEmpty ? nil : chart)
             store.addMessage(message)
             AriaContextStore.shared.addInsight("Workout briefing (\(snapshot.title)): \(content)")
-            withAnimation { sent = true }
-            UINotificationFeedbackGenerator().notificationOccurred(.success)
+            withAnimation(reduceMotion ? nil : Animation.default) { sent = true }
+            FDS.haptic(.success)
         } else {
             store.activeTab = .chat
             dismiss()
         }
     }
 
-    @ViewBuilder
-    private func dashCard<Content: View>(_ title: String, icon: String, @ViewBuilder content: () -> Content) -> some View {
-        VStack(alignment: .leading, spacing: FDS.Spacing.lg) {
-            HStack(spacing: FDS.Spacing.sm) {
-                Image(systemName: icon).font(.system(size: 13)).foregroundColor(.ember)
-                Text(title).font(FDS.TypeScale.Dynamic.micro).tracking(2).foregroundColor(.white.opacity(0.45))
-            }
+    /// Standard card: eyebrow header, then the body at the block gap.
+    private func dashCard<Content: View>(
+        _ title: String,
+        tint: Color,
+        @ViewBuilder content: () -> Content
+    ) -> some View {
+        VStack(alignment: .leading, spacing: ForgeLayout.blockGap) {
+            ForgeCardHeader(title)
             content()
         }
-        .padding(FDS.Spacing.lg).frame(maxWidth: .infinity, alignment: .leading)
-        .background(Color.white.opacity(0.04)).cornerRadius(FDS.Radius.xl)
-        .overlay(RoundedRectangle(cornerRadius: FDS.Radius.xl).stroke(Color.white.opacity(0.07), lineWidth: 1))
+        .forgeContentCard(tint: tint)
     }
 }

@@ -1,85 +1,251 @@
 import SwiftUI
 import ForgeCore
 
+// ============================================================
+// MARK: - Shared choice tiles (private to this file)
+// ============================================================
+
+/// One single-select choice. A tile (icon over a wrapping label) in a grid, or
+/// a full-width option row when the grid would be too tight (accessibility
+/// sizes). Selected state is a tinted fill and hairline, plus the
+/// `.isSelected` trait for VoiceOver.
+private struct CycleChoiceTile: View {
+    let title: String
+    let icon: String?
+    let selected: Bool
+    let tint: Color
+    let asRow: Bool
+    let action: () -> Void
+
+    private var shape: RoundedRectangle {
+        RoundedRectangle(cornerRadius: ForgeLayout.innerRadius, style: .continuous)
+    }
+
+    private var fill: Color {
+        selected ? tint.opacity(0.14) : Color.white.opacity(0.045)
+    }
+
+    private var stroke: Color {
+        selected ? tint.opacity(0.32) : Color.white.opacity(0.08)
+    }
+
+    private var foreground: Color {
+        selected ? tint : Color.textSecondary
+    }
+
+    var body: some View {
+        Button {
+            FDS.haptic(.select)
+            action()
+        } label: {
+            label
+                .foregroundStyle(foreground)
+                .background(shape.fill(fill))
+                .overlay(shape.stroke(stroke, lineWidth: ForgeUX.stroke))
+                .contentShape(shape)
+        }
+        .buttonStyle(ForgePressStyle())
+        .accessibilityLabel(title)
+        .accessibilityAddTraits(selected ? .isSelected : [])
+    }
+
+    @ViewBuilder
+    private var label: some View {
+        if asRow {
+            rowLabel
+        } else {
+            tileLabel
+        }
+    }
+
+    private var tileLabel: some View {
+        VStack(spacing: FDS.Spacing.xs) {
+            if let icon {
+                Image(systemName: icon)
+                    .font(.title3)
+                    .accessibilityHidden(true)
+            }
+            Text(title)
+                .font(HomeType.micro)
+                .multilineTextAlignment(.center)
+                .minimumScaleFactor(0.85)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .padding(.horizontal, FDS.Spacing.sm)
+        .padding(.vertical, ForgeLayout.tilePadding)
+        .frame(maxWidth: .infinity, minHeight: ForgeUX.minTap, maxHeight: .infinity)
+    }
+
+    private var rowLabel: some View {
+        HStack(spacing: ForgeLayout.rowGap) {
+            if let icon {
+                Image(systemName: icon)
+                    .font(.title3)
+                    .accessibilityHidden(true)
+            }
+            Text(title)
+                .font(HomeType.status)
+                .multilineTextAlignment(.leading)
+                .fixedSize(horizontal: false, vertical: true)
+            Spacer(minLength: FDS.Spacing.sm)
+            if selected {
+                Image(systemName: "checkmark")
+                    .font(.system(size: 14, weight: .semibold))
+                    .accessibilityHidden(true)
+            }
+        }
+        .padding(ForgeLayout.tilePadding)
+        .frame(maxWidth: .infinity, minHeight: ForgeUX.minTap, alignment: .leading)
+    }
+}
+
+/// Equal-height tiles in `columns`, or vertical option rows at accessibility
+/// sizes.
+private struct CycleChoiceGrid<Item: Identifiable>: View {
+    let items: [Item]
+    let columns: Int
+    var tint: Color = .ember
+    let title: (Item) -> String
+    let icon: (Item) -> String?
+    let isSelected: (Item) -> Bool
+    let onSelect: (Item) -> Void
+
+    @Environment(\.dynamicTypeSize) private var typeSize
+
+    var body: some View {
+        if typeSize.isAccessibilitySize {
+            VStack(spacing: ForgeLayout.tileGap) {
+                ForEach(items) { item in
+                    tile(item, asRow: true)
+                }
+            }
+        } else {
+            ForgeEqualColumnsLayout(columns: columns, spacing: ForgeLayout.tileGap) {
+                ForEach(items) { item in
+                    tile(item, asRow: false)
+                }
+            }
+        }
+    }
+
+    private func tile(_ item: Item, asRow: Bool) -> some View {
+        CycleChoiceTile(
+            title: title(item),
+            icon: icon(item),
+            selected: isSelected(item),
+            tint: tint,
+            asRow: asRow,
+            action: { onSelect(item) }
+        )
+    }
+}
+
+// ============================================================
+// MARK: - Fertile score
+// ============================================================
+
 struct FertileScoreCard: View {
     let score: Int
     let phase: MenstrualPhase
     let onAskARIA: () -> Void
 
+    @Environment(\.dynamicTypeSize) private var typeSize
+
+    /// Peak-window tone: the cycle palette's pink, declared once for this file.
+    private static let peakTone = Color(hex: "F472B6")
+
     private var band: (label: String, color: Color) {
         switch score {
-        case 75...: return ("Peak window", Color(hex: "F472B6"))
+        case 75...: return ("Peak window", Self.peakTone)
         case 45..<75: return ("Elevated", Color.ember)
         case 20..<45: return ("Rising / fading", Color.steel)
         default: return ("Low likelihood", Color.textTertiary)
         }
     }
 
+    private var detailAlignment: HorizontalAlignment {
+        typeSize.isAccessibilitySize ? .leading : .trailing
+    }
+
+    private var meterGradient: LinearGradient {
+        LinearGradient(
+            colors: [Color.steel, Color.ember, Self.peakTone],
+            startPoint: .leading,
+            endPoint: .trailing
+        )
+    }
+
     var body: some View {
-        VStack(alignment: .leading, spacing: FDS.Spacing.lg) {
-            HStack(alignment: .firstTextBaseline) {
-                VStack(alignment: .leading, spacing: FDS.Spacing.xs) {
-                    Text("FERTILE SCORE")
-                        .font(FDS.TypeScale.Dynamic.caption)
-                        .tracking(1.2)
-                        .foregroundStyle(.secondary)
-                    HStack(alignment: .firstTextBaseline, spacing: FDS.Spacing.xs) {
-                        Text("\(score)")
-                            .font(.system(size: 44, weight: .bold, design: .rounded))
-                            .foregroundStyle(band.color)
-                        Text("/ 100")
-                            .font(FDS.TypeScale.Dynamic.headline)
-                            .foregroundStyle(.secondary)
-                    }
-                }
-                Spacer()
-                VStack(alignment: .trailing, spacing: FDS.Spacing.sm) {
-                    Text(band.label)
-                        .font(FDS.TypeScale.Dynamic.caption)
-                        .foregroundStyle(band.color)
-                    Text(phase.label)
-                        .font(FDS.TypeScale.Dynamic.caption)
-                        .foregroundStyle(.secondary)
-                }
+        VStack(alignment: .leading, spacing: ForgeLayout.blockGap) {
+            ForgeCardHeader("FERTILE SCORE")
+
+            scoreHeader
+                .accessibilityElement(children: .combine)
+                .accessibilityLabel("Fertile score \(score) out of 100, \(band.label)")
+
+            VStack(alignment: .leading, spacing: FDS.Spacing.sm) {
+                meter
+                Text("Multi-signal confidence from ovulation method, cycle history, and phase proximity. Lifestyle timing only — not contraception.")
+                    .font(HomeType.body)
+                    .foregroundStyle(Color.textTertiary)
+                    .forgeWrapping()
             }
 
-            GeometryReader { geo in
-                ZStack(alignment: .leading) {
-                    Capsule().fill(Color.white.opacity(0.08))
-                    Capsule()
-                        .fill(
-                            LinearGradient(
-                                colors: [Color.steel, Color.ember, Color(hex: "F472B6")],
-                                startPoint: .leading,
-                                endPoint: .trailing
-                            )
-                        )
-                        .frame(width: max(8, geo.size.width * CGFloat(score) / 100.0))
-                }
+            ForgeTextLink(title: "Ask ARIA about this score", accent: .aurora) {
+                onAskARIA()
             }
-            .frame(height: 8)
-
-            Text("Multi-signal confidence from ovulation method, cycle history, and phase proximity. Lifestyle timing only — not contraception.")
-                .font(FDS.TypeScale.Dynamic.caption)
-                .foregroundStyle(.secondary)
-
-            Button(action: onAskARIA) {
-                Label {
-                    Text("Ask ARIA about this score")
-                } icon: {
-                    ARIAIdentityMark(state: .idle, mood: .energized, size: 14, amplitude: 0.22)
-                }
-                    .font(FDS.TypeScale.Dynamic.caption)
-            }
-            .buttonStyle(.bordered)
-            .tint(band.color)
         }
-        .padding()
-        .forgeGlassCard(accent: band.color)
-        .accessibilityElement(children: .combine)
-        .accessibilityLabel("Fertile score \(score) out of 100, \(band.label)")
+        .forgeContentCard(tint: band.color)
+        .accessibilityElement(children: .contain)
+    }
+
+    private var scoreHeader: some View {
+        ForgeAdaptiveStack(spacing: ForgeLayout.rowGap, alignment: .firstTextBaseline) {
+            HStack(alignment: .firstTextBaseline, spacing: ForgeLayout.pairGap) {
+                Text("\(score)")
+                    .font(HomeType.heroScore)
+                    .foregroundStyle(band.color)
+                    .forgeSingleLine()
+                    .contentTransition(.numericText())
+                    .layoutPriority(1)
+                Text("/ 100")
+                    .font(HomeType.label)
+                    .foregroundStyle(Color.textTertiary)
+                    .forgeSingleLine(minScale: ForgeLayout.labelMinScale)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            VStack(alignment: detailAlignment, spacing: ForgeLayout.pairGap) {
+                Text(band.label)
+                    .font(HomeType.status)
+                    .foregroundStyle(band.color)
+                    .multilineTextAlignment(detailAlignment == .leading ? .leading : .trailing)
+                    .fixedSize(horizontal: false, vertical: true)
+                Text(phase.label)
+                    .font(HomeType.body)
+                    .foregroundStyle(Color.textTertiary)
+                    .multilineTextAlignment(detailAlignment == .leading ? .leading : .trailing)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+        }
+    }
+
+    private var meter: some View {
+        GeometryReader { geo in
+            ZStack(alignment: .leading) {
+                Capsule().fill(Color.white.opacity(0.08))
+                Capsule()
+                    .fill(meterGradient)
+                    .frame(width: max(8, geo.size.width * CGFloat(score) / 100.0))
+            }
+        }
+        .frame(height: 8)
+        .accessibilityHidden(true)
     }
 }
+
+// ============================================================
+// MARK: - Goal selector
+// ============================================================
 
 struct CycleGoalSelectorCard: View {
     let goal: CycleGoal
@@ -89,173 +255,181 @@ struct CycleGoalSelectorCard: View {
     var onLifestyle: (CycleLifestyleGoal) -> Void = { _ in }
     var onPeriodStyle: (CyclePeriodTrainingStyle) -> Void = { _ in }
 
+    /// Training goals in display order, with "Ask me" (`.none`) last.
+    private var lifestyleOptions: [CycleLifestyleGoal] {
+        CycleLifestyleGoal.allCases.filter { $0 != .none } + [CycleLifestyleGoal.none]
+    }
+
     var body: some View {
-        VStack(alignment: .leading, spacing: FDS.Spacing.md) {
-            Text("Your cycle goal")
-                .font(FDS.TypeScale.Dynamic.caption)
-                .foregroundStyle(.secondary)
-            HStack(spacing: FDS.Spacing.sm) {
-                ForEach(CycleGoal.allCases) { g in
-                    Button {
-                        onUpdate(g)
-                    } label: {
-                        VStack(spacing: FDS.Spacing.xs) {
-                            Image(systemName: g.icon)
-                                .font(.title3)
-                            Text(g.label)
-                                .font(FDS.TypeScale.Dynamic.caption)
-                                .multilineTextAlignment(.center)
-                        }
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, FDS.Spacing.md)
-                        .background(goal == g ? Color.ember.opacity(0.15) : Color.surfaceElevated)
-                        .foregroundStyle(goal == g ? Color.ember : .secondary)
-                        .clipShape(RoundedRectangle(cornerRadius: FDS.Radius.sm))
-                        .overlay(
-                            RoundedRectangle(cornerRadius: FDS.Radius.sm)
-                                .strokeBorder(goal == g ? Color.ember : Color.clear, lineWidth: 1.5)
-                        )
-                    }
-                    .buttonStyle(.plain)
-                }
-            }
-            Text("What ARIA should design training around")
-                .font(FDS.TypeScale.Dynamic.caption)
-                .foregroundStyle(.secondary)
-            HStack(spacing: FDS.Spacing.sm) {
-                ForEach(Array(CycleLifestyleGoal.allCases.filter { $0 != .none }) + [.none], id: \.self) { g in
-                    Button {
-                        onLifestyle(g)
-                    } label: {
-                        VStack(spacing: FDS.Spacing.xs) {
-                            Image(systemName: g.icon)
-                                .font(.caption)
-                            Text(g == .none ? "Ask me" : g.label)
-                                .font(FDS.TypeScale.Dynamic.micro)
-                                .multilineTextAlignment(.center)
-                                .lineLimit(2)
-                        }
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, FDS.Spacing.md)
-                        .background(lifestyleGoal == g ? Color.ember.opacity(0.15) : Color.surfaceElevated)
-                        .foregroundStyle(lifestyleGoal == g ? Color.ember : .secondary)
-                        .clipShape(RoundedRectangle(cornerRadius: FDS.Radius.sm))
-                    }
-                    .buttonStyle(.plain)
-                }
-            }
+        VStack(alignment: .leading, spacing: ForgeLayout.blockGap) {
+            goalGroup
+            trainingGroup
             if lifestyleGoal != .none {
-                Text("While you’re on your period")
-                    .font(FDS.TypeScale.Dynamic.caption)
-                    .foregroundStyle(.secondary)
-                HStack(spacing: FDS.Spacing.sm) {
-                    ForEach(CyclePeriodTrainingStyle.allCases) { style in
-                        Button {
-                            onPeriodStyle(style)
-                        } label: {
-                            Text(style.label)
-                                .font(FDS.TypeScale.Dynamic.micro)
-                                .multilineTextAlignment(.center)
-                                .lineLimit(2)
-                                .frame(maxWidth: .infinity)
-                                .padding(.vertical, FDS.Spacing.md)
-                                .background(periodTrainingStyle == style ? Color.ember.opacity(0.15) : Color.surfaceElevated)
-                                .foregroundStyle(periodTrainingStyle == style ? Color.ember : .secondary)
-                                .clipShape(RoundedRectangle(cornerRadius: FDS.Radius.sm))
-                        }
-                        .buttonStyle(.plain)
-                    }
-                }
-                Text(periodTrainingStyle.runningCopy)
-                    .font(FDS.TypeScale.Dynamic.caption)
-                    .foregroundStyle(.secondary)
-                    .fixedSize(horizontal: false, vertical: true)
+                periodGroup
             }
             if goal == .intimacy {
                 Text("Healthy sex, safe sex, positions, period sex, partner tips — on this iPhone. Forge is not a contraceptive.")
-                    .font(FDS.TypeScale.Dynamic.caption)
-                    .foregroundStyle(.secondary)
-                    .fixedSize(horizontal: false, vertical: true)
-                    .padding(.top, 2)
+                    .font(HomeType.body)
+                    .foregroundStyle(Color.textTertiary)
+                    .forgeWrapping()
             }
         }
-        .padding()
-        .forgeGlassCard(accent: .ember)
+        .forgeContentCard(tint: .ember)
+    }
+
+    private var goalGroup: some View {
+        VStack(alignment: .leading, spacing: FDS.Spacing.sm) {
+            ForgeCardHeader("Your cycle goal")
+            CycleChoiceGrid(
+                items: CycleGoal.allCases,
+                columns: 3,
+                title: { $0.label },
+                icon: { $0.icon },
+                isSelected: { $0 == goal },
+                onSelect: { onUpdate($0) }
+            )
+        }
+    }
+
+    private var trainingGroup: some View {
+        VStack(alignment: .leading, spacing: FDS.Spacing.sm) {
+            Text("What ARIA should design training around")
+                .forgeSectionLabel()
+                .forgeWrapping()
+                .accessibilityAddTraits(.isHeader)
+            CycleChoiceGrid(
+                items: lifestyleOptions,
+                columns: 3,
+                title: { $0 == .none ? "Ask me" : $0.label },
+                icon: { $0.icon },
+                isSelected: { $0 == lifestyleGoal },
+                onSelect: { onLifestyle($0) }
+            )
+        }
+    }
+
+    private var periodGroup: some View {
+        VStack(alignment: .leading, spacing: FDS.Spacing.sm) {
+            Text("While you’re on your period")
+                .forgeSectionLabel()
+                .forgeWrapping()
+                .accessibilityAddTraits(.isHeader)
+            CycleChoiceGrid(
+                items: CyclePeriodTrainingStyle.allCases,
+                columns: 2,
+                title: { $0.label },
+                icon: { _ in nil },
+                isSelected: { $0 == periodTrainingStyle },
+                onSelect: { onPeriodStyle($0) }
+            )
+            Text(periodTrainingStyle.runningCopy)
+                .font(HomeType.body)
+                .foregroundStyle(Color.textSecondary)
+                .forgeWrapping()
+        }
     }
 }
+
+// ============================================================
+// MARK: - Two-week wait
+// ============================================================
 
 struct TWWSectionCard: View {
     let daysElapsed: Int
     let onAskARIA: () -> Void
 
+    @ScaledMetric(relativeTo: .title3) private var windowRingSize: CGFloat = 72
+
+    private var windowLength: Int { 14 }
+
+    private var daysClamped: Int {
+        min(max(0, daysElapsed), windowLength)
+    }
+
+    private var progressPercent: Int {
+        let fraction = Double(daysClamped) / Double(max(1, windowLength))
+        return Int((fraction * 100).rounded())
+    }
+
+    /// Steel while waiting, ember once it is test day.
+    private var tone: Color {
+        daysElapsed >= windowLength ? Color.ember : Color.steel
+    }
+
     var body: some View {
-        VStack(alignment: .leading, spacing: FDS.Spacing.md) {
-            HStack {
-                Image(systemName: "hourglass")
-                    .foregroundStyle(Color.ember)
-                Text("Two-Week Wait")
-                    .font(FDS.TypeScale.Dynamic.body)
-                    .fontWeight(.semibold)
+        VStack(alignment: .leading, spacing: ForgeLayout.blockGap) {
+            ForgeCardHeader("Two-Week Wait")
+
+            HStack(spacing: ForgeLayout.blockGap) {
+                HudProgressRing(
+                    progress: progressPercent,
+                    energy: tone,
+                    size: ForgeLayout.scaledCap(windowRingSize, base: 72)
+                ) {
+                    Text("\(daysElapsed)")
+                        .font(HomeType.metric)
+                        .foregroundStyle(Color.textPrimary)
+                        .hudInArcText()
+                }
+                VStack(alignment: .leading, spacing: ForgeLayout.pairGap) {
+                    Text("Day \(daysElapsed)")
+                        .font(HomeType.metric)
+                        .foregroundStyle(Color.textPrimary)
+                        .forgeSingleLine()
+                        .contentTransition(.numericText())
+                    Text("of \(windowLength)")
+                        .font(HomeType.micro)
+                        .foregroundStyle(Color.textTertiary)
+                }
+                .layoutPriority(1)
+                Spacer(minLength: 0)
             }
-            Text("Day \(daysElapsed) of your two-week wait")
-                .font(FDS.TypeScale.Dynamic.body)
-            Text("\(max(0, 14 - daysElapsed)) days until you can test")
-                .font(FDS.TypeScale.Dynamic.caption)
-                .foregroundStyle(.secondary)
-            ProgressView(value: Double(min(daysElapsed, 14)), total: 14.0)
-                .tint(Color.ember)
-            Button("Ask ARIA about the two-week wait") {
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel("Day \(daysElapsed) of your two-week wait")
+            .accessibilityValue("\(progressPercent) percent")
+
+            Text("\(max(0, windowLength - daysElapsed)) days until you can test")
+                .font(HomeType.body)
+                .foregroundStyle(Color.textTertiary)
+                .forgeWrapping()
+
+            ForgeTextLink(title: "Ask ARIA about the two-week wait", accent: .aurora) {
                 onAskARIA()
             }
-            .buttonStyle(.bordered)
-            .tint(Color.ember)
         }
-        .padding()
-        .forgeGlassCard(accent: .ember)
+        .forgeContentCard(tint: tone)
+        .accessibilityElement(children: .contain)
     }
 }
 
+// ============================================================
+// MARK: - Health condition
+// ============================================================
+
+/// Rendered as plain content: its single host (Settings, Privacy & control)
+/// already provides the card, so this view adds no chrome of its own.
 struct CycleConditionSelectorCard: View {
     @Binding var condition: CycleCondition
 
     var body: some View {
-        VStack(alignment: .leading, spacing: FDS.Spacing.md) {
-            VStack(alignment: .leading, spacing: FDS.Spacing.xs) {
+        VStack(alignment: .leading, spacing: ForgeLayout.blockGap) {
+            VStack(alignment: .leading, spacing: ForgeLayout.pairGap) {
                 Text("HEALTH CONDITION")
-                    .font(FDS.TypeScale.Dynamic.caption)
-                    .foregroundColor(.textSecondary)
+                    .forgeSectionLabel()
+                    .accessibilityAddTraits(.isHeader)
                 Text("Personalises cycle predictions and ARIA coaching")
-                    .font(FDS.TypeScale.Dynamic.caption)
-                    .foregroundColor(.textTertiary)
+                    .font(HomeType.body)
+                    .foregroundStyle(Color.textTertiary)
+                    .forgeWrapping()
             }
-            LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible()), GridItem(.flexible())], spacing: 8) {
-                ForEach(CycleCondition.allCases) { c in
-                    Button {
-                        condition = c
-                    } label: {
-                        VStack(spacing: FDS.Spacing.xs) {
-                            Image(systemName: c.icon)
-                                .font(.title3)
-                            Text(c.label)
-                                .font(.caption2)
-                                .multilineTextAlignment(.center)
-                                .lineLimit(2)
-                        }
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, FDS.Spacing.md)
-                        .background(condition == c ? Color.ember.opacity(0.15) : Color.surfaceElevated)
-                        .foregroundStyle(condition == c ? Color.ember : Color.textSecondary)
-                        .clipShape(RoundedRectangle(cornerRadius: FDS.Radius.sm))
-                        .overlay(
-                            RoundedRectangle(cornerRadius: FDS.Radius.sm)
-                                .strokeBorder(condition == c ? Color.ember : Color.clear, lineWidth: 1.5)
-                        )
-                    }
-                    .buttonStyle(.plain)
-                }
-            }
+            CycleChoiceGrid(
+                items: CycleCondition.allCases,
+                columns: 2,
+                title: { $0.label },
+                icon: { $0.icon },
+                isSelected: { $0 == condition },
+                onSelect: { condition = $0 }
+            )
         }
-        .padding()
-        .forgeGlassCard(accent: .ember)
     }
 }

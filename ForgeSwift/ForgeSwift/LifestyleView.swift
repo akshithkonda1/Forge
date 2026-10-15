@@ -11,75 +11,25 @@ struct LifestyleView: View {
     @State private var showInsights = false
     @State private var reconnectingHK = false
     @State private var showLifestyleInterview = false
+    /// Presentation only: the segment rail shows bar chrome once it pins.
+    @State private var segmentPinned = false
+    /// Presentation only: height of the header block above the rail, which
+    /// is the scroll distance at which the rail pins.
+    @State private var headerBlockHeight: CGFloat = 0
     @Namespace private var segmentNS
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    /// Zero-height marker at the rail's resting position, so a segment change
+    /// can bring the rail back to the top of the screen.
+    private static let railAnchorID = "lifestyle-segment-rail"
 
     var body: some View {
         ZStack {
-            // Background — subtle radial haze tuned to selected segment
+            // Background — token wash tuned to the selected segment (spec §14)
             LifestyleBackground(segment: selectedSegment)
                 .ignoresSafeArea()
 
-            VStack(spacing: 0) {
-                LifestyleHeaderView(showInsights: $showInsights, metrics: vm.metrics)
-                    .padding(.horizontal, FDS.Spacing.lg)
-                    .padding(.top, 60)
-                    .padding(.bottom, FDS.Spacing.lg)
-
-                if !store.healthKitLive {
-                    Button {
-                        reconnectingHK = true
-                        Task {
-                            await store.reconnectHealthKit()
-                            reconnectingHK = false
-                            FDS.notificationHaptic(store.healthKitLive ? .success : .warning)
-                        }
-                    } label: {
-                        HStack(spacing: FDS.Spacing.md) {
-                            Image(systemName: "heart.text.square.fill")
-                                .foregroundStyle(Color.warning)
-                            VStack(alignment: .leading, spacing: 2) {
-                                Text("Apple Health offline")
-                                    .font(FDS.TypeScale.Dynamic.caption)
-                                    .foregroundColor(.textPrimary)
-                                Text(store.isHealthKitPulling
-                                    ? "Pulling…"
-                                    : (reconnectingHK ? "Reconnecting…" : "Tap to reconnect for live nutrition & recovery"))
-                                    .font(.system(size: 11, weight: .medium))
-                                    .foregroundColor(.textTertiary)
-                            }
-                            Spacer()
-                            if reconnectingHK {
-                                ProgressView().controlSize(.small)
-                            } else {
-                                Image(systemName: "arrow.triangle.2.circlepath")
-                                    .foregroundStyle(Color.ember)
-                            }
-                        }
-                        .padding(FDS.Spacing.lg)
-                        .forgeGlassCard(cornerRadius: FDS.Radius.md, accent: .warning)
-                    }
-                    .buttonStyle(.plain)
-                    .padding(.horizontal, FDS.Spacing.lg)
-                    .padding(.bottom, FDS.Spacing.md)
-                }
-
-                SegmentedPillControl(selected: $selectedSegment, namespace: segmentNS)
-                    .padding(.horizontal, FDS.Spacing.lg)
-                    .padding(.bottom, FDS.Spacing.lg)
-
-                ScrollView(showsIndicators: false) {
-                    VStack(spacing: FDS.Spacing.xl) {
-                        ReadinessForecastCard(compact: true)
-                        segmentContent
-                    }
-                    .padding(.horizontal, FDS.Spacing.lg)
-                    .padding(.bottom, 110)
-                }
-                .refreshable {
-                    await vm.refresh()
-                    await vm.refreshAIInsights(store: store, allowNetwork: true)
-                }
-            }
+            scrollBody
 
             if showInsights {
                 AIInsightsModal(
@@ -104,7 +54,7 @@ struct LifestyleView: View {
             }
 
         }
-        .animation(.easeInOut(duration: 0.3), value: showInsights)
+        .animation(reduceMotion ? nil : .easeInOut(duration: 0.3), value: showInsights)
         .task {
             vm.applyPersonalization(
                 store.userProfile,
@@ -161,8 +111,12 @@ struct LifestyleView: View {
         store.pendingLifestyleSegment = nil
         let mapped = LifestyleDeepLink.segment(from: raw)
         if let mapped {
-            withAnimation(.spring(response: 0.38, dampingFraction: 0.75)) {
+            if reduceMotion {
                 selectedSegment = mapped
+            } else {
+                withAnimation(.spring(response: 0.38, dampingFraction: 0.75)) {
+                    selectedSegment = mapped
+                }
             }
             Task { await handleSegmentWork(mapped) }
         }
@@ -189,12 +143,152 @@ struct LifestyleView: View {
         }
     }
 
+    // MARK: - Scaffold (spec §2.3 / §14)
+    //
+    // One scroll: header block, then a pinned segment rail as a section header,
+    // then the segment's cards at Home's 16 pt rhythm. The tab bar is already a
+    // safeAreaInset (ContentView), so there is no legacy top/bottom offset.
+
+    private var scrollBody: some View {
+        ScrollViewReader { proxy in
+            ScrollView(showsIndicators: false) {
+                LazyVStack(alignment: .leading, spacing: 0, pinnedViews: [.sectionHeaders]) {
+                    headerBlock
+                    Color.clear
+                        .frame(height: 0)
+                        .id(Self.railAnchorID)
+                        .accessibilityHidden(true)
+                    Section {
+                        segmentSection
+                    } header: {
+                        segmentRail
+                    }
+                }
+            }
+            .onScrollGeometryChange(for: Bool.self) { geometry in
+                geometry.contentOffset.y + geometry.contentInsets.top > headerBlockHeight
+            } action: { _, pinned in
+                if pinned != segmentPinned { segmentPinned = pinned }
+            }
+            .onChange(of: selectedSegment) { _, _ in
+                // Presentation only: a reader deep in one segment lands at the
+                // top of the next one, with the rail where they left it.
+                guard segmentPinned else { return }
+                if reduceMotion {
+                    proxy.scrollTo(Self.railAnchorID, anchor: .top)
+                } else {
+                    withAnimation(FDS.Spring.standard) {
+                        proxy.scrollTo(Self.railAnchorID, anchor: .top)
+                    }
+                }
+            }
+            .refreshable {
+                await vm.refresh()
+                await vm.refreshAIInsights(store: store, allowNetwork: true)
+            }
+        }
+    }
+
+    /// Page header, QoL chip and the offline banner. Everything above the rail.
+    private var headerBlock: some View {
+        VStack(alignment: .leading, spacing: ForgeLayout.sectionGap) {
+            LifestyleHeaderView(showInsights: $showInsights, metrics: vm.metrics)
+            if !store.healthKitLive {
+                offlineBanner
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(.horizontal, ForgeLayout.screenInset)
+        // The rail carries its own 8 pt of vertical padding, so 8 more here
+        // keeps the gap to the rail's capsules at the 16 pt section rhythm.
+        .padding(.bottom, ForgeLayout.sectionGap - FDS.Spacing.sm)
+        .onGeometryChange(for: CGFloat.self) { proxy in
+            proxy.size.height
+        } action: { height in
+            headerBlockHeight = height
+        }
+    }
+
+    private var offlineBannerDetail: String {
+        store.isHealthKitPulling
+            ? "Pulling…"
+            : (reconnectingHK ? "Reconnecting…" : "Tap to reconnect for live nutrition & recovery")
+    }
+
+    /// Connection-needed banner: compact warning-tinted card, agenda-row anatomy.
+    private var offlineBanner: some View {
+        Button {
+            reconnectingHK = true
+            Task {
+                await store.reconnectHealthKit()
+                reconnectingHK = false
+                FDS.notificationHaptic(store.healthKitLive ? .success : .warning)
+            }
+        } label: {
+            HStack(spacing: ForgeLayout.rowGap) {
+                ForgeIconWell(systemImage: "heart.text.square.fill", tint: .warning)
+                VStack(alignment: .leading, spacing: ForgeLayout.pairGap) {
+                    Text("Apple Health offline")
+                        .font(HomeType.status)
+                        .foregroundStyle(Color.textPrimary)
+                        .lineLimit(2)
+                    Text(offlineBannerDetail)
+                        .font(HomeType.body)
+                        .foregroundStyle(Color.textTertiary)
+                        .forgeWrapping()
+                }
+                .layoutPriority(1)
+                Spacer(minLength: FDS.Spacing.xs)
+                if reconnectingHK {
+                    ProgressView().controlSize(.small)
+                } else {
+                    Image(systemName: "arrow.triangle.2.circlepath")
+                        .font(.system(size: ForgeUX.icon, weight: .semibold))
+                        .foregroundStyle(Color.ember)
+                        .accessibilityHidden(true)
+                }
+            }
+            .frame(maxWidth: .infinity, minHeight: ForgeUX.minTap, alignment: .leading)
+            .forgeContentCard(tint: .warning, padding: ForgeLayout.compactCardPadding)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityHint("Tap to reconnect for live nutrition & recovery")
+    }
+
+    /// The one pinned element: the segment rail. Bar chrome only once pinned,
+    /// so at rest it sits on the segment wash like Home's mini header.
+    private var segmentRail: some View {
+        SegmentedPillControl(selected: $selectedSegment, namespace: segmentNS)
+            .padding(.horizontal, ForgeLayout.screenInset)
+            .padding(.vertical, FDS.Spacing.sm)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .forgeBarChrome(edge: .top, visible: segmentPinned)
+    }
+
+    /// Segment cards. The content cross-fades on a segment change; the ZStack
+    /// lets the outgoing and incoming stacks overlap instead of stacking.
+    private var segmentSection: some View {
+        ZStack(alignment: .topLeading) {
+            VStack(alignment: .leading, spacing: ForgeLayout.sectionGap) {
+                segmentContent
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .id(selectedSegment)
+            .transition(reduceMotion ? AnyTransition.identity : AnyTransition.opacity)
+        }
+        .padding(.horizontal, ForgeLayout.screenInset)
+        .padding(.top, ForgeLayout.sectionGap - FDS.Spacing.sm)
+        .padding(.bottom, ForgeLayout.scrollBottomClearance)
+    }
+
     @ViewBuilder
     private var segmentContent: some View {
         if store.dataLoadState == .loading && !store.hasMeaningfulLifeSignal {
-            ForgeSkeletonBlock(height: 88, cornerRadius: FDS.Radius.lg)
-            ForgeSkeletonBlock(height: 180, cornerRadius: FDS.Radius.lg)
-            ForgeSkeletonBlock(height: 140, cornerRadius: FDS.Radius.lg)
+            // Page-level loading: skeleton blocks at the card radius (spec §9).
+            ForgeSkeletonBlock(height: 88, cornerRadius: FDS.Radius.xl)
+            ForgeSkeletonBlock(height: 180, cornerRadius: FDS.Radius.xl)
+            ForgeSkeletonBlock(height: 140, cornerRadius: FDS.Radius.xl)
         } else if !store.healthKitLive && !store.hasMeaningfulLifeSignal {
             ForgeEmptyStateCard(
                 icon: "heart.text.square.fill",
@@ -220,16 +314,22 @@ struct LifestyleView: View {
 struct LifestyleBackground: View {
     let segment: LifestyleSegment
 
-    private var accentColor: Color {
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    /// Token-only segment wash (spec §14). The chrome stays `.vitality`; only
+    /// this background follows the segment.
+    static func wash(for segment: LifestyleSegment) -> Color {
         switch segment {
-        case .aiOptimization: return .ember
-        case .homeCooking:    return Color(hex: "7C5CFF")
-        case .restaurants:    return .steel
+        case .aiOptimization: return Color.aurora
+        case .homeCooking:    return Color.ember
+        case .restaurants:    return Color.indigo
         case .nutrition:      return Color.amber
-        case .lifetime:       return Color.aurora
-        case .wellbeing:      return .success
+        case .lifetime:       return Color.steel
+        case .wellbeing:      return Color.vitality
         }
     }
+
+    private var accentColor: Color { Self.wash(for: segment) }
 
     var body: some View {
         ZStack {
@@ -247,114 +347,89 @@ struct LifestyleBackground: View {
                 endRadius: 320
             )
         }
-        .animation(.easeInOut(duration: 0.35), value: segment)
+        .animation(reduceMotion ? nil : .easeInOut(duration: 0.35), value: segment)
     }
 }
 
+/// Lifestyle page header (spec §14): `ForgePageHeader` with exactly two 44 pt
+/// trailing controls (hydration, ARIA), and the display-only QoL score as a
+/// chip underneath rather than a third trailing item.
 struct LifestyleHeaderView: View {
     @EnvironmentObject var store: AppStore
     @Binding var showInsights: Bool
     let metrics: LifestyleMetrics
-    @State private var appeared = false
+
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
-        HStack(alignment: .center) {
-            VStack(alignment: .leading, spacing: FDS.Spacing.xs) {
-                Text("Lifestyle")
-                    .font(ForgeType.pageTitle)
-                    .foregroundColor(.textPrimary)
-                Text("How you eat, move, and live")
-                    .font(FDS.TypeScale.Dynamic.body)
-                    .foregroundColor(.textSecondary)
+        VStack(alignment: .leading, spacing: FDS.Spacing.sm) {
+            ForgePageHeader(
+                title: "Lifestyle",
+                subtitle: "How you eat, move, and live",
+                accent: .vitality
+            ) {
+                HStack(spacing: FDS.Spacing.sm) {
+                    hydrationButton
+                    ariaButton
+                }
             }
-
-            Spacer()
-
-            // QOL score chip + AI button
-            HStack(spacing: FDS.Spacing.md) {
-                ZStack {
-                    Circle()
-                        .stroke(Color.white.opacity(0.08), lineWidth: 3)
-                        .frame(width: 46, height: 46)
-                    Circle()
-                        .trim(from: 0, to: CGFloat(min(100, max(0, metrics.qualityOfLifeScore))) / 100)
-                        .stroke(Color.vitality, style: StrokeStyle(lineWidth: 3, lineCap: .round))
-                        .rotationEffect(.degrees(-90))
-                        .frame(width: 46, height: 46)
-                        .animation(FDS.Spring.sweep, value: metrics.qualityOfLifeScore)
-                    VStack(spacing: 0) {
-                        Text("\(metrics.qualityOfLifeScore)")
-                            .font(FDS.TypeScale.Dynamic.caption)
-                            .monospacedDigit()
-                            .foregroundColor(.textPrimary)
-                    }
-                }
-                .accessibilityLabel("Quality of life \(metrics.qualityOfLifeScore)")
-
-                ForgeIconButton(
-                    systemImage: "drop.fill",
-                    accent: Color.steel,
-                    accessibilityLabel: "Open hydration"
-                ) {
-                    store.openHydration()
-                }
-
-                Button {
-                    FDS.haptic(.light)
-                    withAnimation(.spring(response: 0.35, dampingFraction: 0.72)) { showInsights = true }
-                } label: {
-                    ARIAIdentityMark(state: .idle, mood: .energized, size: 40, amplitude: 0.24)
-                }
-                .buttonStyle(.plain)
-                .accessibilityLabel("ARIA insights")
-            }
+            qolChip
         }
-        .opacity(appeared ? 1 : 0)
-        .offset(y: appeared ? 0 : -12)
-        .onAppear { withAnimation(.spring(response: 0.55, dampingFraction: 0.78).delay(0.05)) { appeared = true } }
+    }
+
+    private var hydrationButton: some View {
+        ForgeIconButton(
+            systemImage: "drop.fill",
+            accent: Color.steel,
+            accessibilityLabel: "Open hydration"
+        ) {
+            store.openHydration()
+        }
+    }
+
+    /// 28 pt mark: at 32 pt or smaller ARIA holds its still pose (spec §8),
+    /// inside a full 44 pt target.
+    private var ariaButton: some View {
+        Button {
+            FDS.haptic(.press)
+            if reduceMotion {
+                showInsights = true
+            } else {
+                withAnimation(.spring(response: 0.35, dampingFraction: 0.72)) { showInsights = true }
+            }
+        } label: {
+            ARIAIdentityMark(state: .idle, mood: .energized, size: 28, amplitude: 0.24)
+                .frame(width: ForgeUX.minTap, height: ForgeUX.minTap)
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel("ARIA insights")
+    }
+
+    private var qolChip: some View {
+        HudVibeChip(
+            label: "QoL \(metrics.qualityOfLifeScore)",
+            energy: HomeReadiness.color(metrics.qualityOfLifeScore)
+        )
+        .accessibilityLabel("Quality of life \(metrics.qualityOfLifeScore)")
     }
 }
 
+/// Lifestyle's segment selector. Six options always render as the shared
+/// edge-bleed rail, which scrolls the selection (including a deep-linked one)
+/// into view. The accent is the Lifestyle chrome, never the segment color.
 struct SegmentedPillControl: View {
     @Binding var selected: LifestyleSegment
     let namespace: Namespace.ID
 
-    var body: some View {
-        ScrollView(.horizontal, showsIndicators: false) {
-            HStack(spacing: FDS.Spacing.sm) {
-                ForEach(LifestyleSegment.allCases, id: \.self) { seg in
-                    Button {
-                        withAnimation(.spring(response: 0.38, dampingFraction: 0.75)) { selected = seg }
-                        UISelectionFeedbackGenerator().selectionChanged()
-                    } label: {
-                        HStack(spacing: FDS.Spacing.sm) {
-                            Image(systemName: seg.icon)
-                                .font(.system(size: 12, weight: .semibold))
-                            Text(seg.title)
-                                .font(FDS.TypeScale.Dynamic.caption)
-                        }
-                        .foregroundColor(selected == seg ? .white : .textTertiary)
-                        .padding(.horizontal, FDS.Spacing.lg)
-                        .padding(.vertical, FDS.Spacing.md)
-                        .background {
-                            if selected == seg {
-                                Capsule()
-                                    .fill(FDS.Gradient.ember)
-                                    .matchedGeometryEffect(id: "pill", in: namespace)
-                                    .shadow(color: Color.ember.opacity(0.45), radius: 10, y: 4)
-                            } else {
-                                Capsule()
-                                    .fill(Color.white.opacity(0.04))
-                                    .overlay(Capsule().stroke(Color.white.opacity(0.08), lineWidth: 1))
-                            }
-                        }
-                    }
-                    .buttonStyle(.plain)
-                }
-            }
-            .padding(.horizontal, FDS.Spacing.lg)
-            .padding(.vertical, 2)
+    private var options: [ForgeSegmentOption<LifestyleSegment>] {
+        LifestyleSegment.allCases.map { segment in
+            ForgeSegmentOption(value: segment, title: segment.title, icon: segment.icon)
         }
+    }
+
+    var body: some View {
+        ForgeSegmentedControl(options, selection: $selected, accent: .vitality)
     }
 }
 

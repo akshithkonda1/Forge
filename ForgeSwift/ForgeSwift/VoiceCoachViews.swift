@@ -6,68 +6,129 @@ struct VoiceCoachBar: View {
     @Bindable var coach: VoiceCoachManager
     private let presence = AriaPresence.shared
 
-    var body: some View {
-        VStack(spacing: 0) {
-            // Message area
-            HStack(spacing: FDS.Spacing.md) {
-                // Forge avatar with live state indicator
-                ForgeAvatarView(
-                    isSpeaking: presence.isSpeaking,
-                    isThinking: coach.isThinking,
-                    isListening: coach.isListening
-                )
-                
-                // Text content
-                VStack(alignment: .leading, spacing: FDS.Spacing.xs) {
-                    if coach.isListening && !coach.transcribedText.isEmpty {
-                        // Show live transcription
-                        Text(coach.transcribedText)
-                            .font(FDS.TypeScale.Dynamic.caption)
-                            .foregroundColor(.white.opacity(0.9))
-                            .lineSpacing(2)
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                            .transition(.opacity)
-                    } else if coach.isThinking {
-                        ThinkingDotsView()
-                    } else if !coach.lastCoachMessage.isEmpty {
-                        Text(coach.lastCoachMessage)
-                            .font(.system(size: 13))
-                            .foregroundColor(.textSecondary)
-                            .lineSpacing(2)
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                            .transition(.asymmetric(
-                                insertion: .move(edge: .bottom).combined(with: .opacity),
-                                removal: .move(edge: .top).combined(with: .opacity)
-                            ))
-                            .id(coach.lastCoachMessage)
-                    } else if !coach.isVoiceEnabled {
-                        Text("Voice is muted")
-                            .font(.system(size: 13))
-                            .foregroundColor(.textTertiary)
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                    } else {
-                        Text("Tap the mic and ask ARIA")
-                            .font(.system(size: 13))
-                            .foregroundColor(.textTertiary)
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                    }
-                }
-                
-                AriaTrainMuteButton(coach: coach)
-                MicButton(coach: coach)
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @State private var showTranscript = false
+    @State private var transcriptText = ""
+
+    /// The line currently on show, if it has any text worth expanding.
+    private var expandableText: String? {
+        if coach.isListening && !coach.transcribedText.isEmpty { return coach.transcribedText }
+        if coach.isThinking { return nil }
+        if !coach.lastCoachMessage.isEmpty { return coach.lastCoachMessage }
+        return nil
+    }
+
+    private func openTranscript() {
+        guard let text = expandableText else { return }
+        FDS.haptic(.press)
+        transcriptText = text
+        showTranscript = true
+    }
+
+    @ViewBuilder
+    private var messageText: some View {
+        if coach.isListening && !coach.transcribedText.isEmpty {
+            // Live transcription
+            Text(coach.transcribedText)
+                .font(HomeType.body)
+                .foregroundStyle(Color.textPrimary)
+                .lineLimit(2)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .transition(.opacity)
+        } else if coach.isThinking {
+            HStack(spacing: FDS.Spacing.sm) {
+                ProgressView().controlSize(.mini)
+                Text("ARIA is thinking…")
+                    .font(HomeType.body)
+                    .foregroundStyle(Color.textTertiary)
+                    .lineLimit(1)
             }
-            .padding(FDS.Spacing.lg)
-            .forgeInsetTile(radius: FDS.Radius.md)
-            .overlay(
-                RoundedRectangle(cornerRadius: FDS.Radius.md)
-                    .stroke(
-                        coach.isListening ? Color.ember.opacity(0.6) : Color.borderColor,
-                        lineWidth: coach.isListening ? 1.5 : 1
-                    )
-            )
-            .animation(.easeInOut(duration: 0.3), value: coach.isListening)
-            .animation(.easeInOut(duration: 0.4), value: coach.lastCoachMessage)
+            .frame(maxWidth: .infinity, alignment: .leading)
+        } else if !coach.lastCoachMessage.isEmpty {
+            Text(coach.lastCoachMessage)
+                .font(HomeType.body)
+                .foregroundStyle(Color.textSecondary)
+                .lineLimit(2)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .transition(.opacity)
+                .id(coach.lastCoachMessage)
+        } else if !coach.isVoiceEnabled {
+            Text("Voice is muted")
+                .font(HomeType.body)
+                .foregroundStyle(Color.textTertiary)
+                .lineLimit(2)
+                .frame(maxWidth: .infinity, alignment: .leading)
+        } else {
+            Text("Tap the mic and ask ARIA")
+                .font(HomeType.body)
+                .foregroundStyle(Color.textTertiary)
+                .lineLimit(2)
+                .frame(maxWidth: .infinity, alignment: .leading)
         }
+    }
+
+    private var messageArea: some View {
+        messageText
+            .contentShape(Rectangle())
+            .onTapGesture { openTranscript() }
+            .accessibilityElement(children: .combine)
+            .accessibilityAddTraits(expandableText == nil ? [] : .isButton)
+            .accessibilityHint(expandableText == nil ? "" : "Opens the full message")
+    }
+
+    var body: some View {
+        HStack(spacing: ForgeLayout.rowGap) {
+            // Forge avatar with live state indicator
+            ForgeAvatarView(
+                isSpeaking: presence.isSpeaking,
+                isThinking: coach.isThinking,
+                isListening: coach.isListening
+            )
+
+            messageArea
+                .layoutPriority(1)
+
+            AriaTrainMuteButton(coach: coach)
+            MicButton(coach: coach)
+        }
+        .padding(.horizontal, ForgeLayout.compactCardPadding)
+        .padding(.vertical, FDS.Spacing.sm)
+        .frame(minHeight: 56)
+        .forgeInsetTile(radius: FDS.Radius.md)
+        .overlay {
+            if coach.isListening {
+                RoundedRectangle(cornerRadius: FDS.Radius.md, style: .continuous)
+                    .stroke(Color.ember.opacity(0.6), lineWidth: 1.5)
+            }
+        }
+        .animation(reduceMotion ? nil : FDS.Spring.standard, value: coach.isListening)
+        .animation(reduceMotion ? nil : FDS.Spring.standard, value: coach.lastCoachMessage)
+        .sheet(isPresented: $showTranscript) {
+            VoiceCoachTranscriptSheet(message: transcriptText)
+        }
+    }
+}
+
+/// The full coach line, opened from the bar. Presentation only.
+private struct VoiceCoachTranscriptSheet: View {
+    let message: String
+    @Environment(\.dismiss) private var dismiss
+
+    var body: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: ForgeLayout.sectionGap) {
+                ForgeSheetHeader(title: "ARIA", onClose: { dismiss() })
+                Text(message)
+                    .font(HomeType.body)
+                    .foregroundStyle(Color.textSecondary)
+                    .forgeWrapping()
+                    .frame(maxWidth: .infinity, alignment: .leading)
+            }
+            .forgeScreenInsets(top: FDS.Spacing.lg)
+        }
+        .presentationDetents([.medium, .large])
+        .presentationDragIndicator(.visible)
+        .presentationBackground(Color.surfaceElevated)
     }
 }
 
@@ -77,61 +138,71 @@ struct ForgeAvatarView: View {
     let isSpeaking: Bool
     let isThinking: Bool
     let isListening: Bool
-    
-    @State private var speakPulse = false
-    @State private var listenPulse = false
-    
+
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @State private var pulse = false
+
     var ringColor: Color {
         if isListening { return .ember }
         if isSpeaking { return .steel }
         return .clear
     }
-    
+
+    private var isActive: Bool { isSpeaking || isListening }
+
+    private var stateLabel: String {
+        if isListening { return "ARIA is listening" }
+        if isThinking { return "ARIA is thinking" }
+        if isSpeaking { return "ARIA is speaking" }
+        return "ARIA"
+    }
+
+    /// The pulse is an event state: it runs only while ARIA listens or
+    /// speaks, and never under Reduce Motion.
+    private func syncPulse() {
+        if isActive && !reduceMotion {
+            pulse = false
+            withAnimation(.easeInOut(duration: 0.9).repeatForever(autoreverses: false)) {
+                pulse = true
+            }
+        } else {
+            withAnimation(nil) { pulse = false }
+        }
+    }
+
     var body: some View {
         ZStack {
             // Pulse ring when speaking or listening
-            if isSpeaking || isListening {
+            if isActive && !reduceMotion {
                 Circle()
                     .stroke(ringColor.opacity(0.4), lineWidth: 2)
                     .frame(width: 48, height: 48)
-                    .scaleEffect(speakPulse ? 1.3 : 1.0)
-                    .opacity(speakPulse ? 0 : 0.8)
+                    .scaleEffect(pulse ? 1.3 : 1.0)
+                    .opacity(pulse ? 0 : 0.8)
             }
-            
+
             Circle()
                 .fill(Color.ember.opacity(0.12))
                 .frame(width: 36, height: 36)
-            
+
             if isThinking {
                 ProgressView()
-                    .progressViewStyle(CircularProgressViewStyle(tint: .ember))
-                    .scaleEffect(0.7)
+                    .progressViewStyle(.circular)
+                    .controlSize(.mini)
+                    .tint(.ember)
             } else {
                 Image(systemName: "waveform")
                     .font(.system(size: 15, weight: .semibold))
-                    .foregroundColor(.ember)
-                    .symbolEffect(.variableColor.iterative, isActive: isSpeaking)
+                    .foregroundStyle(Color.ember)
+                    .symbolEffect(.variableColor.iterative, isActive: isSpeaking && !reduceMotion)
             }
         }
         .frame(width: 36, height: 36)
-        .onChange(of: isSpeaking) { _, speaking in
-            if speaking {
-                withAnimation(.easeInOut(duration: 0.9).repeatForever(autoreverses: false)) {
-                    speakPulse = true
-                }
-            } else {
-                speakPulse = false
-            }
-        }
-        .onChange(of: isListening) { _, listening in
-            if listening {
-                withAnimation(.easeInOut(duration: 0.7).repeatForever(autoreverses: false)) {
-                    listenPulse = true
-                }
-            } else {
-                listenPulse = false
-            }
-        }
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(stateLabel)
+        .onAppear { syncPulse() }
+        .onChange(of: isSpeaking) { _, _ in syncPulse() }
+        .onChange(of: isListening) { _, _ in syncPulse() }
     }
 }
 
@@ -140,57 +211,49 @@ struct ForgeAvatarView: View {
 struct MicButton: View {
     @Bindable var coach: VoiceCoachManager
     private let presence = AriaPresence.shared
-    @State private var isPressed = false
-    
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
     var body: some View {
         Button(action: handleTap) {
             ZStack {
                 Circle()
                     .fill(micBackground)
-                    .frame(width: 44, height: 44)
-                    .scaleEffect(isPressed ? 0.92 : 1.0)
-                    .shadow(
-                        color: coach.isListening ? Color.ember.opacity(0.5) : Color.clear,
-                        radius: 12
-                    )
-                
+                    .frame(width: ForgeUX.minTap, height: ForgeUX.minTap)
+
                 Image(systemName: micIcon)
                     .font(.system(size: 16, weight: .semibold))
                     .foregroundStyle(micIconColor)
             }
+            .contentShape(Circle())
         }
-        .buttonStyle(.plain)
+        .buttonStyle(ForgePressStyle())
         .disabled(!coach.isVoiceEnabled || coach.isThinking)
-        .animation(FDS.Spring.standard, value: coach.isListening)
-        .onLongPressGesture(minimumDuration: 0, pressing: { pressing in
-            withAnimation(FDS.Spring.snap) {
-                isPressed = pressing
-            }
-        }, perform: {})
+        .animation(reduceMotion ? nil : FDS.Spring.standard, value: coach.isListening)
+        .accessibilityLabel(coach.isListening ? "Stop listening" : "Ask ARIA")
+        .accessibilityHint(coach.isListening ? "Stops voice input" : "Starts voice input")
     }
-    
+
     var micBackground: Color {
         if coach.isListening { return .ember }
         if coach.isThinking { return Color.surfaceElevated }
         return Color.surface
     }
-    
+
     var micIcon: String {
         if coach.isListening { return "stop.fill" }
         if presence.isSpeaking { return "speaker.wave.2.fill" }
         return "mic.fill"
     }
-    
+
     var micIconColor: Color {
         if coach.isListening { return .white }
-        if coach.isThinking { return Color.textMuted }
+        if coach.isThinking { return Color.textTertiary }
         return Color.textSecondary
     }
-    
+
     func handleTap() {
-        let generator = UIImpactFeedbackGenerator(style: .medium)
-        generator.impactOccurred()
-        
+        FDS.haptic(.press)
+
         if coach.isListening {
             coach.stopListening()
         } else {
@@ -202,28 +265,10 @@ struct MicButton: View {
     }
 }
 
-// MARK: - Thinking Dots
-
-struct ThinkingDotsView: View {
-    var body: some View {
-        TimelineView(.periodic(from: .now, by: 0.4)) { context in
-            let phase = Int(context.date.timeIntervalSinceReferenceDate / 0.4) % 3
-            HStack(spacing: FDS.Spacing.xs) {
-                ForEach(0..<3, id: \.self) { i in
-                    Circle()
-                        .fill(Color.ember)
-                        .frame(width: 6, height: 6)
-                        .scaleEffect(phase == i ? 1.3 : 0.8)
-                        .opacity(phase == i ? 1.0 : 0.4)
-                }
-            }
-            .animation(.easeInOut(duration: 0.3), value: phase)
-        }
-    }
-}
-
 /// Mute ARIA's spoken voice on every surface that talks: welcome, onboarding,
-/// chat, Train. One UserDefaults flag so mute actually sticks.
+/// chat, Train. One UserDefaults flag so mute actually sticks. The glyph is
+/// 36 pt; the tap target around it is 44 pt at every call site. Muted is a
+/// quiet state, not an error, so it takes no red.
 struct AriaSpokenMuteButton: View {
     @AppStorage(AriaSpokenMute.mutedKey) private var muted = true
     var coach: VoiceCoachManager? = nil
@@ -232,14 +277,10 @@ struct AriaSpokenMuteButton: View {
         Button(action: toggle) {
             Image(systemName: muted ? "speaker.slash.fill" : "speaker.wave.2.fill")
                 .font(.system(size: 14, weight: .semibold))
-                .foregroundStyle(muted ? Color.danger : Color.textSecondary)
+                .foregroundStyle(muted ? Color.textSecondary : Color.textPrimary)
                 .frame(width: 36, height: 36)
                 .forgeInsetTile(radius: FDS.Radius.sm)
-                .overlay(
-                    RoundedRectangle(cornerRadius: FDS.Radius.sm)
-                        .stroke(muted ? Color.danger.opacity(0.4) : Color.borderColor.opacity(0.45), lineWidth: 1)
-                )
-                .frame(minWidth: 44, minHeight: 44)
+                .frame(width: ForgeUX.minTap, height: ForgeUX.minTap)
                 .contentShape(Rectangle())
         }
         .buttonStyle(.plain)

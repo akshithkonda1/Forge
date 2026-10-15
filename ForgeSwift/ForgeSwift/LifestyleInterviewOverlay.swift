@@ -21,33 +21,84 @@ struct LifestyleInterviewOverlay: View {
 
     private let nutritionChoices = ["fuel", "comfort", "chaotic", "careful"]
 
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    /// First child of the scroll, so a step change can return to the top.
+    private static let topAnchorID = "lifestyle-interview-top"
+
+    // Full height in place (still the same ZStack layer in LifestyleView, not
+    // a cover): the questions scroll, and the Back / Continue bar is pinned to
+    // the bottom so Continue never leaves the screen at any text size.
     var body: some View {
-        ZStack {
-            Color.black.opacity(0.55).ignoresSafeArea()
-            VStack(alignment: .leading, spacing: FDS.Spacing.lg) {
-                Text("ARIA")
-                    .font(FDS.TypeScale.Dynamic.caption)
-                    .foregroundColor(.ember)
-                    .tracking(1.2)
-                content
-                HStack {
-                    if step > 0 {
-                        Button("Back") { step -= 1 }
-                            .foregroundColor(.textSecondary)
-                    }
-                    Spacer()
-                    Button(step >= lastStep ? "That's me" : "Continue") { advance() }
-                        .font(.system(size: 15, weight: .semibold))
-                        .foregroundColor(.white)
-                        .padding(.horizontal, FDS.Spacing.lg)
-                        .padding(.vertical, FDS.Spacing.md)
-                        .background(Color.ember)
-                        .clipShape(Capsule())
+        ScrollViewReader { proxy in
+            ScrollView(showsIndicators: false) {
+                VStack(alignment: .leading, spacing: ForgeLayout.sectionGap) {
+                    headerRow
+                        .id(Self.topAnchorID)
+                    stepContent
                 }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .forgeScreenInsets(top: FDS.Spacing.lg)
             }
-            .padding(FDS.Spacing.xl)
-            .forgeGlassCard(cornerRadius: FDS.Radius.xl, accent: .ember)
-            .padding(FDS.Spacing.lg)
+            .scrollBounceBehavior(.basedOnSize)
+            .onChange(of: step) { _, _ in
+                proxy.scrollTo(Self.topAnchorID, anchor: .top)
+            }
+            .safeAreaInset(edge: .bottom, spacing: 0) {
+                navBar
+                    .padding(.horizontal, ForgeLayout.screenInset)
+                    .padding(.vertical, FDS.Spacing.sm)
+                    .forgeBarChrome(edge: .bottom)
+            }
+        }
+        // Opaque screen surface (it replaces the old 0.55 dim), so the page
+        // underneath never bleeds through and never takes taps.
+        .forgeScreenBackground(accent: .vitality)
+        .accessibilityElement(children: .contain)
+        .accessibilityAddTraits(.isModal)
+    }
+
+    /// The current step. Steps cross-fade (ZStack, so the outgoing and incoming
+    /// steps overlap rather than stack); no motion under Reduce Motion.
+    private var stepContent: some View {
+        ZStack(alignment: .topLeading) {
+            content
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .id(step)
+                .transition(.opacity)
+        }
+        .animation(reduceMotion ? nil : .easeInOut(duration: 0.2), value: step)
+    }
+
+    /// ARIA eyebrow plus a quiet step-progress track (visual only; the value
+    /// is announced as a percent by `ForgeProgressBar`).
+    private var headerRow: some View {
+        HStack(alignment: .center, spacing: FDS.Spacing.md) {
+            Text("ARIA")
+                .forgeSectionLabel(tint: .ember)
+                .accessibilityAddTraits(.isHeader)
+            Spacer(minLength: FDS.Spacing.md)
+            ForgeProgressBar(
+                fraction: Double(step + 1) / Double(lastStep + 1),
+                tint: .vitality,
+                height: 4
+            )
+            .frame(maxWidth: 96)
+        }
+    }
+
+    /// Back (secondary) and the overlay's one primary, Continue.
+    private var navBar: some View {
+        HStack(spacing: ForgeLayout.tileGap) {
+            if step > 0 {
+                ForgeSecondaryButton(title: "Back", accent: HudChrome.emberSteel) {
+                    step -= 1
+                }
+                .frame(maxWidth: 120)
+            }
+            ForgePrimaryButton(title: step >= lastStep ? "That's me" : "Continue") {
+                advance()
+            }
         }
     }
 
@@ -65,37 +116,36 @@ struct LifestyleInterviewOverlay: View {
                 body: "I am not chasing a generic 8 hours and 10k steps. I am asking: are you happy, unstressed, mentally here, and still healthy in the life you actually live? 100 is possible. It is not the point. Life and I use the same number."
             )
         case 2:
-            VStack(alignment: .leading, spacing: FDS.Spacing.md) {
-                Text("Who are you, on a normal week?")
-                    .font(FDS.TypeScale.Dynamic.metric)
-                    .foregroundColor(.textPrimary)
+            questionBlock(title: "Who are you, on a normal week?") {
                 choice("Homebody", selected: archetype == .homebody) { archetype = .homebody }
                 choice("Outdoors / camping weekends", selected: archetype == .outdoors) { archetype = .outdoors }
                 choice("A mix", selected: archetype == .balanced) { archetype = .balanced }
             }
         case 3:
-            VStack(alignment: .leading, spacing: FDS.Spacing.md) {
-                Text("How do you like to move?")
-                    .font(FDS.TypeScale.Dynamic.metric)
-                    .foregroundColor(.textPrimary)
-                Text("Not a program. The shape of a typical week.")
-                    .font(.system(size: 13))
-                    .foregroundColor(.textSecondary)
+            questionBlock(
+                title: "How do you like to move?",
+                subtitle: "Not a program. The shape of a typical week."
+            ) {
                 ForEach(LivingMovementPreference.allCases, id: \.self) { item in
                     choice(item.title, selected: movement == item) { movement = item }
                 }
             }
         case 4:
-            VStack(alignment: .leading, spacing: FDS.Spacing.md) {
-                Text("What fills a free day?")
-                    .font(FDS.TypeScale.Dynamic.metric)
-                    .foregroundColor(.textPrimary)
-                Text("Pick up to three. Hobbies, not relatives.")
-                    .font(.system(size: 13))
-                    .foregroundColor(.textSecondary)
-                ForEach(LivingHobby.allCases, id: \.self) { item in
-                    choice(item.title, selected: hobbies.contains(item)) {
-                        toggleHobby(item)
+            VStack(alignment: .leading, spacing: ForgeLayout.rowGap) {
+                questionHeader(
+                    title: "What fills a free day?",
+                    subtitle: "Pick up to three. Hobbies, not relatives."
+                )
+                ForgeFlowLayout(lineSpacing: ForgeLayout.interactiveChipLineGap) {
+                    ForEach(LivingHobby.allCases, id: \.self) { item in
+                        ForgeChipButton(
+                            label: item.title,
+                            icon: hobbyIcon(item),
+                            energy: .vitality,
+                            selected: hobbies.contains(item)
+                        ) {
+                            toggleHobby(item)
+                        }
                     }
                 }
             }
@@ -121,63 +171,139 @@ struct LifestyleInterviewOverlay: View {
                 label: String(format: "%.0f / 10", workStrain)
             )
         default:
-            VStack(alignment: .leading, spacing: FDS.Spacing.md) {
-                Text("Food, for you, is mostly…")
-                    .font(FDS.TypeScale.Dynamic.metric)
-                    .foregroundColor(.textPrimary)
-                ForEach(nutritionChoices, id: \.self) { item in
-                    choice(item.capitalized, selected: nutrition == item) { nutrition = item }
+            VStack(alignment: .leading, spacing: ForgeLayout.groupBreak) {
+                questionBlock(title: "Food, for you, is mostly…") {
+                    ForEach(nutritionChoices, id: \.self) { item in
+                        choice(item.capitalized, selected: nutrition == item) { nutrition = item }
+                    }
                 }
-                Text("And a normal day of eating is…")
-                    .font(FDS.TypeScale.Dynamic.headline)
-                    .foregroundColor(.textPrimary)
-                    .padding(.top, FDS.Spacing.sm)
-                ForEach(LivingEatingRhythm.allCases, id: \.self) { item in
-                    choice(item.title, selected: eatingRhythm == item) { eatingRhythm = item }
+                questionBlock(title: "And a normal day of eating is…") {
+                    ForEach(LivingEatingRhythm.allCases, id: \.self) { item in
+                        choice(item.title, selected: eatingRhythm == item) { eatingRhythm = item }
+                    }
                 }
+            }
+        }
+    }
+
+    // MARK: - Building blocks
+
+    /// Question title (a prose title, not a metric) and optional subtitle.
+    private func questionHeader(title: String, subtitle: String? = nil) -> some View {
+        VStack(alignment: .leading, spacing: ForgeLayout.pairGap) {
+            Text(title)
+                .font(ForgeType.title)
+                .foregroundStyle(Color.textPrimary)
+                .forgeWrapping()
+                .accessibilityAddTraits(.isHeader)
+            if let subtitle, !subtitle.isEmpty {
+                Text(subtitle)
+                    .font(HomeType.body)
+                    .foregroundStyle(Color.textSecondary)
+                    .forgeWrapping()
+            }
+        }
+    }
+
+    /// A question over its single-select choice rows, `rowGap` between them.
+    private func questionBlock<Choices: View>(
+        title: String,
+        subtitle: String? = nil,
+        @ViewBuilder choices: () -> Choices
+    ) -> some View {
+        VStack(alignment: .leading, spacing: ForgeLayout.rowGap) {
+            questionHeader(title: title, subtitle: subtitle)
+            VStack(alignment: .leading, spacing: ForgeLayout.tileGap) {
+                choices()
             }
         }
     }
 
     private func copy(title: String, body: String) -> some View {
-        VStack(alignment: .leading, spacing: FDS.Spacing.md) {
+        VStack(alignment: .leading, spacing: ForgeLayout.pairGap) {
             Text(title)
-                .font(FDS.TypeScale.Dynamic.metric)
-                .foregroundColor(.textPrimary)
+                .font(ForgeType.title)
+                .foregroundStyle(Color.textPrimary)
+                .forgeWrapping()
+                .accessibilityAddTraits(.isHeader)
             Text(body)
-                .font(.system(size: 15))
-                .foregroundColor(.textSecondary)
-                .fixedSize(horizontal: false, vertical: true)
+                .font(HomeType.body)
+                .foregroundStyle(Color.textSecondary)
+                .forgeWrapping()
         }
     }
 
+    /// Single-select row: a field-style tile on the screen background, tinted
+    /// when selected (no glow), at least 44 pt, with the selected trait.
     private func choice(_ title: String, selected: Bool, action: @escaping () -> Void) -> some View {
-        Button(action: action) {
-            HStack {
+        Button {
+            FDS.haptic(.select)
+            action()
+        } label: {
+            HStack(spacing: ForgeLayout.rowGap) {
                 Text(title)
-                    .foregroundColor(.textPrimary)
-                Spacer()
-                if selected {
-                    Image(systemName: "checkmark.circle.fill").foregroundColor(.ember)
-                }
+                    .font(HomeType.status)
+                    .foregroundStyle(Color.textPrimary)
+                    .lineLimit(2)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                Image(systemName: selected ? "checkmark.circle.fill" : "circle")
+                    .font(.system(size: ForgeUX.icon, weight: .semibold))
+                    .foregroundStyle(selected ? Color.vitality : Color.textMuted)
+                    .accessibilityHidden(true)
             }
-            .padding(FDS.Spacing.md)
-            .background(selected ? Color.ember.opacity(0.12) : Color.surfaceElevated)
-            .clipShape(RoundedRectangle(cornerRadius: FDS.Radius.md, style: .continuous))
+            .padding(.horizontal, FDS.Spacing.lg)
+            .padding(.vertical, FDS.Spacing.md)
+            .frame(maxWidth: .infinity, minHeight: ForgeUX.minTap, alignment: .leading)
+            .background(
+                RoundedRectangle(cornerRadius: FDS.Radius.md, style: .continuous)
+                    .fill(selected ? Color.vitality.opacity(0.14) : Color.surfaceElevated)
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: FDS.Radius.md, style: .continuous)
+                    .stroke(
+                        selected ? Color.vitality.opacity(0.32) : Color.borderHairline,
+                        lineWidth: ForgeUX.hairline
+                    )
+            )
+            .contentShape(RoundedRectangle(cornerRadius: FDS.Radius.md, style: .continuous))
         }
         .buttonStyle(.plain)
+        .accessibilityAddTraits(selected ? .isSelected : [])
     }
 
+    /// Slider question: prose title, the chosen value as a metric, the slider.
     private func sliderBlock(title: String, value: Binding<Double>, range: ClosedRange<Double>, label: String) -> some View {
-        VStack(alignment: .leading, spacing: FDS.Spacing.md) {
+        VStack(alignment: .leading, spacing: ForgeLayout.rowGap) {
             Text(title)
-                .font(FDS.TypeScale.Dynamic.metric)
-                .foregroundColor(.textPrimary)
-            Slider(value: value, in: range, step: 0.5)
-                .tint(.ember)
+                .font(ForgeType.title)
+                .foregroundStyle(Color.textPrimary)
+                .forgeWrapping()
+                .accessibilityAddTraits(.isHeader)
             Text(label)
-                .font(FDS.TypeScale.Dynamic.body.weight(.semibold))
-                .foregroundColor(.ember)
+                .font(HomeType.metric)
+                .foregroundStyle(Color.vitality)
+                .forgeSingleLine()
+                .contentTransition(.numericText())
+                .accessibilityHidden(true)
+            Slider(value: value, in: range, step: 0.5)
+                .tint(.vitality)
+                .frame(minHeight: ForgeUX.minTap)
+                .accessibilityLabel(Text(title))
+                .accessibilityValue(Text(label))
+        }
+    }
+
+    /// Presentation only: a glyph per hobby so the chips scan at a glance.
+    private func hobbyIcon(_ hobby: LivingHobby) -> String {
+        switch hobby {
+        case .outdoors: return "leaf.fill"
+        case .gym:      return "dumbbell.fill"
+        case .cooking:  return "frying.pan.fill"
+        case .making:   return "hammer.fill"
+        case .music:    return "music.note"
+        case .reading:  return "book.fill"
+        case .games:    return "gamecontroller.fill"
+        case .rest:     return "sofa.fill"
         }
     }
 
