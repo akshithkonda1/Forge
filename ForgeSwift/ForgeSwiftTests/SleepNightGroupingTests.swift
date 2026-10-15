@@ -1,5 +1,6 @@
 import XCTest
 import HealthKit
+import ForgeCore
 @testable import ForgeSwift
 
 /// `HealthKitManager.makeSleepNightSamples` used to bucket raw sleep-analysis
@@ -108,5 +109,32 @@ final class SleepNightGroupingTests: XCTestCase {
             ).first?.date,
             "2026-09-25"
         )
+    }
+
+    func testSleepNightDateKeyMatchesGroupedNightDate() {
+        let start = calendar.date(from: DateComponents(year: 2026, month: 9, day: 10, hour: 23))!
+        let end = calendar.date(byAdding: .hour, value: 7, to: start)!
+        let s = sample(.asleepCore, start: start, end: end)
+        XCTAssertEqual(
+            HealthKitManager.sleepNightDateKey(for: s, calendar: calendar),
+            HealthKitManager.makeSleepNightSamples(from: [s], calendar: calendar).first?.date
+        )
+    }
+
+    func testSharedAnchoredNightMapsOnsetWithoutAwake() {
+        XCTAssertEqual(ForgeHealthQueries.sleepCacheLookbackDays, 16)
+        let start = calendar.date(from: DateComponents(year: 2026, month: 9, day: 10, hour: 23))!
+        let asleepStart = start.addingTimeInterval(1_800)
+        let end = calendar.date(byAdding: .hour, value: 8, to: start)!
+        let night = SleepNight(segments: [
+            SleepStageSegment(start: start, end: asleepStart, stage: .awake),
+            SleepStageSegment(start: asleepStart, end: end, stage: .deep),
+        ])
+        let mapped = HealthKitManager.sleepNightSample(from: night, calendar: calendar)
+        XCTAssertEqual(mapped?.date, "2026-09-10")
+        XCTAssertEqual(mapped?.onset, asleepStart)
+        XCTAssertEqual(mapped?.wake, end)
+        XCTAssertEqual(mapped?.deepMinutes, Int((7.5 * 60).rounded()))
+        XCTAssertGreaterThan(mapped?.totalHours ?? 0, 7)
     }
 }

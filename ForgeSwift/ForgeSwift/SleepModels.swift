@@ -495,6 +495,8 @@ struct SleepBedtimeCoach: Equatable {
     /// Goal-directed schedule line. `advancing()` keeps this so the Tonight
     /// hero does not drop the ratchet when it refreshes copy from the clock.
     var scheduleNote: String = ""
+    var lowEnergyDay: Bool = false
+    var isLearning: Bool = false
 
     var bedtimeLabel: String {
         bedtime.formatted(date: .omitted, time: .shortened)
@@ -527,7 +529,13 @@ struct SleepBedtimeCoach: Equatable {
             next = .dayplan
         }
         let bedLabel = bedtime.formatted(date: .omitted, time: .shortened)
-        var (headline, cue, prompt) = Self.copy(phase: next, bedLabel: bedLabel, untilBed: max(0, untilBed))
+        var (headline, cue, prompt) = Self.copy(
+            phase: next,
+            bedLabel: bedLabel,
+            untilBed: max(0, untilBed),
+            lowEnergyDay: lowEnergyDay,
+            isLearning: isLearning
+        )
         if !scheduleNote.isEmpty {
             cue = "\(cue) \(scheduleNote)"
         }
@@ -540,7 +548,9 @@ struct SleepBedtimeCoach: Equatable {
             headline: headline,
             cue: cue,
             ariaPrompt: prompt,
-            scheduleNote: scheduleNote
+            scheduleNote: scheduleNote,
+            lowEnergyDay: lowEnergyDay,
+            isLearning: isLearning
         )
     }
 
@@ -552,7 +562,9 @@ struct SleepBedtimeCoach: Equatable {
         now: Date = Date(),
         calendar: Calendar = .current,
         correction: ScheduleCorrectionStep? = nil,
-        savedGoal: ScheduleGoal? = nil
+        savedGoal: ScheduleGoal? = nil,
+        lowEnergyDay: Bool = false,
+        isLearning: Bool = false
     ) -> SleepBedtimeCoach {
         var plan = WindDownPredictor.plan(
             recentOnsets: onsets,
@@ -587,7 +599,13 @@ struct SleepBedtimeCoach: Equatable {
         }
 
         let bedLabel = plan.bedtimeWindowStart.formatted(date: .omitted, time: .shortened)
-        var (headline, cue, prompt) = copy(phase: phase, bedLabel: bedLabel, untilBed: max(0, untilBed))
+        var (headline, cue, prompt) = copy(
+            phase: phase,
+            bedLabel: bedLabel,
+            untilBed: max(0, untilBed),
+            lowEnergyDay: lowEnergyDay,
+            isLearning: isLearning
+        )
         let scheduleNote: String
         if let correction {
             scheduleNote = correction.guidanceLine
@@ -608,7 +626,9 @@ struct SleepBedtimeCoach: Equatable {
             headline: headline,
             cue: cue,
             ariaPrompt: prompt,
-            scheduleNote: scheduleNote
+            scheduleNote: scheduleNote,
+            lowEnergyDay: lowEnergyDay,
+            isLearning: isLearning
         )
     }
 
@@ -617,7 +637,8 @@ struct SleepBedtimeCoach: Equatable {
         from history: [SleepData],
         now: Date = Date(),
         calendar: Calendar = .current,
-        defaults: UserDefaults = .standard
+        defaults: UserDefaults = .standard,
+        lowEnergyDay: Bool = false
     ) -> SleepBedtimeCoach {
         let recent = Array(history.prefix(14))
         let circadian = SleepCircadianBridge.nights(from: history)
@@ -642,7 +663,9 @@ struct SleepBedtimeCoach: Equatable {
             now: now,
             calendar: calendar,
             correction: correction,
-            savedGoal: correction == nil ? goal : nil
+            savedGoal: correction == nil ? goal : nil,
+            lowEnergyDay: lowEnergyDay,
+            isLearning: recent.count < 7
         )
     }
 
@@ -675,36 +698,51 @@ struct SleepBedtimeCoach: Equatable {
         return date
     }
 
-    private static func copy(phase: SleepBedtimePhase, bedLabel: String, untilBed: Int) -> (String, String, String) {
+    private static func copy(
+        phase: SleepBedtimePhase,
+        bedLabel: String,
+        untilBed: Int,
+        lowEnergyDay: Bool,
+        isLearning: Bool
+    ) -> (String, String, String) {
+        let learningCue = isLearning
+            ? " ARIA is still learning your rhythm — this is a starting bedtime, not a verdict."
+            : ""
         switch phase {
         case .dayplan:
+            let cue = lowEnergyDay
+                ? "A lighter last hour. Screens dim, room cooling — no make-up night."
+                : "Protect the last hour. Screens dim, caffeine done, room cooling."
             return (
                 "Tonight, lights out at \(bedLabel)",
-                "Protect the last hour. Screens dim, caffeine done, room cooling.",
+                cue + learningCue,
                 "Help me land in bed at \(bedLabel). What should I drop between now and then?"
             )
         case .approaching:
             return (
                 "Wind-down in \(untilBed) min",
-                "Dim the room. Start a sound. Leave the day in another room.",
+                "Dim the room. Start a sound. Leave the day in another room." + learningCue,
                 "Wind-down starts soon and bedtime is \(bedLabel). Walk me through the next twenty minutes."
             )
         case .windDown:
+            let cue = lowEnergyDay
+                ? "Lights low. One sound. A short close still counts."
+                : "Lights low. Phone on the table. One sound, then you are done."
             return (
                 "Start winding down",
-                "Lights low. Phone on the table. One sound, then you are done.",
+                cue + learningCue,
                 "It is wind-down. Get me into bed at \(bedLabel) without a lecture."
             )
         case .lightsOut:
             return (
                 "It's bedtime",
-                "Stop negotiating. Pick a sound, screen down, lights out.",
+                "Lights out. Pick a sound, screen down — a short close still counts." + learningCue,
                 "It is bedtime. Help me actually get into bed right now."
             )
         case .overdue:
             return (
                 "You're still up",
-                "The window already opened. A short wind-down still counts — go when you're ready.",
+                "The window already opened. A short wind-down still counts — go when you're ready." + learningCue,
                 "I am past bedtime. Help me land a lighter close and get to sleep tonight."
             )
         }

@@ -30,10 +30,10 @@ struct SleepDayTab: View {
                         action: {
                             Task {
                                 if store.healthKitLive {
-                                    await hkService.refreshFromAppleHealth(into: store)
+                                    await hkService.refreshFromAppleHealth(into: store, force: true)
                                 } else {
                                     await store.reconnectHealthKit()
-                                    await hkService.refreshFromAppleHealth(into: store)
+                                    await hkService.refreshFromAppleHealth(into: store, force: true)
                                 }
                             }
                         }
@@ -55,9 +55,6 @@ struct SleepDayTab: View {
             }
             .forgeScreenInsets(top: ForgeLayout.screenTop)
         }
-        .task {
-            await hkService.refreshFromAppleHealth(into: store)
-        }
     }
 }
 
@@ -67,7 +64,7 @@ struct SleepNightTab: View {
     @State private var showSounds = false
 
     private var coach: SleepBedtimeCoach {
-        SleepBedtimeCoach.make(from: store.sleepData)
+        SleepBedtimeCoach.make(from: store.sleepData, lowEnergyDay: store.readiness.overall < 60)
     }
 
     private var askAriaButton: some View {
@@ -177,6 +174,7 @@ struct SleepInBedFact: View {
 struct SleepInBedCard: View {
     @EnvironmentObject var store: AppStore
     @EnvironmentObject var hkService: HealthKitSleepService
+    @Environment(\.scenePhase) private var scenePhase
     @State private var showLogSheet = false
     @State private var logStart = Calendar.current.date(byAdding: .hour, value: -8, to: Date()) ?? Date()
     @State private var logEnd = Date()
@@ -207,7 +205,7 @@ struct SleepInBedCard: View {
 
     private func activeContent(since start: Date) -> some View {
         VStack(alignment: .leading, spacing: ForgeLayout.blockGap) {
-            TimelineView(.periodic(from: .now, by: 30)) { context in
+            TimelineView(.animation(minimumInterval: 30, paused: scenePhase != .active)) { context in
                 let hours = context.date.timeIntervalSince(start) / 3600
                 VStack(alignment: .leading, spacing: ForgeLayout.pairGap) {
                     Text("In bed since \(start.formatted(date: .omitted, time: .shortened))")
@@ -294,9 +292,10 @@ struct SleepInBedCard: View {
 
 struct SleepTonightHero: View {
     let coach: SleepBedtimeCoach
+    @Environment(\.scenePhase) private var scenePhase
 
     var body: some View {
-        TimelineView(.periodic(from: .now, by: 30)) { context in
+        TimelineView(.animation(minimumInterval: 30, paused: scenePhase != .active)) { context in
             let live = coach.advancing(now: context.date)
             VStack(alignment: .leading, spacing: ForgeLayout.heroGap) {
                 ForgeCardHeader("TONIGHT", tint: .steel)
@@ -415,7 +414,7 @@ struct SleepWindDownRitual: View {
             return "Wind-down sound is on. Charge it outside the bed."
         }
         if coach.phase == .overdue || coach.phase == .lightsOut {
-            return "Charge it outside the bed. The next scroll is not worth tomorrow."
+            return "Charge it outside the bed. A short wind-down still counts."
         }
         return "Set it down when the sound starts. Bed is the next room, not the next tab."
     }
@@ -568,7 +567,7 @@ struct SleepTonightSoundDock: View {
                         .font(HomeType.status)
                         .foregroundStyle(Color.textPrimary)
                         .lineLimit(2)
-                    Text(player.remainingLabel)
+                    SleepCountdownLabel(player: player)
                         .font(HomeType.body)
                         .foregroundStyle(Color.textTertiary)
                         .monospacedDigit()

@@ -639,6 +639,7 @@ struct NextAlarmHero: View {
         }
         .forgeContentCard(tint: .steel)
         .accessibilityElement(children: .combine)
+        .accessibilityLabel("Next alarm \(alarm.label), \(timeString), \(daysString). \(untilString)")
     }
 }
 
@@ -702,12 +703,12 @@ struct AlarmRow: View {
                 .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
-            .accessibilityLabel("Edit \(alarm.label) alarm, \(timeStr), \(daysSpoken)")
+            .accessibilityLabel("Edit \(alarm.label) alarm, \(timeStr), \(daysSpoken). \(alarm.isSmartWake ? "Smart wake on." : "") \(alarm.isEnabled ? "Enabled." : "Off.")")
             .accessibilityHint("Opens the alarm editor")
             Toggle("", isOn: enabledBinding)
                 .tint(.steel)
                 .labelsHidden()
-                .accessibilityLabel("\(alarm.label) alarm, \(timeStr), \(daysSpoken)")
+                .accessibilityLabel("\(alarm.label) alarm, \(timeStr), \(daysSpoken). \(alarm.isEnabled ? "On" : "Off")")
         }
         .opacity(alarm.isEnabled ? 1 : 0.6)
         .animation(reduceMotion ? nil : .easeInOut(duration: 0.2), value: alarm.isEnabled)

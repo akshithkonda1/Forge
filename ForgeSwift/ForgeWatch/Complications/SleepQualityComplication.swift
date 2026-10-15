@@ -81,7 +81,7 @@ private struct SleepQualityComplicationView: View {
         switch (durationText, quality) {
         case let (duration?, quality?): return "\(duration) · \(quality)"
         case let (duration?, nil):      return duration
-        default:                        return "No sleep data yet"
+        default:                        return HomeWidgetSleepDisplay.emptyCopy
         }
     }
 
@@ -117,7 +117,7 @@ private struct SleepQualityComplicationView: View {
             formatter.dateStyle = .none
             return "Tonight: wind down ~\(formatter.string(from: windDown))"
         }
-        guard let quality else { return "Last night will appear after your watch syncs." }
+        guard let quality else { return HomeWidgetSleepDisplay.emptyCopy }
         switch quality {
         case 80...: return "Solid recharge — it's fueling today's readiness."
         case 60..<80: return "A decent night. Today can still be a good one."
@@ -126,13 +126,13 @@ private struct SleepQualityComplicationView: View {
     }
 
     private var inline: some View {
-        Text(cornerLabel == "No sleep data yet" ? "Sleep: syncing…" : "Sleep \(cornerLabel)")
+        Text(cornerLabel == HomeWidgetSleepDisplay.emptyCopy ? HomeWidgetSleepDisplay.emptyCopy : "Sleep \(cornerLabel)")
             .accessibilityLabel(accessibilityText)
     }
 
     private var accessibilityText: String {
         guard let durationText, let quality else {
-            return "Sleep data hasn't synced yet."
+            return HomeWidgetSleepDisplay.emptyCopy
         }
         return "Slept \(durationText), quality \(quality) out of 100. \(subtitle)"
     }

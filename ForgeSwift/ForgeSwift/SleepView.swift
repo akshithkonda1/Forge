@@ -18,7 +18,7 @@ struct SleepView: View {
     private var lastNight: SleepData? { SleepData.lastNight(in: store.sleepData) }
 
     private var tonightCoach: SleepBedtimeCoach {
-        SleepBedtimeCoach.make(from: store.sleepData)
+        SleepBedtimeCoach.make(from: store.sleepData, lowEnergyDay: store.readiness.overall < 60)
     }
 
     private var wakeCoach: SleepWakeCoach {

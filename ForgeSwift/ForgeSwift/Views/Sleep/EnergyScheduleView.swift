@@ -75,18 +75,18 @@ struct EnergySchedule {
     }
 
     var debtHeadline: String {
-        debtLevel == .clear ? "Square on sleep" : String(format: "%.1f hours of sleep debt", debtHours)
+        debtLevel == .clear ? "Square on sleep" : String(format: "%.1fh short stretch", debtHours)
     }
 
     var debtDetail: String {
         let need = String(format: "%.1f", needHours)
         switch debtLevel {
         case .clear:
-            return "Against a \(need)h need, over \(nightsUsed) nights. Nothing to pay back."
+            return "Against a \(need)h need, over \(nightsUsed) nights. Nothing extra to add tonight."
         case .mild:
-            return "Against a \(need)h need, over \(nightsUsed) nights. An extra half hour a night clears it inside a week."
+            return "Against a \(need)h need, over \(nightsUsed) nights. About 25 extra minutes a night is enough."
         case .heavy:
-            return "Against a \(need)h need, over \(nightsUsed) nights. More than one long lie-in will pay this down."
+            return "Against a \(need)h need, over \(nightsUsed) nights. A short stretch — keep the extra minutes small."
         }
     }
 
@@ -702,7 +702,7 @@ struct EnergyScheduleCard: View {
         VStack(alignment: .leading, spacing: ForgeLayout.blockGap) {
             ForgeEmptyNote(
                 title: "Still learning your rhythm",
-                message: "Once there are about five nights with bedtimes recorded, this becomes your sleep debt and an hour-by-hour read on the day ahead. Log in-bed windows on Tonight, or connect Apple Health.",
+                message: "Once there are about five nights with bedtimes recorded, this becomes your short stretch and an hour-by-hour read on the day ahead. Log in-bed windows on Tonight, or connect Apple Health.",
                 systemImage: "waveform.path.ecg",
                 tint: .steel
             )

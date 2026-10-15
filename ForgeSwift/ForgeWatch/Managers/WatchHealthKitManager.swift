@@ -297,7 +297,8 @@ final class WatchHealthKitManager {
             }
             store.execute(query)
             observerQueries.append(query)
-            store.enableBackgroundDelivery(for: type, frequency: .immediate) { _, _ in }
+            let frequency: HKUpdateFrequency = type == HKCategoryType(.sleepAnalysis) ? .hourly : .immediate
+            store.enableBackgroundDelivery(for: type, frequency: frequency) { _, _ in }
         }
     }
 
@@ -364,6 +365,7 @@ final class WatchHealthKitManager {
         context.mindfulMinutesToday = mindfulMinutesToday
         context.sessionsCompletedToday = sessionsCompletedToday
         context.sleepFactors = sleepFactors.isEmpty ? nil : sleepFactors
+        context.tonightWindDown = windDownPlan?.windDownStart
         context.bodyTemperatureF = bodyTemperatureF
         context.wristTemperatureDeviationC = wristTemperatureDeviationC
         return context

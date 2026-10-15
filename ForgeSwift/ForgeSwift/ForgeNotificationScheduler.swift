@@ -134,16 +134,18 @@ enum ForgeNotificationScheduler {
     /// LifestyleServices `sleep-wind-down`. Watch `WindDownScheduler` stays.
     static func schedulePhoneWindDown(bedtimeHour: Double?) async {
         center.removePendingNotificationRequests(
-            withIdentifiers: [ID.lifestyleSleep, SleepWindDownNotice.phoneIdentifier] + SleepWindDownNotice.retiredPhoneIdentifiers
+            withIdentifiers: [ID.lifestyleSleep, SleepWindDownNotice.phoneIdentifier]
+                + SleepWindDownNotice.retiredPhoneIdentifiers
         )
-        let clock = SleepWindDownNotice.fireHourMinute(bedtimeHour: bedtimeHour)
+        let wind = SleepWindDownNotice.fireHourMinute(bedtimeHour: bedtimeHour)
         await scheduleDaily(
             id: SleepWindDownNotice.phoneIdentifier,
-            hour: clock.hour,
-            minute: clock.minute,
+            hour: wind.hour,
+            minute: wind.minute,
             title: "Wind Down",
-            body: "Tonight's window is opening. A quieter last hour helps the night land — no streak to protect.",
-            destination: "forge://sleep/night"
+            body: SleepWindDownNotice.phoneBody(),
+            destination: "forge://sleep/night",
+            interruptionLevel: .passive
         )
     }
 
@@ -260,7 +262,8 @@ enum ForgeNotificationScheduler {
         minute: Int,
         title: String,
         body: String,
-        destination: String? = nil
+        destination: String? = nil,
+        interruptionLevel: UNNotificationInterruptionLevel = .active
     ) async {
         var components = DateComponents()
         components.hour = hour
@@ -268,7 +271,10 @@ enum ForgeNotificationScheduler {
         let content = UNMutableNotificationContent()
         content.title = title
         content.body = body
-        content.sound = .default
+        if interruptionLevel != .passive {
+            content.sound = .default
+        }
+        content.interruptionLevel = interruptionLevel
         if let destination {
             content.userInfo = ["destination": destination]
         }

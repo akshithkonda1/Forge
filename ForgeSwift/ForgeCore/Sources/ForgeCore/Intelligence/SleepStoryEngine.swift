@@ -21,8 +21,9 @@ public enum SleepStoryEngine {
         let factorNote = factors.first.map { " \($0.ariaNote)" } ?? ""
 
         if hours < 6 {
-            let readinessLink = readiness.map { " Today's readiness (\($0.overall)) reflects it — a lighter-touch day still counts fully." }
-                ?? " A lighter-touch day still counts fully."
+            let readinessLink = readiness != nil
+                ? " Keep today easy — a lighter-touch day still counts fully."
+                : " A lighter-touch day still counts fully."
             return "A short night at \(night.durationLabel) — your body kept what mattered most.\(readinessLink)\(factorNote)"
         }
 

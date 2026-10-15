@@ -795,7 +795,7 @@ struct SettingsPageView: View {
                 toggleRow(
                     icon: "heart.fill",
                     iconColor: .steel,
-                    label: "Recovery Alerts",
+                    label: "Sleep alerts",
                     isOn: notificationBinding(\.recoveryAlerts)
                 )
                 SettingsHairline()

@@ -41,4 +41,12 @@ public enum SleepWindDownNotice: Sendable {
         guard let goal, goal.isActive else { return nil }
         return CircadianRhythm.normalizedHour(goal.targetWakeHour - needHours)
     }
+
+    /// Lifestyle-coach body. No scores, no HRV, no shame, no "recovery".
+    public static func phoneBody(lowReadinessDay: Bool = false) -> String {
+        if lowReadinessDay {
+            return "A lighter land tonight. Dim the room when you're ready."
+        }
+        return "Tonight's window is opening. A quieter last hour helps the night land."
+    }
 }

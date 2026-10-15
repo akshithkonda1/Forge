@@ -39,4 +39,11 @@ final class SleepWindDownNoticeTests: XCTestCase {
         XCTAssertTrue(SleepWindDownNotice.retiredPhoneIdentifiers.contains("sleep-wind-down"))
         XCTAssertTrue(SleepWindDownNotice.retiredPhoneIdentifiers.contains("forge.notification.lifestyle.sleep"))
     }
+
+    func testPhoneBodyDropsStreakCopy() {
+        XCTAssertNil(SleepCoachCopy.containsBannedPhrase(SleepWindDownNotice.phoneBody()))
+        XCTAssertNil(SleepCoachCopy.containsBannedPhrase(SleepWindDownNotice.phoneBody(lowReadinessDay: true)))
+        XCTAssertFalse(SleepWindDownNotice.phoneBody().localizedCaseInsensitiveContains("streak"))
+        XCTAssertTrue(SleepWindDownNotice.phoneBody(lowReadinessDay: true).localizedCaseInsensitiveContains("lighter"))
+    }
 }

@@ -173,7 +173,7 @@ struct SleepSoundsTab: View {
         @Bindable var player = player
         VStack(alignment: .leading, spacing: ForgeLayout.heroGap) {
             ForgeCardHeader(title: "Now playing", tint: .steel) {
-                SoundWaveformBadge()
+                SoundWaveformBadge(playing: player.isPlaying)
             }
             HStack(spacing: ForgeLayout.rowGap) {
                 ForgeIconWell(systemImage: player.kind.icon, tint: player.kind.color)
@@ -182,7 +182,7 @@ struct SleepSoundsTab: View {
                         .font(HomeType.status)
                         .foregroundStyle(Color.textPrimary)
                         .forgeWrapping()
-                    Text(player.remainingLabel)
+                    SleepCountdownLabel(player: player)
                         .font(HomeType.metric)
                         .foregroundStyle(Color.textSecondary)
                         .monospacedDigit()
@@ -327,14 +327,30 @@ struct SoundLibraryRow: View {
     }
 }
 
+struct SleepCountdownLabel: View {
+    let player: SleepWindDownPlayer
+
+    var body: some View {
+        Group {
+            if let range = player.countdownRange {
+                Text(timerInterval: range, countsDown: true)
+            } else {
+                Text(player.remainingLabel)
+            }
+        }
+        .monospacedDigit()
+    }
+}
+
 struct SoundWaveformBadge: View {
+    var playing: Bool = true
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.scenePhase) private var scenePhase
 
     var body: some View {
         TimelineView(.animation(
-            minimumInterval: 1.0 / 20.0,
-            paused: reduceMotion || scenePhase != .active
+            minimumInterval: 1.0 / 12.0,
+            paused: reduceMotion || scenePhase != .active || !playing
         )) { tl in
             let t = reduceMotion ? 0 : tl.date.timeIntervalSinceReferenceDate
             HStack(spacing: 2) {

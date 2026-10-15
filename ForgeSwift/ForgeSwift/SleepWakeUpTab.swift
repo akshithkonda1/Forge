@@ -114,19 +114,14 @@ struct SleepWakeScreen: View {
     @ObservedObject private var wake = SleepWakeStore.shared
     @ObservedObject private var alarms = ForgeAlarmStore.shared
     @State private var doneRoutine: Set<UUID> = []
-    @State private var tick = Date()
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @ScaledMetric(relativeTo: .largeTitle) private var clockSize: CGFloat = 48
     private let player = SleepWakePlayer.shared
 
     private var alarm: ForgeAlarm { wake.current ?? ForgeAlarm() }
 
-    private var progress: Double {
-        min(1, Date().timeIntervalSince(wake.startedAt) / 24)
-    }
-
-    private var clock: String {
-        tick.formatted(date: .omitted, time: .shortened)
+    private func progress(at date: Date) -> Double {
+        min(1, date.timeIntervalSince(wake.startedAt) / 24)
     }
 
     private var morningPrompt: String {
@@ -137,32 +132,38 @@ struct SleepWakeScreen: View {
     }
 
     var body: some View {
-        ZStack {
-            sunrise
-            VStack(spacing: 0) {
-                GeometryReader { geo in
-                    ScrollView(showsIndicators: false) {
-                        upperContent
-                            .frame(maxWidth: .infinity, minHeight: geo.size.height)
+        TimelineView(.periodic(
+            from: .now,
+            by: Date().timeIntervalSince(wake.startedAt) < 24 ? 1 : 60
+        )) { context in
+            let now = context.date
+            let progress = progress(at: now)
+            ZStack {
+                sunrise(progress: progress)
+                VStack(spacing: 0) {
+                    GeometryReader { geo in
+                        ScrollView(showsIndicators: false) {
+                            upperContent(progress: progress, date: now)
+                                .frame(maxWidth: .infinity, minHeight: geo.size.height)
+                        }
+                        .scrollBounceBehavior(.basedOnSize)
                     }
-                    .scrollBounceBehavior(.basedOnSize)
+                    controls
                 }
-                controls
             }
-        }
-        .interactiveDismissDisabled()
-        .onReceive(Timer.publish(every: 1, on: .main, in: .common).autoconnect()) { tick = $0 }
-        .onAppear {
-            SleepWakePlayer.shared.ensurePlaying(for: alarm)
+            .interactiveDismissDisabled()
+            .onAppear {
+                SleepWakePlayer.shared.ensurePlaying(for: alarm)
+            }
         }
     }
 
     // MARK: Upper content (scrolls when space runs out)
 
-    private var upperContent: some View {
+    private func upperContent(progress: Double, date: Date) -> some View {
         VStack(spacing: FDS.Spacing.xl) {
             VStack(spacing: FDS.Spacing.sm) {
-                clockRing
+                clockRing(progress: progress, date: date)
                 Text(alarm.label)
                     .font(FDS.TypeScale.Dynamic.headline)
                     .foregroundColor(.white.opacity(0.82))
@@ -175,10 +176,10 @@ struct SleepWakeScreen: View {
         .padding(.vertical, FDS.Spacing.lg)
     }
 
-    private var clockRing: some View {
+    private func clockRing(progress: Double, date: Date) -> some View {
         ZStack {
             SleepWakeHudRing(progress: progress)
-            Text(clock)
+            Text(date.formatted(date: .omitted, time: .shortened))
                 .font(.system(
                     size: ForgeLayout.scaledCap(clockSize, base: 48, maxGrowth: 1.3),
                     weight: .semibold,
@@ -335,7 +336,7 @@ struct SleepWakeScreen: View {
         .buttonStyle(.plain)
     }
 
-    private var sunrise: some View {
+    private func sunrise(progress: Double) -> some View {
         let t = alarms.sunriseEnabled ? progress : 0.12
         return ZStack {
             LinearGradient(

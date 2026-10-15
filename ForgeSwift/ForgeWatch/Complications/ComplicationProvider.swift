@@ -7,7 +7,7 @@ import ForgeCore
 // All three complications render from the same WatchSnapshot the app
 // maintains in the App Group. Providers do NO HealthKit work — reading a
 // cached struct keeps timeline generation ~instant and battery-free, and
-// the app's WatchSnapshotStore.save() → reloadAllTimelines() path is what
+// the app's WatchSnapshotStore.save() → reloadTimelines(ofKind:) path is what
 // delivers the "< 2s from data change to wrist" behavior.
 
 struct SnapshotEntry: TimelineEntry {
