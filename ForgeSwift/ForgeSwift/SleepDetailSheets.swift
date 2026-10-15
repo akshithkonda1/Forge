@@ -1,4 +1,5 @@
 import SwiftUI
+import ForgeCore
 
 struct SleepPersonalizationSheet: View {
     @Environment(\.dismiss) private var dismiss
@@ -31,6 +32,7 @@ struct SleepPersonalizationSheet: View {
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Save") {
                         hkService.updateProfile(draft)
+                        SleepNeedBaselineStore.save(draft.sleepNeedBaselineHours)
                         if !store.sleepData.isEmpty {
                             Task {
                                 let rescored = await hkService.fetchRecentSleepData(days: 14)
@@ -109,6 +111,36 @@ struct SleepPersonalizationSheet: View {
 
     private var profileFieldsCard: some View {
         VStack(alignment: .leading, spacing: ForgeLayout.blockGap) {
+            VStack(alignment: .leading, spacing: ForgeLayout.rowGap) {
+                Text("Your sleep need baseline")
+                    .font(HomeType.label)
+                    .foregroundStyle(Color.textSecondary)
+                    .accessibilityAddTraits(.isHeader)
+                Text("Tonight's need is baseline + load + short stretch − naps, kept between 7 and 9 hours. You can override the baseline.")
+                    .font(HomeType.body)
+                    .foregroundStyle(Color.textTertiary)
+                    .forgeWrapping()
+                Stepper(
+                    value: Binding(
+                        get: { draft.sleepNeedBaselineHours ?? 8.0 },
+                        set: { draft.sleepNeedBaselineHours = $0 }
+                    ),
+                    in: SleepNeedParts.clampMin...SleepNeedParts.clampMax,
+                    step: 0.25
+                ) {
+                    Text(String(format: "%.2f hours", draft.sleepNeedBaselineHours ?? 8.0))
+                        .font(HomeType.status)
+                        .foregroundStyle(Color.textPrimary)
+                }
+                .frame(minHeight: ForgeUX.minTap)
+                Button("Use estimated baseline") {
+                    draft.sleepNeedBaselineHours = nil
+                }
+                .font(HomeType.body)
+                .foregroundStyle(Color.steel)
+                .frame(minHeight: ForgeUX.minTap, alignment: .leading)
+            }
+
             VStack(alignment: .leading, spacing: ForgeLayout.rowGap) {
                 Text("Coaching personality")
                     .font(HomeType.label)

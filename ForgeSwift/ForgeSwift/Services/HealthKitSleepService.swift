@@ -361,7 +361,13 @@ final class HealthKitSleepService: ObservableObject {
 
     func estimatedSleepNeed(from sleepData: [SleepData]) -> Double {
         let durations = Array(sleepData.map(\.totalHours).reversed())
-        return CircadianRhythm.sleepNeedHours(fromAsleepHours: durations)
+        let estimated = CircadianRhythm.sleepNeedHours(fromAsleepHours: durations)
+        let stretch = CircadianRhythm.sleepDebtHours(asleepHours: durations, need: estimated)
+        return SleepNeedParts.make(
+            estimatedBaseline: estimated,
+            overrideBaseline: SleepNeedBaselineStore.load() ?? userProfile.sleepNeedBaselineHours,
+            debtHours: stretch
+        ).totalHours
     }
 
     func targetSleepHours() -> Double {

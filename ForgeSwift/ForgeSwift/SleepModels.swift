@@ -665,7 +665,7 @@ struct SleepBedtimeCoach: Equatable {
             correction: correction,
             savedGoal: correction == nil ? goal : nil,
             lowEnergyDay: lowEnergyDay,
-            isLearning: recent.count < 7
+            isLearning: recent.count < SleepCalibrationState.readyNights
         )
     }
 

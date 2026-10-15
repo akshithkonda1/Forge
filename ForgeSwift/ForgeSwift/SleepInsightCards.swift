@@ -1,6 +1,7 @@
 import SwiftUI
 import PhotosUI
 import UIKit
+import ForgeCore
 
 /// An ARIA sentence inside a card: a small sparkle plus the note in body
 /// type, in Home's inner well. Sentences wrap, they never truncate.
@@ -22,6 +23,129 @@ private struct SleepAriaNote: View {
         }
         .forgeWell()
         .accessibilityElement(children: .combine)
+    }
+}
+
+struct SleepMorningSummaryCard: View {
+    @EnvironmentObject var store: AppStore
+    @EnvironmentObject var hkService: HealthKitSleepService
+
+    private var summary: SleepMorningSummary {
+        let last = SleepData.lastNight(in: store.sleepData)
+        let durations = Array(store.sleepData.map(\.totalHours).reversed())
+        let estimated = CircadianRhythm.sleepNeedHours(fromAsleepHours: durations)
+        let stretch = CircadianRhythm.sleepDebtHours(asleepHours: durations, need: estimated)
+        let need = SleepNeedParts.make(
+            estimatedBaseline: estimated,
+            overrideBaseline: SleepNeedBaselineStore.load() ?? hkService.userProfile.sleepNeedBaselineHours,
+            debtHours: stretch
+        )
+        let coach = SleepBedtimeCoach.make(
+            from: store.sleepData,
+            lowEnergyDay: store.readiness.overall < 60
+        )
+        return SleepMorningSummary.make(
+            lastNightHours: last?.totalHours,
+            lastNightAwakeMinutes: Double(last?.awakeMinutes ?? 0),
+            scoredNightCount: store.sleepData.count,
+            bedtimeLabel: last == nil ? nil : coach.bedtimeLabel,
+            need: need
+        )
+    }
+
+    var body: some View {
+        let card = summary
+        VStack(alignment: .leading, spacing: ForgeLayout.blockGap) {
+            ForgeCardHeader("This morning", meta: card.calibration.caption, metaColor: .steel)
+            ForgeAdaptiveStack(spacing: ForgeLayout.rowGap, alignment: .firstTextBaseline) {
+                Text(card.hoursLabel)
+                    .font(HomeType.metric)
+                    .foregroundStyle(Color.textPrimary)
+                    .monospacedDigit()
+                    .forgeSingleLine()
+                    .layoutPriority(1)
+                Text("asleep")
+                    .font(HomeType.body)
+                    .foregroundStyle(Color.textSecondary)
+                Spacer(minLength: 0)
+                if let score = card.visibleScore {
+                    Text("\(score)")
+                        .font(HomeType.metric)
+                        .foregroundStyle(Color.steel)
+                        .monospacedDigit()
+                        .forgeSingleLine()
+                        .accessibilityLabel("Sleep score \(score) of 100")
+                }
+            }
+            Text(card.contextLine)
+                .font(HomeType.body)
+                .foregroundStyle(Color.textPrimary)
+                .forgeWrapping()
+            Text(card.nextStep)
+                .font(HomeType.status)
+                .foregroundStyle(Color.ember)
+                .forgeWrapping()
+            if card.calibration.isReady, let parts = card.published?.parts {
+                ForgeAdaptiveStack(spacing: ForgeLayout.tileGap) {
+                    ForEach(parts, id: \.name) { part in
+                        VStack(alignment: .leading, spacing: ForgeLayout.labelValueGap) {
+                            Text("\(part.weight)%")
+                                .font(HomeType.micro)
+                                .foregroundStyle(Color.textTertiary)
+                            Text("\(part.value)")
+                                .font(HomeType.body)
+                                .foregroundStyle(Color.textPrimary)
+                                .monospacedDigit()
+                        }
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .accessibilityLabel("\(part.name), weight \(part.weight) percent, \(part.value)")
+                    }
+                }
+            }
+            Text(card.need.whyLines.joined(separator: " · "))
+                .font(HomeType.body)
+                .foregroundStyle(Color.textTertiary)
+                .forgeWrapping()
+        }
+        .forgeContentCard(tint: .ember)
+        .accessibilityElement(children: .combine)
+    }
+}
+
+struct SleepFeelingCheckIn: View {
+    @EnvironmentObject var store: AppStore
+    @State private var picked: SleepFeeling?
+
+    private var dateKey: String? { SleepData.lastNight(in: store.sleepData)?.date }
+
+    var body: some View {
+        if let dateKey {
+            VStack(alignment: .leading, spacing: ForgeLayout.blockGap) {
+                ForgeCardHeader("How did you feel?")
+                ForgeAdaptiveStack(spacing: ForgeLayout.tileGap) {
+                    ForEach(SleepFeeling.allCases, id: \.self) { feeling in
+                        Button {
+                            FDS.haptic(.press)
+                            SleepFeelingStore.save(feeling, on: dateKey)
+                            picked = feeling
+                        } label: {
+                            Text(feeling.label)
+                                .font(HomeType.body)
+                                .foregroundStyle(picked == feeling ? Color.white : Color.textSecondary)
+                                .frame(maxWidth: .infinity)
+                                .frame(minHeight: ForgeUX.minTap)
+                                .background((picked == feeling ? Color.steel : Color.white).opacity(picked == feeling ? 0.9 : 0.06))
+                                .clipShape(Capsule())
+                        }
+                        .buttonStyle(.plain)
+                        .accessibilityLabel(feeling.label)
+                        .accessibilityAddTraits(picked == feeling ? .isSelected : [])
+                    }
+                }
+            }
+            .forgeContentCard(tint: .steel)
+            .onAppear { picked = SleepFeelingStore.feeling(on: dateKey) }
+        }
     }
 }
 
