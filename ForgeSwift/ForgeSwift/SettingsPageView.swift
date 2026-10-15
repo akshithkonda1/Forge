@@ -812,6 +812,13 @@ struct SettingsPageView: View {
                     label: "Lifestyle Reminders",
                     isOn: notificationBinding(\.lifestyleReminders)
                 )
+                SettingsHairline()
+                toggleRow(
+                    icon: "moon.zzz.fill",
+                    iconColor: .steel,
+                    label: "Quiet week",
+                    isOn: notificationBinding(\.sleepQuietWeek)
+                )
             }
         }
     }

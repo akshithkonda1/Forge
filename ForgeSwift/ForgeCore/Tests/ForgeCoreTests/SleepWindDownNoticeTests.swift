@@ -40,10 +40,17 @@ final class SleepWindDownNoticeTests: XCTestCase {
         XCTAssertTrue(SleepWindDownNotice.retiredPhoneIdentifiers.contains("forge.notification.lifestyle.sleep"))
     }
 
-    func testPhoneBodyDropsStreakCopy() {
+    func testTwoSleepNudgesAndCopyBar() {
+        XCTAssertEqual(SleepWindDownNotice.dailyIdentifiers.count, SleepNudgePolicy.maxPerDay)
+        XCTAssertTrue(SleepWindDownNotice.dailyIdentifiers.contains(SleepWindDownNotice.phoneIdentifier))
+        XCTAssertTrue(SleepWindDownNotice.dailyIdentifiers.contains(SleepWindDownNotice.caffeineIdentifier))
         XCTAssertNil(SleepCoachCopy.containsBannedPhrase(SleepWindDownNotice.phoneBody()))
         XCTAssertNil(SleepCoachCopy.containsBannedPhrase(SleepWindDownNotice.phoneBody(lowReadinessDay: true)))
+        XCTAssertNil(SleepCoachCopy.containsBannedPhrase(SleepWindDownNotice.caffeineBody()))
         XCTAssertFalse(SleepWindDownNotice.phoneBody().localizedCaseInsensitiveContains("streak"))
         XCTAssertTrue(SleepWindDownNotice.phoneBody(lowReadinessDay: true).localizedCaseInsensitiveContains("lighter"))
+        let caffeine = SleepWindDownNotice.caffeineHourMinute(bedtimeHour: 22.5)
+        XCTAssertEqual(caffeine.hour, 14)
+        XCTAssertEqual(caffeine.minute, 30)
     }
 }

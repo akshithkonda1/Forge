@@ -70,6 +70,7 @@ let package = Package(
                 "Intelligence/SleepCoachCopy.swift",
                 "Intelligence/SleepQueryCache.swift",
                 "Intelligence/SleepWindDownNotice.swift",
+                "Intelligence/SleepNudgePolicy.swift",
                 "Intelligence/HydrationEngine.swift",
                 "Intelligence/ContextRules.swift",
                 "Intelligence/HabitEngine.swift",
