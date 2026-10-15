@@ -21,7 +21,10 @@ struct ProfileEditorView: View {
     @State private var removePhoto = false
     @State private var showCamera = false
     @State private var isLoadingPhoto = false
+    @State private var showPhotoPicker = false
     @State private var errorMessage: String?
+
+    @ScaledMetric(relativeTo: .largeTitle) private var editorAvatarSize: CGFloat = 110
 
     private static let lbsPerKg = 2.20462
     private static let cmPerInch = 2.54
@@ -107,25 +110,41 @@ struct ProfileEditorView: View {
     var body: some View {
         NavigationStack {
             ScrollView {
-                VStack(spacing: FDS.Spacing.xl) {
+                VStack(spacing: ForgeLayout.sectionGap) {
                     avatarEditor
-                    identityFields
-                    bodyFields
-                    trainingFields
-                    saveButton
+                    identityCard
+                    bodyCard
+                    trainingCard
                 }
-                .padding()
+                .forgeScreenInsets(top: FDS.Spacing.lg)
             }
-            .background(Color.background.ignoresSafeArea())
+            .scrollDismissesKeyboard(.interactively)
+            .forgeScreenBackground(accent: .steel)
             .navigationTitle("Edit Profile")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .navigationBarLeading) {
                     Button("Cancel") { dismiss() }
-                        .foregroundColor(.textSecondary)
+                        .foregroundStyle(Color.textSecondary)
+                }
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Save", action: save)
+                        .fontWeight(.semibold)
+                        .tint(Color.ember)
+                        .disabled(!isDirty)
+                }
+                ToolbarItemGroup(placement: .keyboard) {
+                    Spacer()
+                    Button("Done") { dismissKeyboard() }
                 }
             }
             .onAppear(perform: loadCurrentValues)
+            .photosPicker(
+                isPresented: $showPhotoPicker,
+                selection: $photoItem,
+                matching: .images,
+                photoLibrary: .shared()
+            )
             .onChange(of: photoItem) { _, item in
                 guard let item else { return }
                 loadPickedPhoto(item)
@@ -146,6 +165,38 @@ struct ProfileEditorView: View {
                 Text(errorMessage ?? "")
             }
         }
+    }
+
+    private func dismissKeyboard() {
+        UIApplication.shared.sendAction(
+            #selector(UIResponder.resignFirstResponder),
+            to: nil, from: nil, for: nil
+        )
+    }
+
+    /// True once any field, picker or photo differs from the saved profile.
+    private var isDirty: Bool {
+        if pendingPhoto != nil || removePhoto { return true }
+        let profile = store.userProfile
+        if name != profile.name { return true }
+        if age != (profile.age.map(String.init) ?? "") { return true }
+        if weight != savedWeightText(profile) { return true }
+        let savedHeight = savedHeightText(profile)
+        if heightFeet != savedHeight.feet || heightInches != savedHeight.inches { return true }
+        if experience != profile.experienceLevel { return true }
+        if gender != profile.gender { return true }
+        return biologicalSex != profile.biologicalSex
+    }
+
+    private func savedWeightText(_ profile: UserProfile) -> String {
+        guard let kg = profile.weight else { return "" }
+        return String(Int((kg * Self.lbsPerKg).rounded()))
+    }
+
+    private func savedHeightText(_ profile: UserProfile) -> (feet: String, inches: String) {
+        guard let cm = profile.height else { return ("", "") }
+        let totalInches = Int((cm / Self.cmPerInch).rounded())
+        return (String(totalInches / 12), String(totalInches % 12))
     }
 
     private func loadCurrentValues() {
@@ -180,186 +231,219 @@ struct ProfileEditorView: View {
 
     // MARK: Sections
 
+    /// The avatar is the photo control: one tap opens library, camera and remove.
     private var avatarEditor: some View {
-        VStack(spacing: FDS.Spacing.md) {
-            ZStack(alignment: .bottomTrailing) {
-                Group {
-                    if let pendingPhoto {
-                        Image(uiImage: pendingPhoto)
-                            .resizable()
-                            .scaledToFill()
-                            .frame(width: 110, height: 110)
-                            .clipShape(Circle())
-                    } else {
-                        ProfileAvatarView(
-                            fileName: currentAvatarFileName,
-                            initials: store.userProfile.initials,
-                            size: 110,
-                            showsRing: false
-                        )
-                    }
-                }
-                .overlay(Circle().stroke(Color.ember.opacity(0.4), lineWidth: 2))
-
-                if isLoadingPhoto {
-                    ProgressView()
-                        .tint(.white)
-                        .frame(width: 32, height: 32)
-                        .background(Circle().fill(Color.ember))
-                } else {
-                    ZStack {
-                        Circle().fill(Color.background).frame(width: 36, height: 36)
-                        Circle().fill(Color.ember).frame(width: 32, height: 32)
-                        Image(systemName: "camera.fill")
-                            .font(.system(size: 14))
-                            .foregroundColor(.white)
-                    }
-                    .offset(x: 2, y: 2)
-                }
-            }
-            .accessibilityHidden(true)
-
-            HStack(spacing: FDS.Spacing.md) {
-                // The picker is its own control rather than a dialog action, because
-                // PhotosPicker must be present in the hierarchy to present its sheet.
-                PhotosPicker(selection: $photoItem, matching: .images, photoLibrary: .shared()) {
+        VStack(spacing: ForgeLayout.rowGap) {
+            Menu {
+                Button {
+                    showPhotoPicker = true
+                } label: {
                     Label(hasPhoto ? "Change photo" : "Add photo", systemImage: "photo.on.rectangle")
-                        .font(.system(size: 13, weight: .semibold))
-                        .foregroundColor(.ember)
-                        .padding(.horizontal, FDS.Spacing.lg).padding(.vertical, FDS.Spacing.sm)
-                        .background(Color.ember.opacity(0.12))
-                        .cornerRadius(100)
                 }
-
                 if UIImagePickerController.isSourceTypeAvailable(.camera) {
                     Button {
                         showCamera = true
                     } label: {
                         Label("Camera", systemImage: "camera")
-                            .font(.system(size: 13, weight: .semibold))
-                            .foregroundColor(.textSecondary)
-                            .padding(.horizontal, FDS.Spacing.lg).padding(.vertical, FDS.Spacing.sm)
-                            .background(Color.surfaceElevated)
-                            .cornerRadius(100)
                     }
-                    .buttonStyle(.plain)
                 }
-
                 if hasPhoto {
-                    Button {
+                    Button(role: .destructive) {
                         pendingPhoto = nil
                         photoItem = nil
                         removePhoto = true
-                        FDS.haptic(.light)
+                        FDS.haptic(.press)
                     } label: {
-                        Image(systemName: "trash")
-                            .font(.system(size: 13, weight: .semibold))
-                            .foregroundColor(.danger)
-                            .padding(FDS.Spacing.sm)
-                            .background(Color.danger.opacity(0.12))
-                            .cornerRadius(100)
+                        Label("Remove profile photo", systemImage: "trash")
                     }
-                    .buttonStyle(.plain)
-                    .accessibilityLabel("Remove profile photo")
                 }
+            } label: {
+                avatarLabel
             }
+            .accessibilityLabel(hasPhoto ? "Change photo" : "Add photo")
 
             if removePhoto && pendingPhoto == nil {
                 Text("Photo will be removed when you save.")
-                    .font(.system(size: 11))
-                    .foregroundColor(.textTertiary)
+                    .font(HomeType.body)
+                    .foregroundStyle(Color.textSecondary)
+                    .multilineTextAlignment(.center)
+                    .forgeWrapping()
             }
         }
-        .padding(.top, FDS.Spacing.md)
+        .frame(maxWidth: .infinity)
     }
 
-    private var identityFields: some View {
-        VStack(spacing: FDS.Spacing.lg) {
-            ProfileFieldRow(label: "Name", placeholder: "Your name", text: $name)
+    private var avatarLabel: some View {
+        let size = ForgeLayout.scaledCap(editorAvatarSize, base: 110, maxGrowth: 1.25)
+        return ZStack(alignment: .bottomTrailing) {
+            avatarImage(size: size)
+                .overlay(Circle().stroke(Color.ember.opacity(0.4), lineWidth: 2))
+                .accessibilityHidden(true)
+            avatarBadge
+        }
+        .padding(FDS.Spacing.sm)
+        .contentShape(Rectangle())
+    }
 
-            ProfilePickerRow(label: "Gender") {
-                Picker("Gender", selection: $gender) {
-                    ForEach(Gender.allCases) { option in
-                        Text(option.label).tag(option)
-                    }
-                }
-                .pickerStyle(.menu)
-                .tint(.ember)
-            }
-
-            // Cycle health keys off biological sex, so it has to be editable after
-            // onboarding rather than locked in forever at first launch.
-            ProfilePickerRow(
-                label: "Biological sex",
-                footnote: "Used to configure cycle health features. Stays on your device."
-            ) {
-                Picker("Biological sex", selection: $biologicalSex) {
-                    Text("Not set").tag(BiologicalSex?.none)
-                    ForEach(BiologicalSex.allCases) { option in
-                        Text(option.label).tag(BiologicalSex?.some(option))
-                    }
-                }
-                .pickerStyle(.menu)
-                .tint(.ember)
-            }
+    @ViewBuilder
+    private func avatarImage(size: CGFloat) -> some View {
+        if let pendingPhoto {
+            Image(uiImage: pendingPhoto)
+                .resizable()
+                .scaledToFill()
+                .frame(width: size, height: size)
+                .clipShape(Circle())
+        } else {
+            ProfileAvatarView(
+                fileName: currentAvatarFileName,
+                initials: store.userProfile.initials,
+                size: size,
+                showsRing: false
+            )
         }
     }
 
-    private var bodyFields: some View {
-        VStack(spacing: FDS.Spacing.lg) {
-            ProfileFieldRow(label: "Age", placeholder: "Age", text: $age, keyboardType: .numberPad)
-            ProfileFieldRow(label: "Weight (lbs)", placeholder: "Weight", text: $weight, keyboardType: .decimalPad)
+    @ViewBuilder
+    private var avatarBadge: some View {
+        if isLoadingPhoto {
+            ProgressView()
+                .tint(.white)
+                .frame(width: ForgeUX.minTap - 8, height: ForgeUX.minTap - 8)
+                .background(Circle().fill(Color.ember))
+        } else {
+            ZStack {
+                Circle().fill(Color.background).frame(width: 40, height: 40)
+                Circle().fill(Color.ember).frame(width: 36, height: 36)
+                Image(systemName: "camera.fill")
+                    .font(.system(size: 15, weight: .semibold))
+                    .foregroundStyle(Color.white)
+            }
+            .accessibilityHidden(true)
+        }
+    }
 
-            VStack(alignment: .leading, spacing: FDS.Spacing.sm) {
-                Text("Height")
-                    .font(FDS.TypeScale.Dynamic.caption)
-                    .foregroundColor(.textSecondary)
-                HStack(spacing: FDS.Spacing.md) {
-                    heightField(placeholder: "5", text: $heightFeet, unit: "ft")
-                    heightField(placeholder: "10", text: $heightInches, unit: "in")
+    private var identityCard: some View {
+        VStack(alignment: .leading, spacing: ForgeLayout.blockGap) {
+            ForgeCardHeader("Identity")
+
+            VStack(spacing: 0) {
+                ProfileFieldRow(label: "Name", placeholder: "Your name", text: $name)
+
+                ProfileFieldDivider()
+
+                ProfilePickerRow(label: "Gender") {
+                    Picker("Gender", selection: $gender) {
+                        ForEach(Gender.allCases) { option in
+                            Text(option.label).tag(option)
+                        }
+                    }
+                    .labelsHidden()
+                    .pickerStyle(.menu)
+                    .tint(.ember)
+                }
+
+                ProfileFieldDivider()
+
+                // Cycle health keys off biological sex, so it has to be editable after
+                // onboarding rather than locked in forever at first launch.
+                ProfilePickerRow(
+                    label: "Biological sex",
+                    footnote: "Used to configure cycle health features. Stays on your device."
+                ) {
+                    Picker("Biological sex", selection: $biologicalSex) {
+                        Text("Not set").tag(BiologicalSex?.none)
+                        ForEach(BiologicalSex.allCases) { option in
+                            Text(option.label).tag(BiologicalSex?.some(option))
+                        }
+                    }
+                    .labelsHidden()
+                    .pickerStyle(.menu)
+                    .tint(.ember)
                 }
             }
         }
+        .forgeContentCard()
+    }
+
+    private var bodyCard: some View {
+        VStack(alignment: .leading, spacing: ForgeLayout.blockGap) {
+            ForgeCardHeader("Body")
+
+            VStack(spacing: 0) {
+                ProfileFieldRow(label: "Age", placeholder: "Age", text: $age, keyboardType: .numberPad)
+
+                ProfileFieldDivider()
+
+                ProfileFieldRow(label: "Weight (lbs)", placeholder: "Weight", text: $weight, keyboardType: .decimalPad)
+
+                ProfileFieldDivider()
+
+                heightRow
+            }
+        }
+        .forgeContentCard()
+    }
+
+    private var heightRow: some View {
+        ForgeAdaptiveStack(spacing: ForgeLayout.rowGap) {
+            Text("Height")
+                .font(HomeType.status)
+                .foregroundStyle(Color.textPrimary)
+                .lineLimit(2)
+                .layoutPriority(1)
+            HStack(spacing: ForgeLayout.rowGap) {
+                heightField(placeholder: "5", text: $heightFeet, unit: "ft")
+                heightField(placeholder: "10", text: $heightInches, unit: "in")
+            }
+            .frame(maxWidth: .infinity, alignment: .trailing)
+        }
+        .padding(.vertical, ForgeLayout.rowVerticalPadding)
+        .frame(minHeight: ForgeUX.minTap)
     }
 
     private func heightField(placeholder: String, text: Binding<String>, unit: String) -> some View {
-        HStack(spacing: FDS.Spacing.sm) {
+        HStack(spacing: FDS.Spacing.xs) {
             TextField(placeholder, text: text)
-                .font(.system(size: 15))
+                .font(HomeType.body)
+                .foregroundStyle(Color.textPrimary)
                 .keyboardType(.numberPad)
+                .multilineTextAlignment(.trailing)
+                .frame(minWidth: 36, maxWidth: 64, minHeight: ForgeUX.minTap)
             Text(unit)
-                .font(.system(size: 13))
-                .foregroundColor(.textTertiary)
+                .font(HomeType.body)
+                .foregroundStyle(Color.textTertiary)
         }
-        .padding(FDS.Spacing.lg)
-        .forgeGlassCard(cornerRadius: FDS.Radius.sm, accent: .steel)
+        .accessibilityElement(children: .combine)
         .accessibilityLabel("Height in \(unit == "ft" ? "feet" : "inches")")
     }
 
-    private var trainingFields: some View {
-        ProfilePickerRow(label: "Experience level", footnote: experience.description) {
-            Picker("Experience", selection: $experience) {
-                ForEach(ExperienceLevel.allCases) { option in
-                    Text(option.label).tag(option)
-                }
-            }
-            .pickerStyle(.menu)
-            .tint(.ember)
-        }
-    }
+    private var trainingCard: some View {
+        VStack(alignment: .leading, spacing: ForgeLayout.blockGap) {
+            ForgeCardHeader("Training")
 
-    private var saveButton: some View {
-        Button(action: save) {
-            Text("Save Changes")
-                .font(FDS.TypeScale.Dynamic.headline)
-                .foregroundColor(.white)
-                .frame(maxWidth: .infinity)
-                .frame(height: 52)
-                .background(Color.ember)
-                .cornerRadius(FDS.Radius.md)
+            ProfilePickerRow(label: "Experience level", footnote: experience.description) {
+                Picker("Experience", selection: $experience) {
+                    ForEach(ExperienceLevel.allCases) { option in
+                        Text(option.label).tag(option)
+                    }
+                }
+                .labelsHidden()
+                .pickerStyle(.menu)
+                .tint(.ember)
+            }
         }
-        .buttonStyle(.plain)
-        .padding(.top, FDS.Spacing.md)
+        .forgeContentCard()
+    }
+}
+
+/// Hairline between rows of an editor card.
+struct ProfileFieldDivider: View {
+    var body: some View {
+        Rectangle()
+            .fill(Color.borderHairline)
+            .frame(height: 1)
+            .padding(.vertical, 2)
+            .accessibilityHidden(true)
     }
 }
 
@@ -368,6 +452,8 @@ struct ProfilePickerRow<Content: View>: View {
     var footnote: String?
     @ViewBuilder var content: Content
 
+    @Environment(\.dynamicTypeSize) private var typeSize
+
     init(label: String, footnote: String? = nil, @ViewBuilder content: () -> Content) {
         self.label = label
         self.footnote = footnote
@@ -375,23 +461,28 @@ struct ProfilePickerRow<Content: View>: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: FDS.Spacing.sm) {
-            HStack {
+        VStack(alignment: .leading, spacing: FDS.Spacing.xs) {
+            ForgeAdaptiveStack(spacing: ForgeLayout.rowGap) {
                 Text(label)
-                    .font(FDS.TypeScale.Dynamic.caption)
-                    .foregroundColor(.textSecondary)
-                Spacer()
+                    .font(HomeType.status)
+                    .foregroundStyle(Color.textPrimary)
+                    .lineLimit(2)
+                    .layoutPriority(1)
                 content
+                    .frame(
+                        maxWidth: .infinity,
+                        minHeight: ForgeUX.minTap,
+                        alignment: typeSize.isAccessibilitySize ? .leading : .trailing
+                    )
             }
-            .padding(.horizontal, FDS.Spacing.lg)
-            .padding(.vertical, FDS.Spacing.sm)
-            .forgeGlassCard(cornerRadius: FDS.Radius.sm, accent: .steel)
+            .padding(.vertical, ForgeLayout.rowVerticalPadding)
 
             if let footnote {
                 Text(footnote)
-                    .font(.system(size: 11))
-                    .foregroundColor(.textTertiary)
-                    .padding(.horizontal, 2)
+                    .font(HomeType.body)
+                    .foregroundStyle(Color.textSecondary)
+                    .forgeWrapping()
+                    .padding(.bottom, ForgeLayout.rowVerticalPadding)
             }
         }
     }
@@ -441,17 +532,32 @@ struct ProfileFieldRow: View {
     @Binding var text: String
     var keyboardType: UIKeyboardType = .default
 
+    @FocusState private var isFocused: Bool
+    @Environment(\.dynamicTypeSize) private var typeSize
+
     var body: some View {
-        VStack(alignment: .leading, spacing: FDS.Spacing.sm) {
+        ForgeAdaptiveStack(spacing: ForgeLayout.rowGap) {
             Text(label)
-                .font(FDS.TypeScale.Dynamic.caption)
-                .foregroundColor(.textSecondary)
+                .font(HomeType.status)
+                .foregroundStyle(Color.textPrimary)
+                .lineLimit(2)
+                .layoutPriority(1)
 
             TextField(placeholder, text: $text)
-                .font(.system(size: 15))
-                .padding(FDS.Spacing.lg)
-                .forgeGlassCard(cornerRadius: FDS.Radius.sm, accent: .steel)
+                .font(HomeType.body)
+                .foregroundStyle(Color.textPrimary)
+                .multilineTextAlignment(typeSize.isAccessibilitySize ? .leading : .trailing)
                 .keyboardType(keyboardType)
+                .focused($isFocused)
+                .frame(
+                    maxWidth: .infinity,
+                    minHeight: ForgeUX.minTap,
+                    alignment: typeSize.isAccessibilitySize ? .leading : .trailing
+                )
+                .accessibilityLabel(label)
         }
+        .padding(.vertical, ForgeLayout.rowVerticalPadding)
+        .contentShape(Rectangle())
+        .onTapGesture { isFocused = true }
     }
 }

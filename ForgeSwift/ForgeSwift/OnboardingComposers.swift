@@ -1,15 +1,152 @@
 import SwiftUI
 import ForgeCore
 
+// MARK: - Shared onboarding pieces
+
+/// Terms copy, shown in full at the end of the interview.
+private let onboardingTermsCopy = "By agreeing to our Terms of Use, you acknowledge that Forge is an assistive coaching tool, not medical care. You are responsible for your own health. Any actions taken or injuries sustained are not the liability of Forge. Forge is designed to assist and advise, not to compel. By checking this box you waive all liability towards Forge."
+
+/// Helper, hint and footnote sentences: regular-weight body, wraps, never clipped.
+private struct OnboardingFootnote: View {
+    let text: String
+    var tint: Color = Color.textTertiary
+
+    init(_ text: String, tint: Color = Color.textTertiary) {
+        self.text = text
+        self.tint = tint
+    }
+
+    var body: some View {
+        Text(text)
+            .font(HomeType.body)
+            .foregroundStyle(tint)
+            .multilineTextAlignment(.leading)
+            .forgeWrapping()
+            .frame(maxWidth: .infinity, alignment: .leading)
+    }
+}
+
+/// Eyebrow label above a field, with an optional quiet qualifier.
+private struct OnboardingFieldLabel: View {
+    let title: String
+    var detail: String? = nil
+
+    var body: some View {
+        ForgeAdaptiveStack(spacing: FDS.Spacing.sm, alignment: .firstTextBaseline) {
+            Text(title)
+                .forgeSectionLabel(tint: Color.textSecondary)
+            if let detail {
+                Text(detail)
+                    .font(HomeType.micro)
+                    .foregroundStyle(Color.textTertiary)
+            }
+        }
+    }
+}
+
+/// Field chrome for inputs that sit on the atmosphere: 48 pt minimum, the
+/// opaque inset tile (which already draws the hairline) and one focus stroke.
+private struct OnboardingFieldChrome: ViewModifier {
+    var focused: Bool
+    var tint: Color
+
+    func body(content: Content) -> some View {
+        content
+            .padding(.horizontal, FDS.Spacing.lg)
+            .frame(minHeight: 48)
+            .forgeInsetTile(radius: FDS.Radius.lg)
+            .overlay {
+                if focused {
+                    RoundedRectangle(cornerRadius: FDS.Radius.lg, style: .continuous)
+                        .stroke(tint.opacity(0.55), lineWidth: 1)
+                }
+            }
+    }
+}
+
+/// One selectable answer on the Home agenda-row anatomy: optional icon well,
+/// status title over a wrapping body subtitle, and a chevron or a selection
+/// mark. These rows sit on the atmosphere, so the chrome stays the opaque
+/// inset tile rather than a well.
+private struct OnboardingOptionRow: View {
+    var icon: String? = nil
+    var tint: Color = Color.ember
+    let title: String
+    var subtitle: String = ""
+    var showsChevron: Bool = false
+    /// nil = not a selectable row; otherwise whether it is currently chosen.
+    var selection: Bool? = nil
+
+    private var isSelected: Bool { selection == true }
+
+    var body: some View {
+        HStack(spacing: ForgeLayout.rowGap) {
+            if let icon {
+                ForgeIconWell(systemImage: icon, tint: tint)
+            }
+            VStack(alignment: .leading, spacing: ForgeLayout.pairGap) {
+                Text(title)
+                    .font(HomeType.status)
+                    .foregroundStyle(Color.textPrimary)
+                    .multilineTextAlignment(.leading)
+                    .forgeWrapping()
+                if !subtitle.isEmpty {
+                    Text(subtitle)
+                        .font(HomeType.body)
+                        .foregroundStyle(Color.textTertiary)
+                        .multilineTextAlignment(.leading)
+                        .forgeWrapping()
+                }
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .layoutPriority(1)
+            accessory
+        }
+        .padding(.horizontal, FDS.Spacing.lg)
+        .padding(.vertical, FDS.Spacing.md)
+        .frame(minHeight: ForgeUX.minTap)
+        .forgeInsetTile(radius: FDS.Radius.lg)
+        .overlay {
+            if isSelected {
+                RoundedRectangle(cornerRadius: FDS.Radius.lg, style: .continuous)
+                    .fill(tint.opacity(0.12))
+                    .allowsHitTesting(false)
+            }
+        }
+        .overlay {
+            if isSelected {
+                RoundedRectangle(cornerRadius: FDS.Radius.lg, style: .continuous)
+                    .stroke(tint.opacity(0.32), lineWidth: ForgeUX.hairline)
+            }
+        }
+        .contentShape(Rectangle())
+    }
+
+    @ViewBuilder
+    private var accessory: some View {
+        if let selection {
+            Image(systemName: selection ? "checkmark.circle.fill" : "circle")
+                .font(.system(size: 20, weight: .regular))
+                .foregroundStyle(selection ? tint : Color.textMuted)
+                .accessibilityHidden(true)
+        } else if showsChevron {
+            Image(systemName: "chevron.right")
+                .font(.system(size: 11, weight: .semibold))
+                .foregroundStyle(Color.textMuted)
+                .accessibilityHidden(true)
+        }
+    }
+}
+
 /// First interview beat — living ARIA mark with soft presence, not fire.
 struct IntroComposer: View {
     @Bindable var coordinator: OnboardingCoordinator
 
     var body: some View {
-        VStack(spacing: FDS.Spacing.lg) {
+        VStack(spacing: ForgeLayout.blockGap) {
             ZStack {
                 PremiumPresenceBloom(
-                    size: 200,
+                    size: 176,
                     accent: .ember,
                     frost: Color(hex: "A9D8FF")
                 )
@@ -17,27 +154,27 @@ struct IntroComposer: View {
                     state: coordinator.ariaOrbState,
                     amplitude: coordinator.ariaOrbState == .speaking ? 0.8 : 0.58,
                     mood: coordinator.ariaMood,
-                    size: 140,
+                    size: 124,
                     followPresence: true
                 )
             }
-            .frame(height: 188)
+            // The bloom's outer halo is 1.12x its size; the frame matches it so
+            // the composer's ScrollView never cuts through the glow.
+            .frame(height: 198)
             .accessibilityElement(children: .combine)
             .accessibilityLabel("ARIA")
 
-            Text("ARIA")
-                .font(ForgeType.micro)
-                .tracking(ForgeType.eyebrowTracking)
-                .foregroundStyle(Color.paper.opacity(0.72))
-
-            Text("Your lifestyle coach — built for the life you already have.")
-                .font(ForgeType.body)
-                .foregroundStyle(Color.textSecondary)
-                .multilineTextAlignment(.center)
-                .padding(.horizontal, FDS.Spacing.sm)
+            VStack(spacing: ForgeLayout.pairGap) {
+                Text("ARIA")
+                    .forgeSectionLabel(tint: Color.paper.opacity(0.72))
+                Text("Your lifestyle coach — built for the life you already have.")
+                    .font(HomeType.body)
+                    .foregroundStyle(Color.textSecondary)
+                    .multilineTextAlignment(.center)
+                    .forgeWrapping()
+            }
         }
         .frame(maxWidth: .infinity)
-        .padding(.top, FDS.Spacing.xs)
     }
 }
 
@@ -47,91 +184,14 @@ struct NameComposer: View {
     @Bindable var coordinator: OnboardingCoordinator
     @ObservedObject var dictation: SpeechManager
     @FocusState private var focusedField: NameField?
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     private enum NameField: Hashable { case preferred, last }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: FDS.Spacing.lg) {
-            VStack(alignment: .leading, spacing: FDS.Spacing.sm) {
-                Text("Preferred name")
-                    .font(FDS.TypeScale.Dynamic.caption)
-                    .foregroundStyle(Color.textSecondary)
-                HStack(spacing: FDS.Spacing.md) {
-                    TextField("Maya", text: $coordinator.profile.name)
-                        .focused($focusedField, equals: .preferred)
-                        .textContentType(.givenName)
-                        .textInputAutocapitalization(.words)
-                        .autocorrectionDisabled()
-                        .font(.system(size: 28, weight: .semibold, design: .rounded))
-                        .foregroundStyle(Color.textPrimary)
-                        .onSubmit { focusedField = .last }
-                }
-                .padding(.horizontal, FDS.Spacing.lg)
-                .padding(.vertical, FDS.Spacing.md)
-                .forgeInsetTile(radius: FDS.Radius.lg)
-                .overlay {
-                    RoundedRectangle(cornerRadius: FDS.Radius.lg, style: .continuous)
-                        .stroke(
-                            focusedField == .preferred || dictation.isListening
-                                ? Color.ember.opacity(0.55)
-                                : Color.white.opacity(0.08),
-                            lineWidth: 1
-                        )
-                }
-                Text("What I’ll call you. First name is enough.")
-                    .font(FDS.TypeScale.Dynamic.caption)
-                    .foregroundStyle(Color.textTertiary)
-            }
-
-            VStack(alignment: .leading, spacing: FDS.Spacing.sm) {
-                HStack(spacing: FDS.Spacing.sm) {
-                    Text("Last name")
-                        .font(FDS.TypeScale.Dynamic.caption)
-                        .foregroundStyle(Color.textSecondary)
-                    Text("optional")
-                        .font(FDS.TypeScale.Dynamic.caption)
-                        .foregroundStyle(Color.textMuted)
-                }
-
-                TextField("Chen", text: $coordinator.profile.lastName)
-                    .focused($focusedField, equals: .last)
-                    .textContentType(.familyName)
-                    .textInputAutocapitalization(.words)
-                    .autocorrectionDisabled()
-                    .font(.system(size: 18, weight: .medium, design: .rounded))
-                    .foregroundStyle(Color.textPrimary)
-                    .padding(.horizontal, FDS.Spacing.lg)
-                    .padding(.vertical, FDS.Spacing.lg)
-                    .forgeInsetTile(radius: FDS.Radius.lg)
-                    .overlay {
-                        RoundedRectangle(cornerRadius: FDS.Radius.lg, style: .continuous)
-                            .stroke(
-                                focusedField == .last ? Color.ember.opacity(0.4) : Color.white.opacity(0.07),
-                                lineWidth: 1
-                            )
-                    }
-                    .onSubmit { submit() }
-                Text("Stays on your profile. ARIA won’t say it unless you ask.")
-                    .font(FDS.TypeScale.Dynamic.caption)
-                    .foregroundStyle(Color.textTertiary)
-            }
-
-            if coordinator.profile.isPreferredNameValid {
-                HStack(spacing: FDS.Spacing.sm) {
-                    Image(systemName: "sparkle")
-                        .font(.system(size: 12, weight: .semibold))
-                        .foregroundStyle(Color.ember)
-                    Text("ARIA will call you \(coordinator.profile.firstName) — every day.")
-                        .font(FDS.TypeScale.Dynamic.body.weight(.semibold))
-                        .foregroundStyle(Color.textPrimary)
-                }
-                .padding(.horizontal, FDS.Spacing.lg)
-                .padding(.vertical, FDS.Spacing.md)
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .background(Color.ember.opacity(0.10))
-                .clipShape(RoundedRectangle(cornerRadius: FDS.Radius.md, style: .continuous))
-                .transition(.opacity.combined(with: .move(edge: .bottom)))
-            }
+        VStack(alignment: .leading, spacing: ForgeLayout.cardPadding) {
+            preferredBlock
+            lastNameBlock
 
             PrimaryCTA(
                 title: coordinator.profile.trimmedName.isEmpty ? "Continue" : "Continue as \(coordinator.profile.firstName)",
@@ -151,8 +211,46 @@ struct NameComposer: View {
                 coordinator.applySpokenName(name)
             }
         }
-        .animation(FDS.Spring.snap, value: dictation.isListening)
-        .animation(FDS.Spring.snap, value: coordinator.profile.isPreferredNameValid)
+        .animation(reduceMotion ? nil : FDS.Spring.snap, value: dictation.isListening)
+    }
+
+    private var preferredBlock: some View {
+        VStack(alignment: .leading, spacing: ForgeLayout.rowGap) {
+            OnboardingFieldLabel(title: "Preferred name")
+            TextField("Maya", text: $coordinator.profile.name)
+                .focused($focusedField, equals: .preferred)
+                .textContentType(.givenName)
+                .textInputAutocapitalization(.words)
+                .autocorrectionDisabled()
+                .submitLabel(.next)
+                .onSubmit { focusedField = .last }
+                .font(ForgeType.title)
+                .foregroundStyle(Color.textPrimary)
+                .accessibilityLabel("Preferred name")
+                .modifier(OnboardingFieldChrome(
+                    focused: focusedField == .preferred || dictation.isListening,
+                    tint: Color.aurora
+                ))
+            OnboardingFootnote("What I’ll call you. First name is enough.")
+        }
+    }
+
+    private var lastNameBlock: some View {
+        VStack(alignment: .leading, spacing: ForgeLayout.rowGap) {
+            OnboardingFieldLabel(title: "Last name", detail: "optional")
+            TextField("Chen", text: $coordinator.profile.lastName)
+                .focused($focusedField, equals: .last)
+                .textContentType(.familyName)
+                .textInputAutocapitalization(.words)
+                .autocorrectionDisabled()
+                .submitLabel(.done)
+                .onSubmit { submit() }
+                .font(HomeType.status)
+                .foregroundStyle(Color.textPrimary)
+                .accessibilityLabel("Last name, optional")
+                .modifier(OnboardingFieldChrome(focused: focusedField == .last, tint: Color.aurora))
+            OnboardingFootnote("Stays on your profile. ARIA won’t say it unless you ask.")
+        }
     }
 
     private func submit() {
@@ -172,6 +270,11 @@ struct DetailsComposer: View {
     @State private var weightText = ""
     @State private var hydratingFields = false
 
+    /// Content height that makes a default-padded well a 44 pt target.
+    private var wellContentMinHeight: CGFloat {
+        ForgeUX.minTap - 2 * ForgeLayout.tilePadding
+    }
+
     private var minimumBirthday: Date {
         Calendar.current.date(byAdding: .year, value: -120, to: Date()) ?? Date()
     }
@@ -188,16 +291,17 @@ struct DetailsComposer: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: FDS.Spacing.lg) {
+        VStack(alignment: .leading, spacing: ForgeLayout.sectionGap) {
             if !coordinator.profile.detailsSummaryLine.isEmpty {
                 Text(coordinator.profile.detailsSummaryLine)
-                    .font(FDS.TypeScale.Dynamic.caption)
+                    .font(HomeType.body)
                     .foregroundStyle(Color.textPrimary)
+                    .multilineTextAlignment(.leading)
+                    .forgeWrapping()
                     .padding(.horizontal, FDS.Spacing.lg)
                     .padding(.vertical, FDS.Spacing.md)
                     .frame(maxWidth: .infinity, alignment: .leading)
-                    .background(Color.white.opacity(0.05))
-                    .clipShape(RoundedRectangle(cornerRadius: FDS.Radius.md, style: .continuous))
+                    .forgeInsetTile(radius: FDS.Radius.md)
             }
 
             birthdayBlock
@@ -232,45 +336,42 @@ struct DetailsComposer: View {
     }
 
     private var birthdayBlock: some View {
-        VStack(alignment: .leading, spacing: FDS.Spacing.md) {
+        VStack(alignment: .leading, spacing: ForgeLayout.blockGap) {
             fieldHeader(
                 "Date of birth",
                 sourced: coordinator.profile.healthSourcedFields.contains(.birthday)
             )
-            Text("Heart-rate zones, recovery norms, and 13+ safety.")
-                .font(FDS.TypeScale.Dynamic.caption)
-                .foregroundStyle(Color.textTertiary)
+            OnboardingFootnote("Heart-rate zones, recovery norms, and 13+ safety.")
+            birthdayEntry
+        }
+        .forgeContentCard()
+    }
 
-            if coordinator.profile.birthday == nil, !showBirthdayPicker {
-                Button {
-                    coordinator.profile.birthday = Self.startingBirthday
-                    showBirthdayPicker = true
-                    FDS.haptic(.light)
-                } label: {
-                    HStack {
-                        Text("Select date")
-                            .font(FDS.TypeScale.Dynamic.headline)
-                            .foregroundStyle(Color.textPrimary)
-                        Spacer()
-                        Image(systemName: "calendar")
-                            .font(.system(size: 16, weight: .semibold))
-                            .foregroundStyle(Color.ember)
-                    }
-                    .padding(FDS.Spacing.lg)
-                    .forgeInsetTile(radius: FDS.Radius.lg)
-                }
-                .buttonStyle(.plain)
-            } else {
-                HStack(alignment: .firstTextBaseline) {
-                    Text(coordinator.isUnderage ? "Must be 13+" : "\(coordinator.profile.ageYears)")
-                        .font(.system(size: 34, weight: .semibold, design: .rounded))
-                        .foregroundStyle(coordinator.isUnderage ? Color.danger : Color.textPrimary)
-                        .contentTransition(.numericText())
-                    Text(coordinator.isUnderage ? "" : "years old")
-                        .font(FDS.TypeScale.Dynamic.body)
-                        .foregroundStyle(Color.textSecondary)
+    @ViewBuilder
+    private var birthdayEntry: some View {
+        if coordinator.profile.birthday == nil, !showBirthdayPicker {
+            Button {
+                coordinator.profile.birthday = Self.startingBirthday
+                showBirthdayPicker = true
+                FDS.haptic(.press)
+            } label: {
+                HStack {
+                    Text("Select date")
+                        .font(HomeType.status)
+                        .foregroundStyle(Color.textPrimary)
                     Spacer()
+                    Image(systemName: "calendar")
+                        .font(.system(size: 16, weight: .semibold))
+                        .foregroundStyle(Color.ember)
+                        .accessibilityHidden(true)
                 }
+                .frame(minHeight: wellContentMinHeight)
+                .forgeWell()
+            }
+            .buttonStyle(ForgePressStyle())
+        } else {
+            VStack(alignment: .leading, spacing: ForgeLayout.rowGap) {
+                birthdayAgeLine
                 DatePicker(
                     "Date of birth",
                     selection: birthdayBinding,
@@ -283,148 +384,135 @@ struct DetailsComposer: View {
                 .frame(maxHeight: 120)
             }
         }
-        .padding(FDS.Spacing.lg)
-        .background(Color.surfaceElevated.opacity(0.7))
-        .clipShape(RoundedRectangle(cornerRadius: FDS.Radius.xl, style: .continuous))
-        .overlay {
-            RoundedRectangle(cornerRadius: FDS.Radius.xl, style: .continuous)
-                .stroke(Color.white.opacity(0.06), lineWidth: 1)
+    }
+
+    private var birthdayAgeLine: some View {
+        HStack(alignment: .firstTextBaseline, spacing: FDS.Spacing.sm) {
+            Text(coordinator.isUnderage ? "Must be 13+" : "\(coordinator.profile.ageYears)")
+                .font(HomeType.heroScore)
+                .foregroundStyle(coordinator.isUnderage ? Color.danger : Color.textPrimary)
+                .contentTransition(.numericText())
+                .forgeSingleLine()
+                .layoutPriority(1)
+            if !coordinator.isUnderage {
+                Text("years old")
+                    .font(HomeType.body)
+                    .foregroundStyle(Color.textSecondary)
+                    .forgeSingleLine(minScale: ForgeLayout.labelMinScale)
+            }
+            Spacer(minLength: 0)
         }
     }
 
     private var sexBlock: some View {
-        VStack(alignment: .leading, spacing: FDS.Spacing.md) {
+        VStack(alignment: .leading, spacing: ForgeLayout.blockGap) {
             fieldHeader(
                 "Biological sex",
                 sourced: coordinator.profile.healthSourcedFields.contains(.sex)
             )
-            Text("Calories, heart-rate zones, Cycle Health. Not gender — that’s in Profile.")
-                .font(FDS.TypeScale.Dynamic.caption)
-                .foregroundStyle(Color.textTertiary)
-                .fixedSize(horizontal: false, vertical: true)
+            OnboardingFootnote("Calories, heart-rate zones, Cycle Health. Not gender — that’s in Profile.")
 
             BiologicalSexStepView(coordinator: coordinator)
         }
-        .padding(FDS.Spacing.lg)
-        .background(Color.surfaceElevated.opacity(0.7))
-        .clipShape(RoundedRectangle(cornerRadius: FDS.Radius.xl, style: .continuous))
-        .overlay {
-            RoundedRectangle(cornerRadius: FDS.Radius.xl, style: .continuous)
-                .stroke(Color.white.opacity(0.06), lineWidth: 1)
-        }
+        .forgeContentCard()
     }
 
     private var bodyBlock: some View {
-        VStack(alignment: .leading, spacing: FDS.Spacing.md) {
-            HStack {
-                fieldHeader(
-                    "Height & weight",
-                    sourced: coordinator.profile.healthSourcedFields.contains(.height)
-                        || coordinator.profile.healthSourcedFields.contains(.weight)
-                )
-                Spacer()
-                Picker("Units", selection: $coordinator.profile.usesMetricUnits) {
-                    Text("ft / lb").tag(false)
-                    Text("cm / kg").tag(true)
-                }
-                .pickerStyle(.segmented)
-                .frame(maxWidth: 168)
+        VStack(alignment: .leading, spacing: ForgeLayout.blockGap) {
+            fieldHeader(
+                "Height & weight",
+                sourced: coordinator.profile.healthSourcedFields.contains(.height)
+                    || coordinator.profile.healthSourcedFields.contains(.weight)
+            )
+            OnboardingFootnote("Optional. Used for calorie and load math.")
+            Picker("Units", selection: $coordinator.profile.usesMetricUnits) {
+                Text("ft / lb").tag(false)
+                Text("cm / kg").tag(true)
             }
-            Text("Optional. Used for calorie and load math.")
-                .font(FDS.TypeScale.Dynamic.caption)
-                .foregroundStyle(Color.textTertiary)
+            .pickerStyle(.segmented)
 
             if coordinator.profile.usesMetricUnits {
-                HStack(spacing: FDS.Spacing.md) {
-                    metricField(placeholder: "170", text: $heightCmText, unit: "cm") { value in
-                        if let cm = Double(value.replacingOccurrences(of: ",", with: ".")),
-                           (90...250).contains(cm) {
-                            coordinator.profile.heightCm = cm
-                            coordinator.profile.healthSourcedFields.remove(.height)
-                        } else if value.trimmingCharacters(in: .whitespaces).isEmpty {
-                            coordinator.profile.heightCm = nil
-                        }
-                    }
-                    metricField(placeholder: "70", text: $weightText, unit: "kg") { value in
-                        applyWeightText(value)
-                    }
-                }
+                metricFields
             } else {
-                HStack(spacing: FDS.Spacing.md) {
-                    unitField(placeholder: "5", text: $heightFeet, unit: "ft") { syncImperialHeight() }
-                    unitField(placeholder: "10", text: $heightInches, unit: "in") { syncImperialHeight() }
-                    metricField(placeholder: "160", text: $weightText, unit: "lb") { value in
-                        applyWeightText(value)
-                    }
-                }
+                imperialFields
             }
         }
-        .padding(FDS.Spacing.lg)
-        .background(Color.surfaceElevated.opacity(0.7))
-        .clipShape(RoundedRectangle(cornerRadius: FDS.Radius.xl, style: .continuous))
-        .overlay {
-            RoundedRectangle(cornerRadius: FDS.Radius.xl, style: .continuous)
-                .stroke(Color.white.opacity(0.06), lineWidth: 1)
+        .forgeContentCard()
+    }
+
+    private var metricFields: some View {
+        ForgeAdaptiveStack(spacing: ForgeLayout.tileGap) {
+            metricField(label: "Height, centimeters", placeholder: "170", text: $heightCmText, unit: "cm") { value in
+                if let cm = Double(value.replacingOccurrences(of: ",", with: ".")),
+                   (90...250).contains(cm) {
+                    coordinator.profile.heightCm = cm
+                    coordinator.profile.healthSourcedFields.remove(.height)
+                } else if value.trimmingCharacters(in: .whitespaces).isEmpty {
+                    coordinator.profile.heightCm = nil
+                }
+            }
+            metricField(label: "Weight, kilograms", placeholder: "70", text: $weightText, unit: "kg") { value in
+                applyWeightText(value)
+            }
+        }
+    }
+
+    /// Two rows (height pair, then weight) so no field is squeezed to a third of the width.
+    private var imperialFields: some View {
+        VStack(alignment: .leading, spacing: ForgeLayout.tileGap) {
+            ForgeAdaptiveStack(spacing: ForgeLayout.tileGap) {
+                unitField(label: "Height, feet", placeholder: "5", text: $heightFeet, unit: "ft") { syncImperialHeight() }
+                unitField(label: "Height, inches", placeholder: "10", text: $heightInches, unit: "in") { syncImperialHeight() }
+            }
+            metricField(label: "Weight, pounds", placeholder: "160", text: $weightText, unit: "lb") { value in
+                applyWeightText(value)
+            }
         }
     }
 
     private func fieldHeader(_ title: String, sourced: Bool) -> some View {
-        HStack(spacing: FDS.Spacing.sm) {
+        ForgeAdaptiveStack(spacing: FDS.Spacing.sm, alignment: .firstTextBaseline) {
             Text(title)
-                .font(FDS.TypeScale.Dynamic.caption)
-                .foregroundStyle(Color.textSecondary)
+                .forgeSectionLabel(tint: Color.textSecondary)
             if sourced {
-                HStack(spacing: FDS.Spacing.xs) {
-                    Image(systemName: "heart.fill")
-                        .font(.system(size: 8, weight: .bold))
-                    Text("Apple Health")
-                        .font(FDS.TypeScale.Dynamic.micro)
-                }
-                .foregroundStyle(Color.vitality)
-                .padding(.horizontal, FDS.Spacing.sm)
-                .padding(.vertical, FDS.Spacing.xs)
-                .background(Color.vitality.opacity(0.14))
-                .clipShape(Capsule())
+                ForgeChip(label: "Apple Health", icon: "heart.fill", energy: Color.vitality, selected: true)
             }
         }
     }
 
-    private func unitField(placeholder: String, text: Binding<String>, unit: String, onChange: @escaping () -> Void) -> some View {
+    private func unitField(label: String, placeholder: String, text: Binding<String>, unit: String, onChange: @escaping () -> Void) -> some View {
         HStack(spacing: FDS.Spacing.sm) {
             TextField(placeholder, text: text)
                 .keyboardType(.numberPad)
-                .font(.system(size: 18, weight: .semibold, design: .rounded))
+                .font(HomeType.metric)
                 .multilineTextAlignment(.center)
-                .padding(.vertical, FDS.Spacing.md)
+                .accessibilityLabel(label)
                 .onChange(of: text.wrappedValue) { _, _ in onChange() }
             Text(unit)
-                .font(FDS.TypeScale.Dynamic.caption)
-                .foregroundStyle(Color.textMuted)
+                .font(HomeType.micro)
+                .foregroundStyle(Color.textTertiary)
         }
-        .padding(.horizontal, FDS.Spacing.md)
-        .background(Color.background.opacity(0.55))
-        .clipShape(RoundedRectangle(cornerRadius: FDS.Radius.md, style: .continuous))
+        .frame(maxWidth: .infinity, minHeight: wellContentMinHeight)
+        .forgeWell()
     }
 
-    private func metricField(placeholder: String, text: Binding<String>, unit: String, onEdit: @escaping (String) -> Void) -> some View {
+    private func metricField(label: String, placeholder: String, text: Binding<String>, unit: String, onEdit: @escaping (String) -> Void) -> some View {
         HStack(spacing: FDS.Spacing.sm) {
             TextField(placeholder, text: text)
                 .keyboardType(.decimalPad)
-                .font(.system(size: 18, weight: .semibold, design: .rounded))
+                .font(HomeType.metric)
                 .multilineTextAlignment(.center)
-                .padding(.vertical, FDS.Spacing.md)
+                .accessibilityLabel(label)
                 .onChange(of: text.wrappedValue) { _, value in
                     guard !hydratingFields else { return }
                     onEdit(value)
                 }
             Text(unit)
-                .font(FDS.TypeScale.Dynamic.caption)
-                .foregroundStyle(Color.textMuted)
+                .font(HomeType.micro)
+                .foregroundStyle(Color.textTertiary)
         }
-        .padding(.horizontal, FDS.Spacing.md)
-        .frame(maxWidth: .infinity)
-        .background(Color.background.opacity(0.55))
-        .clipShape(RoundedRectangle(cornerRadius: FDS.Radius.md, style: .continuous))
+        .frame(maxWidth: .infinity, minHeight: wellContentMinHeight)
+        .forgeWell()
     }
 
     private func applyWeightText(_ value: String) {
@@ -487,10 +575,11 @@ struct DictationMicButton: View {
     /// Called once when recognition finalizes with text (silence / stop).
     var onFinalized: (() -> Void)? = nil
     @State private var wasListening = false
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         Button {
-            FDS.haptic(.medium)
+            FDS.haptic(.press)
             if dictation.isListening {
                 dictation.stopListening(submit: true)
             } else {
@@ -509,7 +598,7 @@ struct DictationMicButton: View {
                 Image(systemName: dictation.isListening ? "waveform" : "mic.fill")
                     .font(.system(size: 17, weight: .bold))
                     .foregroundStyle(dictation.isListening ? Color.ember : Color.textSecondary)
-                    .symbolEffect(.variableColor.iterative, isActive: dictation.isListening)
+                    .symbolEffect(.variableColor.iterative, isActive: dictation.isListening && !reduceMotion)
             }
         }
         .buttonStyle(.plain)
@@ -543,18 +632,40 @@ struct HealthComposer: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: FDS.Spacing.lg) {
-            VStack(alignment: .leading, spacing: FDS.Spacing.sm) {
-                Text(AriaInterviewVoice.healthWrapper)
-                    .font(FDS.TypeScale.Dynamic.headline)
-                    .foregroundStyle(Color.textPrimary)
-                Text(AriaInterviewVoice.healthBody)
-                    .font(FDS.TypeScale.Dynamic.body)
-                    .foregroundStyle(Color.textSecondary)
-                    .fixedSize(horizontal: false, vertical: true)
+        VStack(alignment: .leading, spacing: ForgeLayout.sectionGap) {
+            connectionsCard
+
+            if let hint = coordinator.lastHealthSharingHint, !hint.isEmpty {
+                OnboardingFootnote(hint, tint: Color.textSecondary)
+                    .accessibilityLabel(hint)
             }
 
-            VStack(spacing: FDS.Spacing.md) {
+            PrimaryCTA(
+                title: "Continue",
+                icon: "arrow.right",
+                enabled: true,
+                action: coordinator.continueFromHealth
+            )
+
+            if let line = coordinator.emptyBackfillLine {
+                VStack(alignment: .leading, spacing: ForgeLayout.rowGap) {
+                    OnboardingFootnote(line)
+                    ForgeSecondaryButton(
+                        title: "Open Health Sharing",
+                        accent: Color.steel,
+                        action: { coordinator.openHealthSharingManually() }
+                    )
+                }
+            }
+        }
+    }
+
+    /// One card, four agenda rows, no per-row boxes. The eyebrow is the one
+    /// header the step needs: ARIA's spoken prompt already sits in the transcript.
+    private var connectionsCard: some View {
+        VStack(alignment: .leading, spacing: ForgeLayout.blockGap) {
+            ForgeCardHeader(AriaInterviewVoice.healthWrapper, tint: Color.steel)
+            VStack(spacing: ForgeLayout.rowGap) {
                 ConnectionRow(
                     icon: "heart.text.square.fill", color: .vitality,
                     title: "Apple Health",
@@ -571,7 +682,7 @@ struct HealthComposer: View {
                     action: { Task { await coordinator.connectCalendar() } }
                 )
                 ConnectionRow(
-                    icon: "person.2.fill", color: Color(hex: "7EC8FF"),
+                    icon: "person.2.fill", color: HudChrome.plate,
                     title: "Contacts",
                     subtitle: "First names you pick — never the whole book",
                     state: coordinator.contactsState,
@@ -585,38 +696,14 @@ struct HealthComposer: View {
                     action: coordinator.connectReminders
                 )
             }
-
-            if let hint = coordinator.lastHealthSharingHint, !hint.isEmpty {
-                Text(hint)
-                    .font(FDS.TypeScale.Dynamic.caption)
-                    .foregroundStyle(Color.warning)
-                    .fixedSize(horizontal: false, vertical: true)
-                    .accessibilityLabel(hint)
-            }
-
-            Button("Continue") { coordinator.continueFromHealth() }
-                .font(.system(size: 15, weight: .semibold))
-                .foregroundStyle(Color.textPrimary)
-                .frame(maxWidth: .infinity).frame(height: 44)
-                .forgeGlassCard(cornerRadius: FDS.Radius.md, accent: .ember)
-
-            if let line = coordinator.emptyBackfillLine {
-                HStack(alignment: .top, spacing: FDS.Spacing.md) {
-                    Text(line)
-                        .font(FDS.TypeScale.Dynamic.caption)
-                        .foregroundStyle(Color.textTertiary)
-                        .fixedSize(horizontal: false, vertical: true)
-                    Button("Open Health Sharing") { coordinator.openHealthSharingManually() }
-                        .font(.system(size: 13, weight: .medium))
-                        .foregroundStyle(Color.textTertiary)
-                        .fixedSize()
-                        .accessibilityLabel("Open Health Sharing")
-                }
-            }
         }
+        .forgeContentCard(accent: Color.steel)
     }
 }
 
+/// A service row on the Home agenda anatomy: 36 pt well, status title with a
+/// state pill, the full privacy promise (it wraps, never truncates) and a
+/// trailing "Connect". The whole row is the button until it is connected.
 private struct ConnectionRow: View {
     let icon: String; let color: Color; let title: String; let subtitle: String
     let state: HealthKitState
@@ -629,39 +716,93 @@ private struct ConnectionRow: View {
 
     private var isLive: Bool { statusText == "Connected" }
     private var isPulling: Bool { statusText == "Pulling…" }
+    private var actionTitle: String { state == .denied ? "Reconnect" : "Connect" }
 
     var body: some View {
-        HStack(spacing: FDS.Spacing.lg) {
-            ZStack {
-                RoundedRectangle(cornerRadius: FDS.Radius.md).fill(color.opacity(0.12)).frame(width: 48, height: 48)
-                if isPulling {
-                    ProgressView().tint(color)
-                } else {
-                    Image(systemName: isLive ? "checkmark.seal.fill" : icon)
-                        .font(.system(size: 22, weight: .semibold)).foregroundStyle(isLive ? Color.success : color)
-                }
+        if isLive || isPulling {
+            rowContent
+                .accessibilityElement(children: .combine)
+        } else {
+            Button {
+                FDS.haptic(.press)
+                action()
+            } label: {
+                rowContent
             }
-            VStack(alignment: .leading, spacing: 3) {
-                Text(title).font(FDS.TypeScale.Dynamic.body.weight(.semibold)).foregroundStyle(Color.textPrimary)
-                Text(isLive || isPulling ? statusText : "\(statusText) · \(subtitle)")
-                    .font(FDS.TypeScale.Dynamic.caption)
-                    .foregroundStyle(isLive ? Color.success : Color.textTertiary)
-                    .lineLimit(2)
-            }
-            Spacer()
-            if !isLive {
-                Button(action: action) {
-                    Text(state == .denied ? "Reconnect" : "Connect").font(FDS.TypeScale.Dynamic.caption).foregroundStyle(.white)
-                        .padding(.horizontal, FDS.Spacing.lg).padding(.vertical, FDS.Spacing.sm).background(color).clipShape(RoundedRectangle(cornerRadius: FDS.Radius.sm))
-                }.disabled(isPulling)
-            } else {
-                Image(systemName: "checkmark.circle.fill").foregroundStyle(Color.success)
-            }
+            .buttonStyle(ForgePressStyle())
+            .accessibilityLabel("\(actionTitle) \(title)")
+            .accessibilityValue(statusText)
+            .accessibilityHint(subtitle)
         }
-        .padding(FDS.Spacing.lg).background(Color.surfaceElevated.opacity(0.7)).clipShape(RoundedRectangle(cornerRadius: FDS.Radius.lg, style: .continuous))
-        .overlay {
-            RoundedRectangle(cornerRadius: FDS.Radius.lg)
-                .stroke(Color(hex: "7EC8FF").opacity(isLive ? 0.42 : 0.14), lineWidth: 1)
+    }
+
+    private var rowContent: some View {
+        HStack(spacing: ForgeLayout.rowGap) {
+            leadingWell
+            VStack(alignment: .leading, spacing: ForgeLayout.pairGap) {
+                ForgeAdaptiveStack(spacing: FDS.Spacing.sm, alignment: .firstTextBaseline) {
+                    Text(title)
+                        .font(HomeType.status)
+                        .foregroundStyle(Color.textPrimary)
+                    statusPill
+                }
+                Text(subtitle)
+                    .font(HomeType.body)
+                    .foregroundStyle(Color.textTertiary)
+                    .multilineTextAlignment(.leading)
+                    .forgeWrapping()
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .layoutPriority(1)
+            trailingMark
+        }
+        .padding(.vertical, ForgeLayout.rowVerticalPadding)
+        .frame(minHeight: ForgeUX.minTap)
+        .contentShape(Rectangle())
+    }
+
+    @ViewBuilder
+    private var leadingWell: some View {
+        if isPulling {
+            ZStack {
+                Circle().fill(color.opacity(0.16))
+                ProgressView()
+                    .controlSize(.small)
+                    .tint(color)
+            }
+            .frame(width: ForgeLayout.iconWell, height: ForgeLayout.iconWell)
+            .accessibilityHidden(true)
+        } else {
+            ForgeIconWell(
+                systemImage: isLive ? "checkmark.seal.fill" : icon,
+                tint: isLive ? Color.success : color
+            )
+        }
+    }
+
+    private var statusPill: some View {
+        let tone: Color = isLive ? Color.success : Color.textSecondary
+        let fill: Color = isLive ? Color.success.opacity(0.14) : Color.white.opacity(0.08)
+        return Text(statusText)
+            .font(HomeType.micro)
+            .foregroundStyle(tone)
+            .lineLimit(1)
+            .padding(.horizontal, 8)
+            .padding(.vertical, 3)
+            .background(Capsule().fill(fill))
+    }
+
+    @ViewBuilder
+    private var trailingMark: some View {
+        if isLive {
+            Image(systemName: "checkmark.circle.fill")
+                .foregroundStyle(Color.success)
+                .accessibilityHidden(true)
+        } else if !isPulling {
+            Text(actionTitle)
+                .font(HomeType.label)
+                .foregroundStyle(color)
+                .forgeSingleLine(minScale: ForgeLayout.labelMinScale)
         }
     }
 }
@@ -676,27 +817,20 @@ struct MultiChipComposer: View {
     let onContinue: () -> Void
 
     var body: some View {
-        VStack(alignment: .leading, spacing: FDS.Spacing.lg) {
+        VStack(alignment: .leading, spacing: ForgeLayout.blockGap) {
             Text(title)
-                .font(FDS.TypeScale.Dynamic.caption)
-                .foregroundStyle(Color.textSecondary)
+                .forgeSectionLabel(tint: Color.textSecondary)
+                .accessibilityAddTraits(.isHeader)
 
-            OnboardingFlowLayout(spacing: 8) {
+            ForgeFlowLayout(spacing: ForgeLayout.chipGap, lineSpacing: ForgeLayout.interactiveChipLineGap) {
                 ForEach(items, id: \.id) { item in
-                    let selected = isSelected(item.id)
-                    Button { onToggle(item.id) } label: {
-                        Text(item.label)
-                            .font(FDS.TypeScale.Dynamic.body.weight(.semibold))
-                            .foregroundStyle(selected ? .white : Color.textSecondary)
-                            .padding(.horizontal, FDS.Spacing.lg)
-                            .padding(.vertical, FDS.Spacing.md)
-                            .background(selected ? Color.ember.opacity(0.88) : Color.surfaceElevated)
-                            .clipShape(Capsule())
-                            .overlay {
-                                Capsule().stroke(selected ? Color.ember.opacity(0.9) : Color.white.opacity(0.07), lineWidth: 1)
-                            }
+                    ForgeChipButton(
+                        label: item.label,
+                        energy: Color.ember,
+                        selected: isSelected(item.id)
+                    ) {
+                        onToggle(item.id)
                     }
-                    .buttonStyle(.plain)
                 }
             }
 
@@ -710,35 +844,20 @@ struct OptionCardsComposer: View {
     let onSelect: (String) -> Void
 
     var body: some View {
-        VStack(spacing: FDS.Spacing.sm) {
+        VStack(spacing: ForgeLayout.tileGap) {
             ForEach(options, id: \.id) { opt in
-                Button { onSelect(opt.id) } label: {
-                    HStack(spacing: FDS.Spacing.md) {
-                        VStack(alignment: .leading, spacing: 3) {
-                            Text(opt.title)
-                                .font(FDS.TypeScale.Dynamic.headline)
-                                .foregroundStyle(Color.textPrimary)
-                            if !opt.subtitle.isEmpty {
-                                Text(opt.subtitle)
-                                    .font(FDS.TypeScale.Dynamic.caption)
-                                    .foregroundStyle(Color.textTertiary)
-                                    .fixedSize(horizontal: false, vertical: true)
-                            }
-                        }
-                        Spacer()
-                        Image(systemName: "chevron.right")
-                            .font(.system(size: 12, weight: .semibold))
-                            .foregroundStyle(Color.textMuted)
-                    }
-                    .padding(FDS.Spacing.lg)
-                    .background(Color.surfaceElevated.opacity(0.8))
-                    .clipShape(RoundedRectangle(cornerRadius: FDS.Radius.lg, style: .continuous))
-                    .overlay {
-                        RoundedRectangle(cornerRadius: FDS.Radius.lg, style: .continuous)
-                            .stroke(Color.white.opacity(0.06), lineWidth: 1)
-                    }
+                Button {
+                    FDS.haptic(.select)
+                    onSelect(opt.id)
+                } label: {
+                    OnboardingOptionRow(
+                        tint: Color.ember,
+                        title: opt.title,
+                        subtitle: opt.subtitle,
+                        showsChevron: true
+                    )
                 }
-                .buttonStyle(AuthPressButtonStyle())
+                .buttonStyle(ForgePressStyle())
             }
         }
     }
@@ -749,44 +868,38 @@ struct ConditionsComposer: View {
     @ObservedObject var dictation: SpeechManager
 
     var body: some View {
-        VStack(alignment: .leading, spacing: FDS.Spacing.md) {
-            Text("Conditions to respect")
-                .font(FDS.TypeScale.Dynamic.caption)
-                .foregroundStyle(Color.textSecondary)
+        VStack(alignment: .leading, spacing: ForgeLayout.blockGap) {
+            VStack(alignment: .leading, spacing: ForgeLayout.pairGap) {
+                Text("Conditions to respect")
+                    .forgeSectionLabel(tint: Color.textSecondary)
+                    .accessibilityAddTraits(.isHeader)
+                OnboardingFootnote("Optional. Lifestyle coach only — not medical care.")
+            }
 
-            Text("Optional. Lifestyle coach only — not medical care.")
-                .font(FDS.TypeScale.Dynamic.caption)
-                .foregroundStyle(Color.textTertiary)
-
-            OnboardingFlowLayout(spacing: 8) {
+            ForgeFlowLayout(spacing: ForgeLayout.chipGap, lineSpacing: ForgeLayout.interactiveChipLineGap) {
                 ForEach(ReportedCondition.allCases) { cond in
-                    let selected = coordinator.profile.reportedConditions.contains(cond)
-                    Button { coordinator.toggleCondition(cond) } label: {
-                        Text(cond.label)
-                            .font(.caption.weight(.semibold))
-                            .foregroundStyle(selected ? .white : Color.textSecondary)
-                            .padding(.horizontal, FDS.Spacing.md)
-                            .padding(.vertical, FDS.Spacing.sm)
-                            .background(selected ? Color.ember.opacity(0.85) : Color.surface)
-                            .clipShape(Capsule())
-                            .overlay {
-                                Capsule().stroke(selected ? Color.ember : Color.borderColor, lineWidth: 1)
-                            }
+                    ForgeChipButton(
+                        label: cond.label,
+                        energy: Color.ember,
+                        selected: coordinator.profile.reportedConditions.contains(cond)
+                    ) {
+                        coordinator.toggleCondition(cond)
                     }
-                    .buttonStyle(.plain)
                 }
             }
 
             if coordinator.profile.reportedConditions.contains(.other) {
                 TextField("Anything else I should know? (optional)", text: $coordinator.freeText)
-                    .padding(FDS.Spacing.md)
-                    .forgeGlassCard(cornerRadius: FDS.Radius.md, accent: .ember)
+                    .font(HomeType.body)
+                    .foregroundStyle(Color.textPrimary)
+                    .modifier(OnboardingFieldChrome(focused: dictation.isListening, tint: Color.ember))
             }
 
             if coordinator.profile.guidanceOnlyMode {
-                Text("Guidance mode will be on: structure & pacing only — never treatment plans.")
-                    .font(.caption2.weight(.semibold))
-                    .foregroundStyle(Color.warning)
+                OnboardingFootnote(
+                    "Guidance mode will be on: structure & pacing only.",
+                    tint: Color.textSecondary
+                )
             }
 
             PrimaryCTA(
@@ -806,41 +919,15 @@ struct HabitsComposer: View {
     @Bindable var coordinator: OnboardingCoordinator
 
     var body: some View {
-        VStack(alignment: .leading, spacing: FDS.Spacing.lg) {
+        VStack(alignment: .leading, spacing: ForgeLayout.blockGap) {
+            // ARIA's "pick up to three" prompt is already in the transcript.
             Text(AriaInterviewVoice.habitsWrapper)
-                .font(FDS.TypeScale.Dynamic.headline)
-                .foregroundStyle(Color.textPrimary)
-            Text("Pick up to three. I just want to take care of you better.")
-                .font(FDS.TypeScale.Dynamic.caption)
-                .foregroundStyle(Color.textSecondary)
+                .forgeSectionLabel(tint: Color.vitality)
+                .accessibilityAddTraits(.isHeader)
 
-            VStack(spacing: FDS.Spacing.sm) {
+            VStack(spacing: ForgeLayout.tileGap) {
                 ForEach(FriendHabitChip.allCases) { chip in
-                    let selected = coordinator.profile.friendHabits.contains(chip)
-                    Button { coordinator.toggleHabit(chip) } label: {
-                        HStack(spacing: FDS.Spacing.md) {
-                            VStack(alignment: .leading, spacing: 3) {
-                                Text(chip.label)
-                                    .font(FDS.TypeScale.Dynamic.headline)
-                                    .foregroundStyle(Color.textPrimary)
-                                Text(chip.detail)
-                                    .font(FDS.TypeScale.Dynamic.caption)
-                                    .foregroundStyle(Color.textTertiary)
-                            }
-                            Spacer()
-                            Image(systemName: selected ? "checkmark.circle.fill" : "circle")
-                                .foregroundStyle(selected ? Color.ember : Color.textMuted)
-                        }
-                        .padding(FDS.Spacing.lg)
-                        .background(selected ? Color.ember.opacity(0.16) : Color.surfaceElevated.opacity(0.8))
-                        .clipShape(RoundedRectangle(cornerRadius: FDS.Radius.lg, style: .continuous))
-                        .overlay {
-                            RoundedRectangle(cornerRadius: FDS.Radius.lg, style: .continuous)
-                                .stroke(selected ? Color.ember.opacity(0.55) : Color.white.opacity(0.06), lineWidth: 1)
-                        }
-                    }
-                    .buttonStyle(.plain)
-                    .disabled(!selected && coordinator.profile.friendHabits.count >= 3)
+                    habitRow(chip)
                 }
             }
 
@@ -852,43 +939,46 @@ struct HabitsComposer: View {
             )
         }
     }
+
+    private func habitRow(_ chip: FriendHabitChip) -> some View {
+        let selected = coordinator.profile.friendHabits.contains(chip)
+        let atLimit = !selected && coordinator.profile.friendHabits.count >= 3
+        return Button {
+            FDS.haptic(.select)
+            coordinator.toggleHabit(chip)
+        } label: {
+            OnboardingOptionRow(
+                tint: Color.vitality,
+                title: chip.label,
+                subtitle: chip.detail,
+                selection: selected
+            )
+        }
+        .buttonStyle(ForgePressStyle())
+        .disabled(atLimit)
+        .accessibilityAddTraits(selected ? .isSelected : [])
+    }
 }
 
 struct CoachingComposer: View {
     @Bindable var coordinator: OnboardingCoordinator
 
     var body: some View {
-        VStack(spacing: FDS.Spacing.sm) {
+        VStack(spacing: ForgeLayout.tileGap) {
             ForEach(OnboardingCoachingStyle.friendToneStyles) { style in
                 Button {
+                    FDS.haptic(.select)
                     coordinator.selectCoachingStyle(style)
                 } label: {
-                    HStack(spacing: FDS.Spacing.md) {
-                        Image(systemName: style.icon)
-                            .foregroundStyle(style.color)
-                            .frame(width: 36, height: 36)
-                            .background(style.color.opacity(0.14))
-                            .clipShape(RoundedRectangle(cornerRadius: FDS.Radius.sm, style: .continuous))
-                        VStack(alignment: .leading, spacing: 2) {
-                            Text(style.friendToneTitle)
-                                .font(.subheadline.weight(.bold))
-                                .foregroundStyle(Color.textPrimary)
-                            Text(style.friendToneLine)
-                                .font(.caption)
-                                .foregroundStyle(Color.textTertiary)
-                                .fixedSize(horizontal: false, vertical: true)
-                        }
-                        Spacer()
-                    }
-                    .padding(FDS.Spacing.lg)
-                    .background(Color.surfaceElevated.opacity(0.8))
-                    .clipShape(RoundedRectangle(cornerRadius: FDS.Radius.lg, style: .continuous))
-                    .overlay {
-                        RoundedRectangle(cornerRadius: FDS.Radius.lg, style: .continuous)
-                            .stroke(style.color.opacity(0.28), lineWidth: 1)
-                    }
+                    OnboardingOptionRow(
+                        icon: style.icon,
+                        tint: style.color,
+                        title: style.friendToneTitle,
+                        subtitle: style.friendToneLine,
+                        showsChevron: true
+                    )
                 }
-                .buttonStyle(AuthPressButtonStyle())
+                .buttonStyle(ForgePressStyle())
             }
         }
     }
@@ -897,12 +987,13 @@ struct CoachingComposer: View {
 struct ReadyComposer: View {
     @Bindable var coordinator: OnboardingCoordinator
     let onFinish: () -> Void
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
-        VStack(spacing: FDS.Spacing.lg) {
+        VStack(spacing: ForgeLayout.blockGap) {
             ZStack {
                 PremiumPresenceBloom(
-                    size: 130,
+                    size: 120,
                     accent: .ember,
                     frost: Color(hex: "A9D8FF")
                 )
@@ -910,57 +1001,33 @@ struct ReadyComposer: View {
                     state: .idle,
                     amplitude: 0.55,
                     mood: .energized,
-                    size: 88,
+                    size: 80,
                     followPresence: true
                 )
             }
-            .frame(height: 108)
+            // Sized to the bloom's 1.12x halo so the composer's ScrollView does not clip it.
+            .frame(height: 136)
             .accessibilityLabel("ARIA")
 
             if !coordinator.profile.firstName.isEmpty {
                 Text("You’re set, \(coordinator.profile.firstName). I’m here.")
-                    .font(FDS.TypeScale.Dynamic.headline)
+                    .font(ForgeType.title)
                     .foregroundStyle(Color.textPrimary)
-                    .frame(maxWidth: .infinity)
                     .multilineTextAlignment(.center)
+                    .forgeWrapping()
+                    .frame(maxWidth: .infinity)
             }
             if coordinator.profile.guidanceOnlyMode {
                 Text("ARIA will coach with guidance only for the conditions you shared.")
-                    .font(FDS.TypeScale.Dynamic.caption)
+                    .font(HomeType.body)
                     .foregroundStyle(Color.textTertiary)
                     .multilineTextAlignment(.center)
+                    .forgeWrapping()
+                    .frame(maxWidth: .infinity)
             }
+
             // Liability disclaimer — must be agreed at the very end
-            Button {
-                withAnimation(.spring(duration: 0.3, bounce: 0.2)) {
-                    coordinator.hasAgreedToTerms.toggle()
-                    if coordinator.hasAgreedToTerms { FDS.haptic(.light) }
-                }
-            } label: {
-                HStack(alignment: .top, spacing: FDS.Spacing.md) {
-                    ZStack {
-                        RoundedRectangle(cornerRadius: FDS.Radius.xs).stroke(coordinator.hasAgreedToTerms ? Color.ember : Color.borderColor, lineWidth: 1.5)
-                            .frame(width: 22, height: 22)
-                            .background(coordinator.hasAgreedToTerms ? Color.ember : Color.clear)
-                            .clipShape(RoundedRectangle(cornerRadius: FDS.Radius.xs))
-                        if coordinator.hasAgreedToTerms {
-                            Image(systemName: "checkmark").font(.system(size: 12, weight: .bold)).foregroundStyle(.white)
-                        }
-                    }
-                    Text("By agreeing to our Terms of Use, you acknowledge that Forge is an assistive coaching tool, not medical care. You are responsible for your own health. Any actions taken or injuries sustained are not the liability of Forge. Forge is designed to assist and advise, not to compel. By checking this box you waive all liability towards Forge.")
-                        .font(FDS.TypeScale.Dynamic.micro)
-                        .foregroundStyle(Color.textTertiary)
-                        .fixedSize(horizontal: false, vertical: true)
-                        .multilineTextAlignment(.leading)
-                }
-                .padding(FDS.Spacing.md)
-                .background(Color.surfaceElevated.opacity(0.6))
-                .clipShape(RoundedRectangle(cornerRadius: FDS.Radius.md, style: .continuous))
-                .overlay { RoundedRectangle(cornerRadius: FDS.Radius.md).stroke(coordinator.hasAgreedToTerms ? Color.ember.opacity(0.4) : Color.white.opacity(0.06), lineWidth: 1) }
-            }
-            .buttonStyle(.plain)
-            .accessibilityAddTraits(.isToggle)
-            .accessibilityValue(coordinator.hasAgreedToTerms ? "Checked" : "Unchecked")
+            termsRow
 
             PrimaryCTA(
                 title: coordinator.isPrepping
@@ -968,13 +1035,55 @@ struct ReadyComposer: View {
                     : (coordinator.isCompleting ? "Starting…" : "Start with ARIA"),
                 icon: "arrow.right",
                 enabled: !coordinator.isCompleting && coordinator.canFinish,
+                busy: coordinator.isPrepping || coordinator.isCompleting,
                 action: onFinish
             )
             if !coordinator.hasAgreedToTerms {
                 Text("Please agree to the Terms to continue.")
-                    .font(.caption.weight(.semibold)).foregroundStyle(Color.warning)
+                    .font(HomeType.body)
+                    .foregroundStyle(Color.textTertiary)
+                    .multilineTextAlignment(.center)
+                    .forgeWrapping()
+                    .frame(maxWidth: .infinity)
             }
         }
+    }
+
+    private var termsRow: some View {
+        let agreed = coordinator.hasAgreedToTerms
+        return Button {
+            withAnimation(reduceMotion ? nil : FDS.Spring.snap) {
+                coordinator.hasAgreedToTerms.toggle()
+            }
+            if coordinator.hasAgreedToTerms { FDS.haptic(.select) }
+        } label: {
+            HStack(alignment: .top, spacing: ForgeLayout.rowGap) {
+                Image(systemName: agreed ? "checkmark.square.fill" : "square")
+                    .font(.system(size: 22, weight: .regular))
+                    .foregroundStyle(agreed ? Color.ember : Color.textTertiary)
+                    .accessibilityHidden(true)
+                Text(onboardingTermsCopy)
+                    .font(HomeType.body)
+                    .foregroundStyle(Color.textTertiary)
+                    .multilineTextAlignment(.leading)
+                    .forgeWrapping()
+                    .frame(maxWidth: .infinity, alignment: .leading)
+            }
+            .padding(FDS.Spacing.md)
+            .frame(maxWidth: .infinity, minHeight: ForgeUX.minTap, alignment: .leading)
+            .forgeInsetTile(radius: FDS.Radius.md)
+            .overlay {
+                if agreed {
+                    RoundedRectangle(cornerRadius: FDS.Radius.md, style: .continuous)
+                        .stroke(Color.ember.opacity(0.4), lineWidth: 1)
+                }
+            }
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel("Agree to the Terms of Use. \(onboardingTermsCopy)")
+        .accessibilityAddTraits(.isToggle)
+        .accessibilityValue(agreed ? "Checked" : "Unchecked")
     }
 }
 
@@ -982,6 +1091,7 @@ struct PrimaryCTA: View {
     let title: String
     let icon: String
     let enabled: Bool
+    var busy: Bool = false
     let action: () -> Void
 
     var body: some View {
@@ -989,6 +1099,7 @@ struct PrimaryCTA: View {
             title: title,
             icon: icon,
             enabled: enabled,
+            busy: busy,
             action: action
         )
     }
@@ -997,58 +1108,63 @@ struct PrimaryCTA: View {
 struct MessageBubble: View {
     let message: AriaOnboardingMessage
     var onTap: (() -> Void)? = nil
-    @State private var appeared = false
 
     var body: some View {
-        Group {
-            switch message.role {
-            case .aria:
-                HStack(alignment: .top, spacing: 0) {
-                    Text(message.text)
-                        .font(FDS.TypeScale.Dynamic.headline)
-                        .foregroundStyle(Color.textPrimary)
-                        .lineSpacing(4)
-                        .padding(.horizontal, FDS.Spacing.lg)
-                        .padding(.vertical, FDS.Spacing.md)
-                        .forgeInsetTile(radius: FDS.Radius.lg)
-                        .overlay {
-                            RoundedRectangle(cornerRadius: FDS.Radius.lg, style: .continuous)
-                                .stroke(Color.white.opacity(0.08), lineWidth: 1)
-                        }
-                    Spacer(minLength: 36)
-                }
-                .onTapGesture { onTap?() }
-                .accessibilityAddTraits(onTap == nil ? AccessibilityTraits() : .isButton)
-                .accessibilityHint(onTap == nil ? "" : "Plays this line")
-            case .user:
-                HStack {
-                    Spacer(minLength: 48)
-                    Text(message.text)
-                        .font(FDS.TypeScale.Dynamic.body)
-                        .foregroundStyle(Color(hex: "0A0A0A"))
-                        .padding(.horizontal, FDS.Spacing.lg)
-                        .padding(.vertical, FDS.Spacing.md)
-                        .background(Color.paper)
-                        .clipShape(RoundedRectangle(cornerRadius: FDS.Radius.lg, style: .continuous))
-                }
-            case .system:
-                HStack {
-                    Spacer()
-                    Label(message.text, systemImage: "heart.text.square.fill")
-                        .font(.caption2.weight(.semibold))
-                        .foregroundStyle(Color.textMuted)
-                        .padding(.horizontal, FDS.Spacing.md)
-                        .padding(.vertical, FDS.Spacing.sm)
-                        .background(Color.white.opacity(0.05))
-                        .clipShape(Capsule())
-                    Spacer()
-                }
-            }
+        switch message.role {
+        case .aria:
+            ariaBubble
+        case .user:
+            userBubble
+        case .system:
+            systemNote
         }
-        .opacity(appeared ? 1 : 0)
-        .offset(y: appeared ? 0 : 8)
-        .onAppear {
-            withAnimation(FDS.Spring.standard) { appeared = true }
+    }
+
+    private var ariaBubble: some View {
+        HStack(alignment: .top, spacing: 0) {
+            Text(message.text)
+                .font(HomeType.body)
+                .foregroundStyle(Color.textPrimary)
+                .lineSpacing(3)
+                .multilineTextAlignment(.leading)
+                .forgeWrapping()
+                .padding(.horizontal, FDS.Spacing.lg)
+                .padding(.vertical, FDS.Spacing.md)
+                .forgeInsetTile(radius: FDS.Radius.lg)
+            Spacer(minLength: 36)
+        }
+        .onTapGesture { onTap?() }
+        .accessibilityAddTraits(onTap == nil ? AccessibilityTraits() : .isButton)
+        .accessibilityHint(onTap == nil ? "" : "Plays this line")
+    }
+
+    private var userBubble: some View {
+        HStack {
+            Spacer(minLength: 48)
+            Text(message.text)
+                .font(HomeType.body)
+                .foregroundStyle(Color.background)
+                .multilineTextAlignment(.leading)
+                .forgeWrapping()
+                .padding(.horizontal, FDS.Spacing.lg)
+                .padding(.vertical, FDS.Spacing.md)
+                .background(Color.paper)
+                .clipShape(RoundedRectangle(cornerRadius: FDS.Radius.lg, style: .continuous))
+        }
+    }
+
+    private var systemNote: some View {
+        HStack {
+            Spacer()
+            Label(message.text, systemImage: "heart.text.square.fill")
+                .font(HomeType.micro)
+                .foregroundStyle(Color.textTertiary)
+                .multilineTextAlignment(.center)
+                .padding(.horizontal, FDS.Spacing.md)
+                .padding(.vertical, FDS.Spacing.sm)
+                .background(Color.white.opacity(0.05))
+                .clipShape(Capsule())
+            Spacer()
         }
     }
 }
@@ -1057,156 +1173,164 @@ struct ScheduleComposer: View {
     @Bindable var coordinator: OnboardingCoordinator
 
     var body: some View {
-        VStack(alignment: .leading, spacing: FDS.Spacing.lg) {
-            HStack(spacing: FDS.Spacing.sm) {
+        VStack(alignment: .leading, spacing: ForgeLayout.blockGap) {
+            ForgeAdaptiveStack(spacing: ForgeLayout.tileGap, alignment: .top) {
                 modeChip(.rotate)
                 modeChip(.fixed)
             }
 
             if coordinator.profile.schedulePlanningMode == .fixed {
-                Text("Tap a day to change the library and how many moves.")
-                    .font(FDS.TypeScale.Dynamic.caption)
-                    .foregroundStyle(Color.textTertiary)
-                VStack(spacing: FDS.Spacing.sm) {
+                OnboardingFootnote("Tap a day to change the library and how many moves.")
+                VStack(spacing: ForgeLayout.tileGap) {
                     ForEach(WeeklySplit.normalized(coordinator.profile.weeklySplit)) { slot in
                         dayRow(slot)
                     }
                 }
             } else {
-                Text(WeeklySplit.summary(mode: .rotate, split: coordinator.profile.weeklySplit))
-                    .font(FDS.TypeScale.Dynamic.caption)
-                    .foregroundStyle(Color.textSecondary)
-                    .fixedSize(horizontal: false, vertical: true)
+                OnboardingFootnote(
+                    WeeklySplit.summary(mode: .rotate, split: coordinator.profile.weeklySplit),
+                    tint: Color.textSecondary
+                )
             }
 
-            Button(action: { coordinator.confirmSchedule() }) {
-                Text("That’s the week")
-                    .font(FDS.TypeScale.Dynamic.headline)
-                    .foregroundStyle(Color(hex: "0A0A0A"))
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, FDS.Spacing.lg)
-                    .background(Color.paper)
-                    .clipShape(Capsule())
-            }
-            .buttonStyle(.plain)
+            PrimaryCTA(
+                title: "That’s the week",
+                icon: "arrow.right",
+                enabled: true,
+                action: { coordinator.confirmSchedule() }
+            )
         }
     }
 
     private func modeChip(_ mode: SchedulePlanningMode) -> some View {
         let on = coordinator.profile.schedulePlanningMode == mode
+        let fill: Color = on ? Color.ember.opacity(0.14) : Color.surfaceElevated
+        let edge: Color = on ? Color.ember.opacity(0.32) : Color.borderHairline
         return Button {
+            FDS.haptic(.select)
             coordinator.selectScheduleMode(mode)
         } label: {
-            VStack(alignment: .leading, spacing: FDS.Spacing.xs) {
+            VStack(alignment: .leading, spacing: ForgeLayout.pairGap) {
                 Text(mode.label)
-                    .font(FDS.TypeScale.Dynamic.body.weight(.semibold))
-                    .foregroundStyle(on ? .white : Color.textPrimary)
+                    .font(HomeType.status)
+                    .foregroundStyle(on ? Color.ember : Color.textPrimary)
+                    .forgeWrapping()
                 Text(mode == .rotate ? "ARIA walks it" : "You assign days")
-                    .font(.system(size: 11))
-                    .foregroundStyle(on ? .white.opacity(0.8) : Color.textTertiary)
+                    .font(HomeType.body)
+                    .foregroundStyle(Color.textTertiary)
+                    .forgeWrapping()
             }
-            .padding(.horizontal, FDS.Spacing.md)
-            .padding(.vertical, FDS.Spacing.md)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .background(on ? Color.ember : Color.surfaceElevated)
-            .clipShape(RoundedRectangle(cornerRadius: FDS.Radius.md, style: .continuous))
+            .padding(FDS.Spacing.md)
+            .frame(maxWidth: .infinity, minHeight: ForgeUX.minTap, alignment: .leading)
+            .background(RoundedRectangle(cornerRadius: FDS.Radius.md, style: .continuous).fill(fill))
+            .overlay(
+                RoundedRectangle(cornerRadius: FDS.Radius.md, style: .continuous)
+                    .stroke(edge, lineWidth: ForgeUX.hairline)
+            )
+            .contentShape(Rectangle())
         }
-        .buttonStyle(.plain)
+        .buttonStyle(ForgePressStyle())
+        .accessibilityAddTraits(on ? .isSelected : [])
     }
 
     private func dayRow(_ slot: WeeklySplitSlot) -> some View {
-        VStack(alignment: .leading, spacing: FDS.Spacing.sm) {
-            HStack {
-                Text(WeeklySplit.dayLabels[slot.weekday])
-                    .font(FDS.TypeScale.Dynamic.caption)
-                    .foregroundStyle(Color.textPrimary)
-                    .frame(width: 36, alignment: .leading)
-                ScrollView(.horizontal, showsIndicators: false) {
-                    HStack(spacing: FDS.Spacing.sm) {
-                        ForEach(WeeklySplit.focusChoices, id: \.label) { choice in
-                            let selected = slot.primary == choice.id && slot.extra == choice.extra
-                            Button {
-                                coordinator.setSplitSlot(WeeklySplitSlot(
-                                    weekday: slot.weekday,
-                                    primary: choice.id,
-                                    extra: choice.extra,
-                                    exerciseCount: choice.id == "rest" ? 0 : max(3, slot.exerciseCount)
-                                ))
-                            } label: {
-                                Text(choice.label)
-                                    .font(FDS.TypeScale.Dynamic.micro)
-                                    .foregroundStyle(selected ? .white : Color.textSecondary)
-                                    .padding(.horizontal, FDS.Spacing.sm)
-                                    .padding(.vertical, FDS.Spacing.sm)
-                                    .background(selected ? Color.ember : Color.surface)
-                                    .clipShape(Capsule())
-                            }
-                            .buttonStyle(.plain)
-                        }
-                    }
-                }
-            }
+        VStack(alignment: .leading, spacing: ForgeLayout.rowGap) {
+            Text(WeeklySplit.dayLabels[slot.weekday])
+                .font(HomeType.status)
+                .foregroundStyle(Color.textPrimary)
+            focusRail(slot)
             if !slot.isRest {
-                HStack(spacing: FDS.Spacing.md) {
-                    Text("\(slot.exerciseCount) exercises")
-                        .font(FDS.TypeScale.Dynamic.caption)
-                        .foregroundStyle(Color.textTertiary)
-                    Spacer()
-                    Button {
-                        coordinator.setSplitSlot(WeeklySplitSlot(
-                            weekday: slot.weekday,
-                            primary: slot.primary,
-                            extra: slot.extra,
-                            exerciseCount: max(3, slot.exerciseCount - 1)
-                        ))
-                    } label: {
-                        Image(systemName: "minus.circle.fill").foregroundStyle(Color.textSecondary)
-                    }
-                    Button {
-                        coordinator.setSplitSlot(WeeklySplitSlot(
-                            weekday: slot.weekday,
-                            primary: slot.primary,
-                            extra: slot.extra,
-                            exerciseCount: min(8, slot.exerciseCount + 1)
-                        ))
-                    } label: {
-                        Image(systemName: "plus.circle.fill").foregroundStyle(Color.ember)
-                    }
-                }
+                countRow(slot)
             }
         }
-        .padding(FDS.Spacing.md)
+        .padding(ForgeLayout.tilePadding)
+        .frame(maxWidth: .infinity, alignment: .leading)
         .forgeInsetTile(radius: FDS.Radius.md)
+    }
+
+    private func focusRail(_ slot: WeeklySplitSlot) -> some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: ForgeLayout.chipGap) {
+                ForEach(WeeklySplit.focusChoices, id: \.label) { choice in
+                    ForgeChipButton(
+                        label: choice.label,
+                        energy: Color.ember,
+                        selected: slot.primary == choice.id && slot.extra == choice.extra
+                    ) {
+                        coordinator.setSplitSlot(WeeklySplitSlot(
+                            weekday: slot.weekday,
+                            primary: choice.id,
+                            extra: choice.extra,
+                            exerciseCount: choice.id == "rest" ? 0 : max(3, slot.exerciseCount)
+                        ))
+                    }
+                }
+            }
+            // Room for the chips' 44 pt tap outset inside the scroll view.
+            .padding(.vertical, FDS.Spacing.sm)
+        }
+    }
+
+    private func countRow(_ slot: WeeklySplitSlot) -> some View {
+        HStack(spacing: ForgeLayout.rowGap) {
+            Text("\(slot.exerciseCount) exercises")
+                .font(HomeType.body)
+                .foregroundStyle(Color.textTertiary)
+                .forgeWrapping()
+            Spacer(minLength: FDS.Spacing.sm)
+            countStepper(slot, systemImage: "minus.circle.fill", label: "Fewer exercises", tint: Color.textSecondary, delta: -1)
+            countStepper(slot, systemImage: "plus.circle.fill", label: "More exercises", tint: Color.ember, delta: 1)
+        }
+    }
+
+    private func countStepper(_ slot: WeeklySplitSlot, systemImage: String, label: String, tint: Color, delta: Int) -> some View {
+        let newCount = delta < 0 ? max(3, slot.exerciseCount - 1) : min(8, slot.exerciseCount + 1)
+        return Button {
+            FDS.haptic(.select)
+            coordinator.setSplitSlot(WeeklySplitSlot(
+                weekday: slot.weekday,
+                primary: slot.primary,
+                extra: slot.extra,
+                exerciseCount: newCount
+            ))
+        } label: {
+            Image(systemName: systemImage)
+                .font(.system(size: 22, weight: .regular))
+                .foregroundStyle(tint)
+                .frame(minWidth: ForgeUX.minTap, minHeight: ForgeUX.minTap)
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(label)
     }
 }
 
+/// ARIA is composing. An event state: the dots move only while the indicator
+/// is on screen, and not at all under Reduce Motion.
 struct TypingIndicator: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
-    @State private var phase = 0.0
 
     var body: some View {
         HStack(spacing: FDS.Spacing.md) {
-            HStack(spacing: FDS.Spacing.xs) {
-                ForEach(0..<3, id: \.self) { i in
-                    Circle()
-                        .fill(Color.ember.opacity(0.85))
-                        .frame(width: 6, height: 6)
-                        .offset(y: reduceMotion ? 0 : sin(phase + Double(i)) * 3)
-                }
+            TimelineView(.animation(minimumInterval: 1.0 / 30.0, paused: reduceMotion)) { context in
+                dots(at: context.date.timeIntervalSinceReferenceDate)
             }
             .padding(.horizontal, FDS.Spacing.lg)
             .padding(.vertical, FDS.Spacing.md)
             .forgeInsetTile(radius: FDS.Radius.lg)
-            .overlay {
-                RoundedRectangle(cornerRadius: FDS.Radius.lg, style: .continuous)
-                    .stroke(Color.white.opacity(0.08), lineWidth: 1)
-            }
             Spacer()
         }
-        .onAppear {
-            guard !reduceMotion else { return }
-            withAnimation(.linear(duration: 0.9).repeatForever(autoreverses: false)) {
-                phase = .pi * 2
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("ARIA is typing")
+    }
+
+    private func dots(at time: TimeInterval) -> some View {
+        HStack(spacing: FDS.Spacing.xs) {
+            ForEach(0..<3, id: \.self) { i in
+                Circle()
+                    .fill(Color.ember.opacity(0.85))
+                    .frame(width: 6, height: 6)
+                    .offset(y: reduceMotion ? 0 : sin(time * 5.0 + Double(i) * 0.9) * 3)
             }
         }
     }

@@ -64,11 +64,11 @@ enum ForgePrimaryDestination: String, CaseIterable, Identifiable {
     var accent: Color {
         switch self {
         case .home: return .ember
-        case .workout: return Color(hex: "F97316")
-        case .chat: return Color(hex: "38BDF8")
+        case .workout: return .ember
+        case .chat: return .aurora
         case .lifestyle: return Color.vitality
-        case .sleep: return Color.aurora
-        case .progress: return Color.steel
+        case .sleep: return .steel
+        case .progress: return .aurora
         case .profile: return .steel
         case .cycleHealth: return Color(hex: "EC4899")
         case .hydration: return Color.steel
@@ -161,58 +161,87 @@ struct ForgePageHeader: View {
         self.trailing = AnyView(trailing())
     }
 
+    @Environment(\.dynamicTypeSize) private var typeSize
+
     var body: some View {
-        HStack(alignment: .firstTextBaseline, spacing: FDS.Spacing.md) {
-            VStack(alignment: .leading, spacing: FDS.Spacing.sm) {
+        let layout = typeSize.isAccessibilitySize
+            ? AnyLayout(VStackLayout(alignment: .leading, spacing: FDS.Spacing.md))
+            : AnyLayout(HStackLayout(alignment: .center, spacing: FDS.Spacing.md))
+        layout {
+            VStack(alignment: .leading, spacing: FDS.Spacing.xs) {
                 Text(title)
                     .font(ForgeType.pageTitle)
                     .foregroundColor(.textPrimary)
+                    .lineLimit(2)
+                    .minimumScaleFactor(ForgeLayout.labelMinScale)
+                    .accessibilityAddTraits(.isHeader)
                 if let subtitle, !subtitle.isEmpty {
                     Text(subtitle)
                         .font(ForgeType.body)
                         .foregroundColor(.textSecondary)
+                        .fixedSize(horizontal: false, vertical: true)
                 }
             }
-            Spacer(minLength: 8)
+            .frame(maxWidth: .infinity, alignment: .leading)
             trailing
         }
-        .padding(.top, FDS.Spacing.sm)
-        .accessibilityElement(children: .combine)
+        .padding(.top, ForgeLayout.screenTop)
+        .accessibilityElement(children: .contain)
     }
 }
 
 /// Circular icon control used in page headers (Ask ARIA, share, hydrate).
+///
+/// `tinted` (default) is for domain actions (hydrate, share). Pass
+/// `tinted: false` for back, close and preferences: Home's neutral header
+/// control (white 0.06 fill, 0.10 stroke, textSecondary glyph). No idle glow.
 struct ForgeIconButton: View {
     let systemImage: String
     var accent: Color = .ember
     var accessibilityLabel: String? = nil
+    var tinted: Bool = true
     var action: () -> Void
 
     var body: some View {
         Button {
-            FDS.haptic(.light)
+            FDS.haptic(.press)
             action()
         } label: {
             Image(systemName: systemImage)
                 .font(.system(size: ForgeUX.icon, weight: .semibold))
-                .foregroundStyle(accent)
+                .foregroundStyle(tinted ? accent : Color.textSecondary)
                 .frame(width: ForgeUX.minTap, height: ForgeUX.minTap)
-                .background(accent.opacity(0.14))
+                .background(tinted ? accent.opacity(0.14) : Color.white.opacity(0.06))
                 .clipShape(Circle())
-                .overlay(Circle().stroke(accent.opacity(0.28), lineWidth: 1))
-                .shadow(color: accent.opacity(0.20), radius: 8, y: 2)
+                .overlay(
+                    Circle().stroke(
+                        tinted ? accent.opacity(0.28) : Color.white.opacity(0.10),
+                        lineWidth: ForgeUX.stroke
+                    )
+                )
         }
         .buttonStyle(.plain)
         .accessibilityLabel(accessibilityLabel ?? systemImage)
     }
 }
 
-/// Full-width ember CTA. Hairline chrome + accent glow, not a flat fill.
+/// The one primary CTA per screen, built on the Home hero recipe: gradient
+/// plus chrome sheen, radius md, chevron, shadow 0.34 r10 y4, medium haptic
+/// and a 0.98 press. The fill is ember; `accent: .steel` gives the steel
+/// fill for recovery and Sleep. Any other accent still renders ember: white
+/// text on amber, vitality, aurora or a phase color fails contrast, and the
+/// primary must read as one recognisable control. Domain color belongs on
+/// the hero plate's energy, not the CTA. Place it at the bottom of the hero.
 struct ForgePrimaryButton: View {
     let title: String
     var icon: String? = nil
     var accent: Color = .ember
+    var subtitle: String? = nil
     var action: () -> Void
+
+    private var usesSteel: Bool { accent == Color.steel }
+    private var fill: LinearGradient { usesSteel ? FDS.Gradient.steel : FDS.Gradient.ember }
+    private var glow: Color { usesSteel ? Color.steel : Color.ember }
 
     var body: some View {
         Button {
@@ -223,35 +252,45 @@ struct ForgePrimaryButton: View {
                 if let icon {
                     Image(systemName: icon)
                         .font(.system(size: ForgeUX.icon, weight: .semibold))
+                        .accessibilityHidden(true)
                 }
-                Text(title)
-                    .font(ForgeType.headline)
-                Spacer(minLength: 0)
-                Image(systemName: "arrow.right")
-                    .font(.system(size: 14, weight: .semibold))
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(title)
+                        .font(HomeType.cta)
+                        .lineLimit(1)
+                        .minimumScaleFactor(ForgeLayout.labelMinScale)
+                    if let subtitle, !subtitle.isEmpty {
+                        Text(subtitle)
+                            .font(HomeType.micro)
+                            .foregroundStyle(Color.white.opacity(0.85))
+                            .lineLimit(2)
+                    }
+                }
+                Spacer(minLength: FDS.Spacing.sm)
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 14, weight: .bold))
+                    .accessibilityHidden(true)
             }
             .foregroundColor(.white)
-            .padding(.horizontal, FDS.Spacing.xl)
-            .frame(minHeight: ForgeUX.minTap + 8)
+            .padding(.vertical, 14)
+            .padding(.horizontal, FDS.Spacing.lg)
+            .frame(maxWidth: .infinity, minHeight: ForgeUX.minTap + 8, alignment: .leading)
             .background {
                 ZStack {
-                    LinearGradient(
-                        colors: [accent, accent.opacity(0.78)],
-                        startPoint: .leading,
-                        endPoint: .trailing
-                    )
+                    fill
                     LinearGradient.premiumChrome
                 }
             }
-            .clipShape(RoundedRectangle(cornerRadius: FDS.Radius.lg, style: .continuous))
+            .clipShape(RoundedRectangle(cornerRadius: FDS.Radius.md, style: .continuous))
             .overlay(
-                RoundedRectangle(cornerRadius: FDS.Radius.lg, style: .continuous)
-                    .stroke(Color.white.opacity(0.16), lineWidth: ForgeUX.hairline)
+                RoundedRectangle(cornerRadius: FDS.Radius.md, style: .continuous)
+                    .stroke(Color.white.opacity(0.20), lineWidth: ForgeUX.hairline)
             )
-            .shadow(color: accent.opacity(0.40), radius: 16, y: 8)
+            .shadow(color: glow.opacity(0.34), radius: 10, y: 4)
         }
-        .buttonStyle(.plain)
+        .buttonStyle(ForgePressStyle())
         .accessibilityLabel(title)
+        .accessibilityHint(subtitle ?? "")
     }
 }
 
@@ -265,59 +304,28 @@ struct ForgeEmptyStateCard: View {
     var action: (() -> Void)? = nil
 
     var body: some View {
-        VStack(spacing: FDS.Spacing.lg) {
-            ZStack {
-                Circle()
-                    .fill(
-                        RadialGradient(
-                            colors: [accent.opacity(0.28), accent.opacity(0.08), .clear],
-                            center: .center,
-                            startRadius: 4,
-                            endRadius: 46
-                        )
-                    )
-                    .frame(width: 88, height: 88)
-                    .blur(radius: 8)
-                Circle()
-                    .fill(accent.opacity(0.16))
-                    .frame(width: 72, height: 72)
-                Image(systemName: icon)
-                    .font(.system(size: 30, weight: .semibold))
-                    .foregroundStyle(accent)
-                    .shadow(color: accent.opacity(0.35), radius: 8)
+        VStack(spacing: ForgeLayout.blockGap) {
+            ForgeIconWell(systemImage: icon, tint: accent, diameter: 56)
+            VStack(spacing: ForgeLayout.pairGap) {
+                Text(title)
+                    .font(ForgeType.title)
+                    .foregroundColor(.textPrimary)
+                    .multilineTextAlignment(.center)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .accessibilityAddTraits(.isHeader)
+                Text(message)
+                    .font(ForgeType.body)
+                    .foregroundColor(.textSecondary)
+                    .multilineTextAlignment(.center)
+                    .fixedSize(horizontal: false, vertical: true)
             }
-            Text(title)
-                .font(ForgeType.title)
-                .foregroundColor(.textPrimary)
-                .multilineTextAlignment(.center)
-            Text(message)
-                .font(ForgeType.body)
-                .foregroundColor(.textSecondary)
-                .multilineTextAlignment(.center)
-                .fixedSize(horizontal: false, vertical: true)
             if let cta, let action {
-                Button(action: action) {
-                    Text(cta)
-                        .font(ForgeType.headline)
-                        .foregroundColor(.white)
-                        .padding(.horizontal, FDS.Spacing.xl)
-                        .frame(minHeight: ForgeUX.minTap)
-                        .background(
-                            LinearGradient(
-                                colors: [accent, accent.opacity(0.75)],
-                                startPoint: .leading,
-                                endPoint: .trailing
-                            )
-                        )
-                        .clipShape(Capsule())
-                        .overlay(Capsule().stroke(Color.white.opacity(0.18), lineWidth: 1))
-                        .shadow(color: accent.opacity(0.32), radius: 10, y: 4)
-                }
-                .buttonStyle(.plain)
+                ForgePrimaryButton(title: cta, accent: accent, action: action)
+                    .padding(.top, FDS.Spacing.xs)
             }
         }
         .frame(maxWidth: .infinity)
-        .padding(FDS.Spacing.xl)
+        .padding(ForgeLayout.cardPadding)
         .forgeGlassCard(accent: accent)
     }
 }
@@ -326,47 +334,48 @@ struct ForgeEmptyStateCard: View {
 
 struct ForgeExploreDestinationsGrid: View {
     @EnvironmentObject var store: AppStore
+    @Environment(\.dynamicTypeSize) private var typeSize
 
-    private let columns = [
-        GridItem(.flexible(), spacing: 10),
-        GridItem(.flexible(), spacing: 10),
-    ]
+    /// Two columns, one at accessibility sizes. Equal-height rows.
+    private var columnCount: Int { typeSize.isAccessibilitySize ? 1 : 2 }
 
     var body: some View {
-        LazyVGrid(columns: columns, spacing: 10) {
+        ForgeEqualColumnsLayout(columns: columnCount, spacing: ForgeLayout.tileGap) {
             ForEach(ForgePrimaryDestination.allCases) { dest in
-                Button {
-                    UIImpactFeedbackGenerator(style: .light).impactOccurred()
-                    store.openDestination(dest)
-                } label: {
-                    HStack(spacing: FDS.Spacing.md) {
-                        ZStack {
-                            RoundedRectangle(cornerRadius: FDS.Radius.md, style: .continuous)
-                                .fill(dest.accent.opacity(0.16))
-                                .frame(width: 40, height: 40)
-                            Image(systemName: dest.systemImage)
-                                .font(.system(size: 16, weight: .semibold))
-                                .foregroundStyle(dest.accent)
-                        }
-                        VStack(alignment: .leading, spacing: 2) {
-                            Text(dest.title)
-                                .font(FDS.TypeScale.Dynamic.body.weight(.semibold))
-                                .foregroundColor(.textPrimary)
-                                .lineLimit(1)
-                            Text(dest.subtitle)
-                                .font(FDS.TypeScale.Dynamic.micro)
-                                .foregroundColor(.textTertiary)
-                                .lineLimit(2)
-                        }
-                        Spacer(minLength: 0)
-                    }
-                    .padding(FDS.Spacing.md)
-                    .forgeGlassCard(cornerRadius: FDS.Radius.md, accent: dest.accent)
-                }
-                .buttonStyle(.plain)
-                .accessibilityLabel("Open \(dest.title)")
-                .accessibilityHint(dest.subtitle)
+                tile(for: dest)
             }
         }
+    }
+
+    private func tile(for dest: ForgePrimaryDestination) -> some View {
+        Button {
+            FDS.haptic(.press)
+            store.openDestination(dest)
+        } label: {
+            tileLabel(for: dest)
+        }
+        .buttonStyle(ForgePressStyle())
+        .accessibilityLabel("Open \(dest.title)")
+        .accessibilityHint(dest.subtitle)
+    }
+
+    private func tileLabel(for dest: ForgePrimaryDestination) -> some View {
+        VStack(alignment: .leading, spacing: FDS.Spacing.sm) {
+            ForgeIconWell(systemImage: dest.systemImage, tint: dest.accent)
+            VStack(alignment: .leading, spacing: ForgeLayout.pairGap) {
+                Text(dest.title)
+                    .font(HomeType.status)
+                    .foregroundColor(.textPrimary)
+                    .forgeSingleLine(minScale: ForgeLayout.labelMinScale)
+                Text(dest.subtitle)
+                    .font(HomeType.body)
+                    .foregroundColor(.textTertiary)
+                    .multilineTextAlignment(.leading)
+                    .forgeWrapping()
+            }
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+        .forgeContentCard(tint: dest.accent, padding: ForgeLayout.tilePadding)
+        .contentShape(Rectangle())
     }
 }

@@ -6,14 +6,17 @@ struct ProactiveCardView: View {
     let relationshipLevel: Int
     let onTap: () -> Void
     @State private var appeared = false
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         Button(action: onTap) {
-            HStack(alignment: .top, spacing: FDS.Spacing.lg) {
+            HStack(alignment: .top, spacing: ForgeLayout.blockGap) {
+                // One live mark per screen: this one stays in its still pose.
                 ARIAIdentityMark(state: .idle, mood: .focused, size: 44, amplitude: 0.22)
+                    .environment(\.forgeMinimalAnimation, true)
 
-                VStack(alignment: .leading, spacing: FDS.Spacing.sm) {
-                    HStack(spacing: FDS.Spacing.sm) {
+                VStack(alignment: .leading, spacing: 6) {
+                    HStack(spacing: 6) {
                         Text("ARIA")
                             .font(FDS.TypeScale.Dynamic.caption)
                             .foregroundColor(.steel)
@@ -26,31 +29,37 @@ struct ProactiveCardView: View {
                             .forgeInsetTile(radius: FDS.Radius.xs)
                     }
                     Text(insight)
-                        .font(FDS.TypeScale.Dynamic.body)
+                        .font(HomeType.body)
                         .foregroundColor(.textPrimary)
                         .multilineTextAlignment(.leading)
                         .lineSpacing(3)
+                        .forgeWrapping()
                     Text("Tap to open chat")
                         .font(FDS.TypeScale.Dynamic.micro)
                         .foregroundColor(.steel)
                 }
                 Spacer(minLength: 0)
                 Image(systemName: "chevron.right")
-                    .font(.system(size: 12, weight: .semibold))
+                    .font(.system(size: 11, weight: .semibold))
                     .foregroundColor(.textMuted)
+                    .accessibilityHidden(true)
             }
-            .padding(FDS.Spacing.lg)
+            .padding(HomeMetrics.cardPadding)
             // Was a hand-rolled gradient + plain (non-continuous) .cornerRadius(FDS.Radius.lg)
             // + stroke, with no shadow — the only Home card with zero depth and a
             // different corner curve from everything around it.
             .forgeGlassCard(accent: .steel)
         }
         .buttonStyle(.plain)
-        .opacity(appeared ? 1 : 0)
-        .offset(y: appeared ? 0 : 8)
+        .opacity(appeared || reduceMotion ? 1 : 0)
+        .offset(y: appeared || reduceMotion ? 0 : 8)
         .onAppear {
-            withAnimation(.spring(response: 0.55, dampingFraction: 0.82)) {
+            if reduceMotion {
                 appeared = true
+            } else {
+                withAnimation(.spring(response: 0.55, dampingFraction: 0.82)) {
+                    appeared = true
+                }
             }
         }
     }

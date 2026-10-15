@@ -10,106 +10,153 @@ struct ContextInspectorSheet: View {
 
     var body: some View {
         NavigationStack {
-            ScrollView {
-                VStack(alignment: .leading, spacing: FDS.Spacing.lg) {
-                    Text("What ARIA sees")
-                        .font(FDS.TypeScale.Dynamic.metric)
-                        .foregroundColor(.textPrimary)
-                    Text("Long-press friendly — what was used, what was off, and which habit ARIA is on.")
-                        .font(.system(size: 13))
-                        .foregroundColor(.textSecondary)
+            ScrollView(showsIndicators: false) {
+                ForgeScreenStack {
+                    ForgePageHeader(
+                        title: "What ARIA sees",
+                        subtitle: "Long-press friendly — what was used, what was off, and which habit ARIA is on.",
+                        accent: .steel
+                    )
 
-                    // Used signals
-                    InspectorSection(title: "Used", icon: "eye.fill", color: .success) {
-                        if aria.context.lifestyleTags.isEmpty && aria.context.recentPatterns.isEmpty {
-                            Text("No strong signals yet — ARIA is asking, not guessing.")
-                                .font(.system(size: 13)).foregroundColor(.textTertiary)
-                        } else {
-                            ForEach(Array(aria.context.lifestyleTags.prefix(6)), id: \.self) { tag in
-                                InspectorRow(text: tag, color: .success)
-                            }
-                            ForEach(Array(aria.context.recentPatterns.prefix(4)), id: \.self) { pat in
-                                InspectorRow(text: pat, color: .steel)
-                            }
-                        }
-                    }
-
-                    // Redacted (permissions)
+                    usedSection
                     if !permissions.restrictedDomains.isEmpty {
-                        InspectorSection(title: "Off — redacted before reasoning", icon: "eye.slash.fill", color: .warning) {
-                            ForEach(permissions.restrictedDomains, id: \.self) { domain in
-                                InspectorRow(text: "\(domain) is off (permission) — never sent", color: .warning)
-                            }
-                            Text("Off ≠ missing. ARIA says so explicitly.")
-                                .font(.system(size: 11)).foregroundColor(.textTertiary).italic()
-                        }
+                        redactedSection
                     }
-
-                    // Deep habit ARIA is on
-                    InspectorSection(title: "Habit ARIA is breaking", icon: "infinity", color: .ember) {
-                        if let habit = aria.context.deepHabits.first {
-                            VStack(alignment: .leading, spacing: FDS.Spacing.sm) {
-                                Text(habit.title).font(FDS.TypeScale.Dynamic.body.weight(.semibold)).foregroundColor(.textPrimary)
-                                Text("Cue: \(habit.cue)").font(.system(size: 12)).foregroundColor(.textSecondary)
-                                Text("Routine: \(habit.routine)").font(.system(size: 12)).foregroundColor(.textSecondary)
-                                Text("Cost: \(habit.cost)").font(.system(size: 12)).foregroundColor(.danger)
-                                Text(habit.evidence).font(FDS.TypeScale.Dynamic.micro).foregroundColor(.steel)
-                                Text("Breaker: \(habit.breaker)").font(FDS.TypeScale.Dynamic.caption).foregroundColor(.ember)
-                            }
-                            .padding(FDS.Spacing.md).background(Color.ember.opacity(0.06)).cornerRadius(FDS.Radius.sm)
-                        } else {
-                            Text("No strong loop detected — signals look balanced.")
-                                .font(.system(size: 13)).foregroundColor(.textTertiary)
-                        }
-                    }
-
-                    // Relationship + constraints
-                    InspectorSection(title: "How ARIA knows you", icon: "person.fill", color: .steel) {
-                        InspectorRow(text: "Level \(aria.context.relationshipLevel)/10 — \(aria.context.relationshipLabel)", color: .steel)
-                        if !aria.context.constraints.isEmpty {
-                            ForEach(Array(aria.context.constraints.prefix(4)), id: \.self) { c in
-                                InspectorRow(text: c, color: .textTertiary)
-                            }
-                        }
-                    }
+                    habitSection
+                    relationshipSection
                 }
-                .padding(FDS.Spacing.lg)
             }
-            .background(Color.background)
+            .forgeScreenBackground(accent: .steel)
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
+                ToolbarItem(placement: .confirmationAction) {
                     Button("Done") { dismiss() }
+                        .foregroundColor(.steel)
+                        .fontWeight(.semibold)
+                }
+            }
+        }
+    }
+
+    // MARK: Used signals
+
+    private var usedSection: some View {
+        InspectorSection(title: "Used", color: .vitality) {
+            if aria.context.lifestyleTags.isEmpty && aria.context.recentPatterns.isEmpty {
+                ForgeEmptyNote(title: "No strong signals yet — ARIA is asking, not guessing.")
+            } else {
+                VStack(alignment: .leading, spacing: ForgeLayout.rowGap) {
+                    ForEach(Array(aria.context.lifestyleTags.prefix(6)), id: \.self) { tag in
+                        InspectorRow(text: tag, color: .vitality)
+                    }
+                    ForEach(Array(aria.context.recentPatterns.prefix(4)), id: \.self) { pat in
+                        InspectorRow(text: pat, color: .steel)
+                    }
+                }
+            }
+        }
+    }
+
+    // MARK: Redacted (permissions)
+
+    private var redactedSection: some View {
+        InspectorSection(title: "Off — redacted before reasoning", color: .steel) {
+            VStack(alignment: .leading, spacing: ForgeLayout.rowGap) {
+                ForEach(permissions.restrictedDomains, id: \.self) { domain in
+                    InspectorRow(text: "\(domain) is off (permission) — never sent", color: .steel)
+                }
+                Text("Off ≠ missing. ARIA says so explicitly.")
+                    .font(HomeType.body)
+                    .foregroundColor(.textTertiary)
+                    .forgeWrapping()
+            }
+        }
+    }
+
+    // MARK: Deep habit ARIA is on
+
+    private var habitSection: some View {
+        InspectorSection(title: "Habit ARIA is breaking", color: .ember) {
+            if let habit = aria.context.deepHabits.first {
+                VStack(alignment: .leading, spacing: ForgeLayout.rowGap) {
+                    Text(habit.title)
+                        .font(HomeType.status)
+                        .foregroundColor(.textPrimary)
+                        .forgeWrapping()
+                    habitLine(label: "Cue", value: habit.cue)
+                    habitLine(label: "Routine", value: habit.routine)
+                    habitLine(label: "Cost", value: habit.cost)
+                    Text(habit.evidence)
+                        .font(HomeType.micro)
+                        .foregroundColor(.textTertiary)
+                        .forgeWrapping()
+                    Text("Breaker: \(habit.breaker)")
+                        .font(HomeType.body)
+                        .foregroundColor(.ember)
+                        .forgeWrapping()
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .forgeWell()
+                }
+            } else {
+                ForgeEmptyNote(title: "No strong loop detected — signals look balanced.")
+            }
+        }
+    }
+
+    /// Micro label over a body sentence.
+    private func habitLine(label: String, value: String) -> some View {
+        VStack(alignment: .leading, spacing: ForgeLayout.pairGap) {
+            Text(label)
+                .font(HomeType.micro)
+                .foregroundColor(.textTertiary)
+                .textCase(.uppercase)
+            Text(value)
+                .font(HomeType.body)
+                .foregroundColor(.textSecondary)
+                .forgeWrapping()
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .accessibilityElement(children: .combine)
+    }
+
+    // MARK: Relationship + constraints
+
+    private var relationshipSection: some View {
+        InspectorSection(title: "How ARIA knows you", color: .steel) {
+            VStack(alignment: .leading, spacing: ForgeLayout.rowGap) {
+                InspectorRow(text: "Level \(aria.context.relationshipLevel)/10 — \(aria.context.relationshipLabel)", color: .steel)
+                if !aria.context.constraints.isEmpty {
+                    ForEach(Array(aria.context.constraints.prefix(4)), id: \.self) { c in
+                        InspectorRow(text: c, color: .textTertiary)
+                    }
                 }
             }
         }
     }
 }
 
+/// Standard card: wrapping eyebrow, then the body at the block gap. The card
+/// is washed in the section's domain color; there is no halo.
 private struct InspectorSection<Content: View>: View {
-    let title: String; let icon: String; let color: Color; let content: Content
-    init(title: String, icon: String, color: Color, @ViewBuilder content: () -> Content) {
-        self.title = title; self.icon = icon; self.color = color; self.content = content()
+    let title: String; let color: Color; let content: Content
+    init(title: String, color: Color, @ViewBuilder content: () -> Content) {
+        self.title = title; self.color = color; self.content = content()
     }
     var body: some View {
-        VStack(alignment: .leading, spacing: FDS.Spacing.md) {
-            HStack(spacing: FDS.Spacing.sm) {
-                Image(systemName: icon).font(.system(size: 12, weight: .semibold)).foregroundColor(color)
-                Text(title).font(FDS.TypeScale.Dynamic.caption).foregroundColor(color).tracking(0.6)
-            }
+        VStack(alignment: .leading, spacing: ForgeLayout.blockGap) {
+            Text(title)
+                .forgeSectionLabel(tint: .textTertiary)
+                .forgeWrapping()
+                .accessibilityAddTraits(.isHeader)
             content
         }
-        .padding(FDS.Spacing.lg)
-        .forgeGlassCard(cornerRadius: FDS.Radius.md, accent: color)
+        .forgeContentCard(tint: color)
     }
 }
 
 private struct InspectorRow: View {
     let text: String; let color: Color
     var body: some View {
-        HStack(alignment: .top, spacing: FDS.Spacing.sm) {
-            Circle().fill(color).frame(width: 6, height: 6).padding(.top, FDS.Spacing.sm)
-            Text(text).font(.system(size: 12)).foregroundColor(.textSecondary).fixedSize(horizontal: false, vertical: true)
-        }
+        ForgeBulletRow(text: text, tint: color)
     }
 }
