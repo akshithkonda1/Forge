@@ -630,9 +630,11 @@ struct WorkoutExerciseRow: View {
             ForgeChip(label: def.equipment.label, icon: def.equipment.icon)
             ForgeChip(label: def.isCompound ? "Compound" : "Isolation", icon: "square.stack.3d.up.fill")
         }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        if let cue = def.cues.first {
-            cueRow(icon: "checkmark.circle.fill", color: def.accent, text: cue)
+        // Same cuts AriaPlanEngine scales the board on (Peak / Solid floors). Unmeasured
+        // readiness gets no note: "0" is not a low read.
+        if store.readiness.hasScore {
+            if store.readiness.overall >= AriaPlanEngine.peakFloor { r.append(("bolt.fill", "Readiness \(store.readiness.overall) — primed. Add a set if the first compound moves well.", .ember)) }
+            else if store.readiness.overall < AriaPlanEngine.solidFloor { r.append(("bed.double.fill", "Readiness \(store.readiness.overall) — ARIA already scaled the board. You can still add a set if you feel it.", .steel)) }
         }
         if let fault = def.faults.first {
             cueRow(icon: "exclamationmark.triangle.fill", color: Color.amber, text: "Avoid: \(fault)")

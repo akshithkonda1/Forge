@@ -133,13 +133,15 @@ def baseline_workout_recommendation(
             "readinessKnown": False,
         }
     else:
-        if readiness_overall >= 80:
+        # Same floors as AriaPlanEngine on device (Peak 100 / Solid 85 /
+        # Moderate 70).
+        if readiness_overall >= 100:
             focus = "power"
             intensity = "high"
-        elif readiness_overall >= 65:
+        elif readiness_overall >= 85:
             focus = "hypertrophy"
             intensity = "moderate"
-        elif readiness_overall >= 50:
+        elif readiness_overall >= 70:
             focus = "technique"
             intensity = "low"
         else:
