@@ -3,12 +3,12 @@ import SwiftUI
 struct OnboardingView: View {
     @EnvironmentObject private var store: AppStore
     @State private var coordinator = OnboardingCoordinator()
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         @Bindable var coordinator = coordinator
 
         ZStack {
-            Color.background.ignoresSafeArea()
             ForgeAmbientBackground(step: coordinator.step.rawValue)
                 .ignoresSafeArea()
 
@@ -28,8 +28,8 @@ struct OnboardingView: View {
             DevSkipButton(coordinator: coordinator)
             #endif
         }
-        .animation(FDS.Spring.hero, value: coordinator.showAgeBlocked)
-        .animation(FDS.Spring.hero, value: coordinator.isPrepping)
+        .animation(reduceMotion ? nil : FDS.Spring.hero, value: coordinator.showAgeBlocked)
+        .animation(reduceMotion ? nil : FDS.Spring.hero, value: coordinator.isPrepping)
         .onAppear { coordinator.startIfNeeded(in: store) }
         .onDisappear { coordinator.stopInterviewVoice() }
     }
@@ -37,29 +37,19 @@ struct OnboardingView: View {
 
 private struct AgeBlockedView: View {
     let onReset: () -> Void
-    @State private var appeared = false
 
     var body: some View {
-        VStack(spacing: FDS.Spacing.xl) {
-            Spacer()
-            Image(systemName: "lock.shield.fill")
-                .font(.system(size: 48))
-                .foregroundColor(.danger)
-            Text("Access Restricted")
-                .font(.title.weight(.bold))
-                .foregroundColor(.textPrimary)
-            Text("FORGE requires users to be at least 13 years old.")
-                .font(.body)
-                .foregroundColor(.textSecondary)
-                .multilineTextAlignment(.center)
-                .padding(.horizontal, 32)
-            Spacer()
-            PremiumPrimaryButton(title: "Review birthday", icon: "calendar", action: onReset)
-                .padding(.horizontal, FDS.Spacing.xl)
-                .padding(.bottom, 40)
+        ScrollView(showsIndicators: false) {
+            ForgeEmptyStateCard(
+                icon: "lock.shield.fill",
+                title: "Access Restricted",
+                message: "FORGE requires users to be at least 13 years old.",
+                accent: .steel,
+                cta: "Review birthday",
+                action: onReset
+            )
+            .forgeScreenInsets(top: ForgeLayout.screenTop)
         }
-        .opacity(appeared ? 1 : 0)
-        .onAppear { appeared = true }
     }
 }
 
@@ -76,7 +66,7 @@ private struct DevSkipButton: View {
                 if expanded {
                     if coordinator.isPrepping {
                         Button("Skip wait →") { coordinator.skipPrepHoldForDebug() }
-                            .font(.caption.weight(.black))
+                            .font(HomeType.label)
                             .foregroundColor(.white)
                             .padding(.horizontal, FDS.Spacing.lg)
                             .padding(.vertical, FDS.Spacing.sm)
@@ -84,7 +74,7 @@ private struct DevSkipButton: View {
                             .clipShape(Capsule())
                     } else {
                         Button("Skip All →") { coordinator.devSkipToEnd(in: store) }
-                            .font(.caption.weight(.black))
+                            .font(HomeType.label)
                             .foregroundColor(.white)
                             .padding(.horizontal, FDS.Spacing.lg)
                             .padding(.vertical, FDS.Spacing.sm)
@@ -93,7 +83,7 @@ private struct DevSkipButton: View {
                     }
                 } else {
                     Button("DEV") { withAnimation(FDS.Spring.snap) { expanded = true } }
-                        .font(.system(size: 9, weight: .black))
+                        .font(HomeType.micro)
                         .foregroundColor(.black)
                         .padding(.horizontal, FDS.Spacing.sm)
                         .padding(.vertical, FDS.Spacing.xs)
@@ -101,7 +91,7 @@ private struct DevSkipButton: View {
                         .clipShape(Capsule())
                 }
             }
-            .padding(.horizontal, FDS.Spacing.xl)
+            .padding(.horizontal, ForgeLayout.screenInset)
             .padding(.top, FDS.Spacing.sm)
             Spacer()
         }

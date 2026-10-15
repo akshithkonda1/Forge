@@ -10,14 +10,15 @@ struct AriaMemoryControlsView: View {
     @State private var confirmForgetPersona = false
     @State private var confirmDeleteFact: AriaKnowledgeFact?
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.dismiss) private var dismiss
 
     var body: some View {
         ScrollView {
-            VStack(alignment: .leading, spacing: FDS.Spacing.lg) {
+            ForgeScreenStack(top: FDS.Spacing.sm) {
                 Text(AriaFactPrivacy.privacyLine)
-                    .font(.system(size: 14))
-                    .foregroundColor(.textSecondary)
-                    .fixedSize(horizontal: false, vertical: true)
+                    .font(HomeType.body)
+                    .foregroundStyle(Color.textSecondary)
+                    .forgeWrapping()
 
                 memoryCard
                 personaCard
@@ -28,11 +29,17 @@ struct AriaMemoryControlsView: View {
                     folderCard(folder)
                 }
             }
-            .padding(FDS.Spacing.lg)
         }
-        .background(Color.background.ignoresSafeArea())
+        .forgeScreenBackground(accent: .ember)
         .navigationTitle("ARIA memory & voice")
-        .navigationBarTitleDisplayMode(.large)
+        .navigationBarTitleDisplayMode(.inline)
+        .toolbar {
+            ToolbarItem(placement: .confirmationAction) {
+                Button("Done") { dismiss() }
+                    .foregroundColor(.ember)
+                    .accessibilityLabel("Done")
+            }
+        }
         .onAppear { model.reload() }
         .transaction(freezeMotion)
         .sheet(isPresented: $showEditor) {
@@ -81,305 +88,361 @@ struct AriaMemoryControlsView: View {
         }
     }
 
+    // MARK: Cards
+
     private var memoryCard: some View {
-        VStack(alignment: .leading, spacing: FDS.Spacing.md) {
-            SettingsRow(icon: "brain.head.profile", iconColor: .ember, label: AriaMemoryAccess.rememberMeLabel) {
-                ForgeToggle(isOn: Binding(
+        VStack(alignment: .leading, spacing: ForgeLayout.blockGap) {
+            toggleRow(
+                icon: "brain.head.profile",
+                label: AriaMemoryAccess.rememberMeLabel,
+                subtitle: model.controls.memoryStatusLine,
+                isOn: Binding(
                     get: { model.memoryOn },
                     set: { model.setMemoryEnabled($0) }
-                ))
-                .accessibilityLabel(AriaMemoryAccess.rememberMeLabel)
-                .accessibilityHint(AriaMemoryAccess.rememberMeHint)
-                .accessibilityValue(AriaMemoryAccess.rememberMeValue(isOn: model.memoryOn))
-            }
+                ),
+                hint: AriaMemoryAccess.rememberMeHint,
+                value: AriaMemoryAccess.rememberMeValue(isOn: model.memoryOn)
+            )
             Text(model.memoryOn
                  ? "ARIA uses the notes below. Turn this off and I stop using them — nothing is deleted."
                  : "Memory is off. Notes stay here until you delete them. ARIA isn't using them.")
-                .font(.system(size: 13))
-                .foregroundColor(.textSecondary)
-                .padding(.horizontal, FDS.Spacing.lg)
-                .padding(.bottom, FDS.Spacing.md)
-            Text(model.controls.memoryStatusLine)
-                .font(FDS.TypeScale.Dynamic.caption)
-                .foregroundColor(.textTertiary)
-                .padding(.horizontal, FDS.Spacing.lg)
-                .padding(.bottom, FDS.Spacing.md)
+                .font(HomeType.body)
+                .foregroundStyle(Color.textSecondary)
+                .forgeWrapping()
         }
-        .forgeGlassCard(cornerRadius: FDS.Radius.lg, accent: .ember)
+        .forgeContentCard(accent: .ember)
     }
 
     private var personaCard: some View {
-        VStack(alignment: .leading, spacing: FDS.Spacing.md) {
-            SettingsRow(icon: "person.fill", iconColor: .ember, label: AriaMemoryAccess.personaLabel) {
-                ForgeToggle(isOn: Binding(
+        VStack(alignment: .leading, spacing: ForgeLayout.blockGap) {
+            toggleRow(
+                icon: "person.fill",
+                label: AriaMemoryAccess.personaLabel,
+                subtitle: nil,
+                isOn: Binding(
                     get: { model.controls.prefs.personaEnabled },
                     set: { model.setPersonaEnabled($0) }
-                ))
-                .accessibilityLabel(AriaMemoryAccess.personaLabel)
-                .accessibilityHint(AriaMemoryAccess.personaHint)
-                .accessibilityValue(AriaMemoryAccess.rememberMeValue(isOn: model.controls.prefs.personaEnabled))
-            }
+                ),
+                hint: AriaMemoryAccess.personaHint,
+                value: AriaMemoryAccess.rememberMeValue(isOn: model.controls.prefs.personaEnabled)
+            )
             Text(model.controls.persona.archetype.title)
-                .font(FDS.TypeScale.Dynamic.metric)
-                .foregroundColor(.textPrimary)
-                .padding(.horizontal, FDS.Spacing.lg)
-            if let hours = model.controls.persona.sleepNeedPreferenceHours {
-                Text(String(format: "Sleep want: %.1f h", hours))
-                    .font(.system(size: 13))
-                    .foregroundColor(.textSecondary)
-                    .padding(.horizontal, FDS.Spacing.lg)
-            }
-            if let move = model.controls.persona.movementPreference {
-                Text("Typical movement: \(move.title)")
-                    .font(.system(size: 13))
-                    .foregroundColor(.textSecondary)
-                    .padding(.horizontal, FDS.Spacing.lg)
-            }
-            Text("Closed chips only. Not a family tree, not a diagnosis.")
-                .font(.system(size: 12))
-                .foregroundColor(.textTertiary)
-                .padding(.horizontal, FDS.Spacing.lg)
-            HStack(spacing: FDS.Spacing.lg) {
-                Button {
-                    QualityOfLifeLivingStore.clearInterviewCompleted()
-                    showLifestyleInterview = true
-                } label: {
-                    Text(AriaMemoryAccess.personaActionLabel(
-                        interviewCompleted: model.controls.interviewCompleted
-                    ))
-                        .font(.system(size: 14, weight: .semibold))
-                        .foregroundColor(.ember)
-                }
-                .buttonStyle(.plain)
-                .accessibilityLabel(AriaMemoryAccess.personaActionLabel(
-                    interviewCompleted: model.controls.interviewCompleted
-                ))
-                .accessibilityAddTraits(.isButton)
-                if model.controls.interviewCompleted
-                    || model.controls.persona.archetype != .balanced
-                    || model.controls.persona.movementPreference != nil {
-                    Button {
-                        confirmForgetPersona = true
-                    } label: {
-                        Text(AriaMemoryAccess.forgetPersonaLabel)
-                            .font(FDS.TypeScale.Dynamic.body.weight(.semibold))
-                            .foregroundColor(.danger)
-                    }
-                    .buttonStyle(.plain)
-                    .accessibilityLabel(AriaMemoryAccess.forgetPersonaLabel)
-                    .accessibilityHint(AriaMemoryAccess.forgetPersonaHint)
-                    .accessibilityAddTraits(.isButton)
-                }
-            }
-            .padding(.horizontal, FDS.Spacing.lg)
-            .padding(.bottom, FDS.Spacing.md)
-            .padding(.top, 2)
+                .font(ForgeType.title)
+                .foregroundStyle(Color.textPrimary)
+                .forgeWrapping()
+            personaChips
+            Text("Simple chips only, never a medical read.")
+                .font(HomeType.body)
+                .foregroundStyle(Color.textSecondary)
+                .forgeWrapping()
+            personaActions
         }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Color.surface)
-        .clipShape(RoundedRectangle(cornerRadius: FDS.Radius.lg, style: .continuous))
+        .forgeContentCard(accent: .ember)
+    }
+
+    @ViewBuilder
+    private var personaChips: some View {
+        let hours = model.controls.persona.sleepNeedPreferenceHours
+        let move = model.controls.persona.movementPreference
+        if hours != nil || move != nil {
+            ForgeFlowLayout(spacing: ForgeLayout.chipGap, lineSpacing: ForgeLayout.chipGap) {
+                if let hours {
+                    ForgeChip(label: String(format: "Sleep want: %.1f h", hours), icon: "moon.fill")
+                }
+                if let move {
+                    ForgeChip(label: "Typical movement: \(move.title)", icon: "figure.walk")
+                }
+            }
+        }
+    }
+
+    private var showsForgetPersona: Bool {
+        model.controls.interviewCompleted
+            || model.controls.persona.archetype != .balanced
+            || model.controls.persona.movementPreference != nil
+    }
+
+    private var personaActions: some View {
+        let actionLabel = AriaMemoryAccess.personaActionLabel(
+            interviewCompleted: model.controls.interviewCompleted
+        )
+        return ForgeAdaptiveStack(spacing: ForgeLayout.tileGap) {
+            ForgeSecondaryButton(title: actionLabel, accent: .ember) {
+                QualityOfLifeLivingStore.clearInterviewCompleted()
+                showLifestyleInterview = true
+            }
+            .accessibilityLabel(actionLabel)
+            .accessibilityAddTraits(.isButton)
+            if showsForgetPersona {
+                ForgeSecondaryButton(title: AriaMemoryAccess.forgetPersonaLabel, accent: .danger) {
+                    confirmForgetPersona = true
+                }
+                .accessibilityLabel(AriaMemoryAccess.forgetPersonaLabel)
+                .accessibilityHint(AriaMemoryAccess.forgetPersonaHint)
+                .accessibilityAddTraits(.isButton)
+            }
+        }
     }
 
     private var toneCard: some View {
-        VStack(alignment: .leading, spacing: FDS.Spacing.md) {
-            Text(AriaMemoryAccess.howITalkHeader)
-                .font(FDS.TypeScale.Dynamic.body.weight(.semibold))
-                .foregroundColor(.textPrimary)
-                .accessibilityAddTraits(.isHeader)
+        VStack(alignment: .leading, spacing: ForgeLayout.blockGap) {
+            ForgeCardHeader(AriaMemoryAccess.howITalkHeader, tint: .steel)
             Text("Friend first. Not a clinician.")
-                .font(.system(size: 12))
-                .foregroundColor(.textTertiary)
-            ForEach(AriaCompanionTone.allCases, id: \.self) { tone in
-                let selected = model.controls.prefs.tone == tone
-                Button {
-                    model.setTone(tone)
-                } label: {
-                    HStack(alignment: .top, spacing: FDS.Spacing.md) {
-                        Image(systemName: selected ? "checkmark.circle.fill" : "circle")
-                            .foregroundColor(selected ? .ember : .textTertiary)
-                            .accessibilityHidden(true)
-                        VStack(alignment: .leading, spacing: 2) {
-                            Text(tone.title)
-                                .font(FDS.TypeScale.Dynamic.body.weight(.semibold))
-                                .foregroundColor(.textPrimary)
-                            Text(tone.line)
-                                .font(.system(size: 12))
-                                .foregroundColor(.textSecondary)
-                                .fixedSize(horizontal: false, vertical: true)
-                        }
-                        Spacer()
+                .font(HomeType.body)
+                .foregroundStyle(Color.textSecondary)
+                .forgeWrapping()
+            VStack(alignment: .leading, spacing: ForgeLayout.rowGap) {
+                ForEach(AriaCompanionTone.allCases, id: \.self) { tone in
+                    let selected = model.controls.prefs.tone == tone
+                    optionRow(
+                        title: tone.title,
+                        line: tone.line,
+                        selected: selected,
+                        label: AriaMemoryAccess.toneLabel(tone, selected: selected)
+                    ) {
+                        model.setTone(tone)
                     }
-                    .padding(.vertical, FDS.Spacing.sm)
                 }
-                .buttonStyle(.plain)
-                .accessibilityLabel(AriaMemoryAccess.toneLabel(tone, selected: selected))
-                .accessibilityHint(tone.line)
-                .accessibilityAddTraits(selected ? [.isButton, .isSelected] : .isButton)
             }
         }
-        .padding(FDS.Spacing.lg)
-        .forgeGlassCard(cornerRadius: FDS.Radius.lg, accent: .steel)
+        .forgeContentCard(tint: .steel)
     }
 
     private var checkInCard: some View {
-        VStack(alignment: .leading, spacing: FDS.Spacing.md) {
-            Text(AriaMemoryAccess.checkInsHeader)
-                .font(FDS.TypeScale.Dynamic.body.weight(.semibold))
-                .foregroundColor(.textPrimary)
-                .accessibilityAddTraits(.isHeader)
+        VStack(alignment: .leading, spacing: ForgeLayout.blockGap) {
+            ForgeCardHeader(AriaMemoryAccess.checkInsHeader, tint: .steel)
             Text("How often I ask how life is going. On this phone.")
-                .font(.system(size: 12))
-                .foregroundColor(.textTertiary)
-            ForEach(AriaCheckInCadence.allCases, id: \.self) { cadence in
-                let selected = model.controls.prefs.checkInCadence == cadence
-                Button {
-                    model.setCheckInCadence(cadence)
-                } label: {
-                    HStack(alignment: .top, spacing: FDS.Spacing.md) {
-                        Image(systemName: selected ? "checkmark.circle.fill" : "circle")
-                            .foregroundColor(selected ? .ember : .textTertiary)
-                            .accessibilityHidden(true)
-                        VStack(alignment: .leading, spacing: 2) {
-                            Text(cadence.title)
-                                .font(FDS.TypeScale.Dynamic.body.weight(.semibold))
-                                .foregroundColor(.textPrimary)
-                            Text(cadence.detail)
-                                .font(.system(size: 12))
-                                .foregroundColor(.textSecondary)
-                                .fixedSize(horizontal: false, vertical: true)
-                        }
-                        Spacer()
+                .font(HomeType.body)
+                .foregroundStyle(Color.textSecondary)
+                .forgeWrapping()
+            VStack(alignment: .leading, spacing: ForgeLayout.rowGap) {
+                ForEach(AriaCheckInCadence.allCases, id: \.self) { cadence in
+                    let selected = model.controls.prefs.checkInCadence == cadence
+                    optionRow(
+                        title: cadence.title,
+                        line: cadence.detail,
+                        selected: selected,
+                        label: AriaMemoryAccess.checkInLabel(cadence, selected: selected)
+                    ) {
+                        model.setCheckInCadence(cadence)
                     }
-                    .padding(.vertical, FDS.Spacing.sm)
                 }
-                .buttonStyle(.plain)
-                .accessibilityLabel(AriaMemoryAccess.checkInLabel(cadence, selected: selected))
-                .accessibilityHint(cadence.detail)
-                .accessibilityAddTraits(selected ? [.isButton, .isSelected] : .isButton)
             }
         }
-        .padding(FDS.Spacing.lg)
-        .forgeGlassCard(cornerRadius: FDS.Radius.lg, accent: .steel)
+        .forgeContentCard(tint: .steel)
     }
 
     private func folderCard(_ folder: AriaKnowledgeCategory) -> some View {
         let items = model.facts(in: folder)
-        return VStack(alignment: .leading, spacing: FDS.Spacing.md) {
-            HStack(spacing: FDS.Spacing.sm) {
-                Image(systemName: folder.systemImage)
-                    .font(.system(size: 13, weight: .semibold))
-                    .foregroundColor(.ember)
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(folder.title)
-                        .font(FDS.TypeScale.Dynamic.body.weight(.semibold))
-                        .foregroundColor(.textPrimary)
-                        .accessibilityAddTraits(.isHeader)
-                    Text(folder.blurb)
-                        .font(.system(size: 11))
-                        .foregroundColor(.textTertiary)
-                }
-                Spacer()
-                Text("\(items.count)")
-                    .font(FDS.TypeScale.Dynamic.caption)
-                    .foregroundColor(.textTertiary)
+        return VStack(alignment: .leading, spacing: ForgeLayout.blockGap) {
+            ForgeCardHeader(title: folder.title, tint: .steel) {
+                ForgeCardMeta(text: "\(items.count)")
                     .accessibilityLabel("\(items.count) notes")
             }
-            SettingsRow(icon: nil, label: AriaMemoryAccess.folderUseLabel(folder)) {
-                ForgeToggle(isOn: Binding(
-                    get: { model.isFolderOn(folder) },
-                    set: { model.setFolder(folder, enabled: $0) }
-                ))
-                .accessibilityLabel(AriaMemoryAccess.folderUseLabel(folder))
-                .accessibilityHint(AriaMemoryAccess.folderUseHint)
-                .accessibilityValue(AriaMemoryAccess.rememberMeValue(isOn: model.isFolderOn(folder)))
-            }
+            Text(folder.blurb)
+                .font(HomeType.body)
+                .foregroundStyle(Color.textSecondary)
+                .forgeWrapping()
+            folderToggleRow(folder)
             if items.isEmpty {
-                Text("Nothing in this folder yet.")
-                    .font(.system(size: 13))
-                    .foregroundColor(.textTertiary)
+                ForgeEmptyNote(title: "Nothing in this folder yet.", systemImage: folder.systemImage, tint: .steel)
             } else {
-                ForEach(items.prefix(20)) { fact in
-                    VStack(alignment: .leading, spacing: FDS.Spacing.sm) {
-                        Text(fact.summary)
-                            .font(.system(size: 13))
-                            .foregroundColor(.textPrimary)
-                        HStack {
-                            Text(dateline(fact))
-                                .font(.system(size: 11))
-                                .foregroundColor(.textTertiary)
-                            Spacer()
-                            Button("Edit") {
-                                model.beginEdit(fact)
-                                showEditor = true
-                            }
-                            .font(.system(size: 12, weight: .semibold))
-                            .foregroundColor(.ember)
-                            .accessibilityLabel(AriaMemoryAccess.editNoteLabel(
-                                folder: folder,
-                                summary: fact.summary
-                            ))
-                            .accessibilityAddTraits(.isButton)
-                            Button("Delete", role: .destructive) {
-                                confirmDeleteFact = fact
-                            }
-                            .font(.system(size: 12, weight: .semibold))
-                            .foregroundColor(.danger)
-                            .accessibilityLabel(AriaMemoryAccess.deleteNoteLabel(
-                                folder: folder,
-                                summary: fact.summary
-                            ))
-                            .accessibilityAddTraits(.isButton)
-                        }
+                VStack(alignment: .leading, spacing: ForgeLayout.rowGap) {
+                    ForEach(items.prefix(20)) { fact in
+                        noteRow(fact, in: folder)
                     }
-                    .padding(.vertical, FDS.Spacing.sm)
                 }
             }
-            Button {
+            ForgeTextLink(title: "Add a note", accent: .ember) {
                 model.beginAdd(to: folder)
                 showEditor = true
-            } label: {
-                Text("Add a note")
-                    .font(FDS.TypeScale.Dynamic.body.weight(.semibold))
-                    .foregroundColor(.ember)
             }
-            .buttonStyle(.plain)
-            .padding(.top, FDS.Spacing.xs)
             .accessibilityLabel(AriaMemoryAccess.addNoteLabel(folder: folder))
             .accessibilityAddTraits(.isButton)
         }
-        .padding(FDS.Spacing.lg)
-        .forgeGlassCard(cornerRadius: FDS.Radius.lg, accent: .steel)
+        .forgeContentCard(tint: .steel)
+    }
+
+    // MARK: Pieces
+
+    /// Agenda-row anatomy for a card's lead switch: icon well, label (with an
+    /// optional status line), then the switch. It sits at the card padding.
+    private func toggleRow(
+        icon: String,
+        label: String,
+        subtitle: String?,
+        isOn: Binding<Bool>,
+        hint: String,
+        value: String
+    ) -> some View {
+        HStack(spacing: ForgeLayout.rowGap) {
+            ForgeIconWell(systemImage: icon, tint: .ember)
+            VStack(alignment: .leading, spacing: ForgeLayout.pairGap) {
+                Text(label)
+                    .font(HomeType.status)
+                    .foregroundStyle(Color.textPrimary)
+                    .lineLimit(2)
+                    .forgeWrapping()
+                if let subtitle {
+                    Text(subtitle)
+                        .font(HomeType.body)
+                        .foregroundStyle(Color.textTertiary)
+                        .lineLimit(2)
+                }
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            ForgeToggle(isOn: isOn)
+                .accessibilityLabel(label)
+                .accessibilityHint(hint)
+                .accessibilityValue(value)
+        }
+        .frame(minHeight: ForgeUX.minTap)
+    }
+
+    private func folderToggleRow(_ folder: AriaKnowledgeCategory) -> some View {
+        HStack(spacing: ForgeLayout.rowGap) {
+            Text(AriaMemoryAccess.folderUseLabel(folder))
+                .font(HomeType.status)
+                .foregroundStyle(Color.textPrimary)
+                .lineLimit(2)
+                .forgeWrapping()
+                .frame(maxWidth: .infinity, alignment: .leading)
+            ForgeToggle(isOn: Binding(
+                get: { model.isFolderOn(folder) },
+                set: { model.setFolder(folder, enabled: $0) }
+            ))
+            .accessibilityLabel(AriaMemoryAccess.folderUseLabel(folder))
+            .accessibilityHint(AriaMemoryAccess.folderUseHint)
+            .accessibilityValue(AriaMemoryAccess.rememberMeValue(isOn: model.isFolderOn(folder)))
+        }
+        .frame(minHeight: ForgeUX.minTap)
+    }
+
+    /// One radio-style choice: indicator, title, line. The whole row is the
+    /// tap target and carries the selected trait.
+    private func optionRow(
+        title: String,
+        line: String,
+        selected: Bool,
+        label: String,
+        action: @escaping () -> Void
+    ) -> some View {
+        Button {
+            FDS.haptic(.select)
+            action()
+        } label: {
+            HStack(alignment: .top, spacing: ForgeLayout.rowGap) {
+                Image(systemName: selected ? "checkmark.circle.fill" : "circle")
+                    .font(.system(size: 18, weight: .semibold))
+                    .foregroundStyle(selected ? Color.ember : Color.textTertiary)
+                    .accessibilityHidden(true)
+                VStack(alignment: .leading, spacing: ForgeLayout.pairGap) {
+                    Text(title)
+                        .font(HomeType.status)
+                        .foregroundStyle(Color.textPrimary)
+                        .forgeWrapping()
+                    Text(line)
+                        .font(HomeType.body)
+                        .foregroundStyle(Color.textSecondary)
+                        .forgeWrapping()
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+            }
+            .padding(.vertical, ForgeLayout.rowVerticalPadding)
+            .frame(minHeight: ForgeUX.minTap)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(label)
+        .accessibilityHint(line)
+        .accessibilityAddTraits(selected ? [.isButton, .isSelected] : .isButton)
+    }
+
+    /// A note: summary over its dateline, then Edit and Delete as 44 pt text
+    /// links set well apart. A long press offers the same two actions.
+    private func noteRow(_ fact: AriaKnowledgeFact, in folder: AriaKnowledgeCategory) -> some View {
+        VStack(alignment: .leading, spacing: ForgeLayout.pairGap) {
+            Text(fact.summary)
+                .font(HomeType.body)
+                .foregroundStyle(Color.textPrimary)
+                .forgeWrapping()
+            Text(dateline(fact))
+                .font(HomeType.micro)
+                .foregroundStyle(Color.textTertiary)
+                .lineLimit(2)
+            HStack(spacing: ForgeLayout.groupBreak) {
+                ForgeTextLink(title: "Edit", accent: .ember) {
+                    model.beginEdit(fact)
+                    showEditor = true
+                }
+                .accessibilityLabel(AriaMemoryAccess.editNoteLabel(
+                    folder: folder,
+                    summary: fact.summary
+                ))
+                .accessibilityAddTraits(.isButton)
+                ForgeTextLink(title: "Delete", accent: .danger) {
+                    confirmDeleteFact = fact
+                }
+                .accessibilityLabel(AriaMemoryAccess.deleteNoteLabel(
+                    folder: folder,
+                    summary: fact.summary
+                ))
+                .accessibilityAddTraits(.isButton)
+                Spacer(minLength: 0)
+            }
+            .padding(.top, ForgeLayout.pairGap)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .forgeWell()
+        .contextMenu {
+            Button {
+                model.beginEdit(fact)
+                showEditor = true
+            } label: {
+                Label("Edit", systemImage: "pencil")
+            }
+            Button(role: .destructive) {
+                confirmDeleteFact = fact
+            } label: {
+                Label("Delete", systemImage: "trash")
+            }
+        }
     }
 
     private var editorSheet: some View {
         NavigationStack {
-            VStack(alignment: .leading, spacing: FDS.Spacing.lg) {
-                Text("Kinds and days-until only. No calendar titles, people on the invite, or places.")
-                    .font(.system(size: 13))
-                    .foregroundColor(.textSecondary)
-                if model.editingID == nil {
-                    Picker(AriaMemoryAccess.folderPickerLabel, selection: $model.draftCategory) {
-                        ForEach(AriaKnowledgeCategory.managedCases, id: \.self) { folder in
-                            Text(folder.title).tag(folder)
+            ScrollView {
+                ForgeScreenStack(top: FDS.Spacing.lg) {
+                    Text("Kinds and days-until only. No calendar titles, people on the invite, or places.")
+                        .font(HomeType.body)
+                        .foregroundStyle(Color.textSecondary)
+                        .forgeWrapping()
+                    if model.editingID == nil {
+                        Picker(AriaMemoryAccess.folderPickerLabel, selection: $model.draftCategory) {
+                            ForEach(AriaKnowledgeCategory.managedCases, id: \.self) { folder in
+                                Text(folder.title).tag(folder)
+                            }
                         }
+                        .pickerStyle(.menu)
+                        .frame(minHeight: ForgeUX.minTap)
+                        .accessibilityLabel(AriaMemoryAccess.folderPickerLabel)
                     }
-                    .pickerStyle(.menu)
-                    .accessibilityLabel(AriaMemoryAccess.folderPickerLabel)
+                    TextField("A short note", text: $model.draftSummary, axis: .vertical)
+                        .font(HomeType.body)
+                        .foregroundStyle(Color.textPrimary)
+                        .lineLimit(3...8)
+                        .padding(FDS.Spacing.md)
+                        .forgeInsetTile(radius: FDS.Radius.md)
+                        .accessibilityLabel(AriaMemoryAccess.noteFieldLabel)
+                    if let addError = model.addError {
+                        Text(addError)
+                            .font(HomeType.body)
+                            .foregroundStyle(Color.danger)
+                            .forgeWrapping()
+                    }
                 }
-                TextField("A short note", text: $model.draftSummary, axis: .vertical)
-                    .lineLimit(3...8)
-                    .padding(FDS.Spacing.md)
-                    .forgeInsetTile(radius: FDS.Radius.md)
-                    .accessibilityLabel(AriaMemoryAccess.noteFieldLabel)
-                if let addError = model.addError {
-                    Text(addError)
-                        .font(.system(size: 13))
-                        .foregroundColor(.danger)
-                }
-                Spacer()
             }
-            .padding(FDS.Spacing.lg)
-            .background(Color.background.ignoresSafeArea())
+            .forgeScreenBackground(accent: .ember)
             .navigationTitle(model.editingID == nil ? "Add a note" : "Edit note")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {

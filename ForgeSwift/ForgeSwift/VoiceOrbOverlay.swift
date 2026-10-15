@@ -1,10 +1,10 @@
 import SwiftUI
 import ForgeCore
 
-/// Voice capture surface. Deliberately *non-modal*: it rises from the bottom
-/// over a light scrim so the conversation stays visible and the user never
-/// loses their place. The orb still gets a hero entrance and live amplitude —
-/// premium, but no longer the whole screen.
+/// Voice capture surface. Deliberately *non-modal* in feel: it rises from the
+/// bottom over a light scrim so the conversation stays visible and the user
+/// never loses their place. The orb animates only while ARIA listens or
+/// speaks, and sits still under Reduce Motion.
 struct VoiceOrbOverlay: View {
     @EnvironmentObject private var store: AppStore
     @ObservedObject var speech:  SpeechManager
@@ -14,189 +14,177 @@ struct VoiceOrbOverlay: View {
     let onCancel:     () -> Void
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
-
-    @State private var orbRevealed:    Bool   = false
-    @State private var contentOpacity: Double = 0
+    @ScaledMetric(relativeTo: .largeTitle) private var orbDiameter: CGFloat = 160
 
     private var accent: Color { orbAccent(speech.voiceState) }
 
-    var body: some View {
-        ZStack(alignment: .bottom) {
-            Color.black.opacity(0.52)
-                .ignoresSafeArea()
-                .contentShape(Rectangle())
-                .onTapGesture { onCancel() }
-                .accessibilityLabel("Dismiss voice input")
-                .accessibilityAddTraits(.isButton)
+    private var orbSize: CGFloat { ForgeLayout.scaledCap(orbDiameter, base: 160) }
 
-            VStack(spacing: 0) {
-                // Grab affordance
-                Capsule()
-                    .fill(Color.white.opacity(0.22))
-                    .frame(width: 38, height: 4)
-                    .padding(.top, FDS.Spacing.md)
-                    .padding(.bottom, FDS.Spacing.lg)
+    /// Listening or speaking are the only live states.
+    private var orbIsLive: Bool {
+        switch speech.voiceState {
+        case .listening, .speaking: return true
+        default: return false
+        }
+    }
 
-                ZStack {
-                    if !reduceMotion {
-                        RadialGradient(
-                            colors: [
-                                ForgePalette.amber.opacity(0.16),
-                                ForgePalette.ember.opacity(0.10),
-                                .clear
-                            ],
-                            center: .center, startRadius: 16, endRadius: 170
-                        )
-                        .frame(width: 340, height: 340)
-                        .blur(radius: 22)
-                        .animation(.easeInOut(duration: 1.1), value: speech.voiceState.label)
-                    }
+    private var hasTranscript: Bool {
+        !speech.recognizedText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    }
 
-                    AuroraOrbView(
-                        state:     speech.voiceState.orbState,
-                        amplitude: max(speech.amplitude, 0.35),
-                        mood:      mood,
-                        size:      160,
-                        followPresence: true
-                    )
-                        .scaleEffect(orbRevealed ? 1.0 : 0.7)
-                        .opacity(orbRevealed ? 1 : 0)
-                        .contentShape(Circle())
-                        .onTapGesture { handleOrbTap() }
-                        .accessibilityAddTraits(.isButton)
-                        .accessibilityHint(speech.voiceState.sublabel)
-                }
-                .frame(height: 176)
+    private var panelShape: UnevenRoundedRectangle {
+        UnevenRoundedRectangle(
+            topLeadingRadius: FDS.Radius.xxl,
+            bottomLeadingRadius: 0,
+            bottomTrailingRadius: 0,
+            topTrailingRadius: FDS.Radius.xxl,
+            style: .continuous
+        )
+    }
 
-                // State labels
-                VStack(spacing: FDS.Spacing.sm) {
-                    Text(speech.voiceState.label)
-                        .font(FDS.TypeScale.Dynamic.headline)
-                        .foregroundStyle(LinearGradient(
-                            colors: [accent, .white.opacity(0.85)],
-                            startPoint: .leading, endPoint: .trailing
-                        ))
-                        .shadow(color: accent.opacity(0.5), radius: 10)
-                        .id(speech.voiceState.label)
-                        .transition(.asymmetric(
-                            insertion: .opacity.combined(with: .offset(y: 6)),
-                            removal:   .opacity.combined(with: .offset(y: -6))
-                        ))
-                        .animation(FDS.Spring.standard, value: speech.voiceState.label)
+    // MARK: Pieces
 
-                    Text(speech.voiceState.sublabel)
-                        .font(FDS.TypeScale.Dynamic.caption)
-                        .foregroundColor(.white.opacity(0.5))
+    private var scrim: some View {
+        Color.black.opacity(0.52)
+            .ignoresSafeArea()
+            .contentShape(Rectangle())
+            .onTapGesture { onCancel() }
+            .accessibilityLabel("Dismiss voice input")
+            .accessibilityAddTraits(.isButton)
+    }
 
-                    if speech.authorizationDenied {
-                        Button {
-                            if let url = URL(string: UIApplication.openSettingsURLString) {
-                                UIApplication.shared.open(url)
-                            }
-                        } label: {
-                            HStack(spacing: FDS.Spacing.sm) {
-                                Image(systemName: "gear").font(.system(size: 14, weight: .semibold))
-                                Text("Open Settings").font(FDS.TypeScale.Dynamic.body.weight(.semibold))
-                            }
-                            .foregroundColor(.white)
-                            .padding(.horizontal, FDS.Spacing.xl).padding(.vertical, FDS.Spacing.md)
-                            .background(Capsule().fill(Color.white.opacity(0.14)))
-                            .overlay(Capsule().stroke(Color.white.opacity(0.2), lineWidth: 1))
-                        }
-                        .buttonStyle(ScaleButtonStyle())
-                        .padding(.top, FDS.Spacing.sm)
-                        .accessibilityLabel("Open Settings to allow microphone and speech access")
-                    }
-                }
-                .opacity(contentOpacity)
-                .padding(.top, FDS.Spacing.xs)
-
-                // Live transcript
-                if !speech.recognizedText.isEmpty {
-                    Text("\"\(speech.recognizedText)\"")
-                        .font(FDS.TypeScale.Dynamic.body)
-                        .foregroundColor(.white.opacity(0.82))
-                        .multilineTextAlignment(.center)
-                        .lineLimit(3)
-                        .padding(.horizontal, FDS.Spacing.xl)
-                        .padding(.top, FDS.Spacing.lg)
-                        .transition(.opacity.combined(with: .offset(y: 6)))
-                        .animation(FDS.Spring.standard, value: speech.recognizedText)
-                }
-
-                // Actions — cancel always reachable, send-now when there's text.
-                HStack(spacing: FDS.Spacing.md) {
-                    AriaSpokenMuteButton()
-
-                    Button(action: onCancel) {
-                        HStack(spacing: FDS.Spacing.sm) {
-                            Image(systemName: "xmark").font(.system(size: 14, weight: .semibold))
-                            Text("Cancel").font(FDS.TypeScale.Dynamic.body.weight(.semibold))
-                        }
-                        .foregroundColor(.white.opacity(0.82))
-                        .padding(.horizontal, FDS.Spacing.xl).padding(.vertical, FDS.Spacing.md)
-                        .background(Capsule().fill(Color.white.opacity(0.10)))
-                        .overlay(Capsule().stroke(Color.white.opacity(0.14), lineWidth: 1))
-                    }
-                    .buttonStyle(ScaleButtonStyle())
-                    .accessibilityLabel("Cancel voice input")
-
-                    if !speech.recognizedText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-                        Button { speech.stopListening(submit: true) } label: {
-                            HStack(spacing: FDS.Spacing.sm) {
-                                Image(systemName: "arrow.up").font(.system(size: 14, weight: .bold))
-                                Text("Send").font(FDS.TypeScale.Dynamic.body.weight(.semibold))
-                            }
-                            .foregroundColor(.white)
-                            .padding(.horizontal, FDS.Spacing.xl).padding(.vertical, FDS.Spacing.md)
-                            .background(Capsule().fill(
-                                LinearGradient(colors: [accent, accent.opacity(0.7)],
-                                               startPoint: .leading, endPoint: .trailing)
-                            ))
-                            .shadow(color: accent.opacity(0.35), radius: 12, y: 4)
-                        }
-                        .buttonStyle(ScaleButtonStyle())
-                        .transition(.scale.combined(with: .opacity))
-                        .accessibilityLabel("Send what I said")
-                    }
-                }
-                .opacity(contentOpacity)
-                .padding(.top, FDS.Spacing.xl)
-                .padding(.bottom, FDS.Spacing.xl)
-                .animation(FDS.Spring.snap, value: speech.recognizedText.isEmpty)
-            }
-            .frame(maxWidth: .infinity)
-            .background(
-                ZStack {
-                    Rectangle().fill(.ultraThinMaterial)
-                    Rectangle().fill(Color.background.opacity(0.55))
-                    LinearGradient(
-                        colors: [mood.accentColor.opacity(0.10), .clear],
-                        startPoint: .top, endPoint: .bottom
-                    )
+    private var grabber: some View {
+        Capsule()
+            .fill(Color.white.opacity(0.22))
+            .frame(width: 38, height: 4)
+            .frame(maxWidth: .infinity, minHeight: ForgeUX.minTap / 2)
+            .contentShape(Rectangle())
+            .gesture(
+                DragGesture(minimumDistance: 12).onEnded { value in
+                    if value.translation.height > 60 { onCancel() }
                 }
             )
-            .cornerRadius(28, corners: [.topLeft, .topRight])
-            .overlay(alignment: .top) {
-                LinearGradient(
-                    colors: [accent.opacity(0.45), .clear],
-                    startPoint: .leading, endPoint: .trailing
-                )
-                .frame(height: 1)
+            .accessibilityHidden(true)
+    }
+
+    private var orb: some View {
+        AuroraOrbView(
+            state:     speech.voiceState.orbState,
+            amplitude: max(speech.amplitude, 0.35),
+            mood:      mood,
+            size:      orbSize,
+            followPresence: true
+        )
+        .environment(\.forgeMinimalAnimation, reduceMotion || !orbIsLive)
+        .frame(height: orbSize + FDS.Spacing.lg)
+        .contentShape(Circle())
+        .onTapGesture { handleOrbTap() }
+        .accessibilityAddTraits(.isButton)
+        .accessibilityLabel(speech.voiceState.label)
+        .accessibilityHint(speech.voiceState.sublabel)
+    }
+
+    private var stateLabels: some View {
+        VStack(spacing: ForgeLayout.pairGap) {
+            Text(speech.voiceState.label)
+                .font(HomeType.cta)
+                .foregroundStyle(accent)
+                .multilineTextAlignment(.center)
+                .forgeWrapping()
+                .id(speech.voiceState.label)
+                .transition(.opacity)
+                .animation(reduceMotion ? nil : FDS.Spring.standard, value: speech.voiceState.label)
+
+            Text(speech.voiceState.sublabel)
+                .font(HomeType.body)
+                .foregroundStyle(Color.textSecondary)
+                .multilineTextAlignment(.center)
+                .forgeWrapping()
+
+            if speech.authorizationDenied {
+                ForgeSecondaryButton(title: "Open Settings", icon: "gearshape", accent: .textSecondary) {
+                    if let url = URL(string: UIApplication.openSettingsURLString) {
+                        UIApplication.shared.open(url)
+                    }
+                }
+                .padding(.top, ForgeLayout.tileGap)
+                .accessibilityLabel("Open Settings to allow microphone and speech access")
             }
-            .shadow(color: .black.opacity(0.4), radius: 24, y: -6)
-            .ignoresSafeArea(edges: .bottom)
-            .offset(y: orbRevealed ? 0 : 40)
+        }
+        .accessibilityElement(children: .contain)
+    }
+
+    @ViewBuilder
+    private var transcript: some View {
+        if !speech.recognizedText.isEmpty {
+            Text("\"\(speech.recognizedText)\"")
+                .font(HomeType.body)
+                .foregroundStyle(Color.textPrimary)
+                .multilineTextAlignment(.center)
+                .lineLimit(3)
+                .transition(.opacity)
+                .animation(reduceMotion ? nil : FDS.Spring.standard, value: speech.recognizedText)
+        }
+    }
+
+    /// Mute, Cancel and Send. Cancel is always reachable; Send appears once
+    /// there is text. Falls back to a stack when the row cannot fit.
+    @ViewBuilder
+    private var actionButtons: some View {
+        AriaSpokenMuteButton()
+
+        ForgeSecondaryButton(title: "Cancel", icon: "xmark", accent: .textSecondary, action: onCancel)
+            .accessibilityLabel("Cancel voice input")
+
+        if hasTranscript {
+            ForgePrimaryButton(title: "Send", icon: "arrow.up", accent: .ember) {
+                speech.stopListening(submit: true)
+            }
+            .accessibilityLabel("Send what I said")
+            .transition(.opacity)
+        }
+    }
+
+    private var actions: some View {
+        ViewThatFits(in: .horizontal) {
+            HStack(spacing: ForgeLayout.rowGap) { actionButtons }
+            VStack(spacing: ForgeLayout.tileGap) { actionButtons }
+        }
+        .animation(reduceMotion ? nil : FDS.Spring.snap, value: hasTranscript)
+    }
+
+    private var panel: some View {
+        VStack(spacing: ForgeLayout.blockGap) {
+            grabber
+            orb
+            stateLabels
+            transcript
+            actions
+        }
+        .padding(.horizontal, ForgeLayout.screenInset)
+        .padding(.bottom, ForgeLayout.sectionGap)
+        .frame(maxWidth: .infinity)
+        .background {
+            panelShape
+                .fill(Color.surfaceElevated)
+                .ignoresSafeArea(edges: .bottom)
+        }
+        .overlay {
+            panelShape.stroke(Color.white.opacity(0.08), lineWidth: ForgeUX.hairline)
+        }
+        .accessibilityElement(children: .contain)
+        .accessibilityAddTraits(.isModal)
+        .accessibilityAction(.escape) { onCancel() }
+    }
+
+    var body: some View {
+        ZStack(alignment: .bottom) {
+            scrim
+            panel
         }
         .onChange(of: speech.voiceState) { _, state in
             if case .idle = state, !speech.recognizedText.isEmpty {
                 onRecognized(speech.recognizedText)
-            }
-        }
-        .onAppear {
-            withAnimation(reduceMotion ? .easeOut(duration: 0.2) : FDS.Spring.fluid) {
-                orbRevealed = true
-                contentOpacity = 1
             }
         }
     }
@@ -223,13 +211,15 @@ struct VoiceOrbOverlay: View {
         }
     }
 
+    /// ARIA accents come from the shared tokens: aurora at rest, ember while
+    /// listening or speaking, steel while thinking.
     private func orbAccent(_ state: VoiceState) -> Color {
         switch state {
-        case .idle:       return ForgePalette.teal
-        case .listening:  return ForgePalette.ember
-        case .processing: return ForgePalette.steel
-        case .speaking:   return ForgePalette.emberLight
-        case .error:      return ForgePalette.danger
+        case .idle:       return .aurora
+        case .listening:  return .ember
+        case .processing: return .steel
+        case .speaking:   return .ember
+        case .error:      return .danger
         }
     }
 }

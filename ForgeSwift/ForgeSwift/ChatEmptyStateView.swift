@@ -6,7 +6,7 @@ struct ChatEmptyStateView: View {
     let onQuickActionTap: (String) -> Void
     var onVoiceTap: (() -> Void)? = nil
     @EnvironmentObject var store: AppStore
-    @State private var appeared  = false
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     // Greeting message varies by mood
     private var greeting: String {
@@ -31,39 +31,37 @@ struct ChatEmptyStateView: View {
         }
     }
 
+    private var prompts: [(title: String, icon: String)] {[
+        ("Who are you?", "sparkles"),
+        ("How did I sleep?", "moon.fill"),
+        ("What should I train?", "figure.strengthtraining.traditional"),
+        ("How do I show up?", "heart.fill"),
+    ]}
+
     var body: some View {
-        VStack(spacing: 0) {
-            Spacer(minLength: 36)
+        VStack(spacing: ForgeLayout.sectionGap) {
+            heroBlock
 
-            ZStack {
-                Circle()
-                    .fill(
-                        RadialGradient(
-                            colors: [
-                                ForgePalette.ember.opacity(0.08),
-                                ForgePalette.teal.opacity(0.03),
-                                .clear
-                            ],
-                            center: .center, startRadius: 8, endRadius: 120
-                        )
-                    )
-                    .frame(width: 240, height: 240)
-                    .blur(radius: 28)
-
-                AuroraOrbView(
-                    state: .idle,
-                    amplitude: 0.32,
-                    mood: mood,
-                    size: 148,
-                    followPresence: true
-                )
+            if let onVoiceTap {
+                ForgePrimaryButton(title: "Talk to ARIA", icon: "waveform") {
+                    onVoiceTap()
+                }
             }
-            .scaleEffect(appeared ? 1 : 0.72)
-            .opacity(appeared ? 1 : 0)
-            .animation(FDS.Spring.fluid.delay(0.06), value: appeared)
-            .padding(.bottom, FDS.Spacing.xl)
 
-            VStack(spacing: FDS.Spacing.md) {
+            promptsCard
+        }
+        .padding(.horizontal, ForgeLayout.screenInset)
+        .padding(.top, FDS.Spacing.lg)
+        .padding(.bottom, ForgeLayout.scrollBottomClearance)
+        .frame(maxWidth: .infinity)
+    }
+
+    // MARK: Hero
+
+    private var heroBlock: some View {
+        VStack(spacing: ForgeLayout.blockGap) {
+            orb
+            VStack(spacing: ForgeLayout.rowGap) {
                 Text(greeting)
                     .font(ForgeType.pageTitle)
                     .foregroundStyle(
@@ -75,120 +73,82 @@ struct ChatEmptyStateView: View {
                     )
                     .multilineTextAlignment(.center)
                     .lineSpacing(3)
-                    .minimumScaleFactor(0.85)
+                    .forgeWrapping()
+                    .accessibilityAddTraits(.isHeader)
 
                 Text(subtext)
-                    .font(FDS.TypeScale.Dynamic.body)
-                    .foregroundColor(.textSecondary)
+                    .font(HomeType.body)
+                    .foregroundStyle(Color.textSecondary)
                     .multilineTextAlignment(.center)
                     .lineSpacing(4)
+                    .forgeWrapping()
             }
-            .opacity(appeared ? 1 : 0)
-            .offset(y: appeared ? 0 : 14)
-            .animation(FDS.Spring.fluid.delay(0.18), value: appeared)
-            .padding(.horizontal, FDS.Spacing.lg)
-            .padding(.bottom, FDS.Spacing.lg)
-
-            if let onVoiceTap {
-                Button(action: onVoiceTap) {
-                    HStack(spacing: FDS.Spacing.sm) {
-                        Image(systemName: "waveform")
-                            .font(.system(size: 13, weight: .semibold))
-                        Text("I'm listening")
-                            .font(FDS.TypeScale.Dynamic.body.weight(.semibold))
-                    }
-                    .foregroundColor(.white)
-                    .padding(.horizontal, FDS.Spacing.lg)
-                    .padding(.vertical, FDS.Spacing.md)
-                    .background(
-                        Capsule()
-                            .fill(Color.white.opacity(0.06))
-                            .overlay(
-                                Capsule().stroke(
-                                    LinearGradient(
-                                        colors: [Color.ember.opacity(0.7), Color(hex: "7B61FF").opacity(0.35)],
-                                        startPoint: .leading,
-                                        endPoint: .trailing
-                                    ),
-                                    lineWidth: 1
-                                )
-                            )
-                    )
-                    .shadow(color: Color.ember.opacity(0.28), radius: 14, y: 4)
-                }
-                .buttonStyle(ScaleButtonStyle())
-                .accessibilityLabel("Talk to ARIA")
-                .opacity(appeared ? 1 : 0)
-                .offset(y: appeared ? 0 : 10)
-                .animation(FDS.Spring.hero.delay(0.22), value: appeared)
-                .padding(.bottom, FDS.Spacing.xl)
-            } else {
-                Color.clear.frame(height: 16)
-            }
-
-            // Smart suggested prompts
-            VStack(alignment: .leading, spacing: FDS.Spacing.md) {
-                HStack {
-                    Text("OR BEGIN HERE")
-                        .forgeSectionLabel()
-                    Spacer()
-                    Text(mood.displayName.lowercased())
-                        .font(FDS.TypeScale.Dynamic.micro)
-                        .foregroundColor(mood.accentColor.opacity(0.85))
-                }
-                .padding(.horizontal, FDS.Spacing.xs)
-
-                let prompts: [(String, String)] = [
-                    ("Who are you?", "sparkles"),
-                    ("How did I sleep?", "moon.fill"),
-                    ("What should I train?", "figure.strengthtraining.traditional"),
-                    ("How do I show up?", "heart.fill"),
-                ]
-
-                ForEach(Array(prompts.enumerated()), id: \.offset) { i, prompt in
-                    Button { onQuickActionTap(prompt.0) } label: {
-                        HStack(spacing: FDS.Spacing.lg) {
-                            ZStack {
-                                Circle()
-                                    .fill(
-                                        LinearGradient(
-                                            colors: [
-                                                mood.accentColor.opacity(0.28),
-                                                mood.accentColor.opacity(0.10)
-                                            ],
-                                            startPoint: .top,
-                                            endPoint: .bottom
-                                        )
-                                    )
-                                    .frame(width: 34, height: 34)
-                                Image(systemName: prompt.1)
-                                    .font(.system(size: 13, weight: .semibold))
-                                    .foregroundColor(mood.accentColor)
-                            }
-                            Text(prompt.0)
-                                .font(FDS.TypeScale.Dynamic.body)
-                                .foregroundColor(.textPrimary)
-                            Spacer()
-                            Image(systemName: "arrow.right")
-                                .font(.system(size: 11, weight: .semibold))
-                                .foregroundColor(.textMuted)
-                        }
-                        .padding(.horizontal, FDS.Spacing.lg)
-                        .padding(.vertical, FDS.Spacing.lg)
-                        .forgeInnerWell(cornerRadius: FDS.Radius.lg)
-                    }
-                    .buttonStyle(ScaleButtonStyle())
-                    .opacity(appeared ? 1 : 0)
-                    .offset(y: appeared ? 0 : 18)
-                    .animation(FDS.Spring.hero.delay(0.28 + Double(i) * 0.07), value: appeared)
-                }
-            }
-            .padding(.horizontal, FDS.Spacing.lg)
-
-            Spacer(minLength: 36)
         }
-        .onAppear {
-            appeared = true
+        .frame(maxWidth: .infinity)
+    }
+
+    /// 112 pt orb. The glow lives in the background, so it takes no layout space.
+    private var orb: some View {
+        AuroraOrbView(
+            state: .idle,
+            amplitude: 0.32,
+            mood: mood,
+            size: 112,
+            followPresence: true
+        )
+        .environment(\.forgeMinimalAnimation, reduceMotion)
+        .background { orbGlow }
+        .accessibilityHidden(true)
+    }
+
+    private var orbGlow: some View {
+        Circle()
+            .fill(
+                RadialGradient(
+                    colors: [
+                        Color.ember.opacity(0.08),
+                        Color.aurora.opacity(0.03),
+                        .clear
+                    ],
+                    center: .center, startRadius: 8, endRadius: 100
+                )
+            )
+            .frame(width: 200, height: 200)
+            .blur(radius: 24)
+    }
+
+    // MARK: Prompts
+
+    private var promptsCard: some View {
+        VStack(alignment: .leading, spacing: ForgeLayout.blockGap) {
+            ForgeCardHeader(title: "OR BEGIN HERE") {
+                Text(mood.displayName.lowercased())
+                    .font(HomeType.micro)
+                    .foregroundStyle(mood.accentColor)
+                    .lineLimit(1)
+            }
+
+            VStack(spacing: ForgeLayout.rowGap) {
+                ForEach(Array(prompts.enumerated()), id: \.offset) { _, prompt in
+                    promptRow(prompt)
+                }
+            }
         }
+        .forgeContentCard()
+    }
+
+    private func promptRow(_ prompt: (title: String, icon: String)) -> some View {
+        Button {
+            FDS.haptic(.press)
+            onQuickActionTap(prompt.title)
+        } label: {
+            ForgeListRow(
+                icon: prompt.icon,
+                iconColor: mood.accentColor,
+                title: prompt.title,
+                showChevron: true
+            )
+        }
+        .buttonStyle(ForgePressStyle())
     }
 }

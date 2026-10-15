@@ -475,9 +475,9 @@ extension AppStore {
     
     /// Get recommended intensity for today
     var recommendedIntensity: WorkoutIntensity {
-        if readiness.overall >= 80 {
+        if readiness.overall >= AriaPlanEngine.peakFloor {
             return .high
-        } else if readiness.overall >= 65 {
+        } else if readiness.overall >= AriaPlanEngine.solidFloor {
             return .moderate
         } else {
             return .low
