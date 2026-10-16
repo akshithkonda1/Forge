@@ -84,8 +84,6 @@ struct CelebrationOverlay: View {
 
 struct VoiceQuickLaunchOrb: View {
     @EnvironmentObject var store: AppStore
-    @State private var pulse = false
-    @State private var outerPulse = false
     @State private var pressed = false
     @State private var appeared = false
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
@@ -106,7 +104,7 @@ struct VoiceQuickLaunchOrb: View {
                     .font(.system(size: 16, weight: .semibold))
                     .foregroundStyle(.white)
             }
-            .scaleEffect(pressed ? 0.92 : (appeared ? 1.0 : 0.6))
+            .scaleEffect(pressed ? 0.94 : (appeared ? 1.0 : 0.9))
             .opacity(appeared ? 1 : 0)
             .animation(FDS.Spring.snap, value: pressed)
         }
@@ -118,10 +116,8 @@ struct VoiceQuickLaunchOrb: View {
                 .onEnded { _ in pressed = false }
         )
         .onAppear {
-            withAnimation(FDS.Spring.floaty.delay(0.7)) { appeared = true }
-            guard !reduceMotion else { return }
-            withAnimation(.easeOut(duration: 2.2).repeatForever(autoreverses: false)) { outerPulse = true }
-            withAnimation(.easeInOut(duration: FDS.Duration.breathe).repeatForever(autoreverses: true)) { pulse = true }
+            // One entrance, then still. No idle pulse.
+            withAnimation(reduceMotion ? .easeOut(duration: 0.2) : FDS.Spring.snap.delay(0.4)) { appeared = true }
         }
     }
 }
