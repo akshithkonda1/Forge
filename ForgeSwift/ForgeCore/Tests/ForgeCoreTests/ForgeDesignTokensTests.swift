@@ -139,8 +139,9 @@ final class ForgeDesignTokensTests: XCTestCase {
         }
         XCTAssertTrue(ForgeDesignTokens.TypeRole.metric.tabular)
         XCTAssertFalse(ForgeDesignTokens.TypeRole.body.tabular)
-        XCTAssertEqual(file.type.displayFamily, "system-rounded")
-        XCTAssertEqual(file.type.metricFamily, "system-rounded-tabular")
+        XCTAssertEqual(file.type.displayFamily, ForgeDesignTokens.displayFamily)
+        XCTAssertEqual(file.type.bodyFamily, ForgeDesignTokens.bodyFamily)
+        XCTAssertEqual(file.type.metricFamily, ForgeDesignTokens.metricFamily)
     }
 
     func testMotionIsEventOnly() throws {

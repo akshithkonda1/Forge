@@ -33,6 +33,7 @@ let package = Package(
                 "DesignSystem/AriaRingFieldGeometry.swift",
                 "DesignSystem/ForgeDesignTokens.swift",
                 "DesignSystem/ForgeDS.swift",
+                "DesignSystem/ForgeFont.swift",
                 "DesignSystem/ForgePalette.swift",
                 "DesignSystem/StandByNestFaceView.swift",
                 "HealthKit/HealthKitQueryHelpers.swift",
@@ -140,6 +141,10 @@ let package = Package(
                 "Utils/HomeWidgetSleepDisplay.swift",
                 "Utils/PartnerSupportGlance.swift",
                 "Cloud/ForgeCloudContracts.swift",
+            ],
+            // Geist + Instrument Serif (SIL OFL 1.1), registered by ForgeFont.
+            resources: [
+                .process("Resources/Fonts"),
             ]
         ),
         .testTarget(

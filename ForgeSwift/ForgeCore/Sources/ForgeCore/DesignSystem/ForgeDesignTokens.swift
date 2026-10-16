@@ -147,9 +147,10 @@ public enum ForgeDesignTokens: Sendable {
         }
     }
 
-    public static let displayFamily = "system-rounded"
-    public static let bodyFamily = "system"
-    public static let metricFamily = "system-rounded-tabular"
+    /// Bundled faces — see `ForgeFont` (both SIL OFL 1.1).
+    public static let displayFamily = "instrument-serif"
+    public static let bodyFamily = "geist"
+    public static let metricFamily = "geist-tabular"
     public static let eyebrowTracking: Double = 1.4
 
     public enum Motion {

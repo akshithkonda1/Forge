@@ -326,7 +326,7 @@ struct HomeDayPreviewStrip: View {
                     .forgeSectionLabel()
                 Spacer()
                 Button("Sleep") { store.activeTab = .sleep }
-                    .font(.system(size: 12, weight: .medium))
+                    .font(ForgeFont.sans(12, weight: .medium))
                     .foregroundColor(.ember)
             }
 

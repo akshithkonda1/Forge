@@ -221,7 +221,7 @@ struct AuthSignUpFlowView: View {
                 VStack(alignment: .leading, spacing: ForgeLayout.rowGap) {
                     // Quiet trust cues — no vanity Day-0 stats strip
                     Text("About 90 seconds · Private by design")
-                        .font(.footnote)
+                        .font(ForgeFont.sans(.footnote))
                         .foregroundColor(.textTertiary)
 
                     primaryButton(
@@ -464,7 +464,7 @@ struct AuthSignUpFlowView: View {
             }
 
             Text("Apple and Google sign-up will appear here when connected for this build.")
-                .font(.footnote)
+                .font(ForgeFont.sans(.footnote))
                 .foregroundColor(.textTertiary)
                 .multilineTextAlignment(.center)
                 .forgeWrapping()
@@ -518,7 +518,7 @@ struct AuthSignUpFlowView: View {
 
     private var legalNote: some View {
         Text("By continuing you get lifestyle and fitness coaching, not medical care. ARIA is not a doctor. For emergencies, call 911.")
-            .font(.footnote)
+            .font(ForgeFont.sans(.footnote))
             .foregroundColor(.textTertiary)
             .multilineTextAlignment(.center)
             .forgeWrapping()
@@ -656,7 +656,7 @@ struct AuthSignUpFlowView: View {
                     .autocorrectionDisabled()
             }
         }
-        .font(.body)
+        .font(ForgeFont.sans(.body))
         .foregroundColor(.textPrimary)
         .padding(.horizontal, ForgeLayout.compactCardPadding)
         .padding(.vertical, ForgeLayout.tilePadding)

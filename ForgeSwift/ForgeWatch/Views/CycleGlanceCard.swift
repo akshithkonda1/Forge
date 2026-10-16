@@ -34,18 +34,18 @@ struct CycleGlanceCard: View {
                         .font(.system(size: 12))
                         .foregroundStyle(ForgePalette.violet)
                     Text(phase)
-                        .font(.system(size: 12.5, weight: .semibold, design: .rounded))
+                        .font(ForgeFont.sans(12.5, weight: .semibold))
                         .foregroundStyle(ForgePalette.textPrimary)
                     Spacer(minLength: 0)
                     if let day = snapshot?.cycleDayInCycle {
                         Text("Day \(day)")
-                            .font(.system(size: 11))
+                            .font(ForgeFont.sans(11))
                             .foregroundStyle(ForgePalette.textSecondary)
                     }
                 }
                 if let line = supportingLine {
                     Text(line)
-                        .font(.system(size: 10.5))
+                        .font(ForgeFont.sans(10.5))
                         .foregroundStyle(ForgePalette.textTertiary)
                         .fixedSize(horizontal: false, vertical: true)
                 }
@@ -54,7 +54,7 @@ struct CycleGlanceCard: View {
                 // instead of implying the watch itself just checked.
                 if let updated = snapshot?.updatedAt {
                     Label("Synced \(updated.formatted(.relative(presentation: .named)))", systemImage: "arrow.triangle.2.circlepath")
-                        .font(.system(size: 9.5))
+                        .font(ForgeFont.sans(9.5))
                         .foregroundStyle(ForgePalette.textTertiary)
                 }
             }

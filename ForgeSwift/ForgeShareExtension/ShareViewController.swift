@@ -251,15 +251,15 @@ struct ShareRootView: View {
     private var review: some View {
         VStack(alignment: .leading, spacing: ForgeDS.Spacing.md) {
             Text("Forge read this conversation on this iPhone and found:")
-                .font(.system(size: 14))
+                .font(ForgeFont.sans(14))
                 .foregroundColor(ForgePalette.textSecondary)
             ForEach(model.facts) { fact in
                 VStack(alignment: .leading, spacing: 3) {
                     Text(fact.summary)
-                        .font(.system(size: 15, weight: .medium))
+                        .font(ForgeFont.sans(15, weight: .medium))
                         .foregroundColor(ForgePalette.textPrimary)
                     Text("\(fact.kind.displayName) · \(fact.confidenceBand.rawValue.capitalized) confidence")
-                        .font(.system(size: 12))
+                        .font(ForgeFont.sans(12))
                         .foregroundColor(ForgePalette.textTertiary)
                 }
                 .padding(ForgeDS.Spacing.md)
@@ -273,7 +273,7 @@ struct ShareRootView: View {
             Text(model.canRemember
                  ? "Only these short facts are kept — never the messages. They're encrypted for Forge and stay on this iPhone."
                  : "\"Remember life context\" is off in Forge, so nothing will be kept. Turn it on in Forge → Settings → Life Context.")
-                .font(.system(size: 12))
+                .font(ForgeFont.sans(12))
                 .foregroundColor(ForgePalette.textTertiary)
                 .fixedSize(horizontal: false, vertical: true)
             if model.canRemember {
@@ -281,7 +281,7 @@ struct ShareRootView: View {
                     model.remember()
                 } label: {
                     Text("Remember")
-                        .font(.system(size: 16, weight: .semibold))
+                        .font(ForgeFont.sans(16, weight: .semibold))
                         .foregroundColor(.white)
                         .frame(maxWidth: .infinity)
                         .frame(height: 48)
@@ -297,7 +297,7 @@ struct ShareRootView: View {
                 finish()
             } label: {
                 Text(model.canRemember ? "Discard" : "Done")
-                    .font(.system(size: 16, weight: .semibold))
+                    .font(ForgeFont.sans(16, weight: .semibold))
                     .foregroundColor(ForgePalette.textPrimary)
                     .frame(maxWidth: .infinity)
                     .frame(height: 48)
@@ -315,7 +315,7 @@ struct ShareRootView: View {
             finish()
         } label: {
             Text("Done")
-                .font(.system(size: 16, weight: .semibold))
+                .font(ForgeFont.sans(16, weight: .semibold))
                 .foregroundColor(.white)
                 .frame(maxWidth: .infinity)
                 .frame(height: 48)
@@ -330,11 +330,11 @@ struct ShareRootView: View {
     private func note(_ title: String, _ detail: String) -> some View {
         VStack(alignment: .leading, spacing: ForgeDS.Spacing.sm) {
             Text(title)
-                .font(.system(size: 18, weight: .semibold))
+                .font(ForgeFont.sans(18, weight: .semibold))
                 .foregroundColor(ForgePalette.textPrimary)
                 .accessibilityAddTraits(.isHeader)
             Text(detail)
-                .font(.system(size: 14))
+                .font(ForgeFont.sans(14))
                 .foregroundColor(ForgePalette.textSecondary)
                 .fixedSize(horizontal: false, vertical: true)
         }

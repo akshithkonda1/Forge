@@ -73,7 +73,7 @@ private struct SupportComplicationView: View {
                     .foregroundStyle(tint)
                     .widgetAccentable()
                 Text(glance?.circularLabel ?? "—")
-                    .font(.system(size: 12, weight: .bold, design: .rounded))
+                    .font(ForgeFont.sans(12, weight: .bold))
             }
         }
         .accessibilityLabel(accessibilityText)
@@ -98,11 +98,11 @@ private struct SupportComplicationView: View {
                     .foregroundStyle(tint)
                     .widgetAccentable()
                 Text(glance.map { $0.firstName.isEmpty ? "Support today" : $0.firstName } ?? "Support")
-                    .font(.system(size: 13, weight: .semibold, design: .rounded))
+                    .font(ForgeFont.sans(13, weight: .semibold))
                     .widgetAccentable()
             }
             Text(glance?.lockScreenLine ?? "Open Forge after they invite you.")
-                .font(.system(size: 11))
+                .font(ForgeFont.sans(11))
                 .foregroundStyle(.secondary)
                 .lineLimit(2)
         }

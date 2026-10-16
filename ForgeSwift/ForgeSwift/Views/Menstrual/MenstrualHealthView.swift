@@ -2100,7 +2100,7 @@ struct MenstrualHealthView: View {
                     }
                     if !editBBT.isEmpty {
                         Button("Clear temperature", role: .destructive) { editBBT = "" }
-                            .font(.footnote)
+                            .font(ForgeFont.sans(.footnote))
                     }
                 }
                 // `painScale` existed on the model with an endometriosis comment but had

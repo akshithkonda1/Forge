@@ -1,4 +1,5 @@
 import SwiftUI
+import ForgeCore
 import UIKit
 import Combine
 
@@ -126,7 +127,7 @@ struct ProfileAvatarView: View {
                     .fill(LinearGradient.emberGradient)
                     .frame(width: size, height: size)
                 Text(initials.isEmpty ? "?" : initials)
-                    .font(.system(size: size * 0.37, weight: .bold, design: .rounded))
+                    .font(ForgeFont.sans(size * 0.37, weight: .bold))
                     .foregroundColor(.white)
             }
 

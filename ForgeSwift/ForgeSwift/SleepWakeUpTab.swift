@@ -180,11 +180,7 @@ struct SleepWakeScreen: View {
         ZStack {
             SleepWakeHudRing(progress: progress)
             Text(date.formatted(date: .omitted, time: .shortened))
-                .font(.system(
-                    size: ForgeLayout.scaledCap(clockSize, base: 48, maxGrowth: 1.3),
-                    weight: .semibold,
-                    design: .rounded
-                ))
+                .font(ForgeFont.sans(ForgeLayout.scaledCap(clockSize, base: 48, maxGrowth: 1.3), weight: .semibold))
                 .foregroundColor(.white)
                 .monospacedDigit()
                 .hudInArcText()

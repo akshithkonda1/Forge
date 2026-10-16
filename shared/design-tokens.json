@@ -2,7 +2,7 @@
   "kind": "forge-design-tokens",
   "surface": "all-clients",
   "mixLock": "home-is-source",
-  "notes": "One token source for iOS, watch/widgets, and web. Home (PR #444) is the look: existing palette, type, and ring language — solid geometry, event-only glow, Peak/Good/Fair/Low. Nest brand stays procedural. Do not invent fonts. Miss/rest states use steel (missHex), never alert red.",
+  "notes": "One token source for iOS, watch/widgets, and web. Home (PR #444) is the look: existing palette, type, and ring language — solid geometry, event-only glow, Peak/Good/Fair/Low. Nest brand stays procedural. Fonts are the bundled Geist (UI, tabular metrics) and Instrument Serif (display), both SIL OFL 1.1; do not add others. Miss/rest states use steel (missHex), never alert red.",
   "color": {
     "background": "08080C",
     "surface": "101014",
@@ -63,9 +63,9 @@
     "glowOpacity": 0.16
   },
   "type": {
-    "displayFamily": "system-rounded",
-    "bodyFamily": "system",
-    "metricFamily": "system-rounded-tabular",
+    "displayFamily": "instrument-serif",
+    "bodyFamily": "geist",
+    "metricFamily": "geist-tabular",
     "roles": {
       "display": {
         "textStyle": "title2",

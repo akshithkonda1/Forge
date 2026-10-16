@@ -513,7 +513,7 @@ struct ActiveWorkoutView: View {
     /// The in-session numeral exception: 58 pt rounded bold, one line, shrinks before it wraps.
     private func heroNumeral(_ text: String) -> some View {
         Text(text)
-            .font(.system(size: 58, weight: .bold, design: .rounded))
+            .font(ForgeFont.sans(58, weight: .bold))
             .monospacedDigit()
             .foregroundStyle(Color.textPrimary)
             .lineLimit(1)

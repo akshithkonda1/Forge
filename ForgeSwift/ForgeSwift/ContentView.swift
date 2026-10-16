@@ -339,7 +339,7 @@ private struct ShellCoverCloseButton: View {
 /// tab-bar exception, with the Large Content Viewer standing in for scaling),
 /// one inactive color, ember selection with no glow.
 private enum ShellTabStyle {
-    static let labelFont = Font.system(size: 10, weight: .semibold, design: .rounded)
+    static let labelFont = ForgeFont.sans(10, weight: .semibold)
     static let labelTracking: CGFloat = 0.2
     static let rowHeight: CGFloat = 48
     static let iconSlotHeight: CGFloat = 26

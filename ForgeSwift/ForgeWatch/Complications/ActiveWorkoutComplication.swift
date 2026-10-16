@@ -60,7 +60,7 @@ private struct ActiveWorkoutComplicationView: View {
                         .foregroundStyle(tint)
                         .widgetAccentable()
                     Text(workout.elapsedLabel)
-                        .font(.system(size: 11, weight: .bold, design: .rounded))
+                        .font(ForgeFont.sans(11, weight: .bold))
                         .monospacedDigit()
                 }
             } else {
@@ -100,23 +100,23 @@ private struct ActiveWorkoutComplicationView: View {
                         .foregroundStyle(tint)
                         .widgetAccentable()
                     Text("\(workout.workoutType.displayName) · \(workout.elapsedLabel)")
-                        .font(.system(size: 13, weight: .semibold, design: .rounded))
+                        .font(ForgeFont.sans(13, weight: .semibold))
                         .monospacedDigit()
                 }
                 HStack(spacing: 6) {
                     if let bpm = workout.heartRate {
                         Label("\(Int(bpm))", systemImage: "heart.fill")
-                            .font(.system(size: 11))
+                            .font(ForgeFont.sans(11))
                             .foregroundStyle(.secondary)
                     }
                     if let zoneNumber = workout.zoneNumber {
                         Text(ForgeHRZones.zone(number: zoneNumber).label)
-                            .font(.system(size: 11, weight: .medium))
+                            .font(ForgeFont.sans(11, weight: .medium))
                             .foregroundStyle(ForgeHRZones.zone(number: zoneNumber).color)
                     }
                     if let exercise = workout.currentExerciseName {
                         Text(exercise)
-                            .font(.system(size: 11))
+                            .font(ForgeFont.sans(11))
                             .foregroundStyle(.secondary)
                             .lineLimit(1)
                     }
@@ -127,10 +127,10 @@ private struct ActiveWorkoutComplicationView: View {
                         .font(.system(size: 12, weight: .semibold))
                         .foregroundStyle(ForgePalette.textSecondary)
                     Text("No session running")
-                        .font(.system(size: 13, weight: .semibold, design: .rounded))
+                        .font(ForgeFont.sans(13, weight: .semibold))
                 }
                 Text("One tap starts the workout that fits today.")
-                    .font(.system(size: 11))
+                    .font(ForgeFont.sans(11))
                     .foregroundStyle(.secondary)
             }
         }

@@ -243,10 +243,10 @@ struct HomeSupportPulseCard: View {
                     Text(cycleStore.consentedPeople.count > 1 ? "SUPPORTING \(cycleStore.consentedPeople.count)" : "SUPPORTING")
                         .forgeSectionLabel()
                     Text("\(pulsePerson?.displayName ?? cycleStore.partnerSettings.displayName) · \(pulseSnapshot.phase.shortLabel)")
-                        .font(FDS.TypeScale.Dynamic.body.weight(.semibold))
+                        .font(ForgeType.bodyStrong)
                         .foregroundColor(.textPrimary)
                     Text(pulseBriefLine)
-                        .font(.system(size: 12))
+                        .font(ForgeFont.sans(12))
                         .foregroundColor(.textTertiary)
                         .lineLimit(1)
                 }

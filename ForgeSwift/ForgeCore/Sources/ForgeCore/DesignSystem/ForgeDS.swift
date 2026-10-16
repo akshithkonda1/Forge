@@ -73,19 +73,32 @@ public enum ForgeDS {
 // MARK: - Named type scale
 //
 // One system: display / title / headline / body / caption / metric.
-// Phone uses Dynamic Type. Watch / widgets use Compact (same names).
-// Metrics always use tabular / monospaced digits.
+// Faces live in `ForgeFont` (Geist for UI + numbers, Instrument Serif for
+// display). Phone roles scale with Dynamic Type via `relativeTo:`.
+// Watch / widgets use Compact (same names, fixed sizes).
+// Metrics always use Geist's tabular figures (`monospacedDigit`).
 
 public enum ForgeType {
-    public static let display = Font.system(.title2, design: .rounded).weight(.semibold)
-    public static let title = Font.system(.title3, design: .rounded).weight(.semibold)
-    public static let headline = Font.system(.headline, design: .rounded).weight(.semibold)
-    public static let body = Font.subheadline
-    public static let caption = Font.system(.caption, design: .rounded).weight(.semibold)
-    public static let metric = Font.system(.title3, design: .rounded).weight(.bold).monospacedDigit()
-    public static let pageTitle = Font.system(.title, design: .rounded).weight(.semibold)
-    public static let heroScore = Font.system(.largeTitle, design: .rounded).weight(.bold).monospacedDigit()
-    public static let micro = Font.system(.caption2, design: .rounded).weight(.semibold)
+    /// Editorial display — greeting, hero headlines. Serif.
+    public static let display = ForgeFont.serif(30, relativeTo: .title2)
+    public static let title = ForgeFont.sans(20, weight: .semibold, relativeTo: .title3)
+    public static let headline = ForgeFont.sans(17, weight: .semibold, relativeTo: .headline)
+    public static let body = ForgeFont.sans(15, weight: .regular, relativeTo: .subheadline)
+    /// Body with emphasis — replaces `body.weight(.medium)` (static faces).
+    public static let bodyMedium = ForgeFont.sans(15, weight: .medium, relativeTo: .subheadline)
+    public static let bodyStrong = ForgeFont.sans(15, weight: .semibold, relativeTo: .subheadline)
+    public static let caption = ForgeFont.sans(12, weight: .medium, relativeTo: .caption)
+    public static let metric = ForgeFont.sans(20, weight: .semibold, relativeTo: .title3).monospacedDigit()
+    /// Screen titles. Serif, large, quiet.
+    public static let pageTitle = ForgeFont.serif(36, relativeTo: .title)
+    /// The one number a screen is about (readiness, sleep score). Light
+    /// weight at size — confident without shouting.
+    public static let heroScore = ForgeFont.sans(40, weight: .light, relativeTo: .largeTitle).monospacedDigit()
+    public static let micro = ForgeFont.sans(11, weight: .medium, relativeTo: .caption2)
+    /// Uppercase section eyebrows (pair with `eyebrowTracking`).
+    public static let eyebrow = ForgeFont.sans(11, weight: .semibold, relativeTo: .caption2)
+    /// ARIA's voice line — what the coach says, set as text, not an orb.
+    public static let ariaVoice = ForgeFont.serif(24, relativeTo: .title3)
 
     public static func tracking(_ role: ForgeDesignTokens.TypeRole) -> CGFloat {
         CGFloat(role.tracking)
@@ -96,53 +109,55 @@ public enum ForgeType {
     }
 
     /// Watch / widget / complication sizes — same role names, smaller canvas.
+    /// All sans: the serif is too delicate at wrist sizes.
     public enum Compact {
-        public static let display = Font.system(
-            size: CGFloat(ForgeDesignTokens.TypeRole.display.compactSize),
-            weight: .semibold,
-            design: .rounded
+        public static let display = ForgeFont.sans(
+            CGFloat(ForgeDesignTokens.TypeRole.display.compactSize),
+            weight: .semibold
         )
-        public static let title = Font.system(
-            size: CGFloat(ForgeDesignTokens.TypeRole.title.compactSize),
-            weight: .semibold,
-            design: .rounded
+        public static let title = ForgeFont.sans(
+            CGFloat(ForgeDesignTokens.TypeRole.title.compactSize),
+            weight: .semibold
         )
-        public static let headline = Font.system(
-            size: CGFloat(ForgeDesignTokens.TypeRole.headline.compactSize),
-            weight: .semibold,
-            design: .rounded
+        public static let headline = ForgeFont.sans(
+            CGFloat(ForgeDesignTokens.TypeRole.headline.compactSize),
+            weight: .semibold
         )
-        public static let body = Font.system(
-            size: CGFloat(ForgeDesignTokens.TypeRole.body.compactSize),
+        public static let body = ForgeFont.sans(
+            CGFloat(ForgeDesignTokens.TypeRole.body.compactSize),
             weight: .regular
         )
-        public static let caption = Font.system(
-            size: CGFloat(ForgeDesignTokens.TypeRole.caption.compactSize),
-            weight: .semibold,
-            design: .rounded
+        public static let caption = ForgeFont.sans(
+            CGFloat(ForgeDesignTokens.TypeRole.caption.compactSize),
+            weight: .medium
         )
-        public static let metric = Font.system(
-            size: CGFloat(ForgeDesignTokens.TypeRole.metric.compactSize),
-            weight: .bold,
-            design: .rounded
+        public static let metric = ForgeFont.sans(
+            CGFloat(ForgeDesignTokens.TypeRole.metric.compactSize),
+            weight: .semibold
         ).monospacedDigit()
-        public static let micro = Font.system(size: 9, weight: .semibold, design: .rounded)
+        public static let micro = ForgeFont.sans(9, weight: .medium)
     }
 
-    /// Legacy size helpers — prefer the named roles above.
+    /// Legacy size helpers — prefer the named roles above. Fixed size, like
+    /// the `.system(size:)` calls they stood in for.
     public static func title(_ size: CGFloat = 28) -> Font {
-        .system(size: size, weight: .semibold, design: .rounded)
+        ForgeFont.sans(size, weight: .semibold)
     }
 
     public static func body(_ size: CGFloat = 15) -> Font {
-        .system(size: size, weight: .regular)
+        ForgeFont.sans(size, weight: .regular)
     }
 
     public static func caption(_ size: CGFloat = 12) -> Font {
-        .system(size: size, weight: .semibold, design: .rounded)
+        ForgeFont.sans(size, weight: .medium)
     }
 
     public static func metric(_ size: CGFloat = 32) -> Font {
-        .system(size: size, weight: .bold, design: .rounded).monospacedDigit()
+        ForgeFont.sans(size, weight: .semibold).monospacedDigit()
+    }
+
+    /// Large serif headline at a fixed size (hero copy, empty states).
+    public static func serif(_ size: CGFloat = 32, italic: Bool = false) -> Font {
+        ForgeFont.serif(size, italic: italic)
     }
 }

@@ -43,7 +43,7 @@ struct HydrationCard: View {
                     }
                 } label: {
                     Label("Log \(crownPreset.title.lowercased())", systemImage: crownPreset.symbolName)
-                        .font(.system(size: 13, weight: .semibold))
+                        .font(ForgeFont.sans(13, weight: .semibold))
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 3)
                         .contentTransition(.identity)
@@ -66,11 +66,11 @@ struct HydrationCard: View {
                         .font(.system(size: 8))
                         .foregroundStyle(ForgePalette.textTertiary.opacity(crownFocused ? 1 : 0.45))
                     Text(crownPreset.title)
-                        .font(.system(size: 10, weight: .medium, design: .rounded))
+                        .font(ForgeFont.sans(10, weight: .medium))
                         .foregroundStyle(ForgePalette.textTertiary)
                         .contentTransition(.numericText())
                     Text("· \(Int(crownPreset.milliliters)) ml")
-                        .font(.system(size: 10))
+                        .font(ForgeFont.sans(10))
                         .foregroundStyle(ForgePalette.textTertiary.opacity(0.8))
                     Spacer(minLength: 0)
                     Button { showingSizes = true } label: {
@@ -97,13 +97,13 @@ struct HydrationCard: View {
             .onAppear { crownFocused = true }
 
             Text(hydration.guidance)
-                .font(.system(size: 10.5))
+                .font(ForgeFont.sans(10.5))
                 .foregroundStyle(ForgePalette.textTertiary)
                 .fixedSize(horizontal: false, vertical: true)
 
             if let last = hydration.lastLoggedAt {
                 Label("Logged \(last.formatted(.relative(presentation: .named)))", systemImage: "checkmark.circle")
-                    .font(.system(size: 10))
+                    .font(ForgeFont.sans(10))
                     .foregroundStyle(ForgePalette.textTertiary)
                     .contentTransition(.numericText())
                     .animation(.easeInOut(duration: 0.3), value: hydration.lastLoggedAt)
@@ -111,7 +111,7 @@ struct HydrationCard: View {
 
             if hydration.lastWriteFailed {
                 Label("Saved locally — will sync to Health", systemImage: "exclamationmark.arrow.trianglehead.2.clockwise.rotate.90")
-                    .font(.system(size: 10))
+                    .font(ForgeFont.sans(10))
                     .foregroundStyle(ForgePalette.textTertiary)
             }
         }
@@ -131,10 +131,10 @@ struct HydrationCard: View {
 
             VStack(alignment: .leading, spacing: 0) {
                 Text(headline)
-                    .font(.system(size: 13, weight: .semibold, design: .rounded))
+                    .font(ForgeFont.sans(13, weight: .semibold))
                     .foregroundStyle(ForgePalette.textPrimary)
                 Text(subhead)
-                    .font(.system(size: 10.5))
+                    .font(ForgeFont.sans(10.5))
                     .foregroundStyle(ForgePalette.textSecondary)
             }
             Spacer(minLength: 0)
@@ -179,10 +179,10 @@ struct HydrationCard: View {
                             Image(systemName: preset.symbolName)
                                 .foregroundStyle(ForgePalette.steel)
                                 .frame(width: 22)
-                            Text(preset.title).font(.system(size: 13))
+                            Text(preset.title).font(ForgeFont.sans(13))
                             Spacer()
                             Text("\(Int(preset.milliliters)) ml")
-                                .font(.system(size: 11))
+                                .font(ForgeFont.sans(11))
                                 .foregroundStyle(ForgePalette.textTertiary)
                         }
                     }

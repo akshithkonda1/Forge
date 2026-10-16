@@ -48,7 +48,7 @@ struct MindfulnessView: View {
             VStack(alignment: .leading, spacing: ForgeDS.Spacing.md) {
                 if let ack = session.lastSkipAcknowledgement {
                     Text(ack)
-                        .font(.system(size: 12))
+                        .font(ForgeFont.sans(12))
                         .foregroundStyle(ForgePalette.textSecondary)
                         .padding(.bottom, ForgeDS.Spacing.xs)
                         .accessibilityLabel(ack)
@@ -57,7 +57,7 @@ struct MindfulnessView: View {
                 // Why this, why now — the ARIA reasoning up front.
                 if let reason = currentReason {
                     Text(reason)
-                        .font(.system(size: 12.5))
+                        .font(ForgeFont.sans(12.5))
                         .foregroundStyle(ForgePalette.textSecondary)
                         .fixedSize(horizontal: false, vertical: true)
                 }
@@ -81,7 +81,7 @@ struct MindfulnessView: View {
 
                 Button("Not right now") { showSkipSheet = true }
                     .buttonStyle(.plain)
-                    .font(.system(size: 12))
+                    .font(ForgeFont.sans(12))
                     .foregroundStyle(ForgePalette.textTertiary)
                     .frame(maxWidth: .infinity)
                     .accessibilityHint("Skips this suggestion. No judgment — you can say why or just close.")
@@ -108,7 +108,7 @@ struct MindfulnessView: View {
                         selectedDuration = practice.defaultDuration
                     } label: {
                         Label(practice.displayName, systemImage: practice.symbolName)
-                            .font(.system(size: 11.5, weight: .medium))
+                            .font(ForgeFont.sans(11.5, weight: .medium))
                             .lineLimit(1)
                             .padding(.horizontal, ForgeDS.Spacing.sm)
                             .padding(.vertical, 6)
@@ -152,7 +152,7 @@ struct MindfulnessView: View {
                         WKInterfaceDevice.current().play(.click)
                     } label: {
                         Text(durationLabel(duration))
-                            .font(.system(size: 12, weight: .semibold))
+                            .font(ForgeFont.sans(12, weight: .semibold))
                             .frame(maxWidth: .infinity)
                             .padding(.vertical, 6)
                             .background(
@@ -200,7 +200,7 @@ struct MindfulnessView: View {
                     .font(.system(size: 8))
                     .foregroundStyle(ForgePalette.textTertiary.opacity(0.6))
                 Text("Crown to adjust · tap to pick")
-                    .font(.system(size: 9))
+                    .font(ForgeFont.sans(9))
                     .foregroundStyle(ForgePalette.textTertiary.opacity(0.7))
                 Spacer(minLength: 0)
             }
@@ -235,7 +235,7 @@ struct MindfulnessView: View {
                         showSkipSheet = false
                     } label: {
                         Text(reason.label)
-                            .font(.system(size: 12.5))
+                            .font(ForgeFont.sans(12.5))
                             .frame(maxWidth: .infinity, alignment: .leading)
                     }
                     .buttonStyle(.bordered)
@@ -246,7 +246,7 @@ struct MindfulnessView: View {
                     dismiss()
                 }
                 .buttonStyle(.plain)
-                .font(.system(size: 12))
+                .font(ForgeFont.sans(12))
                 .foregroundStyle(ForgePalette.textTertiary)
                 .frame(maxWidth: .infinity)
             }
@@ -320,7 +320,7 @@ private struct ActiveSessionView: View {
                     Spacer()
                     if let bpm = health.liveHeartRate {
                         Label("\(Int(bpm))", systemImage: "heart.fill")
-                            .font(.system(size: 12))
+                            .font(ForgeFont.sans(12))
                             .foregroundStyle(ForgePalette.textTertiary)
                             .accessibilityLabel("Heart rate \(Int(bpm)) beats per minute")
                     }
@@ -389,20 +389,20 @@ private struct DebriefView: View {
 
                     if let line = debrief.biofeedbackLine {
                         Label(line, systemImage: "waveform.path.ecg")
-                            .font(.system(size: 11.5))
+                            .font(ForgeFont.sans(11.5))
                             .foregroundStyle(ForgePalette.jade)
                             .accessibilityLabel(line)
                     }
 
                     if !debrief.healthKitSaved && debrief.minutesLogged > 0 {
                         Text("Couldn't reach Health just now — the session still counted for you.")
-                            .font(.system(size: 11))
+                            .font(ForgeFont.sans(11))
                             .foregroundStyle(ForgePalette.textTertiary)
                     }
 
                     if companionGate.allows(.phoneAriaChat) {
                         Text("Want to go deeper? Open Forge on your iPhone and ARIA will pick this up.")
-                            .font(.system(size: 11))
+                            .font(ForgeFont.sans(11))
                             .foregroundStyle(ForgePalette.textTertiary)
                     } else if let reason = companionGate.explanation(for: .phoneAriaChat) {
                         PhoneRequiredCaption(message: reason)

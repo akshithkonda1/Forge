@@ -85,13 +85,13 @@ public struct StandByNestFaceView: View {
                     )
                     VStack(spacing: 0) {
                         Text("\(snapshot.readiness)")
-                            .font(.system(size: 26, weight: .bold, design: .rounded))
+                            .font(ForgeFont.sans(26, weight: .bold))
                             .foregroundStyle(clockColor)
                             .contentTransition(.numericText())
                             .minimumScaleFactor(0.8)
                             .lineLimit(1)
                         Text(snapshot.readinessLabel)
-                            .font(.system(size: 9, weight: .semibold, design: .rounded))
+                            .font(ForgeFont.sans(9, weight: .semibold))
                             .tracking(0.4)
                             .foregroundStyle(nightMode ? clockColor.opacity(0.85) : band.color)
                     }
@@ -108,7 +108,7 @@ public struct StandByNestFaceView: View {
             Spacer(minLength: 0)
 
             Text(date, format: Self.timeFormat)
-                .font(.system(size: 13, weight: .medium, design: .rounded))
+                .font(ForgeFont.sans(13, weight: .medium))
                 .monospacedDigit()
                 .foregroundStyle(clockColor.opacity(nightMode ? 0.85 : 0.6))
         }
@@ -131,7 +131,7 @@ public struct StandByNestFaceView: View {
             Image(systemName: icon)
                 .font(.system(size: 10, weight: .semibold))
             Text(text)
-                .font(.system(size: 12, weight: .semibold, design: .rounded))
+                .font(ForgeFont.sans(12, weight: .semibold))
                 .lineLimit(1)
                 .minimumScaleFactor(0.8)
         }

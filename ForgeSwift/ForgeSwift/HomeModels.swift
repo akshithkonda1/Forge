@@ -1,4 +1,5 @@
 import SwiftUI
+import ForgeCore
 
 /// One rhythm for the whole Home surface. Every section reads its inset, gap,
 /// padding and radius from here instead of hand-picking a number.
@@ -36,7 +37,7 @@ enum HomeType {
     static let greeting = FDS.TypeScale.Dynamic.display
     static let heroScore = FDS.TypeScale.Dynamic.heroScore
     static let sessionTitle = FDS.TypeScale.Dynamic.title
-    static let status = FDS.TypeScale.Dynamic.body.weight(.medium)
+    static let status = ForgeType.bodyMedium
     static let body = FDS.TypeScale.Dynamic.body
     static let label = FDS.TypeScale.Dynamic.label
     static let micro = FDS.TypeScale.Dynamic.micro

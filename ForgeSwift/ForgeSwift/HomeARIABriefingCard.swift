@@ -116,7 +116,7 @@ struct HomeARIABriefingCard: View {
             HStack(spacing: 10) {
                 ARIAIdentityMark(state: .idle, mood: .energized, size: 22, amplitude: 0.24)
                 Text("Talk to ARIA about today")
-                    .font(FDS.TypeScale.Dynamic.body.weight(.semibold))
+                    .font(ForgeType.bodyStrong)
                     .foregroundColor(.textPrimary)
                 Spacer()
                 Image(systemName: "arrow.up.right")
@@ -159,7 +159,7 @@ struct HomeARIABriefingCard: View {
                             .foregroundColor(.textMuted)
                     }
                     Text(briefingKicker)
-                        .font(.system(size: 11))
+                        .font(ForgeFont.sans(11))
                         .foregroundColor(.textMuted)
                 }
 

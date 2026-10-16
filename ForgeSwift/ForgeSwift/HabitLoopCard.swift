@@ -43,7 +43,7 @@ struct HabitLoopCard: View {
                     .font(.system(size: 11))
                     .foregroundColor(.steel)
                 Text(habit.evidence)
-                    .font(.system(size: 12))
+                    .font(ForgeFont.sans(12))
                     .foregroundColor(.textSecondary)
             }
 
@@ -94,7 +94,7 @@ private struct LoopRow: View {
                 .foregroundColor(.textTertiary)
                 .frame(width: 56, alignment: .leading)
             Text(text)
-                .font(.system(size: 13))
+                .font(ForgeFont.sans(13))
                 .foregroundColor(color)
                 .fixedSize(horizontal: false, vertical: true)
         }
@@ -129,7 +129,7 @@ struct HabitLoopListCard: View {
                     Text("Did it work?")
                         .font(FDS.TypeScale.Dynamic.caption).foregroundColor(.ember)
                     Text("You tried \(pending.breaker) yesterday.")
-                        .font(.system(size: 13)).foregroundColor(.textSecondary)
+                        .font(ForgeFont.sans(13)).foregroundColor(.textSecondary)
                     HStack(spacing: FDS.Spacing.md) {
                         Button {
                             HabitFeedbackStore.submitFeedback(habitId: pending.habitId, answer: "yeah")
@@ -163,7 +163,7 @@ struct HabitLoopListCard: View {
 
             if vm.deepHabits.isEmpty {
                 Text("No strong loop detected — your signals look balanced today. One small habit still compounds.")
-                    .font(.system(size: 13))
+                    .font(ForgeFont.sans(13))
                     .foregroundColor(.textSecondary)
                     .padding(.vertical, FDS.Spacing.sm)
             } else {

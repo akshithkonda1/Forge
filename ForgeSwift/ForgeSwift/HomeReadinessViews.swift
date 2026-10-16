@@ -131,17 +131,17 @@ struct ReadinessRingView: View {
             if showLabel {
                 VStack(spacing: 4) {
                     Text("\(score)")
-                        .font(.system(size: size * 0.24, weight: .black, design: .rounded))
+                        .font(ForgeFont.sans(size * 0.24, weight: .black))
                         .foregroundStyle(
                             LinearGradient(colors: [.textPrimary, color], startPoint: .top, endPoint: .bottom)
                         )
                         .contentTransition(.numericText())
                     Text(HomeReadiness.label(score).uppercased())
-                        .font(.system(size: size * 0.07, weight: .black))
+                        .font(ForgeFont.sans(size * 0.07, weight: .black))
                         .foregroundColor(color)
                         .tracking(1.6)
                     Text("Readiness")
-                        .font(.system(size: size * 0.055, weight: .medium))
+                        .font(ForgeFont.sans(size * 0.055, weight: .medium))
                         .foregroundColor(.textTertiary)
                 }
             }

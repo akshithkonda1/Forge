@@ -107,7 +107,7 @@ private struct ComposeStagedView: View {
             // input field, and the user still taps send. Saying so avoids the
             // "did that already go?" pause.
             Text("Adds a card to your message. You still tap send.")
-                .font(.footnote)
+                .font(ForgeFont.sans(.footnote))
                 .foregroundStyle(.white.opacity(0.55))
                 .multilineTextAlignment(.center)
         }
@@ -133,7 +133,7 @@ private struct ComposeEmptyView: View {
             }
         } secondary: {
             Text("Come back here once it's ready and the invite will be waiting.")
-                .font(.footnote)
+                .font(ForgeFont.sans(.footnote))
                 .foregroundStyle(.white.opacity(0.55))
                 .multilineTextAlignment(.center)
         }
@@ -174,7 +174,7 @@ private struct SentView: View {
             Text(revoked && payload.effectiveStatus.isActionable
                  ? "You've stopped sharing. This updates the card in your thread to say so."
                  : "You can stop sharing at any time. They just stop seeing updates.")
-                .font(.footnote)
+                .font(ForgeFont.sans(.footnote))
                 .foregroundStyle(.white.opacity(0.55))
                 .multilineTextAlignment(.center)
         }
@@ -255,7 +255,7 @@ private struct ReceivedView: View {
                  : payload.effectiveStatus.isActionable
                    ? "Accepting opens Forge. They can stop sharing at any time."
                    : payload.effectiveStatus.caption)
-                .font(.footnote)
+                .font(ForgeFont.sans(.footnote))
                 .foregroundStyle(.white.opacity(0.55))
                 .multilineTextAlignment(.center)
         }
@@ -316,8 +316,8 @@ private struct InviteLayout<Detail: View, Primary: View, Secondary: View>: View 
                     }
                     Text(title)
                         .font(actions.isCompact
-                              ? .system(size: 17, weight: .semibold)
-                              : .system(size: 26, weight: .bold))
+                              ? ForgeFont.sans(17, weight: .semibold)
+                              : ForgeFont.sans(26, weight: .bold))
                         .foregroundStyle(.white)
                         // Two lines of a long name beat a truncated one; the
                         // compact sheet has the room for it and nothing else does.
@@ -418,7 +418,7 @@ private struct DisclosureColumn: View {
                         .frame(width: 4, height: 4)
                         .padding(.top, 7)
                     Text(item)
-                        .font(.subheadline)
+                        .font(ForgeFont.sans(.subheadline))
                         .foregroundStyle(.white.opacity(0.82))
                         .fixedSize(horizontal: false, vertical: true)
                 }
@@ -462,7 +462,7 @@ private struct InviteButton: View {
     var body: some View {
         Button(action: action) {
             Label(title, systemImage: icon)
-                .font(.system(size: 16, weight: .semibold))
+                .font(ForgeFont.sans(16, weight: .semibold))
                 .foregroundStyle(.white)
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, 14)

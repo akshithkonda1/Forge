@@ -82,7 +82,7 @@ struct OnboardingView: View {
 
                 if authorizationDenied {
                     Text("Health access wasn't granted. Forge will show honest empty states here until it's turned on from the paired iPhone's Health app — Watch can't show the permission sheet again once denied.")
-                        .font(.system(size: 11.5))
+                        .font(ForgeFont.sans(11.5))
                         .foregroundStyle(ForgePalette.textSecondary)
                         .multilineTextAlignment(.center)
 

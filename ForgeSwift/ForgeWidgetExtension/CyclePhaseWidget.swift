@@ -85,18 +85,18 @@ struct CyclePhaseWidgetView: View {
                     Image(systemName: "heart.fill")
                         .font(.caption)
                     Text("Easy")
-                        .font(.caption2)
+                        .font(ForgeFont.sans(.caption2))
                 }
             case .accessoryRectangular:
                 Label(line, systemImage: "heart.fill")
-                    .font(.caption)
+                    .font(ForgeFont.sans(.caption))
             default:
                 VStack(alignment: .leading, spacing: 8) {
                     Text("CYCLE")
-                        .font(.system(size: 10, weight: .bold))
+                        .font(ForgeFont.sans(10, weight: .bold))
                         .tracking(0.6)
                     Text(line)
-                        .font(.headline)
+                        .font(ForgeFont.sans(.headline, weight: .semibold))
                     Spacer(minLength: 0)
                 }
                 .padding(16)
@@ -116,7 +116,7 @@ struct CyclePhaseWidgetView: View {
                         .foregroundStyle(Color.orange)
                     if let day = snap.cycleDayInCycle {
                         Text("Day \(day)")
-                            .font(.caption2)
+                            .font(ForgeFont.sans(.caption2))
                     }
                 }
             case .accessoryRectangular:
@@ -125,10 +125,10 @@ struct CyclePhaseWidgetView: View {
                         .foregroundStyle(Color.orange)
                     VStack(alignment: .leading, spacing: 1) {
                         Text(phaseLabel)
-                            .font(.caption).fontWeight(.semibold)
+                            .font(ForgeFont.sans(.caption)).fontWeight(.semibold)
                         if let day = snap.cycleDayInCycle {
                             Text("Day \(day)")
-                                .font(.caption2)
+                                .font(ForgeFont.sans(.caption2))
                                 .foregroundStyle(.secondary)
                         }
                     }
@@ -137,7 +137,7 @@ struct CyclePhaseWidgetView: View {
                 VStack(alignment: .leading, spacing: 8) {
                     HStack(spacing: 5) {
                         Text("CYCLE")
-                            .font(.system(size: 10, weight: .bold))
+                            .font(ForgeFont.sans(10, weight: .bold))
                             .tracking(0.6)
                             .foregroundStyle(Color.orange)
                         Spacer()
@@ -146,10 +146,10 @@ struct CyclePhaseWidgetView: View {
                         .font(.title2)
                         .foregroundStyle(Color.orange)
                     Text(phaseLabel)
-                        .font(.headline)
+                        .font(ForgeFont.sans(.headline, weight: .semibold))
                     if let day = snap.cycleDayInCycle {
                         Text("Day \(day)")
-                            .font(.caption)
+                            .font(ForgeFont.sans(.caption))
                             .foregroundStyle(.secondary)
                     }
                     Spacer(minLength: 0)

@@ -1,4 +1,5 @@
 import SwiftUI
+import ForgeCore
 
 // MARK: - Shared bottom panel
 
@@ -322,7 +323,7 @@ private struct LoggerStepper: View {
                     action: onMinus
                 )
                 Text("\(value)")
-                    .font(.system(size: ForgeLayout.scaledCap(numeralSize, base: 64), weight: .bold, design: .rounded))
+                    .font(ForgeFont.sans(ForgeLayout.scaledCap(numeralSize, base: 64), weight: .bold))
                     .monospacedDigit()
                     .foregroundStyle(Color.textPrimary)
                     .lineLimit(1)
@@ -501,7 +502,7 @@ struct RestTimerView: View {
     private var ringCenter: some View {
         VStack(spacing: ForgeLayout.labelValueGap) {
             Text("\(restTimeLeft)")
-                .font(.system(size: ForgeLayout.scaledCap(restNumeralSize, base: 56), weight: .bold, design: .rounded))
+                .font(ForgeFont.sans(ForgeLayout.scaledCap(restNumeralSize, base: 56), weight: .bold))
                 .monospacedDigit()
                 .foregroundStyle(getReady ? Color.ember : Color.textPrimary)
                 .lineLimit(1)

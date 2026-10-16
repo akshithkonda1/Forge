@@ -20,12 +20,12 @@ struct ForgeWorkoutLiveActivity: Widget {
             return DynamicIsland {
                 DynamicIslandExpandedRegion(.leading) {
                     Label(live.workoutType.displayName, systemImage: live.workoutType.symbolName)
-                        .font(.system(size: 13, weight: .semibold))
+                        .font(ForgeFont.sans(13, weight: .semibold))
                         .foregroundStyle(accent)
                 }
                 DynamicIslandExpandedRegion(.trailing) {
                     Text(live.elapsedLabel)
-                        .font(.system(size: 15, weight: .bold, design: .rounded))
+                        .font(ForgeFont.sans(15, weight: .bold))
                         .monospacedDigit()
                         .foregroundStyle(.white)
                 }
@@ -33,17 +33,17 @@ struct ForgeWorkoutLiveActivity: Widget {
                     HStack(spacing: 12) {
                         if let bpm = live.heartRate {
                             Label("\(Int(bpm))", systemImage: "heart.fill")
-                                .font(.system(size: 12))
+                                .font(ForgeFont.sans(12))
                                 .foregroundStyle(accent)
                         }
                         if let zone = live.zoneNumber {
                             Text("Zone \(zone)")
-                                .font(.system(size: 12, weight: .medium))
+                                .font(ForgeFont.sans(12, weight: .medium))
                                 .foregroundStyle(.secondary)
                         }
                         if let exercise = live.currentExerciseName {
                             Text(exercise)
-                                .font(.system(size: 12))
+                                .font(ForgeFont.sans(12))
                                 .foregroundStyle(.secondary)
                                 .lineLimit(1)
                         }
@@ -55,7 +55,7 @@ struct ForgeWorkoutLiveActivity: Widget {
                     .foregroundStyle(accent)
             } compactTrailing: {
                 Text(live.elapsedLabel)
-                    .font(.system(size: 12, weight: .semibold, design: .rounded))
+                    .font(ForgeFont.sans(12, weight: .semibold))
                     .monospacedDigit()
             } minimal: {
                 Image(systemName: live.workoutType.symbolName)
@@ -86,10 +86,10 @@ private struct LockScreenWorkoutView: View {
 
             VStack(alignment: .leading, spacing: 2) {
                 Text(title)
-                    .font(.system(size: 14, weight: .semibold, design: .rounded))
+                    .font(ForgeFont.sans(14, weight: .semibold))
                     .foregroundStyle(.white)
                 Text(subtitle)
-                    .font(.system(size: 12))
+                    .font(ForgeFont.sans(12))
                     .foregroundStyle(.white.opacity(0.7))
                     .lineLimit(1)
             }
@@ -98,12 +98,12 @@ private struct LockScreenWorkoutView: View {
 
             VStack(alignment: .trailing, spacing: 2) {
                 Text(state.elapsedLabel)
-                    .font(.system(size: 22, weight: .bold, design: .rounded))
+                    .font(ForgeFont.sans(22, weight: .bold))
                     .monospacedDigit()
                     .foregroundStyle(.white)
                 if let bpm = state.heartRate {
                     Label("\(Int(bpm))", systemImage: "heart.fill")
-                        .font(.system(size: 12, weight: .medium))
+                        .font(ForgeFont.sans(12, weight: .medium))
                         .foregroundStyle(accent)
                 }
             }

@@ -1,4 +1,5 @@
 import SwiftUI
+import ForgeCore
 
 struct CelebrationOverlay: View {
     let key: Int
@@ -39,7 +40,7 @@ struct CelebrationOverlay: View {
 
                 VStack(spacing: 10) {
                     Text("Peak readiness")
-                        .font(.system(size: 28, weight: .black))
+                        .font(ForgeFont.sans(28, weight: .black))
                         .foregroundStyle(.white)
                     Text("You're in the window. Use it well.")
                         .font(FDS.TypeScale.Dynamic.body)

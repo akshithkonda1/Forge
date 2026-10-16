@@ -121,7 +121,7 @@ struct HomeView: View {
                                     .font(ForgeType.metric(26))
                                     .foregroundStyle(ForgePalette.textPrimary)
                                 Text(readiness.band.label)
-                                    .font(.system(size: 9.5, weight: .medium))
+                                    .font(ForgeFont.sans(9.5, weight: .medium))
                                     .foregroundStyle(readiness.band.color)
                             } else {
                                 Image(systemName: "sparkles")
@@ -145,7 +145,7 @@ struct HomeView: View {
                 postureRaw: WatchSnapshotStore.load()?.tomorrowPosture
             ) {
                 Text(tomorrow)
-                    .font(.system(size: 11, weight: .medium))
+                    .font(ForgeFont.sans(11, weight: .medium))
                     .foregroundStyle(ForgePalette.textTertiary)
                     .frame(maxWidth: .infinity, alignment: .center)
                     .accessibilityLabel(tomorrow)
@@ -164,7 +164,7 @@ struct HomeView: View {
                 HapticButton(haptic: .click) {
                     contextEngine.acceptSuggestedMode()
                 } label: {
-                    Text("Yes").font(.system(size: 12, weight: .semibold)).frame(maxWidth: .infinity)
+                    Text("Yes").font(ForgeFont.sans(12, weight: .semibold)).frame(maxWidth: .infinity)
                 }
                 .buttonStyle(.bordered)
                 .tint(mode.accentColor.opacity(0.5))
@@ -173,7 +173,7 @@ struct HomeView: View {
                 HapticButton(haptic: .click) {
                     contextEngine.dismissSuggestedMode()
                 } label: {
-                    Text("No").font(.system(size: 12)).frame(maxWidth: .infinity)
+                    Text("No").font(ForgeFont.sans(12)).frame(maxWidth: .infinity)
                 }
                 .buttonStyle(.bordered)
                 .accessibilityLabel("No, dismiss suggestion")
@@ -218,7 +218,7 @@ struct HomeView: View {
 
             if session.sessionsCompletedToday > 0 || health.mindfulMinutesToday > 0 {
                 Text(consistencyLine)
-                    .font(.system(size: 10.5))
+                    .font(ForgeFont.sans(10.5))
                     .foregroundStyle(ForgePalette.textTertiary)
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .accessibilityLabel(consistencyLine)
@@ -244,7 +244,7 @@ struct HomeView: View {
                     .font(.system(size: 12))
                     .foregroundStyle(ForgePalette.indigo)
                 Text(health.sleepSummary.map(sleepLine) ?? "Sleep summary")
-                    .font(.system(size: 11.5))
+                    .font(ForgeFont.sans(11.5))
                     .foregroundStyle(ForgePalette.textSecondary)
                 Spacer(minLength: 0)
                 Image(systemName: "chevron.right")
@@ -274,7 +274,7 @@ struct HomeView: View {
                     .font(.system(size: 11))
                     .foregroundStyle(ForgePalette.textTertiary)
                 Text("This week")
-                    .font(.system(size: 11.5))
+                    .font(ForgeFont.sans(11.5))
                     .foregroundStyle(ForgePalette.textSecondary)
                 Spacer(minLength: 0)
                 Image(systemName: "chevron.right")

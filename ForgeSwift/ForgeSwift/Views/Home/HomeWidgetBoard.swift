@@ -67,10 +67,10 @@ struct HomeWidgetBoard: View {
     private var empty: some View {
         VStack(alignment: .leading, spacing: 6) {
             Text("No widgets on this page")
-                .font(FDS.TypeScale.Dynamic.body.weight(.semibold))
+                .font(ForgeType.bodyStrong)
                 .foregroundColor(.textPrimary)
             Text("Add Hydration, Sleep, Cycle, Workout or Lifestyle. The same cards can live on your iPhone Home Screen.")
-                .font(.system(size: 12))
+                .font(ForgeFont.sans(12))
                 .foregroundColor(.textSecondary)
         }
         .padding(HomeMetrics.cardPadding)
@@ -123,14 +123,14 @@ private struct HomePinnedWidgetCard: View {
                 .font(FDS.TypeScale.Dynamic.metric)
                 .foregroundColor(.textPrimary)
             Text("\(Int((snapshot.hydrationFraction * 100).rounded()))% of need")
-                .font(.system(size: 11))
+                .font(ForgeFont.sans(11))
                 .foregroundColor(.textSecondary)
         case .sleep:
             Text(String(format: "%.1f h", snapshot.sleepHours))
                 .font(FDS.TypeScale.Dynamic.metric)
                 .foregroundColor(.textPrimary)
             Text(snapshot.sleepWindowTitle ?? "Last night")
-                .font(.system(size: 11))
+                .font(ForgeFont.sans(11))
                 .foregroundColor(.textSecondary)
                 .lineLimit(1)
         case .cycle:
@@ -139,23 +139,23 @@ private struct HomePinnedWidgetCard: View {
                 .foregroundColor(.textPrimary)
             if let day = snapshot.cycleDay {
                 Text("Day \(day)")
-                    .font(.system(size: 11))
+                    .font(ForgeFont.sans(11))
                     .foregroundColor(.textSecondary)
             }
         case .workout:
             Text(snapshot.workoutName ?? "No session yet")
-                .font(FDS.TypeScale.Dynamic.body.weight(.semibold))
+                .font(ForgeType.bodyStrong)
                 .foregroundColor(.textPrimary)
                 .lineLimit(2)
             Text(snapshot.workoutName == nil ? "Ask ARIA to build one" : "Ready when you are")
-                .font(.system(size: 11))
+                .font(ForgeFont.sans(11))
                 .foregroundColor(.textSecondary)
         case .lifestyle:
             Text("\(snapshot.qol)")
                 .font(FDS.TypeScale.Dynamic.metric)
                 .foregroundColor(.textPrimary)
             Text(snapshot.topRecommendation ?? "QOL")
-                .font(.system(size: 11))
+                .font(ForgeFont.sans(11))
                 .foregroundColor(.textSecondary)
                 .lineLimit(2)
         }

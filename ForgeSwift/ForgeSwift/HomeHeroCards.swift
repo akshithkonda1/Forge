@@ -43,7 +43,7 @@ private struct HomeHeroReadinessCard: View {
                 }
 
             Text("\(store.readiness.overall) · \(homeStatusLine(store: store))")
-                .font(FDS.TypeScale.Dynamic.body.weight(.semibold))
+                .font(ForgeType.bodyStrong)
                 .foregroundColor(.textSecondary)
                 .multilineTextAlignment(.center)
                 .padding(.bottom, showDetails ? 16 : 0)

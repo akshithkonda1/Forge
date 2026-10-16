@@ -53,7 +53,7 @@ private struct SleepQualityComplicationView: View {
                     Image(systemName: "bed.double.fill")
                 } currentValueLabel: {
                     Text("\(quality)")
-                        .font(.system(size: 17, weight: .bold, design: .rounded))
+                        .font(ForgeFont.sans(17, weight: .bold))
                 }
                 .gaugeStyle(.accessoryCircular)
                 .tint(ForgePalette.indigo)
@@ -93,15 +93,15 @@ private struct SleepQualityComplicationView: View {
                     .foregroundStyle(ForgePalette.indigo)
                     .widgetAccentable()
                 Text(durationText.map { "Slept \($0)" } ?? "Sleep")
-                    .font(.system(size: 13, weight: .semibold, design: .rounded))
+                    .font(ForgeFont.sans(13, weight: .semibold))
                 if let quality {
                     Text("· \(quality)")
-                        .font(.system(size: 13, weight: .medium))
+                        .font(ForgeFont.sans(13, weight: .medium))
                         .foregroundStyle(.secondary)
                 }
             }
             Text(subtitle)
-                .font(.system(size: 11))
+                .font(ForgeFont.sans(11))
                 .foregroundStyle(.secondary)
                 .lineLimit(2)
         }
