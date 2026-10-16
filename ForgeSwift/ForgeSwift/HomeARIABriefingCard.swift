@@ -133,20 +133,7 @@ struct HomeARIABriefingCard: View {
     private var fullBody: some View {
         VStack(alignment: .leading, spacing: 0) {
             HStack(spacing: 10) {
-                ZStack {
-                    Circle()
-                        .fill(
-                            RadialGradient(
-                                colors: [Color.ember.opacity(0.16), .clear],
-                                center: .center,
-                                startRadius: 8,
-                                endRadius: 32
-                            )
-                        )
-                        .frame(width: 52, height: 52)
-                        .blur(radius: 10)
-                    ARIAIdentityMark(state: .idle, mood: .energized, size: 42, amplitude: 0.24)
-                }
+                ARIAIdentityMark(state: .idle, mood: .energized, size: 36, amplitude: 0.24)
 
                 VStack(alignment: .leading, spacing: 3) {
                     HStack(spacing: 6) {

@@ -402,12 +402,8 @@ struct EnergyScheduleCard: View {
                     linePath(schedule, size: geo.size)
                         .trim(from: 0, to: drawProgress)
                         .stroke(
-                            LinearGradient(
-                                colors: [Color.steelLight, Color.steel, Color.aurora],
-                                startPoint: .top,
-                                endPoint: .bottom
-                            ),
-                            style: StrokeStyle(lineWidth: 2.5, lineCap: .round, lineJoin: .round)
+                            Color.steel,
+                            style: StrokeStyle(lineWidth: 2, lineCap: .round, lineJoin: .round)
                         )
                     marker(schedule, size: geo.size)
                         .opacity(drawProgress)

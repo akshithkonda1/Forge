@@ -299,14 +299,7 @@ struct AriaInterviewLayout: View {
         return shape
             .fill(Color.surface.opacity(0.96))
             .overlay {
-                shape.stroke(
-                    LinearGradient(
-                        colors: [Color.white.opacity(0.14), Color.white.opacity(0.04)],
-                        startPoint: .top,
-                        endPoint: .bottom
-                    ),
-                    lineWidth: 1
-                )
+                shape.stroke(Color.borderHairline, lineWidth: 0.5)
             }
             .shadow(color: .black.opacity(0.45), radius: 28, y: -12)
             .ignoresSafeArea(.container, edges: .bottom)

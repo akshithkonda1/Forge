@@ -332,22 +332,8 @@ struct LifestyleBackground: View {
     private var accentColor: Color { Self.wash(for: segment) }
 
     var body: some View {
-        ZStack {
-            Color.background
-            RadialGradient(
-                colors: [accentColor.opacity(0.12), accentColor.opacity(0.04), .clear],
-                center: UnitPoint(x: 0.12, y: -0.04),
-                startRadius: 8,
-                endRadius: 420
-            )
-            RadialGradient(
-                colors: [Color.steel.opacity(0.06), .clear],
-                center: UnitPoint(x: 0.92, y: 0.90),
-                startRadius: 8,
-                endRadius: 320
-            )
-        }
-        .animation(reduceMotion ? nil : .easeInOut(duration: 0.35), value: segment)
+        // Flat field; the segment's color lives in its content, not a wash.
+        Color.background
     }
 }
 

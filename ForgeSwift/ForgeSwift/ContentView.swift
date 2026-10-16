@@ -388,11 +388,6 @@ struct ForgeBottomNav: View {
         ZStack(alignment: .top) {
             barShape.fill(.ultraThinMaterial)
             barShape.fill(Color.background.opacity(0.62))
-            LinearGradient(
-                colors: [Color.white.opacity(0.08), Color.clear],
-                startPoint: .top,
-                endPoint: .center
-            )
             Rectangle()
                 .fill(Color.borderHairline)
                 .frame(height: 0.5)
@@ -507,23 +502,9 @@ struct ARIATabButton: View {
     }
 
     /// 32 pt mark in the same 26 pt slot as the other tabs' icons, so every
-    /// label sits on one baseline. The backdrop is a static wash, never a pulse.
+    /// label sits on one baseline. No backdrop wash.
     private var orb: some View {
         ZStack {
-            Circle()
-                .fill(
-                    RadialGradient(
-                        colors: [
-                            ForgePalette.amber.opacity(isActive ? 0.16 : 0.07),
-                            ForgePalette.ember.opacity(0.10),
-                            .clear
-                        ],
-                        center: .center,
-                        startRadius: 6,
-                        endRadius: 22
-                    )
-                )
-                .frame(width: 40, height: 40)
             ARIAIdentityMark(
                 state: isVoiceMode ? .listening : .idle,
                 mood: isVoiceMode ? .focused : .energized,

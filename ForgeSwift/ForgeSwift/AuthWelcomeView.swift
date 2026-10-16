@@ -369,11 +369,8 @@ private struct AuthHookPageView: View {
     }
 
     private var iconGradient: LinearGradient {
-        LinearGradient(
-            colors: [Color.paper, page.accent.opacity(0.9)],
-            startPoint: .topLeading,
-            endPoint: .bottomTrailing
-        )
+        // Flat paper glyphs; the page accent stays on the single CTA.
+        LinearGradient.flat(Color.paper)
     }
 }
 

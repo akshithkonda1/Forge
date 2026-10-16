@@ -133,13 +133,7 @@ struct ProfileAvatarView: View {
 
             if showsRing {
                 Circle()
-                    .stroke(
-                        AngularGradient(
-                            colors: [.emberLight, .ember, .emberDark, .ember, .emberLight],
-                            center: .center
-                        ),
-                        lineWidth: 2.5
-                    )
+                    .stroke(Color.ember, lineWidth: 1.5)
                     .frame(width: size + 8, height: size + 8)
             }
         }

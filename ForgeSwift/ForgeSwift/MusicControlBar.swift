@@ -41,10 +41,7 @@ struct MusicControlBar: View {
                 case .success(let image):
                     image.resizable().scaledToFill()
                 default:
-                    LinearGradient(
-                        colors: [accent, accent.opacity(0.7)],
-                        startPoint: .topLeading, endPoint: .bottomTrailing
-                    )
+                    LinearGradient.flat(accent)
                     .overlay(
                         Image(systemName: controller.service.iconName)
                             .font(.system(size: 17, weight: .bold))
