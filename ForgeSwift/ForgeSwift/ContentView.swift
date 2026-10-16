@@ -502,7 +502,7 @@ struct ARIATabButton: View {
             toggleVoiceMode()
         }
         .accessibilityShowsLargeContentViewer {
-            Label(title, systemImage: "sparkles")
+            Label(title, systemImage: "text.bubble")
         }
     }
 

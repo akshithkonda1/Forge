@@ -86,7 +86,7 @@ struct TodaysStoryCard: View {
         case "readiness": return "waveform.path.ecg"
         case "activity": return "figure.walk"
         case "sleep": return "moon.stars.fill"
-        default: return "sparkles"
+        default: return "text.alignleft"
         }
     }
 

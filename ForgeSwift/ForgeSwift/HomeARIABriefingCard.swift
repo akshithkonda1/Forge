@@ -179,7 +179,6 @@ struct HomeARIABriefingCard: View {
                             .foregroundColor(.ember)
                     }
                     .overlay(Circle().stroke(Color.ember.opacity(0.35), lineWidth: 1))
-                    .shadow(color: Color.ember.opacity(0.22), radius: 6, y: 2)
                 }
                 .buttonStyle(.plain)
                 .accessibilityLabel("Talk to ARIA")
@@ -243,7 +242,7 @@ struct HomeARIABriefingCard: View {
 
     private var themedPlanLabel: String { "Today’s plan" }
 
-    private var themedPlanIcon: String { "sparkles" }
+    private var themedPlanIcon: String { "list.bullet.rectangle" }
 
     private func briefingChip(icon: String, label: String, emphasized: Bool = false, action: @escaping () -> Void) -> some View {
         Button {

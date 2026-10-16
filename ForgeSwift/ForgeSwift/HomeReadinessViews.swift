@@ -117,13 +117,11 @@ struct ReadinessRingView: View {
                 )
                 .frame(width: size, height: size)
                 .rotationEffect(.degrees(-90))
-                .shadow(color: color.opacity(0.5), radius: 14)
 
             if progress > 0.02 {
                 Circle()
                     .fill(color)
                     .frame(width: strokeWidth * 0.85, height: strokeWidth * 0.85)
-                    .shadow(color: color, radius: 6)
                     .offset(y: -size / 2)
                     .rotationEffect(.degrees(-90 + Double(progress) * 360))
             }

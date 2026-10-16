@@ -387,7 +387,7 @@ private struct SupporterExpectations: View {
         DisclosureColumn(
             title: "What you'll get",
             tint: Brand.ember,
-            icon: "sparkles",
+            icon: "person.2",
             items: ["A general read on how they're doing",
                     "One clear suggestion for today",
                     "Nothing they log, ever",
@@ -449,7 +449,6 @@ private struct InviteGlyph: View {
                                    endPoint: .bottomTrailing)
                 )
             )
-            .shadow(color: Brand.ember.opacity(0.35), radius: 20, y: 8)
             .accessibilityHidden(true)
     }
 }

@@ -207,7 +207,7 @@ struct AINutritionCoachCard: View {
 
     private var tips: [(icon: String, color: Color, headline: String, body: String)] {
         guard let stats = vm.healthStats else {
-            return [("sparkles", .ember, "Syncing nutrition data", "Connect Apple Health to unlock personalized macro coaching.")]
+            return [("arrow.triangle.2.circlepath", .ember, "Syncing nutrition data", "Connect Apple Health to unlock personalized macro coaching.")]
         }
         var generated: [(icon: String, color: Color, headline: String, body: String)] = []
         let proteinGap = max(0, Int(180 - stats.protein))
@@ -295,7 +295,7 @@ struct AINutritionCoachCard: View {
 
     private var tipDetailRow: some View {
         HStack(alignment: .top, spacing: ForgeLayout.rowGap) {
-            ForgeIconWell(systemImage: liveInsight != nil ? "sparkles" : tip.icon, tint: .amber)
+            ForgeIconWell(systemImage: liveInsight != nil ? "text.bubble" : tip.icon, tint: .amber)
             VStack(alignment: .leading, spacing: ForgeLayout.pairGap) {
                 Text(liveInsight != nil ? "ARIA's take" : tip.headline)
                     .font(HomeType.status)
@@ -429,7 +429,7 @@ struct AIMealSuggestionsCard: View {
 
     private func ariaNote(_ note: String) -> some View {
         HStack(alignment: .top, spacing: FDS.Spacing.sm) {
-            Image(systemName: "sparkles")
+            Image(systemName: "text.bubble")
                 .font(.system(size: 12, weight: .semibold))
                 .foregroundStyle(Color.amber)
                 .accessibilityHidden(true)

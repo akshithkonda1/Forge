@@ -1,6 +1,6 @@
 import SwiftUI
 
-// Premium dual-layer depth for cards across Forge.
+// Card chrome across Forge: flat surface, hairline edge, no halo.
 extension View {
     /// `glow` tints the outer halo. Pass the card's own accent — passing `nil`
     /// (the default) means no halo at all.
@@ -26,18 +26,11 @@ extension View {
     /// Inner well used inside glass cards — briefing text, chips, tiles.
     func forgeInnerWell(cornerRadius: CGFloat = FDS.Radius.md) -> some View {
         self
-            .background(Color.white.opacity(0.06))
+            .background(Color.white.opacity(0.04))
             .clipShape(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
             .overlay(
                 RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-                    .stroke(
-                        LinearGradient(
-                            colors: [Color.white.opacity(0.14), Color.white.opacity(0.04)],
-                            startPoint: .topLeading,
-                            endPoint: .bottomTrailing
-                        ),
-                        lineWidth: 0.8
-                    )
+                    .stroke(Color.borderHairline, lineWidth: 0.5)
             )
     }
 
@@ -48,65 +41,30 @@ extension View {
 }
 
 private struct ForgeCardShadow: ViewModifier {
+    /// Colored halos are retired; `glow` is accepted and ignored.
     var glow: Color?
 
     func body(content: Content) -> some View {
+        // Flat surfaces separate by lightness and a hairline, not by shadow.
         content
-            // Photo-board cards: a short lift, not a black puddle.
-            .shadow(color: .black.opacity(0.28), radius: 10, x: 0, y: 6)
-            .shadow(color: (glow ?? .clear).opacity(glow == nil ? 0 : 0.16),
-                    radius: 12, x: 0, y: 4)
     }
 }
 
 private struct ForgeGlassCard: ViewModifier {
     var cornerRadius: CGFloat
+    /// No longer tints the card; kept so call sites compile unchanged.
     var accent: Color?
 
     func body(content: Content) -> some View {
         content
             .background {
-                ZStack {
-                    RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-                        .fill(Color.surfaceElevated.opacity(0.94))
-                    RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-                        .fill(LinearGradient.premiumSurface)
-                    RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-                        .fill(
-                            LinearGradient(
-                                colors: [Color.white.opacity(0.10), Color.white.opacity(0.02), .clear],
-                                startPoint: .top,
-                                endPoint: .center
-                            )
-                        )
-                    if let accent {
-                        RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-                            .fill(
-                                LinearGradient(
-                                    colors: [accent.opacity(0.07), .clear],
-                                    startPoint: .topLeading,
-                                    endPoint: .bottomTrailing
-                                )
-                            )
-                    }
-                }
+                RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+                    .fill(Color.surface)
             }
             .clipShape(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
             .overlay {
                 RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-                    .strokeBorder(
-                        LinearGradient(
-                            colors: [
-                                Color.white.opacity(0.16),
-                                Color.white.opacity(0.06),
-                                Color.white.opacity(0.03)
-                            ],
-                            startPoint: .top,
-                            endPoint: .bottom
-                        ),
-                        lineWidth: 0.8
-                    )
+                    .strokeBorder(Color.borderHairline, lineWidth: 0.5)
             }
-            .forgeCardShadow(glow: accent)
     }
 }

@@ -172,7 +172,7 @@ enum HomePrimaryAction: Equatable {
         case .startWorkout:    return "dumbbell.fill"
         case .continueWorkout: return "arrow.clockwise"
         case .recoveryDay:     return "leaf.fill"
-        case .buildPlan:       return "sparkles"
+        case .buildPlan:       return "square.and.pencil"
         }
     }
 

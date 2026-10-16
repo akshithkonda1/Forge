@@ -544,7 +544,7 @@ struct ChatProvenanceFooter: View {
 
     @ViewBuilder
     private var confidenceChip: some View {
-        let chip = ForgeChip(label: "High confidence", icon: "sparkle", energy: .steel, selected: true)
+        let chip = ForgeChip(label: "High confidence", icon: "checkmark.seal", energy: .steel, selected: true)
         if let reason = confidenceReason, !reason.isEmpty {
             Button {
                 FDS.haptic(.press)
@@ -619,16 +619,16 @@ struct TypingIndicatorView: View {
     @Environment(\.dynamicTypeSize) private var typeSize
     @State private var dotAnimate = false
     @State private var stateLabel = "Reading you…"
-    @State private var stateIcon  = "sparkles"
+    @State private var stateIcon  = "ellipsis"
     @State private var stateColor: Color = .ember
     @State private var showLabel  = false
     @State private var cycleTask: Task<Void, Never>? = nil
 
     private var steps: [(String, String, Color, Double)] {[
-        ("Reading you…",      "sparkles", mood.accentColor, 1.1),
+        ("Reading you…",      "ellipsis", mood.accentColor, 1.1),
         ("Holding the night…", "moon.fill", Color.indigo,   1.0),
         ("Finding the thread…", "waveform", Color.ember,    0.9),
-        ("Almost.",           "sparkles", Color.aurora,     0.7),
+        ("Almost.",           "ellipsis", Color.aurora,     0.7),
     ]}
 
     private var summaryLabel: String {

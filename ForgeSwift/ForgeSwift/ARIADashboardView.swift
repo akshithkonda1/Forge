@@ -241,7 +241,7 @@ struct ARIADashboardView: View {
 
     private var primaryIcon: String {
         if sent { return "checkmark" }
-        return loadingBrief ? "sparkles" : "paperplane.fill"
+        return loadingBrief ? "ellipsis" : "paperplane.fill"
     }
 
     private var sendCard: some View {

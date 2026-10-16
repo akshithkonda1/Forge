@@ -108,51 +108,20 @@ enum FDS {
     }
     
     // MARK: - Gradients
-    
+    //
+    // Retired for the premium refresh: each name now resolves to a flat fill
+    // (one accent, no sheen) so existing call sites keep compiling.
+
     enum Gradient {
-        static let ember = LinearGradient(
-            colors: [Color.emberLight, Color.ember, Color.emberDark],
-            startPoint: .topLeading,
-            endPoint: .bottomTrailing
-        )
-        
-        static let emberDeep = LinearGradient(
-            colors: [Color(hex: "FF6B2B"), Color.ember, Color.emberDark],
-            startPoint: .topLeading,
-            endPoint: .bottomTrailing
-        )
-        
-        static let steel = LinearGradient(
-            colors: [Color.steelLight, Color.steel, Color.steelDark],
-            startPoint: .topLeading,
-            endPoint: .bottomTrailing
-        )
-
-        static let aurora = LinearGradient(
-            colors: [Color.ember.opacity(0.9), Color.aurora, Color.steel.opacity(0.85)],
-            startPoint: .topLeading,
-            endPoint: .bottomTrailing
-        )
-
-        static let chrome = LinearGradient(
-            colors: [Color.white.opacity(0.14), Color.white.opacity(0.04), Color.clear],
-            startPoint: .top,
-            endPoint: .bottom
-        )
-
-        static let neon = LinearGradient(
-            colors: [Color(hex: "00D2FF"), Color(hex: "7B61FF"), Color(hex: "FF2D55")],
-            startPoint: .topLeading,
-            endPoint: .bottomTrailing
-        )
-
-        static let glass = LinearGradient(
-            colors: [Color.white.opacity(0.12), Color.white.opacity(0.02)],
-            startPoint: .top,
-            endPoint: .bottom
-        )
+        static let ember = LinearGradient.flat(Color.ember)
+        static let emberDeep = LinearGradient.flat(Color.ember)
+        static let steel = LinearGradient.flat(Color.steel)
+        static let aurora = LinearGradient.flat(Color.ember)
+        static let chrome = LinearGradient.flat(Color.clear)
+        static let neon = LinearGradient.flat(Color.ember)
+        static let glass = LinearGradient.flat(Color.clear)
     }
-    
+
     // MARK: - Haptics
     
     static func haptic(_ style: UIImpactFeedbackGenerator.FeedbackStyle) {

@@ -512,7 +512,6 @@ private struct HomePrimaryCTA: View {
                     RoundedRectangle(cornerRadius: FDS.Radius.md, style: .continuous)
                         .stroke(Color.white.opacity(0.20), lineWidth: 0.8)
                 )
-                .shadow(color: Color.ember.opacity(0.34), radius: 10, y: 4)
             }
             .buttonStyle(.plain)
             .scaleEffect(pressed && !reduceMotion ? 0.98 : 1)

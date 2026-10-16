@@ -32,7 +32,7 @@ struct ChatEmptyStateView: View {
     }
 
     private var prompts: [(title: String, icon: String)] {[
-        ("Who are you?", "sparkles"),
+        ("Who are you?", "person.crop.circle"),
         ("How did I sleep?", "moon.fill"),
         ("What should I train?", "figure.strengthtraining.traditional"),
         ("How do I show up?", "heart.fill"),

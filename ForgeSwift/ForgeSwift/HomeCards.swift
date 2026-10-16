@@ -92,7 +92,7 @@ struct HomeAgendaCard: View {
             ))
         } else {
             rows.append((
-                "sparkles",
+                "text.bubble",
                 "Write today’s session",
                 "ARIA shapes it from sleep and readiness",
                 .ember,

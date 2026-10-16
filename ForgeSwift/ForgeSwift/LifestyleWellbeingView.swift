@@ -937,7 +937,7 @@ struct HobbyPathCard: View {
     private func suggestionRow(_ item: HobbyPathEngine.Suggestion) -> some View {
         HStack(alignment: .top, spacing: ForgeLayout.rowGap) {
             ForgeIconWell(
-                systemImage: Self.hobbySymbols[item.hobby.rawValue] ?? "sparkles",
+                systemImage: Self.hobbySymbols[item.hobby.rawValue] ?? "circle.grid.2x2",
                 tint: .amber
             )
             VStack(alignment: .leading, spacing: ForgeLayout.labelValueGap) {

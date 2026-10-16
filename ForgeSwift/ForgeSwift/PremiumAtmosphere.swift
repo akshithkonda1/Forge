@@ -85,10 +85,6 @@ struct PremiumAtmosphere: View {
                     Circle()
                         .fill(fleck.frost ? secondary : accent)
                         .frame(width: fleck.size, height: fleck.size)
-                        .shadow(
-                            color: (fleck.frost ? secondary : accent).opacity(0.45 * intensity),
-                            radius: fleck.size * 2.2
-                        )
                         .opacity((0.22 + Double(specklePhase) * 0.28) * intensity)
                         .offset(
                             x: geo.size.width * fleck.x + (reduceMotion ? 0 : CGFloat(index % 2 == 0 ? 1 : -1) * specklePhase * 3),
@@ -271,7 +267,6 @@ struct ForgeBrandMark: View {
                 RoundedRectangle(cornerRadius: size * 0.28, style: .continuous)
                     .stroke(Color.white.opacity(0.28), lineWidth: 0.8)
             )
-            .shadow(color: Color.ember.opacity(0.28), radius: reduceMotion ? 0 : 6, y: 2)
             .onAppear {
                 guard !reduceMotion else { sheen = 0.6; return }
                 withAnimation(.easeInOut(duration: 2.8).repeatForever(autoreverses: true)) {
@@ -357,11 +352,6 @@ struct PremiumPrimaryButton: View {
                         lineWidth: 1
                     )
             )
-            .shadow(
-                color: enabled ? Color.paper.opacity(0.18) : .clear,
-                radius: 18,
-                y: 8
-            )
         }
         .buttonStyle(AuthPressButtonStyle())
         .disabled(!enabled || busy)
@@ -413,13 +403,6 @@ struct PremiumProgressDots: View {
                 Capsule()
                     .fill(i == current ? Color.paper : Color.white.opacity(0.16))
                     .frame(width: i == current ? 22 : 6, height: 4)
-                    .shadow(
-                        color: i == current
-                            ? Color.paper.opacity(0.28 + Double(pulse) * 0.22)
-                            : .clear,
-                        radius: i == current ? 6 + pulse * 4 : 0,
-                        y: 0
-                    )
                     .animation(FDS.Spring.snap, value: current)
             }
         }

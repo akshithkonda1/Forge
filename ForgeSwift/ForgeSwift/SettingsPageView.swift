@@ -271,7 +271,7 @@ struct SettingsPageView: View {
 
                 SettingsHairline()
                 settingsLink(
-                    icon: "sparkles",
+                    icon: "text.bubble",
                     iconColor: .aurora,
                     label: "Meet ARIA again",
                     hint: "Replays the ARIA introduction"
@@ -774,7 +774,7 @@ struct SettingsPageView: View {
                 )
                 SettingsHairline()
                 toggleRow(
-                    icon: "sparkles",
+                    icon: "text.bubble",
                     iconColor: .aurora,
                     label: "ARIA Proactive Briefs",
                     isOn: Binding(

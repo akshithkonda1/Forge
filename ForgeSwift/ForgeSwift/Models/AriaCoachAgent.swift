@@ -58,7 +58,7 @@ enum AriaCoachAgent: String, Codable, CaseIterable, Identifiable {
 
     var icon: String {
         switch self {
-        case .aria:      return "sparkles"
+        case .aria:      return "text.bubble"
         case .workout:   return "figure.strengthtraining.traditional"
         case .recovery:  return "moon.zzz.fill"
         case .sleep:     return "bed.double.fill"

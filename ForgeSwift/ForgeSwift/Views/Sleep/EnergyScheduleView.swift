@@ -188,7 +188,7 @@ extension CircadianRhythm.Window {
         case .grogginess:      return "cloud.fog.fill"
         case .morningPeak:     return "sun.max.fill"
         case .afternoonDip:    return "arrow.down.right.circle.fill"
-        case .eveningPeak:     return "sparkles"
+        case .eveningPeak:     return "sunset"
         case .melatoninWindow: return "moon.stars.fill"
         case .windingDown:     return "sunset.fill"
         }

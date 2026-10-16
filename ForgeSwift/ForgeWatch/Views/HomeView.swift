@@ -124,7 +124,7 @@ struct HomeView: View {
                                     .font(ForgeFont.sans(9.5, weight: .medium))
                                     .foregroundStyle(readiness.band.color)
                             } else {
-                                Image(systemName: "sparkles")
+                                Image(systemName: "text.bubble")
                                     .font(.system(size: 16))
                                     .foregroundStyle(ForgePalette.textTertiary)
                             }

@@ -69,7 +69,7 @@ func smartQuickActions(mood: ARIAMood, readiness: Int, messageCount: Int) -> [(l
     } else if hour >= 20 {
         actions.append(("Wind down plan", "moon.zzz.fill", Color.aurora))
     } else {
-        actions.append(("What now?", "sparkles", mood.accentColor))
+        actions.append(("What now?", "arrow.forward.circle", mood.accentColor))
     }
 
     // Readiness-reactive

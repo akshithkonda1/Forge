@@ -119,7 +119,6 @@ struct VoiceQuickLaunchOrb: View {
                     )
                     .frame(width: 44, height: 44)
                     .overlay { Circle().stroke(Color.white.opacity(0.16), lineWidth: 1) }
-                    .shadow(color: Color.ember.opacity(0.4), radius: 10, y: 5)
 
                 Image(systemName: "mic.fill")
                     .font(.system(size: 16, weight: .semibold))

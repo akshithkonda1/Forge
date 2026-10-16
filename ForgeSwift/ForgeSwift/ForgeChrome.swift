@@ -465,26 +465,14 @@ private struct ForgeContentCard: ViewModifier {
     var padding: CGFloat
     var alignment: Alignment
 
-    /// `accent` already tints through `forgeGlassCard`; `tint` alone washes
-    /// the card in its domain color without the halo.
-    private var wash: Color? { accent == nil ? tint : nil }
+    // `accent` / `tint` are kept for API compatibility. The premium refresh
+    // draws every card as the same flat surface + hairline; domain color lives
+    // in the content (icons, numbers, charts), not in washes behind it.
 
     func body(content: Content) -> some View {
         content
             .frame(maxWidth: .infinity, alignment: alignment)
             .padding(padding)
-            .background {
-                if let wash {
-                    RoundedRectangle(cornerRadius: FDS.Radius.xl, style: .continuous)
-                        .fill(
-                            LinearGradient(
-                                colors: [wash.opacity(0.07), .clear],
-                                startPoint: .topLeading,
-                                endPoint: .bottomTrailing
-                            )
-                        )
-                }
-            }
             .forgeGlassCard(accent: accent)
     }
 }

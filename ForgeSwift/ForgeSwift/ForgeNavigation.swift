@@ -51,7 +51,7 @@ enum ForgePrimaryDestination: String, CaseIterable, Identifiable {
         switch self {
         case .home: return "house.fill"
         case .workout: return "dumbbell.fill"
-        case .chat: return "sparkles"
+        case .chat: return "bubble.left"
         case .lifestyle: return "leaf.fill"
         case .sleep: return "moon.stars.fill"
         case .progress: return "chart.line.uptrend.xyaxis"
@@ -286,7 +286,6 @@ struct ForgePrimaryButton: View {
                 RoundedRectangle(cornerRadius: FDS.Radius.md, style: .continuous)
                     .stroke(Color.white.opacity(0.20), lineWidth: ForgeUX.hairline)
             )
-            .shadow(color: glow.opacity(0.34), radius: 10, y: 4)
         }
         .buttonStyle(ForgePressStyle())
         .accessibilityLabel(title)

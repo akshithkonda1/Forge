@@ -3,7 +3,7 @@ import PhotosUI
 import UIKit
 import ForgeCore
 
-/// An ARIA sentence inside a card: a small sparkle plus the note in body
+/// An ARIA sentence inside a card: a small ARIA mark plus the note in body
 /// type, in Home's inner well. Sentences wrap, they never truncate.
 private struct SleepAriaNote: View {
     let text: String
@@ -11,7 +11,7 @@ private struct SleepAriaNote: View {
 
     var body: some View {
         HStack(alignment: .top, spacing: FDS.Spacing.sm) {
-            Image(systemName: "sparkles")
+            Image(systemName: "text.bubble")
                 .font(.system(size: 12, weight: .semibold))
                 .foregroundStyle(tint)
                 .accessibilityHidden(true)

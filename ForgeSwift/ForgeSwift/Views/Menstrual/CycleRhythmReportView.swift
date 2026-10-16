@@ -344,7 +344,6 @@ private struct ReportActionLabel: View {
         }
         .clipShape(shape)
         .overlay(shape.stroke(Color.white.opacity(0.20), lineWidth: ForgeUX.hairline))
-        .shadow(color: Color.ember.opacity(0.34), radius: 10, y: 4)
     }
 
     private var secondaryBody: some View {

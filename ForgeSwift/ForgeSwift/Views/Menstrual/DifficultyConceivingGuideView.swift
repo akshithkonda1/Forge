@@ -21,7 +21,7 @@ struct DifficultyConceivingGuideView: View {
                     specialistsCard
                     ForgePrimaryButton(
                         title: "Ask ARIA to walk this with me",
-                        icon: "sparkles",
+                        icon: "heart.text.square",
                         accent: .ember,
                         action: onAskARIA
                     )

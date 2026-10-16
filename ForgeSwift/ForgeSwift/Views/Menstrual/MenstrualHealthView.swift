@@ -1541,7 +1541,7 @@ struct MenstrualHealthView: View {
                     color: periodColor
                 )
                 predictionTile(
-                    icon: "sparkles",
+                    icon: "heart.text.square",
                     title: "Ovulation est.",
                     value: snap.ovulationDayInCycle.map { "Day \($0)" } ?? "—",
                     sub: ovulationMethodLabel(snap.ovulationMethod),

@@ -61,7 +61,7 @@ private struct CoachAgentChipRow: View {
     var body: some View {
         ScrollView(.horizontal, showsIndicators: false) {
             HStack(spacing: ForgeLayout.chipGap) {
-                pinChip(nil, title: "Auto", icon: "sparkles")
+                pinChip(nil, title: "Auto", icon: "circle.lefthalf.filled")
                 // The five modes ARIA tracks, plus Cycle -- reachable here
                 // too, still consent-gated, just not one of the five
                 // headline modes. Not .allCases: that would also surface a

@@ -52,7 +52,7 @@ struct ForgeAboutView: View {
         VStack(alignment: .leading, spacing: ForgeLayout.blockGap) {
             aboutRow("lock.shield.fill", "Local-first", "Your profile, cycle logs, and photos live on this device. Cycle data is coaching-only and is never sold.")
             aboutRow("heart.text.square.fill", "Apple Health", "Read and write is scoped to what you approve in the Health app, and can be revoked there at any time.")
-            aboutRow("sparkles", "ARIA", "Adaptive lifestyle coach. Compound interest: enough small changes and life is slightly different. Over time you see it and appreciate it. Not a new personality. Not clinical care.")
+            aboutRow("text.bubble", "ARIA", "Adaptive lifestyle coach. Compound interest: enough small changes and life is slightly different. Over time you see it and appreciate it. Not a new personality. Not clinical care.")
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .forgeContentCard()

@@ -6,18 +6,21 @@ import UIKit
 // MARK: - Color Design Tokens (premium dark system)
 
 extension Color {
-    // Backgrounds — deeper, more cinematic blacks
-    static let background      = Color(hex: "08080C")
-    static let surface         = Color(hex: "101014")
-    static let surfaceElevated = Color(hex: "17171C")
-    static let surfaceHover    = Color(hex: "1C1C22")
-    static let cardBackground  = Color(hex: "0E0E10")
+    // Backgrounds — flat, neutral near-blacks (no blue cast, no washes).
+    // Depth comes from one step of surface lightness plus a hairline.
+    static let background      = Color(hex: "09090B")
+    static let surface         = Color(hex: "111113")
+    static let surfaceElevated = Color(hex: "18181B")
+    static let surfaceHover    = Color(hex: "1F1F23")
+    static let cardBackground  = Color(hex: "0F0F11")
     static let surfaceGlass    = Color.white.opacity(0.04)
 
     // Borders — hairline luminance
     static let borderColor = Color(hex: "2A2A32")
     static let borderLight = Color(hex: "3A3A44")
     static let borderHairline = Color.white.opacity(0.08)
+    /// The one separator: a 0.5–1 pt line at this opacity.
+    static let forgeSeparator = Color.white.opacity(0.07)
     static let borderEmber = Color.ember.opacity(0.35)
 
     // Ember (primary brand energy)
@@ -103,57 +106,40 @@ extension Color {
 }
 
 // MARK: - Gradient helpers
+//
+// Premium refresh: decorative gradients are retired. These helpers keep their
+// names and types so call sites compile unchanged, but each now resolves to a
+// flat fill (or nothing). Gradients that encode data (sleep stages, HR zones,
+// trend fills) are drawn locally by their charts and are untouched.
 
 extension LinearGradient {
+    /// A "gradient" of one color — a flat fill that still type-checks as
+    /// `LinearGradient` wherever a gradient used to be passed.
+    static func flat(_ color: Color) -> LinearGradient {
+        LinearGradient(colors: [color, color], startPoint: .top, endPoint: .bottom)
+    }
+
     static var emberGradient: LinearGradient {
-        LinearGradient(
-            colors: [.emberLight, .ember, .emberDark],
-            startPoint: .topLeading,
-            endPoint: .bottomTrailing
-        )
+        .flat(.ember)
     }
 
     static var sleepRing: LinearGradient {
-        LinearGradient(
-            colors: [.steel, .steelLight, .aurora.opacity(0.8)],
-            startPoint: .topLeading,
-            endPoint: .bottomTrailing
-        )
+        .flat(.steel)
     }
 
     static var premiumSurface: LinearGradient {
-        LinearGradient(
-            colors: [
-                Color.white.opacity(0.09),
-                Color.white.opacity(0.025),
-                Color.clear
-            ],
-            startPoint: .topLeading,
-            endPoint: .bottomTrailing
-        )
+        .flat(.clear)
     }
 
     static var premiumChrome: LinearGradient {
-        LinearGradient(
-            colors: [
-                Color.white.opacity(0.12),
-                Color.white.opacity(0.04),
-                Color.clear
-            ],
-            startPoint: .top,
-            endPoint: .bottom
-        )
+        .flat(.clear)
     }
 }
 
 extension RadialGradient {
+    /// Retired ambient glow. Kept so callers compile; draws nothing.
     static func ambientGlow(_ color: Color, opacity: Double = 0.18) -> RadialGradient {
-        RadialGradient(
-            colors: [color.opacity(opacity), color.opacity(opacity * 0.35), .clear],
-            center: .center,
-            startRadius: 4,
-            endRadius: 180
-        )
+        RadialGradient(colors: [.clear, .clear], center: .center, startRadius: 0, endRadius: 1)
     }
 }
 
@@ -177,46 +163,20 @@ func hrZone(for bpm: Int) -> HRZone {
 
 struct ForgeCardModifier: ViewModifier {
     var elevated: Bool = false
+    /// Accent no longer tints the card (no washes, no halos). Kept for API.
     var accent: Color? = nil
 
     func body(content: Content) -> some View {
         content
             .background {
-                ZStack {
-                    RoundedRectangle(cornerRadius: FDS.Radius.xl, style: .continuous)
-                        .fill(elevated ? Color.surfaceElevated : Color.surface)
-                    RoundedRectangle(cornerRadius: FDS.Radius.xl, style: .continuous)
-                        .fill(LinearGradient.premiumSurface)
-                    if let accent {
-                        RoundedRectangle(cornerRadius: FDS.Radius.xl, style: .continuous)
-                            .fill(
-                                RadialGradient(
-                                    colors: [accent.opacity(0.10), .clear],
-                                    center: .topLeading,
-                                    startRadius: 10,
-                                    endRadius: 220
-                                )
-                            )
-                    }
-                }
+                RoundedRectangle(cornerRadius: FDS.Radius.xl, style: .continuous)
+                    .fill(elevated ? Color.surfaceElevated : Color.surface)
             }
             .clipShape(RoundedRectangle(cornerRadius: FDS.Radius.xl, style: .continuous))
             .overlay {
                 RoundedRectangle(cornerRadius: FDS.Radius.xl, style: .continuous)
-                    .stroke(
-                        LinearGradient(
-                            colors: [
-                                Color.white.opacity(0.20),
-                                Color.white.opacity(0.06),
-                                (accent ?? Color.white).opacity(0.05)
-                            ],
-                            startPoint: .topLeading,
-                            endPoint: .bottomTrailing
-                        ),
-                        lineWidth: 1
-                    )
+                    .strokeBorder(Color.borderHairline, lineWidth: ForgeUX.hairline)
             }
-            .forgeCardShadow(glow: accent)
     }
 }
 
@@ -225,28 +185,11 @@ extension View {
         modifier(ForgeCardModifier(elevated: elevated, accent: accent))
     }
 
-    /// Screen chrome: cinematic dual wash — brand accent at the top-left,
-    /// cool steel at the bottom-right. Whoop / Oura / Health all sit scores
-    /// on a living dark field instead of a flat fill.
+    /// Screen chrome: one flat near-black field. The accent parameter is kept
+    /// for API compatibility; screens no longer carry colored washes.
     func forgeScreenBackground(accent: Color = .ember) -> some View {
         background {
-            ZStack {
-                Color.background.ignoresSafeArea()
-                RadialGradient(
-                    colors: [accent.opacity(0.11), accent.opacity(0.04), .clear],
-                    center: UnitPoint(x: 0.10, y: -0.04),
-                    startRadius: 6,
-                    endRadius: 440
-                )
-                .ignoresSafeArea()
-                RadialGradient(
-                    colors: [Color.steel.opacity(0.07), .clear],
-                    center: UnitPoint(x: 0.94, y: 0.92),
-                    startRadius: 8,
-                    endRadius: 360
-                )
-                .ignoresSafeArea()
-            }
+            Color.background.ignoresSafeArea()
         }
     }
 }

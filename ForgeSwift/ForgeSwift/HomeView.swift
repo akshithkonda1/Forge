@@ -289,7 +289,6 @@ private struct HomeDataStatusPill: View {
                     Circle()
                         .fill(isLive ? Color.vitality : Color.warning)
                         .frame(width: 6, height: 6)
-                        .shadow(color: isLive ? Color.vitality.opacity(0.7) : .clear, radius: 3)
                 }
                 Text(statusText(now: now))
                     .font(HomeType.micro)

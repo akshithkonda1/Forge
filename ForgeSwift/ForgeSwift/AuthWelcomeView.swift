@@ -185,7 +185,7 @@ private struct AuthHookPage: Identifiable {
             kicker: "Meet your coach",
             title: AriaOnboardingGuide.welcomeTitle,
             body: "ARIA is an adaptive lifestyle coach — present for readiness, sleep, and the session you'd skip. Small moves compound. You still decide.",
-            icon: "sparkles",
+            icon: "text.bubble",
             accent: Color.ember,
             frost: HudChrome.plate,
             reward: "A coach who already knows you"
@@ -215,7 +215,7 @@ private struct AuthHookPage: Identifiable {
             kicker: "Start today",
             title: "Forge starts with one choice.",
             body: "Name your goal and how you want to train. Connect Health if you want. Walk out with a first plan and a coach that already knows you.",
-            icon: "sparkles",
+            icon: "text.bubble",
             accent: Color.paper,
             frost: Color.ember,
             reward: "Meet ARIA →"

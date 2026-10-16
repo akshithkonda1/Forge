@@ -188,7 +188,7 @@ struct WorkoutIdleView: View {
             toolbarCell(icon: "books.vertical.fill", title: "Library", label: "Open the exercise library") {
                 showLibrary = true
             }
-            toolbarCell(icon: "sparkles", title: "Brief", label: "Open the ARIA session brief") {
+            toolbarCell(icon: "doc.text", title: "Brief", label: "Open the ARIA session brief") {
                 showDashboard = true
             }
         }
@@ -763,7 +763,7 @@ struct WorkoutEmptyState: View {
                     .id(agingStamp)
             }
             VStack(spacing: ForgeLayout.tileGap) {
-                ForgePrimaryButton(title: "Write today’s session", icon: "sparkles") {
+                ForgePrimaryButton(title: "Write today’s session", icon: "square.and.pencil") {
                     store.rebuildTodayPlanFromLife()
                 }
                 ForgeSecondaryButton(title: "Browse the library", icon: "books.vertical.fill", accent: .steel) {

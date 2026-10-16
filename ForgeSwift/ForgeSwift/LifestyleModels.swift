@@ -256,7 +256,7 @@ enum LifestyleSegment: Int, CaseIterable {
     }
     var icon: String {
         switch self {
-        case .aiOptimization: return "sparkles"
+        case .aiOptimization: return "slider.horizontal.3"
         case .homeCooking:    return "frying.pan.fill"
         case .restaurants:    return "map.fill"
         case .nutrition:      return "chart.pie.fill"

@@ -57,7 +57,7 @@ private struct ReadinessComplicationView: View {
                 .tint(tint)
                 .widgetAccentable()
             } else {
-                Image(systemName: "sparkles")
+                Image(systemName: "circle.dotted")
                     .font(.system(size: 16))
             }
         }
