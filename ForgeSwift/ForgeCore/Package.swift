@@ -189,6 +189,7 @@ let package = Package(
                 "AriaFishAudioVoiceTests.swift",
                 "AriaWebEvidenceTests.swift",
                 "AriaScoutDummyTests.swift",
+                "ForgeFontTests.swift",
                 "ScheduleCorrectorTests.swift",
                 "SleepWakeAdaptationTests.swift",
                 "SleepDepthScorerTests.swift",

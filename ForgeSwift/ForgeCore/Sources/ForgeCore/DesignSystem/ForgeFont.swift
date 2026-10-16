@@ -9,6 +9,11 @@ import CoreText
 //
 //   • Geist (Vercel) — the UI and numbers face. A tight, engineered grotesk
 //     with true tabular figures, so metrics read like an instrument.
+//     Geist's *default* figures are proportional; tabular digits are an
+//     opt-in feature (`tnum`), so every metric role applies
+//     `.monospacedDigit()`. Plain `sans` body text keeps proportional
+//     digits on purpose — add `.monospacedDigit()` for any counting or
+//     animating number, or its width will jitter as the value changes.
 //   • Instrument Serif — display only (greeting, page titles, ARIA's voice).
 //     One editorial note so the app reads calm and considered, not "AI app".
 //
