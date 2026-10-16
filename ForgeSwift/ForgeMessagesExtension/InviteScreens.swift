@@ -443,11 +443,7 @@ private struct InviteGlyph: View {
             .foregroundStyle(.white)
             .frame(width: 76, height: 76)
             .background(
-                Circle().fill(
-                    LinearGradient(colors: [Brand.ember, Brand.emberDark],
-                                   startPoint: .topLeading,
-                                   endPoint: .bottomTrailing)
-                )
+                Circle().fill(Brand.ember)
             )
             .accessibilityHidden(true)
     }
@@ -467,31 +463,18 @@ private struct InviteButton: View {
                 .padding(.vertical, 14)
                 .background(
                     RoundedRectangle(cornerRadius: 14, style: .continuous)
-                        .fill(LinearGradient(colors: [Brand.ember, Brand.emberDark],
-                                             startPoint: .leading,
-                                             endPoint: .trailing))
+                        .fill(Brand.ember)
                 )
         }
         .buttonStyle(.plain)
     }
 }
 
-/// A still gradient, not an animated one. The extension is a keyboard-height
-/// sheet a user is in for four seconds, and ambient motion here would read as
-/// jitter rather than as welcome.
+/// Flat near-black, matching the app. No bloom: the extension is a
+/// keyboard-height sheet a user is in for four seconds.
 private struct InviteBackground: View {
     var body: some View {
-        LinearGradient(colors: [Color(red: 0.06, green: 0.06, blue: 0.08),
-                                Color(red: 0.11, green: 0.08, blue: 0.09)],
-                       startPoint: .top,
-                       endPoint: .bottom)
-            .overlay(alignment: .topTrailing) {
-                Circle()
-                    .fill(Brand.ember.opacity(0.16))
-                    .frame(width: 260, height: 260)
-                    .blur(radius: 90)
-                    .offset(x: 80, y: -110)
-            }
+        Color(red: 0.035, green: 0.035, blue: 0.043)
             .ignoresSafeArea()
             .accessibilityHidden(true)
     }

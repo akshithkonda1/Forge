@@ -396,7 +396,7 @@ struct CycleTrainingPrescriptionCard: View {
             }
 
             VStack(alignment: .leading, spacing: ForgeLayout.pairGap) {
-                ForgeTextLink(title: "Ask ARIA to shape this", accent: .aurora) {
+                ForgeTextLink(title: "Ask ARIA to shape this", accent: .ember) {
                     onAskARIA()
                 }
                 Text(prescription.disclaimer)

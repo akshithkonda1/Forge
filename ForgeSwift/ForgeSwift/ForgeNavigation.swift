@@ -241,7 +241,6 @@ struct ForgePrimaryButton: View {
 
     private var usesSteel: Bool { accent == Color.steel }
     private var fill: LinearGradient { usesSteel ? FDS.Gradient.steel : FDS.Gradient.ember }
-    private var glow: Color { usesSteel ? Color.steel : Color.ember }
 
     var body: some View {
         Button {
@@ -275,17 +274,8 @@ struct ForgePrimaryButton: View {
             .padding(.vertical, 14)
             .padding(.horizontal, FDS.Spacing.lg)
             .frame(maxWidth: .infinity, minHeight: ForgeUX.minTap + 8, alignment: .leading)
-            .background {
-                ZStack {
-                    fill
-                    LinearGradient.premiumChrome
-                }
-            }
+            .background { fill }
             .clipShape(RoundedRectangle(cornerRadius: FDS.Radius.md, style: .continuous))
-            .overlay(
-                RoundedRectangle(cornerRadius: FDS.Radius.md, style: .continuous)
-                    .stroke(Color.white.opacity(0.20), lineWidth: ForgeUX.hairline)
-            )
         }
         .buttonStyle(ForgePressStyle())
         .accessibilityLabel(title)
@@ -293,7 +283,7 @@ struct ForgePrimaryButton: View {
     }
 }
 
-/// Premium empty state for tabs that have no data yet.
+/// Empty state for tabs that have no data yet: serif title, one sentence, one CTA.
 struct ForgeEmptyStateCard: View {
     let icon: String
     let title: String
@@ -306,8 +296,10 @@ struct ForgeEmptyStateCard: View {
         VStack(spacing: ForgeLayout.blockGap) {
             ForgeIconWell(systemImage: icon, tint: accent, diameter: 56)
             VStack(spacing: ForgeLayout.pairGap) {
+                // Empty states speak in the editorial voice: a calm serif line,
+                // then one plain sentence.
                 Text(title)
-                    .font(ForgeType.title)
+                    .font(ForgeFont.serif(.title2))
                     .foregroundColor(.textPrimary)
                     .multilineTextAlignment(.center)
                     .fixedSize(horizontal: false, vertical: true)

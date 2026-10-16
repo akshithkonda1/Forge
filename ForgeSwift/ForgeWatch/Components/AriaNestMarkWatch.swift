@@ -3,7 +3,7 @@ import ForgeCore
 
 // MARK: - AriaNestMarkWatch
 //
-// Wrist identity mark — B+E nest (soft-hex + metal sun). One Canvas inside
+// Wrist identity mark — nest lines + flat ember core. One Canvas inside
 // one TimelineView at ≤12 Hz. Home readiness glow stays `AuroraOrbWatch` +
 // `ReadinessRing` (data language). This view is the brand mark.
 //
@@ -47,23 +47,8 @@ struct AriaNestMarkWatch: View {
         let center = CGPoint(x: canvasSize.width / 2, y: canvasSize.height / 2)
         let orange = Color(forgeHex: AriaNestGeometry.forgeOrangeHex)
         let pearl = Color(forgeHex: AriaNestGeometry.pearlHex)
-        let pearlHot = Color(forgeHex: AriaNestGeometry.pearlHotHex)
-        let metalCool = Color(forgeHex: AriaNestGeometry.metalCoolHex)
-
-        let washR = s * 0.42
-        context.fill(
-            Path(ellipseIn: CGRect(x: center.x - washR, y: center.y - washR, width: washR * 2, height: washR * 2)),
-            with: .radialGradient(
-                Gradient(colors: [
-                    pearlHot.opacity(0.16),
-                    orange.opacity(0.06),
-                    .clear
-                ]),
-                center: center,
-                startRadius: 1,
-                endRadius: washR
-            )
-        )
+        // Same treatment as the phone mark: monochrome lines, flat ember core,
+        // no wash.
 
         for index in AriaNestGeometry.visibleRingIndices(size: Double(s)).reversed() {
             let pose = AriaNestGeometry.livingHex(
@@ -73,7 +58,7 @@ struct AriaNestMarkWatch: View {
                 amplitude: amplitude,
                 reduceMotion: frozen
             )
-            let stroke = Color(forgeHex: AriaNestGeometry.ringHex(at: index))
+            let stroke = pearl
             let path = nestPath(
                 center: center,
                 width: s * pose.rx,
@@ -102,19 +87,7 @@ struct AriaNestMarkWatch: View {
             width: diameter * core.sx,
             height: diameter * core.sy
         )
-        context.fill(
-            Path(ellipseIn: body),
-            with: .radialGradient(
-                Gradient(colors: [
-                    pearlHot.opacity(0.96),
-                    metalCool.opacity(0.88),
-                    pearl.opacity(0.7)
-                ]),
-                center: CGPoint(x: center.x - diameter * 0.12, y: center.y - diameter * 0.14),
-                startRadius: 0,
-                endRadius: diameter * 0.55
-            )
-        )
+        context.fill(Path(ellipseIn: body), with: .color(orange))
     }
 
     private func nestPath(

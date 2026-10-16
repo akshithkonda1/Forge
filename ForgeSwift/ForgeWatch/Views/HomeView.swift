@@ -106,11 +106,7 @@ struct HomeView: View {
                 path.append(.mindfulness)
             } label: {
                 ZStack {
-                    AuroraOrbWatch(
-                        accent: health.readiness?.band.color ?? ForgePalette.steel,
-                        size: 92,
-                        intensity: health.readiness?.confidence ?? 0.3
-                    )
+                    // The ring and number are the whole story; no ember orb behind.
                     ReadinessRing(
                         score: health.readiness?.overall,
                         confidence: health.readiness?.confidence ?? 0
@@ -124,7 +120,7 @@ struct HomeView: View {
                                     .font(ForgeFont.sans(9.5, weight: .medium))
                                     .foregroundStyle(readiness.band.color)
                             } else {
-                                Image(systemName: "text.bubble")
+                                Image(systemName: "circle.dashed")
                                     .font(.system(size: 16))
                                     .foregroundStyle(ForgePalette.textTertiary)
                             }

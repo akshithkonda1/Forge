@@ -917,7 +917,7 @@ struct MenstrualHealthView: View {
                 .font(HomeType.body)
                 .foregroundColor(.textSecondary)
                 .forgeWrapping()
-            ForgeTextLink(title: "Ask ARIA about \(condition.label)", accent: .aurora) {
+            ForgeTextLink(title: "Ask ARIA about \(condition.label)", accent: .ember) {
                 store.openChat(
                     with: "I track my cycle with \(condition.label). I'm on \(cycleStore.snapshot.phase.label)"
                         + (cycleStore.snapshot.dayInCycle.map { ", day \($0)" } ?? "")
@@ -1112,7 +1112,7 @@ struct MenstrualHealthView: View {
                 }
                 if cycleStore.settings.shareWithAria,
                    let prompt = cycleStore.ariaChatPromptForCycle() {
-                    ForgeTextLink(title: "Ask ARIA", accent: .aurora) {
+                    ForgeTextLink(title: "Ask ARIA", accent: .ember) {
                         store.openChat(with: prompt, voice: false)
                     }
                 }

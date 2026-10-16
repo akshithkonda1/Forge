@@ -30,12 +30,7 @@ struct ReadinessRing<Center: View>: View {
                 Circle()
                     .trim(from: 0, to: CGFloat(score) / 100)
                     .stroke(
-                        AngularGradient(
-                            colors: [band.color.opacity(0.55), band.color],
-                            center: .center,
-                            startAngle: .degrees(-90),
-                            endAngle: .degrees(270)
-                        ),
+                        band.color,
                         style: StrokeStyle(
                             lineWidth: lineWidth,
                             lineCap: .round,

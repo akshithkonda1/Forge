@@ -1,5 +1,6 @@
 import WidgetKit
 import SwiftUI
+import ForgeCore
 import ActivityKit
 
 // MARK: - CycleFertileWindowLiveActivity
@@ -19,13 +20,13 @@ struct CycleFertileWindowLiveActivity: Widget {
             return DynamicIsland {
                 DynamicIslandExpandedRegion(.leading) {
                     Label("Forge Cycle", systemImage: phaseIcon(state.phase))
-                        .font(.system(size: 13, weight: .semibold))
+                        .font(ForgeFont.sans(13, weight: .semibold))
                         .foregroundStyle(Color.orange)
                 }
                 DynamicIslandExpandedRegion(.trailing) {
                     if let day = state.dayInCycle {
                         Text("Day \(day)")
-                            .font(.system(size: 15, weight: .bold, design: .rounded))
+                            .font(ForgeFont.sans(15, weight: .bold))
                             .foregroundStyle(.white)
                     }
                 }
@@ -33,12 +34,12 @@ struct CycleFertileWindowLiveActivity: Widget {
                     HStack(spacing: 12) {
                         if state.isActiveFertileWindow {
                             Label("Fertile window open", systemImage: "waveform.path.ecg")
-                                .font(.system(size: 12))
+                                .font(ForgeFont.sans(12))
                                 .foregroundStyle(Color.orange)
                         }
                         if let score = state.fertileScore {
                             Text("Fertile Score: \(score)/100")
-                                .font(.system(size: 12, weight: .medium))
+                                .font(ForgeFont.sans(12, weight: .medium))
                                 .foregroundStyle(.secondary)
                         }
                         Spacer()
@@ -50,10 +51,10 @@ struct CycleFertileWindowLiveActivity: Widget {
             } compactTrailing: {
                 if let days = state.daysUntilOvulation {
                     Text("\(days)d")
-                        .font(.system(size: 12, weight: .semibold, design: .rounded))
+                        .font(ForgeFont.sans(12, weight: .semibold))
                 } else if state.isActiveFertileWindow {
                     Text("Fertile")
-                        .font(.system(size: 12, weight: .semibold))
+                        .font(ForgeFont.sans(12, weight: .semibold))
                         .foregroundStyle(Color.orange)
                 }
             } minimal: {
@@ -86,15 +87,15 @@ private struct LockScreenCycleView: View {
 
             VStack(alignment: .leading, spacing: 2) {
                 Text(phaseLabel(state.phase))
-                    .font(.system(size: 14, weight: .semibold, design: .rounded))
+                    .font(ForgeFont.sans(14, weight: .semibold))
                     .foregroundStyle(.white)
                 if state.isActiveFertileWindow {
                     Text("Fertile window open")
-                        .font(.system(size: 12))
+                        .font(ForgeFont.sans(12))
                         .foregroundStyle(Color.orange.opacity(0.9))
                 } else if let days = state.daysUntilOvulation {
                     Text("Ovulation in ~\(days) day\(days == 1 ? "" : "s")")
-                        .font(.system(size: 12))
+                        .font(ForgeFont.sans(12))
                         .foregroundStyle(.white.opacity(0.7))
                 }
             }
@@ -104,11 +105,11 @@ private struct LockScreenCycleView: View {
             if let day = state.dayInCycle {
                 VStack(alignment: .trailing, spacing: 2) {
                     Text("Day \(day)")
-                        .font(.system(size: 22, weight: .bold, design: .rounded))
+                        .font(ForgeFont.sans(22, weight: .bold))
                         .foregroundStyle(.white)
                     if let score = state.fertileScore {
                         Text("\(score)/100")
-                            .font(.system(size: 12, weight: .medium))
+                            .font(ForgeFont.sans(12, weight: .medium))
                             .foregroundStyle(Color.orange)
                     }
                 }

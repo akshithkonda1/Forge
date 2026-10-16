@@ -86,10 +86,7 @@ struct BreathingOrb: View {
                 x: center.x - radius, y: center.y - radius,
                 width: radius * 2, height: radius * 2
             ))
-            context.fill(circle, with: .radialGradient(
-                Gradient(colors: [accent.opacity(0.25 + fraction * 0.4), accent.opacity(0.05)]),
-                center: center, startRadius: 0, endRadius: radius
-            ))
+            context.fill(circle, with: .color(accent.opacity(0.12 + fraction * 0.2)))
             context.stroke(circle, with: .color(accent.opacity(0.5 + fraction * 0.4)), lineWidth: 2)
             return
         }
@@ -100,34 +97,9 @@ struct BreathingOrb: View {
             x: center.x - radius, y: center.y - radius,
             width: radius * 2, height: radius * 2
         ))
-        context.fill(disc, with: .radialGradient(
-            Gradient(colors: [
-                accent.opacity(0.55),
-                accent.opacity(0.22),
-                accent.opacity(0.04),
-            ]),
-            center: center, startRadius: radius * 0.1, endRadius: radius
-        ))
+        // Flat disc: its size is the breath; no radial glow.
+        context.fill(disc, with: .color(accent.opacity(0.18)))
         context.stroke(disc, with: .color(accent.opacity(0.85)), lineWidth: 1.5)
-
-        // Two gentle aurora rings drift just outside the disc.
-        for (index, speed) in [0.45, 0.7].enumerated() {
-            let ringAmp = maxRadius * 0.05
-            var path = Path()
-            let steps = 24
-            for step in 0...steps {
-                let angle = Double(step) / Double(steps) * .pi * 2
-                let wobble = sin(angle * 3 + time * speed + Double(index) * 2.1) * ringAmp
-                let r = radius + 7 + wobble
-                let point = CGPoint(
-                    x: center.x + CGFloat(cos(angle) * r),
-                    y: center.y + CGFloat(sin(angle) * r)
-                )
-                if step == 0 { path.move(to: point) } else { path.addLine(to: point) }
-            }
-            path.closeSubpath()
-            context.stroke(path, with: .color(accent.opacity(0.18 + Double(index) * 0.1)), lineWidth: 1)
-        }
 
         // Phase progress tick ring — a thin arc completing over the phase,
         // helpful once users learn to pace holds by it.

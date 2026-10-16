@@ -6,15 +6,10 @@ import ForgeCore
 // different apps that happen to share a bundle.
 
 enum WidgetChrome {
+    /// Flat Forge field. `accent` is kept for call-site compatibility; the
+    /// widget's color lives in its number, not a wash.
     static func background(accent: Color) -> some View {
-        ZStack {
-            ForgePalette.background
-            LinearGradient(
-                colors: [accent.opacity(0.22), Color.clear],
-                startPoint: .topLeading,
-                endPoint: .bottomTrailing
-            )
-        }
+        ForgePalette.background
     }
 
     static func eyebrow(_ text: String, color: Color) -> some View {

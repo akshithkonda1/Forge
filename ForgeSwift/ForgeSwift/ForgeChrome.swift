@@ -775,9 +775,10 @@ struct ForgeMetricRow: View {
                     .minimumScaleFactor(ForgeLayout.valueMinScale)
                     .contentTransition(.numericText())
                 if let unit, !unit.isEmpty {
+                    // Units stay neutral so the number carries the color.
                     Text(unit)
                         .font(HomeType.label)
-                        .foregroundStyle(tint ?? Color.textTertiary)
+                        .foregroundStyle(Color.textTertiary)
                         .lineLimit(1)
                 }
             }
@@ -1320,7 +1321,11 @@ struct ForgeSkeletonWell: View {
             .frame(maxWidth: .infinity, minHeight: minHeight)
             .background(
                 RoundedRectangle(cornerRadius: ForgeLayout.innerRadius, style: .continuous)
-                    .fill(Color.white.opacity(0.06))
+                    .fill(Color.white.opacity(0.03))
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: ForgeLayout.innerRadius, style: .continuous)
+                    .strokeBorder(Color.borderHairline, lineWidth: 0.5)
             )
             .accessibilityLabel(message)
     }
