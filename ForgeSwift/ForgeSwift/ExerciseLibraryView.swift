@@ -284,7 +284,7 @@ struct ExerciseLibraryView: View {
     }
 
     private func repChip(_ text: String) -> some View {
-        HStack(spacing: 4) {
+        HStack(spacing: FDS.Spacing.xs) {
             Image(systemName: "repeat")
                 .font(.system(size: 9, weight: .semibold))
                 .accessibilityHidden(true)

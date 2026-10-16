@@ -102,7 +102,7 @@ struct LiveHealthDashboard: View {
     /// Home's live pill (HomeDataStatusPill): a static 6 pt dot and a micro
     /// label in a hairline capsule. No pulse and no glow at rest.
     private var livePill: some View {
-        HStack(spacing: 5) {
+        HStack(spacing: FDS.Spacing.xs) {
             Circle()
                 .fill(Color.vitality)
                 .frame(width: 6, height: 6)
@@ -113,8 +113,8 @@ struct LiveHealthDashboard: View {
                 .textCase(.uppercase)
                 .lineLimit(1)
         }
-        .padding(.horizontal, 9)
-        .padding(.vertical, 5)
+        .padding(.horizontal, FDS.Spacing.sm)
+        .padding(.vertical, FDS.Spacing.xs)
         .background(Color.white.opacity(0.05))
         .clipShape(Capsule())
         .overlay(Capsule().stroke(Color.white.opacity(0.08), lineWidth: 1))

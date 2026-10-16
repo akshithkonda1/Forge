@@ -99,7 +99,7 @@ struct ForgeChip: View {
     var fillsWidth: Bool = false
 
     var body: some View {
-        HStack(spacing: 5) {
+        HStack(spacing: FDS.Spacing.xs) {
             if let icon {
                 Image(systemName: icon)
                     .font(.system(size: 10, weight: .semibold))
@@ -111,8 +111,8 @@ struct ForgeChip: View {
                 .minimumScaleFactor(ForgeLayout.labelMinScale)
         }
         .foregroundStyle(selected ? energy : Color.textPrimary)
-        .padding(.horizontal, 10)
-        .padding(.vertical, 7)
+        .padding(.horizontal, FDS.Spacing.sm)
+        .padding(.vertical, FDS.Spacing.sm)
         .frame(maxWidth: fillsWidth ? CGFloat.infinity : nil, minHeight: 30)
         .background(selected ? energy.opacity(0.14) : Color.white.opacity(0.08))
         .clipShape(Capsule())
@@ -370,12 +370,12 @@ extension View {
 
 // MARK: - Layout rhythm
 //
-// Home's numbers, promoted app-wide. PR #448 had no 20 pt token outside Home,
-// so card padding fell to 16 while in-card gaps rose to 16. Padding equal to
-// the gap is what made the dense screens read as cramped. Each step below is
+// Every value sits on the spacing scale (4 / 8 / 12 / 16 / 24 / 32 / 48).
+// Card padding stays larger than any gap inside the card (PR #448 set them
+// equal at 16 and the dense screens read as cramped), and each step below is
 // strictly smaller than the one before it, so tighter spacing always means
 // "more related":
-// cardPadding 20 > sectionGap 16 = heroGap 16 > blockGap 14 > rowGap 12 > tileGap 10 > pairGap 4.
+// cardPadding 24 > sectionGap 16 = heroGap 16 = blockGap 16 > rowGap 12 > tileGap 8 > pairGap 4.
 
 enum ForgeLayout {
     /// Horizontal page inset.
@@ -396,11 +396,11 @@ enum ForgeLayout {
     /// Interior padding for one-line banners, toasts and rail tiles.
     static let compactCardPadding: CGFloat = FDS.Spacing.lg
     /// Between blocks inside a card: header, body, footer.
-    static let blockGap: CGFloat = 14
+    static let blockGap: CGFloat = FDS.Spacing.lg
     /// Between repeated rows inside a card.
     static let rowGap: CGFloat = FDS.Spacing.md
     /// Between equal-width tiles and paired buttons.
-    static let tileGap: CGFloat = 10
+    static let tileGap: CGFloat = FDS.Spacing.sm
     /// Interior padding of a well (an inset tile nested in a card).
     static let tilePadding: CGFloat = FDS.Spacing.md
     /// Between a title and its subtitle, or an eyebrow and its lead line.
@@ -408,7 +408,7 @@ enum ForgeLayout {
     /// Between a label and its value, and between stacked `ForgeMetricRow`s.
     static let labelValueGap: CGFloat = 2
     /// Between chips in a row, and between rows of static chips (Home's chip row).
-    static let chipGap: CGFloat = 6
+    static let chipGap: CGFloat = FDS.Spacing.sm
     /// Between rows of `ForgeChipButton`s. A 30 pt chip plus 14 makes rows
     /// 44 pt apart, so each chip's 44 pt tap area meets the next row's exactly.
     static let interactiveChipLineGap: CGFloat = 14
@@ -742,7 +742,7 @@ struct ForgeMetricRow: View {
             ? AnyLayout(VStackLayout(alignment: .leading, spacing: ForgeLayout.labelValueGap))
             : AnyLayout(HStackLayout(alignment: .center, spacing: FDS.Spacing.sm))
         layout {
-            HStack(spacing: 10) {
+            HStack(spacing: FDS.Spacing.sm) {
                 if let tint {
                     RoundedRectangle(cornerRadius: 1, style: .continuous)
                         .fill(tint)
@@ -782,7 +782,7 @@ struct ForgeMetricRow: View {
             }
             .layoutPriority(1)
         }
-        .padding(.vertical, 6)
+        .padding(.vertical, FDS.Spacing.xs)
         .accessibilityElement(children: .combine)
     }
 }
@@ -1187,7 +1187,7 @@ struct ForgeSegmentedControl<Value: Hashable>: View {
             ForgeHaptics.play(.selection)
             select(option.value)
         } label: {
-            HStack(spacing: 6) {
+            HStack(spacing: FDS.Spacing.xs) {
                 if let icon = option.icon {
                     Image(systemName: icon)
                         .font(.system(size: 12, weight: .semibold))
@@ -1199,7 +1199,7 @@ struct ForgeSegmentedControl<Value: Hashable>: View {
                     .foregroundStyle(isOn ? Color.textPrimary : Color.textSecondary)
                     .forgeSingleLine(minScale: ForgeLayout.labelMinScale)
             }
-            .padding(.horizontal, 14)
+            .padding(.horizontal, FDS.Spacing.md)
             .frame(maxWidth: inTrack ? CGFloat.infinity : nil, minHeight: 36)
             .background {
                 if isOn {

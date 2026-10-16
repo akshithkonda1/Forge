@@ -38,7 +38,7 @@ struct CelebrationOverlay: View {
                     }
                 }
 
-                VStack(spacing: 10) {
+                VStack(spacing: FDS.Spacing.sm) {
                     Text("Peak readiness")
                         .font(ForgeFont.sans(28, weight: .black))
                         .foregroundStyle(.white)
@@ -47,7 +47,7 @@ struct CelebrationOverlay: View {
                         .foregroundStyle(.white.opacity(0.8))
                 }
                 .scaleEffect(bannerScale)
-                .padding(28)
+                .padding(FDS.Spacing.xl)
                 .background(.ultraThinMaterial)
                 .clipShape(RoundedRectangle(cornerRadius: FDS.Radius.xl, style: .continuous))
             }

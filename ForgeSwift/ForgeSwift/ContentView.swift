@@ -377,7 +377,7 @@ struct ForgeBottomNav: View {
             }
         }
         // The home-indicator safe area already pads the bottom.
-        .padding(.top, 6)
+        .padding(.top, FDS.Spacing.xs)
         .padding(.bottom, 0)
         .accessibilityElement(children: .contain)
         .background { barBackground }

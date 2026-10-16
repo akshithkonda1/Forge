@@ -14,12 +14,12 @@ enum HomeMetrics {
     /// Vertical gap between sections, applied once by the VStack.
     static let sectionGap: CGFloat = FDS.Spacing.lg
     /// Interior padding for every card.
-    static let cardPadding: CGFloat = 20
+    static let cardPadding: CGFloat = FDS.Spacing.xl
     /// Radius for elements *inside* a card. Cards themselves use the
     /// `forgeGlassCard` default (`FDS.Radius.xl`).
     static let innerRadius: CGFloat = FDS.Radius.md
     /// Clearance past the tab bar and floating orb at the end of the scroll.
-    static let scrollBottomClearance: CGFloat = 28
+    static let scrollBottomClearance: CGFloat = FDS.Spacing.xxl
     /// How far a section rises as it fades in.
     static let entranceRise: CGFloat = 12
     /// Hero ring-field base size. Use sites wrap this in `@ScaledMetric` and

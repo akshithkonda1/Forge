@@ -30,7 +30,7 @@ struct HomeWinCard: View {
                 store.openTrainHome()
             }
         } label: {
-            HStack(spacing: 12) {
+            HStack(spacing: FDS.Spacing.md) {
                 ZStack {
                     Circle()
                         .fill(Color.ember.opacity(0.18))
@@ -155,7 +155,7 @@ struct HomeAgendaCard: View {
         // being evaluated twice per render, once for the count and once for the
         // ForEach. Bind it once.
         let rows = items
-        return VStack(alignment: .leading, spacing: 12) {
+        return VStack(alignment: .leading, spacing: FDS.Spacing.md) {
             HStack {
                 Text("TODAY'S AGENDA")
                     .forgeSectionLabel()
@@ -169,7 +169,7 @@ struct HomeAgendaCard: View {
                 Button {
                     item.action()
                 } label: {
-                    HStack(spacing: 12) {
+                    HStack(spacing: FDS.Spacing.md) {
                         ZStack {
                             Circle()
                                 .fill(item.color.opacity(0.16))
@@ -193,7 +193,7 @@ struct HomeAgendaCard: View {
                             .font(.system(size: 11, weight: .semibold))
                             .foregroundColor(.textMuted)
                     }
-                    .padding(.vertical, 4)
+                    .padding(.vertical, FDS.Spacing.xs)
                 }
                 .buttonStyle(.plain)
                 .accessibilityLabel(item.title)
@@ -214,7 +214,7 @@ struct HomeLifestylePreviewCard: View {
             store.pendingLifestyleSegment = "wellbeing"
             store.activeTab = .lifestyle
         } label: {
-            VStack(alignment: .leading, spacing: 14) {
+            VStack(alignment: .leading, spacing: FDS.Spacing.md) {
                 HStack {
                     Text("LIFESTYLE")
                         .forgeSectionLabel()
@@ -230,7 +230,7 @@ struct HomeLifestylePreviewCard: View {
                     }
                 }
 
-                HStack(spacing: 10) {
+                HStack(spacing: FDS.Spacing.sm) {
                     lifestyleChip(
                         icon: "figure.walk",
                         value: store.dailyMetrics.steps > 0 ? store.dailyMetrics.steps.formatted() : "—",
@@ -260,7 +260,7 @@ struct HomeLifestylePreviewCard: View {
                     )
                 }
 
-                HStack(spacing: 8) {
+                HStack(spacing: FDS.Spacing.sm) {
                     Image(systemName: "leaf.fill")
                         .font(.system(size: 12, weight: .semibold))
                         .foregroundStyle(Color.amber)
@@ -289,7 +289,7 @@ struct HomeLifestylePreviewCard: View {
     }
 
     private func lifestyleChip(icon: String, value: String, label: String, color: Color) -> some View {
-        VStack(alignment: .leading, spacing: 8) {
+        VStack(alignment: .leading, spacing: FDS.Spacing.sm) {
             Image(systemName: icon)
                 .font(.system(size: 14, weight: .semibold))
                 .foregroundStyle(color)
@@ -303,7 +303,7 @@ struct HomeLifestylePreviewCard: View {
                 .foregroundColor(.textTertiary)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(12)
+        .padding(FDS.Spacing.md)
         .background(Color.white.opacity(0.045))
         .clipShape(RoundedRectangle(cornerRadius: HomeMetrics.innerRadius, style: .continuous))
         .overlay(
@@ -317,7 +317,7 @@ struct HomeDayPreviewStrip: View {
     @EnvironmentObject var store: AppStore
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 14) {
+        VStack(alignment: .leading, spacing: FDS.Spacing.md) {
             HStack {
                 Text("DAY PREVIEW")
                     .forgeSectionLabel()
@@ -332,7 +332,7 @@ struct HomeDayPreviewStrip: View {
             // negative outer inset is paid back as leading content padding, which
             // keeps the first tile aligned with the header above it.
             ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: 12) {
+                HStack(spacing: FDS.Spacing.md) {
                     HomeMetricTile(
                         icon: "moon.zzz.fill",
                         iconColor: .steel,
@@ -385,7 +385,7 @@ private struct HomeMetricTile: View {
     let label: String
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
+        VStack(alignment: .leading, spacing: FDS.Spacing.md) {
             ZStack {
                 Circle().fill(iconColor.opacity(0.16)).frame(width: 36, height: 36)
                 Image(systemName: icon).font(.system(size: 16)).foregroundColor(iconColor)
@@ -400,7 +400,7 @@ private struct HomeMetricTile: View {
                 .font(HomeType.micro)
                 .foregroundColor(.textTertiary)
         }
-        .padding(14)
+        .padding(FDS.Spacing.md)
         .frame(width: 118, alignment: .leading)
         .forgeGlassCard(cornerRadius: HomeMetrics.innerRadius)
         .accessibilityElement(children: .combine)
@@ -615,7 +615,7 @@ struct HomeTrendSection: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
+        VStack(alignment: .leading, spacing: FDS.Spacing.md) {
             Button {
                 guard !trendData.isEmpty else { return }
                 withAnimation(reduceMotion ? .easeOut(duration: 0.15) : ForgeMotion.smooth) {
@@ -656,7 +656,7 @@ struct HomeTrendSection: View {
                     }
                     .accessibilityLabel(HomeTrendSeries.loadingVoiceOver)
             } else if trendData.isEmpty {
-                VStack(alignment: .leading, spacing: 4) {
+                VStack(alignment: .leading, spacing: FDS.Spacing.xs) {
                     Text("A few more nights")
                         .font(HomeType.status)
                         .foregroundColor(.textPrimary)

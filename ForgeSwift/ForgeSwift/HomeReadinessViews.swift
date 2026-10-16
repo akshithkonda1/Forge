@@ -13,7 +13,7 @@ struct BreakdownCardView: View {
     private var dot: Color { display.map { HomeReadiness.color($0) } ?? .textTertiary }
 
     var body: some View {
-        HStack(spacing: 10) {
+        HStack(spacing: FDS.Spacing.sm) {
             Circle().fill(dot).frame(width: 8, height: 8)
             VStack(alignment: .leading, spacing: 2) {
                 Text(label)
@@ -25,7 +25,7 @@ struct BreakdownCardView: View {
             }
             Spacer()
         }
-        .padding(12)
+        .padding(FDS.Spacing.md)
         .background {
             ZStack {
                 RoundedRectangle(cornerRadius: FDS.Radius.md, style: .continuous)
@@ -48,7 +48,7 @@ struct ReadinessInsightRow: View {
     let color: Color
 
     var body: some View {
-        HStack(spacing: 12) {
+        HStack(spacing: FDS.Spacing.md) {
             ZStack {
                 Circle().fill(color.opacity(0.15)).frame(width: 36, height: 36)
                 Image(systemName: icon).font(.system(size: 15)).foregroundColor(color)
@@ -61,7 +61,7 @@ struct ReadinessInsightRow: View {
                 .font(HomeType.label)
                 .foregroundColor(.textPrimary)
         }
-        .padding(.vertical, 4)
+        .padding(.vertical, FDS.Spacing.xs)
     }
 }
 
@@ -98,7 +98,7 @@ struct ReadinessRingView: View {
             }
 
             if showLabel {
-                VStack(spacing: 4) {
+                VStack(spacing: FDS.Spacing.xs) {
                     Text("\(score)")
                         .font(ForgeFont.sans(size * 0.26, weight: .light))
                         .monospacedDigit()
@@ -319,9 +319,9 @@ struct StreakCalendarSection: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 14) {
+        VStack(alignment: .leading, spacing: FDS.Spacing.md) {
             HStack {
-                HStack(spacing: 6) {
+                HStack(spacing: FDS.Spacing.xs) {
                     Image(systemName: "checkmark.circle.fill")
                         .font(.system(size: 13))
                         .foregroundColor(.ember)
@@ -430,7 +430,7 @@ struct HomeContributorRow: View {
             ForgeHaptics.play(.selection)
             onTap?()
         } label: {
-            HStack(spacing: 10) {
+            HStack(spacing: FDS.Spacing.sm) {
                 RoundedRectangle(cornerRadius: 1, style: .continuous)
                     .fill(color)
                     .frame(width: 2, height: 16)
@@ -443,7 +443,7 @@ struct HomeContributorRow: View {
                     .foregroundColor(.textPrimary)
                     .contentTransition(.numericText())
             }
-            .padding(.vertical, 6)
+            .padding(.vertical, FDS.Spacing.xs)
         }
         .buttonStyle(.plain)
         .accessibilityLabel("\(title) \(clamped)")

@@ -77,7 +77,7 @@ struct HomeCycleModule: View {
 
     var body: some View {
         Button(action: onOpen) {
-            VStack(alignment: .leading, spacing: 14) {
+            VStack(alignment: .leading, spacing: FDS.Spacing.md) {
                 HStack {
                     Text("CYCLE")
                         .forgeSectionLabel()
@@ -87,7 +87,7 @@ struct HomeCycleModule: View {
                         .foregroundStyle(accent)
                 }
 
-                HStack(spacing: 14) {
+                HStack(spacing: FDS.Spacing.md) {
                     ZStack {
                         Circle()
                             .stroke(accent.opacity(0.22), lineWidth: 6)
@@ -102,7 +102,7 @@ struct HomeCycleModule: View {
                             .foregroundStyle(accent)
                     }
 
-                    VStack(alignment: .leading, spacing: 4) {
+                    VStack(alignment: .leading, spacing: FDS.Spacing.xs) {
                         Text(title)
                             .font(FDS.TypeScale.Dynamic.title)
                             .foregroundColor(.textPrimary)
@@ -121,7 +121,7 @@ struct HomeCycleModule: View {
                 }
 
                 // Mini chips
-                HStack(spacing: 8) {
+                HStack(spacing: FDS.Spacing.sm) {
                     if stealthHome {
                         miniChip("Private", Color.vitality)
                     } else if kindHome {
@@ -149,7 +149,7 @@ struct HomeCycleModule: View {
                     Spacer()
                 }
 
-                HStack(spacing: 6) {
+                HStack(spacing: FDS.Spacing.xs) {
                     Image(systemName: "lock.shield.fill")
                         .font(.system(size: 10, weight: .semibold))
                         .foregroundStyle(Color.vitality)
@@ -187,8 +187,8 @@ struct HomeCycleModule: View {
         Text(text)
             .font(FDS.TypeScale.Dynamic.micro)
             .foregroundStyle(color)
-            .padding(.horizontal, 10)
-            .padding(.vertical, 5)
+            .padding(.horizontal, FDS.Spacing.sm)
+            .padding(.vertical, FDS.Spacing.xs)
             .background(color.opacity(0.12))
             .clipShape(Capsule())
             .overlay(Capsule().stroke(color.opacity(0.28), lineWidth: 1))
@@ -232,7 +232,7 @@ struct HomeSupportPulseCard: View {
 
     var body: some View {
         Button(action: onOpen) {
-            HStack(spacing: 12) {
+            HStack(spacing: FDS.Spacing.md) {
                 Image(systemName: pulseSnapshot.phase.icon)
                     .font(.system(size: 16, weight: .semibold))
                     .foregroundStyle(accent)

@@ -20,7 +20,7 @@ private struct HomeHeroReadinessCard: View {
                 Button {
                     withForgeMotion(ForgeMotion.smooth) { showDetails.toggle() }
                 } label: {
-                    HStack(spacing: 4) {
+                    HStack(spacing: FDS.Spacing.xs) {
                         Text(showDetails ? "Less" : "Details")
                             .font(FDS.TypeScale.Dynamic.caption)
                         Image(systemName: "chevron.down")
@@ -30,7 +30,7 @@ private struct HomeHeroReadinessCard: View {
                     .foregroundColor(.ember)
                 }
             }
-            .padding(.bottom, 20)
+            .padding(.bottom, FDS.Spacing.lg)
 
             ReadinessRingView(score: store.readiness.overall, size: 112, strokeWidth: 10)
                 .frame(maxWidth: .infinity)
@@ -46,7 +46,7 @@ private struct HomeHeroReadinessCard: View {
                 .padding(.bottom, showDetails ? 16 : 0)
 
             if showDetails {
-                LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 10) {
+                LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: FDS.Spacing.sm) {
                     BreakdownCardView(label: "Sleep", value: lastNightSleepMeasured(store: store) ? store.readiness.sleepQuality : nil, inverted: false, index: 0)
                     BreakdownCardView(label: "Recovery", value: store.readiness.recoveryScore, inverted: false, index: 1)
                     BreakdownCardView(label: "Stress", value: store.readiness.stressLevel, inverted: true, index: 2)
@@ -88,21 +88,21 @@ private struct HomeHeroReadinessCard: View {
                             voice: false
                         )
                     } label: {
-                        HStack(spacing: 6) {
+                        HStack(spacing: FDS.Spacing.xs) {
                             ARIAIdentityMark(state: .idle, mood: .energized, size: 14, amplitude: 0.22)
                             Text("Explain my readiness")
                                 .font(FDS.TypeScale.Dynamic.caption)
                         }
                         .foregroundColor(.ember)
                         .frame(maxWidth: .infinity)
-                        .padding(.vertical, 10)
+                        .padding(.vertical, FDS.Spacing.sm)
                         .background(Color.ember.opacity(0.12))
                         .clipShape(Capsule())
                     }
                     .buttonStyle(.plain)
-                    .padding(.top, 4)
+                    .padding(.top, FDS.Spacing.xs)
                 }
-                .padding(.top, 12)
+                .padding(.top, FDS.Spacing.md)
             }
         }
         .padding(HomeMetrics.cardPadding)
@@ -267,7 +267,7 @@ struct HomeTodayHero: View {
             HomeLifeChipRow(chips: HomeLifeSentence.chips(store: store))
 
             if let session = store.todayWorkout {
-                VStack(alignment: .leading, spacing: 4) {
+                VStack(alignment: .leading, spacing: FDS.Spacing.xs) {
                     Text(displaySessionName(session.name))
                         .font(HomeType.sessionTitle)
                         .foregroundColor(.textPrimary)
@@ -328,10 +328,10 @@ private struct TodayTrackRow: View {
     var closingTrackID: String? = nil
 
     var body: some View {
-        HStack(spacing: 6) {
+        HStack(spacing: FDS.Spacing.xs) {
             ForEach(tracks) { track in
                 let closing = track.id == closingTrackID
-                VStack(spacing: 6) {
+                VStack(spacing: FDS.Spacing.xs) {
                     ZStack {
                         Circle()
                             .fill(
@@ -377,8 +377,8 @@ private struct HomeReadinessDetailStrip: View {
     @EnvironmentObject var store: AppStore
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            HStack(spacing: 8) {
+        VStack(alignment: .leading, spacing: FDS.Spacing.sm) {
+            HStack(spacing: FDS.Spacing.sm) {
                 readinessFact("Sleep", lastNightSleepMeasured(store: store) ? store.readiness.sleepQuality : nil)
                 readinessFact("Recovery", store.readiness.recoveryScore)
                 readinessFact("HRV", store.dailyMetrics.hrv, unit: "ms")
@@ -388,7 +388,7 @@ private struct HomeReadinessDetailStrip: View {
                 .foregroundColor(.textSecondary)
                 .fixedSize(horizontal: false, vertical: true)
         }
-        .padding(12)
+        .padding(FDS.Spacing.md)
         .background(Color.white.opacity(0.04))
         .clipShape(RoundedRectangle(cornerRadius: HomeMetrics.innerRadius, style: .continuous))
         .overlay(
@@ -420,17 +420,17 @@ private struct HomeLifeChipRow: View {
     let chips: [HomeLifeSentence.Chip]
 
     var body: some View {
-        FlowLayout(spacing: 6) {
+        FlowLayout(spacing: ForgeLayout.chipGap) {
             ForEach(chips) { chip in
-                HStack(spacing: 5) {
+                HStack(spacing: FDS.Spacing.xs) {
                     Image(systemName: chip.icon)
                         .font(.system(size: 10, weight: .semibold))
                     Text(chip.label)
                         .font(HomeType.label)
                 }
                 .foregroundColor(.textPrimary)
-                .padding(.horizontal, 10)
-                .padding(.vertical, 7)
+                .padding(.horizontal, FDS.Spacing.sm)
+                .padding(.vertical, FDS.Spacing.sm)
                 .background(Color.white.opacity(0.08))
                 .clipShape(Capsule())
                 .overlay(Capsule().stroke(Color.white.opacity(0.12), lineWidth: 0.8))
@@ -446,7 +446,7 @@ private struct HomePrimaryCTA: View {
     let action: HomePrimaryAction
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
+        VStack(alignment: .leading, spacing: FDS.Spacing.sm) {
             Text(HomeCoachCopy.nextNowEyebrow(isLighter: action.usesRecoveryChrome(store: store)))
                 .font(HomeType.micro)
                 .foregroundColor(.textTertiary)
@@ -475,7 +475,7 @@ private struct HomePrimaryCTA: View {
                         .accessibilityHidden(true)
                 }
                 .foregroundColor(.white)
-                .padding(.vertical, 14)
+                .padding(.vertical, FDS.Spacing.md)
                 .padding(.horizontal, FDS.Spacing.lg)
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .background {
@@ -494,7 +494,7 @@ private struct HomePrimaryCTA: View {
             .accessibilityLabel(action.title)
             .accessibilityHint(action.subtitle(store: store) ?? "Opens today's session")
 
-            HStack(spacing: 10) {
+            HStack(spacing: FDS.Spacing.sm) {
                 Button {
                     let sentence = HomeLifeSentence.build(store: store)
                     store.openChat(
@@ -502,7 +502,7 @@ private struct HomePrimaryCTA: View {
                         voice: false
                     )
                 } label: {
-                    HStack(spacing: 6) {
+                    HStack(spacing: FDS.Spacing.xs) {
                         // One live mark per screen: Today chrome is the HUD
                         // ring, so this 14pt Nest mark stays still.
                         ARIAIdentityMark(state: .idle, mood: .energized, size: 14, amplitude: 0.22)
@@ -512,7 +512,7 @@ private struct HomePrimaryCTA: View {
                     }
                     .foregroundColor(.textSecondary)
                     .frame(maxWidth: .infinity)
-                    .padding(.vertical, 10)
+                    .padding(.vertical, FDS.Spacing.sm)
                     .background(Color.white.opacity(0.07))
                     .clipShape(RoundedRectangle(cornerRadius: HomeMetrics.innerRadius, style: .continuous))
                     .overlay(
@@ -527,7 +527,7 @@ private struct HomePrimaryCTA: View {
                 Button {
                     store.activeTab = .lifestyle
                 } label: {
-                    HStack(spacing: 6) {
+                    HStack(spacing: FDS.Spacing.xs) {
                         Image(systemName: "leaf.fill")
                             .font(.system(size: 12, weight: .semibold))
                         Text("Lifestyle")
@@ -535,7 +535,7 @@ private struct HomePrimaryCTA: View {
                     }
                     .foregroundColor(Color.vitality)
                     .frame(maxWidth: .infinity)
-                    .padding(.vertical, 10)
+                    .padding(.vertical, FDS.Spacing.sm)
                     .background(Color.vitality.opacity(0.10))
                     .clipShape(RoundedRectangle(cornerRadius: HomeMetrics.innerRadius, style: .continuous))
                     .overlay(

@@ -787,7 +787,7 @@ private struct ConnectionRow: View {
             .font(HomeType.micro)
             .foregroundStyle(tone)
             .lineLimit(1)
-            .padding(.horizontal, 8)
+            .padding(.horizontal, FDS.Spacing.sm)
             .padding(.vertical, 3)
             .background(Capsule().fill(fill))
     }

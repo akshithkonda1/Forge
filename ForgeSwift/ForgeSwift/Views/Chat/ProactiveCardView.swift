@@ -16,8 +16,8 @@ struct ProactiveCardView: View {
                 ARIAIdentityMark(state: .idle, mood: .focused, size: 44, amplitude: 0.22)
                     .environment(\.forgeMinimalAnimation, true)
 
-                VStack(alignment: .leading, spacing: 6) {
-                    HStack(spacing: 6) {
+                VStack(alignment: .leading, spacing: FDS.Spacing.xs) {
+                    HStack(spacing: FDS.Spacing.xs) {
                         Text("ARIA")
                             .font(FDS.TypeScale.Dynamic.caption)
                             .foregroundColor(.steel)

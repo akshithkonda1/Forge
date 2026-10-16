@@ -845,7 +845,7 @@ struct SleepStageLegend: View {
     let night: SleepData
 
     var body: some View {
-        ForgeFlowLayout(spacing: 8, lineSpacing: 8) {
+        ForgeFlowLayout {
             legend("Deep", night.deepMinutes, SleepStagePalette.deep)
             legend("REM", night.remMinutes, SleepStagePalette.rem)
             legend("Light", night.lightMinutes, SleepStagePalette.light)

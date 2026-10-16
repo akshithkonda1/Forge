@@ -112,7 +112,7 @@ struct HomeARIABriefingCard: View {
         Button {
             store.openChat(with: HomeInsightFlow.continueAndPersist(briefing: fullBriefing), voice: false)
         } label: {
-            HStack(spacing: 10) {
+            HStack(spacing: FDS.Spacing.sm) {
                 ARIAIdentityMark(state: .idle, mood: .energized, size: 22, amplitude: 0.24)
                 Text("Talk to ARIA about today")
                     .font(ForgeType.bodyStrong)
@@ -122,7 +122,7 @@ struct HomeARIABriefingCard: View {
                     .font(.system(size: 12, weight: .semibold))
                     .foregroundColor(.ember)
             }
-            .padding(14)
+            .padding(FDS.Spacing.md)
         }
         .buttonStyle(.plain)
         .forgeGlassCard(accent: .ember)
@@ -131,11 +131,11 @@ struct HomeARIABriefingCard: View {
 
     private var fullBody: some View {
         VStack(alignment: .leading, spacing: 0) {
-            HStack(spacing: 10) {
+            HStack(spacing: FDS.Spacing.sm) {
                 ARIAIdentityMark(state: .idle, mood: .energized, size: 36, amplitude: 0.24)
 
                 VStack(alignment: .leading, spacing: 3) {
-                    HStack(spacing: 6) {
+                    HStack(spacing: FDS.Spacing.xs) {
                         Text("ARIA")
                             .font(FDS.TypeScale.Dynamic.caption)
                             .foregroundColor(.ember)
@@ -168,12 +168,12 @@ struct HomeARIABriefingCard: View {
                 .buttonStyle(.plain)
                 .accessibilityLabel("Talk to ARIA")
             }
-            .padding(.bottom, 14)
+            .padding(.bottom, FDS.Spacing.md)
 
             Button {
                 store.openChat(with: HomeInsightFlow.continueAndPersist(briefing: fullBriefing), voice: false)
             } label: {
-                HStack(alignment: .top, spacing: 12) {
+                HStack(alignment: .top, spacing: FDS.Spacing.md) {
                     RoundedRectangle(cornerRadius: 2, style: .continuous)
                         .fill(Color.ember)
                         .frame(width: 3)
@@ -185,7 +185,7 @@ struct HomeARIABriefingCard: View {
                         .fixedSize(horizontal: false, vertical: true)
                         .frame(maxWidth: .infinity, alignment: .leading)
                 }
-                .padding(12)
+                .padding(FDS.Spacing.md)
                 .background(Color.white.opacity(0.055))
                 .clipShape(RoundedRectangle(cornerRadius: HomeMetrics.innerRadius, style: .continuous))
                 .overlay(
@@ -195,9 +195,9 @@ struct HomeARIABriefingCard: View {
             }
             .buttonStyle(.plain)
             .accessibilityLabel("ARIA briefing: \(fullBriefing)")
-            .padding(.bottom, 14)
+            .padding(.bottom, FDS.Spacing.md)
 
-            HStack(spacing: 8) {
+            HStack(spacing: FDS.Spacing.sm) {
                 briefingChip(icon: "message.fill", label: "Reply", emphasized: true) {
                     HomeInsightFlow.persistBriefing(fullBriefing)
                     store.openChat(with: HomeInsightFlow.replyPrompt, voice: false)
@@ -232,13 +232,13 @@ struct HomeARIABriefingCard: View {
         Button {
             action()
         } label: {
-            HStack(spacing: 5) {
+            HStack(spacing: FDS.Spacing.xs) {
                 Image(systemName: icon).font(.system(size: 11, weight: .semibold))
                 Text(label).font(FDS.TypeScale.Dynamic.caption)
             }
             .foregroundColor(emphasized ? .ember : .textSecondary)
             .frame(maxWidth: .infinity)
-            .padding(.vertical, 9)
+            .padding(.vertical, FDS.Spacing.sm)
             .background(emphasized ? Color.ember.opacity(0.12) : Color.white.opacity(0.05))
             .clipShape(Capsule())
             .overlay(

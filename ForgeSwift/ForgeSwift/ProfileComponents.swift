@@ -86,7 +86,7 @@ struct SettingsRow<Trailing: View>: View {
             chevron
         }
         .padding(.horizontal, FDS.Spacing.lg)
-        .padding(.vertical, 10)
+        .padding(.vertical, FDS.Spacing.sm)
         .frame(minHeight: ForgeUX.minTap)
     }
 

@@ -678,7 +678,7 @@ struct WaterIntakeCard: View {
     private var dropGrid: some View {
         VStack(alignment: .leading, spacing: ForgeLayout.pairGap) {
             LazyVGrid(
-                columns: [GridItem(.adaptive(minimum: 24, maximum: 40), spacing: 8)],
+                columns: [GridItem(.adaptive(minimum: 24, maximum: 40), spacing: FDS.Spacing.sm)],
                 alignment: .leading,
                 spacing: 8
             ) {

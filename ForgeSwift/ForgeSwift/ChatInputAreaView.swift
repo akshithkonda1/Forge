@@ -237,7 +237,7 @@ struct ChatInputAreaView: View {
                 .disabled(isTyping)
                 .padding(.leading, FDS.Spacing.lg)
                 .padding(.trailing, 56)
-                .padding(.vertical, 14)
+                .padding(.vertical, FDS.Spacing.md)
                 .lineLimit(1...5)
                 .onSubmit { onSend(inputText) }
 

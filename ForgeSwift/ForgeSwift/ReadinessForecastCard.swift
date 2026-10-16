@@ -30,7 +30,7 @@ struct ReadinessForecastCard: View {
                 confidencePill(forecast.confidence)
             }
 
-            HStack(spacing: compact ? 12 : 16) {
+            HStack(spacing: compact ? FDS.Spacing.md : FDS.Spacing.lg) {
                 HudProgressRing(
                     progress: forecast.predictedScore,
                     energy: energy,

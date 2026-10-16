@@ -174,8 +174,8 @@ struct NutritionDatabaseView: View {
             return [GridItem(.flexible())]
         }
         return [
-            GridItem(.flexible(), spacing: 12),
-            GridItem(.flexible(), spacing: 12),
+            GridItem(.flexible(), spacing: FDS.Spacing.md),
+            GridItem(.flexible(), spacing: FDS.Spacing.md),
         ]
     }
 
@@ -187,7 +187,7 @@ struct NutritionDatabaseView: View {
 
             AIBestPicksSection(vm: vm)
 
-            LazyVGrid(columns: gridColumns, spacing: 12) {
+            LazyVGrid(columns: gridColumns, spacing: FDS.Spacing.md) {
                 ForEach(filtered) { restaurant in
                     Button { selectedRestaurant = restaurant } label: {
                         RestaurantCard(restaurant: restaurant)

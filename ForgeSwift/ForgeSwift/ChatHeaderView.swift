@@ -102,7 +102,7 @@ struct ChatHeaderView: View {
     /// Home's live status pill: 6 pt dot (or glyph), micro text, h9 v5,
     /// white 0.05 fill with a 0.08 edge. No shadow.
     private func pill(icon: String?, tint: Color, text: String, lines: Int = 1) -> some View {
-        HStack(spacing: 6) {
+        HStack(spacing: FDS.Spacing.xs) {
             if let icon {
                 Image(systemName: icon)
                     .font(HomeType.micro)
@@ -120,8 +120,8 @@ struct ChatHeaderView: View {
                 .lineLimit(lines)
                 .minimumScaleFactor(ForgeLayout.labelMinScale)
         }
-        .padding(.horizontal, 9)
-        .padding(.vertical, 5)
+        .padding(.horizontal, FDS.Spacing.sm)
+        .padding(.vertical, FDS.Spacing.xs)
         .background(Color.white.opacity(0.05))
         .clipShape(Capsule())
         .overlay(Capsule().stroke(Color.white.opacity(0.08), lineWidth: ForgeUX.hairline))
@@ -163,7 +163,7 @@ struct ChatHeaderView: View {
                 .monospacedDigit()
                 .foregroundColor(.textPrimary)
                 .hudInArcText()
-                .padding(5)
+                .padding(FDS.Spacing.xs)
         }
         .frame(width: ringDiameter, height: ringDiameter)
         .accessibilityElement(children: .ignore)

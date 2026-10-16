@@ -333,7 +333,7 @@ private struct ReportActionLabel: View {
                 .accessibilityHidden(true)
         }
         .foregroundColor(.white)
-        .padding(.vertical, 14)
+        .padding(.vertical, FDS.Spacing.md)
         .padding(.horizontal, FDS.Spacing.lg)
         .frame(maxWidth: .infinity, minHeight: ForgeUX.minTap + 8, alignment: .leading)
         .background {

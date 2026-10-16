@@ -18,7 +18,7 @@ struct HomeWidgetBoard: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
+        VStack(alignment: .leading, spacing: FDS.Spacing.md) {
             HStack {
                 Text("WIDGETS")
                     .forgeSectionLabel()
@@ -51,7 +51,7 @@ struct HomeWidgetBoard: View {
             if pins.isEmpty {
                 empty
             } else {
-                LazyVGrid(columns: [GridItem(.flexible(), spacing: 10), GridItem(.flexible(), spacing: 10)], spacing: 10) {
+                LazyVGrid(columns: [GridItem(.flexible(), spacing: FDS.Spacing.sm), GridItem(.flexible(), spacing: FDS.Spacing.sm)], spacing: FDS.Spacing.sm) {
                     ForEach(pins) { kind in
                         HomePinnedWidgetCard(kind: kind, snapshot: snapshot, editing: editing) {
                             HomeWidgetBoardStore.remove(kind)
@@ -65,7 +65,7 @@ struct HomeWidgetBoard: View {
     }
 
     private var empty: some View {
-        VStack(alignment: .leading, spacing: 6) {
+        VStack(alignment: .leading, spacing: FDS.Spacing.xs) {
             Text("No widgets on this page")
                 .font(ForgeType.bodyStrong)
                 .foregroundColor(.textPrimary)
@@ -88,7 +88,7 @@ private struct HomePinnedWidgetCard: View {
 
     var body: some View {
         Button(action: open) {
-            VStack(alignment: .leading, spacing: 8) {
+            VStack(alignment: .leading, spacing: FDS.Spacing.sm) {
                 HStack {
                     Image(systemName: kind.systemImage)
                         .font(.system(size: 13, weight: .semibold))
@@ -107,7 +107,7 @@ private struct HomePinnedWidgetCard: View {
                 content
                 Spacer(minLength: 0)
             }
-            .padding(14)
+            .padding(FDS.Spacing.md)
             .frame(maxWidth: .infinity, minHeight: 112, alignment: .topLeading)
             .forgeGlassCard(accent: accent.opacity(0.55))
         }

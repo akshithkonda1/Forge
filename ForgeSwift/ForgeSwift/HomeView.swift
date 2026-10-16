@@ -24,7 +24,7 @@ struct HomeView: View {
             ScrollView(showsIndicators: false) {
                 VStack(spacing: HomeMetrics.sectionGap) {
                         HomeHeaderView()
-                            .padding(.top, 8)
+                            .padding(.top, FDS.Spacing.sm)
 
                         HomeTodayHero(action: primaryAction)
                         ReadinessForecastCard()
@@ -157,8 +157,8 @@ struct HomeHeaderView: View {
     }
 
     var body: some View {
-        HStack(alignment: .center, spacing: 12) {
-            VStack(alignment: .leading, spacing: 6) {
+        HStack(alignment: .center, spacing: FDS.Spacing.md) {
+            VStack(alignment: .leading, spacing: FDS.Spacing.xs) {
                 Text(dateString)
                     .forgeSectionLabel()
 
@@ -173,7 +173,7 @@ struct HomeHeaderView: View {
                     isLive: store.healthKitLive,
                     updatedAt: store.lastMetricsRefresh
                 )
-                .padding(.top, 4)
+                .padding(.top, FDS.Spacing.xs)
                 if let ingestError = ingestErrorText, !ingestError.isEmpty {
                     Text(ingestError)
                         .font(HomeType.micro)
@@ -272,7 +272,7 @@ private struct HomeDataStatusPill: View {
                 ForgeHaptics.play(store.healthKitLive ? .success : .warning)
             }
         } label: {
-            HStack(spacing: 5) {
+            HStack(spacing: FDS.Spacing.xs) {
                 if reconnecting {
                     ProgressView().controlSize(.mini)
                 } else {
@@ -284,8 +284,8 @@ private struct HomeDataStatusPill: View {
                     .font(HomeType.micro)
                     .foregroundColor(isLive ? Color.vitality : .warning)
             }
-            .padding(.horizontal, 9)
-            .padding(.vertical, 5)
+            .padding(.horizontal, FDS.Spacing.sm)
+            .padding(.vertical, FDS.Spacing.xs)
             .background(Color.white.opacity(0.05))
             .clipShape(Capsule())
             .overlay(Capsule().stroke(Color.white.opacity(0.08), lineWidth: 1))
@@ -328,7 +328,7 @@ private struct HomeScrollMiniHeader: View {
     }
 
     var body: some View {
-        HStack(spacing: 12) {
+        HStack(spacing: FDS.Spacing.md) {
             ReadinessRingView(score: store.readiness.overall, size: 26, strokeWidth: 3, showLabel: false)
             VStack(alignment: .leading, spacing: 1) {
                 Text(firstName)
@@ -350,8 +350,8 @@ private struct HomeScrollMiniHeader: View {
                 Text(store.isWorkoutActive ? "Continue" : "Train")
                     .font(HomeType.label)
                     .foregroundColor(.white)
-                    .padding(.horizontal, 14)
-                    .padding(.vertical, 7)
+                    .padding(.horizontal, FDS.Spacing.md)
+                    .padding(.vertical, FDS.Spacing.sm)
                     .background(store.readiness.hasScore && store.readiness.overall < HomeReadinessTokens.Band.fair.minScore ? AnyShapeStyle(FDS.Gradient.steel) : AnyShapeStyle(FDS.Gradient.ember))
                     .clipShape(Capsule())
                     .overlay(Capsule().stroke(Color.white.opacity(0.16), lineWidth: 1))
@@ -362,8 +362,8 @@ private struct HomeScrollMiniHeader: View {
             .accessibilityLabel(store.isWorkoutActive ? "Continue session" : "Train")
         }
         .padding(.horizontal, HomeMetrics.inset)
-        .padding(.top, 8)
-        .padding(.bottom, 10)
+        .padding(.top, FDS.Spacing.sm)
+        .padding(.bottom, FDS.Spacing.sm)
         .background {
             Color.background.opacity(0.94)
                 .background(.ultraThinMaterial)
