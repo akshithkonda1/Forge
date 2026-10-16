@@ -439,7 +439,7 @@ struct SleepWindDownRitual: View {
 
     private var dimRow: some View {
         Button {
-            FDS.haptic(.press)
+            ForgeHaptics.play(.press)
             if !dimmed {
                 guard let screen = Self.activeScreen() else { return }
                 previousBrightness = screen.brightness
@@ -478,7 +478,7 @@ struct SleepWindDownRitual: View {
 
     private var phoneRow: some View {
         Button {
-            FDS.haptic(.press)
+            ForgeHaptics.play(.press)
             parked = true
             if !SleepWindDownPlayer.shared.isPlaying {
                 SleepWindDownPlayer.shared.start(kind: .brown, minutes: 30)
@@ -590,7 +590,7 @@ struct SleepTonightSoundDock: View {
             ForgeFlowLayout(spacing: ForgeLayout.chipGap, lineSpacing: ForgeLayout.interactiveChipLineGap) {
                 ForEach(SleepSoundKind.tonightPicks) { kind in
                     ForgeChipButton(label: kind.displayName, icon: kind.icon, energy: .steel) {
-                        FDS.haptic(.primaryCTA)
+                        ForgeHaptics.play(.press)
                         player.start(kind: kind, minutes: 30)
                     }
                     .accessibilityLabel("Start \(kind.displayName)")

@@ -245,7 +245,7 @@ struct CycleRhythmReportView: View {
                 .forgeWell()
 
             ForgeTextLink(title: "Preview report text", accent: .ember, expanded: showFullReport) {
-                withAnimation(reduceMotion ? nil : FDS.Spring.standard) {
+                withAnimation(reduceMotion ? nil : ForgeMotion.smooth) {
                     showFullReport.toggle()
                 }
             }

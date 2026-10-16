@@ -1,4 +1,5 @@
 import SwiftUI
+import ForgeCore
 
 /// Layer 5/6 — proactive ARIA nudge when relationship + patterns warrant outreach.
 struct ProactiveCardView: View {
@@ -57,7 +58,7 @@ struct ProactiveCardView: View {
             if reduceMotion {
                 appeared = true
             } else {
-                withAnimation(.spring(response: 0.55, dampingFraction: 0.82)) {
+                withAnimation(ForgeMotion.gentle) {
                     appeared = true
                 }
             }

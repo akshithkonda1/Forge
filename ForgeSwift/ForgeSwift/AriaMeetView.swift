@@ -57,7 +57,7 @@ struct AriaMeetView: View {
             if reduceMotion {
                 appeared = true
             } else {
-                withAnimation(FDS.Spring.fluid) { appeared = true }
+                withForgeMotion(ForgeMotion.gentle) { appeared = true }
             }
         }
     }
@@ -125,7 +125,6 @@ struct AriaMeetView: View {
             )
 
             Button {
-                FDS.haptic(.press)
                 onSkip()
             } label: {
                 Text(AriaMeetCopy.skipCta)

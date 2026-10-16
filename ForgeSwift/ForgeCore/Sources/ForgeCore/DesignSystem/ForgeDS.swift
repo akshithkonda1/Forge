@@ -4,7 +4,7 @@ import SwiftUI
 //
 // Lockstep with `shared/design-tokens.json` via `ForgeDesignTokens`.
 // Named `ForgeDS` so the iOS app can alias `FDS` without a clash.
-// Haptics stay in each app target (UIKit vs WKInterfaceDevice).
+// Motion lives in `ForgeMotion`, haptics in `ForgeHaptics`.
 
 public enum ForgeDS {
 
@@ -15,6 +15,7 @@ public enum ForgeDS {
         public static let lg:  CGFloat = CGFloat(ForgeDesignTokens.Spacing.lg)
         public static let xl:  CGFloat = CGFloat(ForgeDesignTokens.Spacing.xl)
         public static let xxl: CGFloat = CGFloat(ForgeDesignTokens.Spacing.xxl)
+        public static let xxxl: CGFloat = CGFloat(ForgeDesignTokens.Spacing.xxxl)
     }
 
     public enum Radius {
@@ -32,37 +33,6 @@ public enum ForgeDS {
         public static let thin: CGFloat = CGFloat(ForgeDesignTokens.Stroke.thin)
         public static let ring: CGFloat = CGFloat(ForgeDesignTokens.Stroke.ring)
         public static let compactRing: CGFloat = CGFloat(ForgeDesignTokens.Stroke.compactRing)
-    }
-
-    public enum Duration {
-        public static let snap:     Double = ForgeDesignTokens.Motion.snapResponse
-        public static let fast:     Double = 0.25
-        public static let standard: Double = ForgeDesignTokens.Motion.standardResponse
-        public static let slow:     Double = 0.5
-        public static let breathe:  Double = 3.0
-        public static let ambient:  Double = 20.0
-        public static let sweep:    Double = ForgeDesignTokens.Motion.sweepSeconds
-    }
-
-    public enum Spring {
-        public static let snap     = Animation.spring(
-            response: ForgeDesignTokens.Motion.snapResponse,
-            dampingFraction: ForgeDesignTokens.Motion.snapDamping
-        )
-        public static let standard = Animation.spring(
-            response: ForgeDesignTokens.Motion.standardResponse,
-            dampingFraction: ForgeDesignTokens.Motion.standardDamping
-        )
-        public static let hero     = Animation.spring(
-            response: ForgeDesignTokens.Motion.heroResponse,
-            dampingFraction: ForgeDesignTokens.Motion.heroDamping
-        )
-        public static let floaty   = Animation.spring(response: 0.55, dampingFraction: 0.65)
-        public static let page     = Animation.spring(
-            response: ForgeDesignTokens.Motion.pageResponse,
-            dampingFraction: ForgeDesignTokens.Motion.pageDamping
-        )
-        public static let sweep    = Animation.easeOut(duration: ForgeDesignTokens.Motion.sweepSeconds)
     }
 
     public static let minTap: CGFloat = CGFloat(ForgeDesignTokens.UX.minTap)

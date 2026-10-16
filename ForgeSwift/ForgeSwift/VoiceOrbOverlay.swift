@@ -93,7 +93,7 @@ struct VoiceOrbOverlay: View {
                 .forgeWrapping()
                 .id(speech.voiceState.label)
                 .transition(.opacity)
-                .animation(reduceMotion ? nil : FDS.Spring.standard, value: speech.voiceState.label)
+                .animation(reduceMotion ? nil : ForgeMotion.smooth, value: speech.voiceState.label)
 
             Text(speech.voiceState.sublabel)
                 .font(HomeType.body)
@@ -123,7 +123,7 @@ struct VoiceOrbOverlay: View {
                 .multilineTextAlignment(.center)
                 .lineLimit(3)
                 .transition(.opacity)
-                .animation(reduceMotion ? nil : FDS.Spring.standard, value: speech.recognizedText)
+                .animation(reduceMotion ? nil : ForgeMotion.smooth, value: speech.recognizedText)
         }
     }
 
@@ -150,7 +150,7 @@ struct VoiceOrbOverlay: View {
             HStack(spacing: ForgeLayout.rowGap) { actionButtons }
             VStack(spacing: ForgeLayout.tileGap) { actionButtons }
         }
-        .animation(reduceMotion ? nil : FDS.Spring.snap, value: hasTranscript)
+        .animation(reduceMotion ? nil : ForgeMotion.snappy, value: hasTranscript)
     }
 
     private var panel: some View {

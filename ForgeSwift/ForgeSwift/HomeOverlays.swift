@@ -54,7 +54,7 @@ struct CelebrationOverlay: View {
             .frame(width: geo.size.width, height: geo.size.height)
             .onAppear {
                 spawnParticles(width: geo.size.width)
-                withAnimation(FDS.Spring.hero) {
+                withForgeMotion(ForgeMotion.gentle) {
                     revealed = true
                     bannerScale = 1
                 }
@@ -90,7 +90,6 @@ struct VoiceQuickLaunchOrb: View {
 
     var body: some View {
         Button {
-            FDS.haptic(.heavy)
             store.openChat(with: "Voice check-in — what should I do next?", voice: true)
         } label: {
             ZStack {
@@ -106,7 +105,7 @@ struct VoiceQuickLaunchOrb: View {
             }
             .scaleEffect(pressed ? 0.94 : (appeared ? 1.0 : 0.9))
             .opacity(appeared ? 1 : 0)
-            .animation(FDS.Spring.snap, value: pressed)
+            .forgeAnimation(ForgeMotion.snappy, value: pressed)
         }
         .buttonStyle(.plain)
         .accessibilityLabel("Talk to ARIA")
@@ -117,7 +116,7 @@ struct VoiceQuickLaunchOrb: View {
         )
         .onAppear {
             // One entrance, then still. No idle pulse.
-            withAnimation(reduceMotion ? .easeOut(duration: 0.2) : FDS.Spring.snap.delay(0.4)) { appeared = true }
+            withAnimation(reduceMotion ? .easeOut(duration: 0.2) : ForgeMotion.snappy.delay(0.4)) { appeared = true }
         }
     }
 }

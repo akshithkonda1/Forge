@@ -1,4 +1,5 @@
 import SwiftUI
+import ForgeCore
 
 struct RichCardView: View {
     let card: RichCardData
@@ -39,7 +40,7 @@ struct WorkoutRichCardView: View {
                     accent: .ember,
                     expanded: expanded
                 ) {
-                    withAnimation(reduceMotion ? nil : FDS.Spring.standard) { expanded.toggle() }
+                    withAnimation(reduceMotion ? nil : ForgeMotion.smooth) { expanded.toggle() }
                 }
             }
 
@@ -163,7 +164,7 @@ struct DataChartRichCardView: View {
             }
         }
         .forgeContentCard(tint: barColor)
-        .onAppear { withAnimation(reduceMotion ? nil : FDS.Spring.hero.delay(0.1)) { appeared = true } }
+        .onAppear { withAnimation(reduceMotion ? nil : ForgeMotion.gentle.delay(0.1)) { appeared = true } }
     }
 
     // MARK: Header
@@ -230,14 +231,14 @@ struct DataChartRichCardView: View {
         let shown: CGFloat = (appeared || reduceMotion) ? CGFloat(fraction) : 0
         let barHeight: CGFloat = max(2, plotHeight * shown)
         let fillOpacity: Double = isSelected ? 0.95 : (selectedIdx == nil ? 0.8 : 0.4)
-        let grow: Animation? = reduceMotion ? nil : FDS.Spring.hero.delay(Double(i) * 0.04)
+        let grow: Animation? = reduceMotion ? nil : ForgeMotion.gentle.delay(Double(i) * 0.04)
         let valueText = String(format: "%.0f", value)
 
         return Button {
-            withAnimation(reduceMotion ? nil : FDS.Spring.snap) {
+            withAnimation(reduceMotion ? nil : ForgeMotion.snappy) {
                 selectedIdx = selectedIdx == i ? nil : i
             }
-            FDS.haptic(.select)
+            ForgeHaptics.play(.selection)
         } label: {
             VStack(spacing: FDS.Spacing.xs) {
                 ZStack(alignment: .bottom) {

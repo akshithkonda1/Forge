@@ -29,7 +29,7 @@ struct HomeWidgetBoard: View {
                             Button {
                                 HomeWidgetBoardStore.add(kind)
                                 pins = HomeWidgetBoardStore.load()
-                                FDS.haptic(.light)
+                                ForgeHaptics.play(.press)
                             } label: {
                                 Label(kind.title, systemImage: kind.systemImage)
                             }
@@ -42,7 +42,7 @@ struct HomeWidgetBoard: View {
                     .accessibilityLabel("Add a widget to Home")
                 }
                 Button(editing ? "Done" : "Edit") {
-                    withAnimation(FDS.Spring.standard) { editing.toggle() }
+                    withForgeMotion(ForgeMotion.smooth) { editing.toggle() }
                 }
                 .font(FDS.TypeScale.Dynamic.caption)
                 .foregroundStyle(Color.textSecondary)
@@ -173,7 +173,6 @@ private struct HomePinnedWidgetCard: View {
 
     private func open() {
         guard !editing else { onRemove(); return }
-        FDS.haptic(.light)
         switch kind {
         case .hydration: store.openHydration()
         case .sleep:     store.activeTab = .sleep

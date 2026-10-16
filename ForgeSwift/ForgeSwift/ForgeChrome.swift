@@ -59,7 +59,6 @@ struct ForgeSecondaryButton: View {
 
     var body: some View {
         Button {
-            FDS.haptic(.press)
             action()
         } label: {
             HStack(spacing: FDS.Spacing.sm) {
@@ -670,7 +669,6 @@ struct ForgeTextLink: View {
 
     var body: some View {
         Button {
-            FDS.haptic(.press)
             action()
         } label: {
             HStack(spacing: FDS.Spacing.xs) {
@@ -680,7 +678,7 @@ struct ForgeTextLink: View {
                 Image(systemName: expanded == nil ? "chevron.right" : "chevron.down")
                     .font(.system(size: 11, weight: .semibold))
                     .rotationEffect(.degrees(expanded == true ? 180 : 0))
-                    .animation(reduceMotion ? nil : FDS.Spring.standard, value: expanded)
+                    .animation(reduceMotion ? nil : ForgeMotion.smooth, value: expanded)
                     .accessibilityHidden(true)
             }
             .foregroundStyle(accent)
@@ -1032,7 +1030,7 @@ struct ForgeChipButton: View {
 
     var body: some View {
         Button {
-            FDS.haptic(.select)
+            ForgeHaptics.play(.selection)
             action()
         } label: {
             ForgeChip(label: label, icon: icon, energy: energy, selected: selected, fillsWidth: fillsWidth)
@@ -1059,7 +1057,7 @@ struct ForgeScaleCell: View {
 
     var body: some View {
         Button {
-            FDS.haptic(.select)
+            ForgeHaptics.play(.selection)
             action()
         } label: {
             Text(title)
@@ -1168,7 +1166,7 @@ struct ForgeSegmentedControl<Value: Hashable>: View {
                 if reduceMotion {
                     proxy.scrollTo(value, anchor: .center)
                 } else {
-                    withAnimation(FDS.Spring.standard) { proxy.scrollTo(value, anchor: .center) }
+                    withForgeMotion(ForgeMotion.smooth) { proxy.scrollTo(value, anchor: .center) }
                 }
             }
         }
@@ -1178,7 +1176,7 @@ struct ForgeSegmentedControl<Value: Hashable>: View {
         if reduceMotion || !animatesSelection {
             selection = value
         } else {
-            withAnimation(FDS.Spring.snap) { selection = value }
+            withForgeMotion(ForgeMotion.snappy) { selection = value }
         }
     }
 
@@ -1186,7 +1184,7 @@ struct ForgeSegmentedControl<Value: Hashable>: View {
         let isOn = option.value == selection
         return Button {
             guard !isOn else { return }
-            FDS.haptic(.select)
+            ForgeHaptics.play(.selection)
             select(option.value)
         } label: {
             HStack(spacing: 6) {
@@ -1255,7 +1253,6 @@ struct ForgeSheetHeader: View {
             }
             .frame(maxWidth: .infinity, alignment: .leading)
             Button {
-                FDS.haptic(.press)
                 onClose()
             } label: {
                 Image(systemName: "xmark")
@@ -1376,7 +1373,7 @@ struct ForgeProgressBar: View {
             }
         }
         .frame(height: height)
-        .animation(reduceMotion ? nil : FDS.Spring.standard, value: clamped)
+        .animation(reduceMotion ? nil : ForgeMotion.smooth, value: clamped)
         .accessibilityElement()
         .accessibilityValue("\(Int((clamped * 100).rounded())) percent")
     }
@@ -1385,24 +1382,31 @@ struct ForgeProgressBar: View {
 // MARK: - Press feedback
 
 /// Press feedback for primary CTAs and card-sized buttons: a 0.98 scale on
-/// `FDS.Spring.snap`, and none under Reduce Motion.
+/// `ForgeMotion.snappy`, and none under Reduce Motion. Primary buttons pass
+/// `pressHaptic` for a light impact on touch-down, so a success that follows
+/// the action (a logged set) lands as its own beat on release.
 struct ForgePressStyle: ButtonStyle {
     var scale: CGFloat = 0.98
+    var pressHaptic = false
 
     func makeBody(configuration: Configuration) -> some View {
-        ForgePressBody(configuration: configuration, scale: scale)
+        ForgePressBody(configuration: configuration, scale: scale, pressHaptic: pressHaptic)
     }
 }
 
 private struct ForgePressBody: View {
     let configuration: ButtonStyleConfiguration
     let scale: CGFloat
+    let pressHaptic: Bool
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         configuration.label
             .scaleEffect(configuration.isPressed && !reduceMotion ? scale : 1)
-            .animation(reduceMotion ? nil : FDS.Spring.snap, value: configuration.isPressed)
+            .animation(reduceMotion ? nil : ForgeMotion.snappy, value: configuration.isPressed)
+            .forgeHaptic(.press, trigger: configuration.isPressed) { _, pressed in
+                pressHaptic && pressed
+            }
     }
 }

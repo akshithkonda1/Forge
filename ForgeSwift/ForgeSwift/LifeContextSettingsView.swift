@@ -130,7 +130,7 @@ struct LifeContextSettingsSection: View {
             statusText("Off. Forge doesn't read Reminders.")
         case .notConnected:
             Button {
-                FDS.haptic(.press)
+                ForgeHaptics.play(.press)
                 Task {
                     try? await reminders.requestAccess()
                     await reminders.ingestIfAuthorized()
@@ -143,7 +143,6 @@ struct LifeContextSettingsSection: View {
             .accessibilityHint("Asks iOS for access to Reminders")
         case .denied:
             Button {
-                FDS.haptic(.press)
                 if let url = URL(string: UIApplication.openSettingsURLString) {
                     openURL(url)
                 }
@@ -491,7 +490,6 @@ struct LifeContextKnowledgeView: View {
             .accessibilityElement(children: .combine)
             if deletable {
                 Button {
-                    FDS.haptic(.press)
                     confirmDelete = fact
                 } label: {
                     Image(systemName: "trash")

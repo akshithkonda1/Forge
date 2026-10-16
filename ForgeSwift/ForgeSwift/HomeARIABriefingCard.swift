@@ -110,7 +110,6 @@ struct HomeARIABriefingCard: View {
 
     private var compactBody: some View {
         Button {
-            FDS.haptic(.light)
             store.openChat(with: HomeInsightFlow.continueAndPersist(briefing: fullBriefing), voice: false)
         } label: {
             HStack(spacing: 10) {
@@ -153,7 +152,6 @@ struct HomeARIABriefingCard: View {
                 Spacer()
 
                 Button {
-                    FDS.haptic(.medium)
                     HomeInsightFlow.persistBriefing(fullBriefing)
                     store.openChat(with: HomeInsightFlow.voiceCheckInPrompt, voice: true)
                 } label: {
@@ -173,7 +171,6 @@ struct HomeARIABriefingCard: View {
             .padding(.bottom, 14)
 
             Button {
-                FDS.haptic(.light)
                 store.openChat(with: HomeInsightFlow.continueAndPersist(briefing: fullBriefing), voice: false)
             } label: {
                 HStack(alignment: .top, spacing: 12) {
@@ -233,7 +230,6 @@ struct HomeARIABriefingCard: View {
 
     private func briefingChip(icon: String, label: String, emphasized: Bool = false, action: @escaping () -> Void) -> some View {
         Button {
-            FDS.haptic(.light)
             action()
         } label: {
             HStack(spacing: 5) {

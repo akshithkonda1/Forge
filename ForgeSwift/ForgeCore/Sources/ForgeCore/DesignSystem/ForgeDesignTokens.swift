@@ -48,6 +48,7 @@ public enum ForgeDesignTokens: Sendable {
         public static let lg: Double = 16
         public static let xl: Double = 24
         public static let xxl: Double = 32
+        public static let xxxl: Double = 48
     }
 
     public enum Radius {
@@ -159,14 +160,15 @@ public enum ForgeDesignTokens: Sendable {
         public static let respectReduceMotion = true
         public static let maxTickHz: Double = 12
         public static let curve = "standard"
-        public static let snapResponse: Double = 0.25
-        public static let snapDamping: Double = 0.75
-        public static let standardResponse: Double = 0.35
-        public static let standardDamping: Double = 0.75
-        public static let heroResponse: Double = 0.45
-        public static let heroDamping: Double = 0.7
-        public static let pageResponse: Double = 0.4
-        public static let pageDamping: Double = 0.8
+        /// Taps, toggles, chips, press states.
+        public static let snappyResponse: Double = 0.25
+        public static let snappyDamping: Double = 0.82
+        /// Cards expanding, content swapping, sheets and page changes.
+        public static let smoothResponse: Double = 0.35
+        public static let smoothDamping: Double = 0.86
+        /// Arrivals: a banner, a result, a hero settling in.
+        public static let gentleResponse: Double = 0.5
+        public static let gentleDamping: Double = 0.9
         public static let sweepSeconds: Double = 1.2
     }
 
@@ -183,22 +185,27 @@ public enum ForgeDesignTokens: Sendable {
         public static let safeInset: Double = 16
     }
 
+    /// The whole haptic vocabulary. `ForgeHaptics` plays these; nothing else
+    /// in the apps reaches for a feedback generator directly.
     public enum Haptic: String, CaseIterable, Sendable {
-        case select
+        /// Pickers, segmented controls, tabs, chips.
+        case selection
+        /// Primary buttons and deliberate taps: a light impact.
         case press
-        case primaryCTA
+        /// A workout or set logged, a goal closed.
         case success
+        /// Something needs attention (an age gate, a sync that came back empty).
+        case warning
+        /// A failure the person can see on screen.
         case error
-        case destructive
 
         public var token: String {
             switch self {
-            case .select: return "selection"
+            case .selection: return "selection"
             case .press: return "light"
-            case .primaryCTA: return "medium"
             case .success: return "notification.success"
+            case .warning: return "notification.warning"
             case .error: return "notification.error"
-            case .destructive: return "notification.warning"
             }
         }
     }

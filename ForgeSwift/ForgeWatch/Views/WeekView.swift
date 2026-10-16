@@ -182,7 +182,7 @@ struct WeekView: View {
         .padding(.vertical, ForgeDS.Spacing.sm)
         .background(RoundedRectangle(cornerRadius: ForgeDS.Radius.md).fill(isTapped ? tint.opacity(0.18) : ForgePalette.surface))
         .scaleEffect(isTapped ? 0.97 : 1)
-        .animation(.spring(response: 0.2, dampingFraction: 0.7), value: tappedTile)
+        .forgeAnimation(ForgeMotion.snappy, value: tappedTile)
         .contentShape(Rectangle())
         .onTapGesture {
             WKInterfaceDevice.current().play(.click)

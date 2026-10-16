@@ -89,7 +89,6 @@ final class OnboardingCoordinator {
     func goBack() {
         guard canGoBack, let prev = OnboardingGraph.previous(of: step.graph) else { return }
         interruptInterviewVoice()
-        FDS.haptic(.light)
         step = AriaInterviewStep(prev)
         freeText = ""
         saveDraft()
@@ -121,7 +120,6 @@ final class OnboardingCoordinator {
         guard let line = messages.last(where: { $0.role == .aria })?.text else { return }
         AriaPresence.shared.speak(line, interrupt: true)
         ariaOrbState = .listening
-        FDS.haptic(.soft)
     }
 
     func stopInterviewVoice() {
@@ -232,7 +230,6 @@ final class OnboardingCoordinator {
         interruptInterviewVoice()
         let spoken = profile.profileDisplayName
         appendUser(spoken)
-        FDS.haptic(.medium)
         AriaContextStore.shared.updateProfile(
             lifestyleTags: ["onboarding:in_progress", "name:\(profile.trimmedName)"]
         )
@@ -246,14 +243,13 @@ final class OnboardingCoordinator {
     func confirmDetails() {
         guard step == .details else { return }
         if isUnderage {
-            FDS.notificationHaptic(.warning)
-            withAnimation(FDS.Spring.hero) { showAgeBlocked = true }
+            ForgeHaptics.play(.warning)
+            withForgeMotion(ForgeMotion.gentle) { showAgeBlocked = true }
             return
         }
         guard profile.hasConfirmedDetails else { return }
         interruptInterviewVoice()
         appendUser(profile.detailsSummaryLine)
-        FDS.haptic(.light)
         syncPartialContext()
         Task {
             await ariaSay(AriaInterviewVoice.acknowledgeDetails(), mood: .focused)
@@ -265,7 +261,6 @@ final class OnboardingCoordinator {
         guard step == .health else { return }
         interruptInterviewVoice()
         appendUser(healthContinueUserLine())
-        FDS.haptic(.light)
         Task {
             await ariaSay(
                 AriaInterviewVoice.acknowledgeHealthContinue(
@@ -287,7 +282,6 @@ final class OnboardingCoordinator {
             healthKitState = healthKitState == .unavailable ? .unavailable : .denied
         }
         appendUser("I'll add it later")
-        FDS.haptic(.light)
         Task {
             await ariaSay(AriaInterviewVoice.acknowledgeHealthSkip(), mood: .calm)
             await advanceTo(.freeTime)
@@ -304,7 +298,6 @@ final class OnboardingCoordinator {
         switch action {
         case .refreshAlreadyConnected:
             appendUser("Connect Apple Health")
-            FDS.haptic(.medium)
             isHealthPulling = true
             Task {
                 await refreshHealthDataQuietly()
@@ -314,12 +307,10 @@ final class OnboardingCoordinator {
             }
         case .requestReadAuthorization:
             appendUser("Connect Apple Health")
-            FDS.haptic(.medium)
             lastHealthSharingHint = nil
             Task { await requestHealthKit() }
         case .stayWithoutRedirect:
             appendUser("I'll add it later")
-            FDS.haptic(.light)
             lastHealthSharingHint = nil
             Task { await ariaSay(AriaInterviewVoice.acknowledgeHealthSkip(), mood: .calm) }
         }
@@ -338,7 +329,6 @@ final class OnboardingCoordinator {
         if healthKitState != .authorized {
             healthKitState = healthKitState == .unavailable ? .unavailable : .denied
         }
-        FDS.haptic(.light)
     }
 
     func connectCalendar() async {
@@ -353,7 +343,6 @@ final class OnboardingCoordinator {
         guard step == .health else { return }
         interruptInterviewVoice()
         appendUser("Connect Contacts")
-        FDS.haptic(.medium)
         contactsState = .requesting
         Task { await requestContacts() }
     }
@@ -368,7 +357,6 @@ final class OnboardingCoordinator {
         guard step == .health else { return }
         interruptInterviewVoice()
         appendUser("Connect Reminders")
-        FDS.haptic(.medium)
         remindersState = .requesting
         Task { await requestReminders() }
     }
@@ -381,7 +369,6 @@ final class OnboardingCoordinator {
 
     func toggleGoal(_ goal: OnboardingFitnessGoal) {
         guard step == .goals else { return }
-        FDS.selectionHaptic()
         if let i = profile.fitnessGoals.firstIndex(of: goal) {
             profile.fitnessGoals.remove(at: i)
         } else {
@@ -395,7 +382,6 @@ final class OnboardingCoordinator {
         interruptInterviewVoice()
         let labels = profile.fitnessGoals.map(\.label)
         appendUser(labels.joined(separator: ", "))
-        FDS.haptic(.light)
         syncPartialContext()
         Task {
             await ariaSay(AriaInterviewVoice.acknowledgeGoals(labels), mood: .energized)
@@ -407,7 +393,6 @@ final class OnboardingCoordinator {
         guard step == .details else { return }
         profile.biologicalSex = sex
         profile.healthSourcedFields.remove(.sex)
-        FDS.selectionHaptic()
         if sex.cycleAutoEnabled {
             showingEducationalCyclePrompt = false
         } else if sex == .male {
@@ -421,7 +406,6 @@ final class OnboardingCoordinator {
         guard step == .details else { return }
         profile.educationalCycleMode = enabled
         showingEducationalCyclePrompt = false
-        FDS.haptic(.light)
     }
 
     func selectExperience(_ level: ExperienceLevel) {
@@ -429,7 +413,6 @@ final class OnboardingCoordinator {
         interruptInterviewVoice()
         profile.experienceLevel = level
         appendUser(level.label)
-        FDS.haptic(.light)
         syncPartialContext()
         Task {
             await ariaSay(AriaInterviewVoice.acknowledgeExperience(level), mood: .focused)
@@ -439,7 +422,6 @@ final class OnboardingCoordinator {
 
     func toggleWorkout(_ workout: OnboardingWorkoutType) {
         guard step == .workouts else { return }
-        FDS.selectionHaptic()
         if let i = profile.preferredWorkouts.firstIndex(of: workout) {
             profile.preferredWorkouts.remove(at: i)
         } else {
@@ -452,7 +434,6 @@ final class OnboardingCoordinator {
         interruptInterviewVoice()
         let labels = profile.preferredWorkouts.map(\.label)
         appendUser(labels.joined(separator: ", "))
-        FDS.haptic(.light)
         syncPartialContext()
         Task {
             await ariaSay(AriaInterviewVoice.acknowledgeWorkouts(labels), mood: .energized)
@@ -462,7 +443,6 @@ final class OnboardingCoordinator {
 
     func selectScheduleMode(_ mode: SchedulePlanningMode) {
         guard step == .schedule else { return }
-        FDS.selectionHaptic()
         profile.schedulePlanningMode = mode
         if profile.weeklySplit.isEmpty {
             profile.weeklySplit = WeeklySplitSlot.defaultWeek
@@ -471,7 +451,6 @@ final class OnboardingCoordinator {
 
     func setSplitSlot(_ slot: WeeklySplitSlot) {
         guard step == .schedule else { return }
-        FDS.selectionHaptic()
         var week = WeeklySplit.normalized(profile.weeklySplit)
         if let idx = week.firstIndex(where: { $0.weekday == slot.weekday }) {
             week[idx] = slot
@@ -488,7 +467,6 @@ final class OnboardingCoordinator {
             ? WeeklySplit.summary(mode: .fixed, split: profile.weeklySplit)
             : "Rotate the week"
         appendUser(label)
-        FDS.haptic(.light)
         syncPartialContext()
         Task {
             await ariaSay(AriaInterviewVoice.acknowledgeSchedule(profile.schedulePlanningMode), mood: .energized)
@@ -501,7 +479,6 @@ final class OnboardingCoordinator {
         interruptInterviewVoice()
         profile.sleepBand = band
         appendUser(band.label)
-        FDS.haptic(.light)
         syncPartialContext()
         // Habit seed — first loop from sleep rhythm so day-one Lifestyle isn't empty.
         // SleepRhythmBand is `.irregular`, not `.inconsistent` (that case does not exist).
@@ -525,7 +502,6 @@ final class OnboardingCoordinator {
 
     func toggleInterest(_ interest: LifestyleInterest) {
         guard step == .freeTime else { return }
-        FDS.selectionHaptic()
         if let i = profile.freeTimeInterests.firstIndex(of: interest) {
             profile.freeTimeInterests.remove(at: i)
         } else {
@@ -535,7 +511,6 @@ final class OnboardingCoordinator {
 
     func toggleHabit(_ chip: FriendHabitChip) {
         guard step == .freeTime else { return }
-        FDS.selectionHaptic()
         if let i = profile.friendHabits.firstIndex(of: chip) {
             profile.friendHabits.remove(at: i)
         } else if profile.friendHabits.count < 3 {
@@ -577,7 +552,6 @@ final class OnboardingCoordinator {
         } else {
             appendUser(spoken.joined(separator: ", "))
         }
-        FDS.haptic(.light)
         // Collapse: trainingTheme + lifeContext are now answered here — default to classic / preferNot
         // so we can skip two screens and keep the interview feeling like one human ask.
         // trainingTheme is already `.classic`; lifeContext is optional and must not
@@ -592,7 +566,6 @@ final class OnboardingCoordinator {
 
     func toggleCondition(_ condition: ReportedCondition) {
         guard step == .conditions else { return }
-        FDS.selectionHaptic()
 
         // Exclusive: none / preferNot clear others
         if condition == .none || condition == .preferNot {
@@ -624,7 +597,6 @@ final class OnboardingCoordinator {
             profile.conditionsNote = freeText.trimmingCharacters(in: .whitespacesAndNewlines)
             freeText = ""
         }
-        FDS.haptic(.medium)
         syncPartialContext()
 
         Task {
@@ -650,7 +622,6 @@ final class OnboardingCoordinator {
         interruptInterviewVoice()
         profile.coachingStyle = style
         appendUser(style.friendToneTitle)
-        FDS.haptic(.medium)
         Task {
             await ariaSay(AriaInterviewVoice.acknowledgeCoaching(style), mood: AriaOnboardingGuide.mood(for: style))
             await advanceTo(AriaInterviewStep(OnboardingGraph.next(after: .selectCoachingStyle)))
@@ -934,7 +905,7 @@ final class OnboardingCoordinator {
         }
 
         if isUnderage {
-            withAnimation(FDS.Spring.hero) { showAgeBlocked = true }
+            withForgeMotion(ForgeMotion.gentle) { showAgeBlocked = true }
         }
 
         guard !prefill.isEmpty else { return }
@@ -1019,8 +990,7 @@ final class OnboardingCoordinator {
             trainingTheme: profile.trainingTheme
         )
 
-        FDS.haptic(.heavy)
-        FDS.notificationHaptic(.success)
+        ForgeHaptics.play(.success)
 
         Task { await runPrep(in: store) }
     }
@@ -1107,7 +1077,7 @@ final class OnboardingCoordinator {
     func resetAfterAgeBlock() {
         interruptInterviewVoice()
         isReviewingBirthday = true
-        withAnimation(FDS.Spring.hero) { showAgeBlocked = false }
+        withForgeMotion(ForgeMotion.gentle) { showAgeBlocked = false }
     }
 
     /// Confirm from the birthday review. Still under 13 re-shows the block;
@@ -1115,13 +1085,12 @@ final class OnboardingCoordinator {
     func confirmBirthdayReview() {
         guard isReviewingBirthday else { return }
         if isUnderage {
-            FDS.notificationHaptic(.warning)
-            withAnimation(FDS.Spring.hero) { showAgeBlocked = true }
+            ForgeHaptics.play(.warning)
+            withForgeMotion(ForgeMotion.gentle) { showAgeBlocked = true }
             return
         }
         guard profile.hasBirthday else { return }
         profile.healthSourcedFields.remove(.birthday)
-        FDS.haptic(.light)
         isReviewingBirthday = false
         syncPartialContext()
         saveDraft()
@@ -1313,7 +1282,6 @@ final class OnboardingCoordinator {
             AriaPresence.shared.speak(text, interrupt: interrupt)
         }
         ariaOrbState = .listening
-        FDS.haptic(.soft)
     }
 
     /// Keep the last dozen turns. Older chips are already captured on the

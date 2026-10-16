@@ -1,4 +1,5 @@
 import SwiftUI
+import ForgeCore
 
 /// ARIA's daily story: a short cross-source narrative plus the actionable
 /// insights it was built from. Backed by `AriaContextStore.lastDailyStory`,
@@ -55,7 +56,6 @@ struct TodaysStoryCard: View {
 
     private func insightRow(_ insight: DailyStoryInsight) -> some View {
         Button {
-            FDS.haptic(.press)
             HomeInsightFlow.open(insight.text, store: store)
         } label: {
             HStack(spacing: ForgeLayout.rowGap) {

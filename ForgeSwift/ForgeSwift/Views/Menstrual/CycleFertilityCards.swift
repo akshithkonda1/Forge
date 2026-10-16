@@ -35,7 +35,7 @@ private struct CycleChoiceTile: View {
 
     var body: some View {
         Button {
-            FDS.haptic(.select)
+            ForgeHaptics.play(.selection)
             action()
         } label: {
             label

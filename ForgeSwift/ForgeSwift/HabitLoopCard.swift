@@ -138,7 +138,7 @@ struct HabitLoopListCard: View {
                                 AriaKnowledgeLedgerStore.file(HabitFeedbackStore.outcomeFact(for: habit, answer: "yeah"))
                             }
                             pendingFeedback = nil
-                            FeedbackGenerator.light()
+                            ForgeHaptics.play(.press)
                         } label: {
                             Text("Yeah ✓").font(FDS.TypeScale.Dynamic.caption).foregroundColor(.white)
                                 .frame(maxWidth: .infinity).padding(.vertical, FDS.Spacing.sm).background(Color.success).cornerRadius(FDS.Radius.sm)
@@ -150,7 +150,7 @@ struct HabitLoopListCard: View {
                                 AriaKnowledgeLedgerStore.file(HabitFeedbackStore.outcomeFact(for: habit, answer: "nah"))
                             }
                             pendingFeedback = nil
-                            FeedbackGenerator.light()
+                            ForgeHaptics.play(.press)
                         } label: {
                             Text("Nah — too big").font(FDS.TypeScale.Dynamic.caption).foregroundColor(.textPrimary)
                                 .frame(maxWidth: .infinity).padding(.vertical, FDS.Spacing.sm).forgeInsetTile(radius: FDS.Radius.sm)
@@ -172,9 +172,9 @@ struct HabitLoopListCard: View {
                         HabitFeedbackStore.markTried(habit)
                         AriaContextStore.shared.addInsight("Tried habit breaker: \(habit.id) — \(habit.breaker)")
                         AriaKnowledgeLedgerStore.file(HabitFeedbackStore.attemptFact(for: habit))
-                        FeedbackGenerator.light()
+                        ForgeHaptics.play(.press)
                     }, onSnooze: {
-                        FeedbackGenerator.light()
+                        ForgeHaptics.play(.press)
                     })
                 }
             }
@@ -185,12 +185,6 @@ struct HabitLoopListCard: View {
             Task { await vm.syncIfNeeded() }
             pendingFeedback = HabitFeedbackStore.pendingFeedback()
         }
-    }
-}
-
-private enum FeedbackGenerator {
-    static func light() {
-        UIImpactFeedbackGenerator(style: .light).impactOccurred()
     }
 }
 

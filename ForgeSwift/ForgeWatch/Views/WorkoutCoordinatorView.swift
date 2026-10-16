@@ -112,7 +112,7 @@ private struct CountdownView: View {
             .font(ForgeType.metric(64))
             .foregroundStyle(ForgePalette.ember)
             .scaleEffect(reduceMotion ? 1 : 1 + CGFloat(WorkoutSessionManager.countdownSeconds - count) * 0.06)
-            .animation(reduceMotion ? nil : ForgeDS.Spring.snap, value: count)
+            .animation(reduceMotion ? nil : ForgeMotion.snappy, value: count)
             .navigationBarBackButtonHidden(true)
             .accessibilityLabel("Starting in \(count)")
     }
@@ -313,7 +313,7 @@ private struct SessionMetricsPage: View {
                     .contentShape(Rectangle())
                     .onTapGesture {
                         WKInterfaceDevice.current().play(isActive ? .success : .click)
-                        withAnimation(.spring(response: 0.2, dampingFraction: 0.7)) {
+                        withForgeMotion(ForgeMotion.snappy) {
                             zoneTapFlash.toggle()
                         }
                     }
@@ -387,7 +387,7 @@ private struct SessionExercisePage: View {
                 .monospacedDigit()
                 .contentTransition(.numericText())
                 .scaleEffect(remaining <= 3 ? 1.08 : 1)
-                .animation(.spring(response: 0.25, dampingFraction: 0.6), value: remaining)
+                .forgeAnimation(ForgeMotion.snappy, value: remaining)
                 .accessibilityLabel("\(remaining) seconds of rest left. Wrist taps count the last three. Turn crown to skip.")
             // Crown-scrub to skip — flick crown to dismiss rest.
             Color.clear

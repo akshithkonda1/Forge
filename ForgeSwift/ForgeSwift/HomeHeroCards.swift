@@ -18,8 +18,7 @@ private struct HomeHeroReadinessCard: View {
                 }
                 Spacer()
                 Button {
-                    FDS.haptic(.light)
-                    withAnimation(FDS.Spring.standard) { showDetails.toggle() }
+                    withForgeMotion(ForgeMotion.smooth) { showDetails.toggle() }
                 } label: {
                     HStack(spacing: 4) {
                         Text(showDetails ? "Less" : "Details")
@@ -35,9 +34,7 @@ private struct HomeHeroReadinessCard: View {
 
             ReadinessRingView(score: store.readiness.overall, size: 112, strokeWidth: 10)
                 .frame(maxWidth: .infinity)
-                .padding(.bottom, 12)
-                .accessibilityElement(children: .ignore)
-                .accessibilityLabel("Readiness \(store.readiness.overall) out of 100, \(HomeReadiness.label(store.readiness.overall))")
+                .padding(.bottom, FDS.Spacing.md)
                 .onTapGesture {
                     if store.readiness.overall >= 85 { onCelebrate() }
                 }
@@ -82,7 +79,6 @@ private struct HomeHeroReadinessCard: View {
                     )
 
                     Button {
-                        FDS.haptic(.light)
                         // Don't ask ARIA to explain a sleep number nobody measured.
                         let sleep = lastNightSleepMeasured(store: store)
                             ? "Sleep \(store.readiness.sleepQuality), recovery"
@@ -180,7 +176,6 @@ struct HomeTodayHero: View {
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     let action: HomePrimaryAction
     @State private var showScore = false
-    @State private var lastCompleted = -1
     @State private var eventGlow = false
 
     private var recovery: Bool { action.usesRecoveryChrome(store: store) }
@@ -221,7 +216,8 @@ struct HomeTodayHero: View {
                         .font(HomeType.heroScore)
                         .foregroundStyle(Color.textPrimary)
                         .hudInArcText()
-                        .contentTransition(.numericText())
+                        .contentTransition(.numericText(value: Double(snap.percent)))
+                        .forgeAnimation(ForgeMotion.smooth, value: snap.percent)
                     if showInArcMeta {
                         Text(snap.vibeLabel.uppercased())
                             .font(HomeType.micro)
@@ -264,7 +260,7 @@ struct HomeTodayHero: View {
                     recovery: store.readiness.recoveryScore,
                     load: store.readiness.stressLevel
                 ) {
-                    withAnimation(FDS.adaptiveAnimation(FDS.Spring.standard)) { showScore.toggle() }
+                    withForgeMotion(ForgeMotion.smooth) { showScore.toggle() }
                 }
             }
 
@@ -288,7 +284,6 @@ struct HomeTodayHero: View {
 
             if !aging.oneBreathLine.isEmpty {
                 Button {
-                    FDS.haptic(.light)
                     store.activeTab = .lifestyle
                     store.pendingLifestyleSegment = "lifetime"
                 } label: {
@@ -314,20 +309,12 @@ struct HomeTodayHero: View {
         .hudPlate(energy: recovery ? .steel : energy)
         .homeEntrance(delay: 0.06)
         .accessibilityElement(children: .contain)
-        .onAppear {
-            lastCompleted = snap.completed
+        // Closing the day is the goal; a single track ticking over is not.
+        .forgeHaptic(.success, trigger: snap.completed) { old, new in
+            new > old && new >= snap.total
         }
-        .onChange(of: snap.completed) { _, new in
-            guard lastCompleted >= 0, new > lastCompleted else {
-                lastCompleted = new
-                return
-            }
-            lastCompleted = new
-            if new >= snap.total {
-                FDS.notificationHaptic(.success)
-            } else {
-                FDS.haptic(.medium)
-            }
+        .onChange(of: snap.completed) { old, new in
+            guard new > old else { return }
             eventGlow = true
             DispatchQueue.main.asyncAfter(deadline: .now() + 1.4) {
                 eventGlow = false
@@ -457,8 +444,6 @@ private struct HomeLifeChipRow: View {
 private struct HomePrimaryCTA: View {
     @EnvironmentObject var store: AppStore
     let action: HomePrimaryAction
-    @State private var pressed = false
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
@@ -468,11 +453,8 @@ private struct HomePrimaryCTA: View {
                 .tracking(1.2)
                 .accessibilityAddTraits(.isHeader)
 
-            Button {
-                FDS.haptic(.medium)
-                perform()
-            } label: {
-                HStack(spacing: 12) {
+            Button(action: perform) {
+                HStack(spacing: FDS.Spacing.md) {
                     Image(systemName: action.icon)
                         .font(.system(size: 16, weight: .semibold))
                     VStack(alignment: .leading, spacing: 2) {
@@ -487,13 +469,14 @@ private struct HomePrimaryCTA: View {
                                 .lineLimit(2)
                         }
                     }
-                    Spacer(minLength: 8)
+                    Spacer(minLength: FDS.Spacing.sm)
                     Image(systemName: "chevron.right")
                         .font(.system(size: 14, weight: .bold))
+                        .accessibilityHidden(true)
                 }
                 .foregroundColor(.white)
                 .padding(.vertical, 14)
-                .padding(.horizontal, 16)
+                .padding(.horizontal, FDS.Spacing.lg)
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .background {
                     ZStack {
@@ -507,20 +490,12 @@ private struct HomePrimaryCTA: View {
                         .stroke(Color.white.opacity(0.20), lineWidth: 0.8)
                 )
             }
-            .buttonStyle(.plain)
-            .scaleEffect(pressed && !reduceMotion ? 0.98 : 1)
-            .animation(reduceMotion ? nil : FDS.Spring.snap, value: pressed)
-            .simultaneousGesture(
-                DragGesture(minimumDistance: 0)
-                    .onChanged { _ in pressed = true }
-                    .onEnded { _ in pressed = false }
-            )
+            .buttonStyle(ForgePressStyle(pressHaptic: true))
             .accessibilityLabel(action.title)
             .accessibilityHint(action.subtitle(store: store) ?? "Opens today's session")
 
             HStack(spacing: 10) {
                 Button {
-                    FDS.haptic(.light)
                     let sentence = HomeLifeSentence.build(store: store)
                     store.openChat(
                         with: "Why this session today? \(sentence.text). \(sentence.detail ?? "") Adjust it if my life doesn't match.",
@@ -550,7 +525,6 @@ private struct HomePrimaryCTA: View {
                 .accessibilityHint("Asks ARIA why today's session looks like this")
 
                 Button {
-                    FDS.haptic(.light)
                     store.activeTab = .lifestyle
                 } label: {
                     HStack(spacing: 6) {

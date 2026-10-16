@@ -196,7 +196,7 @@ struct MetabolicStoryCard: View {
         if reduceMotion {
             showEstimate.toggle()
         } else {
-            withAnimation(FDS.Spring.standard) { showEstimate.toggle() }
+            withForgeMotion(ForgeMotion.smooth) { showEstimate.toggle() }
         }
     }
 }

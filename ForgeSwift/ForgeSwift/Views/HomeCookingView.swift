@@ -1,4 +1,5 @@
 import SwiftUI
+import ForgeCore
 
 // MARK: - Home Cooking (recipe library)
 
@@ -87,7 +88,7 @@ struct HomeCookingView: View {
                 resultsCard(results)
             }
         }
-        .animation(reduceMotion ? nil : FDS.Spring.standard, value: showFilters)
+        .animation(reduceMotion ? nil : ForgeMotion.smooth, value: showFilters)
         // Any change to the result set restarts paging, otherwise a narrowed search
         // would keep showing a stale "show more" offset.
         .onChange(of: searchText) { _, _ in visibleCount = Self.pageSize }
@@ -151,7 +152,7 @@ struct HomeCookingView: View {
             energy: .ember,
             selected: activeFilterCount > 0
         ) {
-            withAnimation(reduceMotion ? nil : FDS.Spring.standard) { showFilters.toggle() }
+            withAnimation(reduceMotion ? nil : ForgeMotion.smooth) { showFilters.toggle() }
         }
         .accessibilityValue(showFilters ? "Expanded" : "Collapsed")
     }
@@ -280,7 +281,6 @@ struct HomeCookingView: View {
             LazyVStack(alignment: .leading, spacing: ForgeLayout.rowGap) {
                 ForEach(results.prefix(visibleCount)) { meal in
                     Button {
-                        FDS.haptic(.press)
                         selected = meal
                     } label: {
                         MealRowCard(meal: meal)
@@ -295,7 +295,7 @@ struct HomeCookingView: View {
                     title: "Show \(min(Self.pageSize, results.count - visibleCount)) more · \(results.count - visibleCount) left",
                     accent: .ember
                 ) {
-                    withAnimation(reduceMotion ? nil : FDS.Spring.standard) { visibleCount += Self.pageSize }
+                    withAnimation(reduceMotion ? nil : ForgeMotion.smooth) { visibleCount += Self.pageSize }
                 }
             }
         }
@@ -626,7 +626,7 @@ private struct MealDetailSheet: View {
     private func logMeal() {
         guard !logged else { return }
         logged = true
-        FDS.haptic(.success)
+        ForgeHaptics.play(.success)
         let macros = meal.macros
         Task {
             await vm.logMeal(

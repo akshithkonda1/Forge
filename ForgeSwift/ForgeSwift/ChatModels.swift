@@ -130,14 +130,3 @@ enum VoiceState: Equatable {
         }
     }
 }
-
-enum HapticEvent {
-    case messageSent        // Light + delay + success
-    case messageReceived    // Soft impact
-    case reactionAdded      // Selection + light
-    case milestone          // Heavy + notification success
-    case voiceStart         // Medium + rigid
-    case quickChipTap       // Selection
-    case celebration        // Sequence of impacts
-    case typing             // Very light
-}

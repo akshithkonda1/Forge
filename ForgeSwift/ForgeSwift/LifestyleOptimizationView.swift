@@ -43,7 +43,7 @@ struct AIOptimizationContent: View {
             if reduceMotion {
                 showsMoreInsights.toggle()
             } else {
-                withAnimation(FDS.Spring.standard) { showsMoreInsights.toggle() }
+                withForgeMotion(ForgeMotion.smooth) { showsMoreInsights.toggle() }
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -148,7 +148,7 @@ struct LocationMealConfirmationSheet: View {
 
     private func itemRow(_ item: MenuItem) -> some View {
         Button {
-            FDS.haptic(.press)
+            ForgeHaptics.play(.press)
             onLog(item)
         } label: {
             HStack(spacing: ForgeLayout.rowGap) {

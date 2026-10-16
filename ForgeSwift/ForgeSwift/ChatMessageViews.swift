@@ -1,4 +1,5 @@
 import SwiftUI
+import ForgeCore
 
 // MARK: - Transcript
 
@@ -82,7 +83,7 @@ struct MessageListView: View {
             MessageBubbleView(
                 message:         msg,
                 mood:            ariaMood,
-                onSwipeReply:    { withAnimation(reduceMotion ? nil : FDS.Spring.standard) { swipeReply = msg } },
+                onSwipeReply:    { withAnimation(reduceMotion ? nil : ForgeMotion.smooth) { swipeReply = msg } },
                 onReaction:      onReaction,
                 onReactionBurst: onReactionBurst,
                 displayedContent: store.visibleContent(for: msg),
@@ -252,11 +253,11 @@ struct MessageBubbleView: View {
         .contextMenu {
             Button {
                 UIPasteboard.general.string = message.content
-                FDS.haptic(.success)
+                ForgeHaptics.play(.success)
             } label: { Label("Copy", systemImage: "doc.on.doc") }
 
             Button {
-                withAnimation(motion(FDS.Spring.standard)) { showReactions.toggle() }
+                withAnimation(motion(ForgeMotion.smooth)) { showReactions.toggle() }
             } label: { Label("React", systemImage: "face.smiling.fill") }
 
             Button {
@@ -264,7 +265,7 @@ struct MessageBubbleView: View {
             } label: { Label("Reply", systemImage: "arrowshape.turn.up.left.fill") }
 
             Button {
-                withAnimation(motion(FDS.Spring.snap)) { showTimestamp.toggle() }
+                withAnimation(motion(ForgeMotion.snappy)) { showTimestamp.toggle() }
             } label: { Label("Show Time", systemImage: "clock") }
         }
     }
@@ -352,8 +353,8 @@ struct MessageBubbleView: View {
 
     private var bubbleButton: some View {
         Button {
-            withAnimation(motion(FDS.Spring.standard)) { showTimestamp.toggle() }
-            FDS.haptic(.select)
+            withAnimation(motion(ForgeMotion.smooth)) { showTimestamp.toggle() }
+            ForgeHaptics.play(.selection)
         } label: {
             Text(bodyText)
                 .font(HomeType.body)
@@ -398,12 +399,12 @@ struct MessageBubbleView: View {
                 dragOffset = d
                 if abs(d) > 38 && !replyTriggered {
                     replyTriggered = true
-                    choreographedHaptic(.reactionAdded)
+                    ForgeHaptics.play(.selection)
                     onSwipeReply()
                 }
             }
             .onEnded { _ in
-                withAnimation(motion(FDS.Spring.snap)) { dragOffset = 0 }
+                withAnimation(motion(ForgeMotion.snappy)) { dragOffset = 0 }
                 replyTriggered = false
             }
     }
@@ -441,14 +442,14 @@ struct MessageBubbleView: View {
     private func reactionButton(_ r: (emoji: String, label: String)) -> some View {
         let isSelected = selectedReact == r.emoji
         return Button {
-            withAnimation(motion(FDS.Spring.snap)) {
+            withAnimation(motion(ForgeMotion.snappy)) {
                 selectedReact = selectedReact == r.emoji ? nil : r.emoji
                 showReactions = false
             }
             if selectedReact == r.emoji {
                 onReaction?(message.id, r.emoji)
             }
-            choreographedHaptic(.reactionAdded)
+            ForgeHaptics.play(.selection)
         } label: {
             Text(r.emoji)
                 .font(.system(size: 20))
@@ -521,8 +522,7 @@ struct ChatProvenanceFooter: View {
 
     private func memoryChip(_ memory: String) -> some View {
         Button {
-            FDS.haptic(.press)
-            withAnimation(reduceMotion ? nil : FDS.Spring.standard) { memoryExpanded.toggle() }
+            withAnimation(reduceMotion ? nil : ForgeMotion.smooth) { memoryExpanded.toggle() }
         } label: {
             ForgeChip(label: memory, icon: "clock.arrow.circlepath", energy: .steel)
                 .forgeTapOutset(vertical: ForgeLayout.chipTapOutset)
@@ -537,8 +537,7 @@ struct ChatProvenanceFooter: View {
         let chip = ForgeChip(label: "High confidence", icon: "checkmark.seal", energy: .steel, selected: true)
         if let reason = confidenceReason, !reason.isEmpty {
             Button {
-                FDS.haptic(.press)
-                withAnimation(reduceMotion ? nil : FDS.Spring.standard) { confidenceExpanded.toggle() }
+                withAnimation(reduceMotion ? nil : ForgeMotion.smooth) { confidenceExpanded.toggle() }
             } label: {
                 chip.forgeTapOutset(vertical: ForgeLayout.chipTapOutset)
             }
@@ -647,7 +646,7 @@ struct TypingIndicatorView: View {
             UIAccessibility.post(notification: .announcement, argument: "ARIA is thinking")
         }
         .onDisappear { cycleTask?.cancel(); cycleTask = nil }
-        .animation(reduceMotion ? nil : FDS.Spring.standard, value: stateColor)
+        .animation(reduceMotion ? nil : ForgeMotion.smooth, value: stateColor)
     }
 
     private var thinkingBubble: some View {
@@ -731,7 +730,7 @@ struct TypingIndicatorView: View {
             for (label, icon, color, duration) in steps {
                 guard !Task.isCancelled else { return }
                 await MainActor.run {
-                    withAnimation(reduceMotion ? nil : FDS.Spring.standard) {
+                    withAnimation(reduceMotion ? nil : ForgeMotion.smooth) {
                         stateLabel = label; stateIcon = icon; stateColor = color
                     }
                 }
@@ -759,7 +758,6 @@ struct ReplyShapeChip: View {
     var body: some View {
         VStack(alignment: .leading, spacing: FDS.Spacing.xs) {
             Button {
-                FDS.haptic(.press)
                 withAnimation(reduceMotion ? nil : Animation.easeInOut(duration: 0.18)) { expanded.toggle() }
             } label: {
                 ForgeChip(label: headline, icon: "point.3.connected.trianglepath.dotted", energy: .steel)

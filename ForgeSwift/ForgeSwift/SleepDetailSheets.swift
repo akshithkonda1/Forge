@@ -64,7 +64,7 @@ struct SleepPersonalizationSheet: View {
     private func chronotypeRow(_ type: Chronotype) -> some View {
         let isSelected = draft.chronotype == type
         return Button {
-            FDS.haptic(.select)
+            ForgeHaptics.play(.selection)
             draft.chronotype = type
         } label: {
             HStack(spacing: ForgeLayout.rowGap) {

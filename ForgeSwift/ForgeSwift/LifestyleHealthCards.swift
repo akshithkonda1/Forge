@@ -645,7 +645,7 @@ struct MultiArcQOLCard: View {
                 centerScore(maxWidth: MultiArcQOLCard.scoreHole * unit)
             }
             .frame(width: chartSide, height: chartSide)
-            .animation(reduceMotion ? nil : FDS.Spring.sweep, value: appeared)
+            .animation(reduceMotion ? nil : ForgeMotion.sweep, value: appeared)
 
             // At accessibility sizes the meta label moves under the chart so
             // the score keeps the whole hole.
@@ -864,7 +864,7 @@ struct BiologicalAgeCard: View {
                 if reduceMotion {
                     showDetails.toggle()
                 } else {
-                    withAnimation(FDS.Spring.standard) { showDetails.toggle() }
+                    withForgeMotion(ForgeMotion.smooth) { showDetails.toggle() }
                 }
             }
 

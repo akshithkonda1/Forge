@@ -166,7 +166,7 @@ struct HudProgressRing<Center: View>: View {
             animatedProgress: nil
         )
         if animated && !reduceMotion {
-            withAnimation(FDS.Spring.sweep.delay(0.12)) { sweep = CGFloat(next) }
+            withAnimation(ForgeMotion.sweep.delay(0.12)) { sweep = CGFloat(next) }
         } else {
             sweep = CGFloat(next)
         }

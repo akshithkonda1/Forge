@@ -21,7 +21,6 @@ struct HomeWinCard: View {
 
     var body: some View {
         Button {
-            FDS.haptic(.light)
             if store.isWorkoutActive {
                 store.activeTab = .workout
             } else if store.didTrainToday {
@@ -168,7 +167,6 @@ struct HomeAgendaCard: View {
 
             ForEach(Array(rows.enumerated()), id: \.offset) { _, item in
                 Button {
-                    FDS.haptic(.light)
                     item.action()
                 } label: {
                     HStack(spacing: 12) {
@@ -213,7 +211,6 @@ struct HomeLifestylePreviewCard: View {
 
     var body: some View {
         Button {
-            FDS.haptic(.light)
             store.pendingLifestyleSegment = "wellbeing"
             store.activeTab = .lifestyle
         } label: {
@@ -621,8 +618,7 @@ struct HomeTrendSection: View {
         VStack(alignment: .leading, spacing: 12) {
             Button {
                 guard !trendData.isEmpty else { return }
-                FDS.haptic(.light)
-                withAnimation(reduceMotion ? .easeOut(duration: 0.15) : FDS.Spring.standard) {
+                withAnimation(reduceMotion ? .easeOut(duration: 0.15) : ForgeMotion.smooth) {
                     isExpanded.toggle()
                 }
             } label: {
@@ -685,7 +681,7 @@ struct HomeTrendSection: View {
             if reduceMotion {
                 chartGrown = true
             } else {
-                withAnimation(FDS.Spring.hero.delay(0.45)) { chartGrown = true }
+                withForgeMotion(ForgeMotion.gentle.delay(0.45)) { chartGrown = true }
             }
         }
         .onChange(of: reduceMotion) { _, reduced in

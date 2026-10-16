@@ -269,8 +269,8 @@ struct EnergyScheduleCard: View {
             }
         }
         .forgeContentCard(tint: .steel)
-        .animation(reduceMotion ? nil : .snappy(duration: 0.32), value: schedule?.debtHours)
-        .sensoryFeedback(.selection, trigger: scrubWindow)
+        .animation(reduceMotion ? nil : ForgeMotion.snappy, value: schedule?.debtHours)
+        .forgeHaptic(.selection, trigger: scrubWindow)
         .onAppear {
             refresh(at: now)
             guard drawProgress == 0 else { return }
@@ -477,7 +477,7 @@ struct EnergyScheduleCard: View {
                 if reduceMotion {
                     scrubOffset = nil
                 } else {
-                    withAnimation(.spring(response: 0.4, dampingFraction: 0.85)) {
+                    withAnimation(ForgeMotion.smooth) {
                         scrubOffset = nil
                     }
                 }
@@ -540,7 +540,7 @@ struct EnergyScheduleCard: View {
                 .offset(x: position - (scrubbing ? 5.5 : 4),
                         y: markerY - (scrubbing ? 5.5 : 4))
         }
-        .animation(reduceMotion ? nil : .spring(response: 0.25, dampingFraction: 0.9), value: scrubbing)
+        .animation(reduceMotion ? nil : ForgeMotion.snappy, value: scrubbing)
     }
 
     /// Four ticks across the waking day, labelled in clock time. The axis starts
@@ -609,8 +609,8 @@ struct EnergyScheduleCard: View {
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .forgeWell()
-        .animation(reduceMotion ? nil : .snappy(duration: 0.22), value: point.window)
-        .animation(reduceMotion ? nil : .snappy(duration: 0.22), value: scrubbing)
+        .animation(reduceMotion ? nil : ForgeMotion.snappy, value: point.window)
+        .animation(reduceMotion ? nil : ForgeMotion.snappy, value: scrubbing)
         .accessibilityElement(children: .combine)
     }
 

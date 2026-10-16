@@ -38,7 +38,8 @@
     "md": 12,
     "lg": 16,
     "xl": 24,
-    "xxl": 32
+    "xxl": 32,
+    "xxxl": 48
   },
   "radius": {
     "xs": 6,
@@ -135,10 +136,9 @@
     "respectReduceMotion": true,
     "maxTickHz": 12,
     "curve": "standard",
-    "snap": { "response": 0.25, "damping": 0.75 },
-    "standard": { "response": 0.35, "damping": 0.75 },
-    "hero": { "response": 0.45, "damping": 0.7 },
-    "page": { "response": 0.4, "damping": 0.8 },
+    "snappy": { "response": 0.25, "damping": 0.82 },
+    "smooth": { "response": 0.35, "damping": 0.86 },
+    "gentle": { "response": 0.5, "damping": 0.9 },
     "sweepSeconds": 1.2
   },
   "ux": {
@@ -153,12 +153,11 @@
     "iconSize": 16,
     "safeInset": 16,
     "haptics": {
-      "select": "selection",
+      "selection": "selection",
       "press": "light",
-      "primaryCTA": "medium",
       "success": "notification.success",
-      "error": "notification.error",
-      "destructive": "notification.warning"
+      "warning": "notification.warning",
+      "error": "notification.error"
     }
   },
   "copy": {

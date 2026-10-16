@@ -101,7 +101,7 @@ struct ProfileEditorView: View {
             gender: gender == store.userProfile.gender ? nil : gender,
             biologicalSex: biologicalSex == store.userProfile.biologicalSex ? nil : biologicalSex
         )
-        FDS.notificationHaptic(.success)
+        ForgeHaptics.play(.success)
         dismiss()
     }
 
@@ -225,7 +225,6 @@ struct ProfileEditorView: View {
             }
             pendingPhoto = image
             removePhoto = false
-            FDS.haptic(.light)
         }
     }
 
@@ -252,7 +251,7 @@ struct ProfileEditorView: View {
                         pendingPhoto = nil
                         photoItem = nil
                         removePhoto = true
-                        FDS.haptic(.press)
+                        ForgeHaptics.play(.press)
                     } label: {
                         Label("Remove profile photo", systemImage: "trash")
                     }

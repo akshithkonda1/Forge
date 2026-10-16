@@ -36,7 +36,7 @@ struct BreakdownCardView: View {
         }
         .opacity(appeared ? 1 : 0)
         .onAppear {
-            withAnimation(FDS.Spring.hero.delay(0.05 * Double(index))) { appeared = true }
+            withAnimation(ForgeMotion.gentle.delay(0.05 * Double(index))) { appeared = true }
         }
     }
 }
@@ -72,11 +72,7 @@ struct ReadinessRingView: View {
     var showLabel: Bool = true
 
     @State private var progress: CGFloat = 0
-    @State private var glowPulse = false
-    @State private var outerPulse = false
-    @State private var isOnscreen = true
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
-    @Environment(\.scenePhase) private var scenePhase
 
     private var color: Color { HomeReadiness.color(score) }
 
@@ -107,7 +103,8 @@ struct ReadinessRingView: View {
                         .font(ForgeFont.sans(size * 0.26, weight: .light))
                         .monospacedDigit()
                         .foregroundStyle(Color.textPrimary)
-                        .contentTransition(.numericText())
+                        .contentTransition(.numericText(value: Double(score)))
+                        .forgeAnimation(ForgeMotion.smooth, value: score)
                     Text(HomeReadiness.label(score).uppercased())
                         .font(ForgeFont.sans(size * 0.07, weight: .semibold))
                         .foregroundColor(color)
@@ -119,40 +116,23 @@ struct ReadinessRingView: View {
             }
         }
         .frame(width: size, height: size)
+        // Without its label the ring is decoration beside a name or a score.
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(HomeReadiness.voiceOverLabel(score))
+        .accessibilityHidden(!showLabel)
         .onAppear {
-            isOnscreen = true
-            playEntrance()
-        }
-        .onDisappear {
-            isOnscreen = false
-            glowPulse = false
-            outerPulse = false
-        }
-        .onChange(of: scenePhase) { _, phase in
-            if phase != .active {
-                glowPulse = false
-                outerPulse = false
-            } else if isOnscreen {
-                playEntrance()
+            // The arc sweeps in once; under Reduce Motion it is simply there.
+            if reduceMotion {
+                progress = CGFloat(score) / 100
+            } else {
+                withAnimation(ForgeMotion.sweep.delay(0.2)) { progress = CGFloat(score) / 100 }
             }
         }
         .onChange(of: score) { _, new in
-            withAnimation(reduceMotion ? .easeOut(duration: 0.12) : FDS.Spring.sweep) {
+            withAnimation(ForgeMotion.resolved(ForgeMotion.sweep, reduceMotion: reduceMotion)) {
                 progress = CGFloat(new) / 100
             }
         }
-    }
-
-    private func playEntrance() {
-        let anim = reduceMotion
-            ? Animation.easeOut(duration: 0.15)
-            : FDS.Spring.sweep.delay(0.2)
-        withAnimation(anim) { progress = CGFloat(score) / 100 }
-        guard !reduceMotion, scenePhase == .active, isOnscreen else { return }
-        glowPulse = false
-        outerPulse = false
-        withAnimation(.easeInOut(duration: 2.3)) { glowPulse = true }
-        withAnimation(.easeInOut(duration: 3.1)) { outerPulse = true }
     }
 }
 
@@ -386,7 +366,7 @@ struct StreakCalendarSection: View {
                         .scaleEffect(cellsAppeared || reduceMotion ? 1 : 0.7)
                         .opacity(cellsAppeared || reduceMotion ? 1 : 0)
                         .animation(
-                            reduceMotion ? nil : FDS.Spring.hero.delay(0.08 + Double(i) * 0.05),
+                            reduceMotion ? nil : ForgeMotion.gentle.delay(0.08 + Double(i) * 0.05),
                             value: cellsAppeared
                         )
                     }
@@ -447,7 +427,7 @@ struct HomeContributorRow: View {
 
     var body: some View {
         Button {
-            FDS.selectionHaptic()
+            ForgeHaptics.play(.selection)
             onTap?()
         } label: {
             HStack(spacing: 10) {

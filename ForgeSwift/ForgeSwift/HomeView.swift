@@ -56,14 +56,12 @@ struct HomeView: View {
                         // Rooms stay — they feed ARIA. They are not the first decision.
                         if !MenstrualHealthStore.shared.consentedPeople.isEmpty {
                             HomeSupportPulseCard {
-                                FDS.haptic(.light)
                                 store.openCycleHealth(pane: "partner")
                             }
                         }
 
                         if showsCycleEntry {
                             HomeCycleModule {
-                                FDS.haptic(.light)
                                 store.openCycleHealth()
                             }
                         }
@@ -121,10 +119,8 @@ struct HomeView: View {
 
     @MainActor
     private func refreshData() async {
-        FDS.haptic(.light)
         await store.refreshDailyData(force: true)
         proactiveInsight = await AriaService.shared.fetchProactiveMessage(store: store)
-        FDS.notificationHaptic(.success)
     }
 }
 
@@ -210,7 +206,7 @@ struct HomeHeaderView: View {
             Spacer(minLength: 8)
 
             Button {
-                FDS.haptic(.light)
+                ForgeHaptics.play(.selection)
                 store.setQuietMode(!store.quietMode)
             } label: {
                 Image(systemName: store.quietMode ? "moon.fill" : "moon")
@@ -273,7 +269,7 @@ private struct HomeDataStatusPill: View {
             Task {
                 await store.reconnectHealthKit()
                 reconnecting = false
-                FDS.notificationHaptic(store.healthKitLive ? .success : .warning)
+                ForgeHaptics.play(store.healthKitLive ? .success : .warning)
             }
         } label: {
             HStack(spacing: 5) {

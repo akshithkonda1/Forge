@@ -2,6 +2,7 @@ import AVFoundation
 import Observation
 import SwiftUI
 import UIKit
+import ForgeCore
 
 /// App-wide spoken mute. Missing key means muted — ARIA does not talk until
 /// they ask. Compact TTS reading every screen is the Hawking fail.
@@ -358,7 +359,6 @@ struct AriaNeuralVoiceSheet: View {
                 Spacer()
 
                 Button {
-                    FDS.haptic(.light)
                     gate.dismiss()
                 } label: {
                     Text(AriaNeuralVoicePromptPolicy.actionTitle)

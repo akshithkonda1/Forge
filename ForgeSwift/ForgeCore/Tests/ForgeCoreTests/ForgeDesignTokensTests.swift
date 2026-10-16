@@ -25,6 +25,7 @@ final class ForgeDesignTokensTests: XCTestCase {
             let lg: Double
             let xl: Double
             let xxl: Double
+            let xxxl: Double
         }
 
         struct Radius: Decodable {
@@ -55,11 +56,19 @@ final class ForgeDesignTokensTests: XCTestCase {
         }
 
         struct Motion: Decodable {
+            struct Spring: Decodable {
+                let response: Double
+                let damping: Double
+            }
+
             let eventOnly: Bool
             let liveGlowDefault: Bool
             let respectReduceMotion: Bool
             let maxTickHz: Double
             let curve: String
+            let snappy: Spring
+            let smooth: Spring
+            let gentle: Spring
             let sweepSeconds: Double
         }
 
@@ -118,6 +127,7 @@ final class ForgeDesignTokensTests: XCTestCase {
         XCTAssertEqual(file.color.miss, HomeReadinessTokens.missHex)
         XCTAssertNotEqual(file.color.miss, file.color.alert)
         XCTAssertEqual(file.spacing.lg, ForgeDesignTokens.Spacing.lg)
+        XCTAssertEqual(file.spacing.xxxl, ForgeDesignTokens.Spacing.xxxl)
         XCTAssertEqual(file.radius.xl, ForgeDesignTokens.Radius.xl)
         XCTAssertEqual(CGFloat(file.spacing.lg), ForgeDS.Spacing.lg)
         XCTAssertEqual(CGFloat(file.radius.xl), ForgeDS.Radius.xl)
@@ -152,6 +162,12 @@ final class ForgeDesignTokensTests: XCTestCase {
         XCTAssertLessThanOrEqual(file.motion.maxTickHz, 12)
         XCTAssertEqual(file.motion.curve, "standard")
         XCTAssertEqual(file.motion.sweepSeconds, ForgeDesignTokens.Motion.sweepSeconds, accuracy: 0.0001)
+        XCTAssertEqual(file.motion.snappy.response, ForgeDesignTokens.Motion.snappyResponse, accuracy: 0.0001)
+        XCTAssertEqual(file.motion.snappy.damping, ForgeDesignTokens.Motion.snappyDamping, accuracy: 0.0001)
+        XCTAssertEqual(file.motion.smooth.response, ForgeDesignTokens.Motion.smoothResponse, accuracy: 0.0001)
+        XCTAssertEqual(file.motion.smooth.damping, ForgeDesignTokens.Motion.smoothDamping, accuracy: 0.0001)
+        XCTAssertEqual(file.motion.gentle.response, ForgeDesignTokens.Motion.gentleResponse, accuracy: 0.0001)
+        XCTAssertEqual(file.motion.gentle.damping, ForgeDesignTokens.Motion.gentleDamping, accuracy: 0.0001)
         XCTAssertTrue(ForgeDesignTokens.Motion.eventOnly)
         XCTAssertEqual(HomeReadinessTokens.tickHzCeiling, file.motion.maxTickHz, accuracy: 0.0001)
     }
@@ -162,8 +178,10 @@ final class ForgeDesignTokensTests: XCTestCase {
         XCTAssertTrue(file.ux.onePrimaryCTA)
         XCTAssertEqual(file.ux.permissionSkip, "always-visible")
         XCTAssertEqual(file.ux.darkAppearance, "required")
-        XCTAssertEqual(file.ux.haptics["primaryCTA"], "medium")
-        XCTAssertEqual(file.ux.haptics["press"], "light")
+        XCTAssertEqual(Set(file.ux.haptics.keys), Set(ForgeHaptic.allCases.map(\.rawValue)))
+        for haptic in ForgeHaptic.allCases {
+            XCTAssertEqual(file.ux.haptics[haptic.rawValue], haptic.token, haptic.rawValue)
+        }
         XCTAssertEqual(file.copy.voice, "identity-first")
         XCTAssertEqual(file.copy.ariaRole, "lifestyle coach")
         XCTAssertTrue(file.copy.neverExpandARIA)

@@ -157,7 +157,7 @@ struct SettingsPageView: View {
         }
         .confirmationDialog("Log out of Forge?", isPresented: $confirmSignOut, titleVisibility: .visible) {
             Button("Log Out", role: .destructive) {
-                FDS.haptic(.destructive)
+                ForgeHaptics.play(.warning)
                 store.signOut()
             }
             Button("Cancel", role: .cancel) { }
@@ -554,7 +554,7 @@ struct SettingsPageView: View {
                 ) {
                     Task {
                         await store.reconnectHealthKit()
-                        FDS.notificationHaptic(store.healthKitLive ? .success : .warning)
+                        ForgeHaptics.play(store.healthKitLive ? .success : .warning)
                     }
                 }
 
@@ -1188,16 +1188,14 @@ private struct SettingsHairline: View {
     }
 }
 
-/// Plain row button with a press haptic and a quiet pressed state. It never
-/// animates, so Reduce Motion needs no special case.
+/// Plain row button with a quiet pressed state. Rows navigate, so they stay
+/// silent, like system Settings. It never animates, so Reduce Motion needs no
+/// special case.
 private struct SettingsRowButtonStyle: ButtonStyle {
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
             .contentShape(Rectangle())
             .opacity(configuration.isPressed ? 0.72 : 1)
-            .onChange(of: configuration.isPressed) { _, pressed in
-                if pressed { FDS.haptic(.press) }
-            }
     }
 }
 

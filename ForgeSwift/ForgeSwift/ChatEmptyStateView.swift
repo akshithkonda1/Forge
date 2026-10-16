@@ -116,7 +116,7 @@ struct ChatEmptyStateView: View {
 
     private func promptRow(_ prompt: (title: String, icon: String)) -> some View {
         Button {
-            FDS.haptic(.press)
+            ForgeHaptics.play(.press)
             onQuickActionTap(prompt.title)
         } label: {
             ForgeListRow(

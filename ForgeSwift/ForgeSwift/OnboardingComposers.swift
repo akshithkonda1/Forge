@@ -211,7 +211,7 @@ struct NameComposer: View {
                 coordinator.applySpokenName(name)
             }
         }
-        .animation(reduceMotion ? nil : FDS.Spring.snap, value: dictation.isListening)
+        .animation(reduceMotion ? nil : ForgeMotion.snappy, value: dictation.isListening)
     }
 
     private var preferredBlock: some View {
@@ -353,7 +353,7 @@ struct DetailsComposer: View {
             Button {
                 coordinator.profile.birthday = Self.startingBirthday
                 showBirthdayPicker = true
-                FDS.haptic(.press)
+                ForgeHaptics.play(.press)
             } label: {
                 HStack {
                     Text("Select date")
@@ -579,7 +579,7 @@ struct DictationMicButton: View {
 
     var body: some View {
         Button {
-            FDS.haptic(.press)
+            ForgeHaptics.play(.press)
             if dictation.isListening {
                 dictation.stopListening(submit: true)
             } else {
@@ -724,7 +724,7 @@ private struct ConnectionRow: View {
                 .accessibilityElement(children: .combine)
         } else {
             Button {
-                FDS.haptic(.press)
+                ForgeHaptics.play(.press)
                 action()
             } label: {
                 rowContent
@@ -847,7 +847,7 @@ struct OptionCardsComposer: View {
         VStack(spacing: ForgeLayout.tileGap) {
             ForEach(options, id: \.id) { opt in
                 Button {
-                    FDS.haptic(.select)
+                    ForgeHaptics.play(.selection)
                     onSelect(opt.id)
                 } label: {
                     OnboardingOptionRow(
@@ -944,7 +944,7 @@ struct HabitsComposer: View {
         let selected = coordinator.profile.friendHabits.contains(chip)
         let atLimit = !selected && coordinator.profile.friendHabits.count >= 3
         return Button {
-            FDS.haptic(.select)
+            ForgeHaptics.play(.selection)
             coordinator.toggleHabit(chip)
         } label: {
             OnboardingOptionRow(
@@ -967,7 +967,7 @@ struct CoachingComposer: View {
         VStack(spacing: ForgeLayout.tileGap) {
             ForEach(OnboardingCoachingStyle.friendToneStyles) { style in
                 Button {
-                    FDS.haptic(.select)
+                    ForgeHaptics.play(.selection)
                     coordinator.selectCoachingStyle(style)
                 } label: {
                     OnboardingOptionRow(
@@ -1052,10 +1052,10 @@ struct ReadyComposer: View {
     private var termsRow: some View {
         let agreed = coordinator.hasAgreedToTerms
         return Button {
-            withAnimation(reduceMotion ? nil : FDS.Spring.snap) {
+            withAnimation(reduceMotion ? nil : ForgeMotion.snappy) {
                 coordinator.hasAgreedToTerms.toggle()
             }
-            if coordinator.hasAgreedToTerms { FDS.haptic(.select) }
+            if coordinator.hasAgreedToTerms { ForgeHaptics.play(.selection) }
         } label: {
             HStack(alignment: .top, spacing: ForgeLayout.rowGap) {
                 Image(systemName: agreed ? "checkmark.square.fill" : "square")
@@ -1207,7 +1207,7 @@ struct ScheduleComposer: View {
         let fill: Color = on ? Color.ember.opacity(0.14) : Color.surfaceElevated
         let edge: Color = on ? Color.ember.opacity(0.32) : Color.borderHairline
         return Button {
-            FDS.haptic(.select)
+            ForgeHaptics.play(.selection)
             coordinator.selectScheduleMode(mode)
         } label: {
             VStack(alignment: .leading, spacing: ForgeLayout.pairGap) {
@@ -1286,7 +1286,7 @@ struct ScheduleComposer: View {
     private func countStepper(_ slot: WeeklySplitSlot, systemImage: String, label: String, tint: Color, delta: Int) -> some View {
         let newCount = delta < 0 ? max(3, slot.exerciseCount - 1) : min(8, slot.exerciseCount + 1)
         return Button {
-            FDS.haptic(.select)
+            ForgeHaptics.play(.selection)
             coordinator.setSplitSlot(WeeklySplitSlot(
                 weekday: slot.weekday,
                 primary: slot.primary,

@@ -90,7 +90,7 @@ struct PremiumPrimaryButton: View {
                     .strokeBorder(Color.white.opacity(enabled ? 0 : 0.06), lineWidth: 0.5)
             )
         }
-        .buttonStyle(AuthPressButtonStyle())
+        .buttonStyle(ForgePressStyle(scale: 0.97, pressHaptic: true))
         .disabled(!enabled || busy)
         .accessibilityLabel(title)
     }
@@ -107,7 +107,7 @@ struct PremiumEntrance: ViewModifier {
             .opacity(appeared ? 1 : 0)
             .offset(y: appeared ? 0 : (reduceMotion ? 0 : 14))
             .animation(
-                (reduceMotion ? Animation.easeOut(duration: 0.2) : FDS.Spring.hero)
+                (reduceMotion ? Animation.easeOut(duration: 0.2) : ForgeMotion.gentle)
                     .delay(Double(index) * 0.07),
                 value: appeared
             )
@@ -131,7 +131,7 @@ struct PremiumProgressDots: View {
                 Capsule()
                     .fill(i == current ? Color.paper : Color.white.opacity(0.16))
                     .frame(width: i == current ? 22 : 6, height: 4)
-                    .animation(FDS.Spring.snap, value: current)
+                    .forgeAnimation(ForgeMotion.snappy, value: current)
             }
         }
         .accessibilityElement(children: .ignore)
@@ -139,11 +139,3 @@ struct PremiumProgressDots: View {
     }
 }
 
-struct AuthPressButtonStyle: ButtonStyle {
-    func makeBody(configuration: Configuration) -> some View {
-        configuration.label
-            .scaleEffect(configuration.isPressed ? 0.97 : 1)
-            .opacity(configuration.isPressed ? 0.92 : 1)
-            .animation(FDS.Spring.snap, value: configuration.isPressed)
-    }
-}

@@ -114,7 +114,7 @@ struct LifestyleView: View {
             if reduceMotion {
                 selectedSegment = mapped
             } else {
-                withAnimation(.spring(response: 0.38, dampingFraction: 0.75)) {
+                withAnimation(ForgeMotion.smooth) {
                     selectedSegment = mapped
                 }
             }
@@ -177,7 +177,7 @@ struct LifestyleView: View {
                 if reduceMotion {
                     proxy.scrollTo(Self.railAnchorID, anchor: .top)
                 } else {
-                    withAnimation(FDS.Spring.standard) {
+                    withForgeMotion(ForgeMotion.smooth) {
                         proxy.scrollTo(Self.railAnchorID, anchor: .top)
                     }
                 }
@@ -222,7 +222,7 @@ struct LifestyleView: View {
             Task {
                 await store.reconnectHealthKit()
                 reconnectingHK = false
-                FDS.notificationHaptic(store.healthKitLive ? .success : .warning)
+                ForgeHaptics.play(store.healthKitLive ? .success : .warning)
             }
         } label: {
             HStack(spacing: ForgeLayout.rowGap) {
@@ -377,11 +377,10 @@ struct LifestyleHeaderView: View {
     /// inside a full 44 pt target.
     private var ariaButton: some View {
         Button {
-            FDS.haptic(.press)
             if reduceMotion {
                 showInsights = true
             } else {
-                withAnimation(.spring(response: 0.35, dampingFraction: 0.72)) { showInsights = true }
+                withAnimation(ForgeMotion.smooth) { showInsights = true }
             }
         } label: {
             ARIAIdentityMark(state: .idle, mood: .energized, size: 28, amplitude: 0.24)

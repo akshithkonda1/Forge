@@ -86,7 +86,7 @@ struct BarcodeScannerView: UIViewControllerRepresentable {
                   let object = metadataObjects.first as? AVMetadataMachineReadableCodeObject,
                   let code = object.stringValue else { return }
             didScan = true
-            FDS.haptic(.success)
+            ForgeHaptics.play(.success)
             onScan?(code)
         }
     }
@@ -214,7 +214,6 @@ struct NutritionDatabaseView: View {
                 .autocorrectionDisabled()
             if !searchText.isEmpty {
                 Button {
-                    FDS.haptic(.press)
                     searchText = ""
                 } label: {
                     Image(systemName: "xmark.circle.fill")
@@ -360,7 +359,7 @@ struct RestaurantMenuSheet: View {
                             fat: Double(item.fat)
                         )
                         loggedItemID = item.id
-                        FDS.haptic(.success)
+                        ForgeHaptics.play(.success)
                     }
                 }
             }

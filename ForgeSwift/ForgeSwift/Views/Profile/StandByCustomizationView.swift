@@ -121,7 +121,7 @@ struct StandByCustomizationView: View {
         Section {
             ForEach(available) { metric in
                 Button {
-                    FDS.haptic(.press)
+                    ForgeHaptics.play(.press)
                     metrics.append(metric)
                     StandByMetricsStore.save(metrics)
                 } label: {

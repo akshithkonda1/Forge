@@ -7,6 +7,7 @@ struct HabitProactiveCard: View {
     let habit: DeepHabit
     var onTap: () -> Void
     @State private var appeared = false
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         Button(action: onTap) {
@@ -44,7 +45,7 @@ struct HabitProactiveCard: View {
             .forgeGlassCard(accent: .ember)
         }
         .buttonStyle(.plain)
-        .opacity(appeared ? 1 : 0).offset(y: appeared ? 0 : 8)
-        .onAppear { withAnimation(.spring(response: 0.55, dampingFraction: 0.82)) { appeared = true } }
+        .opacity(appeared ? 1 : 0).offset(y: appeared || reduceMotion ? 0 : 8)
+        .onAppear { withForgeMotion(ForgeMotion.gentle) { appeared = true } }
     }
 }

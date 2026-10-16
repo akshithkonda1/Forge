@@ -57,7 +57,7 @@ struct AuthSignInView: View {
             }
         }
         .onAppear {
-            withAnimation(reduceMotion ? nil : FDS.Spring.hero) { appeared = true }
+            withAnimation(reduceMotion ? nil : ForgeMotion.gentle) { appeared = true }
         }
         .onChange(of: errorMessage) { _, message in
             if let message {

@@ -2,6 +2,7 @@ import SwiftUI
 import MediaPlayer
 import MusicKit
 import Combine
+import ForgeCore
 
 // MARK: - Music Service
 
@@ -126,7 +127,7 @@ final class AppleMusicController: ObservableObject, MusicControlling {
     func togglePlayPause() {
         player.playbackState == .playing ? player.pause() : player.play()
         Task { await updateNowPlaying() }
-        UIImpactFeedbackGenerator(style: .light).impactOccurred()
+        ForgeHaptics.play(.press)
     }
 
     func skipForward() { player.skipToNextItem(); Task { await updateNowPlaying() } }

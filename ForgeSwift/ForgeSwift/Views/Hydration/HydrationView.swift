@@ -307,7 +307,7 @@ struct HydrationView: View {
                 title: showCustom ? "Hide custom amount" : "Custom amount",
                 accent: Color.steel
             ) {
-                withAnimation(reduceMotion ? nil : FDS.Spring.standard) { showCustom.toggle() }
+                withAnimation(reduceMotion ? nil : ForgeMotion.smooth) { showCustom.toggle() }
             }
             if showCustom {
                 customField
@@ -476,7 +476,7 @@ struct HydrationView: View {
 
     private func deleteButton(for entry: WaterLog) -> some View {
         Button {
-            FDS.haptic(.destructive)
+            ForgeHaptics.play(.warning)
             Task { await delete(entry) }
         } label: {
             Image(systemName: "trash")
@@ -578,7 +578,7 @@ struct HydrationView: View {
             try await health.logWater(milliliters: milliliters)
             store.publishHomeWidgets()
             lastError = nil
-            FDS.haptic(.success)
+            ForgeHaptics.play(.success)
         } catch {
             lastError = "Could not write to Apple Health. Check Water permissions."
         }
@@ -719,7 +719,6 @@ private struct HydrationGoalEditor: View {
 
     private var suggestionTile: some View {
         Button {
-            FDS.haptic(.press)
             draft = suggestedMl
         } label: {
             VStack(alignment: .leading, spacing: ForgeLayout.pairGap) {

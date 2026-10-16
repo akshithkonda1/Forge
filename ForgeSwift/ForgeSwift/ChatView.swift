@@ -99,7 +99,7 @@ struct ChatView: View {
                 // Reply preview
                 if let target = swipeReplyTarget {
                     ReplyPreviewBar(message: target) {
-                        withAnimation(motion(FDS.Spring.snap)) { swipeReplyTarget = nil }
+                        withAnimation(motion(ForgeMotion.snappy)) { swipeReplyTarget = nil }
                     }
                 }
 
@@ -129,7 +129,7 @@ struct ChatView: View {
                     onCancel: {
                         speech.cancel()
                         AriaVoiceSession.shared.stop()
-                        withAnimation(motion(FDS.Spring.hero)) { showVoiceOrb = false }
+                        withAnimation(motion(ForgeMotion.gentle)) { showVoiceOrb = false }
                     }
                 )
                 .zIndex(100)
@@ -137,8 +137,8 @@ struct ChatView: View {
             }
 
         }
-        .animation(motion(FDS.Spring.hero), value: showVoiceOrb)
-        .animation(motion(FDS.Spring.standard), value: swipeReplyTarget?.id)
+        .animation(motion(ForgeMotion.gentle), value: showVoiceOrb)
+        .animation(motion(ForgeMotion.smooth), value: swipeReplyTarget?.id)
         .sheet(isPresented: $showContextInspector) {
             ContextInspectorView(
                 contextStore: ariaContext,
@@ -178,7 +178,7 @@ struct ChatView: View {
             tryConsumeHandoff()
         }
         .onChange(of: store.readiness.overall) { _, val in
-            withAnimation(motion(FDS.Spring.standard)) {
+            withAnimation(motion(ForgeMotion.smooth)) {
                 ariaMood = ARIAMood.derive(
                     readiness: val,
                     sleepScore: SleepData.lastNight(in: store.sleepData)?.score
@@ -234,7 +234,6 @@ struct ChatView: View {
 
     private var weeklyReviewBanner: some View {
         Button {
-            FDS.haptic(.press)
             weeklyReview.showSheet = true
         } label: {
             HStack(spacing: ForgeLayout.rowGap) {
@@ -305,9 +304,8 @@ struct ChatView: View {
     }
 
     private func startVoiceCapture() {
-        choreographedHaptic(.voiceStart, mood: ariaMood)
         speech.conversationalMood = ariaMood
-        withAnimation(motion(FDS.Spring.hero)) { showVoiceOrb = true }
+        withAnimation(motion(ForgeMotion.gentle)) { showVoiceOrb = true }
         AriaVoiceSession.shared.start(store: store, speech: speech)
     }
 
@@ -321,18 +319,18 @@ struct ChatView: View {
         // safety session place the call instead of chatting about it. That is
         // escalation achieved: voice off, then the relationship check-in.
         if store.ariaSafetySession != nil, let number = AriaSafetyDialer.number(forAction: trimmed) {
-            choreographedHaptic(.messageSent, mood: ariaMood)
+            ForgeHaptics.play(.press)
             AriaSafetyDialer.dial(number)
             speech.cancel()
-            withAnimation(motion(FDS.Spring.hero)) { showVoiceOrb = false }
+            withAnimation(motion(ForgeMotion.gentle)) { showVoiceOrb = false }
             store.safetyEscalationAchieved()
             return
         }
 
-        choreographedHaptic(.messageSent, mood: ariaMood)
+        ForgeHaptics.play(.press)
 
         if trimmed.lowercased().contains("not feeling") {
-            withAnimation(motion(FDS.Spring.standard)) { ariaMood = .pushed }
+            withAnimation(motion(ForgeMotion.smooth)) { ariaMood = .pushed }
         }
 
         inputText = ""
@@ -352,14 +350,13 @@ struct ChatView: View {
             guard !Task.isCancelled else { return }
             isTyping = false
             if store.isInAriaFirstBond { showQuickActions = true }
-            choreographedHaptic(.messageReceived, mood: ariaMood)
             // Voice-first safety: a triage question or an emergency turns
             // ARIA's voice on by itself, on this iPhone's own voice; triage
             // listens for the answer once the question has been asked.
             let safety = store.ariaSafetySession
             if let safety, safety.wantsVoice {
                 store.ariaVoiceMode = true
-                withAnimation(motion(FDS.Spring.hero)) { showVoiceOrb = true }
+                withAnimation(motion(ForgeMotion.gentle)) { showVoiceOrb = true }
                 AriaVoiceSession.shared.start(store: store, speech: speech, captureMic: false, onDevice: true)
                 if safety.isTriage {
                     AriaVoiceSession.shared.listenAfterSpeaking()
@@ -374,7 +371,7 @@ struct ChatView: View {
                     // Responsible resolution: say it, then voice turns off.
                     // The check-in bubble is already posted under the reply.
                     store.ariaVoiceMode = false
-                    withAnimation(motion(FDS.Spring.hero)) { showVoiceOrb = false }
+                    withAnimation(motion(ForgeMotion.gentle)) { showVoiceOrb = false }
                     AriaVoiceSession.shared.speakAndEnd(spoken)
                 } else {
                     AriaVoiceSession.shared.speakChatReply(spoken)

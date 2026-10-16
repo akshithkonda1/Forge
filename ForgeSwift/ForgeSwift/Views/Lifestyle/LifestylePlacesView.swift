@@ -2,6 +2,7 @@ import SwiftUI
 import MapKit
 import CoreLocation
 import UIKit
+import ForgeCore
 
 private enum FoodSearchKind: String, CaseIterable, Identifiable {
     case restaurants, cafes, fastFood, grocery
@@ -305,7 +306,6 @@ struct LifestylePlacesView: View {
             VStack(alignment: .leading, spacing: ForgeLayout.rowGap) {
                 ForEach(nearbyPlaces) { place in
                     Button {
-                        FDS.haptic(.press)
                         selectedPlace = place
                     } label: {
                         ForgeListRow(
@@ -328,8 +328,7 @@ struct LifestylePlacesView: View {
 
     private var catalogCard: some View {
         Button {
-            FDS.haptic(.press)
-            withAnimation(reduceMotion ? nil : FDS.Spring.standard) { showCatalog.toggle() }
+            withAnimation(reduceMotion ? nil : ForgeMotion.smooth) { showCatalog.toggle() }
         } label: {
             HStack(spacing: ForgeLayout.rowGap) {
                 Text(showCatalog ? "Hide saved menus" : "Browse saved restaurant menus")
@@ -616,7 +615,7 @@ private struct NearbyPlaceSheet: View {
 
     private func menuRow(_ item: MenuItem) -> some View {
         Button {
-            FDS.haptic(.press)
+            ForgeHaptics.play(.press)
             locationLogger.detectedVenue = place.name
             locationLogger.logSelectedMeal(item, to: vm)
             dismiss()

@@ -117,7 +117,6 @@ struct ConnectedDevicesLibraryView: View {
                 .autocorrectionDisabled()
             if !query.isEmpty {
                 Button {
-                    FDS.haptic(.press)
                     query = ""
                 } label: {
                     Image(systemName: "xmark.circle.fill")
@@ -405,7 +404,7 @@ private struct CompanyProductsView: View {
         let busy = busyID == device.id
         return HStack(alignment: .top, spacing: ForgeLayout.rowGap) {
             Button {
-                FDS.haptic(.select)
+                ForgeHaptics.play(.selection)
                 Task { await setConnected(device, !selected) }
             } label: {
                 selectionGlyph(selected: selected, busy: busy)
@@ -417,7 +416,6 @@ private struct CompanyProductsView: View {
             .accessibilityLabel(selected ? "Deselect \(device.name)" : "Select \(device.name)")
 
             Button {
-                FDS.haptic(.press)
                 detail = device
             } label: {
                 productDetailLabel(device)

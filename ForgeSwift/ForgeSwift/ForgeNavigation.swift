@@ -204,7 +204,6 @@ struct ForgeIconButton: View {
 
     var body: some View {
         Button {
-            FDS.haptic(.press)
             action()
         } label: {
             Image(systemName: systemImage)
@@ -225,9 +224,8 @@ struct ForgeIconButton: View {
     }
 }
 
-/// The one primary CTA per screen, built on the Home hero recipe: gradient
-/// plus chrome sheen, radius md, chevron, shadow 0.34 r10 y4, medium haptic
-/// and a 0.98 press. The fill is ember; `accent: .steel` gives the steel
+/// The one primary CTA per screen, built on the Home hero recipe: solid fill,
+/// radius md, chevron, a light impact on touch-down and a 0.98 press. The fill is ember; `accent: .steel` gives the steel
 /// fill for recovery and Sleep. Any other accent still renders ember: white
 /// text on amber, vitality, aurora or a phase color fails contrast, and the
 /// primary must read as one recognisable control. Domain color belongs on
@@ -243,10 +241,7 @@ struct ForgePrimaryButton: View {
     private var fill: LinearGradient { usesSteel ? FDS.Gradient.steel : FDS.Gradient.ember }
 
     var body: some View {
-        Button {
-            FDS.haptic(.primaryCTA)
-            action()
-        } label: {
+        Button(action: action) {
             HStack(spacing: FDS.Spacing.md) {
                 if let icon {
                     Image(systemName: icon)
@@ -277,7 +272,7 @@ struct ForgePrimaryButton: View {
             .background { fill }
             .clipShape(RoundedRectangle(cornerRadius: FDS.Radius.md, style: .continuous))
         }
-        .buttonStyle(ForgePressStyle())
+        .buttonStyle(ForgePressStyle(pressHaptic: true))
         .accessibilityLabel(title)
         .accessibilityHint(subtitle ?? "")
     }
@@ -340,7 +335,6 @@ struct ForgeExploreDestinationsGrid: View {
 
     private func tile(for dest: ForgePrimaryDestination) -> some View {
         Button {
-            FDS.haptic(.press)
             store.openDestination(dest)
         } label: {
             tileLabel(for: dest)

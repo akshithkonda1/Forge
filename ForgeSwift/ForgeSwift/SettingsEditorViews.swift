@@ -75,7 +75,7 @@ private struct EditorOptionRow: View {
 
     var body: some View {
         Button {
-            FDS.haptic(.select)
+            ForgeHaptics.play(.selection)
             action()
         } label: {
             HStack(spacing: ForgeLayout.rowGap) {

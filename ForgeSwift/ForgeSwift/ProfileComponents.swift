@@ -177,9 +177,9 @@ struct ForgeToggle: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     private func toggle() {
-        FDS.haptic(.select)
+        ForgeHaptics.play(.selection)
         if AriaMemoryAccess.shouldAnimate(reduceMotion: reduceMotion) {
-            withAnimation(FDS.Spring.snap) { isOn.toggle() }
+            withForgeMotion(ForgeMotion.snappy) { isOn.toggle() }
         } else {
             isOn.toggle()
         }

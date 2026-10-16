@@ -33,7 +33,7 @@ struct HydrationCard: View {
             VStack(spacing: 6) {
                 HapticButton(haptic: .click) {
                     Task { await hydration.log(preset: crownPreset) }
-                    withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                    withForgeMotion(ForgeMotion.snappy) {
                         quickAddedFlash = true
                     }
                     WKInterfaceDevice.current().play(.success)
@@ -118,7 +118,7 @@ struct HydrationCard: View {
         .padding(ForgeDS.Spacing.md)
         .background(RoundedRectangle(cornerRadius: ForgeDS.Radius.lg).fill(ForgePalette.surface))
         .sheet(isPresented: $showingSizes) { sizePicker }
-        .animation(.spring(response: 0.35, dampingFraction: 0.8), value: crownIndex)
+        .forgeAnimation(ForgeMotion.snappy, value: crownIndex)
     }
 
     private var header: some View {

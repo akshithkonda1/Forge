@@ -26,8 +26,8 @@ struct ContentView: View {
                     MainTabView()
                 }
             }
-            .animation(reduceMotion ? nil : .easeInOut(duration: FDS.Duration.standard), value: store.isAuthenticated)
-            .animation(reduceMotion ? nil : .easeInOut(duration: FDS.Duration.standard), value: store.isOnboarded)
+            .animation(ForgeMotion.crossfade, value: store.isAuthenticated)
+            .animation(ForgeMotion.crossfade, value: store.isOnboarded)
 
             if showSplash {
                 ForgeSplashScreen()
@@ -129,12 +129,12 @@ struct ForgeSplashScreen: View {
         .onAppear {
             let base: Animation = reduceMotion
                 ? .easeOut(duration: 0.3)
-                : FDS.Spring.fluid
+                : ForgeMotion.gentle
             withAnimation(base) {
                 logoScale = 1.0
                 logoOpacity = 1.0
             }
-            withAnimation((reduceMotion ? .easeOut(duration: 0.3) : FDS.Spring.fluid).delay(0.18)) {
+            withAnimation((reduceMotion ? .easeOut(duration: 0.3) : ForgeMotion.gentle).delay(0.18)) {
                 textOffset = 0
             }
             withAnimation(.easeInOut(duration: 2.2).delay(0.25)) {
@@ -192,7 +192,7 @@ struct MainTabView: View {
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             .transition(.opacity)
-            .animation(reduceMotion ? nil : .easeOut(duration: FDS.Duration.snap), value: store.activeTab)
+            .animation(ForgeMotion.crossfade, value: store.activeTab)
             .safeAreaInset(edge: .bottom, spacing: 0) {
                 if !waitingToMeetAria && !keyboardVisible {
                     ForgeBottomNav(namespace: namespace)
@@ -319,7 +319,6 @@ private struct ShellCoverCloseButton: View {
 
     var body: some View {
         Button {
-            FDS.haptic(.press)
             action()
         } label: {
             Image(systemName: "xmark.circle.fill")
@@ -410,8 +409,8 @@ struct RegularForgeTab: View {
 
     var body: some View {
         Button {
-            FDS.haptic(.select)
-            withAnimation(reduceMotion ? nil : FDS.Spring.snap) {
+            ForgeHaptics.play(.selection)
+            withAnimation(reduceMotion ? nil : ForgeMotion.snappy) {
                 store.activeTab = tab
             }
         } label: {
@@ -469,8 +468,8 @@ struct ARIATabButton: View {
 
     var body: some View {
         Button {
-            FDS.haptic(.select)
-            withAnimation(reduceMotion ? nil : FDS.Spring.snap) {
+            ForgeHaptics.play(.selection)
+            withAnimation(reduceMotion ? nil : ForgeMotion.snappy) {
                 store.activeTab = .chat
             }
         } label: {
@@ -518,8 +517,8 @@ struct ARIATabButton: View {
     }
 
     private func toggleVoiceMode() {
-        FDS.haptic(.primaryCTA)
-        withAnimation(reduceMotion ? nil : FDS.Spring.snap) {
+        ForgeHaptics.play(.press)
+        withAnimation(reduceMotion ? nil : ForgeMotion.snappy) {
             store.ariaVoiceMode.toggle()
             store.activeTab = .chat
             store.ariaVoiceLaunch = store.ariaVoiceMode

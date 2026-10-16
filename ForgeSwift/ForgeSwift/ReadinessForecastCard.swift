@@ -81,7 +81,6 @@ struct ReadinessForecastCard: View {
             }
 
             Button {
-                FDS.haptic(.light)
                 store.openChat(with: HomeInsightFlow.tomorrowPrompt(picture: picture), voice: false)
             } label: {
                 HStack {

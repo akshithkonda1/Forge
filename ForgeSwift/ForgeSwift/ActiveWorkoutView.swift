@@ -98,11 +98,11 @@ struct ActiveWorkoutView: View {
 
     // MARK: Motion helpers
 
-    private var motionStandard: Animation? { reduceMotion ? nil : FDS.Spring.standard }
-    private var motionSnap: Animation? { reduceMotion ? nil : FDS.Spring.snap }
+    private var motionStandard: Animation? { reduceMotion ? nil : ForgeMotion.smooth }
+    private var motionSnap: Animation? { reduceMotion ? nil : ForgeMotion.snappy }
 
     /// Every state change in this view goes through here, so Reduce Motion is honoured in one place.
-    private func withMotion(_ animation: Animation = FDS.Spring.standard, _ change: () -> Void) {
+    private func withMotion(_ animation: Animation = ForgeMotion.smooth, _ change: () -> Void) {
         withAnimation(reduceMotion ? nil : animation) { change() }
     }
 
@@ -541,6 +541,7 @@ struct ActiveWorkoutView: View {
                 @unknown default: break
                 }
             }
+            .forgeHaptic(.selection, trigger: currentWeight)
             Text(repsTargetLabel(exercise.reps))
                 .font(HomeType.metric)
                 .foregroundStyle(Color.textSecondary)
@@ -575,7 +576,6 @@ struct ActiveWorkoutView: View {
         let edge: Color = isPlus ? Color.ember.opacity(0.32) : Color.white.opacity(0.12)
         return Button {
             currentWeight = max(0, currentWeight + delta)
-            FDS.haptic(.press)
         } label: {
             Image(systemName: isPlus ? "plus" : "minus")
                 .font(.system(size: 20, weight: .bold))
@@ -841,14 +841,9 @@ struct ActiveWorkoutView: View {
 
         if isPR {
             prExerciseName = exercise.name
-            withMotion(FDS.Spring.hero) { showPRBanner = true }
+            withMotion(ForgeMotion.gentle) { showPRBanner = true }
             Task { try? await Task.sleep(for: .seconds(2.5)); withAnimation(reduceMotion ? nil : .easeOut(duration: 0.4)) { showPRBanner = false } }
         }
-        // Event moment: a logged set (or PR) fires the ring glow and a success haptic.
-        FDS.haptic(.success)
-        setLoggedPulse = true
-        Task { try? await Task.sleep(for: .seconds(1.4)); setLoggedPulse = false }
-
         let isLastSet = store.currentSet >= exercise.sets
         let isLastEx  = store.currentExerciseIndex >= exercises.count - 1
         if isLastSet && isLastEx {
@@ -856,9 +851,14 @@ struct ActiveWorkoutView: View {
                 duration: formatTime(elapsedSecs, flashColon: false),
                 calories: Int(estimatedCals)
             )
+            // The summary plays the success for the finished workout.
             endWorkout()
             return
         }
+        // Event moment: a logged set (or PR) fires the ring pulse and a success haptic.
+        ForgeHaptics.play(.success)
+        setLoggedPulse = true
+        Task { try? await Task.sleep(for: .seconds(1.4)); setLoggedPulse = false }
         let restFor = recommendation.restSeconds
         if isLastSet { store.nextExercise(); setupCurrentWeight() } else { store.nextSet() }
         startRest(seconds: restFor)
@@ -873,7 +873,7 @@ struct ActiveWorkoutView: View {
     private func handlePain(_ entry: PainEntry, exercise: Exercise) {
         painLog.append(entry)
         withMotion { showPainLogger = false }
-        FDS.haptic(.destructive)
+        ForgeHaptics.play(.warning)
         let def = ExerciseLibrary.definition(for: exercise)
         let contraindicated = def?.painContraindications.contains(entry.location) ?? false
         if entry.severity >= 7 || (entry.severity >= 5 && contraindicated) {
@@ -900,7 +900,7 @@ struct ActiveWorkoutView: View {
         }
         autoRegLog.append("Swapped \(old) → \(def.name) (\(swapReason))")
         setupCurrentWeight()
-        FDS.haptic(.success)
+        ForgeHaptics.play(.success)
     }
 
     private func endWorkout() {
@@ -939,14 +939,14 @@ struct ActiveWorkoutView: View {
     private func skipRest() {
         restTask?.cancel(); restTask = nil
         withMotion { isResting = false }
-        restTimeLeft = 0; FDS.haptic(.press)
+        restTimeLeft = 0; ForgeHaptics.play(.press)
         voiceCoach.announceRestOver(nextExerciseName: currentExercise?.name ?? "next lift")
         publishLiveActivity()
     }
     private func handleEnd() {
         if showEndConfirm { endWorkout() }
         else {
-            showEndConfirm = true; FDS.haptic(.destructive)
+            showEndConfirm = true; ForgeHaptics.play(.warning)
             Task { try? await Task.sleep(for: .seconds(3)); showEndConfirm = false }
         }
     }
@@ -961,7 +961,7 @@ struct ActiveWorkoutView: View {
                 if restTimeLeft <= 1 {
                     restTimeLeft = 0
                     withMotion { isResting = false }
-                    FDS.haptic(.success)
+                    ForgeHaptics.play(.success)
                     await MainActor.run {
                         voiceCoach.announceRestOver(nextExerciseName: currentExercise?.name ?? "next lift")
                         publishLiveActivity()

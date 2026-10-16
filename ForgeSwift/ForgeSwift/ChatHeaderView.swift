@@ -47,7 +47,7 @@ struct ChatHeaderView: View {
             .frame(width: ForgeUX.minTap, height: ForgeUX.minTap)
             .contentShape(Rectangle())
             .onLongPressGesture(minimumDuration: 0.45) {
-                choreographedHaptic(.reactionAdded)
+                ForgeHaptics.play(.selection)
                 onAvatarLongPress?()
             }
             .accessibilityElement(children: .ignore)
@@ -80,8 +80,8 @@ struct ChatHeaderView: View {
                 skipButton
             }
         }
-        .animation(reduceMotion ? nil : FDS.Spring.standard, value: ariaService.isLocalFallback)
-        .animation(reduceMotion ? nil : FDS.Spring.standard, value: ariaService.lastRemoteError)
+        .animation(reduceMotion ? nil : ForgeMotion.smooth, value: ariaService.isLocalFallback)
+        .animation(reduceMotion ? nil : ForgeMotion.smooth, value: ariaService.lastRemoteError)
     }
 
     @ViewBuilder
@@ -130,7 +130,6 @@ struct ChatHeaderView: View {
 
     private var skipButton: some View {
         Button {
-            FDS.haptic(.press)
             store.skipAriaFirstBond()
         } label: {
             ForgeChip(label: AriaFirstBond.skipLabel)

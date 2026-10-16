@@ -34,6 +34,8 @@ let package = Package(
                 "DesignSystem/ForgeDesignTokens.swift",
                 "DesignSystem/ForgeDS.swift",
                 "DesignSystem/ForgeFont.swift",
+                "DesignSystem/ForgeHaptics.swift",
+                "DesignSystem/ForgeMotion.swift",
                 "DesignSystem/ForgePalette.swift",
                 "DesignSystem/StandByNestFaceView.swift",
                 "HealthKit/HealthKitQueryHelpers.swift",

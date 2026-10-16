@@ -83,7 +83,7 @@ private struct HomeEntrance: ViewModifier {
                     appeared = true
                     return
                 }
-                withAnimation(FDS.Spring.hero.delay(delay)) { appeared = true }
+                withForgeMotion(ForgeMotion.gentle.delay(delay)) { appeared = true }
                 HomeEntranceSession.shared.markPlayed()
             }
     }

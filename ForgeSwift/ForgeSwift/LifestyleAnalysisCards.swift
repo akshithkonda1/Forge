@@ -74,7 +74,7 @@ struct AILifeAnalysisCard: View {
                 if reduceMotion {
                     expanded.toggle()
                 } else {
-                    withAnimation(FDS.Spring.standard) { expanded.toggle() }
+                    withForgeMotion(ForgeMotion.smooth) { expanded.toggle() }
                 }
             }
 
@@ -238,11 +238,10 @@ struct RecommendationCard: View {
 
     var body: some View {
         Button {
-            FDS.haptic(.press)
             if reduceMotion {
                 expanded.toggle()
             } else {
-                withAnimation(FDS.Spring.standard) { expanded.toggle() }
+                withForgeMotion(ForgeMotion.smooth) { expanded.toggle() }
             }
         } label: {
             VStack(alignment: .leading, spacing: FDS.Spacing.sm) {

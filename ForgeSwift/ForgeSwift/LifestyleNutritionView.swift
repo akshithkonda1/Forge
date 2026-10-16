@@ -124,7 +124,7 @@ struct MacroRingsCard: View {
                 .trim(from: 0, to: shown ? CGFloat(fraction) : 0)
                 .stroke(macro.color, style: StrokeStyle(lineWidth: Self.ringStroke, lineCap: .round))
                 .rotationEffect(.degrees(-90))
-                .animation(reduceMotion ? nil : FDS.Spring.sweepDelay(index), value: appeared)
+                .animation(reduceMotion ? nil : ForgeMotion.sweep(staggeredBy: index), value: appeared)
         }
         .frame(width: diameter, height: diameter)
     }
@@ -284,7 +284,7 @@ struct AINutritionCoachCard: View {
     }
 
     private func advanceTip() {
-        withAnimation(reduceMotion ? nil : FDS.Spring.standard) { tipIndex += 1 }
+        withAnimation(reduceMotion ? nil : ForgeMotion.smooth) { tipIndex += 1 }
     }
 
     private var coachSubtitle: String {
@@ -423,7 +423,7 @@ struct AIMealSuggestionsCard: View {
 
     private var regenerateLink: some View {
         ForgeTextLink(title: "Regenerate", accent: .amber) {
-            withAnimation(reduceMotion ? nil : FDS.Spring.standard) { setIndex += 1 }
+            withAnimation(reduceMotion ? nil : ForgeMotion.smooth) { setIndex += 1 }
         }
     }
 
@@ -503,8 +503,7 @@ struct AIMealRow: View {
     }
 
     private func toggle() {
-        FDS.haptic(.press)
-        withAnimation(reduceMotion ? nil : FDS.Spring.standard) { expanded.toggle() }
+        withAnimation(reduceMotion ? nil : ForgeMotion.smooth) { expanded.toggle() }
     }
 }
 
@@ -652,7 +651,6 @@ struct WaterIntakeCard: View {
 
     private var hydrationHeader: some View {
         Button {
-            FDS.haptic(.press)
             store.openHydration()
         } label: {
             HStack(spacing: FDS.Spacing.sm) {
@@ -705,7 +703,7 @@ struct WaterIntakeCard: View {
             .font(.system(size: 22))
             .foregroundStyle(filled ? FoodMacroPalette.water : Color.white.opacity(0.22))
             .scaleEffect(filled ? 1 : 0.85)
-            .animation(reduceMotion ? nil : FDS.Spring.snap, value: consumed)
+            .animation(reduceMotion ? nil : ForgeMotion.snappy, value: consumed)
     }
 
     private var addWaterBlock: some View {

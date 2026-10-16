@@ -101,7 +101,7 @@ struct ClinicalDataNonPHIView: View {
                 if reduceMotion {
                     showHow.toggle()
                 } else {
-                    withAnimation(FDS.Spring.standard) { showHow.toggle() }
+                    withForgeMotion(ForgeMotion.smooth) { showHow.toggle() }
                 }
             }
         }
@@ -464,7 +464,7 @@ struct ClinicalDataNonPHIView: View {
             .filter { !$0.isEmpty }
             .joined(separator: " · ")
         return Button {
-            FDS.haptic(.select)
+            ForgeHaptics.play(.selection)
             MedicationPharmacy.toggleSaved(name: med.name)
             saved = MedicationPharmacy.savedNames()
             AriaContextStore.shared.applyMedicationLayer()

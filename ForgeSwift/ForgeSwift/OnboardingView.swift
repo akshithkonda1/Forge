@@ -1,4 +1,5 @@
 import SwiftUI
+import ForgeCore
 
 struct OnboardingView: View {
     @EnvironmentObject private var store: AppStore
@@ -28,8 +29,8 @@ struct OnboardingView: View {
             DevSkipButton(coordinator: coordinator)
             #endif
         }
-        .animation(reduceMotion ? nil : FDS.Spring.hero, value: coordinator.showAgeBlocked)
-        .animation(reduceMotion ? nil : FDS.Spring.hero, value: coordinator.isPrepping)
+        .animation(reduceMotion ? nil : ForgeMotion.gentle, value: coordinator.showAgeBlocked)
+        .animation(reduceMotion ? nil : ForgeMotion.gentle, value: coordinator.isPrepping)
         .onAppear { coordinator.startIfNeeded(in: store) }
         .onDisappear { coordinator.stopInterviewVoice() }
     }
@@ -82,7 +83,7 @@ private struct DevSkipButton: View {
                             .clipShape(Capsule())
                     }
                 } else {
-                    Button("DEV") { withAnimation(FDS.Spring.snap) { expanded = true } }
+                    Button("DEV") { withForgeMotion(ForgeMotion.snappy) { expanded = true } }
                         .font(HomeType.micro)
                         .foregroundColor(.black)
                         .padding(.horizontal, FDS.Spacing.sm)

@@ -194,7 +194,6 @@ struct SleepHeaderView: View {
 
     private var askAriaButton: some View {
         Button {
-            FDS.haptic(.press)
             onAskAria()
         } label: {
             ARIAIdentityMark(state: .idle, mood: .energized, size: 28, amplitude: 0.22)

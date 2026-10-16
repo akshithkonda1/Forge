@@ -125,7 +125,7 @@ struct SleepFeelingCheckIn: View {
                 ForgeAdaptiveStack(spacing: ForgeLayout.tileGap) {
                     ForEach(SleepFeeling.allCases, id: \.self) { feeling in
                         Button {
-                            FDS.haptic(.press)
+                            ForgeHaptics.play(.selection)
                             SleepFeelingStore.save(feeling, on: dateKey)
                             picked = feeling
                         } label: {

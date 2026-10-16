@@ -1,4 +1,5 @@
 import SwiftUI
+import ForgeCore
 
 struct AIWorkoutSuggestionsCard: View {
     let workouts: [AIWorkoutSuggestion]
@@ -24,7 +25,6 @@ struct AIWorkoutSuggestionsCard: View {
 
     private func suggestionRow(_ suggestion: AIWorkoutSuggestion) -> some View {
         Button {
-            FDS.haptic(.press)
             selectedWorkout = suggestion.workout
         } label: {
             AIWorkoutCard(suggestion: suggestion)

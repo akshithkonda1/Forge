@@ -130,7 +130,7 @@ struct AuthSignUpFlowView: View {
             }
         }
         .onAppear {
-            withAnimation(reduceMotion ? nil : FDS.Spring.hero) { appeared = true }
+            withAnimation(reduceMotion ? nil : ForgeMotion.gentle) { appeared = true }
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.45) {
                 nameFieldFocused = true
             }
@@ -143,7 +143,7 @@ struct AuthSignUpFlowView: View {
     }
 
     private var stepAnimation: Animation? {
-        reduceMotion ? nil : FDS.Spring.page
+        reduceMotion ? nil : ForgeMotion.smooth
     }
 
     private var stepTransition: AnyTransition {
@@ -196,7 +196,7 @@ struct AuthSignUpFlowView: View {
                 Capsule()
                     .fill(Color.paper)
                     .frame(width: max(12, geo.size.width * step.progress))
-                    .animation(reduceMotion ? nil : FDS.Spring.standard, value: step)
+                    .animation(reduceMotion ? nil : ForgeMotion.smooth, value: step)
             }
         }
         .frame(height: 4)
@@ -229,7 +229,6 @@ struct AuthSignUpFlowView: View {
                         enabled: trimmedName.count >= 2,
                         icon: "arrow.right"
                     ) {
-                        FDS.haptic(.medium)
                         withAnimation(stepAnimation) { step = .spark }
                     }
                 }
@@ -285,11 +284,6 @@ struct AuthSignUpFlowView: View {
                 RoundedRectangle(cornerRadius: FDS.Radius.lg, style: .continuous)
                     .strokeBorder(firstNameStrokeColor, lineWidth: 1.5)
             )
-            .onChange(of: firstName) { _, _ in
-                if firstName.trimmingCharacters(in: .whitespaces).count == 2 {
-                    FDS.selectionHaptic()
-                }
-            }
     }
 
     private var lastNameField: some View {
@@ -341,7 +335,6 @@ struct AuthSignUpFlowView: View {
                     enabled: true,
                     icon: "arrow.right"
                 ) {
-                    FDS.haptic(.medium)
                     withAnimation(stepAnimation) { step = .account }
                 }
             }
@@ -353,12 +346,12 @@ struct AuthSignUpFlowView: View {
     private func sparkRow(_ option: SignUpSpark) -> some View {
         let isSelected = spark == option
         return Button {
-            FDS.selectionHaptic()
-            withAnimation(reduceMotion ? nil : FDS.Spring.snap) { spark = option }
+            ForgeHaptics.play(.selection)
+            withAnimation(reduceMotion ? nil : ForgeMotion.snappy) { spark = option }
         } label: {
             sparkRowLabel(option, isSelected: isSelected)
         }
-        .buttonStyle(AuthPressButtonStyle())
+        .buttonStyle(ForgePressStyle(scale: 0.97))
         .accessibilityAddTraits(isSelected ? .isSelected : [])
     }
 
@@ -459,8 +452,7 @@ struct AuthSignUpFlowView: View {
                 enabled: true,
                 icon: "envelope.fill"
             ) {
-                withAnimation(reduceMotion ? nil : FDS.Spring.snap) { showEmailForm = true }
-                FDS.haptic(.light)
+                withAnimation(reduceMotion ? nil : ForgeMotion.snappy) { showEmailForm = true }
             }
 
             Text("Apple and Google sign-up will appear here when connected for this build.")
@@ -488,7 +480,7 @@ struct AuthSignUpFlowView: View {
             }
 
             textAction("Back") {
-                withAnimation(reduceMotion ? nil : FDS.Spring.snap) { showEmailForm = false }
+                withAnimation(reduceMotion ? nil : ForgeMotion.snappy) { showEmailForm = false }
             }
         }
     }
@@ -595,7 +587,7 @@ struct AuthSignUpFlowView: View {
 
     private func textAction(_ title: String, action: @escaping () -> Void) -> some View {
         Button {
-            FDS.haptic(.press)
+            ForgeHaptics.play(.press)
             action()
         } label: {
             Text(title)
@@ -756,8 +748,8 @@ struct AuthSignUpFlowView: View {
     }
 
     private func complete(with session: ForgeAuthSession) {
-        withAnimation(reduceMotion ? nil : FDS.Spring.hero) { celebrate = true }
-        FDS.notificationHaptic(.success)
+        withAnimation(reduceMotion ? nil : ForgeMotion.gentle) { celebrate = true }
+        ForgeHaptics.play(.success)
         DispatchQueue.main.asyncAfter(deadline: .now() + (reduceMotion ? 0.35 : 1.15)) {
             store.applyAuthSession(session, isNewAccount: true)
             if !trimmedName.isEmpty {
@@ -820,7 +812,7 @@ private struct SignUpCelebrationOverlay: View {
             .opacity(opacity)
         }
         .onAppear {
-            withAnimation(reduceMotion ? nil : FDS.Spring.hero) {
+            withAnimation(reduceMotion ? nil : ForgeMotion.gentle) {
                 scale = 1
                 opacity = 1
             }

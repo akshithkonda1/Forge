@@ -39,7 +39,7 @@ struct ReadinessRing<Center: View>: View {
                     )
                     .rotationEffect(.degrees(-90))
                     .opacity(luminanceReduced ? 0.55 : 1)
-                    .animation(reduceMotion ? nil : ForgeDS.Spring.hero, value: score)
+                    .animation(reduceMotion ? nil : ForgeMotion.gentle, value: score)
             }
 
             center()
