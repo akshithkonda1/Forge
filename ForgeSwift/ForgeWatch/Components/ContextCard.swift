@@ -43,7 +43,7 @@ struct ContextCard: View {
                 Spacer(minLength: 0)
             }
             Text(body_)
-                .font(.system(size: 12))
+                .font(ForgeFont.sans(12))
                 .foregroundStyle(ForgePalette.textSecondary)
                 .lineLimit(4)
                 .fixedSize(horizontal: false, vertical: true)

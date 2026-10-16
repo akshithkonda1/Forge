@@ -124,7 +124,7 @@ struct MacroRingsCard: View {
                 .trim(from: 0, to: shown ? CGFloat(fraction) : 0)
                 .stroke(macro.color, style: StrokeStyle(lineWidth: Self.ringStroke, lineCap: .round))
                 .rotationEffect(.degrees(-90))
-                .animation(reduceMotion ? nil : FDS.Spring.sweepDelay(index), value: appeared)
+                .animation(reduceMotion ? nil : ForgeMotion.sweep(staggeredBy: index), value: appeared)
         }
         .frame(width: diameter, height: diameter)
     }
@@ -207,7 +207,7 @@ struct AINutritionCoachCard: View {
 
     private var tips: [(icon: String, color: Color, headline: String, body: String)] {
         guard let stats = vm.healthStats else {
-            return [("sparkles", .ember, "Syncing nutrition data", "Connect Apple Health to unlock personalized macro coaching.")]
+            return [("arrow.triangle.2.circlepath", .ember, "Syncing nutrition data", "Connect Apple Health to unlock personalized macro coaching.")]
         }
         var generated: [(icon: String, color: Color, headline: String, body: String)] = []
         let proteinGap = max(0, Int(180 - stats.protein))
@@ -284,7 +284,7 @@ struct AINutritionCoachCard: View {
     }
 
     private func advanceTip() {
-        withAnimation(reduceMotion ? nil : FDS.Spring.standard) { tipIndex += 1 }
+        withAnimation(reduceMotion ? nil : ForgeMotion.smooth) { tipIndex += 1 }
     }
 
     private var coachSubtitle: String {
@@ -295,7 +295,7 @@ struct AINutritionCoachCard: View {
 
     private var tipDetailRow: some View {
         HStack(alignment: .top, spacing: ForgeLayout.rowGap) {
-            ForgeIconWell(systemImage: liveInsight != nil ? "sparkles" : tip.icon, tint: .amber)
+            ForgeIconWell(systemImage: liveInsight != nil ? "text.bubble" : tip.icon, tint: .amber)
             VStack(alignment: .leading, spacing: ForgeLayout.pairGap) {
                 Text(liveInsight != nil ? "ARIA's take" : tip.headline)
                     .font(HomeType.status)
@@ -423,13 +423,13 @@ struct AIMealSuggestionsCard: View {
 
     private var regenerateLink: some View {
         ForgeTextLink(title: "Regenerate", accent: .amber) {
-            withAnimation(reduceMotion ? nil : FDS.Spring.standard) { setIndex += 1 }
+            withAnimation(reduceMotion ? nil : ForgeMotion.smooth) { setIndex += 1 }
         }
     }
 
     private func ariaNote(_ note: String) -> some View {
         HStack(alignment: .top, spacing: FDS.Spacing.sm) {
-            Image(systemName: "sparkles")
+            Image(systemName: "text.bubble")
                 .font(.system(size: 12, weight: .semibold))
                 .foregroundStyle(Color.amber)
                 .accessibilityHidden(true)
@@ -460,7 +460,7 @@ struct AIMealRow: View {
 
             if expanded {
                 macroChips
-                    .transition(.opacity.combined(with: .scale(scale: 0.97, anchor: .top)))
+                    .forgeTransition(.opacity.combined(with: .scale(scale: 0.97, anchor: .top)))
             }
         }
         .forgeWell()
@@ -503,8 +503,7 @@ struct AIMealRow: View {
     }
 
     private func toggle() {
-        FDS.haptic(.press)
-        withAnimation(reduceMotion ? nil : FDS.Spring.standard) { expanded.toggle() }
+        withAnimation(reduceMotion ? nil : ForgeMotion.smooth) { expanded.toggle() }
     }
 }
 
@@ -652,7 +651,6 @@ struct WaterIntakeCard: View {
 
     private var hydrationHeader: some View {
         Button {
-            FDS.haptic(.press)
             store.openHydration()
         } label: {
             HStack(spacing: FDS.Spacing.sm) {
@@ -680,7 +678,7 @@ struct WaterIntakeCard: View {
     private var dropGrid: some View {
         VStack(alignment: .leading, spacing: ForgeLayout.pairGap) {
             LazyVGrid(
-                columns: [GridItem(.adaptive(minimum: 24, maximum: 40), spacing: 8)],
+                columns: [GridItem(.adaptive(minimum: 24, maximum: 40), spacing: FDS.Spacing.sm)],
                 alignment: .leading,
                 spacing: 8
             ) {
@@ -705,7 +703,7 @@ struct WaterIntakeCard: View {
             .font(.system(size: 22))
             .foregroundStyle(filled ? FoodMacroPalette.water : Color.white.opacity(0.22))
             .scaleEffect(filled ? 1 : 0.85)
-            .animation(reduceMotion ? nil : FDS.Spring.snap, value: consumed)
+            .animation(reduceMotion ? nil : ForgeMotion.snappy, value: consumed)
     }
 
     private var addWaterBlock: some View {

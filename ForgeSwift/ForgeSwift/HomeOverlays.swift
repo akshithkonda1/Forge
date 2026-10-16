@@ -1,4 +1,5 @@
 import SwiftUI
+import ForgeCore
 
 struct CelebrationOverlay: View {
     let key: Int
@@ -37,23 +38,23 @@ struct CelebrationOverlay: View {
                     }
                 }
 
-                VStack(spacing: 10) {
+                VStack(spacing: FDS.Spacing.sm) {
                     Text("Peak readiness")
-                        .font(.system(size: 28, weight: .black))
+                        .font(ForgeFont.sans(28, weight: .black))
                         .foregroundStyle(.white)
                     Text("You're in the window. Use it well.")
                         .font(FDS.TypeScale.Dynamic.body)
                         .foregroundStyle(.white.opacity(0.8))
                 }
                 .scaleEffect(bannerScale)
-                .padding(28)
+                .padding(FDS.Spacing.xl)
                 .background(.ultraThinMaterial)
                 .clipShape(RoundedRectangle(cornerRadius: FDS.Radius.xl, style: .continuous))
             }
             .frame(width: geo.size.width, height: geo.size.height)
             .onAppear {
                 spawnParticles(width: geo.size.width)
-                withAnimation(FDS.Spring.hero) {
+                withForgeMotion(ForgeMotion.gentle) {
                     revealed = true
                     bannerScale = 1
                 }
@@ -83,50 +84,28 @@ struct CelebrationOverlay: View {
 
 struct VoiceQuickLaunchOrb: View {
     @EnvironmentObject var store: AppStore
-    @State private var pulse = false
-    @State private var outerPulse = false
     @State private var pressed = false
     @State private var appeared = false
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         Button {
-            FDS.haptic(.heavy)
             store.openChat(with: "Voice check-in — what should I do next?", voice: true)
         } label: {
             ZStack {
-                if !reduceMotion {
-                    Circle()
-                        .fill(Color.ember.opacity(0.16))
-                        .frame(width: 56, height: 56)
-                        .scaleEffect(outerPulse ? 1.22 : 1.0)
-                        .opacity(outerPulse ? 0 : 0.7)
-                    Circle()
-                        .fill(Color.ember.opacity(0.22))
-                        .frame(width: 44, height: 44)
-                        .blur(radius: 8)
-                        .scaleEffect(pulse ? 1.08 : 0.96)
-                }
-
+                // Flat accent button — no pulsing halos.
                 Circle()
-                    .fill(
-                        LinearGradient(
-                            colors: [Color.ember, Color.emberDark],
-                            startPoint: .topLeading,
-                            endPoint: .bottomTrailing
-                        )
-                    )
+                    .fill(Color.ember)
                     .frame(width: 44, height: 44)
                     .overlay { Circle().stroke(Color.white.opacity(0.16), lineWidth: 1) }
-                    .shadow(color: Color.ember.opacity(0.4), radius: 10, y: 5)
 
                 Image(systemName: "mic.fill")
                     .font(.system(size: 16, weight: .semibold))
                     .foregroundStyle(.white)
             }
-            .scaleEffect(pressed ? 0.92 : (appeared ? 1.0 : 0.6))
+            .scaleEffect(pressed ? 0.94 : (appeared ? 1.0 : 0.9))
             .opacity(appeared ? 1 : 0)
-            .animation(FDS.Spring.snap, value: pressed)
+            .forgeAnimation(ForgeMotion.snappy, value: pressed)
         }
         .buttonStyle(.plain)
         .accessibilityLabel("Talk to ARIA")
@@ -136,10 +115,8 @@ struct VoiceQuickLaunchOrb: View {
                 .onEnded { _ in pressed = false }
         )
         .onAppear {
-            withAnimation(FDS.Spring.floaty.delay(0.7)) { appeared = true }
-            guard !reduceMotion else { return }
-            withAnimation(.easeOut(duration: 2.2).repeatForever(autoreverses: false)) { outerPulse = true }
-            withAnimation(.easeInOut(duration: FDS.Duration.breathe).repeatForever(autoreverses: true)) { pulse = true }
+            // One entrance, then still. No idle pulse.
+            withAnimation(reduceMotion ? .easeOut(duration: 0.2) : ForgeMotion.snappy.delay(0.4)) { appeared = true }
         }
     }
 }

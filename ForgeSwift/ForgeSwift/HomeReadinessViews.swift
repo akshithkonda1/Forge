@@ -13,7 +13,7 @@ struct BreakdownCardView: View {
     private var dot: Color { display.map { HomeReadiness.color($0) } ?? .textTertiary }
 
     var body: some View {
-        HStack(spacing: 10) {
+        HStack(spacing: FDS.Spacing.sm) {
             Circle().fill(dot).frame(width: 8, height: 8)
             VStack(alignment: .leading, spacing: 2) {
                 Text(label)
@@ -25,7 +25,7 @@ struct BreakdownCardView: View {
             }
             Spacer()
         }
-        .padding(12)
+        .padding(FDS.Spacing.md)
         .background {
             ZStack {
                 RoundedRectangle(cornerRadius: FDS.Radius.md, style: .continuous)
@@ -36,7 +36,7 @@ struct BreakdownCardView: View {
         }
         .opacity(appeared ? 1 : 0)
         .onAppear {
-            withAnimation(FDS.Spring.hero.delay(0.05 * Double(index))) { appeared = true }
+            withAnimation(ForgeMotion.gentle.delay(0.05 * Double(index))) { appeared = true }
         }
     }
 }
@@ -48,7 +48,7 @@ struct ReadinessInsightRow: View {
     let color: Color
 
     var body: some View {
-        HStack(spacing: 12) {
+        HStack(spacing: FDS.Spacing.md) {
             ZStack {
                 Circle().fill(color.opacity(0.15)).frame(width: 36, height: 36)
                 Image(systemName: icon).font(.system(size: 15)).foregroundColor(color)
@@ -61,7 +61,7 @@ struct ReadinessInsightRow: View {
                 .font(HomeType.label)
                 .foregroundColor(.textPrimary)
         }
-        .padding(.vertical, 4)
+        .padding(.vertical, FDS.Spacing.xs)
     }
 }
 
@@ -72,11 +72,7 @@ struct ReadinessRingView: View {
     var showLabel: Bool = true
 
     @State private var progress: CGFloat = 0
-    @State private var glowPulse = false
-    @State private var outerPulse = false
-    @State private var isOnscreen = true
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
-    @Environment(\.scenePhase) private var scenePhase
 
     private var color: Color { HomeReadiness.color(score) }
 
@@ -86,101 +82,57 @@ struct ReadinessRingView: View {
                 .stroke(Color.white.opacity(0.06), style: StrokeStyle(lineWidth: strokeWidth, lineCap: .round))
                 .frame(width: size, height: size)
 
-            if !reduceMotion {
-                Circle()
-                    .trim(from: 0, to: progress)
-                    .stroke(color.opacity(0.18), style: StrokeStyle(lineWidth: strokeWidth + 14, lineCap: .round))
-                    .frame(width: size, height: size)
-                    .rotationEffect(.degrees(-90))
-                    .blur(radius: 18)
-                    .scaleEffect(outerPulse ? 1.02 : 0.99)
-            }
-
+            // Solid band color; the arc length is the data. No blur halos.
             Circle()
                 .trim(from: 0, to: progress)
-                .stroke(color.opacity(0.4), style: StrokeStyle(lineWidth: strokeWidth + 6, lineCap: .round))
+                .stroke(color, style: StrokeStyle(lineWidth: strokeWidth, lineCap: .round))
                 .frame(width: size, height: size)
                 .rotationEffect(.degrees(-90))
-                .blur(radius: 8)
-                .opacity(glowPulse ? 0.55 : 0.85)
-
-            Circle()
-                .trim(from: 0, to: progress)
-                .stroke(
-                    AngularGradient(
-                        colors: [color.opacity(0.6), color, color.opacity(0.85)],
-                        center: .center,
-                        startAngle: .degrees(-90),
-                        endAngle: .degrees(270)
-                    ),
-                    style: StrokeStyle(lineWidth: strokeWidth, lineCap: .round)
-                )
-                .frame(width: size, height: size)
-                .rotationEffect(.degrees(-90))
-                .shadow(color: color.opacity(0.5), radius: 14)
 
             if progress > 0.02 {
                 Circle()
                     .fill(color)
                     .frame(width: strokeWidth * 0.85, height: strokeWidth * 0.85)
-                    .shadow(color: color, radius: 6)
                     .offset(y: -size / 2)
                     .rotationEffect(.degrees(-90 + Double(progress) * 360))
             }
 
             if showLabel {
-                VStack(spacing: 4) {
+                VStack(spacing: FDS.Spacing.xs) {
                     Text("\(score)")
-                        .font(.system(size: size * 0.24, weight: .black, design: .rounded))
-                        .foregroundStyle(
-                            LinearGradient(colors: [.textPrimary, color], startPoint: .top, endPoint: .bottom)
-                        )
-                        .contentTransition(.numericText())
+                        .font(ForgeFont.sans(size * 0.26, weight: .light))
+                        .monospacedDigit()
+                        .foregroundStyle(Color.textPrimary)
+                        .contentTransition(.numericText(value: Double(score)))
+                        .forgeAnimation(ForgeMotion.smooth, value: score)
                     Text(HomeReadiness.label(score).uppercased())
-                        .font(.system(size: size * 0.07, weight: .black))
+                        .font(ForgeFont.sans(size * 0.07, weight: .semibold))
                         .foregroundColor(color)
                         .tracking(1.6)
                     Text("Readiness")
-                        .font(.system(size: size * 0.055, weight: .medium))
+                        .font(ForgeFont.sans(size * 0.055, weight: .medium))
                         .foregroundColor(.textTertiary)
                 }
             }
         }
         .frame(width: size, height: size)
+        // Without its label the ring is decoration beside a name or a score.
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(HomeReadiness.voiceOverLabel(score))
+        .accessibilityHidden(!showLabel)
         .onAppear {
-            isOnscreen = true
-            playEntrance()
-        }
-        .onDisappear {
-            isOnscreen = false
-            glowPulse = false
-            outerPulse = false
-        }
-        .onChange(of: scenePhase) { _, phase in
-            if phase != .active {
-                glowPulse = false
-                outerPulse = false
-            } else if isOnscreen {
-                playEntrance()
+            // The arc sweeps in once; under Reduce Motion it is simply there.
+            if reduceMotion {
+                progress = CGFloat(score) / 100
+            } else {
+                withAnimation(ForgeMotion.sweep.delay(0.2)) { progress = CGFloat(score) / 100 }
             }
         }
         .onChange(of: score) { _, new in
-            withAnimation(reduceMotion ? .easeOut(duration: 0.12) : FDS.Spring.sweep) {
+            withAnimation(ForgeMotion.resolved(ForgeMotion.sweep, reduceMotion: reduceMotion)) {
                 progress = CGFloat(new) / 100
             }
         }
-    }
-
-    private func playEntrance() {
-        let anim = reduceMotion
-            ? Animation.easeOut(duration: 0.15)
-            : FDS.Spring.sweep.delay(0.2)
-        withAnimation(anim) { progress = CGFloat(score) / 100 }
-        guard !reduceMotion, scenePhase == .active, isOnscreen else { return }
-        glowPulse = false
-        outerPulse = false
-        withAnimation(.easeInOut(duration: 2.3)) { glowPulse = true }
-        withAnimation(.easeInOut(duration: 3.1)) { outerPulse = true }
     }
 }
 
@@ -240,13 +192,7 @@ struct HomeReadinessFieldView: View {
                 VStack(spacing: 2) {
                     Text("\(clamped)")
                         .font(HomeType.heroScore)
-                        .foregroundStyle(
-                            LinearGradient(
-                                colors: [.textPrimary, HomeReadiness.color(clamped)],
-                                startPoint: .top,
-                                endPoint: .bottom
-                            )
-                        )
+                        .foregroundStyle(Color.textPrimary)
                         .minimumScaleFactor(0.7)
                         .lineLimit(1)
                         .contentTransition(.numericText())
@@ -284,23 +230,6 @@ enum HomeRingFieldCanvas {
         let tint = HomeReadiness.color(score)
         let fill = Double(min(max(score, 0), 100)) / 100.0
 
-        let haloR = s * 0.24
-        context.fill(
-            Path(ellipseIn: CGRect(
-                x: center.x - haloR, y: center.y - haloR,
-                width: haloR * 2, height: haloR * 2
-            )),
-            with: .radialGradient(
-                Gradient(colors: [
-                    tint.opacity(0.10 + 0.10 * fill),
-                    .clear
-                ]),
-                center: center,
-                startRadius: s * 0.02,
-                endRadius: haloR
-            )
-        )
-
         for index in AriaRingFieldGeometry.visibleRingIndices(size: s).reversed() {
             let pose = AriaRingFieldGeometry.ellipse(
                 index: index,
@@ -322,11 +251,6 @@ enum HomeRingFieldCanvas {
                 .rotated(by: CGFloat(pose.rotation))
             path = path.applying(transform)
 
-            context.stroke(
-                path,
-                with: .color(tint.opacity(pose.opacity * 0.32)),
-                lineWidth: max(2.2, line * 2.0)
-            )
             context.stroke(
                 path,
                 with: .color(tint.opacity(min(1, pose.opacity + 0.06))),
@@ -395,9 +319,9 @@ struct StreakCalendarSection: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 14) {
+        VStack(alignment: .leading, spacing: FDS.Spacing.md) {
             HStack {
-                HStack(spacing: 6) {
+                HStack(spacing: FDS.Spacing.xs) {
                     Image(systemName: "checkmark.circle.fill")
                         .font(.system(size: 13))
                         .foregroundColor(.ember)
@@ -409,15 +333,15 @@ struct StreakCalendarSection: View {
                 Spacer()
                 Text("Days you trained. Open days stay open.")
                     .font(HomeType.micro)
-                    .foregroundColor(.textMuted)
+                    .foregroundColor(.textTertiary)
             }
 
             HStack(spacing: 0) {
                 ForEach(Array(weekDays.enumerated()), id: \.offset) { i, day in
-                    VStack(spacing: 8) {
+                    VStack(spacing: FDS.Spacing.sm) {
                         Text(day.label)
                             .font(HomeType.micro)
-                            .foregroundColor(day.isToday ? .ember : .textMuted)
+                            .foregroundColor(day.isToday ? .ember : .textTertiary)
                         ZStack {
                             Circle()
                                 .fill(day.hasWorkout ? Color.ember.opacity(0.15) : Color.surfaceElevated)
@@ -442,7 +366,7 @@ struct StreakCalendarSection: View {
                         .scaleEffect(cellsAppeared || reduceMotion ? 1 : 0.7)
                         .opacity(cellsAppeared || reduceMotion ? 1 : 0)
                         .animation(
-                            reduceMotion ? nil : FDS.Spring.hero.delay(0.08 + Double(i) * 0.05),
+                            reduceMotion ? nil : ForgeMotion.gentle.delay(0.08 + Double(i) * 0.05),
                             value: cellsAppeared
                         )
                     }
@@ -503,10 +427,10 @@ struct HomeContributorRow: View {
 
     var body: some View {
         Button {
-            FDS.selectionHaptic()
+            ForgeHaptics.play(.selection)
             onTap?()
         } label: {
-            HStack(spacing: 10) {
+            HStack(spacing: FDS.Spacing.sm) {
                 RoundedRectangle(cornerRadius: 1, style: .continuous)
                     .fill(color)
                     .frame(width: 2, height: 16)
@@ -519,7 +443,7 @@ struct HomeContributorRow: View {
                     .foregroundColor(.textPrimary)
                     .contentTransition(.numericText())
             }
-            .padding(.vertical, 6)
+            .padding(.vertical, FDS.Spacing.xs)
         }
         .buttonStyle(.plain)
         .accessibilityLabel("\(title) \(clamped)")

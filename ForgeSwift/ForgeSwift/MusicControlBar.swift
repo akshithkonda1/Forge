@@ -1,4 +1,5 @@
 import SwiftUI
+import ForgeCore
 
 struct MusicControlBar: View {
     @ObservedObject var controller: AnyMusicController
@@ -25,7 +26,7 @@ struct MusicControlBar: View {
                 unauthorizedView
             }
         }
-        .animation(reduceMotion ? nil : FDS.Spring.standard, value: controller.nowPlaying?.isPlaying)
+        .animation(reduceMotion ? nil : ForgeMotion.smooth, value: controller.nowPlaying?.isPlaying)
     }
 
     // MARK: Playing
@@ -41,10 +42,7 @@ struct MusicControlBar: View {
                 case .success(let image):
                     image.resizable().scaledToFill()
                 default:
-                    LinearGradient(
-                        colors: [accent, accent.opacity(0.7)],
-                        startPoint: .topLeading, endPoint: .bottomTrailing
-                    )
+                    LinearGradient.flat(accent)
                     .overlay(
                         Image(systemName: controller.service.iconName)
                             .font(.system(size: 17, weight: .bold))
@@ -124,7 +122,6 @@ struct MusicControlBar: View {
 
     private func skipButton(systemImage: String, label: String, action: @escaping () -> Void) -> some View {
         Button {
-            FDS.haptic(.press)
             action()
         } label: {
             Image(systemName: systemImage)

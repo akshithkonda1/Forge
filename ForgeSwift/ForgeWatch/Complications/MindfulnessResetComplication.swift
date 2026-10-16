@@ -55,7 +55,7 @@ private struct MindfulnessResetComplicationView: View {
                     .widgetAccentable()
                 if !durationLabel.isEmpty {
                     Text(durationLabel)
-                        .font(.system(size: 11, weight: .bold, design: .rounded))
+                        .font(ForgeFont.sans(11, weight: .bold))
                 }
             }
         }
@@ -81,10 +81,10 @@ private struct MindfulnessResetComplicationView: View {
                     .foregroundStyle(tint)
                     .widgetAccentable()
                 Text(practice.map { "\(durationLabel) \($0.displayName)" } ?? "Mindful reset")
-                    .font(.system(size: 13, weight: .semibold, design: .rounded))
+                    .font(ForgeFont.sans(13, weight: .semibold))
             }
             Text(entry.snapshot?.recommendationReason ?? "A short reset, tuned to your day, is one tap away.")
-                .font(.system(size: 11))
+                .font(ForgeFont.sans(11))
                 .foregroundStyle(.secondary)
                 .lineLimit(2)
         }

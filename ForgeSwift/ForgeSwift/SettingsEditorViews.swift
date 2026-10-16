@@ -75,7 +75,7 @@ private struct EditorOptionRow: View {
 
     var body: some View {
         Button {
-            FDS.haptic(.select)
+            ForgeHaptics.play(.selection)
             action()
         } label: {
             HStack(spacing: ForgeLayout.rowGap) {
@@ -166,8 +166,8 @@ private struct ScheduleMenuPill: View {
                 .foregroundStyle(Color.textTertiary)
                 .accessibilityHidden(true)
         }
-        .padding(.horizontal, 10)
-        .padding(.vertical, 7)
+        .padding(.horizontal, FDS.Spacing.sm)
+        .padding(.vertical, FDS.Spacing.sm)
         .frame(minHeight: 30)
         .background(Color.white.opacity(0.08))
         .clipShape(Capsule())

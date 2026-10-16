@@ -69,7 +69,7 @@ func smartQuickActions(mood: ARIAMood, readiness: Int, messageCount: Int) -> [(l
     } else if hour >= 20 {
         actions.append(("Wind down plan", "moon.zzz.fill", Color.aurora))
     } else {
-        actions.append(("What now?", "sparkles", mood.accentColor))
+        actions.append(("What now?", "arrow.forward.circle", mood.accentColor))
     }
 
     // Readiness-reactive
@@ -129,15 +129,4 @@ enum VoiceState: Equatable {
         case .error:      return "Try again"
         }
     }
-}
-
-enum HapticEvent {
-    case messageSent        // Light + delay + success
-    case messageReceived    // Soft impact
-    case reactionAdded      // Selection + light
-    case milestone          // Heavy + notification success
-    case voiceStart         // Medium + rigid
-    case quickChipTap       // Selection
-    case celebration        // Sequence of impacts
-    case typing             // Very light
 }

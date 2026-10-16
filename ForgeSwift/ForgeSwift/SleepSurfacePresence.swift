@@ -232,7 +232,7 @@ struct SleepStatusDot: View {
     private var color: Color {
         switch kind {
         case .off: return .textTertiary
-        case .waiting: return .aurora
+        case .waiting: return .steel
         case .pulling, .live: return .vitality
         }
     }
@@ -250,7 +250,6 @@ struct SleepStatusDot: View {
         Circle()
             .fill(color)
             .frame(width: 6, height: 6)
-            .shadow(color: color.opacity(kind == .off ? 0 : 0.55), radius: 4)
             .opacity(kind == .pulling && !reduceMotion && pulse ? 0.55 : 1)
             .task(id: kind) {
                 guard kind == .pulling, !reduceMotion else {

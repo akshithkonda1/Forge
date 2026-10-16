@@ -120,7 +120,7 @@ struct StatsMosaicCard: View {
         VStack(alignment: .leading, spacing: ForgeLayout.heroGap) {
             mosaicHeader(snap)
             mosaicTiles(snap.tiles)
-            ForgeSecondaryButton(title: "Ask ARIA about this picture", accent: .aurora) {
+            ForgeSecondaryButton(title: "Ask ARIA about this picture", accent: .ember) {
                 store.openChat(with: snap.mosaicLine, voice: false)
             }
             .accessibilityLabel("Ask ARIA about today’s mosaic")
@@ -199,7 +199,6 @@ struct StatsMosaicCard: View {
 
     private func mosaicTile(_ tile: StatsMosaic.Tile) -> some View {
         Button {
-            FDS.haptic(.press)
             store.openChat(with: tile.ariaPrompt, voice: false)
         } label: {
             VStack(alignment: .leading, spacing: ForgeLayout.pairGap) {
@@ -287,7 +286,7 @@ struct StatsManualEntrySheet: View {
                         var next = entry
                         next.dayKey = StatsManualLog.dayKey()
                         StatsManualLog.save(next)
-                        FDS.haptic(.success)
+                        ForgeHaptics.play(.success)
                         dismiss()
                     }
                 }
@@ -350,7 +349,7 @@ struct QuickStatsOverviewView: View {
             }
         }
         .forgeContentCard(tint: .ember)
-        .animation(reduceMotion ? nil : FDS.Spring.standard, value: timeRange)
+        .animation(reduceMotion ? nil : ForgeMotion.smooth, value: timeRange)
     }
 }
 
@@ -604,7 +603,7 @@ struct MilestoneCard: View {
             if reduceMotion {
                 animatedProgress = progress
             } else {
-                withAnimation(FDS.Spring.sweep.delay(0.12)) {
+                withAnimation(ForgeMotion.sweep.delay(0.12)) {
                     animatedProgress = progress
                 }
             }
@@ -697,9 +696,9 @@ struct ShareProgressView: View {
                 if reduceMotion {
                     copied = true
                 } else {
-                    withAnimation(FDS.Spring.standard) { copied = true }
+                    withForgeMotion(ForgeMotion.smooth) { copied = true }
                 }
-                FDS.haptic(.success)
+                ForgeHaptics.play(.success)
             } label: {
                 ShareOptionRow(
                     icon: copied ? "checkmark" : "doc.on.doc",

@@ -1,4 +1,5 @@
 import SwiftUI
+import ForgeCore
 
 /// Layer 5/6 — proactive ARIA nudge when relationship + patterns warrant outreach.
 struct ProactiveCardView: View {
@@ -15,8 +16,8 @@ struct ProactiveCardView: View {
                 ARIAIdentityMark(state: .idle, mood: .focused, size: 44, amplitude: 0.22)
                     .environment(\.forgeMinimalAnimation, true)
 
-                VStack(alignment: .leading, spacing: 6) {
-                    HStack(spacing: 6) {
+                VStack(alignment: .leading, spacing: FDS.Spacing.xs) {
+                    HStack(spacing: FDS.Spacing.xs) {
                         Text("ARIA")
                             .font(FDS.TypeScale.Dynamic.caption)
                             .foregroundColor(.steel)
@@ -57,7 +58,7 @@ struct ProactiveCardView: View {
             if reduceMotion {
                 appeared = true
             } else {
-                withAnimation(.spring(response: 0.55, dampingFraction: 0.82)) {
+                withAnimation(ForgeMotion.gentle) {
                     appeared = true
                 }
             }

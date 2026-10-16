@@ -96,7 +96,7 @@ struct MenstrualHealthView: View {
 
     /// Runs a state change with the standard spring, or instantly under
     /// Reduce Motion.
-    private func motion(_ animation: Animation = FDS.Spring.snap, _ changes: () -> Void) {
+    private func motion(_ animation: Animation = ForgeMotion.snappy, _ changes: () -> Void) {
         if reduceMotion {
             changes()
         } else {
@@ -201,12 +201,12 @@ struct MenstrualHealthView: View {
             ) {
                 Button("Wipe logs only", role: .destructive) {
                     cycleStore.wipeSelfCycleData(includingSettings: false)
-                    FDS.notificationHaptic(.warning)
+                    ForgeHaptics.play(.warning)
                     showToast("Cycle logs wiped", haptic: false)
                 }
                 Button("Wipe logs + disable tracking", role: .destructive) {
                     cycleStore.wipeSelfCycleData(includingSettings: true)
-                    FDS.notificationHaptic(.warning)
+                    ForgeHaptics.play(.warning)
                     showToast("Cycle data wiped · tracking off", haptic: false)
                 }
                 Button("Cancel", role: .cancel) {}
@@ -410,7 +410,7 @@ struct MenstrualHealthView: View {
             ForgeAdaptiveStack(spacing: ForgeLayout.tileGap) {
                 ForgeSecondaryButton(title: "Save card", accent: .indigo) {
                     cycleStore.updateSupportCard(supportCardDraft)
-                    FDS.notificationHaptic(.success)
+                    ForgeHaptics.play(.success)
                 }
                 .disabled(draftUnchanged)
                 .opacity(draftUnchanged ? 0.5 : 1)
@@ -430,7 +430,7 @@ struct MenstrualHealthView: View {
     private var extraCareCard: some View {
         let active = cycleStore.settings.extraCareIsActive()
         return Button {
-            FDS.haptic(.press)
+            ForgeHaptics.play(.selection)
             cycleStore.updateSettings { s in
                 s.needExtraCareDayKey = active ? nil : CycleDayKey.key()
             }
@@ -494,7 +494,6 @@ struct MenstrualHealthView: View {
     /// you send someone a share.
     private var shareSupportCard: some View {
         Button {
-            FDS.haptic(.press)
             showSharing = true
         } label: {
             actionRowLabel(
@@ -552,7 +551,7 @@ struct MenstrualHealthView: View {
                         Task {
                             await cycleStore.syncFromHealthKit()
                             cycleStore.refresh(from: store)
-                            FDS.notificationHaptic(.success)
+                            ForgeHaptics.play(.success)
                         }
                     } label: {
                         if cycleStore.isSyncing {
@@ -917,7 +916,7 @@ struct MenstrualHealthView: View {
                 .font(HomeType.body)
                 .foregroundColor(.textSecondary)
                 .forgeWrapping()
-            ForgeTextLink(title: "Ask ARIA about \(condition.label)", accent: .aurora) {
+            ForgeTextLink(title: "Ask ARIA about \(condition.label)", accent: .ember) {
                 store.openChat(
                     with: "I track my cycle with \(condition.label). I'm on \(cycleStore.snapshot.phase.label)"
                         + (cycleStore.snapshot.dayInCycle.map { ", day \($0)" } ?? "")
@@ -1040,7 +1039,7 @@ struct MenstrualHealthView: View {
             Divider().background(Color.white.opacity(0.08))
 
             ForgeTextLink(title: "How we score this", accent: accent, expanded: showMethod) {
-                motion(FDS.Spring.standard) { showMethod.toggle() }
+                motion(ForgeMotion.smooth) { showMethod.toggle() }
             }
             if showMethod {
                 accuracyMethodDetail(report: report, eval: eval)
@@ -1112,7 +1111,7 @@ struct MenstrualHealthView: View {
                 }
                 if cycleStore.settings.shareWithAria,
                    let prompt = cycleStore.ariaChatPromptForCycle() {
-                    ForgeTextLink(title: "Ask ARIA", accent: .aurora) {
+                    ForgeTextLink(title: "Ask ARIA", accent: .ember) {
                         store.openChat(with: prompt, voice: false)
                     }
                 }
@@ -1323,7 +1322,7 @@ struct MenstrualHealthView: View {
         let token = UUID()
         toastToken = token
         motion { modelToast = msg }
-        if haptic { FDS.haptic(.success) }
+        if haptic { ForgeHaptics.play(.success) }
         UIAccessibility.post(notification: .announcement, argument: msg)
         DispatchQueue.main.asyncAfter(deadline: .now() + 2.6) {
             // Only the toast that scheduled this timer may dismiss it — otherwise a
@@ -1512,7 +1511,6 @@ struct MenstrualHealthView: View {
         editMucus = log?.mucus
         editPain = log?.painScale ?? 0
         showDayEditor = true
-        FDS.haptic(.press)
     }
 
     /// Flow intensity is the period hue at four strengths.
@@ -1541,7 +1539,7 @@ struct MenstrualHealthView: View {
                     color: periodColor
                 )
                 predictionTile(
-                    icon: "sparkles",
+                    icon: "heart.text.square",
                     title: "Ovulation est.",
                     value: snap.ovulationDayInCycle.map { "Day \($0)" } ?? "—",
                     sub: ovulationMethodLabel(snap.ovulationMethod),
@@ -1744,7 +1742,7 @@ struct MenstrualHealthView: View {
             }
             if showAllSymptoms || visibleSymptoms.count < CycleSymptom.allCases.count {
                 ForgeTextLink(title: "More symptoms", accent: accent, expanded: showAllSymptoms) {
-                    motion(FDS.Spring.standard) { showAllSymptoms.toggle() }
+                    motion(ForgeMotion.smooth) { showAllSymptoms.toggle() }
                 }
             }
         }
@@ -1858,7 +1856,6 @@ struct MenstrualHealthView: View {
                 }
                 return "Help me train and recover today."
             }()
-            FDS.haptic(.press)
             store.openChat(with: prompt, voice: false)
         } label: {
             HStack(spacing: ForgeLayout.rowGap) {
@@ -2002,7 +1999,6 @@ struct MenstrualHealthView: View {
     private var settingsRows: some View {
         VStack(alignment: .leading, spacing: ForgeLayout.rowGap) {
             Button {
-                FDS.haptic(.press)
                 showRhythmReport = true
             } label: {
                 ForgeListRow(
@@ -2025,7 +2021,6 @@ struct MenstrualHealthView: View {
             )
 
             Button(role: .destructive) {
-                FDS.haptic(.press)
                 showWipeConfirm = true
             } label: {
                 ForgeListRow(
@@ -2100,7 +2095,7 @@ struct MenstrualHealthView: View {
                     }
                     if !editBBT.isEmpty {
                         Button("Clear temperature", role: .destructive) { editBBT = "" }
-                            .font(.footnote)
+                            .font(ForgeFont.sans(.footnote))
                     }
                 }
                 // `painScale` existed on the model with an endometriosis comment but had
@@ -2151,7 +2146,7 @@ struct MenstrualHealthView: View {
                         Button("Delete this day", role: .destructive) {
                             cycleStore.deleteLog(dayKey: key)
                             showDayEditor = false
-                            FDS.notificationHaptic(.warning)
+                            ForgeHaptics.play(.warning)
                             showToast("Day deleted", haptic: false)
                         }
                     }
@@ -2181,7 +2176,7 @@ struct MenstrualHealthView: View {
             guard let entered = Double(raw), let celsius = bbtUnit.toCelsius(entered),
                   BBTUnit.plausibleCelsius.contains(celsius) else {
                 saveError = "Basal temperature should be about \(bbtUnit.plausibleCopy). Check the reading and try again."
-                FDS.notificationHaptic(.error)
+                ForgeHaptics.play(.error)
                 return
             }
             bbtCelsius = celsius
@@ -2205,7 +2200,7 @@ struct MenstrualHealthView: View {
         )
         cycleStore.refresh(from: store)
         showDayEditor = false
-        FDS.notificationHaptic(.success)
+        ForgeHaptics.play(.success)
         showToast("Saved \(shortDate(key))", haptic: false)
     }
 
@@ -2301,7 +2296,7 @@ struct MenstrualHealthView: View {
     /// anytime without redoing onboarding.
     private var myCycleOptInCard: some View {
         Button {
-            FDS.haptic(.select)
+            ForgeHaptics.play(.selection)
             pane = .me
         } label: {
             actionRowLabel(
@@ -2487,7 +2482,7 @@ struct MenstrualHealthView: View {
                         : partnerRelDraft
                     $0.shareWithAria = false
                 }
-                FDS.notificationHaptic(.success)
+                ForgeHaptics.play(.success)
             }
         }
         .forgeContentCard(tint: .indigo)
@@ -2630,7 +2625,7 @@ struct MenstrualHealthView: View {
 
             ForgeSecondaryButton(title: "Save today", accent: .steel) {
                 cycleStore.logPartnerToday(flow: partnerFlow)
-                FDS.notificationHaptic(.success)
+                ForgeHaptics.play(.success)
                 showToast("Saved today for \(cycleStore.partnerSettings.displayName)", haptic: false)
             }
         }
@@ -2701,7 +2696,7 @@ struct MenstrualHealthView: View {
             guard let entered = Double(raw), let celsius = bbtUnit.toCelsius(entered),
                   BBTUnit.plausibleCelsius.contains(celsius) else {
                 saveError = "Basal temperature should be about \(bbtUnit.plausibleCopy). Check the reading and try again."
-                FDS.notificationHaptic(.error)
+                ForgeHaptics.play(.error)
                 return
             }
             bbtCelsius = celsius

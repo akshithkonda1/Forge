@@ -43,8 +43,8 @@ final class ForgeChromeTests: XCTestCase {
         XCTAssertEqual(ForgeUX.minTap, 44)
         XCTAssertEqual(ForgeDesignTokens.UX.navBack, "leading")
         XCTAssertEqual(ForgeDesignTokens.UX.sheetClose, "trailing")
-        XCTAssertEqual(ForgeDesignTokens.Haptic.primaryCTA.token, "medium")
-        XCTAssertEqual(ForgeDesignTokens.Haptic.press.token, "light")
+        XCTAssertEqual(ForgeHaptic.allCases.map(\.rawValue), ["selection", "press", "success", "warning", "error"])
+        XCTAssertEqual(ForgeHaptic.press.token, "light")
         XCTAssertTrue(ForgeDesignTokens.Motion.eventOnly)
         XCTAssertFalse(HomeReadinessTokens.liveGlowDefault)
     }

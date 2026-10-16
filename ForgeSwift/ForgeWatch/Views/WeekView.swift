@@ -50,12 +50,12 @@ struct WeekView: View {
         VStack(alignment: .leading, spacing: ForgeDS.Spacing.sm) {
             HStack {
                 Text("Sleep quality")
-                    .font(.system(size: 11, weight: .semibold))
+                    .font(ForgeFont.sans(11, weight: .semibold))
                     .foregroundStyle(ForgePalette.textSecondary)
                 Spacer(minLength: 0)
                 if let idx = highlightedNight, scores.indices.contains(idx) {
                     Text("\(scores.reversed()[idx])")
-                        .font(.system(size: 11, weight: .bold, design: .rounded))
+                        .font(ForgeFont.sans(11, weight: .bold))
                         .foregroundStyle(ForgePalette.steelLight)
                         .contentTransition(.numericText())
                 }
@@ -117,13 +117,13 @@ struct WeekView: View {
                     }
                 HStack(spacing: 4) {
                     Text(highlightedNight != nil ? "Crown to scrub · tap to pin" : "Tap or crown to inspect")
-                        .font(.system(size: 8))
+                        .font(ForgeFont.sans(8))
                         .foregroundStyle(ForgePalette.textTertiary.opacity(0.5))
                     Spacer(minLength: 0)
                 }
             } else {
                 Text("A couple more nights and a trend appears here.")
-                    .font(.system(size: 11))
+                    .font(ForgeFont.sans(11))
                     .foregroundStyle(ForgePalette.textTertiary)
                     .fixedSize(horizontal: false, vertical: true)
             }
@@ -173,7 +173,7 @@ struct WeekView: View {
                 .font(ForgeType.metric(18))
                 .foregroundStyle(tint)
             Text(label)
-                .font(.system(size: 9))
+                .font(ForgeFont.sans(9))
                 .foregroundStyle(ForgePalette.textTertiary)
                 .multilineTextAlignment(.center)
                 .lineLimit(2)
@@ -182,7 +182,7 @@ struct WeekView: View {
         .padding(.vertical, ForgeDS.Spacing.sm)
         .background(RoundedRectangle(cornerRadius: ForgeDS.Radius.md).fill(isTapped ? tint.opacity(0.18) : ForgePalette.surface))
         .scaleEffect(isTapped ? 0.97 : 1)
-        .animation(.spring(response: 0.2, dampingFraction: 0.7), value: tappedTile)
+        .forgeAnimation(ForgeMotion.snappy, value: tappedTile)
         .contentShape(Rectangle())
         .onTapGesture {
             WKInterfaceDevice.current().play(.click)
@@ -202,27 +202,27 @@ struct WeekView: View {
     private var nights: some View {
         VStack(alignment: .leading, spacing: ForgeDS.Spacing.sm) {
             Text("Nights")
-                .font(.system(size: 11, weight: .semibold))
+                .font(ForgeFont.sans(11, weight: .semibold))
                 .foregroundStyle(ForgePalette.textSecondary)
 
             if health.recentNights.isEmpty {
                 Text("No sleep recorded yet. Wear your watch overnight and this fills in.")
-                    .font(.system(size: 11))
+                    .font(ForgeFont.sans(11))
                     .foregroundStyle(ForgePalette.textTertiary)
                     .fixedSize(horizontal: false, vertical: true)
             } else {
                 ForEach(Array(health.recentNights.prefix(7).enumerated()), id: \.offset) { _, night in
                     HStack {
                         Text(night.start.map(Self.dayLabel) ?? "—")
-                            .font(.system(size: 11))
+                            .font(ForgeFont.sans(11))
                             .foregroundStyle(ForgePalette.textSecondary)
                             .frame(width: 34, alignment: .leading)
                         Text(night.durationLabel)
-                            .font(.system(size: 12, weight: .medium, design: .rounded))
+                            .font(ForgeFont.sans(12, weight: .medium))
                             .foregroundStyle(ForgePalette.textPrimary)
                         Spacer(minLength: 0)
                         Text("\(Int(night.deepMinutes.rounded()))m deep")
-                            .font(.system(size: 10))
+                            .font(ForgeFont.sans(10))
                             .foregroundStyle(ForgePalette.textTertiary)
                     }
                     .accessibilityElement(children: .combine)

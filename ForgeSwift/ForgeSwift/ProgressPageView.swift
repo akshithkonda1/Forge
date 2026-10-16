@@ -60,7 +60,6 @@ struct ProgressPageView: View {
     /// The ARIA mark is 28 pt (the still pose) inside a 44 pt tap area.
     private var askAriaButton: some View {
         Button {
-            FDS.haptic(.press)
             store.openChat(with: "Walk me through my progress, PRs, and what to train next.", voice: false)
         } label: {
             ARIAIdentityMark(state: .idle, mood: .energized, size: 28, amplitude: 0.24)
@@ -389,7 +388,7 @@ struct PersonalRecordsBoardView: View {
         if reduceMotion {
             showAllPRs.toggle()
         } else {
-            withAnimation(FDS.Spring.standard) { showAllPRs.toggle() }
+            withForgeMotion(ForgeMotion.smooth) { showAllPRs.toggle() }
         }
     }
 
@@ -488,7 +487,6 @@ struct BehavioralInsightView: View {
 
     var body: some View {
         Button {
-            FDS.haptic(.press)
             store.openChat(with: "Review my last 30 days. One win, one risk, one recommendation.", voice: false)
         } label: {
             HStack(alignment: .top, spacing: ForgeLayout.rowGap) {

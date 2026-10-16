@@ -66,7 +66,7 @@ private struct WorkoutStartView: View {
                 }
 
                 Text("Or pick your own — every option is a good one.")
-                    .font(.system(size: 11))
+                    .font(ForgeFont.sans(11))
                     .foregroundStyle(ForgePalette.textTertiary)
 
                 ForEach(ForgeWorkoutType.allCases) { type in
@@ -78,7 +78,7 @@ private struct WorkoutStartView: View {
                                 .foregroundStyle(type.accentColor)
                                 .frame(width: 24)
                             Text(type.displayName)
-                                .font(.system(size: 13))
+                                .font(ForgeFont.sans(13))
                             Spacer()
                         }
                         .padding(.vertical, 2)
@@ -112,7 +112,7 @@ private struct CountdownView: View {
             .font(ForgeType.metric(64))
             .foregroundStyle(ForgePalette.ember)
             .scaleEffect(reduceMotion ? 1 : 1 + CGFloat(WorkoutSessionManager.countdownSeconds - count) * 0.06)
-            .animation(reduceMotion ? nil : ForgeDS.Spring.snap, value: count)
+            .animation(reduceMotion ? nil : ForgeMotion.snappy, value: count)
             .navigationBarBackButtonHidden(true)
             .accessibilityLabel("Starting in \(count)")
     }
@@ -203,7 +203,7 @@ private struct SessionMetricsPage: View {
                     .contentTransition(.numericText())
                 if let zone = workout.currentZone, metricMode == .heart {
                     Text(zone.label)
-                        .font(.system(size: 12, weight: .semibold))
+                        .font(ForgeFont.sans(12, weight: .semibold))
                         .foregroundStyle(zone.color)
                 }
             }
@@ -222,12 +222,12 @@ private struct SessionMetricsPage: View {
 
             if let calories = workout.activeCalories, metricMode == .calories {
                 Label("\(Int(calories)) cal", systemImage: "flame.fill")
-                    .font(.system(size: 13))
+                    .font(ForgeFont.sans(13))
                     .foregroundStyle(ForgePalette.amber)
                     .transition(.opacity)
             } else if let cue = workout.coachingCue {
                 Text(cue)
-                    .font(.system(size: 11))
+                    .font(ForgeFont.sans(11))
                     .foregroundStyle(ForgePalette.textSecondary)
                     .lineLimit(3)
                     .accessibilityLabel("Coach: \(cue)")
@@ -239,7 +239,7 @@ private struct SessionMetricsPage: View {
                     .font(.system(size: 7))
                     .foregroundStyle(ForgePalette.textTertiary.opacity(0.5))
                 Text("Tap metric to cycle")
-                    .font(.system(size: 8))
+                    .font(ForgeFont.sans(8))
                     .foregroundStyle(ForgePalette.textTertiary.opacity(0.55))
                 Spacer(minLength: 0)
             }
@@ -313,7 +313,7 @@ private struct SessionMetricsPage: View {
                     .contentShape(Rectangle())
                     .onTapGesture {
                         WKInterfaceDevice.current().play(isActive ? .success : .click)
-                        withAnimation(.spring(response: 0.2, dampingFraction: 0.7)) {
+                        withForgeMotion(ForgeMotion.snappy) {
                             zoneTapFlash.toggle()
                         }
                     }
@@ -342,7 +342,7 @@ private struct SessionExercisePage: View {
                         .font(.system(size: 28))
                         .foregroundStyle(ForgePalette.success)
                     Text("Plan complete — end whenever you're ready.")
-                        .font(.system(size: 12.5))
+                        .font(ForgeFont.sans(12.5))
                         .multilineTextAlignment(.center)
                         .foregroundStyle(ForgePalette.textSecondary)
                 }
@@ -359,7 +359,7 @@ private struct SessionExercisePage: View {
                 .foregroundStyle(ForgePalette.textPrimary)
                 .lineLimit(2)
             Text("Set \(workout.setIndex + 1) of \(exercise.sets.count) · \(exercise.sets[min(workout.setIndex, exercise.sets.count - 1)].reps) reps")
-                .font(.system(size: 12.5))
+                .font(ForgeFont.sans(12.5))
                 .foregroundStyle(ForgePalette.textSecondary)
 
             HapticButton(haptic: .click) {
@@ -387,7 +387,7 @@ private struct SessionExercisePage: View {
                 .monospacedDigit()
                 .contentTransition(.numericText())
                 .scaleEffect(remaining <= 3 ? 1.08 : 1)
-                .animation(.spring(response: 0.25, dampingFraction: 0.6), value: remaining)
+                .forgeAnimation(ForgeMotion.snappy, value: remaining)
                 .accessibilityLabel("\(remaining) seconds of rest left. Wrist taps count the last three. Turn crown to skip.")
             // Crown-scrub to skip — flick crown to dismiss rest.
             Color.clear
@@ -414,7 +414,7 @@ private struct SessionExercisePage: View {
             HapticButton(haptic: .click) {
                 workout.skipRest()
             } label: {
-                Text("Skip rest").font(.system(size: 12))
+                Text("Skip rest").font(ForgeFont.sans(12))
             }
             .buttonStyle(.bordered)
             .accessibilityHint("Ends the rest early. Or turn the Digital Crown.")
@@ -423,7 +423,7 @@ private struct SessionExercisePage: View {
                     .font(.system(size: 8))
                     .foregroundStyle(ForgePalette.textTertiary.opacity(0.5))
                 Text("Crown to skip")
-                    .font(.system(size: 9))
+                    .font(ForgeFont.sans(9))
                     .foregroundStyle(ForgePalette.textTertiary.opacity(0.6))
             }
         }
@@ -465,7 +465,7 @@ private struct WorkoutSummaryView: View {
 
                     if !summary.savedToHealth {
                         Text("Couldn't save to Health just now — the effort still counted.")
-                            .font(.system(size: 11))
+                            .font(ForgeFont.sans(11))
                             .foregroundStyle(ForgePalette.textTertiary)
                     }
 
@@ -484,7 +484,7 @@ private struct WorkoutSummaryView: View {
 
                     if companionGate.allows(.phoneSyncCTA) {
                         Text("Full review is on your iPhone.")
-                            .font(.system(size: 11))
+                            .font(ForgeFont.sans(11))
                             .foregroundStyle(ForgePalette.textTertiary)
                             .frame(maxWidth: .infinity, alignment: .leading)
                     } else if let reason = companionGate.explanation(for: .phoneSyncCTA) {
@@ -496,7 +496,7 @@ private struct WorkoutSummaryView: View {
                         path.removeAll()
                     }
                     .buttonStyle(.plain)
-                    .font(.system(size: 12))
+                    .font(ForgeFont.sans(12))
                     .foregroundStyle(ForgePalette.textTertiary)
                     .frame(maxWidth: .infinity)
                     .accessibilityHint(
@@ -522,7 +522,7 @@ private struct WorkoutSummaryView: View {
                 .font(ForgeType.metric(18))
                 .foregroundStyle(ForgePalette.textPrimary)
             Text(label)
-                .font(.system(size: 9.5))
+                .font(ForgeFont.sans(9.5))
                 .foregroundStyle(ForgePalette.textTertiary)
         }
         .accessibilityElement(children: .combine)

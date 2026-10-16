@@ -2,7 +2,7 @@
   "kind": "forge-design-tokens",
   "surface": "all-clients",
   "mixLock": "home-is-source",
-  "notes": "One token source for iOS, watch/widgets, and web. Home (PR #444) is the look: existing palette, type, and ring language — solid geometry, event-only glow, Peak/Good/Fair/Low. Nest brand stays procedural. Do not invent fonts. Miss/rest states use steel (missHex), never alert red.",
+  "notes": "One token source for iOS, watch/widgets, and web. Home (PR #444) is the look: existing palette, type, and ring language — solid geometry, event-only glow, Peak/Good/Fair/Low. Nest brand stays procedural. Fonts are the bundled Geist (UI, tabular metrics) and Instrument Serif (display), both SIL OFL 1.1; do not add others. Miss/rest states use steel (missHex), never alert red.",
   "color": {
     "background": "08080C",
     "surface": "101014",
@@ -24,7 +24,7 @@
     "alert": "EF4444",
     "textPrimary": "FAFAFA",
     "textSecondary": "A1A1AA",
-    "textTertiary": "71717A",
+    "textTertiary": "84848D",
     "textMuted": "52525B",
     "success": "34D399",
     "warning": "FBBF24",
@@ -38,7 +38,8 @@
     "md": 12,
     "lg": 16,
     "xl": 24,
-    "xxl": 32
+    "xxl": 32,
+    "xxxl": 48
   },
   "radius": {
     "xs": 6,
@@ -63,9 +64,9 @@
     "glowOpacity": 0.16
   },
   "type": {
-    "displayFamily": "system-rounded",
-    "bodyFamily": "system",
-    "metricFamily": "system-rounded-tabular",
+    "displayFamily": "instrument-serif",
+    "bodyFamily": "geist",
+    "metricFamily": "geist-tabular",
     "roles": {
       "display": {
         "textStyle": "title2",
@@ -135,10 +136,9 @@
     "respectReduceMotion": true,
     "maxTickHz": 12,
     "curve": "standard",
-    "snap": { "response": 0.25, "damping": 0.75 },
-    "standard": { "response": 0.35, "damping": 0.75 },
-    "hero": { "response": 0.45, "damping": 0.7 },
-    "page": { "response": 0.4, "damping": 0.8 },
+    "snappy": { "response": 0.25, "damping": 0.82 },
+    "smooth": { "response": 0.35, "damping": 0.86 },
+    "gentle": { "response": 0.5, "damping": 0.9 },
     "sweepSeconds": 1.2
   },
   "ux": {
@@ -153,12 +153,11 @@
     "iconSize": 16,
     "safeInset": 16,
     "haptics": {
-      "select": "selection",
+      "selection": "selection",
       "press": "light",
-      "primaryCTA": "medium",
       "success": "notification.success",
-      "error": "notification.error",
-      "destructive": "notification.warning"
+      "warning": "notification.warning",
+      "error": "notification.error"
     }
   },
   "copy": {

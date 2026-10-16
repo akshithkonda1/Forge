@@ -1,4 +1,5 @@
 import SwiftUI
+import ForgeCore
 
 /// Ending screen after a period is marked finished — noninvasive questions so coaching keeps learning.
 /// Answers stay on-device and are never used for ads or resale (see CyclePrivacy).
@@ -168,7 +169,7 @@ struct PeriodEndFeedbackView: View {
                     .foregroundStyle(painTint)
                     .forgeSingleLine()
                     .contentTransition(.numericText())
-                    .animation(reduceMotion ? nil : FDS.Spring.snap, value: painValue)
+                    .animation(reduceMotion ? nil : ForgeMotion.snappy, value: painValue)
                 Text("/ 10")
                     .font(HomeType.micro)
                     .foregroundStyle(Color.textTertiary)
@@ -450,7 +451,7 @@ struct PeriodEndFeedbackView: View {
         let summary = cycleStore.submitPeriodEndFeedback(feedback)
         submittedSummary = summary
         AccessibilityNotification.Announcement(summary).post()
-        FDS.notificationHaptic(.success)
+        ForgeHaptics.play(.success)
         DispatchQueue.main.asyncAfter(deadline: .now() + 1.1) {
             onDone?()
             dismiss()

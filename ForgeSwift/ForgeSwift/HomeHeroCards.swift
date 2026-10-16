@@ -18,10 +18,9 @@ private struct HomeHeroReadinessCard: View {
                 }
                 Spacer()
                 Button {
-                    FDS.haptic(.light)
-                    withAnimation(FDS.Spring.standard) { showDetails.toggle() }
+                    withForgeMotion(ForgeMotion.smooth) { showDetails.toggle() }
                 } label: {
-                    HStack(spacing: 4) {
+                    HStack(spacing: FDS.Spacing.xs) {
                         Text(showDetails ? "Less" : "Details")
                             .font(FDS.TypeScale.Dynamic.caption)
                         Image(systemName: "chevron.down")
@@ -31,36 +30,34 @@ private struct HomeHeroReadinessCard: View {
                     .foregroundColor(.ember)
                 }
             }
-            .padding(.bottom, 20)
+            .padding(.bottom, FDS.Spacing.lg)
 
             ReadinessRingView(score: store.readiness.overall, size: 112, strokeWidth: 10)
                 .frame(maxWidth: .infinity)
-                .padding(.bottom, 12)
-                .accessibilityElement(children: .ignore)
-                .accessibilityLabel("Readiness \(store.readiness.overall) out of 100, \(HomeReadiness.label(store.readiness.overall))")
+                .padding(.bottom, FDS.Spacing.md)
                 .onTapGesture {
                     if store.readiness.overall >= 85 { onCelebrate() }
                 }
 
             Text("\(store.readiness.overall) · \(homeStatusLine(store: store))")
-                .font(FDS.TypeScale.Dynamic.body.weight(.semibold))
+                .font(ForgeType.bodyStrong)
                 .foregroundColor(.textSecondary)
                 .multilineTextAlignment(.center)
                 .padding(.bottom, showDetails ? 16 : 0)
 
             if showDetails {
-                LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 10) {
+                LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: FDS.Spacing.sm) {
                     BreakdownCardView(label: "Sleep", value: lastNightSleepMeasured(store: store) ? store.readiness.sleepQuality : nil, inverted: false, index: 0)
                     BreakdownCardView(label: "Recovery", value: store.readiness.recoveryScore, inverted: false, index: 1)
                     BreakdownCardView(label: "Stress", value: store.readiness.stressLevel, inverted: true, index: 2)
                     BreakdownCardView(label: "Energy", value: store.readiness.energyBank, inverted: false, index: 3)
                 }
-                .transition(.opacity.combined(with: .scale(scale: 0.97, anchor: .top)))
+                .forgeTransition(.opacity.combined(with: .scale(scale: 0.97, anchor: .top)))
 
-                VStack(alignment: .leading, spacing: 8) {
+                VStack(alignment: .leading, spacing: FDS.Spacing.sm) {
                     Text("WHY THIS SCORE")
                         .forgeSectionLabel()
-                        .padding(.top, 4)
+                        .padding(.top, FDS.Spacing.xs)
                     Text(readinessWhyCopy(store: store))
                         .font(FDS.TypeScale.Dynamic.caption)
                         .foregroundColor(.textSecondary)
@@ -82,7 +79,6 @@ private struct HomeHeroReadinessCard: View {
                     )
 
                     Button {
-                        FDS.haptic(.light)
                         // Don't ask ARIA to explain a sleep number nobody measured.
                         let sleep = lastNightSleepMeasured(store: store)
                             ? "Sleep \(store.readiness.sleepQuality), recovery"
@@ -92,21 +88,21 @@ private struct HomeHeroReadinessCard: View {
                             voice: false
                         )
                     } label: {
-                        HStack(spacing: 6) {
+                        HStack(spacing: FDS.Spacing.xs) {
                             ARIAIdentityMark(state: .idle, mood: .energized, size: 14, amplitude: 0.22)
                             Text("Explain my readiness")
                                 .font(FDS.TypeScale.Dynamic.caption)
                         }
                         .foregroundColor(.ember)
                         .frame(maxWidth: .infinity)
-                        .padding(.vertical, 10)
+                        .padding(.vertical, FDS.Spacing.sm)
                         .background(Color.ember.opacity(0.12))
                         .clipShape(Capsule())
                     }
                     .buttonStyle(.plain)
-                    .padding(.top, 4)
+                    .padding(.top, FDS.Spacing.xs)
                 }
-                .padding(.top, 12)
+                .padding(.top, FDS.Spacing.md)
             }
         }
         .padding(HomeMetrics.cardPadding)
@@ -180,7 +176,6 @@ struct HomeTodayHero: View {
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     let action: HomePrimaryAction
     @State private var showScore = false
-    @State private var lastCompleted = -1
     @State private var eventGlow = false
 
     private var recovery: Bool { action.usesRecoveryChrome(store: store) }
@@ -219,15 +214,10 @@ struct HomeTodayHero: View {
                 VStack(spacing: 2) {
                     Text("\(snap.percent)")
                         .font(HomeType.heroScore)
-                        .foregroundStyle(
-                            LinearGradient(
-                                colors: [.textPrimary, energy],
-                                startPoint: .top,
-                                endPoint: .bottom
-                            )
-                        )
+                        .foregroundStyle(Color.textPrimary)
                         .hudInArcText()
-                        .contentTransition(.numericText())
+                        .contentTransition(.numericText(value: Double(snap.percent)))
+                        .forgeAnimation(ForgeMotion.smooth, value: snap.percent)
                     if showInArcMeta {
                         Text(snap.vibeLabel.uppercased())
                             .font(HomeType.micro)
@@ -270,14 +260,14 @@ struct HomeTodayHero: View {
                     recovery: store.readiness.recoveryScore,
                     load: store.readiness.stressLevel
                 ) {
-                    withAnimation(FDS.adaptiveAnimation(FDS.Spring.standard)) { showScore.toggle() }
+                    withForgeMotion(ForgeMotion.smooth) { showScore.toggle() }
                 }
             }
 
             HomeLifeChipRow(chips: HomeLifeSentence.chips(store: store))
 
             if let session = store.todayWorkout {
-                VStack(alignment: .leading, spacing: 4) {
+                VStack(alignment: .leading, spacing: FDS.Spacing.xs) {
                     Text(displaySessionName(session.name))
                         .font(HomeType.sessionTitle)
                         .foregroundColor(.textPrimary)
@@ -294,7 +284,6 @@ struct HomeTodayHero: View {
 
             if !aging.oneBreathLine.isEmpty {
                 Button {
-                    FDS.haptic(.light)
                     store.activeTab = .lifestyle
                     store.pendingLifestyleSegment = "lifetime"
                 } label: {
@@ -312,7 +301,7 @@ struct HomeTodayHero: View {
 
             if showScore {
                 HomeReadinessDetailStrip()
-                    .transition(.opacity.combined(with: .move(edge: .top)))
+                    .forgeTransition(.opacity.combined(with: .move(edge: .top)))
             }
 
             HomePrimaryCTA(action: action)
@@ -320,20 +309,12 @@ struct HomeTodayHero: View {
         .hudPlate(energy: recovery ? .steel : energy)
         .homeEntrance(delay: 0.06)
         .accessibilityElement(children: .contain)
-        .onAppear {
-            lastCompleted = snap.completed
+        // Closing the day is the goal; a single track ticking over is not.
+        .forgeHaptic(.success, trigger: snap.completed) { old, new in
+            new > old && new >= snap.total
         }
-        .onChange(of: snap.completed) { _, new in
-            guard lastCompleted >= 0, new > lastCompleted else {
-                lastCompleted = new
-                return
-            }
-            lastCompleted = new
-            if new >= snap.total {
-                FDS.notificationHaptic(.success)
-            } else {
-                FDS.haptic(.medium)
-            }
+        .onChange(of: snap.completed) { old, new in
+            guard new > old else { return }
             eventGlow = true
             DispatchQueue.main.asyncAfter(deadline: .now() + 1.4) {
                 eventGlow = false
@@ -347,10 +328,10 @@ private struct TodayTrackRow: View {
     var closingTrackID: String? = nil
 
     var body: some View {
-        HStack(spacing: 6) {
+        HStack(spacing: FDS.Spacing.xs) {
             ForEach(tracks) { track in
                 let closing = track.id == closingTrackID
-                VStack(spacing: 6) {
+                VStack(spacing: FDS.Spacing.xs) {
                     ZStack {
                         Circle()
                             .fill(
@@ -396,8 +377,8 @@ private struct HomeReadinessDetailStrip: View {
     @EnvironmentObject var store: AppStore
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            HStack(spacing: 8) {
+        VStack(alignment: .leading, spacing: FDS.Spacing.sm) {
+            HStack(spacing: FDS.Spacing.sm) {
                 readinessFact("Sleep", lastNightSleepMeasured(store: store) ? store.readiness.sleepQuality : nil)
                 readinessFact("Recovery", store.readiness.recoveryScore)
                 readinessFact("HRV", store.dailyMetrics.hrv, unit: "ms")
@@ -407,7 +388,7 @@ private struct HomeReadinessDetailStrip: View {
                 .foregroundColor(.textSecondary)
                 .fixedSize(horizontal: false, vertical: true)
         }
-        .padding(12)
+        .padding(FDS.Spacing.md)
         .background(Color.white.opacity(0.04))
         .clipShape(RoundedRectangle(cornerRadius: HomeMetrics.innerRadius, style: .continuous))
         .overlay(
@@ -439,17 +420,17 @@ private struct HomeLifeChipRow: View {
     let chips: [HomeLifeSentence.Chip]
 
     var body: some View {
-        FlowLayout(spacing: 6) {
+        FlowLayout(spacing: ForgeLayout.chipGap) {
             ForEach(chips) { chip in
-                HStack(spacing: 5) {
+                HStack(spacing: FDS.Spacing.xs) {
                     Image(systemName: chip.icon)
                         .font(.system(size: 10, weight: .semibold))
                     Text(chip.label)
                         .font(HomeType.label)
                 }
                 .foregroundColor(.textPrimary)
-                .padding(.horizontal, 10)
-                .padding(.vertical, 7)
+                .padding(.horizontal, FDS.Spacing.sm)
+                .padding(.vertical, FDS.Spacing.sm)
                 .background(Color.white.opacity(0.08))
                 .clipShape(Capsule())
                 .overlay(Capsule().stroke(Color.white.opacity(0.12), lineWidth: 0.8))
@@ -463,22 +444,17 @@ private struct HomeLifeChipRow: View {
 private struct HomePrimaryCTA: View {
     @EnvironmentObject var store: AppStore
     let action: HomePrimaryAction
-    @State private var pressed = false
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
+        VStack(alignment: .leading, spacing: FDS.Spacing.sm) {
             Text(HomeCoachCopy.nextNowEyebrow(isLighter: action.usesRecoveryChrome(store: store)))
                 .font(HomeType.micro)
                 .foregroundColor(.textTertiary)
                 .tracking(1.2)
                 .accessibilityAddTraits(.isHeader)
 
-            Button {
-                FDS.haptic(.medium)
-                perform()
-            } label: {
-                HStack(spacing: 12) {
+            Button(action: perform) {
+                HStack(spacing: FDS.Spacing.md) {
                     Image(systemName: action.icon)
                         .font(.system(size: 16, weight: .semibold))
                     VStack(alignment: .leading, spacing: 2) {
@@ -493,13 +469,14 @@ private struct HomePrimaryCTA: View {
                                 .lineLimit(2)
                         }
                     }
-                    Spacer(minLength: 8)
+                    Spacer(minLength: FDS.Spacing.sm)
                     Image(systemName: "chevron.right")
                         .font(.system(size: 14, weight: .bold))
+                        .accessibilityHidden(true)
                 }
                 .foregroundColor(.white)
-                .padding(.vertical, 14)
-                .padding(.horizontal, 16)
+                .padding(.vertical, FDS.Spacing.md)
+                .padding(.horizontal, FDS.Spacing.lg)
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .background {
                     ZStack {
@@ -512,29 +489,20 @@ private struct HomePrimaryCTA: View {
                     RoundedRectangle(cornerRadius: FDS.Radius.md, style: .continuous)
                         .stroke(Color.white.opacity(0.20), lineWidth: 0.8)
                 )
-                .shadow(color: Color.ember.opacity(0.34), radius: 10, y: 4)
             }
-            .buttonStyle(.plain)
-            .scaleEffect(pressed && !reduceMotion ? 0.98 : 1)
-            .animation(reduceMotion ? nil : FDS.Spring.snap, value: pressed)
-            .simultaneousGesture(
-                DragGesture(minimumDistance: 0)
-                    .onChanged { _ in pressed = true }
-                    .onEnded { _ in pressed = false }
-            )
+            .buttonStyle(ForgePressStyle(pressHaptic: true))
             .accessibilityLabel(action.title)
             .accessibilityHint(action.subtitle(store: store) ?? "Opens today's session")
 
-            HStack(spacing: 10) {
+            HStack(spacing: FDS.Spacing.sm) {
                 Button {
-                    FDS.haptic(.light)
                     let sentence = HomeLifeSentence.build(store: store)
                     store.openChat(
                         with: "Why this session today? \(sentence.text). \(sentence.detail ?? "") Adjust it if my life doesn't match.",
                         voice: false
                     )
                 } label: {
-                    HStack(spacing: 6) {
+                    HStack(spacing: FDS.Spacing.xs) {
                         // One live mark per screen: Today chrome is the HUD
                         // ring, so this 14pt Nest mark stays still.
                         ARIAIdentityMark(state: .idle, mood: .energized, size: 14, amplitude: 0.22)
@@ -544,7 +512,7 @@ private struct HomePrimaryCTA: View {
                     }
                     .foregroundColor(.textSecondary)
                     .frame(maxWidth: .infinity)
-                    .padding(.vertical, 10)
+                    .padding(.vertical, FDS.Spacing.sm)
                     .background(Color.white.opacity(0.07))
                     .clipShape(RoundedRectangle(cornerRadius: HomeMetrics.innerRadius, style: .continuous))
                     .overlay(
@@ -557,10 +525,9 @@ private struct HomePrimaryCTA: View {
                 .accessibilityHint("Asks ARIA why today's session looks like this")
 
                 Button {
-                    FDS.haptic(.light)
                     store.activeTab = .lifestyle
                 } label: {
-                    HStack(spacing: 6) {
+                    HStack(spacing: FDS.Spacing.xs) {
                         Image(systemName: "leaf.fill")
                             .font(.system(size: 12, weight: .semibold))
                         Text("Lifestyle")
@@ -568,7 +535,7 @@ private struct HomePrimaryCTA: View {
                     }
                     .foregroundColor(Color.vitality)
                     .frame(maxWidth: .infinity)
-                    .padding(.vertical, 10)
+                    .padding(.vertical, FDS.Spacing.sm)
                     .background(Color.vitality.opacity(0.10))
                     .clipShape(RoundedRectangle(cornerRadius: HomeMetrics.innerRadius, style: .continuous))
                     .overlay(

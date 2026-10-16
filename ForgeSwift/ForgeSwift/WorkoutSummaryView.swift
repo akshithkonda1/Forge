@@ -1,4 +1,5 @@
 import SwiftUI
+import ForgeCore
 
 struct WorkoutSummaryView: View {
     let data: WorkoutSummaryData
@@ -38,11 +39,9 @@ struct WorkoutSummaryView: View {
         }
         .forgeScreenBackground(accent: .ember)
         .sheet(isPresented: $showDashboard) { ARIADashboardView(snapshot: data.ariaSnapshot, isPreWorkout: false) }
-        .onAppear {
-            guard !celebrate else { return }
-            celebrate = true
-            FDS.haptic(.success)
-        }
+        .onAppear { celebrate = true }
+        // The workout is logged: one success, the moment the summary lands.
+        .forgeHaptic(.success, trigger: celebrate)
     }
 
     // MARK: - Hero
@@ -177,7 +176,6 @@ struct WorkoutSummaryView: View {
 
     private var dashboardRow: some View {
         Button {
-            FDS.haptic(.press)
             showDashboard = true
         } label: {
             ForgeListRow(

@@ -1,4 +1,5 @@
 import SwiftUI
+import ForgeCore
 
 /// Basal body temperature entry unit. Stored value is always Celsius.
 enum BBTUnit: String, CaseIterable, Identifiable {
@@ -88,7 +89,7 @@ struct AddSupportedPersonSheet: View {
         return Button {
             role = option
             label = option.suggestedLabels.first ?? label
-            FDS.haptic(.select)
+            ForgeHaptics.play(.selection)
         } label: {
             HStack(spacing: ForgeLayout.rowGap) {
                 ForgeIconWell(systemImage: option.icon, tint: .indigo)
@@ -196,7 +197,7 @@ struct AddSupportedPersonSheet: View {
                 relationshipLabel: label.isEmpty ? role.suggestedLabels.first : label,
                 consentAcknowledged: consent
             )
-            FDS.notificationHaptic(.success)
+            ForgeHaptics.play(.success)
             onAdded(person)
             dismiss()
         }
@@ -368,7 +369,6 @@ struct SexualHealthEntryCard: View {
 
     private func entryButton(_ flow: IntimacyFlow) -> some View {
         Button {
-            FDS.haptic(.press)
             if flow == .difficultyConceiving {
                 showDifficultyGuide = true
             } else {

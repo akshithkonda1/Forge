@@ -30,7 +30,7 @@ struct ReadinessForecastCard: View {
                 confidencePill(forecast.confidence)
             }
 
-            HStack(spacing: compact ? 12 : 16) {
+            HStack(spacing: compact ? FDS.Spacing.md : FDS.Spacing.lg) {
                 HudProgressRing(
                     progress: forecast.predictedScore,
                     energy: energy,
@@ -51,6 +51,8 @@ struct ReadinessForecastCard: View {
                     }
                     .accessibilityHidden(true)
                 }
+                .accessibilityElement(children: .ignore)
+                .accessibilityLabel("Tomorrow's readiness forecast: \(forecast.predictedScore) out of 100")
                 VStack(alignment: .leading, spacing: FDS.Spacing.sm) {
                     Text(postureTitle(forecast.posture))
                         .font(HomeType.status)
@@ -81,7 +83,6 @@ struct ReadinessForecastCard: View {
             }
 
             Button {
-                FDS.haptic(.light)
                 store.openChat(with: HomeInsightFlow.tomorrowPrompt(picture: picture), voice: false)
             } label: {
                 HStack {

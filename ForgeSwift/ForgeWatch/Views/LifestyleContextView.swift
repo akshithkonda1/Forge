@@ -23,7 +23,7 @@ struct LifestyleContextView: View {
                         contextEngine.setMode(nil)
                     } label: {
                         Label("Clear context", systemImage: "xmark.circle")
-                            .font(.system(size: 12.5))
+                            .font(ForgeFont.sans(12.5))
                             .foregroundStyle(ForgePalette.textTertiary)
                     }
                     .accessibilityHint("Removes the current context. Forge goes back to time-based suggestions.")
@@ -33,7 +33,7 @@ struct LifestyleContextView: View {
             } footer: {
                 if let mode = contextEngine.currentMode {
                     Text(mode.activationMessage)
-                        .font(.system(size: 11))
+                        .font(ForgeFont.sans(11))
                         .foregroundStyle(mode.accentColor)
                 }
             }
@@ -50,7 +50,7 @@ struct LifestyleContextView: View {
                 Text("Places")
             } footer: {
                 Text("Saved places stay on this watch and help Forge suggest the right context — like noticing you've arrived at the gym.")
-                    .font(.system(size: 10.5))
+                    .font(ForgeFont.sans(10.5))
             }
 
             Section {
@@ -59,7 +59,7 @@ struct LifestyleContextView: View {
                 Text("Breath haptics")
             } footer: {
                 Text("Wrist taps pace each breath so sessions work eyes-free.")
-                    .font(.system(size: 10.5))
+                    .font(ForgeFont.sans(10.5))
             }
 
             Section {
@@ -67,11 +67,11 @@ struct LifestyleContextView: View {
                     get: { contextEngine.minimalAnimation },
                     set: { contextEngine.minimalAnimation = $0 }
                 ))
-                .font(.system(size: 12.5))
+                .font(ForgeFont.sans(12.5))
                 .accessibilityHint("Replaces moving orbs with calm static visuals everywhere, independent of the system Reduce Motion setting.")
             } footer: {
                 Text("Guidance stays fully usable — haptics and text carry every session.")
-                    .font(.system(size: 10.5))
+                    .font(ForgeFont.sans(10.5))
             }
         }
         .navigationTitle("Context")
@@ -88,7 +88,7 @@ struct LifestyleContextView: View {
                     .foregroundStyle(mode.accentColor)
                     .frame(width: 22)
                 Text(mode.displayName)
-                    .font(.system(size: 13))
+                    .font(ForgeFont.sans(13))
                 Spacer()
                 if isCurrent {
                     Image(systemName: "checkmark")
@@ -121,7 +121,7 @@ struct LifestyleContextView: View {
                     .foregroundStyle(label.suggestedMode.accentColor)
                     .frame(width: 22)
                 Text(saved ? "\(label.displayName) saved" : "Save \(label.displayName.lowercased()) here")
-                    .font(.system(size: 12.5))
+                    .font(ForgeFont.sans(12.5))
                 Spacer()
                 if savingPlace == label {
                     ProgressView().controlSize(.mini)
@@ -147,7 +147,7 @@ struct LifestyleContextView: View {
                 Text(profile.displayName).tag(profile)
             }
         }
-        .font(.system(size: 12.5))
+        .font(ForgeFont.sans(12.5))
         .accessibilityHint("Tailors coaching language to how your days actually run.")
     }
 
@@ -160,7 +160,7 @@ struct LifestyleContextView: View {
                 Text(intensity.label).tag(intensity)
             }
         }
-        .font(.system(size: 12.5))
+        .font(ForgeFont.sans(12.5))
         .accessibilityLabel("Breath haptic intensity")
     }
 }

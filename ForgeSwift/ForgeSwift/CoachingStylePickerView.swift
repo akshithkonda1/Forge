@@ -15,8 +15,8 @@ struct CoachingStylePickerView: View {
     }
 
     private func select(_ style: CoachingStyle) {
-        FDS.haptic(.select)
-        withAnimation(reduceMotion ? nil : FDS.Spring.snap) {
+        ForgeHaptics.play(.selection)
+        withAnimation(reduceMotion ? nil : ForgeMotion.snappy) {
             selectedStyle = style
         }
     }

@@ -95,13 +95,13 @@ struct ClinicalDataNonPHIView: View {
                     .font(HomeType.body)
                     .foregroundStyle(Color.textSecondary)
                     .forgeWrapping()
-                    .transition(.opacity.combined(with: .scale(scale: 0.97, anchor: .top)))
+                    .forgeTransition(.opacity.combined(with: .scale(scale: 0.97, anchor: .top)))
             }
             ForgeTextLink(title: "How this works", accent: .steel, expanded: showHow) {
                 if reduceMotion {
                     showHow.toggle()
                 } else {
-                    withAnimation(FDS.Spring.standard) { showHow.toggle() }
+                    withForgeMotion(ForgeMotion.smooth) { showHow.toggle() }
                 }
             }
         }
@@ -464,7 +464,7 @@ struct ClinicalDataNonPHIView: View {
             .filter { !$0.isEmpty }
             .joined(separator: " · ")
         return Button {
-            FDS.haptic(.select)
+            ForgeHaptics.play(.selection)
             MedicationPharmacy.toggleSaved(name: med.name)
             saved = MedicationPharmacy.savedNames()
             AriaContextStore.shared.applyMedicationLayer()

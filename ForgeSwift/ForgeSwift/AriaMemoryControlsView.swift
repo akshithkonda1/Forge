@@ -328,7 +328,7 @@ struct AriaMemoryControlsView: View {
         action: @escaping () -> Void
     ) -> some View {
         Button {
-            FDS.haptic(.select)
+            ForgeHaptics.play(.selection)
             action()
         } label: {
             HStack(alignment: .top, spacing: ForgeLayout.rowGap) {

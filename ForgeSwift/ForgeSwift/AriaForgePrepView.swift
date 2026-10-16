@@ -81,7 +81,7 @@ struct AriaForgePrepView: View {
                 .foregroundStyle(Color.textPrimary)
                 .multilineTextAlignment(.center)
                 .forgeWrapping()
-                .animation(reduceMotion ? nil : FDS.Spring.standard, value: stage)
+                .animation(reduceMotion ? nil : ForgeMotion.smooth, value: stage)
 
             Text(stage.detail(healthConnected: coordinator.prepHealthConnected))
                 .font(HomeType.body)
@@ -90,7 +90,7 @@ struct AriaForgePrepView: View {
                 .forgeWrapping()
                 .padding(.top, ForgeLayout.pairGap)
                 .padding(.horizontal, FDS.Spacing.sm)
-                .animation(reduceMotion ? nil : FDS.Spring.standard, value: stage)
+                .animation(reduceMotion ? nil : ForgeMotion.smooth, value: stage)
         }
         .frame(maxWidth: .infinity)
         .accessibilityElement(children: .combine)

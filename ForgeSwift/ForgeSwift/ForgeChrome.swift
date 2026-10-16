@@ -59,7 +59,6 @@ struct ForgeSecondaryButton: View {
 
     var body: some View {
         Button {
-            FDS.haptic(.press)
             action()
         } label: {
             HStack(spacing: FDS.Spacing.sm) {
@@ -100,7 +99,7 @@ struct ForgeChip: View {
     var fillsWidth: Bool = false
 
     var body: some View {
-        HStack(spacing: 5) {
+        HStack(spacing: FDS.Spacing.xs) {
             if let icon {
                 Image(systemName: icon)
                     .font(.system(size: 10, weight: .semibold))
@@ -112,8 +111,8 @@ struct ForgeChip: View {
                 .minimumScaleFactor(ForgeLayout.labelMinScale)
         }
         .foregroundStyle(selected ? energy : Color.textPrimary)
-        .padding(.horizontal, 10)
-        .padding(.vertical, 7)
+        .padding(.horizontal, FDS.Spacing.sm)
+        .padding(.vertical, FDS.Spacing.sm)
         .frame(maxWidth: fillsWidth ? CGFloat.infinity : nil, minHeight: 30)
         .background(selected ? energy.opacity(0.14) : Color.white.opacity(0.08))
         .clipShape(Capsule())
@@ -371,12 +370,12 @@ extension View {
 
 // MARK: - Layout rhythm
 //
-// Home's numbers, promoted app-wide. PR #448 had no 20 pt token outside Home,
-// so card padding fell to 16 while in-card gaps rose to 16. Padding equal to
-// the gap is what made the dense screens read as cramped. Each step below is
+// Every value sits on the spacing scale (4 / 8 / 12 / 16 / 24 / 32 / 48).
+// Card padding stays larger than any gap inside the card (PR #448 set them
+// equal at 16 and the dense screens read as cramped), and each step below is
 // strictly smaller than the one before it, so tighter spacing always means
 // "more related":
-// cardPadding 20 > sectionGap 16 = heroGap 16 > blockGap 14 > rowGap 12 > tileGap 10 > pairGap 4.
+// cardPadding 24 > sectionGap 16 = heroGap 16 = blockGap 16 > rowGap 12 > tileGap 8 > pairGap 4.
 
 enum ForgeLayout {
     /// Horizontal page inset.
@@ -397,11 +396,11 @@ enum ForgeLayout {
     /// Interior padding for one-line banners, toasts and rail tiles.
     static let compactCardPadding: CGFloat = FDS.Spacing.lg
     /// Between blocks inside a card: header, body, footer.
-    static let blockGap: CGFloat = 14
+    static let blockGap: CGFloat = FDS.Spacing.lg
     /// Between repeated rows inside a card.
     static let rowGap: CGFloat = FDS.Spacing.md
     /// Between equal-width tiles and paired buttons.
-    static let tileGap: CGFloat = 10
+    static let tileGap: CGFloat = FDS.Spacing.sm
     /// Interior padding of a well (an inset tile nested in a card).
     static let tilePadding: CGFloat = FDS.Spacing.md
     /// Between a title and its subtitle, or an eyebrow and its lead line.
@@ -409,7 +408,7 @@ enum ForgeLayout {
     /// Between a label and its value, and between stacked `ForgeMetricRow`s.
     static let labelValueGap: CGFloat = 2
     /// Between chips in a row, and between rows of static chips (Home's chip row).
-    static let chipGap: CGFloat = 6
+    static let chipGap: CGFloat = FDS.Spacing.sm
     /// Between rows of `ForgeChipButton`s. A 30 pt chip plus 14 makes rows
     /// 44 pt apart, so each chip's 44 pt tap area meets the next row's exactly.
     static let interactiveChipLineGap: CGFloat = 14
@@ -465,26 +464,14 @@ private struct ForgeContentCard: ViewModifier {
     var padding: CGFloat
     var alignment: Alignment
 
-    /// `accent` already tints through `forgeGlassCard`; `tint` alone washes
-    /// the card in its domain color without the halo.
-    private var wash: Color? { accent == nil ? tint : nil }
+    // `accent` / `tint` are kept for API compatibility. The premium refresh
+    // draws every card as the same flat surface + hairline; domain color lives
+    // in the content (icons, numbers, charts), not in washes behind it.
 
     func body(content: Content) -> some View {
         content
             .frame(maxWidth: .infinity, alignment: alignment)
             .padding(padding)
-            .background {
-                if let wash {
-                    RoundedRectangle(cornerRadius: FDS.Radius.xl, style: .continuous)
-                        .fill(
-                            LinearGradient(
-                                colors: [wash.opacity(0.07), .clear],
-                                startPoint: .topLeading,
-                                endPoint: .bottomTrailing
-                            )
-                        )
-                }
-            }
             .forgeGlassCard(accent: accent)
     }
 }
@@ -613,7 +600,7 @@ extension View {
 /// Trailing micro meta for `ForgeCardHeader` ("3 items", "QoL 72 · Good").
 struct ForgeCardMeta: View {
     var text: String
-    var color: Color = .textMuted
+    var color: Color = .textTertiary
 
     var body: some View {
         Text(text)
@@ -656,7 +643,7 @@ extension ForgeCardHeader where Trailing == EmptyView {
 }
 
 extension ForgeCardHeader where Trailing == ForgeCardMeta {
-    init(_ title: String, meta: String, metaColor: Color = .textMuted, tint: Color = .textTertiary) {
+    init(_ title: String, meta: String, metaColor: Color = .textTertiary, tint: Color = .textTertiary) {
         self.init(title: title, tint: tint) {
             ForgeCardMeta(text: meta, color: metaColor)
         }
@@ -682,7 +669,6 @@ struct ForgeTextLink: View {
 
     var body: some View {
         Button {
-            FDS.haptic(.press)
             action()
         } label: {
             HStack(spacing: FDS.Spacing.xs) {
@@ -692,7 +678,7 @@ struct ForgeTextLink: View {
                 Image(systemName: expanded == nil ? "chevron.right" : "chevron.down")
                     .font(.system(size: 11, weight: .semibold))
                     .rotationEffect(.degrees(expanded == true ? 180 : 0))
-                    .animation(reduceMotion ? nil : FDS.Spring.standard, value: expanded)
+                    .animation(reduceMotion ? nil : ForgeMotion.smooth, value: expanded)
                     .accessibilityHidden(true)
             }
             .foregroundStyle(accent)
@@ -756,7 +742,7 @@ struct ForgeMetricRow: View {
             ? AnyLayout(VStackLayout(alignment: .leading, spacing: ForgeLayout.labelValueGap))
             : AnyLayout(HStackLayout(alignment: .center, spacing: FDS.Spacing.sm))
         layout {
-            HStack(spacing: 10) {
+            HStack(spacing: FDS.Spacing.sm) {
                 if let tint {
                     RoundedRectangle(cornerRadius: 1, style: .continuous)
                         .fill(tint)
@@ -787,15 +773,16 @@ struct ForgeMetricRow: View {
                     .minimumScaleFactor(ForgeLayout.valueMinScale)
                     .contentTransition(.numericText())
                 if let unit, !unit.isEmpty {
+                    // Units stay neutral so the number carries the color.
                     Text(unit)
                         .font(HomeType.label)
-                        .foregroundStyle(tint ?? Color.textTertiary)
+                        .foregroundStyle(Color.textTertiary)
                         .lineLimit(1)
                 }
             }
             .layoutPriority(1)
         }
-        .padding(.vertical, 6)
+        .padding(.vertical, FDS.Spacing.xs)
         .accessibilityElement(children: .combine)
     }
 }
@@ -1043,7 +1030,7 @@ struct ForgeChipButton: View {
 
     var body: some View {
         Button {
-            FDS.haptic(.select)
+            ForgeHaptics.play(.selection)
             action()
         } label: {
             ForgeChip(label: label, icon: icon, energy: energy, selected: selected, fillsWidth: fillsWidth)
@@ -1070,7 +1057,7 @@ struct ForgeScaleCell: View {
 
     var body: some View {
         Button {
-            FDS.haptic(.select)
+            ForgeHaptics.play(.selection)
             action()
         } label: {
             Text(title)
@@ -1179,7 +1166,7 @@ struct ForgeSegmentedControl<Value: Hashable>: View {
                 if reduceMotion {
                     proxy.scrollTo(value, anchor: .center)
                 } else {
-                    withAnimation(FDS.Spring.standard) { proxy.scrollTo(value, anchor: .center) }
+                    withForgeMotion(ForgeMotion.smooth) { proxy.scrollTo(value, anchor: .center) }
                 }
             }
         }
@@ -1189,7 +1176,7 @@ struct ForgeSegmentedControl<Value: Hashable>: View {
         if reduceMotion || !animatesSelection {
             selection = value
         } else {
-            withAnimation(FDS.Spring.snap) { selection = value }
+            withForgeMotion(ForgeMotion.snappy) { selection = value }
         }
     }
 
@@ -1197,10 +1184,10 @@ struct ForgeSegmentedControl<Value: Hashable>: View {
         let isOn = option.value == selection
         return Button {
             guard !isOn else { return }
-            FDS.haptic(.select)
+            ForgeHaptics.play(.selection)
             select(option.value)
         } label: {
-            HStack(spacing: 6) {
+            HStack(spacing: FDS.Spacing.xs) {
                 if let icon = option.icon {
                     Image(systemName: icon)
                         .font(.system(size: 12, weight: .semibold))
@@ -1212,7 +1199,7 @@ struct ForgeSegmentedControl<Value: Hashable>: View {
                     .foregroundStyle(isOn ? Color.textPrimary : Color.textSecondary)
                     .forgeSingleLine(minScale: ForgeLayout.labelMinScale)
             }
-            .padding(.horizontal, 14)
+            .padding(.horizontal, FDS.Spacing.md)
             .frame(maxWidth: inTrack ? CGFloat.infinity : nil, minHeight: 36)
             .background {
                 if isOn {
@@ -1266,7 +1253,6 @@ struct ForgeSheetHeader: View {
             }
             .frame(maxWidth: .infinity, alignment: .leading)
             Button {
-                FDS.haptic(.press)
                 onClose()
             } label: {
                 Image(systemName: "xmark")
@@ -1332,7 +1318,11 @@ struct ForgeSkeletonWell: View {
             .frame(maxWidth: .infinity, minHeight: minHeight)
             .background(
                 RoundedRectangle(cornerRadius: ForgeLayout.innerRadius, style: .continuous)
-                    .fill(Color.white.opacity(0.06))
+                    .fill(Color.white.opacity(0.03))
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: ForgeLayout.innerRadius, style: .continuous)
+                    .strokeBorder(Color.borderHairline, lineWidth: 0.5)
             )
             .accessibilityLabel(message)
     }
@@ -1383,7 +1373,7 @@ struct ForgeProgressBar: View {
             }
         }
         .frame(height: height)
-        .animation(reduceMotion ? nil : FDS.Spring.standard, value: clamped)
+        .animation(reduceMotion ? nil : ForgeMotion.smooth, value: clamped)
         .accessibilityElement()
         .accessibilityValue("\(Int((clamped * 100).rounded())) percent")
     }
@@ -1392,24 +1382,31 @@ struct ForgeProgressBar: View {
 // MARK: - Press feedback
 
 /// Press feedback for primary CTAs and card-sized buttons: a 0.98 scale on
-/// `FDS.Spring.snap`, and none under Reduce Motion.
+/// `ForgeMotion.snappy`, and none under Reduce Motion. Primary buttons pass
+/// `pressHaptic` for a light impact on touch-down, so a success that follows
+/// the action (a logged set) lands as its own beat on release.
 struct ForgePressStyle: ButtonStyle {
     var scale: CGFloat = 0.98
+    var pressHaptic = false
 
     func makeBody(configuration: Configuration) -> some View {
-        ForgePressBody(configuration: configuration, scale: scale)
+        ForgePressBody(configuration: configuration, scale: scale, pressHaptic: pressHaptic)
     }
 }
 
 private struct ForgePressBody: View {
     let configuration: ButtonStyleConfiguration
     let scale: CGFloat
+    let pressHaptic: Bool
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         configuration.label
             .scaleEffect(configuration.isPressed && !reduceMotion ? scale : 1)
-            .animation(reduceMotion ? nil : FDS.Spring.snap, value: configuration.isPressed)
+            .animation(reduceMotion ? nil : ForgeMotion.snappy, value: configuration.isPressed)
+            .forgeHaptic(.press, trigger: configuration.isPressed) { _, pressed in
+                pressHaptic && pressed
+            }
     }
 }

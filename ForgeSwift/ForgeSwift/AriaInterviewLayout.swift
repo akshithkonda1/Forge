@@ -45,7 +45,7 @@ struct AriaInterviewLayout: View {
                     .frame(minHeight: transcriptMin, maxHeight: .infinity)
                 composer(maxHeight: sheetMax)
             }
-            .animation(motion(FDS.Spring.standard), value: collapsed)
+            .animation(motion(ForgeMotion.smooth), value: collapsed)
         }
         .onReceive(NotificationCenter.default.publisher(for: UIResponder.keyboardWillShowNotification)) { _ in
             keyboardVisible = true
@@ -144,7 +144,7 @@ struct AriaInterviewLayout: View {
 
             AriaSpokenMuteButton()
         }
-        .animation(motion(FDS.Spring.page), value: coordinator.step)
+        .animation(motion(ForgeMotion.smooth), value: coordinator.step)
     }
 
     private var progressBar: some View {
@@ -171,9 +171,9 @@ struct AriaInterviewLayout: View {
             }
             .frame(maxWidth: .infinity, alignment: .leading)
         }
-        .animation(motion(FDS.Spring.snap), value: dictation.isListening)
-        .animation(motion(FDS.Spring.snap), value: presence.isSpeaking)
-        .animation(motion(FDS.Spring.page), value: coordinator.step)
+        .animation(motion(ForgeMotion.snappy), value: dictation.isListening)
+        .animation(motion(ForgeMotion.snappy), value: presence.isSpeaking)
+        .animation(motion(ForgeMotion.smooth), value: coordinator.step)
     }
 
     private var orbButton: some View {
@@ -214,7 +214,7 @@ struct AriaInterviewLayout: View {
                             accent: Color.textTertiary,
                             expanded: showsEarlier
                         ) {
-                            withAnimation(motion(FDS.Spring.standard)) {
+                            withAnimation(motion(ForgeMotion.smooth)) {
                                 showsEarlier.toggle()
                             }
                         }
@@ -238,13 +238,13 @@ struct AriaInterviewLayout: View {
                 .padding(.vertical, FDS.Spacing.sm)
             }
             .onChange(of: coordinator.messages.count) { _, _ in
-                withAnimation(motion(FDS.Spring.snap)) {
+                withAnimation(motion(ForgeMotion.snappy)) {
                     proxy.scrollTo("bottom", anchor: .bottom)
                 }
             }
             .onChange(of: coordinator.isTyping) { _, typing in
                 if typing {
-                    withAnimation(motion(FDS.Spring.snap)) {
+                    withAnimation(motion(ForgeMotion.snappy)) {
                         proxy.scrollTo("typing", anchor: .bottom)
                     }
                 }
@@ -285,7 +285,7 @@ struct AriaInterviewLayout: View {
         }
         .frame(maxHeight: maxHeight)
         .background { sheetBackground }
-        .animation(motion(FDS.Spring.page), value: coordinator.step)
+        .animation(motion(ForgeMotion.smooth), value: coordinator.step)
     }
 
     private var sheetBackground: some View {
@@ -299,14 +299,7 @@ struct AriaInterviewLayout: View {
         return shape
             .fill(Color.surface.opacity(0.96))
             .overlay {
-                shape.stroke(
-                    LinearGradient(
-                        colors: [Color.white.opacity(0.14), Color.white.opacity(0.04)],
-                        startPoint: .top,
-                        endPoint: .bottom
-                    ),
-                    lineWidth: 1
-                )
+                shape.stroke(Color.borderHairline, lineWidth: 0.5)
             }
             .shadow(color: .black.opacity(0.45), radius: 28, y: -12)
             .ignoresSafeArea(.container, edges: .bottom)

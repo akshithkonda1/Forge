@@ -1,4 +1,5 @@
 import SwiftUI
+import ForgeCore
 
 // MARK: - Voice Coach Bar (replaces CoachBarView)
 
@@ -20,7 +21,6 @@ struct VoiceCoachBar: View {
 
     private func openTranscript() {
         guard let text = expandableText else { return }
-        FDS.haptic(.press)
         transcriptText = text
         showTranscript = true
     }
@@ -101,8 +101,8 @@ struct VoiceCoachBar: View {
                     .stroke(Color.ember.opacity(0.6), lineWidth: 1.5)
             }
         }
-        .animation(reduceMotion ? nil : FDS.Spring.standard, value: coach.isListening)
-        .animation(reduceMotion ? nil : FDS.Spring.standard, value: coach.lastCoachMessage)
+        .animation(reduceMotion ? nil : ForgeMotion.smooth, value: coach.isListening)
+        .animation(reduceMotion ? nil : ForgeMotion.smooth, value: coach.lastCoachMessage)
         .sheet(isPresented: $showTranscript) {
             VoiceCoachTranscriptSheet(message: transcriptText)
         }
@@ -228,7 +228,7 @@ struct MicButton: View {
         }
         .buttonStyle(ForgePressStyle())
         .disabled(!coach.isVoiceEnabled || coach.isThinking)
-        .animation(reduceMotion ? nil : FDS.Spring.standard, value: coach.isListening)
+        .animation(reduceMotion ? nil : ForgeMotion.smooth, value: coach.isListening)
         .accessibilityLabel(coach.isListening ? "Stop listening" : "Ask ARIA")
         .accessibilityHint(coach.isListening ? "Stops voice input" : "Starts voice input")
     }
@@ -252,7 +252,7 @@ struct MicButton: View {
     }
 
     func handleTap() {
-        FDS.haptic(.press)
+        ForgeHaptics.play(.press)
 
         if coach.isListening {
             coach.stopListening()
@@ -290,7 +290,7 @@ struct AriaSpokenMuteButton: View {
     }
 
     private func toggle() {
-        FDS.haptic(.light)
+        ForgeHaptics.play(.selection)
         muted.toggle()
         AriaSpokenMute.isMuted = muted
         if let coach {

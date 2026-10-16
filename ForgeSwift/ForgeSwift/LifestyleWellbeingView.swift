@@ -265,7 +265,7 @@ struct DailyHabitsCard: View {
                     if reduceMotion {
                         habit.done.toggle()
                     } else {
-                        withAnimation(FDS.Spring.snap) {
+                        withForgeMotion(ForgeMotion.snappy) {
                             habit.done.toggle()
                         }
                     }
@@ -279,10 +279,10 @@ struct DailyHabitsCard: View {
     /// Selection haptic per tap; closing the last habit is the event moment.
     private func acknowledgeToggle() {
         guard !habits.isEmpty, completed == habits.count else {
-            FDS.haptic(.select)
+            ForgeHaptics.play(.selection)
             return
         }
-        FDS.haptic(.success)
+        ForgeHaptics.play(.success)
         eventGlow = true
         DispatchQueue.main.asyncAfter(deadline: .now() + 1.35) {
             eventGlow = false
@@ -818,7 +818,7 @@ struct AIInsightsModal: View {
         if reduceMotion {
             isPresented = false
         } else {
-            withAnimation(FDS.Spring.standard) { isPresented = false }
+            withForgeMotion(ForgeMotion.smooth) { isPresented = false }
         }
     }
 }
@@ -858,7 +858,7 @@ struct AIInsightCard: View {
         if reduceMotion {
             expanded.toggle()
         } else {
-            withAnimation(FDS.Spring.standard) { expanded.toggle() }
+            withForgeMotion(ForgeMotion.smooth) { expanded.toggle() }
         }
     }
 }
@@ -937,7 +937,7 @@ struct HobbyPathCard: View {
     private func suggestionRow(_ item: HobbyPathEngine.Suggestion) -> some View {
         HStack(alignment: .top, spacing: ForgeLayout.rowGap) {
             ForgeIconWell(
-                systemImage: Self.hobbySymbols[item.hobby.rawValue] ?? "sparkles",
+                systemImage: Self.hobbySymbols[item.hobby.rawValue] ?? "circle.grid.2x2",
                 tint: .amber
             )
             VStack(alignment: .leading, spacing: ForgeLayout.labelValueGap) {
@@ -1210,7 +1210,7 @@ struct YourPeopleSheet: View {
             VStack(alignment: .leading, spacing: 0) {
                 ForEach(suggestions, id: \.id) { row in
                     Button {
-                        FDS.haptic(.press)
+                        ForgeHaptics.play(.press)
                         confirm(name: row.name, identifier: row.id)
                     } label: {
                         HStack(spacing: ForgeLayout.rowGap) {
@@ -1246,7 +1246,7 @@ struct YourPeopleSheet: View {
                         .lineLimit(2)
                         .frame(maxWidth: .infinity, alignment: .leading)
                     Button {
-                        FDS.haptic(.press)
+                        ForgeHaptics.play(.press)
                         remove(person)
                     } label: {
                         Text("Remove")

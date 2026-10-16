@@ -52,32 +52,10 @@ enum InviteBubble {
             let cg = context.cgContext
             let rect = CGRect(origin: .zero, size: size)
 
+            // One flat status color. No sheen, no bloom.
             let colors = gradient(for: payload.effectiveStatus)
-            if let gradient = CGGradient(colorsSpace: CGColorSpaceCreateDeviceRGB(),
-                                         colors: colors.map(\.cgColor) as CFArray,
-                                         locations: [0, 1]) {
-                cg.drawLinearGradient(gradient,
-                                      start: CGPoint(x: 0, y: 0),
-                                      end: CGPoint(x: size.width, y: size.height),
-                                      options: [])
-            }
-
-            // A soft off-centre bloom, so the card reads as lit rather than as a
-            // flat swatch at bubble size.
-            cg.saveGState()
-            cg.setBlendMode(.plusLighter)
-            if let bloom = CGGradient(colorsSpace: CGColorSpaceCreateDeviceRGB(),
-                                      colors: [UIColor.white.withAlphaComponent(0.20).cgColor,
-                                               UIColor.white.withAlphaComponent(0).cgColor] as CFArray,
-                                      locations: [0, 1]) {
-                cg.drawRadialGradient(bloom,
-                                      startCenter: CGPoint(x: size.width * 0.24, y: size.height * 0.28),
-                                      startRadius: 0,
-                                      endCenter: CGPoint(x: size.width * 0.24, y: size.height * 0.28),
-                                      endRadius: size.width * 0.62,
-                                      options: [])
-            }
-            cg.restoreGState()
+            (colors.first ?? UIColor.black).setFill()
+            cg.fill(rect)
 
             let glyph = UIImage(systemName: payload.effectiveStatus.isActionable
                                 ? "heart.text.square.fill"
@@ -90,12 +68,12 @@ enum InviteBubble {
 
             draw(payload.bubbleCaption,
                  in: CGRect(x: 22, y: rect.height - 84, width: rect.width - 44, height: 30),
-                 font: .systemFont(ofSize: 17, weight: .semibold),
+                 font: brandFont(17, face: .semibold, fallbackWeight: .semibold),
                  color: .white)
 
             draw(payload.effectiveStatus.caption,
                  in: CGRect(x: 22, y: rect.height - 54, width: rect.width - 44, height: 24),
-                 font: .systemFont(ofSize: 13, weight: .medium),
+                 font: brandFont(13, face: .medium, fallbackWeight: .medium),
                  color: .white.withAlphaComponent(0.78))
         }
     }
@@ -103,6 +81,12 @@ enum InviteBubble {
     /// Warm ember while the invite is live; deliberately drained once it is not,
     /// so a dead invite is distinguishable from a live one at a glance in a
     /// scrolling transcript, without reading the caption.
+    /// Geist from ForgeCore (registered on first use); system font if absent.
+    private static func brandFont(_ size: CGFloat, face: ForgeFont.Face, fallbackWeight: UIFont.Weight) -> UIFont {
+        ForgeFont.registerIfNeeded()
+        return UIFont(name: face.rawValue, size: size) ?? .systemFont(ofSize: size, weight: fallbackWeight)
+    }
+
     private static func gradient(for status: PartnerInvitePayload.Status) -> [UIColor] {
         switch status {
         case .pending:

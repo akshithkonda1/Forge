@@ -16,6 +16,7 @@ enum FDS {
         static let lg:  CGFloat = ForgeDS.Spacing.lg
         static let xl:  CGFloat = ForgeDS.Spacing.xl
         static let xxl: CGFloat = ForgeDS.Spacing.xxl
+        static let xxxl: CGFloat = ForgeDS.Spacing.xxxl
     }
     
     // MARK: - Radius
@@ -78,114 +79,19 @@ enum FDS {
         }
     }
     
-    // MARK: - Duration
-    
-    enum Duration {
-        static let snap:    Double = 0.15
-        static let fast:    Double = 0.25
-        static let standard: Double = 0.35
-        static let slow:    Double = 0.5
-        static let breathe: Double = 3.0
-        static let ambient: Double = 20.0
-    }
-    
-    // MARK: - Spring Animations
-
-    enum Spring {
-        static let snap     = Animation.spring(SwiftUI.Spring(response: 0.25, dampingRatio: 0.75))
-        static let standard = Animation.spring(SwiftUI.Spring(response: 0.35, dampingRatio: 0.75))
-        static let hero     = Animation.spring(SwiftUI.Spring(response: 0.45, dampingRatio: 0.70))
-        static let floaty   = Animation.spring(SwiftUI.Spring(response: 0.55, dampingRatio: 0.65))
-        static let page     = Animation.spring(SwiftUI.Spring(response: 0.40, dampingRatio: 0.80))
-        /// Slow inhale — used for ARIA reveals and orb breath.
-        static let fluid    = Animation.spring(SwiftUI.Spring(response: 0.82, dampingRatio: 0.78))
-        /// Whoop-style score fill: 1.2s ease-out. Apple rings use the same 12-o'clock start.
-        static let sweep    = Animation.easeOut(duration: 1.2)
-        /// Oura progressive stagger between glanceable score dials.
-        static func sweepDelay(_ index: Int) -> Animation {
-            sweep.delay(0.08 * Double(index))
-        }
-    }
-    
     // MARK: - Gradients
-    
+    //
+    // Retired for the premium refresh: each name now resolves to a flat fill
+    // (one accent, no sheen) so existing call sites keep compiling.
+
     enum Gradient {
-        static let ember = LinearGradient(
-            colors: [Color.emberLight, Color.ember, Color.emberDark],
-            startPoint: .topLeading,
-            endPoint: .bottomTrailing
-        )
-        
-        static let emberDeep = LinearGradient(
-            colors: [Color(hex: "FF6B2B"), Color.ember, Color.emberDark],
-            startPoint: .topLeading,
-            endPoint: .bottomTrailing
-        )
-        
-        static let steel = LinearGradient(
-            colors: [Color.steelLight, Color.steel, Color.steelDark],
-            startPoint: .topLeading,
-            endPoint: .bottomTrailing
-        )
-
-        static let aurora = LinearGradient(
-            colors: [Color.ember.opacity(0.9), Color.aurora, Color.steel.opacity(0.85)],
-            startPoint: .topLeading,
-            endPoint: .bottomTrailing
-        )
-
-        static let chrome = LinearGradient(
-            colors: [Color.white.opacity(0.14), Color.white.opacity(0.04), Color.clear],
-            startPoint: .top,
-            endPoint: .bottom
-        )
-
-        static let neon = LinearGradient(
-            colors: [Color(hex: "00D2FF"), Color(hex: "7B61FF"), Color(hex: "FF2D55")],
-            startPoint: .topLeading,
-            endPoint: .bottomTrailing
-        )
-
-        static let glass = LinearGradient(
-            colors: [Color.white.opacity(0.12), Color.white.opacity(0.02)],
-            startPoint: .top,
-            endPoint: .bottom
-        )
-    }
-    
-    // MARK: - Haptics
-    
-    static func haptic(_ style: UIImpactFeedbackGenerator.FeedbackStyle) {
-        UIImpactFeedbackGenerator(style: style).impactOccurred()
-    }
-    
-    static func selectionHaptic() {
-        UISelectionFeedbackGenerator().selectionChanged()
-    }
-    
-    static func notificationHaptic(_ type: UINotificationFeedbackGenerator.FeedbackType) {
-        UINotificationFeedbackGenerator().notificationOccurred(type)
-    }
-
-    /// One haptic table: select, press, primary CTA, success, error, destructive.
-    static func haptic(_ event: ForgeDesignTokens.Haptic) {
-        switch event {
-        case .select: selectionHaptic()
-        case .press: haptic(.light)
-        case .primaryCTA: haptic(.medium)
-        case .success: notificationHaptic(.success)
-        case .error: notificationHaptic(.error)
-        case .destructive: notificationHaptic(.warning)
-        }
-    }
-    
-    // MARK: - Accessibility Adaptive Animation
-    
-    static func adaptiveAnimation(_ animation: Animation) -> Animation {
-        if UIAccessibility.isReduceMotionEnabled {
-            return .linear(duration: 0.2)
-        }
-        return animation
+        static let ember = LinearGradient.flat(Color.ember)
+        static let emberDeep = LinearGradient.flat(Color.ember)
+        static let steel = LinearGradient.flat(Color.steel)
+        static let aurora = LinearGradient.flat(Color.ember)
+        static let chrome = LinearGradient.flat(Color.clear)
+        static let neon = LinearGradient.flat(Color.ember)
+        static let glass = LinearGradient.flat(Color.clear)
     }
 }
 
@@ -199,7 +105,7 @@ struct ForgePressModifier: ViewModifier {
     func body(content: Content) -> some View {
         content
             .scaleEffect(pressed && !reduceMotion ? 0.98 : 1.0)
-            .animation(reduceMotion ? nil : FDS.Spring.snap, value: pressed)
+            .animation(reduceMotion ? nil : ForgeMotion.snappy, value: pressed)
             .simultaneousGesture(
                 DragGesture(minimumDistance: 0)
                     .onChanged { _ in pressed = true }
@@ -225,7 +131,7 @@ struct ForgeEntranceModifier: ViewModifier {
             .opacity(appeared || reduceMotion ? 1 : 0)
             .offset(y: appeared || reduceMotion ? 0 : HomeMetrics.entranceRise)
             .animation(
-                reduceMotion ? nil : FDS.Spring.hero.delay(Double(index) * 0.06),
+                reduceMotion ? nil : ForgeMotion.gentle.delay(Double(index) * 0.06),
                 value: appeared
             )
     }

@@ -11,7 +11,7 @@ struct CompanionIndependenceBanner: View {
 
     var body: some View {
         Label(message, systemImage: "iphone.slash")
-            .font(.system(size: 11, weight: .medium))
+            .font(ForgeFont.sans(11, weight: .medium))
             .foregroundStyle(ForgePalette.textTertiary)
             .frame(maxWidth: .infinity, alignment: .leading)
             .accessibilityLabel(message)
@@ -23,7 +23,7 @@ struct PhoneRequiredCaption: View {
 
     var body: some View {
         Text(message)
-            .font(.system(size: 11))
+            .font(ForgeFont.sans(11))
             .foregroundStyle(ForgePalette.textTertiary)
             .fixedSize(horizontal: false, vertical: true)
             .accessibilityLabel(message)

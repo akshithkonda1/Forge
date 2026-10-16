@@ -1,4 +1,5 @@
 import SwiftUI
+import ForgeCore
 
 struct ExerciseLibraryView: View {
     @EnvironmentObject var store: AppStore
@@ -40,7 +41,7 @@ struct ExerciseLibraryView: View {
                 .searchable(text: $query, placement: .navigationBarDrawer(displayMode: .automatic), prompt: "A move, a muscle, calisthenics, or a sport")
                 .textInputAutocapitalization(.never)
                 .autocorrectionDisabled()
-                .sensoryFeedback(.selection, trigger: organize)
+                .forgeHaptic(.selection, trigger: organize)
                 .sheet(item: $selected) { def in ExerciseDetailSheet(def: def) }
         }
     }
@@ -212,7 +213,7 @@ struct ExerciseLibraryView: View {
 
     private func sectionHeader(_ section: ExerciseLibrary.Section, open: Bool) -> some View {
         Button {
-            FDS.haptic(.select)
+            ForgeHaptics.play(.selection)
             if open { collapsed.insert(section.id) } else { collapsed.remove(section.id) }
         } label: {
             HStack(spacing: ForgeLayout.rowGap) {
@@ -251,7 +252,6 @@ struct ExerciseLibraryView: View {
     private func libraryCard(_ def: ExerciseDefinition) -> some View {
         HStack(spacing: ForgeLayout.rowGap) {
             Button {
-                FDS.haptic(.press)
                 selected = def
             } label: {
                 HStack(spacing: ForgeLayout.rowGap) {
@@ -284,7 +284,7 @@ struct ExerciseLibraryView: View {
     }
 
     private func repChip(_ text: String) -> some View {
-        HStack(spacing: 4) {
+        HStack(spacing: FDS.Spacing.xs) {
             Image(systemName: "repeat")
                 .font(.system(size: 9, weight: .semibold))
                 .accessibilityHidden(true)
@@ -302,7 +302,6 @@ struct ExerciseLibraryView: View {
 
     private func howButton(_ def: ExerciseDefinition) -> some View {
         Button {
-            FDS.haptic(.press)
             selected = def
             AriaTrainVoice.speakHowTo(def)
         } label: {
@@ -343,7 +342,7 @@ struct ExerciseDetailSheet: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbarColorScheme(.dark, for: .navigationBar)
             .toolbar { ToolbarItem(placement: .topBarTrailing) { Button("Close") { dismiss() }.foregroundColor(.ember).fontWeight(.semibold) } }
-            .sensoryFeedback(.success, trigger: added)
+            .forgeHaptic(.success, trigger: added)
         }
         .presentationDragIndicator(.visible)
     }

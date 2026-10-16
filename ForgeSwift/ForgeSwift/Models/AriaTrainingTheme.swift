@@ -51,7 +51,7 @@ enum AriaTrainingTheme: String, Codable, CaseIterable, Identifiable, Hashable {
         case .onePiece:     return "sailboat.fill"
         case .martialArts:  return "figure.martial.arts"
         case .military:     return "shield.lefthalf.filled"
-        case .superhero:    return "sparkles"
+        case .superhero:    return "bolt"
         case .athlete:      return "medal.fill"
         }
     }

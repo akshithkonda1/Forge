@@ -23,7 +23,7 @@ struct DataPermissionsView: View {
         "nutrition": ("Nutrition", "fork.knife"),
         "profile": ("Goals & Profile", "person.fill"),
         "progress": ("Progress", "chart.line.uptrend.xyaxis"),
-        "lifestyle": ("Lifestyle & Patterns", "sparkles"),
+        "lifestyle": ("Lifestyle & Patterns", "leaf"),
         "aging": ("Training age", "clock.arrow.2.circlepath"),
         "clinical_data": ("Clinical Data (Non PHI)", "pills.fill"),
     ]

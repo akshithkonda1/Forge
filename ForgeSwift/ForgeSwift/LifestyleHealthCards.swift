@@ -102,7 +102,7 @@ struct LiveHealthDashboard: View {
     /// Home's live pill (HomeDataStatusPill): a static 6 pt dot and a micro
     /// label in a hairline capsule. No pulse and no glow at rest.
     private var livePill: some View {
-        HStack(spacing: 5) {
+        HStack(spacing: FDS.Spacing.xs) {
             Circle()
                 .fill(Color.vitality)
                 .frame(width: 6, height: 6)
@@ -113,8 +113,8 @@ struct LiveHealthDashboard: View {
                 .textCase(.uppercase)
                 .lineLimit(1)
         }
-        .padding(.horizontal, 9)
-        .padding(.vertical, 5)
+        .padding(.horizontal, FDS.Spacing.sm)
+        .padding(.vertical, FDS.Spacing.xs)
         .background(Color.white.opacity(0.05))
         .clipShape(Capsule())
         .overlay(Capsule().stroke(Color.white.opacity(0.08), lineWidth: 1))
@@ -645,7 +645,7 @@ struct MultiArcQOLCard: View {
                 centerScore(maxWidth: MultiArcQOLCard.scoreHole * unit)
             }
             .frame(width: chartSide, height: chartSide)
-            .animation(reduceMotion ? nil : FDS.Spring.sweep, value: appeared)
+            .animation(reduceMotion ? nil : ForgeMotion.sweep, value: appeared)
 
             // At accessibility sizes the meta label moves under the chart so
             // the score keeps the whole hole.
@@ -864,7 +864,7 @@ struct BiologicalAgeCard: View {
                 if reduceMotion {
                     showDetails.toggle()
                 } else {
-                    withAnimation(FDS.Spring.standard) { showDetails.toggle() }
+                    withForgeMotion(ForgeMotion.smooth) { showDetails.toggle() }
                 }
             }
 
@@ -872,7 +872,7 @@ struct BiologicalAgeCard: View {
                 // The toggle is unanimated under Reduce Motion, so this
                 // transition only plays when motion is allowed.
                 detailsContent
-                    .transition(.opacity.combined(with: .scale(scale: 0.97, anchor: .top)))
+                    .forgeTransition(.opacity.combined(with: .scale(scale: 0.97, anchor: .top)))
             }
         }
     }

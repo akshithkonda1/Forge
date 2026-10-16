@@ -86,7 +86,7 @@ struct SettingsRow<Trailing: View>: View {
             chevron
         }
         .padding(.horizontal, FDS.Spacing.lg)
-        .padding(.vertical, 10)
+        .padding(.vertical, FDS.Spacing.sm)
         .frame(minHeight: ForgeUX.minTap)
     }
 
@@ -177,9 +177,9 @@ struct ForgeToggle: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     private func toggle() {
-        FDS.haptic(.select)
+        ForgeHaptics.play(.selection)
         if AriaMemoryAccess.shouldAnimate(reduceMotion: reduceMotion) {
-            withAnimation(FDS.Spring.snap) { isOn.toggle() }
+            withForgeMotion(ForgeMotion.snappy) { isOn.toggle() }
         } else {
             isOn.toggle()
         }

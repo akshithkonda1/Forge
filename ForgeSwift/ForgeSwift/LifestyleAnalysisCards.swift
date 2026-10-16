@@ -74,7 +74,7 @@ struct AILifeAnalysisCard: View {
                 if reduceMotion {
                     expanded.toggle()
                 } else {
-                    withAnimation(FDS.Spring.standard) { expanded.toggle() }
+                    withForgeMotion(ForgeMotion.smooth) { expanded.toggle() }
                 }
             }
 
@@ -82,7 +82,7 @@ struct AILifeAnalysisCard: View {
                 // The toggle above is unanimated under Reduce Motion, so this
                 // transition only plays when motion is allowed.
                 fullAnalysisSection
-                    .transition(.opacity.combined(with: .scale(scale: 0.97, anchor: .top)))
+                    .forgeTransition(.opacity.combined(with: .scale(scale: 0.97, anchor: .top)))
             }
         }
         .forgeContentCard(tint: .aurora)
@@ -238,11 +238,10 @@ struct RecommendationCard: View {
 
     var body: some View {
         Button {
-            FDS.haptic(.press)
             if reduceMotion {
                 expanded.toggle()
             } else {
-                withAnimation(FDS.Spring.standard) { expanded.toggle() }
+                withForgeMotion(ForgeMotion.smooth) { expanded.toggle() }
             }
         } label: {
             VStack(alignment: .leading, spacing: FDS.Spacing.sm) {
@@ -253,7 +252,7 @@ struct RecommendationCard: View {
                         .font(HomeType.body)
                         .foregroundStyle(Color.textSecondary)
                         .forgeWrapping()
-                        .transition(.opacity.combined(with: .scale(scale: 0.97, anchor: .top)))
+                        .forgeTransition(.opacity.combined(with: .scale(scale: 0.97, anchor: .top)))
                 }
             }
             .frame(maxWidth: .infinity, alignment: .leading)

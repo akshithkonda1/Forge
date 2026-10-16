@@ -26,8 +26,8 @@ struct ContentView: View {
                     MainTabView()
                 }
             }
-            .animation(reduceMotion ? nil : .easeInOut(duration: FDS.Duration.standard), value: store.isAuthenticated)
-            .animation(reduceMotion ? nil : .easeInOut(duration: FDS.Duration.standard), value: store.isOnboarded)
+            .animation(ForgeMotion.crossfade, value: store.isAuthenticated)
+            .animation(ForgeMotion.crossfade, value: store.isOnboarded)
 
             if showSplash {
                 ForgeSplashScreen()
@@ -129,12 +129,12 @@ struct ForgeSplashScreen: View {
         .onAppear {
             let base: Animation = reduceMotion
                 ? .easeOut(duration: 0.3)
-                : FDS.Spring.fluid
+                : ForgeMotion.gentle
             withAnimation(base) {
                 logoScale = 1.0
                 logoOpacity = 1.0
             }
-            withAnimation((reduceMotion ? .easeOut(duration: 0.3) : FDS.Spring.fluid).delay(0.18)) {
+            withAnimation((reduceMotion ? .easeOut(duration: 0.3) : ForgeMotion.gentle).delay(0.18)) {
                 textOffset = 0
             }
             withAnimation(.easeInOut(duration: 2.2).delay(0.25)) {
@@ -192,7 +192,7 @@ struct MainTabView: View {
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             .transition(.opacity)
-            .animation(reduceMotion ? nil : .easeOut(duration: FDS.Duration.snap), value: store.activeTab)
+            .animation(ForgeMotion.crossfade, value: store.activeTab)
             .safeAreaInset(edge: .bottom, spacing: 0) {
                 if !waitingToMeetAria && !keyboardVisible {
                     ForgeBottomNav(namespace: namespace)
@@ -319,7 +319,6 @@ private struct ShellCoverCloseButton: View {
 
     var body: some View {
         Button {
-            FDS.haptic(.press)
             action()
         } label: {
             Image(systemName: "xmark.circle.fill")
@@ -339,7 +338,7 @@ private struct ShellCoverCloseButton: View {
 /// tab-bar exception, with the Large Content Viewer standing in for scaling),
 /// one inactive color, ember selection with no glow.
 private enum ShellTabStyle {
-    static let labelFont = Font.system(size: 10, weight: .semibold, design: .rounded)
+    static let labelFont = ForgeFont.sans(10, weight: .semibold)
     static let labelTracking: CGFloat = 0.2
     static let rowHeight: CGFloat = 48
     static let iconSlotHeight: CGFloat = 26
@@ -378,7 +377,7 @@ struct ForgeBottomNav: View {
             }
         }
         // The home-indicator safe area already pads the bottom.
-        .padding(.top, 6)
+        .padding(.top, FDS.Spacing.xs)
         .padding(.bottom, 0)
         .accessibilityElement(children: .contain)
         .background { barBackground }
@@ -388,11 +387,6 @@ struct ForgeBottomNav: View {
         ZStack(alignment: .top) {
             barShape.fill(.ultraThinMaterial)
             barShape.fill(Color.background.opacity(0.62))
-            LinearGradient(
-                colors: [Color.white.opacity(0.08), Color.clear],
-                startPoint: .top,
-                endPoint: .center
-            )
             Rectangle()
                 .fill(Color.borderHairline)
                 .frame(height: 0.5)
@@ -415,8 +409,8 @@ struct RegularForgeTab: View {
 
     var body: some View {
         Button {
-            FDS.haptic(.select)
-            withAnimation(reduceMotion ? nil : FDS.Spring.snap) {
+            ForgeHaptics.play(.selection)
+            withAnimation(reduceMotion ? nil : ForgeMotion.snappy) {
                 store.activeTab = tab
             }
         } label: {
@@ -474,8 +468,8 @@ struct ARIATabButton: View {
 
     var body: some View {
         Button {
-            FDS.haptic(.select)
-            withAnimation(reduceMotion ? nil : FDS.Spring.snap) {
+            ForgeHaptics.play(.selection)
+            withAnimation(reduceMotion ? nil : ForgeMotion.snappy) {
                 store.activeTab = .chat
             }
         } label: {
@@ -502,28 +496,14 @@ struct ARIATabButton: View {
             toggleVoiceMode()
         }
         .accessibilityShowsLargeContentViewer {
-            Label(title, systemImage: "sparkles")
+            Label(title, systemImage: "text.bubble")
         }
     }
 
     /// 32 pt mark in the same 26 pt slot as the other tabs' icons, so every
-    /// label sits on one baseline. The backdrop is a static wash, never a pulse.
+    /// label sits on one baseline. No backdrop wash.
     private var orb: some View {
         ZStack {
-            Circle()
-                .fill(
-                    RadialGradient(
-                        colors: [
-                            ForgePalette.amber.opacity(isActive ? 0.16 : 0.07),
-                            ForgePalette.ember.opacity(0.10),
-                            .clear
-                        ],
-                        center: .center,
-                        startRadius: 6,
-                        endRadius: 22
-                    )
-                )
-                .frame(width: 40, height: 40)
             ARIAIdentityMark(
                 state: isVoiceMode ? .listening : .idle,
                 mood: isVoiceMode ? .focused : .energized,
@@ -537,8 +517,8 @@ struct ARIATabButton: View {
     }
 
     private func toggleVoiceMode() {
-        FDS.haptic(.primaryCTA)
-        withAnimation(reduceMotion ? nil : FDS.Spring.snap) {
+        ForgeHaptics.play(.press)
+        withAnimation(reduceMotion ? nil : ForgeMotion.snappy) {
             store.ariaVoiceMode.toggle()
             store.activeTab = .chat
             store.ariaVoiceLaunch = store.ariaVoiceMode

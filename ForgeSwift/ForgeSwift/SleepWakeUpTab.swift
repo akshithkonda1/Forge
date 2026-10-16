@@ -24,7 +24,7 @@ final class SleepWakeStore: ObservableObject {
         UIApplication.shared.isIdleTimerDisabled = true
         SleepWindDownPlayer.shared.stop(deactivateSession: false)
         SleepWakePlayer.shared.start(for: alarm)
-        UINotificationFeedbackGenerator().notificationOccurred(.warning)
+        ForgeHaptics.play(.warning)
         Task { await SleepAlarmScheduler.scheduleFailsafe(alarm: alarm) }
     }
 
@@ -180,11 +180,7 @@ struct SleepWakeScreen: View {
         ZStack {
             SleepWakeHudRing(progress: progress)
             Text(date.formatted(date: .omitted, time: .shortened))
-                .font(.system(
-                    size: ForgeLayout.scaledCap(clockSize, base: 48, maxGrowth: 1.3),
-                    weight: .semibold,
-                    design: .rounded
-                ))
+                .font(ForgeFont.sans(ForgeLayout.scaledCap(clockSize, base: 48, maxGrowth: 1.3), weight: .semibold))
                 .foregroundColor(.white)
                 .monospacedDigit()
                 .hudInArcText()
@@ -248,7 +244,7 @@ struct SleepWakeScreen: View {
     private func routineRow(_ item: RoutineItem) -> some View {
         let done = doneRoutine.contains(item.id)
         return Button {
-            FDS.haptic(.select)
+            ForgeHaptics.play(.selection)
             if done { doneRoutine.remove(item.id) }
             else { doneRoutine.insert(item.id) }
         } label: {
@@ -450,7 +446,7 @@ struct HoldToWakeButton: View {
         holdTask = Task {
             try? await Task.sleep(nanoseconds: 1_200_000_000)
             guard !Task.isCancelled else { return }
-            FDS.haptic(.success)
+            ForgeHaptics.play(.success)
             action()
         }
     }
@@ -612,7 +608,6 @@ struct NextWakePlanCard: View {
 
     private var askAriaButton: some View {
         Button {
-            FDS.haptic(.press)
             store.openChat(with: coach.ariaPrompt, voice: false)
         } label: {
             HStack(spacing: FDS.Spacing.sm) {
@@ -691,7 +686,7 @@ struct SmartWakeCard: View {
 
                 if enabled {
                     leadWindow
-                        .transition(.opacity.combined(with: .scale(scale: 0.97, anchor: .top)))
+                        .forgeTransition(.opacity.combined(with: .scale(scale: 0.97, anchor: .top)))
                 }
             }
         }
@@ -711,7 +706,7 @@ struct SmartWakeCard: View {
                     .transition(.opacity)
             }
             ForgeTextLink(title: "How Smart Wake works", accent: .steel, expanded: showDetail) {
-                withAnimation(reduceMotion ? nil : FDS.Spring.standard) { showDetail.toggle() }
+                withAnimation(reduceMotion ? nil : ForgeMotion.smooth) { showDetail.toggle() }
             }
         }
     }
@@ -741,11 +736,7 @@ struct SmartWakeCard: View {
                 ZStack(alignment: .leading) {
                     Capsule().fill(Color.white.opacity(0.08))
                     Capsule()
-                        .fill(LinearGradient(
-                            colors: [Color.steel.opacity(0.3), Color.steel],
-                            startPoint: .leading,
-                            endPoint: .trailing
-                        ))
+                        .fill(Color.steel)
                         .frame(width: geo.size.width * fraction)
                 }
             }
@@ -792,7 +783,7 @@ struct VolumeRampCard: View {
         let selected = curve == option
         return Button {
             curve = option
-            FDS.haptic(.select)
+            ForgeHaptics.play(.selection)
         } label: {
             HStack(spacing: ForgeLayout.rowGap) {
                 ForgeIconWell(
@@ -877,7 +868,7 @@ struct MorningRoutineCard: View {
 
     var totalMinutes: Int { items.filter { $0.isEnabled }.reduce(0) { $0 + $1.duration } }
 
-    private var motion: Animation? { reduceMotion ? nil : FDS.Spring.standard }
+    private var motion: Animation? { reduceMotion ? nil : ForgeMotion.smooth }
 
     var body: some View {
         WakeUpSection(icon: "checklist", title: "Morning Routine", color: .steel) {
@@ -904,7 +895,6 @@ struct MorningRoutineCard: View {
                 .contentTransition(.numericText())
             Spacer(minLength: FDS.Spacing.sm)
             Button {
-                FDS.haptic(.press)
                 withAnimation(motion) { editMode.toggle() }
             } label: {
                 Text(editMode ? "Done" : "Edit")
@@ -1167,7 +1157,7 @@ struct AdaptiveSunriseCard: View {
 
                 if enabled {
                     sunriseControls
-                        .transition(.opacity.combined(with: .scale(scale: 0.97, anchor: .top)))
+                        .forgeTransition(.opacity.combined(with: .scale(scale: 0.97, anchor: .top)))
                 }
             }
         }

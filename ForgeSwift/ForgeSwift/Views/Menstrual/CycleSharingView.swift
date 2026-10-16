@@ -1,4 +1,5 @@
 import SwiftUI
+import ForgeCore
 
 // ============================================================
 // MARK: - Sharing your cycle with someone
@@ -127,7 +128,7 @@ struct CycleSharingView: View {
                 .forgeWrapping()
 
             ForgeTextLink(title: "How invites work", accent: .indigo, expanded: showInviteRules) {
-                withAnimation(reduceMotion ? nil : FDS.Spring.standard) {
+                withAnimation(reduceMotion ? nil : ForgeMotion.smooth) {
                     showInviteRules.toggle()
                 }
             }
@@ -373,7 +374,6 @@ struct CycleSharingView: View {
             // control to leave looking broken.
             if !person.id.isEmpty {
                 Button {
-                    FDS.haptic(.press)
                     revokeTarget = person
                 } label: {
                     Image(systemName: "minus.circle")
@@ -432,7 +432,6 @@ struct CycleSharingView: View {
 
     private var previewCard: some View {
         Button {
-            FDS.haptic(.press)
             showPreview = true
         } label: {
             ForgeListRow(
@@ -529,7 +528,7 @@ private struct SharingOptionRow: View {
 
     var body: some View {
         Button {
-            FDS.haptic(.select)
+            ForgeHaptics.play(.selection)
             action()
         } label: {
             rowContent

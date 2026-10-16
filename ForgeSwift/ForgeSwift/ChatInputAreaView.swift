@@ -1,4 +1,5 @@
 import SwiftUI
+import ForgeCore
 
 /// Makes the multi-specialist routing visible while it's happening, not
 /// just afterward in ChatHeaderView's caption. This takes over the UI slot
@@ -20,7 +21,7 @@ struct AriaSpecialistActivityView: View {
         VStack(alignment: .leading, spacing: ForgeLayout.blockGap) {
             Text(workers.count > 1 ? "Consulting your specialists" : "Thinking")
                 .font(HomeType.label)
-                .foregroundColor(.aurora)
+                .foregroundColor(.textSecondary)
                 .forgeSingleLine(minScale: ForgeLayout.labelMinScale)
             ForgeFlowLayout(spacing: ForgeLayout.chipGap, lineSpacing: ForgeLayout.chipGap) {
                 ForEach(workers) { worker in
@@ -61,7 +62,7 @@ private struct CoachAgentChipRow: View {
     var body: some View {
         ScrollView(.horizontal, showsIndicators: false) {
             HStack(spacing: ForgeLayout.chipGap) {
-                pinChip(nil, title: "Auto", icon: "sparkles")
+                pinChip(nil, title: "Auto", icon: "circle.lefthalf.filled")
                 // The five modes ARIA tracks, plus Cycle -- reachable here
                 // too, still consent-gated, just not one of the five
                 // headline modes. Not .allCases: that would also surface a
@@ -104,7 +105,6 @@ struct ChatInputAreaView: View {
     let replyTarget:  ChatMessage?
     let onSend:       (String) -> Void
     let onMicTap:     () -> Void
-    @State private var charCount: Int = 0
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     private var canSend: Bool {
@@ -158,7 +158,7 @@ struct ChatInputAreaView: View {
         let tint: Color = yesLike ? Color.vitality : (noLike ? Color.steel : Color.ember)
         return SmartChip(label: label, icon: icon, color: tint, disabled: isTyping) {
             onSend(label)
-            choreographedHaptic(.quickChipTap)
+            ForgeHaptics.play(.selection)
         }
     }
 
@@ -173,7 +173,7 @@ struct ChatInputAreaView: View {
                 ForEach(Array(chips.enumerated()), id: \.offset) { _, chip in
                     SmartChip(label: chip.label, icon: chip.icon, color: Color.ember, disabled: isTyping) {
                         onSend(chip.label)
-                        choreographedHaptic(.quickChipTap)
+                        ForgeHaptics.play(.selection)
                         withAnimation(reduceMotion ? nil : Animation.easeOut(duration: 0.22)) { showQuickActions = false }
                     }
                 }
@@ -213,7 +213,7 @@ struct ChatInputAreaView: View {
         .accessibilityLabel("Talk to ARIA")
         .disabled(isTyping)
         .opacity(isTyping ? 0.42 : 1)
-        .animation(reduceMotion ? nil : FDS.Spring.snap, value: isTyping)
+        .animation(reduceMotion ? nil : ForgeMotion.snappy, value: isTyping)
     }
 
     private var fieldBorder: Color {
@@ -237,16 +237,9 @@ struct ChatInputAreaView: View {
                 .disabled(isTyping)
                 .padding(.leading, FDS.Spacing.lg)
                 .padding(.trailing, 56)
-                .padding(.vertical, 14)
+                .padding(.vertical, FDS.Spacing.md)
                 .lineLimit(1...5)
                 .onSubmit { onSend(inputText) }
-                .onChange(of: inputText) { _, text in
-                    charCount = text.count
-                    // Subtle typing haptic every 10 chars
-                    if charCount % 10 == 0 && charCount > 0 {
-                        choreographedHaptic(.typing)
-                    }
-                }
 
             sendButton
         }
@@ -267,7 +260,7 @@ struct ChatInputAreaView: View {
             .frame(width: 40, height: 40)
             .frame(width: ForgeUX.minTap, height: ForgeUX.minTap)
             .contentShape(Circle())
-            .animation(reduceMotion ? nil : FDS.Spring.snap, value: canSend)
+            .animation(reduceMotion ? nil : ForgeMotion.snappy, value: canSend)
         }
         .buttonStyle(ForgePressStyle())
         .accessibilityLabel("Send")

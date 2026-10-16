@@ -125,7 +125,7 @@ enum MenstrualPhase: String, Codable, CaseIterable, Identifiable {
         case .menstruation: return "drop.fill"
         case .follicular: return "leaf.fill"
         case .fertileWindow: return "waveform.path.ecg"
-        case .ovulation: return "sparkles"
+        case .ovulation: return "circle.circle"
         case .luteal: return "moon.fill"
         }
     }

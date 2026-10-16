@@ -1,4 +1,5 @@
 import SwiftUI
+import ForgeCore
 
 struct AIWorkoutSuggestionsCard: View {
     let workouts: [AIWorkoutSuggestion]
@@ -24,7 +25,6 @@ struct AIWorkoutSuggestionsCard: View {
 
     private func suggestionRow(_ suggestion: AIWorkoutSuggestion) -> some View {
         Button {
-            FDS.haptic(.press)
             selectedWorkout = suggestion.workout
         } label: {
             AIWorkoutCard(suggestion: suggestion)
@@ -147,7 +147,7 @@ struct StatPill: View {
     let color: Color
 
     var body: some View {
-        HStack(spacing: 6) {
+        HStack(spacing: FDS.Spacing.xs) {
             Image(systemName: icon)
                 .font(.system(size: 12, weight: .semibold))
                 .foregroundStyle(color)
@@ -157,8 +157,8 @@ struct StatPill: View {
                 .foregroundStyle(Color.textPrimary)
                 .forgeSingleLine(minScale: ForgeLayout.labelMinScale)
         }
-        .padding(.horizontal, 10)
-        .padding(.vertical, 7)
+        .padding(.horizontal, FDS.Spacing.sm)
+        .padding(.vertical, FDS.Spacing.sm)
         .background(Color.white.opacity(0.08))
         .clipShape(Capsule())
         .overlay(Capsule().stroke(Color.white.opacity(0.12), lineWidth: ForgeUX.hairline))

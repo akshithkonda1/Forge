@@ -84,7 +84,7 @@ struct WorkoutHistoryListView: View {
 
     // MARK: - Motion
 
-    private var motion: Animation? { reduceMotion ? nil : FDS.Spring.standard }
+    private var motion: Animation? { reduceMotion ? nil : ForgeMotion.smooth }
 
     private var expandTransition: AnyTransition {
         reduceMotion ? .opacity : .opacity.combined(with: .scale(scale: 0.97, anchor: .top))

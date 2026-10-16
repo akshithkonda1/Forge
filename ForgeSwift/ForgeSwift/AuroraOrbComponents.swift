@@ -30,7 +30,7 @@ struct ARIAIdentityMark: View {
     }
 }
 
-/// Procedural B+E nest: soft-hex nest + metal sun, `#FF4D00` accent.
+/// Procedural nest: thin soft-hex lines + a flat `#FF4D00` core. No glow.
 /// One TimelineView. Soft orbit/wave. Reduce Motion / `forgeMinimalAnimation`
 /// freeze at `AriaNestGeometry.stillPose`. Idle ticks 4–6 Hz; Chat/voice
 /// may use the 12 Hz ceiling. No PNG. No fire splash.
@@ -142,34 +142,13 @@ enum AriaNestCanvas {
         let s = min(canvasSize.width, canvasSize.height)
         guard s >= 2 else { return }
         let center = CGPoint(x: canvasSize.width / 2, y: canvasSize.height / 2)
-        let drive = AriaNestGeometry.waveformDrive(presence: presence, amplitude: amplitude)
         let orange = Color(hex: AriaNestGeometry.forgeOrangeHex)
         let pearl = Color(hex: AriaNestGeometry.pearlHex)
         let pearlHot = Color(hex: AriaNestGeometry.pearlHotHex)
         let metalCool = Color(hex: AriaNestGeometry.metalCoolHex)
         let metalMid = Color(hex: AriaNestGeometry.metalMidHex)
-        let hearth = Color(hex: AriaNestGeometry.hearthGlowHex)
-
-        // Decorative hearth wash only — specular under 0.55, never a fire splash.
-        let washR = s * 0.46
-        let wash = min(AriaNestGeometry.hearthSpecularMax, 0.18 + drive * 0.10)
-        context.fill(
-            Path(ellipseIn: CGRect(
-                x: center.x - washR, y: center.y - washR,
-                width: washR * 2, height: washR * 2
-            )),
-            with: .radialGradient(
-                Gradient(colors: [
-                    pearlHot.opacity(0.12 + drive * 0.06),
-                    hearth.opacity(wash * 0.35),
-                    orange.opacity(min(AriaNestGeometry.hearthSpecularMax, 0.05 + amplitude * 0.04)),
-                    .clear
-                ]),
-                center: center,
-                startRadius: s * 0.02,
-                endRadius: washR
-            )
-        )
+        // Premium refresh: no hearth wash, no halo. The mark is crisp nested
+        // lines around a solid core — ARIA reads as a quiet signature, not an orb.
 
         for index in AriaNestGeometry.visibleRingIndices(size: Double(s)).reversed() {
             let pose = AriaNestGeometry.livingHex(
@@ -179,7 +158,8 @@ enum AriaNestCanvas {
                 amplitude: amplitude,
                 reduceMotion: reduceMotion
             )
-            let stroke = Color(hex: AriaNestGeometry.ringHex(at: index))
+            // Monochrome lines; the core carries the single accent.
+            let stroke = pearl
             let line = CGFloat(AriaNestGeometry.strokeWidth(size: Double(s), index: index))
             let path = nestPath(
                 center: center,
@@ -188,11 +168,6 @@ enum AriaNestCanvas {
                 rotation: pose.rotation,
                 wavePhase: pose.wavePhase,
                 waveAmp: pose.waveAmp
-            )
-            context.stroke(
-                path,
-                with: .color(stroke.opacity(pose.opacity * 0.28)),
-                lineWidth: max(1.4, line * 1.8)
             )
             context.stroke(
                 path,
@@ -270,25 +245,6 @@ enum AriaNestCanvas {
             reduceMotion: reduceMotion
         )
         let diameter = size * core.diameter
-        let glowR = diameter * 1.15
-        context.fill(
-            Path(ellipseIn: CGRect(
-                x: center.x - glowR, y: center.y - glowR,
-                width: glowR * 2, height: glowR * 2
-            )),
-            with: .radialGradient(
-                Gradient(colors: [
-                    pearlHot.opacity(0.36 + core.glow * 0.22),
-                    metalCool.opacity(0.12),
-                    orange.opacity(0.04),
-                    .clear
-                ]),
-                center: center,
-                startRadius: diameter * 0.08,
-                endRadius: glowR
-            )
-        )
-
         let bodyW = diameter * core.sx
         let bodyH = diameter * core.sy
         let body = CGRect(
@@ -297,42 +253,8 @@ enum AriaNestCanvas {
             width: bodyW,
             height: bodyH
         )
-        context.fill(
-            Path(ellipseIn: body),
-            with: .radialGradient(
-                Gradient(colors: [
-                    pearlHot.opacity(0.98),
-                    metalCool.opacity(0.92),
-                    pearl.opacity(0.78),
-                    metalMid.opacity(0.42)
-                ]),
-                center: CGPoint(
-                    x: center.x - bodyW * 0.16,
-                    y: center.y - bodyH * 0.18
-                ),
-                startRadius: 0,
-                endRadius: diameter * 0.58
-            )
-        )
-
-        let highlight = CGRect(
-            x: center.x - diameter * 0.28,
-            y: center.y - diameter * 0.28,
-            width: diameter * 0.30,
-            height: diameter * 0.18
-        )
-        context.fill(
-            Path(ellipseIn: highlight),
-            with: .radialGradient(
-                Gradient(colors: [
-                    pearlHot.opacity(0.85 * core.highlight),
-                    .clear
-                ]),
-                center: CGPoint(x: highlight.midX, y: highlight.midY),
-                startRadius: 0,
-                endRadius: diameter * 0.16
-            )
-        )
+        // One flat accent core. No specular, no glow radius.
+        context.fill(Path(ellipseIn: body), with: .color(orange))
     }
 }
 

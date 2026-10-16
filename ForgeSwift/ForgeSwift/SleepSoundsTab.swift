@@ -1,4 +1,5 @@
 import SwiftUI
+import ForgeCore
 
 struct SleepSoundsTab: View {
     private let player = SleepWindDownPlayer.shared
@@ -99,7 +100,7 @@ struct SleepSoundsTab: View {
     private func playlistRow(_ list: SleepForgePlaylist) -> some View {
         let duration = SleepMixTimer.label(list.minutes)
         return Button {
-            FDS.haptic(.press)
+            ForgeHaptics.play(.press)
             let kinds = list.kinds.compactMap(SleepSoundKind.init(rawValue:))
             player.startMix(kinds: kinds, minutes: list.minutes)
         } label: {
@@ -142,7 +143,7 @@ struct SleepSoundsTab: View {
                         sound: sound,
                         isActive: player.isPlaying && player.mix.contains(sound.kind),
                         onTap: {
-                            FDS.haptic(.press)
+                            ForgeHaptics.play(.selection)
                             if player.isPlaying, player.kind == sound.kind {
                                 player.stop()
                             } else {
@@ -163,7 +164,7 @@ struct SleepSoundsTab: View {
             minutes: sleepTimer
         )
         playlists = SleepForgePlaylistStore.load()
-        FDS.haptic(.success)
+        ForgeHaptics.play(.success)
     }
 
     // MARK: Now playing (the one hero)

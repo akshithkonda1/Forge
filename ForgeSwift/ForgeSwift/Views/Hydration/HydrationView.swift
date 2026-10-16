@@ -213,7 +213,7 @@ struct HydrationView: View {
     }
 
     private var syncPill: some View {
-        HStack(spacing: 6) {
+        HStack(spacing: FDS.Spacing.xs) {
             Circle()
                 .fill(Color.vitality)
                 .frame(width: 6, height: 6)
@@ -224,8 +224,8 @@ struct HydrationView: View {
                 .multilineTextAlignment(.center)
                 .fixedSize(horizontal: false, vertical: true)
         }
-        .padding(.horizontal, 9)
-        .padding(.vertical, 5)
+        .padding(.horizontal, FDS.Spacing.sm)
+        .padding(.vertical, FDS.Spacing.xs)
         .background(Capsule().fill(Color.white.opacity(0.05)))
         .overlay(Capsule().stroke(Color.white.opacity(0.08), lineWidth: 1))
         .accessibilityElement(children: .combine)
@@ -307,7 +307,7 @@ struct HydrationView: View {
                 title: showCustom ? "Hide custom amount" : "Custom amount",
                 accent: Color.steel
             ) {
-                withAnimation(reduceMotion ? nil : FDS.Spring.standard) { showCustom.toggle() }
+                withAnimation(reduceMotion ? nil : ForgeMotion.smooth) { showCustom.toggle() }
             }
             if showCustom {
                 customField
@@ -476,7 +476,7 @@ struct HydrationView: View {
 
     private func deleteButton(for entry: WaterLog) -> some View {
         Button {
-            FDS.haptic(.destructive)
+            ForgeHaptics.play(.warning)
             Task { await delete(entry) }
         } label: {
             Image(systemName: "trash")
@@ -578,7 +578,7 @@ struct HydrationView: View {
             try await health.logWater(milliliters: milliliters)
             store.publishHomeWidgets()
             lastError = nil
-            FDS.haptic(.success)
+            ForgeHaptics.play(.success)
         } catch {
             lastError = "Could not write to Apple Health. Check Water permissions."
         }
@@ -719,7 +719,6 @@ private struct HydrationGoalEditor: View {
 
     private var suggestionTile: some View {
         Button {
-            FDS.haptic(.press)
             draft = suggestedMl
         } label: {
             VStack(alignment: .leading, spacing: ForgeLayout.pairGap) {

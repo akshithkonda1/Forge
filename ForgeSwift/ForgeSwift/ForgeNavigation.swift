@@ -51,7 +51,7 @@ enum ForgePrimaryDestination: String, CaseIterable, Identifiable {
         switch self {
         case .home: return "house.fill"
         case .workout: return "dumbbell.fill"
-        case .chat: return "sparkles"
+        case .chat: return "bubble.left"
         case .lifestyle: return "leaf.fill"
         case .sleep: return "moon.stars.fill"
         case .progress: return "chart.line.uptrend.xyaxis"
@@ -204,7 +204,6 @@ struct ForgeIconButton: View {
 
     var body: some View {
         Button {
-            FDS.haptic(.press)
             action()
         } label: {
             Image(systemName: systemImage)
@@ -225,9 +224,8 @@ struct ForgeIconButton: View {
     }
 }
 
-/// The one primary CTA per screen, built on the Home hero recipe: gradient
-/// plus chrome sheen, radius md, chevron, shadow 0.34 r10 y4, medium haptic
-/// and a 0.98 press. The fill is ember; `accent: .steel` gives the steel
+/// The one primary CTA per screen, built on the Home hero recipe: solid fill,
+/// radius md, chevron, a light impact on touch-down and a 0.98 press. The fill is ember; `accent: .steel` gives the steel
 /// fill for recovery and Sleep. Any other accent still renders ember: white
 /// text on amber, vitality, aurora or a phase color fails contrast, and the
 /// primary must read as one recognisable control. Domain color belongs on
@@ -241,13 +239,9 @@ struct ForgePrimaryButton: View {
 
     private var usesSteel: Bool { accent == Color.steel }
     private var fill: LinearGradient { usesSteel ? FDS.Gradient.steel : FDS.Gradient.ember }
-    private var glow: Color { usesSteel ? Color.steel : Color.ember }
 
     var body: some View {
-        Button {
-            FDS.haptic(.primaryCTA)
-            action()
-        } label: {
+        Button(action: action) {
             HStack(spacing: FDS.Spacing.md) {
                 if let icon {
                     Image(systemName: icon)
@@ -272,29 +266,19 @@ struct ForgePrimaryButton: View {
                     .accessibilityHidden(true)
             }
             .foregroundColor(.white)
-            .padding(.vertical, 14)
+            .padding(.vertical, FDS.Spacing.md)
             .padding(.horizontal, FDS.Spacing.lg)
             .frame(maxWidth: .infinity, minHeight: ForgeUX.minTap + 8, alignment: .leading)
-            .background {
-                ZStack {
-                    fill
-                    LinearGradient.premiumChrome
-                }
-            }
+            .background { fill }
             .clipShape(RoundedRectangle(cornerRadius: FDS.Radius.md, style: .continuous))
-            .overlay(
-                RoundedRectangle(cornerRadius: FDS.Radius.md, style: .continuous)
-                    .stroke(Color.white.opacity(0.20), lineWidth: ForgeUX.hairline)
-            )
-            .shadow(color: glow.opacity(0.34), radius: 10, y: 4)
         }
-        .buttonStyle(ForgePressStyle())
+        .buttonStyle(ForgePressStyle(pressHaptic: true))
         .accessibilityLabel(title)
         .accessibilityHint(subtitle ?? "")
     }
 }
 
-/// Premium empty state for tabs that have no data yet.
+/// Empty state for tabs that have no data yet: serif title, one sentence, one CTA.
 struct ForgeEmptyStateCard: View {
     let icon: String
     let title: String
@@ -307,8 +291,10 @@ struct ForgeEmptyStateCard: View {
         VStack(spacing: ForgeLayout.blockGap) {
             ForgeIconWell(systemImage: icon, tint: accent, diameter: 56)
             VStack(spacing: ForgeLayout.pairGap) {
+                // Empty states speak in the editorial voice: a calm serif line,
+                // then one plain sentence.
                 Text(title)
-                    .font(ForgeType.title)
+                    .font(ForgeFont.serif(.title2))
                     .foregroundColor(.textPrimary)
                     .multilineTextAlignment(.center)
                     .fixedSize(horizontal: false, vertical: true)
@@ -349,7 +335,6 @@ struct ForgeExploreDestinationsGrid: View {
 
     private func tile(for dest: ForgePrimaryDestination) -> some View {
         Button {
-            FDS.haptic(.press)
             store.openDestination(dest)
         } label: {
             tileLabel(for: dest)

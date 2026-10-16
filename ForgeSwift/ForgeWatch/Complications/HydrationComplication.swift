@@ -52,7 +52,7 @@ private struct HydrationComplicationView: View {
                 Image(systemName: "drop.fill")
             } currentValueLabel: {
                 Text("\(glasses)")
-                    .font(.system(size: 16, weight: .bold, design: .rounded))
+                    .font(ForgeFont.sans(16, weight: .bold))
             }
             .gaugeStyle(.accessoryCircular)
             .tint(ForgePalette.steel)
@@ -64,7 +64,7 @@ private struct HydrationComplicationView: View {
 
     private var corner: some View {
         Text("\(glasses)")
-            .font(.system(size: 20, weight: .bold, design: .rounded))
+            .font(ForgeFont.sans(20, weight: .bold))
             .foregroundStyle(ForgePalette.steel)
             .widgetAccentable()
             .widgetLabel {
@@ -86,10 +86,10 @@ private struct HydrationComplicationView: View {
 
             VStack(alignment: .leading, spacing: 0) {
                 Text("\(glasses) of \(targetGlasses)")
-                    .font(.system(size: 13, weight: .semibold, design: .rounded))
+                    .font(ForgeFont.sans(13, weight: .semibold))
                     .widgetAccentable()
                 Text("glasses today")
-                    .font(.system(size: 10))
+                    .font(ForgeFont.sans(10))
                     .foregroundStyle(.secondary)
             }
 

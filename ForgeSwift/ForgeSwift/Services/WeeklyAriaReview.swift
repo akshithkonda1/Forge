@@ -168,7 +168,7 @@ struct WeeklyAriaReviewSheet: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: FDS.Spacing.lg) {
                     Text("Once a week ARIA sits down and actually asks — not a score, a conversation. Answers stay in your context on this device and, when the backend is up, on your account.")
-                        .font(.system(size: 14))
+                        .font(ForgeFont.sans(14))
                         .foregroundStyle(Color.textSecondary)
 
                     // Last habit breaker + outcome — closes the loop you asked for
@@ -178,8 +178,8 @@ struct WeeklyAriaReviewSheet: View {
                                 Image(systemName: habit.category.icon).font(.system(size: 11, weight: .semibold)).foregroundStyle(Color.ember)
                                 Text("Last habit: \(habit.title)").font(FDS.TypeScale.Dynamic.caption).foregroundStyle(Color.ember)
                             }
-                            Text(habit.breaker).font(.system(size: 13)).foregroundStyle(Color.textPrimary)
-                            Text(habit.evidence).font(.system(size: 11)).foregroundStyle(Color.textTertiary)
+                            Text(habit.breaker).font(ForgeFont.sans(13)).foregroundStyle(Color.textPrimary)
+                            Text(habit.evidence).font(ForgeFont.sans(11)).foregroundStyle(Color.textTertiary)
                             if let pending = pendingHabit, pending.habitId == habit.id {
                                 Text("You tried this — did it work? Answer in Wellbeing → Today's Loop.")
                                     .font(FDS.TypeScale.Dynamic.micro).foregroundStyle(Color.success)
@@ -195,10 +195,10 @@ struct WeeklyAriaReviewSheet: View {
                     ForEach(review.questions, id: \.id) { question in
                         VStack(alignment: .leading, spacing: FDS.Spacing.sm) {
                             Text(question.prompt)
-                                .font(FDS.TypeScale.Dynamic.body.weight(.semibold))
+                                .font(ForgeType.bodyStrong)
                                 .foregroundStyle(Color.textPrimary)
                             Text(question.hint)
-                                .font(.system(size: 12))
+                                .font(ForgeFont.sans(12))
                                 .foregroundStyle(Color.textTertiary)
                             TextField("Your answer", text: Binding(
                                 get: { review.answers[question.id] ?? "" },

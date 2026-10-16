@@ -8,7 +8,7 @@ struct WorkoutView: View {
     @State private var summaryData: WorkoutSummaryData? = nil
     @State private var showSummary = false
 
-    private var swapAnimation: Animation? { reduceMotion ? nil : FDS.Spring.page }
+    private var swapAnimation: Animation? { reduceMotion ? nil : ForgeMotion.smooth }
 
     private func swapTransition(insertion: CGFloat, removal: CGFloat) -> AnyTransition {
         if reduceMotion { return .opacity }
@@ -188,7 +188,7 @@ struct WorkoutIdleView: View {
             toolbarCell(icon: "books.vertical.fill", title: "Library", label: "Open the exercise library") {
                 showLibrary = true
             }
-            toolbarCell(icon: "sparkles", title: "Brief", label: "Open the ARIA session brief") {
+            toolbarCell(icon: "doc.text", title: "Brief", label: "Open the ARIA session brief") {
                 showDashboard = true
             }
         }
@@ -196,7 +196,6 @@ struct WorkoutIdleView: View {
 
     private func toolbarCell(icon: String, title: String, label: String, action: @escaping () -> Void) -> some View {
         Button {
-            FDS.haptic(.press)
             action()
         } label: {
             VStack(spacing: ForgeLayout.pairGap) {
@@ -222,7 +221,7 @@ struct WorkoutIdleView: View {
             accent: dayTone
         ) {
             if music.nowPlaying?.isPlaying == false { music.togglePlayPause() }
-            withAnimation(reduceMotion ? nil : FDS.Spring.standard) { store.startWorkout() }
+            withAnimation(reduceMotion ? nil : ForgeMotion.smooth) { store.startWorkout() }
         }
     }
 
@@ -317,8 +316,7 @@ struct WorkoutIdleView: View {
     // MARK: - Exercise list
 
     private func toggleExercise(_ idx: Int) {
-        FDS.haptic(.press)
-        withAnimation(reduceMotion ? nil : FDS.Spring.standard) {
+        withAnimation(reduceMotion ? nil : ForgeMotion.smooth) {
             selectedExerciseIndex = selectedExerciseIndex == idx ? nil : idx
         }
     }
@@ -559,7 +557,7 @@ struct WorkoutExerciseRow: View {
                     .transition(expandTransition)
             }
         }
-        .animation(reduceMotion ? nil : FDS.Spring.standard, value: isExpanded)
+        .animation(reduceMotion ? nil : ForgeMotion.smooth, value: isExpanded)
     }
 
     // MARK: Header (the only part that toggles)
@@ -694,7 +692,7 @@ struct WeekSessionPicker: View {
         let isToday = slot.weekday == WeeklySplit.sun0(from: Date())
         let subtitle = slot.isRest ? "Rest · easy core if you want it" : "\(slot.title) · \(slot.exerciseCount) exercises"
         return Button {
-            FDS.haptic(.select)
+            ForgeHaptics.play(.selection)
             onPick(slot.weekday)
         } label: {
             ForgeListRow(
@@ -763,7 +761,7 @@ struct WorkoutEmptyState: View {
                     .id(agingStamp)
             }
             VStack(spacing: ForgeLayout.tileGap) {
-                ForgePrimaryButton(title: "Write today’s session", icon: "sparkles") {
+                ForgePrimaryButton(title: "Write today’s session", icon: "square.and.pencil") {
                     store.rebuildTodayPlanFromLife()
                 }
                 ForgeSecondaryButton(title: "Browse the library", icon: "books.vertical.fill", accent: .steel) {

@@ -1,4 +1,5 @@
 import SwiftUI
+import ForgeCore
 
 /// One rhythm for the whole Home surface. Every section reads its inset, gap,
 /// padding and radius from here instead of hand-picking a number.
@@ -13,12 +14,12 @@ enum HomeMetrics {
     /// Vertical gap between sections, applied once by the VStack.
     static let sectionGap: CGFloat = FDS.Spacing.lg
     /// Interior padding for every card.
-    static let cardPadding: CGFloat = 20
+    static let cardPadding: CGFloat = FDS.Spacing.xl
     /// Radius for elements *inside* a card. Cards themselves use the
     /// `forgeGlassCard` default (`FDS.Radius.xl`).
     static let innerRadius: CGFloat = FDS.Radius.md
     /// Clearance past the tab bar and floating orb at the end of the scroll.
-    static let scrollBottomClearance: CGFloat = 28
+    static let scrollBottomClearance: CGFloat = FDS.Spacing.xxl
     /// How far a section rises as it fades in.
     static let entranceRise: CGFloat = 12
     /// Hero ring-field base size. Use sites wrap this in `@ScaledMetric` and
@@ -36,7 +37,7 @@ enum HomeType {
     static let greeting = FDS.TypeScale.Dynamic.display
     static let heroScore = FDS.TypeScale.Dynamic.heroScore
     static let sessionTitle = FDS.TypeScale.Dynamic.title
-    static let status = FDS.TypeScale.Dynamic.body.weight(.medium)
+    static let status = ForgeType.bodyMedium
     static let body = FDS.TypeScale.Dynamic.body
     static let label = FDS.TypeScale.Dynamic.label
     static let micro = FDS.TypeScale.Dynamic.micro
@@ -82,7 +83,7 @@ private struct HomeEntrance: ViewModifier {
                     appeared = true
                     return
                 }
-                withAnimation(FDS.Spring.hero.delay(delay)) { appeared = true }
+                withForgeMotion(ForgeMotion.gentle.delay(delay)) { appeared = true }
                 HomeEntranceSession.shared.markPlayed()
             }
     }
@@ -171,7 +172,7 @@ enum HomePrimaryAction: Equatable {
         case .startWorkout:    return "dumbbell.fill"
         case .continueWorkout: return "arrow.clockwise"
         case .recoveryDay:     return "leaf.fill"
-        case .buildPlan:       return "sparkles"
+        case .buildPlan:       return "square.and.pencil"
         }
     }
 

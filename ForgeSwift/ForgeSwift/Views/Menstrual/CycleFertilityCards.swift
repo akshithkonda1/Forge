@@ -35,7 +35,7 @@ private struct CycleChoiceTile: View {
 
     var body: some View {
         Button {
-            FDS.haptic(.select)
+            ForgeHaptics.play(.selection)
             action()
         } label: {
             label
@@ -191,7 +191,7 @@ struct FertileScoreCard: View {
                     .forgeWrapping()
             }
 
-            ForgeTextLink(title: "Ask ARIA about this score", accent: .aurora) {
+            ForgeTextLink(title: "Ask ARIA about this score", accent: .ember) {
                 onAskARIA()
             }
         }
@@ -393,7 +393,7 @@ struct TWWSectionCard: View {
                 .foregroundStyle(Color.textTertiary)
                 .forgeWrapping()
 
-            ForgeTextLink(title: "Ask ARIA about the two-week wait", accent: .aurora) {
+            ForgeTextLink(title: "Ask ARIA about the two-week wait", accent: .ember) {
                 onAskARIA()
             }
         }

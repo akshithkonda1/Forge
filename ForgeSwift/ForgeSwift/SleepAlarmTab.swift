@@ -547,7 +547,7 @@ struct AlarmTab: View {
 
     private var testWakeCard: some View {
         Button {
-            FDS.haptic(.press)
+            ForgeHaptics.play(.press)
             SleepWakeStore.shared.ring(store.next ?? ForgeAlarm())
         } label: {
             HStack(spacing: ForgeLayout.rowGap) {
@@ -674,7 +674,7 @@ struct AlarmRow: View {
         Binding(
             get: { alarm.isEnabled },
             set: { on in
-                FDS.haptic(.select)
+                ForgeHaptics.play(.selection)
                 onToggle(on)
             }
         )
@@ -775,7 +775,7 @@ struct AlarmEditorSheet: View {
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Save") {
                         onSave(alarm)
-                        FDS.haptic(.success)
+                        ForgeHaptics.play(.success)
                         dismiss()
                     }
                     .fontWeight(.semibold)
@@ -849,7 +849,7 @@ struct AlarmEditorSheet: View {
         let edge: Color = active ? Color.steel.opacity(0.4) : Color.white.opacity(0.12)
         let ink: Color = active ? Color.white : Color.textSecondary
         return Button {
-            FDS.haptic(.select)
+            ForgeHaptics.play(.selection)
             toggleDay(day)
         } label: {
             Text(day.short)
@@ -903,7 +903,7 @@ struct AlarmEditorSheet: View {
         let tint: Color = selected ? Color.steel : Color.textTertiary
         let ink: Color = selected ? Color.textPrimary : Color.textSecondary
         return Button {
-            FDS.haptic(.select)
+            ForgeHaptics.play(.selection)
             alarm.sound = sound
         } label: {
             HStack(spacing: ForgeLayout.rowGap) {
@@ -978,7 +978,7 @@ struct AlarmEditorSheet: View {
             .tint(.steel)
             if alarm.isSmartWake {
                 smartWindowBlock
-                    .transition(.opacity.combined(with: .scale(scale: 0.97, anchor: .top)))
+                    .forgeTransition(.opacity.combined(with: .scale(scale: 0.97, anchor: .top)))
             }
         }
         .forgeContentCard()

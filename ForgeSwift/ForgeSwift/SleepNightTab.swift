@@ -91,7 +91,7 @@ struct SleepNightTab: View {
                 Spacer(minLength: ForgeLayout.pairGap)
                 Image(systemName: "arrow.up.right")
                     .font(.system(size: 12, weight: .semibold))
-                    .foregroundStyle(Color.aurora)
+                    .foregroundStyle(Color.textTertiary)
                     .accessibilityHidden(true)
             }
             .frame(minHeight: ForgeUX.minTap)
@@ -385,7 +385,8 @@ struct SleepEveningStoryCard: View {
             }
             Text("Wind-down \(coach.countdownLabel == "now" ? "is now" : "in \(coach.countdownLabel)") · lights out \(coach.bedtimeLabel)")
                 .font(HomeType.label)
-                .foregroundStyle(Color.aurora)
+                .monospacedDigit()
+                .foregroundStyle(Color.steel)
                 .forgeWrapping()
         }
         .forgeContentCard(tint: .aurora)
@@ -438,7 +439,7 @@ struct SleepWindDownRitual: View {
 
     private var dimRow: some View {
         Button {
-            FDS.haptic(.press)
+            ForgeHaptics.play(.press)
             if !dimmed {
                 guard let screen = Self.activeScreen() else { return }
                 previousBrightness = screen.brightness
@@ -477,7 +478,7 @@ struct SleepWindDownRitual: View {
 
     private var phoneRow: some View {
         Button {
-            FDS.haptic(.press)
+            ForgeHaptics.play(.press)
             parked = true
             if !SleepWindDownPlayer.shared.isPlaying {
                 SleepWindDownPlayer.shared.start(kind: .brown, minutes: 30)
@@ -589,7 +590,7 @@ struct SleepTonightSoundDock: View {
             ForgeFlowLayout(spacing: ForgeLayout.chipGap, lineSpacing: ForgeLayout.interactiveChipLineGap) {
                 ForEach(SleepSoundKind.tonightPicks) { kind in
                     ForgeChipButton(label: kind.displayName, icon: kind.icon, energy: .steel) {
-                        FDS.haptic(.primaryCTA)
+                        ForgeHaptics.play(.press)
                         player.start(kind: kind, minutes: 30)
                     }
                     .accessibilityLabel("Start \(kind.displayName)")
@@ -730,6 +731,11 @@ struct SleepLastNightDetail: View {
                     }
                 }
                 .accessibilityElement(children: .combine)
+                .accessibilityLabel(
+                    store.sleepData.count >= SleepCalibrationState.readyNights
+                        ? "Sleep score \(night.score) out of 100"
+                        : "No sleep score yet. \(SleepCalibrationState.from(scoredNights: store.sleepData.count).caption)"
+                )
             }
             if night.hasStages {
                 Text("\(night.clock(night.onset))  →  \(night.clock(night.wake))   ·   \(night.efficiencyPercent)% of time in bed was sleep")
@@ -844,7 +850,7 @@ struct SleepStageLegend: View {
     let night: SleepData
 
     var body: some View {
-        ForgeFlowLayout(spacing: 8, lineSpacing: 8) {
+        ForgeFlowLayout {
             legend("Deep", night.deepMinutes, SleepStagePalette.deep)
             legend("REM", night.remMinutes, SleepStagePalette.rem)
             legend("Light", night.lightMinutes, SleepStagePalette.light)

@@ -17,7 +17,7 @@ struct HydrationWidgetView: View {
                 Image(systemName: "drop.fill")
             } currentValueLabel: {
                 Text("\(Int((snap.hydrationFraction * 100).rounded()))")
-                    .font(.system(.caption2, design: .rounded).weight(.bold))
+                    .font(ForgeFont.sans(.caption2, weight: .bold))
             }
             .gaugeStyle(.accessoryCircularCapacity)
         case .accessoryRectangular, .accessoryInline:
@@ -37,11 +37,11 @@ struct HydrationWidgetView: View {
         VStack(alignment: .leading, spacing: 8) {
             WidgetChrome.eyebrow("Hydration", color: tint)
             Text(format(snap.hydrationMl))
-                .font(.system(size: 28, weight: .bold, design: .rounded))
+                .font(ForgeFont.sans(28, weight: .bold))
                 .foregroundStyle(ForgePalette.textPrimary)
                 .contentTransition(.numericText())
             Text("of \(format(snap.hydrationTargetMl))")
-                .font(.caption)
+                .font(ForgeFont.sans(.caption))
                 .foregroundStyle(ForgePalette.textSecondary)
             Gauge(value: snap.hydrationFraction) { EmptyView() }
                 .gaugeStyle(.linearCapacity)
@@ -61,10 +61,10 @@ struct HydrationWidgetView: View {
             VStack(alignment: .leading, spacing: 6) {
                 WidgetChrome.eyebrow("Hydration", color: tint)
                 Text(format(snap.hydrationMl))
-                    .font(.system(size: 32, weight: .bold, design: .rounded))
+                    .font(ForgeFont.sans(32, weight: .bold))
                     .foregroundStyle(ForgePalette.textPrimary)
                 Text("of \(format(snap.hydrationTargetMl)) · \(Int((snap.hydrationFraction * 100).rounded()))%")
-                    .font(.caption)
+                    .font(ForgeFont.sans(.caption))
                     .foregroundStyle(ForgePalette.textSecondary)
                 Gauge(value: snap.hydrationFraction) { EmptyView() }
                     .gaugeStyle(.linearCapacity)

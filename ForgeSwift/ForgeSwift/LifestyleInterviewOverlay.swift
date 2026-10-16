@@ -237,7 +237,7 @@ struct LifestyleInterviewOverlay: View {
     /// when selected (no glow), at least 44 pt, with the selected trait.
     private func choice(_ title: String, selected: Bool, action: @escaping () -> Void) -> some View {
         Button {
-            FDS.haptic(.select)
+            ForgeHaptics.play(.selection)
             action()
         } label: {
             HStack(spacing: ForgeLayout.rowGap) {

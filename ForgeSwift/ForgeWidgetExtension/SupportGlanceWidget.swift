@@ -65,7 +65,7 @@ private struct SupportGlanceWidgetView: View {
                     .font(.title3)
                     .foregroundStyle(tint)
                 Text(glance?.circularLabel ?? "—")
-                    .font(.caption2)
+                    .font(ForgeFont.sans(.caption2))
             }
             .accessibilityLabel(lockSafe)
         case .accessoryRectangular:
@@ -74,9 +74,9 @@ private struct SupportGlanceWidgetView: View {
                     .foregroundStyle(tint)
                 VStack(alignment: .leading, spacing: 1) {
                     Text(glance.map { $0.firstName.isEmpty ? "Support" : $0.firstName } ?? "Support")
-                        .font(.caption).fontWeight(.semibold)
+                        .font(ForgeFont.sans(.caption)).fontWeight(.semibold)
                     Text(glance?.lockScreenLine ?? "Waiting on an invite")
-                        .font(.caption2)
+                        .font(ForgeFont.sans(.caption2))
                         .foregroundStyle(.secondary)
                         .lineLimit(2)
                 }
@@ -92,10 +92,10 @@ private struct SupportGlanceWidgetView: View {
             WidgetChrome.eyebrow("Support today", color: tint)
             if let glance {
                 Text(glance.firstName.isEmpty ? "Someone you support" : glance.firstName)
-                    .font(.headline)
+                    .font(ForgeFont.sans(.headline, weight: .semibold))
                     .foregroundStyle(ForgePalette.textPrimary)
                 Text(glance.isPaused || glance.isStale ? glance.lockScreenLine : glance.headline)
-                    .font(.caption)
+                    .font(ForgeFont.sans(.caption))
                     .foregroundStyle(ForgePalette.textSecondary)
                     .lineLimit(family == .systemMedium ? 4 : 3)
             } else {

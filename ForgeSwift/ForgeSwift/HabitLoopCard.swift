@@ -43,7 +43,7 @@ struct HabitLoopCard: View {
                     .font(.system(size: 11))
                     .foregroundColor(.steel)
                 Text(habit.evidence)
-                    .font(.system(size: 12))
+                    .font(ForgeFont.sans(12))
                     .foregroundColor(.textSecondary)
             }
 
@@ -94,7 +94,7 @@ private struct LoopRow: View {
                 .foregroundColor(.textTertiary)
                 .frame(width: 56, alignment: .leading)
             Text(text)
-                .font(.system(size: 13))
+                .font(ForgeFont.sans(13))
                 .foregroundColor(color)
                 .fixedSize(horizontal: false, vertical: true)
         }
@@ -129,7 +129,7 @@ struct HabitLoopListCard: View {
                     Text("Did it work?")
                         .font(FDS.TypeScale.Dynamic.caption).foregroundColor(.ember)
                     Text("You tried \(pending.breaker) yesterday.")
-                        .font(.system(size: 13)).foregroundColor(.textSecondary)
+                        .font(ForgeFont.sans(13)).foregroundColor(.textSecondary)
                     HStack(spacing: FDS.Spacing.md) {
                         Button {
                             HabitFeedbackStore.submitFeedback(habitId: pending.habitId, answer: "yeah")
@@ -138,7 +138,7 @@ struct HabitLoopListCard: View {
                                 AriaKnowledgeLedgerStore.file(HabitFeedbackStore.outcomeFact(for: habit, answer: "yeah"))
                             }
                             pendingFeedback = nil
-                            FeedbackGenerator.light()
+                            ForgeHaptics.play(.press)
                         } label: {
                             Text("Yeah ✓").font(FDS.TypeScale.Dynamic.caption).foregroundColor(.white)
                                 .frame(maxWidth: .infinity).padding(.vertical, FDS.Spacing.sm).background(Color.success).cornerRadius(FDS.Radius.sm)
@@ -150,7 +150,7 @@ struct HabitLoopListCard: View {
                                 AriaKnowledgeLedgerStore.file(HabitFeedbackStore.outcomeFact(for: habit, answer: "nah"))
                             }
                             pendingFeedback = nil
-                            FeedbackGenerator.light()
+                            ForgeHaptics.play(.press)
                         } label: {
                             Text("Nah — too big").font(FDS.TypeScale.Dynamic.caption).foregroundColor(.textPrimary)
                                 .frame(maxWidth: .infinity).padding(.vertical, FDS.Spacing.sm).forgeInsetTile(radius: FDS.Radius.sm)
@@ -163,7 +163,7 @@ struct HabitLoopListCard: View {
 
             if vm.deepHabits.isEmpty {
                 Text("No strong loop detected — your signals look balanced today. One small habit still compounds.")
-                    .font(.system(size: 13))
+                    .font(ForgeFont.sans(13))
                     .foregroundColor(.textSecondary)
                     .padding(.vertical, FDS.Spacing.sm)
             } else {
@@ -172,9 +172,9 @@ struct HabitLoopListCard: View {
                         HabitFeedbackStore.markTried(habit)
                         AriaContextStore.shared.addInsight("Tried habit breaker: \(habit.id) — \(habit.breaker)")
                         AriaKnowledgeLedgerStore.file(HabitFeedbackStore.attemptFact(for: habit))
-                        FeedbackGenerator.light()
+                        ForgeHaptics.play(.press)
                     }, onSnooze: {
-                        FeedbackGenerator.light()
+                        ForgeHaptics.play(.press)
                     })
                 }
             }
@@ -185,12 +185,6 @@ struct HabitLoopListCard: View {
             Task { await vm.syncIfNeeded() }
             pendingFeedback = HabitFeedbackStore.pendingFeedback()
         }
-    }
-}
-
-private enum FeedbackGenerator {
-    static func light() {
-        UIImpactFeedbackGenerator(style: .light).impactOccurred()
     }
 }
 

@@ -129,7 +129,7 @@ struct ProfileHeroHeader: View {
 
     private var avatarButton: some View {
         let size = ForgeLayout.scaledCap(avatarSize, base: 92, maxGrowth: 1.25)
-        return Button(action: { FDS.haptic(.press); onEdit() }) {
+        return Button(action: { ForgeHaptics.play(.press); onEdit() }) {
             ZStack(alignment: .bottomTrailing) {
                 ProfileAvatarView(
                     fileName: profile.avatarFileName,
@@ -225,7 +225,6 @@ struct ProfileHeroHeader: View {
             EmptyView()
         } else {
             Button {
-                FDS.haptic(.press)
                 store.pendingLifestyleSegment = "lifetime"
                 store.activeTab = .lifestyle
             } label: {

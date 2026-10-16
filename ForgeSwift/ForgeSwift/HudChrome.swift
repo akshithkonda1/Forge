@@ -1,7 +1,7 @@
 import SwiftUI
 import ForgeCore
 
-/// Solid Forge chrome — crisp ticks, a sweep, restrained glow.
+/// Solid Forge chrome — crisp ticks and a solid sweep. No glow.
 /// Same tokens as Phase B (`shared/readiness.json`), evolved: not a HUD
 /// costume, not scanlines, not fake telemetry.
 ///
@@ -115,28 +115,19 @@ struct HudProgressRing<Center: View>: View {
                     }
                     Circle()
                         .trim(from: 0, to: sweep)
+                        // One solid band color — the sweep length is the data.
                         .stroke(
-                            AngularGradient(
-                                colors: [
-                                    energy.opacity(0.40),
-                                    energy,
-                                    HudChrome.emberSteel.opacity(0.92),
-                                    energy
-                                ],
-                                center: .center,
-                                startAngle: .degrees(-90),
-                                endAngle: .degrees(270)
-                            ),
+                            energy,
                             style: StrokeStyle(lineWidth: stroke, lineCap: .round)
                         )
                         .frame(width: ring, height: ring)
                         .rotationEffect(.degrees(-90))
-                        .shadow(color: energy.opacity(0.18 + 0.16 * glow), radius: HudChrome.glowRadius)
+                        // Event pulse: a brief opacity breath, no colored halo.
+                        .opacity(0.88 + 0.12 * glow)
                     if sweep > 0.02 {
                         Circle()
                             .fill(HudChrome.plate)
                             .frame(width: stroke * 0.72, height: stroke * 0.72)
-                            .shadow(color: HudChrome.plate.opacity(0.36 + 0.28 * glow), radius: 3)
                             .offset(y: -ring / 2)
                             .rotationEffect(.degrees(-90 + Double(sweep) * 360))
                     }
@@ -175,7 +166,7 @@ struct HudProgressRing<Center: View>: View {
             animatedProgress: nil
         )
         if animated && !reduceMotion {
-            withAnimation(FDS.Spring.sweep.delay(0.12)) { sweep = CGFloat(next) }
+            withAnimation(ForgeMotion.sweep.delay(0.12)) { sweep = CGFloat(next) }
         } else {
             sweep = CGFloat(next)
         }
@@ -246,7 +237,7 @@ struct HudTickRing: View {
     }
 }
 
-/// Hairline plate behind a card — depth and a thin edge, not costume chrome.
+/// Flat plate behind a card — one surface step and a hairline. No wash, no halo.
 struct HudPlate: ViewModifier {
     var energy: Color
     var compact: Bool = false
@@ -255,35 +246,14 @@ struct HudPlate: ViewModifier {
         content
             .padding(compact ? 16 : HomeMetrics.cardPadding)
             .background {
-                ZStack {
-                    RoundedRectangle(cornerRadius: HomeMetrics.hudRadius, style: .continuous)
-                        .fill(Color.surfaceElevated.opacity(0.94))
-                    RoundedRectangle(cornerRadius: HomeMetrics.hudRadius, style: .continuous)
-                        .fill(
-                            LinearGradient(
-                                colors: [energy.opacity(0.08), HudChrome.plate.opacity(0.04), .clear],
-                                startPoint: .topLeading,
-                                endPoint: .bottomTrailing
-                            )
-                        )
-                    RoundedRectangle(cornerRadius: HomeMetrics.hudRadius, style: .continuous)
-                        .strokeBorder(
-                            LinearGradient(
-                                colors: [
-                                    HudChrome.plate.opacity(0.32),
-                                    HudChrome.emberSteel.opacity(0.20),
-                                    energy.opacity(0.16),
-                                    Color.white.opacity(0.06)
-                                ],
-                                startPoint: .topLeading,
-                                endPoint: .bottomTrailing
-                            ),
-                            lineWidth: 1
-                        )
-                }
+                RoundedRectangle(cornerRadius: HomeMetrics.hudRadius, style: .continuous)
+                    .fill(Color.surface)
+            }
+            .overlay {
+                RoundedRectangle(cornerRadius: HomeMetrics.hudRadius, style: .continuous)
+                    .strokeBorder(Color.borderHairline, lineWidth: 0.5)
             }
             .clipShape(RoundedRectangle(cornerRadius: HomeMetrics.hudRadius, style: .continuous))
-            .forgeCardShadow(glow: energy)
     }
 }
 
@@ -307,8 +277,8 @@ struct HudVibeChip: View {
             .font(HomeType.micro)
             .foregroundStyle(energy)
             .tracking(1.4)
-            .padding(.horizontal, 9)
-            .padding(.vertical, 4)
+            .padding(.horizontal, FDS.Spacing.sm)
+            .padding(.vertical, FDS.Spacing.xs)
             .background(energy.opacity(0.12))
             .clipShape(Capsule())
             .overlay(Capsule().stroke(energy.opacity(0.28), lineWidth: 0.8))

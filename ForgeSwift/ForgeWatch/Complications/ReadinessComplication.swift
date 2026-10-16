@@ -51,13 +51,13 @@ private struct ReadinessComplicationView: View {
                     Text("RDY")
                 } currentValueLabel: {
                     Text("\(score)")
-                        .font(.system(size: 18, weight: .bold, design: .rounded))
+                        .font(ForgeFont.sans(18, weight: .bold))
                 }
                 .gaugeStyle(.accessoryCircular)
                 .tint(tint)
                 .widgetAccentable()
             } else {
-                Image(systemName: "sparkles")
+                Image(systemName: "circle.dotted")
                     .font(.system(size: 16))
             }
         }
@@ -66,7 +66,7 @@ private struct ReadinessComplicationView: View {
 
     private var corner: some View {
         Text(score.map(String.init) ?? "–")
-            .font(.system(size: 20, weight: .bold, design: .rounded))
+            .font(ForgeFont.sans(20, weight: .bold))
             .foregroundStyle(tint)
             .widgetAccentable()
             .widgetLabel {
@@ -85,16 +85,16 @@ private struct ReadinessComplicationView: View {
             HStack(spacing: 4) {
                 Circle().fill(tint).frame(width: 7, height: 7)
                 Text(headline)
-                    .font(.system(size: 13, weight: .semibold, design: .rounded))
+                    .font(ForgeFont.sans(13, weight: .semibold))
                     .widgetAccentable()
                 if let band, !ReadinessGlanceCopy.isEvening(hour: hour) {
                     Text("· \(band.label)")
-                        .font(.system(size: 13, weight: .medium))
+                        .font(ForgeFont.sans(13, weight: .medium))
                         .foregroundStyle(.secondary)
                 }
             }
             Text(subline)
-                .font(.system(size: 11))
+                .font(ForgeFont.sans(11))
                 .foregroundStyle(.secondary)
                 .lineLimit(2)
         }

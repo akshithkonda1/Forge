@@ -40,9 +40,8 @@ struct AuthWelcomeView: View {
                     }
                 }
                 .tabViewStyle(.page(indexDisplayMode: .never))
-                .animation(FDS.Spring.page, value: page)
+                .forgeAnimation(ForgeMotion.smooth, value: page)
                 .onChange(of: page) { _, _ in
-                    FDS.selectionHaptic()
                     scheduleAutoAdvance()
                 }
 
@@ -61,7 +60,7 @@ struct AuthWelcomeView: View {
                 .preferredColorScheme(.dark)
         }
         .onAppear {
-            withAnimation(reduceMotion ? nil : FDS.Spring.hero.delay(0.05)) { appeared = true }
+            withAnimation(reduceMotion ? nil : ForgeMotion.gentle.delay(0.05)) { appeared = true }
             scheduleAutoAdvance()
         }
         .onDisappear {
@@ -90,7 +89,6 @@ struct AuthWelcomeView: View {
 
     private var signInButton: some View {
         Button {
-            FDS.haptic(.press)
             showSignIn = true
         } label: {
             Text("Sign in")
@@ -124,14 +122,12 @@ struct AuthWelcomeView: View {
     private var ctaBlock: some View {
         VStack(spacing: ForgeLayout.tileGap) {
             PremiumPrimaryButton(title: "Get started") {
-                FDS.haptic(.medium)
                 showSignUp = true
             }
 
             if page < pages.count - 1 {
                 Button {
-                    FDS.haptic(.press)
-                    withAnimation(reduceMotion ? nil : FDS.Spring.page) {
+                    withAnimation(reduceMotion ? nil : ForgeMotion.smooth) {
                         page = min(pages.count - 1, page + 1)
                     }
                 } label: {
@@ -160,7 +156,7 @@ struct AuthWelcomeView: View {
         autoAdvanceTask = Task { @MainActor in
             try? await Task.sleep(nanoseconds: 4_800_000_000)
             guard !Task.isCancelled else { return }
-            withAnimation(FDS.Spring.page) {
+            withForgeMotion(ForgeMotion.smooth) {
                 page = min(pages.count - 1, page + 1)
             }
         }
@@ -185,7 +181,7 @@ private struct AuthHookPage: Identifiable {
             kicker: "Meet your coach",
             title: AriaOnboardingGuide.welcomeTitle,
             body: "ARIA is an adaptive lifestyle coach — present for readiness, sleep, and the session you'd skip. Small moves compound. You still decide.",
-            icon: "sparkles",
+            icon: "text.bubble",
             accent: Color.ember,
             frost: HudChrome.plate,
             reward: "A coach who already knows you"
@@ -215,7 +211,7 @@ private struct AuthHookPage: Identifiable {
             kicker: "Start today",
             title: "Forge starts with one choice.",
             body: "Name your goal and how you want to train. Connect Health if you want. Walk out with a first plan and a coach that already knows you.",
-            icon: "sparkles",
+            icon: "text.bubble",
             accent: Color.paper,
             frost: Color.ember,
             reward: "Meet ARIA →"
@@ -233,7 +229,7 @@ private struct AuthHookPageView: View {
         pageLayout
             .opacity(isActive ? 1 : 0.4)
             .scaleEffect(isActive ? 1 : 0.97)
-            .animation(FDS.Spring.standard, value: isActive)
+            .forgeAnimation(ForgeMotion.smooth, value: isActive)
             .onChange(of: isActive) { _, active in
                 guard page.id == "aria", !active else { return }
                 AriaPresence.shared.stopSpeaking()
@@ -323,7 +319,6 @@ private struct AuthHookPageView: View {
 
     private var ariaVisual: some View {
         Button {
-            FDS.haptic(.soft)
             AriaPresence.shared.speak(AriaOnboardingGuide.welcomeSpokenLine, interrupt: true)
         } label: {
             VStack(spacing: FDS.Spacing.sm) {
@@ -369,11 +364,8 @@ private struct AuthHookPageView: View {
     }
 
     private var iconGradient: LinearGradient {
-        LinearGradient(
-            colors: [Color.paper, page.accent.opacity(0.9)],
-            startPoint: .topLeading,
-            endPoint: .bottomTrailing
-        )
+        // Flat paper glyphs; the page accent stays on the single CTA.
+        LinearGradient.flat(Color.paper)
     }
 }
 

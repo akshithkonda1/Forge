@@ -1,4 +1,5 @@
 import SwiftUI
+import ForgeCore
 import UIKit
 import Combine
 
@@ -126,19 +127,13 @@ struct ProfileAvatarView: View {
                     .fill(LinearGradient.emberGradient)
                     .frame(width: size, height: size)
                 Text(initials.isEmpty ? "?" : initials)
-                    .font(.system(size: size * 0.37, weight: .bold, design: .rounded))
+                    .font(ForgeFont.sans(size * 0.37, weight: .bold))
                     .foregroundColor(.white)
             }
 
             if showsRing {
                 Circle()
-                    .stroke(
-                        AngularGradient(
-                            colors: [.emberLight, .ember, .emberDark, .ember, .emberLight],
-                            center: .center
-                        ),
-                        lineWidth: 2.5
-                    )
+                    .stroke(Color.ember, lineWidth: 1.5)
                     .frame(width: size + 8, height: size + 8)
             }
         }

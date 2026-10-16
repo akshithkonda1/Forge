@@ -15,7 +15,7 @@ struct SleepWidgetView: View {
                 Image(systemName: "moon.stars.fill")
                     .font(.caption)
                 Text(HomeWidgetSleepDisplay.hoursText(snap, style: .circular))
-                    .font(.system(.caption2, design: .rounded).weight(.bold))
+                    .font(ForgeFont.sans(.caption2, weight: .bold))
                     .multilineTextAlignment(.center)
                     .minimumScaleFactor(0.6)
                     .lineLimit(2)

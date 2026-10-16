@@ -107,7 +107,7 @@ private struct ComposeStagedView: View {
             // input field, and the user still taps send. Saying so avoids the
             // "did that already go?" pause.
             Text("Adds a card to your message. You still tap send.")
-                .font(.footnote)
+                .font(ForgeFont.sans(.footnote))
                 .foregroundStyle(.white.opacity(0.55))
                 .multilineTextAlignment(.center)
         }
@@ -133,7 +133,7 @@ private struct ComposeEmptyView: View {
             }
         } secondary: {
             Text("Come back here once it's ready and the invite will be waiting.")
-                .font(.footnote)
+                .font(ForgeFont.sans(.footnote))
                 .foregroundStyle(.white.opacity(0.55))
                 .multilineTextAlignment(.center)
         }
@@ -174,7 +174,7 @@ private struct SentView: View {
             Text(revoked && payload.effectiveStatus.isActionable
                  ? "You've stopped sharing. This updates the card in your thread to say so."
                  : "You can stop sharing at any time. They just stop seeing updates.")
-                .font(.footnote)
+                .font(ForgeFont.sans(.footnote))
                 .foregroundStyle(.white.opacity(0.55))
                 .multilineTextAlignment(.center)
         }
@@ -255,7 +255,7 @@ private struct ReceivedView: View {
                  : payload.effectiveStatus.isActionable
                    ? "Accepting opens Forge. They can stop sharing at any time."
                    : payload.effectiveStatus.caption)
-                .font(.footnote)
+                .font(ForgeFont.sans(.footnote))
                 .foregroundStyle(.white.opacity(0.55))
                 .multilineTextAlignment(.center)
         }
@@ -316,8 +316,8 @@ private struct InviteLayout<Detail: View, Primary: View, Secondary: View>: View 
                     }
                     Text(title)
                         .font(actions.isCompact
-                              ? .system(size: 17, weight: .semibold)
-                              : .system(size: 26, weight: .bold))
+                              ? ForgeFont.sans(17, weight: .semibold)
+                              : ForgeFont.sans(26, weight: .bold))
                         .foregroundStyle(.white)
                         // Two lines of a long name beat a truncated one; the
                         // compact sheet has the room for it and nothing else does.
@@ -387,7 +387,7 @@ private struct SupporterExpectations: View {
         DisclosureColumn(
             title: "What you'll get",
             tint: Brand.ember,
-            icon: "sparkles",
+            icon: "person.2",
             items: ["A general read on how they're doing",
                     "One clear suggestion for today",
                     "Nothing they log, ever",
@@ -418,7 +418,7 @@ private struct DisclosureColumn: View {
                         .frame(width: 4, height: 4)
                         .padding(.top, 7)
                     Text(item)
-                        .font(.subheadline)
+                        .font(ForgeFont.sans(.subheadline))
                         .foregroundStyle(.white.opacity(0.82))
                         .fixedSize(horizontal: false, vertical: true)
                 }
@@ -443,13 +443,8 @@ private struct InviteGlyph: View {
             .foregroundStyle(.white)
             .frame(width: 76, height: 76)
             .background(
-                Circle().fill(
-                    LinearGradient(colors: [Brand.ember, Brand.emberDark],
-                                   startPoint: .topLeading,
-                                   endPoint: .bottomTrailing)
-                )
+                Circle().fill(Brand.ember)
             )
-            .shadow(color: Brand.ember.opacity(0.35), radius: 20, y: 8)
             .accessibilityHidden(true)
     }
 }
@@ -462,37 +457,24 @@ private struct InviteButton: View {
     var body: some View {
         Button(action: action) {
             Label(title, systemImage: icon)
-                .font(.system(size: 16, weight: .semibold))
+                .font(ForgeFont.sans(16, weight: .semibold))
                 .foregroundStyle(.white)
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, 14)
                 .background(
                     RoundedRectangle(cornerRadius: 14, style: .continuous)
-                        .fill(LinearGradient(colors: [Brand.ember, Brand.emberDark],
-                                             startPoint: .leading,
-                                             endPoint: .trailing))
+                        .fill(Brand.ember)
                 )
         }
         .buttonStyle(.plain)
     }
 }
 
-/// A still gradient, not an animated one. The extension is a keyboard-height
-/// sheet a user is in for four seconds, and ambient motion here would read as
-/// jitter rather than as welcome.
+/// Flat near-black, matching the app. No bloom: the extension is a
+/// keyboard-height sheet a user is in for four seconds.
 private struct InviteBackground: View {
     var body: some View {
-        LinearGradient(colors: [Color(red: 0.06, green: 0.06, blue: 0.08),
-                                Color(red: 0.11, green: 0.08, blue: 0.09)],
-                       startPoint: .top,
-                       endPoint: .bottom)
-            .overlay(alignment: .topTrailing) {
-                Circle()
-                    .fill(Brand.ember.opacity(0.16))
-                    .frame(width: 260, height: 260)
-                    .blur(radius: 90)
-                    .offset(x: 80, y: -110)
-            }
+        Color(red: 0.035, green: 0.035, blue: 0.043)
             .ignoresSafeArea()
             .accessibilityHidden(true)
     }

@@ -48,7 +48,7 @@ public enum AriaKnowledgeCategory: String, Codable, CaseIterable, Sendable {
         case .inferences: return "lightbulb.fill"
         case .goals: return "target"
         case .identity: return "person.fill"
-        case .lifestyle: return "sparkles"
+        case .lifestyle: return "leaf"
         case .preferences: return "slider.horizontal.3"
         case .mood: return "face.smiling"
         }

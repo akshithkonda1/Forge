@@ -245,7 +245,7 @@ struct CycleRhythmReportView: View {
                 .forgeWell()
 
             ForgeTextLink(title: "Preview report text", accent: .ember, expanded: showFullReport) {
-                withAnimation(reduceMotion ? nil : FDS.Spring.standard) {
+                withAnimation(reduceMotion ? nil : ForgeMotion.smooth) {
                     showFullReport.toggle()
                 }
             }
@@ -333,7 +333,7 @@ private struct ReportActionLabel: View {
                 .accessibilityHidden(true)
         }
         .foregroundColor(.white)
-        .padding(.vertical, 14)
+        .padding(.vertical, FDS.Spacing.md)
         .padding(.horizontal, FDS.Spacing.lg)
         .frame(maxWidth: .infinity, minHeight: ForgeUX.minTap + 8, alignment: .leading)
         .background {
@@ -344,7 +344,6 @@ private struct ReportActionLabel: View {
         }
         .clipShape(shape)
         .overlay(shape.stroke(Color.white.opacity(0.20), lineWidth: ForgeUX.hairline))
-        .shadow(color: Color.ember.opacity(0.34), radius: 10, y: 4)
     }
 
     private var secondaryBody: some View {
@@ -397,7 +396,7 @@ struct CycleTrainingPrescriptionCard: View {
             }
 
             VStack(alignment: .leading, spacing: ForgeLayout.pairGap) {
-                ForgeTextLink(title: "Ask ARIA to shape this", accent: .aurora) {
+                ForgeTextLink(title: "Ask ARIA to shape this", accent: .ember) {
                     onAskARIA()
                 }
                 Text(prescription.disclaimer)

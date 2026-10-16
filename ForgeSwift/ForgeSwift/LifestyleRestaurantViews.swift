@@ -86,7 +86,7 @@ struct BarcodeScannerView: UIViewControllerRepresentable {
                   let object = metadataObjects.first as? AVMetadataMachineReadableCodeObject,
                   let code = object.stringValue else { return }
             didScan = true
-            FDS.haptic(.success)
+            ForgeHaptics.play(.success)
             onScan?(code)
         }
     }
@@ -174,8 +174,8 @@ struct NutritionDatabaseView: View {
             return [GridItem(.flexible())]
         }
         return [
-            GridItem(.flexible(), spacing: 12),
-            GridItem(.flexible(), spacing: 12),
+            GridItem(.flexible(), spacing: FDS.Spacing.md),
+            GridItem(.flexible(), spacing: FDS.Spacing.md),
         ]
     }
 
@@ -187,7 +187,7 @@ struct NutritionDatabaseView: View {
 
             AIBestPicksSection(vm: vm)
 
-            LazyVGrid(columns: gridColumns, spacing: 12) {
+            LazyVGrid(columns: gridColumns, spacing: FDS.Spacing.md) {
                 ForEach(filtered) { restaurant in
                     Button { selectedRestaurant = restaurant } label: {
                         RestaurantCard(restaurant: restaurant)
@@ -214,7 +214,6 @@ struct NutritionDatabaseView: View {
                 .autocorrectionDisabled()
             if !searchText.isEmpty {
                 Button {
-                    FDS.haptic(.press)
                     searchText = ""
                 } label: {
                     Image(systemName: "xmark.circle.fill")
@@ -360,7 +359,7 @@ struct RestaurantMenuSheet: View {
                             fat: Double(item.fat)
                         )
                         loggedItemID = item.id
-                        FDS.haptic(.success)
+                        ForgeHaptics.play(.success)
                     }
                 }
             }

@@ -20,7 +20,7 @@ struct ReadinessWidgetView: View {
                 Image(systemName: "bolt.heart.fill")
             } currentValueLabel: {
                 Text(scoreText)
-                    .font(.system(.caption, design: .rounded).weight(.bold))
+                    .font(ForgeFont.sans(.caption, weight: .bold))
             }
             .gaugeStyle(.accessoryCircularCapacity)
         case .accessoryRectangular, .accessoryInline:
@@ -34,7 +34,7 @@ struct ReadinessWidgetView: View {
                 WidgetChrome.eyebrow("Readiness", color: tint)
                 HStack(alignment: .firstTextBaseline, spacing: 4) {
                     Text(scoreText)
-                        .font(.system(size: 42, weight: .bold, design: .rounded))
+                        .font(ForgeFont.sans(42, weight: .bold))
                         .foregroundStyle(ForgePalette.textPrimary)
                         .contentTransition(.numericText())
                     if hasScore {
@@ -44,7 +44,7 @@ struct ReadinessWidgetView: View {
                     }
                 }
                 Text(hasScore ? band.supportiveDescriptor : "Open Forge after you wake to see today's score.")
-                    .font(.caption2)
+                    .font(ForgeFont.sans(.caption2))
                     .foregroundStyle(ForgePalette.textSecondary)
                     .lineLimit(2)
                 Spacer(minLength: 0)

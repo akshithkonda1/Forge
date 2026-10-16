@@ -18,7 +18,7 @@ struct HomeWidgetBoard: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
+        VStack(alignment: .leading, spacing: FDS.Spacing.md) {
             HStack {
                 Text("WIDGETS")
                     .forgeSectionLabel()
@@ -29,7 +29,7 @@ struct HomeWidgetBoard: View {
                             Button {
                                 HomeWidgetBoardStore.add(kind)
                                 pins = HomeWidgetBoardStore.load()
-                                FDS.haptic(.light)
+                                ForgeHaptics.play(.press)
                             } label: {
                                 Label(kind.title, systemImage: kind.systemImage)
                             }
@@ -42,7 +42,7 @@ struct HomeWidgetBoard: View {
                     .accessibilityLabel("Add a widget to Home")
                 }
                 Button(editing ? "Done" : "Edit") {
-                    withAnimation(FDS.Spring.standard) { editing.toggle() }
+                    withForgeMotion(ForgeMotion.smooth) { editing.toggle() }
                 }
                 .font(FDS.TypeScale.Dynamic.caption)
                 .foregroundStyle(Color.textSecondary)
@@ -51,7 +51,7 @@ struct HomeWidgetBoard: View {
             if pins.isEmpty {
                 empty
             } else {
-                LazyVGrid(columns: [GridItem(.flexible(), spacing: 10), GridItem(.flexible(), spacing: 10)], spacing: 10) {
+                LazyVGrid(columns: [GridItem(.flexible(), spacing: FDS.Spacing.sm), GridItem(.flexible(), spacing: FDS.Spacing.sm)], spacing: FDS.Spacing.sm) {
                     ForEach(pins) { kind in
                         HomePinnedWidgetCard(kind: kind, snapshot: snapshot, editing: editing) {
                             HomeWidgetBoardStore.remove(kind)
@@ -65,12 +65,12 @@ struct HomeWidgetBoard: View {
     }
 
     private var empty: some View {
-        VStack(alignment: .leading, spacing: 6) {
+        VStack(alignment: .leading, spacing: FDS.Spacing.xs) {
             Text("No widgets on this page")
-                .font(FDS.TypeScale.Dynamic.body.weight(.semibold))
+                .font(ForgeType.bodyStrong)
                 .foregroundColor(.textPrimary)
             Text("Add Hydration, Sleep, Cycle, Workout or Lifestyle. The same cards can live on your iPhone Home Screen.")
-                .font(.system(size: 12))
+                .font(ForgeFont.sans(12))
                 .foregroundColor(.textSecondary)
         }
         .padding(HomeMetrics.cardPadding)
@@ -88,7 +88,7 @@ private struct HomePinnedWidgetCard: View {
 
     var body: some View {
         Button(action: open) {
-            VStack(alignment: .leading, spacing: 8) {
+            VStack(alignment: .leading, spacing: FDS.Spacing.sm) {
                 HStack {
                     Image(systemName: kind.systemImage)
                         .font(.system(size: 13, weight: .semibold))
@@ -107,7 +107,7 @@ private struct HomePinnedWidgetCard: View {
                 content
                 Spacer(minLength: 0)
             }
-            .padding(14)
+            .padding(FDS.Spacing.md)
             .frame(maxWidth: .infinity, minHeight: 112, alignment: .topLeading)
             .forgeGlassCard(accent: accent.opacity(0.55))
         }
@@ -123,14 +123,14 @@ private struct HomePinnedWidgetCard: View {
                 .font(FDS.TypeScale.Dynamic.metric)
                 .foregroundColor(.textPrimary)
             Text("\(Int((snapshot.hydrationFraction * 100).rounded()))% of need")
-                .font(.system(size: 11))
+                .font(ForgeFont.sans(11))
                 .foregroundColor(.textSecondary)
         case .sleep:
             Text(String(format: "%.1f h", snapshot.sleepHours))
                 .font(FDS.TypeScale.Dynamic.metric)
                 .foregroundColor(.textPrimary)
             Text(snapshot.sleepWindowTitle ?? "Last night")
-                .font(.system(size: 11))
+                .font(ForgeFont.sans(11))
                 .foregroundColor(.textSecondary)
                 .lineLimit(1)
         case .cycle:
@@ -139,23 +139,23 @@ private struct HomePinnedWidgetCard: View {
                 .foregroundColor(.textPrimary)
             if let day = snapshot.cycleDay {
                 Text("Day \(day)")
-                    .font(.system(size: 11))
+                    .font(ForgeFont.sans(11))
                     .foregroundColor(.textSecondary)
             }
         case .workout:
             Text(snapshot.workoutName ?? "No session yet")
-                .font(FDS.TypeScale.Dynamic.body.weight(.semibold))
+                .font(ForgeType.bodyStrong)
                 .foregroundColor(.textPrimary)
                 .lineLimit(2)
             Text(snapshot.workoutName == nil ? "Ask ARIA to build one" : "Ready when you are")
-                .font(.system(size: 11))
+                .font(ForgeFont.sans(11))
                 .foregroundColor(.textSecondary)
         case .lifestyle:
             Text("\(snapshot.qol)")
                 .font(FDS.TypeScale.Dynamic.metric)
                 .foregroundColor(.textPrimary)
             Text(snapshot.topRecommendation ?? "QOL")
-                .font(.system(size: 11))
+                .font(ForgeFont.sans(11))
                 .foregroundColor(.textSecondary)
                 .lineLimit(2)
         }
@@ -173,7 +173,6 @@ private struct HomePinnedWidgetCard: View {
 
     private func open() {
         guard !editing else { onRemove(); return }
-        FDS.haptic(.light)
         switch kind {
         case .hydration: store.openHydration()
         case .sleep:     store.activeTab = .sleep

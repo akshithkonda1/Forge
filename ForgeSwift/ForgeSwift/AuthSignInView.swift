@@ -57,7 +57,7 @@ struct AuthSignInView: View {
             }
         }
         .onAppear {
-            withAnimation(reduceMotion ? nil : FDS.Spring.hero) { appeared = true }
+            withAnimation(reduceMotion ? nil : ForgeMotion.gentle) { appeared = true }
         }
         .onChange(of: errorMessage) { _, message in
             if let message {
@@ -125,7 +125,7 @@ struct AuthSignInView: View {
             }
 
             Text("Apple and Google sign-in will appear here when connected for this build.")
-                .font(.footnote)
+                .font(ForgeFont.sans(.footnote))
                 .foregroundColor(.textTertiary)
                 .forgeWrapping()
         }
@@ -148,13 +148,13 @@ struct AuthSignInView: View {
             if !ForgeAuthClient.shared.config.cognitoConfigured,
                ForgeAuthClient.shared.canUseDevOverride {
                 Text("Cognito isn’t paired yet — use Continue as tester for device work.")
-                    .font(.footnote)
+                    .font(ForgeFont.sans(.footnote))
                     .foregroundColor(.textTertiary)
                     .forgeWrapping()
             }
 
             Text("New here? Close and tap Get started on the welcome screen.")
-                .font(.footnote)
+                .font(ForgeFont.sans(.footnote))
                 .foregroundColor(.textTertiary)
                 .forgeWrapping()
         }
@@ -210,7 +210,7 @@ struct AuthSignInView: View {
                 submitEmail()
             }
         }
-        .font(.body)
+        .font(ForgeFont.sans(.body))
         .foregroundColor(.textPrimary)
         .padding(.horizontal, ForgeLayout.compactCardPadding)
         .padding(.vertical, ForgeLayout.tilePadding)

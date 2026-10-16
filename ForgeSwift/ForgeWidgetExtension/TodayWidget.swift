@@ -30,7 +30,7 @@ struct TodayWidgetView: View {
             }
             if let rec = snap.topRecommendation {
                 Text(rec)
-                    .font(.caption)
+                    .font(ForgeFont.sans(.caption))
                     .foregroundStyle(ForgePalette.textSecondary)
                     .lineLimit(2)
             }
@@ -45,7 +45,7 @@ struct TodayWidgetView: View {
             HStack(alignment: .top, spacing: 16) {
                 VStack(alignment: .leading, spacing: 2) {
                     Text(snap.hasReadiness ? "\(snap.readiness)" : "—")
-                        .font(.system(size: 48, weight: .bold, design: .rounded))
+                        .font(ForgeFont.sans(48, weight: .bold))
                         .foregroundStyle(ForgePalette.textPrimary)
                     Text(snap.readinessLabel)
                         .font(.caption.weight(.semibold))
@@ -74,7 +74,7 @@ struct TodayWidgetView: View {
             }
             if let rec = snap.topRecommendation {
                 Text(rec)
-                    .font(.caption)
+                    .font(ForgeFont.sans(.caption))
                     .foregroundStyle(ForgePalette.textSecondary)
                     .lineLimit(3)
             }
@@ -86,10 +86,10 @@ struct TodayWidgetView: View {
     private func metric(_ title: String, value: String, tint: Color) -> some View {
         VStack(alignment: .leading, spacing: 2) {
             Text(title.uppercased())
-                .font(.system(size: 9, weight: .bold))
+                .font(ForgeFont.sans(9, weight: .bold))
                 .foregroundStyle(ForgePalette.textTertiary)
             Text(value)
-                .font(.system(size: 20, weight: .bold, design: .rounded))
+                .font(ForgeFont.sans(20, weight: .bold))
                 .foregroundStyle(tint)
                 .minimumScaleFactor(0.7)
                 .lineLimit(2)
@@ -103,7 +103,7 @@ struct TodayWidgetView: View {
             VStack(alignment: .leading, spacing: 1) {
                 Text(title).font(.caption.weight(.semibold)).foregroundStyle(ForgePalette.textPrimary)
                 if let detail {
-                    Text(detail).font(.caption2).foregroundStyle(ForgePalette.textSecondary)
+                    Text(detail).font(ForgeFont.sans(.caption2)).foregroundStyle(ForgePalette.textSecondary)
                 }
             }
         }

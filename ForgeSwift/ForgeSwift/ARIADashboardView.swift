@@ -241,7 +241,7 @@ struct ARIADashboardView: View {
 
     private var primaryIcon: String {
         if sent { return "checkmark" }
-        return loadingBrief ? "sparkles" : "paperplane.fill"
+        return loadingBrief ? "ellipsis" : "paperplane.fill"
     }
 
     private var sendCard: some View {
@@ -303,7 +303,7 @@ struct ARIADashboardView: View {
             store.addMessage(message)
             AriaContextStore.shared.addInsight("Workout briefing (\(snapshot.title)): \(content)")
             withAnimation(reduceMotion ? nil : Animation.default) { sent = true }
-            FDS.haptic(.success)
+            ForgeHaptics.play(.success)
         } else {
             store.activeTab = .chat
             dismiss()

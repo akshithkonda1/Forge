@@ -1,5 +1,6 @@
 import SwiftUI
 import UIKit
+import ForgeCore
 
 enum ExerciseDemoTab: CaseIterable { case video, formCheck }
 
@@ -34,7 +35,7 @@ struct ExerciseDemonstrationView: View {
         }
         .id(selectedTab)
         .transition(.opacity)
-        .animation(reduceMotion ? nil : FDS.Spring.standard, value: selectedTab)
+        .animation(reduceMotion ? nil : ForgeMotion.smooth, value: selectedTab)
     }
 }
 
@@ -274,7 +275,6 @@ struct FormCheckCameraView: View {
     // ── Chrome ────────────────────────────────────────────────────────────────
     private func cameraIconButton(systemImage: String, label: String, action: @escaping () -> Void) -> some View {
         Button {
-            FDS.haptic(.press)
             action()
         } label: {
             Image(systemName: systemImage)
@@ -476,7 +476,6 @@ struct FormCheckCameraView: View {
 
     private var doneControl: some View {
         Button {
-            FDS.haptic(.press)
             dismiss()
         } label: {
             VStack(spacing: FDS.Spacing.xs) {
@@ -504,7 +503,7 @@ struct FormCheckCameraView: View {
     }
 
     private func analyze() async {
-        FDS.haptic(.primaryCTA)
+        ForgeHaptics.play(.press)
         setCaptureFlash(true)
         let image = await camera.capture()
         setCaptureFlash(false)
@@ -512,15 +511,15 @@ struct FormCheckCameraView: View {
         let fb: FormFeedback
         if let image { fb = await aria.analyzeForm(image: image, context: context) }
         else { fb = ARIACoachService.heuristicFeedback(for: context) }
-        let reveal: Animation? = reduceMotion ? nil : FDS.Spring.standard
+        let reveal: Animation? = reduceMotion ? nil : ForgeMotion.smooth
         withAnimation(reveal) { feedback = fb }
         AccessibilityNotification.Announcement("\(fb.status.label). \(fb.cues.first ?? fb.summary)").post()
-        if fb.status == .stop { FDS.haptic(.error) }
+        if fb.status == .stop { ForgeHaptics.play(.error) }
     }
 
     private func toggleAuto() {
         autoCoach.toggle()
-        FDS.haptic(.press)
+        ForgeHaptics.play(.selection)
         if autoCoach {
             autoTask = Task {
                 while !Task.isCancelled && autoCoach {

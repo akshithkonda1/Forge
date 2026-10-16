@@ -22,10 +22,10 @@ struct BiologicalSexStepView: View {
 
             if showsEducationalPrompt {
                 educationalPrompt
-                    .transition(.opacity.combined(with: .scale(scale: 0.97, anchor: .top)))
+                    .forgeTransition(.opacity.combined(with: .scale(scale: 0.97, anchor: .top)))
             }
         }
-        .animation(reduceMotion ? nil : FDS.Spring.page, value: coordinator.showingEducationalCyclePrompt)
+        .animation(reduceMotion ? nil : ForgeMotion.smooth, value: coordinator.showingEducationalCyclePrompt)
     }
 
     // MARK: - Option row
@@ -33,7 +33,7 @@ struct BiologicalSexStepView: View {
     private func optionRow(for sex: BiologicalSex) -> some View {
         let selected = coordinator.profile.biologicalSex == sex
         return Button {
-            FDS.haptic(.select)
+            ForgeHaptics.play(.selection)
             coordinator.selectBiologicalSex(sex)
         } label: {
             HStack(spacing: ForgeLayout.rowGap) {

@@ -2,6 +2,7 @@ import SwiftUI
 import AVFoundation
 import Speech
 import os
+import ForgeCore
 
 /// Shared dictation engine for Chat + Onboarding.
 /// Partial results stream into `recognizedText`; silence or stop finalizes.
@@ -120,7 +121,7 @@ final class SpeechManager: ObservableObject {
             recordUtteranceLength(recognizedText)
             voiceState = .processing
             hardStop(clearText: false)
-            FDS.notificationHaptic(.success)
+            ForgeHaptics.play(.success)
             // Deliver final idle so overlays can fire onRecognized
             Task { [weak self] in
                 try? await Task.sleep(for: .milliseconds(150))

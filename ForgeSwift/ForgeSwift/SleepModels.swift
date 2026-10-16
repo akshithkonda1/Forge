@@ -32,7 +32,7 @@ enum AlarmSoundOption: String, CaseIterable, Codable {
         case .rainDrop:    return "cloud.drizzle.fill"
         case .softPiano:   return "music.note"
         case .radarSweep:  return "dot.radiowaves.left.and.right"
-        case .crystalRise: return "sparkle"
+        case .crystalRise: return "waveform"
         case .analogPulse: return "waveform.path.ecg"
         }
     }
