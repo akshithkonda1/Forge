@@ -219,13 +219,7 @@ struct HomeTodayHero: View {
                 VStack(spacing: 2) {
                     Text("\(snap.percent)")
                         .font(HomeType.heroScore)
-                        .foregroundStyle(
-                            LinearGradient(
-                                colors: [.textPrimary, energy],
-                                startPoint: .top,
-                                endPoint: .bottom
-                            )
-                        )
+                        .foregroundStyle(Color.textPrimary)
                         .hudInArcText()
                         .contentTransition(.numericText())
                     if showInArcMeta {

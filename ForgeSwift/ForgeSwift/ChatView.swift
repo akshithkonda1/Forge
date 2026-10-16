@@ -384,34 +384,12 @@ struct ChatView: View {
     }
 }
 
-/// Static atmosphere: the screen background plus three soft washes. Nothing
-/// animates while idle; the wash only cross-fades when the mood changes.
+/// Flat page. ARIA's mood shows in the content (accent on the mark and
+/// chips), not as washes behind the conversation.
 struct ChatBackground: View {
     let mood: ARIAMood
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
-        ZStack {
-            Color.background
-            RadialGradient(
-                colors: [mood.accentColor.opacity(0.10), Color.aurora.opacity(0.04), .clear],
-                center: UnitPoint(x: 0.18, y: 0.02),
-                startRadius: 10,
-                endRadius: 420
-            )
-            RadialGradient(
-                colors: [Color.aurora.opacity(0.05), .clear],
-                center: UnitPoint(x: 0.88, y: 0.12),
-                startRadius: 8,
-                endRadius: 300
-            )
-            RadialGradient(
-                colors: [Color.ember.opacity(0.06), .clear],
-                center: UnitPoint(x: 0.72, y: 0.94),
-                startRadius: 8,
-                endRadius: 320
-            )
-        }
-        .animation(reduceMotion ? nil : Animation.easeInOut(duration: 1.2), value: mood)
+        Color.background
     }
 }

@@ -96,27 +96,9 @@ struct VoiceQuickLaunchOrb: View {
             store.openChat(with: "Voice check-in — what should I do next?", voice: true)
         } label: {
             ZStack {
-                if !reduceMotion {
-                    Circle()
-                        .fill(Color.ember.opacity(0.16))
-                        .frame(width: 56, height: 56)
-                        .scaleEffect(outerPulse ? 1.22 : 1.0)
-                        .opacity(outerPulse ? 0 : 0.7)
-                    Circle()
-                        .fill(Color.ember.opacity(0.22))
-                        .frame(width: 44, height: 44)
-                        .blur(radius: 8)
-                        .scaleEffect(pulse ? 1.08 : 0.96)
-                }
-
+                // Flat accent button — no pulsing halos.
                 Circle()
-                    .fill(
-                        LinearGradient(
-                            colors: [Color.ember, Color.emberDark],
-                            startPoint: .topLeading,
-                            endPoint: .bottomTrailing
-                        )
-                    )
+                    .fill(Color.ember)
                     .frame(width: 44, height: 44)
                     .overlay { Circle().stroke(Color.white.opacity(0.16), lineWidth: 1) }
 

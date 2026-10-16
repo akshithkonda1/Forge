@@ -172,12 +172,6 @@ struct HomeHeaderView: View {
                     .lineLimit(2)
                     .fixedSize(horizontal: false, vertical: true)
                     .accessibilityAddTraits(.isHeader)
-                    .overlay(alignment: .bottomLeading) {
-                        Capsule()
-                            .fill(Color.ember.opacity(0.55))
-                            .frame(width: 28, height: 2)
-                            .offset(y: 5)
-                    }
 
                 HomeDataStatusPill(
                     isLive: store.healthKitLive,

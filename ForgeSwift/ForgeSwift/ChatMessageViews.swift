@@ -332,26 +332,21 @@ struct MessageBubbleView: View {
         ChatBubbleShape(isTrainer: isTrainer, hasTail: isLastInRun)
     }
 
+    /// Premium refresh: ARIA speaks as text set directly on the page (no
+    /// bubble, no gradient); your messages sit in one quiet neutral bubble.
     @ViewBuilder
     private var bubbleBackground: some View {
         if isTrainer {
-            Color.surfaceElevated
-                .overlay(LinearGradient.premiumSurface)
+            Color.clear
         } else {
-            ZStack(alignment: .top) {
-                FDS.Gradient.emberDeep
-                LinearGradient(
-                    colors: [Color.white.opacity(0.14), .clear],
-                    startPoint: .top, endPoint: .center
-                )
-            }
+            Color.surfaceHover
         }
     }
 
     @ViewBuilder
     private var bubbleStroke: some View {
-        if isTrainer {
-            bubbleShape.stroke(Color.white.opacity(0.16), lineWidth: ForgeUX.hairline)
+        if !isTrainer {
+            bubbleShape.stroke(Color.borderHairline, lineWidth: ForgeUX.hairline)
         }
     }
 
@@ -370,11 +365,6 @@ struct MessageBubbleView: View {
                 .background(bubbleBackground)
                 .clipShape(bubbleShape)
                 .overlay(bubbleStroke)
-                .shadow(
-                    color: Color.black.opacity(isTrainer ? 0.06 : 0.2),
-                    radius: isTrainer ? 4 : 6,
-                    y: 2
-                )
         }
         .buttonStyle(.plain)
         .textSelection(.enabled)

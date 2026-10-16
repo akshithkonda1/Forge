@@ -64,13 +64,7 @@ struct ChatEmptyStateView: View {
             VStack(spacing: ForgeLayout.rowGap) {
                 Text(greeting)
                     .font(ForgeType.pageTitle)
-                    .foregroundStyle(
-                        LinearGradient(
-                            colors: [.white, .white.opacity(0.7)],
-                            startPoint: .top,
-                            endPoint: .bottom
-                        )
-                    )
+                    .foregroundStyle(Color.textPrimary)
                     .multilineTextAlignment(.center)
                     .lineSpacing(3)
                     .forgeWrapping()
@@ -87,34 +81,17 @@ struct ChatEmptyStateView: View {
         .frame(maxWidth: .infinity)
     }
 
-    /// 112 pt orb. The glow lives in the background, so it takes no layout space.
+    /// ARIA's mark: small, flat, no halo. The words below carry the moment.
     private var orb: some View {
         AuroraOrbView(
             state: .idle,
             amplitude: 0.32,
             mood: mood,
-            size: 112,
+            size: 64,
             followPresence: true
         )
         .environment(\.forgeMinimalAnimation, reduceMotion)
-        .background { orbGlow }
         .accessibilityHidden(true)
-    }
-
-    private var orbGlow: some View {
-        Circle()
-            .fill(
-                RadialGradient(
-                    colors: [
-                        Color.ember.opacity(0.08),
-                        Color.aurora.opacity(0.03),
-                        .clear
-                    ],
-                    center: .center, startRadius: 8, endRadius: 100
-                )
-            )
-            .frame(width: 200, height: 200)
-            .blur(radius: 24)
     }
 
     // MARK: Prompts

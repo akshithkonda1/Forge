@@ -211,11 +211,11 @@ struct VoiceOrbOverlay: View {
         }
     }
 
-    /// ARIA accents come from the shared tokens: aurora at rest, ember while
+    /// ARIA accents come from the shared tokens: neutral at rest, ember while
     /// listening or speaking, steel while thinking.
     private func orbAccent(_ state: VoiceState) -> Color {
         switch state {
-        case .idle:       return .aurora
+        case .idle:       return .textSecondary
         case .listening:  return .ember
         case .processing: return .steel
         case .speaking:   return .ember

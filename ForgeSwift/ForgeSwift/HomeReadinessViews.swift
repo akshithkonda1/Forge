@@ -86,35 +86,10 @@ struct ReadinessRingView: View {
                 .stroke(Color.white.opacity(0.06), style: StrokeStyle(lineWidth: strokeWidth, lineCap: .round))
                 .frame(width: size, height: size)
 
-            if !reduceMotion {
-                Circle()
-                    .trim(from: 0, to: progress)
-                    .stroke(color.opacity(0.18), style: StrokeStyle(lineWidth: strokeWidth + 14, lineCap: .round))
-                    .frame(width: size, height: size)
-                    .rotationEffect(.degrees(-90))
-                    .blur(radius: 18)
-                    .scaleEffect(outerPulse ? 1.02 : 0.99)
-            }
-
+            // Solid band color; the arc length is the data. No blur halos.
             Circle()
                 .trim(from: 0, to: progress)
-                .stroke(color.opacity(0.4), style: StrokeStyle(lineWidth: strokeWidth + 6, lineCap: .round))
-                .frame(width: size, height: size)
-                .rotationEffect(.degrees(-90))
-                .blur(radius: 8)
-                .opacity(glowPulse ? 0.55 : 0.85)
-
-            Circle()
-                .trim(from: 0, to: progress)
-                .stroke(
-                    AngularGradient(
-                        colors: [color.opacity(0.6), color, color.opacity(0.85)],
-                        center: .center,
-                        startAngle: .degrees(-90),
-                        endAngle: .degrees(270)
-                    ),
-                    style: StrokeStyle(lineWidth: strokeWidth, lineCap: .round)
-                )
+                .stroke(color, style: StrokeStyle(lineWidth: strokeWidth, lineCap: .round))
                 .frame(width: size, height: size)
                 .rotationEffect(.degrees(-90))
 
@@ -129,13 +104,12 @@ struct ReadinessRingView: View {
             if showLabel {
                 VStack(spacing: 4) {
                     Text("\(score)")
-                        .font(ForgeFont.sans(size * 0.24, weight: .black))
-                        .foregroundStyle(
-                            LinearGradient(colors: [.textPrimary, color], startPoint: .top, endPoint: .bottom)
-                        )
+                        .font(ForgeFont.sans(size * 0.26, weight: .light))
+                        .monospacedDigit()
+                        .foregroundStyle(Color.textPrimary)
                         .contentTransition(.numericText())
                     Text(HomeReadiness.label(score).uppercased())
-                        .font(ForgeFont.sans(size * 0.07, weight: .black))
+                        .font(ForgeFont.sans(size * 0.07, weight: .semibold))
                         .foregroundColor(color)
                         .tracking(1.6)
                     Text("Readiness")
@@ -238,13 +212,7 @@ struct HomeReadinessFieldView: View {
                 VStack(spacing: 2) {
                     Text("\(clamped)")
                         .font(HomeType.heroScore)
-                        .foregroundStyle(
-                            LinearGradient(
-                                colors: [.textPrimary, HomeReadiness.color(clamped)],
-                                startPoint: .top,
-                                endPoint: .bottom
-                            )
-                        )
+                        .foregroundStyle(Color.textPrimary)
                         .minimumScaleFactor(0.7)
                         .lineLimit(1)
                         .contentTransition(.numericText())
@@ -282,23 +250,6 @@ enum HomeRingFieldCanvas {
         let tint = HomeReadiness.color(score)
         let fill = Double(min(max(score, 0), 100)) / 100.0
 
-        let haloR = s * 0.24
-        context.fill(
-            Path(ellipseIn: CGRect(
-                x: center.x - haloR, y: center.y - haloR,
-                width: haloR * 2, height: haloR * 2
-            )),
-            with: .radialGradient(
-                Gradient(colors: [
-                    tint.opacity(0.10 + 0.10 * fill),
-                    .clear
-                ]),
-                center: center,
-                startRadius: s * 0.02,
-                endRadius: haloR
-            )
-        )
-
         for index in AriaRingFieldGeometry.visibleRingIndices(size: s).reversed() {
             let pose = AriaRingFieldGeometry.ellipse(
                 index: index,
@@ -320,11 +271,6 @@ enum HomeRingFieldCanvas {
                 .rotated(by: CGFloat(pose.rotation))
             path = path.applying(transform)
 
-            context.stroke(
-                path,
-                with: .color(tint.opacity(pose.opacity * 0.32)),
-                lineWidth: max(2.2, line * 2.0)
-            )
             context.stroke(
                 path,
                 with: .color(tint.opacity(min(1, pose.opacity + 0.06))),

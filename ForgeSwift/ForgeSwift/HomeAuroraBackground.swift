@@ -241,10 +241,24 @@ struct HomeAuroraBackground: View {
         .accessibilityHidden(true)
     }
 
+    /// Premium refresh: Home sits on a flat near-black field so the readiness
+    /// number is the only thing with color. The aurora is kept behind this flag
+    /// (off) rather than deleted, so it can be A/B'd without a code archaeology.
+    static let showsAurora = false
+
     private func content(size: CGSize) -> some View {
         ZStack {
             Color.background
 
+            if Self.showsAurora {
+                auroraLayers(size: size)
+            }
+        }
+    }
+
+    @ViewBuilder
+    private func auroraLayers(size: CGSize) -> some View {
+        ZStack {
             if reduceMotion {
                 // Still, but composed: the same four hues at their resting
                 // positions. A single static blur guarantees no banding and

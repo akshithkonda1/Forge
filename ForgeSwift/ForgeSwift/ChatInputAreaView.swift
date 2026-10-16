@@ -20,7 +20,7 @@ struct AriaSpecialistActivityView: View {
         VStack(alignment: .leading, spacing: ForgeLayout.blockGap) {
             Text(workers.count > 1 ? "Consulting your specialists" : "Thinking")
                 .font(HomeType.label)
-                .foregroundColor(.aurora)
+                .foregroundColor(.textSecondary)
                 .forgeSingleLine(minScale: ForgeLayout.labelMinScale)
             ForgeFlowLayout(spacing: ForgeLayout.chipGap, lineSpacing: ForgeLayout.chipGap) {
                 ForEach(workers) { worker in
