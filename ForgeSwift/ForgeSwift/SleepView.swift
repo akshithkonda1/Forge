@@ -116,23 +116,11 @@ struct SleepView: View {
     }
 }
 
+/// Flat night field. Sleep's identity comes from its data (stages, timing),
+/// not from a violet wash.
 struct SleepBackground: View {
     var body: some View {
-        ZStack {
-            Color.background
-            RadialGradient(
-                colors: [Color.aurora.opacity(0.14), .clear],
-                center: UnitPoint(x: 0.5, y: 0.0),
-                startRadius: 10,
-                endRadius: 480
-            )
-            RadialGradient(
-                colors: [Color.steel.opacity(0.10), .clear],
-                center: UnitPoint(x: 0.14, y: 0.32),
-                startRadius: 8,
-                endRadius: 260
-            )
-        }
+        Color.background
     }
 }
 

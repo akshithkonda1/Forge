@@ -737,11 +737,7 @@ struct SmartWakeCard: View {
                 ZStack(alignment: .leading) {
                     Capsule().fill(Color.white.opacity(0.08))
                     Capsule()
-                        .fill(LinearGradient(
-                            colors: [Color.steel.opacity(0.3), Color.steel],
-                            startPoint: .leading,
-                            endPoint: .trailing
-                        ))
+                        .fill(Color.steel)
                         .frame(width: geo.size.width * fraction)
                 }
             }

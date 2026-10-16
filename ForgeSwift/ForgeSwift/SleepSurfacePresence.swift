@@ -232,7 +232,7 @@ struct SleepStatusDot: View {
     private var color: Color {
         switch kind {
         case .off: return .textTertiary
-        case .waiting: return .aurora
+        case .waiting: return .steel
         case .pulling, .live: return .vitality
         }
     }

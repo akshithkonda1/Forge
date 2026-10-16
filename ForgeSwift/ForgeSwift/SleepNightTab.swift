@@ -91,7 +91,7 @@ struct SleepNightTab: View {
                 Spacer(minLength: ForgeLayout.pairGap)
                 Image(systemName: "arrow.up.right")
                     .font(.system(size: 12, weight: .semibold))
-                    .foregroundStyle(Color.aurora)
+                    .foregroundStyle(Color.textTertiary)
                     .accessibilityHidden(true)
             }
             .frame(minHeight: ForgeUX.minTap)
@@ -385,7 +385,8 @@ struct SleepEveningStoryCard: View {
             }
             Text("Wind-down \(coach.countdownLabel == "now" ? "is now" : "in \(coach.countdownLabel)") · lights out \(coach.bedtimeLabel)")
                 .font(HomeType.label)
-                .foregroundStyle(Color.aurora)
+                .monospacedDigit()
+                .foregroundStyle(Color.steel)
                 .forgeWrapping()
         }
         .forgeContentCard(tint: .aurora)

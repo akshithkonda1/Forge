@@ -120,7 +120,7 @@ struct StatsMosaicCard: View {
         VStack(alignment: .leading, spacing: ForgeLayout.heroGap) {
             mosaicHeader(snap)
             mosaicTiles(snap.tiles)
-            ForgeSecondaryButton(title: "Ask ARIA about this picture", accent: .aurora) {
+            ForgeSecondaryButton(title: "Ask ARIA about this picture", accent: .ember) {
                 store.openChat(with: snap.mosaicLine, voice: false)
             }
             .accessibilityLabel("Ask ARIA about today’s mosaic")

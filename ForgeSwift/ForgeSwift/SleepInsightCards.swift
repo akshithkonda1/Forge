@@ -7,7 +7,7 @@ import ForgeCore
 /// type, in Home's inner well. Sentences wrap, they never truncate.
 private struct SleepAriaNote: View {
     let text: String
-    var tint: Color = .aurora
+    var tint: Color = .textTertiary
 
     var body: some View {
         HStack(alignment: .top, spacing: FDS.Spacing.sm) {
