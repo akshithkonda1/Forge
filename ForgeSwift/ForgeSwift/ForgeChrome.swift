@@ -600,7 +600,7 @@ extension View {
 /// Trailing micro meta for `ForgeCardHeader` ("3 items", "QoL 72 · Good").
 struct ForgeCardMeta: View {
     var text: String
-    var color: Color = .textMuted
+    var color: Color = .textTertiary
 
     var body: some View {
         Text(text)
@@ -643,7 +643,7 @@ extension ForgeCardHeader where Trailing == EmptyView {
 }
 
 extension ForgeCardHeader where Trailing == ForgeCardMeta {
-    init(_ title: String, meta: String, metaColor: Color = .textMuted, tint: Color = .textTertiary) {
+    init(_ title: String, meta: String, metaColor: Color = .textTertiary, tint: Color = .textTertiary) {
         self.init(title: title, tint: tint) {
             ForgeCardMeta(text: meta, color: metaColor)
         }

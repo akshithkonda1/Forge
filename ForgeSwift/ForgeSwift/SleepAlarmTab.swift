@@ -978,7 +978,7 @@ struct AlarmEditorSheet: View {
             .tint(.steel)
             if alarm.isSmartWake {
                 smartWindowBlock
-                    .transition(.opacity.combined(with: .scale(scale: 0.97, anchor: .top)))
+                    .forgeTransition(.opacity.combined(with: .scale(scale: 0.97, anchor: .top)))
             }
         }
         .forgeContentCard()

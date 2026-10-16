@@ -95,7 +95,7 @@ struct ClinicalDataNonPHIView: View {
                     .font(HomeType.body)
                     .foregroundStyle(Color.textSecondary)
                     .forgeWrapping()
-                    .transition(.opacity.combined(with: .scale(scale: 0.97, anchor: .top)))
+                    .forgeTransition(.opacity.combined(with: .scale(scale: 0.97, anchor: .top)))
             }
             ForgeTextLink(title: "How this works", accent: .steel, expanded: showHow) {
                 if reduceMotion {

@@ -142,11 +142,11 @@ struct HomeARIABriefingCard: View {
                             .tracking(1.4)
                         Text("Briefing")
                             .font(FDS.TypeScale.Dynamic.micro)
-                            .foregroundColor(.textMuted)
+                            .foregroundColor(.textTertiary)
                     }
                     Text(briefingKicker)
                         .font(ForgeFont.sans(11))
-                        .foregroundColor(.textMuted)
+                        .foregroundColor(.textTertiary)
                 }
 
                 Spacer()

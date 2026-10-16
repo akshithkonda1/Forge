@@ -436,7 +436,7 @@ struct MessageBubbleView: View {
         .background(Color.surfaceElevated, in: Capsule())
         .overlay(Capsule().stroke(Color.white.opacity(0.12), lineWidth: ForgeUX.hairline))
         .shadow(color: Color.black.opacity(0.2), radius: 6, y: 2)
-        .transition(.opacity.combined(with: .scale(scale: 0.97, anchor: isTrainer ? .bottomLeading : .bottomTrailing)))
+        .forgeTransition(.opacity.combined(with: .scale(scale: 0.97, anchor: isTrainer ? .bottomLeading : .bottomTrailing)))
     }
 
     private func reactionButton(_ r: (emoji: String, label: String)) -> some View {

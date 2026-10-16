@@ -79,7 +79,7 @@ struct HomeCookingView: View {
 
             if showFilters {
                 filterPanel
-                    .transition(.opacity.combined(with: .scale(scale: 0.97, anchor: .top)))
+                    .forgeTransition(.opacity.combined(with: .scale(scale: 0.97, anchor: .top)))
             }
 
             if results.isEmpty {

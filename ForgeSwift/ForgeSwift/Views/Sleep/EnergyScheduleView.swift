@@ -633,7 +633,7 @@ struct EnergyScheduleCard: View {
                     .background(window.tint.opacity(0.12))
                     .clipShape(Capsule())
                     .overlay(Capsule().stroke(window.tint.opacity(0.28), lineWidth: 0.8))
-                    .transition(.scale.combined(with: .opacity))
+                    .forgeTransition(.scale.combined(with: .opacity))
             }
         }
     }

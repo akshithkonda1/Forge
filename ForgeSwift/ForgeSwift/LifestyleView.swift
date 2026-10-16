@@ -41,7 +41,7 @@ struct LifestyleView: View {
                     isLive: vm.aiInsightsLive
                 )
                     .zIndex(10)
-                    .transition(.move(edge: .bottom).combined(with: .opacity))
+                    .forgeTransition(.move(edge: .bottom).combined(with: .opacity))
             }
 
             if showLifestyleInterview {

@@ -51,6 +51,8 @@ struct ReadinessForecastCard: View {
                     }
                     .accessibilityHidden(true)
                 }
+                .accessibilityElement(children: .ignore)
+                .accessibilityLabel("Tomorrow's readiness forecast: \(forecast.predictedScore) out of 100")
                 VStack(alignment: .leading, spacing: FDS.Spacing.sm) {
                     Text(postureTitle(forecast.posture))
                         .font(HomeType.status)

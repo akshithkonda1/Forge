@@ -101,7 +101,7 @@ struct HomeView: View {
 
             if showHeaderBlur {
                 HomeScrollMiniHeader()
-                    .transition(.opacity.combined(with: .move(edge: .top)))
+                    .forgeTransition(.opacity.combined(with: .move(edge: .top)))
             }
 
         }

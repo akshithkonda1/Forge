@@ -133,7 +133,7 @@ struct ChatView: View {
                     }
                 )
                 .zIndex(100)
-                .transition(.opacity.combined(with: .move(edge: .bottom)))
+                .forgeTransition(.opacity.combined(with: .move(edge: .bottom)))
             }
 
         }

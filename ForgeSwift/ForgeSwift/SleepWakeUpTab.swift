@@ -686,7 +686,7 @@ struct SmartWakeCard: View {
 
                 if enabled {
                     leadWindow
-                        .transition(.opacity.combined(with: .scale(scale: 0.97, anchor: .top)))
+                        .forgeTransition(.opacity.combined(with: .scale(scale: 0.97, anchor: .top)))
                 }
             }
         }
@@ -1157,7 +1157,7 @@ struct AdaptiveSunriseCard: View {
 
                 if enabled {
                     sunriseControls
-                        .transition(.opacity.combined(with: .scale(scale: 0.97, anchor: .top)))
+                        .forgeTransition(.opacity.combined(with: .scale(scale: 0.97, anchor: .top)))
                 }
             }
         }

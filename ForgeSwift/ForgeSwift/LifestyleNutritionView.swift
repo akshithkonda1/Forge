@@ -460,7 +460,7 @@ struct AIMealRow: View {
 
             if expanded {
                 macroChips
-                    .transition(.opacity.combined(with: .scale(scale: 0.97, anchor: .top)))
+                    .forgeTransition(.opacity.combined(with: .scale(scale: 0.97, anchor: .top)))
             }
         }
         .forgeWell()

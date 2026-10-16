@@ -52,12 +52,12 @@ private struct HomeHeroReadinessCard: View {
                     BreakdownCardView(label: "Stress", value: store.readiness.stressLevel, inverted: true, index: 2)
                     BreakdownCardView(label: "Energy", value: store.readiness.energyBank, inverted: false, index: 3)
                 }
-                .transition(.opacity.combined(with: .scale(scale: 0.97, anchor: .top)))
+                .forgeTransition(.opacity.combined(with: .scale(scale: 0.97, anchor: .top)))
 
-                VStack(alignment: .leading, spacing: 8) {
+                VStack(alignment: .leading, spacing: FDS.Spacing.sm) {
                     Text("WHY THIS SCORE")
                         .forgeSectionLabel()
-                        .padding(.top, 4)
+                        .padding(.top, FDS.Spacing.xs)
                     Text(readinessWhyCopy(store: store))
                         .font(FDS.TypeScale.Dynamic.caption)
                         .foregroundColor(.textSecondary)
@@ -301,7 +301,7 @@ struct HomeTodayHero: View {
 
             if showScore {
                 HomeReadinessDetailStrip()
-                    .transition(.opacity.combined(with: .move(edge: .top)))
+                    .forgeTransition(.opacity.combined(with: .move(edge: .top)))
             }
 
             HomePrimaryCTA(action: action)

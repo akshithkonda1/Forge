@@ -59,7 +59,10 @@ extension Color {
     static let paper = Color(hex: "F7F4F0")
     static let textPrimary   = Color(hex: "FAFAFA")
     static let textSecondary = Color(hex: "A1A1AA")
-    static let textTertiary  = Color(hex: "71717A")
+    /// Smallest text that carries meaning: at least 4.5:1 on every surface
+    /// (5.4 on the background, 4.8 on surfaceElevated).
+    static let textTertiary  = Color(hex: "84848D")
+    /// Decoration only: chevrons, disabled glyphs. Too faint for text.
     static let textMuted     = Color(hex: "52525B")
 
     // Status

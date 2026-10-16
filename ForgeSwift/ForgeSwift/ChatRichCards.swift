@@ -31,7 +31,7 @@ struct WorkoutRichCardView: View {
 
             if expanded, !exercises.isEmpty {
                 exerciseList
-                    .transition(.opacity.combined(with: .scale(scale: 0.97, anchor: .top)))
+                    .forgeTransition(.opacity.combined(with: .scale(scale: 0.97, anchor: .top)))
             }
 
             if !exercises.isEmpty {

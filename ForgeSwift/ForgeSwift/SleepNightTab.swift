@@ -731,6 +731,11 @@ struct SleepLastNightDetail: View {
                     }
                 }
                 .accessibilityElement(children: .combine)
+                .accessibilityLabel(
+                    store.sleepData.count >= SleepCalibrationState.readyNights
+                        ? "Sleep score \(night.score) out of 100"
+                        : "No sleep score yet. \(SleepCalibrationState.from(scoredNights: store.sleepData.count).caption)"
+                )
             }
             if night.hasStages {
                 Text("\(night.clock(night.onset))  →  \(night.clock(night.wake))   ·   \(night.efficiencyPercent)% of time in bed was sleep")

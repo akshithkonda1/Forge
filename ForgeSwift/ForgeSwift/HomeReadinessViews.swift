@@ -333,15 +333,15 @@ struct StreakCalendarSection: View {
                 Spacer()
                 Text("Days you trained. Open days stay open.")
                     .font(HomeType.micro)
-                    .foregroundColor(.textMuted)
+                    .foregroundColor(.textTertiary)
             }
 
             HStack(spacing: 0) {
                 ForEach(Array(weekDays.enumerated()), id: \.offset) { i, day in
-                    VStack(spacing: 8) {
+                    VStack(spacing: FDS.Spacing.sm) {
                         Text(day.label)
                             .font(HomeType.micro)
-                            .foregroundColor(day.isToday ? .ember : .textMuted)
+                            .foregroundColor(day.isToday ? .ember : .textTertiary)
                         ZStack {
                             Circle()
                                 .fill(day.hasWorkout ? Color.ember.opacity(0.15) : Color.surfaceElevated)

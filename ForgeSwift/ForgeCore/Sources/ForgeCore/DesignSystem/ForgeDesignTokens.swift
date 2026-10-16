@@ -32,7 +32,7 @@ public enum ForgeDesignTokens: Sendable {
         public static let alert = "EF4444"
         public static let textPrimary = "FAFAFA"
         public static let textSecondary = "A1A1AA"
-        public static let textTertiary = "71717A"
+        public static let textTertiary = "84848D"
         public static let textMuted = "52525B"
         public static let success = "34D399"
         public static let warning = "FBBF24"

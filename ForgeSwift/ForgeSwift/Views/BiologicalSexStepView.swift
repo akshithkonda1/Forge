@@ -22,7 +22,7 @@ struct BiologicalSexStepView: View {
 
             if showsEducationalPrompt {
                 educationalPrompt
-                    .transition(.opacity.combined(with: .scale(scale: 0.97, anchor: .top)))
+                    .forgeTransition(.opacity.combined(with: .scale(scale: 0.97, anchor: .top)))
             }
         }
         .animation(reduceMotion ? nil : ForgeMotion.smooth, value: coordinator.showingEducationalCyclePrompt)

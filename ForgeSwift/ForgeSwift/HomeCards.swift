@@ -162,7 +162,7 @@ struct HomeAgendaCard: View {
                 Spacer()
                 Text("\(rows.count) items")
                     .font(HomeType.micro)
-                    .foregroundColor(.textMuted)
+                    .foregroundColor(.textTertiary)
             }
 
             ForEach(Array(rows.enumerated()), id: \.offset) { _, item in
@@ -631,7 +631,7 @@ struct HomeTrendSection: View {
                     } else if let caption = HomeTrendSeries.averageCaption(trendData) {
                         Text(caption)
                             .font(HomeType.micro)
-                            .foregroundColor(.textMuted)
+                            .foregroundColor(.textTertiary)
                         Image(systemName: "chevron.down")
                             .font(.system(size: 12, weight: .semibold))
                             .foregroundColor(.ember)
@@ -737,7 +737,7 @@ struct HomeTrendSection: View {
         .chartXAxis {
             AxisMarks(values: .stride(by: .day)) { _ in
                 AxisValueLabel(format: .dateTime.weekday(.abbreviated))
-                    .foregroundStyle(Color.textMuted)
+                    .foregroundStyle(Color.textTertiary)
                     .font(HomeType.micro)
             }
         }

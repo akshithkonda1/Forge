@@ -15,7 +15,7 @@ struct OnboardingView: View {
 
             if coordinator.showAgeBlocked {
                 AgeBlockedView { coordinator.resetAfterAgeBlock() }
-                    .transition(.scale(scale: 0.96).combined(with: .opacity))
+                    .forgeTransition(.scale(scale: 0.96).combined(with: .opacity))
             } else if coordinator.isPrepping || store.needsForgePrep {
                 AriaForgePrepView(coordinator: coordinator)
                     .transition(.opacity)
