@@ -365,6 +365,10 @@ final class AriaContextStore: ObservableObject {
             store.userProfile.lifestyleProfile.healthConstraints,
             freeform: store.userProfile.lifestyleProfile.healthNote
         ))
+        constraints.append(contentsOf: ForgeConditionAdaptation.coachingAcrossLife(
+            store.userProfile.lifestyleProfile.healthConstraints,
+            freeform: store.userProfile.lifestyleProfile.healthNote
+        ))
         let coach = ForgeConditionAdaptation.coachLine(store.userProfile.lifestyleProfile.healthConstraints)
         if !coach.isEmpty { constraints.append(coach) }
         return AriaRichContext(

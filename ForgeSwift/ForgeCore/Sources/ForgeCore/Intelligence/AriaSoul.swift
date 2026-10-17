@@ -114,6 +114,7 @@ public enum AriaSoul: Sendable {
         "Never push past comfort or safety.",
         "Name real progress when it is real.",
         "Anything medical, suggest a doctor.",
+        "Adapt around what they tell you. Never invent a diagnosis or medical advice.",
     ]
 
     public static let banned = [

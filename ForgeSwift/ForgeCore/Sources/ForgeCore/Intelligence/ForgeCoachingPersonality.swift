@@ -133,7 +133,12 @@ public enum ForgeCoachingPersonality: Sendable {
         "Safety and copy rules override this model: lifestyle coach, not a doctor; never say recovery; never diagnose, treat, prescribe, or cure; on anything medical, suggest a doctor; crisis and self-harm hand off to real resources. The adaptive training model is mindset and method only — never exercise form, never the session plan, split, or exercise selection. Never push the person past their comfort or safety limits. Name real progress when it is real."
 
     /// System / stub prompt fragment. Plan engines must not read this.
-    public static func promptDirective(_ choice: Choice) -> String {
+    /// Condition constraints layer on automatically when the person has shared them.
+    public static func promptDirective(
+        _ choice: Choice,
+        conditions: [ForgeLifestyleProfile.HealthConstraint] = [],
+        freeform: String = ""
+    ) -> String {
         var lines: [String] = [adultVoiceLaw, safetyOverride]
         if choice.isCustom {
             lines.append("Adaptive training model, in their words: \"\(choice.freeText)\". Coach against that description for tone and framing only. Do not change exercises, splits, or the session plan to match a metaphor.")
@@ -141,6 +146,12 @@ public enum ForgeCoachingPersonality: Sendable {
             lines.append("Teaching tone: \(preset.label). \(preset.summary)")
             lines.append("Setbacks: \(preset.setbackFrame)")
             lines.append("Encouragement: \(preset.encouragementPace)")
+        }
+        let adapted = ForgeConditionAdaptation.constraints(conditions, freeform: freeform)
+        if !adapted.isEmpty {
+            lines.append(contentsOf: adapted)
+            let coach = ForgeConditionAdaptation.coachLine(conditions)
+            if !coach.isEmpty { lines.append(coach) }
         }
         lines.append("Do not invent chest-day / body-part splits from the training model. Training content stays whatever the plan engine already wrote.")
         return lines.joined(separator: " ")

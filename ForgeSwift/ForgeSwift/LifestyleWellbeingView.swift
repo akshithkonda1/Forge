@@ -10,6 +10,31 @@ import ForgeCore
 /// Home's 16 pt section rhythm, with no halos.
 struct WellbeingView: View {
     @ObservedObject var vm: LifestyleViewModel
+    @EnvironmentObject var store: AppStore
+
+    private var conditionSleepLine: String {
+        ForgeConditionAdaptation.line(
+            domain: .sleep,
+            conditions: store.userProfile.lifestyleProfile.healthConstraints,
+            freeform: store.userProfile.lifestyleProfile.healthNote
+        )
+    }
+
+    private var conditionStressLine: String {
+        ForgeConditionAdaptation.line(
+            domain: .stress,
+            conditions: store.userProfile.lifestyleProfile.healthConstraints,
+            freeform: store.userProfile.lifestyleProfile.healthNote
+        )
+    }
+
+    private var conditionMoodLine: String {
+        ForgeConditionAdaptation.line(
+            domain: .mood,
+            conditions: store.userProfile.lifestyleProfile.healthConstraints,
+            freeform: store.userProfile.lifestyleProfile.healthNote
+        )
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: ForgeLayout.sectionGap) {
@@ -19,8 +44,18 @@ struct WellbeingView: View {
             HabitLoopListCard(vm: vm)
             MindfulnessCard(vm: vm)
             MindfulTrendCard(trend: vm.mindfulTrend)
-            StressManagementCard(stats: vm.healthStats)
-            SleepOptimizationCard(stats: vm.healthStats, metrics: vm.metrics)
+            if !conditionMoodLine.isEmpty {
+                Text(conditionMoodLine)
+                    .font(HomeType.body)
+                    .foregroundStyle(Color.textSecondary)
+                    .forgeWrapping()
+            }
+            StressManagementCard(stats: vm.healthStats, conditionLine: conditionStressLine)
+            SleepOptimizationCard(
+                stats: vm.healthStats,
+                metrics: vm.metrics,
+                conditionLine: conditionSleepLine
+            )
         }
     }
 }
@@ -549,6 +584,7 @@ struct MindfulnessCard: View {
 
 struct StressManagementCard: View {
     let stats: DailyHealthStats?
+    var conditionLine: String = ""
     @State private var selectedLevel = LifestyleWellbeingStore.loadStressLevel()
 
     private let levels: [(label: String, sub: String, color: Color)] = [
@@ -614,6 +650,12 @@ struct StressManagementCard: View {
                 .font(HomeType.body)
                 .foregroundStyle(Color.textSecondary)
                 .forgeWrapping()
+            if !conditionLine.isEmpty {
+                Text(conditionLine)
+                    .font(HomeType.body)
+                    .foregroundStyle(Color.textSecondary)
+                    .forgeWrapping()
+            }
         }
         .forgeContentCard(tint: .vitality)
         .onAppear {
@@ -627,6 +669,7 @@ struct StressManagementCard: View {
 struct SleepOptimizationCard: View {
     let stats: DailyHealthStats?
     let metrics: LifestyleMetrics
+    var conditionLine: String = ""
 
     private var tips: [(icon: String, tip: String, color: Color)] {
         let sleepGap = max(0, metrics.sleepTarget - (stats?.sleepHours ?? metrics.sleepAverage))
@@ -663,6 +706,12 @@ struct SleepOptimizationCard: View {
                     }
                     .accessibilityElement(children: .combine)
                 }
+            }
+            if !conditionLine.isEmpty {
+                Text(conditionLine)
+                    .font(HomeType.body)
+                    .foregroundStyle(Color.textSecondary)
+                    .forgeWrapping()
             }
         }
         .forgeContentCard(tint: .steel)

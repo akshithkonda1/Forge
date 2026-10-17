@@ -355,7 +355,11 @@ public enum ForgeLifestyleProfile: Sendable {
         personality: ForgeCoachingPersonality.Choice = .init()
     ) -> String {
         var parts: [String] = []
-        parts.append(ForgeCoachingPersonality.promptDirective(personality))
+        parts.append(ForgeCoachingPersonality.promptDirective(
+            personality,
+            conditions: snap.healthConstraints,
+            freeform: snap.healthNote
+        ))
         let ranked = Pillar.allCases.sorted { (snap.weights[$0] ?? 0) > (snap.weights[$1] ?? 0) }
         let lead = ranked.prefix(2).map(\.label).joined(separator: " and ")
         parts.append("This person's Forge is weighted toward \(lead.lowercased()). Goals are not universal.")
@@ -434,8 +438,12 @@ public enum ForgeLifestyleProfile: Sendable {
     }
 
     public static func activityFraming(_ snap: Snapshot) -> String {
-        if snap.hasSeizureConstraint {
-            return HealthConstraint.seizures.saferFraming
+        if !snap.healthConstraints.isEmpty {
+            return ForgeConditionAdaptation.applyToTrainingModel(
+                "",
+                conditions: snap.healthConstraints,
+                freeform: snap.healthNote
+            )
         }
         if snap.deEmphasizesWorkouts {
             return "A walk, a night, a meal — that's the work. No workout push."
@@ -493,15 +501,17 @@ extension ForgeLifestyleProfile.Snapshot {
 
 /// Two 26-year-old fixtures — same age, different lives.
 public enum ForgeLifestylePersonas: Sendable {
+    public static let seizuresSleepCareAge = 26
+
     public static let seizuresSleepCare = ForgeLifestyleProfile.Snapshot(
         weights: [.movement: 0.08, .sleep: 0.32, .nutrition: 0.24, .mind: 0.24, .habits: 0.12],
         goals: ["better sleep", "less stress", "eat honestly"],
-        routineNote: "Desk days, early nights when they land.",
+        routineNote: "Desk days, early nights when they land. Age 26.",
         constraints: ["condition:seizures"],
         relationship: nil,
         social: .init(),
         healthConstraints: [.seizures],
-        healthNote: "",
+        healthNote: "Twenty-six. Lives with seizures. Sleep and rest windows matter.",
         share: .onDeviceOnly
     )
 

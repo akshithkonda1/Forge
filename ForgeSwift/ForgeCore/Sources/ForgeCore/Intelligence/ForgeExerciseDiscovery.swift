@@ -75,21 +75,44 @@ public enum ForgeExerciseDiscovery: Sendable {
         goals: [String],
         readiness: Int,
         load: Int = 40,
-        engagement: Double = 0
+        engagement: Double = 0,
+        conditions: [ForgeLifestyleProfile.HealthConstraint] = [],
+        freeform: String = ""
     ) -> [Candidate] {
+        let seizureAware = conditions.contains(.seizures) || conditions.contains(.epilepsy)
+        let diabetesAware = conditions.contains(.diabetes)
+        let adhdAware = conditions.contains(.adhd)
+        let adaptedModel = ForgeConditionAdaptation.applyToTrainingModel(
+            trainingModel,
+            conditions: conditions,
+            freeform: freeform
+        )
         var out: [Candidate] = []
         for item in catalog {
             if item.triedBefore || memory.tried.contains(item.id) { continue }
             if memory.saved.contains(item.id) { continue }
             if let decay = memory.suppressed[item.id], decay > 0.4 { continue }
             guard fits(item, memory: memory) else { continue }
+            if seizureAware, ForgeConditionAdaptation.isSoloHighRisk(item.name) { continue }
             var score = 0.4
             var reasons: [String] = ["Fits unused catalog"]
             score += 0.25
             reasons.append("Matches gym/gear")
-            if !trainingModel.isEmpty {
+            if !adaptedModel.isEmpty {
                 score += 0.15
                 reasons.append("Adaptive training model")
+            }
+            if seizureAware {
+                score += 0.04
+                reasons.append("Here's what works with your body — grounded intensity, rest windows")
+            }
+            if diabetesAware {
+                score += 0.03
+                reasons.append("Blood-sugar-aware timing and fueling reminders")
+            }
+            if adhdAware {
+                score += 0.03
+                reasons.append("Short blocks, variety, one clear next step")
             }
             if readiness >= 70 {
                 score += 0.1

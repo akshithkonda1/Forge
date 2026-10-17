@@ -23,6 +23,10 @@ final class AriaSoulTests: XCTestCase {
             XCTAssertTrue(directive.lowercased().contains("never say recovery"))
             XCTAssertTrue(directive.lowercased().contains("never shame"))
             XCTAssertTrue(directive.lowercased().contains("never push past comfort"))
+            XCTAssertTrue(directive.lowercased().contains("suggest a doctor"))
+            XCTAssertTrue(directive.lowercased().contains("adapt around"))
+            XCTAssertTrue(directive.lowercased().contains("never invent a diagnosis")
+                          || directive.lowercased().contains("medical advice"))
             XCTAssertFalse(AriaSoul.containsRailBreak(directive), config.blend.dominant.label)
             XCTAssertFalse(ForgeReinforcement.containsBlame(directive))
             let spoken = AriaSoul.speak(attempted, config: config)
@@ -57,6 +61,8 @@ final class AriaSoulTests: XCTestCase {
         XCTAssertFalse(spoken.lowercased().contains("prescribe"))
         XCTAssertEqual(AriaSoul.version, "1")
         XCTAssertTrue(AriaSoul.rails.contains { $0.lowercased().contains("not a doctor") })
+        XCTAssertTrue(AriaSoul.rails.contains { $0.lowercased().contains("adapt around") })
+        XCTAssertTrue(AriaSoul.rails.contains { $0.lowercased().contains("suggest a doctor") })
         XCTAssertTrue(AriaSoul.bedrockOff)
     }
 

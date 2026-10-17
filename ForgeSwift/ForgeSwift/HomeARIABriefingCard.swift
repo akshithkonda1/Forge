@@ -362,6 +362,18 @@ enum HomeARIABriefingBuilder {
             beats.append(.init(text: ops, priority: opsDigest.load == .heavy ? .urgent : .timely))
         }
 
+        let conditions = store.userProfile.lifestyleProfile.healthConstraints
+        if !conditions.isEmpty {
+            let dayLine = ForgeConditionAdaptation.line(
+                domain: .dayToDay,
+                conditions: conditions,
+                freeform: store.userProfile.lifestyleProfile.healthNote
+            )
+            if !dayLine.isEmpty {
+                beats.append(.init(text: dayLine, priority: .timely))
+            }
+        }
+
         let hobby = store.predictiveCoachPicture().hobby
         if hobby.path == .restoreQuiet || hobby.path == .openGently {
             beats.append(.init(text: hobby.headline + ". " + hobby.windowLine, priority: .timely))

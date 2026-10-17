@@ -7,7 +7,7 @@ public enum AriaHealthFilter: Sendable {
         "sleep", "dream", "hobby", "people", "goal", "mood", "stress",
         "workout", "train", "eat", "food", "nutrition", "water", "rest",
         "readiness", "routine", "epilep", "seizure", "adhd", "diabetes",
-        "night", "walk", "stretch",
+        "blood sugar", "night", "walk", "stretch",
     ]
 
     public static let offDomain = [

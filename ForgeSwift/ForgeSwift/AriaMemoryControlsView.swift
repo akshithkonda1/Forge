@@ -18,6 +18,12 @@ struct AriaMemoryControlsView: View {
     @State private var contextEditingID: String?
     @State private var showTrainingModelEditor = false
     @State private var showGymEditor = false
+    @State private var showConditionsEditor = false
+    @State private var conditionsDraft: Set<ForgeLifestyleProfile.HealthConstraint> = []
+    @State private var healthNoteDraft = ""
+    @State private var shareConditionsDraft = false
+    @State private var confirmDeleteConditions = false
+    @State private var confirmDeleteConstraint: ForgeLifestyleProfile.HealthConstraint?
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.dismiss) private var dismiss
 
@@ -72,6 +78,10 @@ struct AriaMemoryControlsView: View {
         .sheet(isPresented: $showGymEditor) {
             EquipmentPickerView()
                 .environmentObject(store)
+                .transaction(freezeMotion)
+        }
+        .sheet(isPresented: $showConditionsEditor) {
+            conditionsEditorSheet
                 .transaction(freezeMotion)
         }
         .fullScreenCover(isPresented: $showLifestyleInterview) {
@@ -132,6 +142,36 @@ struct AriaMemoryControlsView: View {
                 confirmDeleteContextID = nil
             }
         }
+        .confirmationDialog(
+            "Delete health conditions?",
+            isPresented: $confirmDeleteConditions,
+            titleVisibility: .visible
+        ) {
+            Button("Delete", role: .destructive) {
+                clearHealthConditions()
+            }
+            Button("Keep it", role: .cancel) {}
+        } message: {
+            Text("This clears the on-device health conditions. ARIA will stop adapting around them.")
+        }
+        .confirmationDialog(
+            "Delete this condition?",
+            isPresented: Binding(
+                get: { confirmDeleteConstraint != nil },
+                set: { if !$0 { confirmDeleteConstraint = nil } }
+            ),
+            titleVisibility: .visible
+        ) {
+            Button("Delete", role: .destructive) {
+                if let constraint = confirmDeleteConstraint {
+                    removeHealthConstraint(constraint)
+                }
+                confirmDeleteConstraint = nil
+            }
+            Button("Keep it", role: .cancel) {
+                confirmDeleteConstraint = nil
+            }
+        }
     }
 
     // MARK: Cards
@@ -190,11 +230,39 @@ struct AriaMemoryControlsView: View {
                 knownRow(title: "Health conditions", value: "None saved. Optional — offered, never demanded.")
             } else {
                 ForEach(conditions, id: \.self) { condition in
-                    knownRow(title: "Health", value: condition.label)
+                    VStack(alignment: .leading, spacing: ForgeLayout.pairGap) {
+                        knownRow(title: "Health", value: condition.label)
+                        HStack(spacing: ForgeLayout.groupBreak) {
+                            ForgeTextLink(title: "Edit", accent: .ember) {
+                                openConditionsEditor()
+                            }
+                            .accessibilityAddTraits(.isButton)
+                            ForgeTextLink(title: "Delete", accent: .danger) {
+                                confirmDeleteConstraint = condition
+                            }
+                            .accessibilityAddTraits(.isButton)
+                            Spacer(minLength: 0)
+                        }
+                    }
                 }
                 if !store.userProfile.lifestyleProfile.healthNote.isEmpty {
                     knownRow(title: "Health note", value: store.userProfile.lifestyleProfile.healthNote)
                 }
+            }
+            HStack(spacing: ForgeLayout.groupBreak) {
+                ForgeTextLink(title: conditions.isEmpty ? "Add" : "Edit", accent: .ember) {
+                    openConditionsEditor()
+                }
+                .accessibilityLabel(conditions.isEmpty ? "Add health conditions" : "Edit health conditions")
+                .accessibilityAddTraits(.isButton)
+                if !conditions.isEmpty || !store.userProfile.lifestyleProfile.healthNote.isEmpty {
+                    ForgeTextLink(title: "Delete", accent: .danger) {
+                        confirmDeleteConditions = true
+                    }
+                    .accessibilityLabel("Delete health conditions")
+                    .accessibilityAddTraits(.isButton)
+                }
+                Spacer(minLength: 0)
             }
             Text("On this phone unless you opt in. Edits lock the fact. Deletes tombstone it.")
                 .font(HomeType.body)
@@ -357,6 +425,96 @@ struct AriaMemoryControlsView: View {
     private func persistContext(_ snap: AriaContextMemory.Snapshot) {
         contextSnap = snap
         AriaContextStore.shared.replaceMemory(snap)
+    }
+
+    private var conditionsEditorSheet: some View {
+        NavigationStack {
+            ScrollView {
+                ForgeScreenStack(top: FDS.Spacing.lg) {
+                    Text("Optional. Offered, never demanded. Lifestyle coach only — not medical care. On this phone unless you opt in.")
+                        .font(HomeType.body)
+                        .foregroundStyle(Color.textSecondary)
+                        .forgeWrapping()
+                    ForgeFlowLayout(spacing: ForgeLayout.chipGap, lineSpacing: ForgeLayout.interactiveChipLineGap) {
+                        ForEach(ForgeLifestyleProfile.HealthConstraint.allCases, id: \.self) { condition in
+                            ForgeChipButton(
+                                label: condition.label,
+                                energy: Color.ember,
+                                selected: conditionsDraft.contains(condition)
+                            ) {
+                                if conditionsDraft.contains(condition) {
+                                    conditionsDraft.remove(condition)
+                                } else {
+                                    conditionsDraft.insert(condition)
+                                }
+                            }
+                        }
+                    }
+                    TextField("Anything else I should know? (optional)", text: $healthNoteDraft, axis: .vertical)
+                        .font(HomeType.body)
+                        .foregroundStyle(Color.textPrimary)
+                        .lineLimit(2...6)
+                        .padding(FDS.Spacing.md)
+                        .forgeInsetTile(radius: FDS.Radius.md)
+                    toggleRow(
+                        icon: "iphone",
+                        label: "Send to the server",
+                        subtitle: shareConditionsDraft
+                            ? "Opted in. Conditions can go with server context."
+                            : "Off by default. Stays on this phone.",
+                        isOn: $shareConditionsDraft,
+                        hint: "Never sent unless you opt in.",
+                        value: shareConditionsDraft ? "Opted in" : "On this phone"
+                    )
+                }
+            }
+            .forgeScreenBackground(accent: .ember)
+            .navigationTitle("Health conditions")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Cancel") { showConditionsEditor = false }
+                }
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Save") {
+                        commitConditionsDraft()
+                        showConditionsEditor = false
+                    }
+                    .foregroundColor(.ember)
+                }
+            }
+        }
+        .presentationDetents(reduceMotion ? [.large] : [.medium, .large])
+    }
+
+    private func openConditionsEditor() {
+        conditionsDraft = Set(store.userProfile.lifestyleProfile.healthConstraints)
+        healthNoteDraft = store.userProfile.lifestyleProfile.healthNote
+        shareConditionsDraft = store.userProfile.lifestyleProfile.share.shareConditions
+        showConditionsEditor = true
+    }
+
+    private func commitConditionsDraft() {
+        var snap = store.userProfile.lifestyleProfile
+        snap.healthConstraints = ForgeLifestyleProfile.HealthConstraint.allCases.filter {
+            conditionsDraft.contains($0)
+        }
+        snap.healthNote = healthNoteDraft.trimmingCharacters(in: .whitespacesAndNewlines)
+        snap.share.shareConditions = shareConditionsDraft
+        store.userProfile.lifestyleProfile = snap
+    }
+
+    private func clearHealthConditions() {
+        var snap = store.userProfile.lifestyleProfile
+        snap.clearHealthConstraints()
+        snap.share.shareConditions = false
+        store.userProfile.lifestyleProfile = snap
+    }
+
+    private func removeHealthConstraint(_ constraint: ForgeLifestyleProfile.HealthConstraint) {
+        var snap = store.userProfile.lifestyleProfile
+        snap.removeHealthConstraint(constraint)
+        store.userProfile.lifestyleProfile = snap
     }
 
     private var personaCard: some View {

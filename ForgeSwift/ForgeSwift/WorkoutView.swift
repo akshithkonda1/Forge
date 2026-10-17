@@ -847,7 +847,9 @@ struct TrainDiscoveryCard: View {
             goals: store.userProfile.fitnessGoals.map(\.rawValue) + store.userProfile.fitnessGoals.map(\.label),
             readiness: store.readiness.overall,
             load: min(100, store.workoutHistory.count * 8),
-            engagement: min(1, Double(memory.tried.count) / 10.0)
+            engagement: min(1, Double(memory.tried.count) / 10.0),
+            conditions: store.userProfile.lifestyleProfile.healthConstraints,
+            freeform: store.userProfile.lifestyleProfile.healthNote
         ).prefix(8))
     }
 

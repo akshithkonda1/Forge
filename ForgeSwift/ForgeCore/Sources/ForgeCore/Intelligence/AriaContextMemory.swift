@@ -344,7 +344,8 @@ extension AriaContextMemory {
             return .sleepDreams
         }
         if blob.contains("seizure") || blob.contains("epilep") || blob.contains("injur")
-            || blob.contains("condition") || blob.contains("doctor") || blob.contains("medication") {
+            || blob.contains("condition") || blob.contains("doctor") || blob.contains("medication")
+            || blob.contains("diabetes") || blob.contains("adhd") || blob.contains("blood sugar") {
             return .healthConstraints
         }
         if blob.contains("goal") || blob.contains("this season") || blob.contains("working toward") {
