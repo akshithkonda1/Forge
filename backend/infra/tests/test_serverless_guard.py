@@ -177,6 +177,13 @@ def test_lambda_reserved_concurrency_rejects_zero():
     ]
 
 
+def test_aria_pause_fail_mode_defaults_to_paused():
+    variables = (INFRA_DIR / "variables.tf").read_text(encoding="utf-8")
+    block = variables.split('variable "aria_pause_fail_mode"')[1][:800]
+    assert 'default     = "paused"' in block
+    assert 'default     = "open"' not in block
+
+
 def test_alarm_count_is_within_free_tier():
     alarms_tf = (INFRA_DIR / "alarms.tf").read_text(encoding="utf-8")
     keys = re.findall(r"^\s{4}([a-z0-9_]+)\s*=\s*\{", alarms_tf, re.M)
