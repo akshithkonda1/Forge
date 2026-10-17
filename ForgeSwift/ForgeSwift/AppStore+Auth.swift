@@ -116,6 +116,7 @@ extension AppStore {
         schedulePlanningMode: SchedulePlanningMode? = nil,
         weeklySplit: [WeeklySplitSlot]? = nil,
         trainingEquipment: TrainingEquipment? = nil,
+        equipmentNotes: String? = nil,
         connectedDevices: [String]? = nil,
         age: Int? = nil,
         weightKg: Double? = nil,
@@ -123,7 +124,8 @@ extension AppStore {
         gender: Gender? = nil,
         biologicalSex: BiologicalSex? = nil,
         trainingTheme: AriaTrainingTheme? = nil,
-        interestTags: [String]? = nil
+        interestTags: [String]? = nil,
+        coachingPersonality: ForgeCoachingPersonality.Choice? = nil
     ) {
         if let name = name { userProfile.name = name }
         if let style = coachingStyle { userProfile.coachingStyle = style }
@@ -141,6 +143,7 @@ extension AppStore {
         }
         if let weeklySplit { userProfile.weeklySplit = WeeklySplit.normalized(weeklySplit) }
         if let trainingEquipment { userProfile.trainingEquipment = trainingEquipment }
+        if let equipmentNotes { userProfile.equipmentNotes = equipmentNotes }
         if let connectedDevices { userProfile.connectedDevices = connectedDevices }
         if let age { userProfile.age = age }
         if let weightKg { userProfile.weight = weightKg }
@@ -151,6 +154,12 @@ extension AppStore {
             MenstrualHealthStore.shared.enableForBiologicalSexIfNeeded(biologicalSex)
         }
         if let interestTags { userProfile.interestTags = interestTags }
+        if let coachingPersonality {
+            userProfile.coachingPersonality = coachingPersonality
+            if let preset = coachingPersonality.preset {
+                userProfile.coachingStyle = preset.legacyCoachingStyle
+            }
+        }
         if let trainingTheme {
             setTrainingTheme(trainingTheme, source: "profile")
             return

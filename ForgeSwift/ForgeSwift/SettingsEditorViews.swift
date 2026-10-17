@@ -404,6 +404,7 @@ struct EquipmentPickerView: View {
     @Environment(\.dismiss) private var dismiss
     @EnvironmentObject private var store: AppStore
     @State private var selection: TrainingEquipment = .commercialGym
+    @State private var notes: String = ""
 
     var body: some View {
         NavigationStack {
@@ -420,20 +421,68 @@ struct EquipmentPickerView: View {
                         }
                     }
                 }
+                EditorCard {
+                    Text("Exact gear (optional)")
+                        .font(HomeType.body)
+                        .foregroundStyle(Color.textSecondary)
+                    TextField("dumbbells, rack, bike…", text: $notes, axis: .vertical)
+                        .font(HomeType.body)
+                        .foregroundStyle(Color.textPrimary)
+                        .lineLimit(2...4)
+                }
             }
-            .navigationTitle("Equipment")
+            .navigationTitle("Gym and equipment")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) { Button("Cancel") { dismiss() } }
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Save") {
-                        store.updateProfile(trainingEquipment: selection)
+                        store.updateProfile(trainingEquipment: selection, equipmentNotes: notes)
                         dismiss()
                     }
                     .foregroundColor(.ember)
                 }
             }
-            .onAppear { selection = store.userProfile.trainingEquipment }
+            .onAppear {
+                selection = store.userProfile.trainingEquipment
+                notes = store.userProfile.equipmentNotes
+            }
+        }
+        .presentationDragIndicator(.visible)
+    }
+}
+
+struct AriaSoulPickerView: View {
+    @Environment(\.dismiss) private var dismiss
+    @ObservedObject private var soul = AriaSoulStore.shared
+
+    var body: some View {
+        NavigationStack {
+            EditorSheetScroll(accent: .ember) {
+                EditorCard {
+                    ForEach(AriaSoul.Personality.allCases, id: \.self) { personality in
+                        EditorOptionRow(
+                            title: personality.label,
+                            icon: "text.bubble",
+                            tint: .ember,
+                            selected: soul.config.blend.dominant == personality
+                        ) {
+                            soul.setPersonality(personality)
+                        }
+                    }
+                }
+                Text("Takes effect on the next reply. Same rails for every personality: coach, not doctor.")
+                    .font(HomeType.body)
+                    .foregroundStyle(Color.textSecondary)
+            }
+            .navigationTitle("ARIA personality")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Done") { dismiss() }
+                        .foregroundColor(.ember)
+                }
+            }
         }
         .presentationDragIndicator(.visible)
     }

@@ -24,7 +24,7 @@ struct AuthWelcomeView: View {
         ZStack {
             PremiumAtmosphere(
                 accent: pages[safe: page]?.accent ?? .ember,
-                secondary: pages[safe: page]?.frost ?? HudChrome.plate
+                secondary: pages[safe: page]?.frost ?? ForgeProgressChrome.plate
             )
 
             VStack(spacing: 0) {
@@ -183,7 +183,7 @@ private struct AuthHookPage: Identifiable {
             body: "ARIA is an adaptive lifestyle coach — present for readiness, sleep, and the session you'd skip. Small moves compound. You still decide.",
             icon: "text.bubble",
             accent: Color.ember,
-            frost: HudChrome.plate,
+            frost: ForgeProgressChrome.plate,
             reward: "A coach who already knows you"
         ),
         AuthHookPage(
@@ -193,7 +193,7 @@ private struct AuthHookPage: Identifiable {
             body: "ARIA turns your metrics into a plan that fits today. Progress compounds day to day — each session intentional, never a burden.",
             icon: "waveform.path.ecg",
             accent: Color.steel,
-            frost: HudChrome.plate,
+            frost: ForgeProgressChrome.plate,
             reward: "Sessions that match how you feel"
         ),
         AuthHookPage(
@@ -203,7 +203,7 @@ private struct AuthHookPage: Identifiable {
             body: "Sleep, nutrition, free time, and how you show up for people you love — one private control center that respects the life you already have.",
             icon: "leaf.fill",
             accent: Color.success,
-            frost: HudChrome.plate,
+            frost: ForgeProgressChrome.plate,
             reward: "Private by design"
         ),
         AuthHookPage(

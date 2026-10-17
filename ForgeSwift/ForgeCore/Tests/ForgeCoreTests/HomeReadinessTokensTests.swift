@@ -1,8 +1,8 @@
 import XCTest
 @testable import ForgeCore
 
-/// Locks `shared/readiness.json` to Home HUD tokens: Peak/Good/Fair/Low,
-/// HUD clamp/math, Reduce Motion still-pose, Nest stays a different kind.
+/// Locks `shared/readiness.json` to Home progress chrome: Peak/Good/Fair/Low,
+/// Reduce Motion still-pose, Nest stays a different kind.
 final class HomeReadinessTokensTests: XCTestCase {
 
     private struct File: Decodable {
@@ -14,7 +14,7 @@ final class HomeReadinessTokensTests: XCTestCase {
             let token: String
         }
 
-        struct Hud: Decodable {
+        struct Chrome: Decodable {
             let plateHex: String
             let emberSteelHex: String
             let tickCount: Int
@@ -23,12 +23,11 @@ final class HomeReadinessTokensTests: XCTestCase {
             let compactRingSize: Double
             let stroke: Double
             let compactStroke: Double
-            let tickHz: Double
-            let tickHzCeiling: Double
+            let eventHz: Double
+            let eventHzCeiling: Double
             let glowHz: Double
-            let tickChromeFloor: Double
-            let armedMajorTickOpacity: Double
-            let inArcMinimumScale: Double
+            let chromeFloor: Double
+            let glanceMinimumScale: Double
         }
 
         struct Motivation: Decodable {
@@ -59,7 +58,7 @@ final class HomeReadinessTokensTests: XCTestCase {
         let surface: String
         let mixLock: String
         let bands: [Band]
-        let hud: Hud
+        let chrome: Chrome
         let motivation: Motivation
         let trend: Trend
         let bannedSurfacePhrases: [String]
@@ -83,20 +82,20 @@ final class HomeReadinessTokensTests: XCTestCase {
         XCTAssertEqual(file.kind, HomeReadinessTokens.kind)
         XCTAssertEqual(file.surface, HomeReadinessTokens.surface)
         XCTAssertEqual(file.mixLock, HomeReadinessTokens.mixLock)
-        XCTAssertEqual(file.hud.plateHex, HomeReadinessTokens.plateHex)
-        XCTAssertEqual(file.hud.emberSteelHex, HomeReadinessTokens.emberSteelHex)
-        XCTAssertEqual(file.hud.tickCount, HomeReadinessTokens.tickCount)
-        XCTAssertEqual(file.hud.majorEvery, HomeReadinessTokens.majorEvery)
-        XCTAssertEqual(file.hud.ringSize, HomeReadinessTokens.ringSize, accuracy: 0.0001)
-        XCTAssertEqual(file.hud.compactRingSize, HomeReadinessTokens.compactRingSize, accuracy: 0.0001)
-        XCTAssertEqual(file.hud.stroke, HomeReadinessTokens.stroke, accuracy: 0.0001)
-        XCTAssertEqual(file.hud.compactStroke, HomeReadinessTokens.compactStroke, accuracy: 0.0001)
-        XCTAssertEqual(file.hud.tickHz, HomeReadinessTokens.tickHz, accuracy: 0.0001)
-        XCTAssertEqual(file.hud.tickHzCeiling, HomeReadinessTokens.tickHzCeiling, accuracy: 0.0001)
-        XCTAssertEqual(file.hud.glowHz, HomeReadinessTokens.glowHz, accuracy: 0.0001)
-        XCTAssertEqual(file.hud.tickChromeFloor, HomeReadinessTokens.tickChromeFloor, accuracy: 0.0001)
-        XCTAssertEqual(file.hud.armedMajorTickOpacity, HomeReadinessTokens.armedMajorTickOpacity, accuracy: 0.0001)
-        XCTAssertEqual(file.hud.inArcMinimumScale, HomeReadinessTokens.inArcMinimumScale, accuracy: 0.0001)
+        XCTAssertEqual(file.chrome.plateHex, HomeReadinessTokens.plateHex)
+        XCTAssertEqual(file.chrome.emberSteelHex, HomeReadinessTokens.emberSteelHex)
+        XCTAssertEqual(file.chrome.tickCount, 0)
+        XCTAssertEqual(file.chrome.tickCount, HomeReadinessTokens.tickCount)
+        XCTAssertEqual(file.chrome.majorEvery, HomeReadinessTokens.majorEvery)
+        XCTAssertEqual(file.chrome.ringSize, HomeReadinessTokens.ringSize, accuracy: 0.0001)
+        XCTAssertEqual(file.chrome.compactRingSize, HomeReadinessTokens.compactRingSize, accuracy: 0.0001)
+        XCTAssertEqual(file.chrome.stroke, HomeReadinessTokens.stroke, accuracy: 0.0001)
+        XCTAssertEqual(file.chrome.compactStroke, HomeReadinessTokens.compactStroke, accuracy: 0.0001)
+        XCTAssertEqual(file.chrome.eventHz, HomeReadinessTokens.eventHz, accuracy: 0.0001)
+        XCTAssertEqual(file.chrome.eventHzCeiling, HomeReadinessTokens.eventHzCeiling, accuracy: 0.0001)
+        XCTAssertEqual(file.chrome.glowHz, HomeReadinessTokens.glowHz, accuracy: 0.0001)
+        XCTAssertEqual(file.chrome.chromeFloor, HomeReadinessTokens.tickChromeFloor, accuracy: 0.0001)
+        XCTAssertEqual(file.chrome.glanceMinimumScale, HomeReadinessTokens.glanceMinimumScale, accuracy: 0.0001)
         XCTAssertEqual(file.motivation.almostTherePercent, HomeReadinessTokens.almostTherePercent)
         XCTAssertEqual(file.motivation.closingRemaining, HomeReadinessTokens.closingRemaining)
         XCTAssertEqual(file.motivation.almostThereFloor, HomeReadinessTokens.almostThereFloor, accuracy: 0.0001)
@@ -150,7 +149,7 @@ final class HomeReadinessTokensTests: XCTestCase {
         XCTAssertEqual(HomeReadinessTokens.hex(for: 40), "EF4444")
     }
 
-    func testHudSweepClampsAndReduceMotionIsFinalValue() {
+    func testSweepClampsAndReduceMotionIsFinalValue() {
         XCTAssertEqual(HomeReadinessTokens.sweep(from: -12), 0, accuracy: 0.0001)
         XCTAssertEqual(HomeReadinessTokens.sweep(from: 0), 0, accuracy: 0.0001)
         XCTAssertEqual(HomeReadinessTokens.sweep(from: 50), 0.5, accuracy: 0.0001)
@@ -202,22 +201,16 @@ final class HomeReadinessTokensTests: XCTestCase {
         XCTAssertGreaterThan(abs(liveA - liveB), 0.00001)
     }
 
-    func testArmedTicksFollowSweep() {
-        XCTAssertTrue(HomeReadinessTokens.tickArmed(index: 0, sweep: 0))
-        XCTAssertFalse(HomeReadinessTokens.tickArmed(index: 24, sweep: 0))
-        XCTAssertTrue(HomeReadinessTokens.tickArmed(index: 24, sweep: 0.5))
-        XCTAssertTrue(HomeReadinessTokens.tickArmed(index: 47, sweep: 1))
-        XCTAssertLessThanOrEqual(HomeReadinessTokens.tickHz, HomeReadinessTokens.tickHzCeiling)
-        XCTAssertLessThanOrEqual(HomeReadinessTokens.tickHz, AriaNestGeometry.paintHz)
-        let trough = HomeReadinessTokens.paintedTickOpacity(major: true, armed: true, glow: 0.62)
-        let peak = HomeReadinessTokens.paintedTickOpacity(major: true, armed: true, glow: 1)
-        XCTAssertEqual(trough, peak, accuracy: 0.0001)
-        XCTAssertGreaterThanOrEqual(trough, HomeReadinessTokens.tickChromeFloor)
-        XCTAssertGreaterThanOrEqual(trough, 0.70)
+    func testTickDialIsRetired() {
+        XCTAssertEqual(HomeReadinessTokens.tickCount, 0)
+        XCTAssertFalse(HomeReadinessTokens.tickArmed(index: 0, sweep: 1))
+        XCTAssertEqual(HomeReadinessTokens.paintedTickOpacity(major: true, armed: true, glow: 1), 0, accuracy: 0.0001)
+        XCTAssertLessThanOrEqual(HomeReadinessTokens.eventHz, HomeReadinessTokens.eventHzCeiling)
+        XCTAssertLessThanOrEqual(HomeReadinessTokens.eventHz, AriaNestGeometry.paintHz)
         XCTAssertTrue(HomeReadinessTokens.showsInArcMeta(isAccessibilitySize: false))
         XCTAssertFalse(HomeReadinessTokens.showsInArcMeta(isAccessibilitySize: true))
-        XCTAssertEqual(HomeReadinessTokens.inArcMinimumScale, 0.7, accuracy: 0.0001)
-        XCTAssertEqual(HomeReadinessTokens.tickInterval, 1.0 / HomeReadinessTokens.tickHz, accuracy: 0.0001)
+        XCTAssertEqual(HomeReadinessTokens.glanceMinimumScale, 0.7, accuracy: 0.0001)
+        XCTAssertEqual(HomeReadinessTokens.tickInterval, 1.0 / HomeReadinessTokens.eventHz, accuracy: 0.0001)
     }
 
     func testMotivationTokensStaySolidAndEventDriven() {
@@ -253,7 +246,7 @@ final class HomeReadinessTokensTests: XCTestCase {
         )
     }
 
-    func testNestGeometryIsUntouchedByHudTokens() {
+    func testNestGeometryIsUntouchedByHomeChrome() {
         XCTAssertEqual(AriaNestGeometry.kind, "soft-hex-field")
         XCTAssertEqual(AriaNestGeometry.mixLock, "B+E")
         XCTAssertEqual(AriaNestGeometry.ringCount, 3)

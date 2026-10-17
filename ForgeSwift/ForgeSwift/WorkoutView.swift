@@ -80,7 +80,7 @@ struct WorkoutIdleView: View {
         )
     }
 
-    /// Ember for a training day, steel for rest, recover and easy.
+    /// Ember for a training day, steel for rest and easy.
     private var dayTone: Color {
         dayCall == .train ? Color.ember : Color.steel
     }
@@ -153,6 +153,8 @@ struct WorkoutIdleView: View {
                 }
 
                 exerciseList(workout: workout)
+
+                TrainDiscoveryCard()
 
                 if typeSize.isAccessibilitySize {
                     compactToolbar(columns: 2)
@@ -252,7 +254,7 @@ struct WorkoutIdleView: View {
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
-        .hudPlate(energy: store.readiness.hasScore ? HomeReadiness.color(store.readiness.overall) : HudChrome.miss)
+        .forgePlate(energy: store.readiness.hasScore ? HomeReadiness.color(store.readiness.overall) : ForgeProgressChrome.miss)
         .accessibilityElement(children: .contain)
     }
 
@@ -264,9 +266,9 @@ struct WorkoutIdleView: View {
                 .forgeSingleLine(minScale: ForgeLayout.labelMinScale)
                 .frame(maxWidth: .infinity, alignment: .leading)
             // Unmeasured readiness reads "—", never a 0 score.
-            HudVibeChip(
+            ForgeVibeChip(
                 label: store.readiness.hasScore ? "\(score) · \(HomeReadiness.label(score))" : "Readiness —",
-                energy: store.readiness.hasScore ? HomeReadiness.color(score) : HudChrome.miss
+                energy: store.readiness.hasScore ? HomeReadiness.color(score) : ForgeProgressChrome.miss
             )
                 .lineLimit(1)
                 .layoutPriority(1)
@@ -287,7 +289,7 @@ struct WorkoutIdleView: View {
         if dayCall == .rest {
             return todaySlot.isRest
                 ? "The week called rest. Easy core is on the board if you want it — nothing to prove."
-                : "Today is recovery-shaped. Move well or skip."
+                : "Today is rest-shaped. Move well or skip."
         }
         if let headline = workout.scaleHeadline, workout.autoScaled {
             return headline
@@ -598,7 +600,7 @@ struct WorkoutExerciseRow: View {
                 .font(HomeType.label)
                 .foregroundStyle(accent)
                 .monospacedDigit()
-                .hudInArcText()
+                .forgeGlanceText()
         }
         .frame(width: size, height: size)
         .accessibilityHidden(true)
@@ -771,5 +773,95 @@ struct WorkoutEmptyState: View {
         }
         .padding(.horizontal, ForgeLayout.screenInset)
         .padding(.vertical, ForgeLayout.sectionGap)
+    }
+}
+
+/// Rank unused catalog moves that fit gym and gear. Inspectable score.
+struct TrainDiscoveryCard: View {
+    @EnvironmentObject var store: AppStore
+    @State private var memory = ForgeExerciseDiscovery.Memory()
+    @State private var ranked: [ForgeExerciseDiscovery.Candidate] = []
+
+    private static let storageKey = "forge.exercise.discovery.v1"
+
+    var body: some View {
+        Group {
+            if let top = ranked.first {
+                VStack(alignment: .leading, spacing: ForgeLayout.pairGap) {
+                    Text(ForgeExerciseDiscovery.suggestLine)
+                        .font(HomeType.body)
+                        .foregroundStyle(Color.textSecondary)
+                        .forgeWrapping()
+                    Text(top.name)
+                        .font(ForgeType.title)
+                        .foregroundStyle(Color.textPrimary)
+                        .forgeWrapping()
+                    Text(top.reasons.joined(separator: " · "))
+                        .font(HomeType.micro)
+                        .foregroundStyle(Color.textTertiary)
+                        .forgeWrapping()
+                    ForgeAdaptiveStack(spacing: ForgeLayout.tileGap) {
+                        ForgeSecondaryButton(title: "Tried", accent: .ember) {
+                            apply(.tried, id: top.id)
+                        }
+                        ForgeSecondaryButton(title: "Not interested", accent: .steel) {
+                            apply(.notInterested, id: top.id)
+                        }
+                        ForgeSecondaryButton(title: "Save for later", accent: .steel) {
+                            apply(.saved, id: top.id)
+                        }
+                    }
+                }
+                .forgePlate(energy: .ember)
+                .accessibilityElement(children: .contain)
+            }
+        }
+        .onAppear(perform: reload)
+    }
+
+    private func reload() {
+        if ForgeRuntimeGuard.shouldShed(
+            thermal: thermalLabel,
+            memoryWarning: false
+        ) {
+            ranked = []
+            return
+        }
+        if let data = UserDefaults.standard.data(forKey: Self.storageKey),
+           let decoded = try? JSONDecoder().decode(ForgeExerciseDiscovery.Memory.self, from: data) {
+            memory = decoded
+        }
+        memory.gymType = store.userProfile.trainingEquipment.rawValue
+        memory.equipmentNotes = store.userProfile.equipmentNotes
+        let catalog: [ForgeExerciseDiscovery.Exercise] = ExerciseLibrary.all.map {
+            ForgeExerciseDiscovery.Exercise(
+                id: $0.id,
+                name: $0.name,
+                equipment: $0.equipment.rawValue
+            )
+        }
+        ranked = Array(ForgeExerciseDiscovery.rank(
+            catalog: catalog,
+            memory: memory,
+            trainingModel: store.userProfile.coachingPersonality.displayLabel,
+            goals: store.userProfile.fitnessGoals.map(\.rawValue),
+            readiness: store.readiness.overall
+        ).prefix(8))
+    }
+
+    private func apply(_ feedback: ForgeExerciseDiscovery.Feedback, id: String) {
+        memory = ForgeExerciseDiscovery.applyFeedback(memory, id: id, feedback: feedback)
+        if let data = try? JSONEncoder().encode(memory) {
+            UserDefaults.standard.set(data, forKey: Self.storageKey)
+        }
+        reload()
+    }
+
+    private var thermalLabel: String {
+        switch ProcessInfo.processInfo.thermalState {
+        case .serious: return "serious"
+        case .critical: return "critical"
+        default: return "nominal"
+        }
     }
 }

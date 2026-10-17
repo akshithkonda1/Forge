@@ -95,7 +95,7 @@ struct WorkoutRichCardView: View {
                 .font(HomeType.label)
                 .foregroundStyle(Color.ember)
                 .monospacedDigit()
-                .hudInArcText()
+                .forgeGlanceText()
                 .frame(width: badge, height: badge)
                 .background(Circle().fill(Color.ember.opacity(0.16)))
                 .accessibilityHidden(true)

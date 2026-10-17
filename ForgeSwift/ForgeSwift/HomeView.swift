@@ -329,7 +329,6 @@ private struct HomeScrollMiniHeader: View {
 
     var body: some View {
         HStack(spacing: FDS.Spacing.md) {
-            ReadinessRingView(score: store.readiness.overall, size: 26, strokeWidth: 3, showLabel: false)
             VStack(alignment: .leading, spacing: 1) {
                 Text(firstName)
                     .font(HomeType.status)

@@ -14,7 +14,7 @@ private func lifestyleInsightStatusColor(_ status: InsightStatus) -> Color {
     case .excellent: return Color.vitality
     case .good:      return Color.steel
     case .warning:   return Color.amber
-    case .poor:      return HudChrome.miss
+    case .poor:      return ForgeProgressChrome.miss
     }
 }
 
@@ -89,7 +89,7 @@ struct AILifeAnalysisCard: View {
     }
 
     private var liveBadge: some View {
-        HudVibeChip(label: isLive ? "LIVE" : "ARIA", energy: .aurora)
+        ForgeVibeChip(label: isLive ? "LIVE" : "ARIA", energy: .aurora)
     }
 
     @ViewBuilder
@@ -197,7 +197,7 @@ struct AIRecommendationsCard: View {
         VStack(alignment: .leading, spacing: ForgeLayout.blockGap) {
             // Block 1: eyebrow + tinted count chip
             ForgeCardHeader(title: "ARIA Recommendations") {
-                HudVibeChip(label: "\(recommendations.count) active", energy: .aurora)
+                ForgeVibeChip(label: "\(recommendations.count) active", energy: .aurora)
             }
 
             // Block 2: the recommendations, or a calm in-card empty note

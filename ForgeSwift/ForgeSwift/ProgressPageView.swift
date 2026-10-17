@@ -152,7 +152,7 @@ struct MonthlySummaryView: View {
             ForgeStatGrid(columns: 3) {
                 StatPillCard(value: workoutsCompleted, label: "Workouts")
                 StatPillCard(value: newPRs, label: "New PRs")
-                StatPillCard(value: recoveryDelta, label: "Recovery")
+                StatPillCard(value: recoveryDelta, label: "Readiness")
             }
 
             Text(summaryText)

@@ -600,13 +600,32 @@ extension AppStore {
             return CircadianRhythm.Night(onset: onset, wake: wake, asleepHours: entry.totalHours)
         }.sorted { $0.wake < $1.wake }
         let wakeHour = CircadianRhythm.phase(from: nights)?.wakeHour
+        let hints = workoutHistory.prefix(20).map {
+            HobbyFit.WorkoutHint(name: $0.name, type: $0.type.rawValue, dateISO: $0.date)
+        }
+        let fitHobbies = HobbyFit.engage(
+            fromWorkouts: Array(hints),
+            existing: HobbyFit.hobbies(from: persona.hobbies ?? []) + userProfile.lifestyleProfile.hobbies
+        )
+        let hour = Calendar.current.component(.hour, from: Date())
+        let live = HobbyFit.LiveSignals(
+            sleepHoursLastNight: dailyMetrics.totalSleep > 0 ? Double(dailyMetrics.totalSleep) / 60.0 : nil,
+            hrvTrend: {
+                guard let base = hrvBaseline, base > 0 else { return nil }
+                return ((Double(dailyMetrics.hrv) - Double(base)) / Double(base)) * 100
+            }(),
+            hour: hour,
+            conversation: chatMessages.suffix(6).map(\.content)
+        )
         return PredictiveCoach.picture(
             forecastInput: forecastInput,
             workingInput: workingInput,
-            socialEnergy0to10: persona.socialEnergy0to10,
+            socialEnergy0to10: persona.socialEnergy0to10 ?? userProfile.lifestyleProfile.socialEnergy0to10,
             currentHobbies: persona.hobbies ?? [],
             wakeHour: wakeHour,
-            knownPeople: PeopleDirectoryStore.load().coachingPeople
+            knownPeople: PeopleDirectoryStore.load().coachingPeople,
+            live: live,
+            fitHobbiesOverride: fitHobbies
         )
     }
 

@@ -406,7 +406,8 @@ class AllDomainParsingTests(unittest.TestCase):
             "body": {"weightKg": 80, "weightTrendKg": -1.4, "vo2Max": 48},
             "nutrition": {"proteinG3DayAvg": 150, "calorieTarget": 2200},
             "profile": {"primaryGoal": "lose-fat", "experienceLevel": "intermediate",
-                        "coachingStyle": "data-driven", "constraints": ["left knee"]},
+                        "coachingStyle": "data-driven", "constraints": ["left knee"],
+                        "adaptiveTrainingModel": "intense physical, intense mental, intense psychological training"},
             "progress": {"workoutsCompleted30d": 18, "newPersonalRecords": 2, "trainingLoadTrend": "rising"},
             "lifestyle": {"recentPatterns": ["late_caffeine"], "tags": ["founder"]},
         }})
@@ -414,6 +415,14 @@ class AllDomainParsingTests(unittest.TestCase):
         self.assertEqual(ctx.nutrition.protein_g_3day_avg, 150)
         self.assertEqual(ctx.profile.primary_goal, "lose-fat")
         self.assertEqual(ctx.profile.constraints, ["left knee"])
+        self.assertEqual(
+            ctx.profile.adaptive_training_model,
+            "intense physical, intense mental, intense psychological training",
+        )
+        block = ctx.user_model_block()
+        self.assertIn("intense mental", block)
+        self.assertIn("mindset and method only", block)
+        self.assertIn("never exercise form", block)
         self.assertEqual(ctx.progress.workouts_completed_30d, 18)
         self.assertEqual(ctx.lifestyle.recent_patterns, ["late_caffeine"])
         self.assertIn("body.body_fat_pct", ctx.missing_fields)

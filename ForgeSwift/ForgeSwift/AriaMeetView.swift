@@ -5,14 +5,14 @@ import ForgeCore
 enum AriaMeetCopy: Sendable {
     static let eyebrow = "Your lifestyle coach"
     static let title = "This is ARIA"
-    static let lead = "I was designed for Forge — I power how you train, recover, and live the day."
+    static let lead = "I was designed for Forge — I power how you train, rest, and live the day."
     static let pairingForbidden = "FORGE × ARIA"
     static let talkCta = "Talk with ARIA"
     static let skipCta = "Skip"
 
     static let capabilities: [(title: String, body: String, icon: String)] = [
         ("Train today", "What to do with the body you woke up with — not a plan from last week.", "dumbbell.fill"),
-        ("Recovery", "Last night, load, and when to ease off before you overreach.", "heart.fill"),
+        ("Readiness", "Last night, load, and when to ease off before you overreach.", "heart.fill"),
         ("What's in the way", "Talk. You don't have to know the question. I'll stay with it.", "bubble.left.and.bubble.right.fill"),
         ("Plans that fit", "I coach the life you already have — not a spreadsheet of you.", "calendar"),
     ]

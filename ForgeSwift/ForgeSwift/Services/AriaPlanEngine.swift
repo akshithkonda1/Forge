@@ -729,9 +729,11 @@ enum AriaPlanEngine {
         switch equipment {
         case .commercialGym: return "gym"
         case .homeGym: return "home"
+        case .industrialGym: return "industrial gym"
         case .bodyweight: return "no-gear"
         case .hotelGym: return "travel"
         case .crossfitBox: return "box"
+        case .other: return "gym"
         }
     }
 

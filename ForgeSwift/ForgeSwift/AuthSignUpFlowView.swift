@@ -102,7 +102,7 @@ struct AuthSignUpFlowView: View {
         ZStack {
             PremiumAtmosphere(
                 accent: spark.accent,
-                secondary: HudChrome.plate,
+                secondary: ForgeProgressChrome.plate,
                 intensity: 0.85
             )
             .animation(reduceMotion ? nil : Animation.easeInOut(duration: 0.4), value: spark)
@@ -780,7 +780,7 @@ private struct SignUpCelebrationOverlay: View {
             Color.black.opacity(0.55).ignoresSafeArea()
             VStack(spacing: ForgeLayout.sectionGap) {
                 ZStack {
-                    PremiumPresenceBloom(size: 140, accent: .ember, frost: HudChrome.plate, live: false)
+                    PremiumPresenceBloom(size: 140, accent: .ember, frost: ForgeProgressChrome.plate, live: false)
                     AuroraOrbView(
                         state: .idle,
                         amplitude: 0.5,

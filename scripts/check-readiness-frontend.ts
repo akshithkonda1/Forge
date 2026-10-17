@@ -1,8 +1,8 @@
 import { readFileSync } from "node:fs";
 
 /**
- * Phone Home HUD token contract — `shared/readiness.json` only.
- * Does not import web Home chrome or Nest mark sources.
+ * Phone Home progress chrome token contract — `shared/readiness.json` only.
+ * Does not import Nest mark sources.
  */
 
 type Band = { id: string; label: string; min: number; hex: string; token: string };
@@ -12,14 +12,13 @@ type ReadinessFile = {
   surface: string;
   mixLock: string;
   bands: Band[];
-  hud: {
+  chrome: {
     plateHex: string;
     emberSteelHex: string;
-    tickHz: number;
-    tickHzCeiling: number;
-    tickChromeFloor: number;
-    armedMajorTickOpacity: number;
-    inArcMinimumScale: number;
+    tickCount: number;
+    eventHz: number;
+    eventHzCeiling: number;
+    glanceMinimumScale: number;
   };
   motivation: {
     almostTherePercent: number;
@@ -78,7 +77,7 @@ const NEST_EMBER = "FF4D00";
 const DARK = "0A0A0A";
 const AA_NORMAL = 4.5;
 
-assert(file.kind === "home-progress-hud", "kind is home-progress-hud");
+assert(file.kind === "home-progress-chrome", "kind is home-progress-chrome");
 assert(file.surface === "phone-home", "surface is phone-home");
 assert(file.mixLock === "chrome-not-nest", "mixLock is chrome-not-nest");
 
@@ -103,12 +102,11 @@ assert(
   "Home bands are not Watch/Theme words"
 );
 
-const hud = file.hud;
-assert(hud.tickHz <= hud.tickHzCeiling, "tickHz ≤ tickHzCeiling");
-assert(hud.tickHzCeiling <= 12, "tickHzCeiling ≤ 12");
-assert(hud.tickChromeFloor >= 0.7, "tickChromeFloor ≥ 0.70");
-assert(hud.armedMajorTickOpacity >= hud.tickChromeFloor, "armed major ticks stay at/above chrome floor");
-assert(hud.inArcMinimumScale === 0.7, "in-arc Dynamic Type scale floor is 0.7");
+const chrome = file.chrome;
+assert(chrome.tickCount === 0, "tick dial is retired");
+assert(chrome.eventHz <= chrome.eventHzCeiling, "eventHz ≤ eventHzCeiling");
+assert(chrome.eventHzCeiling <= 12, "eventHzCeiling ≤ 12");
+assert(chrome.glanceMinimumScale === 0.7, "glance Dynamic Type scale floor is 0.7");
 
 const motivation = file.motivation;
 assert(motivation.almostTherePercent === 80, "almostTherePercent is 80");
@@ -116,13 +114,13 @@ assert(motivation.closingRemaining === 1, "closingRemaining is 1");
 assert(motivation.almostThereFloor === 0.7, "almostThereFloor is 0.7");
 assert(motivation.eventGlowOnly === true, "glow is event-driven");
 assert(motivation.liveGlowDefault === false, "no idle glow loop");
-assert(motivation.brackets === false, "no HUD costume brackets");
+assert(motivation.brackets === false, "no cockpit brackets");
 assert(motivation.scanlines === false, "no scanlines");
-assert(stripHash(motivation.missHex) === stripHash(hud.emberSteelHex), "miss states use steel, not Low red");
+assert(stripHash(motivation.missHex) === stripHash(chrome.emberSteelHex), "miss states use steel, not Low red");
 assert(stripHash(motivation.missHex) !== "EF4444", "miss hex is not alert red");
 assert(motivation.glowRadius <= 6, "glow stays restrained");
-assert(motivation.tickMajorWidth <= 1.5, "major ticks stay thin");
-assert(motivation.tickMinorWidth <= 0.7, "minor ticks stay hairline");
+assert(motivation.tickMajorWidth === 0, "no tick dial");
+assert(motivation.tickMinorWidth === 0, "no tick dial");
 
 const trend = file.trend;
 assert(trend.trendWindowDays === 7, "trendWindowDays is 7");
@@ -152,7 +150,7 @@ const contrastTargets: Array<[string, string]> = [
   ["Good", file.bands[1]?.hex ?? ""],
   ["Fair", file.bands[2]?.hex ?? ""],
   ["Low", file.bands[3]?.hex ?? ""],
-  ["plateHex", hud.plateHex],
+  ["plateHex", chrome.plateHex],
 ];
 for (const [name, hex] of contrastTargets) {
   const ratio = contrastRatio(hex, DARK);

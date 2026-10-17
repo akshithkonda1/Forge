@@ -341,7 +341,7 @@ struct RecoveryMetricsCard: View {
         case 80...: return ("Excellent", Color.vitality)
         case 60..<80: return ("Good", Color.steel)
         case 40..<60: return ("Moderate", Color.amber)
-        default: return ("Low", HudChrome.miss)
+        default: return ("Low", ForgeProgressChrome.miss)
         }
     }
 
@@ -361,7 +361,7 @@ struct RecoveryMetricsCard: View {
         let value = "\(Int(stats.hrv)) ms"
         if stats.hrv > 50 { return (value, "Optimal", Color.vitality) }
         if stats.hrv > 30 { return (value, "Good", Color.steel) }
-        return (value, "Low", HudChrome.miss)
+        return (value, "Low", ForgeProgressChrome.miss)
     }
 
     private var restingHeartRateReading: Reading {
@@ -377,7 +377,7 @@ struct RecoveryMetricsCard: View {
         let value = String(format: "%.1f hours", stats.sleepHours)
         if stats.sleepHours >= 8 { return (value, "Optimal", Color.vitality) }
         if stats.sleepHours >= 7 { return (value, "Good", Color.steel) }
-        return (value, "Low", HudChrome.miss)
+        return (value, "Low", ForgeProgressChrome.miss)
     }
 
     var body: some View {
@@ -394,16 +394,16 @@ struct RecoveryMetricsCard: View {
     /// the sentence never squeezes against the ring.
     private func summary(_ status: (label: String, color: Color)) -> some View {
         ForgeAdaptiveStack(spacing: FDS.Spacing.lg, alignment: .center) {
-            HudProgressRing(
+            ForgeProgressRing(
                 progress: recoveryScore,
                 energy: status.color,
                 size: ForgeLayout.scaledCap(recoveryRingSize, base: 96),
-                stroke: HudChrome.compactStroke
+                stroke: ForgeProgressChrome.compactStroke
             ) {
                 Text("\(recoveryScore)")
                     .font(HomeType.metric)
                     .foregroundStyle(Color.textPrimary)
-                    .hudInArcText()
+                    .forgeGlanceText()
                     .contentTransition(.numericText())
             }
             .accessibilityElement(children: .ignore)
@@ -418,7 +418,7 @@ struct RecoveryMetricsCard: View {
             HStack(alignment: .firstTextBaseline, spacing: FDS.Spacing.sm) {
                 Image(systemName: isReadyToTrain ? "checkmark.circle.fill" : "leaf.fill")
                     .font(.system(size: 14, weight: .semibold))
-                    .foregroundStyle(isReadyToTrain ? Color.vitality : HudChrome.miss)
+                    .foregroundStyle(isReadyToTrain ? Color.vitality : ForgeProgressChrome.miss)
                     .accessibilityHidden(true)
                 Text(isReadyToTrain ? "Ready to Train" : "Consider Active Recovery")
                     .font(HomeType.status)
@@ -575,7 +575,7 @@ struct MultiArcQOLCard: View {
         case .thriving: return Color.vitality
         case .steady: return Color.steel
         case .strained: return Color.amber
-        case .depleted: return HudChrome.miss
+        case .depleted: return ForgeProgressChrome.miss
         }
     }
 
@@ -663,7 +663,7 @@ struct MultiArcQOLCard: View {
             Text("\(metrics.qualityOfLifeScore)")
                 .font(HomeType.heroScore)
                 .foregroundStyle(Color.textPrimary)
-                .hudInArcText()
+                .forgeGlanceText()
                 .contentTransition(.numericText())
             if !typeSize.isAccessibilitySize {
                 qolLabel

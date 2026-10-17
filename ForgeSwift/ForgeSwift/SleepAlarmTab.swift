@@ -691,7 +691,7 @@ struct AlarmRow: View {
                             .monospacedDigit()
                             .forgeSingleLine()
                         if alarm.isSmartWake {
-                            HudVibeChip(label: "Smart", energy: .steel)
+                            ForgeVibeChip(label: "Smart", energy: .steel)
                         }
                     }
                     Text("\(alarm.label) · \(daysStr)")
@@ -855,7 +855,7 @@ struct AlarmEditorSheet: View {
             Text(day.short)
                 .font(HomeType.label)
                 .foregroundStyle(ink)
-                .hudInArcText()
+                .forgeGlanceText()
                 .frame(width: diameter, height: diameter)
                 .background(Circle().fill(fill))
                 .overlay(Circle().stroke(edge, lineWidth: ForgeUX.hairline))

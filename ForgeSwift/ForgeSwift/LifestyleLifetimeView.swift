@@ -46,7 +46,7 @@ struct LifestyleLifetimeView: View {
     private var agingTone: Color {
         switch aging.state {
         case .younger: return .vitality
-        case .older: return HudChrome.miss
+        case .older: return ForgeProgressChrome.miss
         case .matched, .unknown: return Color.aurora
         }
     }
@@ -90,7 +90,7 @@ struct LifetimeOneBreathCard: View {
                 .forgeWrapping()
         }
         .frame(maxWidth: .infinity, alignment: .leading)
-        .hudPlate(energy: tone)
+        .forgePlate(energy: tone)
         .accessibilityElement(children: .combine)
         .accessibilityLabel(spokenSummary)
     }

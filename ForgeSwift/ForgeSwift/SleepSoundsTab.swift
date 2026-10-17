@@ -220,7 +220,7 @@ struct SleepSoundsTab: View {
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
-        .hudPlate(energy: .steel)
+        .forgePlate(energy: .steel)
         .accessibilityElement(children: .contain)
     }
 }

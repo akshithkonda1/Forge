@@ -312,6 +312,7 @@ assert(chatSrc.includes("readOnly={isTyping}"), "composer stays focusable while 
 assert(chatSrc.includes("aria-busy={isTyping}"), "composer exposes busy while a reply is pending");
 assert(chatSrc.includes("Here for you") && chatSrc.includes("Thinking…"), "chat status uses friend-register copy");
 assert(!/recovery-first|Reading your signals|Adaptive Recovery/i.test(chatSrc), "chat header avoids clinical copy");
+assert(chatSrc.includes("aria-paused"), "chat handles 503 aria_paused");
 assert(!/\b(tone|persona_enabled|memory_enabled)\b/.test(chatSrc), "chat does not read unversioned contract fields");
 
 console.log("aria frontend checks passed");

@@ -1,4 +1,5 @@
 import Foundation
+import ForgeCore
 
 /// What ARIA is trying to do in this turn — drives which phrase banks fire.
 enum AriaSpeechIntent: String, CaseIterable {
@@ -79,6 +80,12 @@ struct AriaVoiceProfile: Equatable {
     var hour: Int
     /// Deterministic salt so the same inputs still rotate phrasing across turns.
     var salt: UInt64
+    /// Adaptive training model from the person's own words.
+    var trainingModel: ForgeCoachingPersonality.Choice = .init()
+
+    var personalityDirective: String {
+        ForgeCoachingPersonality.promptDirective(trainingModel)
+    }
 
     /// Compact description for Foundation Models system prompts.
     var promptDirective: String {
@@ -91,6 +98,7 @@ struct AriaVoiceProfile: Equatable {
         - Humor: \(humor.rawValue)
         - Length: \(length.rawValue)
         - Coaching style preference: \(coaching.label)
+        - Adaptive training model: \(personalityDirective)
         - User: \(firstName.isEmpty ? "athlete" : firstName), readiness \(readiness)/100, relationship level \(relationshipLevel)
         - Never invent medical advice; lifestyle coaching only\(guidanceOnly ? " (guidance-only mode ON)" : "").
         - Adaptive: work inside their actual day. One small change. Compound interest — over time they see and appreciate the difference. They choose.

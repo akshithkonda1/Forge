@@ -1,4 +1,5 @@
 import SwiftUI
+import ForgeCore
 
 enum OnboardingFitnessGoal: String, Codable, CaseIterable, Identifiable {
     case loseWeight, buildMuscle, improveEndurance, increaseFlexibility,
@@ -204,6 +205,10 @@ struct OnboardingProfile: Codable {
     var experienceLevel: ExperienceLevel = .intermediate
     var preferredWorkouts: [OnboardingWorkoutType] = []
     var coachingStyle: OnboardingCoachingStyle = .balanced
+    /// Adaptive training model — their words. Empty is skippable.
+    var adaptiveTrainingModel: String = ""
+    var gymType: TrainingEquipment = .commercialGym
+    var equipmentNotes: String = ""
     /// Habits beat — ≤3 friend chips. Empty is fine.
     var friendHabits: [FriendHabitChip] = []
     var schedulePlanningMode: SchedulePlanningMode = .rotate
@@ -246,14 +251,25 @@ struct OnboardingProfile: Codable {
             weeklySchedule: WeeklySplit.trainingDays(in: weeklySplit),
             schedulePlanningMode: schedulePlanningMode,
             weeklySplit: WeeklySplit.normalized(weeklySplit),
-            trainingEquipment: .commercialGym,
+            trainingEquipment: gymType,
+            equipmentNotes: equipmentNotes,
             age: hasBirthday ? ageYears : nil,
             weight: weightKg,
             height: heightCm,
             trainingTheme: trainingTheme,
             interestTags: freeTimeInterests.map(\.tag),
             biologicalSex: biologicalSex,
-            educationalCycleMode: educationalCycleMode
+            educationalCycleMode: educationalCycleMode,
+            coachingPersonality: .init(
+                preset: nil,
+                freeText: adaptiveTrainingModel
+            ),
+            lifestyleProfile: .init(
+                healthConstraints: reportedConditions.compactMap(\.healthConstraint),
+                healthNote: conditionsNote ?? "",
+                hobbies: HobbyFit.normalizeHobbies(labels: freeTimeInterests.map(\.label)),
+                socialEnergy0to10: freeTimeInterests.contains(.social) ? 7 : nil
+            )
         )
     }
 
