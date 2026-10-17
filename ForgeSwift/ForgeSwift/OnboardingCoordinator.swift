@@ -1349,6 +1349,12 @@ final class OnboardingCoordinator {
             try? await Task.sleep(nanoseconds: AriaInterviewVoice.thinkBeatNanoseconds)
         }
         guard gen == utteranceGeneration else { return }
+        if AriaService.shared.lastRemoteError == AriaPaused.line {
+            isTyping = false
+            AriaPresence.shared.setThinking(false)
+            ariaOrbState = .listening
+            return
+        }
         let spoken = AriaSoulStore.shared.speak(text)
         appendTranscript(AriaOnboardingMessage(role: .aria, text: spoken))
         isTyping = false

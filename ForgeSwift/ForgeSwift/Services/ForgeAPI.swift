@@ -27,9 +27,18 @@ enum ForgeAPI {
         case auth(ForgeAuthError)
         case notConfigured
 
+        var isAriaPaused: Bool {
+            switch self {
+            case .http(let status, let body):
+                return status == AriaPaused.status && (body.isEmpty || body.contains(AriaPaused.code))
+            default:
+                return false
+            }
+        }
+
         var userMessage: String {
             switch self {
-            case .http(let status, let body) where isAriaPaused(status: status, body: body):
+            case .http where isAriaPaused:
                 return AriaPaused.line
             case .http(let status, _) where status >= 500:
                 return "Forge's server had a problem. Try again in a moment."
@@ -56,14 +65,10 @@ enum ForgeAPI {
             switch self {
             case .transport: return true
             case .auth(let error): return error == .network
-            case .http(let status, let body) where isAriaPaused(status: status, body: body):
+            case .http where isAriaPaused:
                 return true
             default: return false
             }
-        }
-
-        private func isAriaPaused(status: Int, body: String) -> Bool {
-            status == AriaPaused.status && (body.isEmpty || body.contains(AriaPaused.code))
         }
     }
 

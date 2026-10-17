@@ -9,6 +9,8 @@ import {
   PremiumPrimaryButton,
 } from "@/components/brand/premium-atmosphere";
 import { ARIA_INTRO } from "@/lib/aria-intro";
+import { AriaPausedNotice } from "@/components/aria-paused-notice";
+import { useAppStore } from "@/stores/useAppStore";
 
 export function AriaIntro({
   ctaLabel = ARIA_INTRO.talkCta,
@@ -21,6 +23,7 @@ export function AriaIntro({
   onContinue: () => void;
   onSkip?: () => void;
 }) {
+  const ariaPaused = useAppStore((s) => s.ariaPaused);
   return (
     <div className="relative flex min-h-[100dvh] flex-col overflow-hidden bg-background">
       <PremiumAtmosphere accent="#FF6B2B" secondary="#A9D8FF" intensity={0.85} />
@@ -48,7 +51,7 @@ export function AriaIntro({
           </PremiumEntrance>
           <PremiumEntrance index={3}>
             <p className="mt-3 max-w-sm text-sm font-normal leading-relaxed text-text-secondary">
-              {ARIA_INTRO.lead}
+              {ariaPaused ? <AriaPausedNotice surface="tutorial" /> : ARIA_INTRO.lead}
             </p>
           </PremiumEntrance>
 

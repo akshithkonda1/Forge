@@ -256,9 +256,13 @@ final class AriaService: ObservableObject {
         // Surface anything that is not "you are offline". The banner is the
         // only thing standing between a broken deployment and a product that
         // looks like it works.
-        lastRemoteError = (remoteFailure?.deservesOfflineFallback == false)
-            ? remoteFailure?.userMessage
-            : nil
+        if remoteFailure?.isAriaPaused == true {
+            lastRemoteError = AriaPaused.line
+        } else {
+            lastRemoteError = (remoteFailure?.deservesOfflineFallback == false)
+                ? remoteFailure?.userMessage
+                : nil
+        }
 
         isLocalFallback = true
         return try await generateLocally(

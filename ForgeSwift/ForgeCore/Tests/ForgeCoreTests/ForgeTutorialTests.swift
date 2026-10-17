@@ -100,6 +100,18 @@ final class ForgeTutorialTests: XCTestCase {
         XCTAssertTrue(outcome.state.isComplete)
     }
 
+    func testTutorialContinuesAndSkipsWhileAriaPaused() {
+        let paused = ForgeTutorial.State(beat: .welcome, ariaPaused: true)
+        let walked = ForgeTutorial.apply(state: paused, gesture: .acknowledge, latency: 0.4)
+        XCTAssertEqual(walked.state.beat, .home)
+        XCTAssertTrue(walked.state.ariaPaused)
+        let skipped = ForgeTutorial.apply(state: walked.state, gesture: .skip, latency: 0)
+        XCTAssertTrue(skipped.state.isComplete)
+        XCTAssertTrue(skipped.state.ariaPaused)
+        XCTAssertTrue(ForgeTutorial.pausedLine.lowercased().contains("taking a break"))
+        XCTAssertTrue(ForgeTutorial.pausedLine.lowercased().contains("skip"))
+    }
+
     func testCopyNeverDiagnosesRanksOrSaysRecovery() {
         for opening in ForgeTutorial.Opening.allCases {
             for beat in ForgeTutorial.Beat.allCases {

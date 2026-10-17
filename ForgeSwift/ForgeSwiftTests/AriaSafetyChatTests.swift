@@ -11,6 +11,15 @@ final class AriaSafetyChatTests: XCTestCase {
 
     private let sharp = "Sharp is the kind I take seriously — worth a professional look. Nothing today should reproduce it."
 
+    func testAriaPaused503IsCalmAndStillFallsBack() {
+        let paused = ForgeAPI.Failure.http(status: 503, body: "{\"code\":\"aria_paused\"}")
+        XCTAssertTrue(paused.isAriaPaused)
+        XCTAssertEqual(paused.userMessage, AriaPaused.line)
+        XCTAssertTrue(paused.deservesOfflineFallback)
+        XCTAssertTrue(AriaPaused.switcherLine.lowercased().contains("taking a break"))
+        XCTAssertTrue(AriaPaused.onboardingLine.lowercased().contains("skip"))
+    }
+
     func testCareLineLeadsACoachingReply() {
         let reply = AriaResponse(proseSummary: "Keep it light today.", message: "What I notice\nKeep it light today.")
         let led = AriaService.withCareLine(reply, for: "I get a sharp pain in my knee when I squat")

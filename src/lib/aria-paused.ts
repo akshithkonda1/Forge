@@ -13,6 +13,19 @@ export function isAriaPaused(status: number, code?: string | null): boolean {
   return code == null || code === "" || code === ARIA_PAUSED_CODE;
 }
 
+/** 503 with empty body or `aria_paused` in JSON/text is the calm break. */
+export function pausedFromHttp(status: number, body?: string | null): boolean {
+  if (status !== ARIA_PAUSED_STATUS) return false;
+  if (!body || body.trim() === "") return true;
+  if (body.includes(ARIA_PAUSED_CODE)) return true;
+  try {
+    const parsed = JSON.parse(body) as { code?: string | null };
+    return isAriaPaused(status, parsed.code);
+  } catch {
+    return false;
+  }
+}
+
 export function pausedLineFor(surface: "chat" | "tutorial" | "onboarding" | "switcher"): string {
   switch (surface) {
     case "tutorial":
