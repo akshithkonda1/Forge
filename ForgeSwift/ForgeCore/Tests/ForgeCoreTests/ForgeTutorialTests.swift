@@ -30,6 +30,10 @@ final class ForgeTutorialTests: XCTestCase {
             ForgeTutorial.Opening.resolve(experience: "intermediate", goals: ["athletic-performance"]),
             .competitor
         )
+        XCTAssertEqual(
+            ForgeTutorial.Opening.resolve(experience: "intermediate", goals: ["PR"]),
+            .competitor
+        )
         XCTAssertTrue(ForgeTutorial.Opening.beginner.welcome.lowercased().contains("no jargon"))
         XCTAssertTrue(ForgeTutorial.Opening.competitor.welcome.lowercased().contains("load"))
         XCTAssertFalse(ForgeTutorial.Opening.beginner.welcome.lowercased().contains("recovery"))
