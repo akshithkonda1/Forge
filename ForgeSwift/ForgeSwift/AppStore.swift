@@ -272,7 +272,12 @@ final class AppStore: ObservableObject {
     }
 
     func replayMosaicTutorial() {
-        mosaicTutorial = ForgeTutorial.start(hasRealMosaicData: hasRealMosaicData)
+        mosaicTutorial = ForgeTutorial.start(
+            hasRealMosaicData: hasRealMosaicData,
+            experience: userProfile.experienceLevel.rawValue,
+            goals: userProfile.fitnessGoals.map(\.rawValue),
+            ariaPaused: mosaicTutorial.ariaPaused
+        )
         persistMosaicTutorial()
         activeTab = .home
     }

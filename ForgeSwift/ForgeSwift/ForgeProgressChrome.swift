@@ -2,10 +2,8 @@ import SwiftUI
 import ForgeCore
 
 /// Calm Forge progress chrome — a solid sweep on a quiet track.
-/// Not a HUD costume: no ticks, scanlines, brackets, or always-on glow.
-///
-/// Shared by Home Today, Tomorrow's Readiness, workouts, and Progress.
-enum HudChrome {
+/// Warm health-app look: no cockpit, scanlines, tick dial, or always-on glow.
+enum ForgeProgressChrome {
     static let tickCount = HomeReadinessTokens.tickCount
     static let majorEvery = HomeReadinessTokens.majorEvery
     static let ringSize = CGFloat(HomeReadinessTokens.ringSize)
@@ -45,11 +43,11 @@ enum HudChrome {
 
 /// Concentric progress ring. Center content is the caller's score/vibe.
 /// One solid band — the arc length is the data. No tick dial, no glow loop.
-struct HudProgressRing<Center: View>: View {
+struct ForgeProgressRing<Center: View>: View {
     var progress: Int
     var energy: Color
-    var size: CGFloat = HudChrome.ringSize
-    var stroke: CGFloat = HudChrome.stroke
+    var size: CGFloat = ForgeProgressChrome.ringSize
+    var stroke: CGFloat = ForgeProgressChrome.stroke
     var animate: Bool = true
     var almostThere: Bool = false
     /// Accepted for call-site compatibility. Glow is retired.
@@ -59,7 +57,7 @@ struct HudProgressRing<Center: View>: View {
     @State private var sweep: CGFloat = 0
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
-    private var target: CGFloat { HudChrome.sweep(from: progress) }
+    private var target: CGFloat { ForgeProgressChrome.sweep(from: progress) }
 
     var body: some View {
         let ring = size - 24
@@ -68,13 +66,13 @@ struct HudProgressRing<Center: View>: View {
                 .stroke(Color.white.opacity(0.06), style: StrokeStyle(lineWidth: 1))
                 .frame(width: ring + 10, height: ring + 10)
             Circle()
-                .stroke(HudChrome.plate.opacity(0.16), style: StrokeStyle(lineWidth: stroke, lineCap: .round))
+                .stroke(ForgeProgressChrome.plate.opacity(0.16), style: StrokeStyle(lineWidth: stroke, lineCap: .round))
                 .frame(width: ring, height: ring)
             if almostThere && sweep < 0.999 {
                 Circle()
                     .trim(from: sweep, to: 1)
                     .stroke(
-                        HudChrome.plate.opacity(0.22),
+                        ForgeProgressChrome.plate.opacity(0.22),
                         style: StrokeStyle(lineWidth: stroke * 0.55, lineCap: .round)
                     )
                     .frame(width: ring, height: ring)
@@ -112,7 +110,7 @@ struct HudProgressRing<Center: View>: View {
 }
 
 /// Flat plate behind a card — one surface step and a hairline. No wash, no halo.
-struct HudPlate: ViewModifier {
+struct ForgePlate: ViewModifier {
     var energy: Color
     var compact: Bool = false
 
@@ -120,28 +118,28 @@ struct HudPlate: ViewModifier {
         content
             .padding(compact ? 16 : HomeMetrics.cardPadding)
             .background {
-                RoundedRectangle(cornerRadius: HomeMetrics.hudRadius, style: .continuous)
+                RoundedRectangle(cornerRadius: HomeMetrics.cardRadius, style: .continuous)
                     .fill(Color.surface)
             }
             .overlay {
-                RoundedRectangle(cornerRadius: HomeMetrics.hudRadius, style: .continuous)
+                RoundedRectangle(cornerRadius: HomeMetrics.cardRadius, style: .continuous)
                     .strokeBorder(Color.borderHairline, lineWidth: 0.5)
             }
-            .clipShape(RoundedRectangle(cornerRadius: HomeMetrics.hudRadius, style: .continuous))
+            .clipShape(RoundedRectangle(cornerRadius: HomeMetrics.cardRadius, style: .continuous))
     }
 }
 
 extension View {
-    func hudPlate(energy: Color, compact: Bool = false) -> some View {
-        modifier(HudPlate(energy: energy, compact: compact))
+    func forgePlate(energy: Color, compact: Bool = false) -> some View {
+        modifier(ForgePlate(energy: energy, compact: compact))
     }
 
-    func hudInArcText() -> some View {
-        minimumScaleFactor(HudChrome.inArcMinimumScale).lineLimit(1)
+    func forgeGlanceText() -> some View {
+        minimumScaleFactor(ForgeProgressChrome.inArcMinimumScale).lineLimit(1)
     }
 }
 
-struct HudVibeChip: View {
+struct ForgeVibeChip: View {
     var label: String
     var energy: Color
 

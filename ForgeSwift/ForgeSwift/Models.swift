@@ -98,18 +98,22 @@ enum ExperienceLevel: String, Codable, CaseIterable, Identifiable {
 enum TrainingEquipment: String, Codable, CaseIterable, Identifiable {
     case commercialGym = "Commercial Gym"
     case homeGym = "Home Gym"
+    case industrialGym = "Industrial Gym"
     case bodyweight = "Bodyweight Only"
     case hotelGym = "Hotel / Travel"
     case crossfitBox = "CrossFit Box"
+    case other = "Other"
 
     var id: String { rawValue }
     var icon: String {
         switch self {
         case .commercialGym: return "building.2.fill"
         case .homeGym: return "house.fill"
+        case .industrialGym: return "building.fill"
         case .bodyweight: return "figure.strengthtraining.functional"
         case .hotelGym: return "suitcase.fill"
         case .crossfitBox: return "flame.fill"
+        case .other: return "ellipsis.circle.fill"
         }
     }
 }
@@ -200,6 +204,8 @@ struct UserProfile: Codable {
     /// Sunday=0 … Saturday=6. Empty decodes as the default walking week.
     var weeklySplit: [WeeklySplitSlot]
     var trainingEquipment: TrainingEquipment
+    /// Freeform gear notes. Editable in Settings; ARIA learns exact kit over time.
+    var equipmentNotes: String
     
     // HealthKit-derived health metrics
     var age: Int?
@@ -232,7 +238,7 @@ struct UserProfile: Codable {
 
     enum CodingKeys: String, CodingKey {
         case name, gender, fitnessGoals, experienceLevel, preferredWorkouts
-        case coachingStyle, connectedDevices, weeklySchedule, trainingEquipment
+        case coachingStyle, connectedDevices, weeklySchedule, trainingEquipment, equipmentNotes
         case schedulePlanningMode, weeklySplit
         case age, weight, height, trainingTheme, interestTags
         case biologicalSex, educationalCycleMode, avatarFileName
@@ -251,6 +257,7 @@ struct UserProfile: Codable {
         schedulePlanningMode: SchedulePlanningMode = .rotate,
         weeklySplit: [WeeklySplitSlot] = WeeklySplitSlot.defaultWeek,
         trainingEquipment: TrainingEquipment,
+        equipmentNotes: String = "",
         age: Int? = nil,
         weight: Double? = nil,
         height: Double? = nil,
@@ -273,6 +280,7 @@ struct UserProfile: Codable {
         self.schedulePlanningMode = schedulePlanningMode
         self.weeklySplit = WeeklySplit.normalized(weeklySplit)
         self.trainingEquipment = trainingEquipment
+        self.equipmentNotes = equipmentNotes
         self.age = age
         self.weight = weight
         self.height = height
@@ -300,6 +308,7 @@ struct UserProfile: Codable {
             try c.decodeIfPresent([WeeklySplitSlot].self, forKey: .weeklySplit) ?? WeeklySplitSlot.defaultWeek
         )
         trainingEquipment = try c.decode(TrainingEquipment.self, forKey: .trainingEquipment)
+        equipmentNotes = try c.decodeIfPresent(String.self, forKey: .equipmentNotes) ?? ""
         age = try c.decodeIfPresent(Int.self, forKey: .age)
         weight = try c.decodeIfPresent(Double.self, forKey: .weight)
         height = try c.decodeIfPresent(Double.self, forKey: .height)
@@ -331,6 +340,7 @@ struct UserProfile: Codable {
         try c.encode(schedulePlanningMode, forKey: .schedulePlanningMode)
         try c.encode(weeklySplit, forKey: .weeklySplit)
         try c.encode(trainingEquipment, forKey: .trainingEquipment)
+        try c.encode(equipmentNotes, forKey: .equipmentNotes)
         try c.encodeIfPresent(age, forKey: .age)
         try c.encodeIfPresent(weight, forKey: .weight)
         try c.encodeIfPresent(height, forKey: .height)

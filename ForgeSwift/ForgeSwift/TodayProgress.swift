@@ -3,7 +3,7 @@ import ForgeCore
 
 /// Today's Progress — how the day is filling in, not a medical score.
 ///
-/// Outer ring + score are Home chrome (`HudProgressRing`). Nest stays
+/// Outer ring + score are Home chrome (`ForgeProgressRing`). Nest stays
 /// the brand mark (`AriaNestGeometry`). This snapshot is the day itself:
 /// sleep, train, water, movement, habits. Readiness is vibe tint + label.
 /// Motivation: almost-there is visible, misses stay forward-looking.

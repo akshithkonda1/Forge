@@ -310,7 +310,7 @@ struct EnergyScheduleCard: View {
         switch level {
         case .clear: return .vitality
         case .mild:  return .amber
-        case .heavy: return HudChrome.miss
+        case .heavy: return ForgeProgressChrome.miss
         }
     }
 

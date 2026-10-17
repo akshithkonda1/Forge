@@ -219,8 +219,14 @@ struct MainTabView: View {
             }
         }
         .onChange(of: store.activeTab) { _, tab in
-            if tab == .progress {
-                store.recordTutorial(.openedProgress)
+            switch tab {
+            case .home: store.recordTutorial(.openedHome)
+            case .sleep: store.recordTutorial(.openedSleep)
+            case .progress: store.recordTutorial(.openedProgress)
+            case .workout: store.recordTutorial(.openedTrain)
+            case .lifestyle: store.recordTutorial(.openedLifestyle)
+            case .profile: store.recordTutorial(.openedSettings)
+            case .chat: break
             }
         }
         .onReceive(NotificationCenter.default.publisher(for: UIResponder.keyboardWillShowNotification)) { _ in

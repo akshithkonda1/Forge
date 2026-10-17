@@ -178,12 +178,12 @@ struct SleepWakeScreen: View {
 
     private func clockRing(progress: Double, date: Date) -> some View {
         ZStack {
-            SleepWakeHudRing(progress: progress)
+            SleepWakeRing(progress: progress)
             Text(date.formatted(date: .omitted, time: .shortened))
                 .font(ForgeFont.sans(ForgeLayout.scaledCap(clockSize, base: 48, maxGrowth: 1.3), weight: .semibold))
                 .foregroundColor(.white)
                 .monospacedDigit()
-                .hudInArcText()
+                .forgeGlanceText()
                 .contentTransition(.numericText())
                 .padding(.horizontal, FDS.Spacing.xl)
         }
@@ -345,7 +345,7 @@ struct SleepWakeScreen: View {
                 endPoint: .bottom
             )
             RadialGradient(
-                colors: [HudChrome.plate.opacity(0.18 + 0.35 * t), .clear],
+                colors: [ForgeProgressChrome.plate.opacity(0.18 + 0.35 * t), .clear],
                 center: UnitPoint(x: 0.5, y: 0.22),
                 startRadius: 8,
                 endRadius: 220
@@ -362,7 +362,7 @@ struct SleepWakeScreen: View {
     }
 }
 
-struct SleepWakeHudRing: View {
+struct SleepWakeRing: View {
     var progress: Double
     @ScaledMetric(relativeTo: .largeTitle) private var ringSize: CGFloat = 220
 
@@ -371,7 +371,7 @@ struct SleepWakeHudRing: View {
         let clamped = min(1, max(0, progress))
         ZStack {
             Circle()
-                .stroke(HudChrome.plate.opacity(0.16), style: StrokeStyle(lineWidth: 3, lineCap: .round))
+                .stroke(ForgeProgressChrome.plate.opacity(0.16), style: StrokeStyle(lineWidth: 3, lineCap: .round))
             Circle()
                 .trim(from: 0, to: clamped)
                 .stroke(Color.ember.opacity(0.9), style: StrokeStyle(lineWidth: 3, lineCap: .round))
@@ -539,7 +539,7 @@ struct NextWakePlanCard: View {
         VStack(alignment: .leading, spacing: ForgeLayout.heroGap) {
             ForgeCardHeader(title: "This wake", tint: .steel) {
                 if coach.smartFire != nil {
-                    HudVibeChip(label: "Smart wake", energy: .steel)
+                    ForgeVibeChip(label: "Smart wake", energy: .steel)
                 }
             }
             leadBlock
@@ -556,7 +556,7 @@ struct NextWakePlanCard: View {
             askAriaButton
         }
         .frame(maxWidth: .infinity, alignment: .leading)
-        .hudPlate(energy: .steel)
+        .forgePlate(energy: .steel)
         .accessibilityElement(children: .contain)
     }
 
@@ -1108,7 +1108,7 @@ struct AdaptiveSunriseCard: View {
 
     private var temperatureGradient: LinearGradient {
         LinearGradient(
-            colors: SleepHud.sunriseRamp,
+            colors: SleepPalette.sunriseRamp,
             startPoint: .leading,
             endPoint: .trailing
         )

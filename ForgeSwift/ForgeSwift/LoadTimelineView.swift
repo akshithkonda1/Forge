@@ -145,7 +145,7 @@ struct LoadTimelineView: View {
     // MARK: - Helpers
 
     private func acwrPill(ratio: Double) -> some View {
-        HudVibeChip(label: acwrLabel(ratio: ratio), energy: acwrColor(ratio: ratio))
+        ForgeVibeChip(label: acwrLabel(ratio: ratio), energy: acwrColor(ratio: ratio))
     }
 
     private func acwrLabel(ratio: Double) -> String {
@@ -162,7 +162,7 @@ struct LoadTimelineView: View {
         case ..<0.8: return .steel
         case 0.8..<1.3: return .vitality
         case 1.3...1.5: return .amber
-        default: return HudChrome.miss
+        default: return ForgeProgressChrome.miss
         }
     }
 

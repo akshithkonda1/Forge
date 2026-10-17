@@ -348,6 +348,22 @@ extension AriaContextMemory {
             shareOptIn: shareOptIn
         )
         guard !item.text.isEmpty else { return next }
+        switch AriaHealthFilter.decide(text) {
+        case .skip:
+            return snap
+        case .storeHealthAngle(_, let excerpt):
+            return ingest(
+                snap,
+                text: excerpt,
+                source: source,
+                layer: layer,
+                now: now,
+                userLocked: userLocked,
+                shareOptIn: shareOptIn
+            )
+        case .store:
+            break
+        }
         let fp = fingerprint(domain: domain, text: item.text)
         if next.tombstones.contains(where: { $0.id == item.id || $0.fingerprint == fp }) {
             return next

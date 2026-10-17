@@ -93,7 +93,7 @@ struct LifestyleInterviewOverlay: View {
     private var navBar: some View {
         HStack(spacing: ForgeLayout.tileGap) {
             if step > 0 {
-                ForgeSecondaryButton(title: "Back", accent: HudChrome.emberSteel) {
+                ForgeSecondaryButton(title: "Back", accent: ForgeProgressChrome.emberSteel) {
                     step -= 1
                 }
                 .frame(maxWidth: 120)

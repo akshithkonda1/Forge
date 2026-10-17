@@ -58,7 +58,7 @@ struct ProfileHeroHeader: View {
 
     private var hasReadiness: Bool { store.readiness.hasScore }
     private var readinessScore: Int { hasReadiness ? store.readiness.overall : 0 }
-    private var heroEnergy: Color { HudChrome.energy(for: readinessScore) }
+    private var heroEnergy: Color { ForgeProgressChrome.energy(for: readinessScore) }
 
     private var readinessWord: String {
         hasReadiness ? HomeReadiness.label(store.readiness.overall) : "Not measured yet"
@@ -77,7 +77,7 @@ struct ProfileHeroHeader: View {
     private var trendColor: Color {
         switch trend {
         case .improving: return .vitality
-        case .declining: return HudChrome.miss
+        case .declining: return ForgeProgressChrome.miss
         case .stable:    return .textSecondary
         }
     }
@@ -100,7 +100,7 @@ struct ProfileHeroHeader: View {
             actions
         }
         .frame(maxWidth: .infinity)
-        .hudPlate(energy: heroEnergy)
+        .forgePlate(energy: heroEnergy)
         .accessibilityElement(children: .contain)
     }
 
@@ -261,16 +261,16 @@ struct ProfileHeroHeader: View {
     // MARK: Readiness
 
     private var readinessRing: some View {
-        HudProgressRing(
+        ForgeProgressRing(
             progress: readinessScore,
             energy: heroEnergy,
             size: ForgeLayout.scaledCap(readinessRingSize, base: 72),
-            stroke: HudChrome.compactStroke
+            stroke: ForgeProgressChrome.compactStroke
         ) {
             Text(hasReadiness ? "\(store.readiness.overall)" : "\u{2014}")
                 .font(HomeType.metric)
                 .foregroundStyle(Color.textPrimary)
-                .hudInArcText()
+                .forgeGlanceText()
                 .contentTransition(.numericText())
         }
     }
@@ -285,7 +285,7 @@ struct ProfileHeroHeader: View {
                 .foregroundStyle(Color.textPrimary)
                 .lineLimit(2)
             if hasReadiness {
-                HudVibeChip(label: trendLabel, energy: trendColor)
+                ForgeVibeChip(label: trendLabel, energy: trendColor)
                     .padding(.top, ForgeLayout.pairGap)
             }
         }

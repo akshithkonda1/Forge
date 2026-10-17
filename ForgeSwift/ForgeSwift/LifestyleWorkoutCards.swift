@@ -187,7 +187,7 @@ struct ExerciseRow: View {
                     .font(HomeType.label)
                     .monospacedDigit()
                     .foregroundStyle(Color.ember)
-                    .hudInArcText()
+                    .forgeGlanceText()
             }
             .frame(width: diameter, height: diameter)
             .accessibilityHidden(true)

@@ -4,7 +4,7 @@ import ForgeCore
 
 /// Locks Today's Progress math, solid chrome clamp, Lifestyle/At Home
 /// placement, motivation psychology, and coach copy so Home cannot slide
-/// back into a stub or a HUD costume.
+/// back into a stub or a cockpit costume.
 @MainActor
 final class HomeTodayProgressTests: XCTestCase {
 
@@ -101,31 +101,27 @@ final class HomeTodayProgressTests: XCTestCase {
         }
     }
 
-    func testHudSweepClamps() {
-        XCTAssertEqual(HudChrome.sweep(from: -12), 0)
-        XCTAssertEqual(HudChrome.sweep(from: 0), 0)
-        XCTAssertEqual(HudChrome.sweep(from: 50), 0.5, accuracy: 0.0001)
-        XCTAssertEqual(HudChrome.sweep(from: 100), 1)
-        XCTAssertEqual(HudChrome.sweep(from: 140), 1)
-        XCTAssertEqual(HudChrome.tickCount, HomeReadinessTokens.tickCount)
-        XCTAssertEqual(HudChrome.majorEvery, HomeReadinessTokens.majorEvery)
-        XCTAssertEqual(HudChrome.tickCount, 48)
-        XCTAssertEqual(HudChrome.majorEvery, 6)
-        XCTAssertEqual(HudChrome.tickHz, 6, accuracy: 0.0001)
-        XCTAssertLessThanOrEqual(HudChrome.tickHz, HomeReadinessTokens.tickHzCeiling)
-        XCTAssertLessThanOrEqual(HudChrome.tickHz, AriaNestGeometry.paintHz)
-        XCTAssertGreaterThan(HomeMetrics.hudRadius, 0)
-        XCTAssertEqual(HudChrome.plate.forgeHexString, HomeReadinessTokens.plateHex)
-        XCTAssertEqual(HudChrome.emberSteel.forgeHexString, HomeReadinessTokens.emberSteelHex)
-        XCTAssertEqual(HudChrome.inArcMinimumScale, 0.7, accuracy: 0.0001)
-        XCTAssertEqual(HudChrome.inArcMinimumScale, CGFloat(HomeReadinessTokens.inArcMinimumScale), accuracy: 0.0001)
+    func testProgressSweepClamps() {
+        XCTAssertEqual(ForgeProgressChrome.sweep(from: -12), 0)
+        XCTAssertEqual(ForgeProgressChrome.sweep(from: 0), 0)
+        XCTAssertEqual(ForgeProgressChrome.sweep(from: 50), 0.5, accuracy: 0.0001)
+        XCTAssertEqual(ForgeProgressChrome.sweep(from: 100), 1)
+        XCTAssertEqual(ForgeProgressChrome.sweep(from: 140), 1)
+        XCTAssertEqual(ForgeProgressChrome.tickCount, HomeReadinessTokens.tickCount)
+        XCTAssertEqual(ForgeProgressChrome.majorEvery, HomeReadinessTokens.majorEvery)
+        XCTAssertEqual(ForgeProgressChrome.tickCount, 0)
+        XCTAssertEqual(ForgeProgressChrome.majorEvery, 0)
+        XCTAssertEqual(ForgeProgressChrome.tickHz, 6, accuracy: 0.0001)
+        XCTAssertLessThanOrEqual(ForgeProgressChrome.tickHz, HomeReadinessTokens.eventHzCeiling)
+        XCTAssertLessThanOrEqual(ForgeProgressChrome.tickHz, AriaNestGeometry.paintHz)
+        XCTAssertGreaterThan(HomeMetrics.cardRadius, 0)
+        XCTAssertEqual(ForgeProgressChrome.plate.forgeHexString, HomeReadinessTokens.plateHex)
+        XCTAssertEqual(ForgeProgressChrome.emberSteel.forgeHexString, HomeReadinessTokens.emberSteelHex)
+        XCTAssertEqual(ForgeProgressChrome.inArcMinimumScale, 0.7, accuracy: 0.0001)
+        XCTAssertEqual(ForgeProgressChrome.inArcMinimumScale, CGFloat(HomeReadinessTokens.glanceMinimumScale), accuracy: 0.0001)
         XCTAssertTrue(HomeReadinessTokens.showsInArcMeta(isAccessibilitySize: false))
         XCTAssertFalse(HomeReadinessTokens.showsInArcMeta(isAccessibilitySize: true))
-        let trough = HomeReadinessTokens.paintedTickOpacity(major: true, armed: true, glow: 0.62)
-        let crest = HomeReadinessTokens.paintedTickOpacity(major: true, armed: true, glow: 1)
-        XCTAssertEqual(trough, crest, accuracy: 0.0001)
-        XCTAssertGreaterThanOrEqual(trough, HomeReadinessTokens.tickChromeFloor)
-        XCTAssertGreaterThanOrEqual(trough, 0.70)
+        XCTAssertEqual(HomeReadinessTokens.paintedTickOpacity(major: true, armed: true, glow: 0.62), 0, accuracy: 0.0001)
     }
 
     func testReduceMotionPaintsFinalValueAndPausesClock() {
@@ -135,22 +131,22 @@ final class HomeTodayProgressTests: XCTestCase {
             accuracy: 0.0001
         )
         XCTAssertTrue(
-            HudChrome.isClockPaused(
+            ForgeProgressChrome.isClockPaused(
                 reduceMotion: true, sceneActive: true, onscreen: true, animate: true
             )
         )
         XCTAssertTrue(
-            HudChrome.isClockPaused(
+            ForgeProgressChrome.isClockPaused(
                 reduceMotion: false, sceneActive: false, onscreen: true, animate: true
             )
         )
         XCTAssertTrue(
-            HudChrome.isClockPaused(
+            ForgeProgressChrome.isClockPaused(
                 reduceMotion: false, sceneActive: true, onscreen: false, animate: true
             )
         )
         XCTAssertFalse(
-            HudChrome.isClockPaused(
+            ForgeProgressChrome.isClockPaused(
                 reduceMotion: false, sceneActive: true, onscreen: true, animate: true
             )
         )
@@ -184,7 +180,7 @@ final class HomeTodayProgressTests: XCTestCase {
                 XCTAssertFalse(line.lowercased().contains(banned), "\(line) contained \(banned)")
             }
             for foreign in HomeReadinessTokens.foreignBandLabels {
-                XCTAssertFalse(line == foreign, "HUD band slid into \(foreign)")
+                XCTAssertFalse(line == foreign, "foreign band slid into \(foreign)")
             }
         }
         XCTAssertEqual(HomeReadiness.label(90), "Peak")
@@ -206,8 +202,8 @@ final class HomeTodayProgressTests: XCTestCase {
         XCTAssertEqual(AriaNestGeometry.tickHz, 12, accuracy: 0.0001)
         XCTAssertEqual(AriaNestGeometry.stillPoseAngleDeg, 18, accuracy: 0.0001)
         XCTAssertNotEqual(HomeReadinessTokens.kind, AriaNestGeometry.kind)
-        XCTAssertNotEqual(HudChrome.tickCount, AriaNestGeometry.ringCount)
-        XCTAssertLessThan(HudChrome.tickHz, AriaNestGeometry.tickHz)
+        XCTAssertNotEqual(ForgeProgressChrome.tickCount, AriaNestGeometry.ringCount)
+        XCTAssertLessThan(ForgeProgressChrome.tickHz, AriaNestGeometry.tickHz)
         XCTAssertEqual(HomeReadinessFieldView.isFrozen(reduceMotion: true, minimal: false), true)
     }
 
@@ -239,10 +235,10 @@ final class HomeTodayProgressTests: XCTestCase {
     func testTodayHeaderAndRingStayPresentable() {
         XCTAssertEqual(TodayProgress.headerTitle, "TODAY'S PROGRESS")
         XCTAssertEqual(TodayProgress.trackCount, 5)
-        XCTAssertGreaterThanOrEqual(HudChrome.ringSize, 160)
-        XCTAssertGreaterThanOrEqual(HudChrome.compactRingSize, 80)
-        XCTAssertEqual(HudChrome.ringSize, CGFloat(HomeReadinessTokens.ringSize))
-        XCTAssertEqual(HudChrome.stroke, CGFloat(HomeReadinessTokens.stroke), accuracy: 0.0001)
+        XCTAssertGreaterThanOrEqual(ForgeProgressChrome.ringSize, 160)
+        XCTAssertGreaterThanOrEqual(ForgeProgressChrome.compactRingSize, 80)
+        XCTAssertEqual(ForgeProgressChrome.ringSize, CGFloat(HomeReadinessTokens.ringSize))
+        XCTAssertEqual(ForgeProgressChrome.stroke, CGFloat(HomeReadinessTokens.stroke), accuracy: 0.0001)
     }
 
     func testAlmostThereMakesClosingMomentumVisible() {
@@ -266,7 +262,7 @@ final class HomeTodayProgressTests: XCTestCase {
         XCTAssertEqual(snap.vibeLine, TodayProgress.closingLine(score: 74))
         XCTAssertTrue(snap.voiceOverLabel.contains("One left: Habits"))
         XCTAssertFalse(HomeReadinessTokens.brackets)
-        XCTAssertEqual(HudChrome.miss.forgeHexString, HomeReadinessTokens.missHex)
+        XCTAssertEqual(ForgeProgressChrome.miss.forgeHexString, HomeReadinessTokens.missHex)
     }
 
     func testClosedDayUsesIdentityRewardCopy() {
@@ -319,6 +315,6 @@ final class HomeTodayProgressTests: XCTestCase {
             )
         )
         XCTAssertTrue(HomeReadinessTokens.eventGlowOnly)
-        XCTAssertEqual(HudChrome.glowRadius, CGFloat(HomeReadinessTokens.glowRadius), accuracy: 0.0001)
+        XCTAssertEqual(ForgeProgressChrome.glowRadius, CGFloat(HomeReadinessTokens.glowRadius), accuracy: 0.0001)
     }
 }

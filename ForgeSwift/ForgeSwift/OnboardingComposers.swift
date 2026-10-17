@@ -682,7 +682,7 @@ struct HealthComposer: View {
                     action: { Task { await coordinator.connectCalendar() } }
                 )
                 ConnectionRow(
-                    icon: "person.2.fill", color: HudChrome.plate,
+                    icon: "person.2.fill", color: ForgeProgressChrome.plate,
                     title: "Contacts",
                     subtitle: "First names you pick — never the whole book",
                     state: coordinator.contactsState,
@@ -870,10 +870,10 @@ struct ConditionsComposer: View {
     var body: some View {
         VStack(alignment: .leading, spacing: ForgeLayout.blockGap) {
             VStack(alignment: .leading, spacing: ForgeLayout.pairGap) {
-                Text("Conditions to respect")
+                Text("Anything I should work around?")
                     .forgeSectionLabel(tint: Color.textSecondary)
                     .accessibilityAddTraits(.isHeader)
-                OnboardingFootnote("Optional. Lifestyle coach only — not medical care.")
+                OnboardingFootnote("Optional. Offered, never demanded. Lifestyle coach only — not medical care. Skip is fine.")
             }
 
             ForgeFlowLayout(spacing: ForgeLayout.chipGap, lineSpacing: ForgeLayout.interactiveChipLineGap) {
@@ -966,8 +966,8 @@ struct CoachingComposer: View {
     var body: some View {
         VStack(spacing: ForgeLayout.tileGap) {
             OnboardingFieldLabel(
-                title: "Your training style",
-                detail: "In your words. Mindset and method only."
+                title: "How can I help you train?",
+                detail: "Optional. Your words, mindset and method only. Skip anytime."
             )
             TextField(
                 ForgeCoachingPersonality.modelPlaceholder,
@@ -983,6 +983,27 @@ struct CoachingComposer: View {
             OnboardingFootnote(
                 "ARIA coaches against this description — never exercise form, never past comfort or safety. Progress is named when it is real."
             )
+
+            Text("Where do you usually train? (optional)")
+                .font(HomeType.micro)
+                .foregroundStyle(Color.textTertiary)
+
+            ForgeFlowLayout(spacing: ForgeLayout.chipGap, lineSpacing: ForgeLayout.interactiveChipLineGap) {
+                ForEach(TrainingEquipment.allCases) { gym in
+                    ForgeChipButton(
+                        label: gym.rawValue,
+                        energy: Color.ember,
+                        selected: coordinator.profile.gymType == gym
+                    ) {
+                        coordinator.profile.gymType = gym
+                    }
+                }
+            }
+
+            TextField("Exact gear, if you want (optional)", text: $coordinator.profile.equipmentNotes, axis: .vertical)
+                .font(HomeType.body)
+                .foregroundStyle(Color.textPrimary)
+                .lineLimit(1...3)
 
             Text("Speaking tone (optional)")
                 .font(HomeType.micro)

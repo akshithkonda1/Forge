@@ -352,11 +352,19 @@ final class AriaContextStore: ObservableObject {
         if let night = SleepData.lastNight(in: store.sleepData) {
             metrics["sleep_score"] = Double(night.score)
         }
+        var constraints = domain.profile.constraints
+        constraints.append(AriaSoulStore.shared.directive)
+        constraints.append(contentsOf: ForgeConditionAdaptation.constraints(
+            store.userProfile.lifestyleProfile.healthConstraints,
+            freeform: store.userProfile.lifestyleProfile.healthNote
+        ))
+        let coach = ForgeConditionAdaptation.coachLine(store.userProfile.lifestyleProfile.healthConstraints)
+        if !coach.isEmpty { constraints.append(coach) }
         return AriaRichContext(
             userId: context.userId,
             lifestyleTags: domain.lifestyle.tags,
             goals: domain.lifestyle.goals,
-            constraints: domain.profile.constraints,
+            constraints: constraints,
             recentPatterns: domain.lifestyle.recentPatterns,
             recentMetrics: metrics,
             relationshipLevel: context.relationshipLevel,

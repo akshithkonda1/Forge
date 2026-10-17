@@ -12,6 +12,7 @@ import { useToast } from "@/stores/useToast";
 import { Send, Mic, ArrowDown } from "lucide-react";
 import type { ChatMessage } from "@/types";
 import { coachReply } from "@/lib/aria-coach";
+import { ARIA_PAUSED_LINE, isAriaPaused } from "@/lib/aria-paused";
 
 // ---------------------------------------------------------------------------
 // Quick action definitions
@@ -369,7 +370,7 @@ export function ChatPage() {
               <div className="flex items-center gap-1.5">
                 <span className="h-1.5 w-1.5 rounded-full bg-ember" />
                 <span className="text-xs text-text-tertiary">
-                  {isTyping ? "Thinking…" : "Here for you"}
+                  {isAriaPaused(200) ? ARIA_PAUSED_LINE : isTyping ? "Thinking…" : "Here for you"}
                 </span>
               </div>
             </div>

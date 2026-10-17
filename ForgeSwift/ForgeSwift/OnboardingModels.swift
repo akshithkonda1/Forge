@@ -207,6 +207,8 @@ struct OnboardingProfile: Codable {
     var coachingStyle: OnboardingCoachingStyle = .balanced
     /// Adaptive training model — their words. Empty is skippable.
     var adaptiveTrainingModel: String = ""
+    var gymType: TrainingEquipment = .commercialGym
+    var equipmentNotes: String = ""
     /// Habits beat — ≤3 friend chips. Empty is fine.
     var friendHabits: [FriendHabitChip] = []
     var schedulePlanningMode: SchedulePlanningMode = .rotate
@@ -249,7 +251,8 @@ struct OnboardingProfile: Codable {
             weeklySchedule: WeeklySplit.trainingDays(in: weeklySplit),
             schedulePlanningMode: schedulePlanningMode,
             weeklySplit: WeeklySplit.normalized(weeklySplit),
-            trainingEquipment: .commercialGym,
+            trainingEquipment: gymType,
+            equipmentNotes: equipmentNotes,
             age: hasBirthday ? ageYears : nil,
             weight: weightKg,
             height: heightCm,
@@ -262,6 +265,8 @@ struct OnboardingProfile: Codable {
                 freeText: adaptiveTrainingModel
             ),
             lifestyleProfile: .init(
+                healthConstraints: reportedConditions.compactMap(\.healthConstraint),
+                healthNote: conditionsNote ?? "",
                 hobbies: HobbyFit.normalizeHobbies(labels: freeTimeInterests.map(\.label)),
                 socialEnergy0to10: freeTimeInterests.contains(.social) ? 7 : nil
             )

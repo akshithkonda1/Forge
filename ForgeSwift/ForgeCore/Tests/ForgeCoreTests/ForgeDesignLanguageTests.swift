@@ -14,6 +14,8 @@ final class ForgeDesignLanguageTests: XCTestCase {
         XCTAssertTrue(ForgeDesignLanguage.characteristics.contains("tessera"))
         XCTAssertTrue(ForgeDesignLanguage.mosaicLaw.lowercased().contains("tessera"))
         XCTAssertTrue(ForgeDesignLanguage.typeLaw.lowercased().contains("typography"))
+        XCTAssertFalse(ForgeDesignLanguage.mosaicLaw.lowercased().contains("hud"))
+        XCTAssertFalse(ForgeDesignLanguage.motionLaw.lowercased().contains("hud"))
         XCTAssertEqual(ForgeDesignTokens.displayFamily, "instrument-serif")
         XCTAssertEqual(ForgeDesignTokens.bodyFamily, "geist")
     }

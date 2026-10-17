@@ -39,9 +39,11 @@ enum HomeLifeSentence {
             switch store.userProfile.trainingEquipment {
             case .commercialGym: return "Gym"
             case .homeGym: return "Home"
+            case .industrialGym: return "Industrial"
             case .bodyweight: return "No gear"
             case .hotelGym: return "Travel"
             case .crossfitBox: return "Box"
+            case .other: return "Other"
             }
         }()
         chips.append(.init(id: "gear", icon: store.userProfile.trainingEquipment.icon, label: gear))
@@ -85,17 +87,17 @@ struct HomeTodayHero: View {
 
     var body: some View {
         let snap = progress
-        let energy = HudChrome.energy(for: snap.vibeScore)
+        let energy = ForgeProgressChrome.energy(for: snap.vibeScore)
         VStack(alignment: .leading, spacing: HomeMetrics.heroStackGap) {
             HStack {
                 Text(TodayProgress.headerTitle)
                     .forgeSectionLabel()
-                    .foregroundStyle(HudChrome.plate)
+                    .foregroundStyle(ForgeProgressChrome.plate)
                 Spacer()
-                HudVibeChip(label: snap.vibeLabel, energy: energy)
+                ForgeVibeChip(label: snap.vibeLabel, energy: energy)
             }
 
-            HudProgressRing(
+            ForgeProgressRing(
                 progress: snap.percent,
                 energy: energy,
                 almostThere: snap.almostThere,
@@ -105,7 +107,7 @@ struct HomeTodayHero: View {
                     Text("\(snap.percent)")
                         .font(HomeType.heroScore)
                         .foregroundStyle(Color.textPrimary)
-                        .hudInArcText()
+                        .forgeGlanceText()
                         .contentTransition(.numericText(value: Double(snap.percent)))
                         .forgeAnimation(ForgeMotion.smooth, value: snap.percent)
                     if showInArcMeta {
@@ -113,11 +115,11 @@ struct HomeTodayHero: View {
                             .font(HomeType.micro)
                             .foregroundColor(energy)
                             .tracking(1.6)
-                            .hudInArcText()
+                            .forgeGlanceText()
                         Text("\(snap.completed)/\(snap.total)")
                             .font(HomeType.micro)
-                            .foregroundColor(HudChrome.plate.opacity(0.72))
-                            .hudInArcText()
+                            .foregroundColor(ForgeProgressChrome.plate.opacity(0.72))
+                            .forgeGlanceText()
                     }
                 }
                 .accessibilityHidden(true)
@@ -130,7 +132,7 @@ struct HomeTodayHero: View {
                 Text("\(snap.vibeLabel) · \(snap.completed)/\(snap.total)")
                     .font(HomeType.micro)
                     .foregroundColor(energy)
-                    .hudInArcText()
+                    .forgeGlanceText()
                     .frame(maxWidth: .infinity)
                     .accessibilityHidden(true)
             }
@@ -196,7 +198,7 @@ struct HomeTodayHero: View {
 
             HomePrimaryCTA(action: action)
         }
-        .hudPlate(energy: recovery ? .steel : energy)
+        .forgePlate(energy: recovery ? .steel : energy)
         .homeEntrance(delay: 0.06)
         .accessibilityElement(children: .contain)
         // Closing the day is the goal; a single track ticking over is not.
@@ -226,21 +228,21 @@ private struct TodayTrackRow: View {
                         Circle()
                             .fill(
                                 track.done
-                                    ? HudChrome.plate.opacity(0.16)
-                                    : (closing ? HudChrome.plate.opacity(0.12) : HudChrome.miss.opacity(0.10))
+                                    ? ForgeProgressChrome.plate.opacity(0.16)
+                                    : (closing ? ForgeProgressChrome.plate.opacity(0.12) : ForgeProgressChrome.miss.opacity(0.10))
                             )
                             .frame(width: 28, height: 28)
                         if closing {
                             Circle()
-                                .stroke(HudChrome.plate.opacity(0.55), lineWidth: 1)
+                                .stroke(ForgeProgressChrome.plate.opacity(0.55), lineWidth: 1)
                                 .frame(width: 28, height: 28)
                         }
                         Image(systemName: track.done ? "checkmark" : track.icon)
                             .font(.system(size: 11, weight: .semibold))
                             .foregroundStyle(
                                 track.done
-                                    ? HudChrome.plate
-                                    : (closing ? HudChrome.plate : HudChrome.miss)
+                                    ? ForgeProgressChrome.plate
+                                    : (closing ? ForgeProgressChrome.plate : ForgeProgressChrome.miss)
                             )
                     }
                     Text(track.title)
@@ -270,7 +272,7 @@ private struct HomeReadinessDetailStrip: View {
         VStack(alignment: .leading, spacing: FDS.Spacing.sm) {
             HStack(spacing: FDS.Spacing.sm) {
                 readinessFact("Sleep", lastNightSleepMeasured(store: store) ? store.readiness.sleepQuality : nil)
-                readinessFact("Recovery", store.readiness.recoveryScore)
+                readinessFact("Readiness", store.readiness.recoveryScore)
                 readinessFact("HRV", store.dailyMetrics.hrv, unit: "ms")
             }
             Text(readinessWhyCopy(store: store))
@@ -393,7 +395,7 @@ private struct HomePrimaryCTA: View {
                     )
                 } label: {
                     HStack(spacing: FDS.Spacing.xs) {
-                        // One live mark per screen: Today chrome is the HUD
+                        // One live mark per screen: Today chrome is the progress
                         // ring, so this 14pt Nest mark stays still.
                         ARIAIdentityMark(state: .idle, mood: .energized, size: 14, amplitude: 0.22)
                             .environment(\.forgeMinimalAnimation, true)

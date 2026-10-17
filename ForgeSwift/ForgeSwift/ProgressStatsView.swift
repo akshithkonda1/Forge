@@ -143,7 +143,7 @@ struct StatsMosaicCard: View {
             }
             .accessibilityLabel("Ask ARIA about today’s mosaic")
         }
-        .hudPlate(energy: HudChrome.plate)
+        .forgePlate(energy: ForgeProgressChrome.plate)
         .accessibilityElement(children: .contain)
         .sheet(isPresented: $showManual) {
             StatsManualEntrySheet()
@@ -158,7 +158,7 @@ struct StatsMosaicCard: View {
         return ForgeAdaptiveStack(spacing: FDS.Spacing.sm, alignment: .firstTextBaseline) {
             VStack(alignment: .leading, spacing: ForgeLayout.pairGap) {
                 Text("TODAY’S MOSAIC")
-                    .forgeSectionLabel(tint: HudChrome.plate)
+                    .forgeSectionLabel(tint: ForgeProgressChrome.plate)
                     .accessibilityAddTraits(.isHeader)
                 Text(headline)
                     .font(HomeType.sessionTitle)
@@ -198,20 +198,20 @@ struct StatsMosaicCard: View {
     }
 
     private func tileDotColor(_ tile: StatsMosaic.Tile) -> Color {
-        if tile.almostThere { return HudChrome.plate }
-        return tile.source == .empty ? HudChrome.miss.opacity(0.35) : Color.ember
+        if tile.almostThere { return ForgeProgressChrome.plate }
+        return tile.source == .empty ? ForgeProgressChrome.miss.opacity(0.35) : Color.ember
     }
 
     private func tileBarTint(_ tile: StatsMosaic.Tile) -> Color {
-        if !tile.almostThere && tile.source == .empty { return HudChrome.miss }
-        return HudChrome.plate
+        if !tile.almostThere && tile.source == .empty { return ForgeProgressChrome.miss }
+        return ForgeProgressChrome.plate
     }
 
     /// Normal tiles keep the well's own white edge; only almost-there and
     /// empty tiles add a colored one.
     private func tileEdge(_ tile: StatsMosaic.Tile) -> Color {
-        if tile.almostThere { return HudChrome.plate.opacity(0.50) }
-        if tile.source == .empty { return HudChrome.miss.opacity(0.16) }
+        if tile.almostThere { return ForgeProgressChrome.plate.opacity(0.50) }
+        if tile.source == .empty { return ForgeProgressChrome.miss.opacity(0.16) }
         return Color.clear
     }
 
@@ -240,7 +240,7 @@ struct StatsMosaicCard: View {
                     .contentTransition(.numericText())
                 Text(tile.almostThere ? "Almost there · \(tile.detail)" : tile.detail)
                     .font(HomeType.micro)
-                    .foregroundStyle(tile.almostThere ? HudChrome.plate : Color.textTertiary)
+                    .foregroundStyle(tile.almostThere ? ForgeProgressChrome.plate : Color.textTertiary)
                     .lineLimit(2)
                 Spacer(minLength: FDS.Spacing.xs)
                 ForgeProgressBar(fraction: tile.progress, tint: tileBarTint(tile), height: 5)
@@ -386,7 +386,7 @@ struct QuickStatCard: View {
     var delay: Double = 0
 
     private var trendTint: Color {
-        trendUp ? Color.vitality : HudChrome.miss
+        trendUp ? Color.vitality : ForgeProgressChrome.miss
     }
 
     var body: some View {

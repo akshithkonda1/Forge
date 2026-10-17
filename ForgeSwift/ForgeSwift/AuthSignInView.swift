@@ -25,7 +25,7 @@ struct AuthSignInView: View {
             ZStack {
                 PremiumAtmosphere(
                     accent: Color.ember.opacity(0.7),
-                    secondary: HudChrome.plate,
+                    secondary: ForgeProgressChrome.plate,
                     intensity: 0.75
                 )
 

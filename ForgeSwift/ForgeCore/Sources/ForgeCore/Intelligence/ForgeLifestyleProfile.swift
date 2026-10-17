@@ -77,13 +77,14 @@ public enum ForgeLifestyleProfile: Sendable {
     }
 
     public enum HealthConstraint: String, Codable, CaseIterable, Sendable {
-        case seizures, epilepsy, adhd, anxiety, injury, chronic, mobility, other
+        case seizures, epilepsy, adhd, diabetes, anxiety, injury, chronic, mobility, other
 
         public var label: String {
             switch self {
             case .seizures: return "Seizures"
             case .epilepsy: return "Epilepsy"
             case .adhd: return "ADHD"
+            case .diabetes: return "Diabetes"
             case .anxiety: return "Anxiety"
             case .injury: return "Injury"
             case .chronic: return "Chronic condition"
@@ -96,11 +97,13 @@ public enum ForgeLifestyleProfile: Sendable {
         public var saferFraming: String {
             switch self {
             case .seizures, .epilepsy:
-                return "Keep sessions grounded and predictable. No medical advice — if anything feels off, run it past a doctor."
+                return "Here's what works with your body: grounded intensity, rest windows, no solo high-risk work, and honest sleep. No medical advice — if anything feels off, run it past a doctor."
+            case .diabetes:
+                return "Here's what works with your body: timing and fueling reminders around the session you already planned. Anything medical is a doctor."
             case .injury:
                 return "Size the session to the joint that's complaining. Lifestyle only."
             case .adhd:
-                return "Short, clear next moves. No lecture."
+                return "Here's what works with your body: short blocks, variety, one clear next step. No lecture."
             case .anxiety:
                 return "Low-pressure days are valid days. Coach, not clinician."
             case .chronic, .mobility, .other:
@@ -398,11 +401,13 @@ public enum ForgeLifestyleProfile: Sendable {
         switch beat {
         case .welcome:
             if profile.deEmphasizesWorkouts {
-                return "Your Health data has been sitting unused. Forge will weight sleep, food, and stress for how you actually live — not a training cult. Tap Got it."
+                return "You downloaded Forge. I'll weight sleep, food, and stress for how you actually live — not a training cult. Tap Got it."
             }
             if profile.isSociallyActive {
-                return "Your Health data has been sitting unused. Forge fits the life you already have — nights out included. Tap Got it."
+                return "You downloaded Forge. I'll fit the life you already have — nights out included. Tap Got it."
             }
+            return beat.prompt
+        case .home, .sleep, .train, .hobbyFit, .lifestyle, .trainingModel, .settings, .watchWidgets:
             return beat.prompt
         case .seeHistory:
             return "Open Progress. That's the unused picture — weighted toward \(track.title.lowercased()) for you."
@@ -410,7 +415,7 @@ public enum ForgeLifestyleProfile: Sendable {
             return "Read the \(track.title) tile. That's your index, from your own days."
         case .askAria:
             if profile.hasSeizureConstraint {
-                return "Ask ARIA how you're doing. She'll keep activity safer and never make a condition who they are."
+                return "Ask ARIA how you're doing. I'll keep activity safer and never make a condition who they are."
             }
             return beat.prompt
         case .mosaicWin:

@@ -116,6 +116,7 @@ extension AppStore {
         schedulePlanningMode: SchedulePlanningMode? = nil,
         weeklySplit: [WeeklySplitSlot]? = nil,
         trainingEquipment: TrainingEquipment? = nil,
+        equipmentNotes: String? = nil,
         connectedDevices: [String]? = nil,
         age: Int? = nil,
         weightKg: Double? = nil,
@@ -142,6 +143,7 @@ extension AppStore {
         }
         if let weeklySplit { userProfile.weeklySplit = WeeklySplit.normalized(weeklySplit) }
         if let trainingEquipment { userProfile.trainingEquipment = trainingEquipment }
+        if let equipmentNotes { userProfile.equipmentNotes = equipmentNotes }
         if let connectedDevices { userProfile.connectedDevices = connectedDevices }
         if let age { userProfile.age = age }
         if let weightKg { userProfile.weight = weightKg }

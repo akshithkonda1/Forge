@@ -1,9 +1,9 @@
 # Forge design language
 
-Forge is a health app with its own visual grammar. It is not a game HUD, not a
-fitness-bro dashboard, and not a competitor skin. Typography stays exactly as
+Forge is a warm, friendly, futuristic health app. Modern, sleek, usable at a
+glance — from a first workout to competition day. Typography stays exactly as
 shipped (Geist + Instrument Serif via `ForgeFont` / `ForgeType`). Do not
-change faces, sizes, weights, or tracking.
+change faces, sizes, weights, or tracking. The ARIA mark is unchanged.
 
 ## Signature shapes
 
@@ -38,9 +38,8 @@ change faces, sizes, weights, or tracking.
 ## Mosaic as the core visual motif
 
 Life is one picture of tesserae: Sleep, Train, Water, Move, Habits. A win
-lights one tessera. The HUD is a single tessera of readiness — one solid
-sweep. Hobbies and free days count as part of that picture, never a second
-dashboard. Tutorial, Home, and Progress read the same mosaic.
+lights one tessera. Readiness is one solid sweep on that picture. Hobbies and
+free days count too. Tutorial, Home, and Progress read the same mosaic.
 
 ## Interaction patterns
 

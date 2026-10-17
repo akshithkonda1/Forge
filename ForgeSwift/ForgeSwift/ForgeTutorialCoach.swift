@@ -5,6 +5,7 @@ import ForgeCore
 /// blocks. Skip is always on screen. Ghost hand is a still pose (no loop).
 struct ForgeTutorialCoach: View {
     @EnvironmentObject var store: AppStore
+    @ObservedObject private var ariaService = AriaService.shared
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.accessibilityVoiceOverEnabled) private var voiceOver
     @State private var appeared = false
@@ -18,12 +19,12 @@ struct ForgeTutorialCoach: View {
                 HStack(alignment: .top, spacing: FDS.Spacing.sm) {
                     ghostHand
                     VStack(alignment: .leading, spacing: FDS.Spacing.xs) {
-                        Text(state.rehint ? rehintLine : beat.prompt)
+                        Text(coachLine)
                             .font(HomeType.body)
                             .foregroundStyle(Color.textPrimary)
                             .fixedSize(horizontal: false, vertical: true)
                             .accessibilityAddTraits(.isStaticText)
-                        if beat == .welcome {
+                        if beat.target == .acknowledge {
                             Button("Got it") {
                                 store.recordTutorial(.acknowledge)
                             }
@@ -100,13 +101,27 @@ struct ForgeTutorialCoach: View {
         }
     }
 
+    private var coachLine: String {
+        if state.ariaPaused || ariaService.lastRemoteError == AriaPaused.line {
+            return ForgeTutorial.pausedLine
+        }
+        if state.rehint { return rehintLine }
+        return beat.prompt(opening: state.opening)
+    }
+
     private var rehintLine: String {
         switch beat {
+        case .home: return "Home is this screen. Got it when you've looked."
+        case .sleep: return "Sleep is the moon tab."
         case .seeHistory: return "Progress is the tab with the chart. One tap."
         case .personalIndex: return "Any tile works. Title, then the number — that's yours."
+        case .train: return "Train is the dumbbell tab."
         case .askAria: return "The Ask ARIA button sits under the tiles."
+        case .hobbyFit, .lifestyle: return "Lifestyle is the leaf tab."
+        case .trainingModel, .settings: return "You is the person tab — Settings lives there."
+        case .watchWidgets: return "Skip if you don't use Watch or widgets."
         case .mosaicWin: return "Tap the tile itself — that's the first win."
-        default: return beat.prompt
+        default: return beat.prompt(opening: state.opening)
         }
     }
 }

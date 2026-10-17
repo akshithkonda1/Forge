@@ -6,6 +6,7 @@ struct AriaInterviewLayout: View {
     @Bindable var coordinator: OnboardingCoordinator
     let onFinish: () -> Void
     @StateObject private var dictation = SpeechManager()
+    @ObservedObject private var ariaService = AriaService.shared
     private let presence = AriaPresence.shared
     @Environment(\.scenePhase) private var scenePhase
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
@@ -107,6 +108,12 @@ struct AriaInterviewLayout: View {
         VStack(spacing: FDS.Spacing.sm) {
             controlsRow
             presenceRow
+            if ariaService.lastRemoteError == AriaPaused.line {
+                Text(AriaPaused.onboardingLine)
+                    .font(HomeType.body)
+                    .foregroundStyle(Color.textSecondary)
+                    .forgeWrapping()
+            }
         }
         .padding(.horizontal, ForgeLayout.screenInset)
         .padding(.top, FDS.Spacing.sm)

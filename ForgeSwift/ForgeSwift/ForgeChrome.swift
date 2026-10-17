@@ -94,7 +94,7 @@ struct ForgeSecondaryButton: View {
 struct ForgeChip: View {
     var label: String
     var icon: String? = nil
-    var energy: Color = HudChrome.emberSteel
+    var energy: Color = ForgeProgressChrome.emberSteel
     var selected: Bool = false
     var fillsWidth: Bool = false
 
@@ -289,7 +289,7 @@ struct ForgePermissionPrompt: View {
                 }
             }
             ForgePrimaryButton(title: allowTitle, icon: "checkmark", accent: accent, action: onAllow)
-            ForgeSecondaryButton(title: skipTitle, accent: HudChrome.emberSteel, action: onSkip)
+            ForgeSecondaryButton(title: skipTitle, accent: ForgeProgressChrome.emberSteel, action: onSkip)
         }
         .forgeContentCard(accent: accent)
         .accessibilityElement(children: .contain)
@@ -321,7 +321,7 @@ struct ForgeErrorState: View {
         VStack(spacing: FDS.Spacing.md) {
             Image(systemName: "exclamationmark.circle")
                 .font(.system(size: 22, weight: .semibold))
-                .foregroundStyle(HudChrome.emberSteel)
+                .foregroundStyle(ForgeProgressChrome.emberSteel)
             Text(title)
                 .font(ForgeType.title)
                 .foregroundStyle(Color.textPrimary)
@@ -340,7 +340,7 @@ struct ForgeErrorState: View {
 // MARK: - Inset tile
 //
 // Nested plate for stats, rows, and fields that sit *inside* a card
-// (`forgeGlassCard` / `hudPlate`). One fill, one hairline edge, token radius.
+// (`forgeGlassCard` / `forgePlate`). One fill, one hairline edge, token radius.
 
 private struct ForgeInsetTile: ViewModifier {
     var radius: CGFloat
@@ -1023,7 +1023,7 @@ struct ForgeFlowLayout: Layout {
 struct ForgeChipButton: View {
     var label: String
     var icon: String? = nil
-    var energy: Color = HudChrome.emberSteel
+    var energy: Color = ForgeProgressChrome.emberSteel
     var selected: Bool = false
     var fillsWidth: Bool = false
     var action: () -> Void

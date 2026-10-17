@@ -39,7 +39,7 @@ public enum ForgeDesignLanguage: Sendable {
         "Event-only. A win is a haptic plus a hairline pulse. Nothing loops while idle."
 
     public static let mosaicLaw =
-        "Life is one picture of tesserae. A win lights one tile. The HUD is one solid sweep."
+        "Life is one picture of tesserae. A win lights one tile. Readiness is one solid sweep."
 
     public static let typeLaw =
         "Keep typography exactly as shipped. Do not change faces, sizes, weights, or tracking."

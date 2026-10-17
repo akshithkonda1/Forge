@@ -1,30 +1,62 @@
 import Foundation
 
-/// Learn-by-doing jump point: unused Health data → personal indexes → ARIA
-/// conversation about how you're doing → first mosaic win.
-///
-/// One gesture per beat, in the real UI, never blocking. Adaptation lives
-/// here so Linux `swift test` can lock it. National ranking is not a beat —
-/// Forge does not score the person against everyone.
+/// First-launch walk-through of every Forge surface. Learn-by-doing, Skip
+/// always available. ARIA orients — never pitches.
 public enum ForgeTutorial: Sendable {
 
-    public static let storageKey = "forge.tutorial.potential.v2"
+    public static let storageKey = "forge.tutorial.potential.v3"
     public static let nailSeconds: Double = 1.8
     public static let hesitateSeconds: Double = 6.0
 
-    /// Four-act teaching, adapted to day-to-day life (sleep, work, stress,
-    /// movement, habits) rather than a game. Optional beats skip when the
-    /// user nails the previous one or already performed a later gesture.
+    public enum Opening: String, Codable, CaseIterable, Sendable {
+        case beginner
+        case everyday
+        case competitor
+
+        public static func resolve(experience: String, goals: [String]) -> Opening {
+            let exp = experience.lowercased()
+            let blob = (goals.joined(separator: " ") + " " + exp).lowercased()
+            if exp.contains("beginner") || exp.contains("new") {
+                return .beginner
+            }
+            if exp.contains("elite") || exp.contains("advanced")
+                || blob.contains("competition") || blob.contains("pr ")
+                || blob.contains("personal record") || blob.contains("race") {
+                return .competitor
+            }
+            return .everyday
+        }
+
+        public var welcome: String {
+            switch self {
+            case .beginner:
+                return "You downloaded Forge. I'll show you what I can actually do for you — no jargon. Home is the picture of your day. Tap Got it."
+            case .competitor:
+                return "You downloaded Forge. I'll walk the surfaces that keep load, sleep and the next session honest — not a sales pitch. Tap Got it."
+            case .everyday:
+                return "You downloaded Forge. Here's what I can really do for you, screen by screen. Tap Got it."
+            }
+        }
+    }
+
     public enum Beat: String, Codable, CaseIterable, Sendable {
         case welcome
+        case home
+        case sleep
         case seeHistory
         case personalIndex
+        case train
         case askAria
+        case hobbyFit
+        case lifestyle
+        case trainingModel
+        case settings
+        case watchWidgets
         case mosaicWin
         case done
 
         public var isOptional: Bool {
-            self == .personalIndex
+            self == .personalIndex || self == .watchWidgets
         }
 
         public var index: Int {
@@ -32,50 +64,76 @@ public enum ForgeTutorial: Sendable {
         }
 
         public static let teachingOrder: [Beat] = [
-            .welcome, .seeHistory, .personalIndex, .askAria, .mosaicWin, .done,
+            .welcome, .home, .sleep, .seeHistory, .personalIndex, .train,
+            .askAria, .hobbyFit, .lifestyle, .trainingModel, .settings,
+            .watchWidgets, .mosaicWin, .done,
         ]
 
-        public var prompt: String {
+        public func prompt(opening: Opening = .everyday) -> String {
             switch self {
             case .welcome:
-                return "Your Health data has been sitting unused — nowhere near its potential. Forge makes it work for how you already live. Tap Got it."
+                return opening.welcome
+            case .home:
+                return "Home is the day at a glance — readiness, the mosaic, one next move. That's how you start without hunting."
+            case .sleep:
+                return "Sleep is last night and the night ahead. I use it to size the day — not to grade you."
             case .seeHistory:
                 return "Open Progress. That's nights, movement, work, stress, habits — sitting there. Untapped, not a verdict."
             case .personalIndex:
                 return "Read a tile. That's your index, from your own days — not a BMI headline, not a one-size score."
+            case .train:
+                return "Train is the session hub. Exercises that fit the gym and gear you actually have. I never coach form."
             case .askAria:
-                return "Ask ARIA how you're doing. She talks with you — light, warm, adult. How you live is the curriculum."
+                return "Ask ARIA how you're doing. I talk with you — light, warm, adult. How you live is the curriculum."
+            case .hobbyFit:
+                return "Hobby Fit is the free-day picture. A quiet stretch or a night out still counts as the life we're coaching."
+            case .lifestyle:
+                return "Lifestyle is sleep, food, stress and people weighted for you. Movement is one tile, not the product."
+            case .trainingModel:
+                return "Your adaptive training model is your words. I coach against that — mindset and method, never form, never past comfort."
+            case .settings:
+                return "Settings is personalization and Aria's memory. You can see, edit or delete anything I remember."
+            case .watchWidgets:
+                return "Watch and widgets, if you use them, show the same picture — glanceable, not a second app."
             case .mosaicWin:
                 return "First win is a tile that fits this week. Tap it. Sleep, work, stress, movement, habits are one picture."
             case .done:
-                return "Forge learns how you live and builds on it. Skip was always here."
+                return "That's the tour. Skip was always here. Ask me anything when you want."
             }
         }
 
+        public var prompt: String { prompt(opening: .everyday) }
+
         public var voiceOverHint: String {
             switch self {
-            case .welcome:
-                return "Double tap Got it to begin. Skip is available."
-            case .seeHistory:
-                return "Double tap the Progress tab at the bottom of the screen."
-            case .personalIndex:
-                return "Swipe to a mosaic tile and hear its name, number, and fill. That number is yours."
-            case .askAria:
-                return "Double tap Ask ARIA about this picture."
-            case .mosaicWin:
-                return "Double tap a mosaic tile to take the first win."
-            case .done:
-                return "Tutorial complete."
+            case .welcome: return "Double tap Got it to begin. Skip is available."
+            case .home: return "You are on Home. Double tap Got it, or Skip."
+            case .sleep: return "Double tap the Sleep tab."
+            case .seeHistory: return "Double tap the Progress tab at the bottom of the screen."
+            case .personalIndex: return "Swipe to a mosaic tile and hear its name, number, and fill."
+            case .train: return "Double tap the Train tab."
+            case .askAria: return "Double tap Ask ARIA about this picture."
+            case .hobbyFit: return "Double tap Lifestyle, then Hobby Fit."
+            case .lifestyle: return "Double tap the Lifestyle tab."
+            case .trainingModel: return "Open Settings, then Adaptive training model."
+            case .settings: return "Double tap You, then Settings."
+            case .watchWidgets: return "Optional. Skip if you don't use Watch or widgets."
+            case .mosaicWin: return "Double tap a mosaic tile to take the first win."
+            case .done: return "Tutorial complete."
             }
         }
 
         public var target: Target {
             switch self {
-            case .welcome: return .acknowledge
+            case .welcome, .home: return .acknowledge
+            case .sleep: return .tabSleep
             case .seeHistory: return .tabProgress
-            case .personalIndex: return .mosaicTile
+            case .personalIndex, .mosaicWin: return .mosaicTile
+            case .train: return .tabTrain
             case .askAria: return .askAria
-            case .mosaicWin: return .mosaicTile
+            case .hobbyFit, .lifestyle: return .tabLifestyle
+            case .trainingModel, .settings: return .tabYou
+            case .watchWidgets: return .acknowledge
             case .done: return .none
             }
         }
@@ -83,7 +141,11 @@ public enum ForgeTutorial: Sendable {
 
     public enum Target: String, Sendable {
         case acknowledge
+        case tabSleep
         case tabProgress
+        case tabTrain
+        case tabLifestyle
+        case tabYou
         case mosaicTile
         case askAria
         case none
@@ -92,9 +154,17 @@ public enum ForgeTutorial: Sendable {
     public enum Gesture: String, Sendable {
         case skip
         case acknowledge
+        case openedHome
+        case openedSleep
         case openedProgress
         case focusedTile
+        case openedTrain
         case askedAria
+        case openedHobbyFit
+        case openedLifestyle
+        case openedTrainingModel
+        case openedSettings
+        case openedWatch
         case expandedTile
         case hesitated
     }
@@ -106,6 +176,8 @@ public enum ForgeTutorial: Sendable {
         public var usingDemoMosaic: Bool
         public var rehint: Bool
         public var winPulse: Int
+        public var opening: Opening
+        public var ariaPaused: Bool
 
         public var isComplete: Bool { beat == .done }
 
@@ -115,7 +187,9 @@ public enum ForgeTutorial: Sendable {
             hesitateStreak: Int = 0,
             usingDemoMosaic: Bool = false,
             rehint: Bool = false,
-            winPulse: Int = 0
+            winPulse: Int = 0,
+            opening: Opening = .everyday,
+            ariaPaused: Bool = false
         ) {
             self.beat = beat
             self.nailStreak = nailStreak
@@ -123,6 +197,8 @@ public enum ForgeTutorial: Sendable {
             self.usingDemoMosaic = usingDemoMosaic
             self.rehint = rehint
             self.winPulse = winPulse
+            self.opening = opening
+            self.ariaPaused = ariaPaused
         }
     }
 
@@ -133,8 +209,6 @@ public enum ForgeTutorial: Sendable {
         public var rehint: Bool
     }
 
-    /// Seeded mosaic used when Health has nothing yet. Honest demo, not fake
-    /// clinical data — partial fills, one empty track.
     public static let demoMosaicInput = StatsMosaic.Input(
         sleepHours: 7.2,
         sleepGoalHours: 8,
@@ -151,15 +225,23 @@ public enum ForgeTutorial: Sendable {
         habitsGoal: 3
     )
 
-    public static func start(hasRealMosaicData: Bool) -> State {
-        State(usingDemoMosaic: !hasRealMosaicData)
+    public static func start(
+        hasRealMosaicData: Bool,
+        experience: String = "",
+        goals: [String] = [],
+        ariaPaused: Bool = false
+    ) -> State {
+        State(
+            usingDemoMosaic: !hasRealMosaicData,
+            opening: Opening.resolve(experience: experience, goals: goals),
+            ariaPaused: ariaPaused
+        )
     }
 
     public static func hasRealMosaicData(_ snapshot: StatsMosaic.Snapshot) -> Bool {
         snapshot.tiles.contains { $0.source != .empty }
     }
 
-    /// Core adapter. Never blocks: unknown gestures are ignored.
     public static func apply(
         state: State,
         gesture: Gesture,
@@ -185,7 +267,16 @@ public enum ForgeTutorial: Sendable {
             return Outcome(state: next, rewarded: false, skippedAhead: false, rehint: true)
         }
 
-        guard let matched = matchedBeat(for: gesture) else {
+        let matched: Beat
+        if gesture == .acknowledge {
+            if next.beat.target == .acknowledge {
+                matched = next.beat
+            } else {
+                return Outcome(state: next, rewarded: false, skippedAhead: false, rehint: false)
+            }
+        } else if let hit = matchedBeat(for: gesture) {
+            matched = hit
+        } else {
             return Outcome(state: next, rewarded: false, skippedAhead: false, rehint: false)
         }
 
@@ -226,10 +317,17 @@ public enum ForgeTutorial: Sendable {
 
     public static func matchedBeat(for gesture: Gesture) -> Beat? {
         switch gesture {
-        case .acknowledge: return .welcome
+        case .openedHome: return .home
+        case .openedSleep: return .sleep
         case .openedProgress: return .seeHistory
         case .focusedTile: return .personalIndex
+        case .openedTrain: return .train
         case .askedAria: return .askAria
+        case .openedHobbyFit: return .hobbyFit
+        case .openedLifestyle: return .lifestyle
+        case .openedTrainingModel: return .trainingModel
+        case .openedSettings: return .settings
+        case .openedWatch: return .watchWidgets
         case .expandedTile: return .mosaicWin
         case .skip, .hesitated: return nil
         }
@@ -241,4 +339,7 @@ public enum ForgeTutorial: Sendable {
         }
         return live
     }
+
+    public static let pausedLine =
+        "ARIA is taking a break. You can keep walking the app, or Skip."
 }

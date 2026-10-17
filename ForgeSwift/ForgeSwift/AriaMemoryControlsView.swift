@@ -4,11 +4,13 @@ import ForgeCore
 /// Settings vault: view / add / edit / delete ARIA notes, pause memory
 /// without wiping it, edit who-you-are, and set tone + check-ins.
 struct AriaMemoryControlsView: View {
+    @EnvironmentObject var store: AppStore
     @StateObject private var model = AriaMemoryControlsViewModel()
     @State private var showEditor = false
     @State private var showLifestyleInterview = false
     @State private var confirmForgetPersona = false
     @State private var confirmDeleteFact: AriaKnowledgeFact?
+    @State private var contextSnap = AriaContextMemoryStore.load()
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.dismiss) private var dismiss
 
@@ -21,6 +23,8 @@ struct AriaMemoryControlsView: View {
                     .forgeWrapping()
 
                 memoryCard
+                knownEntriesCard
+                domainsCard
                 personaCard
                 toneCard
                 checkInCard
@@ -31,7 +35,7 @@ struct AriaMemoryControlsView: View {
             }
         }
         .forgeScreenBackground(accent: .ember)
-        .navigationTitle("ARIA memory & voice")
+        .navigationTitle("Aria's memory")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItem(placement: .confirmationAction) {
@@ -40,7 +44,10 @@ struct AriaMemoryControlsView: View {
                     .accessibilityLabel("Done")
             }
         }
-        .onAppear { model.reload() }
+        .onAppear {
+            model.reload()
+            contextSnap = AriaContextMemoryStore.load()
+        }
         .transaction(freezeMotion)
         .sheet(isPresented: $showEditor) {
             editorSheet
@@ -111,6 +118,79 @@ struct AriaMemoryControlsView: View {
                 .forgeWrapping()
         }
         .forgeContentCard(accent: .ember)
+    }
+
+    private var knownEntriesCard: some View {
+        VStack(alignment: .leading, spacing: ForgeLayout.blockGap) {
+            ForgeCardHeader("What Aria knows", tint: .ember)
+            knownRow(
+                title: "Gym",
+                value: store.userProfile.trainingEquipment.rawValue
+            )
+            if !store.userProfile.equipmentNotes.isEmpty {
+                knownRow(title: "Equipment", value: store.userProfile.equipmentNotes)
+            }
+            knownRow(
+                title: "Adaptive training model",
+                value: store.userProfile.coachingPersonality.displayLabel
+            )
+            let conditions = store.userProfile.lifestyleProfile.healthConstraints
+            if conditions.isEmpty {
+                knownRow(title: "Health conditions", value: "None saved. Optional — offered, never demanded.")
+            } else {
+                ForEach(conditions, id: \.self) { condition in
+                    knownRow(title: "Health", value: condition.label)
+                }
+                if !store.userProfile.lifestyleProfile.healthNote.isEmpty {
+                    knownRow(title: "Health note", value: store.userProfile.lifestyleProfile.healthNote)
+                }
+            }
+            Text("On this phone unless you opt in. Edits lock the fact. Deletes tombstone it.")
+                .font(HomeType.body)
+                .foregroundStyle(Color.textSecondary)
+                .forgeWrapping()
+        }
+        .forgeContentCard(accent: .ember)
+    }
+
+    private func knownRow(title: String, value: String) -> some View {
+        VStack(alignment: .leading, spacing: ForgeLayout.pairGap) {
+            Text(title)
+                .font(HomeType.micro)
+                .foregroundStyle(Color.textTertiary)
+            Text(value)
+                .font(HomeType.body)
+                .foregroundStyle(Color.textPrimary)
+                .forgeWrapping()
+        }
+        .accessibilityElement(children: .combine)
+    }
+
+    private var domainsCard: some View {
+        VStack(alignment: .leading, spacing: ForgeLayout.blockGap) {
+            ForgeCardHeader("By domain", tint: .steel)
+            ForEach(AriaContextMemory.Domain.allCases, id: \.self) { domain in
+                let items = contextSnap.active.filter { $0.domain == domain }
+                VStack(alignment: .leading, spacing: ForgeLayout.pairGap) {
+                    Text(domain.label)
+                        .font(HomeType.status)
+                        .foregroundStyle(Color.textPrimary)
+                    if items.isEmpty {
+                        Text("Nothing here yet.")
+                            .font(HomeType.body)
+                            .foregroundStyle(Color.textTertiary)
+                    } else {
+                        ForEach(items.prefix(6), id: \.id) { item in
+                            Text(item.summary ?? item.text)
+                                .font(HomeType.body)
+                                .foregroundStyle(Color.textSecondary)
+                                .forgeWrapping()
+                        }
+                    }
+                }
+            }
+        }
+        .forgeContentCard(accent: .steel)
     }
 
     private var personaCard: some View {

@@ -66,7 +66,7 @@ enum SleepForgePlaylistStore {
     }
 }
 
-enum SleepHud {
+enum SleepPalette {
     static let plateHex = "7EC8FF"
     static let lightStageHex = "64748B"
     static let cafeHex = "92400E"

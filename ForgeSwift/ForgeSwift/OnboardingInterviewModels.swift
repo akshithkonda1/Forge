@@ -199,12 +199,13 @@ enum LifeContextOption: String, CaseIterable, Identifiable {
 }
 
 enum ReportedCondition: String, CaseIterable, Identifiable {
-    case adhd, epilepsy, anxietyDepression, injuryRehab, chronicIllness, mobility, sensory, other, none, preferNot
+    case adhd, epilepsy, diabetes, anxietyDepression, injuryRehab, chronicIllness, mobility, sensory, other, none, preferNot
     var id: String { rawValue }
     var label: String {
         switch self {
         case .adhd:              return "ADHD"
         case .epilepsy:          return "Epilepsy"
+        case .diabetes:          return "Diabetes"
         case .anxietyDepression: return "Anxiety / depression"
         case .injuryRehab:       return "Injury / rehab"
         case .chronicIllness:    return "Chronic illness"
@@ -224,6 +225,20 @@ enum ReportedCondition: String, CaseIterable, Identifiable {
     }
     var tag: String? {
         isConstraint ? "condition:\(rawValue)" : nil
+    }
+
+    var healthConstraint: ForgeLifestyleProfile.HealthConstraint? {
+        switch self {
+        case .adhd: return .adhd
+        case .epilepsy: return .epilepsy
+        case .diabetes: return .diabetes
+        case .anxietyDepression: return .anxiety
+        case .injuryRehab: return .injury
+        case .chronicIllness: return .chronic
+        case .mobility: return .mobility
+        case .sensory, .other: return .other
+        case .none, .preferNot: return nil
+        }
     }
 }
 

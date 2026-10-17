@@ -392,7 +392,7 @@ struct LifestyleHeaderView: View {
     }
 
     private var qolChip: some View {
-        HudVibeChip(
+        ForgeVibeChip(
             label: "QoL \(metrics.qualityOfLifeScore)",
             energy: HomeReadiness.color(metrics.qualityOfLifeScore)
         )

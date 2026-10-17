@@ -66,7 +66,7 @@ struct ARIADashboardView: View {
             heroStats
         }
         .frame(maxWidth: .infinity, alignment: .leading)
-        .hudPlate(energy: .aurora)
+        .forgePlate(energy: .aurora)
         .accessibilityElement(children: .contain)
     }
 

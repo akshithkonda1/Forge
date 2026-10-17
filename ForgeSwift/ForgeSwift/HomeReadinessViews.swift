@@ -151,7 +151,7 @@ enum HomeRingField {
 
 /// Kinetic 5-ellipse ring-field from `AriaRingFieldGeometry`.
 /// Brand mark stays `AriaNest*` / `ARIAIdentityMark`. Today's hero is the
-/// HUD progress ring (`HudProgressRing`) — this field is no longer mounted
+/// progress ring (`ForgeProgressRing`) — this field is no longer mounted
 /// on Home, so the 12 Hz TimelineView is idle unless a caller paints it.
 struct HomeReadinessFieldView: View {
     let score: Int
@@ -260,7 +260,7 @@ enum HomeRingFieldCanvas {
 
         // Score lives in the geometry: outer arc sweep is score / 100.
         // Band cuts / hex live in `shared/readiness.json` via `HomeReadiness`.
-        // This kinetic field is not mounted on Today — HUD chrome is.
+        // This kinetic field is not mounted on Today — progress chrome is.
         let outer = AriaRingFieldGeometry.ellipseCount - 1
         let sweepRadius = s * CGFloat(
             AriaRingFieldGeometry.radii[outer] * (1 + AriaRingFieldGeometry.eccentricity[outer])
@@ -356,10 +356,10 @@ struct StreakCalendarSection: View {
                                 Circle().fill(Color.ember).frame(width: 6, height: 6)
                             } else {
                                 Circle()
-                                    .stroke(HudChrome.miss.opacity(0.32), lineWidth: 1)
+                                    .stroke(ForgeProgressChrome.miss.opacity(0.32), lineWidth: 1)
                                     .frame(width: 34, height: 34)
                                 Circle()
-                                    .fill(HudChrome.miss.opacity(0.22))
+                                    .fill(ForgeProgressChrome.miss.opacity(0.22))
                                     .frame(width: 6, height: 6)
                             }
                         }
@@ -392,7 +392,7 @@ struct StreakCalendarSection: View {
 
 // MARK: - Glanceable vitals (compact rows — the ring-field is the only circle)
 
-/// Sleep / Recovery / Load at a glance. Compact rows so the Today hero does
+/// Sleep / Readiness / Load at a glance. Compact rows so the Today hero does
 /// not stack the ring-field with three circular dials.
 struct HomeVitalsRow: View {
     let sleep: Int
@@ -404,7 +404,7 @@ struct HomeVitalsRow: View {
         VStack(spacing: 2) {
             HomeContributorRow(title: "Sleep", value: sleep, color: .steel, onTap: onSelect)
             HomeContributorRow(
-                title: "Recovery",
+                title: "Readiness",
                 value: recovery,
                 color: HomeReadiness.color(recovery),
                 onTap: onSelect
@@ -412,7 +412,7 @@ struct HomeVitalsRow: View {
             HomeContributorRow(title: "Load", value: load, color: .ember, onTap: onSelect)
         }
         .accessibilityElement(children: .combine)
-        .accessibilityLabel("Sleep \(sleep), recovery \(recovery), load \(load)")
+        .accessibilityLabel("Sleep \(sleep), readiness \(recovery), load \(load)")
         .accessibilityHint("Shows how last night, bounce-back, and today's load sit under readiness")
     }
 }

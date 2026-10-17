@@ -459,7 +459,7 @@ private struct CompanyProductsView: View {
                 if !tags.isEmpty {
                     ForgeFlowLayout(spacing: ForgeLayout.chipGap, lineSpacing: ForgeLayout.chipGap) {
                         ForEach(tags, id: \.self) { tag in
-                            HudVibeChip(label: tag, energy: .ember)
+                            ForgeVibeChip(label: tag, energy: .ember)
                         }
                     }
                 }

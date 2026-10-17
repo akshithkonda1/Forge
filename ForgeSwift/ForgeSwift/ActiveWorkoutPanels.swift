@@ -86,7 +86,7 @@ struct AutoRegStrip: View {
         case .increaseLoad, .addReps: return .vitality
         case .hold: return .steel
         case .decreaseLoad, .reduceReps, .extendRest, .deload: return .amber
-        case .substitute, .stopExercise: return HudChrome.miss
+        case .substitute, .stopExercise: return ForgeProgressChrome.miss
         }
     }
 
@@ -274,7 +274,7 @@ struct SetLoggerPanel: View {
     private var actions: some View {
         VStack(spacing: ForgeLayout.tileGap) {
             ForgePrimaryButton(title: "Log Set", icon: "checkmark.circle.fill", accent: .ember, action: onConfirm)
-            ForgeSecondaryButton(title: "Cancel", accent: HudChrome.emberSteel, action: onCancel)
+            ForgeSecondaryButton(title: "Cancel", accent: ForgeProgressChrome.emberSteel, action: onCancel)
         }
     }
 
@@ -361,7 +361,7 @@ struct PainLoggerPanel: View {
     @State private var severity = 5
     private let locations = ["Shoulder", "Elbow", "Wrist", "Lower Back", "Hip", "Knee", "Ankle", "Neck", "Other"]
 
-    private var severityTone: Color { severity >= 7 ? HudChrome.miss : Color.amber }
+    private var severityTone: Color { severity >= 7 ? ForgeProgressChrome.miss : Color.amber }
 
     private var severityNote: String {
         if severity >= 7 { return "Sharp pain — ARIA will pull you off this movement." }
@@ -409,7 +409,7 @@ struct PainLoggerPanel: View {
                     ForgeScaleCell(
                         title: "\(level)",
                         selected: level == severity,
-                        tint: HudChrome.miss,
+                        tint: ForgeProgressChrome.miss,
                         accessibilityLabel: "Severity \(level)"
                     ) {
                         severity = level
@@ -428,7 +428,7 @@ struct PainLoggerPanel: View {
             ForgePrimaryButton(title: "Log Pain", icon: "plus.circle.fill", accent: .ember) {
                 onLog(PainEntry(location: selectedLocation, severity: severity, exerciseName: exerciseName))
             }
-            ForgeSecondaryButton(title: "Cancel", accent: HudChrome.emberSteel, action: onCancel)
+            ForgeSecondaryButton(title: "Cancel", accent: ForgeProgressChrome.emberSteel, action: onCancel)
         }
     }
 
@@ -497,7 +497,7 @@ struct RestTimerView: View {
     }
     private var getReady: Bool { restTimeLeft > 0 && restTimeLeft <= 3 }
     private var restDone: Bool { totalRest > 0 && restTimeLeft == 0 }
-    private var ringEnergy: Color { getReady ? Color.ember : HudChrome.miss }
+    private var ringEnergy: Color { getReady ? Color.ember : ForgeProgressChrome.miss }
 
     private var ringCenter: some View {
         VStack(spacing: ForgeLayout.labelValueGap) {
@@ -511,13 +511,13 @@ struct RestTimerView: View {
             Text(getReady ? "Get ready" : "sec")
                 .font(HomeType.micro)
                 .foregroundStyle(Color.textTertiary)
-                .hudInArcText()
+                .forgeGlanceText()
         }
         .padding(.horizontal, ForgeLayout.cardPadding)
     }
 
     private var ring: some View {
-        HudProgressRing(
+        ForgeProgressRing(
             progress: percent,
             energy: ringEnergy,
             size: ForgeLayout.scaledCap(restRingSize, base: 200),
@@ -534,11 +534,11 @@ struct RestTimerView: View {
     @ViewBuilder
     private var controlButtons: some View {
         if let onAdjust {
-            ForgeSecondaryButton(title: "−15s", accent: HudChrome.emberSteel) { onAdjust(-15) }
-            ForgeSecondaryButton(title: "Skip", icon: "forward.fill", accent: HudChrome.emberSteel, action: onSkip)
-            ForgeSecondaryButton(title: "+15s", accent: HudChrome.emberSteel) { onAdjust(15) }
+            ForgeSecondaryButton(title: "−15s", accent: ForgeProgressChrome.emberSteel) { onAdjust(-15) }
+            ForgeSecondaryButton(title: "Skip", icon: "forward.fill", accent: ForgeProgressChrome.emberSteel, action: onSkip)
+            ForgeSecondaryButton(title: "+15s", accent: ForgeProgressChrome.emberSteel) { onAdjust(15) }
         } else {
-            ForgeSecondaryButton(title: "Skip Rest", icon: "forward.fill", accent: HudChrome.emberSteel, action: onSkip)
+            ForgeSecondaryButton(title: "Skip Rest", icon: "forward.fill", accent: ForgeProgressChrome.emberSteel, action: onSkip)
         }
     }
 
