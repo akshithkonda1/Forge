@@ -401,17 +401,27 @@ struct HomeVitalsRow: View {
     var onSelect: (() -> Void)? = nil
 
     var body: some View {
-        VStack(spacing: 2) {
-            HomeContributorRow(title: "Sleep", value: sleep, color: .steel, onTap: onSelect)
-            HomeContributorRow(
-                title: "Recovery",
-                value: recovery,
-                color: HomeReadiness.color(recovery),
-                onTap: onSelect
-            )
-            HomeContributorRow(title: "Load", value: load, color: .ember, onTap: onSelect)
+        // One control for the three facts — they all open the same strip —
+        // so the tap area is the whole vitals block (≥ 44 pt) without
+        // stretching each compact row.
+        Button {
+            ForgeHaptics.play(.selection)
+            onSelect?()
+        } label: {
+            VStack(spacing: 2) {
+                HomeContributorRow(title: "Sleep", value: sleep, color: .steel)
+                HomeContributorRow(
+                    title: "Recovery",
+                    value: recovery,
+                    color: HomeReadiness.color(recovery)
+                )
+                HomeContributorRow(title: "Load", value: load, color: .ember)
+            }
+            .frame(maxWidth: .infinity, minHeight: ForgeUX.minTap, alignment: .leading)
+            .contentShape(Rectangle())
         }
-        .accessibilityElement(children: .combine)
+        .buttonStyle(.plain)
+        .accessibilityElement(children: .ignore)
         .accessibilityLabel("Sleep \(sleep), recovery \(recovery), load \(load)")
         .accessibilityHint("Shows how last night, bounce-back, and today's load sit under readiness")
     }
@@ -421,31 +431,24 @@ struct HomeContributorRow: View {
     let title: String
     let value: Int
     let color: Color
-    var onTap: (() -> Void)? = nil
 
     private var clamped: Int { min(max(value, 0), 100) }
 
     var body: some View {
-        Button {
-            ForgeHaptics.play(.selection)
-            onTap?()
-        } label: {
-            HStack(spacing: FDS.Spacing.sm) {
-                RoundedRectangle(cornerRadius: 1, style: .continuous)
-                    .fill(color)
-                    .frame(width: 2, height: 16)
-                Text(title)
-                    .font(HomeType.label)
-                    .foregroundColor(.textSecondary)
-                Spacer(minLength: 8)
-                Text("\(clamped)")
-                    .font(HomeType.metric)
-                    .foregroundColor(.textPrimary)
-                    .contentTransition(.numericText())
-            }
-            .padding(.vertical, FDS.Spacing.xs)
+        HStack(spacing: FDS.Spacing.sm) {
+            RoundedRectangle(cornerRadius: 1, style: .continuous)
+                .fill(color)
+                .frame(width: 2, height: 16)
+            Text(title)
+                .font(HomeType.label)
+                .foregroundColor(.textSecondary)
+            Spacer(minLength: 8)
+            Text("\(clamped)")
+                .font(HomeType.metric)
+                .foregroundColor(.textPrimary)
+                .contentTransition(.numericText())
         }
-        .buttonStyle(.plain)
+        .padding(.vertical, FDS.Spacing.xs)
         .accessibilityLabel("\(title) \(clamped)")
     }
 }

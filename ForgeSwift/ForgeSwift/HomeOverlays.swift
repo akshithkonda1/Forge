@@ -7,6 +7,30 @@ struct CelebrationOverlay: View {
     @State private var particles: [ConfettiParticle] = []
     @State private var bannerScale: CGFloat = 0.6
     @State private var revealed = false
+    @State private var isOnscreen = true
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.scenePhase) private var scenePhase
+
+    /// Event confetti. Ceiling is the 12 Hz decorative budget; the clock
+    /// pauses off-screen, under Reduce Motion, or when the scene is inactive.
+    static let tickHz: Double = 12
+    static let tickInterval: Double = 1.0 / tickHz
+
+    static func isClockPaused(reduceMotion: Bool, sceneActive: Bool, onscreen: Bool) -> Bool {
+        ForgeMotion.isDecorativeClockPaused(
+            reduceMotion: reduceMotion,
+            sceneActive: sceneActive,
+            onscreen: onscreen
+        )
+    }
+
+    private var paused: Bool {
+        Self.isClockPaused(
+            reduceMotion: reduceMotion,
+            sceneActive: scenePhase == .active,
+            onscreen: isOnscreen
+        )
+    }
 
     private struct ConfettiParticle: Identifiable {
         let id = UUID()
@@ -21,7 +45,7 @@ struct CelebrationOverlay: View {
         GeometryReader { geo in
             ZStack {
                 Color.black.opacity(revealed ? 0.35 : 0).ignoresSafeArea()
-                TimelineView(.animation(minimumInterval: 1.0 / 30.0)) { tl in
+                TimelineView(.animation(minimumInterval: Self.tickInterval, paused: paused)) { tl in
                     let t = tl.date.timeIntervalSinceReferenceDate
                     Canvas { ctx, size in
                         guard size.width >= 2, size.height >= 2 else { return }
@@ -53,7 +77,9 @@ struct CelebrationOverlay: View {
             }
             .frame(width: geo.size.width, height: geo.size.height)
             .onAppear {
-                spawnParticles(width: geo.size.width)
+                if !reduceMotion {
+                    spawnParticles(width: geo.size.width)
+                }
                 withForgeMotion(ForgeMotion.gentle) {
                     revealed = true
                     bannerScale = 1
@@ -65,6 +91,9 @@ struct CelebrationOverlay: View {
             }
         }
         .id(key)
+        .onAppear { isOnscreen = true }
+        .onDisappear { isOnscreen = false }
+        .onScrollVisibilityChange { isOnscreen = $0 }
     }
 
     private func spawnParticles(width: CGFloat) {
