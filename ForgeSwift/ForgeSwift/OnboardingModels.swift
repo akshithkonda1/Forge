@@ -1,4 +1,5 @@
 import SwiftUI
+import ForgeCore
 
 enum OnboardingFitnessGoal: String, Codable, CaseIterable, Identifiable {
     case loseWeight, buildMuscle, improveEndurance, increaseFlexibility,
