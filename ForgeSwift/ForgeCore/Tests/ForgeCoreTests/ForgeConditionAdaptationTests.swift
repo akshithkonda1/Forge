@@ -138,7 +138,13 @@ final class ForgeConditionAdaptationTests: XCTestCase {
         XCTAssertTrue(directive.lowercased().contains("fuel before"))
         XCTAssertTrue(directive.lowercased().contains("doctor"))
         XCTAssertTrue(directive.lowercased().contains("not a doctor"))
-        XCTAssertFalse(directive.lowercased().contains("recovery"))
+        XCTAssertTrue(directive.lowercased().contains("never say recovery"))
+        let conditionBlob = ForgeConditionAdaptation.constraints(
+            [.diabetes, .adhd],
+            freeform: "fuel before late sessions"
+        ).joined()
+        XCTAssertFalse(ForgeConditionAdaptation.containsRecovery(conditionBlob))
+        XCTAssertFalse(ForgeConditionAdaptation.containsDiagnosis(conditionBlob))
 
         let catalog = [
             ForgeExerciseDiscovery.Exercise(id: "hang", name: "Hang Clean", equipment: "barbell"),
