@@ -5,7 +5,7 @@ final class AriaContextMemoryTests: XCTestCase {
 
     private let day = Date(timeIntervalSince1970: 1_700_000_000)
 
-    func testShelvesSplitDreamsSleepAndUserEditsLock() {
+    func testShelvesSplitDreamsSleepAndUserEditsLock() throws {
         XCTAssertEqual(AriaContextMemory.Shelf.allCases.map(\.rawValue), [
             "dreams", "sleep", "hobbies", "people", "goals", "mood",
         ])
