@@ -55,6 +55,8 @@ final class ForgePersonalizationTests: XCTestCase {
         let morningSleep = ForgePersonalization.homeSections(focus: .sleep, daypart: .morning)
         XCTAssertEqual(morningSleep.first, .todayHero)
         XCTAssertEqual(morningSleep[1], .briefing)
+        let afternoonSleep = ForgePersonalization.homeSections(focus: .sleep, daypart: .afternoon)
+        XCTAssertEqual(afternoonSleep[1], .briefing)
 
         let strength = ForgePersonalization.homeSections(focus: .strength, daypart: .afternoon)
         XCTAssertEqual(strength[1], .forecast)

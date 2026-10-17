@@ -196,6 +196,8 @@ public enum ForgePersonalization: Sendable {
         switch (daypart, focus) {
         case (.morning, .sleep):
             order = [.todayHero, .briefing, .mosaic, .forecast, .lifestyle, .widgets, .story, .rest]
+        case (.afternoon, .sleep):
+            order = [.todayHero, .briefing, .mosaic, .lifestyle, .forecast, .widgets, .story, .rest]
         case (.evening, .sleep):
             order = [.todayHero, .briefing, .story, .mosaic, .lifestyle, .forecast, .widgets, .rest]
         case (_, .strength), (_, .endurance):

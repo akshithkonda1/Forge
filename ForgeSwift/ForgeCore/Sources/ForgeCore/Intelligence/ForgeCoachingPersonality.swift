@@ -18,7 +18,7 @@ public enum ForgeCoachingPersonality: Sendable {
 
         public init(preset: Preset? = .steadyBuilder, freeText: String = "") {
             self.preset = preset
-            self.freeText = Self.sanitizeFreeText(freeText)
+            self.freeText = ForgeCoachingPersonality.sanitizeFreeText(freeText)
         }
 
         public var isCustom: Bool { !freeText.isEmpty }
