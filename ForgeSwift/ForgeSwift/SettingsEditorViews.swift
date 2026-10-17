@@ -463,6 +463,7 @@ struct AriaSoulPickerView: View {
                     ForEach(AriaSoul.Personality.allCases, id: \.self) { personality in
                         EditorOptionRow(
                             title: personality.label,
+                            subtitle: personality.flavor,
                             icon: "text.bubble",
                             tint: .ember,
                             selected: soul.config.blend.dominant == personality
@@ -471,7 +472,7 @@ struct AriaSoulPickerView: View {
                         }
                     }
                 }
-                Text("Takes effect on the next reply. Same rails for every personality: coach, not doctor.")
+                Text("Takes effect on the next reply — no restart. Same rails for every personality: coach, not doctor; never shame, diagnose, push past comfort, or say recovery.")
                     .font(HomeType.body)
                     .foregroundStyle(Color.textSecondary)
             }

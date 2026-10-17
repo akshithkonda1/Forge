@@ -893,7 +893,9 @@ extension AppStore {
             totalMessageCount: chatMessages.count,
             conversationSummary: conversationMemoryAnchors(),
             lifestyleTags: ctx.lifestyleTags,
-            constraints: ctx.constraints + (HealthKitManager.shared.clinicalSummary?.ariaConstraintLines() ?? []),
+            constraints: ctx.constraints
+                + [AriaSoulStore.shared.directive]
+                + (HealthKitManager.shared.clinicalSummary?.ariaConstraintLines() ?? []),
             cycleSnapshot: cycle,
             partnerCycleSnapshot: activePerson?.snapshot,
             partnerCycleSettings: activePerson?.settings,

@@ -4,10 +4,11 @@ import XCTest
 final class AriaSoulTests: XCTestCase {
 
     func testEveryPersonalityAndBlendKeepsRails() {
-        let configs = [
-            AriaSoul.Config(blend: .coach),
-            AriaSoul.Config(blend: .friend),
-            AriaSoul.Config(blend: .drillSergeant),
+        XCTAssertEqual(
+            AriaSoul.Personality.allCases.map(\.label),
+            ["Coach", "Friend", "Drill Sergeant"]
+        )
+        let configs = AriaSoul.Personality.allCases.map { AriaSoul.Config(blend: blend($0)) } + [
             AriaSoul.Config(blend: AriaSoul.fuse(
                 experience: "beginner", goals: [], engagement: 0.2, override: nil
             )),
@@ -15,15 +16,33 @@ final class AriaSoulTests: XCTestCase {
                 experience: "elite", goals: ["competition"], engagement: 0.8, override: nil
             )),
         ]
+        let attempted = "You failed. Shame on you. Time for recovery. I diagnose this. Push through the pain."
         for config in configs {
             let directive = AriaSoul.directive(config)
             XCTAssertTrue(directive.lowercased().contains("not a doctor"), config.blend.dominant.label)
             XCTAssertTrue(directive.lowercased().contains("never say recovery"))
-            XCTAssertFalse(AriaSoul.containsRailBreak(directive))
+            XCTAssertTrue(directive.lowercased().contains("never shame"))
+            XCTAssertTrue(directive.lowercased().contains("never push past comfort"))
+            XCTAssertFalse(AriaSoul.containsRailBreak(directive), config.blend.dominant.label)
             XCTAssertFalse(ForgeReinforcement.containsBlame(directive))
+            let spoken = AriaSoul.speak(attempted, config: config)
+            XCTAssertFalse(AriaSoul.containsRailBreak(spoken), "\(config.blend.dominant.label): \(spoken)")
+            XCTAssertFalse(spoken.lowercased().contains("recovery"))
+            XCTAssertFalse(spoken.lowercased().contains("diagnos"))
+            XCTAssertFalse(spoken.lowercased().contains("shame on you"))
+            XCTAssertFalse(spoken.lowercased().contains("push through the pain"))
+            XCTAssertFalse(ForgeReinforcement.containsBlame(spoken))
         }
         XCTAssertTrue(AriaSoul.containsRailBreak("You failed. Time for recovery."))
         XCTAssertEqual(AriaSoul.sanitize("You failed").lowercased().contains("failed"), false)
+    }
+
+    private func blend(_ personality: AriaSoul.Personality) -> AriaSoul.Blend {
+        switch personality {
+        case .coach: return .coach
+        case .friend: return .friend
+        case .drillSergeant: return .drillSergeant
+        }
     }
 
     func testSnarkySoulCannotBreakRails() {
@@ -45,14 +64,18 @@ final class AriaSoulTests: XCTestCase {
         let fused = AriaSoul.fuse(experience: "beginner", goals: [], engagement: 0, override: nil)
         XCTAssertEqual(fused.dominant, .coach)
         XCTAssertGreaterThan(fused.friend, 0)
-        let first = AriaSoul.directive(AriaSoul.Config(blend: fused))
-        let switched = AriaSoul.fuse(
+        var live = AriaSoul.Config(blend: fused)
+        let first = AriaSoul.nextReply(draft: "Next move is easy.", config: live)
+        XCTAssertTrue(first.soul.contains("Coach"))
+        live = AriaSoul.Config(blend: AriaSoul.fuse(
             experience: "beginner", goals: [], engagement: 0, override: .drillSergeant
-        )
-        XCTAssertEqual(switched.anchor, .drillSergeant)
-        let second = AriaSoul.directive(AriaSoul.Config(blend: switched))
-        XCTAssertNotEqual(first, second)
-        XCTAssertTrue(second.contains("Drill Sergeant"))
+        ))
+        let second = AriaSoul.nextReply(draft: "Next move is easy.", config: live)
+        XCTAssertEqual(live.blend.anchor, .drillSergeant)
+        XCTAssertNotEqual(first.soul, second.soul)
+        XCTAssertTrue(second.soul.contains("Drill Sergeant"))
+        XCTAssertTrue(second.soul.lowercased().contains("snarky"))
+        XCTAssertFalse(AriaSoul.containsRailBreak(second.spoken))
     }
 
     func testHealthFilterSkipsJobHuntingUnlessStressOrSleep() {

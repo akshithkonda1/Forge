@@ -139,8 +139,11 @@ struct ChatHeaderView: View {
     private var personalitySwitcher: some View {
         Menu {
             ForEach(AriaSoul.Personality.allCases, id: \.self) { personality in
-                Button(personality.label) {
+                Button {
                     soul.setPersonality(personality)
+                } label: {
+                    Text(personality.label)
+                    Text(personality.pacing)
                 }
             }
         } label: {

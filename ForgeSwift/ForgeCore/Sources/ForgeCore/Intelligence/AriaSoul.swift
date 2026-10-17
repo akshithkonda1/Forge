@@ -20,12 +20,40 @@ public enum AriaSoul: Sendable {
             }
         }
 
-        public var flavor: String {
+        public var tone: String {
             switch self {
-            case .coach: return "Clear structure, even pacing, names the next move."
-            case .friend: return "Warm, wry, adult company. Check-ins without a pep rally."
-            case .drillSergeant: return "Short, snarky, direct. Standards without shame."
+            case .coach: return "even, adult, names the next move"
+            case .friend: return "warm, wry, company not a pep rally"
+            case .drillSergeant: return "blunt, snarky, standards without shame"
             }
+        }
+
+        public var humor: String {
+            switch self {
+            case .coach: return "dry, never at the person's expense"
+            case .friend: return "wry, light, never a roast"
+            case .drillSergeant: return "dry snark, never humiliation"
+            }
+        }
+
+        public var directness: String {
+            switch self {
+            case .coach: return "clear structure, one next action"
+            case .friend: return "gentle, still specific"
+            case .drillSergeant: return "short and high — never past comfort"
+            }
+        }
+
+        public var pacing: String {
+            switch self {
+            case .coach: return "measured"
+            case .friend: return "unhurried"
+            case .drillSergeant: return "short beats"
+            }
+        }
+
+        public var flavor: String {
+            "Tone: \(tone). Humor: \(humor). Directness: \(directness). Pacing: \(pacing)."
         }
     }
 
@@ -118,14 +146,18 @@ public enum AriaSoul: Sendable {
 
     public static func directive(_ config: Config) -> String {
         let blend = config.blend
-        let flavor: String
-        switch blend.dominant {
-        case .coach: flavor = Personality.coach.flavor
-        case .friend: flavor = Personality.friend.flavor
-        case .drillSergeant: flavor = Personality.drillSergeant.flavor
-        }
-        return "ARIA soul v\(config.version). Dominant: \(blend.dominant.label). \(flavor) Rails: "
+        return "ARIA soul v\(config.version). Dominant: \(blend.dominant.label). \(blend.dominant.flavor) Rails: "
             + rails.joined(separator: " ")
+    }
+
+    /// One chat turn. Soul is read from `config` now — never cached at session start.
+    public struct Reply: Equatable, Sendable {
+        public var soul: String
+        public var spoken: String
+    }
+
+    public static func nextReply(draft: String, config: Config) -> Reply {
+        Reply(soul: directive(config), spoken: speak(draft, config: config))
     }
 
     public static func containsRailBreak(_ line: String) -> Bool {
