@@ -246,6 +246,10 @@ final class AriaSoulStore: ObservableObject {
 
     var directive: String { AriaSoul.directive(config) }
 
+    func speak(_ line: String) -> String {
+        AriaSoul.speak(line, config: config)
+    }
+
     private func persist() {
         if let data = try? JSONEncoder().encode(config) {
             defaults.set(data, forKey: AriaSoul.storageKey)

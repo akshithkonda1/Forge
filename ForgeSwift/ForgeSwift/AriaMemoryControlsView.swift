@@ -16,6 +16,7 @@ struct AriaMemoryControlsView: View {
     @State private var contextDraft = ""
     @State private var contextShelf: AriaContextMemory.Shelf = .mood
     @State private var contextEditingID: String?
+    @State private var showTrainingModelEditor = false
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.dismiss) private var dismiss
 
@@ -60,6 +61,11 @@ struct AriaMemoryControlsView: View {
         }
         .sheet(isPresented: $showContextEditor) {
             contextEditorSheet
+                .transaction(freezeMotion)
+        }
+        .sheet(isPresented: $showTrainingModelEditor) {
+            CoachingPersonalityPickerView()
+                .environmentObject(store)
                 .transaction(freezeMotion)
         }
         .fullScreenCover(isPresented: $showLifestyleInterview) {
@@ -157,10 +163,16 @@ struct AriaMemoryControlsView: View {
             if !store.userProfile.equipmentNotes.isEmpty {
                 knownRow(title: "Equipment", value: store.userProfile.equipmentNotes)
             }
-            knownRow(
-                title: "Adaptive training model",
-                value: store.userProfile.coachingPersonality.displayLabel
-            )
+            VStack(alignment: .leading, spacing: ForgeLayout.pairGap) {
+                knownRow(
+                    title: "Adaptive training model",
+                    value: store.userProfile.coachingPersonality.displayLabel
+                )
+                ForgeTextLink(title: "Edit", accent: .ember) {
+                    showTrainingModelEditor = true
+                }
+                .accessibilityAddTraits(.isButton)
+            }
             let conditions = store.userProfile.lifestyleProfile.healthConstraints
             if conditions.isEmpty {
                 knownRow(title: "Health conditions", value: "None saved. Optional — offered, never demanded.")

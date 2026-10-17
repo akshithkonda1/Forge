@@ -102,11 +102,15 @@ struct ForgeTutorialCoach: View {
     }
 
     private var coachLine: String {
+        let raw: String
         if state.ariaPaused || ariaService.lastRemoteError == AriaPaused.line {
-            return ForgeTutorial.pausedLine
+            raw = ForgeTutorial.pausedLine
+        } else if state.rehint {
+            raw = rehintLine
+        } else {
+            raw = beat.prompt(opening: state.opening)
         }
-        if state.rehint { return rehintLine }
-        return beat.prompt(opening: state.opening)
+        return AriaSoulStore.shared.speak(raw)
     }
 
     private var rehintLine: String {

@@ -26,6 +26,21 @@ final class AriaSoulTests: XCTestCase {
         XCTAssertEqual(AriaSoul.sanitize("You failed").lowercased().contains("failed"), false)
     }
 
+    func testSnarkySoulCannotBreakRails() {
+        XCTAssertTrue(AriaSoul.Personality.drillSergeant.flavor.lowercased().contains("snarky"))
+        let attempted = "You failed the set. Shame on you. Time for recovery. I diagnose overtraining and prescribe rest."
+        let spoken = AriaSoul.speak(attempted, config: AriaSoul.Config(blend: .drillSergeant))
+        XCTAssertFalse(AriaSoul.containsRailBreak(spoken), spoken)
+        XCTAssertFalse(spoken.lowercased().contains("recovery"))
+        XCTAssertFalse(spoken.lowercased().contains("you failed"))
+        XCTAssertFalse(spoken.lowercased().contains("shame on you"))
+        XCTAssertFalse(spoken.lowercased().contains("diagnos"))
+        XCTAssertFalse(spoken.lowercased().contains("prescribe"))
+        XCTAssertEqual(AriaSoul.version, "1")
+        XCTAssertTrue(AriaSoul.rails.contains { $0.lowercased().contains("not a doctor") })
+        XCTAssertTrue(AriaSoul.bedrockOff)
+    }
+
     func testOverrideAnchorsAndMidConversationSwitchIsPerReply() {
         let fused = AriaSoul.fuse(experience: "beginner", goals: [], engagement: 0, override: nil)
         XCTAssertEqual(fused.dominant, .coach)

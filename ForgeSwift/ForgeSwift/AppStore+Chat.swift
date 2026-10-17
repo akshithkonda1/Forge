@@ -570,6 +570,9 @@ extension AppStore {
                 }
             }
 
+            if !safetyTurn {
+                aria.message = AriaSoulStore.shared.speak(aria.message)
+            }
             lastSuggestedActions = aria.suggestedActions ?? []
             AriaContextStore.shared.noteAriaUsedContext()
 

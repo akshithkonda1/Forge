@@ -307,7 +307,7 @@ final class AriaService: ObservableObject {
 
     func fetchProactiveMessage(store: AppStore) async -> String? {
         contextStore.refreshProactiveInsight(from: store)
-        return contextStore.lastProactiveInsight
+        return contextStore.lastProactiveInsight.map { AriaSoulStore.shared.speak($0) }
     }
 
     private func postChat(_ payload: AriaChatRequest) async throws -> AriaResponse {

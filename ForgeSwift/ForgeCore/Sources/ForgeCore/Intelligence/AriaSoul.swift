@@ -5,6 +5,7 @@ public enum AriaSoul: Sendable {
 
     public static let version = "1"
     public static let storageKey = "forge.aria.soul.v1"
+    public static let bedrockOff = true
 
     public enum Personality: String, Codable, CaseIterable, Sendable {
         case coach
@@ -135,13 +136,31 @@ public enum AriaSoul: Sendable {
         return banned.contains { lower.contains($0) }
     }
 
+    /// Spoken output for chat, tutorial, onboarding, and nudges. Style may
+    /// color the line; rails always win.
+    public static func speak(_ line: String, config: Config = Config()) -> String {
+        _ = config
+        return sanitize(line)
+    }
+
     public static func sanitize(_ line: String) -> String {
         var text = line
-        if containsRailBreak(text) {
-            text = text.replacingOccurrences(of: "recovery", with: "readiness", options: .caseInsensitive)
-            text = text.replacingOccurrences(of: "you failed", with: "we can solve this", options: .caseInsensitive)
-            text = text.replacingOccurrences(of: "you did it wrong", with: "here's what can help", options: .caseInsensitive)
+        text = text.replacingOccurrences(of: "you failed", with: "we can solve this", options: .caseInsensitive)
+        text = text.replacingOccurrences(of: "you did it wrong", with: "here's what can help", options: .caseInsensitive)
+        text = text.replacingOccurrences(of: "you messed up", with: "we can solve this", options: .caseInsensitive)
+        text = text.replacingOccurrences(of: "your fault", with: "here's what can help", options: .caseInsensitive)
+        text = text.replacingOccurrences(of: "shame on you", with: "", options: .caseInsensitive)
+        text = text.replacingOccurrences(of: "push through the pain", with: "stay inside comfort", options: .caseInsensitive)
+        text = text.replacingOccurrences(of: "recovery", with: "readiness", options: .caseInsensitive)
+        if let regex = try? NSRegularExpression(pattern: #"\bdiagnos\w*"#, options: .caseInsensitive) {
+            let range = NSRange(text.startIndex..., in: text)
+            text = regex.stringByReplacingMatches(in: text, options: [], range: range, withTemplate: "notice")
         }
-        return text
+        if let regex = try? NSRegularExpression(pattern: #"\bprescribe\w*"#, options: .caseInsensitive) {
+            let range = NSRange(text.startIndex..., in: text)
+            text = regex.stringByReplacingMatches(in: text, options: [], range: range, withTemplate: "suggest with a doctor")
+        }
+        return text.replacingOccurrences(of: "  ", with: " ")
+            .trimmingCharacters(in: .whitespacesAndNewlines)
     }
 }
