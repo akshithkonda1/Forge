@@ -221,7 +221,7 @@ struct UserProfile: Codable {
     /// The image itself is not stored on the profile to keep UserDefaults payloads small.
     var avatarFileName: String?
 
-    /// Teaching personality — tone and framing only, never the session plan.
+    /// Adaptive training model — the person's own words, plus optional tone.
     var coachingPersonality: ForgeCoachingPersonality.Choice
     /// Whole-life weights, social/relational fields, health constraints.
     var lifestyleProfile: ForgeLifestyleProfile.Snapshot
@@ -311,7 +311,7 @@ struct UserProfile: Codable {
         coachingPersonality = try c.decodeIfPresent(
             ForgeCoachingPersonality.Choice.self,
             forKey: .coachingPersonality
-        ) ?? .init(preset: Self.defaultPersonality(for: coachingStyle))
+        ) ?? .init()
         lifestyleProfile = try c.decodeIfPresent(
             ForgeLifestyleProfile.Snapshot.self,
             forKey: .lifestyleProfile
@@ -345,7 +345,7 @@ struct UserProfile: Codable {
 
     static func defaultPersonality(for style: CoachingStyle) -> ForgeCoachingPersonality.Preset {
         switch style {
-        case .pushHard, .ultraElite: return .pillarTraining
+        case .pushHard, .ultraElite: return .directCoach
         case .patient: return .steadyBuilder
         case .dataDriven: return .curiousExperimenter
         case .balanced: return .steadyBuilder
@@ -356,7 +356,6 @@ struct UserProfile: Codable {
 extension ForgeCoachingPersonality.Preset {
     var legacyCoachingStyle: CoachingStyle {
         switch self {
-        case .pillarTraining: return .pushHard
         case .steadyBuilder: return .patient
         case .directCoach: return .balanced
         case .curiousExperimenter: return .dataDriven

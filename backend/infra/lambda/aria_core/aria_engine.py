@@ -388,6 +388,8 @@ class ProfileContext:
     experience_level: str | None = None   # beginner | intermediate | advanced | elite
     coaching_style: str | None = None     # push-hard | balanced | patient | data-driven
     constraints: list[str] = field(default_factory=list)  # injuries, time, equipment
+    # Own-words training style. Mindset and method only — never a branded preset.
+    adaptive_training_model: str | None = None
 
 
 @dataclass
@@ -897,6 +899,7 @@ class ARIAContext:
                 experience_level=_str(profile.get("experienceLevel")),
                 coaching_style=_str(profile.get("coachingStyle")),
                 constraints=_str_list(profile.get("constraints")),
+                adaptive_training_model=_adaptive_training_model(profile),
             ),
             progress=ProgressContext(
                 workouts_completed_30d=_int(progress.get("workoutsCompleted30d")),
@@ -1017,6 +1020,14 @@ class ARIAContext:
             f"- profile.primary_goal: {self.profile.primary_goal or 'null'}",
             f"- profile.coaching_style: {self.profile.coaching_style or 'null'}",
             f"- profile.constraints: {', '.join(self.profile.constraints) or 'none'}",
+            *(
+                [
+                    f"- profile.adaptive_training_model: {self.profile.adaptive_training_model}",
+                    "- adaptive training model is mindset and method only: never exercise form, never the session plan, never past comfort or safety; name real progress",
+                ]
+                if self.profile.adaptive_training_model
+                else []
+            ),
             f"- chronotype.consistency_score: {_fmt(self.chronotype.consistency_score)}",
             f"- lifestyle.tags: {lifestyle_tags or 'none'}",
             f"- lifestyle.patterns: {lifestyle_patterns or 'none'}",
@@ -4079,6 +4090,18 @@ def _str(value: Any) -> str | None:
         return None
     text = str(value).strip()
     return text or None
+
+
+def _adaptive_training_model(profile: dict[str, Any] | None) -> str | None:
+    """Own-words training style. Cap matches iOS `sanitizeFreeText` (280)."""
+    if not isinstance(profile, dict):
+        return None
+    raw = _str(profile.get("adaptiveTrainingModel")) or _str(
+        profile.get("adaptive_training_model")
+    )
+    if not raw:
+        return None
+    return raw[:280]
 
 
 def _bool(value: Any) -> bool | None:

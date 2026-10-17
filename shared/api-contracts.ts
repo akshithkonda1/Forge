@@ -399,6 +399,8 @@ export interface AriaContext {
     experienceLevel: ExperienceLevel | null;
     coachingStyle: CoachingStyle | null;
     constraints: string[]; // injuries, time, equipment
+    /** Own-words training style. Mindset and method only; never a branded preset. */
+    adaptiveTrainingModel?: string | null;
   };
   progress: {
     workoutsCompleted30d: number | null;

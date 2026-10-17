@@ -1,4 +1,5 @@
 import XCTest
+import ForgeCore
 @testable import ForgeSwift
 
 /// Locks Lex’s friend-first six beats: Meet, Name, Health nest, Habits ≤3,
@@ -155,5 +156,26 @@ final class FriendFirstOnboardingTests: XCTestCase {
         XCTAssertEqual(AriaInterviewStep.coaching.progressLabel, "Tone")
         XCTAssertEqual(AriaInterviewStep.ready.progressLabel, "First chat")
         XCTAssertEqual(AriaMeetCopy.skipCta, "Skip")
+    }
+
+    func testAdaptiveTrainingModelIsPrimaryAndNotABrandedPreset() {
+        var profile = OnboardingProfile()
+        profile.adaptiveTrainingModel = "intense physical, intense mental, intense psychological training"
+        let core = profile.toCoreProfile()
+        XCTAssertEqual(core.coachingPersonality.adaptiveTrainingModel, profile.adaptiveTrainingModel)
+        XCTAssertNil(core.coachingPersonality.preset)
+        XCTAssertFalse(core.coachingPersonality.displayLabel.localizedCaseInsensitiveContains("hashira"))
+        XCTAssertFalse(core.coachingPersonality.displayLabel.localizedCaseInsensitiveContains("pillar"))
+
+        let tone = AriaInterviewVoice.prompt(
+            .coaching, profile: profile, healthAuthorized: false, healthPrefill: false, vo2Max: nil
+        )
+        XCTAssertTrue(tone.localizedCaseInsensitiveContains("own words"))
+        XCTAssertTrue(tone.localizedCaseInsensitiveContains("check-in"))
+        XCTAssertFalse(tone.localizedCaseInsensitiveContains("hashira"))
+        XCTAssertFalse(tone.localizedCaseInsensitiveContains("pillar training"))
+        XCTAssertFalse(tone.localizedCaseInsensitiveContains("demon slayer"))
+        XCTAssertTrue(ForgeCoachingPersonality.modelPlaceholder.localizedCaseInsensitiveContains("hashira"))
+        XCTAssertTrue(ForgeCoachingPersonality.modelPlaceholder.localizedCaseInsensitiveContains("not a preset"))
     }
 }

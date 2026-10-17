@@ -1,38 +1,64 @@
 import Foundation
 
-/// Teaching personality — mindset and methodology only.
+/// Adaptive training model — mindset and methodology only.
 ///
-/// Tone, framing, how setbacks are talked about, pacing, and the intensity of
-/// encouragement. Never exercise mechanics, split design, or the session plan.
-/// Safety and copy rules always override the preset: adult voice, coach not
-/// doctor, no "recovery", no baby talk, care on sensitive topics.
+/// The person describes their training style in their own words. Forge and
+/// ARIA coach against that description. Never exercise mechanics, split
+/// design, or the session plan. Safety and copy rules always override:
+/// adult voice, coach not doctor, no "recovery", never past comfort or
+/// safety, name real progress.
 public enum ForgeCoachingPersonality: Sendable {
 
-    /// Stored in UserContext / UserProfile. Either a named preset or the user's
-    /// own words (or both: free text colors a picked preset).
+    /// Stored in UserContext / UserProfile. `freeText` is the adaptive
+    /// training model. Optional named tones are secondary, never branded
+    /// characters.
     public struct Choice: Codable, Equatable, Sendable {
         public var preset: Preset?
         public var freeText: String
 
         public static let storageKey = "forge.coaching.personality.v1"
 
-        public init(preset: Preset? = .steadyBuilder, freeText: String = "") {
+        public init(preset: Preset? = nil, freeText: String = "") {
             self.preset = preset
             self.freeText = ForgeCoachingPersonality.sanitizeFreeText(freeText)
         }
 
+        /// The user's training style in their own words.
+        public var adaptiveTrainingModel: String { freeText }
+
         public var isCustom: Bool { !freeText.isEmpty }
 
         public var displayLabel: String {
+            let model = freeText.trimmingCharacters(in: .whitespacesAndNewlines)
+            if !model.isEmpty {
+                if model.count <= 36 { return model }
+                return String(model.prefix(33)).trimmingCharacters(in: .whitespaces) + "…"
+            }
             if let preset { return preset.label }
-            if isCustom { return "Your words" }
-            return Preset.steadyBuilder.label
+            return "Describe your style"
+        }
+
+        enum CodingKeys: String, CodingKey {
+            case preset, freeText
+        }
+
+        public init(from decoder: Decoder) throws {
+            let c = try decoder.container(keyedBy: CodingKeys.self)
+            let raw = try c.decodeIfPresent(String.self, forKey: .preset)
+            preset = Preset.fromStored(raw)
+            freeText = ForgeCoachingPersonality.sanitizeFreeText(
+                try c.decodeIfPresent(String.self, forKey: .freeText) ?? ""
+            )
+        }
+
+        public func encode(to encoder: Encoder) throws {
+            var c = encoder.container(keyedBy: CodingKeys.self)
+            try c.encodeIfPresent(preset?.rawValue, forKey: .preset)
+            try c.encode(freeText, forKey: .freeText)
         }
     }
 
     public enum Preset: String, Codable, CaseIterable, Sendable {
-        /// Intense physical conditioning with deep mental and psychological discipline.
-        case pillarTraining
         case steadyBuilder
         case directCoach
         case curiousExperimenter
@@ -40,7 +66,6 @@ public enum ForgeCoachingPersonality: Sendable {
 
         public var label: String {
             switch self {
-            case .pillarTraining: return "Pillar Training"
             case .steadyBuilder: return "Steady builder"
             case .directCoach: return "Direct coach"
             case .curiousExperimenter: return "Curious experimenter"
@@ -50,8 +75,6 @@ public enum ForgeCoachingPersonality: Sendable {
 
         public var summary: String {
             switch self {
-            case .pillarTraining:
-                return "Intense physical conditioning with deep mental and psychological discipline. Hard days are named honestly. Never past comfort or safety. Progress is named when it is real. Mindset and methodology only — never exercise form."
             case .steadyBuilder:
                 return "Calm, even pacing. Stack small honest days. Setbacks are information, not a verdict."
             case .directCoach:
@@ -66,8 +89,6 @@ public enum ForgeCoachingPersonality: Sendable {
         /// How a missed night / skipped session is framed.
         public var setbackFrame: String {
             switch self {
-            case .pillarTraining:
-                return "The path doesn't vanish because one day bent. Name it, then take the next honest step."
             case .steadyBuilder:
                 return "One off day is a data point. Tomorrow still stacks if you let it."
             case .directCoach:
@@ -81,40 +102,58 @@ public enum ForgeCoachingPersonality: Sendable {
 
         public var encouragementPace: String {
             switch self {
-            case .pillarTraining: return "Demand is high. Praise is scarce and earned — and when they take an honest step, name it. Never theatrical. Never past their comfort or safety."
             case .steadyBuilder: return "Low volume. Consistent. One next brick."
             case .directCoach: return "Short. Specific. No pep rally."
             case .curiousExperimenter: return "Interest over hype. Notice what worked."
             case .playfulCompanion: return "Light, dry, never cutesy. Adult company."
             }
         }
+
+        /// Retired branded names — never a live preset.
+        public static let retiredRawValues: Set<String> = [
+            "pillarTraining", "hashira", "hashiraTraining",
+            "demonSlayer", "tanjiro",
+        ]
+
+        public static func fromStored(_ raw: String?) -> Preset? {
+            guard let raw, !raw.isEmpty else { return nil }
+            if retiredRawValues.contains(raw) { return nil }
+            return Preset(rawValue: raw)
+        }
     }
+
+    /// Placeholder only. Hashira is a reference for intensity, never a preset.
+    public static let modelPlaceholder =
+        "e.g. intense physical, intense mental, intense psychological training. Hashira is a reference for that intensity — not a preset name."
 
     public static let adultVoiceLaw =
         "Always speak like an adult: curious and direct. Never use child-register pep. Never talk down."
 
     public static let safetyOverride =
-        "Safety and copy rules override this personality: lifestyle coach, not a doctor; never say recovery; never diagnose, treat, prescribe, or cure; on anything medical, suggest a doctor; crisis and self-harm hand off to real resources. Personality never changes the training plan, split, or exercise selection. Pillar Training never pushes the person past their comfort or safety limits, and it names real progress."
+        "Safety and copy rules override this model: lifestyle coach, not a doctor; never say recovery; never diagnose, treat, prescribe, or cure; on anything medical, suggest a doctor; crisis and self-harm hand off to real resources. The adaptive training model is mindset and method only — never exercise form, never the session plan, split, or exercise selection. Never push the person past their comfort or safety limits. Name real progress when it is real."
 
     /// System / stub prompt fragment. Plan engines must not read this.
     public static func promptDirective(_ choice: Choice) -> String {
-        let preset = choice.preset ?? (choice.isCustom ? nil : .steadyBuilder)
         var lines: [String] = [adultVoiceLaw, safetyOverride]
-        if let preset {
-            lines.append("Teaching personality: \(preset.label). \(preset.summary)")
+        if choice.isCustom {
+            lines.append("Adaptive training model, in their words: \"\(choice.freeText)\". Coach against that description for tone and framing only. Do not change exercises, splits, or the session plan to match a metaphor.")
+        } else if let preset = choice.preset {
+            lines.append("Teaching tone: \(preset.label). \(preset.summary)")
             lines.append("Setbacks: \(preset.setbackFrame)")
             lines.append("Encouragement: \(preset.encouragementPace)")
         }
-        if choice.isCustom {
-            lines.append("The person described the teaching they want, in their words: \"\(choice.freeText)\". Use that for tone and framing only. Do not change exercises, splits, or the session plan to match a metaphor.")
-        }
-        lines.append("Do not invent chest-day / body-part splits from the personality. Training content stays whatever the plan engine already wrote.")
+        lines.append("Do not invent chest-day / body-part splits from the training model. Training content stays whatever the plan engine already wrote.")
         return lines.joined(separator: " ")
     }
 
     /// Colors a setback in this personality. Mechanics stay out.
     public static func colorSetback(_ choice: Choice, whatHappened: String) -> String {
-        let frame = (choice.preset ?? .steadyBuilder).setbackFrame
+        let frame: String
+        if choice.isCustom {
+            frame = "Name it, keep the method they asked for, and take the next honest step — never past comfort or safety."
+        } else {
+            frame = (choice.preset ?? .steadyBuilder).setbackFrame
+        }
         let happened = whatHappened.trimmingCharacters(in: .whitespacesAndNewlines)
         let body = happened.isEmpty ? frame : "\(happened) \(frame)"
         return sanitizeOutput(body)
@@ -124,24 +163,26 @@ public enum ForgeCoachingPersonality: Sendable {
     public static func colorPlanTalk(_ choice: Choice, planLine: String) -> String {
         let plan = planLine.trimmingCharacters(in: .whitespacesAndNewlines)
         let lead: String
-        switch choice.preset ?? .steadyBuilder {
-        case .pillarTraining:
-            lead = "The session stands. Meet it with discipline — and stop at the limit that keeps you safe. Name the progress you already made."
-        case .steadyBuilder:
-            lead = "Same session as written. Keep it honest and unhurried."
-        case .directCoach:
-            lead = "Here's the work. Do it or resize the day — don't decorate it."
-        case .curiousExperimenter:
-            lead = "Same session. Notice how it sits, then we'll adjust next time if we should."
-        case .playfulCompanion:
-            lead = "Same session, no costume. Let's get through it like adults who like each other."
+        if choice.isCustom {
+            lead = "Same session as written. Coach it in their words — mindset and method, never form. Stop at comfort and safety. Name the progress that's real."
+        } else {
+            switch choice.preset ?? .steadyBuilder {
+            case .steadyBuilder:
+                lead = "Same session as written. Keep it honest and unhurried."
+            case .directCoach:
+                lead = "Here's the work. Do it or resize the day — don't decorate it."
+            case .curiousExperimenter:
+                lead = "Same session. Notice how it sits, then we'll adjust next time if we should."
+            case .playfulCompanion:
+                lead = "Same session, no costume. Let's get through it like adults who like each other."
+            }
         }
         let custom = choice.isCustom ? " They asked to be coached this way: \(choice.freeText)." : ""
         return sanitizeOutput("\(lead) \(plan)\(custom)")
     }
 
     /// Plan fingerprint — personality is intentionally unused. Same inputs,
-    /// same plan, every preset.
+    /// same plan, every model.
     public static func planFingerprint(
         readiness: Int,
         workoutsThisWeek: Int,

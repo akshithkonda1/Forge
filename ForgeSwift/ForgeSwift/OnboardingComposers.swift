@@ -965,6 +965,29 @@ struct CoachingComposer: View {
 
     var body: some View {
         VStack(spacing: ForgeLayout.tileGap) {
+            OnboardingFieldLabel(
+                title: "Your training style",
+                detail: "In your words. Mindset and method only."
+            )
+            TextField(
+                ForgeCoachingPersonality.modelPlaceholder,
+                text: $coordinator.profile.adaptiveTrainingModel,
+                axis: .vertical
+            )
+            .font(HomeType.body)
+            .foregroundStyle(Color.textPrimary)
+            .lineLimit(3...6)
+            .accessibilityLabel("Describe your training style")
+            .accessibilityHint("Optional. Hashira is an intensity reference, not a preset.")
+
+            OnboardingFootnote(
+                "ARIA coaches against this description — never exercise form, never past comfort or safety. Progress is named when it is real."
+            )
+
+            Text("Speaking tone (optional)")
+                .font(HomeType.micro)
+                .foregroundStyle(Color.textTertiary)
+
             ForEach(OnboardingCoachingStyle.friendToneStyles) { style in
                 Button {
                     ForgeHaptics.play(.selection)
@@ -980,6 +1003,15 @@ struct CoachingComposer: View {
                 }
                 .buttonStyle(ForgePressStyle())
             }
+
+            PrimaryCTA(
+                title: coordinator.profile.adaptiveTrainingModel.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+                    ? "Skip"
+                    : "Continue",
+                icon: "arrow.right",
+                enabled: true,
+                action: coordinator.confirmAdaptiveTrainingModel
+            )
         }
     }
 }

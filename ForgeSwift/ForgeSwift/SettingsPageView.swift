@@ -266,9 +266,9 @@ struct SettingsPageView: View {
                 settingsLink(
                     icon: "text.quote",
                     iconColor: .ember,
-                    label: "Teaching personality",
+                    label: "Adaptive training model",
                     trailingText: store.userProfile.coachingPersonality.displayLabel,
-                    footnote: "Tone and framing only. Never the session plan."
+                    footnote: "In your words. Mindset and method only."
                 ) { showCoachingPersonalityPicker = true }
 
                 SettingsHairline()

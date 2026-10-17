@@ -235,7 +235,7 @@ enum AriaInterviewVoice {
         case .freeTime:
             return "\(habitsWrapper) — pick up to three things that feel like us. I just want to take care of you better."
         case .coaching:
-            return "How should I show up when the day is messy — a check-in, some space, the patterns, or an honest peer? Trainer, doctor, therapist — those are flavors. I'm still me."
+            return "Describe your training style in your own words — I'll coach against that, mindset and method only. Tone chips below are optional: a check-in, some space, the patterns, or an honest peer."
         case .conditions:
             return "Do you have any conditions I should respect when coaching — ADHD, epilepsy, an injury, a chronic illness, a disability, or something else? Optional. I'm a lifestyle coach, not a doctor. I won't diagnose or treat; I'll only use this to keep guidance safer and more realistic."
         case .ready:

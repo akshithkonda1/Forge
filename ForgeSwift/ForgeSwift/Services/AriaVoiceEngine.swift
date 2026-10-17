@@ -222,7 +222,8 @@ enum AriaVoiceEngine {
             relationshipLevel: rel,
             guidanceOnly: guidance,
             hour: context.hour,
-            salt: salt
+            salt: salt,
+            trainingModel: context.userProfile.coachingPersonality
         )
     }
 

@@ -213,7 +213,12 @@ final class AriaContextStore: ObservableObject {
             primaryGoal: store.userProfile.fitnessGoals.first?.rawValue,
             experienceLevel: store.userProfile.experienceLevel.rawValue,
             coachingStyle: store.userProfile.coachingStyle.rawValue,
-            constraints: context.constraints + clinicalConstraintLines()
+            constraints: context.constraints + clinicalConstraintLines(),
+            adaptiveTrainingModel: {
+                let model = store.userProfile.coachingPersonality.adaptiveTrainingModel
+                    .trimmingCharacters(in: .whitespacesAndNewlines)
+                return model.isEmpty ? nil : model
+            }()
         )
         let progressDomain = ARIAContextPayload.ProgressDomain(
             workoutsCompleted30d: workouts30d > 0 ? workouts30d : nil,

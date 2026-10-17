@@ -628,6 +628,22 @@ final class OnboardingCoordinator {
         }
     }
 
+    func confirmAdaptiveTrainingModel() {
+        guard step == .coaching else { return }
+        interruptInterviewVoice()
+        let model = profile.adaptiveTrainingModel.trimmingCharacters(in: .whitespacesAndNewlines)
+        appendUser(model.isEmpty ? "Skip for now" : model)
+        Task {
+            await ariaSay(
+                model.isEmpty
+                    ? "We'll find the voice as we go. You can describe your training style anytime in Settings."
+                    : "Got it. I'll coach against that — mindset and method only, never form, never past comfort. Progress gets named when it's real.",
+                mood: .focused
+            )
+            await advanceTo(AriaInterviewStep(OnboardingGraph.next(after: .selectCoachingStyle)))
+        }
+    }
+
     // MARK: - HealthKit parallel
 
     func requestHealthKit() async {
@@ -1299,7 +1315,7 @@ final class OnboardingCoordinator {
     /// Versioned: a profile shape change bumps this, and the old draft is
     /// simply never read. Keychain (this device only), like the finished
     /// profile — birthday, body and conditions never land in UserDefaults.
-    private static let draftKey = "forge.onboarding.draft.v1"
+    private static let draftKey = "forge.onboarding.draft.v2"
     private let draftStore: SecureStore = KeychainStore()
     /// Set in `startIfNeeded`. Nil (tests, previews) never restores or saves.
     private var draftOwnerId: String?

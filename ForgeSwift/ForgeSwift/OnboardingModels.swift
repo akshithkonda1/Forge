@@ -205,6 +205,8 @@ struct OnboardingProfile: Codable {
     var experienceLevel: ExperienceLevel = .intermediate
     var preferredWorkouts: [OnboardingWorkoutType] = []
     var coachingStyle: OnboardingCoachingStyle = .balanced
+    /// Adaptive training model — their words. Empty is skippable.
+    var adaptiveTrainingModel: String = ""
     /// Habits beat — ≤3 friend chips. Empty is fine.
     var friendHabits: [FriendHabitChip] = []
     var schedulePlanningMode: SchedulePlanningMode = .rotate
@@ -255,7 +257,10 @@ struct OnboardingProfile: Codable {
             interestTags: freeTimeInterests.map(\.tag),
             biologicalSex: biologicalSex,
             educationalCycleMode: educationalCycleMode,
-            coachingPersonality: .init(preset: UserProfile.defaultPersonality(for: coachingStyle.coreStyle)),
+            coachingPersonality: .init(
+                preset: nil,
+                freeText: adaptiveTrainingModel
+            ),
             lifestyleProfile: .init(
                 hobbies: HobbyFit.normalizeHobbies(labels: freeTimeInterests.map(\.label)),
                 socialEnergy0to10: freeTimeInterests.contains(.social) ? 7 : nil

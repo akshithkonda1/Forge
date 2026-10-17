@@ -1,30 +1,42 @@
 import SwiftUI
 import ForgeCore
 
-/// Teaching personality — mindset only. Reuses the working coaching-style
-/// picker layout so typography and chrome stay put.
+/// Adaptive training model — the person's own words. Optional speaking-tone
+/// chips stay secondary. Reuses the working picker layout so typography and
+/// chrome stay put.
 struct CoachingPersonalityPickerView: View {
     @Environment(\.dismiss) var dismiss
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @EnvironmentObject var store: AppStore
-    @State private var selected: ForgeCoachingPersonality.Preset = .steadyBuilder
+    @State private var selected: ForgeCoachingPersonality.Preset?
     @State private var freeText = ""
 
     var body: some View {
         NavigationStack {
             ScrollView {
                 VStack(alignment: .leading, spacing: ForgeLayout.sectionGap) {
-                    Text("How ARIA talks. Never the session plan. Pillar Training never pushes past comfort or safety, and it names real progress.")
+                    Text("Describe your training style in your own words. ARIA coaches against that — mindset and method only, never exercise form, never past comfort or safety. Progress is named when it is real.")
                         .font(HomeType.body)
                         .foregroundStyle(Color.textSecondary)
                         .forgeWrapping()
+
+                    TextField(ForgeCoachingPersonality.modelPlaceholder, text: $freeText, axis: .vertical)
+                        .font(HomeType.body)
+                        .foregroundStyle(Color.textPrimary)
+                        .lineLimit(3...8)
+                        .accessibilityLabel("Describe your training style")
+                        .accessibilityHint("This is the adaptive training model. Optional example mentions Hashira as a reference for intensity, not a preset.")
+
+                    Text("Speaking tone (optional)")
+                        .font(HomeType.micro)
+                        .foregroundStyle(Color.textTertiary)
 
                     VStack(alignment: .leading, spacing: ForgeLayout.rowGap) {
                         ForEach(ForgeCoachingPersonality.Preset.allCases, id: \.self) { preset in
                             Button {
                                 ForgeHaptics.play(.selection)
                                 withAnimation(reduceMotion ? nil : ForgeMotion.snappy) {
-                                    selected = preset
+                                    selected = selected == preset ? nil : preset
                                 }
                             } label: {
                                 HStack(alignment: .top, spacing: ForgeLayout.rowGap) {
@@ -49,11 +61,6 @@ struct CoachingPersonalityPickerView: View {
                         }
                     }
                     .forgeContentCard()
-
-                    TextField("Describe your own style (optional)", text: $freeText, axis: .vertical)
-                        .font(HomeType.body)
-                        .foregroundStyle(Color.textPrimary)
-                        .lineLimit(3...6)
                 }
                 .forgeScreenInsets(top: FDS.Spacing.lg)
             }
@@ -70,7 +77,7 @@ struct CoachingPersonalityPickerView: View {
                 .padding(.bottom, FDS.Spacing.sm)
                 .forgeBarChrome(edge: .bottom)
             }
-            .navigationTitle("Teaching personality")
+            .navigationTitle("Training style")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .navigationBarLeading) {
@@ -79,7 +86,7 @@ struct CoachingPersonalityPickerView: View {
                 }
             }
             .onAppear {
-                selected = store.userProfile.coachingPersonality.preset ?? .steadyBuilder
+                selected = store.userProfile.coachingPersonality.preset
                 freeText = store.userProfile.coachingPersonality.freeText
             }
         }

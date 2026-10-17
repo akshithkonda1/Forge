@@ -86,6 +86,8 @@ struct ARIAContextPayload: Codable, Equatable {
         var experienceLevel: String? = nil
         var coachingStyle: String? = nil
         var constraints: [String] = []
+        /// Person's own-words training style. Mindset and method only.
+        var adaptiveTrainingModel: String? = nil
     }
 
     struct ProgressDomain: Codable, Equatable {
