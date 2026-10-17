@@ -738,21 +738,26 @@ struct WorkoutEmptyState: View {
 
     private var content: some View {
         VStack(spacing: ForgeLayout.sectionGap) {
-            ForgeIconWell(systemImage: "dumbbell.fill", tint: .ember, diameter: 72)
-            VStack(spacing: FDS.Spacing.md) {
-                Text("No session on the board")
-                    .font(ForgeType.pageTitle)
-                    .foregroundStyle(Color.textPrimary)
-                    .multilineTextAlignment(.center)
-                    .forgeWrapping()
-                    .accessibilityAddTraits(.isHeader)
-                Text("ARIA writes a session from sleep, readiness, and the week you actually have — preview it here, then start when you’re ready.")
-                    .font(HomeType.body)
-                    .foregroundStyle(Color.textSecondary)
-                    .multilineTextAlignment(.center)
-                    .forgeWrapping()
-                    .padding(.horizontal, FDS.Spacing.xl)
+            VStack(spacing: ForgeLayout.blockGap) {
+                ForgeMosaicStrip(
+                    lit: Array(repeating: false, count: ForgeMosaicTracks.count),
+                    energy: .ember
+                )
+                VStack(spacing: FDS.Spacing.md) {
+                    Text("No session on the board")
+                        .font(ForgeType.pageTitle)
+                        .foregroundStyle(Color.textPrimary)
+                        .multilineTextAlignment(.center)
+                        .forgeWrapping()
+                        .accessibilityAddTraits(.isHeader)
+                    Text("ARIA writes a session from sleep, readiness, and the week you actually have — preview it here, then start when you’re ready.")
+                        .font(HomeType.body)
+                        .foregroundStyle(Color.textSecondary)
+                        .multilineTextAlignment(.center)
+                        .forgeWrapping()
+                }
             }
+            .forgeContentCard()
             if aging.showsOnTrain {
                 AgeCompareChip(snapshot: aging)
                     .id(agingStamp)

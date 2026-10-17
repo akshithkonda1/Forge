@@ -67,10 +67,11 @@ struct HomeTodayHero: View {
     @EnvironmentObject var store: AppStore
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     let action: HomePrimaryAction
+    var onDayClosed: () -> Void = {}
     @State private var showScore = false
     @State private var eventGlow = false
+    @State private var pulseTrackID: String?
 
-    private var recovery: Bool { action.usesRecoveryChrome(store: store) }
     private var showInArcMeta: Bool {
         HomeReadinessTokens.showsInArcMeta(isAccessibilitySize: dynamicTypeSize.isAccessibilitySize)
     }
@@ -105,6 +106,13 @@ struct HomeTodayHero: View {
                     ForgeVibeChip(label: snap.vibeLabel, energy: energy)
                 }
             }
+
+            TodayTrackRow(
+                tracks: snap.tracks,
+                closingTrackID: snap.closingTrackID,
+                pulseTrackID: pulseTrackID,
+                energy: energy
+            )
 
             ForgeProgressRing(
                 progress: snap.percent,
@@ -152,8 +160,6 @@ struct HomeTodayHero: View {
                 .multilineTextAlignment(.center)
                 .frame(maxWidth: .infinity)
                 .fixedSize(horizontal: false, vertical: true)
-
-            TodayTrackRow(tracks: snap.tracks, closingTrackID: snap.closingTrackID)
 
             if store.hasMeaningfulLifeSignal || store.readiness.overall > 0 {
                 HomeVitalsRow(
@@ -218,8 +224,15 @@ struct HomeTodayHero: View {
         .onChange(of: snap.completed) { old, new in
             guard new > old else { return }
             eventGlow = true
+            if let justLit = snap.tracks.last(where: { $0.done }) {
+                pulseTrackID = justLit.id
+            }
+            if new >= snap.total {
+                onDayClosed()
+            }
             DispatchQueue.main.asyncAfter(deadline: .now() + 1.4) {
                 eventGlow = false
+                pulseTrackID = nil
             }
         }
     }
@@ -228,33 +241,22 @@ struct HomeTodayHero: View {
 private struct TodayTrackRow: View {
     let tracks: [TodayProgress.Track]
     var closingTrackID: String? = nil
+    var pulseTrackID: String? = nil
+    var energy: Color = .ember
 
     var body: some View {
-        HStack(spacing: FDS.Spacing.xs) {
+        HStack(spacing: ForgeLayout.tileGap) {
             ForEach(tracks) { track in
                 let closing = track.id == closingTrackID
                 VStack(spacing: FDS.Spacing.xs) {
-                    ZStack {
-                        Circle()
-                            .fill(
-                                track.done
-                                    ? ForgeProgressChrome.plate.opacity(0.16)
-                                    : (closing ? ForgeProgressChrome.plate.opacity(0.12) : ForgeProgressChrome.miss.opacity(0.10))
-                            )
-                            .frame(width: 28, height: 28)
-                        if closing {
-                            Circle()
-                                .stroke(ForgeProgressChrome.plate.opacity(0.55), lineWidth: 1)
-                                .frame(width: 28, height: 28)
-                        }
-                        Image(systemName: track.done ? "checkmark" : track.icon)
-                            .font(.system(size: 11, weight: .semibold))
-                            .foregroundStyle(
-                                track.done
-                                    ? ForgeProgressChrome.plate
-                                    : (closing ? ForgeProgressChrome.plate : ForgeProgressChrome.miss)
-                            )
-                    }
+                    ForgeTessera(
+                        lit: track.done,
+                        energy: energy,
+                        closing: closing,
+                        pulsing: track.id == pulseTrackID,
+                        size: 32,
+                        systemImage: track.done ? "checkmark" : track.icon
+                    )
                     Text(track.title)
                         .font(HomeType.micro)
                         .foregroundColor(
@@ -267,7 +269,7 @@ private struct TodayTrackRow: View {
                 .accessibilityElement(children: .combine)
                 .accessibilityLabel(
                     closing
-                        ? "\(track.title), \(track.detail). One left — close the ring."
+                        ? "\(track.title), \(track.detail). One left — close the picture."
                         : "\(track.title), \(track.detail)"
                 )
             }
@@ -290,13 +292,7 @@ private struct HomeReadinessDetailStrip: View {
                 .foregroundColor(.textSecondary)
                 .fixedSize(horizontal: false, vertical: true)
         }
-        .padding(FDS.Spacing.md)
-        .background(Color.white.opacity(0.04))
-        .clipShape(RoundedRectangle(cornerRadius: HomeMetrics.innerRadius, style: .continuous))
-        .overlay(
-            RoundedRectangle(cornerRadius: HomeMetrics.innerRadius, style: .continuous)
-                .stroke(Color.white.opacity(0.08), lineWidth: 1)
-        )
+        .forgeWell()
     }
 
     /// A nil value (nothing measured) shows "—" rather than a fallback number.
@@ -322,20 +318,9 @@ private struct HomeLifeChipRow: View {
     let chips: [HomeLifeSentence.Chip]
 
     var body: some View {
-        FlowLayout(spacing: ForgeLayout.chipGap) {
+        ForgeFlowLayout(spacing: ForgeLayout.chipGap) {
             ForEach(chips) { chip in
-                HStack(spacing: FDS.Spacing.xs) {
-                    Image(systemName: chip.icon)
-                        .font(.system(size: 10, weight: .semibold))
-                    Text(chip.label)
-                        .font(HomeType.label)
-                }
-                .foregroundColor(.textPrimary)
-                .padding(.horizontal, FDS.Spacing.sm)
-                .padding(.vertical, FDS.Spacing.sm)
-                .background(Color.white.opacity(0.08))
-                .clipShape(Capsule())
-                .overlay(Capsule().stroke(Color.white.opacity(0.12), lineWidth: 0.8))
+                ForgeChip(label: chip.label, icon: chip.icon, energy: .ember)
             }
         }
         .accessibilityElement(children: .combine)

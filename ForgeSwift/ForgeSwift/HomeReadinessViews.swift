@@ -257,7 +257,7 @@ struct HomeVitalsRow: View {
             VStack(spacing: 2) {
                 HomeContributorRow(title: "Sleep", value: sleep, color: .steel)
                 HomeContributorRow(
-                    title: "Recovery",
+                    title: "Rest",
                     value: recovery,
                     color: HomeReadiness.color(recovery)
                 )
@@ -268,8 +268,8 @@ struct HomeVitalsRow: View {
         }
         .buttonStyle(.plain)
         .accessibilityElement(children: .ignore)
-        .accessibilityLabel("Sleep \(sleep), recovery \(recovery), load \(load)")
-        .accessibilityHint("Shows how last night, bounce-back, and today's load sit under readiness")
+        .accessibilityLabel("Sleep \(sleep), rest \(recovery), load \(load)")
+        .accessibilityHint("Shows how last night, rest, and today's load sit under readiness")
     }
 }
 

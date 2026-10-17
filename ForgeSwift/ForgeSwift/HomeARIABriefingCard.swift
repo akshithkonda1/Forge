@@ -6,7 +6,7 @@ import ForgeCore
 enum HomeInsightFlow {
     static let replyPrompt = "Let's talk about my day from today's briefing."
     static let voiceCheckInPrompt = "Voice check-in from today's briefing."
-    static let weekPlanPrompt = "Help me plan this week around recovery and training."
+    static let weekPlanPrompt = "Help me plan this week around rest and training."
     static let todayPlanPrompt = "What should I train today based on my readiness?"
 
     enum Destination: Equatable {

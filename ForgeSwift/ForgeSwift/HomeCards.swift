@@ -13,7 +13,7 @@ struct HomeWinCard: View {
     }
 
     private var subtitle: String {
-        if store.isWorkoutActive { return "Finish, then give recovery a real chance." }
+        if store.isWorkoutActive { return "Finish, then give tonight a real chance." }
         if store.didTrainToday { return "Sleep tonight is the rest of the work." }
         if store.currentStreak > 0 { return "A quiet fact, not a score to protect." }
         return "When you’re ready, ARIA will write today’s session from how you live."
@@ -31,14 +31,12 @@ struct HomeWinCard: View {
             }
         } label: {
             HStack(spacing: FDS.Spacing.md) {
-                ZStack {
-                    Circle()
-                        .fill(Color.ember.opacity(0.18))
-                        .frame(width: 42, height: 42)
-                    Image(systemName: "checkmark")
-                        .font(.system(size: 16, weight: .semibold))
-                        .foregroundStyle(Color.ember)
-                }
+                ForgeTessera(
+                    lit: store.didTrainToday || store.isWorkoutActive,
+                    energy: .ember,
+                    size: 42,
+                    systemImage: store.didTrainToday || store.isWorkoutActive ? "checkmark" : nil
+                )
                 VStack(alignment: .leading, spacing: 3) {
                     Text("TODAY")
                         .forgeSectionLabel()
@@ -105,7 +103,7 @@ struct HomeAgendaCard: View {
             rows.append((
                 "moon.zzz.fill",
                 String(format: "Sleep · %.1fh", h),
-                store.readiness.overall < 60 ? "Protect recovery tonight" : "Review wind-down",
+                store.readiness.overall < 60 ? "Protect rest tonight" : "Review wind-down",
                 .steel,
                 { store.activeTab = .sleep; store.pendingSleepTab = "night" }
             ))

@@ -211,7 +211,7 @@ struct LifestyleView: View {
     private var offlineBannerDetail: String {
         store.isHealthKitPulling
             ? "Pulling…"
-            : (reconnectingHK ? "Reconnecting…" : "Tap to reconnect for live nutrition & recovery")
+            : (reconnectingHK ? "Reconnecting…" : "Tap to reconnect for live nutrition and readiness")
     }
 
     /// Connection-needed banner: compact warning-tinted card, agenda-row anatomy.
@@ -252,7 +252,7 @@ struct LifestyleView: View {
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
-        .accessibilityHint("Tap to reconnect for live nutrition & recovery")
+        .accessibilityHint("Tap to reconnect for live nutrition and readiness")
     }
 
     /// The one pinned element: the segment rail. Bar chrome only once pinned,
@@ -298,7 +298,7 @@ struct LifestyleView: View {
             ForgeEmptyStateCard(
                 icon: "heart.text.square.fill",
                 title: "Connect Apple Health to unlock lifestyle",
-                message: "Nutrition, recovery, and today’s focus come from your live metrics — not a blank chart.",
+                message: "Nutrition, readiness, and today’s focus come from your live metrics — not a blank chart.",
                 accent: .ember,
                 cta: "Reconnect Apple Health",
                 action: { Task { await store.reconnectHealthKit() } }

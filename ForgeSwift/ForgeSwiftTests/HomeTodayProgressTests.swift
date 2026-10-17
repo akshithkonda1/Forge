@@ -295,6 +295,10 @@ final class HomeTodayProgressTests: XCTestCase {
         XCTAssertTrue(HomeCoachCopy.easyDayLow.localizedCaseInsensitiveContains("lighter win"))
         XCTAssertFalse(HomeCoachCopy.easyDayLow.localizedCaseInsensitiveContains("fail"))
         XCTAssertFalse(TodayProgress.closedLine.localizedCaseInsensitiveContains("recovery week"))
+        XCTAssertEqual(TodayProgress.trackCount, ForgeMosaicTracks.count)
+        XCTAssertFalse(CelebrationOverlay.title.localizedCaseInsensitiveContains("recovery"))
+        XCTAssertFalse(CelebrationOverlay.line.localizedCaseInsensitiveContains("recovery"))
+        XCTAssertFalse(HomeInsightFlow.weekPlanPrompt.localizedCaseInsensitiveContains("recovery"))
         for line in [
             TodayProgress.closingLine(score: 40),
             TodayProgress.vibeLine(score: 40, empty: false, hasLife: true, remaining: 2, percent: 60),

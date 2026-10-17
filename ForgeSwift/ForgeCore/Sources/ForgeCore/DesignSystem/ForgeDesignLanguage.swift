@@ -53,6 +53,9 @@ public enum ForgeDesignLanguage: Sendable {
     public static let oneCardAnatomyLaw =
         "One card anatomy on every screen: forgeContentCard, ForgeCardHeader, ForgePageHeader / ForgeScreenStack, ForgeLayout spacing. Nested tiles use forgeWell. Deleted HUD pieces, duplicate widgets, and extra card APIs must not resurface."
 
+    public static let creativeWithinTheLineLaw =
+        "Be creative, don't cross the line. Distinctive composition, tessera visualization, personal touches, still celebratory moments, and unlit empty mosaics. Never change typography or the ARIA mark. No HUD, no AI slop, no always-on animation, no recovery wording, no diagnosis."
+
     public static let interactionLaw =
         "One primary CTA. Skip always visible on teaching. One gesture per beat, in the real UI."
 
@@ -69,6 +72,7 @@ public enum ForgeDesignLanguage: Sendable {
             noSlopLaw,
             groundedInterfaceLaw,
             oneCardAnatomyLaw,
+            creativeWithinTheLineLaw,
         ]
     }
 }

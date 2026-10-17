@@ -41,6 +41,18 @@ resurface. `scripts/check-legacy-ui.py` (Repo Hygiene) fails if
 `HudChrome`, `AriaOrb`, `HomeAuroraBackground`, `forgePlate`, or
 `forgeGlassCard` call sites return.
 
+## Be creative, don't cross the line
+
+Within the one card anatomy, take swings on composition, data visualization,
+personal touches, celebratory micro-moments, and empty states so the
+interface feels distinctive — not a template dashboard. A win lights a
+tessera. Readiness is a sweep on that picture. Empty states show the same
+picture unlit. A closed day is a haptic plus a still mosaic, not confetti.
+
+Never cross: typography, the ARIA mark, HUD, AI slop, resurrected legacy,
+always-on animation, "recovery" wording, or diagnosis. Keep what already
+works.
+
 ## Signature shapes
 
 - **Tessera** — continuous rounded rectangle at `Radius.lg` (18). Cards, mosaic

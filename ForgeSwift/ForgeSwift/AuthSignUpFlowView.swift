@@ -778,9 +778,9 @@ private struct SignUpCelebrationOverlay: View {
     var body: some View {
         ZStack {
             Color.black.opacity(0.55).ignoresSafeArea()
-            VStack(spacing: ForgeLayout.sectionGap) {
-                ZStack {
-                    PremiumPresenceBloom(size: 140, accent: .ember, frost: ForgeProgressChrome.plate, live: false)
+            VStack(alignment: .leading, spacing: ForgeLayout.blockGap) {
+                HStack {
+                    Spacer(minLength: 0)
                     AuroraOrbView(
                         state: .idle,
                         amplitude: 0.5,
@@ -788,25 +788,32 @@ private struct SignUpCelebrationOverlay: View {
                         size: 88,
                         followPresence: false
                     )
+                    .environment(\.forgeMinimalAnimation, true)
+                    Spacer(minLength: 0)
                 }
                 .accessibilityHidden(true)
 
-                VStack(spacing: ForgeLayout.pairGap) {
+                ForgeMosaicStrip(
+                    lit: Array(repeating: false, count: ForgeMosaicTracks.count),
+                    energy: .ember
+                )
+
+                VStack(alignment: .leading, spacing: ForgeLayout.pairGap) {
                     Text("Welcome")
                         .forgeSectionLabel()
                     Text(name.isEmpty ? "Let’s learn how you live." : "Nice to meet you, \(name).")
                         .font(FDS.TypeScale.Dynamic.pageTitle)
-                        .foregroundColor(.white)
-                        .multilineTextAlignment(.center)
+                        .foregroundColor(.textPrimary)
+                        .multilineTextAlignment(.leading)
                         .accessibilityAddTraits(.isHeader)
                 }
 
                 Text("ARIA will ask a few questions so today’s session fits you.")
                     .font(HomeType.body)
                     .foregroundColor(.textSecondary)
-                    .multilineTextAlignment(.center)
                     .forgeWrapping()
             }
+            .forgeContentCard()
             .padding(.horizontal, ForgeLayout.screenInset)
             .scaleEffect(scale)
             .opacity(opacity)

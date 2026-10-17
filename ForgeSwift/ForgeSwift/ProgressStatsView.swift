@@ -228,9 +228,9 @@ struct StatsMosaicCard: View {
                         .foregroundStyle(Color.textTertiary)
                         .lineLimit(1)
                     Spacer(minLength: 0)
-                    Circle()
+                    RoundedRectangle(cornerRadius: 1.5, style: .continuous)
                         .fill(tileDotColor(tile))
-                        .frame(width: 6, height: 6)
+                        .frame(width: 7, height: 7)
                         .accessibilityHidden(true)
                 }
                 Text(tile.headline)

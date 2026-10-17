@@ -720,6 +720,105 @@ struct ForgeIconWell: View {
     }
 }
 
+// MARK: - Tessera mosaic
+//
+// The picture of a day: Sleep, Train, Water, Move, Habits. A win lights one
+// tile. Empty states show the same picture unlit. Not circles, not a HUD.
+
+enum ForgeMosaicTracks {
+    static let titles = ["Sleep", "Train", "Water", "Move", "Habits"]
+    static let icons = [
+        "moon.fill",
+        "dumbbell.fill",
+        "drop.fill",
+        "figure.walk",
+        "checkmark",
+    ]
+    static let count = 5
+}
+
+/// One tessera of the day-picture. Lit fill + hairline; open is a quiet plate.
+/// `pulsing` is an event (a tile just closed), never an idle loop.
+struct ForgeTessera: View {
+    var lit: Bool
+    var energy: Color = .ember
+    var closing: Bool = false
+    var pulsing: Bool = false
+    var size: CGFloat = 32
+    var systemImage: String? = nil
+
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    var body: some View {
+        let radius = FDS.Radius.sm
+        let edge = closing || pulsing
+            ? energy.opacity(0.55)
+            : (lit ? energy.opacity(0.32) : Color.white.opacity(0.10))
+        ZStack {
+            RoundedRectangle(cornerRadius: radius, style: .continuous)
+                .fill(lit ? energy.opacity(0.18) : Color.white.opacity(0.045))
+            RoundedRectangle(cornerRadius: radius, style: .continuous)
+                .stroke(edge, lineWidth: pulsing || closing ? ForgeUX.stroke : ForgeUX.hairline)
+            if let systemImage {
+                Image(systemName: systemImage)
+                    .font(.system(size: size * 0.34, weight: .semibold))
+                    .foregroundStyle(lit || closing ? energy : Color.textTertiary)
+            }
+        }
+        .frame(width: size, height: size)
+        .scaleEffect(pulsing && !reduceMotion ? 1.06 : 1)
+        .animation(reduceMotion ? nil : ForgeMotion.snappy, value: pulsing)
+        .accessibilityHidden(true)
+    }
+}
+
+/// Five tesserae in a row — the same picture Home, Progress, and empty states share.
+struct ForgeMosaicStrip: View {
+    var lit: [Bool]
+    var icons: [String] = ForgeMosaicTracks.icons
+    var closingIndex: Int? = nil
+    var pulseIndex: Int? = nil
+    var energy: Color = .ember
+    var size: CGFloat = 32
+
+    var body: some View {
+        HStack(spacing: ForgeLayout.tileGap) {
+            ForEach(0..<ForgeMosaicTracks.count, id: \.self) { index in
+                VStack(spacing: FDS.Spacing.xs) {
+                    ForgeTessera(
+                        lit: lit.indices.contains(index) ? lit[index] : false,
+                        energy: energy,
+                        closing: closingIndex == index,
+                        pulsing: pulseIndex == index,
+                        size: size,
+                        systemImage: icons.indices.contains(index) ? icons[index] : nil
+                    )
+                    Text(ForgeMosaicTracks.titles[index])
+                        .font(HomeType.micro)
+                        .foregroundStyle(
+                            (lit.indices.contains(index) && lit[index]) || closingIndex == index
+                                ? Color.textPrimary
+                                : Color.textTertiary
+                        )
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.8)
+                }
+                .frame(maxWidth: .infinity)
+            }
+        }
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(spoken)
+    }
+
+    private var spoken: String {
+        let names = ForgeMosaicTracks.titles.enumerated().map { index, title in
+            let on = lit.indices.contains(index) && lit[index]
+            return on ? "\(title) lit" : "\(title) open"
+        }
+        return names.joined(separator: ", ")
+    }
+}
+
 // MARK: - Metric row
 
 /// Label, spacer, value: Home's contributor row. Stack a group of them in

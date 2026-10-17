@@ -7,6 +7,7 @@ struct HomeView: View {
     @State private var showHeaderBlur = false
     @State private var showTrend = false
     @State private var proactiveInsight: String?
+    @State private var celebrationKey: Int?
     private var primaryAction: HomePrimaryAction {
         HomePrimaryAction.resolve(store: store)
     }
@@ -25,7 +26,9 @@ struct HomeView: View {
                 ForgeScreenStack {
                         HomeHeaderView()
 
-                        HomeTodayHero(action: primaryAction)
+                        HomeTodayHero(action: primaryAction) {
+                            celebrationKey = Int(Date().timeIntervalSince1970)
+                        }
                         ReadinessForecastCard()
 
                         if !store.quietMode {
@@ -99,6 +102,13 @@ struct HomeView: View {
             if showHeaderBlur {
                 HomeScrollMiniHeader()
                     .forgeTransition(.opacity.combined(with: .move(edge: .top)))
+            }
+
+            if let celebrationKey {
+                CelebrationOverlay(key: celebrationKey) {
+                    self.celebrationKey = nil
+                }
+                .zIndex(20)
             }
 
         }
