@@ -332,16 +332,29 @@ struct HomeLifestylePreviewCard: View {
 
 struct HomeDayPreviewStrip: View {
     @EnvironmentObject var store: AppStore
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
     var body: some View {
         VStack(alignment: .leading, spacing: FDS.Spacing.md) {
-            HStack {
-                Text("DAY PREVIEW")
-                    .forgeSectionLabel()
-                Spacer()
-                Button("Sleep") { store.activeTab = .sleep }
-                    .font(ForgeFont.sans(12, weight: .medium))
-                    .foregroundColor(.ember)
+            if dynamicTypeSize >= .accessibility3 {
+                VStack(alignment: .leading, spacing: FDS.Spacing.sm) {
+                    Text("DAY PREVIEW")
+                        .forgeSectionLabel()
+                    Button("Sleep") { store.activeTab = .sleep }
+                        .font(ForgeFont.sans(12, weight: .medium))
+                        .foregroundColor(.ember)
+                        .forgeTapOutset(vertical: 14, horizontal: 8)
+                }
+            } else {
+                HStack {
+                    Text("DAY PREVIEW")
+                        .forgeSectionLabel()
+                    Spacer()
+                    Button("Sleep") { store.activeTab = .sleep }
+                        .font(ForgeFont.sans(12, weight: .medium))
+                        .foregroundColor(.ember)
+                        .forgeTapOutset(vertical: 14, horizontal: 8)
+                }
             }
 
             // The tiles bleed to the screen edge instead of stopping at the page
@@ -655,6 +668,8 @@ struct HomeTrendSection: View {
                             .rotationEffect(.degrees(isExpanded ? 180 : 0))
                     }
                 }
+                .frame(minHeight: ForgeUX.minTap)
+                .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
             .disabled(trendData.isEmpty)

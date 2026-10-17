@@ -89,12 +89,21 @@ struct HomeTodayHero: View {
         let snap = progress
         let energy = ForgeProgressChrome.energy(for: snap.vibeScore)
         VStack(alignment: .leading, spacing: HomeMetrics.heroStackGap) {
-            HStack {
-                Text(TodayProgress.headerTitle)
-                    .forgeSectionLabel()
-                    .foregroundStyle(ForgeProgressChrome.plate)
-                Spacer()
-                ForgeVibeChip(label: snap.vibeLabel, energy: energy)
+            if dynamicTypeSize >= .accessibility3 {
+                VStack(alignment: .leading, spacing: FDS.Spacing.sm) {
+                    Text(TodayProgress.headerTitle)
+                        .forgeSectionLabel()
+                        .foregroundStyle(HudChrome.plate)
+                    HudVibeChip(label: snap.vibeLabel, energy: energy)
+                }
+            } else {
+                HStack {
+                    Text(TodayProgress.headerTitle)
+                        .forgeSectionLabel()
+                        .foregroundStyle(HudChrome.plate)
+                    Spacer()
+                    HudVibeChip(label: snap.vibeLabel, energy: energy)
+                }
             }
 
             ForgeProgressRing(
@@ -183,8 +192,9 @@ struct HomeTodayHero: View {
                         .font(HomeType.status)
                         .foregroundColor(.textPrimary)
                         .multilineTextAlignment(.leading)
-                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .frame(maxWidth: .infinity, minHeight: ForgeUX.minTap, alignment: .leading)
                         .fixedSize(horizontal: false, vertical: true)
+                        .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
                 .accessibilityLabel(aging.oneBreathLine)
@@ -386,7 +396,7 @@ private struct HomePrimaryCTA: View {
             .accessibilityLabel(action.title)
             .accessibilityHint(action.subtitle(store: store) ?? "Opens today's session")
 
-            HStack(spacing: FDS.Spacing.sm) {
+            ForgeAdaptiveStack(spacing: FDS.Spacing.sm, threshold: .accessibility3) {
                 Button {
                     let sentence = HomeLifeSentence.build(store: store)
                     store.openChat(
@@ -411,6 +421,7 @@ private struct HomePrimaryCTA: View {
                         RoundedRectangle(cornerRadius: HomeMetrics.innerRadius, style: .continuous)
                             .stroke(Color.white.opacity(0.10), lineWidth: 1)
                     )
+                    .forgeTapOutset(vertical: 8)
                 }
                 .buttonStyle(.plain)
                 .accessibilityLabel("Why this session")
@@ -434,6 +445,7 @@ private struct HomePrimaryCTA: View {
                         RoundedRectangle(cornerRadius: HomeMetrics.innerRadius, style: .continuous)
                             .stroke(Color.vitality.opacity(0.28), lineWidth: 1)
                     )
+                    .forgeTapOutset(vertical: 8)
                 }
                 .buttonStyle(.plain)
                 .accessibilityLabel("Lifestyle")

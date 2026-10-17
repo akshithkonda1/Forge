@@ -48,6 +48,25 @@ final class ForgeChromeTests: XCTestCase {
         XCTAssertTrue(ForgeDesignTokens.Motion.eventOnly)
         XCTAssertFalse(HomeReadinessTokens.liveGlowDefault)
     }
+
+    func testCardPaddingHoldsAt24AndDecorativeClocksStayAtOrUnder12Hz() {
+        XCTAssertEqual(FDS.Spacing.xl, 24)
+        XCTAssertEqual(HomeMetrics.cardPadding, 24)
+        XCTAssertEqual(ForgeLayout.cardPadding, HomeMetrics.cardPadding)
+        XCTAssertEqual(HomeMetrics.cardPadding, FDS.Spacing.xl)
+        XCTAssertLessThanOrEqual(CelebrationOverlay.tickHz, ForgeMotion.maxTickHz)
+        XCTAssertLessThanOrEqual(MusicControlBar.tickHz, ForgeMotion.maxTickHz)
+        XCTAssertLessThanOrEqual(TypingIndicator.tickHz, ForgeMotion.maxTickHz)
+        XCTAssertEqual(CelebrationOverlay.tickInterval, 1.0 / CelebrationOverlay.tickHz, accuracy: 0.0001)
+        XCTAssertEqual(MusicControlBar.tickInterval, 1.0 / MusicControlBar.tickHz, accuracy: 0.0001)
+        XCTAssertEqual(TypingIndicator.tickInterval, 1.0 / TypingIndicator.tickHz, accuracy: 0.0001)
+        XCTAssertTrue(CelebrationOverlay.isClockPaused(reduceMotion: true, sceneActive: true, onscreen: true))
+        XCTAssertTrue(MusicControlBar.isClockPaused(reduceMotion: false, sceneActive: false, onscreen: true))
+        XCTAssertTrue(TypingIndicator.isClockPaused(reduceMotion: false, sceneActive: true, onscreen: false))
+        XCTAssertFalse(CelebrationOverlay.isClockPaused(reduceMotion: false, sceneActive: true, onscreen: true))
+        XCTAssertFalse(MusicControlBar.isClockPaused(reduceMotion: false, sceneActive: true, onscreen: true))
+        XCTAssertFalse(TypingIndicator.isClockPaused(reduceMotion: false, sceneActive: true, onscreen: true))
+    }
 }
 
 private extension FDS {

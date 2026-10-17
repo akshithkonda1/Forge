@@ -236,6 +236,8 @@ struct HomeHeaderView: View {
                         .stroke(HomeReadiness.color(store.readiness.overall).opacity(0.55), lineWidth: 1.5)
                         .padding(-2)
                 )
+                .frame(minWidth: ForgeUX.minTap, minHeight: ForgeUX.minTap)
+                .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
             .accessibilityLabel("Profile")
@@ -289,6 +291,7 @@ private struct HomeDataStatusPill: View {
             .background(Color.white.opacity(0.05))
             .clipShape(Capsule())
             .overlay(Capsule().stroke(Color.white.opacity(0.08), lineWidth: 1))
+            .forgeTapOutset(vertical: 14, horizontal: 8)
         }
         .buttonStyle(.plain)
         .disabled(isLive || reconnecting)

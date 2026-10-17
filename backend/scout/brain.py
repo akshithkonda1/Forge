@@ -221,7 +221,7 @@ class GrokBrain:
         )
         user = f"Topic query: {scrub_query(query)}\n\nSOURCES:\n{blocks}"
         try:
-            raw = self._converse(_SYNTH_SYSTEM, user, max_tokens=700, timeout=9.0)
+            raw = self._converse(_SYNTH_SYSTEM, user, max_tokens=512, timeout=9.0)
         except Exception:
             return self.fallback.synthesize(query, pages)
         synthesis = self._validated(_first_json(raw), pages)
