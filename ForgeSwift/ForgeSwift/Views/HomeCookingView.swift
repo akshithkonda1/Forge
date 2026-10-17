@@ -559,7 +559,7 @@ private struct MealDetailSheet: View {
                 .font(HomeType.label)
                 .monospacedDigit()
                 .foregroundStyle(Color.ember)
-                .hudInArcText()
+                .forgeGlanceText()
                 .frame(width: badge, height: badge)
                 .background(Circle().fill(Color.ember.opacity(0.16)))
             Text(text)

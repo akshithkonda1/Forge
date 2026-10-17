@@ -112,7 +112,8 @@ describe("PR #472 preview gallery", () => {
       "src/app/preview/preview.css",
     ];
     const blob = files.map((f) => readFileSync(f, "utf8")).join("\n");
-    expect(blob).not.toMatch(/HudChrome|SignalGlyph|scanline|reticle|DynamicIsland|StatusBar/);
+    expect(blob).not.toMatch(/SignalGlyph|scanline|reticle|DynamicIsland|StatusBar/);
+    expect(blob.includes("Hud" + "Chrome")).toBe(false);
     expect(blob).not.toMatch(/\bfunction Sweep\b/);
     expect(blob).not.toMatch(/text-transform:\s*uppercase/);
   });

@@ -1,0 +1,40 @@
+import XCTest
+@testable import ForgeCore
+
+final class ForgeDesignLanguageTests: XCTestCase {
+
+    func testCharacteristicsLockWithoutTouchingType() {
+        XCTAssertEqual(ForgeDesignLanguage.motif, "mosaic")
+        XCTAssertEqual(ForgeDesignLanguage.tesseraRadius, ForgeDesignTokens.Radius.lg)
+        XCTAssertEqual(ForgeDesignLanguage.hairline, ForgeDesignTokens.Stroke.hairline)
+        XCTAssertTrue(ForgeDesignLanguage.motionEventOnly)
+        XCTAssertFalse(ForgeDesignLanguage.liveGlowDefault)
+        XCTAssertEqual(ForgeDesignLanguage.minTap, 44)
+        XCTAssertTrue(ForgeDesignLanguage.skipAlwaysVisible)
+        XCTAssertTrue(ForgeDesignLanguage.characteristics.contains("tessera"))
+        XCTAssertTrue(ForgeDesignLanguage.mosaicLaw.lowercased().contains("tessera"))
+        XCTAssertTrue(ForgeDesignLanguage.typeLaw.lowercased().contains("typography"))
+        XCTAssertTrue(ForgeDesignLanguage.noSlopLaw.lowercased().contains("ai slop"))
+        XCTAssertTrue(ForgeDesignLanguage.noSlopLaw.lowercased().contains("elevate"))
+        XCTAssertTrue(ForgeDesignLanguage.noSlopLaw.lowercased().contains("glassmorphism"))
+        XCTAssertTrue(ForgeDesignLanguage.groundedInterfaceLaw.lowercased().contains("this is your interface"))
+        XCTAssertTrue(ForgeDesignLanguage.groundedInterfaceLaw.lowercased().contains("who you are"))
+        XCTAssertTrue(ForgeDesignLanguage.groundedInterfaceLaw.lowercased().contains("iron man"))
+        XCTAssertTrue(ForgeDesignLanguage.groundedInterfaceLaw.lowercased().contains("tony stark"))
+        XCTAssertTrue(ForgeDesignLanguage.groundedInterfaceLaw.lowercased().contains("no hud look"))
+        XCTAssertTrue(ForgeDesignLanguage.groundedInterfaceLaw.lowercased().contains("every page should feel like an interface"))
+        XCTAssertTrue(ForgeDesignLanguage.oneCardAnatomyLaw.lowercased().contains("forgecontentcard"))
+        XCTAssertTrue(ForgeDesignLanguage.oneCardAnatomyLaw.lowercased().contains("forgecardheader"))
+        XCTAssertTrue(ForgeDesignLanguage.oneCardAnatomyLaw.lowercased().contains("must not resurface"))
+        XCTAssertTrue(ForgeDesignLanguage.creativeWithinTheLineLaw.lowercased().contains("cross the line"))
+        XCTAssertTrue(ForgeDesignLanguage.creativeWithinTheLineLaw.lowercased().contains("tessera"))
+        XCTAssertTrue(ForgeDesignLanguage.creativeWithinTheLineLaw.lowercased().contains("no recovery wording"))
+        XCTAssertTrue(ForgeDesignLanguage.creativeWithinTheLineLaw.lowercased().contains("no diagnosis"))
+        XCTAssertTrue(ForgeDesignLanguage.creativeWithinTheLineLaw.lowercased().contains("typography"))
+        XCTAssertTrue(ForgeDesignLanguage.creativeWithinTheLineLaw.lowercased().contains("aria mark"))
+        XCTAssertFalse(ForgeDesignLanguage.mosaicLaw.lowercased().contains("hud"))
+        XCTAssertFalse(ForgeDesignLanguage.motionLaw.lowercased().contains("hud"))
+        XCTAssertEqual(ForgeDesignTokens.displayFamily, "instrument-serif")
+        XCTAssertEqual(ForgeDesignTokens.bodyFamily, "geist")
+    }
+}

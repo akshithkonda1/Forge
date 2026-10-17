@@ -10,7 +10,7 @@ struct ChatHeaderView: View {
     @ScaledMetric(relativeTo: .caption) private var ringSize: CGFloat = 38
 
     private var scoreColor: Color {
-        store.readiness.hasScore ? HomeReadiness.color(store.readiness.overall) : HudChrome.miss
+        store.readiness.hasScore ? HomeReadiness.color(store.readiness.overall) : ForgeProgressChrome.miss
     }
 
     var body: some View {
@@ -162,7 +162,7 @@ struct ChatHeaderView: View {
                 .font(HomeType.label)
                 .monospacedDigit()
                 .foregroundColor(.textPrimary)
-                .hudInArcText()
+                .forgeGlanceText()
                 .padding(FDS.Spacing.xs)
         }
         .frame(width: ringDiameter, height: ringDiameter)

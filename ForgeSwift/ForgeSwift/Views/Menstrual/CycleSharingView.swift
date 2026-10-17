@@ -553,7 +553,7 @@ private struct SharingOptionRow: View {
                         .multilineTextAlignment(.leading)
                         .fixedSize(horizontal: false, vertical: true)
                     if recommended {
-                        HudVibeChip(label: "Recommended", energy: Color.indigo)
+                        ForgeVibeChip(label: "Recommended", energy: Color.indigo)
                     }
                 }
                 Text(detail)

@@ -78,8 +78,7 @@ struct HabitLoopCard: View {
             .cornerRadius(FDS.Radius.md)
             .overlay(RoundedRectangle(cornerRadius: FDS.Radius.md).stroke(Color.ember.opacity(0.15), lineWidth: 1))
         }
-        .padding(FDS.Spacing.lg)
-        .forgeGlassCard(cornerRadius: FDS.Radius.lg, accent: .ember)
+        .forgeContentCard(padding: FDS.Spacing.lg)
     }
 }
 
@@ -179,8 +178,7 @@ struct HabitLoopListCard: View {
                 }
             }
         }
-        .padding(FDS.Spacing.lg)
-        .forgeGlassCard(cornerRadius: FDS.Radius.xl, accent: .ember)
+        .forgeContentCard(padding: FDS.Spacing.lg)
         .onAppear {
             Task { await vm.syncIfNeeded() }
             pendingFeedback = HabitFeedbackStore.pendingFeedback()

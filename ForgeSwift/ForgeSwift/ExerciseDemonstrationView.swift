@@ -334,7 +334,7 @@ struct FormCheckCameraView: View {
         switch status {
         case .good: return Color.vitality
         case .adjust: return Color.amber
-        case .stop: return HudChrome.miss
+        case .stop: return ForgeProgressChrome.miss
         }
     }
 
@@ -370,7 +370,7 @@ struct FormCheckCameraView: View {
             Text("\(fb.score)")
                 .font(HomeType.metric)
                 .foregroundStyle(Color.white)
-                .hudInArcText()
+                .forgeGlanceText()
                 .padding(FDS.Spacing.sm)
         }
         .frame(width: size, height: size)

@@ -170,7 +170,7 @@ struct ActiveWorkoutView: View {
 
     private func sessionLayout(exercise: Exercise) -> some View {
         VStack(spacing: 0) {
-            cockpitHeader
+            sessionHeader
             exerciseProgressRow
             if !dynamicTypeSize.isAccessibilitySize {
                 liveMetricsBar
@@ -240,9 +240,9 @@ struct ActiveWorkoutView: View {
             cues: currentDef?.cues ?? [])
     }
 
-    // MARK: Cockpit Header
+    // MARK: Session header
 
-    private var cockpitHeader: some View {
+    private var sessionHeader: some View {
         ForgeAdaptiveStack(spacing: FDS.Spacing.md) {
             HStack(spacing: FDS.Spacing.md) {
                 zoneAccentBar
@@ -422,7 +422,7 @@ struct ActiveWorkoutView: View {
 
     // MARK: Exercise Card
 
-    /// Cockpit order: the set hero (load and reps), the Log Set primary, then coaching.
+    /// Session order: the set hero (load and reps), the Log Set primary, then coaching.
     private func exerciseCard(exercise: Exercise) -> some View {
         VStack(spacing: ForgeLayout.sectionGap) {
             setHeroPlate(exercise: exercise)
@@ -453,7 +453,7 @@ struct ActiveWorkoutView: View {
             ForgeChip(label: "\(recommendation.restSeconds)s rest", icon: "clock.fill")
         }
         .frame(maxWidth: .infinity, alignment: .leading)
-        .hudPlate(energy: Color.ember)
+        .forgeContentCard()
         .accessibilityElement(children: .contain)
     }
 
@@ -472,11 +472,11 @@ struct ActiveWorkoutView: View {
                 setDots(exercise: exercise)
             }
             Spacer(minLength: ForgeLayout.rowGap)
-            HudProgressRing(
+            ForgeProgressRing(
                 progress: setProgressPercent(exercise: exercise),
                 energy: Color.ember,
                 size: 56,
-                stroke: HudChrome.compactStroke,
+                stroke: ForgeProgressChrome.compactStroke,
                 eventGlow: setLoggedPulse
             ) { EmptyView() }
         }

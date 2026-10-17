@@ -78,7 +78,7 @@ struct MacroRingsCard: View {
     }
 
     private var calorieMetaColor: Color {
-        isOverTarget ? HudChrome.miss : Color.ember
+        isOverTarget ? ForgeProgressChrome.miss : Color.ember
     }
 
     var body: some View {
@@ -91,7 +91,7 @@ struct MacroRingsCard: View {
             legend
         }
         .frame(maxWidth: .infinity, alignment: .leading)
-        .hudPlate(energy: .amber)
+        .forgeContentCard()
         .accessibilityElement(children: .contain)
         .onAppear { appeared = true }
     }
@@ -134,12 +134,12 @@ struct MacroRingsCard: View {
             Text("\(totalCal)")
                 .font(HomeType.heroScore)
                 .foregroundStyle(Color.textPrimary)
-                .hudInArcText()
+                .forgeGlanceText()
                 .contentTransition(.numericText())
             Text("of \(targetCal) kcal")
                 .font(HomeType.micro)
                 .foregroundStyle(Color.textTertiary)
-                .hudInArcText()
+                .forgeGlanceText()
         }
         .frame(maxWidth: 68)
     }
@@ -186,7 +186,7 @@ struct MacroRingsCard: View {
             if overBy > 0 {
                 Text("\(overBy)\(macro.unit) over")
                     .font(HomeType.micro)
-                    .foregroundStyle(HudChrome.miss)
+                    .foregroundStyle(ForgeProgressChrome.miss)
                     .monospacedDigit()
             }
         }
@@ -270,7 +270,7 @@ struct AINutritionCoachCard: View {
                 .font(HomeType.micro)
                 .foregroundStyle(Color.textTertiary)
             if liveInsight != nil {
-                HudVibeChip(label: vm.aiInsightsLive ? "LIVE" : "ARIA", energy: Color.amber)
+                ForgeVibeChip(label: vm.aiInsightsLive ? "LIVE" : "ARIA", energy: Color.amber)
             }
         }
     }
@@ -689,7 +689,7 @@ struct WaterIntakeCard: View {
             if consumed > target {
                 Text("+\(consumed - target) over")
                     .font(HomeType.micro)
-                    .foregroundStyle(HudChrome.miss)
+                    .foregroundStyle(ForgeProgressChrome.miss)
                     .monospacedDigit()
             }
         }
@@ -759,8 +759,8 @@ struct MicronutrientsCard: View {
 
     private func microRow(_ m: Micro) -> some View {
         let isOver = m.limit && m.current > m.target
-        let barColor: Color = isOver ? HudChrome.miss : m.color
-        let valueColor: Color = isOver ? HudChrome.miss : Color.textPrimary
+        let barColor: Color = isOver ? ForgeProgressChrome.miss : m.color
+        let valueColor: Color = isOver ? ForgeProgressChrome.miss : Color.textPrimary
         let fraction = m.target > 0 ? m.current / m.target : 0
         return VStack(alignment: .leading, spacing: ForgeLayout.pairGap) {
             HStack(spacing: FDS.Spacing.sm) {

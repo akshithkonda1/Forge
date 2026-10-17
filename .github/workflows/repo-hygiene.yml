@@ -232,3 +232,16 @@ jobs:
 
       - name: Check ARIA mark assets
         run: python3 scripts/check-aria-mark.py
+
+  legacy-ui:
+    name: Deleted legacy UI stays gone
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      # HUD chrome, AriaOrb, HomeAuroraBackground, a second card API, and
+      # other pre-rewrite widgets compile clean if they return. This fails
+      # the moment a deleted identifier is named in Swift or the web app.
+      - name: Scan for resurrected HUD / pre-rewrite UI
+        run: python3 scripts/check-legacy-ui.py

@@ -254,10 +254,6 @@ final class TrainSleepUsableTests: XCTestCase {
         XCTAssertEqual(HomeTrendSeries.loadingVoiceOver, "Sleep, last seven nights, loading")
         XCTAssertEqual(HomeTrendSeries.expandHint, "Shows more detail")
         XCTAssertGreaterThanOrEqual(HomeMetrics.heroFieldSize, 90)
-        XCTAssertGreaterThanOrEqual(HomeMetrics.heroFieldSize, AriaRingFieldGeometry.heroMinimumSize)
-        XCTAssertGreaterThanOrEqual(HomeRingField.tickHz, 4)
-        XCTAssertLessThanOrEqual(HomeRingField.tickHz, 6)
-        XCTAssertEqual(HomeRingField.tickInterval, 1.0 / HomeRingField.tickHz, accuracy: 0.0001)
     }
 
     func testHomeTrendSeriesDropsUnparseableDatesWithoutCountingThem() {

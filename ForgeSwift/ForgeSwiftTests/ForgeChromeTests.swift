@@ -48,6 +48,31 @@ final class ForgeChromeTests: XCTestCase {
         XCTAssertTrue(ForgeDesignTokens.Motion.eventOnly)
         XCTAssertFalse(HomeReadinessTokens.liveGlowDefault)
     }
+
+    func testCardPaddingHoldsAt24AndDecorativeClocksStayAtOrUnder12Hz() {
+        XCTAssertEqual(FDS.Spacing.xl, 24)
+        XCTAssertEqual(HomeMetrics.cardPadding, 24)
+        XCTAssertEqual(ForgeLayout.cardPadding, HomeMetrics.cardPadding)
+        XCTAssertEqual(HomeMetrics.cardPadding, FDS.Spacing.xl)
+        XCTAssertEqual(HomeMetrics.cardRadius, FDS.Radius.xl)
+        XCTAssertEqual(ForgeLayout.sectionGap, HomeMetrics.sectionGap)
+        XCTAssertEqual(ForgeLayout.screenInset, HomeMetrics.inset)
+        XCTAssertEqual(CelebrationOverlay.tickHz, 0, accuracy: 0.0001)
+        XCTAssertTrue(CelebrationOverlay.isClockPaused(reduceMotion: false, sceneActive: true, onscreen: true))
+        XCTAssertTrue(CelebrationOverlay.isClockPaused(reduceMotion: true, sceneActive: true, onscreen: true))
+        XCTAssertFalse(CelebrationOverlay.title.localizedCaseInsensitiveContains("recovery"))
+        XCTAssertFalse(CelebrationOverlay.line.localizedCaseInsensitiveContains("recovery"))
+        XCTAssertEqual(ForgeMosaicTracks.count, 5)
+        XCTAssertEqual(ForgeMosaicTracks.titles, ["Sleep", "Train", "Water", "Move", "Habits"])
+        XCTAssertLessThanOrEqual(MusicControlBar.tickHz, ForgeMotion.maxTickHz)
+        XCTAssertLessThanOrEqual(TypingIndicator.tickHz, ForgeMotion.maxTickHz)
+        XCTAssertEqual(MusicControlBar.tickInterval, 1.0 / MusicControlBar.tickHz, accuracy: 0.0001)
+        XCTAssertEqual(TypingIndicator.tickInterval, 1.0 / TypingIndicator.tickHz, accuracy: 0.0001)
+        XCTAssertTrue(MusicControlBar.isClockPaused(reduceMotion: false, sceneActive: false, onscreen: true))
+        XCTAssertTrue(TypingIndicator.isClockPaused(reduceMotion: false, sceneActive: true, onscreen: false))
+        XCTAssertFalse(MusicControlBar.isClockPaused(reduceMotion: false, sceneActive: true, onscreen: true))
+        XCTAssertFalse(TypingIndicator.isClockPaused(reduceMotion: false, sceneActive: true, onscreen: true))
+    }
 }
 
 private extension FDS {

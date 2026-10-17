@@ -6,6 +6,29 @@ struct MusicControlBar: View {
     var compact: Bool = true
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.scenePhase) private var scenePhase
+    @State private var isOnscreen = true
+
+    /// Equalizer clock. 10 Hz is already under the 12 Hz ceiling; it still
+    /// pauses off-screen, under Reduce Motion, or when the scene is inactive.
+    static let tickHz: Double = 10
+    static let tickInterval: Double = 1.0 / tickHz
+
+    static func isClockPaused(reduceMotion: Bool, sceneActive: Bool, onscreen: Bool) -> Bool {
+        ForgeMotion.isDecorativeClockPaused(
+            reduceMotion: reduceMotion,
+            sceneActive: sceneActive,
+            onscreen: onscreen
+        )
+    }
+
+    private var equalizerPaused: Bool {
+        Self.isClockPaused(
+            reduceMotion: reduceMotion,
+            sceneActive: scenePhase == .active,
+            onscreen: isOnscreen
+        )
+    }
 
     private var accent: Color { controller.service.accentColor }
 
@@ -27,6 +50,9 @@ struct MusicControlBar: View {
             }
         }
         .animation(reduceMotion ? nil : ForgeMotion.smooth, value: controller.nowPlaying?.isPlaying)
+        .onAppear { isOnscreen = true }
+        .onDisappear { isOnscreen = false }
+        .onScrollVisibilityChange { isOnscreen = $0 }
     }
 
     // MARK: Playing
@@ -80,7 +106,7 @@ struct MusicControlBar: View {
                 .fill(Color.white)
                 .frame(width: 3, height: 8 + CGFloat(i % 3) * 4)
         } else {
-            TimelineView(.animation(minimumInterval: 0.1)) { tl in
+            TimelineView(.animation(minimumInterval: Self.tickInterval, paused: equalizerPaused)) { tl in
                 let t = tl.date.timeIntervalSinceReferenceDate + Double(i) * 0.3
                 let h = 6.0 + abs(sin(t * 3.0 + Double(i))) * 10.0
                 RoundedRectangle(cornerRadius: 2, style: .continuous)
@@ -159,15 +185,8 @@ struct MusicControlBar: View {
 
     @ViewBuilder
     private func playingView(track: NowPlayingTrack) -> some View {
-        if compact {
-            playingRow(track: track)
-                .padding(.horizontal, ForgeLayout.compactCardPadding)
-                .padding(.vertical, FDS.Spacing.xs)
-                .forgeGlassCard(cornerRadius: FDS.Radius.lg)
-        } else {
-            playingRow(track: track)
-                .forgeContentCard(padding: ForgeLayout.compactCardPadding)
-        }
+        playingRow(track: track)
+            .forgeContentCard(padding: ForgeLayout.compactCardPadding)
     }
 
     // MARK: Empty

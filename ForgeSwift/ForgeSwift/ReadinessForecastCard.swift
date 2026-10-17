@@ -25,17 +25,17 @@ struct ReadinessForecastCard: View {
             HStack {
                 Text("TOMORROW'S READINESS")
                     .forgeSectionLabel()
-                    .foregroundStyle(HudChrome.plate)
+                    .foregroundStyle(ForgeProgressChrome.plate)
                 Spacer()
                 confidencePill(forecast.confidence)
             }
 
             HStack(spacing: compact ? FDS.Spacing.md : FDS.Spacing.lg) {
-                HudProgressRing(
+                ForgeProgressRing(
                     progress: forecast.predictedScore,
                     energy: energy,
-                    size: compact ? HudChrome.compactRingSize : 108,
-                    stroke: compact ? HudChrome.compactStroke : 7
+                    size: compact ? ForgeProgressChrome.compactRingSize : 108,
+                    stroke: compact ? ForgeProgressChrome.compactStroke : 7
                 ) {
                     VStack(spacing: 0) {
                         Text("\(forecast.predictedScore)")
@@ -45,9 +45,9 @@ struct ReadinessForecastCard: View {
                             .lineLimit(1)
                         Text("TOMORROW")
                             .font(FDS.TypeScale.Dynamic.caption)
-                            .foregroundColor(HudChrome.plate)
+                            .foregroundColor(ForgeProgressChrome.plate)
                             .tracking(0.8)
-                            .hudInArcText()
+                            .forgeGlanceText()
                     }
                     .accessibilityHidden(true)
                 }
@@ -94,15 +94,15 @@ struct ReadinessForecastCard: View {
                     Image(systemName: "arrow.up.right")
                         .font(.system(size: 11, weight: .semibold))
                 }
-                .foregroundStyle(HudChrome.plate)
+                .foregroundStyle(ForgeProgressChrome.plate)
                 .padding(.vertical, FDS.Spacing.md)
                 .padding(.horizontal, FDS.Spacing.lg)
-                .background(HudChrome.plate.opacity(0.12))
+                .background(ForgeProgressChrome.plate.opacity(0.12))
                 .clipShape(RoundedRectangle(cornerRadius: FDS.Radius.md))
             }
             .buttonStyle(.plain)
         }
-        .hudPlate(energy: energy, compact: compact)
+        .forgeContentCard(padding: compact ? ForgeLayout.compactCardPadding : ForgeLayout.cardPadding)
         .accessibilityElement(children: .combine)
         .accessibilityLabel("Tomorrow's readiness forecast: \(forecast.predictedScore). \(forecast.recommendation) \(budgets.headline). \(budgets.coachingLine)")
     }
@@ -134,9 +134,9 @@ struct ReadinessForecastCard: View {
     private func postureColor(_ posture: ReadinessForecastEngine.Posture) -> Color {
         switch posture {
         case .push: return .success
-        case .steady: return HudChrome.plate
+        case .steady: return ForgeProgressChrome.plate
         case .protect: return Color(hex: HomeReadinessTokens.Band.good.hex)
-        case .rest: return HudChrome.miss
+        case .rest: return ForgeProgressChrome.miss
         }
     }
 
@@ -144,11 +144,11 @@ struct ReadinessForecastCard: View {
         HStack(spacing: FDS.Spacing.md) {
             ZStack {
                 Circle()
-                    .fill((driver.impact < 0 ? HudChrome.miss : Color.success).opacity(0.14))
+                    .fill((driver.impact < 0 ? ForgeProgressChrome.miss : Color.success).opacity(0.14))
                     .frame(width: 32, height: 32)
                 Image(systemName: driver.icon)
                     .font(.system(size: 13, weight: .semibold))
-                    .foregroundStyle(driver.impact < 0 ? HudChrome.miss : Color.success)
+                    .foregroundStyle(driver.impact < 0 ? ForgeProgressChrome.miss : Color.success)
             }
             VStack(alignment: .leading, spacing: 2) {
                 Text(driver.title)
@@ -161,7 +161,7 @@ struct ReadinessForecastCard: View {
             Spacer()
             Text(driver.impact > 0 ? "+\(driver.impact)" : "\(driver.impact)")
                 .font(FDS.TypeScale.Dynamic.caption)
-                .foregroundStyle(driver.impact < 0 ? HudChrome.miss : Color.success)
+                .foregroundStyle(driver.impact < 0 ? ForgeProgressChrome.miss : Color.success)
                 .monospacedDigit()
         }
     }

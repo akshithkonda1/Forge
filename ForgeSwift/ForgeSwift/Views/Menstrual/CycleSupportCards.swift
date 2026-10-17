@@ -312,7 +312,7 @@ struct CycleAccuracyExplainerSheet: View {
                 .font(HomeType.label)
                 .monospacedDigit()
                 .foregroundStyle(Color.ember)
-                .hudInArcText()
+                .forgeGlanceText()
                 .frame(width: diameter, height: diameter)
                 .background(Circle().fill(Color.ember.opacity(0.16)))
                 .accessibilityHidden(true)

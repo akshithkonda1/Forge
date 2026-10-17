@@ -6,7 +6,7 @@ import ForgeCore
 enum HomeInsightFlow {
     static let replyPrompt = "Let's talk about my day from today's briefing."
     static let voiceCheckInPrompt = "Voice check-in from today's briefing."
-    static let weekPlanPrompt = "Help me plan this week around recovery and training."
+    static let weekPlanPrompt = "Help me plan this week around rest and training."
     static let todayPlanPrompt = "What should I train today based on my readiness?"
 
     enum Destination: Equatable {
@@ -122,10 +122,9 @@ struct HomeARIABriefingCard: View {
                     .font(.system(size: 12, weight: .semibold))
                     .foregroundColor(.ember)
             }
-            .padding(FDS.Spacing.md)
         }
         .buttonStyle(.plain)
-        .forgeGlassCard(accent: .ember)
+        .forgeContentCard(padding: FDS.Spacing.md)
         .accessibilityLabel("Talk to ARIA about today's briefing")
     }
 
@@ -212,8 +211,7 @@ struct HomeARIABriefingCard: View {
                 }
             }
         }
-        .padding(HomeMetrics.cardPadding)
-        .forgeGlassCard(accent: .ember)
+        .forgeContentCard()
         .homeEntrance(delay: 0.18)
         .onAppear {
             startTypewriterIfNeeded()
@@ -311,9 +309,9 @@ enum HomeARIABriefingBuilder {
             beats.append(.init(text: story, priority: heavy ? .urgent : .timely))
         }
 
-        // --- Recovery signals. A deficit outranks a confirmation: being told
-        //     something is wrong is more actionable than being told it is fine.
-        //     Spoken as a read, not a HUD — the number lives in Sleep if they want it.
+        // --- Readiness signals. A deficit outranks a confirmation: being told
+        //     something is off is more actionable than being told it is fine.
+        //     Spoken as a friend read. The number lives in Sleep if they want it.
         //     With no night measured, sleepQuality is a fallback, not a read of sleep.
         let sleepMeasured = lastNightSleepMeasured(store: store)
         if sleepMeasured, store.readiness.sleepQuality < 60 {
@@ -360,6 +358,18 @@ enum HomeARIABriefingBuilder {
         let opsDigest = LifeOpsBoard.digest()
         if let ops = opsDigest.spokenLine {
             beats.append(.init(text: ops, priority: opsDigest.load == .heavy ? .urgent : .timely))
+        }
+
+        let conditions = store.userProfile.lifestyleProfile.healthConstraints
+        if !conditions.isEmpty {
+            let dayLine = ForgeConditionAdaptation.line(
+                domain: .dayToDay,
+                conditions: conditions,
+                freeform: store.userProfile.lifestyleProfile.healthNote
+            )
+            if !dayLine.isEmpty {
+                beats.append(.init(text: dayLine, priority: .timely))
+            }
         }
 
         let hobby = store.predictiveCoachPicture().hobby

@@ -135,7 +135,7 @@ struct HydrationView: View {
     /// Behind reads as a miss (steel family), never amber (nutrition) or red.
     private var statusColor: Color {
         switch status {
-        case .behind: return HudChrome.miss
+        case .behind: return ForgeProgressChrome.miss
         case .onTrack: return Color.steel
         case .met: return Color.vitality
         case .over: return Color.steelLight
@@ -162,12 +162,12 @@ struct HydrationView: View {
             heroStats
         }
         .frame(maxWidth: .infinity)
-        .hudPlate(energy: Color.steel)
+        .forgeContentCard()
         .accessibilityElement(children: .contain)
     }
 
     private var heroRing: some View {
-        HudProgressRing(
+        ForgeProgressRing(
             progress: progressPercent,
             energy: Color.steel,
             size: ForgeLayout.scaledCap(hydrationRingSize, base: 168)
@@ -176,7 +176,7 @@ struct HydrationView: View {
                 Text(formatMl(consumedMl))
                     .font(HomeType.heroScore)
                     .foregroundStyle(Color.textPrimary)
-                    .hudInArcText()
+                    .forgeGlanceText()
                     .contentTransition(.numericText())
                     .accessibilityLabel(
                         "Hydration \(formatMl(consumedMl)) of \(formatMl(targetMl)), \(statusTitle)"
@@ -190,7 +190,7 @@ struct HydrationView: View {
         Button { showGoalEditor = true } label: {
             HStack(spacing: FDS.Spacing.xs) {
                 Text("of \(formatMl(targetMl))")
-                    .hudInArcText()
+                    .forgeGlanceText()
                 Image(systemName: "pencil")
                     .font(.system(size: 11, weight: .semibold))
                     .accessibilityHidden(true)
@@ -207,7 +207,7 @@ struct HydrationView: View {
     /// Status chip, plus Home's live pill when Health is connected.
     private var heroStatus: some View {
         VStack(spacing: ForgeLayout.tileGap) {
-            HudVibeChip(label: statusTitle, energy: statusColor)
+            ForgeVibeChip(label: statusTitle, energy: statusColor)
             if health.isAuthorized { syncPill }
         }
     }

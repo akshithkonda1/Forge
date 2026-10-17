@@ -41,8 +41,7 @@ struct HabitProactiveCard: View {
                     .font(.system(size: 12, weight: .semibold))
                     .foregroundColor(.textMuted)
             }
-            .padding(FDS.Spacing.lg)
-            .forgeGlassCard(accent: .ember)
+            .forgeContentCard(padding: FDS.Spacing.lg)
         }
         .buttonStyle(.plain)
         .opacity(appeared ? 1 : 0).offset(y: appeared || reduceMotion ? 0 : 8)

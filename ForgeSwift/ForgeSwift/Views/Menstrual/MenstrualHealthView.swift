@@ -614,7 +614,7 @@ struct MenstrualHealthView: View {
         return VStack(alignment: .leading, spacing: ForgeLayout.blockGap) {
             ForgeAdaptiveStack(spacing: FDS.Spacing.sm, alignment: .firstTextBaseline) {
                 ForgeCardHeader("WHERE YOU ARE")
-                HudVibeChip(label: stage.label, energy: tint)
+                ForgeVibeChip(label: stage.label, energy: tint)
             }
 
             cycleTimeline(snap: snap, stage: stage)
@@ -1028,7 +1028,7 @@ struct MenstrualHealthView: View {
         return VStack(alignment: .leading, spacing: ForgeLayout.blockGap) {
             ForgeAdaptiveStack(spacing: FDS.Spacing.sm, alignment: .firstTextBaseline) {
                 ForgeCardHeader("PREDICTION ACCURACY")
-                HudVibeChip(label: eval.qualityGrade.label, energy: gradeColor)
+                ForgeVibeChip(label: eval.qualityGrade.label, energy: gradeColor)
             }
             accuracyStats(report: report)
             Text(report.gradeDetail)
@@ -1140,7 +1140,7 @@ struct MenstrualHealthView: View {
         let predicted = shortDate(rec.predictedMedianDayKey)
         let actual = rec.scoredActualStartDayKey.map { shortDate($0) } ?? "—"
         let errorText: String = rec.scoredErrorDays.map { $0 >= 0 ? "+\($0)d" : "\($0)d" } ?? "—"
-        let errorTint: Color = rec.scoredErrorDays.map { abs($0) <= 1 ? Color.vitality : HudChrome.miss } ?? Color.textMuted
+        let errorTint: Color = rec.scoredErrorDays.map { abs($0) <= 1 ? Color.vitality : ForgeProgressChrome.miss } ?? Color.textMuted
         return ForgeMetricRow(
             label: "\(predicted) → \(actual)",
             value: errorText,
@@ -1165,7 +1165,7 @@ struct MenstrualHealthView: View {
         return VStack(alignment: .leading, spacing: ForgeLayout.blockGap) {
             analystHeader
             if let g = brief?.evaluationGrade {
-                HudVibeChip(label: g.label, energy: Color(hex: g.accentHex))
+                ForgeVibeChip(label: g.label, energy: Color(hex: g.accentHex))
             }
             if let brief {
                 analystBlock("Understood", brief.understood)
@@ -1290,7 +1290,7 @@ struct MenstrualHealthView: View {
                 }
             }
 
-            ForgeSecondaryButton(title: "Still no period", icon: "clock.badge.questionmark", accent: HudChrome.miss) {
+            ForgeSecondaryButton(title: "Still no period", icon: "clock.badge.questionmark", accent: ForgeProgressChrome.miss) {
                 let msg = cycleStore.reportStillNoPeriod()
                 showToast(msg, haptic: false)
             }
@@ -1350,7 +1350,7 @@ struct MenstrualHealthView: View {
                 }
             }
 
-            HudProgressRing(progress: percent, energy: heroColor, size: ringSize, eventGlow: heroEventGlow) {
+            ForgeProgressRing(progress: percent, energy: heroColor, size: ringSize, eventGlow: heroEventGlow) {
                 orbitCenter(snap: snap, color: heroColor)
             }
             .frame(maxWidth: .infinity)
@@ -1358,7 +1358,7 @@ struct MenstrualHealthView: View {
             .accessibilityLabel(orbitAccessibilityLabel(snap))
 
             if snap.isCurrentlyBleeding {
-                HudVibeChip(label: "Bleeding logged today", energy: periodColor)
+                ForgeVibeChip(label: "Bleeding logged today", energy: periodColor)
                     .frame(maxWidth: .infinity)
             }
 
@@ -1387,7 +1387,7 @@ struct MenstrualHealthView: View {
                 .frame(maxWidth: .infinity)
                 .forgeWrapping()
         }
-        .hudPlate(energy: heroColor)
+        .forgeContentCard()
         .accessibilityElement(children: .contain)
     }
 
@@ -1404,18 +1404,18 @@ struct MenstrualHealthView: View {
                         .font(HomeType.micro)
                         .tracking(1.4)
                         .foregroundStyle(Color.textTertiary)
-                        .hudInArcText()
+                        .forgeGlanceText()
                 }
                 Text("\(day)")
                     .font(HomeType.heroScore)
                     .foregroundStyle(Color.textPrimary)
-                    .hudInArcText()
+                    .forgeGlanceText()
                     .contentTransition(.numericText())
             } else {
                 Text("—")
                     .font(HomeType.heroScore)
                     .foregroundStyle(Color.textTertiary)
-                    .hudInArcText()
+                    .forgeGlanceText()
             }
         }
         .accessibilityHidden(true)
@@ -1578,7 +1578,7 @@ struct MenstrualHealthView: View {
             }
             Spacer(minLength: 0)
             if irregular {
-                HudVibeChip(label: "Variable", energy: HudChrome.miss)
+                ForgeVibeChip(label: "Variable", energy: ForgeProgressChrome.miss)
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -2507,7 +2507,7 @@ struct MenstrualHealthView: View {
         let percent = Int((cycleProgress(snap) * 100).rounded())
         return VStack(alignment: .leading, spacing: ForgeLayout.heroGap) {
             ForgeAdaptiveStack(spacing: ForgeLayout.rowGap) {
-                HudProgressRing(progress: percent, energy: heroColor, size: ringSize) {
+                ForgeProgressRing(progress: percent, energy: heroColor, size: ringSize) {
                     Image(systemName: snap.phase.icon)
                         .font(.system(size: 18, weight: .semibold))
                         .foregroundStyle(heroColor)
@@ -2556,7 +2556,7 @@ struct MenstrualHealthView: View {
                 store.openChat(with: prompt, voice: false)
             }
         }
-        .hudPlate(energy: heroColor)
+        .forgeContentCard()
         .accessibilityElement(children: .contain)
     }
 

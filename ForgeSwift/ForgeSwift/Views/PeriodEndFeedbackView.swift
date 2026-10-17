@@ -141,7 +141,7 @@ struct PeriodEndFeedbackView: View {
         case ...0: return Color.textTertiary
         case 1...3: return Color.steel
         case 4...6: return Color.ember
-        default: return HudChrome.miss
+        default: return ForgeProgressChrome.miss
         }
     }
 
@@ -295,7 +295,7 @@ struct PeriodEndFeedbackView: View {
                 title: "What didn’t help",
                 subtitle: "We’ll dial these back next time",
                 selection: $whatDidntHelp,
-                tint: HudChrome.miss
+                tint: ForgeProgressChrome.miss
             )
             topicQuestion(
                 title: "Want more of",

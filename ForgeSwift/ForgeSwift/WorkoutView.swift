@@ -252,7 +252,7 @@ struct WorkoutIdleView: View {
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
-        .hudPlate(energy: store.readiness.hasScore ? HomeReadiness.color(store.readiness.overall) : HudChrome.miss)
+        .forgeContentCard()
         .accessibilityElement(children: .contain)
     }
 
@@ -264,9 +264,9 @@ struct WorkoutIdleView: View {
                 .forgeSingleLine(minScale: ForgeLayout.labelMinScale)
                 .frame(maxWidth: .infinity, alignment: .leading)
             // Unmeasured readiness reads "—", never a 0 score.
-            HudVibeChip(
+            ForgeVibeChip(
                 label: store.readiness.hasScore ? "\(score) · \(HomeReadiness.label(score))" : "Readiness —",
-                energy: store.readiness.hasScore ? HomeReadiness.color(score) : HudChrome.miss
+                energy: store.readiness.hasScore ? HomeReadiness.color(score) : ForgeProgressChrome.miss
             )
                 .lineLimit(1)
                 .layoutPriority(1)
@@ -598,7 +598,7 @@ struct WorkoutExerciseRow: View {
                 .font(HomeType.label)
                 .foregroundStyle(accent)
                 .monospacedDigit()
-                .hudInArcText()
+                .forgeGlanceText()
         }
         .frame(width: size, height: size)
         .accessibilityHidden(true)

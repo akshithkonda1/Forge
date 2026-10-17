@@ -1,116 +1,6 @@
 import SwiftUI
 import ForgeCore
 
-private struct HomeHeroReadinessCard: View {
-    @EnvironmentObject var store: AppStore
-    var onCelebrate: () -> Void = {}
-    @State private var showDetails = false
-
-    var body: some View {
-        VStack(spacing: 0) {
-            HStack {
-                VStack(alignment: .leading, spacing: 3) {
-                    Text("READINESS")
-                        .forgeSectionLabel()
-                    Text(homeStatusLine(store: store))
-                        .font(FDS.TypeScale.Dynamic.caption)
-                        .foregroundColor(HomeReadiness.color(store.readiness.overall))
-                }
-                Spacer()
-                Button {
-                    withForgeMotion(ForgeMotion.smooth) { showDetails.toggle() }
-                } label: {
-                    HStack(spacing: FDS.Spacing.xs) {
-                        Text(showDetails ? "Less" : "Details")
-                            .font(FDS.TypeScale.Dynamic.caption)
-                        Image(systemName: "chevron.down")
-                            .font(.system(size: 11, weight: .semibold))
-                            .rotationEffect(.degrees(showDetails ? 180 : 0))
-                    }
-                    .foregroundColor(.ember)
-                }
-            }
-            .padding(.bottom, FDS.Spacing.lg)
-
-            ReadinessRingView(score: store.readiness.overall, size: 112, strokeWidth: 10)
-                .frame(maxWidth: .infinity)
-                .padding(.bottom, FDS.Spacing.md)
-                .onTapGesture {
-                    if store.readiness.overall >= 85 { onCelebrate() }
-                }
-
-            Text("\(store.readiness.overall) · \(homeStatusLine(store: store))")
-                .font(ForgeType.bodyStrong)
-                .foregroundColor(.textSecondary)
-                .multilineTextAlignment(.center)
-                .padding(.bottom, showDetails ? 16 : 0)
-
-            if showDetails {
-                LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: FDS.Spacing.sm) {
-                    BreakdownCardView(label: "Sleep", value: lastNightSleepMeasured(store: store) ? store.readiness.sleepQuality : nil, inverted: false, index: 0)
-                    BreakdownCardView(label: "Recovery", value: store.readiness.recoveryScore, inverted: false, index: 1)
-                    BreakdownCardView(label: "Stress", value: store.readiness.stressLevel, inverted: true, index: 2)
-                    BreakdownCardView(label: "Energy", value: store.readiness.energyBank, inverted: false, index: 3)
-                }
-                .forgeTransition(.opacity.combined(with: .scale(scale: 0.97, anchor: .top)))
-
-                VStack(alignment: .leading, spacing: FDS.Spacing.sm) {
-                    Text("WHY THIS SCORE")
-                        .forgeSectionLabel()
-                        .padding(.top, FDS.Spacing.xs)
-                    Text(readinessWhyCopy(store: store))
-                        .font(FDS.TypeScale.Dynamic.caption)
-                        .foregroundColor(.textSecondary)
-                        .fixedSize(horizontal: false, vertical: true)
-
-                    ReadinessInsightRow(
-                        icon: "moon.stars.fill",
-                        title: "Deep Sleep",
-                        value: lastNightSleepMeasured(store: store)
-                            ? "\(store.dailyMetrics.deepSleep / 60)h \(store.dailyMetrics.deepSleep % 60)m"
-                            : "—",
-                        color: .steel
-                    )
-                    ReadinessInsightRow(
-                        icon: "waveform.path.ecg.rectangle.fill",
-                        title: "HRV",
-                        value: "\(store.dailyMetrics.hrv)ms",
-                        color: .danger
-                    )
-
-                    Button {
-                        // Don't ask ARIA to explain a sleep number nobody measured.
-                        let sleep = lastNightSleepMeasured(store: store)
-                            ? "Sleep \(store.readiness.sleepQuality), recovery"
-                            : "No sleep recorded last night. Recovery"
-                        store.openChat(
-                            with: "Explain my readiness score of \(store.readiness.overall). \(sleep) \(store.readiness.recoveryScore), stress \(store.readiness.stressLevel), energy \(store.readiness.energyBank).",
-                            voice: false
-                        )
-                    } label: {
-                        HStack(spacing: FDS.Spacing.xs) {
-                            ARIAIdentityMark(state: .idle, mood: .energized, size: 14, amplitude: 0.22)
-                            Text("Explain my readiness")
-                                .font(FDS.TypeScale.Dynamic.caption)
-                        }
-                        .foregroundColor(.ember)
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, FDS.Spacing.sm)
-                        .background(Color.ember.opacity(0.12))
-                        .clipShape(Capsule())
-                    }
-                    .buttonStyle(.plain)
-                    .padding(.top, FDS.Spacing.xs)
-                }
-                .padding(.top, FDS.Spacing.md)
-            }
-        }
-        .padding(HomeMetrics.cardPadding)
-        .forgeGlassCard(accent: HomeReadiness.color(store.readiness.overall))
-        .homeEntrance(delay: 0.12)
-    }
-}
-
 /// Reads `AppStore` and `MenstrualHealthStore.shared`, both of which are
 /// `@MainActor`, so this is too. Without the annotation the two static functions
 /// below are nonisolated and every property access is an error — eleven of them.
@@ -149,9 +39,11 @@ enum HomeLifeSentence {
             switch store.userProfile.trainingEquipment {
             case .commercialGym: return "Gym"
             case .homeGym: return "Home"
+            case .industrialGym: return "Industrial"
             case .bodyweight: return "No gear"
             case .hotelGym: return "Travel"
             case .crossfitBox: return "Box"
+            case .other: return "Other"
             }
         }()
         chips.append(.init(id: "gear", icon: store.userProfile.trainingEquipment.icon, label: gear))
@@ -175,10 +67,11 @@ struct HomeTodayHero: View {
     @EnvironmentObject var store: AppStore
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     let action: HomePrimaryAction
+    var onDayClosed: () -> Void = {}
     @State private var showScore = false
     @State private var eventGlow = false
+    @State private var pulseTrackID: String?
 
-    private var recovery: Bool { action.usesRecoveryChrome(store: store) }
     private var showInArcMeta: Bool {
         HomeReadinessTokens.showsInArcMeta(isAccessibilitySize: dynamicTypeSize.isAccessibilitySize)
     }
@@ -195,17 +88,33 @@ struct HomeTodayHero: View {
 
     var body: some View {
         let snap = progress
-        let energy = HudChrome.energy(for: snap.vibeScore)
+        let energy = ForgeProgressChrome.energy(for: snap.vibeScore)
         VStack(alignment: .leading, spacing: HomeMetrics.heroStackGap) {
-            HStack {
-                Text(TodayProgress.headerTitle)
-                    .forgeSectionLabel()
-                    .foregroundStyle(HudChrome.plate)
-                Spacer()
-                HudVibeChip(label: snap.vibeLabel, energy: energy)
+            if dynamicTypeSize >= .accessibility3 {
+                VStack(alignment: .leading, spacing: FDS.Spacing.sm) {
+                    Text(TodayProgress.headerTitle)
+                        .forgeSectionLabel()
+                        .foregroundStyle(ForgeProgressChrome.plate)
+                    ForgeVibeChip(label: snap.vibeLabel, energy: energy)
+                }
+            } else {
+                HStack {
+                    Text(TodayProgress.headerTitle)
+                        .forgeSectionLabel()
+                        .foregroundStyle(ForgeProgressChrome.plate)
+                    Spacer()
+                    ForgeVibeChip(label: snap.vibeLabel, energy: energy)
+                }
             }
 
-            HudProgressRing(
+            TodayTrackRow(
+                tracks: snap.tracks,
+                closingTrackID: snap.closingTrackID,
+                pulseTrackID: pulseTrackID,
+                energy: energy
+            )
+
+            ForgeProgressRing(
                 progress: snap.percent,
                 energy: energy,
                 almostThere: snap.almostThere,
@@ -215,7 +124,7 @@ struct HomeTodayHero: View {
                     Text("\(snap.percent)")
                         .font(HomeType.heroScore)
                         .foregroundStyle(Color.textPrimary)
-                        .hudInArcText()
+                        .forgeGlanceText()
                         .contentTransition(.numericText(value: Double(snap.percent)))
                         .forgeAnimation(ForgeMotion.smooth, value: snap.percent)
                     if showInArcMeta {
@@ -223,11 +132,11 @@ struct HomeTodayHero: View {
                             .font(HomeType.micro)
                             .foregroundColor(energy)
                             .tracking(1.6)
-                            .hudInArcText()
+                            .forgeGlanceText()
                         Text("\(snap.completed)/\(snap.total)")
                             .font(HomeType.micro)
-                            .foregroundColor(HudChrome.plate.opacity(0.72))
-                            .hudInArcText()
+                            .foregroundColor(ForgeProgressChrome.plate.opacity(0.72))
+                            .forgeGlanceText()
                     }
                 }
                 .accessibilityHidden(true)
@@ -240,7 +149,7 @@ struct HomeTodayHero: View {
                 Text("\(snap.vibeLabel) · \(snap.completed)/\(snap.total)")
                     .font(HomeType.micro)
                     .foregroundColor(energy)
-                    .hudInArcText()
+                    .forgeGlanceText()
                     .frame(maxWidth: .infinity)
                     .accessibilityHidden(true)
             }
@@ -251,8 +160,6 @@ struct HomeTodayHero: View {
                 .multilineTextAlignment(.center)
                 .frame(maxWidth: .infinity)
                 .fixedSize(horizontal: false, vertical: true)
-
-            TodayTrackRow(tracks: snap.tracks, closingTrackID: snap.closingTrackID)
 
             if store.hasMeaningfulLifeSignal || store.readiness.overall > 0 {
                 HomeVitalsRow(
@@ -291,8 +198,9 @@ struct HomeTodayHero: View {
                         .font(HomeType.status)
                         .foregroundColor(.textPrimary)
                         .multilineTextAlignment(.leading)
-                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .frame(maxWidth: .infinity, minHeight: ForgeUX.minTap, alignment: .leading)
                         .fixedSize(horizontal: false, vertical: true)
+                        .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
                 .accessibilityLabel(aging.oneBreathLine)
@@ -306,7 +214,7 @@ struct HomeTodayHero: View {
 
             HomePrimaryCTA(action: action)
         }
-        .hudPlate(energy: recovery ? .steel : energy)
+        .forgeContentCard()
         .homeEntrance(delay: 0.06)
         .accessibilityElement(children: .contain)
         // Closing the day is the goal; a single track ticking over is not.
@@ -316,8 +224,15 @@ struct HomeTodayHero: View {
         .onChange(of: snap.completed) { old, new in
             guard new > old else { return }
             eventGlow = true
+            if let justLit = snap.tracks.last(where: { $0.done }) {
+                pulseTrackID = justLit.id
+            }
+            if new >= snap.total {
+                onDayClosed()
+            }
             DispatchQueue.main.asyncAfter(deadline: .now() + 1.4) {
                 eventGlow = false
+                pulseTrackID = nil
             }
         }
     }
@@ -326,33 +241,22 @@ struct HomeTodayHero: View {
 private struct TodayTrackRow: View {
     let tracks: [TodayProgress.Track]
     var closingTrackID: String? = nil
+    var pulseTrackID: String? = nil
+    var energy: Color = .ember
 
     var body: some View {
-        HStack(spacing: FDS.Spacing.xs) {
+        HStack(spacing: ForgeLayout.tileGap) {
             ForEach(tracks) { track in
                 let closing = track.id == closingTrackID
                 VStack(spacing: FDS.Spacing.xs) {
-                    ZStack {
-                        Circle()
-                            .fill(
-                                track.done
-                                    ? HudChrome.plate.opacity(0.16)
-                                    : (closing ? HudChrome.plate.opacity(0.12) : HudChrome.miss.opacity(0.10))
-                            )
-                            .frame(width: 28, height: 28)
-                        if closing {
-                            Circle()
-                                .stroke(HudChrome.plate.opacity(0.55), lineWidth: 1)
-                                .frame(width: 28, height: 28)
-                        }
-                        Image(systemName: track.done ? "checkmark" : track.icon)
-                            .font(.system(size: 11, weight: .semibold))
-                            .foregroundStyle(
-                                track.done
-                                    ? HudChrome.plate
-                                    : (closing ? HudChrome.plate : HudChrome.miss)
-                            )
-                    }
+                    ForgeTessera(
+                        lit: track.done,
+                        energy: energy,
+                        closing: closing,
+                        pulsing: track.id == pulseTrackID,
+                        size: 32,
+                        systemImage: track.done ? "checkmark" : track.icon
+                    )
                     Text(track.title)
                         .font(HomeType.micro)
                         .foregroundColor(
@@ -365,7 +269,7 @@ private struct TodayTrackRow: View {
                 .accessibilityElement(children: .combine)
                 .accessibilityLabel(
                     closing
-                        ? "\(track.title), \(track.detail). One left — close the ring."
+                        ? "\(track.title), \(track.detail). One left — close the picture."
                         : "\(track.title), \(track.detail)"
                 )
             }
@@ -380,7 +284,7 @@ private struct HomeReadinessDetailStrip: View {
         VStack(alignment: .leading, spacing: FDS.Spacing.sm) {
             HStack(spacing: FDS.Spacing.sm) {
                 readinessFact("Sleep", lastNightSleepMeasured(store: store) ? store.readiness.sleepQuality : nil)
-                readinessFact("Recovery", store.readiness.recoveryScore)
+                readinessFact("Readiness", store.readiness.recoveryScore)
                 readinessFact("HRV", store.dailyMetrics.hrv, unit: "ms")
             }
             Text(readinessWhyCopy(store: store))
@@ -388,13 +292,7 @@ private struct HomeReadinessDetailStrip: View {
                 .foregroundColor(.textSecondary)
                 .fixedSize(horizontal: false, vertical: true)
         }
-        .padding(FDS.Spacing.md)
-        .background(Color.white.opacity(0.04))
-        .clipShape(RoundedRectangle(cornerRadius: HomeMetrics.innerRadius, style: .continuous))
-        .overlay(
-            RoundedRectangle(cornerRadius: HomeMetrics.innerRadius, style: .continuous)
-                .stroke(Color.white.opacity(0.08), lineWidth: 1)
-        )
+        .forgeWell()
     }
 
     /// A nil value (nothing measured) shows "—" rather than a fallback number.
@@ -420,20 +318,9 @@ private struct HomeLifeChipRow: View {
     let chips: [HomeLifeSentence.Chip]
 
     var body: some View {
-        FlowLayout(spacing: ForgeLayout.chipGap) {
+        ForgeFlowLayout(spacing: ForgeLayout.chipGap) {
             ForEach(chips) { chip in
-                HStack(spacing: FDS.Spacing.xs) {
-                    Image(systemName: chip.icon)
-                        .font(.system(size: 10, weight: .semibold))
-                    Text(chip.label)
-                        .font(HomeType.label)
-                }
-                .foregroundColor(.textPrimary)
-                .padding(.horizontal, FDS.Spacing.sm)
-                .padding(.vertical, FDS.Spacing.sm)
-                .background(Color.white.opacity(0.08))
-                .clipShape(Capsule())
-                .overlay(Capsule().stroke(Color.white.opacity(0.12), lineWidth: 0.8))
+                ForgeChip(label: chip.label, icon: chip.icon, energy: .ember)
             }
         }
         .accessibilityElement(children: .combine)
@@ -494,7 +381,7 @@ private struct HomePrimaryCTA: View {
             .accessibilityLabel(action.title)
             .accessibilityHint(action.subtitle(store: store) ?? "Opens today's session")
 
-            HStack(spacing: FDS.Spacing.sm) {
+            ForgeAdaptiveStack(spacing: FDS.Spacing.sm, threshold: .accessibility3) {
                 Button {
                     let sentence = HomeLifeSentence.build(store: store)
                     store.openChat(
@@ -503,7 +390,7 @@ private struct HomePrimaryCTA: View {
                     )
                 } label: {
                     HStack(spacing: FDS.Spacing.xs) {
-                        // One live mark per screen: Today chrome is the HUD
+                        // One live mark per screen: Today chrome is the progress
                         // ring, so this 14pt Nest mark stays still.
                         ARIAIdentityMark(state: .idle, mood: .energized, size: 14, amplitude: 0.22)
                             .environment(\.forgeMinimalAnimation, true)
@@ -519,6 +406,7 @@ private struct HomePrimaryCTA: View {
                         RoundedRectangle(cornerRadius: HomeMetrics.innerRadius, style: .continuous)
                             .stroke(Color.white.opacity(0.10), lineWidth: 1)
                     )
+                    .forgeTapOutset(vertical: 8)
                 }
                 .buttonStyle(.plain)
                 .accessibilityLabel("Why this session")
@@ -542,6 +430,7 @@ private struct HomePrimaryCTA: View {
                         RoundedRectangle(cornerRadius: HomeMetrics.innerRadius, style: .continuous)
                             .stroke(Color.vitality.opacity(0.28), lineWidth: 1)
                     )
+                    .forgeTapOutset(vertical: 8)
                 }
                 .buttonStyle(.plain)
                 .accessibilityLabel("Lifestyle")

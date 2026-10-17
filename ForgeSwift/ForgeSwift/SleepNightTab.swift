@@ -323,7 +323,7 @@ struct SleepTonightHero: View {
                     .forgeWrapping()
             }
             .frame(maxWidth: .infinity, alignment: .leading)
-            .hudPlate(energy: .steel)
+            .forgeContentCard()
         }
         .accessibilityElement(children: .combine)
     }
@@ -514,7 +514,7 @@ struct SleepWindDownRitual: View {
                 Text(step)
                     .font(HomeType.label)
                     .foregroundStyle(Color.steel)
-                    .hudInArcText()
+                    .forgeGlanceText()
             }
         }
         .frame(width: badge, height: badge)
@@ -610,8 +610,8 @@ struct SleepTonightSoundDock: View {
 private enum SleepStagePalette {
     static let deep = Color.steel
     static let rem = Color.aurora
-    static let light = SleepHud.lightStage
-    static let awake = HudChrome.miss
+    static let light = SleepPalette.lightStage
+    static let awake = ForgeProgressChrome.miss
 }
 
 struct SleepLastNightStrip: View {
@@ -916,7 +916,7 @@ struct SleepDebtMeterCard: View {
                 ForEach(meter.days) { day in
                     VStack(spacing: FDS.Spacing.sm) {
                         Capsule()
-                            .fill(day.missed ? HudChrome.miss.opacity(0.72) : Color.ember.opacity(0.88))
+                            .fill(day.missed ? ForgeProgressChrome.miss.opacity(0.72) : Color.ember.opacity(0.88))
                             .frame(maxWidth: .infinity)
                             .frame(height: max(10, CGFloat(day.fill) * plot * 0.76))
                         Text(day.weekday)

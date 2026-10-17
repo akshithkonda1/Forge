@@ -203,7 +203,7 @@ struct DailyHabitsCard: View {
             habitList
         }
         .frame(maxWidth: .infinity, alignment: .leading)
-        .hudPlate(energy: .vitality)
+        .forgeContentCard(accent: .vitality)
         .accessibilityElement(children: .contain)
     }
 
@@ -217,17 +217,17 @@ struct DailyHabitsCard: View {
     }
 
     private var habitRing: some View {
-        HudProgressRing(
+        ForgeProgressRing(
             progress: percent,
             energy: .vitality,
             size: ForgeLayout.scaledCap(habitRingSize, base: 96),
-            stroke: HudChrome.compactStroke,
+            stroke: ForgeProgressChrome.compactStroke,
             eventGlow: eventGlow
         ) {
             Text("\(completed)/\(habits.count)")
                 .font(HomeType.metric)
                 .foregroundStyle(Color.textPrimary)
-                .hudInArcText()
+                .forgeGlanceText()
                 .contentTransition(.numericText())
         }
         .accessibilityElement(children: .ignore)
@@ -450,7 +450,7 @@ struct MindfulnessCard: View {
             ForgeSecondaryButton(
                 title: isRunning ? "End" : "Begin \(practice.title.lowercased())",
                 icon: isRunning ? "stop.fill" : "play.fill",
-                accent: isRunning ? HudChrome.emberSteel : Color.vitality
+                accent: isRunning ? ForgeProgressChrome.emberSteel : Color.vitality
             ) {
                 if isRunning {
                     stopSession(logged: remainingSeconds < minutes * 60)
@@ -504,14 +504,14 @@ struct MindfulnessCard: View {
             Text(isRunning ? timeString(remainingSeconds) : "\(minutes):00")
                 .font(HomeType.heroScore)
                 .foregroundStyle(Color.textPrimary)
-                .hudInArcText()
+                .forgeGlanceText()
                 .contentTransition(.numericText())
             Text(isRunning ? breathCue : practice.title.lowercased())
                 .font(HomeType.micro)
                 .foregroundStyle(Color.textTertiary)
                 .tracking(1.4)
                 .textCase(.uppercase)
-                .hudInArcText()
+                .forgeGlanceText()
         }
     }
 

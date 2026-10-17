@@ -220,7 +220,6 @@
 		917943B402BD923F0744751D /* ReadinessForecastCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0A7C69703A221B9AF36E0CC1 /* ReadinessForecastCard.swift */; };
 		C5AAE2E6F4609C4595542DE9 /* HomeOverlays.swift in Sources */ = {isa = PBXBuildFile; fileRef = 666BD8AA30A9A97B0D676632 /* HomeOverlays.swift */; };
 		3CA296A1780DDB7EE484486E /* HomeCopy.swift in Sources */ = {isa = PBXBuildFile; fileRef = A9A27D1156644101FD07B5D6 /* HomeCopy.swift */; };
-		AA00010000000000000000A1 /* HomeAuroraBackground.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00020000000000000000A1 /* HomeAuroraBackground.swift */; };
 		AA0001000000000000000008 /* ChatView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0002000000000000000008 /* ChatView.swift */; };
 		60A29EB8CFF073B8FE95D0A3 /* ChatModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0EECC86FCDA945D9F0AAD58 /* ChatModels.swift */; };
 		6D3001F7BE5B6394E6858876 /* SpeechManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 329F018C6DBA3607076E1AAC /* SpeechManager.swift */; };
@@ -370,7 +369,7 @@
 		1TEST04A00000000000000A /* WorkoutHistoryWindowTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1TEST04900000000000000A /* WorkoutHistoryWindowTests.swift */; };
 		1TEST04C00000000000000A /* TrainingHabitsTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1TEST04B00000000000000A /* TrainingHabitsTests.swift */; };
 		1HOME06200000000000000A /* TodayProgress.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1HOME06100000000000000A /* TodayProgress.swift */; };
-		1HOME06400000000000000A /* HudChrome.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1HOME06300000000000000A /* HudChrome.swift */; };
+		1HOME06400000000000000A /* ForgeProgressChrome.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1HOME06300000000000000A /* ForgeProgressChrome.swift */; };
 		62CE64B31B7E57543467B23F /* ForgeChrome.swift in Sources */ = {isa = PBXBuildFile; fileRef = 82C1B6969F84C56786E87B84 /* ForgeChrome.swift */; };
 		1TEST05200000000000000A /* HomeTodayProgressTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1TEST05100000000000000A /* HomeTodayProgressTests.swift */; };
 		5C953C07E2A3364865863079 /* ForgeChromeTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C37F58CA9007655822E7FFE1 /* ForgeChromeTests.swift */; };
@@ -579,7 +578,7 @@
 		1TEST04900000000000000A /* WorkoutHistoryWindowTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkoutHistoryWindowTests.swift; sourceTree = "<group>"; };
 		1TEST04B00000000000000A /* TrainingHabitsTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TrainingHabitsTests.swift; sourceTree = "<group>"; };
 		1HOME06100000000000000A /* TodayProgress.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TodayProgress.swift; sourceTree = "<group>"; };
-		1HOME06300000000000000A /* HudChrome.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HudChrome.swift; sourceTree = "<group>"; };
+		1HOME06300000000000000A /* ForgeProgressChrome.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ForgeProgressChrome.swift; sourceTree = "<group>"; };
 		82C1B6969F84C56786E87B84 /* ForgeChrome.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ForgeChrome.swift; sourceTree = "<group>"; };
 		1TEST05100000000000000A /* HomeTodayProgressTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HomeTodayProgressTests.swift; sourceTree = "<group>"; };
 		C37F58CA9007655822E7FFE1 /* ForgeChromeTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ForgeChromeTests.swift; sourceTree = "<group>"; };
@@ -705,7 +704,6 @@
 		0A7C69703A221B9AF36E0CC1 /* ReadinessForecastCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReadinessForecastCard.swift; sourceTree = "<group>"; };
 		666BD8AA30A9A97B0D676632 /* HomeOverlays.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HomeOverlays.swift; sourceTree = "<group>"; };
 		A9A27D1156644101FD07B5D6 /* HomeCopy.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HomeCopy.swift; sourceTree = "<group>"; };
-		AA00020000000000000000A1 /* HomeAuroraBackground.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HomeAuroraBackground.swift; sourceTree = "<group>"; };
 		AA0002000000000000000008 /* ChatView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatView.swift; sourceTree = "<group>"; };
 		C0EECC86FCDA945D9F0AAD58 /* ChatModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatModels.swift; sourceTree = "<group>"; };
 		329F018C6DBA3607076E1AAC /* SpeechManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SpeechManager.swift; sourceTree = "<group>"; };
@@ -1085,9 +1083,8 @@
 				666BD8AA30A9A97B0D676632 /* HomeOverlays.swift */,
 				A9A27D1156644101FD07B5D6 /* HomeCopy.swift */,
 				1HOME06100000000000000A /* TodayProgress.swift */,
-				1HOME06300000000000000A /* HudChrome.swift */,
+				1HOME06300000000000000A /* ForgeProgressChrome.swift */,
 				82C1B6969F84C56786E87B84 /* ForgeChrome.swift */,
-				AA00020000000000000000A1 /* HomeAuroraBackground.swift */,
 				AA0002000000000000000008 /* ChatView.swift */,
 				C0EECC86FCDA945D9F0AAD58 /* ChatModels.swift */,
 				329F018C6DBA3607076E1AAC /* SpeechManager.swift */,
@@ -1867,9 +1864,8 @@
 				C5AAE2E6F4609C4595542DE9 /* HomeOverlays.swift in Sources */,
 				3CA296A1780DDB7EE484486E /* HomeCopy.swift in Sources */,
 				1HOME06200000000000000A /* TodayProgress.swift in Sources */,
-				1HOME06400000000000000A /* HudChrome.swift in Sources */,
+				1HOME06400000000000000A /* ForgeProgressChrome.swift in Sources */,
 				62CE64B31B7E57543467B23F /* ForgeChrome.swift in Sources */,
-				AA00010000000000000000A1 /* HomeAuroraBackground.swift in Sources */,
 				AA0001000000000000000008 /* ChatView.swift in Sources */,
 				60A29EB8CFF073B8FE95D0A3 /* ChatModels.swift in Sources */,
 				6D3001F7BE5B6394E6858876 /* SpeechManager.swift in Sources */,

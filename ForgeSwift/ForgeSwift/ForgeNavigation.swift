@@ -289,10 +289,15 @@ struct ForgeEmptyStateCard: View {
 
     var body: some View {
         VStack(spacing: ForgeLayout.blockGap) {
-            ForgeIconWell(systemImage: icon, tint: accent, diameter: 56)
+            ForgeIconWell(systemImage: icon, tint: accent, diameter: 36)
+            ForgeMosaicStrip(
+                lit: Array(repeating: false, count: ForgeMosaicTracks.count),
+                energy: accent,
+                size: 28
+            )
             VStack(spacing: ForgeLayout.pairGap) {
                 // Empty states speak in the editorial voice: a calm serif line,
-                // then one plain sentence.
+                // then one plain sentence. The unlit mosaic is the same picture.
                 Text(title)
                     .font(ForgeFont.serif(.title2))
                     .foregroundColor(.textPrimary)
@@ -311,8 +316,7 @@ struct ForgeEmptyStateCard: View {
             }
         }
         .frame(maxWidth: .infinity)
-        .padding(ForgeLayout.cardPadding)
-        .forgeGlassCard(accent: accent)
+        .forgeContentCard()
     }
 }
 

@@ -682,7 +682,7 @@ struct HealthComposer: View {
                     action: { Task { await coordinator.connectCalendar() } }
                 )
                 ConnectionRow(
-                    icon: "person.2.fill", color: HudChrome.plate,
+                    icon: "person.2.fill", color: ForgeProgressChrome.plate,
                     title: "Contacts",
                     subtitle: "First names you pick — never the whole book",
                     state: coordinator.contactsState,
