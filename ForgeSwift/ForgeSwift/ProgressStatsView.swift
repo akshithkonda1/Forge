@@ -89,7 +89,18 @@ struct StatsMosaicCard: View {
             stepsManual = false
         }
 
-        return StatsMosaic.snapshot(
+        let today: String = {
+            let f = DateFormatter()
+            f.calendar = Calendar.current
+            f.locale = Locale(identifier: "en_US_POSIX")
+            f.dateFormat = "yyyy-MM-dd"
+            return f.string(from: Date())
+        }()
+        let contribution = HobbyFit.dayContribution(
+            hobbies: store.userProfile.lifestyleProfile.hobbies,
+            todayISO: today
+        )
+        let input = HobbyFit.applyToMosaic(
             StatsMosaic.Input(
                 sleepHours: sleepHours,
                 sleepManual: sleepManual,
@@ -101,8 +112,11 @@ struct StatsMosaicCard: View {
                 stepsManual: stepsManual,
                 habitsDone: manual.habitsDone ?? 0,
                 habitsGoal: 3
-            )
+            ),
+            contribution: contribution
         )
+        let live = StatsMosaic.snapshot(input)
+        return ForgeTutorial.mosaic(for: store.mosaicTutorial, live: live)
     }
 
     private var workoutsThisWeek: Int {
@@ -121,7 +135,11 @@ struct StatsMosaicCard: View {
             mosaicHeader(snap)
             mosaicTiles(snap.tiles)
             ForgeSecondaryButton(title: "Ask ARIA about this picture", accent: .ember) {
-                store.openChat(with: snap.mosaicLine, voice: false)
+                if store.mosaicTutorial.isComplete {
+                    store.openChat(with: snap.mosaicLine, voice: false)
+                } else {
+                    store.recordTutorial(.askedAria)
+                }
             }
             .accessibilityLabel("Ask ARIA about today’s mosaic")
         }
@@ -199,6 +217,8 @@ struct StatsMosaicCard: View {
 
     private func mosaicTile(_ tile: StatsMosaic.Tile) -> some View {
         Button {
+            store.recordTutorial(.focusedTile)
+            store.recordTutorial(.expandedTile)
             store.openChat(with: tile.ariaPrompt, voice: false)
         } label: {
             VStack(alignment: .leading, spacing: ForgeLayout.pairGap) {

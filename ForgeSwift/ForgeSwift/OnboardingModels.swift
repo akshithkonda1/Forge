@@ -253,7 +253,12 @@ struct OnboardingProfile: Codable {
             trainingTheme: trainingTheme,
             interestTags: freeTimeInterests.map(\.tag),
             biologicalSex: biologicalSex,
-            educationalCycleMode: educationalCycleMode
+            educationalCycleMode: educationalCycleMode,
+            coachingPersonality: .init(preset: UserProfile.defaultPersonality(for: coachingStyle.coreStyle)),
+            lifestyleProfile: .init(
+                hobbies: HobbyFit.normalizeHobbies(labels: freeTimeInterests.map(\.label)),
+                socialEnergy0to10: freeTimeInterests.contains(.social) ? 7 : nil
+            )
         )
     }
 

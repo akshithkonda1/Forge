@@ -80,6 +80,12 @@ struct AriaVoiceProfile: Equatable {
     /// Deterministic salt so the same inputs still rotate phrasing across turns.
     var salt: UInt64
 
+    var personalityDirective: String {
+        ForgeCoachingPersonality.promptDirective(
+            .init(preset: UserProfile.defaultPersonality(for: coaching))
+        )
+    }
+
     /// Compact description for Foundation Models system prompts.
     var promptDirective: String {
         """
@@ -91,6 +97,7 @@ struct AriaVoiceProfile: Equatable {
         - Humor: \(humor.rawValue)
         - Length: \(length.rawValue)
         - Coaching style preference: \(coaching.label)
+        - Teaching personality: \(personalityDirective)
         - User: \(firstName.isEmpty ? "athlete" : firstName), readiness \(readiness)/100, relationship level \(relationshipLevel)
         - Never invent medical advice; lifestyle coaching only\(guidanceOnly ? " (guidance-only mode ON)" : "").
         - Adaptive: work inside their actual day. One small change. Compound interest — over time they see and appreciate the difference. They choose.

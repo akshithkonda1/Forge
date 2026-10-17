@@ -1,5 +1,6 @@
 import Foundation
 import SwiftUI
+import ForgeCore
 
 #if DEBUG
 /// Dates the demo fixtures below are pinned to. Nothing outside them calls it.
@@ -220,6 +221,11 @@ struct UserProfile: Codable {
     /// The image itself is not stored on the profile to keep UserDefaults payloads small.
     var avatarFileName: String?
 
+    /// Teaching personality — tone and framing only, never the session plan.
+    var coachingPersonality: ForgeCoachingPersonality.Choice
+    /// Whole-life weights, social/relational fields, health constraints.
+    var lifestyleProfile: ForgeLifestyleProfile.Snapshot
+
     var initials: String {
         name.split(separator: " ").compactMap { $0.first.map { String($0).uppercased() } }.joined().prefix(2).description
     }
@@ -230,6 +236,7 @@ struct UserProfile: Codable {
         case schedulePlanningMode, weeklySplit
         case age, weight, height, trainingTheme, interestTags
         case biologicalSex, educationalCycleMode, avatarFileName
+        case coachingPersonality, lifestyleProfile
     }
 
     init(
@@ -251,7 +258,9 @@ struct UserProfile: Codable {
         interestTags: [String] = [],
         biologicalSex: BiologicalSex? = nil,
         educationalCycleMode: Bool = false,
-        avatarFileName: String? = nil
+        avatarFileName: String? = nil,
+        coachingPersonality: ForgeCoachingPersonality.Choice = .init(),
+        lifestyleProfile: ForgeLifestyleProfile.Snapshot = .init()
     ) {
         self.name = name
         self.gender = gender
@@ -272,6 +281,8 @@ struct UserProfile: Codable {
         self.biologicalSex = biologicalSex
         self.educationalCycleMode = educationalCycleMode
         self.avatarFileName = avatarFileName
+        self.coachingPersonality = coachingPersonality
+        self.lifestyleProfile = lifestyleProfile
     }
 
     init(from decoder: Decoder) throws {
@@ -297,6 +308,14 @@ struct UserProfile: Codable {
         biologicalSex = try c.decodeIfPresent(BiologicalSex.self, forKey: .biologicalSex)
         educationalCycleMode = try c.decodeIfPresent(Bool.self, forKey: .educationalCycleMode) ?? false
         avatarFileName = try c.decodeIfPresent(String.self, forKey: .avatarFileName)
+        coachingPersonality = try c.decodeIfPresent(
+            ForgeCoachingPersonality.Choice.self,
+            forKey: .coachingPersonality
+        ) ?? .init(preset: Self.defaultPersonality(for: coachingStyle))
+        lifestyleProfile = try c.decodeIfPresent(
+            ForgeLifestyleProfile.Snapshot.self,
+            forKey: .lifestyleProfile
+        ) ?? .init()
     }
 
     func encode(to encoder: Encoder) throws {
@@ -320,6 +339,29 @@ struct UserProfile: Codable {
         try c.encodeIfPresent(biologicalSex, forKey: .biologicalSex)
         try c.encode(educationalCycleMode, forKey: .educationalCycleMode)
         try c.encodeIfPresent(avatarFileName, forKey: .avatarFileName)
+        try c.encode(coachingPersonality, forKey: .coachingPersonality)
+        try c.encode(lifestyleProfile, forKey: .lifestyleProfile)
+    }
+
+    static func defaultPersonality(for style: CoachingStyle) -> ForgeCoachingPersonality.Preset {
+        switch style {
+        case .pushHard, .ultraElite: return .pillarTraining
+        case .patient: return .steadyBuilder
+        case .dataDriven: return .curiousExperimenter
+        case .balanced: return .steadyBuilder
+        }
+    }
+}
+
+extension ForgeCoachingPersonality.Preset {
+    var legacyCoachingStyle: CoachingStyle {
+        switch self {
+        case .pillarTraining: return .pushHard
+        case .steadyBuilder: return .patient
+        case .directCoach: return .balanced
+        case .curiousExperimenter: return .dataDriven
+        case .playfulCompanion: return .patient
+        }
     }
 }
 

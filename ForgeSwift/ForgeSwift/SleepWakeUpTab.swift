@@ -368,39 +368,14 @@ struct SleepWakeHudRing: View {
 
     var body: some View {
         let side = ForgeLayout.scaledCap(ringSize, base: 220, maxGrowth: 1.15)
-        Canvas { context, size in
-            let s = min(size.width, size.height)
-            let center = CGPoint(x: size.width / 2, y: size.height / 2)
-            let outer = s / 2 - 2
-            let plate = HudChrome.plate
-            for i in 0..<SleepHud.tickCount {
-                let major = i.isMultiple(of: 6)
-                let angle = Double(i) / Double(SleepHud.tickCount) * .pi * 2 - .pi / 2
-                let inner = outer - (major ? 10 : 5)
-                var path = Path()
-                path.move(to: CGPoint(
-                    x: center.x + CGFloat(cos(angle)) * inner,
-                    y: center.y + CGFloat(sin(angle)) * inner
-                ))
-                path.addLine(to: CGPoint(
-                    x: center.x + CGFloat(cos(angle)) * outer,
-                    y: center.y + CGFloat(sin(angle)) * outer
-                ))
-                context.stroke(
-                    path,
-                    with: .color(major ? plate.opacity(0.85) : plate.opacity(0.28)),
-                    lineWidth: major ? 1.6 : 0.8
-                )
-            }
-            var arc = Path()
-            arc.addArc(
-                center: center,
-                radius: outer - 16,
-                startAngle: .degrees(-90),
-                endAngle: .degrees(-90 + 360 * min(1, max(0, progress))),
-                clockwise: false
-            )
-            context.stroke(arc, with: .color(Color.ember.opacity(0.9)), lineWidth: 3)
+        let clamped = min(1, max(0, progress))
+        ZStack {
+            Circle()
+                .stroke(HudChrome.plate.opacity(0.16), style: StrokeStyle(lineWidth: 3, lineCap: .round))
+            Circle()
+                .trim(from: 0, to: clamped)
+                .stroke(Color.ember.opacity(0.9), style: StrokeStyle(lineWidth: 3, lineCap: .round))
+                .rotationEffect(.degrees(-90))
         }
         .frame(width: side, height: side)
         .accessibilityHidden(true)

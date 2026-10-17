@@ -284,8 +284,25 @@ struct HomeLifestylePreviewCard: View {
     }
 
     private var hobbyPreview: String {
-        let line = store.predictiveCoachPicture().hobby.headline
-        return "\(line) — wellbeing isn't only fitness"
+        let picture = store.predictiveCoachPicture()
+        let time = HobbyFit.lifestyleTime(
+            hobbies: picture.fitHobbies,
+            nowISODay: Self.todayISO(),
+            weekDays: []
+        )
+        return HobbyFit.homePreview(
+            path: picture.hobby.path,
+            speak: picture.hobbyFitSpeak,
+            time: time
+        )
+    }
+
+    private static func todayISO() -> String {
+        let f = DateFormatter()
+        f.calendar = Calendar.current
+        f.locale = Locale(identifier: "en_US_POSIX")
+        f.dateFormat = "yyyy-MM-dd"
+        return f.string(from: Date())
     }
 
     private func lifestyleChip(icon: String, value: String, label: String, color: Color) -> some View {

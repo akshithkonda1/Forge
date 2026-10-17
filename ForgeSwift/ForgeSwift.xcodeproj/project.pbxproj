@@ -203,6 +203,8 @@
 		AD90BAFEC8EA35A4F14EF83C /* FoundationModelsResponseGenerator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 07D1E15950564F4991B10AF1 /* FoundationModelsResponseGenerator.swift */; };
 		DF0C39F95818C60589E494FC /* RuleBasedResponseGenerator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 29625FECFF8DB18803D4B06D /* RuleBasedResponseGenerator.swift */; };
 		AA0001000000000000000005 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0002000000000000000005 /* ContentView.swift */; };
+		1TUT0002F9FF867004091AA /* ForgeTutorialCoach.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1TUT0012F9FF867004091AA /* ForgeTutorialCoach.swift */; };
+		1PERS0022F9FF867004091AA /* CoachingPersonalityPickerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1PERS012F9FF867004091AA /* CoachingPersonalityPickerView.swift */; };
 		AA0001000000000000000006 /* OnboardingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0002000000000000000006 /* OnboardingView.swift */; };
 		D1919B244B3A650517464755 /* OnboardingModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = D739BE302C6406D4FD5FFAF1 /* OnboardingModels.swift */; };
 		616F3C419B3EB7ADAE50115B /* AriaInterviewLayout.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3EFADEBB5E6749FF6794C3D4 /* AriaInterviewLayout.swift */; };
@@ -688,6 +690,8 @@
 		07D1E15950564F4991B10AF1 /* FoundationModelsResponseGenerator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FoundationModelsResponseGenerator.swift; sourceTree = "<group>"; };
 		29625FECFF8DB18803D4B06D /* RuleBasedResponseGenerator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RuleBasedResponseGenerator.swift; sourceTree = "<group>"; };
 		AA0002000000000000000005 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
+		1TUT0012F9FF867004091AA /* ForgeTutorialCoach.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ForgeTutorialCoach.swift; sourceTree = "<group>"; };
+		1PERS012F9FF867004091AA /* CoachingPersonalityPickerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CoachingPersonalityPickerView.swift; sourceTree = "<group>"; };
 		AA0002000000000000000006 /* OnboardingView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnboardingView.swift; sourceTree = "<group>"; };
 		D739BE302C6406D4FD5FFAF1 /* OnboardingModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnboardingModels.swift; sourceTree = "<group>"; };
 		3EFADEBB5E6749FF6794C3D4 /* AriaInterviewLayout.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AriaInterviewLayout.swift; sourceTree = "<group>"; };
@@ -1058,6 +1062,8 @@
 				07D1E15950564F4991B10AF1 /* FoundationModelsResponseGenerator.swift */,
 				29625FECFF8DB18803D4B06D /* RuleBasedResponseGenerator.swift */,
 				AA0002000000000000000005 /* ContentView.swift */,
+				1TUT0012F9FF867004091AA /* ForgeTutorialCoach.swift */,
+				1PERS012F9FF867004091AA /* CoachingPersonalityPickerView.swift */,
 				1NAV022F9FF867004091AA /* ForgeNavigation.swift */,
 				1AUTH0022F9FF867004091AA /* AuthWelcomeView.swift */,
 				1PREM0012F9FF867004091AA /* PremiumAtmosphere.swift */,
@@ -1816,6 +1822,8 @@
 				AD90BAFEC8EA35A4F14EF83C /* FoundationModelsResponseGenerator.swift in Sources */,
 				DF0C39F95818C60589E494FC /* RuleBasedResponseGenerator.swift in Sources */,
 				AA0001000000000000000005 /* ContentView.swift in Sources */,
+				1TUT0002F9FF867004091AA /* ForgeTutorialCoach.swift in Sources */,
+				1PERS0022F9FF867004091AA /* CoachingPersonalityPickerView.swift in Sources */,
 				1NAV012F9FF867004091AA /* ForgeNavigation.swift in Sources */,
 				1AUTH0012F9FF867004091AA /* AuthWelcomeView.swift in Sources */,
 				1PREM0022F9FF867004091AA /* PremiumAtmosphere.swift in Sources */,

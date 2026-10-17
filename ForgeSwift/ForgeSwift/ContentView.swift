@@ -212,6 +212,16 @@ struct MainTabView: View {
                 )
                 .zIndex(40)
             }
+
+            if store.isOnboarded && !waitingToMeetAria {
+                ForgeTutorialCoach()
+                    .zIndex(30)
+            }
+        }
+        .onChange(of: store.activeTab) { _, tab in
+            if tab == .progress {
+                store.recordTutorial(.openedProgress)
+            }
         }
         .onReceive(NotificationCenter.default.publisher(for: UIResponder.keyboardWillShowNotification)) { _ in
             keyboardVisible = true

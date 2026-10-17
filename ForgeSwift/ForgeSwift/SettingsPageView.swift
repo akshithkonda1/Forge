@@ -18,6 +18,7 @@ struct SettingsPageView: View {
     @State private var showWhatIKnow = false
     @State private var showProfileEditor = false
     @State private var showCoachingStylePicker = false
+    @State private var showCoachingPersonalityPicker = false
     @State private var showTrainingThemePicker = false
     @State private var showNutritionTargetsEditor = false
     @State private var showTermsSheet = false
@@ -101,6 +102,9 @@ struct SettingsPageView: View {
         }
         .sheet(isPresented: $showCoachingStylePicker) {
             CoachingStylePickerView()
+        }
+        .sheet(isPresented: $showCoachingPersonalityPicker) {
+            CoachingPersonalityPickerView()
         }
         .sheet(isPresented: $showWhatIKnow) {
             NavigationStack {
@@ -260,6 +264,15 @@ struct SettingsPageView: View {
 
                 SettingsHairline()
                 settingsLink(
+                    icon: "text.quote",
+                    iconColor: .ember,
+                    label: "Teaching personality",
+                    trailingText: store.userProfile.coachingPersonality.displayLabel,
+                    footnote: "Tone and framing only. Never the session plan."
+                ) { showCoachingPersonalityPicker = true }
+
+                SettingsHairline()
+                settingsLink(
                     icon: store.userProfile.trainingTheme.icon,
                     iconColor: Color(hex: store.userProfile.trainingTheme.accentHex),
                     label: "Training Theme",
@@ -276,6 +289,14 @@ struct SettingsPageView: View {
                     label: "Meet ARIA again",
                     hint: "Replays the ARIA introduction"
                 ) { store.replayAriaUseOnboarding() }
+
+                SettingsHairline()
+                settingsLink(
+                    icon: "square.grid.2x2",
+                    iconColor: .vitality,
+                    label: "Replay Health tutorial",
+                    hint: "Unused Health → personal indexes → ARIA → mosaic win"
+                ) { store.replayMosaicTutorial() }
 
                 trainingGoalsBlock
             }

@@ -931,6 +931,19 @@ struct HobbyPathCard: View {
             ForEach(snapshot.suggestions.prefix(3)) { item in
                 suggestionRow(item)
             }
+            if let cooled = HobbyFit.suggestions(
+                hobbies: store.predictiveCoachPicture().fitHobbies,
+                path: snapshot.path,
+                mentality: store.predictiveCoachPicture().mentality,
+                keepLight: store.predictiveCoachPicture().keepLight,
+                log: Self.loadLog(),
+                todayISO: Self.todayISO()
+            ).first(where: { !$0.cooldownLine.isEmpty }) {
+                Text(cooled.cooldownLine)
+                    .font(HomeType.body)
+                    .foregroundStyle(Color.textTertiary)
+                    .forgeWrapping()
+            }
         }
     }
 
@@ -953,6 +966,55 @@ struct HobbyPathCard: View {
             .frame(maxWidth: .infinity, alignment: .leading)
         }
         .accessibilityElement(children: .combine)
+        .overlay(alignment: .trailing) {
+            HStack(spacing: FDS.Spacing.xs) {
+                Button("Keep") {
+                    Self.saveLog(HobbyFit.rememberAccepted(Self.loadLog(), id: item.hobby.rawValue, nowISO: Self.todayISO()))
+                    ForgeHaptics.play(.selection)
+                }
+                .font(HomeType.micro)
+                Button("Not now") {
+                    Self.saveLog(HobbyFit.rememberIgnored(
+                        Self.loadLog(),
+                        id: item.hobby.rawValue,
+                        cooldownUntil: Self.isoDaysFromNow(7)
+                    ))
+                    ForgeHaptics.play(.selection)
+                }
+                .font(HomeType.micro)
+            }
+        }
+    }
+
+    private static func todayISO() -> String {
+        let f = DateFormatter()
+        f.calendar = Calendar.current
+        f.locale = Locale(identifier: "en_US_POSIX")
+        f.dateFormat = "yyyy-MM-dd"
+        return f.string(from: Date())
+    }
+
+    private static func isoDaysFromNow(_ days: Int) -> String {
+        let f = DateFormatter()
+        f.calendar = Calendar.current
+        f.locale = Locale(identifier: "en_US_POSIX")
+        f.dateFormat = "yyyy-MM-dd"
+        let date = Calendar.current.date(byAdding: .day, value: days, to: Date()) ?? Date()
+        return f.string(from: date)
+    }
+
+    private static func loadLog() -> HobbyFit.SuggestionLog {
+        guard let data = UserDefaults.standard.data(forKey: HobbyFit.SuggestionLog.storageKey),
+              let log = try? JSONDecoder().decode(HobbyFit.SuggestionLog.self, from: data) else {
+            return HobbyFit.SuggestionLog()
+        }
+        return log
+    }
+
+    private static func saveLog(_ log: HobbyFit.SuggestionLog) {
+        if let data = try? JSONEncoder().encode(log) {
+            UserDefaults.standard.set(data, forKey: HobbyFit.SuggestionLog.storageKey)
+        }
     }
 }
 

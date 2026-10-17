@@ -85,7 +85,6 @@ enum SleepHud {
     static let bgDeepHex = "1A1440"
     static let bgMistHex = "A9D8FF"
     static let appleMusicHex = "FA2D48"
-    static let tickCount = 36
 
     static var plate: Color { Color(hex: plateHex) }
     static var lightStage: Color { Color(hex: lightStageHex) }

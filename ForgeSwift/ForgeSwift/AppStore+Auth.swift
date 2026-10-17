@@ -123,7 +123,8 @@ extension AppStore {
         gender: Gender? = nil,
         biologicalSex: BiologicalSex? = nil,
         trainingTheme: AriaTrainingTheme? = nil,
-        interestTags: [String]? = nil
+        interestTags: [String]? = nil,
+        coachingPersonality: ForgeCoachingPersonality.Choice? = nil
     ) {
         if let name = name { userProfile.name = name }
         if let style = coachingStyle { userProfile.coachingStyle = style }
@@ -151,6 +152,12 @@ extension AppStore {
             MenstrualHealthStore.shared.enableForBiologicalSexIfNeeded(biologicalSex)
         }
         if let interestTags { userProfile.interestTags = interestTags }
+        if let coachingPersonality {
+            userProfile.coachingPersonality = coachingPersonality
+            if let preset = coachingPersonality.preset {
+                userProfile.coachingStyle = preset.legacyCoachingStyle
+            }
+        }
         if let trainingTheme {
             setTrainingTheme(trainingTheme, source: "profile")
             return
