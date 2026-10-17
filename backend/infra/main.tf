@@ -119,6 +119,18 @@ data "aws_iam_policy_document" "backend_lambda" {
   }
 
   statement {
+    sid = "AriaPauseRead"
+
+    actions = [
+      "ssm:GetParameter",
+    ]
+
+    resources = [
+      aws_ssm_parameter.aria_paused.arn,
+    ]
+  }
+
+  statement {
     sid = "ElevenLabsParameterDecrypt"
 
     actions = [
@@ -222,6 +234,10 @@ resource "aws_cognito_user_pool" "forge" {
 
   auto_verified_attributes = ["email"]
   username_attributes      = ["email"]
+
+  # ACTIVE blocks terraform destroy / DeleteUserPool. Teardown is two applies:
+  # set cognito_deletion_protection=false, apply, then destroy.
+  deletion_protection = var.cognito_deletion_protection ? "ACTIVE" : "INACTIVE"
 
   password_policy {
     minimum_length                   = 12
@@ -354,6 +370,10 @@ resource "aws_dynamodb_table" "app_data" {
   # No GSI: the Lambda storage layer only reads/writes pk/sk. An ALL-projection
   # GSI previously doubled write cost with zero query benefit. Re-add when an
   # access pattern (metrics-by-type, activity feed) actually writes gsi1pk/sk.
+
+  # Blocks terraform destroy / DeleteTable. Teardown is two applies: set
+  # dynamodb_deletion_protection=false, apply, then destroy.
+  deletion_protection_enabled = var.dynamodb_deletion_protection
 
   point_in_time_recovery {
     enabled = var.enable_point_in_time_recovery
@@ -537,14 +557,19 @@ resource "aws_lambda_function" "backend" {
   filename         = data.archive_file.backend_lambda.output_path
   source_code_hash = data.archive_file.backend_lambda.output_base64sha256
 
-  memory_size = var.lambda_memory_size
-  timeout     = var.lambda_timeout
+  memory_size                    = var.lambda_memory_size
+  timeout                        = var.lambda_timeout
+  reserved_concurrent_executions = var.lambda_reserved_concurrency
 
   environment {
     variables = {
       ELEVENLABS_API_KEY_PARAMETER_NAME       = aws_ssm_parameter.elevenlabs_api_key.name
       ELEVENLABS_ARIA_VOICE_ID_PARAMETER_NAME = aws_ssm_parameter.elevenlabs_voice_id.name
       ELEVENLABS_ARIA_AGENT_ID_PARAMETER_NAME = aws_ssm_parameter.elevenlabs_agent_id.name
+      ARIA_PAUSED_PARAMETER_NAME              = aws_ssm_parameter.aria_paused.name
+      ARIA_PAUSE_FAIL_MODE                    = var.aria_pause_fail_mode
+      ARIA_DAILY_REQUEST_CAP                  = tostring(var.aria_daily_request_cap)
+      ARIA_DAILY_TOKEN_CAP                    = tostring(var.aria_daily_token_cap)
       APP_DATA_TABLE_NAME                     = aws_dynamodb_table.app_data.name
       ARIA_BEDROCK_ENABLED                    = var.aria_bedrock_enabled ? "true" : "false"
       ENVIRONMENT                             = var.environment
@@ -669,8 +694,8 @@ resource "aws_apigatewayv2_stage" "default" {
   }
 
   default_route_settings {
-    throttling_burst_limit = 100
-    throttling_rate_limit  = 50
+    throttling_burst_limit = var.api_throttling_burst_limit
+    throttling_rate_limit  = var.api_throttling_rate_limit
   }
 
   route_settings {
@@ -727,13 +752,17 @@ resource "aws_budgets_budget" "spend_guard" {
   time_unit    = "MONTHLY"
 
   dynamic "notification" {
-    for_each = var.spend_guard_notification_email != "" ? [1] : []
+    for_each = var.spend_guard_notification_email != "" ? [
+      { threshold = 80, type = "ACTUAL" },
+      { threshold = 100, type = "ACTUAL" },
+      { threshold = 100, type = "FORECASTED" },
+    ] : []
 
     content {
       comparison_operator        = "GREATER_THAN"
-      threshold                  = 80
+      threshold                  = notification.value.threshold
       threshold_type             = "PERCENTAGE"
-      notification_type          = "ACTUAL"
+      notification_type          = notification.value.type
       subscriber_email_addresses = [var.spend_guard_notification_email]
     }
   }

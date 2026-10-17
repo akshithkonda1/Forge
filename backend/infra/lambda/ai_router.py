@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 import logging
 import math
 import os
@@ -17,10 +18,11 @@ MAX_PACKAGE_BYTES = 10 * 1024 * 1024 * 1024
 DEFAULT_MODEL_TIMEOUT_SECONDS = 5.0
 DEFAULT_OVERALL_TIMEOUT_SECONDS = 14.0
 DEFAULT_CONSENSUS_WINDOW_SECONDS = 1.0
-DEFAULT_MAX_TOKENS = 1000
+DEFAULT_MAX_TOKENS = 512
+HARD_MAX_TOKENS = 800
 DEFAULT_TEMPERATURE = 0.2
-DEFAULT_PREVIEW_BYTES = 2048
-DEFAULT_MAX_PROMPT_CHARS = 12000
+DEFAULT_PREVIEW_BYTES = 1024
+DEFAULT_MAX_PROMPT_CHARS = 6000
 DEFAULT_CONSENSUS_INPUT_CHARS = 12000
 DEFAULT_BEDROCK_CONNECT_TIMEOUT_SECONDS = 3.0
 DEFAULT_BEDROCK_READ_TIMEOUT_SECONDS = max(10.0, DEFAULT_OVERALL_TIMEOUT_SECONDS * 2)
@@ -64,7 +66,10 @@ _EFFORT_LEVELS = {"low", "medium", "high", "xhigh", "max"}
 # Chat replies are short and latency-bound (5 s per-model budget); low effort
 # keeps thinking brief. Override per environment with ARIA_BEDROCK_EFFORT.
 DEFAULT_BEDROCK_EFFORT = "low"
-THINKING_TOKEN_HEADROOM = 2048
+THINKING_TOKEN_HEADROOM = 1024
+PROMPT_CACHE_MIN_CHARS = 4000
+RESPONSE_CACHE_TTL_SECONDS = 120.0
+RESPONSE_CACHE_MAX_ENTRIES = 64
 
 
 def _model_family(model_id: str) -> str:
@@ -180,7 +185,10 @@ class RouteSettings:
             consensus_window_seconds=max(
                 0.0, _coerce_float(payload.get("consensusWindowSeconds"), field="consensusWindowSeconds", default=DEFAULT_CONSENSUS_WINDOW_SECONDS)
             ),
-            max_tokens=max(128, _coerce_int(payload.get("maxTokens"), field="maxTokens", default=DEFAULT_MAX_TOKENS)),
+            max_tokens=min(
+                HARD_MAX_TOKENS,
+                max(128, _coerce_int(payload.get("maxTokens"), field="maxTokens", default=DEFAULT_MAX_TOKENS)),
+            ),
             temperature=max(0.0, min(1.0, _coerce_float(
                 payload.get("temperature"), field="temperature", default=DEFAULT_TEMPERATURE
             ))),
@@ -256,11 +264,48 @@ class ModelResult:
     completed_at: float
     answer: str = ""
     error: str | None = None
+    status_code: int | None = None
     usage: dict[str, Any] = field(default_factory=dict)
 
     @property
     def latency_seconds(self) -> float:
         return round(self.completed_at - self.started_at, 3)
+
+
+_response_cache: dict[str, tuple[float, dict[str, Any]]] = {}
+_response_cache_lock = threading.Lock()
+
+
+def reset_response_cache() -> None:
+    """Drop the in-process Converse cache. Tests call this between cases."""
+    with _response_cache_lock:
+        _response_cache.clear()
+
+
+def _cache_key(*, model_id: str, system_prompt: str, user_prompt: str, max_tokens: int, temperature: float) -> str:
+    raw = f"{model_id}\n{max_tokens}\n{temperature}\n{system_prompt}\n{user_prompt}"
+    return hashlib.sha256(raw.encode("utf-8")).hexdigest()
+
+
+def _cached_response(key: str) -> dict[str, Any] | None:
+    now = time.monotonic()
+    with _response_cache_lock:
+        hit = _response_cache.get(key)
+        if hit is None:
+            return None
+        stored_at, payload = hit
+        if now - stored_at >= RESPONSE_CACHE_TTL_SECONDS:
+            _response_cache.pop(key, None)
+            return None
+        return dict(payload)
+
+
+def _store_cached_response(key: str, payload: dict[str, Any]) -> None:
+    with _response_cache_lock:
+        if len(_response_cache) >= RESPONSE_CACHE_MAX_ENTRIES:
+            oldest = min(_response_cache.items(), key=lambda item: item[1][0])[0]
+            _response_cache.pop(oldest, None)
+        _response_cache[key] = (time.monotonic(), dict(payload))
 
 
 class BedrockGateway:
@@ -287,12 +332,38 @@ class BedrockGateway:
     ) -> dict[str, Any]:
         # Hard gate at the one place that actually talks to Bedrock: even if a
         # caller reaches the real gateway, it cannot Converse while the flag is
-        # off. (Test fakes override converse() and are unaffected.)
+        # off or ARIA is paused. (Test fakes override converse() and are unaffected.)
         if not bedrock_enabled():
             raise RoutingError(
                 503,
                 "Live model routing is disabled. Set ARIA_BEDROCK_ENABLED to enable Amazon Bedrock.",
             )
+        from aria_pause import is_aria_paused
+
+        if is_aria_paused():
+            raise RoutingError(503, "ARIA is paused", details={"error": "aria_paused"})
+        capped_tokens = min(HARD_MAX_TOKENS, max(1, int(max_tokens)))
+        from responses import RouteError
+        from token_budget import reserve
+
+        try:
+            reserve(tokens=capped_tokens)
+        except RouteError as exc:
+            raise RoutingError(exc.status_code, exc.message, details={"code": exc.code}) from exc
+
+        cache_key = None
+        if image_bytes is None:
+            cache_key = _cache_key(
+                model_id=model_id,
+                system_prompt=system_prompt,
+                user_prompt=user_prompt,
+                max_tokens=capped_tokens,
+                temperature=temperature,
+            )
+            cached = _cached_response(cache_key)
+            if cached is not None:
+                return cached
+
         client = self._get_bedrock_client(request_timeout_seconds=request_timeout_seconds)
         # Image block first, per Bedrock's own Converse examples — the model
         # reads the attachment before the instruction that references it.
@@ -300,10 +371,14 @@ class BedrockGateway:
         if image_bytes is not None:
             content.append({"image": {"format": image_format, "source": {"bytes": image_bytes}}})
         content.append({"text": user_prompt})
-        inference, additional = converse_request_shape(model_id, max_tokens=max_tokens, temperature=temperature)
+        inference, additional = converse_request_shape(model_id, max_tokens=capped_tokens, temperature=temperature)
+        system_blocks: list[dict[str, Any]] = [{"text": system_prompt}]
+        used_prompt_cache = len(system_prompt) >= PROMPT_CACHE_MIN_CHARS
+        if used_prompt_cache:
+            system_blocks.append({"cachePoint": {"type": "default"}})
         request: dict[str, Any] = {
             "modelId": model_id,
-            "system": [{"text": system_prompt}],
+            "system": system_blocks,
             "messages": [
                 {
                     "role": "user",
@@ -317,22 +392,27 @@ class BedrockGateway:
         try:
             response = client.converse(**request)
         except Exception as exc:
-            # A deployment that does not pass `output_config` through yet should
-            # still get an answer at the model's default effort, not a fallback.
-            if not additional or not _is_validation_error(exc):
+            # Drop optional fields (effort, prompt cache) on ValidationException
+            # so a new model shape still returns an answer instead of falling back.
+            retryable = additional or used_prompt_cache
+            if not retryable or not _is_validation_error(exc):
                 raise
-            _log.warning("bedrock rejected additionalModelRequestFields for %s; retrying without", model_id)
+            _log.warning("bedrock rejected optional converse fields for %s; retrying without", model_id)
             request.pop("additionalModelRequestFields", None)
+            request["system"] = [{"text": system_prompt}]
             response = client.converse(**request)
         answer = self._extract_text(response)
         stop_reason = response.get("stopReason")
         if not answer and stop_reason == "max_tokens":
             _log.warning("bedrock %s hit maxTokens before any reply text", model_id)
-        return {
+        payload = {
             "answer": answer,
             "usage": response.get("usage", {}),
             "stopReason": stop_reason,
         }
+        if cache_key is not None:
+            _store_cached_response(cache_key, payload)
+        return payload
 
     def load_preview(self, *, s3_key: str, max_bytes: int) -> str:
         if not self.uploads_bucket_name:
@@ -368,22 +448,24 @@ class BedrockGateway:
             if client is None:
                 try:
                     import boto3
-                    from botocore.config import Config
+                    from aws_clients import client_config
+
+                    connect_timeout, read_timeout = timeout_key
+                    config = client_config(
+                        connect_timeout=connect_timeout,
+                        read_timeout=read_timeout,
+                        retries={"max_attempts": 1, "mode": "standard"},
+                    )
                 except ModuleNotFoundError as exc:
                     raise RoutingError(
                         500,
                         "boto3 is required to call Amazon Bedrock from this runtime.",
                     ) from exc
 
-                connect_timeout, read_timeout = timeout_key
                 client = boto3.client(
                     "bedrock-runtime",
                     region_name=self.region_name,
-                    config=Config(
-                        connect_timeout=connect_timeout,
-                        read_timeout=read_timeout,
-                        retries={"max_attempts": 1, "mode": "standard"},
-                    ),
+                    config=config,
                 )
                 self._bedrock_clients[timeout_key] = client
             return client
@@ -395,9 +477,14 @@ class BedrockGateway:
             if self._s3_client is None:
                 try:
                     import boto3
+                    from aws_clients import client_config
+
+                    config = client_config()
                 except ModuleNotFoundError as exc:
                     raise RoutingError(500, "boto3 is required to load S3 package previews.") from exc
-                self._s3_client = boto3.client("s3", region_name=self.region_name)
+                self._s3_client = boto3.client(
+                    "s3", region_name=self.region_name, config=config
+                )
             return self._s3_client
 
     @staticmethod
@@ -490,6 +577,17 @@ class AIRouter:
                             completed_at=time.monotonic(),
                         )
                     )
+                except RoutingError as exc:
+                    result_queue.put(
+                        ModelResult(
+                            model=model,
+                            success=False,
+                            error=str(exc.message or exc),
+                            status_code=exc.status_code,
+                            started_at=model_started_at,
+                            completed_at=time.monotonic(),
+                        )
+                    )
                 except Exception as exc:  # pragma: no cover - exercised through fake gateway in tests
                     result_queue.put(
                         ModelResult(
@@ -560,6 +658,13 @@ class AIRouter:
 
         successes = [result for result in results if result.success and result.answer.strip()]
         if not successes:
+            gated = next((item for item in results if item.status_code in {429, 503}), None)
+            if gated is not None:
+                raise RoutingError(
+                    gated.status_code,
+                    gated.error or "ARIA is paused",
+                    details={"error": "aria_paused" if gated.status_code == 503 else "aria_daily_cap"},
+                )
             raise RoutingError(
                 504,
                 "No model returned a successful answer within the router timeout window.",

@@ -221,14 +221,17 @@ resource "aws_instance" "scout" {
   }
 
   user_data = templatefile("${path.module}/scout/user_data.sh.tftpl", {
-    aws_region      = var.aws_region
-    bundle_uri      = "s3://${aws_s3_bucket.uploads.bucket}/${aws_s3_object.scout_bundle[0].key}"
-    shared_key_name = aws_ssm_parameter.scout_shared_key[0].name
-    scout_domain    = local.scout_domain
-    scout_model_id  = var.scout_model_id
-    searxng_image   = var.scout_searxng_image
-    compose_version = var.scout_compose_version
-    environment     = var.environment
+    aws_region                 = var.aws_region
+    bundle_uri                 = "s3://${aws_s3_bucket.uploads.bucket}/${aws_s3_object.scout_bundle[0].key}"
+    shared_key_name            = aws_ssm_parameter.scout_shared_key[0].name
+    scout_domain               = local.scout_domain
+    scout_model_id             = var.scout_model_id
+    searxng_image              = var.scout_searxng_image
+    compose_version            = var.scout_compose_version
+    environment                = var.environment
+    aria_bedrock_enabled       = var.aria_bedrock_enabled ? "true" : "false"
+    aria_paused_parameter_name = aws_ssm_parameter.aria_paused.name
+    aria_pause_fail_mode       = var.aria_pause_fail_mode
   })
   user_data_replace_on_change = true
 

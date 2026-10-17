@@ -33,8 +33,8 @@ MAX_CHAT_MESSAGE_CHARS = 4_000
 MAX_ARCHETYPE_DESCRIPTION_CHARS = 2_000
 MAX_USER_ID_CHARS = 128
 
-# Inventory for the upcoming monthly AI quota. No quota helper yet — do not
-# invent a counter here. Add a route when it becomes a counted/paid call.
+# Paid-route inventory. Daily Bedrock caps live in token_budget.py
+# (ARIA_DAILY_REQUEST_CAP / ARIA_DAILY_TOKEN_CAP), reserved at Converse.
 PAID_AI_ROUTES = frozenset(
     {
         "/ai/chat",
