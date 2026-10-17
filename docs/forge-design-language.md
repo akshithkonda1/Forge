@@ -5,6 +5,15 @@ glance — from a first workout to competition day. Typography stays exactly as
 shipped (Geist + Instrument Serif via `ForgeFont` / `ForgeType`). Do not
 change faces, sizes, weights, or tracking. The ARIA mark is unchanged.
 
+## UI standard: no AI slop
+
+The UI must never look like generic AI-generated slop. It must use the design
+tools, assets and creation capabilities already provided — Forge's existing
+design system, tokens, typography, procedural ARIA mark and components — and
+match or exceed the high bar the existing front end already sets. Elevate what
+exists; don't replace it with generic gradients, stock glassmorphism, emoji
+filler or template layouts.
+
 ## Signature shapes
 
 - **Tessera** — continuous rounded rectangle at `Radius.lg` (18). Cards, mosaic
