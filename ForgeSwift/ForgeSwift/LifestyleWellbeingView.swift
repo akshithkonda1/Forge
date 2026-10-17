@@ -238,7 +238,7 @@ struct DailyHabitsCard: View {
             habitList
         }
         .frame(maxWidth: .infinity, alignment: .leading)
-        .forgePlate(energy: .vitality)
+        .forgeContentCard()
         .accessibilityElement(children: .contain)
     }
 

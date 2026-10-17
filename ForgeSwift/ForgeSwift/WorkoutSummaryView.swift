@@ -60,7 +60,7 @@ struct WorkoutSummaryView: View {
             }
         }
         .frame(maxWidth: .infinity)
-        .forgePlate(energy: scoreColor)
+        .forgeContentCard()
         .accessibilityElement(children: .contain)
     }
 

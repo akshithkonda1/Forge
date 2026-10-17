@@ -42,11 +42,12 @@ struct ForgeEmptyState: View {
     }
 }
 
+/// Grouped settings list as one tessera. Rows pad themselves; the card does not.
 struct SectionCard<Content: View>: View {
     @ViewBuilder let content: () -> Content
     var body: some View {
         VStack(spacing: 0) { content() }
-            .forgeGlassCard()
+            .forgeContentCard(padding: 0)
     }
 }
 

@@ -90,7 +90,7 @@ struct LifetimeOneBreathCard: View {
                 .forgeWrapping()
         }
         .frame(maxWidth: .infinity, alignment: .leading)
-        .forgePlate(energy: tone)
+        .forgeContentCard()
         .accessibilityElement(children: .combine)
         .accessibilityLabel(spokenSummary)
     }

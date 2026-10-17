@@ -102,7 +102,7 @@ struct ReadinessForecastCard: View {
             }
             .buttonStyle(.plain)
         }
-        .forgePlate(energy: energy, compact: compact)
+        .forgeContentCard(padding: compact ? ForgeLayout.compactCardPadding : ForgeLayout.cardPadding)
         .accessibilityElement(children: .combine)
         .accessibilityLabel("Tomorrow's readiness forecast: \(forecast.predictedScore). \(forecast.recommendation) \(budgets.headline). \(budgets.coachingLine)")
     }

@@ -50,8 +50,7 @@ struct TodaysStoryCard: View {
                     .fixedSize(horizontal: false, vertical: true)
             }
         }
-        .padding(HomeMetrics.cardPadding)
-        .forgeGlassCard(accent: Color.aurora)
+        .forgeContentCard()
     }
 
     private func insightRow(_ insight: DailyStoryInsight) -> some View {

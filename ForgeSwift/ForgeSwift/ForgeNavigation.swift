@@ -311,8 +311,7 @@ struct ForgeEmptyStateCard: View {
             }
         }
         .frame(maxWidth: .infinity)
-        .padding(ForgeLayout.cardPadding)
-        .forgeGlassCard(accent: accent)
+        .forgeContentCard()
     }
 }
 

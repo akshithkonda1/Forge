@@ -18,9 +18,28 @@ filler or template layouts.
 
 No HUD look anywhere. Iron Man / Tony Stark suit aesthetic is rejected. The
 direction is personal and grounded: "this is your interface, this is who you
-are." The UI should feel like it deserves to be there — tesserae, a solid
-sweep, hairline plates. Never cockpit chrome, scanlines, tick dials, brackets,
-a reticle, or a suit overlay.
+are." Every page should feel like an interface. The UI should feel like it
+deserves to be there — tesserae, a solid sweep, hairline plates. Never cockpit
+chrome, scanlines, tick dials, brackets, a reticle, or a suit overlay.
+
+## One card anatomy
+
+Build on the card-based structure. Every screen uses the same anatomy:
+
+- **Page** — `ForgeScreenStack` + `ForgePageHeader` (Home's greeting is the
+  personal exception, still on the same spacing rhythm).
+- **Card** — `forgeContentCard`: `ForgeLayout.cardPadding` (24) inside a
+  tessera at `Radius.xl`, hairline edge, no wash, no halo. Compact banners
+  pass `ForgeLayout.compactCardPadding`.
+- **Header** — `ForgeCardHeader` (uppercase eyebrow + optional meta / text
+  link). Nested tiles use `forgeWell`, not a second card API.
+- **Spacing** — `ForgeLayout` only (`sectionGap` 16, `blockGap` 16,
+  `rowGap` 12, `tileGap` 8, `pairGap` 4).
+
+Deleted HUD pieces, duplicate widgets, and pre-rewrite chrome must not
+resurface. `scripts/check-legacy-ui.py` (Repo Hygiene) fails if
+`HudChrome`, `AriaOrb`, `HomeAuroraBackground`, `forgePlate`, or
+`forgeGlassCard` call sites return.
 
 ## Signature shapes
 

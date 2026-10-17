@@ -1387,7 +1387,7 @@ struct MenstrualHealthView: View {
                 .frame(maxWidth: .infinity)
                 .forgeWrapping()
         }
-        .forgePlate(energy: heroColor)
+        .forgeContentCard()
         .accessibilityElement(children: .contain)
     }
 
@@ -2556,7 +2556,7 @@ struct MenstrualHealthView: View {
                 store.openChat(with: prompt, voice: false)
             }
         }
-        .forgePlate(energy: heroColor)
+        .forgeContentCard()
         .accessibilityElement(children: .contain)
     }
 

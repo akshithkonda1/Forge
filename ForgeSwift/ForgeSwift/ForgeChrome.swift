@@ -340,7 +340,7 @@ struct ForgeErrorState: View {
 // MARK: - Inset tile
 //
 // Nested plate for stats, rows, and fields that sit *inside* a card
-// (`forgeGlassCard` / `forgePlate`). One fill, one hairline edge, token radius.
+// (`forgeContentCard`). One fill, one hairline edge, token radius.
 
 private struct ForgeInsetTile: ViewModifier {
     var radius: CGFloat
@@ -530,10 +530,9 @@ extension View {
             .padding(.bottom, bottom)
     }
 
-    /// The standard card: 20 pt interior padding plus `forgeGlassCard` at
-    /// radius xl. Replaces `.padding(FDS.Spacing.lg).forgeGlassCard(...)`.
-    /// `accent` adds the halo (hero-adjacent named card only); `tint` gives
-    /// the domain wash with no halo; pass neither for a neutral card.
+    /// The one card anatomy: `ForgeLayout.cardPadding` plus a flat tessera at
+    /// radius xl. Screens do not call `forgeGlassCard` or a second plate API.
+    /// `accent` / `tint` stay for call-site color in the content, not a wash.
     func forgeContentCard(
         accent: Color? = nil,
         tint: Color? = nil,

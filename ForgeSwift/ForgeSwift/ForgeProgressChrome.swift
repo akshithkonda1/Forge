@@ -110,31 +110,7 @@ struct ForgeProgressRing<Center: View>: View {
     }
 }
 
-/// Flat plate behind a card — one surface step and a hairline. No wash, no halo.
-struct ForgePlate: ViewModifier {
-    var energy: Color
-    var compact: Bool = false
-
-    func body(content: Content) -> some View {
-        content
-            .padding(compact ? 16 : HomeMetrics.cardPadding)
-            .background {
-                RoundedRectangle(cornerRadius: HomeMetrics.cardRadius, style: .continuous)
-                    .fill(Color.surface)
-            }
-            .overlay {
-                RoundedRectangle(cornerRadius: HomeMetrics.cardRadius, style: .continuous)
-                    .strokeBorder(Color.borderHairline, lineWidth: 0.5)
-            }
-            .clipShape(RoundedRectangle(cornerRadius: HomeMetrics.cardRadius, style: .continuous))
-    }
-}
-
 extension View {
-    func forgePlate(energy: Color, compact: Bool = false) -> some View {
-        modifier(ForgePlate(energy: energy, compact: compact))
-    }
-
     func forgeGlanceText() -> some View {
         minimumScaleFactor(ForgeProgressChrome.inArcMinimumScale).lineLimit(1)
     }

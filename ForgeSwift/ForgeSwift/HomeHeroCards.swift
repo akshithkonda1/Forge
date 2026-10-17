@@ -208,7 +208,7 @@ struct HomeTodayHero: View {
 
             HomePrimaryCTA(action: action)
         }
-        .forgePlate(energy: recovery ? .steel : energy)
+        .forgeContentCard()
         .homeEntrance(delay: 0.06)
         .accessibilityElement(children: .contain)
         // Closing the day is the goal; a single track ticking over is not.

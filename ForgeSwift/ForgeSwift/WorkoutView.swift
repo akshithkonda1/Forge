@@ -127,18 +127,13 @@ struct WorkoutIdleView: View {
         }
     }
 
-    // MARK: - Pinned TODAY row
+    // MARK: - Pinned Train header
 
     private var todayRow: some View {
-        HStack {
-            Text("TODAY")
-                .forgeSectionLabel()
-                .accessibilityAddTraits(.isHeader)
-            Spacer()
+        ForgePageHeader(title: "Train", accent: dayTone) {
             AriaTrainMuteButton()
         }
         .padding(.horizontal, ForgeLayout.screenInset)
-        .padding(.top, ForgeLayout.screenTop)
     }
 
     // MARK: - Scroll content
@@ -254,7 +249,7 @@ struct WorkoutIdleView: View {
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
-        .forgePlate(energy: store.readiness.hasScore ? HomeReadiness.color(store.readiness.overall) : ForgeProgressChrome.miss)
+        .forgeContentCard() : ForgeProgressChrome.miss)
         .accessibilityElement(children: .contain)
     }
 
@@ -818,7 +813,7 @@ struct TrainDiscoveryCard: View {
                         }
                     }
                 }
-                .forgePlate(energy: .ember)
+                .forgeContentCard()
                 .accessibilityElement(children: .contain)
             }
         }

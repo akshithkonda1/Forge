@@ -45,11 +45,7 @@ struct ProactiveCardView: View {
                     .foregroundColor(.textMuted)
                     .accessibilityHidden(true)
             }
-            .padding(HomeMetrics.cardPadding)
-            // Was a hand-rolled gradient + plain (non-continuous) .cornerRadius(FDS.Radius.lg)
-            // + stroke, with no shadow — the only Home card with zero depth and a
-            // different corner curve from everything around it.
-            .forgeGlassCard(accent: .steel)
+            .forgeContentCard()
         }
         .buttonStyle(.plain)
         .opacity(appeared || reduceMotion ? 1 : 0)

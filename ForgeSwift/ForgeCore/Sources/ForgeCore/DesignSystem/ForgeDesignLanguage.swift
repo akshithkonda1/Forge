@@ -48,7 +48,10 @@ public enum ForgeDesignLanguage: Sendable {
         "Never look like generic AI slop. Use Forge's design system, tokens, typography, procedural ARIA mark and components. Elevate what exists. No generic gradients, stock glassmorphism, emoji filler, or template layouts."
 
     public static let groundedInterfaceLaw =
-        "This is your interface, this is who you are. Personal and grounded. No HUD look. Iron Man and Tony Stark suit aesthetic rejected. Never cockpit chrome, scanlines, tick dials, brackets, a reticle, or a suit overlay."
+        "This is your interface, this is who you are. Personal and grounded. Every page should feel like an interface. No HUD look. Iron Man and Tony Stark suit aesthetic rejected. Never cockpit chrome, scanlines, tick dials, brackets, a reticle, or a suit overlay."
+
+    public static let oneCardAnatomyLaw =
+        "One card anatomy on every screen: forgeContentCard, ForgeCardHeader, ForgePageHeader / ForgeScreenStack, ForgeLayout spacing. Nested tiles use forgeWell. Deleted HUD pieces, duplicate widgets, and extra card APIs must not resurface."
 
     public static let interactionLaw =
         "One primary CTA. Skip always visible on teaching. One gesture per beat, in the real UI."
@@ -65,6 +68,7 @@ public enum ForgeDesignLanguage: Sendable {
             typeLaw,
             noSlopLaw,
             groundedInterfaceLaw,
+            oneCardAnatomyLaw,
         ]
     }
 }

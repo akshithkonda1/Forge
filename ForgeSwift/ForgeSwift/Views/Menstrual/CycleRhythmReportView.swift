@@ -139,7 +139,7 @@ struct CycleRhythmReportView: View {
                 .accessibilityHint("Opens the system share sheet with a PDF. You choose Mail, Files, MyChart, or AirDrop.")
             }
         }
-        .forgePlate(energy: Color.ember)
+        .forgeContentCard()
         .accessibilityElement(children: .contain)
     }
 

@@ -132,7 +132,6 @@ struct SleepHeaderView: View {
     let onPersonalize: () -> Void
     let onTabSelect: (SleepTab) -> Void
 
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
     private static let tabIcon: [SleepTab: String] = [
@@ -156,8 +155,21 @@ struct SleepHeaderView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: FDS.Spacing.md) {
-            titleRow
-            captionBlock
+            ForgePageHeader(title: "Sleep", subtitle: subtitle, accent: .steel) {
+                askAriaButton
+                ForgeIconButton(
+                    systemImage: "slider.horizontal.3",
+                    accessibilityLabel: "Sleep preferences",
+                    tinted: false,
+                    action: onPersonalize
+                )
+            }
+            if !dynamicTypeSize.isAccessibilitySize {
+                Text(presence.statusCaption)
+                    .font(FDS.TypeScale.Dynamic.caption)
+                    .foregroundColor(.textTertiary)
+                    .forgeSingleLine(minScale: ForgeLayout.labelMinScale)
+            }
             ForgeSegmentedControl(
                 tabOptions,
                 selection: tabSelection,
@@ -167,29 +179,7 @@ struct SleepHeaderView: View {
             )
         }
         .padding(.horizontal, ForgeLayout.screenInset)
-        .padding(.top, ForgeLayout.screenTop)
         .padding(.bottom, FDS.Spacing.md)
-    }
-
-    private var titleRow: some View {
-        HStack(alignment: .center, spacing: FDS.Spacing.md) {
-            HStack(spacing: FDS.Spacing.sm) {
-                Text("Sleep")
-                    .font(ForgeType.pageTitle)
-                    .foregroundColor(.textPrimary)
-                    .forgeSingleLine(minScale: ForgeLayout.labelMinScale)
-                    .accessibilityAddTraits(.isHeader)
-                SleepStatusDot(kind: presence.liveDot)
-            }
-            Spacer(minLength: FDS.Spacing.sm)
-            askAriaButton
-            ForgeIconButton(
-                systemImage: "slider.horizontal.3",
-                accessibilityLabel: "Sleep preferences",
-                tinted: false,
-                action: onPersonalize
-            )
-        }
     }
 
     private var askAriaButton: some View {
@@ -204,21 +194,5 @@ struct SleepHeaderView: View {
         }
         .buttonStyle(.plain)
         .accessibilityLabel("Ask ARIA about sleep")
-    }
-
-    private var captionBlock: some View {
-        VStack(alignment: .leading, spacing: ForgeLayout.pairGap) {
-            if !dynamicTypeSize.isAccessibilitySize {
-                Text(presence.statusCaption)
-                    .font(FDS.TypeScale.Dynamic.caption)
-                    .foregroundColor(.textTertiary)
-                    .forgeSingleLine(minScale: ForgeLayout.labelMinScale)
-            }
-            Text(subtitle)
-                .font(HomeType.body)
-                .foregroundColor(.textSecondary)
-                .lineLimit(2)
-                .animation(reduceMotion ? nil : .easeInOut(duration: 0.2), value: subtitle)
-        }
     }
 }

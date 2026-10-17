@@ -143,7 +143,7 @@ struct StatsMosaicCard: View {
             }
             .accessibilityLabel("Ask ARIA about today’s mosaic")
         }
-        .forgePlate(energy: ForgeProgressChrome.plate)
+        .forgeContentCard()
         .accessibilityElement(children: .contain)
         .sheet(isPresented: $showManual) {
             StatsManualEntrySheet()

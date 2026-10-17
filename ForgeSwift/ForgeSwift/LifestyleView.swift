@@ -16,7 +16,6 @@ struct LifestyleView: View {
     /// Presentation only: height of the header block above the rail, which
     /// is the scroll distance at which the rail pins.
     @State private var headerBlockHeight: CGFloat = 0
-    @Namespace private var segmentNS
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     /// Zero-height marker at the rail's resting position, so a segment change
@@ -259,7 +258,13 @@ struct LifestyleView: View {
     /// The one pinned element: the segment rail. Bar chrome only once pinned,
     /// so at rest it sits on the segment wash like Home's mini header.
     private var segmentRail: some View {
-        SegmentedPillControl(selected: $selectedSegment, namespace: segmentNS)
+        ForgeSegmentedControl(
+            LifestyleSegment.allCases.map { segment in
+                ForgeSegmentOption(value: segment, title: segment.title, icon: segment.icon)
+            },
+            selection: $selectedSegment,
+            accent: .vitality
+        )
             .padding(.horizontal, ForgeLayout.screenInset)
             .padding(.vertical, FDS.Spacing.sm)
             .frame(maxWidth: .infinity, alignment: .leading)
@@ -400,23 +405,6 @@ struct LifestyleHeaderView: View {
     }
 }
 
-/// Lifestyle's segment selector. Six options always render as the shared
-/// edge-bleed rail, which scrolls the selection (including a deep-linked one)
-/// into view. The accent is the Lifestyle chrome, never the segment color.
-struct SegmentedPillControl: View {
-    @Binding var selected: LifestyleSegment
-    let namespace: Namespace.ID
-
-    private var options: [ForgeSegmentOption<LifestyleSegment>] {
-        LifestyleSegment.allCases.map { segment in
-            ForgeSegmentOption(value: segment, title: segment.title, icon: segment.icon)
-        }
-    }
-
-    var body: some View {
-        ForgeSegmentedControl(options, selection: $selected, accent: .vitality)
-    }
-}
 
 #Preview {
     LifestyleView()

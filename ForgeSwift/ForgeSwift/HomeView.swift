@@ -18,13 +18,12 @@ struct HomeView: View {
 
     var body: some View {
         ZStack(alignment: .top) {
-            HomeAuroraBackground(readinessScore: store.readiness.overall)
+            Color.background
                 .ignoresSafeArea()
 
             ScrollView(showsIndicators: false) {
-                VStack(spacing: HomeMetrics.sectionGap) {
+                ForgeScreenStack {
                         HomeHeaderView()
-                            .padding(.top, FDS.Spacing.sm)
 
                         HomeTodayHero(action: primaryAction)
                         ReadinessForecastCard()
@@ -76,9 +75,7 @@ struct HomeView: View {
                         StreakCalendarSection()
                         HomeTrendSection(isExpanded: $showTrend)
                         LoadTimelineView()
-                            .padding(.bottom, HomeMetrics.scrollBottomClearance)
                 }
-                .padding(.horizontal, HomeMetrics.inset)
                 .background {
                     GeometryReader { geo in
                         Color.clear.preference(
@@ -247,6 +244,7 @@ struct HomeHeaderView: View {
                 }
             }
         }
+        .padding(.top, ForgeLayout.screenTop)
         .homeEntrance(delay: 0.05)
     }
 }

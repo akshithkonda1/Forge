@@ -60,8 +60,7 @@ struct LoadTimelineView: View {
                 }
             }
         }
-        .padding(HomeMetrics.cardPadding)
-        .forgeGlassCard(accent: .ember)
+        .forgeContentCard()
         .accessibilityElement(children: .combine)
         .accessibilityLabel(accessibilitySummary(for: pic))
     }

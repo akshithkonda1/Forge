@@ -91,7 +91,7 @@ struct MacroRingsCard: View {
             legend
         }
         .frame(maxWidth: .infinity, alignment: .leading)
-        .forgePlate(energy: .amber)
+        .forgeContentCard()
         .accessibilityElement(children: .contain)
         .onAppear { appeared = true }
     }

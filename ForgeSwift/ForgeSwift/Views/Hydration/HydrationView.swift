@@ -162,7 +162,7 @@ struct HydrationView: View {
             heroStats
         }
         .frame(maxWidth: .infinity)
-        .forgePlate(energy: Color.steel)
+        .forgeContentCard()
         .accessibilityElement(children: .contain)
     }
 

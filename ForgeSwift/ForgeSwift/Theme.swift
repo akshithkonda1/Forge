@@ -162,32 +162,7 @@ func hrZone(for bpm: Int) -> HRZone {
     return HRZone(zone: 5, label: "Zone 5", color: .danger)
 }
 
-// MARK: - View Modifiers (global premium cards)
-
-struct ForgeCardModifier: ViewModifier {
-    var elevated: Bool = false
-    /// Accent no longer tints the card (no washes, no halos). Kept for API.
-    var accent: Color? = nil
-
-    func body(content: Content) -> some View {
-        content
-            .background {
-                RoundedRectangle(cornerRadius: FDS.Radius.xl, style: .continuous)
-                    .fill(elevated ? Color.surfaceElevated : Color.surface)
-            }
-            .clipShape(RoundedRectangle(cornerRadius: FDS.Radius.xl, style: .continuous))
-            .overlay {
-                RoundedRectangle(cornerRadius: FDS.Radius.xl, style: .continuous)
-                    .strokeBorder(Color.borderHairline, lineWidth: ForgeUX.hairline)
-            }
-    }
-}
-
 extension View {
-    func forgeCard(elevated: Bool = false, accent: Color? = nil) -> some View {
-        modifier(ForgeCardModifier(elevated: elevated, accent: accent))
-    }
-
     /// Screen chrome: one flat near-black field. The accent parameter is kept
     /// for API compatibility; screens no longer carry colored washes.
     func forgeScreenBackground(accent: Color = .ember) -> some View {

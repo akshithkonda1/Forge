@@ -122,10 +122,9 @@ struct HomeARIABriefingCard: View {
                     .font(.system(size: 12, weight: .semibold))
                     .foregroundColor(.ember)
             }
-            .padding(FDS.Spacing.md)
         }
         .buttonStyle(.plain)
-        .forgeGlassCard(accent: .ember)
+        .forgeContentCard(padding: FDS.Spacing.md)
         .accessibilityLabel("Talk to ARIA about today's briefing")
     }
 
@@ -212,8 +211,7 @@ struct HomeARIABriefingCard: View {
                 }
             }
         }
-        .padding(HomeMetrics.cardPadding)
-        .forgeGlassCard(accent: .ember)
+        .forgeContentCard()
         .homeEntrance(delay: 0.18)
         .onAppear {
             startTypewriterIfNeeded()

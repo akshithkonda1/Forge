@@ -303,6 +303,10 @@ assert(motionProviderSrc.includes("MotionConfig"), "provider renders MotionConfi
 const layoutSrc = readFileSync("src/app/layout.tsx", "utf8");
 assert(layoutSrc.includes("MotionConfigProvider"), "root layout wraps the app in MotionConfig");
 
+const companionSrc = readFileSync("src/components/onboarding/aria-companion.tsx", "utf8");
+assert(companionSrc.includes("AriaMark"), "onboarding companion uses nest AriaMark");
+assert(!companionSrc.includes("AriaOrb"), "onboarding companion no longer wraps AriaOrb");
+
 const chatSrc = readFileSync("src/components/chat/chat-page.tsx", "utf8");
 assert(chatSrc.includes("AriaMark"), "chat uses nest AriaMark");
 assert(!chatSrc.includes("AriaOrb"), "chat no longer uses legacy AriaOrb");

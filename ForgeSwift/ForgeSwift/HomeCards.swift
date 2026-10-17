@@ -56,8 +56,7 @@ struct HomeWinCard: View {
                     .font(.system(size: 12, weight: .semibold))
                     .foregroundColor(.ember)
             }
-            .padding(HomeMetrics.cardPadding)
-            .forgeGlassCard(accent: .ember)
+            .forgeContentCard()
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
@@ -200,8 +199,7 @@ struct HomeAgendaCard: View {
                 .accessibilityHint(item.sub)
             }
         }
-        .padding(HomeMetrics.cardPadding)
-        .forgeGlassCard(accent: .ember.opacity(0.5))
+        .forgeContentCard()
         .homeEntrance(delay: 0.16)
     }
 }
@@ -274,8 +272,7 @@ struct HomeLifestylePreviewCard: View {
                         .foregroundColor(.textMuted)
                 }
             }
-            .padding(HomeMetrics.cardPadding)
-            .forgeGlassCard(accent: Color.vitality)
+            .forgeContentCard()
         }
         .buttonStyle(.plain)
         .homeEntrance(delay: 0.22)
@@ -430,9 +427,8 @@ private struct HomeMetricTile: View {
                 .font(HomeType.micro)
                 .foregroundColor(.textTertiary)
         }
-        .padding(FDS.Spacing.md)
         .frame(width: 118, alignment: .leading)
-        .forgeGlassCard(cornerRadius: HomeMetrics.innerRadius)
+        .forgeWell()
         .accessibilityElement(children: .combine)
         .accessibilityLabel("\(label): \(value)")
     }
@@ -706,8 +702,7 @@ struct HomeTrendSection: View {
                     .accessibilityLabel(HomeTrendSeries.accessibilitySummary(trend))
             }
         }
-        .padding(HomeMetrics.cardPadding)
-        .forgeGlassCard()
+        .forgeContentCard()
         .onAppear {
             guard !chartGrown else { return }
             if reduceMotion {

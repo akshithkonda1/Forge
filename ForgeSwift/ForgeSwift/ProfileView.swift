@@ -100,7 +100,7 @@ struct ProfileHeroHeader: View {
             actions
         }
         .frame(maxWidth: .infinity)
-        .forgePlate(energy: heroEnergy)
+        .forgeContentCard()
         .accessibilityElement(children: .contain)
     }
 

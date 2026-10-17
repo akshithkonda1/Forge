@@ -204,7 +204,7 @@ final class HomeTodayProgressTests: XCTestCase {
         XCTAssertNotEqual(HomeReadinessTokens.kind, AriaNestGeometry.kind)
         XCTAssertNotEqual(ForgeProgressChrome.tickCount, AriaNestGeometry.ringCount)
         XCTAssertLessThan(ForgeProgressChrome.tickHz, AriaNestGeometry.tickHz)
-        XCTAssertEqual(HomeReadinessFieldView.isFrozen(reduceMotion: true, minimal: false), true)
+        XCTAssertEqual(HomeTrendMath.isFrozen(reduceMotion: true, minimal: false), true)
     }
 
     func testLifestyleDeepLinkSendsTomorrowAndAtHomeToWellbeing() {

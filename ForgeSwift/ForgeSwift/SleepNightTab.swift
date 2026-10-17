@@ -323,7 +323,7 @@ struct SleepTonightHero: View {
                     .forgeWrapping()
             }
             .frame(maxWidth: .infinity, alignment: .leading)
-            .forgePlate(energy: .steel)
+            .forgeContentCard()
         }
         .accessibilityElement(children: .combine)
     }

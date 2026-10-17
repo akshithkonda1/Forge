@@ -185,15 +185,8 @@ struct MusicControlBar: View {
 
     @ViewBuilder
     private func playingView(track: NowPlayingTrack) -> some View {
-        if compact {
-            playingRow(track: track)
-                .padding(.horizontal, ForgeLayout.compactCardPadding)
-                .padding(.vertical, FDS.Spacing.xs)
-                .forgeGlassCard(cornerRadius: FDS.Radius.lg)
-        } else {
-            playingRow(track: track)
-                .forgeContentCard(padding: ForgeLayout.compactCardPadding)
-        }
+        playingRow(track: track)
+            .forgeContentCard(padding: ForgeLayout.compactCardPadding)
     }
 
     // MARK: Empty

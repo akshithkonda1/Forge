@@ -244,7 +244,7 @@ struct TodaysFocusCard: View {
             ForgeTextLink(title: "Take Action", accent: energy) { }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
-        .forgePlate(energy: energy)
+        .forgeContentCard()
         .accessibilityElement(children: .contain)
     }
 }

@@ -140,7 +140,7 @@ struct SupporterDigestView: View {
                 .forgeWrapping()
         }
         .frame(maxWidth: .infinity, alignment: .leading)
-        .forgePlate(energy: .indigo)
+        .forgeContentCard()
         .accessibilityElement(children: .contain)
     }
 
