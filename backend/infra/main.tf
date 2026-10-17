@@ -568,6 +568,8 @@ resource "aws_lambda_function" "backend" {
       ELEVENLABS_ARIA_AGENT_ID_PARAMETER_NAME = aws_ssm_parameter.elevenlabs_agent_id.name
       ARIA_PAUSED_PARAMETER_NAME              = aws_ssm_parameter.aria_paused.name
       ARIA_PAUSE_FAIL_MODE                    = var.aria_pause_fail_mode
+      ARIA_DAILY_REQUEST_CAP                  = tostring(var.aria_daily_request_cap)
+      ARIA_DAILY_TOKEN_CAP                    = tostring(var.aria_daily_token_cap)
       APP_DATA_TABLE_NAME                     = aws_dynamodb_table.app_data.name
       ARIA_BEDROCK_ENABLED                    = var.aria_bedrock_enabled ? "true" : "false"
       ENVIRONMENT                             = var.environment
@@ -750,13 +752,17 @@ resource "aws_budgets_budget" "spend_guard" {
   time_unit    = "MONTHLY"
 
   dynamic "notification" {
-    for_each = var.spend_guard_notification_email != "" ? [1] : []
+    for_each = var.spend_guard_notification_email != "" ? [
+      { threshold = 80, type = "ACTUAL" },
+      { threshold = 100, type = "ACTUAL" },
+      { threshold = 100, type = "FORECASTED" },
+    ] : []
 
     content {
       comparison_operator        = "GREATER_THAN"
-      threshold                  = 80
+      threshold                  = notification.value.threshold
       threshold_type             = "PERCENTAGE"
-      notification_type          = "ACTUAL"
+      notification_type          = notification.value.type
       subscriber_email_addresses = [var.spend_guard_notification_email]
     }
   }

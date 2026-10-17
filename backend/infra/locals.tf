@@ -28,9 +28,9 @@ locals {
     ) : strcontains(url, "example.com")
   ])
 
-  # 30 days in prod-like accounts, 14 in every other pool. An explicit
+  # 14 days in prod-like accounts, 7 everywhere else. An explicit
   # log_retention_days wins when an operator wants something else.
-  log_retention_days = coalesce(var.log_retention_days, local.is_prod_like ? 30 : 14)
+  log_retention_days = coalesce(var.log_retention_days, local.is_prod_like ? 14 : 7)
 
   generated_uploads_bucket_name = lower(
     replace(

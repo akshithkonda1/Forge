@@ -23,6 +23,9 @@ What the stack on `main` actually is:
 - **No RDS, ECS, EKS, NAT, or ElastiCache.**
 - **Bedrock off.** `aria_bedrock_enabled` defaults false. Dummy-offline and
   live-API-no-Bedrock keep it false.
+- **Logs 14 / 7 days.** Prod-like 14, everything else 7. No unbounded groups.
+- **No cost dashboard unless asked.** `enable_cost_dashboard` default false
+  ($3/month). See [`COST.md`](COST.md).
 
 A pytest cheap-guard (`backend/infra/tests/test_serverless_guard.py`) fails CI
 if a future change sneaks in provisioned concurrency, provisioned Dynamo, or
@@ -66,9 +69,16 @@ aws ssm put-parameter --name /<prefix>/ai/ARIA_PAUSED --value false --overwrite
 
 Up to ~60 s lag on warm invokes. SSM errors fail **paused** (ARIA routes
 503) unless `aria_pause_fail_mode = "open"`. Unset
-`ARIA_PAUSED_PARAMETER_NAME` always fails open. `/health` and `/ai/voice/*`
-stay up when ARIA is paused. Do not set `lambda_reserved_concurrency = 0`
+`ARIA_PAUSED_PARAMETER_NAME` always fails open. `/health` and voice HTTP
+stay up when ARIA is paused; **no Bedrock Converse runs anywhere**
+(gateway choke point + tests in `test_aria_pause_zero_spend.py`). Daily
+caps: `aria_daily_request_cap` (40) and `aria_daily_token_cap` (20000),
+inert while Bedrock is off. Do not set `lambda_reserved_concurrency = 0`
 to pause the app — validation rejects 0; the SSM flag is the kill switch.
+
+Spend visibility: the $25 monthly budget alerts at 80% actual, 100% actual,
+and 100% forecasted. Leave `spend_guard_notification_email` empty until
+Akshith fills it in.
 
 ## Teardown (deletion protection)
 

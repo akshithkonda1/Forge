@@ -74,11 +74,17 @@ tags = {
 # ai_router_model_3_name = "Grok"
 #
 # Spend guard is on by default ($25/mo). First two AWS Budgets are free.
-# The budget only ALERTS — it never stops spend. ElevenLabs is invisible to
-# it; that cap lives in the app quota. A real apply requires the email.
+# Alerts at 80% actual, 100% actual, and 100% forecasted. The budget only
+# ALERTS — it never stops spend. ElevenLabs is invisible to it; that cap
+# lives in the app quota. Leave the email for Akshith to fill in.
 # enable_spend_guard                = true
 # spend_guard_limit_usd             = 25
-# spend_guard_notification_email    = "ops@example.com"
+# spend_guard_notification_email    = ""
+# CloudWatch usage dashboard is $3/mo — keep off unless you want it.
+# enable_cost_dashboard             = false
+# Per-user daily Bedrock caps (inert while aria_bedrock_enabled is false).
+# aria_daily_request_cap            = 40
+# aria_daily_token_cap              = 20000
 #
 # Exactly one management-event CloudTrail per AWS account. Default false so
 # a shared-account dev stack does not create a second trail. The committed

@@ -41,7 +41,7 @@ Apply-failure catalog (also plan-only): [`TERRAFORM_PLAN.md`](TERRAFORM_PLAN.md)
 - S3 uploads bucket
 - Parameter Store SecureString parameters for `ELEVENLABS_*` (standard tier; seed after apply)
 - Parameter Store String `ARIA_PAUSED` (ARIA-only kill switch, default `"false"`)
-- CloudWatch log groups with retention (30 prod / 14 dev)
+- CloudWatch log groups with retention (14 prod / 7 dev)
 - Optional free-tier CloudWatch alarms (7 standard) + one SNS topic (`enable_alarms`, default true)
 - Optional CloudTrail management-event trail (`create_cloudtrail`, default
   **false** — exactly one trail per AWS account). `prod.tfvars` sets it true
@@ -82,6 +82,7 @@ doubled write cost). You can store:
 - `cognito.tf`: prefix domain, Kotlin + localhost clients, Apple/Google IdPs
 - `ssm.tf`: ElevenLabs SecureString parameters and the `ARIA_PAUSED` String kill switch
 - `SCALING.md`: serverless posture, alarm → knob table, kill-switch runbook, two-step teardown
+- `COST.md`: token audit, pause=zero-spend, monthly estimate (5 / 100 / 1k users)
 - `cloudtrail.tf`: optional management-event trail + locked bucket
 - `outputs.tf`: `client_configuration` plus allowlist-only `dev_client_configuration`
 - `bootstrap/`: SSE-S3 state bucket (TLS-only, GetObject limited to deploy role + account root, 30-day noncurrent expiry). IdP secrets land in state. **Local state** — it creates the bucket

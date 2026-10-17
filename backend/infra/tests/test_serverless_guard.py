@@ -28,6 +28,7 @@ FORBIDDEN_RESOURCE_TYPES = frozenset(
         "aws_lb",
         "aws_opensearch_domain",
         "aws_sagemaker_endpoint",
+        "aws_vpc_endpoint",
     }
 )
 FORBIDDEN_RESOURCE_PREFIXES = ("aws_elasticache_",)
@@ -182,6 +183,42 @@ def test_aria_pause_fail_mode_defaults_to_paused():
     block = variables.split('variable "aria_pause_fail_mode"')[1][:800]
     assert 'default     = "paused"' in block
     assert 'default     = "open"' not in block
+
+
+def test_log_retention_defaults_are_7_or_14_days():
+    locals_tf = (INFRA_DIR / "locals.tf").read_text(encoding="utf-8")
+    assert "is_prod_like ? 14 : 7" in locals_tf
+    assert "is_prod_like ? 30 : 14" not in locals_tf
+
+
+def test_cost_dashboard_is_opt_in():
+    variables = (INFRA_DIR / "variables.tf").read_text(encoding="utf-8")
+    block = variables.split('variable "enable_cost_dashboard"')[1][:500]
+    assert "default     = false" in block
+    costs = (INFRA_DIR / "costs.tf").read_text(encoding="utf-8")
+    assert "count = var.enable_cost_dashboard ? 1 : 0" in costs
+
+
+def test_spend_guard_has_forecasted_alert():
+    main = (INFRA_DIR / "main.tf").read_text(encoding="utf-8")
+    assert 'type = "FORECASTED"' in main
+    assert 'type = "ACTUAL"' in main
+
+
+def test_no_eventbridge_schedulers_or_warmers():
+    findings: list[str] = []
+    forbidden = (
+        "aws_cloudwatch_event_rule",
+        "aws_scheduler_schedule",
+        "aws_lambda_provisioned_concurrency_config",
+    )
+    for path in _tf_files():
+        text = _strip_line_comments(path.read_text(encoding="utf-8"))
+        rel = path.relative_to(INFRA_DIR)
+        for resource_type, name, _body in _iter_resources(text):
+            if resource_type in forbidden:
+                findings.append(f'{rel}: resource "{resource_type}" "{name}"')
+    assert findings == [], "schedulers / warmers:\n" + "\n".join(findings)
 
 
 def test_alarm_count_is_within_free_tier():
