@@ -322,12 +322,12 @@ variable "api_throttling_burst_limit" {
 variable "aria_pause_fail_mode" {
   description = <<-EOT
     What is_aria_paused() returns when SSM GetParameter fails.
-    "open" (default): ARIA stays up (fail open). "paused": treat SSM errors
-    as paused. Unset ARIA_PAUSED_PARAMETER_NAME always fails open. Fail-open
-    vs fail-paused is still an operator choice.
+    "paused" (default): treat SSM errors as paused. "open": ARIA stays up
+    (fail open). Unset ARIA_PAUSED_PARAMETER_NAME always fails open. /health
+    and voice stay up either way.
   EOT
   type        = string
-  default     = "open"
+  default     = "paused"
 
   validation {
     condition     = contains(["open", "paused"], var.aria_pause_fail_mode)

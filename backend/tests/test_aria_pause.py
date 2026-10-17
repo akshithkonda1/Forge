@@ -1,8 +1,8 @@
 """ARIA-only kill switch. Mock SSM — never call AWS.
 
 Gated routes return 503 ``{"error":"aria_paused",...}`` before the router or
-Dynamo. Voice, /health, and non-ARIA routes stay up. SSM errors fail open
-unless ARIA_PAUSE_FAIL_MODE=paused.
+Dynamo. Voice, /health, and non-ARIA routes stay up. SSM errors fail paused
+unless ARIA_PAUSE_FAIL_MODE=open.
 """
 
 from __future__ import annotations
@@ -124,7 +124,19 @@ class AriaPauseTests(unittest.TestCase):
         self.assertIn("ARIA_BEDROCK_ENABLED", payload["message"])
         self.assertEqual(self.ssm.calls, 1)
 
-    def test_ssm_error_fails_open(self):
+    def test_ssm_error_fails_paused_by_default(self):
+        self.ssm.error = RuntimeError("ssm timeout")
+        with patch("ai_router.AIRouter") as router:
+            response = handler(
+                event("POST", "/ai/router", {"question": "hi"}),
+                None,
+            )
+        self.assertEqual(response["statusCode"], 503)
+        self.assertEqual(body(response)["error"], "aria_paused")
+        router.assert_not_called()
+
+    def test_ssm_error_fails_open_when_fail_mode_open(self):
+        os.environ["ARIA_PAUSE_FAIL_MODE"] = "open"
         self.ssm.error = RuntimeError("ssm timeout")
         response = handler(
             event("POST", "/ai/router", {"question": "hi"}),
@@ -161,6 +173,16 @@ class AriaPauseTests(unittest.TestCase):
         response = handler(event("GET", "/health", user_id=None), None)
         self.assertEqual(response["statusCode"], 200)
         self.assertEqual(body(response)["status"], "ok")
+        self.assertEqual(self.ssm.calls, 0)
+
+    def test_health_and_voice_stay_up_when_ssm_errors_fail_paused(self):
+        self.ssm.error = RuntimeError("ssm timeout")
+        health = handler(event("GET", "/health", user_id=None), None)
+        voice = handler(event("GET", "/ai/voice/bootstrap"), None)
+        self.assertEqual(health["statusCode"], 200)
+        self.assertEqual(body(health)["status"], "ok")
+        self.assertNotEqual(body(voice).get("error"), "aria_paused")
+        self.assertEqual(body(voice).get("code"), "elevenlabs_unconfigured")
         self.assertEqual(self.ssm.calls, 0)
 
     def test_unset_env_fails_open_without_ssm(self):

@@ -115,6 +115,7 @@ tags = {
 #
 # ARIA-only kill switch (SSM String /<prefix>/ai/ARIA_PAUSED). Pause:
 #   aws ssm put-parameter --name /<prefix>/ai/ARIA_PAUSED --value true --overwrite
-# Resume with --value false. Up to ~60 s lag. Fail-open on SSM errors unless
-# aria_pause_fail_mode = "paused".
-# aria_pause_fail_mode = "open"
+# Resume with --value false. Up to ~60 s lag. SSM errors fail paused (ARIA
+# routes 503). Set aria_pause_fail_mode = "open" to keep ARIA up on SSM errors.
+# /health and /ai/voice/* stay up either way.
+# aria_pause_fail_mode = "paused"

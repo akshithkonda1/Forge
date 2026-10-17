@@ -49,7 +49,7 @@ allowance at the ~1k MAU ceiling.
 Standard-tier String parameter `/${name_prefix}/ai/ARIA_PAUSED` (default
 `"false"`, `lifecycle.ignore_changes = [value]` so a live pause is not
 reverted on apply). Lambda env: `ARIA_PAUSED_PARAMETER_NAME`,
-`ARIA_PAUSE_FAIL_MODE` (`open` \| `paused`, default `open`). Cached 60s
+`ARIA_PAUSE_FAIL_MODE` (`open` \| `paused`, default `paused`). Cached 60s
 in-process.
 
 Pause (ARIA chat/router/coach only; voice, `/health`, and non-ARIA routes stay up):
@@ -64,10 +64,11 @@ Resume:
 aws ssm put-parameter --name /<prefix>/ai/ARIA_PAUSED --value false --overwrite
 ```
 
-Up to ~60 s lag on warm invokes. SSM errors fail **open** (ARIA stays up)
-unless `aria_pause_fail_mode = "paused"`. Unset env always fails open. Do
-not set `lambda_reserved_concurrency = 0` to pause the app — validation
-rejects 0; the SSM flag is the kill switch.
+Up to ~60 s lag on warm invokes. SSM errors fail **paused** (ARIA routes
+503) unless `aria_pause_fail_mode = "open"`. Unset
+`ARIA_PAUSED_PARAMETER_NAME` always fails open. `/health` and `/ai/voice/*`
+stay up when ARIA is paused. Do not set `lambda_reserved_concurrency = 0`
+to pause the app — validation rejects 0; the SSM flag is the kill switch.
 
 ## Teardown (deletion protection)
 

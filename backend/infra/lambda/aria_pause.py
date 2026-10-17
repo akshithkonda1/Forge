@@ -1,9 +1,10 @@
 """ARIA-only kill switch backed by a Standard-tier SSM String parameter.
 
 Cached in-process for 60 seconds so a pause or resume is felt on the next
-warm invoke after that window, not on every request. Unset env always fails
-open (ARIA stays up). SSM errors fail open unless ``ARIA_PAUSE_FAIL_MODE`` is
-``paused``. Voice routes never consult this module.
+warm invoke after that window, not on every request. Unset
+``ARIA_PAUSED_PARAMETER_NAME`` always fails open (ARIA stays up). SSM errors
+fail paused unless ``ARIA_PAUSE_FAIL_MODE`` is ``open``. Voice and /health
+never consult this module.
 """
 
 from __future__ import annotations
@@ -44,7 +45,7 @@ def is_aria_paused() -> bool:
 
 
 def _fail_mode_paused() -> bool:
-    return (os.getenv("ARIA_PAUSE_FAIL_MODE") or "open").strip().lower() == "paused"
+    return (os.getenv("ARIA_PAUSE_FAIL_MODE") or "paused").strip().lower() == "paused"
 
 
 def _ssm_client():
