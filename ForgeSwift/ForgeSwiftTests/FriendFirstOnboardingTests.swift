@@ -217,6 +217,9 @@ final class FriendFirstOnboardingTests: XCTestCase {
         XCTAssertTrue(coordinator.canSkipCurrentBeat)
         coordinator.skipCurrentBeat()
         XCTAssertEqual(coordinator.messages.last(where: { $0.role == .user })?.text, "Skip")
+        XCTAssertTrue(AriaPaused.onboardingLine.lowercased().contains("taking a break"))
+        XCTAssertTrue(AriaPaused.onboardingLine.lowercased().contains("skip"))
+        XCTAssertEqual(ForgeTutorialSkip.label, "Skip")
     }
 
     @MainActor

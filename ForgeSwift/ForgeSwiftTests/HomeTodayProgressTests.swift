@@ -308,6 +308,17 @@ final class HomeTodayProgressTests: XCTestCase {
         }
     }
 
+    func testPremiumLookStaysHealthAppNotCockpit() {
+        XCTAssertEqual(HomeReadinessTokens.Band.allCases.map(\.label), ["Peak", "Good", "Fair", "Low"])
+        XCTAssertEqual(HomeReadinessTokens.tickCount, 0)
+        XCTAssertFalse(HomeReadinessTokens.scanlines)
+        XCTAssertFalse(HomeReadinessTokens.brackets)
+        XCTAssertLessThanOrEqual(HomeReadinessTokens.eventHz, 12)
+        XCTAssertEqual(HomeReadinessTokens.eventHzCeiling, 12)
+        XCTAssertTrue(HomeReadinessTokens.eventGlowOnly)
+        XCTAssertFalse(HomeReadinessTokens.foreignBandLabels.contains("Peak"))
+    }
+
     func testEventGlowStaysOffUntilAClose() {
         XCTAssertFalse(
             HomeReadinessTokens.shouldRunClock(

@@ -261,6 +261,7 @@ let package = Package(
                 "AriaSoulTests.swift",
                 "ForgeExerciseDiscoveryTests.swift",
                 "ForgeConditionAdaptationTests.swift",
+                "ForgeStabilityTests.swift",
                 "WorkoutCoachingTests.swift",
                 "WorkoutModelsTests.swift",
                 "ForgeCloudContractsTests.swift",

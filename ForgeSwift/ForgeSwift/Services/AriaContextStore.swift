@@ -1199,6 +1199,10 @@ final class AriaContextStore: ObservableObject {
     }
 
     private func persistMemory() {
-        AriaContextMemoryStore.save(memory)
+        let snap = memory
+        DispatchQueue.global(qos: .utility).async {
+            let compacted = AriaContextMemory.compact(snap)
+            _ = AriaContextMemoryStore.save(compacted)
+        }
     }
 }

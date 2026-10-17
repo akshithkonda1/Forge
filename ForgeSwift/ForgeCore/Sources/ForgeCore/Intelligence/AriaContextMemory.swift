@@ -477,6 +477,14 @@ extension AriaContextMemory {
         return next
     }
 
+    /// Background-only compaction: decay, roll up summaries, enforce caps.
+    /// Callers must not run this on the main thread in the app.
+    public static func compact(_ snap: Snapshot, now: Date = Date()) -> Snapshot {
+        var next = decay(snap, now: now)
+        next = consolidate(next, now: now)
+        return next
+    }
+
     public static func consolidate(_ snap: Snapshot, now: Date = Date()) -> Snapshot {
         var next = summarizeClusters(snap, now: now)
         let stm = next.items.filter { $0.layer == .stm && $0.isActive }
@@ -836,9 +844,25 @@ public enum AriaContextMemoryStore: Sendable {
         var dir = root
         try? dir.setResourceValues(values)
         let url = root.appendingPathComponent(fileName)
-        guard let data = try? JSONEncoder().encode(snap) else { return nil }
+        let fitted = fitToFileBudget(snap)
+        guard let data = try? JSONEncoder().encode(fitted),
+              data.count <= ForgeRuntimeGuard.maxFileBytes else { return nil }
         try? data.write(to: url, options: .atomic)
         return url
+    }
+
+    public static func fitToFileBudget(
+        _ snap: AriaContextMemory.Snapshot,
+        maxBytes: Int = ForgeRuntimeGuard.maxFileBytes
+    ) -> AriaContextMemory.Snapshot {
+        var next = AriaContextMemory.compact(snap)
+        while let data = try? JSONEncoder().encode(next),
+              data.count > maxBytes,
+              next.items.count > 8 {
+            let drop = max(1, next.items.count / 8)
+            next.items.removeLast(min(drop, next.items.count - 8))
+        }
+        return next
     }
 }
 
