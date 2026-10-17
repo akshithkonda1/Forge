@@ -59,9 +59,12 @@ export function IosTabBar({ active }: { active: Exclude<PreviewTab, null> }) {
           return (
             <div
               key={tab.id}
-              className="flex min-w-[44px] flex-1 flex-col items-center gap-0.5"
+              className="relative flex min-w-[44px] flex-1 flex-col items-center gap-0.5"
               aria-current={on ? "page" : undefined}
             >
+              {on ? (
+                <span className="absolute -top-1 h-[2px] w-5 rounded-full bg-paper/80" />
+              ) : null}
               <TabGlyph id={tab.id} on={on} />
               <span
                 className={cn(
@@ -88,7 +91,11 @@ function TabGlyph({
 }) {
   const tone = on ? "text-text-primary" : "text-text-tertiary";
   if (id === "chat") {
-    return <AriaMark size={22} speaking={false} />;
+    return (
+      <span className={on ? "opacity-100" : "opacity-45"}>
+        <AriaMark size={22} speaking={false} />
+      </span>
+    );
   }
   const Icon =
     id === "home"

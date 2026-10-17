@@ -61,17 +61,17 @@ async function main() {
     await page.waitForSelector(`[data-preview-phone="${slug}"]`);
     await page.waitForTimeout(400);
     const phone = page.locator(`[data-preview-phone="${slug}"]`);
-    const dest = join(OUT, `forge_preview_${slug.replace(/-/g, "_")}.png`);
+    const dest = join(OUT, `forge_472_${slug.replace(/-/g, "_")}.png`);
     await phone.screenshot({ path: dest, type: "png" });
     manifest.push({ slug, path: dest });
     process.stdout.write(`wrote ${dest}\n`);
   }
 
-  await page.setViewportSize({ width: 1760, height: 3400 });
+  await page.setViewportSize({ width: 1920, height: 3600 });
   await page.goto(`${BASE}/preview`, { waitUntil: "networkidle" });
   await page.waitForSelector("[data-preview-phone]");
   await page.waitForTimeout(800);
-  const sheet = join(OUT, "forge_preview_contact_sheet.png");
+  const sheet = join(OUT, "forge_472_contact_sheet.png");
   await page.screenshot({ path: sheet, type: "png", fullPage: true });
   manifest.push({ slug: "contact-sheet", path: sheet });
   process.stdout.write(`wrote ${sheet}\n`);

@@ -13,7 +13,7 @@ export function LifestyleScreen() {
       <h1 className="preview-display mt-1 text-[1.5rem]">{LIFESTYLE.title}</h1>
       <p className="preview-body mt-1 text-text-secondary">{LIFESTYLE.subtitle}</p>
 
-      <div className="mt-4 flex gap-1.5 overflow-hidden">
+      <div className="mt-3 flex flex-wrap gap-1.5">
         {LIFESTYLE.segments.map((seg) => (
           <Capsule key={seg} tone={seg === "Nutrition" ? "paper" : "quiet"}>
             {seg}
