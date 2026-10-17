@@ -26,9 +26,24 @@ final class ForgeTutorialTests: XCTestCase {
             .competitor
         )
         XCTAssertEqual(ForgeTutorial.Opening.resolve(experience: "intermediate", goals: []), .everyday)
+        XCTAssertEqual(
+            ForgeTutorial.Opening.resolve(experience: "intermediate", goals: ["athletic-performance"]),
+            .competitor
+        )
         XCTAssertTrue(ForgeTutorial.Opening.beginner.welcome.lowercased().contains("no jargon"))
         XCTAssertTrue(ForgeTutorial.Opening.competitor.welcome.lowercased().contains("load"))
         XCTAssertFalse(ForgeTutorial.Opening.beginner.welcome.lowercased().contains("recovery"))
+        XCTAssertGreaterThan(
+            ForgeTutorial.Opening.beginner.hesitateSeconds,
+            ForgeTutorial.Opening.competitor.hesitateSeconds
+        )
+        let beginnerHome = ForgeTutorial.Beat.home.prompt(opening: .beginner)
+        let competitorHome = ForgeTutorial.Beat.home.prompt(opening: .competitor)
+        XCTAssertNotEqual(beginnerHome, competitorHome)
+        XCTAssertTrue(beginnerHome.lowercased().contains("glance"))
+        XCTAssertTrue(competitorHome.lowercased().contains("load"))
+        XCTAssertFalse(beginnerHome.lowercased().contains("recovery"))
+        XCTAssertEqual(ForgeTutorial.hesitateSeconds(for: .everyday), 6.0, accuracy: 0.01)
     }
 
     func testHappyPathAdvancesOneGesturePerBeat() {
@@ -82,10 +97,13 @@ final class ForgeTutorialTests: XCTestCase {
     }
 
     func testCopyNeverDiagnosesRanksOrSaysRecovery() {
-        for beat in ForgeTutorial.Beat.allCases {
-            XCTAssertFalse(beat.prompt.lowercased().contains("recovery"), beat.rawValue)
-            XCTAssertFalse(beat.prompt.lowercased().contains("diagnos"), beat.rawValue)
-            XCTAssertFalse(ForgeHealthPotential.containsBanned(beat.prompt), beat.rawValue)
+        for opening in ForgeTutorial.Opening.allCases {
+            for beat in ForgeTutorial.Beat.allCases {
+                let line = beat.prompt(opening: opening)
+                XCTAssertFalse(line.lowercased().contains("recovery"), "\(opening.rawValue).\(beat.rawValue)")
+                XCTAssertFalse(line.lowercased().contains("diagnos"), "\(opening.rawValue).\(beat.rawValue)")
+                XCTAssertFalse(ForgeHealthPotential.containsBanned(line), "\(opening.rawValue).\(beat.rawValue)")
+            }
         }
         XCTAssertTrue(ForgeTutorial.pausedLine.lowercased().contains("taking a break"))
     }

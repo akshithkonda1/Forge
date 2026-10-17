@@ -627,6 +627,17 @@ struct HealthComposer: View {
         coordinator.isHealthPulling
     }
 
+    private var healthHasConnection: Bool {
+        coordinator.healthKitState == .authorized
+            || coordinator.calendarState == .authorized
+            || coordinator.contactsState == .authorized
+            || coordinator.remindersState == .authorized
+    }
+
+    private var healthContinueTitle: String {
+        healthHasConnection ? "Continue" : "Skip"
+    }
+
     private var healthStatus: String {
         AriaInterviewVoice.healthStatusLabel(state: coordinator.healthKitState, pulling: pulling)
     }
@@ -641,10 +652,16 @@ struct HealthComposer: View {
             }
 
             PrimaryCTA(
-                title: "Continue",
+                title: healthContinueTitle,
                 icon: "arrow.right",
                 enabled: true,
-                action: coordinator.continueFromHealth
+                action: {
+                    if healthHasConnection {
+                        coordinator.continueFromHealth()
+                    } else {
+                        coordinator.skipHealthAndContinue()
+                    }
+                }
             )
 
             if let line = coordinator.emptyBackfillLine {

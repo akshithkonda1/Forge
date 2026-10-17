@@ -126,6 +126,60 @@ final class OnboardingCoordinator {
         interruptInterviewVoice()
     }
 
+    /// Every visible question is skippable. Skip gathers nothing and moves on
+    /// — never an interrogation chain.
+    var canSkipCurrentBeat: Bool {
+        switch OnboardingGraph.normalized(step.graph) {
+        case .name, .health, .freeTime, .coaching:
+            return !isCompleting
+        default:
+            return false
+        }
+    }
+
+    func skipCurrentBeat() {
+        guard canSkipCurrentBeat else { return }
+        step = AriaInterviewStep(OnboardingGraph.normalized(step.graph))
+        switch step {
+        case .name:
+            skipNameAndContinue()
+        case .health:
+            skipHealthAndContinue()
+        case .freeTime:
+            confirmInterests()
+        case .coaching:
+            confirmAdaptiveTrainingModel()
+        default:
+            break
+        }
+    }
+
+    private func skipNameAndContinue() {
+        guard step == .name || OnboardingGraph.normalized(step.graph) == .name else { return }
+        if profile.isPreferredNameValid {
+            submitName()
+            return
+        }
+        interruptInterviewVoice()
+        appendUser("Skip")
+        Task {
+            await ariaSay("All good. Tell me what to call you whenever it feels useful.", mood: .calm)
+            await advanceTo(.health)
+        }
+    }
+
+    private func peopleNoteForMemory() -> String? {
+        guard let life = profile.lifeContext, life != .preferNot else { return nil }
+        return "Household: \(life.label)"
+    }
+
+    private func moodNoteForMemory() -> String? {
+        if profile.friendHabits.contains(.stayClose) {
+            return "Check in like a friend — stay close."
+        }
+        return nil
+    }
+
     // MARK: - Start
 
     func startIfNeeded(in store: AppStore) {
@@ -607,7 +661,7 @@ final class OnboardingCoordinator {
                 )
             } else if profile.reportedConditions.contains(.none) {
                 await ariaSay(
-                    "Got it. I'll still coach as a lifestyle guide — not a clinician — and keep recovery front and center.",
+                    "Got it. I'll still coach as a lifestyle guide — not a clinician.",
                     mood: .focused
                 )
             } else {
@@ -1003,7 +1057,11 @@ final class OnboardingCoordinator {
             healthConnected: healthConnected,
             lifestyleTags: profile.lifestyleTagsForContext(),
             constraints: profile.constraintsForContext(),
-            trainingTheme: profile.trainingTheme
+            trainingTheme: profile.trainingTheme,
+            sleepNote: profile.sleepBand.map { "Sleep rhythm: \($0.label). \($0.detail)" },
+            hobbyNotes: profile.freeTimeInterests.map(\.label),
+            peopleNote: peopleNoteForMemory(),
+            moodNote: moodNoteForMemory()
         )
 
         ForgeHaptics.play(.success)

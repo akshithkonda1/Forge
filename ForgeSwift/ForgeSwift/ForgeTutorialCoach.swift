@@ -66,7 +66,7 @@ struct ForgeTutorialCoach: View {
             .padding(.top, FDS.Spacing.sm)
             .allowsHitTesting(true)
             .accessibilityElement(children: .contain)
-            .accessibilityLabel("Health tutorial. \(beat.prompt). \(beat.voiceOverHint)")
+            .accessibilityLabel("Health tutorial. \(beat.prompt(opening: state.opening)). \(beat.voiceOverHint)")
             .onAppear {
                 if reduceMotion {
                     appeared = true

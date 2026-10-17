@@ -8,6 +8,10 @@ public enum ForgeTutorial: Sendable {
     public static let nailSeconds: Double = 1.8
     public static let hesitateSeconds: Double = 6.0
 
+    public static func hesitateSeconds(for opening: Opening) -> Double {
+        opening.hesitateSeconds
+    }
+
     public enum Opening: String, Codable, CaseIterable, Sendable {
         case beginner
         case everyday
@@ -21,10 +25,19 @@ public enum ForgeTutorial: Sendable {
             }
             if exp.contains("elite") || exp.contains("advanced")
                 || blob.contains("competition") || blob.contains("pr ")
-                || blob.contains("personal record") || blob.contains("race") {
+                || blob.contains("personal record") || blob.contains("race")
+                || blob.contains("athletic") {
                 return .competitor
             }
             return .everyday
+        }
+
+        public var hesitateSeconds: Double {
+            switch self {
+            case .beginner: return 8.0
+            case .everyday: return 6.0
+            case .competitor: return 4.5
+            }
         }
 
         public var welcome: String {
@@ -74,17 +87,45 @@ public enum ForgeTutorial: Sendable {
             case .welcome:
                 return opening.welcome
             case .home:
-                return "Home is the day at a glance — readiness, the mosaic, one next move. That's how you start without hunting."
+                switch opening {
+                case .beginner:
+                    return "Home is the picture of your day. Readiness, one next move. Glance — that's enough."
+                case .competitor:
+                    return "Home is the day's load picture: readiness, mosaic, the next honest session."
+                case .everyday:
+                    return "Home is the day at a glance — readiness, the mosaic, one next move. That's how you start without hunting."
+                }
             case .sleep:
-                return "Sleep is last night and the night ahead. I use it to size the day — not to grade you."
+                switch opening {
+                case .beginner:
+                    return "Sleep is last night, in plain words. I use it to size today — not to grade you."
+                case .competitor:
+                    return "Sleep sizes the next session. Last night and the night ahead, no lecture."
+                case .everyday:
+                    return "Sleep is last night and the night ahead. I use it to size the day — not to grade you."
+                }
             case .seeHistory:
                 return "Open Progress. That's nights, movement, work, stress, habits — sitting there. Untapped, not a verdict."
             case .personalIndex:
                 return "Read a tile. That's your index, from your own days — not a BMI headline, not a one-size score."
             case .train:
-                return "Train is the session hub. Exercises that fit the gym and gear you actually have. I never coach form."
+                switch opening {
+                case .beginner:
+                    return "Train is where a session lives. Moves that fit the gear you have. I never coach form."
+                case .competitor:
+                    return "Train is the session hub — load, gear, the next piece of work. I never coach form."
+                case .everyday:
+                    return "Train is the session hub. Exercises that fit the gym and gear you actually have. I never coach form."
+                }
             case .askAria:
-                return "Ask ARIA how you're doing. I talk with you — light, warm, adult. How you live is the curriculum."
+                switch opening {
+                case .beginner:
+                    return "Ask ARIA how you're doing. One question is enough. Light, adult, no quiz."
+                case .competitor:
+                    return "Ask ARIA how you're doing. I'll keep it short and honest — how you live is the curriculum."
+                case .everyday:
+                    return "Ask ARIA how you're doing. I talk with you — light, warm, adult. How you live is the curriculum."
+                }
             case .hobbyFit:
                 return "Hobby Fit is the free-day picture. A quiet stretch or a night out still counts as the life we're coaching."
             case .lifestyle:
@@ -329,7 +370,7 @@ public enum ForgeTutorial: Sendable {
         case .openedSettings: return .settings
         case .openedWatch: return .watchWidgets
         case .expandedTile: return .mosaicWin
-        case .skip, .hesitated: return nil
+        case .acknowledge, .skip, .hesitated: return nil
         }
     }
 

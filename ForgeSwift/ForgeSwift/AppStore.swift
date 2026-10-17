@@ -261,10 +261,11 @@ final class AppStore: ObservableObject {
         tutorialBeatAppearedAt = Date()
         if mosaicTutorial.beat != .done {
             Task { @MainActor in
-                try? await Task.sleep(for: .seconds(ForgeTutorial.hesitateSeconds))
+                let wait = ForgeTutorial.hesitateSeconds(for: mosaicTutorial.opening)
+                try? await Task.sleep(for: .seconds(wait))
                 guard mosaicTutorial.beat != .done else { return }
                 let waited = Date().timeIntervalSince(tutorialBeatAppearedAt)
-                if waited >= ForgeTutorial.hesitateSeconds - 0.05 {
+                if waited >= wait - 0.05 {
                     recordTutorial(.hesitated)
                 }
             }
@@ -502,6 +503,19 @@ final class AppStore: ObservableObject {
     func finishForgePrep() {
         isOnboarded = true
         AriaForgePrepHandoff.clearInterviewComplete()
+        refreshTutorialOpeningFromProfile()
+    }
+
+    /// First-launch tutorial uses the onboarding experience/goal signal so
+    /// ARIA's opening is already personalized on the first beat.
+    func refreshTutorialOpeningFromProfile() {
+        guard !mosaicTutorial.isComplete else { return }
+        let opening = ForgeTutorial.Opening.resolve(
+            experience: userProfile.experienceLevel.rawValue,
+            goals: userProfile.fitnessGoals.map(\.rawValue) + userProfile.fitnessGoals.map(\.label)
+        )
+        mosaicTutorial.opening = opening
+        persistMosaicTutorial()
     }
     
 }

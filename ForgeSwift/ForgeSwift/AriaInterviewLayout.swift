@@ -149,6 +149,22 @@ struct AriaInterviewLayout: View {
 
             progressBar
 
+            if coordinator.canSkipCurrentBeat {
+                Button {
+                    dictation.cancel()
+                    coordinator.skipCurrentBeat()
+                } label: {
+                    Text("Skip")
+                        .font(HomeType.label)
+                        .foregroundStyle(Color.textSecondary)
+                        .frame(minWidth: ForgeUX.minTap, minHeight: ForgeUX.minTap)
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("Skip")
+                .accessibilityHint("Skip this question. Everything is optional.")
+            }
+
             AriaSpokenMuteButton()
         }
         .animation(motion(ForgeMotion.smooth), value: coordinator.step)

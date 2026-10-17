@@ -5,6 +5,37 @@ final class AriaContextMemoryTests: XCTestCase {
 
     private let day = Date(timeIntervalSince1970: 1_700_000_000)
 
+    func testShelvesSplitDreamsSleepAndUserEditsLock() {
+        XCTAssertEqual(AriaContextMemory.Shelf.allCases.map(\.rawValue), [
+            "dreams", "sleep", "hobbies", "people", "goals", "mood",
+        ])
+        var snap = AriaContextMemory.Snapshot()
+        snap = AriaContextMemory.ingest(
+            snap, text: "Dream: the hallway again", source: "settings",
+            userLocked: true, domainOverride: .sleepDreams
+        )
+        snap = AriaContextMemory.ingest(
+            snap, text: "I slept six hours", source: "settings",
+            userLocked: true, domainOverride: .sleepDreams
+        )
+        let dream = snap.active.first { AriaContextMemory.Shelf.of($0) == .dreams }
+        let sleep = snap.active.first { AriaContextMemory.Shelf.of($0) == .sleep }
+        XCTAssertNotNil(dream)
+        XCTAssertNotNil(sleep)
+        let id = try XCTUnwrap(sleep?.id)
+        snap = AriaContextMemory.edit(snap, id: id, text: "I slept seven hours")
+        XCTAssertTrue(snap.items.contains { $0.id == id && $0.userLocked })
+        snap = AriaContextMemory.delete(snap, id: id)
+        XCTAssertFalse(snap.active.contains { $0.id == id })
+        XCTAssertFalse(snap.tombstones.isEmpty)
+        XCTAssertEqual(AriaContextMemory.Shelf.dreams.persistDomain, .sleepDreams)
+        XCTAssertEqual(AriaContextMemory.Shelf.sleep.persistDomain, .sleepDreams)
+        XCTAssertEqual(AriaContextMemory.Shelf.hobbies.persistDomain, .lifestyleHobbies)
+        XCTAssertEqual(AriaContextMemory.Shelf.people.persistDomain, .people)
+        XCTAssertEqual(AriaContextMemory.Shelf.goals.persistDomain, .goals)
+        XCTAssertEqual(AriaContextMemory.Shelf.mood.persistDomain, .moodMentality)
+    }
+
     func testClassifyDomainsAndDreamsStaySensitive() {
         XCTAssertEqual(AriaContextMemory.classify("I dreamed the hallway flooded"), .sleepDreams)
         XCTAssertEqual(AriaContextMemory.classify("pottery nights"), .lifestyleHobbies)

@@ -10,7 +10,12 @@ struct AriaMemoryControlsView: View {
     @State private var showLifestyleInterview = false
     @State private var confirmForgetPersona = false
     @State private var confirmDeleteFact: AriaKnowledgeFact?
+    @State private var confirmDeleteContextID: String?
     @State private var contextSnap = AriaContextMemoryStore.load()
+    @State private var showContextEditor = false
+    @State private var contextDraft = ""
+    @State private var contextShelf: AriaContextMemory.Shelf = .mood
+    @State private var contextEditingID: String?
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.dismiss) private var dismiss
 
@@ -46,11 +51,15 @@ struct AriaMemoryControlsView: View {
         }
         .onAppear {
             model.reload()
-            contextSnap = AriaContextMemoryStore.load()
+            contextSnap = AriaContextStore.shared.memory
         }
         .transaction(freezeMotion)
         .sheet(isPresented: $showEditor) {
             editorSheet
+                .transaction(freezeMotion)
+        }
+        .sheet(isPresented: $showContextEditor) {
+            contextEditorSheet
                 .transaction(freezeMotion)
         }
         .fullScreenCover(isPresented: $showLifestyleInterview) {
@@ -91,6 +100,24 @@ struct AriaMemoryControlsView: View {
             }
             Button("Keep it", role: .cancel) {
                 confirmDeleteFact = nil
+            }
+        }
+        .confirmationDialog(
+            "Delete this note?",
+            isPresented: Binding(
+                get: { confirmDeleteContextID != nil },
+                set: { if !$0 { confirmDeleteContextID = nil } }
+            ),
+            titleVisibility: .visible
+        ) {
+            Button("Delete", role: .destructive) {
+                if let id = confirmDeleteContextID {
+                    persistContext(AriaContextMemory.delete(contextSnap, id: id))
+                }
+                confirmDeleteContextID = nil
+            }
+            Button("Keep it", role: .cancel) {
+                confirmDeleteContextID = nil
             }
         }
     }
@@ -169,28 +196,143 @@ struct AriaMemoryControlsView: View {
     private var domainsCard: some View {
         VStack(alignment: .leading, spacing: ForgeLayout.blockGap) {
             ForgeCardHeader("By domain", tint: .steel)
-            ForEach(AriaContextMemory.Domain.allCases, id: \.self) { domain in
-                let items = contextSnap.active.filter { $0.domain == domain }
-                VStack(alignment: .leading, spacing: ForgeLayout.pairGap) {
-                    Text(domain.label)
-                        .font(HomeType.status)
-                        .foregroundStyle(Color.textPrimary)
-                    if items.isEmpty {
-                        Text("Nothing here yet.")
-                            .font(HomeType.body)
-                            .foregroundStyle(Color.textTertiary)
-                    } else {
-                        ForEach(items.prefix(6), id: \.id) { item in
-                            Text(item.summary ?? item.text)
-                                .font(HomeType.body)
-                                .foregroundStyle(Color.textSecondary)
-                                .forgeWrapping()
-                        }
-                    }
-                }
+            Text("Dreams, sleep, hobbies, people, goals, mood. On this phone. Add, edit, or delete anything.")
+                .font(HomeType.body)
+                .foregroundStyle(Color.textSecondary)
+                .forgeWrapping()
+            ForEach(AriaContextMemory.Shelf.allCases, id: \.self) { shelf in
+                shelfBlock(shelf)
             }
         }
         .forgeContentCard(accent: .steel)
+    }
+
+    private func shelfBlock(_ shelf: AriaContextMemory.Shelf) -> some View {
+        let items = contextSnap.active.filter { AriaContextMemory.Shelf.of($0) == shelf }
+        return VStack(alignment: .leading, spacing: ForgeLayout.pairGap) {
+            Text(shelf.label)
+                .font(HomeType.status)
+                .foregroundStyle(Color.textPrimary)
+            if items.isEmpty {
+                Text("Nothing here yet.")
+                    .font(HomeType.body)
+                    .foregroundStyle(Color.textTertiary)
+            } else {
+                ForEach(items.prefix(8), id: \.id) { item in
+                    contextRow(item, shelf: shelf)
+                }
+            }
+            ForgeTextLink(title: "Add a note", accent: .ember) {
+                contextShelf = shelf
+                contextEditingID = nil
+                contextDraft = ""
+                showContextEditor = true
+            }
+            .accessibilityLabel("Add a \(shelf.label) note")
+            .accessibilityAddTraits(.isButton)
+        }
+    }
+
+    private func contextRow(_ item: AriaContextMemory.Item, shelf: AriaContextMemory.Shelf) -> some View {
+        let linked = item.clusterId.map { id in
+            contextSnap.active.filter { $0.clusterId == id && $0.id != item.id }.count
+        } ?? 0
+        return VStack(alignment: .leading, spacing: ForgeLayout.pairGap) {
+            Text(item.summary ?? item.text)
+                .font(HomeType.body)
+                .foregroundStyle(Color.textPrimary)
+                .forgeWrapping()
+            if item.userLocked {
+                Text("Locked by you")
+                    .font(HomeType.micro)
+                    .foregroundStyle(Color.textTertiary)
+            }
+            if linked > 0 {
+                Text("Linked with \(linked) other note\(linked == 1 ? "" : "s")")
+                    .font(HomeType.micro)
+                    .foregroundStyle(Color.textTertiary)
+            }
+            HStack(spacing: ForgeLayout.groupBreak) {
+                ForgeTextLink(title: "Edit", accent: .ember) {
+                    contextShelf = shelf
+                    contextEditingID = item.id
+                    contextDraft = item.text
+                    showContextEditor = true
+                }
+                .accessibilityAddTraits(.isButton)
+                ForgeTextLink(title: "Delete", accent: .danger) {
+                    confirmDeleteContextID = item.id
+                }
+                .accessibilityAddTraits(.isButton)
+                Spacer(minLength: 0)
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .forgeWell()
+    }
+
+    private var contextEditorSheet: some View {
+        NavigationStack {
+            ScrollView {
+                ForgeScreenStack(top: FDS.Spacing.lg) {
+                    Text("What Aria remembers in \(contextShelf.label). Edits lock the note. On this phone.")
+                        .font(HomeType.body)
+                        .foregroundStyle(Color.textSecondary)
+                        .forgeWrapping()
+                    TextField("A short note", text: $contextDraft, axis: .vertical)
+                        .font(HomeType.body)
+                        .foregroundStyle(Color.textPrimary)
+                        .lineLimit(3...8)
+                        .padding(FDS.Spacing.md)
+                        .forgeInsetTile(radius: FDS.Radius.md)
+                }
+            }
+            .forgeScreenBackground(accent: .ember)
+            .navigationTitle(contextEditingID == nil ? "Add a note" : "Edit note")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Cancel") { showContextEditor = false }
+                }
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Save") {
+                        commitContextDraft()
+                        showContextEditor = false
+                    }
+                    .foregroundColor(.ember)
+                    .disabled(contextDraft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                }
+            }
+        }
+        .presentationDetents(reduceMotion ? [.large] : [.medium, .large])
+    }
+
+    private func commitContextDraft() {
+        let text = contextDraft.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !text.isEmpty else { return }
+        if let id = contextEditingID {
+            persistContext(AriaContextMemory.edit(contextSnap, id: id, text: text))
+        } else {
+            persistContext(AriaContextMemory.ingest(
+                contextSnap,
+                text: seededText(text, shelf: contextShelf),
+                source: "settings",
+                userLocked: true,
+                domainOverride: contextShelf.persistDomain
+            ))
+        }
+    }
+
+    private func seededText(_ text: String, shelf: AriaContextMemory.Shelf) -> String {
+        if shelf == .dreams, !text.lowercased().contains("dream") {
+            return "Dream: \(text)"
+        }
+        return text
+    }
+
+    private func persistContext(_ snap: AriaContextMemory.Snapshot) {
+        contextSnap = snap
+        AriaContextStore.shared.replaceMemory(snap)
     }
 
     private var personaCard: some View {

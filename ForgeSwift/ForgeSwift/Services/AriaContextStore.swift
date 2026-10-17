@@ -748,7 +748,13 @@ final class AriaContextStore: ObservableObject {
         AriaThemeResolver.detectFromTags(context.lifestyleTags) ?? .classic
     }
 
+    func replaceMemory(_ snap: AriaContextMemory.Snapshot) {
+        memory = snap
+        persistMemory()
+    }
+
     /// Seeds ARIA's living model from the finished onboarding interview.
+    /// Answers land in the on-device context store so Settings can show them.
     func seedFromOnboarding(
         name: String,
         goals: [String],
@@ -758,7 +764,11 @@ final class AriaContextStore: ObservableObject {
         healthConnected: Bool,
         lifestyleTags: [String] = [],
         constraints: [String] = [],
-        trainingTheme: AriaTrainingTheme = .classic
+        trainingTheme: AriaTrainingTheme = .classic,
+        sleepNote: String? = nil,
+        hobbyNotes: [String] = [],
+        peopleNote: String? = nil,
+        moodNote: String? = nil
     ) {
         let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
         context.currentGoals = goals
@@ -799,7 +809,75 @@ final class AriaContextStore: ObservableObject {
         }
         context.relationshipLevel = max(context.relationshipLevel, 2)
         context.lastUpdated = Date()
+        ingestOnboardingMemory(
+            goals: goals,
+            sleepNote: sleepNote,
+            hobbyNotes: hobbyNotes,
+            peopleNote: peopleNote,
+            moodNote: moodNote,
+            workouts: preferredWorkouts
+        )
         persist()
+    }
+
+    private func ingestOnboardingMemory(
+        goals: [String],
+        sleepNote: String?,
+        hobbyNotes: [String],
+        peopleNote: String?,
+        moodNote: String?,
+        workouts: [String]
+    ) {
+        var snap = memory
+        for goal in goals where !goal.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            snap = AriaContextMemory.ingest(
+                snap,
+                text: "Goal: \(goal)",
+                source: "onboarding",
+                domainOverride: .goals
+            )
+        }
+        if let sleepNote, !sleepNote.isEmpty {
+            snap = AriaContextMemory.ingest(
+                snap,
+                text: sleepNote,
+                source: "onboarding",
+                domainOverride: .sleepDreams
+            )
+        }
+        for hobby in hobbyNotes where !hobby.isEmpty {
+            snap = AriaContextMemory.ingest(
+                snap,
+                text: "Hobby: \(hobby)",
+                source: "onboarding",
+                domainOverride: .lifestyleHobbies
+            )
+        }
+        for workout in workouts.prefix(4) where !workout.isEmpty {
+            snap = AriaContextMemory.ingest(
+                snap,
+                text: "Likes training: \(workout)",
+                source: "onboarding",
+                domainOverride: .lifestyleHobbies
+            )
+        }
+        if let peopleNote, !peopleNote.isEmpty {
+            snap = AriaContextMemory.ingest(
+                snap,
+                text: peopleNote,
+                source: "onboarding",
+                domainOverride: .people
+            )
+        }
+        if let moodNote, !moodNote.isEmpty {
+            snap = AriaContextMemory.ingest(
+                snap,
+                text: moodNote,
+                source: "onboarding",
+                domainOverride: .moodMentality
+            )
+        }
+        memory = snap
     }
 
     /// Pushes live Lifestyle tab signals + deep habits into ARIA's living context.

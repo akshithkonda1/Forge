@@ -45,6 +45,47 @@ public enum AriaContextMemory: Sendable {
         }
     }
 
+    /// Settings shelves the user asked for. Stored domains stay as-is.
+    public enum Shelf: String, CaseIterable, Sendable {
+        case dreams, sleep, hobbies, people, goals, mood
+
+        public var label: String {
+            switch self {
+            case .dreams: return "Dreams"
+            case .sleep: return "Sleep"
+            case .hobbies: return "Hobbies"
+            case .people: return "People"
+            case .goals: return "Goals"
+            case .mood: return "Mood"
+            }
+        }
+
+        public var persistDomain: Domain {
+            switch self {
+            case .dreams, .sleep: return .sleepDreams
+            case .hobbies: return .lifestyleHobbies
+            case .people: return .people
+            case .goals: return .goals
+            case .mood: return .moodMentality
+            }
+        }
+
+        public static func of(_ item: Item) -> Shelf {
+            switch item.domain {
+            case .sleepDreams:
+                let blob = (item.text + " " + (item.summary ?? "")).lowercased()
+                if blob.contains("dream") || blob.contains("nightmare") || blob.contains("lucid") {
+                    return .dreams
+                }
+                return .sleep
+            case .lifestyleHobbies: return .hobbies
+            case .people: return .people
+            case .goals: return .goals
+            case .moodMentality, .healthConstraints: return .mood
+            }
+        }
+    }
+
     public enum Layer: String, Codable, CaseIterable, Sendable {
         case stm
         case vault
@@ -334,10 +375,11 @@ extension AriaContextMemory {
         layer: Layer = .stm,
         now: Date = Date(),
         userLocked: Bool = false,
-        shareOptIn: Bool = false
+        shareOptIn: Bool = false,
+        domainOverride: Domain? = nil
     ) -> Snapshot {
         var next = snap
-        let domain = classify(text, source: source)
+        let domain = domainOverride ?? classify(text, source: source)
         let item = Item(
             text: text,
             source: source,
@@ -359,7 +401,8 @@ extension AriaContextMemory {
                 layer: layer,
                 now: now,
                 userLocked: userLocked,
-                shareOptIn: shareOptIn
+                shareOptIn: shareOptIn,
+                domainOverride: domainOverride
             )
         case .store:
             break
