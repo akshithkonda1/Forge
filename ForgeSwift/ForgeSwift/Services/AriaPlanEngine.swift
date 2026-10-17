@@ -296,7 +296,7 @@ enum AriaPlanEngine {
             switch equipment {
             case .bodyweight: return .bodyweight
             case .hotelGym: return .dumbbell
-            case .homeGym, .commercialGym, .crossfitBox: return nil
+            case .homeGym, .commercialGym, .industrialGym, .crossfitBox, .other: return nil
             }
         }()
         var rows = ExerciseLibrary.filter(query: "", muscle: muscle, equipment: gear, pattern: nil)
@@ -339,7 +339,7 @@ enum AriaPlanEngine {
             switch equipment {
             case .bodyweight: return .bodyweight
             case .hotelGym: return .dumbbell
-            case .homeGym, .commercialGym, .crossfitBox: return nil
+            case .homeGym, .commercialGym, .industrialGym, .crossfitBox, .other: return nil
             }
         }()
 
