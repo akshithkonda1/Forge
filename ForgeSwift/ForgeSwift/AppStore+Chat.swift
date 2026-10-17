@@ -716,6 +716,13 @@ extension AppStore {
             rememberDurable(prefix + snippet)
             break
         }
+        let learned = ForgeExerciseDiscovery.learnEquipment(
+            notes: userProfile.equipmentNotes,
+            from: userText
+        )
+        if learned != userProfile.equipmentNotes {
+            updateProfile(equipmentNotes: learned)
+        }
         // Confidence tags from ARIA that look like standing truths.
         if ariaText.lowercased().contains("i'll remember") || ariaText.lowercased().contains("noted:") {
             rememberDurable("ARIA noted: " + String(ariaText.prefix(120)))
@@ -894,7 +901,11 @@ extension AppStore {
             conversationSummary: conversationMemoryAnchors(),
             lifestyleTags: ctx.lifestyleTags,
             constraints: ctx.constraints
-                + [AriaSoulStore.shared.directive]
+                + [AriaSoulStore.shared.liveDirective(
+                    experience: userProfile.experienceLevel.rawValue,
+                    goals: userProfile.fitnessGoals.map(\.rawValue) + userProfile.fitnessGoals.map(\.label),
+                    engagement: min(1, Double(chatMessages.count) / 40.0)
+                )]
                 + (HealthKitManager.shared.clinicalSummary?.ariaConstraintLines() ?? []),
             cycleSnapshot: cycle,
             partnerCycleSnapshot: activePerson?.snapshot,

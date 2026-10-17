@@ -466,13 +466,13 @@ struct AriaSoulPickerView: View {
                             subtitle: personality.flavor,
                             icon: "text.bubble",
                             tint: .ember,
-                            selected: soul.config.blend.dominant == personality
+                            selected: soul.config.blend.anchor == personality
                         ) {
                             soul.setPersonality(personality)
                         }
                     }
                 }
-                Text("Takes effect on the next reply — no restart. Same rails for every personality: coach, not doctor; never shame, diagnose, push past comfort, or say recovery.")
+                Text("Takes effect on the next reply — no restart. If you don't pick, ARIA blends from experience, goals, and how you respond. Same rails for every blend: coach, not doctor; never shame, diagnose, push past comfort, or say recovery.")
                     .font(HomeType.body)
                     .foregroundStyle(Color.textSecondary)
             }

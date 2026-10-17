@@ -17,6 +17,7 @@ struct AriaMemoryControlsView: View {
     @State private var contextShelf: AriaContextMemory.Shelf = .mood
     @State private var contextEditingID: String?
     @State private var showTrainingModelEditor = false
+    @State private var showGymEditor = false
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.dismiss) private var dismiss
 
@@ -65,6 +66,11 @@ struct AriaMemoryControlsView: View {
         }
         .sheet(isPresented: $showTrainingModelEditor) {
             CoachingPersonalityPickerView()
+                .environmentObject(store)
+                .transaction(freezeMotion)
+        }
+        .sheet(isPresented: $showGymEditor) {
+            EquipmentPickerView()
                 .environmentObject(store)
                 .transaction(freezeMotion)
         }
@@ -156,12 +162,18 @@ struct AriaMemoryControlsView: View {
     private var knownEntriesCard: some View {
         VStack(alignment: .leading, spacing: ForgeLayout.blockGap) {
             ForgeCardHeader("What Aria knows", tint: .ember)
-            knownRow(
-                title: "Gym",
-                value: store.userProfile.trainingEquipment.rawValue
-            )
-            if !store.userProfile.equipmentNotes.isEmpty {
-                knownRow(title: "Equipment", value: store.userProfile.equipmentNotes)
+            VStack(alignment: .leading, spacing: ForgeLayout.pairGap) {
+                knownRow(
+                    title: "Gym",
+                    value: store.userProfile.trainingEquipment.rawValue
+                )
+                if !store.userProfile.equipmentNotes.isEmpty {
+                    knownRow(title: "Equipment", value: store.userProfile.equipmentNotes)
+                }
+                ForgeTextLink(title: "Edit gym and equipment", accent: .ember) {
+                    showGymEditor = true
+                }
+                .accessibilityAddTraits(.isButton)
             }
             VStack(alignment: .leading, spacing: ForgeLayout.pairGap) {
                 knownRow(

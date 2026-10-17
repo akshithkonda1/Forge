@@ -247,6 +247,23 @@ final class AriaSoulStore: ObservableObject {
         persist()
     }
 
+    /// Learned mix unless the person picked an anchor. Read per reply.
+    func liveConfig(experience: String, goals: [String], engagement: Double) -> AriaSoul.Config {
+        AriaSoul.Config(
+            version: config.version,
+            blend: AriaSoul.fuse(
+                experience: experience,
+                goals: goals,
+                engagement: engagement,
+                override: config.blend.anchor
+            )
+        )
+    }
+
+    func liveDirective(experience: String, goals: [String], engagement: Double) -> String {
+        AriaSoul.directive(liveConfig(experience: experience, goals: goals, engagement: engagement))
+    }
+
     var directive: String { AriaSoul.directive(config) }
 
     func speak(_ line: String) -> String {

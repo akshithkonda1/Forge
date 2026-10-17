@@ -207,7 +207,7 @@ struct OnboardingProfile: Codable {
     var coachingStyle: OnboardingCoachingStyle = .balanced
     /// Adaptive training model — their words. Empty is skippable.
     var adaptiveTrainingModel: String = ""
-    var gymType: TrainingEquipment = .commercialGym
+    var gymType: TrainingEquipment? = nil
     var equipmentNotes: String = ""
     /// Habits beat — ≤3 friend chips. Empty is fine.
     var friendHabits: [FriendHabitChip] = []
@@ -251,7 +251,7 @@ struct OnboardingProfile: Codable {
             weeklySchedule: WeeklySplit.trainingDays(in: weeklySplit),
             schedulePlanningMode: schedulePlanningMode,
             weeklySplit: WeeklySplit.normalized(weeklySplit),
-            trainingEquipment: gymType,
+            trainingEquipment: gymType ?? .other,
             equipmentNotes: equipmentNotes,
             age: hasBirthday ? ageYears : nil,
             weight: weightKg,

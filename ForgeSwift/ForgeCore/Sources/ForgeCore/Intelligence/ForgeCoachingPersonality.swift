@@ -155,6 +155,9 @@ public enum ForgeCoachingPersonality: Sendable {
             frame = (choice.preset ?? .steadyBuilder).setbackFrame
         }
         let happened = whatHappened.trimmingCharacters(in: .whitespacesAndNewlines)
+        if ForgeReinforcement.containsBlame(happened) {
+            return sanitizeOutput(ForgeReinforcement.reframe(whatHappened: ""))
+        }
         let body = happened.isEmpty ? frame : "\(happened) \(frame)"
         return sanitizeOutput(body)
     }

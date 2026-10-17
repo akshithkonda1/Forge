@@ -60,6 +60,47 @@ final class AriaSoulTests: XCTestCase {
         XCTAssertTrue(AriaSoul.bedrockOff)
     }
 
+    func testBeginnerFusesCoachWithFriendWarmth() {
+        let blend = AriaSoul.fuse(experience: "beginner", goals: [], engagement: 0, override: nil)
+        XCTAssertGreaterThan(blend.coach, blend.friend)
+        XCTAssertGreaterThan(blend.friend, 0)
+        XCTAssertEqual(blend.drillSergeant, 0)
+        XCTAssertNil(blend.anchor)
+        let line = AriaSoul.directive(AriaSoul.Config(blend: blend))
+        XCTAssertTrue(line.contains("Blend Coach"))
+        XCTAssertTrue(line.contains("Friend"))
+        XCTAssertFalse(AriaSoul.containsRailBreak(line))
+    }
+
+    func testPRFusesDrillSergeantWithCoachStructure() {
+        let blend = AriaSoul.fuse(
+            experience: "elite",
+            goals: ["competition", "athletic-performance"],
+            engagement: 0.8,
+            override: nil
+        )
+        XCTAssertGreaterThan(blend.drillSergeant, 0)
+        XCTAssertGreaterThan(blend.coach, 0)
+        XCTAssertEqual(blend.dominant, .drillSergeant)
+        let line = AriaSoul.directive(AriaSoul.Config(blend: blend))
+        XCTAssertTrue(line.contains("Drill Sergeant"))
+        XCTAssertTrue(line.contains("Coach"))
+        XCTAssertFalse(AriaSoul.containsRailBreak(line))
+        XCTAssertFalse(ForgeReinforcement.containsBlame(line))
+    }
+
+    func testEngagementRaisesDrillAndOverrideWins() {
+        let low = AriaSoul.fuse(experience: "intermediate", goals: [], engagement: 0, override: nil)
+        let high = AriaSoul.fuse(experience: "intermediate", goals: [], engagement: 1, override: nil)
+        XCTAssertGreaterThan(high.drillSergeant, low.drillSergeant)
+        let anchored = AriaSoul.fuse(
+            experience: "beginner", goals: [], engagement: 1, override: .friend
+        )
+        XCTAssertEqual(anchored.anchor, .friend)
+        XCTAssertEqual(anchored.dominant, .friend)
+        XCTAssertEqual(anchored.friend, 1)
+    }
+
     func testOverrideAnchorsAndMidConversationSwitchIsPerReply() {
         let fused = AriaSoul.fuse(experience: "beginner", goals: [], engagement: 0, override: nil)
         XCTAssertEqual(fused.dominant, .coach)
@@ -103,7 +144,15 @@ final class AriaSoulTests: XCTestCase {
 
     func testReinforcementBlocksBlame() {
         XCTAssertTrue(ForgeReinforcement.containsBlame("You failed the set"))
+        XCTAssertTrue(ForgeReinforcement.containsBlame("you did it wrong"))
+        XCTAssertTrue(ForgeReinforcement.containsBlame("you skipped again"))
+        XCTAssertTrue(ForgeReinforcement.containsBlame("you broke the streak"))
         XCTAssertFalse(ForgeReinforcement.reframe(whatHappened: "The set didn't finish.").lowercased().contains("you failed"))
+        XCTAssertTrue(ForgeReinforcement.skippedWorkout.lowercased().contains("help and solve"))
+        XCTAssertTrue(ForgeReinforcement.missedSet.lowercased().contains("help and solve"))
+        XCTAssertTrue(ForgeReinforcement.brokenStreak.lowercased().contains("help and solve"))
+        XCTAssertFalse(ForgeReinforcement.containsBlame(ForgeReinforcement.errorLine))
+        XCTAssertEqual(ForgeReinforcement.speak("You failed the set"), ForgeReinforcement.reframe(whatHappened: ""))
     }
 
     func testIngestSkipsJobHuntingAndStoresHealthAngle() {

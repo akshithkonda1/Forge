@@ -23,8 +23,9 @@ public enum ForgeTutorial: Sendable {
             if exp.contains("beginner") || exp.contains("new") {
                 return .beginner
             }
+            let tokens = blob.split { !$0.isLetter && !$0.isNumber }.map { String($0) }
             if exp.contains("elite") || exp.contains("advanced")
-                || blob.contains("competition") || blob.contains("pr ")
+                || blob.contains("competition") || tokens.contains("pr")
                 || blob.contains("personal record") || blob.contains("race")
                 || blob.contains("athletic") {
                 return .competitor

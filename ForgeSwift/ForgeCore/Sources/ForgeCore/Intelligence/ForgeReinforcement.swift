@@ -19,4 +19,14 @@ public enum ForgeReinforcement: Sendable {
         if happened.isEmpty { return lead }
         return "\(happened) \(lead)"
     }
+
+    public static let errorLine = "Something missed. Here's what we can do to help and solve it."
+    public static let emptyLine = "Nothing here yet. We can add it when you're ready."
+    public static let skippedWorkout = "The session didn't happen. Here's what we can do to help and solve it."
+    public static let missedSet = "That set didn't finish. Here's what we can do to help and solve it."
+    public static let brokenStreak = "The streak paused. Here's what we can do to help and solve it."
+
+    public static func speak(_ line: String) -> String {
+        containsBlame(line) ? reframe(whatHappened: "") : line
+    }
 }

@@ -353,7 +353,14 @@ final class AriaContextStore: ObservableObject {
             metrics["sleep_score"] = Double(night.score)
         }
         var constraints = domain.profile.constraints
-        constraints.append(AriaSoulStore.shared.directive)
+        let engagement = min(1, max(0, Double(context.relationshipLevel) / 10.0))
+        constraints.append(
+            AriaSoulStore.shared.liveDirective(
+                experience: store.userProfile.experienceLevel.rawValue,
+                goals: store.userProfile.fitnessGoals.map(\.rawValue) + store.userProfile.fitnessGoals.map(\.label),
+                engagement: engagement
+            )
+        )
         constraints.append(contentsOf: ForgeConditionAdaptation.constraints(
             store.userProfile.lifestyleProfile.healthConstraints,
             freeform: store.userProfile.lifestyleProfile.healthNote

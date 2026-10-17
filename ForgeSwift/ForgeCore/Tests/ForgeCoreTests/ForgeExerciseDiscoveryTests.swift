@@ -49,6 +49,16 @@ final class ForgeExerciseDiscoveryTests: XCTestCase {
         }
     }
 
+    func testLearnEquipmentFromChatKeepsUserNotes() {
+        let first = ForgeExerciseDiscovery.learnEquipment(notes: "", from: "I train with dumbbells and a rack")
+        XCTAssertTrue(first.contains("dumbbell"))
+        XCTAssertTrue(first.contains("rack"))
+        let kept = ForgeExerciseDiscovery.learnEquipment(notes: first, from: "also a bike on recovery days")
+        XCTAssertTrue(kept.contains("dumbbell"))
+        XCTAssertTrue(kept.contains("bike"))
+        XCTAssertFalse(kept.lowercased().contains("recovery days"))
+    }
+
     func testThermalShedAndCaps() {
         XCTAssertTrue(ForgeRuntimeGuard.shouldShed(thermal: "serious"))
         XCTAssertTrue(ForgeRuntimeGuard.shouldShed(thermal: "critical"))

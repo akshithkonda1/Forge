@@ -97,7 +97,10 @@ public enum AriaSoul: Sendable {
         public var version: String
         public var blend: Blend
 
-        public init(version: String = AriaSoul.version, blend: Blend = .coach) {
+        public init(
+            version: String = AriaSoul.version,
+            blend: Blend = Blend(coach: 0.65, friend: 0.35, drillSergeant: 0, anchor: nil)
+        ) {
             self.version = version
             self.blend = blend
         }
@@ -146,7 +149,14 @@ public enum AriaSoul: Sendable {
 
     public static func directive(_ config: Config) -> String {
         let blend = config.blend
-        return "ARIA soul v\(config.version). Dominant: \(blend.dominant.label). \(blend.dominant.flavor) Rails: "
+        let mix = String(
+            format: "Blend Coach %.0f Friend %.0f Drill Sergeant %.0f.",
+            blend.coach * 100,
+            blend.friend * 100,
+            blend.drillSergeant * 100
+        )
+        let anchor = blend.anchor.map { "Anchor \($0.label)." } ?? "No explicit pick — learned mix."
+        return "ARIA soul v\(config.version). Dominant: \(blend.dominant.label). \(mix) \(anchor) \(blend.dominant.flavor) Rails: "
             + rails.joined(separator: " ")
     }
 

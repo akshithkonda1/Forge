@@ -314,7 +314,7 @@ struct ForgeLoadingState: View {
 
 struct ForgeErrorState: View {
     var title: String = "Couldn’t load that"
-    var message: String = "Try again when you’re ready."
+    var message: String = ForgeReinforcement.errorLine
     var retry: (() -> Void)? = nil
 
     var body: some View {

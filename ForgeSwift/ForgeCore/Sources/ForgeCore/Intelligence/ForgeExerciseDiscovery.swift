@@ -117,4 +117,26 @@ public enum ForgeExerciseDiscovery: Sendable {
 
     public static let suggestLine =
         "Here's something new you could try with what you've got."
+
+    public static let gearTokens = [
+        "dumbbell", "barbell", "kettlebell", "rack", "bench", "cable",
+        "band", "treadmill", "bike", "rower", "trap bar", "pull-up bar",
+        "rings", "sled",
+    ]
+
+    /// Learn exact gear from chat or a logged session. Never overwrites a user edit
+    /// of the same token; only appends missing tokens.
+    public static func learnEquipment(notes: String, from text: String) -> String {
+        var parts = notes
+            .split(separator: ",")
+            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() }
+            .filter { !$0.isEmpty }
+        let lower = text.lowercased()
+        for token in gearTokens where lower.contains(token) {
+            if !parts.contains(where: { $0.contains(token) }) {
+                parts.append(token)
+            }
+        }
+        return parts.joined(separator: ", ")
+    }
 }
