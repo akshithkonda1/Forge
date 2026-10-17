@@ -1309,10 +1309,33 @@ struct ScheduleComposer: View {
 /// is on screen, and not at all under Reduce Motion.
 struct TypingIndicator: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.scenePhase) private var scenePhase
+    @State private var isOnscreen = true
+
+    /// Composing dots. Ceiling is the 12 Hz decorative budget; the clock
+    /// pauses off-screen, under Reduce Motion, or when the scene is inactive.
+    static let tickHz: Double = 12
+    static let tickInterval: Double = 1.0 / tickHz
+
+    static func isClockPaused(reduceMotion: Bool, sceneActive: Bool, onscreen: Bool) -> Bool {
+        ForgeMotion.isDecorativeClockPaused(
+            reduceMotion: reduceMotion,
+            sceneActive: sceneActive,
+            onscreen: onscreen
+        )
+    }
+
+    private var paused: Bool {
+        Self.isClockPaused(
+            reduceMotion: reduceMotion,
+            sceneActive: scenePhase == .active,
+            onscreen: isOnscreen
+        )
+    }
 
     var body: some View {
         HStack(spacing: FDS.Spacing.md) {
-            TimelineView(.animation(minimumInterval: 1.0 / 30.0, paused: reduceMotion)) { context in
+            TimelineView(.animation(minimumInterval: Self.tickInterval, paused: paused)) { context in
                 dots(at: context.date.timeIntervalSinceReferenceDate)
             }
             .padding(.horizontal, FDS.Spacing.lg)
@@ -1320,6 +1343,9 @@ struct TypingIndicator: View {
             .forgeInsetTile(radius: FDS.Radius.lg)
             Spacer()
         }
+        .onAppear { isOnscreen = true }
+        .onDisappear { isOnscreen = false }
+        .onScrollVisibilityChange { isOnscreen = $0 }
         .accessibilityElement(children: .ignore)
         .accessibilityLabel("ARIA is typing")
     }

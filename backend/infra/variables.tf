@@ -66,8 +66,9 @@ variable "force_destroy_uploads_bucket" {
 
 variable "log_retention_days" {
   description = <<-EOT
-    Override CloudWatch log retention in days. Null (the default) uses 30 in
-    prod-like environments and 14 everywhere else, including the CI plan.
+    Override CloudWatch log retention in days. Null (the default) uses 14 in
+    prod-like environments and 7 everywhere else, including the CI plan.
+    Keep this in the 7–14 day band unless an operator is debugging a live incident.
   EOT
   type        = number
   default     = null
@@ -75,9 +76,14 @@ variable "log_retention_days" {
 }
 
 variable "lambda_memory_size" {
-  description = "Memory size for the shared Forge backend Lambda. 256 MB is the free-tier default on arm64."
+  description = "Memory size for the shared Forge backend Lambda. 256 MB arm64 is the cheap default (enough for JSON + one sleep image, not a warmer)."
   type        = number
   default     = 256
+
+  validation {
+    condition     = var.lambda_memory_size >= 128 && var.lambda_memory_size <= 512
+    error_message = "lambda_memory_size must be 128–512 MB. Raise only after profiling; provisioned concurrency is forbidden."
+  }
 }
 
 variable "lambda_architectures" {
@@ -230,15 +236,124 @@ variable "health_throttling_burst_limit" {
 }
 
 variable "lambda_timeout" {
-  description = "Timeout, in seconds, for the shared Forge backend Lambda."
+  description = "Timeout, in seconds, for the shared Forge backend Lambda. 15s matches the HTTP API integration and the router overall budget; do not raise it to paper over hung model calls."
   type        = number
   default     = 15
+
+  validation {
+    condition     = var.lambda_timeout >= 5 && var.lambda_timeout <= 20
+    error_message = "lambda_timeout must be 5–20s. The cheap default is 15s; longer timeouts raise duration cost."
+  }
 }
 
 variable "enable_point_in_time_recovery" {
   description = "Whether to enable PITR on the shared Forge DynamoDB table."
   type        = bool
   default     = true
+}
+
+variable "dynamodb_deletion_protection" {
+  description = <<-EOT
+    DynamoDB deletion_protection_enabled on aws_dynamodb_table.app_data.
+    Default true. Teardown is two applies: set this false, apply, then destroy.
+  EOT
+  type        = bool
+  default     = true
+}
+
+variable "cognito_deletion_protection" {
+  description = <<-EOT
+    Cognito deletion_protection on aws_cognito_user_pool.forge (ACTIVE when
+    true, INACTIVE when false). Default true. Teardown is two applies: set
+    this false, apply, then destroy.
+  EOT
+  type        = bool
+  default     = true
+}
+
+variable "enable_alarms" {
+  description = <<-EOT
+    Create the ops SNS topic, 7 standard CloudWatch alarms, and the HTTP API
+    429 metric filter. Default true (free tier: first 10 standard alarms).
+    All alarms use treat_missing_data = notBreaching and notify the one SNS
+    topic. Email is attached only when spend_guard_notification_email is set.
+  EOT
+  type        = bool
+  default     = true
+}
+
+variable "enable_cost_dashboard" {
+  description = <<-EOT
+    Create one CloudWatch dashboard (Lambda + HTTP API usage). Default false:
+    dashboards are $3/month each and are not needed for the cheap default.
+    Email still comes from the existing spend-guard SNS/budget address.
+  EOT
+  type        = bool
+  default     = false
+}
+
+variable "lambda_reserved_concurrency" {
+  description = <<-EOT
+    Reserved concurrent executions for the API Lambda. Null (the default) is
+    unreserved — the function shares the account pool. Set a small integer
+    cap (≥ 1) and raise it later if you need a ceiling. 0 is rejected: it
+    would block every invoke. Pause ARIA with the ARIA_PAUSED SSM parameter
+    instead. This is a free cap, not provisioned concurrency (which bills
+    and is forbidden by the cheap-guard test).
+  EOT
+  type        = number
+  default     = null
+  nullable    = true
+
+  validation {
+    condition     = var.lambda_reserved_concurrency == null || var.lambda_reserved_concurrency >= 1
+    error_message = "lambda_reserved_concurrency must be null (unreserved) or >= 1. A value of 0 disables all invokes; pause ARIA with the ARIA_PAUSED SSM parameter instead."
+  }
+}
+
+variable "account_concurrency_limit" {
+  description = <<-EOT
+    Account-level Lambda concurrent-execution quota used by the 80%
+    ConcurrentExecutions alarm. Default 1000 (the usual new-account default).
+    Confirm with: aws lambda get-account-settings
+    New accounts can be as low as 10 — set this to the real number so the
+    alarm is meaningful.
+  EOT
+  type        = number
+  default     = 1000
+
+  validation {
+    condition     = var.account_concurrency_limit >= 1
+    error_message = "account_concurrency_limit must be >= 1 (aws lambda get-account-settings)."
+  }
+}
+
+variable "api_throttling_rate_limit" {
+  description = "Steady-state requests per second for the HTTP API stage default route. 50 matches the previous hardcoded plan."
+  type        = number
+  default     = 50
+}
+
+variable "api_throttling_burst_limit" {
+  description = "Burst request limit for the HTTP API stage default route. 100 matches the previous hardcoded plan."
+  type        = number
+  default     = 100
+}
+
+variable "aria_pause_fail_mode" {
+  description = <<-EOT
+    What is_aria_paused() returns when SSM GetParameter fails.
+    "paused" (default): treat SSM errors as paused. "open": ARIA stays up
+    (fail open). Unset ARIA_PAUSED_PARAMETER_NAME always fails open. /health
+    and voice stay up either way.
+  EOT
+  type        = string
+  default     = "paused"
+
+  validation {
+    condition     = contains(["open", "paused"], var.aria_pause_fail_mode)
+    error_message = "aria_pause_fail_mode must be \"open\" or \"paused\"."
+  }
 }
 
 variable "aria_bedrock_enabled" {
@@ -332,11 +447,34 @@ variable "spend_guard_limit_usd" {
 variable "spend_guard_notification_email" {
   description = <<-EOT
     Required on a real apply when enable_spend_guard is true (lifecycle
-    precondition). Subscribes this address at 80% actual spend. CI plan with
+    precondition). Subscribes this address at 80% actual, 100% actual, and
+    100% forecasted. Leave empty for Akshith to fill in. CI plan with
     skip_aws_provider_checks may leave this empty.
   EOT
   type        = string
   default     = ""
+}
+
+variable "aria_daily_request_cap" {
+  description = "Per-user daily Bedrock Converse reservation count. 0 disables the request cap. Inert while aria_bedrock_enabled is false."
+  type        = number
+  default     = 40
+
+  validation {
+    condition     = var.aria_daily_request_cap >= 0
+    error_message = "aria_daily_request_cap must be >= 0 (0 disables the cap)."
+  }
+}
+
+variable "aria_daily_token_cap" {
+  description = "Per-user daily reserved max_tokens across Bedrock Converse calls. 0 disables the token cap. Inert while aria_bedrock_enabled is false."
+  type        = number
+  default     = 20000
+
+  validation {
+    condition     = var.aria_daily_token_cap >= 0
+    error_message = "aria_daily_token_cap must be >= 0 (0 disables the cap)."
+  }
 }
 
 variable "create_cloudtrail" {

@@ -65,6 +65,13 @@ jobs:
         if: needs.changes.outputs.relevant == 'true'
         run: python3 -m unittest discover -s backend/tests -p "test_*.py" -v
 
+      # Cheap-guard + COST.md pin live under backend/infra/tests, which
+      # unittest discover above does not see. pytest is already in
+      # requirements-dev.txt.
+      - name: Serverless cost guard
+        if: needs.changes.outputs.relevant == 'true'
+        run: python3 -m pytest backend/infra/tests -v
+
       # Explicit AI gate so the Bedrock kill-switch, the QoL "life rhythm" wiring,
       # and the ARIA habit/lifestyle e2e always run on this PR and are visible as
       # their own check. Stdlib-only, Linux — no Mac/iOS, no AWS, Bedrock off.

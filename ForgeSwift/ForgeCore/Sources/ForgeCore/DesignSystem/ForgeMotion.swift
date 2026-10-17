@@ -25,6 +25,20 @@ public enum ForgeMotion {
     public static let sweep = Animation.easeOut(duration: Token.sweepSeconds)
     /// What every animation becomes under Reduce Motion.
     public static let crossfade = Animation.easeInOut(duration: 0.2)
+    /// Decorative TimelineView ceiling. Brand nest may sit on this value;
+    /// looping chrome must not exceed it.
+    public static let maxTickHz: Double = Token.maxTickHz
+    public static let maxTickInterval: Double = 1.0 / maxTickHz
+
+    /// Pause a decorative TimelineView when Reduce Motion is on, the scene
+    /// is inactive, or the view is off-screen. No always-on clocks.
+    public static func isDecorativeClockPaused(
+        reduceMotion: Bool,
+        sceneActive: Bool,
+        onscreen: Bool
+    ) -> Bool {
+        reduceMotion || !sceneActive || !onscreen
+    }
 
     /// Staggered sweep for a row of dials.
     public static func sweep(staggeredBy index: Int) -> Animation {
