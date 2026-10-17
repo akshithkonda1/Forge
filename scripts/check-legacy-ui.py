@@ -105,9 +105,13 @@ def main() -> int:
     banned_re = re.compile(r"\b(" + "|".join(re.escape(name) for name in BANNED) + r")\b")
     glass_re = re.compile(r"\bforgeGlassCard\b")
     forge_card_re = re.compile(r"\bforgeCard\s*\(")
+    # Leftover from replacing `.forgePlate(energy: x ? a : b)` with
+    # `.forgeContentCard() : b)` — that does not compile.
+    leftover_ternary_re = re.compile(r"forgeContentCard\([^)]*\)\s*:")
 
     hits: list[str] = []
     glass_hits: list[str] = []
+    leftover_hits: list[str] = []
 
     for path in tracked_files():
         if path.resolve() == SELF.resolve():
@@ -133,6 +137,10 @@ def main() -> int:
                 line = body[: match.start()].count("\n") + 1
                 hits.append(f"{rel}:{line}: forgeCard(")
 
+        for match in leftover_ternary_re.finditer(body):
+            line = body[: match.start()].count("\n") + 1
+            leftover_hits.append(f"{rel}:{line}: {match.group(0).strip()}")
+
     if hits:
         status = 1
         print("✗ Deleted legacy UI identifiers came back:")
@@ -154,6 +162,15 @@ def main() -> int:
         print("  Screens take forgeContentCard. Only ForgeChrome and View+ForgeCardShadow may name forgeGlassCard.")
     else:
         print("✓ forgeGlassCard stays inside the one card primitive")
+
+    if leftover_hits:
+        status = 1
+        print("✗ Leftover forgePlate ternary on forgeContentCard (does not compile):")
+        for hit in leftover_hits:
+            print(f"    {hit}")
+        print("  Use `.forgeContentCard()` only. Do not keep ` : color)` from the old plate API.")
+    else:
+        print("✓ No leftover forgePlate ternary on forgeContentCard")
 
     for allowed in GLASS_ALLOW:
         if not allowed.is_file():

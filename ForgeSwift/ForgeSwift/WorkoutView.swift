@@ -249,7 +249,7 @@ struct WorkoutIdleView: View {
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
-        .forgeContentCard() : ForgeProgressChrome.miss)
+        .forgeContentCard()
         .accessibilityElement(children: .contain)
     }
 
