@@ -321,7 +321,9 @@ public enum PredictiveCoach {
         socialEnergy0to10: Double? = nil,
         currentHobbies: [LivingHobby] = [],
         wakeHour: Double? = nil,
-        knownPeople: [PeopleDirectory.Person] = []
+        knownPeople: [PeopleDirectory.Person] = [],
+        live: HobbyFit.LiveSignals = .empty,
+        fitHobbiesOverride: [HobbyFit.Hobby]? = nil
     ) -> Picture {
         let forecast = ReadinessForecastEngine.forecast(forecastInput)
         let working = UserWorkingModel.snapshot(workingInput, tomorrowPosture: forecast.posture)
@@ -338,12 +340,16 @@ public enum PredictiveCoach {
             stance: working.stance,
             peopleEnergy: hobby.peopleEnergy
         )
-        let mentality = HobbyFit.signal(
+        let reading = HobbyFit.reading(
             socialBand: hobby.socialBand,
             peopleEnergy: hobby.peopleEnergy,
-            working: working
+            working: working,
+            live: live
         )
-        let fitHobbies = HobbyFit.hobbies(from: currentHobbies)
+        let mentality = reading.signal
+        let fitHobbies = HobbyFit.normalizeHobbies(
+            fitHobbiesOverride ?? HobbyFit.hobbies(from: currentHobbies)
+        )
         let peopleTags = knownPeople.isEmpty ? [] : PeopleDirectory.Directory(
             optedIn: true,
             contactsAccess: .granted,

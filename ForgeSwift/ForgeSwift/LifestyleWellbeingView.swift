@@ -10,6 +10,31 @@ import ForgeCore
 /// Home's 16 pt section rhythm, with no halos.
 struct WellbeingView: View {
     @ObservedObject var vm: LifestyleViewModel
+    @EnvironmentObject var store: AppStore
+
+    private var conditionSleepLine: String {
+        ForgeConditionAdaptation.line(
+            domain: .sleep,
+            conditions: store.userProfile.lifestyleProfile.healthConstraints,
+            freeform: store.userProfile.lifestyleProfile.healthNote
+        )
+    }
+
+    private var conditionStressLine: String {
+        ForgeConditionAdaptation.line(
+            domain: .stress,
+            conditions: store.userProfile.lifestyleProfile.healthConstraints,
+            freeform: store.userProfile.lifestyleProfile.healthNote
+        )
+    }
+
+    private var conditionMoodLine: String {
+        ForgeConditionAdaptation.line(
+            domain: .mood,
+            conditions: store.userProfile.lifestyleProfile.healthConstraints,
+            freeform: store.userProfile.lifestyleProfile.healthNote
+        )
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: ForgeLayout.sectionGap) {
@@ -19,8 +44,18 @@ struct WellbeingView: View {
             HabitLoopListCard(vm: vm)
             MindfulnessCard(vm: vm)
             MindfulTrendCard(trend: vm.mindfulTrend)
-            StressManagementCard(stats: vm.healthStats)
-            SleepOptimizationCard(stats: vm.healthStats, metrics: vm.metrics)
+            if !conditionMoodLine.isEmpty {
+                Text(conditionMoodLine)
+                    .font(HomeType.body)
+                    .foregroundStyle(Color.textSecondary)
+                    .forgeWrapping()
+            }
+            StressManagementCard(stats: vm.healthStats, conditionLine: conditionStressLine)
+            SleepOptimizationCard(
+                stats: vm.healthStats,
+                metrics: vm.metrics,
+                conditionLine: conditionSleepLine
+            )
         }
     }
 }
@@ -203,7 +238,7 @@ struct DailyHabitsCard: View {
             habitList
         }
         .frame(maxWidth: .infinity, alignment: .leading)
-        .forgeContentCard(accent: .vitality)
+        .forgeContentCard()
         .accessibilityElement(children: .contain)
     }
 
@@ -549,6 +584,7 @@ struct MindfulnessCard: View {
 
 struct StressManagementCard: View {
     let stats: DailyHealthStats?
+    var conditionLine: String = ""
     @State private var selectedLevel = LifestyleWellbeingStore.loadStressLevel()
 
     private let levels: [(label: String, sub: String, color: Color)] = [
@@ -614,6 +650,12 @@ struct StressManagementCard: View {
                 .font(HomeType.body)
                 .foregroundStyle(Color.textSecondary)
                 .forgeWrapping()
+            if !conditionLine.isEmpty {
+                Text(conditionLine)
+                    .font(HomeType.body)
+                    .foregroundStyle(Color.textSecondary)
+                    .forgeWrapping()
+            }
         }
         .forgeContentCard(tint: .vitality)
         .onAppear {
@@ -627,6 +669,7 @@ struct StressManagementCard: View {
 struct SleepOptimizationCard: View {
     let stats: DailyHealthStats?
     let metrics: LifestyleMetrics
+    var conditionLine: String = ""
 
     private var tips: [(icon: String, tip: String, color: Color)] {
         let sleepGap = max(0, metrics.sleepTarget - (stats?.sleepHours ?? metrics.sleepAverage))
@@ -663,6 +706,12 @@ struct SleepOptimizationCard: View {
                     }
                     .accessibilityElement(children: .combine)
                 }
+            }
+            if !conditionLine.isEmpty {
+                Text(conditionLine)
+                    .font(HomeType.body)
+                    .foregroundStyle(Color.textSecondary)
+                    .forgeWrapping()
             }
         }
         .forgeContentCard(tint: .steel)
@@ -931,6 +980,19 @@ struct HobbyPathCard: View {
             ForEach(snapshot.suggestions.prefix(3)) { item in
                 suggestionRow(item)
             }
+            if let cooled = HobbyFit.suggestions(
+                hobbies: store.predictiveCoachPicture().fitHobbies,
+                path: snapshot.path,
+                mentality: store.predictiveCoachPicture().mentality,
+                keepLight: store.predictiveCoachPicture().keepLight,
+                log: Self.loadLog(),
+                todayISO: Self.todayISO()
+            ).first(where: { !$0.cooldownLine.isEmpty }) {
+                Text(cooled.cooldownLine)
+                    .font(HomeType.body)
+                    .foregroundStyle(Color.textTertiary)
+                    .forgeWrapping()
+            }
         }
     }
 
@@ -953,6 +1015,55 @@ struct HobbyPathCard: View {
             .frame(maxWidth: .infinity, alignment: .leading)
         }
         .accessibilityElement(children: .combine)
+        .overlay(alignment: .trailing) {
+            HStack(spacing: FDS.Spacing.xs) {
+                Button("Keep") {
+                    Self.saveLog(HobbyFit.rememberAccepted(Self.loadLog(), id: item.hobby.rawValue, nowISO: Self.todayISO()))
+                    ForgeHaptics.play(.selection)
+                }
+                .font(HomeType.micro)
+                Button("Not now") {
+                    Self.saveLog(HobbyFit.rememberIgnored(
+                        Self.loadLog(),
+                        id: item.hobby.rawValue,
+                        cooldownUntil: Self.isoDaysFromNow(7)
+                    ))
+                    ForgeHaptics.play(.selection)
+                }
+                .font(HomeType.micro)
+            }
+        }
+    }
+
+    private static func todayISO() -> String {
+        let f = DateFormatter()
+        f.calendar = Calendar.current
+        f.locale = Locale(identifier: "en_US_POSIX")
+        f.dateFormat = "yyyy-MM-dd"
+        return f.string(from: Date())
+    }
+
+    private static func isoDaysFromNow(_ days: Int) -> String {
+        let f = DateFormatter()
+        f.calendar = Calendar.current
+        f.locale = Locale(identifier: "en_US_POSIX")
+        f.dateFormat = "yyyy-MM-dd"
+        let date = Calendar.current.date(byAdding: .day, value: days, to: Date()) ?? Date()
+        return f.string(from: date)
+    }
+
+    private static func loadLog() -> HobbyFit.SuggestionLog {
+        guard let data = UserDefaults.standard.data(forKey: HobbyFit.SuggestionLog.storageKey),
+              let log = try? JSONDecoder().decode(HobbyFit.SuggestionLog.self, from: data) else {
+            return HobbyFit.SuggestionLog()
+        }
+        return log
+    }
+
+    private static func saveLog(_ log: HobbyFit.SuggestionLog) {
+        if let data = try? JSONEncoder().encode(log) {
+            UserDefaults.standard.set(data, forKey: HobbyFit.SuggestionLog.storageKey)
+        }
     }
 }
 

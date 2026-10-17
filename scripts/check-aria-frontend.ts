@@ -303,6 +303,10 @@ assert(motionProviderSrc.includes("MotionConfig"), "provider renders MotionConfi
 const layoutSrc = readFileSync("src/app/layout.tsx", "utf8");
 assert(layoutSrc.includes("MotionConfigProvider"), "root layout wraps the app in MotionConfig");
 
+const companionSrc = readFileSync("src/components/onboarding/aria-companion.tsx", "utf8");
+assert(companionSrc.includes("AriaMark"), "onboarding companion uses nest AriaMark");
+assert(!companionSrc.includes("AriaOrb"), "onboarding companion no longer wraps AriaOrb");
+
 const chatSrc = readFileSync("src/components/chat/chat-page.tsx", "utf8");
 assert(chatSrc.includes("AriaMark"), "chat uses nest AriaMark");
 assert(!chatSrc.includes("AriaOrb"), "chat no longer uses legacy AriaOrb");
@@ -312,6 +316,7 @@ assert(chatSrc.includes("readOnly={isTyping}"), "composer stays focusable while 
 assert(chatSrc.includes("aria-busy={isTyping}"), "composer exposes busy while a reply is pending");
 assert(chatSrc.includes("Here for you") && chatSrc.includes("Thinking…"), "chat status uses friend-register copy");
 assert(!/recovery-first|Reading your signals|Adaptive Recovery/i.test(chatSrc), "chat header avoids clinical copy");
+assert(chatSrc.includes("aria-paused"), "chat handles 503 aria_paused");
 assert(!/\b(tone|persona_enabled|memory_enabled)\b/.test(chatSrc), "chat does not read unversioned contract fields");
 
 console.log("aria frontend checks passed");

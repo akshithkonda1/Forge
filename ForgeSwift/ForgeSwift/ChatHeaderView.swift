@@ -4,6 +4,7 @@ import ForgeCore
 struct ChatHeaderView: View {
     @EnvironmentObject var store: AppStore
     @ObservedObject private var ariaService = AriaService.shared
+    @ObservedObject private var soul = AriaSoulStore.shared
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     let mood:              ARIAMood
     var onAvatarLongPress: (() -> Void)? = nil
@@ -24,6 +25,7 @@ struct ChatHeaderView: View {
                     .tracking(ForgeType.tracking(.title))
                     .forgeSingleLine(minScale: ForgeLayout.labelMinScale)
                 statusRow
+                personalitySwitcher
             }
             .frame(maxWidth: .infinity, alignment: .leading)
             .layoutPriority(1)
@@ -88,6 +90,8 @@ struct ChatHeaderView: View {
     private var statusPill: some View {
         if ariaService.isTestReady || AriaOperatingMode.current.isDummy {
             pill(icon: "checkmark.seal", tint: .steelLight, text: "Dummy · tune without AI")
+        } else if ariaPaused {
+            pill(icon: "pause.fill", tint: .steelLight, text: AriaPaused.line, lines: 2)
         } else if let remoteError = ariaService.lastRemoteError {
             pill(icon: "exclamationmark.triangle.fill", tint: .danger, text: remoteError, lines: 2)
         } else if ariaService.isLocalFallback {
@@ -126,6 +130,36 @@ struct ChatHeaderView: View {
         .clipShape(Capsule())
         .overlay(Capsule().stroke(Color.white.opacity(0.08), lineWidth: ForgeUX.hairline))
         .accessibilityElement(children: .combine)
+    }
+
+    private var ariaPaused: Bool {
+        ariaService.lastRemoteError == AriaPaused.line
+    }
+
+    private var personalitySwitcher: some View {
+        Menu {
+            ForEach(AriaSoul.Personality.allCases, id: \.self) { personality in
+                Button {
+                    soul.setPersonality(personality)
+                } label: {
+                    Text(personality.label)
+                    Text(personality.pacing)
+                }
+            }
+        } label: {
+            HStack(spacing: FDS.Spacing.xs) {
+                Text(soul.config.blend.dominant.label)
+                    .font(HomeType.micro)
+                    .foregroundColor(.textSecondary)
+                Image(systemName: "chevron.down")
+                    .font(HomeType.micro)
+                    .foregroundColor(.textTertiary)
+                    .accessibilityHidden(true)
+            }
+        }
+        .disabled(ariaPaused)
+        .accessibilityLabel("ARIA personality, \(soul.config.blend.dominant.label)")
+        .accessibilityHint(ariaPaused ? AriaPaused.switcherLine : "Changes the next reply. No restart.")
     }
 
     private var skipButton: some View {
@@ -183,5 +217,62 @@ struct ChatHeaderView: View {
         if low { return "\(first), let’s keep it easy" }
         if score >= 85 { return "You look ready, \(first)" }
         return "Here for you, \(first)"
+    }
+}
+
+/// Observable soul. Read per reply — never cached at session start.
+final class AriaSoulStore: ObservableObject {
+    static let shared = AriaSoulStore()
+
+    @Published private(set) var config: AriaSoul.Config
+    private let defaults: UserDefaults
+
+    init(defaults: UserDefaults = .standard) {
+        self.defaults = defaults
+        if let data = defaults.data(forKey: AriaSoul.storageKey),
+           let decoded = try? JSONDecoder().decode(AriaSoul.Config.self, from: data) {
+            self.config = decoded
+        } else {
+            self.config = AriaSoul.Config()
+        }
+    }
+
+    func setPersonality(_ personality: AriaSoul.Personality) {
+        config = AriaSoul.Config(blend: AriaSoul.Blend(
+            coach: personality == .coach ? 1 : 0,
+            friend: personality == .friend ? 1 : 0,
+            drillSergeant: personality == .drillSergeant ? 1 : 0,
+            anchor: personality
+        ))
+        persist()
+    }
+
+    /// Learned mix unless the person picked an anchor. Read per reply.
+    func liveConfig(experience: String, goals: [String], engagement: Double) -> AriaSoul.Config {
+        AriaSoul.Config(
+            version: config.version,
+            blend: AriaSoul.fuse(
+                experience: experience,
+                goals: goals,
+                engagement: engagement,
+                override: config.blend.anchor
+            )
+        )
+    }
+
+    func liveDirective(experience: String, goals: [String], engagement: Double) -> String {
+        AriaSoul.directive(liveConfig(experience: experience, goals: goals, engagement: engagement))
+    }
+
+    var directive: String { AriaSoul.directive(config) }
+
+    func speak(_ line: String) -> String {
+        AriaSoul.speak(line, config: config)
+    }
+
+    private func persist() {
+        if let data = try? JSONEncoder().encode(config) {
+            defaults.set(data, forKey: AriaSoul.storageKey)
+        }
     }
 }

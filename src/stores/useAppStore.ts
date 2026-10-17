@@ -74,6 +74,8 @@ interface AppState {
   // Chat
   chatMessages: ChatMessage[];
   addMessage: (msg: ChatMessage) => void;
+  ariaPaused: boolean;
+  setAriaPaused: (paused: boolean) => void;
 
   // Sleep
   sleepData: SleepData[];
@@ -189,6 +191,7 @@ export const useAppStore = create<AppState>()(
       activeTab: "home",
       chatMessages: [],
       hasMetAria: false,
+      ariaPaused: false,
     }),
   seedAriaWelcome: () => {
     const profile = get().userProfile;
@@ -267,6 +270,8 @@ export const useAppStore = create<AppState>()(
   chatMessages: [],
   addMessage: (msg) =>
     set((state) => ({ chatMessages: [...state.chatMessages, msg] })),
+  ariaPaused: false,
+  setAriaPaused: (paused) => set({ ariaPaused: paused }),
 
   sleepData: mockSleepData,
   workoutHistory: mockHistory,

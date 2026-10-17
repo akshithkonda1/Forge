@@ -131,32 +131,49 @@ public struct QualityOfLifePersona: Codable, Sendable, Equatable {
         self.hobbies = hobbies
     }
 
-    /// Weights always sum to 1.0.
+    /// Weights always sum to 1.0. Named hobbies nudge the mix; missing hobbies
+    /// never shame the grade.
     public func weight(for pillar: QualityOfLifePillar) -> Double {
+        QualityOfLifePersona.weights(archetype: archetype, hobbies: hobbies)[pillar] ?? pillar.weight
+    }
+
+    public static func weights(
+        archetype: QualityOfLifeArchetype,
+        hobbies: [LivingHobby]?
+    ) -> [QualityOfLifePillar: Double] {
+        var table: [QualityOfLifePillar: Double]
         switch archetype {
         case .unset, .balanced:
-            return pillar.weight
+            table = Dictionary(uniqueKeysWithValues: QualityOfLifePillar.allCases.map { ($0, $0.weight) })
         case .homebody:
-            switch pillar {
-            case .sleep: return 0.28
-            case .nutrition: return 0.22
-            case .mind: return 0.16
-            case .social: return 0.12
-            case .vitals: return 0.08
-            case .hydration: return 0.08
-            case .activity: return 0.06
-            }
+            table = [
+                .sleep: 0.28, .nutrition: 0.22, .mind: 0.16, .social: 0.12,
+                .vitals: 0.08, .hydration: 0.08, .activity: 0.06,
+            ]
         case .outdoors:
-            switch pillar {
-            case .activity: return 0.24
-            case .vitals: return 0.18
-            case .nutrition: return 0.16
-            case .sleep: return 0.14
-            case .mind: return 0.12
-            case .social: return 0.10
-            case .hydration: return 0.06
+            table = [
+                .activity: 0.24, .vitals: 0.18, .nutrition: 0.16, .sleep: 0.14,
+                .mind: 0.12, .social: 0.10, .hydration: 0.06,
+            ]
+        }
+        if let hobbies, !hobbies.isEmpty {
+            if hobbies.contains(.outdoors) || hobbies.contains(.gym) {
+                table[.activity, default: 0] += 0.03
+                table[.sleep, default: 0] -= 0.015
+                table[.nutrition, default: 0] -= 0.015
+            }
+            if hobbies.contains(.reading) || hobbies.contains(.rest) {
+                table[.mind, default: 0] += 0.02
+                table[.activity, default: 0] -= 0.02
+            }
+            if hobbies.contains(.cooking) {
+                table[.nutrition, default: 0] += 0.02
+                table[.activity, default: 0] -= 0.02
             }
         }
+        let sum = table.values.reduce(0, +)
+        guard sum > 0 else { return table }
+        return table.mapValues { $0 / sum }
     }
 }
 
@@ -560,6 +577,9 @@ public struct QualityOfLifeInputs: Sendable, Equatable {
     public var weeklyMood0to10: Double?
     public var sleepNeedPreferenceHours: Double?
     public var workStrain0to10: Double?
+    /// Free-day hobbies that landed this week. Presence can lift connection;
+    /// absence never lowers the grade.
+    public var hobbyEngagedThisWeek: Int?
 
     // Personalization (optional; population defaults when absent)
     public var bodyMassKg: Double?
@@ -594,6 +614,7 @@ public struct QualityOfLifeInputs: Sendable, Equatable {
         weeklyMood0to10: Double? = nil,
         sleepNeedPreferenceHours: Double? = nil,
         workStrain0to10: Double? = nil,
+        hobbyEngagedThisWeek: Int? = nil,
         bodyMassKg: Double? = nil,
         age: Int? = nil,
         biologicalSexFemale: Bool? = nil
@@ -625,6 +646,7 @@ public struct QualityOfLifeInputs: Sendable, Equatable {
         self.weeklyMood0to10 = weeklyMood0to10
         self.sleepNeedPreferenceHours = sleepNeedPreferenceHours
         self.workStrain0to10 = workStrain0to10
+        self.hobbyEngagedThisWeek = hobbyEngagedThisWeek
         self.bodyMassKg = bodyMassKg
         self.age = age
         self.biologicalSexFemale = biologicalSexFemale
@@ -842,6 +864,9 @@ public enum QualityOfLifeCalculator {
             let connection = (i.socialConnection0to10 ?? 5) / 10.0
             let load = clamp(100 * (1 - busy) * (0.45 + 0.55 * connection), 0, 100)
             signals.append(Signal(load, 0.8))
+        }
+        if let hobbies = i.hobbyEngagedThisWeek, hobbies > 0 {
+            signals.append(Signal(rising(min(1, Double(hobbies) / 3.0)), 0.7))
         }
         return combine(signals, maxSignals: QualityOfLifePillar.social.maxSignals)
     }

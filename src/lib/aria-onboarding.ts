@@ -30,7 +30,7 @@ export function whisperForStep(
     case "welcome":
       return {
         title: "Getting started",
-        message: "I'll coach the life you already have — not a spreadsheet of you.",
+        message: "You downloaded Forge. I'll show you how I can help — nothing to sell.",
         mood: "focused",
       };
     case "profile":
@@ -50,7 +50,7 @@ export function whisperForStep(
       if ((ctx.devicesConnected ?? 0) > 0) {
         return {
           title: "Wearables noted",
-          message: "We'll use these when you connect them — recovery can shape load from day one.",
+          message: "We'll use these when you connect them — readiness can shape load from day one.",
           mood: "energized",
         };
       }
@@ -114,8 +114,8 @@ export function firstSessionScript(ctx: {
     .join(" & ");
   const healthLine =
     (ctx.devicesConnected ?? 0) > 0
-      ? " Recovery is already in the loop."
-      : " Connect devices anytime and I'll fold recovery in.";
+      ? " Readiness is already in the loop."
+      : " Connect devices anytime and I'll fold readiness in.";
 
   switch (ctx.coachingStyle) {
     case "push-hard":
@@ -123,10 +123,10 @@ export function firstSessionScript(ctx: {
     case "patient":
       return `${name}, we make this doable — small wins toward ${goal}.${healthLine}`;
     case "data-driven":
-      return `${name} — load and recovery map back to ${goal}. I'll show the why.${healthLine}`;
+      return `${name} — load and readiness map back to ${goal}. I'll show the why.${healthLine}`;
     case "balanced":
     default:
-      return `${name}, first block balances work and recovery around ${goal}${workouts ? `, favoring ${workouts}` : ""}.${healthLine}`;
+      return `${name}, first block balances work and rest around ${goal}${workouts ? `, favoring ${workouts}` : ""}.${healthLine}`;
   }
 }
 

@@ -2,7 +2,7 @@
 export const ARIA_INTRO = {
   eyebrow: "Your lifestyle coach",
   title: "This is ARIA",
-  lead: "I was designed for Forge — I power how you train, recover, and live the day.",
+  lead: "I was designed for Forge — I power how you train, rest, and live the day.",
   pairingForbidden: "FORGE × ARIA",
   capabilities: [
     {
@@ -10,7 +10,7 @@ export const ARIA_INTRO = {
       body: "What to do with the body you woke up with — not a plan from last week.",
     },
     {
-      title: "Recovery",
+      title: "Readiness",
       body: "Last night, load, and when to ease off before you overreach.",
     },
     {

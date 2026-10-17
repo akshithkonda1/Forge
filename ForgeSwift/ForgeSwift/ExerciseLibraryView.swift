@@ -11,10 +11,9 @@ struct ExerciseLibraryView: View {
     @State private var organize: ExerciseLibrary.OrganizeBy = .style
     @State private var collapsed: Set<String> = []
     @State private var selected: ExerciseDefinition? = nil
+    @State private var cachedSections: [ExerciseLibrary.Section] = []
 
-    private var sections: [ExerciseLibrary.Section] {
-        ExerciseLibrary.grouped(query: query, muscle: muscle, equipment: equipment, pattern: pattern, by: organize)
-    }
+    private var sections: [ExerciseLibrary.Section] { cachedSections }
 
     private var resultCount: Int { sections.reduce(0) { $0 + $1.items.count } }
 
@@ -43,7 +42,18 @@ struct ExerciseLibraryView: View {
                 .autocorrectionDisabled()
                 .forgeHaptic(.selection, trigger: organize)
                 .sheet(item: $selected) { def in ExerciseDetailSheet(def: def) }
+                .task(id: sectionCacheKey) { refreshSections() }
         }
+    }
+
+    private var sectionCacheKey: String {
+        "\(query)|\(muscle?.rawValue ?? "")|\(equipment?.rawValue ?? "")|\(pattern?.rawValue ?? "")|\(organize.rawValue)"
+    }
+
+    private func refreshSections() {
+        cachedSections = ExerciseLibrary.grouped(
+            query: query, muscle: muscle, equipment: equipment, pattern: pattern, by: organize
+        )
     }
 
     // MARK: Scroll content

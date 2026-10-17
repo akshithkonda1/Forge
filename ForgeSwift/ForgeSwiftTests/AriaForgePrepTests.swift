@@ -64,7 +64,7 @@ final class AriaForgePrepTests: XCTestCase {
         )
     }
 
-    func testStagesWalkTheHoldWithoutAPercentHUD() {
+    func testStagesWalkTheHoldWithoutAPercentReadout() {
         let duration: TimeInterval = 90
         XCTAssertEqual(AriaForgePrep.stage(at: 0, duration: duration), .profile)
         XCTAssertEqual(AriaForgePrep.stage(at: 20, duration: duration), .health)

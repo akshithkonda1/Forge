@@ -63,7 +63,7 @@ function planFor(readiness: number, muscle: string | null): { name: string; dura
   }
   if (readiness < 55) {
     return {
-      name: "Recovery Flow",
+      name: "Easy Flow",
       duration: 30,
       exercises: [
         { name: "Foam Rolling", sets: 1, reps: "5 min" },
@@ -101,7 +101,7 @@ function planFor(readiness: number, muscle: string | null): { name: string; dura
 }
 
 /**
- * Local, deterministic ARIA. Speaks like a companion, not a HUD.
+ * Local, deterministic ARIA. Speaks like a companion, not a vitals dump.
  * Numbers stay behind the sentence unless the user asked for data-driven voice.
  */
 export function coachReply(
@@ -148,7 +148,7 @@ export function coachReply(
       richCard: {
         type: "workout-plan",
         data: {
-          name: "Recovery Flow",
+          name: "Easy Flow",
           duration: 30,
           exercises: [
             { name: "Foam Rolling", sets: 1, reps: "5 min" },

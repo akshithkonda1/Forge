@@ -7,22 +7,22 @@ import Foundation
 /// Lifestyle coach. Not a diagnosis. A dismissal is never cited.
 public enum HobbyFit {
 
-    public enum Signal: String, Sendable, Equatable {
+    public enum Signal: String, Codable, Sendable, Equatable {
         case quiet
         case open
         case drainedSocial = "drained_social"
         case restored
     }
 
-    public enum Kind: String, Sendable, Equatable {
+    public enum Kind: String, Codable, Sendable, Equatable {
         case creative, social, outdoor, solo, learning
     }
 
-    public enum Interest: String, Sendable, Equatable {
+    public enum Interest: String, Codable, Sendable, Equatable {
         case low, medium, high
     }
 
-    public struct Hobby: Sendable, Equatable, Identifiable {
+    public struct Hobby: Codable, Sendable, Equatable, Identifiable {
         public var id: String
         public var label: String
         public var kind: Kind
@@ -41,6 +41,133 @@ public enum HobbyFit {
             self.kind = kind
             self.interest = interest
             self.lastEngagedAt = lastEngagedAt
+        }
+    }
+
+    /// Gentle free-day trend — never a shaming score.
+    public struct LifestyleTime: Codable, Equatable, Sendable {
+        public var engagedThisWeek: Int
+        public var trend: String
+        public var line: String
+
+        public init(engagedThisWeek: Int, trend: String, line: String) {
+            self.engagedThisWeek = engagedThisWeek
+            self.trend = trend
+            self.line = line
+        }
+    }
+
+    public struct DayContribution: Equatable, Sendable {
+        public var habitWins: Int
+        public var moveMinutes: Double
+        public var trainSessions: Int
+        public var mosaicTrack: StatsMosaic.Track?
+
+        public init(
+            habitWins: Int = 0,
+            moveMinutes: Double = 0,
+            trainSessions: Int = 0,
+            mosaicTrack: StatsMosaic.Track? = nil
+        ) {
+            self.habitWins = habitWins
+            self.moveMinutes = moveMinutes
+            self.trainSessions = trainSessions
+            self.mosaicTrack = mosaicTrack
+        }
+    }
+
+    public struct SuggestionLog: Codable, Equatable, Sendable {
+        public var accepted: [String]
+        public var ignored: [String]
+        public var cooldownUntil: [String: String]
+
+        public static let storageKey = "forge.hobby.suggestionLog.v1"
+
+        public init(
+            accepted: [String] = [],
+            ignored: [String] = [],
+            cooldownUntil: [String: String] = [:]
+        ) {
+            self.accepted = accepted
+            self.ignored = ignored
+            self.cooldownUntil = cooldownUntil
+        }
+    }
+
+    public struct LabeledSuggestion: Equatable, Sendable, Identifiable {
+        public var id: String { hobby.id }
+        public var hobby: Hobby
+        public var why: String
+        public var firstStep: String
+        public var cooldownLine: String
+
+        public init(hobby: Hobby, why: String, firstStep: String, cooldownLine: String = "") {
+            self.hobby = hobby
+            self.why = why
+            self.firstStep = firstStep
+            self.cooldownLine = cooldownLine
+        }
+    }
+
+    public struct WorkoutHint: Equatable, Sendable {
+        public var name: String
+        public var type: String
+        public var dateISO: String
+
+        public init(name: String, type: String, dateISO: String) {
+            self.name = name
+            self.type = type
+            self.dateISO = dateISO
+        }
+    }
+
+    public struct LiveSignals: Equatable, Sendable {
+        public var calendarEventsToday: Int?
+        public var sleepHoursLastNight: Double?
+        public var sleepHoursTypical: Double?
+        public var hrvTrend: Double?
+        public var activityMinutesToday: Double?
+        public var hour: Int?
+        public var conversation: [String]
+        public var previous: Signal?
+        public var previousAgeHours: Double?
+
+        public static let empty = LiveSignals()
+
+        public init(
+            calendarEventsToday: Int? = nil,
+            sleepHoursLastNight: Double? = nil,
+            sleepHoursTypical: Double? = nil,
+            hrvTrend: Double? = nil,
+            activityMinutesToday: Double? = nil,
+            hour: Int? = nil,
+            conversation: [String] = [],
+            previous: Signal? = nil,
+            previousAgeHours: Double? = nil
+        ) {
+            self.calendarEventsToday = calendarEventsToday
+            self.sleepHoursLastNight = sleepHoursLastNight
+            self.sleepHoursTypical = sleepHoursTypical
+            self.hrvTrend = hrvTrend
+            self.activityMinutesToday = activityMinutesToday
+            self.hour = hour
+            self.conversation = conversation
+            self.previous = previous
+            self.previousAgeHours = previousAgeHours
+        }
+    }
+
+    public struct Reading: Equatable, Sendable {
+        public var signal: Signal
+        public var confidence: Double
+        public var speak: String
+        public var sources: Int
+
+        public init(signal: Signal, confidence: Double, speak: String, sources: Int) {
+            self.signal = signal
+            self.confidence = min(1, max(0, confidence))
+            self.speak = speak
+            self.sources = sources
         }
     }
 
@@ -125,7 +252,11 @@ public enum HobbyFit {
             case .outdoors:
                 kind = .outdoor
                 interest = .medium
-            case .reading, .games, .gym:
+            case .gym:
+                // Gym is training / people-energy, not a restorative solo hobby.
+                kind = .social
+                interest = .medium
+            case .reading, .games:
                 kind = .solo
                 interest = .medium
             case .rest:
@@ -205,11 +336,17 @@ public enum HobbyFit {
         if ["class", "course", "learn", "study", "language"].contains(where: { lower.contains($0) }) {
             return .learning
         }
-        if ["club", "group", "team", "friends"].contains(where: { lower.contains($0) }) {
+        if ["club", "group", "team", "friends", "gym"].contains(where: { lower.contains($0) }) {
             return .social
         }
-        if ["read", "book", "solo", "alone", "home"].contains(where: { lower.contains($0) }) {
+        if ["yoga", "read", "book", "solo", "alone", "home"].contains(where: { lower.contains($0) }) {
             return .solo
+        }
+        if ["dance"].contains(where: { lower.contains($0) }) {
+            return .social
+        }
+        if ["garden"].contains(where: { lower.contains($0) }) {
+            return .outdoor
         }
         return .creative
     }
@@ -221,5 +358,291 @@ public enum HobbyFit {
             options: .regularExpression
         ) != nil else { return nil }
         return raw
+    }
+
+    /// Port of Python `normalize_hobbies`. Strings or labeled rows; bad rows drop.
+    public static func normalizeHobbies(_ raw: [Hobby]) -> [Hobby] {
+        var out: [Hobby] = []
+        var seen: Set<String> = []
+        for item in raw {
+            guard let clean = normalize(
+                label: item.label,
+                id: item.id,
+                kind: item.kind.rawValue,
+                interest: item.interest.rawValue,
+                lastEngagedAt: item.lastEngagedAt
+            ) else { continue }
+            if seen.contains(clean.id) { continue }
+            seen.insert(clean.id)
+            out.append(clean)
+            if out.count >= 8 { break }
+        }
+        return out
+    }
+
+    public static func normalizeHobbies(labels: [String]) -> [Hobby] {
+        var out: [Hobby] = []
+        var seen: Set<String> = []
+        for label in labels {
+            guard let hobby = normalize(label: label), !seen.contains(hobby.id) else { continue }
+            seen.insert(hobby.id)
+            out.append(hobby)
+            if out.count >= 8 { break }
+        }
+        return out
+    }
+
+    public static func reading(
+        socialBand: HobbyPathEngine.SocialBand,
+        peopleEnergy: HobbyPathEngine.PeopleEnergy,
+        working: UserWorkingModel.Snapshot,
+        live: LiveSignals = .empty
+    ) -> Reading {
+        var signal = Self.signal(socialBand: socialBand, peopleEnergy: peopleEnergy, working: working)
+        var votes: [Signal: Int] = [signal: 1]
+        var sources = 1
+
+        if let events = live.calendarEventsToday {
+            sources += 1
+            if events >= 5 { votes[.drainedSocial, default: 0] += 1 }
+            else if events <= 1 { votes[.quiet, default: 0] += 1 }
+        }
+        if let night = live.sleepHoursLastNight, let typical = live.sleepHoursTypical, typical > 0 {
+            sources += 1
+            if night + 0.8 < typical { votes[.quiet, default: 0] += 1 }
+        }
+        if let hrv = live.hrvTrend {
+            sources += 1
+            if hrv <= -8 { votes[.quiet, default: 0] += 1 }
+            else if hrv >= 5 { votes[.open, default: 0] += 1 }
+        }
+        if let minutes = live.activityMinutesToday, minutes >= 90, peopleEnergy == .thin {
+            sources += 1
+            votes[.drainedSocial, default: 0] += 1
+        }
+        if let hour = live.hour, hour >= 21, signal == .drainedSocial || signal == .quiet {
+            sources += 1
+            votes[signal, default: 0] += 1
+        }
+        let blob = live.conversation.joined(separator: " ").lowercased()
+        if blob.contains("too many people") || blob.contains("need a night in") || blob.contains("lots on") {
+            sources += 1
+            votes[.drainedSocial, default: 0] += 1
+        }
+        if blob.contains("wanna go out") || blob.contains("up for") || blob.contains("have people over") {
+            sources += 1
+            votes[.open, default: 0] += 1
+        }
+        if let previous = live.previous, let age = live.previousAgeHours, age < 18 {
+            votes[previous, default: 0] += 1
+            sources += 1
+        } else if let previous = live.previous, let age = live.previousAgeHours, age >= 36 {
+            _ = previous
+            sources += 1
+        }
+
+        if let top = votes.max(by: { $0.value < $1.value }) {
+            signal = top.key
+        }
+        let confidence = min(0.92, 0.28 + 0.12 * Double(min(sources, 5)))
+        return Reading(signal: signal, confidence: confidence, speak: speak(signal), sources: sources)
+    }
+
+    public static func lifestyleTime(
+        hobbies: [Hobby],
+        nowISODay: String,
+        weekDays: [String]
+    ) -> LifestyleTime {
+        let engaged = hobbies.filter { hobby in
+            guard let day = hobby.lastEngagedAt.map({ String($0.prefix(10)) }) else { return false }
+            return weekDays.contains(day) || day == nowISODay
+        }
+        let count = engaged.count
+        let trend: String
+        if count == 0 { trend = "quieter" }
+        else if count >= 3 { trend = "fuller" }
+        else { trend = "steady" }
+        let line: String
+        switch trend {
+        case "fuller":
+            line = "A few free-day hours landed this week. That counts."
+        case "steady":
+            line = "A free day showed up. Both a walk and a night in count."
+        default:
+            line = "No free-day hours logged yet. The week is still open — not a verdict."
+        }
+        return LifestyleTime(engagedThisWeek: count, trend: trend, line: line)
+    }
+
+    public static func dayContribution(
+        hobbies: [Hobby],
+        todayISO: String
+    ) -> DayContribution {
+        var habit = 0
+        var minutes = 0.0
+        var train = 0
+        var track: StatsMosaic.Track?
+        for hobby in hobbies {
+            let day = hobby.lastEngagedAt.map { String($0.prefix(10)) }
+            guard day == todayISO else { continue }
+            switch hobby.kind {
+            case .outdoor:
+                minutes += 20
+                track = track ?? .move
+            case .social where hobby.id == "gym":
+                train += 1
+                track = track ?? .train
+            case .creative, .solo, .learning, .social:
+                habit += 1
+                track = track ?? .habits
+            }
+        }
+        return DayContribution(
+            habitWins: habit,
+            moveMinutes: minutes,
+            trainSessions: train,
+            mosaicTrack: track
+        )
+    }
+
+    public static func applyToMosaic(_ input: StatsMosaic.Input, contribution: DayContribution) -> StatsMosaic.Input {
+        var next = input
+        if contribution.habitWins > 0 {
+            next.habitsDone += contribution.habitWins
+        }
+        if contribution.moveMinutes > 0, next.steps == nil {
+            next.steps = Int(contribution.moveMinutes * 80)
+            next.stepsManual = true
+        }
+        if contribution.trainSessions > 0 {
+            next.workoutsThisWeek += contribution.trainSessions
+        }
+        return next
+    }
+
+    public static func engage(fromWorkouts workouts: [WorkoutHint], existing: [Hobby]) -> [Hobby] {
+        var byId = Dictionary(uniqueKeysWithValues: existing.map { ($0.id, $0) })
+        for workout in workouts {
+            guard let mapped = hobby(fromWorkout: workout) else { continue }
+            if var current = byId[mapped.id] {
+                if current.lastEngagedAt == nil || (mapped.lastEngagedAt ?? "") > (current.lastEngagedAt ?? "") {
+                    current.lastEngagedAt = mapped.lastEngagedAt
+                    byId[mapped.id] = current
+                }
+            } else {
+                byId[mapped.id] = mapped
+            }
+        }
+        return Array(byId.values).sorted { $0.label < $1.label }
+    }
+
+    public static func hobby(fromWorkout workout: WorkoutHint) -> Hobby? {
+        let blob = (workout.name + " " + workout.type).lowercased()
+        let date = validDate(workout.dateISO)
+        if blob.contains("hike") || blob.contains("trail") {
+            return Hobby(id: "outdoors", label: LivingHobby.outdoors.title, kind: .outdoor, interest: .medium, lastEngagedAt: date)
+        }
+        if blob.contains("walk") {
+            return Hobby(id: "outdoors", label: LivingHobby.outdoors.title, kind: .outdoor, interest: .medium, lastEngagedAt: date)
+        }
+        if blob.contains("garden") {
+            return normalize(label: "Gardening", kind: "outdoor", lastEngagedAt: date)
+        }
+        if blob.contains("yoga") || workout.type.lowercased() == "yoga" {
+            return normalize(label: "Yoga", kind: "solo", lastEngagedAt: date)
+        }
+        if blob.contains("dance") {
+            return normalize(label: "Dance", kind: "social", lastEngagedAt: date)
+        }
+        if blob.contains("gym") {
+            return Hobby(id: "gym", label: LivingHobby.gym.title, kind: .social, interest: .medium, lastEngagedAt: date)
+        }
+        return nil
+    }
+
+    public static func rememberAccepted(_ log: SuggestionLog, id: String, nowISO: String) -> SuggestionLog {
+        var next = log
+        if !next.accepted.contains(id) { next.accepted.append(id) }
+        next.ignored.removeAll { $0 == id }
+        next.cooldownUntil[id] = nil
+        _ = nowISO
+        return next
+    }
+
+    public static func rememberIgnored(_ log: SuggestionLog, id: String, cooldownUntil: String) -> SuggestionLog {
+        var next = log
+        if !next.ignored.contains(id) { next.ignored.append(id) }
+        next.cooldownUntil[id] = cooldownUntil
+        return next
+    }
+
+    public static func shouldOffer(id: String, log: SuggestionLog, todayISO: String) -> Bool {
+        if let until = log.cooldownUntil[id], until > todayISO { return false }
+        return true
+    }
+
+    public static func suggestions(
+        hobbies: [Hobby],
+        path: HobbyPathEngine.Path,
+        mentality: Signal,
+        keepLight: Bool,
+        log: SuggestionLog = SuggestionLog(),
+        todayISO: String = ""
+    ) -> [LabeledSuggestion] {
+        let preferredKinds: [Kind]
+        switch path {
+        case .openGently:
+            preferredKinds = [.creative, .outdoor, .learning]
+        case .restoreQuiet:
+            preferredKinds = [.solo, .creative]
+        case .keepRhythm:
+            preferredKinds = hobbies.map(\.kind)
+        case .explore:
+            preferredKinds = [.solo, .creative, .outdoor]
+        }
+        var picked: [Hobby] = hobbies.filter { preferredKinds.contains($0.kind) && shouldOffer(id: $0.id, log: log, todayISO: todayISO) }
+        if keepLight || mentality == .drainedSocial {
+            picked.removeAll { $0.id == "gym" }
+        }
+        if picked.isEmpty {
+            picked = hobbies.filter { shouldOffer(id: $0.id, log: log, todayISO: todayISO) }
+        }
+        return picked.prefix(3).map { hobby in
+            let cooled = log.ignored.contains(hobby.id) && (log.cooldownUntil[hobby.id].map { $0 <= todayISO } ?? false)
+            return LabeledSuggestion(
+                hobby: hobby,
+                why: "Fits how you actually spend a free day.",
+                firstStep: "Do the smallest version once this week.",
+                cooldownLine: cooled ? coolDownLine(label: hobby.label) : ""
+            )
+        }
+    }
+
+    public static func homePreview(
+        path: HobbyPathEngine.Path,
+        speak: String,
+        time: LifestyleTime
+    ) -> String {
+        "\(pathHeadline(path)) — \(speak). \(time.line)"
+    }
+
+    public static func pathHeadline(_ path: HobbyPathEngine.Path) -> String {
+        switch path {
+        case .openGently: return "A hobby you can start alone"
+        case .restoreQuiet: return "Quieter is the work this week"
+        case .keepRhythm: return "Keep the free-day you already like"
+        case .explore: return "The healthiest version of you isn't only fitter"
+        }
+    }
+
+    public static func chipToggle(selected: [String], tapping: String, cap: Int = 3) -> [String] {
+        var next = selected
+        if let idx = next.firstIndex(of: tapping) {
+            next.remove(at: idx)
+            return next
+        }
+        guard next.count < cap else { return next }
+        next.append(tapping)
+        return next
     }
 }

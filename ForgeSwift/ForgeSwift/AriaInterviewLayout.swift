@@ -6,6 +6,7 @@ struct AriaInterviewLayout: View {
     @Bindable var coordinator: OnboardingCoordinator
     let onFinish: () -> Void
     @StateObject private var dictation = SpeechManager()
+    @ObservedObject private var ariaService = AriaService.shared
     private let presence = AriaPresence.shared
     @Environment(\.scenePhase) private var scenePhase
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
@@ -107,6 +108,12 @@ struct AriaInterviewLayout: View {
         VStack(spacing: FDS.Spacing.sm) {
             controlsRow
             presenceRow
+            if ariaService.lastRemoteError == AriaPaused.line {
+                Text(AriaPaused.onboardingLine)
+                    .font(HomeType.body)
+                    .foregroundStyle(Color.textSecondary)
+                    .forgeWrapping()
+            }
         }
         .padding(.horizontal, ForgeLayout.screenInset)
         .padding(.top, FDS.Spacing.sm)
@@ -141,6 +148,22 @@ struct AriaInterviewLayout: View {
             }
 
             progressBar
+
+            if coordinator.canSkipCurrentBeat {
+                Button {
+                    dictation.cancel()
+                    coordinator.skipCurrentBeat()
+                } label: {
+                    Text("Skip")
+                        .font(HomeType.label)
+                        .foregroundStyle(Color.textSecondary)
+                        .frame(minWidth: ForgeUX.minTap, minHeight: ForgeUX.minTap)
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("Skip")
+                .accessibilityHint("Skip this question. Everything is optional.")
+            }
 
             AriaSpokenMuteButton()
         }

@@ -389,22 +389,22 @@ enum SleepSoundKind: String, CaseIterable, Identifiable, Hashable, Sendable {
 
     var color: Color {
         switch self {
-        case .cafe: return SleepHud.cafe
-        case .brown: return SleepHud.cafe
+        case .cafe: return SleepPalette.cafe
+        case .brown: return SleepPalette.cafe
         case .white: return .textTertiary
-        case .pink: return SleepHud.pink
-        case .lofi: return SleepHud.lofi
+        case .pink: return SleepPalette.pink
+        case .lofi: return SleepPalette.lofi
         case .rain: return .steel
-        case .ocean: return SleepHud.ocean
+        case .ocean: return SleepPalette.ocean
         case .forest: return .success
         case .thunder: return Color.indigo
         case .fan: return .textSecondary
         case .fireplace: return .ember
         case .tibetan: return Color.aurora
-        case .chimes: return SleepHud.chimes
-        case .binaural: return SleepHud.binaural
+        case .chimes: return SleepPalette.chimes
+        case .binaural: return SleepPalette.binaural
         case .hz432: return .success
-        case .deepFocus: return SleepHud.deepFocus
+        case .deepFocus: return SleepPalette.deepFocus
         }
     }
 

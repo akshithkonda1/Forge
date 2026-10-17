@@ -80,7 +80,7 @@ struct WorkoutIdleView: View {
         )
     }
 
-    /// Ember for a training day, steel for rest, recover and easy.
+    /// Ember for a training day, steel for rest and easy.
     private var dayTone: Color {
         dayCall == .train ? Color.ember : Color.steel
     }
@@ -127,18 +127,13 @@ struct WorkoutIdleView: View {
         }
     }
 
-    // MARK: - Pinned TODAY row
+    // MARK: - Pinned Train header
 
     private var todayRow: some View {
-        HStack {
-            Text("TODAY")
-                .forgeSectionLabel()
-                .accessibilityAddTraits(.isHeader)
-            Spacer()
+        ForgePageHeader(title: "Train", accent: dayTone) {
             AriaTrainMuteButton()
         }
         .padding(.horizontal, ForgeLayout.screenInset)
-        .padding(.top, ForgeLayout.screenTop)
     }
 
     // MARK: - Scroll content
@@ -153,6 +148,8 @@ struct WorkoutIdleView: View {
                 }
 
                 exerciseList(workout: workout)
+
+                TrainDiscoveryCard()
 
                 if typeSize.isAccessibilitySize {
                     compactToolbar(columns: 2)
@@ -287,7 +284,7 @@ struct WorkoutIdleView: View {
         if dayCall == .rest {
             return todaySlot.isRest
                 ? "The week called rest. Easy core is on the board if you want it — nothing to prove."
-                : "Today is recovery-shaped. Move well or skip."
+                : "Today is rest-shaped. Move well or skip."
         }
         if let headline = workout.scaleHeadline, workout.autoScaled {
             return headline
@@ -741,21 +738,26 @@ struct WorkoutEmptyState: View {
 
     private var content: some View {
         VStack(spacing: ForgeLayout.sectionGap) {
-            ForgeIconWell(systemImage: "dumbbell.fill", tint: .ember, diameter: 72)
-            VStack(spacing: FDS.Spacing.md) {
-                Text("No session on the board")
-                    .font(ForgeType.pageTitle)
-                    .foregroundStyle(Color.textPrimary)
-                    .multilineTextAlignment(.center)
-                    .forgeWrapping()
-                    .accessibilityAddTraits(.isHeader)
-                Text("ARIA writes a session from sleep, readiness, and the week you actually have — preview it here, then start when you’re ready.")
-                    .font(HomeType.body)
-                    .foregroundStyle(Color.textSecondary)
-                    .multilineTextAlignment(.center)
-                    .forgeWrapping()
-                    .padding(.horizontal, FDS.Spacing.xl)
+            VStack(spacing: ForgeLayout.blockGap) {
+                ForgeMosaicStrip(
+                    lit: Array(repeating: false, count: ForgeMosaicTracks.count),
+                    energy: .ember
+                )
+                VStack(spacing: FDS.Spacing.md) {
+                    Text("No session on the board")
+                        .font(ForgeType.pageTitle)
+                        .foregroundStyle(Color.textPrimary)
+                        .multilineTextAlignment(.center)
+                        .forgeWrapping()
+                        .accessibilityAddTraits(.isHeader)
+                    Text("ARIA writes a session from sleep, readiness, and the week you actually have — preview it here, then start when you’re ready.")
+                        .font(HomeType.body)
+                        .foregroundStyle(Color.textSecondary)
+                        .multilineTextAlignment(.center)
+                        .forgeWrapping()
+                }
             }
+            .forgeContentCard()
             if aging.showsOnTrain {
                 AgeCompareChip(snapshot: aging)
                     .id(agingStamp)
@@ -771,5 +773,112 @@ struct WorkoutEmptyState: View {
         }
         .padding(.horizontal, ForgeLayout.screenInset)
         .padding(.vertical, ForgeLayout.sectionGap)
+    }
+}
+
+/// Rank unused catalog moves that fit gym and gear. Inspectable score.
+struct TrainDiscoveryCard: View {
+    @EnvironmentObject var store: AppStore
+    @State private var memory = ForgeExerciseDiscovery.Memory()
+    @State private var ranked: [ForgeExerciseDiscovery.Candidate] = []
+
+    private static let storageKey = "forge.exercise.discovery.v1"
+
+    var body: some View {
+        Group {
+            if let top = ranked.first {
+                VStack(alignment: .leading, spacing: ForgeLayout.pairGap) {
+                    Text(ForgeExerciseDiscovery.suggestLine)
+                        .font(HomeType.body)
+                        .foregroundStyle(Color.textSecondary)
+                        .forgeWrapping()
+                    Text(top.name)
+                        .font(ForgeType.title)
+                        .foregroundStyle(Color.textPrimary)
+                        .forgeWrapping()
+                    Text(top.reasons.joined(separator: " · "))
+                        .font(HomeType.micro)
+                        .foregroundStyle(Color.textTertiary)
+                        .forgeWrapping()
+                        .accessibilityLabel(top.scoreLabel)
+                    if !memory.saved.isEmpty {
+                        Text("Saved for later: \(memory.saved.count)")
+                            .font(HomeType.micro)
+                            .foregroundStyle(Color.textTertiary)
+                    }
+                    ForgeAdaptiveStack(spacing: ForgeLayout.tileGap) {
+                        ForgeSecondaryButton(title: "Tried", accent: .ember) {
+                            apply(.tried, id: top.id)
+                        }
+                        ForgeSecondaryButton(title: "Not interested", accent: .steel) {
+                            apply(.notInterested, id: top.id)
+                        }
+                        ForgeSecondaryButton(title: "Save for later", accent: .steel) {
+                            apply(.saved, id: top.id)
+                        }
+                    }
+                }
+                .forgeContentCard()
+                .accessibilityElement(children: .contain)
+            }
+        }
+        .onAppear(perform: reload)
+    }
+
+    private func reload() {
+        if ForgeRuntimeGuard.shouldShed(
+            thermal: thermalLabel,
+            memoryWarning: false
+        ) {
+            ranked = []
+            return
+        }
+        if let data = UserDefaults.standard.data(forKey: Self.storageKey),
+           let decoded = try? JSONDecoder().decode(ForgeExerciseDiscovery.Memory.self, from: data) {
+            memory = decoded
+        }
+        memory.gymType = store.userProfile.trainingEquipment.rawValue
+        memory.equipmentNotes = store.userProfile.equipmentNotes
+        let catalog = catalogFromLibrary()
+        ranked = Array(ForgeExerciseDiscovery.rank(
+            catalog: catalog,
+            memory: memory,
+            trainingModel: store.userProfile.coachingPersonality.adaptiveTrainingModel,
+            goals: store.userProfile.fitnessGoals.map(\.rawValue) + store.userProfile.fitnessGoals.map(\.label),
+            readiness: store.readiness.overall,
+            load: min(100, store.workoutHistory.count * 8),
+            engagement: min(1, Double(memory.tried.count) / 10.0),
+            conditions: store.userProfile.lifestyleProfile.healthConstraints,
+            freeform: store.userProfile.lifestyleProfile.healthNote
+        ).prefix(8))
+    }
+
+    private func catalogFromLibrary() -> [ForgeExerciseDiscovery.Exercise] {
+        ExerciseLibrary.all.map {
+            ForgeExerciseDiscovery.Exercise(
+                id: $0.id,
+                name: $0.name,
+                equipment: $0.equipment.rawValue,
+                triedBefore: memory.tried.contains($0.id)
+            )
+        }
+    }
+
+    private func apply(_ feedback: ForgeExerciseDiscovery.Feedback, id: String) {
+        memory = ForgeExerciseDiscovery.applyFeedback(
+            memory, id: id, feedback: feedback, catalog: catalogFromLibrary()
+        )
+        if let data = try? JSONEncoder().encode(memory) {
+            UserDefaults.standard.set(data, forKey: Self.storageKey)
+        }
+        reload()
+    }
+
+    private var thermalLabel: String {
+        switch ProcessInfo.processInfo.thermalState {
+        case .serious: return "serious"
+        case .critical: return "critical"
+        default: return "nominal"
+        }
     }
 }

@@ -12,6 +12,7 @@ import { useToast } from "@/stores/useToast";
 import { Send, Mic, ArrowDown } from "lucide-react";
 import type { ChatMessage } from "@/types";
 import { coachReply } from "@/lib/aria-coach";
+import { AriaPausedNotice } from "@/components/aria-paused-notice";
 
 // ---------------------------------------------------------------------------
 // Quick action definitions
@@ -156,6 +157,7 @@ export function ChatPage() {
     startWorkout,
     setActiveTab,
     activeTab,
+    ariaPaused,
   } = useAppStore();
   const showToast = useToast((s) => s.show);
 
@@ -369,7 +371,13 @@ export function ChatPage() {
               <div className="flex items-center gap-1.5">
                 <span className="h-1.5 w-1.5 rounded-full bg-ember" />
                 <span className="text-xs text-text-tertiary">
-                  {isTyping ? "Thinking…" : "Here for you"}
+                  {ariaPaused ? (
+                    <AriaPausedNotice surface="chat" />
+                  ) : isTyping ? (
+                    "Thinking…"
+                  ) : (
+                    "Here for you"
+                  )}
                 </span>
               </div>
             </div>

@@ -39,7 +39,7 @@ _LIVING = {
     "reading": ("solo", "medium", "Reading"),
     "rest": ("solo", "low", "Resting at home"),
     "games": ("solo", "medium", "Games"),
-    "gym": ("solo", "medium", "The gym"),
+    "gym": ("social", "medium", "The gym"),
 }
 
 _QUIET_LINE = (
@@ -195,10 +195,14 @@ def _kind_for(label: str, hinted: str | None) -> str:
         return "outdoor"
     if any(word in lower for word in ("class", "course", "learn", "study", "language")):
         return "learning"
-    if any(word in lower for word in ("club", "group", "team", "friends")):
+    if any(word in lower for word in ("club", "group", "team", "friends", "gym")):
         return "social"
-    if any(word in lower for word in ("read", "book", "solo", "alone", "home")):
+    if any(word in lower for word in ("yoga", "read", "book", "solo", "alone", "home")):
         return "solo"
+    if "dance" in lower:
+        return "social"
+    if "garden" in lower:
+        return "outdoor"
     return "creative"
 
 
@@ -405,3 +409,101 @@ def _named_person_suffix(signal: str, tokens: list[str] | None) -> str:
         return ""
     people = _named_people(tokens)[:1]
     return hp._people_suffix(path, people)
+
+
+def mentality_reading(
+    social_band: str,
+    people_energy: str,
+    working: uwm.Snapshot,
+    *,
+    calendar_events_today: int | None = None,
+    sleep_hours_last_night: float | None = None,
+    sleep_hours_typical: float | None = None,
+    hrv_trend: float | None = None,
+    activity_minutes_today: float | None = None,
+    hour: int | None = None,
+    conversation: list[str] | None = None,
+    previous: str | None = None,
+    previous_age_hours: float | None = None,
+) -> dict[str, Any]:
+    """Live signals plus the path-derived enum. Confidence never claims 1.0."""
+    signal = mentality_signal(social_band, people_energy, working)
+    votes: dict[str, int] = {signal: 1}
+    sources = 1
+    if calendar_events_today is not None:
+        sources += 1
+        if calendar_events_today >= 5:
+            votes[DRAINED_SOCIAL] = votes.get(DRAINED_SOCIAL, 0) + 1
+        elif calendar_events_today <= 1:
+            votes[QUIET] = votes.get(QUIET, 0) + 1
+    if (
+        sleep_hours_last_night is not None
+        and sleep_hours_typical is not None
+        and sleep_hours_typical > 0
+        and sleep_hours_last_night + 0.8 < sleep_hours_typical
+    ):
+        sources += 1
+        votes[QUIET] = votes.get(QUIET, 0) + 1
+    if hrv_trend is not None:
+        sources += 1
+        if hrv_trend <= -8:
+            votes[QUIET] = votes.get(QUIET, 0) + 1
+        elif hrv_trend >= 5:
+            votes[OPEN] = votes.get(OPEN, 0) + 1
+    if activity_minutes_today is not None and activity_minutes_today >= 90 and people_energy == hp.THIN:
+        sources += 1
+        votes[DRAINED_SOCIAL] = votes.get(DRAINED_SOCIAL, 0) + 1
+    blob = " ".join(conversation or []).lower()
+    if any(p in blob for p in ("too many people", "need a night in", "lots on")):
+        sources += 1
+        votes[DRAINED_SOCIAL] = votes.get(DRAINED_SOCIAL, 0) + 1
+    if previous and previous_age_hours is not None and previous_age_hours < 18:
+        votes[previous] = votes.get(previous, 0) + 1
+        sources += 1
+    signal = max(votes, key=votes.get)
+    confidence = min(0.92, 0.28 + 0.12 * min(sources, 5))
+    return {"signal": signal, "confidence": confidence, "speak": speak(signal), "sources": sources}
+
+
+def lifestyle_time(hobbies: list[dict[str, Any]], today: str, week_days: list[str]) -> dict[str, Any]:
+    engaged = [
+        row
+        for row in hobbies
+        if str(row.get("last_engaged_at") or "")[:10] in set(week_days + [today])
+    ]
+    count = len(engaged)
+    trend = "quieter" if count == 0 else "fuller" if count >= 3 else "steady"
+    if trend == "fuller":
+        line = "A few free-day hours landed this week. That counts."
+    elif trend == "steady":
+        line = "A free day showed up. Both a walk and a night in count."
+    else:
+        line = "No free-day hours logged yet. The week is still open — not a verdict."
+    return {"engagedThisWeek": count, "trend": trend, "line": line}
+
+
+def hobby_from_workout(name: str, typ: str, date_iso: str) -> dict[str, Any] | None:
+    blob = f"{name} {typ}".lower()
+    engaged = _engaged(date_iso)
+    if "hike" in blob or "trail" in blob or "walk" in blob:
+        return _row("outdoors", "Being outside", "outdoor", "medium", engaged)
+    if "garden" in blob:
+        rows = normalize_hobbies([{"label": "Gardening", "kind": "outdoor", "last_engaged_at": date_iso}])
+        return rows[0] if rows else None
+    if "yoga" in blob or typ.lower() == "yoga":
+        rows = normalize_hobbies([{"label": "Yoga", "kind": "solo", "last_engaged_at": date_iso}])
+        return rows[0] if rows else None
+    if "dance" in blob:
+        rows = normalize_hobbies([{"label": "Dance", "kind": "social", "last_engaged_at": date_iso}])
+        return rows[0] if rows else None
+    if "gym" in blob:
+        return _row("gym", "The gym", "social", "medium", engaged)
+    return None
+
+
+def should_offer(item_id: str, log: dict[str, Any], today: str) -> bool:
+    until = (log.get("cooldownUntil") or {}).get(item_id)
+    if until and str(until) > today:
+        return False
+    return True
+

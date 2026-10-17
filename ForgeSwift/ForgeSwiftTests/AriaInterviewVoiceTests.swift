@@ -10,6 +10,8 @@ final class AriaInterviewVoiceTests: XCTestCase {
         XCTAssertTrue(unnamed.contains("I'm ARIA"))
         XCTAssertFalse(unnamed.contains("I'm Aria"))
         XCTAssertTrue(unnamed.contains("Hi — I'm ARIA"))
+        XCTAssertTrue(unnamed.localizedCaseInsensitiveContains("how can i help you"))
+        XCTAssertTrue(unnamed.localizedCaseInsensitiveContains("skip anything"))
         XCTAssertTrue(unnamed.localizedCaseInsensitiveContains("friend"))
         XCTAssertTrue(unnamed.localizedCaseInsensitiveContains("trainer"))
         XCTAssertFalse(unnamed.localizedCaseInsensitiveContains("calibrate"))
