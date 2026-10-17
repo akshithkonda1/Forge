@@ -11,7 +11,9 @@ import {
   MEET,
   MEMORY,
   MOSAIC,
+  PERSON,
   PERSONALITIES,
+  SAMPLE_PERSON,
   TUTORIAL,
 } from "./copy";
 
@@ -64,6 +66,15 @@ describe("PR #472 preview gallery", () => {
     ]);
   });
 
+  it("centers the person, not telemetry", () => {
+    expect(SAMPLE_PERSON).toBe("Jordan Hale");
+    expect(PERSON.goalLine).toContain("Building muscle");
+    expect(MOSAIC.label).toContain("Jordan");
+    expect(MOSAIC.headline).not.toMatch(/%|\d\/\d tracks/i);
+    expect(CHAT_SAMPLE.aria).toContain("Jordan");
+    expect(CHAT_SAMPLE.aria).not.toMatch(/readiness \d+/i);
+  });
+
   it("never diagnoses and never says recovery-first", () => {
     const blob = JSON.stringify({
       MEET,
@@ -91,5 +102,27 @@ describe("PR #472 preview gallery", () => {
       kind: string;
     };
     expect(mark.kind).toBe("soft-hex-field");
+  });
+
+  it("refuses leftover HUD chrome", () => {
+    const files = [
+      "src/components/preview/chrome.tsx",
+      "src/components/preview/phone-frame.tsx",
+      "src/components/preview/primitives.tsx",
+      "src/app/preview/preview.css",
+    ];
+    const blob = files.map((f) => readFileSync(f, "utf8")).join("\n");
+    expect(blob).not.toMatch(/HudChrome|SignalGlyph|scanline|reticle|DynamicIsland|StatusBar/);
+    expect(blob).not.toMatch(/\bfunction Sweep\b/);
+    expect(blob).not.toMatch(/text-transform:\s*uppercase/);
+  });
+
+  it("keeps one card anatomy and no floating tutorial overlay", () => {
+    const home = readFileSync("src/components/preview/screens/home.tsx", "utf8");
+    const stats = readFileSync("src/components/preview/screens/stats.tsx", "utf8");
+    expect(home).not.toMatch(/absolute inset/);
+    expect(home).toContain("PageHead");
+    expect(stats).not.toContain("MOSAIC");
+    expect(stats).toContain("SAMPLE_HISTORY");
   });
 });

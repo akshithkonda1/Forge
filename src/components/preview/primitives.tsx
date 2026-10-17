@@ -1,20 +1,64 @@
 "use client";
 
 import type { ReactNode } from "react";
+import { AriaMark } from "@/components/brand/aria-mark";
 import { cn } from "@/lib/utils";
-import { readinessHex, readinessLabel } from "@/lib/readiness-tokens";
-import { DESIGN, tokenHex } from "@/lib/design-tokens";
+
+export function Screen({
+  children,
+  className,
+}: {
+  children: ReactNode;
+  className?: string;
+}) {
+  return <div className={cn("preview-screen", className)}>{children}</div>;
+}
+
+export function PageHead({
+  label,
+  title,
+  lead,
+  mark = false,
+}: {
+  label: ReactNode;
+  title: ReactNode;
+  lead?: ReactNode;
+  mark?: boolean;
+}) {
+  return (
+    <header className="preview-head">
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <p className="preview-label">{label}</p>
+          <h1 className="preview-display mt-1 text-[1.5rem] leading-tight">{title}</h1>
+        </div>
+        {mark ? <AriaMark size={36} speaking={false} /> : null}
+      </div>
+      {lead ? <p className="preview-body mt-2 text-text-secondary">{lead}</p> : null}
+    </header>
+  );
+}
+
+export function Stack({ children }: { children: ReactNode }) {
+  return <div className="preview-stack">{children}</div>;
+}
 
 export function Tessera({
   children,
   className,
+  inset = false,
   as: Tag = "section",
 }: {
   children: ReactNode;
   className?: string;
+  inset?: boolean;
   as?: "section" | "article" | "div" | "li";
 }) {
-  return <Tag className={cn("preview-tessera", className)}>{children}</Tag>;
+  return (
+    <Tag className={cn("preview-tessera", inset && "preview-tessera-inset", className)}>
+      {children}
+    </Tag>
+  );
 }
 
 export function Eyebrow({
@@ -24,7 +68,7 @@ export function Eyebrow({
   children: ReactNode;
   className?: string;
 }) {
-  return <p className={cn("type-eyebrow", className)}>{children}</p>;
+  return <p className={cn("preview-label", className)}>{children}</p>;
 }
 
 export function DisplayTitle({
@@ -39,6 +83,30 @@ export function DisplayTitle({
 
 export function Hairline({ className }: { className?: string }) {
   return <div className={cn("preview-hairline", className)} aria-hidden />;
+}
+
+export function Row({
+  label,
+  value,
+  hint,
+}: {
+  label: string;
+  value: string;
+  hint?: string;
+}) {
+  return (
+    <div className="preview-row">
+      <span className="preview-row-label">{label}</span>
+      <span className="preview-row-value">
+        {value}
+        {hint ? <span className="preview-row-hint"> · {hint}</span> : null}
+      </span>
+    </div>
+  );
+}
+
+export function AskAria({ children }: { children: ReactNode }) {
+  return <p className="preview-ask">{children}</p>;
 }
 
 export function Capsule({
@@ -81,59 +149,8 @@ export function GhostCta({
   return <div className={cn("preview-ghost-cta", className)}>{children}</div>;
 }
 
-/** Solid sweep. Data is the arc. No ticks, no glow costume. */
-export function Sweep({
-  score,
-  size = 168,
-  stroke = DESIGN.stroke.ring,
-  label = "Readiness",
-}: {
-  score: number;
-  size?: number;
-  stroke?: number;
-  label?: string;
-}) {
-  const clamped = Math.max(0, Math.min(100, score));
-  const radius = (size - stroke) / 2;
-  const circumference = 2 * Math.PI * radius;
-  const progress = (clamped / 100) * circumference;
-  const center = size / 2;
-  const color = readinessHex(clamped);
-  const band = readinessLabel(clamped);
-
-  return (
-    <div className="relative inline-flex items-center justify-center" style={{ width: size, height: size }}>
-      <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} className="-rotate-90">
-        <circle
-          cx={center}
-          cy={center}
-          r={radius}
-          fill="none"
-          stroke={tokenHex("border")}
-          strokeWidth={stroke}
-          strokeLinecap="round"
-        />
-        <circle
-          cx={center}
-          cy={center}
-          r={radius}
-          fill="none"
-          stroke={color}
-          strokeWidth={stroke}
-          strokeLinecap="round"
-          strokeDasharray={circumference}
-          strokeDashoffset={circumference - progress}
-        />
-      </svg>
-      <div className="absolute inset-0 flex flex-col items-center justify-center">
-        <span className="preview-metric text-[2.25rem] leading-none text-text-primary">{clamped}</span>
-        <span className="mt-1 type-caption" style={{ color }}>
-          {band}
-        </span>
-        <span className="mt-0.5 type-micro text-text-tertiary">{label}</span>
-      </div>
-    </div>
-  );
+export function FootCtas({ children }: { children: ReactNode }) {
+  return <div className="preview-foot">{children}</div>;
 }
 
 export function FillBar({
@@ -145,8 +162,52 @@ export function FillBar({
 }) {
   const width = `${Math.max(0, Math.min(1, fraction)) * 100}%`;
   return (
-    <div className="h-[5px] w-full overflow-hidden rounded-full bg-border">
-      <div className="h-full rounded-full" style={{ width, backgroundColor: tint }} />
+    <div className="preview-fill" aria-hidden>
+      <div className="preview-fill-in" style={{ width, backgroundColor: tint }} />
+    </div>
+  );
+}
+
+export function WeekRhythm({
+  days,
+}: {
+  days: readonly { key: string; label: string; session: boolean; today: boolean }[];
+}) {
+  return (
+    <div className="preview-week" aria-label="This week">
+      {days.map((day) => (
+        <div key={day.key} className={cn("preview-week-day", day.today && "is-today")}>
+          <span>{day.label}</span>
+          <i className={cn("preview-week-mark", day.session && "is-session")} />
+        </div>
+      ))}
+    </div>
+  );
+}
+
+export function Sips({ total, filled }: { total: number; filled: number }) {
+  return (
+    <div className="preview-sips" aria-hidden>
+      {Array.from({ length: total }, (_, i) => (
+        <i key={i} className={cn("preview-sip", i < filled && "is-filled")} />
+      ))}
+    </div>
+  );
+}
+
+export function NightHours({
+  hours,
+}: {
+  hours: readonly { key: string; label: string; tone: "deep" | "rem" | "light" | "awake" }[];
+}) {
+  return (
+    <div className="preview-night" aria-label="Last night">
+      {hours.map((hour) => (
+        <div key={hour.key} className="preview-night-hour">
+          <i className={`preview-night-block is-${hour.tone}`} />
+          <span>{hour.label}</span>
+        </div>
+      ))}
     </div>
   );
 }

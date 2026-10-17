@@ -2,12 +2,13 @@
 
 import type { ReactNode } from "react";
 import { cn } from "@/lib/utils";
-import { HomeIndicator, IosTabBar, StatusBar } from "./chrome";
+import { IosTabBar } from "./chrome";
 import type { PreviewTab } from "./catalog";
 
 export const PHONE_WIDTH = 390;
 export const PHONE_HEIGHT = 844;
 
+/** Quiet iPhone-sized screen. No device chrome. */
 export function PhoneFrame({
   children,
   tab,
@@ -25,12 +26,9 @@ export function PhoneFrame({
       className={cn("preview-phone", className)}
       style={{ width: PHONE_WIDTH, height: PHONE_HEIGHT }}
     >
-      <div className="preview-phone-bezel" aria-hidden />
       <div className="preview-phone-inner">
-        <StatusBar />
         <div className="preview-phone-body">{children}</div>
         {tab ? <IosTabBar active={tab} /> : null}
-        <HomeIndicator />
       </div>
     </div>
   );

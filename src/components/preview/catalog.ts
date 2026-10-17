@@ -55,7 +55,7 @@ export const PREVIEW_CATALOG: PreviewEntry[] = [
   {
     slug: "home",
     title: "Home",
-    caption: "Readiness sweep, day’s mosaic, one next move.",
+    caption: "Jordan’s morning, the week, the day’s picture, one next move.",
     tab: "home",
   },
   {
@@ -73,7 +73,7 @@ export const PREVIEW_CATALOG: PreviewEntry[] = [
   {
     slug: "stats",
     title: "Stats",
-    caption: "Today’s mosaic. History, PRs, the training story.",
+    caption: "Jordan’s progress. History, PRs, the training story.",
     tab: "stats",
   },
   {

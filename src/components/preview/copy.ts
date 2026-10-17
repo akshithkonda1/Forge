@@ -7,9 +7,21 @@
 import { containsBannedPhrase } from "@/lib/design-tokens";
 import { ARIA_TONES } from "@/lib/aria-companion";
 
-export const SAMPLE_LABEL = "SAMPLE";
+export const SAMPLE_LABEL = "Sample";
 export const SAMPLE_PERSON = "Jordan Hale";
 export const SAMPLE_FIRST = "Jordan";
+
+/** Who this preview is about. Name, goals, and week sit at the center. */
+export const PERSON = {
+  name: SAMPLE_PERSON,
+  first: SAMPLE_FIRST,
+  goal: "Build muscle",
+  experience: "Intermediate",
+  week: "Mon, Wed, Fri",
+  gym: "Commercial gym",
+  goalLine: "Building muscle · strength · Mon, Wed, Fri",
+  sampleLine: "Sample person — not live data",
+} as const;
 
 export const MEET = {
   eyebrow: "Your lifestyle coach",
@@ -92,7 +104,7 @@ export const TUTORIAL = {
   competitor: {
     welcome:
       "You downloaded Forge. I'll walk the surfaces that keep load, sleep and the next session honest — not a sales pitch. Tap Got it.",
-    home: "Home is the day's load picture: readiness, mosaic, the next honest session.",
+    home: "Home is the day's picture: how you slept, the load, the next honest session.",
     askAria:
       "Ask ARIA how you're doing. I'll keep it short and honest — how you live is the curriculum.",
   },
@@ -137,7 +149,7 @@ export const DISCOVERY = {
   notInterested: "Not interested",
   save: "Save for later",
   move: "Landmine press",
-  reason: "Fits unused catalog · Matches gym/gear · Readiness supports a new try",
+  reason: "Fits the rack and dumbbells you already use. Hasn’t been in a session yet.",
 } as const;
 
 export const LIFESTYLE = {
@@ -147,8 +159,8 @@ export const LIFESTYLE = {
 } as const;
 
 export const MOSAIC = {
-  label: "Today’s mosaic",
-  headline: "74% · 4/5 tracks",
+  label: `${SAMPLE_FIRST}’s day`,
+  headline: "Sleep held. Water is close. The session is still waiting.",
   ask: "Ask ARIA about this picture",
   tiles: [
     { track: "Sleep", headline: "7.2h", detail: "Last night", progress: 0.9, almost: false },
@@ -161,7 +173,7 @@ export const MOSAIC = {
 
 export const CHAT_SAMPLE = {
   user: "How am I doing?",
-  aria: `${SAMPLE_FIRST} — readiness 82, last night rebuilt you. Upper Body Power still fits if we stay honest. One next move: start the session, or keep the day light. Lifestyle coaching only.`,
+  aria: `${SAMPLE_FIRST} — last night rebuilt you. You’re in a good place. Upper Body Power still fits if we stay honest. One next move: start the session, or keep the day light. Lifestyle coaching only.`,
 } as const;
 
 /** Preview copy must stay on the coach rails. */

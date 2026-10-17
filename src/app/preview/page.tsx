@@ -10,12 +10,11 @@ export default function PreviewGalleryPage() {
     <div className="preview-gallery">
       <header className="preview-gallery-head">
         <p className="preview-gallery-kicker">Forge · PR #472 · {SAMPLE_LABEL}</p>
-        <h1 className="preview-gallery-title">The warm health-app pass</h1>
+        <h1 className="preview-gallery-title">This is your interface</h1>
         <p className="preview-gallery-lead">
-          iPhone frames of onboarding, the first-launch tutorial, Home, Lifestyle, Sleep, Stats,
-          ARIA with the personality switcher, Aria’s memory, and Train discovery. Built from Geist
-          + Instrument Serif, FDS tokens, and the procedural ARIA mark.{" "}
-          {SAMPLE_PERSON} is sample data — not a live person.
+          This is your interface. {SAMPLE_PERSON}’s name, goals, and progress sit at the center.
+          One card anatomy across every screen. Personal and grounded — not a HUD. Geist +
+          Instrument Serif, FDS tokens, procedural ARIA mark. Sample data, labeled as sample.
         </p>
       </header>
       <div className="preview-gallery-grid">

@@ -1,5 +1,4 @@
-/** Realistic sample fixtures, labeled SAMPLE in the chrome. Not live user data. */
-export const SAMPLE_CLOCK = "9:41";
+/** Realistic sample fixtures, labeled Sample in the chrome. Not live user data. */
 export const SAMPLE_DATE = "Sat 17 Oct";
 
 export const SAMPLE_SESSION = {
@@ -17,17 +16,27 @@ export const SAMPLE_SESSION = {
   ],
 } as const;
 
-export const SAMPLE_METRICS = {
-  readiness: 82,
-  sleep: 88,
-  rest: 79,
-  stress: 24,
-  energy: 76,
-  steps: "3.2k",
-  calories: "186",
-  hrv: "52",
-  rhr: "58",
-} as const;
+export const SAMPLE_WEEK = [
+  { key: "mon", label: "M", session: true, today: false },
+  { key: "tue", label: "T", session: false, today: false },
+  { key: "wed", label: "W", session: true, today: false },
+  { key: "thu", label: "T", session: false, today: false },
+  { key: "fri", label: "F", session: true, today: false },
+  { key: "sat", label: "S", session: false, today: true },
+  { key: "sun", label: "S", session: false, today: false },
+] as const;
+
+export const SAMPLE_HISTORY = [
+  { when: "Thu 15 Oct", name: "Lower Body Strength", minutes: 48 },
+  { when: "Mon 12 Oct", name: "Upper Body Power", minutes: 55 },
+  { when: "Fri 9 Oct", name: "Pull Emphasis", minutes: 50 },
+] as const;
+
+export const SAMPLE_PRS = [
+  { exercise: "Bench Press", value: "225 lb", date: "28 Jan" },
+  { exercise: "Squat", value: "315 lb", date: "1 Feb" },
+  { exercise: "Deadlift", value: "365 lb", date: "15 Jan" },
+] as const;
 
 export const SAMPLE_SLEEP = {
   score: 88,
@@ -36,6 +45,16 @@ export const SAMPLE_SLEEP = {
   rem: 95,
   light: 215,
   awake: 20,
+  hours: [
+    { key: "22", label: "10", tone: "light" },
+    { key: "23", label: "11", tone: "deep" },
+    { key: "0", label: "12", tone: "deep" },
+    { key: "1", label: "1", tone: "rem" },
+    { key: "2", label: "2", tone: "deep" },
+    { key: "3", label: "3", tone: "awake" },
+    { key: "4", label: "4", tone: "rem" },
+    { key: "5", label: "5", tone: "light" },
+  ],
 } as const;
 
 export const SAMPLE_MEMORY_NOTES = [
@@ -55,6 +74,6 @@ export const SAMPLE_MEMORY_NOTES = [
 
 export const SAMPLE_NUTRITION = {
   protein: { current: "118 g", target: "150 g", fill: 0.79 },
-  water: { current: "5 glasses", target: "6", fill: 0.83 },
+  water: { current: 5, target: 6, fill: 0.83 },
   lastMeal: "Oats, eggs, leftover salmon — 8:14a",
 } as const;
