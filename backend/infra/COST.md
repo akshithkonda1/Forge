@@ -110,6 +110,10 @@ column.**
 | AWS Budgets (no actions) | first 2 free | [Budgets](https://aws.amazon.com/aws-cost-management/aws-budgets/) |
 | Claude Sonnet 5.5 | $2 / $10 per 1M in/out | [Anthropic pricing](https://platform.claude.com/docs/en/about-claude/pricing); Bedrock list is on [Bedrock pricing](https://aws.amazon.com/bedrock/pricing/) |
 | Claude Opus 5.5 | $5 / $25 per 1M in/out | same (Opus 5 family list) |
+| Grok 4.7 Global CRIS | $2 / $6 per 1M in/out | [Grok 4.7 model card](https://docs.aws.amazon.com/bedrock/latest/userguide/model-card-xai-grok-4-7.html) (Geo is $2.20 / $6.60; Scout default is `global.xai.grok-4.7`) |
+| t4g.small Linux us-east-1 | $0.0168 / hour | [EC2 on-demand](https://aws.amazon.com/ec2/pricing/on-demand/) |
+| Public IPv4 (EIP) | $0.005 / hour | [VPC pricing](https://aws.amazon.com/vpc/pricing/) |
+| EBS gp3 | $0.08 / GB-month | [EBS pricing](https://aws.amazon.com/ebs/pricing/) |
 
 Bedrock Marketplace / CRIS can differ by a few percent from the Anthropic
 list. Treat the “on” column as an order-of-magnitude, not an invoice.
@@ -130,9 +134,102 @@ free).
 health/dashboard pennies.
 
 **What would make this expensive:** `aria_bedrock_enabled=true` without the
-daily cap, `enable_scout=true` (t4g.small + EIP ≈ mid-teens/month plus Grok
-tokens), `enable_cost_dashboard=true` (+$3), a second CloudTrail, or
-provisioned concurrency (CI-blocked).
+daily cap, `enable_scout=true` (the box is ~$17/month before tokens — see
+the Scout handoff scenario below), `enable_cost_dashboard=true` (+$3), a
+second CloudTrail, or provisioned concurrency (CI-blocked).
 
 Leave `spend_guard_notification_email` for Akshith. The $25 budget fires
-before the 100-user Bedrock-on estimate.
+before the 100-user Bedrock-on estimate **without** Scout. With Scout on,
+raise `spend_guard_limit_usd` (README suggests 45) — the box alone is most
+of the $25 guard.
+
+## Scout handoff scenario
+
+`enable_scout=true`. Combined with the ARIA ~3 chats/day baseline above.
+Scripted arithmetic (same rounding as the baseline table). Dashboard and
+CloudTrail stay off.
+
+### Return format used
+
+**Short cited digest — not a full research summary.** Scout already clips
+the payload:
+
+- `GrokBrain` / `_SYNTH_SYSTEM` (`backend/scout/brain.py`): JSON with
+  **one or two plain sentences**, ≤4 points, short caveats.
+- Stored brief: `answer[:400]`, each point `text[:320]`, ≤3 caveats `[:200]`.
+- Clients then front-clip the answer to **420 characters**:
+  `gate.CLIENT_EVIDENCE_CHARS`, `web_research._clip` /
+  `web_research.evidence_from_brief`, `AriaWebParsers.maxEvidenceChars`
+  (`AriaWebEvidence.swift` / `scoutBrief`).
+
+ARIA’s follow-up therefore consumes ~420 characters of evidence plus up to
+four source titles — not the pages Scout read (those stay on the box;
+`retention.working_set` is dumped after the run).
+
+### Assumptions
+
+- **1 complex handoff / user / week** (example: a user with Asperger’s
+  asking about dementia studies). Unique weekly questions, so the 6h
+  `BriefCache` misses.
+- 30-day month ⇒ **30/7 ≈ 4.286** handoffs / user / month.
+- Loop (`backend/scout/agent.py`): **plan → ≤3 SearXNG queries → read ≤5
+  pages → synthesize**. SearXNG is self-hosted on the Scout box — **$0
+  search API**. Page fetch egress stays inside the first 100 GB EC2 free
+  grant at these scales.
+- **AI off:** `RulesBrain` (no Grok, no ARIA Converse). The t4g.small +
+  EIP + 16 GB gp3 **still bills** — Scout is always-on when the flag is
+  on. Follow-up chat is deterministic HTTP only.
+- **AI on:** `GrokBrain` plan (`max_tokens` 200) + synth (`max_tokens`
+  512, each page `text[:2500]`) on Grok 4.7 Global CRIS, **plus** one
+  extra ARIA Converse that consumes the 420-char digest. That follow-up
+  is **in addition to** the 3 chats/day baseline (same-week complex case,
+  not a replacement chat).
+- Grok 4.7 reasoning is on by default on the model card. The gateway
+  does **not** add Claude’s 1024-token thinking headroom for Grok
+  (`converse_request_shape` only does that for Claude 5.x), and Scout
+  caps plan/synth at 200/512, so billed output is modeled at those
+  completions — not a large reasoning dump.
+- Scout `POST /scout/research` is an HTTP API proxy to EC2 (no extra
+  Lambda). The follow-up `POST /ai/chat` is a normal Lambda + Dynamo
+  request.
+- One shared Scout box for all three user counts. 730-hour AWS month
+  for always-on compute: **$12.26** instance + **$3.65** IPv4 +
+  **$1.28** gp3 = **$17.19** (matches `scout.tf` / `backend/scout/README.md`
+  “about $17/month before tokens”).
+- Same ARIA mix as the baseline: 90% Sonnet 5.5 / 10% Opus 5.5; chat
+  1800+400; router 2500+400 × 1.1.
+
+### Per-handoff tokens (AI on)
+
+| Stage | In / out | Priced as | $ / handoff |
+| --- | ---: | --- | ---: |
+| Scout plan | 150 / 100 | Grok 4.7 Global $2 / $6 | $0.0009 |
+| SearXNG + read ≤5 pages | — | self-hosted on the box | $0 |
+| Scout synthesize | 3400 / 400 | Grok 4.7 Global $2 / $6 | $0.0092 |
+| ARIA follow-up (420-char digest) | 2000 / 400 | 90/10 Sonnet/Opus | $0.0092 |
+| **Tokens / handoff** | | | **$0.0193** |
+
+Plan/synth sizes follow the code: short planner prompt vs. five 2500-char
+page blocks into a 512-token JSON brief. Follow-up is a baseline chat
+plus the clipped digest inside the 4000-char user context.
+
+### Combined estimate (USD / month)
+
+ARIA baseline **plus** Scout handoffs. Infra column includes the $17.19
+box and the extra HTTP (Scout route + follow-up). Token column is ARIA
+3 chats/day **plus** Grok plan/synth **plus** the follow-up Converse.
+
+| Users | Handoffs | Infra (AI **off**) | Tokens (AI **on**) | Combined **off** | Combined **on** | Per user **off** | Per user **on** |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| 5 | 21 | $17.20 | $4.69 | **$17.20** | **$21.89** | **$3.44** | **$4.38** |
+| 100 | 429 | $17.36 | $93.76 | **$17.36** | **$111.12** | **$0.17** | **$1.11** |
+| 1,000 | 4,286 | $18.87 | $937.62 | **$18.87** | **$956.49** | **$0.02** | **$0.96** |
+
+At 5 users the box dominates (~$3.44/user with AI off). At 1,000 users
+it amortizes to pennies and tokens take over.
+
+**Paused:** Grok and the ARIA follow-up Converse are $0 (`BedrockGateway`
+choke). RulesBrain can still search. The box still bills **$17.19**.
+
+**Paused + Scout off:** back to the baseline table’s health/dashboard
+pennies.
