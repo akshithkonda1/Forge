@@ -21,7 +21,10 @@ class ConditionalCheckFailed(Exception):
 
 def _get_table():
     import boto3  # type: ignore[import]
-    dynamodb = boto3.resource("dynamodb")
+
+    from aws_clients import client_config
+
+    dynamodb = boto3.resource("dynamodb", config=client_config())
     return dynamodb.Table(_TABLE_NAME)
 
 

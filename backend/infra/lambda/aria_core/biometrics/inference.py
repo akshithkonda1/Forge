@@ -93,7 +93,13 @@ class BedrockInferenceBackend:
         if self._client is None:
             import boto3  # type: ignore[import]
 
-            self._client = boto3.client("sagemaker-runtime", region_name=self.region_name)
+            from aws_clients import client_config
+
+            self._client = boto3.client(
+                "sagemaker-runtime",
+                region_name=self.region_name,
+                config=client_config(),
+            )
         return self._client
 
 

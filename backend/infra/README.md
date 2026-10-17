@@ -36,10 +36,13 @@ Apply-failure catalog (also plan-only): [`TERRAFORM_PLAN.md`](TERRAFORM_PLAN.md)
 - `GET /devices/catalog` public with a per-route throttle (2 rps / burst 10);
   clients should cache this catalog. `POST /devices/catalog/seen` stays on JWT
 - `GET /health` stays public, throttled at 1 rps / burst 5
-- DynamoDB single-table store (`pk` / `sk`, no GSI)
+- DynamoDB single-table store (`pk` / `sk`, no GSI, `PAY_PER_REQUEST`, deletion protection on)
+- Cognito user-pool deletion protection on (`ACTIVE`); teardown is two applies (see [`SCALING.md`](SCALING.md))
 - S3 uploads bucket
 - Parameter Store SecureString parameters for `ELEVENLABS_*` (standard tier; seed after apply)
+- Parameter Store String `ARIA_PAUSED` (ARIA-only kill switch, default `"false"`)
 - CloudWatch log groups with retention (30 prod / 14 dev)
+- Optional free-tier CloudWatch alarms (7 standard) + one SNS topic (`enable_alarms`, default true)
 - Optional CloudTrail management-event trail (`create_cloudtrail`, default
   **false** — exactly one trail per AWS account). `prod.tfvars` sets it true
   so the prod stack owns the trail; a shared-account `dev` plan stays false.
@@ -47,7 +50,7 @@ Apply-failure catalog (also plan-only): [`TERRAFORM_PLAN.md`](TERRAFORM_PLAN.md)
 - AWS Budgets spend guard (default on, $25/mo). **Alerts only — never stops
   spend.** ElevenLabs is invisible to it; that cap lives in the app quota.
   A real apply requires `spend_guard_notification_email`
-- Anthropic-scoped plus Grok CRIS Bedrock IAM (unused while the kill-switch is off)
+- Anthropic-scoped plus Grok CRIS Bedrock IAM (unused while the Bedrock kill-switch is off)
 
 Grok 4.6 **is** on Bedrock (`xai.grok-4.6` plus runtime profiles
 `us.xai.grok-4.6` / `global.xai.grok-4.6` — official model card). This module
@@ -75,8 +78,10 @@ doubled write cost). You can store:
 - `variables.tf`: stack inputs (`environment` has no default; `aria_bedrock_enabled` stays false)
 - `locals.tf`: shared naming, tagging, Cognito/SSM paths, JWT audiences, dev allowlist
 - `main.tf`: Lambda, HTTP API, DynamoDB, uploads, spend guard
+- `alarms.tf`: SNS + 7 standard CloudWatch alarms + HTTP API 429 metric filter
 - `cognito.tf`: prefix domain, Kotlin + localhost clients, Apple/Google IdPs
-- `ssm.tf`: ElevenLabs SecureString parameters
+- `ssm.tf`: ElevenLabs SecureString parameters and the `ARIA_PAUSED` String kill switch
+- `SCALING.md`: serverless posture, alarm → knob table, kill-switch runbook, two-step teardown
 - `cloudtrail.tf`: optional management-event trail + locked bucket
 - `outputs.tf`: `client_configuration` plus allowlist-only `dev_client_configuration`
 - `bootstrap/`: SSE-S3 state bucket (TLS-only, GetObject limited to deploy role + account root, 30-day noncurrent expiry). IdP secrets land in state. **Local state** — it creates the bucket
@@ -116,6 +121,9 @@ From this directory (`backend/infra`):
    budget is enabled). CloudTrail is enabled in `prod.tfvars` only.
 7. If you did apply and need ElevenLabs, seed the three `/…/ai/ELEVENLABS_*`
    parameters with `aws ssm put-parameter --overwrite` so the key never lands in state.
+   ARIA-only pause (voice stays up; up to ~60 s lag on warm invokes):
+   `aws ssm put-parameter --name /<prefix>/ai/ARIA_PAUSED --value true --overwrite`
+   Resume with `--value false`. See [`SCALING.md`](SCALING.md).
 8. Rotate Apple/Google IdP secrets with
    `aws cognito-idp update-identity-provider` after updating Parameter Store.
    Never `terraform apply -replace=aws_cognito_identity_provider.google` (or

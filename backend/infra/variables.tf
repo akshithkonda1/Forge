@@ -241,6 +241,100 @@ variable "enable_point_in_time_recovery" {
   default     = true
 }
 
+variable "dynamodb_deletion_protection" {
+  description = <<-EOT
+    DynamoDB deletion_protection_enabled on aws_dynamodb_table.app_data.
+    Default true. Teardown is two applies: set this false, apply, then destroy.
+  EOT
+  type        = bool
+  default     = true
+}
+
+variable "cognito_deletion_protection" {
+  description = <<-EOT
+    Cognito deletion_protection on aws_cognito_user_pool.forge (ACTIVE when
+    true, INACTIVE when false). Default true. Teardown is two applies: set
+    this false, apply, then destroy.
+  EOT
+  type        = bool
+  default     = true
+}
+
+variable "enable_alarms" {
+  description = <<-EOT
+    Create the ops SNS topic, 7 standard CloudWatch alarms, and the HTTP API
+    429 metric filter. Default true (free tier: first 10 standard alarms).
+    All alarms use treat_missing_data = notBreaching and notify the one SNS
+    topic. Email is attached only when spend_guard_notification_email is set.
+  EOT
+  type        = bool
+  default     = true
+}
+
+variable "lambda_reserved_concurrency" {
+  description = <<-EOT
+    Reserved concurrent executions for the API Lambda. Null (the default) is
+    unreserved — the function shares the account pool. Set a small integer
+    cap (≥ 1) and raise it later if you need a ceiling. 0 is rejected: it
+    would block every invoke. Pause ARIA with the ARIA_PAUSED SSM parameter
+    instead. This is a free cap, not provisioned concurrency (which bills
+    and is forbidden by the cheap-guard test).
+  EOT
+  type        = number
+  default     = null
+  nullable    = true
+
+  validation {
+    condition     = var.lambda_reserved_concurrency == null || var.lambda_reserved_concurrency >= 1
+    error_message = "lambda_reserved_concurrency must be null (unreserved) or >= 1. A value of 0 disables all invokes; pause ARIA with the ARIA_PAUSED SSM parameter instead."
+  }
+}
+
+variable "account_concurrency_limit" {
+  description = <<-EOT
+    Account-level Lambda concurrent-execution quota used by the 80%
+    ConcurrentExecutions alarm. Default 1000 (the usual new-account default).
+    Confirm with: aws lambda get-account-settings
+    New accounts can be as low as 10 — set this to the real number so the
+    alarm is meaningful.
+  EOT
+  type        = number
+  default     = 1000
+
+  validation {
+    condition     = var.account_concurrency_limit >= 1
+    error_message = "account_concurrency_limit must be >= 1 (aws lambda get-account-settings)."
+  }
+}
+
+variable "api_throttling_rate_limit" {
+  description = "Steady-state requests per second for the HTTP API stage default route. 50 matches the previous hardcoded plan."
+  type        = number
+  default     = 50
+}
+
+variable "api_throttling_burst_limit" {
+  description = "Burst request limit for the HTTP API stage default route. 100 matches the previous hardcoded plan."
+  type        = number
+  default     = 100
+}
+
+variable "aria_pause_fail_mode" {
+  description = <<-EOT
+    What is_aria_paused() returns when SSM GetParameter fails.
+    "open" (default): ARIA stays up (fail open). "paused": treat SSM errors
+    as paused. Unset ARIA_PAUSED_PARAMETER_NAME always fails open. Fail-open
+    vs fail-paused is still an operator choice.
+  EOT
+  type        = string
+  default     = "open"
+
+  validation {
+    condition     = contains(["open", "paused"], var.aria_pause_fail_mode)
+    error_message = "aria_pause_fail_mode must be \"open\" or \"paused\"."
+  }
+}
+
 variable "aria_bedrock_enabled" {
   description = <<-EOT
     Kill-switch for live Amazon Bedrock. Default false: POST /ai/chat stays on the

@@ -1,9 +1,12 @@
 # Forge Terraform Plan — "Never Fail, and When It Does, Tell Me Why"
 
 > **Status: planning only. Nothing in this document has been applied.** No
-> `terraform apply` was run, no AWS resources were created or changed, and the
-> live `.tf` files are unchanged. Everything below is a proposal with concrete,
-> copy‑pasteable code you can adopt deliberately.
+> `terraform apply` was run and no AWS resources were created or changed.
+> Hardening that *is* now in the `.tf` / Lambda tree (still plan-only, still
+> no apply): ARIA-only SSM kill switch, DynamoDB/Cognito deletion protection,
+> 7 free-tier CloudWatch alarms + SNS, unreserved Lambda with optional reserved
+> cap, HTTP API throttle vars, shared botocore timeouts, and the serverless
+> cheap-guard test. See [`SCALING.md`](SCALING.md) and [`README.md`](README.md).
 
 This plan has two goals, in priority order:
 

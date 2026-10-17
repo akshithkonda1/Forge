@@ -92,3 +92,29 @@ tags = {
 # devices_catalog_throttling_burst_limit = 10
 # health_throttling_rate_limit           = 1
 # health_throttling_burst_limit          = 5
+#
+# HTTP API stage default throttle (unchanged from the previous hardcoded 50/100).
+# api_throttling_rate_limit  = 50
+# api_throttling_burst_limit = 100
+#
+# Lambda stays unreserved. Optional free cap (>= 1). 0 is rejected.
+# lambda_reserved_concurrency = null
+# Account ConcurrentExecutions alarm uses this ceiling (80%). Check with
+#   aws lambda get-account-settings
+# New accounts can be as low as 10.
+# account_concurrency_limit = 1000
+#
+# Free-tier standard alarms (7) + SNS. Email uses spend_guard_notification_email
+# when that is non-empty.
+# enable_alarms = true
+#
+# Deletion protection (default on). Teardown is two applies: set false, apply,
+# then destroy. See SCALING.md.
+# dynamodb_deletion_protection = true
+# cognito_deletion_protection  = true
+#
+# ARIA-only kill switch (SSM String /<prefix>/ai/ARIA_PAUSED). Pause:
+#   aws ssm put-parameter --name /<prefix>/ai/ARIA_PAUSED --value true --overwrite
+# Resume with --value false. Up to ~60 s lag. Fail-open on SSM errors unless
+# aria_pause_fail_mode = "paused".
+# aria_pause_fail_mode = "open"

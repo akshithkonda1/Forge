@@ -368,22 +368,24 @@ class BedrockGateway:
             if client is None:
                 try:
                     import boto3
-                    from botocore.config import Config
+                    from aws_clients import client_config
+
+                    connect_timeout, read_timeout = timeout_key
+                    config = client_config(
+                        connect_timeout=connect_timeout,
+                        read_timeout=read_timeout,
+                        retries={"max_attempts": 1, "mode": "standard"},
+                    )
                 except ModuleNotFoundError as exc:
                     raise RoutingError(
                         500,
                         "boto3 is required to call Amazon Bedrock from this runtime.",
                     ) from exc
 
-                connect_timeout, read_timeout = timeout_key
                 client = boto3.client(
                     "bedrock-runtime",
                     region_name=self.region_name,
-                    config=Config(
-                        connect_timeout=connect_timeout,
-                        read_timeout=read_timeout,
-                        retries={"max_attempts": 1, "mode": "standard"},
-                    ),
+                    config=config,
                 )
                 self._bedrock_clients[timeout_key] = client
             return client
@@ -395,9 +397,14 @@ class BedrockGateway:
             if self._s3_client is None:
                 try:
                     import boto3
+                    from aws_clients import client_config
+
+                    config = client_config()
                 except ModuleNotFoundError as exc:
                     raise RoutingError(500, "boto3 is required to load S3 package previews.") from exc
-                self._s3_client = boto3.client("s3", region_name=self.region_name)
+                self._s3_client = boto3.client(
+                    "s3", region_name=self.region_name, config=config
+                )
             return self._s3_client
 
     @staticmethod
