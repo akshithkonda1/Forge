@@ -170,6 +170,21 @@ final class ForgeDesignTokensTests: XCTestCase {
         XCTAssertEqual(file.motion.gentle.damping, ForgeDesignTokens.Motion.gentleDamping, accuracy: 0.0001)
         XCTAssertTrue(ForgeDesignTokens.Motion.eventOnly)
         XCTAssertEqual(HomeReadinessTokens.tickHzCeiling, file.motion.maxTickHz, accuracy: 0.0001)
+        XCTAssertEqual(ForgeMotion.maxTickHz, file.motion.maxTickHz, accuracy: 0.0001)
+        XCTAssertLessThanOrEqual(ForgeMotion.maxTickHz, 12)
+        XCTAssertEqual(ForgeMotion.maxTickInterval, 1.0 / ForgeMotion.maxTickHz, accuracy: 0.0001)
+        XCTAssertTrue(
+            ForgeMotion.isDecorativeClockPaused(reduceMotion: true, sceneActive: true, onscreen: true)
+        )
+        XCTAssertTrue(
+            ForgeMotion.isDecorativeClockPaused(reduceMotion: false, sceneActive: false, onscreen: true)
+        )
+        XCTAssertTrue(
+            ForgeMotion.isDecorativeClockPaused(reduceMotion: false, sceneActive: true, onscreen: false)
+        )
+        XCTAssertFalse(
+            ForgeMotion.isDecorativeClockPaused(reduceMotion: false, sceneActive: true, onscreen: true)
+        )
     }
 
     func testUXAndCopyVoice() throws {
