@@ -87,6 +87,9 @@ def handle_post_cycle_report_upload(
 def _s3_client():
     try:
         import boto3
+        from aws_clients import client_config
+
+        config = client_config()
     except ModuleNotFoundError as exc:
         raise RouteError(
             503,
@@ -94,4 +97,4 @@ def _s3_client():
             code="s3_unavailable",
         ) from exc
     region = os.getenv("AWS_REGION") or os.getenv("AWS_DEFAULT_REGION") or "us-east-1"
-    return boto3.client("s3", region_name=region)
+    return boto3.client("s3", region_name=region, config=config)

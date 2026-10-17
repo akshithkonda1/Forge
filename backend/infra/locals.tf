@@ -28,9 +28,9 @@ locals {
     ) : strcontains(url, "example.com")
   ])
 
-  # 30 days in prod-like accounts, 14 in every other pool. An explicit
+  # 14 days in prod-like accounts, 7 everywhere else. An explicit
   # log_retention_days wins when an operator wants something else.
-  log_retention_days = coalesce(var.log_retention_days, local.is_prod_like ? 30 : 14)
+  log_retention_days = coalesce(var.log_retention_days, local.is_prod_like ? 14 : 7)
 
   generated_uploads_bucket_name = lower(
     replace(
@@ -59,11 +59,13 @@ locals {
 
   hosted_ui_domain = "${local.cognito_domain_prefix}.auth.${var.aws_region}.amazoncognito.com"
 
-  # Parameter names only. Values are SecureString objects seeded out of band
-  # (or created empty by this module for ElevenLabs). Never taken from tfvars.
+  # Parameter names only. ElevenLabs values are SecureString objects seeded
+  # out of band. ARIA_PAUSED is a Standard String (not encrypted). Never
+  # taken from tfvars.
   ssm_elevenlabs_api_key   = "/${local.name_prefix}/ai/ELEVENLABS_API_KEY"
   ssm_elevenlabs_voice_id  = "/${local.name_prefix}/ai/ELEVENLABS_ARIA_VOICE_ID"
   ssm_elevenlabs_agent_id  = "/${local.name_prefix}/ai/ELEVENLABS_ARIA_AGENT_ID"
+  ssm_aria_paused          = "/${local.name_prefix}/ai/ARIA_PAUSED"
   ssm_google_client_id     = "/${local.name_prefix}/cognito/google/client_id"
   ssm_google_client_secret = "/${local.name_prefix}/cognito/google/client_secret"
   ssm_apple_client_id      = "/${local.name_prefix}/cognito/apple/client_id"

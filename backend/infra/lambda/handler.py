@@ -6,13 +6,46 @@ import uuid
 from base64 import b64decode
 from datetime import datetime, timezone
 
+from aria_pause import is_aria_paused
 from auth import extract_user_id
+from token_budget import set_user as set_token_budget_user
 from responses import RouteError, error_response, not_found, ok
 from security import (
     MAX_JSON_BODY_CHARS,
     is_production_like,
     redacted_health_payload,
 )
+
+# ARIA chat / router / coach only. Voice, /health, and the rest of the API stay
+# up when the SSM kill switch is on. Prefixes catch /ai/feedback/* and /coach/*.
+_ARIA_PAUSED_EXACT = frozenset(
+    {
+        ("POST", "/ai/chat"),
+        ("POST", "/ai/router"),
+        ("POST", "/ai/archetype"),
+        ("POST", "/ai/weekly-review"),
+        ("POST", "/ai/observe"),
+        ("POST", "/chat/threads/current/messages"),
+    }
+)
+
+
+def _is_aria_gated_route(method: str, path: str) -> bool:
+    if (method, path) in _ARIA_PAUSED_EXACT:
+        return True
+    if path.startswith("/ai/feedback/"):
+        return True
+    if path.startswith("/coach/"):
+        return True
+    return False
+
+
+def _aria_paused_response() -> dict:
+    return {
+        "statusCode": 503,
+        "headers": {"content-type": "application/json"},
+        "body": json.dumps({"error": "aria_paused", "message": "ARIA is paused"}),
+    }
 
 
 LOGGER = logging.getLogger("forge.handler")
@@ -81,12 +114,18 @@ def _query_int(event: dict, name: str, default: int, *, minimum: int = 1, maximu
 def _route(event, _context):
     # Lazy per-route imports: a /health or /dashboard cold start must not pay
     # for aria_engine + biometrics + Bedrock router at module load.
+    set_token_budget_user(None)
     request_context = event.get("requestContext", {})
     http_context = request_context.get("http", {})
     method = http_context.get("method", "GET")
     path = http_context.get("path", "/")
     if path != "/":
         path = path.rstrip("/")
+
+    # ARIA kill switch: 503 before any model/router call or ARIA Dynamo write.
+    # Voice (/ai/voice/*), /health, and non-ARIA routes are not gated.
+    if _is_aria_gated_route(method, path) and is_aria_paused():
+        return _aria_paused_response()
 
     # --- Health check (no auth) — never inventory infra in production ---
     if method == "GET" and path == "/health":
@@ -138,7 +177,7 @@ def _route(event, _context):
             from ai_router import AIRouter, RouteRequest, RoutingError, bedrock_enabled
 
             # Require auth so the multi-model path cannot be used anonymously for cost abuse.
-            extract_user_id(event, required=True)
+            set_token_budget_user(extract_user_id(event, required=True))
             # Gate Bedrock the same way /ai/chat is gated: with the flag off, this
             # route never constructs the router or reaches Amazon Bedrock. The
             # gateway enforces the same rule as defense-in-depth.
@@ -160,6 +199,7 @@ def _route(event, _context):
     # --- Authenticated surface (identity from JWT / authorizer only) ---
     try:
         user_id = extract_user_id(event)
+        set_token_budget_user(user_id)
         body = _parse_json_body(event) if method in ("POST", "PUT", "PATCH") else {}
 
         # AI routes: always bind to authenticated principal (ignore spoofed body user_id)

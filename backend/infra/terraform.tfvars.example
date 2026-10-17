@@ -74,11 +74,17 @@ tags = {
 # ai_router_model_3_name = "Grok"
 #
 # Spend guard is on by default ($25/mo). First two AWS Budgets are free.
-# The budget only ALERTS — it never stops spend. ElevenLabs is invisible to
-# it; that cap lives in the app quota. A real apply requires the email.
+# Alerts at 80% actual, 100% actual, and 100% forecasted. The budget only
+# ALERTS — it never stops spend. ElevenLabs is invisible to it; that cap
+# lives in the app quota. Leave the email for Akshith to fill in.
 # enable_spend_guard                = true
 # spend_guard_limit_usd             = 25
-# spend_guard_notification_email    = "ops@example.com"
+# spend_guard_notification_email    = ""
+# CloudWatch usage dashboard is $3/mo — keep off unless you want it.
+# enable_cost_dashboard             = false
+# Per-user daily Bedrock caps (inert while aria_bedrock_enabled is false).
+# aria_daily_request_cap            = 40
+# aria_daily_token_cap              = 20000
 #
 # Exactly one management-event CloudTrail per AWS account. Default false so
 # a shared-account dev stack does not create a second trail. The committed
@@ -92,3 +98,30 @@ tags = {
 # devices_catalog_throttling_burst_limit = 10
 # health_throttling_rate_limit           = 1
 # health_throttling_burst_limit          = 5
+#
+# HTTP API stage default throttle (unchanged from the previous hardcoded 50/100).
+# api_throttling_rate_limit  = 50
+# api_throttling_burst_limit = 100
+#
+# Lambda stays unreserved. Optional free cap (>= 1). 0 is rejected.
+# lambda_reserved_concurrency = null
+# Account ConcurrentExecutions alarm uses this ceiling (80%). Check with
+#   aws lambda get-account-settings
+# New accounts can be as low as 10.
+# account_concurrency_limit = 1000
+#
+# Free-tier standard alarms (7) + SNS. Email uses spend_guard_notification_email
+# when that is non-empty.
+# enable_alarms = true
+#
+# Deletion protection (default on). Teardown is two applies: set false, apply,
+# then destroy. See SCALING.md.
+# dynamodb_deletion_protection = true
+# cognito_deletion_protection  = true
+#
+# ARIA-only kill switch (SSM String /<prefix>/ai/ARIA_PAUSED). Pause:
+#   aws ssm put-parameter --name /<prefix>/ai/ARIA_PAUSED --value true --overwrite
+# Resume with --value false. Up to ~60 s lag. SSM errors fail paused (ARIA
+# routes 503). Set aria_pause_fail_mode = "open" to keep ARIA up on SSM errors.
+# /health and /ai/voice/* stay up either way.
+# aria_pause_fail_mode = "paused"
