@@ -240,9 +240,30 @@ public enum ForgePersonalization: Sendable {
         }
     }
 
+    /// Coach refusals ("I don't diagnose", "not a diagnosis") are the rule,
+    /// not a violation. Flag actual claims: diagnose / treat / recovery.
     public static func containsBannedCopy(_ line: String) -> Bool {
-        let lower = line.lowercased()
+        var lower = line.lowercased()
+        for phrase in copyRuleRefusals {
+            lower = lower.replacingOccurrences(of: phrase, with: " ")
+        }
         let banned = ["diagnos", "treat", "prescribe", "cure", "medical advice", "recovery"]
         return banned.contains { lower.contains($0) }
     }
+
+    /// Longer phrases first so nested stems do not leftover-match.
+    private static let copyRuleRefusals = [
+        "never diagnose, treat, prescribe, or cure",
+        "not a diagnosis",
+        "i don't diagnose",
+        "i do not diagnose",
+        "don't diagnose",
+        "do not diagnose",
+        "won't diagnose",
+        "never diagnose",
+        "never treat",
+        "don't treat",
+        "do not treat",
+        "never say recovery",
+    ]
 }

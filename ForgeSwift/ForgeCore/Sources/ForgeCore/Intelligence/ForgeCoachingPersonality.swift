@@ -91,7 +91,7 @@ public enum ForgeCoachingPersonality: Sendable {
     }
 
     public static let adultVoiceLaw =
-        "Always speak like an adult: curious and direct. Never baby talk. Never talk down."
+        "Always speak like an adult: curious and direct. Never use child-register pep. Never talk down."
 
     public static let safetyOverride =
         "Safety and copy rules override this personality: lifestyle coach, not a doctor; never say recovery; never diagnose, treat, prescribe, or cure; on anything medical, suggest a doctor; crisis and self-harm hand off to real resources. Personality never changes the training plan, split, or exercise selection. Pillar Training never pushes the person past their comfort or safety limits, and it names real progress."

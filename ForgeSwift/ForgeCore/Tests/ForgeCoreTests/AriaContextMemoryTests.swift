@@ -18,10 +18,26 @@ final class AriaContextMemoryTests: XCTestCase {
 
     func testConsolidateDecaySupersedeAndPagination() {
         var snap = AriaContextMemory.Snapshot(caps: .sane)
-        for i in 0..<8 {
+        // At most two facts per domain so unused-domain coarsening cannot
+        // collapse the page to a single cluster.
+        let seeds = [
+            "pottery nights on Tuesday",
+            "Free day note cooking and quiet stretch",
+            "I dreamed the hallway flooded",
+            "nightmare about water",
+            "this season is sleep",
+            "working toward a calmer week",
+            "partnered and going out Saturdays",
+            "friend visiting next month",
+            "lots on lately at work",
+            "mood is drained after crowds",
+            "seizures after late nights",
+            "condition noted with my doctor",
+        ]
+        for (i, text) in seeds.enumerated() {
             snap = AriaContextMemory.ingest(
                 snap,
-                text: "Free day note \(i) cooking and quiet stretch",
+                text: text,
                 source: "chat",
                 now: day.addingTimeInterval(Double(i) * 3600)
             )

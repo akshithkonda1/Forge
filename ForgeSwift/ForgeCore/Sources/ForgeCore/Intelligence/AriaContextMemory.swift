@@ -826,8 +826,8 @@ public enum AriaDreamJournal: Sendable {
     }
 
     public static func containsBanned(_ line: String) -> Bool {
+        if ForgePersonalization.containsBannedCopy(line) { return true }
         let lower = line.lowercased()
-        return ["diagnos", "interpret this as", "means you have", "medical advice", "recovery"]
-            .contains { lower.contains($0) }
+        return ["interpret this as", "means you have"].contains { lower.contains($0) }
     }
 }

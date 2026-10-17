@@ -370,7 +370,7 @@ public enum ForgeLifestyleProfile: Sendable {
             parts.append("Free days include \(names). Those hours count toward the day — not decoration.")
         }
         if snap.hasSeizureConstraint {
-            parts.append("They live with seizures. Safer, predictable activity. Suggest a doctor for anything medical. Never diagnose. Never treat the condition as their identity.")
+            parts.append("They live with seizures. Safer, predictable activity. Suggest a doctor for anything medical. Never diagnose. Never treat the condition as who they are.")
         } else if !snap.healthConstraints.isEmpty {
             let names = snap.healthConstraints.map(\.label).joined(separator: ", ")
             parts.append("Respect \(names) as a constraint on the day, not as who they are. Coach, not doctor.")
@@ -410,7 +410,7 @@ public enum ForgeLifestyleProfile: Sendable {
             return "Read the \(track.title) tile. That's your index, from your own days."
         case .askAria:
             if profile.hasSeizureConstraint {
-                return "Ask ARIA how you're doing. She'll keep activity safer and never make a condition your identity."
+                return "Ask ARIA how you're doing. She'll keep activity safer and never make a condition who they are."
             }
             return beat.prompt
         case .mosaicWin:
