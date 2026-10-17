@@ -93,16 +93,16 @@ struct HomeTodayHero: View {
                 VStack(alignment: .leading, spacing: FDS.Spacing.sm) {
                     Text(TodayProgress.headerTitle)
                         .forgeSectionLabel()
-                        .foregroundStyle(HudChrome.plate)
-                    HudVibeChip(label: snap.vibeLabel, energy: energy)
+                        .foregroundStyle(ForgeProgressChrome.plate)
+                    ForgeVibeChip(label: snap.vibeLabel, energy: energy)
                 }
             } else {
                 HStack {
                     Text(TodayProgress.headerTitle)
                         .forgeSectionLabel()
-                        .foregroundStyle(HudChrome.plate)
+                        .foregroundStyle(ForgeProgressChrome.plate)
                     Spacer()
-                    HudVibeChip(label: snap.vibeLabel, energy: energy)
+                    ForgeVibeChip(label: snap.vibeLabel, energy: energy)
                 }
             }
 
