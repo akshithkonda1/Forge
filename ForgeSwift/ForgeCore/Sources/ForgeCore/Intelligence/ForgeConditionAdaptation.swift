@@ -29,7 +29,7 @@ public enum ForgeConditionAdaptation: Sendable {
 
     public static func coachLine(_ conditions: [ForgeLifestyleProfile.HealthConstraint]) -> String {
         if conditions.isEmpty { return "" }
-        return "Here's what works with your body. This is lifestyle coaching, not a diagnosis. Anything medical, check with a doctor."
+        return "Here's what works with your body. Lifestyle coaching only. Anything medical, check with a doctor."
     }
 
     public static func containsDiagnosis(_ line: String) -> Bool {

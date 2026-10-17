@@ -97,7 +97,7 @@ public enum ForgeLifestyleProfile: Sendable {
         public var saferFraming: String {
             switch self {
             case .seizures, .epilepsy:
-                return "Here's what works with your body: grounded intensity, rest windows, no solo high-risk work, and honest sleep. No medical advice — if anything feels off, run it past a doctor."
+                return "Here's what works with your body: grounded intensity, predictable rest windows, no solo high-risk work, and honest sleep. Lifestyle coaching only — if anything feels off, run it past a doctor."
             case .diabetes:
                 return "Here's what works with your body: timing and fueling reminders around the session you already planned. Anything medical is a doctor."
             case .injury:

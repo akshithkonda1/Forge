@@ -128,7 +128,10 @@ public enum AriaSoul: Sendable {
     }
 
     public static func containsRailBreak(_ line: String) -> Bool {
-        let lower = line.lowercased()
+        var lower = line.lowercased()
+        for rail in rails {
+            lower = lower.replacingOccurrences(of: rail.lowercased(), with: "")
+        }
         return banned.contains { lower.contains($0) }
     }
 
