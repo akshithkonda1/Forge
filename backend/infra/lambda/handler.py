@@ -8,6 +8,7 @@ from datetime import datetime, timezone
 
 from aria_pause import is_aria_paused
 from auth import extract_user_id
+from token_budget import set_user as set_token_budget_user
 from responses import RouteError, error_response, not_found, ok
 from security import (
     MAX_JSON_BODY_CHARS,
@@ -113,6 +114,7 @@ def _query_int(event: dict, name: str, default: int, *, minimum: int = 1, maximu
 def _route(event, _context):
     # Lazy per-route imports: a /health or /dashboard cold start must not pay
     # for aria_engine + biometrics + Bedrock router at module load.
+    set_token_budget_user(None)
     request_context = event.get("requestContext", {})
     http_context = request_context.get("http", {})
     method = http_context.get("method", "GET")
@@ -175,7 +177,7 @@ def _route(event, _context):
             from ai_router import AIRouter, RouteRequest, RoutingError, bedrock_enabled
 
             # Require auth so the multi-model path cannot be used anonymously for cost abuse.
-            extract_user_id(event, required=True)
+            set_token_budget_user(extract_user_id(event, required=True))
             # Gate Bedrock the same way /ai/chat is gated: with the flag off, this
             # route never constructs the router or reaches Amazon Bedrock. The
             # gateway enforces the same rule as defense-in-depth.
@@ -197,6 +199,7 @@ def _route(event, _context):
     # --- Authenticated surface (identity from JWT / authorizer only) ---
     try:
         user_id = extract_user_id(event)
+        set_token_budget_user(user_id)
         body = _parse_json_body(event) if method in ("POST", "PUT", "PATCH") else {}
 
         # AI routes: always bind to authenticated principal (ignore spoofed body user_id)

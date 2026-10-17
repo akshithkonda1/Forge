@@ -3487,7 +3487,10 @@ def build_user_prompt(message: str, ctx: ARIAContext, restricted: list[str] | No
         user_block = isolate_user_message(message)
     except Exception:  # pragma: no cover
         user_block = f"[USER MESSAGE]\n{(message or '').strip()}"
-    return f"{ctx.user_model_block(restricted)}\n\n{user_block}"
+    ground = ctx.user_model_block(restricted)
+    if len(ground) > LIVE_USER_CONTEXT_CHARS:
+        ground = ground[: LIVE_USER_CONTEXT_CHARS - 3] + "..."
+    return f"{ground}\n\n{user_block}"
 
 
 # --- Live reasoning path (Section 4 — Bedrock) -------------------------------
@@ -3509,8 +3512,9 @@ LIVE_MODEL_IDS = {
     MODEL_PRIMARY: os.getenv("ARIA_LIVE_MODEL_PRIMARY_ID", "").strip() or "global.anthropic.claude-opus-5-5",
     MODEL_FAST: os.getenv("ARIA_LIVE_MODEL_FAST_ID", "").strip() or "global.anthropic.claude-sonnet-5-5",
 }
-LIVE_MAX_TOKENS = 700
+LIVE_MAX_TOKENS = 512
 LIVE_TEMPERATURE = 0.3
+LIVE_USER_CONTEXT_CHARS = 4000
 
 _RESPONSE_TYPES = {"insight", "recommendation", "plan", "summary", "clarification"}
 _TRUE_FLAGS = {"1", "true", "yes", "on"}
@@ -3654,6 +3658,10 @@ def generate_coach_text(
     """
     if not bedrock_enabled():
         return None
+    from aria_pause import is_aria_paused
+
+    if is_aria_paused():
+        return None
     caller = converse or _default_converse
     system = f"{live_system_prompt()}\n\n{task_prompt}".strip()
     try:
@@ -3681,6 +3689,10 @@ def generate_coach_vision(
     plain "not available" to fall back to rather than a guess.
     """
     if not bedrock_enabled():
+        return None
+    from aria_pause import is_aria_paused
+
+    if is_aria_paused():
         return None
     caller = converse or _default_converse_vision
     system = f"{live_system_prompt(agent=agent)}\n\n{task_prompt}".strip()
@@ -3744,9 +3756,12 @@ def generate_response_live(
     # call out — return the deterministic envelope. This closes the aria_cli
     # --live bypass (it passes converse=None) while keeping the live path fully
     # unit-testable: tests inject `converse`, which is always honored.
-    if converse is None and not bedrock_enabled():
-        base["reasoning_source"] = "deterministic"
-        return base
+    if converse is None:
+        from aria_pause import is_aria_paused
+
+        if not bedrock_enabled() or is_aria_paused():
+            base["reasoning_source"] = "deterministic"
+            return base
 
     perms = permissions if isinstance(permissions, DataPermissions) else DataPermissions.allow_all()
     sanitized, restricted = apply_permissions(ctx, perms)

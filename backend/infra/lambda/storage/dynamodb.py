@@ -12,6 +12,7 @@ _local_store: dict[str, dict] = {}
 _local_lock = threading.Lock()
 
 _ATTR_NOT_EXISTS = re.compile(r"attribute_not_exists\(\s*([^)]+?)\s*\)\s*$", re.I)
+_LE = re.compile(r"(\S+)\s*<=\s*(\S+)\s*$")
 _LT = re.compile(r"(\S+)\s*<\s*(\S+)\s*$")
 
 
@@ -59,6 +60,15 @@ def _local_clause_holds(
     match = _ATTR_NOT_EXISTS.fullmatch(clause)
     if match:
         return _resolve_name(match.group(1), names) not in item
+    match = _LE.fullmatch(clause)
+    if match:
+        field = _resolve_name(match.group(1), names)
+        bound_token = match.group(2)
+        if bound_token not in values:
+            raise KeyError(bound_token)
+        if field not in item:
+            return False
+        return item[field] <= values[bound_token]
     match = _LT.fullmatch(clause)
     if match:
         field = _resolve_name(match.group(1), names)
