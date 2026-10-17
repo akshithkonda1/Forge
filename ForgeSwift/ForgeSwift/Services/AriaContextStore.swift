@@ -11,6 +11,7 @@ final class AriaContextStore: ObservableObject {
     @Published private(set) var lastProactiveInsight: String?
     @Published private(set) var lastObservedContext: ARIAContextPayload?
     @Published private(set) var lastDailyStory: DailyStoryPayload?
+    @Published private(set) var memory: AriaContextMemory.Snapshot
 
     private let defaults = UserDefaults.standard
     private let storageKey = "forge.aria.userContext"
@@ -23,6 +24,7 @@ final class AriaContextStore: ObservableObject {
         } else {
             context = AriaContext(userId: Self.stableUserId())
         }
+        memory = AriaContextMemoryStore.load()
     }
 
     static func stableUserId() -> String {
@@ -390,11 +392,47 @@ final class AriaContextStore: ObservableObject {
 
     func addInsight(_ insight: String) {
         context.lastInsights.insert(insight, at: 0)
-        if context.lastInsights.count > 15 {
+        if context.lastInsights.count > AriaContextMemory.Caps.sane.stm {
             context.lastInsights.removeLast()
         }
         context.lastUpdated = Date()
+        memory = AriaContextMemory.ingest(memory, text: insight, source: "insight")
         persist()
+    }
+
+    /// User sent a turn: that is a reply to whatever ARIA just used, plus new context.
+    func noteUserTurn(_ text: String) {
+        if !memory.lastUsedIds.isEmpty {
+            memory = AriaContextMemory.recordOutcome(memory, kind: .replied)
+        }
+        memory = AriaContextMemory.ingest(memory, text: text, source: "chat")
+        persistMemory()
+    }
+
+    /// After ARIA speaks, remember which working-set items were on the table.
+    func noteAriaUsedContext() {
+        let ids = AriaContextMemory.workingSet(memory).map(\.id)
+        memory = AriaContextMemory.markUsed(memory, itemIds: ids)
+        persistMemory()
+    }
+
+    func noteMemoryOutcome(_ kind: AriaContextMemory.EngagementKind, itemId: String? = nil) {
+        if let itemId {
+            memory = AriaContextMemory.record(memory, itemId: itemId, kind: kind)
+        } else {
+            memory = AriaContextMemory.recordOutcome(memory, kind: kind)
+        }
+        persistMemory()
+    }
+
+    func editMemory(id: String, text: String) {
+        memory = AriaContextMemory.edit(memory, id: id, text: text)
+        persistMemory()
+    }
+
+    func deleteMemory(id: String) {
+        memory = AriaContextMemory.delete(memory, id: id)
+        persistMemory()
     }
 
     func updateProfile(
@@ -1059,5 +1097,10 @@ final class AriaContextStore: ObservableObject {
         if let data = try? JSONEncoder().encode(context) {
             defaults.set(data, forKey: storageKey)
         }
+        persistMemory()
+    }
+
+    private func persistMemory() {
+        AriaContextMemoryStore.save(memory)
     }
 }

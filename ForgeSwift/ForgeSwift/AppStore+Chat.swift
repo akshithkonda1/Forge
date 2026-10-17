@@ -521,6 +521,7 @@ extension AppStore {
         )
         chatMessages.append(userMessage)
         isGeneratingResponse = true
+        AriaContextStore.shared.noteUserTurn(text)
         let outbound = ariaPayload ?? text
 
         do {
@@ -570,6 +571,7 @@ extension AppStore {
             }
 
             lastSuggestedActions = aria.suggestedActions ?? []
+            AriaContextStore.shared.noteAriaUsedContext()
 
             // If ARIA built a session, surface it as today's plan.
             if let card = aria.toRichCardData(), card.type == .workoutPlan {

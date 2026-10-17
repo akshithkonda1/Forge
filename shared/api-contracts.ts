@@ -11,6 +11,71 @@ export type SourceProvider =
 
 export type CoachingStyle = "push-hard" | "balanced" | "patient" | "data-driven";
 
+/** Hobby Fit v1 — mentality speak + labeled hobbies. Not a diagnosis. */
+export type HobbyFitSignal = "quiet" | "open" | "drained_social" | "restored";
+export type HobbyKind = "creative" | "social" | "outdoor" | "solo" | "learning";
+export type HobbyInterest = "low" | "medium" | "high";
+export type HobbyPath = "open_gently" | "restore_quiet" | "keep_rhythm" | "explore";
+
+export interface HobbyFitHobby {
+  id: string;
+  label: string;
+  kind: HobbyKind;
+  interest: HobbyInterest;
+  lastEngagedAt?: ISODate | ISODateTime;
+}
+
+export interface HobbyLifestyleTime {
+  engagedThisWeek: number;
+  trend: "quieter" | "steady" | "fuller";
+  /** Coach copy. Never a shaming score. */
+  line: string;
+}
+
+export interface HobbyFit {
+  speak: string;
+  signal?: HobbyFitSignal;
+  confidence?: number;
+  hobbies: HobbyFitHobby[];
+  path?: HobbyPath;
+  lifestyleTime?: HobbyLifestyleTime;
+}
+
+export type AriaContextDomain =
+  | "sleep_dreams"
+  | "lifestyle_hobbies"
+  | "people"
+  | "goals"
+  | "health_constraints"
+  | "mood_mentality";
+
+export type AriaContextEngagementKind =
+  | "surfaced"
+  | "replied"
+  | "acted"
+  | "corrected"
+  | "ignored";
+
+export interface AriaContextItemSignals {
+  surfaced: number;
+  replied: number;
+  acted: number;
+  corrected: number;
+  ignored: number;
+}
+
+export interface AriaContextDomainStats extends AriaContextItemSignals {
+  mentions: number;
+}
+
+export interface AriaContextTombstone {
+  id: string;
+  domain: AriaContextDomain;
+  deletedAt: ISODateTime;
+  fingerprint?: string;
+  reachedServer?: boolean;
+}
+
 export type FitnessGoal =
   | "build-muscle"
   | "lose-fat"
@@ -345,6 +410,9 @@ export interface AriaContext {
     tags: string[];
     recentPatterns: string[];
     goals: string[];
+    /** Hobby Fit v1. Speak phrase only in prompts; enum stays structured. */
+    hobbyFit?: HobbyFit;
+    socialEnergy0to10?: number | null;
   };
   /** Calendar vs fused training/biological age. Lifestyle comparison only. */
   aging?: {

@@ -149,7 +149,7 @@ public struct AriaKnowledgeLedger: Codable, Sendable, Equatable {
             .sorted { $0.createdAt > $1.createdAt }
     }
 
-    public mutating func file(_ fact: AriaKnowledgeFact, capPerFolder: Int = 40) {
+    public mutating func file(_ fact: AriaKnowledgeFact, capPerFolder: Int = 80) {
         let trimmed = AriaFactPrivacy.sanitizeSummary(fact.summary)
         guard !trimmed.isEmpty else { return }
         facts.removeAll {
