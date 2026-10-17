@@ -22,6 +22,7 @@ Akshith and Anu are founding users. They get **free lifetime access** through la
 1. **Single-use or reusable?** Is each code good for exactly one account, or can one code serve a group (for example a beta cohort) up to a cap?
 2. **Revocable?** Can a code or the entitlement it granted be revoked (abuse, leaked code, refund)? If yes, does revocation take away access already granted, or only stop new redemptions?
 3. **Account changes.** Does access transfer if the account changes, for example merged accounts or a switched sign-in method (Sign in with Apple, email, and so on)? Which identity is the anchor?
+4. **Meter Scout handoffs separately from ARIA chats?** Scout is the research agent ARIA hands complex cases to (for example, dementia studies for a user with Asperger's). Each handoff is far more expensive than a chat, and a heavy researcher could burn through them fast. Should the paywall give Scout its own allowance (for example, a weekly handoff count) separate from ARIA chats? And do launch-code and lifetime users get unlimited Scout or a fair-use cap? The cost pass on PR #471 models one Scout handoff per user per week; see `backend/infra/COST.md` for the numbers.
 
 ## Constraints
 
