@@ -2,8 +2,9 @@ import Foundation
 
 /// Phone Home readiness + Today Progress chrome tokens.
 ///
-/// Lockstep with `shared/readiness.json`. Warm health-app look: solid sweep,
-/// hairline plates. No cockpit, scanlines, tick dial, or reticle.
+/// Lockstep with `shared/readiness.json`. Personal and grounded: solid sweep,
+/// hairline plates. No HUD, no Iron Man / Tony Stark suit, no cockpit,
+/// scanlines, tick dial, or reticle.
 /// Home vocabulary is Peak / Good / Fair / Low. Do not replace Nest
 /// (`AriaNestGeometry`) with this chrome.
 public enum HomeReadinessTokens: Sendable {

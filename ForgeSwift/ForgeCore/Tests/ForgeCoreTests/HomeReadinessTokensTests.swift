@@ -216,8 +216,9 @@ final class HomeReadinessTokensTests: XCTestCase {
     func testMotivationTokensStaySolidAndEventDriven() {
         XCTAssertTrue(HomeReadinessTokens.eventGlowOnly)
         XCTAssertFalse(HomeReadinessTokens.liveGlowDefault)
-        XCTAssertFalse(HomeReadinessTokens.brackets)
-        XCTAssertFalse(HomeReadinessTokens.scanlines)
+        XCTAssertFalse(HomeReadinessTokens.brackets, "no HUD / suit brackets")
+        XCTAssertFalse(HomeReadinessTokens.scanlines, "no HUD scanlines")
+        XCTAssertEqual(HomeReadinessTokens.tickCount, 0, "no tick dial")
         XCTAssertEqual(HomeReadinessTokens.missHex, HomeReadinessTokens.emberSteelHex)
         XCTAssertNotEqual(HomeReadinessTokens.missHex, HomeReadinessTokens.Band.low.hex)
         XCTAssertTrue(HomeReadinessTokens.isAlmostThere(percent: 80, remaining: 1))

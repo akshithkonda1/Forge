@@ -101,7 +101,7 @@ function planFor(readiness: number, muscle: string | null): { name: string; dura
 }
 
 /**
- * Local, deterministic ARIA. Speaks like a companion, not a HUD.
+ * Local, deterministic ARIA. Speaks like a companion, not a vitals dump.
  * Numbers stay behind the sentence unless the user asked for data-driven voice.
  */
 export function coachReply(

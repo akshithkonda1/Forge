@@ -2,7 +2,7 @@
   "kind": "home-progress-chrome",
   "surface": "phone-home",
   "mixLock": "chrome-not-nest",
-  "notes": "Phone Home Today Progress chrome — warm health-app look. Solid sweep, hairline plates, no cockpit, no scanlines, no tick dial, no reticle, no always-on glow. Nest brand stays procedural AriaNestGeometry. Watch / StandBy stay on their own surfaces. Band names are Peak / Good / Fair / Low.",
+  "notes": "Phone Home Today Progress chrome — personal and grounded. This is your interface, this is who you are. Solid sweep, hairline plates. No HUD, no Iron Man / Tony Stark suit, no cockpit, no scanlines, no tick dial, no reticle, no always-on glow. Nest brand stays procedural AriaNestGeometry. Watch / StandBy stay on their own surfaces. Band names are Peak / Good / Fair / Low.",
   "bands": [
     { "id": "peak", "label": "Peak", "min": 85, "hex": "22C55E", "token": "vitality" },
     { "id": "good", "label": "Good", "min": 70, "hex": "F5A524", "token": "amber" },

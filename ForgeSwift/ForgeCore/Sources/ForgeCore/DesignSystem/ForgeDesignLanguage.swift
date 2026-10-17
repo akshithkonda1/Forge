@@ -47,6 +47,9 @@ public enum ForgeDesignLanguage: Sendable {
     public static let noSlopLaw =
         "Never look like generic AI slop. Use Forge's design system, tokens, typography, procedural ARIA mark and components. Elevate what exists. No generic gradients, stock glassmorphism, emoji filler, or template layouts."
 
+    public static let groundedInterfaceLaw =
+        "This is your interface, this is who you are. Personal and grounded. No HUD look. Iron Man and Tony Stark suit aesthetic rejected. Never cockpit chrome, scanlines, tick dials, brackets, a reticle, or a suit overlay."
+
     public static let interactionLaw =
         "One primary CTA. Skip always visible on teaching. One gesture per beat, in the real UI."
 
@@ -61,6 +64,7 @@ public enum ForgeDesignLanguage: Sendable {
             motionLaw,
             typeLaw,
             noSlopLaw,
+            groundedInterfaceLaw,
         ]
     }
 }

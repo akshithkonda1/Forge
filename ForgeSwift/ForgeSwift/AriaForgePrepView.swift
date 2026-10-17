@@ -1,8 +1,8 @@
 import SwiftUI
 import ForgeCore
 
-/// Full-screen console boot after the interview. Ember orb, editorial copy,
-/// a quiet fill — never a "Loading 47%" HUD, and never spoken ARIA.
+/// Full-screen first boot after the interview. Ember orb, editorial copy,
+/// a quiet fill — never a "Loading 47%" readout, and never spoken ARIA.
 struct AriaForgePrepView: View {
     var coordinator: OnboardingCoordinator
     @Environment(\.accessibilityReduceMotion) private var reduceMotion

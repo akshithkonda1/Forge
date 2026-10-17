@@ -772,8 +772,8 @@ enum AriaVoiceEngine {
         default:      read = "primed"
         }
 
-        // A living month beats a HUD. If the pack (or a real evening) already
-        // wrote the plot, lead with that and only then name the capacity band.
+        // A living month beats a dashboard dump. If the pack (or a real evening)
+        // already wrote the plot, lead with that and only then name the capacity band.
         if let story = context.lifeRead.story, !story.isEmpty {
             let because = rng.pick(["That's why you're", "So today you're", "Which means you're"])
             return "\(story) \(because) \(read)."

@@ -14,6 +14,14 @@ match or exceed the high bar the existing front end already sets. Elevate what
 exists; don't replace it with generic gradients, stock glassmorphism, emoji
 filler or template layouts.
 
+## This is your interface
+
+No HUD look anywhere. Iron Man / Tony Stark suit aesthetic is rejected. The
+direction is personal and grounded: "this is your interface, this is who you
+are." The UI should feel like it deserves to be there — tesserae, a solid
+sweep, hairline plates. Never cockpit chrome, scanlines, tick dials, brackets,
+a reticle, or a suit overlay.
+
 ## Signature shapes
 
 - **Tessera** — continuous rounded rectangle at `Radius.lg` (18). Cards, mosaic
@@ -21,8 +29,8 @@ filler or template layouts.
 - **Sweep** — a circular arc with round caps. Readiness and progress are one
   solid band. The arc length is the data.
 - **Capsule** — chips, Skip, Got it. The only fully round rectangle.
-- **Hairline** — 0.5–0.8 pt stroke. Never brackets, scanlines, tick dials, or
-  Iron Man chrome.
+- **Hairline** — 0.5–0.8 pt stroke. Never brackets, scanlines, tick dials,
+  Iron Man / Tony Stark suit chrome, or a HUD overlay.
 
 ## Surfaces
 

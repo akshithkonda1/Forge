@@ -4,7 +4,7 @@ import ForgeCore
 
 /// Locks Today's Progress math, solid chrome clamp, Lifestyle/At Home
 /// placement, motivation psychology, and coach copy so Home cannot slide
-/// back into a stub or a cockpit costume.
+/// back into a stub or a suit overlay.
 @MainActor
 final class HomeTodayProgressTests: XCTestCase {
 

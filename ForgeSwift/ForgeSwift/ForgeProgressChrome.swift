@@ -2,7 +2,8 @@ import SwiftUI
 import ForgeCore
 
 /// Calm Forge progress chrome — a solid sweep on a quiet track.
-/// Warm health-app look: no cockpit, scanlines, tick dial, or always-on glow.
+/// Personal and grounded: no HUD, no Iron Man / Tony Stark suit, no cockpit,
+/// scanlines, tick dial, or always-on glow.
 enum ForgeProgressChrome {
     static let tickCount = HomeReadinessTokens.tickCount
     static let majorEvery = HomeReadinessTokens.majorEvery
