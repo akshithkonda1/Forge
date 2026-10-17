@@ -800,6 +800,12 @@ struct TrainDiscoveryCard: View {
                         .font(HomeType.micro)
                         .foregroundStyle(Color.textTertiary)
                         .forgeWrapping()
+                        .accessibilityLabel(top.scoreLabel)
+                    if !memory.saved.isEmpty {
+                        Text("Saved for later: \(memory.saved.count)")
+                            .font(HomeType.micro)
+                            .foregroundStyle(Color.textTertiary)
+                    }
                     ForgeAdaptiveStack(spacing: ForgeLayout.tileGap) {
                         ForgeSecondaryButton(title: "Tried", accent: .ember) {
                             apply(.tried, id: top.id)
@@ -833,24 +839,33 @@ struct TrainDiscoveryCard: View {
         }
         memory.gymType = store.userProfile.trainingEquipment.rawValue
         memory.equipmentNotes = store.userProfile.equipmentNotes
-        let catalog: [ForgeExerciseDiscovery.Exercise] = ExerciseLibrary.all.map {
-            ForgeExerciseDiscovery.Exercise(
-                id: $0.id,
-                name: $0.name,
-                equipment: $0.equipment.rawValue
-            )
-        }
+        let catalog = catalogFromLibrary()
         ranked = Array(ForgeExerciseDiscovery.rank(
             catalog: catalog,
             memory: memory,
-            trainingModel: store.userProfile.coachingPersonality.displayLabel,
-            goals: store.userProfile.fitnessGoals.map(\.rawValue),
-            readiness: store.readiness.overall
+            trainingModel: store.userProfile.coachingPersonality.adaptiveTrainingModel,
+            goals: store.userProfile.fitnessGoals.map(\.rawValue) + store.userProfile.fitnessGoals.map(\.label),
+            readiness: store.readiness.overall,
+            load: min(100, store.workoutHistory.count * 8),
+            engagement: min(1, Double(memory.tried.count) / 10.0)
         ).prefix(8))
     }
 
+    private func catalogFromLibrary() -> [ForgeExerciseDiscovery.Exercise] {
+        ExerciseLibrary.all.map {
+            ForgeExerciseDiscovery.Exercise(
+                id: $0.id,
+                name: $0.name,
+                equipment: $0.equipment.rawValue,
+                triedBefore: memory.tried.contains($0.id)
+            )
+        }
+    }
+
     private func apply(_ feedback: ForgeExerciseDiscovery.Feedback, id: String) {
-        memory = ForgeExerciseDiscovery.applyFeedback(memory, id: id, feedback: feedback)
+        memory = ForgeExerciseDiscovery.applyFeedback(
+            memory, id: id, feedback: feedback, catalog: catalogFromLibrary()
+        )
         if let data = try? JSONEncoder().encode(memory) {
             UserDefaults.standard.set(data, forKey: Self.storageKey)
         }

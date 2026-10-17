@@ -14,6 +14,11 @@ public enum ForgeExerciseDiscovery: Sendable {
         public var name: String
         public var score: Double
         public var reasons: [String]
+
+        /// Inspectable, not a black box.
+        public var scoreLabel: String {
+            String(format: "Score %.0f", score * 100)
+        }
     }
 
     public struct Memory: Codable, Equatable, Sendable {
@@ -52,25 +57,36 @@ public enum ForgeExerciseDiscovery: Sendable {
         }
     }
 
+    public static func fits(_ item: Exercise, memory: Memory) -> Bool {
+        let eq = item.equipment.lowercased()
+        if eq.contains("bodyweight") || eq.isEmpty { return true }
+        let gear = (memory.gymType + " " + memory.equipmentNotes).lowercased()
+        if gear.contains("commercial") || gear.contains("industrial") || gear.contains("crossfit") {
+            return true
+        }
+        if gear.contains(eq) { return true }
+        return gearTokens.contains { gear.contains($0) && eq.contains($0) }
+    }
+
     public static func rank(
         catalog: [Exercise],
         memory: Memory,
         trainingModel: String,
         goals: [String],
-        readiness: Int
+        readiness: Int,
+        load: Int = 40,
+        engagement: Double = 0
     ) -> [Candidate] {
-        let gear = (memory.gymType + " " + memory.equipmentNotes).lowercased()
         var out: [Candidate] = []
         for item in catalog {
             if item.triedBefore || memory.tried.contains(item.id) { continue }
+            if memory.saved.contains(item.id) { continue }
             if let decay = memory.suppressed[item.id], decay > 0.4 { continue }
+            guard fits(item, memory: memory) else { continue }
             var score = 0.4
             var reasons: [String] = ["Fits unused catalog"]
-            let eq = item.equipment.lowercased()
-            if gear.contains(eq) || eq.contains("bodyweight") || gear.isEmpty {
-                score += 0.25
-                reasons.append("Matches gym/gear")
-            }
+            score += 0.25
+            reasons.append("Matches gym/gear")
             if !trainingModel.isEmpty {
                 score += 0.15
                 reasons.append("Adaptive training model")
@@ -82,27 +98,47 @@ public enum ForgeExerciseDiscovery: Sendable {
                 score -= 0.05
                 reasons.append("Readiness says keep it light")
             }
+            if load >= 75 {
+                score -= 0.08
+                reasons.append("Load is high — keep it light")
+            } else {
+                score += 0.05
+                reasons.append("Load leaves room for something new")
+            }
+            if engagement > 0.3 {
+                score += 0.05
+                reasons.append("Past engagement")
+            }
             if goals.contains(where: { item.name.lowercased().contains($0.lowercased()) }) {
                 score += 0.1
                 reasons.append("Goal overlap")
             }
-            if memory.saved.contains(item.id) {
-                score += 0.2
-                reasons.append("Saved for later")
-            }
-            out.append(Candidate(id: item.id, name: item.name, score: min(1, score), reasons: reasons))
+            let clamped = min(1, max(0, score))
+            reasons.insert(String(format: "Score %.0f", clamped * 100), at: 0)
+            out.append(Candidate(id: item.id, name: item.name, score: clamped, reasons: reasons))
         }
         return out.sorted { $0.score > $1.score }
     }
 
-    public static func applyFeedback(_ memory: Memory, id: String, feedback: Feedback) -> Memory {
+    public static func applyFeedback(
+        _ memory: Memory,
+        id: String,
+        feedback: Feedback,
+        catalog: [Exercise] = []
+    ) -> Memory {
         var next = memory
         switch feedback {
         case .tried:
             if !next.tried.contains(id) { next.tried.append(id) }
             next.suppressed[id] = nil
+            next.saved.removeAll { $0 == id }
         case .notInterested:
             next.suppressed[id] = 1
+            if let item = catalog.first(where: { $0.id == id }) {
+                for other in catalog where other.id != id && other.equipment.lowercased() == item.equipment.lowercased() {
+                    next.suppressed[other.id] = max(next.suppressed[other.id] ?? 0, 0.7)
+                }
+            }
         case .saved:
             if !next.saved.contains(id) { next.saved.append(id) }
         }
