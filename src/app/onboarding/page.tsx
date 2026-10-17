@@ -11,6 +11,7 @@ import DeviceConnection from "@/components/onboarding/device-connection";
 import CoachingStyleScreen from "@/components/onboarding/coaching-style";
 import { AriaMark } from "@/components/brand/aria-mark";
 import { ForgeBrandMark, PremiumAtmosphere } from "@/components/brand/premium-atmosphere";
+import { AriaPausedNotice } from "@/components/aria-paused-notice";
 
 const FLOW_STEPS = 3;
 
@@ -21,6 +22,8 @@ export default function OnboardingPage() {
   const isOnboarded = useAppStore((s) => s.isOnboarded);
   const hasHydrated = useAppStore((s) => s.hasHydrated);
   const setHasHydrated = useAppStore((s) => s.setHasHydrated);
+  const ariaPaused = useAppStore((s) => s.ariaPaused);
+  const setOnboarded = useAppStore((s) => s.setOnboarded);
 
   useEffect(() => {
     const finish = () => setHasHydrated(true);
@@ -109,6 +112,21 @@ export default function OnboardingPage() {
         </div>
       )}
 
+      {ariaPaused && (
+        <div className="relative z-20 px-6 pt-4">
+          <AriaPausedNotice surface="onboarding" />
+          <button
+            type="button"
+            onClick={() => {
+              setOnboarded(true);
+              handleComplete();
+            }}
+            className="mt-2 text-sm font-medium text-text-tertiary underline-offset-2 hover:text-text-secondary hover:underline"
+          >
+            Skip
+          </button>
+        </div>
+      )}
       {onboardingStep === 0 && <WelcomeScreen onNext={handleNext} />}
       {onboardingStep === 1 && <ProfileSetup onNext={handleNext} onBack={handleBack} />}
       {onboardingStep === 2 && <DeviceConnection onNext={handleNext} />}

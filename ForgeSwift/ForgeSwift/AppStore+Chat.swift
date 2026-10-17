@@ -521,6 +521,7 @@ extension AppStore {
         )
         chatMessages.append(userMessage)
         isGeneratingResponse = true
+        AriaContextStore.shared.noteUserTurn(text)
         let outbound = ariaPayload ?? text
 
         do {
@@ -569,7 +570,11 @@ extension AppStore {
                 }
             }
 
+            if !safetyTurn {
+                aria.message = AriaSoulStore.shared.speak(aria.message)
+            }
             lastSuggestedActions = aria.suggestedActions ?? []
+            AriaContextStore.shared.noteAriaUsedContext()
 
             // If ARIA built a session, surface it as today's plan.
             if let card = aria.toRichCardData(), card.type == .workoutPlan {
@@ -710,6 +715,13 @@ extension AppStore {
                 .trimmingCharacters(in: .whitespacesAndNewlines)
             rememberDurable(prefix + snippet)
             break
+        }
+        let learned = ForgeExerciseDiscovery.learnEquipment(
+            notes: userProfile.equipmentNotes,
+            from: userText
+        )
+        if learned != userProfile.equipmentNotes {
+            updateProfile(equipmentNotes: learned)
         }
         // Confidence tags from ARIA that look like standing truths.
         if ariaText.lowercased().contains("i'll remember") || ariaText.lowercased().contains("noted:") {
@@ -888,7 +900,13 @@ extension AppStore {
             totalMessageCount: chatMessages.count,
             conversationSummary: conversationMemoryAnchors(),
             lifestyleTags: ctx.lifestyleTags,
-            constraints: ctx.constraints + (HealthKitManager.shared.clinicalSummary?.ariaConstraintLines() ?? []),
+            constraints: ctx.constraints
+                + [AriaSoulStore.shared.liveDirective(
+                    experience: userProfile.experienceLevel.rawValue,
+                    goals: userProfile.fitnessGoals.map(\.rawValue) + userProfile.fitnessGoals.map(\.label),
+                    engagement: min(1, Double(chatMessages.count) / 40.0)
+                )]
+                + (HealthKitManager.shared.clinicalSummary?.ariaConstraintLines() ?? []),
             cycleSnapshot: cycle,
             partnerCycleSnapshot: activePerson?.snapshot,
             partnerCycleSettings: activePerson?.settings,

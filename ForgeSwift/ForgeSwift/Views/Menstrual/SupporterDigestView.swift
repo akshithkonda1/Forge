@@ -140,7 +140,7 @@ struct SupporterDigestView: View {
                 .forgeWrapping()
         }
         .frame(maxWidth: .infinity, alignment: .leading)
-        .hudPlate(energy: .indigo)
+        .forgeContentCard()
         .accessibilityElement(children: .contain)
     }
 
@@ -243,7 +243,7 @@ struct SupporterDigestView: View {
                 Divider().overlay(Color.white.opacity(0.08))
             }
             if !guidance.notThis.isEmpty {
-                iconBulletList(guidance.notThis, tint: HudChrome.miss, icon: "minus.circle.fill", spokenPrefix: "Avoid:")
+                iconBulletList(guidance.notThis, tint: ForgeProgressChrome.miss, icon: "minus.circle.fill", spokenPrefix: "Avoid:")
             }
         }
         .forgeContentCard(tint: .indigo)

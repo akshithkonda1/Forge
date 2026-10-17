@@ -226,6 +226,85 @@ final class AppStore: ObservableObject {
         activeTab = .chat
         startAriaFirstBondIfNeeded()
     }
+
+    /// Jump-point tutorial: unused Health → personal indexes → ARIA → mosaic win.
+    @Published var mosaicTutorial: ForgeTutorial.State = AppStore.loadMosaicTutorial()
+    private var tutorialBeatAppearedAt: Date = Date()
+
+    static func loadMosaicTutorial() -> ForgeTutorial.State {
+        guard let data = UserDefaults.standard.data(forKey: ForgeTutorial.storageKey),
+              let state = try? JSONDecoder().decode(ForgeTutorial.State.self, from: data) else {
+            return ForgeTutorial.start(hasRealMosaicData: false)
+        }
+        return state
+    }
+
+    func persistMosaicTutorial() {
+        if let data = try? JSONEncoder().encode(mosaicTutorial) {
+            UserDefaults.standard.set(data, forKey: ForgeTutorial.storageKey)
+        }
+    }
+
+    func recordTutorial(_ gesture: ForgeTutorial.Gesture) {
+        guard isOnboarded else { return }
+        let latency = Date().timeIntervalSince(tutorialBeatAppearedAt)
+        let outcome = ForgeTutorial.apply(state: mosaicTutorial, gesture: gesture, latency: latency)
+        mosaicTutorial = outcome.state
+        persistMosaicTutorial()
+        if outcome.rewarded, gesture == .askedAria {
+            let picture = healthPotentialPicture()
+            openChat(with: picture.howYoureDoing, voice: false)
+        }
+    }
+
+    func noteTutorialBeatAppeared() {
+        tutorialBeatAppearedAt = Date()
+        if mosaicTutorial.beat != .done {
+            Task { @MainActor in
+                let wait = ForgeTutorial.hesitateSeconds(for: mosaicTutorial.opening)
+                try? await Task.sleep(for: .seconds(wait))
+                guard mosaicTutorial.beat != .done else { return }
+                let waited = Date().timeIntervalSince(tutorialBeatAppearedAt)
+                if waited >= wait - 0.05 {
+                    recordTutorial(.hesitated)
+                }
+            }
+        }
+    }
+
+    func replayMosaicTutorial() {
+        mosaicTutorial = ForgeTutorial.start(
+            hasRealMosaicData: hasRealMosaicData,
+            experience: userProfile.experienceLevel.rawValue,
+            goals: userProfile.fitnessGoals.map(\.rawValue),
+            ariaPaused: mosaicTutorial.ariaPaused
+        )
+        persistMosaicTutorial()
+        activeTab = .home
+    }
+
+    var hasRealMosaicData: Bool {
+        dailyMetrics.totalSleep > 0 || dailyMetrics.steps > 0 || !sleepData.isEmpty
+    }
+
+    func healthPotentialPicture() -> ForgeHealthPotential.Picture {
+        ForgeHealthPotential.picture(from: healthPotentialHistory())
+    }
+
+    func healthPotentialHistory() -> ForgeHealthPotential.History {
+        let nights = sleepData.map(\.totalHours)
+        return ForgeHealthPotential.History(
+            name: userProfile.name,
+            sleepHours: nights,
+            steps: dailyMetrics.steps > 0 ? [Double(dailyMetrics.steps)] : [],
+            workoutsThisWeek: weeklyWorkoutFrequency,
+            workoutGoal: 3,
+            habitsDone: 0,
+            habitsGoal: 3,
+            weightKg: userProfile.weight,
+            heightCm: userProfile.height
+        )
+    }
     
     // Streak tracking — consecutive calendar days with a completed session.
     @Published var currentStreak: Int = 0
@@ -424,6 +503,19 @@ final class AppStore: ObservableObject {
     func finishForgePrep() {
         isOnboarded = true
         AriaForgePrepHandoff.clearInterviewComplete()
+        refreshTutorialOpeningFromProfile()
+    }
+
+    /// First-launch tutorial uses the onboarding experience/goal signal so
+    /// ARIA's opening is already personalized on the first beat.
+    func refreshTutorialOpeningFromProfile() {
+        guard !mosaicTutorial.isComplete else { return }
+        let opening = ForgeTutorial.Opening.resolve(
+            experience: userProfile.experienceLevel.rawValue,
+            goals: userProfile.fitnessGoals.map(\.rawValue) + userProfile.fitnessGoals.map(\.label)
+        )
+        mosaicTutorial.opening = opening
+        persistMosaicTutorial()
     }
     
 }

@@ -11,6 +11,7 @@ final class AriaContextStore: ObservableObject {
     @Published private(set) var lastProactiveInsight: String?
     @Published private(set) var lastObservedContext: ARIAContextPayload?
     @Published private(set) var lastDailyStory: DailyStoryPayload?
+    @Published private(set) var memory: AriaContextMemory.Snapshot
 
     private let defaults = UserDefaults.standard
     private let storageKey = "forge.aria.userContext"
@@ -23,6 +24,7 @@ final class AriaContextStore: ObservableObject {
         } else {
             context = AriaContext(userId: Self.stableUserId())
         }
+        memory = AriaContextMemoryStore.load()
     }
 
     static func stableUserId() -> String {
@@ -211,7 +213,12 @@ final class AriaContextStore: ObservableObject {
             primaryGoal: store.userProfile.fitnessGoals.first?.rawValue,
             experienceLevel: store.userProfile.experienceLevel.rawValue,
             coachingStyle: store.userProfile.coachingStyle.rawValue,
-            constraints: context.constraints + clinicalConstraintLines()
+            constraints: context.constraints + clinicalConstraintLines(),
+            adaptiveTrainingModel: {
+                let model = store.userProfile.coachingPersonality.adaptiveTrainingModel
+                    .trimmingCharacters(in: .whitespacesAndNewlines)
+                return model.isEmpty ? nil : model
+            }()
         )
         let progressDomain = ARIAContextPayload.ProgressDomain(
             workoutsCompleted30d: workouts30d > 0 ? workouts30d : nil,
@@ -345,11 +352,30 @@ final class AriaContextStore: ObservableObject {
         if let night = SleepData.lastNight(in: store.sleepData) {
             metrics["sleep_score"] = Double(night.score)
         }
+        var constraints = domain.profile.constraints
+        let engagement = min(1, max(0, Double(context.relationshipLevel) / 10.0))
+        constraints.append(
+            AriaSoulStore.shared.liveDirective(
+                experience: store.userProfile.experienceLevel.rawValue,
+                goals: store.userProfile.fitnessGoals.map(\.rawValue) + store.userProfile.fitnessGoals.map(\.label),
+                engagement: engagement
+            )
+        )
+        constraints.append(contentsOf: ForgeConditionAdaptation.constraints(
+            store.userProfile.lifestyleProfile.healthConstraints,
+            freeform: store.userProfile.lifestyleProfile.healthNote
+        ))
+        constraints.append(contentsOf: ForgeConditionAdaptation.coachingAcrossLife(
+            store.userProfile.lifestyleProfile.healthConstraints,
+            freeform: store.userProfile.lifestyleProfile.healthNote
+        ))
+        let coach = ForgeConditionAdaptation.coachLine(store.userProfile.lifestyleProfile.healthConstraints)
+        if !coach.isEmpty { constraints.append(coach) }
         return AriaRichContext(
             userId: context.userId,
             lifestyleTags: domain.lifestyle.tags,
             goals: domain.lifestyle.goals,
-            constraints: domain.profile.constraints,
+            constraints: constraints,
             recentPatterns: domain.lifestyle.recentPatterns,
             recentMetrics: metrics,
             relationshipLevel: context.relationshipLevel,
@@ -390,11 +416,47 @@ final class AriaContextStore: ObservableObject {
 
     func addInsight(_ insight: String) {
         context.lastInsights.insert(insight, at: 0)
-        if context.lastInsights.count > 15 {
+        if context.lastInsights.count > AriaContextMemory.Caps.sane.stm {
             context.lastInsights.removeLast()
         }
         context.lastUpdated = Date()
+        memory = AriaContextMemory.ingest(memory, text: insight, source: "insight")
         persist()
+    }
+
+    /// User sent a turn: that is a reply to whatever ARIA just used, plus new context.
+    func noteUserTurn(_ text: String) {
+        if !memory.lastUsedIds.isEmpty {
+            memory = AriaContextMemory.recordOutcome(memory, kind: .replied)
+        }
+        memory = AriaContextMemory.ingest(memory, text: text, source: "chat")
+        persistMemory()
+    }
+
+    /// After ARIA speaks, remember which working-set items were on the table.
+    func noteAriaUsedContext() {
+        let ids = AriaContextMemory.workingSet(memory).map(\.id)
+        memory = AriaContextMemory.markUsed(memory, itemIds: ids)
+        persistMemory()
+    }
+
+    func noteMemoryOutcome(_ kind: AriaContextMemory.EngagementKind, itemId: String? = nil) {
+        if let itemId {
+            memory = AriaContextMemory.record(memory, itemId: itemId, kind: kind)
+        } else {
+            memory = AriaContextMemory.recordOutcome(memory, kind: kind)
+        }
+        persistMemory()
+    }
+
+    func editMemory(id: String, text: String) {
+        memory = AriaContextMemory.edit(memory, id: id, text: text)
+        persistMemory()
+    }
+
+    func deleteMemory(id: String) {
+        memory = AriaContextMemory.delete(memory, id: id)
+        persistMemory()
     }
 
     func updateProfile(
@@ -697,7 +759,13 @@ final class AriaContextStore: ObservableObject {
         AriaThemeResolver.detectFromTags(context.lifestyleTags) ?? .classic
     }
 
+    func replaceMemory(_ snap: AriaContextMemory.Snapshot) {
+        memory = snap
+        persistMemory()
+    }
+
     /// Seeds ARIA's living model from the finished onboarding interview.
+    /// Answers land in the on-device context store so Settings can show them.
     func seedFromOnboarding(
         name: String,
         goals: [String],
@@ -707,7 +775,11 @@ final class AriaContextStore: ObservableObject {
         healthConnected: Bool,
         lifestyleTags: [String] = [],
         constraints: [String] = [],
-        trainingTheme: AriaTrainingTheme = .classic
+        trainingTheme: AriaTrainingTheme = .classic,
+        sleepNote: String? = nil,
+        hobbyNotes: [String] = [],
+        peopleNote: String? = nil,
+        moodNote: String? = nil
     ) {
         let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
         context.currentGoals = goals
@@ -748,7 +820,75 @@ final class AriaContextStore: ObservableObject {
         }
         context.relationshipLevel = max(context.relationshipLevel, 2)
         context.lastUpdated = Date()
+        ingestOnboardingMemory(
+            goals: goals,
+            sleepNote: sleepNote,
+            hobbyNotes: hobbyNotes,
+            peopleNote: peopleNote,
+            moodNote: moodNote,
+            workouts: preferredWorkouts
+        )
         persist()
+    }
+
+    private func ingestOnboardingMemory(
+        goals: [String],
+        sleepNote: String?,
+        hobbyNotes: [String],
+        peopleNote: String?,
+        moodNote: String?,
+        workouts: [String]
+    ) {
+        var snap = memory
+        for goal in goals where !goal.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            snap = AriaContextMemory.ingest(
+                snap,
+                text: "Goal: \(goal)",
+                source: "onboarding",
+                domainOverride: .goals
+            )
+        }
+        if let sleepNote, !sleepNote.isEmpty {
+            snap = AriaContextMemory.ingest(
+                snap,
+                text: sleepNote,
+                source: "onboarding",
+                domainOverride: .sleepDreams
+            )
+        }
+        for hobby in hobbyNotes where !hobby.isEmpty {
+            snap = AriaContextMemory.ingest(
+                snap,
+                text: "Hobby: \(hobby)",
+                source: "onboarding",
+                domainOverride: .lifestyleHobbies
+            )
+        }
+        for workout in workouts.prefix(4) where !workout.isEmpty {
+            snap = AriaContextMemory.ingest(
+                snap,
+                text: "Likes training: \(workout)",
+                source: "onboarding",
+                domainOverride: .lifestyleHobbies
+            )
+        }
+        if let peopleNote, !peopleNote.isEmpty {
+            snap = AriaContextMemory.ingest(
+                snap,
+                text: peopleNote,
+                source: "onboarding",
+                domainOverride: .people
+            )
+        }
+        if let moodNote, !moodNote.isEmpty {
+            snap = AriaContextMemory.ingest(
+                snap,
+                text: moodNote,
+                source: "onboarding",
+                domainOverride: .moodMentality
+            )
+        }
+        memory = snap
     }
 
     /// Pushes live Lifestyle tab signals + deep habits into ARIA's living context.
@@ -1058,6 +1198,15 @@ final class AriaContextStore: ObservableObject {
     func persist() {
         if let data = try? JSONEncoder().encode(context) {
             defaults.set(data, forKey: storageKey)
+        }
+        persistMemory()
+    }
+
+    private func persistMemory() {
+        let snap = memory
+        DispatchQueue.global(qos: .utility).async {
+            let compacted = AriaContextMemory.compact(snap)
+            _ = AriaContextMemoryStore.save(compacted)
         }
     }
 }

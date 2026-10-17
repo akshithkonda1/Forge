@@ -10,19 +10,6 @@ interface AriaCompanionProps {
   className?: string;
 }
 
-/** Thin wrapper — every prior AriaOrb call site now shows the living ARIA mark. */
-export function AriaOrb({
-  mood: _mood = "focused",
-  size = 48,
-  speaking = false,
-}: {
-  mood?: AriaWhisper["mood"];
-  size?: number;
-  speaking?: boolean;
-}) {
-  return <AriaMark size={size} speaking={speaking} />;
-}
-
 export default function AriaCompanion({
   whisper,
   compact = false,
@@ -37,7 +24,7 @@ export default function AriaCompanion({
       )}
     >
       <div className="flex items-start gap-3">
-        <AriaOrb mood={whisper.mood} size={compact ? 44 : 52} speaking />
+        <AriaMark size={compact ? 44 : 52} speaking />
         <div className="min-w-0 flex-1">
           <div className="mb-1 flex items-start gap-2">
             <span className="type-micro font-medium uppercase tracking-[0.18em] text-text-tertiary">

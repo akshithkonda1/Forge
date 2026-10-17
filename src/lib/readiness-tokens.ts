@@ -33,5 +33,5 @@ export function tileAlmostThere(progress: number): boolean {
   return progress >= READINESS.motivation.almostThereFloor && progress < 1;
 }
 
-export const PLATE_HEX = `#${READINESS.hud.plateHex}`;
+export const PLATE_HEX = `#${READINESS.chrome.plateHex}`;
 export const MISS_HEX = `#${READINESS.motivation.missHex}`;

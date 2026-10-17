@@ -126,6 +126,60 @@ final class OnboardingCoordinator {
         interruptInterviewVoice()
     }
 
+    /// Every visible question is skippable. Skip gathers nothing and moves on
+    /// — never an interrogation chain.
+    var canSkipCurrentBeat: Bool {
+        switch OnboardingGraph.normalized(step.graph) {
+        case .name, .health, .freeTime, .coaching:
+            return !isCompleting
+        default:
+            return false
+        }
+    }
+
+    func skipCurrentBeat() {
+        guard canSkipCurrentBeat else { return }
+        step = AriaInterviewStep(OnboardingGraph.normalized(step.graph))
+        switch step {
+        case .name:
+            skipNameAndContinue()
+        case .health:
+            skipHealthAndContinue()
+        case .freeTime:
+            confirmInterests()
+        case .coaching:
+            confirmAdaptiveTrainingModel()
+        default:
+            break
+        }
+    }
+
+    private func skipNameAndContinue() {
+        guard step == .name || OnboardingGraph.normalized(step.graph) == .name else { return }
+        if profile.isPreferredNameValid {
+            submitName()
+            return
+        }
+        interruptInterviewVoice()
+        appendUser("Skip")
+        Task {
+            await ariaSay("All good. Tell me what to call you whenever it feels useful.", mood: .calm)
+            await advanceTo(.health)
+        }
+    }
+
+    private func peopleNoteForMemory() -> String? {
+        guard let life = profile.lifeContext, life != .preferNot else { return nil }
+        return "Household: \(life.label)"
+    }
+
+    private func moodNoteForMemory() -> String? {
+        if profile.friendHabits.contains(.stayClose) {
+            return "Check in like a friend — stay close."
+        }
+        return nil
+    }
+
     // MARK: - Start
 
     func startIfNeeded(in store: AppStore) {
@@ -607,7 +661,7 @@ final class OnboardingCoordinator {
                 )
             } else if profile.reportedConditions.contains(.none) {
                 await ariaSay(
-                    "Got it. I'll still coach as a lifestyle guide — not a clinician — and keep recovery front and center.",
+                    "Got it. I'll still coach as a lifestyle guide — not a clinician.",
                     mood: .focused
                 )
             } else {
@@ -624,6 +678,22 @@ final class OnboardingCoordinator {
         appendUser(style.friendToneTitle)
         Task {
             await ariaSay(AriaInterviewVoice.acknowledgeCoaching(style), mood: AriaOnboardingGuide.mood(for: style))
+            await advanceTo(AriaInterviewStep(OnboardingGraph.next(after: .selectCoachingStyle)))
+        }
+    }
+
+    func confirmAdaptiveTrainingModel() {
+        guard step == .coaching else { return }
+        interruptInterviewVoice()
+        let model = profile.adaptiveTrainingModel.trimmingCharacters(in: .whitespacesAndNewlines)
+        appendUser(model.isEmpty ? "Skip for now" : model)
+        Task {
+            await ariaSay(
+                model.isEmpty
+                    ? "We'll find the voice as we go. You can describe your training style anytime in Settings."
+                    : "Got it. I'll coach against that — mindset and method only, never form, never past comfort. Progress gets named when it's real.",
+                mood: .focused
+            )
             await advanceTo(AriaInterviewStep(OnboardingGraph.next(after: .selectCoachingStyle)))
         }
     }
@@ -987,7 +1057,11 @@ final class OnboardingCoordinator {
             healthConnected: healthConnected,
             lifestyleTags: profile.lifestyleTagsForContext(),
             constraints: profile.constraintsForContext(),
-            trainingTheme: profile.trainingTheme
+            trainingTheme: profile.trainingTheme,
+            sleepNote: profile.sleepBand.map { "Sleep rhythm: \($0.label). \($0.detail)" },
+            hobbyNotes: profile.freeTimeInterests.map(\.label),
+            peopleNote: peopleNoteForMemory(),
+            moodNote: moodNoteForMemory()
         )
 
         ForgeHaptics.play(.success)
@@ -1275,11 +1349,18 @@ final class OnboardingCoordinator {
             try? await Task.sleep(nanoseconds: AriaInterviewVoice.thinkBeatNanoseconds)
         }
         guard gen == utteranceGeneration else { return }
-        appendTranscript(AriaOnboardingMessage(role: .aria, text: text))
+        if AriaService.shared.lastRemoteError == AriaPaused.line {
+            isTyping = false
+            AriaPresence.shared.setThinking(false)
+            ariaOrbState = .listening
+            return
+        }
+        let spoken = AriaSoulStore.shared.speak(text)
+        appendTranscript(AriaOnboardingMessage(role: .aria, text: spoken))
         isTyping = false
         AriaPresence.shared.setThinking(false)
         if AriaSpokenMute.allowsSpeech {
-            AriaPresence.shared.speak(text, interrupt: interrupt)
+            AriaPresence.shared.speak(spoken, interrupt: interrupt)
         }
         ariaOrbState = .listening
     }
@@ -1299,7 +1380,7 @@ final class OnboardingCoordinator {
     /// Versioned: a profile shape change bumps this, and the old draft is
     /// simply never read. Keychain (this device only), like the finished
     /// profile — birthday, body and conditions never land in UserDefaults.
-    private static let draftKey = "forge.onboarding.draft.v1"
+    private static let draftKey = "forge.onboarding.draft.v2"
     private let draftStore: SecureStore = KeychainStore()
     /// Set in `startIfNeeded`. Nil (tests, previews) never restores or saves.
     private var draftOwnerId: String?

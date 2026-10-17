@@ -18,6 +18,8 @@ struct SettingsPageView: View {
     @State private var showWhatIKnow = false
     @State private var showProfileEditor = false
     @State private var showCoachingStylePicker = false
+    @State private var showCoachingPersonalityPicker = false
+    @State private var showSoulPicker = false
     @State private var showTrainingThemePicker = false
     @State private var showNutritionTargetsEditor = false
     @State private var showTermsSheet = false
@@ -36,6 +38,7 @@ struct SettingsPageView: View {
     @ObservedObject private var weeklyReview = WeeklyAriaReviewStore.shared
     // The Cycle controls read this store directly; observing it keeps them in step with changes.
     @ObservedObject private var cycleStore = MenstrualHealthStore.shared
+    @ObservedObject private var soul = AriaSoulStore.shared
 
     let dayLabels = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"]
 
@@ -101,6 +104,12 @@ struct SettingsPageView: View {
         }
         .sheet(isPresented: $showCoachingStylePicker) {
             CoachingStylePickerView()
+        }
+        .sheet(isPresented: $showCoachingPersonalityPicker) {
+            CoachingPersonalityPickerView()
+        }
+        .sheet(isPresented: $showSoulPicker) {
+            AriaSoulPickerView()
         }
         .sheet(isPresented: $showWhatIKnow) {
             NavigationStack {
@@ -245,9 +254,18 @@ struct SettingsPageView: View {
                 settingsLink(
                     icon: "folder.fill",
                     iconColor: .ember,
-                    label: "ARIA memory & voice",
-                    footnote: "Notes, persona, tone, check-ins"
+                    label: "Aria's memory",
+                    footnote: "This is what Aria remembers. Add or remove anything."
                 ) { showWhatIKnow = true }
+
+                SettingsHairline()
+                settingsLink(
+                    icon: "face.smiling",
+                    iconColor: .ember,
+                    label: "ARIA personality",
+                    trailingText: soul.config.blend.dominant.label,
+                    footnote: "Coach, Friend, or Drill Sergeant. Next reply uses it."
+                ) { showSoulPicker = true }
 
                 SettingsHairline()
                 settingsLink(
@@ -257,6 +275,15 @@ struct SettingsPageView: View {
                     trailingText: store.userProfile.coachingStyle.label,
                     footnote: store.userProfile.coachingStyle.description
                 ) { showCoachingStylePicker = true }
+
+                SettingsHairline()
+                settingsLink(
+                    icon: "text.quote",
+                    iconColor: .ember,
+                    label: "Adaptive training model",
+                    trailingText: store.userProfile.coachingPersonality.displayLabel,
+                    footnote: "In your words. Mindset and method only."
+                ) { showCoachingPersonalityPicker = true }
 
                 SettingsHairline()
                 settingsLink(
@@ -276,6 +303,14 @@ struct SettingsPageView: View {
                     label: "Meet ARIA again",
                     hint: "Replays the ARIA introduction"
                 ) { store.replayAriaUseOnboarding() }
+
+                SettingsHairline()
+                settingsLink(
+                    icon: "square.grid.2x2",
+                    iconColor: .vitality,
+                    label: "Replay Health tutorial",
+                    hint: "Unused Health → personal indexes → ARIA → mosaic win"
+                ) { store.replayMosaicTutorial() }
 
                 trainingGoalsBlock
             }
@@ -409,7 +444,7 @@ struct SettingsPageView: View {
                 settingsLink(
                     icon: store.userProfile.trainingEquipment.icon,
                     iconColor: .steel,
-                    label: "Equipment",
+                    label: "Gym and equipment",
                     trailingText: store.userProfile.trainingEquipment.rawValue
                 ) { showEquipmentPicker = true }
             }

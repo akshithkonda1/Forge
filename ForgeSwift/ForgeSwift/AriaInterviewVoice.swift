@@ -195,9 +195,9 @@ enum AriaInterviewVoice {
     static func introLine(firstName: String, questLabel: String?) -> String {
         let quest = questLabel.map { " You already picked \($0) — we’ll go from there." } ?? ""
         if firstName.isEmpty {
-            return "Hi — I'm ARIA. I'm really glad you're here. I'll take care of you like a friend who notices your sleep and your day. Trainer, doctor, therapist — flavors when you need them, not who I am. About a minute, then I'm with you."
+            return "Hi — I'm ARIA. I'm really glad you're here. How can I help you? I'll notice your sleep and your day like a friend. Trainer, doctor, therapist — flavors when you need them, not who I am. About a minute. Skip anything."
         }
-        return "Hey \(firstName) — I'm ARIA. I'm really glad you're here. I'll take care of you like a friend who notices your sleep and your day. Trainer, doctor, therapist — flavors when you need them, not who I am.\(quest) About a minute, then I'm with you."
+        return "Hey \(firstName) — I'm ARIA. I'm really glad you're here. How can I help you?\(quest) I'll notice your sleep and your day like a friend. Trainer, doctor, therapist — flavors when you need them, not who I am. About a minute. Skip anything."
     }
 
     static func prompt(
@@ -233,11 +233,11 @@ enum AriaInterviewVoice {
         case .sleep:
             return "When do you actually sleep and wake? I'll put hard sessions and wind-down on your clock, not a generic 6am."
         case .freeTime:
-            return "\(habitsWrapper) — pick up to three things that feel like us. I just want to take care of you better."
+            return "\(habitsWrapper) — pick up to three things that feel like us, or skip. I just want to take care of you better."
         case .coaching:
-            return "How should I show up when the day is messy — a check-in, some space, the patterns, or an honest peer? Trainer, doctor, therapist — those are flavors. I'm still me."
+            return "How can I help you train? Your own words, optional — mindset and method only. Tone chips are optional: a check-in, some space, the patterns, or an honest peer. Skip anytime."
         case .conditions:
-            return "Do you have any conditions I should respect when coaching — ADHD, epilepsy, an injury, a chronic illness, a disability, or something else? Optional. I'm a lifestyle coach, not a doctor. I won't diagnose or treat; I'll only use this to keep guidance safer and more realistic."
+            return "Anything I should work around so I can help you — ADHD, epilepsy, an injury, a chronic illness? Optional. Offered, never demanded. Lifestyle coach, not a doctor. Skip is fine."
         case .ready:
             return ""
         }
@@ -323,7 +323,7 @@ enum AriaInterviewVoice {
         case .intermediate:
             return "A few years in — I'll treat you like someone who already knows the room."
         case .advanced:
-            return "Advanced. I'll assume you can take structure, and I'll still watch recovery."
+            return "Advanced. I'll assume you can take structure, and I'll still watch readiness."
         case .elite:
             return "Competitive. Readiness first, then output. I won't waste your window."
         }

@@ -1549,7 +1549,7 @@ enum AriaDummyOrchestrator {
 
     /// Fused Dummy `_VITALS_SPEAK` (`aria_engine` + Dummy orchestrator).
     /// Sleep-stage % is stripped first (`stripSleepStagePct`); these patterns
-    /// are the remaining fail-and-fallback tokens, not a "min deep" HUD ban.
+    /// are the remaining fail-and-fallback tokens, not a "min deep" readout ban.
     private static let vitalsSpeak = try! NSRegularExpression(
         pattern: #"\b(hrv|bpm|ms|mmhg|vo2|spo2|recovery score|sleep[- ]?debt)\b|%\s*(?:below|above|under|over)\s+baseline|\b(?:deep|rem|light)\s+sleep\s+at\s+\d+(?:\.\d+)?\s*%|\brem\s+is\s+light\s+at\s+\d+(?:\.\d+)?\s*%"#,
         options: [.caseInsensitive]
@@ -1582,7 +1582,7 @@ enum AriaDummyOrchestrator {
         // Same order as fused Dummy: cheer (`friend_speak`) then
         // `_strip_sleep_stage_pct` then `_speak_without_vitals`.
         out = stripSleepStagePct(out)
-        out = stripVitalsHUD(out)
+        out = stripVitalsReadout(out)
         if dumpsVitals(out) {
             out = dropVitalsSentences(out)
         }
@@ -1629,14 +1629,14 @@ enum AriaDummyOrchestrator {
         return vitalsSpeak.firstMatch(in: text, options: [], range: range) != nil
     }
 
-    private static func stripVitalsHUD(_ s: String) -> String {
+    private static func stripVitalsReadout(_ s: String) -> String {
         var out = s
-        let hud = [
+        let readouts = [
             #"Readiness \d+/100 · HRV \d+ ms · RHR \d+ bpm[^.]*\."#,
             #"Readiness \d+, HRV \d+, resting heart \d+\."#,
             #"Player status \d+/100 · HRV \d+[^.]*\."#,
         ]
-        for pattern in hud {
+        for pattern in readouts {
             if let range = out.range(of: pattern, options: [.regularExpression, .caseInsensitive]) {
                 out.replaceSubrange(range, with: "I already looked — here's the read.")
             }

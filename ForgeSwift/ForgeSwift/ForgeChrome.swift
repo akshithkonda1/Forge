@@ -94,7 +94,7 @@ struct ForgeSecondaryButton: View {
 struct ForgeChip: View {
     var label: String
     var icon: String? = nil
-    var energy: Color = HudChrome.emberSteel
+    var energy: Color = ForgeProgressChrome.emberSteel
     var selected: Bool = false
     var fillsWidth: Bool = false
 
@@ -289,7 +289,7 @@ struct ForgePermissionPrompt: View {
                 }
             }
             ForgePrimaryButton(title: allowTitle, icon: "checkmark", accent: accent, action: onAllow)
-            ForgeSecondaryButton(title: skipTitle, accent: HudChrome.emberSteel, action: onSkip)
+            ForgeSecondaryButton(title: skipTitle, accent: ForgeProgressChrome.emberSteel, action: onSkip)
         }
         .forgeContentCard(accent: accent)
         .accessibilityElement(children: .contain)
@@ -314,14 +314,14 @@ struct ForgeLoadingState: View {
 
 struct ForgeErrorState: View {
     var title: String = "Couldn’t load that"
-    var message: String = "Try again when you’re ready."
+    var message: String = ForgeReinforcement.errorLine
     var retry: (() -> Void)? = nil
 
     var body: some View {
         VStack(spacing: FDS.Spacing.md) {
             Image(systemName: "exclamationmark.circle")
                 .font(.system(size: 22, weight: .semibold))
-                .foregroundStyle(HudChrome.emberSteel)
+                .foregroundStyle(ForgeProgressChrome.emberSteel)
             Text(title)
                 .font(ForgeType.title)
                 .foregroundStyle(Color.textPrimary)
@@ -340,7 +340,7 @@ struct ForgeErrorState: View {
 // MARK: - Inset tile
 //
 // Nested plate for stats, rows, and fields that sit *inside* a card
-// (`forgeGlassCard` / `hudPlate`). One fill, one hairline edge, token radius.
+// (`forgeContentCard`). One fill, one hairline edge, token radius.
 
 private struct ForgeInsetTile: ViewModifier {
     var radius: CGFloat
@@ -530,10 +530,9 @@ extension View {
             .padding(.bottom, bottom)
     }
 
-    /// The standard card: 20 pt interior padding plus `forgeGlassCard` at
-    /// radius xl. Replaces `.padding(FDS.Spacing.lg).forgeGlassCard(...)`.
-    /// `accent` adds the halo (hero-adjacent named card only); `tint` gives
-    /// the domain wash with no halo; pass neither for a neutral card.
+    /// The one card anatomy: `ForgeLayout.cardPadding` plus a flat tessera at
+    /// radius xl. Screens do not call `forgeGlassCard` or a second plate API.
+    /// `accent` / `tint` stay for call-site color in the content, not a wash.
     func forgeContentCard(
         accent: Color? = nil,
         tint: Color? = nil,
@@ -718,6 +717,105 @@ struct ForgeIconWell: View {
         }
         .frame(width: size, height: size)
         .accessibilityHidden(true)
+    }
+}
+
+// MARK: - Tessera mosaic
+//
+// The picture of a day: Sleep, Train, Water, Move, Habits. A win lights one
+// tile. Empty states show the same picture unlit. Not circles, not a HUD.
+
+enum ForgeMosaicTracks {
+    static let titles = ["Sleep", "Train", "Water", "Move", "Habits"]
+    static let icons = [
+        "moon.fill",
+        "dumbbell.fill",
+        "drop.fill",
+        "figure.walk",
+        "checkmark",
+    ]
+    static let count = 5
+}
+
+/// One tessera of the day-picture. Lit fill + hairline; open is a quiet plate.
+/// `pulsing` is an event (a tile just closed), never an idle loop.
+struct ForgeTessera: View {
+    var lit: Bool
+    var energy: Color = .ember
+    var closing: Bool = false
+    var pulsing: Bool = false
+    var size: CGFloat = 32
+    var systemImage: String? = nil
+
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    var body: some View {
+        let radius = FDS.Radius.sm
+        let edge = closing || pulsing
+            ? energy.opacity(0.55)
+            : (lit ? energy.opacity(0.32) : Color.white.opacity(0.10))
+        ZStack {
+            RoundedRectangle(cornerRadius: radius, style: .continuous)
+                .fill(lit ? energy.opacity(0.18) : Color.white.opacity(0.045))
+            RoundedRectangle(cornerRadius: radius, style: .continuous)
+                .stroke(edge, lineWidth: pulsing || closing ? ForgeUX.stroke : ForgeUX.hairline)
+            if let systemImage {
+                Image(systemName: systemImage)
+                    .font(.system(size: size * 0.34, weight: .semibold))
+                    .foregroundStyle(lit || closing ? energy : Color.textTertiary)
+            }
+        }
+        .frame(width: size, height: size)
+        .scaleEffect(pulsing && !reduceMotion ? 1.06 : 1)
+        .animation(reduceMotion ? nil : ForgeMotion.snappy, value: pulsing)
+        .accessibilityHidden(true)
+    }
+}
+
+/// Five tesserae in a row — the same picture Home, Progress, and empty states share.
+struct ForgeMosaicStrip: View {
+    var lit: [Bool]
+    var icons: [String] = ForgeMosaicTracks.icons
+    var closingIndex: Int? = nil
+    var pulseIndex: Int? = nil
+    var energy: Color = .ember
+    var size: CGFloat = 32
+
+    var body: some View {
+        HStack(spacing: ForgeLayout.tileGap) {
+            ForEach(0..<ForgeMosaicTracks.count, id: \.self) { index in
+                VStack(spacing: FDS.Spacing.xs) {
+                    ForgeTessera(
+                        lit: lit.indices.contains(index) ? lit[index] : false,
+                        energy: energy,
+                        closing: closingIndex == index,
+                        pulsing: pulseIndex == index,
+                        size: size,
+                        systemImage: icons.indices.contains(index) ? icons[index] : nil
+                    )
+                    Text(ForgeMosaicTracks.titles[index])
+                        .font(HomeType.micro)
+                        .foregroundStyle(
+                            (lit.indices.contains(index) && lit[index]) || closingIndex == index
+                                ? Color.textPrimary
+                                : Color.textTertiary
+                        )
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.8)
+                }
+                .frame(maxWidth: .infinity)
+            }
+        }
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(spoken)
+    }
+
+    private var spoken: String {
+        let names = ForgeMosaicTracks.titles.enumerated().map { index, title in
+            let on = lit.indices.contains(index) && lit[index]
+            return on ? "\(title) lit" : "\(title) open"
+        }
+        return names.joined(separator: ", ")
     }
 }
 
@@ -1023,7 +1121,7 @@ struct ForgeFlowLayout: Layout {
 struct ForgeChipButton: View {
     var label: String
     var icon: String? = nil
-    var energy: Color = HudChrome.emberSteel
+    var energy: Color = ForgeProgressChrome.emberSteel
     var selected: Bool = false
     var fillsWidth: Bool = false
     var action: () -> Void

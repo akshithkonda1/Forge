@@ -56,27 +56,27 @@ struct WorkoutSummaryView: View {
             }
             heroTitleBlock
             if !data.personalRecords.isEmpty {
-                HudVibeChip(label: prCountLabel, energy: .amber)
+                ForgeVibeChip(label: prCountLabel, energy: .amber)
             }
         }
         .frame(maxWidth: .infinity)
-        .hudPlate(energy: scoreColor)
+        .forgeContentCard()
         .accessibilityElement(children: .contain)
     }
 
     private var scoreRing: some View {
         let ringSize = ForgeLayout.scaledCap(scoreRingSize, base: 180)
-        return HudProgressRing(progress: workoutScore, energy: scoreColor, size: ringSize, eventGlow: celebrate) {
+        return ForgeProgressRing(progress: workoutScore, energy: scoreColor, size: ringSize, eventGlow: celebrate) {
             VStack(spacing: ForgeLayout.labelValueGap) {
                 Text("\(workoutScore)")
                     .font(HomeType.heroScore)
                     .foregroundStyle(Color.textPrimary)
                     .contentTransition(.numericText())
-                    .hudInArcText()
+                    .forgeGlanceText()
                 if !typeSize.isAccessibilitySize {
                     Text(scoreLabel)
                         .forgeSectionLabel(tint: scoreColor)
-                        .hudInArcText()
+                        .forgeGlanceText()
                 }
             }
         }
@@ -129,8 +129,8 @@ struct WorkoutSummaryView: View {
     }
 
     private var o2Color: Color {
-        if data.minO2 > 0 && data.minO2 < 94 { return HudChrome.miss }
-        return HudChrome.plate
+        if data.minO2 > 0 && data.minO2 < 94 { return ForgeProgressChrome.miss }
+        return ForgeProgressChrome.plate
     }
 
     /// A zero from the session means "not measured", so it reads as a dash.
@@ -164,7 +164,7 @@ struct WorkoutSummaryView: View {
                 .foregroundStyle(Color.textPrimary)
                 .lineLimit(2)
                 .frame(maxWidth: .infinity, alignment: .leading)
-            HudVibeChip(label: "New PR", energy: .amber)
+            ForgeVibeChip(label: "New PR", energy: .amber)
         }
         .padding(.vertical, ForgeLayout.rowVerticalPadding)
         .frame(minHeight: ForgeUX.minTap)
@@ -208,7 +208,7 @@ struct WorkoutSummaryView: View {
         if rpe <= 0 { return .textMuted }
         if rpe <= 4 { return .vitality }
         if rpe <= 7 { return .amber }
-        return HudChrome.miss
+        return ForgeProgressChrome.miss
     }
     private func formatDuration(_ s: Int) -> String { let m = s / 60; let sec = s % 60; return m > 0 ? "\(m)m \(sec)s" : "\(sec)s" }
 }
@@ -223,7 +223,7 @@ private struct SummaryHRZone {
 
 private enum SummaryHRZones {
     static let all: [SummaryHRZone] = [
-        SummaryHRZone(name: "Z1", color: HudChrome.plate, range: 100...114),
+        SummaryHRZone(name: "Z1", color: ForgeProgressChrome.plate, range: 100...114),
         SummaryHRZone(name: "Z2", color: Color.vitality, range: 115...133),
         SummaryHRZone(name: "Z3", color: Color.amber, range: 134...152),
         SummaryHRZone(name: "Z4", color: Color.ember, range: 153...171),

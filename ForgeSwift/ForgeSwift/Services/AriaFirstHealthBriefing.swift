@@ -128,7 +128,7 @@ enum AriaFirstHealthBriefing {
 
     /// A companion sentence from the first Health read — never a field dump.
     /// Numbers stay in Sleep / Stats. This is what a friend would say after
-    /// looking at last night, not what a HUD would print.
+    /// looking at last night, not a vitals dump.
     static func learnedLine(_ snapshot: Snapshot) -> String? {
         var bits: [String] = []
 

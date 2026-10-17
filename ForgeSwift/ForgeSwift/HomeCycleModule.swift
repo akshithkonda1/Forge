@@ -159,8 +159,7 @@ struct HomeCycleModule: View {
                         .lineLimit(2)
                 }
             }
-            .padding(HomeMetrics.cardPadding)
-            .forgeGlassCard(accent: accent)
+            .forgeContentCard()
         }
         .buttonStyle(.plain)
         .accessibilityLabel("Cycle Health, \(title). \(CyclePrivacy.shortPromise)")
@@ -255,8 +254,7 @@ struct HomeSupportPulseCard: View {
                     .font(.system(size: 12, weight: .semibold))
                     .foregroundColor(.textMuted)
             }
-            .padding(HomeMetrics.cardPadding)
-            .forgeGlassCard(accent: accent)
+            .forgeContentCard()
         }
         .buttonStyle(.plain)
     }

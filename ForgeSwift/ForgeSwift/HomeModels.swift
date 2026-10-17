@@ -15,19 +15,17 @@ enum HomeMetrics {
     static let sectionGap: CGFloat = FDS.Spacing.lg
     /// Interior padding for every card.
     static let cardPadding: CGFloat = FDS.Spacing.xl
-    /// Radius for elements *inside* a card. Cards themselves use the
-    /// `forgeGlassCard` default (`FDS.Radius.xl`).
+    /// Radius for elements *inside* a card. Cards themselves use
+    /// `forgeContentCard` at `FDS.Radius.xl`.
     static let innerRadius: CGFloat = FDS.Radius.md
-    /// Clearance past the tab bar and floating orb at the end of the scroll.
+    /// Clearance past the tab bar at the end of the scroll.
     static let scrollBottomClearance: CGFloat = FDS.Spacing.xxl
     /// How far a section rises as it fades in.
     static let entranceRise: CGFloat = 12
-    /// Hero ring-field base size. Use sites wrap this in `@ScaledMetric` and
-    /// floor at `AriaRingFieldGeometry.heroMinimumSize` (90) so all five
-    /// ellipses still paint — compact 3-ring is Watch-only.
+    /// Hero progress-ring size. Compact 3-ring nest is Watch-only.
     static let heroFieldSize: CGFloat = 132
     /// Solid plate radius — Today / Tomorrow share this so they hand-in-hand.
-    static let hudRadius: CGFloat = FDS.Radius.xl
+    static let cardRadius: CGFloat = FDS.Radius.xl
     /// Stack gap inside the Today hero (ring → vibe → tracks → CTA).
     static let heroStackGap: CGFloat = FDS.Spacing.lg
 }

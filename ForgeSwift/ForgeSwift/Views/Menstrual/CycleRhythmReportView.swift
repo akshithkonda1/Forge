@@ -92,7 +92,7 @@ struct CycleRhythmReportView: View {
                     .foregroundStyle(Color.textPrimary)
                     .fixedSize(horizontal: false, vertical: true)
                     .accessibilityAddTraits(.isHeader)
-                HudVibeChip(label: "Apple Cycle", energy: Color.vitality)
+                ForgeVibeChip(label: "Apple Cycle", energy: Color.vitality)
             }
             Text("Forge reads what it already wrote to Apple Cycle Tracking, then fills this template on your iPhone. Share the PDF via Mail, Files, or MyChart. A temporary private link is optional and expires in a day — nothing is stored in a Forge database.")
                 .font(HomeType.body)
@@ -139,7 +139,7 @@ struct CycleRhythmReportView: View {
                 .accessibilityHint("Opens the system share sheet with a PDF. You choose Mail, Files, MyChart, or AirDrop.")
             }
         }
-        .hudPlate(energy: Color.ember)
+        .forgeContentCard()
         .accessibilityElement(children: .contain)
     }
 

@@ -361,7 +361,7 @@ struct TWWSectionCard: View {
             ForgeCardHeader("Two-Week Wait")
 
             HStack(spacing: ForgeLayout.blockGap) {
-                HudProgressRing(
+                ForgeProgressRing(
                     progress: progressPercent,
                     energy: tone,
                     size: ForgeLayout.scaledCap(windowRingSize, base: 72)
@@ -369,7 +369,7 @@ struct TWWSectionCard: View {
                     Text("\(daysElapsed)")
                         .font(HomeType.metric)
                         .foregroundStyle(Color.textPrimary)
-                        .hudInArcText()
+                        .forgeGlanceText()
                 }
                 VStack(alignment: .leading, spacing: ForgeLayout.pairGap) {
                     Text("Day \(daysElapsed)")

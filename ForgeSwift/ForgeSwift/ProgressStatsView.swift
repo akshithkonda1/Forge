@@ -89,7 +89,18 @@ struct StatsMosaicCard: View {
             stepsManual = false
         }
 
-        return StatsMosaic.snapshot(
+        let today: String = {
+            let f = DateFormatter()
+            f.calendar = Calendar.current
+            f.locale = Locale(identifier: "en_US_POSIX")
+            f.dateFormat = "yyyy-MM-dd"
+            return f.string(from: Date())
+        }()
+        let contribution = HobbyFit.dayContribution(
+            hobbies: store.userProfile.lifestyleProfile.hobbies,
+            todayISO: today
+        )
+        let input = HobbyFit.applyToMosaic(
             StatsMosaic.Input(
                 sleepHours: sleepHours,
                 sleepManual: sleepManual,
@@ -101,8 +112,11 @@ struct StatsMosaicCard: View {
                 stepsManual: stepsManual,
                 habitsDone: manual.habitsDone ?? 0,
                 habitsGoal: 3
-            )
+            ),
+            contribution: contribution
         )
+        let live = StatsMosaic.snapshot(input)
+        return ForgeTutorial.mosaic(for: store.mosaicTutorial, live: live)
     }
 
     private var workoutsThisWeek: Int {
@@ -121,11 +135,15 @@ struct StatsMosaicCard: View {
             mosaicHeader(snap)
             mosaicTiles(snap.tiles)
             ForgeSecondaryButton(title: "Ask ARIA about this picture", accent: .ember) {
-                store.openChat(with: snap.mosaicLine, voice: false)
+                if store.mosaicTutorial.isComplete {
+                    store.openChat(with: snap.mosaicLine, voice: false)
+                } else {
+                    store.recordTutorial(.askedAria)
+                }
             }
             .accessibilityLabel("Ask ARIA about today’s mosaic")
         }
-        .hudPlate(energy: HudChrome.plate)
+        .forgeContentCard()
         .accessibilityElement(children: .contain)
         .sheet(isPresented: $showManual) {
             StatsManualEntrySheet()
@@ -140,7 +158,7 @@ struct StatsMosaicCard: View {
         return ForgeAdaptiveStack(spacing: FDS.Spacing.sm, alignment: .firstTextBaseline) {
             VStack(alignment: .leading, spacing: ForgeLayout.pairGap) {
                 Text("TODAY’S MOSAIC")
-                    .forgeSectionLabel(tint: HudChrome.plate)
+                    .forgeSectionLabel(tint: ForgeProgressChrome.plate)
                     .accessibilityAddTraits(.isHeader)
                 Text(headline)
                     .font(HomeType.sessionTitle)
@@ -180,25 +198,27 @@ struct StatsMosaicCard: View {
     }
 
     private func tileDotColor(_ tile: StatsMosaic.Tile) -> Color {
-        if tile.almostThere { return HudChrome.plate }
-        return tile.source == .empty ? HudChrome.miss.opacity(0.35) : Color.ember
+        if tile.almostThere { return ForgeProgressChrome.plate }
+        return tile.source == .empty ? ForgeProgressChrome.miss.opacity(0.35) : Color.ember
     }
 
     private func tileBarTint(_ tile: StatsMosaic.Tile) -> Color {
-        if !tile.almostThere && tile.source == .empty { return HudChrome.miss }
-        return HudChrome.plate
+        if !tile.almostThere && tile.source == .empty { return ForgeProgressChrome.miss }
+        return ForgeProgressChrome.plate
     }
 
     /// Normal tiles keep the well's own white edge; only almost-there and
     /// empty tiles add a colored one.
     private func tileEdge(_ tile: StatsMosaic.Tile) -> Color {
-        if tile.almostThere { return HudChrome.plate.opacity(0.50) }
-        if tile.source == .empty { return HudChrome.miss.opacity(0.16) }
+        if tile.almostThere { return ForgeProgressChrome.plate.opacity(0.50) }
+        if tile.source == .empty { return ForgeProgressChrome.miss.opacity(0.16) }
         return Color.clear
     }
 
     private func mosaicTile(_ tile: StatsMosaic.Tile) -> some View {
         Button {
+            store.recordTutorial(.focusedTile)
+            store.recordTutorial(.expandedTile)
             store.openChat(with: tile.ariaPrompt, voice: false)
         } label: {
             VStack(alignment: .leading, spacing: ForgeLayout.pairGap) {
@@ -208,9 +228,9 @@ struct StatsMosaicCard: View {
                         .foregroundStyle(Color.textTertiary)
                         .lineLimit(1)
                     Spacer(minLength: 0)
-                    Circle()
+                    RoundedRectangle(cornerRadius: 1.5, style: .continuous)
                         .fill(tileDotColor(tile))
-                        .frame(width: 6, height: 6)
+                        .frame(width: 7, height: 7)
                         .accessibilityHidden(true)
                 }
                 Text(tile.headline)
@@ -220,7 +240,7 @@ struct StatsMosaicCard: View {
                     .contentTransition(.numericText())
                 Text(tile.almostThere ? "Almost there · \(tile.detail)" : tile.detail)
                     .font(HomeType.micro)
-                    .foregroundStyle(tile.almostThere ? HudChrome.plate : Color.textTertiary)
+                    .foregroundStyle(tile.almostThere ? ForgeProgressChrome.plate : Color.textTertiary)
                     .lineLimit(2)
                 Spacer(minLength: FDS.Spacing.xs)
                 ForgeProgressBar(fraction: tile.progress, tint: tileBarTint(tile), height: 5)
@@ -366,7 +386,7 @@ struct QuickStatCard: View {
     var delay: Double = 0
 
     private var trendTint: Color {
-        trendUp ? Color.vitality : HudChrome.miss
+        trendUp ? Color.vitality : ForgeProgressChrome.miss
     }
 
     var body: some View {

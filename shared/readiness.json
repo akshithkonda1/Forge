@@ -1,29 +1,28 @@
 {
-  "kind": "home-progress-hud",
+  "kind": "home-progress-chrome",
   "surface": "phone-home",
   "mixLock": "chrome-not-nest",
-  "notes": "Phone Home Today Progress chrome. Same palette, type, and ring language — evolved toward solid geometry, restrained glow, and motivation psychology. Not a HUD costume (no brackets, scanlines, or fake telemetry). Nest brand stays procedural AriaNestGeometry (soft-hex-field) — never mount this file as the logo. Watch / StandBy stay on their own surfaces. Web may read these tokens. Band names are Peak / Good / Fair / Low — Home vocabulary, not Primed / Ready / Moderate / Recovery and not clinical labels.",
+  "notes": "Phone Home Today Progress chrome — personal and grounded. This is your interface, this is who you are. Solid sweep, hairline plates. No HUD, no Iron Man / Tony Stark suit, no cockpit, no scanlines, no tick dial, no reticle, no always-on glow. Nest brand stays procedural AriaNestGeometry. Watch / StandBy stay on their own surfaces. Band names are Peak / Good / Fair / Low.",
   "bands": [
     { "id": "peak", "label": "Peak", "min": 85, "hex": "22C55E", "token": "vitality" },
     { "id": "good", "label": "Good", "min": 70, "hex": "F5A524", "token": "amber" },
     { "id": "fair", "label": "Fair", "min": 50, "hex": "5B8DEF", "token": "steel" },
     { "id": "low", "label": "Low", "min": 0, "hex": "EF4444", "token": "alert" }
   ],
-  "hud": {
+  "chrome": {
     "plateHex": "7EC8FF",
     "emberSteelHex": "7BA6F7",
-    "tickCount": 48,
-    "majorEvery": 6,
+    "tickCount": 0,
+    "majorEvery": 0,
     "ringSize": 168,
     "compactRingSize": 92,
     "stroke": 5.5,
     "compactStroke": 4.5,
-    "tickHz": 6,
-    "tickHzCeiling": 12,
+    "eventHz": 6,
+    "eventHzCeiling": 12,
     "glowHz": 0.35,
-    "tickChromeFloor": 0.70,
-    "armedMajorTickOpacity": 0.78,
-    "inArcMinimumScale": 0.7
+    "chromeFloor": 0.70,
+    "glanceMinimumScale": 0.7
   },
   "motivation": {
     "almostTherePercent": 80,
@@ -35,8 +34,8 @@
     "scanlines": false,
     "missHex": "7BA6F7",
     "glowRadius": 5,
-    "tickMajorWidth": 1.25,
-    "tickMinorWidth": 0.55
+    "tickMajorWidth": 0,
+    "tickMinorWidth": 0
   },
   "trend": {
     "plotFloor": 30,

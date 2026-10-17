@@ -7,6 +7,7 @@ import { useAppStore } from "@/stores/useAppStore";
 import { useToast } from "@/stores/useToast";
 import { Sheet } from "@/components/ui/sheet";
 import { ARIA_TONE_ORDER, ARIA_TONES, resolveCoachingStyle } from "@/lib/aria-companion";
+import { AriaPausedNotice } from "@/components/aria-paused-notice";
 import type { CoachingStyle } from "@/types";
 
 const TONE_ICONS: Record<CoachingStyle, typeof MessageCircle> = {
@@ -32,6 +33,7 @@ export function AriaCompanionControls({
   const userProfile = useAppStore((s) => s.userProfile);
   const updateProfile = useAppStore((s) => s.updateProfile);
   const showToast = useToast((s) => s.show);
+  const ariaPaused = useAppStore((s) => s.ariaPaused);
   const [open, setOpen] = useState(false);
   const tone = ARIA_TONES[resolveCoachingStyle(userProfile.coachingStyle)];
 
@@ -47,8 +49,13 @@ export function AriaCompanionControls({
           </span>
         }
         showChevron
-        onClick={() => setOpen(true)}
+        onClick={ariaPaused ? undefined : () => setOpen(true)}
       />
+      {ariaPaused && (
+        <div className="px-4 pb-2">
+          <AriaPausedNotice surface="switcher" />
+        </div>
+      )}
       <div className="px-4 py-2.5">
         <p className="text-xs leading-relaxed text-text-tertiary">{tone.line}</p>
       </div>

@@ -7,6 +7,7 @@ struct HomeView: View {
     @State private var showHeaderBlur = false
     @State private var showTrend = false
     @State private var proactiveInsight: String?
+    @State private var celebrationKey: Int?
     private var primaryAction: HomePrimaryAction {
         HomePrimaryAction.resolve(store: store)
     }
@@ -18,15 +19,16 @@ struct HomeView: View {
 
     var body: some View {
         ZStack(alignment: .top) {
-            HomeAuroraBackground(readinessScore: store.readiness.overall)
+            Color.background
                 .ignoresSafeArea()
 
             ScrollView(showsIndicators: false) {
-                VStack(spacing: HomeMetrics.sectionGap) {
+                ForgeScreenStack {
                         HomeHeaderView()
-                            .padding(.top, FDS.Spacing.sm)
 
-                        HomeTodayHero(action: primaryAction)
+                        HomeTodayHero(action: primaryAction) {
+                            celebrationKey = Int(Date().timeIntervalSince1970)
+                        }
                         ReadinessForecastCard()
 
                         if !store.quietMode {
@@ -76,9 +78,7 @@ struct HomeView: View {
                         StreakCalendarSection()
                         HomeTrendSection(isExpanded: $showTrend)
                         LoadTimelineView()
-                            .padding(.bottom, HomeMetrics.scrollBottomClearance)
                 }
-                .padding(.horizontal, HomeMetrics.inset)
                 .background {
                     GeometryReader { geo in
                         Color.clear.preference(
@@ -102,6 +102,13 @@ struct HomeView: View {
             if showHeaderBlur {
                 HomeScrollMiniHeader()
                     .forgeTransition(.opacity.combined(with: .move(edge: .top)))
+            }
+
+            if let celebrationKey {
+                CelebrationOverlay(key: celebrationKey) {
+                    self.celebrationKey = nil
+                }
+                .zIndex(20)
             }
 
         }
@@ -247,6 +254,7 @@ struct HomeHeaderView: View {
                 }
             }
         }
+        .padding(.top, ForgeLayout.screenTop)
         .homeEntrance(delay: 0.05)
     }
 }
@@ -332,7 +340,6 @@ private struct HomeScrollMiniHeader: View {
 
     var body: some View {
         HStack(spacing: FDS.Spacing.md) {
-            ReadinessRingView(score: store.readiness.overall, size: 26, strokeWidth: 3, showLabel: false)
             VStack(alignment: .leading, spacing: 1) {
                 Text(firstName)
                     .font(HomeType.status)

@@ -1,0 +1,46 @@
+{
+  "kind": "forge-population-baselines",
+  "version": 1,
+  "updated": "2026-10-17",
+  "notes": "Optional background reference only — not shown in the tutorial or as a headline of how the person is doing. Cited public figures only. Never invent a national number. Omit a metric when no solid source exists. Do not lead with BMI.",
+  "serverDataset": {
+    "status": "todo",
+    "note": "TODO: replace this on-device table when Akshith's population dataset is served. Until then, only the cited rows below may be compared."
+  },
+  "metrics": [
+    {
+      "id": "shortSleepPrevalence",
+      "unit": "percent",
+      "value": 30.5,
+      "year": 2024,
+      "population": "US adults 18+",
+      "source": "NCHS Data Brief No. 559, National Health Interview Survey 2024",
+      "url": "https://www.cdc.gov/nchs/products/databriefs/db559.htm",
+      "compareMode": "prevalenceBelow7h",
+      "detail": "Percentage of adults who slept less than 7 hours on average in a 24-hour period."
+    },
+    {
+      "id": "stepsPerDay",
+      "unit": "steps",
+      "value": 6540,
+      "year": 2009,
+      "surveyYears": "2005-2006",
+      "population": "US adults 20+",
+      "source": "Tudor-Locke C, Johnson WD, Katzmarzyk PT. Accelerometer-determined steps per day in US adults. Med Sci Sports Exerc. 2009;41(7):1384-1391. NHANES 2005–2006, steps censored below 500 activity counts/min (pedometer-comparable).",
+      "url": "https://pubmed.ncbi.nlm.nih.gov/19516163/",
+      "compareMode": "mean",
+      "detail": "Mean 6,540 censored steps/day (SE 106) among 3,744 adults with ≥1 valid wear day."
+    },
+    {
+      "id": "metBothActivityGuidelines",
+      "unit": "percent",
+      "value": 24.2,
+      "year": 2020,
+      "population": "US adults 18+",
+      "source": "NCHS Data Brief No. 443, National Health Interview Survey 2020",
+      "url": "https://www.cdc.gov/nchs/products/databriefs/db443.htm",
+      "compareMode": "prevalenceMetBoth",
+      "detail": "Percentage meeting 2018 Physical Activity Guidelines for both aerobic and muscle-strengthening activity."
+    }
+  ]
+}

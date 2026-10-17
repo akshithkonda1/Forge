@@ -73,9 +73,8 @@ struct HomeWidgetBoard: View {
                 .font(ForgeFont.sans(12))
                 .foregroundColor(.textSecondary)
         }
-        .padding(HomeMetrics.cardPadding)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .forgeGlassCard(accent: Color.steel.opacity(0.4))
+        .forgeContentCard()
     }
 }
 
@@ -107,9 +106,8 @@ private struct HomePinnedWidgetCard: View {
                 content
                 Spacer(minLength: 0)
             }
-            .padding(FDS.Spacing.md)
             .frame(maxWidth: .infinity, minHeight: 112, alignment: .topLeading)
-            .forgeGlassCard(accent: accent.opacity(0.55))
+            .forgeContentCard(padding: FDS.Spacing.md)
         }
         .buttonStyle(.plain)
         .accessibilityHint(editing ? "Remove from Home" : "Opens \(kind.title)")

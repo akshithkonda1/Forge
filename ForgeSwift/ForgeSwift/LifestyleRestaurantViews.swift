@@ -243,7 +243,7 @@ struct RestaurantCard: View {
         switch avgProteinEfficiency {
         case 100...: return Color.vitality
         case 60..<100: return Color.amber
-        default: return HudChrome.miss
+        default: return ForgeProgressChrome.miss
         }
     }
 
@@ -377,7 +377,7 @@ struct MenuItemCard: View {
         case .excellent: return Color.vitality
         case .good: return Color.steel
         case .fair: return Color.amber
-        case .poor: return HudChrome.miss
+        case .poor: return ForgeProgressChrome.miss
         }
     }
 
@@ -421,7 +421,7 @@ struct MenuItemCard: View {
                         .foregroundStyle(Color.vitality)
                         .accessibilityLabel("Healthy choice")
                 }
-                HudVibeChip(label: item.nutritionalRating.label, energy: ratingColor)
+                ForgeVibeChip(label: item.nutritionalRating.label, energy: ratingColor)
             }
         }
     }

@@ -13,7 +13,7 @@ struct HomeWinCard: View {
     }
 
     private var subtitle: String {
-        if store.isWorkoutActive { return "Finish, then give recovery a real chance." }
+        if store.isWorkoutActive { return "Finish, then give tonight a real chance." }
         if store.didTrainToday { return "Sleep tonight is the rest of the work." }
         if store.currentStreak > 0 { return "A quiet fact, not a score to protect." }
         return "When you’re ready, ARIA will write today’s session from how you live."
@@ -31,14 +31,12 @@ struct HomeWinCard: View {
             }
         } label: {
             HStack(spacing: FDS.Spacing.md) {
-                ZStack {
-                    Circle()
-                        .fill(Color.ember.opacity(0.18))
-                        .frame(width: 42, height: 42)
-                    Image(systemName: "checkmark")
-                        .font(.system(size: 16, weight: .semibold))
-                        .foregroundStyle(Color.ember)
-                }
+                ForgeTessera(
+                    lit: store.didTrainToday || store.isWorkoutActive,
+                    energy: .ember,
+                    size: 42,
+                    systemImage: store.didTrainToday || store.isWorkoutActive ? "checkmark" : nil
+                )
                 VStack(alignment: .leading, spacing: 3) {
                     Text("TODAY")
                         .forgeSectionLabel()
@@ -56,8 +54,7 @@ struct HomeWinCard: View {
                     .font(.system(size: 12, weight: .semibold))
                     .foregroundColor(.ember)
             }
-            .padding(HomeMetrics.cardPadding)
-            .forgeGlassCard(accent: .ember)
+            .forgeContentCard()
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
@@ -106,7 +103,7 @@ struct HomeAgendaCard: View {
             rows.append((
                 "moon.zzz.fill",
                 String(format: "Sleep · %.1fh", h),
-                store.readiness.overall < 60 ? "Protect recovery tonight" : "Review wind-down",
+                store.readiness.overall < 60 ? "Protect rest tonight" : "Review wind-down",
                 .steel,
                 { store.activeTab = .sleep; store.pendingSleepTab = "night" }
             ))
@@ -200,8 +197,7 @@ struct HomeAgendaCard: View {
                 .accessibilityHint(item.sub)
             }
         }
-        .padding(HomeMetrics.cardPadding)
-        .forgeGlassCard(accent: .ember.opacity(0.5))
+        .forgeContentCard()
         .homeEntrance(delay: 0.16)
     }
 }
@@ -274,8 +270,7 @@ struct HomeLifestylePreviewCard: View {
                         .foregroundColor(.textMuted)
                 }
             }
-            .padding(HomeMetrics.cardPadding)
-            .forgeGlassCard(accent: Color.vitality)
+            .forgeContentCard()
         }
         .buttonStyle(.plain)
         .homeEntrance(delay: 0.22)
@@ -284,8 +279,25 @@ struct HomeLifestylePreviewCard: View {
     }
 
     private var hobbyPreview: String {
-        let line = store.predictiveCoachPicture().hobby.headline
-        return "\(line) — wellbeing isn't only fitness"
+        let picture = store.predictiveCoachPicture()
+        let time = HobbyFit.lifestyleTime(
+            hobbies: picture.fitHobbies,
+            nowISODay: Self.todayISO(),
+            weekDays: []
+        )
+        return HobbyFit.homePreview(
+            path: picture.hobby.path,
+            speak: picture.hobbyFitSpeak,
+            time: time
+        )
+    }
+
+    private static func todayISO() -> String {
+        let f = DateFormatter()
+        f.calendar = Calendar.current
+        f.locale = Locale(identifier: "en_US_POSIX")
+        f.dateFormat = "yyyy-MM-dd"
+        return f.string(from: Date())
     }
 
     private func lifestyleChip(icon: String, value: String, label: String, color: Color) -> some View {
@@ -413,9 +425,8 @@ private struct HomeMetricTile: View {
                 .font(HomeType.micro)
                 .foregroundColor(.textTertiary)
         }
-        .padding(FDS.Spacing.md)
         .frame(width: 118, alignment: .leading)
-        .forgeGlassCard(cornerRadius: HomeMetrics.innerRadius)
+        .forgeWell()
         .accessibilityElement(children: .combine)
         .accessibilityLabel("\(label): \(value)")
     }
@@ -689,8 +700,7 @@ struct HomeTrendSection: View {
                     .accessibilityLabel(HomeTrendSeries.accessibilitySummary(trend))
             }
         }
-        .padding(HomeMetrics.cardPadding)
-        .forgeGlassCard()
+        .forgeContentCard()
         .onAppear {
             guard !chartGrown else { return }
             if reduceMotion {

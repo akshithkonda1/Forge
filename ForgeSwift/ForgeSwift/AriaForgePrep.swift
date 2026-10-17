@@ -4,7 +4,7 @@ import ForgeCore
 /// Console-style first boot after the ARIA interview: load this person's
 /// profile, Health, history, plan, Watch, and reminders before the shell
 /// opens. Duration is 45 seconds to 3 minutes from how much data there is —
-/// like a console loading profiles — not a HUD spinner.
+/// like a quiet first boot — not a percent spinner.
 enum AriaForgePrep: Sendable {
     static let floor: TimeInterval = 45
     static let cap: TimeInterval = 180

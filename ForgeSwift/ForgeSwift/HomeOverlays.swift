@@ -1,113 +1,71 @@
 import SwiftUI
 import ForgeCore
 
+/// Event-only close-the-day moment. Tesserae light once; there is no looping
+/// confetti, glass banner, or decorative clock. Reduce Motion is a still card.
 struct CelebrationOverlay: View {
     let key: Int
     let onDismiss: () -> Void
-    @State private var particles: [ConfettiParticle] = []
-    @State private var bannerScale: CGFloat = 0.6
     @State private var revealed = false
-    @State private var isOnscreen = true
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
-    @Environment(\.scenePhase) private var scenePhase
 
-    /// Event confetti. Ceiling is the 12 Hz decorative budget; the clock
-    /// pauses off-screen, under Reduce Motion, or when the scene is inactive.
-    static let tickHz: Double = 12
-    static let tickInterval: Double = 1.0 / tickHz
+    /// No decorative clock — a win is a haptic plus a hairline pulse.
+    static let tickHz: Double = 0
+    static let tickInterval: Double = 1
 
-    static func isClockPaused(reduceMotion: Bool, sceneActive: Bool, onscreen: Bool) -> Bool {
-        ForgeMotion.isDecorativeClockPaused(
-            reduceMotion: reduceMotion,
-            sceneActive: sceneActive,
-            onscreen: onscreen
-        )
+    static func isClockPaused(
+        reduceMotion: Bool,
+        sceneActive: Bool,
+        onscreen: Bool
+    ) -> Bool {
+        true
     }
 
-    private var paused: Bool {
-        Self.isClockPaused(
-            reduceMotion: reduceMotion,
-            sceneActive: scenePhase == .active,
-            onscreen: isOnscreen
-        )
-    }
-
-    private struct ConfettiParticle: Identifiable {
-        let id = UUID()
-        let x: CGFloat
-        let y: CGFloat
-        let color: Color
-        let rotation: Double
-        let size: CGFloat
-    }
+    static let title = "That's who you are"
+    static let line = "Five tesserae lit. The day closed."
 
     var body: some View {
-        GeometryReader { geo in
-            ZStack {
-                Color.black.opacity(revealed ? 0.35 : 0).ignoresSafeArea()
-                TimelineView(.animation(minimumInterval: Self.tickInterval, paused: paused)) { tl in
-                    let t = tl.date.timeIntervalSinceReferenceDate
-                    Canvas { ctx, size in
-                        guard size.width >= 2, size.height >= 2 else { return }
-                        for p in particles {
-                            var tctx = ctx
-                            tctx.opacity = 0.9
-                            tctx.translateBy(x: p.x, y: p.y + CGFloat((t * 40).truncatingRemainder(dividingBy: Double(size.height))))
-                            tctx.rotate(by: .degrees(p.rotation + t * 40))
-                            tctx.fill(
-                                Path(CGRect(x: -p.size / 2, y: -p.size / 2, width: p.size, height: p.size * 0.6)),
-                                with: .color(p.color)
-                            )
-                        }
-                    }
-                }
-
-                VStack(spacing: FDS.Spacing.sm) {
-                    Text("Peak readiness")
-                        .font(ForgeFont.sans(28, weight: .black))
-                        .foregroundStyle(.white)
-                    Text("You're in the window. Use it well.")
-                        .font(FDS.TypeScale.Dynamic.body)
-                        .foregroundStyle(.white.opacity(0.8))
-                }
-                .scaleEffect(bannerScale)
-                .padding(FDS.Spacing.xl)
-                .background(.ultraThinMaterial)
-                .clipShape(RoundedRectangle(cornerRadius: FDS.Radius.xl, style: .continuous))
-            }
-            .frame(width: geo.size.width, height: geo.size.height)
-            .onAppear {
-                if !reduceMotion {
-                    spawnParticles(width: geo.size.width)
-                }
-                withForgeMotion(ForgeMotion.gentle) {
-                    revealed = true
-                    bannerScale = 1
-                }
-                Task { @MainActor in
-                    try? await Task.sleep(for: .milliseconds(3_800))
-                    onDismiss()
+        ZStack {
+            Color.background.opacity(revealed ? 0.72 : 0)
+                .ignoresSafeArea()
+                .allowsHitTesting(false)
+            VStack(alignment: .leading, spacing: ForgeLayout.blockGap) {
+                ForgeMosaicStrip(
+                    lit: Array(repeating: true, count: ForgeMosaicTracks.count),
+                    energy: .ember
+                )
+                VStack(alignment: .leading, spacing: ForgeLayout.pairGap) {
+                    Text(Self.title)
+                        .font(ForgeType.pageTitle)
+                        .foregroundStyle(Color.textPrimary)
+                        .fixedSize(horizontal: false, vertical: true)
+                        .accessibilityAddTraits(.isHeader)
+                    Text(Self.line)
+                        .font(HomeType.body)
+                        .foregroundStyle(Color.textSecondary)
+                        .fixedSize(horizontal: false, vertical: true)
                 }
             }
+            .forgeContentCard()
+            .padding(.horizontal, ForgeLayout.screenInset)
+            .scaleEffect(revealed || reduceMotion ? 1 : 0.96)
+            .opacity(revealed || reduceMotion ? 1 : 0)
         }
         .id(key)
-        .onAppear { isOnscreen = true }
-        .onDisappear { isOnscreen = false }
-        .onScrollVisibilityChange { isOnscreen = $0 }
-    }
-
-    private func spawnParticles(width: CGFloat) {
-        let colors: [Color] = [.ember, Color.vitality, .steel, Color.warning]
-        let span = max(width, 1)
-        particles = (0..<40).map { _ in
-            ConfettiParticle(
-                x: .random(in: 0...span),
-                y: .random(in: -40...120),
-                color: colors.randomElement() ?? .ember,
-                rotation: .random(in: 0...360),
-                size: .random(in: 6...12)
-            )
+        .onAppear {
+            ForgeHaptics.play(.success)
+            if reduceMotion {
+                revealed = true
+            } else {
+                withForgeMotion(ForgeMotion.gentle) { revealed = true }
+            }
+            Task { @MainActor in
+                try? await Task.sleep(for: .milliseconds(reduceMotion ? 1_600 : 2_400))
+                onDismiss()
+            }
         }
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("\(Self.title). \(Self.line)")
     }
 }
 

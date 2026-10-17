@@ -85,3 +85,28 @@ final class AriaMemoryControlsViewModelTests: XCTestCase {
         XCTAssertEqual(AriaMemoryAccess.rememberMeValue(isOn: false), "Off")
     }
 }
+
+/// Soul is observable and read per reply — a switch mid-conversation
+/// changes the next directive with no restart.
+@MainActor
+final class AriaSoulStoreTests: XCTestCase {
+
+    func testSwitchMidConversationChangesNextReplySoul() {
+        let suite = "forge.aria.soul.\(UUID().uuidString)"
+        guard let defaults = UserDefaults(suiteName: suite) else {
+            return XCTFail("defaults")
+        }
+        defaults.removePersistentDomain(forName: suite)
+        let store = AriaSoulStore(defaults: defaults)
+        store.setPersonality(.coach)
+        let first = AriaSoul.nextReply(draft: "Next move is easy.", config: store.config)
+        XCTAssertTrue(first.soul.contains("Coach"))
+        store.setPersonality(.drillSergeant)
+        let second = AriaSoul.nextReply(draft: "Next move is easy.", config: store.config)
+        XCTAssertNotEqual(first.soul, second.soul)
+        XCTAssertTrue(second.soul.contains("Drill Sergeant"))
+        XCTAssertTrue(store.directive.contains("Drill Sergeant"))
+        XCTAssertFalse(AriaSoul.containsRailBreak(second.spoken))
+        defaults.removePersistentDomain(forName: suite)
+    }
+}

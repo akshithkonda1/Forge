@@ -107,4 +107,99 @@ final class HobbyFitTests: XCTestCase {
         XCTAssertFalse(tags.contains("mentality:"))
         XCTAssertTrue(HobbyFit.speechIsClean(picture.hobbyFitSpeak))
     }
+
+    func testGymIsNotSoloAndFreeTextNormalizes() {
+        let gym = HobbyFit.hobbies(from: [.gym]).first
+        XCTAssertEqual(gym?.kind, .social)
+        XCTAssertEqual(HobbyFit.normalize(label: "CrossFit gym")?.kind, .social)
+        let rows = HobbyFit.normalizeHobbies(labels: ["Pottery nights", "sam@x.com", "Gardening"])
+        XCTAssertEqual(rows.map(\.id), ["pottery_nights", "gardening"])
+        XCTAssertEqual(HobbyFit.chipToggle(selected: ["cooking"], tapping: "reading", cap: 3), ["cooking", "reading"])
+        XCTAssertEqual(HobbyFit.chipToggle(selected: ["a", "b", "c"], tapping: "d", cap: 3), ["a", "b", "c"])
+    }
+
+    func testHealthKitSetsLastEngagedAndCountsTowardTheDay() {
+        let engaged = HobbyFit.engage(
+            fromWorkouts: [
+                .init(name: "Morning hike", type: "cardio", dateISO: "2026-10-16"),
+                .init(name: "Vinyasa yoga", type: "yoga", dateISO: "2026-10-16"),
+                .init(name: "Dance cardio", type: "hiit", dateISO: "2026-10-15"),
+                .init(name: "Backyard gardening", type: "other", dateISO: "2026-10-16"),
+                .init(name: "Lunch walk", type: "cardio", dateISO: "2026-10-16"),
+            ],
+            existing: []
+        )
+        XCTAssertTrue(engaged.contains { $0.id == "outdoors" && $0.lastEngagedAt == "2026-10-16" })
+        XCTAssertTrue(engaged.contains { $0.label == "Yoga" && $0.lastEngagedAt == "2026-10-16" })
+        XCTAssertTrue(engaged.contains { $0.label == "Dance" })
+        XCTAssertTrue(engaged.contains { $0.label == "Gardening" })
+        let day = HobbyFit.dayContribution(hobbies: engaged, todayISO: "2026-10-16")
+        XCTAssertGreaterThan(day.habitWins + Int(day.moveMinutes), 0)
+        let mosaic = HobbyFit.applyToMosaic(StatsMosaic.Input(), contribution: day)
+        XCTAssertGreaterThan(mosaic.habitsDone + (mosaic.steps ?? 0), 0)
+        let time = HobbyFit.lifestyleTime(
+            hobbies: engaged,
+            nowISODay: "2026-10-16",
+            weekDays: ["2026-10-10", "2026-10-16"]
+        )
+        XCTAssertGreaterThan(time.engagedThisWeek, 0)
+        XCTAssertFalse(time.line.lowercased().contains("score"))
+        XCTAssertFalse(time.line.lowercased().contains("should have"))
+    }
+
+    func testLiveSignalsNeverClaimCertaintyAndCooldownWires() {
+        let working = UserWorkingModel.Snapshot(
+            tendency: .protector,
+            stance: .keepRhythm,
+            predictedFeel: .mixed,
+            confidence: .low,
+            drivers: [],
+            steeringLine: ""
+        )
+        let reading = HobbyFit.reading(
+            socialBand: .reserved,
+            peopleEnergy: .thin,
+            working: working,
+            live: .init(
+                calendarEventsToday: 6,
+                sleepHoursLastNight: 5,
+                sleepHoursTypical: 7.5,
+                hrvTrend: -10,
+                hour: 22,
+                conversation: ["need a night in"]
+            )
+        )
+        XCTAssertLessThan(reading.confidence, 1)
+        XCTAssertGreaterThan(reading.sources, 1)
+        XCTAssertTrue(HobbyFit.speechIsClean(reading.speak))
+
+        let pottery = HobbyFit.normalize(label: "Pottery nights", kind: "creative")!
+        var log = HobbyFit.SuggestionLog()
+        log = HobbyFit.rememberIgnored(log, id: pottery.id, cooldownUntil: "2026-10-20")
+        XCTAssertFalse(HobbyFit.shouldOffer(id: pottery.id, log: log, todayISO: "2026-10-16"))
+        XCTAssertTrue(HobbyFit.shouldOffer(id: pottery.id, log: log, todayISO: "2026-10-21"))
+        let cooled = HobbyFit.suggestions(
+            hobbies: [pottery],
+            path: .openGently,
+            mentality: .quiet,
+            keepLight: false,
+            log: log,
+            todayISO: "2026-10-21"
+        )
+        XCTAssertTrue(cooled.contains { !$0.cooldownLine.isEmpty })
+        XCTAssertEqual(HobbyFit.dismissalLine(label: "Pottery"), "")
+    }
+
+    func testHobbiesLiftQoLWhenPresentAndNeverShameWhenAbsent() {
+        let none = QualityOfLifeCalculator.score(from: QualityOfLifeInputs(socialConnection0to10: 6))
+        let some = QualityOfLifeCalculator.score(
+            from: QualityOfLifeInputs(socialConnection0to10: 6, hobbyEngagedThisWeek: 3)
+        )
+        XCTAssertGreaterThan(some.score(for: .social) ?? 0, none.score(for: .social) ?? 0)
+        let emptyHobbies = QualityOfLifeCalculator.score(
+            from: QualityOfLifeInputs(steps: 8_000),
+            persona: QualityOfLifePersona(archetype: .balanced, hobbies: nil)
+        )
+        XCTAssertEqual(emptyHobbies.score(for: .activity), 100)
+    }
 }

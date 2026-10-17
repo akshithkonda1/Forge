@@ -209,7 +209,7 @@ struct TodaysFocusCard: View {
     /// One token energy per focus. Alert red and the success green are not
     /// status colors here: recovery reads as steel, "ready" as vitality.
     private func focusEnergy(for color: Color) -> Color {
-        if color == Color.danger { return HudChrome.miss }
+        if color == Color.danger { return ForgeProgressChrome.miss }
         if color == Color.success { return Color.vitality }
         return color
     }
@@ -219,7 +219,7 @@ struct TodaysFocusCard: View {
         let energy = focusEnergy(for: area.color)
         VStack(alignment: .leading, spacing: ForgeLayout.heroGap) {
             ForgeCardHeader(title: "Today's Focus", tint: .textTertiary) {
-                HudVibeChip(label: area.priority, energy: energy)
+                ForgeVibeChip(label: area.priority, energy: energy)
                     .forgeSingleLine(minScale: ForgeLayout.labelMinScale)
             }
 
@@ -244,7 +244,7 @@ struct TodaysFocusCard: View {
             ForgeTextLink(title: "Take Action", accent: energy) { }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
-        .hudPlate(energy: energy)
+        .forgeContentCard()
         .accessibilityElement(children: .contain)
     }
 }

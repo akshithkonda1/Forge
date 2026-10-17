@@ -1,5 +1,6 @@
 import Foundation
 import SwiftUI
+import ForgeCore
 
 #if DEBUG
 /// Dates the demo fixtures below are pinned to. Nothing outside them calls it.
@@ -97,18 +98,22 @@ enum ExperienceLevel: String, Codable, CaseIterable, Identifiable {
 enum TrainingEquipment: String, Codable, CaseIterable, Identifiable {
     case commercialGym = "Commercial Gym"
     case homeGym = "Home Gym"
+    case industrialGym = "Industrial Gym"
     case bodyweight = "Bodyweight Only"
     case hotelGym = "Hotel / Travel"
     case crossfitBox = "CrossFit Box"
+    case other = "Other"
 
     var id: String { rawValue }
     var icon: String {
         switch self {
         case .commercialGym: return "building.2.fill"
         case .homeGym: return "house.fill"
+        case .industrialGym: return "building.fill"
         case .bodyweight: return "figure.strengthtraining.functional"
         case .hotelGym: return "suitcase.fill"
         case .crossfitBox: return "flame.fill"
+        case .other: return "ellipsis.circle.fill"
         }
     }
 }
@@ -199,6 +204,8 @@ struct UserProfile: Codable {
     /// Sunday=0 … Saturday=6. Empty decodes as the default walking week.
     var weeklySplit: [WeeklySplitSlot]
     var trainingEquipment: TrainingEquipment
+    /// Freeform gear notes. Editable in Settings; ARIA learns exact kit over time.
+    var equipmentNotes: String
     
     // HealthKit-derived health metrics
     var age: Int?
@@ -220,16 +227,22 @@ struct UserProfile: Codable {
     /// The image itself is not stored on the profile to keep UserDefaults payloads small.
     var avatarFileName: String?
 
+    /// Adaptive training model — the person's own words, plus optional tone.
+    var coachingPersonality: ForgeCoachingPersonality.Choice
+    /// Whole-life weights, social/relational fields, health constraints.
+    var lifestyleProfile: ForgeLifestyleProfile.Snapshot
+
     var initials: String {
         name.split(separator: " ").compactMap { $0.first.map { String($0).uppercased() } }.joined().prefix(2).description
     }
 
     enum CodingKeys: String, CodingKey {
         case name, gender, fitnessGoals, experienceLevel, preferredWorkouts
-        case coachingStyle, connectedDevices, weeklySchedule, trainingEquipment
+        case coachingStyle, connectedDevices, weeklySchedule, trainingEquipment, equipmentNotes
         case schedulePlanningMode, weeklySplit
         case age, weight, height, trainingTheme, interestTags
         case biologicalSex, educationalCycleMode, avatarFileName
+        case coachingPersonality, lifestyleProfile
     }
 
     init(
@@ -244,6 +257,7 @@ struct UserProfile: Codable {
         schedulePlanningMode: SchedulePlanningMode = .rotate,
         weeklySplit: [WeeklySplitSlot] = WeeklySplitSlot.defaultWeek,
         trainingEquipment: TrainingEquipment,
+        equipmentNotes: String = "",
         age: Int? = nil,
         weight: Double? = nil,
         height: Double? = nil,
@@ -251,7 +265,9 @@ struct UserProfile: Codable {
         interestTags: [String] = [],
         biologicalSex: BiologicalSex? = nil,
         educationalCycleMode: Bool = false,
-        avatarFileName: String? = nil
+        avatarFileName: String? = nil,
+        coachingPersonality: ForgeCoachingPersonality.Choice = .init(),
+        lifestyleProfile: ForgeLifestyleProfile.Snapshot = .init()
     ) {
         self.name = name
         self.gender = gender
@@ -264,6 +280,7 @@ struct UserProfile: Codable {
         self.schedulePlanningMode = schedulePlanningMode
         self.weeklySplit = WeeklySplit.normalized(weeklySplit)
         self.trainingEquipment = trainingEquipment
+        self.equipmentNotes = equipmentNotes
         self.age = age
         self.weight = weight
         self.height = height
@@ -272,6 +289,8 @@ struct UserProfile: Codable {
         self.biologicalSex = biologicalSex
         self.educationalCycleMode = educationalCycleMode
         self.avatarFileName = avatarFileName
+        self.coachingPersonality = coachingPersonality
+        self.lifestyleProfile = lifestyleProfile
     }
 
     init(from decoder: Decoder) throws {
@@ -289,6 +308,7 @@ struct UserProfile: Codable {
             try c.decodeIfPresent([WeeklySplitSlot].self, forKey: .weeklySplit) ?? WeeklySplitSlot.defaultWeek
         )
         trainingEquipment = try c.decode(TrainingEquipment.self, forKey: .trainingEquipment)
+        equipmentNotes = try c.decodeIfPresent(String.self, forKey: .equipmentNotes) ?? ""
         age = try c.decodeIfPresent(Int.self, forKey: .age)
         weight = try c.decodeIfPresent(Double.self, forKey: .weight)
         height = try c.decodeIfPresent(Double.self, forKey: .height)
@@ -297,6 +317,14 @@ struct UserProfile: Codable {
         biologicalSex = try c.decodeIfPresent(BiologicalSex.self, forKey: .biologicalSex)
         educationalCycleMode = try c.decodeIfPresent(Bool.self, forKey: .educationalCycleMode) ?? false
         avatarFileName = try c.decodeIfPresent(String.self, forKey: .avatarFileName)
+        coachingPersonality = try c.decodeIfPresent(
+            ForgeCoachingPersonality.Choice.self,
+            forKey: .coachingPersonality
+        ) ?? .init()
+        lifestyleProfile = try c.decodeIfPresent(
+            ForgeLifestyleProfile.Snapshot.self,
+            forKey: .lifestyleProfile
+        ) ?? .init()
     }
 
     func encode(to encoder: Encoder) throws {
@@ -312,6 +340,7 @@ struct UserProfile: Codable {
         try c.encode(schedulePlanningMode, forKey: .schedulePlanningMode)
         try c.encode(weeklySplit, forKey: .weeklySplit)
         try c.encode(trainingEquipment, forKey: .trainingEquipment)
+        try c.encode(equipmentNotes, forKey: .equipmentNotes)
         try c.encodeIfPresent(age, forKey: .age)
         try c.encodeIfPresent(weight, forKey: .weight)
         try c.encodeIfPresent(height, forKey: .height)
@@ -320,6 +349,28 @@ struct UserProfile: Codable {
         try c.encodeIfPresent(biologicalSex, forKey: .biologicalSex)
         try c.encode(educationalCycleMode, forKey: .educationalCycleMode)
         try c.encodeIfPresent(avatarFileName, forKey: .avatarFileName)
+        try c.encode(coachingPersonality, forKey: .coachingPersonality)
+        try c.encode(lifestyleProfile, forKey: .lifestyleProfile)
+    }
+
+    static func defaultPersonality(for style: CoachingStyle) -> ForgeCoachingPersonality.Preset {
+        switch style {
+        case .pushHard, .ultraElite: return .directCoach
+        case .patient: return .steadyBuilder
+        case .dataDriven: return .curiousExperimenter
+        case .balanced: return .steadyBuilder
+        }
+    }
+}
+
+extension ForgeCoachingPersonality.Preset {
+    var legacyCoachingStyle: CoachingStyle {
+        switch self {
+        case .steadyBuilder: return .patient
+        case .directCoach: return .balanced
+        case .curiousExperimenter: return .dataDriven
+        case .playfulCompanion: return .patient
+        }
     }
 }
 

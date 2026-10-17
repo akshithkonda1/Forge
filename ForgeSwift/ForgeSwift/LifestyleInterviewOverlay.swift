@@ -13,6 +13,7 @@ struct LifestyleInterviewOverlay: View {
     @State private var archetype: QualityOfLifeArchetype = .balanced
     @State private var movement: LivingMovementPreference = .mix
     @State private var hobbies: [LivingHobby] = []
+    @State private var customHobby = ""
     @State private var sleepNeed: Double = 8
     @State private var socialEnergy: Double = 6
     @State private var workStrain: Double = 4
@@ -22,6 +23,7 @@ struct LifestyleInterviewOverlay: View {
     private let nutritionChoices = ["fuel", "comfort", "chaotic", "careful"]
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @EnvironmentObject var store: AppStore
 
     /// First child of the scroll, so a step change can return to the top.
     private static let topAnchorID = "lifestyle-interview-top"
@@ -91,7 +93,7 @@ struct LifestyleInterviewOverlay: View {
     private var navBar: some View {
         HStack(spacing: ForgeLayout.tileGap) {
             if step > 0 {
-                ForgeSecondaryButton(title: "Back", accent: HudChrome.emberSteel) {
+                ForgeSecondaryButton(title: "Back", accent: ForgeProgressChrome.emberSteel) {
                     step -= 1
                 }
                 .frame(maxWidth: 120)
@@ -148,6 +150,10 @@ struct LifestyleInterviewOverlay: View {
                         }
                     }
                 }
+                TextField("A hobby in your words (optional)", text: $customHobby)
+                    .font(HomeType.body)
+                    .foregroundStyle(Color.textPrimary)
+                    .padding(.top, FDS.Spacing.sm)
             }
         case 5:
             sliderBlock(
@@ -332,6 +338,14 @@ struct LifestyleInterviewOverlay: View {
             hobbies: hobbies.isEmpty ? nil : hobbies
         )
         QualityOfLifeLivingStore.savePersona(persona)
+        var snap = store.userProfile.lifestyleProfile
+        var rows = HobbyFit.hobbies(from: hobbies)
+        if let custom = HobbyFit.normalize(label: customHobby) {
+            rows.append(custom)
+        }
+        snap.hobbies = HobbyFit.normalizeHobbies(rows)
+        snap.socialEnergy0to10 = socialEnergy
+        store.userProfile.lifestyleProfile = snap
         QualityOfLifeLivingStore.markInterviewCompleted()
         AriaContextStore.shared.applyLivingCharacterTags(persona.livingTags())
         let source = "lifestyle-interview"
