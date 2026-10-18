@@ -26,7 +26,7 @@ Console also works without Instruments: filter a device's live log stream by the
 
 ## Rules for adding spans
 
-- Names are `StaticString` — no interpolation, no string building. If you need to attach a *count* (how many samples a query fetched), that is a size, not a value, and may appear in an event name. **Never** put health values or user text in a name or event: signposts are durations and structure only, because traces are exportable and health data is not.
+- Names are `StaticString` — no interpolation, no string building, and that is the privacy mechanism as much as a performance one: payloads cannot be attached. Signposts carry fixed operation names and durations, **nothing else** — never health values, never user text, never counts of samples fetched, because traces are exportable and health data is not.
 - Wrap the work with `ForgePerf.measure(_:category:_:)` (sync or async) when the work is one block. Use `ForgePerf.begin` / `Span.end()` — with a `defer` — when the block has multiple exits or you need the span to cross an `await` you don't own.
 - Prefer instrumenting funnels (one shared query helper, one refresh entry point) over individual call sites — one span at the funnel covers every caller.
 - Signposts are compiled in but effectively free when nothing is recording; do not add feature flags or debug-only wrappers around them.

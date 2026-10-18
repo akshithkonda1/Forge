@@ -29,9 +29,10 @@ import os
 //     listening (signposts are compiled-in but nearly free when no
 //     recorder is attached).
 //   • Durations only — never log sample values, user text or anything
-//     derived from health data. If a size ever matters (how many samples
-//     a query fetched), that is a count, not a value, and may appear in
-//     an event name; health values themselves never do.
+//     derived from health data. Signposts carry fixed operation names
+//     and structure, nothing else: traces are exportable and health
+//     data is not. `StaticString` names make attaching payloads
+//     impossible, by design.
 //   • A Span may cross await points (begin/end is manual). `measure`
 //     wraps synchronous or async blocks and always ends the interval,
 //     including on throw.
@@ -90,9 +91,18 @@ public enum ForgePerf {
     }
 
     /// Begin a named interval in a category. Pair with `Span.end()`.
+    ///
+    /// Each interval gets its own signpost ID, so concurrent spans with
+    /// the same name (two `quantitySamples` in flight at once, say) pair
+    /// correctly in Instruments instead of interleaving.
     public static func begin(_ name: StaticString, category: Category) -> Span {
         let poster = signposter(for: category)
-        return Span(signposter: poster, name: name, state: poster.beginInterval(name))
+        let id = poster.makeSignpostID()
+        return Span(
+            signposter: poster,
+            name: name,
+            state: poster.beginInterval(name, id: id)
+        )
     }
 
     /// A point event with no duration — "this happened".
@@ -108,36 +118,24 @@ public enum ForgePerf {
         _ body: () throws -> T
     ) rethrows -> T {
         let poster = signposter(for: category)
-        let state = poster.beginInterval(name)
+        let id = poster.makeSignpostID()
+        let state = poster.beginInterval(name, id: id)
         defer { poster.endInterval(name, state) }
         return try body()
     }
 
     /// Measure an async block — awaits inside the interval are included.
-    /// Non-throwing variant (Swift cannot `await` a `rethrows` closure, so
-    /// the async path is split the same way `withCheckedContinuation` is).
-    @discardableResult
-    public static func measure<T>(
-        _ name: StaticString,
-        category: Category,
-        _ body: () async -> T
-    ) async -> T {
-        let poster = signposter(for: category)
-        let state = poster.beginInterval(name)
-        defer { poster.endInterval(name, state) }
-        return await body()
-    }
-
-    /// Measure an async block that can throw. The interval still closes
-    /// when the block throws.
+    /// `async rethrows` mirrors the synchronous variant: call sites with a
+    /// non-throwing block stay free of `try`.
     @discardableResult
     public static func measure<T>(
         _ name: StaticString,
         category: Category,
         _ body: () async throws -> T
-    ) async throws -> T {
+    ) async rethrows -> T {
         let poster = signposter(for: category)
-        let state = poster.beginInterval(name)
+        let id = poster.makeSignpostID()
+        let state = poster.beginInterval(name, id: id)
         defer { poster.endInterval(name, state) }
         return try await body()
     }
