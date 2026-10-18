@@ -137,7 +137,7 @@ struct ForgeSplashScreen: View {
             withAnimation((reduceMotion ? .easeOut(duration: 0.3) : ForgeMotion.gentle).delay(0.18)) {
                 textOffset = 0
             }
-            withAnimation(.easeInOut(duration: 2.2).delay(0.25)) {
+            withAnimation(.easeInOut(duration: 0.5).delay(0.1)) {
                 glowIntensity = 1.0
             }
         }

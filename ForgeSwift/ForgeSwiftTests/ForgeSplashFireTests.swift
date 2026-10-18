@@ -1,24 +1,26 @@
 import XCTest
 @testable import ForgeSwift
 
-/// Locks splash hold (branded, not frozen) and rage-fire vs ember.
+/// Locks the splash as a beat, not a wait, and rage-fire vs ember.
 final class ForgeSplashFireTests: XCTestCase {
 
-    func testSplashHoldIsForgedNotFrozen() {
-        XCTAssertEqual(ForgeSplashTiming.hold, 2.45, accuracy: 0.001)
-        XCTAssertEqual(ForgeSplashTiming.reduceMotionHold, 0.65, accuracy: 0.001)
-        XCTAssertEqual(ForgeSplashTiming.fadeOut, 0.38, accuracy: 0.001)
+    func testSplashHoldIsABeatNotAWait() {
+        XCTAssertEqual(ForgeSplashTiming.hold, 0.5, accuracy: 0.001)
+        XCTAssertEqual(ForgeSplashTiming.reduceMotionHold, 0.3, accuracy: 0.001)
+        XCTAssertEqual(ForgeSplashTiming.fadeOut, 0.3, accuracy: 0.001)
         XCTAssertGreaterThanOrEqual(ForgeSplashTiming.hold, ForgeSplashTiming.brandFloor)
         XCTAssertLessThan(ForgeSplashTiming.hold, ForgeSplashTiming.freezeCeiling)
-        XCTAssertGreaterThan(ForgeSplashTiming.hold, 1.1)
-        XCTAssertLessThan(ForgeSplashTiming.reduceMotionHold, 1.0)
+        // The splash curtains an already-rendered frame — Home is right
+        // behind it — so the total forced wait must stay under a second.
+        XCTAssertLessThan(ForgeSplashTiming.hold + ForgeSplashTiming.fadeOut, 1.0)
+        XCTAssertLessThan(ForgeSplashTiming.reduceMotionHold, ForgeSplashTiming.hold)
         XCTAssertEqual(
             ForgeSplashTiming.pauseNanoseconds(reduceMotion: false),
-            2_450_000_000
+            500_000_000
         )
         XCTAssertEqual(
             ForgeSplashTiming.pauseNanoseconds(reduceMotion: true),
-            650_000_000
+            300_000_000
         )
     }
 
