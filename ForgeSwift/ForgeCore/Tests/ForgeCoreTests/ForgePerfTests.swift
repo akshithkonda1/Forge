@@ -49,4 +49,15 @@ final class ForgePerfTests: XCTestCase {
         }
         XCTAssertEqual(value, "ok")
     }
+
+    func testAsyncThrowingMeasureRethrows() async {
+        struct Boom: Error {}
+        do {
+            _ = try await ForgePerf.measure("test.asyncThrow", category: .aria) {
+                try await Task.sleep(nanoseconds: 1_000_000)
+                throw Boom()
+            }
+            XCTFail("expected a throw")
+        } catch {}
+    }
 }

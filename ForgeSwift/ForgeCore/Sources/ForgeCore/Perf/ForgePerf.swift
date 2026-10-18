@@ -114,12 +114,28 @@ public enum ForgePerf {
     }
 
     /// Measure an async block — awaits inside the interval are included.
+    /// Non-throwing variant (Swift cannot `await` a `rethrows` closure, so
+    /// the async path is split the same way `withCheckedContinuation` is).
+    @discardableResult
+    public static func measure<T>(
+        _ name: StaticString,
+        category: Category,
+        _ body: () async -> T
+    ) async -> T {
+        let poster = signposter(for: category)
+        let state = poster.beginInterval(name)
+        defer { poster.endInterval(name, state) }
+        return await body()
+    }
+
+    /// Measure an async block that can throw. The interval still closes
+    /// when the block throws.
     @discardableResult
     public static func measure<T>(
         _ name: StaticString,
         category: Category,
         _ body: () async throws -> T
-    ) rethrows -> T {
+    ) async throws -> T {
         let poster = signposter(for: category)
         let state = poster.beginInterval(name)
         defer { poster.endInterval(name, state) }
