@@ -264,6 +264,10 @@ public enum ForgeHealthQueries {
     /// and skip regrouping when the fingerprint is unchanged.
     @discardableResult
     public static func refreshSleepCache(store: HKHealthStore) async -> SleepQueryFingerprint {
+        // Span covers the whole refresh (anchor delta, regroup, store);
+        // `defer` keeps it closed on every exit.
+        let span = ForgePerf.begin("refreshSleepCache", category: .healthkit)
+        defer { span.end() }
         let start = Calendar.current.date(byAdding: .day, value: -sleepCacheLookbackDays, to: Date()) ?? Date()
         let end = Date()
         let cache = SleepHKCache.shared
@@ -352,12 +356,14 @@ public enum ForgeHealthQueries {
     }
 
     private static func sleepSegments(store: HKHealthStore, from start: Date, to end: Date) async -> [SleepStageSegment] {
-        _ = await refreshSleepCache(store: store)
-        let cache = SleepHKCache.shared
-        cache.lock.lock()
-        let segments = cache.segments(from: start, to: end)
-        cache.lock.unlock()
-        return segments
+        await ForgePerf.measure("sleepSegments", category: .healthkit) {
+            _ = await refreshSleepCache(store: store)
+            let cache = SleepHKCache.shared
+            cache.lock.lock()
+            let segments = cache.segments(from: start, to: end)
+            cache.lock.unlock()
+            return segments
+        }
     }
 
     public static func mindfulMinutes(store: HKHealthStore, since start: Date) async -> Double {
@@ -590,15 +596,19 @@ public enum ForgeHealthQueries {
         limit: Int,
         ascending: Bool
     ) async -> [HKQuantitySample] {
-        let predicate = HKQuery.predicateForSamples(withStart: start, end: end)
-        return await withCheckedContinuation { continuation in
-            let query = HKSampleQuery(
-                sampleType: type, predicate: predicate, limit: limit,
-                sortDescriptors: [NSSortDescriptor(key: HKSampleSortIdentifierStartDate, ascending: ascending)]
-            ) { _, samples, _ in
-                continuation.resume(returning: (samples as? [HKQuantitySample]) ?? [])
+        // Every quantity read in Forge funnels through here, so one span
+        // covers them all in Instruments. Durations only — see ForgePerf.
+        await ForgePerf.measure("quantitySamples", category: .healthkit) {
+            let predicate = HKQuery.predicateForSamples(withStart: start, end: end)
+            return await withCheckedContinuation { continuation in
+                let query = HKSampleQuery(
+                    sampleType: type, predicate: predicate, limit: limit,
+                    sortDescriptors: [NSSortDescriptor(key: HKSampleSortIdentifierStartDate, ascending: ascending)]
+                ) { _, samples, _ in
+                    continuation.resume(returning: (samples as? [HKQuantitySample]) ?? [])
+                }
+                store.execute(query)
             }
-            store.execute(query)
         }
     }
 }
