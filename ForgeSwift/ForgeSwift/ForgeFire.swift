@@ -1,21 +1,26 @@
 import SwiftUI
 
-/// Brand hold on the launch splash. Long enough to read FORGE and feel the
-/// fire — short of a freeze. Lockstep with `src/lib/forge-splash.ts`.
+/// Brand beat on the launch splash. The splash curtains an already-rendered
+/// first frame — Home is right behind it — so every second of hold is a
+/// second of pure waiting. The beat is short on purpose, and the web
+/// client's own rule is the rule here too: "Returning users already know
+/// the brand — keep a beat, not a wait." Lockstep with `src/lib/forge-splash.ts`.
 enum ForgeSplashTiming: Sendable {
-    /// Cinematic hold. 2.45s lands the wordmark without looking stuck.
-    static let hold: TimeInterval = 2.45
-    static let reduceMotionHold: TimeInterval = 0.65
-    static let fadeOut: TimeInterval = 0.38
+    /// 0.5s lands the wordmark. A beat, not a wait. (Was 2.45s — with the
+    /// real frame ready behind the curtain that read as a frozen launch.)
+    static let hold: TimeInterval = 0.5
+    static let reduceMotionHold: TimeInterval = 0.3
+    static let fadeOut: TimeInterval = 0.3
 
-    /// Hard ceiling so a future bump cannot become a frozen launch.
-    static let freezeCeiling: TimeInterval = 3.1
-    /// Floor so the beat is long enough to feel forged.
-    static let brandFloor: TimeInterval = 2.0
+    /// Hard ceiling so a future bump cannot become a frozen launch again.
+    /// The whole forced wait (hold + fade) must stay under a second.
+    static let freezeCeiling: TimeInterval = 1.0
+    /// Floor so the beat is long enough to land the wordmark.
+    static let brandFloor: TimeInterval = 0.3
 
     static func pauseNanoseconds(reduceMotion: Bool) -> UInt64 {
-        if reduceMotion { return 650_000_000 }
-        return 2_450_000_000
+        if reduceMotion { return 300_000_000 }
+        return 500_000_000
     }
 }
 
