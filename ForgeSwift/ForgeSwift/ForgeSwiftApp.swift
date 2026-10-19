@@ -4,18 +4,22 @@ import ForgeCore
 
 @main
 struct ForgeSwiftApp: App {
-    @StateObject private var store = AppStore()
+    @StateObject private var store = ForgePerf.measure("AppStoreInit", category: .launch) { AppStore() }
 
     // Exists so iOS has somewhere to hand a CloudKit share when a supporter
     // accepts a cycle invite; SwiftUI's App lifecycle exposes no other hook.
     @UIApplicationDelegateAdaptor(ForgeAppDelegate.self) private var appDelegate
 
     init() {
-        SecureStoreMigration.run(from: .standard, to: KeychainStore())
-        // Listens for watch workout state and mirrors it into a Live
-        // Activity (lock screen + Dynamic Island). Owns WCSession on
-        // the phone; one companion sync after activation.
-        WorkoutActivityCoordinator.shared.activate()
+        // One launch interval for the synchronous start work; AppStore's
+        // init carries its own span. Durations only — see ForgePerf.
+        ForgePerf.measure("appInit", category: .launch) {
+            SecureStoreMigration.run(from: .standard, to: KeychainStore())
+            // Listens for watch workout state and mirrors it into a Live
+            // Activity (lock screen + Dynamic Island). Owns WCSession on
+            // the phone; one companion sync after activation.
+            WorkoutActivityCoordinator.shared.activate()
+        }
     }
 
     var body: some Scene {

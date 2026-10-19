@@ -481,9 +481,14 @@ extension AriaContextMemory {
     /// Background-only compaction: decay, roll up summaries, enforce caps.
     /// Callers must not run this on the main thread in the app.
     public static func compact(_ snap: Snapshot, now: Date = Date()) -> Snapshot {
-        var next = decay(snap, now: now)
-        next = consolidate(next, now: now)
-        return next
+        // The budget side is locked by ForgeStabilityTests
+        // (storeCompactBaselineSeconds); this span is the on-device
+        // measurement of the same work.
+        ForgePerf.measure("compact", category: .store) {
+            var next = decay(snap, now: now)
+            next = consolidate(next, now: now)
+            return next
+        }
     }
 
     public static func consolidate(_ snap: Snapshot, now: Date = Date()) -> Snapshot {
