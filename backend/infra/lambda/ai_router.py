@@ -19,7 +19,9 @@ DEFAULT_MODEL_TIMEOUT_SECONDS = 5.0
 DEFAULT_OVERALL_TIMEOUT_SECONDS = 14.0
 DEFAULT_CONSENSUS_WINDOW_SECONDS = 1.0
 DEFAULT_MAX_TOKENS = 512
-HARD_MAX_TOKENS = 800
+HARD_MAX_TOKENS = 512
+MAX_QUESTION_CHARS = 4_000
+MAX_CONTEXT_CHARS = 4_000
 DEFAULT_TEMPERATURE = 0.2
 DEFAULT_PREVIEW_BYTES = 1024
 DEFAULT_MAX_PROMPT_CHARS = 6000
@@ -133,6 +135,7 @@ class ModelConfig:
     name: str
     model_id: str
     responsibility: str
+    family: str = "sonnet"
 
 
 def _coerce_float(value: Any, *, field: str, default: float) -> float:
@@ -229,8 +232,16 @@ class RouteRequest:
         question = str(payload.get("question") or payload.get("prompt") or "").strip()
         if not question:
             raise RoutingError(400, "Request must include a non-empty 'question'.")
+        if len(question) > MAX_QUESTION_CHARS:
+            raise RoutingError(
+                413,
+                "Question exceeds the routing size limit.",
+                details={"maxQuestionChars": MAX_QUESTION_CHARS},
+            )
 
         context = str(payload.get("context") or payload.get("background") or "").strip()
+        if len(context) > MAX_CONTEXT_CHARS:
+            context = context[:MAX_CONTEXT_CHARS]
         packages = [DataPackage.from_payload(item, index) for index, item in enumerate(payload.get("packages", []), 1)]
         declared_size = _coerce_int(payload.get("packageSizeBytes") or 0, field="packageSizeBytes", default=0)
         inferred_size = sum(package.size_bytes for package in packages)
@@ -513,6 +524,17 @@ class AIRouter:
         self.models = default_models()
 
     def route(self, request: RouteRequest) -> dict[str, Any]:
+        from aria_core.complexity import (
+            TIER_ENSEMBLE,
+            classify_complexity,
+            escalation_log,
+            next_tier,
+            should_self_escalate,
+        )
+        from aria_core.privacy import redact_for_log
+        from aria_core.rails import needs_model_verifier, validate_output
+        from aria_core.suite import family_for_tier, parse_structured_reply
+
         started_at = time.monotonic()
         deadline_seconds = started_at + request.settings.overall_timeout_seconds
         route_warnings: list[str] = []
@@ -529,163 +551,129 @@ class AIRouter:
                 },
             )
 
-        initial_parallelism = self.model_count_for_package_size(effective_package_size_bytes)
         package_summaries = self._hydrate_package_summaries(request.packages, route_warnings)
-        result_queue: Queue[ModelResult] = Queue()
-        launched_slots: list[ModelConfig] = []
+        decision = classify_complexity(
+            request.question,
+            package_count=len(request.packages),
+        )
+        extra_reason = None
         results: list[ModelResult] = []
-        launched_indexes: set[int] = set()
-        first_success_received_at: float | None = None
+        launched: list[ModelConfig] = []
 
-        next_launch_index = 0
-
-        def launch_model(index: int) -> None:
-            if index in launched_indexes or index >= len(self.models):
-                return
-
-            model = self.models[index]
-            launched_indexes.add(index)
-            launched_slots.append(model)
-
-            system_prompt = self._build_system_prompt(model, initial_parallelism)
-            user_prompt = self._build_user_prompt(
-                request=request,
-                package_size_bytes=effective_package_size_bytes,
-                package_summaries=package_summaries,
-                launched_parallelism=max(initial_parallelism, len(launched_slots)),
+        if decision.tier == TIER_ENSEMBLE:
+            launched, results, final_answer, finalization = self._route_ensemble(
+                request,
+                package_summaries,
+                effective_package_size_bytes,
+                deadline_seconds,
+                route_warnings,
             )
-
-            def worker() -> None:
-                model_started_at = time.monotonic()
-                remaining_budget_seconds = max(0.1, deadline_seconds - model_started_at)
-                try:
-                    payload = self.gateway.converse(
-                        model_id=model.model_id,
-                        system_prompt=system_prompt,
-                        user_prompt=user_prompt,
-                        max_tokens=request.settings.max_tokens,
-                        temperature=request.settings.temperature,
-                        request_timeout_seconds=remaining_budget_seconds,
+        else:
+            family = family_for_tier(decision.tier)
+            model = self._model_by_family(family)
+            result = self._invoke_model(
+                model,
+                request,
+                package_summaries,
+                effective_package_size_bytes,
+                deadline_seconds,
+                tier=decision.tier,
+            )
+            launched = [model]
+            results = [result]
+            already_escalated = 0
+            if not result.success:
+                bumped = next_tier(decision.tier)
+                bump_family = family_for_tier(bumped)
+                if bump_family != family and (deadline_seconds - time.monotonic()) > 0.2:
+                    extra_reason = "timeout_escalate"
+                    already_escalated = 1
+                    bump_model = self._model_by_family(bump_family)
+                    bump_result = self._invoke_model(
+                        bump_model,
+                        request,
+                        package_summaries,
+                        effective_package_size_bytes,
+                        deadline_seconds,
+                        tier=bumped,
                     )
-                    result_queue.put(
-                        ModelResult(
-                            model=model,
-                            success=bool(payload.get("answer")),
-                            answer=str(payload.get("answer") or ""),
-                            usage=payload.get("usage", {}),
-                            started_at=model_started_at,
-                            completed_at=time.monotonic(),
-                        )
-                    )
-                except RoutingError as exc:
-                    result_queue.put(
-                        ModelResult(
-                            model=model,
-                            success=False,
-                            error=str(exc.message or exc),
-                            status_code=exc.status_code,
-                            started_at=model_started_at,
-                            completed_at=time.monotonic(),
-                        )
-                    )
-                except Exception as exc:  # pragma: no cover - exercised through fake gateway in tests
-                    result_queue.put(
-                        ModelResult(
-                            model=model,
-                            success=False,
-                            error=str(exc),
-                            started_at=model_started_at,
-                            completed_at=time.monotonic(),
-                        )
-                    )
-
-            thread = threading.Thread(target=worker, daemon=True, name=f"ai-router-slot-{model.slot}")
-            thread.start()
-
-        while next_launch_index < initial_parallelism:
-            launch_model(next_launch_index)
-            next_launch_index += 1
-
-        initial_launch_at = time.monotonic()
-        next_escalation_at = (
-            initial_launch_at + request.settings.model_timeout_seconds
-            if next_launch_index < len(self.models)
-            else None
-        )
-
-        while True:
-            now = time.monotonic()
-            remaining_overall_seconds = deadline_seconds - now
-            if remaining_overall_seconds <= 0:
-                break
-
-            wait_candidates = [remaining_overall_seconds]
-            if next_escalation_at is not None:
-                wait_candidates.append(max(0.0, next_escalation_at - now))
-            if first_success_received_at is not None:
-                wait_candidates.append(
-                    max(
-                        0.0,
-                        first_success_received_at + request.settings.consensus_window_seconds - now,
-                    )
-                )
-            wait_timeout = min(wait_candidates) if wait_candidates else 0.1
-
-            try:
-                result = result_queue.get(timeout=max(0.01, wait_timeout))
-                results.append(result)
-                if result.success and first_success_received_at is None:
-                    first_success_received_at = time.monotonic()
-            except Empty:
-                pass
-
-            now = time.monotonic()
-            if (
-                first_success_received_at is not None
-                and now >= first_success_received_at + request.settings.consensus_window_seconds
+                    launched.append(bump_model)
+                    results.append(bump_result)
+                    result = bump_result if bump_result.success else result
+            structured = parse_structured_reply(result.answer if result.success else "")
+            if result.success and should_self_escalate(
+                decision,
+                confidence=structured.confidence,
+                needs_escalation=structured.needs_escalation,
+                already_escalated=already_escalated,
             ):
-                break
-
-            if next_escalation_at is not None and now >= next_escalation_at and not any(item.success for item in results):
-                launch_model(next_launch_index)
-                next_launch_index += 1
-                next_escalation_at = (
-                    now + request.settings.model_timeout_seconds if next_launch_index < len(self.models) else None
+                extra_reason = "self_assess"
+                bumped = next_tier(decision.tier)
+                bump_model = self._model_by_family(family_for_tier(bumped))
+                if bump_model.model_id != model.model_id:
+                    bump_result = self._invoke_model(
+                        bump_model,
+                        request,
+                        package_summaries,
+                        effective_package_size_bytes,
+                        deadline_seconds,
+                        tier=bumped,
+                    )
+                    launched.append(bump_model)
+                    results.append(bump_result)
+                    if bump_result.success:
+                        result = bump_result
+                        structured = parse_structured_reply(result.answer)
+            if not result.success:
+                self._raise_routing_failure(launched, results)
+            final_answer = validate_output(structured.answer or result.answer)
+            if needs_model_verifier(final_answer):
+                extra_reason = extra_reason or "rails_verifier"
+                verifier = self._model_by_family("sonnet")
+                verified = self._invoke_model(
+                    verifier,
+                    request,
+                    package_summaries,
+                    effective_package_size_bytes,
+                    deadline_seconds,
+                    tier=1,
+                    verifier=True,
+                    draft=final_answer,
                 )
+                launched.append(verifier)
+                results.append(verified)
+                if verified.success:
+                    final_answer = validate_output(parse_structured_reply(verified.answer).answer or verified.answer)
+            primary = result
+            agreement_label, agreement_score = _answer_agreement([result.answer])
+            finalization = {
+                "mode": "single-model",
+                "usedModelCount": 1,
+                "usedModels": [self._model_descriptor(primary.model)],
+                "usedResults": [self._serialize_result(primary)],
+                "finalizedByModel": self._model_descriptor(primary.model),
+                "fallbackUsed": False,
+                "agreement": agreement_label,
+                "agreementScore": agreement_score,
+            }
 
-            if launched_indexes and len(results) == len(launched_indexes) and any(item.success for item in results):
-                break
-
-        successes = [result for result in results if result.success and result.answer.strip()]
+        successes = [item for item in results if item.success and item.answer.strip()]
         if not successes:
-            gated = next((item for item in results if item.status_code in {429, 503}), None)
-            if gated is not None:
-                raise RoutingError(
-                    gated.status_code,
-                    gated.error or "ARIA is paused",
-                    details={"error": "aria_paused" if gated.status_code == 503 else "aria_daily_cap"},
-                )
-            raise RoutingError(
-                504,
-                "No model returned a successful answer within the router timeout window.",
-                details={
-                    "launchedModels": [self._model_descriptor(model) for model in launched_slots],
-                    "results": [self._serialize_result(result) for result in results],
-                },
-            )
-
-        used_results = sorted(successes, key=lambda item: (item.completed_at, item.model.slot))
-        primary = used_results[0]
-        final_answer, finalization = self._build_final_answer(
-            request=request,
-            used_results=used_results,
-            deadline_seconds=deadline_seconds,
-        )
+            self._raise_routing_failure(launched, results)
+        primary = next((item for item in successes if item.model.slot == launched[0].slot), successes[0])
+        if decision.tier == TIER_ENSEMBLE:
+            pass
         supporting = [
-            self._serialize_result(result)
-            for result in used_results
-            if result.model.slot != primary.model.slot
+            self._serialize_result(item)
+            for item in successes
+            if item.model.slot != primary.model.slot
         ]
+        audit = escalation_log(
+            decision,
+            models=[item.model_id for item in launched],
+            extra=extra_reason,
+        )
+        _log.info("aria suite routing %s", redact_for_log(audit))
 
         response: dict[str, Any] = {
             "status": "ok",
@@ -693,42 +681,217 @@ class AIRouter:
             "finalAnswer": final_answer,
             "selectedModel": self._model_descriptor(primary.model),
             "finalAnswerSource": finalization,
+            "suite": audit,
             "routing": {
                 "packageSizeBytes": effective_package_size_bytes,
                 "packageSizeHuman": humanize_bytes(effective_package_size_bytes),
-                "initialParallelism": initial_parallelism,
-                "launchedModelCount": len(launched_slots),
-                "launchedModels": [self._model_descriptor(model) for model in launched_slots],
+                "initialParallelism": 3 if decision.tier == TIER_ENSEMBLE else 1,
+                "launchedModelCount": len(launched),
+                "launchedModels": [self._model_descriptor(model) for model in launched],
                 "timeoutPolicy": {
                     "perModelSeconds": request.settings.model_timeout_seconds,
                     "overallSeconds": request.settings.overall_timeout_seconds,
                     "consensusWindowSeconds": request.settings.consensus_window_seconds,
                 },
             },
-            "results": [self._serialize_result(result) for result in results],
+            "results": [self._serialize_result(item) for item in results],
             "supportingAnswers": supporting,
         }
-
-        warnings = list(route_warnings)
-        fallback_reason = finalization.get("fallbackReason")
-        if fallback_reason == "timeout_budget_exhausted":
-            warnings.append(
-                "Consensus finalization skipped because the remaining time budget was too small; returning the fastest successful model answer."
-            )
-        elif fallback_reason == "consensus_failed":
-            warnings.append(
-                "Consensus finalization failed, so the router fell back to the fastest successful model answer."
-            )
-        if warnings:
-            response["warnings"] = warnings
-
+        if route_warnings:
+            response["warnings"] = route_warnings
         return response
 
     def model_count_for_package_size(self, package_size_bytes: int) -> int:
-        if package_size_bytes <= 0:
-            return 1
-        per_model_band = MAX_PACKAGE_BYTES / len(self.models)
-        return max(1, min(len(self.models), math.ceil(package_size_bytes / per_model_band)))
+        """Package size no longer fans out models. Complexity decides the tier."""
+        return 1
+
+    def _model_by_family(self, family: str) -> ModelConfig:
+        for model in self.models:
+            if model.family == family:
+                return model
+        return self.models[0]
+
+    def _raise_routing_failure(self, launched: list[ModelConfig], results: list[ModelResult]) -> None:
+        gated = next((item for item in results if item.status_code in {429, 503}), None)
+        if gated is not None:
+            raise RoutingError(
+                gated.status_code,
+                gated.error or "ARIA is paused",
+                details={"error": "aria_paused" if gated.status_code == 503 else "aria_daily_cap"},
+            )
+        raise RoutingError(
+            504,
+            "No model returned a successful answer within the router timeout window.",
+            details={
+                "launchedModels": [self._model_descriptor(model) for model in launched],
+                "results": [self._serialize_result(item) for item in results],
+            },
+        )
+
+    def _invoke_model(
+        self,
+        model: ModelConfig,
+        request: RouteRequest,
+        package_summaries: list[dict[str, Any]],
+        package_size_bytes: int,
+        deadline_seconds: float,
+        *,
+        tier: int,
+        verifier: bool = False,
+        draft: str = "",
+    ) -> ModelResult:
+        from aria_core.suite import consensus_system_prompt, system_prompt_for_tier
+
+        model_started_at = time.monotonic()
+        remaining = max(0.1, deadline_seconds - model_started_at)
+        system_prompt = (
+            consensus_system_prompt()
+            if verifier
+            else system_prompt_for_tier(tier, family=model.family)
+        )
+        user_prompt = self._build_user_prompt(
+            request=request,
+            package_size_bytes=package_size_bytes,
+            package_summaries=package_summaries,
+            launched_parallelism=1,
+        )
+        if verifier and draft:
+            user_prompt += "\n\nDraft to rewrite onto rails:\n" + draft
+        try:
+            payload = self.gateway.converse(
+                model_id=model.model_id,
+                system_prompt=system_prompt,
+                user_prompt=user_prompt,
+                max_tokens=request.settings.max_tokens,
+                temperature=request.settings.temperature,
+                request_timeout_seconds=remaining,
+            )
+            return ModelResult(
+                model=model,
+                success=bool(payload.get("answer")),
+                answer=str(payload.get("answer") or ""),
+                usage=payload.get("usage", {}),
+                started_at=model_started_at,
+                completed_at=time.monotonic(),
+            )
+        except RoutingError as exc:
+            return ModelResult(
+                model=model,
+                success=False,
+                error=str(exc.message or exc),
+                status_code=exc.status_code,
+                started_at=model_started_at,
+                completed_at=time.monotonic(),
+            )
+        except (OSError, RuntimeError, ValueError, TypeError, KeyError) as exc:
+            return ModelResult(
+                model=model,
+                success=False,
+                error=str(exc),
+                started_at=model_started_at,
+                completed_at=time.monotonic(),
+            )
+
+    def _route_ensemble(
+        self,
+        request: RouteRequest,
+        package_summaries: list[dict[str, Any]],
+        package_size_bytes: int,
+        deadline_seconds: float,
+        warnings: list[str],
+    ) -> tuple[list[ModelConfig], list[ModelResult], str, dict[str, Any]]:
+        from aria_core.complexity import TIER_ENSEMBLE
+        from aria_core.rails import validate_output
+        from aria_core.suite import consensus_system_prompt, isolate_drafts, parse_structured_reply
+
+        launched = list(self.models)
+        result_queue: Queue[ModelResult] = Queue()
+
+        def worker(model: ModelConfig) -> None:
+            result_queue.put(
+                self._invoke_model(
+                    model,
+                    request,
+                    package_summaries,
+                    package_size_bytes,
+                    deadline_seconds,
+                    tier=TIER_ENSEMBLE,
+                )
+            )
+
+        threads = [
+            threading.Thread(target=worker, args=(model,), daemon=True, name=f"aria-suite-{model.family}")
+            for model in launched
+        ]
+        for thread in threads:
+            thread.start()
+        results: list[ModelResult] = []
+        remaining = max(0.1, deadline_seconds - time.monotonic())
+        deadline = time.monotonic() + remaining
+        for _ in launched:
+            timeout = max(0.01, deadline - time.monotonic())
+            try:
+                results.append(result_queue.get(timeout=timeout))
+            except Empty:
+                break
+        for thread in threads:
+            thread.join(timeout=0.01)
+        successes = [item for item in results if item.success and item.answer.strip()]
+        if not successes:
+            self._raise_routing_failure(launched, results)
+        drafts = [(item.model.name, item.answer) for item in successes]
+        agreement_label, agreement_score = _answer_agreement([item.answer for item in successes])
+        remaining_budget = deadline_seconds - time.monotonic()
+        synthesizer = self._model_by_family("sonnet")
+        consensus_answer = ""
+        fallback_used = False
+        fallback_reason = None
+        if remaining_budget <= MIN_CONSENSUS_BUDGET_SECONDS:
+            fallback_used = True
+            fallback_reason = "timeout_budget_exhausted"
+            warnings.append(
+                "Ensemble synthesis skipped because the remaining time budget was too small."
+            )
+        else:
+            try:
+                from aria_core.untrusted import isolate
+
+                payload = self.gateway.converse(
+                    model_id=synthesizer.model_id,
+                    system_prompt=consensus_system_prompt(),
+                    user_prompt=(
+                        f"Original question:\n{isolate(request.question, kind='user_message')}\n\n"
+                        "Independent drafts:\n"
+                        f"{isolate_drafts(drafts)}"
+                    ),
+                    max_tokens=request.settings.max_tokens,
+                    temperature=min(request.settings.temperature, 0.2),
+                    request_timeout_seconds=max(0.1, remaining_budget - CONSENSUS_TIMEOUT_BUFFER_SECONDS),
+                )
+                consensus_answer = str(payload.get("answer") or "").strip()
+            except (RoutingError, OSError, RuntimeError, ValueError, TypeError) as exc:
+                fallback_used = True
+                fallback_reason = "consensus_failed"
+                warnings.append("Ensemble synthesis failed; returning the fastest successful draft.")
+                _log.warning("ensemble synthesis failed: %s", exc)
+        if not consensus_answer:
+            consensus_answer = successes[0].answer
+            fallback_used = True
+            fallback_reason = fallback_reason or "consensus_failed"
+        final_answer = validate_output(parse_structured_reply(consensus_answer).answer or consensus_answer)
+        finalization = {
+            "mode": f"{len(successes)}-model-consensus",
+            "usedModelCount": len(successes),
+            "usedModels": [self._model_descriptor(item.model) for item in successes],
+            "usedResults": [self._serialize_result(item) for item in successes],
+            "finalizedByModel": self._model_descriptor(synthesizer),
+            "fallbackUsed": fallback_used,
+            "agreement": agreement_label,
+            "agreementScore": agreement_score,
+        }
+        if fallback_reason:
+            finalization["fallbackReason"] = fallback_reason
+        return launched, results, final_answer, finalization
 
     def _enrich_packages_with_s3_metadata(self, packages: list[DataPackage], warnings: list[str]) -> None:
         for package in packages:
@@ -736,7 +899,7 @@ class AIRouter:
                 continue
             try:
                 package.size_bytes = max(0, self.gateway.head_object_size(s3_key=package.s3_key))
-            except Exception:
+            except (RoutingError, OSError, RuntimeError, ValueError, TypeError, KeyError):
                 warnings.append(
                     f"Could not infer size for package '{package.package_id}' from S3 metadata; routing used the remaining request metadata only."
                 )
@@ -757,14 +920,20 @@ class AIRouter:
                 try:
                     preview = self.gateway.load_preview(s3_key=package.s3_key, max_bytes=DEFAULT_PREVIEW_BYTES)
                     preview_source = "s3"
-                except Exception:
+                except (RoutingError, OSError, RuntimeError, ValueError, TypeError, KeyError):
                     preview = ""
                     preview_source = "unavailable"
                     warnings.append(
                         f"Could not load preview for package '{package.package_id}' from S3; routing continued with package metadata only."
                     )
 
-            preview = normalize_excerpt(preview, min(remaining_chars, 1600))
+            from aria_core.untrusted import compress_text, isolate
+
+            preview = isolate(
+                compress_text(preview, max_chars=min(remaining_chars, 1600)),
+                kind="package_preview",
+                max_chars=min(remaining_chars, 1600),
+            )
             remaining_chars -= len(preview)
 
             summaries.append(
@@ -784,13 +953,10 @@ class AIRouter:
         return summaries
 
     def _build_system_prompt(self, model: ModelConfig, initial_parallelism: int) -> str:
-        return (
-            "You are part of Forge's multi-model Bedrock router. "
-            f"You are slot {model.slot} of {len(self.models)} and your responsibility is: {model.responsibility}. "
-            f"The router activated {initial_parallelism} model(s) immediately for this request. "
-            "Respond directly to the user question using the supplied package metadata and previews only. "
-            "If the evidence is incomplete, say what is missing instead of inventing facts."
-        )
+        from aria_core.suite import system_prompt_for_tier
+        from aria_core.complexity import TIER_SONNET
+
+        return system_prompt_for_tier(TIER_SONNET, family=model.family)
 
     def _build_user_prompt(
         self,
@@ -800,18 +966,20 @@ class AIRouter:
         package_summaries: list[dict[str, Any]],
         launched_parallelism: int,
     ) -> str:
+        from aria_core.untrusted import isolate
+
         sections = [
-            f"Question:\n{request.question}",
+            isolate(request.question, kind="user_message"),
             (
                 "Routing context:\n"
                 f"- Package size: {humanize_bytes(package_size_bytes)} ({package_size_bytes} bytes)\n"
-                f"- Active model fanout: {launched_parallelism}\n"
+                f"- Active model count: {launched_parallelism}\n"
                 f"- Max supported package size: {humanize_bytes(MAX_PACKAGE_BYTES)}"
             ),
         ]
 
         if request.context:
-            sections.append(f"Shared context:\n{normalize_excerpt(request.context, 4000)}")
+            sections.append(isolate(request.context, kind="context", max_chars=4000))
 
         if package_summaries:
             package_lines = []
@@ -977,28 +1145,40 @@ class AIRouter:
             "slot": model.slot,
             "name": model.name,
             "modelId": model.model_id,
+            "family": model.family,
         }
 
 
 def default_models() -> list[ModelConfig]:
+    """Slot ids stay 1=Sonnet, 2=Opus, 3=Grok (Terraform / update_model_ids).
+
+    The escalation ladder selects by ``family``, not by slot order:
+    Tier 1 Sonnet, Tier 2 Grok, Tier 3 Opus, Tier 4 all three.
+    """
+    from aria_core.suite import TIER_RESPONSIBILITY
+    from aria_core.complexity import TIER_GROK, TIER_OPUS, TIER_SONNET
+
     return [
         ModelConfig(
             slot=1,
             name=os.getenv("AI_ROUTER_MODEL_1_NAME", "Claude Sonnet 5.5"),
             model_id=os.getenv("AI_ROUTER_MODEL_1_ID", "global.anthropic.claude-sonnet-5-5"),
-            responsibility="Primary responder focused on fast, high-quality first-pass answers.",
+            responsibility=TIER_RESPONSIBILITY[TIER_SONNET],
+            family="sonnet",
         ),
         ModelConfig(
             slot=2,
             name=os.getenv("AI_ROUTER_MODEL_2_NAME", "Claude Opus 5.5"),
             model_id=os.getenv("AI_ROUTER_MODEL_2_ID", "global.anthropic.claude-opus-5-5"),
-            responsibility="Fallback and verifier when the first model misses the latency window or needs backup.",
+            responsibility=TIER_RESPONSIBILITY[TIER_OPUS],
+            family="opus",
         ),
         ModelConfig(
             slot=3,
             name=os.getenv("AI_ROUTER_MODEL_3_NAME", "Grok"),
             model_id=os.getenv("AI_ROUTER_MODEL_3_ID", "global.xai.grok-4.7"),
-            responsibility="Differently-trained second opinion (xAI Grok) that pressure-tests edge cases and fills remaining gaps.",
+            responsibility=TIER_RESPONSIBILITY[TIER_GROK],
+            family="grok",
         ),
     ]
 
