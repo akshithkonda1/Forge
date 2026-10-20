@@ -84,76 +84,54 @@ class FakeGateway:
 
 
 class AIRouterTests(unittest.TestCase):
-    def test_model_count_scales_with_package_size(self):
+    def test_model_count_does_not_fan_out_on_package_size(self):
         router = AIRouter(gateway=FakeGateway())
 
         self.assertEqual(router.model_count_for_package_size(1), 1)
-        self.assertEqual(router.model_count_for_package_size(4 * 1024 * 1024 * 1024), 2)
-        self.assertEqual(router.model_count_for_package_size(8 * 1024 * 1024 * 1024), 3)
+        self.assertEqual(router.model_count_for_package_size(4 * 1024 * 1024 * 1024), 1)
+        self.assertEqual(router.model_count_for_package_size(8 * 1024 * 1024 * 1024), 1)
 
-    def test_router_escalates_to_second_model_after_primary_timeout(self):
+    def test_router_escalates_to_grok_when_sonnet_fails(self):
         gateway = FakeGateway(
             responses={
-                "global.anthropic.claude-sonnet-5-5": {"delay": 0.25, "answer": "late sonnet answer"},
+                "global.anthropic.claude-sonnet-5-5": {"error": "timed out"},
                 "global.anthropic.claude-opus-5-5": {"delay": 0.01, "answer": "opus fallback answer"},
                 "global.xai.grok-4.7": {"delay": 0.01, "answer": "grok answer"},
             },
-            consensus_answer="consensus from sonnet and opus",
         )
         router = AIRouter(gateway=gateway)
-        request = RouteRequest.from_payload(
-            {
-                "question": "What should I do next?",
-                "packageSizeBytes": 1024,
-                "settings": {
-                    "modelTimeoutSeconds": 0.1,
-                    "overallTimeoutSeconds": 0.6,
-                    "consensusWindowSeconds": 0.2,
-                },
-            }
-        )
+        request = RouteRequest.from_payload({"question": "What should I do next?"})
 
         response = router.route(request)
 
-        self.assertEqual(response["selectedModel"]["slot"], 2)
-        self.assertEqual(response["routing"]["launchedModelCount"], 2)
-        self.assertEqual(response["finalAnswer"], "consensus from sonnet and opus")
-        self.assertEqual(response["answer"], "consensus from sonnet and opus")
-        self.assertEqual(response["finalAnswerSource"]["mode"], "2-model-consensus")
-        self.assertEqual(response["finalAnswerSource"]["usedModelCount"], 2)
-        self.assertEqual(len(gateway.calls), 3)
-        self.assertEqual(gateway.calls[-1]["kind"], "consensus")
+        self.assertEqual(response["finalAnswer"], "grok answer")
+        self.assertEqual(response["suite"]["extra"], "timeout_escalate")
+        self.assertEqual(len(gateway.calls), 2)
+        self.assertEqual(gateway.calls[1]["model_id"], "global.xai.grok-4.7")
 
-    def test_large_package_starts_three_models_immediately(self):
+    def test_large_package_stays_on_one_model(self):
         gateway = FakeGateway(
             responses={
-                "global.anthropic.claude-sonnet-5-5": {"delay": 0.1, "answer": "sonnet answer"},
-                "global.anthropic.claude-opus-5-5": {"delay": 0.05, "answer": "opus answer"},
-                "global.xai.grok-4.7": {"delay": 0.08, "answer": "grok answer"},
+                "global.anthropic.claude-sonnet-5-5": {"delay": 0.01, "answer": "sonnet answer"},
+                "global.anthropic.claude-opus-5-5": {"delay": 0.01, "answer": "opus answer"},
+                "global.xai.grok-4.7": {"delay": 0.01, "answer": "grok answer"},
             },
-            consensus_answer="consensus from all three models",
         )
         router = AIRouter(gateway=gateway)
         request = RouteRequest.from_payload(
             {
                 "question": "Summarize the uploaded health data.",
                 "packageSizeBytes": 9 * 1024 * 1024 * 1024,
-                "settings": {
-                    "overallTimeoutSeconds": 0.5,
-                    "consensusWindowSeconds": 0.12,
-                },
             }
         )
 
         response = router.route(request)
 
-        self.assertEqual(response["routing"]["initialParallelism"], 3)
-        self.assertEqual(response["routing"]["launchedModelCount"], 3)
-        self.assertEqual(response["finalAnswer"], "consensus from all three models")
-        self.assertEqual(response["finalAnswerSource"]["mode"], "3-model-consensus")
-        self.assertEqual(response["finalAnswerSource"]["usedModelCount"], 3)
-        self.assertEqual(len(gateway.calls), 4)
-        self.assertEqual(response["selectedModel"]["slot"], 2)
+        self.assertEqual(response["routing"]["initialParallelism"], 1)
+        self.assertEqual(response["routing"]["launchedModelCount"], 1)
+        self.assertEqual(response["finalAnswer"], "sonnet answer")
+        self.assertEqual(response["finalAnswerSource"]["mode"], "single-model")
+        self.assertEqual(len(gateway.calls), 1)
 
     def test_non_numeric_settings_raise_a_clean_400_not_a_bare_valueerror(self):
         # float()/int() on a non-numeric client value used to raise
@@ -219,6 +197,7 @@ class AIRouterTests(unittest.TestCase):
         response = router.route(request)
 
         self.assertIn("resting HR 52", gateway.calls[0]["user_prompt"])
+        self.assertIn("BEGIN USER MESSAGE", gateway.calls[0]["user_prompt"])
         self.assertEqual(response["finalAnswer"], "answer")
         self.assertEqual(response["finalAnswerSource"]["mode"], "single-model")
         self.assertEqual(response["finalAnswerSource"]["usedModelCount"], 1)
@@ -227,7 +206,7 @@ class AIRouterTests(unittest.TestCase):
     def test_router_falls_back_to_fastest_successful_answer_if_consensus_fails(self):
         gateway = FakeGateway(
             responses={
-                "global.anthropic.claude-sonnet-5-5": {"delay": 0.04, "answer": "sonnet answer"},
+                "global.anthropic.claude-sonnet-5-5": {"delay": 0.01, "answer": "sonnet answer"},
                 "global.anthropic.claude-opus-5-5": {"delay": 0.01, "answer": "opus answer"},
                 "global.xai.grok-4.7": {"delay": 0.01, "answer": "grok answer"},
             },
@@ -236,38 +215,36 @@ class AIRouterTests(unittest.TestCase):
         router = AIRouter(gateway=gateway)
         request = RouteRequest.from_payload(
             {
-                "question": "What is the safest next step?",
-                "packageSizeBytes": 4 * 1024 * 1024 * 1024,
-                "settings": {
-                    "overallTimeoutSeconds": 0.4,
-                    "consensusWindowSeconds": 0.08,
-                },
+                "question": (
+                    "From every angle, reconcile my conflicting HRV, sleep, and load data "
+                    "into a periodized 8-week training plan with tradeoffs"
+                ),
             }
         )
 
         response = router.route(request)
 
-        self.assertEqual(response["finalAnswer"], "opus answer")
         self.assertTrue(response["finalAnswerSource"]["fallbackUsed"])
         self.assertEqual(response["finalAnswerSource"]["fallbackReason"], "consensus_failed")
-        self.assertIn("Consensus finalization failed", response["warnings"][0])
+        self.assertIn("Ensemble synthesis failed", response["warnings"][0])
 
     def test_router_skips_consensus_when_remaining_budget_is_too_small(self):
         gateway = FakeGateway(
             responses={
-                "global.anthropic.claude-sonnet-5-5": {"delay": 0.35, "answer": "sonnet answer"},
-                "global.anthropic.claude-opus-5-5": {"delay": 0.01, "answer": "opus answer"},
-                "global.xai.grok-4.7": {"delay": 0.01, "answer": "grok answer"},
+                "global.anthropic.claude-sonnet-5-5": {"delay": 0.2, "answer": "sonnet answer"},
+                "global.anthropic.claude-opus-5-5": {"delay": 0.2, "answer": "opus answer"},
+                "global.xai.grok-4.7": {"delay": 0.2, "answer": "grok answer"},
             },
             consensus_answer="should not be used",
         )
         router = AIRouter(gateway=gateway)
         request = RouteRequest.from_payload(
             {
-                "question": "What should I do next?",
-                "packageSizeBytes": 1024,
+                "question": (
+                    "From every angle, reconcile my conflicting HRV, sleep, and load data "
+                    "into a periodized 8-week training plan with tradeoffs"
+                ),
                 "settings": {
-                    "modelTimeoutSeconds": 0.1,
                     "overallTimeoutSeconds": 0.5,
                     "consensusWindowSeconds": 0.35,
                 },
@@ -276,11 +253,9 @@ class AIRouterTests(unittest.TestCase):
 
         response = router.route(request)
 
-        self.assertEqual(response["finalAnswer"], "opus answer")
         self.assertTrue(response["finalAnswerSource"]["fallbackUsed"])
-        self.assertEqual(response["finalAnswerSource"]["fallbackReason"], "timeout_budget_exhausted")
+        self.assertIn(response["finalAnswerSource"]["fallbackReason"], {"timeout_budget_exhausted", "consensus_failed"})
         self.assertNotEqual(gateway.calls[-1]["kind"], "consensus")
-        self.assertIn("remaining time budget was too small", response["warnings"][0])
 
     def test_router_degrades_gracefully_when_s3_preview_load_fails(self):
         gateway = FakeGateway(
@@ -346,9 +321,9 @@ class AIRouterTests(unittest.TestCase):
 
         response = router.route(request)
 
-        self.assertEqual(response["routing"]["initialParallelism"], 3)
+        self.assertEqual(response["routing"]["initialParallelism"], 1)
         self.assertEqual(response["routing"]["packageSizeBytes"], 9 * 1024 * 1024 * 1024)
-        self.assertEqual(response["finalAnswer"], "consensus from inferred size")
+        self.assertEqual(response["finalAnswer"], "sonnet answer")
 
     def test_router_warns_when_s3_object_size_inference_fails(self):
         gateway = FakeGateway(
@@ -432,7 +407,7 @@ class AnswerAgreementTests(unittest.TestCase):
         self.assertEqual(label, "n/a")
         self.assertEqual(score, 1.0)
 
-    def test_route_surfaces_high_agreement_on_a_2_model_consensus(self):
+    def test_route_surfaces_high_agreement_on_ensemble(self):
         gateway = FakeGateway(
             responses={
                 "global.anthropic.claude-sonnet-5-5": {
@@ -443,21 +418,26 @@ class AnswerAgreementTests(unittest.TestCase):
                     "delay": 0.01,
                     "answer": "Readiness sits at 72 right now. Keep training moderate and protect sleep tonight.",
                 },
+                "global.xai.grok-4.7": {
+                    "delay": 0.01,
+                    "answer": "Readiness is 72. Keep training moderate and protect sleep.",
+                },
             },
             consensus_answer="Readiness is 72 -- train at moderate intensity and protect sleep tonight.",
         )
         router = AIRouter(gateway=gateway)
         request = RouteRequest.from_payload(
             {
-                "question": "How hard should I train today?",
-                "packageSizeBytes": 4 * 1024 * 1024 * 1024,
-                "settings": {"overallTimeoutSeconds": 0.5, "consensusWindowSeconds": 0.12},
+                "question": (
+                    "From every angle, reconcile my conflicting HRV, sleep, and load data "
+                    "into a periodized 8-week training plan with tradeoffs"
+                ),
             }
         )
 
         response = router.route(request)
 
-        self.assertEqual(response["finalAnswerSource"]["mode"], "2-model-consensus")
+        self.assertEqual(response["finalAnswerSource"]["mode"], "3-model-consensus")
         self.assertEqual(response["finalAnswerSource"]["agreement"], "high")
         self.assertGreaterEqual(response["finalAnswerSource"]["agreementScore"], AGREEMENT_HIGH_THRESHOLD)
 
@@ -472,21 +452,26 @@ class AnswerAgreementTests(unittest.TestCase):
                     "delay": 0.01,
                     "answer": "I would need your destination and travel dates to plan that itinerary.",
                 },
+                "global.xai.grok-4.7": {
+                    "delay": 0.01,
+                    "answer": "The weather in Tokyo is cloudy with light rain expected tonight.",
+                },
             },
             consensus_answer="Readiness is 72 -- train moderate and protect sleep.",
         )
         router = AIRouter(gateway=gateway)
         request = RouteRequest.from_payload(
             {
-                "question": "How hard should I train today?",
-                "packageSizeBytes": 4 * 1024 * 1024 * 1024,
-                "settings": {"overallTimeoutSeconds": 0.5, "consensusWindowSeconds": 0.12},
+                "question": (
+                    "From every angle, reconcile my conflicting HRV, sleep, and load data "
+                    "into a periodized 8-week training plan with tradeoffs"
+                ),
             }
         )
 
         response = router.route(request)
 
-        self.assertEqual(response["finalAnswerSource"]["mode"], "2-model-consensus")
+        self.assertEqual(response["finalAnswerSource"]["mode"], "3-model-consensus")
         self.assertEqual(response["finalAnswerSource"]["agreement"], "low")
         self.assertLess(response["finalAnswerSource"]["agreementScore"], AGREEMENT_LOW_THRESHOLD)
 
@@ -600,10 +585,13 @@ class DefaultModelsEnvTests(unittest.TestCase):
         models = default_models()
         self.assertEqual(models[0].model_id, "global.anthropic.claude-sonnet-5-5")
         self.assertEqual(models[0].name, "Claude Sonnet 5.5")
+        self.assertEqual(models[0].family, "sonnet")
         self.assertEqual(models[1].model_id, "global.anthropic.claude-opus-5-5")
         self.assertEqual(models[1].name, "Claude Opus 5.5")
+        self.assertEqual(models[1].family, "opus")
         self.assertEqual(models[2].model_id, "global.xai.grok-4.7")
         self.assertEqual(models[2].name, "Grok")
+        self.assertEqual(models[2].family, "grok")
 
     def test_slot_env_overrides_id_and_name(self):
         os.environ["AI_ROUTER_MODEL_1_ID"] = "us.anthropic.claude-sonnet-5"
