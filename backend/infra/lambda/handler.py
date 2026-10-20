@@ -435,11 +435,17 @@ def handler(event, context=None):
         return error_response(RouteError(403, str(exc) or "Forbidden."))
     except Exception as exc:  # noqa: BLE001 - this is the boundary; it catches everything
         method, path = _describe(event)
-        LOGGER.exception(
-            "Unhandled error serving %s %s (request %s)", method, path, request_id
+        from aria_core.health_privacy import redact_for_log
+
+        # Never log the request body or raw health tokens. Exception text can
+        # quote a clinical condition; keep the type and a redacted snippet.
+        LOGGER.error(
+            "Unhandled error serving %s %s (request %s): %s",
+            method,
+            path,
+            request_id,
+            redact_for_log(f"{type(exc).__name__}: {exc}")[:240],
         )
-        # Never log the request body: it can carry clinical conditions. The
-        # traceback is the exception type + message only after this boundary.
         return error_response(
             RouteError(
                 500,

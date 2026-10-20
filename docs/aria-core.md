@@ -50,7 +50,8 @@ Personality (Coach / Friend / Drill Sergeant) is a **blend**, not a menu.
 3. Launch **one** producer (Scout, or Reasoner for plan/summary).
 4. Escalate to the other producer **only on timeout**.
 5. Local critic always. Live Grok critic only when two producers disagree
-   (low agreement) or local rails wiped the answer. Never a 3-wide race.
+   (low agreement) or local rails wiped the answer (including the common
+   single-producer path). Never a 3-wide race.
 6. Untrusted question / context / package previews are delimited.
 
 ## Three-model roles

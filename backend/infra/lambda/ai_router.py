@@ -748,7 +748,8 @@ class AIRouter:
                 continue
             try:
                 package.size_bytes = max(0, self.gateway.head_object_size(s3_key=package.s3_key))
-            except Exception:
+            except Exception as exc:
+                _log.debug("s3 head failed for package %s: %s", package.package_id, exc)
                 warnings.append(
                     f"Could not infer size for package '{package.package_id}' from S3 metadata; routing used the remaining request metadata only."
                 )
@@ -769,7 +770,8 @@ class AIRouter:
                 try:
                     preview = self.gateway.load_preview(s3_key=package.s3_key, max_bytes=DEFAULT_PREVIEW_BYTES)
                     preview_source = "s3"
-                except Exception:
+                except Exception as exc:
+                    _log.debug("s3 preview failed for package %s: %s", package.package_id, exc)
                     preview = ""
                     preview_source = "unavailable"
                     warnings.append(
@@ -880,9 +882,9 @@ class AIRouter:
 
         if len(used_results) == 1:
             meta["mode"] = "single-model"
-            return local_answer, meta
+        else:
+            meta["mode"] = f"{len(used_results)}-model-local-critic"
 
-        meta["mode"] = f"{len(used_results)}-model-local-critic"
         plan = suite_plan
         if plan is None or not needs_live_critic(
             plan=plan,
@@ -910,7 +912,10 @@ class AIRouter:
             )
             critic_answer = _critic_answer_text(str(payload.get("answer") or "").strip())
             if critic_answer:
-                meta["mode"] = f"{len(used_results)}-model-critic"
+                if len(used_results) == 1:
+                    meta["mode"] = "single-model-critic"
+                else:
+                    meta["mode"] = f"{len(used_results)}-model-critic"
                 meta["criticSource"] = "live"
                 meta["finalizedByModel"] = {
                     "slot": critic.slot,
@@ -945,17 +950,6 @@ class AIRouter:
             "\"consistent\": bool, \"missing_facts\": string[]}."
         )
         return "\n\n".join(sections)
-
-    def _build_consensus_system_prompt(self, used_results: list[ModelResult]) -> str:
-        # Kept so older tests that look for "consensus finalizer" still compile;
-        # the live path uses the critic, not a fourth producer-on-producer merge.
-        del used_results
-        from aria_core.model_suite import critic_role, system_prompt
-
-        return system_prompt(critic_role())
-
-    def _build_consensus_user_prompt(self, request: RouteRequest, used_results: list[ModelResult]) -> str:
-        return self._build_critic_user_prompt(request, used_results)
 
     @staticmethod
     def _serialize_result(result: ModelResult) -> dict[str, Any]:

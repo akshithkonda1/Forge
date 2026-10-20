@@ -532,6 +532,34 @@ class AnswerAgreementTests(unittest.TestCase):
         self.assertEqual(response["finalAnswerSource"]["mode"], "single-model")
         self.assertEqual(response["finalAnswerSource"]["agreement"], "n/a")
         self.assertEqual(response["finalAnswerSource"]["agreementScore"], 1.0)
+        self.assertEqual(response["finalAnswerSource"]["criticSource"], "local")
+
+    def test_single_model_empty_local_rewrite_calls_live_critic(self):
+        gateway = FakeGateway(
+            responses={
+                "global.anthropic.claude-sonnet-5-5": {
+                    "delay": 0.01,
+                    "answer": "Shame on you.",
+                },
+            },
+            consensus_answer='{"safe": true, "answer": "Keep today easy.", "violations": [], "consistent": true, "missing_facts": []}',
+        )
+        router = AIRouter(gateway=gateway)
+        request = RouteRequest.from_payload(
+            {
+                "question": "Should I train today?",
+                "packageSizeBytes": 1024,
+                "settings": {"overallTimeoutSeconds": 0.8, "consensusWindowSeconds": 0.1},
+            }
+        )
+
+        response = router.route(request)
+
+        self.assertEqual(response["finalAnswerSource"]["mode"], "single-model-critic")
+        self.assertEqual(response["finalAnswerSource"]["criticSource"], "live")
+        self.assertEqual(gateway.calls[-1]["kind"], "critic")
+        self.assertEqual(response["finalAnswer"], "Keep today easy.")
+        self.assertNotIn("shame", response["finalAnswer"].lower())
 
 
 class _FakeBoto3:

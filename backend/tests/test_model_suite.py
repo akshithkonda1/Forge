@@ -92,6 +92,14 @@ class ModelSuitePolicyTests(unittest.TestCase):
                 local=local,
             )
         )
+        self.assertTrue(
+            needs_live_critic(
+                plan=plan,
+                answers=["Shame on you."],
+                agreement="n/a",
+                local={"safe": False, "answer": "", "violations": ["shame on you"]},
+            )
+        )
 
     def test_new_policy_cost_beats_legacy_large_package_race(self):
         mixed = [
