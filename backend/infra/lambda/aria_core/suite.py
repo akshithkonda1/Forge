@@ -136,8 +136,6 @@ def parse_structured_reply(raw: str) -> StructuredReply:
     if not isinstance(data, Mapping):
         return StructuredReply(text, None, False, "unstructured", text)
     answer = str(data.get("answer") or data.get("finalAnswer") or data.get("prose_summary") or "").strip()
-    if not answer:
-        answer = text
     confidence = None
     raw_conf = data.get("confidence")
     if raw_conf is not None:

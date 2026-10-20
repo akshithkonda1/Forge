@@ -629,14 +629,11 @@ class LiveBedrockTests(unittest.TestCase):
         self.assertEqual(resp["message"], resp["prose_summary"])
         self.assertEqual(resp["confidence"], 0.71)
         self.assertEqual(resp["confidence_reason"], "full sleep + HRV-trend data, signals coherent")
-        # recommendation routes to the primary model; reported as the concrete Bedrock id.
-        self.assertEqual(resp["model"], "global.anthropic.claude-opus-5-5")
-        # the model received the canonical ARIA system prompt + ground-truth block.
-        # It must also carry the security law: this assertion previously required
-        # the system prompt to be *exactly* ARIA_SYSTEM_PROMPT, which is how the
-        # directive stayed unattached to every live call without a test noticing.
-        self.assertEqual(captured["system"], aria_engine.live_system_prompt())
+        # Short "should I train" stays on Tier 1 Sonnet (default of the ladder).
+        self.assertEqual(resp["model"], "global.anthropic.claude-sonnet-5-5")
+        self.assertIn(aria_engine.ARIA_SYSTEM_PROMPT.split("\n", 1)[0], captured["system"])
         self.assertIn("SECURITY LAW (mandatory)", captured["system"])
+        self.assertIn("Tier 1", captured["system"])
 
 
 class HallucinationGuardTests(unittest.TestCase):

@@ -110,8 +110,10 @@ def test_scout_box_matches_documented_seventeen():
 def test_per_tier_costs_and_mix():
     chat = [tier_cost(tier, CHAT_IN, CHAT_OUT) for tier in range(1, 5)]
     router = [tier_cost(tier, ROUTER_IN, ROUTER_OUT) for tier in range(1, 5)]
-    assert chat == [0.0076, 0.006, 0.019, 0.0402]
-    assert router == [0.009, 0.0074, 0.0225, 0.0479]
+    expected_chat = [0.0076, 0.006, 0.019, 0.0402]
+    expected_router = [0.009, 0.0074, 0.0225, 0.0479]
+    assert all(abs(got - want) < 1e-12 for got, want in zip(chat, expected_chat))
+    assert all(abs(got - want) < 1e-12 for got, want in zip(router, expected_router))
     assert abs(suite_token_cost(CHAT_IN, CHAT_OUT) - 0.008034) < 1e-12
     assert abs(suite_token_cost(ROUTER_IN, ROUTER_OUT) - 0.009539) < 1e-12
     assert abs(sum(TIER_MIX) - 1.0) < 1e-12

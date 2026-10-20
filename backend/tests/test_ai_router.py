@@ -231,9 +231,9 @@ class AIRouterTests(unittest.TestCase):
     def test_router_skips_consensus_when_remaining_budget_is_too_small(self):
         gateway = FakeGateway(
             responses={
-                "global.anthropic.claude-sonnet-5-5": {"delay": 0.2, "answer": "sonnet answer"},
-                "global.anthropic.claude-opus-5-5": {"delay": 0.2, "answer": "opus answer"},
-                "global.xai.grok-4.7": {"delay": 0.2, "answer": "grok answer"},
+                "global.anthropic.claude-sonnet-5-5": {"delay": 0.4, "answer": "sonnet answer"},
+                "global.anthropic.claude-opus-5-5": {"delay": 0.4, "answer": "opus answer"},
+                "global.xai.grok-4.7": {"delay": 0.4, "answer": "grok answer"},
             },
             consensus_answer="should not be used",
         )

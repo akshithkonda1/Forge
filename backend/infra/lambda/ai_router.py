@@ -878,6 +878,8 @@ class AIRouter:
             consensus_answer = successes[0].answer
             fallback_used = True
             fallback_reason = fallback_reason or "consensus_failed"
+            if not any("Ensemble synthesis failed" in item for item in warnings):
+                warnings.append("Ensemble synthesis failed; returning the fastest successful draft.")
         final_answer = validate_output(parse_structured_reply(consensus_answer).answer or consensus_answer)
         finalization = {
             "mode": f"{len(successes)}-model-consensus",

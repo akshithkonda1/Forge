@@ -38,8 +38,11 @@ _HEALTH_TOKEN = re.compile(
     r")\b"
 )
 _SECRET_TOKEN = re.compile(
-    r"(?i)(api[_-]?key|secret[_-]?key|bearer\s+[A-Za-z0-9._\-]+|"
-    r"aws_secret|password\s*[:=])"
+    r"(?i)("
+    r"(?:api[_-]?key|secret[_-]?key|password|aws_secret(?:_access_key)?)"
+    r"\s*[:=]\s*\S+"
+    r"|bearer\s+[A-Za-z0-9._\-]+"
+    r")"
 )
 
 

@@ -3943,7 +3943,9 @@ def generate_response_live(
                 text = caller(model_id, system, user_prompt)
         structured = parse_structured_reply(text)
         data = _parse_model_envelope(text)
-        prose = str(data.get("prose_summary") or structured.answer or "").strip()
+        prose = str(data.get("prose_summary") or "").strip()
+        if not prose and structured.escalation_reason != "unstructured":
+            prose = (structured.answer or "").strip()
         if not prose:
             raise ValueError("model response missing prose_summary")
         prose = validate_output(prose)
