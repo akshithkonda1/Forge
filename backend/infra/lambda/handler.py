@@ -438,6 +438,8 @@ def handler(event, context=None):
         LOGGER.exception(
             "Unhandled error serving %s %s (request %s)", method, path, request_id
         )
+        # Never log the request body: it can carry clinical conditions. The
+        # traceback is the exception type + message only after this boundary.
         return error_response(
             RouteError(
                 500,

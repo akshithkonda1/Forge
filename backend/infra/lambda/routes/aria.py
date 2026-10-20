@@ -565,6 +565,8 @@ def handle_post_ai_chat(body: dict[str, Any], *, user_id: str) -> dict:
     checkin_payload: dict[str, Any] | None = None
     calendar_ingested: list[dict[str, Any]] = []
     memory: str | None = None
+    from aria_core import health_privacy
+
     if permissions.allows("lifestyle") and allow_ingest and not safety_lock:
         events = payload.get("calendar_events")
         if isinstance(events, list):
@@ -573,9 +575,13 @@ def handle_post_ai_chat(body: dict[str, Any], *, user_id: str) -> dict:
             _context.evaluate_memory(uid)
         checkin = _context.daily_checkin(uid)
         checkin_payload = checkin.to_dict() if checkin else None
-        memory_block = _context.memory_prompt_block(uid)
+        memory_block = health_privacy.filter_memory_text(
+            _context.memory_prompt_block(uid), payload
+        )
     if permissions.allows("lifestyle") and not safety_lock:
-        memory = _context.memory_reference(uid, message)
+        memory = health_privacy.filter_memory_text(
+            _context.memory_reference(uid, message) or "", payload
+        ) or None
     # Phase 1: relationship only grows on non-clarification + >24h since last promotion
     # (prevents chat spam inflating trust). Uses dedicated last_promoted_at, not last_updated.
     response_type = str(response.get("response_type") or "")

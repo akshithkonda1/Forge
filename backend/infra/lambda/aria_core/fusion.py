@@ -271,10 +271,15 @@ def fuse_turn(
         context.sleep.baseline_median_minutes = baselines.sleep_duration_min
         if baselines.sleep_duration_n:
             context.sleep.nights_available = baselines.sleep_duration_n
+    from . import health_privacy
     from . import state_read
 
     context = state_read.drop_from_memory(context)
     context, restricted = aria_engine.apply_permissions(context, permissions)
+    # Health conditions stay on-device unless shareHealth is on.
+    context = health_privacy.redact_clinical_context(context, payload)
+    if not health_privacy.health_opted_in(payload) and "clinical_data" not in restricted:
+        restricted = list(restricted) + ["clinical_data"]
     if snapshot_dict is not None:
         snapshot_dict = redact_snapshot(dict(snapshot_dict), permissions)
 

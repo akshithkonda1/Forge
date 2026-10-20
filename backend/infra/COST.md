@@ -14,7 +14,7 @@ fail-paused), or when the per-user daily cap is exhausted.
 | Call site | Entry | Prompt shape (approx.) | `max_tokens` | Notes |
 | --- | --- | --- | --- | --- |
 | `POST /ai/chat` | `generate_response_live` → `_default_converse` | System: persona + one specialist + learning law + security (~1.5–2.5k tok). User: ground-truth block capped at 4k chars + isolated message. | **512** (was 700) | Deterministic pass first. One Converse. Voice tool uses this path with a 150-token voice instruction. |
-| `POST /ai/router` | `AIRouter.route` | Short router system (~80 tok) + question + package previews now capped at **6k chars** / **1kB** preview. | **512** default, hard cap **800** (was 1000 uncapped) | Starts **one** model. Escalates only on timeout. Optional consensus is a **second** Converse if two models answer — the redundant cost. |
+| `POST /ai/router` | `AIRouter.route` | Per-role system (Scout / Reasoner / Critic) + isolated question/context/previews, capped at **6k chars** / **1kB** preview. | **512** default, hard cap **800** (was 1000 uncapped) | Starts **one** model by intent (Scout, or Reasoner for plan/summary). Escalates only on timeout. Local critic is free. Live Grok critic only on low agreement — not a 3-wide race and not a consensus Converse on every two-success turn. |
 | `/coach/*` | `_safe_route` → `AIRouter` | Same as router + coach context block | same | Pause-gated at the handler. Falls back if Bedrock is off. |
 | `POST /workouts/form-check` `mode=briefing` | `generate_coach_text` | `live_system_prompt` + briefing task + snapshot ≤4k chars | 512 | **Not** handler-gated (degraded path stays up). Gateway + `is_aria_paused()` still block Converse. |
 | `POST /sleep/environment-check` | `generate_coach_vision` | Sleep specialist + image | 512 | Same: no Converse while paused. |
@@ -27,9 +27,9 @@ fail-paused), or when the per-user daily cap is exhausted.
 
 **Redundant calls (still possible when Bedrock is on):**
 
-1. Router consensus — one extra Converse after two successes.
-2. Router timeout escalation — a second/third model.
-3. Chat runs deterministic `generate_response` first (local, $0) then one live call.
+1. Router timeout escalation — a second producer (Scout ↔ Reasoner). Critic is not launched as a producer.
+2. Live Grok critic — only when two producers disagree (low agreement) or local rails wiped the answer.
+3. Chat runs deterministic `generate_response` first (local, $0) then one live call. Local critic (soul rails) is free.
 
 Safe caching now in the gateway:
 

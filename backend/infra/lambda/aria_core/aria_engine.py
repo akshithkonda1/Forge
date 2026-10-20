@@ -1215,7 +1215,11 @@ def apply_permissions(ctx: ARIAContext, permissions: DataPermissions) -> tuple[A
 
 
 def select_model(response_type: str, *, voice_mode: bool = False) -> str:
-    """Pick the model the live path would use for this response."""
+    """Pick the model the live path would use for this response.
+
+    Voice and short replies → Scout (fast). Recommendation / plan / summary
+    → Reasoner. One Converse per chat turn — the critic is local rails.
+    """
     if voice_mode:
         return MODEL_FAST
     if response_type in ("recommendation", "plan", "summary"):
@@ -3492,12 +3496,9 @@ def _envelope(
 
 def build_user_prompt(message: str, ctx: ARIAContext, restricted: list[str] | None = None) -> str:
     """User-turn prompt for the Bedrock path: ground truth + isolated user text."""
-    try:
-        from security import isolate_user_message
+    from .untrusted import isolate_user_message
 
-        user_block = isolate_user_message(message)
-    except Exception:  # pragma: no cover
-        user_block = f"[USER MESSAGE]\n{(message or '').strip()}"
+    user_block = isolate_user_message(message)
     ground = ctx.user_model_block(restricted)
     if len(ground) > LIVE_USER_CONTEXT_CHARS:
         ground = ground[: LIVE_USER_CONTEXT_CHARS - 3] + "..."
@@ -3625,7 +3626,12 @@ LEARNING_LAW = (
 )
 
 
-def live_system_prompt(agent: str | None = None, agents: list[str] | None = None) -> str:
+def live_system_prompt(
+    agent: str | None = None,
+    agents: list[str] | None = None,
+    *,
+    model_class: str | None = None,
+) -> str:
     """ARIA's persona plus the security law, for any live model call.
 
     `AI_SECURITY_DIRECTIVE` describes itself in security.py as "security rules
@@ -3640,6 +3646,9 @@ def live_system_prompt(agent: str | None = None, agents: list[str] | None = None
     """
     from security import AI_SECURITY_DIRECTIVE
 
+    from .model_suite import reasoner_role, scout_role
+    from .safety_rails import blend_soul, soul_directive
+
     roster = normalize_coach_agents(agents, agent)
     assignment = "\n".join(COACH_AGENTS[key] for key in roster)
     if len(roster) > 1:
@@ -3647,7 +3656,12 @@ def live_system_prompt(agent: str | None = None, agents: list[str] | None = None
             "\nYou have several specialists in the room. Answer once, synthesizing "
             "them. Do not call further models."
         )
-    return f"{ARIA_SYSTEM_PROMPT}\n\n{assignment}\n\n{LEARNING_LAW}\n\n{AI_SECURITY_DIRECTIVE}"
+    soul = blend_soul(style="coach")
+    role = reasoner_role() if model_class == MODEL_PRIMARY else scout_role()
+    return (
+        f"{ARIA_SYSTEM_PROMPT}\n\n{assignment}\n\n{LEARNING_LAW}\n\n"
+        f"{soul_directive(soul['dominant'])}\n\n{role.prompt}\n\n{AI_SECURITY_DIRECTIVE}"
+    )
 
 
 def generate_coach_text(
@@ -3674,7 +3688,7 @@ def generate_coach_text(
     if is_aria_paused():
         return None
     caller = converse or _default_converse
-    system = f"{live_system_prompt()}\n\n{task_prompt}".strip()
+    system = f"{live_system_prompt(model_class=model_class)}\n\n{task_prompt}".strip()
     try:
         text = caller(_bedrock_model_id(model_class), system, user_prompt)
     except Exception:  # noqa: BLE001 — degrade, never raise
@@ -3706,7 +3720,7 @@ def generate_coach_vision(
     if is_aria_paused():
         return None
     caller = converse or _default_converse_vision
-    system = f"{live_system_prompt(agent=agent)}\n\n{task_prompt}".strip()
+    system = f"{live_system_prompt(agent=agent, model_class=model_class)}\n\n{task_prompt}".strip()
     try:
         text = caller(_bedrock_model_id(model_class), system, user_prompt, image_bytes, image_format)
     except Exception:  # noqa: BLE001 — degrade, never raise
@@ -3776,7 +3790,8 @@ def generate_response_live(
 
     perms = permissions if isinstance(permissions, DataPermissions) else DataPermissions.allow_all()
     sanitized, restricted = apply_permissions(ctx, perms)
-    model_id = _bedrock_model_id(select_model(base["response_type"], voice_mode=voice_mode))
+    model_class = select_model(base["response_type"], voice_mode=voice_mode)
+    model_id = _bedrock_model_id(model_class)
 
     user_prompt = build_user_prompt(message, sanitized, restricted)
     if voice_mode:
@@ -3787,7 +3802,11 @@ def generate_response_live(
         user_prompt += f"\n\n{instr}"
 
     try:
-        text = caller(model_id, live_system_prompt(agents=roster), user_prompt)
+        text = caller(
+            model_id,
+            live_system_prompt(agents=roster, model_class=model_class),
+            user_prompt,
+        )
         data = _parse_model_envelope(text)
         prose = str(data.get("prose_summary") or "").strip()
         if not prose:
