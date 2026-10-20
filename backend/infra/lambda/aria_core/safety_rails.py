@@ -79,7 +79,8 @@ def blend_soul(
     Athletic / PR / race / elite → Drill Sergeant + Coach.
     Everyday → Coach + Friend; engagement can add Drill Sergeant later.
     """
-    pick = _normalize_style(explicit or style or "")
+    raw_pick = (explicit or style or "").strip()
+    pick = _normalize_style(raw_pick) if raw_pick else ""
     exp = (experience or "").strip().lower()
     if pick in PERSONALITIES:
         weights = {name: 0.15 for name in PERSONALITIES}
