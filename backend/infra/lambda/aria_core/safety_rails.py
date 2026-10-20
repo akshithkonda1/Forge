@@ -167,9 +167,10 @@ def soul_sanitize(line: str) -> str:
 
 def soul_breaks_rails(line: str) -> bool:
     """True when spoken text still contains a banned token after accounting for the rails themselves."""
-    lower = _without_denials(line or "").lower()
+    lower = (line or "").lower()
     for rail in SOUL_RAILS:
         lower = lower.replace(rail.lower(), "")
+    lower = _without_denials(lower)
     if _RECOVERY_WORD.search(lower):
         return True
     return any(token in lower for token in _BANNED_SPOKEN)
