@@ -57,6 +57,53 @@ _DIAGNOSE_WORD = re.compile(r"(?i)\bdiagnos\w*")
 _PRESCRIBE_WORD = re.compile(r"(?i)\bprescribe\w*")
 _TREAT_CURE = re.compile(r"(?i)\b(?:treat(?:ment)?|cure)\b")
 
+# Denial language is the rail, not a violation. "No diagnosis" must stay
+# "no diagnosis" — rewriting it to "no notice" is a regression.
+_DENIAL_PHRASES = (
+    "no diagnosis",
+    "not a diagnosis",
+    "never a diagnosis",
+    "never diagnose",
+    "can't diagnose",
+    "cannot diagnose",
+    "do not diagnose",
+    "don't diagnose",
+    "isn't a diagnosis",
+    "is not a diagnosis",
+    "without a diagnosis",
+    "no prescription",
+    "not a prescription",
+    "never prescribe",
+    "can't prescribe",
+    "cannot prescribe",
+    "do not prescribe",
+    "don't prescribe",
+)
+_DENIAL_RE = re.compile(
+    "|".join(sorted((re.escape(p) for p in _DENIAL_PHRASES), key=len, reverse=True)),
+    re.IGNORECASE,
+)
+
+
+def _mask_denials(text: str) -> tuple[str, list[str]]:
+    held: list[str] = []
+
+    def _keep(match: re.Match[str]) -> str:
+        held.append(match.group(0))
+        return f"\x00DENY{len(held) - 1}\x00"
+
+    return _DENIAL_RE.sub(_keep, text), held
+
+
+def _restore_denials(text: str, held: list[str]) -> str:
+    for index, original in enumerate(held):
+        text = text.replace(f"\x00DENY{index}\x00", original)
+    return text
+
+
+def _without_denials(text: str) -> str:
+    return _DENIAL_RE.sub(" ", text or "")
+
 
 def soul_directive(style: str = "coach") -> str:
     """Prompt-side law. Style is a flavor; these rails cannot be overridden."""
@@ -108,17 +155,19 @@ def blend_soul(
 def soul_sanitize(line: str) -> str:
     """Rewrite a spoken line so style cannot break the rails."""
     text = str(line or "")
+    text, held = _mask_denials(text)
     for src, dst in _REPLACEMENTS:
         text = re.compile(re.escape(src), re.IGNORECASE).sub(dst, text)
     text = _DIAGNOSE_WORD.sub("notice", text)
     text = _PRESCRIBE_WORD.sub("suggest with a doctor", text)
     text = _RECOVERY_WORD.sub("readiness", text)
+    text = _restore_denials(text, held)
     return re.sub(r" {2,}", " ", text).strip()
 
 
 def soul_breaks_rails(line: str) -> bool:
     """True when spoken text still contains a banned token after accounting for the rails themselves."""
-    lower = (line or "").lower()
+    lower = _without_denials(line or "").lower()
     for rail in SOUL_RAILS:
         lower = lower.replace(rail.lower(), "")
     if _RECOVERY_WORD.search(lower):
@@ -132,13 +181,14 @@ def violations(text: str) -> tuple[str, ...]:
     if not raw.strip():
         return ()
     hits: list[str] = []
-    if _RECOVERY_WORD.search(raw):
+    scratch = _without_denials(raw)
+    if _RECOVERY_WORD.search(scratch):
         hits.append("recovery")
-    if _DIAGNOSE_WORD.search(raw):
+    if _DIAGNOSE_WORD.search(scratch):
         hits.append("diagnose")
-    if _PRESCRIBE_WORD.search(raw):
+    if _PRESCRIBE_WORD.search(scratch):
         hits.append("prescribe")
-    lowered = raw.lower()
+    lowered = scratch.lower()
     for token in ("you failed", "you did it wrong", "shame on you", "push through the pain"):
         if token in lowered:
             hits.append(token)

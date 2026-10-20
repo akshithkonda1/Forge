@@ -162,7 +162,7 @@ _STEP_CUES = (
 )
 
 _RECOVERY_OPEN_RE = re.compile(
-    r"recovery window is still open"
+    r"(?:recovery|readiness) window is still open"
     r"|earlier today"
     r"|only\s+\d+\s*h\s+since"
     r"|\b0\s*h\s+since"
