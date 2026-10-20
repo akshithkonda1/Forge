@@ -136,18 +136,16 @@ class PauseZeroSpendTests(unittest.TestCase):
             event("POST", "/sleep/environment-check", {"image_base64": TINY_JPEG_B64}),
             None,
         )
-        voice = handler(
-            event("POST", "/ai/voice/tool", {"message": "how did I sleep?", "voice_mode": True}),
-            None,
-        )
+        voice = handler(event("GET", "/ai/voice"), None)
         self.assertNotEqual(body(form).get("error"), "should never run")
         self.assertNotEqual(body(sleep).get("error"), "should never run")
         self.assertEqual(voice["statusCode"], 200)
+        self.assertEqual(body(voice).get("source"), "fallback")
         self.bedrock.converse.assert_not_called()
 
     def test_health_and_voice_bootstrap_stay_up(self):
         health = handler(event("GET", "/health", user_id=None), None)
-        voice = handler(event("GET", "/ai/voice/bootstrap"), None)
+        voice = handler(event("GET", "/ai/voice"), None)
         self.assertEqual(health["statusCode"], 200)
         self.assertEqual(body(health)["status"], "ok")
         self.assertNotEqual(body(voice).get("error"), "aria_paused")

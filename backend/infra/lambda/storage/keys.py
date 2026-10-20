@@ -46,6 +46,11 @@ def aria_persona_key(user_id: str) -> dict:
     return {"pk": f"USER#{user_id}", "sk": "ARIA#PERSONA"}
 
 
+def aria_voice_profile_key(user_id: str) -> dict:
+    """Selected Fish voice. Independent of ARIA#PERSONA / personality."""
+    return {"pk": f"USER#{user_id}", "sk": "ARIA#VOICE_PROFILE"}
+
+
 def aria_memory_settings_key(user_id: str) -> dict:
     """Dummy-offline Rowan contract: memory_enabled, disabled_folders,
     persona_enabled, tone, check_in. Not wired into CoachContextEngine.

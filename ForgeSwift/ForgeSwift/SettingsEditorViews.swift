@@ -489,6 +489,79 @@ struct AriaSoulPickerView: View {
     }
 }
 
+struct AriaVoicePickerView: View {
+    @Environment(\.dismiss) private var dismiss
+    @ObservedObject private var voices = AriaVoiceProfileStore.shared
+    @State private var previewing = false
+
+    var body: some View {
+        NavigationStack {
+            EditorSheetScroll(accent: .ember) {
+                EditorCard {
+                    ForEach(voices.featured) { profile in
+                        EditorOptionRow(
+                            title: profile.label,
+                            subtitle: profile.description,
+                            icon: "waveform",
+                            tint: .ember,
+                            selected: voices.selection.profileID == profile.id
+                        ) {
+                            voices.select(profile)
+                        }
+                    }
+                }
+                if let more = voices.catalog?.voices, !more.isEmpty {
+                    ForgeCardHeader("Library", meta: "Fish Audio")
+                    EditorCard {
+                        ForEach(more.prefix(12), id: \.id) { voice in
+                            EditorOptionRow(
+                                title: voice.title,
+                                subtitle: voice.description,
+                                icon: "speaker.wave.2",
+                                tint: .ember,
+                                selected: voices.selection.voiceID == voice.id && voices.selection.profileID == nil
+                            ) {
+                                voices.select(voice: voice)
+                            }
+                        }
+                    }
+                }
+                Button {
+                    previewing = true
+                    AriaPresence.shared.speak(AriaVoiceCatalog.previewText)
+                    previewing = false
+                } label: {
+                    Text(previewing ? "Playing sample" : "Play a short sample")
+                        .font(HomeType.status)
+                        .foregroundStyle(Color.ember)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(.vertical, ForgeLayout.rowVerticalPadding)
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("Play a short sample of the selected voice")
+                Text("Takes effect on the next spoken reply — no restart. Independent of Coach, Friend, or Drill Sergeant. Same rails either way.")
+                    .font(HomeType.body)
+                    .foregroundStyle(Color.textSecondary)
+                if voices.lastBusy {
+                    Text(AriaFishAudioVoice.voiceBusyMessage)
+                        .font(HomeType.body)
+                        .foregroundStyle(Color.textSecondary)
+                }
+            }
+            .navigationTitle("ARIA voice")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Done") { dismiss() }
+                        .foregroundColor(.ember)
+                }
+            }
+            .task { await voices.refreshCatalog() }
+        }
+        .presentationDragIndicator(.visible)
+    }
+}
+
 // MARK: - Preferred Workouts Editor
 
 struct PreferredWorkoutsEditorView: View {

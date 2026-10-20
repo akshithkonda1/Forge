@@ -22,7 +22,7 @@ for row by Python (`backend/tests/test_safety_triage.py`) and Swift
 
 ## Capabilities by path
 
-| | iOS Dummy orchestra | iOS Local testing | iOS Live (`/ai/chat`) | iOS offline fallback | Python Dummy chat | `/ai/chat` Lambda | `/ai/voice/tool` (ConvAI) |
+| | iOS Dummy orchestra | iOS Local testing | iOS Live (`/ai/chat`) | iOS offline fallback | Python Dummy chat | `/ai/chat` Lambda | `/ai/voice/speak` (Fish Audio) |
 |---|---|---|---|---|---|---|---|
 | 911 / first aid / refer-out | on-device, before the Dummy runs | on-device | on-device, before the network | on-device | guidance.py | guidance.py | guidance.py, but the phone hands safety turns to chat first (below) |
 | Voice-first triage (ask, then 911 / doctor / care line) | yes | yes | yes | yes | `safety` block (no audio) | `safety` block for the client | not here: the phone takes the turn over |

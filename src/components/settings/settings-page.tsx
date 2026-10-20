@@ -21,6 +21,8 @@ import { useToast } from "@/stores/useToast";
 import { Sheet } from "@/components/ui/sheet";
 import { PageHeader } from "@/components/ui/card";
 import { AriaCompanionControls } from "@/components/settings/aria-companion-controls";
+import { AriaVoicePicker, defaultVoiceSelection } from "@/components/settings/aria-voice-picker";
+import type { AriaVoiceSelection } from "@/lib/aria-voice";
 import type { FitnessGoal, WorkoutType } from "@/types";
 
 const fitnessGoalLabels: Record<FitnessGoal, string> = {
@@ -230,6 +232,12 @@ export default function SettingsPage() {
   const showToast = useToast((s) => s.show);
   const [sheet, setSheet] = useState<SettingsSheet>(null);
   const [draftName, setDraftName] = useState(userProfile.name);
+  const [voiceSelection, setVoiceSelection] = useState<AriaVoiceSelection>(
+    defaultVoiceSelection()
+  );
+  const [lastVoiceSpeak, setLastVoiceSpeak] = useState<Record<string, unknown> | null>(
+    null
+  );
 
   const handleToggle = (key: keyof typeof notificationPrefs) => {
     setNotificationPref(key, !notificationPrefs[key]);
@@ -308,6 +316,15 @@ export default function SettingsPage() {
       <SectionHeader>ARIA</SectionHeader>
       <SectionCard>
         <AriaCompanionControls SettingsRow={SettingsRow} />
+        <AriaVoicePicker
+          SettingsRow={SettingsRow}
+          selection={voiceSelection}
+          lastSpeakBody={lastVoiceSpeak}
+          onSelect={(next, speakBody) => {
+            setVoiceSelection(next);
+            setLastVoiceSpeak(speakBody);
+          }}
+        />
         <div className="px-4 py-3">
           <p className="mb-2 text-sm font-medium text-text-primary">
             Training Goals

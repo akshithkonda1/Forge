@@ -168,18 +168,11 @@ class ProviderNoSpendGates(unittest.TestCase):
             "real /ai/voice/speak literal must fail",
         )
         self.assertTrue(
-            nyx.dummy_invoke_call_failures("url = '/ai/voice/fish-tts'\n"),
-            "real /ai/voice/fish-tts literal must fail",
-        )
-        self.assertTrue(
             nyx.dummy_invoke_call_failures("from services import fish_audio_voice\n")
         )
 
     def test_dummy_path_never_reaches_elevenlabs(self):
-        """FAIL if Dummy reaches ElevenLabs session mint, tool, or client.
-
-        Reach only — not env vars. ``elevenlabs_voice.py`` stays read-only.
-        """
+        """FAIL if Dummy reaches a removed ElevenLabs path or Fish speak."""
         owned = (
             pathlib.Path(dummy.__file__),
             pathlib.Path(dummy.voice_diagnostics.__file__),
@@ -198,29 +191,21 @@ class ProviderNoSpendGates(unittest.TestCase):
         from backend._paths import ensure_lambda_on_path
 
         ensure_lambda_on_path()
-        from services import elevenlabs_voice
-
-        def boom(*_a, **_k):
-            raise AssertionError("Dummy must not reach ElevenLabs")
-
-        names = ("mint_signed_url", "run_tool", "design_aria", "credentials", "require_api_key")
-        originals = {name: getattr(elevenlabs_voice, name) for name in names}
-        try:
-            for name in names:
-                setattr(elevenlabs_voice, name, boom)
-            for engine in ("stub", "lambda"):
-                with self.subTest(engine=engine):
-                    dummy.respond("What should I train today?", seed=1, engine=engine)
-        finally:
-            for name, fn in originals.items():
-                setattr(elevenlabs_voice, name, fn)
+        eleven = (
+            pathlib.Path(__file__).resolve().parents[3]
+            / "infra"
+            / "lambda"
+            / "services"
+            / "elevenlabs_voice.py"
+        )
+        self.assertFalse(eleven.exists(), "ElevenLabs voice module must stay removed")
 
         from services import fish_audio_voice
 
         def fish_boom(*_a, **_k):
             raise AssertionError("Dummy must not reach Fish Audio")
 
-        fish_names = ("speak", "synthesize", "fish_tts", "require_api_key")
+        fish_names = ("speak", "synthesize", "catalog", "require_api_key")
         fish_originals = {name: getattr(fish_audio_voice, name) for name in fish_names}
         try:
             for name in fish_names:

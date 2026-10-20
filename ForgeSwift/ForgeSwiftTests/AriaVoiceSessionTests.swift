@@ -41,13 +41,10 @@ final class AriaVoiceSessionTests: XCTestCase {
         XCTAssertTrue(AriaVoiceTransport.live.requiresNetwork)
         XCTAssertTrue(AriaVoiceTransport.dummy.usesOnDeviceBrain)
         XCTAssertFalse(AriaCharacterVoice.dummyUpgradesToLiveOnFailure)
-        XCTAssertEqual(AriaCharacterVoice.liveTTSModel, "eleven_v3_conversational")
-        XCTAssertEqual(AriaCharacterVoice.liveASRProvider, "scribe_realtime")
-        XCTAssertEqual(AriaCharacterVoice.liveTurnModel, "turn_v3")
-        XCTAssertEqual(AriaCharacterVoice.liveVoiceDesignModel, "eleven_ttv_v3")
-        XCTAssertEqual(AriaCharacterVoice.liveConvAILLM, "claude-sonnet-4-6")
-        XCTAssertFalse(AriaCharacterVoice.liveTTSModel.contains("turbo"))
-        XCTAssertFalse(AriaCharacterVoice.liveASRProvider == "elevenlabs")
+        XCTAssertEqual(AriaCharacterVoice.liveTTSModel, AriaFishAudioVoice.defaultModel)
+        XCTAssertEqual(AriaCharacterVoice.livePaidTTSModel, AriaFishAudioVoice.paidModel)
+        XCTAssertEqual(AriaCharacterVoice.liveTTSModel, "s2.1-pro-free")
+        XCTAssertFalse(AriaCharacterVoice.liveTTSModel.contains("s1"))
         XCTAssertFalse(AriaCharacterVoice.dummyUpgradesToFishAudioOnFailure)
     }
 
@@ -217,6 +214,41 @@ final class AriaVoiceSessionTests: XCTestCase {
                 apiKey: "sk_super_secret"
             )
         )
+    }
+
+    func testSwitchingVoiceProfileChangesNextSpeakVoiceID() {
+        let warm = AriaVoiceCatalog.Profile(
+            id: "warm",
+            label: "Warm",
+            description: "Close",
+            voiceID: "voice-warm-1"
+        )
+        let ember = AriaVoiceCatalog.Profile(
+            id: "ember",
+            label: "Ember",
+            description: "Blunt",
+            speed: 1.05,
+            voiceID: "voice-ember-1"
+        )
+        var selection = AriaVoiceCatalog.Selection()
+        selection = AriaVoiceCatalog.apply(selection: selection, to: warm)
+        let first = AriaFishAudioVoice.makeBackendRequest(
+            text: "I'm ARIA.",
+            baseURL: URL(string: "https://api.forge.test")!,
+            selection: selection
+        )
+        let firstBody = try? JSONSerialization.jsonObject(with: first?.httpBody ?? Data()) as? [String: Any]
+        XCTAssertEqual(firstBody?["voice_id"] as? String, "voice-warm-1")
+
+        selection = AriaVoiceCatalog.apply(selection: selection, to: ember)
+        let next = AriaFishAudioVoice.makeBackendRequest(
+            text: "I'm ARIA.",
+            baseURL: URL(string: "https://api.forge.test")!,
+            selection: selection
+        )
+        let nextBody = try? JSONSerialization.jsonObject(with: next?.httpBody ?? Data()) as? [String: Any]
+        XCTAssertEqual(nextBody?["voice_id"] as? String, "voice-ember-1")
+        XCTAssertNotEqual(firstBody?["voice_id"] as? String, nextBody?["voice_id"] as? String)
     }
 
     func testSpokenLinePrefersProseSummary() {

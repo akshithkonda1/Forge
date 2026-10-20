@@ -1,13 +1,14 @@
 import Foundation
 
-/// Fish Audio TTS — Hex load path, same as ElevenLabs.
+/// Fish Audio TTS — ARIA's only cloud mouth.
 ///
 /// Docs: https://docs.fish.audio (POST `https://api.fish.audio/v1/tts`).
 /// Auth is `Authorization: Bearer <key>`. The model is a request header
-/// (`s2.1-pro` / `s2.1-pro-free`), not a body field.
+/// (`s2.1-pro-free` default, `s2.1-pro` via server `FISH_AUDIO_USE_PAID`).
+/// `s1` is retired 2026-12-31 and is never selected.
 ///
 /// Production keeps the key on Lambda (`FISH_AUDIO_API_KEY` env / Secrets).
-/// The phone POSTs `/ai/voice/fish-tts` and never receives the key.
+/// The phone POSTs `/ai/voice/speak` and never receives the key.
 /// Dummy / Device Hub may resolve a local key from env, Keychain, or
 /// Info.plist — never a hardcoded secret, never committed. Dummy-offline
 /// (`dummy-offline://`) does not call the backend. Missing or placeholder
@@ -18,9 +19,13 @@ import Foundation
 public enum AriaFishAudioVoice: Sendable {
 
     public static let endpoint = URL(string: "https://api.fish.audio/v1/tts")!
-    public static let backendPath = "ai/voice/fish-tts"
+    public static let backendPath = "ai/voice/speak"
     public static let defaultModel = "s2.1-pro-free"
     public static let paidModel = "s2.1-pro"
+    public static let previewText =
+        "I'm ARIA. Let's look at how you actually slept and what that means for training today. One next move, not a new identity."
+    public static let voiceBusyCode = "fish_voice_busy"
+    public static let voiceBusyMessage = "Voice is busy. The text reply is shown."
     public static let apiKeyEnvironment = "FISH_AUDIO_API_KEY"
     public static let modelEnvironment = "FISH_AUDIO_MODEL"
     public static let referenceEnvironment = "FISH_AUDIO_REFERENCE_ID"
@@ -32,7 +37,7 @@ public enum AriaFishAudioVoice: Sendable {
     public static let keychainAPIKeyAccount = "forge.voice.fishAudio.apiKey"
 
     public static let allowedModels: Set<String> = [
-        "s1", "s2-pro", "s2.1-pro", "s2.1-pro-free", "drama-3-preview",
+        "s2.1-pro-free", "s2.1-pro",
     ]
 
     public struct Config: Equatable, Sendable {
@@ -135,14 +140,52 @@ public enum AriaFishAudioVoice: Sendable {
     }
 
     /// Hex proxy. No Fish key on the wire — ForgeAPI attaches Cognito later.
-    public static func makeBackendRequest(text: String, baseURL: URL) -> URLRequest? {
+    public static func makeBackendRequest(
+        text: String,
+        baseURL: URL,
+        selection: AriaVoiceCatalog.Selection = AriaVoiceCatalog.Selection(),
+        preview: Bool = false
+    ) -> URLRequest? {
         let line = text.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !line.isEmpty, isBackendReachable(baseURL) else { return nil }
+        guard !line.isEmpty || preview, isBackendReachable(baseURL) else { return nil }
         var request = URLRequest(url: baseURL.appendingPathComponent(backendPath))
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        request.httpBody = try? JSONSerialization.data(withJSONObject: ["text": line], options: [])
+        request.httpBody = try? JSONSerialization.data(
+            withJSONObject: AriaVoiceCatalog.speakBody(
+                text: preview ? previewText : line,
+                selection: selection,
+                preview: preview
+            ),
+            options: []
+        )
         return request
+    }
+
+    public static func makeCatalogRequest(baseURL: URL, query: String = "") -> URLRequest? {
+        guard let url = AriaVoiceCatalog.catalogURL(baseURL: baseURL, query: query) else { return nil }
+        var request = URLRequest(url: url)
+        request.httpMethod = "GET"
+        return request
+    }
+
+    public static func makePersistRequest(baseURL: URL, selection: AriaVoiceCatalog.Selection) -> URLRequest? {
+        guard isBackendReachable(baseURL) else { return nil }
+        var request = URLRequest(url: baseURL.appendingPathComponent(AriaVoiceCatalog.path))
+        request.httpMethod = "PUT"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.httpBody = try? JSONSerialization.data(
+            withJSONObject: AriaVoiceCatalog.persistBody(selection),
+            options: []
+        )
+        return request
+    }
+
+    public static func isVoiceBusy(_ data: Data) -> Bool {
+        guard let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {
+            return false
+        }
+        return (json["code"] as? String) == voiceBusyCode
     }
 
     public static func decodeBackendSpeech(_ data: Data) -> BackendSpeech? {

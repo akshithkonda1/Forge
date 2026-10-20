@@ -1,3 +1,4 @@
+import Combine
 import Foundation
 import ForgeCore
 
@@ -9,19 +10,19 @@ import ForgeCore
 ///
 /// * **Dummy / Device Hub / loopback / TestFlight Dummy-offline** — session UX
 ///   is real; spoken audio is a local fill-in so testers hear that a mouth ran.
-///   Not compact Samantha, not ElevenLabs, and never the live ConvAI speaker.
+///   Not compact Samantha, and never a cloned character.
 /// * **Local testing** — same session UX, on-device brain, DEBUG fill-in.
-/// * **Live** — ElevenLabs ConvAI with the designed `voice_id` named ARIA.
-///   Apple catalog TTS is never the production mouth. Live failure is silence.
-/// * **Fish Audio** — configured cloud TTS (`docs.fish.audio`). Hex keeps
+/// * **Live** — Fish Audio S2.1-Pro via `POST /ai/voice/speak`. Apple catalog
+///   TTS is never the production mouth. A busy Fish slot shows the text reply.
+/// * **Fish Audio** — the only cloud TTS (`docs.fish.audio`). Hex keeps
 ///   `FISH_AUDIO_API_KEY` on Lambda (env / Secrets). The phone POSTs
-///   `/ai/voice/fish-tts`. Dummy / Device Hub may also resolve a local key
+///   `/ai/voice/speak`. Dummy / Device Hub may also resolve a local key
 ///   from env, Keychain (`forge.voice.fishAudio.apiKey`), or Info.plist.
-///   Bearer + `model` header (`s2.1-pro` / `s2.1-pro-free`). Dummy-offline
+///   Bearer + `model` header (`s2.1-pro-free` default). Dummy-offline
 ///   never calls Hex. No local key and no backend means this path is off.
 ///
-/// This file must stay network-free (`URLSession` / `URLRequest` / ElevenLabs
-/// hosts). Routing is decided here; live I/O lives in `AriaVoiceSession`.
+/// This file must stay network-free (`URLSession` / `URLRequest`). Routing is
+/// decided here; live I/O lives in `AriaVoiceSession`.
 enum AriaCharacterVoice: Sendable {
     static let voiceName = "ARIA"
 
@@ -31,19 +32,13 @@ enum AriaCharacterVoice: Sendable {
         American English. Woman, early 30s. Warm low-mid pitch, close-mic, dry, unhurried. Sounds like a sharp coach in the room, not a customer-service agent, GPS, or audiobook narrator. Slight smile, no valley-girl uptalk, no theatrical breathiness.
         """
 
-    /// Preview line ElevenLabs requires when auto-text is off. Spoken content
-    /// is coaching, not a demo reel.
-    static let designPreviewText = """
-        I'm ARIA. Let's look at how you actually slept and what that means for training today. One next move, not a new identity.
-        """
+    /// Preview line for the Settings sample. Spoken content is coaching,
+    /// not a demo reel.
+    static let designPreviewText = AriaFishAudioVoice.previewText
 
-    /// Locked live-mouth stack. Byte-for-byte with ``elevenlabs_voice.py``.
-    /// Dummy never uses these; live ConvAI does.
-    static let liveTTSModel = "eleven_v3_conversational"
-    static let liveASRProvider = "scribe_realtime"
-    static let liveTurnModel = "turn_v3"
-    static let liveVoiceDesignModel = "eleven_ttv_v3"
-    static let liveConvAILLM = "claude-sonnet-4-6"
+    /// Locked live-mouth stack. Byte-for-byte with ``fish_audio_voice.py``.
+    static let liveTTSModel = AriaFishAudioVoice.defaultModel
+    static let livePaidTTSModel = AriaFishAudioVoice.paidModel
 
     /// Production never uses Apple Zoe / Samantha as ARIA.
     static let productionUsesAppleTTS = false
@@ -109,9 +104,8 @@ enum AriaVoiceMouth: Sendable {
         #endif
     }
 
-    /// Dummy / local-testing mouth. Live never uses Apple TTS — ConvAI is the
-    /// speaker, and live failure stays silent. Release Dummy-offline must still
-    /// fill in: TestFlight testers have no ConvAI and the mouth has to run.
+    /// Dummy / local-testing mouth. Live uses Fish Audio; a busy slot stays
+    /// on the text reply. Release Dummy-offline must still fill in.
     static func allowsDummyFillIn(
         transport: AriaVoiceTransport,
         isDebugBuild: Bool = AriaVoiceMouth.isDebugBuild
@@ -170,10 +164,10 @@ enum AriaVoiceMouth: Sendable {
 }
 
 /// Local session config. Dummy and loopback short-circuit here — never call
-/// `GET /ai/voice/bootstrap`. Live builds fetch a short-lived ConvAI URL.
+/// Fish until a line is ready to speak.
 struct AriaVoiceBootstrap: Equatable, Sendable {
     var transport: AriaVoiceTransport
-    /// ConvAI signed WebSocket URL. Never the ElevenLabs API key.
+    /// Retired ConvAI field. Live Fish speak does not use a signed URL.
     var signedURL: String?
     var voiceName: String
     var sampleRate: Int
@@ -230,5 +224,79 @@ extension AriaVoiceLiveBootstrap: Decodable {
         voiceName = try c.decodeIfPresent(String.self, forKey: .voiceName) ?? AriaCharacterVoice.voiceName
         promptContext = try c.decodeIfPresent(String.self, forKey: .promptContext)
         sampleRate = try c.decodeIfPresent(Int.self, forKey: .sampleRate) ?? AriaVoiceBootstrap.dummySampleRate
+    }
+}
+
+/// Selected Fish voice. Independent of ``AriaSoul`` personality. Next speak
+/// reads this — no restart.
+@MainActor
+final class AriaVoiceProfileStore: ObservableObject {
+    static let shared = AriaVoiceProfileStore()
+
+    @Published private(set) var selection: AriaVoiceCatalog.Selection
+    @Published private(set) var catalog: AriaVoiceCatalog.Envelope?
+    @Published private(set) var lastBusy = false
+    private let defaults: UserDefaults
+
+    init(defaults: UserDefaults = .standard) {
+        self.defaults = defaults
+        self.selection = AriaVoiceCatalog.Selection.load(from: defaults)
+    }
+
+    var featured: [AriaVoiceCatalog.Profile] {
+        catalog?.featured ?? AriaVoiceCatalog.recipes
+    }
+
+    var selectedLabel: String {
+        if let id = selection.profileID, let row = featured.first(where: { $0.id == id }) {
+            return row.label
+        }
+        if let title = catalog?.voices.first(where: { $0.id == selection.voiceID })?.title {
+            return title
+        }
+        return "Warm"
+    }
+
+    func select(_ profile: AriaVoiceCatalog.Profile) {
+        selection = AriaVoiceCatalog.apply(selection: selection, to: profile)
+        persist()
+        Task { await saveToAccount() }
+    }
+
+    func select(voice: AriaVoiceCatalog.Voice) {
+        selection = AriaVoiceCatalog.Selection(profileID: nil, voiceID: voice.id, speed: 1.0)
+        persist()
+        Task { await saveToAccount() }
+    }
+
+    func refreshCatalog() async {
+        guard let request = AriaFishAudioVoice.makeCatalogRequest(baseURL: AriaService.shared.baseURL) else {
+            return
+        }
+        guard let (data, _) = try? await ForgeAPI.send(request),
+              let decoded = try? JSONDecoder().decode(AriaVoiceCatalog.Envelope.self, from: data) else {
+            return
+        }
+        catalog = decoded
+        if selection.voiceID == nil, let incoming = decoded.selected.voiceID {
+            selection = decoded.selected
+            persist()
+        }
+    }
+
+    func persist() {
+        selection.persist(to: defaults)
+    }
+
+    func saveToAccount() async {
+        guard let request = AriaFishAudioVoice.makePersistRequest(
+            baseURL: AriaService.shared.baseURL,
+            selection: selection
+        ) else { return }
+        _ = try? await ForgeAPI.send(request)
+    }
+
+    func noteBusy(_ busy: Bool) {
+        lastBusy = busy
     }
 }

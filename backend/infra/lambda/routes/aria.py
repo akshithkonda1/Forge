@@ -4,7 +4,7 @@ import copy
 import re
 from typing import Any
 
-from responses import RouteError, ok, ok_bytes
+from responses import RouteError, ok
 from security import (
     MAX_ARCHETYPE_DESCRIPTION_CHARS,
     MAX_CHAT_MESSAGE_CHARS,
@@ -15,7 +15,6 @@ from security import (
 from services import aria_engine
 from services.aria_context import CoachContextEngine
 from services.feedback import FeedbackEngine
-from services import elevenlabs_voice
 from services import weekly_review
 
 _context = CoachContextEngine()
@@ -788,51 +787,52 @@ def handle_post_feedback_plan_outcome(body: dict[str, Any], *, user_id: str) -> 
     return ok(_feedback.process_plan_outcome(uid, plan_id, completed, feedback_s))
 
 
-def handle_get_ai_voice_bootstrap(body: dict[str, Any] | None, *, user_id: str) -> dict:
-    """GET /ai/voice/bootstrap — mint a short-lived ConvAI signed URL.
+def handle_get_ai_voice(
+    body: dict[str, Any] | None,
+    *,
+    user_id: str,
+    query: dict[str, Any] | None = None,
+) -> dict:
+    """GET /ai/voice — featured profiles + Fish library page."""
+    uid = _bind_user(body or {}, user_id)
+    params = query or {}
+    from services import fish_audio_voice
 
-    Dummy / Device Hub never calls this; the app short-circuits locally.
-    The response is a WebSocket URL, never ``ELEVENLABS_API_KEY``.
-    """
-    payload = elevenlabs_voice.mint_signed_url(user_id=user_id, body=body or {})
-    return ok(payload)
+    try:
+        page = int(params.get("page") or 1)
+    except (TypeError, ValueError):
+        page = 1
+    try:
+        page_size = int(params.get("page_size") or 20)
+    except (TypeError, ValueError):
+        page_size = 20
+    return ok(
+        fish_audio_voice.catalog(
+            uid,
+            query=str(params.get("q") or params.get("query") or ""),
+            page=page,
+            page_size=page_size,
+        )
+    )
 
 
-def handle_post_ai_voice_tool(body: dict[str, Any], *, user_id: str) -> dict:
-    """POST /ai/voice/tool — ConvAI client tools into ``aria_engine``."""
+def handle_put_ai_voice(body: dict[str, Any], *, user_id: str) -> dict:
+    """PUT /ai/voice — persist the selected Fish voice. Next speak uses it."""
     uid = _bind_user(body, user_id)
-    return ok(elevenlabs_voice.run_tool(body, user_id=uid))
+    from services import fish_audio_voice
 
-
-def handle_post_ai_voice_design(body: dict[str, Any], *, user_id: str) -> dict:
-    """POST /ai/voice/design — ops Voice Design. Persist the returned ids."""
-    _bind_user(body, user_id)
-    preview_index = int(body.get("preview_index") or 0)
-    return ok(elevenlabs_voice.design_aria(preview_index=preview_index))
+    return ok({"selected": fish_audio_voice.save_profile(uid, body)})
 
 
 def handle_post_ai_voice_speak(body: dict[str, Any], *, user_id: str) -> dict:
-    """POST /ai/voice/speak — already-guarded ARIA prose → Fish Audio mp3.
+    """POST /ai/voice/speak — already-guarded ARIA prose → Fish Audio JSON.
 
     Speak-only. Does not fuse, remember, observe, or re-run ``guard_speak``.
     Dummy / on-device speech stays the default when the flag is off.
-    Success is raw ``audio/mpeg`` via ``ok_bytes`` (APIGW binary), not JSON.
-    Body is ``{message}`` only — Hex ``text`` is not a synonym (Iris).
+    Body is ``message`` or ``text``. Success is
+    ``{format, model, audio_base64, voice_id, profile_id}``.
     """
-    _bind_user(body, user_id)
+    uid = _bind_user(body, user_id)
     from services import fish_audio_voice
 
-    return ok_bytes(fish_audio_voice.speak(body))
-
-
-def handle_post_ai_voice_fish_tts(body: dict[str, Any], *, user_id: str) -> dict:
-    """POST /ai/voice/fish-tts — Hex alias of the same Fish ``synthesize()``.
-
-    Flag, key, and HTTP client are shared with speak. Envelope differs:
-    Hex body is ``{text}``; success is JSON ``{format, model, audio_base64}``.
-    Iris hold: do not fold this shape into speak.
-    """
-    _bind_user(body, user_id)
-    from services import fish_audio_voice
-
-    return ok(fish_audio_voice.fish_tts(body))
+    return ok(fish_audio_voice.speak(body, user_id=uid))
