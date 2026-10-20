@@ -6,8 +6,7 @@ import reachable from a pure call path.
 
 **Architecture map:** [`docs/aria-core.md`](../../../../docs/aria-core.md)
 (security isolation, health opt-in, three-model roles, cost policy).
-The `services/` shims described below were deleted in the single-source
-phase; import `aria_core` directly.
+New ARIA code should import `aria_core` directly.
 
 ## Why this package exists
 
