@@ -15,7 +15,7 @@ from backend._paths import ensure_lambda_on_path
 ensure_lambda_on_path()
 
 from aria_core import speak_guard  # noqa: E402
-from services import guidance  # noqa: E402
+from aria_core import guidance  # noqa: E402
 
 _COACH_RE = re.compile(
     r"(?i)\b("

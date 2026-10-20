@@ -21,7 +21,7 @@ from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from typing import Any
 
-from services import aria_engine
+from aria_core import aria_engine
 
 # Thresholds below mirror the ones ``fusion.py`` already uses for
 # "meaningfully off personal baseline" (see ``_personal_deficit_protect``),

@@ -15,7 +15,7 @@ from unittest.mock import patch
 import _bootstrap  # noqa: F401
 
 from aria_core import aria_engine, speak_guard  # noqa: E402
-from services.aria_engine import (  # noqa: E402
+from aria_core.aria_engine import (  # noqa: E402
     ARIAContext,
     ProgressContext,
     ReadinessContext,
@@ -502,7 +502,7 @@ class BlockingPatternSpeakTests(unittest.TestCase):
     def test_blocking_pattern_speaks_clean_line_never_risk_memory(self):
         from routes.aria import _insight_takeaway
         from services.aria_context import CoachContextEngine
-        from services.aria_engine import (
+        from aria_core.aria_engine import (
             ARIAContext,
             ReadinessContext,
             SleepContext,
@@ -695,7 +695,7 @@ class BlockingPatternSpeakTests(unittest.TestCase):
         )
 
     def test_safety_turns_have_one_step_and_step_free_closer(self):
-        from services.aria_engine import (
+        from aria_core.aria_engine import (
             ARIAContext,
             ReadinessContext,
             SleepContext,

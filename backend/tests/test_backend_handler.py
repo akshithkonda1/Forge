@@ -6,7 +6,7 @@ import _bootstrap  # noqa: F401
 
 from handler import handler  # noqa: E402
 from routes import coach as coach_routes  # noqa: E402
-from services import aria_engine  # noqa: E402
+from aria_core import aria_engine  # noqa: E402
 from services import scoring  # noqa: E402
 from storage import dynamodb as dynamodb_store  # noqa: E402
 

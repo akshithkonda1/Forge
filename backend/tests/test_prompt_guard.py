@@ -11,7 +11,7 @@ import _bootstrap  # noqa: F401
 
 from aria_core import prompt_guard
 from routes import aria as aria_routes
-from services import aria_engine
+from aria_core import aria_engine
 
 
 def _ctx():

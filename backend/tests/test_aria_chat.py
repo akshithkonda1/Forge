@@ -42,7 +42,7 @@ from routes.aria import (  # noqa: E402
     _DENIED_LIFESTYLE,
     sanitize_inbound_chat_payload,
 )
-from services import guidance  # noqa: E402
+from aria_core import guidance  # noqa: E402
 from storage import dynamodb  # noqa: E402
 
 _PSEUDO = "inst-test-aria-chat"
@@ -367,7 +367,7 @@ class MemoryOffTests(unittest.TestCase):
             raise AssertionError("stamp_living_context")
 
         with (
-            patch("services.fusion.load_body_snapshot", side_effect=boom_snapshot),
+            patch("aria_core.fusion.load_body_snapshot", side_effect=boom_snapshot),
             patch(
                 "services.aria_context.CoachContextEngine.remember_short_term",
                 side_effect=boom_stm,
@@ -377,7 +377,7 @@ class MemoryOffTests(unittest.TestCase):
                 side_effect=boom_living,
             ),
             patch(
-                "services.contextual_learner.stamp_living_context",
+                "aria_core.contextual_learner.stamp_living_context",
                 side_effect=boom_stamp,
             ),
         ):
@@ -660,7 +660,7 @@ class RedactionLogTests(unittest.TestCase):
 
     def test_leak_partner_cycle_in_turn_and_history(self):
         secret = "partner_cycle:day14 before Dr. Patel follow-up"
-        from services import fusion
+        from aria_core import fusion
 
         fuse_seen: list[str] = []
         real_fuse = fusion.fuse_turn
@@ -676,7 +676,7 @@ class RedactionLogTests(unittest.TestCase):
                 "tags": ["partner_cycle:day14", "late_fee"],
             }
             with (
-                patch("services.fusion.fuse_turn", side_effect=spy_fuse),
+                patch("aria_core.fusion.fuse_turn", side_effect=spy_fuse),
                 patch(
                     "backend.ai.aria_chat.session.dummy_respond",
                     wraps=dummy_respond,
@@ -744,7 +744,7 @@ class RedactionLogTests(unittest.TestCase):
 
     def test_leak_title_only_uses_redacted_fallback(self):
         secret = "Dr. Patel follow-up"
-        from services import fusion
+        from aria_core import fusion
 
         fuse_seen: list[str] = []
         real_fuse = fusion.fuse_turn
@@ -761,7 +761,7 @@ class RedactionLogTests(unittest.TestCase):
                     "backend.ai.aria_chat.logging.sanitize_logged_text",
                     return_value="",
                 ),
-                patch("services.fusion.fuse_turn", side_effect=spy_fuse),
+                patch("aria_core.fusion.fuse_turn", side_effect=spy_fuse),
                 patch(
                     "backend.ai.aria_chat.session.dummy_respond",
                     wraps=dummy_respond,

@@ -29,7 +29,7 @@ from routes.aria import (  # noqa: E402
 )
 from security import MAX_CHAT_MESSAGE_CHARS, sanitize_user_text  # noqa: E402
 from services import editable_memory  # noqa: E402
-from services import guidance  # noqa: E402
+from aria_core import guidance  # noqa: E402
 from backend.ai.simrunner.aria_simrunner.dummy_orchestrator import (  # noqa: E402
     ENGINE_LAMBDA,
     respond as dummy_respond,

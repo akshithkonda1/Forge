@@ -7,7 +7,7 @@ import unittest
 import _bootstrap  # noqa: F401
 
 from services import aria_swarm
-from services.aria_engine import (
+from aria_core.aria_engine import (
     ARIAContext,
     ActivityContext,
     ReadinessContext,

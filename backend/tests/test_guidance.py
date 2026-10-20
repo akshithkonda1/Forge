@@ -1,4 +1,4 @@
-"""Tests for ARIA's medical-boundary guidance policy (services.guidance).
+"""Tests for ARIA's medical-boundary guidance policy (aria_core.guidance).
 
 ARIA is a lifestyle coach, not a doctor. It provides general first-aid
 *information* and pushes people to 911 in an emergency, but it never diagnoses a
@@ -12,8 +12,8 @@ import unittest
 
 import _bootstrap  # noqa: F401
 
-from services import guidance  # noqa: E402
-from services import aria_engine  # noqa: E402
+from aria_core import guidance  # noqa: E402
+from aria_core import aria_engine  # noqa: E402
 
 
 class BandClassificationTests(unittest.TestCase):

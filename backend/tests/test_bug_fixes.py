@@ -16,8 +16,8 @@ from unittest.mock import patch
 
 import _bootstrap  # noqa: F401
 
-from services import aria_engine  # noqa: E402
-from services.aria_engine import (  # noqa: E402
+from aria_core import aria_engine  # noqa: E402
+from aria_core.aria_engine import (  # noqa: E402
     ActivityContext,
     ARIAContext,
     BodyContext,
@@ -30,9 +30,9 @@ from services.aria_engine import (  # noqa: E402
     apply_permissions,
     classify_request,
 )
-from services.biometrics import BodyModel, classify_batch, classify_sample  # noqa: E402
-from services.biometrics.body_model import redact_snapshot  # noqa: E402
-from services.biometrics.types import Observation  # noqa: E402
+from aria_core.biometrics import BodyModel, classify_batch, classify_sample  # noqa: E402
+from aria_core.biometrics.body_model import redact_snapshot  # noqa: E402
+from aria_core.biometrics.types import Observation  # noqa: E402
 
 
 def _ctx(**overrides) -> ARIAContext:
@@ -196,16 +196,15 @@ class MissingFieldsRedactionTests(unittest.TestCase):
 
 
 class ArchetypeLiveImportTests(unittest.TestCase):
-    """routes/aria.py's handle_post_ai_archetype imported a transposed module path
-    (backend.app.ai.routes.archetype instead of backend.ai.app.routes.archetype),
-    caught by a bare except and silently falling through to a worse inline
-    3-category fallback every single time. archetype.py's own _try_bedrock also
-    imported two more nonexistent bedrock_client paths and probed for methods
-    the real client doesn't expose, so even a corrected outer import alone
-    wouldn't have reached live Bedrock."""
+    """History: routes/aria.py's handle_post_ai_archetype imported a module
+    path outside the Lambda zip (backend.ai.app.routes.archetype), caught by
+    a bare except, silently falling through to a worse inline 3-category
+    fallback on every production request — the deployed zip contains only
+    backend/infra/lambda/. The synthesis now lives in exactly one place,
+    aria_core.archetype, imported directly; the inline duplicate is deleted."""
 
     def test_real_archetype_module_imports_cleanly(self):
-        from backend.ai.app.routes.archetype import create_archetype  # must not raise
+        from aria_core.archetype import create_archetype  # must not raise
         self.assertTrue(callable(create_archetype))
 
     def test_handler_reaches_the_real_module_not_the_inline_fallback(self):
@@ -468,7 +467,7 @@ class ChatResponseDoesNotEchoUserIdTests(unittest.TestCase):
     def _post(self, body: dict, uid: str) -> dict:
         from routes.aria import handle_post_ai_chat
 
-        with patch("services.aria_engine.generate_response", return_value=self._envelope()):
+        with patch("aria_core.aria_engine.generate_response", return_value=self._envelope()):
             result = handle_post_ai_chat(body, user_id=uid)
         self.assertEqual(result["statusCode"], 200)
         return json.loads(result["body"])
@@ -499,7 +498,7 @@ class ChatResponseDoesNotEchoUserIdTests(unittest.TestCase):
 
 
 class LifeRhythmImportGuardTests(unittest.TestCase):
-    """aria_evidence.detect_pattern wrapped `from services.aria_engine import
+    """aria_evidence.detect_pattern wrapped `from aria_core.aria_engine import
     life_rhythm_training_plan` in `except Exception`, so a real bug in that
     import (AttributeError on a circular load, RuntimeError from a broken
     shim) was swallowed and life-rhythm protect silently dropped. Import
@@ -509,13 +508,13 @@ class LifeRhythmImportGuardTests(unittest.TestCase):
         from aria_core import aria_evidence
 
         src = inspect.getsource(aria_evidence.detect_pattern)
-        idx = src.index("from services.aria_engine import life_rhythm_training_plan")
+        idx = src.index("from aria_core.aria_engine import life_rhythm_training_plan")
         window = src[idx : idx + 200]
         self.assertIn("except ImportError", window)
         self.assertNotIn("except Exception", window)
 
     def test_import_succeeds_and_depleted_qol_still_blocks_intensity(self):
-        from services import aria_engine, aria_evidence
+        from aria_core import aria_engine, aria_evidence
 
         plan = aria_engine.life_rhythm_training_plan
         self.assertTrue(callable(plan))

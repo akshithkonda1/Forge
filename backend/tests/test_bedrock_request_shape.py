@@ -132,7 +132,7 @@ class GatewayConverseTests(unittest.TestCase):
 
 class DefaultModelTests(unittest.TestCase):
     def test_router_and_chat_default_to_claude_5_5(self):
-        from services import aria_engine
+        from aria_core import aria_engine
 
         models = ai_router.default_models()
         self.assertEqual(models[0].model_id, "global.anthropic.claude-sonnet-5-5")

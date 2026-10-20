@@ -12,7 +12,7 @@ from security import (
     enforce_user_rate_limit,
     sanitize_user_text,
 )
-from services import aria_engine
+from aria_core import aria_engine
 from services.aria_context import CoachContextEngine
 from services.feedback import FeedbackEngine
 from services import elevenlabs_voice
@@ -332,7 +332,7 @@ def _checked_speak(fn, *args, **kwargs):
 def handle_post_ai_chat(body: dict[str, Any], *, user_id: str) -> dict:
     """Layer 4 — structured ARIA chat response.
 
-    Reasoning lives in ``services.aria_engine`` (deterministic core + optional
+    Reasoning lives in ``aria_core.aria_engine`` (deterministic core + optional
     Bedrock). This route owns auth binding, sanitization, and relationship state.
     Body truth comes from the same ``fusion.fuse_turn`` path ``/ai/observe`` uses.
     """
@@ -356,9 +356,9 @@ def handle_post_ai_chat(body: dict[str, Any], *, user_id: str) -> dict:
     payload["user_id"] = uid
     permissions = aria_engine.DataPermissions.from_payload(body.get("permissions"))
 
-    from services import contextual_learner
-    from services import fusion as fusion_mod
-    from services import guidance
+    from aria_core import contextual_learner
+    from aria_core import fusion as fusion_mod
+    from aria_core import guidance
 
     # Voice-first triage: the client echoes the previous turn's
     # ``safety.reply_topic`` so this answer resolves case by case. Unknown or
@@ -692,7 +692,19 @@ def handle_post_ai_weekly_review(body: dict[str, Any], *, user_id: str) -> dict:
 
 
 def handle_post_ai_archetype(body: dict[str, Any], *, user_id: str) -> dict:
-    """POST /ai/archetype — invent a relational coaching archetype."""
+    """POST /ai/archetype — invent a relational coaching archetype.
+
+    Single implementation: aria_core.archetype (stdlib-only, inside the
+    Lambda zip). This handler previously dynamic-imported a copy from
+    backend/ai/app/ — unreachable in the deployed zip — and silently
+    fell through to a degraded inline duplicate on every production
+    request. Both are gone; create_archetype never hard-fails (Bedrock
+    is best-effort, local synthesis always returns a draft).
+    """
+    import asyncio
+
+    from aria_core.archetype import create_archetype
+
     uid = _bind_user(body, user_id)
     description = sanitize_user_text(
         str(body.get("description") or ""),
@@ -703,67 +715,17 @@ def handle_post_ai_archetype(body: dict[str, Any], *, user_id: str) -> dict:
     if not description:
         raise RouteError(400, "description is required.")
 
-    try:
-        import asyncio
-        from backend.ai.app.routes.archetype import create_archetype
-
-        payload = {
-            "description": description,
-            "preferred_name": preferred_name,
-            "user_id": uid,
-        }
-        try:
-            result = asyncio.run(create_archetype(payload))
-        except RuntimeError:
-            result = asyncio.get_event_loop().run_until_complete(create_archetype(payload))
-        result.pop("status", None)
-        return ok(result)
-    except Exception:
-        pass
-
-    d = description.lower()
-    name = preferred_name or "Living Pattern"
-    related = None
-    speech = "Listen for their tempo. Reflect their words. Ask before advising."
-    avoid = ["generic advice", "one-size-fits-all scripts"]
-    formality, humor, expressiveness, length = "neutral", "none", "balanced", "medium"
-    example = "I'm here. What would help right now?"
-    if any(k in d for k in ("logic", "analyst", "data", "facts")):
-        name = preferred_name or "Clear Signal"
-        related = "analyst"
-        speech = "Use clean structure: situation → need → ask."
-        humor, expressiveness = "dry", "reserved"
-    elif any(k in d for k in ("teen", "daughter", "sensitive")):
-        name = preferred_name or "Private Flame"
-        related = "sensitiveTeen"
-        speech = "Very short. Validate first. No audience."
-        formality, length = "casual", "terse"
-        avoid = ["lectures", "public call-outs", "calm down"]
-        example = "I'm not mad. Want space or a snack?"
-    elif any(k in d for k in ("independent", "autonomy", "control")):
-        name = preferred_name or "Open Gate"
-        related = "sovereign"
-        speech = "Ask permission. Offer choices. Never corner."
-        avoid = ["orders", "you should"]
-
-    archetype = {
-        "id": f"arch_{abs(hash(description)) % 10_000_000}",
-        "name": name,
-        "slug": name.lower().replace(" ", "_"),
-        "tagline": description[:160],
-        "speechGuidance": speech,
-        "avoid": avoid,
-        "supportStance": "See them as a full person; adapt to what you know.",
-        "formality": formality,
-        "humor": humor,
-        "expressiveness": expressiveness,
-        "lengthBias": length,
-        "exampleScript": example,
-        "source": "backend",
-        "inspiredByDescription": description,
-        "relatedBuiltin": related,
+    payload = {
+        "description": description,
+        "preferred_name": preferred_name,
+        "user_id": uid,
     }
-    return ok({"archetype": archetype, "model": "local-forge", "user_id": uid})
+    try:
+        result = asyncio.run(create_archetype(payload))
+    except RuntimeError:
+        result = asyncio.get_event_loop().run_until_complete(create_archetype(payload))
+    result.pop("status", None)
+    return ok(result)
 
 
 def handle_post_feedback_reaction(body: dict[str, Any], *, user_id: str) -> dict:

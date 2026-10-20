@@ -319,7 +319,7 @@ class SpeakMemoryPinTests(unittest.TestCase):
         with _FishFlag("true", key="sk_pin"):
             fake_http, calls = _fake_http(self, message=message, key="sk_pin")
             with (
-                patch("services.fusion.fuse_turn") as fuse,
+                patch("aria_core.fusion.fuse_turn") as fuse,
                 patch(
                     "services.aria_context.CoachContextEngine.remember_short_term"
                 ) as remember,

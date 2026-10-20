@@ -166,7 +166,7 @@ def baseline_workout_recommendation(
 
     if quality_of_life_score is not None:
         try:
-            from services.aria_engine import life_rhythm_training_plan
+            from aria_core.aria_engine import life_rhythm_training_plan
         except Exception:  # pragma: no cover
             life_rhythm_training_plan = None  # type: ignore
         plan = (

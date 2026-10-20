@@ -1,6 +1,12 @@
 """ARIA archetype forge — invent relational archetypes for person-specific coaching.
 
-Prefers live Bedrock/Claude when available; always returns a usable local draft.
+Canonical home (moved from backend/ai/app/routes/): this module is the
+ONLY implementation of POST /ai/archetype synthesis. It lives in
+aria_core because the deployed Lambda zip contains only
+backend/infra/lambda/ — the old location was unreachable in production,
+so a degraded inline copy in routes/aria.py silently served instead.
+Stdlib-only at import time; prefers live Bedrock/Claude when available;
+always returns a usable local draft.
 """
 from __future__ import annotations
 
@@ -110,17 +116,19 @@ async def create_archetype(payload: dict[str, Any]) -> dict[str, Any]:
 
 
 async def _try_bedrock(description: str, preferred_name: str | None) -> dict[str, Any] | None:
-    """Invoke Claude on Bedrock, opt-in via ``ARIA_BEDROCK_ENABLED`` (same flag and
-    truthy-value set ``services/aria_engine.py``'s ``bedrock_enabled()`` uses) so the
-    default/offline path and CI stay hermetic."""
+    """Invoke Claude on Bedrock via aria_engine's shared gateway, opt-in via
+    ``ARIA_BEDROCK_ENABLED`` (aria_engine.bedrock_enabled()) so the
+    default/offline path and CI stay hermetic. Production modules never
+    import the SimRunner tree — the gateway is the one path to Bedrock."""
     import os
 
-    if os.getenv("ARIA_BEDROCK_ENABLED", "").strip().lower() not in {"1", "true", "yes", "on"}:
-        return None
     try:
-        from backend.ai.simrunner.aria_simrunner.bedrock_client import converse
+        from aria_core import aria_engine  # lazy: keeps this module import-light
     except Exception:
         return None
+    if not aria_engine.bedrock_enabled():
+        return None
+    converse = aria_engine._default_converse
 
     system = (
         "You invent relational personality archetypes for coaching. "

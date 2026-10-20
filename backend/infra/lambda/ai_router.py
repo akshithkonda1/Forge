@@ -38,7 +38,7 @@ AGREEMENT_LOW_THRESHOLD = 0.15
 # see the comment in RouteSettings.from_payload.
 MAX_CLIENT_TIMEOUT_SECONDS = 10.0
 
-# Bedrock is opt-in. Mirrors services.aria_engine.bedrock_enabled() so the router
+# Bedrock is opt-in. Mirrors aria_core.aria_engine.bedrock_enabled() so the router
 # shares one flag with /ai/chat, but kept local so importing this module (early,
 # from handler) never pulls in the full ARIA engine. When the flag is off the
 # router must never reach Amazon Bedrock, even on a deployed Lambda with JWT+IAM.

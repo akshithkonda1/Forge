@@ -13,7 +13,7 @@ from routes.aria import (  # noqa: E402
     sanitize_inbound_chat_payload,
     sanitize_user_memory_text,
 )
-from services import aria_engine, contextual_learner  # noqa: E402
+from aria_core import aria_engine, contextual_learner  # noqa: E402
 from services.aria_context import CoachContextEngine  # noqa: E402
 from storage import dynamodb  # noqa: E402
 

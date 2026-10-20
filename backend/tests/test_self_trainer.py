@@ -8,7 +8,7 @@ from pathlib import Path
 
 import _bootstrap  # noqa: F401
 
-from services import aria_engine, contextual_learner, self_trainer  # noqa: E402
+from aria_core import aria_engine, contextual_learner, self_trainer  # noqa: E402
 from storage import dynamodb  # noqa: E402
 
 from backend.ai.simrunner.aria_simrunner import dummy_orchestrator as dummy  # noqa: E402
@@ -205,7 +205,7 @@ class DummyDoesNotOwnCriticTests(unittest.TestCase):
         text = Path(dummy.__file__).read_text()
         self.assertNotIn("TD_ALPHA", text)
         self.assertNotIn("self_trainer", text)
-        self.assertIn("services.contextual_learner", text)
+        self.assertIn("aria_core.contextual_learner", text)
         self.assertIn("live-backend", text)
 
     def test_dummy_sidecar_still_owned_by_live_backend(self):

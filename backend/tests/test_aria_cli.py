@@ -7,7 +7,7 @@ from pathlib import Path
 
 import _bootstrap  # noqa: F401
 from backend.ai import aria_cli  # noqa: E402
-from services import aria_engine  # noqa: E402
+from aria_core import aria_engine  # noqa: E402
 
 
 CANONICAL_KEYS = {

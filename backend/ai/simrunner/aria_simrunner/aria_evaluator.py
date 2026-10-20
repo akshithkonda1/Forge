@@ -28,7 +28,7 @@ def _guidance():
             from backend._paths import ensure_lambda_on_path
 
             ensure_lambda_on_path()
-            from services import guidance  # production single source of truth
+            from aria_core import guidance  # production single source of truth
 
             _GUIDANCE = guidance
         except Exception:

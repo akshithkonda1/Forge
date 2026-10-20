@@ -26,16 +26,16 @@ from datetime import datetime, timedelta, timezone
 import _bootstrap  # noqa: F401
 
 from services.aria_context import CoachContextEngine, UserContext  # noqa: E402
-from services.biometrics import (  # noqa: E402
+from aria_core.biometrics import (  # noqa: E402
     BodyModel,
     MetricType,
     classify_sample,
     estimators,
 )
-from services.biometrics.classify import Reject  # noqa: E402
-from services.biometrics.types import Observation  # noqa: E402
-from services.fusion import PersonalBaselines  # noqa: E402
-from services import contextual_learner  # noqa: E402
+from aria_core.biometrics.classify import Reject  # noqa: E402
+from aria_core.biometrics.types import Observation  # noqa: E402
+from aria_core.fusion import PersonalBaselines  # noqa: E402
+from aria_core import contextual_learner  # noqa: E402
 from storage import dynamodb  # noqa: E402
 from routes.aria import handle_post_ai_chat  # noqa: E402
 

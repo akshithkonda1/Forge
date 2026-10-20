@@ -11,7 +11,7 @@ import unittest
 
 import _bootstrap  # noqa: F401
 
-from services import aria_engine as A  # noqa: E402
+from aria_core import aria_engine as A  # noqa: E402
 
 
 class HotPathInvariantTests(unittest.TestCase):
