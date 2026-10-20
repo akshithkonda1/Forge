@@ -107,6 +107,8 @@ class OutputRailsTests(unittest.TestCase):
         self.assertNotIn("diagnos", low)
         self.assertNotIn("prescribe", low)
         self.assertFalse(safety_rails.soul_breaks_rails(spoken), spoken)
+        self.assertEqual(safety_rails.apply_rails("Shame on you."), "")
+        self.assertFalse(safety_rails.has_substance("."))
 
     def test_guard_speak_runs_rails(self):
         cleaned = guard_speak("Your recovery is poor — I diagnose fatigue.")

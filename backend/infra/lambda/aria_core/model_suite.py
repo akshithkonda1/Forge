@@ -24,7 +24,7 @@ import re
 from dataclasses import dataclass, field
 from typing import Any, Iterable, Literal
 
-from .safety_rails import critic_verdict, soul_directive
+from .safety_rails import critic_verdict, has_substance, soul_directive
 
 RoleName = Literal["scout", "reasoner", "critic"]
 IntentName = Literal[
@@ -301,7 +301,7 @@ def needs_live_critic(
     # Local rails already rewrite recovery/diagnose/shame. A live critic is
     # only worth the tokens when local wiped the answer, or two producers
     # disagree and we cannot pick a common ground without a model.
-    if not str(local.get("answer") or "").strip():
+    if not has_substance(str(local.get("answer") or "")):
         return True
     if len(texts) >= 2 and agreement == "low":
         return True

@@ -145,18 +145,26 @@ def violations(text: str) -> tuple[str, ...]:
     return tuple(hits)
 
 
+_SUBSTANCE = re.compile(r"[A-Za-z0-9]")
+
+
+def has_substance(text: str) -> bool:
+    """True when spoken text still has a letter or digit after rails."""
+    return bool(_SUBSTANCE.search(text or ""))
+
+
 def apply_rails(text: str) -> str:
     """Sanitize then fail closed: if a rail still fires, drop the offending sentence."""
     cleaned = soul_sanitize(text)
     if not violations(cleaned) and not soul_breaks_rails(cleaned):
-        return cleaned
+        return cleaned if has_substance(cleaned) else ""
     kept: list[str] = []
     for part in re.split(r"(?<=[.!?])\s+", cleaned):
         sentence = part.strip()
         if not sentence:
             continue
         rewritten = soul_sanitize(sentence)
-        if violations(rewritten) or soul_breaks_rails(rewritten):
+        if violations(rewritten) or soul_breaks_rails(rewritten) or not has_substance(rewritten):
             continue
         kept.append(rewritten)
     return " ".join(kept).strip()
