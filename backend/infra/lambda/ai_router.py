@@ -658,6 +658,7 @@ class AIRouter:
             used_results=critic_results,
             deadline_seconds=deadline_seconds,
             suite_plan=plan_route(request.question, max_tokens=request.settings.max_tokens),
+            candidate=final_answer,
         )
         final_answer = critic_answer
         finalization["criticSource"] = critic_meta.get("criticSource", "local")
@@ -1025,6 +1026,7 @@ class AIRouter:
         used_results: list[ModelResult],
         deadline_seconds: float,
         suite_plan: Any = None,
+        candidate: str | None = None,
     ) -> tuple[str, dict[str, Any]]:
         from aria_core.model_suite import critic_role, needs_live_critic, system_prompt
         from aria_core.safety_rails import apply_rails, critic_verdict
@@ -1033,8 +1035,9 @@ class AIRouter:
             [result.answer for result in used_results]
         )
         primary = used_results[0]
-        local = critic_verdict(primary.answer)
-        local_answer = str(local.get("answer") or apply_rails(primary.answer))
+        spoken = candidate if candidate is not None else primary.answer
+        local = critic_verdict(spoken)
+        local_answer = str(local.get("answer") or apply_rails(spoken))
 
         meta = {
             "usedModelCount": len(used_results),
